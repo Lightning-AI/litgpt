@@ -1,0 +1,3 @@
+torch>=2.0.0
+lightning>=2.0.0
+sentencepiece
