@@ -213,7 +213,7 @@ class LLAMA(nn.Module):
         output = self.output(h)
         return output.float()
 
-    @torch.no_grad()
+    @torch.inference_mode()
     def generate(self, idx, max_new_tokens, temperature=1.0, top_k=None):
         """
         Takes a conditioning sequence (prompt) as input and continues to generate as many tokens as requested.
