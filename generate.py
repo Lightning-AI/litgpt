@@ -7,7 +7,7 @@ import lightning as L
 
 def generate(
     prompt: str = "Hello, my name is",
-    num_samples: int = 10,
+    num_samples: int = 1,
     steps: int = 20,
     top_k: int = 200,
     temperature: float = 0.8,
