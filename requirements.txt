@@ -1,4 +1,5 @@
 torch>=2.0.0
 lightning>=2.0.0
 sentencepiece
-jsonargparse  # generate.py CLI
+tqdm  # convert_checkpoint.py
+jsonargparse  # generate.py, convert_checkpoint.py CLI
