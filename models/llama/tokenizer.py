@@ -3,7 +3,7 @@ from sentencepiece import SentencePieceProcessor
 
 
 class Tokenizer:
-    """Tokenizer for LLAMA."""
+    """Tokenizer for LLaMA."""
 
     def __init__(self, model_path: str):
         self.processor = SentencePieceProcessor(model_file=model_path)

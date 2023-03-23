@@ -40,7 +40,7 @@ def generate(
 
     # initialize the model directly on the device
     with fabric.device:
-        model = llama.LLAMA(llama_config)
+        model = llama.LLaMA(llama_config)
         model.load_state_dict(checkpoint)
     model.eval()
     if compile:

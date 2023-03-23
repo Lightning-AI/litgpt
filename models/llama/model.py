@@ -173,7 +173,7 @@ def precompute_cos_sin(seq_len, dim, dtype, device, base=10000):
     return cos_cached, sin_cached
 
 
-class LLAMA(nn.Module):
+class LLaMA(nn.Module):
     def __init__(self, params: ModelArgs):
         super().__init__()
         self.params = params
