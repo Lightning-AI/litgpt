@@ -4,4 +4,4 @@ data
 .DS_Store
 
 # downloaded by scripts/compare.py
-llama_model.py
+original_model.py

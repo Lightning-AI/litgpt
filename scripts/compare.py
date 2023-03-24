@@ -1,6 +1,5 @@
 import os
 import sys
-import urllib.request
 
 import torch
 
@@ -129,18 +128,12 @@ if __name__ == "__main__":
     wd = os.path.realpath(os.path.join(os.path.dirname(__file__), ".."))
     sys.path.append(wd)
 
-    if not os.path.isfile(os.path.join(wd, "llama_model.py")):
-        print(f"Downloading original implementation to {wd!r}")
-        urllib.request.urlretrieve(
-            url="https://gist.githubusercontent.com/lantiga/fd36849fb1c498da949a0af635318a7b/raw/9364b3e5bf6da42bfb7b57db5b822518b2fa4a74/llama_model.py",
-            filename="llama_model.py"
-        )
-        print("Done")
-    else:
-        print("Original implementation found. Skipping download.")
+    from scripts.download import download_original
+
+    download_original(wd)
 
     import model as llama
-    import llama_model as orig_llama
+    import original_model as orig_llama
 
     compare_rope()
     compare_rmsnorm()

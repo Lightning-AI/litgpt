@@ -1,7 +1,6 @@
-# adapted from karpathy/minGPT
+# adapted from karpathy/nanoGPT
 import os
 import torch
-from model import LLaMA, LLaMAConfig
 from tokenizer import Tokenizer
 import lightning as L
 
@@ -10,13 +9,16 @@ import lightning as L
 def generate(model, idx, max_new_tokens, max_seq_length, temperature=1.0, top_k=None):
     """
     Takes a conditioning sequence (prompt) as input and continues to generate as many tokens as requested.
+
+    The implementation of this function is modified from A. Karpathy's nanoGPT.
+
     Args:
+        model: The model to use.
         idx: Tensor of shape (B, T) with indices of the prompt sequence.
         max_new_tokens: The number of new tokens to generate.
         max_seq_length: The maximum sequence length allowed.
         temperature: Scales the predicted logits by 1 / temperature
-        top_k: If specified, only sample among the tokens with the k highest probabilities.
-    The implementation of this function is modified from A. Karpathy's nanoGPT.
+        top_k: If specified, only sample among the tokens with the k highest probabilities
     """
     for _ in range(max_new_tokens):
         # if the sequence context is growing too long we must crop it at max_seq_length
@@ -36,6 +38,26 @@ def generate(model, idx, max_new_tokens, max_seq_length, temperature=1.0, top_k=
     return idx
 
 
+def get_model(original: bool = False):
+    if original:
+        try:
+            from original_model import Transformer, ModelArgs
+        except ModuleNotFoundError:
+            from scripts.download import download_original
+
+            download_original(os.path.dirname(__file__))
+
+            from original_model import Transformer, ModelArgs
+
+        config = ModelArgs(dim=4096, n_layers=32, n_heads=32, vocab_size=32000, max_batch_size=1)  # 7B config
+        return Transformer(config), config.max_seq_len
+    else:
+        from model import LLaMA, LLaMAConfig
+
+        config = LLaMAConfig()  # 7B default
+        return LLaMA(config), config.block_size
+
+
 def main(
     prompt: str = "Hello, my name is",
     *,
@@ -45,7 +67,10 @@ def main(
     temperature: float = 0.8,
     compile: bool = False,
     accelerator: str = "auto",
-    precision: str = "32-true"
+    precision: str = "32-true",
+    checkpoint_path: str = "/srv/data/checkpoints/llama/converted_meta/7B/state_dict.pt",
+    tokenizer_path: str = "/srv/data/checkpoints/llama/converted_meta/tokenizer.model",
+    original_model: bool = False,
 ):
     """
     Generates text samples based on a pre-trained LLaMA model and tokenizer.
@@ -62,30 +87,33 @@ def main(
             ``"cpu"``, ``"cuda"``, ``"mps"``, ``"gpu"``, ``"tpu"``, ``"auto"``.
         precision: Double precision (``"64"``), full precision (``"32"``), half precision AMP (``"16-mixed"``),
             or bfloat16 precision AMP (``"bf16-mixed"``).
+        checkpoint_path: The checkpoint path to load.
+        tokenizer_path: The tokenizer path to load.
+        original_model: Whether to use the original LLaMA model from Meta.
     """
-    L.seed_everything(1234)
+    assert os.path.isfile(checkpoint_path)
+    assert os.path.isfile(tokenizer_path)
 
+    L.seed_everything(1234)
     fabric = L.Fabric(accelerator=accelerator, precision=precision, devices=1)
 
-    checkpoint_path = "/srv/data/checkpoints/llama/converted_meta/7B/state_dict.pt"
-    assert os.path.isfile(checkpoint_path)
-    llama_config = LLaMAConfig()
     # initialize the model directly on the device
     with fabric.device:
-        model = LLaMA(llama_config)
-        checkpoint = torch.load(checkpoint_path)
-        model.load_state_dict(checkpoint)
+        model, max_seq_length = get_model(original_model)
+        # TODO: checkpoint loading is currently broken
+        # checkpoint = torch.load(checkpoint_path)
+        # model.load_state_dict(checkpoint)
     model.eval()
     if compile:
         model = torch.compile(model)
     model = fabric.setup_module(model, move_to_device=False)
 
-    tokenizer = Tokenizer("/srv/data/checkpoints/llama/converted_meta/tokenizer.model")
+    tokenizer = Tokenizer(tokenizer_path)
     encoded_prompt = tokenizer.encode(prompt, bos=True, eos=False).to(fabric.device)
     encoded_prompt = encoded_prompt[None, :]
     for _ in range(num_samples):
         y = generate(
-            model, encoded_prompt, max_new_tokens, model.params.max_seq_length, temperature=temperature, top_k=top_k
+            model, encoded_prompt, max_new_tokens, max_seq_length, temperature=temperature, top_k=top_k
         )
         print(tokenizer.decode(y[0]))
 
