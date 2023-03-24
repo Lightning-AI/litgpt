@@ -68,7 +68,7 @@ def copy_weights(llama_model, orig_llama_model):
 
 
 def compare_to_orig_llama():
-    block_size = 32
+    block_size = 64
     vocab_size = 32000
     n_layer = 16
     n_head = 16
@@ -92,7 +92,7 @@ def compare_to_orig_llama():
 
     batch_size = 3
 
-    token_sample = torch.randint(0, orig_llama_config.vocab_size, size=(batch_size, orig_llama_config.dim), dtype=torch.int64)
+    token_sample = torch.randint(0, orig_llama_config.vocab_size, size=(batch_size, orig_llama_config.max_seq_len), dtype=torch.int64)
 
     llama_model = llama.LLaMA(llama_config)
     orig_llama_model = orig_llama.Transformer(orig_llama_config)
@@ -116,9 +116,6 @@ def compare_to_orig_llama():
 
     expected = orig_llama_model(token_sample, 0)
     out = llama_model(token_sample)
-
-    # orig_llama only outputs last logits
-    out = out[:, -1, :]
 
     forward_matches = torch.allclose(out, expected)
     print(f"Comparing forward:\t\t{'OK' if forward_matches else 'KO'}")

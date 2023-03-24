@@ -47,6 +47,12 @@ def rotate_neg_half(x: torch.Tensor):
 def apply_rope(x: torch.Tensor, rope_cache):
     neg_half_x = rotate_neg_half(x)
     cos, sin = rope_cache
+
+    # truncate to support variable sizes
+    T = x.size(2)
+    cos = cos[:, :, :T]
+    sin = sin[:, :, :T]
+
     return (x * cos) + (neg_half_x * sin)
 
 
@@ -67,11 +73,8 @@ class RMSNorm(nn.Module):
         # norm_x = x.norm(2, dim=self.dim, keepdim=True)
         # rms_x = norm_x * d_x ** (-1. / 2)
         # x_normed = x / (rms_x + self.eps)
-
-        norm_x = x.norm(2, dim=self.dim, keepdim=True)
         norm_x = torch.mean(x*x, dim=self.dim, keepdim=True)
         x_normed = x * torch.rsqrt(norm_x + self.eps)
-
         return self.scale * x_normed
 
 
