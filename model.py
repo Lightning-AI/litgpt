@@ -88,14 +88,6 @@ class CausalSelfAttention(nn.Module):
         # regularization
         self.n_head = config.n_head
         self.n_embd = config.n_embd
-        # flash attention make GPU go brrrrr but support is only in PyTorch >= 2.0
-        self.flash = hasattr(torch.nn.functional, 'scaled_dot_product_attention')
-        self.flash = False
-        if not self.flash:
-            # print("WARNING: using slow attention. Flash Attention requires PyTorch >= 2.0")
-            self.register_buffer("bias", torch.tril(torch.ones(config.block_size, config.block_size))
-                                        .view(1, 1, config.block_size, config.block_size))
-
         self.rope_cache = rope_cache
 
     def forward(self, x):
@@ -113,15 +105,8 @@ class CausalSelfAttention(nn.Module):
         k = apply_rope(k, self.rope_cache)
 
         # causal self-attention; Self-attend: (B, nh, T, hs) x (B, nh, hs, T) -> (B, nh, T, T)
-        if self.flash:
-            # efficient attention using Flash Attention CUDA kernels
-            y = F.scaled_dot_product_attention(q, k, v, attn_mask=None, dropout_p=0.0, is_causal=True)
-        else:
-            # manual implementation of attention
-            att = (q @ k.transpose(-2, -1)) * (1.0 / math.sqrt(k.size(-1)))
-            att = att.masked_fill(self.bias[:,:,:T,:T] == 0, float('-inf'))
-            att = F.softmax(att, dim=-1)
-            y = att @ v # (B, nh, T, T) x (B, nh, T, hs) -> (B, nh, T, hs)
+        # efficient attention using Flash Attention CUDA kernels
+        y = F.scaled_dot_product_attention(q, k, v, attn_mask=None, dropout_p=0.0, is_causal=True)
         y = y.transpose(1, 2).contiguous().view(B, T, C) # re-assemble all head outputs side by side
 
         # output projection
@@ -220,3 +205,8 @@ class LLaMA(nn.Module):
         logits = self.lm_head(x)
 
         return logits
+
+    def step(self, idx, targets):
+        logits = self(idx)
+        loss = F.cross_entropy(logits.view(-1, logits.size(-1)), targets.view(-1), ignore_index=-1)
+        return loss

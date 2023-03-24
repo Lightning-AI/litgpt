@@ -35,12 +35,14 @@ def compare_rmsnorm():
     print(f"Comparing rmsnorm:\t\t{'OK' if rmsnorm_matches else 'KO'}")
 
 
+@torch.no_grad()
 def copy_mlp(llama_mlp, orig_llama_mlp):
     orig_llama_mlp.w1.weight.copy_(llama_mlp.c_fc1.weight)
     orig_llama_mlp.w3.weight.copy_(llama_mlp.c_fc2.weight)
     orig_llama_mlp.w2.weight.copy_(llama_mlp.c_proj.weight)
 
 
+@torch.no_grad()
 def copy_attention(llama_attn, orig_llama_attn):
     n_embd = llama_attn.c_attn.weight.shape[1]
     orig_llama_attn.wq.weight.copy_(llama_attn.c_attn.weight[:n_embd])
@@ -49,6 +51,7 @@ def copy_attention(llama_attn, orig_llama_attn):
     orig_llama_attn.wo.weight.copy_(llama_attn.c_proj.weight)
 
 
+@torch.no_grad()
 def copy_block(llama_block, orig_llama_block):
     orig_llama_block.attention_norm.weight.copy_(llama_block.rms_1.scale)
     copy_attention(llama_block.attn, orig_llama_block.attention)
@@ -56,6 +59,7 @@ def copy_block(llama_block, orig_llama_block):
     copy_mlp(llama_block.mlp, orig_llama_block.feed_forward)
 
 
+@torch.no_grad()
 def copy_weights(llama_model, orig_llama_model):
     orig_llama_model.tok_embeddings.weight.copy_(llama_model.transformer.wte.weight)
     for llama_block, orig_llama_block in zip(llama_model.transformer.h, orig_llama_model.layers):
@@ -94,8 +98,7 @@ def compare_to_orig_llama():
     llama_model = llama.LLaMA(llama_config)
     orig_llama_model = orig_llama.Transformer(orig_llama_config)
 
-    with torch.no_grad():
-        copy_weights(llama_model, orig_llama_model)
+    copy_weights(llama_model, orig_llama_model)
 
     orig_llama_embed = orig_llama_model.tok_embeddings(token_sample)
     llama_embed = llama_model.transformer.wte(token_sample)
@@ -123,8 +126,11 @@ def compare_to_orig_llama():
 
 
 if __name__ == "__main__":
-    if not os.path.exists("./llama_model.py"):
-        print("Downloading original implementation...")
+    wd = os.path.realpath(os.path.join(os.path.dirname(__file__), ".."))
+    sys.path.append(wd)
+
+    if not os.path.isfile(os.path.join(wd, "llama_model.py")):
+        print(f"Downloading original implementation to {wd!r}")
         urllib.request.urlretrieve(
             url="https://gist.githubusercontent.com/lantiga/fd36849fb1c498da949a0af635318a7b/raw/9364b3e5bf6da42bfb7b57db5b822518b2fa4a74/llama_model.py",
             filename="llama_model.py"
@@ -132,9 +138,7 @@ if __name__ == "__main__":
         print("Done")
     else:
         print("Original implementation found. Skipping download.")
-    
-    sys.path.append("..")
-    
+
     import model as llama
     import llama_model as orig_llama
 

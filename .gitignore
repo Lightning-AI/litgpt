@@ -1,5 +1,7 @@
 __pycache__
 data
 .idea
-/scripts/llama_model.py
 .DS_Store
+
+# downloaded by scripts/compare.py
+llama_model.py
