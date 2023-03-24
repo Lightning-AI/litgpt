@@ -1,0 +1,36 @@
+# Ours
+lm_head.weight torch.Size([32000, 4096])
+transformer.wte.weight torch.Size([32000, 4096])
+transformer.ln_f.scale torch.Size([4096])
+transformer.h.0.attn.c_attn.weight torch.Size([12288, 4096])
+transformer.h.0.attn.c_proj.weight torch.Size([4096, 4096])
+
+transformer.h.0.mlp.c_fc1.weight torch.Size([11008, 4096])
+transformer.h.0.mlp.c_fc2.weight torch.Size([11008, 4096])
+transformer.h.0.mlp.c_proj.weight torch.Size([4096, 11008])
+
+transformer.h.0.rms_2.scale torch.Size([4096])
+transformer.h.0.rms_1.scale torch.Size([4096])
+...
+
+
+
+
+
+# FB LLaMA
+
+tok_embeddings.weight torch.Size([32000, 4096])
+norm.weight torch.Size([4096])
+output.weight torch.Size([32000, 4096])
+layers.0.attention.wq.weight torch.Size([4096, 4096])
+layers.0.attention.wk.weight torch.Size([4096, 4096])
+layers.0.attention.wv.weight torch.Size([4096, 4096])
+layers.0.attention.wo.weight torch.Size([4096, 4096])
+
+layers.0.feed_forward.w1.weight torch.Size([11008, 4096])
+layers.0.feed_forward.w2.weight torch.Size([4096, 11008])
+layers.0.feed_forward.w3.weight torch.Size([11008, 4096])
+
+layers.0.attention_norm.weight torch.Size([4096])
+layers.0.ffn_norm.weight torch.Size([4096])
+...
