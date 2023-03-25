@@ -20,9 +20,21 @@ def generate(model, idx, max_new_tokens, max_seq_length, temperature=1.0, top_k=
         temperature: Scales the predicted logits by 1 / temperature
         top_k: If specified, only sample among the tokens with the k highest probabilities
     """
-    for _ in range(max_new_tokens):
+    # create an empty tensor of the expected final shape and fill in the current tokens
+    B, T = idx.shape
+    T_new = T + max_new_tokens
+    empty = torch.empty(B, T_new, dtype=idx.dtype, device=idx.device)
+    empty[:, :T] = idx
+    idx = empty
+
+    # generate max_new_tokens tokens
+    for t in range(T, T_new):
+        # ignore the not-filled-yet tokens
+        idx_cond = idx[:, :t]
         # if the sequence context is growing too long we must crop it at max_seq_length
-        idx_cond = idx if idx.size(1) <= max_seq_length else idx[:, -max_seq_length:]
+        idx_cond = idx_cond if T <= max_seq_length else idx_cond[:, -max_seq_length:]
+
+        # forward
         logits = model(idx_cond)
         logits = logits[:, -1, :] / temperature
 
