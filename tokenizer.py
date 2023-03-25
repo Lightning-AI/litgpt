@@ -15,7 +15,7 @@ class Tokenizer:
     def vocab_size(self):
         return self.processor.vocab_size()
 
-    def encode(self, string: str, bos: bool, eos: bool) -> torch.Tensor:
+    def encode(self, string: str, bos: bool = True, eos: bool = False) -> torch.Tensor:
         tokens = self.processor.encode(string)
         if bos:
             tokens = [self.bos_id] + tokens
