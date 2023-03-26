@@ -25,35 +25,22 @@ def build_rope_cache(seq_len, n_elem, dtype, device, base=10000):
     # Calculate the product of position index and $\theta_i$
     idx_theta = torch.outer(seq_idx, theta)
 
-    # Concatenate so that for row $m$ we have
-    # $[m \theta_0, m \theta_1, ..., m \theta_{\frac{d}{2}}, m \theta_0, m \theta_1, ..., m \theta_{\frac{d}{2}}]$
-    idx_theta2 = torch.cat([idx_theta, idx_theta], dim=1)
-
     # Cache them
-    cos_cache = idx_theta2.cos()[None, None, :, :]
-    sin_cache = idx_theta2.sin()[None, None, :, :]
-
-    return torch.stack((cos_cache, sin_cache), dim=0)
+    cache = torch.polar(torch.ones_like(idx_theta), idx_theta)  # complex64
+    return cache
 
 
-def rotate_neg_half(x: torch.Tensor):
-    # $\frac{d}{2}$
-    d_2 = x.shape[-1] // 2
-
-    # Calculate $[-x^{(\frac{d}{2} + 1)}, -x^{(\frac{d}{2} + 2)}, ..., -x^{(d)}, x^{(1)}, x^{(2)}, ..., x^{(\frac{d}{2})}]$
-    return torch.cat([-x[:, :, :, d_2:], x[:, :, :, :d_2]], dim=-1)
-
-
-def apply_rope(x: torch.Tensor, rope_cache):
-    neg_half_x = rotate_neg_half(x)
-    cos, sin = rope_cache
-
+def apply_rope(x: torch.Tensor, rope_cache: torch.Tensor):
+    x = x.transpose(1, 2)
+    
     # truncate to support variable sizes
-    T = x.size(2)
-    cos = cos[:, :, :T]
-    sin = sin[:, :, :T]
-
-    return (x * cos) + (neg_half_x * sin)
+    T = x.size(1)
+    rope_cache = rope_cache[:T]
+    
+    xc = torch.view_as_complex(x.float().reshape(*x.shape[:-1], -1, 2))
+    rope_cache = rope_cache.view(1, xc.size(1), 1, xc.size(3))
+    x_out = torch.view_as_real(xc * rope_cache).flatten(3)
+    return x_out.transpose(1, 2).type_as(x)
 
 
 class RMSNorm(nn.Module):
@@ -142,9 +129,9 @@ class Block(nn.Module):
 
     def __init__(self, config, rope_cache):
         super().__init__()
-        self.rms_1 = RMSNorm(config.n_embd, eps=1e-5)
+        self.rms_1 = RMSNorm(config.n_embd)
         self.attn = CausalSelfAttention(config, rope_cache)
-        self.rms_2 = RMSNorm(config.n_embd, eps=1e-5)
+        self.rms_2 = RMSNorm(config.n_embd)
         self.mlp = MLP(config)
 
     def forward(self, x):
@@ -182,7 +169,7 @@ class LLaMA(nn.Module):
         self.transformer = nn.ModuleDict(dict(
             wte = nn.Embedding(config.vocab_size, config.n_embd),
             h = nn.ModuleList([Block(config, self.rope_cache) for _ in range(config.n_layer)]),
-            ln_f = RMSNorm(config.n_embd, eps=1e-5),
+            ln_f = RMSNorm(config.n_embd),
         ))
 
         # init all weights
