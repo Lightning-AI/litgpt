@@ -29,32 +29,16 @@ This means that any project containing LLaMA code **must be released as GPL**. W
 
 Interested in **making this perfect together**? [Join our Discord](https://discord.gg/VptPCZkGNa)!
 
-## Installation
+## Setup
 
-### Clone the repo
+Clone the repo
 
 ```bash
 git clone https://github.com/Lightning-AI/lit-llama
 cd lit-llama
 ```
 
-### Create a new Python environment
-
-With `venv`
-
-```bash
-python -m venv lit-llama
-source lit-llama/bin/activate
-```
-
-or [Anaconda/Miniconda](https://docs.conda.io/en/latest/miniconda.html):
-
-```bash
-conda create -n lit-llama python=3.10
-conda activate lit-llama
-```
-
-### Install dependencies
+and install dependencies
 
 ```bash
 pip install -r requirements.txt
