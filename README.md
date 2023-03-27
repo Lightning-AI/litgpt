@@ -37,7 +37,7 @@ This "taints" any other code and prevents meaningful academic and commercial use
 - **Optimized:** Runs on consumer hardware or at scale.   
 - **Open-source:** No strings attached.
 
-## Contribute
+## Get involved!
 [Join our Discord](https://discord.gg/VptPCZkGNa) to build high-performance, truly open-source models for the common benefit of the community. 
 
 &nbsp;
@@ -51,7 +51,7 @@ git clone https://github.com/Lightning-AI/lit-llama
 cd lit-llama
 ```
 
-and install dependencies
+install dependencies
 
 ```bash
 pip install -r requirements.txt
@@ -61,7 +61,7 @@ You are all set! 🎉
 
 ## Use the model
 
-To generate text predictions, you first need to download the model weights following the instructions on the official [LLaMA repository](https://github.com/facebookresearch/llama). After you've done that, you should have a folder like this:
+To generate text predictions, download the model weights following the instructions on the official [LLaMA repository](https://github.com/facebookresearch/llama). Now you should have a folder like this:
 
 ```text
 checkpoints/llama
@@ -75,7 +75,7 @@ checkpoints/llama
 └── tokenizer.model
 ```
 
-You need to convert the weights to the Lit-LLaMA format by running:
+Convert the weights to the Lit-LLaMA format:
 
 ```bash
 python scripts/convert_checkpoint.py \
@@ -85,17 +85,18 @@ python scripts/convert_checkpoint.py \
     --model_size 7B
 ```
 
-You can now run inference:
+Run inference:
 
 ```bash
 python scripts/generate.py --prompt "Hello, my name is"
 ```
 
-This will run using the 7B model and will require roughly 26 GB of GPU memory (A100 GPU).
+This will run the 7B model and require ~26 GB of GPU memory (A100 GPU).
 
 ### Run Lit-LLaMA on consumer devices
 
-If you have a GPU with less memory, you can enable quantization with `--quantize true` which will take longer to load, but requires only ~8 GB of memory. It will run on any modern consumer GPU.
+For GPUs with less memory, enable quantization (`--quantize true`). This will take longer to load but require ~8GB of memory.   
+This can run on any consumer GPU.   
 
 ```bash
 python scripts/generate.py --quantize true --prompt "Hello, my name is"
@@ -105,7 +106,7 @@ See `python scripts/generate.py --help` for more options.
 
 &nbsp;
 
-## Want to contribute?
+## Get involved!
 
 We're in a quest towards fully open source AI, especially focusing on models in the 5-20B range, trained using the LLaMA approach (smaller models trained for longer).
 
