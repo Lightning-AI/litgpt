@@ -4,7 +4,7 @@ import sys
 import torch
 
 
-def build_rope_cache_old(seq_len, n_elem, dtype, base=10000):
+def build_rope_cache_old(seq_len: int, n_elem: int, dtype: torch.dtype, base: int = 10000) -> torch.Tensor:
     """This is the `build_rope_cache` implementation we initially intended to use, but it is numerically not
     exactly equivalent to the one in the Meta model. We keep it here for posterity.
 
@@ -31,14 +31,14 @@ def build_rope_cache_old(seq_len, n_elem, dtype, base=10000):
     return torch.stack((cos_cache, sin_cache), dim=0)
 
 
-def rotate_neg_half(x: torch.Tensor):
+def rotate_neg_half(x: torch.Tensor) -> torch.Tensor:
     # $\frac{d}{2}$
     d_2 = x.shape[-1] // 2
     # Calculate $[-x^{(\frac{d}{2} + 1)}, -x^{(\frac{d}{2} + 2)}, ..., -x^{(d)}, x^{(1)}, x^{(2)}, ..., x^{(\frac{d}{2})}]$  # noqa: E501
     return torch.cat([-x[:, :, :, d_2:], x[:, :, :, :d_2]], dim=-1)
 
 
-def apply_rope_old(x: torch.Tensor, rope_cache):
+def apply_rope_old(x: torch.Tensor, rope_cache: torch.Tensor) -> torch.Tensor:
     """This is the `apply_rope` implementation we initially intended to use, but it is numerically not exactly
     equivalent to the one in the Meta model.
 
@@ -54,7 +54,7 @@ def apply_rope_old(x: torch.Tensor, rope_cache):
 
 
 @torch.no_grad()
-def compare_rope():
+def compare_rope() -> None:
     bs, seq_len, n_head, n_embed = 1, 6, 2, 8
     x = torch.randint(0, 10000, size=(bs, seq_len, n_head, n_embed // n_head)).float()
 
@@ -76,7 +76,7 @@ def compare_rope():
 
 
 @torch.no_grad()
-def compare_rmsnorm():
+def compare_rmsnorm() -> None:
     block_size = 16
     vocab_size = 16
 
@@ -91,13 +91,13 @@ def compare_rmsnorm():
     print(f"Comparing rmsnorm:\t\t{'OK' if rmsnorm_matches else 'KO'}")
 
 
-def copy_mlp(llama_mlp, orig_llama_mlp):
+def copy_mlp(llama_mlp, orig_llama_mlp) -> None:
     orig_llama_mlp.w1.weight.copy_(llama_mlp.c_fc1.weight)
     orig_llama_mlp.w3.weight.copy_(llama_mlp.c_fc2.weight)
     orig_llama_mlp.w2.weight.copy_(llama_mlp.c_proj.weight)
 
 
-def copy_attention(llama_attn, orig_llama_attn):
+def copy_attention(llama_attn, orig_llama_attn) -> None:
     n_embd = llama_attn.c_attn.weight.shape[1]
     orig_llama_attn.wq.weight.copy_(llama_attn.c_attn.weight[:n_embd])
     orig_llama_attn.wk.weight.copy_(llama_attn.c_attn.weight[n_embd:-n_embd])
@@ -105,14 +105,14 @@ def copy_attention(llama_attn, orig_llama_attn):
     orig_llama_attn.wo.weight.copy_(llama_attn.c_proj.weight)
 
 
-def copy_block(llama_block, orig_llama_block):
+def copy_block(llama_block, orig_llama_block) -> None:
     orig_llama_block.attention_norm.weight.copy_(llama_block.rms_1.scale)
     copy_attention(llama_block.attn, orig_llama_block.attention)
     orig_llama_block.ffn_norm.weight.copy_(llama_block.rms_2.scale)
     copy_mlp(llama_block.mlp, orig_llama_block.feed_forward)
 
 
-def copy_weights(llama_model, orig_llama_model):
+def copy_weights(llama_model, orig_llama_model) -> None:
     orig_llama_model.tok_embeddings.weight.copy_(llama_model.transformer.wte.weight)
     for llama_block, orig_llama_block in zip(llama_model.transformer.h, orig_llama_model.layers):
         copy_block(llama_block, orig_llama_block)
@@ -121,7 +121,7 @@ def copy_weights(llama_model, orig_llama_model):
 
 
 @torch.no_grad()
-def compare_to_orig_llama():
+def compare_to_orig_llama() -> None:
     block_size = 64
     vocab_size = 32000
     n_layer = 16

@@ -1,10 +1,10 @@
 import os
 import time
 from functools import partial
+from typing import Tuple
 
 import lightning as L
 import torch
-import torch.nn.functional as F
 from lightning.fabric.strategies import FSDPStrategy
 from torch.distributed.fsdp.wrap import transformer_auto_wrap_policy
 
@@ -31,7 +31,7 @@ grad_clip = 1.0
 block_size = 1024
 
 
-def main():
+def main() -> None:
     auto_wrap_policy = partial(transformer_auto_wrap_policy, transformer_layer_cls={Block})
     strategy = FSDPStrategy(auto_wrap_policy=auto_wrap_policy, activation_checkpointing=Block)
 
@@ -61,7 +61,13 @@ def main():
     train(fabric, model, optimizer, train_data, val_data)
 
 
-def train(fabric, model, optimizer, train_data, val_data):
+def train(
+    fabric: L.Fabric,
+    model: torch.nn.Module,
+    optimizer: torch.optim.Optimizer,
+    train_data: np.ndarray,
+    val_data: np.ndarray,
+) -> None:
     """The training loop.
 
     Loosely based on the nanoGPT implementation: https://github.com/karpathy/nanoGPT.
@@ -82,9 +88,13 @@ def train(fabric, model, optimizer, train_data, val_data):
 
         t0 = time.time()
 
-        input_ids, targets = get_batch(fabric, train_data, block_size=model.config.block_size)
+        input_ids, targets = get_batch(
+            fabric,
+            train_data,
+            block_size=model.config.block_size,  # type: ignore[union-attr,arg-type]
+        )
         logits = model(input_ids)
-        loss = F.cross_entropy(logits.view(-1, logits.size(-1)), targets.view(-1), ignore_index=-1)
+        loss = torch.nn.functional.cross_entropy(logits.view(-1, logits.size(-1)), targets.view(-1), ignore_index=-1)
 
         fabric.backward(loss)
 
@@ -105,21 +115,25 @@ def train(fabric, model, optimizer, train_data, val_data):
 
 
 @torch.no_grad()
-def validate(fabric, model, val_data):
+def validate(fabric: L.Fabric, model: torch.nn.Module, val_data: np.ndarray) -> torch.Tensor:
     fabric.print("Validating ...")
     model.eval()
     losses = torch.zeros(eval_iters)
     for k in range(eval_iters):
-        input_ids, targets = get_batch(fabric, val_data, block_size=model.config.block_size)
+        input_ids, targets = get_batch(
+            fabric,
+            val_data,
+            block_size=model.config.block_size,  # type: ignore[union-attr,arg-type]
+        )
         logits = model(input_ids)
-        loss = F.cross_entropy(logits.view(-1, logits.size(-1)), targets.view(-1), ignore_index=-1)
+        loss = torch.nn.functional.cross_entropy(logits.view(-1, logits.size(-1)), targets.view(-1), ignore_index=-1)
         losses[k] = loss.item()
     out = losses.mean()
     model.train()
     return out
 
 
-def get_batch(fabric, data, block_size):
+def get_batch(fabric: L.Fabric, data: np.ndarray, block_size: int) -> Tuple[torch.Tensor, torch.Tensor]:
     ix = torch.randint(len(data) - block_size, (batch_size,))
     x = torch.stack([torch.from_numpy((data[i : i + block_size]).astype(np.int64)) for i in ix])
     y = torch.stack([torch.from_numpy((data[i + 1 : i + 1 + block_size]).astype(np.int64)) for i in ix])
@@ -127,7 +141,7 @@ def get_batch(fabric, data, block_size):
     return x, y
 
 
-def load_datasets(data_dir="data/shakespeare"):
+def load_datasets(data_dir: str = "data/shakespeare") -> Tuple[np.ndarray, np.ndarray]:
     train_data = np.memmap(os.path.join(data_dir, "train.bin"), dtype=np.uint16, mode="r")
     val_data = np.memmap(os.path.join(data_dir, "val.bin"), dtype=np.uint16, mode="r")
     return train_data, val_data

@@ -49,6 +49,13 @@ files = [
     "scripts",
     "*.py",
 ]
+exclude = [
+    # doesn't work: https://github.com/python/mypy/issues/11760#issuecomment-995364004
+    "model.py",
+    "original_model.py",
+    # the models are not importable, so the type annotations won't work
+    "scripts/compare.py"
+]
 install_types = "True"
 non_interactive = "True"
 disallow_untyped_defs = "True"

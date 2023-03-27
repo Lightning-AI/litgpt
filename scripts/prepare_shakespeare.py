@@ -30,7 +30,7 @@ import numpy as np
 def prepare(
     tokenizer_path: str = "checkpoints/llama/tokenizer.model",
     destination_path: str = "data/shakespeare",
-):
+) -> None:
     os.makedirs(destination_path, exist_ok=True)
     # download the tiny shakespeare dataset
     input_file_path = os.path.join(destination_path, "input.txt")

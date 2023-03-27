@@ -2,16 +2,17 @@
 
 Based on the nanoGPT implementation: https://github.com/karpathy/nanoGPT.
 """
-
+# mypy: ignore-errors
 import math
 from dataclasses import dataclass
 
 import torch
 import torch.nn as nn
 from torch.nn import functional as F
+from typing_extensions import Self
 
 
-def build_rope_cache(seq_len, n_elem, dtype, base=10000):
+def build_rope_cache(seq_len: int, n_elem: int, dtype: torch.dtype, base: int = 10000) -> torch.Tensor:
     """Enhanced Transformer with Rotary Position Embedding.
 
     Derived from: https://github.com/labmlai/annotated_deep_learning_paper_implementations/blob/master/labml_nn/
@@ -32,7 +33,7 @@ def build_rope_cache(seq_len, n_elem, dtype, base=10000):
     return cache
 
 
-def apply_rope(x: torch.Tensor, rope_cache: torch.Tensor):
+def apply_rope(x: torch.Tensor, rope_cache: torch.Tensor) -> torch.Tensor:
     x = x.transpose(1, 2)
 
     # truncate to support variable sizes
@@ -52,13 +53,13 @@ class RMSNorm(nn.Module):
     https://github.com/bzhangGo/rmsnorm/blob/master/LICENSE.
     """
 
-    def __init__(self, size, dim=-1, eps=1e-5):
+    def __init__(self, size: int, dim: int = -1, eps: float = 1e-5) -> None:
         super().__init__()
         self.scale = nn.Parameter(torch.ones(size))
         self.eps = eps
         self.dim = dim
 
-    def forward(self, x):
+    def forward(self, x: torch.Tensor) -> torch.Tensor:
         # NOTE: the original RMSNorm paper implementation is not equivalent
         # norm_x = x.norm(2, dim=self.dim, keepdim=True)
         # rms_x = norm_x * d_x ** (-1. / 2)
@@ -68,8 +69,29 @@ class RMSNorm(nn.Module):
         return self.scale * x_normed
 
 
+llama_configs = {
+    "7B": dict(n_layer=32, n_head=32, n_embd=4096),
+    "13B": dict(n_layer=40, n_head=40, n_embd=5120),
+    "30B": dict(n_layer=60, n_head=52, n_embd=6656),
+    "65B": dict(n_layer=80, n_head=64, n_embd=8192),
+}
+
+
+@dataclass
+class LLaMAConfig:
+    block_size: int = 4096
+    vocab_size: int = 32000
+    n_layer: int = 32
+    n_head: int = 32
+    n_embd: int = 4096
+
+    @classmethod
+    def from_name(cls, name: str) -> Self:
+        return cls(**llama_configs[name])
+
+
 class CausalSelfAttention(nn.Module):
-    def __init__(self, config, rope_cache):
+    def __init__(self, config: LLaMAConfig, rope_cache: torch.Tensor) -> None:
         super().__init__()
         assert config.n_embd % config.n_head == 0
 
@@ -82,7 +104,7 @@ class CausalSelfAttention(nn.Module):
         self.n_embd = config.n_embd
         self.register_buffer("rope_cache", rope_cache, persistent=False)
 
-    def forward(self, x):
+    def forward(self, x: torch.Tensor) -> torch.Tensor:
         B, T, C = x.size()  # batch size, sequence length, embedding dimensionality (n_embd)
 
         # calculate query, key, values for all heads in batch and move head forward to be the batch dim
@@ -108,7 +130,7 @@ class CausalSelfAttention(nn.Module):
 
 
 class MLP(nn.Module):
-    def __init__(self, config):
+    def __init__(self, config: LLaMAConfig) -> None:
         super().__init__()
         hidden_dim = 4 * config.n_embd
         n_hidden = int(2 * hidden_dim / 3)
@@ -120,49 +142,28 @@ class MLP(nn.Module):
         self.c_fc2 = nn.Linear(config.n_embd, n_hidden, bias=False)
         self.c_proj = nn.Linear(n_hidden, config.n_embd, bias=False)
 
-    def forward(self, x):
+    def forward(self, x: torch.Tensor) -> torch.Tensor:
         x = F.silu(self.c_fc1(x)) * self.c_fc2(x)
         x = self.c_proj(x)
         return x
 
 
 class Block(nn.Module):
-    def __init__(self, config, rope_cache):
+    def __init__(self, config: LLaMAConfig, rope_cache: torch.Tensor) -> None:
         super().__init__()
         self.rms_1 = RMSNorm(config.n_embd)
         self.attn = CausalSelfAttention(config, rope_cache)
         self.rms_2 = RMSNorm(config.n_embd)
         self.mlp = MLP(config)
 
-    def forward(self, x):
+    def forward(self, x: torch.Tensor) -> torch.Tensor:
         x = x + self.attn(self.rms_1(x))
         x = x + self.mlp(self.rms_2(x))
         return x
 
 
-llama_configs = {
-    "7B": dict(n_layer=32, n_head=32, n_embd=4096),
-    "13B": dict(n_layer=40, n_head=40, n_embd=5120),
-    "30B": dict(n_layer=60, n_head=52, n_embd=6656),
-    "65B": dict(n_layer=80, n_head=64, n_embd=8192),
-}
-
-
-@dataclass
-class LLaMAConfig:
-    block_size: int = 4096
-    vocab_size: int = 32000
-    n_layer: int = 32
-    n_head: int = 32
-    n_embd: int = 4096
-
-    @classmethod
-    def from_name(cls, name: str):
-        return cls(**llama_configs[name])
-
-
 class LLaMA(nn.Module):
-    def __init__(self, config):
+    def __init__(self, config: LLaMAConfig) -> None:
         super().__init__()
         assert config.vocab_size is not None
         assert config.block_size is not None
@@ -185,13 +186,13 @@ class LLaMA(nn.Module):
         # init all weights
         self.apply(self._init_weights)
 
-    def _init_weights(self, module):
+    def _init_weights(self, module: nn.Module) -> None:
         if isinstance(module, nn.Linear):
             torch.nn.init.normal_(module.weight, mean=0.0, std=0.02 / math.sqrt(2 * self.config.n_layer))
         elif isinstance(module, nn.Embedding):
             torch.nn.init.normal_(module.weight, mean=0.0, std=0.02 / math.sqrt(2 * self.config.n_layer))
 
-    def forward(self, idx):
+    def forward(self, idx: torch.Tensor) -> torch.Tensor:
         _, t = idx.size()
         assert (
             t <= self.config.block_size
@@ -208,11 +209,11 @@ class LLaMA(nn.Module):
 
         return logits
 
-    def step(self, idx, targets):
+    def step(self, idx: torch.Tensor, targets: torch.Tensor) -> torch.Tensor:
         logits = self(idx)
         loss = F.cross_entropy(logits.view(-1, logits.size(-1)), targets.view(-1), ignore_index=-1)
         return loss
 
     @classmethod
-    def from_name(cls, name: str):
+    def from_name(cls, name: str) -> Self:
         return cls(LLaMAConfig.from_name(name))

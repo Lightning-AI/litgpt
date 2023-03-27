@@ -1,6 +1,7 @@
 import os
 import shutil
 from pathlib import Path
+from typing import Dict
 
 import torch
 from tqdm import tqdm
@@ -16,7 +17,7 @@ python -m scripts.convert_checkpoint converted
 """
 
 
-def convert_state_dict(state_dict):
+def convert_state_dict(state_dict: Dict[str, torch.Tensor]) -> Dict[str, torch.Tensor]:
     converted = {}
     converted["transformer.wte.weight"] = state_dict["tok_embeddings.weight"]
     converted["lm_head.weight"] = state_dict["output.weight"]
@@ -59,7 +60,7 @@ def meta_weights_for_nano_model(
     ckpt_dir: Path = Path("checkpoints/llama/"),
     tokenizer_path: Path = Path("checkpoints/llama/tokenizer.model"),
     model_size: str = "7B",
-):
+) -> None:
     output_dir = output_dir / model_size
     ckpt_dir = ckpt_dir / model_size
     os.makedirs(output_dir, exist_ok=True)
