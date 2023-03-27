@@ -4,7 +4,7 @@ import sys
 import torch
 
 
-def build_rope_cache_old(seq_len, n_elem, dtype, device, base=10000):
+def build_rope_cache_old(seq_len, n_elem, dtype, base=10000):
     """This is the `build_rope_cache` implementation we initially intended to use, but it is
     numerically not exactly equivalent to the one in the Meta model. We keep it here for posterity.
 
@@ -12,10 +12,10 @@ def build_rope_cache_old(seq_len, n_elem, dtype, device, base=10000):
     MIT License: https://github.com/labmlai/annotated_deep_learning_paper_implementations/blob/master/license
     """
     # $\Theta = {\theta_i = 10000^{\frac{2(i-1)}{d}}, i \in [1, 2, ..., \frac{d}{2}]}$
-    theta = 1. / (base ** (torch.arange(0, n_elem, 2, dtype=dtype, device=device) / n_elem))
+    theta = 1. / (base ** (torch.arange(0, n_elem, 2, dtype=dtype) / n_elem))
 
     # Create position indexes `[0, 1, ..., seq_len - 1]`
-    seq_idx = torch.arange(seq_len, device=device, dtype=dtype)
+    seq_idx = torch.arange(seq_len, dtype=dtype)
 
     # Calculate the product of position index and $\theta_i$
     idx_theta = torch.outer(seq_idx, theta)
@@ -56,7 +56,7 @@ def compare_rope():
     x = torch.randint(0, 10000, size=(bs, seq_len, n_head, n_embed // n_head)).float()
 
     freqs_cis = orig_llama.precompute_freqs_cis(n_embed // n_head, seq_len)
-    llama_rope_cache = llama.build_rope_cache(seq_len, n_embed // n_head, dtype=x.dtype, device=x.device)
+    llama_rope_cache = llama.build_rope_cache(seq_len, n_embed // n_head, dtype=x.dtype)
     assert torch.equal(freqs_cis, llama_rope_cache)
 
     llama_x_rope = llama.apply_rope(x.transpose(1, 2), llama_rope_cache).transpose(1, 2)
@@ -67,7 +67,7 @@ def compare_rope():
 
     # For posterity, we show here that our older implementation we initially wanted to use
     # is not numerically equivalent to Meta's rope implementation
-    llama_rope_cache_old = build_rope_cache_old(seq_len, n_embed // n_head, dtype=x.dtype, device=x.device)
+    llama_rope_cache_old = build_rope_cache_old(seq_len, n_embed // n_head, dtype=x.dtype)
     llama_x_rope_old = apply_rope_old(x, llama_rope_cache_old)
     assert not torch.allclose(llama_x_rope_old, orig_llama_x_rope)
 
@@ -139,7 +139,7 @@ def compare_to_orig_llama():
         n_layers=n_layer,
         n_heads=n_head,
         vocab_size=vocab_size,
-        norm_eps=1e-6,
+        norm_eps=1e-5,
         max_seq_len=block_size
     )
 

@@ -1,8 +1,10 @@
-# adapted from karpathy/nanoGPT
 import os
+import time
 import torch
 from tokenizer import Tokenizer
 import lightning as L
+from quantization.bnb import quantize as quantize_model
+import sys
 
 
 @torch.no_grad()
@@ -76,16 +78,16 @@ def main(
     prompt: str = "Hello, my name is",
     *,
     num_samples: int = 1,
-    max_new_tokens: int = 20,
+    max_new_tokens: int = 50,
     top_k: int = 200,
     temperature: float = 0.8,
     # compilation fails as it does not support torch.complex64 for RoPE
     # compile: bool = False,
     accelerator: str = "auto",
-    precision: str = "32-true",
     checkpoint_path: str = "/srv/data/checkpoints/llama/converted_nano/7B/state_dict.pth",
     tokenizer_path: str = "/srv/data/checkpoints/llama/converted_nano/tokenizer.model",
     original_model: bool = False,
+    quantize: bool = False,
 ):
     """
     Generates text samples based on a pre-trained LLaMA model and tokenizer.
@@ -100,41 +102,56 @@ def main(
         # compile: Whether to compile the model.
         accelerator: The hardware to run on. Possible choices are:
             ``"cpu"``, ``"cuda"``, ``"mps"``, ``"gpu"``, ``"tpu"``, ``"auto"``.
-        precision: Double precision (``"64"``), full precision (``"32"``), half precision AMP (``"16-mixed"``),
-            or bfloat16 precision AMP (``"bf16-mixed"``).
         checkpoint_path: The checkpoint path to load.
         tokenizer_path: The tokenizer path to load.
         original_model: Whether to use the original LLaMA model from Meta.
+        quantize: Whether to quantize the model using the `LLM.int8()` method
     """
     assert os.path.isfile(checkpoint_path)
     assert os.path.isfile(tokenizer_path)
 
-    fabric = L.Fabric(accelerator=accelerator, precision=precision, devices=1)
+    fabric = L.Fabric(accelerator=accelerator, devices=1)
 
-    # initialize the model directly on the device
-    with fabric.device:
+    if quantize:
+        print("Running quantization. This may take a minute ...")
+        # TODO: Initializing the model directly on the device does not work with quantization
         model, max_seq_length = get_model(original_model)
+
+        # The output layer can be sensitive to quantization, we keep it in default precision
+        model = quantize_model(model, skip=("lm_head", "output", ))
         checkpoint = torch.load(checkpoint_path)
         model.load_state_dict(checkpoint, strict=(not original_model))
-    
+    else:
+        with fabric.device:
+            model, max_seq_length = get_model(original_model)
+            checkpoint = torch.load(checkpoint_path)
+            model.load_state_dict(checkpoint, strict=(not original_model))
+
     model.eval()
+    
     # if compile:
     #     model = torch.compile(model)
-    model = fabric.setup_module(model, move_to_device=False)
+
+    model = fabric.setup_module(model)
 
     tokenizer = Tokenizer(tokenizer_path)
     encoded_prompt = tokenizer.encode(prompt, bos=True, eos=False).to(fabric.device)
     encoded_prompt = encoded_prompt[None, :]
 
     L.seed_everything(1234)
+    t0 = time.time()
     for _ in range(num_samples):
         y = generate(
             model, encoded_prompt, max_new_tokens, max_seq_length, temperature=temperature, top_k=top_k
         )
         print(tokenizer.decode(y[0]))
 
+    print(f"Time for inference: {time.time() - t0:.02f} seconds", file=sys.stderr)
+    print(f"Memory used (GB): {torch.cuda.max_memory_reserved() / 1e9:.02f}", file=sys.stderr)
+
 
 if __name__ == "__main__":
     from jsonargparse import CLI
 
+    torch.set_float32_matmul_precision('high')
     CLI(main)

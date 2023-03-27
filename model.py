@@ -11,16 +11,16 @@ import torch.nn as nn
 from torch.nn import functional as F
 
 
-def build_rope_cache(seq_len, n_elem, dtype, device, base=10000):
+def build_rope_cache(seq_len, n_elem, dtype, base=10000):
     """
     Derived from: https://github.com/labmlai/annotated_deep_learning_paper_implementations/blob/master/labml_nn/transformers/rope/__init__.py
     MIT License: https://github.com/labmlai/annotated_deep_learning_paper_implementations/blob/master/license
     """
     # $\Theta = {\theta_i = 10000^{\frac{2(i-1)}{d}}, i \in [1, 2, ..., \frac{d}{2}]}$
-    theta = 1. / (base ** (torch.arange(0, n_elem, 2, dtype=dtype, device=device) / n_elem))
+    theta = 1. / (base ** (torch.arange(0, n_elem, 2, dtype=dtype) / n_elem))
 
     # Create position indexes `[0, 1, ..., seq_len - 1]`
-    seq_idx = torch.arange(seq_len, device=device, dtype=dtype)
+    seq_idx = torch.arange(seq_len, dtype=dtype)
 
     # Calculate the product of position index and $\theta_i$
     idx_theta = torch.outer(seq_idx, theta)
@@ -49,7 +49,7 @@ class RMSNorm(nn.Module):
     BSD 3-Clause License: https://github.com/bzhangGo/rmsnorm/blob/master/LICENSE
     """
 
-    def __init__(self, size, dim=-1, eps=1e-6):
+    def __init__(self, size, dim=-1, eps=1e-5):
         super().__init__()
         self.scale = nn.Parameter(torch.ones(size))
         self.eps = eps
@@ -78,7 +78,7 @@ class CausalSelfAttention(nn.Module):
         # regularization
         self.n_head = config.n_head
         self.n_embd = config.n_embd
-        self.rope_cache = rope_cache
+        self.register_buffer("rope_cache", rope_cache, persistent=False)
 
     def forward(self, x):
         B, T, C = x.size() # batch size, sequence length, embedding dimensionality (n_embd)
@@ -159,16 +159,15 @@ class LLaMA(nn.Module):
 
         self.lm_head = nn.Linear(config.n_embd, config.vocab_size, bias=False)
 
-        self.rope_cache = build_rope_cache(
+        rope_cache = build_rope_cache(
             seq_len=config.block_size,
             n_elem=config.n_embd // config.n_head,
             dtype=self.lm_head.weight.dtype,
-            device=self.lm_head.weight.device,
         )
 
         self.transformer = nn.ModuleDict(dict(
             wte = nn.Embedding(config.vocab_size, config.n_embd),
-            h = nn.ModuleList([Block(config, self.rope_cache) for _ in range(config.n_layer)]),
+            h = nn.ModuleList([Block(config, rope_cache) for _ in range(config.n_layer)]),
             ln_f = RMSNorm(config.n_embd),
         ))
 
