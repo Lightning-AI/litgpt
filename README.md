@@ -32,7 +32,7 @@ This "taints" any other code and prevents meaningful academic and commercial use
 ## Design principles
 **Lit-LLaMA** is:
 
-- **Simple:** single-file implementaton without boilerplate.    
+- **Simple:** Single-file implementaton without boilerplate.    
 - **Correct:** Numerically equivalent to the original model.   
 - **Optimized:** Runs on consumer hardware or at scale.   
 - **Open-source:** No strings attached.
