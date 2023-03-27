@@ -44,7 +44,7 @@ def main():
 
     train_data, val_data = load_datasets()
 
-    config = LLaMAConfig
+    config = LLaMAConfig.from_name("7B")
     config.block_size = block_size
 
     with fabric.device:

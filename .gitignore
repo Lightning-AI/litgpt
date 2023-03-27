@@ -5,6 +5,7 @@ __pycache__
 
 # data
 data
+checkpoints
 !data/shakespeare/prepare.py
 
 # downloaded by scripts/compare.py

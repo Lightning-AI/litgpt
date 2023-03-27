@@ -1,11 +1,13 @@
 import os
 import sys
 import time
+import torch
+from typing import Optional
 
 import lightning as L
 import torch
 
-from model import LLaMA, LLaMAConfig
+from model import LLaMA
 from quantization.bnb import quantize as quantize_model
 from tokenizer import Tokenizer
 
@@ -66,8 +68,9 @@ def main(
     # compilation fails as it does not support torch.complex64 for RoPE
     # compile: bool = False,
     accelerator: str = "auto",
-    checkpoint_path: str = "/srv/data/checkpoints/llama/converted_nano/7B/state_dict.pth",
-    tokenizer_path: str = "/srv/data/checkpoints/llama/converted_nano/tokenizer.model",
+    checkpoint_path: Optional[str] = None,
+    tokenizer_path: Optional[str] = None,
+    model_size: str = "7B",
     quantize: bool = False,
 ):
     """Generates text samples based on a pre-trained LLaMA model and tokenizer.
@@ -86,6 +89,11 @@ def main(
         tokenizer_path: The tokenizer path to load.
         quantize: Whether to quantize the model using the `LLM.int8()` method
     """
+    if not checkpoint_path:
+        checkpoint_path = f"./checkpoints/lit-llama/{model_size}/state_dict.pth"
+    if not tokenizer_path:
+        tokenizer_path = "./checkpoints/lit-llama/tokenizer.model"
+
     assert os.path.isfile(checkpoint_path)
     assert os.path.isfile(tokenizer_path)
 
@@ -94,14 +102,14 @@ def main(
     if quantize:
         print("Running quantization. This may take a minute ...")
         # TODO: Initializing the model directly on the device does not work with quantization
-        model = LLaMA(LLaMAConfig())
+        model = LLaMA.from_name(model_size)
         # The output layer can be sensitive to quantization, we keep it in default precision
         model = quantize_model(model, skip=("lm_head", "output"))
         checkpoint = torch.load(checkpoint_path)
         model.load_state_dict(checkpoint)
     else:
         with fabric.device:
-            model = LLaMA(LLaMAConfig())
+            model = LLaMA.from_name(model_size)
             checkpoint = torch.load(checkpoint_path)
             model.load_state_dict(checkpoint)
 

@@ -140,13 +140,25 @@ class Block(nn.Module):
         return x
 
 
+llama_configs = {
+    "7B": dict(n_layer=32, n_head=32, n_embd=4096),
+    "13B": dict(n_layer=40, n_head=40, n_embd=5120),
+    "30B": dict(n_layer=60, n_head=52, n_embd=6656),
+    "65B": dict(n_layer=80, n_head=64, n_embd=8192),
+}
+
+
 @dataclass
 class LLaMAConfig:
-    block_size: int = 4096  # 7B
+    block_size: int = 4096
     vocab_size: int = 32000
     n_layer: int = 32
     n_head: int = 32
     n_embd: int = 4096
+
+    @classmethod
+    def from_name(cls, name: str):
+        return cls(**llama_configs[name])
 
 
 class LLaMA(nn.Module):
@@ -200,3 +212,7 @@ class LLaMA(nn.Module):
         logits = self(idx)
         loss = F.cross_entropy(logits.view(-1, logits.size(-1)), targets.view(-1), ignore_index=-1)
         return loss
+
+    @classmethod
+    def from_name(cls, name: str):
+        return cls(LLaMAConfig.from_name(name))
