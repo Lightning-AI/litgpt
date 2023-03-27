@@ -51,6 +51,7 @@ def apply_rope_old(x: torch.Tensor, rope_cache):
     return (x * cos) + (neg_half_x * sin)
 
 
+@torch.no_grad()
 def compare_rope():
     bs, seq_len, n_head, n_embed = 1, 6, 2, 8
     x = torch.randint(0, 10000, size=(bs, seq_len, n_head, n_embed // n_head)).float()
@@ -72,6 +73,7 @@ def compare_rope():
     assert not torch.allclose(llama_x_rope_old, orig_llama_x_rope)
 
 
+@torch.no_grad()
 def compare_rmsnorm():
     block_size = 16
     vocab_size = 16
@@ -87,14 +89,12 @@ def compare_rmsnorm():
     print(f"Comparing rmsnorm:\t\t{'OK' if rmsnorm_matches else 'KO'}")
 
 
-@torch.no_grad()
 def copy_mlp(llama_mlp, orig_llama_mlp):
     orig_llama_mlp.w1.weight.copy_(llama_mlp.c_fc1.weight)
     orig_llama_mlp.w3.weight.copy_(llama_mlp.c_fc2.weight)
     orig_llama_mlp.w2.weight.copy_(llama_mlp.c_proj.weight)
 
 
-@torch.no_grad()
 def copy_attention(llama_attn, orig_llama_attn):
     n_embd = llama_attn.c_attn.weight.shape[1]
     orig_llama_attn.wq.weight.copy_(llama_attn.c_attn.weight[:n_embd])
@@ -103,7 +103,6 @@ def copy_attention(llama_attn, orig_llama_attn):
     orig_llama_attn.wo.weight.copy_(llama_attn.c_proj.weight)
 
 
-@torch.no_grad()
 def copy_block(llama_block, orig_llama_block):
     orig_llama_block.attention_norm.weight.copy_(llama_block.rms_1.scale)
     copy_attention(llama_block.attn, orig_llama_block.attention)
@@ -111,7 +110,6 @@ def copy_block(llama_block, orig_llama_block):
     copy_mlp(llama_block.mlp, orig_llama_block.feed_forward)
 
 
-@torch.no_grad()
 def copy_weights(llama_model, orig_llama_model):
     orig_llama_model.tok_embeddings.weight.copy_(llama_model.transformer.wte.weight)
     for llama_block, orig_llama_block in zip(llama_model.transformer.h, orig_llama_model.layers):
@@ -120,6 +118,7 @@ def copy_weights(llama_model, orig_llama_model):
     orig_llama_model.output.weight.copy_(llama_model.lm_head.weight)
 
 
+@torch.no_grad()
 def compare_to_orig_llama():
     block_size = 64
     vocab_size = 32000
@@ -167,9 +166,8 @@ def compare_to_orig_llama():
 
     print(f"Comparing block out:\t\t{'OK' if block_matches else 'KO'}")
 
-    with torch.no_grad():
-        expected = orig_llama_model(token_sample, 0)
-        out = llama_model(token_sample)
+    expected = orig_llama_model(token_sample, 0)
+    out = llama_model(token_sample)
 
     forward_matches = torch.allclose(out, expected)
     print(f"Comparing forward:\t\t{'OK' if forward_matches else 'KO'}")

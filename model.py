@@ -37,7 +37,7 @@ def apply_rope(x: torch.Tensor, rope_cache: torch.Tensor):
     T = x.size(1)
     rope_cache = rope_cache[:T]
     
-    xc = torch.view_as_complex(x.float().reshape(*x.shape[:-1], -1, 2))
+    xc = torch.view_as_complex(x.reshape(*x.shape[:-1], -1, 2))
     rope_cache = rope_cache.view(1, xc.size(1), 1, xc.size(3))
     x_out = torch.view_as_real(xc * rope_cache).flatten(3)
     return x_out.transpose(1, 2).type_as(x)
