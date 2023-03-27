@@ -43,37 +43,36 @@ exclude = [
 ignore-init-module-imports = true
 
 
-#[tool.mypy]
-#files = [
-#    "quantization",
-#    "scripts",
-#    "*.py",
-#]
-#install_types = "True"
-#non_interactive = "True"
-#disallow_untyped_defs = "True"
-#ignore_missing_imports = "True"
-#show_error_codes = "True"
-#warn_redundant_casts = "True"
-#warn_unused_configs = "True"
-#warn_unused_ignores = "True"
-#allow_redefinition = "True"
-## style choices
-#warn_no_return = "False"
+[tool.mypy]
+files = [
+    "quantization",
+    "scripts",
+    "*.py",
+]
+install_types = "True"
+non_interactive = "True"
+disallow_untyped_defs = "True"
+ignore_missing_imports = "True"
+show_error_codes = "True"
+warn_redundant_casts = "True"
+warn_unused_configs = "True"
+warn_unused_ignores = "True"
+allow_redefinition = "True"
+# style choices
+warn_no_return = "False"
 
 
-#[tool.pytest.ini_options]
-#norecursedirs = [
-#    ".git",
-#    ".github",
-#]
-#addopts = [
-#    "--strict-markers",
-#    "--doctest-modules",
-#    "--color=yes",
-#    "--disable-pytest-warnings",
-#]
-#filterwarnings = [
-#    "error::FutureWarning",
-#]
-#junit_duration_report = "call"
+[tool.pytest.ini_options]
+norecursedirs = [
+    ".git",
+    ".github",
+]
+addopts = [
+    "--strict-markers",
+    "--doctest-modules",
+    "--color=yes",
+    "--disable-pytest-warnings",
+]
+filterwarnings = [
+    "error::FutureWarning",
+]
