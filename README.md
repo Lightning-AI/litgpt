@@ -18,7 +18,7 @@
 # ⚡ Lit-LLaMA ️
 Independent implementation of [LLaMA](<https://github.com/facebookresearch/llama>) that is fully open source under the **Apache 2.0 license.**
 
-This implementation builds on [nanoGPT](<https://github.com/karpathy/nanoGPT>).  
+This implementation builds on [nanoGPT](<https://github.com/karpathy/nanoGPT>).
 
 ## Why?
 The original [LLaMA code](https://github.com/facebookresearch/llama) is [GPL licensed](https://github.com/facebookresearch/llama/blob/main/LICENSE) which means any project using it must also be released under GPL.
@@ -32,13 +32,13 @@ This "taints" any other code and prevents meaningful academic and commercial use
 ## Design principles
 **Lit-LLaMA** is:
 
-- **Simple:** Single-file implementaton without boilerplate.    
-- **Correct:** Numerically equivalent to the original model.   
-- **Optimized:** Runs on consumer hardware or at scale.   
+- **Simple:** Single-file implementaton without boilerplate.
+- **Correct:** Numerically equivalent to the original model.
+- **Optimized:** Runs on consumer hardware or at scale.
 - **Open-source:** No strings attached.
 
 ## Get involved!
-[Join our Discord](https://discord.gg/VptPCZkGNa) to build high-performance, truly open-source models for the common benefit of the community. 
+[Join our Discord](https://discord.gg/VptPCZkGNa) to build high-performance, truly open-source models for the common benefit of the community.
 
 &nbsp;
 
@@ -95,8 +95,8 @@ This will run the 7B model and require ~26 GB of GPU memory (A100 GPU).
 
 ### Run Lit-LLaMA on consumer devices
 
-For GPUs with less memory, enable quantization (`--quantize true`). This will take longer to load but require ~8GB of memory.   
-This can run on any consumer GPU.   
+For GPUs with less memory, enable quantization (`--quantize true`). This will take longer to load but require ~8GB of memory.
+This can run on any consumer GPU.
 
 ```bash
 python scripts/generate.py --quantize true --prompt "Hello, my name is"
