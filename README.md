@@ -15,10 +15,10 @@ This means that any project containing LLaMA code **must be released as GPL**. W
 
 **Lit-LLaMA** is:
 
-- **Simple**, single-file, no boilerplate
+- **Simple**, single-file implementaton without boilerplate
 - **Numerically equivalent** to the original model
 - **Optimized** to run on consumer hardware or at scale
-- **Open-source** no strings attached
+- **Open-source** and no strings attached
 
 Interested in **making this perfect together**? [Join our Discord](https://discord.gg/VptPCZkGNa)!
 
