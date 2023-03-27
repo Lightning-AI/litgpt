@@ -1,8 +1,9 @@
+import os
+import shutil
 from pathlib import Path
+
 import torch
 from tqdm import tqdm
-import os 
-import shutil
 
 """
 Sample usage:
@@ -13,6 +14,7 @@ python -m scripts.convert_checkpoint -h
 python -m scripts.convert_checkpoint converted
 ```
 """
+
 
 def convert_state_dict(state_dict):
     converted = {}
@@ -25,16 +27,26 @@ def convert_state_dict(state_dict):
 
         # attention
         # the wq, wk, wv from the FB model are stacked in our model as c_attn
-        converted[f"transformer.h.{layer_idx}.attn.c_attn.weight"] = torch.cat((
-            state_dict[f"layers.{layer_idx}.attention.wq.weight"],
-            state_dict[f"layers.{layer_idx}.attention.wk.weight"],
-            state_dict[f"layers.{layer_idx}.attention.wv.weight"],
-        ))
-        converted[f"transformer.h.{layer_idx}.attn.c_proj.weight"] = state_dict[f"layers.{layer_idx}.attention.wo.weight"]
+        converted[f"transformer.h.{layer_idx}.attn.c_attn.weight"] = torch.cat(
+            (
+                state_dict[f"layers.{layer_idx}.attention.wq.weight"],
+                state_dict[f"layers.{layer_idx}.attention.wk.weight"],
+                state_dict[f"layers.{layer_idx}.attention.wv.weight"],
+            )
+        )
+        converted[f"transformer.h.{layer_idx}.attn.c_proj.weight"] = state_dict[
+            f"layers.{layer_idx}.attention.wo.weight"
+        ]
         # mlp
-        converted[f"transformer.h.{layer_idx}.mlp.c_fc1.weight"] = state_dict[f"layers.{layer_idx}.feed_forward.w1.weight"]
-        converted[f"transformer.h.{layer_idx}.mlp.c_proj.weight"] = state_dict[f"layers.{layer_idx}.feed_forward.w2.weight"]
-        converted[f"transformer.h.{layer_idx}.mlp.c_fc2.weight"] = state_dict[f"layers.{layer_idx}.feed_forward.w3.weight"]
+        converted[f"transformer.h.{layer_idx}.mlp.c_fc1.weight"] = state_dict[
+            f"layers.{layer_idx}.feed_forward.w1.weight"
+        ]
+        converted[f"transformer.h.{layer_idx}.mlp.c_proj.weight"] = state_dict[
+            f"layers.{layer_idx}.feed_forward.w2.weight"
+        ]
+        converted[f"transformer.h.{layer_idx}.mlp.c_fc2.weight"] = state_dict[
+            f"layers.{layer_idx}.feed_forward.w3.weight"
+        ]
         # rms norm
         converted[f"transformer.h.{layer_idx}.rms_1.scale"] = state_dict[f"layers.{layer_idx}.attention_norm.weight"]
         converted[f"transformer.h.{layer_idx}.rms_2.scale"] = state_dict[f"layers.{layer_idx}.ffn_norm.weight"]
@@ -57,8 +69,7 @@ def meta_weights_for_nano_model(
         shutil.copy(tokenizer_path, output_dir.parent)
 
     checkpoint_files = sorted(ckpt_dir.glob("*.pth"))
-   
-    
+
     # for the bigger models, there are multiple model-parallel checkpoints
     # and we combine them into one single file
     combined = {}
@@ -66,7 +77,7 @@ def meta_weights_for_nano_model(
         checkpoint = torch.load(file, map_location="cpu")
         converted = convert_state_dict(checkpoint)
         combined.update(converted)
-    
+
     torch.save(combined, Path(output_dir, "state_dict.pth"))
 
 

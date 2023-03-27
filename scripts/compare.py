@@ -5,14 +5,14 @@ import torch
 
 
 def build_rope_cache_old(seq_len, n_elem, dtype, base=10000):
-    """This is the `build_rope_cache` implementation we initially intended to use, but it is
-    numerically not exactly equivalent to the one in the Meta model. We keep it here for posterity.
+    """This is the `build_rope_cache` implementation we initially intended to use, but it is numerically not
+    exactly equivalent to the one in the Meta model. We keep it here for posterity.
 
-    Derived from: https://github.com/labmlai/annotated_deep_learning_paper_implementations/blob/master/labml_nn/transformers/rope/__init__.py
-    MIT License: https://github.com/labmlai/annotated_deep_learning_paper_implementations/blob/master/license
-    """
+    Derived from:mers/rope/__init__.py
+    https://github.com/labmlai/annotated_deep_learning_paper_implementations/blob/master/license MIT License:
+    """  # noqa: E501
     # $\Theta = {\theta_i = 10000^{\frac{2(i-1)}{d}}, i \in [1, 2, ..., \frac{d}{2}]}$
-    theta = 1. / (base ** (torch.arange(0, n_elem, 2, dtype=dtype) / n_elem))
+    theta = 1.0 / (base ** (torch.arange(0, n_elem, 2, dtype=dtype) / n_elem))
 
     # Create position indexes `[0, 1, ..., seq_len - 1]`
     seq_idx = torch.arange(seq_len, dtype=dtype)
@@ -34,13 +34,15 @@ def build_rope_cache_old(seq_len, n_elem, dtype, base=10000):
 def rotate_neg_half(x: torch.Tensor):
     # $\frac{d}{2}$
     d_2 = x.shape[-1] // 2
-    # Calculate $[-x^{(\frac{d}{2} + 1)}, -x^{(\frac{d}{2} + 2)}, ..., -x^{(d)}, x^{(1)}, x^{(2)}, ..., x^{(\frac{d}{2})}]$
+    # Calculate $[-x^{(\frac{d}{2} + 1)}, -x^{(\frac{d}{2} + 2)}, ..., -x^{(d)}, x^{(1)}, x^{(2)}, ..., x^{(\frac{d}{2})}]$  # noqa: E501
     return torch.cat([-x[:, :, :, d_2:], x[:, :, :, :d_2]], dim=-1)
 
 
 def apply_rope_old(x: torch.Tensor, rope_cache):
-    """This is the `apply_rope` implementation we initially intended to use, but it is
-    numerically not exactly equivalent to the one in the Meta model. We keep it here for posterity.
+    """This is the `apply_rope` implementation we initially intended to use, but it is numerically not exactly
+    equivalent to the one in the Meta model.
+
+    We keep it here for posterity.
     """
     neg_half_x = rotate_neg_half(x)
     cos, sin = rope_cache
@@ -127,24 +129,17 @@ def compare_to_orig_llama():
     n_embd = 32
 
     llama_config = llama.LLaMAConfig(
-        block_size=block_size,
-        vocab_size=vocab_size,
-        n_layer=n_layer,
-        n_head=n_head,
-        n_embd=n_embd
+        block_size=block_size, vocab_size=vocab_size, n_layer=n_layer, n_head=n_head, n_embd=n_embd
     )
     orig_llama_config = orig_llama.ModelArgs(
-        dim=n_embd,
-        n_layers=n_layer,
-        n_heads=n_head,
-        vocab_size=vocab_size,
-        norm_eps=1e-5,
-        max_seq_len=block_size
+        dim=n_embd, n_layers=n_layer, n_heads=n_head, vocab_size=vocab_size, norm_eps=1e-5, max_seq_len=block_size
     )
 
     batch_size = 3
 
-    token_sample = torch.randint(0, orig_llama_config.vocab_size, size=(batch_size, orig_llama_config.max_seq_len), dtype=torch.int64)
+    token_sample = torch.randint(
+        0, orig_llama_config.vocab_size, size=(batch_size, orig_llama_config.max_seq_len), dtype=torch.int64
+    )
 
     llama_model = llama.LLaMA(llama_config)
     orig_llama_model = orig_llama.Transformer(orig_llama_config)
@@ -160,7 +155,7 @@ def compare_to_orig_llama():
     seq_len = token_sample.shape[1]
     mask = torch.full((1, 1, seq_len, seq_len), float("-inf"))
     mask = torch.triu(mask, diagonal=1)
-    orig_llama_block_out = orig_llama_model.layers[0](orig_llama_embed, 0, orig_llama_model.freqs_cis[: seq_len], mask)
+    orig_llama_block_out = orig_llama_model.layers[0](orig_llama_embed, 0, orig_llama_model.freqs_cis[:seq_len], mask)
     llama_block_out = llama_model.transformer.h[0](llama_embed)
     block_matches = torch.allclose(orig_llama_block_out, llama_block_out)
 

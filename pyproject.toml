@@ -1,0 +1,79 @@
+[metadata]
+name = "lit-llama"
+author = "Lightning-AI et al."
+url = "https://github.com/Lightning-AI/lit-llama"
+
+[build-system]
+requires = [
+    "setuptools",
+    "wheel",
+]
+
+
+[tool.isort]
+known_first_party = [
+    "quantization",
+    "scripts",
+    "*.py",
+]
+profile = "black"
+line_length = 120
+force_sort_within_sections = "False"
+order_by_type = "False"
+
+
+[tool.black]
+line-length = 120
+
+
+[tool.ruff]
+line-length = 120
+# Enable Pyflakes `E` and `F` codes by default.
+select = [
+    "E", "W",  # see: https://pypi.org/project/pycodestyle
+    "F",  # see: https://pypi.org/project/pyflakes
+]
+ignore = [
+    "E731",  # Do not assign a lambda expression, use a def
+]
+# Exclude a variety of commonly ignored directories.
+exclude = [
+    ".git",
+]
+ignore-init-module-imports = true
+
+
+#[tool.mypy]
+#files = [
+#    "quantization",
+#    "scripts",
+#    "*.py",
+#]
+#install_types = "True"
+#non_interactive = "True"
+#disallow_untyped_defs = "True"
+#ignore_missing_imports = "True"
+#show_error_codes = "True"
+#warn_redundant_casts = "True"
+#warn_unused_configs = "True"
+#warn_unused_ignores = "True"
+#allow_redefinition = "True"
+## style choices
+#warn_no_return = "False"
+
+
+#[tool.pytest.ini_options]
+#norecursedirs = [
+#    ".git",
+#    ".github",
+#]
+#addopts = [
+#    "--strict-markers",
+#    "--doctest-modules",
+#    "--color=yes",
+#    "--disable-pytest-warnings",
+#]
+#filterwarnings = [
+#    "error::FutureWarning",
+#]
+#junit_duration_report = "call"

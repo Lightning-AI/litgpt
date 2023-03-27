@@ -3,14 +3,13 @@ import time
 from functools import partial
 
 import lightning as L
-import numpy as np
 import torch
 import torch.nn.functional as F
 from lightning.fabric.strategies import FSDPStrategy
 from torch.distributed.fsdp.wrap import transformer_auto_wrap_policy
 
-from model import LLaMA, LLaMAConfig, Block
-
+import numpy as np
+from model import Block, LLaMA, LLaMAConfig
 
 out_dir = "out"
 eval_interval = 2000
@@ -33,20 +32,10 @@ block_size = 1024
 
 
 def main():
-    auto_wrap_policy = partial(
-        transformer_auto_wrap_policy, transformer_layer_cls={Block}
-    )
-    strategy = FSDPStrategy(
-        auto_wrap_policy=auto_wrap_policy,
-        activation_checkpointing=Block,
-    )
- 
-    fabric = L.Fabric(
-        accelerator="cuda",
-        devices=4,
-        precision="bf16-mixed",
-        strategy=strategy,
-    )
+    auto_wrap_policy = partial(transformer_auto_wrap_policy, transformer_layer_cls={Block})
+    strategy = FSDPStrategy(auto_wrap_policy=auto_wrap_policy, activation_checkpointing=Block)
+
+    fabric = L.Fabric(accelerator="cuda", devices=4, precision="bf16-mixed", strategy=strategy)
     fabric.launch()
     fabric.seed_everything(1337 + fabric.global_rank)
 
@@ -66,12 +55,7 @@ def main():
 
     model = fabric.setup_module(model)
 
-    optimizer = torch.optim.AdamW(
-        model.parameters(), 
-        lr=learning_rate, 
-        weight_decay=weight_decay,
-        betas=(beta1, beta2),
-    )
+    optimizer = torch.optim.AdamW(model.parameters(), lr=learning_rate, weight_decay=weight_decay, betas=(beta1, beta2))
     optimizer = fabric.setup_optimizers(optimizer)
 
     train(fabric, model, optimizer, train_data, val_data)
@@ -79,10 +63,10 @@ def main():
 
 def train(fabric, model, optimizer, train_data, val_data):
     """The training loop.
-    
+
     Loosely based on the nanoGPT implementation: https://github.com/karpathy/nanoGPT.
     """
-    
+
     iter_num = 0
 
     while True:
@@ -97,7 +81,7 @@ def train(fabric, model, optimizer, train_data, val_data):
             # torch.save(checkpoint, os.path.join(out_dir, 'ckpt.pt'))
 
         t0 = time.time()
-        
+
         input_ids, targets = get_batch(fabric, train_data, block_size=model.config.block_size)
         logits = model(input_ids)
         loss = F.cross_entropy(logits.view(-1, logits.size(-1)), targets.view(-1), ignore_index=-1)

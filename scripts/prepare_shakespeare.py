@@ -23,6 +23,7 @@ import os
 import sys
 
 import requests
+
 import numpy as np
 
 
@@ -38,7 +39,7 @@ def prepare(
         with open(input_file_path, "w") as f:
             f.write(requests.get(data_url).text)
 
-    with open(input_file_path, "r") as f:
+    with open(input_file_path) as f:
         data = f.read()
     n = len(data)
     train_data = data[: int(n * 0.9)]
