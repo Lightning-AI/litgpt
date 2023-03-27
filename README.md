@@ -20,7 +20,7 @@ Independent implementation of [LLaMA](<https://github.com/facebookresearch/llama
 
 This implementation builds on [nanoGPT](<https://github.com/karpathy/nanoGPT>).  
 
-## Why ⚡ Lit-LLaMA
+## Why?
 The original [LLaMA code](https://github.com/facebookresearch/llama) is [GPL license](https://github.com/facebookresearch/llama/blob/main/LICENSE) which means any project using it must also be released under GPL.
 
 This "taints" any other code and prevents meaningful academic and commercial use.
