@@ -20,21 +20,9 @@ def generate(model, idx, max_new_tokens, max_seq_length, temperature=1.0, top_k=
         temperature: Scales the predicted logits by 1 / temperature
         top_k: If specified, only sample among the tokens with the k highest probabilities
     """
-    # create an empty tensor of the expected final shape and fill in the current tokens
-    B, T = idx.shape
-    T_new = T + max_new_tokens
-    empty = torch.empty(B, T_new, dtype=idx.dtype, device=idx.device)
-    empty[:, :T] = idx
-    idx = empty
-
-    # generate max_new_tokens tokens
-    for t in range(T, T_new):
-        # ignore the not-filled-yet tokens
-        idx_cond = idx[:, :t]
+    for _ in range(max_new_tokens):
         # if the sequence context is growing too long we must crop it at max_seq_length
-        idx_cond = idx_cond if T <= max_seq_length else idx_cond[:, -max_seq_length:]
-
-        # forward
+        idx_cond = idx if idx.size(1) <= max_seq_length else idx[:, -max_seq_length:]
         logits = model(idx_cond)
         logits = logits[:, -1, :] / temperature
 
@@ -80,8 +68,8 @@ def main(
     compile: bool = False,
     accelerator: str = "auto",
     precision: str = "32-true",
-    checkpoint_path: str = "/srv/data/checkpoints/llama/converted_meta/7B/state_dict.pt",
-    tokenizer_path: str = "/srv/data/checkpoints/llama/converted_meta/tokenizer.model",
+    checkpoint_path: str = "/srv/data/checkpoints/llama/converted_nano/7B/state_dict.pth",
+    tokenizer_path: str = "/srv/data/checkpoints/llama/converted_nano/tokenizer.model",
     original_model: bool = False,
 ):
     """
@@ -106,15 +94,14 @@ def main(
     assert os.path.isfile(checkpoint_path)
     assert os.path.isfile(tokenizer_path)
 
-    L.seed_everything(1234)
     fabric = L.Fabric(accelerator=accelerator, precision=precision, devices=1)
 
     # initialize the model directly on the device
     with fabric.device:
         model, max_seq_length = get_model(original_model)
-        # TODO: checkpoint loading is currently broken
-        # checkpoint = torch.load(checkpoint_path)
-        # model.load_state_dict(checkpoint)
+        checkpoint = torch.load(checkpoint_path)
+        model.load_state_dict(checkpoint, strict=(not original_model))
+    
     model.eval()
     if compile:
         model = torch.compile(model)
@@ -123,6 +110,8 @@ def main(
     tokenizer = Tokenizer(tokenizer_path)
     encoded_prompt = tokenizer.encode(prompt, bos=True, eos=False).to(fabric.device)
     encoded_prompt = encoded_prompt[None, :]
+
+    L.seed_everything(1234)
     for _ in range(num_samples):
         y = generate(
             model, encoded_prompt, max_new_tokens, max_seq_length, temperature=temperature, top_k=top_k
