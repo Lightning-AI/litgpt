@@ -84,6 +84,10 @@ This will run using the 7B model and will require roughly 26 GB of GPU memory (A
 
 If you have a GPU with less memory, you can enable quantization with `--quantize true` which will take longer to load, but requires only ~8 GB of memory. It will run on any modern consumer GPU.
 
+```bash
+python scripts/generate.py --quantize true --prompt "Hello, my name is"
+```
+
 See `python scripts/generate.py --help` for more options.
 
 ## Want to contribute?
