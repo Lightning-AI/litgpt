@@ -5,7 +5,7 @@ from tokenizer import Tokenizer
 import lightning as L
 
 
-@torch.inference_mode()
+@torch.no_grad()
 def generate(model, idx, max_new_tokens, max_seq_length, temperature=1.0, top_k=None):
     """
     Takes a conditioning sequence (prompt) as input and continues to generate as many tokens as requested.
@@ -79,7 +79,8 @@ def main(
     max_new_tokens: int = 20,
     top_k: int = 200,
     temperature: float = 0.8,
-    compile: bool = False,
+    # compilation fails as it does not support torch.complex64 for RoPE
+    # compile: bool = False,
     accelerator: str = "auto",
     precision: str = "32-true",
     checkpoint_path: str = "/srv/data/checkpoints/llama/converted_nano/7B/state_dict.pth",
@@ -96,7 +97,7 @@ def main(
         top_k: The number of top most probable tokens to consider in the sampling process.
         temperature: A value controlling the randomness of the sampling process. Higher values result in more random
             samples.
-        compile: Whether to compile the model.
+        # compile: Whether to compile the model.
         accelerator: The hardware to run on. Possible choices are:
             ``"cpu"``, ``"cuda"``, ``"mps"``, ``"gpu"``, ``"tpu"``, ``"auto"``.
         precision: Double precision (``"64"``), full precision (``"32"``), half precision AMP (``"16-mixed"``),
@@ -117,8 +118,8 @@ def main(
         model.load_state_dict(checkpoint, strict=(not original_model))
     
     model.eval()
-    if compile:
-        model = torch.compile(model)
+    # if compile:
+    #     model = torch.compile(model)
     model = fabric.setup_module(model, move_to_device=False)
 
     tokenizer = Tokenizer(tokenizer_path)

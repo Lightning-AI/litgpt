@@ -16,7 +16,8 @@ out_dir = "out"
 eval_interval = 2000
 eval_iters = 200
 log_interval = 1
-compile = False
+# compilation fails as it does not support torch.complex64 for RoPE
+# compile = False
 
 # Hyperparameters
 learning_rate = 6e-4
@@ -60,8 +61,8 @@ def main():
     with fabric.device:
         model = LLaMA(config)
 
-    if compile:
-        model = torch.compile(model)
+    # if compile:
+    #     model = torch.compile(model)
 
     model = fabric.setup_module(model)
 
