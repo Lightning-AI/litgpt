@@ -184,9 +184,6 @@ class LLaMA(nn.Module):
             )
         )
 
-        # init all weights
-        self.apply(self._init_weights)
-
     def _init_weights(self, module: nn.Module) -> None:
         if isinstance(module, nn.Linear):
             torch.nn.init.normal_(module.weight, mean=0.0, std=0.02 / math.sqrt(2 * self.config.n_layer))

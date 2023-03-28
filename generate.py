@@ -1,4 +1,3 @@
-import os
 import sys
 import time
 from pathlib import Path
@@ -7,8 +6,7 @@ from typing import Optional
 import lightning as L
 import torch
 
-from lit_llama.model import LLaMA
-from lit_llama.tokenizer import Tokenizer
+from lit_llama import LLaMA, Tokenizer, as_8_bit_quantized
 
 
 @torch.no_grad()
@@ -104,21 +102,13 @@ def main(
 
     fabric = L.Fabric(accelerator=accelerator, devices=1)
 
-    if quantize:
-        from lit_llama.quantization import quantize
-
-        print("Running quantization. This may take a minute ...")
-        # TODO: Initializing the model directly on the device does not work with quantization
+    with as_8_bit_quantized(fabric.device, enabled=quantize):
+        print("Loading model ...", file=sys.stderr)
+        t0 = time.time()
         model = LLaMA.from_name(model_size)
-        # The output layer can be sensitive to quantization, we keep it in default precision
-        model = quantize(model, skip=("lm_head", "output"))
         checkpoint = torch.load(checkpoint_path)
         model.load_state_dict(checkpoint)
-    else:
-        with fabric.device:
-            model = LLaMA.from_name(model_size)
-            checkpoint = torch.load(checkpoint_path)
-            model.load_state_dict(checkpoint)
+        print(f"Time to load model: {time.time() - t0:.02f} seconds.", file=sys.stderr)
 
     model.eval()
 
@@ -133,6 +123,7 @@ def main(
 
     L.seed_everything(1234)
     t0 = time.time()
+
     for _ in range(num_samples):
         y = generate(
             model,
@@ -144,8 +135,9 @@ def main(
         )[0]  # unpack batch dimension
         print(tokenizer.decode(y))
 
-    print(f"Time for inference: {time.time() - t0:.02f} seconds", file=sys.stderr)
-    print(f"Memory used (GB): {torch.cuda.max_memory_reserved() / 1e9:.02f}", file=sys.stderr)
+    t = time.time() - t0
+    print(f"\n\nTime for inference: {t:.02f} sec total, {max_new_tokens / t:.02f} tokens/sec", file=sys.stderr)
+    print(f"Memory used: {torch.cuda.max_memory_reserved() / 1e9:.02f} GB", file=sys.stderr)
 
 
 if __name__ == "__main__":
