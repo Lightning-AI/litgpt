@@ -6,9 +6,8 @@ from typing import Optional
 import lightning as L
 import torch
 
-from model import LLaMA
-from quantization.bnb import quantize as quantize_model
-from tokenizer import Tokenizer
+from lit_llama.model import LLaMA
+from lit_llama.tokenizer import Tokenizer
 
 
 @torch.no_grad()
@@ -106,11 +105,13 @@ def main(
     fabric = L.Fabric(accelerator=accelerator, devices=1)
 
     if quantize:
+        from lit_llama.quantization import quantize
+
         print("Running quantization. This may take a minute ...")
         # TODO: Initializing the model directly on the device does not work with quantization
         model = LLaMA.from_name(model_size)
         # The output layer can be sensitive to quantization, we keep it in default precision
-        model = quantize_model(model, skip=("lm_head", "output"))
+        model = quantize(model, skip=("lm_head", "output"))
         checkpoint = torch.load(checkpoint_path)
         model.load_state_dict(checkpoint)
     else:

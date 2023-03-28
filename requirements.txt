@@ -4,4 +4,4 @@ sentencepiece
 tqdm  # convert_checkpoint.py
 numpy  # train.py dataset memmap
 jsonargparse  # generate.py, convert_checkpoint.py CLI
-bitsandbytes  # quantization/bnb.py
+bitsandbytes  # quantization.py

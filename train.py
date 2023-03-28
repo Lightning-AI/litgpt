@@ -4,12 +4,14 @@ from functools import partial
 from typing import Tuple
 
 import lightning as L
-import torch
 from lightning.fabric.strategies import FSDPStrategy
+
+import torch
 from torch.distributed.fsdp.wrap import transformer_auto_wrap_policy
 
 import numpy as np
-from model import Block, LLaMA, LLaMAConfig
+
+from lit_llama.model import Block, LLaMA, LLaMAConfig
 
 out_dir = "out"
 eval_interval = 2000

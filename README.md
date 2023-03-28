@@ -1,5 +1,5 @@
 <div align="center">
-<img src="assets/Lit_LLaMA_Badge3x.png" alt="Lit-LLaMA" width="128"/>
+<img src="https://pl-public-data.s3.amazonaws.com/assets_lightning/Lit_LLaMA_Badge3x.png" alt="Lit-LLaMA" width="128"/>
 
 # ⚡ Lit-LLaMA ️
 
@@ -88,7 +88,7 @@ python scripts/convert_checkpoint.py \
 Run inference:
 
 ```bash
-python scripts/generate.py --prompt "Hello, my name is"
+python generate.py --prompt "Hello, my name is"
 ```
 
 This will run the 7B model and require ~26 GB of GPU memory (A100 GPU).
@@ -99,10 +99,10 @@ For GPUs with less memory, enable quantization (`--quantize true`). This will ta
 This can run on any consumer GPU.
 
 ```bash
-python scripts/generate.py --quantize true --prompt "Hello, my name is"
+python generate.py --quantize true --prompt "Hello, my name is"
 ```
 
-See `python scripts/generate.py --help` for more options.
+See `python generate.py --help` for more options.
 
 &nbsp;
 
@@ -110,7 +110,7 @@ See `python scripts/generate.py --help` for more options.
 
 We're in a quest towards fully open source AI, especially focusing on models in the 5-20B range, trained using the LLaMA approach (smaller models trained for longer).
 
-<img align="right" src="assets/Lit_LLaMA_Illustration3x.png" alt="Lit-LLaMA" width="128"/>
+<img align="right" src="https://pl-public-data.s3.amazonaws.com/assets_lightning/Lit_LLaMA_Illustration3x.png" alt="Lit-LLaMA" width="128"/>
 
 Join us and start contributing, especially on the following areas:
 
