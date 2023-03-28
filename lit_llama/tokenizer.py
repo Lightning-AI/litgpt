@@ -1,5 +1,6 @@
+import os
 import torch
-from sentencepiece import SentencePieceProcessor
+from sentencepiece import SentencePieceProcessor, SentencePieceTrainer
 
 
 class Tokenizer:
@@ -25,3 +26,8 @@ class Tokenizer:
 
     def decode(self, tokens: torch.Tensor) -> str:
         return self.processor.decode(tokens.tolist())
+
+    @staticmethod
+    def train(input: str, destination: str) -> None:
+        model_prefix = os.path.join(destination, "tokenizer")
+        SentencePieceTrainer.Train(input=input, model_prefix=model_prefix)
