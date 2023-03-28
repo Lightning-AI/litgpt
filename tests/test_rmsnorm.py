@@ -1,10 +1,8 @@
 import torch
 
-import lit_llama.model as lit_llama
-
 
 @torch.no_grad()
-def test_rmsnorm(orig_llama) -> None:
+def test_rmsnorm(lit_llama, orig_llama) -> None:
     block_size = 16
     vocab_size = 16
 

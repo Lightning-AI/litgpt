@@ -1,7 +1,5 @@
 import torch
 
-import lit_llama.model as lit_llama
-
 
 def build_rope_cache_old(seq_len: int, n_elem: int, dtype: torch.dtype, base: int = 10000) -> torch.Tensor:
     """This is the `build_rope_cache` implementation we initially intended to use, but it is numerically not
@@ -53,7 +51,7 @@ def apply_rope_old(x: torch.Tensor, rope_cache: torch.Tensor) -> torch.Tensor:
 
 
 @torch.no_grad()
-def test_rope(orig_llama) -> None:
+def test_rope(lit_llama, orig_llama) -> None:
     bs, seq_len, n_head, n_embed = 1, 6, 2, 8
     x = torch.randint(0, 10000, size=(bs, seq_len, n_head, n_embed // n_head)).float()
 

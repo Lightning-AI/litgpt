@@ -1,13 +1,14 @@
-import os
 import sys
+from pathlib import Path
 
 import pytest
+
+wd = Path(__file__).parent.parent.absolute()
 
 
 @pytest.fixture()
 def orig_llama():
-    wd = os.path.realpath(os.path.join(os.path.dirname(__file__), ".."))
-    sys.path.append(wd)
+    sys.path.append(str(wd))
 
     from scripts.download import download_original
 
@@ -16,3 +17,13 @@ def orig_llama():
     import original_model
 
     return original_model
+
+
+@pytest.fixture()
+def lit_llama():
+    # this adds support for running tests without the package installed
+    sys.path.append(str(wd))
+
+    import lit_llama
+
+    return lit_llama

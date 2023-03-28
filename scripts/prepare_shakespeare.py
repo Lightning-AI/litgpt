@@ -43,7 +43,7 @@ def prepare(destination_path: Path = Path("data/shakespeare")) -> None:
     train_data = data[: int(n * 0.9)]
     val_data = data[int(n * 0.9) :]
 
-    from lit_llama.tokenizer import Tokenizer
+    from lit_llama import Tokenizer
 
     Tokenizer.train(input=input_file_path, destination=destination_path)
     tokenizer = Tokenizer(destination_path / "tokenizer.model")

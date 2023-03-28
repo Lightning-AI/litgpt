@@ -34,11 +34,13 @@ jobs:
       with:
         python-version: ${{ matrix.python-version }}
 
-    - name: Install dependencies
+    - name: Run tests without the package installed
       run: |
-        pip install pytest . -r requirements.txt
+        pip install pytest -r requirements.txt
         pip list
+        pytest --disable-pytest-warnings --strict-markers
 
     - name: Run tests
       run: |
+        pip install . --no-deps
         pytest -v --durations=10 --disable-pytest-warnings --strict-markers

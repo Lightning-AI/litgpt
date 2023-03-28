@@ -1,7 +1,5 @@
 import torch
 
-import lit_llama.model as lit_llama
-
 
 def copy_mlp(llama_mlp, orig_llama_mlp) -> None:
     orig_llama_mlp.w1.weight.copy_(llama_mlp.c_fc1.weight)
@@ -33,7 +31,7 @@ def copy_weights(llama_model, orig_llama_model) -> None:
 
 
 @torch.no_grad()
-def test_to_orig_llama(orig_llama) -> None:
+def test_to_orig_llama(lit_llama, orig_llama) -> None:
     block_size = 64
     vocab_size = 32000
     n_layer = 16
