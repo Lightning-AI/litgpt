@@ -8,5 +8,5 @@ data
 checkpoints
 !data/shakespeare/prepare.py
 
-# downloaded by scripts/compare.py
+# downloaded by our tests
 original_model.py
