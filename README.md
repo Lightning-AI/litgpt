@@ -108,7 +108,7 @@ See `python generate.py --help` for more options.
 
 ## Get involved!
 
-We're in a quest towards fully open source AI, especially focusing on models in the 5-20B range, trained using the LLaMA approach (smaller models trained for longer).
+We're in a quest towards fully open source AI.
 
 <img align="right" src="https://pl-public-data.s3.amazonaws.com/assets_lightning/Lit_LLaMA_Illustration3x.png" alt="Lit-LLaMA" width="128"/>
 
