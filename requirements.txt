@@ -3,5 +3,5 @@ lightning>=2.0.0
 sentencepiece
 tqdm  # convert_checkpoint.py
 numpy  # train.py dataset memmap
-jsonargparse  # generate.py, convert_checkpoint.py CLI
+jsonargparse[signatures]  # generate.py, convert_checkpoint.py CLI
 bitsandbytes  # quantization.py

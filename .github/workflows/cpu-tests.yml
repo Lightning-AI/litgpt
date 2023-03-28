@@ -36,9 +36,9 @@ jobs:
 
     - name: Install dependencies
       run: |
-        pip install pytest .
+        pip install pytest . -r requirements.txt
         pip list
 
     - name: Run tests
       run: |
-        pytest -v --durations=10
+        pytest -v --durations=10 --disable-pytest-warnings --strict-markers

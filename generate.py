@@ -1,6 +1,7 @@
 import os
 import sys
 import time
+from pathlib import Path
 from typing import Optional
 
 import lightning as L
@@ -47,7 +48,7 @@ def generate(
 
         # forward
         logits = model(idx_cond)
-        logits = logits[:, -1, :] / temperature
+        logits = logits[:, -1] / temperature
 
         # optionally crop the logits to only the top k options
         if top_k is not None:
@@ -58,7 +59,7 @@ def generate(
         idx_next = torch.multinomial(probs, num_samples=1)
 
         # concatenate the new column
-        idx[:, t] = idx_next
+        idx[:, t:] = idx_next
 
     return idx
 
@@ -73,8 +74,8 @@ def main(
     # compilation fails as it does not support torch.complex64 for RoPE
     # compile: bool = False,
     accelerator: str = "auto",
-    checkpoint_path: Optional[str] = None,
-    tokenizer_path: Optional[str] = None,
+    checkpoint_path: Optional[Path] = None,
+    tokenizer_path: Optional[Path] = None,
     model_size: str = "7B",
     quantize: bool = False,
 ) -> None:
@@ -95,12 +96,11 @@ def main(
         quantize: Whether to quantize the model using the `LLM.int8()` method
     """
     if not checkpoint_path:
-        checkpoint_path = f"./checkpoints/lit-llama/{model_size}/state_dict.pth"
+        checkpoint_path = Path(f"./checkpoints/lit-llama/{model_size}/state_dict.pth")
     if not tokenizer_path:
-        tokenizer_path = "./checkpoints/lit-llama/tokenizer.model"
-
-    assert os.path.isfile(checkpoint_path)
-    assert os.path.isfile(tokenizer_path)
+        tokenizer_path = Path("./checkpoints/lit-llama/tokenizer.model")
+    assert checkpoint_path.is_file()
+    assert tokenizer_path.is_file()
 
     fabric = L.Fabric(accelerator=accelerator, devices=1)
 
@@ -128,8 +128,8 @@ def main(
     model = fabric.setup_module(model)
 
     tokenizer = Tokenizer(tokenizer_path)
-    encoded_prompt = tokenizer.encode(prompt, bos=True, eos=False).to(fabric.device)
-    encoded_prompt = encoded_prompt[None, :]
+    encoded_prompt = tokenizer.encode(prompt, bos=True, eos=False, device=fabric.device)
+    encoded_prompt = encoded_prompt[None, :]  # add batch dimension
 
     L.seed_everything(1234)
     t0 = time.time()
@@ -141,8 +141,8 @@ def main(
             model.config.block_size,  # type: ignore[union-attr,arg-type]
             temperature=temperature,
             top_k=top_k,
-        )
-        print(tokenizer.decode(y[0]))
+        )[0]  # unpack batch dimension
+        print(tokenizer.decode(y))
 
     print(f"Time for inference: {time.time() - t0:.02f} seconds", file=sys.stderr)
     print(f"Memory used (GB): {torch.cuda.max_memory_reserved() / 1e9:.02f}", file=sys.stderr)
