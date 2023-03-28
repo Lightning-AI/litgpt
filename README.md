@@ -117,10 +117,10 @@ We're in a quest towards fully open source AI.
 
 Join us and start contributing, especially on the following areas:
 
-- [ ] Pre-training
-- [ ] Fine-tuning (full and LoRA)
-- [ ] Quantization
-- [ ] Sparsification
+- [ ] [Pre-training](https://github.com/Lightning-AI/lit-llama/labels/pre-training)
+- [ ] [Fine-tuning (full and LoRA)](https://github.com/Lightning-AI/lit-llama/labels/fine-tuning)
+- [ ] [Quantization](https://github.com/Lightning-AI/lit-llama/labels/quantization)
+- [ ] [Sparsification](https://github.com/Lightning-AI/lit-llama/labels/sparsification)
 
 Look at `train.py` for a starting point towards pre-training / fine-tuning using [Lightning Fabric](https://lightning.ai/docs/fabric/stable/).
 
