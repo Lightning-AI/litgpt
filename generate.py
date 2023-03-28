@@ -122,7 +122,7 @@ def main(
     encoded_prompt = encoded_prompt[None, :]  # add batch dimension
 
     L.seed_everything(1234)
-    t0 = time.time()
+    t0 = time.perf_counter()
 
     for _ in range(num_samples):
         y = generate(
@@ -135,8 +135,8 @@ def main(
         )[0]  # unpack batch dimension
         print(tokenizer.decode(y))
 
-    t = time.time() - t0
-    print(f"\n\nTime for inference: {t:.02f} sec total, {max_new_tokens / t:.02f} tokens/sec", file=sys.stderr)
+    t = time.perf_counter() - t0
+    print(f"\n\nTime for inference: {t:.02f} sec total, {num_samples * max_new_tokens / t:.02f} tokens/sec", file=sys.stderr)
     print(f"Memory used: {torch.cuda.max_memory_reserved() / 1e9:.02f} GB", file=sys.stderr)
 
 
