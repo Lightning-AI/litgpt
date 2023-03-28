@@ -21,6 +21,9 @@ Independent implementation of [LLaMA](<https://github.com/facebookresearch/llama
 This implementation builds on [nanoGPT](<https://github.com/karpathy/nanoGPT>).
 
 ## Why?
+
+We believe that AI should be fully open source and part of the collective knowledge.
+
 The original [LLaMA code](https://github.com/facebookresearch/llama) is [GPL licensed](https://github.com/facebookresearch/llama/blob/main/LICENSE) which means any project using it must also be released under GPL.
 
 This "taints" any other code and prevents meaningful academic and commercial use.
