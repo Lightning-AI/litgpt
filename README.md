@@ -66,7 +66,9 @@ You are all set! 🎉
 
 ## Use the model
 
-To generate text predictions, download the model weights following the instructions on the official [LLaMA repository](https://github.com/facebookresearch/llama). Now you should have a folder like this:
+To generate text predictions, download the model weights following the instructions on the official [LLaMA repository](https://github.com/facebookresearch/llama). Note that currently the weights are still under a [research-only license](https://github.com/facebookresearch/llama/blob/main/MODEL_CARD.md#model-details), there's no change to that (yet 🤓).
+
+Once downloaded, you should have a folder like this:
 
 ```text
 checkpoints/llama
