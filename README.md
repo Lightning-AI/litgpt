@@ -64,6 +64,8 @@ pip install -r requirements.txt
 
 You are all set! 🎉
 
+&nbsp;
+
 ## Use the model
 
 To generate text predictions, download the model weights following the instructions on the official [LLaMA repository](https://github.com/facebookresearch/llama). Note that currently the weights are still under a [research-only license](https://github.com/facebookresearch/llama/blob/main/MODEL_CARD.md#model-details), there's no change to that (yet 🤓).
