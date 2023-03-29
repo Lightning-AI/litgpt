@@ -120,8 +120,14 @@ class CausalSelfAttention(nn.Module):
         k = apply_rope(k, self.rope_cache)
 
         # causal self-attention; Self-attend: (B, nh, T, hs) x (B, nh, hs, T) -> (B, nh, T, T)
+        #  att = (q @ k.transpose(-2, -1)) * (1.0 / math.sqrt(k.size(-1)))
+        #  att = att.masked_fill(self.bias[:,:,:T,:T] == 0, float('-inf'))
+        #  att = F.softmax(att, dim=-1)
+        #  y = att @ v # (B, nh, T, T) x (B, nh, T, hs) -> (B, nh, T, hs)
+
         # efficient attention using Flash Attention CUDA kernels
         y = F.scaled_dot_product_attention(q, k, v, attn_mask=None, dropout_p=0.0, is_causal=True)
+
         y = y.transpose(1, 2).contiguous().view(B, T, C)  # re-assemble all head outputs side by side
 
         # output projection
