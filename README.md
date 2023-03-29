@@ -137,6 +137,7 @@ Don't forget to [join our Discord](https://discord.gg/VptPCZkGNa)!
 - [@karpathy](https://github.com/karpathy) for [nanoGPT](https://github.com/karpathy/nanoGPT)
 - [@FacebookResearch](https://github.com/facebookresearch) for the original [LLaMA implementation](https://github.com/facebookresearch/llama)
 - [@TimDettmers](https://github.com/TimDettmers) for [bitsandbytes](https://github.com/TimDettmers/bitsandbytes)
+- [@Microsoft](https://github.com/microsoft) for [LoRA](https://github.com/microsoft/LoRA)
 
 ## License
 
