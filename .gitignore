@@ -7,6 +7,7 @@ build
 # data
 data
 checkpoints
+out
 !data/shakespeare/prepare.py
 
 # downloaded by our tests

@@ -1,3 +1,8 @@
+"""
+This script is a placeholder for training LLaMA from scratch.
+Currently, it just trains on the Shakespeare dataset.
+"""
+
 import os
 import time
 from functools import partial
