@@ -43,10 +43,10 @@ jobs:
         pip install pytest -r requirements.txt
         pip list
 
-        pytest --disable-pytest-warnings --strict-markers
+        pytest --disable-pytest-warnings --strict-markers --color=yes
 
     - name: Run tests
       run: |
         pip install . --no-deps
 
-        pytest -v --durations=10 --disable-pytest-warnings --strict-markers
+        pytest -v --durations=10 --disable-pytest-warnings --strict-markers --color=yes
