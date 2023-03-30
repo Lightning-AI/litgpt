@@ -21,6 +21,7 @@ def prepare(
     test_split_size: int = 2000,
     max_seq_length: int = 256,
     seed: int = 42,
+    mask_inputs: bool = False,  # as in alpaca-lora
 ) -> None:
     """Prepare the Alpaca dataset for instruction tuning.
     
@@ -51,11 +52,11 @@ def prepare(
     print(f"val has {len(test_set):,} samples")
 
     print("Processing train split ...")
-    train_set = [prepare_sample(sample, tokenizer, max_seq_length) for sample in tqdm(train_set)]
+    train_set = [prepare_sample(sample, tokenizer, max_seq_length, mask_inputs) for sample in tqdm(train_set)]
     torch.save(train_set, file_path.parent / "train.pt")
 
     print("Processing test split ...")
-    test_set = [prepare_sample(sample, tokenizer, max_seq_length) for sample in tqdm(test_set)]
+    test_set = [prepare_sample(sample, tokenizer, max_seq_length, mask_inputs) for sample in tqdm(test_set)]
     torch.save(test_set, file_path.parent / "test.pt")
 
 
@@ -67,7 +68,7 @@ def download(file_path: Path):
         f.write(requests.get(DATA_FILE).text)
 
 
-def prepare_sample(example: dict, tokenizer: Tokenizer, max_length: int):
+def prepare_sample(example: dict, tokenizer: Tokenizer, max_length: int, mask_inputs: bool = True):
     """Processes a single sample.
     
     Each sample in the dataset consists of:
@@ -81,8 +82,8 @@ def prepare_sample(example: dict, tokenizer: Tokenizer, max_length: int):
     the instruction and the input. The label/target is the same message but with the
     response attached.
 
-    Finally, both the prompt and the label get tokenized. In addition, all tokens
-    in the label that correspond to the original input prompt get masked out.
+    Finally, both the prompt and the label get tokenized. If desired, all tokens
+    in the label that correspond to the original input prompt get masked out (default).
     """
     full_prompt = generate_prompt(example)
     full_prompt_and_response = full_prompt + example["output"]
@@ -91,7 +92,8 @@ def prepare_sample(example: dict, tokenizer: Tokenizer, max_length: int):
 
     # The labels are the full prompt with response, but with the prompt masked out
     labels = encoded_full_prompt_and_response.clone()
-    labels[:len(encoded_full_prompt)] = IGNORE_INDEX
+    if mask_inputs:
+        labels[:len(encoded_full_prompt)] = IGNORE_INDEX
 
     return {**example, "input_ids": encoded_full_prompt_and_response, "labels": labels}
 

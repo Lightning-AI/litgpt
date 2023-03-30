@@ -131,8 +131,8 @@ We provide a simple training script in `finetune.py` that instruction-tunes a pr
    ```
 
 It is expected that you have downloaded the pretrained weights as described above.
-The finetuning requires a machine with at least 4 GPUs with 24 GB memory.
-Coming soon: LoRA + quantization for training on a single GPU!
+The finetuning requires a GPU with 40 GB memory (A100).
+Coming soon: LoRA + quantization for training on a consumer-grade GPU!
 
 
 ## Get involved!
