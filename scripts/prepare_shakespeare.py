@@ -45,7 +45,7 @@ def prepare(destination_path: Path = Path("data/shakespeare")) -> None:
 
     from lit_llama import Tokenizer
 
-    Tokenizer.train(input=input_file_path, destination=destination_path)
+    Tokenizer.train(input=input_file_path, destination=destination_path, vocab_size=100)
     tokenizer = Tokenizer(destination_path / "tokenizer.model")
     train_ids = tokenizer.encode(train_data)
     val_ids = tokenizer.encode(val_data)

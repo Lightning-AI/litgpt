@@ -53,6 +53,7 @@ def main() -> None:
 
     config = LLaMAConfig.from_name("7B")
     config.block_size = block_size
+    config.vocab_size = 100  # from prepare_shakespeare.py
 
     with fabric.device:
         model = LLaMA(config)
