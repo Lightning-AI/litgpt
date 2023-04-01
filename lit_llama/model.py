@@ -213,11 +213,6 @@ class LLaMA(nn.Module):
 
         return logits
 
-    def step(self, idx: torch.Tensor, targets: torch.Tensor) -> torch.Tensor:
-        logits = self(idx)
-        loss = F.cross_entropy(logits.view(-1, logits.size(-1)), targets.view(-1), ignore_index=-1)
-        return loss
-
     @classmethod
     def from_name(cls, name: str) -> Self:
         return cls(LLaMAConfig.from_name(name))
