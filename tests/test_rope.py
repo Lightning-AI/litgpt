@@ -56,7 +56,7 @@ def test_rope(lit_llama, orig_llama) -> None:
     x = torch.randint(0, 10000, size=(bs, seq_len, n_head, n_embed // n_head)).float()
 
     freqs_cis = orig_llama.precompute_freqs_cis(n_embed // n_head, seq_len)
-    llama_rope_cache = lit_llama.build_rope_cache(seq_len, n_embed // n_head, dtype=x.dtype)
+    llama_rope_cache = lit_llama.build_rope_cache(seq_len, n_embed // n_head, dtype=x.dtype, device=x.device)
     assert torch.equal(freqs_cis, llama_rope_cache)
 
     llama_x_rope = lit_llama.apply_rope(x.transpose(1, 2), llama_rope_cache).transpose(1, 2)

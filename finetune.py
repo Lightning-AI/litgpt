@@ -37,6 +37,7 @@ warmup_steps = 100
 
 def main():
     fabric = L.Fabric(accelerator="cuda", devices=1)
+    fabric.launch()
     fabric.seed_everything(1337 + fabric.global_rank)
 
     if fabric.global_rank == 0:
