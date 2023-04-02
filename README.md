@@ -20,7 +20,7 @@
 # ⚡ Lit-LLaMA ️
 Independent implementation of [LLaMA](<https://github.com/facebookresearch/llama>) that is fully open source under the **Apache 2.0 license.**
 
-This implementation builds on [nanoGPT](<https://github.com/karpathy/nanoGPT>).
+This implementation builds on [nanoGPT](<https://github.com/karpathy/nanoGPT>). Weights are distributed by Meta under a [research-only license](https://github.com/facebookresearch/llama/blob/main/MODEL_CARD.md#model-details).
 
 ## Why?
 
@@ -68,7 +68,7 @@ You are all set! 🎉
 
 ## Use the model
 
-To generate text predictions, download the model weights following the instructions on the official [LLaMA repository](https://github.com/facebookresearch/llama). Note that currently the weights are still under a [research-only license](https://github.com/facebookresearch/llama/blob/main/MODEL_CARD.md#model-details), there's no change to that (yet 🤓).
+To generate text predictions, download the model weights following the instructions on the official [LLaMA repository](https://github.com/facebookresearch/llama).
 
 Once downloaded, you should have a folder like this:
 
