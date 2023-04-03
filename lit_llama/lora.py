@@ -188,7 +188,7 @@ class LoRAConfig:
 class CausalSelfAttention(llama.CausalSelfAttention):
     lora_config = None
 
-    def __init__(self, config: llama.LLaMAConfig, rope_cache: torch.Tensor) -> None:
+    def __init__(self, config: llama.LLaMAConfig) -> None:
         # Skip the parent class __init__ altogether and replace it to avoid
         # useless allocations
         nn.Module.__init__(self)
@@ -210,7 +210,8 @@ class CausalSelfAttention(llama.CausalSelfAttention):
         # regularization
         self.n_head = config.n_head
         self.n_embd = config.n_embd
-        self.register_buffer("rope_cache", rope_cache, persistent=False)
+        self.block_size = config.block_size
+        self.rope_cache = None
 
 
 @contextmanager
