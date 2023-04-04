@@ -17,8 +17,10 @@ from torch.distributed.fsdp.wrap import transformer_auto_wrap_policy
 import numpy as np
 
 from lit_llama.model import Block, LLaMA, LLaMAConfig
+from lit_llama.utils import save_model_checkpoint
 
-out_dir = "out"
+
+out_dir = "out/training"
 eval_interval = 2000
 eval_iters = 200
 log_interval = 1
@@ -87,12 +89,11 @@ def train(
         # TODO: add learning rate scheduling
 
         # evaluate the loss on train/val sets and write checkpoints
-        if iter_num > 0 and iter_num % eval_interval == 0 and fabric.global_rank == 0:
+        if iter_num > 0 and iter_num % eval_interval == 0:
             val_loss = validate(fabric, model, val_data)
             fabric.print(f"step {iter_num}: val loss {val_loss:.4f}")
-            # TODO: Save with Fabric
-            # print(f"saving checkpoint to {out_dir}")
-            # torch.save(checkpoint, os.path.join(out_dir, 'ckpt.pt'))
+            fabric.print(f"Saving checkpoint to {out_dir}")
+            save_model_checkpoint(fabric, model, os.path.join(out_dir, f"iter-{iter_num:06d}-ckpt.pt"))
 
         t0 = time.time()
 
