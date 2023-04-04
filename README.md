@@ -117,17 +117,22 @@ See `python generate.py --help` for more options.
 
 ## Finetune the model
 
-We provide a simple training script in `finetune.py` that instruction-tunes a pretrained model on the [Alpaca](https://github.com/tatsu-lab/stanford_alpaca) dataset and also integrates [LoRA](https://arxiv.org/abs/2106.09685).
+We provide a simple training scripts in `finetune_lora.py` and `finetune_adapter.py` that instruction-tunes a pretrained model on the [Alpaca](https://github.com/tatsu-lab/stanford_alpaca) dataset using the techniques of [LoRA](https://arxiv.org/abs/2106.09685) and [Adapter](https://arxiv.org/abs/2303.16199).
 
 1. Download the data and generate a instruction tuning dataset:
 
    ```bash
    python scripts/prepare_alpaca.py
    ```
+
 2. Run the finetuning script
 
    ```bash
-   python finetune.py
+   python finetune_lora.py
+   ```
+   or 
+   ```bash
+   python finetune_adapter.py
    ```
 
 It is expected that you have downloaded the pretrained weights as described above.
