@@ -1,5 +1,5 @@
 import torch
-
+import pytest
 
 def copy_mlp(llama_mlp, orig_llama_mlp) -> None:
     orig_llama_mlp.w1.weight.copy_(llama_mlp.c_fc1.weight)
@@ -71,3 +71,39 @@ def test_to_orig_llama(lit_llama, orig_llama) -> None:
     expected = orig_llama_model(token_sample, 0)
     out = llama_model(token_sample)
     assert torch.allclose(out, expected)
+
+
+@pytest.mark.skipif(not torch.cuda.is_available(), reason="Requires CUDA")
+@torch.no_grad()
+def test_bfloat16_llama_init(lit_llama, orig_llama) -> None:
+    from lit_llama.utils import EmptyInitOnDevice
+    block_size = 64
+    vocab_size = 32000
+    n_layer = 16
+    n_head = 16
+    n_embd = 32
+
+    llama_config = lit_llama.LLaMAConfig(
+        block_size=block_size,
+        vocab_size=vocab_size,
+        n_layer=n_layer,
+        n_head=n_head,
+        n_embd=n_embd,
+    )
+    llama_model = lit_llama.LLaMA(llama_config)
+    llama_model.apply(llama_model._init_weights)
+
+    batch_size = 3
+
+    token_sample = torch.randint(
+        0, vocab_size, size=(batch_size, block_size), dtype=torch.int64
+    )
+
+    expected = llama_model(token_sample)
+
+    with EmptyInitOnDevice(device="cuda", dtype=torch.bfloat16):
+        llama_model2 = lit_llama.LLaMA(llama_config)
+    llama_model2.load_state_dict(llama_model.state_dict(keep_vars=True))
+
+    out = llama_model2(token_sample.cuda()).float().cpu()
+    torch.testing.assert_close(out, expected, atol=5e-3, rtol=1e-3)

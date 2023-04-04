@@ -104,7 +104,7 @@ This will run the 7B model and require ~26 GB of GPU memory (A100 GPU).
 
 ### Run Lit-LLaMA on consumer devices
 
-For GPUs with less memory, enable quantization (`--quantize true`). This will take longer to load but require ~8GB of memory.
+For GPUs with less memory, enable quantization (`--quantize true`) or use bfloat16 (`--dtype bfloat16`). Quantization will take longer to load but require ~8GB of memory. bfloat16 is closer to the "full deal" and runs on ~10GB of GPU memory.
 This can run on any consumer GPU.
 
 ```bash

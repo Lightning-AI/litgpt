@@ -7,6 +7,7 @@ import lightning as L
 import torch
 
 from lit_llama import LLaMA, Tokenizer, as_8_bit_quantized
+from lit_llama.utils import EmptyInitOnDevice
 
 
 @torch.no_grad()
@@ -75,6 +76,7 @@ def main(
     checkpoint_path: Optional[Path] = None,
     tokenizer_path: Optional[Path] = None,
     model_size: str = "7B",
+    dtype: Optional[str] = None,
     quantize: bool = False,
 ) -> None:
     """Generates text samples based on a pre-trained LLaMA model and tokenizer.
@@ -102,7 +104,14 @@ def main(
 
     fabric = L.Fabric(accelerator=accelerator, devices=1)
 
-    with as_8_bit_quantized(fabric.device, enabled=quantize):
+    quantization_mode = 'llm.int8' if quantize else None
+    if dtype is not None:
+        dt = getattr(torch, dtype, None)
+        if not isinstance(dt, torch.dtype):
+            raise ValueError(f"{dtype} is not a valid dtype.")
+        dtype = dt
+
+    with EmptyInitOnDevice(device=fabric.device, dtype=dtype, quantization_mode=quantization_mode):
         print("Loading model ...", file=sys.stderr)
         t0 = time.time()
         model = LLaMA.from_name(model_size)
