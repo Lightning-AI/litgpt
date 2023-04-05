@@ -28,7 +28,7 @@ We believe that AI should be fully open source and part of the collective knowle
 
 The original [LLaMA code](https://github.com/facebookresearch/llama) is [GPL licensed](https://github.com/facebookresearch/llama/blob/main/LICENSE) which means any project using it must also be released under GPL.
 
-This "taints" any other code and prevents meaningful academic and commercial use.
+This "taints" any other code and prevents integration with the rest of the ecosystem.
 
 **Lit-LLaMA solves that for good.**
 
