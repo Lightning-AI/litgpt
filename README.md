@@ -104,14 +104,22 @@ This will run the 7B model and require ~26 GB of GPU memory (A100 GPU).
 
 ### Run Lit-LLaMA on consumer devices
 
-For GPUs with less memory, enable quantization (`--quantize true`) or use bfloat16 (`--dtype bfloat16`). Quantization will take longer to load but require ~8GB of memory. bfloat16 is closer to the "full deal" and runs on ~10GB of GPU memory.
+For GPUs with less memory, enable quantization (`--quantize llm.int8`) or use bfloat16 (`--dtype bfloat16`). Quantization will take longer to load but require ~8GB of memory. bfloat16 is closer to the "full deal" and runs on ~10GB of GPU memory.
 This can run on any consumer GPU.
 
 ```bash
-python generate.py --quantize true --prompt "Hello, my name is"
+python generate.py --quantize llm.int8 --prompt "Hello, my name is"
 ```
 
 See `python generate.py --help` for more options.
+
+You can also use GPTQ-style int4 quantization, but this needs conversions of the weights first:
+
+```bash
+python quantize.py --checkpoint_path state_dict.pth --tokenizer_path tokenizer.model --output_path llama-7b-gptq.4bit.pt --dtype bfloat16  --quantize gptq.int4
+```
+
+With the generated quantized checkpoint generation works as usual with `--quantize gptq.int4`, bringing GPU usage to about ~5GB. As only the weights of the Linear layers are quantized, it is useful to use `--dtype bfloat16` even with the quantization enabled.
 
 &nbsp;
 
@@ -162,6 +170,7 @@ Don't forget to [join our Discord](https://discord.gg/VptPCZkGNa)!
 - [@FacebookResearch](https://github.com/facebookresearch) for the original [LLaMA implementation](https://github.com/facebookresearch/llama)
 - [@TimDettmers](https://github.com/TimDettmers) for [bitsandbytes](https://github.com/TimDettmers/bitsandbytes)
 - [@Microsoft](https://github.com/microsoft) for [LoRA](https://github.com/microsoft/LoRA)
+- [@IST-DASLab](https://github.com/IST-DASLab) for [GPTQ](https://github.com/IST-DASLab/gptq)
 
 ## License
 

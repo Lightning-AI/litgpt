@@ -1,6 +1,7 @@
 """Utility functions for training and inference."""
 
 import torch
+import functools
 from lightning.fabric.strategies import FSDPStrategy
 from torch.distributed.fsdp import FullyShardedDataParallel as FSDP
 from torch.distributed.fsdp import StateDictType, FullStateDictConfig
@@ -42,22 +43,31 @@ class EmptyInitOnDevice(torch.overrides.TorchFunctionMode):
             model.load_state_dict(torch.load('llama-lit/7B/state_dict.pth'))"""
 
         self.quantization_mode = quantization_mode
+        self.quantized_linear_cls = None
         if self.quantization_mode == 'llm.int8':
             if device.type != "cuda":
                 raise ValueError("Quantization is only supported on the GPU.")
             from .quantization import Linear8bitLt
-            self.Linear8bitLt = Linear8bitLt
+            self.quantized_linear_cls = Linear8bitLt
+        elif self.quantization_mode == 'gptq.int4':
+            from .quantization import ColBlockQuantizedLinear
+            self.quantized_linear_cls = functools.partial(ColBlockQuantizedLinear, bits=4, tile_cols=-1)
+        elif self.quantization_mode == 'gptq.int8':
+            from .quantization import ColBlockQuantizedLinear
+            self.quantized_linear_cls = functools.partial(ColBlockQuantizedLinear, bits=8, tile_cols=-1)
+        elif self.quantization_mode is not None:
+            raise RuntimeError(f"unknown quantization mode {self.quantization_mode}")
         self.device = device
         self.dtype = dtype
 
     def __enter__(self):
-        if self.quantization_mode == 'llm.int8':
+        if self.quantized_linear_cls != None:
             self.torch_linear_cls = torch.nn.Linear
-            torch.nn.Linear = self.Linear8bitLt
+            torch.nn.Linear = self.quantized_linear_cls
         return super().__enter__()
 
     def __exit__(self, exc_type, exc_val, exc_tb):
-        if self.quantization_mode == 'llm.int8':
+        if self.quantized_linear_cls != None:
             torch.nn.Linear = self.torch_linear_cls
         return super().__exit__(exc_type, exc_val, exc_tb)
 

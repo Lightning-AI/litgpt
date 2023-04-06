@@ -6,7 +6,7 @@ from typing import Optional
 import lightning as L
 import torch
 
-from lit_llama import LLaMA, Tokenizer, as_8_bit_quantized
+from lit_llama import LLaMA, Tokenizer
 from lit_llama.utils import EmptyInitOnDevice
 
 
@@ -77,7 +77,7 @@ def main(
     tokenizer_path: Optional[Path] = None,
     model_size: str = "7B",
     dtype: Optional[str] = None,
-    quantize: bool = False,
+    quantize: Optional[str] = None,
 ) -> None:
     """Generates text samples based on a pre-trained LLaMA model and tokenizer.
 
@@ -93,7 +93,9 @@ def main(
             ``"cpu"``, ``"cuda"``, ``"mps"``, ``"gpu"``, ``"tpu"``, ``"auto"``.
         checkpoint_path: The checkpoint path to load.
         tokenizer_path: The tokenizer path to load.
-        quantize: Whether to quantize the model using the `LLM.int8()` method
+        quantize: Whether to quantize the model and using which method:
+            ``"llm.int8"``: LLM.int8() mode,
+            ``"gptq.int4"``: GPTQ 4-bit mode.
     """
     if not checkpoint_path:
         checkpoint_path = Path(f"./checkpoints/lit-llama/{model_size}/state_dict.pth")
@@ -104,14 +106,15 @@ def main(
 
     fabric = L.Fabric(accelerator=accelerator, devices=1)
 
-    quantization_mode = 'llm.int8' if quantize else None
     if dtype is not None:
         dt = getattr(torch, dtype, None)
         if not isinstance(dt, torch.dtype):
             raise ValueError(f"{dtype} is not a valid dtype.")
         dtype = dt
 
-    with EmptyInitOnDevice(device=fabric.device, dtype=dtype, quantization_mode=quantization_mode):
+    with EmptyInitOnDevice(
+        device=fabric.device, dtype=dtype, quantization_mode=quantize
+    ):
         print("Loading model ...", file=sys.stderr)
         t0 = time.time()
         model = LLaMA.from_name(model_size)
