@@ -136,9 +136,8 @@ We provide a simple training scripts in `finetune_lora.py` and `finetune_adapter
    ```
 
 It is expected that you have downloaded the pretrained weights as described above.
-The finetuning requires a GPU with 40 GB memory (A100).
-Coming soon: LoRA + quantization for training on a consumer-grade GPU!
-
+The finetuning requires a GPU with ~24 GB memory (GTX 3090).
+Note: For some GPU models you might need to install [PyTorch nightly](https://pytorch.org/) (see issue [#101](https://github.com/Lightning-AI/lit-llama/issues/101)).
 
 ## Get involved!
 

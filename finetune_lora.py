@@ -1,5 +1,8 @@
 """
 Instruction-tuning with LoRA on the Alpaca dataset.
+
+Note: If you run into a CUDA error "Expected is_sm80 to be true, but got false", install
+the PyTorch nightly version for a fix (see https://github.com/Lightning-AI/lit-llama/issues/101).
 """
 import os
 import time
@@ -11,6 +14,7 @@ import torch
 from generate import generate
 from lit_llama.lora import mark_only_lora_as_trainable, lora, lora_state_dict
 from lit_llama.model import LLaMA, LLaMAConfig
+from lit_llama.utils import EmptyInitOnDevice
 from lit_llama.tokenizer import Tokenizer
 from scripts.prepare_alpaca import generate_prompt
 
@@ -36,7 +40,7 @@ warmup_steps = 100
 
 
 def main():
-    fabric = L.Fabric(accelerator="cuda", devices=1)
+    fabric = L.Fabric(accelerator="cuda", devices=1, precision="bf16-mixed")
     fabric.launch()
     fabric.seed_everything(1337 + fabric.global_rank)
 
@@ -48,8 +52,9 @@ def main():
     config = LLaMAConfig.from_name("7B")
     config.block_size = block_size
 
-    with lora(r=lora_r, alpha=lora_alpha, dropout=lora_dropout, enabled=True):
-        model = LLaMA(config)
+    with EmptyInitOnDevice(device=fabric.device, dtype=torch.bfloat16):
+        with lora(r=lora_r, alpha=lora_alpha, dropout=lora_dropout, enabled=True):
+            model = LLaMA(config)
 
     checkpoint = torch.load("checkpoints/lit-llama/7B/state_dict.pth")
     

@@ -3,6 +3,9 @@ Instruction-tuning with LLaMA-Adapter on the Alpaca dataset following the paper
 
 LLaMA-Adapter: Efficient Fine-tuning of Language Models with Zero-init Attention
 https://arxiv.org/abs/2303.16199
+
+Note: If you run into a CUDA error "Expected is_sm80 to be true, but got false", install
+the PyTorch nightly version for a fix (see https://github.com/Lightning-AI/lit-llama/issues/101).
 """
 import os
 import time
@@ -14,6 +17,7 @@ import torch
 from generate import generate
 from lit_llama.adapter import LLaMA, LLaMAConfig, mark_only_adapter_as_trainable, adapter_state_dict
 from lit_llama.tokenizer import Tokenizer
+from lit_llama.utils import EmptyInitOnDevice
 from scripts.prepare_alpaca import generate_prompt
 
 
@@ -37,7 +41,7 @@ warmup_steps = epoch_size * 2 // micro_batch_size  # 2 epochs
 
 
 def main():
-    fabric = L.Fabric(accelerator="cuda", devices=1)
+    fabric = L.Fabric(accelerator="cuda", devices=1, precision="bf16-mixed")
     fabric.launch()
     fabric.seed_everything(1337 + fabric.global_rank)
 
@@ -51,7 +55,7 @@ def main():
 
     checkpoint = torch.load("checkpoints/lit-llama/7B/state_dict.pth")
 
-    with fabric.device:
+    with EmptyInitOnDevice(device=fabric.device, dtype=torch.bfloat16):
         model = LLaMA(config)
         # strict=False because missing keys due to adapter weights not containted in state dict
         model.load_state_dict(checkpoint, strict=False)
