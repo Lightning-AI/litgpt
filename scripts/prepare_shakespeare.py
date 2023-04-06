@@ -22,6 +22,10 @@
 import sys
 from pathlib import Path
 
+# support running without installing as a package
+wd = Path(__file__).parent.parent.resolve()
+sys.path.append(str(wd))
+
 import numpy as np
 import requests
 
@@ -60,10 +64,6 @@ def prepare(destination_path: Path = Path("data/shakespeare")) -> None:
 
 
 if __name__ == "__main__":
-    # support running without installing as a package
-    wd = Path(__file__).parent.parent.resolve()
-    sys.path.append(str(wd))
-
     from jsonargparse import CLI
 
     CLI(prepare)

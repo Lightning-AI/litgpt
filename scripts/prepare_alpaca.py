@@ -2,6 +2,10 @@
 import sys
 from pathlib import Path
 
+# support running without installing as a package
+wd = Path(__file__).parent.parent.resolve()
+sys.path.append(str(wd))
+
 import torch
 import requests
 import json
@@ -120,10 +124,6 @@ def generate_prompt(example):
 
 
 if __name__ == "__main__":
-    # support running without installing as a package
-    wd = Path(__file__).parent.parent.resolve()
-    sys.path.append(str(wd))
-
     from jsonargparse import CLI
 
     CLI(prepare)

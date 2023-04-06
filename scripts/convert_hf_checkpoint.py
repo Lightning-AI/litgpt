@@ -1,5 +1,9 @@
 from pathlib import Path
 
+# support running without installing as a package
+wd = Path(__file__).parent.parent.resolve()
+sys.path.append(str(wd))
+
 from transformers import LlamaForCausalLM
 import torch
 
@@ -82,9 +86,6 @@ def convert_hf_checkpoint(
             out = model(token_sample)
             out_hf = model_hf(token_sample)
 
-        print(out)
-        print(out_hf["logits"])
-        print(torch.linalg.norm(out - out_hf["logits"]))
         assert torch.allclose(out, out_hf["logits"])
 
     torch.save(model.state_dict(), lit_checkpoint)
