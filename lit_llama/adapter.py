@@ -94,7 +94,7 @@ class CausalSelfAttention(nn.Module):
             ak = ak.view(1, aT, self.n_head, head_size).repeat(B, 1, 1, 1).transpose(1, 2)
             av = av.view(1, aT, self.n_head, head_size).repeat(B, 1, 1, 1).transpose(1, 2)
 
-            ascores = torch.matmul(q, ak.transpose(2, 3)) / math.sqrt(self.n_embd)
+            ascores = torch.matmul(q, ak.transpose(2, 3)) / math.sqrt(head_size)
             ascores = self.gating_factor * F.softmax(ascores.float(), dim=-1).type_as(q)
             y = y + torch.matmul(ascores, av)
 
