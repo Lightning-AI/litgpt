@@ -88,15 +88,14 @@ class CausalSelfAttention(nn.Module):
         if self.block_idx >= self.adapter_start_layer:
             prefix = self.adapter_wte.weight.reshape(1, self.adapter_prompt_length, self.n_embd)
 
-            # inefficient attention because we need to insert the gate for the adaption in the middle
             aT = prefix.size(1)
             _, ak, av = self.c_attn(prefix).split(self.n_embd, dim=2)
             ak = ak.view(1, aT, self.n_head, head_size).repeat(B, 1, 1, 1).transpose(1, 2)
             av = av.view(1, aT, self.n_head, head_size).repeat(B, 1, 1, 1).transpose(1, 2)
 
-            ascores = torch.matmul(q, ak.transpose(2, 3)) / math.sqrt(head_size)
-            ascores = self.gating_factor * F.softmax(ascores.float(), dim=-1).type_as(q)
-            y = y + torch.matmul(ascores, av)
+            amask = torch.ones(q.shape[-2], ak.shape[-2], dtype=torch.bool)
+            ay = F.scaled_dot_product_attention(q, ak, av, attn_mask=amask, dropout_p=0.0, is_causal=False)
+            y = y + self.gating_factor * ay
 
         y = y.transpose(1, 2).contiguous().view(B, T, C)  # re-assemble all head outputs side by side
 
