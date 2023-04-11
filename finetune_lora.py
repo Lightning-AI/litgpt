@@ -52,14 +52,15 @@ def main():
     config = LLaMAConfig.from_name("7B")
     config.block_size = block_size
 
-    with EmptyInitOnDevice(device=fabric.device, dtype=torch.bfloat16):
-        with lora(r=lora_r, alpha=lora_alpha, dropout=lora_dropout, enabled=True):
-            model = LLaMA(config)
-
     checkpoint = torch.load("checkpoints/lit-llama/7B/state_dict.pth")
+
+    with fabric.device, lora(r=lora_r, alpha=lora_alpha, dropout=lora_dropout, enabled=True):
+        torch.set_default_tensor_type(torch.HalfTensor)
+        model = LLaMA(config).bfloat16()
+        torch.set_default_tensor_type(torch.FloatTensor)
+        # strict=False because missing keys due to LoRA weights not contained in checkpoint state
+        model.load_state_dict(checkpoint, strict=False) 
     
-    # strict=False because missing keys due to LoRA weights not contained in checkpoint state
-    model.load_state_dict(checkpoint, strict=False) 
     mark_only_lora_as_trainable(model)
 
     optimizer = torch.optim.AdamW(model.parameters(), lr=learning_rate)
