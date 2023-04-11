@@ -92,6 +92,9 @@ def meta_weights_for_nano_model(
     checkpoint_files.sort()
     n_checkpoints = len(checkpoint_files)
 
+    if n_checkpoints == 0:
+        raise RuntimeError(f"No checkpoints were found at ckpt_dir {ckpt_dir}. `consolidated.0*.pth` files expected at that location.")
+
     # for the bigger models, there are multiple model-parallel checkpoints
     # and we combine them into one single file
     combined = None
