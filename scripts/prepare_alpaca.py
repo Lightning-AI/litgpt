@@ -91,19 +91,19 @@ def prepare_sample(example: dict, tokenizer: Tokenizer, max_length: int, mask_in
     """
     full_prompt = generate_prompt(example)
     full_prompt_and_response = full_prompt + example["output"]
-    encoded_full_prompt = tokenize(tokenizer, full_prompt, max_length=max_length)
-    encoded_full_prompt_and_response = tokenize(tokenizer, full_prompt_and_response, max_length=max_length)
+    encoded_full_prompt = tokenize(tokenizer, full_prompt, max_length=max_length, eos=False)
+    encoded_full_prompt_and_response = tokenize(tokenizer, full_prompt_and_response, eos=True, max_length=max_length)
 
     # The labels are the full prompt with response, but with the prompt masked out
     labels = encoded_full_prompt_and_response.clone()
     if mask_inputs:
         labels[:len(encoded_full_prompt)] = IGNORE_INDEX
 
-    return {**example, "input_ids": encoded_full_prompt_and_response, "labels": labels}
+    return {**example, "input_ids": encoded_full_prompt_and_response, "input_ids_no_response": encoded_full_prompt, "labels": labels}
 
 
-def tokenize(tokenizer: Tokenizer, string: str, max_length: int) -> torch.Tensor:
-    return tokenizer.encode(string, bos=True, eos=True, max_length=max_length)
+def tokenize(tokenizer: Tokenizer, string: str, max_length: int, eos=True) -> torch.Tensor:
+    return tokenizer.encode(string, bos=True, eos=eos, max_length=max_length)
 
 
 def generate_prompt(example):

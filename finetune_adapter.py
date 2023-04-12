@@ -4,6 +4,10 @@ Instruction-tuning with LLaMA-Adapter on the Alpaca dataset following the paper
 LLaMA-Adapter: Efficient Fine-tuning of Language Models with Zero-init Attention
 https://arxiv.org/abs/2303.16199
 
+This script uses DeepSpeed Zero-2 to train efficiently on 8 A100 GPUs within 1 hour as done in the original paper.
+If you have fewer GPUs, you can adjust the devices variable to e.g. `devices = 1` and tune the 
+`micro_batch_size` to fit your GPU memory.
+
 Note: If you run into a CUDA error "Expected is_sm80 to be true, but got false", install
 the PyTorch nightly version for a fix (see https://github.com/Lightning-AI/lit-llama/issues/101).
 """
@@ -15,33 +19,46 @@ import numpy as np
 import torch
 
 from generate import generate
-from lit_llama.adapter import LLaMA, LLaMAConfig, mark_only_adapter_as_trainable, adapter_state_dict
+from lit_llama.adapter import LLaMA, LLaMAConfig, mark_only_adapter_as_trainable
 from lit_llama.tokenizer import Tokenizer
-from lit_llama.utils import EmptyInitOnDevice
 from scripts.prepare_alpaca import generate_prompt
+from lightning.fabric.strategies import DeepSpeedStrategy
 
 
-out_dir = "out/adapter/"
-eval_interval = 40
-save_interval = 200
+pretrained_path = "checkpoints/lit-llama/7B/state_dict.pth"
+out_dir = "out/adapter/alpaca"
+eval_interval = 600
+save_interval = 1000
 eval_iters = 100
 log_interval = 1
+devices = 8
 
 # Hyperparameters
 learning_rate = 9e-3
-batch_size = 64
-micro_batch_size = 4
+batch_size = 64 / devices
+micro_batch_size = 8
 gradient_accumulation_steps = batch_size // micro_batch_size
 epoch_size = 50000  # train dataset size
-num_epochs = 100
-max_iters = epoch_size * num_epochs // micro_batch_size  # 5 epochs
+num_epochs = 5
+max_iters = num_epochs * epoch_size // devices
 weight_decay = 0.02
-block_size = 256
-warmup_steps = epoch_size * 2 // micro_batch_size  # 2 epochs
+block_size = 512
+warmup_steps = epoch_size * 2 // micro_batch_size // devices  # 2 epochs
+
+ds_config = {
+    "train_micro_batch_size_per_gpu": micro_batch_size,
+    "gradient_accumulation_steps": gradient_accumulation_steps,
+    "zero_optimization": {"stage": 2},
+}
 
 
 def main():
-    fabric = L.Fabric(accelerator="cuda", devices=1, precision="bf16-mixed")
+    fabric = L.Fabric(
+        accelerator="cuda", 
+        devices=devices, 
+        strategy=(DeepSpeedStrategy(config=ds_config) if devices > 1 else None), 
+        precision="bf16-mixed",
+    )
     fabric.launch()
     fabric.seed_everything(1337 + fabric.global_rank)
 
@@ -53,7 +70,12 @@ def main():
     config = LLaMAConfig()
     config.block_size = block_size
 
-    checkpoint = torch.load("checkpoints/lit-llama/7B/state_dict.pth")
+    if not os.path.isfile(pretrained_path):
+        raise FileNotFoundError(
+            f"Can't find the pretrained weights at {pretrained_path}."
+            " Please follow the instructions in the README to download them."
+        )
+    checkpoint = torch.load(pretrained_path)
 
     with fabric.device:
         torch.set_default_tensor_type(torch.HalfTensor)
@@ -70,6 +92,10 @@ def main():
     optimizer = torch.optim.AdamW(model.parameters(), lr=learning_rate, weight_decay=weight_decay)
     model, optimizer = fabric.setup(model, optimizer)
     train(fabric, model, optimizer, train_data, val_data)
+
+    # Save the final checkpoint at the end of training
+    checkpoint = {"model": model}
+    fabric.save(os.path.join(out_dir, f"alpaca-adapter-finetuned.pt"), checkpoint)
 
 
 def train(
@@ -101,8 +127,6 @@ def train(
         with fabric.no_backward_sync(model, enabled=((iter_num + 1) % gradient_accumulation_steps != 0)):
             fabric.backward(loss / gradient_accumulation_steps)
 
-        # fabric.clip_gradients(model, optimizer, clip_val=1.0)
-
         if (iter_num + 1) % gradient_accumulation_steps == 0:
             optimizer.step()
             optimizer.zero_grad()
@@ -115,12 +139,9 @@ def train(
 
             if step_count % save_interval == 0:
                 print(f"Saving adapter weights to {out_dir}")
-                
-                # only save the adapter weights for smaller checkpoint files
-                checkpoint = adapter_state_dict(model)
                 # TODO: Provide a function/script to merge the adapter weights with pretrained weights
-                if fabric.is_global_zero:
-                    torch.save(checkpoint, os.path.join(out_dir, f"iter-{iter_num:06d}-ckpt.pt"))
+                checkpoint = {"model": model}
+                fabric.save(os.path.join(out_dir, f"iter-{iter_num:06d}-ckpt.pt"), checkpoint)
                 fabric.barrier()
 
         dt = time.time() - t0
@@ -128,9 +149,9 @@ def train(
             fabric.print(f"iter {iter_num}: loss {loss.item():.4f}, time: {dt*1000:.2f}ms")
 
 
-def generate_response(model, instruction):
+def generate_response(model, instruction, input=""):
     tokenizer = Tokenizer("checkpoints/lit-llama/tokenizer.model")
-    sample = {"instruction": instruction, "input": ""}
+    sample = {"instruction": instruction, "input": input}
     prompt = generate_prompt(sample)
     encoded = tokenizer.encode(prompt, bos=True, eos=False)
     encoded = encoded[None, :]  # add batch dimension
@@ -141,6 +162,7 @@ def generate_response(model, instruction):
         idx=encoded,
         max_seq_length=block_size,
         max_new_tokens=100,
+        temperature=0.8,
     )
     output = tokenizer.decode(output[0].cpu())
     return output # output.split("### Response:")[1].strip()
@@ -156,17 +178,16 @@ def validate(fabric: L.Fabric, model: torch.nn.Module, val_data: np.ndarray) -> 
         logits = model(input_ids)
         loss = loss_fn(logits, targets)
         losses[k] = loss.item()
-    out = losses.mean()
+    val_loss = losses.mean()
 
     # produce an example:
     instruction = "Recommend a movie for me to watch during the weekend and explain the reason."
-    
     output = generate_response(model, instruction)
     fabric.print(instruction)
     fabric.print(output)
 
     model.train()
-    return out.item()
+    return val_loss.item()
 
 def loss_fn(logits, targets):
     # shift the targets such that output n predicts token n+1
