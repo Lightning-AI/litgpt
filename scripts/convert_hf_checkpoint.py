@@ -1,3 +1,4 @@
+import sys
 from pathlib import Path
 
 # support running without installing as a package
