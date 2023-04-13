@@ -14,14 +14,13 @@ import torch
 from generate import generate
 from lit_llama.lora import mark_only_lora_as_trainable, lora, lora_state_dict
 from lit_llama.model import LLaMA, LLaMAConfig
-from lit_llama.utils import EmptyInitOnDevice
 from lit_llama.tokenizer import Tokenizer
 from scripts.prepare_alpaca import generate_prompt
 
 
-out_dir = "out/alpaca-lora"
-eval_interval = 20
-save_interval = 20
+out_dir = "out/lora/alpaca"
+eval_interval = 100
+save_interval = 100
 eval_iters = 100
 log_interval = 1
 
@@ -96,8 +95,6 @@ def train(
         loss = loss_fn(logits, targets)
         fabric.backward(loss)
 
-        fabric.clip_gradients(model, optimizer, clip_val=1.0)
-
         if (iter_num + 1) % gradient_accumulation_steps == 0:
             optimizer.step()
             optimizer.zero_grad()
@@ -171,18 +168,18 @@ def loss_fn(logits, targets):
 def get_batch(fabric: L.Fabric, data: list):
     ix = torch.randint(len(data), (micro_batch_size,))
 
-    input_ids = [torch.tensor(data[i]["input_ids"], dtype=torch.int64) for i in ix]
-    labels = [torch.tensor(data[i]["labels"], dtype=torch.int64) for i in ix]
+    input_ids = [data[i]["input_ids"].type(torch.int64) for i in ix]
+    labels = [data[i]["labels"].type(torch.int64) for i in ix]
 
     max_len = max(len(s) for s in input_ids)
 
-    def pad_left(x, pad_id):
-        # pad left based on the longest sequence
+    def pad_right(x, pad_id):
+        # pad right based on the longest sequence
         n = max_len - len(x)
-        return torch.cat((torch.full((n,), pad_id, dtype=x.dtype), x))
+        return torch.cat((x, torch.full((n,), pad_id, dtype=x.dtype)))
 
-    x = torch.stack([pad_left(x, pad_id=0) for x in input_ids])
-    y = torch.stack([pad_left(x, pad_id=-1) for x in labels])
+    x = torch.stack([pad_right(x, pad_id=0) for x in input_ids])
+    y = torch.stack([pad_right(x, pad_id=-1) for x in labels])
     x, y = fabric.to_device((x.pin_memory(), y.pin_memory()))
     return x, y
 
