@@ -1,11 +1,14 @@
 """Utility functions for training and inference."""
 
-import torch
 import functools
-from lightning.fabric.strategies import FSDPStrategy
-from torch.distributed.fsdp import FullyShardedDataParallel as FSDP
-from torch.distributed.fsdp import StateDictType, FullStateDictConfig
+from pathlib import Path
+
+import torch
 import torch.utils._device
+from lightning.fabric.strategies import DeepSpeedStrategy, FSDPStrategy
+from torch.distributed.fsdp import FullStateDictConfig
+from torch.distributed.fsdp import FullyShardedDataParallel as FSDP
+from torch.distributed.fsdp import StateDictType
 
 
 def save_model_checkpoint(fabric, model, file_path):
@@ -13,6 +16,17 @@ def save_model_checkpoint(fabric, model, file_path):
     
     This will be upstreamed to Fabric soon.
     """
+    file_path = Path(file_path)
+
+    if isinstance(fabric.strategy, DeepSpeedStrategy):
+        from deepspeed.utils.zero_to_fp32 import convert_zero_checkpoint_to_fp32_state_dict
+
+        fabric.save(file_path, {"model": model})
+        fabric.barrier()
+        if fabric.global_rank == 0:
+            # Create a consolidated checkpoint with the same name next to the deepspeed checkpoint
+            convert_zero_checkpoint_to_fp32_state_dict(file_path, file_path.with_suffix(".pt"))
+        return
 
     if isinstance(fabric.strategy, FSDPStrategy):
         save_policy = FullStateDictConfig(offload_to_cpu=(fabric.world_size > 1), rank0_only=True)

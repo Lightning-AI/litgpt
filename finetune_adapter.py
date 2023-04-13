@@ -21,6 +21,7 @@ import torch
 from generate import generate
 from lit_llama.adapter import LLaMA, LLaMAConfig, mark_only_adapter_as_trainable
 from lit_llama.tokenizer import Tokenizer
+from lit_llama.utils import save_model_checkpoint
 from scripts.prepare_alpaca import generate_prompt
 from lightning.fabric.strategies import DeepSpeedStrategy
 
@@ -56,7 +57,7 @@ def main():
     fabric = L.Fabric(
         accelerator="cuda", 
         devices=devices, 
-        strategy=(DeepSpeedStrategy(config=ds_config) if devices > 1 else None), 
+        strategy=(DeepSpeedStrategy(config=ds_config) if devices > 1 else "auto"), 
         precision="bf16-mixed",
     )
     fabric.launch()
@@ -94,8 +95,7 @@ def main():
     train(fabric, model, optimizer, train_data, val_data)
 
     # Save the final checkpoint at the end of training
-    checkpoint = {"model": model}
-    fabric.save(os.path.join(out_dir, f"alpaca-adapter-finetuned.pt"), checkpoint)
+    save_model_checkpoint(fabric, model, os.path.join(out_dir, "alpaca-adapter-finetuned.ckpt"))
 
 
 def train(
@@ -140,9 +140,7 @@ def train(
             if step_count % save_interval == 0:
                 print(f"Saving adapter weights to {out_dir}")
                 # TODO: Provide a function/script to merge the adapter weights with pretrained weights
-                checkpoint = {"model": model}
-                fabric.save(os.path.join(out_dir, f"iter-{iter_num:06d}-ckpt.pt"), checkpoint)
-                fabric.barrier()
+                save_model_checkpoint(fabric, model, os.path.join(out_dir, f"iter-{iter_num:06d}.ckpt"))
 
         dt = time.time() - t0
         if iter_num % log_interval == 0:
