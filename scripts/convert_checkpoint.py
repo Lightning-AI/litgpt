@@ -72,17 +72,16 @@ def meta_weights_for_nano_model(
     ckpt_dir: Path = Path("checkpoints/llama/"),
     tokenizer_path: Path = Path("checkpoints/llama/tokenizer.model"),
     model_size: str = "7B",
-    dtype: str = None,
+    dtype: str = "float32",
 ) -> None:
     output_dir = output_dir / model_size
     ckpt_dir = ckpt_dir / model_size
     os.makedirs(output_dir, exist_ok=True)
 
-    if dtype is not None:
-        dt = getattr(torch, dtype, None)
-        if not isinstance(dt, torch.dtype):
-            raise ValueError(f"{dtype} is not a valid dtype.")
-        dtype = dt
+    dt = getattr(torch, dtype, None)
+    if not isinstance(dt, torch.dtype):
+        raise ValueError(f"{dtype} is not a valid dtype.")
+    dtype = dt
 
     # the tokenizer is the same for all model sizes, so we store it in the parent dir
     if "tokenizer.model" not in os.listdir(output_dir.parent):
