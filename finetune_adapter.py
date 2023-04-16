@@ -26,7 +26,7 @@ from scripts.prepare_alpaca import generate_prompt
 from lightning.fabric.strategies import DeepSpeedStrategy
 
 
-pretrained_path = "checkpoints/lit-llama/7B/state_dict.pth"
+pretrained_path = "checkpoints/lit-llama/7B/lit-llama.pth"
 out_dir = "out/adapter/alpaca"
 eval_interval = 600
 save_interval = 1000
@@ -95,7 +95,7 @@ def main():
     train(fabric, model, optimizer, train_data, val_data)
 
     # Save the final checkpoint at the end of training
-    save_model_checkpoint(fabric, model, os.path.join(out_dir, "alpaca-adapter-finetuned.ckpt"))
+    save_model_checkpoint(fabric, model, os.path.join(out_dir, "alpaca-adapter-finetuned.pth"))
 
 
 def train(
@@ -140,7 +140,7 @@ def train(
             if step_count % save_interval == 0:
                 print(f"Saving adapter weights to {out_dir}")
                 # TODO: Provide a function/script to merge the adapter weights with pretrained weights
-                save_model_checkpoint(fabric, model, os.path.join(out_dir, f"iter-{iter_num:06d}.ckpt"))
+                save_model_checkpoint(fabric, model, os.path.join(out_dir, f"iter-{iter_num:06d}.pth"))
 
         dt = time.time() - t0
         if iter_num % log_interval == 0:

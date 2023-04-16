@@ -25,7 +25,7 @@ def save_model_checkpoint(fabric, model, file_path):
         fabric.barrier()
         if fabric.global_rank == 0:
             # Create a consolidated checkpoint with the same name next to the deepspeed checkpoint
-            convert_zero_checkpoint_to_fp32_state_dict(file_path, file_path.with_suffix(".pt"))
+            convert_zero_checkpoint_to_fp32_state_dict(file_path, file_path.with_suffix(".pth"))
         return
 
     if isinstance(fabric.strategy, FSDPStrategy):
@@ -54,7 +54,7 @@ class EmptyInitOnDevice(torch.overrides.TorchFunctionMode):
         Example::
             with EmptyInitOnDevice("cuda", dtype=torch.bfloat16):
                model = LLaMA.from_name('7B')
-            model.load_state_dict(torch.load('llama-lit/7B/state_dict.pth'))"""
+            model.load_state_dict(torch.load('llama-lit/7B/lit-llama.pth'))"""
 
         self.quantization_mode = quantization_mode
         self.quantized_linear_cls = None

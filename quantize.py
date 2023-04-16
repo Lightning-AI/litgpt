@@ -163,7 +163,7 @@ def main(
             Note that ``"llm.int8"```does not need a quantization step.
     """
     if not checkpoint_path:
-        checkpoint_path = Path(f"./checkpoints/lit-llama/{model_size}/state_dict.pth")
+        checkpoint_path = Path(f"./checkpoints/lit-llama/{model_size}/lit-llama.pth")
     if not tokenizer_path:
         tokenizer_path = Path("./checkpoints/lit-llama/tokenizer.model")
     assert checkpoint_path.is_file()

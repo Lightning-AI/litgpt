@@ -51,7 +51,7 @@ def main():
     config = LLaMAConfig.from_name("7B")
     config.block_size = block_size
 
-    checkpoint = torch.load("checkpoints/lit-llama/7B/state_dict.pth")
+    checkpoint = torch.load("checkpoints/lit-llama/7B/lit-llama.pth")
 
     with fabric.device, lora(r=lora_r, alpha=lora_alpha, dropout=lora_dropout, enabled=True):
         torch.set_default_tensor_type(torch.HalfTensor)
@@ -110,7 +110,7 @@ def train(
                 # We are only saving the LoRA weights
                 # TODO: Provide a function/script to merge the LoRA weights with pretrained weights
                 checkpoint = lora_state_dict(model)
-                fabric.save(os.path.join(out_dir, f"iter-{iter_num:06d}-ckpt.pt"), checkpoint)
+                fabric.save(os.path.join(out_dir, f"iter-{iter_num:06d}-ckpt.pth"), checkpoint)
 
         dt = time.time() - t0
         if iter_num % log_interval == 0:

@@ -138,7 +138,7 @@ def meta_weights_for_nano_model(
         del attn
         gc.collect()
 
-    torch.save(combined, Path(output_dir, "state_dict.pth"))
+    torch.save(combined, Path(output_dir, "lit-llama.pth"))
 
 
 if __name__ == "__main__":

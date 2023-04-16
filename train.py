@@ -93,7 +93,7 @@ def train(
             val_loss = validate(fabric, model, val_data)
             fabric.print(f"step {iter_num}: val loss {val_loss:.4f}")
             fabric.print(f"Saving checkpoint to {out_dir}")
-            save_model_checkpoint(fabric, model, os.path.join(out_dir, f"iter-{iter_num:06d}-ckpt.pt"))
+            save_model_checkpoint(fabric, model, os.path.join(out_dir, f"iter-{iter_num:06d}-ckpt.pth"))
 
         t0 = time.time()
 

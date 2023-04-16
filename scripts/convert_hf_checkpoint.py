@@ -14,7 +14,7 @@ from lit_llama.model import LLaMA, LLaMAConfig
 def convert_hf_checkpoint(
     model_size: str = "7B",
     hf_checkpoint_path: Path = Path("checkpoints/llama-7b-hf"),
-    lit_checkpoint: Path = Path("checkpoints/lit-llama.ckpt"),
+    lit_checkpoint: Path = Path("checkpoints/lit-llama.pth"),
     verify: bool = False,
 ) -> None:
     """
