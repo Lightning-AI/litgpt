@@ -13,15 +13,16 @@ Note: If you run into a CUDA error "Expected is_sm80 to be true, but got false",
 """
 import os
 import time
+from pathlib import Path
+import shutil
 
 import lightning as L
 import numpy as np
 import torch
 
 from generate import generate
-from lit_llama.adapter import LLaMA, LLaMAConfig, mark_only_adapter_as_trainable
+from lit_llama.adapter import LLaMA, LLaMAConfig, mark_only_adapter_as_trainable, adapter_state_from_state_dict
 from lit_llama.tokenizer import Tokenizer
-from lit_llama.utils import save_model_checkpoint
 from scripts.prepare_alpaca import generate_prompt
 from lightning.fabric.strategies import DeepSpeedStrategy
 
@@ -218,6 +219,29 @@ def load_datasets(data_dir: str = "data/alpaca"):
     train_data = torch.load(os.path.join(data_dir, "train.pt"))
     val_data = torch.load(os.path.join(data_dir, "test.pt"))
     return train_data, val_data
+
+
+def save_model_checkpoint(fabric, model, file_path):
+    file_path = Path(file_path)
+
+    if isinstance(fabric.strategy, DeepSpeedStrategy):
+        from deepspeed.utils.zero_to_fp32 import get_fp32_state_dict_from_zero_checkpoint
+
+        tmp_path = file_path.with_suffix(".tmp")
+        fabric.save(tmp_path, {"model": model})
+        fabric.barrier()
+        if fabric.global_rank == 0:
+            # Create a consolidated checkpoint with the same name next to the deepspeed checkpoint
+            # and only keep the adapter weights
+            state_dict = get_fp32_state_dict_from_zero_checkpoint(tmp_path)
+            state_dict = adapter_state_from_state_dict(state_dict)
+            torch.save(state_dict, file_path)
+            shutil.rmtree(tmp_path)
+    else:
+        state_dict = adapter_state_from_state_dict(model.state_dict())
+        if fabric.global_rank == 0:
+            torch.save(state_dict, file_path)
+        fabric.barrier()
 
 
 if __name__ == "__main__":

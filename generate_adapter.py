@@ -68,12 +68,13 @@ def main(
         model = LLaMA(LLaMAConfig())  # TODO: Support different model sizes
 
         # 1. Load the pretrained weights
-        pretrained_checkpoint = torch.load(pretrained_path)
+        pretrained_checkpoint = torch.load(pretrained_path, map_location=torch.device("cpu"))
         model.load_state_dict(pretrained_checkpoint, strict=False)
+        
         # 2. Load the fine-tuned adapter weights
-        adapter_checkpoint = torch.load(adapter_path, map_location=torch.device("cpu"))
-
+        adapter_checkpoint = torch.load(adapter_path)
         model.load_state_dict(adapter_checkpoint, strict=False)
+        
         print(f"Time to load model: {time.time() - t0:.02f} seconds.", file=sys.stderr)
 
     model.eval()

@@ -13,6 +13,10 @@ warnings.filterwarnings(
 )
 warnings.filterwarnings(
     "ignore", 
+    message="MatMul8bitLt: inputs will be cast from torch.bfloat16 to float16 during quantization"
+)
+warnings.filterwarnings(
+    "ignore", 
     message="The installed version of bitsandbytes was compiled without GPU support. 8-bit optimizers and GPU quantization are unavailable."
 )
 
@@ -37,7 +41,9 @@ if bnb is not None:
 
         def _load_from_state_dict(self, local_state_dict, *args, **kwargs):
             # There is only one key that ends with `*.weight`, the other one is the bias
-            weight_key = next(name for name in local_state_dict.keys() if name.endswith("weight"))
+            weight_key = next((name for name in local_state_dict.keys() if name.endswith("weight")), None)
+            if weight_key is None:
+                return
 
             # Load the weight from the state dict and re-quantize it
             weight = local_state_dict.pop(weight_key)
