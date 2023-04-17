@@ -26,6 +26,7 @@ def prepare(
     max_seq_length: int = 256,
     seed: int = 42,
     mask_inputs: bool = False,  # as in alpaca-lora
+    data_file_name: str = DATA_FILE_NAME
 ) -> None:
     """Prepare the Alpaca dataset for instruction tuning.
     
@@ -34,7 +35,7 @@ def prepare(
     """
     
     destination_path.mkdir(parents=True, exist_ok=True)
-    file_path = destination_path / DATA_FILE_NAME
+    file_path = destination_path / data_file_name
     download(file_path)
 
     # TODO: If we don't have the Meta weights, where do we get the tokenizer from?
