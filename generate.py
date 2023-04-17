@@ -71,13 +71,9 @@ def main(
     max_new_tokens: int = 50,
     top_k: int = 200,
     temperature: float = 0.8,
-    # compilation fails as it does not support torch.complex64 for RoPE
-    # compile: bool = False,
-    accelerator: str = "auto",
     checkpoint_path: Optional[Path] = None,
     tokenizer_path: Optional[Path] = None,
     model_size: str = "7B",
-    dtype: str = "float32",
     quantize: Optional[str] = None,
 ) -> None:
     """Generates text samples based on a pre-trained LLaMA model and tokenizer.
@@ -89,12 +85,8 @@ def main(
         top_k: The number of top most probable tokens to consider in the sampling process.
         temperature: A value controlling the randomness of the sampling process. Higher values result in more random
             samples.
-        # compile: Whether to compile the model.
-        accelerator: The hardware to run on. Possible choices are:
-            ``"cpu"``, ``"cuda"``, ``"mps"``, ``"gpu"``, ``"tpu"``, ``"auto"``.
         checkpoint_path: The checkpoint path to load.
         tokenizer_path: The tokenizer path to load.
-        dtype: The dtype to use during generation.
         quantize: Whether to quantize the model and using which method:
             ``"llm.int8"``: LLM.int8() mode,
             ``"gptq.int4"``: GPTQ 4-bit mode.
@@ -106,12 +98,8 @@ def main(
     assert checkpoint_path.is_file()
     assert tokenizer_path.is_file()
 
-    fabric = L.Fabric(accelerator=accelerator, devices=1)
-
-    dt = getattr(torch, dtype, None)
-    if not isinstance(dt, torch.dtype):
-        raise ValueError(f"{dtype} is not a valid dtype.")
-    dtype = dt
+    fabric = L.Fabric(accelerator="cuda", devices=1)
+    dtype = torch.bfloat16 if torch.cuda.is_bf16_supported() else torch.float32
 
     with EmptyInitOnDevice(
         device=fabric.device, dtype=dtype, quantization_mode=quantize
@@ -124,10 +112,6 @@ def main(
         print(f"Time to load model: {time.time() - t0:.02f} seconds.", file=sys.stderr)
 
     model.eval()
-
-    # if compile:
-    #     model = torch.compile(model)
-
     model = fabric.setup_module(model)
 
     tokenizer = Tokenizer(tokenizer_path)
@@ -161,5 +145,10 @@ if __name__ == "__main__":
         # Triggered internally at ../aten/src/ATen/EmptyTensor.cpp:31
         "ignore", 
         message="ComplexHalf support is experimental and many operators don't support it yet"
+    )
+    warnings.filterwarnings(
+        # Triggered in bitsandbytes/autograd/_functions.py:298
+        "ignore", 
+        message="MatMul8bitLt: inputs will be cast from torch.bfloat16 to float16 during quantization",
     )
     CLI(main)

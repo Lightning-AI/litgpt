@@ -51,6 +51,7 @@ def test_generate(B):
     torch.testing.assert_close(out, expected)
 
 
+@mock.patch("torch.cuda.is_bf16_supported", return_value=False)
 def test_main(tmp_path, monkeypatch):
     generate = load_generate_script()
 
