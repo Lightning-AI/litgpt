@@ -8,8 +8,8 @@ import lightning as L
 import torch
 
 from generate import generate
-from lit_llama import Tokenizer
-from lit_llama.lora import lora, LLaMA, LLaMAConfig
+from lit_llama import Tokenizer, LLaMA, LLaMAConfig
+from lit_llama.lora import lora
 from lit_llama.utils import EmptyInitOnDevice
 from scripts.prepare_alpaca import generate_prompt
 
