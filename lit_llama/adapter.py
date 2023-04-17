@@ -69,7 +69,7 @@ class CausalSelfAttention(nn.Module):
             self.rope_cache = build_rope_cache(
                 seq_len=self.block_size,
                 n_elem=self.n_embd // self.n_head, 
-                dtype=self.c_attn.weight.dtype,
+                dtype=x.dtype,
                 device=x.device,
             )
 
