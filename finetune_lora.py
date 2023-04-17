@@ -15,6 +15,7 @@ from generate import generate
 from lit_llama.lora import mark_only_lora_as_trainable, lora, lora_state_dict
 from lit_llama.model import LLaMA, LLaMAConfig
 from lit_llama.tokenizer import Tokenizer
+from lit_llama.utils import save_model_checkpoint
 from scripts.prepare_alpaca import generate_prompt
 
 
@@ -65,6 +66,10 @@ def main():
     optimizer = torch.optim.AdamW(model.parameters(), lr=learning_rate)
     model, optimizer = fabric.setup(model, optimizer)
     train(fabric, model, optimizer, train_data, val_data)
+
+    # Save the final LoRA checkpoint at the end of training
+    checkpoint = lora_state_dict(model)
+    fabric.save(os.path.join(out_dir, "lit-llama-lora-finetuned.pth"), checkpoint)
 
 
 def train(

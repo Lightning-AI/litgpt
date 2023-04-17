@@ -95,7 +95,7 @@ def main():
     train(fabric, model, optimizer, train_data, val_data)
 
     # Save the final checkpoint at the end of training
-    save_model_checkpoint(fabric, model, os.path.join(out_dir, "alpaca-adapter-finetuned.pth"))
+    save_model_checkpoint(fabric, model, os.path.join(out_dir, "lit-llama-adapter-finetuned.pth"))
 
 
 def train(

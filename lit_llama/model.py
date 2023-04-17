@@ -206,13 +206,12 @@ def build_rope_cache(seq_len: int, n_elem: int, dtype: torch.dtype, device: torc
 
     # Compute cache. Because polar only takes float32 or float64, we need to cast
     # when working with 16 bit floats (float16 or bfloat16)
+    dtypes_requiring_casting = [torch.float16, torch.bfloat16, torch.int8]
     working_dtype = (
-        torch.float32 if (dtype == torch.float16 or dtype == torch.bfloat16) else dtype
+        torch.float32 if dtype in dtypes_requiring_casting else dtype
     )
     complex_dtype = (
-        torch.complex32
-        if (dtype == torch.float16 or dtype == torch.bfloat16)
-        else torch.complex64
+        torch.complex32 if dtype in dtypes_requiring_casting else torch.complex64
     )
     cache = torch.polar(
         torch.ones_like(idx_theta).to(working_dtype), idx_theta.to(working_dtype)
