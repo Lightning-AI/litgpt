@@ -4,9 +4,9 @@ Instruction-tuning with LLaMA-Adapter on the Alpaca dataset following the paper
 LLaMA-Adapter: Efficient Fine-tuning of Language Models with Zero-init Attention
 https://arxiv.org/abs/2303.16199
 
-This script uses DeepSpeed Zero-2 to train efficiently on 8 A100 GPUs within 1 hour as done in the original paper.
-If you have fewer GPUs, you can adjust the devices variable to e.g. `devices = 1` and tune the 
-`micro_batch_size` to fit your GPU memory.
+This script runs on a single GPU by default. You can adjust the `micro_batch_size` to fit your GPU memory.
+You can finetune within 1 hour as done in the original paper using DeepSpeed Zero-2 on 8 A100 GPUs by setting the
+devices variable to `devices = 8` and `micro_batch_size = 8` (or higher).
 
 Note: If you run into a CUDA error "Expected is_sm80 to be true, but got false", uncomment the line
 `torch.backends.cuda.enable_flash_sdp(False)` in the script below (see https://github.com/Lightning-AI/lit-llama/issues/101).
@@ -27,18 +27,16 @@ from scripts.prepare_alpaca import generate_prompt
 from lightning.fabric.strategies import DeepSpeedStrategy
 
 
-pretrained_path = "checkpoints/lit-llama/7B/lit-llama.pth"
-out_dir = "out/adapter/alpaca"
 eval_interval = 600
 save_interval = 1000
 eval_iters = 100
 log_interval = 1
-devices = 8
+devices = 1
 
 # Hyperparameters
 learning_rate = 9e-3
 batch_size = 64 / devices
-micro_batch_size = 8
+micro_batch_size = 4
 gradient_accumulation_steps = batch_size // micro_batch_size
 epoch_size = 50000  # train dataset size
 num_epochs = 5
@@ -54,7 +52,12 @@ ds_config = {
 }
 
 
-def main():
+def main(
+    data_dir: str = "data/alpaca", 
+    pretrained_path: str = "checkpoints/lit-llama/7B/lit-llama.pth",
+    out_dir: str = "out/adapter/alpaca",
+):
+
     fabric = L.Fabric(
         accelerator="cuda", 
         devices=devices, 
@@ -67,7 +70,7 @@ def main():
     if fabric.global_rank == 0:
         os.makedirs(out_dir, exist_ok=True)
 
-    train_data, val_data = load_datasets()
+    train_data, val_data = load_datasets(data_dir=data_dir)
 
     config = LLaMAConfig()
     config.block_size = block_size
@@ -93,7 +96,7 @@ def main():
 
     optimizer = torch.optim.AdamW(model.parameters(), lr=learning_rate, weight_decay=weight_decay)
     model, optimizer = fabric.setup(model, optimizer)
-    train(fabric, model, optimizer, train_data, val_data)
+    train(fabric, model, optimizer, train_data, val_data, out_dir)
 
     # Save the final checkpoint at the end of training
     save_model_checkpoint(fabric, model, os.path.join(out_dir, "lit-llama-adapter-finetuned.pth"))
@@ -105,6 +108,7 @@ def train(
     optimizer: torch.optim.Optimizer,
     train_data: np.ndarray,
     val_data: np.ndarray,
+    out_dir: str,
 ) -> None:
     """The training loop.
 
@@ -215,7 +219,7 @@ def get_batch(fabric: L.Fabric, data: list):
     return x, y
 
 
-def load_datasets(data_dir: str = "data/alpaca"):
+def load_datasets(data_dir):
     train_data = torch.load(os.path.join(data_dir, "train.pt"))
     val_data = torch.load(os.path.join(data_dir, "test.pt"))
     return train_data, val_data
@@ -248,4 +252,7 @@ if __name__ == "__main__":
     # Uncomment this line if you see an error: "Expected is_sm80 to be true, but got false"
     # torch.backends.cuda.enable_flash_sdp(False)
     torch.set_float32_matmul_precision("high")
-    main()
+
+    from jsonargparse.cli import CLI
+
+    CLI(main)

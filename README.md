@@ -102,10 +102,12 @@ python generate.py --prompt "Hello, my name is"
 
 This will run the 7B model and require ~26 GB of GPU memory (A100 GPU).
 
+[Full guide for generating samples from the model](howto/inference.md).
+
 ### Run Lit-LLaMA on consumer devices
 
-For GPUs with less memory, enable quantization (`--quantize llm.int8`) or use bfloat16 (`--dtype bfloat16`). Quantization will take longer to load but require ~8GB of memory. bfloat16 is closer to the "full deal" and runs on ~10GB of GPU memory.
-This can run on any consumer GPU.
+On GPUs with `bfloat16` support, the `generate.py` script will automatically convert the weights and consume about ~14 GB.
+For GPUs with less memory, or ones that don't support `bfloat16`, enable quantization (`--quantize llm.int8`):
 
 ```bash
 python generate.py --quantize llm.int8 --prompt "Hello, my name is"
@@ -121,7 +123,7 @@ python quantize.py --checkpoint_path lit-llama.pth --tokenizer_path tokenizer.mo
 
 With the generated quantized checkpoint generation works as usual with `--quantize gptq.int4`, bringing GPU usage to about ~5GB. As only the weights of the Linear layers are quantized, it is useful to use `--dtype bfloat16` even with the quantization enabled.
 
-&nbsp;
+[Full guide for generating samples from the model](howto/inference.md).
 
 ## Finetune the model
 
@@ -146,6 +148,11 @@ We provide a simple training scripts in `finetune_lora.py` and `finetune_adapter
 It is expected that you have downloaded the pretrained weights as described above.
 The finetuning requires at least one GPU with ~24 GB memory (GTX 3090). Follow the instructions in the script to efficiently fit your GPU memory.
 Note: For some GPU models you might need to set `torch.backends.cuda.enable_flash_sdp(False)` (see comments at the top of the script).
+
+More details about each finetuning method and how you can apply it to your own data can be found in our how-to guides:
+
+- [Finetune with LoRA](howto/finetune_lora.md)
+- [Finetune with Adapters](howto/finetune_adapter.md)
 
 ## Get involved!
 
