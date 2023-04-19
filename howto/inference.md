@@ -15,7 +15,8 @@ The script assumes you have downloaded and converted the weights and saved them 
 ```bash
 python generate.py --prompt "Hello, my name is" \
     --checkpoint_path ./checkpoints/lit-llama/7B/state_dict.pth \
-    --tokenizer_path ./checkpoints/lit-llama/tokenizer.model
+    --tokenizer_path ./checkpoints/lit-llama/tokenizer.model \
+    --model_size 7B
 ```
 
 With the default settings, this will run the 7B model and require ~26 GB of GPU memory (A100 GPU).

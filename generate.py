@@ -102,8 +102,8 @@ def main(
         checkpoint_path = Path(f"./checkpoints/lit-llama/{model_size}/lit-llama.pth")
     if not tokenizer_path:
         tokenizer_path = Path("./checkpoints/lit-llama/tokenizer.model")
-    assert checkpoint_path.is_file()
-    assert tokenizer_path.is_file()
+    assert checkpoint_path.is_file(), checkpoint_path
+    assert tokenizer_path.is_file(), tokenizer_path
 
     fabric = L.Fabric(accelerator="cuda", devices=1)
     dtype = torch.bfloat16 if torch.cuda.is_bf16_supported() else torch.float32

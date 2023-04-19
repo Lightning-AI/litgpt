@@ -68,36 +68,12 @@ You are all set! 🎉
 
 ## Use the model
 
-To generate text predictions, download the model weights following the instructions on the official [LLaMA repository](https://github.com/facebookresearch/llama).
-
-Once downloaded, you should have a folder like this:
-
-```text
-checkpoints/llama
-├── 7B
-│   ├── checklist.chk
-│   ├── consolidated.00.pth
-│   └── params.json
-├── 13B
-│   ...
-├── tokenizer_checklist.chk
-└── tokenizer.model
-```
-
-Convert the weights to the Lit-LLaMA format:
-
-```bash
-python scripts/convert_checkpoint.py \
-    --output_dir checkpoints/lit-llama \
-    --ckpt_dir checkpoints/llama \
-    --tokenizer_path checkpoints/llama/tokenizer.model \
-    --model_size 7B
-```
+To generate text predictions, you need to download the model weights. **If you don't have them, check out our [guide](howto/download_weights.md).**
 
 Run inference:
 
 ```bash
-python generate.py --prompt "Hello, my name is"
+python generate.py --prompt "Hello, my name is" --model_size 7B
 ```
 
 This will run the 7B model and require ~26 GB of GPU memory (A100 GPU).

@@ -1,5 +1,4 @@
 import gc
-import os
 import shutil
 from pathlib import Path
 from typing import Dict
@@ -68,22 +67,20 @@ def meta_weights_for_nano_model(
     *,
     output_dir: Path = Path("checkpoints/lit-llama"),
     ckpt_dir: Path = Path("checkpoints/llama/"),
-    tokenizer_path: Path = Path("checkpoints/llama/tokenizer.model"),
     model_size: str = "7B",
     dtype: str = "float32",
 ) -> None:
     output_dir = output_dir / model_size
     ckpt_dir = ckpt_dir / model_size
-    os.makedirs(output_dir, exist_ok=True)
+    output_dir.mkdir(parents=True, exist_ok=True)
+
+    # the tokenizer is the same for all model sizes, so we store it in the parent dir
+    shutil.copy(ckpt_dir / "tokenizer.model", output_dir.parent)
 
     dt = getattr(torch, dtype, None)
     if not isinstance(dt, torch.dtype):
         raise ValueError(f"{dtype} is not a valid dtype.")
     dtype = dt
-
-    # the tokenizer is the same for all model sizes, so we store it in the parent dir
-    if "tokenizer.model" not in os.listdir(output_dir.parent):
-        shutil.copy(tokenizer_path, output_dir.parent)
 
     checkpoint_files = sorted(ckpt_dir.glob("*.pth"))
     checkpoint_files.sort()
@@ -135,7 +132,7 @@ def meta_weights_for_nano_model(
         del attn
         gc.collect()
 
-    torch.save(combined, Path(output_dir, "lit-llama.pth"))
+    torch.save(combined, output_dir / "lit-llama.pth")
 
 
 if __name__ == "__main__":

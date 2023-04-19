@@ -1,30 +1,37 @@
 import gc
-import os
 import json
-from pathlib import Path
+import shutil
 import sys
-from typing import Optional
+from pathlib import Path
+
+import torch
 
 # support running without installing as a package
 wd = Path(__file__).parent.parent.resolve()
 sys.path.append(str(wd))
 
-import torch
 from lit_llama.model import LLaMA, LLaMAConfig
 from lit_llama.utils import EmptyInitOnDevice
 
 
 @torch.no_grad()
 def convert_hf_checkpoint(
+    *,
+    output_dir: Path = Path("checkpoints/lit-llama"),
+    ckpt_dir: Path = Path("checkpoints/hf-llama/"),
     model_size: str = "7B",
-    hf_checkpoint_path: Path = Path("checkpoints/llama-7b-hf"),
-    lit_checkpoint: Path = Path("checkpoints/lit-llama.pth"),
     dtype: str = "float32",
     verify: bool = False,
 ) -> None:
     """
     Perform the reverse operation of: https://github.com/huggingface/transformers/blob/main/src/transformers/models/llama/convert_llama_weights_to_hf.py
     """
+    output_dir = output_dir / model_size
+    ckpt_dir = ckpt_dir / model_size
+    output_dir.mkdir(parents=True, exist_ok=True)
+
+    # the tokenizer is the same for all model sizes, so we store it in the parent dir
+    shutil.copy(ckpt_dir / "tokenizer.model", output_dir.parent)
 
     dt = getattr(torch, dtype, None)
     if not isinstance(dt, torch.dtype):
@@ -37,14 +44,13 @@ def convert_hf_checkpoint(
     with EmptyInitOnDevice(device="cpu", dtype=dtype):
         model = LLaMA(config)
 
-    sd = model.state_dict()
     qkv_size = model.transformer.h[0].attn.c_attn.weight.shape[0] // 3
 
     # initialize a new empty state dict to hold our new weights
     sd = model.state_dict()
 
     # Load the json file containing weight mapping
-    pytorch_bin_map_json_path = os.path.join(hf_checkpoint_path, "pytorch_model.bin.index.json")
+    pytorch_bin_map_json_path = ckpt_dir / "pytorch_model.bin.index.json"
     with open(pytorch_bin_map_json_path) as json_map:
         bin_index = json.load(json_map)
 
@@ -76,7 +82,7 @@ def convert_hf_checkpoint(
     for bin_file in bin_files:
         print("Processing", bin_file)
 
-        hf_weights = torch.load(os.path.join(hf_checkpoint_path, bin_file), map_location="cpu")
+        hf_weights = torch.load(ckpt_dir / bin_file, map_location="cpu")
 
         for name, param in hf_weights.items():
             param = param.to(dtype=dtype)
@@ -101,29 +107,24 @@ def convert_hf_checkpoint(
         del hf_weights
         gc.collect()
 
-    print(f"Saving to disk at {lit_checkpoint}")
-    torch.save(model.state_dict(), lit_checkpoint)
+    print(f"Saving to disk at {output_dir}")
+    torch.save(model.state_dict(), output_dir / "lit-llama.pth")
 
     if verify:
+        try:
+            from transformers import LlamaForCausalLM
+        except ImportError:
+            raise ImportError("verify=True requires transformers to be installed, please `pip install transformers`")
+
         print("Verifying...")
-
-        token_sample = torch.randint(
-            0, config.vocab_size, size=(1, config.block_size), dtype=torch.int64
-        )
-
+        token_sample = torch.randint(0, config.vocab_size, size=(1, config.block_size), dtype=torch.int64)
         out = model(token_sample)
 
         del model
         gc.collect()
 
         print("Loading original model for comparison.")
-
-        try:
-            from transformers import LlamaForCausalLM
-        except ImportError as e:
-            print("verify=True requires transformers to be installed, please `pip install transformers`")
-
-        model_hf = LlamaForCausalLM.from_pretrained(hf_checkpoint_path)
+        model_hf = LlamaForCausalLM.from_pretrained(ckpt_dir)
 
         out_hf = model_hf(token_sample)
 

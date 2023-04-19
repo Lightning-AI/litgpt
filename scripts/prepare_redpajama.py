@@ -1,6 +1,5 @@
 import json
 import glob
-from multiprocessing import Pool
 import os
 from pathlib import Path
 import sys
