@@ -187,8 +187,9 @@ def main(
     else:
         raise RuntimeError(f"unknown/unsupported quantization mode {quantize}")
 
+    # we avoid loading the entire model on the GPU and do this block by block
     with EmptyInitOnDevice(
-        device=device,
+        device="cpu",
         dtype=dtype,
     ):
         print("Loading model ...", file=sys.stderr)
