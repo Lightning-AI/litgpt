@@ -24,9 +24,7 @@ def convert_state_dict(state_dict: Dict[str, torch.Tensor], dtype: torch.dtype =
     converted["lm_head.weight"] = state_dict["output.weight"].to(dtype)
     converted["transformer.ln_f.scale"] = state_dict["norm.weight"].to(dtype)
 
-    for key in [k for k in state_dict if k.startswith("layers")]:
-        layer_idx = key.split(".")[1]
-
+    for layer_idx in sorted(set([k.split(".")[1] for k in state_dict if k.startswith("layers")])):
         # attention
         # the wq, wk, wv from the FB model are stacked in our model as c_attn
         converted[f"transformer.h.{layer_idx}.attn.c_attn.weight"] = torch.cat(
