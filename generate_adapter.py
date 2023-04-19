@@ -93,9 +93,9 @@ def main(
         max_new_tokens=max_new_tokens,
         temperature=temperature,
         top_k=top_k,
+        eos_id=tokenizer.eos_id
     )
-    # The end of the response is where the model generates the EOS token
-    output = truncate_output_to_eos(output, tokenizer.eos_id)
+
     output = tokenizer.decode(output)
     output = output.split("### Response:")[1].strip()
 
@@ -105,16 +105,6 @@ def main(
     print(f"\n\nTime for inference: {t:.02f} sec total, {max_new_tokens / t:.02f} tokens/sec", file=sys.stderr)
     print(f"Memory used: {torch.cuda.max_memory_reserved() / 1e9:.02f} GB", file=sys.stderr)
 
-
-def truncate_output_to_eos(output, eos_id):
-    # TODO: Make this more efficient, terminate generation early
-    try:
-        eos_pos = output.tolist().index(eos_id)
-    except ValueError:
-        eos_pos = -1
-
-    output = output[:eos_pos]
-    return output
 
 
 if __name__ == "__main__":

@@ -19,6 +19,7 @@ def generate(
     max_seq_length: int,
     temperature: float = 1.0,
     top_k: Optional[int] = None,
+    eos_id: Optional[int] = None,
 ) -> torch.Tensor:
     """Takes a conditioning sequence (prompt) as input and continues to generate as many tokens as requested.
 
@@ -31,6 +32,7 @@ def generate(
         max_seq_length: The maximum sequence length allowed.
         temperature: Scales the predicted logits by 1 / temperature
         top_k: If specified, only sample among the tokens with the k highest probabilities
+        eos_id: If specified, stop generating any more token once the <eos> token is triggered
     """
     # create an empty tensor of the expected final shape and fill in the current tokens
     T = idx.size(0)
@@ -60,6 +62,10 @@ def generate(
 
         # concatenate the new generation
         idx[t] = idx_next
+
+        # if <eos> token is triggered, return the output (stop generation)
+        if idx_next == eos_id:
+            return idx[:t + 1]  # include the EOS token
 
     return idx
 
