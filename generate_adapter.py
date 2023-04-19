@@ -68,7 +68,7 @@ def main(
         model = LLaMA(LLaMAConfig())  # TODO: Support different model sizes
 
     # 1. Load the pretrained weights
-    pretrained_checkpoint = lazy_load(pretrained_path, map_location=torch.device("cpu"))
+    pretrained_checkpoint = lazy_load(pretrained_path)
     model.load_state_dict(pretrained_checkpoint, strict=False)
         
     # 2. Load the fine-tuned adapter weights
