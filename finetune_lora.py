@@ -131,9 +131,7 @@ def generate_response(model, instruction):
     tokenizer = Tokenizer("checkpoints/lit-llama/tokenizer.model")
     sample = {"instruction": instruction, "input": ""}
     prompt = generate_prompt(sample)
-    encoded = tokenizer.encode(prompt, bos=True, eos=False)
-    encoded = encoded[None, :]  # add batch dimension
-    encoded = encoded.to(model.device)
+    encoded = tokenizer.encode(prompt, bos=True, eos=False, device=model.device)
 
     output = generate(
         model,
@@ -141,7 +139,7 @@ def generate_response(model, instruction):
         max_seq_length=block_size,
         max_new_tokens=100,
     )
-    output = tokenizer.decode(output[0].cpu())
+    output = tokenizer.decode(output)
     return output # output.split("### Response:")[1].strip()
 
 

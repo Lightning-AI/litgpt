@@ -156,9 +156,7 @@ def generate_response(model, instruction, input=""):
     tokenizer = Tokenizer("checkpoints/lit-llama/tokenizer.model")
     sample = {"instruction": instruction, "input": input}
     prompt = generate_prompt(sample)
-    encoded = tokenizer.encode(prompt, bos=True, eos=False)
-    encoded = encoded[None, :]  # add batch dimension
-    encoded = encoded.to(model.device)
+    encoded = tokenizer.encode(prompt, bos=True, eos=False, device=model.device)
 
     output = generate(
         model,
@@ -167,7 +165,7 @@ def generate_response(model, instruction, input=""):
         max_new_tokens=100,
         temperature=0.8,
     )
-    output = tokenizer.decode(output[0].cpu())
+    output = tokenizer.decode(output)
     return output # output.split("### Response:")[1].strip()
 
 

@@ -7,7 +7,6 @@ from pathlib import Path
 from unittest import mock
 from unittest.mock import Mock, call, ANY
 
-import pytest
 import torch
 
 wd = Path(__file__).parent.parent.absolute()
@@ -22,13 +21,12 @@ def load_generate_script():
     return generate
 
 
-@pytest.mark.parametrize("B", (1, 2))
-def test_generate(B):
+def test_generate():
     generate = load_generate_script()
 
     T, C = 5, 3
-    logits = torch.randn(B, T, C)
-    input_idx = torch.randint(10, size=(B, T))
+    logits = torch.randn(T, C)
+    input_idx = torch.randint(10, size=(T,))
 
     model = Mock(return_value=logits)
     max_new_tokens = 20
@@ -42,11 +40,11 @@ def test_generate(B):
         return out
 
     with mock.patch("torch.multinomial", multinomial):
-        out = generate.generate(model, input_idx, max_new_tokens, max_seq_length=10)
+        out = generate.generate(model, input_idx, max_new_tokens, max_seq_length=10, top_k=4)
 
-    assert out.shape == (B, T + max_new_tokens)
+    assert out.size(0) == T + max_new_tokens
     multinomial_results = torch.hstack(multinomial_results)
-    expected = torch.cat((input_idx, multinomial_results), dim=1)
+    expected = torch.cat((input_idx, multinomial_results))
     assert out.shape == expected.shape
     torch.testing.assert_close(out, expected)
 
