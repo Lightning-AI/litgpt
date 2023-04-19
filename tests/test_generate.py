@@ -71,6 +71,7 @@ def test_main(tmp_path, monkeypatch):
     monkeypatch.setattr(generate.LLaMA, "from_name", model_mock)
     load_mock = Mock()
     monkeypatch.setattr(generate.torch, "load", load_mock)
+    monkeypatch.setattr(generate, "lazy_load", load_mock)
     tokenizer_mock = Mock()
     tokenizer_mock.return_value.encode.return_value = torch.tensor([[1, 2, 3]])
     tokenizer_mock.return_value.decode.return_value = "foo bar baz"

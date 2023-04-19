@@ -8,7 +8,7 @@ import lightning as L
 import torch
 
 from lit_llama import LLaMA, Tokenizer
-from lit_llama.utils import EmptyInitOnDevice
+from lit_llama.utils import EmptyInitOnDevice, lazy_load
 
 
 @torch.no_grad()
@@ -108,15 +108,16 @@ def main(
     fabric = L.Fabric(accelerator="cuda", devices=1)
     dtype = torch.bfloat16 if torch.cuda.is_bf16_supported() else torch.float32
 
+    print("Loading model ...", file=sys.stderr)
+    t0 = time.time()
     with EmptyInitOnDevice(
         device=fabric.device, dtype=dtype, quantization_mode=quantize
     ):
-        print("Loading model ...", file=sys.stderr)
-        t0 = time.time()
         model = LLaMA.from_name(model_size)
-        checkpoint = torch.load(checkpoint_path)
-        model.load_state_dict(checkpoint)
-        print(f"Time to load model: {time.time() - t0:.02f} seconds.", file=sys.stderr)
+
+    checkpoint = lazy_load(checkpoint_path)
+    model.load_state_dict(checkpoint)
+    print(f"Time to load model: {time.time() - t0:.02f} seconds.", file=sys.stderr)
 
     model.eval()
     model = fabric.setup_module(model)
