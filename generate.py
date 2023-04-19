@@ -49,8 +49,8 @@ def generate(
         idx_cond = idx_cond if T <= max_seq_length else idx_cond[-max_seq_length:]
 
         # forward
-        logits = model(idx_cond)
-        logits = logits[-1] / temperature
+        logits = model(idx_cond.view(1, -1))
+        logits = logits[0, -1] / temperature
 
         # optionally crop the logits to only the top k options
         if top_k is not None:
