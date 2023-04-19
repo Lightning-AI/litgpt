@@ -1,22 +1,18 @@
 # This adapts GPTQ's quantization process: https://github.com/IST-DASLab/gptq/
 # E. Frantar et al GPTQ: Accurate Post-training Compression for GPT, arXiv:2210.17323
 # portions copyright by the authors licensed under the Apache License 2.0
-import math
+import gc
 import sys
 import time
 from pathlib import Path
 from typing import Optional
-import gc
 
-import lightning as L
 import torch
-import tqdm
+from datasets import load_dataset
 
 from lit_llama import LLaMA, Tokenizer
-from lit_llama.utils import EmptyInitOnDevice
 from lit_llama.quantization import GPTQQuantizer
-
-from datasets import load_dataset
+from lit_llama.utils import EmptyInitOnDevice
 
 
 def get_sample_data():
@@ -139,7 +135,6 @@ def llama_blockwise_quantization(
 
 
 def main(
-    datasets: str = "wikitext,ptb,c4",
     *,
     checkpoint_path: Optional[Path] = None,
     output_path: Optional[Path] = None,
@@ -152,7 +147,6 @@ def main(
     """Generates text samples based on a pre-trained LLaMA model and tokenizer.
 
     Args:
-        datasets: The datasets to use as a comma separated string
         # compile: Whether to compile the model.
         checkpoint_path: The checkpoint path to load.
         output_path: Path to write the quantized model's state dict to.
@@ -200,9 +194,6 @@ def main(
         print(f"Time to load model: {time.time() - t0:.02f} seconds.", file=sys.stderr)
 
     model.eval()
-
-
-    total_toks = 0
 
     tokenizer = Tokenizer(tokenizer_path)
 
