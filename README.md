@@ -132,7 +132,7 @@ More details about each finetuning method and how you can apply it to your own d
 
 ## Get involved!
 
-We're in a quest towards fully open source AI.
+We are on a quest towards fully open source AI.
 
 <img align="right" src="https://pl-public-data.s3.amazonaws.com/assets_lightning/Lit_LLaMA_Illustration3x.png" alt="Lit-LLaMA" width="128"/>
 
