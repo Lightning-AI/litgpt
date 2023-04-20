@@ -105,8 +105,8 @@ def main(
     assert checkpoint_path.is_file(), checkpoint_path
     assert tokenizer_path.is_file(), tokenizer_path
 
-    fabric = L.Fabric(accelerator="cuda", devices=1)
-    dtype = torch.bfloat16 if torch.cuda.is_bf16_supported() else torch.float32
+    fabric = L.Fabric(devices=1)
+    dtype = torch.bfloat16 if fabric.device.type == "cuda" and torch.cuda.is_bf16_supported() else torch.float32
 
     print("Loading model ...", file=sys.stderr)
     t0 = time.time()
@@ -141,7 +141,8 @@ def main(
 
     t = time.perf_counter() - t0
     print(f"\n\nTime for inference: {t:.02f} sec total, {num_samples * max_new_tokens / t:.02f} tokens/sec", file=sys.stderr)
-    print(f"Memory used: {torch.cuda.max_memory_reserved() / 1e9:.02f} GB", file=sys.stderr)
+    if fabric.device.type == "cuda":
+        print(f"Memory used: {torch.cuda.max_memory_reserved() / 1e9:.02f} GB", file=sys.stderr)
 
 
 if __name__ == "__main__":
