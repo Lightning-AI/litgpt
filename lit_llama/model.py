@@ -11,7 +11,6 @@ import torch.nn as nn
 from torch.nn import functional as F
 from typing_extensions import Self
 
-
 @dataclass
 class LLaMAConfig:
     block_size: int = 4096
@@ -202,22 +201,14 @@ def build_rope_cache(seq_len: int, n_elem: int, dtype: torch.dtype, device: torc
     seq_idx = torch.arange(seq_len, dtype=dtype, device=device)
 
     # Calculate the product of position index and $\theta_i$
-    idx_theta = torch.outer(seq_idx, theta)
+    idx_theta = torch.outer(seq_idx, theta).float()
 
-    # Compute cache. Because polar only takes float32 or float64, we need to cast
-    # when working with 16 bit floats (float16 or bfloat16)
-    dtypes_requiring_casting = [torch.float16, torch.bfloat16, torch.int8]
-    working_dtype = (
-        torch.float32 if dtype in dtypes_requiring_casting else dtype
-    )
-    complex_dtype = (
-        torch.complex32 if dtype in dtypes_requiring_casting else torch.complex64
-    )
-    cache = torch.polar(
-        torch.ones_like(idx_theta).to(working_dtype), idx_theta.to(working_dtype)
-    ).to(complex_dtype)
+    cache = torch.stack([torch.cos(idx_theta), torch.sin(idx_theta)], dim=-1)
+
+    # this is to mimic the behaviour of complex32, else we will get different results
+    if dtype in (torch.float16, torch.bfloat16, torch.int8):
+        cache = cache.half()
     return cache
-
 
 def apply_rope(x: torch.Tensor, rope_cache: torch.Tensor) -> torch.Tensor:
     x = x.transpose(1, 2)
@@ -226,8 +217,13 @@ def apply_rope(x: torch.Tensor, rope_cache: torch.Tensor) -> torch.Tensor:
     T = x.size(1)
     rope_cache = rope_cache[:T]
 
-    # cast because `view_as_complex` does not support 16 bit tensors
-    xc = torch.view_as_complex(x.float().reshape(*x.shape[:-1], -1, 2))
-    rope_cache = rope_cache.view(1, xc.size(1), 1, xc.size(3))
-    x_out = torch.view_as_real(xc * rope_cache).flatten(3)
-    return x_out.transpose(1, 2).type_as(x)
+    # cast because the reference does
+    xshaped = x.float().reshape(*x.shape[:-1], -1, 2)
+    rope_cache = rope_cache.view(1, xshaped.size(1), 1, xshaped.size(3), 2)
+    x_out2 = torch.stack(
+        [xshaped[..., 0] * rope_cache[..., 0] - xshaped[..., 1] * rope_cache[..., 1],
+         xshaped[..., 1] * rope_cache[..., 0] + xshaped[..., 0] * rope_cache[..., 1],
+        ], -1)
+
+    x_out2 = x_out2.flatten(3)
+    return x_out2.transpose(1, 2).type_as(x)
