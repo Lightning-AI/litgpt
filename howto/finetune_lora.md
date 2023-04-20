@@ -22,7 +22,11 @@ python finetune_lora.py
 ```
 
 The finetuning requires at least one GPU with ~24 GB memory (GTX 3090).
+
 This script will save checkpoints periodically to the folder `out/`.
+
+> **Note**
+> All scripts support argument [customization](customize_paths.md)
 
 
 ## Test the model

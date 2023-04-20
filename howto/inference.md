@@ -10,14 +10,10 @@ Output:
 Hello my name is TJ. I have a passion for the outdoors, love hiking and exploring. I also enjoy traveling and learning new things. I especially enjoy long walks, good conversation and a friendly smile.
 ```
 
-The script assumes you have downloaded and converted the weights and saved them in the `./checkpoints` folder as described [here](download_weights.md). If you have the weights stored elsewhere, you can pass the weights file in as a parameter:
+The script assumes you have downloaded and converted the weights and saved them in the `./checkpoints` folder as described [here](download_weights.md).
 
-```bash
-python generate.py --prompt "Hello, my name is" \
-    --checkpoint_path ./checkpoints/lit-llama/7B/state_dict.pth \
-    --tokenizer_path ./checkpoints/lit-llama/tokenizer.model \
-    --model_size 7B
-```
+> **Note**
+> All scripts support argument [customization](customize_paths.md)
 
 With the default settings, this will run the 7B model and require ~26 GB of GPU memory (A100 GPU).
 

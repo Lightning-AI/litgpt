@@ -24,6 +24,9 @@ Convert the weights to the Lit-LLaMA format:
 python scripts/convert_checkpoint.py --model_size 7B
 ```
 
+> **Note**
+> All scripts support argument [customization](customize_paths.md)
+
 ### Alternative sources
 
 You might find LLaMA weights hosted online in the HuggingFace hub. Beware that this infringes the original weight's license.
@@ -57,6 +60,9 @@ Convert the weights to the Lit-LLaMA format:
 ```bash
 python scripts/convert_hf_checkpoint.py --model_size 7B
 ```
+
+> **Note**
+> All scripts support argument [customization](customize_paths.md)
 
 Once converted, you should have a folder like this:
 
