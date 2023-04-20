@@ -29,7 +29,6 @@ def main(
     max_new_tokens: int = 100,
     top_k: int = 200,
     temperature: float = 0.8,
-    accelerator: str = "auto",
 ) -> None:
     """Generates a response based on a given instruction and an optional input.
     This script will only work with checkpoints from the instruction-tuned LoRA model.
@@ -50,8 +49,6 @@ def main(
         top_k: The number of top most probable tokens to consider in the sampling process.
         temperature: A value controlling the randomness of the sampling process. Higher values result in more random
             samples.
-        accelerator: The hardware to run on. Possible choices are:
-            ``"cpu"``, ``"cuda"``, ``"mps"``, ``"gpu"``, ``"tpu"``, ``"auto"``.
     """
     if not lora_path:
         lora_path = Path("out/lora/alpaca/lit-llama-lora-finetuned.pth")
@@ -67,7 +64,7 @@ def main(
     if quantize is not None:
         raise NotImplementedError("Quantization in LoRA is not supported yet")
 
-    fabric = L.Fabric(accelerator=accelerator, devices=1)
+    fabric = L.Fabric(devices=1)
 
     dt = getattr(torch, dtype, None)
     if not isinstance(dt, torch.dtype):
@@ -109,15 +106,15 @@ def main(
         top_k=top_k,
         eos_id=tokenizer.eos_id
     )
+    t = time.perf_counter() - t0
 
     output = tokenizer.decode(output)
     output = output.split("### Response:")[1].strip()
-
     print(output)
-    t = time.perf_counter() - t0
 
     print(f"\n\nTime for inference: {t:.02f} sec total, {max_new_tokens / t:.02f} tokens/sec", file=sys.stderr)
-    print(f"Memory used: {torch.cuda.max_memory_reserved() / 1e9:.02f} GB", file=sys.stderr)
+    if fabric.device.type == "cuda":
+        print(f"Memory used: {torch.cuda.max_memory_reserved() / 1e9:.02f} GB", file=sys.stderr)
 
 
 if __name__ == "__main__":

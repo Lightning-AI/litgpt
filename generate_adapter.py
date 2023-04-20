@@ -39,7 +39,6 @@ def main(
         quantize: Whether to quantize the model and using which method:
             ``"llm.int8"``: LLM.int8() mode,
             ``"gptq.int4"``: GPTQ 4-bit mode.
-        dtype: The dtype to use during generation.
         max_new_tokens: The number of generation steps to take.
         top_k: The number of top most probable tokens to consider in the sampling process.
         temperature: A value controlling the randomness of the sampling process. Higher values result in more random
@@ -56,9 +55,8 @@ def main(
     assert pretrained_path.is_file()
     assert tokenizer_path.is_file()
 
-    fabric = L.Fabric(accelerator="cuda", devices=1)
-
-    dtype = torch.bfloat16 if torch.cuda.is_bf16_supported() else torch.float32
+    fabric = L.Fabric(devices=1)
+    dtype = torch.bfloat16 if fabric.device.type == "cuda" and torch.cuda.is_bf16_supported() else torch.float32
 
     print("Loading model ...", file=sys.stderr)
     t0 = time.time()
@@ -95,16 +93,15 @@ def main(
         top_k=top_k,
         eos_id=tokenizer.eos_id
     )
+    t = time.perf_counter() - t0
 
     output = tokenizer.decode(output)
     output = output.split("### Response:")[1].strip()
-
     print(output)
-    t = time.perf_counter() - t0
 
     print(f"\n\nTime for inference: {t:.02f} sec total, {max_new_tokens / t:.02f} tokens/sec", file=sys.stderr)
-    print(f"Memory used: {torch.cuda.max_memory_reserved() / 1e9:.02f} GB", file=sys.stderr)
-
+    if fabric.device.type == "cuda":
+        print(f"Memory used: {torch.cuda.max_memory_reserved() / 1e9:.02f} GB", file=sys.stderr)
 
 
 if __name__ == "__main__":
