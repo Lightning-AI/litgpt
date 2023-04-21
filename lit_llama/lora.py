@@ -15,6 +15,7 @@ import lit_llama.model as llama
 from contextlib import contextmanager
 from dataclasses import dataclass
 
+
 class LoRALayer():
     def __init__(
         self, 
@@ -84,42 +85,34 @@ class MergedLinear(nn.Linear, LoRALayer):
             nn.init.zeros_(self.lora_B)
 
     def zero_pad(self, x):
+        x = x.transpose(0, 1)
         result = x.new_zeros((*x.shape[:-1], self.out_features))
         result = result.view(-1, self.out_features)
         result[:, self.lora_ind] = x.reshape(
             -1, self.out_features // len(self.enable_lora) * sum(self.enable_lora)
         )
-        return result.view((*x.shape[:-1], self.out_features))
+        return result.view((*x.shape[:-1], self.out_features)).transpose(0, 1)
 
     def train(self, mode: bool = True):
         def T(w):
             return w.T if self.fan_in_fan_out else w
         nn.Linear.train(self, mode)
-        if self.merge_weights and self.merged:
-            # Make sure that the weights are not merged
+
+        # if train(True) -> unmerge unless we already have them unmerged
+        # if train(False) -> merge unless we already have them merged
+        should = self.merged if mode else not self.merged
+
+        if self.merge_weights and should:
             if self.r > 0 and any(self.enable_lora):
                 delta_w = F.conv1d(
                     self.lora_A.data.unsqueeze(0), 
                     self.lora_B.data.unsqueeze(-1), 
                     groups=sum(self.enable_lora)
                 ).squeeze(0)
-                self.weight.data -= self.zero_pad(T(delta_w * self.scaling))
-            self.merged = False
-    
-    def eval(self):
-        def T(w):
-            return w.T if self.fan_in_fan_out else w
-        nn.Linear.eval(self)
-        if self.merge_weights and not self.merged:
-            # Merge the weights and mark it
-            if self.r > 0 and any(self.enable_lora):
-                delta_w = F.conv1d(
-                    self.lora_A.data.unsqueeze(0), 
-                    self.lora_B.data.unsqueeze(-1), 
-                    groups=sum(self.enable_lora)
-                ).squeeze(0)
-                self.weight.data += self.zero_pad(T(delta_w * self.scaling))
-            self.merged = True
+                # -1: W = W - delta_W (unmerge), +1: W = W + delta_W (merge)
+                sign = -1 if mode else 1
+                self.weight.data += sign * self.zero_pad(T(delta_w * self.scaling))
+            self.merged = not mode
 
     def forward(self, x: torch.Tensor):
         def T(w):

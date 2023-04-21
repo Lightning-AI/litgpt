@@ -2,6 +2,8 @@ import torch
 
 @torch.no_grad()
 def test_rope(lit_llama, orig_llama) -> None:
+    torch.manual_seed(1)
+
     bs, seq_len, n_head, n_embed = 1, 6, 2, 8
     x = torch.randint(0, 10000, size=(bs, seq_len, n_head, n_embed // n_head)).float()
 
