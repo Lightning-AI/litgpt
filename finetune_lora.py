@@ -15,7 +15,6 @@ from generate import generate
 from lit_llama.lora import mark_only_lora_as_trainable, lora, lora_state_dict
 from lit_llama.model import LLaMA, LLaMAConfig
 from lit_llama.tokenizer import Tokenizer
-from lit_llama.utils import save_model_checkpoint
 from scripts.prepare_alpaca import generate_prompt
 
 
