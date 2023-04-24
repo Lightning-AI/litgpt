@@ -73,7 +73,7 @@ To generate text predictions, you need to download the model weights. **If you d
 Run inference:
 
 ```bash
-python generate.py --prompt "Hello, my name is" --model_size 7B
+python generate.py --prompt "Hello, my name is"
 ```
 
 This will run the 7B model and require ~26 GB of GPU memory (A100 GPU).

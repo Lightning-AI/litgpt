@@ -14,6 +14,23 @@ from torch.distributed.fsdp import FullyShardedDataParallel as FSDP
 from torch.distributed.fsdp import StateDictType
 
 
+llama_model_sizes = {
+    4096: "7B",  # 7B n_embd=4096
+    5120: "13B",  # 13B n_embd=5120
+    6656: "30B",  # 30B n_embd=6656
+    8192: "65B",  # 65B n_embd=8192
+}
+
+
+def llama_model_lookup(checkpoint: dict) -> str:
+    """Returns the LLaMA model name from the checkpoint.
+    
+    Checks the width of the lm_head.weight matrix, as these uniquely identify the model.
+    """
+    embedding_size = checkpoint["lm_head.weight"].shape[1]
+    return llama_model_sizes[embedding_size]
+
+
 def save_model_checkpoint(fabric, model, file_path):
     """Handles boilerplate logic for retrieving and saving the state_dict.
     

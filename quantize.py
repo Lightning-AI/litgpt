@@ -12,7 +12,7 @@ from datasets import load_dataset
 
 from lit_llama import LLaMA, Tokenizer
 from lit_llama.quantization import GPTQQuantizer
-from lit_llama.utils import EmptyInitOnDevice
+from lit_llama.utils import EmptyInitOnDevice, llama_model_lookup
 
 
 def get_sample_data():
@@ -140,7 +140,6 @@ def main(
     output_path: Optional[Path] = None,
     tokenizer_path: Optional[Path] = None,
     n_samples: int = 128,
-    model_size: str = "7B",
     dtype: str = "float32",
     quantize: Optional[str] = None,
 ) -> None:
@@ -158,7 +157,7 @@ def main(
             Note that ``"llm.int8"```does not need a quantization step.
     """
     if not checkpoint_path:
-        checkpoint_path = Path(f"./checkpoints/lit-llama/{model_size}/lit-llama.pth")
+        checkpoint_path = Path(f"./checkpoints/lit-llama/7B/lit-llama.pth")
     if not tokenizer_path:
         tokenizer_path = Path("./checkpoints/lit-llama/tokenizer.model")
     assert checkpoint_path.is_file()
@@ -188,8 +187,9 @@ def main(
     ):
         print("Loading model ...", file=sys.stderr)
         t0 = time.time()
-        model = LLaMA.from_name(model_size)
         checkpoint = torch.load(checkpoint_path)
+        name = llama_model_lookup(checkpoint)
+        model = LLaMA.from_name(name)
         model.load_state_dict(checkpoint)
         print(f"Time to load model: {time.time() - t0:.02f} seconds.", file=sys.stderr)
 

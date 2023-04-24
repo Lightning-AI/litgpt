@@ -69,6 +69,8 @@ def test_main(tmp_path, monkeypatch):
     monkeypatch.setattr(generate.L, "Fabric", FabricMock)
     model_mock = Mock()
     monkeypatch.setattr(generate.LLaMA, "from_name", model_mock)
+    lookup_mock = Mock(return_value="1T")
+    monkeypatch.setattr(generate, "llama_model_lookup", lookup_mock)
     load_mock = Mock()
     monkeypatch.setattr(generate.torch, "load", load_mock)
     monkeypatch.setattr(generate, "lazy_load", load_mock)
@@ -86,7 +88,6 @@ def test_main(tmp_path, monkeypatch):
         generate.main(
             checkpoint_path=checkpoint_path,
             tokenizer_path=tokenizer_path,
-            model_size="1T",
             temperature=2.0,
             top_k=2,
             num_samples=num_samples,
