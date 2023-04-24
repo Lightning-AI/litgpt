@@ -4,6 +4,8 @@
 
 We are able to demonstrate instruction-finetuning Lit-LLaMA 7B on the [Alpaca](https://github.com/tatsu-lab/stanford_alpaca) dataset on a **single GTX 3090 (24GB) GPU**. If using 8 GPUs, finetuning can be completed in under 1 hour.
 
+If you are new to LLaMA-Adapter and are interest to learn more about how it works before proceeding with the finetuning guide below, you might find our article [Understanding Parameter-Efficient Finetuning of Large Language Models: From Prefix Tuning to LLaMA-Adapters](https://lightning.ai/pages/community/article/understanding-llama-adapters/) helpful.
+
 ## Preparation
 
 The steps here only need to be done once:
@@ -88,7 +90,7 @@ With only a few modifications, you can prepare and train on your own instruction
     ```
 
 5. Run `finetune_adapter.py` by passing in the location of your data (and optionally other parameters):
-    
+   
     ```bash
     python finetune_adapter.py --data_dir data/mydata/ --out_dir out/myexperiment
     ```

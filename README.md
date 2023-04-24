@@ -125,10 +125,20 @@ It is expected that you have downloaded the pretrained weights as described abov
 The finetuning requires at least one GPU with ~24 GB memory (GTX 3090). Follow the instructions in the script to efficiently fit your GPU memory.
 Note: For some GPU models you might need to set `torch.backends.cuda.enable_flash_sdp(False)` (see comments at the top of the script).
 
-More details about each finetuning method and how you can apply it to your own data can be found in our how-to guides:
+More details about each finetuning method and how you can apply it to your own data can be found in our technical how-to guides.
+
+### Finetuning How-To Guides
+
+These technical tutorials illustrate how to run the finetuning code.
 
 - [Finetune with LoRA](howto/finetune_lora.md)
 - [Finetune with Adapters](howto/finetune_adapter.md)
+
+### Understanding Finetuning -- Conceptual Tutorials
+
+Looking for conceptual tutorials and explanations? We have some additional articles below:
+
+- [Understanding Parameter-Efficient Finetuning of Large Language Models: From Prefix Tuning to LLaMA-Adapters](https://lightning.ai/pages/community/article/understanding-llama-adapters/)
 
 ## Get involved!
 
@@ -144,6 +154,10 @@ Join us and start contributing, especially on the following areas:
 - [ ] [Sparsification](https://github.com/Lightning-AI/lit-llama/labels/sparsification)
 
 Look at `train.py` for a starting point towards pre-training / fine-tuning using [Lightning Fabric](https://lightning.ai/docs/fabric/stable/).
+
+We welcome all individual contributors, regardless of their level of experience or hardware. Your contributions are valuable, and we are excited to see what you can accomplish in this collaborative and supportive environment. 
+
+Unsure about contributing? Check out our [Contributing to Lit-LLaMA: A Hitchhiker’s Guide to the Quest for Fully Open-Source AI](https://lightning.ai/pages/community/tutorial/contributing-to-lit-llama-a-hitchhikers-guide-to-the-quest-for-fully-open-source-ai/) guide.
 
 Don't forget to [join our Discord](https://discord.gg/VptPCZkGNa)!
 
