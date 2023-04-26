@@ -30,7 +30,7 @@ micro_batch_size = 4
 gradient_accumulation_steps = batch_size // micro_batch_size
 max_iters = 50000 * 3 // micro_batch_size
 weight_decay = 0.0
-block_size = 256
+max_seq_length = 256  # see scripts/prepare_alpaca.py
 lora_r = 8
 lora_alpha = 16
 lora_dropout = 0.05
@@ -53,7 +53,7 @@ def main(
     train_data, val_data = load_datasets(data_dir=data_dir)
 
     config = LLaMAConfig.from_name("7B")
-    config.block_size = block_size
+    config.block_size = max_seq_length
 
     checkpoint = torch.load(pretrained_path)
 
@@ -135,7 +135,7 @@ def generate_response(model, instruction):
     output = generate(
         model,
         idx=encoded,
-        max_seq_length=block_size,
+        max_seq_length=max_seq_length,
         max_new_tokens=100,
     )
     output = tokenizer.decode(output)

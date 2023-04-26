@@ -13,7 +13,7 @@ from typing_extensions import Self
 
 @dataclass
 class LLaMAConfig:
-    block_size: int = 4096
+    block_size: int = 2048
     vocab_size: int = 32000
     n_layer: int = 32
     n_head: int = 32

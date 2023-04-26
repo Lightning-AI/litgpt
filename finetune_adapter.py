@@ -42,7 +42,7 @@ epoch_size = 50000  # train dataset size
 num_epochs = 5
 max_iters = num_epochs * epoch_size // devices
 weight_decay = 0.02
-block_size = 512
+max_seq_length = 256  # see scripts/prepare_alpaca.py
 warmup_steps = epoch_size * 2 // micro_batch_size // devices  # 2 epochs
 
 ds_config = {
@@ -72,8 +72,7 @@ def main(
 
     train_data, val_data = load_datasets(data_dir=data_dir)
 
-    config = LLaMAConfig()
-    config.block_size = block_size
+    config = LLaMAConfig(block_size=max_seq_length)
 
     if not os.path.isfile(pretrained_path):
         raise FileNotFoundError(
@@ -161,7 +160,7 @@ def generate_response(model, instruction, input=""):
     output = generate(
         model,
         idx=encoded,
-        max_seq_length=block_size,
+        max_seq_length=max_seq_length,
         max_new_tokens=100,
         temperature=0.8,
     )
