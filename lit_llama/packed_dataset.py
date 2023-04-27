@@ -4,6 +4,7 @@
 
 import os
 import struct
+import random
 
 import numpy as np
 from torch.utils.data import IterableDataset, get_worker_info
@@ -226,4 +227,27 @@ class PackedDatasetIterator:
         self._curr_idx += 1
         return arr
 
+
+class CombinedDataset(IterableDataset):
+    def __init__(self, datasets, seed, weights=None):
+        self._seed = seed
+        self._datasets = datasets
+        self._weights = weights
+        n_datasets = len(datasets)
+        if weights is None:
+            self._weights = [1 / n_datasets] * n_datasets
+
+    def __iter__(self):
+        return CombinedDatasetIterator(self._datasets, self._seed, self._weights)
+
+
+class CombinedDatasetIterator:
+    def __init__(self, datasets, seed, weights):
+        self._datasets = [iter(el) for el in datasets]
+        self._weights = weights
+        self._rng = random.Random(seed)
+
+    def __next__(self):
+        dataset, = self._rng.choices(self._datasets, weights=self._weights, k=1)
+        return next(dataset)
 

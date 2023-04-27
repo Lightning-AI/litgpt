@@ -12,7 +12,7 @@ import numpy as np
 from tqdm import tqdm
 
 from lit_llama import Tokenizer
-import lit_llama.indexed_dataset as indexed_dataset
+import lit_llama.packed_dataset as packed_dataset
 
 
 filenames_sample = [
@@ -44,6 +44,7 @@ def prepare_sample(
     source_path: Path,
     tokenizer_path: Path,
     destination_path: Path,
+    chunk_size: int,
     match = ""
 ) -> None:
     """Prepare the "Red Pajama" dataset. We assume tokenizer has been trained (i.e. we reuse LLaMA's tokenizer model)."""
@@ -65,12 +66,14 @@ def prepare_sample(
                 "https://huggingface.co/datasets/togethercomputer/RedPajama-Data-1T-Sample \n"
             )
 
-        bin_name = name.replace("jsonl", "bin")
-        index_name = name.replace("jsonl", "idx")
+        prefix, _ = os.path.splitext(name)
 
-        builder = indexed_dataset.make_builder(
-            destination_path / bin_name,
-            impl="mmap",
+        builder = packed_dataset.PackedDatasetBuilder(
+            outdir=destination_path,
+            prefix=prefix,
+            chunk_size=chunk_size,
+            sep_token=tokenizer.bos_id,
+            dtype="auto",
             vocab_size=tokenizer.vocab_size,
         )
 
@@ -80,19 +83,16 @@ def prepare_sample(
             for row in tqdm(f):
                 text = json.loads(row)["text"]
                 text_ids = tokenizer.encode(text)
-                builder.add_item(np.array(text_ids, dtype=builder.dtype))
-            # NOTE: No EOD token for llama
-            # builder.add_item(tokenizer.eod)
+                builder.add_array(np.array(text_ids, dtype=builder.dtype))
 
-        builder.end_document()
-
-        builder.finalize(destination_path / index_name)
+        builder.write_reminder()
 
 
 def prepare_full(
     source_path: Path,
     tokenizer_path: Path,
     destination_path: Path,
+    chunk_size: int,
     match: str = ""
 ) -> None:
     """Prepare the "Red Pajama" dataset. We assume tokenizer has been trained (i.e. we reuse LLaMA's tokenizer model)."""
@@ -106,9 +106,6 @@ def prepare_full(
         if match and match not in set_name:
             continue
 
-        bin_name = f"{set_name}.bin"
-        index_name = f"{set_name}.idx"
-
         is_cc = set_name == "common_crawl"
 
         filenames = glob.glob(os.path.join(source_path, pattern), recursive=True)
@@ -121,9 +118,12 @@ def prepare_full(
                 "https://huggingface.co/datasets/togethercomputer/RedPajama-Data-1T-Sample \n"
             )
 
-        builder = indexed_dataset.make_builder(
-            destination_path / bin_name,
-            impl="mmap",
+        builder = packed_dataset.PackedDatasetBuilder(
+            outdir=destination_path,
+            prefix=set_name,
+            chunk_size=chunk_size,
+            sep_token=tokenizer.bos_id,
+            dtype="auto",
             vocab_size=tokenizer.vocab_size,
         )
 
@@ -137,25 +137,22 @@ def prepare_full(
                     for row in tqdm(f):
                         text = json.loads(row)["text"]
                         text_ids = tokenizer.encode(text)
-                        builder.add_item(np.array(text_ids, dtype=builder.dtype))
+                        builder.add_array(np.array(text_ids, dtype=builder.dtype))
             else:
                 with open(filepath, encoding="utf-8") as f:
                     for row in tqdm(f):
                         text = json.loads(row)["text"]
                         text_ids = tokenizer.encode(text)
-                        builder.add_item(np.array(text_ids, dtype=builder.dtype))
-                    # NOTE: No EOD token for llama
-                    # builder.add_item(tokenizer.eod)
+                        builder.add_array(np.array(text_ids, dtype=builder.dtype))
 
-            builder.end_document()
-
-        builder.finalize(destination_path / index_name)
+        builder.write_reminder()
 
 
 def prepare(
     source_path: Path = Path("data/RedPajama-Data-1T-Sample"),
     tokenizer_path: Path = Path("checkpoints/lit-llama/tokenizer.model"),
     destination_path: Path = Path("data/red_pajama_sample"),
+    chunk_size: int = 1024,
     sample: bool = False,
     match: str = "",
 ) -> None:
@@ -165,6 +162,7 @@ def prepare(
             source_path=source_path,
             tokenizer_path=tokenizer_path,
             destination_path=destination_path,
+            chunk_size=chunk_size,
             match=match,
         )
     else:
@@ -172,6 +170,7 @@ def prepare(
             source_path=source_path,
             tokenizer_path=tokenizer_path,
             destination_path=destination_path,
+            chunk_size=chunk_size,
             match=match,
         )
 

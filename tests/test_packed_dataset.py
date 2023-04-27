@@ -2,6 +2,8 @@ import pytest
 import os
 import requests
 
+from torch.utils.data import IterableDataset
+
 
 def train_tokenizer(destination_path):
     destination_path.mkdir(parents=True, exist_ok=True)
@@ -122,3 +124,40 @@ def test_packed_dataset(tmp_path):
     for i, item in enumerate(dataset):
         block_idxs = iter(dataset)._block_idxs
         assert np.array_equal(item, ex_split[block_idxs[i]])
+
+
+class SimpleDataset(IterableDataset):
+    def __init__(self, start, end):
+        super().__init__()
+        self._start = start
+        self._end = end
+
+    def __iter__(self):
+        return iter(range(self._start, self._end))
+        
+
+def test_combined_dataset(tmp_path):
+    from lit_llama.packed_dataset import CombinedDataset
+
+    dataset1 = SimpleDataset(0, 10)
+    dataset2 = SimpleDataset(10, 20)
+    dataset = CombinedDataset(datasets=[dataset1, dataset2], weights=[1.0, 0.0], seed=12345)
+
+    res = [el for el in dataset]
+    assert res == list(range(0, 10))
+
+    dataset1 = SimpleDataset(0, 10)
+    dataset2 = SimpleDataset(10, 20)
+    dataset = CombinedDataset(datasets=[dataset1, dataset2], weights=[0.0, 1.0], seed=12345)
+
+    res = [el for el in dataset]
+    assert res == list(range(10, 20))
+
+    dataset1 = SimpleDataset(0, 10)
+    dataset2 = SimpleDataset(10, 20)
+    dataset = CombinedDataset(datasets=[dataset1, dataset2], weights=[0.5, 0.5], seed=12345)
+
+    res = [el for el in dataset]
+    assert 9 in res or 19 in res
+    if len(res) > 10:
+        assert 0 in res and 10 in res

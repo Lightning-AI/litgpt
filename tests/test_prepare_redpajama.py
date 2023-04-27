@@ -53,21 +53,24 @@ def test_prepare_sample(tmp_path):
 
     prepare_redpajama.prepare(source_path=source_path, tokenizer_path=tokenizer_path, destination_path=dest_path, sample=True)
 
-    idx_files = [el.replace("jsonl", "idx") for el in prepare_redpajama.filenames_sample]
-    bin_files = [el.replace("jsonl", "bin") for el in prepare_redpajama.filenames_sample]
+    bin_files = [el.replace(".jsonl", "_0000000000.bin") for el in prepare_redpajama.filenames_sample]
 
-    assert set(os.listdir(dest_path)) == set(idx_files + bin_files)
+    assert set(os.listdir(dest_path)) == set(bin_files)
 
     from lit_llama import Tokenizer
-    from lit_llama.indexed_dataset import make_dataset
+    from lit_llama.packed_dataset import PackedDataset
 
     tokenizer = Tokenizer(tokenizer_path)
 
-    for filename in idx_files:
-        dataset = make_dataset(str((dest_path / filename).with_suffix('')), "infer")
-        assert len(dataset) == 2
-        assert tokenizer.decode(dataset[0]) == "some text"
-        assert tokenizer.decode(dataset[1]) == "some text"
+    # artificially set block_size to fit the text
+    block_size = len(tokenizer.encode("some text"))
+
+    for filename in bin_files:
+        filenames = [os.path.join(dest_path, filename)]
+        dataset = PackedDataset(filenames=filenames, n_chunks=1, block_size=block_size, shuffle=False)
+        dataset_iter = iter(dataset)
+        assert tokenizer.decode(next(dataset_iter)) == "some text"
+        assert tokenizer.decode(next(dataset_iter)) == "some text"
 
 
 def test_prepare_full(tmp_path):
@@ -111,21 +114,25 @@ def test_prepare_full(tmp_path):
         prepare_redpajama.prepare(source_path=source_path, tokenizer_path=tokenizer_path, destination_path=dest_path, sample=False)
 
         all_names = prepare_redpajama.filename_sets.keys()
-        idx_files = [el + ".idx" for el in all_names]
-        bin_files = [el + ".bin" for el in all_names]
+        bin_files = [el + "_0000000000.bin" for el in all_names]
 
-    assert set(os.listdir(dest_path)) == set(idx_files + bin_files)
+    assert set(os.listdir(dest_path)) == set(bin_files)
 
     from lit_llama import Tokenizer
-    from lit_llama.indexed_dataset import make_dataset
+    from lit_llama.packed_dataset import PackedDataset
 
     tokenizer = Tokenizer(tokenizer_path)
 
-    for filename in ["arxiv", "common_crawl"]:
-        dataset = make_dataset(str((dest_path / filename).with_suffix('')), "infer")
-        assert len(dataset) == 2
-        assert tokenizer.decode(dataset[0]) == "some text"
-        assert tokenizer.decode(dataset[1]) == "some text"
+    # artificially set block_size to fit the text
+    block_size = len(tokenizer.encode("some text"))
+
+    filenames = [os.path.join(dest_path, el) for el in bin_files]
+
+    for filename in filenames:
+        dataset = PackedDataset(filenames=[filename], n_chunks=1, block_size=block_size, shuffle=False)
+        dataset_iter = iter(dataset)
+        assert tokenizer.decode(next(dataset_iter)) == "some text"
+        assert tokenizer.decode(next(dataset_iter)) == "some text"
 
 
 def test_cli():
