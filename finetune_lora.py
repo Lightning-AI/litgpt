@@ -43,7 +43,7 @@ def main(
     out_dir: str = "out/lora/alpaca",
 ):
 
-    fabric = L.Fabric(accelerator="cuda", devices=1, precision="bf16-mixed")
+    fabric = L.Fabric(accelerator="cuda", devices=1, precision="bf16-true")
     fabric.launch()
     fabric.seed_everything(1337 + fabric.global_rank)
 
@@ -57,12 +57,10 @@ def main(
 
     checkpoint = torch.load(pretrained_path)
 
-    with fabric.device, lora(r=lora_r, alpha=lora_alpha, dropout=lora_dropout, enabled=True):
-        torch.set_default_tensor_type(torch.HalfTensor)
-        model = LLaMA(config).bfloat16()
-        torch.set_default_tensor_type(torch.FloatTensor)
+    with fabric.init_module(), lora(r=lora_r, alpha=lora_alpha, dropout=lora_dropout, enabled=True):
+        model = LLaMA(config)
         # strict=False because missing keys due to LoRA weights not contained in checkpoint state
-        model.load_state_dict(checkpoint, strict=False) 
+        model.load_state_dict(checkpoint, strict=False)
     
     mark_only_lora_as_trainable(model)
 

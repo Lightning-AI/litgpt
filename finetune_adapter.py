@@ -62,7 +62,7 @@ def main(
         accelerator="cuda", 
         devices=devices, 
         strategy=(DeepSpeedStrategy(config=ds_config) if devices > 1 else "auto"), 
-        precision="bf16-mixed",
+        precision="bf16-true",
     )
     fabric.launch()
     fabric.seed_everything(1337 + fabric.global_rank)
@@ -81,13 +81,11 @@ def main(
         )
     checkpoint = torch.load(pretrained_path)
 
-    with fabric.device:
-        torch.set_default_tensor_type(torch.HalfTensor)
-        model = LLaMA(config).bfloat16()
-        torch.set_default_tensor_type(torch.FloatTensor)
+    with fabric.init_module():
+        model = LLaMA(config)
         # strict=False because missing keys due to adapter weights not containted in state dict
         model.load_state_dict(checkpoint, strict=False)
-    
+
     mark_only_adapter_as_trainable(model)
 
     num_params = sum([p.numel() for p in model.parameters() if p.requires_grad])
