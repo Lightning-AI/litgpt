@@ -16,7 +16,7 @@ setup(
     url='https://github.com/lightning-AI/lit-llama',
     install_requires=[
         "torch>=2.0.0",
-        "lightning>=2.0.0",
+        "lightning @ git+https://github.com/Lightning-AI/lightning@master",
         "sentencepiece",
         "bitsandbytes",
     ],
