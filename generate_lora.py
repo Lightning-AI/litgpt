@@ -74,19 +74,19 @@ def main(
     print("Loading model ...", file=sys.stderr)
     t0 = time.time()
 
-    pretrained_checkpoint = lazy_load(pretrained_path)
-    adapter_checkpoint = lazy_load(lora_path)
-    name = llama_model_lookup(pretrained_checkpoint)
+    with (lazy_load(pretrained_path) as pretrained_checkpoint,
+          lazy_load(lora_path) as adapter_checkpoint):
+        name = llama_model_lookup(pretrained_checkpoint)
 
-    with EmptyInitOnDevice(
-        device=fabric.device, dtype=dtype, quantization_mode=quantize
-    ), lora(r=lora_r, alpha=lora_alpha, dropout=lora_dropout, enabled=True):
-        model = LLaMA.from_name(name)
+        with EmptyInitOnDevice(
+                device=fabric.device, dtype=dtype, quantization_mode=quantize
+        ), lora(r=lora_r, alpha=lora_alpha, dropout=lora_dropout, enabled=True):
+            model = LLaMA.from_name(name)
 
-    # 1. Load the pretrained weights
-    model.load_state_dict(pretrained_checkpoint, strict=False)
-    # 2. Load the fine-tuned adapter weights
-    model.load_state_dict(adapter_checkpoint, strict=False)
+            # 1. Load the pretrained weights
+            model.load_state_dict(pretrained_checkpoint, strict=False)
+            # 2. Load the fine-tuned adapter weights
+            model.load_state_dict(adapter_checkpoint, strict=False)
 
     print(f"Time to load model: {time.time() - t0:.02f} seconds.", file=sys.stderr)
 

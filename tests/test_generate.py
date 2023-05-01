@@ -72,6 +72,9 @@ def test_main(tmp_path, monkeypatch):
     lookup_mock = Mock(return_value="1T")
     monkeypatch.setattr(generate, "llama_model_lookup", lookup_mock)
     load_mock = Mock()
+    load_mock.return_value = load_mock
+    load_mock.__enter__ = Mock()
+    load_mock.__exit__ = Mock()
     monkeypatch.setattr(generate.torch, "load", load_mock)
     monkeypatch.setattr(generate, "lazy_load", load_mock)
     tokenizer_mock = Mock()
