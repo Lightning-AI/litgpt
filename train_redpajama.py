@@ -96,6 +96,7 @@ def main(
         val_data_dir=val_data_dir,
         seed=1338,
     )
+    train_dataloader, val_dataloader = fabric.setup_dataloaders(train_dataloader, val_dataloader)
 
     optimizer = torch.optim.AdamW(
         model.parameters(),
@@ -134,10 +135,9 @@ def train(
 
         t0 = time.time()
 
-        input_ids, targets = get_batch(
-            fabric, train_data, block_size=model.config.block_size
-        )
-
+        input_ids = train_data[:, 0 : model.config.block_size].contiguous()
+        targets = train_data[:, 1 : model.config.block_size + 1].contiguous()
+        
         is_accumulating = (iter_num + 1) % grad_accum_steps == 0
 
         with fabric.no_backward_sync(model, enabled=is_accumulating):
@@ -189,11 +189,8 @@ def validate(
     model.eval()
     losses = torch.zeros(eval_iters)
     for k, val_data in enumerate(val_dataloader):
-        input_ids, targets = get_batch(
-            fabric,
-            val_data,
-            block_size=model.config.block_size,  # type: ignore[union-attr,arg-type]
-        )
+        input_ids = val_data[:, 0 : model.config.block_size].contiguous()
+        targets = val_data[:, 1 : model.config.block_size + 1].contiguous()
         logits = model(input_ids)
         loss = torch.nn.functional.cross_entropy(
             logits.view(-1, logits.size(-1)), targets.view(-1), ignore_index=-1
@@ -230,7 +227,7 @@ def create_dataloader(
 
     combined_dataset = CombinedDataset(datasets=datasets, seed=seed, weights=weights)
 
-    return DataLoader(combined_dataset, batch_size=batch_size, shuffle=False)
+    return DataLoader(combined_dataset, batch_size=batch_size, shuffle=False, pin_memory=True)
 
 
 def create_dataloaders(
@@ -261,15 +258,6 @@ def create_dataloaders(
         else None
     )
     return train_dataloader, val_dataloader
-
-
-def get_batch(
-    fabric: L.Fabric, data: np.ndarray, block_size: int
-) -> Tuple[torch.Tensor, torch.Tensor]:
-    x = data[:, 0:block_size]
-    y = data[:, 1 : block_size + 1]
-    x, y = fabric.to_device((x.pin_memory(), y.pin_memory()))
-    return x, y
 
 
 # learning rate decay scheduler (cosine with warmup)
