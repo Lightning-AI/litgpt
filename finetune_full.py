@@ -17,6 +17,7 @@ from torch.distributed.fsdp.wrap import transformer_auto_wrap_policy
 from generate import generate
 from lit_llama.model import Block, LLaMA, LLaMAConfig
 from lit_llama.tokenizer import Tokenizer
+from lit_llama.utils import save_model_checkpoint
 from scripts.prepare_alpaca import generate_prompt
 
 
