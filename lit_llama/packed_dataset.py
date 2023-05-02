@@ -7,6 +7,7 @@ import struct
 import random
 
 import numpy as np
+import torch
 from torch.utils.data import IterableDataset, get_worker_info
 
 
@@ -225,7 +226,7 @@ class PackedDatasetIterator:
             buffer, dtype=self._dtype, count=self._block_size, offset=offset
         )
         self._curr_idx += 1
-        return arr
+        return torch.from_numpy(arr.astype(np.int64))
 
 
 class CombinedDataset(IterableDataset):
