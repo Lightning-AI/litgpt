@@ -75,7 +75,7 @@ def meta_weights_for_nano_model(
     output_dir.mkdir(parents=True, exist_ok=True)
 
     # the tokenizer is the same for all model sizes, so we store it in the parent dir
-    shutil.copy(ckpt_dir / "tokenizer.model", output_dir.parent)
+    shutil.copy(ckpt_dir.parent / "tokenizer.model", output_dir.parent)
 
     dt = getattr(torch, dtype, None)
     if not isinstance(dt, torch.dtype):
