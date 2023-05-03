@@ -1,5 +1,5 @@
-import pytest
 import os
+from unittest.mock import MagicMock
 import requests
 
 from torch.utils.data import IterableDataset
@@ -167,3 +167,37 @@ def test_combined_dataset(tmp_path):
     assert 9 in res or 19 in res
     if len(res) > 10:
         assert 0 in res and 10 in res
+
+
+def test_sharded_packed_dataset(monkeypatch):
+    import lit_llama.packed_dataset
+    from lit_llama.packed_dataset import PackedDataset
+
+    dataset_iterator_mock = MagicMock()
+    monkeypatch.setattr(lit_llama.packed_dataset, "PackedDatasetIterator", dataset_iterator_mock)
+    filenames = [str(i) for i in range(10)]
+
+    # world_size = 1, rank = 0
+    iter(PackedDataset(filenames=filenames, n_chunks=2, block_size=2))
+    assert dataset_iterator_mock.call_args[1]["filenames"] == filenames
+    dataset_iterator_mock.reset_mock()
+    # world_size = 2, rank = 0
+    iter(PackedDataset(filenames=filenames, n_chunks=2, block_size=2, num_processes=2, process_rank=0))
+    assert dataset_iterator_mock.call_args[1]["filenames"] == ["0", "2", "4", "6", "8"]
+    dataset_iterator_mock.reset_mock()
+    # world_size = 2, rank = 1
+    iter(PackedDataset(filenames=filenames, n_chunks=2, block_size=2, num_processes=2, process_rank=1))
+    assert dataset_iterator_mock.call_args[1]["filenames"] == ["1", "3", "5", "7", "9"]
+    dataset_iterator_mock.reset_mock()
+    
+    # world_size = 3, rank = 0 (dataset size not cleanly divisible by world size)
+    iter(PackedDataset(filenames=filenames, n_chunks=2, block_size=2, num_processes=3, process_rank=0))
+    assert dataset_iterator_mock.call_args[1]["filenames"] == ["0", "3", "6"]
+    dataset_iterator_mock.reset_mock()
+    # world_size = 3, rank = 1 (dataset size not cleanly divisible by world size)
+    iter(PackedDataset(filenames=filenames, n_chunks=2, block_size=2, num_processes=3, process_rank=1))
+    assert dataset_iterator_mock.call_args[1]["filenames"] == ["1", "4", "7"]
+    dataset_iterator_mock.reset_mock()
+    # world_size = 3, rank = 2 (dataset size not cleanly divisible by world size)
+    iter(PackedDataset(filenames=filenames, n_chunks=2, block_size=2, num_processes=3, process_rank=2))
+    assert dataset_iterator_mock.call_args[1]["filenames"] == ["2", "5", "8"]
