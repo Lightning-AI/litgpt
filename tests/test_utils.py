@@ -45,3 +45,12 @@ def test_lazy_load_subclass(lit_llama):
                 actual = sd_lazy[k]
                 expected = sd[k]
                 torch.testing.assert_close(actual._load_tensor(), expected)
+
+
+def test_find_multiple(lit_llama):
+    from lit_llama.utils import find_multiple
+
+    assert find_multiple(17, 5) == 20
+    assert find_multiple(30, 7) == 35
+    assert find_multiple(10, 2) == 10
+    assert find_multiple(5, 10) == 10

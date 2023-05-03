@@ -31,6 +31,12 @@ def llama_model_lookup(checkpoint: dict) -> str:
     return llama_model_sizes[embedding_size]
 
 
+def find_multiple(n: int, k: int) -> int:
+    if n % k == 0:
+        return n
+    return n + k - (n % k)
+
+
 def save_model_checkpoint(fabric, model, file_path):
     """Handles boilerplate logic for retrieving and saving the state_dict.
     
