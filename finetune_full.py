@@ -77,7 +77,7 @@ def main(
     train(fabric, model, optimizer, train_data, val_data, out_dir)
 
     # Save the final checkpoint at the end of training
-    fabric.save(os.path.join(out_dir, "lit-llama-full-finetuned.pth"), model.state_dict())
+    save_model_checkpoint(fabric, model, os.path.join(out_dir, "lit-llama-full-finetuned.pth"))
 
 
 def train(
