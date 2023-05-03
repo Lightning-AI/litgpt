@@ -97,6 +97,12 @@ def test_packed_dataset(tmp_path):
         block_idxs = iter(dataset)._block_idxs
         assert np.array_equal(item, ex_split[block_idxs[i]])
 
+    dataset = PackedDataset(filenames=filenames, n_chunks=2, block_size=block_size, seed=12345, wrap=True)
+
+    for i, item in enumerate(dataset):
+        if i > 24:
+            break
+
     dataset = PackedDataset(filenames=filenames, n_chunks=1, block_size=block_size, seed=12345)
 
     for i, item in enumerate(dataset):
