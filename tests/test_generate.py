@@ -52,8 +52,11 @@ def test_generate():
 
 
 @mock.patch("torch.cuda.is_bf16_supported", return_value=False)
-def test_main(tmp_path, monkeypatch):
+def test_main(_, tmp_path, monkeypatch):
     generate = load_generate_script()
+
+    config_path = tmp_path / "config"
+    config_path.write_text("{}")
 
     class FabricMock(Mock):
         @property
@@ -80,7 +83,7 @@ def test_main(tmp_path, monkeypatch):
     num_samples = 2
     out = StringIO()
     with redirect_stdout(out):
-        generate.main(temperature=2.0, top_k=2, num_samples=num_samples)
+        generate.main(temperature=2.0, top_k=2, num_samples=num_samples, config_path=config_path)
 
     assert len(tokenizer_mock.return_value.decode.mock_calls) == num_samples
     assert torch.allclose(tokenizer_mock.return_value.decode.call_args[0][0], generate_mock.return_value)
