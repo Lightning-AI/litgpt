@@ -9,16 +9,15 @@ with open(os.path.join(_PATH_ROOT, "README.md"), encoding="utf-8") as fo:
     readme = fo.read()
 
 setup(
-    name='lit-llama',
+    name='lit-stablelm',
     version='0.1.0',
-    description='Implementation of the LLaMA language model',
+    description='Implementation of the StableLM model',
     author='Lightning AI',
-    url='https://github.com/lightning-AI/lit-llama',
+    url='https://github.com/lightning-AI/lit-stablelm',
     install_requires=[
         "torch>=2.0.0",
         "lightning @ git+https://github.com/Lightning-AI/lightning@master",
         "sentencepiece",
-        "bitsandbytes",
     ],
     packages=find_packages(),
     long_description=readme,

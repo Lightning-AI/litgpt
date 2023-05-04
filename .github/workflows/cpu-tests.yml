@@ -40,7 +40,7 @@ jobs:
 
     - name: Run tests without the package installed
       run: |
-        pip install pytest -r requirements.txt
+        pip install pytest -r requirements.txt transformers
         pip list
 
         pytest --disable-pytest-warnings --strict-markers --color=yes

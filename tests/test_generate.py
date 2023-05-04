@@ -24,14 +24,13 @@ def load_generate_script():
 def test_generate():
     generate = load_generate_script()
 
-    from lit_llama.model import LLaMA, LLaMAConfig
+    from lit_stablelm import StableLM, StableLMConfig
 
     T, C = 5, 3
-    logits = torch.randn(T, C)
     input_idx = torch.randint(10, size=(T,))
 
-    config = LLaMAConfig(block_size=128, vocab_size=16, n_layer=1, n_head=4, n_embd=8)
-    model = LLaMA(config)
+    config = StableLMConfig(block_size=128, vocab_size=16, n_layer=1, n_head=4, n_embd=8)
+    model = StableLM(config)
     max_new_tokens = 20
 
     multinomial_results = []
@@ -56,11 +55,6 @@ def test_generate():
 def test_main(tmp_path, monkeypatch):
     generate = load_generate_script()
 
-    checkpoint_path = tmp_path / "ckpt"
-    checkpoint_path.touch()
-    tokenizer_path = tmp_path / "tokenizer"
-    tokenizer_path.touch()
-
     class FabricMock(Mock):
         @property
         def device(self):
@@ -68,9 +62,7 @@ def test_main(tmp_path, monkeypatch):
 
     monkeypatch.setattr(generate.L, "Fabric", FabricMock)
     model_mock = Mock()
-    monkeypatch.setattr(generate.LLaMA, "from_name", model_mock)
-    lookup_mock = Mock(return_value="1T")
-    monkeypatch.setattr(generate, "llama_model_lookup", lookup_mock)
+    monkeypatch.setattr(generate.StableLM, "from_name", model_mock)
     load_mock = Mock()
     load_mock.return_value = load_mock
     load_mock.__enter__ = Mock()
@@ -88,17 +80,8 @@ def test_main(tmp_path, monkeypatch):
     num_samples = 2
     out = StringIO()
     with redirect_stdout(out):
-        generate.main(
-            checkpoint_path=checkpoint_path,
-            tokenizer_path=tokenizer_path,
-            temperature=2.0,
-            top_k=2,
-            num_samples=num_samples,
-        )
+        generate.main(temperature=2.0, top_k=2, num_samples=num_samples)
 
-    model_mock.assert_called_once_with("1T")
-    load_mock.assert_called_once_with(checkpoint_path)
-    tokenizer_mock.assert_called_once_with(tokenizer_path)
     assert len(tokenizer_mock.return_value.decode.mock_calls) == num_samples
     assert torch.allclose(tokenizer_mock.return_value.decode.call_args[0][0], generate_mock.return_value)
     assert generate_mock.mock_calls == [call(ANY, ANY, 50, ANY, temperature=2.0, top_k=2)] * num_samples
