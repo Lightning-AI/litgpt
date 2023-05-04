@@ -57,8 +57,8 @@ data_config = [
 
 def main(
     devices: int = 4,
-    train_data_dir: Path = "data/red_pajama",
-    val_data_dir: Path = "data/red_pajama_val",
+    train_data_dir: Path = "data/lit-redpajama",
+    val_data_dir: Optional[Path] = None,
 ) -> None:
     auto_wrap_policy = partial(
         transformer_auto_wrap_policy, transformer_layer_cls={Block}
@@ -165,7 +165,7 @@ def train(
 
             t1 = time.time()
 
-            if step_count % eval_interval == 0:
+            if val_dataloader is not None and step_count % eval_interval == 0:
                 val_loss = validate(fabric, model, val_dataloader)
                 fabric.print(f"step {iter_num}: val loss {val_loss:.4f}")
                 fabric.barrier()
@@ -258,8 +258,8 @@ def create_dataloaders(
     batch_size: int,
     block_size: int,
     fabric,
-    train_data_dir: str = "data/red_pajama",
-    val_data_dir: str = "data/red_pajama_val",
+    train_data_dir: str = "data/lit-redpajama",
+    val_data_dir: Optional[str] = None,
     seed: int = 12345,
 ) -> Tuple[DataLoader, DataLoader]:
     # Increase by one because we need the next word as well

@@ -140,6 +140,15 @@ Looking for conceptual tutorials and explanations? We have some additional artic
 
 - [Understanding Parameter-Efficient Finetuning of Large Language Models: From Prefix Tuning to LLaMA-Adapters](https://lightning.ai/pages/community/article/understanding-llama-adapters/)
 
+## Pre-training
+
+We provide a simple training script based on Fabric if you want to venture into pre-training on RedPajama, a reproduction of the original LLaMA dataset.
+Conversion scripts for our optimized streaming `PackedDataset` are included.
+
+Follow this guide to start pre-training on the RedPajama dataset:
+
+- [Pretrain on RedPajama](howto/train_redpajama.md)
+
 ## Get involved!
 
 We are on a quest towards fully open source AI.

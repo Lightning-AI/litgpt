@@ -152,7 +152,7 @@ def prepare(
     source_path: Path = Path("data/RedPajama-Data-1T-Sample"),
     tokenizer_path: Path = Path("checkpoints/lit-llama/tokenizer.model"),
     destination_path: Path = Path("data/red_pajama_sample"),
-    chunk_size: int = 1024,
+    chunk_size: int = 2049 * 1024,  # 2048 block size + 1 for causal (from LLama), 1024 blocks
     sample: bool = False,
     match: str = "",
 ) -> None:
