@@ -17,7 +17,7 @@ setup(
     install_requires=[
         "torch>=2.0.0",
         "lightning @ git+https://github.com/Lightning-AI/lightning@master",
-        "sentencepiece",
+        "tokenizers",
     ],
     packages=find_packages(),
     long_description=readme,
