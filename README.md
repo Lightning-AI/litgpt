@@ -27,7 +27,7 @@ Weights are available under the Apache 2.0 license and can be downloaded [follow
 
 ## Design principles
 
-This repository follows the **Lit design principle** of **openness through clarity**.
+This repository follows the main principle of **openness through clarity**.
 
 **Lit-StableLM** is:
 
