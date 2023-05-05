@@ -18,8 +18,8 @@ Note that this change will need to be passed along to subsequent steps, for exam
 
 ```shell
 python scripts/generate.py \
-  --checkpoint_path "data/checkpoints/foo/3B/lit-stablelm.pth" \
-  --tokenizer_path "data/checkpoints/foo/tokenizer.json"
+  --checkpoint_path "data/checkpoints/foo/bar.pth" \
+  --tokenizer_path "data/checkpoints/foo/baz.json"
 ```
 
 To avoid this, you can use symbolic links to create shortcuts and avoid passing different paths.

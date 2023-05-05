@@ -20,6 +20,7 @@ from lit_stablelm.utils import find_multiple
 class StableLMConfig:
     block_size: int = 4096
     vocab_size: int = 50254
+    padding_multiplier: int = 512
     padded_vocab_size: Optional[int] = None
     n_layer: int = 16
     n_head: int = 32
@@ -28,18 +29,19 @@ class StableLMConfig:
 
     def __post_init__(self):
         if self.padded_vocab_size is None:
-            self.padded_vocab_size = find_multiple(self.vocab_size, 512)
+            self.padded_vocab_size = find_multiple(self.vocab_size, self.padding_multiplier)
 
     @classmethod
     def from_name(cls, name: str) -> Self:
         return cls(**stablelm_configs[name])
 
 
+# TODO: add all stablelm and pythia configs
 stablelm_configs = {
     # https://github.com/Stability-AI/StableLM/blob/main/configs/stablelm-base-alpha-3b.yaml
-    "3B": dict(n_head=32, padded_vocab_size=50688),
-    # https://github.com/Stability-AI/StableLM/blob/main/configs/stablelm-base-alpha-7b.yaml
-    "7B": dict(n_head=48, padded_vocab_size=50688),
+    "stablelm-base-alpha-3b": dict(n_head=32, padded_vocab_size=50688),
+    # https://huggingface.co/EleutherAI/pythia-70m/blob/main/config.json
+    "pythia-70m": dict(block_size=2048, n_layer=6, n_embd=512, n_head=8, vocab_size=50304, padding_multiplier=128),
 }
 
 
