@@ -64,7 +64,7 @@ stablelm_configs = {
     # https://huggingface.co/EleutherAI/pythia-12b/blob/main/config.json
     "pythia-12b": dict(block_size=2048, n_layer=36, n_embd=20480, n_head=40, padding_multiple=128),
 }
-for k, v in list(stablelm_configs):
+for k in list(stablelm_configs):
     if k.startswith("pythia"):
         stablelm_configs[k + "-deduped"] = stablelm_configs[k]
 
