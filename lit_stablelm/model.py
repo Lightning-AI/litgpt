@@ -146,7 +146,9 @@ class CausalSelfAttention(nn.Module):
         k = torch.cat((k_roped, k[..., n_elem:]), dim=-1)
 
         # efficient attention using Flash Attention CUDA kernels
-        y = F.scaled_dot_product_attention(q, k, v.float(), attn_mask=None, dropout_p=0.0, is_causal=True, scale=1.0 / math.sqrt(head_size))
+        y = F.scaled_dot_product_attention(
+            q, k, v, attn_mask=None, dropout_p=0.0, is_causal=True, scale=1.0 / math.sqrt(head_size)
+        )
 
         y = y.transpose(1, 2).contiguous().view(B, T, C)  # re-assemble all head outputs side by side
 
