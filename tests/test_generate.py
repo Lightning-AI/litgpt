@@ -1,7 +1,8 @@
 import functools
+import json
 import subprocess
 import sys
-from contextlib import redirect_stdout
+from contextlib import redirect_stdout, redirect_stderr
 from io import StringIO
 from pathlib import Path
 from unittest import mock
@@ -56,7 +57,8 @@ def test_main(_, tmp_path, monkeypatch):
     generate = load_generate_script()
 
     config_path = tmp_path / "config"
-    config_path.write_text("{}")
+    config = {'block_size': 16, 'vocab_size': 50, 'n_layer': 2, 'n_head': 4, 'n_embd': 8, 'rotary_percentage': 1}
+    config_path.write_text(json.dumps(config))
 
     class FabricMock(Mock):
         @property
@@ -78,8 +80,8 @@ def test_main(_, tmp_path, monkeypatch):
     monkeypatch.setattr(generate, "generate", generate_mock)
 
     num_samples = 2
-    out = StringIO()
-    with redirect_stdout(out):
+    out, err = StringIO(), StringIO()
+    with redirect_stdout(out), redirect_stderr(err):
         generate.main(temperature=2.0, top_k=2, num_samples=num_samples, config_path=config_path)
 
     assert len(tokenizer_mock.return_value.decode.mock_calls) == num_samples
@@ -87,6 +89,8 @@ def test_main(_, tmp_path, monkeypatch):
     assert generate_mock.mock_calls == [call(ANY, ANY, 50, ANY, temperature=2.0, top_k=2)] * num_samples
     # only the generated result is printed to stdout
     assert out.getvalue() == "foo bar baz\n" * num_samples
+
+    assert "'padded_vocab_size': 512, 'n_layer': 2, 'n_head': 4, 'n_embd': 8" in err.getvalue()
 
 
 def test_cli():
