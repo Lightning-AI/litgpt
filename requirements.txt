@@ -1,4 +1,7 @@
-torch>=2.0.0
+# we require torch nightly for flash attention support
+# NOTE: you might need to replace "cu118" with "cpu" or "cu117"
+--extra-index-url https://download.pytorch.org/whl/nightly/cu118 --pre
+torch>=2.1.0dev
 lightning @ git+https://github.com/Lightning-AI/lightning@master
 tokenizers
 jsonargparse[signatures]  # CLI

@@ -78,7 +78,7 @@ def test_against_hf_model(rotary_pct, batch_size, n_embd, lit_stablelm) -> None:
 
 @pytest.mark.skipif(not torch.cuda.is_available(), reason="Requires CUDA")
 @torch.no_grad()
-def test_bfloat16_llama_init(lit_stablelm) -> None:
+def test_model_bfloat16(lit_stablelm) -> None:
     from lit_stablelm.utils import EmptyInitOnDevice
 
     block_size = 64

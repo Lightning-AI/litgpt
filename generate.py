@@ -114,17 +114,14 @@ def main(
         config = StableLMConfig(**json.load(fp))
 
     fabric = L.Fabric(devices=1)
-    dtype = torch.float32
-    # avoid RuntimeError: "triu_tril_cuda_template" not implemented for 'BFloat16'
-    # see https://github.com/Lightning-AI/lit-stablelm/issues/2
-    # dtype = torch.bfloat16 if fabric.device.type == "cuda" and torch.cuda.is_bf16_supported() else torch.float32
+    dtype = torch.bfloat16 if fabric.device.type == "cuda" and torch.cuda.is_bf16_supported() else torch.float32
 
     print(f"Loading model {str(checkpoint_path)!r} with {config.__dict__}", file=sys.stderr)
     t0 = time.time()
     with EmptyInitOnDevice(device=fabric.device, dtype=dtype, quantization_mode=quantize):
         model = StableLM(config)
     with lazy_load(checkpoint_path) as checkpoint:
-        model.load_state_dict(checkpoint, strict=False)
+        model.load_state_dict(checkpoint)
     print(f"Time to load model: {time.time() - t0:.02f} seconds.", file=sys.stderr)
 
     model.eval()
