@@ -102,13 +102,13 @@ def main(
             ``"gptq.int4"``: GPTQ 4-bit mode.
     """
     if not checkpoint_path:
-        checkpoint_path = Path(f"./checkpoints/lit-stablelm/3B/lit-stablelm.pth")
+        checkpoint_path = Path(f"checkpoints/lit-stablelm/stablelm-base-alpha-3b/lit-stablelm.pth")
     if not config_path:
-        config_path = Path(f"./checkpoints/lit-stablelm/3B/config.json")
+        config_path = Path(f"checkpoints/lit-stablelm/stablelm-base-alpha-3b/config.json")
     if not tokenizer_path:
-        tokenizer_path = Path("./checkpoints/lit-stablelm/tokenizer.json")
+        tokenizer_path = Path("checkpoints/lit-stablelm/tokenizer.json")
     if not tokenizer_config_path:
-        tokenizer_config_path = Path("./checkpoints/lit-stablelm/tokenizer_config.json")
+        tokenizer_config_path = Path("checkpoints/lit-stablelm/tokenizer_config.json")
 
     with open(config_path) as fp:
         config = StableLMConfig(**json.load(fp))
@@ -116,7 +116,7 @@ def main(
     fabric = L.Fabric(devices=1)
     dtype = torch.bfloat16 if fabric.device.type == "cuda" and torch.cuda.is_bf16_supported() else torch.float32
 
-    print(f"Loading model: {config}", file=sys.stderr)
+    print(f"Loading model {str(checkpoint_path)!r} with {config.__dict__}", file=sys.stderr)
     t0 = time.time()
     with EmptyInitOnDevice(device=fabric.device, dtype=dtype, quantization_mode=quantize):
         model = StableLM(config)

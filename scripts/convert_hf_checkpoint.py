@@ -3,6 +3,7 @@ import json
 import shutil
 import sys
 from pathlib import Path
+from typing import Optional
 
 import torch
 
@@ -57,14 +58,11 @@ def copy_weights(state_dict, hf_weights, dtype=torch.float32):
 @torch.no_grad()
 def convert_hf_checkpoint(
     *,
-    output_dir: Path = Path("checkpoints/lit-stablelm"),
-    ckpt_dir: Path = Path("checkpoints/hf-stablelm/"),
-    model_size: str = "7B",
+    ckpt_dir: Path = Path("checkpoints/hf-stablelm/stablelm-base-alpha-3b"),
+    output_dir: Path = Path("checkpoints/lit-stablelm/stablelm-base-alpha-3b"),
+    model_name: Optional[str] = None,
     dtype: str = "float32",
-    verify: bool = False,
 ) -> None:
-    output_dir = output_dir / model_size
-    ckpt_dir = ckpt_dir / model_size
     output_dir.mkdir(parents=True, exist_ok=True)
 
     # the tokenizer is the same for all model sizes, so we store it in the parent dir
@@ -76,9 +74,11 @@ def convert_hf_checkpoint(
         raise ValueError(f"{dtype} is not a valid dtype.")
     dtype = dt
 
-    print("Initializing lit-stablelm")
+    if model_name is None:
+        model_name = ckpt_dir.name
+    print(f"Initializing model {model_name}")
     with EmptyInitOnDevice(device="cpu", dtype=dtype):
-        model = StableLM.from_name(model_size)
+        model = StableLM.from_name(model_name)
 
     with open(output_dir / "config.json", "w") as json_config:
         json.dump(model.config.__dict__, json_config)
@@ -86,44 +86,15 @@ def convert_hf_checkpoint(
     # initialize a new empty state dict to hold our new weights
     sd = model.state_dict()
 
-    # Load the json file containing weight mapping
-    pytorch_bin_map_json_path = ckpt_dir / "pytorch_model.bin.index.json"
-    with open(pytorch_bin_map_json_path) as json_map:
-        bin_index = json.load(json_map)
-
-    bin_files = sorted(set(el for el in bin_index["weight_map"].values()))
-
-    for bin_file in bin_files:
+    for bin_file in sorted(ckpt_dir.glob("*.bin")):
         print("Processing", bin_file)
-        hf_weights = torch.load(ckpt_dir / bin_file, map_location="cpu")
+        hf_weights = torch.load(bin_file, map_location="cpu")
         copy_weights(sd, hf_weights, dtype=dtype)
         del hf_weights
         gc.collect()
 
     print(f"Saving to disk at {output_dir}")
     torch.save(model.state_dict(), output_dir / "lit-stablelm.pth")
-
-    if verify:
-        try:
-            from transformers import AutoModelForCausalLM
-        except ImportError:
-            raise ImportError("verify=True requires transformers to be installed, please `pip install transformers`")
-        print("Verifying...")
-
-        config = model.config
-        token_sample = torch.randint(0, config.vocab_size, size=(1, config.block_size), dtype=torch.int64)
-        out = model(token_sample)
-        del model
-        gc.collect()
-
-        print("Loading original model for comparison")
-        model_hf = AutoModelForCausalLM.from_pretrained(ckpt_dir)
-        out_hf = model_hf(token_sample)["logits"]
-
-        print("Comparing outputs")
-        assert out.device.type == out_hf.device.type
-        assert out.dtype == out_hf.dtype
-        assert torch.testing.assert_close(out, out_hf)
 
 
 if __name__ == "__main__":
