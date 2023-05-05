@@ -72,7 +72,7 @@ Run inference:
 python generate.py --prompt "Hello, my name is"
 ```
 
-This will run the 7B model and require ~26 GB of GPU memory (A100 GPU).
+This will run the 3B pre-trained model and require ~7 GB of GPU memory (A100 GPU with bf16).
 
 [Full guide for generating samples from the model](howto/inference.md).
 

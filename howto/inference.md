@@ -7,7 +7,7 @@ python generate.py --prompt "Hello, my name is"
 ```
 Output:
 ```
-Hello my name is TJ. I have a passion for the outdoors, love hiking and exploring. I also enjoy traveling and learning new things. I especially enjoy long walks, good conversation and a friendly smile.
+Hello, my name is Levi Durrer, I'm an Austrian journalist - Chairman of the Press Blair Party, with 37 years in the Press Blair International, and two years in the Spectre of Austerity for the other. I'm crossing my fingers that you will feel
 ```
 
 The script assumes you have downloaded and converted the weights and saved them in the `./checkpoints` folder as described [here](download_weights.md).
@@ -15,11 +15,11 @@ The script assumes you have downloaded and converted the weights and saved them 
 > **Note**
 > All scripts support argument [customization](customize_paths.md)
 
-With the default settings, this will run the 7B model and require ~26 GB of GPU memory (A100 GPU).
+This will run the 3B pre-trained model and require ~7 GB of GPU memory (A100 GPU with bf16).
 
 ## Run Lit-LLaMA on consumer devices
 
-On GPUs with `bfloat16` support, the `generate.py` script will automatically convert the weights and consume about ~14 GB.
+On GPUs with `bfloat16` support, the `generate.py` script will automatically convert the weights.
 For GPUs with less memory, or ones that don't support `bfloat16`, enable quantization (`--quantize llm.int8`):
 
 ```bash
