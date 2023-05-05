@@ -17,7 +17,7 @@ The script assumes you have downloaded and converted the weights and saved them 
 
 This will run the 3B pre-trained model and require ~7 GB of GPU memory (A100 GPU with bf16).
 
-## Run Lit-LLaMA on consumer devices
+## Run on consumer devices
 
 On GPUs with `bfloat16` support, the `generate.py` script will automatically convert the weights.
 For GPUs with less memory, or ones that don't support `bfloat16`, enable quantization (`--quantize llm.int8`):
