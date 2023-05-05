@@ -72,20 +72,13 @@ Run inference:
 python generate.py --prompt "Hello, my name is"
 ```
 
-This will run the 3B pre-trained model and require ~7 GB of GPU memory (A100 GPU with bf16).
+This will run the 3B pre-trained model and require ~7 GB of GPU memory using the `bfloat16` datatype.
 
 [Full guide for generating samples from the model](howto/inference.md).
 
-### Run Lit-StableLM on consumer devices
+### Run Lit-StableLM on smaller consumer devices
 
-On GPUs with `bfloat16` support, the `generate.py` script will automatically convert the weights and consume about ~14 GB.
-For GPUs with less memory, or ones that don't support `bfloat16`, enable quantization (`--quantize llm.int8`):
-
-```bash
-python generate.py --quantize llm.int8 --prompt "Hello, my name is"
-```
-
-See `python generate.py --help` for more options.
+Porting from Lit-LLaMA in progress 👷
 
 [Full guide for generating samples from the model](howto/inference.md).
 
