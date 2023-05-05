@@ -64,13 +64,10 @@ def test_main(_, tmp_path, monkeypatch):
             return torch.device("cpu")
 
     monkeypatch.setattr(generate.L, "Fabric", FabricMock)
-    model_mock = Mock()
-    monkeypatch.setattr(generate.StableLM, "from_name", model_mock)
     load_mock = Mock()
     load_mock.return_value = load_mock
     load_mock.__enter__ = Mock()
     load_mock.__exit__ = Mock()
-    monkeypatch.setattr(generate.torch, "load", load_mock)
     monkeypatch.setattr(generate, "lazy_load", load_mock)
     tokenizer_mock = Mock()
     tokenizer_mock.return_value.encode.return_value = torch.tensor([[1, 2, 3]])
