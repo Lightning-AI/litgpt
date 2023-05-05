@@ -17,8 +17,8 @@ from lit_llama.utils import EmptyInitOnDevice
 @torch.no_grad()
 def convert_hf_checkpoint(
     *,
-    output_dir: Path = Path("checkpoints/lit-llama"),
-    ckpt_dir: Path = Path("checkpoints/hf-llama/"),
+    output_dir: Path = Path("checkpoints/lit-llama/7B"),
+    checkpoint_dir: Path = Path("checkpoints/hf-llama/7B"),
     model_size: str = "7B",
     dtype: str = "float32",
     verify: bool = False,
@@ -26,12 +26,10 @@ def convert_hf_checkpoint(
     """
     Perform the reverse operation of: https://github.com/huggingface/transformers/blob/main/src/transformers/models/llama/convert_llama_weights_to_hf.py
     """
-    output_dir = output_dir / model_size
-    ckpt_dir = ckpt_dir / model_size
     output_dir.mkdir(parents=True, exist_ok=True)
 
     # the tokenizer is the same for all model sizes, so we store it in the parent dir
-    shutil.copy(ckpt_dir / "tokenizer.model", output_dir.parent)
+    shutil.copy(checkpoint_dir / "tokenizer.model", output_dir.parent)
 
     dt = getattr(torch, dtype, None)
     if not isinstance(dt, torch.dtype):
@@ -50,7 +48,7 @@ def convert_hf_checkpoint(
     sd = model.state_dict()
 
     # Load the json file containing weight mapping
-    pytorch_bin_map_json_path = ckpt_dir / "pytorch_model.bin.index.json"
+    pytorch_bin_map_json_path = checkpoint_dir / "pytorch_model.bin.index.json"
     with open(pytorch_bin_map_json_path) as json_map:
         bin_index = json.load(json_map)
 
@@ -82,7 +80,7 @@ def convert_hf_checkpoint(
     for bin_file in bin_files:
         print("Processing", bin_file)
 
-        hf_weights = torch.load(ckpt_dir / bin_file, map_location="cpu")
+        hf_weights = torch.load(checkpoint_dir / bin_file, map_location="cpu")
 
         for name, param in hf_weights.items():
             param = param.to(dtype=dtype)
@@ -123,7 +121,7 @@ def convert_hf_checkpoint(
         gc.collect()
 
         print("Loading original model for comparison")
-        model_hf = LlamaForCausalLM.from_pretrained(ckpt_dir)
+        model_hf = LlamaForCausalLM.from_pretrained(checkpoint_dir)
         out_hf = model_hf(token_sample)["logits"]
 
         print("Comparing outputs")
