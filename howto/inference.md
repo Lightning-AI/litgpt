@@ -15,8 +15,6 @@ The script assumes you have downloaded and converted the weights and saved them 
 > **Note**
 > All scripts support argument [customization](customize_paths.md)
 
-### FIXME: update this
-
 With the default settings, this will run the 7B model and require ~26 GB of GPU memory (A100 GPU).
 
 ## Run Lit-LLaMA on consumer devices
@@ -30,10 +28,3 @@ python generate.py --quantize llm.int8 --prompt "Hello, my name is"
 This will consume about ~10 GB of GPU memory or ~8 GB if also using `bfloat16`.
 See `python generate.py --help` for more options.
 
-You can also use GPTQ-style int4 quantization, but this needs conversions of the weights first:
-
-```bash
-python quantize.py --checkpoint_path lit-llama.pth --tokenizer_path tokenizer.model --output_path llama-7b-gptq.4bit.pt --dtype bfloat16  --quantize gptq.int4
-```
-
-With the generated quantized checkpoint generation works as usual with `--quantize gptq.int4`, bringing GPU usage to about ~5GB. As only the weights of the Linear layers are quantized, it is useful to use `--dtype bfloat16` even with the quantization enabled.
