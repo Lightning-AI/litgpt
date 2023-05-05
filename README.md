@@ -105,14 +105,14 @@ We are on a quest towards fully open source AI.
 
 Join us and start contributing, especially on the following areas:
 
-- [ ] [Pre-training](https://github.com/Lightning-AI/lit-llama/labels/pre-training)
-- [ ] [Fine-tuning (full and LoRA)](https://github.com/Lightning-AI/lit-llama/labels/fine-tuning)
-- [ ] [Quantization](https://github.com/Lightning-AI/lit-llama/labels/quantization)
-- [ ] [Sparsification](https://github.com/Lightning-AI/lit-llama/labels/sparsification)
+- [ ] [Pre-training](https://github.com/Lightning-AI/lit-stablelm/labels/pre-training)
+- [ ] [Fine-tuning (full and LoRA)](https://github.com/Lightning-AI/lit-stablelm/labels/fine-tuning)
+- [ ] [Quantization](https://github.com/Lightning-AI/lit-stablelm/labels/quantization)
+- [ ] [Sparsification](https://github.com/Lightning-AI/lit-stablelm/labels/sparsification)
 
 We welcome all individual contributors, regardless of their level of experience or hardware. Your contributions are valuable, and we are excited to see what you can accomplish in this collaborative and supportive environment. 
 
-Unsure about contributing? Check out our [Contributing to Lit-LLaMA: A Hitchhiker’s Guide to the Quest for Fully Open-Source AI](https://lightning.ai/pages/community/tutorial/contributing-to-lit-llama-a-hitchhikers-guide-to-the-quest-for-fully-open-source-ai/) guide. The same guidelines apply to Lit-StableLM
+Unsure about contributing? Check out our [Contributing to Lit-LLaMA: A Hitchhiker’s Guide to the Quest for Fully Open-Source AI](https://lightning.ai/pages/community/tutorial/contributing-to-lit-llama-a-hitchhikers-guide-to-the-quest-for-fully-open-source-ai/) guide. The same guidelines apply to Lit-StableLM.
 
 Don't forget to [join our Discord](https://discord.gg/VptPCZkGNa)!
 
