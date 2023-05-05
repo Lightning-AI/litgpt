@@ -8,9 +8,4 @@ build
 data
 checkpoints
 out
-!data/shakespeare/prepare.py
 wandb
-
-# downloaded by our tests
-original_model.py
-original_adapter.py
