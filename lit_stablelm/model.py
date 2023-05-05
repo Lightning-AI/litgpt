@@ -78,7 +78,7 @@ class StableLM(nn.Module):
             t <= self.config.block_size
         ), f"Cannot forward sequence of length {t}, block size is only {self.config.block_size}"
 
-        # forward the LLaMA model itself
+        # forward the model itself
         x = self.transformer.wte(idx)  # token embeddings of shape (b, t, n_embd)
 
         for block in self.transformer.h:
