@@ -49,7 +49,7 @@ Clone the repo
 
 ```bash
 git clone https://github.com/Lightning-AI/lit-stablelm
-cd lit-llama
+cd lit-stablelm
 ```
 
 install dependencies
