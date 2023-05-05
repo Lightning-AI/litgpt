@@ -1,3 +1,4 @@
+import json
 import sys
 import time
 import warnings
@@ -7,8 +8,8 @@ from typing import Optional
 import lightning as L
 import torch
 
-from lit_llama import LLaMA, Tokenizer
-from lit_llama.utils import EmptyInitOnDevice, lazy_load, llama_model_lookup
+from lit_stablelm import StableLM, Tokenizer, StableLMConfig
+from lit_stablelm.utils import EmptyInitOnDevice, lazy_load
 
 
 @torch.no_grad()
@@ -78,7 +79,9 @@ def main(
     top_k: int = 200,
     temperature: float = 0.8,
     checkpoint_path: Optional[Path] = None,
+    config_path: Optional[Path] = None,
     tokenizer_path: Optional[Path] = None,
+    tokenizer_config_path: Optional[Path] = None,
     quantize: Optional[str] = None,
 ) -> None:
     """Generates text samples based on a pre-trained LLaMA model and tokenizer.
@@ -91,39 +94,41 @@ def main(
         temperature: A value controlling the randomness of the sampling process. Higher values result in more random
             samples.
         checkpoint_path: The checkpoint path to load.
-        tokenizer_path: The tokenizer path to load.
+        config_path: The model config path to load.
+        tokenizer_path: The tokenizer vocabulary path to load.
+        tokenizer_config_path: The tokenizer config path to load.
         quantize: Whether to quantize the model and using which method:
             ``"llm.int8"``: LLM.int8() mode,
             ``"gptq.int4"``: GPTQ 4-bit mode.
     """
     if not checkpoint_path:
-        checkpoint_path = Path(f"./checkpoints/lit-llama/7B/lit-llama.pth")
+        checkpoint_path = Path(f"./checkpoints/lit-stablelm/3B/lit-stablelm.pth")
+    if not config_path:
+        config_path = Path(f"./checkpoints/lit-stablelm/3B/config.json")
     if not tokenizer_path:
-        tokenizer_path = Path("./checkpoints/lit-llama/tokenizer.model")
-    assert checkpoint_path.is_file(), checkpoint_path
-    assert tokenizer_path.is_file(), tokenizer_path
+        tokenizer_path = Path("./checkpoints/lit-stablelm/tokenizer.json")
+    if not tokenizer_config_path:
+        tokenizer_config_path = Path("./checkpoints/lit-stablelm/tokenizer_config.json")
+
+    with open(config_path) as fp:
+        config = StableLMConfig(**json.load(fp))
 
     fabric = L.Fabric(devices=1)
     dtype = torch.bfloat16 if fabric.device.type == "cuda" and torch.cuda.is_bf16_supported() else torch.float32
 
-    print("Loading model ...", file=sys.stderr)
+    print(f"Loading model: {config}", file=sys.stderr)
     t0 = time.time()
     with lazy_load(checkpoint_path) as checkpoint:
-        name = llama_model_lookup(checkpoint)
-
-        with EmptyInitOnDevice(
-                device=fabric.device, dtype=dtype, quantization_mode=quantize
-        ):
-            model = LLaMA.from_name(name)
-
-        model.load_state_dict(checkpoint)
+        with EmptyInitOnDevice(device=fabric.device, dtype=dtype, quantization_mode=quantize):
+            model = StableLM(config)
+        model.load_state_dict(checkpoint, strict=False)
     print(f"Time to load model: {time.time() - t0:.02f} seconds.", file=sys.stderr)
 
     model.eval()
     model = fabric.setup_module(model)
 
-    tokenizer = Tokenizer(tokenizer_path)
-    encoded_prompt = tokenizer.encode(prompt, bos=True, eos=False, device=fabric.device)
+    tokenizer = Tokenizer(tokenizer_path, tokenizer_config_path)
+    encoded_prompt = tokenizer.encode(prompt, device=fabric.device)
 
     L.seed_everything(1234)
     for i in range(num_samples):

@@ -14,23 +14,6 @@ from torch.distributed.fsdp import FullyShardedDataParallel as FSDP
 from torch.distributed.fsdp import StateDictType
 
 
-llama_model_sizes = {
-    4096: "7B",  # 7B n_embd=4096
-    5120: "13B",  # 13B n_embd=5120
-    6656: "30B",  # 30B n_embd=6656
-    8192: "65B",  # 65B n_embd=8192
-}
-
-
-def llama_model_lookup(checkpoint: dict) -> str:
-    """Returns the LLaMA model name from the checkpoint.
-    
-    Checks the width of the lm_head.weight matrix, as these uniquely identify the model.
-    """
-    embedding_size = checkpoint["lm_head.weight"].shape[1]
-    return llama_model_sizes[embedding_size]
-
-
 def find_multiple(n: int, k: int) -> int:
     if n % k == 0:
         return n
@@ -39,7 +22,7 @@ def find_multiple(n: int, k: int) -> int:
 
 def save_model_checkpoint(fabric, model, file_path):
     """Handles boilerplate logic for retrieving and saving the state_dict.
-    
+
     This will be upstreamed to Fabric soon.
     """
     file_path = Path(file_path)
@@ -85,16 +68,19 @@ class EmptyInitOnDevice(torch.overrides.TorchFunctionMode):
 
         self.quantization_mode = quantization_mode
         self.quantized_linear_cls = None
-        if self.quantization_mode == 'llm.int8':
+        if self.quantization_mode == "llm.int8":
             if device.type != "cuda":
                 raise ValueError("Quantization is only supported on the GPU.")
             from .quantization import Linear8bitLt
+
             self.quantized_linear_cls = Linear8bitLt
-        elif self.quantization_mode == 'gptq.int4':
+        elif self.quantization_mode == "gptq.int4":
             from .quantization import ColBlockQuantizedLinear
+
             self.quantized_linear_cls = functools.partial(ColBlockQuantizedLinear, bits=4, tile_cols=-1)
-        elif self.quantization_mode == 'gptq.int8':
+        elif self.quantization_mode == "gptq.int8":
             from .quantization import ColBlockQuantizedLinear
+
             self.quantized_linear_cls = functools.partial(ColBlockQuantizedLinear, bits=8, tile_cols=-1)
         elif self.quantization_mode is not None:
             raise RuntimeError(f"unknown quantization mode {self.quantization_mode}")
@@ -152,18 +138,14 @@ class NotYetLoadedTensor:
 
             def _load_tensor():
                 t = old_lt()
-                return torch._tensor._rebuild_from_type_v2(
-                    lambda: t, new_type, (), state
-                )
+                return torch._tensor._rebuild_from_type_v2(lambda: t, new_type, (), state)
 
             ret._load_tensor = _load_tensor
             return ret
         return torch._tensor._rebuild_from_type_v2(func, new_type, args, state)
 
     @classmethod
-    def rebuild_parameter(
-        cls, data, requires_grad, backward_hooks, *, archiveinfo=None
-    ):
+    def rebuild_parameter(cls, data, requires_grad, backward_hooks, *, archiveinfo=None):
         if isinstance(data, NotYetLoadedTensor):
             old_lt = data._load_tensor
 
@@ -177,33 +159,11 @@ class NotYetLoadedTensor:
 
     @classmethod
     def rebuild_tensor_v2(
-        cls,
-        storage,
-        storage_offset,
-        size,
-        stride,
-        requires_grad,
-        backward_hooks,
-        metadata=None,
-        *,
-        archiveinfo=None,
+        cls, storage, storage_offset, size, stride, requires_grad, backward_hooks, metadata=None, *, archiveinfo=None
     ):
-        rebuild_args = (
-            storage_offset,
-            size,
-            stride,
-            requires_grad,
-            backward_hooks,
-            metadata,
-        )
+        rebuild_args = (storage_offset, size, stride, requires_grad, backward_hooks, metadata)
         metatensor = torch._utils._rebuild_tensor_v2(
-            storage,
-            storage_offset,
-            size,
-            stride,
-            requires_grad,
-            backward_hooks,
-            metadata,
+            storage, storage_offset, size, stride, requires_grad, backward_hooks, metadata
         )
         storageinfo = storage.archiveinfo
         return NotYetLoadedTensor(metatensor, archiveinfo, storageinfo, rebuild_args)
@@ -214,18 +174,14 @@ class NotYetLoadedTensor:
 
         uts = (
             self.archiveinfo.zipfile_context.zf.get_storage_from_record(
-                f"data/{fn}",
-                size * torch._utils._element_size(dtype),
-                torch.UntypedStorage,
+                f"data/{fn}", size * torch._utils._element_size(dtype), torch.UntypedStorage
             )
             ._typed_storage()
             ._untyped_storage
         )
         with warnings.catch_warnings():
             warnings.simplefilter("ignore")
-            storage = torch.storage.TypedStorage(
-                wrap_storage=uts, dtype=self.metatensor.dtype, _internal=True
-            )
+            storage = torch.storage.TypedStorage(wrap_storage=uts, dtype=self.metatensor.dtype, _internal=True)
         tensor = torch._utils._rebuild_tensor_v2(storage, *self.rebuild_args)
         return tensor
 
@@ -233,9 +189,7 @@ class NotYetLoadedTensor:
     def __torch_function__(cls, func, types, args=(), kwargs=None):
         if kwargs is None:
             kwargs = {}
-        loaded_args = [
-            (a._load_tensor() if isinstance(a, NotYetLoadedTensor) else a) for a in args
-        ]
+        loaded_args = [(a._load_tensor() if isinstance(a, NotYetLoadedTensor) else a) for a in args]
         res = func(*loaded_args, **kwargs)
         # gc.collect would be costly here, maybe do it optionally
         return res
@@ -279,17 +233,11 @@ class LazyLoadingUnpickler(pickle.Unpickler):
     def find_class(self, module, name):
         res = super().find_class(module, name)
         if module == "torch._utils" and name == "_rebuild_tensor_v2":
-            return functools.partial(
-                NotYetLoadedTensor.rebuild_tensor_v2, archiveinfo=self
-            )
+            return functools.partial(NotYetLoadedTensor.rebuild_tensor_v2, archiveinfo=self)
         elif module == "torch._tensor" and name == "_rebuild_from_type_v2":
-            return functools.partial(
-                NotYetLoadedTensor.rebuild_from_type_v2, archiveinfo=self
-            )
+            return functools.partial(NotYetLoadedTensor.rebuild_from_type_v2, archiveinfo=self)
         elif module == "torch._utils" and name == "_rebuild_parameter":
-            return functools.partial(
-                NotYetLoadedTensor.rebuild_parameter, archiveinfo=self
-            )
+            return functools.partial(NotYetLoadedTensor.rebuild_parameter, archiveinfo=self)
         return res
 
     def persistent_load(self, pid):

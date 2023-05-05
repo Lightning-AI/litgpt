@@ -1,9 +1,5 @@
 torch>=2.0.0
 lightning @ git+https://github.com/Lightning-AI/lightning@master
-sentencepiece
-tqdm  # convert_checkpoint.py
-numpy  # train.py dataset memmap
-jsonargparse[signatures]  # generate.py, convert_checkpoint.py CLI
+tokenizers
+jsonargparse[signatures]  # CLI
 bitsandbytes  # quantization.py
-datasets  # evaluate.py
-zstandard  # prepare_redpajama.py

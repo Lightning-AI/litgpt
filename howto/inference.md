@@ -15,6 +15,8 @@ The script assumes you have downloaded and converted the weights and saved them 
 > **Note**
 > All scripts support argument [customization](customize_paths.md)
 
+### FIXME: update this
+
 With the default settings, this will run the 7B model and require ~26 GB of GPU memory (A100 GPU).
 
 ## Run Lit-LLaMA on consumer devices

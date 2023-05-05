@@ -1,19 +1,19 @@
 # TPU support
 
-Lit-LLaMA used `lightning.Fabric` under the hood, which itself supports TPUs (via [PyTorch XLA](https://github.com/pytorch/xla)).
+This project uses `lightning.Fabric` under the hood, which itself supports TPUs (via [PyTorch XLA](https://github.com/pytorch/xla)).
 
 The following commands will allow you to set up a `Google Cloud` instance with a [TPU v4](https://cloud.google.com/tpu/docs/system-architecture-tpu-vm) VM:
 
 ```shell
-gcloud compute tpus tpu-vm create lit-llama --version=tpu-vm-v4-pt-2.0 --accelerator-type=v4-8 --zone=us-central2-b
-gcloud compute tpus tpu-vm ssh lit-llama --zone=us-central2-b
+gcloud compute tpus tpu-vm create lit-stablelm --version=tpu-vm-v4-pt-2.0 --accelerator-type=v4-8 --zone=us-central2-b
+gcloud compute tpus tpu-vm ssh lit-stablelm --zone=us-central2-b
 ```
 
 Now that you are in the machine, let's clone the repository and install the dependencies
 
 ```shell
-git clone https://github.com/Lightning-AI/lit-llama
-cd lit-llama
+git clone https://github.com/Lightning-AI/lit-stablelm
+cd lit-stablelm
 pip install -r requirements.txt
 ```
 
@@ -47,5 +47,5 @@ Coming soon.
 > **Warning**
 > When you are done, remember to delete your instance 
 > ```shell
-> gcloud compute tpus tpu-vm delete lit-llama --zone=us-central2-b
+> gcloud compute tpus tpu-vm delete lit-stablelm --zone=us-central2-b
 > ```
