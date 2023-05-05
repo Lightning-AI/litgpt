@@ -126,14 +126,6 @@ class CausalSelfAttention(nn.Module):
         self.rotary_percentage = config.rotary_percentage
         self.rope_cache: Optional[Tuple[torch.Tensor, torch.Tensor]] = None
 
-        if self.rotary_percentage != 1.0:
-            self.register_buffer(
-                "bias",
-                torch.tril(torch.ones(config.block_size, config.block_size)).view(
-                    1, 1, config.block_size, config.block_size
-                ),
-            )
-
     def forward(self, x: torch.Tensor) -> torch.Tensor:
         B, T, C = x.size()  # batch size, sequence length, embedding dimensionality (n_embd)
 
@@ -153,17 +145,8 @@ class CausalSelfAttention(nn.Module):
         q = torch.cat((q_roped, q[..., n_elem:]), dim=-1)
         k = torch.cat((k_roped, k[..., n_elem:]), dim=-1)
 
-        if hasattr(self, "bias"):
-            # causal self-attention; Self-attend: (B, nh, T, hs) x (B, nh, hs, T) -> (B, nh, T, T)
-            # NOTE: cannot use flash attention because it takes q.size(-1) as the norm factor which is different to the
-            # head size when rotary_percentage is set
-            att = (q @ k.transpose(-2, -1)) * (1.0 / math.sqrt(head_size))
-            att = att.masked_fill(self.bias[:, :, :T, :T] == 0, float("-inf"))
-            att = F.softmax(att, dim=-1)
-            y = att @ v  # (B, nh, T, T) x (B, nh, T, hs) -> (B, nh, T, hs)
-        else:
-            # efficient attention using Flash Attention CUDA kernels
-            y = F.scaled_dot_product_attention(q, k, v, attn_mask=None, dropout_p=0.0, is_causal=True)
+        # efficient attention using Flash Attention CUDA kernels
+        y = F.scaled_dot_product_attention(q, k, v.float(), attn_mask=None, dropout_p=0.0, is_causal=True, scale=1.0 / math.sqrt(head_size))
 
         y = y.transpose(1, 2).contiguous().view(B, T, C)  # re-assemble all head outputs side by side
 
