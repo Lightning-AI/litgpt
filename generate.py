@@ -118,9 +118,9 @@ def main(
 
     print(f"Loading model: {config}", file=sys.stderr)
     t0 = time.time()
+    with EmptyInitOnDevice(device=fabric.device, dtype=dtype, quantization_mode=quantize):
+        model = StableLM(config)
     with lazy_load(checkpoint_path) as checkpoint:
-        with EmptyInitOnDevice(device=fabric.device, dtype=dtype, quantization_mode=quantize):
-            model = StableLM(config)
         model.load_state_dict(checkpoint, strict=False)
     print(f"Time to load model: {time.time() - t0:.02f} seconds.", file=sys.stderr)
 
