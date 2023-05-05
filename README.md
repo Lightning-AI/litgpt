@@ -80,8 +80,6 @@ This will run the 3B pre-trained model and require ~7 GB of GPU memory using the
 
 Porting from Lit-LLaMA in progress 👷
 
-[Full guide for generating samples from the model](howto/inference.md).
-
 ## Finetune the model
 
 Porting from Lit-LLaMA in progress 👷
