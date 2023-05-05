@@ -37,6 +37,7 @@ class StableLMConfig:
 
 
 stablelm_configs = {
+    # Stability AI StableLM
     # https://huggingface.co/stabilityai/stablelm-base-alpha-3b/blob/main/config.json
     "stablelm-base-alpha-3b": dict(padding_multiple=512),
     # https://huggingface.co/stabilityai/stablelm-base-alpha-7b/blob/main/config.json
@@ -45,32 +46,42 @@ stablelm_configs = {
     "stablelm-tuned-alpha-3b": dict(n_head=32, padding_multiple=512),
     # https://huggingface.co/stabilityai/stablelm-tuned-alpha-7b/blob/main/config.json
     "stablelm-tuned-alpha-7b": dict(n_head=48, n_embd=6144, padding_multiple=256),
-
+    # Eleuther AI Pythia
     # https://huggingface.co/EleutherAI/pythia-70m/blob/main/config.json
     "pythia-70m": dict(block_size=2048, n_layer=6, n_embd=512, n_head=8, padding_multiple=128),
     "pythia-70m-deduped": dict(block_size=2048, n_layer=6, n_embd=512, n_head=8, padding_multiple=128),
     # https://huggingface.co/EleutherAI/pythia-160m/blob/main/config.json
     "pythia-160m": dict(block_size=2048, n_layer=12, n_embd=768, n_head=12, padding_multiple=128),
     "pythia-160m-deduped": dict(block_size=2048, n_layer=12, n_embd=768, n_head=12, padding_multiple=128),
-
+    # FIXME
     # https://huggingface.co/EleutherAI/pythia-410m/blob/main/config.json
     "pythia-410m": dict(block_size=2048, n_layer=6, n_embd=512, n_head=8, vocab_size=50304, padding_multiple=128),
-    "pythia-410m-deduped": dict(block_size=2048, n_layer=6, n_embd=512, n_head=8, vocab_size=50304, padding_multiple=128),
+    "pythia-410m-deduped": dict(
+        block_size=2048, n_layer=6, n_embd=512, n_head=8, vocab_size=50304, padding_multiple=128
+    ),
     # https://huggingface.co/EleutherAI/pythia-1b/blob/main/config.json
     "pythia-1b": dict(block_size=2048, n_layer=6, n_embd=512, n_head=8, vocab_size=50304, padding_multiple=128),
     "pythia-1b-deduped": dict(block_size=2048, n_layer=6, n_embd=512, n_head=8, vocab_size=50304, padding_multiple=128),
     # https://huggingface.co/EleutherAI/pythia-1.4b/blob/main/config.json
     "pythia-1.4b": dict(block_size=2048, n_layer=6, n_embd=512, n_head=8, vocab_size=50304, padding_multiple=128),
-    "pythia-1.4b-deduped": dict(block_size=2048, n_layer=6, n_embd=512, n_head=8, vocab_size=50304, padding_multiple=128),
+    "pythia-1.4b-deduped": dict(
+        block_size=2048, n_layer=6, n_embd=512, n_head=8, vocab_size=50304, padding_multiple=128
+    ),
     # https://huggingface.co/EleutherAI/pythia-2.8b/blob/main/config.json
     "pythia-2.8b": dict(block_size=2048, n_layer=6, n_embd=512, n_head=8, vocab_size=50304, padding_multiple=128),
-    "pythia-2.8b-deduped": dict(block_size=2048, n_layer=6, n_embd=512, n_head=8, vocab_size=50304, padding_multiple=128),
+    "pythia-2.8b-deduped": dict(
+        block_size=2048, n_layer=6, n_embd=512, n_head=8, vocab_size=50304, padding_multiple=128
+    ),
     # https://huggingface.co/EleutherAI/pythia-6.9b/blob/main/config.json
     "pythia-6.9b": dict(block_size=2048, n_layer=6, n_embd=512, n_head=8, vocab_size=50304, padding_multiple=128),
-    "pythia-6.9b-deduped": dict(block_size=2048, n_layer=6, n_embd=512, n_head=8, vocab_size=50304, padding_multiple=128),
+    "pythia-6.9b-deduped": dict(
+        block_size=2048, n_layer=6, n_embd=512, n_head=8, vocab_size=50304, padding_multiple=128
+    ),
     # https://huggingface.co/EleutherAI/pythia-12b/blob/main/config.json
     "pythia-12b": dict(block_size=2048, n_layer=6, n_embd=512, n_head=8, vocab_size=50304, padding_multiple=128),
-    "pythia-12b-deduped": dict(block_size=2048, n_layer=6, n_embd=512, n_head=8, vocab_size=50304, padding_multiple=128),
+    "pythia-12b-deduped": dict(
+        block_size=2048, n_layer=6, n_embd=512, n_head=8, vocab_size=50304, padding_multiple=128
+    ),
 }
 
 
