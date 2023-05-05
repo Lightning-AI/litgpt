@@ -84,7 +84,7 @@ def main(
     tokenizer_config_path: Optional[Path] = None,
     quantize: Optional[str] = None,
 ) -> None:
-    """Generates text samples based on a pre-trained LLaMA model and tokenizer.
+    """Generates text samples based on a pre-trained model and tokenizer.
 
     Args:
         prompt: The prompt string to use for generating the samples.

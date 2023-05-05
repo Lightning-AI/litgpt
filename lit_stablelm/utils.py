@@ -63,8 +63,9 @@ class EmptyInitOnDevice(torch.overrides.TorchFunctionMode):
 
         Example::
             with EmptyInitOnDevice("cuda", dtype=torch.bfloat16):
-               model = LLaMA.from_name('7B')
-            model.load_state_dict(torch.load('llama-lit/7B/lit-llama.pth'))"""
+               model = ...
+            model.load_state_dict(torch.load('checkpoint.pth'))
+        """
 
         self.quantization_mode = quantization_mode
         self.quantized_linear_cls = None
