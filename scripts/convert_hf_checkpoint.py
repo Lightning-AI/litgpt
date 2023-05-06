@@ -58,17 +58,10 @@ def copy_weights(state_dict, hf_weights, dtype=torch.float32):
 @torch.no_grad()
 def convert_hf_checkpoint(
     *,
-    ckpt_dir: Path = Path("checkpoints/hf-stablelm/stablelm-base-alpha-3b"),
-    output_dir: Path = Path("checkpoints/lit-stablelm/stablelm-base-alpha-3b"),
+    ckpt_dir: Path = Path("checkpoints/stabilityai/stablelm-base-alpha-3b"),
     model_name: Optional[str] = None,
     dtype: str = "float32",
 ) -> None:
-    output_dir.mkdir(parents=True, exist_ok=True)
-
-    # the tokenizer is the same for all model sizes, so we store it in the parent dir
-    shutil.copy(ckpt_dir / "tokenizer.json", output_dir.parent)
-    shutil.copy(ckpt_dir / "tokenizer_config.json", output_dir.parent)
-
     dt = getattr(torch, dtype, None)
     if not isinstance(dt, torch.dtype):
         raise ValueError(f"{dtype} is not a valid dtype.")
@@ -80,7 +73,7 @@ def convert_hf_checkpoint(
     with EmptyInitOnDevice(device="cpu", dtype=dtype):
         model = StableLM.from_name(model_name)
 
-    with open(output_dir / "config.json", "w") as json_config:
+    with open(ckpt_dir / "lit_config.json", "w") as json_config:
         json.dump(model.config.__dict__, json_config)
 
     # initialize a new empty state dict to hold our new weights
@@ -93,8 +86,9 @@ def convert_hf_checkpoint(
         del hf_weights
         gc.collect()
 
-    print(f"Saving to disk at {output_dir}")
-    torch.save(model.state_dict(), output_dir / "lit-stablelm.pth")
+    model_path = ckpt_dir / "lit_model.pth"
+    print(f"Saving to disk at {model_path!r}")
+    torch.save(model.state_dict(), model_path)
 
 
 if __name__ == "__main__":

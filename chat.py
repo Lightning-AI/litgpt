@@ -66,10 +66,7 @@ def main(
     *,
     top_k: int = 200,
     temperature: float = 0.8,
-    checkpoint_path: Optional[Path] = None,
-    config_path: Optional[Path] = None,
-    tokenizer_path: Optional[Path] = None,
-    tokenizer_config_path: Optional[Path] = None,
+    ckpt_dir: Path = Path(f"checkpoints/stabilityai/stablelm-tuned-alpha-3b"),
     quantize: Optional[str] = None,
 ) -> None:
     """Starts a conversation with a tuned StableLM model.
@@ -78,29 +75,25 @@ def main(
         top_k: The number of top most probable tokens to consider in the sampling process.
         temperature: A value controlling the randomness of the sampling process. Higher values result in more random
             samples.
-        checkpoint_path: The checkpoint path to load.
-        config_path: The model config path to load.
-        tokenizer_path: The tokenizer vocabulary path to load.
-        tokenizer_config_path: The tokenizer config path to load.
+        ckpt_dir: The checkpoint directory to load.
         quantize: Whether to quantize the model and using which method:
             ``"llm.int8"``: LLM.int8() mode,
             ``"gptq.int4"``: GPTQ 4-bit mode.
     """
-    if not checkpoint_path:
-        checkpoint_path = Path(f"checkpoints/lit-stablelm/stablelm-tuned-alpha-3b/lit-stablelm.pth")
-    if not config_path:
-        config_path = Path(f"checkpoints/lit-stablelm/stablelm-tuned-alpha-3b/config.json")
-    if not tokenizer_path:
-        tokenizer_path = Path("checkpoints/lit-stablelm/tokenizer.json")
-    if not tokenizer_config_path:
-        tokenizer_config_path = Path("checkpoints/lit-stablelm/tokenizer_config.json")
+    if not ckpt_dir.is_dir():
+        raise IOError(
+            f"`--ckpt_dir={ckpt_dir!r} must be a directory with the lit model checkpoint and configurations. Please,"
+            " follow the instructions at"
+            " https://github.com/Lightning-AI/lit-stablelm/blob/main/howto/download_weights.md"
+        )
 
-    with open(config_path) as fp:
+    with open(ckpt_dir / "lit_config.json") as fp:
         config = StableLMConfig(**json.load(fp))
 
     fabric = L.Fabric(devices=1)
     dtype = torch.bfloat16 if fabric.device.type == "cuda" and torch.cuda.is_bf16_supported() else torch.float32
 
+    checkpoint_path = ckpt_dir / "lit_model.pth"
     print(f"Loading model {str(checkpoint_path)!r} with {config.__dict__}", file=sys.stderr)
     with EmptyInitOnDevice(device=fabric.device, dtype=dtype, quantization_mode=quantize):
         model = StableLM(config)
@@ -110,7 +103,7 @@ def main(
     model.eval()
     model = fabric.setup_module(model)
 
-    tokenizer = Tokenizer(tokenizer_path, tokenizer_config_path)
+    tokenizer = Tokenizer(ckpt_dir / "tokenizer.json", ckpt_dir / "tokenizer_config.json")
     stop_tokens = (
         tokenizer.eos_id,
         tokenizer.processor.token_to_id("<|SYSTEM|>"),

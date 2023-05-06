@@ -56,7 +56,7 @@ def test_generate():
 def test_main(_, tmp_path, monkeypatch):
     generate = load_generate_script()
 
-    config_path = tmp_path / "config"
+    config_path = tmp_path / "lit_config.json"
     config = {'block_size': 16, 'vocab_size': 50, 'n_layer': 2, 'n_head': 4, 'n_embd': 8, 'rotary_percentage': 1}
     config_path.write_text(json.dumps(config))
 
@@ -82,7 +82,7 @@ def test_main(_, tmp_path, monkeypatch):
     num_samples = 2
     out, err = StringIO(), StringIO()
     with redirect_stdout(out), redirect_stderr(err):
-        generate.main(temperature=2.0, top_k=2, num_samples=num_samples, config_path=config_path)
+        generate.main(temperature=2.0, top_k=2, num_samples=num_samples, ckpt_dir=tmp_path)
 
     assert len(tokenizer_mock.return_value.decode.mock_calls) == num_samples
     assert torch.allclose(tokenizer_mock.return_value.decode.call_args[0][0], generate_mock.return_value)

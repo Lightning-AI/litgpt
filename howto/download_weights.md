@@ -10,13 +10,13 @@ git clone stabilityai/stablelm-base-alpha-3b checkpoints/hf-stablelm/stablelm-ba
 Or if you don't have `git-lfs` installed:
 
 ```bash
-python scripts/download.py --repo_id stabilityai/stablelm-base-alpha-3b --local_dir checkpoints/hf-stablelm/stablelm-base-alpha-3b
+python scripts/download.py --repo_id stabilityai/stablelm-base-alpha-3b --local_dir checkpoints/stabilityai/stablelm-base-alpha-3b
 ```
 
 Once downloaded, you should have a folder like this:
 
 ```text
-checkpoints/hf-stablelm
+checkpoints/stabilityai
 └── stablelm-base-alpha-3b
     ├── ...
     ├── pytorch_model-00001-of-00002.bin
@@ -28,21 +28,20 @@ checkpoints/hf-stablelm
 Convert the weights to our model format:
 
 ```bash
-python scripts/convert_hf_checkpoint.py --ckpt_dir checkpoints/hf-stablelm/stablelm-base-alpha-3b --output_dir checkpoints/lit-stablelm/stablelm-base-alpha-3b 
+python scripts/convert_hf_checkpoint.py --ckpt_dir checkpoints/stabilityai/stablelm-base-alpha-3b
 ```
 
 > **Note**
 > All scripts support argument [customization](customize_paths.md)
 
-Once converted, you should have a folder like this:
+Once converted, you should have two added files:
 
 ```text
-checkpoints/lit-stablelm/
-├── stablelm-base-alpha-3b
-│   ├── config.json
-│   └── lit-stablelm.pth
-├── tokenizer_config.json
-└── tokenizer.json
+checkpoints/stabilityai
+└── stablelm-base-alpha-3b
+    ├── ...
+    ├── lit_config.json
+    └── lit_model.pth
 ```
 
 You are all set. Now you can continue with inference or finetuning.
