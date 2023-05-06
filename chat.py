@@ -88,7 +88,7 @@ def main(
     if not checkpoint_dir.is_dir():
         raise OSError(
             f"`--checkpoint_dir={str(checkpoint_dir)!r} must be a directory with the lit model checkpoint and"
-            f" configurations. Please, follow the instructions at"
+            " configurations. Please, follow the instructions at"
             " https://github.com/Lightning-AI/lit-stablelm/blob/main/howto/download_weights.md"
         )
 
@@ -180,7 +180,9 @@ def prompt_config(checkpoint_dir: Path, tokenizer: Tokenizer) -> Tuple[str, Tupl
             [2756],  # '\n\n\n'
         )
         return system_prompt, stop_tokens
-    raise NotImplementedError(f"Undefined prompt config for {str(checkpoint_dir)!r}")
+
+    # default format
+    return "{prompt}", ([tokenizer.eos_id],)
 
 
 if __name__ == "__main__":
