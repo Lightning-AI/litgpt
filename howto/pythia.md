@@ -7,9 +7,9 @@ For instance, to run inference with the [pythia-70m](https://huggingface.co/Eleu
 ```bash
 python scripts/download.py EleutherAI/pythia-70m
 
-python scripts/convert_hf_checkpoint.py --ckpt_dir checkpoints/EleutherAI/pythia-70m
+python scripts/convert_hf_checkpoint.py --checkpoint_dir checkpoints/EleutherAI/pythia-70m
 
-python generate.py --prompt "Hello, my name is" --ckpt_dir checkpoints/EleutherAI/pythia-70m
+python generate.py --prompt "Hello, my name is" --checkpoint_dir checkpoints/EleutherAI/pythia-70m
 ```
 
 > **Note**

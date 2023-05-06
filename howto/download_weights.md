@@ -28,7 +28,7 @@ checkpoints/stabilityai
 Convert the weights to our model format:
 
 ```bash
-python scripts/convert_hf_checkpoint.py --ckpt_dir checkpoints/stabilityai/stablelm-base-alpha-3b
+python scripts/convert_hf_checkpoint.py --checkpoint_dir checkpoints/stabilityai/stablelm-base-alpha-3b
 ```
 
 Once converted, you should have two added files:

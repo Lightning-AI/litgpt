@@ -78,7 +78,7 @@ def main(
     max_new_tokens: int = 50,
     top_k: int = 200,
     temperature: float = 0.8,
-    ckpt_dir: Path = Path(f"checkpoints/stabilityai/stablelm-base-alpha-3b"),
+    checkpoint_dir: Path = Path(f"checkpoints/stabilityai/stablelm-base-alpha-3b"),
     quantize: Optional[str] = None,
 ) -> None:
     """Generates text samples based on a pre-trained model and tokenizer.
@@ -90,25 +90,25 @@ def main(
         top_k: The number of top most probable tokens to consider in the sampling process.
         temperature: A value controlling the randomness of the sampling process. Higher values result in more random
             samples.
-        ckpt_dir: The checkpoint directory to load.
+        checkpoint_dir: The checkpoint directory to load.
         quantize: Whether to quantize the model and using which method:
             ``"llm.int8"``: LLM.int8() mode,
             ``"gptq.int4"``: GPTQ 4-bit mode.
     """
-    if not ckpt_dir.is_dir():
+    if not checkpoint_dir.is_dir():
         raise OSError(
-            f"`--ckpt_dir={str(ckpt_dir)!r} must be a directory with the lit model checkpoint and configurations. Please,"
-            " follow the instructions at"
+            f"`--checkpoint_dir={str(checkpoint_dir)!r} must be a directory with the lit model checkpoint and"
+            " configurations. Please, follow the instructions at"
             " https://github.com/Lightning-AI/lit-stablelm/blob/main/howto/download_weights.md"
         )
 
-    with open(ckpt_dir / "lit_config.json") as fp:
+    with open(checkpoint_dir / "lit_config.json") as fp:
         config = StableLMConfig(**json.load(fp))
 
     fabric = L.Fabric(devices=1)
     dtype = torch.bfloat16 if fabric.device.type == "cuda" and torch.cuda.is_bf16_supported() else torch.float32
 
-    checkpoint_path = ckpt_dir / "lit_model.pth"
+    checkpoint_path = checkpoint_dir / "lit_model.pth"
     print(f"Loading model {str(checkpoint_path)!r} with {config.__dict__}", file=sys.stderr)
     t0 = time.time()
     with EmptyInitOnDevice(device=fabric.device, dtype=dtype, quantization_mode=quantize):
@@ -120,7 +120,7 @@ def main(
     model.eval()
     model = fabric.setup_module(model)
 
-    tokenizer = Tokenizer(ckpt_dir / "tokenizer.json", ckpt_dir / "tokenizer_config.json")
+    tokenizer = Tokenizer(checkpoint_dir / "tokenizer.json", checkpoint_dir / "tokenizer_config.json")
     encoded_prompt = tokenizer.encode(prompt, device=fabric.device)
 
     L.seed_everything(1234)
