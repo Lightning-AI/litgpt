@@ -26,6 +26,7 @@ class StableLMConfig:
     n_head: int = 32
     n_embd: int = 4096
     rotary_percentage: float = 0.25
+    parallel_residual: bool = True
 
     def __post_init__(self):
         if self.padded_vocab_size is None:
@@ -63,6 +64,67 @@ stablelm_configs = {
     "pythia-6.9b": dict(block_size=2048, n_layer=32, n_embd=16384, n_head=32, padding_multiple=128),
     # https://huggingface.co/EleutherAI/pythia-12b/blob/main/config.json
     "pythia-12b": dict(block_size=2048, n_layer=36, n_embd=20480, n_head=40, padding_multiple=128),
+    # togethercomputer
+    # https://huggingface.co/togethercomputer/RedPajama-INCITE-Base-3B-v1/blob/main/config.json
+    "RedPajama-INCITE-Base-3B-v1": dict(
+        block_size=2048,
+        n_layer=32,
+        n_embd=2560,
+        n_head=32,
+        padding_multiple=256,
+        rotary_percentage=1.0,
+        parallel_residual=False,
+    ),
+    # https://huggingface.co/togethercomputer/RedPajama-INCITE-Chat-3B-v1/blob/main/config.json
+    "RedPajama-INCITE-Chat-3B-v1": dict(
+        block_size=2048,
+        n_layer=32,
+        n_embd=2560,
+        n_head=32,
+        padding_multiple=256,
+        rotary_percentage=1.0,
+        parallel_residual=False,
+    ),
+    # https://huggingface.co/togethercomputer/RedPajama-INCITE-Instruct-3B-v1/blob/main/config.json
+    "RedPajama-INCITE-Instruct-3B-v1": dict(
+        block_size=2048,
+        n_layer=32,
+        n_embd=2560,
+        n_head=32,
+        padding_multiple=256,
+        rotary_percentage=1.0,
+        parallel_residual=False,
+    ),
+    # https://huggingface.co/togethercomputer/RedPajama-INCITE-Base-7B-v0.1/blob/main/config.json
+    "RedPajama-INCITE-Base-7B-v0.1": dict(
+        block_size=2048,
+        n_layer=32,
+        n_embd=4096,
+        n_head=32,
+        padding_multiple=256,
+        rotary_percentage=1.0,
+        parallel_residual=False,
+    ),
+    # https://huggingface.co/togethercomputer/RedPajama-INCITE-Chat-7B-v0.1/blob/main/config.json
+    "RedPajama-INCITE-Chat-7B-v0.1": dict(
+        block_size=2048,
+        n_layer=32,
+        n_embd=4096,
+        n_head=32,
+        padding_multiple=256,
+        rotary_percentage=1.0,
+        parallel_residual=False,
+    ),
+    # https://huggingface.co/togethercomputer/RedPajama-INCITE-Instruct-7B-v0.1/blob/main/config.json
+    "RedPajama-INCITE-Instruct-7B-v0.1": dict(
+        block_size=2048,
+        n_layer=32,
+        n_embd=4096,
+        n_head=32,
+        padding_multiple=256,
+        rotary_percentage=1.0,
+        parallel_residual=False,
+    ),
 }
 for k in list(stablelm_configs):
     if k.startswith("pythia"):
@@ -128,9 +190,14 @@ class Block(nn.Module):
         self.norm_2 = nn.LayerNorm(config.n_embd)
         self.mlp = MLP(config)
 
+        self.parallel_residual = config.parallel_residual
+
     def forward(self, x: torch.Tensor) -> torch.Tensor:
-        # gpt-j residual
-        x = x + self.attn(self.norm_1(x)) + self.mlp(self.norm_2(x))
+        if self.parallel_residual:
+            x = x + self.attn(self.norm_1(x)) + self.mlp(self.norm_2(x))
+        else:
+            x = x + self.attn(self.norm_1(x))
+            x = x + self.mlp(self.norm_2(x))
         return x
 
 

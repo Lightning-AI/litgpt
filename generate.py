@@ -66,7 +66,7 @@ def generate(
 
         # if <eos> token is triggered, return the output (stop generation)
         if idx_next == eos_id:
-            return idx[:t + 1]  # include the EOS token
+            return idx[: t + 1]  # include the EOS token
 
     return idx
 
@@ -97,8 +97,8 @@ def main(
     """
     if not ckpt_dir.is_dir():
         raise OSError(
-            f"`--ckpt_dir={str(ckpt_dir)!r} must be a directory with the lit model checkpoint and configurations. Please,"
-            " follow the instructions at"
+            f"`--ckpt_dir={str(ckpt_dir)!r} must be a directory with the lit model checkpoint and configurations."
+            " Please, follow the instructions at"
             " https://github.com/Lightning-AI/lit-stablelm/blob/main/howto/download_weights.md"
         )
 
@@ -106,7 +106,7 @@ def main(
         config = StableLMConfig(**json.load(fp))
 
     fabric = L.Fabric(devices=1)
-    dtype = torch.bfloat16 if fabric.device.type == "cuda" and torch.cuda.is_bf16_supported() else torch.float32
+    dtype = torch.float16
 
     checkpoint_path = ckpt_dir / "lit_model.pth"
     print(f"Loading model {str(checkpoint_path)!r} with {config.__dict__}", file=sys.stderr)
@@ -147,12 +147,12 @@ if __name__ == "__main__":
     torch.set_float32_matmul_precision("high")
     warnings.filterwarnings(
         # Triggered internally at ../aten/src/ATen/EmptyTensor.cpp:31
-        "ignore", 
-        message="ComplexHalf support is experimental and many operators don't support it yet"
+        "ignore",
+        message="ComplexHalf support is experimental and many operators don't support it yet",
     )
     warnings.filterwarnings(
         # Triggered in bitsandbytes/autograd/_functions.py:298
-        "ignore", 
+        "ignore",
         message="MatMul8bitLt: inputs will be cast from torch.bfloat16 to float16 during quantization",
     )
     CLI(main)

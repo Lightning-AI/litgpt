@@ -1,4 +1,5 @@
 import json
+import re
 import sys
 import warnings
 from pathlib import Path
@@ -54,14 +55,6 @@ def generate(
             break
 
 
-system_prompt = """<|SYSTEM|># StableLM Tuned (Alpha version)
-- StableLM is a helpful and harmless open-source AI language model developed by StabilityAI.
-- StableLM is excited to be able to help the user, but will refuse to do anything that could be considered harmful to the user.
-- StableLM is more than just an information source, StableLM is also able to write poetry, short stories, and make jokes.
-- StableLM will refuse to participate in anything that could harm a human.<|USER|>{prompt}<|ASSISTANT|>
-"""
-
-
 def main(
     *,
     top_k: int = 200,
@@ -82,8 +75,8 @@ def main(
     """
     if not ckpt_dir.is_dir():
         raise OSError(
-            f"`--ckpt_dir={str(ckpt_dir)!r} must be a directory with the lit model checkpoint and configurations. Please,"
-            " follow the instructions at"
+            f"`--ckpt_dir={str(ckpt_dir)!r} must be a directory with the lit model checkpoint and configurations."
+            " Please, follow the instructions at"
             " https://github.com/Lightning-AI/lit-stablelm/blob/main/howto/download_weights.md"
         )
 
@@ -104,12 +97,7 @@ def main(
     model = fabric.setup_module(model)
 
     tokenizer = Tokenizer(ckpt_dir / "tokenizer.json", ckpt_dir / "tokenizer_config.json")
-    stop_tokens = (
-        tokenizer.eos_id,
-        tokenizer.processor.token_to_id("<|SYSTEM|>"),
-        tokenizer.processor.token_to_id("<|ASSISTANT|>"),
-        tokenizer.processor.token_to_id("<|USER|>"),
-    )
+    system_prompt, stop_tokens = prompt_config(ckpt_dir, tokenizer)
 
     while True:
         try:
@@ -136,6 +124,34 @@ def main(
             # support stopping generation
             pass
         print()
+
+
+def prompt_config(ckpt_dir: Path, tokenizer: Tokenizer) -> Tuple[str, Tuple[int, ...]]:
+    checkpoint_name = str(ckpt_dir)
+    if re.search(r"stabilityai.*tuned-alpha", checkpoint_name):
+        system_prompt = (
+            "<|SYSTEM|># StableLM Tuned (Alpha version)\n- StableLM is a helpful and harmless open-source AI language"
+            " model developed by StabilityAI.\n- StableLM is excited to be able to help the user, but will refuse to do"
+            " anything that could be considered harmful to the user.\n- StableLM is more than just an information"
+            " source, StableLM is also able to write poetry, short stories, and make jokes.\n- StableLM will refuse to"
+            " participate in anything that could harm a human.<|USER|>{prompt}<|ASSISTANT|>"
+        )
+        stop_tokens = (
+            tokenizer.eos_id,
+            tokenizer.processor.token_to_id("<|SYSTEM|>"),
+            tokenizer.processor.token_to_id("<|ASSISTANT|>"),
+            tokenizer.processor.token_to_id("<|USER|>"),
+        )
+        return system_prompt, stop_tokens
+    if re.search(r"togethercomputer.*Chat", checkpoint_name):
+        system_prompt = "<human>: {prompt}\n<bot>:"
+        stop_tokens = (tokenizer.eos_id,)
+        return system_prompt, stop_tokens
+    if re.search(r"togethercomputer.*Instruct", checkpoint_name):
+        system_prompt = "Q: {prompt}\nA:"
+        stop_tokens = (tokenizer.eos_id,)
+        return system_prompt, stop_tokens
+    raise NotImplementedError(f"Undefined prompt config for {str(ckpt_dir)!r}")
 
 
 if __name__ == "__main__":

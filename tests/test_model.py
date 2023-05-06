@@ -24,18 +24,19 @@ def load_convert_script():
 @pytest.mark.parametrize("rotary_pct", (0.25, 1))
 @pytest.mark.parametrize("batch_size", (1, 3))
 @pytest.mark.parametrize("n_embd", (16, 32))
-def test_against_hf_model(rotary_pct, batch_size, n_embd, lit_stablelm) -> None:
+@pytest.mark.parametrize("parallel_residual", (False, True))
+def test_against_hf_model(rotary_pct, batch_size, n_embd, parallel_residual, lit_stablelm) -> None:
     block_size = 64
     # https://huggingface.co/stabilityai/stablelm-base-alpha-3b/blob/main/config.json#L24
-    vocab_size, padded_vocab_size = 50254, 50688
+    vocab_size = 100
     n_layer = 4
     n_head = 8
     batch_size = 3
 
     ours_config = lit_stablelm.StableLMConfig(
-        block_size=block_size, vocab_size=vocab_size, n_layer=n_layer, n_head=n_head, n_embd=n_embd, rotary_percentage=rotary_pct
+        block_size=block_size, vocab_size=vocab_size, n_layer=n_layer, n_head=n_head, n_embd=n_embd, rotary_percentage=rotary_pct, parallel_residual=parallel_residual
     )
-    assert ours_config.padded_vocab_size == padded_vocab_size
+    assert ours_config.padded_vocab_size == 512
     theirs_config = PretrainedConfig(
         hidden_act="gelu",
         hidden_size=n_embd,
@@ -47,8 +48,8 @@ def test_against_hf_model(rotary_pct, batch_size, n_embd, lit_stablelm) -> None:
         max_position_embeddings=block_size,
         rotary_emb_base=10000,
         rotary_pct=rotary_pct,
-        vocab_size=padded_vocab_size,
-        use_parallel_residual=True,
+        vocab_size=ours_config.padded_vocab_size,
+        use_parallel_residual=parallel_residual,
         use_cache=False,
     )
 
@@ -61,7 +62,7 @@ def test_against_hf_model(rotary_pct, batch_size, n_embd, lit_stablelm) -> None:
     convert_hf_checkpoint.copy_weights(state_dict, theirs_model.state_dict())
     ours_model.load_state_dict(state_dict)
 
-    token_sample = torch.randint(0, padded_vocab_size, size=(batch_size, block_size), dtype=torch.int64)
+    token_sample = torch.randint(0, ours_config.padded_vocab_size, size=(batch_size, block_size), dtype=torch.int64)
 
     theirs_embed = theirs_model.gpt_neox.embed_in(token_sample)
     ours_embed = ours_model.transformer.wte(token_sample)
