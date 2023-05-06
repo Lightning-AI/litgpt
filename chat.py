@@ -71,7 +71,7 @@ def main(
     *,
     top_k: int = 200,
     temperature: float = 0.8,
-    ckpt_dir: Path = Path(f"checkpoints/stabilityai/stablelm-tuned-alpha-3b"),
+    checkpoint_dir: Path = Path(f"checkpoints/stabilityai/stablelm-tuned-alpha-3b"),
     quantize: Optional[str] = None,
 ) -> None:
     """Starts a conversation with a tuned StableLM model.
@@ -80,25 +80,25 @@ def main(
         top_k: The number of top most probable tokens to consider in the sampling process.
         temperature: A value controlling the randomness of the sampling process. Higher values result in more random
             samples.
-        ckpt_dir: The checkpoint directory to load.
+        checkpoint_dir: The checkpoint directory to load.
         quantize: Whether to quantize the model and using which method:
             ``"llm.int8"``: LLM.int8() mode,
             ``"gptq.int4"``: GPTQ 4-bit mode.
     """
-    if not ckpt_dir.is_dir():
+    if not checkpoint_dir.is_dir():
         raise OSError(
-            f"`--ckpt_dir={str(ckpt_dir)!r} must be a directory with the lit model checkpoint and configurations."
-            " Please, follow the instructions at"
+            f"`--checkpoint_dir={str(checkpoint_dir)!r} must be a directory with the lit model checkpoint and"
+            f" configurations. Please, follow the instructions at"
             " https://github.com/Lightning-AI/lit-stablelm/blob/main/howto/download_weights.md"
         )
 
-    with open(ckpt_dir / "lit_config.json") as fp:
+    with open(checkpoint_dir / "lit_config.json") as fp:
         config = StableLMConfig(**json.load(fp))
 
     fabric = L.Fabric(devices=1)
     dtype = torch.bfloat16 if fabric.device.type == "cuda" and torch.cuda.is_bf16_supported() else torch.float32
 
-    checkpoint_path = ckpt_dir / "lit_model.pth"
+    checkpoint_path = checkpoint_dir / "lit_model.pth"
     print(f"Loading model {str(checkpoint_path)!r} with {config.__dict__}", file=sys.stderr)
     with EmptyInitOnDevice(device=fabric.device, dtype=dtype, quantization_mode=quantize):
         model = StableLM(config)
@@ -108,8 +108,8 @@ def main(
     model.eval()
     model = fabric.setup_module(model)
 
-    tokenizer = Tokenizer(ckpt_dir / "tokenizer.json", ckpt_dir / "tokenizer_config.json")
-    system_prompt, stop_tokens = prompt_config(ckpt_dir, tokenizer)
+    tokenizer = Tokenizer(checkpoint_dir / "tokenizer.json", checkpoint_dir / "tokenizer_config.json")
+    system_prompt, stop_tokens = prompt_config(checkpoint_dir, tokenizer)
 
     while True:
         try:
@@ -138,8 +138,8 @@ def main(
         print()
 
 
-def prompt_config(ckpt_dir: Path, tokenizer: Tokenizer) -> Tuple[str, Tuple[List[int], ...]]:
-    checkpoint_name = str(ckpt_dir)
+def prompt_config(checkpoint_dir: Path, tokenizer: Tokenizer) -> Tuple[str, Tuple[List[int], ...]]:
+    checkpoint_name = str(checkpoint_dir)
     if re.search(r"stabilityai.*tuned-alpha", checkpoint_name):
         system_prompt = (
             "<|SYSTEM|># StableLM Tuned (Alpha version)\n- StableLM is a helpful and harmless open-source AI language"
@@ -180,7 +180,7 @@ def prompt_config(ckpt_dir: Path, tokenizer: Tokenizer) -> Tuple[str, Tuple[List
             [2756],  # '\n\n\n'
         )
         return system_prompt, stop_tokens
-    raise NotImplementedError(f"Undefined prompt config for {str(ckpt_dir)!r}")
+    raise NotImplementedError(f"Undefined prompt config for {str(checkpoint_dir)!r}")
 
 
 if __name__ == "__main__":

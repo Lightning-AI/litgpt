@@ -58,13 +58,13 @@ def copy_weights(state_dict, hf_weights, dtype=torch.float32):
 @torch.inference_mode()
 def convert_hf_checkpoint(
     *,
-    ckpt_dir: Path = Path("checkpoints/stabilityai/stablelm-base-alpha-3b"),
+    checkpoint_dir: Path = Path("checkpoints/stabilityai/stablelm-base-alpha-3b"),
     model_name: Optional[str] = None,
     dtype: str = "float32",
 ) -> None:
-    if not ckpt_dir.is_dir():
+    if not checkpoint_dir.is_dir():
         raise OSError(
-            f"`--ckpt_dir={str(ckpt_dir)!r} must be a directory."
+            f"`--checkpoint_dir={str(checkpoint_dir)!r} must be a directory."
             " Please, follow the instructions at"
             " https://github.com/Lightning-AI/lit-stablelm/blob/main/howto/download_weights.md"
         )
@@ -75,25 +75,25 @@ def convert_hf_checkpoint(
     dtype = dt
 
     if model_name is None:
-        model_name = ckpt_dir.name
+        model_name = checkpoint_dir.name
     print(f"Initializing model {model_name}")
     with EmptyInitOnDevice(device="cpu", dtype=dtype):
         model = StableLM.from_name(model_name)
 
-    with open(ckpt_dir / "lit_config.json", "w") as json_config:
+    with open(checkpoint_dir / "lit_config.json", "w") as json_config:
         json.dump(model.config.__dict__, json_config)
 
     # initialize a new empty state dict to hold our new weights
     sd = model.state_dict()
 
-    for bin_file in sorted(ckpt_dir.glob("*.bin")):
+    for bin_file in sorted(checkpoint_dir.glob("*.bin")):
         print("Processing", bin_file)
         hf_weights = torch.load(bin_file, map_location="cpu")
         copy_weights(sd, hf_weights, dtype=dtype)
         del hf_weights
         gc.collect()
 
-    model_path = ckpt_dir / "lit_model.pth"
+    model_path = checkpoint_dir / "lit_model.pth"
     print(f"Saving to disk at {str(model_path)!r}")
     torch.save(model.state_dict(), model_path)
 
