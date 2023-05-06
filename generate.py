@@ -66,7 +66,7 @@ def generate(
 
         # if <eos> token is triggered, return the output (stop generation)
         if idx_next == eos_id:
-            return idx[:t + 1]  # include the EOS token
+            return idx[: t + 1]  # include the EOS token
 
     return idx
 
@@ -147,12 +147,12 @@ if __name__ == "__main__":
     torch.set_float32_matmul_precision("high")
     warnings.filterwarnings(
         # Triggered internally at ../aten/src/ATen/EmptyTensor.cpp:31
-        "ignore", 
-        message="ComplexHalf support is experimental and many operators don't support it yet"
+        "ignore",
+        message="ComplexHalf support is experimental and many operators don't support it yet",
     )
     warnings.filterwarnings(
         # Triggered in bitsandbytes/autograd/_functions.py:298
-        "ignore", 
+        "ignore",
         message="MatMul8bitLt: inputs will be cast from torch.bfloat16 to float16 during quantization",
     )
     CLI(main)

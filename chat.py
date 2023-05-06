@@ -1,8 +1,9 @@
 import json
+import re
 import sys
 import warnings
 from pathlib import Path
-from typing import Optional, Tuple
+from typing import Optional, Tuple, List
 
 import lightning as L
 import torch
@@ -18,7 +19,7 @@ def generate(
     max_seq_length: int,
     temperature: float = 1.0,
     top_k: Optional[int] = None,
-    stop_tokens: Tuple[int, ...] = tuple(),
+    stop_tokens: Tuple[List[int], ...] = tuple(),
 ):
     """Takes a conditioning sequence (prompt) as input and continues to generate as many tokens as possible.
 
@@ -30,9 +31,11 @@ def generate(
         top_k: If specified, only sample among the tokens with the k highest probabilities
         stop_tokens: If specified, stop generating any more token once one of this list is generated.
     """
-    # create an empty tensor of the expected final shape and fill in the current tokens
-    T = idx.size(0)
+    stop_tokens = [torch.tensor(tokens, device=idx.device) for tokens in stop_tokens]
+    T = yield_i = idx.size(0)
     assert max_seq_length > T
+    buffer = max((len(tokens) for tokens in stop_tokens), default=0)
+
     for t in range(T, max_seq_length):
         # forward
         logits = model(idx.view(1, -1))
@@ -45,21 +48,23 @@ def generate(
 
         probs = torch.nn.functional.softmax(logits, dim=-1)
         idx_next = torch.multinomial(probs, num_samples=1)
-        yield idx_next
 
         # concatenate the new generation
         idx = torch.cat((idx, idx_next), dim=-1)
-        # if <eos> token is triggered, return the output (stop generation)
-        if idx_next in stop_tokens:
-            break
 
-
-system_prompt = """<|SYSTEM|># StableLM Tuned (Alpha version)
-- StableLM is a helpful and harmless open-source AI language model developed by StabilityAI.
-- StableLM is excited to be able to help the user, but will refuse to do anything that could be considered harmful to the user.
-- StableLM is more than just an information source, StableLM is also able to write poetry, short stories, and make jokes.
-- StableLM will refuse to participate in anything that could harm a human.<|USER|>{prompt}<|ASSISTANT|>
-"""
+        # check the stop condition
+        for tokens in stop_tokens:
+            l = len(tokens)
+            if torch.equal(idx[-l:], tokens):
+                # stop token hit, yield any leftovers that aren't part of it
+                last = t - l + 1
+                if last > yield_i:  # avoid an empty yield
+                    yield idx[yield_i:last]
+                return
+        if t - yield_i >= buffer:
+            # we know this idx is not part of stop tokens, safe to yield
+            yield idx[yield_i]
+            yield_i += 1
 
 
 def main(
@@ -83,7 +88,7 @@ def main(
     if not checkpoint_dir.is_dir():
         raise OSError(
             f"`--checkpoint_dir={str(checkpoint_dir)!r} must be a directory with the lit model checkpoint and"
-            f" configurations. Please, follow the instructions at"
+            " configurations. Please, follow the instructions at"
             " https://github.com/Lightning-AI/lit-stablelm/blob/main/howto/download_weights.md"
         )
 
@@ -104,12 +109,7 @@ def main(
     model = fabric.setup_module(model)
 
     tokenizer = Tokenizer(checkpoint_dir / "tokenizer.json", checkpoint_dir / "tokenizer_config.json")
-    stop_tokens = (
-        tokenizer.eos_id,
-        tokenizer.processor.token_to_id("<|SYSTEM|>"),
-        tokenizer.processor.token_to_id("<|ASSISTANT|>"),
-        tokenizer.processor.token_to_id("<|USER|>"),
-    )
+    system_prompt, stop_tokens = prompt_config(checkpoint_dir, tokenizer)
 
     while True:
         try:
@@ -136,6 +136,53 @@ def main(
             # support stopping generation
             pass
         print()
+
+
+def prompt_config(checkpoint_dir: Path, tokenizer: Tokenizer) -> Tuple[str, Tuple[List[int], ...]]:
+    checkpoint_name = str(checkpoint_dir)
+    if re.search(r"stabilityai.*tuned-alpha", checkpoint_name):
+        system_prompt = (
+            "<|SYSTEM|># StableLM Tuned (Alpha version)\n- StableLM is a helpful and harmless open-source AI language"
+            " model developed by StabilityAI.\n- StableLM is excited to be able to help the user, but will refuse to do"
+            " anything that could be considered harmful to the user.\n- StableLM is more than just an information"
+            " source, StableLM is also able to write poetry, short stories, and make jokes.\n- StableLM will refuse to"
+            " participate in anything that could harm a human.<|USER|>{prompt}<|ASSISTANT|>"
+        )
+        stop_tokens = (
+            [tokenizer.eos_id],
+            [tokenizer.token_to_id("<|SYSTEM|>")],
+            [tokenizer.token_to_id("<|ASSISTANT|>")],
+            [tokenizer.token_to_id("<|USER|>")],
+        )
+        return system_prompt, stop_tokens
+    if re.search(r"togethercomputer.*Chat", checkpoint_name):
+        system_prompt = "<human>: {prompt}\n<bot>:"
+        lt, gt = tokenizer.token_to_id("<"), tokenizer.token_to_id(">:")
+        stop_tokens = (
+            [tokenizer.eos_id],
+            # annoyingly, there's no single stop token for these
+            [lt, tokenizer.token_to_id("human"), gt],
+            [lt, tokenizer.token_to_id("bot"), gt],
+        )
+        return system_prompt, stop_tokens
+    if re.search(r"togethercomputer.*Instruct", checkpoint_name):
+        system_prompt = "Q: {prompt}\nA:"
+        colon = tokenizer.token_to_id(":")
+        stop_tokens = (
+            [tokenizer.eos_id],
+            # annoyingly, there's no single stop token for these
+            [tokenizer.token_to_id("Q"), colon],
+            [tokenizer.token_to_id("Question")],
+            [tokenizer.token_to_id("A"), colon],
+            [tokenizer.token_to_id("Label"), colon],
+            [187, 187],  # '\n', '\n'
+            [535],  # '\n\n'
+            [2756],  # '\n\n\n'
+        )
+        return system_prompt, stop_tokens
+
+    # default format
+    return "{prompt}", ([tokenizer.eos_id],)
 
 
 if __name__ == "__main__":

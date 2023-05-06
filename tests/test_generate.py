@@ -57,7 +57,7 @@ def test_main(_, tmp_path, monkeypatch):
     generate = load_generate_script()
 
     config_path = tmp_path / "lit_config.json"
-    config = {'block_size': 16, 'vocab_size': 50, 'n_layer': 2, 'n_head': 4, 'n_embd': 8, 'rotary_percentage': 1}
+    config = {"block_size": 16, "vocab_size": 50, "n_layer": 2, "n_head": 4, "n_embd": 8, "rotary_percentage": 1}
     config_path.write_text(json.dumps(config))
 
     class FabricMock(Mock):
