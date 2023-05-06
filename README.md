@@ -76,6 +76,12 @@ This will run the 7B model and require ~26 GB of GPU memory (A100 GPU).
 
 [Full guide for generating samples from the model](howto/inference.md).
 
+You can also chat with the model interactively:
+
+```bash
+python chat.py
+```
+
 ### Run Lit-StableLM on consumer devices
 
 On GPUs with `bfloat16` support, the `generate.py` script will automatically convert the weights and consume about ~14 GB.
