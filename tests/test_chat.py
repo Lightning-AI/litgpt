@@ -24,9 +24,9 @@ def load_script():
     ("generated", "stop_tokens", "expected"),
     [
         (repeat(1), tuple(), [1] * 6),
-        ([1, 2, 3, 0], ([0],), [1, 2, 3]),
+        ([1, 2, 3, 0], ([0],), [1, 2, [3]]),
         ([1, 2, 3, 0], ([9], [2, 4], [1, 2, 3, 0]), []),
-        ([1, 2, 3, 0, 0], ([0, 0, 0], [0, 0]), [1, 2, 3]),
+        ([1, 2, 3, 0, 0], ([0, 0, 0], [0, 0]), [1, [2, 3]]),
     ],
 )
 def test_generate(generated, stop_tokens, expected):
@@ -48,11 +48,7 @@ def test_generate(generated, stop_tokens, expected):
     actual = list(actual)
     chat.torch.multinomial = original_multinomial
 
-    # the function can yield a 0-dim tensor or a 1-dim tensor. For decoding it's okay because we support it, but
-    # here we need to unsqueeze
-    actual = [t.unsqueeze(0) if t.ndim == 0 else t for t in actual]
-    if len(actual):
-        actual = torch.cat(actual).tolist()
+    actual = [t.tolist() for t in actual]
     assert actual == expected
 
 
