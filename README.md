@@ -1,5 +1,5 @@
 <div align="center">
-<!-- <img src="https://pl-public-data.s3.amazonaws.com/assets_lightning/Lit_LLaMA_Badge3x.png" alt="Lit-LLaMA" width="128"/> -->
+<img src="https://pl-public-data.s3.amazonaws.com/assets_lightning/LitStableLM_Badge.png" alt="Lit-StableLM" width="128"/>
 
 # ⚡ Lit-StableLM
 
@@ -98,7 +98,7 @@ Porting from Lit-LLaMA in progress 👷
 
 We are on a quest towards fully open source AI.
 
-<img align="right" src="https://pl-public-data.s3.amazonaws.com/assets_lightning/Lit_LLaMA_Illustration3x.png" alt="Lit-LLaMA" width="128"/>
+<img align="right" src="https://pl-public-data.s3.amazonaws.com/assets_lightning/LitStableLM_Illustration.png" alt="Lit-StableLM" width="128"/>
 
 Join us and start contributing, especially on the following areas:
 
