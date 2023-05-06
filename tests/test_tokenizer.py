@@ -1,5 +1,7 @@
 from pathlib import Path
 
+import pytest
+import torch
 from transformers import AutoTokenizer
 
 
@@ -18,3 +20,7 @@ def test_tokenizer_against_hf(lit_stablelm):
     actual = tokenizer.encode(string)
     assert actual.tolist() == hf_tokenizer(string)["input_ids"]
     assert tokenizer.decode(actual) == hf_tokenizer.decode(actual)
+    assert tokenizer.decode(torch.tensor(0)) == ""
+
+    with pytest.raises(ValueError, match="'foobarbaz' not found"):
+        tokenizer.token_to_id("foobarbaz")

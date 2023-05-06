@@ -12,17 +12,23 @@ class Tokenizer:
         self.processor = HFTokenizer.from_file(str(vocabulary_path))
         with open(config_path) as fp:
             config = json.load(fp)
-        self.bos_id = self.processor.token_to_id(config["bos_token"])
-        self.eos_id = self.processor.token_to_id(config["eos_token"])
+        self.bos_id = self.token_to_id(config["bos_token"])
+        self.eos_id = self.token_to_id(config["eos_token"])
 
     @property
     def vocab_size(self) -> int:
         return self.processor.get_vocab_size(with_added_tokens=False)
+
+    def token_to_id(self, token: str) -> int:
+        id_ = self.processor.token_to_id(token)
+        if id_ is None:
+            raise ValueError(f"token {token!r} not found in the collection.")
+        return id_
 
     def encode(self, string: str, device: Optional[torch.device] = None) -> torch.Tensor:
         tokens = self.processor.encode(string).ids
         return torch.tensor(tokens, dtype=torch.int, device=device)
 
     def decode(self, tensor: torch.Tensor) -> str:
-        tokens = tensor.tolist()
+        tokens = [tensor.item()] if tensor.ndim == 0 else tensor.tolist()
         return self.processor.decode(tokens)

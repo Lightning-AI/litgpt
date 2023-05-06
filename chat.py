@@ -3,7 +3,6 @@ import re
 import sys
 import warnings
 from pathlib import Path
-from queue import Queue
 from typing import Optional, Tuple, List
 
 import lightning as L
@@ -32,12 +31,11 @@ def generate(
         top_k: If specified, only sample among the tokens with the k highest probabilities
         stop_tokens: If specified, stop generating any more token once one of this list is generated.
     """
-    # since we support a list of tokens as a stop, we need to keep a buffer of the tokens to show
-    buffer = Queue(maxsize=max(len(tokens) for tokens in stop_tokens))
     stop_tokens = [torch.tensor(tokens, device=idx.device) for tokens in stop_tokens]
-
-    T = idx.size(0)
+    T = yield_i = idx.size(0)
     assert max_seq_length > T
+    buffer = max(len(tokens) for tokens in stop_tokens)
+
     for t in range(T, max_seq_length):
         # forward
         logits = model(idx.view(1, -1))
@@ -55,14 +53,18 @@ def generate(
         idx = torch.cat((idx, idx_next), dim=-1)
 
         # check the stop condition
-        if any(torch.equal(idx[-len(tokens) :], tokens) for tokens in stop_tokens):
-            break
-
-        if buffer.full():
-            # If the buffer is full, we are safe to yield one
-            yield buffer.get()
-        # add the token to the buffer
-        buffer.put(idx_next)
+        for tokens in stop_tokens:
+            l = len(tokens)
+            if torch.equal(idx[-l:], tokens):
+                # stop token hit, yield any leftovers that aren't part of it
+                last = t - l + 1
+                if last > yield_i:  # avoid an empty yield
+                    yield idx[yield_i:last]
+                return
+        if t - yield_i >= buffer:
+            # we know this idx is not part of stop tokens, safe to yield
+            yield idx[yield_i]
+            yield_i += 1
 
 
 def main(
@@ -148,28 +150,34 @@ def prompt_config(ckpt_dir: Path, tokenizer: Tokenizer) -> Tuple[str, Tuple[List
         )
         stop_tokens = (
             [tokenizer.eos_id],
-            [tokenizer.processor.token_to_id("<|SYSTEM|>")],
-            [tokenizer.processor.token_to_id("<|ASSISTANT|>")],
-            [tokenizer.processor.token_to_id("<|USER|>")],
+            [tokenizer.token_to_id("<|SYSTEM|>")],
+            [tokenizer.token_to_id("<|ASSISTANT|>")],
+            [tokenizer.token_to_id("<|USER|>")],
         )
         return system_prompt, stop_tokens
     if re.search(r"togethercomputer.*Chat", checkpoint_name):
         system_prompt = "<human>: {prompt}\n<bot>:"
-        lt, gt = tokenizer.processor.token_to_id("<"), tokenizer.processor.token_to_id(">:")
+        lt, gt = tokenizer.token_to_id("<"), tokenizer.token_to_id(">:")
         stop_tokens = (
             [tokenizer.eos_id],
-            # annoyingly, there's no single token for <human>
-            [lt, tokenizer.processor.token_to_id("human"), gt],
-            [lt, tokenizer.processor.token_to_id("bot"), gt],
+            # annoyingly, there's no single stop token for these
+            [lt, tokenizer.token_to_id("human"), gt],
+            [lt, tokenizer.token_to_id("bot"), gt],
         )
         return system_prompt, stop_tokens
     if re.search(r"togethercomputer.*Instruct", checkpoint_name):
         system_prompt = "Q: {prompt}\nA:"
-        colon = tokenizer.processor.token_to_id(":")
+        colon = tokenizer.token_to_id(":")
         stop_tokens = (
             [tokenizer.eos_id],
-            [tokenizer.processor.token_to_id("Q"), colon],
-            [tokenizer.processor.token_to_id("A"), colon],
+            # annoyingly, there's no single stop token for these
+            [tokenizer.token_to_id("Q"), colon],
+            [tokenizer.token_to_id("Question")],
+            [tokenizer.token_to_id("A"), colon],
+            [tokenizer.token_to_id("Label"), colon],
+            [187, 187],  # '\n', '\n'
+            [535],  # '\n\n'
+            [2756],  # '\n\n\n'
         )
         return system_prompt, stop_tokens
     raise NotImplementedError(f"Undefined prompt config for {str(ckpt_dir)!r}")
