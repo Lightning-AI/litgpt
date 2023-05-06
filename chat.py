@@ -34,7 +34,7 @@ def generate(
     stop_tokens = [torch.tensor(tokens, device=idx.device) for tokens in stop_tokens]
     T = yield_i = idx.size(0)
     assert max_seq_length > T
-    buffer = max(len(tokens) for tokens in stop_tokens)
+    buffer = max((len(tokens) for tokens in stop_tokens), default=0)
 
     for t in range(T, max_seq_length):
         # forward

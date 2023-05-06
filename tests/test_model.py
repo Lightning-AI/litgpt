@@ -34,7 +34,13 @@ def test_against_hf_model(rotary_pct, batch_size, n_embd, parallel_residual, lit
     batch_size = 3
 
     ours_config = lit_stablelm.StableLMConfig(
-        block_size=block_size, vocab_size=vocab_size, n_layer=n_layer, n_head=n_head, n_embd=n_embd, rotary_percentage=rotary_pct, parallel_residual=parallel_residual
+        block_size=block_size,
+        vocab_size=vocab_size,
+        n_layer=n_layer,
+        n_head=n_head,
+        n_embd=n_embd,
+        rotary_percentage=rotary_pct,
+        parallel_residual=parallel_residual,
     )
     assert ours_config.padded_vocab_size == 512
     theirs_config = PretrainedConfig(
