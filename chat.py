@@ -12,7 +12,7 @@ from lit_stablelm import StableLM, Tokenizer, StableLMConfig
 from lit_stablelm.utils import EmptyInitOnDevice, lazy_load
 
 
-@torch.inference_mode()
+@torch.no_grad()
 def generate(
     model: torch.nn.Module,
     idx: torch.Tensor,
