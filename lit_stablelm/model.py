@@ -102,7 +102,7 @@ class CausalSelfAttention(nn.Module):
         self.rope_cache: Optional[Tuple[torch.Tensor, torch.Tensor]] = None
 
     def forward(self, x: torch.Tensor) -> torch.Tensor:
-        (B, T, C) = x.size()  # batch size, sequence length, embedding dimensionality (n_embd)
+        B, T, C = x.size()  # batch size, sequence length, embedding dimensionality (n_embd)
 
         qkv = self.attn(x)
         head_size = C // self.n_head
