@@ -20,7 +20,7 @@ def load_convert_script():
     return convert_hf_checkpoint
 
 
-@torch.no_grad()
+@torch.inference_mode()
 @pytest.mark.parametrize("rotary_pct", (0.25, 1))
 @pytest.mark.parametrize("batch_size", (1, 3))
 @pytest.mark.parametrize("n_embd", (16, 32))
@@ -78,7 +78,7 @@ def test_against_hf_model(rotary_pct, batch_size, n_embd, parallel_residual, lit
 
 
 @pytest.mark.skipif(not torch.cuda.is_available(), reason="Requires CUDA")
-@torch.no_grad()
+@torch.inference_mode()
 def test_model_bfloat16(lit_stablelm) -> None:
     from lit_stablelm.utils import EmptyInitOnDevice
 
@@ -108,6 +108,7 @@ def test_model_bfloat16(lit_stablelm) -> None:
 
 
 @pytest.mark.skipif(sys.platform in ("win32", "darwin"), reason="torch.compile not supported on this platform")
+@torch.inference_mode()
 def test_model_compile(lit_stablelm):
     config = lit_stablelm.StableLMConfig(block_size=8, vocab_size=8, n_layer=2, n_head=2, n_embd=4)
     model = lit_stablelm.StableLM(config)

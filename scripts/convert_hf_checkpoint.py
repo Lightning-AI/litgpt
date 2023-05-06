@@ -55,13 +55,20 @@ def copy_weights(state_dict, hf_weights, dtype=torch.float32):
         state_dict[to_name].copy_(param)
 
 
-@torch.no_grad()
+@torch.inference_mode()
 def convert_hf_checkpoint(
     *,
     ckpt_dir: Path = Path("checkpoints/stabilityai/stablelm-base-alpha-3b"),
     model_name: Optional[str] = None,
     dtype: str = "float32",
 ) -> None:
+    if not ckpt_dir.is_dir():
+        raise OSError(
+            f"`--ckpt_dir={str(ckpt_dir)!r} must be a directory."
+            " Please, follow the instructions at"
+            " https://github.com/Lightning-AI/lit-stablelm/blob/main/howto/download_weights.md"
+        )
+
     dt = getattr(torch, dtype, None)
     if not isinstance(dt, torch.dtype):
         raise ValueError(f"{dtype} is not a valid dtype.")

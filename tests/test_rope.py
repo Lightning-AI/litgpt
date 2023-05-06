@@ -2,7 +2,7 @@ import torch
 from transformers.models.gpt_neox.modeling_gpt_neox import RotaryEmbedding, apply_rotary_pos_emb
 
 
-@torch.no_grad()
+@torch.inference_mode()
 def test_rope(lit_stablelm):
     bs, seq_len, n_head, n_embed = 1, 6, 2, 8
     head_size = n_embed // n_head

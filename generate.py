@@ -12,7 +12,7 @@ from lit_stablelm import StableLM, Tokenizer, StableLMConfig
 from lit_stablelm.utils import EmptyInitOnDevice, lazy_load
 
 
-@torch.no_grad()
+@torch.inference_mode()
 def generate(
     model: torch.nn.Module,
     idx: torch.Tensor,
@@ -106,7 +106,7 @@ def main(
         config = StableLMConfig(**json.load(fp))
 
     fabric = L.Fabric(devices=1)
-    dtype = torch.float16
+    dtype = torch.bfloat16 if fabric.device.type == "cuda" and torch.cuda.is_bf16_supported() else torch.float32
 
     checkpoint_path = ckpt_dir / "lit_model.pth"
     print(f"Loading model {str(checkpoint_path)!r} with {config.__dict__}", file=sys.stderr)
