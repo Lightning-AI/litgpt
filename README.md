@@ -76,6 +76,12 @@ This will run the 3B pre-trained model and require ~7 GB of GPU memory using the
 
 [Full guide for generating samples from the model](howto/inference.md).
 
+You can also chat with the model interactively:
+
+```bash
+python chat.py
+```
+
 ### Run Lit-StableLM on smaller consumer devices
 
 Porting from Lit-LLaMA in progress 👷
