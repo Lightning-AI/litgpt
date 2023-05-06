@@ -8,7 +8,7 @@ from typing import Optional, Tuple, List
 import lightning as L
 import torch
 
-from lit_stablelm import StableLM, Tokenizer, StableLMConfig
+from lit_stablelm import StableLM, Tokenizer, Config
 from lit_stablelm.utils import EmptyInitOnDevice, lazy_load
 
 
@@ -93,7 +93,7 @@ def main(
         )
 
     with open(checkpoint_dir / "lit_config.json") as fp:
-        config = StableLMConfig(**json.load(fp))
+        config = Config(**json.load(fp))
 
     fabric = L.Fabric(devices=1)
     dtype = torch.bfloat16 if fabric.device.type == "cuda" and torch.cuda.is_bf16_supported() else torch.float32

@@ -1,4 +1,5 @@
-from lit_stablelm.model import StableLMConfig, StableLM, build_rope_cache, apply_rope
+from lit_stablelm.model import StableLM, build_rope_cache, apply_rope
+from lit_stablelm.config import Config
 from lit_stablelm.tokenizer import Tokenizer
 
 from lightning_utilities.core.imports import RequirementCache

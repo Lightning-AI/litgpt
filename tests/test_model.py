@@ -33,7 +33,7 @@ def test_against_hf_model(rotary_pct, batch_size, n_embd, parallel_residual, lit
     n_head = 8
     batch_size = 3
 
-    ours_config = lit_stablelm.StableLMConfig(
+    ours_config = lit_stablelm.Config(
         block_size=block_size,
         vocab_size=vocab_size,
         n_layer=n_layer,
@@ -94,7 +94,7 @@ def test_model_bfloat16(lit_stablelm) -> None:
     n_head = 16
     n_embd = 32
 
-    config = lit_stablelm.StableLMConfig(
+    config = lit_stablelm.Config(
         block_size=block_size, vocab_size=vocab_size, n_layer=n_layer, n_head=n_head, n_embd=n_embd
     )
     model = lit_stablelm.StableLM(config)
@@ -116,7 +116,7 @@ def test_model_bfloat16(lit_stablelm) -> None:
 @pytest.mark.skipif(sys.platform in ("win32", "darwin"), reason="torch.compile not supported on this platform")
 @torch.inference_mode()
 def test_model_compile(lit_stablelm):
-    config = lit_stablelm.StableLMConfig(block_size=8, vocab_size=8, n_layer=2, n_head=2, n_embd=4)
+    config = lit_stablelm.Config(block_size=8, vocab_size=8, n_layer=2, n_head=2, n_embd=4)
     model = lit_stablelm.StableLM(config)
     model.apply(model._init_weights)
 

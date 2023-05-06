@@ -25,12 +25,12 @@ def load_generate_script():
 def test_generate():
     generate = load_generate_script()
 
-    from lit_stablelm import StableLM, StableLMConfig
+    from lit_stablelm import StableLM, Config
 
     T, C = 5, 3
     input_idx = torch.randint(10, size=(T,))
 
-    config = StableLMConfig(block_size=128, vocab_size=16, n_layer=1, n_head=4, n_embd=8)
+    config = Config(block_size=128, vocab_size=16, n_layer=1, n_head=4, n_embd=8)
     model = StableLM(config)
     max_new_tokens = 20
 
