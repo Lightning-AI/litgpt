@@ -78,7 +78,7 @@ def main(
     max_new_tokens: int = 50,
     top_k: int = 200,
     temperature: float = 0.8,
-    ckpt_dir: Path = Path(f"checkpoints/stabilityai/stablelm-tuned-alpha-3b"),
+    ckpt_dir: Path = Path(f"checkpoints/stabilityai/stablelm-base-alpha-3b"),
     quantize: Optional[str] = None,
 ) -> None:
     """Generates text samples based on a pre-trained model and tokenizer.
@@ -96,8 +96,8 @@ def main(
             ``"gptq.int4"``: GPTQ 4-bit mode.
     """
     if not ckpt_dir.is_dir():
-        raise IOError(
-            f"`--ckpt_dir={ckpt_dir!r} must be a directory with the lit model checkpoint and configurations. Please,"
+        raise OSError(
+            f"`--ckpt_dir={str(ckpt_dir)!r} must be a directory with the lit model checkpoint and configurations. Please,"
             " follow the instructions at"
             " https://github.com/Lightning-AI/lit-stablelm/blob/main/howto/download_weights.md"
         )

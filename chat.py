@@ -81,8 +81,8 @@ def main(
             ``"gptq.int4"``: GPTQ 4-bit mode.
     """
     if not ckpt_dir.is_dir():
-        raise IOError(
-            f"`--ckpt_dir={ckpt_dir!r} must be a directory with the lit model checkpoint and configurations. Please,"
+        raise OSError(
+            f"`--ckpt_dir={str(ckpt_dir)!r} must be a directory with the lit model checkpoint and configurations. Please,"
             " follow the instructions at"
             " https://github.com/Lightning-AI/lit-stablelm/blob/main/howto/download_weights.md"
         )

@@ -4,13 +4,13 @@ Except for when you are training from scratch, you will need the pretrained weig
 
 ```bash
 # Make sure you have git-lfs installed (https://git-lfs.com): git lfs install
-git clone stabilityai/stablelm-base-alpha-3b checkpoints/hf-stablelm/stablelm-base-alpha-3b
+git clone stabilityai/stablelm-base-alpha-3b checkpoints/stabilityai/stablelm-base-alpha-3b
 ```
 
 Or if you don't have `git-lfs` installed:
 
 ```bash
-python scripts/download.py --repo_id stabilityai/stablelm-base-alpha-3b --local_dir checkpoints/stabilityai/stablelm-base-alpha-3b
+python scripts/download.py stabilityai/stablelm-base-alpha-3b
 ```
 
 Once downloaded, you should have a folder like this:
@@ -30,9 +30,6 @@ Convert the weights to our model format:
 ```bash
 python scripts/convert_hf_checkpoint.py --ckpt_dir checkpoints/stabilityai/stablelm-base-alpha-3b
 ```
-
-> **Note**
-> All scripts support argument [customization](customize_paths.md)
 
 Once converted, you should have two added files:
 

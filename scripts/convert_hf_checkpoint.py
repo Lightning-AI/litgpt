@@ -87,7 +87,7 @@ def convert_hf_checkpoint(
         gc.collect()
 
     model_path = ckpt_dir / "lit_model.pth"
-    print(f"Saving to disk at {model_path!r}")
+    print(f"Saving to disk at {str(model_path)!r}")
     torch.save(model.state_dict(), model_path)
 
 
