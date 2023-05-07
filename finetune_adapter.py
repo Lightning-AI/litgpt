@@ -46,10 +46,10 @@ def main(
 ):
 
     fabric = L.Fabric(
-        accelerator="cpu",
+        accelerator="cuda",
         devices=devices,
-        #strategy=(DeepSpeedStrategy(config=ds_config) if devices > 1 else "auto"),
-        precision="bf16-true",
+        strategy=(DeepSpeedStrategy(config=ds_config) if devices > 1 else "auto"),
+        precision="bf16-mixed",
     )
     fabric.launch()
     fabric.seed_everything(1337 + fabric.global_rank)
@@ -197,7 +197,7 @@ def get_batch(fabric: L.Fabric, data: list):
 
     x = torch.stack([pad_right(x, pad_id=0) for x in input_ids])
     y = torch.stack([pad_right(x, pad_id=-1) for x in labels])
-    #x, y = fabric.to_device((x.pin_memory(), y.pin_memory()))
+    x, y = fabric.to_device((x.pin_memory(), y.pin_memory()))
 
     return x, y
 
