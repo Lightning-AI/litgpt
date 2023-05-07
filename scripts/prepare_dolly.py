@@ -14,7 +14,7 @@ from lit_llama.tokenizer import Tokenizer
 from tqdm import tqdm
 
 
-DATA_FILE = "https://raw.githubusercontent.com/databrickslabs/dolly/master/data/databricks-dolly-15k.jsonl"
+DATA_FILE = "https://huggingface.co/datasets/databricks/databricks-dolly-15k/resolve/main/databricks-dolly-15k.jsonl"
 DATA_FILE_NAME = "dolly_data_cleaned.json"
 IGNORE_INDEX = -1
 
