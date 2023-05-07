@@ -1,16 +1,3 @@
-"""
-Instruction-tuning with LLaMA-Adapter on the Alpaca dataset following the paper
-
-LLaMA-Adapter: Efficient Fine-tuning of Language Models with Zero-init Attention
-https://arxiv.org/abs/2303.16199
-
-This script runs on a single GPU by default. You can adjust the `micro_batch_size` to fit your GPU memory.
-You can finetune within 1 hour as done in the original paper using DeepSpeed Zero-2 on 8 A100 GPUs by setting the
-devices variable to `devices = 8` and `micro_batch_size = 8` (or higher).
-
-Note: If you run into a CUDA error "Expected is_sm80 to be true, but got false", uncomment the line
-`torch.backends.cuda.enable_flash_sdp(False)` in the script below (see https://github.com/Lightning-AI/lit-llama/issues/101).
-"""
 import os
 import time
 from pathlib import Path
@@ -21,8 +8,8 @@ import numpy as np
 import torch
 
 from generate import generate
-from lit_llama.adapter import LLaMA, LLaMAConfig, mark_only_adapter_as_trainable, adapter_state_from_state_dict
-from lit_llama.tokenizer import Tokenizer
+from lit_stablelm.adapter import StableLM, StableLMConfig, mark_only_adapter_as_trainable, adapter_state_from_state_dict
+from lit_stablelm.tokenizer import Tokenizer
 from scripts.prepare_alpaca import generate_prompt
 from lightning.fabric.strategies import DeepSpeedStrategy
 
@@ -53,15 +40,15 @@ ds_config = {
 
 
 def main(
-    data_dir: str = "data/alpaca", 
-    pretrained_path: str = "checkpoints/lit-llama/7B/lit-llama.pth",
+    data_dir: str = "data/alpaca",
+    pretrained_path: str = "checkpoints/stabilityai/stablelm-base-alpha-3b/lit_model.pth",
     out_dir: str = "out/adapter/alpaca",
 ):
 
     fabric = L.Fabric(
-        accelerator="cuda", 
-        devices=devices, 
-        strategy=(DeepSpeedStrategy(config=ds_config) if devices > 1 else "auto"), 
+        accelerator="cpu",
+        devices=devices,
+        #strategy=(DeepSpeedStrategy(config=ds_config) if devices > 1 else "auto"),
         precision="bf16-true",
     )
     fabric.launch()
@@ -72,7 +59,7 @@ def main(
 
     train_data, val_data = load_datasets(data_dir=data_dir)
 
-    config = LLaMAConfig(block_size=max_seq_length)
+    config = StableLMConfig(block_size=max_seq_length)
 
     if not os.path.isfile(pretrained_path):
         raise FileNotFoundError(
@@ -82,7 +69,7 @@ def main(
     checkpoint = torch.load(pretrained_path)
 
     with fabric.init_module():
-        model = LLaMA(config)
+        model = StableLM(config)
         # strict=False because missing keys due to adapter weights not containted in state dict
         model.load_state_dict(checkpoint, strict=False)
 
@@ -96,7 +83,7 @@ def main(
     train(fabric, model, optimizer, train_data, val_data, out_dir)
 
     # Save the final checkpoint at the end of training
-    save_model_checkpoint(fabric, model, os.path.join(out_dir, "lit-llama-adapter-finetuned.pth"))
+    save_model_checkpoint(fabric, model, os.path.join(out_dir, "lit-stablelm-adapter-finetuned.pth"))
 
 
 def train(
@@ -133,7 +120,7 @@ def train(
             optimizer.step()
             optimizer.zero_grad()
             step_count += 1
-                
+
             if step_count % eval_interval == 0:
                 val_loss = validate(fabric, model, val_data)
                 fabric.print(f"step {iter_num}: val loss {val_loss:.4f}")
@@ -150,7 +137,7 @@ def train(
 
 
 def generate_response(model, instruction, input=""):
-    tokenizer = Tokenizer("checkpoints/lit-llama/tokenizer.model")
+    tokenizer = Tokenizer("checkpoints/lit-stablelm/stabilityai/stablelm-base-alpha-3b/tokenizer.model")
     sample = {"instruction": instruction, "input": input}
     prompt = generate_prompt(sample)
     encoded = tokenizer.encode(prompt, bos=True, eos=False, device=model.device)
@@ -193,7 +180,7 @@ def loss_fn(logits, targets):
     targets = targets[..., 1:].contiguous()
     loss = torch.nn.functional.cross_entropy(logits.view(-1, logits.size(-1)), targets.view(-1), ignore_index=-1)
     return loss
-    
+
 
 def get_batch(fabric: L.Fabric, data: list):
     ix = torch.randint(len(data), (micro_batch_size,))
@@ -210,7 +197,8 @@ def get_batch(fabric: L.Fabric, data: list):
 
     x = torch.stack([pad_right(x, pad_id=0) for x in input_ids])
     y = torch.stack([pad_right(x, pad_id=-1) for x in labels])
-    x, y = fabric.to_device((x.pin_memory(), y.pin_memory()))
+    #x, y = fabric.to_device((x.pin_memory(), y.pin_memory()))
+
     return x, y
 
 
