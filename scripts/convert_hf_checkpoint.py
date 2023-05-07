@@ -12,30 +12,30 @@ wd = Path(__file__).parent.parent.resolve()
 sys.path.append(str(wd))
 
 from lit_stablelm.model import StableLM
-from lit_stablelm.utils import EmptyInitOnDevice
+from lit_stablelm.utils import EmptyInitOnDevice, check_valid_checkpoint_dir
 
 
 def copy_weights(state_dict, hf_weights, dtype=torch.float32):
     weight_map = {
         "gpt_neox.embed_in.weight": "transformer.wte.weight",
-        'gpt_neox.layers.{}.input_layernorm.bias': "transformer.h.{}.norm_1.bias",
-        'gpt_neox.layers.{}.input_layernorm.weight': "transformer.h.{}.norm_1.weight",
-        'gpt_neox.layers.{}.attention.query_key_value.bias': "transformer.h.{}.attn.attn.bias",
-        'gpt_neox.layers.{}.attention.query_key_value.weight': "transformer.h.{}.attn.attn.weight",
-        'gpt_neox.layers.{}.attention.dense.bias': "transformer.h.{}.attn.proj.bias",
-        'gpt_neox.layers.{}.attention.dense.weight': "transformer.h.{}.attn.proj.weight",
-        'gpt_neox.layers.{}.attention.rotary_emb.inv_freq': None,
-        'gpt_neox.layers.{}.attention.bias': None,
-        'gpt_neox.layers.{}.attention.masked_bias': None,
-        'gpt_neox.layers.{}.post_attention_layernorm.bias': "transformer.h.{}.norm_2.bias",
-        'gpt_neox.layers.{}.post_attention_layernorm.weight': "transformer.h.{}.norm_2.weight",
-        'gpt_neox.layers.{}.mlp.dense_h_to_4h.bias': "transformer.h.{}.mlp.fc.bias",
-        'gpt_neox.layers.{}.mlp.dense_h_to_4h.weight': "transformer.h.{}.mlp.fc.weight",
-        'gpt_neox.layers.{}.mlp.dense_4h_to_h.bias': "transformer.h.{}.mlp.proj.bias",
-        'gpt_neox.layers.{}.mlp.dense_4h_to_h.weight': "transformer.h.{}.mlp.proj.weight",
-        'gpt_neox.final_layer_norm.bias': "transformer.ln_f.bias",
-        'gpt_neox.final_layer_norm.weight': "transformer.ln_f.weight",
-        'embed_out.weight': "lm_head.weight",
+        "gpt_neox.layers.{}.input_layernorm.bias": "transformer.h.{}.norm_1.bias",
+        "gpt_neox.layers.{}.input_layernorm.weight": "transformer.h.{}.norm_1.weight",
+        "gpt_neox.layers.{}.attention.query_key_value.bias": "transformer.h.{}.attn.attn.bias",
+        "gpt_neox.layers.{}.attention.query_key_value.weight": "transformer.h.{}.attn.attn.weight",
+        "gpt_neox.layers.{}.attention.dense.bias": "transformer.h.{}.attn.proj.bias",
+        "gpt_neox.layers.{}.attention.dense.weight": "transformer.h.{}.attn.proj.weight",
+        "gpt_neox.layers.{}.attention.rotary_emb.inv_freq": None,
+        "gpt_neox.layers.{}.attention.bias": None,
+        "gpt_neox.layers.{}.attention.masked_bias": None,
+        "gpt_neox.layers.{}.post_attention_layernorm.bias": "transformer.h.{}.norm_2.bias",
+        "gpt_neox.layers.{}.post_attention_layernorm.weight": "transformer.h.{}.norm_2.weight",
+        "gpt_neox.layers.{}.mlp.dense_h_to_4h.bias": "transformer.h.{}.mlp.fc.bias",
+        "gpt_neox.layers.{}.mlp.dense_h_to_4h.weight": "transformer.h.{}.mlp.fc.weight",
+        "gpt_neox.layers.{}.mlp.dense_4h_to_h.bias": "transformer.h.{}.mlp.proj.bias",
+        "gpt_neox.layers.{}.mlp.dense_4h_to_h.weight": "transformer.h.{}.mlp.proj.weight",
+        "gpt_neox.final_layer_norm.bias": "transformer.ln_f.bias",
+        "gpt_neox.final_layer_norm.weight": "transformer.ln_f.weight",
+        "embed_out.weight": "lm_head.weight",
     }
 
     for name, param in hf_weights.items():
@@ -62,12 +62,7 @@ def convert_hf_checkpoint(
     model_name: Optional[str] = None,
     dtype: str = "float32",
 ) -> None:
-    if not checkpoint_dir.is_dir():
-        raise OSError(
-            f"`--checkpoint_dir={str(checkpoint_dir)!r} must be a directory."
-            " Please, follow the instructions at"
-            " https://github.com/Lightning-AI/lit-stablelm/blob/main/howto/download_weights.md"
-        )
+    check_valid_checkpoint_dir(checkpoint_dir)
 
     dt = getattr(torch, dtype, None)
     if not isinstance(dt, torch.dtype):
@@ -102,4 +97,3 @@ if __name__ == "__main__":
     from jsonargparse import CLI
 
     CLI(convert_hf_checkpoint)
-

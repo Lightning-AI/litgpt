@@ -1,6 +1,10 @@
+import os
+import re
+import sys
 import tempfile
 import pathlib
 
+import pytest
 import torch
 
 
@@ -50,3 +54,32 @@ def test_find_multiple(lit_stablelm):
     assert find_multiple(30, 7) == 35
     assert find_multiple(10, 2) == 10
     assert find_multiple(5, 10) == 10
+
+
+@pytest.mark.skipif(sys.platform == "win32", reason="match fails on windows. why did they have to use backslashes?")
+def test_check_valid_checkpoint_dir(lit_stablelm, tmp_path):
+    from lit_stablelm.utils import check_valid_checkpoint_dir
+
+    os.chdir(tmp_path)
+
+    match = "must contain the files: 'lit_model.pth', 'lit_config.json', 'tokenizer.json' and 'tokenizer_config.json'."
+    with pytest.raises(OSError, match=match):
+        check_valid_checkpoint_dir(tmp_path)
+
+    checkpoint_dir = tmp_path / "checkpoints" / "stabilityai" / "stablelm-base-alpha-3b"
+    match = (
+        r"checkpoint_dir '\/.*checkpoints\/stabilityai\/stablelm-base-alpha-3b' is not.*\nPlease, follow"
+        r" the instructions.*download_weights\.md\n\nYou can download:\n \* stablelm-base-alpha-3b\n \* stablelm-base-"
+        r"alpha-7b\n"
+    )
+    with pytest.raises(OSError, match=match):
+        check_valid_checkpoint_dir(checkpoint_dir)
+
+    checkpoint_dir.mkdir(parents=True)
+    match = (
+        r"checkpoint_dir '.*foo' is not.*\nPlease, follow the instructions.*download_weights\.md\n\nYou"
+        r" have downloaded locally:\n --checkpoint_dir '.+checkpoints\/stabilityai\/stablelm-base-alpha-3b'\n\nYou can"
+        r" download:\n \* stablelm-base-alpha-7b\n"
+    )
+    with pytest.raises(OSError, match=match):
+        check_valid_checkpoint_dir(tmp_path / "foo")
