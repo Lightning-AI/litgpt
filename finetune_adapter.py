@@ -46,9 +46,9 @@ def main(
 ):
 
     fabric = L.Fabric(
-        accelerator="cpu",
+        accelerator="cuda",
         devices=devices,
-        #strategy=(DeepSpeedStrategy(config=ds_config) if devices > 1 else "auto"),
+        strategy=(DeepSpeedStrategy(config=ds_config) if devices > 1 else "auto"),
         precision="bf16-true",
     )
     fabric.launch()
