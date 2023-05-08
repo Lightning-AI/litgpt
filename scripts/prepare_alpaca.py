@@ -39,7 +39,6 @@ def prepare(
     file_path = destination_path / data_file_name
     download(file_path)
 
-    # TODO: If we don't have the Meta weights, where do we get the tokenizer from?
     tokenizer = Tokenizer(tokenizer_path, tokenizer_config)
 
     with open(file_path, "r") as file:
