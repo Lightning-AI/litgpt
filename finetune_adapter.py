@@ -1,20 +1,17 @@
-import os
+import shutil
 import time
 from pathlib import Path
-import shutil
 
 import lightning as L
 import numpy as np
 import torch
-
-from generate import generate
-from lit_stablelm.adapter import StableLM, StableLMConfig, mark_only_adapter_as_trainable, adapter_state_from_state_dict
-from lit_stablelm.tokenizer import Tokenizer
-from scripts.prepare_alpaca import generate_prompt
 from lightning.fabric.strategies import DeepSpeedStrategy
 
-from lit_stablelm.utils import EmptyInitOnDevice, lazy_load
-
+from generate import generate
+from lit_stablelm.adapter import StableLM, Config, mark_only_adapter_as_trainable, adapter_state_from_state_dict
+from lit_stablelm.tokenizer import Tokenizer
+from lit_stablelm.utils import EmptyInitOnDevice, lazy_load, check_valid_checkpoint_dir
+from scripts.prepare_alpaca import generate_prompt
 
 eval_interval = 600
 save_interval = 1000
@@ -52,10 +49,10 @@ ds_config = {
 
 
 def main(
-    data_dir: str = "data/alpaca",
-    pretrained_path: str = "checkpoints/stabilityai/stablelm-base-alpha-3b/lit_model.pth",
-    out_dir: str = "out/adapter/alpaca",
+    data_dir: Path = Path("data/alpaca"), checkpoint_dir: Path = Path("checkpoints/stabilityai/stablelm-base-alpha-3b")
 ):
+    check_valid_checkpoint_dir(checkpoint_dir)
+
     fabric = L.Fabric(
         accelerator="cuda",
         devices=devices,
@@ -65,22 +62,13 @@ def main(
     fabric.launch()
     fabric.seed_everything(1337 + fabric.global_rank)
 
-    if fabric.global_rank == 0:
-        os.makedirs(out_dir, exist_ok=True)
-
     train_data, val_data = load_datasets(data_dir=data_dir)
 
-    config = StableLMConfig(block_size=max_seq_length)
-
-    if not os.path.isfile(pretrained_path):
-        raise FileNotFoundError(
-            f"Can't find the pretrained weights at {pretrained_path}."
-            " Please follow the instructions in the README to download them."
-        )
+    config = Config(block_size=max_seq_length)
 
     with EmptyInitOnDevice(device=fabric.device, dtype=torch.bfloat16):
         model = StableLM(config)
-    with lazy_load(pretrained_path) as checkpoint:
+    with lazy_load(checkpoint_dir / "lit_model.pth") as checkpoint:
         model.load_state_dict(checkpoint, strict=False)
 
     mark_only_adapter_as_trainable(model)
@@ -90,10 +78,10 @@ def main(
 
     optimizer = torch.optim.AdamW(model.parameters(), lr=learning_rate, weight_decay=weight_decay)
     model, optimizer = fabric.setup(model, optimizer)
-    train(fabric, model, optimizer, train_data, val_data, out_dir)
+    train(fabric, model, optimizer, train_data, val_data, checkpoint_dir)
 
     # Save the final checkpoint at the end of training
-    save_model_checkpoint(fabric, model, os.path.join(out_dir, "lit-stablelm-adapter-finetuned.pth"))
+    save_model_checkpoint(fabric, model, checkpoint_dir / "lit_model_adapter_finetuned.pth")
 
 
 def train(
@@ -102,13 +90,15 @@ def train(
     optimizer: torch.optim.Optimizer,
     train_data: np.ndarray,
     val_data: np.ndarray,
-    out_dir: str,
+    checkpoint_dir: Path,
 ) -> None:
     """The training loop.
 
     Loosely based on the nanoGPT implementation: https://github.com/karpathy/nanoGPT.
     """
     step_count = 0
+
+    tokenizer = Tokenizer(checkpoint_dir / "tokenizer.json", checkpoint_dir / "tokenizer_config.json")
 
     for iter_num in range(max_iters):
         if step_count <= warmup_steps:
@@ -132,35 +122,23 @@ def train(
             step_count += 1
 
             if step_count % eval_interval == 0:
-                val_loss = validate(fabric, model, val_data)
+                val_loss = validate(fabric, model, val_data, tokenizer)
                 fabric.print(f"step {iter_num}: val loss {val_loss:.4f}")
                 fabric.barrier()
 
             if step_count % save_interval == 0:
-                print(f"Saving adapter weights to {out_dir}")
+                save_path = checkpoint_dir / f"iter-{iter_num:06d}.pth"
+                print(f"Saving adapter weights to {str(save_path)!r}")
                 # TODO: Provide a function/script to merge the adapter weights with pretrained weights
-                save_model_checkpoint(fabric, model, os.path.join(out_dir, f"iter-{iter_num:06d}.pth"))
+                save_model_checkpoint(fabric, model, save_path)
 
         dt = time.time() - t0
         if iter_num % log_interval == 0:
             fabric.print(f"iter {iter_num}: loss {loss.item():.4f}, time: {dt*1000:.2f}ms")
 
 
-def generate_response(model, instruction, input=""):
-    tokenizer_path = "checkpoints/stabilityai/stablelm-base-alpha-3b/tokenizer.json"
-    tokenizer_config = "checkpoints/stabilityai/stablelm-base-alpha-3b/tokenizer_config.json"
-    tokenizer = Tokenizer(tokenizer_path, tokenizer_config)
-    sample = {"instruction": instruction, "input": input}
-    prompt = generate_prompt(sample)
-    encoded = tokenizer.encode(prompt, bos=True, eos=False, device=model.device)
-
-    output = generate(model, idx=encoded, max_seq_length=max_seq_length, max_new_tokens=100, temperature=0.8)
-    output = tokenizer.decode(output)
-    return output  # output.split("### Response:")[1].strip()
-
-
 @torch.no_grad()
-def validate(fabric: L.Fabric, model: torch.nn.Module, val_data: np.ndarray) -> torch.Tensor:
+def validate(fabric: L.Fabric, model: torch.nn.Module, val_data: np.ndarray, tokenizer: Tokenizer) -> torch.Tensor:
     fabric.print("Validating ...")
     model.eval()
     losses = torch.zeros(eval_iters)
@@ -173,8 +151,12 @@ def validate(fabric: L.Fabric, model: torch.nn.Module, val_data: np.ndarray) -> 
 
     # produce an example:
     instruction = "Recommend a movie for me to watch during the weekend and explain the reason."
-    output = generate_response(model, instruction)
     fabric.print(instruction)
+    sample = {"instruction": instruction, "input": ""}
+    prompt = generate_prompt(sample)
+    encoded = tokenizer.encode(prompt, bos=True, eos=False, device=model.device)
+    output = generate(model, idx=encoded, max_seq_length=max_seq_length, max_new_tokens=100, temperature=0.8)
+    output = tokenizer.decode(output)
     fabric.print(output)
 
     model.train()
@@ -209,13 +191,13 @@ def get_batch(fabric: L.Fabric, data: list):
     return x, y
 
 
-def load_datasets(data_dir):
-    train_data = torch.load(os.path.join(data_dir, "train.pt"))
-    val_data = torch.load(os.path.join(data_dir, "test.pt"))
+def load_datasets(data_dir: Path):
+    train_data = torch.load(data_dir / "train.pt")
+    val_data = torch.load(data_dir / "test.pt")
     return train_data, val_data
 
 
-def save_model_checkpoint(fabric, model, file_path):
+def save_model_checkpoint(fabric, model, file_path: Path):
     file_path = Path(file_path)
 
     if isinstance(fabric.strategy, DeepSpeedStrategy):

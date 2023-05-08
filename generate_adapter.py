@@ -1,9 +1,9 @@
+import json
 import sys
 import time
 import warnings
 from pathlib import Path
 from typing import Optional
-import json
 
 import lightning as L
 import torch
@@ -11,15 +11,14 @@ import torch
 from generate import generate
 from lit_stablelm import Tokenizer
 from lit_stablelm.adapter import StableLM, Config
-from lit_stablelm.utils import EmptyInitOnDevice, lazy_load
+from lit_stablelm.utils import EmptyInitOnDevice, lazy_load, check_valid_checkpoint_dir
 from scripts.prepare_alpaca import generate_prompt
 
 
 def main(
     prompt: str = "What food do lamas eat?",
     input: str = "",
-    adapter_path: Optional[Path] = None,
-    pretrained_dir: Optional[Path] = None,
+    checkpoint_dir: Path = Path("checkpoints/stabilityai/stablelm-base-alpha-3b"),
     quantize: Optional[str] = None,
     max_new_tokens: int = 100,
     top_k: int = 200,
@@ -31,11 +30,8 @@ def main(
 
     Args:
         prompt: The prompt/instruction (Alpaca style).
-        adapter_path: Path to the checkpoint with trained adapter weights, which are the output of
-            `finetune_adapter.py`.
         input: Optional input (Alpaca style).
-        pretrained_path: The path to the checkpoint with pretrained StableLM weights.
-        tokenizer_path: The tokenizer path to load.
+        checkpoint_dir: The checkpoint directory to load.
         quantize: Whether to quantize the model and using which method:
             ``"llm.int8"``: LLM.int8() mode,
             ``"gptq.int4"``: GPTQ 4-bit mode.
@@ -44,28 +40,23 @@ def main(
         temperature: A value controlling the randomness of the sampling process. Higher values result in more random
             samples.
     """
-    if not adapter_path:
-        adapter_path = Path("out/adapter/alpaca/lit-stablelm-adapter-finetuned.pth")
-    if not pretrained_dir:
-        pretrained_dir = Path(f"checkpoints/stabilityai/stablelm-base-alpha-3b")
-
-    pretrained_path = Path(pretrained_dir) / "lit_model.pth"
-
+    check_valid_checkpoint_dir(checkpoint_dir)
+    adapter_path = checkpoint_dir / "lit_model_adapter_finetuned.pth"
     assert adapter_path.is_file()
-    assert pretrained_path.is_file()
 
     fabric = L.Fabric(devices=1)
     dtype = torch.bfloat16 if fabric.device.type == "cuda" and torch.cuda.is_bf16_supported() else torch.float32
 
-    with open(pretrained_dir / "lit_config.json") as fp:
+    with open(checkpoint_dir / "lit_config.json") as fp:
         config = Config(**json.load(fp))
 
     print("Loading model ...", file=sys.stderr)
     t0 = time.time()
-    with lazy_load(pretrained_path) as pretrained_checkpoint, lazy_load(adapter_path) as adapter_checkpoint:
-        with EmptyInitOnDevice(device=fabric.device, dtype=dtype, quantization_mode=quantize):
-            model = StableLM(config)
-
+    with EmptyInitOnDevice(device=fabric.device, dtype=dtype, quantization_mode=quantize):
+        model = StableLM(config)
+    with lazy_load(checkpoint_dir / "lit_model.pth") as pretrained_checkpoint, lazy_load(
+        adapter_path
+    ) as adapter_checkpoint:
         # 1. Load the pretrained weights
         model.load_state_dict(pretrained_checkpoint, strict=False)
         # 2. Load the fine-tuned adapter weights
@@ -76,7 +67,7 @@ def main(
     model.eval()
     model = fabric.setup(model)
 
-    tokenizer = Tokenizer(pretrained_dir / "tokenizer.json", pretrained_dir / "tokenizer_config.json")
+    tokenizer = Tokenizer(checkpoint_dir / "tokenizer.json", checkpoint_dir / "tokenizer_config.json")
     sample = {"instruction": prompt, "input": input}
     prompt = generate_prompt(sample)
     encoded = tokenizer.encode(prompt, bos=True, eos=False, device=model.device)
