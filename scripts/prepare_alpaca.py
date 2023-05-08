@@ -105,7 +105,7 @@ def prepare_sample(example: dict, tokenizer: Tokenizer, max_length: int, mask_in
 
 
 def tokenize(tokenizer: Tokenizer, string: str, max_length: int, eos=True) -> torch.Tensor:
-    return tokenizer.encode(string)
+    return tokenizer.encode(string, bos=True, eos=eos, max_length=max_length)
 
 
 def generate_prompt(example):
