@@ -18,12 +18,13 @@ import lit_stablelm.model as stablelm
 
 from dataclasses import dataclass
 from lit_stablelm.config import Config
+from lit_stablelm.model import build_rope_cache, apply_rope
+
 
 @dataclass
 class StableLMConfig(Config):
     adapter_prompt_length: int = 10
     adapter_start_layer: int = 2
-
 
 
 class CausalSelfAttention(nn.Module):
@@ -72,12 +73,6 @@ class CausalSelfAttention(nn.Module):
         q = torch.cat((q_roped, q[..., n_elem:]), dim=-1)
         k = torch.cat((k_roped, k[..., n_elem:]), dim=-1)
 
-        # causal self-attention; Self-attend: (B, nh, T, hs) x (B, nh, hs, T) -> (B, nh, T, T)
-        #  att = (q @ k.transpose(-2, -1)) * (1.0 / math.sqrt(k.size(-1)))
-        #  att = att.masked_fill(self.bias[:,:,:T,:T] == 0, float('-inf'))
-        #  att = F.softmax(att, dim=-1)
-        #  y = att @ v # (B, nh, T, T) x (B, nh, T, hs) -> (B, nh, T, hs)
-
         # efficient attention using Flash Attention CUDA kernels
         y = F.scaled_dot_product_attention(
             q, k, v, attn_mask=None, dropout_p=0.0, is_causal=True, scale=1.0 / math.sqrt(head_size)
@@ -110,7 +105,7 @@ class Block(nn.Module):
         self.norm_1 = nn.LayerNorm(config.n_embd)
         self.attn = CausalSelfAttention(config, block_idx)
         self.norm_2 = nn.LayerNorm(config.n_embd)
-        self.mlp = MLP(config)
+        self.mlp = stablelm.MLP(config)
 
         self.parallel_residual = config.parallel_residual
 
@@ -122,61 +117,12 @@ class Block(nn.Module):
             x = x + self.mlp(self.norm_2(x))
         return x
 
-class MLP(nn.Module):
-    def __init__(self, config: Config) -> None:
-        super().__init__()
-        hidden_dim = 4 * config.n_embd
-        self.fc = nn.Linear(config.n_embd, hidden_dim, bias=True)
-        self.proj = nn.Linear(hidden_dim, config.n_embd, bias=True)
 
-    def forward(self, x: torch.Tensor) -> torch.Tensor:
-        # gpt-neox style MLP
-        x = self.fc(x)
-        x = F.gelu(x)
-        x = self.proj(x)
-        return x
-
-
-def build_rope_cache(
-    seq_len: int, n_elem: int, dtype: torch.dtype, device: torch.device, base: int = 10000
-) -> Tuple[torch.Tensor, torch.Tensor]:
-    """Enhanced Transformer with Rotary Position Embedding.
-
-    Derived from: https://github.com/labmlai/annotated_deep_learning_paper_implementations/blob/master/labml_nn/
-    transformers/rope/__init__.py. MIT License:
-    https://github.com/labmlai/annotated_deep_learning_paper_implementations/blob/master/license.
-    """
-    # $\Theta = {\theta_i = 10000^{\frac{2(i-1)}{d}}, i \in [1, 2, ..., \frac{d}{2}]}$
-    theta = 1.0 / (base ** (torch.arange(0, n_elem, 2, dtype=dtype, device=device) / n_elem))
-
-    # Create position indexes `[0, 1, ..., seq_len - 1]`
-    seq_idx = torch.arange(seq_len, dtype=dtype, device=device)
-
-    # Calculate the product of position index and $\theta_i$
-    idx_theta = torch.outer(seq_idx, theta).float().repeat(1, 2)
-
-    cos, sin = torch.cos(idx_theta), torch.sin(idx_theta)
-
-    # this is to mimic the behaviour of complex32, else we will get different results
-    if dtype in (torch.float16, torch.bfloat16, torch.int8):
-        return cos.half(), sin.half()
-    return cos, sin
-
-
-def apply_rope(x: torch.Tensor, cos: torch.Tensor, sin: torch.Tensor) -> torch.Tensor:
-    head_size = x.size(-1)
-    x1 = x[..., : head_size // 2]  # (B, nh, T, hs/2)
-    x2 = x[..., head_size // 2 :]  # (B, nh, T, hs/2)
-    rotated = torch.cat((-x2, x1), dim=-1)  # (B, nh, T, hs)
-    roped = (x * cos) + (rotated * sin)
-    return roped.type_as(x)
-
-
-class StableLM(nn.Module):
+class StableLM(stablelm.StableLM):
     """The implementation is identical to `lit_stablelm.model.StableLM` with the exception that
     the `Block` saves the layer index and passes it down to the attention layer."""
     def __init__(self, config: StableLMConfig) -> None:
-        super().__init__()
+        nn.Module.__init__(self)
         assert config.padded_vocab_size is not None
         self.config = config
 
@@ -188,37 +134,6 @@ class StableLM(nn.Module):
                 ln_f=nn.LayerNorm(config.n_embd),
             )
         )
-
-    def _init_weights(self, module: nn.Module) -> None:
-        if isinstance(module, nn.Linear):
-            # https://huggingface.co/stabilityai/stablelm-base-alpha-3b/blob/main/config.json#L10
-            torch.nn.init.normal_(module.weight, mean=0.0, std=0.02)
-            if module.bias is not None:
-                torch.nn.init.zeros_(module.bias)
-        elif isinstance(module, nn.Embedding):
-            torch.nn.init.normal_(module.weight, mean=0.0, std=0.02)
-        elif isinstance(module, nn.LayerNorm):
-            torch.nn.init.ones_(module.weight)
-            torch.nn.init.zeros_(module.bias)
-            # https://huggingface.co/stabilityai/stablelm-base-alpha-3b/blob/main/config.json#L12
-            module.eps = 1e-5
-
-    def forward(self, idx: torch.Tensor) -> torch.Tensor:
-        _, t = idx.size()
-        assert (
-            t <= self.config.block_size
-        ), f"Cannot forward sequence of length {t}, block size is only {self.config.block_size}"
-
-        # forward the model itself
-        x = self.transformer.wte(idx)  # token embeddings of shape (b, t, n_embd)
-
-        for block in self.transformer.h:
-            x = block(x)
-        x = self.transformer.ln_f(x)
-
-        logits = self.lm_head(x)  # (b, t, vocab_size)
-
-        return logits
 
     @classmethod
     def from_name(cls, name: str) -> Self:
