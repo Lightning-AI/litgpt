@@ -4,7 +4,7 @@ Except for when you are training from scratch, you will need the pretrained weig
 
 ```bash
 # Make sure you have git-lfs installed (https://git-lfs.com): git lfs install
-git clone stabilityai/stablelm-base-alpha-3b checkpoints/stabilityai/stablelm-base-alpha-3b
+git clone https://huggingface.co/stabilityai/stablelm-base-alpha-3b checkpoints/stabilityai/stablelm-base-alpha-3b
 ```
 
 Or if you don't have `git-lfs` installed:
