@@ -21,8 +21,7 @@ IGNORE_INDEX = -1
 
 def prepare(
     destination_path: Path = Path("data/alpaca"),
-    tokenizer_path: Path = Path("checkpoints/stabilityai/stablelm-base-alpha-3b/tokenizer.json"),
-    tokenizer_config: Path = Path("checkpoints/stabilityai/stablelm-base-alpha-3b/tokenizer_config.json"),
+    checkpoint_dir: Path = Path("checkpoints/stabilityai/stablelm-base-alpha-3b"),
     test_split_size: int = 2000,
     max_seq_length: int = 256,
     seed: int = 42,
@@ -34,12 +33,11 @@ def prepare(
     The output is a training and validation dataset saved as `train.pt` and `val.pt`,
     which stores the preprocessed and tokenized prompts and labels.
     """
-
     destination_path.mkdir(parents=True, exist_ok=True)
     file_path = destination_path / data_file_name
     download(file_path)
 
-    tokenizer = Tokenizer(tokenizer_path, tokenizer_config)
+    tokenizer = Tokenizer(checkpoint_dir / "tokenizer.json", "tokenizer_config.json")
 
     with open(file_path, "r") as file:
         data = json.load(file)
