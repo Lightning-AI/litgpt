@@ -12,7 +12,7 @@ class Tokenizer:
         self.processor = HFTokenizer.from_file(str(vocabulary_path))
         with open(config_path) as fp:
             config = json.load(fp)
-        self.bos_id = self.token_to_id(config["bos_token"])
+
         self.eos_id = self.token_to_id(config["eos_token"])
 
     @property
