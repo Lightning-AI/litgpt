@@ -24,7 +24,7 @@ or [prepare your own dataset](#tune-on-your-dataset).
 ## Running the finetuning
 
 ```bash
-python finetune_adapter.py --checkpoint_dir checkpoints/stabilityai/stablelm-base-alpha-3b
+python finetune_adapter.py --pretrained_dir checkpoints/stabilityai/stablelm-base-alpha-3b
 ```
 
 The finetuning requires at least one GPU with ~12 GB memory.
@@ -37,7 +37,11 @@ devices = 4
 micro_batch_size = 4
 ```
 
-This script will save checkpoints periodically to the `checkpoint_dir` directory.
+This script will save checkpoints periodically to the `out_dir` directory. If you are finetuning different models or on your own dataset, you can specify an output directory with your preferred name:
+
+```bash
+python finetune_adapter.py --out_dir out/adapter/my-model-finetuned
+```
 
 ## Test the model
 
@@ -46,7 +50,7 @@ You can test the finetuned model with your own instructions by running:
 ```bash
 python generate_adapter.py \
     --prompt "Recommend a movie to watch on the weekend." \
-    --checkpoint_dir checkpoints/stabilityai/stablelm-base-alpha-3b
+    --pretrained_dir checkpoints/stabilityai/stablelm-base-alpha-3b
 ```
 Output:
 ```
@@ -89,7 +93,10 @@ With only a few modifications, you can prepare and train on your own instruction
 5. Run `finetune_adapter.py` by passing in the location of your data (and optionally other parameters):
    
     ```bash
-    python finetune_adapter.py --data_dir data/mydata/ --checkpoint_dir checkpoints/stabilityai/stablelm-base-alpha-3b
+    python finetune_adapter.py \
+        --data_dir data/mydata/ \
+        --pretrained_dir checkpoints/stabilityai/stablelm-base-alpha-3b \
+        --out_dir data/mydata-finetuned
     ```
 
 
