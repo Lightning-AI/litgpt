@@ -103,8 +103,8 @@ python scripts/prepare_alpaca.py
 python finetune_adapter.py
 ```
 
+The finetuning requires at least one GPU with ~12 GB memory (GTX 3060).
 It is expected that you have downloaded the pretrained weights as described above.
-
 More details about each finetuning method and how you can apply it to your own data can be found in our technical how-to guides.
 
 ### Finetuning How-To Guides
