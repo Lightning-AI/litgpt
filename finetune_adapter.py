@@ -41,8 +41,8 @@ ds_config = {
 
 def main(
     data_dir: Path = Path("data/alpaca"), 
-    pretrained_dir: Path = "checkpoints/stabilityai/stablelm-base-alpha-3b",
-    out_dir: str = "out/adapter/alpaca-nobos",
+    pretrained_dir: Path = Path("checkpoints/stabilityai/stablelm-base-alpha-3b"),
+    out_dir: Path = Path("out/adapter/alpaca-nobos"),
 ):
     check_valid_checkpoint_dir(pretrained_dir)
 
@@ -74,7 +74,7 @@ def main(
 
     optimizer = torch.optim.AdamW(model.parameters(), lr=learning_rate, weight_decay=weight_decay)
     model, optimizer = fabric.setup(model, optimizer)
-    train(fabric, model, optimizer, train_data, val_data, out_dir)
+    train(fabric, model, optimizer, train_data, val_data, pretrained_dir, out_dir)
 
     # Save the final checkpoint at the end of training
     save_model_checkpoint(fabric, model, out_dir / "lit-stablelm-adapter-finetuned.pth")
