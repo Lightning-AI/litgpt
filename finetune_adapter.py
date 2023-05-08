@@ -40,7 +40,7 @@ ds_config = {
 
 
 def main(
-    data_dir: Path = Path("data/alpaca"), 
+    data_dir: Path = Path("data/alpaca"),
     pretrained_dir: Path = Path("checkpoints/stabilityai/stablelm-base-alpha-3b"),
     out_dir: Path = Path("out/adapter/alpaca-nobos"),
 ):
