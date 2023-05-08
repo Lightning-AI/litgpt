@@ -88,8 +88,8 @@ def prepare_sample(example: dict, tokenizer: Tokenizer, max_length: int, mask_in
     """
     full_prompt = generate_prompt(example)
     full_prompt_and_response = full_prompt + example["output"]
-    encoded_full_prompt = tokenize(tokenizer, full_prompt, max_length=max_length, eos=False)
-    encoded_full_prompt_and_response = tokenize(tokenizer, full_prompt_and_response, eos=True, max_length=max_length)
+    encoded_full_prompt = tokenizer.encode(full_prompt, bos=True, eos=False, max_length=max_length)
+    encoded_full_prompt_and_response = tokenizer.encode(full_prompt_and_response, bos=True, eos=True, max_length=max_length)
 
     # The labels are the full prompt with response, but with the prompt masked out
     labels = encoded_full_prompt_and_response.clone()
@@ -102,10 +102,6 @@ def prepare_sample(example: dict, tokenizer: Tokenizer, max_length: int, mask_in
         "input_ids_no_response": encoded_full_prompt,
         "labels": labels,
     }
-
-
-def tokenize(tokenizer: Tokenizer, string: str, max_length: int, eos=True) -> torch.Tensor:
-    return tokenizer.encode(string, bos=True, eos=eos, max_length=max_length)
 
 
 def generate_prompt(example):
