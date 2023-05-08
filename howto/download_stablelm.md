@@ -1,47 +1,34 @@
 ## Download [StableLM](https://github.com/Stability-AI/StableLM) weights
 
-Except for when you are training from scratch, you will need the pretrained weights:
+StableLM is a family of generative language models trained by StabilityAI, trained on a dataset derived from [The Pile](https://pile.eleuther.ai/) but 3x larger, for a total of 1.5 trillion tokens. Weights are released under the [CC-BY-SA license](https://creativecommons.org/licenses/by-sa/4.0).
+
+For more info on the models, please see the [StableLM repository](https://github.com/EleutherAI/pythia). 3B and a 7B checkpoints have been released, both after pre-training and after instruction tuning, using a combination of Stanford's Alpaca, Nomic-AI's gpt4all, RyokoAI's ShareGPT52K datasets, Databricks labs' Dolly, and Anthropic's HH.
+
+To see all the available checkpoints for StableLM, run:
 
 ```bash
-# Make sure you have git-lfs installed (https://git-lfs.com): git lfs install
-git clone https://huggingface.co/stabilityai/stablelm-base-alpha-3b checkpoints/stabilityai/stablelm-base-alpha-3b
+python scripts/download.py | grep stablelm
 ```
 
-Or if you don't have `git-lfs` installed:
-
-```bash
-pip install huggingface_hub
-python scripts/download.py stabilityai/stablelm-base-alpha-3b
-```
-
-Once downloaded, you should have a folder like this:
+which will print
 
 ```text
-checkpoints/stabilityai
-└── stablelm-base-alpha-3b
-    ├── ...
-    ├── pytorch_model-00001-of-00002.bin
-    ├── pytorch_model-00002-of-00002.bin
-    ├── pytorch_model.bin.index.json
-    └── tokenizer.model
+stabilityai/stablelm-base-alpha-3b
+stabilityai/stablelm-base-alpha-7b
+stabilityai/stablelm-tuned-alpha-3b
+stabilityai/stablelm-tuned-alpha-7b
 ```
 
-Convert the weights to our model format:
+In order to use a specific StableLM checkpoint, for instance [stablelm-base-alpha-3b](http://huggingface.co/stabilityai/stablelm-base-alpha-3b), download the weights and convert the checkpoint to the lit-stablelm format:
 
 ```bash
+python scripts/download.py stabilityai/stablelm-base-alpha-3b
+
 python scripts/convert_hf_checkpoint.py --checkpoint_dir checkpoints/stabilityai/stablelm-base-alpha-3b
 ```
 
-Once converted, you should have two added files:
+You're done! To execute the model just run:
 
-```text
-checkpoints/stabilityai
-└── stablelm-base-alpha-3b
-    ├── ...
-    ├── lit_config.json
-    └── lit_model.pth
+```bash
+python generate.py --prompt "Hello, my name is" --checkpoint_dir checkpoints/stabilityai/stablelm-base-alpha-3b
 ```
-
-You are all set. Now you can continue with inference or finetuning.
-
-Try running [`generate.py` to test the imported weights](inference.md).
