@@ -13,7 +13,7 @@ import requests
 
 def maybe_get_file(url, file_path):
     if not file_path.exists():
-        with open(file_path, "w") as f:
+        with open(file_path, "w", encoding="utf-8") as f:
             f.write(requests.get(url).text)
 
 
