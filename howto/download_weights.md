@@ -10,6 +10,7 @@ git clone stabilityai/stablelm-base-alpha-3b checkpoints/stabilityai/stablelm-ba
 Or if you don't have `git-lfs` installed:
 
 ```bash
+pip install huggingface_hub
 python scripts/download.py stabilityai/stablelm-base-alpha-3b
 ```
 
