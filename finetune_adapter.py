@@ -37,20 +37,16 @@ warmup_steps = epoch_size * 2 // micro_batch_size // devices  # 2 epochs
 ds_config = {
     "train_micro_batch_size_per_gpu": micro_batch_size,
     "gradient_accumulation_steps": gradient_accumulation_steps,
-    "zero_optimization": {"stage": 2,
-                          #"overlap_comm": True,
-                          #"allgather_partitions":True,
-                          #"allgather_bucket_size": 2e8,
-                          #"reduce_scatter":True,
-                          #"contiguous_gradients": True,
-                          #"round_robin_gradients": True,
-                          "offload_optimizer": {
-                             "device": "cpu",
-                             "pin_memory":True,
-                          },
-                          "offload_param": {
-                             "device": "cpu",
-                          }
+    "zero_optimization": {
+        "stage": 2,
+        # "overlap_comm": True,
+        # "allgather_partitions":True,
+        # "allgather_bucket_size": 2e8,
+        # "reduce_scatter":True,
+        # "contiguous_gradients": True,
+        # "round_robin_gradients": True,
+        "offload_optimizer": {"device": "cpu", "pin_memory": True},
+        "offload_param": {"device": "cpu"},
     },
 }
 
@@ -60,7 +56,6 @@ def main(
     pretrained_path: str = "checkpoints/stabilityai/stablelm-base-alpha-3b/lit_model.pth",
     out_dir: str = "out/adapter/alpaca",
 ):
-
     fabric = L.Fabric(
         accelerator="cuda",
         devices=devices,
@@ -116,17 +111,16 @@ def train(
     step_count = 0
 
     for iter_num in range(max_iters):
-
         if step_count <= warmup_steps:
             # linear warmup
             lr = learning_rate * step_count / warmup_steps
             for param_group in optimizer.param_groups:
-                param_group['lr'] = lr
+                param_group["lr"] = lr
 
         t0 = time.time()
 
         input_ids, targets = get_batch(fabric, train_data)
-        
+
         with fabric.no_backward_sync(model, enabled=((iter_num + 1) % gradient_accumulation_steps != 0)):
             logits = model(input_ids)
             loss = loss_fn(logits, targets)
@@ -160,15 +154,9 @@ def generate_response(model, instruction, input=""):
     prompt = generate_prompt(sample)
     encoded = tokenizer.encode(prompt, bos=True, eos=False, device=model.device)
 
-    output = generate(
-        model,
-        idx=encoded,
-        max_seq_length=max_seq_length,
-        max_new_tokens=100,
-        temperature=0.8,
-    )
+    output = generate(model, idx=encoded, max_seq_length=max_seq_length, max_new_tokens=100, temperature=0.8)
     output = tokenizer.decode(output)
-    return output # output.split("### Response:")[1].strip()
+    return output  # output.split("### Response:")[1].strip()
 
 
 @torch.no_grad()
@@ -191,6 +179,7 @@ def validate(fabric: L.Fabric, model: torch.nn.Module, val_data: np.ndarray) -> 
 
     model.train()
     return val_loss.item()
+
 
 def loss_fn(logits, targets):
     # shift the targets such that output n predicts token n+1

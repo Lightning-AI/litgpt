@@ -27,7 +27,7 @@ def prepare(
     max_seq_length: int = 256,
     seed: int = 42,
     mask_inputs: bool = False,  # as in alpaca-lora
-    data_file_name: str = DATA_FILE_NAME
+    data_file_name: str = DATA_FILE_NAME,
 ) -> None:
     """Prepare the Alpaca dataset for instruction tuning.
 
@@ -47,9 +47,7 @@ def prepare(
     # Partition the dataset into train and test
     train_split_size = len(data) - test_split_size
     train_set, test_set = random_split(
-        data,
-        lengths=(train_split_size, test_split_size),
-        generator=torch.Generator().manual_seed(seed),
+        data, lengths=(train_split_size, test_split_size), generator=torch.Generator().manual_seed(seed)
     )
     train_set, test_set = list(train_set), list(test_set)
 
@@ -98,9 +96,14 @@ def prepare_sample(example: dict, tokenizer: Tokenizer, max_length: int, mask_in
     # The labels are the full prompt with response, but with the prompt masked out
     labels = encoded_full_prompt_and_response.clone()
     if mask_inputs:
-        labels[:len(encoded_full_prompt)] = IGNORE_INDEX
+        labels[: len(encoded_full_prompt)] = IGNORE_INDEX
 
-    return {**example, "input_ids": encoded_full_prompt_and_response, "input_ids_no_response": encoded_full_prompt, "labels": labels}
+    return {
+        **example,
+        "input_ids": encoded_full_prompt_and_response,
+        "input_ids_no_response": encoded_full_prompt,
+        "labels": labels,
+    }
 
 
 def tokenize(tokenizer: Tokenizer, string: str, max_length: int, eos=True) -> torch.Tensor:

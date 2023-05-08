@@ -62,9 +62,7 @@ def main(
 
     print("Loading model ...", file=sys.stderr)
     t0 = time.time()
-    with (lazy_load(pretrained_path) as pretrained_checkpoint,
-          lazy_load(adapter_path) as adapter_checkpoint):
-
+    with lazy_load(pretrained_path) as pretrained_checkpoint, lazy_load(adapter_path) as adapter_checkpoint:
         with EmptyInitOnDevice(device=fabric.device, dtype=dtype, quantization_mode=quantize):
             model = StableLM(config)
 
@@ -91,7 +89,7 @@ def main(
         max_new_tokens=max_new_tokens,
         temperature=temperature,
         top_k=top_k,
-        eos_id=tokenizer.eos_id
+        eos_id=tokenizer.eos_id,
     )
     t = time.perf_counter() - t0
 
@@ -110,7 +108,7 @@ if __name__ == "__main__":
     torch.set_float32_matmul_precision("high")
     warnings.filterwarnings(
         # Triggered internally at ../aten/src/ATen/EmptyTensor.cpp:31
-        "ignore", 
-        message="ComplexHalf support is experimental and many operators don't support it yet"
+        "ignore",
+        message="ComplexHalf support is experimental and many operators don't support it yet",
     )
     CLI(main)

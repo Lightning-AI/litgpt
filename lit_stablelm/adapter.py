@@ -7,6 +7,7 @@ Port for Lit-StableLM
 """
 
 import math
+from dataclasses import dataclass
 from typing import Optional, Tuple
 
 import torch
@@ -14,15 +15,12 @@ import torch.nn as nn
 from torch.nn import functional as F
 from typing_extensions import Self
 
-import lit_stablelm.model as stablelm
-
-from dataclasses import dataclass
-from lit_stablelm.config import Config as StableLMConfig
-from lit_stablelm.model import build_rope_cache, apply_rope
+from lit_stablelm.config import Config as BaseConfig
+from lit_stablelm.model import MLP, StableLM as BaseModel, build_rope_cache, apply_rope
 
 
 @dataclass
-class Config(StableLMConfig):
+class Config(BaseConfig):
     adapter_prompt_length: int = 10
     adapter_start_layer: int = 2
 
@@ -30,6 +28,7 @@ class Config(StableLMConfig):
 class CausalSelfAttention(nn.Module):
     """A modification of `lit_stablelm.model.CausalSelfAttention` that adds the attention
     over the adaption prompt."""
+
     def __init__(self, config: Config, block_idx: int) -> None:
         super().__init__()
         assert config.n_embd % config.n_head == 0
@@ -82,7 +81,7 @@ class CausalSelfAttention(nn.Module):
             prefix = self.adapter_wte.weight.reshape(1, self.adapter_prompt_length, self.n_embd)
 
             aT = prefix.size(1)
-            _, ak, av = self.attn(prefix).split(self.n_embd, dim=2) #mayby dim=2
+            _, ak, av = self.attn(prefix).split(self.n_embd, dim=2)  # mayby dim=2
             ak = ak.view(1, aT, self.n_head, head_size).repeat(B, 1, 1, 1).transpose(1, 2)
             av = av.view(1, aT, self.n_head, head_size).repeat(B, 1, 1, 1).transpose(1, 2)
 
@@ -97,15 +96,17 @@ class CausalSelfAttention(nn.Module):
 
         return y
 
+
 class Block(nn.Module):
     """The implementation is identical to `lit_stablelm.model.Block` with the exception that
     we replace the attention layer where adaption is implemented."""
+
     def __init__(self, config: Config, block_idx: int) -> None:
         super().__init__()
         self.norm_1 = nn.LayerNorm(config.n_embd)
         self.attn = CausalSelfAttention(config, block_idx)
         self.norm_2 = nn.LayerNorm(config.n_embd)
-        self.mlp = stablelm.MLP(config)
+        self.mlp = MLP(config)
 
         self.parallel_residual = config.parallel_residual
 
@@ -118,9 +119,10 @@ class Block(nn.Module):
         return x
 
 
-class StableLM(stablelm.StableLM):
+class StableLM(BaseModel):
     """The implementation is identical to `lit_stablelm.model.StableLM` with the exception that
     the `Block` saves the layer index and passes it down to the attention layer."""
+
     def __init__(self, config: Config) -> None:
         nn.Module.__init__(self)
         assert config.padded_vocab_size is not None

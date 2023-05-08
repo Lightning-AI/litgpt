@@ -18,24 +18,24 @@ from lit_stablelm.utils import EmptyInitOnDevice
 def copy_weights(state_dict, hf_weights, dtype=torch.float32):
     weight_map = {
         "gpt_neox.embed_in.weight": "transformer.wte.weight",
-        'gpt_neox.layers.{}.input_layernorm.bias': "transformer.h.{}.norm_1.bias",
-        'gpt_neox.layers.{}.input_layernorm.weight': "transformer.h.{}.norm_1.weight",
-        'gpt_neox.layers.{}.attention.query_key_value.bias': "transformer.h.{}.attn.attn.bias",
-        'gpt_neox.layers.{}.attention.query_key_value.weight': "transformer.h.{}.attn.attn.weight",
-        'gpt_neox.layers.{}.attention.dense.bias': "transformer.h.{}.attn.proj.bias",
-        'gpt_neox.layers.{}.attention.dense.weight': "transformer.h.{}.attn.proj.weight",
-        'gpt_neox.layers.{}.attention.rotary_emb.inv_freq': None,
-        'gpt_neox.layers.{}.attention.bias': None,
-        'gpt_neox.layers.{}.attention.masked_bias': None,
-        'gpt_neox.layers.{}.post_attention_layernorm.bias': "transformer.h.{}.norm_2.bias",
-        'gpt_neox.layers.{}.post_attention_layernorm.weight': "transformer.h.{}.norm_2.weight",
-        'gpt_neox.layers.{}.mlp.dense_h_to_4h.bias': "transformer.h.{}.mlp.fc.bias",
-        'gpt_neox.layers.{}.mlp.dense_h_to_4h.weight': "transformer.h.{}.mlp.fc.weight",
-        'gpt_neox.layers.{}.mlp.dense_4h_to_h.bias': "transformer.h.{}.mlp.proj.bias",
-        'gpt_neox.layers.{}.mlp.dense_4h_to_h.weight': "transformer.h.{}.mlp.proj.weight",
-        'gpt_neox.final_layer_norm.bias': "transformer.ln_f.bias",
-        'gpt_neox.final_layer_norm.weight': "transformer.ln_f.weight",
-        'embed_out.weight': "lm_head.weight",
+        "gpt_neox.layers.{}.input_layernorm.bias": "transformer.h.{}.norm_1.bias",
+        "gpt_neox.layers.{}.input_layernorm.weight": "transformer.h.{}.norm_1.weight",
+        "gpt_neox.layers.{}.attention.query_key_value.bias": "transformer.h.{}.attn.attn.bias",
+        "gpt_neox.layers.{}.attention.query_key_value.weight": "transformer.h.{}.attn.attn.weight",
+        "gpt_neox.layers.{}.attention.dense.bias": "transformer.h.{}.attn.proj.bias",
+        "gpt_neox.layers.{}.attention.dense.weight": "transformer.h.{}.attn.proj.weight",
+        "gpt_neox.layers.{}.attention.rotary_emb.inv_freq": None,
+        "gpt_neox.layers.{}.attention.bias": None,
+        "gpt_neox.layers.{}.attention.masked_bias": None,
+        "gpt_neox.layers.{}.post_attention_layernorm.bias": "transformer.h.{}.norm_2.bias",
+        "gpt_neox.layers.{}.post_attention_layernorm.weight": "transformer.h.{}.norm_2.weight",
+        "gpt_neox.layers.{}.mlp.dense_h_to_4h.bias": "transformer.h.{}.mlp.fc.bias",
+        "gpt_neox.layers.{}.mlp.dense_h_to_4h.weight": "transformer.h.{}.mlp.fc.weight",
+        "gpt_neox.layers.{}.mlp.dense_4h_to_h.bias": "transformer.h.{}.mlp.proj.bias",
+        "gpt_neox.layers.{}.mlp.dense_4h_to_h.weight": "transformer.h.{}.mlp.proj.weight",
+        "gpt_neox.final_layer_norm.bias": "transformer.ln_f.bias",
+        "gpt_neox.final_layer_norm.weight": "transformer.ln_f.weight",
+        "embed_out.weight": "lm_head.weight",
     }
 
     for name, param in hf_weights.items():
@@ -102,4 +102,3 @@ if __name__ == "__main__":
     from jsonargparse import CLI
 
     CLI(convert_hf_checkpoint)
-
