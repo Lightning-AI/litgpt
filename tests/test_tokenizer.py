@@ -26,5 +26,5 @@ def test_tokenizer_against_hf(lit_stablelm):
 
     actual = tokenizer.encode("a b")
     assert torch.equal(actual, torch.tensor([66, 270])), actual
-    actual = tokenizer.encode("a b", bos=True, eos=True)
-    assert torch.equal(actual, torch.tensor([0, 66, 270, 0])), actual
+    actual = tokenizer.encode("a b", eos=True)
+    assert torch.equal(actual, torch.tensor([66, 270, 0])), actual
