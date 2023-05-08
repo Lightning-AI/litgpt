@@ -41,10 +41,10 @@ ds_config = {
 
 def main(
     data_dir: Path = Path("data/alpaca"),
-    pretrained_dir: Path = Path("checkpoints/stabilityai/stablelm-base-alpha-3b"),
+    checkpoint_dir: Path = Path("checkpoints/stabilityai/stablelm-base-alpha-3b"),
     out_dir: Path = Path("out/adapter/alpaca"),
 ):
-    check_valid_checkpoint_dir(pretrained_dir)
+    check_valid_checkpoint_dir(checkpoint_dir)
 
     fabric = L.Fabric(
         accelerator="cuda",
@@ -64,7 +64,7 @@ def main(
 
     with EmptyInitOnDevice(device=fabric.device, dtype=torch.bfloat16):
         model = StableLM(config)
-    with lazy_load(pretrained_dir / "lit_model.pth") as checkpoint:
+    with lazy_load(checkpoint_dir / "lit_model.pth") as checkpoint:
         model.load_state_dict(checkpoint, strict=False)
 
     mark_only_adapter_as_trainable(model)
@@ -74,7 +74,7 @@ def main(
 
     optimizer = torch.optim.AdamW(model.parameters(), lr=learning_rate, weight_decay=weight_decay)
     model, optimizer = fabric.setup(model, optimizer)
-    train(fabric, model, optimizer, train_data, val_data, pretrained_dir, out_dir)
+    train(fabric, model, optimizer, train_data, val_data, checkpoint_dir, out_dir)
 
     # Save the final checkpoint at the end of training
     save_model_checkpoint(fabric, model, out_dir / "lit-stablelm-adapter-finetuned.pth")
@@ -86,7 +86,7 @@ def train(
     optimizer: torch.optim.Optimizer,
     train_data: np.ndarray,
     val_data: np.ndarray,
-    pretrained_dir: Path,
+    checkpoint_dir: Path,
     out_dir: Path,
 ) -> None:
     """The training loop.
@@ -95,7 +95,7 @@ def train(
     """
     step_count = 0
 
-    tokenizer = Tokenizer(pretrained_dir / "tokenizer.json", pretrained_dir / "tokenizer_config.json")
+    tokenizer = Tokenizer(checkpoint_dir / "tokenizer.json", checkpoint_dir / "tokenizer_config.json")
 
     for iter_num in range(max_iters):
         if step_count <= warmup_steps:

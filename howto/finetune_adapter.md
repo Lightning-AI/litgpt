@@ -24,7 +24,7 @@ or [prepare your own dataset](#tune-on-your-dataset).
 ## Running the finetuning
 
 ```bash
-python finetune_adapter.py --pretrained_dir checkpoints/stabilityai/stablelm-base-alpha-3b
+python finetune_adapter.py --checkpoint_dir checkpoints/stabilityai/stablelm-base-alpha-3b
 ```
 
 The finetuning requires at least one GPU with ~12 GB memory.
@@ -50,7 +50,7 @@ You can test the finetuned model with your own instructions by running:
 ```bash
 python generate_adapter.py \
     --prompt "Recommend a movie to watch on the weekend." \
-    --pretrained_dir checkpoints/stabilityai/stablelm-base-alpha-3b
+    --checkpoint_dir checkpoints/stabilityai/stablelm-base-alpha-3b
 ```
 Output:
 ```
@@ -95,7 +95,7 @@ With only a few modifications, you can prepare and train on your own instruction
     ```bash
     python finetune_adapter.py \
         --data_dir data/mydata/ \
-        --pretrained_dir checkpoints/stabilityai/stablelm-base-alpha-3b \
+        --checkpoint_dir checkpoints/stabilityai/stablelm-base-alpha-3b \
         --out_dir data/mydata-finetuned
     ```
 
