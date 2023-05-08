@@ -13,6 +13,8 @@ from lit_stablelm.tokenizer import Tokenizer
 from scripts.prepare_alpaca import generate_prompt
 from lightning.fabric.strategies import DeepSpeedStrategy
 
+from lit_stablelm.utils import EmptyInitOnDevice, lazy_load
+
 
 eval_interval = 600
 save_interval = 1000
@@ -23,7 +25,7 @@ devices = 1
 # Hyperparameters
 learning_rate = 9e-3
 batch_size = 64 / devices
-micro_batch_size = 4
+micro_batch_size = 1
 gradient_accumulation_steps = batch_size // micro_batch_size
 epoch_size = 50000  # train dataset size
 num_epochs = 5
@@ -35,7 +37,21 @@ warmup_steps = epoch_size * 2 // micro_batch_size // devices  # 2 epochs
 ds_config = {
     "train_micro_batch_size_per_gpu": micro_batch_size,
     "gradient_accumulation_steps": gradient_accumulation_steps,
-    "zero_optimization": {"stage": 2},
+    "zero_optimization": {"stage": 2,
+                          #"overlap_comm": True,
+                          #"allgather_partitions":True,
+                          #"allgather_bucket_size": 2e8,
+                          #"reduce_scatter":True,
+                          #"contiguous_gradients": True,
+                          #"round_robin_gradients": True,
+                          "offload_optimizer": {
+                             "device": "cpu",
+                             "pin_memory":True,
+                          },
+                          "offload_param": {
+                             "device": "cpu",
+                          }
+    },
 }
 
 
@@ -66,11 +82,10 @@ def main(
             f"Can't find the pretrained weights at {pretrained_path}."
             " Please follow the instructions in the README to download them."
         )
-    checkpoint = torch.load(pretrained_path)
 
-    with fabric.init_module():
+    with EmptyInitOnDevice(device=fabric.device, dtype=torch.bfloat16):
         model = StableLM(config)
-        # strict=False because missing keys due to adapter weights not containted in state dict
+    with lazy_load(pretrained_path) as checkpoint:
         model.load_state_dict(checkpoint, strict=False)
 
     mark_only_adapter_as_trainable(model)
