@@ -12,7 +12,7 @@ class Tokenizer:
         self.processor = HFTokenizer.from_file(str(vocabulary_path))
         with open(config_path) as fp:
             config = json.load(fp)
-
+        self.bos_id = self.token_to_id(config["bos_token"])
         self.eos_id = self.token_to_id(config["eos_token"])
 
     @property
@@ -29,10 +29,13 @@ class Tokenizer:
         self,
         string: str,
         device: Optional[torch.device] = None,
+        bos: bool = False,
         eos: bool = False,
         max_length: int = -1,
     ) -> torch.Tensor:
         tokens = self.processor.encode(string).ids
+        if bos:
+            tokens = [self.bos_id] + tokens
         if eos:
             tokens = tokens + [self.eos_id]
         if max_length > 0:
