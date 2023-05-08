@@ -7,11 +7,7 @@ from torch.utils.data import IterableDataset
 
 def maybe_get_file(url, file_path):
     if not file_path.exists():
-<<<<<<< HEAD
         with open(file_path, "w", encoding="utf-8") as f:
-=======
-        with open(file_path, "w") as f:
->>>>>>> d8483c3 (Port pre-training scripts)
             f.write(requests.get(url).text)
 
 
