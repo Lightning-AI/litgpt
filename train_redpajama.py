@@ -76,7 +76,7 @@ def main(
     if fabric.global_rank == 0:
         os.makedirs(out_dir, exist_ok=True)
 
-    config = StableLMConfig.from_name("7B")
+    config = StableLMConfig.from_name("pythia-2.8b")
 
     train_dataloader, val_dataloader = create_dataloaders(
         batch_size=micro_batch_size,
