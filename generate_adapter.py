@@ -18,8 +18,8 @@ from scripts.prepare_alpaca import generate_prompt
 def main(
     prompt: str = "What food do lamas eat?",
     input: str = "",
-    adapter_path: Optional[Path] = None,
-    checkpoint_dir: Optional[Path] = None,
+    adapter_path: Path = Path("out/adapter/alpaca/lit_model_adapter_finetuned.pth"),
+    checkpoint_dir: Path = Path(f"checkpoints/stabilityai/stablelm-base-alpha-3b"),
     quantize: Optional[str] = None,
     max_new_tokens: int = 100,
     top_k: int = 200,
@@ -42,12 +42,7 @@ def main(
         top_k: The number of top most probable tokens to consider in the sampling process.
         temperature: A value controlling the randomness of the sampling process. Higher values result in more random
             samples.
-    """
-    if not adapter_path:
-        adapter_path = Path("out/adapter/alpaca/lit-stablelm-adapter-finetuned.pth")
-    if not checkpoint_dir:
-        checkpoint_dir = Path(f"checkpoints/stabilityai/stablelm-base-alpha-3b")
-    
+    """    
     check_valid_checkpoint_dir(checkpoint_dir)
 
     fabric = L.Fabric(devices=1)

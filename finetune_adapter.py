@@ -77,7 +77,7 @@ def main(
     train(fabric, model, optimizer, train_data, val_data, checkpoint_dir, out_dir)
 
     # Save the final checkpoint at the end of training
-    save_model_checkpoint(fabric, model, out_dir / "lit-stablelm-adapter-finetuned.pth")
+    save_model_checkpoint(fabric, model, out_dir / "lit_model_adapter_finetuned.pth")
 
 
 def train(
