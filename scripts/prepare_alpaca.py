@@ -37,7 +37,7 @@ def prepare(
     file_path = destination_path / data_file_name
     download(file_path)
 
-    tokenizer = Tokenizer(checkpoint_dir / "tokenizer.json", "tokenizer_config.json")
+    tokenizer = Tokenizer(checkpoint_dir / "tokenizer.json", checkpoint_dir / "tokenizer_config.json")
 
     with open(file_path, "r") as file:
         data = json.load(file)
