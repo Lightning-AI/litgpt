@@ -9,7 +9,7 @@ import lightning as L
 import torch
 
 from lit_stablelm import StableLM, Tokenizer, Config
-from lit_stablelm.utils import EmptyInitOnDevice, lazy_load
+from lit_stablelm.utils import EmptyInitOnDevice, lazy_load, check_valid_checkpoint_dir
 
 
 @torch.no_grad()
@@ -85,12 +85,7 @@ def main(
             ``"llm.int8"``: LLM.int8() mode,
             ``"gptq.int4"``: GPTQ 4-bit mode.
     """
-    if not checkpoint_dir.is_dir():
-        raise OSError(
-            f"`--checkpoint_dir={str(checkpoint_dir)!r} must be a directory with the lit model checkpoint and"
-            " configurations. Please, follow the instructions at"
-            " https://github.com/Lightning-AI/lit-stablelm/blob/main/howto/download_weights.md"
-        )
+    check_valid_checkpoint_dir(checkpoint_dir)
 
     with open(checkpoint_dir / "lit_config.json") as fp:
         config = Config(**json.load(fp))

@@ -12,7 +12,7 @@ wd = Path(__file__).parent.parent.resolve()
 sys.path.append(str(wd))
 
 from lit_stablelm.model import StableLM
-from lit_stablelm.utils import EmptyInitOnDevice
+from lit_stablelm.utils import EmptyInitOnDevice, check_valid_checkpoint_dir
 
 
 def copy_weights(state_dict, hf_weights, dtype=torch.float32):
@@ -62,12 +62,7 @@ def convert_hf_checkpoint(
     model_name: Optional[str] = None,
     dtype: str = "float32",
 ) -> None:
-    if not checkpoint_dir.is_dir():
-        raise OSError(
-            f"`--checkpoint_dir={str(checkpoint_dir)!r} must be a directory."
-            " Please, follow the instructions at"
-            " https://github.com/Lightning-AI/lit-stablelm/blob/main/howto/download_weights.md"
-        )
+    check_valid_checkpoint_dir(checkpoint_dir)
 
     dt = getattr(torch, dtype, None)
     if not isinstance(dt, torch.dtype):
