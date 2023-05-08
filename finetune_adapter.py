@@ -22,7 +22,7 @@ devices = 1
 # Hyperparameters
 learning_rate = 9e-3
 batch_size = 64 / devices
-micro_batch_size = 1
+micro_batch_size = 4
 gradient_accumulation_steps = batch_size // micro_batch_size
 epoch_size = 50000  # train dataset size
 num_epochs = 5
@@ -34,17 +34,7 @@ warmup_steps = epoch_size * 2 // micro_batch_size // devices  # 2 epochs
 ds_config = {
     "train_micro_batch_size_per_gpu": micro_batch_size,
     "gradient_accumulation_steps": gradient_accumulation_steps,
-    "zero_optimization": {
-        "stage": 2,
-        # "overlap_comm": True,
-        # "allgather_partitions":True,
-        # "allgather_bucket_size": 2e8,
-        # "reduce_scatter":True,
-        # "contiguous_gradients": True,
-        # "round_robin_gradients": True,
-        "offload_optimizer": {"device": "cpu", "pin_memory": True},
-        "offload_param": {"device": "cpu"},
-    },
+    "zero_optimization": {"stage": 2},
 }
 
 
