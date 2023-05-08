@@ -126,9 +126,10 @@ def train(
         t0 = time.time()
 
         input_ids, targets = get_batch(fabric, train_data)
-        logits = model(input_ids)
-        loss = loss_fn(logits, targets)
+        
         with fabric.no_backward_sync(model, enabled=((iter_num + 1) % gradient_accumulation_steps != 0)):
+            logits = model(input_ids)
+            loss = loss_fn(logits, targets)
             fabric.backward(loss / gradient_accumulation_steps)
 
         if (iter_num + 1) % gradient_accumulation_steps == 0:
@@ -152,7 +153,9 @@ def train(
 
 
 def generate_response(model, instruction, input=""):
-    tokenizer = Tokenizer("checkpoints/lit-stablelm/stabilityai/stablelm-base-alpha-3b/tokenizer.model")
+    tokenizer_path = "checkpoints/stabilityai/stablelm-base-alpha-3b/tokenizer.json"
+    tokenizer_config = "checkpoints/stabilityai/stablelm-base-alpha-3b/tokenizer_config.json"
+    tokenizer = Tokenizer(tokenizer_path, tokenizer_config)
     sample = {"instruction": instruction, "input": input}
     prompt = generate_prompt(sample)
     encoded = tokenizer.encode(prompt, bos=True, eos=False, device=model.device)
