@@ -88,8 +88,10 @@ def prepare_sample(example: dict, tokenizer: Tokenizer, max_length: int, mask_in
     """
     full_prompt = generate_prompt(example)
     full_prompt_and_response = full_prompt + example["output"]
-    encoded_full_prompt = tokenizer.encode(full_prompt, bos=True, eos=False, max_length=max_length)
-    encoded_full_prompt_and_response = tokenizer.encode(full_prompt_and_response, bos=True, eos=True, max_length=max_length)
+    encoded_full_prompt = tokenizer.encode(full_prompt, bos=True, max_length=max_length)
+    encoded_full_prompt_and_response = tokenizer.encode(
+        full_prompt_and_response, bos=True, eos=True, max_length=max_length
+    )
 
     # The labels are the full prompt with response, but with the prompt masked out
     labels = encoded_full_prompt_and_response.clone()

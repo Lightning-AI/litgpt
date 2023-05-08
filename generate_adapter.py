@@ -70,7 +70,7 @@ def main(
     tokenizer = Tokenizer(checkpoint_dir / "tokenizer.json", checkpoint_dir / "tokenizer_config.json")
     sample = {"instruction": prompt, "input": input}
     prompt = generate_prompt(sample)
-    encoded = tokenizer.encode(prompt, bos=True, eos=False, device=model.device)
+    encoded = tokenizer.encode(prompt, bos=True, device=model.device)
 
     t0 = time.perf_counter()
     output = generate(
