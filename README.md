@@ -19,11 +19,21 @@
 
 # ⚡ Lit-StableLM
 
-Hackable implementation of the [StableLM](https://github.com/Stability-AI/StableLM) and [Pythia](https://github.com/EleutherAI/pythia) family of models released under the **Apache 2.0 license.**
+Hackable implementation of state-of-the-art open-source large language models:
+
+- StabilityAI [StableLM](https://github.com/Stability-AI/StableLM)
+- EleutherAI [Pythia](https://github.com/EleutherAI/pythia)
+- Toghether [RedPajama-INCITE](https://www.together.xyz/blog/redpajama-models-v1)
+
+released under the **Apache 2.0 license.**
 
 This implementation builds on [Lit-LLaMA](https://github.com/lightning-AI/lit-llama) and [nanoGPT](https://github.com/karpathy/nanoGPT), and it's powered by [Lightning Fabric](https://lightning.ai/docs/fabric/stable/) ⚡.
 
-Weights are available under the Apache 2.0 license and can be downloaded [following these instructions](howto/download_weights.md).
+Weights are available under the Apache 2.0 license and can be downloaded following these instructions:
+
+- [StableLM](howto/download_stablelm.md)
+- [Pythia](howto/download_pythia.md)
+- [Redpajama-INCITE](howto/download_redpajama_incite.md)
 
 ## Design principles
 
@@ -64,7 +74,7 @@ You are all set! 🎉
 
 ## Use the model
 
-To generate text predictions, you need to download the model weights. **If you don't have them, check out our [guide](howto/download_weights.md).**
+To generate text predictions, you need to download the model weights. **If you don't have them, check out our [guide](howto/download_stablelm.md).**
 
 Run inference:
 

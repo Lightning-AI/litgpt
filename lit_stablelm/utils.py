@@ -295,6 +295,6 @@ def check_valid_checkpoint_dir(checkpoint_dir: Path) -> None:
         f"`--checkpoint_dir {str(checkpoint_dir)!r} is not a valid checkpoint directory."
         " It must contain the files: 'lit_model.pth', 'lit_config.json', 'tokenizer.json' and 'tokenizer_config.json'."
         "\nPlease, follow the instructions at"
-        " https://github.com/Lightning-AI/lit-stablelm/blob/main/howto/download_weights.md\n"
+        " https://github.com/Lightning-AI/lit-stablelm/blob/main/howto/download_stablelm.md\n"
         f"{extra}\n{supported}"
     )

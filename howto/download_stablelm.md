@@ -1,4 +1,4 @@
-## Downloading pretrained weights
+## Download [StableLM](https://github.com/Stability-AI/StableLM) weights
 
 Except for when you are training from scratch, you will need the pretrained weights:
 
