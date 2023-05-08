@@ -24,3 +24,8 @@ def test_tokenizer_against_hf(lit_stablelm):
 
     with pytest.raises(ValueError, match="'foobarbaz' not found"):
         tokenizer.token_to_id("foobarbaz")
+
+    actual = tokenizer.encode("a b")
+    assert torch.equal(actual, torch.tensor([66, 270])), actual
+    actual = tokenizer.encode("a b", bos=True, eos=True)
+    assert torch.equal(actual, torch.tensor([0, 66, 270, 0])), actual
