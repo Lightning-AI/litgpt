@@ -1,6 +1,7 @@
 import shutil
 import time
 from pathlib import Path
+import os
 
 import lightning as L
 import numpy as np
@@ -22,7 +23,7 @@ devices = 1
 # Hyperparameters
 learning_rate = 9e-3
 batch_size = 64 / devices
-micro_batch_size = 1
+micro_batch_size = 4
 gradient_accumulation_steps = batch_size // micro_batch_size
 epoch_size = 50000  # train dataset size
 num_epochs = 5
@@ -34,22 +35,14 @@ warmup_steps = epoch_size * 2 // micro_batch_size // devices  # 2 epochs
 ds_config = {
     "train_micro_batch_size_per_gpu": micro_batch_size,
     "gradient_accumulation_steps": gradient_accumulation_steps,
-    "zero_optimization": {
-        "stage": 2,
-        # "overlap_comm": True,
-        # "allgather_partitions":True,
-        # "allgather_bucket_size": 2e8,
-        # "reduce_scatter":True,
-        # "contiguous_gradients": True,
-        # "round_robin_gradients": True,
-        "offload_optimizer": {"device": "cpu", "pin_memory": True},
-        "offload_param": {"device": "cpu"},
-    },
+    "zero_optimization": {"stage": 2},
 }
 
 
 def main(
-    data_dir: Path = Path("data/alpaca"), checkpoint_dir: Path = Path("checkpoints/stabilityai/stablelm-base-alpha-3b")
+    data_dir: Path = Path("data/alpaca"),
+    checkpoint_dir: Path = Path("checkpoints/stabilityai/stablelm-base-alpha-3b"),
+    out_dir: Path = Path("out/adapter/alpaca"),
 ):
     check_valid_checkpoint_dir(checkpoint_dir)
 
@@ -61,6 +54,9 @@ def main(
     )
     fabric.launch()
     fabric.seed_everything(1337 + fabric.global_rank)
+
+    if fabric.global_rank == 0:
+        os.makedirs(out_dir, exist_ok=True)
 
     train_data, val_data = load_datasets(data_dir=data_dir)
 
@@ -78,10 +74,10 @@ def main(
 
     optimizer = torch.optim.AdamW(model.parameters(), lr=learning_rate, weight_decay=weight_decay)
     model, optimizer = fabric.setup(model, optimizer)
-    train(fabric, model, optimizer, train_data, val_data, checkpoint_dir)
+    train(fabric, model, optimizer, train_data, val_data, checkpoint_dir, out_dir)
 
     # Save the final checkpoint at the end of training
-    save_model_checkpoint(fabric, model, checkpoint_dir / "lit_model_adapter_finetuned.pth")
+    save_model_checkpoint(fabric, model, out_dir / "lit_model_adapter_finetuned.pth")
 
 
 def train(
@@ -91,6 +87,7 @@ def train(
     train_data: np.ndarray,
     val_data: np.ndarray,
     checkpoint_dir: Path,
+    out_dir: Path,
 ) -> None:
     """The training loop.
 
@@ -127,7 +124,7 @@ def train(
                 fabric.barrier()
 
             if step_count % save_interval == 0:
-                save_path = checkpoint_dir / f"iter-{iter_num:06d}.pth"
+                save_path = out_dir / f"iter-{iter_num:06d}.pth"
                 print(f"Saving adapter weights to {str(save_path)!r}")
                 # TODO: Provide a function/script to merge the adapter weights with pretrained weights
                 save_model_checkpoint(fabric, model, save_path)
@@ -154,7 +151,7 @@ def validate(fabric: L.Fabric, model: torch.nn.Module, val_data: np.ndarray, tok
     fabric.print(instruction)
     sample = {"instruction": instruction, "input": ""}
     prompt = generate_prompt(sample)
-    encoded = tokenizer.encode(prompt, bos=True, device=model.device)
+    encoded = tokenizer.encode(prompt, device=model.device)
     output = generate(model, idx=encoded, max_seq_length=max_seq_length, max_new_tokens=100, temperature=0.8)
     output = tokenizer.decode(output)
     fabric.print(output)

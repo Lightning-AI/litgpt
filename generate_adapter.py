@@ -18,7 +18,8 @@ from scripts.prepare_alpaca import generate_prompt
 def main(
     prompt: str = "What food do lamas eat?",
     input: str = "",
-    checkpoint_dir: Path = Path("checkpoints/stabilityai/stablelm-base-alpha-3b"),
+    adapter_path: Path = Path("out/adapter/alpaca/lit_model_adapter_finetuned.pth"),
+    checkpoint_dir: Path = Path(f"checkpoints/stabilityai/stablelm-base-alpha-3b"),
     quantize: Optional[str] = None,
     max_new_tokens: int = 100,
     top_k: int = 200,
@@ -30,8 +31,10 @@ def main(
 
     Args:
         prompt: The prompt/instruction (Alpaca style).
+        adapter_path: Path to the checkpoint with trained adapter weights, which are the output of
+            `finetune_adapter.py`.
+        checkpoint_dir: The path to the checkpoint folder with pretrained StableLM weights.
         input: Optional input (Alpaca style).
-        checkpoint_dir: The checkpoint directory to load.
         quantize: Whether to quantize the model and using which method:
             ``"llm.int8"``: LLM.int8() mode,
             ``"gptq.int4"``: GPTQ 4-bit mode.
@@ -39,10 +42,8 @@ def main(
         top_k: The number of top most probable tokens to consider in the sampling process.
         temperature: A value controlling the randomness of the sampling process. Higher values result in more random
             samples.
-    """
+    """    
     check_valid_checkpoint_dir(checkpoint_dir)
-    adapter_path = checkpoint_dir / "lit_model_adapter_finetuned.pth"
-    assert adapter_path.is_file()
 
     fabric = L.Fabric(devices=1)
     dtype = torch.bfloat16 if fabric.device.type == "cuda" and torch.cuda.is_bf16_supported() else torch.float32
