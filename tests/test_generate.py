@@ -1,5 +1,6 @@
 import functools
 import json
+import os
 import subprocess
 import sys
 from contextlib import redirect_stdout, redirect_stderr
@@ -8,6 +9,7 @@ from pathlib import Path
 from unittest import mock
 from unittest.mock import Mock, call, ANY
 
+import pytest
 import torch
 
 wd = Path(__file__).parent.parent.absolute()
@@ -20,6 +22,18 @@ def load_generate_script():
     import generate
 
     return generate
+
+
+@pytest.fixture()
+def fake_checkpoint_dir(tmp_path):
+    os.chdir(tmp_path)
+    checkpoint_dir = tmp_path / "checkpoints" / "tmp"
+    checkpoint_dir.mkdir(parents=True)
+    (checkpoint_dir / "lit_model.pth").touch()
+    (checkpoint_dir / "lit_config.json").touch()
+    (checkpoint_dir / "tokenizer.json").touch()
+    (checkpoint_dir / "tokenizer_config.json").touch()
+    return checkpoint_dir
 
 
 def test_generate():
@@ -53,10 +67,10 @@ def test_generate():
 
 
 @mock.patch("torch.cuda.is_bf16_supported", return_value=False)
-def test_main(_, tmp_path, monkeypatch):
+def test_main(_, fake_checkpoint_dir, monkeypatch):
     generate = load_generate_script()
 
-    config_path = tmp_path / "lit_config.json"
+    config_path = fake_checkpoint_dir / "lit_config.json"
     config = {"block_size": 16, "vocab_size": 50, "n_layer": 2, "n_head": 4, "n_embd": 8, "rotary_percentage": 1}
     config_path.write_text(json.dumps(config))
 
@@ -82,7 +96,7 @@ def test_main(_, tmp_path, monkeypatch):
     num_samples = 2
     out, err = StringIO(), StringIO()
     with redirect_stdout(out), redirect_stderr(err):
-        generate.main(temperature=2.0, top_k=2, num_samples=num_samples, checkpoint_dir=tmp_path)
+        generate.main(temperature=2.0, top_k=2, num_samples=num_samples, checkpoint_dir=fake_checkpoint_dir)
 
     assert len(tokenizer_mock.return_value.decode.mock_calls) == num_samples
     assert torch.allclose(tokenizer_mock.return_value.decode.call_args[0][0], generate_mock.return_value)

@@ -263,3 +263,38 @@ class lazy_load:
     def __exit__(self, exc_type, exc_val, exc_tb):
         del self.zf  # I don't think there is a way to force closing...
         self.zf = None
+
+
+def check_valid_checkpoint_dir(checkpoint_dir: Path) -> None:
+    if (
+        checkpoint_dir.is_dir()
+        and (checkpoint_dir / "lit_model.pth").is_file()
+        and (checkpoint_dir / "lit_config.json").is_file()
+        and (checkpoint_dir / "tokenizer.json").is_file()
+        and (checkpoint_dir / "tokenizer_config.json").is_file()
+    ):
+        # we're good
+        return
+
+    # list locally available checkpoints
+    available = list(Path("checkpoints").glob("*/*"))
+    if available:
+        options = f"\n --checkpoint_dir ".join([""] + [repr(str(p.resolve())) for p in available])
+        extra = f"\nYou have downloaded locally:{options}\n"
+    else:
+        extra = ""
+
+    from lit_stablelm.config import configs
+
+    # list other possible checkpoints to download
+    not_downloaded = [c for c in configs if not any(c in str(a) for a in available)]
+    joined = "\n * ".join([""] + not_downloaded)
+    supported = f"You can download:{joined}"
+
+    raise OSError(
+        f"`--checkpoint_dir {str(checkpoint_dir)!r} is not a valid checkpoint directory."
+        " It must contain the files: 'lit_model.pth', 'lit_config.json', 'tokenizer.json' and 'tokenizer_config.json'."
+        "\nPlease, follow the instructions at"
+        " https://github.com/Lightning-AI/lit-stablelm/blob/main/howto/download_weights.md\n"
+        f"{extra}\n{supported}"
+    )
