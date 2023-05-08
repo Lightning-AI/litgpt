@@ -17,12 +17,12 @@ from typing_extensions import Self
 import lit_stablelm.model as stablelm
 
 from dataclasses import dataclass
-from lit_stablelm.config import Config
+from lit_stablelm.config import Config as StableLMConfig
 from lit_stablelm.model import build_rope_cache, apply_rope
 
 
 @dataclass
-class StableLMConfig(Config):
+class Config(StableLMConfig):
     adapter_prompt_length: int = 10
     adapter_start_layer: int = 2
 
@@ -121,7 +121,7 @@ class Block(nn.Module):
 class StableLM(stablelm.StableLM):
     """The implementation is identical to `lit_stablelm.model.StableLM` with the exception that
     the `Block` saves the layer index and passes it down to the attention layer."""
-    def __init__(self, config: StableLMConfig) -> None:
+    def __init__(self, config: Config) -> None:
         nn.Module.__init__(self)
         assert config.padded_vocab_size is not None
         self.config = config
@@ -137,7 +137,7 @@ class StableLM(stablelm.StableLM):
 
     @classmethod
     def from_name(cls, name: str) -> Self:
-        return cls(StableLMConfig.from_name(name))
+        return cls(Config.from_name(name))
 
 
 def mark_only_adapter_as_trainable(model: StableLM) -> None:
