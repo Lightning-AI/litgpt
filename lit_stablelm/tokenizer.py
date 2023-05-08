@@ -25,10 +25,15 @@ class Tokenizer:
             raise ValueError(f"token {token!r} not found in the collection.")
         return id_
 
-    def encode(self, string: str, device: Optional[torch.device] = None, bos: bool = True,
+    def encode(
+        self, 
+        string: str, 
+        device: Optional[torch.device] = None, 
+        bos: bool = False,
         eos: bool = False,
         max_length: int = -1,
-        pad: bool = False) -> torch.Tensor:
+        pad: bool = False
+    ) -> torch.Tensor:
 
         tokens = self.processor.encode(string).ids
         if bos:
