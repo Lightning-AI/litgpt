@@ -17,12 +17,12 @@ eval_interval = 600
 save_interval = 1000
 eval_iters = 100
 log_interval = 1
-devices = 1
+devices = 4
 
 # Hyperparameters
 learning_rate = 9e-3
 batch_size = 64 / devices
-micro_batch_size = 4
+micro_batch_size = 8
 gradient_accumulation_steps = batch_size // micro_batch_size
 epoch_size = 50000  # train dataset size
 num_epochs = 5
@@ -144,7 +144,7 @@ def validate(fabric: L.Fabric, model: torch.nn.Module, val_data: np.ndarray, tok
     fabric.print(instruction)
     sample = {"instruction": instruction, "input": ""}
     prompt = generate_prompt(sample)
-    encoded = tokenizer.encode(prompt, bos=True, device=model.device)
+    encoded = tokenizer.encode(prompt, device=model.device)
     output = generate(model, idx=encoded, max_seq_length=max_seq_length, max_new_tokens=100, temperature=0.8)
     output = tokenizer.decode(output)
     fabric.print(output)
