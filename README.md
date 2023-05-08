@@ -88,7 +88,7 @@ Porting from Lit-LLaMA in progress 👷
 
 ## Finetune the model
 
-We provide a simple training scripts `finetune*.py` that instruction-tunes a pretrained model on the [Alpaca](https://github.com/tatsu-lab/stanford_alpaca) dataset.
+We provide a simple training script `finetune_adapter.py` that instruction-tunes a pretrained model on the [Alpaca](https://github.com/tatsu-lab/stanford_alpaca) dataset.
 
 1. Download the data and generate an instruction tuning dataset:
 
