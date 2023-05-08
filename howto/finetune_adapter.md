@@ -27,6 +27,7 @@ or [prepare your own dataset](#tune-on-your-dataset).
 python finetune_adapter.py --checkpoint_dir checkpoints/stabilityai/stablelm-base-alpha-3b
 ```
 
+The finetuning requires at least one GPU with ~24 GB memory (GTX 3090).
 You can speed up training by setting the `devices` variable in the script to utilize more GPUs if available.
 Depending on the available GPU memory, you can also tune the `micro_batch_size` parameter to utilize the GPU efficiently.
 
