@@ -23,7 +23,7 @@ Hackable implementation of state-of-the-art open-source large language models:
 
 - StabilityAI [StableLM](https://github.com/Stability-AI/StableLM)
 - EleutherAI [Pythia](https://github.com/EleutherAI/pythia)
-- Toghether [RedPajama-INCITE](https://www.together.xyz/blog/redpajama-models-v1)
+- Together [RedPajama-INCITE](https://www.together.xyz/blog/redpajama-models-v1)
 
 released under the **Apache 2.0 license.**
 
