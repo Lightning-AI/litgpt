@@ -88,7 +88,37 @@ Porting from Lit-LLaMA in progress 👷
 
 ## Finetune the model
 
-Porting from Lit-LLaMA in progress 👷
+We provide a simple training scripts `finetune*.py` that instruction-tunes a pretrained model on the [Alpaca](https://github.com/tatsu-lab/stanford_alpaca) dataset.
+
+1. Download the data and generate an instruction tuning dataset:
+
+```bash
+python scripts/prepare_alpaca.py
+```
+
+2. Run the finetuning script
+
+[Adapter](https://arxiv.org/abs/2303.16199):
+```bash
+python finetune_adapter.py
+```
+
+It is expected that you have downloaded the pretrained weights as described above.
+
+More details about each finetuning method and how you can apply it to your own data can be found in our technical how-to guides.
+
+### Finetuning How-To Guides
+
+These technical tutorials illustrate how to run the finetuning code.
+
+- [Finetune with Adapters](howto/finetune_adapter.md)
+
+### Understanding Finetuning -- Conceptual Tutorials
+
+Looking for conceptual tutorials and explanations? We have some additional articles below:
+
+- [Understanding Parameter-Efficient Finetuning of Large Language Models: From Prefix Tuning to LLaMA-Adapters](https://lightning.ai/pages/community/article/understanding-llama-adapters/)
+
 
 ## Pre-training
 
