@@ -11,7 +11,7 @@ If you are new to Adapter and are interested to learn more about how it works be
 The steps here only need to be done once:
 
 1. Follow the instructions in the [README](README.md) to install the dependencies.
-2. Download and convert the weights following our [guide](download_weights.md).
+2. Download and convert the weights following our [guide](download_stablelm.md).
 3. If you want to utilize more than one GPU, you should `pip install deepspeed`.
 4. Download the data and generate the Alpaca instruction tuning dataset:
 

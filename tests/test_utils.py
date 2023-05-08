@@ -69,7 +69,7 @@ def test_check_valid_checkpoint_dir(lit_stablelm, tmp_path):
     checkpoint_dir = tmp_path / "checkpoints" / "stabilityai" / "stablelm-base-alpha-3b"
     match = (
         r"checkpoint_dir '\/.*checkpoints\/stabilityai\/stablelm-base-alpha-3b' is not.*\nPlease, follow"
-        r" the instructions.*download_weights\.md\n\nYou can download:\n \* stablelm-base-alpha-3b\n \* stablelm-base-"
+        r" the instructions.*download_stablelm\.md\n\nYou can download:\n \* stablelm-base-alpha-3b\n \* stablelm-base-"
         r"alpha-7b\n"
     )
     with pytest.raises(OSError, match=match):
@@ -77,7 +77,7 @@ def test_check_valid_checkpoint_dir(lit_stablelm, tmp_path):
 
     checkpoint_dir.mkdir(parents=True)
     match = (
-        r"checkpoint_dir '.*foo' is not.*\nPlease, follow the instructions.*download_weights\.md\n\nYou"
+        r"checkpoint_dir '.*foo' is not.*\nPlease, follow the instructions.*download_stablelm\.md\n\nYou"
         r" have downloaded locally:\n --checkpoint_dir '.+checkpoints\/stabilityai\/stablelm-base-alpha-3b'\n\nYou can"
         r" download:\n \* stablelm-base-alpha-7b\n"
     )
