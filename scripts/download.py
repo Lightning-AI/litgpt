@@ -9,7 +9,7 @@ sys.path.append(str(wd))
 
 def download_from_hub(repo_id: Optional[str] = None) -> None:
     if repo_id is None:
-        from lit_stablelm.config import configs
+        from lit_parrot.config import configs
 
         orgs = {
             "stablelm": "stabilityai",

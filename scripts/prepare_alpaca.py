@@ -10,7 +10,7 @@ import torch
 import requests
 import json
 from torch.utils.data import random_split
-from lit_stablelm.tokenizer import Tokenizer
+from lit_parrot.tokenizer import Tokenizer
 from tqdm import tqdm
 
 

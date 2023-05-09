@@ -3,7 +3,7 @@ from typing import Optional
 
 from typing_extensions import Self
 
-from lit_stablelm.utils import find_multiple
+from lit_parrot.utils import find_multiple
 
 
 @dataclass

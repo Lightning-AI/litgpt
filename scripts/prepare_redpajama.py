@@ -11,8 +11,8 @@ sys.path.append(str(wd))
 import numpy as np
 from tqdm import tqdm
 
-from lit_stablelm import Tokenizer
-import lit_stablelm.packed_dataset as packed_dataset
+from lit_parrot import Tokenizer
+import lit_parrot.packed_dataset as packed_dataset
 
 
 filenames_sample = [

@@ -9,16 +9,13 @@ with open(os.path.join(_PATH_ROOT, "README.md"), encoding="utf-8") as fo:
     readme = fo.read()
 
 setup(
-    name='lit-stablelm',
+    name='lit-parrot',
     version='0.1.0',
-    description='Implementation of the StableLM model',
+    description='Open source large language model implementation',
     author='Lightning AI',
-    url='https://github.com/lightning-AI/lit-stablelm',
+    url='https://github.com/lightning-AI/lit-parrot',
     install_requires=[
-        # needs to be installed with
-        # pip install . --extra-index-url https://download.pytorch.org/whl/nightly/cu118 --pre
-        # NOTE: you might need to replace "cu118" with "cpu" or "cu117"
-        "torch>=2.1.0dev",
+        # "torch>=2.1.0dev",
         "lightning @ git+https://github.com/Lightning-AI/lightning@master",
         "tokenizers",
     ],
