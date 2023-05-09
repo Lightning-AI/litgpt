@@ -25,7 +25,7 @@ def load_convert_script():
 @pytest.mark.parametrize("batch_size", (1, 3))
 @pytest.mark.parametrize("n_embd", (16, 32))
 @pytest.mark.parametrize("parallel_residual", (False, True))
-def test_against_hf_model(rotary_pct, batch_size, n_embd, parallel_residual, lit_stablelm) -> None:
+def test_against_hf_model(rotary_pct, batch_size, n_embd, parallel_residual, lit_parrot) -> None:
     block_size = 64
     # https://huggingface.co/stabilityai/stablelm-base-alpha-3b/blob/main/config.json#L24
     vocab_size = 100
@@ -33,7 +33,7 @@ def test_against_hf_model(rotary_pct, batch_size, n_embd, parallel_residual, lit
     n_head = 8
     batch_size = 3
 
-    ours_config = lit_stablelm.Config(
+    ours_config = lit_parrot.Config(
         block_size=block_size,
         vocab_size=vocab_size,
         n_layer=n_layer,
@@ -59,7 +59,7 @@ def test_against_hf_model(rotary_pct, batch_size, n_embd, parallel_residual, lit
         use_cache=False,
     )
 
-    ours_model = lit_stablelm.StableLM(ours_config)
+    ours_model = lit_parrot.Parrot(ours_config)
     state_dict = ours_model.state_dict()
     theirs_model = GPTNeoXForCausalLM(theirs_config)
 
@@ -85,8 +85,8 @@ def test_against_hf_model(rotary_pct, batch_size, n_embd, parallel_residual, lit
 
 @pytest.mark.skipif(not torch.cuda.is_available(), reason="Requires CUDA")
 @torch.inference_mode()
-def test_model_bfloat16(lit_stablelm) -> None:
-    from lit_stablelm.utils import EmptyInitOnDevice
+def test_model_bfloat16(lit_parrot) -> None:
+    from lit_parrot.utils import EmptyInitOnDevice
 
     block_size = 64
     vocab_size = 32000
@@ -94,10 +94,10 @@ def test_model_bfloat16(lit_stablelm) -> None:
     n_head = 16
     n_embd = 32
 
-    config = lit_stablelm.Config(
+    config = lit_parrot.Config(
         block_size=block_size, vocab_size=vocab_size, n_layer=n_layer, n_head=n_head, n_embd=n_embd
     )
-    model = lit_stablelm.StableLM(config)
+    model = lit_parrot.Parrot(config)
     model.apply(model._init_weights)
 
     batch_size = 3
@@ -106,7 +106,7 @@ def test_model_bfloat16(lit_stablelm) -> None:
     expected = model(token_sample)
 
     with EmptyInitOnDevice(device="cuda", dtype=torch.bfloat16):
-        model2 = lit_stablelm.StableLM(config)
+        model2 = lit_parrot.Parrot(config)
     model2.load_state_dict(model.state_dict(keep_vars=True))
 
     out = model2(token_sample.cuda()).float().cpu()
@@ -115,9 +115,9 @@ def test_model_bfloat16(lit_stablelm) -> None:
 
 @pytest.mark.skipif(sys.platform in ("win32", "darwin"), reason="torch.compile not supported on this platform")
 @torch.inference_mode()
-def test_model_compile(lit_stablelm):
-    config = lit_stablelm.Config(block_size=8, vocab_size=8, n_layer=2, n_head=2, n_embd=4)
-    model = lit_stablelm.StableLM(config)
+def test_model_compile(lit_parrot):
+    config = lit_parrot.Config(block_size=8, vocab_size=8, n_layer=2, n_head=2, n_embd=4)
+    model = lit_parrot.Parrot(config)
     model.apply(model._init_weights)
 
     model = torch.compile(model)

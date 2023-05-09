@@ -9,9 +9,9 @@ import torch
 from lightning.fabric.strategies import DeepSpeedStrategy
 
 from generate import generate
-from lit_stablelm.adapter import StableLM, Config, mark_only_adapter_as_trainable, adapter_state_from_state_dict
-from lit_stablelm.tokenizer import Tokenizer
-from lit_stablelm.utils import EmptyInitOnDevice, lazy_load, check_valid_checkpoint_dir
+from lit_parrot.adapter import Parrot, Config, mark_only_adapter_as_trainable, adapter_state_from_state_dict
+from lit_parrot.tokenizer import Tokenizer
+from lit_parrot.utils import EmptyInitOnDevice, lazy_load, check_valid_checkpoint_dir
 from scripts.prepare_alpaca import generate_prompt
 
 eval_interval = 600
@@ -63,7 +63,7 @@ def main(
     config = Config(block_size=max_seq_length)
 
     with EmptyInitOnDevice(device=fabric.device, dtype=torch.bfloat16):
-        model = StableLM(config)
+        model = Parrot(config)
     with lazy_load(checkpoint_dir / "lit_model.pth") as checkpoint:
         model.load_state_dict(checkpoint, strict=False)
 

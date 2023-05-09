@@ -8,8 +8,8 @@ from typing import Optional
 import lightning as L
 import torch
 
-from lit_stablelm import StableLM, Tokenizer, Config
-from lit_stablelm.utils import EmptyInitOnDevice, lazy_load, check_valid_checkpoint_dir
+from lit_parrot import Parrot, Tokenizer, Config
+from lit_parrot.utils import EmptyInitOnDevice, lazy_load, check_valid_checkpoint_dir
 
 
 @torch.no_grad()
@@ -107,7 +107,7 @@ def main(
     print(f"Loading model {str(checkpoint_path)!r} with {config.__dict__}", file=sys.stderr)
     t0 = time.time()
     with EmptyInitOnDevice(device=fabric.device, dtype=dtype, quantization_mode=quantize):
-        model = StableLM(config)
+        model = Parrot(config)
     with lazy_load(checkpoint_path) as checkpoint:
         model.load_state_dict(checkpoint)
     print(f"Time to load model: {time.time() - t0:.02f} seconds.", file=sys.stderr)

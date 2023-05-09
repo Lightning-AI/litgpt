@@ -12,10 +12,10 @@ import torch.nn as nn
 from torch.nn import functional as F
 from typing_extensions import Self
 
-from lit_stablelm.config import Config
+from lit_parrot.config import Config
 
 
-class StableLM(nn.Module):
+class Parrot(nn.Module):
     def __init__(self, config: Config) -> None:
         super().__init__()
         assert config.padded_vocab_size is not None

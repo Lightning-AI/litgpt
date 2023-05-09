@@ -12,15 +12,15 @@ class ATensor(torch.Tensor):
     pass
 
 
-def test_lazy_load_basic(lit_stablelm):
-    import lit_stablelm.utils
+def test_lazy_load_basic(lit_parrot):
+    import lit_parrot.utils
 
     with tempfile.TemporaryDirectory() as tmpdirname:
         m = torch.nn.Linear(5, 3)
         path = pathlib.Path(tmpdirname)
         fn = str(path / "test.pt")
         torch.save(m.state_dict(), fn)
-        with lit_stablelm.utils.lazy_load(fn) as sd_lazy:
+        with lit_parrot.utils.lazy_load(fn) as sd_lazy:
             assert "NotYetLoadedTensor" in str(next(iter(sd_lazy.values())))
             m2 = torch.nn.Linear(5, 3)
             m2.load_state_dict(sd_lazy)
@@ -31,8 +31,8 @@ def test_lazy_load_basic(lit_stablelm):
         torch.testing.assert_close(actual, expected)
 
 
-def test_lazy_load_subclass(lit_stablelm):
-    import lit_stablelm.utils
+def test_lazy_load_subclass(lit_parrot):
+    import lit_parrot.utils
 
     with tempfile.TemporaryDirectory() as tmpdirname:
         path = pathlib.Path(tmpdirname)
@@ -40,15 +40,15 @@ def test_lazy_load_subclass(lit_stablelm):
         t = torch.randn(2, 3)[:, 1:]
         sd = {1: t, 2: torch.nn.Parameter(t), 3: torch.Tensor._make_subclass(ATensor, t)}
         torch.save(sd, fn)
-        with lit_stablelm.utils.lazy_load(fn) as sd_lazy:
+        with lit_parrot.utils.lazy_load(fn) as sd_lazy:
             for k in sd.keys():
                 actual = sd_lazy[k]
                 expected = sd[k]
                 torch.testing.assert_close(actual._load_tensor(), expected)
 
 
-def test_find_multiple(lit_stablelm):
-    from lit_stablelm.utils import find_multiple
+def test_find_multiple(lit_parrot):
+    from lit_parrot.utils import find_multiple
 
     assert find_multiple(17, 5) == 20
     assert find_multiple(30, 7) == 35
@@ -57,8 +57,8 @@ def test_find_multiple(lit_stablelm):
 
 
 @pytest.mark.skipif(sys.platform == "win32", reason="match fails on windows. why did they have to use backslashes?")
-def test_check_valid_checkpoint_dir(lit_stablelm, tmp_path):
-    from lit_stablelm.utils import check_valid_checkpoint_dir
+def test_check_valid_checkpoint_dir(lit_parrot, tmp_path):
+    from lit_parrot.utils import check_valid_checkpoint_dir
 
     os.chdir(tmp_path)
 

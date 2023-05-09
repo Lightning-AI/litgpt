@@ -11,8 +11,8 @@ import torch
 wd = Path(__file__).parent.parent.resolve()
 sys.path.append(str(wd))
 
-from lit_stablelm.model import StableLM
-from lit_stablelm.utils import EmptyInitOnDevice, check_valid_checkpoint_dir
+from lit_parrot.model import Parrot
+from lit_parrot.utils import EmptyInitOnDevice, check_valid_checkpoint_dir
 
 
 def copy_weights(state_dict, hf_weights, dtype=torch.float32):
@@ -73,7 +73,7 @@ def convert_hf_checkpoint(
         model_name = checkpoint_dir.name
     print(f"Initializing model {model_name}")
     with EmptyInitOnDevice(device="cpu", dtype=dtype):
-        model = StableLM.from_name(model_name)
+        model = Parrot.from_name(model_name)
 
     with open(checkpoint_dir / "lit_config.json", "w") as json_config:
         json.dump(model.config.__dict__, json_config)

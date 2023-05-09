@@ -39,13 +39,13 @@ def fake_checkpoint_dir(tmp_path):
 def test_generate():
     generate = load_generate_script()
 
-    from lit_stablelm import StableLM, Config
+    from lit_parrot import Parrot, Config
 
     T, C = 5, 3
     input_idx = torch.randint(10, size=(T,))
 
     config = Config(block_size=128, vocab_size=16, n_layer=1, n_head=4, n_embd=8)
-    model = StableLM(config)
+    model = Parrot(config)
     max_new_tokens = 20
 
     multinomial_results = []

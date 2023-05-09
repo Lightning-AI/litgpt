@@ -7,10 +7,10 @@ wd = Path(__file__).parent.parent.absolute()
 
 
 @pytest.fixture()
-def lit_stablelm():
+def lit_parrot():
     # this adds support for running tests without the package installed
     sys.path.append(str(wd))
 
-    import lit_stablelm
+    import lit_parrot
 
-    return lit_stablelm
+    return lit_parrot
