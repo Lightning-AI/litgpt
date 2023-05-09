@@ -62,8 +62,6 @@ def convert_hf_checkpoint(
     model_name: Optional[str] = None,
     dtype: str = "float32",
 ) -> None:
-    check_valid_checkpoint_dir(checkpoint_dir)
-
     dt = getattr(torch, dtype, None)
     if not isinstance(dt, torch.dtype):
         raise ValueError(f"{dtype} is not a valid dtype.")
