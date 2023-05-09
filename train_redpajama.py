@@ -1,26 +1,21 @@
-import os
-import math
 import glob
+import math
 import time
 from functools import partial
 from pathlib import Path
 from typing import Tuple, Optional
 
 import lightning as L
-from lightning.fabric.strategies import FSDPStrategy
-
 import torch
-from torch.utils.data import DataLoader
+from lightning.fabric.strategies import FSDPStrategy
 from torch.distributed.fsdp.wrap import transformer_auto_wrap_policy
+from torch.utils.data import DataLoader
 
-import numpy as np
-
-from lit_stablelm.model import Block, StableLM, StableLMConfig
+from lit_stablelm.model import Block, StableLM, Config
 from lit_stablelm.packed_dataset import PackedDataset, CombinedDataset
 from lit_stablelm.utils import save_model_checkpoint
 
-
-out_dir = "out/training"
+out_dir = Path("out/training")
 save_interval = 1000
 eval_interval = 1000
 eval_iters = 100
@@ -57,7 +52,7 @@ data_config = [
 
 def main(
     devices: int = 4,
-    train_data_dir: Path = "data/lit-redpajama",
+    train_data_dir: Path = Path("data/lit-redpajama"),
     val_data_dir: Optional[Path] = None,
 ) -> None:
     auto_wrap_policy = partial(
@@ -74,9 +69,9 @@ def main(
     fabric.seed_everything(1337)
 
     if fabric.global_rank == 0:
-        os.makedirs(out_dir, exist_ok=True)
+        out_dir.mkdir(parents=True, exist_ok=True)
 
-    config = StableLMConfig.from_name("pythia-2.8b")
+    config = Config.from_name("pythia-2.8b")
 
     train_dataloader, val_dataloader = create_dataloaders(
         batch_size=micro_batch_size,
@@ -86,7 +81,10 @@ def main(
         val_data_dir=val_data_dir,
         seed=1338,
     )
-    train_dataloader, val_dataloader = fabric.setup_dataloaders(train_dataloader, val_dataloader)
+    if val_dataloader is None:
+        train_dataloader = fabric.setup_dataloaders(train_dataloader)
+    else:
+        train_dataloader, val_dataloader = fabric.setup_dataloaders(train_dataloader, val_dataloader)
 
     with fabric.device:
         torch.set_default_dtype(torch.bfloat16)
@@ -119,7 +117,6 @@ def train(
     train_dataloader: DataLoader,
     val_dataloader: Optional[DataLoader],
     grad_accum_steps: int,
-    devices: int,
 ) -> None:
     """The training loop.
 
@@ -130,7 +127,6 @@ def train(
 
     step_time = 0.0
     tokens = 0
-    tokens_sec = 0.0
     prev_t1 = time.time()
 
     for iter_num, train_data in enumerate(train_dataloader):
@@ -176,7 +172,7 @@ def train(
             if step_count % save_interval == 0:
                 fabric.print(f"Saving checkpoint to {out_dir}")
                 save_model_checkpoint(
-                    fabric, model, os.path.join(out_dir, f"iter-{iter_num:06d}-ckpt.pth")
+                    fabric, model, out_dir / f"iter-{iter_num:06d}-ckpt.pth"
                 )
 
         dt = t1 - t0
@@ -226,14 +222,14 @@ def validate(
 def create_dataloader(
     batch_size: int,
     block_size: int,
-    data_dir: str,
+    data_dir: Path,
     fabric,
     shuffle: bool = True,
     seed: int = 12345,
 ) -> DataLoader:
     datasets = []
     for prefix, _ in data_config:
-        filenames = glob.glob(os.path.join(data_dir, prefix + "*"))
+        filenames = glob.glob(str(data_dir / f"{prefix}*"))
         dataset = PackedDataset(
             filenames, n_chunks=4, block_size=block_size, shuffle=shuffle, seed=seed,
             num_processes=fabric.world_size, process_rank=fabric.global_rank,
@@ -258,8 +254,8 @@ def create_dataloaders(
     batch_size: int,
     block_size: int,
     fabric,
-    train_data_dir: str = "data/lit-redpajama",
-    val_data_dir: Optional[str] = None,
+    train_data_dir: Path = Path("data/lit-redpajama"),
+    val_data_dir: Optional[Path] = None,
     seed: int = 12345,
 ) -> Tuple[DataLoader, DataLoader]:
     # Increase by one because we need the next word as well
