@@ -21,7 +21,7 @@ togethercomputer/RedPajama-INCITE-Chat-7B-v0.1
 togethercomputer/RedPajama-INCITE-Instruct-7B-v0.1
 ```
 
-In order to use a specific RedPajama-INCITE checkpoint, for instance [RedPajama-INCITE-Base-3B-v1](https://huggingface.co/togethercomputer/RedPajama-INCITE-Base-3B-v1), download the weights and convert the checkpoint to the lit-stablelm format:
+In order to use a specific RedPajama-INCITE checkpoint, for instance [RedPajama-INCITE-Base-3B-v1](https://huggingface.co/togethercomputer/RedPajama-INCITE-Base-3B-v1), download the weights and convert the checkpoint to the lit-parrot format:
 
 ```bash
 python scripts/download.py togethercomputer/RedPajama-INCITE-Base-3B-v1

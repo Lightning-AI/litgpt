@@ -9,9 +9,9 @@ import lightning as L
 import torch
 
 from generate import generate
-from lit_stablelm import Tokenizer
-from lit_stablelm.adapter import StableLM, Config
-from lit_stablelm.utils import EmptyInitOnDevice, lazy_load, check_valid_checkpoint_dir
+from lit_parrot import Tokenizer
+from lit_parrot.adapter import Parrot, Config
+from lit_parrot.utils import EmptyInitOnDevice, lazy_load, check_valid_checkpoint_dir
 from scripts.prepare_alpaca import generate_prompt
 
 
@@ -26,14 +26,14 @@ def main(
     temperature: float = 0.8,
 ) -> None:
     """Generates a response based on a given instruction and an optional input.
-    This script will only work with checkpoints from the instruction-tuned StableLM-Adapter model.
+    This script will only work with checkpoints from the instruction-tuned Parrot-Adapter model.
     See `finetune_adapter.py`.
 
     Args:
         prompt: The prompt/instruction (Alpaca style).
         adapter_path: Path to the checkpoint with trained adapter weights, which are the output of
             `finetune_adapter.py`.
-        checkpoint_dir: The path to the checkpoint folder with pretrained StableLM weights.
+        checkpoint_dir: The path to the checkpoint folder with pretrained Parrot weights.
         input: Optional input (Alpaca style).
         quantize: Whether to quantize the model and using which method:
             ``"llm.int8"``: LLM.int8() mode,
@@ -54,7 +54,7 @@ def main(
     print("Loading model ...", file=sys.stderr)
     t0 = time.time()
     with EmptyInitOnDevice(device=fabric.device, dtype=dtype, quantization_mode=quantize):
-        model = StableLM(config)
+        model = Parrot(config)
     with lazy_load(checkpoint_dir / "lit_model.pth") as pretrained_checkpoint, lazy_load(
         adapter_path
     ) as adapter_checkpoint:

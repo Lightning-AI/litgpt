@@ -59,8 +59,8 @@ def test_prepare_sample(tmp_path):
 
     assert set(os.listdir(dest_path)) == set(bin_files)
 
-    from lit_stablelm import Tokenizer
-    from lit_stablelm.packed_dataset import PackedDataset
+    from lit_parrot import Tokenizer
+    from lit_parrot.packed_dataset import PackedDataset
 
     tokenizer = Tokenizer(
         vocabulary_path=vocabulary_path,
@@ -135,8 +135,8 @@ def test_prepare_full(tmp_path):
 
     assert set(os.listdir(dest_path)) == set(bin_files)
 
-    from lit_stablelm import Tokenizer
-    from lit_stablelm.packed_dataset import PackedDataset
+    from lit_parrot import Tokenizer
+    from lit_parrot.packed_dataset import PackedDataset
 
     tokenizer = Tokenizer(
         vocabulary_path=vocabulary_path,

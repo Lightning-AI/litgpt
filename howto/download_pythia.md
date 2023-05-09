@@ -32,7 +32,7 @@ EleutherAI/pythia-6.9b-deduped
 EleutherAI/pythia-12b-deduped
 ```
 
-In order to use a specific Pythia checkpoint, for instance [pythia-1b](https://huggingface.co/EleutherAI/pythia-1b), download the weights and convert the checkpoint to the lit-stablelm format:
+In order to use a specific Pythia checkpoint, for instance [pythia-1b](https://huggingface.co/EleutherAI/pythia-1b), download the weights and convert the checkpoint to the lit-parrot format:
 
 ```bash
 python scripts/download.py EleutherAI/pythia-1b

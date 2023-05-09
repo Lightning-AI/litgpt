@@ -11,9 +11,9 @@ from lightning.fabric.strategies import FSDPStrategy
 from torch.distributed.fsdp.wrap import transformer_auto_wrap_policy
 from torch.utils.data import DataLoader
 
-from lit_stablelm.model import Block, StableLM, Config
-from lit_stablelm.packed_dataset import PackedDataset, CombinedDataset
-from lit_stablelm.utils import save_model_checkpoint
+from lit_parrot.model import Block, Parrot, Config
+from lit_parrot.packed_dataset import PackedDataset, CombinedDataset
+from lit_parrot.utils import save_model_checkpoint
 
 out_dir = Path("out/training")
 save_interval = 1000
@@ -88,7 +88,7 @@ def main(
 
     with fabric.device:
         torch.set_default_dtype(torch.bfloat16)
-        model = StableLM(config)
+        model = Parrot(config)
         model.apply(model._init_weights)
         torch.set_default_dtype(torch.float32)
 

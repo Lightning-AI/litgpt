@@ -8,8 +8,8 @@ from typing import Optional, Tuple, List
 import lightning as L
 import torch
 
-from lit_stablelm import StableLM, Tokenizer, Config
-from lit_stablelm.utils import EmptyInitOnDevice, lazy_load, check_valid_checkpoint_dir
+from lit_parrot import Parrot, Tokenizer, Config
+from lit_parrot.utils import EmptyInitOnDevice, lazy_load, check_valid_checkpoint_dir
 
 
 @torch.no_grad()
@@ -74,7 +74,7 @@ def main(
     checkpoint_dir: Path = Path(f"checkpoints/stabilityai/stablelm-tuned-alpha-3b"),
     quantize: Optional[str] = None,
 ) -> None:
-    """Starts a conversation with a tuned StableLM model.
+    """Starts a conversation with a tuned Parrot model.
 
     Args:
         top_k: The number of top most probable tokens to consider in the sampling process.
@@ -96,7 +96,7 @@ def main(
     checkpoint_path = checkpoint_dir / "lit_model.pth"
     print(f"Loading model {str(checkpoint_path)!r} with {config.__dict__}", file=sys.stderr)
     with EmptyInitOnDevice(device=fabric.device, dtype=dtype, quantization_mode=quantize):
-        model = StableLM(config)
+        model = Parrot(config)
     with lazy_load(checkpoint_path) as checkpoint:
         model.load_state_dict(checkpoint)
 

@@ -3,7 +3,7 @@
 LLaMA-Adapter: Efficient Fine-tuning of Language Models with Zero-init Attention
 https://arxiv.org/abs/2303.16199
 
-Port for Lit-StableLM
+Port for Lit-Parrot
 """
 
 import math
@@ -15,8 +15,8 @@ import torch.nn as nn
 from torch.nn import functional as F
 from typing_extensions import Self
 
-from lit_stablelm.config import Config as BaseConfig
-from lit_stablelm.model import MLP, StableLM as BaseModel, build_rope_cache, apply_rope
+from lit_parrot.config import Config as BaseConfig
+from lit_parrot.model import MLP, Parrot as BaseModel, build_rope_cache, apply_rope
 
 
 @dataclass
@@ -26,7 +26,7 @@ class Config(BaseConfig):
 
 
 class CausalSelfAttention(nn.Module):
-    """A modification of `lit_stablelm.model.CausalSelfAttention` that adds the attention
+    """A modification of `lit_parrot.model.CausalSelfAttention` that adds the attention
     over the adaption prompt."""
 
     def __init__(self, config: Config, block_idx: int) -> None:
@@ -98,7 +98,7 @@ class CausalSelfAttention(nn.Module):
 
 
 class Block(nn.Module):
-    """The implementation is identical to `lit_stablelm.model.Block` with the exception that
+    """The implementation is identical to `lit_parrot.model.Block` with the exception that
     we replace the attention layer where adaption is implemented."""
 
     def __init__(self, config: Config, block_idx: int) -> None:
@@ -119,8 +119,8 @@ class Block(nn.Module):
         return x
 
 
-class StableLM(BaseModel):
-    """The implementation is identical to `lit_stablelm.model.StableLM` with the exception that
+class Parrot(BaseModel):
+    """The implementation is identical to `lit_parrot.model.Parrot` with the exception that
     the `Block` saves the layer index and passes it down to the attention layer."""
 
     def __init__(self, config: Config) -> None:
@@ -142,7 +142,7 @@ class StableLM(BaseModel):
         return cls(Config.from_name(name))
 
 
-def mark_only_adapter_as_trainable(model: StableLM) -> None:
+def mark_only_adapter_as_trainable(model: Parrot) -> None:
     """Sets `requires_grad=False` for all non-adapter weights."""
     for name, param in model.named_parameters():
         param.requires_grad = "adapter_wte" in name or "gating_factor" in name
