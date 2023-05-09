@@ -63,7 +63,22 @@ git clone https://github.com/Lightning-AI/lit-parrot
 cd lit-parrot
 ```
 
-install dependencies
+Lit-Parrot currently relies on FlashAttention from PyTorch nightly. Until PyTorch 2.1 is released you'll need to install nightly manually.
+Luckily that is straightforward:
+
+**On CUDA**
+
+```bash
+pip install --index-url <https://download.pytorch.org/whl/nightly/cu118> --pre torch>=2.1.0dev
+```
+
+**On CPU (incl Macs)**
+
+```bash
+pip install --index-url <https://download.pytorch.org/whl/nightly/cpu> --pre torch>=2.1.0dev
+```
+
+All good, now install the dependencies:
 
 ```bash
 pip install -r requirements.txt
