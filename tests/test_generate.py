@@ -36,7 +36,8 @@ def fake_checkpoint_dir(tmp_path):
     return checkpoint_dir
 
 
-def test_generate():
+@pytest.mark.parametrize("max_seq_length", (10, 9999))
+def test_generate(max_seq_length):
     generate = load_generate_script()
 
     from lit_stablelm import StableLM, Config
@@ -57,9 +58,9 @@ def test_generate():
         return out
 
     with mock.patch("torch.multinomial", multinomial):
-        out = generate.generate(model, input_idx, max_new_tokens, max_seq_length=10, top_k=4)
+        out = generate.generate(model, input_idx, max_new_tokens, max_seq_length=max_seq_length, top_k=4)
 
-    assert out.size(0) == T + max_new_tokens
+    assert out.size(0) == min(T + max_new_tokens, max_seq_length)
     multinomial_results = torch.hstack(multinomial_results)
     expected = torch.cat((input_idx, multinomial_results))
     assert out.shape == expected.shape
