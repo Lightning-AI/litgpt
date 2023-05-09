@@ -74,7 +74,7 @@ def main(
     encoded = tokenizer.encode(prompt, device=model.device)
 
     t0 = time.perf_counter()
-    output = generate(
+    y = generate(
         model,
         idx=encoded,
         max_seq_length=max_new_tokens,
@@ -85,11 +85,11 @@ def main(
     )
     t = time.perf_counter() - t0
 
-    output = tokenizer.decode(output)
+    output = tokenizer.decode(y)
     output = output.split("### Response:")[1].strip()
     print(output)
 
-    print(f"\n\nTime for inference: {t:.02f} sec total, {max_new_tokens / t:.02f} tokens/sec", file=sys.stderr)
+    print(f"\n\nTime for inference: {t:.02f} sec total, {y.size(0) / t:.02f} tokens/sec", file=sys.stderr)
     if fabric.device.type == "cuda":
         print(f"Memory used: {torch.cuda.max_memory_reserved() / 1e9:.02f} GB", file=sys.stderr)
 
