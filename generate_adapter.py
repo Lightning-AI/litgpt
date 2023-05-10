@@ -42,7 +42,7 @@ def main(
         top_k: The number of top most probable tokens to consider in the sampling process.
         temperature: A value controlling the randomness of the sampling process. Higher values result in more random
             samples.
-    """    
+    """
     check_valid_checkpoint_dir(checkpoint_dir)
 
     fabric = L.Fabric(devices=1)
