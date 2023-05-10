@@ -42,7 +42,7 @@ def main(
         top_k: The number of top most probable tokens to consider in the sampling process.
         temperature: A value controlling the randomness of the sampling process. Higher values result in more random
             samples.
-    """    
+    """
     check_valid_checkpoint_dir(checkpoint_dir)
 
     fabric = L.Fabric(devices=1)
@@ -72,6 +72,7 @@ def main(
     sample = {"instruction": prompt, "input": input}
     prompt = generate_prompt(sample)
     encoded = tokenizer.encode(prompt, device=model.device)
+    prompt_length = encoded.size(0)
 
     t0 = time.perf_counter()
     y = generate(
@@ -89,7 +90,8 @@ def main(
     output = output.split("### Response:")[1].strip()
     print(output)
 
-    print(f"\n\nTime for inference: {t:.02f} sec total, {y.size(0) / t:.02f} tokens/sec", file=sys.stderr)
+    tokens_generated = y.size(0) - prompt_length
+    print(f"\n\nTime for inference: {t:.02f} sec total, {tokens_generated / t:.02f} tokens/sec", file=sys.stderr)
     if fabric.device.type == "cuda":
         print(f"Memory used: {torch.cuda.max_memory_reserved() / 1e9:.02f} GB", file=sys.stderr)
 
