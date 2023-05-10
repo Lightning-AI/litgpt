@@ -71,7 +71,7 @@ def main(
     if fabric.global_rank == 0:
         out_dir.mkdir(parents=True, exist_ok=True)
 
-    config = Config.from_name("pythia-2.8b")
+    config = Config.from_name("pythia-70m")
 
     train_dataloader, val_dataloader = create_dataloaders(
         batch_size=micro_batch_size,
@@ -107,7 +107,7 @@ def main(
     process_batch_size = batch_size // devices
     grad_accum_steps = process_batch_size // micro_batch_size
 
-    train(fabric, model, optimizer, train_dataloader, val_dataloader, grad_accum_steps, devices)
+    train(fabric, model, optimizer, train_dataloader, val_dataloader, grad_accum_steps)
 
 
 def train(
