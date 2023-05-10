@@ -5,7 +5,7 @@ https://github.com/EleutherAI/gpt-neox/tree/main/megatron/model.
 """
 # mypy: ignore-errors
 import math
-from typing import Optional, Tuple, Any
+from typing import List, Optional, Tuple, Any
 
 import torch
 import torch.nn as nn
@@ -29,6 +29,8 @@ class Parrot(nn.Module):
                 ln_f=nn.LayerNorm(config.n_embd),
             )
         )
+        self.rope_cache = None
+        self.mask_cache = None
 
     def _init_weights(self, module: nn.Module) -> None:
         if isinstance(module, nn.Linear):
@@ -44,22 +46,62 @@ class Parrot(nn.Module):
             # https://huggingface.co/stabilityai/stablelm-base-alpha-3b/blob/main/config.json#L12
             module.eps = 1e-5
 
-    def forward(self, idx: torch.Tensor) -> torch.Tensor:
+    def forward(self, idx: torch.Tensor, input_pos: Optional[torch.Tensor] = None,
+                cache_kvs: Optional[List[Tuple[torch.Tensor, torch.Tensor]]] = None) -> torch.Tensor:
         _, t = idx.size()
         assert (
             t <= self.config.block_size
         ), f"Cannot forward sequence of length {t}, block size is only {self.config.block_size}"
 
+        assert (input_pos is None and cache_kvs is None) or \
+            (input_pos is not None and cache_kvs is not None)
+
         # forward the model itself
         x = self.transformer.wte(idx)  # token embeddings of shape (b, t, n_embd)
 
-        for block in self.transformer.h:
-            x = block(x)
+        if self.rope_cache is None:
+            self.rope_cache = build_rope_cache(
+                seq_len=self.config.block_size,
+                n_elem=int(self.config.rotary_percentage * (self.config.n_embd // self.config.n_head)),
+                dtype=x.dtype,
+                device=x.device,
+            )
+
+        if self.mask_cache is None:
+            self.mask_cache = torch.full((self.config.block_size, self.config.block_size),
+                                         1, device=x.device, dtype=torch.bool)
+            self.mask_cache = torch.tril(self.mask_cache).unsqueeze(0).unsqueeze(0).to(torch.bool)
+
+        cos, sin = self.rope_cache
+        if input_pos is not None:
+            cos = cos.index_select(0, input_pos)
+            sin = sin.index_select(0, input_pos)
+            mask = self.mask_cache.index_select(2, input_pos)
+            target_len = cache_kvs[0][0].size()[2]
+            mask = mask[:, :, :target_len, :target_len]
+        else:
+            cos = cos[:t]
+            sin = sin[:t]
+            mask = self.mask_cache[:, :, :t, :t]
+
+        if cache_kvs is None:
+            cache_kvs = [None] * len(self.transformer.h)
+            return_cache_kvs = False
+        else:
+            return_cache_kvs = True
+
+        new_cache_kvs = []
+        for block, cache_kv in zip(self.transformer.h, cache_kvs):
+            x, new_cache_kv = block(x, (cos, sin), mask, input_pos, cache_kv)
+            new_cache_kvs.append(new_cache_kv)
         x = self.transformer.ln_f(x)
 
         logits = self.lm_head(x)  # (b, t, vocab_size)
 
-        return logits
+        if return_cache_kvs:
+            return logits, new_cache_kvs
+        else:
+            return logits
 
     @classmethod
     def from_name(cls, name: str, **kwargs: Any) -> Self:
@@ -76,13 +118,15 @@ class Block(nn.Module):
 
         self.parallel_residual = config.parallel_residual
 
-    def forward(self, x: torch.Tensor) -> torch.Tensor:
+    def forward(self, x: torch.Tensor, rope: torch.Tensor, mask: torch.Tensor, input_pos: Optional[torch.Tensor] = None,
+                cache_kv: Optional[Tuple[torch.Tensor, torch.Tensor]] = None) -> torch.Tensor:
+        h, new_cache_kv = self.attn(self.norm_1(x), rope, mask, input_pos, cache_kv)
         if self.parallel_residual:
-            x = x + self.attn(self.norm_1(x)) + self.mlp(self.norm_2(x))
+            x = x + h + self.mlp(self.norm_2(x))
         else:
-            x = x + self.attn(self.norm_1(x))
+            x = x + h
             x = x + self.mlp(self.norm_2(x))
-        return x
+        return x, new_cache_kv
 
 
 class CausalSelfAttention(nn.Module):
@@ -99,9 +143,9 @@ class CausalSelfAttention(nn.Module):
         self.n_embd = config.n_embd
         self.block_size = config.block_size
         self.rotary_percentage = config.rotary_percentage
-        self.rope_cache: Optional[Tuple[torch.Tensor, torch.Tensor]] = None
 
-    def forward(self, x: torch.Tensor) -> torch.Tensor:
+    def forward(self, x: torch.Tensor, rope: torch.Tensor, mask: torch.Tensor, input_pos: Optional[torch.Tensor] = None,
+                cache_kv: Optional[Tuple[torch.Tensor, torch.Tensor]] = None) -> torch.Tensor:
         B, T, C = x.size()  # batch size, sequence length, embedding dimensionality (n_embd)
 
         qkv = self.attn(x)
@@ -110,19 +154,24 @@ class CausalSelfAttention(nn.Module):
         q, k, v = qkv.split(head_size, dim=-1)  # (B, nh, T, hs)
 
         n_elem = int(self.rotary_percentage * head_size)
-        if self.rope_cache is None:
-            self.rope_cache = build_rope_cache(self.block_size, n_elem, x.dtype, x.device)
-        cos, sin = self.rope_cache
-        cos, sin = cos[:T], sin[:T]
 
+        cos, sin = rope
         q_roped = apply_rope(q[..., :n_elem], cos, sin)
         k_roped = apply_rope(k[..., :n_elem], cos, sin)
         q = torch.cat((q_roped, q[..., n_elem:]), dim=-1)
         k = torch.cat((k_roped, k[..., n_elem:]), dim=-1)
 
+        if cache_kv is not None:
+            cache_k, cache_v = cache_kv
+            cache_k = cache_k.index_copy(2, input_pos, k)
+            cache_v = cache_v.index_copy(2, input_pos, v)
+            cache_kv = cache_k, cache_v
+            k = cache_k[:]
+            v = cache_v[:]
+
         # efficient attention using Flash Attention CUDA kernels
         y = F.scaled_dot_product_attention(
-            q, k, v, attn_mask=None, dropout_p=0.0, is_causal=True, scale=1.0 / math.sqrt(head_size)
+            q, k, v, attn_mask=mask, dropout_p=0.0, scale=1.0 / math.sqrt(head_size)
         )
 
         y = y.transpose(1, 2).contiguous().view(B, T, C)  # re-assemble all head outputs side by side
@@ -130,7 +179,7 @@ class CausalSelfAttention(nn.Module):
         # output projection
         y = self.proj(y)
 
-        return y
+        return y, cache_kv
 
 
 class MLP(nn.Module):

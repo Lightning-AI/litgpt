@@ -42,6 +42,13 @@ def generate(
     empty[:T] = idx
     idx = empty
 
+    cache_kvs = [(torch.zeros((1, model.config.n_head, T_new, model.config.n_embd // model.config.n_head), device=idx.device),
+            torch.zeros((1, model.config.n_head, T_new, model.config.n_embd // model.config.n_head), device=idx.device))
+            for _ in range(model.config.n_layer)]
+
+    input_pos = torch.arange(0, T).to(idx.device)
+    input_idx = idx.index_select(0, input_pos)
+
     # generate max_new_tokens tokens
     for t in range(T, T_new):
         # ignore the not-filled-yet tokens
@@ -50,19 +57,22 @@ def generate(
         idx_cond = idx_cond if t <= max_seq_length else idx_cond[-max_seq_length:]
 
         # forward
-        logits = model(idx_cond.view(1, -1))
+        logits, cache_kvs = model(input_idx.view(1, -1), input_pos, cache_kvs)
         logits = logits[0, -1] / temperature
 
         # optionally crop the logits to only the top k options
         if top_k is not None:
             v, _ = torch.topk(logits, min(top_k, logits.size(-1)))
-            logits[logits < v[[-1]]] = -float("Inf")
+            logits = torch.where(logits < v[[-1]], -float("Inf"), logits)
 
         probs = torch.nn.functional.softmax(logits, dim=-1)
         idx_next = torch.multinomial(probs, num_samples=1)
 
         # concatenate the new generation
-        idx[t] = idx_next
+        idx = idx.index_copy(0, input_pos[-1] + 1, idx_next)
+
+        input_pos = input_pos[-1:] + 1
+        input_idx = idx.index_select(0, input_pos)
 
         # if <eos> token is triggered, return the output (stop generation)
         if idx_next == eos_id:
