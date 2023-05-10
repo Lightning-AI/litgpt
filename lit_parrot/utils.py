@@ -265,12 +265,26 @@ class lazy_load:
         self.zf = None
 
 
+def check_valid_parrot_dir(checkpoint_dir: Path) -> None:
+    if not checkpoint_dir.is_dir():
+        raise OSError(f"`--checkpoint_dir {str(checkpoint_dir)!r} is not a directory.")
+    
+    if ((checkpoint_dir / "lit_model.pth").is_file()
+        and (checkpoint_dir / "lit_config.json").is_file()):
+        # we're good
+        return
+
+    raise OSError(
+        f"`--checkpoint_dir {str(checkpoint_dir)!r} is not a valid Parrot checkpoint directory."
+        " It must converted to Parron and contain the files: 'lit_model.pth', 'lit_config.json'."
+        "\nPlease, follow the instructions at"
+        " https://github.com/Lightning-AI/lit-parrot/blob/main/howto/download_stablelm.md\n"
+    )
+
 def check_valid_checkpoint_dir(checkpoint_dir: Path) -> None:
-    if (
-        checkpoint_dir.is_dir()
-        and (checkpoint_dir / "lit_model.pth").is_file()
-        and (checkpoint_dir / "lit_config.json").is_file()
-        and (checkpoint_dir / "tokenizer.json").is_file()
+    if not checkpoint_dir.is_dir():
+        raise OSError(f"`--checkpoint_dir {str(checkpoint_dir)!r} is not a directory.")
+    if ( (checkpoint_dir / "tokenizer.json").is_file()
         and (checkpoint_dir / "tokenizer_config.json").is_file()
     ):
         # we're good

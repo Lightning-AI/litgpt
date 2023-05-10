@@ -9,8 +9,10 @@ import lightning as L
 import torch
 
 from lit_parrot import Parrot, Tokenizer, Config
-from lit_parrot.utils import EmptyInitOnDevice, lazy_load, check_valid_checkpoint_dir
+from lit_parrot.utils import EmptyInitOnDevice, lazy_load, check_valid_checkpoint_dir, check_valid_parrot_dir
 
+DEFAULT_PROMPT="Hello, my name is"
+DEFAULT_CP=f"checkpoints/stabilityai/stablelm-base-alpha-3b"
 
 @torch.no_grad()
 def generate(
@@ -70,30 +72,31 @@ def generate(
 
 
 def main(
-    prompt: str = "Hello, my name is",
+    prompt: str = DEFAULT_PROMPT,
     *,
     num_samples: int = 1,
     max_new_tokens: int = 50,
     top_k: int = 200,
     temperature: float = 0.8,
-    checkpoint_dir: Path = Path(f"checkpoints/stabilityai/stablelm-base-alpha-3b"),
+    checkpoint_dir: Path = Path(DEFAULT_CP),
     quantize: Optional[str] = None,
 ) -> None:
-    """Generates text samples based on a pre-trained model and tokenizer.
+    f"""Generates text samples based on a pre-trained model and tokenizer.
 
     Args:
-        prompt: The prompt string to use for generating the samples.
+        prompt: The prompt string to use for generating the samples. (default {DEFAULT_PROMPT})
         num_samples: The number of text samples to generate.
         max_new_tokens: The number of generation steps to take.
         top_k: The number of top most probable tokens to consider in the sampling process.
         temperature: A value controlling the randomness of the sampling process. Higher values result in more random
             samples.
-        checkpoint_dir: The checkpoint directory to load.
+        checkpoint_dir: The checkpoint directory to load. (default {DEFAULT_CP})
         quantize: Whether to quantize the model and using which method:
             ``"llm.int8"``: LLM.int8() mode,
             ``"gptq.int4"``: GPTQ 4-bit mode.
     """
     check_valid_checkpoint_dir(checkpoint_dir)
+    check_valid_parrot_dir(checkpoint_dir)
 
     with open(checkpoint_dir / "lit_config.json") as fp:
         config = Config(**json.load(fp))
