@@ -5,7 +5,7 @@ https://github.com/EleutherAI/gpt-neox/tree/main/megatron/model.
 """
 # mypy: ignore-errors
 import math
-from typing import Optional, Tuple
+from typing import Optional, Tuple, Any
 
 import torch
 import torch.nn as nn
@@ -62,8 +62,8 @@ class Parrot(nn.Module):
         return logits
 
     @classmethod
-    def from_name(cls, name: str) -> Self:
-        return cls(Config.from_name(name))
+    def from_name(cls, name: str, **kwargs: Any) -> Self:
+        return cls(Config.from_name(name, **kwargs))
 
 
 class Block(nn.Module):
