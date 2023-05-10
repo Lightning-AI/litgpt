@@ -46,7 +46,6 @@ def main(
     check_valid_checkpoint_dir(checkpoint_dir)
 
     fabric = L.Fabric(devices=1)
-    use_xla = True if fabric.device.type == "xla" else False
     dtype = torch.bfloat16 if fabric.device.type == "cuda" and torch.cuda.is_bf16_supported() else torch.float32
 
     with open(checkpoint_dir / "lit_config.json") as fp:
@@ -84,7 +83,6 @@ def main(
         temperature=temperature,
         top_k=top_k,
         eos_id=tokenizer.eos_id,
-        use_xla=use_xla,
     )
     t = time.perf_counter() - t0
 

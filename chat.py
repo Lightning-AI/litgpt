@@ -36,6 +36,10 @@ def generate(
     assert max_seq_length > T
     buffer = max((len(tokens) for tokens in stop_tokens), default=0)
 
+    if model.device.type == "xla":
+        import torch_xla.core.xla_model as xm
+        xm.mark_step()
+
     for t in range(T, max_seq_length):
         # forward
         logits = model(idx.view(1, -1))
@@ -51,6 +55,9 @@ def generate(
 
         # concatenate the new generation
         idx = torch.cat((idx, idx_next), dim=-1)
+
+        if model.device.type == "xla":
+            xm.mark_step()
 
         # check the stop condition
         for tokens in stop_tokens:
