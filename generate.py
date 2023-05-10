@@ -21,6 +21,7 @@ def generate(
     temperature: float = 1.0,
     top_k: Optional[int] = None,
     eos_id: Optional[int] = None,
+    use_xla: bool = False
 ) -> torch.Tensor:
     """Takes a conditioning sequence (prompt) as input and continues to generate as many tokens as requested.
 
@@ -31,9 +32,10 @@ def generate(
         idx: Tensor of shape (T) with indices of the prompt sequence.
         max_new_tokens: The number of new tokens to generate.
         max_seq_length: The maximum sequence length allowed.
-        temperature: Scales the predicted logits by 1 / temperature
-        top_k: If specified, only sample among the tokens with the k highest probabilities
-        eos_id: If specified, stop generating any more token once the <eos> token is triggered
+        temperature: Scales the predicted logits by 1 / temperature.
+        top_k: If specified, only sample among the tokens with the k highest probabilities.
+        eos_id: If specified, stop generating any more token once the <eos> token is triggered.
+        use_xla: Whether to use Pytorch XLA for generation.
     """
     # create an empty tensor of the expected final shape and fill in the current tokens
     T = idx.size(0)
@@ -41,6 +43,10 @@ def generate(
     empty = torch.empty(T_new, dtype=idx.dtype, device=idx.device)
     empty[:T] = idx
     idx = empty
+
+    if use_xla:
+        import torch_xla.core.xla_model as xm
+        xm.mark_step()
 
     # generate max_new_tokens tokens
     for t in range(T, T_new):
@@ -67,6 +73,9 @@ def generate(
         # if <eos> token is triggered, return the output (stop generation)
         if idx_next == eos_id:
             return idx[: t + 1]  # include the EOS token
+
+        if use_xla:
+            xm.mark_step()
 
     return idx
 
@@ -101,6 +110,7 @@ def main(
         config = Config(**json.load(fp))
 
     fabric = L.Fabric(devices=1)
+    use_xla = True if fabric.device.type == "xla" else False
     dtype = torch.bfloat16 if fabric.device.type == "cuda" and torch.cuda.is_bf16_supported() else torch.float32
 
     checkpoint_path = checkpoint_dir / "lit_model.pth"
@@ -129,6 +139,7 @@ def main(
             model.config.block_size,  # type: ignore[union-attr,arg-type]
             temperature=temperature,
             top_k=top_k,
+            use_xla=use_xla
         )
         t = time.perf_counter() - t0
 
