@@ -1,5 +1,5 @@
 from dataclasses import dataclass
-from typing import Optional
+from typing import Optional, Any
 
 from typing_extensions import Self
 
@@ -23,8 +23,8 @@ class Config:
             self.padded_vocab_size = find_multiple(self.vocab_size, self.padding_multiple)
 
     @classmethod
-    def from_name(cls, name: str) -> Self:
-        return cls(**configs[name])
+    def from_name(cls, name: str, **kwargs: Any) -> Self:
+        return cls(**configs[name], **kwargs)
 
 
 # fmt: off

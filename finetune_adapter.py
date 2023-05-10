@@ -60,8 +60,7 @@ def main(
 
     train_data, val_data = load_datasets(data_dir=data_dir)
 
-    config = Config.from_name(name=checkpoint_dir.name)
-    config.block_size = max_seq_length
+    config = Config.from_name(name=checkpoint_dir.name, block_size=max_seq_length)
 
     with EmptyInitOnDevice(device=fabric.device, dtype=torch.bfloat16):
         model = Parrot(config)

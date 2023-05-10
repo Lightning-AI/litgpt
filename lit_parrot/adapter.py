@@ -8,7 +8,7 @@ Port for Lit-Parrot
 
 import math
 from dataclasses import dataclass
-from typing import Optional, Tuple
+from typing import Optional, Tuple, Any
 
 import torch
 import torch.nn as nn
@@ -138,8 +138,8 @@ class Parrot(BaseModel):
         )
 
     @classmethod
-    def from_name(cls, name: str) -> Self:
-        return cls(Config.from_name(name))
+    def from_name(cls, name: str, **kwargs: Any) -> Self:
+        return cls(Config.from_name(name, **kwargs))
 
 
 def mark_only_adapter_as_trainable(model: Parrot) -> None:
