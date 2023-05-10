@@ -139,7 +139,7 @@ def main(
             model.config.block_size,  # type: ignore[union-attr,arg-type]
             temperature=temperature,
             top_k=top_k,
-            use_xla=use_xla
+            use_xla=use_xla,
         )
         t = time.perf_counter() - t0
 
