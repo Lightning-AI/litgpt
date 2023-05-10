@@ -37,7 +37,7 @@ def generate(
     """
     # create an empty tensor of the expected final shape and fill in the current tokens
     T = idx.size(0)
-    T_new = min(T + max_new_tokens, max_seq_length)
+    T_new = T + max_new_tokens
     empty = torch.empty(T_new, dtype=idx.dtype, device=idx.device)
     empty[:T] = idx
     idx = empty
@@ -46,6 +46,8 @@ def generate(
     for t in range(T, T_new):
         # ignore the not-filled-yet tokens
         idx_cond = idx[:t]
+        # if the sequence context is growing too long we must crop it at max_seq_length
+        idx_cond = idx_cond if t <= max_seq_length else idx_cond[-max_seq_length:]
 
         # forward
         logits = model(idx_cond.view(1, -1))
@@ -114,14 +116,15 @@ def main(
     model = fabric.setup_module(model)
 
     tokenizer = Tokenizer(checkpoint_dir / "tokenizer.json", checkpoint_dir / "tokenizer_config.json")
-    encoded_prompt = tokenizer.encode(prompt, device=fabric.device)
+    encoded = tokenizer.encode(prompt, device=fabric.device)
+    prompt_length = encoded.size(0)
 
     L.seed_everything(1234)
     for i in range(num_samples):
         t0 = time.perf_counter()
         y = generate(
             model,
-            encoded_prompt,
+            encoded,
             max_new_tokens,
             model.config.block_size,  # type: ignore[union-attr,arg-type]
             temperature=temperature,
@@ -130,7 +133,8 @@ def main(
         t = time.perf_counter() - t0
 
         print(tokenizer.decode(y))
-        print(f"Time for inference {i + 1}: {t:.02f} sec total, {y.size(0) / t:.02f} tokens/sec", file=sys.stderr)
+        tokens_generated = y.size(0) - prompt_length
+        print(f"Time for inference {i + 1}: {t:.02f} sec total, {tokens_generated / t:.02f} tokens/sec", file=sys.stderr)
     if fabric.device.type == "cuda":
         print(f"Memory used: {torch.cuda.max_memory_reserved() / 1e9:.02f} GB", file=sys.stderr)
 

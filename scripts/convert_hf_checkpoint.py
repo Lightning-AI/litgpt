@@ -79,7 +79,7 @@ def convert_hf_checkpoint(
     # initialize a new empty state dict to hold our new weights
     sd = model.state_dict()
 
-    bin_files = checkpoint_dir.glob("*.bin")
+    bin_files = list(checkpoint_dir.glob("*.bin"))
     if not bin_files:
         raise ValueError(f"Expected {str(checkpoint_dir)!r} to contain .bin files")
     for bin_file in sorted(bin_files):

@@ -4,7 +4,6 @@ import subprocess
 import sys
 from pathlib import Path
 from unittest import mock
-from unittest.mock import Mock, call, ANY
 
 wd = (Path(__file__).parent.parent / "scripts").absolute()
 
