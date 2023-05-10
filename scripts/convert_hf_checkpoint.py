@@ -81,7 +81,11 @@ def convert_hf_checkpoint(
     # initialize a new empty state dict to hold our new weights
     sd = model.state_dict()
 
-    for bin_file in sorted(checkpoint_dir.glob("*.bin")):
+    bin_files = checkpoint_dir.glob("*.bin")
+    if not bin_files:
+        raise ValueError(f"Expected {str(checkpoint_dir)!r} to contain .bin files")
+    
+    for bin_file in sorted(bin_files):
         print("Processing", bin_file)
         hf_weights = torch.load(bin_file, map_location="cpu")
         copy_weights(sd, hf_weights, dtype=dtype)
