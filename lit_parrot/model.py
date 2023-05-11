@@ -3,7 +3,6 @@
 Based on the nanoGPT implementation: https://github.com/karpathy/nanoGPT and
 https://github.com/EleutherAI/gpt-neox/tree/main/megatron/model.
 """
-# mypy: ignore-errors
 import math
 from typing import List, Optional, Tuple, Any, Union
 
