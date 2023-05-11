@@ -53,13 +53,8 @@ def generate(
 
     # generate max_new_tokens tokens
     for t in range(T, T_new):
-        # ignore the not-filled-yet tokens
-        idx_cond = idx[:t]
-        # if the sequence context is growing too long we must crop it at max_seq_length
-        idx_cond = idx_cond if t <= max_seq_length else idx_cond[-max_seq_length:]
-
         # forward
-        logits, kv_caches = model(input_idx.view(1, -1), input_pos, kv_caches)
+        logits, kv_caches = model(input_idx.view(1, -1), max_new_tokens, input_pos, kv_caches)
         logits = logits[0, -1] / temperature
 
         # optionally crop the logits to only the top k options

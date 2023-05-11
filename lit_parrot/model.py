@@ -49,7 +49,7 @@ class Parrot(nn.Module):
             module.eps = 1e-5
 
     def forward(
-        self, idx: torch.Tensor, input_pos: Optional[torch.Tensor] = None, kv_caches: Optional[List[KvCache]] = None
+        self, idx: torch.Tensor, max_new_tokens: int = None, input_pos: Optional[torch.Tensor] = None, kv_caches: Optional[List[KvCache]] = None
     ) -> Union[torch.Tensor, Tuple[torch.Tensor, List[KvCache]]]:
         _, T = idx.size()
         assert (
@@ -84,7 +84,7 @@ class Parrot(nn.Module):
         else:
             new_kv_caches = []
             for block, kv_cache in zip(self.transformer.h, kv_caches):
-                x, new_kv_cache = block(x, (cos, sin), mask, input_pos, kv_cache)
+                x, new_kv_cache = block(x, (cos, sin), mask, max_new_tokens, input_pos, kv_cache)
                 new_kv_caches.append(new_kv_cache)
 
         x = self.transformer.ln_f(x)
@@ -125,10 +125,11 @@ class Block(nn.Module):
         x: torch.Tensor,
         rope: RopeCache,
         mask: torch.Tensor,
+        max_new_tokens: int = None,
         input_pos: Optional[torch.Tensor] = None,
         kv_cache: Optional[KvCache] = None,
     ) -> Tuple[torch.Tensor, KvCache]:
-        h, new_kv_cache = self.attn(self.norm_1(x), rope, mask, input_pos, kv_cache)
+        h, new_kv_cache = self.attn(self.norm_1(x), rope, mask, max_new_tokens, input_pos, kv_cache)
         if self.parallel_residual:
             x = x + h + self.mlp(self.norm_2(x))
         else:
@@ -157,6 +158,7 @@ class CausalSelfAttention(nn.Module):
         x: torch.Tensor,
         rope: RopeCache,
         mask: torch.Tensor,
+        max_new_tokens: int = None,
         input_pos: Optional[torch.Tensor] = None,
         kv_cache: Optional[KvCache] = None,
     ) -> Tuple[torch.Tensor, KvCache]:
@@ -177,11 +179,22 @@ class CausalSelfAttention(nn.Module):
 
         if kv_cache is not None:
             cache_k, cache_v = kv_cache
-            cache_k = cache_k.index_copy(2, input_pos, k)
-            cache_v = cache_v.index_copy(2, input_pos, v)
-            kv_cache = cache_k, cache_v
-            k = cache_k[:]
-            v = cache_v[:]
+            # check if reached token limit
+            if input_pos[-1] > max_new_tokens:         
+                # check if on first loop of generating tokens
+                if len(input_pos) > 1:       
+                    k = cache_k.index_copy(2, input_pos[-max_new_tokens:], k)
+                    v = cache_v.index_copy(2, input_pos[-max_new_tokens:], v)
+                # clear cached values if we past the token limit
+                else:
+                    empty_k = torch.zeros(k.size(), device=k.device)
+                    empty_v = torch.zeros(v.size(), device=v.device)
+                    k = cache_k.index_copy(2, input_pos[-1] - max_new_tokens - 1, empty_k)
+                    v = cache_v.index_copy(2, input_pos[-1] - max_new_tokens - 1, empty_v)
+            else:
+                k = cache_k.index_copy(2, input_pos, k)
+                v = cache_v.index_copy(2, input_pos, v)
+            kv_cache = k, v
 
         # efficient attention using Flash Attention CUDA kernels
         y = F.scaled_dot_product_attention(q, k, v, attn_mask=mask, dropout_p=0.0, scale=1.0 / math.sqrt(head_size))
