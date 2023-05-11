@@ -38,6 +38,7 @@ def generate(
 
     if idx.device.type == "xla":
         import torch_xla.core.xla_model as xm
+        xm.mark_step()
 
     for t in range(T, max_seq_length):
         # forward
