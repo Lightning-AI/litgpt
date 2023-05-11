@@ -78,7 +78,7 @@ def test_against_hf_model(rotary_pct, batch_size, n_embd, parallel_residual, kv_
     if kv_cache:
         (theirs_block_out, theirs_kv_cache) = theirs_model.gpt_neox.layers[0](theirs_embed, use_cache=True)
         cache_shape = (batch_size, n_head, block_size, n_embd // n_head)
-        ours_kv_cache = torch.empty(cache_shape), torch.empty(cache_shape)
+        ours_kv_cache = torch.zeros(cache_shape), torch.zeros(cache_shape)
         (ours_block_out, ours_kv_cache) = ours_model.transformer.h[0](
             ours_embed,
             ours_model.build_rope_cache(token_sample),

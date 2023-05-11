@@ -44,7 +44,7 @@ def generate(
 
     cache_shape = (1, model.config.n_head, T_new, model.config.n_embd // model.config.n_head)
     kv_caches = [
-        (torch.empty(cache_shape, device=idx.device), torch.empty(cache_shape, device=idx.device))
+        (torch.zeros(cache_shape, device=idx.device), torch.zeros(cache_shape, device=idx.device))
         for _ in range(model.config.n_layer)
     ]
 
