@@ -75,7 +75,9 @@ def test_against_hf_model(rotary_pct, batch_size, n_embd, parallel_residual, lit
     torch.testing.assert_close(ours_embed, theirs_embed)
 
     (theirs_block_out,) = theirs_model.gpt_neox.layers[0](theirs_embed)
-    ours_block_out = ours_model.transformer.h[0](ours_embed)
+    (ours_block_out, _) = ours_model.transformer.h[0](
+        ours_embed, ours_model.build_rope_cache(token_sample), ours_model.build_mask_cache(token_sample)
+    )
     torch.testing.assert_close(ours_block_out, theirs_block_out)
 
     theirs = theirs_model(token_sample)["logits"]

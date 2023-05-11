@@ -70,7 +70,7 @@ def generate(
             logits = torch.where(logits < v[[-1]], -float("Inf"), logits)
 
         probs = torch.nn.functional.softmax(logits, dim=-1)
-        idx_next = torch.multinomial(probs, num_samples=1)
+        idx_next = torch.multinomial(probs, num_samples=1).to(dtype=idx.dtype)
 
         # concatenate the new generation
         idx = idx.index_copy(0, input_pos[-1] + 1, idx_next)

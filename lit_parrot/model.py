@@ -29,8 +29,8 @@ class Parrot(nn.Module):
                 ln_f=nn.LayerNorm(config.n_embd),
             )
         )
-        self.rope_cache = None
-        self.mask_cache = None
+        self.rope_cache: Optional[Tuple[torch.Tensor, torch.Tensor]] = None
+        self.mask_cache: Optional[torch.Tensor] = None
 
     def _init_weights(self, module: nn.Module) -> None:
         if isinstance(module, nn.Linear):
@@ -63,18 +63,9 @@ class Parrot(nn.Module):
         x = self.transformer.wte(idx)  # token embeddings of shape (b, t, n_embd)
 
         if self.rope_cache is None:
-            self.rope_cache = build_rope_cache(
-                seq_len=self.config.block_size,
-                n_elem=int(self.config.rotary_percentage * (self.config.n_embd // self.config.n_head)),
-                dtype=x.dtype,
-                device=x.device,
-            )
-
+            self.rope_cache = self.build_rope_cache(idx)
         if self.mask_cache is None:
-            self.mask_cache = torch.full(
-                (self.config.block_size, self.config.block_size), 1, device=x.device, dtype=torch.bool
-            )
-            self.mask_cache = torch.tril(self.mask_cache).unsqueeze(0).unsqueeze(0).to(torch.bool)
+            self.mask_cache = self.build_mask_cache(idx)
 
         cos, sin = self.rope_cache
         if input_pos is not None:
@@ -110,6 +101,18 @@ class Parrot(nn.Module):
     @classmethod
     def from_name(cls, name: str, **kwargs: Any) -> Self:
         return cls(Config.from_name(name, **kwargs))
+
+    def build_rope_cache(self, idx: torch.Tensor) -> Tuple[torch.Tensor, torch.Tensor]:
+        return build_rope_cache(
+            seq_len=self.config.block_size,
+            n_elem=int(self.config.rotary_percentage * (self.config.n_embd // self.config.n_head)),
+            dtype=idx.dtype,
+            device=idx.device,
+        )
+
+    def build_mask_cache(self, idx: torch.Tensor) -> torch.Tensor:
+        ones = torch.ones((self.config.block_size, self.config.block_size), device=idx.device, dtype=torch.bool)
+        return torch.tril(ones).unsqueeze(0).unsqueeze(0)
 
 
 class Block(nn.Module):
