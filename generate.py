@@ -39,15 +39,15 @@ def generate(
     # create an empty tensor of the expected final shape and fill in the current tokens
     T = idx.size(0)
     T_new = T + max_new_tokens
+    if max_seq_length is not None:
+        # otherwise this would use more memory than necessary
+        assert max_seq_length <= T_new
+    else:
+        max_seq_length = T_new
+
     empty = torch.empty(T_new, dtype=idx.dtype, device=idx.device)
     empty[:T] = idx
     idx = empty
-
-    cache_shape = (1, model.config.n_head, T_new, model.config.n_embd // model.config.n_head)
-    kv_caches = [
-        (torch.zeros(cache_shape, device=idx.device), torch.zeros(cache_shape, device=idx.device))
-        for _ in range(model.config.n_layer)
-    ]
 
     input_pos = torch.arange(0, T).to(idx.device)
     input_idx = idx.index_select(0, input_pos)
@@ -55,7 +55,7 @@ def generate(
     # generate max_new_tokens tokens
     for t in range(T, T_new):
         # forward
-        logits, kv_caches = model(input_idx.view(1, -1), max_seq_length, input_pos, kv_caches)
+        logits = model(input_idx.view(1, -1), max_seq_length, input_pos)
         logits = logits[0, -1] / temperature
 
         # optionally crop the logits to only the top k options
@@ -130,13 +130,7 @@ def main(
     L.seed_everything(1234)
     for i in range(num_samples):
         t0 = time.perf_counter()
-        y = generate(
-            model,
-            encoded,
-            max_new_tokens,
-            temperature=temperature,
-            top_k=top_k,
-        )
+        y = generate(model, encoded, max_new_tokens, temperature=temperature, top_k=top_k)
         t = time.perf_counter() - t0
 
         print(tokenizer.decode(y))

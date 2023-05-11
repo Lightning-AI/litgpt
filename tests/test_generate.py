@@ -36,7 +36,7 @@ def fake_checkpoint_dir(tmp_path):
     return checkpoint_dir
 
 
-@pytest.mark.parametrize("max_seq_length", (10, 128))
+@pytest.mark.parametrize("max_seq_length", (10, 20 + 5))
 def test_generate(max_seq_length):
     generate = load_generate_script()
 

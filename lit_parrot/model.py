@@ -33,6 +33,7 @@ class Parrot(nn.Module):
         )
         self.rope_cache: Optional[KvCache] = None
         self.mask_cache: Optional[torch.Tensor] = None
+        self.kv_caches: List[KvCache] = []
 
     def _init_weights(self, module: nn.Module) -> None:
         if isinstance(module, nn.Linear):
@@ -49,16 +50,16 @@ class Parrot(nn.Module):
             module.eps = 1e-5
 
     def forward(
-        self, idx: torch.Tensor, max_seq_length: Optional[int] = None, input_pos: Optional[torch.Tensor] = None, kv_caches: Optional[List[KvCache]] = None
+        self, idx: torch.Tensor, max_seq_length: Optional[int] = None, input_pos: Optional[torch.Tensor] = None
     ) -> Union[torch.Tensor, Tuple[torch.Tensor, List[KvCache]]]:
-        _, T = idx.size()
+        B, T = idx.size()
 
         block_size = self.config.block_size
         if max_seq_length is None:
             max_seq_length = block_size
+        assert T <= max_seq_length, f"Cannot forward sequence of length {T}, max seq length is only {max_seq_length}"
         assert max_seq_length <= block_size, f"Cannot attend to {max_seq_length}, block size is only {block_size}"
         assert T <= block_size, f"Cannot forward sequence of length {T}, block size is only {block_size}"
-        assert (input_pos is None and kv_caches is None) or (input_pos is not None and kv_caches is not None)
 
         if self.rope_cache is None:
             self.rope_cache = self.build_rope_cache(idx)
@@ -70,8 +71,7 @@ class Parrot(nn.Module):
             cos = cos.index_select(0, input_pos)
             sin = sin.index_select(0, input_pos)
             mask = self.mask_cache.index_select(2, input_pos)
-            target_len = kv_caches[0][0].size(2)
-            mask = mask[:, :, :target_len, :target_len]
+            mask = mask[:, :, :max_seq_length, :max_seq_length]
         else:
             cos = cos[:T]
             sin = sin[:T]
@@ -80,21 +80,24 @@ class Parrot(nn.Module):
         # forward the model itself
         x = self.transformer.wte(idx)  # token embeddings of shape (b, t, n_embd)
 
-        if kv_caches is None:
-            new_kv_caches = None
+        if input_pos is None:  # proxy for use_cache=False
             for block in self.transformer.h:
-                x, _ = block(x, (cos, sin), mask)
+                x, _ = block(x, (cos, sin), mask, max_seq_length)
         else:
-            new_kv_caches = []
-            for block, kv_cache in zip(self.transformer.h, kv_caches):
-                x, new_kv_cache = block(x, (cos, sin), mask, max_seq_length, input_pos, kv_cache)
-                new_kv_caches.append(new_kv_cache)
+            if not self.kv_caches:
+                cache_shape = (B, self.config.n_head, max_seq_length, self.config.n_embd // self.config.n_head)
+                self.kv_caches = [
+                    (torch.zeros(cache_shape, device=idx.device), torch.zeros(cache_shape, device=idx.device))
+                    for _ in range(self.config.n_layer)
+                ]
+            for i, block in enumerate(self.transformer.h):
+                x, self.kv_caches[i] = block(x, (cos, sin), mask, max_seq_length, input_pos, self.kv_caches[i])
 
         x = self.transformer.ln_f(x)
 
         logits = self.lm_head(x)  # (b, t, vocab_size)
 
-        return logits if new_kv_caches is None else (logits, new_kv_caches)
+        return logits
 
     @classmethod
     def from_name(cls, name: str, **kwargs: Any) -> Self:
@@ -128,7 +131,7 @@ class Block(nn.Module):
         x: torch.Tensor,
         rope: RopeCache,
         mask: torch.Tensor,
-        max_seq_length: int = None,
+        max_seq_length: int,
         input_pos: Optional[torch.Tensor] = None,
         kv_cache: Optional[KvCache] = None,
     ) -> Tuple[torch.Tensor, KvCache]:
@@ -161,7 +164,7 @@ class CausalSelfAttention(nn.Module):
         x: torch.Tensor,
         rope: RopeCache,
         mask: torch.Tensor,
-        max_seq_length: int = None,
+        max_seq_length: int,
         input_pos: Optional[torch.Tensor] = None,
         kv_cache: Optional[KvCache] = None,
     ) -> Tuple[torch.Tensor, KvCache]:
@@ -182,21 +185,14 @@ class CausalSelfAttention(nn.Module):
 
         if kv_cache is not None:
             cache_k, cache_v = kv_cache
-            # check if reached max sequence length
-            if max_seq_length and input_pos[-1] > max_seq_length:         
-                # check if on first loop of generating tokens
-                if len(input_pos) > 1:       
-                    k = cache_k.index_copy(2, input_pos[-max_seq_length:], k)
-                    v = cache_v.index_copy(2, input_pos[-max_seq_length:], v)
-                # clear cached values if we past the max sequence length
-                else:
-                    empty_k = torch.zeros(k.size(), device=k.device)
-                    empty_v = torch.zeros(v.size(), device=v.device)
-                    k = cache_k.index_copy(2, input_pos[-1] - max_seq_length - 1, empty_k)
-                    v = cache_v.index_copy(2, input_pos[-1] - max_seq_length - 1, empty_v)
-            else:
-                k = cache_k.index_copy(2, input_pos, k)
-                v = cache_v.index_copy(2, input_pos, v)
+            # check if reached token limit
+            if input_pos[-1] >= max_seq_length:
+                input_pos = torch.tensor(max_seq_length - 1, device=cache_k.device)
+                # shift 1 position to the left
+                cache_k = torch.roll(cache_k, -1, dims=2)
+                cache_v = torch.roll(cache_v, -1, dims=2)
+            k = cache_k.index_copy(2, input_pos, k)
+            v = cache_v.index_copy(2, input_pos, v)
             kv_cache = k, v
 
         # efficient attention using Flash Attention CUDA kernels
