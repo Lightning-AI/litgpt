@@ -54,7 +54,7 @@ def generate(
     # generate max_new_tokens tokens
     for t in range(T, T_new):
         # forward
-        logits, kv_caches = model(input_idx.view(1, -1), max_new_tokens, input_pos, kv_caches)
+        logits, kv_caches = model(input_idx.view(1, -1), max_seq_length, input_pos, kv_caches)
         logits = logits[0, -1] / temperature
 
         # optionally crop the logits to only the top k options
