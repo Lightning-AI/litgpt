@@ -74,25 +74,24 @@ class Parrot(nn.Module):
             sin = sin[:T]
             mask = self.mask_cache[:, :, :T, :T]
 
-        if kv_caches is None:
-            kv_caches = [None] * len(self.transformer.h)
-            return_kv_caches = False
-        else:
-            return_kv_caches = True
-
         # forward the model itself
         x = self.transformer.wte(idx)  # token embeddings of shape (b, t, n_embd)
 
-        new_kv_caches = []
-        for block, kv_cache in zip(self.transformer.h, kv_caches):
-            x, new_kv_cache = block(x, (cos, sin), mask, input_pos, kv_cache)
-            new_kv_caches.append(new_kv_cache)
+        if kv_caches is None:
+            new_kv_caches = None
+            for block in self.transformer.h:
+                x, _ = block(x, (cos, sin), mask)
+        else:
+            new_kv_caches = []
+            for block, kv_cache in zip(self.transformer.h, kv_caches):
+                x, new_kv_cache = block(x, (cos, sin), mask, input_pos, kv_cache)
+                new_kv_caches.append(new_kv_cache)
 
         x = self.transformer.ln_f(x)
 
         logits = self.lm_head(x)  # (b, t, vocab_size)
 
-        return (logits, new_kv_caches) if return_kv_caches else logits
+        return logits if new_kv_caches is None else (logits, new_kv_caches)
 
     @classmethod
     def from_name(cls, name: str, **kwargs: Any) -> Self:
