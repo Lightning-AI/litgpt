@@ -5,7 +5,7 @@ https://github.com/EleutherAI/gpt-neox/tree/main/megatron/model.
 """
 # mypy: ignore-errors
 import math
-from typing import List, Optional, Tuple, Any
+from typing import List, Optional, Tuple, Any, Union
 
 import torch
 import torch.nn as nn
@@ -13,6 +13,9 @@ from torch.nn import functional as F
 from typing_extensions import Self
 
 from lit_parrot.config import Config
+
+RopeCache = Tuple[torch.Tensor, torch.Tensor]
+KvCache = Tuple[torch.Tensor, torch.Tensor]
 
 
 class Parrot(nn.Module):
@@ -29,7 +32,7 @@ class Parrot(nn.Module):
                 ln_f=nn.LayerNorm(config.n_embd),
             )
         )
-        self.rope_cache: Optional[Tuple[torch.Tensor, torch.Tensor]] = None
+        self.rope_cache: Optional[KvCache] = None
         self.mask_cache: Optional[torch.Tensor] = None
 
     def _init_weights(self, module: nn.Module) -> None:
@@ -47,11 +50,8 @@ class Parrot(nn.Module):
             module.eps = 1e-5
 
     def forward(
-        self,
-        idx: torch.Tensor,
-        input_pos: Optional[torch.Tensor] = None,
-        cache_kvs: Optional[List[Tuple[torch.Tensor, torch.Tensor]]] = None,
-    ) -> torch.Tensor:
+        self, idx: torch.Tensor, input_pos: Optional[torch.Tensor] = None, cache_kvs: Optional[List[KvCache]] = None
+    ) -> Union[torch.Tensor, Tuple[torch.Tensor, List[KvCache]]]:
         _, t = idx.size()
         assert (
             t <= self.config.block_size
@@ -100,7 +100,7 @@ class Parrot(nn.Module):
     def from_name(cls, name: str, **kwargs: Any) -> Self:
         return cls(Config.from_name(name, **kwargs))
 
-    def build_rope_cache(self, idx: torch.Tensor) -> Tuple[torch.Tensor, torch.Tensor]:
+    def build_rope_cache(self, idx: torch.Tensor) -> KvCache:
         return build_rope_cache(
             seq_len=self.config.block_size,
             n_elem=int(self.config.rotary_percentage * (self.config.n_embd // self.config.n_head)),
@@ -126,11 +126,11 @@ class Block(nn.Module):
     def forward(
         self,
         x: torch.Tensor,
-        rope: torch.Tensor,
+        rope: RopeCache,
         mask: torch.Tensor,
         input_pos: Optional[torch.Tensor] = None,
-        cache_kv: Optional[Tuple[torch.Tensor, torch.Tensor]] = None,
-    ) -> torch.Tensor:
+        cache_kv: Optional[KvCache] = None,
+    ) -> Tuple[torch.Tensor, KvCache]:
         h, new_cache_kv = self.attn(self.norm_1(x), rope, mask, input_pos, cache_kv)
         if self.parallel_residual:
             x = x + h + self.mlp(self.norm_2(x))
@@ -158,11 +158,11 @@ class CausalSelfAttention(nn.Module):
     def forward(
         self,
         x: torch.Tensor,
-        rope: torch.Tensor,
+        rope: RopeCache,
         mask: torch.Tensor,
         input_pos: Optional[torch.Tensor] = None,
-        cache_kv: Optional[Tuple[torch.Tensor, torch.Tensor]] = None,
-    ) -> torch.Tensor:
+        cache_kv: Optional[KvCache] = None,
+    ) -> Tuple[torch.Tensor, KvCache]:
         B, T, C = x.size()  # batch size, sequence length, embedding dimensionality (n_embd)
 
         qkv = self.attn(x)
@@ -214,7 +214,7 @@ class MLP(nn.Module):
 
 def build_rope_cache(
     seq_len: int, n_elem: int, dtype: torch.dtype, device: torch.device, base: int = 10000
-) -> Tuple[torch.Tensor, torch.Tensor]:
+) -> RopeCache:
     """Enhanced Transformer with Rotary Position Embedding.
 
     Derived from: https://github.com/labmlai/annotated_deep_learning_paper_implementations/blob/master/labml_nn/
