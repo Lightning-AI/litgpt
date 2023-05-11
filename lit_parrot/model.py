@@ -49,12 +49,15 @@ class Parrot(nn.Module):
             module.eps = 1e-5
 
     def forward(
-        self, idx: torch.Tensor, max_seq_length: int = None, input_pos: Optional[torch.Tensor] = None, kv_caches: Optional[List[KvCache]] = None
+        self, idx: torch.Tensor, max_seq_length: Optional[int] = None, input_pos: Optional[torch.Tensor] = None, kv_caches: Optional[List[KvCache]] = None
     ) -> Union[torch.Tensor, Tuple[torch.Tensor, List[KvCache]]]:
         _, T = idx.size()
-        assert (
-            T <= self.config.block_size
-        ), f"Cannot forward sequence of length {T}, block size is only {self.config.block_size}"
+
+        block_size = self.config.block_size
+        if max_seq_length is None:
+            max_seq_length = block_size
+        assert max_seq_length <= block_size, f"Cannot attend to {max_seq_length}, block size is only {block_size}"
+        assert T <= block_size, f"Cannot forward sequence of length {T}, block size is only {block_size}"
         assert (input_pos is None and kv_caches is None) or (input_pos is not None and kv_caches is not None)
 
         if self.rope_cache is None:

@@ -83,6 +83,7 @@ def test_against_hf_model(rotary_pct, batch_size, n_embd, parallel_residual, kv_
             ours_embed,
             ours_model.build_rope_cache(token_sample),
             ours_model.build_mask_cache(token_sample),
+            block_size,
             torch.arange(block_size),
             ours_kv_cache,
         )
