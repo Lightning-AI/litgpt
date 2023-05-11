@@ -42,11 +42,9 @@ def generate(
     empty[:T] = idx
     idx = empty
 
-    cache_kvs = [
-        (
-            torch.zeros((1, model.config.n_head, T_new, model.config.n_embd // model.config.n_head), device=idx.device),
-            torch.zeros((1, model.config.n_head, T_new, model.config.n_embd // model.config.n_head), device=idx.device),
-        )
+    cache_shape = (1, model.config.n_head, T_new, model.config.n_embd // model.config.n_head)
+    kv_caches = [
+        (torch.zeros(cache_shape, device=idx.device), torch.zeros(cache_shape, device=idx.device))
         for _ in range(model.config.n_layer)
     ]
 
@@ -61,7 +59,7 @@ def generate(
         idx_cond = idx_cond if t <= max_seq_length else idx_cond[-max_seq_length:]
 
         # forward
-        logits, cache_kvs = model(input_idx.view(1, -1), input_pos, cache_kvs)
+        logits, kv_caches = model(input_idx.view(1, -1), input_pos, kv_caches)
         logits = logits[0, -1] / temperature
 
         # optionally crop the logits to only the top k options
