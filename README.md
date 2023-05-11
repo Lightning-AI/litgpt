@@ -69,13 +69,13 @@ Luckily that is straightforward:
 **On CUDA**
 
 ```bash
-pip install --index-url https://download.pytorch.org/whl/nightly/cu118 --pre torch>=2.1.0dev
+pip install --index-url https://download.pytorch.org/whl/nightly/cu118 --pre 'torch>=2.1.0dev'
 ```
 
 **On CPU (incl Macs)**
 
 ```bash
-pip install --index-url https://download.pytorch.org/whl/nightly/cpu --pre torch>=2.1.0dev
+pip install --index-url https://download.pytorch.org/whl/nightly/cpu --pre 'torch>=2.1.0dev'
 ```
 
 All good, now install the dependencies:
