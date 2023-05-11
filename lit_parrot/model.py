@@ -46,15 +46,18 @@ class Parrot(nn.Module):
             # https://huggingface.co/stabilityai/stablelm-base-alpha-3b/blob/main/config.json#L12
             module.eps = 1e-5
 
-    def forward(self, idx: torch.Tensor, input_pos: Optional[torch.Tensor] = None,
-                cache_kvs: Optional[List[Tuple[torch.Tensor, torch.Tensor]]] = None) -> torch.Tensor:
+    def forward(
+        self,
+        idx: torch.Tensor,
+        input_pos: Optional[torch.Tensor] = None,
+        cache_kvs: Optional[List[Tuple[torch.Tensor, torch.Tensor]]] = None,
+    ) -> torch.Tensor:
         _, t = idx.size()
         assert (
             t <= self.config.block_size
         ), f"Cannot forward sequence of length {t}, block size is only {self.config.block_size}"
 
-        assert (input_pos is None and cache_kvs is None) or \
-            (input_pos is not None and cache_kvs is not None)
+        assert (input_pos is None and cache_kvs is None) or (input_pos is not None and cache_kvs is not None)
 
         # forward the model itself
         x = self.transformer.wte(idx)  # token embeddings of shape (b, t, n_embd)
@@ -68,8 +71,9 @@ class Parrot(nn.Module):
             )
 
         if self.mask_cache is None:
-            self.mask_cache = torch.full((self.config.block_size, self.config.block_size),
-                                         1, device=x.device, dtype=torch.bool)
+            self.mask_cache = torch.full(
+                (self.config.block_size, self.config.block_size), 1, device=x.device, dtype=torch.bool
+            )
             self.mask_cache = torch.tril(self.mask_cache).unsqueeze(0).unsqueeze(0).to(torch.bool)
 
         cos, sin = self.rope_cache
@@ -118,8 +122,14 @@ class Block(nn.Module):
 
         self.parallel_residual = config.parallel_residual
 
-    def forward(self, x: torch.Tensor, rope: torch.Tensor, mask: torch.Tensor, input_pos: Optional[torch.Tensor] = None,
-                cache_kv: Optional[Tuple[torch.Tensor, torch.Tensor]] = None) -> torch.Tensor:
+    def forward(
+        self,
+        x: torch.Tensor,
+        rope: torch.Tensor,
+        mask: torch.Tensor,
+        input_pos: Optional[torch.Tensor] = None,
+        cache_kv: Optional[Tuple[torch.Tensor, torch.Tensor]] = None,
+    ) -> torch.Tensor:
         h, new_cache_kv = self.attn(self.norm_1(x), rope, mask, input_pos, cache_kv)
         if self.parallel_residual:
             x = x + h + self.mlp(self.norm_2(x))
@@ -144,8 +154,14 @@ class CausalSelfAttention(nn.Module):
         self.block_size = config.block_size
         self.rotary_percentage = config.rotary_percentage
 
-    def forward(self, x: torch.Tensor, rope: torch.Tensor, mask: torch.Tensor, input_pos: Optional[torch.Tensor] = None,
-                cache_kv: Optional[Tuple[torch.Tensor, torch.Tensor]] = None) -> torch.Tensor:
+    def forward(
+        self,
+        x: torch.Tensor,
+        rope: torch.Tensor,
+        mask: torch.Tensor,
+        input_pos: Optional[torch.Tensor] = None,
+        cache_kv: Optional[Tuple[torch.Tensor, torch.Tensor]] = None,
+    ) -> torch.Tensor:
         B, T, C = x.size()  # batch size, sequence length, embedding dimensionality (n_embd)
 
         qkv = self.attn(x)
@@ -170,9 +186,7 @@ class CausalSelfAttention(nn.Module):
             v = cache_v[:]
 
         # efficient attention using Flash Attention CUDA kernels
-        y = F.scaled_dot_product_attention(
-            q, k, v, attn_mask=mask, dropout_p=0.0, scale=1.0 / math.sqrt(head_size)
-        )
+        y = F.scaled_dot_product_attention(q, k, v, attn_mask=mask, dropout_p=0.0, scale=1.0 / math.sqrt(head_size))
 
         y = y.transpose(1, 2).contiguous().view(B, T, C)  # re-assemble all head outputs side by side
 

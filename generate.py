@@ -42,9 +42,13 @@ def generate(
     empty[:T] = idx
     idx = empty
 
-    cache_kvs = [(torch.zeros((1, model.config.n_head, T_new, model.config.n_embd // model.config.n_head), device=idx.device),
-            torch.zeros((1, model.config.n_head, T_new, model.config.n_embd // model.config.n_head), device=idx.device))
-            for _ in range(model.config.n_layer)]
+    cache_kvs = [
+        (
+            torch.zeros((1, model.config.n_head, T_new, model.config.n_embd // model.config.n_head), device=idx.device),
+            torch.zeros((1, model.config.n_head, T_new, model.config.n_embd // model.config.n_head), device=idx.device),
+        )
+        for _ in range(model.config.n_layer)
+    ]
 
     input_pos = torch.arange(0, T).to(idx.device)
     input_idx = idx.index_select(0, input_pos)
