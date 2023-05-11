@@ -39,27 +39,27 @@ def generate(
     # create an empty tensor of the expected final shape and fill in the current tokens
     T = idx.size(0)
     T_new = T + max_new_tokens
-    if max_seq_length is not None:
-        # otherwise this would use more memory than necessary
-        assert max_seq_length <= T_new
-    else:
+    if max_seq_length is None:
         max_seq_length = T_new
+    # otherwise this would use more memory than necessary
+    assert max_seq_length <= T_new
 
-    empty = torch.empty(T_new, dtype=idx.dtype, device=idx.device)
+    device, dtype = idx.device, idx.dtype
+    empty = torch.empty(T_new, dtype=dtype, device=device)
     empty[:T] = idx
     idx = empty
-
-    input_pos = torch.arange(0, T).to(idx.device)
-    input_idx = idx.index_select(0, input_pos)
+    input_pos = torch.arange(0, T, device=device)
 
     if idx.device.type == "xla":
         import torch_xla.core.xla_model as xm
         xm.mark_step()
 
     # generate max_new_tokens tokens
-    for t in range(T, T_new):
+    for _ in range(max_new_tokens):
+        x = idx.index_select(0, input_pos).view(1, -1)
+
         # forward
-        logits = model(input_idx.view(1, -1), max_seq_length, input_pos)
+        logits = model(x, max_seq_length, input_pos)
         logits = logits[0, -1] / temperature
 
         # optionally crop the logits to only the top k options
@@ -68,17 +68,15 @@ def generate(
             logits = torch.where(logits < v[[-1]], -float("Inf"), logits)
 
         probs = torch.nn.functional.softmax(logits, dim=-1)
-        idx_next = torch.multinomial(probs, num_samples=1).to(dtype=idx.dtype)
+        idx_next = torch.multinomial(probs, num_samples=1).to(dtype=dtype)
 
         # concatenate the new generation
-        idx = idx.index_copy(0, input_pos[-1] + 1, idx_next)
-
         input_pos = input_pos[-1:] + 1
-        input_idx = idx.index_select(0, input_pos)
+        idx = idx.index_copy(0, input_pos, idx_next)
 
         # if <eos> token is triggered, return the output (stop generation)
         if idx_next == eos_id:
-            return idx[: t + 1]  # include the EOS token
+            return idx[:input_pos]  # include the EOS token
 
         if idx.device.type == "xla":
             xm.mark_step()
