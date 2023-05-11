@@ -42,7 +42,7 @@ def generate(
     empty[:T] = idx
     idx = empty
 
-    if model.device.type == "xla":
+    if idx.device.type == "xla":
         import torch_xla.core.xla_model as xm
         xm.mark_step()
 
@@ -72,7 +72,7 @@ def generate(
         if idx_next == eos_id:
             return idx[: t + 1]  # include the EOS token
 
-        if model.device.type == "xla":
+        if idx.device.type == "xla":
             xm.mark_step()
 
     return idx
