@@ -50,14 +50,14 @@ class Parrot(nn.Module):
             module.eps = 1e-5
 
     def forward(
-        self, idx: torch.Tensor, input_pos: Optional[torch.Tensor] = None, cache_kvs: Optional[List[KvCache]] = None
+        self, idx: torch.Tensor, input_pos: Optional[torch.Tensor] = None, kv_caches: Optional[List[KvCache]] = None
     ) -> Union[torch.Tensor, Tuple[torch.Tensor, List[KvCache]]]:
         _, t = idx.size()
         assert (
             t <= self.config.block_size
         ), f"Cannot forward sequence of length {t}, block size is only {self.config.block_size}"
 
-        assert (input_pos is None and cache_kvs is None) or (input_pos is not None and cache_kvs is not None)
+        assert (input_pos is None and kv_caches is None) or (input_pos is not None and kv_caches is not None)
 
         if self.rope_cache is None:
             self.rope_cache = self.build_rope_cache(idx)
@@ -69,32 +69,32 @@ class Parrot(nn.Module):
             cos = cos.index_select(0, input_pos)
             sin = sin.index_select(0, input_pos)
             mask = self.mask_cache.index_select(2, input_pos)
-            target_len = cache_kvs[0][0].size()[2]
+            target_len = kv_caches[0][0].size(2)
             mask = mask[:, :, :target_len, :target_len]
         else:
             cos = cos[:t]
             sin = sin[:t]
             mask = self.mask_cache[:, :, :t, :t]
 
-        if cache_kvs is None:
-            cache_kvs = [None] * len(self.transformer.h)
-            return_cache_kvs = False
+        if kv_caches is None:
+            kv_caches = [None] * len(self.transformer.h)
+            return_kv_caches = False
         else:
-            return_cache_kvs = True
+            return_kv_caches = True
 
         # forward the model itself
         x = self.transformer.wte(idx)  # token embeddings of shape (b, t, n_embd)
 
-        new_cache_kvs = []
-        for block, cache_kv in zip(self.transformer.h, cache_kvs):
-            x, new_cache_kv = block(x, (cos, sin), mask, input_pos, cache_kv)
-            new_cache_kvs.append(new_cache_kv)
+        new_kv_caches = []
+        for block, kv_cache in zip(self.transformer.h, kv_caches):
+            x, new_kv_cache = block(x, (cos, sin), mask, input_pos, kv_cache)
+            new_kv_caches.append(new_kv_cache)
 
         x = self.transformer.ln_f(x)
 
         logits = self.lm_head(x)  # (b, t, vocab_size)
 
-        return (logits, new_cache_kvs) if return_cache_kvs else logits
+        return (logits, new_kv_caches) if return_kv_caches else logits
 
     @classmethod
     def from_name(cls, name: str, **kwargs: Any) -> Self:
@@ -129,15 +129,15 @@ class Block(nn.Module):
         rope: RopeCache,
         mask: torch.Tensor,
         input_pos: Optional[torch.Tensor] = None,
-        cache_kv: Optional[KvCache] = None,
+        kv_cache: Optional[KvCache] = None,
     ) -> Tuple[torch.Tensor, KvCache]:
-        h, new_cache_kv = self.attn(self.norm_1(x), rope, mask, input_pos, cache_kv)
+        h, new_kv_cache = self.attn(self.norm_1(x), rope, mask, input_pos, kv_cache)
         if self.parallel_residual:
             x = x + h + self.mlp(self.norm_2(x))
         else:
             x = x + h
             x = x + self.mlp(self.norm_2(x))
-        return x, new_cache_kv
+        return x, new_kv_cache
 
 
 class CausalSelfAttention(nn.Module):
@@ -161,7 +161,7 @@ class CausalSelfAttention(nn.Module):
         rope: RopeCache,
         mask: torch.Tensor,
         input_pos: Optional[torch.Tensor] = None,
-        cache_kv: Optional[KvCache] = None,
+        kv_cache: Optional[KvCache] = None,
     ) -> Tuple[torch.Tensor, KvCache]:
         B, T, C = x.size()  # batch size, sequence length, embedding dimensionality (n_embd)
 
@@ -178,11 +178,11 @@ class CausalSelfAttention(nn.Module):
         q = torch.cat((q_roped, q[..., n_elem:]), dim=-1)
         k = torch.cat((k_roped, k[..., n_elem:]), dim=-1)
 
-        if cache_kv is not None:
-            cache_k, cache_v = cache_kv
+        if kv_cache is not None:
+            cache_k, cache_v = kv_cache
             cache_k = cache_k.index_copy(2, input_pos, k)
             cache_v = cache_v.index_copy(2, input_pos, v)
-            cache_kv = cache_k, cache_v
+            kv_cache = cache_k, cache_v
             k = cache_k[:]
             v = cache_v[:]
 
@@ -194,7 +194,7 @@ class CausalSelfAttention(nn.Module):
         # output projection
         y = self.proj(y)
 
-        return y, cache_kv
+        return y, kv_cache
 
 
 class MLP(nn.Module):
