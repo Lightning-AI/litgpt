@@ -52,11 +52,10 @@ class Parrot(nn.Module):
     def forward(
         self, idx: torch.Tensor, input_pos: Optional[torch.Tensor] = None, kv_caches: Optional[List[KvCache]] = None
     ) -> Union[torch.Tensor, Tuple[torch.Tensor, List[KvCache]]]:
-        _, t = idx.size()
+        _, T = idx.size()
         assert (
-            t <= self.config.block_size
-        ), f"Cannot forward sequence of length {t}, block size is only {self.config.block_size}"
-
+            T <= self.config.block_size
+        ), f"Cannot forward sequence of length {T}, block size is only {self.config.block_size}"
         assert (input_pos is None and kv_caches is None) or (input_pos is not None and kv_caches is not None)
 
         if self.rope_cache is None:
@@ -72,9 +71,9 @@ class Parrot(nn.Module):
             target_len = kv_caches[0][0].size(2)
             mask = mask[:, :, :target_len, :target_len]
         else:
-            cos = cos[:t]
-            sin = sin[:t]
-            mask = self.mask_cache[:, :, :t, :t]
+            cos = cos[:T]
+            sin = sin[:T]
+            mask = self.mask_cache[:, :, :T, :T]
 
         if kv_caches is None:
             kv_caches = [None] * len(self.transformer.h)
