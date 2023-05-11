@@ -25,7 +25,8 @@ def load_convert_script():
 @pytest.mark.parametrize("batch_size", (1, 3))
 @pytest.mark.parametrize("n_embd", (16, 32))
 @pytest.mark.parametrize("parallel_residual", (False, True))
-def test_against_hf_model(rotary_pct, batch_size, n_embd, parallel_residual, lit_parrot) -> None:
+@pytest.mark.parametrize("kv_cache", (False, True))
+def test_against_hf_model(rotary_pct, batch_size, n_embd, parallel_residual, kv_cache, lit_parrot) -> None:
     block_size = 64
     # https://huggingface.co/stabilityai/stablelm-base-alpha-3b/blob/main/config.json#L24
     vocab_size = 100
@@ -56,7 +57,7 @@ def test_against_hf_model(rotary_pct, batch_size, n_embd, parallel_residual, lit
         rotary_pct=rotary_pct,
         vocab_size=ours_config.padded_vocab_size,
         use_parallel_residual=parallel_residual,
-        use_cache=False,
+        use_cache=kv_cache,
     )
 
     ours_model = lit_parrot.Parrot(ours_config)
@@ -74,10 +75,24 @@ def test_against_hf_model(rotary_pct, batch_size, n_embd, parallel_residual, lit
     ours_embed = ours_model.transformer.wte(token_sample)
     torch.testing.assert_close(ours_embed, theirs_embed)
 
-    (theirs_block_out,) = theirs_model.gpt_neox.layers[0](theirs_embed)
-    (ours_block_out, _) = ours_model.transformer.h[0](
-        ours_embed, ours_model.build_rope_cache(token_sample), ours_model.build_mask_cache(token_sample)
-    )
+    if kv_cache:
+        (theirs_block_out, theirs_kv_cache) = theirs_model.gpt_neox.layers[0](theirs_embed, use_cache=True)
+        cache_shape = (batch_size, n_head, block_size, n_embd // n_head)
+        ours_kv_cache = torch.empty(cache_shape), torch.empty(cache_shape)
+        (ours_block_out, ours_kv_cache) = ours_model.transformer.h[0](
+            ours_embed,
+            ours_model.build_rope_cache(token_sample),
+            ours_model.build_mask_cache(token_sample),
+            torch.arange(block_size),
+            ours_kv_cache,
+        )
+        for ours_cache, theirs_cache in zip(ours_kv_cache, theirs_kv_cache):
+            torch.testing.assert_close(ours_cache, theirs_cache)
+    else:
+        (theirs_block_out,) = theirs_model.gpt_neox.layers[0](theirs_embed)
+        ours_block_out, _ = ours_model.transformer.h[0](
+            ours_embed, ours_model.build_rope_cache(token_sample), ours_model.build_mask_cache(token_sample)
+        )
     torch.testing.assert_close(ours_block_out, theirs_block_out)
 
     theirs = theirs_model(token_sample)["logits"]
