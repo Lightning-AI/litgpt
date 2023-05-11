@@ -59,9 +59,6 @@ class Parrot(nn.Module):
 
         assert (input_pos is None and cache_kvs is None) or (input_pos is not None and cache_kvs is not None)
 
-        # forward the model itself
-        x = self.transformer.wte(idx)  # token embeddings of shape (b, t, n_embd)
-
         if self.rope_cache is None:
             self.rope_cache = self.build_rope_cache(idx)
         if self.mask_cache is None:
@@ -85,18 +82,19 @@ class Parrot(nn.Module):
         else:
             return_cache_kvs = True
 
+        # forward the model itself
+        x = self.transformer.wte(idx)  # token embeddings of shape (b, t, n_embd)
+
         new_cache_kvs = []
         for block, cache_kv in zip(self.transformer.h, cache_kvs):
             x, new_cache_kv = block(x, (cos, sin), mask, input_pos, cache_kv)
             new_cache_kvs.append(new_cache_kv)
+
         x = self.transformer.ln_f(x)
 
         logits = self.lm_head(x)  # (b, t, vocab_size)
 
-        if return_cache_kvs:
-            return logits, new_cache_kvs
-        else:
-            return logits
+        return (logits, new_cache_kvs) if return_cache_kvs else logits
 
     @classmethod
     def from_name(cls, name: str, **kwargs: Any) -> Self:
