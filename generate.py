@@ -32,9 +32,9 @@ def generate(
         idx: Tensor of shape (T) with indices of the prompt sequence.
         max_new_tokens: The number of new tokens to generate.
         max_seq_length: The maximum sequence length allowed. Defaults to the model's block size.
-        temperature: Scales the predicted logits by 1 / temperature
-        top_k: If specified, only sample among the tokens with the k highest probabilities
-        eos_id: If specified, stop generating any more token once the <eos> token is triggered
+        temperature: Scales the predicted logits by 1 / temperature.
+        top_k: If specified, only sample among the tokens with the k highest probabilities.
+        eos_id: If specified, stop generating any more token once the <eos> token is triggered.
     """
     # create an empty tensor of the expected final shape and fill in the current tokens
     T = idx.size(0)
@@ -51,6 +51,10 @@ def generate(
 
     input_pos = torch.arange(0, T).to(idx.device)
     input_idx = idx.index_select(0, input_pos)
+
+    if idx.device.type == "xla":
+        import torch_xla.core.xla_model as xm
+        xm.mark_step()
 
     # generate max_new_tokens tokens
     for t in range(T, T_new):
@@ -75,6 +79,9 @@ def generate(
         # if <eos> token is triggered, return the output (stop generation)
         if idx_next == eos_id:
             return idx[: t + 1]  # include the EOS token
+
+        if idx.device.type == "xla":
+            xm.mark_step()
 
     return idx
 
