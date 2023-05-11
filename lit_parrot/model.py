@@ -187,7 +187,7 @@ class CausalSelfAttention(nn.Module):
             cache_k, cache_v = kv_cache
             # check if reached token limit
             if input_pos[-1] >= max_seq_length:
-                input_pos = torch.tensor(max_seq_length - 1, device=cache_k.device)
+                input_pos = torch.tensor(max_seq_length - 1, device=input_pos.device)
                 # shift 1 position to the left
                 cache_k = torch.roll(cache_k, -1, dims=2)
                 cache_v = torch.roll(cache_v, -1, dims=2)
