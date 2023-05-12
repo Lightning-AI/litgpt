@@ -85,9 +85,16 @@ class Parrot(nn.Module):
                 x, _ = block(x, (cos, sin), mask, max_seq_length)
         else:
             if not self.kv_caches:
-                cache_shape = (B, self.config.n_head, max_seq_length, self.config.n_embd // self.config.n_head)
+                head_size = self.config.n_embd // self.config.n_head
+                k_cache_shape = (
+                    B,
+                    self.config.n_head,
+                    max_seq_length,
+                    cos.size(-1) + head_size - int(self.config.rotary_percentage * head_size)
+                )
+                v_cache_shape = (B, self.config.n_head, max_seq_length, head_size)
                 self.kv_caches = [
-                    (torch.zeros(cache_shape, device=idx.device), torch.zeros(cache_shape, device=idx.device))
+                    (torch.zeros(k_cache_shape, device=idx.device), torch.zeros(v_cache_shape, device=idx.device))
                     for _ in range(self.config.n_layer)
                 ]
             for i, block in enumerate(self.transformer.h):
