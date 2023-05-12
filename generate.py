@@ -31,7 +31,7 @@ def generate(
         model: The model to use.
         idx: Tensor of shape (T) with indices of the prompt sequence.
         max_new_tokens: The number of new tokens to generate.
-        max_seq_length: The maximum sequence length allowed. Defaults to the model's block size.
+        max_seq_length: The maximum sequence length allowed.
         temperature: Scales the predicted logits by 1 / temperature.
         top_k: If specified, only sample among the tokens with the k highest probabilities.
         eos_id: If specified, stop generating any more token once the <eos> token is triggered.
