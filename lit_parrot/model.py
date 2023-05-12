@@ -13,8 +13,8 @@ from typing_extensions import Self
 
 from lit_parrot.config import Config
 
-RopeCache = Tuple[torch.Tensor, torch.Tensor]
-KvCache = Tuple[torch.Tensor, torch.Tensor]
+RoPECache = Tuple[torch.Tensor, torch.Tensor]
+KVCache = Tuple[torch.Tensor, torch.Tensor]
 
 
 class Parrot(nn.Module):
@@ -31,9 +31,9 @@ class Parrot(nn.Module):
                 ln_f=nn.LayerNorm(config.n_embd),
             )
         )
-        self.rope_cache: Optional[RopeCache] = None
+        self.rope_cache: Optional[RoPECache] = None
         self.mask_cache: Optional[torch.Tensor] = None
-        self.kv_caches: List[KvCache] = []
+        self.kv_caches: List[KVCache] = []
 
     def _init_weights(self, module: nn.Module) -> None:
         if isinstance(module, nn.Linear):
@@ -51,7 +51,7 @@ class Parrot(nn.Module):
 
     def forward(
         self, idx: torch.Tensor, max_seq_length: Optional[int] = None, input_pos: Optional[torch.Tensor] = None
-    ) -> Union[torch.Tensor, Tuple[torch.Tensor, List[KvCache]]]:
+    ) -> Union[torch.Tensor, Tuple[torch.Tensor, List[KVCache]]]:
         B, T = idx.size()
 
         block_size = self.config.block_size
@@ -110,7 +110,7 @@ class Parrot(nn.Module):
     def from_name(cls, name: str, **kwargs: Any) -> Self:
         return cls(Config.from_name(name, **kwargs))
 
-    def build_rope_cache(self, idx: torch.Tensor) -> KvCache:
+    def build_rope_cache(self, idx: torch.Tensor) -> KVCache:
         return build_rope_cache(
             seq_len=self.config.block_size,
             n_elem=int(self.config.rotary_percentage * (self.config.n_embd // self.config.n_head)),
@@ -136,12 +136,12 @@ class Block(nn.Module):
     def forward(
         self,
         x: torch.Tensor,
-        rope: RopeCache,
+        rope: RoPECache,
         mask: torch.Tensor,
         max_seq_length: int,
         input_pos: Optional[torch.Tensor] = None,
-        kv_cache: Optional[KvCache] = None,
-    ) -> Tuple[torch.Tensor, Optional[KvCache]]:
+        kv_cache: Optional[KVCache] = None,
+    ) -> Tuple[torch.Tensor, Optional[KVCache]]:
         h, new_kv_cache = self.attn(self.norm_1(x), rope, mask, max_seq_length, input_pos, kv_cache)
         if self.parallel_residual:
             x = x + h + self.mlp(self.norm_2(x))
@@ -169,12 +169,12 @@ class CausalSelfAttention(nn.Module):
     def forward(
         self,
         x: torch.Tensor,
-        rope: RopeCache,
+        rope: RoPECache,
         mask: torch.Tensor,
         max_seq_length: int,
         input_pos: Optional[torch.Tensor] = None,
-        kv_cache: Optional[KvCache] = None,
-    ) -> Tuple[torch.Tensor, Optional[KvCache]]:
+        kv_cache: Optional[KVCache] = None,
+    ) -> Tuple[torch.Tensor, Optional[KVCache]]:
         B, T, C = x.size()  # batch size, sequence length, embedding dimensionality (n_embd)
 
         qkv = self.attn(x)
@@ -230,7 +230,7 @@ class MLP(nn.Module):
 
 def build_rope_cache(
     seq_len: int, n_elem: int, dtype: torch.dtype, device: torch.device, base: int = 10000
-) -> RopeCache:
+) -> RoPECache:
     """Enhanced Transformer with Rotary Position Embedding.
 
     Derived from: https://github.com/labmlai/annotated_deep_learning_paper_implementations/blob/master/labml_nn/
