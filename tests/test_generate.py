@@ -36,7 +36,7 @@ def fake_checkpoint_dir(tmp_path):
     return checkpoint_dir
 
 
-@pytest.mark.parametrize("max_seq_length", (10, 9999))
+@pytest.mark.parametrize("max_seq_length", (10, 20 + 5))
 def test_generate(max_seq_length):
     generate = load_generate_script()
 
@@ -101,7 +101,7 @@ def test_main(_, fake_checkpoint_dir, monkeypatch):
 
     assert len(tokenizer_mock.return_value.decode.mock_calls) == num_samples
     assert torch.allclose(tokenizer_mock.return_value.decode.call_args[0][0], generate_mock.return_value)
-    assert generate_mock.mock_calls == [call(ANY, ANY, 50, ANY, temperature=2.0, top_k=2)] * num_samples
+    assert generate_mock.mock_calls == [call(ANY, ANY, 50, temperature=2.0, top_k=2)] * num_samples
     # only the generated result is printed to stdout
     assert out.getvalue() == "foo bar baz\n" * num_samples
 

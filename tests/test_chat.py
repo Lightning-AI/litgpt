@@ -23,18 +23,19 @@ def load_script():
 @pytest.mark.parametrize(
     ("generated", "stop_tokens", "expected"),
     [
-        (repeat(1), tuple(), [1] * 6),
-        ([1, 2, 3, 0], ([0],), [1, 2, [3]]),
+        (repeat(1), tuple(), [1] * 8),
+        ([1, 2, 3, 0], ([0],), [1, 2, 3]),
         ([1, 2, 3, 0], ([9], [2, 4], [1, 2, 3, 0]), []),
-        ([1, 2, 3, 0, 0], ([0, 0, 0], [0, 0]), [1, [2, 3]]),
+        ([1, 2, 3, 0, 0], ([0, 0, 0], [0, 0]), [1, 2, [3]]),
     ],
 )
 def test_generate(generated, stop_tokens, expected):
     chat = load_script()
 
     input_idx = torch.tensor([5, 3])
-    max_seq_len = 8
+    max_new_tokens = 8
     model = MagicMock()
+    model.config.block_size = 100
 
     original_multinomial = torch.multinomial
     it = iter(generated)
@@ -44,12 +45,13 @@ def test_generate(generated, stop_tokens, expected):
         return torch.tensor([out])
 
     chat.torch.multinomial = multinomial
-    actual = chat.generate(model, input_idx, max_seq_len, stop_tokens=stop_tokens)
+    actual = chat.generate(model, input_idx, max_new_tokens=max_new_tokens, stop_tokens=stop_tokens)
     actual = list(actual)
     chat.torch.multinomial = original_multinomial
 
-    actual = [t.tolist() for t in actual]
-    assert actual == expected
+    for t in actual:
+        assert t.dtype == torch.long
+    assert [t.tolist() for t in actual] == expected
 
 
 def test_cli():

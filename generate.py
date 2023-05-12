@@ -14,10 +14,11 @@ from lit_parrot.utils import EmptyInitOnDevice, lazy_load, check_valid_checkpoin
 
 @torch.no_grad()
 def generate(
-    model: torch.nn.Module,
+    model: Parrot,
     idx: torch.Tensor,
     max_new_tokens: int,
-    max_seq_length: int,
+    *,
+    max_seq_length: Optional[int] = None,
     temperature: float = 1.0,
     top_k: Optional[int] = None,
     eos_id: Optional[int] = None,
@@ -35,45 +36,53 @@ def generate(
         top_k: If specified, only sample among the tokens with the k highest probabilities.
         eos_id: If specified, stop generating any more token once the <eos> token is triggered.
     """
-    # create an empty tensor of the expected final shape and fill in the current tokens
     T = idx.size(0)
     T_new = T + max_new_tokens
-    empty = torch.empty(T_new, dtype=idx.dtype, device=idx.device)
+    if max_seq_length is None:
+        max_seq_length = min(T_new, model.config.block_size)
+    # otherwise this would use more memory than necessary
+    assert max_seq_length <= T_new
+
+    device, dtype = idx.device, idx.dtype
+    # create an empty tensor of the expected final shape and fill in the current tokens
+    empty = torch.empty(T_new, dtype=dtype, device=device)
     empty[:T] = idx
     idx = empty
+    input_pos = torch.arange(0, T, device=device)
 
     if idx.device.type == "xla":
         import torch_xla.core.xla_model as xm
+
         xm.mark_step()
 
     # generate max_new_tokens tokens
-    for t in range(T, T_new):
-        # ignore the not-filled-yet tokens
-        idx_cond = idx[:t]
-        # if the sequence context is growing too long we must crop it at max_seq_length
-        idx_cond = idx_cond if t <= max_seq_length else idx_cond[-max_seq_length:]
+    for _ in range(max_new_tokens):
+        x = idx.index_select(0, input_pos).view(1, -1)
 
         # forward
-        logits = model(idx_cond.view(1, -1))
+        logits = model(x, max_seq_length, input_pos)
         logits = logits[0, -1] / temperature
 
         # optionally crop the logits to only the top k options
         if top_k is not None:
             v, _ = torch.topk(logits, min(top_k, logits.size(-1)))
-            logits[logits < v[[-1]]] = -float("Inf")
+            logits = torch.where(logits < v[[-1]], -float("Inf"), logits)
 
         probs = torch.nn.functional.softmax(logits, dim=-1)
-        idx_next = torch.multinomial(probs, num_samples=1)
+        idx_next = torch.multinomial(probs, num_samples=1).to(dtype=dtype)
 
-        # concatenate the new generation
-        idx[t] = idx_next
-
-        # if <eos> token is triggered, return the output (stop generation)
-        if idx_next == eos_id:
-            return idx[: t + 1]  # include the EOS token
+        # advance
+        input_pos = input_pos[-1:] + 1
 
         if idx.device.type == "xla":
             xm.mark_step()
+
+        # concatenate the new generation
+        idx = idx.index_copy(0, input_pos, idx_next)
+
+        # if <eos> token is triggered, return the output (stop generation)
+        if idx_next == eos_id:
+            return idx[:input_pos]  # include the EOS token
 
     return idx
 
@@ -129,14 +138,7 @@ def main(
     L.seed_everything(1234)
     for i in range(num_samples):
         t0 = time.perf_counter()
-        y = generate(
-            model,
-            encoded,
-            max_new_tokens,
-            model.config.block_size,  # type: ignore[union-attr,arg-type]
-            temperature=temperature,
-            top_k=top_k,
-        )
+        y = generate(model, encoded, max_new_tokens, temperature=temperature, top_k=top_k)
         t = time.perf_counter() - t0
 
         print(tokenizer.decode(y))
