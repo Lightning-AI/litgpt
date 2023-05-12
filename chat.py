@@ -152,7 +152,6 @@ def main(
         )
         print(f">> Reply: ", end="")
         try:
-            torch.cuda.reset_peak_memory_stats()
             tokens_generated = 0
             t0 = time.perf_counter()
             for token in y:
