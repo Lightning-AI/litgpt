@@ -38,7 +38,7 @@ python3 generate.py --prompt "Hello, my name is" --num_samples 3
 ```
 
 This command will take a long time as XLA needs to compile the graph: ~20s for the first generation.
-In fact, you'll notice that the second sample takes considerable less time; ~9s, and ~2s after.
+In fact, you'll notice that the second sample takes considerable less time: ~9s, and ~2s after.
 
 ## Finetuning
 
