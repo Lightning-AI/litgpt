@@ -73,15 +73,16 @@ def generate(
 
         # advance
         input_pos = input_pos[-1:] + 1
+
+        if idx.device.type == "xla":
+            xm.mark_step()
+
         # concatenate the new generation
         idx = idx.index_copy(0, input_pos, idx_next)
 
         # if <eos> token is triggered, return the output (stop generation)
         if idx_next == eos_id:
             return idx[:input_pos]  # include the EOS token
-
-        if idx.device.type == "xla":
-            xm.mark_step()
 
     return idx
 
