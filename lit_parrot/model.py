@@ -90,7 +90,7 @@ class Parrot(nn.Module):
                     B,
                     self.config.n_head,
                     max_seq_length,
-                    cos.size(-1) + head_size - int(self.config.rotary_percentage * head_size)
+                    cos.size(-1) + head_size - int(self.config.rotary_percentage * head_size),
                 )
                 v_cache_shape = (B, self.config.n_head, max_seq_length, head_size)
                 self.kv_caches = [
