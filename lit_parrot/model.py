@@ -71,7 +71,7 @@ class Parrot(nn.Module):
             cos = cos.index_select(0, input_pos)
             sin = sin.index_select(0, input_pos)
             mask = self.mask_cache.index_select(2, input_pos)
-            mask = mask[:, :, :max_seq_length, :max_seq_length]
+            mask = mask[:, :, :, :max_seq_length]
         else:
             cos = cos[:T]
             sin = sin[:T]

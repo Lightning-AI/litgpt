@@ -52,7 +52,6 @@ def generate(
 
     if idx.device.type == "xla":
         import torch_xla.core.xla_model as xm
-
         xm.mark_step()
 
     yield_i = -1
@@ -71,6 +70,10 @@ def generate(
 
         # advance
         input_pos = input_pos[-1:] + 1
+
+        if idx.device.type == "xla":
+            xm.mark_step()
+
         # concatenate the new generation
         buffer[min(t, buffer_length - 1)] = idx
 
@@ -89,9 +92,6 @@ def generate(
             # roll once to the left, as next generation will be put at the end
             buffer = torch.roll(buffer, -1, 0)
             yield_i += 1
-
-        if idx.device.type == "xla":
-            xm.mark_step()
 
 
 def main(
