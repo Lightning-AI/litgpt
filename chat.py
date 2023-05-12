@@ -14,9 +14,11 @@ from lit_parrot.utils import EmptyInitOnDevice, lazy_load, check_valid_checkpoin
 
 @torch.no_grad()
 def generate(
-    model: torch.nn.Module,
+    model: Parrot,
     idx: torch.Tensor,
-    max_seq_length: int,
+    max_new_tokens: int,
+    *,
+    max_seq_length: Optional[int] = None,
     temperature: float = 1.0,
     top_k: Optional[int] = None,
     stop_tokens: Tuple[List[int], ...] = tuple(),
@@ -26,52 +28,68 @@ def generate(
     Args:
         model: The model to use.
         idx: Tensor of shape (T) with indices of the prompt sequence.
-        max_seq_length: The maximum sequence length allowed.
+        max_new_tokens: The number of new tokens to generate.
+        max_seq_length: The maximum sequence length allowed. Defaults to the model's block size.
         temperature: Scales the predicted logits by 1 / temperature
         top_k: If specified, only sample among the tokens with the k highest probabilities
         stop_tokens: If specified, stop generating any more token once one of this list is generated.
     """
-    stop_tokens = [torch.tensor(tokens, device=idx.device) for tokens in stop_tokens]
-    T = yield_i = idx.size(0)
-    assert max_seq_length > T
-    buffer = max((len(tokens) for tokens in stop_tokens), default=0)
+    T = idx.size(0)
+    T_new = T + max_new_tokens
+    if max_seq_length is None:
+        max_seq_length = min(T_new, model.config.block_size)
+    # otherwise this would use more memory than necessary
+    assert max_seq_length <= T_new
+
+    device = idx.device
+    stop_tokens = [torch.tensor(tokens, device=device) for tokens in stop_tokens]
+    input_pos = torch.arange(0, T, device=device)
+
+    # buffer holds the tokens that haven't been yield yet
+    buffer_length = max((len(tokens) for tokens in stop_tokens), default=1)
+    buffer = torch.full((buffer_length,), -999, device=device)  # fill with non-existing token
 
     if idx.device.type == "xla":
         import torch_xla.core.xla_model as xm
         xm.mark_step()
 
-    for t in range(T, max_seq_length):
+    yield_i = -1
+    for t in range(max_new_tokens):
         # forward
-        logits = model(idx.view(1, -1))
+        logits = model(idx.view(1, -1), max_seq_length, input_pos)
         logits = logits[0, -1] / temperature
 
         # optionally crop the logits to only the top k options
         if top_k is not None:
             v, _ = torch.topk(logits, min(top_k, logits.size(-1)))
-            logits[logits < v[[-1]]] = -float("Inf")
+            logits = torch.where(logits < v[[-1]], -float("Inf"), logits)
 
         probs = torch.nn.functional.softmax(logits, dim=-1)
-        idx_next = torch.multinomial(probs, num_samples=1)
+        idx = torch.multinomial(probs, num_samples=1)
 
+        # advance
+        input_pos = input_pos[-1:] + 1
         # concatenate the new generation
-        idx = torch.cat((idx, idx_next), dim=-1)
-
-        if idx.device.type == "xla":
-            xm.mark_step()
+        buffer[min(t, buffer_length - 1)] = idx
 
         # check the stop condition
         for tokens in stop_tokens:
             l = len(tokens)
-            if torch.equal(idx[-l:], tokens):
+            if torch.equal(buffer[-l:], tokens):
                 # stop token hit, yield any leftovers that aren't part of it
-                last = t - l + 1
-                if last > yield_i:  # avoid an empty yield
-                    yield idx[yield_i:last]
+                if buffer_length > l:  # avoid an empty yield
+                    yield buffer[:-l]
                 return
-        if t - yield_i >= buffer:
+        # if the buffer is full
+        if t - yield_i >= buffer_length:
             # we know this idx is not part of stop tokens, safe to yield
-            yield idx[yield_i]
+            yield buffer[0]
+            # roll once to the left, as next generation will be put at the end
+            buffer = torch.roll(buffer, -1, 0)
             yield_i += 1
+
+        if idx.device.type == "xla":
+            xm.mark_step()
 
 
 def main(
@@ -125,7 +143,7 @@ def main(
         y = generate(
             model,
             encoded_prompt,
-            model.config.block_size,  # type: ignore[union-attr,arg-type]
+            max_new_tokens=model.config.block_size,  # type: ignore[union-attr,arg-type]
             temperature=temperature,
             top_k=top_k,
             stop_tokens=stop_tokens,

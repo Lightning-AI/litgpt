@@ -14,7 +14,7 @@ from lit_parrot.utils import EmptyInitOnDevice, lazy_load, check_valid_checkpoin
 
 @torch.no_grad()
 def generate(
-    model: torch.nn.Module,
+    model: Parrot,
     idx: torch.Tensor,
     max_new_tokens: int,
     *,
@@ -36,15 +36,15 @@ def generate(
         top_k: If specified, only sample among the tokens with the k highest probabilities.
         eos_id: If specified, stop generating any more token once the <eos> token is triggered.
     """
-    # create an empty tensor of the expected final shape and fill in the current tokens
     T = idx.size(0)
     T_new = T + max_new_tokens
     if max_seq_length is None:
-        max_seq_length = T_new
+        max_seq_length = min(T_new, model.config.block_size)
     # otherwise this would use more memory than necessary
     assert max_seq_length <= T_new
 
     device, dtype = idx.device, idx.dtype
+    # create an empty tensor of the expected final shape and fill in the current tokens
     empty = torch.empty(T_new, dtype=dtype, device=device)
     empty[:T] = idx
     idx = empty
@@ -70,8 +70,9 @@ def generate(
         probs = torch.nn.functional.softmax(logits, dim=-1)
         idx_next = torch.multinomial(probs, num_samples=1).to(dtype=dtype)
 
-        # concatenate the new generation
+        # advance
         input_pos = input_pos[-1:] + 1
+        # concatenate the new generation
         idx = idx.index_copy(0, input_pos, idx_next)
 
         # if <eos> token is triggered, return the output (stop generation)
