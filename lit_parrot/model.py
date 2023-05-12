@@ -141,7 +141,7 @@ class Block(nn.Module):
         max_seq_length: int,
         input_pos: Optional[torch.Tensor] = None,
         kv_cache: Optional[KvCache] = None,
-    ) -> Tuple[torch.Tensor, KvCache]:
+    ) -> Tuple[torch.Tensor, Optional[KvCache]]:
         h, new_kv_cache = self.attn(self.norm_1(x), rope, mask, max_seq_length, input_pos, kv_cache)
         if self.parallel_residual:
             x = x + h + self.mlp(self.norm_2(x))
@@ -174,7 +174,7 @@ class CausalSelfAttention(nn.Module):
         max_seq_length: int,
         input_pos: Optional[torch.Tensor] = None,
         kv_cache: Optional[KvCache] = None,
-    ) -> Tuple[torch.Tensor, KvCache]:
+    ) -> Tuple[torch.Tensor, Optional[KvCache]]:
         B, T, C = x.size()  # batch size, sequence length, embedding dimensionality (n_embd)
 
         qkv = self.attn(x)
