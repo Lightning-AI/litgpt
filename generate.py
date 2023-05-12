@@ -52,6 +52,7 @@ def generate(
 
     if idx.device.type == "xla":
         import torch_xla.core.xla_model as xm
+
         xm.mark_step()
 
     # generate max_new_tokens tokens

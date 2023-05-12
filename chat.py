@@ -1,6 +1,7 @@
 import json
 import re
 import sys
+import time
 import warnings
 from pathlib import Path
 from typing import Optional, Tuple, List
@@ -51,6 +52,7 @@ def generate(
 
     if idx.device.type == "xla":
         import torch_xla.core.xla_model as xm
+
         xm.mark_step()
 
     yield_i = -1
@@ -150,8 +152,14 @@ def main(
         )
         print(f">> Reply: ", end="")
         try:
+            torch.cuda.reset_peak_memory_stats()
+            tokens_generated = 0
+            t0 = time.perf_counter()
             for token in y:
                 print(tokenizer.decode(token), end="", flush=True)
+                tokens_generated += 1
+            t = time.perf_counter() - t0
+            print(f"Time for inference: {t:.02f} sec total, {tokens_generated / t:.02f} tokens/sec", file=sys.stderr)
         except KeyboardInterrupt:
             # support stopping generation
             pass
