@@ -31,7 +31,7 @@ class Parrot(nn.Module):
                 ln_f=nn.LayerNorm(config.n_embd),
             )
         )
-        self.rope_cache: Optional[KvCache] = None
+        self.rope_cache: Optional[RopeCache] = None
         self.mask_cache: Optional[torch.Tensor] = None
         self.kv_caches: List[KvCache] = []
 
