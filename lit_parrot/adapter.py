@@ -88,8 +88,8 @@ class CausalSelfAttention(nn.Module):
 
         if kv_cache is not None:
             cache_k, cache_v = kv_cache
-            cache_k = cache_k.type(torch.bfloat16)
-            cache_v = cache_v.type(torch.bfloat16)
+            #cache_k = cache_k.type(torch.bfloat16)
+            #cache_v = cache_v.type(torch.bfloat16)
             # check if reached token limit
             if input_pos[-1] >= max_seq_length:
                 input_pos = torch.tensor(max_seq_length - 1, device=input_pos.device)
