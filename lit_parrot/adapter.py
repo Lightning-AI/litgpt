@@ -74,12 +74,17 @@ class CausalSelfAttention(nn.Module):
         q, k, v = qkv.split(head_size, dim=-1)  # (B, nh, T, hs)
 
         n_elem = int(self.rotary_percentage * head_size)
-
-        cos, sin = rope
-        q_roped = apply_rope(q[..., :n_elem], cos, sin)
-        k_roped = apply_rope(k[..., :n_elem], cos, sin)
-        q = torch.cat((q_roped, q[..., n_elem:]), dim=-1)
-        k = torch.cat((k_roped, k[..., n_elem:]), dim=-1)
+        
+        
+        if self.rope_cache is None:
+            self.rope_cache = build_rope_cache(self.block_size, n_elem, x.dtype, x.device)
+            cos, sin = self.rope_cache
+            cos, sin = cos[:T], sin[:T]
+            cos, sin = rope
+            q_roped = apply_rope(q[..., :n_elem], cos, sin)
+            k_roped = apply_rope(k[..., :n_elem], cos, sin)
+            q = torch.cat((q_roped, q[..., n_elem:]), dim=-1)
+            k = torch.cat((k_roped, k[..., n_elem:]), dim=-1)
 
         if kv_cache is not None:
             cache_k, cache_v = kv_cache
