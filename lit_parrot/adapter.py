@@ -97,7 +97,20 @@ class CausalSelfAttention(nn.Module):
 
         # efficient attention using Flash Attention CUDA kernels
         y = F.scaled_dot_product_attention(q, k, v, attn_mask=mask, dropout_p=0.0, scale=1.0 / math.sqrt(head_size))
+        
+        
+        if self.block_idx >= self.adapter_start_layer:
+            prefix = self.adapter_wte.weight.reshape(1, self.adapter_prompt_length, self.n_embd)
 
+            aT = prefix.size(1)
+            _, ak, av = self.attn(prefix).split(self.n_embd, dim=2)  # mayby dim=2
+            ak = ak.view(1, aT, self.n_head, head_size).repeat(B, 1, 1, 1).transpose(1, 2)
+            av = av.view(1, aT, self.n_head, head_size).repeat(B, 1, 1, 1).transpose(1, 2)
+
+            amask = torch.ones(q.shape[-2], ak.shape[-2], dtype=torch.bool, device=x.device)
+            ay = F.scaled_dot_product_attention(q, ak, av, attn_mask=amask, dropout_p=0.0, is_causal=False)
+            y = y + self.gating_factor * ay
+        
         y = y.transpose(1, 2).contiguous().view(B, T, C)  # re-assemble all head outputs side by side
 
         # output projection
