@@ -22,7 +22,7 @@ def main(
     checkpoint_dir: Path = Path(f"checkpoints/stabilityai/stablelm-base-alpha-3b"),
     quantize: Optional[str] = None,
     max_new_tokens: int = 100,
-    top_k: int = 19,
+    top_k: int = 200,
     temperature: float = 0.8,
 ) -> None:
     """Generates a response based on a given instruction and an optional input.
