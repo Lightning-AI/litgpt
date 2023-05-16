@@ -16,11 +16,7 @@ from torch.nn import functional as F
 from typing_extensions import Self
 
 from lit_parrot.config import Config as BaseConfig
-from lit_parrot.model import MLP, Parrot as BaseModel, build_rope_cache, apply_rope
-
-
-RoPECache = Tuple[torch.Tensor, torch.Tensor]
-KVCache = Tuple[torch.Tensor, torch.Tensor]
+from lit_parrot.model import MLP, Parrot as BaseModel, build_rope_cache, apply_rope, RoPECache, KVCache
 
 
 @dataclass
