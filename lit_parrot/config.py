@@ -24,7 +24,9 @@ class Config:
 
     @classmethod
     def from_name(cls, name: str, **kwargs: Any) -> Self:
-        return cls(**configs[name], **kwargs)
+        conf_dict = configs[name].copy()
+        conf_dict.update(kwargs)
+        return cls(**conf_dict)
 
 
 # fmt: off
