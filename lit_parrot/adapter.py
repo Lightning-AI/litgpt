@@ -8,7 +8,7 @@ Port for Lit-Parrot
 
 import math
 from dataclasses import dataclass
-from typing import Optional, Tuple, Any
+from typing import Optional, Tuple, Any, List
 
 import torch
 import torch.nn as nn
@@ -21,6 +21,7 @@ from lit_parrot.model import MLP, Parrot as BaseModel, build_rope_cache, apply_r
 
 RoPECache = Tuple[torch.Tensor, torch.Tensor]
 KVCache = Tuple[torch.Tensor, torch.Tensor]
+
 
 @dataclass
 class Config(BaseConfig):
@@ -51,11 +52,9 @@ class CausalSelfAttention(nn.Module):
         self.n_embd = config.n_embd
         self.block_size = config.block_size
         self.rotary_percentage = config.rotary_percentage
-        self.rope_cache: Optional[Tuple[torch.Tensor, torch.Tensor]] = None
         self.block_idx = block_idx
         self.adapter_prompt_length = config.adapter_prompt_length
         self.adapter_start_layer = config.adapter_start_layer
-
 
     def forward(
         self,
@@ -74,22 +73,15 @@ class CausalSelfAttention(nn.Module):
         q, k, v = qkv.split(head_size, dim=-1)  # (B, nh, T, hs)
 
         n_elem = int(self.rotary_percentage * head_size)
-        
-        
-        if self.rope_cache is None:
-            self.rope_cache = build_rope_cache(self.block_size, n_elem, x.dtype, x.device)
-            cos, sin = self.rope_cache
-            cos, sin = cos[:T], sin[:T]
-            cos, sin = rope
-            q_roped = apply_rope(q[..., :n_elem], cos, sin)
-            k_roped = apply_rope(k[..., :n_elem], cos, sin)
-            q = torch.cat((q_roped, q[..., n_elem:]), dim=-1)
-            k = torch.cat((k_roped, k[..., n_elem:]), dim=-1)
+
+        cos, sin = rope
+        q_roped = apply_rope(q[..., :n_elem], cos, sin)
+        k_roped = apply_rope(k[..., :n_elem], cos, sin)
+        q = torch.cat((q_roped, q[..., n_elem:]), dim=-1)
+        k = torch.cat((k_roped, k[..., n_elem:]), dim=-1)
 
         if kv_cache is not None:
             cache_k, cache_v = kv_cache
-            #cache_k = cache_k.type(torch.bfloat16)
-            #cache_v = cache_v.type(torch.bfloat16)
             # check if reached token limit
             if input_pos[-1] >= max_seq_length:
                 input_pos = torch.tensor(max_seq_length - 1, device=input_pos.device)
@@ -102,8 +94,7 @@ class CausalSelfAttention(nn.Module):
 
         # efficient attention using Flash Attention CUDA kernels
         y = F.scaled_dot_product_attention(q, k, v, attn_mask=mask, dropout_p=0.0, scale=1.0 / math.sqrt(head_size))
-        
-        
+
         if self.block_idx >= self.adapter_start_layer:
             prefix = self.adapter_wte.weight.reshape(1, self.adapter_prompt_length, self.n_embd)
 
@@ -115,14 +106,13 @@ class CausalSelfAttention(nn.Module):
             amask = torch.ones(q.shape[-2], ak.shape[-2], dtype=torch.bool, device=x.device)
             ay = F.scaled_dot_product_attention(q, ak, av, attn_mask=amask, dropout_p=0.0, is_causal=False)
             y = y + self.gating_factor * ay
-        
+
         y = y.transpose(1, 2).contiguous().view(B, T, C)  # re-assemble all head outputs side by side
 
         # output projection
         y = self.proj(y)
 
         return y, kv_cache
-        
 
 
 class Block(nn.Module):
