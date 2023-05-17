@@ -8,7 +8,7 @@ Port for Lit-Parrot
 
 import math
 from dataclasses import dataclass
-from typing import Optional, Tuple, Any, List
+from typing import Optional, Tuple, Any, List, Union
 
 import torch
 import torch.nn as nn
@@ -60,7 +60,8 @@ class CausalSelfAttention(nn.Module):
         max_seq_length: int,
         input_pos: Optional[torch.Tensor] = None,
         kv_cache: Optional[KVCache] = None,
-    ) -> Tuple[torch.Tensor, Optional[KVCache]]:
+        adapter_kv_cache: Optional[KVCache] = None,
+    ) -> Tuple[torch.Tensor, Optional[KVCache], Optional[KVCache]]:
         B, T, C = x.size()  # batch size, sequence length, embedding dimensionality (n_embd)
 
         qkv = self.attn(x)
@@ -92,12 +93,15 @@ class CausalSelfAttention(nn.Module):
         y = F.scaled_dot_product_attention(q, k, v, attn_mask=mask, dropout_p=0.0, scale=1.0 / math.sqrt(head_size))
 
         if self.block_idx >= self.adapter_start_layer:
-            prefix = self.adapter_wte.weight.reshape(1, self.adapter_prompt_length, self.n_embd)
-
-            aT = prefix.size(1)
-            _, ak, av = self.attn(prefix).split(self.n_embd, dim=2)  # mayby dim=2
-            ak = ak.view(1, aT, self.n_head, head_size).repeat(B, 1, 1, 1).transpose(1, 2)
-            av = av.view(1, aT, self.n_head, head_size).repeat(B, 1, 1, 1).transpose(1, 2)
+            if adapter_kv_cache is not None:
+                ak, av = adapter_kv_cache
+            else:
+                prefix = self.adapter_wte.weight.reshape(1, self.adapter_prompt_length, self.n_embd)
+                aT = prefix.size(1)
+                _, ak, av = self.attn(prefix).split(self.n_embd, dim=2)  # mayby dim=2
+                ak = ak.view(1, aT, self.n_head, head_size).repeat(B, 1, 1, 1).transpose(1, 2)
+                av = av.view(1, aT, self.n_head, head_size).repeat(B, 1, 1, 1).transpose(1, 2)
+                adapter_kv_cache = (ak, av)
 
             amask = torch.ones(q.shape[-2], ak.shape[-2], dtype=torch.bool, device=x.device)
             ay = F.scaled_dot_product_attention(q, ak, av, attn_mask=amask, dropout_p=0.0, is_causal=False)
@@ -108,7 +112,7 @@ class CausalSelfAttention(nn.Module):
         # output projection
         y = self.proj(y)
 
-        return y, kv_cache
+        return y, kv_cache, adapter_kv_cache
 
 
 class Block(nn.Module):
@@ -132,14 +136,15 @@ class Block(nn.Module):
         max_seq_length: int,
         input_pos: Optional[torch.Tensor] = None,
         kv_cache: Optional[KVCache] = None,
-    ) -> Tuple[torch.Tensor, Optional[KVCache]]:
-        h, new_kv_cache = self.attn(self.norm_1(x), rope, mask, max_seq_length, input_pos, kv_cache)
+        adapter_kv_cache: Optional[KVCache] = None,
+    ) -> Tuple[torch.Tensor, Optional[KVCache], Optional[KVCache]]:
+        h, new_kv_cache, new_adapter_kv_cache = self.attn(self.norm_1(x), rope, mask, max_seq_length, input_pos, kv_cache, adapter_kv_cache)
         if self.parallel_residual:
             x = x + h + self.mlp(self.norm_2(x))
         else:
             x = x + h
             x = x + self.mlp(self.norm_2(x))
-        return x, new_kv_cache
+        return x, new_kv_cache, new_adapter_kv_cache
 
 
 class Parrot(BaseModel):
@@ -163,6 +168,68 @@ class Parrot(BaseModel):
         self.rope_cache: Optional[RoPECache] = None
         self.mask_cache: Optional[torch.Tensor] = None
         self.kv_caches: List[KVCache] = []
+        self.adapter_kv_caches: List[KVCache] = []
+
+
+    def forward(
+        self, idx: torch.Tensor, max_seq_length: Optional[int] = None, input_pos: Optional[torch.Tensor] = None
+    ) -> Union[torch.Tensor, Tuple[torch.Tensor, List[KVCache], List[KVCache]]]:
+        B, T = idx.size()
+
+        block_size = self.config.block_size
+        if max_seq_length is None:
+            max_seq_length = block_size
+        assert T <= max_seq_length, f"Cannot forward sequence of length {T}, max seq length is only {max_seq_length}"
+        assert max_seq_length <= block_size, f"Cannot attend to {max_seq_length}, block size is only {block_size}"
+        assert T <= block_size, f"Cannot forward sequence of length {T}, block size is only {block_size}"
+
+        if self.rope_cache is None:
+            self.rope_cache = self.build_rope_cache(idx)
+        if self.mask_cache is None:
+            self.mask_cache = self.build_mask_cache(idx)
+
+        cos, sin = self.rope_cache
+        if input_pos is not None:
+            cos = cos.index_select(0, input_pos)
+            sin = sin.index_select(0, input_pos)
+            mask = self.mask_cache.index_select(2, input_pos)
+            mask = mask[:, :, :, :max_seq_length]
+        else:
+            cos = cos[:T]
+            sin = sin[:T]
+            mask = self.mask_cache[:, :, :T, :T]
+
+        # forward the model itself
+        x = self.transformer.wte(idx)  # token embeddings of shape (b, t, n_embd)
+
+        if input_pos is None:  # proxy for use_cache=False
+            for block in self.transformer.h:
+                x, _ = block(x, (cos, sin), mask, max_seq_length)
+        else:
+            if not self.kv_caches:
+                head_size = self.config.n_embd // self.config.n_head
+                k_cache_shape = (
+                    B,
+                    self.config.n_head,
+                    max_seq_length,
+                    cos.size(-1) + head_size - int(self.config.rotary_percentage * head_size),
+                )
+                v_cache_shape = (B, self.config.n_head, max_seq_length, head_size)
+                self.kv_caches = [
+                    (torch.zeros(k_cache_shape, device=x.device, dtype=x.dtype),
+                     torch.zeros(v_cache_shape, device=x.device, dtype=x.dtype))
+                    for _ in range(self.config.n_layer)
+                ]
+            if not self.adapter_kv_caches:
+                self.adapter_kv_caches = [None for _ in range(self.config.n_layer)]
+            for i, block in enumerate(self.transformer.h):
+                x, self.kv_caches[i], self.adapter_kv_caches[i] = block(x, (cos, sin), mask, max_seq_length, input_pos, self.kv_caches[i], self.adapter_kv_caches[i])
+
+        x = self.transformer.ln_f(x)
+
+        logits = self.lm_head(x)  # (b, t, vocab_size)
+
+        return logits
 
     @classmethod
     def from_name(cls, name: str, **kwargs: Any) -> Self:
