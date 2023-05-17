@@ -55,13 +55,14 @@ def main(
     t0 = time.time()
     with EmptyInitOnDevice(device=fabric.device, dtype=dtype, quantization_mode=quantize):
         model = Parrot(config)
-    with lazy_load(checkpoint_dir / "lit_model.pth") as pretrained_checkpoint, lazy_load(
-        adapter_path
-    ) as adapter_checkpoint:
-        # 1. Load the pretrained weights
-        model.load_state_dict(pretrained_checkpoint, strict=False)
-        # 2. Load the fine-tuned adapter weights
-        model.load_state_dict(adapter_checkpoint, strict=False)
+
+        with lazy_load(checkpoint_dir / "lit_model.pth") as pretrained_checkpoint, lazy_load(
+            adapter_path
+        ) as adapter_checkpoint:
+            # 1. Load the pretrained weights
+            model.load_state_dict(pretrained_checkpoint, strict=False)
+            # 2. Load the fine-tuned adapter weights
+            model.load_state_dict(adapter_checkpoint, strict=False)
 
     print(f"Time to load model: {time.time() - t0:.02f} seconds.", file=sys.stderr)
 
