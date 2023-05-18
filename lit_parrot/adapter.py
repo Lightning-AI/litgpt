@@ -204,7 +204,7 @@ class Parrot(BaseModel):
 
         if input_pos is None:  # proxy for use_cache=False
             for block in self.transformer.h:
-                x, _ = block(x, (cos, sin), mask, max_seq_length)
+                x, *_ = block(x, (cos, sin), mask, max_seq_length)
         else:
             if not self.kv_caches:
                 head_size = self.config.n_embd // self.config.n_head
