@@ -48,6 +48,7 @@ def test_generate(max_seq_length):
     config = Config(block_size=128, vocab_size=16, n_layer=1, n_head=4, n_embd=8)
     model = Parrot(config)
     max_new_tokens = 20
+    T_max = input_idx.size(0) + max_new_tokens
 
     multinomial_results = []
     original_multinomial = torch.multinomial
@@ -58,7 +59,7 @@ def test_generate(max_seq_length):
         return out
 
     with mock.patch("torch.multinomial", multinomial):
-        out = generate.generate(model, input_idx, max_new_tokens, max_seq_length=max_seq_length, top_k=4)
+        out = generate.generate(model, input_idx,T_max, max_new_tokens, max_seq_length=max_seq_length, top_k=4)
 
     assert out.size(0) == T + max_new_tokens
     multinomial_results = torch.hstack(multinomial_results)
