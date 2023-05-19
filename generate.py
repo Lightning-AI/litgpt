@@ -40,8 +40,6 @@ def generate(
     T_new = T + max_new_tokens
     if max_seq_length is None:
         max_seq_length = min(T_new, model.config.block_size)
-   
-
 
     device, dtype = idx.device, idx.dtype
     # create an empty tensor of the expected final shape and fill in the current tokens

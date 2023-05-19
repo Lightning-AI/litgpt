@@ -30,7 +30,7 @@ num_epochs = 5
 max_batches = num_epochs * (epoch_size // micro_batch_size) // devices
 weight_decay = 0.02
 max_seq_length = 256  # see scripts/prepare_alpaca.py
-warmup_steps = epoch_size * 2 // micro_batch_size // devices  # 2 epochs
+warmup_steps = 2 * (epoch_size // micro_batch_size) // devices  # 2 epochs
 
 ds_config = {
     "train_micro_batch_size_per_gpu": micro_batch_size,
