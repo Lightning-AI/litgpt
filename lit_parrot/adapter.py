@@ -42,7 +42,7 @@ class CausalSelfAttention(nn.Module):
             # adapter embedding layer
             self.adapter_wte = nn.Embedding(config.adapter_prompt_length, config.n_embd)
             # gate for adaption
-            self.gating_factor = torch.nn.Parameter(torch.zeros(1))
+            self.gating_factor = torch.nn.Parameter(torch.zeros(1, config.n_head, 1, 1))
 
         self.n_head = config.n_head
         self.n_embd = config.n_embd
