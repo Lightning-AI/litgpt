@@ -16,7 +16,7 @@ from scripts.prepare_alpaca import generate_prompt
 
 eval_interval = 600
 save_interval = 1000
-eval_iters = 100
+eval_batches = 100
 log_interval = 1
 devices = 1
 
@@ -27,7 +27,7 @@ micro_batch_size = 4
 gradient_accumulation_steps = batch_size // micro_batch_size
 epoch_size = 50000  # train dataset size
 num_epochs = 5
-max_iters = num_epochs * epoch_size // devices
+max_batches = num_epochs * (epoch_size // micro_batch_size) // devices
 weight_decay = 0.02
 max_seq_length = 256  # see scripts/prepare_alpaca.py
 warmup_steps = epoch_size * 2 // micro_batch_size // devices  # 2 epochs
@@ -97,7 +97,7 @@ def train(
 
     tokenizer = Tokenizer(checkpoint_dir / "tokenizer.json", checkpoint_dir / "tokenizer_config.json")
 
-    for iter_num in range(max_iters):
+    for iter_num in range(max_batches):
         if step_count <= warmup_steps:
             # linear warmup
             lr = learning_rate * step_count / warmup_steps
@@ -138,8 +138,8 @@ def train(
 def validate(fabric: L.Fabric, model: torch.nn.Module, val_data: np.ndarray, tokenizer: Tokenizer) -> torch.Tensor:
     fabric.print("Validating ...")
     model.eval()
-    losses = torch.zeros(eval_iters)
-    for k in range(eval_iters):
+    losses = torch.zeros(eval_batches)
+    for k in range(eval_batches):
         input_ids, targets = get_batch(fabric, val_data)
         logits = model(input_ids)
         loss = loss_fn(logits, targets)
