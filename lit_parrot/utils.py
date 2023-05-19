@@ -59,7 +59,7 @@ class EmptyInitOnDevice(torch.overrides.TorchFunctionMode):
             dtype: `torch.dtype` to work with
             quantization_mode: optional string, quantization mode to work with, default `None`.
                  Available modes: `llm.int8` bitsnbytes LLM.int8 quantization (only on GPU)
-                                  `qptq.int4`, `gptq.int8`: GPTQ pre-quantized models
+                                  `gptq.int4`, `gptq.int8`: GPTQ pre-quantized models
 
         Example::
             with EmptyInitOnDevice("cuda", dtype=torch.bfloat16):
