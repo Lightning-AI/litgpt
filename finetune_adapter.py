@@ -16,7 +16,7 @@ from scripts.prepare_alpaca import generate_prompt
 
 eval_interval = 600
 save_interval = 1000
-eval_batches = 100
+eval_iters = 100
 log_interval = 1
 devices = 1
 
@@ -139,8 +139,8 @@ def train(
 def validate(fabric: L.Fabric, model: torch.nn.Module, val_data: np.ndarray, tokenizer: Tokenizer) -> torch.Tensor:
     fabric.print("Validating ...")
     model.eval()
-    losses = torch.zeros(eval_batches)
-    for k in range(eval_batches):
+    losses = torch.zeros(eval_iters)
+    for k in range(eval_iters):
         input_ids, targets = get_batch(fabric, val_data)
         logits = model(input_ids)
         loss = loss_fn(logits, targets)
