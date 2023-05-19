@@ -27,14 +27,14 @@ log_interval = 1
 learning_rate = 6e-4
 batch_size = 125
 micro_batch_size = 5
-max_batches = 600000  # num_epochs * (epoch_size // micro_batch_size) // devices
+max_iters = 600000  # num_epochs * (epoch_size // micro_batch_size) // devices
 weight_decay = 1e-1
 beta1 = 0.9
 beta2 = 0.95
 grad_clip = 1.0
 decay_lr = True
-warmup_batches = 2000
-lr_decay_batches = max_batches
+warmup_iters = 2000
+lr_decay_iters = max_iters
 min_lr = 6e-5
 
 
@@ -195,7 +195,7 @@ def train(
             tokens = 0
             step_time = 0.0
 
-        if iter_num > max_batches:
+        if iter_num > max_iters:
             break
 
 
@@ -286,13 +286,13 @@ def create_dataloaders(
 # learning rate decay scheduler (cosine with warmup)
 def get_lr(it):
     # 1) linear warmup for warmup_iters steps
-    if it < warmup_batches:
-        return learning_rate * it / warmup_batches
+    if it < warmup_iters:
+        return learning_rate * it / warmup_iters
     # 2) if it > lr_decay_iters, return min learning rate
-    if it > lr_decay_batches:
+    if it > lr_decay_iters:
         return min_lr
     # 3) in between, use cosine decay down to min learning rate
-    decay_ratio = (it - warmup_batches) / (lr_decay_batches - warmup_batches)
+    decay_ratio = (it - warmup_iters) / (lr_decay_iters - warmup_iters)
     assert 0 <= decay_ratio <= 1
     coeff = 0.5 * (1.0 + math.cos(math.pi * decay_ratio))  # coeff ranges 0..1
     return min_lr + coeff * (learning_rate - min_lr)
