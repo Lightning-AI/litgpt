@@ -170,6 +170,11 @@ class Parrot(BaseModel):
         self.kv_caches: List[KVCache] = []
         self.adapter_kv_caches: List[KVCache] = []
 
+    def reset(self) -> None:
+        self.rope_cache = None
+        self.mask_cache = None
+        self.kv_caches = []
+        self.adapter_kv_caches = []
 
     def forward(
         self, idx: torch.Tensor, max_seq_length: Optional[int] = None, input_pos: Optional[torch.Tensor] = None

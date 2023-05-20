@@ -84,6 +84,7 @@ def generate(
         if idx_next == eos_id:
             return idx[:input_pos]  # include the EOS token
 
+    model.reset()
     return idx
 
 
