@@ -151,7 +151,8 @@ def main(
             top_k=top_k,
             stop_tokens=stop_tokens,
         )
-        print(f">> Reply: ", end="")
+        model.reset_cache()
+        print(">> Reply: ", end="")
         try:
             tokens_generated = 0
             t0 = time.perf_counter()

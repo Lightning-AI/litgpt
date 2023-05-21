@@ -39,9 +39,7 @@ def generate(
     T = idx.size(0)
     T_new = T + max_new_tokens
     if max_seq_length is None:
-        max_seq_length = min(T_new, model.config.block_size)
-   
-
+        max_seq_length = min(T_new, model.config.block_size) 
 
     device, dtype = idx.device, idx.dtype
     # create an empty tensor of the expected final shape and fill in the current tokens
@@ -84,7 +82,6 @@ def generate(
         if idx_next == eos_id:
             return idx[:input_pos]  # include the EOS token
 
-    model.reset()
     return idx
 
 
@@ -140,6 +137,7 @@ def main(
     for i in range(num_samples):
         t0 = time.perf_counter()
         y = generate(model, encoded, max_new_tokens, temperature=temperature, top_k=top_k)
+        model.reset_cache()
         t = time.perf_counter() - t0
 
         print(tokenizer.decode(y))
