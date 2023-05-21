@@ -12,7 +12,7 @@ from lightning.fabric.strategies import DeepSpeedStrategy
 from generate import generate
 from lit_parrot.adapter import Parrot, Config
 from lit_parrot.adapter_v2 import (mark_only_adapter_v2_as_trainable,
-                                   adapter_v2_linear_with_bias_and_scale,
+                                   add_adapter_v2_parameters_to_linear_layers,
                                    adapter_v2_state_from_state_dict)
 
 from lit_parrot.tokenizer import Tokenizer
@@ -73,10 +73,7 @@ def main(
         with lazy_load(checkpoint_dir / "lit_model.pth") as checkpoint:
             model.load_state_dict(checkpoint, strict=False)
 
-            for module in model.modules():
-                if isinstance(module, nn.Linear):                
-                    adapter_v2_linear_with_bias_and_scale(module)
-
+    add_adapter_v2_parameters_to_linear_layers(model)      
     mark_only_adapter_v2_as_trainable(model)
 
     num_params = sum([p.numel() for p in model.parameters() if p.requires_grad])
