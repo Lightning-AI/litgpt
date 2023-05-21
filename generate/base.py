@@ -8,6 +8,10 @@ from typing import Optional
 import lightning as L
 import torch
 
+# support running without installing as a package
+wd = Path(__file__).parent.parent.resolve()
+sys.path.append(str(wd))
+
 from lit_parrot import Parrot, Tokenizer, Config
 from lit_parrot.utils import EmptyInitOnDevice, lazy_load, check_valid_checkpoint_dir
 

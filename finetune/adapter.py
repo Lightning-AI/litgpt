@@ -1,4 +1,5 @@
 import shutil
+import sys
 import time
 from pathlib import Path
 import os
@@ -8,7 +9,11 @@ import numpy as np
 import torch
 from lightning.fabric.strategies import DeepSpeedStrategy
 
-from generate import generate
+# support running without installing as a package
+wd = Path(__file__).parent.parent.resolve()
+sys.path.append(str(wd))
+
+from generate.base import generate
 from lit_parrot.adapter import Parrot, Config, mark_only_adapter_as_trainable, adapter_state_from_state_dict
 from lit_parrot.tokenizer import Tokenizer
 from lit_parrot.utils import EmptyInitOnDevice, lazy_load, check_valid_checkpoint_dir

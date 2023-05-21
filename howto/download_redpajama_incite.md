@@ -32,5 +32,5 @@ python scripts/convert_hf_checkpoint.py --checkpoint_dir checkpoints/togethercom
 You're done! To execute the model just run:
 
 ```bash
-python generate.py --prompt "Hello, my name is" --checkpoint_dir checkpoints/togethercomputer/RedPajama-INCITE-Base-3B-v1
+python generate/base.py --prompt "Hello, my name is" --checkpoint_dir checkpoints/togethercomputer/RedPajama-INCITE-Base-3B-v1
 ```
