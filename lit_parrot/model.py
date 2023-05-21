@@ -49,7 +49,7 @@ class Parrot(nn.Module):
             # https://huggingface.co/stabilityai/stablelm-base-alpha-3b/blob/main/config.json#L12
             module.eps = 1e-5
 
-    def reset(self) -> None:
+    def reset_cache(self) -> None:
         self.rope_cache = None
         self.mask_cache = None
         self.kv_caches = []
