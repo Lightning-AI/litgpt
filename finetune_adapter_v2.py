@@ -27,8 +27,8 @@ devices = 1
 
 # Hyperparameters
 learning_rate = 9e-3
-batch_size = 64 / devices
-micro_batch_size = 2
+batch_size = 128 / devices
+micro_batch_size = 2  #set to 2 because this is fit into 12GB Vram
 gradient_accumulation_steps = batch_size // micro_batch_size
 epoch_size = 50000  # train dataset size
 num_epochs = 5
