@@ -1,10 +1,12 @@
 # Finetuning with Adapter
 
-Adapter, first introduced for the LLaMA model as [LLaMA-Adapter](https://arxiv.org/abs/2303.16199), is a form of prefix-tuning that prepends a learnable adaption-prompt to the inputs of the attention blocks in an LLM. In total, there are only ~500M parameters to update during finetuning in LLaMA, which significantly reduces the memory footprint and speeds up training.
+Adapter, first introduced for the LLaMA model as [LLaMA-Adapter](https://arxiv.org/abs/2303.16199), is a form of prefix-tuning that prepends a learnable adaption-prompt to the inputs of the attention blocks in an LLM. In total, there are only ~500k parameters to update during finetuning in LLaMA, which significantly reduces the memory footprint and speeds up training.
 
 We are able to demonstrate instruction-finetuning Lit-Parrot StableLM 3B on the [Alpaca](https://github.com/tatsu-lab/stanford_alpaca) dataset on a **single GTX 3060 GPU**. If using 8 GPUs, finetuning can be completed in under 1 hour.
 
 If you are new to Adapter and are interested to learn more about how it works before proceeding with the finetuning guide below, you might find our article [Understanding Parameter-Efficient Finetuning of Large Language Models: From Prefix Tuning to LLaMA-Adapters](https://lightning.ai/pages/community/article/understanding-llama-adapters/) helpful.
+
+LLaMA-Adapter v2 extends the original LLaMA-Adapter idea by adding trainable bias and scale parameters to each linear layer in the transformer. Furthermore, LLaMA-Adapter v2 makes the normalization layers trainable. Where the StableLM 3B model has 500k trainable parameters with Parrot v1, Parrot-Adapter v2 adds an additional 1.5 M trainable parameter for the bias and scale parameters and ~300k trainable parameters for the normalization layers. So, adapter v2 has ~2.3 M trainable parameters in total.
 
 ## Preparation
 
@@ -27,9 +29,15 @@ or [prepare your own dataset](#tune-on-your-dataset).
 python finetune_adapter.py --checkpoint_dir checkpoints/stabilityai/stablelm-base-alpha-3b
 ```
 
+or for Adapter V2
+
+```bash 
+python finetune_adapter_v2.py --chceckpoint_dir checkpoints/stabilityai/stablelm-base-alpha-3b
+
 The finetuning requires at least one GPU with ~12 GB memory.
 You can speed up training by setting the `devices` variable in the script to utilize more GPUs if available.
 Depending on the available GPU memory, you can also tune the `micro_batch_size` parameter to utilize the GPU efficiently.
+To fit Adapter V2 to 12GB memory set micro_batch_size = 2.
 
 For example, the following settings will let you finetune the model in under 1 hour using DeepSpeed Zero-2:
 ```python
@@ -43,6 +51,11 @@ This script will save checkpoints periodically to the `out_dir` directory. If yo
 python finetune_adapter.py --out_dir out/adapter/my-model-finetuned
 ```
 
+or for Adapter V2
+
+```bash
+python finetune_adapter_v2.py --out_dir out/adapter_v2/my-model-finetuned
+
 ## Test the model
 
 You can test the finetuned model with your own instructions by running:
@@ -52,6 +65,14 @@ python generate_adapter.py \
     --prompt "Recommend a movie to watch on the weekend." \
     --checkpoint_dir checkpoints/stabilityai/stablelm-base-alpha-3b
 ```
+
+or for Adapter V2
+
+```bash 
+python generate_adapter_v2.py \
+    --prompt "Recomend a movie to watch on the weekend." \
+    --checkpoint_dir checkpoints/stabilityai/stablelm-base-alpha-3b
+           
 Output:
 ```
 A good movie to watch on the weekend would be The Lion King, since it's a classic family film that everyone can enjoy...
