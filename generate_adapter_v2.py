@@ -12,7 +12,7 @@ import torch.nn as nn
 from generate import generate
 from lit_parrot import Tokenizer
 from lit_parrot.adapter import Parrot, Config
-from lit_parrot.adapter_v2 import adapter_v2_linear_with_bias_and_scale
+from lit_parrot.adapter_v2 import add_adapter_v2_parameters_to_linear_layers
 from lit_parrot.utils import EmptyInitOnDevice, lazy_load, check_valid_checkpoint_dir
 from scripts.prepare_alpaca import generate_prompt
 
@@ -57,9 +57,7 @@ def main(
     t0 = time.time()
     with EmptyInitOnDevice(device=fabric.device, dtype=dtype, quantization_mode=quantize):
         model = Parrot(config)
-        for module in model.modules():
-            if isinstance(module, nn.Linear):
-                adapter_v2_linear_with_bias_and_scale(module)
+        add_adapter_v2_parameters_to_linear_layers(model)
 
         with lazy_load(checkpoint_dir / "lit_model.pth") as pretrained_checkpoint, lazy_load(
             adapter_path
