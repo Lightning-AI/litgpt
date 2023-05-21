@@ -95,7 +95,7 @@ To generate text predictions, you need to download the model weights. **If you d
 Run inference:
 
 ```bash
-python generate.py --prompt "Hello, my name is"
+python generate/base.py --prompt "Hello, my name is"
 ```
 
 This will run the 3B pre-trained model and require ~7 GB of GPU memory using the `bfloat16` datatype.
@@ -105,7 +105,7 @@ This will run the 3B pre-trained model and require ~7 GB of GPU memory using the
 You can also chat with the model interactively:
 
 ```bash
-python chat.py
+python chat/base.py
 ```
 
 ### Run Lit-Parrot on smaller consumer devices
@@ -114,7 +114,7 @@ Porting from Lit-LLaMA in progress 👷
 
 ## Finetune the model
 
-We provide a simple training script `finetune_adapter.py` that instruction-tunes a pretrained model on the [Alpaca](https://github.com/tatsu-lab/stanford_alpaca) dataset.
+We provide a simple training script `finetune/adapter.py` that instruction-tunes a pretrained model on the [Alpaca](https://github.com/tatsu-lab/stanford_alpaca) dataset.
 
 1. Download the data and generate an instruction tuning dataset:
 
@@ -127,7 +127,7 @@ python scripts/prepare_alpaca.py
 [Adapter](https://arxiv.org/abs/2303.16199):
 
 ```bash
-python finetune_adapter.py
+python finetune/adapter.py
 ```
 
 The finetuning requires at least one GPU with ~12 GB memory (GTX 3060).
