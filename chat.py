@@ -160,8 +160,7 @@ def main(
                 print(tokenizer.decode(token), end="", flush=True)
                 tokens_generated += 1
             t = time.perf_counter() - t0
-            print()
-            print(f"Time for inference: {t:.02f} sec total, {tokens_generated / t:.02f} tokens/sec", file=sys.stderr)
+            print(f"\nTime for inference: {t:.02f} sec total, {tokens_generated / t:.02f} tokens/sec", file=sys.stderr)
         except KeyboardInterrupt:
             # support stopping generation
             pass
