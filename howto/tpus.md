@@ -17,6 +17,12 @@ cd lit-parrot
 pip install -r requirements.txt
 ```
 
+Install Optimized BLAS
+```
+sudo apt update
+sudo apt install libopenblas-dev
+```
+
 Since Lit-Parrot requires a torch version newer than torch 2.0.0, we need to manually install nightly builds of torch and torch_xla:
 
 ```
