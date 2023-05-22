@@ -18,14 +18,15 @@ pip install -r requirements.txt
 ```
 
 Install Optimized BLAS
-```
+
+```shell
 sudo apt update
 sudo apt install libopenblas-dev
 ```
 
 Since Lit-Parrot requires a torch version newer than torch 2.0.0, we need to manually install nightly builds of torch and torch_xla:
 
-```
+```shell
 pip install https://storage.googleapis.com/tpu-pytorch/wheels/tpuvm/torch-nightly-cp38-cp38-linux_x86_64.whl
 pip install https://storage.googleapis.com/tpu-pytorch/wheels/tpuvm/torch_xla-nightly-cp38-cp38-linux_x86_64.whl
 ```
