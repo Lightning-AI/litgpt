@@ -16,7 +16,7 @@ from torch.nn import functional as F
 from typing_extensions import Self
 
 from lit_parrot.config import Config as BaseConfig
-from lit_parrot.model import MLP, Parrot as BaseModel, build_rope_cache, apply_rope, RoPECache, KVCache
+from lit_parrot.model import MLP, Parrot as BaseModel, apply_rope, RoPECache, KVCache
 
 
 @dataclass
@@ -170,6 +170,9 @@ class Parrot(BaseModel):
         self.kv_caches: List[KVCache] = []
         self.adapter_kv_caches: List[KVCache] = []
 
+    def reset_cache(self) -> None:
+        self.kv_caches.clear()
+        self.adapter_kv_caches.clear()
 
     def forward(
         self, idx: torch.Tensor, max_seq_length: Optional[int] = None, input_pos: Optional[torch.Tensor] = None
