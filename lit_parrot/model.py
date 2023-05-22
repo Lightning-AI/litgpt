@@ -50,9 +50,7 @@ class Parrot(nn.Module):
             module.eps = 1e-5
 
     def reset_cache(self) -> None:
-        self.rope_cache = None
-        self.mask_cache = None
-        self.kv_caches = []
+        self.kv_caches.clear()
 
     def forward(
         self, idx: torch.Tensor, max_seq_length: Optional[int] = None, input_pos: Optional[torch.Tensor] = None
