@@ -50,21 +50,21 @@ configs = {
 ####################
 pythia = {
     # https://huggingface.co/EleutherAI/pythia-70m/blob/main/config.json
-    "pythia-70m": dict(block_size=2048, vocab_size=50304, n_layer=6, n_embd=512, n_head=8, padding_multiple=128),
+    "pythia-70m": dict(block_size=2048, n_layer=6, n_embd=512, n_head=8, padding_multiple=128),
     # https://huggingface.co/EleutherAI/pythia-160m/blob/main/config.json
-    "pythia-160m": dict(block_size=2048, vocab_size=50304, n_layer=12, n_embd=768, n_head=12, padding_multiple=128),
+    "pythia-160m": dict(block_size=2048, n_layer=12, n_embd=768, n_head=12, padding_multiple=128),
     # https://huggingface.co/EleutherAI/pythia-410m/blob/main/config.json
-    "pythia-410m": dict(block_size=2048, vocab_size=50304, n_layer=24, n_embd=1024, n_head=16, padding_multiple=128),
+    "pythia-410m": dict(block_size=2048, n_layer=24, n_embd=1024, n_head=16, padding_multiple=128),
     # https://huggingface.co/EleutherAI/pythia-1b/blob/main/config.json
-    "pythia-1b": dict(block_size=2048, vocab_size=50304, n_layer=16, n_embd=2048, n_head=8, padding_multiple=128),
+    "pythia-1b": dict(block_size=2048, n_layer=16, n_embd=2048, n_head=8, padding_multiple=128),
     # https://huggingface.co/EleutherAI/pythia-1.4b/blob/main/config.json
-    "pythia-1.4b": dict(block_size=2048, vocab_size=50304, n_layer=24, n_embd=2048, n_head=16, padding_multiple=128),
+    "pythia-1.4b": dict(block_size=2048, n_layer=24, n_embd=2048, n_head=16, padding_multiple=128),
     # https://huggingface.co/EleutherAI/pythia-2.8b/blob/main/config.json
-    "pythia-2.8b": dict(block_size=2048, vocab_size=50304, n_layer=32, n_embd=2560, n_head=32, padding_multiple=128),
+    "pythia-2.8b": dict(block_size=2048, n_layer=32, n_embd=2560, n_head=32, padding_multiple=128),
     # https://huggingface.co/EleutherAI/pythia-6.9b/blob/main/config.json
-    "pythia-6.9b": dict(block_size=2048, vocab_size=50432, n_layer=32, n_embd=4096, n_head=32, padding_multiple=128),
+    "pythia-6.9b": dict(block_size=2048, n_layer=32, n_embd=4096, n_head=32, padding_multiple=128),
     # https://huggingface.co/EleutherAI/pythia-12b/blob/main/config.json
-    "pythia-12b": dict(block_size=2048, vocab_size=50688, n_layer=36, n_embd=5120, n_head=40, padding_multiple=128),
+    "pythia-12b": dict(block_size=2048, n_layer=36, n_embd=5120, n_head=40, padding_multiple=128),
 }
 configs.update(pythia)
 pythia_deduped = {f"{k}-deduped": pythia[k] for k in pythia}
