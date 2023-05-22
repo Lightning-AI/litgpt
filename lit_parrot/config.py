@@ -62,9 +62,9 @@ pythia = {
     # https://huggingface.co/EleutherAI/pythia-2.8b/blob/main/config.json
     "pythia-2.8b": dict(block_size=2048, n_layer=32, n_embd=2560, n_head=32, padding_multiple=128),
     # https://huggingface.co/EleutherAI/pythia-6.9b/blob/main/config.json
-    "pythia-6.9b": dict(block_size=2048, n_layer=32, n_embd=4096, n_head=32, padding_multiple=128),
+    "pythia-6.9b": dict(block_size=2048, n_layer=32, n_embd=4096, n_head=32, padding_multiple=256),
     # https://huggingface.co/EleutherAI/pythia-12b/blob/main/config.json
-    "pythia-12b": dict(block_size=2048, n_layer=36, n_embd=5120, n_head=40, padding_multiple=128),
+    "pythia-12b": dict(block_size=2048, n_layer=36, n_embd=5120, n_head=40, padding_multiple=512),
 }
 configs.update(pythia)
 pythia_deduped = {f"{k}-deduped": pythia[k] for k in pythia}
