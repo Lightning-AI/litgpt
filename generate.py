@@ -39,9 +39,7 @@ def generate(
     T = idx.size(0)
     T_new = T + max_new_tokens
     if max_seq_length is None:
-        max_seq_length = min(T_new, model.config.block_size)
-   
-
+        max_seq_length = min(T_new, model.config.block_size) 
 
     device, dtype = idx.device, idx.dtype
     # create an empty tensor of the expected final shape and fill in the current tokens
@@ -142,6 +140,7 @@ def main(
         y = generate(model, encoded, max_new_tokens, temperature=temperature, top_k=top_k)
         t = time.perf_counter() - t0
 
+        model.reset_cache()
         print(tokenizer.decode(y))
         tokens_generated = y.size(0) - prompt_length
         print(

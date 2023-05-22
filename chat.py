@@ -152,7 +152,8 @@ def main(
             top_k=top_k,
             stop_tokens=stop_tokens,
         )
-        print(f">> Reply: ", end="")
+        model.reset_cache()
+        print(">> Reply: ", end="")
         try:
             tokens_generated = 0
             t0 = time.perf_counter()
@@ -160,8 +161,7 @@ def main(
                 print(tokenizer.decode(token), end="", flush=True)
                 tokens_generated += 1
             t = time.perf_counter() - t0
-            print()
-            print(f"Time for inference: {t:.02f} sec total, {tokens_generated / t:.02f} tokens/sec", file=sys.stderr)
+            print(f"\nTime for inference: {t:.02f} sec total, {tokens_generated / t:.02f} tokens/sec", file=sys.stderr)
         except KeyboardInterrupt:
             # support stopping generation
             pass
