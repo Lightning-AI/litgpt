@@ -137,9 +137,9 @@ def main(
     for i in range(num_samples):
         t0 = time.perf_counter()
         y = generate(model, encoded, max_new_tokens, temperature=temperature, top_k=top_k)
-        model.reset_cache()
         t = time.perf_counter() - t0
 
+        model.reset_cache()
         print(tokenizer.decode(y))
         tokens_generated = y.size(0) - prompt_length
         print(

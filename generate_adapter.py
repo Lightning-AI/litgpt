@@ -78,9 +78,9 @@ def main(
     y = generate(
         model, idx=encoded, max_new_tokens=max_new_tokens, temperature=temperature, top_k=top_k, eos_id=tokenizer.eos_id
     )
-    model.reset_cache()
     t = time.perf_counter() - t0
 
+    model.reset_cache()
     output = tokenizer.decode(y)
     output = output.split("### Response:")[1].strip()
     print(output)
