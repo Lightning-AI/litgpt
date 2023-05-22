@@ -17,7 +17,7 @@ cd lit-parrot
 pip install -r requirements.txt
 ```
 
-Since Lit-Parrot requires a torch version newer than torch 2.0.0, we need to manually install nightly builds of torch, torch_xla, and torchvision:
+Since Lit-Parrot requires a torch version newer than torch 2.0.0, we need to manually install nightly builds of torch and torch_xla:
 
 ```
 pip install https://storage.googleapis.com/tpu-pytorch/wheels/tpuvm/torch-nightly-cp38-cp38-linux_x86_64.whl
