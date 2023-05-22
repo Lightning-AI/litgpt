@@ -114,7 +114,7 @@ class Parrot(nn.Module):
     def from_name(cls, name: str, **kwargs: Any) -> Self:
         return cls(Config.from_name(name, **kwargs))
 
-    def build_rope_cache(self, idx: torch.Tensor) -> KVCache:
+    def build_rope_cache(self, idx: torch.Tensor) -> RoPECache:
         return build_rope_cache(
             seq_len=self.config.block_size,
             n_elem=int(self.config.rotary_percentage * (self.config.n_embd // self.config.n_head)),
