@@ -30,8 +30,8 @@ def adapter_v2_new_forward(self, input: Tensor) -> Tensor:
     return self.adapter_scale * (F.linear(input, self.weight, self.bias) + self.adapter_bias)
 
 def adapter_v2_linear_with_bias_and_scale(layer):
-    layer.adapter_bias = torch.nn.Parameter(torch.zeros(layer.weight.shape[0]), requires_grad=True)
-    layer.adapter_scale = torch.nn.Parameter(torch.ones(layer.weight.shape[0]), requires_grad=True)
+    layer.adapter_bias = torch.nn.Parameter(torch.zeros(layer.weight.shape[0], dtype=layer.weight.dtype), requires_grad=False)
+    layer.adapter_scale = torch.nn.Parameter(torch.ones(layer.weight.shape[0], dtype=layer.weight.dtype), requires_grad=False)
     bound_method = adapter_v2_new_forward.__get__(layer, layer.__class__)
     setattr(layer, 'forward', bound_method)
     return layer
