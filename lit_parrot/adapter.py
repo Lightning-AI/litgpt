@@ -171,7 +171,7 @@ class Parrot(BaseModel):
         self.adapter_kv_caches: List[KVCache] = []
 
     def reset_cache(self) -> None:
-        self.kv_caches.clear()
+        super().reset_cache()
         self.adapter_kv_caches.clear()
 
     def forward(
