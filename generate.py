@@ -17,7 +17,6 @@ def generate(
     model: Parrot,
     idx: torch.Tensor,
     max_new_tokens: int,
-    T_new: Optional[torch.Tensor] = None,
     *,
     max_seq_length: Optional[int] = None,
     temperature: float = 1.0,
@@ -38,12 +37,11 @@ def generate(
         eos_id: If specified, stop generating any more token once the <eos> token is triggered.
     """
     T = idx.size(0)
-
-    if max_seq_length is None and T_new is not None:
-        max_seq_length = min(T_new, model.config.block_size)
-        assert T_new <= max_seq_length
-   
     T_new = T + max_new_tokens
+    if max_seq_length is None:
+        max_seq_length = min(T_new, model.config.block_size) 
+        #Assertion as an option it works during inference, undesirable during training
+        assert max_seq_length <= T_new, f"Prevent allocate unnecessary memory: max_seq_length: {max_seq_length} <= T_new: {T_new}"
 
     device, dtype = idx.device, idx.dtype
     # create an empty tensor of the expected final shape and fill in the current tokens
@@ -87,7 +85,6 @@ def generate(
             return idx[:input_pos]  # include the EOS token
 
     return idx
-
 
 def main(
     prompt: str = "Hello, my name is",
