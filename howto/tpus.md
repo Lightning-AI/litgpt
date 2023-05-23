@@ -51,8 +51,8 @@ Generation works out-of-the-box with TPUs:
 python3 generate.py --prompt "Hello, my name is" --num_samples 3
 ```
 
-This command will take a long time as XLA needs to compile the graph: ~20s for the first generation.
-In fact, you'll notice that the second sample takes considerable less time: ~9s, and ~2s after.
+This command will take take ~17s for the first generation time as XLA needs to compile the graph.
+You'll notice that afterwards, generation times drop to ~2s.
 
 ## Finetuning
 
