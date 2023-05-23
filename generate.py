@@ -40,8 +40,6 @@ def generate(
     T_new = T + max_new_tokens
     if max_seq_length is None:
         max_seq_length = min(T_new, model.config.block_size) 
-        #Assertion as an option it works during inference, undesirable during training
-        assert max_seq_length <= T_new, f"Prevent allocate unnecessary memory: max_seq_length: {max_seq_length} <= T_new: {T_new}"
 
     device, dtype = idx.device, idx.dtype
     # create an empty tensor of the expected final shape and fill in the current tokens
