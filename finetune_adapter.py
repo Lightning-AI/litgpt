@@ -32,6 +32,8 @@ weight_decay = 0.02
 max_seq_length = 256  # see scripts/prepare_alpaca.py
 warmup_steps = epoch_size * 2 // micro_batch_size // devices  # 2 epochs
 
+data_padded = False
+
 ds_config = {
     "train_micro_batch_size_per_gpu": micro_batch_size,
     "gradient_accumulation_steps": gradient_accumulation_steps,
@@ -173,16 +175,20 @@ def get_batch(fabric: L.Fabric, data: list):
 
     input_ids = [data[i]["input_ids"].type(torch.int64) for i in ix]
     labels = [data[i]["labels"].type(torch.int64) for i in ix]
+    
+    if not data_padded:
+        max_len = max(len(s) for s in input_ids)
 
-    max_len = max(len(s) for s in input_ids)
+        def pad_right(x, pad_id):
+            # pad right based on the longest sequence
+            n = max_len - len(x)
+            return torch.cat((x, torch.full((n,), pad_id, dtype=x.dtype)))
 
-    def pad_right(x, pad_id):
-        # pad right based on the longest sequence
-        n = max_len - len(x)
-        return torch.cat((x, torch.full((n,), pad_id, dtype=x.dtype)))
-
-    x = torch.stack([pad_right(x, pad_id=0) for x in input_ids])
-    y = torch.stack([pad_right(x, pad_id=-1) for x in labels])
+        x = torch.stack([pad_right(x, pad_id=0) for x in input_ids])
+        y = torch.stack([pad_right(x, pad_id=-1) for x in labels])
+    else:
+        x = torch.tensor(input_ids)
+        y = torch.tensor(labels)
     x, y = fabric.to_device((x.pin_memory(), y.pin_memory()))
 
     return x, y
