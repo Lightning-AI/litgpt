@@ -51,6 +51,9 @@ class Parrot(nn.Module):
 
     def reset_cache(self) -> None:
         self.kv_caches.clear()
+        if self.mask_cache.device.type == "xla":
+            self.rope_cache = None
+            self.mask_cache = None
 
     def forward(
         self, idx: torch.Tensor, max_seq_length: Optional[int] = None, input_pos: Optional[torch.Tensor] = None
