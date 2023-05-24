@@ -186,7 +186,11 @@ def get_batch(fabric: L.Fabric, data: list):
 
     x = torch.stack([pad_right(x, pad_id=0) for x in input_ids])
     y = torch.stack([pad_right(x, pad_id=-1) for x in labels])
-    x, y = fabric.to_device((x, y))
+
+    if fabric._accelerator.__class__.__name__ == "MPSAccelerator":
+        x, y = fabric.to_device((x, y))
+    else: 
+        x, y = fabric.to_device((x.pin_memory(), y.pin_memory()))
 
     return x, y
 
