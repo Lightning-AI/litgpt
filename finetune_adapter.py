@@ -7,6 +7,7 @@ import lightning as L
 import numpy as np
 import torch
 from lightning.fabric.strategies import DeepSpeedStrategy
+from lightning.fabric.accelerators.mps import MPSAccelerator
 
 from generate import generate
 from lit_parrot.adapter import Parrot, Config, mark_only_adapter_as_trainable, adapter_state_from_state_dict
@@ -43,14 +44,11 @@ def main(
     data_dir: Path = Path("data/alpaca"),
     checkpoint_dir: Path = Path("checkpoints/stabilityai/stablelm-base-alpha-3b"),
     out_dir: Path = Path("out/adapter/alpaca"),
-    accelerator = "cuda",
     precision = "bf16-mixed",
-    dtype= "bfloat16",
 ):
     check_valid_checkpoint_dir(checkpoint_dir)
 
     fabric = L.Fabric(
-        accelerator=accelerator,
         devices=devices,
         strategy=(DeepSpeedStrategy(config=ds_config) if devices > 1 else "auto"),
         precision=precision,
@@ -65,7 +63,7 @@ def main(
 
     config = Config.from_name(name=checkpoint_dir.name, block_size=max_seq_length)
 
-    with EmptyInitOnDevice(device=fabric.device, dtype=torch.float32 if dtype == "float32" else torch.bfloat16):
+    with EmptyInitOnDevice(device=fabric.device, dtype=torch.float32 if fabric._precision.precision == "32-true" else torch.bfloat16):
         model = Parrot(config)
     with lazy_load(checkpoint_dir / "lit_model.pth") as checkpoint:
         model.load_state_dict(checkpoint, strict=False)
@@ -187,7 +185,7 @@ def get_batch(fabric: L.Fabric, data: list):
     x = torch.stack([pad_right(x, pad_id=0) for x in input_ids])
     y = torch.stack([pad_right(x, pad_id=-1) for x in labels])
 
-    if fabric._accelerator.__class__.__name__ == "MPSAccelerator":
+    if isinstance(fabric.accelerator, MPSAccelerator):
         x, y = fabric.to_device((x, y))
     else: 
         x, y = fabric.to_device((x.pin_memory(), y.pin_memory()))
