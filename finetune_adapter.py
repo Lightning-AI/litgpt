@@ -25,12 +25,13 @@ learning_rate = 9e-3
 batch_size = 64 / devices
 micro_batch_size = 4
 gradient_accumulation_steps = batch_size // micro_batch_size
+assert gradient_accumulation_steps > 0
 epoch_size = 50000  # train dataset size
 num_epochs = 5
-max_iters = num_epochs * epoch_size // devices
+max_iters = num_epochs * (epoch_size // micro_batch_size) // devices
 weight_decay = 0.02
 max_seq_length = 256  # see scripts/prepare_alpaca.py
-warmup_steps = epoch_size * 2 // micro_batch_size // devices  # 2 epochs
+warmup_iters = 2 * (epoch_size // micro_batch_size) // devices  # 2 epochs
 
 ds_config = {
     "train_micro_batch_size_per_gpu": micro_batch_size,
@@ -98,9 +99,9 @@ def train(
     tokenizer = Tokenizer(checkpoint_dir / "tokenizer.json", checkpoint_dir / "tokenizer_config.json")
 
     for iter_num in range(max_iters):
-        if step_count <= warmup_steps:
+        if step_count <= warmup_iters:
             # linear warmup
-            lr = learning_rate * step_count / warmup_steps
+            lr = learning_rate * step_count / warmup_iters
             for param_group in optimizer.param_groups:
                 param_group["lr"] = lr
 
