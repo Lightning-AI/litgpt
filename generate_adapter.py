@@ -80,6 +80,7 @@ def main(
     )
     t = time.perf_counter() - t0
 
+    model.reset_cache()
     output = tokenizer.decode(y)
     output = output.split("### Response:")[1].strip()
     print(output)
