@@ -8,6 +8,7 @@ import lightning as L
 import numpy as np
 import torch
 from lightning.fabric.strategies import DeepSpeedStrategy
+from lightning.fabric.accelerators.mps import MPSAccelerator
 
 # support running without installing as a package
 wd = Path(__file__).parent.parent.resolve()
@@ -30,12 +31,13 @@ learning_rate = 9e-3
 batch_size = 64 / devices
 micro_batch_size = 4
 gradient_accumulation_steps = batch_size // micro_batch_size
+assert gradient_accumulation_steps > 0
 epoch_size = 50000  # train dataset size
 num_epochs = 5
-max_iters = num_epochs * epoch_size // devices
+max_iters = num_epochs * (epoch_size // micro_batch_size) // devices
 weight_decay = 0.02
 max_seq_length = 256  # see scripts/prepare_alpaca.py
-warmup_steps = epoch_size * 2 // micro_batch_size // devices  # 2 epochs
+warmup_iters = 2 * (epoch_size // micro_batch_size) // devices  # 2 epochs
 
 ds_config = {
     "train_micro_batch_size_per_gpu": micro_batch_size,
@@ -48,14 +50,14 @@ def main(
     data_dir: Path = Path("data/alpaca"),
     checkpoint_dir: Path = Path("checkpoints/stabilityai/stablelm-base-alpha-3b"),
     out_dir: Path = Path("out/adapter/alpaca"),
+    precision = "bf16-mixed",
 ):
     check_valid_checkpoint_dir(checkpoint_dir)
 
     fabric = L.Fabric(
-        accelerator="cuda",
         devices=devices,
         strategy=(DeepSpeedStrategy(config=ds_config) if devices > 1 else "auto"),
-        precision="bf16-mixed",
+        precision=precision,
     )
     fabric.launch()
     fabric.seed_everything(1337 + fabric.global_rank)
@@ -67,7 +69,7 @@ def main(
 
     config = Config.from_name(name=checkpoint_dir.name, block_size=max_seq_length)
 
-    with EmptyInitOnDevice(device=fabric.device, dtype=torch.bfloat16):
+    with EmptyInitOnDevice(device=fabric.device, dtype=torch.float32 if fabric._precision.precision == "32-true" else torch.bfloat16):
         model = Parrot(config)
     with lazy_load(checkpoint_dir / "lit_model.pth") as checkpoint:
         model.load_state_dict(checkpoint, strict=False)
@@ -103,9 +105,9 @@ def train(
     tokenizer = Tokenizer(checkpoint_dir / "tokenizer.json", checkpoint_dir / "tokenizer_config.json")
 
     for iter_num in range(max_iters):
-        if step_count <= warmup_steps:
+        if step_count <= warmup_iters:
             # linear warmup
-            lr = learning_rate * step_count / warmup_steps
+            lr = learning_rate * step_count / warmup_iters
             for param_group in optimizer.param_groups:
                 param_group["lr"] = lr
 
@@ -188,7 +190,11 @@ def get_batch(fabric: L.Fabric, data: list):
 
     x = torch.stack([pad_right(x, pad_id=0) for x in input_ids])
     y = torch.stack([pad_right(x, pad_id=-1) for x in labels])
-    x, y = fabric.to_device((x.pin_memory(), y.pin_memory()))
+
+    if isinstance(fabric.accelerator, MPSAccelerator):
+        x, y = fabric.to_device((x, y))
+    else: 
+        x, y = fabric.to_device((x.pin_memory(), y.pin_memory()))
 
     return x, y
 

@@ -5,7 +5,7 @@ This project uses `lightning.Fabric` under the hood, which itself supports TPUs 
 The following commands will allow you to set up a `Google Cloud` instance with a [TPU v4](https://cloud.google.com/tpu/docs/system-architecture-tpu-vm) VM:
 
 ```shell
-gcloud compute tpus tpu-vm create lit-parrot --version=tpu-vm-v4-pt-2.0 --accelerator-type=v4-8 --zone=us-central2-b
+gcloud compute tpus tpu-vm create lit-parrot --version=tpu-vm-v4-base --accelerator-type=v4-8 --zone=us-central2-b
 gcloud compute tpus tpu-vm ssh lit-parrot --zone=us-central2-b
 ```
 
@@ -15,6 +15,20 @@ Now that you are in the machine, let's clone the repository and install the depe
 git clone https://github.com/Lightning-AI/lit-parrot
 cd lit-parrot
 pip install -r requirements.txt
+```
+
+Install Optimized BLAS
+
+```shell
+sudo apt update
+sudo apt install libopenblas-dev
+```
+
+Since Lit-Parrot requires a torch version newer than torch 2.0.0, we need to manually install nightly builds of torch and torch_xla:
+
+```shell
+pip install https://storage.googleapis.com/tpu-pytorch/wheels/tpuvm/torch-nightly-cp38-cp38-linux_x86_64.whl
+pip install https://storage.googleapis.com/tpu-pytorch/wheels/tpuvm/torch_xla-nightly-cp38-cp38-linux_x86_64.whl
 ```
 
 By default, computations will run using the new (and experimental) PjRT runtime. Still, it's recommended that you set the following environment variables
@@ -37,8 +51,8 @@ Generation works out-of-the-box with TPUs:
 python3 generate/base.py --prompt "Hello, my name is" --num_samples 3
 ```
 
-This command will take a long time as XLA needs to compile the graph: ~20s for the first generation.
-In fact, you'll notice that the second sample takes considerable less time: ~9s, and ~2s after.
+This command will take take ~17s for the first generation time as XLA needs to compile the graph.
+You'll notice that afterwards, generation times drop to ~2s.
 
 ## Finetuning
 
