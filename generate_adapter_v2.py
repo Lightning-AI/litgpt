@@ -59,15 +59,15 @@ def main(
         model = Parrot(config)
         add_adapter_v2_parameters_to_linear_layers(model)
 
-        with lazy_load(checkpoint_dir / "lit_model.pth") as pretrained_checkpoint, lazy_load(
-            adapter_path
-        ) as adapter_checkpoint:
-            # 1. Load the pretrained weights
-            model.load_state_dict(pretrained_checkpoint, strict=False)
-            # 2. Load the fine-tuned adapter weights
-            model.load_state_dict(adapter_checkpoint, strict=False)
+    with lazy_load(checkpoint_dir / "lit_model.pth") as pretrained_checkpoint, lazy_load(
+        adapter_path
+    ) as adapter_checkpoint:
+        # 1. Load the pretrained weights
+        model.load_state_dict(pretrained_checkpoint, strict=False)
+        # 2. Load the fine-tuned adapter weights
+        model.load_state_dict(adapter_checkpoint, strict=False)
 
-            print(f"Time to load model: {time.time() - t0:.02f} seconds.", file=sys.stderr)
+        print(f"Time to load model: {time.time() - t0:.02f} seconds.", file=sys.stderr)
 
     model.eval()
     model = fabric.setup(model)
