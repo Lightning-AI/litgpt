@@ -2,6 +2,7 @@ import shutil
 import time
 from pathlib import Path
 import os
+from typing import Literal
 
 import lightning as L
 import numpy as np
@@ -45,7 +46,7 @@ def main(
     data_dir: Path = Path("data/alpaca"),
     checkpoint_dir: Path = Path("checkpoints/stabilityai/stablelm-base-alpha-3b"),
     out_dir: Path = Path("out/adapter/alpaca"),
-    precision = "bf16-mixed",
+    precision: Literal["bf16-mixed", "32-true"] = "bf16-mixed",
 ):
     check_valid_checkpoint_dir(checkpoint_dir)
 
@@ -64,7 +65,10 @@ def main(
 
     config = Config.from_name(name=checkpoint_dir.name, block_size=max_seq_length)
 
-    with EmptyInitOnDevice(device=fabric.device, dtype=torch.float32 if fabric._precision.precision == "32-true" else torch.bfloat16):
+    with EmptyInitOnDevice(
+        device=fabric.device,
+        dtype=torch.float32 if fabric.strategy.precision.precision == "32-true" else torch.bfloat16
+    ):
         model = Parrot(config)
     with lazy_load(checkpoint_dir / "lit_model.pth") as checkpoint:
         model.load_state_dict(checkpoint, strict=False)
