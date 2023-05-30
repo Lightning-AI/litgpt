@@ -63,10 +63,7 @@ def main(
 
     config = Config.from_name(name=checkpoint_dir.name, block_size=max_seq_length)
 
-    with EmptyInitOnDevice(
-        device=fabric.device,
-        dtype=torch.float32 if fabric.strategy.precision.precision == "32-true" else torch.bfloat16
-    ):
+    with EmptyInitOnDevice(device=fabric.device, dtype=torch.float32 if precision == "32-true" else torch.bfloat16):
         model = Parrot(config)
     with lazy_load(checkpoint_dir / "lit_model.pth") as checkpoint:
         model.load_state_dict(checkpoint, strict=False)
