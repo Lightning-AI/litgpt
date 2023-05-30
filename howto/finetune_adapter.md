@@ -33,6 +33,7 @@ or for Adapter V2
 
 ```bash 
 python finetune_adapter_v2.py --chceckpoint_dir checkpoints/stabilityai/stablelm-base-alpha-3b
+```
 
 The finetuning requires at least one GPU with ~12 GB memory.
 You can speed up training by setting the `devices` variable in the script to utilize more GPUs if available.
@@ -55,6 +56,7 @@ or for Adapter V2
 
 ```bash
 python finetune_adapter_v2.py --out_dir out/adapter_v2/my-model-finetuned
+```
 
 ## Test the model
 
@@ -72,7 +74,8 @@ or for Adapter V2
 python generate_adapter_v2.py \
     --prompt "Recomend a movie to watch on the weekend." \
     --checkpoint_dir checkpoints/stabilityai/stablelm-base-alpha-3b
-           
+```
+
 Output:
 ```
 A good movie to watch on the weekend would be The Lion King, since it's a classic family film that everyone can enjoy...
