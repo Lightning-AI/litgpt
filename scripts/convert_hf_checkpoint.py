@@ -10,8 +10,8 @@ import torch
 wd = Path(__file__).parent.parent.resolve()
 sys.path.append(str(wd))
 
-from lit_parrot.model import Parrot
-from lit_parrot.utils import EmptyInitOnDevice, lazy_load, incremental_save
+from lit_parrot import Config
+from lit_parrot.utils import lazy_load, incremental_save
 
 
 def copy_weights(state_dict, hf_weights, saver=None, dtype=torch.float32):
@@ -72,12 +72,10 @@ def convert_hf_checkpoint(
 
     if model_name is None:
         model_name = checkpoint_dir.name
-    print(f"Initializing model {model_name!r}")
-    with EmptyInitOnDevice(device="meta", dtype=dtype):
-        model = Parrot.from_name(model_name)
-    print(f"Model config {model.config.__dict__}")
+    config = Config.from_name(model_name)
+    print(f"Model config {config.__dict__}")
     with open(checkpoint_dir / "lit_config.json", "w") as json_config:
-        json.dump(model.config.__dict__, json_config)
+        json.dump(config.__dict__, json_config)
 
     # initialize a new empty state dict to hold our new weights
     sd = {}
@@ -85,8 +83,8 @@ def convert_hf_checkpoint(
     bin_files = list(checkpoint_dir.glob("*.bin"))
     if not bin_files:
         raise ValueError(f"Expected {str(checkpoint_dir)!r} to contain .bin files")
-    model_path = checkpoint_dir / "lit_model.pth"
-    with incremental_save(model_path) as saver:
+
+    with incremental_save(checkpoint_dir / "lit_model.pth") as saver:
         for bin_file in sorted(bin_files):
             print("Processing", bin_file)
             with lazy_load(bin_file) as hf_weights:
