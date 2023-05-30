@@ -27,7 +27,6 @@ def prepare(
     seed: int = 42,
     mask_inputs: bool = False,  # as in alpaca-lora
     data_file_name: str = DATA_FILE_NAME,
-    pad_data: bool = False,
 ) -> None:
     """Prepare the Alpaca dataset for instruction tuning.
 
@@ -54,11 +53,11 @@ def prepare(
     print(f"val has {len(test_set):,} samples")
 
     print("Processing train split ...")
-    train_set = [prepare_sample(sample, tokenizer, max_seq_length, mask_inputs, pad_data) for sample in tqdm(train_set)]
+    train_set = [prepare_sample(sample, tokenizer, max_seq_length, mask_inputs) for sample in tqdm(train_set)]
     torch.save(train_set, file_path.parent / "train.pt")
 
     print("Processing test split ...")
-    test_set = [prepare_sample(sample, tokenizer, max_seq_length, mask_inputs, pad_data) for sample in tqdm(test_set)]
+    test_set = [prepare_sample(sample, tokenizer, max_seq_length, mask_inputs) for sample in tqdm(test_set)]
     torch.save(test_set, file_path.parent / "test.pt")
 
 
@@ -70,7 +69,7 @@ def download(file_path: Path):
         f.write(requests.get(DATA_FILE).text)
 
 
-def prepare_sample(example: dict, tokenizer: Tokenizer, max_length: int, mask_inputs: bool = True, pad_data: bool = False):
+def prepare_sample(example: dict, tokenizer: Tokenizer, max_length: int, mask_inputs: bool = True):
     """Processes a single sample.
 
     Each sample in the dataset consists of:
@@ -98,14 +97,6 @@ def prepare_sample(example: dict, tokenizer: Tokenizer, max_length: int, mask_in
     labels = encoded_full_prompt_and_response.clone()
     if mask_inputs:
         labels[: len(encoded_full_prompt)] = IGNORE_INDEX
-
-    if pad_data:
-        def pad_right(x, pad_id):
-            # pad right based on the longest sequence
-            n = max_length - len(x)
-            return torch.cat((x, torch.full((n,), pad_id, dtype=x.dtype)))
-        encoded_full_prompt_and_response = pad_right(encoded_full_prompt_and_response, pad_id=0)
-        labels = pad_right(labels, pad_id=0)
 
     return {
         **example,

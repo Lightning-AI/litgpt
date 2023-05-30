@@ -178,10 +178,10 @@ def get_batch(fabric: L.Fabric, data: list):
         max_seq_length = max(len(s) for s in input_ids)
     
 
-    def pad_right(x, pad_id):
-        # pad right based on the longest sequence
-        n = max_seq_length - len(x)
-        return torch.cat((x, torch.full((n,), pad_id, dtype=x.dtype)))
+        def pad_right(x, pad_id):
+            # pad right based on the longest sequence
+            n = max_seq_length - len(x)
+            return torch.cat((x, torch.full((n,), pad_id, dtype=x.dtype)))
 
     x = torch.stack([pad_right(x, pad_id=0) for x in input_ids])
     y = torch.stack([pad_right(x, pad_id=-1) for x in labels])
