@@ -1,3 +1,4 @@
+import contextlib
 import gc
 import json
 import sys
@@ -85,9 +86,12 @@ def convert_hf_checkpoint(
         raise ValueError(f"Expected {str(checkpoint_dir)!r} to contain .bin files")
 
     with incremental_save(checkpoint_dir / "lit_model.pth") as saver:
-        for bin_file in sorted(bin_files):
-            print("Processing", bin_file)
-            with lazy_load(bin_file) as hf_weights:
+        # for checkpoints that split the QKV across several files, we need to keep all the bin files
+        # open, so we use `ExitStack` to close them all together at the end
+        with contextlib.ExitStack() as stack:
+            for bin_file in sorted(bin_files):
+                print("Processing", bin_file)
+                hf_weights = stack.enter_context(lazy_load(bin_file))
                 copy_weights(sd, hf_weights, saver=saver, dtype=dtype)
             gc.collect()
         saver.save(sd)
