@@ -172,7 +172,7 @@ class CausalSelfAttention(BaseCausalSelfAttention):
             # adapter embedding layer
             self.adapter_wte = nn.Embedding(config.adapter_prompt_length, config.n_embd)
             # gate for adaption
-            self.gating_factor = torch.nn.Parameter(torch.zeros(1))
+            self.gating_factor = torch.nn.Parameter(torch.zeros(1, config.n_head, 1, 1))
         self.block_idx = block_idx
         self.adapter_prompt_length = config.adapter_prompt_length
         self.adapter_start_layer = config.adapter_start_layer
