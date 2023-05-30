@@ -176,7 +176,6 @@ def get_batch(fabric: L.Fabric, data: list):
 
     if data.device.type != "xla":
         max_seq_length = max(len(s) for s in input_ids)
-    
 
         def pad_right(x, pad_id):
             # pad right based on the longest sequence
