@@ -154,7 +154,7 @@ def validate(fabric: L.Fabric, model: torch.nn.Module, val_data: np.ndarray, tok
     sample = {"instruction": instruction, "input": ""}
     prompt = generate_prompt(sample)
     encoded = tokenizer.encode(prompt, device=model.device)
-    output = generate(model, idx=encoded, max_seq_length=max_seq_length, max_new_tokens=100, temperature=0.8)
+    output = generate(model, idx=encoded, T_new=len(encoded) + 100, max_seq_length=max_seq_length, temperature=0.8)
     output = tokenizer.decode(output)
     fabric.print(output)
 
@@ -188,7 +188,7 @@ def get_batch(fabric: L.Fabric, data: list):
 
     if isinstance(fabric.accelerator, MPSAccelerator):
         x, y = fabric.to_device((x, y))
-    else: 
+    else:
         x, y = fabric.to_device((x.pin_memory(), y.pin_memory()))
 
     return x, y
