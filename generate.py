@@ -16,7 +16,7 @@ from lit_parrot.utils import EmptyInitOnDevice, lazy_load, check_valid_checkpoin
 def generate(
     model: torch.nn.Module,
     idx: torch.Tensor,
-    T_new: int,
+    max_returned_tokens: int,
     max_seq_length: int,
     *,
     temperature: float = 1.0,
@@ -30,17 +30,17 @@ def generate(
     Args:
         model: The model to use.
         idx: Tensor of shape (T) with indices of the prompt sequence.
-        T_new: The maximum number of tokens to return (given plus generated).
+        max_returned_tokens: The maximum number of tokens to return (given plus generated).
         max_seq_length: The maximum sequence length allowed. Should be less or equal than the block size.
         temperature: Scales the predicted logits by 1 / temperature.
         top_k: If specified, only sample among the tokens with the k highest probabilities.
         eos_id: If specified, stop generating any more token once the <eos> token is triggered.
     """
     T = idx.size(0)
-    assert T_new > T
+    assert max_returned_tokens > T
     device, dtype = idx.device, idx.dtype
     # create an empty tensor of the expected final shape and fill in the current tokens
-    empty = torch.empty(T_new, dtype=dtype, device=device)
+    empty = torch.empty(max_returned_tokens, dtype=dtype, device=device)
     empty[:T] = idx
     idx = empty
     input_pos = torch.arange(0, T, device=device)
@@ -51,7 +51,7 @@ def generate(
         xm.mark_step()
 
     # generate up to a fixed number of tokens
-    for _ in range(T_new - T):
+    for _ in range(max_returned_tokens - T):
         x = idx.index_select(0, input_pos).view(1, -1)
 
         # forward
@@ -129,13 +129,23 @@ def main(
     tokenizer = Tokenizer(checkpoint_dir / "tokenizer.json", checkpoint_dir / "tokenizer_config.json")
     encoded = tokenizer.encode(prompt, device=fabric.device)
     prompt_length = encoded.size(0)
-    T_new = prompt_length + max_new_tokens
-    assert T_new <= model.config.block_size, (T_new, model.config.block_size)  # maximum rope cache length
+    max_returned_tokens = prompt_length + max_new_tokens
+    assert max_returned_tokens <= model.config.block_size, (
+        max_returned_tokens,
+        model.config.block_size,
+    )  # maximum rope cache length
 
     L.seed_everything(1234)
     for i in range(num_samples):
         t0 = time.perf_counter()
-        y = generate(model, encoded, T_new, max_seq_length=T_new, temperature=temperature, top_k=top_k)
+        y = generate(
+            model,
+            encoded,
+            max_returned_tokens,
+            max_seq_length=max_returned_tokens,
+            temperature=temperature,
+            top_k=top_k,
+        )
         t = time.perf_counter() - t0
 
         model.reset_cache()

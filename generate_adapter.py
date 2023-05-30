@@ -73,11 +73,17 @@ def main(
     prompt = generate_prompt(sample)
     encoded = tokenizer.encode(prompt, device=model.device)
     prompt_length = encoded.size(0)
-    T_new = prompt_length + max_new_tokens
+    max_returned_tokens = prompt_length + max_new_tokens
 
     t0 = time.perf_counter()
     y = generate(
-        model, encoded, T_new, max_seq_length=T_new, temperature=temperature, top_k=top_k, eos_id=tokenizer.eos_id
+        model,
+        encoded,
+        max_returned_tokens,
+        max_seq_length=max_returned_tokens,
+        temperature=temperature,
+        top_k=top_k,
+        eos_id=tokenizer.eos_id,
     )
     t = time.perf_counter() - t0
 
