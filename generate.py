@@ -130,7 +130,7 @@ def main(
     encoded = tokenizer.encode(prompt, device=fabric.device)
     prompt_length = encoded.size(0)
     T_new = prompt_length + max_new_tokens
-    assert T_new <= model.config.block_size  # maximum rope cache length
+    assert T_new <= model.config.block_size, (T_new, model.config.block_size)  # maximum rope cache length
 
     L.seed_everything(1234)
     for i in range(num_samples):
