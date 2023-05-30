@@ -1,4 +1,3 @@
-import contextlib
 import gc
 import json
 import sys
@@ -87,12 +86,11 @@ def convert_hf_checkpoint(
     if not bin_files:
         raise ValueError(f"Expected {str(checkpoint_dir)!r} to contain .bin files")
     model_path = checkpoint_dir / "lit_model.pth"
-    with contextlib.ExitStack() as stack:
-        saver = stack.enter_context(incremental_save(model_path))
+    with incremental_save(model_path) as saver:
         for bin_file in sorted(bin_files):
             print("Processing", bin_file)
-            hf_weights = stack.enter_context(lazy_load(bin_file))
-            copy_weights(sd, saver, hf_weights, dtype=dtype)
+            with lazy_load(bin_file) as hf_weights:
+                copy_weights(sd, hf_weights, saver=saver, dtype=dtype)
             gc.collect()
         saver.save(sd)
 
