@@ -69,10 +69,10 @@ def convert_hf_checkpoint(
 
     if model_name is None:
         model_name = checkpoint_dir.name
-    print(f"Initializing model {model_name}")
+    print(f"Initializing model {model_name!r}")
     with EmptyInitOnDevice(device="cpu", dtype=dtype):
         model = Parrot.from_name(model_name)
-
+    print(f"Model config {model.config.__dict__}")
     with open(checkpoint_dir / "lit_config.json", "w") as json_config:
         json.dump(model.config.__dict__, json_config)
 

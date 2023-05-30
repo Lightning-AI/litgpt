@@ -49,6 +49,13 @@ class Parrot(nn.Module):
             # https://huggingface.co/stabilityai/stablelm-base-alpha-3b/blob/main/config.json#L12
             module.eps = 1e-5
 
+    def reset_cache(self) -> None:
+        self.kv_caches.clear()
+        if self.mask_cache.device.type == "xla":
+            # https://github.com/Lightning-AI/lit-parrot/pull/83#issuecomment-1558150179
+            self.rope_cache = None
+            self.mask_cache = None
+
     def forward(
         self, idx: torch.Tensor, max_seq_length: Optional[int] = None, input_pos: Optional[torch.Tensor] = None
     ) -> Union[torch.Tensor, Tuple[torch.Tensor, List[KVCache]]]:
@@ -111,7 +118,7 @@ class Parrot(nn.Module):
     def from_name(cls, name: str, **kwargs: Any) -> Self:
         return cls(Config.from_name(name, **kwargs))
 
-    def build_rope_cache(self, idx: torch.Tensor) -> KVCache:
+    def build_rope_cache(self, idx: torch.Tensor) -> RoPECache:
         return build_rope_cache(
             seq_len=self.config.block_size,
             n_elem=int(self.config.rotary_percentage * (self.config.n_embd // self.config.n_head)),
