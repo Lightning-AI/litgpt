@@ -66,9 +66,8 @@ def main(
 
     with EmptyInitOnDevice(device=fabric.device, dtype=torch.float32 if fabric._precision.precision == "32-true" else torch.bfloat16):
         model = Parrot(config)
-
-        with lazy_load(checkpoint_dir / "lit_model.pth") as checkpoint:
-            model.load_state_dict(checkpoint, strict=False)
+    with lazy_load(checkpoint_dir / "lit_model.pth") as checkpoint:
+        model.load_state_dict(checkpoint, strict=False)
 
     mark_only_adapter_as_trainable(model)
 

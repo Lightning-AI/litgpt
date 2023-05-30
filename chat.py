@@ -125,9 +125,8 @@ def main(
     print(f"Loading model {str(checkpoint_path)!r} with {config.__dict__}", file=sys.stderr)
     with EmptyInitOnDevice(device=fabric.device, dtype=dtype, quantization_mode=quantize):
         model = Parrot(config)
-
-        with lazy_load(checkpoint_path) as checkpoint:
-            model.load_state_dict(checkpoint)
+    with lazy_load(checkpoint_path) as checkpoint:
+        model.load_state_dict(checkpoint)
 
     model.eval()
     model = fabric.setup_module(model)

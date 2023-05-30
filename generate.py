@@ -122,9 +122,8 @@ def main(
     t0 = time.time()
     with EmptyInitOnDevice(device=fabric.device, dtype=dtype, quantization_mode=quantize):
         model = Parrot(config)
-
-        with lazy_load(checkpoint_path) as checkpoint:
-            model.load_state_dict(checkpoint)
+    with lazy_load(checkpoint_path) as checkpoint:
+        model.load_state_dict(checkpoint)
     print(f"Time to load model: {time.time() - t0:.02f} seconds.", file=sys.stderr)
 
     model.eval()
