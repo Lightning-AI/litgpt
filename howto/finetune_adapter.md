@@ -43,7 +43,15 @@ This script will save checkpoints periodically to the `out_dir` directory. If yo
 python finetune_adapter.py --out_dir out/adapter/my-model-finetuned
 ```
 
-If your GPU does not support `bfloat16` (for instance, on MPS), you can pass the `--precision 32-true` argument.
+If your GPU does not support `bfloat16`, you can pass the `--precision 32-true` argument.
+
+For instance, to fine-tune on MPS (the GPU on modern Macs), you can run
+
+```bash
+python finetune_adapter.py --out_dir out/adapter/my-model-finetuned --device mps --precision 32-true
+```
+
+Note that `mps` will be picked up automatically by the default `device="auto"`, it's spelled out for clarity here.
 
 ## Test the model
 
