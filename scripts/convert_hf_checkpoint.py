@@ -1,6 +1,6 @@
+import contextlib
 import gc
 import json
-import shutil
 import sys
 from pathlib import Path
 from typing import Optional
@@ -12,10 +12,10 @@ wd = Path(__file__).parent.parent.resolve()
 sys.path.append(str(wd))
 
 from lit_parrot.model import Parrot
-from lit_parrot.utils import EmptyInitOnDevice, check_valid_checkpoint_dir
+from lit_parrot.utils import EmptyInitOnDevice, lazy_load, incremental_save
 
 
-def copy_weights(state_dict, hf_weights, dtype=torch.float32):
+def copy_weights(state_dict, saver, hf_weights, dtype=torch.float32):
     weight_map = {
         "gpt_neox.embed_in.weight": "transformer.wte.weight",
         "gpt_neox.layers.{}.input_layernorm.bias": "transformer.h.{}.norm_1.bias",
@@ -39,7 +39,7 @@ def copy_weights(state_dict, hf_weights, dtype=torch.float32):
     }
 
     for name, param in hf_weights.items():
-        param = param.to(dtype=dtype)
+        param = param._load_tensor().to(dtype=dtype)
         if "gpt_neox.layers" in name:
             split = name.split(".")
             block_id = int(split[2])
@@ -51,8 +51,7 @@ def copy_weights(state_dict, hf_weights, dtype=torch.float32):
             to_name = to_name.format(block_id)
         else:
             to_name = weight_map[name]
-        print(f"{name} {tuple(param.shape)} ⟶ {to_name} {tuple(state_dict[to_name].shape)}")
-        state_dict[to_name].copy_(param)
+        state_dict[to_name] = saver.store_early(param)
 
 
 @torch.inference_mode()
@@ -70,28 +69,27 @@ def convert_hf_checkpoint(
     if model_name is None:
         model_name = checkpoint_dir.name
     print(f"Initializing model {model_name!r}")
-    with EmptyInitOnDevice(device="cpu", dtype=dtype):
+    with EmptyInitOnDevice(device="meta", dtype=dtype):
         model = Parrot.from_name(model_name)
     print(f"Model config {model.config.__dict__}")
     with open(checkpoint_dir / "lit_config.json", "w") as json_config:
         json.dump(model.config.__dict__, json_config)
 
     # initialize a new empty state dict to hold our new weights
-    sd = model.state_dict()
+    sd = {}
 
     bin_files = list(checkpoint_dir.glob("*.bin"))
     if not bin_files:
         raise ValueError(f"Expected {str(checkpoint_dir)!r} to contain .bin files")
-    for bin_file in sorted(bin_files):
-        print("Processing", bin_file)
-        hf_weights = torch.load(bin_file, map_location="cpu")
-        copy_weights(sd, hf_weights, dtype=dtype)
-        del hf_weights
-        gc.collect()
-
     model_path = checkpoint_dir / "lit_model.pth"
-    print(f"Saving to disk at {str(model_path)!r}")
-    torch.save(model.state_dict(), model_path)
+    with contextlib.ExitStack() as stack:
+        saver = stack.enter_context(incremental_save(model_path))
+        for bin_file in sorted(bin_files):
+            print("Processing", bin_file)
+            hf_weights = stack.enter_context(lazy_load(bin_file))
+            copy_weights(sd, saver, hf_weights, dtype=dtype)
+            gc.collect()
+        saver.save(sd)
 
 
 if __name__ == "__main__":
