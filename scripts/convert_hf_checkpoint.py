@@ -15,7 +15,7 @@ from lit_parrot.model import Parrot
 from lit_parrot.utils import EmptyInitOnDevice, lazy_load, incremental_save
 
 
-def copy_weights(state_dict, saver, hf_weights, dtype=torch.float32):
+def copy_weights(state_dict, hf_weights, saver=None, dtype=torch.float32):
     weight_map = {
         "gpt_neox.embed_in.weight": "transformer.wte.weight",
         "gpt_neox.layers.{}.input_layernorm.bias": "transformer.h.{}.norm_1.bias",
@@ -39,7 +39,10 @@ def copy_weights(state_dict, saver, hf_weights, dtype=torch.float32):
     }
 
     for name, param in hf_weights.items():
-        param = param._load_tensor().to(dtype=dtype)
+        if hasattr(param, "_load_tensor"):
+            # support tensors loaded via `lazy_load()`
+            param = param._load_tensor()
+        param = param.to(dtype=dtype)
         if "gpt_neox.layers" in name:
             split = name.split(".")
             block_id = int(split[2])
@@ -51,7 +54,9 @@ def copy_weights(state_dict, saver, hf_weights, dtype=torch.float32):
             to_name = to_name.format(block_id)
         else:
             to_name = weight_map[name]
-        state_dict[to_name] = saver.store_early(param)
+        if saver is not None:
+            param = saver.store_early(param)
+        state_dict[to_name] = param
 
 
 @torch.inference_mode()
