@@ -175,7 +175,7 @@ def get_batch(fabric: L.Fabric, data: list):
     labels = [data[i]["labels"].type(torch.int64) for i in ix]
 
     # pad to constant size for xla devices to prevent recompilation
-    max_len = max(len(s) for s in input_ids) if input_ids.device.type != "xla" else max_seq_length
+    max_len = max(len(s) for s in input_ids) if input_ids[0].device.type != "xla" else max_seq_length
 
     def pad_right(x, pad_id):
         # pad right based on the longest sequence
