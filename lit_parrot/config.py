@@ -17,6 +17,8 @@ class Config:
     n_embd: int = 4096
     rotary_percentage: float = 0.25
     parallel_residual: bool = True
+    bias: bool = True
+    multi_query: bool = False
 
     def __post_init__(self):
         if self.padded_vocab_size is None:
@@ -83,3 +85,38 @@ redpajama_incite = {
 for k in list(redpajama_incite):
     for kind in ("Base", "Chat", "Instruct"):
         configs[k.format(kind)] = redpajama_incite[k]
+
+
+########################################
+# TII UAE Falcon
+########################################
+falcon = {
+    # https://huggingface.co/tiiuae/falcon-7b/blob/main/config.json
+    "falcon-7b{}": dict(
+        block_size=2048,
+        padded_vocab_size=65024,
+        n_layer=32,
+        n_head=71,
+        n_embd=4544,
+        rotary_percentage=1.0,
+        parallel_residual=True,
+        multi_query=True,
+        bias=False,
+    ),
+    # https://huggingface.co/tiiuae/falcon-40b/blob/main/config.json
+    "falcon-40b{}": dict(
+        block_size=2048,
+        padded_vocab_size=65024,
+        n_layer=80,
+        n_head=128,
+        n_embd=8192,
+        rotary_percentage=1.0,
+        parallel_residual=True,
+        multi_query=True,  # strangely, the 40b config doesn't specify this, but it is
+        bias=False,
+        # FIXME: n_head_kv=8
+    ),
+}
+for k in list(falcon):
+    for kind in ("", "-instruct"):
+        configs[k.format(kind)] = falcon[k]

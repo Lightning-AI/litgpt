@@ -15,7 +15,51 @@ from lit_parrot import Config
 from lit_parrot.utils import lazy_load, incremental_save
 
 
-def copy_weights(state_dict, hf_weights, saver=None, dtype=torch.float32):
+def copy_weights_gpt_neox(state_dict, hf_weights, saver=None, dtype=torch.float32):
+    weight_map = {
+        "gpt_neox.embed_in.weight": "transformer.wte.weight",
+        "gpt_neox.layers.{}.input_layernorm.bias": "transformer.h.{}.norm_1.bias",
+        "gpt_neox.layers.{}.input_layernorm.weight": "transformer.h.{}.norm_1.weight",
+        "gpt_neox.layers.{}.attention.query_key_value.bias": "transformer.h.{}.attn.attn.bias",
+        "gpt_neox.layers.{}.attention.query_key_value.weight": "transformer.h.{}.attn.attn.weight",
+        "gpt_neox.layers.{}.attention.dense.bias": "transformer.h.{}.attn.proj.bias",
+        "gpt_neox.layers.{}.attention.dense.weight": "transformer.h.{}.attn.proj.weight",
+        "gpt_neox.layers.{}.attention.rotary_emb.inv_freq": None,
+        "gpt_neox.layers.{}.attention.bias": None,
+        "gpt_neox.layers.{}.attention.masked_bias": None,
+        "gpt_neox.layers.{}.post_attention_layernorm.bias": "transformer.h.{}.norm_2.bias",
+        "gpt_neox.layers.{}.post_attention_layernorm.weight": "transformer.h.{}.norm_2.weight",
+        "gpt_neox.layers.{}.mlp.dense_h_to_4h.bias": "transformer.h.{}.mlp.fc.bias",
+        "gpt_neox.layers.{}.mlp.dense_h_to_4h.weight": "transformer.h.{}.mlp.fc.weight",
+        "gpt_neox.layers.{}.mlp.dense_4h_to_h.bias": "transformer.h.{}.mlp.proj.bias",
+        "gpt_neox.layers.{}.mlp.dense_4h_to_h.weight": "transformer.h.{}.mlp.proj.weight",
+        "gpt_neox.final_layer_norm.bias": "transformer.ln_f.bias",
+        "gpt_neox.final_layer_norm.weight": "transformer.ln_f.weight",
+        "embed_out.weight": "lm_head.weight",
+    }
+
+    for name, param in hf_weights.items():
+        if hasattr(param, "_load_tensor"):
+            # support tensors loaded via `lazy_load()`
+            param = param._load_tensor()
+        param = param.to(dtype=dtype)
+        if "gpt_neox.layers" in name:
+            split = name.split(".")
+            block_id = int(split[2])
+            split[2] = "{}"
+            from_name = ".".join(split)
+            to_name = weight_map[from_name]
+            if to_name is None:
+                continue
+            to_name = to_name.format(block_id)
+        else:
+            to_name = weight_map[name]
+        if saver is not None:
+            param = saver.store_early(param)
+        state_dict[to_name] = param
+
+
+def copy_weights_falcon(state_dict, hf_weights, saver = None, dtype = torch.float32):
     weight_map = {
         "gpt_neox.embed_in.weight": "transformer.wte.weight",
         "gpt_neox.layers.{}.input_layernorm.bias": "transformer.h.{}.norm_1.bias",
@@ -78,6 +122,9 @@ def convert_hf_checkpoint(
     with open(checkpoint_dir / "lit_config.json", "w") as json_config:
         json.dump(config.__dict__, json_config)
 
+    # weak way to know which model type we're dealing with
+    copy_fn = copy_weights_gpt_neox if config.bias else copy_weights_falcon
+
     # initialize a new empty state dict to hold our new weights
     sd = {}
 
@@ -99,7 +146,7 @@ def convert_hf_checkpoint(
             for bin_file in sorted(bin_files):
                 print("Processing", bin_file)
                 hf_weights = stack.enter_context(lazy_load(bin_file))
-                copy_weights(sd, hf_weights, saver=saver, dtype=dtype)
+                copy_fn(sd, hf_weights, saver=saver, dtype=dtype)
             gc.collect()
         saver.save(sd)
 

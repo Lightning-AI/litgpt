@@ -14,9 +14,9 @@ def download_from_hub(repo_id: Optional[str] = None) -> None:
         orgs = {
             "stablelm": "stabilityai",
             "pythia": "EleutherAI",
-            "RedPajama": "togethercomputer"
+            "RedPajama": "togethercomputer",
+            "falcon": "tiiuae",
         }
-
         names = [f"{orgs[el.split('-')[0]]}/{el}" for el in configs.keys()]
 
         print("Please specify --repo_id <repo_id>. "

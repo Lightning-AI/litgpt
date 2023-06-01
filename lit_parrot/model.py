@@ -165,9 +165,9 @@ class CausalSelfAttention(nn.Module):
         assert config.n_embd % config.n_head == 0
 
         # key, query, value projections for all heads, but in a batch
-        self.attn = nn.Linear(config.n_embd, 3 * config.n_embd, bias=True)
+        self.attn = nn.Linear(config.n_embd, 3 * config.n_embd, bias=config.bias)
         # output projection
-        self.proj = nn.Linear(config.n_embd, config.n_embd, bias=True)
+        self.proj = nn.Linear(config.n_embd, config.n_embd, bias=config.bias)
 
         self.n_head = config.n_head
         self.n_embd = config.n_embd
@@ -225,8 +225,8 @@ class MLP(nn.Module):
     def __init__(self, config: Config) -> None:
         super().__init__()
         hidden_dim = 4 * config.n_embd
-        self.fc = nn.Linear(config.n_embd, hidden_dim, bias=True)
-        self.proj = nn.Linear(hidden_dim, config.n_embd, bias=True)
+        self.fc = nn.Linear(config.n_embd, hidden_dim, bias=config.bias)
+        self.proj = nn.Linear(hidden_dim, config.n_embd, bias=config.bias)
 
     def forward(self, x: torch.Tensor) -> torch.Tensor:
         # gpt-neox style MLP

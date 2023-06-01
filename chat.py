@@ -210,6 +210,7 @@ def prompt_config(checkpoint_dir: Path, tokenizer: Tokenizer) -> Tuple[str, Tupl
 
     # default format
     return "{prompt}", ([tokenizer.eos_id],)
+    # FIXME: play with falcon-instruct, see if there are any special stop tokens
 
 
 if __name__ == "__main__":
