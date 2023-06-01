@@ -91,22 +91,7 @@ class Parrot(nn.Module):
             for block in self.transformer.h:
                 x, *_ = block(x, (cos, sin), mask, max_seq_length)
         else:
-            if not self.kv_caches:
-                head_size = self.config.n_embd // self.config.n_head
-                k_cache_shape = (
-                    B,
-                    self.config.n_head,
-                    max_seq_length,
-                    cos.size(-1) + head_size - int(self.config.rotary_percentage * head_size),
-                )
-                v_cache_shape = (B, self.config.n_head, max_seq_length, head_size)
-                self.kv_caches = [
-                    (
-                        torch.zeros(k_cache_shape, device=x.device, dtype=x.dtype),
-                        torch.zeros(v_cache_shape, device=x.device, dtype=x.dtype),
-                    )
-                    for _ in range(self.config.n_layer)
-                ]
+            self.kv_caches = self.kv_caches or self.build_kv_caches(x, max_seq_length, cos.size(-1))
             for i, block in enumerate(self.transformer.h):
                 x, self.kv_caches[i] = block(x, (cos, sin), mask, max_seq_length, input_pos, self.kv_caches[i])
 
@@ -123,7 +108,7 @@ class Parrot(nn.Module):
     def build_rope_cache(self, idx: torch.Tensor) -> RoPECache:
         return build_rope_cache(
             seq_len=self.config.block_size,
-            n_elem=int(self.config.rotary_percentage * (self.config.n_embd // self.config.n_head)),
+            n_elem=int(self.config.rotary_percentage * self.config.head_size),
             dtype=idx.dtype,
             device=idx.device,
         )
@@ -131,6 +116,25 @@ class Parrot(nn.Module):
     def build_mask_cache(self, idx: torch.Tensor) -> torch.Tensor:
         ones = torch.ones((self.config.block_size, self.config.block_size), device=idx.device, dtype=torch.bool)
         return torch.tril(ones).unsqueeze(0).unsqueeze(0)
+
+    def build_kv_caches(self, idx: torch.Tensor, max_seq_length: int, rope_cache_length: int) -> List[KVCache]:
+        B = idx.size(0)
+        kv_heads = 1 if self.config.multi_query else self.config.n_head
+        k_cache_shape = (
+            B,
+            kv_heads,
+            max_seq_length,
+            rope_cache_length + self.config.head_size - int(self.config.rotary_percentage * self.config.head_size),
+        )
+        v_cache_shape = (B, kv_heads, max_seq_length, self.config.head_size)
+        device, dtype = idx.device, idx.dtype
+        return [
+            (
+                torch.zeros(k_cache_shape, device=device, dtype=dtype),
+                torch.zeros(v_cache_shape, device=device, dtype=dtype),
+            )
+            for _ in range(self.config.n_layer)
+        ]
 
 
 class Block(nn.Module):
@@ -171,8 +175,9 @@ class CausalSelfAttention(nn.Module):
         super().__init__()
         assert config.n_embd % config.n_head == 0
 
+        shape = config.n_embd + 2 * config.head_size if config.multi_query else 3 * config.n_embd
         # key, query, value projections for all heads, but in a batch
-        self.attn = nn.Linear(config.n_embd, 3 * config.n_embd, bias=config.bias)
+        self.attn = nn.Linear(config.n_embd, shape, bias=config.bias)
         # output projection
         self.proj = nn.Linear(config.n_embd, config.n_embd, bias=config.bias)
 
@@ -190,11 +195,15 @@ class CausalSelfAttention(nn.Module):
         B, T, C = x.size()  # batch size, sequence length, embedding dimensionality (n_embd)
 
         qkv = self.attn(x)
-        head_size = C // self.config.n_head
-        qkv = qkv.view(B, T, self.config.n_head, 3 * head_size).transpose(1, 2)
-        q, k, v = qkv.split(head_size, dim=-1)  # (B, nh, T, hs)
 
-        n_elem = int(self.config.rotary_percentage * head_size)
+        if self.config.multi_query:
+            qkv = qkv.view(B, T, self.config.n_head + 2, self.config.head_size).transpose(1, 2)
+            q, k, v = qkv.split((self.config.n_head, 1, 1), dim=1)  # (B, nh if q else 1, T, hs)
+        else:
+            qkv = qkv.view(B, T, self.config.n_head, 3 * self.config.head_size).transpose(1, 2)
+            q, k, v = qkv.split(self.config.head_size, dim=-1)  # (B, nh, T, hs)
+
+        n_elem = int(self.config.rotary_percentage * self.config.head_size)
 
         cos, sin = rope
         q_roped = apply_rope(q[..., :n_elem], cos, sin)
@@ -215,7 +224,9 @@ class CausalSelfAttention(nn.Module):
             kv_cache = k, v
 
         # efficient attention using Flash Attention CUDA kernels
-        y = F.scaled_dot_product_attention(q, k, v, attn_mask=mask, dropout_p=0.0, scale=1.0 / math.sqrt(head_size))
+        y = F.scaled_dot_product_attention(
+            q, k, v, attn_mask=mask, dropout_p=0.0, scale=1.0 / math.sqrt(self.config.head_size)
+        )
 
         y = y.transpose(1, 2).contiguous().view(B, T, C)  # re-assemble all head outputs side by side
 

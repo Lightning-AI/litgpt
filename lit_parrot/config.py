@@ -24,6 +24,7 @@ class Config:
     def __post_init__(self):
         if self.padded_vocab_size is None:
             self.padded_vocab_size = find_multiple(self.vocab_size, self.padding_multiple)
+        self.head_size = self.n_embd // self.n_head
 
     @classmethod
     def from_name(cls, name: str, **kwargs: Any) -> Self:
