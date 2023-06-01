@@ -173,7 +173,16 @@ class Block(nn.Module):
 class CausalSelfAttention(nn.Module):
     def __init__(self, config: Config) -> None:
         super().__init__()
-        shape = config.n_embd + 2 * config.head_size if config.multi_query else 3 * config.n_embd
+        if config.multi_query:
+            if config.n_head_kv is None:
+                shape = config.n_embd + 2 * config.head_size
+            else:
+                # (num of q heads + num of kv heads) * head size
+                shape = (config.n_head + 2 * config.n_head_kv) * config.head_size,
+        else:
+            if config.n_head_kv is not None:
+                raise NotImplementedError("No checkpoint uses this configuration.")
+            shape = 3 * config.n_embd
         # key, query, value projections for all heads, but in a batch
         self.attn = nn.Linear(config.n_embd, shape, bias=config.bias)
         # output projection
@@ -195,8 +204,18 @@ class CausalSelfAttention(nn.Module):
         qkv = self.attn(x)
 
         if self.config.multi_query:
-            qkv = qkv.view(B, T, self.config.n_head + 2, self.config.head_size).transpose(1, 2)
-            q, k, v = qkv.split((self.config.n_head, 1, 1), dim=1)  # (B, nh if q else 1, T, hs)
+            if self.config.n_head_kv is None:
+                qkv = qkv.view(B, T, self.config.n_head, self.config.head_size + 2).transpose(1, 2)
+                q, k, v = qkv.split((self.config.n_head, 1, 1), dim=-1)  # (B, nh if q else 1, T, hs)
+            else:
+                q_per_kv = self.config.n_head // self.config.n_head_kv
+                qkv = qkv.view(B, T, self.config.n_head_kv, q_per_kv + 2, self.config.head_size).permute(0, 2, 3, 1, 4)
+                q, k, v = qkv.split((q_per_kv, 1, 1), dim=2)
+                k = k.repeat_interleave(q_per_kv, dim=2)
+                v = v.repeat_interleave(q_per_kv, dim=2)
+                q = q.reshape(B, -1, T, self.config.head_size)  # (B, nh, T, hs)
+                k = k.view(B, -1, T, self.config.head_size)  # (B, nh, T, hs)
+                v = v.view(B, -1, T, self.config.head_size)  # (B, nh, T, hs)
         else:
             qkv = qkv.view(B, T, self.config.n_head, 3 * self.config.head_size).transpose(1, 2)
             q, k, v = qkv.split(self.config.head_size, dim=-1)  # (B, nh, T, hs)
