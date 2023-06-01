@@ -207,6 +207,19 @@ def prompt_config(checkpoint_dir: Path, tokenizer: Tokenizer) -> Tuple[str, Tupl
             [2756],  # '\n\n\n'
         )
         return system_prompt, stop_tokens
+    if re.search(r"falcon.*-instruct", checkpoint_name):
+        # First line could be modified. AFAIK Falcon doesn't impose a specific system prompt
+        # The instruction to not prefix its replies doesn't work always, but better than nothing
+        system_prompt = "Do not prefix your replies with 'Bot: '\nUser: {prompt}\n"
+        # I've also tried just "{prompt}\n" but the model seems to ramble more often
+        stop_tokens = (
+            [tokenizer.eos_id],
+            # the model rarely emits the eos token and instead outputs newlines, but we cannot use them
+            # to stop or else things like code generation wouldn't work
+            [tokenizer.token_to_id("User"), tokenizer.token_to_id(":")],
+            [193, tokenizer.token_to_id("User")],  # 193: '\n'
+        )
+        return system_prompt, stop_tokens
 
     # default format
     return "{prompt}", ([tokenizer.eos_id],)
