@@ -51,7 +51,7 @@ def main(
     with open(checkpoint_dir / "lit_config.json") as fp:
         config = Config(**json.load(fp))
 
-    if quantize == "gptq.in4":
+    if quantize == "gptq.int4":
         model_file = "lit_model_gptq.4bit.pth"
         if not (checkpoint_dir / model_file).is_file():
             raise ValueError("Please run `python quantize/gptq.py` first")

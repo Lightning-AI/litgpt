@@ -16,7 +16,7 @@ wd = Path(__file__).parent.parent.resolve()
 sys.path.append(str(wd))
 
 from lit_parrot import Parrot, Tokenizer, Config
-from lit_parrot.utils import EmptyInitOnDevice, check_valid_checkpoint_dir, lazy_load
+from lit_parrot.utils import EmptyInitOnDevice, check_valid_checkpoint_dir
 
 
 class GPTQQuantizer:
@@ -217,7 +217,7 @@ def get_sample_data():
         "allenai/c4", "allenai--c4", data_files={"train": "en/c4-train.00000-of-01024.json.gz"}, split="train"
     )
     # heuristic for the data size?
-    txt = "\n".join(traindata[i]["text"] for i in torch.randperm(len(traindata))[:1000].tolist())
+    txt = "\n".join(traindata[i]["text"] for i in torch.randperm(len(traindata))[:2000].tolist())
     return txt
 
 
@@ -247,7 +247,7 @@ def llama_blockwise_quantization(model, sample_inputs, working_device, *, bits=4
     # better than relying on enumeration? originally the code bundled
     # the two mlp fc layers
     # we could automate this with a lot of hooks and another iteration
-    submodules_to_process = ["attn.c_attn", "attn.c_proj", "mlp.c_fc1", "mlp.c_fc2", "mlp.c_proj"]
+    submodules_to_process = ["attn.attn", "attn.proj", "mlp.fc1", "mlp.fc2", "mlp.proj"]
 
     for i, block in enumerate(model.transformer.h):
         block.to(working_device)

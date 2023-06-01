@@ -114,7 +114,7 @@ def main(
     fabric = L.Fabric(devices=1)
     dtype = torch.bfloat16 if fabric.device.type == "cuda" and torch.cuda.is_bf16_supported() else torch.float32
 
-    if quantize == "gptq.in4":
+    if quantize == "gptq.int4":
         model_file = "lit_model_gptq.4bit.pth"
         if not (checkpoint_dir / model_file).is_file():
             raise ValueError("Please run `python quantize/gptq.py` first")
@@ -126,7 +126,7 @@ def main(
     with EmptyInitOnDevice(device=fabric.device, dtype=dtype, quantization_mode=quantize):
         model = Parrot(config)
     with lazy_load(checkpoint_path) as checkpoint:
-        model.load_state_dict(checkpoint)
+        model.load_state_dict(checkpoint, strict=False)
     print(f"Time to load model: {time.time() - t0:.02f} seconds.", file=sys.stderr)
 
     model.eval()
