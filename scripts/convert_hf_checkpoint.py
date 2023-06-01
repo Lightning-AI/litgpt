@@ -2,8 +2,9 @@ import contextlib
 import gc
 import json
 import sys
+from functools import partial
 from pathlib import Path
-from typing import Optional
+from typing import Optional, Literal
 
 import torch
 
@@ -59,35 +60,39 @@ def copy_weights_gpt_neox(state_dict, hf_weights, saver=None, dtype=torch.float3
         state_dict[to_name] = param
 
 
-def copy_weights_falcon(state_dict, hf_weights, saver = None, dtype = torch.float32):
+def copy_weights_falcon(size: Literal["7b", "40b"], state_dict, hf_weights, saver=None, dtype=torch.float32):
     weight_map = {
-        "gpt_neox.embed_in.weight": "transformer.wte.weight",
-        "gpt_neox.layers.{}.input_layernorm.bias": "transformer.h.{}.norm_1.bias",
-        "gpt_neox.layers.{}.input_layernorm.weight": "transformer.h.{}.norm_1.weight",
-        "gpt_neox.layers.{}.attention.query_key_value.bias": "transformer.h.{}.attn.attn.bias",
-        "gpt_neox.layers.{}.attention.query_key_value.weight": "transformer.h.{}.attn.attn.weight",
-        "gpt_neox.layers.{}.attention.dense.bias": "transformer.h.{}.attn.proj.bias",
-        "gpt_neox.layers.{}.attention.dense.weight": "transformer.h.{}.attn.proj.weight",
-        "gpt_neox.layers.{}.attention.rotary_emb.inv_freq": None,
-        "gpt_neox.layers.{}.attention.bias": None,
-        "gpt_neox.layers.{}.attention.masked_bias": None,
-        "gpt_neox.layers.{}.post_attention_layernorm.bias": "transformer.h.{}.norm_2.bias",
-        "gpt_neox.layers.{}.post_attention_layernorm.weight": "transformer.h.{}.norm_2.weight",
-        "gpt_neox.layers.{}.mlp.dense_h_to_4h.bias": "transformer.h.{}.mlp.fc.bias",
-        "gpt_neox.layers.{}.mlp.dense_h_to_4h.weight": "transformer.h.{}.mlp.fc.weight",
-        "gpt_neox.layers.{}.mlp.dense_4h_to_h.bias": "transformer.h.{}.mlp.proj.bias",
-        "gpt_neox.layers.{}.mlp.dense_4h_to_h.weight": "transformer.h.{}.mlp.proj.weight",
-        "gpt_neox.final_layer_norm.bias": "transformer.ln_f.bias",
-        "gpt_neox.final_layer_norm.weight": "transformer.ln_f.weight",
-        "embed_out.weight": "lm_head.weight",
+        "transformer.word_embeddings.weight": "transformer.wte.weight",
+        "transformer.h.{}.self_attention.query_key_value.weight": "transformer.h.{}.attn.attn.weight",
+        "transformer.h.{}.self_attention.dense.weight": "transformer.h.{}.attn.proj.weight",
+        "transformer.h.{}.mlp.dense_h_to_4h.weight": "transformer.h.{}.mlp.fc.weight",
+        "transformer.h.{}.mlp.dense_4h_to_h.weight": "transformer.h.{}.mlp.proj.weight",
+        "transformer.ln_f.bias": "transformer.ln_f.bias",
+        "transformer.ln_f.weight": "transformer.ln_f.weight",
+        "lm_head.weight": "lm_head.weight",
     }
+    # the original model definition is different for each size
+    if size == "7b":
+        weight_map.update({
+            "transformer.h.{}.input_layernorm.bias": "transformer.h.{}.norm_1.bias",
+            "transformer.h.{}.input_layernorm.weight": "transformer.h.{}.norm_1.weight",
+        })
+    elif size == "40b":
+        weight_map.update({
+            "transformer.h.{}.ln_attn.bias": "transformer.h.{}.norm_1.bias",
+            "transformer.h.{}.ln_attn.weight": "transformer.h.{}.norm_1.weight",
+            "transformer.h.1.ln_mlp.bias": "transformer.h.{}.norm_2.bias",
+            "transformer.h.1.ln_mlp.weight": "transformer.h.{}.norm_2.weight",
+        })
+    else:
+        raise NotImplementedError
 
     for name, param in hf_weights.items():
         if hasattr(param, "_load_tensor"):
             # support tensors loaded via `lazy_load()`
             param = param._load_tensor()
         param = param.to(dtype=dtype)
-        if "gpt_neox.layers" in name:
+        if "transformer.h" in name:
             split = name.split(".")
             block_id = int(split[2])
             split[2] = "{}"
@@ -122,8 +127,11 @@ def convert_hf_checkpoint(
     with open(checkpoint_dir / "lit_config.json", "w") as json_config:
         json.dump(config.__dict__, json_config)
 
-    # weak way to know which model type we're dealing with
-    copy_fn = copy_weights_gpt_neox if config.bias else copy_weights_falcon
+    copy_fn = (
+        partial(copy_weights_falcon, "40b" if config.n_embd == 8192 else "7b")
+        if "falcon" in model_name
+        else copy_weights_gpt_neox
+    )
 
     # initialize a new empty state dict to hold our new weights
     sd = {}

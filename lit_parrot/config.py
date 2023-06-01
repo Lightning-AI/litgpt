@@ -19,6 +19,7 @@ class Config:
     parallel_residual: bool = True
     bias: bool = True
     multi_query: bool = False
+    shared_attention_norm: bool = False
 
     def __post_init__(self):
         if self.padded_vocab_size is None:
@@ -102,6 +103,8 @@ falcon = {
         parallel_residual=True,
         multi_query=True,
         bias=False,
+        # this is not in the config, but in the original model implementation, only for this config
+        shared_attention_norm=True
     ),
     # https://huggingface.co/tiiuae/falcon-40b/blob/main/config.json
     "falcon-40b{}": dict(
