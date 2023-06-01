@@ -45,14 +45,12 @@ def main(
     data_dir: Path = Path("data/alpaca"),
     checkpoint_dir: Path = Path("checkpoints/stabilityai/stablelm-base-alpha-3b"),
     out_dir: Path = Path("out/adapter/alpaca"),
-    precision = "bf16-mixed",
+    precision="bf16-mixed",
 ):
     check_valid_checkpoint_dir(checkpoint_dir)
 
     fabric = L.Fabric(
-        devices=devices,
-        strategy=(DeepSpeedStrategy(config=ds_config) if devices > 1 else "auto"),
-        precision=precision,
+        devices=devices, strategy=(DeepSpeedStrategy(config=ds_config) if devices > 1 else "auto"), precision=precision
     )
     fabric.launch()
     fabric.seed_everything(1337 + fabric.global_rank)
@@ -64,7 +62,9 @@ def main(
 
     config = Config.from_name(name=checkpoint_dir.name, block_size=max_seq_length)
 
-    with EmptyInitOnDevice(device=fabric.device, dtype=torch.float32 if fabric._precision.precision == "32-true" else torch.bfloat16):
+    with EmptyInitOnDevice(
+        device=fabric.device, dtype=torch.float32 if fabric._precision.precision == "32-true" else torch.bfloat16
+    ):
         model = Parrot(config)
     with lazy_load(checkpoint_dir / "lit_model.pth") as checkpoint:
         model.load_state_dict(checkpoint, strict=False)
@@ -154,7 +154,9 @@ def validate(fabric: L.Fabric, model: torch.nn.Module, val_data: np.ndarray, tok
     sample = {"instruction": instruction, "input": ""}
     prompt = generate_prompt(sample)
     encoded = tokenizer.encode(prompt, device=model.device)
-    output = generate(model, idx=encoded, max_seq_length=max_seq_length, max_new_tokens=100, temperature=0.8)
+    output = generate(
+        model, idx=encoded, max_returned_tokens=len(encoded) + 100, max_seq_length=max_seq_length, temperature=0.8
+    )
     output = tokenizer.decode(output)
     fabric.print(output)
 
@@ -188,7 +190,8 @@ def get_batch(fabric: L.Fabric, data: list):
 
     if isinstance(fabric.accelerator, MPSAccelerator):
         x, y = fabric.to_device((x, y))
-    else: 
+
+    else:
         x, y = fabric.to_device((x.pin_memory(), y.pin_memory()))
 
     return x, y

@@ -51,7 +51,8 @@ class Parrot(nn.Module):
 
     def reset_cache(self) -> None:
         self.kv_caches.clear()
-        if self.mask_cache.device.type == "xla":
+        if self.mask_cache is not None and self.mask_cache.device.type == "xla":
+
             # https://github.com/Lightning-AI/lit-parrot/pull/83#issuecomment-1558150179
             self.rope_cache = None
             self.mask_cache = None
