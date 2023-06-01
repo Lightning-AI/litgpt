@@ -25,7 +25,10 @@ class Config:
         if self.padded_vocab_size is None:
             self.padded_vocab_size = find_multiple(self.vocab_size, self.padding_multiple)
         assert self.n_embd % self.n_head == 0
-        self.head_size = self.n_embd // self.n_head
+
+    @property
+    def head_size(self) -> int:
+        return self.n_embd // self.n_head
 
     @classmethod
     def from_name(cls, name: str, **kwargs: Any) -> Self:
