@@ -89,9 +89,9 @@ for k in list(redpajama_incite):
         configs[k.format(kind)] = redpajama_incite[k]
 
 
-########################################
+#################
 # TII UAE Falcon
-########################################
+#################
 falcon = {
     # https://huggingface.co/tiiuae/falcon-7b/blob/main/config.json
     "falcon-7b{}": dict(
