@@ -51,11 +51,18 @@ def main(
     with open(checkpoint_dir / "lit_config.json") as fp:
         config = Config(**json.load(fp))
 
-    print("Loading model ...", file=sys.stderr)
+    if quantize == "gptq.in4":
+        model_file = "lit_model_gptq.4bit.pth"
+        if not (checkpoint_dir / model_file).is_file():
+            raise ValueError("Please run `python quantize/gptq.py` first")
+    else:
+        model_file = "lit_model.pth"
+    checkpoint_path = checkpoint_dir / model_file
+    print(f"Loading model {str(checkpoint_path)!r} with {config.__dict__}", file=sys.stderr)
     t0 = time.time()
     with EmptyInitOnDevice(device=fabric.device, dtype=dtype, quantization_mode=quantize):
         model = Parrot(config)
-    with lazy_load(checkpoint_dir / "lit_model.pth") as pretrained_checkpoint, lazy_load(
+    with lazy_load(checkpoint_path) as pretrained_checkpoint, lazy_load(
         adapter_path
     ) as adapter_checkpoint:
         # 1. Load the pretrained weights

@@ -119,7 +119,7 @@ def main(
         if not (checkpoint_dir / model_file).is_file():
             raise ValueError("Please run `python quantize/gptq.py` first")
     else:
-        model_file = "lit_moodel.pth"
+        model_file = "lit_model.pth"
     checkpoint_path = checkpoint_dir / model_file
     print(f"Loading model {str(checkpoint_path)!r} with {config.__dict__}", file=sys.stderr)
     t0 = time.time()
