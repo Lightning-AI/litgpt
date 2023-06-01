@@ -247,7 +247,7 @@ def llama_blockwise_quantization(model, sample_inputs, working_device, *, bits=4
     # better than relying on enumeration? originally the code bundled
     # the two mlp fc layers
     # we could automate this with a lot of hooks and another iteration
-    submodules_to_process = ["attn.attn", "attn.proj", "mlp.fc1", "mlp.fc2", "mlp.proj"]
+    submodules_to_process = ["attn.attn", "attn.proj", "mlp.fc", "mlp.proj"]
 
     for i, block in enumerate(model.transformer.h):
         block.to(working_device)
