@@ -173,8 +173,6 @@ class Block(nn.Module):
 class CausalSelfAttention(nn.Module):
     def __init__(self, config: Config) -> None:
         super().__init__()
-        assert config.n_embd % config.n_head == 0
-
         shape = config.n_embd + 2 * config.head_size if config.multi_query else 3 * config.n_embd
         # key, query, value projections for all heads, but in a batch
         self.attn = nn.Linear(config.n_embd, shape, bias=config.bias)
