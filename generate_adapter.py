@@ -51,7 +51,7 @@ def main(
     with open(checkpoint_dir / "lit_config.json") as fp:
         config = Config(**json.load(fp))
 
-    print("Loading model ...", file=sys.stderr)
+    print(f"Loading model {str(adapter_path)!r} with {config.__dict__}", file=sys.stderr)
     t0 = time.time()
     with EmptyInitOnDevice(device=fabric.device, dtype=dtype, quantization_mode=quantize):
         model = Parrot(config)
