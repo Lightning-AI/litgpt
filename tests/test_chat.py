@@ -33,7 +33,7 @@ def test_generate(generated, stop_tokens, expected):
     chat = load_script()
 
     input_idx = torch.tensor([5, 3])
-    max_new_tokens = 8
+    max_returned_tokens = len(input_idx) + 8
     model = MagicMock()
     model.config.block_size = 100
 
@@ -45,7 +45,7 @@ def test_generate(generated, stop_tokens, expected):
         return torch.tensor([out])
 
     chat.torch.multinomial = multinomial
-    actual = chat.generate(model, input_idx, max_new_tokens=max_new_tokens, stop_tokens=stop_tokens)
+    actual = chat.generate(model, input_idx, max_returned_tokens, max_returned_tokens, stop_tokens=stop_tokens)
     actual = list(actual)
     chat.torch.multinomial = original_multinomial
 
