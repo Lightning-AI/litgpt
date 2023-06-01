@@ -4,7 +4,7 @@ import json
 import sys
 from functools import partial
 from pathlib import Path
-from typing import Optional, Literal
+from typing import Optional, Literal, Tuple
 
 import torch
 
@@ -45,14 +45,11 @@ def copy_weights_gpt_neox(state_dict, hf_weights, saver=None, dtype=torch.float3
             param = param._load_tensor()
         param = param.to(dtype=dtype)
         if "gpt_neox.layers" in name:
-            split = name.split(".")
-            block_id = int(split[2])
-            split[2] = "{}"
-            from_name = ".".join(split)
+            from_name, number = layer_template(name, 2)
             to_name = weight_map[from_name]
             if to_name is None:
                 continue
-            to_name = to_name.format(block_id)
+            to_name = to_name.format(number)
         else:
             to_name = weight_map[name]
         if saver is not None:
@@ -93,19 +90,21 @@ def copy_weights_falcon(size: Literal["7b", "40b"], state_dict, hf_weights, save
             param = param._load_tensor()
         param = param.to(dtype=dtype)
         if "transformer.h" in name:
-            split = name.split(".")
-            block_id = int(split[2])
-            split[2] = "{}"
-            from_name = ".".join(split)
-            to_name = weight_map[from_name]
-            if to_name is None:
-                continue
-            to_name = to_name.format(block_id)
+            from_name, number = layer_template(name, 2)
+            to_name = weight_map[from_name].format(number)
         else:
             to_name = weight_map[name]
         if saver is not None:
             param = saver.store_early(param)
         state_dict[to_name] = param
+
+
+def layer_template(layer_name: str, idx: int) -> Tuple[str, int]:
+    split = layer_name.split(".")
+    number = int(split[idx])
+    split[idx] = "{}"
+    from_name = ".".join(split)
+    return from_name, number
 
 
 @torch.inference_mode()

@@ -66,7 +66,7 @@ def test_against_hf_model(rotary_pct, batch_size, n_embd, parallel_residual, kv_
 
     convert_hf_checkpoint = load_convert_script()
     # load the hf initialization into our model
-    convert_hf_checkpoint.copy_weights(state_dict, theirs_model.state_dict())
+    convert_hf_checkpoint.copy_weights_gpt_neox(state_dict, theirs_model.state_dict())
     ours_model.load_state_dict(state_dict)
 
     token_sample = torch.randint(0, ours_config.padded_vocab_size, size=(batch_size, block_size), dtype=torch.int64)
@@ -96,6 +96,11 @@ def test_against_hf_model(rotary_pct, batch_size, n_embd, parallel_residual, kv_
     theirs = theirs_model(token_sample)["logits"]
     ours = ours_model(token_sample)
     torch.testing.assert_close(ours, theirs)
+
+
+def test_against_hf_model_falcon():
+    # FIXME
+    ...
 
 
 @pytest.mark.skipif(not torch.cuda.is_available(), reason="Requires CUDA")
