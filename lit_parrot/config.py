@@ -14,7 +14,7 @@ class Config:
     padded_vocab_size: Optional[int] = None
     n_layer: int = 16
     n_head: int = 32
-    n_head_kv: Optional[int] = None,
+    n_head_kv: Optional[int] = None
     n_embd: int = 4096
     rotary_percentage: float = 0.25
     parallel_residual: bool = True

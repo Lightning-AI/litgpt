@@ -573,7 +573,7 @@ class GPTQQuantizer:
                             W[:, (i1 + i) : (i1 + i + self.groupsize)]
                         )
                         self.scales[:, (i1 + i) // self.groupsize] = scale
-                        self.zeros[:, (i1 + i) // self.groupsize] = zeros
+                        self.zeros[:, (i1 + i) // self.groupsize] = zero
 
                 q = self.quantize_weight(w.unsqueeze(1), scale, zero, self.maxq)
                 q = q.squeeze(1)
