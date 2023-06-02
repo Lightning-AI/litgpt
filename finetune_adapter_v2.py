@@ -18,7 +18,7 @@ from lit_parrot.adapter_v2 import (
     adapter_v2_state_from_state_dict,
 )
 from lit_parrot.tokenizer import Tokenizer
-from lit_parrot.utils import lazy_load, check_valid_checkpoint_dir, EmptyInitOnDevice
+from lit_parrot.utils import lazy_load, check_valid_checkpoint_dir
 from scripts.prepare_alpaca import generate_prompt
 
 eval_interval = 600
@@ -51,7 +51,7 @@ def main(
     data_dir: Path = Path("data/alpaca"),
     checkpoint_dir: Path = Path("checkpoints/stabilityai/stablelm-base-alpha-3b"),
     out_dir: Path = Path("out/adapter_v2/alpaca"),
-    precision: Literal["bf16-mixed", "32-true"] = "bf16-mixed",
+    precision: Literal["bf16-true", "32-true"] = "bf16-true",
 ):
     check_valid_checkpoint_dir(checkpoint_dir)
 
@@ -69,7 +69,7 @@ def main(
     config = Config.from_name(name=checkpoint_dir.name, block_size=max_seq_length)
     checkpoint_path = checkpoint_dir / "lit_model.pth"
     print(f"Loading model {str(checkpoint_path)!r} with {config.__dict__}")
-    with EmptyInitOnDevice(device=fabric.device, dtype=torch.float32 if precision == "32-true" else torch.bfloat16):
+    with fabric.init_module():
         model = Parrot(config)
     with lazy_load(checkpoint_dir / "lit_model.pth") as checkpoint:
         # strict=False because missing keys due to adapter weights not contained in state dict

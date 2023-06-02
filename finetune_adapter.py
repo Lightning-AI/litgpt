@@ -1,19 +1,19 @@
+import os
 import shutil
 import time
 from pathlib import Path
-import os
 from typing import Literal
 
 import lightning as L
 import numpy as np
 import torch
-from lightning.fabric.strategies import DeepSpeedStrategy
 from lightning.fabric.accelerators.mps import MPSAccelerator
+from lightning.fabric.strategies import DeepSpeedStrategy
 
 from generate import generate
 from lit_parrot.adapter import Parrot, Config, mark_only_adapter_as_trainable, adapter_state_from_state_dict
 from lit_parrot.tokenizer import Tokenizer
-from lit_parrot.utils import lazy_load, check_valid_checkpoint_dir, EmptyInitOnDevice
+from lit_parrot.utils import lazy_load, check_valid_checkpoint_dir
 from scripts.prepare_alpaca import generate_prompt
 
 eval_interval = 600
@@ -46,7 +46,7 @@ def main(
     data_dir: Path = Path("data/alpaca"),
     checkpoint_dir: Path = Path("checkpoints/stabilityai/stablelm-base-alpha-3b"),
     out_dir: Path = Path("out/adapter/alpaca"),
-    precision: Literal["bf16-mixed", "32-true"] = "bf16-mixed",
+    precision: Literal["bf16-true", "32-true"] = "bf16-true",
 ):
     check_valid_checkpoint_dir(checkpoint_dir)
 
@@ -64,7 +64,7 @@ def main(
     config = Config.from_name(name=checkpoint_dir.name, block_size=max_seq_length)
     checkpoint_path = checkpoint_dir / "lit_model.pth"
     print(f"Loading model {str(checkpoint_path)!r} with {config.__dict__}")
-    with EmptyInitOnDevice(device=fabric.device, dtype=torch.float32 if precision == "32-true" else torch.bfloat16):
+    with fabric.init_module():
         model = Parrot(config)
     with lazy_load(checkpoint_path) as checkpoint:
         model.load_state_dict(checkpoint, strict=False)
