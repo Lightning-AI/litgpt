@@ -108,9 +108,9 @@ You can also chat with the model interactively:
 python chat.py
 ```
 
-### Run Lit-Parrot on smaller consumer devices
+### Run large models on smaller consumer devices
 
-Porting from Lit-LLaMA in progress 👷
+We support LLM.int8 and GPTQ.int4 inference by following [this guide](howto/inference.md#run-large-models-on-consumer-devices).
 
 ## Finetune the model
 
