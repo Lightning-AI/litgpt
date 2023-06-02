@@ -119,13 +119,14 @@ class Parrot(nn.Module):
 
     def build_kv_caches(self, idx: torch.Tensor, max_seq_length: int, rope_cache_length: int) -> List[KVCache]:
         B = idx.size(0)
+        heads = self.config.n_query_groups
         k_cache_shape = (
             B,
-            self.config.n_query_groups,
+            heads,
             max_seq_length,
             rope_cache_length + self.config.head_size - int(self.config.rotary_percentage * self.config.head_size),
         )
-        v_cache_shape = (B, self.config.n_query_groups, max_seq_length, self.config.head_size)
+        v_cache_shape = (B, heads, max_seq_length, self.config.head_size)
         device, dtype = idx.device, idx.dtype
         return [
             (
