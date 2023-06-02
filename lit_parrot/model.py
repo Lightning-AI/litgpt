@@ -119,14 +119,13 @@ class Parrot(nn.Module):
 
     def build_kv_caches(self, idx: torch.Tensor, max_seq_length: int, rope_cache_length: int) -> List[KVCache]:
         B = idx.size(0)
-        kv_heads = 1 if self.config.multi_query else self.config.n_head
         k_cache_shape = (
             B,
-            kv_heads,
+            self.config.n_query_groups,
             max_seq_length,
             rope_cache_length + self.config.head_size - int(self.config.rotary_percentage * self.config.head_size),
         )
-        v_cache_shape = (B, kv_heads, max_seq_length, self.config.head_size)
+        v_cache_shape = (B, self.config.n_query_groups, max_seq_length, self.config.head_size)
         device, dtype = idx.device, idx.dtype
         return [
             (
@@ -176,10 +175,7 @@ class Block(nn.Module):
 class CausalSelfAttention(nn.Module):
     def __init__(self, config: Config) -> None:
         super().__init__()
-        if config.multi_query:
-            shape = config.n_embd + 2 * config.head_size
-        else:
-            shape = 3 * config.n_embd
+        shape = (config.n_head + 2 * config.n_query_groups) * config.head_size
         # key, query, value projections for all heads, but in a batch
         self.attn = nn.Linear(config.n_embd, shape, bias=config.bias)
         # output projection
@@ -200,12 +196,19 @@ class CausalSelfAttention(nn.Module):
 
         qkv = self.attn(x)
 
-        if self.config.multi_query:
-            qkv = qkv.view(B, T, self.config.n_head + 2, self.config.head_size).transpose(1, 2)
-            q, k, v = qkv.split((self.config.n_head, 1, 1), dim=1)  # (B, nh if q else 1, T, hs)
-        else:
-            qkv = qkv.view(B, T, self.config.n_head, 3 * self.config.head_size).transpose(1, 2)
-            q, k, v = qkv.split(self.config.head_size, dim=-1)  # (B, nh, T, hs)
+        # assemble into a number of query groups to support MHA, MQA and GQA together (see `config.n_query_groups`)
+        q_per_kv = self.config.n_head // self.config.n_query_groups
+        # each group has 1+ queries, 1 key, and 1 value (hence the + 2)
+        qkv = qkv.view(B, T, self.config.n_query_groups, q_per_kv + 2, self.config.head_size).permute(0, 2, 3, 1, 4)
+        # split batched computation into three
+        q, k, v = qkv.split((q_per_kv, 1, 1), dim=2)
+        if self.config.n_query_groups != 1:  # doing this would require a full kv cache with MQA (inefficient!)
+            # for MHA this is a no-op
+            k = k.repeat_interleave(q_per_kv, dim=2)
+            v = v.repeat_interleave(q_per_kv, dim=2)
+        q = q.reshape(B, -1, T, self.config.head_size)  # (B, nh_q, T, hs)
+        k = k.view(B, -1, T, self.config.head_size)  # (B, nh_k, T, hs)
+        v = v.view(B, -1, T, self.config.head_size)  # (B, nh_v, T, hs)
 
         n_elem = int(self.config.rotary_percentage * self.config.head_size)
 

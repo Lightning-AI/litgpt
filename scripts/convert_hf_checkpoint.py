@@ -57,7 +57,7 @@ def copy_weights_gpt_neox(state_dict, hf_weights, saver=None, dtype=torch.float3
         state_dict[to_name] = param
 
 
-def copy_weights_falcon(size: Literal["7b"], state_dict, hf_weights, saver=None, dtype=torch.float32):
+def copy_weights_falcon(size: Literal["7b", "40b"], state_dict, hf_weights, saver=None, dtype=torch.float32):
     weight_map = {
         "transformer.word_embeddings.weight": "transformer.wte.weight",
         "transformer.h.{}.self_attention.query_key_value.weight": "transformer.h.{}.attn.attn.weight",
@@ -73,6 +73,13 @@ def copy_weights_falcon(size: Literal["7b"], state_dict, hf_weights, saver=None,
         weight_map.update({
             "transformer.h.{}.input_layernorm.bias": "transformer.h.{}.norm_1.bias",
             "transformer.h.{}.input_layernorm.weight": "transformer.h.{}.norm_1.weight",
+        })
+    elif size == "40b":
+        weight_map.update({
+            "transformer.h.{}.ln_attn.bias": "transformer.h.{}.norm_1.bias",
+            "transformer.h.{}.ln_attn.weight": "transformer.h.{}.norm_1.weight",
+            "transformer.h.{}.ln_mlp.bias": "transformer.h.{}.norm_2.bias",
+            "transformer.h.{}.ln_mlp.weight": "transformer.h.{}.norm_2.weight",
         })
     else:
         raise NotImplementedError
@@ -120,7 +127,7 @@ def convert_hf_checkpoint(
         json.dump(config.__dict__, json_config)
 
     copy_fn = (
-        partial(copy_weights_falcon, "7b")
+        partial(copy_weights_falcon, "40b" if config.n_embd == 8192 else "7b")
         if "falcon" in model_name
         else copy_weights_gpt_neox
     )
