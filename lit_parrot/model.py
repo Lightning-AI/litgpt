@@ -163,7 +163,10 @@ class Block(nn.Module):
             x = x + h + self.mlp(n_2)
         else:
             if self.config.shared_attention_norm:
-                raise NotImplementedError("No checkpoint uses this configuration.")
+                raise NotImplementedError(
+                    "No checkpoint amongst the ones we support uses this configuration"
+                    " (non-parallel residual and shared attention norm)."
+                )
             x = x + h
             x = x + self.mlp(self.norm_2(x))
         return x, new_kv_cache
