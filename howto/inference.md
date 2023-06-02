@@ -51,5 +51,5 @@ With the generated quantized checkpoint generation quantization then works as us
 python generate.py --quantize gptq.int4
 ```
 
-For instance, `falcon-40b` "only" requires ~24 GB to generate using this technique, otherwise more than +40GB are required.
+For instance, `falcon-40b` "only" requires ~24 GB to generate using this technique, otherwise more than +40GB are required. On an A100 it takes 1 token/sec.
 However, ~32 GB were required during the conversion step.
