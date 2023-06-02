@@ -2,8 +2,9 @@ import contextlib
 import gc
 import json
 import sys
+from functools import partial
 from pathlib import Path
-from typing import Optional
+from typing import Optional, Literal, Tuple
 
 import torch
 
@@ -15,7 +16,7 @@ from lit_parrot import Config
 from lit_parrot.utils import lazy_load, incremental_save
 
 
-def copy_weights(state_dict, hf_weights, saver=None, dtype=torch.float32):
+def copy_weights_gpt_neox(state_dict, hf_weights, saver=None, dtype=torch.float32):
     weight_map = {
         "gpt_neox.embed_in.weight": "transformer.wte.weight",
         "gpt_neox.layers.{}.input_layernorm.bias": "transformer.h.{}.norm_1.bias",
@@ -44,19 +45,59 @@ def copy_weights(state_dict, hf_weights, saver=None, dtype=torch.float32):
             param = param._load_tensor()
         param = param.to(dtype=dtype)
         if "gpt_neox.layers" in name:
-            split = name.split(".")
-            block_id = int(split[2])
-            split[2] = "{}"
-            from_name = ".".join(split)
+            from_name, number = layer_template(name, 2)
             to_name = weight_map[from_name]
             if to_name is None:
                 continue
-            to_name = to_name.format(block_id)
+            to_name = to_name.format(number)
         else:
             to_name = weight_map[name]
         if saver is not None:
             param = saver.store_early(param)
         state_dict[to_name] = param
+
+
+def copy_weights_falcon(size: Literal["7b"], state_dict, hf_weights, saver=None, dtype=torch.float32):
+    weight_map = {
+        "transformer.word_embeddings.weight": "transformer.wte.weight",
+        "transformer.h.{}.self_attention.query_key_value.weight": "transformer.h.{}.attn.attn.weight",
+        "transformer.h.{}.self_attention.dense.weight": "transformer.h.{}.attn.proj.weight",
+        "transformer.h.{}.mlp.dense_h_to_4h.weight": "transformer.h.{}.mlp.fc.weight",
+        "transformer.h.{}.mlp.dense_4h_to_h.weight": "transformer.h.{}.mlp.proj.weight",
+        "transformer.ln_f.bias": "transformer.ln_f.bias",
+        "transformer.ln_f.weight": "transformer.ln_f.weight",
+        "lm_head.weight": "lm_head.weight",
+    }
+    # the original model definition is different for each size
+    if size == "7b":
+        weight_map.update({
+            "transformer.h.{}.input_layernorm.bias": "transformer.h.{}.norm_1.bias",
+            "transformer.h.{}.input_layernorm.weight": "transformer.h.{}.norm_1.weight",
+        })
+    else:
+        raise NotImplementedError
+
+    for name, param in hf_weights.items():
+        if hasattr(param, "_load_tensor"):
+            # support tensors loaded via `lazy_load()`
+            param = param._load_tensor()
+        param = param.to(dtype=dtype)
+        if "transformer.h" in name:
+            from_name, number = layer_template(name, 2)
+            to_name = weight_map[from_name].format(number)
+        else:
+            to_name = weight_map[name]
+        if saver is not None:
+            param = saver.store_early(param)
+        state_dict[to_name] = param
+
+
+def layer_template(layer_name: str, idx: int) -> Tuple[str, int]:
+    split = layer_name.split(".")
+    number = int(split[idx])
+    split[idx] = "{}"
+    from_name = ".".join(split)
+    return from_name, number
 
 
 @torch.inference_mode()
@@ -77,6 +118,12 @@ def convert_hf_checkpoint(
     print(f"Model config {config.__dict__}")
     with open(checkpoint_dir / "lit_config.json", "w") as json_config:
         json.dump(config.__dict__, json_config)
+
+    copy_fn = (
+        partial(copy_weights_falcon, "7b")
+        if "falcon" in model_name
+        else copy_weights_gpt_neox
+    )
 
     # initialize a new empty state dict to hold our new weights
     sd = {}
@@ -99,7 +146,7 @@ def convert_hf_checkpoint(
             for bin_file in sorted(bin_files):
                 print("Processing", bin_file)
                 hf_weights = stack.enter_context(lazy_load(bin_file))
-                copy_weights(sd, hf_weights, saver=saver, dtype=dtype)
+                copy_fn(sd, hf_weights, saver=saver, dtype=dtype)
             gc.collect()
         saver.save(sd)
 
