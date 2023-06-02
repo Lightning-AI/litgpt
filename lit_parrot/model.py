@@ -196,11 +196,14 @@ class CausalSelfAttention(nn.Module):
 
         qkv = self.attn(x)
 
-        # see Figure 2 of https://arxiv.org/pdf/2305.13245.pdf for a visual representation
+        # assemble into a number of query groups to support MHA, MQA and GQA together (see `config.n_query_groups`)
         q_per_kv = self.config.n_head // self.config.n_query_groups
+        # each group has 1+ queries, 1 key, and 1 value (hence the + 2)
         qkv = qkv.view(B, T, self.config.n_query_groups, q_per_kv + 2, self.config.head_size).permute(0, 2, 3, 1, 4)
+        # split batched computation into three
         q, k, v = qkv.split((q_per_kv, 1, 1), dim=2)
-        if self.config.n_query_groups != 1:  # doing this would require a full kv cache with MQA
+        if self.config.n_query_groups != 1:  # doing this would require a full kv cache with MQA (inefficient!)
+            # for MHA this is a no-op
             k = k.repeat_interleave(q_per_kv, dim=2)
             v = v.repeat_interleave(q_per_kv, dim=2)
         q = q.reshape(B, -1, T, self.config.head_size)  # (B, nh_q, T, hs)

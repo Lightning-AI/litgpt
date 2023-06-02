@@ -18,7 +18,11 @@ class Config:
     rotary_percentage: float = 0.25
     parallel_residual: bool = True
     bias: bool = True
-    n_query_groups: Optional[int] = None  # https://arxiv.org/abs/2305.13245 (1 == MQA, n_head == MHA, otherwise GQA)
+    # to use multi-head attention (MHA), set this to `n_head`
+    # to use multi-query attention (MQA), set this to 1
+    # to use grouped-query attention (GQA), set this to a value in between
+    # see Figure 2 of https://arxiv.org/pdf/2305.13245.pdf for a visual representation
+    n_query_groups: Optional[int] = None
     shared_attention_norm: bool = False
 
     def __post_init__(self):
