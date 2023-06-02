@@ -226,10 +226,14 @@ class CausalSelfAttention(BaseCausalSelfAttention):
             else:
                 aT = self.config.adapter_prompt_length
                 prefix = self.adapter_wte.weight.reshape(1, aT, C)
-                print(prefix.shape, C)
-                _, ak, av = self.attn(prefix).split(C, dim=2)  # mayby dim=2
-                ak = ak.view(1, aT, self.config.n_head, self.config.head_size).repeat(B, 1, 1, 1).transpose(1, 2)
-                av = av.view(1, aT, self.config.n_head, self.config.head_size).repeat(B, 1, 1, 1).transpose(1, 2)
+                aqkv = self.attn(prefix)
+                aqkv = aqkv.view(1, aT, self.config.n_query_groups, q_per_kv + 2, self.config.head_size)
+                aqkv = aqkv.permute(0, 2, 3, 1, 4)
+                _, ak, av = aqkv.split((q_per_kv, 1, 1), dim=2)
+                ak = ak.repeat_interleave(B, dim=0)
+                av = av.repeat_interleave(B, dim=0)
+                ak = ak.view(B, -1, aT, self.config.head_size)  # (B, nh_ak, aT, hs)
+                av = av.view(B, -1, aT, self.config.head_size)  # (B, nh_av, aT, hs)
                 adapter_kv_cache = (ak, av)
 
             amask = torch.ones(q.shape[-2], ak.shape[-2], dtype=torch.bool, device=x.device)
