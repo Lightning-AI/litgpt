@@ -101,11 +101,10 @@ def test_against_hf_model(rotary_pct, batch_size, n_embd, parallel_residual, kv_
 
 @torch.inference_mode()
 def test_against_original_falcon_40b(lit_parrot):
-    filename = "original_falcon_40b.py"
+    file_path = wd / "tests" / "original_falcon_40b.py"
     url = "https://gist.githubusercontent.com/carmocca/feed39b1bc65a29f73c1cecc58a01167/raw/a9a65f2b93716b3c09ec9f354d535ae5953de08f/original_falcon_40b.py"
-    if not os.path.isfile(filename):
-        urlretrieve(url=url, filename=filename)
-    sys.path.append(str(Path(__file__).parent))
+    if not file_path.is_file():
+        urlretrieve(url=url, filename=file_path)
 
     from tests.original_falcon_40b import RWConfig, RWForCausalLM
     from lit_parrot import Config, Parrot
