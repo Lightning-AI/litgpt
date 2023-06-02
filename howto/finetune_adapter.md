@@ -32,7 +32,7 @@ python finetune_adapter.py --checkpoint_dir checkpoints/stabilityai/stablelm-bas
 or for Adapter V2
 
 ```bash 
-python finetune_adapter_v2.py --chceckpoint_dir checkpoints/stabilityai/stablelm-base-alpha-3b
+python finetune_adapter_v2.py --checkpoint_dir checkpoints/stabilityai/stablelm-base-alpha-3b
 ```
 
 The finetuning requires at least one GPU with ~12 GB memory.
@@ -81,7 +81,7 @@ or for Adapter V2
 
 ```bash 
 python generate_adapter_v2.py \
-    --prompt "Recomend a movie to watch on the weekend." \
+    --prompt "Recommend a movie to watch on the weekend." \
     --checkpoint_dir checkpoints/stabilityai/stablelm-base-alpha-3b
 ```
 

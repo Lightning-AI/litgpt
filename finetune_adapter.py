@@ -1,19 +1,19 @@
+import os
 import shutil
 import time
 from pathlib import Path
-import os
 from typing import Literal
 
 import lightning as L
 import numpy as np
 import torch
-from lightning.fabric.strategies import DeepSpeedStrategy
 from lightning.fabric.accelerators.mps import MPSAccelerator
+from lightning.fabric.strategies import DeepSpeedStrategy
 
 from generate import generate
 from lit_parrot.adapter import Parrot, Config, mark_only_adapter_as_trainable, adapter_state_from_state_dict
 from lit_parrot.tokenizer import Tokenizer
-from lit_parrot.utils import EmptyInitOnDevice, lazy_load, check_valid_checkpoint_dir
+from lit_parrot.utils import lazy_load, check_valid_checkpoint_dir
 from scripts.prepare_alpaca import generate_prompt
 
 eval_interval = 600
@@ -46,7 +46,7 @@ def main(
     data_dir: Path = Path("data/alpaca"),
     checkpoint_dir: Path = Path("checkpoints/stabilityai/stablelm-base-alpha-3b"),
     out_dir: Path = Path("out/adapter/alpaca"),
-    precision: Literal["bf16-mixed", "32-true"] = "bf16-mixed",
+    precision: Literal["bf16-true", "32-true"] = "bf16-true",
 ):
     check_valid_checkpoint_dir(checkpoint_dir)
 
@@ -62,15 +62,16 @@ def main(
     train_data, val_data = load_datasets(data_dir=data_dir)
 
     config = Config.from_name(name=checkpoint_dir.name, block_size=max_seq_length)
-
-    with EmptyInitOnDevice(device=fabric.device, dtype=torch.float32 if precision == "32-true" else torch.bfloat16):
+    checkpoint_path = checkpoint_dir / "lit_model.pth"
+    print(f"Loading model {str(checkpoint_path)!r} with {config.__dict__}")
+    with fabric.init_module():
         model = Parrot(config)
-    with lazy_load(checkpoint_dir / "lit_model.pth") as checkpoint:
+    with lazy_load(checkpoint_path) as checkpoint:
         model.load_state_dict(checkpoint, strict=False)
 
     mark_only_adapter_as_trainable(model)
 
-    num_params = sum([p.numel() for p in model.parameters() if p.requires_grad])
+    num_params = sum(p.numel() for p in model.parameters() if p.requires_grad)
     print(f"Number of trainable parameters: {num_params}")
 
     optimizer = torch.optim.AdamW(model.parameters(), lr=learning_rate, weight_decay=weight_decay)
@@ -78,7 +79,9 @@ def main(
     train(fabric, model, optimizer, train_data, val_data, checkpoint_dir, out_dir)
 
     # Save the final checkpoint at the end of training
-    save_model_checkpoint(fabric, model, out_dir / "lit_model_adapter_finetuned.pth")
+    save_path = out_dir / "lit_model_adapter_finetuned.pth"
+    print(f"Saving adapter weights to {str(save_path)!r}")
+    save_model_checkpoint(fabric, model, save_path)
 
 
 def train(
