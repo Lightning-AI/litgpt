@@ -13,7 +13,7 @@ from lightning.fabric.accelerators.mps import MPSAccelerator
 from generate import generate
 from lit_parrot.adapter import Parrot, Config, mark_only_adapter_as_trainable, adapter_state_from_state_dict
 from lit_parrot.tokenizer import Tokenizer
-from lit_parrot.utils import EmptyInitOnDevice, lazy_load, check_valid_checkpoint_dir
+from lit_parrot.utils import lazy_load, check_valid_checkpoint_dir
 from scripts.prepare_alpaca import generate_prompt
 
 eval_interval = 600
@@ -51,7 +51,7 @@ def main(
     check_valid_checkpoint_dir(checkpoint_dir)
 
     fabric = L.Fabric(
-        devices=devices, strategy=(DeepSpeedStrategy(config=ds_config) if devices > 1 else "auto"), precision=precision
+        accelerator="cpu",devices=devices, strategy=(DeepSpeedStrategy(config=ds_config) if devices > 1 else "auto"), precision=precision
     )
     fabric.launch()
     fabric.seed_everything(1337 + fabric.global_rank)
@@ -71,7 +71,7 @@ def main(
 
     mark_only_adapter_as_trainable(model)
 
-    num_params = sum([p.numel() for p in model.parameters() if p.requires_grad])
+    num_params = sum(p.numel() for p in model.parameters() if p.requires_grad)
     print(f"Number of trainable parameters: {num_params}")
 
     optimizer = torch.optim.AdamW(model.parameters(), lr=learning_rate, weight_decay=weight_decay)

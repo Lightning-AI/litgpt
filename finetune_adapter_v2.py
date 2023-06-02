@@ -78,8 +78,8 @@ def main(
     add_adapter_v2_parameters_to_linear_layers(model)
     mark_only_adapter_v2_as_trainable(model)
 
-    num_params = sum([p.numel() for p in model.parameters() if p.requires_grad])
-    print(f"Number of trainable parameters: {num_params}")
+    num_params = sum(p.numel() for p in model.parameters() if p.requires_grad)
+    print(f"Number oftrainable parameters: {num_params}")
 
     optimizer = torch.optim.AdamW(model.parameters(), lr=learning_rate, weight_decay=weight_decay)
     model, optimizer = fabric.setup(model, optimizer)
