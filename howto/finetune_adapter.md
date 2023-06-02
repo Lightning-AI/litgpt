@@ -81,7 +81,7 @@ or for Adapter V2
 
 ```bash 
 python generate_adapter_v2.py \
-    --prompt "Recomend a movie to watch on the weekend." \
+    --prompt "Recommend a movie to watch on the weekend." \
     --checkpoint_dir checkpoints/stabilityai/stablelm-base-alpha-3b
 ```
 
