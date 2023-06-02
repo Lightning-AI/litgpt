@@ -172,12 +172,7 @@ class Block(nn.Module):
 class CausalSelfAttention(nn.Module):
     def __init__(self, config: Config) -> None:
         super().__init__()
-        if config.n_query_groups == 1:  # MQA
-            shape = config.n_embd + 2 * config.head_size
-        elif config.n_query_groups == config.n_head:  # MHA
-            shape = 3 * config.n_embd
-        else:  # GQA
-            shape = (config.n_head + 2 * config.n_query_groups) * config.head_size
+        shape = (config.n_head + 2 * config.n_query_groups) * config.head_size
         # key, query, value projections for all heads, but in a batch
         self.attn = nn.Linear(config.n_embd, shape, bias=config.bias)
         # output projection
@@ -198,21 +193,16 @@ class CausalSelfAttention(nn.Module):
 
         qkv = self.attn(x)
 
-        if self.config.n_query_groups == 1:  # MQA
-            qkv = qkv.view(B, T, self.config.n_head + 2, self.config.head_size).transpose(1, 2)
-            q, k, v = qkv.split((self.config.n_head, 1, 1), dim=1)  # (B, nh if q else 1, T, hs)
-        elif self.config.n_query_groups == self.config.n_head:  # MHA
-            qkv = qkv.view(B, T, self.config.n_head, 3 * self.config.head_size).transpose(1, 2)
-            q, k, v = qkv.split(self.config.head_size, dim=-1)  # (B, nh, T, hs)
-        else:  # GQA
-            q_per_kv = self.config.n_head // self.config.n_query_groups
-            qkv = qkv.view(B, T, self.config.n_query_groups, q_per_kv + 2, self.config.head_size).permute(0, 2, 3, 1, 4)
-            q, k, v = qkv.split((q_per_kv, 1, 1), dim=2)
+        # see Figure 2 of https://arxiv.org/pdf/2305.13245.pdf for a visual representation
+        q_per_kv = self.config.n_head // self.config.n_query_groups
+        qkv = qkv.view(B, T, self.config.n_query_groups, q_per_kv + 2, self.config.head_size).permute(0, 2, 3, 1, 4)
+        q, k, v = qkv.split((q_per_kv, 1, 1), dim=2)
+        if self.config.n_query_groups != 1:  # doing this would require a full kv cache with MQA
             k = k.repeat_interleave(q_per_kv, dim=2)
             v = v.repeat_interleave(q_per_kv, dim=2)
-            q = q.reshape(B, -1, T, self.config.head_size)  # (B, nh, T, hs)
-            k = k.view(B, -1, T, self.config.head_size)  # (B, nh, T, hs)
-            v = v.view(B, -1, T, self.config.head_size)  # (B, nh, T, hs)
+        q = q.reshape(B, -1, T, self.config.head_size)  # (B, nh_q, T, hs)
+        k = k.view(B, -1, T, self.config.head_size)  # (B, nh_k, T, hs)
+        v = v.view(B, -1, T, self.config.head_size)  # (B, nh_v, T, hs)
 
         n_elem = int(self.config.rotary_percentage * self.config.head_size)
 
