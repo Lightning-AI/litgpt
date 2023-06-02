@@ -18,7 +18,7 @@ from lit_parrot.adapter_v2 import (
     adapter_v2_state_from_state_dict,
 )
 from lit_parrot.tokenizer import Tokenizer
-from lit_parrot.utils import lazy_load, check_valid_checkpoint_dir
+from lit_parrot.utils import lazy_load, check_valid_checkpoint_dir, EmptyInitOnDevice
 from scripts.prepare_alpaca import generate_prompt
 
 eval_interval = 600
@@ -69,7 +69,7 @@ def main(
     config = Config.from_name(name=checkpoint_dir.name, block_size=max_seq_length)
     checkpoint_path = checkpoint_dir / "lit_model.pth"
     print(f"Loading model {str(checkpoint_path)!r} with {config.__dict__}")
-    with fabric.init_module():
+    with EmptyInitOnDevice(device=fabric.device, dtype=torch.float32 if precision == "32-true" else torch.bfloat16):
         model = Parrot(config)
     with lazy_load(checkpoint_dir / "lit_model.pth") as checkpoint:
         # strict=False because missing keys due to adapter weights not contained in state dict

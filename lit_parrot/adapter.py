@@ -221,10 +221,10 @@ class CausalSelfAttention(BaseCausalSelfAttention):
         )
 
         if self.block_idx >= self.config.adapter_start_layer:
+            aT = self.config.adapter_prompt_length
             if adapter_kv_cache is not None:
                 ak, av = adapter_kv_cache
             else:
-                aT = self.config.adapter_prompt_length
                 prefix = self.adapter_wte.weight.reshape(1, aT, C)
                 aqkv = self.attn(prefix)
                 aqkv = aqkv.view(1, aT, self.config.n_query_groups, q_per_kv + 2, self.config.head_size)
@@ -236,7 +236,7 @@ class CausalSelfAttention(BaseCausalSelfAttention):
                 av = av.view(B, -1, aT, self.config.head_size)  # (B, nh_av, aT, hs)
                 adapter_kv_cache = (ak, av)
 
-            amask = torch.ones(q.shape[-2], ak.shape[-2], dtype=torch.bool, device=x.device)
+            amask = torch.ones(T, aT, dtype=torch.bool, device=x.device)
             ay = F.scaled_dot_product_attention(q, ak, av, attn_mask=amask, dropout_p=0.0, is_causal=False)
             y = y + self.gating_factor * ay
 
