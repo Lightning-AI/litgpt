@@ -24,6 +24,7 @@ Hackable implementation of state-of-the-art open-source large language models:
 - StabilityAI [StableLM](https://github.com/Stability-AI/StableLM)
 - EleutherAI [Pythia](https://github.com/EleutherAI/pythia)
 - Together [RedPajama-INCITE](https://www.together.xyz/blog/redpajama-models-v1)
+- TII UAE [Falcon](https://falconllm.tii.ae)
 
 released under the **Apache 2.0 license**.
 
@@ -34,6 +35,7 @@ Weights can be downloaded following these instructions:
 - [StableLM](howto/download_stablelm.md)
 - [Pythia](howto/download_pythia.md)
 - [Redpajama-INCITE](howto/download_redpajama_incite.md)
+- [Falcon](howto/download_falcon.md)
 
 ## Design principles
 
@@ -108,9 +110,9 @@ You can also chat with the model interactively:
 python chat.py
 ```
 
-### Run Lit-Parrot on smaller consumer devices
+### Run large models on smaller consumer devices
 
-Porting from Lit-LLaMA in progress 👷
+We support LLM.int8 and GPTQ.int4 inference by following [this guide](howto/inference.md#run-large-models-on-consumer-devices).
 
 ## Finetune the model
 
@@ -159,7 +161,7 @@ We are on a quest towards fully open source AI.
 Join us and start contributing, especially on the following areas:
 
 - [ ] [Pre-training](https://github.com/Lightning-AI/lit-parrot/labels/pre-training)
-- [ ] [Fine-tuning (full and LoRA)](https://github.com/Lightning-AI/lit-parrot/labels/fine-tuning)
+- [ ] [Fine-tuning (full and adapter)](https://github.com/Lightning-AI/lit-parrot/labels/fine-tuning)
 - [ ] [Quantization](https://github.com/Lightning-AI/lit-parrot/labels/quantization)
 - [ ] [Sparsification](https://github.com/Lightning-AI/lit-parrot/labels/sparsification)
 
@@ -174,7 +176,6 @@ Don't forget to [join our Discord](https://discord.gg/VptPCZkGNa)!
 - [@karpathy](https://github.com/karpathy) for [nanoGPT](https://github.com/karpathy/nanoGPT)
 - [@EleutherAI](https://github.com/karpathy) for [GPT-NeoX](https://github.com/EleutherAI/gpt-neox)
 - [@TimDettmers](https://github.com/TimDettmers) for [bitsandbytes](https://github.com/TimDettmers/bitsandbytes)
-- [@Microsoft](https://github.com/microsoft) for [LoRA](https://github.com/microsoft/LoRA)
 - [@IST-DASLab](https://github.com/IST-DASLab) for [GPTQ](https://github.com/IST-DASLab/gptq)
 
 ## License

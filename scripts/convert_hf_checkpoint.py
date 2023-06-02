@@ -1,9 +1,10 @@
+import contextlib
 import gc
 import json
-import shutil
 import sys
+from functools import partial
 from pathlib import Path
-from typing import Optional
+from typing import Optional, Literal, Tuple
 
 import torch
 
@@ -11,11 +12,11 @@ import torch
 wd = Path(__file__).parent.parent.resolve()
 sys.path.append(str(wd))
 
-from lit_parrot.model import Parrot
-from lit_parrot.utils import EmptyInitOnDevice, check_valid_checkpoint_dir
+from lit_parrot import Config
+from lit_parrot.utils import lazy_load, incremental_save
 
 
-def copy_weights(state_dict, hf_weights, dtype=torch.float32):
+def copy_weights_gpt_neox(state_dict, hf_weights, saver=None, dtype=torch.float32):
     weight_map = {
         "gpt_neox.embed_in.weight": "transformer.wte.weight",
         "gpt_neox.layers.{}.input_layernorm.bias": "transformer.h.{}.norm_1.bias",
@@ -39,20 +40,71 @@ def copy_weights(state_dict, hf_weights, dtype=torch.float32):
     }
 
     for name, param in hf_weights.items():
+        if hasattr(param, "_load_tensor"):
+            # support tensors loaded via `lazy_load()`
+            param = param._load_tensor()
         param = param.to(dtype=dtype)
         if "gpt_neox.layers" in name:
-            split = name.split(".")
-            block_id = int(split[2])
-            split[2] = "{}"
-            from_name = ".".join(split)
+            from_name, number = layer_template(name, 2)
             to_name = weight_map[from_name]
             if to_name is None:
                 continue
-            to_name = to_name.format(block_id)
+            to_name = to_name.format(number)
         else:
             to_name = weight_map[name]
-        print(f"{name} {tuple(param.shape)} ⟶ {to_name} {tuple(state_dict[to_name].shape)}")
-        state_dict[to_name].copy_(param)
+        if saver is not None:
+            param = saver.store_early(param)
+        state_dict[to_name] = param
+
+
+def copy_weights_falcon(size: Literal["7b", "40b"], state_dict, hf_weights, saver=None, dtype=torch.float32):
+    weight_map = {
+        "transformer.word_embeddings.weight": "transformer.wte.weight",
+        "transformer.h.{}.self_attention.query_key_value.weight": "transformer.h.{}.attn.attn.weight",
+        "transformer.h.{}.self_attention.dense.weight": "transformer.h.{}.attn.proj.weight",
+        "transformer.h.{}.mlp.dense_h_to_4h.weight": "transformer.h.{}.mlp.fc.weight",
+        "transformer.h.{}.mlp.dense_4h_to_h.weight": "transformer.h.{}.mlp.proj.weight",
+        "transformer.ln_f.bias": "transformer.ln_f.bias",
+        "transformer.ln_f.weight": "transformer.ln_f.weight",
+        "lm_head.weight": "lm_head.weight",
+    }
+    # the original model definition is different for each size
+    if size == "7b":
+        weight_map.update({
+            "transformer.h.{}.input_layernorm.bias": "transformer.h.{}.norm_1.bias",
+            "transformer.h.{}.input_layernorm.weight": "transformer.h.{}.norm_1.weight",
+        })
+    elif size == "40b":
+        weight_map.update({
+            "transformer.h.{}.ln_attn.bias": "transformer.h.{}.norm_1.bias",
+            "transformer.h.{}.ln_attn.weight": "transformer.h.{}.norm_1.weight",
+            "transformer.h.{}.ln_mlp.bias": "transformer.h.{}.norm_2.bias",
+            "transformer.h.{}.ln_mlp.weight": "transformer.h.{}.norm_2.weight",
+        })
+    else:
+        raise NotImplementedError
+
+    for name, param in hf_weights.items():
+        if hasattr(param, "_load_tensor"):
+            # support tensors loaded via `lazy_load()`
+            param = param._load_tensor()
+        param = param.to(dtype=dtype)
+        if "transformer.h" in name:
+            from_name, number = layer_template(name, 2)
+            to_name = weight_map[from_name].format(number)
+        else:
+            to_name = weight_map[name]
+        if saver is not None:
+            param = saver.store_early(param)
+        state_dict[to_name] = param
+
+
+def layer_template(layer_name: str, idx: int) -> Tuple[str, int]:
+    split = layer_name.split(".")
+    number = int(split[idx])
+    split[idx] = "{}"
+    from_name = ".".join(split)
+    return from_name, number
 
 
 @torch.inference_mode()
@@ -69,29 +121,41 @@ def convert_hf_checkpoint(
 
     if model_name is None:
         model_name = checkpoint_dir.name
-    print(f"Initializing model {model_name!r}")
-    with EmptyInitOnDevice(device="cpu", dtype=dtype):
-        model = Parrot.from_name(model_name)
-    print(f"Model config {model.config.__dict__}")
+    config = Config.from_name(model_name)
+    print(f"Model config {config.__dict__}")
     with open(checkpoint_dir / "lit_config.json", "w") as json_config:
-        json.dump(model.config.__dict__, json_config)
+        json.dump(config.__dict__, json_config)
+
+    copy_fn = (
+        partial(copy_weights_falcon, "40b" if config.n_embd == 8192 else "7b")
+        if "falcon" in model_name
+        else copy_weights_gpt_neox
+    )
 
     # initialize a new empty state dict to hold our new weights
-    sd = model.state_dict()
+    sd = {}
 
-    bin_files = list(checkpoint_dir.glob("*.bin"))
+    # Load the json file containing weight mapping
+    pytorch_bin_map_json_path = checkpoint_dir / "pytorch_model.bin.index.json"
+    if pytorch_bin_map_json_path.is_file():  # not all checkpoints have this file
+        with open(pytorch_bin_map_json_path) as json_map:
+            bin_index = json.load(json_map)
+        bin_files = set(checkpoint_dir / bin for bin in bin_index["weight_map"].values())
+    else:
+        bin_files = set(checkpoint_dir.glob("*.bin"))
     if not bin_files:
         raise ValueError(f"Expected {str(checkpoint_dir)!r} to contain .bin files")
-    for bin_file in sorted(bin_files):
-        print("Processing", bin_file)
-        hf_weights = torch.load(bin_file, map_location="cpu")
-        copy_weights(sd, hf_weights, dtype=dtype)
-        del hf_weights
-        gc.collect()
 
-    model_path = checkpoint_dir / "lit_model.pth"
-    print(f"Saving to disk at {str(model_path)!r}")
-    torch.save(model.state_dict(), model_path)
+    with incremental_save(checkpoint_dir / "lit_model.pth") as saver:
+        # for checkpoints that split the QKV across several files, we need to keep all the bin files
+        # open, so we use `ExitStack` to close them all together at the end
+        with contextlib.ExitStack() as stack:
+            for bin_file in sorted(bin_files):
+                print("Processing", bin_file)
+                hf_weights = stack.enter_context(lazy_load(bin_file))
+                copy_fn(sd, hf_weights, saver=saver, dtype=dtype)
+            gc.collect()
+        saver.save(sd)
 
 
 if __name__ == "__main__":
