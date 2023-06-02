@@ -67,7 +67,8 @@ def main(
     train_data, val_data = load_datasets(data_dir=data_dir)
 
     config = Config.from_name(name=checkpoint_dir.name, block_size=max_seq_length)
-
+    checkpoint_path = checkpoint_dir / "lit_model.pth"
+    print(f"Loading model {str(checkpoint_path)!r} with {config.__dict__}")
     with fabric.init_module():
         model = Parrot(config)
     with lazy_load(checkpoint_dir / "lit_model.pth") as checkpoint:
