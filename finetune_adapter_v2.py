@@ -86,7 +86,9 @@ def main(
     train(fabric, model, optimizer, train_data, val_data, checkpoint_dir, out_dir)
 
     # Save the final checkpoint at the end of training
-    save_model_checkpoint(fabric, model, out_dir / "lit_model_adapter_finetuned.pth")
+    save_path = out_dir / "lit_model_adapter_finetuned.pth"
+    print(f"Saving adapter weights to {str(save_path)!r}")
+    save_model_checkpoint(fabric, model, save_path)
 
 
 def train(
