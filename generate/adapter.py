@@ -3,7 +3,7 @@ import sys
 import time
 import warnings
 from pathlib import Path
-from typing import Optional
+from typing import Optional, Literal
 
 import lightning as L
 import torch
@@ -24,7 +24,7 @@ def main(
     input: str = "",
     adapter_path: Path = Path("out/adapter/alpaca/lit_model_adapter_finetuned.pth"),
     checkpoint_dir: Path = Path(f"checkpoints/stabilityai/stablelm-base-alpha-3b"),
-    quantize: Optional[str] = None,
+    quantize: Literal["llm.int8", "gptq.int4"] = None,
     max_new_tokens: int = 100,
     top_k: int = 200,
     temperature: float = 0.8,

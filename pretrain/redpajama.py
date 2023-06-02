@@ -26,8 +26,6 @@ eval_interval = 1000
 eval_iters = 100
 log_interval = 1
 
-# compile = False
-
 # Hyperparameters
 learning_rate = 6e-4
 batch_size = 125
@@ -91,14 +89,9 @@ def main(
     else:
         train_dataloader, val_dataloader = fabric.setup_dataloaders(train_dataloader, val_dataloader)
 
-    with fabric.device:
-        torch.set_default_dtype(torch.bfloat16)
+    with fabric.init_module():
         model = Parrot(config)
         model.apply(model._init_weights)
-        torch.set_default_dtype(torch.float32)
-
-    # if compile:
-    #     model = torch.compile(model)
 
     optimizer = torch.optim.AdamW(
         model.parameters(),
@@ -141,7 +134,6 @@ def train(
         lr = get_lr(iter_num) if decay_lr else learning_rate
         for param_group in optimizer.param_groups:
             param_group["lr"] = lr
-
 
         input_ids = train_data[:, 0 : model.config.block_size].contiguous()
         targets = train_data[:, 1 : model.config.block_size + 1].contiguous()
