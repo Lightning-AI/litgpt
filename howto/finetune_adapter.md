@@ -62,7 +62,7 @@ If your GPU does not support `bfloat16`, you can pass the `--precision 32-true` 
 For instance, to fine-tune on MPS (the GPU on modern Macs), you can run
 
 ```bash
-python finetune_adapter.py --out_dir out/adapter/my-model-finetuned --device mps --precision 32-true
+python finetune_adapter.py --out_dir out/adapter/my-model-finetuned --precision 32-true
 ```
 
 Note that `mps` will be picked up automatically by the default `device="auto"`, it's spelled out for clarity here.
