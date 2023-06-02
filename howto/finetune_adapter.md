@@ -32,7 +32,7 @@ python finetune/adapter.py --checkpoint_dir checkpoints/stabilityai/stablelm-bas
 or for Adapter V2
 
 ```bash 
-python finetune_adapter_v2.py --checkpoint_dir checkpoints/stabilityai/stablelm-base-alpha-3b
+python finetune/adapter_v2.py --checkpoint_dir checkpoints/stabilityai/stablelm-base-alpha-3b
 ```
 
 The finetuning requires at least one GPU with ~12 GB memory.
@@ -55,14 +55,14 @@ python finetune/adapter.py --out_dir out/adapter/my-model-finetuned
 or for Adapter V2
 
 ```bash
-python finetune_adapter_v2.py --out_dir out/adapter_v2/my-model-finetuned
+python finetune/adapter_v2.py --out_dir out/adapter_v2/my-model-finetuned
 ```
 
 If your GPU does not support `bfloat16`, you can pass the `--precision 32-true` argument.
 For instance, to fine-tune on MPS (the GPU on modern Macs), you can run
 
 ```bash
-python finetune_adapter.py --out_dir out/adapter/my-model-finetuned --precision 32-true
+python finetune/adapter.py --out_dir out/adapter/my-model-finetuned --precision 32-true
 ```
 
 Note that `mps` as the accelerator will be picked up automatically by Fabric when running on a modern Mac.
@@ -80,7 +80,7 @@ python generate/adapter.py \
 or for Adapter V2
 
 ```bash 
-python generate_adapter_v2.py \
+python generate/adapter_v2.py \
     --prompt "Recommend a movie to watch on the weekend." \
     --checkpoint_dir checkpoints/stabilityai/stablelm-base-alpha-3b
 ```
@@ -123,7 +123,7 @@ With only a few modifications, you can prepare and train on your own instruction
     python scripts/prepare_mydata.py --destination_path data/mydata/
     ```
 
-5. Run `finetune_adapter.py` by passing in the location of your data (and optionally other parameters):
+5. Run `finetune/adapter.py` by passing in the location of your data (and optionally other parameters):
    
     ```bash
     python finetune/adapter.py \

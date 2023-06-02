@@ -31,12 +31,12 @@ def main(
 ) -> None:
     """Generates a response based on a given instruction and an optional input.
     This script will only work with checkpoints from the instruction-tuned Parrot-Adapter model.
-    See `finetune_adapter.py`.
+    See `finetune/adapter.py`.
 
     Args:
         prompt: The prompt/instruction (Alpaca style).
         adapter_path: Path to the checkpoint with trained adapter weights, which are the output of
-            `finetune_adapter.py`.
+            `finetune/adapter.py`.
         checkpoint_dir: The path to the checkpoint folder with pretrained Parrot weights.
         input: Optional input (Alpaca style).
         quantize: Whether to quantize the model and using which method:
