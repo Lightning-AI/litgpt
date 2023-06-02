@@ -18,10 +18,26 @@ class Config:
     rotary_percentage: float = 0.25
     parallel_residual: bool = True
     bias: bool = True
-    # to use multi-head attention (MHA), set this to `n_head`
+    # to use multi-head attention (MHA), set this to `n_head` (default)
     # to use multi-query attention (MQA), set this to 1
     # to use grouped-query attention (GQA), set this to a value in between
-    # see Figure 2 of https://arxiv.org/pdf/2305.13245.pdf for a visual representation
+    # Example with `n_head=4`
+    # ┌───┐┌───┐┌───┐┌───┐     ┌───┐    ┌───┐            ┌───┐
+    # │ v ││ v ││ v ││ v │     │ v │    │ v │            │ v │
+    # └───┘└───┘└───┘└───┘     └───┘    └───┘            └───┘
+    #   │    │    │    │         │        │                │
+    # ┌───┐┌───┐┌───┐┌───┐     ┌───┐    ┌───┐            ┌───┐
+    # │ k ││ k ││ k ││ k │     │ k │    │ k │            │ k │
+    # └───┘└───┘└───┘└───┘     └───┘    └───┘            └───┘
+    #   │    │    │    │      ┌──┴──┐  ┌──┴──┐     ┌────┬──┴─┬────┐
+    # ┌───┐┌───┐┌───┐┌───┐  ┌───┐┌───┐┌───┐┌───┐  ┌───┐┌───┐┌───┐┌───┐
+    # │ q ││ q ││ q ││ q │  │ q ││ q ││ q ││ q │  │ q ││ q ││ q ││ q │
+    # └───┘└───┘└───┘└───┘  └───┘└───┘└───┘└───┘  └───┘└───┘└───┘└───┘
+    # ◀──────────────────▶  ◀───────────────────▶  ◀──────────────────▶
+    #         MHA                    GQA                   MQA
+    #   n_query_groups=4       n_query_groups=2      n_query_groups=1
+    #
+    # credit https://arxiv.org/pdf/2305.13245.pdf
     n_query_groups: Optional[int] = None
     shared_attention_norm: bool = False
 
