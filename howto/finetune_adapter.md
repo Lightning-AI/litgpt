@@ -65,7 +65,7 @@ For instance, to fine-tune on MPS (the GPU on modern Macs), you can run
 python finetune_adapter.py --out_dir out/adapter/my-model-finetuned --precision 32-true
 ```
 
-Note that `mps` will be picked up automatically by the default `device="auto"`, it's spelled out for clarity here.
+Note that `mps` as the accelerator will be picked up automatically by Fabric when running on a modern Mac.
 
 ## Test the model
 
