@@ -119,7 +119,7 @@ falcon = {
     "falcon-40b{}": dict(
         block_size=2048,
         padded_vocab_size=65024,
-        n_layer=80,
+        n_layer=60,
         n_head=128,
         n_embd=8192,
         rotary_percentage=1.0,
