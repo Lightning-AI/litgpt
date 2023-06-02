@@ -18,11 +18,11 @@ from lit_parrot.utils import EmptyInitOnDevice, lazy_load, check_valid_checkpoin
 
 @torch.no_grad()
 def generate(
-    model: Parrot,
+    model: torch.nn.Module,
     idx: torch.Tensor,
-    max_new_tokens: int,
+    max_returned_tokens: int,
+    max_seq_length: int,
     *,
-    max_seq_length: Optional[int] = None,
     temperature: float = 1.0,
     top_k: Optional[int] = None,
     eos_id: Optional[int] = None,
@@ -34,20 +34,17 @@ def generate(
     Args:
         model: The model to use.
         idx: Tensor of shape (T) with indices of the prompt sequence.
-        max_new_tokens: The number of new tokens to generate.
-        max_seq_length: The maximum sequence length allowed.
+        max_returned_tokens: The maximum number of tokens to return (given plus generated).
+        max_seq_length: The maximum sequence length allowed. Should be less or equal than the block size.
         temperature: Scales the predicted logits by 1 / temperature.
         top_k: If specified, only sample among the tokens with the k highest probabilities.
         eos_id: If specified, stop generating any more token once the <eos> token is triggered.
     """
     T = idx.size(0)
-    T_new = T + max_new_tokens
-    if max_seq_length is None:
-        max_seq_length = min(T_new, model.config.block_size)
-
+    assert max_returned_tokens > T
     device, dtype = idx.device, idx.dtype
     # create an empty tensor of the expected final shape and fill in the current tokens
-    empty = torch.empty(T_new, dtype=dtype, device=device)
+    empty = torch.empty(max_returned_tokens, dtype=dtype, device=device)
     empty[:T] = idx
     idx = empty
     input_pos = torch.arange(0, T, device=device)
@@ -57,8 +54,8 @@ def generate(
 
         xm.mark_step()
 
-    # generate max_new_tokens tokens
-    for _ in range(max_new_tokens):
+    # generate up to a fixed number of tokens
+    for _ in range(max_returned_tokens - T):
         x = idx.index_select(0, input_pos).view(1, -1)
 
         # forward
@@ -121,13 +118,19 @@ def main(
     fabric = L.Fabric(devices=1)
     dtype = torch.bfloat16 if fabric.device.type == "cuda" and torch.cuda.is_bf16_supported() else torch.float32
 
-    checkpoint_path = checkpoint_dir / "lit_model.pth"
+    if quantize == "gptq.int4":
+        model_file = "lit_model_gptq.4bit.pth"
+        if not (checkpoint_dir / model_file).is_file():
+            raise ValueError("Please run `python quantize/gptq.py` first")
+    else:
+        model_file = "lit_model.pth"
+    checkpoint_path = checkpoint_dir / model_file
     print(f"Loading model {str(checkpoint_path)!r} with {config.__dict__}", file=sys.stderr)
     t0 = time.time()
     with EmptyInitOnDevice(device=fabric.device, dtype=dtype, quantization_mode=quantize):
         model = Parrot(config)
     with lazy_load(checkpoint_path) as checkpoint:
-        model.load_state_dict(checkpoint)
+        model.load_state_dict(checkpoint, strict=False)
     print(f"Time to load model: {time.time() - t0:.02f} seconds.", file=sys.stderr)
 
     model.eval()
@@ -136,11 +139,23 @@ def main(
     tokenizer = Tokenizer(checkpoint_dir / "tokenizer.json", checkpoint_dir / "tokenizer_config.json")
     encoded = tokenizer.encode(prompt, device=fabric.device)
     prompt_length = encoded.size(0)
+    max_returned_tokens = prompt_length + max_new_tokens
+    assert max_returned_tokens <= model.config.block_size, (
+        max_returned_tokens,
+        model.config.block_size,
+    )  # maximum rope cache length
 
     L.seed_everything(1234)
     for i in range(num_samples):
         t0 = time.perf_counter()
-        y = generate(model, encoded, max_new_tokens, temperature=temperature, top_k=top_k)
+        y = generate(
+            model,
+            encoded,
+            max_returned_tokens,
+            max_seq_length=max_returned_tokens,
+            temperature=temperature,
+            top_k=top_k,
+        )
         t = time.perf_counter() - t0
 
         model.reset_cache()

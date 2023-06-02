@@ -2,5 +2,5 @@
 lightning @ git+https://github.com/Lightning-AI/lightning@master
 tokenizers
 jsonargparse[signatures]  # CLI
-bitsandbytes  # quantization.py
+bitsandbytes  # quantize
 zstandard  # prepare_redpajama.py

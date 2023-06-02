@@ -19,11 +19,11 @@ from lit_parrot.utils import EmptyInitOnDevice, lazy_load, check_valid_checkpoin
 
 @torch.no_grad()
 def generate(
-    model: Parrot,
+    model: torch.nn.Module,
     idx: torch.Tensor,
-    max_new_tokens: int,
+    max_returned_tokens: int,
+    max_seq_length: int,
     *,
-    max_seq_length: Optional[int] = None,
     temperature: float = 1.0,
     top_k: Optional[int] = None,
     stop_tokens: Tuple[List[int], ...] = tuple(),
@@ -33,19 +33,14 @@ def generate(
     Args:
         model: The model to use.
         idx: Tensor of shape (T) with indices of the prompt sequence.
-        max_new_tokens: The number of new tokens to generate.
-        max_seq_length: The maximum sequence length allowed.
+        max_returned_tokens: The maximum number of tokens to return (given plus generated).
+        max_seq_length: The maximum sequence length allowed. Should be less or equal than the block size.
         temperature: Scales the predicted logits by 1 / temperature
         top_k: If specified, only sample among the tokens with the k highest probabilities
         stop_tokens: If specified, stop generating any more token once one of this list is generated.
     """
     T = idx.size(0)
-    T_new = T + max_new_tokens
-    if max_seq_length is None:
-        max_seq_length = min(T_new, model.config.block_size)
-    # otherwise this would use more memory than necessary
-    assert max_seq_length <= T_new
-
+    assert max_returned_tokens > T
     device = idx.device
     stop_tokens = [torch.tensor(tokens, device=device) for tokens in stop_tokens]
     input_pos = torch.arange(0, T, device=device)
@@ -60,7 +55,8 @@ def generate(
         xm.mark_step()
 
     yield_i = -1
-    for t in range(max_new_tokens):
+    # generate up to a fixed number of tokens
+    for t in range(max_returned_tokens - T):
         # forward
         logits = model(idx.view(1, -1), max_seq_length, input_pos)
         logits = logits[0, -1] / temperature
@@ -147,15 +143,16 @@ def main(
             break
         prompt = system_prompt.format(prompt=prompt)
         encoded_prompt = tokenizer.encode(prompt, device=fabric.device)
+        max_returned_tokens = model.config.block_size
         y = generate(
             model,
             encoded_prompt,
-            max_new_tokens=model.config.block_size,  # type: ignore[union-attr,arg-type]
+            max_returned_tokens,
+            max_seq_length=max_returned_tokens,
             temperature=temperature,
             top_k=top_k,
             stop_tokens=stop_tokens,
         )
-        model.reset_cache()
         print(">> Reply: ", end="")
         try:
             tokens_generated = 0
@@ -164,6 +161,7 @@ def main(
                 print(tokenizer.decode(token), end="", flush=True)
                 tokens_generated += 1
             t = time.perf_counter() - t0
+            model.reset_cache()
             print(f"\nTime for inference: {t:.02f} sec total, {tokens_generated / t:.02f} tokens/sec", file=sys.stderr)
         except KeyboardInterrupt:
             # support stopping generation
@@ -211,6 +209,19 @@ def prompt_config(checkpoint_dir: Path, tokenizer: Tokenizer) -> Tuple[str, Tupl
             [187, 187],  # '\n', '\n'
             [535],  # '\n\n'
             [2756],  # '\n\n\n'
+        )
+        return system_prompt, stop_tokens
+    if re.search(r"falcon.*-instruct", checkpoint_name):
+        # First line could be modified. AFAIK Falcon doesn't impose a specific system prompt
+        # The instruction to not prefix its replies doesn't work always, but better than nothing
+        system_prompt = "Do not prefix your replies with 'Bot: '\nUser: {prompt}\n"
+        # I've also tried just "{prompt}\n" but the model seems to ramble more often
+        stop_tokens = (
+            [tokenizer.eos_id],
+            # the model rarely emits the eos token and instead outputs newlines, but we cannot use them
+            # to stop or else things like code generation wouldn't work
+            [tokenizer.token_to_id("User"), tokenizer.token_to_id(":")],
+            [193, tokenizer.token_to_id("User")],  # 193: '\n'
         )
         return system_prompt, stop_tokens
 

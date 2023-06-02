@@ -1,5 +1,6 @@
 import sys
 from pathlib import Path
+from urllib.request import urlretrieve
 
 import pytest
 import torch
@@ -16,7 +17,7 @@ wd = Path(__file__).parent.parent.absolute()
 @pytest.mark.parametrize("kv_cache", (False, True))
 def test_against_hf_model(rotary_pct, batch_size, n_embd, parallel_residual, kv_cache) -> None:
     import lit_parrot
-    from scripts.convert_hf_checkpoint import copy_weights
+    from scripts.convert_hf_checkpoint import copy_weights_gpt_neox
 
     block_size = 64
     # https://huggingface.co/stabilityai/stablelm-base-alpha-3b/blob/main/config.json#L24
@@ -51,12 +52,11 @@ def test_against_hf_model(rotary_pct, batch_size, n_embd, parallel_residual, kv_
         use_cache=kv_cache,
     )
 
-    ours_model = lit_parrot.Parrot(ours_config)
-    state_dict = ours_model.state_dict()
+    state_dict = {}
     theirs_model = GPTNeoXForCausalLM(theirs_config)
-
     # load the hf initialization into our model
-    copy_weights(state_dict, theirs_model.state_dict())
+    copy_weights_gpt_neox(state_dict, theirs_model.state_dict())
+    ours_model = lit_parrot.Parrot(ours_config)
     ours_model.load_state_dict(state_dict)
 
     token_sample = torch.randint(0, ours_config.padded_vocab_size, size=(batch_size, block_size), dtype=torch.int64)
@@ -86,6 +86,38 @@ def test_against_hf_model(rotary_pct, batch_size, n_embd, parallel_residual, kv_
     theirs = theirs_model(token_sample)["logits"]
     ours = ours_model(token_sample)
     torch.testing.assert_close(ours, theirs)
+
+
+@torch.inference_mode()
+def test_against_original_falcon_40b():
+    file_path = wd / "tests" / "original_falcon_40b.py"
+    url = "https://gist.githubusercontent.com/carmocca/feed39b1bc65a29f73c1cecc58a01167/raw/a9a65f2b93716b3c09ec9f354d535ae5953de08f/original_falcon_40b.py"
+    if not file_path.is_file():
+        urlretrieve(url=url, filename=file_path)
+
+    from tests.original_falcon_40b import RWConfig, RWForCausalLM
+    from lit_parrot import Config, Parrot
+    from scripts.convert_hf_checkpoint import copy_weights_falcon
+
+    ours_config = Config.from_name("falcon-40b", n_layer=2, n_head=8, n_query_groups=4, n_embd=32)
+    theirs_config = RWConfig(
+        hidden_size=32, n_head=8, n_head_kv=4, n_layer=2, parallel_attn=True, vocab_size=65024, bias=False
+    )
+
+    x = torch.tensor([[9856, 23, 491, 1536, 304]], dtype=torch.int32)
+
+    theirs_model = RWForCausalLM(theirs_config)
+    y_theirs = theirs_model(x)["logits"]
+
+    theirs_state_dict = theirs_model.state_dict()
+    state_dict = {}
+    copy_weights_falcon("40b", state_dict, theirs_state_dict)
+
+    ours_model = Parrot(ours_config)
+    ours_model.load_state_dict(state_dict)
+    y_ours = ours_model(x)
+
+    torch.testing.assert_close(y_ours, y_theirs)
 
 
 @pytest.mark.skipif(not torch.cuda.is_available(), reason="Requires CUDA")

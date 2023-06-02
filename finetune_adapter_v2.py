@@ -1,6 +1,5 @@
 import os
 import shutil
-import sys
 import time
 from pathlib import Path
 from typing import Literal
@@ -11,12 +10,13 @@ import torch
 from lightning.fabric.accelerators.mps import MPSAccelerator
 from lightning.fabric.strategies import DeepSpeedStrategy
 
-# support running without installing as a package
-wd = Path(__file__).parent.parent.resolve()
-sys.path.append(str(wd))
-
-from generate.base import generate
-from lit_parrot.adapter import Parrot, Config, mark_only_adapter_as_trainable, adapter_state_from_state_dict
+from generate import generate
+from lit_parrot.adapter import Parrot, Config
+from lit_parrot.adapter_v2 import (
+    mark_only_adapter_v2_as_trainable,
+    add_adapter_v2_parameters_to_linear_layers,
+    adapter_v2_state_from_state_dict,
+)
 from lit_parrot.tokenizer import Tokenizer
 from lit_parrot.utils import lazy_load, check_valid_checkpoint_dir
 from scripts.prepare_alpaca import generate_prompt
@@ -29,10 +29,10 @@ devices = 1
 
 # Hyperparameters
 learning_rate = 9e-3
-batch_size = 64 / devices
-micro_batch_size = 4
-gradient_accumulation_steps = batch_size // micro_batch_size
-assert gradient_accumulation_steps > 0
+batch_size = 128 / devices
+micro_batch_size = 2  # set to 2 because this is fit into 12GB Vram
+gradient_accumulation_iters = batch_size // micro_batch_size
+assert gradient_accumulation_iters > 0
 epoch_size = 50000  # train dataset size
 num_epochs = 5
 max_iters = num_epochs * (epoch_size // micro_batch_size) // devices
@@ -42,7 +42,7 @@ warmup_iters = 2 * (epoch_size // micro_batch_size) // devices  # 2 epochs
 
 ds_config = {
     "train_micro_batch_size_per_gpu": micro_batch_size,
-    "gradient_accumulation_steps": gradient_accumulation_steps,
+    "gradient_accumulation_steps": gradient_accumulation_iters,
     "zero_optimization": {"stage": 2},
 }
 
@@ -50,7 +50,7 @@ ds_config = {
 def main(
     data_dir: Path = Path("data/alpaca"),
     checkpoint_dir: Path = Path("checkpoints/stabilityai/stablelm-base-alpha-3b"),
-    out_dir: Path = Path("out/adapter/alpaca"),
+    out_dir: Path = Path("out/adapter_v2/alpaca"),
     precision: Literal["bf16-true", "32-true"] = "bf16-true",
 ):
     check_valid_checkpoint_dir(checkpoint_dir)
@@ -71,10 +71,12 @@ def main(
     print(f"Loading model {str(checkpoint_path)!r} with {config.__dict__}")
     with fabric.init_module():
         model = Parrot(config)
-    with lazy_load(checkpoint_path) as checkpoint:
+    with lazy_load(checkpoint_dir / "lit_model.pth") as checkpoint:
+        # strict=False because missing keys due to adapter weights not contained in state dict
         model.load_state_dict(checkpoint, strict=False)
 
-    mark_only_adapter_as_trainable(model)
+    add_adapter_v2_parameters_to_linear_layers(model)
+    mark_only_adapter_v2_as_trainable(model)
 
     num_params = sum(p.numel() for p in model.parameters() if p.requires_grad)
     print(f"Number of trainable parameters: {num_params}")
@@ -116,13 +118,12 @@ def train(
         t0 = time.time()
 
         input_ids, targets = get_batch(fabric, train_data)
+        logits = model(input_ids)
+        loss = loss_fn(logits, targets)
+        with fabric.no_backward_sync(model, enabled=((iter_num + 1) % gradient_accumulation_iters != 0)):
+            fabric.backward(loss / gradient_accumulation_iters)
 
-        with fabric.no_backward_sync(model, enabled=((iter_num + 1) % gradient_accumulation_steps != 0)):
-            logits = model(input_ids)
-            loss = loss_fn(logits, targets)
-            fabric.backward(loss / gradient_accumulation_steps)
-
-        if (iter_num + 1) % gradient_accumulation_steps == 0:
+        if (iter_num + 1) % gradient_accumulation_iters == 0:
             optimizer.step()
             optimizer.zero_grad()
             step_count += 1
@@ -222,11 +223,11 @@ def save_model_checkpoint(fabric, model, file_path: Path):
             # Create a consolidated checkpoint with the same name next to the deepspeed checkpoint
             # and only keep the adapter weights
             state_dict = get_fp32_state_dict_from_zero_checkpoint(tmp_path)
-            state_dict = adapter_state_from_state_dict(state_dict)
+            state_dict = adapter_v2_state_from_state_dict(state_dict)
             torch.save(state_dict, file_path)
             shutil.rmtree(tmp_path)
     else:
-        state_dict = adapter_state_from_state_dict(model.state_dict())
+        state_dict = adapter_v2_state_from_state_dict(model.state_dict())
         if fabric.global_rank == 0:
             torch.save(state_dict, file_path)
         fabric.barrier()

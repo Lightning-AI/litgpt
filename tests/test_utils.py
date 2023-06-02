@@ -85,3 +85,20 @@ def test_check_valid_checkpoint_dir(tmp_path):
     )
     with pytest.raises(OSError, match=match):
         check_valid_checkpoint_dir(tmp_path / "foo")
+
+
+def test_incremental_write(tmp_path):
+    from lit_parrot.utils import incremental_save
+
+    sd = {str(k): torch.randn(5, 10) for k in range(3)}
+    sd_expected = {k: v.clone() for k, v in sd.items()}
+    fn = str(tmp_path / "test.pt")
+    with incremental_save(fn) as f:
+        sd["0"] = f.store_early(sd["0"])
+        sd["2"] = f.store_early(sd["2"])
+        f.save(sd)
+    sd_actual = torch.load(fn)
+    assert sd_actual.keys() == sd_expected.keys()
+    for k, v_expected in sd_expected.items():
+        v_actual = sd_actual[k]
+        torch.testing.assert_close(v_expected, v_actual)

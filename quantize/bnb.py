@@ -7,16 +7,17 @@ import torch
 # configuration for bitsandbytes before import
 os.environ["BITSANDBYTES_NOWELCOME"] = "1"
 warnings.filterwarnings(
-    "ignore",
-    message="MatMul8bitLt: inputs will be cast from torch.float32 to float16 during quantization",
+    "ignore", message="MatMul8bitLt: inputs will be cast from torch.float32 to float16 during quantization"
+)
+warnings.filterwarnings(
+    "ignore", message="MatMul8bitLt: inputs will be cast from torch.bfloat16 to float16 during quantization"
 )
 warnings.filterwarnings(
     "ignore",
-    message="MatMul8bitLt: inputs will be cast from torch.bfloat16 to float16 during quantization",
-)
-warnings.filterwarnings(
-    "ignore",
-    message="The installed version of bitsandbytes was compiled without GPU support. 8-bit optimizers and GPU quantization are unavailable.",
+    message=(
+        "The installed version of bitsandbytes was compiled without GPU support. 8-bit optimizers and GPU quantization"
+        " are unavailable."
+    ),
 )
 
 try:
@@ -48,10 +49,7 @@ if bnb is not None:
 
         def _load_from_state_dict(self, local_state_dict, *args, **kwargs):
             # There is only one key that ends with `*.weight`, the other one is the bias
-            weight_key = next(
-                (name for name in local_state_dict.keys() if name.endswith("weight")),
-                None,
-            )
+            weight_key = next((name for name in local_state_dict.keys() if name.endswith("weight")), None)
             if weight_key is None:
                 return
 
@@ -79,102 +77,52 @@ if triton is not None:
     @triton.autotune(
         configs=[
             triton.Config(
-                {
-                    "BLOCK_SIZE_M": 128,
-                    "BLOCK_SIZE_N": 256,
-                    "BLOCK_SIZE_K": 32,
-                    "GROUP_SIZE_M": 8,
-                },
+                {"BLOCK_SIZE_M": 128, "BLOCK_SIZE_N": 256, "BLOCK_SIZE_K": 32, "GROUP_SIZE_M": 8},
                 num_stages=3,
                 num_warps=8,
             ),
             triton.Config(
-                {
-                    "BLOCK_SIZE_M": 256,
-                    "BLOCK_SIZE_N": 128,
-                    "BLOCK_SIZE_K": 32,
-                    "GROUP_SIZE_M": 8,
-                },
+                {"BLOCK_SIZE_M": 256, "BLOCK_SIZE_N": 128, "BLOCK_SIZE_K": 32, "GROUP_SIZE_M": 8},
                 num_stages=3,
                 num_warps=8,
             ),
             triton.Config(
-                {
-                    "BLOCK_SIZE_M": 256,
-                    "BLOCK_SIZE_N": 64,
-                    "BLOCK_SIZE_K": 32,
-                    "GROUP_SIZE_M": 8,
-                },
+                {"BLOCK_SIZE_M": 256, "BLOCK_SIZE_N": 64, "BLOCK_SIZE_K": 32, "GROUP_SIZE_M": 8},
                 num_stages=4,
                 num_warps=4,
             ),
             triton.Config(
-                {
-                    "BLOCK_SIZE_M": 64,
-                    "BLOCK_SIZE_N": 256,
-                    "BLOCK_SIZE_K": 32,
-                    "GROUP_SIZE_M": 8,
-                },
+                {"BLOCK_SIZE_M": 64, "BLOCK_SIZE_N": 256, "BLOCK_SIZE_K": 32, "GROUP_SIZE_M": 8},
                 num_stages=4,
                 num_warps=4,
             ),
             triton.Config(
-                {
-                    "BLOCK_SIZE_M": 128,
-                    "BLOCK_SIZE_N": 128,
-                    "BLOCK_SIZE_K": 32,
-                    "GROUP_SIZE_M": 8,
-                },
+                {"BLOCK_SIZE_M": 128, "BLOCK_SIZE_N": 128, "BLOCK_SIZE_K": 32, "GROUP_SIZE_M": 8},
                 num_stages=4,
                 num_warps=4,
             ),
             triton.Config(
-                {
-                    "BLOCK_SIZE_M": 128,
-                    "BLOCK_SIZE_N": 64,
-                    "BLOCK_SIZE_K": 32,
-                    "GROUP_SIZE_M": 8,
-                },
+                {"BLOCK_SIZE_M": 128, "BLOCK_SIZE_N": 64, "BLOCK_SIZE_K": 32, "GROUP_SIZE_M": 8},
                 num_stages=4,
                 num_warps=4,
             ),
             triton.Config(
-                {
-                    "BLOCK_SIZE_M": 64,
-                    "BLOCK_SIZE_N": 128,
-                    "BLOCK_SIZE_K": 32,
-                    "GROUP_SIZE_M": 8,
-                },
+                {"BLOCK_SIZE_M": 64, "BLOCK_SIZE_N": 128, "BLOCK_SIZE_K": 32, "GROUP_SIZE_M": 8},
                 num_stages=4,
                 num_warps=4,
             ),
             triton.Config(
-                {
-                    "BLOCK_SIZE_M": 128,
-                    "BLOCK_SIZE_N": 32,
-                    "BLOCK_SIZE_K": 32,
-                    "GROUP_SIZE_M": 8,
-                },
+                {"BLOCK_SIZE_M": 128, "BLOCK_SIZE_N": 32, "BLOCK_SIZE_K": 32, "GROUP_SIZE_M": 8},
                 num_stages=4,
                 num_warps=4,
             ),
             triton.Config(
-                {
-                    "BLOCK_SIZE_M": 64,
-                    "BLOCK_SIZE_N": 32,
-                    "BLOCK_SIZE_K": 32,
-                    "GROUP_SIZE_M": 8,
-                },
+                {"BLOCK_SIZE_M": 64, "BLOCK_SIZE_N": 32, "BLOCK_SIZE_K": 32, "GROUP_SIZE_M": 8},
                 num_stages=5,
                 num_warps=2,
             ),
             triton.Config(
-                {
-                    "BLOCK_SIZE_M": 32,
-                    "BLOCK_SIZE_N": 64,
-                    "BLOCK_SIZE_K": 32,
-                    "GROUP_SIZE_M": 8,
-                },
+                {"BLOCK_SIZE_M": 32, "BLOCK_SIZE_N": 64, "BLOCK_SIZE_K": 32, "GROUP_SIZE_M": 8},
                 num_stages=5,
                 num_warps=2,
             ),
@@ -239,9 +187,7 @@ if triton is not None:
         b_mask = offs_bn[None, :] < N
         offs_k = tl.arange(0, BLOCK_SIZE_K)
         a_ptrs = a_ptr + (offs_am[:, None] * stride_am + offs_k[None, :] * stride_ak)
-        b_ptrs = b_ptr + (
-            (offs_k[:, None] // 2) * stride_bk + offs_bn[None, :] * stride_bn
-        )
+        b_ptrs = b_ptr + ((offs_k[:, None] // 2) * stride_bk + offs_bn[None, :] * stride_bn)
 
         bscales_ptrs = bscales_ptr + offs_bn[None, :]
         bzeros_ptrs = bzeros_ptr + offs_bn[None, :]
@@ -259,10 +205,7 @@ if triton is not None:
             b12 = tl.load(b_ptrs, mask=b_mask)
             # Note that for simplicity, we don't apply a mask in K here.
             a = tl.load(a_ptrs, mask=a_mask).to(tl.float32)
-            b = (
-                ((b12.to(tl.uint8) >> ((offs_k[:, None] % 2) * 4)) & 0xF).to(tl.float32)
-                - zero
-            ) * scale
+            b = (((b12.to(tl.uint8) >> ((offs_k[:, None] % 2) * 4)) & 0xF).to(tl.float32) - zero) * scale
             accumulator += tl.dot(a, b)
 
             # Advance the ptrs to the next K block
@@ -302,15 +245,11 @@ if triton is not None:
         zeros = zeros.contiguous()
         K, N = weight.shape
         M, K = inp.shape
-        assert (
-            K % 32 == 0
-        ), "We don't check memory-out-of-bounds with K so K must be divisible by BLOCK_SIZE_K"
+        assert K % 32 == 0, "We don't check memory-out-of-bounds with K so K must be divisible by BLOCK_SIZE_K"
         # allocates output
         c = torch.empty((M, N), device=inp.device, dtype=inp.dtype)
         # 1D launch kernel where each block gets its own program.
-        grid = lambda META: (
-            triton.cdiv(M, META["BLOCK_SIZE_M"]) * triton.cdiv(N, META["BLOCK_SIZE_N"]),
-        )
+        grid = lambda META: (triton.cdiv(M, META["BLOCK_SIZE_M"]) * triton.cdiv(N, META["BLOCK_SIZE_N"]),)
         linear_kernel_4bit_weight[grid](
             inp,
             weight,
@@ -346,22 +285,13 @@ class ColBlockQuantizedLinear(torch.nn.Module):
         assert in_features % self.entries_per_byte == 0
         self.register_buffer(
             "quant_weight",
-            torch.empty(
-                (self.out_features, self.in_features // self.entries_per_byte),
-                dtype=torch.uint8,
-            )
+            torch.empty((self.out_features, self.in_features // self.entries_per_byte), dtype=torch.uint8)
             .t()
             .contiguous()
             .t(),
         )
         self.register_buffer(
-            "scales",
-            torch.empty(
-                (
-                    self.out_features,
-                    (self.in_features + self.tile_cols - 1) // self.tile_cols,
-                )
-            ),
+            "scales", torch.empty((self.out_features, (self.in_features + self.tile_cols - 1) // self.tile_cols))
         )
         self.register_buffer("zeros", torch.empty_like(self.scales))
         assert isinstance(bias, bool)
@@ -373,38 +303,22 @@ class ColBlockQuantizedLinear(torch.nn.Module):
     def pack_weight(self, weight):
         weight = weight.to(device=self.quant_weight.device, copy=True)
         for j in range(self.scales.size(1)):
-            weight[:, j * self.tile_cols : (j + 1) * self.tile_cols] /= self.scales[
-                :, j : j + 1
-            ]
-            weight[:, j * self.tile_cols : (j + 1) * self.tile_cols] += self.zeros[
-                :, j : j + 1
-            ]
+            weight[:, j * self.tile_cols : (j + 1) * self.tile_cols] /= self.scales[:, j : j + 1]
+            weight[:, j * self.tile_cols : (j + 1) * self.tile_cols] += self.zeros[:, j : j + 1]
         weight = weight.clamp_(min=0, max=2**self.bits - 1).to(dtype=torch.uint8)
         self.quant_weight.zero_()
         for nr in range(self.entries_per_byte):
-            self.quant_weight += weight[:, nr :: self.entries_per_byte] << (
-                nr * self.bits
-            )
+            self.quant_weight += weight[:, nr :: self.entries_per_byte] << (nr * self.bits)
 
     def get_weight(self, dtype=torch.float):
-        weight = torch.empty(
-            (self.out_features, self.in_features),
-            device=self.quant_weight.device,
-            dtype=dtype,
-        )
+        weight = torch.empty((self.out_features, self.in_features), device=self.quant_weight.device, dtype=dtype)
         mask = (1 << self.bits) - 1
         for nr in range(self.entries_per_byte):
-            weight[:, nr :: self.entries_per_byte] = (
-                (self.quant_weight >> (nr * self.bits)) & mask
-            ).float()
+            weight[:, nr :: self.entries_per_byte] = ((self.quant_weight >> (nr * self.bits)) & mask).float()
         self.quant_weight.to(dtype)
         for j in range(self.scales.size(1)):
-            weight[:, j * self.tile_cols : (j + 1) * self.tile_cols] -= self.zeros[
-                :, j : j + 1
-            ]
-            weight[:, j * self.tile_cols : (j + 1) * self.tile_cols] *= self.scales[
-                :, j : j + 1
-            ]
+            weight[:, j * self.tile_cols : (j + 1) * self.tile_cols] -= self.zeros[:, j : j + 1]
+            weight[:, j * self.tile_cols : (j + 1) * self.tile_cols] *= self.scales[:, j : j + 1]
         return weight
 
     def forward(self, inp):
@@ -569,11 +483,9 @@ class GPTQQuantizer:
 
                 if self.groupsize != -1:
                     if (i1 + i) % self.groupsize == 0:
-                        scale, zero = self.find_params_weight(
-                            W[:, (i1 + i) : (i1 + i + self.groupsize)]
-                        )
+                        scale, zero = self.find_params_weight(W[:, (i1 + i) : (i1 + i + self.groupsize)])
                         self.scales[:, (i1 + i) // self.groupsize] = scale
-                        self.zeros[:, (i1 + i) // self.groupsize] = zeros
+                        self.zeros[:, (i1 + i) // self.groupsize] = zero
 
                 q = self.quantize_weight(w.unsqueeze(1), scale, zero, self.maxq)
                 q = q.squeeze(1)
@@ -594,9 +506,7 @@ class GPTQQuantizer:
             invperm = torch.argsort(perm)
             Q = Q[:, invperm]
 
-        weight = Q.reshape(self.linear_module.weight.shape).to(
-            self.linear_module.weight.data.dtype
-        )
+        weight = Q.reshape(self.linear_module.weight.shape).to(self.linear_module.weight.data.dtype)
         error = torch.sum(Losses).item()
 
         q_module = ColBlockQuantizedLinear(
