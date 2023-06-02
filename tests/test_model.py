@@ -111,7 +111,7 @@ def test_against_original_falcon_40b(lit_parrot):
     from lit_parrot import Config, Parrot
     from scripts.convert_hf_checkpoint import copy_weights_falcon
 
-    ours_config = Config.from_name("falcon-40b", n_layer=2, n_head=8, n_head_kv=4, n_embd=32)
+    ours_config = Config.from_name("falcon-40b", n_layer=2, n_head=8, n_query_groups=4, n_embd=32)
     theirs_config = RWConfig(
         hidden_size=32, n_head=8, n_head_kv=4, n_layer=2, parallel_attn=True, vocab_size=65024, bias=False
     )

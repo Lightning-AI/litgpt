@@ -14,18 +14,21 @@ class Config:
     padded_vocab_size: Optional[int] = None
     n_layer: int = 16
     n_head: int = 32
-    n_head_kv: Optional[int] = None
     n_embd: int = 4096
     rotary_percentage: float = 0.25
     parallel_residual: bool = True
     bias: bool = True
-    multi_query: bool = False
+    n_query_groups: Optional[int] = None  # https://arxiv.org/abs/2305.13245 (1 == MQA, n_head == MHA, otherwise GQA)
     shared_attention_norm: bool = False
 
     def __post_init__(self):
         if self.padded_vocab_size is None:
             self.padded_vocab_size = find_multiple(self.vocab_size, self.padding_multiple)
         assert self.n_embd % self.n_head == 0
+        if self.n_query_groups is not None:
+            assert self.n_head % self.n_query_groups == 0
+        else:
+            self.n_query_groups = self.n_head
 
     @property
     def head_size(self) -> int:
@@ -107,7 +110,7 @@ falcon = {
         n_embd=4544,
         rotary_percentage=1.0,
         parallel_residual=True,
-        multi_query=True,
+        n_query_groups=1,
         bias=False,
         # this is not in the config, but in the original model implementation, only for this config
         shared_attention_norm=True
@@ -118,11 +121,10 @@ falcon = {
         padded_vocab_size=65024,
         n_layer=80,
         n_head=128,
-        n_head_kv=8,
         n_embd=8192,
         rotary_percentage=1.0,
         parallel_residual=True,
-        multi_query=True,  # strangely, the 40b config doesn't specify this, but it is
+        n_query_groups=8,
         bias=False,
     ),
 }
