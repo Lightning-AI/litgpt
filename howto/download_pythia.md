@@ -45,5 +45,5 @@ python scripts/convert_hf_checkpoint.py --checkpoint_dir checkpoints/EleutherAI/
 You're done! To execute the model just run:
 
 ```bash
-python generate.py --prompt "Hello, my name is" --checkpoint_dir checkpoints/EleutherAI/pythia-1b
+python generate/base.py --prompt "Hello, my name is" --checkpoint_dir checkpoints/EleutherAI/pythia-1b
 ```

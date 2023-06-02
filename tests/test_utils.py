@@ -11,7 +11,7 @@ class ATensor(torch.Tensor):
     pass
 
 
-def test_lazy_load_basic(lit_parrot):
+def test_lazy_load_basic():
     import lit_parrot.utils
 
     with tempfile.TemporaryDirectory() as tmpdirname:
@@ -30,7 +30,7 @@ def test_lazy_load_basic(lit_parrot):
         torch.testing.assert_close(actual, expected)
 
 
-def test_lazy_load_subclass(lit_parrot):
+def test_lazy_load_subclass():
     import lit_parrot.utils
 
     with tempfile.TemporaryDirectory() as tmpdirname:
@@ -46,7 +46,7 @@ def test_lazy_load_subclass(lit_parrot):
                 torch.testing.assert_close(actual._load_tensor(), expected)
 
 
-def test_find_multiple(lit_parrot):
+def test_find_multiple():
     from lit_parrot.utils import find_multiple
 
     assert find_multiple(17, 5) == 20
@@ -59,7 +59,7 @@ def test_find_multiple(lit_parrot):
 
 
 @pytest.mark.skipif(sys.platform == "win32", reason="match fails on windows. why did they have to use backslashes?")
-def test_check_valid_checkpoint_dir(lit_parrot, tmp_path):
+def test_check_valid_checkpoint_dir(tmp_path):
     from lit_parrot.utils import check_valid_checkpoint_dir
 
     os.chdir(tmp_path)

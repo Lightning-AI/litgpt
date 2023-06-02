@@ -3,7 +3,7 @@
 We demonstrate how to run inference (next token prediction) with the Parrot base model in the [`generate.py`](generate.py) script:
 
 ```bash
-python generate.py --prompt "Hello, my name is" --checkpoint_dir checkpoints/stabilityai/stablelm-base-alpha-3b
+python generate/base.py --prompt "Hello, my name is" --checkpoint_dir checkpoints/stabilityai/stablelm-base-alpha-3b
 ```
 Output:
 ```
@@ -19,7 +19,7 @@ This will run the 3B pre-trained model and require ~7 GB of GPU memory using the
 You can also chat with the model interactively:
 
 ```bash
-python chat.py --checkpoint_dir checkpoints/stabilityai/stablelm-tuned-alpha-3b
+python chat/base.py --checkpoint_dir checkpoints/stabilityai/stablelm-tuned-alpha-3b
 ```
 
 This script can work with any checkpoint. For the best chat-like experience, we recommend using it with a checkpoints

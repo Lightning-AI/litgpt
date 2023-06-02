@@ -1,4 +1,3 @@
-import functools
 import subprocess
 import sys
 from itertools import repeat
@@ -7,17 +6,6 @@ from unittest.mock import MagicMock
 
 import pytest
 import torch
-
-wd = Path(__file__).parent.parent.absolute()
-
-
-@functools.lru_cache(maxsize=1)
-def load_script():
-    sys.path.append(str(wd))
-
-    import chat
-
-    return chat
 
 
 @pytest.mark.parametrize(
@@ -30,7 +18,7 @@ def load_script():
     ],
 )
 def test_generate(generated, stop_tokens, expected):
-    chat = load_script()
+    import chat.base as chat
 
     input_idx = torch.tensor([5, 3])
     max_returned_tokens = len(input_idx) + 8
@@ -55,7 +43,7 @@ def test_generate(generated, stop_tokens, expected):
 
 
 def test_cli():
-    cli_path = wd / "chat.py"
+    cli_path = Path(__file__).parent.parent / "chat" / "base.py"
     output = subprocess.check_output([sys.executable, cli_path, "-h"])
     output = str(output.decode())
     assert "Starts a conversation" in output

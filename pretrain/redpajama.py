@@ -1,5 +1,6 @@
 import glob
 import math
+import sys
 import time
 from functools import partial
 from pathlib import Path
@@ -10,6 +11,10 @@ import torch
 from lightning.fabric.strategies import FSDPStrategy
 from torch.distributed.fsdp.wrap import transformer_auto_wrap_policy
 from torch.utils.data import DataLoader
+
+# support running without installing as a package
+wd = Path(__file__).parent.parent.resolve()
+sys.path.append(str(wd))
 
 from lit_parrot.model import Block, Parrot, Config
 from lit_parrot.packed_dataset import PackedDataset, CombinedDataset
