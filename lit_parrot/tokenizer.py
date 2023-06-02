@@ -12,7 +12,8 @@ class Tokenizer:
         self.processor = HFTokenizer.from_file(str(vocabulary_path))
         with open(config_path) as fp:
             config = json.load(fp)
-        self.bos_id = self.token_to_id(config["bos_token"])
+        bos_token = config.get("bos_token")
+        self.bos_id = self.token_to_id(bos_token) if bos_token is not None else None
         self.eos_id = self.token_to_id(config["eos_token"])
 
     @property
@@ -35,7 +36,10 @@ class Tokenizer:
     ) -> torch.Tensor:
         tokens = self.processor.encode(string).ids
         if bos:
-            tokens = [self.bos_id] + tokens
+            bos_id = self.bos_id
+            if bos_id is None:
+                raise NotImplementedError("This tokenizer does not defined a bos token")
+            tokens = [bos_id] + tokens
         if eos:
             tokens = tokens + [self.eos_id]
         if max_length > 0:

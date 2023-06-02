@@ -58,6 +58,15 @@ or for Adapter V2
 python finetune_adapter_v2.py --out_dir out/adapter_v2/my-model-finetuned
 ```
 
+If your GPU does not support `bfloat16`, you can pass the `--precision 32-true` argument.
+For instance, to fine-tune on MPS (the GPU on modern Macs), you can run
+
+```bash
+python finetune_adapter.py --out_dir out/adapter/my-model-finetuned --precision 32-true
+```
+
+Note that `mps` as the accelerator will be picked up automatically by Fabric when running on a modern Mac.
+
 ## Test the model
 
 You can test the finetuned model with your own instructions by running:
