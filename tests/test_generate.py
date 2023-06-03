@@ -1,4 +1,3 @@
-import functools
 import json
 import os
 import subprocess
@@ -11,17 +10,6 @@ from unittest.mock import Mock, call, ANY
 
 import pytest
 import torch
-
-wd = Path(__file__).parent.parent.absolute()
-
-
-@functools.lru_cache(maxsize=1)
-def load_generate_script():
-    sys.path.append(str(wd))
-
-    import generate
-
-    return generate
 
 
 @pytest.fixture()
@@ -38,7 +26,7 @@ def fake_checkpoint_dir(tmp_path):
 
 @pytest.mark.parametrize("max_seq_length", (10, 20 + 5))
 def test_generate(max_seq_length):
-    generate = load_generate_script()
+    import generate.base as generate
 
     from lit_parrot import Parrot, Config
 
@@ -69,7 +57,7 @@ def test_generate(max_seq_length):
 
 @mock.patch("torch.cuda.is_bf16_supported", return_value=False)
 def test_main(_, fake_checkpoint_dir, monkeypatch):
-    generate = load_generate_script()
+    import generate.base as generate
 
     config_path = fake_checkpoint_dir / "lit_config.json"
     config = {"block_size": 128, "vocab_size": 50, "n_layer": 2, "n_head": 4, "n_embd": 8, "rotary_percentage": 1}
@@ -114,7 +102,7 @@ def test_main(_, fake_checkpoint_dir, monkeypatch):
 
 
 def test_cli():
-    cli_path = wd / "generate.py"
+    cli_path = Path(__file__).parent.parent / "generate" / "base.py"
     output = subprocess.check_output([sys.executable, cli_path, "-h"])
     output = str(output.decode())
     assert "Generates text samples" in output

@@ -48,7 +48,7 @@ Since you created a new machine, you'll probably need to download the weights. Y
 Generation works out-of-the-box with TPUs:
 
 ```shell
-python3 generate.py --prompt "Hello, my name is" --num_samples 3
+python3 generate/base.py --prompt "Hello, my name is" --num_samples 3
 ```
 
 This command will take take ~17s for the first generation time as XLA needs to compile the graph.

@@ -6,7 +6,7 @@ import pytest
 
 @pytest.mark.skipif(sys.platform == "win32", reason="EmptyInitOnDevice on CPU not working for Windows.")
 @pytest.mark.parametrize("name", ["pythia-70m", "stablelm-base-alpha-3b"])
-def test_config_identical(name, lit_parrot):
+def test_config_identical(name):
     import lit_parrot.adapter as parrot_adapter
     import lit_parrot.model as parrot
     from lit_parrot.utils import EmptyInitOnDevice

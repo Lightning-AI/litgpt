@@ -5,7 +5,9 @@ import torch
 from transformers import AutoTokenizer
 
 
-def test_tokenizer_against_hf(lit_parrot):
+def test_tokenizer_against_hf():
+    import lit_parrot
+
     hf_tokenizer = AutoTokenizer.from_pretrained("StabilityAI/stablelm-base-alpha-3b")
     # hacky way to access the data loaded by the above
     folder = Path(hf_tokenizer.init_kwargs["special_tokens_map_file"]).parent

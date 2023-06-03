@@ -46,8 +46,6 @@ def test_packed_dataset(tmp_path):
         vocab_size=tokenizer.vocab_size,
     )
 
-    text_ids = []
-
     for text in texts:
         text_ids = tokenizer.encode(text)
         print(len(text_ids))

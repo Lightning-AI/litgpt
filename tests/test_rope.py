@@ -3,7 +3,9 @@ from transformers.models.gpt_neox.modeling_gpt_neox import RotaryEmbedding, appl
 
 
 @torch.inference_mode()
-def test_rope(lit_parrot):
+def test_rope():
+    import lit_parrot
+
     bs, seq_len, n_head, n_embed = 1, 6, 2, 8
     head_size = n_embed // n_head
     x = torch.randint(0, 10000, size=(bs, n_head, seq_len, head_size)).float()

@@ -11,6 +11,7 @@ import torch
 from generate import generate
 from lit_parrot import Tokenizer
 from lit_parrot.adapter import Parrot, Config
+from lit_parrot.adapter_v2 import add_adapter_v2_parameters_to_linear_layers
 from lit_parrot.utils import EmptyInitOnDevice, lazy_load, check_valid_checkpoint_dir
 from scripts.prepare_alpaca import generate_prompt
 
@@ -18,7 +19,7 @@ from scripts.prepare_alpaca import generate_prompt
 def main(
     prompt: str = "What food do lamas eat?",
     input: str = "",
-    adapter_path: Path = Path("out/adapter/alpaca/lit_model_adapter_finetuned.pth"),
+    adapter_path: Path = Path("out/adapter_v2/alpaca/lit_model_adapter_finetuned.pth"),
     checkpoint_dir: Path = Path(f"checkpoints/stabilityai/stablelm-base-alpha-3b"),
     quantize: Optional[str] = None,
     max_new_tokens: int = 100,
@@ -26,13 +27,13 @@ def main(
     temperature: float = 0.8,
 ) -> None:
     """Generates a response based on a given instruction and an optional input.
-    This script will only work with checkpoints from the instruction-tuned Parrot-Adapter model.
-    See `finetune_adapter.py`.
+    This script will only work with checkpoints from the instruction-tuned Parrot-AdapterV2 model.
+    See `finetune/adapter_v2.py`.
 
     Args:
         prompt: The prompt/instruction (Alpaca style).
         adapter_path: Path to the checkpoint with trained adapter weights, which are the output of
-            `finetune_adapter.py`.
+            `finetune/adapter_v2.py`.
         checkpoint_dir: The path to the checkpoint folder with pretrained Parrot weights.
         input: Optional input (Alpaca style).
         quantize: Whether to quantize the model and using which method:
@@ -62,7 +63,9 @@ def main(
     t0 = time.time()
     with EmptyInitOnDevice(device=fabric.device, dtype=dtype, quantization_mode=quantize):
         model = Parrot(config)
-    with lazy_load(checkpoint_path) as pretrained_checkpoint, lazy_load(
+        add_adapter_v2_parameters_to_linear_layers(model)
+
+    with lazy_load(checkpoint_dir / "lit_model.pth") as pretrained_checkpoint, lazy_load(
         adapter_path
     ) as adapter_checkpoint:
         # 1. Load the pretrained weights
@@ -70,7 +73,7 @@ def main(
         # 2. Load the fine-tuned adapter weights
         model.load_state_dict(adapter_checkpoint, strict=False)
 
-    print(f"Time to load model: {time.time() - t0:.02f} seconds.", file=sys.stderr)
+        print(f"Time to load model: {time.time() - t0:.02f} seconds.", file=sys.stderr)
 
     model.eval()
     model = fabric.setup(model)
@@ -94,7 +97,6 @@ def main(
     )
     t = time.perf_counter() - t0
 
-    model.reset_cache()
     output = tokenizer.decode(y)
     output = output.split("### Response:")[1].strip()
     print(output)

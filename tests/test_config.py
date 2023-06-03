@@ -1,9 +1,3 @@
-from pathlib import Path
-
-
-wd = Path(__file__).parent.parent.absolute()
-
-
 def test_config():
     from lit_parrot import Config
 

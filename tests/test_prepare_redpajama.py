@@ -5,8 +5,6 @@ import sys
 from pathlib import Path
 from unittest import mock
 
-wd = (Path(__file__).parent.parent / "scripts").absolute()
-
 import requests
 
 
@@ -17,8 +15,6 @@ def maybe_get_file(url, file_path):
 
 
 def test_prepare_sample(tmp_path):
-    sys.path.append(str(wd))
-
     tmp_path.mkdir(parents=True, exist_ok=True)
 
     vocabulary_path = tmp_path / "tokenizer.json"
@@ -40,7 +36,7 @@ def test_prepare_sample(tmp_path):
 
     jsonl_sample = "\n".join([json.dumps(el) for el in [sample] * 2])
 
-    import prepare_redpajama
+    import scripts.prepare_redpajama as prepare_redpajama
 
     for filename in prepare_redpajama.filenames_sample:
         with open(source_path / filename, "w") as f:
@@ -78,8 +74,6 @@ def test_prepare_sample(tmp_path):
 
 
 def test_prepare_full(tmp_path):
-    sys.path.append(str(wd))
-
     tmp_path.mkdir(parents=True, exist_ok=True)
 
     vocabulary_path = tmp_path / "tokenizer.json"
@@ -101,7 +95,7 @@ def test_prepare_full(tmp_path):
 
     jsonl_sample = "\n".join([json.dumps(el) for el in [sample] * 2])
 
-    import prepare_redpajama
+    import scripts.prepare_redpajama as prepare_redpajama
 
     arxiv_file = source_path / "arxiv" / "arxiv_0.jsonl"
     arxiv_file.parent.mkdir(parents=True, exist_ok=True)
@@ -120,7 +114,7 @@ def test_prepare_full(tmp_path):
         "common_crawl": "common_crawl/*",
     }
 
-    with mock.patch("prepare_redpajama.filename_sets", filename_sets):
+    with mock.patch.object(prepare_redpajama, "filename_sets", filename_sets):
         prepare_redpajama.prepare(
             source_path=source_path,
             vocabulary_path=vocabulary_path,
@@ -155,7 +149,7 @@ def test_prepare_full(tmp_path):
 
 
 def test_cli():
-    cli_path = wd / "prepare_redpajama.py"
+    cli_path = Path(__file__).parent.parent / "scripts" / "prepare_redpajama.py"
     output = subprocess.check_output([sys.executable, cli_path, "-h"])
     output = str(output.decode())
     assert 'Prepare the "Red Pajama"' in output

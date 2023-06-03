@@ -1,25 +1,12 @@
-import functools
-import os
+import sys
 from pathlib import Path
 from urllib.request import urlretrieve
 
-import torch
 import pytest
-import sys
-
+import torch
 from transformers import GPTNeoXForCausalLM, PretrainedConfig
 
-
 wd = Path(__file__).parent.parent.absolute()
-
-
-@functools.lru_cache(maxsize=1)
-def load_convert_script():
-    sys.path.append(str(wd / "scripts"))
-
-    import convert_hf_checkpoint
-
-    return convert_hf_checkpoint
 
 
 @torch.inference_mode()
@@ -28,7 +15,10 @@ def load_convert_script():
 @pytest.mark.parametrize("n_embd", (16, 32))
 @pytest.mark.parametrize("parallel_residual", (False, True))
 @pytest.mark.parametrize("kv_cache", (False, True))
-def test_against_hf_model(rotary_pct, batch_size, n_embd, parallel_residual, kv_cache, lit_parrot) -> None:
+def test_against_hf_model(rotary_pct, batch_size, n_embd, parallel_residual, kv_cache) -> None:
+    import lit_parrot
+    from scripts.convert_hf_checkpoint import copy_weights_gpt_neox
+
     block_size = 64
     # https://huggingface.co/stabilityai/stablelm-base-alpha-3b/blob/main/config.json#L24
     vocab_size = 100
@@ -64,9 +54,8 @@ def test_against_hf_model(rotary_pct, batch_size, n_embd, parallel_residual, kv_
 
     state_dict = {}
     theirs_model = GPTNeoXForCausalLM(theirs_config)
-    convert_hf_checkpoint = load_convert_script()
     # load the hf initialization into our model
-    convert_hf_checkpoint.copy_weights_gpt_neox(state_dict, theirs_model.state_dict())
+    copy_weights_gpt_neox(state_dict, theirs_model.state_dict())
     ours_model = lit_parrot.Parrot(ours_config)
     ours_model.load_state_dict(state_dict)
 
@@ -100,7 +89,7 @@ def test_against_hf_model(rotary_pct, batch_size, n_embd, parallel_residual, kv_
 
 
 @torch.inference_mode()
-def test_against_original_falcon_40b(lit_parrot):
+def test_against_original_falcon_40b():
     file_path = wd / "tests" / "original_falcon_40b.py"
     url = "https://gist.githubusercontent.com/carmocca/feed39b1bc65a29f73c1cecc58a01167/raw/a9a65f2b93716b3c09ec9f354d535ae5953de08f/original_falcon_40b.py"
     if not file_path.is_file():
@@ -134,7 +123,8 @@ def test_against_original_falcon_40b(lit_parrot):
 @pytest.mark.skipif(not torch.cuda.is_available(), reason="Requires CUDA")
 @pytest.mark.xfail(raises=AssertionError)  # https://github.com/Lightning-AI/lit-parrot/issues/13
 @torch.inference_mode()
-def test_model_bfloat16(lit_parrot) -> None:
+def test_model_bfloat16() -> None:
+    import lit_parrot
     from lit_parrot.utils import EmptyInitOnDevice
 
     block_size = 64
@@ -164,7 +154,9 @@ def test_model_bfloat16(lit_parrot) -> None:
 
 @pytest.mark.skipif(sys.platform in ("win32", "darwin"), reason="torch.compile not supported on this platform")
 @torch.inference_mode()
-def test_model_compile(lit_parrot):
+def test_model_compile():
+    import lit_parrot
+
     config = lit_parrot.Config(block_size=8, vocab_size=8, n_layer=2, n_head=2, n_embd=4)
     model = lit_parrot.Parrot(config)
     model.apply(model._init_weights)
