@@ -8,10 +8,11 @@ from io import StringIO
 from pathlib import Path
 from unittest import mock
 from unittest.mock import Mock, call, ANY
+
 import pytest
 import torch
 
-wd = Path(__file__).parent.absolute()
+wd = Path(__file__).parent.parent.absolute()
 
 
 @functools.lru_cache(maxsize=1)
@@ -19,6 +20,7 @@ def load_generate_script():
     sys.path.append(str(wd))
 
     import generate_adapter
+
     return generate_adapter
 
 
