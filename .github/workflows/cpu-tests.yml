@@ -44,10 +44,10 @@ jobs:
         pip install pytest -r requirements.txt 'transformers==4.27.3' einops
         pip list
 
-        pytest --disable-pytest-warnings --strict-markers --color=yes
+        pytest --disable-pytest-warnings --strict-markers --color=yes --rootdir=/home/runner/work/lit-parrot
 
     - name: Run tests
       run: |
         pip install . --no-deps
 
-        pytest -v --durations=10 --disable-pytest-warnings --strict-markers --color=yes
+        pytest -v --durations=10 --disable-pytest-warnings --strict-markers --color=yes --rootdir=/home/runner/work/lit-parrot
