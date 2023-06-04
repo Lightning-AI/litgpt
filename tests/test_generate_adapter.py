@@ -17,10 +17,9 @@ wd = Path(__file__).parent.parent.absolute()
 
 @functools.lru_cache(maxsize=1)
 def load_generate_script():
-    sys.path.append(f"{str(wd)}/generate")
-    import adapter
+    import generate.adapter as generate
 
-    return adapter
+    return generate
 
 
 @pytest.fixture()
@@ -109,7 +108,7 @@ def test_main(_, fake_checkpoint_dir, monkeypatch):
 
 
 def test_cli():
-    cli_path = wd / "generate/adapter.py"
+    cli_path = wd / "generate" / "adapter.py"
     output = subprocess.check_output([sys.executable, cli_path, "-h"])
     output = str(output.decode())
     assert "Generates a response" in output
