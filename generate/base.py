@@ -122,7 +122,7 @@ def main(
     """
     if strategy == "fsdp":
         auto_wrap_policy = partial(transformer_auto_wrap_policy, transformer_layer_cls={Block})
-        strategy = FSDPStrategy(auto_wrap_policy=auto_wrap_policy)
+        strategy = FSDPStrategy(auto_wrap_policy=auto_wrap_policy, cpu_offload=False)
     fabric = L.Fabric(devices=devices, precision=precision, strategy=strategy)
     fabric.launch()
 
@@ -147,15 +147,13 @@ def main(
         model = Parrot(config)
     fabric.print(f"Time to instantiate model: {time.time() - t0:.02f} seconds.", file=sys.stderr)
 
-    model = fabric.setup_module(model)
-
     t0 = time.time()
-    # FIXME: we lose lazy_loading
-    # with lazy_load(checkpoint_path) as checkpoint:
-    fabric.load(checkpoint_path, {"model": model}, strict=False)
+    with lazy_load(checkpoint_path) as checkpoint:
+        model.load_state_dict(checkpoint, strict=False)
     fabric.print(f"Time to load the model weights: {time.time() - t0:.02f} seconds.", file=sys.stderr)
 
     model.eval()
+    model = fabric.setup_module(model)
 
     tokenizer = Tokenizer(checkpoint_dir / "tokenizer.json", checkpoint_dir / "tokenizer_config.json")
     encoded = tokenizer.encode(prompt, device=fabric.device)
@@ -180,13 +178,13 @@ def main(
         t = time.perf_counter() - t0
 
         model.reset_cache()
-        print(tokenizer.decode(y))
+        fabric.print(tokenizer.decode(y))
         tokens_generated = y.size(0) - prompt_length
-        print(
+        fabric.print(
             f"Time for inference {i + 1}: {t:.02f} sec total, {tokens_generated / t:.02f} tokens/sec", file=sys.stderr
         )
     if fabric.device.type == "cuda":
-        print(f"Memory used: {torch.cuda.max_memory_reserved() / 1e9:.02f} GB", file=sys.stderr)
+        fabric.print(f"Memory used: {torch.cuda.max_memory_reserved() / 1e9:.02f} GB", file=sys.stderr)
 
 
 if __name__ == "__main__":
