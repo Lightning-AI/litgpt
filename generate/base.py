@@ -145,14 +145,17 @@ def main(
     t0 = time.time()
     with fabric.init_module(), EmptyInitOnDevice(quantization_mode=quantize):
         model = Parrot(config)
+    fabric.print(f"Time to instantiate model: {time.time() - t0:.02f} seconds.", file=sys.stderr)
+
+    model = fabric.setup_module(model)
+
+    t0 = time.time()
     # FIXME: we lose lazy_loading
     # with lazy_load(checkpoint_path) as checkpoint:
-    # FIXME: expose `strict`
-    fabric.load(checkpoint_path, {"model": model})
-    fabric.print(f"Time to load model: {time.time() - t0:.02f} seconds.", file=sys.stderr)
+    fabric.load(checkpoint_path, {"model": model}, strict=False)
+    fabric.print(f"Time to load the model weights: {time.time() - t0:.02f} seconds.", file=sys.stderr)
 
     model.eval()
-    model = fabric.setup_module(model)
 
     tokenizer = Tokenizer(checkpoint_dir / "tokenizer.json", checkpoint_dir / "tokenizer_config.json")
     encoded = tokenizer.encode(prompt, device=fabric.device)
