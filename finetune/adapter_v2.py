@@ -118,9 +118,9 @@ def train(
         t0 = time.time()
 
         input_ids, targets = get_batch(fabric, train_data)
-        logits = model(input_ids)
-        loss = loss_fn(logits, targets)
         with fabric.no_backward_sync(model, enabled=((iter_num + 1) % gradient_accumulation_iters != 0)):
+            logits = model(input_ids)
+            loss = loss_fn(logits, targets)
             fabric.backward(loss / gradient_accumulation_iters)
 
         if (iter_num + 1) % gradient_accumulation_iters == 0:
