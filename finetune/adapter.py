@@ -10,7 +10,7 @@ import lightning as L
 import numpy as np
 import torch
 from lightning.fabric.accelerators.mps import MPSAccelerator
-from lightning.fabric.strategies import DeepSpeedStrategy
+from lightning.fabric.strategies import DeepSpeedStrategy, XLAStrategy
 
 # support running without installing as a package
 wd = Path(__file__).parent.parent.resolve()
@@ -55,14 +55,16 @@ def setup(
     precision: Literal["bf16-true", "32-true"] = "bf16-true",
     tpu: bool = False
 ):
-    strategy = (DeepSpeedStrategy(config=ds_config) if (devices > 1 and not tpu) else "auto")
+    strategy = "auto" if devices <= 1 else \
+        (XLAStrategy(sync_module_states=False)) if tpu \
+        else DeepSpeedStrategy(config=ds_config)
+
     fabric = L.Fabric(
         devices=devices, strategy=strategy, precision=precision
     )
     
     if tpu:
         p_main = functools.partial(main, data_dir, checkpoint_dir, out_dir)
-        fabric._strategy._sync_module_states = False
         fabric.launch(p_main)
     else:
         fabric.launch()
