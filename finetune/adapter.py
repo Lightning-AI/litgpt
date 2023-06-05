@@ -60,7 +60,7 @@ def setup(
         else DeepSpeedStrategy(config=ds_config)
 
     fabric = L.Fabric(
-        devices=devices, strategy=strategy, precision=precision
+        devices=devices, strategy=strategy, precision="32-true" if tpu else precision
     )
     
     if tpu:
@@ -153,11 +153,8 @@ def train(
                 fabric.backward(loss / gradient_accumulation_steps)
 
         if (iter_num + 1) % gradient_accumulation_steps == 0:
-            if fabric.device.type == "xla":
-                xm.optimizer_step(optimizer)
-                xm.mark_step()
-            else:
-                optimizer.step()
+            optimizer.step()
+            if fabric.device.type == "xla": xm.mark_step()
             optimizer.zero_grad()
             step_count += 1
 
@@ -171,6 +168,8 @@ def train(
                 print(f"Saving adapter weights to {str(save_path)!r}")
                 # TODO: Provide a function/script to merge the adapter weights with pretrained weights
                 save_model_checkpoint(fabric, model, save_path)
+        else:
+            if fabric.device.type == "xla": xm.mark_step()
 
         dt = time.time() - t0
         if iter_num % log_interval == 0:
