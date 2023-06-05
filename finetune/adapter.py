@@ -2,6 +2,7 @@ import os
 import shutil
 import sys
 import time
+import functools
 from pathlib import Path
 from typing import Literal
 
@@ -47,18 +48,34 @@ ds_config = {
 }
 
 
-def main(
+def setup(
     data_dir: Path = Path("data/alpaca"),
     checkpoint_dir: Path = Path("checkpoints/stabilityai/stablelm-base-alpha-3b"),
     out_dir: Path = Path("out/adapter/alpaca"),
     precision: Literal["bf16-true", "32-true"] = "bf16-true",
+    tpu: bool = False
+):
+    strategy = (DeepSpeedStrategy(config=ds_config) if (devices > 1 and not tpu) else "auto")
+    fabric = L.Fabric(
+        devices=devices, strategy=strategy, precision=precision
+    )
+    
+    if tpu:
+        p_main = functools.partial(main, data_dir, checkpoint_dir, out_dir)
+        fabric._strategy._sync_module_states = False
+        fabric.launch(p_main)
+    else:
+        fabric.launch()
+        main(data_dir, checkpoint_dir, out_dir, fabric)
+
+
+def main(
+    data_dir: Path = Path("data/alpaca"),
+    checkpoint_dir: Path = Path("checkpoints/stabilityai/stablelm-base-alpha-3b"),
+    out_dir: Path = Path("out/adapter/alpaca"),
+    fabric: L.Fabric = None,
 ):
     check_valid_checkpoint_dir(checkpoint_dir)
-
-    fabric = L.Fabric(
-        devices=devices, strategy=(DeepSpeedStrategy(config=ds_config) if devices > 1 else "auto"), precision=precision
-    )
-    fabric.launch()
     fabric.seed_everything(1337 + fabric.global_rank)
 
     if fabric.global_rank == 0:
@@ -81,7 +98,10 @@ def main(
 
     optimizer = torch.optim.AdamW(model.parameters(), lr=learning_rate, weight_decay=weight_decay)
     model, optimizer = fabric.setup(model, optimizer)
+
+    train_time = time.time()
     train(fabric, model, optimizer, train_data, val_data, checkpoint_dir, out_dir)
+    print(f"Training time: {(time.time()-train_time):.2f}s")
 
     # Save the final checkpoint at the end of training
     save_path = out_dir / "lit_model_adapter_finetuned.pth"
@@ -106,6 +126,9 @@ def train(
 
     tokenizer = Tokenizer(checkpoint_dir / "tokenizer.json", checkpoint_dir / "tokenizer_config.json")
 
+    if fabric.device.type == "xla":
+        import torch_xla.core.xla_model as xm
+        xm.mark_step()
     for iter_num in range(max_iters):
         if step_count <= warmup_iters:
             # linear warmup
@@ -117,13 +140,22 @@ def train(
 
         input_ids, targets = get_batch(fabric, train_data)
 
-        with fabric.no_backward_sync(model, enabled=((iter_num + 1) % gradient_accumulation_steps != 0)):
+        if fabric.device.type == "xla":
             logits = model(input_ids)
             loss = loss_fn(logits, targets)
             fabric.backward(loss / gradient_accumulation_steps)
+        else:
+            with fabric.no_backward_sync(model, enabled=((iter_num + 1) % gradient_accumulation_steps != 0)):
+                logits = model(input_ids)
+                loss = loss_fn(logits, targets)
+                fabric.backward(loss / gradient_accumulation_steps)
 
         if (iter_num + 1) % gradient_accumulation_steps == 0:
-            optimizer.step()
+            if fabric.device.type == "xla":
+                xm.optimizer_step(optimizer)
+                xm.mark_step()
+            else:
+                optimizer.step()
             optimizer.zero_grad()
             step_count += 1
 
@@ -185,7 +217,7 @@ def get_batch(fabric: L.Fabric, data: list):
     input_ids = [data[i]["input_ids"].type(torch.int64) for i in ix]
     labels = [data[i]["labels"].type(torch.int64) for i in ix]
 
-    max_len = max(len(s) for s in input_ids)
+    max_len = max(len(s) for s in input_ids) if fabric.device.type != "xla" else max_seq_length
 
     def pad_right(x, pad_id):
         # pad right based on the longest sequence
@@ -195,7 +227,7 @@ def get_batch(fabric: L.Fabric, data: list):
     x = torch.stack([pad_right(x, pad_id=0) for x in input_ids])
     y = torch.stack([pad_right(x, pad_id=-1) for x in labels])
 
-    if isinstance(fabric.accelerator, MPSAccelerator):
+    if isinstance(fabric.accelerator, MPSAccelerator) or fabric.device.type == 'xla':
         x, y = fabric.to_device((x, y))
     else:
         x, y = fabric.to_device((x.pin_memory(), y.pin_memory()))
@@ -239,4 +271,4 @@ if __name__ == "__main__":
 
     from jsonargparse.cli import CLI
 
-    CLI(main)
+    CLI(setup)
