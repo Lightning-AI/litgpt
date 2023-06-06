@@ -137,15 +137,10 @@ def train(
 
         input_ids, targets = get_batch(fabric, train_data)
 
-        if fabric.device.type == "xla":
+        with fabric.no_backward_sync(model, enabled=((iter_num + 1) % gradient_accumulation_steps != 0)):
             logits = model(input_ids)
             loss = loss_fn(logits, targets)
             fabric.backward(loss / gradient_accumulation_steps)
-        else:
-            with fabric.no_backward_sync(model, enabled=((iter_num + 1) % gradient_accumulation_steps != 0)):
-                logits = model(input_ids)
-                loss = loss_fn(logits, targets)
-                fabric.backward(loss / gradient_accumulation_steps)
 
         if (iter_num + 1) % gradient_accumulation_steps == 0:
             optimizer.step()
