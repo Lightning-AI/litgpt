@@ -8,7 +8,7 @@ from typing import Optional
 import lightning as L
 import torch
 
-from generate import generate
+from generate.base import generate
 from lit_parrot import Tokenizer
 from lit_parrot.adapter import Parrot, Config
 from lit_parrot.adapter_v2 import add_adapter_v2_parameters_to_linear_layers
