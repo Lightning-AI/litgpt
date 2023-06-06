@@ -2,17 +2,21 @@ import json
 import sys
 import time
 import warnings
+from functools import partial
 from pathlib import Path
-from typing import Optional
+from typing import Optional, Literal
 
 import lightning as L
 import torch
+from lightning.fabric.strategies import FSDPStrategy
+from torch.distributed.fsdp.wrap import transformer_auto_wrap_policy
 
 # support running without installing as a package
 wd = Path(__file__).parent.parent.resolve()
 sys.path.append(str(wd))
 
 from lit_parrot import Parrot, Tokenizer, Config
+from lit_parrot.model import Block
 from lit_parrot.utils import EmptyInitOnDevice, lazy_load, check_valid_checkpoint_dir
 
 
@@ -94,7 +98,10 @@ def main(
     top_k: int = 200,
     temperature: float = 0.8,
     checkpoint_dir: Path = Path(f"checkpoints/stabilityai/stablelm-base-alpha-3b"),
-    quantize: Optional[str] = None,
+    quantize: Literal["llm.int8", "gptq.int4"] = None,
+    strategy: str = "auto",
+    devices: int = 1,
+    precision: str = "bf16-true",
 ) -> None:
     """Generates text samples based on a pre-trained model and tokenizer.
 
@@ -109,15 +116,23 @@ def main(
         quantize: Whether to quantize the model and using which method:
             ``"llm.int8"``: LLM.int8() mode,
             ``"gptq.int4"``: GPTQ 4-bit mode.
+        strategy: Indicates the Fabric strategy setting to use.
+        devices: How many devices to use.
+        precision: Indicates the Fabric precision setting to use.
     """
+    if strategy == "fsdp":
+        auto_wrap_policy = partial(transformer_auto_wrap_policy, transformer_layer_cls={Block})
+        strategy = FSDPStrategy(auto_wrap_policy=auto_wrap_policy, cpu_offload=False)
+    fabric = L.Fabric(devices=devices, precision=precision, strategy=strategy)
+    fabric.launch()
+
     check_valid_checkpoint_dir(checkpoint_dir)
 
     with open(checkpoint_dir / "lit_config.json") as fp:
         config = Config(**json.load(fp))
 
-    fabric = L.Fabric(devices=1)
-    dtype = torch.bfloat16 if fabric.device.type == "cuda" and torch.cuda.is_bf16_supported() else torch.float32
-
+    if quantize is not None and devices > 1:
+        raise NotImplementedError
     if quantize == "gptq.int4":
         model_file = "lit_model_gptq.4bit.pth"
         if not (checkpoint_dir / model_file).is_file():
@@ -125,13 +140,17 @@ def main(
     else:
         model_file = "lit_model.pth"
     checkpoint_path = checkpoint_dir / model_file
-    print(f"Loading model {str(checkpoint_path)!r} with {config.__dict__}", file=sys.stderr)
+
+    fabric.print(f"Loading model {str(checkpoint_path)!r} with {config.__dict__}", file=sys.stderr)
     t0 = time.time()
-    with EmptyInitOnDevice(device=fabric.device, dtype=dtype, quantization_mode=quantize):
+    with fabric.init_module(), EmptyInitOnDevice(quantization_mode=quantize):
         model = Parrot(config)
+    fabric.print(f"Time to instantiate model: {time.time() - t0:.02f} seconds.", file=sys.stderr)
+
+    t0 = time.time()
     with lazy_load(checkpoint_path) as checkpoint:
         model.load_state_dict(checkpoint, strict=False)
-    print(f"Time to load model: {time.time() - t0:.02f} seconds.", file=sys.stderr)
+    fabric.print(f"Time to load the model weights: {time.time() - t0:.02f} seconds.", file=sys.stderr)
 
     model.eval()
     model = fabric.setup_module(model)
@@ -159,13 +178,13 @@ def main(
         t = time.perf_counter() - t0
 
         model.reset_cache()
-        print(tokenizer.decode(y))
+        fabric.print(tokenizer.decode(y))
         tokens_generated = y.size(0) - prompt_length
-        print(
+        fabric.print(
             f"Time for inference {i + 1}: {t:.02f} sec total, {tokens_generated / t:.02f} tokens/sec", file=sys.stderr
         )
     if fabric.device.type == "cuda":
-        print(f"Memory used: {torch.cuda.max_memory_reserved() / 1e9:.02f} GB", file=sys.stderr)
+        fabric.print(f"Memory used: {torch.cuda.max_memory_reserved() / 1e9:.02f} GB", file=sys.stderr)
 
 
 if __name__ == "__main__":

@@ -1,6 +1,8 @@
 import os
 import shutil
+import sys
 import time
+import warnings
 from pathlib import Path
 from typing import Literal
 
@@ -10,7 +12,11 @@ import torch
 from lightning.fabric.accelerators.mps import MPSAccelerator
 from lightning.fabric.strategies import DeepSpeedStrategy
 
-from generate import generate
+# support running without installing as a package
+wd = Path(__file__).parent.parent.resolve()
+sys.path.append(str(wd))
+
+from generate.base import generate
 from lit_parrot.adapter import Parrot, Config
 from lit_parrot.adapter_v2 import (
     mark_only_adapter_v2_as_trainable,
@@ -118,9 +124,9 @@ def train(
         t0 = time.time()
 
         input_ids, targets = get_batch(fabric, train_data)
-        logits = model(input_ids)
-        loss = loss_fn(logits, targets)
         with fabric.no_backward_sync(model, enabled=((iter_num + 1) % gradient_accumulation_iters != 0)):
+            logits = model(input_ids)
+            loss = loss_fn(logits, targets)
             fabric.backward(loss / gradient_accumulation_iters)
 
         if (iter_num + 1) % gradient_accumulation_iters == 0:
@@ -239,5 +245,8 @@ if __name__ == "__main__":
     torch.set_float32_matmul_precision("high")
 
     from jsonargparse.cli import CLI
-
+    warnings.filterwarnings(
+        # false positive using deepspeed: https://github.com/Lightning-AI/lightning/pull/17761#discussion_r1219705307
+        "ignore", message="Remove `.no_backward_sync()` from your code",
+    )
     CLI(main)

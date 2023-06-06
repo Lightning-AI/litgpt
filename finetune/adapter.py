@@ -2,6 +2,7 @@ import os
 import shutil
 import sys
 import time
+import warnings
 from pathlib import Path
 from typing import Literal
 
@@ -261,6 +262,10 @@ if __name__ == "__main__":
     # torch.backends.cuda.enable_flash_sdp(False)
     torch.set_float32_matmul_precision("high")
 
+    warnings.filterwarnings(
+        # false positive using deepspeed: https://github.com/Lightning-AI/lightning/pull/17761#discussion_r1219705307
+        "ignore", message="Remove `.no_backward_sync()` from your code",
+    )
     from jsonargparse.cli import CLI
 
     CLI(setup)

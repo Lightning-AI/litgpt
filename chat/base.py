@@ -4,7 +4,7 @@ import sys
 import time
 import warnings
 from pathlib import Path
-from typing import Optional, Tuple, List
+from typing import Optional, Tuple, List, Literal
 
 import lightning as L
 import torch
@@ -100,7 +100,7 @@ def main(
     top_k: int = 200,
     temperature: float = 0.8,
     checkpoint_dir: Path = Path(f"checkpoints/stabilityai/stablelm-tuned-alpha-3b"),
-    quantize: Optional[str] = None,
+    quantize: Literal["llm.int8", "gptq.int4"] = None,
 ) -> None:
     """Starts a conversation with a tuned Parrot model.
 

@@ -2,6 +2,7 @@ import glob
 import math
 import sys
 import time
+import warnings
 from functools import partial
 from pathlib import Path
 from typing import Tuple, Optional
@@ -25,8 +26,6 @@ save_interval = 1000
 eval_interval = 1000
 eval_iters = 100
 log_interval = 1
-
-# compile = False
 
 # Hyperparameters
 learning_rate = 6e-4
@@ -91,14 +90,9 @@ def main(
     else:
         train_dataloader, val_dataloader = fabric.setup_dataloaders(train_dataloader, val_dataloader)
 
-    with fabric.device:
-        torch.set_default_dtype(torch.bfloat16)
+    with fabric.init_module():
         model = Parrot(config)
         model.apply(model._init_weights)
-        torch.set_default_dtype(torch.float32)
-
-    # if compile:
-    #     model = torch.compile(model)
 
     optimizer = torch.optim.AdamW(
         model.parameters(),
@@ -141,7 +135,6 @@ def train(
         lr = get_lr(iter_num) if decay_lr else learning_rate
         for param_group in optimizer.param_groups:
             param_group["lr"] = lr
-
 
         input_ids = train_data[:, 0 : model.config.block_size].contiguous()
         targets = train_data[:, 1 : model.config.block_size + 1].contiguous()
@@ -310,4 +303,8 @@ if __name__ == "__main__":
 
     from jsonargparse.cli import CLI
 
+    warnings.filterwarnings(
+        # false positive using deepspeed: https://github.com/Lightning-AI/lightning/pull/17761#discussion_r1219705307
+        "ignore", message="Remove `.no_backward_sync()` from your code",
+    )
     CLI(main)

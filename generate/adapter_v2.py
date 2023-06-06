@@ -2,14 +2,22 @@ import json
 import sys
 import time
 import warnings
+from functools import partial
 from pathlib import Path
-from typing import Optional
+from typing import Literal
 
 import lightning as L
 import torch
+from lightning.fabric.strategies import FSDPStrategy
+from torch.distributed.fsdp.wrap import transformer_auto_wrap_policy
 
-from generate import generate
+# support running without installing as a package
+wd = Path(__file__).parent.parent.resolve()
+sys.path.append(str(wd))
+
+from generate.base import generate
 from lit_parrot import Tokenizer
+from lit_parrot.adapter import Block
 from lit_parrot.adapter import Parrot, Config
 from lit_parrot.adapter_v2 import add_adapter_v2_parameters_to_linear_layers
 from lit_parrot.utils import EmptyInitOnDevice, lazy_load, check_valid_checkpoint_dir
@@ -21,10 +29,13 @@ def main(
     input: str = "",
     adapter_path: Path = Path("out/adapter_v2/alpaca/lit_model_adapter_finetuned.pth"),
     checkpoint_dir: Path = Path(f"checkpoints/stabilityai/stablelm-base-alpha-3b"),
-    quantize: Optional[str] = None,
+    quantize: Literal["llm.int8", "gptq.int4"] = None,
     max_new_tokens: int = 100,
     top_k: int = 200,
     temperature: float = 0.8,
+    strategy: str = "auto",
+    devices: int = 1,
+    precision: str = "bf16-true",
 ) -> None:
     """Generates a response based on a given instruction and an optional input.
     This script will only work with checkpoints from the instruction-tuned Parrot-AdapterV2 model.
@@ -43,15 +54,23 @@ def main(
         top_k: The number of top most probable tokens to consider in the sampling process.
         temperature: A value controlling the randomness of the sampling process. Higher values result in more random
             samples.
+        strategy: Indicates the Fabric strategy setting to use.
+        devices: How many devices to use.
+        precision: Indicates the Fabric precision setting to use.
     """
-    check_valid_checkpoint_dir(checkpoint_dir)
+    if strategy == "fsdp":
+        auto_wrap_policy = partial(transformer_auto_wrap_policy, transformer_layer_cls={Block})
+        strategy = FSDPStrategy(auto_wrap_policy=auto_wrap_policy, cpu_offload=False)
+    fabric = L.Fabric(devices=devices, precision=precision, strategy=strategy)
+    fabric.launch()
 
-    fabric = L.Fabric(devices=1)
-    dtype = torch.bfloat16 if fabric.device.type == "cuda" and torch.cuda.is_bf16_supported() else torch.float32
+    check_valid_checkpoint_dir(checkpoint_dir)
 
     with open(checkpoint_dir / "lit_config.json") as fp:
         config = Config(**json.load(fp))
 
+    if quantize is not None and devices > 1:
+        raise NotImplementedError
     if quantize == "gptq.int4":
         model_file = "lit_model_gptq.4bit.pth"
         if not (checkpoint_dir / model_file).is_file():
@@ -59,21 +78,21 @@ def main(
     else:
         model_file = "lit_model.pth"
     checkpoint_path = checkpoint_dir / model_file
-    print(f"Loading model {str(checkpoint_path)!r} with {config.__dict__}", file=sys.stderr)
+
+    fabric.print(f"Loading model {str(checkpoint_path)!r} with {config.__dict__}", file=sys.stderr)
     t0 = time.time()
-    with EmptyInitOnDevice(device=fabric.device, dtype=dtype, quantization_mode=quantize):
+    with fabric.init_module(), EmptyInitOnDevice(quantization_mode=quantize):
         model = Parrot(config)
         add_adapter_v2_parameters_to_linear_layers(model)
+    fabric.print(f"Time to instantiate model: {time.time() - t0:.02f} seconds.", file=sys.stderr)
 
-    with lazy_load(checkpoint_dir / "lit_model.pth") as pretrained_checkpoint, lazy_load(
-        adapter_path
-    ) as adapter_checkpoint:
+    t0 = time.time()
+    with lazy_load(checkpoint_path) as pretrained_checkpoint, lazy_load(adapter_path) as adapter_checkpoint:
         # 1. Load the pretrained weights
         model.load_state_dict(pretrained_checkpoint, strict=False)
         # 2. Load the fine-tuned adapter weights
         model.load_state_dict(adapter_checkpoint, strict=False)
-
-        print(f"Time to load model: {time.time() - t0:.02f} seconds.", file=sys.stderr)
+    fabric.print(f"Time to load the model weights: {time.time() - t0:.02f} seconds.", file=sys.stderr)
 
     model.eval()
     model = fabric.setup(model)
@@ -97,14 +116,15 @@ def main(
     )
     t = time.perf_counter() - t0
 
+    model.reset_cache()
     output = tokenizer.decode(y)
     output = output.split("### Response:")[1].strip()
-    print(output)
+    fabric.print(output)
 
     tokens_generated = y.size(0) - prompt_length
-    print(f"\n\nTime for inference: {t:.02f} sec total, {tokens_generated / t:.02f} tokens/sec", file=sys.stderr)
+    fabric.print(f"\n\nTime for inference: {t:.02f} sec total, {tokens_generated / t:.02f} tokens/sec", file=sys.stderr)
     if fabric.device.type == "cuda":
-        print(f"Memory used: {torch.cuda.max_memory_reserved() / 1e9:.02f} GB", file=sys.stderr)
+        fabric.print(f"Memory used: {torch.cuda.max_memory_reserved() / 1e9:.02f} GB", file=sys.stderr)
 
 
 if __name__ == "__main__":

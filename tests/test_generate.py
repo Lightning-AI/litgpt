@@ -2,7 +2,7 @@ import json
 import os
 import subprocess
 import sys
-from contextlib import redirect_stdout, redirect_stderr
+from contextlib import redirect_stdout, redirect_stderr, nullcontext
 from io import StringIO
 from pathlib import Path
 from unittest import mock
@@ -10,18 +10,6 @@ from unittest.mock import Mock, call, ANY
 
 import pytest
 import torch
-
-
-@pytest.fixture()
-def fake_checkpoint_dir(tmp_path):
-    os.chdir(tmp_path)
-    checkpoint_dir = tmp_path / "checkpoints" / "tmp"
-    checkpoint_dir.mkdir(parents=True)
-    (checkpoint_dir / "lit_model.pth").touch()
-    (checkpoint_dir / "lit_config.json").touch()
-    (checkpoint_dir / "tokenizer.json").touch()
-    (checkpoint_dir / "tokenizer_config.json").touch()
-    return checkpoint_dir
 
 
 @pytest.mark.parametrize("max_seq_length", (10, 20 + 5))
@@ -55,25 +43,15 @@ def test_generate(max_seq_length):
     torch.testing.assert_close(out, expected)
 
 
-@mock.patch("torch.cuda.is_bf16_supported", return_value=False)
-def test_main(_, fake_checkpoint_dir, monkeypatch):
+def test_main(fake_checkpoint_dir, monkeypatch):
     import generate.base as generate
 
     config_path = fake_checkpoint_dir / "lit_config.json"
     config = {"block_size": 128, "vocab_size": 50, "n_layer": 2, "n_head": 4, "n_embd": 8, "rotary_percentage": 1}
     config_path.write_text(json.dumps(config))
+
     module_mock = Mock()
-
-    class FabricMock(Mock):
-        @property
-        def device(self):
-            return torch.device("cpu")
-
-        def setup_module(self, *_):
-            return module_mock
-
     module_mock.config.block_size = 128
-    monkeypatch.setattr(generate.L, "Fabric", FabricMock)
     load_mock = Mock()
     load_mock.return_value = load_mock
     load_mock.__enter__ = Mock()
