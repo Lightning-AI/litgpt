@@ -63,12 +63,7 @@ def setup(
         devices=devices, strategy=strategy, precision="32-true" if tpu else precision
     )
     
-    if tpu:
-        p_main = functools.partial(main, data_dir, checkpoint_dir, out_dir)
-        fabric.launch(p_main)
-    else:
-        fabric.launch()
-        main(data_dir, checkpoint_dir, out_dir, fabric)
+    fabric.launch(main, data_dir, checkpoint_dir, out_dir)
 
 
 def main(
