@@ -1,6 +1,4 @@
-import functools
 import json
-import os
 import subprocess
 import sys
 from contextlib import redirect_stdout, redirect_stderr
@@ -12,63 +10,14 @@ from unittest.mock import Mock, call, ANY
 import pytest
 import torch
 
-wd = Path(__file__).parent.parent.absolute()
-
-
-@functools.lru_cache(maxsize=1)
-def load_generate_script():
-    import generate.adapter as generate
-
-    return generate
-
-
-@pytest.fixture()
-def fake_checkpoint_dir(tmp_path):
-    os.chdir(tmp_path)
-    checkpoint_dir = tmp_path / "checkpoints" / "tmp"
-    checkpoint_dir.mkdir(parents=True)
-    (checkpoint_dir / "lit_model.pth").touch()
-    (checkpoint_dir / "lit_model_adapter_finetuned.pth").touch()
-    (checkpoint_dir / "lit_config.json").touch()
-    (checkpoint_dir / "tokenizer.json").touch()
-    (checkpoint_dir / "tokenizer_config.json").touch()
-    return checkpoint_dir
-
-
-@pytest.mark.parametrize("max_seq_length", (10, 20 + 5))
-def test_generate(max_seq_length):
-    generate = load_generate_script()
-
-    from lit_parrot import Parrot, Config
-
-    T, C = 5, 3
-    input_idx = torch.randint(10, size=(T,))
-
-    config = Config(block_size=128, vocab_size=16, n_layer=1, n_head=4, n_embd=8)
-    model = Parrot(config)
-    max_new_tokens = 20
-
-    multinomial_results = []
-    original_multinomial = torch.multinomial
-
-    def multinomial(*args, **kwargs):
-        out = original_multinomial(*args, **kwargs)
-        multinomial_results.append(out)
-        return out
-
-    with mock.patch("torch.multinomial", multinomial):
-        out = generate.generate(model, input_idx, max_new_tokens, max_seq_length=max_seq_length, top_k=4)
-
-    assert out.size(0) == max_new_tokens
-    multinomial_results = torch.hstack(multinomial_results)
-    expected = torch.cat((input_idx, multinomial_results))
-    assert out.shape == expected.shape
-    torch.testing.assert_close(out, expected)
-
 
 @mock.patch("torch.cuda.is_bf16_supported", return_value=False)
-def test_main(_, fake_checkpoint_dir, monkeypatch):
-    generate = load_generate_script()
+@pytest.mark.parametrize("version", ("adapter", "adapter_v2"))
+def test_main(_, fake_checkpoint_dir, monkeypatch, version):
+    if version == "adapter":
+        import generate.adapter as generate
+    else:
+        import generate.adapter_v2 as generate
 
     config_path = fake_checkpoint_dir / "lit_config.json"
     config = {"block_size": 16, "vocab_size": 50, "n_layer": 2, "n_head": 4, "n_embd": 8, "rotary_percentage": 1}
@@ -107,8 +56,9 @@ def test_main(_, fake_checkpoint_dir, monkeypatch):
     assert "'padded_vocab_size': 512, 'n_layer': 2, 'n_head': 4, 'n_embd': 8" in err.getvalue()
 
 
-def test_cli():
-    cli_path = wd / "generate" / "adapter.py"
+@pytest.mark.parametrize("version", ("", "_v2"))
+def test_cli(version):
+    cli_path = Path(__file__).parent.parent / "generate" / f"adapter{version}.py"
     output = subprocess.check_output([sys.executable, cli_path, "-h"])
     output = str(output.decode())
     assert "Generates a response" in output
