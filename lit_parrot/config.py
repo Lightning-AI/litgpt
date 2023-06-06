@@ -109,8 +109,8 @@ configs.update(pythia_deduped)
 redpajama_incite = {
     # https://huggingface.co/togethercomputer/RedPajama-INCITE-Base-3B-v1/blob/main/config.json
     "RedPajama-INCITE-{}-3B-v1": dict(block_size=2048, n_layer=32, n_embd=2560, n_head=32, padding_multiple=256, rotary_percentage=1.0, parallel_residual=False),
-    # https://huggingface.co/togethercomputer/RedPajama-INCITE-Base-7B-v0.1/blob/main/config.json
-    "RedPajama-INCITE-{}-7B-v0.1": dict(block_size=2048, n_layer=32, n_embd=4096, n_head=32, padding_multiple=256, rotary_percentage=1.0, parallel_residual=False),
+    # https://huggingface.co/togethercomputer/RedPajama-INCITE-7B-Base/blob/main/config.json
+    "RedPajama-INCITE-7B-{}": dict(block_size=2048, n_layer=32, n_embd=4096, n_head=32, padding_multiple=256, rotary_percentage=1.0, parallel_residual=False),
 }
 for k in list(redpajama_incite):
     for kind in ("Base", "Chat", "Instruct"):
