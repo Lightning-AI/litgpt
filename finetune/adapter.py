@@ -2,14 +2,12 @@ import os
 import shutil
 import sys
 import time
-import functools
 from pathlib import Path
 from typing import Literal
 
 import lightning as L
 import numpy as np
 import torch
-from lightning.fabric.accelerators.mps import MPSAccelerator
 from lightning.fabric.strategies import DeepSpeedStrategy, XLAStrategy
 
 # support running without installing as a package
