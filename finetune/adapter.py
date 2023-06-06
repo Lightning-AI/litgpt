@@ -53,16 +53,16 @@ def setup(
     checkpoint_dir: Path = Path("checkpoints/stabilityai/stablelm-base-alpha-3b"),
     out_dir: Path = Path("out/adapter/alpaca"),
     precision: Literal["bf16-true", "32-true"] = "bf16-true",
-    tpu: bool = False
+    tpu: bool = False,
 ):
-    strategy = "auto" if devices <= 1 else \
-        (XLAStrategy(sync_module_states=False)) if tpu \
-        else DeepSpeedStrategy(config=ds_config)
-
-    fabric = L.Fabric(
-        devices=devices, strategy=strategy, precision="32-true" if tpu else precision
+    strategy = (
+        "auto"
+        if devices <= 1
+        else (XLAStrategy(sync_module_states=False)) if tpu else DeepSpeedStrategy(config=ds_config)
     )
-    
+
+    fabric = L.Fabric(devices=devices, strategy=strategy, precision="32-true" if tpu else precision)
+
     fabric.launch(main, data_dir, checkpoint_dir, out_dir)
 
 
@@ -125,6 +125,7 @@ def train(
 
     if fabric.device.type == "xla":
         import torch_xla.core.xla_model as xm
+
         xm.mark_step()
     for iter_num in range(max_iters):
         if step_count <= warmup_iters:
@@ -144,7 +145,8 @@ def train(
 
         if (iter_num + 1) % gradient_accumulation_steps == 0:
             optimizer.step()
-            if fabric.device.type == "xla": xm.mark_step()
+            if fabric.device.type == "xla":
+                xm.mark_step()
             optimizer.zero_grad()
             step_count += 1
 
@@ -159,7 +161,8 @@ def train(
                 # TODO: Provide a function/script to merge the adapter weights with pretrained weights
                 save_model_checkpoint(fabric, model, save_path)
         else:
-            if fabric.device.type == "xla": xm.mark_step()
+            if fabric.device.type == "xla":
+                xm.mark_step()
 
         dt = time.time() - t0
         if iter_num % log_interval == 0:
