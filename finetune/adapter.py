@@ -64,10 +64,10 @@ def setup(
 
 
 def main(
+    fabric: L.Fabric = None,
     data_dir: Path = Path("data/alpaca"),
     checkpoint_dir: Path = Path("checkpoints/stabilityai/stablelm-base-alpha-3b"),
     out_dir: Path = Path("out/adapter/alpaca"),
-    fabric: L.Fabric = None,
 ):
     check_valid_checkpoint_dir(checkpoint_dir)
     fabric.seed_everything(1337 + fabric.global_rank)
