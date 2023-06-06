@@ -12,9 +12,9 @@ import torch
 
 
 @mock.patch("torch.cuda.is_bf16_supported", return_value=False)
-@pytest.mark.parametrize("version", ("adapter", "adapter_v2"))
+@pytest.mark.parametrize("version", ("v1", "v2"))
 def test_main(_, fake_checkpoint_dir, monkeypatch, version):
-    if version == "adapter":
+    if version == "v1":
         import generate.adapter as generate
     else:
         import generate.adapter_v2 as generate
