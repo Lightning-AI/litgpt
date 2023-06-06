@@ -4,16 +4,14 @@ import sys
 from contextlib import redirect_stdout, redirect_stderr
 from io import StringIO
 from pathlib import Path
-from unittest import mock
 from unittest.mock import Mock, call, ANY
 
 import pytest
 import torch
 
 
-@mock.patch("torch.cuda.is_bf16_supported", return_value=False)
 @pytest.mark.parametrize("version", ("v1", "v2"))
-def test_main(_, fake_checkpoint_dir, monkeypatch, version):
+def test_main(fake_checkpoint_dir, monkeypatch, version):
     if version == "v1":
         import generate.adapter as generate
     else:
@@ -23,12 +21,6 @@ def test_main(_, fake_checkpoint_dir, monkeypatch, version):
     config = {"block_size": 16, "vocab_size": 50, "n_layer": 2, "n_head": 4, "n_embd": 8, "rotary_percentage": 1}
     config_path.write_text(json.dumps(config))
 
-    class FabricMock(Mock):
-        @property
-        def device(self):
-            return torch.device("cpu")
-
-    monkeypatch.setattr(generate.L, "Fabric", FabricMock)
     load_mock = Mock()
     load_mock.return_value = load_mock
     load_mock.__enter__ = Mock()
