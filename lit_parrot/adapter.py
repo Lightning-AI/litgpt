@@ -5,9 +5,10 @@ https://arxiv.org/abs/2303.16199
 
 Port for Lit-Parrot
 """
-
+import contextlib
 import math
 from dataclasses import dataclass
+from functools import partial
 from typing import Optional, Tuple, Any, List, Union
 
 import torch
@@ -254,6 +255,21 @@ def mark_only_adapter_as_trainable(model: Parrot) -> None:
         param.requires_grad = "adapter_wte" in name or "gating_factor" in name
 
 
-def adapter_state_from_state_dict(state_dict: dict) -> dict:
+@contextlib.contextmanager
+def adapter_state_only(module: nn.Module):
     """Returns the model state dict with only the adapter weights for saving."""
-    return {name: param for name, param in state_dict.items() if "adapter_wte" in name or "gating_factor" in name}
+    originals = {}
+
+    def adapter_save(name, module, destination, prefix, keep_vars):
+        if "adapter_wte" in prefix or "gating_factor" in module._parameters:
+            original_fn = originals[name]
+            return original_fn(destination, prefix, keep_vars)
+
+    for name, submodule in module.named_modules():
+        originals[name] = submodule._save_to_state_dict
+        submodule._save_to_state_dict = partial(adapter_save, name, submodule)
+
+    yield
+
+    for name, module in module.named_modules():
+        module._save_to_state_dict = originals[name]

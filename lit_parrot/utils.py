@@ -21,35 +21,6 @@ def find_multiple(n: int, k: int) -> int:
     return n + k - (n % k)
 
 
-def save_model_checkpoint(fabric, model, file_path):
-    """Handles boilerplate logic for retrieving and saving the state_dict.
-
-    This will be upstreamed to Fabric soon.
-    """
-    file_path = Path(file_path)
-
-    if isinstance(fabric.strategy, DeepSpeedStrategy):
-        from deepspeed.utils.zero_to_fp32 import convert_zero_checkpoint_to_fp32_state_dict
-
-        fabric.save(file_path, {"model": model})
-        fabric.barrier()
-        if fabric.global_rank == 0:
-            # Create a consolidated checkpoint with the same name next to the deepspeed checkpoint
-            convert_zero_checkpoint_to_fp32_state_dict(file_path, file_path.with_suffix(".pth"))
-        return
-
-    if isinstance(fabric.strategy, FSDPStrategy):
-        save_policy = FullStateDictConfig(offload_to_cpu=(fabric.world_size > 1), rank0_only=True)
-        with FSDP.state_dict_type(model, StateDictType.FULL_STATE_DICT, save_policy):
-            state_dict = model._forward_module.state_dict()
-    else:
-        state_dict = model.state_dict()
-
-    if fabric.global_rank == 0:
-        torch.save(state_dict, file_path)
-    fabric.barrier()
-
-
 class EmptyInitOnDevice(torch.overrides.TorchFunctionMode):
     def __init__(self, device=None, dtype=None, quantization_mode=None):
         """

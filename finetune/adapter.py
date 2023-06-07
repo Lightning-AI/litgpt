@@ -1,29 +1,27 @@
 import os
-import shutil
 import sys
 import time
-import warnings
+from functools import partial
 from pathlib import Path
-from typing import Literal
 
 import lightning as L
 import numpy as np
 import torch
-from lightning.fabric.accelerators.mps import MPSAccelerator
-from lightning.fabric.strategies import DeepSpeedStrategy
+from lightning.fabric.strategies import FSDPStrategy
+from torch.distributed.fsdp.wrap import transformer_auto_wrap_policy
 
 # support running without installing as a package
 wd = Path(__file__).parent.parent.resolve()
 sys.path.append(str(wd))
 
 from generate.base import generate
-from lit_parrot.adapter import Parrot, Config, mark_only_adapter_as_trainable, adapter_state_from_state_dict
+from lit_parrot.adapter import Parrot, Config, mark_only_adapter_as_trainable, Block, adapter_state_only
 from lit_parrot.tokenizer import Tokenizer
 from lit_parrot.utils import lazy_load, check_valid_checkpoint_dir
 from scripts.prepare_alpaca import generate_prompt
 
-eval_interval = 600
-save_interval = 1000
+eval_interval = 60
+save_interval = 10
 eval_iters = 100
 log_interval = 1
 devices = 1
@@ -41,25 +39,23 @@ weight_decay = 0.02
 max_seq_length = 256  # see scripts/prepare_alpaca.py
 warmup_iters = 2 * (epoch_size // micro_batch_size) // devices  # 2 epochs
 
-ds_config = {
-    "train_micro_batch_size_per_gpu": micro_batch_size,
-    "gradient_accumulation_steps": gradient_accumulation_steps,
-    "zero_optimization": {"stage": 2},
-}
-
 
 def main(
     data_dir: Path = Path("data/alpaca"),
     checkpoint_dir: Path = Path("checkpoints/stabilityai/stablelm-base-alpha-3b"),
     out_dir: Path = Path("out/adapter/alpaca"),
-    precision: Literal["bf16-true", "32-true"] = "bf16-true",
+    precision: str = "bf16-true",
 ):
+    if devices > 1:
+        auto_wrap_policy = partial(transformer_auto_wrap_policy, transformer_layer_cls={Block})
+        strategy = FSDPStrategy(auto_wrap_policy=auto_wrap_policy, activation_checkpointing=Block)
+    else:
+        strategy = "auto"
+    fabric = L.Fabric(accelerator="cuda", devices=devices, precision=precision, strategy=strategy)
+    fabric.launch()
+
     check_valid_checkpoint_dir(checkpoint_dir)
 
-    fabric = L.Fabric(
-        devices=devices, strategy=(DeepSpeedStrategy(config=ds_config) if devices > 1 else "auto"), precision=precision
-    )
-    fabric.launch()
     fabric.seed_everything(1337 + fabric.global_rank)
 
     if fabric.global_rank == 0:
@@ -69,7 +65,7 @@ def main(
 
     config = Config.from_name(name=checkpoint_dir.name, block_size=max_seq_length)
     checkpoint_path = checkpoint_dir / "lit_model.pth"
-    print(f"Loading model {str(checkpoint_path)!r} with {config.__dict__}")
+    fabric.print(f"Loading model {str(checkpoint_path)!r} with {config.__dict__}")
     with fabric.init_module():
         model = Parrot(config)
     with lazy_load(checkpoint_path) as checkpoint:
@@ -78,7 +74,7 @@ def main(
     mark_only_adapter_as_trainable(model)
 
     num_params = sum(p.numel() for p in model.parameters() if p.requires_grad)
-    print(f"Number of trainable parameters: {num_params}")
+    fabric.print(f"Number of trainable parameters: {num_params}")
 
     optimizer = torch.optim.AdamW(model.parameters(), lr=learning_rate, weight_decay=weight_decay)
     model, optimizer = fabric.setup(model, optimizer)
@@ -86,7 +82,6 @@ def main(
 
     # Save the final checkpoint at the end of training
     save_path = out_dir / "lit_model_adapter_finetuned.pth"
-    print(f"Saving adapter weights to {str(save_path)!r}")
     save_model_checkpoint(fabric, model, save_path)
 
 
@@ -135,7 +130,6 @@ def train(
 
             if step_count % save_interval == 0:
                 save_path = out_dir / f"iter-{iter_num:06d}.pth"
-                print(f"Saving adapter weights to {str(save_path)!r}")
                 # TODO: Provide a function/script to merge the adapter weights with pretrained weights
                 save_model_checkpoint(fabric, model, save_path)
 
@@ -196,7 +190,7 @@ def get_batch(fabric: L.Fabric, data: list):
     x = torch.stack([pad_right(x, pad_id=0) for x in input_ids])
     y = torch.stack([pad_right(x, pad_id=-1) for x in labels])
 
-    if isinstance(fabric.accelerator, MPSAccelerator):
+    if fabric.device.type == "mps":
         x, y = fabric.to_device((x, y))
     else:
         x, y = fabric.to_device((x.pin_memory(), y.pin_memory()))
@@ -211,26 +205,9 @@ def load_datasets(data_dir: Path):
 
 
 def save_model_checkpoint(fabric, model, file_path: Path):
-    file_path = Path(file_path)
-
-    if isinstance(fabric.strategy, DeepSpeedStrategy):
-        from deepspeed.utils.zero_to_fp32 import get_fp32_state_dict_from_zero_checkpoint
-
-        tmp_path = file_path.with_suffix(".tmp")
-        fabric.save(tmp_path, {"model": model})
-        fabric.barrier()
-        if fabric.global_rank == 0:
-            # Create a consolidated checkpoint with the same name next to the deepspeed checkpoint
-            # and only keep the adapter weights
-            state_dict = get_fp32_state_dict_from_zero_checkpoint(tmp_path)
-            state_dict = adapter_state_from_state_dict(state_dict)
-            torch.save(state_dict, file_path)
-            shutil.rmtree(tmp_path)
-    else:
-        state_dict = adapter_state_from_state_dict(model.state_dict())
-        if fabric.global_rank == 0:
-            torch.save(state_dict, file_path)
-        fabric.barrier()
+    fabric.print(f"Saving adapter weights to {str(file_path)!r}")
+    with adapter_state_only(model):
+        fabric.save(file_path, {"model": model})
 
 
 if __name__ == "__main__":
@@ -239,8 +216,5 @@ if __name__ == "__main__":
     torch.set_float32_matmul_precision("high")
 
     from jsonargparse.cli import CLI
-    warnings.filterwarnings(
-        # false positive using deepspeed: https://github.com/Lightning-AI/lightning/pull/17761#discussion_r1219705307
-        "ignore", message="Remove `.no_backward_sync()` from your code",
-    )
+
     CLI(main)

@@ -2,7 +2,6 @@ import glob
 import math
 import sys
 import time
-import warnings
 from functools import partial
 from pathlib import Path
 from typing import Tuple, Optional
@@ -19,7 +18,6 @@ sys.path.append(str(wd))
 
 from lit_parrot.model import Block, Parrot, Config
 from lit_parrot.packed_dataset import PackedDataset, CombinedDataset
-from lit_parrot.utils import save_model_checkpoint
 
 out_dir = Path("out/training")
 save_interval = 1000
@@ -59,18 +57,12 @@ def main(
     train_data_dir: Path = Path("data/lit-redpajama"),
     val_data_dir: Optional[Path] = None,
 ) -> None:
-    auto_wrap_policy = partial(
-        transformer_auto_wrap_policy, transformer_layer_cls={Block}
-    )
-    strategy = FSDPStrategy(
-        auto_wrap_policy=auto_wrap_policy, activation_checkpointing=Block
-    )
-
-    fabric = L.Fabric(
-        accelerator="cuda", devices=devices, precision="bf16-mixed", strategy=strategy
-    )
+    auto_wrap_policy = partial(transformer_auto_wrap_policy, transformer_layer_cls={Block})
+    strategy = FSDPStrategy(auto_wrap_policy=auto_wrap_policy, activation_checkpointing=Block)
+    fabric = L.Fabric(accelerator="cuda", devices=devices, precision="bf16-mixed", strategy=strategy)
     fabric.launch()
-    fabric.seed_everything(1337)
+
+    fabric.seed_everything(1337 + fabric.global_rank)
 
     if fabric.global_rank == 0:
         out_dir.mkdir(parents=True, exist_ok=True)
@@ -169,9 +161,7 @@ def train(
 
             if step_count % save_interval == 0:
                 fabric.print(f"Saving checkpoint to {out_dir}")
-                save_model_checkpoint(
-                    fabric, model, out_dir / f"iter-{iter_num:06d}-ckpt.pth"
-                )
+                fabric.save(out_dir / f"iter-{iter_num:06d}-ckpt.pth", {"model": model})
 
         dt = t1 - t0
 
@@ -303,8 +293,4 @@ if __name__ == "__main__":
 
     from jsonargparse.cli import CLI
 
-    warnings.filterwarnings(
-        # false positive using deepspeed: https://github.com/Lightning-AI/lightning/pull/17761#discussion_r1219705307
-        "ignore", message="Remove `.no_backward_sync()` from your code",
-    )
     CLI(main)
