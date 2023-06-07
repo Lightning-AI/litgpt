@@ -118,7 +118,6 @@ def train(
         t0 = time.time()
 
         input_ids, targets = get_batch(fabric, train_data)
-
         with fabric.no_backward_sync(model, enabled=((iter_num + 1) % gradient_accumulation_steps != 0)):
             logits = model(input_ids)
             loss = loss_fn(logits, targets)
@@ -136,7 +135,6 @@ def train(
 
             if step_count % save_interval == 0:
                 save_path = out_dir / f"iter-{iter_num:06d}.pth"
-                # TODO: Provide a function/script to merge the adapter weights with pretrained weights
                 save_model_checkpoint(fabric, model, save_path)
 
         dt = time.time() - t0

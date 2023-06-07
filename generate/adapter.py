@@ -84,11 +84,9 @@ def main(
     fabric.print(f"Time to instantiate model: {time.time() - t0:.02f} seconds.", file=sys.stderr)
 
     t0 = time.time()
-    with lazy_load(checkpoint_path) as pretrained_checkpoint, lazy_load(adapter_path) as adapter_checkpoint:
-        # 1. Load the pretrained weights
-        model.load_state_dict(pretrained_checkpoint, strict=False)
-        # 2. Load the fine-tuned adapter weights
-        model.load_state_dict(adapter_checkpoint["model"], strict=False)
+    with lazy_load(checkpoint_path) as checkpoint, lazy_load(adapter_path) as adapter_checkpoint:
+        checkpoint.update(adapter_checkpoint["model"])
+        model.load_state_dict(checkpoint, strict=quantize is None)
     fabric.print(f"Time to load the model weights: {time.time() - t0:.02f} seconds.", file=sys.stderr)
 
     model.eval()
