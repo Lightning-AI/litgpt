@@ -2,9 +2,6 @@ import sys
 
 import pytest
 
-from lit_parrot.adapter import Parrot
-from lit_parrot.adapter_v2 import adapter_state_only
-
 
 @pytest.mark.skipif(sys.platform == "win32", reason="EmptyInitOnDevice on CPU not working for Windows.")
 @pytest.mark.parametrize("name", ["pythia-70m", "stablelm-base-alpha-3b"])
@@ -31,6 +28,8 @@ def test_config_identical(name):
 
 
 def test_adapter_state_only():
+    from lit_parrot.adapter_v2 import adapter_state_only, Parrot
+
     model = Parrot.from_name("pythia-70m", n_layer=3)
 
     expected = {
