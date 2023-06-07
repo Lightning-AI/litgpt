@@ -59,6 +59,8 @@ def setup(
         if devices <= 1
         else XLAStrategy(sync_module_states=False) if tpu else DeepSpeedStrategy(config=ds_config)
     )
+    # For multi-host TPU training, the device count for Fabric is limited to the count on a single host.
+    devices = "auto" if (tpu and devices > 1) else devices
     fabric = L.Fabric(devices=devices, strategy=strategy, precision="32-true" if tpu else precision)
     fabric.launch(main, data_dir, checkpoint_dir, out_dir)
 
