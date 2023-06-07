@@ -257,7 +257,7 @@ def mark_only_adapter_as_trainable(model: Parrot) -> None:
 
 @contextlib.contextmanager
 def adapter_state_only(module: nn.Module):
-    """Returns the model state dict with only the adapter weights for saving."""
+    """Use this context manager to generate a state dict with only the adapter state."""
     originals = {}
 
     def adapter_save(name, module, destination, prefix, keep_vars):

@@ -55,7 +55,7 @@ def add_adapter_v2_parameters_to_linear_layers(model):
 
 @contextlib.contextmanager
 def adapter_state_only(module: torch.nn.Module):
-    """Returns the model state dict with only the adapter weights for saving."""
+    """Use this context manager to generate a state dict with only the adapter state."""
     originals = {}
     substrings = get_adapter_substrings()
 
