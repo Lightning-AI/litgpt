@@ -48,7 +48,7 @@ def main(
 ):
     if devices > 1:
         auto_wrap_policy = partial(transformer_auto_wrap_policy, transformer_layer_cls={Block})
-        strategy = FSDPStrategy(auto_wrap_policy=auto_wrap_policy, activation_checkpointing=Block)
+        strategy = FSDPStrategy(auto_wrap_policy=auto_wrap_policy, activation_checkpointing=Block, state_dict_type="full")
     else:
         strategy = "auto"
     fabric = L.Fabric(accelerator="cuda", devices=devices, precision=precision, strategy=strategy)
