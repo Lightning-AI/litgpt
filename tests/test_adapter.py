@@ -3,6 +3,8 @@ from dataclasses import asdict
 
 import pytest
 
+from lit_parrot.adapter import Parrot, adapter_state_only
+
 
 @pytest.mark.skipif(sys.platform == "win32", reason="EmptyInitOnDevice on CPU not working for Windows.")
 @pytest.mark.parametrize("name", ["pythia-70m", "stablelm-base-alpha-3b"])
@@ -22,3 +24,17 @@ def test_config_identical(name):
         base_model = parrot.Parrot.from_name(name)
         adapter_model = parrot_adapter.Parrot.from_name(name)
         assert adapter_model.lm_head.weight.shape == base_model.lm_head.weight.shape
+
+
+def test_adapter_state_only():
+    model = Parrot.from_name("pythia-70m", n_layer=4)
+
+    expected = {
+        "transformer.h.2.attn.adapter_wte.weight",
+        "transformer.h.2.attn.gating_factor",
+        "transformer.h.3.attn.adapter_wte.weight",
+        "transformer.h.3.attn.gating_factor",
+    }
+    with adapter_state_only(model):
+        assert set(model.state_dict()) == expected
+    assert len(model.state_dict()) > len(expected)
