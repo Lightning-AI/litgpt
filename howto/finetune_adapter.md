@@ -85,6 +85,14 @@ python generate/adapter_v2.py \
     --checkpoint_dir checkpoints/stabilityai/stablelm-base-alpha-3b
 ```
 
+To chat using the finetuned model, you can run the following:
+
+```bash
+python chat/adapter.py \
+    --checkpoint_dir checkpoints/stabilityai/stablelm-base-alpha-3b \
+    --adapter_path out/adapter/my-model-finetuned
+```
+
 Output:
 ```
 A good movie to watch on the weekend would be The Lion King, since it's a classic family film that everyone can enjoy...
