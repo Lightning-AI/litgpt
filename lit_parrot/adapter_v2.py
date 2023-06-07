@@ -23,11 +23,6 @@ def mark_only_adapter_v2_as_trainable(model: Parrot) -> None:
         param.requires_grad = any(s in name for s in get_adapter_substrings())
 
 
-def adapter_v2_state_from_state_dict(state_dict: dict) -> dict:
-    """Return the model state dict with only the adapter weights for saving"""
-    return {name: param for name, param in state_dict.items() if any(s in name for s in get_adapter_substrings())}
-
-
 def adapter_v2_new_forward(self, input: Tensor) -> Tensor:
     return self.adapter_scale * (torch.nn.functional.linear(input, self.weight, self.bias) + self.adapter_bias)
 

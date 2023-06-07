@@ -91,7 +91,7 @@ def main(
         # 1. Load the pretrained weights
         model.load_state_dict(pretrained_checkpoint, strict=False)
         # 2. Load the fine-tuned adapter weights
-        model.load_state_dict(adapter_checkpoint, strict=False)
+        model.load_state_dict(adapter_checkpoint["model"], strict=False)
     fabric.print(f"Time to load the model weights: {time.time() - t0:.02f} seconds.", file=sys.stderr)
 
     model.eval()
