@@ -8,10 +8,6 @@ from pathlib import Path
 
 import torch
 import torch.utils._device
-from lightning.fabric.strategies import DeepSpeedStrategy, FSDPStrategy
-from torch.distributed.fsdp import FullStateDictConfig
-from torch.distributed.fsdp import FullyShardedDataParallel as FSDP
-from torch.distributed.fsdp import StateDictType
 from torch.serialization import normalize_storage_type
 
 
