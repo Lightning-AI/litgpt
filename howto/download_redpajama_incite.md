@@ -16,6 +16,9 @@ which will print
 togethercomputer/RedPajama-INCITE-Base-3B-v1
 togethercomputer/RedPajama-INCITE-Chat-3B-v1
 togethercomputer/RedPajama-INCITE-Instruct-3B-v1
+togethercomputer/RedPajama-INCITE-7B-Base
+togethercomputer/RedPajama-INCITE-7B-Chat
+togethercomputer/RedPajama-INCITE-7B-Instruct
 togethercomputer/RedPajama-INCITE-Base-7B-v0.1
 togethercomputer/RedPajama-INCITE-Chat-7B-v0.1
 togethercomputer/RedPajama-INCITE-Instruct-7B-v0.1

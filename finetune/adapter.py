@@ -51,7 +51,7 @@ def setup(
     data_dir: Path = Path("data/alpaca"),
     checkpoint_dir: Path = Path("checkpoints/stabilityai/stablelm-base-alpha-3b"),
     out_dir: Path = Path("out/adapter/alpaca"),
-    precision: Literal["bf16-true", "32-true"] = "bf16-true",
+    precision: Literal["bf16-true", "32-true", "bf16-mixed"] = "bf16-true",
     tpu: bool = False,
 ):
     strategy = (
@@ -81,7 +81,7 @@ def main(
 
     config = Config.from_name(name=checkpoint_dir.name, block_size=max_seq_length)
     checkpoint_path = checkpoint_dir / "lit_model.pth"
-    print(f"Loading model {str(checkpoint_path)!r} with {config.__dict__}")
+    fabric.print(f"Loading model {str(checkpoint_path)!r} with {config.__dict__}")
     with fabric.init_module():
         model = Parrot(config)
     with lazy_load(checkpoint_path) as checkpoint:
@@ -90,7 +90,7 @@ def main(
     mark_only_adapter_as_trainable(model)
 
     num_params = sum(p.numel() for p in model.parameters() if p.requires_grad)
-    print(f"Number of trainable parameters: {num_params}")
+    fabric.print(f"Number of trainable parameters: {num_params}")
 
     optimizer = torch.optim.AdamW(model.parameters(), lr=learning_rate, weight_decay=weight_decay)
     model, optimizer = fabric.setup(model, optimizer)
@@ -101,7 +101,7 @@ def main(
 
     # Save the final checkpoint at the end of training
     save_path = out_dir / "lit_model_adapter_finetuned.pth"
-    print(f"Saving adapter weights to {str(save_path)!r}")
+    fabric.print(f"Saving adapter weights to {str(save_path)!r}")
     save_model_checkpoint(fabric, model, save_path)
 
 
@@ -156,7 +156,7 @@ def train(
 
             if step_count % save_interval == 0:
                 save_path = out_dir / f"iter-{iter_num:06d}.pth"
-                print(f"Saving adapter weights to {str(save_path)!r}")
+                fabric.print(f"Saving adapter weights to {str(save_path)!r}")
                 # TODO: Provide a function/script to merge the adapter weights with pretrained weights
                 save_model_checkpoint(fabric, model, save_path)
         else:
