@@ -16,6 +16,7 @@ from torch.serialization import normalize_storage_type
 
 
 def find_multiple(n: int, k: int) -> int:
+    assert k > 0
     if n % k == 0:
         return n
     return n + k - (n % k)

@@ -12,6 +12,7 @@ from torch.nn import functional as F
 from typing_extensions import Self
 
 from lit_parrot.config import Config
+from lit_parrot.utils import find_multiple
 
 RoPECache = Tuple[torch.Tensor, torch.Tensor]
 KVCache = Tuple[torch.Tensor, torch.Tensor]
@@ -57,9 +58,21 @@ class Parrot(nn.Module):
             self.mask_cache = None
 
     def forward(
-        self, idx: torch.Tensor, max_seq_length: Optional[int] = None, input_pos: Optional[torch.Tensor] = None
+        self,
+        idx: torch.Tensor,
+        max_seq_length: Optional[int] = None,
+        input_pos: Optional[torch.Tensor] = None,
+        padding_multiple: int = 8,
     ) -> Union[torch.Tensor, Tuple[torch.Tensor, List[KVCache]]]:
         B, T = idx.size()
+
+        T_padded = find_multiple(T, padding_multiple)
+        padding = T_padded - T
+        if padding > 0:  # fp8 support
+            idx = F.pad(idx, (0, padding))  # right padding
+            if max_seq_length == T:
+                max_seq_length = T_padded
+            T = T_padded
 
         block_size = self.config.block_size
         if max_seq_length is None:
@@ -76,9 +89,12 @@ class Parrot(nn.Module):
         cos, sin = self.rope_cache
         if input_pos is not None:
             cos = cos.index_select(0, input_pos)
+            cos = torch.cat((cos, torch.zeros(padding, cos.size(1), device=cos.device)))
             sin = sin.index_select(0, input_pos)
+            sin = torch.cat((sin, torch.zeros(padding, sin.size(1), device=sin.device)))
             mask = self.mask_cache.index_select(2, input_pos)
             mask = mask[:, :, :, :max_seq_length]
+            mask = F.pad(mask, (0, 0, 0, padding))
         else:
             cos = cos[:T]
             sin = sin[:T]
@@ -98,6 +114,8 @@ class Parrot(nn.Module):
         x = self.transformer.ln_f(x)
 
         logits = self.lm_head(x)  # (b, t, vocab_size)
+
+        logits = logits[:, : -padding or None]
 
         return logits
 
@@ -227,14 +245,20 @@ class CausalSelfAttention(nn.Module):
                 # shift 1 position to the left
                 cache_k = torch.roll(cache_k, -1, dims=2)
                 cache_v = torch.roll(cache_v, -1, dims=2)
+            padding_idx = cache_k.size(2) - 1  # send padding data to a padding index, doesn't matter which
+            padding = T - input_pos.size(0)
+            input_pos = torch.cat(
+                (input_pos, torch.full((padding,), padding_idx, device=input_pos.device, dtype=input_pos.dtype))
+            )
             k = cache_k.index_copy(2, input_pos, k)
             v = cache_v.index_copy(2, input_pos, v)
             kv_cache = k, v
 
-        # efficient attention using Flash Attention CUDA kernels
-        y = F.scaled_dot_product_attention(
-            q, k, v, attn_mask=mask, dropout_p=0.0, scale=1.0 / math.sqrt(self.config.head_size)
-        )
+        scale = 1.0 / math.sqrt(self.config.head_size)
+        att = (q @ k.transpose(-2, -1)) * scale
+        att = torch.masked_fill(att, ~mask, torch.finfo(att.dtype).min)
+        att = F.softmax(att, dim=-1)
+        y = att @ v  # (B, nh, T, T) x (B, nh, T, hs) -> (B, nh, T, hs)
 
         y = y.transpose(1, 2).contiguous().view(B, T, C)  # re-assemble all head outputs side by side
 
