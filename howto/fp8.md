@@ -46,7 +46,7 @@ Use `kubectl` to launch and interact with your pod:
 
 ```shell
 kubectl apply -f manifest.yaml  # launch h100 pod
-kubectl exec -it pod/h100 /bin/bash  # SSH into it
+kubectl exec -it pod/h100 -- /bin/bash  # SSH into it
 kubectl delete pod/h100  # Delete the pod once you are done
 ```
 
