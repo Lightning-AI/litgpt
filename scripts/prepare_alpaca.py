@@ -44,7 +44,7 @@ def prepare(
     check_valid_checkpoint_dir(checkpoint_dir)
 
     if max_seq_length is None:
-        max_seq_length = torch.load(checkpoint_dir / "lit_config.json")["block_size"]
+        max_seq_length = json.load(checkpoint_dir / "lit_config.json")["block_size"]
 
     destination_path.mkdir(parents=True, exist_ok=True)
     data_file_path = destination_path / data_file_name
@@ -86,7 +86,7 @@ def prepare(
     test_set = [
         prepare_sample(
             example=sample,
-            tokenize=tokenizer, 
+            tokenizer=tokenizer, 
             max_length=max_seq_length, 
             mask_inputs=mask_inputs, 
             ignore_index=ignore_index) 
