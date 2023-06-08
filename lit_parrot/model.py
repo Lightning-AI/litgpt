@@ -18,13 +18,32 @@ RoPECache = Tuple[torch.Tensor, torch.Tensor]
 KVCache = Tuple[torch.Tensor, torch.Tensor]
 
 
+def validate(inp, in_features):
+    # Mimic TransformerEngine's validation
+    assert inp.shape[-1] == in_features, f"GEMM not possible, {inp.shape[-1]} != {in_features}"
+    inputmat = inp.view((-1, in_features))
+    a, b = inputmat.shape
+    assert (
+        not a % 8 and not b % 16
+    ), f"Tensor dimensions are not compatible for FP8 execution: ({a} % 8 != 0, {b} % 16 != 0)"
+
+
+class Linear(nn.Linear):
+    # Mimic TransformerEngine's Linear
+    def forward(self, input):
+        in_features = self.weight.shape[-1]
+        validate(input, in_features)
+        validate(self.weight, in_features)
+        return super().forward(input)
+
+
 class Parrot(nn.Module):
     def __init__(self, config: Config) -> None:
         super().__init__()
         assert config.padded_vocab_size is not None
         self.config = config
 
-        self.lm_head = nn.Linear(config.n_embd, config.padded_vocab_size, bias=False)
+        self.lm_head = Linear(config.n_embd, config.padded_vocab_size, bias=False)
         self.transformer = nn.ModuleDict(
             dict(
                 wte=nn.Embedding(config.padded_vocab_size, config.n_embd),
@@ -37,7 +56,7 @@ class Parrot(nn.Module):
         self.kv_caches: List[KVCache] = []
 
     def _init_weights(self, module: nn.Module) -> None:
-        if isinstance(module, nn.Linear):
+        if isinstance(module, Linear):
             # https://huggingface.co/stabilityai/stablelm-base-alpha-3b/blob/main/config.json#L10
             torch.nn.init.normal_(module.weight, mean=0.0, std=0.02)
             if module.bias is not None:
@@ -196,9 +215,9 @@ class CausalSelfAttention(nn.Module):
         super().__init__()
         shape = (config.n_head + 2 * config.n_query_groups) * config.head_size
         # key, query, value projections for all heads, but in a batch
-        self.attn = nn.Linear(config.n_embd, shape, bias=config.bias)
+        self.attn = Linear(config.n_embd, shape, bias=config.bias)
         # output projection
-        self.proj = nn.Linear(config.n_embd, config.n_embd, bias=config.bias)
+        self.proj = Linear(config.n_embd, config.n_embd, bias=config.bias)
 
         self.config = config
 
@@ -272,8 +291,8 @@ class MLP(nn.Module):
     def __init__(self, config: Config) -> None:
         super().__init__()
         hidden_dim = 4 * config.n_embd
-        self.fc = nn.Linear(config.n_embd, hidden_dim, bias=config.bias)
-        self.proj = nn.Linear(hidden_dim, config.n_embd, bias=config.bias)
+        self.fc = Linear(config.n_embd, hidden_dim, bias=config.bias)
+        self.proj = Linear(hidden_dim, config.n_embd, bias=config.bias)
 
     def forward(self, x: torch.Tensor) -> torch.Tensor:
         # gpt-neox style MLP
