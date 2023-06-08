@@ -97,7 +97,7 @@ def main(
     # Save the final LoRA checkpoint at the end of training
     checkpoint = lora_state_dict(model)
 
-    fabric.save(os.path.join(out_dir, "lora-finetuned.pth"), checkpoint)
+    fabric.save(os.path.join(out_dir, "lit-model-lora-finetuned.pth"), checkpoint)
 
 
 def train(
