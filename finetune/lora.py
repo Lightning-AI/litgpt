@@ -84,8 +84,6 @@ def main(
         # strict=False because missing keys due to LoRA weights not contained in checkpoint state
         model.load_state_dict(torch.load(checkpoint_path), strict=False)
 
-    num_params = sum(p.numel() for p in model.parameters() if p.requires_grad)
-    fabric.print(f"Number of trainable parameters: {num_params}")
     mark_only_lora_as_trainable(model)
     num_params = sum(p.numel() for p in model.parameters() if p.requires_grad)
     fabric.print(f"Number of trainable parameters: {num_params}")
