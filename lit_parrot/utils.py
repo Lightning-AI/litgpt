@@ -71,8 +71,6 @@ class EmptyInitOnDevice(torch.overrides.TorchFunctionMode):
         self.quantization_mode = quantization_mode
         self.quantized_linear_cls = None
         if self.quantization_mode == "llm.int8":
-            if device.type != "cuda":
-                raise ValueError("Quantization is only supported on the GPU.")
             from quantize.bnb import Linear8bitLt
 
             self.quantized_linear_cls = Linear8bitLt
