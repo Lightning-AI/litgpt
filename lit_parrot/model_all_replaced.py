@@ -19,7 +19,7 @@ KVCache = Tuple[torch.Tensor, torch.Tensor]
 
 from transformer_engine.pytorch import *
 
-USE_TE_ATTENTIONN = False  # numerical difference: https://github.com/NVIDIA/TransformerEngine/issues/267
+USE_TE_ATTENTION = False  # numerical difference: https://github.com/NVIDIA/TransformerEngine/issues/267
 
 
 class Parrot(nn.Module):
@@ -174,7 +174,7 @@ class Block(nn.Module):
         shape = (config.n_head + 2 * config.n_query_groups) * config.head_size
         # key, query, value projections for all heads, but in a batch
         self.norm_1_attn = LayerNormLinear(config.n_embd, shape, bias=config.bias)
-        if USE_TE_ATTENTIONN:
+        if USE_TE_ATTENTION:
             self.attn = DotProductAttention(
                 num_attention_heads=config.n_head,
                 kv_channels=config.head_size,
@@ -241,7 +241,7 @@ class Block(nn.Module):
             v = cache_v.index_copy(2, input_pos, v)
             kv_cache = k, v
 
-        if USE_TE_ATTENTIONN:
+        if USE_TE_ATTENTION:
             # flash attn requires (T, B, nh, hs)
             q = q.permute(2, 0, 1, 3)
             k = k.permute(2, 0, 1, 3)
