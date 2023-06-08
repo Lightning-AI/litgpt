@@ -291,7 +291,7 @@ def check_valid_checkpoint_dir(checkpoint_dir: Path) -> None:
     supported = f"You can download:{joined}"
 
     raise OSError(
-        f"`--checkpoint_dir {str(checkpoint_dir)!r} is not a valid checkpoint directory."
+        f"`--checkpoint_dir {str(checkpoint_dir.absolute())!r} is not a valid checkpoint directory."
         " It must contain the files: 'lit_model.pth', 'lit_config.json', 'tokenizer.json' and 'tokenizer_config.json'."
         "\nPlease, follow the instructions at"
         " https://github.com/Lightning-AI/lit-parrot/blob/main/howto/download_stablelm.md\n"
