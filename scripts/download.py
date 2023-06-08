@@ -6,7 +6,6 @@ from typing import Optional
 wd = Path(__file__).parent.parent.resolve()
 sys.path.append(str(wd))
 
-
 def download_from_hub(repo_id: Optional[str] = None) -> None:
     if repo_id is None:
         from lit_parrot.config import configs

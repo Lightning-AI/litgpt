@@ -1,51 +1,69 @@
 """Implementation derived from https://github.com/tloen/alpaca-lora"""
+import json
 import sys
 from pathlib import Path
+from typing import Optional
+
+import requests
+import torch
+from torch.utils.data import random_split
+from tqdm import tqdm
 
 # support running without installing as a package
 wd = Path(__file__).parent.parent.resolve()
 sys.path.append(str(wd))
 
-import torch
-import requests
-import json
-from torch.utils.data import random_split
 from lit_parrot.tokenizer import Tokenizer
-from tqdm import tqdm
+from lit_parrot.utils import check_valid_checkpoint_dir
 
-
-DATA_FILE = "https://raw.githubusercontent.com/tloen/alpaca-lora/main/alpaca_data_cleaned_archive.json"
+DATA_FILE_URL = "https://raw.githubusercontent.com/tloen/alpaca-lora/main/alpaca_data_cleaned_archive.json"
 DATA_FILE_NAME = "alpaca_data_cleaned_archive.json"
+DESTINATION_PATH = Path("data/alpaca")
+CHECKPOINT_DIR =  Path("checkpoints/stabilityai/stablelm-base-alpha-3b")
+TEST_SPLIT_SIZE = 2000
 IGNORE_INDEX = -1
-
+MASK_INPUTS = False     # as in alpaca-lora
+SEED = 42
 
 def prepare(
-    destination_path: Path = Path("data/alpaca"),
-    checkpoint_dir: Path = Path("checkpoints/stabilityai/stablelm-base-alpha-3b"),
-    test_split_size: int = 2000,
-    max_seq_length: int = 256,
-    seed: int = 42,
-    mask_inputs: bool = False,  # as in alpaca-lora
+    destination_path: Path = DESTINATION_PATH,
+    checkpoint_dir: Path = CHECKPOINT_DIR,
+    test_split_size: int = TEST_SPLIT_SIZE,
+    max_seq_length: Optional[int] = None, # default will match block_size of checkpoint 
+    seed: int = SEED,
+    mask_inputs: bool = MASK_INPUTS,  
     data_file_name: str = DATA_FILE_NAME,
+    data_file_url: str = DATA_FILE_URL,
+    ignore_index: int = IGNORE_INDEX,
 ) -> None:
     """Prepare the Alpaca dataset for instruction tuning.
 
     The output is a training and validation dataset saved as `train.pt` and `val.pt`,
     which stores the preprocessed and tokenized prompts and labels.
     """
+    check_valid_checkpoint_dir(checkpoint_dir)
+
+    if max_seq_length is None:
+        max_seq_length = torch.load(checkpoint_dir / "lit_config.json")["block_size"]
+
     destination_path.mkdir(parents=True, exist_ok=True)
-    file_path = destination_path / data_file_name
-    download(file_path)
+    data_file_path = destination_path / data_file_name
 
-    tokenizer = Tokenizer(checkpoint_dir / "tokenizer.json", checkpoint_dir / "tokenizer_config.json")
+    print("Loading data file...")
+    download_if_missing(data_file_path, data_file_url)
 
-    with open(file_path, "r") as file:
+    with open(data_file_path, "r") as file:
         data = json.load(file)
+
+    print("Loading tokenizer...")
+    tokenizer = Tokenizer(checkpoint_dir / "tokenizer.json", checkpoint_dir / "tokenizer_config.json")
 
     # Partition the dataset into train and test
     train_split_size = len(data) - test_split_size
     train_set, test_set = random_split(
-        data, lengths=(train_split_size, test_split_size), generator=torch.Generator().manual_seed(seed)
+        data,
+        lengths=(train_split_size, test_split_size),
+        generator=torch.Generator().manual_seed(seed)
     )
     train_set, test_set = list(train_set), list(test_set)
 
@@ -53,23 +71,43 @@ def prepare(
     print(f"val has {len(test_set):,} samples")
 
     print("Processing train split ...")
-    train_set = [prepare_sample(sample, tokenizer, max_seq_length, mask_inputs) for sample in tqdm(train_set)]
-    torch.save(train_set, file_path.parent / "train.pt")
+    train_set = [
+        prepare_sample(
+            example=sample,
+            tokenizer=tokenizer, 
+            max_length=max_seq_length, 
+            mask_inputs=mask_inputs, 
+            ignore_index=ignore_index) 
+        for sample in tqdm(train_set)
+    ]
+    torch.save(train_set, data_file_path.parent / "train.pt")
 
     print("Processing test split ...")
-    test_set = [prepare_sample(sample, tokenizer, max_seq_length, mask_inputs) for sample in tqdm(test_set)]
-    torch.save(test_set, file_path.parent / "test.pt")
+    test_set = [
+        prepare_sample(
+            example=sample,
+            tokenize=tokenizer, 
+            max_length=max_seq_length, 
+            mask_inputs=mask_inputs, 
+            ignore_index=ignore_index) 
+        for sample in tqdm(test_set)]
+    torch.save(test_set, data_file_path.parent / "test.pt")
 
 
-def download(file_path: Path):
+def download_if_missing(file_path: Path, file_url: str):
     """Downloads the raw json data file and saves it in the given destination."""
     if file_path.exists():
         return
     with open(file_path, "w") as f:
-        f.write(requests.get(DATA_FILE).text)
+        f.write(requests.get(file_url).text)
 
 
-def prepare_sample(example: dict, tokenizer: Tokenizer, max_length: int, mask_inputs: bool = True):
+def prepare_sample(
+        example: dict, 
+        tokenizer: Tokenizer, 
+        max_length: int, 
+        mask_inputs: bool = MASK_INPUTS,
+        ignore_index: int = IGNORE_INDEX):
     """Processes a single sample.
 
     Each sample in the dataset consists of:
@@ -90,13 +128,15 @@ def prepare_sample(example: dict, tokenizer: Tokenizer, max_length: int, mask_in
     full_prompt_and_response = full_prompt + example["output"]
     encoded_full_prompt = tokenizer.encode(full_prompt, max_length=max_length)
     encoded_full_prompt_and_response = tokenizer.encode(
-        full_prompt_and_response, eos=True, max_length=max_length
+        full_prompt_and_response, 
+        eos=True,
+        max_length=max_length
     )
 
     # The labels are the full prompt with response, but with the prompt masked out
     labels = encoded_full_prompt_and_response.clone()
     if mask_inputs:
-        labels[: len(encoded_full_prompt)] = IGNORE_INDEX
+        labels[: len(encoded_full_prompt)] = ignore_index
 
     return {
         **example,
