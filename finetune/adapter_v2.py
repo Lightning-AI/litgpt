@@ -1,10 +1,11 @@
+import json
 import os
 import shutil
 import sys
 import time
 import warnings
 from pathlib import Path
-from typing import Literal
+from typing import Optional, Literal
 
 import lightning as L
 import numpy as np
@@ -43,7 +44,6 @@ epoch_size = 50000  # train dataset size
 num_epochs = 5
 max_iters = num_epochs * (epoch_size // micro_batch_size) // devices
 weight_decay = 0.02
-max_seq_length = 256  # see scripts/prepare_alpaca.py
 warmup_iters = 2 * (epoch_size // micro_batch_size) // devices  # 2 epochs
 
 ds_config = {
@@ -61,6 +61,7 @@ def main(
 ):
     check_valid_checkpoint_dir(checkpoint_dir)
 
+
     fabric = L.Fabric(
         devices=devices, strategy=(DeepSpeedStrategy(config=ds_config) if devices > 1 else "auto"), precision=precision
     )
@@ -72,7 +73,7 @@ def main(
 
     train_data, val_data = load_datasets(data_dir=data_dir)
 
-    config = Config.from_name(name=checkpoint_dir.name, block_size=max_seq_length)
+    config = Config.from_name(name=checkpoint_dir.name)
     checkpoint_path = checkpoint_dir / "lit_model.pth"
     fabric.print(f"Loading model {str(checkpoint_path)!r} with {config.__dict__}")
     with fabric.init_module():
@@ -98,14 +99,13 @@ def main(
 
 
 def train(
-    fabric: L.Fabric,
-    model: torch.nn.Module,
-    optimizer: torch.optim.Optimizer,
-    train_data: np.ndarray,
-    val_data: np.ndarray,
-    checkpoint_dir: Path,
-    out_dir: Path,
-) -> None:
+        fabric: L.Fabric,
+        model: torch.nn.Module,
+        optimizer: torch.optim.Optimizer,
+        train_data: np.ndarray,
+        val_data: np.ndarray,
+        checkpoint_dir: Path,
+        out_dir: Path) -> None:
     """The training loop.
 
     Loosely based on the nanoGPT implementation: https://github.com/karpathy/nanoGPT.
@@ -135,7 +135,7 @@ def train(
             step_count += 1
 
             if step_count % eval_interval == 0:
-                val_loss = validate(fabric, model, val_data, tokenizer)
+                val_loss = validate(fabric, model, val_data, tokenizer, max_seq_length=model.config.block_size)
                 fabric.print(f"step {iter_num}: val loss {val_loss:.4f}")
                 fabric.barrier()
 
@@ -151,7 +151,12 @@ def train(
 
 
 @torch.no_grad()
-def validate(fabric: L.Fabric, model: torch.nn.Module, val_data: np.ndarray, tokenizer: Tokenizer) -> torch.Tensor:
+def validate(
+        fabric: L.Fabric,
+        model: torch.nn.Module,
+        val_data: np.ndarray,
+        tokenizer: Tokenizer,
+        max_seq_length: int) -> torch.Tensor:
     fabric.print("Validating ...")
     model.eval()
     losses = torch.zeros(eval_iters)
@@ -169,7 +174,11 @@ def validate(fabric: L.Fabric, model: torch.nn.Module, val_data: np.ndarray, tok
     prompt = generate_prompt(sample)
     encoded = tokenizer.encode(prompt, device=model.device)
     output = generate(
-        model, idx=encoded, max_returned_tokens=len(encoded) + 100, max_seq_length=max_seq_length, temperature=0.8
+        model,
+        idx=encoded,
+        max_returned_tokens=len(encoded) + 100,
+        max_seq_length=max_seq_length,
+        temperature=0.8
     )
     output = tokenizer.decode(output)
     fabric.print(output)
