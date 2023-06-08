@@ -19,6 +19,8 @@ KVCache = Tuple[torch.Tensor, torch.Tensor]
 
 from transformer_engine.pytorch import *
 
+USE_TE_ATTENTIONN = False  # numerical difference: https://github.com/NVIDIA/TransformerEngine/issues/267
+
 
 class Parrot(nn.Module):
     def __init__(self, config: Config) -> None:
@@ -153,10 +155,10 @@ class Parrot(nn.Module):
 
     def _load_from_state_dict(self, state_dict, prefix, *args, **kwargs):
         mapping = {
-            'transformer.wte.weight': 'wte.weight',
-            'transformer.ln_f.weight': 'ln_f_lm_head.layer_norm_weight',
-            'transformer.ln_f.bias': 'ln_f_lm_head.layer_norm_bias',
-            'lm_head.weight': 'ln_f_lm_head.weight',
+            "transformer.wte.weight": "wte.weight",
+            "transformer.ln_f.weight": "ln_f_lm_head.layer_norm_weight",
+            "transformer.ln_f.bias": "ln_f_lm_head.layer_norm_bias",
+            "lm_head.weight": "ln_f_lm_head.weight",
         }
         for checkpoint_name, attribute_name in mapping.items():
             full_checkpoint_name = prefix + checkpoint_name
@@ -172,13 +174,13 @@ class Block(nn.Module):
         shape = (config.n_head + 2 * config.n_query_groups) * config.head_size
         # key, query, value projections for all heads, but in a batch
         self.norm_1_attn = LayerNormLinear(config.n_embd, shape, bias=config.bias)
-        # FIXME: this works but checkpoints do not produce the same results
-        self.attn = DotProductAttention(
-            num_attention_heads=config.n_head,
-            kv_channels=config.head_size,
-            attn_mask_type="padding",  # FIXME: this could be causal if we aren't padding
-            layer_number=block_idx
-        )
+        if USE_TE_ATTENTIONN:
+            self.attn = DotProductAttention(
+                num_attention_heads=config.n_head,
+                kv_channels=config.head_size,
+                attn_mask_type="padding",  # FIXME: this could be causal if we aren't padding
+                layer_number=block_idx,
+            )
         # output projection
         self.proj = Linear(config.n_embd, config.n_embd, bias=config.bias)
         if config.shared_attention_norm:
@@ -239,7 +241,7 @@ class Block(nn.Module):
             v = cache_v.index_copy(2, input_pos, v)
             kv_cache = k, v
 
-        if True:
+        if USE_TE_ATTENTIONN:
             # flash attn requires (T, B, nh, hs)
             q = q.permute(2, 0, 1, 3)
             k = k.permute(2, 0, 1, 3)
@@ -271,18 +273,18 @@ class Block(nn.Module):
 
     def _load_from_state_dict(self, state_dict, prefix, *args, **kwargs):
         mapping = {
-            'norm_1.weight': 'norm_1_attn.layer_norm_weight',
-            'norm_1.bias': 'norm_1_attn.layer_norm_bias',
-            'attn.attn.weight': 'norm_1_attn.weight',
-            'attn.attn.bias': 'norm_1_attn.bias',
-            'attn.proj.weight': 'proj.weight',
-            'attn.proj.bias': 'proj.bias',
-            'norm_2.weight': 'norm_2_mlp.layer_norm_weight',
-            'norm_2.bias': 'norm_2_mlp.layer_norm_bias',
-            'mlp.fc.weight': 'norm_2_mlp.fc1_weight',
-            'mlp.fc.bias': 'norm_2_mlp.fc1_bias',
-            'mlp.proj.weight': 'norm_2_mlp.fc2_weight',
-            'mlp.proj.bias': 'norm_2_mlp.fc2_bias',
+            "norm_1.weight": "norm_1_attn.layer_norm_weight",
+            "norm_1.bias": "norm_1_attn.layer_norm_bias",
+            "attn.attn.weight": "norm_1_attn.weight",
+            "attn.attn.bias": "norm_1_attn.bias",
+            "attn.proj.weight": "proj.weight",
+            "attn.proj.bias": "proj.bias",
+            "norm_2.weight": "norm_2_mlp.layer_norm_weight",
+            "norm_2.bias": "norm_2_mlp.layer_norm_bias",
+            "mlp.fc.weight": "norm_2_mlp.fc1_weight",
+            "mlp.fc.bias": "norm_2_mlp.fc1_bias",
+            "mlp.proj.weight": "norm_2_mlp.fc2_weight",
+            "mlp.proj.bias": "norm_2_mlp.fc2_bias",
         }
         for checkpoint_name, attribute_name in mapping.items():
             full_checkpoint_name = prefix + checkpoint_name
