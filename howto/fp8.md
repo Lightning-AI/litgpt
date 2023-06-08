@@ -50,6 +50,8 @@ kubectl exec -it pod/h100 -- /bin/bash  # SSH into it
 kubectl delete pod/h100  # Delete the pod once you are done
 ```
 
+You can find a list of useful commands [here](https://docs.coreweave.com/coreweave-kubernetes/useful-commands). The `pod_id` is `pod/h100`.
+
 ## Setup your environment
 
 TransformerEngine requires some specific installation steps:
