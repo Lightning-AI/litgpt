@@ -16,8 +16,6 @@ from lit_parrot import Config
 from lit_parrot.utils import lazy_load, incremental_save
 
 
-
-
 def copy_weights_gpt_neox(state_dict, hf_weights, saver=None, dtype=torch.float32):
     weight_map = {
         "gpt_neox.embed_in.weight": "transformer.wte.weight",
