@@ -26,7 +26,9 @@ class Parrot(BaseParrot):
 
         self.wte = nn.Embedding(config.padded_vocab_size, config.n_embd)
         self.transformer = nn.ModuleDict({"h": nn.ModuleList(Block(config, i) for i in range(config.n_layer))})
-        self.ln_f_lm_head = LayerNormLinear(config.n_embd, config.padded_vocab_size, bias=False)
+        self.ln_f_lm_head = LayerNormLinear(
+            config.n_embd, config.padded_vocab_size, bias=False, params_dtype=torch.get_default_dtype()
+        )
 
         self.rope_cache: Optional[RoPECache] = None
         self.mask_cache: Optional[torch.Tensor] = None
@@ -127,7 +129,9 @@ class Block(nn.Module):
         super().__init__()
         shape = (config.n_head + 2 * config.n_query_groups) * config.head_size
         # key, query, value projections for all heads, but in a batch
-        self.norm_1_attn = LayerNormLinear(config.n_embd, shape, bias=config.bias)
+        self.norm_1_attn = LayerNormLinear(
+            config.n_embd, shape, bias=config.bias, params_dtype=torch.get_default_dtype()
+        )
         if USE_TE_ATTENTION:
             self.attn = DotProductAttention(
                 num_attention_heads=config.n_head,
@@ -136,10 +140,12 @@ class Block(nn.Module):
                 layer_number=block_idx,
             )
         # output projection
-        self.proj = Linear(config.n_embd, config.n_embd, bias=config.bias)
+        self.proj = Linear(config.n_embd, config.n_embd, bias=config.bias, params_dtype=torch.get_default_dtype())
         if config.shared_attention_norm:
             raise NotImplementedError
-        self.norm_2_mlp = LayerNormMLP(hidden_size=config.n_embd, ffn_hidden_size=4 * config.n_embd)
+        self.norm_2_mlp = LayerNormMLP(
+            hidden_size=config.n_embd, ffn_hidden_size=4 * config.n_embd, params_dtype=torch.get_default_dtype()
+        )
 
         self.config = config
 

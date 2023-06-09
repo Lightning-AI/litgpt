@@ -22,7 +22,9 @@ class Parrot(BaseParrot):
         assert config.padded_vocab_size is not None
         self.config = config
 
-        self.lm_head = Linear(config.n_embd, config.padded_vocab_size, bias=False)
+        self.lm_head = Linear(
+            config.n_embd, config.padded_vocab_size, bias=False, params_dtype=torch.get_default_dtype()
+        )
         self.transformer = nn.ModuleDict(
             dict(
                 wte=nn.Embedding(config.padded_vocab_size, config.n_embd),
@@ -153,9 +155,9 @@ class CausalSelfAttention(nn.Module):
         super().__init__()
         shape = (config.n_head + 2 * config.n_query_groups) * config.head_size
         # key, query, value projections for all heads, but in a batch
-        self.attn = Linear(config.n_embd, shape, bias=config.bias)
+        self.attn = Linear(config.n_embd, shape, bias=config.bias, params_dtype=torch.get_default_dtype())
         # output projection
-        self.proj = Linear(config.n_embd, config.n_embd, bias=config.bias)
+        self.proj = Linear(config.n_embd, config.n_embd, bias=config.bias, params_dtype=torch.get_default_dtype())
 
         self.config = config
 
@@ -233,5 +235,5 @@ class MLP(BaseMLP):
     def __init__(self, config: Config) -> None:
         super(BaseMLP, self).__init__()
         hidden_dim = 4 * config.n_embd
-        self.fc = Linear(config.n_embd, hidden_dim, bias=config.bias)
-        self.proj = Linear(hidden_dim, config.n_embd, bias=config.bias)
+        self.fc = Linear(config.n_embd, hidden_dim, bias=config.bias, params_dtype=torch.get_default_dtype())
+        self.proj = Linear(hidden_dim, config.n_embd, bias=config.bias, params_dtype=torch.get_default_dtype())
