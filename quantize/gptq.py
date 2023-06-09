@@ -317,7 +317,7 @@ def main(
     checkpoint_dir: Path = Path(f"checkpoints/stabilityai/stablelm-base-alpha-3b"),
     output_path: Optional[Path] = None,
     n_samples: int = 128,
-    precision: str = "bf16-true" if torch.cuda.is_bf16_supported() else "32-true",
+    precision: str = "bf16-true",
 ) -> None:
     """Generates text samples based on a pre-trained LLaMA model and tokenizer.
 

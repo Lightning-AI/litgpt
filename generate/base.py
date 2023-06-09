@@ -101,7 +101,7 @@ def main(
     quantize: Literal["llm.int8", "gptq.int4"] = None,
     strategy: str = "auto",
     devices: int = 1,
-    precision: str = "bf16-true" if torch.cuda.is_bf16_supported() else "32-true",
+    precision: str = "bf16-true",
 ) -> None:
     """Generates text samples based on a pre-trained model and tokenizer.
 

@@ -118,7 +118,7 @@ def main(
     with open(checkpoint_dir / "lit_config.json") as fp:
         config = Config(**json.load(fp))
 
-    fabric = L.Fabric(devices=1, precision="bf16-true" if torch.cuda.is_bf16_supported() else "32-true")
+    fabric = L.Fabric(devices=1, precision="bf16-true")
 
     if quantize == "gptq.int4":
         model_file = "lit_model_gptq.4bit.pth"

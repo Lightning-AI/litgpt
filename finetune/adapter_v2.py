@@ -57,7 +57,7 @@ def main(
     data_dir: Path = Path("data/alpaca"),
     checkpoint_dir: Path = Path("checkpoints/stabilityai/stablelm-base-alpha-3b"),
     out_dir: Path = Path("out/adapter_v2/alpaca"),
-    precision: str = "bf16-true" if torch.cuda.is_bf16_supported() else "32-true",
+    precision: str = "bf16-true",
 ):
     check_valid_checkpoint_dir(checkpoint_dir)
 

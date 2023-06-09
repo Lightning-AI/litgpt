@@ -35,7 +35,7 @@ def main(
     temperature: float = 0.8,
     strategy: str = "auto",
     devices: int = 1,
-    precision: str = "bf16-true" if torch.cuda.is_bf16_supported() else "32-true",
+    precision: str = "bf16-true",
 ) -> None:
     """Generates a response based on a given instruction and an optional input.
     This script will only work with checkpoints from the instruction-tuned Parrot-AdapterV2 model.
