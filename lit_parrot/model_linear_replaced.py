@@ -4,25 +4,21 @@ Based on the nanoGPT implementation: https://github.com/karpathy/nanoGPT and
 https://github.com/EleutherAI/gpt-neox/tree/main/megatron/model.
 """
 import math
-from typing import List, Optional, Tuple, Any, Union
+from typing import List, Optional, Tuple, Union
 
 import torch
 import torch.nn as nn
 from torch.nn import functional as F
-from typing_extensions import Self
-
-from lit_parrot.config import Config
-from lit_parrot.utils import find_multiple
-
-RoPECache = Tuple[torch.Tensor, torch.Tensor]
-KVCache = Tuple[torch.Tensor, torch.Tensor]
-
 from transformer_engine.pytorch import Linear
 
+from lit_parrot.config import Config
+from lit_parrot.model import RoPECache, KVCache, Parrot as BaseParrot, apply_rope, MLP as BaseMLP
+from lit_parrot.utils import find_multiple
 
-class Parrot(nn.Module):
+
+class Parrot(BaseParrot):
     def __init__(self, config: Config) -> None:
-        super().__init__()
+        super(BaseParrot, self).__init__()
         assert config.padded_vocab_size is not None
         self.config = config
 
@@ -51,13 +47,6 @@ class Parrot(nn.Module):
             torch.nn.init.zeros_(module.bias)
             # https://huggingface.co/stabilityai/stablelm-base-alpha-3b/blob/main/config.json#L12
             module.eps = 1e-5
-
-    def reset_cache(self) -> None:
-        self.kv_caches.clear()
-        if self.mask_cache is not None and self.mask_cache.device.type == "xla":
-            # https://github.com/Lightning-AI/lit-parrot/pull/83#issuecomment-1558150179
-            self.rope_cache = None
-            self.mask_cache = None
 
     def forward(
         self,
@@ -120,41 +109,6 @@ class Parrot(nn.Module):
         logits = logits[:, : -padding or None]
 
         return logits
-
-    @classmethod
-    def from_name(cls, name: str, **kwargs: Any) -> Self:
-        return cls(Config.from_name(name, **kwargs))
-
-    def build_rope_cache(self, idx: torch.Tensor) -> RoPECache:
-        return build_rope_cache(
-            seq_len=self.config.block_size,
-            n_elem=int(self.config.rotary_percentage * self.config.head_size),
-            dtype=idx.dtype,
-            device=idx.device,
-        )
-
-    def build_mask_cache(self, idx: torch.Tensor) -> torch.Tensor:
-        ones = torch.ones((self.config.block_size, self.config.block_size), device=idx.device, dtype=torch.bool)
-        return torch.tril(ones).unsqueeze(0).unsqueeze(0)
-
-    def build_kv_caches(self, idx: torch.Tensor, max_seq_length: int, rope_cache_length: int) -> List[KVCache]:
-        B = idx.size(0)
-        heads = 1 if self.config.n_query_groups == 1 else self.config.n_head
-        k_cache_shape = (
-            B,
-            heads,
-            max_seq_length,
-            rope_cache_length + self.config.head_size - int(self.config.rotary_percentage * self.config.head_size),
-        )
-        v_cache_shape = (B, heads, max_seq_length, self.config.head_size)
-        device, dtype = idx.device, idx.dtype
-        return [
-            (
-                torch.zeros(k_cache_shape, device=device, dtype=dtype),
-                torch.zeros(v_cache_shape, device=device, dtype=dtype),
-            )
-            for _ in range(self.config.n_layer)
-        ]
 
 
 class Block(nn.Module):
@@ -270,51 +224,9 @@ class CausalSelfAttention(nn.Module):
         return y, kv_cache
 
 
-class MLP(nn.Module):
+class MLP(BaseMLP):
     def __init__(self, config: Config) -> None:
-        super().__init__()
+        super(BaseMLP, self).__init__()
         hidden_dim = 4 * config.n_embd
         self.fc = Linear(config.n_embd, hidden_dim, bias=config.bias)
         self.proj = Linear(hidden_dim, config.n_embd, bias=config.bias)
-
-    def forward(self, x: torch.Tensor) -> torch.Tensor:
-        # gpt-neox style MLP
-        x = self.fc(x)
-        x = F.gelu(x)
-        x = self.proj(x)
-        return x
-
-
-def build_rope_cache(
-    seq_len: int, n_elem: int, dtype: torch.dtype, device: torch.device, base: int = 10000
-) -> RoPECache:
-    """Enhanced Transformer with Rotary Position Embedding.
-
-    Derived from: https://github.com/labmlai/annotated_deep_learning_paper_implementations/blob/master/labml_nn/
-    transformers/rope/__init__.py. MIT License:
-    https://github.com/labmlai/annotated_deep_learning_paper_implementations/blob/master/license.
-    """
-    # $\Theta = {\theta_i = 10000^{\frac{2(i-1)}{d}}, i \in [1, 2, ..., \frac{d}{2}]}$
-    theta = 1.0 / (base ** (torch.arange(0, n_elem, 2, dtype=dtype, device=device) / n_elem))
-
-    # Create position indexes `[0, 1, ..., seq_len - 1]`
-    seq_idx = torch.arange(seq_len, dtype=dtype, device=device)
-
-    # Calculate the product of position index and $\theta_i$
-    idx_theta = torch.outer(seq_idx, theta).float().repeat(1, 2)
-
-    cos, sin = torch.cos(idx_theta), torch.sin(idx_theta)
-
-    # this is to mimic the behaviour of complex32, else we will get different results
-    if dtype in (torch.float16, torch.bfloat16, torch.int8):
-        return cos.half(), sin.half()
-    return cos, sin
-
-
-def apply_rope(x: torch.Tensor, cos: torch.Tensor, sin: torch.Tensor) -> torch.Tensor:
-    head_size = x.size(-1)
-    x1 = x[..., : head_size // 2]  # (B, nh, T, hs/2)
-    x2 = x[..., head_size // 2 :]  # (B, nh, T, hs/2)
-    rotated = torch.cat((-x2, x1), dim=-1)  # (B, nh, T, hs)
-    roped = (x * cos) + (rotated * sin)
-    return roped.type_as(x)
