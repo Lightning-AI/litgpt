@@ -50,6 +50,7 @@ warmup_iters = 2000
 lr_decay_iters = max_iters
 min_lr = 6e-5
 seed = 1338
+fake_data = True  # FIXME
 
 hparams = {k: v for k, v in locals().items() if isinstance(v, (int, float, str)) and not k.startswith("_")}
 print(hparams)
@@ -201,25 +202,30 @@ def validate(
         losses[k] = loss.item()
     out = losses.mean()
 
-    input_ids, _ = get_batch(fabric, val_data, model.config.block_size)
-    input_ids = input_ids[:, :num_samples]
-    for ids in input_ids:
-        prompt = tokenizer.decode(ids)
-        y = generate(
-            model,
-            ids,
-            max_returned_tokens=ids.size(0) + 100,
-            max_seq_length=model.config.block_size,
-            temperature=0.8,
-            top_k=50,
-        )
-        fabric.print(f"Prompt: {prompt!r}: {tokenizer.decode(y)!r}")
+    if not fake_data:  # not really useful to see results with fake data
+        input_ids, _ = get_batch(fabric, val_data, model.config.block_size)
+        input_ids = input_ids[:, :num_samples]
+        for ids in input_ids:
+            prompt = tokenizer.decode(ids)
+            y = generate(
+                model,
+                ids,
+                max_returned_tokens=ids.size(0) + 100,
+                max_seq_length=model.config.block_size,
+                temperature=0.8,
+                top_k=50,
+            )
+            fabric.print(f"Prompt: {prompt!r}: {tokenizer.decode(y)!r}")
 
     model.train()
     return out
 
 
 def get_batch(fabric: L.Fabric, data: np.ndarray, block_size: int) -> Tuple[torch.Tensor, torch.Tensor]:
+    if fake_data:
+        x = torch.randint(0, 100, (micro_batch_size, block_size), device=fabric.device)
+        y = torch.randint_like(x, 0, 100)
+        return x, y
     ix = torch.randint(len(data) - block_size, (micro_batch_size,))
     x = torch.stack([torch.from_numpy((data[i : i + block_size]).astype(np.int64)) for i in ix])
     y = torch.stack([torch.from_numpy((data[i + 1 : i + 1 + block_size]).astype(np.int64)) for i in ix])
@@ -228,6 +234,8 @@ def get_batch(fabric: L.Fabric, data: np.ndarray, block_size: int) -> Tuple[torc
 
 
 def load_datasets(data_dir: Path) -> Tuple[np.ndarray, np.ndarray]:
+    if fake_data:
+        return None, None  # type: ignore
     train_data = np.memmap(str(data_dir / "train.bin"), dtype=np.uint16, mode="r")
     val_data = np.memmap(str(data_dir / "val.bin"), dtype=np.uint16, mode="r")
     return train_data, val_data
