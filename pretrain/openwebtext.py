@@ -24,9 +24,9 @@ from lightning.fabric.loggers import CSVLogger
 devices = 1
 precision = "16-mixed"
 
-out_dir = Path("out") / "openwebtext"
-data_dir = Path("data") / "openwebtext"
-name = "train-openwebtext"
+name = "openwebtext"
+out_dir = Path("out") / name
+data_dir = Path("data") / name
 eval_interval = 200
 save_interval = 400
 eval_iters = 100
@@ -54,7 +54,7 @@ fake_data = True  # FIXME
 
 hparams = {k: v for k, v in locals().items() if isinstance(v, (int, float, str)) and not k.startswith("_")}
 
-logger = CSVLogger(out_dir)
+logger = CSVLogger("out", name)
 
 
 def merge_by(dicts, key):
