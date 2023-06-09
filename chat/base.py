@@ -14,7 +14,7 @@ wd = Path(__file__).parent.parent.resolve()
 sys.path.append(str(wd))
 
 from lit_parrot import Parrot, Tokenizer, Config
-from lit_parrot.utils import EmptyInitOnDevice, lazy_load, check_valid_checkpoint_dir
+from lit_parrot.utils import lazy_load, check_valid_checkpoint_dir, quantization
 
 
 @torch.no_grad()
@@ -101,6 +101,7 @@ def main(
     temperature: float = 0.8,
     checkpoint_dir: Path = Path(f"checkpoints/stabilityai/stablelm-tuned-alpha-3b"),
     quantize: Literal["llm.int8", "gptq.int4"] = None,
+    precision: str = "bf16-true",
 ) -> None:
     """Starts a conversation with a tuned Parrot model.
 
@@ -112,14 +113,14 @@ def main(
         quantize: Whether to quantize the model and using which method:
             ``"llm.int8"``: LLM.int8() mode,
             ``"gptq.int4"``: GPTQ 4-bit mode.
+        precision: Indicates the Fabric precision setting to use.
     """
     check_valid_checkpoint_dir(checkpoint_dir)
 
     with open(checkpoint_dir / "lit_config.json") as fp:
         config = Config(**json.load(fp))
 
-    fabric = L.Fabric(devices=1)
-    dtype = torch.bfloat16 if fabric.device.type == "cuda" and torch.cuda.is_bf16_supported() else torch.float32
+    fabric = L.Fabric(devices=1, precision=precision)
 
     if quantize == "gptq.int4":
         model_file = "lit_model_gptq.4bit.pth"
@@ -129,7 +130,7 @@ def main(
         model_file = "lit_model.pth"
     checkpoint_path = checkpoint_dir / model_file
     print(f"Loading model {str(checkpoint_path)!r} with {config.__dict__}", file=sys.stderr)
-    with EmptyInitOnDevice(device=fabric.device, dtype=dtype, quantization_mode=quantize):
+    with fabric.init_module(empty_init=True), quantization(quantize):
         model = Parrot(config)
     with lazy_load(checkpoint_path) as checkpoint:
         model.load_state_dict(checkpoint, strict=False)
