@@ -18,7 +18,7 @@ sys.path.append(str(wd))
 from generate.base import generate
 from lit_parrot import Tokenizer
 from lit_parrot.adapter import Parrot, Config, Block
-from lit_parrot.utils import EmptyInitOnDevice, lazy_load, check_valid_checkpoint_dir
+from lit_parrot.utils import lazy_load, check_valid_checkpoint_dir, quantization
 from scripts.prepare_alpaca import generate_prompt
 
 
@@ -79,7 +79,7 @@ def main(
 
     fabric.print(f"Loading model {str(checkpoint_path)!r} with {config.__dict__}", file=sys.stderr)
     t0 = time.time()
-    with fabric.init_module(), EmptyInitOnDevice(quantization_mode=quantize):
+    with fabric.init_module(empty_init=True), quantization(quantize):
         model = Parrot(config)
     fabric.print(f"Time to instantiate model: {time.time() - t0:.02f} seconds.", file=sys.stderr)
 

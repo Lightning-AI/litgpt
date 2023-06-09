@@ -3,8 +3,10 @@
 import functools
 import pickle
 import warnings
+from contextlib import contextmanager
 from io import BytesIO
 from pathlib import Path
+from typing import Optional
 
 import torch
 import torch.utils._device
@@ -12,81 +14,33 @@ from torch.serialization import normalize_storage_type
 
 
 def find_multiple(n: int, k: int) -> int:
+    assert k > 0
     if n % k == 0:
         return n
     return n + k - (n % k)
 
 
-class EmptyInitOnDevice(torch.overrides.TorchFunctionMode):
-    def __init__(self, device=None, dtype=None, quantization_mode=None):
-        """
-        Create tensors with given device and dtype and don't run initialization
-           (but instead use "empty tensors", i.e. uninitialized memory).
+@contextmanager
+def quantization(mode: Optional[str] = None):
+    if mode is None:
+        yield
+        return
 
-            device: `torch.device` to work with
-            dtype: `torch.dtype` to work with
-            quantization_mode: optional string, quantization mode to work with, default `None`.
-                 Available modes: `llm.int8` bitsnbytes LLM.int8 quantization (only on GPU)
-                                  `gptq.int4`, `gptq.int8`: GPTQ pre-quantized models
+    if mode == "llm.int8":
+        from quantize.bnb import Linear8bitLt
 
-        Example::
-            with EmptyInitOnDevice("cuda", dtype=torch.bfloat16):
-               model = ...
-            model.load_state_dict(torch.load('checkpoint.pth'))
-        """
+        quantized_linear_cls = Linear8bitLt
+    elif mode == "gptq.int4":
+        from quantize.bnb import ColBlockQuantizedLinear
 
-        self.quantization_mode = quantization_mode
-        self.quantized_linear_cls = None
-        if self.quantization_mode == "llm.int8":
-            if device.type != "cuda":
-                raise ValueError("Quantization is only supported on the GPU.")
-            from quantize.bnb import Linear8bitLt
+        quantized_linear_cls = functools.partial(ColBlockQuantizedLinear, bits=4, tile_cols=-1)
+    else:
+        raise ValueError(f"Unknown quantization mode: {mode}")
 
-            self.quantized_linear_cls = Linear8bitLt
-        elif self.quantization_mode == "gptq.int4":
-            from quantize.bnb import ColBlockQuantizedLinear
-
-            self.quantized_linear_cls = functools.partial(ColBlockQuantizedLinear, bits=4, tile_cols=-1)
-        elif self.quantization_mode == "gptq.int8":
-            from quantize.bnb import ColBlockQuantizedLinear
-
-            self.quantized_linear_cls = functools.partial(ColBlockQuantizedLinear, bits=8, tile_cols=-1)
-        elif self.quantization_mode is not None:
-            raise RuntimeError(f"unknown quantization mode {self.quantization_mode}")
-        self.device = device
-        self.dtype = dtype
-
-    def __enter__(self):
-        if self.quantized_linear_cls != None:
-            self.torch_linear_cls = torch.nn.Linear
-            torch.nn.Linear = self.quantized_linear_cls
-        return super().__enter__()
-
-    def __exit__(self, exc_type, exc_val, exc_tb):
-        if self.quantized_linear_cls != None:
-            torch.nn.Linear = self.torch_linear_cls
-        return super().__exit__(exc_type, exc_val, exc_tb)
-
-    def __torch_function__(self, func, types, args=(), kwargs=None):
-        kwargs = kwargs or {}
-        if getattr(func, "__module__", None) == "torch.nn.init":
-            if "tensor" in kwargs:
-                return kwargs["tensor"]
-            else:
-                return args[0]
-        if (
-            self.device is not None
-            and func in torch.utils._device._device_constructors()
-            and kwargs.get("device") is None
-        ):
-            kwargs["device"] = self.device
-        if (
-            self.dtype is not None
-            and func in torch.utils._device._device_constructors()
-            and kwargs.get("dtype") is None
-        ):
-            kwargs["dtype"] = self.dtype
-        return func(*args, **kwargs)
+    torch_linear_cls = torch.nn.Linear
+    torch.nn.Linear = quantized_linear_cls
+    yield
+    torch.nn.Linear = torch_linear_cls
 
 
 # this is taken from torchhacks https://github.com/lernapparat/torchhacks
@@ -260,7 +214,7 @@ def check_valid_checkpoint_dir(checkpoint_dir: Path) -> None:
     supported = f"You can download:{joined}"
 
     raise OSError(
-        f"`--checkpoint_dir {str(checkpoint_dir)!r} is not a valid checkpoint directory."
+        f"`--checkpoint_dir {str(checkpoint_dir.absolute())!r} is not a valid checkpoint directory."
         " It must contain the files: 'lit_model.pth', 'lit_config.json', 'tokenizer.json' and 'tokenizer_config.json'."
         "\nPlease, follow the instructions at"
         " https://github.com/Lightning-AI/lit-parrot/blob/main/howto/download_stablelm.md\n"
@@ -290,13 +244,7 @@ class SavingProxyForStorage:
         storage_key = saver._write_storage_and_return_key(storage)
         location = torch.serialization.location_tag(storage)
 
-        self.storage_info = (
-            "storage",
-            storage_type,
-            storage_key,
-            location,
-            storage_numel,
-        )
+        self.storage_info = ("storage", storage_type, storage_key, location, storage_numel)
 
     def __reduce_ex__(self, protocol_version):
         assert False, "this should be handled with out of band"
@@ -305,22 +253,14 @@ class SavingProxyForStorage:
 class SavingProxyForTensor:
     def __init__(self, tensor, saver, protocol_version=5):
         self.protocol_version = protocol_version
-        self.reduce_ret_fn, (storage, *other_reduce_args) = tensor.__reduce_ex__(
-            protocol_version
-        )
-        assert isinstance(
-            storage, torch.storage.TypedStorage
-        ), "Please check for updates"
-        storage_proxy = SavingProxyForStorage(
-            storage, saver, protocol_version=protocol_version
-        )
+        self.reduce_ret_fn, (storage, *other_reduce_args) = tensor.__reduce_ex__(protocol_version)
+        assert isinstance(storage, torch.storage.TypedStorage), "Please check for updates"
+        storage_proxy = SavingProxyForStorage(storage, saver, protocol_version=protocol_version)
         self.reduce_args = (storage_proxy, *other_reduce_args)
 
     def __reduce_ex__(self, protocol_version):
         if protocol_version != self.protocol_version:
-            raise RuntimeError(
-                f"Unexpected protocol version: expected {self.protocol_version}, got {protocol_version}"
-            )
+            raise RuntimeError(f"Unexpected protocol version: expected {self.protocol_version}, got {protocol_version}")
         return self.reduce_ret_fn, self.reduce_args
 
 
@@ -364,8 +304,7 @@ class IncrementalPyTorchPickler(pickle.Pickler):
                 if storage.data_ptr() in self.storage_dtypes:
                     if storage_dtype != self.storage_dtypes[storage.data_ptr()]:
                         raise RuntimeError(
-                            "Cannot save multiple tensors or storages that "
-                            "view the same data as different types"
+                            "Cannot save multiple tensors or storages that view the same data as different types"
                         )
                 else:
                     self.storage_dtypes[storage.data_ptr()] = storage_dtype
