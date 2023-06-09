@@ -20,7 +20,7 @@ from lit_parrot import Tokenizer
 from lit_parrot.adapter import Block
 from lit_parrot.adapter import Parrot, Config
 from lit_parrot.adapter_v2 import add_adapter_v2_parameters_to_linear_layers
-from lit_parrot.utils import EmptyInitOnDevice, lazy_load, check_valid_checkpoint_dir
+from lit_parrot.utils import lazy_load, check_valid_checkpoint_dir, quantization
 from scripts.prepare_alpaca import generate_prompt
 
 
@@ -35,7 +35,7 @@ def main(
     temperature: float = 0.8,
     strategy: str = "auto",
     devices: int = 1,
-    precision: str = "bf16-true",
+    precision: str = "bf16-true" if torch.cuda.is_bf16_supported() else "32-true",
 ) -> None:
     """Generates a response based on a given instruction and an optional input.
     This script will only work with checkpoints from the instruction-tuned Parrot-AdapterV2 model.
@@ -81,7 +81,7 @@ def main(
 
     fabric.print(f"Loading model {str(checkpoint_path)!r} with {config.__dict__}", file=sys.stderr)
     t0 = time.time()
-    with fabric.init_module(), EmptyInitOnDevice(quantization_mode=quantize):
+    with fabric.init_module(empty_init=True), quantization(quantize):
         model = Parrot(config)
         add_adapter_v2_parameters_to_linear_layers(model)
     fabric.print(f"Time to instantiate model: {time.time() - t0:.02f} seconds.", file=sys.stderr)
