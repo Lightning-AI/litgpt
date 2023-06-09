@@ -11,13 +11,14 @@ from typing import Optional
 
 from datasets import load_dataset
 import torch
+from lightning import Fabric
 
 # support running without installing as a package
 wd = Path(__file__).parent.parent.resolve()
 sys.path.append(str(wd))
 
 from lit_parrot import Parrot, Tokenizer, Config
-from lit_parrot.utils import EmptyInitOnDevice, check_valid_checkpoint_dir
+from lit_parrot.utils import check_valid_checkpoint_dir, lazy_load
 
 
 class GPTQQuantizer:
@@ -212,7 +213,6 @@ class GPTQQuantizer:
 
 
 def get_sample_data():
-
     traindata = load_dataset(
         "allenai/c4", "allenai--c4", data_files={"train": "en/c4-train.00000-of-01024.json.gz"}, split="train"
     )
@@ -317,7 +317,7 @@ def main(
     checkpoint_dir: Path = Path(f"checkpoints/stabilityai/stablelm-base-alpha-3b"),
     output_path: Optional[Path] = None,
     n_samples: int = 128,
-    dtype: str = "bfloat16",
+    precision: str = "bf16-true",
 ) -> None:
     """Generates text samples based on a pre-trained LLaMA model and tokenizer.
 
@@ -325,7 +325,7 @@ def main(
         checkpoint_dir: The checkpoint directory to load.
         output_path: Path to write the quantized model's state dict to.
         n_samples: Number of example inputs to use for statistics (default: 128)
-        dtype: The dtype to use to load the model.
+        precision: The precision to use to load the model.
     """
     if output_path is None:
         output_path = checkpoint_dir / "lit_model_gptq.4bit.pth"
@@ -335,18 +335,15 @@ def main(
         config = Config(**json.load(fp))
 
     device = "cuda"
-    dt = getattr(torch, dtype, None)
-    if not isinstance(dt, torch.dtype):
-        raise ValueError(f"{dtype} is not a valid dtype.")
-    dtype = dt
+    fabric = Fabric(accelerator="cuda", precision=precision)
 
     # we avoid loading the entire model on the GPU and do this block by block
     checkpoint_path = checkpoint_dir / "lit_model.pth"
     print(f"Loading model {str(checkpoint_path)!r} with {config.__dict__}", file=sys.stderr)
     t0 = time.time()
-    with EmptyInitOnDevice(device="cpu", dtype=dtype):
+    with fabric.init_module(empty_init=True):
         model = Parrot(config)
-        checkpoint = torch.load(checkpoint_path)
+    with lazy_load(checkpoint_path) as checkpoint:
         model.load_state_dict(checkpoint)
     print(f"Time to load model: {time.time() - t0:.02f} seconds.", file=sys.stderr)
 
