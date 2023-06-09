@@ -173,31 +173,27 @@ class SpeedMonitor:
 
     def batch_end(
         self,
-        samples: int,
-        train_elapsed: float,  # seconds
+        samples: int,  # total samples seen (per device)
+        train_elapsed: float,  # total training time (seconds)
         world_size: int,
-        flops_per_batch: Optional[float] = None,
+        flops_per_batch: Optional[float] = None,  # flops per batch (per device)
         max_seq_length: Optional[int] = None,
     ):
-        # Add the new element
         self.history_samples.append(samples)
         self.history_wct.append(train_elapsed)
 
         self.step += 1
         step = self.step
 
-        # Log the throughput
         if len(self.history_wct) == self.history_wct.maxlen:
             elapsed_batches = len(self.history_samples) - 1
             elapsed_samples = int(self.history_samples[-1]) - int(self.history_samples[0])
             elapsed_wct = self.history_wct[-1] - self.history_wct[0]
-            batches_per_sec = elapsed_batches / elapsed_wct
-            samples_per_sec = elapsed_samples / elapsed_wct
-            dev_batches_per_sec = batches_per_sec / world_size
-            dev_samples_per_sec = samples_per_sec / world_size
-            self.logger.log_metrics({"throughput/batches_per_sec": batches_per_sec}, step)
+            samples_per_sec = elapsed_samples * world_size / elapsed_wct
+            dev_samples_per_sec = elapsed_samples / elapsed_wct
+            self.logger.log_metrics({"throughput/batches_per_sec": elapsed_batches * world_size / elapsed_wct}, step)
             self.logger.log_metrics({"throughput/samples_per_sec": samples_per_sec}, step)
-            self.logger.log_metrics({"throughput/device/batches_per_sec": dev_batches_per_sec}, step)
+            self.logger.log_metrics({"throughput/device/batches_per_sec": elapsed_batches / elapsed_wct}, step)
             self.logger.log_metrics({"throughput/device/samples_per_sec": dev_samples_per_sec}, step)
 
             # Assumes no padding.
@@ -212,7 +208,6 @@ class SpeedMonitor:
             # sum of flops per batch across ranks
             self.history_flops.append(flops_per_batch * world_size)
 
-        # Log the flops throughput
         if len(self.history_flops) == self.history_flops.maxlen:
             elapsed_flops = sum(self.history_flops) - self.history_flops[0]
             elapsed_wct = self.history_wct[-1] - self.history_wct[0]
@@ -224,7 +219,6 @@ class SpeedMonitor:
                 mfu = device_flops_per_sec / self.gpu_flops_available
                 self.logger.log_metrics({"throughput/device/mfu": mfu}, step)
 
-        # Log the time
         self.logger.log_metrics(
             {
                 "time/train": train_elapsed / self.divider,
@@ -233,6 +227,7 @@ class SpeedMonitor:
             },
             step,
         )
+        self.logger.log_metrics({"samples": samples}, step)
 
     def eval_end(self, eval_elapsed: float):
         self.total_eval_wct += eval_elapsed  # seconds
@@ -242,7 +237,7 @@ def total_flops(model: Parrot):
     n_params = sum(p.numel() for p in model.parameters())
     # credit: https://github.com/mosaicml/llm-foundry/blob/main/scripts/train/benchmarking/collect_results.py#L144-L156
     # mfu is approximated using thoughtput and param count
-    # the number of paramters is approximately the number of multiply-accumulates (MAC) in the network
+    # the number of parameters is approximately the number of multiply-accumulates (MAC) in the network
     # each MAC has 2 FLOPs - we multiply by 2 ie 2 * n_param
     # there are 3 passes of a NN (fwd, bwd, delta) - we multiply by 3 ie 2 * 3 * n_param
     # this gets us FLOPs / token
