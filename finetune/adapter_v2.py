@@ -1,11 +1,10 @@
-import json
 import os
 import shutil
 import sys
 import time
 import warnings
 from pathlib import Path
-from typing import Optional, Literal
+
 
 import lightning as L
 import numpy as np
@@ -61,7 +60,6 @@ def main(
 ):
     check_valid_checkpoint_dir(checkpoint_dir)
 
-
     fabric = L.Fabric(
         devices=devices, strategy=(DeepSpeedStrategy(config=ds_config) if devices > 1 else "auto"), precision=precision
     )
@@ -99,13 +97,14 @@ def main(
 
 
 def train(
-        fabric: L.Fabric,
-        model: torch.nn.Module,
-        optimizer: torch.optim.Optimizer,
-        train_data: np.ndarray,
-        val_data: np.ndarray,
-        checkpoint_dir: Path,
-        out_dir: Path) -> None:
+    fabric: L.Fabric,
+    model: torch.nn.Module,
+    optimizer: torch.optim.Optimizer,
+    train_data: np.ndarray,
+    val_data: np.ndarray,
+    checkpoint_dir: Path,
+    out_dir: Path,
+) -> None:
     """The training loop.
 
     Loosely based on the nanoGPT implementation: https://github.com/karpathy/nanoGPT.
