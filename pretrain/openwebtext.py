@@ -53,7 +53,6 @@ seed = 1338
 fake_data = True  # FIXME
 
 hparams = {k: v for k, v in locals().items() if isinstance(v, (int, float, str)) and not k.startswith("_")}
-print(hparams)
 
 logger = CSVLogger(out_dir)
 
@@ -87,9 +86,11 @@ logger.experiment.save = MethodType(save, logger.experiment)
 speed_monitor = SpeedMonitor(logger, precision, window_size=50, time_unit="seconds")
 
 
-def main(checkpoint_dir: Path = Path(f"checkpoints/stabilityai/stablelm-base-alpha-3b")) -> None:
+def main(checkpoint_dir: Path = Path(f"checkpoints/EleutherAI/pythia-1b")) -> None:
     fabric = L.Fabric(devices=devices, precision=precision)
     fabric.launch()
+
+    fabric.print(hparams)
 
     check_valid_checkpoint_dir(checkpoint_dir)
 
@@ -109,9 +110,8 @@ def main(checkpoint_dir: Path = Path(f"checkpoints/stabilityai/stablelm-base-alp
         model = Parrot(config)
     fabric.print(f"Time to instantiate model: {time.time() - t0:.02f} seconds.", file=sys.stderr)
 
-    num_trainable_params = sum(p.numel() for p in model.parameters() if p.requires_grad)
     num_total_params = sum(p.numel() for p in model.parameters())
-    fabric.print("Total parameters", num_total_params, ", trainable parameters", num_trainable_params)
+    fabric.print(f"Total parameters {num_total_params}")
 
     tokenizer = Tokenizer(checkpoint_dir / "tokenizer.json", checkpoint_dir / "tokenizer_config.json")
 
@@ -132,7 +132,10 @@ def train(
     validate(fabric, model, tokenizer, val_data)  # sanity check
 
     flops = total_flops(model)
-    print("Model TFLOPs", flops / 1e12)
+    fabric.print(
+        f"TFLOPs per sequence {flops / 1e12:.2f}, total TFLOPs"
+        f" {flops * micro_batch_size * fabric.world_size / 1e12:.2f}"
+    )
     step_count = 0
     total_t0 = time.time()
 
