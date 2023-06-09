@@ -14,28 +14,29 @@ import torch
 wd = Path(__file__).parent.parent.resolve()
 sys.path.append(str(wd))
 
-from lit_parrot import Config, Parrot, Tokenizer
+from lit_parrot import Config, Tokenizer
+from lit_parrot.model import Parrot
 from lit_parrot.utils import check_valid_checkpoint_dir
 from generate.base import generate
-from lit_parrot.speed_monitor import SpeedMonitor, total_flops
+from lit_parrot.speed_monitor import SpeedMonitor, measure_flops, estimate_flops
 from lightning.fabric.loggers import CSVLogger
 
 
-devices = 1
-precision = "16-mixed"
+devices = 8
+precision = "bf16-mixed"
 
 name = "openwebtext"
 out_dir = Path("out") / name
 data_dir = Path("data") / name
-eval_interval = 200
-save_interval = 400
-eval_iters = 100
+eval_interval = 99999999999999999
+save_interval = 99999999999999999
+eval_iters = 0
 log_interval = 1
 
 # Hyperparameters
 learning_rate = 6e-4
-batch_size = 64 / devices
-micro_batch_size = 4  # FIXME
+batch_size = 3
+micro_batch_size = 3
 gradient_accumulation_steps = batch_size // micro_batch_size
 assert gradient_accumulation_steps > 0
 epoch_size = 50000  # train dataset size
@@ -131,10 +132,13 @@ def train(
 ) -> None:
     validate(fabric, model, tokenizer, val_data)  # sanity check
 
-    flops = total_flops(model)
+    estimated_flops = estimate_flops(model) * micro_batch_size
+    measured_flops = measure_flops(
+        model, torch.randint(0, 1, (micro_batch_size, model.config.block_size), device=fabric.device)
+    )
     fabric.print(
-        f"TFLOPs per sequence {flops / 1e12:.2f}, total TFLOPs"
-        f" {flops * micro_batch_size * fabric.world_size / 1e12:.2f}"
+        f"Estimated TFLOPs {estimated_flops * fabric.world_size / 1e12:.2f}, measured"
+        f" {measured_flops * fabric.world_size / 1e12:.2f}"
     )
     step_count = 0
     total_t0 = time.time()
@@ -164,11 +168,13 @@ def train(
             did_step = True
 
         t1 = time.time()
-        speed_monitor.batch_end(
+        speed_monitor.on_train_batch_end(
             (iter_num + 1) * micro_batch_size,
             t1 - total_t0,
+            # this assumes that device FLOPs are the same and that all devices have the same batch size
             fabric.world_size,
-            flops_per_batch=flops * micro_batch_size,
+            estimated_flops_per_batch=estimated_flops,
+            measured_flops_per_batch=measured_flops,
             max_seq_length=model.config.block_size,
         )
         if iter_num % log_interval == 0:

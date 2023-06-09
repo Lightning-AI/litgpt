@@ -2,10 +2,12 @@
 # SPDX-License-Identifier: Apache-2.0
 # Adapted for standalone use
 from collections import deque
+from contextlib import nullcontext
 from typing import Deque, Optional
 
 import torch
 from lightning.fabric.loggers import Logger
+from torch.utils.flop_counter import FlopCounterMode
 
 from lit_parrot import Parrot
 
@@ -151,7 +153,8 @@ class SpeedMonitor:
         # Track the batch num samples and wct to compute throughput over a window of batches
         self.history_samples: Deque[int] = deque(maxlen=window_size + 1)
         self.history_wct: Deque[float] = deque(maxlen=window_size + 1)
-        self.history_flops: Deque[float] = deque(maxlen=window_size + 1)
+        self.history_estimated_flops: Deque[float] = deque(maxlen=window_size + 1)
+        self.history_measured_flops: Deque[float] = deque(maxlen=window_size + 1)
 
         self.divider = 1
         if time_unit == "seconds":
@@ -171,12 +174,13 @@ class SpeedMonitor:
         self.total_eval_wct = 0.0
         self.step = -1
 
-    def batch_end(
+    def on_train_batch_end(
         self,
         samples: int,  # total samples seen (per device)
         train_elapsed: float,  # total training time (seconds)
         world_size: int,
-        flops_per_batch: Optional[float] = None,  # flops per batch (per device)
+        estimated_flops_per_batch: Optional[float] = None,  # (per device)
+        measured_flops_per_batch: Optional[float] = None,  # (per device)
         max_seq_length: Optional[int] = None,
     ):
         self.history_samples.append(samples)
@@ -204,20 +208,32 @@ class SpeedMonitor:
                     {"throughput/device/tokens_per_sec": dev_samples_per_sec * max_seq_length}, step
                 )
 
-        if flops_per_batch is not None:
+        if estimated_flops_per_batch is not None:
             # sum of flops per batch across ranks
-            self.history_flops.append(flops_per_batch * world_size)
-
-        if len(self.history_flops) == self.history_flops.maxlen:
-            elapsed_flops = sum(self.history_flops) - self.history_flops[0]
+            self.history_estimated_flops.append(estimated_flops_per_batch * world_size)
+        if len(self.history_estimated_flops) == self.history_estimated_flops.maxlen:
+            elapsed_flops = sum(self.history_estimated_flops) - self.history_estimated_flops[0]
             elapsed_wct = self.history_wct[-1] - self.history_wct[0]
             flops_per_sec = elapsed_flops / elapsed_wct
             device_flops_per_sec = flops_per_sec / world_size
-            self.logger.log_metrics({"throughput/flops_per_sec": flops_per_sec}, step)
-            self.logger.log_metrics({"throughput/device/flops_per_sec": device_flops_per_sec}, step)
+            self.logger.log_metrics({"throughput/estimated_flops_per_sec": flops_per_sec}, step)
+            self.logger.log_metrics({"throughput/device/estimated_flops_per_sec": device_flops_per_sec}, step)
             if self.gpu_flops_available:
                 mfu = device_flops_per_sec / self.gpu_flops_available
-                self.logger.log_metrics({"throughput/device/mfu": mfu}, step)
+                self.logger.log_metrics({"throughput/device/estimated_mfu": mfu}, step)
+        if measured_flops_per_batch is not None:
+            # sum of flops per batch across ranks
+            self.history_measured_flops.append(measured_flops_per_batch * world_size)
+        if len(self.history_measured_flops) == self.history_measured_flops.maxlen:
+            elapsed_flops = sum(self.history_measured_flops) - self.history_measured_flops[0]
+            elapsed_wct = self.history_wct[-1] - self.history_wct[0]
+            flops_per_sec = elapsed_flops / elapsed_wct
+            device_flops_per_sec = flops_per_sec / world_size
+            self.logger.log_metrics({"throughput/measured_flops_per_sec": flops_per_sec}, step)
+            self.logger.log_metrics({"throughput/device/measured_flops_per_sec": device_flops_per_sec}, step)
+            if self.gpu_flops_available:
+                mfu = device_flops_per_sec / self.gpu_flops_available
+                self.logger.log_metrics({"throughput/device/measured_mfu": mfu}, step)
 
         self.logger.log_metrics(
             {
@@ -233,18 +249,24 @@ class SpeedMonitor:
         self.total_eval_wct += eval_elapsed  # seconds
 
 
-def total_flops(model: Parrot):
+def estimate_flops(model: Parrot) -> int:
+    """Measures estimated FLOPs for MFU: https://arxiv.org/abs/2205.05198"""
     n_params = sum(p.numel() for p in model.parameters())
-    # credit: https://github.com/mosaicml/llm-foundry/blob/main/scripts/train/benchmarking/collect_results.py#L144-L156
-    # mfu is approximated using thoughtput and param count
-    # the number of parameters is approximately the number of multiply-accumulates (MAC) in the network
-    # each MAC has 2 FLOPs - we multiply by 2 ie 2 * n_param
-    # there are 3 passes of a NN (fwd, bwd, delta) - we multiply by 3 ie 2 * 3 * n_param
-    # this gets us FLOPs / token
+    # credit: https://github.com/mosaicml/examples/blob/release/v0.0.4/examples/llm/throughput/README.md#mfu-and-hfu
     flops_per_token = 2 * n_params
     flops_per_seq = flops_per_token * model.config.block_size
-    # there are 2 FLOPS per mac; there is A=Q*K^T and out=A*V ops (ie mult by 2)
     attn_flops_per_seq = model.config.n_layer * 2 * 2 * (model.config.n_embd * (model.config.block_size**2))
-    # there are 2 ops in bwd pass and 1 in fwd pass so we mult by 3
-    total_flops = 3 * (flops_per_seq + attn_flops_per_seq)
+    mult = 3 if model.training else 1
+    total_flops = mult * (flops_per_seq + attn_flops_per_seq)
     return total_flops
+
+
+def measure_flops(model: Parrot, x: torch.Tensor) -> int:
+    """Measures real FLOPs for HFU"""
+    flop_counter = FlopCounterMode(model, display=False)
+    ctx = nullcontext() if model.training else torch.no_grad()
+    with ctx, flop_counter:
+        y = model(x)
+        if model.training:
+            y.sum().backward()
+    return flop_counter.get_total_flops()
