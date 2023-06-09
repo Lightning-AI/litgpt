@@ -45,7 +45,9 @@ def prepare(
     check_valid_checkpoint_dir(checkpoint_dir)
 
     if max_seq_length is None:
-        max_seq_length = json.load(checkpoint_dir / "lit_config.json")["block_size"]
+        with open(checkpoint_dir / "lit_config.json", "r") as file:
+            config = json.loads(file.read())
+            max_seq_length = config["block_size"]
 
     destination_path.mkdir(parents=True, exist_ok=True)
     data_file_path = destination_path / data_file_name
