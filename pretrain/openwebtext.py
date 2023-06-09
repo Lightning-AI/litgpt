@@ -111,7 +111,7 @@ def main(checkpoint_dir: Path = Path(f"checkpoints/stabilityai/stablelm-base-alp
 
     num_trainable_params = sum(p.numel() for p in model.parameters() if p.requires_grad)
     num_total_params = sum(p.numel() for p in model.parameters())
-    fabric.print("Total parameters (M)", num_total_params, ", trainable parameters (M)", num_trainable_params)
+    fabric.print("Total parameters", num_total_params, ", trainable parameters", num_trainable_params)
 
     tokenizer = Tokenizer(checkpoint_dir / "tokenizer.json", checkpoint_dir / "tokenizer_config.json")
 
