@@ -52,7 +52,7 @@ class Parrot(BaseParrot):
         idx: torch.Tensor,
         max_seq_length: Optional[int] = None,
         input_pos: Optional[torch.Tensor] = None,
-        padding_multiple: int = 3,
+        padding_multiple: int = 8,
     ) -> Union[torch.Tensor, Tuple[torch.Tensor, List[KVCache]]]:
         B, T = idx.size()
 
@@ -95,11 +95,11 @@ class Parrot(BaseParrot):
 
         if input_pos is None:  # proxy for use_cache=False
             for block in self.transformer.h:
-                x, *_ = block(x, (cos, sin), mask, max_seq_length)
+                x, *_ = block(x, (cos, sin), mask, max_seq_length, padding=padding)
         else:
             self.kv_caches = self.kv_caches or self.build_kv_caches(x, max_seq_length, cos.size(-1))
             for i, block in enumerate(self.transformer.h):
-                x, self.kv_caches[i] = block(x, (cos, sin), mask, max_seq_length, input_pos, self.kv_caches[i])
+                x, self.kv_caches[i] = block(x, (cos, sin), mask, max_seq_length, input_pos, self.kv_caches[i], padding)
 
         logits = self.ln_f_lm_head(x)  # (b, t, vocab_size)
 
@@ -151,6 +151,7 @@ class Block(nn.Module):
         max_seq_length: int,
         input_pos: Optional[torch.Tensor] = None,
         kv_cache: Optional[KVCache] = None,
+        padding: int = 0,
     ) -> Tuple[torch.Tensor, Optional[KVCache]]:
         B, T, C = x.size()  # batch size, sequence length, embedding dimensionality (n_embd)
 
@@ -180,6 +181,7 @@ class Block(nn.Module):
 
         if input_pos is not None and kv_cache is not None:
             cache_k, cache_v = kv_cache
+            cache_k, cache_v = cache_k.to(dtype=k.dtype), cache_v.to(dtype=v.dtype)
             # check if reached token limit
             if input_pos[-1] >= max_seq_length:
                 input_pos = torch.tensor(max_seq_length - 1, device=input_pos.device)
@@ -187,7 +189,6 @@ class Block(nn.Module):
                 cache_k = torch.roll(cache_k, -1, dims=2)
                 cache_v = torch.roll(cache_v, -1, dims=2)
             padding_idx = cache_k.size(2) - 1  # send padding data to a padding index, doesn't matter which
-            padding = T - input_pos.size(0)
             input_pos = torch.cat(
                 (input_pos, torch.full((padding,), padding_idx, device=input_pos.device, dtype=input_pos.dtype))
             )
@@ -204,10 +205,14 @@ class Block(nn.Module):
             y = y.transpose(0, 1)
         else:
             scale = 1.0 / math.sqrt(self.config.head_size)
-            att = (q @ k.transpose(-2, -1)) * scale
-            att = torch.masked_fill(att, ~mask, torch.finfo(att.dtype).min)
-            att = F.softmax(att, dim=-1)
-            y = att @ v  # (B, nh, T, T) x (B, nh, T, hs) -> (B, nh, T, hs)
+            if padding == 0:
+                y = F.scaled_dot_product_attention(q, k, v, mask, dropout_p=0.0, scale=scale)
+            else:
+                att = (q @ k.transpose(-2, -1)) * scale  # (B, nh, T, T)
+                att = torch.masked_fill(att, ~mask, torch.finfo(att.dtype).min)
+                att = F.softmax(att, dim=-1)
+                y = att @ v  # (B, nh, T, hs)
+
             y = y.transpose(1, 2).contiguous().view(B, T, C)  # re-assemble all head outputs side by side
 
         # output projection
