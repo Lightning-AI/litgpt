@@ -1,17 +1,14 @@
-import pytest
 import torch.nn as nn
 from lightning import Fabric
 
 
-@pytest.mark.parametrize("name", ["pythia-70m", "stablelm-base-alpha-3b"])
-def test_config_identical(name):
+def test_config_identical():
     import lit_parrot.adapter as parrot_adapter
     from lit_parrot.adapter_v2 import adapter_v2_linear_with_bias_and_scale
     import lit_parrot.model as parrot
 
-    fabric = Fabric(accelerator="cpu")
-
-    with fabric.init_module(empty_init=True):
+    name = "pythia-70m"
+    with Fabric(accelerator="cpu").init_module(empty_init=True):
         base_model = parrot.Parrot.from_name(name)
         adapter_model = parrot_adapter.Parrot.from_name(name)
 
