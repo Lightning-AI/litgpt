@@ -4,7 +4,7 @@ import sys
 import time
 import warnings
 from pathlib import Path
-from typing import Literal
+from typing import Optional
 
 import lightning as L
 import numpy as np
@@ -56,10 +56,11 @@ def setup(
     data_dir: Path = Path("data/alpaca"),
     checkpoint_dir: Path = Path("checkpoints/stabilityai/stablelm-base-alpha-3b"),
     out_dir: Path = Path("out/adapter/alpaca"),
-    precision: str = "bf16-true",
+    precision: Optional[str] = None,
     tpu: bool = False,
-    devices: int = devices,
 ):
+    if precision is None:
+        precision = "32-true" if tpu else "16-true"
     strategy = (
         "auto"
         if devices <= 1
@@ -67,7 +68,7 @@ def setup(
     )
     # For multi-host TPU training, the device count for Fabric is limited to the count on a single host.
     fabric_devices = "auto" if (tpu and devices > 1) else devices
-    fabric = L.Fabric(devices=fabric_devices, strategy=strategy, precision="32-true" if tpu else precision)
+    fabric = L.Fabric(devices=fabric_devices, strategy=strategy, precision=precision)
     fabric.launch(main, data_dir, checkpoint_dir, out_dir)
 
 
