@@ -127,7 +127,7 @@ def train(
             step_count += 1
 
             if step_count % eval_interval == 0:
-                val_loss = validate(fabric, model, val_data, tokenizer, max_seq_length=model.config.block_size)
+                val_loss = validate(fabric, model, val_data, tokenizer)
                 fabric.print(f"step {iter_num}: val loss {val_loss:.4f}")
                 fabric.barrier()
 
@@ -144,7 +144,7 @@ def train(
 
 @torch.no_grad()
 def validate(
-    fabric: L.Fabric, model: torch.nn.Module, val_data: np.ndarray, tokenizer: Tokenizer, max_seq_length: int
+    fabric: L.Fabric, model: torch.nn.Module, val_data: np.ndarray, tokenizer: Tokenizer
 ) -> torch.Tensor:
     fabric.print("Validating ...")
     model.eval()
@@ -163,7 +163,7 @@ def validate(
     prompt = generate_prompt(sample)
     encoded = tokenizer.encode(prompt, device=model.device)
     output = generate(
-        model, idx=encoded, max_returned_tokens=len(encoded) + 100, max_seq_length=max_seq_length, temperature=0.8
+        model, idx=encoded, max_returned_tokens=len(encoded) + 100, max_seq_length=model.config.block_size, temperature=0.8
     )
     output = tokenizer.decode(output)
     fabric.print(output)

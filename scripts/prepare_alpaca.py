@@ -2,7 +2,6 @@
 import json
 import sys
 from pathlib import Path
-from typing import Optional
 
 import requests
 import torch
@@ -14,7 +13,6 @@ wd = Path(__file__).parent.parent.resolve()
 sys.path.append(str(wd))
 
 from lit_parrot.tokenizer import Tokenizer
-from lit_parrot.utils import check_valid_checkpoint_dir
 
 DATA_FILE_URL = "https://raw.githubusercontent.com/tloen/alpaca-lora/main/alpaca_data_cleaned_archive.json"
 DATA_FILE_NAME = "alpaca_data_cleaned_archive.json"
@@ -30,7 +28,6 @@ def prepare(
     destination_path: Path = DESTINATION_PATH,
     checkpoint_dir: Path = CHECKPOINT_DIR,
     test_split_size: int = TEST_SPLIT_SIZE,
-    max_seq_length: Optional[int] = None,  # default will match block_size of checkpoint
     seed: int = SEED,
     mask_inputs: bool = MASK_INPUTS,
     data_file_name: str = DATA_FILE_NAME,
@@ -42,12 +39,9 @@ def prepare(
     The output is a training and validation dataset saved as `train.pt` and `val.pt`,
     which stores the preprocessed and tokenized prompts and labels.
     """
-    check_valid_checkpoint_dir(checkpoint_dir)
-
-    if max_seq_length is None:
-        with open(checkpoint_dir / "lit_config.json", "r") as file:
-            config = json.loads(file.read())
-            max_seq_length = config["block_size"]
+    with open(checkpoint_dir / "lit_config.json", "r") as file:
+        config = json.loads(file.read())
+        max_seq_length = config["block_size"]
 
     destination_path.mkdir(parents=True, exist_ok=True)
     data_file_path = destination_path / data_file_name
