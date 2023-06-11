@@ -4,12 +4,12 @@ import sys
 import time
 import warnings
 from pathlib import Path
+from typing import Optional
 
 import lightning as L
 import numpy as np
 import torch
-from lightning.fabric.accelerators.mps import MPSAccelerator
-from lightning.fabric.strategies import DeepSpeedStrategy
+from lightning.fabric.strategies import DeepSpeedStrategy, XLAStrategy
 
 # support running without installing as a package
 wd = Path(__file__).parent.parent.resolve()
@@ -46,18 +46,33 @@ ds_config = {
 }
 
 
-def main(
+def setup(
     data_dir: Path = Path("data/alpaca"),
     checkpoint_dir: Path = Path("checkpoints/stabilityai/stablelm-base-alpha-3b"),
     out_dir: Path = Path("out/adapter/alpaca"),
-    precision: str = "bf16-true",
+    precision: Optional[str] = None,
+    tpu: bool = False,
+):
+    if precision is None:
+        precision = "32-true" if tpu else "16-true"
+    strategy = (
+        "auto"
+        if devices <= 1
+        else XLAStrategy(sync_module_states=False) if tpu else DeepSpeedStrategy(config=ds_config)
+    )
+    # For multi-host TPU training, the device count for Fabric is limited to the count on a single host.
+    fabric_devices = "auto" if (tpu and devices > 1) else devices
+    fabric = L.Fabric(devices=fabric_devices, strategy=strategy, precision=precision)
+    fabric.launch(main, data_dir, checkpoint_dir, out_dir)
+
+
+def main(
+    fabric: L.Fabric = None,
+    data_dir: Path = Path("data/alpaca"),
+    checkpoint_dir: Path = Path("checkpoints/stabilityai/stablelm-base-alpha-3b"),
+    out_dir: Path = Path("out/adapter/alpaca"),
 ):
     check_valid_checkpoint_dir(checkpoint_dir)
-
-    fabric = L.Fabric(
-        devices=devices, strategy=(DeepSpeedStrategy(config=ds_config) if devices > 1 else "auto"), precision=precision
-    )
-    fabric.launch()
     fabric.seed_everything(1337 + fabric.global_rank)
 
     if fabric.global_rank == 0:
@@ -80,7 +95,10 @@ def main(
 
     optimizer = torch.optim.AdamW(model.parameters(), lr=learning_rate, weight_decay=weight_decay)
     model, optimizer = fabric.setup(model, optimizer)
+
+    train_time = time.time()
     train(fabric, model, optimizer, train_data, val_data, checkpoint_dir, out_dir)
+    print(f"Training time: {(time.time()-train_time):.2f}s")
 
     # Save the final checkpoint at the end of training
     save_path = out_dir / "lit_model_adapter_finetuned.pth"
@@ -105,6 +123,10 @@ def train(
 
     tokenizer = Tokenizer(checkpoint_dir / "tokenizer.json", checkpoint_dir / "tokenizer_config.json")
 
+    if fabric.device.type == "xla":
+        import torch_xla.core.xla_model as xm
+
+        xm.mark_step()
     for iter_num in range(max_iters):
         if step_count <= warmup_iters:
             # linear warmup
@@ -123,6 +145,8 @@ def train(
 
         if (iter_num + 1) % gradient_accumulation_steps == 0:
             optimizer.step()
+            if fabric.device.type == "xla":
+                xm.mark_step()
             optimizer.zero_grad()
             step_count += 1
 
@@ -136,6 +160,9 @@ def train(
                 fabric.print(f"Saving adapter weights to {str(save_path)!r}")
                 # TODO: Provide a function/script to merge the adapter weights with pretrained weights
                 save_model_checkpoint(fabric, model, save_path)
+        else:
+            if fabric.device.type == "xla":
+                xm.mark_step()
 
         dt = time.time() - t0
         if iter_num % log_interval == 0:
@@ -186,7 +213,7 @@ def get_batch(fabric: L.Fabric, data: list):
     input_ids = [data[i]["input_ids"].type(torch.int64) for i in ix]
     labels = [data[i]["labels"].type(torch.int64) for i in ix]
 
-    max_len = max(len(s) for s in input_ids)
+    max_len = max(len(s) for s in input_ids) if fabric.device.type != "xla" else max_seq_length
 
     def pad_right(x, pad_id):
         # pad right based on the longest sequence
@@ -196,7 +223,7 @@ def get_batch(fabric: L.Fabric, data: list):
     x = torch.stack([pad_right(x, pad_id=0) for x in input_ids])
     y = torch.stack([pad_right(x, pad_id=-1) for x in labels])
 
-    if isinstance(fabric.accelerator, MPSAccelerator):
+    if fabric.device.type in ("mps", "xla"):
         x, y = fabric.to_device((x, y))
     else:
         x, y = fabric.to_device((x.pin_memory(), y.pin_memory()))
@@ -245,4 +272,5 @@ if __name__ == "__main__":
         "ignore",
         message="Remove `.no_backward_sync()` from your code",
     )
-    CLI(main)
+
+    CLI(setup)
