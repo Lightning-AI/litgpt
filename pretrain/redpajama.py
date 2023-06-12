@@ -8,7 +8,7 @@ from typing import Tuple, Optional
 
 import lightning as L
 import torch
-from lightning.fabric.strategies import FSDPStrategy
+from lightning.fabric.strategies import FSDPStrategy, XLAStrategy
 from torch.distributed.fsdp.wrap import transformer_auto_wrap_policy
 from torch.utils.data import DataLoader
 
@@ -52,16 +52,39 @@ data_config = [
 ]
 
 
+def setup(
+    devices: int = 4,
+    train_data_dir: Path = Path("data/lit-redpajama"),
+    val_data_dir: Optional[Path] = None,
+    precision: Optional[str] = None,
+    tpu: bool = False,
+) -> None:
+    if precision is None:
+        precision = "32-true" if tpu else "16-true"
+    if precision is None:
+        precision = "32-true" if tpu else "16-true"
+    if devices > 1:
+        if tpu:
+            # For multi-host TPU training, the device count for Fabric is limited to the count on a single host.
+            devices = "auto"
+            strategy = XLAStrategy(sync_module_states=False)
+        else:
+            auto_wrap_policy = partial(transformer_auto_wrap_policy, transformer_layer_cls={Block})
+            strategy = FSDPStrategy(
+                auto_wrap_policy=auto_wrap_policy, activation_checkpointing=Block, state_dict_type="full"
+            )
+    else:
+        strategy = "auto"
+    fabric = L.Fabric(devices=devices, strategy=strategy, precision=precision)
+    fabric.launch(main, devices, train_data_dir, val_data_dir)
+
+
 def main(
+    fabric: L.Fabric = None,
     devices: int = 4,
     train_data_dir: Path = Path("data/lit-redpajama"),
     val_data_dir: Optional[Path] = None,
 ) -> None:
-    auto_wrap_policy = partial(transformer_auto_wrap_policy, transformer_layer_cls={Block})
-    strategy = FSDPStrategy(auto_wrap_policy=auto_wrap_policy, activation_checkpointing=Block)
-    fabric = L.Fabric(accelerator="cuda", devices=devices, precision="bf16-mixed", strategy=strategy)
-    fabric.launch()
-
     fabric.seed_everything(1337 + fabric.global_rank)
 
     if fabric.global_rank == 0:
@@ -86,12 +109,7 @@ def main(
         model = Parrot(config)
         model.apply(model._init_weights)
 
-    optimizer = torch.optim.AdamW(
-        model.parameters(),
-        lr=learning_rate,
-        weight_decay=weight_decay,
-        betas=(beta1, beta2),
-    )
+    optimizer = torch.optim.AdamW(model.parameters(), lr=learning_rate, weight_decay=weight_decay, betas=(beta1, beta2))
 
     model, optimizer = fabric.setup(model, optimizer)
 
@@ -120,6 +138,10 @@ def train(
     tokens = 0
     prev_t1 = time.time()
 
+    if fabric.device.type == "xla":
+        import torch_xla.core.xla_model as xm
+
+        xm.mark_step()
     for iter_num, train_data in enumerate(train_dataloader):
         t0 = time.time()
 
@@ -130,7 +152,7 @@ def train(
 
         input_ids = train_data[:, 0 : model.config.block_size].contiguous()
         targets = train_data[:, 1 : model.config.block_size + 1].contiguous()
-        
+
         is_accumulating = (iter_num + 1) % grad_accum_steps != 0
 
         with fabric.no_backward_sync(model, enabled=is_accumulating):
@@ -146,6 +168,8 @@ def train(
             fabric.clip_gradients(model, optimizer, max_norm=grad_clip)
 
             optimizer.step()
+            if fabric.device.type == "xla":
+                xm.mark_step()
             optimizer.zero_grad()
             step_count += 1
 
@@ -155,13 +179,14 @@ def train(
                 val_loss = validate(fabric, model, val_dataloader)
                 fabric.print(f"step {iter_num}: val loss {val_loss:.4f}")
                 fabric.barrier()
-                fabric.log_dict(
-                    {"iter": iter_num, "val_loss": val_loss, "step": step_count, "lr": lr}
-                )
+                fabric.log_dict({"iter": iter_num, "val_loss": val_loss, "step": step_count, "lr": lr})
 
             if step_count % save_interval == 0:
                 fabric.print(f"Saving checkpoint to {out_dir}")
                 fabric.save(out_dir / f"iter-{iter_num:06d}-ckpt.pth", {"model": model})
+        else:
+            if fabric.device.type == "xla":
+                xm.mark_step()
 
         dt = t1 - t0
 
@@ -172,11 +197,9 @@ def train(
         if iter_num % log_interval == 0:
             tokens_sec_str = f"{tokens / step_time:.0f}" if not is_accumulating else "-"
 
-            fabric.log_dict(
-                {"iter": iter_num, "train_loss": loss, "step": step_count, "lr": lr}
-            )
+            fabric.log_dict({"iter": iter_num, "train_loss": loss, "step": step_count, "lr": lr})
             fabric.print(
-                    f"iter {iter_num}: loss {loss.item():.4f}, time: {dt*1000:.2f}ms, speed: {tokens_sec_str} toks/s/device"
+                f"iter {iter_num}: loss {loss.item():.4f}, time: {dt*1000:.2f}ms, speed: {tokens_sec_str} toks/s/device"
             )
 
         if not is_accumulating:
@@ -188,9 +211,7 @@ def train(
 
 
 @torch.no_grad()
-def validate(
-    fabric: L.Fabric, model: torch.nn.Module, val_dataloader: DataLoader
-) -> torch.Tensor:
+def validate(fabric: L.Fabric, model: torch.nn.Module, val_dataloader: DataLoader) -> torch.Tensor:
     fabric.print("Validating ...")
     model.eval()
     losses = torch.zeros(eval_iters)
@@ -198,9 +219,7 @@ def validate(
         input_ids = val_data[:, 0 : model.config.block_size].contiguous()
         targets = val_data[:, 1 : model.config.block_size + 1].contiguous()
         logits = model(input_ids)
-        loss = torch.nn.functional.cross_entropy(
-            logits.view(-1, logits.size(-1)), targets.view(-1), ignore_index=-1
-        )
+        loss = torch.nn.functional.cross_entropy(logits.view(-1, logits.size(-1)), targets.view(-1), ignore_index=-1)
         losses[k] = loss.item()
     out = losses.mean()
     model.train()
@@ -208,19 +227,19 @@ def validate(
 
 
 def create_dataloader(
-    batch_size: int,
-    block_size: int,
-    data_dir: Path,
-    fabric,
-    shuffle: bool = True,
-    seed: int = 12345,
+    batch_size: int, block_size: int, data_dir: Path, fabric, shuffle: bool = True, seed: int = 12345
 ) -> DataLoader:
     datasets = []
     for prefix, _ in data_config:
         filenames = glob.glob(str(data_dir / f"{prefix}*"))
         dataset = PackedDataset(
-            filenames, n_chunks=4, block_size=block_size, shuffle=shuffle, seed=seed,
-            num_processes=fabric.world_size, process_rank=fabric.global_rank,
+            filenames,
+            n_chunks=4,
+            block_size=block_size,
+            shuffle=shuffle,
+            seed=seed,
+            num_processes=fabric.world_size,
+            process_rank=fabric.global_rank,
         )
         datasets.append(dataset)
 
@@ -293,4 +312,4 @@ if __name__ == "__main__":
 
     from jsonargparse.cli import CLI
 
-    CLI(main)
+    CLI(setup)
