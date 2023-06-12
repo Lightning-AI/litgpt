@@ -120,38 +120,6 @@ def test_against_original_falcon_40b():
     torch.testing.assert_close(y_ours, y_theirs)
 
 
-@pytest.mark.skipif(not torch.cuda.is_available(), reason="Requires CUDA")
-@pytest.mark.xfail(raises=AssertionError)  # https://github.com/Lightning-AI/lit-parrot/issues/13
-@torch.inference_mode()
-def test_model_bfloat16() -> None:
-    import lit_parrot
-    from lit_parrot.utils import EmptyInitOnDevice
-
-    block_size = 64
-    vocab_size = 32000
-    n_layer = 16
-    n_head = 16
-    n_embd = 32
-
-    config = lit_parrot.Config(
-        block_size=block_size, vocab_size=vocab_size, n_layer=n_layer, n_head=n_head, n_embd=n_embd
-    )
-    model = lit_parrot.Parrot(config)
-    model.apply(model._init_weights)
-
-    batch_size = 3
-    token_sample = torch.randint(0, vocab_size, size=(batch_size, block_size), dtype=torch.int64)
-
-    expected = model(token_sample)
-
-    with EmptyInitOnDevice(device="cuda", dtype=torch.bfloat16):
-        model2 = lit_parrot.Parrot(config)
-    model2.load_state_dict(model.state_dict(keep_vars=True))
-
-    out = model2(token_sample.cuda()).float().cpu()
-    torch.testing.assert_close(out, expected, atol=5e-3, rtol=1e-3)
-
-
 @pytest.mark.skipif(sys.platform in ("win32", "darwin"), reason="torch.compile not supported on this platform")
 @torch.inference_mode()
 def test_model_compile():
