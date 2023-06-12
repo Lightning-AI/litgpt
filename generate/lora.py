@@ -97,11 +97,9 @@ def main(
     fabric.print(f"Time to instantiate model: {time.time() - t0:.02f} seconds.", file=sys.stderr)
 
     t0 = time.time()
-
     with lazy_load(checkpoint_path) as pretrained_checkpoint, lazy_load(lora_path) as lora_checkpoint:
 
         with fabric.init_module(), lora(r=lora_r, alpha=lora_alpha, dropout=lora_dropout, enabled=True):
-            model = Parrot(config)
             # 1. Load the pretrained weights
             model.load_state_dict(pretrained_checkpoint, strict=False)
             # 2. Load the fine-tuned lora weights
