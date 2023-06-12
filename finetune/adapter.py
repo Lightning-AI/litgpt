@@ -3,11 +3,12 @@ import sys
 import time
 from functools import partial
 from pathlib import Path
+from typing import Optional
 
 import lightning as L
 import numpy as np
 import torch
-from lightning.fabric.strategies import FSDPStrategy
+from lightning.fabric.strategies import FSDPStrategy, XLAStrategy
 from torch.distributed.fsdp.wrap import transformer_auto_wrap_policy
 
 # support running without installing as a package
@@ -36,26 +37,41 @@ epoch_size = 50000  # train dataset size
 num_epochs = 5
 max_iters = num_epochs * (epoch_size // micro_batch_size) // devices
 weight_decay = 0.02
-max_seq_length = 256  # see scripts/prepare_alpaca.py
 warmup_iters = 2 * (epoch_size // micro_batch_size) // devices  # 2 epochs
 
 
-def main(
+def setup(
     data_dir: Path = Path("data/alpaca"),
     checkpoint_dir: Path = Path("checkpoints/stabilityai/stablelm-base-alpha-3b"),
     out_dir: Path = Path("out/adapter/alpaca"),
-    precision: str = "bf16-true",
+    precision: Optional[str] = None,
+    tpu: bool = False,
 ):
+    if precision is None:
+        precision = "32-true" if tpu else "16-true"
     if devices > 1:
-        auto_wrap_policy = partial(transformer_auto_wrap_policy, transformer_layer_cls={Block})
-        strategy = FSDPStrategy(auto_wrap_policy=auto_wrap_policy, activation_checkpointing=Block, state_dict_type="full")
+        if tpu:
+            # For multi-host TPU training, the device count for Fabric is limited to the count on a single host.
+            devices = "auto"
+            strategy = XLAStrategy(sync_module_states=False)
+        else:
+            auto_wrap_policy = partial(transformer_auto_wrap_policy, transformer_layer_cls={Block})
+            strategy = FSDPStrategy(
+                auto_wrap_policy=auto_wrap_policy, activation_checkpointing=Block, state_dict_type="full"
+            )
     else:
         strategy = "auto"
-    fabric = L.Fabric(accelerator="cuda", devices=devices, precision=precision, strategy=strategy)
-    fabric.launch()
+    fabric = L.Fabric(devices=devices, strategy=strategy, precision=precision)
+    fabric.launch(main, data_dir, checkpoint_dir, out_dir)
 
+
+def main(
+    fabric: L.Fabric = None,
+    data_dir: Path = Path("data/alpaca"),
+    checkpoint_dir: Path = Path("checkpoints/stabilityai/stablelm-base-alpha-3b"),
+    out_dir: Path = Path("out/adapter/alpaca"),
+):
     check_valid_checkpoint_dir(checkpoint_dir)
-
     fabric.seed_everything(1337 + fabric.global_rank)
 
     if fabric.global_rank == 0:
@@ -63,7 +79,7 @@ def main(
 
     train_data, val_data = load_datasets(data_dir=data_dir)
 
-    config = Config.from_name(name=checkpoint_dir.name, block_size=max_seq_length)
+    config = Config.from_name(name=checkpoint_dir.name)
     checkpoint_path = checkpoint_dir / "lit_model.pth"
     fabric.print(f"Loading model {str(checkpoint_path)!r} with {config.__dict__}")
     with fabric.init_module():
@@ -78,7 +94,10 @@ def main(
 
     optimizer = torch.optim.AdamW(model.parameters(), lr=learning_rate, weight_decay=weight_decay)
     model, optimizer = fabric.setup(model, optimizer)
+
+    train_time = time.time()
     train(fabric, model, optimizer, train_data, val_data, checkpoint_dir, out_dir)
+    print(f"Training time: {(time.time()-train_time):.2f}s")
 
     # Save the final checkpoint at the end of training
     save_path = out_dir / "lit_model_adapter_finetuned.pth"
@@ -102,6 +121,10 @@ def train(
 
     tokenizer = Tokenizer(checkpoint_dir / "tokenizer.json", checkpoint_dir / "tokenizer_config.json")
 
+    if fabric.device.type == "xla":
+        import torch_xla.core.xla_model as xm
+
+        xm.mark_step()
     for iter_num in range(max_iters):
         if step_count <= warmup_iters:
             # linear warmup
@@ -119,6 +142,8 @@ def train(
 
         if (iter_num + 1) % gradient_accumulation_steps == 0:
             optimizer.step()
+            if fabric.device.type == "xla":
+                xm.mark_step()
             optimizer.zero_grad()
             step_count += 1
 
@@ -130,6 +155,9 @@ def train(
             if step_count % save_interval == 0:
                 save_path = out_dir / f"iter-{iter_num:06d}.pth"
                 save_model_checkpoint(fabric, model, save_path)
+        else:
+            if fabric.device.type == "xla":
+                xm.mark_step()
 
         dt = time.time() - t0
         if iter_num % log_interval == 0:
@@ -155,7 +183,11 @@ def validate(fabric: L.Fabric, model: torch.nn.Module, val_data: np.ndarray, tok
     prompt = generate_prompt(sample)
     encoded = tokenizer.encode(prompt, device=model.device)
     output = generate(
-        model, idx=encoded, max_returned_tokens=len(encoded) + 100, max_seq_length=max_seq_length, temperature=0.8
+        model,
+        idx=encoded,
+        max_returned_tokens=len(encoded) + 100,
+        max_seq_length=model.config.block_size,
+        temperature=0.8,
     )
     output = tokenizer.decode(output)
     fabric.print(output)
@@ -178,7 +210,7 @@ def get_batch(fabric: L.Fabric, data: list):
     input_ids = [data[i]["input_ids"].type(torch.int64) for i in ix]
     labels = [data[i]["labels"].type(torch.int64) for i in ix]
 
-    max_len = max(len(s) for s in input_ids)
+    max_len = max(len(s) for s in input_ids) if fabric.device.type != "xla" else max_seq_length
 
     def pad_right(x, pad_id):
         # pad right based on the longest sequence
@@ -188,7 +220,7 @@ def get_batch(fabric: L.Fabric, data: list):
     x = torch.stack([pad_right(x, pad_id=0) for x in input_ids])
     y = torch.stack([pad_right(x, pad_id=-1) for x in labels])
 
-    if fabric.device.type == "mps":
+    if fabric.device.type in ("mps", "xla"):
         x, y = fabric.to_device((x, y))
     else:
         x, y = fabric.to_device((x.pin_memory(), y.pin_memory()))
@@ -215,4 +247,4 @@ if __name__ == "__main__":
 
     from jsonargparse.cli import CLI
 
-    CLI(main)
+    CLI(setup)
