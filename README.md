@@ -116,7 +116,7 @@ We support LLM.int8 and GPTQ.int4 inference by following [this guide](howto/infe
 
 ## Finetune the model
 
-We provide a simple training script `finetune/adapter.py` that instruction-tunes a pretrained model on the [Alpaca](https://github.com/tatsu-lab/stanford_alpaca) dataset.
+We provide a simple training scripts (`finetune/adapter.py` and `finetune/lora.py`) that instruction-tunes a pretrained model on the [Alpaca](https://github.com/tatsu-lab/stanford_alpaca) dataset.
 
 1. Download the data and generate an instruction tuning dataset:
 
@@ -126,10 +126,21 @@ python scripts/prepare_alpaca.py
 
 2. Run the finetuning script
 
+For example, you can either use
+
 [Adapter](https://arxiv.org/abs/2303.16199):
 
 ```bash
 python finetune/adapter.py
+```
+
+or 
+
+[LoRA](https://arxiv.org/abs/2106.09685):
+
+
+```bash
+python finetune/lora.py
 ```
 
 The finetuning requires at least one GPU with ~12 GB memory (GTX 3060).
@@ -141,12 +152,15 @@ More details about each finetuning method and how you can apply it to your own d
 These technical tutorials illustrate how to run the finetuning code.
 
 - [Finetune with Adapters](howto/finetune_adapter.md)
+- [Finetune with LoRA](howto/finetune_lora.md)
 
 ### Understanding Finetuning -- Conceptual Tutorials
 
 Looking for conceptual tutorials and explanations? We have some additional articles below:
 
 - [Understanding Parameter-Efficient Finetuning of Large Language Models: From Prefix Tuning to LLaMA-Adapters](https://lightning.ai/pages/community/article/understanding-llama-adapters/)
+
+- [Parameter-Efficient LLM Finetuning With Low-Rank Adaptation (LoRA)](https://lightning.ai/pages/community/tutorial/lora-llm/)
 
 ## Pre-training
 
