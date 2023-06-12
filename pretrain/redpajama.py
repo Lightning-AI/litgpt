@@ -9,7 +9,7 @@ from typing import Tuple, Optional
 
 import lightning as L
 import torch
-from lightning.fabric.strategies import FSDPStrategy
+from lightning.fabric.strategies import FSDPStrategy, XLAStrategy
 from torch.distributed.fsdp.wrap import transformer_auto_wrap_policy
 from torch.utils.data import DataLoader
 
@@ -54,22 +54,38 @@ data_config = [
 ]
 
 
-def main(
+def setup(
     devices: int = 4,
     train_data_dir: Path = Path("data/lit-redpajama"),
     val_data_dir: Optional[Path] = None,
+    precision: Optional[str] = None,
+    tpu: bool = False
 ) -> None:
+    if precision is None:
+        precision = "32-true" if tpu else "16-true"
+
     auto_wrap_policy = partial(
         transformer_auto_wrap_policy, transformer_layer_cls={Block}
     )
     strategy = FSDPStrategy(
         auto_wrap_policy=auto_wrap_policy, activation_checkpointing=Block
-    )
+    ) if not tpu else XLAStrategy(sync_module_states=False)
 
     fabric = L.Fabric(
-        accelerator="cuda", devices=devices, precision="bf16-mixed", strategy=strategy
+        accelerator=("cuda" if not tpu else "tpu"), devices=devices,
+        precision=precision,
+        strategy=strategy
     )
-    fabric.launch()
+
+    fabric.launch(main, devices, train_data_dir, val_data_dir)
+
+
+def main(
+    fabric: L.Fabric = None,
+    devices: int = 4,
+    train_data_dir: Path = Path("data/lit-redpajama"),
+    val_data_dir: Optional[Path] = None,
+) -> None:
     fabric.seed_everything(1337)
 
     if fabric.global_rank == 0:
@@ -128,6 +144,10 @@ def train(
     tokens = 0
     prev_t1 = time.time()
 
+    if fabric.device.type == "xla":
+        import torch_xla.core.xla_model as xm
+
+        xm.mark_step()
     for iter_num, train_data in enumerate(train_dataloader):
         t0 = time.time()
 
@@ -154,6 +174,7 @@ def train(
             fabric.clip_gradients(model, optimizer, max_norm=grad_clip)
 
             optimizer.step()
+            if fabric.device.type == "xla": xm.mark_step()
             optimizer.zero_grad()
             step_count += 1
 
@@ -172,6 +193,8 @@ def train(
                 save_model_checkpoint(
                     fabric, model, out_dir / f"iter-{iter_num:06d}-ckpt.pth"
                 )
+        else:
+            if fabric.device.type == "xla": xm.mark_step()
 
         dt = t1 - t0
 
@@ -307,4 +330,4 @@ if __name__ == "__main__":
         # false positive using deepspeed: https://github.com/Lightning-AI/lightning/pull/17761#discussion_r1219705307
         "ignore", message="Remove `.no_backward_sync()` from your code",
     )
-    CLI(main)
+    CLI(setup)
