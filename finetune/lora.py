@@ -54,7 +54,6 @@ def main(
     precision: Literal["bf16-true", "32-true", "bf16-mixed"] = "bf16-true",
 ):
 
-    print(checkpoint_dir)
     check_valid_checkpoint_dir(checkpoint_dir)
 
     fabric = L.Fabric(accelerator="cuda", devices=1, precision=precision)
@@ -73,16 +72,11 @@ def main(
    
     fabric.print(f"Loading model {str(checkpoint_path)!r} with {config.__dict__}")
     
-    #with fabric.init_module():
-    #    model = Parrot(config)
-    #with lazy_load(checkpoint_dir / "lit_model.pth") as checkpoint:
-    #    # strict=False because missing keys due to adapter weights not contained in state dict
-    #    model.load_state_dict(checkpoint, strict=False)
-
     with fabric.init_module(), lora(r=lora_r, alpha=lora_alpha, dropout=lora_dropout, enabled=True):
         model = Parrot(config)
-        # strict=False because missing keys due to LoRA weights not contained in checkpoint state
-        model.load_state_dict(torch.load(checkpoint_path), strict=False)
+    with lazy_load(checkpoint_path) as checkpoint:
+        # strict=False because missing keys due to LoRA weights not contained in state dict
+        model.load_state_dict(checkpoint, strict=False)
 
     mark_only_lora_as_trainable(model)
     num_params = sum(p.numel() for p in model.parameters() if p.requires_grad)
