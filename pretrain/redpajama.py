@@ -311,9 +311,4 @@ if __name__ == "__main__":
 
     from jsonargparse.cli import CLI
 
-    warnings.filterwarnings(
-        # false positive using deepspeed: https://github.com/Lightning-AI/lightning/pull/17761#discussion_r1219705307
-        "ignore",
-        message="Remove `.no_backward_sync()` from your code",
-    )
     CLI(setup)
