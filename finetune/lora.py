@@ -5,12 +5,13 @@ Note: If you run into a CUDA error "Expected is_sm80 to be true, but got false",
 `torch.backends.cuda.enable_flash_sdp(False)` in the script below (see https://github.com/Lightning-AI/lit-llama/issues/101).
 """
 import sys
-from typing import Literal
 from pathlib import Path
+from typing import Optional
 import os
 import time
 
 import lightning as L
+from lightning.fabric.strategies import DeepSpeedStrategy, XLAStrategy
 import numpy as np
 import torch
 
@@ -38,25 +39,45 @@ batch_size = 128
 micro_batch_size = 4
 gradient_accumulation_iters = batch_size // micro_batch_size
 assert gradient_accumulation_iters > 0
-max_iters = 500000 * 3 // micro_batch_size
+max_iters = 500 * 3 // micro_batch_size
 weight_decay = 0.0
 max_seq_length = 256  # see scripts/prepare_alpaca.py
 lora_r = 8
 lora_alpha = 16
 lora_dropout = 0.05
 warmup_iters = 100
+devices = 1
 
 
-def main(
+def setup(
     data_dir: Path = Path("data/alpaca"),
     checkpoint_dir: Path = Path("checkpoints/stabilityai/stablelm-base-alpha-3b"),
     out_dir: Path = Path("out/lora/alpaca"),
-    precision: str = "bf16-true",
+    precision: Optional[str] = None,
+    tpu: bool = False,
+):
+    if precision is None:
+        precision = "32-true" if tpu else "16-true"
+    strategy = (
+        "auto"
+        if devices <= 1
+        else XLAStrategy(sync_module_states=False) if tpu else DeepSpeedStrategy(config=ds_config)
+    )
+    # For multi-host TPU training, the device count for Fabric is limited to the count on a single host.
+    fabric_devices = "auto" if (tpu and devices > 1) else devices
+    fabric = L.Fabric(devices=fabric_devices, strategy=strategy, precision=precision)
+    fabric.launch(main, data_dir, checkpoint_dir, out_dir)
+
+
+def main(
+    fabric: L.Fabric = None,   
+    data_dir: Path = Path("data/alpaca"),
+    checkpoint_dir: Path = Path("checkpoints/stabilityai/stablelm-base-alpha-3b"),
+    out_dir: Path = Path("out/lora/alpaca"),
 ):
 
     check_valid_checkpoint_dir(checkpoint_dir)
 
-    fabric = L.Fabric(accelerator="cuda", devices=1, precision=precision)
     fabric.launch()
     fabric.seed_everything(1337 + fabric.global_rank)
 
@@ -108,6 +129,11 @@ def train(
 
     tokenizer = Tokenizer(checkpoint_dir / "tokenizer.json", checkpoint_dir / "tokenizer_config.json")
 
+    if fabric.device.type == "xla":
+         import torch_xla.core.xla_model as xm
+
+         xm.mark_step()
+
     for iter_num in range(max_iters):
 
         if step_count <= warmup_iters:
@@ -126,6 +152,8 @@ def train(
 
         if (iter_num + 1) % gradient_accumulation_iters == 0:
             optimizer.step()
+            if fabric.device.type == "xla":
+                 xm.mark_step()
             optimizer.zero_grad()
             step_count += 1
 
@@ -138,6 +166,9 @@ def train(
                 # We are only saving the LoRA weights
                 # TODO: Provide a function/script to merge the LoRA weights with pretrained weights
                 save_lora_checkpoint(model, path=os.path.join(out_dir, f"iter-{iter_num:06d}-ckpt.pth"))
+        else:
+            if fabric.device.type == "xla":
+                xm.mark_step()
 
 
         dt = time.time() - t0
@@ -187,7 +218,7 @@ def get_batch(fabric: L.Fabric, data: list):
     input_ids = [data[i]["input_ids"].type(torch.int64) for i in ix]
     labels = [data[i]["labels"].type(torch.int64) for i in ix]
 
-    max_len = max(len(s) for s in input_ids)
+    max_len = max(len(s) for s in input_ids) if fabric.device.type != "xla" else max_seq_length
 
     def pad_right(x, pad_id):
         # pad right based on the longest sequence
@@ -196,7 +227,11 @@ def get_batch(fabric: L.Fabric, data: list):
 
     x = torch.stack([pad_right(x, pad_id=0) for x in input_ids])
     y = torch.stack([pad_right(x, pad_id=-1) for x in labels])
-    x, y = fabric.to_device((x.pin_memory(), y.pin_memory()))
+
+    if fabric.device.type in ("mps", "xla"):
+        x, y = fabric.to_device((x.pin_memory(), y.pin_memory()))
+    else:
+         x, y = fabric.to_device((x.pin_memory(), y.pin_memory()))
     return x, y
 
 
@@ -219,4 +254,4 @@ if __name__ == "__main__":
     
     from jsonargparse.cli import CLI
 
-    CLI(main)
+    CLI(setup)
