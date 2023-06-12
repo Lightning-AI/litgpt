@@ -38,7 +38,7 @@ batch_size = 128
 micro_batch_size = 4
 gradient_accumulation_iters = batch_size // micro_batch_size
 assert gradient_accumulation_iters > 0
-max_iters = 50000 * 3 // micro_batch_size
+max_iters = 500 * 3 // micro_batch_size
 weight_decay = 0.0
 max_seq_length = 256  # see scripts/prepare_alpaca.py
 lora_r = 8
@@ -87,10 +87,8 @@ def main(
     train(fabric, model, optimizer, train_data, val_data, checkpoint_dir, out_dir)
 
     # Save the final LoRA checkpoint at the end of training
-    checkpoint = lora_state_dict(model)
-
-    fabric.save(os.path.join(out_dir, "lit-model-lora-finetuned.pth"), checkpoint)
-
+    save_lora_checkpoint(fabric, model, path=os.path.join(out_dir, "lit-model-lora-finetuned.pth"))
+    
 
 def train(
     fabric: L.Fabric,
@@ -137,11 +135,10 @@ def train(
                 fabric.barrier()
 
             if step_count % save_interval == 0:
-                print(f"Saving LoRA weights to {out_dir}")
                 # We are only saving the LoRA weights
                 # TODO: Provide a function/script to merge the LoRA weights with pretrained weights
-                checkpoint = lora_state_dict(model)
-                fabric.save(os.path.join(out_dir, f"iter-{iter_num:06d}-ckpt.pth"), checkpoint)
+                save_lora_checkpoint(model, path=os.path.join(out_dir, f"iter-{iter_num:06d}-ckpt.pth"))
+
 
         dt = time.time() - t0
         if iter_num % log_interval == 0:
@@ -207,6 +204,12 @@ def load_datasets(data_dir):
     train_data = torch.load(os.path.join(data_dir, "train.pt"))
     val_data = torch.load(os.path.join(data_dir, "test.pt"))
     return train_data, val_data
+
+
+def save_lora_checkpoint(fabric, model, path):
+    fabric.print(f"Saving LoRA weights to {path}")
+    checkpoint = lora_state_dict(model)
+    fabric.save(path, checkpoint)
 
 
 if __name__ == "__main__":
