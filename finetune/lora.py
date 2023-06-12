@@ -39,7 +39,7 @@ batch_size = 128
 micro_batch_size = 4
 gradient_accumulation_iters = batch_size // micro_batch_size
 assert gradient_accumulation_iters > 0
-max_iters = 500 * 3 // micro_batch_size
+max_iters = 500000 * 3 // micro_batch_size
 weight_decay = 0.0
 max_seq_length = 256  # see scripts/prepare_alpaca.py
 lora_r = 8
@@ -86,8 +86,7 @@ def main(
 
     train_data, val_data = load_datasets(data_dir=data_dir)
 
-    config = Config.from_name(name=checkpoint_dir.name, block_size=max_seq_length)
-    config.block_size = max_seq_length
+    config = Config.from_name(name=checkpoint_dir.name)
 
     checkpoint_path = checkpoint_dir / "lit_model.pth"
    
@@ -195,7 +194,8 @@ def validate(fabric: L.Fabric, model: torch.nn.Module, val_data: np.ndarray, tok
     prompt = generate_prompt(sample)
     encoded = tokenizer.encode(prompt, device=model.device)
     output = generate(
-        model, idx=encoded, max_returned_tokens=len(encoded) + 100, max_seq_length=max_seq_length, temperature=0.8
+        model, idx=encoded, max_returned_tokens=len(encoded) + 100, 
+        max_seq_length=model.config.block_size, temperature=0.8
     )
     output = tokenizer.decode(output)
     fabric.print(output)
