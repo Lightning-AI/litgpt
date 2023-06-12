@@ -1,7 +1,7 @@
 import torch
 
 
-def test_lora_layer_replacement(lit_parrot):
+def test_lora_layer_replacement():
     from lit_parrot.lora import lora, CausalSelfAttention as LoRACausalSelfAttention
     from lit_parrot.model import Parrot, Config
     
@@ -19,7 +19,7 @@ def test_lora_layer_replacement(lit_parrot):
     assert isinstance(model.transformer.h[1].attn, LoRACausalSelfAttention)
 
 
-def test_lora_merge_unmerge(lit_parrot):
+def test_lora_merge_unmerge():
     from lit_parrot.lora import lora, mark_only_lora_as_trainable
     from lit_parrot.model import Parrot, Config
     
