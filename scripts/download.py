@@ -11,16 +11,10 @@ def download_from_hub(repo_id: Optional[str] = None) -> None:
     if repo_id is None:
         from lit_parrot.config import configs
 
-        orgs = {
-            "stablelm": "stabilityai",
-            "pythia": "EleutherAI",
-            "RedPajama": "togethercomputer",
-            "falcon": "tiiuae",
-        }
+        orgs = {"stablelm": "stabilityai", "pythia": "EleutherAI", "RedPajama": "togethercomputer", "falcon": "tiiuae"}
         names = [f"{orgs[el.split('-')[0]]}/{el}" for el in configs.keys()]
 
-        print("Please specify --repo_id <repo_id>. "
-              "Available values:")
+        print("Please specify --repo_id <repo_id>. Available values:")
         print("\n".join(names))
         return
 
