@@ -73,12 +73,6 @@ def main(
     with open(checkpoint_dir / "lit_config.json") as fp:
         config = Config(**json.load(fp))
 
-    if quantize is not None:
-        raise NotImplementedError("Quantization in LoRA is not supported yet")
-    else:
-        model_file = "lit_model.pth"
-    # Remove the above, and then enable this later:
-    """
     if quantize is not None and devices > 1:
         raise NotImplementedError
     if quantize == "gptq.int4":
@@ -87,7 +81,6 @@ def main(
             raise ValueError("Please run `python quantize/gptq.py` first")
     else:
         model_file = "lit_model.pth"
-    """
     checkpoint_path = checkpoint_dir / model_file
 
     fabric.print(f"Loading model {str(checkpoint_path)!r} with {config.__dict__}", file=sys.stderr)
