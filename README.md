@@ -134,9 +134,7 @@ For example, you can either use
 python finetune/adapter.py
 ```
 
-or 
-
-[LoRA](https://arxiv.org/abs/2106.09685):
+or [LoRA](https://arxiv.org/abs/2106.09685):
 
 
 ```bash
