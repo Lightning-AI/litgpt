@@ -420,28 +420,23 @@ class CausalSelfAttention(parrot.CausalSelfAttention):
         # Skip the parent class __init__ altogether and replace it to avoid
         # useless allocations
         nn.Module.__init__(self)
-        assert config.n_embd % config.n_head == 0
-
+        shape = (config.n_head + 2 * config.n_query_groups) * config.head_size
         # key, query, value projections for all heads, but in a batch
         self.attn = MergedLinear(
             in_features=config.n_embd,
-            out_features=3 * config.n_embd,
+            out_features=shape,
             r=self.lora_config.r,
             lora_alpha=self.lora_config.alpha,
             lora_dropout=self.lora_config.dropout,
             enable_lora=[True, False, True],
             fan_in_fan_out=False,
             merge_weights=True,
-            bias=False,
+            bias=config.bias,
         )
         # output projection
-        self.proj = nn.Linear(config.n_embd, config.n_embd, bias=False)
-        # regularization
-        self.n_head = config.n_head
-        self.n_embd = config.n_embd
-        self.block_size = config.block_size
-        self.rope_cache = None
-        self.config = config  # technically this should not be needed
+        self.proj = nn.Linear(config.n_embd, config.n_embd, bias=config.bias)
+
+        self.config = config
 
 
 @contextmanager

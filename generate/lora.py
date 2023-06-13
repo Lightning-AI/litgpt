@@ -18,7 +18,7 @@ sys.path.append(str(wd))
 from generate.base import generate
 from lit_parrot import Tokenizer
 from lit_parrot.lora import lora
-from lit_parrot.model import Parrot, Config
+from lit_parrot.model import Parrot, Config, Block
 from lit_parrot.utils import lazy_load, check_valid_checkpoint_dir, quantization
 from scripts.prepare_alpaca import generate_prompt
 
@@ -85,16 +85,16 @@ def main(
 
     fabric.print(f"Loading model {str(checkpoint_path)!r} with {config.__dict__}", file=sys.stderr)
     t0 = time.time()
-    with fabric.init_module(empty_init=True), quantization(quantize):
+    with fabric.init_module(empty_init=True), quantization(quantize), lora(
+        r=lora_r, alpha=lora_alpha, dropout=lora_dropout, enabled=True
+    ):
         model = Parrot(config)
     fabric.print(f"Time to instantiate model: {time.time() - t0:.02f} seconds.", file=sys.stderr)
 
     t0 = time.time()
-    with lazy_load(checkpoint_path) as pretrained_checkpoint, lazy_load(lora_path) as lora_checkpoint:
-        # 1. Load the pretrained weights
-        model.load_state_dict(pretrained_checkpoint, strict=False)
-        # 2. Load the fine-tuned lora weights
-        model.load_state_dict(lora_checkpoint, strict=False)
+    with lazy_load(checkpoint_path) as checkpoint, lazy_load(lora_path) as lora_checkpoint:
+        checkpoint.update(lora_checkpoint)
+        model.load_state_dict(checkpoint, strict=quantize is None)
     fabric.print(f"Time to load the model weights: {time.time() - t0:.02f} seconds.", file=sys.stderr)
 
     model.eval()

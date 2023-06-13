@@ -24,7 +24,7 @@ from generate.base import generate
 from lit_parrot.lora import mark_only_lora_as_trainable, lora, lora_state_dict
 from lit_parrot.model import Parrot, Config
 from lit_parrot.tokenizer import Tokenizer
-from lit_parrot.utils import lazy_load, check_valid_checkpoint_dir  # TODO: Use lazy_load
+from lit_parrot.utils import lazy_load, check_valid_checkpoint_dir
 from scripts.prepare_alpaca import generate_prompt
 
 
@@ -107,7 +107,7 @@ def main(
     train(fabric, model, optimizer, train_data, val_data, checkpoint_dir, out_dir)
 
     # Save the final LoRA checkpoint at the end of training
-    save_path = out_dir / "lit_model-lora-finetuned.pth"
+    save_path = out_dir / "lit_model_lora_finetuned.pth"
     save_lora_checkpoint(fabric, model, path=save_path)
 
 
@@ -162,8 +162,8 @@ def train(
 
             if step_count % save_interval == 0:
                 # We are only saving the LoRA weights
-                # TODO: Provide a function/script to merge the LoRA weights with pretrained weights
-                save_lora_checkpoint(model, path=os.path.join(out_dir, f"iter-{iter_num:06d}-ckpt.pth"))
+                save_path = out_dir / f"iter-{iter_num:06d}.pth"
+                save_lora_checkpoint(fabric, model, save_path)
         else:
             if fabric.device.type == "xla":
                 xm.mark_step()
