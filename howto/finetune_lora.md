@@ -15,7 +15,7 @@ The steps here only need to be done once:
    python scripts/prepare_alpaca.py
    ```
 
-See also: [Finetuning on an unstructured dataset](unstructured_dataset.md)
+(See [this blog article](How To Finetune GPT Like Large Language Models on a Custom Dataset) for how to prepare and use custom datasets.)
 
 ## Running the finetuning
 
@@ -41,7 +41,7 @@ Output:
 I would recommend the movie The Martian (2015). It is a sci-fi movie starring Matt Damon that follows the story of...
 ```
 
-If your GPU supports `bfloat16`, you can additionally pass `--dtype bfloat16` to bring the memory consumption down to ~14 GB.
+If your GPU supports `bfloat16`, you can additionally pass `--precision bf16-true` to bring the memory consumption down to ~11 GB for StableLM-3B.
 
 ## Tune on your dataset
 
@@ -76,7 +76,7 @@ With only a few modifications, you can prepare and train on your own instruction
     ```
 
 5. Run `finetune/lora.py` by passing in the location of your data (and optionally other parameters):
-    
+   
     ```bash
     python finetune/lora.py --data_dir data/mydata/ --out_dir out/myexperiment
     ```
