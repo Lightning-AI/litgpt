@@ -54,7 +54,7 @@ ds_config = {
 def setup(
     data_dir: Path = Path("data/alpaca"),
     checkpoint_dir: Path = Path("checkpoints/stabilityai/stablelm-base-alpha-3b"),
-    out_dir: Path = Path("out/adapter/alpaca"),
+    out_dir: Path = Path("out/adapter_v2/alpaca"),
     precision: Optional[str] = None,
     tpu: bool = False,
 ):
