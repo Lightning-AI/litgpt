@@ -46,7 +46,7 @@ warmup_iters = 2 * (epoch_size // micro_batch_size) // devices  # 2 epochs
 
 ds_config = {
     "train_micro_batch_size_per_gpu": micro_batch_size,
-    "gradient_accumulation_iters": gradient_accumulation_iters,
+    "gradient_accumulation_steps": gradient_accumulation_iters,
     "zero_optimization": {"stage": 2},
 }
 
