@@ -116,7 +116,7 @@ We support LLM.int8 and GPTQ.int4 inference by following [this guide](howto/infe
 
 ## Finetune the model
 
-We provide a simple training scripts (`finetune/adapter.py` and `finetune/lora.py`) that instruction-tunes a pretrained model on the [Alpaca](https://github.com/tatsu-lab/stanford_alpaca) dataset.
+We provide a simple training scripts (`finetune/adapter.py`, `finetune/adapter_v2.py`, and `finetune/lora.py`) that instruction-tunes a pretrained model on the [Alpaca](https://github.com/tatsu-lab/stanford_alpaca) dataset.
 
 1. Download the data and generate an instruction tuning dataset:
 
@@ -128,19 +128,26 @@ python scripts/prepare_alpaca.py
 
 For example, you can either use
 
-[Adapter](https://arxiv.org/abs/2303.16199):
+Adapter ([Zhang et al. 2023](https://arxiv.org/abs/2303.16199)):
 
 ```bash
 python finetune/adapter.py
 ```
 
-or [LoRA](https://arxiv.org/abs/2106.09685):
+or Adapter v2 ([Gao et al. 2023](https://arxiv.org/abs/2304.15010)):
+
+```python 
+finetune/adapter_v2.py
+```
+
+or LoRA ([Hu et al. 2021](https://arxiv.org/abs/2106.09685)):
 
 
 ```bash
 python finetune/lora.py
 ```
 
+(Please see the [howto/finetune_adapter](howto/finetune_adapter.md) for details on the differences between the two adapter methods.)
 
 The finetuning requires at least one GPU with ~12 GB memory (RTX 3060).
 
