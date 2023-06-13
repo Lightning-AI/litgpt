@@ -5,13 +5,7 @@ def test_lora_layer_replacement():
     from lit_parrot.lora import lora, CausalSelfAttention as LoRACausalSelfAttention
     from lit_parrot.model import Parrot, Config
     
-    config = Config()
-    config.n_layer = 2
-    config.n_head = 4
-    config.n_embd = 8
-    config.block_size = 8
-    config.vocab_size = 8
-
+    config = Config(n_layer=2, n_head=4, n_embd=8, block_size=8, vocab_size=8)
     with lora(r=8, alpha=8, dropout=0.1):
         model = Parrot(config)
 
@@ -47,7 +41,7 @@ def test_lora_merge_unmerge():
     assert not torch.equal(model.transformer.h[0].attn.attn.weight, weight_before)
     model.train()
     # note: numerically, `W + (A * B) - (A * B) == W` does not hold exactly
-    assert torch.allclose(model.transformer.h[0].attn.attn.weight, weight_before)
+    torch.testing.assert_close(model.transformer.h[0].attn.attn.weight, weight_before)
 
     # calling eval/train multiple times in a row should not merge/unmerge multiple times
     model.eval()
