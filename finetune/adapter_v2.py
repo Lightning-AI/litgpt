@@ -46,7 +46,7 @@ warmup_iters = 2 * (epoch_size // micro_batch_size) // devices  # 2 epochs
 
 ds_config = {
     "train_micro_batch_size_per_gpu": micro_batch_size,
-    "gradient_accumulation_steps": gradient_accumulation_iters,
+    "gradient_accumulation_iters": gradient_accumulation_iters,
     "zero_optimization": {"stage": 2},
 }
 
@@ -90,7 +90,7 @@ def main(
     fabric.print(f"Loading model {str(checkpoint_path)!r} with {config.__dict__}")
     with fabric.init_module():
         model = Parrot(config)
-    with lazy_load(checkpoint_dir / "lit_model.pth") as checkpoint:
+    with lazy_load(checkpoint_path) as checkpoint:
         # strict=False because missing keys due to adapter weights not contained in state dict
         model.load_state_dict(checkpoint, strict=False)
 
@@ -174,9 +174,7 @@ def train(
 
 
 @torch.no_grad()
-def validate(
-    fabric: L.Fabric, model: torch.nn.Module, val_data: np.ndarray, tokenizer: Tokenizer
-) -> torch.Tensor:
+def validate(fabric: L.Fabric, model: torch.nn.Module, val_data: np.ndarray, tokenizer: Tokenizer) -> torch.Tensor:
     fabric.print("Validating ...")
     model.eval()
     losses = torch.zeros(eval_iters)
@@ -194,7 +192,11 @@ def validate(
     prompt = generate_prompt(sample)
     encoded = tokenizer.encode(prompt, device=model.device)
     output = generate(
-        model, idx=encoded, max_returned_tokens=len(encoded) + 100, max_seq_length=model.config.block_size, temperature=0.8
+        model,
+        idx=encoded,
+        max_returned_tokens=len(encoded) + 100,
+        max_seq_length=model.config.block_size,
+        temperature=0.8,
     )
     output = tokenizer.decode(output)
     fabric.print(output)

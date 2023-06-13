@@ -170,9 +170,7 @@ def train(
 
 
 @torch.no_grad()
-def validate(
-    fabric: L.Fabric, model: torch.nn.Module, val_data: np.ndarray, tokenizer: Tokenizer
-) -> torch.Tensor:
+def validate(fabric: L.Fabric, model: torch.nn.Module, val_data: np.ndarray, tokenizer: Tokenizer) -> torch.Tensor:
     fabric.print("Validating ...")
     model.eval()
     losses = torch.zeros(eval_iters)
@@ -190,7 +188,11 @@ def validate(
     prompt = generate_prompt(sample)
     encoded = tokenizer.encode(prompt, device=model.device)
     output = generate(
-        model, idx=encoded, max_returned_tokens=len(encoded) + 100, max_seq_length=model.config.block_size, temperature=0.8
+        model,
+        idx=encoded,
+        max_returned_tokens=len(encoded) + 100,
+        max_seq_length=model.config.block_size,
+        temperature=0.8,
     )
     output = tokenizer.decode(output)
     fabric.print(output)

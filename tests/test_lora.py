@@ -4,7 +4,7 @@ import torch
 def test_lora_layer_replacement():
     from lit_parrot.lora import lora, CausalSelfAttention as LoRACausalSelfAttention
     from lit_parrot.model import Parrot, Config
-    
+
     config = Config(n_layer=2, n_head=4, n_embd=8, block_size=8, vocab_size=8)
     with lora(r=8, alpha=8, dropout=0.1):
         model = Parrot(config)
@@ -16,12 +16,11 @@ def test_lora_layer_replacement():
 def test_lora_merge_unmerge():
     from lit_parrot.lora import lora, mark_only_lora_as_trainable
     from lit_parrot.model import Parrot, Config
-    
-    config = Config(n_layer=1, n_head=2, n_embd=8, block_size=8, vocab_size=8)
 
+    config = Config(n_layer=1, n_head=2, n_embd=8, block_size=8, vocab_size=8)
     with lora(r=8, alpha=8, dropout=0.1):
         model = Parrot(config)
-    
+
     initial_weight = model.transformer.h[0].attn.attn.weight.clone()
     model.train()
     assert torch.equal(model.transformer.h[0].attn.attn.weight, initial_weight)
