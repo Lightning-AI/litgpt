@@ -49,10 +49,11 @@ def setup(
 ):
     if precision is None:
         precision = "32-true" if tpu else "16-true"
-    if devices > 1:
+    fabric_devices = devices
+    if fabric_devices > 1:
         if tpu:
             # For multi-host TPU training, the device count for Fabric is limited to the count on a single host.
-            devices = "auto"
+            fabric_devices = "auto"
             strategy = XLAStrategy(sync_module_states=False)
         else:
             auto_wrap_policy = partial(transformer_auto_wrap_policy, transformer_layer_cls={Block})
@@ -61,7 +62,7 @@ def setup(
             )
     else:
         strategy = "auto"
-    fabric = L.Fabric(devices=devices, strategy=strategy, precision=precision)
+    fabric = L.Fabric(devices=fabric_devices, strategy=strategy, precision=precision)
     fabric.launch(main, data_dir, checkpoint_dir, out_dir)
 
 
