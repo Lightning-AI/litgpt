@@ -28,7 +28,6 @@ from lit_parrot.utils import lazy_load, check_valid_checkpoint_dir
 from scripts.prepare_alpaca import generate_prompt
 
 
-instruction_tuning = True
 eval_interval = 100
 save_interval = 100
 eval_iters = 100
@@ -42,7 +41,7 @@ micro_batch_size = 4
 gradient_accumulation_iters = batch_size // micro_batch_size
 assert gradient_accumulation_iters > 0
 max_iters = 500000 * 3 // micro_batch_size
-weight_decay = 0.0
+weight_decay = 0.01
 lora_r = 8
 lora_alpha = 16
 lora_dropout = 0.05
@@ -102,7 +101,7 @@ def main(
     num_params = sum(p.numel() for p in model.parameters() if p.requires_grad)
     fabric.print(f"Number of trainable parameters: {num_params}")
 
-    optimizer = torch.optim.AdamW(model.parameters(), lr=learning_rate)
+    optimizer = torch.optim.AdamW(model.parameters(), lr=learning_rate, weight_decay=weight_decay)
     model, optimizer = fabric.setup(model, optimizer)
     train(fabric, model, optimizer, train_data, val_data, checkpoint_dir, out_dir)
 
