@@ -95,7 +95,7 @@ class MergedLinear(nn.Linear, LoRALayer):
         enable_lora: List[bool] = [False],
         fan_in_fan_out: bool = False,
         merge_weights: bool = True,
-        **kwargs
+        **kwargs,
     ):
         """LoRA wrapper around linear class that is used for calculation of q, k and v matrices.
 
@@ -127,7 +127,9 @@ class MergedLinear(nn.Linear, LoRALayer):
         """
         nn.Linear.__init__(self, in_features, out_features, **kwargs)
         LoRALayer.__init__(self, r=r, lora_alpha=lora_alpha, lora_dropout=lora_dropout, merge_weights=merge_weights)
-        assert out_features % len(enable_lora) == 0, "The length of enable_lora must divide out_features"
+        assert (
+            out_features % len(enable_lora) == 0
+        ), f"The length of enable_lora ({len(enable_lora)}) must divide out_features ({out_features})"
         self.enable_lora = enable_lora
         self.fan_in_fan_out = fan_in_fan_out
 
