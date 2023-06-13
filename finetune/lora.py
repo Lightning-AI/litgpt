@@ -50,7 +50,7 @@ warmup_iters = 100
 
 ds_config = {
     "train_micro_batch_size_per_gpu": micro_batch_size,
-    "gradient_accumulation_iters": gradient_accumulation_iters,
+    "gradient_accumulation_steps": gradient_accumulation_iters,
     "zero_optimization": {"stage": 2},
 }
 
