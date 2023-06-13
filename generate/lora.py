@@ -31,7 +31,7 @@ lora_dropout = 0.05
 def main(
     prompt: str = "What food do lamas eat?",
     input: str = "",
-    lora_path: Path = Path("out/lora/alpaca/lit-model-lora-finetuned.pth"),
+    lora_path: Path = Path("out/lora/alpaca/lit_model_lora_finetuned.pth"),
     checkpoint_dir: Path = Path(f"checkpoints/stabilityai/stablelm-base-alpha-3b"),
     quantize: Literal["llm.int8", "gptq.int4"] = None,
     max_new_tokens: int = 100,
@@ -42,13 +42,13 @@ def main(
     precision: str = "bf16-true",
 ) -> None:
     """Generates a response based on a given instruction and an optional input.
-    This script will only work with checkpoints from the instruction-tuned Parrot-Adapter model.
-    See `finetune/adapter.py`.
+    This script will only work with checkpoints from the instruction-tuned Parrot-LoRA model.
+    See `finetune/lora.py`.
 
     Args:
         prompt: The prompt/instruction (Alpaca style).
-        adapter_path: Path to the checkpoint with trained adapter weights, which are the output of
-            `finetune/adapter.py`.
+        lora_path: Path to the checkpoint with trained adapter weights, which are the output of
+            `finetune/lora.py`.
         checkpoint_dir: The path to the checkpoint folder with pretrained Parrot weights.
         input: Optional input (Alpaca style).
         quantize: Whether to quantize the model and using which method:
@@ -91,14 +91,11 @@ def main(
 
     t0 = time.time()
     with lazy_load(checkpoint_path) as pretrained_checkpoint, lazy_load(lora_path) as lora_checkpoint:
-
-        with fabric.init_module(), lora(r=lora_r, alpha=lora_alpha, dropout=lora_dropout, enabled=True):
-            # 1. Load the pretrained weights
-            model.load_state_dict(pretrained_checkpoint, strict=False)
-            # 2. Load the fine-tuned lora weights
-            model.load_state_dict(lora_checkpoint, strict=False)
-
-    print(f"Time to load model: {time.time() - t0:.02f} seconds.", file=sys.stderr)
+        # 1. Load the pretrained weights
+        model.load_state_dict(pretrained_checkpoint, strict=False)
+        # 2. Load the fine-tuned lora weights
+        model.load_state_dict(lora_checkpoint, strict=False)
+    fabric.print(f"Time to load the model weights: {time.time() - t0:.02f} seconds.", file=sys.stderr)
 
     model.eval()
     model = fabric.setup(model)
