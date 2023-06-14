@@ -46,7 +46,7 @@ import torch.nn as nn
 import torch.nn.functional as F
 
 import math
-from typing import Dict, List
+from typing import Dict, List, Tuple, Union
 
 import lit_parrot.model as parrot
 
@@ -89,10 +89,12 @@ class MergedLinear(nn.Linear, LoRALayer):
         in_features: int,
         out_features: int,
         # ↓ the remaining part is for LoRA
+        n_head: int,
+        n_query_groups: int,
         r: int = 0,
         lora_alpha: int = 1,
         lora_dropout: float = 0.0,
-        enable_lora: List[bool] = [False],
+        enable_lora: Union[bool, Tuple[bool, bool, bool]] = False,
         fan_in_fan_out: bool = False,
         merge_weights: bool = True,
         **kwargs,
@@ -108,6 +110,8 @@ class MergedLinear(nn.Linear, LoRALayer):
         Args:
             in_features: number of input features of the pretrained weights
             out_features: number of output features of the pretrained weights
+            n_head: number of attention heads
+            n_query_groups: number of query groups
             r: rank of the weight update matrices. To make sense of using LoRA the rank should be smaller than the rank of
                 the weights of the model.  The rank can be as low as 1: https://arxiv.org/pdf/2106.09685.pdf (section 7.2)
             lora_alpha: alpha is needed for scaling updates as alpha/r
@@ -115,9 +119,8 @@ class MergedLinear(nn.Linear, LoRALayer):
                 https://arxiv.org/pdf/2106.09685.pdf (section 4.1)
             lora_dropout: dropout that is applied on the input in the LoRA branch (before multiplying by matrix A)
             enable_lora: MergeLinear class is for attention mechanism where qkv are calculated with a single weight matrix. If we
-                don't want to apply LoRA for all three (query, key and value) we can set it as False. For example if we want
-                to apply LoRA only to `query` and `value` but keep `key` without weight updates we should pass `[True,
-                False, True]`
+                don't want to apply LoRA we can set it as False. For example if we want to apply LoRA only to `query`
+                and `value` but keep `key` without weight updates we should pass `[True, False, True]`
             fan_in_fan_out: set this to True if the layer to replace stores weight like (fan_in, fan_out).  For example, gpt-2 uses
                 `Conv1D` which stores weights like (fan_in, fan_out) and hence this should be set to `True`
                 https://github.com/huggingface/peft/blob/main/src/peft/tuners/lora.py#LL53C9-L53C112
@@ -127,9 +130,9 @@ class MergedLinear(nn.Linear, LoRALayer):
         """
         nn.Linear.__init__(self, in_features, out_features, **kwargs)
         LoRALayer.__init__(self, r=r, lora_alpha=lora_alpha, lora_dropout=lora_dropout, merge_weights=merge_weights)
-        assert (
-            out_features % len(enable_lora) == 0
-        ), f"The length of enable_lora ({len(enable_lora)}) must divide out_features ({out_features})"
+        if isinstance(enable_lora, bool):
+            enable_lora = [enable_lora] * 3
+        assert len(enable_lora) == 3
         self.enable_lora = enable_lora
         self.fan_in_fan_out = fan_in_fan_out
 
@@ -141,9 +144,10 @@ class MergedLinear(nn.Linear, LoRALayer):
         # ⚬ enable_lora: [True, False, True]
         if r > 0 and any(enable_lora):
             self.lora_A = nn.Parameter(self.weight.new_zeros((r * sum(enable_lora), in_features)))  # (4, 128)
-            self.lora_B = nn.Parameter(
-                self.weight.new_zeros((out_features // len(enable_lora) * sum(enable_lora), r))  # (256, 2)
-            )  # weights for Conv1D with groups=sum(enable_lora)
+            enable_q, enable_k, enable_v = enable_lora
+            self.kv_embd_size = self.in_features // (n_head // n_query_groups)
+            shape = self.in_features * enable_q + self.kv_embd_size * enable_k + self.kv_embd_size * enable_v
+            self.lora_B = nn.Parameter(self.weight.new_zeros(shape, r))  # (256, 2))
             # Notes about shapes above
             # - self.lora_A has shape (4, 128): 4 because rank is 2 and LoRA is applied only to two matrices;
             # 128 is the input size of the x (embedding size). (4, 128) and not (128, 4) because later on in
@@ -175,11 +179,10 @@ class MergedLinear(nn.Linear, LoRALayer):
             # ________________________________________
             # | query         | key       | value    |
             # ----------------------------------------
-            self.lora_ind = self.weight.new_zeros((out_features,), dtype=torch.bool).view(
-                len(enable_lora), -1
-            )  # (3, 128)
-            self.lora_ind[enable_lora, :] = True  # (3, 128)
-            self.lora_ind = self.lora_ind.view(-1)  # (384,)
+            self.lora_ind = self.weight.new_zeros((out_features,), dtype=torch.bool)
+            self.lora_ind[: self.in_features] = enable_q
+            self.lora_ind[self.in_features : self.kv_embd_size] = enable_k
+            self.lora_ind[-self.kv_embd_size :] = enable_v
         self.reset_parameters()
         if fan_in_fan_out:
             self.weight.data = self.weight.data.T
@@ -226,9 +229,9 @@ class MergedLinear(nn.Linear, LoRALayer):
         x = x.transpose(0, 1)
         result = x.new_zeros((*x.shape[:-1], self.out_features))  # (64, 64, 384)
         result = result.view(-1, self.out_features)  # (4096, 384)
-        result[:, self.lora_ind] = x.reshape(
-            -1, self.out_features // len(self.enable_lora) * sum(self.enable_lora)
-        )  # (4096, 256)
+        enable_q, enable_k, enable_v = self.enable_lora
+        shape = self.in_features * enable_q + self.kv_embd_size * enable_k + self.kv_embd_size * enable_v
+        result[:, self.lora_ind] = x.reshape(-1, shape)  # (4096, 256)
         return result.view((*x.shape[:-1], self.out_features)).transpose(0, 1)  # (64, 64, 384)
 
     def train(self, mode: bool = True):
@@ -430,10 +433,13 @@ class CausalSelfAttention(parrot.CausalSelfAttention):
             r=self.lora_config.r,
             lora_alpha=self.lora_config.alpha,
             lora_dropout=self.lora_config.dropout,
-            enable_lora=[True, False, True],
+            enable_lora=(True, False, True),
             fan_in_fan_out=False,
             merge_weights=True,
             bias=config.bias,
+            # for MQA/GQA support
+            n_head=config.n_head,
+            n_query_groups=config.n_query_groups,
         )
         # output projection
         self.proj = nn.Linear(config.n_embd, config.n_embd, bias=config.bias)
