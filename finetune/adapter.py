@@ -86,6 +86,7 @@ def main(
     with fabric.init_module():
         model = Parrot(config)
     with lazy_load(checkpoint_path) as checkpoint:
+        # strict=False because missing keys due to adapter weights not contained in state dict
         model.load_state_dict(checkpoint, strict=False)
 
     mark_only_adapter_as_trainable(model)
