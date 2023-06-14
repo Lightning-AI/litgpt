@@ -107,7 +107,7 @@ def main(
     model, optimizer = fabric.setup(model, optimizer)
 
     with open(data_dir / "config.json") as data_config_path:
-        max_seq_length = json.loads(data_config_path).get("max_seq_length", model.config.block_size)
+        max_seq_length = json.load(data_config_path).get("max_seq_length", model.config.block_size)
 
     train_time = time.time()
     train(fabric, model, optimizer, train_data, val_data, checkpoint_dir, out_dir, max_seq_length)
