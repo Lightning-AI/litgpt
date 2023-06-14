@@ -55,3 +55,45 @@ def test_lora_merge_unmerge():
     model.train()
     model.train()
     assert torch.equal(model.transformer.h[0].attn.attn.weight, weight_after)
+
+
+def test_lora_mqa_gqa():
+    from lit_parrot.lora import lora
+    from lit_parrot.model import Parrot, Config
+
+    # MHA
+    config = Config(n_layer=1, n_head=4, n_embd=8, block_size=1, vocab_size=1)
+    assert config.n_query_groups == config.n_head
+    with lora(r=2, alpha=8, dropout=0.1):
+        model = Parrot(config)
+    attn = model.transformer.h[0].attn.attn
+    assert attn.weight.shape == (24, 8)
+    assert attn.lora_A.shape == (4, 8)
+    assert attn.lora_B.shape == (16, 2)
+    assert attn.lora_ind.tolist() == [True] * 8 + [False] * 8 + [True] * 8
+    x = torch.randint(0, 8, size=(3, 5, 16), dtype=torch.int64)
+    assert attn.zero_pad(x).shape == (3, 5, 24)
+
+    # MQA
+    config.n_query_groups = 1
+    with lora(r=2, alpha=8, dropout=0.1):
+        model = Parrot(config)
+    attn = model.transformer.h[0].attn.attn
+    assert attn.weight.shape == (12, 8)
+    assert attn.lora_A.shape == (4, 8)
+    assert attn.lora_B.shape == (10, 2)
+    assert attn.lora_ind.tolist() == [True] * 8 + [False] * 2 + [True] * 2
+    x = torch.randint(0, 8, size=(3, 5, 10), dtype=torch.int64)
+    assert attn.zero_pad(x).shape == (3, 5, 12)
+
+    # GQA
+    config.n_query_groups = 2
+    with lora(r=2, alpha=8, dropout=0.1):
+        model = Parrot(config)
+    attn = model.transformer.h[0].attn.attn
+    assert attn.weight.shape == (16, 8)
+    assert attn.lora_A.shape == (4, 8)
+    assert attn.lora_B.shape == (12, 2)
+    assert attn.lora_ind.tolist() == [True] * 8 + [False] * 4 + [True] * 4
+    x = torch.randint(0, 8, size=(3, 5, 12), dtype=torch.int64)
+    assert attn.zero_pad(x).shape == (3, 5, 16)
