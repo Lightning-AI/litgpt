@@ -1,15 +1,15 @@
-import json
 import glob
+import json
 import os
 from pathlib import Path
 import sys
 
+import numpy as np
+from tqdm import tqdm
+
 # support running without installing as a package
 wd = Path(__file__).parent.parent.resolve()
 sys.path.append(str(wd))
-
-import numpy as np
-from tqdm import tqdm
 
 from lit_parrot import Tokenizer
 import lit_parrot.packed_dataset as packed_dataset

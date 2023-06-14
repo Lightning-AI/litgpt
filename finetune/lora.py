@@ -1,5 +1,10 @@
+"""
+Instruction-tuning with LoRA on the Alpaca dataset.
+
+Note: If you run into a CUDA error "Expected is_sm80 to be true, but got false", uncomment the line
+`torch.backends.cuda.enable_flash_sdp(False)` in the script below (see https://github.com/Lightning-AI/lit-llama/issues/101).
+"""
 import os
-import shutil
 import sys
 import time
 import warnings
@@ -16,32 +21,35 @@ wd = Path(__file__).parent.parent.resolve()
 sys.path.append(str(wd))
 
 from generate.base import generate
-from lit_parrot.adapter import Parrot, Config, mark_only_adapter_as_trainable, adapter_state_from_state_dict
+from lit_parrot.lora import mark_only_lora_as_trainable, lora, lora_state_dict
+from lit_parrot.model import Parrot, Config
 from lit_parrot.tokenizer import Tokenizer
 from lit_parrot.utils import lazy_load, check_valid_checkpoint_dir
 from scripts.prepare_alpaca import generate_prompt
 
-eval_interval = 600
-save_interval = 1000
+
+eval_interval = 100
+save_interval = 100
 eval_iters = 100
 log_interval = 1
 devices = 1
 
 # Hyperparameters
-learning_rate = 9e-3
-batch_size = 64 / devices
+learning_rate = 3e-4
+batch_size = 128
 micro_batch_size = 4
-gradient_accumulation_steps = batch_size // micro_batch_size
-assert gradient_accumulation_steps > 0
-epoch_size = 50000  # train dataset size
-num_epochs = 5
-max_iters = num_epochs * (epoch_size // micro_batch_size) // devices
-weight_decay = 0.02
-warmup_iters = 2 * (epoch_size // micro_batch_size) // devices  # 2 epochs
+gradient_accumulation_iters = batch_size // micro_batch_size
+assert gradient_accumulation_iters > 0
+max_iters = 50000  # train dataset size
+weight_decay = 0.01
+lora_r = 8
+lora_alpha = 16
+lora_dropout = 0.05
+warmup_iters = 100
 
 ds_config = {
     "train_micro_batch_size_per_gpu": micro_batch_size,
-    "gradient_accumulation_steps": gradient_accumulation_steps,
+    "gradient_accumulation_steps": gradient_accumulation_iters,
     "zero_optimization": {"stage": 2},
 }
 
@@ -49,12 +57,12 @@ ds_config = {
 def setup(
     data_dir: Path = Path("data/alpaca"),
     checkpoint_dir: Path = Path("checkpoints/stabilityai/stablelm-base-alpha-3b"),
-    out_dir: Path = Path("out/adapter/alpaca"),
+    out_dir: Path = Path("out/lora/alpaca"),
     precision: Optional[str] = None,
     tpu: bool = False,
 ):
     if precision is None:
-        precision = "32-true" if tpu else "16-true"
+        precision = "32-true" if tpu else "bf16-mixed"
     strategy = (
         "auto"
         if devices <= 1
@@ -70,7 +78,7 @@ def main(
     fabric: L.Fabric = None,
     data_dir: Path = Path("data/alpaca"),
     checkpoint_dir: Path = Path("checkpoints/stabilityai/stablelm-base-alpha-3b"),
-    out_dir: Path = Path("out/adapter/alpaca"),
+    out_dir: Path = Path("out/lora/alpaca"),
 ):
     check_valid_checkpoint_dir(checkpoint_dir)
     fabric.seed_everything(1337 + fabric.global_rank)
@@ -83,27 +91,23 @@ def main(
     config = Config.from_name(name=checkpoint_dir.name)
     checkpoint_path = checkpoint_dir / "lit_model.pth"
     fabric.print(f"Loading model {str(checkpoint_path)!r} with {config.__dict__}")
-    with fabric.init_module():
+    with fabric.init_module(), lora(r=lora_r, alpha=lora_alpha, dropout=lora_dropout, enabled=True):
         model = Parrot(config)
     with lazy_load(checkpoint_path) as checkpoint:
+        # strict=False because missing keys due to LoRA weights not contained in state dict
         model.load_state_dict(checkpoint, strict=False)
 
-    mark_only_adapter_as_trainable(model)
-
+    mark_only_lora_as_trainable(model)
     num_params = sum(p.numel() for p in model.parameters() if p.requires_grad)
     fabric.print(f"Number of trainable parameters: {num_params}")
 
     optimizer = torch.optim.AdamW(model.parameters(), lr=learning_rate, weight_decay=weight_decay)
     model, optimizer = fabric.setup(model, optimizer)
-
-    train_time = time.time()
     train(fabric, model, optimizer, train_data, val_data, checkpoint_dir, out_dir)
-    print(f"Training time: {(time.time()-train_time):.2f}s")
 
-    # Save the final checkpoint at the end of training
-    save_path = out_dir / "lit_model_adapter_finetuned.pth"
-    fabric.print(f"Saving adapter weights to {str(save_path)!r}")
-    save_model_checkpoint(fabric, model, save_path)
+    # Save the final LoRA checkpoint at the end of training
+    save_path = out_dir / "lit_model_lora_finetuned.pth"
+    save_lora_checkpoint(fabric, model, path=save_path)
 
 
 def train(
@@ -138,12 +142,12 @@ def train(
 
         input_ids, targets = get_batch(fabric, train_data)
 
-        with fabric.no_backward_sync(model, enabled=((iter_num + 1) % gradient_accumulation_steps != 0)):
+        with fabric.no_backward_sync(model, enabled=((iter_num + 1) % gradient_accumulation_iters != 0)):
             logits = model(input_ids)
             loss = loss_fn(logits, targets)
-            fabric.backward(loss / gradient_accumulation_steps)
+            fabric.backward(loss / gradient_accumulation_iters)
 
-        if (iter_num + 1) % gradient_accumulation_steps == 0:
+        if (iter_num + 1) % gradient_accumulation_iters == 0:
             optimizer.step()
             if fabric.device.type == "xla":
                 xm.mark_step()
@@ -156,10 +160,9 @@ def train(
                 fabric.barrier()
 
             if step_count % save_interval == 0:
+                # We are only saving the LoRA weights
                 save_path = out_dir / f"iter-{iter_num:06d}.pth"
-                fabric.print(f"Saving adapter weights to {str(save_path)!r}")
-                # TODO: Provide a function/script to merge the adapter weights with pretrained weights
-                save_model_checkpoint(fabric, model, save_path)
+                save_lora_checkpoint(fabric, model, save_path)
         else:
             if fabric.device.type == "xla":
                 xm.mark_step()
@@ -229,7 +232,6 @@ def get_batch(fabric: L.Fabric, data: list):
         x, y = fabric.to_device((x, y))
     else:
         x, y = fabric.to_device((x.pin_memory(), y.pin_memory()))
-
     return x, y
 
 
@@ -239,27 +241,10 @@ def load_datasets(data_dir: Path):
     return train_data, val_data
 
 
-def save_model_checkpoint(fabric, model, file_path: Path):
-    file_path = Path(file_path)
-
-    if isinstance(fabric.strategy, DeepSpeedStrategy):
-        from deepspeed.utils.zero_to_fp32 import get_fp32_state_dict_from_zero_checkpoint
-
-        tmp_path = file_path.with_suffix(".tmp")
-        fabric.save(tmp_path, {"model": model})
-        fabric.barrier()
-        if fabric.global_rank == 0:
-            # Create a consolidated checkpoint with the same name next to the deepspeed checkpoint
-            # and only keep the adapter weights
-            state_dict = get_fp32_state_dict_from_zero_checkpoint(tmp_path)
-            state_dict = adapter_state_from_state_dict(state_dict)
-            torch.save(state_dict, file_path)
-            shutil.rmtree(tmp_path)
-    else:
-        state_dict = adapter_state_from_state_dict(model.state_dict())
-        if fabric.global_rank == 0:
-            torch.save(state_dict, file_path)
-        fabric.barrier()
+def save_lora_checkpoint(fabric, model, path):
+    fabric.print(f"Saving LoRA weights to {str(path)!r}")
+    checkpoint = lora_state_dict(model)
+    torch.save(checkpoint, path)
 
 
 if __name__ == "__main__":
@@ -274,5 +259,4 @@ if __name__ == "__main__":
         "ignore",
         message="Remove `.no_backward_sync()` from your code",
     )
-
     CLI(setup)
