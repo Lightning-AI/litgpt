@@ -36,8 +36,8 @@ devices = 1
 learning_rate = 9e-3
 batch_size = 64 / devices
 micro_batch_size = 4
-gradient_accumulation_steps = batch_size // micro_batch_size
-assert gradient_accumulation_steps > 0
+gradient_accumulation_iters = batch_size // micro_batch_size
+assert gradient_accumulation_iters > 0
 epoch_size = 50000  # train dataset size
 num_epochs = 5
 max_iters = num_epochs * (epoch_size // micro_batch_size) // devices
@@ -140,12 +140,12 @@ def train(
         t0 = time.time()
 
         input_ids, targets = get_batch(fabric, train_data)
-        with fabric.no_backward_sync(model, enabled=((iter_num + 1) % gradient_accumulation_steps != 0)):
+        with fabric.no_backward_sync(model, enabled=((iter_num + 1) % gradient_accumulation_iters != 0)):
             logits = model(input_ids)
             loss = loss_fn(logits, targets)
-            fabric.backward(loss / gradient_accumulation_steps)
+            fabric.backward(loss / gradient_accumulation_iters)
 
-        if (iter_num + 1) % gradient_accumulation_steps == 0:
+        if (iter_num + 1) % gradient_accumulation_iters == 0:
             optimizer.step()
             if fabric.device.type == "xla":
                 xm.mark_step()
