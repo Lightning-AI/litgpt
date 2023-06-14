@@ -103,7 +103,10 @@ def main(
 
     optimizer = torch.optim.AdamW(model.parameters(), lr=learning_rate, weight_decay=weight_decay)
     model, optimizer = fabric.setup(model, optimizer)
+
+    train_time = time.time()
     train(fabric, model, optimizer, train_data, val_data, checkpoint_dir, out_dir)
+    fabric.print(f"Training time: {(time.time()-train_time):.2f}s")
 
     # Save the final LoRA checkpoint at the end of training
     save_path = out_dir / "lit_model_lora_finetuned.pth"

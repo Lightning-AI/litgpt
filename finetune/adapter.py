@@ -98,7 +98,7 @@ def main(
 
     train_time = time.time()
     train(fabric, model, optimizer, train_data, val_data, checkpoint_dir, out_dir)
-    print(f"Training time: {(time.time()-train_time):.2f}s")
+    fabric.print(f"Training time: {(time.time()-train_time):.2f}s")
 
     # Save the final checkpoint at the end of training
     save_path = out_dir / "lit_model_adapter_finetuned.pth"

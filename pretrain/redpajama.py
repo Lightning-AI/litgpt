@@ -2,7 +2,6 @@ import glob
 import math
 import sys
 import time
-import warnings
 from functools import partial
 from pathlib import Path
 from typing import Tuple, Optional
@@ -21,6 +20,7 @@ from lit_parrot.model import Block, Parrot, Config
 from lit_parrot.packed_dataset import PackedDataset, CombinedDataset
 from lit_parrot.utils import save_model_checkpoint
 
+model_name = "pythia-70m"
 out_dir = Path("out/training")
 save_interval = 1000
 eval_interval = 1000
@@ -31,6 +31,8 @@ log_interval = 1
 learning_rate = 6e-4
 batch_size = 125
 micro_batch_size = 5
+gradient_accumulation_steps = batch_size // micro_batch_size
+assert gradient_accumulation_steps > 0
 max_iters = 600000  # num_epochs * (epoch_size // micro_batch_size) // devices
 weight_decay = 1e-1
 beta1 = 0.9
@@ -53,6 +55,7 @@ data_config = [
     ("wikipedia", 4.5),
 ]
 
+hparams = {k: v for k, v in locals().items() if isinstance(v, (int, float, str)) and not k.startswith("_")}
 
 def setup(
     devices: int = 4,
@@ -74,22 +77,18 @@ def setup(
     fabric = L.Fabric(
         accelerator=("cuda" if not tpu else "tpu"), devices=devices, precision=precision, strategy=strategy
     )
+    fabric.launch(main, train_data_dir, val_data_dir)
 
-    fabric.launch(main, devices, train_data_dir, val_data_dir)
 
+def main(fabric: L.Fabric, train_data_dir: Path, val_data_dir: Optional[Path]) -> None:
+    fabric.print(hparams)
 
-def main(
-    fabric: L.Fabric = None,
-    devices: int = 4,
-    train_data_dir: Path = Path("data/lit-redpajama"),
-    val_data_dir: Optional[Path] = None,
-) -> None:
-    fabric.seed_everything(1337)
+    fabric.seed_everything(1337 + fabric.global_rank)
 
     if fabric.global_rank == 0:
         out_dir.mkdir(parents=True, exist_ok=True)
 
-    config = Config.from_name("pythia-70m")
+    config = Config.from_name(model_name)
 
     train_dataloader, val_dataloader = create_dataloaders(
         batch_size=micro_batch_size,
@@ -97,40 +96,38 @@ def main(
         fabric=fabric,
         train_data_dir=train_data_dir,
         val_data_dir=val_data_dir,
-        seed=1338,
+        seed=1337,
     )
     if val_dataloader is None:
         train_dataloader = fabric.setup_dataloaders(train_dataloader)
     else:
         train_dataloader, val_dataloader = fabric.setup_dataloaders(train_dataloader, val_dataloader)
 
+    fabric.print(f"Loading model with {config.__dict__}")
+    t0 = time.time()
     with fabric.init_module():
         model = Parrot(config)
         model.apply(model._init_weights)
+    fabric.print(f"Time to instantiate model: {time.time() - t0:.02f} seconds.")
+
+    num_total_params = sum(p.numel() for p in model.parameters())
+    fabric.print(f"Total parameters {num_total_params}")
 
     optimizer = torch.optim.AdamW(model.parameters(), lr=learning_rate, weight_decay=weight_decay, betas=(beta1, beta2))
-
     model, optimizer = fabric.setup(model, optimizer)
 
-    process_batch_size = batch_size // devices
-    grad_accum_steps = process_batch_size // micro_batch_size
-
-    train(fabric, model, optimizer, train_dataloader, val_dataloader, grad_accum_steps)
+    train_time = time.time()
+    train(fabric, model, optimizer, train_dataloader, val_dataloader)
+    fabric.print(f"Training time: {(time.time()-train_time):.2f}s")
 
 
 def train(
     fabric: L.Fabric,
-    model: torch.nn.Module,
+    model: Parrot,
     optimizer: torch.optim.Optimizer,
     train_dataloader: DataLoader,
     val_dataloader: Optional[DataLoader],
-    grad_accum_steps: int,
 ) -> None:
-    """The training loop.
-
-    Loosely based on the nanoGPT implementation: https://github.com/karpathy/nanoGPT.
-    """
-
     step_count = 0
 
     step_time = 0.0
@@ -152,20 +149,17 @@ def train(
         input_ids = train_data[:, 0 : model.config.block_size].contiguous()
         targets = train_data[:, 1 : model.config.block_size + 1].contiguous()
 
-        is_accumulating = (iter_num + 1) % grad_accum_steps != 0
-
+        is_accumulating = (iter_num + 1) % gradient_accumulation_steps != 0
         with fabric.no_backward_sync(model, enabled=is_accumulating):
             logits = model(input_ids)
             loss = torch.nn.functional.cross_entropy(
                 logits.view(-1, logits.size(-1)), targets.view(-1), ignore_index=-1
             )
-            fabric.backward(loss / grad_accum_steps)
+            fabric.backward(loss / gradient_accumulation_steps)
 
         t1 = time.time()
-
         if not is_accumulating:
             fabric.clip_gradients(model, optimizer, max_norm=grad_clip)
-
             optimizer.step()
             if fabric.device.type == "xla":
                 xm.mark_step()
@@ -213,7 +207,8 @@ def train(
 def validate(fabric: L.Fabric, model: torch.nn.Module, val_dataloader: DataLoader) -> torch.Tensor:
     fabric.print("Validating ...")
     model.eval()
-    losses = torch.zeros(eval_iters)
+
+    losses = torch.zeros(eval_iters, device=fabric.device)
     for k, val_data in enumerate(val_dataloader):
         input_ids = val_data[:, 0 : model.config.block_size].contiguous()
         targets = val_data[:, 1 : model.config.block_size + 1].contiguous()
@@ -221,6 +216,7 @@ def validate(fabric: L.Fabric, model: torch.nn.Module, val_dataloader: DataLoade
         loss = torch.nn.functional.cross_entropy(logits.view(-1, logits.size(-1)), targets.view(-1), ignore_index=-1)
         losses[k] = loss.item()
     out = losses.mean()
+
     model.train()
     return out
 
@@ -309,6 +305,6 @@ if __name__ == "__main__":
     # torch.backends.cuda.enable_flash_sdp(False)
     torch.set_float32_matmul_precision("high")
 
-    from jsonargparse.cli import CLI
+    from jsonargparse import CLI
 
     CLI(setup)
