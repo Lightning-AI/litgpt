@@ -12,6 +12,8 @@ import torch
 from lightning.fabric.strategies import FSDPStrategy, XLAStrategy
 from torch.distributed.fsdp.wrap import transformer_auto_wrap_policy
 
+from lit_parrot.utils import step_csv_logger
+
 # support running without installing as a package
 wd = Path(__file__).parent.parent.resolve()
 sys.path.append(str(wd))
@@ -48,35 +50,7 @@ lr_decay_iters = max_iters
 min_lr = 6e-5
 
 hparams = {k: v for k, v in locals().items() if isinstance(v, (int, float, str)) and not k.startswith("_")}
-
-logger = CSVLogger("out", name)
-
-
-def merge_by(dicts, key):
-    from collections import defaultdict
-
-    out = defaultdict(dict)
-    for d in dicts:
-        if key in d:
-            out[d[key]].update(d)
-    return [v for _, v in sorted(out.items())]
-
-
-def save(self) -> None:
-    """Overriden to merge CSV by the step number."""
-    import csv
-
-    if not self.metrics:
-        return
-    metrics = merge_by(self.metrics, "step")
-    keys = sorted({k for m in metrics for k in m})
-    with self._fs.open(self.metrics_file_path, "w", newline="") as f:
-        writer = csv.DictWriter(f, fieldnames=keys)
-        writer.writeheader()
-        writer.writerows(metrics)
-
-
-logger.experiment.save = MethodType(save, logger.experiment)
+logger = step_csv_logger("out", name)
 
 
 def setup(devices: int = 1, precision: Optional[str] = None, tpu: bool = False) -> None:

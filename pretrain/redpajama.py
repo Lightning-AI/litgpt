@@ -57,6 +57,7 @@ data_config = [
 
 hparams = {k: v for k, v in locals().items() if isinstance(v, (int, float, str)) and not k.startswith("_")}
 
+
 def setup(
     devices: int = 4,
     train_data_dir: Path = Path("data/lit-redpajama"),
