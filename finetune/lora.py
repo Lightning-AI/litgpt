@@ -111,7 +111,7 @@ def main(
 
     train_time = time.time()
     train(fabric, model, optimizer, train_data, val_data, checkpoint_dir, out_dir, max_seq_length)
-    print(f"Training time: {(time.time()-train_time):.2f}s")
+    fabric.print(f"Training time: {(time.time()-train_time):.2f}s")
 
     # Save the final LoRA checkpoint at the end of training
     save_path = out_dir / "lit_model_lora_finetuned.pth"
@@ -148,12 +148,13 @@ def train(
 
         input_ids, targets = get_batch(fabric, train_data, max_seq_length)
 
-        with fabric.no_backward_sync(model, enabled=((iter_num + 1) % gradient_accumulation_iters != 0)):
+        is_accumulating = (iter_num + 1) % gradient_accumulation_iters != 0
+        with fabric.no_backward_sync(model, enabled=is_accumulating):
             logits = model(input_ids, max_seq_length=max_seq_length)
             loss = loss_fn(logits, targets)
             fabric.backward(loss / gradient_accumulation_iters)
 
-        if (iter_num + 1) % gradient_accumulation_iters == 0:
+        if not is_accumulating:
             optimizer.step()
             if fabric.device.type == "xla":
                 xm.mark_step()
