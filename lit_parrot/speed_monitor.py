@@ -54,6 +54,12 @@ GPU_AVAILABLE_FLOPS = {
     # https://www.nvidia.com/content/dam/en-zz/Solutions/design-visualization/quadro-product-literature/quadro-rtx-5000-data-sheet-us-nvidia-704120-r4-web.pdf
     "quadro rtx 5000": {"32-true": 11.2e12, "16-true": 89.2e12, "16-mixed": 89.2e12},
 }
+TPU_AVAILABLE_FLOPS = {
+    # https://cloud.google.com/tpu/docs/system-architecture-tpu-vm
+    "v4-128": {"bf16-mixed": 275e12 * 64},
+    "v4-8": {"bf16-mixed": 275e12 * 4},
+    "v3-8": {"bf16-mixed": 123e12 * 8},
+}
 
 
 def get_flops_available(device: torch.device, precision: str) -> Optional[float]:
@@ -81,13 +87,24 @@ def get_flops_available(device: torch.device, precision: str) -> Optional[float]
                 return int(GPU_AVAILABLE_FLOPS[device_name][precision])
             except KeyError:
                 raise KeyError(
-                    f"gpu_flop count not found for {device_name} with precision: {precision}; "
-                    "MFU cannot be calculated and reported. gpu_flops_available can be manually "
-                    "overridden by setting gpu_flops_available in SpeedMonitor."
+                    f"flop count not found for {device_name} with precision: {precision}; "
+                    "MFU cannot be calculated and reported."
                 )
     elif device.type == "xla":
-        # TODO
-        ...
+        try:
+            from torch_xla.experimental import tpu
+            import torch_xla.core.xla_env_vars as xenv
+
+            device_name = tpu.get_tpu_env()[xenv.ACCELERATOR_TYPE]
+            try:
+                return int(TPU_AVAILABLE_FLOPS[device_name][precision])
+            except KeyError:
+                raise KeyError(
+                    f"flop count not found for {device_name} with precision: {precision}; "
+                    "MFU cannot be calculated and reported."
+                )
+        except:
+            pass
 
     return None
 
@@ -146,6 +163,7 @@ class SpeedMonitor:
 
     def __init__(self, fabric: Fabric, window_size: int = 100, time_unit: str = "hours"):
         self.fabric = fabric
+        # TODO: this will not work properly if a precision plugin is passed to Fabric
         self.flops_available = get_flops_available(fabric.device, fabric._connector._precision_input)
 
         # Track the batch num samples and wct to compute throughput over a window of batches
