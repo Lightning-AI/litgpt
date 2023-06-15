@@ -12,13 +12,15 @@ from lightning.fabric.strategies import FSDPStrategy, XLAStrategy
 from torch.distributed.fsdp.wrap import transformer_auto_wrap_policy
 from torch.utils.data import DataLoader
 
+from lit_parrot.speed_monitor import SpeedMonitor, estimate_flops, measure_flops
+
 # support running without installing as a package
 wd = Path(__file__).parent.parent.resolve()
 sys.path.append(str(wd))
 
 from lit_parrot.model import Block, Parrot, Config
 from lit_parrot.packed_dataset import PackedDataset, CombinedDataset
-from lit_parrot.utils import save_model_checkpoint
+from lit_parrot.utils import save_model_checkpoint, step_csv_logger
 
 model_name = "pythia-70m"
 name = "redpajama"
@@ -58,6 +60,7 @@ data_config = [
 ]
 
 hparams = {k: v for k, v in locals().items() if isinstance(v, (int, float, str)) and not k.startswith("_")}
+logger = step_csv_logger("out", name)
 
 
 def setup(
@@ -82,10 +85,12 @@ def setup(
     else:
         strategy = "auto"
     fabric = L.Fabric(devices=devices, strategy=strategy, precision=precision)
-    fabric.launch(main, train_data_dir, val_data_dir)
+    fabric.launch(main, train_data_dir, val_data_dir, precision)
 
 
-def main(fabric: L.Fabric, train_data_dir: Path, val_data_dir: Optional[Path]) -> None:
+def main(fabric: L.Fabric, train_data_dir: Path, val_data_dir: Optional[Path], precision: str) -> None:
+    speed_monitor = SpeedMonitor(logger, precision, window_size=50, time_unit="seconds")
+
     fabric.print(hparams)
 
     fabric.seed_everything(1337 + fabric.global_rank)
@@ -122,7 +127,7 @@ def main(fabric: L.Fabric, train_data_dir: Path, val_data_dir: Optional[Path]) -
     model, optimizer = fabric.setup(model, optimizer)
 
     train_time = time.time()
-    train(fabric, model, optimizer, train_dataloader, val_dataloader)
+    train(fabric, model, optimizer, train_dataloader, val_dataloader, speed_monitor)
     fabric.print(f"Training time: {(time.time()-train_time):.2f}s")
 
 
@@ -132,24 +137,37 @@ def train(
     optimizer: torch.optim.Optimizer,
     train_dataloader: DataLoader,
     val_dataloader: Optional[DataLoader],
+    speed_monitor: SpeedMonitor,
 ) -> None:
-    step_count = 0
+    validate(fabric, model, val_dataloader)  # sanity check
 
-    step_time = 0.0
-    tokens = 0
-    prev_t1 = time.time()
+    estimated_flops = estimate_flops(model) * micro_batch_size
+    fabric.print(f"Estimated TFLOPs: {estimated_flops * fabric.world_size / 1e12:.2f}")
+    if not isinstance(fabric.strategy, FSDPStrategy):  # unsupported
+        measured_flops = measure_flops(
+            model, torch.randint(0, 1, (micro_batch_size, model.config.block_size), device=fabric.device)
+        )
+        fabric.print(f"Measured TFLOPs: {measured_flops * fabric.world_size / 1e12:.2f}")
+    else:
+        measured_flops = None
+
+    step_count = 0
+    total_t0 = time.time()
 
     if fabric.device.type == "xla":
         import torch_xla.core.xla_model as xm
 
         xm.mark_step()
     for iter_num, train_data in enumerate(train_dataloader):
-        t0 = time.time()
+        if iter_num >= max_iters:
+            break
 
         # determine and set the learning rate for this iteration
         lr = get_lr(iter_num) if decay_lr else learning_rate
         for param_group in optimizer.param_groups:
             param_group["lr"] = lr
+
+        iter_t0 = time.time()
 
         input_ids = train_data[:, 0 : model.config.block_size].contiguous()
         targets = train_data[:, 1 : model.config.block_size + 1].contiguous()
@@ -162,7 +180,6 @@ def train(
             )
             fabric.backward(loss / gradient_accumulation_steps)
 
-        t1 = time.time()
         if not is_accumulating:
             fabric.clip_gradients(model, optimizer, max_norm=grad_clip)
             optimizer.step()
@@ -170,42 +187,36 @@ def train(
                 xm.mark_step()
             optimizer.zero_grad()
             step_count += 1
+        elif fabric.device.type == "xla":
+            xm.mark_step()
 
-            t1 = time.time()
-
-            if val_dataloader is not None and step_count % eval_interval == 0:
-                val_loss = validate(fabric, model, val_dataloader)
-                fabric.print(f"step {iter_num}: val loss {val_loss:.4f}")
-                fabric.barrier()
-                fabric.log_dict({"iter": iter_num, "val_loss": val_loss, "step": step_count, "lr": lr})
-
-            if step_count % save_interval == 0:
-                fabric.print(f"Saving checkpoint to {out_dir}")
-                save_model_checkpoint(fabric, model, out_dir / f"iter-{iter_num:06d}-ckpt.pth")
-        else:
-            if fabric.device.type == "xla":
-                xm.mark_step()
-
-        dt = t1 - t0
-
-        tokens += micro_batch_size * model.config.block_size
-        step_time += t1 - prev_t1
-        prev_t1 = t1
-
+        t1 = time.time()
+        speed_monitor.on_train_batch_end(
+            (iter_num + 1) * micro_batch_size,
+            t1 - total_t0,
+            # this assumes that device FLOPs are the same and that all devices have the same batch size
+            fabric.world_size,
+            estimated_flops_per_batch=estimated_flops,
+            measured_flops_per_batch=measured_flops,
+            max_seq_length=model.config.block_size,
+        )
         if iter_num % log_interval == 0:
-            tokens_sec_str = f"{tokens / step_time:.0f}" if not is_accumulating else "-"
-
-            fabric.log_dict({"iter": iter_num, "train_loss": loss, "step": step_count, "lr": lr})
             fabric.print(
-                f"iter {iter_num}: loss {loss.item():.4f}, time: {dt*1000:.2f}ms, speed: {tokens_sec_str} toks/s/device"
+                f"iter {iter_num} step {step_count}: loss {loss.item():.4f}, train time:"
+                f" {(t1 - iter_t0) * 1000:.2f}ms{' (optimizer.step)' if not is_accumulating else ''}"
             )
 
-        if not is_accumulating:
-            tokens = 0
-            step_time = 0.0
-
-        if iter_num > max_iters:
-            break
+        if val_dataloader is not None and not is_accumulating and step_count % eval_interval == 0:
+            t0 = time.time()
+            val_loss = validate(fabric, model, val_dataloader)
+            t1 = time.time() - t0
+            speed_monitor.eval_end(t1)
+            fabric.print(f"step {iter_num}: val loss {val_loss:.4f}, val time: {t1 * 1000:.2f}ms")
+            fabric.barrier()
+        if not is_accumulating and step_count % save_interval == 0:
+            checkpoint_path = out_dir / f"name-{iter_num:06d}-ckpt.pth"
+            fabric.print(f"Saving checkpoint to {str(checkpoint_path)!r}")
+            fabric.save(checkpoint_path, {"model": model})
 
 
 @torch.no_grad()
