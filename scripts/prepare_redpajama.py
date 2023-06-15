@@ -1,8 +1,8 @@
 import glob
 import json
 import os
-from pathlib import Path
 import sys
+from pathlib import Path
 
 import numpy as np
 from tqdm import tqdm
@@ -11,7 +11,7 @@ from tqdm import tqdm
 wd = Path(__file__).parent.parent.resolve()
 sys.path.append(str(wd))
 
-from lit_parrot import Tokenizer
+from lit_parrot import Tokenizer, Config
 import lit_parrot.packed_dataset as packed_dataset
 
 
@@ -41,20 +41,12 @@ filename_sets = {
 
 
 def prepare_sample(
-    source_path: Path,
-    vocabulary_path: Path,
-    tokenizer_path: Path,
-    destination_path: Path,
-    chunk_size: int,
-    match: str = ""
+    source_path: Path, checkpoint_dir: Path, destination_path: Path, chunk_size: int, match: str = ""
 ) -> None:
     """Prepare the "Red Pajama" dataset using the original tokenizer."""
     destination_path.mkdir(parents=True, exist_ok=True)
 
-    tokenizer = Tokenizer(
-        vocabulary_path=vocabulary_path,
-        config_path=tokenizer_path
-    )
+    tokenizer = Tokenizer(checkpoint_dir / "tokenizer.json", checkpoint_dir / "tokenizer_config.json")
 
     for name in filenames_sample:
         if match and match not in name:
@@ -64,10 +56,10 @@ def prepare_sample(
 
         if not filepath.is_file():
             raise RuntimeError(
-                f"Input file not found at {filepath}. \n"
-                "Make sure you download the data, e.g. wget -i https://data.together.xyz/redpajama-data-1T/v1.0.0/urls.txt or through \n"
-                "https://huggingface.co/datasets/togethercomputer/RedPajama-Data-1T \n"
-                "https://huggingface.co/datasets/togethercomputer/RedPajama-Data-1T-Sample \n"
+                f"Input file not found at {filepath}. \nMake sure you download the data, e.g. wget -i"
+                " https://data.together.xyz/redpajama-data-1T/v1.0.0/urls.txt or through"
+                " \nhttps://huggingface.co/datasets/togethercomputer/RedPajama-Data-1T"
+                " \nhttps://huggingface.co/datasets/togethercomputer/RedPajama-Data-1T-Sample \n"
             )
 
         prefix, _ = os.path.splitext(name)
@@ -93,22 +85,14 @@ def prepare_sample(
 
 
 def prepare_full(
-    source_path: Path,
-    vocabulary_path: Path,
-    tokenizer_path: Path,
-    destination_path: Path,
-    chunk_size: int,
-    match: str = ""
+    source_path: Path, checkpoint_dir: Path, destination_path: Path, chunk_size: int, match: str = ""
 ) -> None:
     """Prepare the "Red Pajama" dataset using the original tokenizer."""
     import zstandard as zstd
 
     destination_path.mkdir(parents=True, exist_ok=True)
 
-    tokenizer = Tokenizer(
-        config_path=tokenizer_path,
-        vocabulary_path=vocabulary_path
-    )
+    tokenizer = Tokenizer(checkpoint_dir / "tokenizer.json", checkpoint_dir / "tokenizer_config.json")
 
     for set_name, pattern in filename_sets.items():
         if match and match not in set_name:
@@ -120,10 +104,10 @@ def prepare_full(
 
         if not filenames:
             raise RuntimeError(
-                f"No files matching {pattern} found at {source_path}. \n"
-                "Make sure you download the data, e.g. wget -i https://data.together.xyz/redpajama-data-1T/v1.0.0/urls.txt or through \n"
-                "https://huggingface.co/datasets/togethercomputer/RedPajama-Data-1T \n"
-                "https://huggingface.co/datasets/togethercomputer/RedPajama-Data-1T-Sample \n"
+                f"No files matching {pattern} found at {source_path}. \nMake sure you download the data, e.g. wget -i"
+                " https://data.together.xyz/redpajama-data-1T/v1.0.0/urls.txt or through"
+                " \nhttps://huggingface.co/datasets/togethercomputer/RedPajama-Data-1T"
+                " \nhttps://huggingface.co/datasets/togethercomputer/RedPajama-Data-1T-Sample \n"
             )
 
         builder = packed_dataset.PackedDatasetBuilder(
@@ -158,32 +142,23 @@ def prepare_full(
 
 def prepare(
     source_path: Path = Path("data/RedPajama-Data-1T-Sample"),
-    vocabulary_path: Path = Path("checkpoints/tokenizer.json"),
-    tokenizer_path: Path = Path("checkpoints/tokenizer_config.json"),
+    checkpoint_dir: Path = Path("checkpoints/stabilityai/stablelm-base-alpha-3b"),
     destination_path: Path = Path("data/red_pajama_sample"),
-    chunk_size: int = 2049 * 1024,  # 2048 block size + 1 for causal (from LLama), 1024 blocks
-    sample: bool = False,
+    sample: bool = True,
     match: str = "",
 ) -> None:
-    """Prepare the "Red Pajama" dataset. We assume tokenizer has been trained (i.e. we reuse LLaMA's tokenizer model)."""
-    if sample:
-        prepare_sample(
-            source_path=source_path,
-            vocabulary_path=vocabulary_path,
-            tokenizer_path=tokenizer_path,
-            destination_path=destination_path,
-            chunk_size=chunk_size,
-            match=match,
-        )
-    else:
-        prepare_full(
-            source_path=source_path,
-            vocabulary_path=vocabulary_path,
-            tokenizer_path=tokenizer_path,
-            destination_path=destination_path,
-            chunk_size=chunk_size,
-            match=match,
-        )
+    """Prepare the "Red Pajama" dataset. We assume tokenizer has been trained."""
+    with open(checkpoint_dir / "lit_config.json") as fp:
+        config = Config(**json.load(fp))
+
+    prepare_fn = prepare_sample if sample else prepare_full
+    prepare_fn(
+        source_path=source_path,
+        checkpoint_dir=checkpoint_dir,
+        destination_path=destination_path,
+        chunk_size=(config.block_size + 1) * 1024,  # block size + 1 for causal, 1024 blocks
+        match=match,
+    )
 
 
 if __name__ == "__main__":
