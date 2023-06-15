@@ -12,15 +12,14 @@ from lightning.fabric.strategies import FSDPStrategy, XLAStrategy
 from torch.distributed.fsdp.wrap import transformer_auto_wrap_policy
 from torch.utils.data import DataLoader
 
-from lit_parrot.speed_monitor import SpeedMonitor, estimate_flops, measure_flops
-
 # support running without installing as a package
 wd = Path(__file__).parent.parent.resolve()
 sys.path.append(str(wd))
 
 from lit_parrot.model import Block, Parrot, Config
 from lit_parrot.packed_dataset import PackedDataset, CombinedDataset
-from lit_parrot.utils import save_model_checkpoint, step_csv_logger
+from lit_parrot.utils import step_csv_logger
+from lit_parrot.speed_monitor import SpeedMonitor, estimate_flops, measure_flops
 
 model_name = "pythia-70m"
 name = "redpajama"
@@ -139,7 +138,8 @@ def train(
     val_dataloader: Optional[DataLoader],
     speed_monitor: SpeedMonitor,
 ) -> None:
-    validate(fabric, model, val_dataloader)  # sanity check
+    if val_dataloader is not None:
+        validate(fabric, model, val_dataloader)  # sanity check
 
     estimated_flops = estimate_flops(model) * micro_batch_size
     fabric.print(f"Estimated TFLOPs: {estimated_flops * fabric.world_size / 1e12:.2f}")
@@ -214,7 +214,7 @@ def train(
             fabric.print(f"step {iter_num}: val loss {val_loss:.4f}, val time: {t1 * 1000:.2f}ms")
             fabric.barrier()
         if not is_accumulating and step_count % save_interval == 0:
-            checkpoint_path = out_dir / f"{name}-{iter_num:06d}-ckpt.pth"
+            checkpoint_path = out_dir / f"iter-{iter_num:06d}-ckpt.pth"
             fabric.print(f"Saving checkpoint to {str(checkpoint_path)!r}")
             fabric.save(checkpoint_path, {"model": model})
 
