@@ -65,14 +65,15 @@ def setup(devices: int = 1, precision: Optional[str] = None, tpu: bool = False) 
             )
     else:
         strategy = "auto"
+
+    print(hparams)
+
     fabric = L.Fabric(devices=devices, strategy=strategy, precision=precision)
     fabric.launch(main, precision)
 
 
 def main(fabric: L.Fabric, precision: str) -> None:
     speed_monitor = SpeedMonitor(logger, precision, window_size=50, time_unit="seconds")
-
-    fabric.print(hparams)
 
     fabric.seed_everything(1337 + fabric.global_rank)
 
