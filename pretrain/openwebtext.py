@@ -11,8 +11,6 @@ import torch
 from lightning.fabric.strategies import FSDPStrategy, XLAStrategy
 from torch.distributed.fsdp.wrap import transformer_auto_wrap_policy
 
-from lit_parrot.utils import step_csv_logger
-
 # support running without installing as a package
 wd = Path(__file__).parent.parent.resolve()
 sys.path.append(str(wd))
@@ -20,6 +18,7 @@ sys.path.append(str(wd))
 from lit_parrot import Config
 from lit_parrot.model import Parrot, Block
 from lit_parrot.speed_monitor import SpeedMonitor, measure_flops, estimate_flops
+from lit_parrot.utils import step_csv_logger
 
 
 model_name = "pythia-70m"
@@ -54,17 +53,19 @@ logger = step_csv_logger("out", name)
 def setup(devices: int = 1, precision: Optional[str] = None, tpu: bool = False) -> None:
     if precision is None:
         precision = "32-true" if tpu else "bf16-mixed"
-
-    auto_wrap_policy = partial(transformer_auto_wrap_policy, transformer_layer_cls={Block})
-    strategy = (
-        FSDPStrategy(auto_wrap_policy=auto_wrap_policy, activation_checkpointing=Block)
-        if not tpu
-        else XLAStrategy(sync_module_states=False)
-    )
-
-    fabric = L.Fabric(
-        accelerator=("cuda" if not tpu else "tpu"), devices=devices, precision=precision, strategy=strategy
-    )
+    if devices > 1:
+        if tpu:
+            # For multi-host TPU training, the device count for Fabric is limited to the count on a single host.
+            devices = "auto"
+            strategy = XLAStrategy(sync_module_states=False)
+        else:
+            auto_wrap_policy = partial(transformer_auto_wrap_policy, transformer_layer_cls={Block})
+            strategy = FSDPStrategy(
+                auto_wrap_policy=auto_wrap_policy, activation_checkpointing=Block, state_dict_type="full"
+            )
+    else:
+        strategy = "auto"
+    fabric = L.Fabric(devices=devices, strategy=strategy, precision=precision)
     fabric.launch(main, precision)
 
 
@@ -110,13 +111,15 @@ def train(
     validate(fabric, model, val_data)  # sanity check
 
     estimated_flops = estimate_flops(model) * micro_batch_size
-    measured_flops = measure_flops(
-        model, torch.randint(0, 1, (micro_batch_size, model.config.block_size), device=fabric.device)
-    )
-    fabric.print(
-        f"Estimated TFLOPs {estimated_flops * fabric.world_size / 1e12:.2f}, measured"
-        f" {measured_flops * fabric.world_size / 1e12:.2f}"
-    )
+    fabric.print(f"Estimated TFLOPs: {estimated_flops * fabric.world_size / 1e12:.2f}")
+    if not isinstance(fabric.strategy, FSDPStrategy):  # unsupported
+        measured_flops = measure_flops(
+            model, torch.randint(0, 1, (micro_batch_size, model.config.block_size), device=fabric.device)
+        )
+        fabric.print(f"Measured TFLOPs: {measured_flops * fabric.world_size / 1e12:.2f}")
+    else:
+        measured_flops = None
+
     step_count = 0
     total_t0 = time.time()
 

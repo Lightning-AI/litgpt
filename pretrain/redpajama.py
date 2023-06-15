@@ -21,7 +21,9 @@ from lit_parrot.packed_dataset import PackedDataset, CombinedDataset
 from lit_parrot.utils import save_model_checkpoint
 
 model_name = "pythia-70m"
-out_dir = Path("out/training")
+name = "redpajama"
+out_dir = Path("out") / name
+data_dir = Path("data") / name
 save_interval = 1000
 eval_interval = 1000
 eval_iters = 100
@@ -60,24 +62,26 @@ hparams = {k: v for k, v in locals().items() if isinstance(v, (int, float, str))
 
 def setup(
     devices: int = 4,
-    train_data_dir: Path = Path("data/lit-redpajama"),
+    train_data_dir: Path = Path("data/redpajama_sample"),
     val_data_dir: Optional[Path] = None,
     precision: Optional[str] = None,
     tpu: bool = False,
 ) -> None:
     if precision is None:
-        precision = "32-true" if tpu else "16-true"
-
-    auto_wrap_policy = partial(transformer_auto_wrap_policy, transformer_layer_cls={Block})
-    strategy = (
-        FSDPStrategy(auto_wrap_policy=auto_wrap_policy, activation_checkpointing=Block)
-        if not tpu
-        else XLAStrategy(sync_module_states=False)
-    )
-
-    fabric = L.Fabric(
-        accelerator=("cuda" if not tpu else "tpu"), devices=devices, precision=precision, strategy=strategy
-    )
+        precision = "32-true" if tpu else "bf16-mixed"
+    if devices > 1:
+        if tpu:
+            # For multi-host TPU training, the device count for Fabric is limited to the count on a single host.
+            devices = "auto"
+            strategy = XLAStrategy(sync_module_states=False)
+        else:
+            auto_wrap_policy = partial(transformer_auto_wrap_policy, transformer_layer_cls={Block})
+            strategy = FSDPStrategy(
+                auto_wrap_policy=auto_wrap_policy, activation_checkpointing=Block, state_dict_type="full"
+            )
+    else:
+        strategy = "auto"
+    fabric = L.Fabric(devices=devices, strategy=strategy, precision=precision)
     fabric.launch(main, train_data_dir, val_data_dir)
 
 

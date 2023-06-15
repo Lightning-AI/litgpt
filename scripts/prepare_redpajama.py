@@ -143,7 +143,7 @@ def prepare_full(
 def prepare(
     source_path: Path = Path("data/RedPajama-Data-1T-Sample"),
     checkpoint_dir: Path = Path("checkpoints/stabilityai/stablelm-base-alpha-3b"),
-    destination_path: Path = Path("data/red_pajama_sample"),
+    destination_path: Path = Path("data/redpajama_sample"),
     sample: bool = True,
     match: str = "",
 ) -> None:
