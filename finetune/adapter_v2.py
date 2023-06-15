@@ -1,3 +1,4 @@
+import json
 import os
 import shutil
 import sys
@@ -83,7 +84,8 @@ def main(
     if fabric.global_rank == 0:
         os.makedirs(out_dir, exist_ok=True)
 
-    train_data, val_data = load_datasets(data_dir=data_dir)
+    train_data = torch.load(data_dir / "train.pt")
+    val_data = torch.load(data_dir / "test.pt")
 
     config = Config.from_name(name=checkpoint_dir.name)
     checkpoint_path = checkpoint_dir / "lit_model.pth"
@@ -103,8 +105,11 @@ def main(
     optimizer = torch.optim.AdamW(model.parameters(), lr=learning_rate, weight_decay=weight_decay)
     model, optimizer = fabric.setup(model, optimizer)
 
+    with open(data_dir / "config.json") as data_config_path:
+        max_seq_length = json.load(data_config_path).get("max_seq_length", model.config.block_size)
+
     train_time = time.time()
-    train(fabric, model, optimizer, train_data, val_data, checkpoint_dir, out_dir)
+    train(fabric, model, optimizer, train_data, val_data, checkpoint_dir, out_dir, max_seq_length)
     fabric.print(f"Training time: {(time.time()-train_time):.2f}s")
 
     # Save the final checkpoint at the end of training
@@ -121,11 +126,8 @@ def train(
     val_data: np.ndarray,
     checkpoint_dir: Path,
     out_dir: Path,
+    max_seq_length: int,
 ) -> None:
-    """The training loop.
-
-    Loosely based on the nanoGPT implementation: https://github.com/karpathy/nanoGPT.
-    """
     step_count = 0
 
     tokenizer = Tokenizer(checkpoint_dir / "tokenizer.json", checkpoint_dir / "tokenizer_config.json")
@@ -143,11 +145,11 @@ def train(
 
         t0 = time.time()
 
-        input_ids, targets = get_batch(fabric, train_data)
+        input_ids, targets = get_batch(fabric, train_data, max_seq_length)
 
         is_accumulating = (iter_num + 1) % gradient_accumulation_iters != 0
         with fabric.no_backward_sync(model, enabled=is_accumulating):
-            logits = model(input_ids)
+            logits = model(input_ids, max_seq_length=max_seq_length)
             loss = loss_fn(logits, targets)
             fabric.backward(loss / gradient_accumulation_iters)
 
@@ -195,12 +197,9 @@ def validate(fabric: L.Fabric, model: torch.nn.Module, val_data: np.ndarray, tok
     sample = {"instruction": instruction, "input": ""}
     prompt = generate_prompt(sample)
     encoded = tokenizer.encode(prompt, device=model.device)
+    max_returned_tokens = len(encoded) + 100
     output = generate(
-        model,
-        idx=encoded,
-        max_returned_tokens=len(encoded) + 100,
-        max_seq_length=model.config.block_size,
-        temperature=0.8,
+        model, idx=encoded, max_returned_tokens=max_returned_tokens, max_seq_length=max_returned_tokens, temperature=0.8
     )
     output = tokenizer.decode(output)
     fabric.print(output)
@@ -217,7 +216,7 @@ def loss_fn(logits, targets):
     return loss
 
 
-def get_batch(fabric: L.Fabric, data: list):
+def get_batch(fabric: L.Fabric, data: np.ndarray, max_seq_length: int):
     ix = torch.randint(len(data), (micro_batch_size,))
 
     input_ids = [data[i]["input_ids"].type(torch.int64) for i in ix]
@@ -239,12 +238,6 @@ def get_batch(fabric: L.Fabric, data: list):
         x, y = fabric.to_device((x.pin_memory(), y.pin_memory()))
 
     return x, y
-
-
-def load_datasets(data_dir: Path):
-    train_data = torch.load(data_dir / "train.pt")
-    val_data = torch.load(data_dir / "test.pt")
-    return train_data, val_data
 
 
 def save_model_checkpoint(fabric, model, file_path: Path):
@@ -282,4 +275,5 @@ if __name__ == "__main__":
         "ignore",
         message="Remove `.no_backward_sync()` from your code",
     )
+
     CLI(setup)

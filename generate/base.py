@@ -149,7 +149,7 @@ def main(
 
     t0 = time.time()
     with lazy_load(checkpoint_path) as checkpoint:
-        model.load_state_dict(checkpoint, strict=False)
+        model.load_state_dict(checkpoint, strict=quantize is None)
     fabric.print(f"Time to load the model weights: {time.time() - t0:.02f} seconds.", file=sys.stderr)
 
     model.eval()
