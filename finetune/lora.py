@@ -71,15 +71,15 @@ def setup(
 
     print(hparams)
 
-    fabric = L.Fabric(devices=fabric_devices, strategy=strategy, precision=precision)
-    fabric.launch(main, data_dir, checkpoint_dir, out_dir, precision)
+    logger = step_csv_logger(out_dir.parent, out_dir.name)
+    fabric = L.Fabric(devices=fabric_devices, strategy=strategy, precision=precision, loggers=logger)
+    fabric.launch(main, data_dir, checkpoint_dir, out_dir)
 
 
-def main(fabric: L.Fabric, data_dir: Path, checkpoint_dir: Path, out_dir: Path, precision: str):
+def main(fabric: L.Fabric, data_dir: Path, checkpoint_dir: Path, out_dir: Path):
     check_valid_checkpoint_dir(checkpoint_dir)
 
-    logger = step_csv_logger(out_dir.parent, out_dir.name)
-    speed_monitor = SpeedMonitor(logger, precision, window_size=50, time_unit="seconds")
+    speed_monitor = SpeedMonitor(fabric, window_size=50, time_unit="seconds")
 
     fabric.seed_everything(1337 + fabric.global_rank)
 

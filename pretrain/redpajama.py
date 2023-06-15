@@ -86,12 +86,12 @@ def setup(
 
     print(hparams)
 
-    fabric = L.Fabric(devices=devices, strategy=strategy, precision=precision)
-    fabric.launch(main, train_data_dir, val_data_dir, precision)
+    fabric = L.Fabric(devices=devices, strategy=strategy, precision=precision, loggers=logger)
+    fabric.launch(main, train_data_dir, val_data_dir)
 
 
-def main(fabric: L.Fabric, train_data_dir: Path, val_data_dir: Optional[Path], precision: str) -> None:
-    speed_monitor = SpeedMonitor(logger, precision, window_size=50, time_unit="seconds")
+def main(fabric: L.Fabric, train_data_dir: Path, val_data_dir: Optional[Path]) -> None:
+    speed_monitor = SpeedMonitor(fabric, window_size=50, time_unit="seconds")
 
     fabric.seed_everything(1337 + fabric.global_rank)
 
