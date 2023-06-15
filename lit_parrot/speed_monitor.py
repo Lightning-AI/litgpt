@@ -186,7 +186,6 @@ class SpeedMonitor:
 
         self.step += 1
         step = self.step
-
         metrics = {}
 
         if len(self.history_wct) == self.history_wct.maxlen:
