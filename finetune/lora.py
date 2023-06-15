@@ -9,7 +9,7 @@ from typing import Optional
 import lightning as L
 import numpy as np
 import torch
-from lightning.fabric.strategies import DeepSpeedStrategy, XLAStrategy, FSDPStrategy
+from lightning.fabric.strategies import DeepSpeedStrategy, XLAStrategy
 
 # support running without installing as a package
 wd = Path(__file__).parent.parent.resolve()
@@ -134,7 +134,7 @@ def train(
 
     estimated_flops = estimate_flops(model) * micro_batch_size
     fabric.print(f"Estimated TFLOPs: {estimated_flops * fabric.world_size / 1e12:.2f}")
-    if not isinstance(fabric.strategy, FSDPStrategy):  # unsupported
+    if not isinstance(fabric.strategy, DeepSpeedStrategy):  # unsupported
         measured_flops = measure_flops(
             model, torch.randint(0, 1, (micro_batch_size, model.config.block_size), device=fabric.device)
         )
