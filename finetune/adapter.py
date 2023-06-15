@@ -133,7 +133,7 @@ def train(
 
     estimated_flops = estimate_flops(model) * micro_batch_size
     fabric.print(f"Estimated TFLOPs: {estimated_flops * fabric.world_size / 1e12:.2f}")
-    if not isinstance(fabric.strategy, DeepSpeedStrategy):  # unsupported
+    if not isinstance(fabric.strategy, FSDPStrategy):  # unsupported
         measured_flops = measure_flops(
             model, torch.randint(0, 1, (micro_batch_size, model.config.block_size), device=fabric.device)
         )

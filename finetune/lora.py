@@ -3,13 +3,15 @@ import os
 import sys
 import time
 import warnings
+from functools import partial
 from pathlib import Path
 from typing import Optional
 
 import lightning as L
 import numpy as np
 import torch
-from lightning.fabric.strategies import DeepSpeedStrategy, XLAStrategy
+from lightning.fabric.strategies import XLAStrategy, FSDPStrategy
+from torch.distributed.fsdp.wrap import transformer_auto_wrap_policy
 
 # support running without installing as a package
 wd = Path(__file__).parent.parent.resolve()
@@ -17,7 +19,7 @@ sys.path.append(str(wd))
 
 from generate.base import generate
 from lit_parrot.lora import mark_only_lora_as_trainable, lora, lora_state_dict
-from lit_parrot.model import Parrot, Config
+from lit_parrot.model import Parrot, Config, Block
 from lit_parrot.tokenizer import Tokenizer
 from lit_parrot.utils import lazy_load, check_valid_checkpoint_dir, step_csv_logger
 from lit_parrot.speed_monitor import SpeedMonitor, measure_flops, estimate_flops
@@ -43,12 +45,6 @@ lora_alpha = 16
 lora_dropout = 0.05
 warmup_iters = 100
 
-ds_config = {
-    "train_micro_batch_size_per_gpu": micro_batch_size,
-    "gradient_accumulation_steps": gradient_accumulation_iters,
-    "zero_optimization": {"stage": 2},
-}
-
 hparams = {k: v for k, v in locals().items() if isinstance(v, (int, float, str)) and not k.startswith("_")}
 
 
@@ -61,13 +57,19 @@ def setup(
 ):
     if precision is None:
         precision = "32-true" if tpu else "bf16-mixed"
-    strategy = (
-        "auto"
-        if devices <= 1
-        else XLAStrategy(sync_module_states=False) if tpu else DeepSpeedStrategy(config=ds_config)
-    )
-    # For multi-host TPU training, the device count for Fabric is limited to the count on a single host.
-    fabric_devices = "auto" if (tpu and devices > 1) else devices
+    fabric_devices = devices
+    if fabric_devices > 1:
+        if tpu:
+            # For multi-host TPU training, the device count for Fabric is limited to the count on a single host.
+            fabric_devices = "auto"
+            strategy = XLAStrategy(sync_module_states=False)
+        else:
+            auto_wrap_policy = partial(transformer_auto_wrap_policy, transformer_layer_cls={Block})
+            strategy = FSDPStrategy(
+                auto_wrap_policy=auto_wrap_policy, activation_checkpointing=Block, state_dict_type="full"
+            )
+    else:
+        strategy = "auto"
 
     print(hparams)
 
@@ -134,7 +136,7 @@ def train(
 
     estimated_flops = estimate_flops(model) * micro_batch_size
     fabric.print(f"Estimated TFLOPs: {estimated_flops * fabric.world_size / 1e12:.2f}")
-    if not isinstance(fabric.strategy, DeepSpeedStrategy):  # unsupported
+    if not isinstance(fabric.strategy, FSDPStrategy):  # unsupported
         measured_flops = measure_flops(
             model, torch.randint(0, 1, (micro_batch_size, model.config.block_size), device=fabric.device)
         )
@@ -200,7 +202,6 @@ def train(
             fabric.barrier()
         if not is_accumulating and step_count % save_interval == 0:
             checkpoint_path = out_dir / f"iter-{iter_num:06d}-ckpt.pth"
-            fabric.print(f"Saving checkpoint to {str(checkpoint_path)!r}")
             save_lora_checkpoint(fabric, model, checkpoint_path)
 
 
@@ -268,6 +269,7 @@ def get_batch(fabric: L.Fabric, data: np.ndarray, max_seq_length: int):
 
 def save_lora_checkpoint(fabric, model, path):
     fabric.print(f"Saving LoRA weights to {str(path)!r}")
+    # FIXME
     checkpoint = lora_state_dict(model)
     torch.save(checkpoint, path)
 
@@ -278,11 +280,5 @@ if __name__ == "__main__":
     torch.set_float32_matmul_precision("high")
 
     from jsonargparse.cli import CLI
-
-    warnings.filterwarnings(
-        # false positive using deepspeed: https://github.com/Lightning-AI/lightning/pull/17761#discussion_r1219705307
-        "ignore",
-        message="Remove `.no_backward_sync()` from your code",
-    )
 
     CLI(setup)
