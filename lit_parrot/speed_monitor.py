@@ -187,31 +187,31 @@ class SpeedMonitor:
         self.step += 1
         step = self.step
 
+        metrics = {}
+
         if len(self.history_wct) == self.history_wct.maxlen:
             elapsed_batches = len(self.history_samples) - 1
             elapsed_samples = int(self.history_samples[-1]) - int(self.history_samples[0])
             elapsed_wct = self.history_wct[-1] - self.history_wct[0]
             samples_per_sec = elapsed_samples * world_size / elapsed_wct
             dev_samples_per_sec = elapsed_samples / elapsed_wct
-            self.fabric.log_dict(
+            metrics.update(
                 {
                     "throughput/batches_per_se": elapsed_batches * world_size / elapsed_wct,
                     "throughput/samples_per_sec": samples_per_sec,
                     "throughput/device/batches_per_sec": elapsed_batches / elapsed_wct,
                     "throughput/device/samples_per_sec": dev_samples_per_sec,
-                },
-                step,
+                }
             )
 
             # Assumes no padding.
             if max_seq_length is not None:
                 # Only applicable to seq data / models
-                self.fabric.log_dict(
+                metrics.update(
                     {
                         "throughput/tokens_per_sec": samples_per_sec * max_seq_length,
                         "throughput/device/tokens_per_sec": dev_samples_per_sec * max_seq_length,
-                    },
-                    step,
+                    }
                 )
 
         if estimated_flops_per_batch is not None:
@@ -222,15 +222,14 @@ class SpeedMonitor:
             elapsed_wct = self.history_wct[-1] - self.history_wct[0]
             flops_per_sec = elapsed_flops / elapsed_wct
             device_flops_per_sec = flops_per_sec / world_size
-            self.fabric.log_dict(
+            metrics.update(
                 {
                     "throughput/estimated_flops_per_sec": flops_per_sec,
                     "throughput/device/estimated_flops_per_sec": device_flops_per_sec,
-                },
-                step,
+                }
             )
             if self.flops_available:
-                self.fabric.log("throughput/device/estimated_mfu", device_flops_per_sec / self.flops_available, step)
+                metrics["throughput/device/estimated_mfu"] = device_flops_per_sec / self.flops_available
         if measured_flops_per_batch is not None:
             # sum of flops per batch across ranks
             self.history_measured_flops.append(measured_flops_per_batch * world_size)
@@ -239,25 +238,25 @@ class SpeedMonitor:
             elapsed_wct = self.history_wct[-1] - self.history_wct[0]
             flops_per_sec = elapsed_flops / elapsed_wct
             device_flops_per_sec = flops_per_sec / world_size
-            self.fabric.log_dict(
+            metrics.update(
                 {
                     "throughput/measured_flops_per_sec": flops_per_sec,
                     "throughput/device/measured_flops_per_sec": device_flops_per_sec,
-                },
-                step,
+                }
             )
             if self.flops_available:
-                self.fabric.log("throughput/device/measured_mfu", device_flops_per_sec / self.flops_available, step)
+                metrics["throughput/device/measured_mfu"] = device_flops_per_sec / self.flops_available
 
-        self.fabric.log_dict(
+        metrics.update(
             {
                 "time/train": train_elapsed / self.divider,
                 "time/val": self.total_eval_wct / self.divider,
                 "time/total": (train_elapsed + self.total_eval_wct) / self.divider,
                 "samples": samples,
-            },
-            step,
+            }
         )
+
+        self.fabric.log_dict(metrics, step)
 
     def eval_end(self, eval_elapsed: float):
         self.total_eval_wct += eval_elapsed  # seconds
