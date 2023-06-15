@@ -65,14 +65,15 @@ def setup(devices: int = 1, precision: Optional[str] = None, tpu: bool = False) 
             )
     else:
         strategy = "auto"
+
+    print(hparams)
+
     fabric = L.Fabric(devices=devices, strategy=strategy, precision=precision)
     fabric.launch(main, precision)
 
 
 def main(fabric: L.Fabric, precision: str) -> None:
     speed_monitor = SpeedMonitor(logger, precision, window_size=50, time_unit="seconds")
-
-    fabric.print(hparams)
 
     fabric.seed_everything(1337 + fabric.global_rank)
 
@@ -152,6 +153,8 @@ def train(
                 xm.mark_step()
             optimizer.zero_grad()
             step_count += 1
+        elif fabric.device.type == "xla":
+            xm.mark_step()
 
         t1 = time.time()
         speed_monitor.on_train_batch_end(
@@ -177,7 +180,7 @@ def train(
             fabric.print(f"step {iter_num}: val loss {val_loss:.4f}, val time: {t1 * 1000:.2f}ms")
             fabric.barrier()
         if not is_accumulating and step_count % save_interval == 0:
-            checkpoint_path = out_dir / f"{name}.pth"
+            checkpoint_path = out_dir / f"iter-{iter_num:06d}-ckpt.pth"
             fabric.print(f"Saving checkpoint to {str(checkpoint_path)!r}")
             fabric.save(checkpoint_path, {"model": model})
 
