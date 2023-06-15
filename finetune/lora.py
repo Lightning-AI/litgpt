@@ -128,10 +128,11 @@ def train(
     out_dir: Path,
     max_seq_length: int,
 ) -> None:
-    step_count = 0
-
     tokenizer = Tokenizer(checkpoint_dir / "tokenizer.json", checkpoint_dir / "tokenizer_config.json")
 
+    validate(fabric, model, val_data, tokenizer, max_seq_length)  # sanity check
+
+    step_count = 0
     if fabric.device.type == "xla":
         import torch_xla.core.xla_model as xm
 
@@ -160,7 +161,7 @@ def train(
             step_count += 1
 
             if step_count % eval_interval == 0:
-                val_loss = validate(fabric, model, val_data, tokenizer)
+                val_loss = validate(fabric, model, val_data, tokenizer, max_seq_length)
                 fabric.print(f"step {iter_num}: val loss {val_loss:.4f}")
                 fabric.barrier()
 
@@ -178,12 +179,12 @@ def train(
 
 
 @torch.no_grad()
-def validate(fabric: L.Fabric, model: torch.nn.Module, val_data: np.ndarray, tokenizer: Tokenizer) -> torch.Tensor:
+def validate(fabric: L.Fabric, model: torch.nn.Module, val_data: np.ndarray, tokenizer: Tokenizer, max_seq_length: int) -> torch.Tensor:
     fabric.print("Validating ...")
     model.eval()
     losses = torch.zeros(eval_iters)
     for k in range(eval_iters):
-        input_ids, targets = get_batch(fabric, val_data)
+        input_ids, targets = get_batch(fabric, val_data, max_seq_length)
         logits = model(input_ids)
         loss = loss_fn(logits, targets)
         losses[k] = loss.item()
