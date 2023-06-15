@@ -3,7 +3,6 @@ import sys
 import time
 from functools import partial
 from pathlib import Path
-from types import MethodType
 from typing import Tuple, Optional
 
 import lightning as L
@@ -21,7 +20,6 @@ sys.path.append(str(wd))
 from lit_parrot import Config
 from lit_parrot.model import Parrot, Block
 from lit_parrot.speed_monitor import SpeedMonitor, measure_flops, estimate_flops
-from lightning.fabric.loggers import CSVLogger
 
 
 model_name = "pythia-70m"
