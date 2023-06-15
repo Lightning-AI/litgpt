@@ -179,7 +179,9 @@ def train(
 
 
 @torch.no_grad()
-def validate(fabric: L.Fabric, model: torch.nn.Module, val_data: np.ndarray, tokenizer: Tokenizer, max_seq_length: int) -> torch.Tensor:
+def validate(
+    fabric: L.Fabric, model: torch.nn.Module, val_data: np.ndarray, tokenizer: Tokenizer, max_seq_length: int
+) -> torch.Tensor:
     fabric.print("Validating ...")
     model.eval()
     losses = torch.zeros(eval_iters)
