@@ -70,7 +70,7 @@ def setup(
     tpu: bool = False,
 ) -> None:
     if precision is None:
-        precision = "32-true" if tpu else "16-true"
+        precision = "32-true" if tpu else "bf16-mixed"
     if devices > 1:
         if tpu:
             # For multi-host TPU training, the device count for Fabric is limited to the count on a single host.
