@@ -127,12 +127,9 @@ class Parrot(nn.Module):
             rope_cache_length + self.config.head_size - int(self.config.rotary_percentage * self.config.head_size),
         )
         v_cache_shape = (B, heads, max_seq_length, self.config.head_size)
-        device, dtype = idx.device, idx.dtype
+        device = idx.device
         return [
-            (
-                torch.zeros(k_cache_shape, device=device, dtype=dtype),
-                torch.zeros(v_cache_shape, device=device, dtype=dtype),
-            )
+            (torch.zeros(k_cache_shape, device=device), torch.zeros(v_cache_shape, device=device))
             for _ in range(self.config.n_layer)
         ]
 
@@ -221,6 +218,7 @@ class CausalSelfAttention(nn.Module):
 
         if input_pos is not None and kv_cache is not None:
             cache_k, cache_v = kv_cache
+            cache_k, cache_v = cache_k.to(dtype=k.dtype), cache_v.to(dtype=v.dtype)
             # check if reached token limit
             if input_pos[-1] >= max_seq_length:
                 input_pos = torch.tensor(max_seq_length - 1, device=input_pos.device)
