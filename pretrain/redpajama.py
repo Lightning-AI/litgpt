@@ -261,7 +261,7 @@ def create_dataloaders(
     batch_size: int,
     block_size: int,
     fabric,
-    train_data_dir: Path = Path("data/lit-redpajama"),
+    train_data_dir: Path = Path("data/redpajama_sample"),
     val_data_dir: Optional[Path] = None,
     seed: int = 12345,
 ) -> Tuple[DataLoader, DataLoader]:
