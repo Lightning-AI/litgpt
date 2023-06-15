@@ -10,7 +10,7 @@ from typing import Optional
 import lightning as L
 import numpy as np
 import torch
-from lightning.fabric.strategies import DeepSpeedStrategy, XLAStrategy
+from lightning.fabric.strategies import DeepSpeedStrategy, XLAStrategy, FSDPStrategy
 
 # support running without installing as a package
 wd = Path(__file__).parent.parent.resolve()
@@ -24,7 +24,8 @@ from lit_parrot.adapter_v2 import (
     adapter_v2_state_from_state_dict,
 )
 from lit_parrot.tokenizer import Tokenizer
-from lit_parrot.utils import lazy_load, check_valid_checkpoint_dir
+from lit_parrot.utils import lazy_load, check_valid_checkpoint_dir, step_csv_logger
+from lit_parrot.speed_monitor import SpeedMonitor, measure_flops, estimate_flops
 from scripts.prepare_alpaca import generate_prompt
 
 eval_interval = 600
@@ -51,6 +52,8 @@ ds_config = {
     "zero_optimization": {"stage": 2},
 }
 
+hparams = {k: v for k, v in locals().items() if isinstance(v, (int, float, str)) and not k.startswith("_")}
+
 
 def setup(
     data_dir: Path = Path("data/alpaca"),
@@ -69,16 +72,15 @@ def setup(
     # For multi-host TPU training, the device count for Fabric is limited to the count on a single host.
     fabric_devices = "auto" if (tpu and devices > 1) else devices
     fabric = L.Fabric(devices=fabric_devices, strategy=strategy, precision=precision)
-    fabric.launch(main, data_dir, checkpoint_dir, out_dir)
+    fabric.launch(main, data_dir, checkpoint_dir, out_dir, precision)
 
 
-def main(
-    fabric: L.Fabric = None,
-    data_dir: Path = Path("data/alpaca"),
-    checkpoint_dir: Path = Path("checkpoints/stabilityai/stablelm-base-alpha-3b"),
-    out_dir: Path = Path("out/adapter_v2/alpaca"),
-):
+def main(fabric: L.Fabric, data_dir: Path, checkpoint_dir: Path, out_dir: Path, precision: str):
     check_valid_checkpoint_dir(checkpoint_dir)
+
+    logger = step_csv_logger(out_dir.parent, out_dir.name)
+    speed_monitor = SpeedMonitor(logger, precision, window_size=50, time_unit="seconds")
+
     fabric.seed_everything(1337 + fabric.global_rank)
 
     if fabric.global_rank == 0:
@@ -109,7 +111,7 @@ def main(
         max_seq_length = json.load(data_config_path).get("max_seq_length", model.config.block_size)
 
     train_time = time.time()
-    train(fabric, model, optimizer, train_data, val_data, checkpoint_dir, out_dir, max_seq_length)
+    train(fabric, model, optimizer, train_data, val_data, checkpoint_dir, out_dir, max_seq_length, speed_monitor)
     fabric.print(f"Training time: {(time.time()-train_time):.2f}s")
 
     # Save the final checkpoint at the end of training
@@ -127,12 +129,25 @@ def train(
     checkpoint_dir: Path,
     out_dir: Path,
     max_seq_length: int,
+    speed_monitor: SpeedMonitor,
 ) -> None:
     tokenizer = Tokenizer(checkpoint_dir / "tokenizer.json", checkpoint_dir / "tokenizer_config.json")
 
     validate(fabric, model, val_data, tokenizer, max_seq_length)  # sanity check
 
+    estimated_flops = estimate_flops(model) * micro_batch_size
+    fabric.print(f"Estimated TFLOPs: {estimated_flops * fabric.world_size / 1e12:.2f}")
+    if not isinstance(fabric.strategy, FSDPStrategy):  # unsupported
+        measured_flops = measure_flops(
+            model, torch.randint(0, 1, (micro_batch_size, model.config.block_size), device=fabric.device)
+        )
+        fabric.print(f"Measured TFLOPs: {measured_flops * fabric.world_size / 1e12:.2f}")
+    else:
+        measured_flops = None
+
     step_count = 0
+    total_t0 = time.time()
+
     if fabric.device.type == "xla":
         import torch_xla.core.xla_model as xm
 
@@ -144,7 +159,7 @@ def train(
             for param_group in optimizer.param_groups:
                 param_group["lr"] = lr
 
-        t0 = time.time()
+        iter_t0 = time.time()
 
         input_ids, targets = get_batch(fabric, train_data, max_seq_length)
 
@@ -160,24 +175,36 @@ def train(
                 xm.mark_step()
             optimizer.zero_grad()
             step_count += 1
+        elif fabric.device.type == "xla":
+            xm.mark_step()
 
-            if step_count % eval_interval == 0:
-                val_loss = validate(fabric, model, val_data, tokenizer, max_seq_length)
-                fabric.print(f"step {iter_num}: val loss {val_loss:.4f}")
-                fabric.barrier()
-
-            if step_count % save_interval == 0:
-                save_path = out_dir / f"iter-{iter_num:06d}.pth"
-                fabric.print(f"Saving adapter weights to {str(save_path)!r}")
-                # TODO: Provide a function/script to merge the adapter weights with pretrained weights
-                save_model_checkpoint(fabric, model, save_path)
-        else:
-            if fabric.device.type == "xla":
-                xm.mark_step()
-
-        dt = time.time() - t0
+        t1 = time.time()
+        speed_monitor.on_train_batch_end(
+            (iter_num + 1) * micro_batch_size,
+            t1 - total_t0,
+            # this assumes that device FLOPs are the same and that all devices have the same batch size
+            fabric.world_size,
+            estimated_flops_per_batch=estimated_flops,
+            measured_flops_per_batch=measured_flops,
+            max_seq_length=model.config.block_size,
+        )
         if iter_num % log_interval == 0:
-            fabric.print(f"iter {iter_num}: loss {loss.item():.4f}, time: {dt*1000:.2f}ms")
+            fabric.print(
+                f"iter {iter_num} step {step_count}: loss {loss.item():.4f}, train time:"
+                f" {(t1 - iter_t0) * 1000:.2f}ms{' (optimizer.step)' if not is_accumulating else ''}"
+            )
+
+        if not is_accumulating and step_count % eval_interval == 0:
+            t0 = time.time()
+            val_loss = validate(fabric, model, val_data, tokenizer, max_seq_length)
+            t1 = time.time() - t0
+            speed_monitor.eval_end(t1)
+            fabric.print(f"step {iter_num}: val loss {val_loss:.4f}, val time: {t1 * 1000:.2f}ms")
+            fabric.barrier()
+        if not is_accumulating and step_count % save_interval == 0:
+            checkpoint_path = out_dir / f"iter-{iter_num:06d}-ckpt.pth"
+            fabric.print(f"Saving checkpoint to {str(checkpoint_path)!r}")
+            save_model_checkpoint(fabric, model, checkpoint_path)
 
 
 @torch.no_grad()
