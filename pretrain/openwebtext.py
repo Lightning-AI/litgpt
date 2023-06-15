@@ -1,36 +1,33 @@
-import json
 import math
 import sys
 import time
+from functools import partial
 from pathlib import Path
-from types import MethodType
-from typing import Tuple
+from typing import Tuple, Optional
 
 import lightning as L
 import numpy as np
 import torch
+from lightning.fabric.strategies import FSDPStrategy, XLAStrategy
+from torch.distributed.fsdp.wrap import transformer_auto_wrap_policy
 
 # support running without installing as a package
 wd = Path(__file__).parent.parent.resolve()
 sys.path.append(str(wd))
 
-from lit_parrot import Config, Tokenizer
-from lit_parrot.model import Parrot
-from lit_parrot.utils import check_valid_checkpoint_dir
-from generate.base import generate
+from lit_parrot import Config
+from lit_parrot.model import Parrot, Block
 from lit_parrot.speed_monitor import SpeedMonitor, measure_flops, estimate_flops
-from lightning.fabric.loggers import CSVLogger
+from lit_parrot.utils import step_csv_logger
 
 
-devices = 8
-precision = "bf16-mixed"
-
+model_name = "pythia-70m"
 name = "openwebtext"
 out_dir = Path("out") / name
 data_dir = Path("data") / name
-eval_interval = 99999999999999999
 save_interval = 99999999999999999
-eval_iters = 0
+eval_interval = 99999999999999999
+eval_iters = 100
 log_interval = 1
 
 # Hyperparameters
@@ -39,8 +36,6 @@ batch_size = 3
 micro_batch_size = 3
 gradient_accumulation_steps = batch_size // micro_batch_size
 assert gradient_accumulation_steps > 0
-epoch_size = 50000  # train dataset size
-# num_epochs = 5
 max_iters = 600000  # num_epochs * (epoch_size // micro_batch_size) // devices
 weight_decay = 1e-1
 beta1 = 0.9
@@ -50,122 +45,117 @@ decay_lr = True
 warmup_iters = 2000
 lr_decay_iters = max_iters
 min_lr = 6e-5
-seed = 1338
 fake_data = True  # FIXME
 
 hparams = {k: v for k, v in locals().items() if isinstance(v, (int, float, str)) and not k.startswith("_")}
-
-logger = CSVLogger("out", name)
-
-
-def merge_by(dicts, key):
-    from collections import defaultdict
-
-    out = defaultdict(dict)
-    for d in dicts:
-        if key in d:
-            out[d[key]].update(d)
-    return [v for _, v in sorted(out.items())]
+logger = step_csv_logger("out", name)
 
 
-def save(self) -> None:
-    """Overriden to merge CSV by the step number."""
-    import csv
+def setup(devices: int = 1, precision: Optional[str] = None, tpu: bool = False) -> None:
+    if precision is None:
+        precision = "32-true" if tpu else "bf16-mixed"
+    if devices > 1:
+        if tpu:
+            # For multi-host TPU training, the device count for Fabric is limited to the count on a single host.
+            devices = "auto"
+            strategy = XLAStrategy(sync_module_states=False)
+        else:
+            auto_wrap_policy = partial(transformer_auto_wrap_policy, transformer_layer_cls={Block})
+            strategy = FSDPStrategy(
+                auto_wrap_policy=auto_wrap_policy, activation_checkpointing=Block, state_dict_type="full"
+            )
+    else:
+        strategy = "auto"
 
-    if not self.metrics:
-        return
-    metrics = merge_by(self.metrics, "step")
-    keys = sorted({k for m in metrics for k in m})
-    with self._fs.open(self.metrics_file_path, "w", newline="") as f:
-        writer = csv.DictWriter(f, fieldnames=keys)
-        writer.writeheader()
-        writer.writerows(metrics)
+    print(hparams)
+
+    fabric = L.Fabric(devices=devices, strategy=strategy, precision=precision)
+    fabric.launch(main, precision)
 
 
-logger.experiment.save = MethodType(save, logger.experiment)
+def main(fabric: L.Fabric, precision: str) -> None:
+    speed_monitor = SpeedMonitor(logger, precision, window_size=50, time_unit="seconds")
 
-speed_monitor = SpeedMonitor(logger, precision, window_size=50, time_unit="seconds")
-
-
-def main(checkpoint_dir: Path = Path(f"checkpoints/EleutherAI/pythia-1b")) -> None:
-    fabric = L.Fabric(devices=devices, precision=precision)
-    fabric.launch()
-
-    fabric.print(hparams)
-
-    check_valid_checkpoint_dir(checkpoint_dir)
-
-    with open(checkpoint_dir / "lit_config.json") as fp:
-        config = Config(**json.load(fp))
-
-    fabric.seed_everything(seed + fabric.global_rank)
+    fabric.seed_everything(1337 + fabric.global_rank)
 
     if fabric.global_rank == 0:
         out_dir.mkdir(parents=True, exist_ok=True)
 
     train_data, val_data = load_datasets(data_dir)
 
-    fabric.print(f"Loading model with {config.__dict__}", file=sys.stderr)
+    config = Config.from_name(model_name)
+    fabric.print(f"Loading model with {config.__dict__}")
     t0 = time.time()
     with fabric.init_module():
         model = Parrot(config)
-    fabric.print(f"Time to instantiate model: {time.time() - t0:.02f} seconds.", file=sys.stderr)
+        model.apply(model._init_weights)
+    fabric.print(f"Time to instantiate model: {time.time() - t0:.02f} seconds.")
 
     num_total_params = sum(p.numel() for p in model.parameters())
     fabric.print(f"Total parameters {num_total_params}")
 
-    tokenizer = Tokenizer(checkpoint_dir / "tokenizer.json", checkpoint_dir / "tokenizer_config.json")
-
     optimizer = torch.optim.AdamW(model.parameters(), lr=learning_rate, weight_decay=weight_decay, betas=(beta1, beta2))
     model, optimizer = fabric.setup(model, optimizer)
 
-    train(fabric, model, tokenizer, optimizer, train_data, val_data)
+    train_time = time.time()
+    train(fabric, model, optimizer, train_data, val_data, speed_monitor)
+    fabric.print(f"Training time: {(time.time()-train_time):.2f}s")
 
 
 def train(
     fabric: L.Fabric,
     model: Parrot,
-    tokenizer: Tokenizer,
     optimizer: torch.optim.Optimizer,
     train_data: np.ndarray,
     val_data: np.ndarray,
+    speed_monitor: SpeedMonitor,
 ) -> None:
-    validate(fabric, model, tokenizer, val_data)  # sanity check
+    validate(fabric, model, val_data)  # sanity check
 
     estimated_flops = estimate_flops(model) * micro_batch_size
-    measured_flops = measure_flops(
-        model, torch.randint(0, 1, (micro_batch_size, model.config.block_size), device=fabric.device)
-    )
-    fabric.print(
-        f"Estimated TFLOPs {estimated_flops * fabric.world_size / 1e12:.2f}, measured"
-        f" {measured_flops * fabric.world_size / 1e12:.2f}"
-    )
+    fabric.print(f"Estimated TFLOPs: {estimated_flops * fabric.world_size / 1e12:.2f}")
+    if not isinstance(fabric.strategy, FSDPStrategy):  # unsupported
+        measured_flops = measure_flops(
+            model, torch.randint(0, 1, (micro_batch_size, model.config.block_size), device=fabric.device)
+        )
+        fabric.print(f"Measured TFLOPs: {measured_flops * fabric.world_size / 1e12:.2f}")
+    else:
+        measured_flops = None
+
     step_count = 0
     total_t0 = time.time()
 
+    if fabric.device.type == "xla":
+        import torch_xla.core.xla_model as xm
+
+        xm.mark_step()
     for iter_num in range(max_iters):
         # determine and set the learning rate for this iteration
         lr = get_lr(iter_num) if decay_lr else learning_rate
         for param_group in optimizer.param_groups:
             param_group["lr"] = lr
 
-        did_step = False
         iter_t0 = time.time()
 
         input_ids, targets = get_batch(fabric, train_data, model.config.block_size)
-        with fabric.no_backward_sync(model, enabled=((iter_num + 1) % gradient_accumulation_steps != 0)):
+
+        is_accumulating = (iter_num + 1) % gradient_accumulation_steps != 0
+        with fabric.no_backward_sync(model, enabled=is_accumulating):
             logits = model(input_ids)
             loss = torch.nn.functional.cross_entropy(
                 logits.view(-1, logits.size(-1)), targets.view(-1), ignore_index=-1
             )
             fabric.backward(loss / gradient_accumulation_steps)
 
-        if (iter_num + 1) % gradient_accumulation_steps == 0:
+        if not is_accumulating:
             fabric.clip_gradients(model, optimizer, max_norm=grad_clip)
             optimizer.step()
+            if fabric.device.type == "xla":
+                xm.mark_step()
             optimizer.zero_grad()
             step_count += 1
-            did_step = True
+        elif fabric.device.type == "xla":
+            xm.mark_step()
 
         t1 = time.time()
         speed_monitor.on_train_batch_end(
@@ -180,26 +170,24 @@ def train(
         if iter_num % log_interval == 0:
             fabric.print(
                 f"iter {iter_num} step {step_count}: loss {loss.item():.4f}, train time:"
-                f" {(t1 - iter_t0) * 1000:.2f}ms{' (optimizer.step)' if did_step else ''}"
+                f" {(t1 - iter_t0) * 1000:.2f}ms{' (optimizer.step)' if not is_accumulating else ''}"
             )
 
-        if did_step and step_count % eval_interval == 0:
+        if not is_accumulating and step_count % eval_interval == 0:
             t0 = time.time()
-            val_loss = validate(fabric, model, tokenizer, val_data)
+            val_loss = validate(fabric, model, val_data)
             t1 = time.time() - t0
             speed_monitor.eval_end(t1)
             fabric.print(f"step {iter_num}: val loss {val_loss:.4f}, val time: {t1 * 1000:.2f}ms")
             fabric.barrier()
-        if did_step and step_count % save_interval == 0:
-            checkpoint_path = out_dir / f"{name}.pth"
+        if not is_accumulating and step_count % save_interval == 0:
+            checkpoint_path = out_dir / f"iter-{iter_num:06d}-ckpt.pth"
             fabric.print(f"Saving checkpoint to {str(checkpoint_path)!r}")
             fabric.save(checkpoint_path, {"model": model})
 
 
 @torch.no_grad()
-def validate(
-    fabric: L.Fabric, model: torch.nn.Module, tokenizer: Tokenizer, val_data: np.ndarray, num_samples: int = 3
-) -> torch.Tensor:
+def validate(fabric: L.Fabric, model: torch.nn.Module, val_data: np.ndarray) -> torch.Tensor:
     fabric.print("Validating ...")
     model.eval()
 
@@ -210,21 +198,6 @@ def validate(
         loss = torch.nn.functional.cross_entropy(logits.view(-1, logits.size(-1)), targets.view(-1), ignore_index=-1)
         losses[k] = loss.item()
     out = losses.mean()
-
-    if not fake_data:  # not really useful to see results with fake data
-        input_ids, _ = get_batch(fabric, val_data, model.config.block_size)
-        input_ids = input_ids[:, :num_samples]
-        for ids in input_ids:
-            prompt = tokenizer.decode(ids)
-            y = generate(
-                model,
-                ids,
-                max_returned_tokens=ids.size(0) + 100,
-                max_seq_length=model.config.block_size,
-                temperature=0.8,
-                top_k=50,
-            )
-            fabric.print(f"Prompt: {prompt!r}: {tokenizer.decode(y)!r}")
 
     model.train()
     return out
@@ -238,7 +211,10 @@ def get_batch(fabric: L.Fabric, data: np.ndarray, block_size: int) -> Tuple[torc
     ix = torch.randint(len(data) - block_size, (micro_batch_size,))
     x = torch.stack([torch.from_numpy((data[i : i + block_size]).astype(np.int64)) for i in ix])
     y = torch.stack([torch.from_numpy((data[i + 1 : i + 1 + block_size]).astype(np.int64)) for i in ix])
-    x, y = fabric.to_device((x.pin_memory(), y.pin_memory()))
+    if fabric.device.type in ("mps", "xla"):
+        x, y = fabric.to_device((x, y))
+    else:
+        x, y = fabric.to_device((x.pin_memory(), y.pin_memory()))
     return x, y
 
 
@@ -266,8 +242,10 @@ def get_lr(it):
 
 
 if __name__ == "__main__":
+    # Uncomment this line if you see an error: "Expected is_sm80 to be true, but got false"
+    # torch.backends.cuda.enable_flash_sdp(False)
     torch.set_float32_matmul_precision("high")
 
     from jsonargparse import CLI
 
-    CLI(main)
+    CLI(setup)
