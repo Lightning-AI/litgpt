@@ -18,7 +18,7 @@ wd = Path(__file__).parent.parent.resolve()
 sys.path.append(str(wd))
 
 from generate.base import generate
-from lit_parrot.lora import mark_only_lora_as_trainable, lora, lora_state_dict
+from lit_parrot.lora import mark_only_lora_as_trainable, lora, lora_filter
 from lit_parrot.model import Parrot, Config, Block
 from lit_parrot.tokenizer import Tokenizer
 from lit_parrot.utils import lazy_load, check_valid_checkpoint_dir, step_csv_logger
@@ -267,11 +267,9 @@ def get_batch(fabric: L.Fabric, data: np.ndarray, max_seq_length: int):
     return x, y
 
 
-def save_lora_checkpoint(fabric, model, path):
-    fabric.print(f"Saving LoRA weights to {str(path)!r}")
-    # FIXME
-    checkpoint = lora_state_dict(model)
-    torch.save(checkpoint, path)
+def save_lora_checkpoint(fabric, model, file_path: Path):
+    fabric.print(f"Saving LoRA weights to {str(file_path)!r}")
+    fabric.save(file_path, {"model": model}, filter=lora_filter)
 
 
 if __name__ == "__main__":

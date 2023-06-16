@@ -1,5 +1,6 @@
 from dataclasses import asdict
 
+import torch
 from lightning import Fabric
 
 
@@ -20,10 +21,14 @@ def test_config_identical():
     assert adapter_model.lm_head.weight.shape == base_model.lm_head.weight.shape
 
 
-def test_adapter_state_only():
-    from lit_parrot.adapter import Parrot, adapter_state_only
+def test_adapter_filter(tmp_path):
+    from lit_parrot.adapter import Parrot, adapter_filter
 
+    fabric = Fabric(devices=1)
     model = Parrot.from_name("pythia-70m", n_layer=4)
+    save_path = tmp_path / "model.pth"
+    fabric.save(save_path, {"model": model}, filter=adapter_filter)
+    saved = torch.load(save_path)["model"]
 
     expected = {
         "transformer.h.2.attn.adapter_wte.weight",
@@ -31,6 +36,4 @@ def test_adapter_state_only():
         "transformer.h.3.attn.adapter_wte.weight",
         "transformer.h.3.attn.gating_factor",
     }
-    with adapter_state_only(model):
-        assert set(model.state_dict()) == expected
-    assert len(model.state_dict()) > len(expected)
+    assert set(saved) == expected

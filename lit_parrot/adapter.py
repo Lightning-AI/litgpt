@@ -253,24 +253,8 @@ class CausalSelfAttention(BaseCausalSelfAttention):
 def mark_only_adapter_as_trainable(model: Parrot) -> None:
     """Sets `requires_grad=False` for all non-adapter weights."""
     for name, param in model.named_parameters():
-        param.requires_grad = "adapter_wte" in name or "gating_factor" in name
+        param.requires_grad = adapter_filter(name, param)
 
 
-@contextlib.contextmanager
-def adapter_state_only(module: nn.Module):
-    """Use this context manager to generate a state dict with only the adapter state."""
-    originals = {}
-
-    def adapter_save(name, module, destination, prefix, keep_vars):
-        if "adapter_wte" in prefix or "gating_factor" in module._parameters:
-            original_fn = originals[name]
-            return original_fn(destination, prefix, keep_vars)
-
-    for name, submodule in module.named_modules():
-        originals[name] = submodule._save_to_state_dict
-        submodule._save_to_state_dict = partial(adapter_save, name, submodule)
-
-    yield
-
-    for name, module in module.named_modules():
-        module._save_to_state_dict = originals[name]
+def adapter_filter(key: str, value: Any) -> bool:
+    return "adapter_wte" in key or "gating_factor" in key

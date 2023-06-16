@@ -17,7 +17,7 @@ wd = Path(__file__).parent.parent.resolve()
 sys.path.append(str(wd))
 
 from generate.base import generate
-from lit_parrot.adapter import Parrot, Config, mark_only_adapter_as_trainable, Block, adapter_state_only
+from lit_parrot.adapter import Parrot, Config, mark_only_adapter_as_trainable, Block, adapter_filter
 from lit_parrot.tokenizer import Tokenizer
 from lit_parrot.utils import lazy_load, check_valid_checkpoint_dir, step_csv_logger
 from lit_parrot.speed_monitor import SpeedMonitor, measure_flops, estimate_flops
@@ -113,7 +113,7 @@ def main(fabric: L.Fabric, data_dir: Path, checkpoint_dir: Path, out_dir: Path, 
 
     # Save the final checkpoint at the end of training
     save_path = out_dir / "lit_model_adapter_finetuned.pth"
-    save_model_checkpoint(fabric, model, save_path)
+    save_adapter_checkpoint(fabric, model, save_path)
 
 
 def train(
@@ -199,7 +199,7 @@ def train(
             fabric.barrier()
         if not is_accumulating and step_count % save_interval == 0:
             checkpoint_path = out_dir / f"iter-{iter_num:06d}-ckpt.pth"
-            save_model_checkpoint(fabric, model, checkpoint_path)
+            save_adapter_checkpoint(fabric, model, checkpoint_path)
 
 
 @torch.no_grad()
@@ -265,10 +265,9 @@ def get_batch(fabric: L.Fabric, data: np.ndarray, max_seq_length: int):
     return x, y
 
 
-def save_model_checkpoint(fabric, model, file_path: Path):
+def save_adapter_checkpoint(fabric, model, file_path: Path):
     fabric.print(f"Saving adapter weights to {str(file_path)!r}")
-    with adapter_state_only(model):
-        fabric.save(file_path, {"model": model})
+    fabric.save(file_path, {"model": model}, filter=adapter_filter)
 
 
 if __name__ == "__main__":

@@ -2,16 +2,15 @@
 Utility functions to extend the original Parrot-Adapter method to Parrot-Adapter v2,
 This is a port from Lit-LLaMA based on the code prepared by @rasbt aka Sebastian Raschka
 """
-import contextlib
-from functools import partial
+from typing import Any
 
 import torch
 
 from lit_parrot.adapter import Parrot
 
 
-def get_adapter_substrings():
-    return [
+def adapter_filter(key: str, value: Any) -> bool:
+    adapter_substrings = (
         # regular adapter v1 parameters
         "adapter_wte",
         "gating_factor",
@@ -22,13 +21,14 @@ def get_adapter_substrings():
         "norm_1",
         "norm_2",
         "ln_f",
-    ]
+    )
+    return any(s in key for s in adapter_substrings)
 
 
 def mark_only_adapter_v2_as_trainable(model: Parrot) -> None:
     """Sets requires_grad=False for all non-adapter weights"""
     for name, param in model.named_parameters():
-        param.requires_grad = any(s in name for s in get_adapter_substrings())
+        param.requires_grad = adapter_filter(name, param)
 
 
 def adapter_v2_new_forward(self, input: torch.Tensor) -> torch.Tensor:
@@ -51,24 +51,3 @@ def add_adapter_v2_parameters_to_linear_layers(model):
     for module in model.modules():
         if isinstance(module, torch.nn.Linear):
             adapter_v2_linear_with_bias_and_scale(module)
-
-
-@contextlib.contextmanager
-def adapter_state_only(module: torch.nn.Module):
-    """Use this context manager to generate a state dict with only the adapter state."""
-    originals = {}
-    substrings = get_adapter_substrings()
-
-    def adapter_save(name, module, destination, prefix, keep_vars):
-        if any(s in prefix for s in substrings) or "gating_factor" in module._parameters:
-            original_fn = originals[name]
-            return original_fn(destination, prefix, keep_vars)
-
-    for name, submodule in module.named_modules():
-        originals[name] = submodule._save_to_state_dict
-        submodule._save_to_state_dict = partial(adapter_save, name, submodule)
-
-    yield
-
-    for name, module in module.named_modules():
-        module._save_to_state_dict = originals[name]

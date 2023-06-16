@@ -1,4 +1,4 @@
-import torch.nn as nn
+import torch
 from lightning import Fabric
 
 
@@ -13,7 +13,7 @@ def test_config_identical():
         adapter_model = parrot_adapter.Parrot.from_name(name)
 
         for module in adapter_model.modules():
-            if isinstance(module, nn.Linear):
+            if isinstance(module, torch.nn.Linear):
                 adapter_v2_linear_with_bias_and_scale(module)
 
     assert not hasattr(base_model.transformer.h[2].attn.attn, "adapter_bias")
@@ -22,10 +22,14 @@ def test_config_identical():
     assert hasattr(adapter_model.transformer.h[2].attn.attn, "adapter_scale")
 
 
-def test_adapter_state_only():
-    from lit_parrot.adapter_v2 import adapter_state_only, Parrot
+def test_adapter_filter(tmp_path):
+    from lit_parrot.adapter_v2 import Parrot, adapter_filter
 
+    fabric = Fabric(devices=1)
     model = Parrot.from_name("pythia-70m", n_layer=3)
+    save_path = tmp_path / "model.pth"
+    fabric.save(save_path, {"model": model}, filter=adapter_filter)
+    saved = torch.load(save_path)["model"]
 
     expected = {
         "transformer.h.0.norm_1.bias",
@@ -45,6 +49,4 @@ def test_adapter_state_only():
         "transformer.ln_f.bias",
         "transformer.ln_f.weight",
     }
-    with adapter_state_only(model):
-        assert set(model.state_dict()) == expected
-    assert len(model.state_dict()) > len(expected)
+    assert set(saved) == expected
