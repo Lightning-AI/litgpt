@@ -116,7 +116,7 @@ def main(fabric: L.Fabric, data_dir: Path, checkpoint_dir: Path, out_dir: Path, 
 
     # Save the final LoRA checkpoint at the end of training
     save_path = out_dir / "lit_model_lora_finetuned.pth"
-    save_lora_checkpoint(fabric, model, path=save_path)
+    save_lora_checkpoint(fabric, model, save_path)
 
 
 def train(
