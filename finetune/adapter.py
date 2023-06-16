@@ -23,8 +23,8 @@ from lit_parrot.utils import lazy_load, check_valid_checkpoint_dir, step_csv_log
 from lit_parrot.speed_monitor import SpeedMonitor, measure_flops, estimate_flops
 from scripts.prepare_alpaca import generate_prompt
 
-eval_interval = 60
-save_interval = 10
+eval_interval = 600
+save_interval = 1000
 eval_iters = 100
 log_interval = 1
 devices = 1
