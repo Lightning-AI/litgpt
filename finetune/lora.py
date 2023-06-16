@@ -2,8 +2,6 @@ import json
 import os
 import sys
 import time
-import warnings
-from functools import partial
 from pathlib import Path
 from typing import Optional
 
@@ -64,10 +62,7 @@ def setup(
             fabric_devices = "auto"
             strategy = XLAStrategy(sync_module_states=False)
         else:
-            auto_wrap_policy = partial(transformer_auto_wrap_policy, transformer_layer_cls={Block})
-            strategy = FSDPStrategy(
-                auto_wrap_policy=auto_wrap_policy, activation_checkpointing=Block, state_dict_type="full"
-            )
+            raise NotImplementedError
     else:
         strategy = "auto"
 
