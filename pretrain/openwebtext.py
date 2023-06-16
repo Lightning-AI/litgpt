@@ -66,9 +66,8 @@ def setup(devices: int = 1, precision: Optional[str] = None, tpu: bool = False) 
     else:
         strategy = "auto"
 
-    print(hparams)
-
     fabric = L.Fabric(devices=devices, strategy=strategy, precision=precision, loggers=logger)
+    fabric.print(hparams)
     fabric.launch(main)
 
 

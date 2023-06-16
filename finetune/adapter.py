@@ -67,10 +67,9 @@ def setup(
     # For multi-host TPU training, the device count for Fabric is limited to the count on a single host.
     fabric_devices = "auto" if (tpu and devices > 1) else devices
 
-    print(hparams)
-
     logger = step_csv_logger(out_dir.parent, out_dir.name)
     fabric = L.Fabric(devices=fabric_devices, strategy=strategy, precision=precision, loggers=logger)
+    fabric.print(hparams)
     fabric.launch(main, data_dir, checkpoint_dir, out_dir, precision)
 
 
