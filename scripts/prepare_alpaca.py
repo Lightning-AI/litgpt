@@ -48,7 +48,7 @@ def prepare(
     data_file_path = destination_path / data_file_name
     print("Loading data file...")
     download_if_missing(data_file_path, data_file_url)
-    with open(data_file_path, "r") as file:
+    with open(data_file_path, "r", encoding="utf-8") as file:
         data = json.load(file)
 
     print("Loading tokenizer...")
@@ -98,7 +98,7 @@ def download_if_missing(file_path: Path, file_url: str):
     """Downloads the raw json data file and saves it in the given destination."""
     if file_path.exists():
         return
-    with open(file_path, "w") as f:
+    with open(file_path, "w", encoding="utf-8") as f:
         f.write(requests.get(file_url).text)
 
 
