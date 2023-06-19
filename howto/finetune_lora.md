@@ -8,7 +8,14 @@ We demonstrate this method by instruction-finetuning Lit-Parrot StableLM 3B on t
 The steps here only need to be done once:
 
 1. Follow the instructions in the [README](../README.md) to install the dependencies.
-2. Download and convert the weights and save them in the `./checkpoints` folder as described [here](download_weights.md).
+2. Download and convert the weights and save them in the `./checkpoints` folder.
+   Weights can be downloaded following these instructions:
+
+- [StableLM](download_stablelm.md)
+- [Pythia](download_pythia.md)
+- [Redpajama-INCITE](download_redpajama_incite.md)
+- [Falcon](download_falcon.md)
+
 3. Download the data and generate the instruction tuning dataset:
 
    ```bash
