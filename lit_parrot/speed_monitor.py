@@ -251,6 +251,10 @@ class SpeedMonitor:
 
 def estimate_flops(model: Parrot) -> int:
     """Measures estimated FLOPs for MFU: https://arxiv.org/abs/2205.05198"""
+    # using all parameters for this is a naive over estimation because not all model parameters actually contribute to
+    # this FLOP computation (e.g. embedding, norm). For this reason, the result will be higher by a fixed percentage
+    # (~10%) compared to the measured FLOPs, making those lower but more realistic.
+    # For a proper estimate, this needs a more fine-grained calculation as in Appendix A of the paper.
     n_params = sum(p.numel() for p in model.parameters())
     # credit: https://github.com/mosaicml/examples/blob/release/v0.0.4/examples/llm/throughput/README.md#mfu-and-hfu
     flops_per_token = 2 * n_params
