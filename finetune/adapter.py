@@ -10,7 +10,7 @@ from typing import Optional
 import lightning as L
 import numpy as np
 import torch
-from lightning.fabric.strategies import DeepSpeedStrategy, XLAStrategy, FSDPStrategy
+from lightning.fabric.strategies import DeepSpeedStrategy, XLAStrategy
 
 # support running without installing as a package
 wd = Path(__file__).parent.parent.resolve()
@@ -131,15 +131,14 @@ def train(
 
     validate(fabric, model, val_data, tokenizer, max_seq_length)  # sanity check
 
-    estimated_flops = estimate_flops(model) * micro_batch_size
-    fabric.print(f"Estimated TFLOPs: {estimated_flops * fabric.world_size / 1e12:.2f}")
-    if not isinstance(fabric.strategy, DeepSpeedStrategy):  # unsupported
-        measured_flops = measure_flops(
-            model, torch.randint(0, 1, (micro_batch_size, model.config.block_size), device=fabric.device)
-        )
+    with torch.device("meta"):
+        meta_model = Parrot(model.config)
+        x = torch.randint(0, 1, (micro_batch_size, model.config.block_size))
+        estimated_flops = estimate_flops(meta_model) * micro_batch_size
+        fabric.print(f"Estimated TFLOPs: {estimated_flops * fabric.world_size / 1e12:.2f}")
+        measured_flops = measure_flops(meta_model, x)
         fabric.print(f"Measured TFLOPs: {measured_flops * fabric.world_size / 1e12:.2f}")
-    else:
-        measured_flops = None
+        del meta_model, x
 
     step_count = 0
     total_t0 = time.time()
