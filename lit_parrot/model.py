@@ -109,7 +109,7 @@ class Parrot(nn.Module):
 
         if not use_kv_cache:
             for block in self.transformer.h:
-                x, *_ = block(x, (cos, sin), max_seq_length, padding=padding)
+                x, *_ = block(x, (cos, sin), max_seq_length, mask, padding=padding)
         else:
             self.kv_caches = self.kv_caches or self.build_kv_caches(x, max_seq_length, cos.size(-1))
             for i, block in enumerate(self.transformer.h):
