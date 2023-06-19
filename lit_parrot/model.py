@@ -258,7 +258,7 @@ class CausalSelfAttention(nn.Module):
             y = F.scaled_dot_product_attention(q, k, v, mask, dropout_p=0.0, scale=scale)
         else:
             # `scaled_dot_product_attention` produces nans when padding is added
-            # TODO: create repro and report to pytorch
+            # https://github.com/pytorch/pytorch/issues/103749
             att = (q @ k.transpose(-2, -1)) * scale  # (B, nh, T, T)
             att = torch.masked_fill(att, ~mask, torch.finfo(att.dtype).min)
             att = F.softmax(att, dim=-1)
