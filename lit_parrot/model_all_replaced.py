@@ -57,6 +57,7 @@ class Parrot(BaseParrot):
         padding_multiple: int = 8,
     ) -> Union[torch.Tensor, Tuple[torch.Tensor, List[KVCache]]]:
         B, T = idx.size()
+        use_kv_cache = input_pos is not None
 
         T_padded = find_multiple(T, padding_multiple)
         padding = T_padded - T
@@ -75,11 +76,14 @@ class Parrot(BaseParrot):
 
         if self.rope_cache is None:
             self.rope_cache = self.build_rope_cache(idx)
-        if self.mask_cache is None:
+        # passing `attn_mask` to SDPA downgrades it to use the inefficient implementation. since we only need the mask
+        # for the kv-cache support (only during inference), we only create it in that situation
+        # this will be resolved by https://github.com/pytorch/pytorch/issues/96099
+        if (use_kv_cache or padding > 0 or USE_TE_ATTENTION) and self.mask_cache is None:
             self.mask_cache = self.build_mask_cache(idx)
 
         cos, sin = self.rope_cache
-        if input_pos is not None:
+        if use_kv_cache:
             cos = cos.index_select(0, input_pos)
             cos = torch.cat((cos, torch.zeros(padding, cos.size(1), device=cos.device)))
             sin = sin.index_select(0, input_pos)
@@ -90,18 +94,18 @@ class Parrot(BaseParrot):
         else:
             cos = cos[:T]
             sin = sin[:T]
-            mask = self.mask_cache[:, :, :T, :T]
+            mask = None
 
         # forward the model itself
         x = self.wte(idx)  # token embeddings of shape (b, t, n_embd)
 
-        if input_pos is None:  # proxy for use_cache=False
+        if not use_kv_cache:
             for block in self.transformer.h:
-                x, *_ = block(x, (cos, sin), mask, max_seq_length, padding=padding)
+                x, *_ = block(x, (cos, sin), max_seq_length, mask, padding=padding)
         else:
             self.kv_caches = self.kv_caches or self.build_kv_caches(x, max_seq_length, cos.size(-1))
             for i, block in enumerate(self.transformer.h):
-                x, self.kv_caches[i] = block(x, (cos, sin), mask, max_seq_length, input_pos, self.kv_caches[i], padding)
+                x, self.kv_caches[i] = block(x, (cos, sin), max_seq_length, mask, input_pos, self.kv_caches[i], padding)
 
         logits = self.ln_f_lm_head(x)  # (b, t, vocab_size)
 
@@ -153,8 +157,8 @@ class Block(nn.Module):
         self,
         x: torch.Tensor,
         rope: RoPECache,
-        mask: torch.Tensor,
         max_seq_length: int,
+        mask: Optional[torch.Tensor] = None,
         input_pos: Optional[torch.Tensor] = None,
         kv_cache: Optional[KVCache] = None,
         padding: int = 0,
@@ -214,6 +218,8 @@ class Block(nn.Module):
             if padding == 0:
                 y = F.scaled_dot_product_attention(q, k, v, mask, dropout_p=0.0, scale=scale)
             else:
+                # `scaled_dot_product_attention` produces nans when padding is added
+                # https://github.com/pytorch/pytorch/issues/103749
                 att = (q @ k.transpose(-2, -1)) * scale  # (B, nh, T, T)
                 att = torch.masked_fill(att, ~mask, torch.finfo(att.dtype).min)
                 att = F.softmax(att, dim=-1)
