@@ -60,6 +60,7 @@ class Parrot(nn.Module):
         self, idx: torch.Tensor, max_seq_length: Optional[int] = None, input_pos: Optional[torch.Tensor] = None
     ) -> Union[torch.Tensor, Tuple[torch.Tensor, List[KVCache]]]:
         B, T = idx.size()
+        use_kv_cache = input_pos is not None
 
         block_size = self.config.block_size
         if max_seq_length is None:
@@ -70,11 +71,14 @@ class Parrot(nn.Module):
 
         if self.rope_cache is None:
             self.rope_cache = self.build_rope_cache(idx)
-        if self.mask_cache is None:
+        # passing `attn_mask` to SDPA downgrades it to use the inefficient implementation. since we only need the mask
+        # for the kv-cache support (only during inference), we only create it in that situation
+        # this will be resolved by https://github.com/pytorch/pytorch/issues/96099
+        if use_kv_cache and self.mask_cache is None:
             self.mask_cache = self.build_mask_cache(idx)
 
         cos, sin = self.rope_cache
-        if input_pos is not None:
+        if use_kv_cache:
             cos = cos.index_select(0, input_pos)
             sin = sin.index_select(0, input_pos)
             mask = self.mask_cache.index_select(2, input_pos)
@@ -82,18 +86,18 @@ class Parrot(nn.Module):
         else:
             cos = cos[:T]
             sin = sin[:T]
-            mask = self.mask_cache[:, :, :T, :T]
+            mask = None
 
         # forward the model itself
         x = self.transformer.wte(idx)  # token embeddings of shape (b, t, n_embd)
 
-        if input_pos is None:  # proxy for use_cache=False
+        if not use_kv_cache:
             for block in self.transformer.h:
-                x, *_ = block(x, (cos, sin), mask, max_seq_length)
+                x, *_ = block(x, (cos, sin), max_seq_length)
         else:
             self.kv_caches = self.kv_caches or self.build_kv_caches(x, max_seq_length, cos.size(-1))
             for i, block in enumerate(self.transformer.h):
-                x, self.kv_caches[i] = block(x, (cos, sin), mask, max_seq_length, input_pos, self.kv_caches[i])
+                x, self.kv_caches[i] = block(x, (cos, sin), max_seq_length, mask, input_pos, self.kv_caches[i])
 
         x = self.transformer.ln_f(x)
 
@@ -149,13 +153,13 @@ class Block(nn.Module):
         self,
         x: torch.Tensor,
         rope: RoPECache,
-        mask: torch.Tensor,
         max_seq_length: int,
+        mask: Optional[torch.Tensor] = None,
         input_pos: Optional[torch.Tensor] = None,
         kv_cache: Optional[KVCache] = None,
     ) -> Tuple[torch.Tensor, Optional[KVCache]]:
         n_1 = self.norm_1(x)
-        h, new_kv_cache = self.attn(n_1, rope, mask, max_seq_length, input_pos, kv_cache)
+        h, new_kv_cache = self.attn(n_1, rope, max_seq_length, mask, input_pos, kv_cache)
         if self.config.parallel_residual:
             n_2 = n_1 if self.config.shared_attention_norm else self.norm_2(x)
             x = x + h + self.mlp(n_2)
@@ -185,8 +189,8 @@ class CausalSelfAttention(nn.Module):
         self,
         x: torch.Tensor,
         rope: RoPECache,
-        mask: torch.Tensor,
         max_seq_length: int,
+        mask: Optional[torch.Tensor] = None,
         input_pos: Optional[torch.Tensor] = None,
         kv_cache: Optional[KVCache] = None,
     ) -> Tuple[torch.Tensor, Optional[KVCache]]:
@@ -231,7 +235,7 @@ class CausalSelfAttention(nn.Module):
 
         # efficient attention using Flash Attention CUDA kernels
         y = F.scaled_dot_product_attention(
-            q, k, v, attn_mask=mask, dropout_p=0.0, scale=1.0 / math.sqrt(self.config.head_size)
+            q, k, v, attn_mask=mask, dropout_p=0.0, scale=1.0 / math.sqrt(self.config.head_size), is_causal=mask is None
         )
 
         y = y.transpose(1, 2).contiguous().view(B, T, C)  # re-assemble all head outputs side by side
