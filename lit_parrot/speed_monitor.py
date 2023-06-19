@@ -6,7 +6,7 @@ from contextlib import nullcontext
 from typing import Deque, Optional
 
 import torch
-from lightning.fabric.loggers import Logger
+from lightning import Fabric
 from torch.utils.flop_counter import FlopCounterMode
 
 from lit_parrot import Parrot
@@ -56,42 +56,39 @@ GPU_AVAILABLE_FLOPS = {
 }
 
 
-def get_gpu_flops_available(precision: str):
-    # Return 0 if no CUDA device (e.g., when running with CPU only)
-    if not torch.cuda.is_available():
-        return 0
+def get_flops_available(device: torch.device, precision: str) -> Optional[float]:
+    if device.type == "cuda":
+        device_name = torch.cuda.get_device_name(device).lower()
+        if "h100" in device_name and "hbm3" in device_name:
+            device_name = "h100-sxm"
+        elif "h100" in device_name and ("pcie" in device_name or "hbm2e" in device_name):
+            device_name = "h100-pcie"
+        elif "a100" in device_name:
+            device_name = "a100"
+        elif "v100-sxm" in device_name:
+            device_name = "v100-sxm"
+        elif "v100-pcie" in device_name:
+            device_name = "v100-pcie"
+        elif "t4" in device_name:
+            device_name = "t4"
+        elif "quadro rtx 5000" in device_name:
+            device_name = "quadro rtx 5000"
+        else:
+            device_name = None
 
-    # torch.cuda.get_device_name() ex output: 'NVIDIA A100-SXM4-40GB'
-    device_name = torch.cuda.get_device_name().lower()
-    if "h100" in device_name and "hbm3" in device_name:
-        device_name = "h100-sxm"
-    elif "h100" in device_name and ("pcie" in device_name or "hbm2e" in device_name):
-        device_name = "h100-pcie"
-    elif "a100" in device_name:
-        device_name = "a100"
-    elif "v100-sxm" in device_name:
-        device_name = "v100-sxm"
-    elif "v100-pcie" in device_name:
-        device_name = "v100-pcie"
-    elif "t4" in device_name:
-        device_name = "t4"
-    elif "quadro rtx 5000" in device_name:
-        device_name = "quadro rtx 5000"
-    else:
-        device_name = None
+        if device_name is not None:
+            try:
+                return int(GPU_AVAILABLE_FLOPS[device_name][precision])
+            except KeyError:
+                raise KeyError(
+                    f"flop count not found for {device_name} with precision: {precision}; "
+                    "MFU cannot be calculated and reported."
+                )
+    elif device.type == "xla":
+        # TODO
+        ...
 
-    gpu_flops_available = None
-    if device_name is not None:
-        try:
-            gpu_flops_available = int(GPU_AVAILABLE_FLOPS[device_name][precision])
-        except KeyError:
-            raise KeyError(
-                f"gpu_flop count not found for {device_name} with precision: {precision}; "
-                "MFU cannot be calculated and reported. gpu_flops_available can be manually "
-                "overridden by setting gpu_flops_available in SpeedMonitor."
-            )
-
-    return gpu_flops_available
+    return None
 
 
 class SpeedMonitor:
@@ -146,9 +143,10 @@ class SpeedMonitor:
             'seconds', 'minutes', 'hours', or 'days'. Defaults to 'hours'.
     """
 
-    def __init__(self, logger: Logger, precision: str, window_size: int = 100, time_unit: str = "hours"):
-        self.logger = logger
-        self.gpu_flops_available = get_gpu_flops_available(precision)
+    def __init__(self, fabric: Fabric, window_size: int = 100, time_unit: str = "hours"):
+        self.fabric = fabric
+        # TODO: this will not work properly if a precision plugin is passed to Fabric
+        self.flops_available = get_flops_available(fabric.device, fabric._connector._precision_input)
 
         # Track the batch num samples and wct to compute throughput over a window of batches
         self.history_samples: Deque[int] = deque(maxlen=window_size + 1)
@@ -188,6 +186,7 @@ class SpeedMonitor:
 
         self.step += 1
         step = self.step
+        metrics = {}
 
         if len(self.history_wct) == self.history_wct.maxlen:
             elapsed_batches = len(self.history_samples) - 1
@@ -195,17 +194,23 @@ class SpeedMonitor:
             elapsed_wct = self.history_wct[-1] - self.history_wct[0]
             samples_per_sec = elapsed_samples * world_size / elapsed_wct
             dev_samples_per_sec = elapsed_samples / elapsed_wct
-            self.logger.log_metrics({"throughput/batches_per_sec": elapsed_batches * world_size / elapsed_wct}, step)
-            self.logger.log_metrics({"throughput/samples_per_sec": samples_per_sec}, step)
-            self.logger.log_metrics({"throughput/device/batches_per_sec": elapsed_batches / elapsed_wct}, step)
-            self.logger.log_metrics({"throughput/device/samples_per_sec": dev_samples_per_sec}, step)
+            metrics.update(
+                {
+                    "throughput/batches_per_se": elapsed_batches * world_size / elapsed_wct,
+                    "throughput/samples_per_sec": samples_per_sec,
+                    "throughput/device/batches_per_sec": elapsed_batches / elapsed_wct,
+                    "throughput/device/samples_per_sec": dev_samples_per_sec,
+                }
+            )
 
             # Assumes no padding.
             if max_seq_length is not None:
                 # Only applicable to seq data / models
-                self.logger.log_metrics({"throughput/tokens_per_sec": samples_per_sec * max_seq_length}, step)
-                self.logger.log_metrics(
-                    {"throughput/device/tokens_per_sec": dev_samples_per_sec * max_seq_length}, step
+                metrics.update(
+                    {
+                        "throughput/tokens_per_sec": samples_per_sec * max_seq_length,
+                        "throughput/device/tokens_per_sec": dev_samples_per_sec * max_seq_length,
+                    }
                 )
 
         if estimated_flops_per_batch is not None:
@@ -216,11 +221,14 @@ class SpeedMonitor:
             elapsed_wct = self.history_wct[-1] - self.history_wct[0]
             flops_per_sec = elapsed_flops / elapsed_wct
             device_flops_per_sec = flops_per_sec / world_size
-            self.logger.log_metrics({"throughput/estimated_flops_per_sec": flops_per_sec}, step)
-            self.logger.log_metrics({"throughput/device/estimated_flops_per_sec": device_flops_per_sec}, step)
-            if self.gpu_flops_available:
-                mfu = device_flops_per_sec / self.gpu_flops_available
-                self.logger.log_metrics({"throughput/device/estimated_mfu": mfu}, step)
+            metrics.update(
+                {
+                    "throughput/estimated_flops_per_sec": flops_per_sec,
+                    "throughput/device/estimated_flops_per_sec": device_flops_per_sec,
+                }
+            )
+            if self.flops_available:
+                metrics["throughput/device/estimated_mfu"] = device_flops_per_sec / self.flops_available
         if measured_flops_per_batch is not None:
             # sum of flops per batch across ranks
             self.history_measured_flops.append(measured_flops_per_batch * world_size)
@@ -229,21 +237,25 @@ class SpeedMonitor:
             elapsed_wct = self.history_wct[-1] - self.history_wct[0]
             flops_per_sec = elapsed_flops / elapsed_wct
             device_flops_per_sec = flops_per_sec / world_size
-            self.logger.log_metrics({"throughput/measured_flops_per_sec": flops_per_sec}, step)
-            self.logger.log_metrics({"throughput/device/measured_flops_per_sec": device_flops_per_sec}, step)
-            if self.gpu_flops_available:
-                mfu = device_flops_per_sec / self.gpu_flops_available
-                self.logger.log_metrics({"throughput/device/measured_mfu": mfu}, step)
+            metrics.update(
+                {
+                    "throughput/measured_flops_per_sec": flops_per_sec,
+                    "throughput/device/measured_flops_per_sec": device_flops_per_sec,
+                }
+            )
+            if self.flops_available:
+                metrics["throughput/device/measured_mfu"] = device_flops_per_sec / self.flops_available
 
-        self.logger.log_metrics(
+        metrics.update(
             {
                 "time/train": train_elapsed / self.divider,
                 "time/val": self.total_eval_wct / self.divider,
                 "time/total": (train_elapsed + self.total_eval_wct) / self.divider,
-            },
-            step,
+                "samples": samples,
+            }
         )
-        self.logger.log_metrics({"samples": samples}, step)
+
+        self.fabric.log_dict(metrics, step)
 
     def eval_end(self, eval_elapsed: float):
         self.total_eval_wct += eval_elapsed  # seconds
@@ -251,6 +263,10 @@ class SpeedMonitor:
 
 def estimate_flops(model: Parrot) -> int:
     """Measures estimated FLOPs for MFU: https://arxiv.org/abs/2205.05198"""
+    # using all parameters for this is a naive over estimation because not all model parameters actually contribute to
+    # this FLOP computation (e.g. embedding, norm). For this reason, the result will be higher by a fixed percentage
+    # (~10%) compared to the measured FLOPs, making those lower but more realistic.
+    # For a proper estimate, this needs a more fine-grained calculation as in Appendix A of the paper.
     n_params = sum(p.numel() for p in model.parameters())
     # credit: https://github.com/mosaicml/examples/blob/release/v0.0.4/examples/llm/throughput/README.md#mfu-and-hfu
     flops_per_token = 2 * n_params
