@@ -235,10 +235,12 @@ class CausalSelfAttention(BaseCausalSelfAttention):
                 aqkv = aqkv.view(1, aT, self.config.n_query_groups, q_per_kv + 2, self.config.head_size)
                 aqkv = aqkv.permute(0, 2, 3, 1, 4)
                 _, ak, av = aqkv.split((q_per_kv, 1, 1), dim=2)
-                ak = ak.repeat_interleave(B, dim=0)
-                av = av.repeat_interleave(B, dim=0)
-                ak = ak.view(B, -1, aT, self.config.head_size)  # (B, nh_ak, aT, hs)
-                av = av.view(B, -1, aT, self.config.head_size)  # (B, nh_av, aT, hs)
+                if self.config.n_query_groups != 1:
+                    # for MHA this is a no-op
+                    ak = ak.repeat_interleave(q_per_kv, dim=2)
+                    av = av.repeat_interleave(q_per_kv, dim=2)
+                ak = ak.view(1, -1, aT, self.config.head_size)  # (1, nh_ak, aT, hs)
+                av = av.view(1, -1, aT, self.config.head_size)  # (1, nh_av, aT, hs)
                 adapter_kv_cache = (ak, av)
 
             amask = torch.ones(T, aT, dtype=torch.bool, device=x.device)

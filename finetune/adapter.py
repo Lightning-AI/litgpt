@@ -10,7 +10,7 @@ from typing import Optional
 import lightning as L
 import numpy as np
 import torch
-from lightning.fabric.strategies import DeepSpeedStrategy, XLAStrategy, FSDPStrategy
+from lightning.fabric.strategies import DeepSpeedStrategy, XLAStrategy
 
 # support running without installing as a package
 wd = Path(__file__).parent.parent.resolve()
