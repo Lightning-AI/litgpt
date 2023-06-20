@@ -65,7 +65,8 @@ class Parrot(nn.Module):
         block_size = self.config.block_size
         if max_seq_length is None:
             max_seq_length = block_size
-        assert T <= max_seq_length, f"Cannot forward sequence of length {T}, max seq length is only {max_seq_length}"
+        if use_kv_cache:  # not relevant otherwise
+            assert T <= max_seq_length, f"Cannot forward sequence of length {T}, max seq length is only {max_seq_length}"
         assert max_seq_length <= block_size, f"Cannot attend to {max_seq_length}, block size is only {block_size}"
         assert T <= block_size, f"Cannot forward sequence of length {T}, block size is only {block_size}"
 
