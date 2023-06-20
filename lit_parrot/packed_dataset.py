@@ -99,7 +99,7 @@ class PackedDatasetBuilder(object):
         filename = f"{self._prefix}_{self._counter:010d}.bin"
         filename = os.path.join(self._outdir, filename)
 
-        with open(filename, "wb", encoding="utf-8") as f:
+        with open(filename, "wb") as f:
             f.write(HDR_MAGIC)
             f.write(struct.pack("<Q", self._version))
             f.write(struct.pack("<B", code(self._dtype)))
