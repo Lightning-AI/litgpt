@@ -134,3 +134,37 @@ def test_model_compile():
     sample = torch.randint(model.config.vocab_size, size=(2, model.config.block_size), dtype=torch.int64)
     for _ in range(3):
         _ = model(sample)
+
+
+@torch.inference_mode()
+@pytest.mark.parametrize("set_highest_max_seq_length", (False, True))
+@pytest.mark.flaky(reruns=5)
+def test_kv_cache(set_highest_max_seq_length):
+    from lit_parrot import Parrot, Config
+
+    config = Config(block_size=25, padded_vocab_size=5, n_layer=2, n_head=2, n_embd=8)
+    model = Parrot(config)
+    idx = torch.randint(0, model.config.padded_vocab_size, (1, 5))
+    max_new_tokens = 20
+    max_seq_length = 25 if set_highest_max_seq_length else 10
+
+    def generate(logits):
+        logits = logits[:, -1:]
+        probs = torch.nn.functional.softmax(logits, dim=-1)
+        return torch.argmax(probs).unsqueeze(0).unsqueeze(0)
+
+    x_no_cache = idx
+    x_cache = idx
+    input_pos = torch.arange(0, 5)
+    for _ in range(max_new_tokens):
+        logits_no_cache = model(x_no_cache, max_seq_length)
+        out_no_cache = generate(logits_no_cache)
+
+        logits_cache = model(x_cache, max_seq_length, input_pos)
+        out_cache = generate(logits_cache)
+
+        torch.testing.assert_close(out_no_cache, out_cache, rtol=0, atol=0)
+
+        x_no_cache = torch.cat((x_no_cache, out_no_cache), dim=1)
+        x_cache = out_cache
+        input_pos = torch.tensor([input_pos[-1] + 1])

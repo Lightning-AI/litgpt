@@ -65,7 +65,8 @@ class Parrot(nn.Module):
         block_size = self.config.block_size
         if max_seq_length is None:
             max_seq_length = block_size
-        assert T <= max_seq_length, f"Cannot forward sequence of length {T}, max seq length is only {max_seq_length}"
+        if use_kv_cache:  # not relevant otherwise
+            assert T <= max_seq_length, f"Cannot forward sequence of length {T}, max seq length is only {max_seq_length}"
         assert max_seq_length <= block_size, f"Cannot attend to {max_seq_length}, block size is only {block_size}"
         assert T <= block_size, f"Cannot forward sequence of length {T}, block size is only {block_size}"
 
@@ -229,8 +230,8 @@ class CausalSelfAttention(nn.Module):
                 # shift 1 position to the left
                 cache_k = torch.roll(cache_k, -1, dims=2)
                 cache_v = torch.roll(cache_v, -1, dims=2)
-            k = cache_k.index_copy(2, input_pos, k)
-            v = cache_v.index_copy(2, input_pos, v)
+            k = cache_k.index_copy_(2, input_pos, k)
+            v = cache_v.index_copy_(2, input_pos, v)
             kv_cache = k, v
 
         # efficient attention using Flash Attention CUDA kernels

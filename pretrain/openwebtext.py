@@ -110,15 +110,14 @@ def train(
 ) -> None:
     validate(fabric, model, val_data)  # sanity check
 
-    estimated_flops = estimate_flops(model) * micro_batch_size
-    fabric.print(f"Estimated TFLOPs: {estimated_flops * fabric.world_size / 1e12:.2f}")
-    if not isinstance(fabric.strategy, FSDPStrategy):  # unsupported
-        measured_flops = measure_flops(
-            model, torch.randint(0, 1, (micro_batch_size, model.config.block_size), device=fabric.device)
-        )
+    with torch.device("meta"):
+        meta_model = Parrot(model.config)
+        x = torch.randint(0, 1, (micro_batch_size, model.config.block_size))
+        estimated_flops = estimate_flops(meta_model) * micro_batch_size
+        fabric.print(f"Estimated TFLOPs: {estimated_flops * fabric.world_size / 1e12:.2f}")
+        measured_flops = measure_flops(meta_model, x)
         fabric.print(f"Measured TFLOPs: {measured_flops * fabric.world_size / 1e12:.2f}")
-    else:
-        measured_flops = None
+        del meta_model, x
 
     step_count = 0
     total_t0 = time.time()
