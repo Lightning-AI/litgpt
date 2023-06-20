@@ -100,9 +100,6 @@ Run inference:
 python generate/base.py --prompt "Hello, my name is"
 ```
 
-[Try it now](https://colab.research.google.com/github/Lightning-AI/lit-parrot/blob/aniket/falcon-colab/notebooks/falcon-inference.ipynb) on Colab!
-
-
 This will run the 3B pre-trained model and require ~7 GB of GPU memory using the `bfloat16` datatype.
 
 [Full guide for generating samples from the model](howto/inference.md).
