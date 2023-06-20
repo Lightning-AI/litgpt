@@ -63,7 +63,7 @@ def setup(
     tpu: bool = False,
 ):
     if precision is None:
-        precision = "32-true" if tpu else "16-true"
+        precision = "32-true" if tpu else "bf16-mixed"
     strategy = (
         "auto"
         if devices <= 1
