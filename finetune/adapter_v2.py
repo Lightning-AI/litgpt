@@ -103,10 +103,13 @@ def main(fabric: L.Fabric, data_dir: Path, checkpoint_dir: Path, out_dir: Path):
     add_adapter_v2_parameters_to_linear_layers(model)
     mark_only_adapter_v2_as_trainable(model)
 
-    num_params = sum(p.numel() for p in model.parameters() if p.requires_grad)
+    trainable_params = [p for p in model.parameters() if p.requires_grad]
+    num_params = sum(p.numel() for p in trainable_params)
     fabric.print(f"Number of trainable parameters: {num_params}")
+    num_params = sum(p.numel() for p in model.parameters() if not p.requires_grad)
+    fabric.print(f"Number of non trainable parameters: {num_params}")
 
-    optimizer = torch.optim.AdamW(model.parameters(), lr=learning_rate, weight_decay=weight_decay)
+    optimizer = torch.optim.AdamW(trainable_params, lr=learning_rate, weight_decay=weight_decay)
     model, optimizer = fabric.setup(model, optimizer)
 
     with open(data_dir / "config.json") as data_config_path:
@@ -210,7 +213,7 @@ def train(
 
 @torch.no_grad()
 def validate(
-    fabric: L.Fabric, model: torch.nn.Module, val_data: np.ndarray, tokenizer: Tokenizer, max_seq_length: int
+    fabric: L.Fabric, model: Parrot, val_data: np.ndarray, tokenizer: Tokenizer, max_seq_length: int
 ) -> torch.Tensor:
     fabric.print("Validating ...")
     model.eval()
@@ -234,6 +237,8 @@ def validate(
     )
     output = tokenizer.decode(output)
     fabric.print(output)
+
+    model.reset_cache()
 
     model.train()
     return val_loss.item()
