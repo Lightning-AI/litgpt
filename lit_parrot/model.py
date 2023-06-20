@@ -229,8 +229,8 @@ class CausalSelfAttention(nn.Module):
                 # shift 1 position to the left
                 cache_k = torch.roll(cache_k, -1, dims=2)
                 cache_v = torch.roll(cache_v, -1, dims=2)
-            k = cache_k.index_copy(2, input_pos, k)
-            v = cache_v.index_copy(2, input_pos, v)
+            k = cache_k.index_copy_(2, input_pos, k)
+            v = cache_v.index_copy_(2, input_pos, v)
             kv_cache = k, v
 
         # efficient attention using Flash Attention CUDA kernels
