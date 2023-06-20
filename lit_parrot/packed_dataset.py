@@ -99,7 +99,7 @@ class PackedDatasetBuilder(object):
         filename = f"{self._prefix}_{self._counter:010d}.bin"
         filename = os.path.join(self._outdir, filename)
 
-        with open(filename, "wb") as f:
+        with open(filename, "wb", encoding="utf-8") as f:
             f.write(HDR_MAGIC)
             f.write(struct.pack("<Q", self._version))
             f.write(struct.pack("<B", code(self._dtype)))
@@ -164,7 +164,7 @@ class PackedDatasetIterator:
         self._load_n_chunks()
 
     def _read_header(self, path):
-        with open(path, "rb") as f:
+        with open(path, "rb", encoding="utf-8") as f:
             magic = f.read(len(HDR_MAGIC))
             assert magic == HDR_MAGIC, "File doesn't match expected format."
             version = struct.unpack("<Q", f.read(8))
