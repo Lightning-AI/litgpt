@@ -272,7 +272,7 @@ def get_batch(fabric: L.Fabric, data: np.ndarray, max_seq_length: int):
 
 def save_adapter_v2_checkpoint(fabric, model, file_path: Path):
     fabric.print(f"Saving adapter v2 weights to {str(file_path)!r}")
-    fabric.save(file_path, {"model": model}, filter=adapter_filter)
+    fabric.save(file_path, {"model": model}, filter={"model": adapter_filter})
 
 
 if __name__ == "__main__":

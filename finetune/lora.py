@@ -9,7 +9,6 @@ import lightning as L
 import numpy as np
 import torch
 from lightning.fabric.strategies import XLAStrategy, FSDPStrategy
-from torch.distributed.fsdp.wrap import transformer_auto_wrap_policy
 
 # support running without installing as a package
 wd = Path(__file__).parent.parent.resolve()
@@ -17,7 +16,7 @@ sys.path.append(str(wd))
 
 from generate.base import generate
 from lit_parrot.lora import mark_only_lora_as_trainable, lora, lora_filter
-from lit_parrot.model import Parrot, Config, Block
+from lit_parrot.model import Parrot, Config
 from lit_parrot.tokenizer import Tokenizer
 from lit_parrot.utils import lazy_load, check_valid_checkpoint_dir, step_csv_logger
 from lit_parrot.speed_monitor import SpeedMonitor, measure_flops, estimate_flops
@@ -263,7 +262,7 @@ def get_batch(fabric: L.Fabric, data: np.ndarray, max_seq_length: int):
 
 def save_lora_checkpoint(fabric, model, file_path: Path):
     fabric.print(f"Saving LoRA weights to {str(file_path)!r}")
-    fabric.save(file_path, {"model": model}, filter=lora_filter)
+    fabric.save(file_path, {"model": model}, filter={"model": lora_filter})
 
 
 if __name__ == "__main__":

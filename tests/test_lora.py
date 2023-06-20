@@ -109,7 +109,7 @@ def test_lora_filter(tmp_path):
     with lora(r=2, alpha=8, dropout=0.1):
         model = Parrot.from_name("pythia-70m", n_layer=3)
     save_path = tmp_path / "model.pth"
-    fabric.save(save_path, {"model": model}, filter=lora_filter)
+    fabric.save(save_path, {"model": model}, filter={"model": lora_filter})
     saved = torch.load(save_path)["model"]
 
     expected = {

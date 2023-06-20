@@ -28,7 +28,7 @@ def test_adapter_filter(tmp_path):
     fabric = Fabric(devices=1)
     model = Parrot.from_name("pythia-70m", n_layer=3)
     save_path = tmp_path / "model.pth"
-    fabric.save(save_path, {"model": model}, filter=adapter_filter)
+    fabric.save(save_path, {"model": model}, filter={"model": adapter_filter})
     saved = torch.load(save_path)["model"]
 
     expected = {
