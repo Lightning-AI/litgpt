@@ -36,3 +36,5 @@ You're done! To execute the model just run:
 ```bash
 python generate/base.py --prompt "Hello, my name is" --checkpoint_dir checkpoints/tiiuae/falcon-7b
 ```
+
+or [![Open In Colab](https://colab.research.google.com/assets/colab-badge.svg)](https://colab.research.google.com/github/Lightning-AI/lit-parrot/blob/main/notebooks/falcon-inference.ipynb)
