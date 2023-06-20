@@ -164,7 +164,7 @@ class PackedDatasetIterator:
         self._load_n_chunks()
 
     def _read_header(self, path):
-        with open(path, "rb", encoding="utf-8") as f:
+        with open(path, "rb") as f:
             magic = f.read(len(HDR_MAGIC))
             assert magic == HDR_MAGIC, "File doesn't match expected format."
             version = struct.unpack("<Q", f.read(8))
