@@ -70,7 +70,7 @@ def setup(
     logger = step_csv_logger(out_dir.parent, out_dir.name)
     fabric = L.Fabric(devices=fabric_devices, strategy=strategy, precision=precision, loggers=logger)
     fabric.print(hparams)
-    fabric.launch(main, data_dir, checkpoint_dir, out_dir, precision)
+    fabric.launch(main, data_dir, checkpoint_dir, out_dir)
 
 
 def main(fabric: L.Fabric, data_dir: Path, checkpoint_dir: Path, out_dir: Path):
