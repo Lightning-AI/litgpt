@@ -18,7 +18,7 @@ sys.path.append(str(wd))
 
 from lit_parrot.model import Block, Parrot, Config
 from lit_parrot.packed_dataset import PackedDataset, CombinedDataset
-from lit_parrot.utils import step_csv_logger
+from lit_parrot.utils import step_csv_logger, chunked_cross_entropy
 from lit_parrot.speed_monitor import SpeedMonitor, estimate_flops, measure_flops
 
 model_name = "pythia-70m"
@@ -122,7 +122,9 @@ def main(fabric: L.Fabric, train_data_dir: Path, val_data_dir: Optional[Path]) -
     num_total_params = sum(p.numel() for p in model.parameters())
     fabric.print(f"Total parameters {num_total_params}")
 
-    optimizer = torch.optim.AdamW(model.parameters(), lr=learning_rate, weight_decay=weight_decay, betas=(beta1, beta2))
+    optimizer = torch.optim.AdamW(
+        model.parameters(), lr=learning_rate, weight_decay=weight_decay, betas=(beta1, beta2), foreach=False
+    )
     model, optimizer = fabric.setup(model, optimizer)
 
     train_time = time.time()
@@ -174,16 +176,12 @@ def train(
         is_accumulating = (iter_num + 1) % gradient_accumulation_steps != 0
         with fabric.no_backward_sync(model, enabled=is_accumulating):
             logits = model(input_ids)
-            loss = torch.nn.functional.cross_entropy(
-                logits.view(-1, logits.size(-1)), targets.view(-1), ignore_index=-1
-            )
+            loss = chunked_cross_entropy(logits, targets, chunk_size=0)
             fabric.backward(loss / gradient_accumulation_steps)
 
         if not is_accumulating:
             fabric.clip_gradients(model, optimizer, max_norm=grad_clip)
             optimizer.step()
-            if fabric.device.type == "xla":
-                xm.mark_step()
             optimizer.zero_grad()
             step_count += 1
         elif fabric.device.type == "xla":
@@ -228,7 +226,7 @@ def validate(fabric: L.Fabric, model: torch.nn.Module, val_dataloader: DataLoade
         input_ids = val_data[:, 0 : model.config.block_size].contiguous()
         targets = val_data[:, 1 : model.config.block_size + 1].contiguous()
         logits = model(input_ids)
-        loss = torch.nn.functional.cross_entropy(logits.view(-1, logits.size(-1)), targets.view(-1), ignore_index=-1)
+        loss = chunked_cross_entropy(logits, targets, chunk_size=0)
         losses[k] = loss.item()
     out = losses.mean()
 

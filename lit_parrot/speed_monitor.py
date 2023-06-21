@@ -44,6 +44,14 @@ GPU_AVAILABLE_FLOPS = {
         "bf16-true": 312e12,
         "bf16-mixed": 312e12,
     },
+    # source: https://www.nvidia.com/content/dam/en-zz/Solutions/Data-Center/a10/pdf/a10-datasheet.pdf
+    "a10g": {
+        "32-true": 31.2e12,
+        "16-true": 125e12,
+        "16-mixed": 125e12,
+        "bf16-true": 125e12,
+        "bf16-mixed": 125e12,
+    },
     # source: https://images.nvidia.com/content/technologies/volta/pdf/volta-v100-datasheet-update-us-1165301-r5.pdf
     "v100-sxm": {"64-true": 7.8e12, "32-true": 15.7e12, "16-true": 125e12, "16-mixed": 125e12},
     "v100-pcie": {"64-true": 7e12, "32-true": 14e12, "16-true": 112e12, "16-mixed": 112e12},
@@ -65,6 +73,8 @@ def get_flops_available(device: torch.device, precision: str) -> Optional[float]
             device_name = "h100-pcie"
         elif "a100" in device_name:
             device_name = "a100"
+        elif "a10g" in device_name:
+            device_name = "a10g"
         elif "v100-sxm" in device_name:
             device_name = "v100-sxm"
         elif "v100-pcie" in device_name:

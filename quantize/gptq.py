@@ -361,7 +361,7 @@ def main(
     t = time.perf_counter() - t0
 
     print(f"\n\nTime for quantization: {t:.02f} sec total", file=sys.stderr)
-    print(f"Memory used: {torch.cuda.max_memory_reserved() / 1e9:.02f} GB", file=sys.stderr)
+    print(f"Memory used: {torch.cuda.max_memory_allocated() / 1e9:.02f} GB", file=sys.stderr)
 
     torch.save(model.state_dict(), output_path)
 
