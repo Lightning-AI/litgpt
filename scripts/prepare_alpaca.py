@@ -74,11 +74,6 @@ def prepare(
         )
         for sample in tqdm(train_set)
     ]
-    lengths = [len(s["input_ids"]) for s in train_set]
-    max_seq_length = max(lengths)
-    # put the longest sample at the beginning so potential OOMs happen right away
-    longest_seq_index = lengths.index(max_seq_length)
-    train_set.insert(0, train_set.pop(longest_seq_index))
     torch.save(train_set, destination_path / "train.pt")
 
     print("Processing test split ...")
@@ -93,10 +88,6 @@ def prepare(
         for sample in tqdm(test_set)
     ]
     torch.save(test_set, destination_path / "test.pt")
-
-    # useful to know the minimum max_seq_length required during fine-tuning (saves memory!)
-    with open(destination_path / "config.json", "w") as file:
-        json.dump({"max_seq_length": max_seq_length}, file)
 
 
 def download_if_missing(file_path: Path, file_url: str):
