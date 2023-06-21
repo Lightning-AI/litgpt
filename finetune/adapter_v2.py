@@ -24,7 +24,7 @@ from lit_parrot.adapter_v2 import (
     adapter_v2_state_from_state_dict,
 )
 from lit_parrot.tokenizer import Tokenizer
-from lit_parrot.utils import lazy_load, check_valid_checkpoint_dir, step_csv_logger
+from lit_parrot.utils import lazy_load, check_valid_checkpoint_dir, step_csv_logger, chunked_cross_entropy
 from lit_parrot.speed_monitor import SpeedMonitor, measure_flops, estimate_flops
 from scripts.prepare_alpaca import generate_prompt
 
@@ -65,7 +65,7 @@ def setup(
     tpu: bool = False,
 ):
     if precision is None:
-        precision = "32-true" if tpu else "16-true"
+        precision = "32-true" if tpu else "bf16-mixed"
     strategy = (
         "auto"
         if devices <= 1
@@ -105,10 +105,13 @@ def main(fabric: L.Fabric, data_dir: Path, checkpoint_dir: Path, out_dir: Path):
     add_adapter_v2_parameters_to_linear_layers(model)
     mark_only_adapter_v2_as_trainable(model)
 
-    num_params = sum(p.numel() for p in model.parameters() if p.requires_grad)
+    trainable_params = [p for p in model.parameters() if p.requires_grad]
+    num_params = sum(p.numel() for p in trainable_params)
     fabric.print(f"Number of trainable parameters: {num_params}")
+    num_params = sum(p.numel() for p in model.parameters() if not p.requires_grad)
+    fabric.print(f"Number of non trainable parameters: {num_params}")
 
-    optimizer = torch.optim.AdamW(model.parameters(), lr=learning_rate, weight_decay=weight_decay)
+    optimizer = torch.optim.AdamW(trainable_params, lr=learning_rate, weight_decay=weight_decay)
     model, optimizer = fabric.setup(model, optimizer)
 
     if override_max_seq_length is None:
@@ -172,13 +175,11 @@ def train(
         is_accumulating = (iter_num + 1) % gradient_accumulation_iters != 0
         with fabric.no_backward_sync(model, enabled=is_accumulating):
             logits = model(input_ids, max_seq_length=max_seq_length)
-            loss = loss_fn(logits, targets)
+            loss = chunked_cross_entropy(logits[..., :-1, :], targets[..., 1:])
             fabric.backward(loss / gradient_accumulation_iters)
 
         if not is_accumulating:
             optimizer.step()
-            if fabric.device.type == "xla":
-                xm.mark_step()
             optimizer.zero_grad()
             step_count += 1
         elif fabric.device.type == "xla":
@@ -215,7 +216,7 @@ def train(
 
 @torch.no_grad()
 def validate(
-    fabric: L.Fabric, model: torch.nn.Module, val_data: np.ndarray, tokenizer: Tokenizer, max_seq_length: int
+    fabric: L.Fabric, model: Parrot, val_data: np.ndarray, tokenizer: Tokenizer, max_seq_length: int
 ) -> torch.Tensor:
     fabric.print("Validating ...")
     model.eval()
@@ -223,7 +224,7 @@ def validate(
     for k in range(eval_iters):
         input_ids, targets = get_batch(fabric, val_data, max_seq_length)
         logits = model(input_ids)
-        loss = loss_fn(logits, targets)
+        loss = chunked_cross_entropy(logits, targets, chunk_size=0)
         losses[k] = loss.item()
     val_loss = losses.mean()
 
@@ -240,16 +241,10 @@ def validate(
     output = tokenizer.decode(output)
     fabric.print(output)
 
+    model.reset_cache()
+
     model.train()
     return val_loss.item()
-
-
-def loss_fn(logits, targets):
-    # shift the targets such that output n predicts token n+1
-    logits = logits[..., :-1, :].contiguous()
-    targets = targets[..., 1:].contiguous()
-    loss = torch.nn.functional.cross_entropy(logits.view(-1, logits.size(-1)), targets.view(-1), ignore_index=-1)
-    return loss
 
 
 def get_batch(fabric: L.Fabric, data: np.ndarray, max_seq_length: int):
