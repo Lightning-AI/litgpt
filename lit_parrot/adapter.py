@@ -5,7 +5,6 @@ https://arxiv.org/abs/2303.16199
 
 Port for Lit-Parrot
 """
-
 import math
 from dataclasses import dataclass
 from typing import Optional, Tuple, Any, List, Union
@@ -258,9 +257,8 @@ class CausalSelfAttention(BaseCausalSelfAttention):
 def mark_only_adapter_as_trainable(model: Parrot) -> None:
     """Sets `requires_grad=False` for all non-adapter weights."""
     for name, param in model.named_parameters():
-        param.requires_grad = "adapter_wte" in name or "gating_factor" in name
+        param.requires_grad = adapter_filter(name, param)
 
 
-def adapter_state_from_state_dict(state_dict: dict) -> dict:
-    """Returns the model state dict with only the adapter weights for saving."""
-    return {name: param for name, param in state_dict.items() if "adapter_wte" in name or "gating_factor" in name}
+def adapter_filter(key: str, value: Any) -> bool:
+    return "adapter_wte" in key or "gating_factor" in key

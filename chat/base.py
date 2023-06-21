@@ -133,7 +133,7 @@ def main(
     with fabric.init_module(empty_init=True), quantization(quantize):
         model = Parrot(config)
     with lazy_load(checkpoint_path) as checkpoint:
-        model.load_state_dict(checkpoint, strict=quantize is None)
+        model.load_state_dict(checkpoint.get("model", checkpoint), strict=quantize is None)
 
     model.eval()
     model = fabric.setup_module(model)

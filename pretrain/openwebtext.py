@@ -60,7 +60,10 @@ def setup(devices: int = 1, precision: Optional[str] = None, tpu: bool = False) 
         else:
             auto_wrap_policy = partial(transformer_auto_wrap_policy, transformer_layer_cls={Block})
             strategy = FSDPStrategy(
-                auto_wrap_policy=auto_wrap_policy, activation_checkpointing=Block, state_dict_type="full"
+                auto_wrap_policy=auto_wrap_policy,
+                activation_checkpointing=Block,
+                state_dict_type="full",
+                limit_all_gathers=True,
             )
     else:
         strategy = "auto"
