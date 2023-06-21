@@ -18,8 +18,7 @@ sys.path.append(str(wd))
 from lit_parrot import Config
 from lit_parrot.model import Parrot, Block
 from lit_parrot.speed_monitor import SpeedMonitor, measure_flops, estimate_flops
-from lit_parrot.utils import step_csv_logger
-
+from lit_parrot.utils import step_csv_logger, chunked_cross_entropy
 
 model_name = "pythia-70m"
 name = "openwebtext"
@@ -92,7 +91,9 @@ def main(fabric: L.Fabric) -> None:
     num_total_params = sum(p.numel() for p in model.parameters())
     fabric.print(f"Total parameters {num_total_params}")
 
-    optimizer = torch.optim.AdamW(model.parameters(), lr=learning_rate, weight_decay=weight_decay, betas=(beta1, beta2))
+    optimizer = torch.optim.AdamW(
+        model.parameters(), lr=learning_rate, weight_decay=weight_decay, betas=(beta1, beta2), foreach=False
+    )
     model, optimizer = fabric.setup(model, optimizer)
 
     train_time = time.time()
@@ -139,9 +140,7 @@ def train(
         is_accumulating = (iter_num + 1) % gradient_accumulation_steps != 0
         with fabric.no_backward_sync(model, enabled=is_accumulating):
             logits = model(input_ids)
-            loss = torch.nn.functional.cross_entropy(
-                logits.view(-1, logits.size(-1)), targets.view(-1), ignore_index=-1
-            )
+            loss = chunked_cross_entropy(logits, targets, chunk_size=0)
             fabric.backward(loss / gradient_accumulation_steps)
 
         if not is_accumulating:
@@ -190,7 +189,7 @@ def validate(fabric: L.Fabric, model: torch.nn.Module, val_data: np.ndarray) -> 
     for k in range(eval_iters):
         input_ids, targets = get_batch(fabric, val_data, model.config.block_size)
         logits = model(input_ids)
-        loss = torch.nn.functional.cross_entropy(logits.view(-1, logits.size(-1)), targets.view(-1), ignore_index=-1)
+        loss = chunked_cross_entropy(logits, targets, chunk_size=0)
         losses[k] = loss.item()
     out = losses.mean()
 
