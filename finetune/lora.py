@@ -29,6 +29,8 @@ save_interval = 100
 eval_iters = 100
 log_interval = 1
 devices = 1
+# change this value to force a maximum sequence length
+override_max_seq_length = None
 
 # Hyperparameters
 learning_rate = 3e-4
@@ -104,8 +106,11 @@ def main(fabric: L.Fabric, data_dir: Path, checkpoint_dir: Path, out_dir: Path):
     optimizer = torch.optim.AdamW(model.parameters(), lr=learning_rate, weight_decay=weight_decay)
     model, optimizer = fabric.setup(model, optimizer)
 
-    with open(data_dir / "config.json") as data_config_path:
-        max_seq_length = json.load(data_config_path).get("max_seq_length", model.config.block_size)
+    if override_max_seq_length is None:
+        with open(data_dir / "config.json") as data_config_path:
+            max_seq_length = json.load(data_config_path)["max_seq_length"]
+    else:
+        max_seq_length = override_max_seq_length
 
     train_time = time.time()
     train(fabric, model, optimizer, train_data, val_data, checkpoint_dir, out_dir, max_seq_length, speed_monitor)
