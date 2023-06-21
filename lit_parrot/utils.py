@@ -438,9 +438,8 @@ def chunked_cross_entropy(logits: torch.Tensor, targets: torch.Tensor, chunk_siz
     # the memory spike's magnitude
     logit_chunks = torch.split(logits, chunk_size)
     target_chunks = torch.split(targets, chunk_size)
-    return torch.cat(
-        [
-            torch.nn.functional.cross_entropy(logit_chunk, target_chunk, ignore_index=-1, reduction="none")
-            for logit_chunk, target_chunk in zip(logit_chunks, target_chunks)
-        ]
-    ).mean()
+    loss_chunks = [
+        torch.nn.functional.cross_entropy(logit_chunk, target_chunk, ignore_index=-1, reduction="none")
+        for logit_chunk, target_chunk in zip(logit_chunks, target_chunks)
+    ]
+    return torch.cat(loss_chunks).mean()
