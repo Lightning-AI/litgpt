@@ -52,4 +52,4 @@ Keep in mind that reducing the context length will affect the model's learning a
 ### Model sharding with multiple GPUs
 
 For exceptionally large models, the aforementioned techniques might still not suffice. If you have multiple GPUs available,
-you can trade off memory for speed by changing the devices = 1 argument in the scripts. Enabling this option enables a parallelism technique (FSDP), sharding the memory across different GPUs.
+you can trade off memory for speed by changing the `devices = 1` argument in the scripts. Enabling this option enables a parallelism technique (FSDP), sharding the memory across different GPUs.
