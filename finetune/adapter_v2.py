@@ -193,7 +193,7 @@ def train(
         )
         if iter_num % log_interval == 0:
             fabric.print(
-                f"iter {iter_num} step {step_count}: loss {loss.item():.4f}, train time:"
+                f"iter {iter_num} step {step_count}: loss {loss.item():.4f}, iter time:"
                 f" {(t1 - iter_t0) * 1000:.2f}ms{' (optimizer.step)' if not is_accumulating else ''}"
             )
 
