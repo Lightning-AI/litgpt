@@ -260,6 +260,7 @@ def get_batch(
         x, y = fabric.to_device((x.pin_memory(), y.pin_memory()))
     return x, y
 
+
 def get_max_seq_length(data: List[Dict]) -> Tuple[int, Optional[int]]:
     if isinstance(override_max_seq_length, int):
         # support easy override at the top of the file

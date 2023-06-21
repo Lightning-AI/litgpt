@@ -277,7 +277,6 @@ def get_max_seq_length(data: List[Dict]) -> Tuple[int, Optional[int]]:
     return max_seq_length, longest_seq_ix
 
 
-
 def save_adapter_v2_checkpoint(fabric, model, file_path: Path):
     fabric.print(f"Saving adapter v2 weights to {str(file_path)!r}")
     fabric.save(file_path, {"model": model}, filter={"model": adapter_filter})
