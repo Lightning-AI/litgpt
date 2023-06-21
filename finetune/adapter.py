@@ -260,7 +260,6 @@ def get_batch(
         x, y = fabric.to_device((x, y))
     else:
         x, y = fabric.to_device((x.pin_memory(), y.pin_memory()))
-
     return x, y
 
 
