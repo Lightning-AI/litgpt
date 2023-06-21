@@ -105,7 +105,7 @@ def main(fabric: L.Fabric, data_dir: Path, checkpoint_dir: Path, out_dir: Path):
     num_params = sum(p.numel() for p in model.parameters() if not p.requires_grad)
     fabric.print(f"Number of non trainable parameters: {num_params}")
 
-    optimizer = torch.optim.AdamW(trainable_params, lr=learning_rate, weight_decay=weight_decay)
+    optimizer = torch.optim.AdamW(trainable_params, lr=learning_rate, weight_decay=weight_decay, foreach=False)
     model, optimizer = fabric.setup(model, optimizer)
 
     with open(data_dir / "config.json") as data_config_path:

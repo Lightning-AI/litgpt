@@ -92,7 +92,9 @@ def main(fabric: L.Fabric) -> None:
     num_total_params = sum(p.numel() for p in model.parameters())
     fabric.print(f"Total parameters {num_total_params}")
 
-    optimizer = torch.optim.AdamW(model.parameters(), lr=learning_rate, weight_decay=weight_decay, betas=(beta1, beta2))
+    optimizer = torch.optim.AdamW(
+        model.parameters(), lr=learning_rate, weight_decay=weight_decay, betas=(beta1, beta2), foreach=False
+    )
     model, optimizer = fabric.setup(model, optimizer)
 
     train_time = time.time()
