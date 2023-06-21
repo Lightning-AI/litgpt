@@ -156,7 +156,7 @@ class SpeedMonitor:
         self.history_samples: Deque[int] = deque(maxlen=window_size + 1)
         self.history_wct: Deque[float] = deque(maxlen=window_size + 1)
         self.history_lengths: Deque[int] = deque(maxlen=window_size + 1)
-        self.history_flops: Deque[float] = deque(maxlen=window_size + 1)
+        self.history_flops: Deque[int] = deque(maxlen=window_size + 1)
 
         self.divider = 1
         if time_unit == "seconds":
@@ -181,23 +181,22 @@ class SpeedMonitor:
         samples: int,  # total samples seen (per device)
         train_elapsed: float,  # total training time (seconds)
         world_size: int,
-        flops_per_batch: Optional[float] = None,  # (per device)
+        flops_per_batch: Optional[int] = None,  # (per device)
         lengths: Optional[int] = None,  # total length of the samples seen (per device)
     ):
+        self.step += 1
+        step = self.step
+        metrics = {}
+
         self.history_samples.append(samples)
         if lengths is not None:
             self.history_lengths.append(lengths)
             # if lengths are passed, there should be as many values as samples
             assert len(self.history_samples) == len(self.history_lengths)
         self.history_wct.append(train_elapsed)
-
-        self.step += 1
-        step = self.step
-        metrics = {}
-
         if len(self.history_wct) == self.history_wct.maxlen:
             elapsed_batches = len(self.history_samples) - 1
-            elapsed_samples = int(self.history_samples[-1]) - int(self.history_samples[0])
+            elapsed_samples = self.history_samples[-1] - self.history_samples[0]
             elapsed_wct = self.history_wct[-1] - self.history_wct[0]
             samples_per_sec = elapsed_samples * world_size / elapsed_wct
             dev_samples_per_sec = elapsed_samples / elapsed_wct
