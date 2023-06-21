@@ -57,6 +57,19 @@ GPU_AVAILABLE_FLOPS = {
     "quadro rtx 5000": {"32-true": 11.2e12, "16-true": 89.2e12, "16-mixed": 89.2e12},
 }
 
+TPU_AVAILABLE_FLOPS={
+    # flop count for each TPU generation is the same for all precisions
+    # since bfloat16 precision is always used for performing matrix operations
+    # for more info: https://cloud.google.com/tpu/docs/bfloat16#choosing_bfloat16
+
+    # source: https://arxiv.org/pdf/1907.10701.pdf
+    "V2": 45e12,
+    # source: https://cloud.google.com/tpu/docs/system-architecture-tpu-vm#tpu_v3
+    "V3": 123e12,
+    # source: https://cloud.google.com/tpu/docs/system-architecture-tpu-vm#tpu_v4
+    "V4": 275e12,
+}
+
 
 def get_flops_available(device: torch.device, precision: str) -> Optional[float]:
     if device.type == "cuda":
@@ -89,8 +102,15 @@ def get_flops_available(device: torch.device, precision: str) -> Optional[float]
                     "MFU cannot be calculated and reported."
                 )
     elif device.type == "xla":
-        # TODO
-        ...
+        from torch_xla.experimental import tpu
+        try:
+            tpu_generation = tpu.get_tpu_env()['TYPE']
+            return TPU_AVAILABLE_FLOPS[tpu_generation]
+        except KeyError:
+            raise KeyError(
+                    f"flop count not found for {device_name} with precision: {precision}; "
+                    "MFU cannot be calculated and reported."
+                )
 
     return None
 
