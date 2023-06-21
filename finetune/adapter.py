@@ -19,7 +19,7 @@ sys.path.append(str(wd))
 from generate.base import generate
 from lit_parrot.adapter import Parrot, Config, mark_only_adapter_as_trainable, adapter_state_from_state_dict
 from lit_parrot.tokenizer import Tokenizer
-from lit_parrot.utils import lazy_load, check_valid_checkpoint_dir, step_csv_logger
+from lit_parrot.utils import lazy_load, check_valid_checkpoint_dir, step_csv_logger, chunked_cross_entropy
 from lit_parrot.speed_monitor import SpeedMonitor, measure_flops, estimate_flops
 from scripts.prepare_alpaca import generate_prompt
 
@@ -164,7 +164,8 @@ def train(
         is_accumulating = (iter_num + 1) % gradient_accumulation_iters != 0
         with fabric.no_backward_sync(model, enabled=is_accumulating):
             logits = model(input_ids, max_seq_length=max_seq_length)
-            loss = loss_fn(logits, targets)
+            # shift the targets such that output n predicts token n+1
+            loss = chunked_cross_entropy(logits[..., :-1, :], targets[..., 1:])
             fabric.backward(loss / gradient_accumulation_iters)
 
         if not is_accumulating:
@@ -215,7 +216,7 @@ def validate(
     for k in range(eval_iters):
         input_ids, targets = get_batch(fabric, val_data, max_seq_length)
         logits = model(input_ids)
-        loss = loss_fn(logits, targets)
+        loss = chunked_cross_entropy(logits, targets, chunk_size=0)
         losses[k] = loss.item()
     val_loss = losses.mean()
 
@@ -236,14 +237,6 @@ def validate(
 
     model.train()
     return val_loss.item()
-
-
-def loss_fn(logits, targets):
-    # shift the targets such that output n predicts token n+1
-    logits = logits[..., :-1, :].contiguous()
-    targets = targets[..., 1:].contiguous()
-    loss = torch.nn.functional.cross_entropy(logits.view(-1, logits.size(-1)), targets.view(-1), ignore_index=-1)
-    return loss
 
 
 def get_batch(fabric: L.Fabric, data: np.ndarray, max_seq_length: int):
