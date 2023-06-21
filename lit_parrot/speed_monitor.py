@@ -161,8 +161,8 @@ class SpeedMonitor:
         # Track the batch num samples and wct to compute throughput over a window of batches
         self.history_samples: Deque[int] = deque(maxlen=window_size + 1)
         self.history_wct: Deque[float] = deque(maxlen=window_size + 1)
-        self.history_estimated_flops: Deque[float] = deque(maxlen=window_size + 1)
-        self.history_measured_flops: Deque[float] = deque(maxlen=window_size + 1)
+        self.history_lengths: Deque[int] = deque(maxlen=window_size + 1)
+        self.history_flops: Deque[float] = deque(maxlen=window_size + 1)
 
         self.divider = 1
         if time_unit == "seconds":
@@ -187,11 +187,14 @@ class SpeedMonitor:
         samples: int,  # total samples seen (per device)
         train_elapsed: float,  # total training time (seconds)
         world_size: int,
-        estimated_flops_per_batch: Optional[float] = None,  # (per device)
-        measured_flops_per_batch: Optional[float] = None,  # (per device)
-        max_seq_length: Optional[int] = None,
+        flops_per_batch: Optional[float] = None,  # (per device)
+        lengths: Optional[int] = None,  # total length of the samples seen (per device)
     ):
         self.history_samples.append(samples)
+        if lengths is not None:
+            self.history_lengths.append(lengths)
+            # if lengths are passed, there should be as many values as samples
+            assert len(self.history_samples) == len(self.history_lengths)
         self.history_wct.append(train_elapsed)
 
         self.step += 1
@@ -212,49 +215,32 @@ class SpeedMonitor:
                     "throughput/device/samples_per_sec": dev_samples_per_sec,
                 }
             )
-
             # Assumes no padding.
-            if max_seq_length is not None:
-                # Only applicable to seq data / models
+            if lengths is not None:
+                elapsed_lengths = int(self.history_lengths[-1]) - int(self.history_lengths[0])
                 metrics.update(
                     {
-                        "throughput/tokens_per_sec": samples_per_sec * max_seq_length,
-                        "throughput/device/tokens_per_sec": dev_samples_per_sec * max_seq_length,
+                        "throughput/tokens_per_sec": samples_per_sec * elapsed_lengths,
+                        "throughput/device/tokens_per_sec": dev_samples_per_sec * elapsed_lengths,
                     }
                 )
 
-        if estimated_flops_per_batch is not None:
+        if flops_per_batch is not None:
             # sum of flops per batch across ranks
-            self.history_estimated_flops.append(estimated_flops_per_batch * world_size)
-        if len(self.history_estimated_flops) == self.history_estimated_flops.maxlen:
-            elapsed_flops = sum(self.history_estimated_flops) - self.history_estimated_flops[0]
+            self.history_flops.append(flops_per_batch * world_size)
+        if len(self.history_flops) == self.history_flops.maxlen:
+            elapsed_flops = sum(self.history_flops) - self.history_flops[0]
             elapsed_wct = self.history_wct[-1] - self.history_wct[0]
             flops_per_sec = elapsed_flops / elapsed_wct
             device_flops_per_sec = flops_per_sec / world_size
             metrics.update(
                 {
-                    "throughput/estimated_flops_per_sec": flops_per_sec,
-                    "throughput/device/estimated_flops_per_sec": device_flops_per_sec,
+                    "throughput/flops_per_sec": flops_per_sec,
+                    "throughput/device/flops_per_sec": device_flops_per_sec,
                 }
             )
             if self.flops_available:
-                metrics["throughput/device/estimated_mfu"] = device_flops_per_sec / self.flops_available
-        if measured_flops_per_batch is not None:
-            # sum of flops per batch across ranks
-            self.history_measured_flops.append(measured_flops_per_batch * world_size)
-        if len(self.history_measured_flops) == self.history_measured_flops.maxlen:
-            elapsed_flops = sum(self.history_measured_flops) - self.history_measured_flops[0]
-            elapsed_wct = self.history_wct[-1] - self.history_wct[0]
-            flops_per_sec = elapsed_flops / elapsed_wct
-            device_flops_per_sec = flops_per_sec / world_size
-            metrics.update(
-                {
-                    "throughput/measured_flops_per_sec": flops_per_sec,
-                    "throughput/device/measured_flops_per_sec": device_flops_per_sec,
-                }
-            )
-            if self.flops_available:
-                metrics["throughput/device/measured_mfu"] = device_flops_per_sec / self.flops_available
+                metrics["throughput/device/mfu"] = device_flops_per_sec / self.flops_available
 
         metrics.update(
             {
