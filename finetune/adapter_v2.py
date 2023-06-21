@@ -172,8 +172,6 @@ def train(
 
         if not is_accumulating:
             optimizer.step()
-            if fabric.device.type == "xla":
-                xm.mark_step()
             optimizer.zero_grad()
             step_count += 1
         elif fabric.device.type == "xla":
