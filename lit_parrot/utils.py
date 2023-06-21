@@ -428,9 +428,8 @@ def step_csv_logger(*args: Any, **kwargs: Any) -> CSVLogger:
 
 
 def chunked_cross_entropy(logits: torch.Tensor, targets: torch.Tensor, chunk_size: int = 128) -> torch.Tensor:
-    # FIXME: contiguous?
-    logits = logits.view(-1, logits.size(-1))
-    targets = targets.view(-1)
+    logits = logits.reshape(-1, logits.size(-1))
+    targets = targets.reshape(-1)
     if chunk_size == 0:
         return torch.nn.functional.cross_entropy(logits, targets, ignore_index=-1)
     # with large max_sequence_lengths, the beginning of `backward` allocates a large memory chunk which can dominate
