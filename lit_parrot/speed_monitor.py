@@ -45,13 +45,7 @@ GPU_AVAILABLE_FLOPS = {
         "bf16-mixed": 312e12,
     },
     # source: https://www.nvidia.com/content/dam/en-zz/Solutions/Data-Center/a10/pdf/a10-datasheet.pdf
-    "a10g": {
-        "32-true": 31.2e12,
-        "16-true": 125e12,
-        "16-mixed": 125e12,
-        "bf16-true": 125e12,
-        "bf16-mixed": 125e12,
-    },
+    "a10g": {"32-true": 31.2e12, "16-true": 125e12, "16-mixed": 125e12, "bf16-true": 125e12, "bf16-mixed": 125e12},
     # source: https://images.nvidia.com/content/technologies/volta/pdf/volta-v100-datasheet-update-us-1165301-r5.pdf
     "v100-sxm": {"64-true": 7.8e12, "32-true": 15.7e12, "16-true": 125e12, "16-mixed": 125e12},
     "v100-pcie": {"64-true": 7e12, "32-true": 14e12, "16-true": 112e12, "16-mixed": 112e12},
@@ -234,10 +228,7 @@ class SpeedMonitor:
             flops_per_sec = elapsed_flops / elapsed_wct
             device_flops_per_sec = flops_per_sec / world_size
             metrics.update(
-                {
-                    "throughput/flops_per_sec": flops_per_sec,
-                    "throughput/device/flops_per_sec": device_flops_per_sec,
-                }
+                {"throughput/flops_per_sec": flops_per_sec, "throughput/device/flops_per_sec": device_flops_per_sec}
             )
             if self.flops_available:
                 metrics["throughput/device/mfu"] = device_flops_per_sec / self.flops_available

@@ -142,8 +142,8 @@ def train(
         del meta_model, x
 
     step_count = 0
-    total_t0 = time.time()
     total_lengths = 0
+    total_t0 = time.time()
 
     if fabric.device.type == "xla":
         import torch_xla.core.xla_model as xm
