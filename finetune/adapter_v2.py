@@ -1,13 +1,11 @@
-import json
 import os
 import sys
 import time
 from functools import partial
 from pathlib import Path
-from typing import Optional
+from typing import Optional, List, Dict, Tuple
 
 import lightning as L
-import numpy as np
 import torch
 from lightning.fabric.strategies import FSDPStrategy, XLAStrategy
 from torch.distributed.fsdp.wrap import transformer_auto_wrap_policy
@@ -33,6 +31,8 @@ save_interval = 1000
 eval_iters = 100
 log_interval = 1
 devices = 1
+# change this value to force a maximum sequence length
+override_max_seq_length = None
 
 # Hyperparameters
 learning_rate = 9e-3
@@ -112,11 +112,8 @@ def main(fabric: L.Fabric, data_dir: Path, checkpoint_dir: Path, out_dir: Path):
     optimizer = torch.optim.AdamW(trainable_params, lr=learning_rate, weight_decay=weight_decay)
     model, optimizer = fabric.setup(model, optimizer)
 
-    with open(data_dir / "config.json") as data_config_path:
-        max_seq_length = json.load(data_config_path).get("max_seq_length", model.config.block_size)
-
     train_time = time.time()
-    train(fabric, model, optimizer, train_data, val_data, checkpoint_dir, out_dir, max_seq_length, speed_monitor)
+    train(fabric, model, optimizer, train_data, val_data, checkpoint_dir, out_dir, speed_monitor)
     fabric.print(f"Training time: {(time.time()-train_time):.2f}s")
 
     # Save the final checkpoint at the end of training
@@ -126,16 +123,16 @@ def main(fabric: L.Fabric, data_dir: Path, checkpoint_dir: Path, out_dir: Path):
 
 def train(
     fabric: L.Fabric,
-    model: torch.nn.Module,
+    model: Parrot,
     optimizer: torch.optim.Optimizer,
-    train_data: np.ndarray,
-    val_data: np.ndarray,
+    train_data: List[Dict],
+    val_data: List[Dict],
     checkpoint_dir: Path,
     out_dir: Path,
-    max_seq_length: int,
     speed_monitor: SpeedMonitor,
 ) -> None:
     tokenizer = Tokenizer(checkpoint_dir / "tokenizer.json", checkpoint_dir / "tokenizer_config.json")
+    max_seq_length, longest_seq_ix = get_max_seq_length(train_data)
 
     validate(fabric, model, val_data, tokenizer, max_seq_length)  # sanity check
 
@@ -164,7 +161,7 @@ def train(
 
         iter_t0 = time.time()
 
-        input_ids, targets = get_batch(fabric, train_data, max_seq_length)
+        input_ids, targets = get_batch(fabric, train_data, max_seq_length, longest_seq_ix if iter_num == 0 else None)
 
         is_accumulating = (iter_num + 1) % gradient_accumulation_iters != 0
         with fabric.no_backward_sync(model, enabled=is_accumulating):
@@ -209,7 +206,7 @@ def train(
 
 @torch.no_grad()
 def validate(
-    fabric: L.Fabric, model: Parrot, val_data: np.ndarray, tokenizer: Tokenizer, max_seq_length: int
+    fabric: L.Fabric, model: Parrot, val_data: List[Dict], tokenizer: Tokenizer, max_seq_length: int
 ) -> torch.Tensor:
     fabric.print("Validating ...")
     model.eval()
@@ -240,12 +237,18 @@ def validate(
     return val_loss.item()
 
 
-def get_batch(fabric: L.Fabric, data: np.ndarray, max_seq_length: int):
+def get_batch(
+    fabric: L.Fabric, data: List[Dict], max_seq_length: int, longest_seq_ix: Optional[int] = None
+) -> Tuple[torch.Tensor, torch.Tensor]:
     ix = torch.randint(len(data), (micro_batch_size,))
+    if longest_seq_ix is not None:
+        # force the longest sample at the beginning so potential OOMs happen right away
+        ix[0] = longest_seq_ix
 
     input_ids = [data[i]["input_ids"].type(torch.int64) for i in ix]
     labels = [data[i]["labels"].type(torch.int64) for i in ix]
 
+    # it's better to use a fixed max_seq_length with XLA to avoid recompilation
     max_len = max(len(s) for s in input_ids) if fabric.device.type != "xla" else max_seq_length
 
     def pad_right(x, pad_id):
@@ -260,8 +263,19 @@ def get_batch(fabric: L.Fabric, data: np.ndarray, max_seq_length: int):
         x, y = fabric.to_device((x, y))
     else:
         x, y = fabric.to_device((x.pin_memory(), y.pin_memory()))
-
     return x, y
+
+
+def get_max_seq_length(data: List[Dict]) -> Tuple[int, Optional[int]]:
+    if isinstance(override_max_seq_length, int):
+        # support easy override at the top of the file
+        return override_max_seq_length, None
+    # find out the minimum max_seq_length required during fine-tuning (saves memory!)
+    lengths = [len(d["input_ids"]) for d in data]
+    max_seq_length = max(lengths)
+    longest_seq_ix = lengths.index(max_seq_length)
+    return max_seq_length, longest_seq_ix
+
 
 
 def save_adapter_v2_checkpoint(fabric, model, file_path: Path):
