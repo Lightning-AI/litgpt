@@ -272,15 +272,13 @@ def get_batch(
     return x, y
 
 
-def get_max_seq_length(data: List[Dict]) -> Tuple[int, Optional[int]]:
-    if isinstance(override_max_seq_length, int):
-        # support easy override at the top of the file
-        return override_max_seq_length, None
+def get_max_seq_length(data: List[Dict]) -> Tuple[int, int]:
     # find out the minimum max_seq_length required during fine-tuning (saves memory!)
     lengths = [len(d["input_ids"]) for d in data]
     max_seq_length = max(lengths)
     longest_seq_ix = lengths.index(max_seq_length)
-    return max_seq_length, longest_seq_ix
+    # support easy override at the top of the file
+    return override_max_seq_length if isinstance(override_max_seq_length, int) else max_seq_length, longest_seq_ix
 
 
 def save_adapter_v2_checkpoint(fabric, model, file_path: Path):
