@@ -456,11 +456,8 @@ class Parrot(BaseModel):
                 x, *_ = block(x, (cos, sin), max_seq_length)
         else:
             self.kv_caches = self.kv_caches or self.build_kv_caches(x, max_seq_length, cos.size(-1))
-            self.adapter_kv_caches = self.adapter_kv_caches or [None for _ in range(self.config.n_layer)]
             for i, block in enumerate(self.transformer.h):
-                x, self.kv_caches[i], self.adapter_kv_caches[i] = block(
-                    x, (cos, sin), max_seq_length, mask, input_pos, self.kv_caches[i], self.adapter_kv_caches[i]
-                )
+                x, self.kv_caches[i] = block(x, (cos, sin), max_seq_length, mask, input_pos, self.kv_caches[i])
 
         x = self.transformer.ln_f(x)
 
