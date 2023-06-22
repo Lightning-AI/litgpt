@@ -64,6 +64,7 @@ def setup(devices: int = 1, precision: Optional[str] = None, tpu: bool = False) 
                 activation_checkpointing=Block,
                 state_dict_type="full",
                 limit_all_gathers=True,
+                cpu_offload=False,
             )
     else:
         strategy = "auto"

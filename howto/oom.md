@@ -16,7 +16,7 @@ Here's a few things you can try:
 
 Adjust the `micro_batch_size = ...` variable in the fine-tuning and pretraining scripts. This variable determines the number of samples loaded per iteration.
 
-A smaller value will simply load less samples simultaneously. The minimum value is 1.
+A smaller value will simply load fewer samples simultaneously. The minimum value is 1.
 
 Experiment with different micro batch sizes to find a balance between memory consumption and computational efficiency. Smaller micro batch sizes consume less memory but may result in slower training convergence. Conversely, larger micro batch sizes require more memory but can accelerate training speed.
 
@@ -25,7 +25,9 @@ Experiment with different micro batch sizes to find a balance between memory con
 Our scripts use the [`AdamW` optimizer](https://pytorch.org/docs/main/generated/torch.optim.AdamW.html).
 It maintains 2 states for each trainable parameter of the model, meaning that the optimizer memory is double compared to
 an optimizer like [`SGD`](https://pytorch.org/docs/main/generated/torch.optim.SGD.html).
-You can try replacing it with your optimizer of choice that is lighter in memory requirements. keep in mind that different optimizers have distinct optimization behaviors, so it's essential to assess their impact on the training process and model performance.
+
+You can try replacing it with your optimizer of choice that is lighter in memory requirements. Keep in mind that different optimizers have distinct optimization behaviors, so it's essential to assess their impact on the training process and model performance.
+An example would be the recently published [Sophia](https://arxiv.org/abs/2305.14342) or [Lion](https://arxiv.org/abs/2302.06675) optimizers.
 
 This suggestion is particularly relevant for pretraining, as the trainable parameters in the model represent a small
 subset of the total in the fine-tuning scripts.
@@ -53,3 +55,5 @@ Keep in mind that reducing the context length will affect the model's learning a
 
 For exceptionally large models, the aforementioned techniques might still not suffice. If you have multiple GPUs available,
 you can trade off memory for speed by changing the `devices = 1` argument in the scripts. Enabling this option enables a parallelism technique (FSDP), sharding the memory across different GPUs.
+
+The default configuration already uses activation checkpointing, but you can enable CPU offloading by changing the `cpu_offload=False` argument in the scripts.
