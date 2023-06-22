@@ -1,5 +1,7 @@
 import torch
 
+from lightning import Fabric
+
 
 def test_lora_layer_replacement():
     from lit_parrot.lora import lora, CausalSelfAttention as LoRACausalSelfAttention
@@ -97,3 +99,25 @@ def test_lora_mqa_gqa():
     assert attn.lora_ind.tolist() == [True] * 8 + [False] * 4 + [True] * 4
     x = torch.randint(0, 8, size=(3, 5, 12), dtype=torch.int64)
     assert attn.zero_pad(x).shape == (3, 5, 16)
+
+
+def test_lora_filter(tmp_path):
+    from lit_parrot.model import Parrot
+    from lit_parrot.lora import lora_filter, lora
+
+    fabric = Fabric(devices=1)
+    with lora(r=2, alpha=8, dropout=0.1):
+        model = Parrot.from_name("pythia-70m", n_layer=3)
+    save_path = tmp_path / "model.pth"
+    fabric.save(save_path, {"model": model}, filter={"model": lora_filter})
+    saved = torch.load(save_path)["model"]
+
+    expected = {
+        "transformer.h.1.attn.attn.lora_B",
+        "transformer.h.2.attn.attn.lora_B",
+        "transformer.h.2.attn.attn.lora_A",
+        "transformer.h.1.attn.attn.lora_A",
+        "transformer.h.0.attn.attn.lora_A",
+        "transformer.h.0.attn.attn.lora_B",
+    }
+    assert set(saved) == expected

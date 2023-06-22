@@ -14,7 +14,6 @@ The steps here only need to be done once:
 
 1. Follow the instructions in the [README](../README.md) to install the dependencies.
 2. Download and convert the weights following our [guide](download_stablelm.md).
-3. If you want to utilize more than one GPU, you should `pip install deepspeed`.
 4. Download the data and generate the Alpaca instruction tuning dataset:
 
 ```bash
@@ -40,7 +39,7 @@ You can speed up training by setting the `devices` variable in the script to uti
 Depending on the available GPU memory, you can also tune the `micro_batch_size` parameter to utilize the GPU efficiently.
 To fit Adapter V2 to 12GB memory set micro_batch_size = 2.
 
-For example, the following settings will let you finetune the model in under 1 hour using DeepSpeed Zero-2:
+For example, the following settings will let you finetune the model in under 1 hour:
 ```python
 devices = 4
 micro_batch_size = 4

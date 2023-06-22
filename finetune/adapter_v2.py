@@ -1,25 +1,25 @@
 import os
-import shutil
 import sys
 import time
-import warnings
+from functools import partial
 from pathlib import Path
 from typing import Optional, List, Dict, Tuple
 
 import lightning as L
 import torch
-from lightning.fabric.strategies import DeepSpeedStrategy, XLAStrategy
+from lightning.fabric.strategies import FSDPStrategy, XLAStrategy
+from torch.distributed.fsdp.wrap import transformer_auto_wrap_policy
 
 # support running without installing as a package
 wd = Path(__file__).parent.parent.resolve()
 sys.path.append(str(wd))
 
 from generate.base import generate
-from lit_parrot.adapter import Parrot, Config
+from lit_parrot.adapter import Parrot, Config, Block
 from lit_parrot.adapter_v2 import (
     mark_only_adapter_v2_as_trainable,
     add_adapter_v2_parameters_to_linear_layers,
-    adapter_v2_state_from_state_dict,
+    adapter_filter,
 )
 from lit_parrot.tokenizer import Tokenizer
 from lit_parrot.utils import lazy_load, check_valid_checkpoint_dir, step_csv_logger, chunked_cross_entropy
@@ -46,12 +46,6 @@ max_iters = num_epochs * (epoch_size // micro_batch_size) // devices
 weight_decay = 0.02
 warmup_iters = 2 * (epoch_size // micro_batch_size) // devices  # 2 epochs
 
-ds_config = {
-    "train_micro_batch_size_per_gpu": micro_batch_size,
-    "gradient_accumulation_steps": gradient_accumulation_iters,
-    "zero_optimization": {"stage": 2},
-}
-
 hparams = {k: v for k, v in locals().items() if isinstance(v, (int, float, str)) and not k.startswith("_")}
 
 
@@ -64,15 +58,24 @@ def setup(
 ):
     if precision is None:
         precision = "32-true" if tpu else "bf16-mixed"
-    strategy = (
-        "auto"
-        if devices <= 1
-        else XLAStrategy(sync_module_states=False) if tpu else DeepSpeedStrategy(config=ds_config)
-    )
-    # For multi-host TPU training, the device count for Fabric is limited to the count on a single host.
-    fabric_devices = "auto" if (tpu and devices > 1) else devices
+    fabric_devices = devices
+    if fabric_devices > 1:
+        if tpu:
+            # For multi-host TPU training, the device count for Fabric is limited to the count on a single host.
+            fabric_devices = "auto"
+            strategy = XLAStrategy(sync_module_states=False)
+        else:
+            auto_wrap_policy = partial(transformer_auto_wrap_policy, transformer_layer_cls={Block})
+            strategy = FSDPStrategy(
+                auto_wrap_policy=auto_wrap_policy,
+                activation_checkpointing=Block,
+                state_dict_type="full",
+                limit_all_gathers=True,
+            )
+    else:
+        strategy = "auto"
 
-    logger = step_csv_logger(out_dir.parent, out_dir.name)
+    logger = step_csv_logger(out_dir.parent, out_dir.name, flush_logs_every_n_steps=log_interval)
     fabric = L.Fabric(devices=fabric_devices, strategy=strategy, precision=precision, loggers=logger)
     fabric.print(hparams)
     fabric.launch(main, data_dir, checkpoint_dir, out_dir)
@@ -118,8 +121,7 @@ def main(fabric: L.Fabric, data_dir: Path, checkpoint_dir: Path, out_dir: Path):
 
     # Save the final checkpoint at the end of training
     save_path = out_dir / "lit_model_adapter_finetuned.pth"
-    fabric.print(f"Saving adapter weights to {str(save_path)!r}")
-    save_model_checkpoint(fabric, model, save_path)
+    save_adapter_v2_checkpoint(fabric, model, save_path)
 
 
 def train(
@@ -139,14 +141,16 @@ def train(
 
     with torch.device("meta"):
         meta_model = Parrot(model.config)
-        x = torch.randint(0, 1, (micro_batch_size, model.config.block_size))
+        # estimated is too much of an optimistic estimate, left just for reference
         estimated_flops = estimate_flops(meta_model) * micro_batch_size
         fabric.print(f"Estimated TFLOPs: {estimated_flops * fabric.world_size / 1e12:.2f}")
+        x = torch.randint(0, 1, (micro_batch_size, model.config.block_size))
         measured_flops = measure_flops(meta_model, x)
         fabric.print(f"Measured TFLOPs: {measured_flops * fabric.world_size / 1e12:.2f}")
         del meta_model, x
 
     step_count = 0
+    total_lengths = 0
     total_t0 = time.time()
 
     if fabric.device.type == "xla":
@@ -178,18 +182,18 @@ def train(
             xm.mark_step()
 
         t1 = time.time()
+        total_lengths += input_ids.size(1)
         speed_monitor.on_train_batch_end(
             (iter_num + 1) * micro_batch_size,
             t1 - total_t0,
             # this assumes that device FLOPs are the same and that all devices have the same batch size
             fabric.world_size,
-            estimated_flops_per_batch=estimated_flops,
-            measured_flops_per_batch=measured_flops,
-            max_seq_length=model.config.block_size,
+            flops_per_batch=measured_flops,
+            lengths=total_lengths,
         )
         if iter_num % log_interval == 0:
             fabric.print(
-                f"iter {iter_num} step {step_count}: loss {loss.item():.4f}, train time:"
+                f"iter {iter_num} step {step_count}: loss {loss.item():.4f}, iter time:"
                 f" {(t1 - iter_t0) * 1000:.2f}ms{' (optimizer.step)' if not is_accumulating else ''}"
             )
 
@@ -202,8 +206,7 @@ def train(
             fabric.barrier()
         if not is_accumulating and step_count % save_interval == 0:
             checkpoint_path = out_dir / f"iter-{iter_num:06d}-ckpt.pth"
-            fabric.print(f"Saving checkpoint to {str(checkpoint_path)!r}")
-            save_model_checkpoint(fabric, model, checkpoint_path)
+            save_adapter_v2_checkpoint(fabric, model, checkpoint_path)
 
 
 @torch.no_grad()
@@ -279,27 +282,9 @@ def get_max_seq_length(data: List[Dict]) -> Tuple[int, Optional[int]]:
     return max_seq_length, longest_seq_ix
 
 
-def save_model_checkpoint(fabric, model, file_path: Path):
-    file_path = Path(file_path)
-
-    if isinstance(fabric.strategy, DeepSpeedStrategy):
-        from deepspeed.utils.zero_to_fp32 import get_fp32_state_dict_from_zero_checkpoint
-
-        tmp_path = file_path.with_suffix(".tmp")
-        fabric.save(tmp_path, {"model": model})
-        fabric.barrier()
-        if fabric.global_rank == 0:
-            # Create a consolidated checkpoint with the same name next to the deepspeed checkpoint
-            # and only keep the adapter weights
-            state_dict = get_fp32_state_dict_from_zero_checkpoint(tmp_path)
-            state_dict = adapter_v2_state_from_state_dict(state_dict)
-            torch.save(state_dict, file_path)
-            shutil.rmtree(tmp_path)
-    else:
-        state_dict = adapter_v2_state_from_state_dict(model.state_dict())
-        if fabric.global_rank == 0:
-            torch.save(state_dict, file_path)
-        fabric.barrier()
+def save_adapter_v2_checkpoint(fabric, model, file_path: Path):
+    fabric.print(f"Saving adapter v2 weights to {str(file_path)!r}")
+    fabric.save(file_path, {"model": model}, filter={"model": adapter_filter})
 
 
 if __name__ == "__main__":
@@ -308,11 +293,5 @@ if __name__ == "__main__":
     torch.set_float32_matmul_precision("high")
 
     from jsonargparse.cli import CLI
-
-    warnings.filterwarnings(
-        # false positive using deepspeed: https://github.com/Lightning-AI/lightning/pull/17761#discussion_r1219705307
-        "ignore",
-        message="Remove `.no_backward_sync()` from your code",
-    )
 
     CLI(setup)

@@ -2,20 +2,19 @@ import os
 import shutil
 import sys
 import time
-import warnings
 from pathlib import Path
 from typing import Optional, List, Dict, Tuple
 
 import lightning as L
 import torch
-from lightning.fabric.strategies import DeepSpeedStrategy, XLAStrategy
+from lightning.fabric.strategies import XLAStrategy
 
 # support running without installing as a package
 wd = Path(__file__).parent.parent.resolve()
 sys.path.append(str(wd))
 
 from generate.base import generate
-from lit_parrot.lora import mark_only_lora_as_trainable, lora, lora_state_dict
+from lit_parrot.lora import mark_only_lora_as_trainable, lora, lora_filter
 from lit_parrot.model import Parrot, Config
 from lit_parrot.tokenizer import Tokenizer
 from lit_parrot.utils import lazy_load, check_valid_checkpoint_dir, step_csv_logger, chunked_cross_entropy
@@ -44,12 +43,6 @@ lora_alpha = 16
 lora_dropout = 0.05
 warmup_iters = 100
 
-ds_config = {
-    "train_micro_batch_size_per_gpu": micro_batch_size,
-    "gradient_accumulation_steps": gradient_accumulation_iters,
-    "zero_optimization": {"stage": 2},
-}
-
 hparams = {k: v for k, v in locals().items() if isinstance(v, (int, float, str)) and not k.startswith("_")}
 
 
@@ -62,15 +55,18 @@ def setup(
 ):
     if precision is None:
         precision = "32-true" if tpu else "bf16-mixed"
-    strategy = (
-        "auto"
-        if devices <= 1
-        else XLAStrategy(sync_module_states=False) if tpu else DeepSpeedStrategy(config=ds_config)
-    )
-    # For multi-host TPU training, the device count for Fabric is limited to the count on a single host.
-    fabric_devices = "auto" if (tpu and devices > 1) else devices
+    fabric_devices = devices
+    if fabric_devices > 1:
+        if tpu:
+            # For multi-host TPU training, the device count for Fabric is limited to the count on a single host.
+            fabric_devices = "auto"
+            strategy = XLAStrategy(sync_module_states=False)
+        else:
+            raise NotImplementedError
+    else:
+        strategy = "auto"
 
-    logger = step_csv_logger(out_dir.parent, out_dir.name)
+    logger = step_csv_logger(out_dir.parent, out_dir.name, flush_logs_every_n_steps=log_interval)
     fabric = L.Fabric(devices=fabric_devices, strategy=strategy, precision=precision, loggers=logger)
     fabric.print(hparams)
     fabric.launch(main, data_dir, checkpoint_dir, out_dir)
@@ -115,7 +111,7 @@ def main(fabric: L.Fabric, data_dir: Path, checkpoint_dir: Path, out_dir: Path):
 
     # Save the final LoRA checkpoint at the end of training
     save_path = out_dir / "lit_model_lora_finetuned.pth"
-    save_lora_checkpoint(fabric, model, path=save_path)
+    save_lora_checkpoint(fabric, model, save_path)
 
 
 def train(
@@ -135,14 +131,16 @@ def train(
 
     with torch.device("meta"):
         meta_model = Parrot(model.config)
-        x = torch.randint(0, 1, (micro_batch_size, model.config.block_size))
+        # estimated is too much of an optimistic estimate, left just for reference
         estimated_flops = estimate_flops(meta_model) * micro_batch_size
         fabric.print(f"Estimated TFLOPs: {estimated_flops * fabric.world_size / 1e12:.2f}")
+        x = torch.randint(0, 1, (micro_batch_size, model.config.block_size))
         measured_flops = measure_flops(meta_model, x)
         fabric.print(f"Measured TFLOPs: {measured_flops * fabric.world_size / 1e12:.2f}")
         del meta_model, x
 
     step_count = 0
+    total_lengths = 0
     total_t0 = time.time()
 
     if fabric.device.type == "xla":
@@ -174,18 +172,18 @@ def train(
             xm.mark_step()
 
         t1 = time.time()
+        total_lengths += input_ids.size(1)
         speed_monitor.on_train_batch_end(
             (iter_num + 1) * micro_batch_size,
             t1 - total_t0,
             # this assumes that device FLOPs are the same and that all devices have the same batch size
             fabric.world_size,
-            estimated_flops_per_batch=estimated_flops,
-            measured_flops_per_batch=measured_flops,
-            max_seq_length=model.config.block_size,
+            flops_per_batch=measured_flops,
+            lengths=total_lengths,
         )
         if iter_num % log_interval == 0:
             fabric.print(
-                f"iter {iter_num} step {step_count}: loss {loss.item():.4f}, train time:"
+                f"iter {iter_num} step {step_count}: loss {loss.item():.4f}, iter time:"
                 f" {(t1 - iter_t0) * 1000:.2f}ms{' (optimizer.step)' if not is_accumulating else ''}"
             )
 
@@ -198,7 +196,6 @@ def train(
             fabric.barrier()
         if not is_accumulating and step_count % save_interval == 0:
             checkpoint_path = out_dir / f"iter-{iter_num:06d}-ckpt.pth"
-            fabric.print(f"Saving checkpoint to {str(checkpoint_path)!r}")
             save_lora_checkpoint(fabric, model, checkpoint_path)
 
 
@@ -275,10 +272,9 @@ def get_max_seq_length(data: List[Dict]) -> Tuple[int, Optional[int]]:
     return max_seq_length, longest_seq_ix
 
 
-def save_lora_checkpoint(fabric, model, path):
-    fabric.print(f"Saving LoRA weights to {str(path)!r}")
-    checkpoint = lora_state_dict(model)
-    torch.save(checkpoint, path)
+def save_lora_checkpoint(fabric, model, file_path: Path):
+    fabric.print(f"Saving LoRA weights to {str(file_path)!r}")
+    fabric.save(file_path, {"model": model}, filter={"model": lora_filter})
 
 
 if __name__ == "__main__":
@@ -287,11 +283,5 @@ if __name__ == "__main__":
     torch.set_float32_matmul_precision("high")
 
     from jsonargparse.cli import CLI
-
-    warnings.filterwarnings(
-        # false positive using deepspeed: https://github.com/Lightning-AI/lightning/pull/17761#discussion_r1219705307
-        "ignore",
-        message="Remove `.no_backward_sync()` from your code",
-    )
 
     CLI(setup)
