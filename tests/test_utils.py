@@ -116,13 +116,13 @@ def test_chunked_cross_entropy(B):
     assert regular_y.numel() == 1
 
     chunked_y = chunked_cross_entropy(regular_logits, targets, chunk_size=10)
-    torch.testing.assert_close(regular_y, chunked_y)
+    torch.testing.assert_close(chunked_y, regular_y)
 
     logit_chunk_size = 6
     assert T % logit_chunk_size != 0  # ensure leftover
     chunked_logits = list(regular_logits.split(logit_chunk_size, dim=1))
-    regular_y = chunked_cross_entropy(chunked_logits, targets, chunk_size=0)
-    assert regular_y.numel() == 1
+    chunked_y = chunked_cross_entropy(chunked_logits, targets, chunk_size=0)
+    torch.testing.assert_close(chunked_y, regular_y)
 
     chunked_y = chunked_cross_entropy(chunked_logits, targets, chunk_size=10)
-    torch.testing.assert_close(regular_y, chunked_y)
+    torch.testing.assert_close(chunked_y, regular_y)
