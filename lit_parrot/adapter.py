@@ -7,7 +7,7 @@ Port for Lit-Parrot
 """
 import math
 from dataclasses import dataclass
-from typing import Optional, Tuple, Any, List, Union
+from typing import Optional, Tuple, Any, List
 
 import torch
 import torch.nn as nn
@@ -60,7 +60,7 @@ class Parrot(BaseModel):
 
     def forward(
         self, idx: torch.Tensor, max_seq_length: Optional[int] = None, input_pos: Optional[torch.Tensor] = None
-    ) -> Union[torch.Tensor, Tuple[torch.Tensor, List[KVCache], List[KVCache]]]:
+    ) -> List[torch.Tensor]:
         B, T = idx.size()
         use_kv_cache = input_pos is not None
 
@@ -107,9 +107,10 @@ class Parrot(BaseModel):
 
         x = self.transformer.ln_f(x)
 
-        logits = self.lm_head(x)  # (b, t, vocab_size)
+        # chunk the lm head logits to reduce the peak memory used by autograd
+        chunked_logits = [self.lm_head(x_i) for x_i in torch.split(x, 128, dim=1)]
 
-        return logits
+        return chunked_logits
 
     @classmethod
     def from_name(cls, name: str, **kwargs: Any) -> Self:

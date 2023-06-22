@@ -17,8 +17,7 @@ sys.path.append(str(wd))
 
 from generate.base import generate
 from lit_parrot import Tokenizer
-from lit_parrot.lora import lora
-from lit_parrot.model import Parrot, Config, Block
+from lit_parrot.lora import Parrot, Config, Block
 from lit_parrot.utils import lazy_load, check_valid_checkpoint_dir, quantization
 from scripts.prepare_alpaca import generate_prompt
 
@@ -71,7 +70,7 @@ def main(
     check_valid_checkpoint_dir(checkpoint_dir)
 
     with open(checkpoint_dir / "lit_config.json") as fp:
-        config = Config(**json.load(fp))
+        config = Config(r=lora_r, alpha=lora_alpha, dropout=lora_dropout, **json.load(fp))
 
     if quantize is not None and devices > 1:
         raise NotImplementedError
@@ -85,9 +84,7 @@ def main(
 
     fabric.print(f"Loading model {str(checkpoint_path)!r} with {config.__dict__}", file=sys.stderr)
     t0 = time.time()
-    with fabric.init_module(empty_init=True), quantization(quantize), lora(
-        r=lora_r, alpha=lora_alpha, dropout=lora_dropout, enabled=True
-    ):
+    with fabric.init_module(empty_init=True), quantization(quantize):
         model = Parrot(config)
     fabric.print(f"Time to instantiate model: {time.time() - t0:.02f} seconds.", file=sys.stderr)
 

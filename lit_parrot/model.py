@@ -4,7 +4,7 @@ Based on the nanoGPT implementation: https://github.com/karpathy/nanoGPT and
 https://github.com/EleutherAI/gpt-neox/tree/main/megatron/model.
 """
 import math
-from typing import List, Optional, Tuple, Any, Union
+from typing import List, Optional, Tuple, Any
 
 import torch
 import torch.nn as nn
@@ -58,7 +58,7 @@ class Parrot(nn.Module):
 
     def forward(
         self, idx: torch.Tensor, max_seq_length: Optional[int] = None, input_pos: Optional[torch.Tensor] = None
-    ) -> Union[torch.Tensor, Tuple[torch.Tensor, List[KVCache]]]:
+    ) -> torch.Tensor:
         B, T = idx.size()
         use_kv_cache = input_pos is not None
 

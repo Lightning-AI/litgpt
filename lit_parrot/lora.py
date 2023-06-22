@@ -41,17 +41,24 @@ The goal of this approach is to move weight updates into a separate matrix which
 two matrices of a lower rank.
 """
 
+import math
+from dataclasses import dataclass
+from typing import Optional, Tuple, Any, List, Union
+
 import torch
 import torch.nn as nn
-import torch.nn.functional as F
+from torch.nn import functional as F
+from typing_extensions import Self
 
-import math
-from typing import Dict, List, Tuple, Union, Any
-
-import lit_parrot.model as parrot
-
-from contextlib import contextmanager
-from dataclasses import dataclass
+from lit_parrot.config import Config as BaseConfig
+from lit_parrot.model import (
+    Parrot as BaseModel,
+    MLP,
+    Block as BaseBlock,
+    CausalSelfAttention as BaseCausalSelfAttention,
+    RoPECache,
+    KVCache,
+)
 
 
 class LoRALayer:
@@ -367,30 +374,118 @@ def lora_filter(key: str, value: Any) -> bool:
 
 
 @dataclass
-class LoRAConfig:
-    r: float = 0.0
-    alpha: float = 1.0
+class Config(BaseConfig):
+    """
+    Args:
+        r: rank of the weight update matrices. To make sense of using LoRA the rank should be smaller than the rank of
+            the weights of the model.  The rank can be as low as 1: https://arxiv.org/pdf/2106.09685.pdf (section 7.2)
+        alpha: alpha is needed for scaling updates as alpha/r
+            "This scaling helps to reduce the need to retune hyperparameters when we vary r"
+            https://arxiv.org/pdf/2106.09685.pdf (section 4.1)
+        dropout: dropout that is applied on the input in the LoRA branch (before multiplying by matrix A)
+    """
+    r: int = 0.0
+    alpha: int = 1.0
     dropout: float = 0.0
 
 
-class CausalSelfAttention(parrot.CausalSelfAttention):
-    lora_config = None
+class Parrot(BaseModel):
+    def __init__(self, config: Config) -> None:
+        nn.Module.__init__(self)
+        assert config.padded_vocab_size is not None
+        self.config = config
 
-    def __init__(self, config: parrot.Config) -> None:
+        self.lm_head = nn.Linear(config.n_embd, config.padded_vocab_size, bias=False)
+        self.transformer = nn.ModuleDict(
+            dict(
+                wte=nn.Embedding(config.padded_vocab_size, config.n_embd),
+                h=nn.ModuleList(Block(config) for i in range(config.n_layer)),
+                ln_f=nn.LayerNorm(config.n_embd),
+            )
+        )
+
+        self.rope_cache: Optional[RoPECache] = None
+        self.mask_cache: Optional[torch.Tensor] = None
+        self.kv_caches: List[KVCache] = []
+
+    def forward(
+        self, idx: torch.Tensor, max_seq_length: Optional[int] = None, input_pos: Optional[torch.Tensor] = None
+    ) -> List[torch.Tensor]:
+        B, T = idx.size()
+        use_kv_cache = input_pos is not None
+
+        block_size = self.config.block_size
+        if max_seq_length is None:
+            max_seq_length = block_size
+        if use_kv_cache:  # not relevant otherwise
+            assert T <= max_seq_length, f"Cannot forward sequence of length {T}, max seq length is only {max_seq_length}"
+        assert max_seq_length <= block_size, f"Cannot attend to {max_seq_length}, block size is only {block_size}"
+        assert T <= block_size, f"Cannot forward sequence of length {T}, block size is only {block_size}"
+
+        if self.rope_cache is None:
+            self.rope_cache = self.build_rope_cache(idx)
+        # passing `attn_mask` to SDPA downgrades it to use the inefficient implementation. since we only need the mask
+        # for the kv-cache support (only during inference), we only create it in that situation
+        # this will be resolved by https://github.com/pytorch/pytorch/issues/96099
+        if use_kv_cache and self.mask_cache is None:
+            self.mask_cache = self.build_mask_cache(idx)
+
+        cos, sin = self.rope_cache
+        if use_kv_cache:
+            cos = cos.index_select(0, input_pos)
+            sin = sin.index_select(0, input_pos)
+            mask = self.mask_cache.index_select(2, input_pos)
+            mask = mask[:, :, :, :max_seq_length]
+        else:
+            cos = cos[:T]
+            sin = sin[:T]
+            mask = None
+
+        # forward the model itself
+        x = self.transformer.wte(idx)  # token embeddings of shape (b, t, n_embd)
+
+        if not use_kv_cache:
+            for block in self.transformer.h:
+                x, *_ = block(x, (cos, sin), max_seq_length)
+        else:
+            self.kv_caches = self.kv_caches or self.build_kv_caches(x, max_seq_length, cos.size(-1))
+            self.adapter_kv_caches = self.adapter_kv_caches or [None for _ in range(self.config.n_layer)]
+            for i, block in enumerate(self.transformer.h):
+                x, self.kv_caches[i], self.adapter_kv_caches[i] = block(
+                    x, (cos, sin), max_seq_length, mask, input_pos, self.kv_caches[i], self.adapter_kv_caches[i]
+                )
+
+        x = self.transformer.ln_f(x)
+
+        # chunk the lm head logits to reduce the peak memory used by autograd
+        chunked_logits = [self.lm_head(x_i) for x_i in torch.split(x, 128, dim=1)]
+
+        return chunked_logits
+
+    @classmethod
+    def from_name(cls, name: str, **kwargs: Any) -> Self:
+        return cls(Config.from_name(name, **kwargs))
+
+
+class Block(BaseBlock):
+    def __init__(self, config: Config) -> None:
+        nn.Module.__init__(self)
+        self.norm_1 = nn.LayerNorm(config.n_embd)
+        self.attn = CausalSelfAttention(config)
+        if not config.shared_attention_norm:
+            self.norm_2 = nn.LayerNorm(config.n_embd)
+        self.mlp = MLP(config)
+
+        self.config = config
+
+
+class CausalSelfAttention(BaseCausalSelfAttention):
+    def __init__(self, config: Config) -> None:
         """Causal self-attention with calculating qkv matrices with a single matrix* and Low Ranking Adaptation for
         parameter-efficient fine-tuning.
 
         *Instead of creating multiple heads and concatenating the result (in addition to creating separate matrices for
         query, key and value for each head) we can do this in a single pass with a single weight matrix.
-
-        Args:
-            config:
-                ``"block_size"``: size of the context of the model,
-                ``"vocab_size"``: number of unique tokens,
-                ``"padded_vocab_size"``: padded size of the vocabulary to the nearest multiple of 64 (leads to a greater performance),
-                ``"n_layer"``: number of transformer blocks (self-attention + MLP),
-                ``"n_head"``: number of heads in multi-head attention mechanism,
-                ``"n_embd"``: size of the embedding: vector representation of each token.
         """
         # Skip the parent class __init__ altogether and replace it to avoid
         # useless allocations
@@ -400,9 +495,9 @@ class CausalSelfAttention(parrot.CausalSelfAttention):
         self.attn = MergedLinear(
             in_features=config.n_embd,
             out_features=shape,
-            r=self.lora_config.r,
-            lora_alpha=self.lora_config.alpha,
-            lora_dropout=self.lora_config.dropout,
+            r=config.r,
+            lora_alpha=config.alpha,
+            lora_dropout=config.dropout,
             enable_lora=(True, False, True),
             fan_in_fan_out=False,
             merge_weights=True,
@@ -415,35 +510,3 @@ class CausalSelfAttention(parrot.CausalSelfAttention):
         self.proj = nn.Linear(config.n_embd, config.n_embd, bias=config.bias)
 
         self.config = config
-
-
-@contextmanager
-def lora(r, alpha, dropout, enabled: bool = True):
-    """Apply context manager under which you can instantiate the model with LoRA.
-
-    In a nutshell the code inside this function forces to use LoRA variant of causal self-attention
-    instead of the original one (without LoRA).
-
-    Args:
-        r: rank of the weight update matrices. To make sense of using LoRA the rank should be smaller than the rank of
-            the weights of the model.  The rank can be as low as 1: https://arxiv.org/pdf/2106.09685.pdf (section 7.2)
-        alpha: alpha is needed for scaling updates as alpha/r
-            "This scaling helps to reduce the need to retune hyperparameters when we vary r"
-            https://arxiv.org/pdf/2106.09685.pdf (section 4.1)
-        dropout: dropout that is applied on the input in the LoRA branch (before multiplying by matrix A)
-        enabled: enables/disables LoRA
-    """
-    if not enabled:
-        yield
-        return
-
-    CausalSelfAttention.lora_config = LoRAConfig(r=r, alpha=alpha, dropout=dropout)
-    # when entering context manager replace link to causal self-attention class from original
-    # to a variant with LoRA
-    causal_self_attention = parrot.CausalSelfAttention
-    parrot.CausalSelfAttention = CausalSelfAttention
-    yield
-    # when exiting context manager - restore link to original causal self-attention class
-    parrot.CausalSelfAttention = causal_self_attention
-
-    CausalSelfAttention.lora_config = None
