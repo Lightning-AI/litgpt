@@ -1,5 +1,4 @@
 import os
-import shutil
 import sys
 import time
 from pathlib import Path
@@ -125,9 +124,9 @@ def train(
     speed_monitor: SpeedMonitor,
 ) -> None:
     tokenizer = Tokenizer(checkpoint_dir / "tokenizer.json", checkpoint_dir / "tokenizer_config.json")
-    max_seq_length, longest_seq_ix = get_max_seq_length(train_data)
+    max_seq_length, longest_seq_length, longest_seq_ix = get_max_seq_length(train_data)
 
-    validate(fabric, model, val_data, tokenizer, max_seq_length)  # sanity check
+    validate(fabric, model, val_data, tokenizer, longest_seq_length)  # sanity check
 
     with torch.device("meta"):
         meta_model = Parrot(model.config)
@@ -156,11 +155,12 @@ def train(
 
         iter_t0 = time.time()
 
-        input_ids, targets = get_batch(fabric, train_data, max_seq_length, longest_seq_ix if iter_num == 0 else None)
+        input_ids, targets = get_batch(fabric, train_data, longest_seq_length, longest_seq_ix if iter_num == 0 else None)
 
         is_accumulating = (iter_num + 1) % gradient_accumulation_iters != 0
         with fabric.no_backward_sync(model, enabled=is_accumulating):
             logits = model(input_ids, max_seq_length=max_seq_length)
+            # shift the targets such that output n predicts token n+1
             loss = chunked_cross_entropy(logits[..., :-1, :], targets[..., 1:])
             fabric.backward(loss / gradient_accumulation_iters)
 
@@ -189,7 +189,7 @@ def train(
 
         if not is_accumulating and step_count % eval_interval == 0:
             t0 = time.time()
-            val_loss = validate(fabric, model, val_data, tokenizer, max_seq_length)
+            val_loss = validate(fabric, model, val_data, tokenizer, longest_seq_length)
             t1 = time.time() - t0
             speed_monitor.eval_end(t1)
             fabric.print(f"step {iter_num}: val loss {val_loss:.4f}, val time: {t1 * 1000:.2f}ms")
@@ -201,13 +201,13 @@ def train(
 
 @torch.no_grad()
 def validate(
-    fabric: L.Fabric, model: Parrot, val_data: List[Dict], tokenizer: Tokenizer, max_seq_length: int
+    fabric: L.Fabric, model: Parrot, val_data: List[Dict], tokenizer: Tokenizer, longest_seq_length: int
 ) -> torch.Tensor:
     fabric.print("Validating ...")
     model.eval()
     losses = torch.zeros(eval_iters)
     for k in range(eval_iters):
-        input_ids, targets = get_batch(fabric, val_data, max_seq_length)
+        input_ids, targets = get_batch(fabric, val_data, longest_seq_length)
         logits = model(input_ids)
         loss = chunked_cross_entropy(logits, targets, chunk_size=0)
         losses[k] = loss.item()
@@ -233,7 +233,7 @@ def validate(
 
 
 def get_batch(
-    fabric: L.Fabric, data: List[Dict], max_seq_length: int, longest_seq_ix: Optional[int] = None
+    fabric: L.Fabric, data: List[Dict], longest_seq_length: int, longest_seq_ix: Optional[int] = None
 ) -> Tuple[torch.Tensor, torch.Tensor]:
     ix = torch.randint(len(data), (micro_batch_size,))
     if longest_seq_ix is not None:
@@ -243,8 +243,8 @@ def get_batch(
     input_ids = [data[i]["input_ids"].type(torch.int64) for i in ix]
     labels = [data[i]["labels"].type(torch.int64) for i in ix]
 
-    # it's better to use a fixed max_seq_length with XLA to avoid recompilation
-    max_len = max(len(s) for s in input_ids) if fabric.device.type != "xla" else max_seq_length
+    # it's better to pad to a fixed seq length with XLA to avoid recompilation
+    max_len = max(len(s) for s in input_ids) if fabric.device.type != "xla" else longest_seq_length
 
     def pad_right(x, pad_id):
         # pad right based on the longest sequence
@@ -261,13 +261,13 @@ def get_batch(
     return x, y
 
 
-def get_max_seq_length(data: List[Dict]) -> Tuple[int, int]:
+def get_max_seq_length(data: List[Dict]) -> Tuple[int, int, int]:
     # find out the minimum max_seq_length required during fine-tuning (saves memory!)
     lengths = [len(d["input_ids"]) for d in data]
     max_seq_length = max(lengths)
     longest_seq_ix = lengths.index(max_seq_length)
     # support easy override at the top of the file
-    return override_max_seq_length if isinstance(override_max_seq_length, int) else max_seq_length, longest_seq_ix
+    return override_max_seq_length if isinstance(override_max_seq_length, int) else max_seq_length, max_seq_length, longest_seq_ix
 
 
 def save_lora_checkpoint(fabric, model, file_path: Path):
