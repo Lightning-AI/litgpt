@@ -402,7 +402,7 @@ def chunked_cross_entropy(
         if chunk_size == 0:
             return torch.nn.functional.cross_entropy(torch.cat(logits, dim=1), targets, ignore_index=-1)
 
-        target_chunks = torch.split(targets, chunk_size)
+        target_chunks = targets.split(chunk_size)
         loss_chunks = [
             torch.nn.functional.cross_entropy(
                 logit_chunk.reshape(-1, logit_chunk.size(-1)), target_chunk, ignore_index=-1, reduction="none"
@@ -419,8 +419,8 @@ def chunked_cross_entropy(
     # the memory usage in fine-tuning settings with low number of parameters.
     # as a workaround hack, the cross entropy computation is chunked to force it to deallocate on the go, reducing
     # the memory spike's magnitude
-    logit_chunks = torch.split(logits, chunk_size)
-    target_chunks = torch.split(targets, chunk_size)
+    logit_chunks = logits.split(chunk_size)
+    target_chunks = targets.split(chunk_size)
     loss_chunks = [
         torch.nn.functional.cross_entropy(logit_chunk, target_chunk, ignore_index=-1, reduction="none")
         for logit_chunk, target_chunk in zip(logit_chunks, target_chunks)
