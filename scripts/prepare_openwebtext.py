@@ -13,7 +13,7 @@ from tqdm import tqdm
 wd = Path(__file__).parent.parent.resolve()
 sys.path.append(str(wd))
 
-from lit_parrot import Tokenizer
+from lit_gpt import Tokenizer
 
 
 def prepare(

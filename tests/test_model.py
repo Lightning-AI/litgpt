@@ -16,7 +16,7 @@ wd = Path(__file__).parent.parent.absolute()
 @pytest.mark.parametrize("parallel_residual", (False, True))
 @pytest.mark.parametrize("kv_cache", (False, True))
 def test_against_hf_model(rotary_pct, batch_size, n_embd, parallel_residual, kv_cache) -> None:
-    import lit_parrot
+    import lit_gpt
     from scripts.convert_hf_checkpoint import copy_weights_gpt_neox
 
     block_size = 64
@@ -26,7 +26,7 @@ def test_against_hf_model(rotary_pct, batch_size, n_embd, parallel_residual, kv_
     n_head = 8
     batch_size = 3
 
-    ours_config = lit_parrot.Config(
+    ours_config = lit_gpt.Config(
         block_size=block_size,
         vocab_size=vocab_size,
         n_layer=n_layer,
@@ -56,7 +56,7 @@ def test_against_hf_model(rotary_pct, batch_size, n_embd, parallel_residual, kv_
     theirs_model = GPTNeoXForCausalLM(theirs_config)
     # load the hf initialization into our model
     copy_weights_gpt_neox(state_dict, theirs_model.state_dict())
-    ours_model = lit_parrot.Parrot(ours_config)
+    ours_model = lit_gpt.GPT(ours_config)
     ours_model.load_state_dict(state_dict)
 
     token_sample = torch.randint(0, ours_config.padded_vocab_size, size=(batch_size, block_size), dtype=torch.int64)
@@ -96,7 +96,7 @@ def test_against_original_falcon_40b():
         urlretrieve(url=url, filename=file_path)
 
     from tests.original_falcon_40b import RWConfig, RWForCausalLM
-    from lit_parrot import Config, Parrot
+    from lit_gpt import Config, GPT
     from scripts.convert_hf_checkpoint import copy_weights_falcon
 
     ours_config = Config.from_name("falcon-40b", n_layer=2, n_head=8, n_query_groups=4, n_embd=32)
@@ -113,7 +113,7 @@ def test_against_original_falcon_40b():
     state_dict = {}
     copy_weights_falcon("40b", state_dict, theirs_state_dict)
 
-    ours_model = Parrot(ours_config)
+    ours_model = GPT(ours_config)
     ours_model.load_state_dict(state_dict)
     y_ours = ours_model(x)
 
@@ -123,10 +123,10 @@ def test_against_original_falcon_40b():
 @pytest.mark.skipif(sys.platform in ("win32", "darwin"), reason="torch.compile not supported on this platform")
 @torch.inference_mode()
 def test_model_compile():
-    import lit_parrot
+    import lit_gpt
 
-    config = lit_parrot.Config(block_size=8, vocab_size=8, n_layer=2, n_head=2, n_embd=4)
-    model = lit_parrot.Parrot(config)
+    config = lit_gpt.Config(block_size=8, vocab_size=8, n_layer=2, n_head=2, n_embd=4)
+    model = lit_gpt.GPT(config)
     model.apply(model._init_weights)
 
     model = torch.compile(model)
@@ -140,10 +140,10 @@ def test_model_compile():
 @pytest.mark.parametrize("set_highest_max_seq_length", (False, True))
 @pytest.mark.flaky(reruns=5)
 def test_kv_cache(set_highest_max_seq_length):
-    from lit_parrot import Parrot, Config
+    from lit_gpt import GPT, Config
 
     config = Config(block_size=25, padded_vocab_size=5, n_layer=2, n_head=2, n_embd=8)
-    model = Parrot(config)
+    model = GPT(config)
     idx = torch.randint(0, model.config.padded_vocab_size, (1, 5))
     max_new_tokens = 20
     max_seq_length = 25 if set_highest_max_seq_length else 10

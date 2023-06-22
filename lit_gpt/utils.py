@@ -208,7 +208,7 @@ def check_valid_checkpoint_dir(checkpoint_dir: Path) -> None:
     else:
         extra = ""
 
-    from lit_parrot.config import configs
+    from lit_gpt.config import configs
 
     # list other possible checkpoints to download
     not_downloaded = [c for c in configs if not any(c in str(a) for a in available)]
@@ -219,7 +219,7 @@ def check_valid_checkpoint_dir(checkpoint_dir: Path) -> None:
         f"`--checkpoint_dir {str(checkpoint_dir.absolute())!r} is not a valid checkpoint directory."
         " It must contain the files: 'lit_model.pth', 'lit_config.json', 'tokenizer.json' and 'tokenizer_config.json'."
         "\nPlease, follow the instructions at"
-        " https://github.com/Lightning-AI/lit-parrot/blob/main/howto/download_stablelm.md\n"
+        " https://github.com/Lightning-AI/lit-gpt/blob/main/howto/download_stablelm.md\n"
         f"{extra}\n{supported}"
     )
 

@@ -9,7 +9,7 @@ import torch
 from lightning import Fabric
 from torch.utils.flop_counter import FlopCounterMode
 
-from lit_parrot import Parrot
+from lit_gpt import GPT
 
 GPU_AVAILABLE_FLOPS = {
     # source: https://resources.nvidia.com/en-us-tensor-core/nvidia-tensor-core-gpu-datasheet
@@ -247,7 +247,7 @@ class SpeedMonitor:
         self.total_eval_wct += eval_elapsed  # seconds
 
 
-def estimate_flops(model: Parrot) -> int:
+def estimate_flops(model: GPT) -> int:
     """Measures estimated FLOPs for MFU: https://arxiv.org/abs/2205.05198"""
     # using all parameters for this is a naive over estimation because not all model parameters actually contribute to
     # this FLOP computation (e.g. embedding, norm). For this reason, the result will be higher by a fixed percentage
@@ -263,7 +263,7 @@ def estimate_flops(model: Parrot) -> int:
     return total_flops
 
 
-def measure_flops(model: Parrot, x: torch.Tensor) -> int:
+def measure_flops(model: GPT, x: torch.Tensor) -> int:
     """Measures real FLOPs for HFU"""
     flop_counter = FlopCounterMode(model, display=False)
     ctx = nullcontext() if model.training else torch.no_grad()

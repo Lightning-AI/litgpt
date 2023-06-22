@@ -1,7 +1,7 @@
 <div align="center">
-<img src="https://pl-public-data.s3.amazonaws.com/assets_lightning/LitStableLM_Badge.png" alt="Lit-Parrot" width="128"/>
+<img src="https://pl-public-data.s3.amazonaws.com/assets_lightning/LitStableLM_Badge.png" alt="Lit-GPT" width="128"/>
 
-# ⚡ Lit-Parrot
+# ⚡ Lit-GPT
 
 <!--
 <p align="center">
@@ -13,11 +13,11 @@
 
 ![cpu-tests](https://github.com/lightning-AI/lit-stablelm/actions/workflows/cpu-tests.yml/badge.svg) <!-- [![Build Status](https://dev.azure.com/Lightning-AI/lit%20Models/_apis/build/status%2FLightning-AI.lit-StableLM?branchName=main)](https://dev.azure.com/Lightning-AI/lit%20Models/_build/latest?definitionId=49&branchName=main) --> [![license](https://img.shields.io/badge/License-Apache%202.0-blue.svg)](https://github.com/Lightning-AI/lit-stablelm/blob/master/LICENSE) [![Discord](https://img.shields.io/discord/1077906959069626439?style=plastic)](https://discord.gg/VptPCZkGNa)
 
-<img src="https://pl-public-data.s3.amazonaws.com/assets_lightning/LitStableLM.gif" alt="Lit-Parrot and pineapple pizza" width="500px"/>
+<img src="https://pl-public-data.s3.amazonaws.com/assets_lightning/LitStableLM.gif" alt="Lit-GPT and pineapple pizza" width="500px"/>
 
 </div>
 
-# ⚡ Lit-Parrot
+# ⚡ Lit-GPT
 
 Hackable implementation of state-of-the-art open-source large language models:
 
@@ -41,7 +41,7 @@ Weights can be downloaded following these instructions:
 
 This repository follows the main principle of **openness through clarity**.
 
-**Lit-Parrot** is:
+**Lit-GPT** is:
 
 - **Simple:** Single-file implementation without boilerplate.
 - **Correct:** Numerically equivalent to the original model.
@@ -61,11 +61,11 @@ Avoiding code duplication is **not** a goal. **Readability** and **hackability**
 Clone the repo
 
 ```bash
-git clone https://github.com/Lightning-AI/lit-parrot
-cd lit-parrot
+git clone https://github.com/Lightning-AI/lit-gpt
+cd lit-gpt
 ```
 
-Lit-Parrot currently relies on FlashAttention from PyTorch nightly. Until PyTorch 2.1 is released you'll need to install nightly manually.
+Lit-GPT currently relies on FlashAttention from PyTorch nightly. Until PyTorch 2.1 is released you'll need to install nightly manually.
 Luckily that is straightforward:
 
 **On CUDA**
@@ -177,18 +177,18 @@ Porting from Lit-LLaMA in progress 👷
 
 We are on a quest towards fully open source AI.
 
-<img align="right" src="https://pl-public-data.s3.amazonaws.com/assets_lightning/LitStableLM_Illustration.png" alt="Lit-Parrot" width="128"/>
+<img align="right" src="https://pl-public-data.s3.amazonaws.com/assets_lightning/LitStableLM_Illustration.png" alt="Lit-GPT" width="128"/>
 
 Join us and start contributing, especially on the following areas:
 
-- [ ] [Pre-training](https://github.com/Lightning-AI/lit-parrot/labels/pre-training)
-- [ ] [Fine-tuning (full and adapter)](https://github.com/Lightning-AI/lit-parrot/labels/fine-tuning)
-- [ ] [Quantization](https://github.com/Lightning-AI/lit-parrot/labels/quantization)
-- [ ] [Sparsification](https://github.com/Lightning-AI/lit-parrot/labels/sparsification)
+- [ ] [Pre-training](https://github.com/Lightning-AI/lit-gpt/labels/pre-training)
+- [ ] [Fine-tuning (full and adapter)](https://github.com/Lightning-AI/lit-gpt/labels/fine-tuning)
+- [ ] [Quantization](https://github.com/Lightning-AI/lit-gpt/labels/quantization)
+- [ ] [Sparsification](https://github.com/Lightning-AI/lit-gpt/labels/sparsification)
 
 We welcome all individual contributors, regardless of their level of experience or hardware. Your contributions are valuable, and we are excited to see what you can accomplish in this collaborative and supportive environment. 
 
-Unsure about contributing? Check out our [Contributing to Lit-LLaMA: A Hitchhiker’s Guide to the Quest for Fully Open-Source AI](https://lightning.ai/pages/community/tutorial/contributing-to-lit-llama-a-hitchhikers-guide-to-the-quest-for-fully-open-source-ai/) guide. The same guidelines apply to Lit-Parrot.
+Unsure about contributing? Check out our [Contributing to Lit-LLaMA: A Hitchhiker’s Guide to the Quest for Fully Open-Source AI](https://lightning.ai/pages/community/tutorial/contributing-to-lit-llama-a-hitchhikers-guide-to-the-quest-for-fully-open-source-ai/) guide. The same guidelines apply to Lit-GPT.
 
 Don't forget to [join our Discord](https://discord.gg/VptPCZkGNa)!
 
@@ -203,4 +203,4 @@ Don't forget to [join our Discord](https://discord.gg/VptPCZkGNa)!
 
 ## License
 
-Lit-Parrot is released under the [Apache 2.0](https://github.com/Lightning-AI/lit-parrot/blob/main/LICENSE) license.
+Lit-GPT is released under the [Apache 2.0](https://github.com/Lightning-AI/lit-gpt/blob/main/LICENSE) license.
