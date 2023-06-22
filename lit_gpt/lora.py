@@ -186,10 +186,14 @@ class MergedLinear(nn.Linear, LoRALayer):
             # ________________________________________
             # | query         | key       | value    |
             # ----------------------------------------
-            self.lora_ind = self.weight.new_zeros((out_features,), dtype=torch.bool)
-            self.lora_ind[: self.in_features] = enable_q
-            self.lora_ind[self.in_features : self.kv_embd_size] = enable_k
-            self.lora_ind[-self.kv_embd_size :] = enable_v
+            lora_ind = []
+            if enable_q:
+                lora_ind.append(torch.arange(0, self.in_features, device=self.weight.device))
+            if enable_k:
+                lora_ind.append(torch.arange(self.in_features, self.in_features + self.kv_embd_size, device=self.weight.device))
+            if enable_v:
+                lora_ind.append(torch.arange(self.in_features + self.kv_embd_size, self.out_features, device=self.weight.device))
+            self.lora_ind = torch.cat(lora_ind)
         self.reset_parameters()
         if fan_in_fan_out:
             self.weight.data = self.weight.data.T
@@ -238,7 +242,7 @@ class MergedLinear(nn.Linear, LoRALayer):
         result = result.view(-1, self.out_features)  # (4096, 384)
         enable_q, enable_k, enable_v = self.enable_lora
         shape = self.in_features * enable_q + self.kv_embd_size * enable_k + self.kv_embd_size * enable_v
-        result[:, self.lora_ind] = x.reshape(-1, shape)  # (4096, 256)
+        result = result.index_copy(1, self.lora_ind, x.reshape(-1, shape))  # (4096, 256)
         return result.view((*x.shape[:-1], self.out_features)).transpose(0, 1)  # (64, 64, 384)
 
     def train(self, mode: bool = True):
