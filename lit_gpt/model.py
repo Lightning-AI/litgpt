@@ -11,13 +11,13 @@ import torch.nn as nn
 from torch.nn import functional as F
 from typing_extensions import Self
 
-from lit_parrot.config import Config
+from lit_gpt.config import Config
 
 RoPECache = Tuple[torch.Tensor, torch.Tensor]
 KVCache = Tuple[torch.Tensor, torch.Tensor]
 
 
-class Parrot(nn.Module):
+class GPT(nn.Module):
     def __init__(self, config: Config) -> None:
         super().__init__()
         assert config.padded_vocab_size is not None
@@ -52,7 +52,7 @@ class Parrot(nn.Module):
     def reset_cache(self) -> None:
         self.kv_caches.clear()
         if self.mask_cache is not None and self.mask_cache.device.type == "xla":
-            # https://github.com/Lightning-AI/lit-parrot/pull/83#issuecomment-1558150179
+            # https://github.com/Lightning-AI/lit-gpt/pull/83#issuecomment-1558150179
             self.rope_cache = None
             self.mask_cache = None
 

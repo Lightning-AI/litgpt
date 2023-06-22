@@ -50,9 +50,9 @@ import torch.nn as nn
 from torch.nn import functional as F
 from typing_extensions import Self
 
-from lit_parrot.config import Config as BaseConfig
-from lit_parrot.model import (
-    Parrot as BaseModel,
+from lit_gpt.config import Config as BaseConfig
+from lit_gpt.model import (
+    GPT as BaseModel,
     MLP,
     Block as BaseBlock,
     CausalSelfAttention as BaseCausalSelfAttention,
@@ -390,7 +390,7 @@ class Config(BaseConfig):
     dropout: float = 0.0
 
 
-class Parrot(BaseModel):
+class GPT(BaseModel):
     def __init__(self, config: Config) -> None:
         nn.Module.__init__(self)
         assert config.padded_vocab_size is not None

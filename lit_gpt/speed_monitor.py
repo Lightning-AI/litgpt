@@ -9,7 +9,7 @@ import torch
 from lightning import Fabric
 from torch.utils.flop_counter import FlopCounterMode
 
-from lit_parrot import Parrot
+from lit_gpt import GPT
 
 GPU_AVAILABLE_FLOPS = {
     # source: https://resources.nvidia.com/en-us-tensor-core/nvidia-tensor-core-gpu-datasheet
@@ -57,6 +57,18 @@ GPU_AVAILABLE_FLOPS = {
     "quadro rtx 5000": {"32-true": 11.2e12, "16-true": 89.2e12, "16-mixed": 89.2e12},
 }
 
+TPU_AVAILABLE_FLOPS = {
+    # flop count for each TPU generation is the same for all precisions
+    # since bfloat16 precision is always used for performing matrix operations
+    # for more info: https://cloud.google.com/tpu/docs/bfloat16#choosing_bfloat16
+    # source: https://arxiv.org/pdf/1907.10701.pdf
+    "v2": 45e12,
+    # source: https://cloud.google.com/tpu/docs/system-architecture-tpu-vm#tpu_v3
+    "v3": 123e12,
+    # source: https://cloud.google.com/tpu/docs/system-architecture-tpu-vm#tpu_v4
+    "v4": 275e12,
+}
+
 
 def get_flops_available(device: torch.device, precision: str) -> Optional[float]:
     if device.type == "cuda":
@@ -89,8 +101,16 @@ def get_flops_available(device: torch.device, precision: str) -> Optional[float]
                     "MFU cannot be calculated and reported."
                 )
     elif device.type == "xla":
-        # TODO
-        ...
+        from torch_xla.experimental import tpu
+
+        device_name = tpu.get_tpu_env()["TYPE"].lower()
+        try:
+            return int(TPU_AVAILABLE_FLOPS[device_name])
+        except KeyError:
+            raise KeyError(
+                f"flop count not found for {device_name} with precision: {precision}; "
+                "MFU cannot be calculated and reported."
+            )
 
     return None
 
@@ -247,7 +267,7 @@ class SpeedMonitor:
         self.total_eval_wct += eval_elapsed  # seconds
 
 
-def estimate_flops(model: Parrot) -> int:
+def estimate_flops(model: GPT) -> int:
     """Measures estimated FLOPs for MFU: https://arxiv.org/abs/2205.05198"""
     # using all parameters for this is a naive over estimation because not all model parameters actually contribute to
     # this FLOP computation (e.g. embedding, norm). For this reason, the result will be higher by a fixed percentage
@@ -263,7 +283,7 @@ def estimate_flops(model: Parrot) -> int:
     return total_flops
 
 
-def measure_flops(model: Parrot, x: torch.Tensor) -> int:
+def measure_flops(model: GPT, x: torch.Tensor) -> int:
     """Measures real FLOPs for HFU"""
     flop_counter = FlopCounterMode(model, display=False)
     ctx = nullcontext() if model.training else torch.no_grad()

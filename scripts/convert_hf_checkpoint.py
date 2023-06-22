@@ -12,8 +12,8 @@ import torch
 wd = Path(__file__).parent.parent.resolve()
 sys.path.append(str(wd))
 
-from lit_parrot import Config
-from lit_parrot.utils import lazy_load, incremental_save
+from lit_gpt import Config
+from lit_gpt.utils import lazy_load, incremental_save
 
 
 def copy_weights_gpt_neox(state_dict, hf_weights, saver=None, dtype=torch.float32):

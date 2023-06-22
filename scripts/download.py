@@ -9,7 +9,7 @@ sys.path.append(str(wd))
 
 def download_from_hub(repo_id: Optional[str] = None) -> None:
     if repo_id is None:
-        from lit_parrot.config import configs
+        from lit_gpt.config import configs
 
         orgs = {"stablelm": "stabilityai", "pythia": "EleutherAI", "RedPajama": "togethercomputer", "falcon": "tiiuae"}
         names = [f"{orgs[el.split('-')[0]]}/{el}" for el in configs.keys()]

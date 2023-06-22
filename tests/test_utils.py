@@ -12,14 +12,14 @@ class ATensor(torch.Tensor):
 
 
 def test_lazy_load_basic():
-    import lit_parrot.utils
+    import lit_gpt.utils
 
     with tempfile.TemporaryDirectory() as tmpdirname:
         m = torch.nn.Linear(5, 3)
         path = pathlib.Path(tmpdirname)
         fn = str(path / "test.pt")
         torch.save(m.state_dict(), fn)
-        with lit_parrot.utils.lazy_load(fn) as sd_lazy:
+        with lit_gpt.utils.lazy_load(fn) as sd_lazy:
             assert "NotYetLoadedTensor" in str(next(iter(sd_lazy.values())))
             m2 = torch.nn.Linear(5, 3)
             m2.load_state_dict(sd_lazy)
@@ -31,7 +31,7 @@ def test_lazy_load_basic():
 
 
 def test_lazy_load_subclass():
-    import lit_parrot.utils
+    import lit_gpt.utils
 
     with tempfile.TemporaryDirectory() as tmpdirname:
         path = pathlib.Path(tmpdirname)
@@ -39,7 +39,7 @@ def test_lazy_load_subclass():
         t = torch.randn(2, 3)[:, 1:]
         sd = {1: t, 2: torch.nn.Parameter(t), 3: torch.Tensor._make_subclass(ATensor, t)}
         torch.save(sd, fn)
-        with lit_parrot.utils.lazy_load(fn) as sd_lazy:
+        with lit_gpt.utils.lazy_load(fn) as sd_lazy:
             for k in sd.keys():
                 actual = sd_lazy[k]
                 expected = sd[k]
@@ -47,7 +47,7 @@ def test_lazy_load_subclass():
 
 
 def test_find_multiple():
-    from lit_parrot.utils import find_multiple
+    from lit_gpt.utils import find_multiple
 
     assert find_multiple(17, 5) == 20
     assert find_multiple(30, 7) == 35
@@ -60,7 +60,7 @@ def test_find_multiple():
 
 @pytest.mark.skipif(sys.platform == "win32", reason="match fails on windows. why did they have to use backslashes?")
 def test_check_valid_checkpoint_dir(tmp_path):
-    from lit_parrot.utils import check_valid_checkpoint_dir
+    from lit_gpt.utils import check_valid_checkpoint_dir
 
     os.chdir(tmp_path)
 
@@ -88,7 +88,7 @@ def test_check_valid_checkpoint_dir(tmp_path):
 
 
 def test_incremental_write(tmp_path):
-    from lit_parrot.utils import incremental_save
+    from lit_gpt.utils import incremental_save
 
     sd = {str(k): torch.randn(5, 10) for k in range(3)}
     sd_expected = {k: v.clone() for k, v in sd.items()}
@@ -106,7 +106,7 @@ def test_incremental_write(tmp_path):
 
 @pytest.mark.parametrize("B", (1, 2))
 def test_chunked_cross_entropy(B):
-    from lit_parrot.utils import chunked_cross_entropy
+    from lit_gpt.utils import chunked_cross_entropy
 
     V = 50
     T = 25

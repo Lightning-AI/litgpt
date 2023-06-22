@@ -3,7 +3,7 @@
 LLaMA-Adapter: Efficient Fine-tuning of Language Models with Zero-init Attention
 https://arxiv.org/abs/2303.16199
 
-Port for Lit-Parrot
+Port for Lit-GPT
 """
 import math
 from dataclasses import dataclass
@@ -14,9 +14,9 @@ import torch.nn as nn
 from torch.nn import functional as F
 from typing_extensions import Self
 
-from lit_parrot.config import Config as BaseConfig
-from lit_parrot.model import (
-    Parrot as BaseModel,
+from lit_gpt.config import Config as BaseConfig
+from lit_gpt.model import (
+    GPT as BaseModel,
     MLP,
     CausalSelfAttention as BaseCausalSelfAttention,
     apply_rope,
@@ -31,8 +31,8 @@ class Config(BaseConfig):
     adapter_start_layer: int = 2
 
 
-class Parrot(BaseModel):
-    """The implementation is identical to `lit_parrot.model.Parrot` with the exception that
+class GPT(BaseModel):
+    """The implementation is identical to `lit_gpt.model.GPT` with the exception that
     the `Block` saves the layer index and passes it down to the attention layer."""
 
     def __init__(self, config: Config) -> None:
@@ -125,7 +125,7 @@ class Parrot(BaseModel):
 
 
 class Block(nn.Module):
-    """The implementation is identical to `lit_parrot.model.Block` with the exception that
+    """The implementation is identical to `lit_gpt.model.Block` with the exception that
     we replace the attention layer where adaption is implemented."""
 
     def __init__(self, config: Config, block_idx: int) -> None:
@@ -167,7 +167,7 @@ class Block(nn.Module):
 
 
 class CausalSelfAttention(BaseCausalSelfAttention):
-    """A modification of `lit_parrot.model.CausalSelfAttention` that adds the attention
+    """A modification of `lit_gpt.model.CausalSelfAttention` that adds the attention
     over the adaption prompt."""
 
     def __init__(self, config: Config, block_idx: int) -> None:
@@ -263,7 +263,7 @@ class CausalSelfAttention(BaseCausalSelfAttention):
         return y, kv_cache, adapter_kv_cache
 
 
-def mark_only_adapter_as_trainable(model: Parrot) -> None:
+def mark_only_adapter_as_trainable(model: GPT) -> None:
     """Sets `requires_grad=False` for all non-adapter weights."""
     for name, param in model.named_parameters():
         param.requires_grad = adapter_filter(name, param)

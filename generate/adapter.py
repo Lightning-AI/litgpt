@@ -16,9 +16,9 @@ wd = Path(__file__).parent.parent.resolve()
 sys.path.append(str(wd))
 
 from generate.base import generate
-from lit_parrot import Tokenizer
-from lit_parrot.adapter import Parrot, Config, Block
-from lit_parrot.utils import lazy_load, check_valid_checkpoint_dir, quantization
+from lit_gpt import Tokenizer
+from lit_gpt.adapter import GPT, Config, Block
+from lit_gpt.utils import lazy_load, check_valid_checkpoint_dir, quantization
 from scripts.prepare_alpaca import generate_prompt
 
 
@@ -36,14 +36,14 @@ def main(
     precision: str = "bf16-true",
 ) -> None:
     """Generates a response based on a given instruction and an optional input.
-    This script will only work with checkpoints from the instruction-tuned Parrot-Adapter model.
+    This script will only work with checkpoints from the instruction-tuned GPT-Adapter model.
     See `finetune/adapter.py`.
 
     Args:
         prompt: The prompt/instruction (Alpaca style).
         adapter_path: Path to the checkpoint with trained adapter weights, which are the output of
             `finetune/adapter.py`.
-        checkpoint_dir: The path to the checkpoint folder with pretrained Parrot weights.
+        checkpoint_dir: The path to the checkpoint folder with pretrained GPT weights.
         input: Optional input (Alpaca style).
         quantize: Whether to quantize the model and using which method:
             ``"llm.int8"``: LLM.int8() mode,
@@ -80,7 +80,7 @@ def main(
     fabric.print(f"Loading model {str(checkpoint_path)!r} with {config.__dict__}", file=sys.stderr)
     t0 = time.time()
     with fabric.init_module(empty_init=True), quantization(quantize):
-        model = Parrot(config)
+        model = GPT(config)
     fabric.print(f"Time to instantiate model: {time.time() - t0:.02f} seconds.", file=sys.stderr)
 
     t0 = time.time()
