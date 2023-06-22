@@ -1,4 +1,4 @@
-## Dealing with Out of Memory (OOM) errors:
+## Dealing with out-of-memory (OOM) errors:
 
 If you got this error while running a script
 
@@ -20,6 +20,32 @@ A smaller value will simply load fewer samples simultaneously. The minimum value
 
 Experiment with different micro batch sizes to find a balance between memory consumption and computational efficiency. Smaller micro batch sizes consume less memory but may result in slower training convergence. Conversely, larger micro batch sizes require more memory but can accelerate training speed.
 
+### Reduce the model's context length
+
+The context length plays a significant role in running models with attention. By default, the scripts use the maximum
+context length of the model, or a shorter length if the data is smaller. However, your hardware may not support such large context lengths.
+
+To manually reduce it, you can modify the `max_seq_length` argument passed to the model forward.
+Particularly, for the fine-tuning scripts, you can modify the `override_max_seq_length = None` at the beginning of the script.
+
+Keep in mind that reducing the context length will affect the model's learning ability by limiting the attention window.
+
+### Use lower precision
+
+Our scripts expose the `--precision` argument, this directly impacts the memory usage.
+
+Using true lower precision (`16-true`, `bf16-true`) reduces the memory usage by half compared to `32-true`, however,
+the model might start producing NaNs due to the limited range of representable values.
+
+Mixed precision training (`16-mixed`, `bf16-mixed`) provides better stability but offers limited memory reduction.
+
+### Do sharding across multiple GPUs
+
+For exceptionally large models, the aforementioned techniques might still not suffice. If you have multiple GPUs available,
+you can trade off memory for speed by changing the `devices = 1` argument in the scripts. Enabling this option enables a parallelism technique (FSDP), sharding the memory across different GPUs.
+
+The default configuration already uses activation checkpointing, but you can enable CPU offloading by changing the `cpu_offload=False` argument in the scripts.
+
 ### Try a different optimizer
 
 Our scripts use the [`AdamW` optimizer](https://pytorch.org/docs/main/generated/torch.optim.AdamW.html).
@@ -31,29 +57,3 @@ An example would be the recently published [Sophia](https://arxiv.org/abs/2305.1
 
 This suggestion is particularly relevant for pretraining, as the trainable parameters in the model represent a small
 subset of the total in the fine-tuning scripts.
-
-### Use lower precision
-
-Our scripts expose the `--precision` argument, this directly impacts the memory usage.
-
-Using true lower precision (`16-true`, `bf16-true`) reduces the memory usage by half compared to `32-true`, however,
-the model might start producing NaNs due to the limited range of representable values.
-
-Mixed precision training (`16-mixed`, `bf16-mixed`) provides better stability but offers limited memory reduction.
-
-### Reduce the model's context length
-
-The context length plays a significant role in running models with attention. By default, the scripts use the maximum
-context length of the model, or a shorter length if the data is smaller. However, your hardware may not support such large context lengths.
-
-To manually reduce it, you can modify the `max_seq_length` argument passed to the model forward.
-Particularly, for the fine-tuning scripts, you can modify the `override_max_seq_length = None` at the beginning of the script.
-
-Keep in mind that reducing the context length will affect the model's learning ability by limiting the attention window.
-
-### Model sharding with multiple GPUs
-
-For exceptionally large models, the aforementioned techniques might still not suffice. If you have multiple GPUs available,
-you can trade off memory for speed by changing the `devices = 1` argument in the scripts. Enabling this option enables a parallelism technique (FSDP), sharding the memory across different GPUs.
-
-The default configuration already uses activation checkpointing, but you can enable CPU offloading by changing the `cpu_offload=False` argument in the scripts.
