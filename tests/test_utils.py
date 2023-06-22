@@ -102,3 +102,27 @@ def test_incremental_write(tmp_path):
     for k, v_expected in sd_expected.items():
         v_actual = sd_actual[k]
         torch.testing.assert_close(v_expected, v_actual)
+
+
+@pytest.mark.parametrize("B", (1, 2))
+def test_chunked_cross_entropy(B):
+    from lit_parrot.utils import chunked_cross_entropy
+
+    V = 50
+    T = 25
+    regular_logits = torch.randn(B, T, V)
+    targets = torch.randint(0, V, (B, T))
+    regular_y = chunked_cross_entropy(regular_logits, targets, chunk_size=0)
+    assert regular_y.numel() == 1
+
+    chunked_y = chunked_cross_entropy(regular_logits, targets, chunk_size=10)
+    torch.testing.assert_close(regular_y, chunked_y)
+
+    logit_chunk_size = 6
+    assert T % logit_chunk_size != 0  # ensure leftover
+    chunked_logits = list(regular_logits.split(logit_chunk_size, dim=1))
+    regular_y = chunked_cross_entropy(chunked_logits, targets, chunk_size=0)
+    assert regular_y.numel() == 1
+
+    chunked_y = chunked_cross_entropy(chunked_logits, targets, chunk_size=10)
+    torch.testing.assert_close(regular_y, chunked_y)
