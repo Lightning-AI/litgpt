@@ -384,6 +384,7 @@ class Config(BaseConfig):
             https://arxiv.org/pdf/2106.09685.pdf (section 4.1)
         dropout: dropout that is applied on the input in the LoRA branch (before multiplying by matrix A)
     """
+
     r: int = 0.0
     alpha: int = 1.0
     dropout: float = 0.0

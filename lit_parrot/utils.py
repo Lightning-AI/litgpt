@@ -7,7 +7,7 @@ from contextlib import contextmanager
 from io import BytesIO
 from pathlib import Path
 from types import MethodType
-from typing import Optional, Any
+from typing import Optional, Any, Union, List
 
 import torch
 import torch.utils._device
@@ -394,11 +394,27 @@ def step_csv_logger(*args: Any, **kwargs: Any) -> CSVLogger:
     return logger
 
 
-def chunked_cross_entropy(logits: torch.Tensor, targets: torch.Tensor, chunk_size: int = 128) -> torch.Tensor:
-    logits = logits.reshape(-1, logits.size(-1))
+def chunked_cross_entropy(
+    logits: Union[torch.Tensor, List[torch.Tensor]], targets: torch.Tensor, chunk_size: int = 128
+) -> torch.Tensor:
     targets = targets.reshape(-1)
+    if isinstance(logits, list):  # logits were chunked already: we are fine-tuning
+        if chunk_size == 0:
+            return torch.nn.functional.cross_entropy(torch.cat(logits, dim=1), targets, ignore_index=-1)
+
+        target_chunks = torch.split(targets, chunk_size)
+        loss_chunks = [
+            torch.nn.functional.cross_entropy(
+                logit_chunk.view(-1, logit_chunk.size(-1)), target_chunk, ignore_index=-1, reduction="none"
+            )
+            for logit_chunk, target_chunk in zip(logits, target_chunks)
+        ]
+        return torch.cat(loss_chunks).mean()
+
+    logits = logits.reshape(-1, logits.size(-1))
     if chunk_size == 0:
         return torch.nn.functional.cross_entropy(logits, targets, ignore_index=-1)
+
     # with large max_sequence_lengths, the beginning of `backward` allocates a large memory chunk which can dominate
     # the memory usage in fine-tuning settings with low number of parameters.
     # as a workaround hack, the cross entropy computation is chunked to force it to deallocate on the go, reducing
