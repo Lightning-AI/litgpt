@@ -20,7 +20,7 @@ def test_packed_dataset(tmp_path):
     tokenizer_path = tmp_path / "tokenizer_config.json"
     maybe_get_file("https://huggingface.co/stabilityai/stablelm-base-alpha-3b/raw/main/tokenizer_config.json", tokenizer_path)
 
-    from lit_parrot import Tokenizer
+    from lit_gpt import Tokenizer
     tokenizer = Tokenizer(
         vocabulary_path=vocabulary_path,
         config_path=tokenizer_path
@@ -31,7 +31,7 @@ def test_packed_dataset(tmp_path):
       "Time to open the fridge. " * 4
     ]
 
-    from lit_parrot.packed_dataset import PackedDatasetBuilder, PackedDataset, HDR_SIZE
+    from lit_gpt.packed_dataset import PackedDatasetBuilder, PackedDataset, HDR_SIZE
 
     block_size = 10
     n_blocks = 2
@@ -136,7 +136,7 @@ class SimpleDataset(IterableDataset):
         
 
 def test_combined_dataset(tmp_path):
-    from lit_parrot.packed_dataset import CombinedDataset
+    from lit_gpt.packed_dataset import CombinedDataset
 
     dataset1 = SimpleDataset(0, 10)
     dataset2 = SimpleDataset(10, 20)
@@ -163,11 +163,11 @@ def test_combined_dataset(tmp_path):
 
 
 def test_sharded_packed_dataset(monkeypatch):
-    import lit_parrot.packed_dataset
-    from lit_parrot.packed_dataset import PackedDataset
+    import lit_gpt.packed_dataset
+    from lit_gpt.packed_dataset import PackedDataset
 
     dataset_iterator_mock = MagicMock()
-    monkeypatch.setattr(lit_parrot.packed_dataset, "PackedDatasetIterator", dataset_iterator_mock)
+    monkeypatch.setattr(lit_gpt.packed_dataset, "PackedDatasetIterator", dataset_iterator_mock)
     filenames = [str(i) for i in range(10)]
 
     # world_size = 1, rank = 0

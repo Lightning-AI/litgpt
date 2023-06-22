@@ -15,10 +15,10 @@ from torch.distributed.fsdp.wrap import transformer_auto_wrap_policy
 wd = Path(__file__).parent.parent.resolve()
 sys.path.append(str(wd))
 
-from lit_parrot import Config
-from lit_parrot.model import Parrot, Block
-from lit_parrot.speed_monitor import SpeedMonitor, measure_flops, estimate_flops
-from lit_parrot.utils import step_csv_logger, chunked_cross_entropy
+from lit_gpt import Config
+from lit_gpt.model import GPT, Block
+from lit_gpt.speed_monitor import SpeedMonitor, measure_flops, estimate_flops
+from lit_gpt.utils import step_csv_logger, chunked_cross_entropy
 
 model_name = "pythia-70m"
 name = "openwebtext"
@@ -88,7 +88,7 @@ def main(fabric: L.Fabric) -> None:
     fabric.print(f"Loading model with {config.__dict__}")
     t0 = time.time()
     with fabric.init_module():
-        model = Parrot(config)
+        model = GPT(config)
         model.apply(model._init_weights)
     fabric.print(f"Time to instantiate model: {time.time() - t0:.02f} seconds.")
 
@@ -107,7 +107,7 @@ def main(fabric: L.Fabric) -> None:
 
 def train(
     fabric: L.Fabric,
-    model: Parrot,
+    model: GPT,
     optimizer: torch.optim.Optimizer,
     train_data: np.ndarray,
     val_data: np.ndarray,
@@ -116,7 +116,7 @@ def train(
     validate(fabric, model, val_data)  # sanity check
 
     with torch.device("meta"):
-        meta_model = Parrot(model.config)
+        meta_model = GPT(model.config)
         # estimated is too much of an optimistic estimate, left just for reference
         estimated_flops = estimate_flops(meta_model) * micro_batch_size
         fabric.print(f"Estimated TFLOPs: {estimated_flops * fabric.world_size / 1e12:.2f}")

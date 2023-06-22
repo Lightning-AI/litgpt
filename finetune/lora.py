@@ -13,11 +13,11 @@ wd = Path(__file__).parent.parent.resolve()
 sys.path.append(str(wd))
 
 from generate.base import generate
-from lit_parrot.lora import mark_only_lora_as_trainable, lora, lora_filter
-from lit_parrot.model import Parrot, Config
-from lit_parrot.tokenizer import Tokenizer
-from lit_parrot.utils import lazy_load, check_valid_checkpoint_dir, step_csv_logger, chunked_cross_entropy
-from lit_parrot.speed_monitor import SpeedMonitor, measure_flops, estimate_flops
+from lit_gpt.lora import mark_only_lora_as_trainable, lora, lora_filter
+from lit_gpt.model import GPT, Config
+from lit_gpt.tokenizer import Tokenizer
+from lit_gpt.utils import lazy_load, check_valid_checkpoint_dir, step_csv_logger, chunked_cross_entropy
+from lit_gpt.speed_monitor import SpeedMonitor, measure_flops, estimate_flops
 from scripts.prepare_alpaca import generate_prompt
 
 
@@ -88,7 +88,7 @@ def main(fabric: L.Fabric, data_dir: Path, checkpoint_dir: Path, out_dir: Path):
     checkpoint_path = checkpoint_dir / "lit_model.pth"
     fabric.print(f"Loading model {str(checkpoint_path)!r} with {config.__dict__}")
     with fabric.init_module(), lora(r=lora_r, alpha=lora_alpha, dropout=lora_dropout, enabled=True):
-        model = Parrot(config)
+        model = GPT(config)
     with lazy_load(checkpoint_path) as checkpoint:
         # strict=False because missing keys due to LoRA weights not contained in state dict
         model.load_state_dict(checkpoint, strict=False)
@@ -115,7 +115,7 @@ def main(fabric: L.Fabric, data_dir: Path, checkpoint_dir: Path, out_dir: Path):
 
 def train(
     fabric: L.Fabric,
-    model: Parrot,
+    model: GPT,
     optimizer: torch.optim.Optimizer,
     train_data: List[Dict],
     val_data: List[Dict],
@@ -129,7 +129,7 @@ def train(
     validate(fabric, model, val_data, tokenizer, longest_seq_length)  # sanity check
 
     with torch.device("meta"):
-        meta_model = Parrot(model.config)
+        meta_model = GPT(model.config)
         # estimated is too much of an optimistic estimate, left just for reference
         estimated_flops = estimate_flops(meta_model) * micro_batch_size
         fabric.print(f"Estimated TFLOPs: {estimated_flops * fabric.world_size / 1e12:.2f}")
@@ -201,7 +201,7 @@ def train(
 
 @torch.no_grad()
 def validate(
-    fabric: L.Fabric, model: Parrot, val_data: List[Dict], tokenizer: Tokenizer, longest_seq_length: int
+    fabric: L.Fabric, model: GPT, val_data: List[Dict], tokenizer: Tokenizer, longest_seq_length: int
 ) -> torch.Tensor:
     fabric.print("Validating ...")
     model.eval()

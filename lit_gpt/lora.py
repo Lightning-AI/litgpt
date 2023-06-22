@@ -48,7 +48,7 @@ import torch.nn.functional as F
 import math
 from typing import Dict, List, Tuple, Union, Any
 
-import lit_parrot.model as parrot
+import lit_gpt.model as gpt
 
 from contextlib import contextmanager
 from dataclasses import dataclass
@@ -373,10 +373,10 @@ class LoRAConfig:
     dropout: float = 0.0
 
 
-class CausalSelfAttention(parrot.CausalSelfAttention):
+class CausalSelfAttention(gpt.CausalSelfAttention):
     lora_config = None
 
-    def __init__(self, config: parrot.Config) -> None:
+    def __init__(self, config: gpt.Config) -> None:
         """Causal self-attention with calculating qkv matrices with a single matrix* and Low Ranking Adaptation for
         parameter-efficient fine-tuning.
 
@@ -440,10 +440,10 @@ def lora(r, alpha, dropout, enabled: bool = True):
     CausalSelfAttention.lora_config = LoRAConfig(r=r, alpha=alpha, dropout=dropout)
     # when entering context manager replace link to causal self-attention class from original
     # to a variant with LoRA
-    causal_self_attention = parrot.CausalSelfAttention
-    parrot.CausalSelfAttention = CausalSelfAttention
+    causal_self_attention = gpt.CausalSelfAttention
+    gpt.CausalSelfAttention = CausalSelfAttention
     yield
     # when exiting context manager - restore link to original causal self-attention class
-    parrot.CausalSelfAttention = causal_self_attention
+    gpt.CausalSelfAttention = causal_self_attention
 
     CausalSelfAttention.lora_config = None

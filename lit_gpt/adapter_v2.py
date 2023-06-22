@@ -1,12 +1,12 @@
 """
-Utility functions to extend the original Parrot-Adapter method to Parrot-Adapter v2,
+Utility functions to extend the original GPT-Adapter method to GPT-Adapter v2,
 This is a port from Lit-LLaMA based on the code prepared by @rasbt aka Sebastian Raschka
 """
 from typing import Any
 
 import torch
 
-from lit_parrot.adapter import Parrot
+from lit_gpt.adapter import GPT
 
 
 def adapter_filter(key: str, value: Any) -> bool:
@@ -25,7 +25,7 @@ def adapter_filter(key: str, value: Any) -> bool:
     return any(s in key for s in adapter_substrings)
 
 
-def mark_only_adapter_v2_as_trainable(model: Parrot) -> None:
+def mark_only_adapter_v2_as_trainable(model: GPT) -> None:
     """Sets requires_grad=False for all non-adapter weights"""
     for name, param in model.named_parameters():
         param.requires_grad = adapter_filter(name, param)

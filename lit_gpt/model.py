@@ -1,42 +1,25 @@
-"""Implementation of the paper:
+"""Full definition of a GPT NeoX Language Model, all of it in this single file.
 
-LLaMA-Adapter: Efficient Fine-tuning of Language Models with Zero-init Attention
-https://arxiv.org/abs/2303.16199
-
-Port for Lit-Parrot
+Based on the nanoGPT implementation: https://github.com/karpathy/nanoGPT and
+https://github.com/EleutherAI/gpt-neox/tree/main/megatron/model.
 """
 import math
-from dataclasses import dataclass
-from typing import Optional, Tuple, Any, List, Union
+from typing import List, Optional, Tuple, Any, Union
 
 import torch
 import torch.nn as nn
 from torch.nn import functional as F
 from typing_extensions import Self
 
-from lit_parrot.config import Config as BaseConfig
-from lit_parrot.model import (
-    Parrot as BaseModel,
-    MLP,
-    CausalSelfAttention as BaseCausalSelfAttention,
-    apply_rope,
-    RoPECache,
-    KVCache,
-)
+from lit_gpt.config import Config
+
+RoPECache = Tuple[torch.Tensor, torch.Tensor]
+KVCache = Tuple[torch.Tensor, torch.Tensor]
 
 
-@dataclass
-class Config(BaseConfig):
-    adapter_prompt_length: int = 10
-    adapter_start_layer: int = 2
-
-
-class Parrot(BaseModel):
-    """The implementation is identical to `lit_parrot.model.Parrot` with the exception that
-    the `Block` saves the layer index and passes it down to the attention layer."""
-
+class GPT(nn.Module):
     def __init__(self, config: Config) -> None:
-        nn.Module.__init__(self)
+        super().__init__()
         assert config.padded_vocab_size is not None
         self.config = config
 
@@ -44,23 +27,38 @@ class Parrot(BaseModel):
         self.transformer = nn.ModuleDict(
             dict(
                 wte=nn.Embedding(config.padded_vocab_size, config.n_embd),
-                h=nn.ModuleList(Block(config, i) for i in range(config.n_layer)),
+                h=nn.ModuleList(Block(config) for _ in range(config.n_layer)),
                 ln_f=nn.LayerNorm(config.n_embd),
             )
         )
-
         self.rope_cache: Optional[RoPECache] = None
         self.mask_cache: Optional[torch.Tensor] = None
         self.kv_caches: List[KVCache] = []
-        self.adapter_kv_caches: List[KVCache] = []
+
+    def _init_weights(self, module: nn.Module) -> None:
+        if isinstance(module, nn.Linear):
+            # https://huggingface.co/stabilityai/stablelm-base-alpha-3b/blob/main/config.json#L10
+            torch.nn.init.normal_(module.weight, mean=0.0, std=0.02)
+            if module.bias is not None:
+                torch.nn.init.zeros_(module.bias)
+        elif isinstance(module, nn.Embedding):
+            torch.nn.init.normal_(module.weight, mean=0.0, std=0.02)
+        elif isinstance(module, nn.LayerNorm):
+            torch.nn.init.ones_(module.weight)
+            torch.nn.init.zeros_(module.bias)
+            # https://huggingface.co/stabilityai/stablelm-base-alpha-3b/blob/main/config.json#L12
+            module.eps = 1e-5
 
     def reset_cache(self) -> None:
-        super().reset_cache()
-        self.adapter_kv_caches.clear()
+        self.kv_caches.clear()
+        if self.mask_cache is not None and self.mask_cache.device.type == "xla":
+            # https://github.com/Lightning-AI/lit-gpt/pull/83#issuecomment-1558150179
+            self.rope_cache = None
+            self.mask_cache = None
 
     def forward(
         self, idx: torch.Tensor, max_seq_length: Optional[int] = None, input_pos: Optional[torch.Tensor] = None
-    ) -> Union[torch.Tensor, Tuple[torch.Tensor, List[KVCache], List[KVCache]]]:
+    ) -> Union[torch.Tensor, Tuple[torch.Tensor, List[KVCache]]]:
         B, T = idx.size()
         use_kv_cache = input_pos is not None
 
@@ -99,11 +97,8 @@ class Parrot(BaseModel):
                 x, *_ = block(x, (cos, sin), max_seq_length)
         else:
             self.kv_caches = self.kv_caches or self.build_kv_caches(x, max_seq_length, cos.size(-1))
-            self.adapter_kv_caches = self.adapter_kv_caches or [None for _ in range(self.config.n_layer)]
             for i, block in enumerate(self.transformer.h):
-                x, self.kv_caches[i], self.adapter_kv_caches[i] = block(
-                    x, (cos, sin), max_seq_length, mask, input_pos, self.kv_caches[i], self.adapter_kv_caches[i]
-                )
+                x, self.kv_caches[i] = block(x, (cos, sin), max_seq_length, mask, input_pos, self.kv_caches[i])
 
         x = self.transformer.ln_f(x)
 
@@ -115,15 +110,40 @@ class Parrot(BaseModel):
     def from_name(cls, name: str, **kwargs: Any) -> Self:
         return cls(Config.from_name(name, **kwargs))
 
+    def build_rope_cache(self, idx: torch.Tensor) -> RoPECache:
+        return build_rope_cache(
+            seq_len=self.config.block_size,
+            n_elem=int(self.config.rotary_percentage * self.config.head_size),
+            dtype=idx.dtype,
+            device=idx.device,
+        )
+
+    def build_mask_cache(self, idx: torch.Tensor) -> torch.Tensor:
+        ones = torch.ones((self.config.block_size, self.config.block_size), device=idx.device, dtype=torch.bool)
+        return torch.tril(ones).unsqueeze(0).unsqueeze(0)
+
+    def build_kv_caches(self, idx: torch.Tensor, max_seq_length: int, rope_cache_length: int) -> List[KVCache]:
+        B = idx.size(0)
+        heads = 1 if self.config.n_query_groups == 1 else self.config.n_head
+        k_cache_shape = (
+            B,
+            heads,
+            max_seq_length,
+            rope_cache_length + self.config.head_size - int(self.config.rotary_percentage * self.config.head_size),
+        )
+        v_cache_shape = (B, heads, max_seq_length, self.config.head_size)
+        device = idx.device
+        return [
+            (torch.zeros(k_cache_shape, device=device), torch.zeros(v_cache_shape, device=device))
+            for _ in range(self.config.n_layer)
+        ]
+
 
 class Block(nn.Module):
-    """The implementation is identical to `lit_parrot.model.Block` with the exception that
-    we replace the attention layer where adaption is implemented."""
-
-    def __init__(self, config: Config, block_idx: int) -> None:
+    def __init__(self, config: Config) -> None:
         super().__init__()
         self.norm_1 = nn.LayerNorm(config.n_embd)
-        self.attn = CausalSelfAttention(config, block_idx)
+        self.attn = CausalSelfAttention(config)
         if not config.shared_attention_norm:
             self.norm_2 = nn.LayerNorm(config.n_embd)
         self.mlp = MLP(config)
@@ -138,12 +158,9 @@ class Block(nn.Module):
         mask: Optional[torch.Tensor] = None,
         input_pos: Optional[torch.Tensor] = None,
         kv_cache: Optional[KVCache] = None,
-        adapter_kv_cache: Optional[KVCache] = None,
-    ) -> Tuple[torch.Tensor, Optional[KVCache], Optional[KVCache]]:
+    ) -> Tuple[torch.Tensor, Optional[KVCache]]:
         n_1 = self.norm_1(x)
-        h, new_kv_cache, new_adapter_kv_cache = self.attn(
-            n_1, rope, max_seq_length, mask, input_pos, kv_cache, adapter_kv_cache
-        )
+        h, new_kv_cache = self.attn(n_1, rope, max_seq_length, mask, input_pos, kv_cache)
         if self.config.parallel_residual:
             n_2 = n_1 if self.config.shared_attention_norm else self.norm_2(x)
             x = x + h + self.mlp(n_2)
@@ -155,21 +172,19 @@ class Block(nn.Module):
                 )
             x = x + h
             x = x + self.mlp(self.norm_2(x))
-        return x, new_kv_cache, new_adapter_kv_cache
+        return x, new_kv_cache
 
 
-class CausalSelfAttention(BaseCausalSelfAttention):
-    """A modification of `lit_parrot.model.CausalSelfAttention` that adds the attention
-    over the adaption prompt."""
+class CausalSelfAttention(nn.Module):
+    def __init__(self, config: Config) -> None:
+        super().__init__()
+        shape = (config.n_head + 2 * config.n_query_groups) * config.head_size
+        # key, query, value projections for all heads, but in a batch
+        self.attn = nn.Linear(config.n_embd, shape, bias=config.bias)
+        # output projection
+        self.proj = nn.Linear(config.n_embd, config.n_embd, bias=config.bias)
 
-    def __init__(self, config: Config, block_idx: int) -> None:
-        super().__init__(config)
-        if block_idx >= config.adapter_start_layer:
-            # adapter embedding layer
-            self.adapter_wte = nn.Embedding(config.adapter_prompt_length, config.n_embd)
-            # gate for adaption
-            self.gating_factor = torch.nn.Parameter(torch.zeros(1, config.n_head, 1, 1))
-        self.block_idx = block_idx
+        self.config = config
 
     def forward(
         self,
@@ -179,8 +194,7 @@ class CausalSelfAttention(BaseCausalSelfAttention):
         mask: Optional[torch.Tensor] = None,
         input_pos: Optional[torch.Tensor] = None,
         kv_cache: Optional[KVCache] = None,
-        adapter_kv_cache: Optional[KVCache] = None,
-    ) -> Tuple[torch.Tensor, Optional[KVCache], Optional[KVCache]]:
+    ) -> Tuple[torch.Tensor, Optional[KVCache]]:
         B, T, C = x.size()  # batch size, sequence length, embedding dimensionality (n_embd)
 
         qkv = self.attn(x)
@@ -207,7 +221,7 @@ class CausalSelfAttention(BaseCausalSelfAttention):
         q = torch.cat((q_roped, q[..., n_elem:]), dim=-1)
         k = torch.cat((k_roped, k[..., n_elem:]), dim=-1)
 
-        if kv_cache is not None:
+        if input_pos is not None and kv_cache is not None:
             cache_k, cache_v = kv_cache
             cache_k, cache_v = cache_k.to(dtype=k.dtype), cache_v.to(dtype=v.dtype)
             # check if reached token limit
@@ -225,41 +239,59 @@ class CausalSelfAttention(BaseCausalSelfAttention):
             q, k, v, attn_mask=mask, dropout_p=0.0, scale=1.0 / math.sqrt(self.config.head_size), is_causal=mask is None
         )
 
-        if self.block_idx >= self.config.adapter_start_layer:
-            aT = self.config.adapter_prompt_length
-            if adapter_kv_cache is not None:
-                ak, av = adapter_kv_cache
-            else:
-                prefix = self.adapter_wte.weight.reshape(1, aT, C)
-                aqkv = self.attn(prefix)
-                aqkv = aqkv.view(1, aT, self.config.n_query_groups, q_per_kv + 2, self.config.head_size)
-                aqkv = aqkv.permute(0, 2, 3, 1, 4)
-                _, ak, av = aqkv.split((q_per_kv, 1, 1), dim=2)
-                if self.config.n_query_groups != 1:
-                    # for MHA this is a no-op
-                    ak = ak.repeat_interleave(q_per_kv, dim=2)
-                    av = av.repeat_interleave(q_per_kv, dim=2)
-                ak = ak.view(1, -1, aT, self.config.head_size)  # (1, nh_ak, aT, hs)
-                av = av.view(1, -1, aT, self.config.head_size)  # (1, nh_av, aT, hs)
-                adapter_kv_cache = (ak, av)
-
-            amask = torch.ones(T, aT, dtype=torch.bool, device=x.device)
-            ay = F.scaled_dot_product_attention(q, ak, av, attn_mask=amask, dropout_p=0.0, is_causal=False)
-            y = y + self.gating_factor * ay
-
         y = y.transpose(1, 2).contiguous().view(B, T, C)  # re-assemble all head outputs side by side
 
         # output projection
         y = self.proj(y)
 
-        return y, kv_cache, adapter_kv_cache
+        return y, kv_cache
 
 
-def mark_only_adapter_as_trainable(model: Parrot) -> None:
-    """Sets `requires_grad=False` for all non-adapter weights."""
-    for name, param in model.named_parameters():
-        param.requires_grad = adapter_filter(name, param)
+class MLP(nn.Module):
+    def __init__(self, config: Config) -> None:
+        super().__init__()
+        hidden_dim = 4 * config.n_embd
+        self.fc = nn.Linear(config.n_embd, hidden_dim, bias=config.bias)
+        self.proj = nn.Linear(hidden_dim, config.n_embd, bias=config.bias)
+
+    def forward(self, x: torch.Tensor) -> torch.Tensor:
+        # gpt-neox style MLP
+        x = self.fc(x)
+        x = F.gelu(x)
+        x = self.proj(x)
+        return x
 
 
-def adapter_filter(key: str, value: Any) -> bool:
-    return "adapter_wte" in key or "gating_factor" in key
+def build_rope_cache(
+    seq_len: int, n_elem: int, dtype: torch.dtype, device: torch.device, base: int = 10000
+) -> RoPECache:
+    """Enhanced Transformer with Rotary Position Embedding.
+
+    Derived from: https://github.com/labmlai/annotated_deep_learning_paper_implementations/blob/master/labml_nn/
+    transformers/rope/__init__.py. MIT License:
+    https://github.com/labmlai/annotated_deep_learning_paper_implementations/blob/master/license.
+    """
+    # $\Theta = {\theta_i = 10000^{\frac{2(i-1)}{d}}, i \in [1, 2, ..., \frac{d}{2}]}$
+    theta = 1.0 / (base ** (torch.arange(0, n_elem, 2, dtype=dtype, device=device) / n_elem))
+
+    # Create position indexes `[0, 1, ..., seq_len - 1]`
+    seq_idx = torch.arange(seq_len, dtype=dtype, device=device)
+
+    # Calculate the product of position index and $\theta_i$
+    idx_theta = torch.outer(seq_idx, theta).float().repeat(1, 2)
+
+    cos, sin = torch.cos(idx_theta), torch.sin(idx_theta)
+
+    # this is to mimic the behaviour of complex32, else we will get different results
+    if dtype in (torch.float16, torch.bfloat16, torch.int8):
+        return cos.half(), sin.half()
+    return cos, sin
+
+
+def apply_rope(x: torch.Tensor, cos: torch.Tensor, sin: torch.Tensor) -> torch.Tensor:
+    head_size = x.size(-1)
+    x1 = x[..., : head_size // 2]  # (B, nh, T, hs/2)
+    x2 = x[..., head_size // 2 :]  # (B, nh, T, hs/2)
+    rotated = torch.cat((-x2, x1), dim=-1)  # (B, nh, T, hs)
+    roped = (x * cos) + (rotated * sin)
+    return roped.type_as(x)

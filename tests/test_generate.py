@@ -16,13 +16,13 @@ import torch
 def test_generate(max_seq_length):
     import generate.base as generate
 
-    from lit_parrot import Parrot, Config
+    from lit_gpt import GPT, Config
 
     T, C = 5, 3
     input_idx = torch.randint(10, size=(T,))
 
     config = Config(block_size=128, vocab_size=16, n_layer=1, n_head=4, n_embd=8)
-    model = Parrot(config)
+    model = GPT(config)
     max_new_tokens = 20
 
     multinomial_results = []
