@@ -27,7 +27,7 @@ def test_lora_merge_unmerge():
     mark_only_lora_as_trainable(model)
     optimizer = torch.optim.SGD(model.parameters(), lr=1.0)
     y = model(torch.randint(0, 8, size=(2, 4), dtype=torch.int64))
-    torch.cat(y, dim=1).sum().backward()
+    y.sum().backward()
     optimizer.step()
     optimizer.zero_grad()
     # the weight remains unchanged (only lora A and B change)

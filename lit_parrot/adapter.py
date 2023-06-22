@@ -59,7 +59,11 @@ class Parrot(BaseModel):
         self.adapter_kv_caches.clear()
 
     def forward(
-        self, idx: torch.Tensor, max_seq_length: Optional[int] = None, input_pos: Optional[torch.Tensor] = None
+        self,
+        idx: torch.Tensor,
+        max_seq_length: Optional[int] = None,
+        input_pos: Optional[torch.Tensor] = None,
+        lm_head_chunk_size: int = 0,
     ) -> List[torch.Tensor]:
         B, T = idx.size()
         use_kv_cache = input_pos is not None
@@ -68,7 +72,9 @@ class Parrot(BaseModel):
         if max_seq_length is None:
             max_seq_length = block_size
         if use_kv_cache:  # not relevant otherwise
-            assert T <= max_seq_length, f"Cannot forward sequence of length {T}, max seq length is only {max_seq_length}"
+            assert (
+                T <= max_seq_length
+            ), f"Cannot forward sequence of length {T}, max seq length is only {max_seq_length}"
         assert max_seq_length <= block_size, f"Cannot attend to {max_seq_length}, block size is only {block_size}"
         assert T <= block_size, f"Cannot forward sequence of length {T}, block size is only {block_size}"
 
@@ -107,10 +113,11 @@ class Parrot(BaseModel):
 
         x = self.transformer.ln_f(x)
 
-        # chunk the lm head logits to reduce the peak memory used by autograd
-        chunked_logits = [self.lm_head(x_i) for x_i in torch.split(x, 128, dim=1)]
-
-        return chunked_logits
+        if lm_head_chunk_size > 0:
+            # chunk the lm head logits to reduce the peak memory used by autograd
+            return [self.lm_head(x_i) for x_i in torch.split(x, lm_head_chunk_size, dim=1)]
+        else:
+            return self.lm_head(x)  # (b, t, vocab_size)
 
     @classmethod
     def from_name(cls, name: str, **kwargs: Any) -> Self:
