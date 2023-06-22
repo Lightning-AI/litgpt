@@ -415,7 +415,7 @@ class Parrot(BaseModel):
         max_seq_length: Optional[int] = None,
         input_pos: Optional[torch.Tensor] = None,
         lm_head_chunk_size: int = 0,
-    ) -> List[torch.Tensor]:
+    ) -> Union[torch.Tensor, List[torch.Tensor]]:
         B, T = idx.size()
         use_kv_cache = input_pos is not None
 
