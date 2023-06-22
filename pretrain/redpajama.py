@@ -83,6 +83,7 @@ def setup(
                 activation_checkpointing=Block,
                 state_dict_type="full",
                 limit_all_gathers=True,
+                cpu_offload=False,
             )
     else:
         strategy = "auto"
