@@ -4,24 +4,20 @@ from lightning import Fabric
 
 
 def test_lora_layer_replacement():
-    from lit_gpt.lora import lora, CausalSelfAttention as LoRACausalSelfAttention
-    from lit_gpt.model import GPT, Config
+    from lit_gpt.lora import CausalSelfAttention as LoRACausalSelfAttention, GPT, Config
 
-    config = Config(n_layer=2, n_head=4, n_embd=8, block_size=8, vocab_size=8)
-    with lora(r=8, alpha=8, dropout=0.1):
-        model = GPT(config)
+    config = Config(n_layer=2, n_head=4, n_embd=8, block_size=8, vocab_size=8, r=8, alpha=8, dropout=0.1)
+    model = GPT(config)
 
     assert isinstance(model.transformer.h[0].attn, LoRACausalSelfAttention)
     assert isinstance(model.transformer.h[1].attn, LoRACausalSelfAttention)
 
 
 def test_lora_merge_unmerge():
-    from lit_gpt.lora import lora, mark_only_lora_as_trainable
-    from lit_gpt.model import GPT, Config
+    from lit_gpt.lora import mark_only_lora_as_trainable, GPT, Config
 
-    config = Config(n_layer=1, n_head=2, n_embd=8, block_size=8, vocab_size=8)
-    with lora(r=8, alpha=8, dropout=0.1):
-        model = GPT(config)
+    config = Config(n_layer=1, n_head=2, n_embd=8, block_size=8, vocab_size=8, r=8, alpha=8, dropout=0.1)
+    model = GPT(config)
 
     initial_weight = model.transformer.h[0].attn.attn.weight.clone()
     model.train()
@@ -30,7 +26,8 @@ def test_lora_merge_unmerge():
     # perform an update to the LoRA weights
     mark_only_lora_as_trainable(model)
     optimizer = torch.optim.SGD(model.parameters(), lr=1.0)
-    model(torch.randint(0, 8, size=(2, 4), dtype=torch.int64)).sum().backward()
+    y = model(torch.randint(0, 8, size=(2, 4), dtype=torch.int64))
+    y.sum().backward()
     optimizer.step()
     optimizer.zero_grad()
     # the weight remains unchanged (only lora A and B change)
@@ -60,14 +57,12 @@ def test_lora_merge_unmerge():
 
 
 def test_lora_mqa_gqa():
-    from lit_gpt.lora import lora
-    from lit_gpt.model import GPT, Config
+    from lit_gpt.lora import GPT, Config
 
     # MHA
-    config = Config(n_layer=1, n_head=4, n_embd=8, block_size=1, vocab_size=1)
+    config = Config(n_layer=1, n_head=4, n_embd=8, block_size=1, vocab_size=1, r=2, alpha=8, dropout=0.1)
     assert config.n_query_groups == config.n_head
-    with lora(r=2, alpha=8, dropout=0.1):
-        model = GPT(config)
+    model = GPT(config)
     attn = model.transformer.h[0].attn.attn
     assert attn.weight.shape == (24, 8)
     assert attn.lora_A.shape == (4, 8)
@@ -78,8 +73,7 @@ def test_lora_mqa_gqa():
 
     # MQA
     config.n_query_groups = 1
-    with lora(r=2, alpha=8, dropout=0.1):
-        model = GPT(config)
+    model = GPT(config)
     attn = model.transformer.h[0].attn.attn
     assert attn.weight.shape == (12, 8)
     assert attn.lora_A.shape == (4, 8)
@@ -90,8 +84,7 @@ def test_lora_mqa_gqa():
 
     # GQA
     config.n_query_groups = 2
-    with lora(r=2, alpha=8, dropout=0.1):
-        model = GPT(config)
+    model = GPT(config)
     attn = model.transformer.h[0].attn.attn
     assert attn.weight.shape == (16, 8)
     assert attn.lora_A.shape == (4, 8)
@@ -102,12 +95,10 @@ def test_lora_mqa_gqa():
 
 
 def test_lora_filter(tmp_path):
-    from lit_gpt.model import GPT
-    from lit_gpt.lora import lora_filter, lora
+    from lit_gpt.lora import lora_filter, GPT
 
     fabric = Fabric(devices=1)
-    with lora(r=2, alpha=8, dropout=0.1):
-        model = GPT.from_name("pythia-70m", n_layer=3)
+    model = GPT.from_name("pythia-70m", n_layer=3, r=1)
     save_path = tmp_path / "model.pth"
     fabric.save(save_path, {"model": model}, filter={"model": lora_filter})
     saved = torch.load(save_path)["model"]

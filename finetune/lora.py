@@ -13,8 +13,7 @@ wd = Path(__file__).parent.parent.resolve()
 sys.path.append(str(wd))
 
 from generate.base import generate
-from lit_gpt.lora import mark_only_lora_as_trainable, lora, lora_filter
-from lit_gpt.model import GPT, Config
+from lit_gpt.lora import mark_only_lora_as_trainable, lora_filter, GPT, Config
 from lit_gpt.tokenizer import Tokenizer
 from lit_gpt.utils import lazy_load, check_valid_checkpoint_dir, step_csv_logger, chunked_cross_entropy
 from lit_gpt.speed_monitor import SpeedMonitor, measure_flops, estimate_flops
@@ -84,10 +83,10 @@ def main(fabric: L.Fabric, data_dir: Path, checkpoint_dir: Path, out_dir: Path):
     train_data = torch.load(data_dir / "train.pt")
     val_data = torch.load(data_dir / "test.pt")
 
-    config = Config.from_name(name=checkpoint_dir.name)
+    config = Config.from_name(name=checkpoint_dir.name, r=lora_r, alpha=lora_alpha, dropout=lora_dropout)
     checkpoint_path = checkpoint_dir / "lit_model.pth"
     fabric.print(f"Loading model {str(checkpoint_path)!r} with {config.__dict__}")
-    with fabric.init_module(), lora(r=lora_r, alpha=lora_alpha, dropout=lora_dropout, enabled=True):
+    with fabric.init_module():
         model = GPT(config)
     with lazy_load(checkpoint_path) as checkpoint:
         # strict=False because missing keys due to LoRA weights not contained in state dict
@@ -155,13 +154,16 @@ def train(
 
         iter_t0 = time.time()
 
-        input_ids, targets = get_batch(fabric, train_data, longest_seq_length, longest_seq_ix if iter_num == 0 else None)
+        input_ids, targets = get_batch(
+            fabric, train_data, longest_seq_length, longest_seq_ix if iter_num == 0 else None
+        )
 
         is_accumulating = (iter_num + 1) % gradient_accumulation_iters != 0
         with fabric.no_backward_sync(model, enabled=is_accumulating):
-            logits = model(input_ids, max_seq_length=max_seq_length)
+            logits = model(input_ids, max_seq_length=max_seq_length, lm_head_chunk_size=128)
             # shift the targets such that output n predicts token n+1
-            loss = chunked_cross_entropy(logits[..., :-1, :], targets[..., 1:])
+            logits[-1] = logits[-1][..., :-1, :]
+            loss = chunked_cross_entropy(logits, targets[..., 1:])
             fabric.backward(loss / gradient_accumulation_iters)
 
         if not is_accumulating:
@@ -267,7 +269,11 @@ def get_max_seq_length(data: List[Dict]) -> Tuple[int, int, int]:
     max_seq_length = max(lengths)
     longest_seq_ix = lengths.index(max_seq_length)
     # support easy override at the top of the file
-    return override_max_seq_length if isinstance(override_max_seq_length, int) else max_seq_length, max_seq_length, longest_seq_ix
+    return (
+        override_max_seq_length if isinstance(override_max_seq_length, int) else max_seq_length,
+        max_seq_length,
+        longest_seq_ix,
+    )
 
 
 def save_lora_checkpoint(fabric, model, file_path: Path):
