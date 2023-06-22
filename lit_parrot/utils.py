@@ -405,7 +405,7 @@ def chunked_cross_entropy(
         target_chunks = torch.split(targets, chunk_size)
         loss_chunks = [
             torch.nn.functional.cross_entropy(
-                logit_chunk.view(-1, logit_chunk.size(-1)), target_chunk, ignore_index=-1, reduction="none"
+                logit_chunk.reshape(-1, logit_chunk.size(-1)), target_chunk, ignore_index=-1, reduction="none"
             )
             for logit_chunk, target_chunk in zip(logits, target_chunks)
         ]
