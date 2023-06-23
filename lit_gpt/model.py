@@ -4,21 +4,21 @@ Based on the nanoGPT implementation: https://github.com/karpathy/nanoGPT and
 https://github.com/EleutherAI/gpt-neox/tree/main/megatron/model.
 """
 import math
-from typing import List, Optional, Tuple, Any, Union
+from typing import List, Optional, Tuple, Any
 
 import torch
 import torch.nn as nn
 from torch.nn import functional as F
 from typing_extensions import Self
 
-from lit_parrot.config import Config
-from lit_parrot.utils import find_multiple
+from lit_gpt.config import Config
+from lit_gpt.utils import find_multiple
 
 RoPECache = Tuple[torch.Tensor, torch.Tensor]
 KVCache = Tuple[torch.Tensor, torch.Tensor]
 
 
-class Parrot(nn.Module):
+class GPT(nn.Module):
     def __init__(self, config: Config) -> None:
         super().__init__()
         assert config.padded_vocab_size is not None
@@ -53,7 +53,7 @@ class Parrot(nn.Module):
     def reset_cache(self) -> None:
         self.kv_caches.clear()
         if self.mask_cache is not None and self.mask_cache.device.type == "xla":
-            # https://github.com/Lightning-AI/lit-parrot/pull/83#issuecomment-1558150179
+            # https://github.com/Lightning-AI/lit-gpt/pull/83#issuecomment-1558150179
             self.rope_cache = None
             self.mask_cache = None
 
@@ -63,7 +63,7 @@ class Parrot(nn.Module):
         max_seq_length: Optional[int] = None,
         input_pos: Optional[torch.Tensor] = None,
         padding_multiple: int = 1,
-    ) -> Union[torch.Tensor, Tuple[torch.Tensor, List[KVCache]]]:
+    ) -> torch.Tensor:
         B, T = idx.size()
         use_kv_cache = input_pos is not None
 
@@ -78,7 +78,10 @@ class Parrot(nn.Module):
         block_size = self.config.block_size
         if max_seq_length is None:
             max_seq_length = block_size
-        assert T <= max_seq_length, f"Cannot forward sequence of length {T}, max seq length is only {max_seq_length}"
+        if use_kv_cache:  # not relevant otherwise
+            assert (
+                T <= max_seq_length
+            ), f"Cannot forward sequence of length {T}, max seq length is only {max_seq_length}"
         assert max_seq_length <= block_size, f"Cannot attend to {max_seq_length}, block size is only {block_size}"
         assert T <= block_size, f"Cannot forward sequence of length {T}, block size is only {block_size}"
 
@@ -253,8 +256,8 @@ class CausalSelfAttention(nn.Module):
             input_pos = torch.cat(
                 (input_pos, torch.full((padding,), padding_idx, device=input_pos.device, dtype=input_pos.dtype))
             )
-            k = cache_k.index_copy(2, input_pos, k)
-            v = cache_v.index_copy(2, input_pos, v)
+            k = cache_k.index_copy_(2, input_pos, k)
+            v = cache_v.index_copy_(2, input_pos, v)
             kv_cache = k, v
 
         scale = 1.0 / math.sqrt(self.config.head_size)

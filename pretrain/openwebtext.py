@@ -15,11 +15,10 @@ from torch.distributed.fsdp.wrap import transformer_auto_wrap_policy
 wd = Path(__file__).parent.parent.resolve()
 sys.path.append(str(wd))
 
-from lit_parrot import Config
-from lit_parrot.model import Parrot, Block
-from lit_parrot.speed_monitor import SpeedMonitor, measure_flops, estimate_flops
-from lit_parrot.utils import step_csv_logger
-
+from lit_gpt import Config
+from lit_gpt.model import GPT, Block
+from lit_gpt.speed_monitor import SpeedMonitor, measure_flops, estimate_flops
+from lit_gpt.utils import step_csv_logger, chunked_cross_entropy
 
 model_name = "pythia-70m"
 name = "openwebtext"
@@ -48,7 +47,7 @@ min_lr = 6e-5
 fake_data = True  # FIXME
 
 hparams = {k: v for k, v in locals().items() if isinstance(v, (int, float, str)) and not k.startswith("_")}
-logger = step_csv_logger("out", name)
+logger = step_csv_logger("out", name, flush_logs_every_n_steps=log_interval)
 
 
 def setup(devices: int = 1, precision: Optional[str] = None, tpu: bool = False) -> None:
@@ -62,7 +61,11 @@ def setup(devices: int = 1, precision: Optional[str] = None, tpu: bool = False) 
         else:
             auto_wrap_policy = partial(transformer_auto_wrap_policy, transformer_layer_cls={Block})
             strategy = FSDPStrategy(
-                auto_wrap_policy=auto_wrap_policy, activation_checkpointing=Block, state_dict_type="full"
+                auto_wrap_policy=auto_wrap_policy,
+                activation_checkpointing=Block,
+                state_dict_type="full",
+                limit_all_gathers=True,
+                cpu_offload=False,
             )
     else:
         strategy = "auto"
@@ -85,15 +88,17 @@ def main(fabric: L.Fabric) -> None:
     config = Config.from_name(model_name)
     fabric.print(f"Loading model with {config.__dict__}")
     t0 = time.time()
-    with fabric.init_module():
-        model = Parrot(config)
+    with fabric.init_module(empty_init=False):
+        model = GPT(config)
         model.apply(model._init_weights)
     fabric.print(f"Time to instantiate model: {time.time() - t0:.02f} seconds.")
 
     num_total_params = sum(p.numel() for p in model.parameters())
     fabric.print(f"Total parameters {num_total_params}")
 
-    optimizer = torch.optim.AdamW(model.parameters(), lr=learning_rate, weight_decay=weight_decay, betas=(beta1, beta2))
+    optimizer = torch.optim.AdamW(
+        model.parameters(), lr=learning_rate, weight_decay=weight_decay, betas=(beta1, beta2), foreach=False
+    )
     model, optimizer = fabric.setup(model, optimizer)
 
     train_time = time.time()
@@ -103,7 +108,7 @@ def main(fabric: L.Fabric) -> None:
 
 def train(
     fabric: L.Fabric,
-    model: Parrot,
+    model: GPT,
     optimizer: torch.optim.Optimizer,
     train_data: np.ndarray,
     val_data: np.ndarray,
@@ -111,17 +116,18 @@ def train(
 ) -> None:
     validate(fabric, model, val_data)  # sanity check
 
-    estimated_flops = estimate_flops(model) * micro_batch_size
-    fabric.print(f"Estimated TFLOPs: {estimated_flops * fabric.world_size / 1e12:.2f}")
-    if not isinstance(fabric.strategy, FSDPStrategy):  # unsupported
-        measured_flops = measure_flops(
-            model, torch.randint(0, 1, (micro_batch_size, model.config.block_size), device=fabric.device)
-        )
+    with torch.device("meta"):
+        meta_model = GPT(model.config)
+        # estimated is too much of an optimistic estimate, left just for reference
+        estimated_flops = estimate_flops(meta_model) * micro_batch_size
+        fabric.print(f"Estimated TFLOPs: {estimated_flops * fabric.world_size / 1e12:.2f}")
+        x = torch.randint(0, 1, (micro_batch_size, model.config.block_size))
+        measured_flops = measure_flops(meta_model, x)
         fabric.print(f"Measured TFLOPs: {measured_flops * fabric.world_size / 1e12:.2f}")
-    else:
-        measured_flops = None
+        del meta_model, x
 
     step_count = 0
+    total_lengths = 0
     total_t0 = time.time()
 
     if fabric.device.type == "xla":
@@ -141,34 +147,30 @@ def train(
         is_accumulating = (iter_num + 1) % gradient_accumulation_steps != 0
         with fabric.no_backward_sync(model, enabled=is_accumulating):
             logits = model(input_ids)
-            loss = torch.nn.functional.cross_entropy(
-                logits.view(-1, logits.size(-1)), targets.view(-1), ignore_index=-1
-            )
+            loss = chunked_cross_entropy(logits, targets, chunk_size=0)
             fabric.backward(loss / gradient_accumulation_steps)
 
         if not is_accumulating:
             fabric.clip_gradients(model, optimizer, max_norm=grad_clip)
             optimizer.step()
-            if fabric.device.type == "xla":
-                xm.mark_step()
             optimizer.zero_grad()
             step_count += 1
         elif fabric.device.type == "xla":
             xm.mark_step()
 
         t1 = time.time()
+        total_lengths += input_ids.size(1)
         speed_monitor.on_train_batch_end(
             (iter_num + 1) * micro_batch_size,
             t1 - total_t0,
             # this assumes that device FLOPs are the same and that all devices have the same batch size
             fabric.world_size,
-            estimated_flops_per_batch=estimated_flops,
-            measured_flops_per_batch=measured_flops,
-            max_seq_length=model.config.block_size,
+            flops_per_batch=measured_flops,
+            lengths=total_lengths,
         )
         if iter_num % log_interval == 0:
             fabric.print(
-                f"iter {iter_num} step {step_count}: loss {loss.item():.4f}, train time:"
+                f"iter {iter_num} step {step_count}: loss {loss.item():.4f}, iter time:"
                 f" {(t1 - iter_t0) * 1000:.2f}ms{' (optimizer.step)' if not is_accumulating else ''}"
             )
 
@@ -194,7 +196,7 @@ def validate(fabric: L.Fabric, model: torch.nn.Module, val_data: np.ndarray) -> 
     for k in range(eval_iters):
         input_ids, targets = get_batch(fabric, val_data, model.config.block_size)
         logits = model(input_ids)
-        loss = torch.nn.functional.cross_entropy(logits.view(-1, logits.size(-1)), targets.view(-1), ignore_index=-1)
+        loss = chunked_cross_entropy(logits, targets, chunk_size=0)
         losses[k] = loss.item()
     out = losses.mean()
 

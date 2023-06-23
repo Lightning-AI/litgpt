@@ -12,7 +12,7 @@ from tqdm import tqdm
 wd = Path(__file__).parent.parent.resolve()
 sys.path.append(str(wd))
 
-from lit_parrot.tokenizer import Tokenizer
+from lit_gpt.tokenizer import Tokenizer
 
 DATA_FILE_URL = "https://raw.githubusercontent.com/tloen/alpaca-lora/main/alpaca_data_cleaned_archive.json"
 DATA_FILE_NAME = "alpaca_data_cleaned_archive.json"
@@ -22,7 +22,6 @@ TEST_SPLIT_SIZE = 2000
 IGNORE_INDEX = -1
 MASK_INPUTS = False  # as in alpaca-lora
 SEED = 42
-MAX_LENGTH = 0  # useful to know the minimum max_seq_length during fine-tuning (saves memory!)
 
 
 def prepare(
@@ -48,7 +47,7 @@ def prepare(
     data_file_path = destination_path / data_file_name
     print("Loading data file...")
     download_if_missing(data_file_path, data_file_url)
-    with open(data_file_path, "r") as file:
+    with open(data_file_path, "r", encoding="utf-8") as file:
         data = json.load(file)
 
     print("Loading tokenizer...")
@@ -90,15 +89,12 @@ def prepare(
     ]
     torch.save(test_set, destination_path / "test.pt")
 
-    with open(destination_path / "config.json", "w") as file:
-        json.dump({"max_seq_length": MAX_LENGTH}, file)
-
 
 def download_if_missing(file_path: Path, file_url: str):
     """Downloads the raw json data file and saves it in the given destination."""
     if file_path.exists():
         return
-    with open(file_path, "w") as f:
+    with open(file_path, "w", encoding="utf-8") as f:
         f.write(requests.get(file_url).text)
 
 
@@ -129,9 +125,6 @@ def prepare_sample(
     full_prompt_and_response = full_prompt + example["output"]
     encoded_full_prompt = tokenizer.encode(full_prompt, max_length=max_length)
     encoded_full_prompt_and_response = tokenizer.encode(full_prompt_and_response, eos=True, max_length=max_length)
-
-    global MAX_LENGTH
-    MAX_LENGTH = max(MAX_LENGTH, len(encoded_full_prompt_and_response))
 
     # The labels are the full prompt with response, but with the prompt masked out
     labels = encoded_full_prompt_and_response.clone()

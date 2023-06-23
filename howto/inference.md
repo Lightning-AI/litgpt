@@ -1,6 +1,6 @@
 # Inference
 
-We demonstrate how to run inference (next token prediction) with the Parrot base model in the [`generate.py`](generate.py) script:
+We demonstrate how to run inference (next token prediction) with the GPT base model in the [`generate.py`](generate.py) script:
 
 ```bash
 python generate/base.py --prompt "Hello, my name is" --checkpoint_dir checkpoints/stabilityai/stablelm-base-alpha-3b

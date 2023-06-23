@@ -3,9 +3,8 @@
 LLaMA-Adapter: Efficient Fine-tuning of Language Models with Zero-init Attention
 https://arxiv.org/abs/2303.16199
 
-Port for Lit-Parrot
+Port for Lit-GPT
 """
-
 import math
 from dataclasses import dataclass
 from typing import Optional, Tuple, Any, List, Union
@@ -15,9 +14,9 @@ import torch.nn as nn
 from torch.nn import functional as F
 from typing_extensions import Self
 
-from lit_parrot.config import Config as BaseConfig
-from lit_parrot.model import (
-    Parrot as BaseModel,
+from lit_gpt.config import Config as BaseConfig
+from lit_gpt.model import (
+    GPT as BaseModel,
     MLP,
     CausalSelfAttention as BaseCausalSelfAttention,
     apply_rope,
@@ -32,8 +31,8 @@ class Config(BaseConfig):
     adapter_start_layer: int = 2
 
 
-class Parrot(BaseModel):
-    """The implementation is identical to `lit_parrot.model.Parrot` with the exception that
+class GPT(BaseModel):
+    """The implementation is identical to `lit_gpt.model.GPT` with the exception that
     the `Block` saves the layer index and passes it down to the attention layer."""
 
     def __init__(self, config: Config) -> None:
@@ -60,15 +59,22 @@ class Parrot(BaseModel):
         self.adapter_kv_caches.clear()
 
     def forward(
-        self, idx: torch.Tensor, max_seq_length: Optional[int] = None, input_pos: Optional[torch.Tensor] = None
-    ) -> Union[torch.Tensor, Tuple[torch.Tensor, List[KVCache], List[KVCache]]]:
+        self,
+        idx: torch.Tensor,
+        max_seq_length: Optional[int] = None,
+        input_pos: Optional[torch.Tensor] = None,
+        lm_head_chunk_size: int = 0,
+    ) -> Union[torch.Tensor, List[torch.Tensor]]:
         B, T = idx.size()
         use_kv_cache = input_pos is not None
 
         block_size = self.config.block_size
         if max_seq_length is None:
             max_seq_length = block_size
-        assert T <= max_seq_length, f"Cannot forward sequence of length {T}, max seq length is only {max_seq_length}"
+        if use_kv_cache:  # not relevant otherwise
+            assert (
+                T <= max_seq_length
+            ), f"Cannot forward sequence of length {T}, max seq length is only {max_seq_length}"
         assert max_seq_length <= block_size, f"Cannot attend to {max_seq_length}, block size is only {block_size}"
         assert T <= block_size, f"Cannot forward sequence of length {T}, block size is only {block_size}"
 
@@ -107,9 +113,11 @@ class Parrot(BaseModel):
 
         x = self.transformer.ln_f(x)
 
-        logits = self.lm_head(x)  # (b, t, vocab_size)
-
-        return logits
+        if lm_head_chunk_size > 0:
+            # chunk the lm head logits to reduce the peak memory used by autograd
+            return [self.lm_head(x_i) for x_i in x.split(lm_head_chunk_size, dim=1)]
+        else:
+            return self.lm_head(x)  # (b, t, vocab_size)
 
     @classmethod
     def from_name(cls, name: str, **kwargs: Any) -> Self:
@@ -117,7 +125,7 @@ class Parrot(BaseModel):
 
 
 class Block(nn.Module):
-    """The implementation is identical to `lit_parrot.model.Block` with the exception that
+    """The implementation is identical to `lit_gpt.model.Block` with the exception that
     we replace the attention layer where adaption is implemented."""
 
     def __init__(self, config: Config, block_idx: int) -> None:
@@ -159,7 +167,7 @@ class Block(nn.Module):
 
 
 class CausalSelfAttention(BaseCausalSelfAttention):
-    """A modification of `lit_parrot.model.CausalSelfAttention` that adds the attention
+    """A modification of `lit_gpt.model.CausalSelfAttention` that adds the attention
     over the adaption prompt."""
 
     def __init__(self, config: Config, block_idx: int) -> None:
@@ -216,8 +224,8 @@ class CausalSelfAttention(BaseCausalSelfAttention):
                 # shift 1 position to the left
                 cache_k = torch.roll(cache_k, -1, dims=2)
                 cache_v = torch.roll(cache_v, -1, dims=2)
-            k = cache_k.index_copy(2, input_pos, k)
-            v = cache_v.index_copy(2, input_pos, v)
+            k = cache_k.index_copy_(2, input_pos, k)
+            v = cache_v.index_copy_(2, input_pos, v)
             kv_cache = k, v
 
         # efficient attention using Flash Attention CUDA kernels
@@ -235,10 +243,12 @@ class CausalSelfAttention(BaseCausalSelfAttention):
                 aqkv = aqkv.view(1, aT, self.config.n_query_groups, q_per_kv + 2, self.config.head_size)
                 aqkv = aqkv.permute(0, 2, 3, 1, 4)
                 _, ak, av = aqkv.split((q_per_kv, 1, 1), dim=2)
-                ak = ak.repeat_interleave(B, dim=0)
-                av = av.repeat_interleave(B, dim=0)
-                ak = ak.view(B, -1, aT, self.config.head_size)  # (B, nh_ak, aT, hs)
-                av = av.view(B, -1, aT, self.config.head_size)  # (B, nh_av, aT, hs)
+                if self.config.n_query_groups != 1:
+                    # for MHA this is a no-op
+                    ak = ak.repeat_interleave(q_per_kv, dim=2)
+                    av = av.repeat_interleave(q_per_kv, dim=2)
+                ak = ak.view(1, -1, aT, self.config.head_size)  # (1, nh_ak, aT, hs)
+                av = av.view(1, -1, aT, self.config.head_size)  # (1, nh_av, aT, hs)
                 adapter_kv_cache = (ak, av)
 
             amask = torch.ones(T, aT, dtype=torch.bool, device=x.device)
@@ -253,12 +263,11 @@ class CausalSelfAttention(BaseCausalSelfAttention):
         return y, kv_cache, adapter_kv_cache
 
 
-def mark_only_adapter_as_trainable(model: Parrot) -> None:
+def mark_only_adapter_as_trainable(model: GPT) -> None:
     """Sets `requires_grad=False` for all non-adapter weights."""
     for name, param in model.named_parameters():
-        param.requires_grad = "adapter_wte" in name or "gating_factor" in name
+        param.requires_grad = adapter_filter(name, param)
 
 
-def adapter_state_from_state_dict(state_dict: dict) -> dict:
-    """Returns the model state dict with only the adapter weights for saving."""
-    return {name: param for name, param in state_dict.items() if "adapter_wte" in name or "gating_factor" in name}
+def adapter_filter(key: str, value: Any) -> bool:
+    return "adapter_wte" in key or "gating_factor" in key

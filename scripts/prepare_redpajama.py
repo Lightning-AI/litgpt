@@ -11,8 +11,8 @@ from tqdm import tqdm
 wd = Path(__file__).parent.parent.resolve()
 sys.path.append(str(wd))
 
-from lit_parrot import Tokenizer, Config
-import lit_parrot.packed_dataset as packed_dataset
+from lit_gpt import Tokenizer, Config
+import lit_gpt.packed_dataset as packed_dataset
 
 
 filenames_sample = [

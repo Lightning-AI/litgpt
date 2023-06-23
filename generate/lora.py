@@ -16,10 +16,9 @@ wd = Path(__file__).parent.parent.resolve()
 sys.path.append(str(wd))
 
 from generate.base import generate
-from lit_parrot import Tokenizer
-from lit_parrot.lora import lora
-from lit_parrot.model import Parrot, Config, Block
-from lit_parrot.utils import lazy_load, check_valid_checkpoint_dir, quantization
+from lit_gpt import Tokenizer
+from lit_gpt.lora import GPT, Config, Block
+from lit_gpt.utils import lazy_load, check_valid_checkpoint_dir, quantization
 from scripts.prepare_alpaca import generate_prompt
 
 
@@ -42,14 +41,14 @@ def main(
     precision: str = "bf16-true",
 ) -> None:
     """Generates a response based on a given instruction and an optional input.
-    This script will only work with checkpoints from the instruction-tuned Parrot-LoRA model.
+    This script will only work with checkpoints from the instruction-tuned GPT-LoRA model.
     See `finetune/lora.py`.
 
     Args:
         prompt: The prompt/instruction (Alpaca style).
         lora_path: Path to the checkpoint with trained adapter weights, which are the output of
             `finetune/lora.py`.
-        checkpoint_dir: The path to the checkpoint folder with pretrained Parrot weights.
+        checkpoint_dir: The path to the checkpoint folder with pretrained GPT weights.
         input: Optional input (Alpaca style).
         quantize: Whether to quantize the model and using which method:
             ``"llm.int8"``: LLM.int8() mode,
@@ -71,7 +70,7 @@ def main(
     check_valid_checkpoint_dir(checkpoint_dir)
 
     with open(checkpoint_dir / "lit_config.json") as fp:
-        config = Config(**json.load(fp))
+        config = Config(r=lora_r, alpha=lora_alpha, dropout=lora_dropout, **json.load(fp))
 
     if quantize is not None and devices > 1:
         raise NotImplementedError
@@ -85,15 +84,13 @@ def main(
 
     fabric.print(f"Loading model {str(checkpoint_path)!r} with {config.__dict__}", file=sys.stderr)
     t0 = time.time()
-    with fabric.init_module(empty_init=True), quantization(quantize), lora(
-        r=lora_r, alpha=lora_alpha, dropout=lora_dropout, enabled=True
-    ):
-        model = Parrot(config)
+    with fabric.init_module(empty_init=True), quantization(quantize):
+        model = GPT(config)
     fabric.print(f"Time to instantiate model: {time.time() - t0:.02f} seconds.", file=sys.stderr)
 
     t0 = time.time()
     with lazy_load(checkpoint_path) as checkpoint, lazy_load(lora_path) as lora_checkpoint:
-        checkpoint.update(lora_checkpoint)
+        checkpoint.update(lora_checkpoint.get("model", lora_checkpoint))
         model.load_state_dict(checkpoint, strict=quantize is None)
     fabric.print(f"Time to load the model weights: {time.time() - t0:.02f} seconds.", file=sys.stderr)
 
@@ -127,7 +124,7 @@ def main(
     tokens_generated = y.size(0) - prompt_length
     fabric.print(f"\n\nTime for inference: {t:.02f} sec total, {tokens_generated / t:.02f} tokens/sec", file=sys.stderr)
     if fabric.device.type == "cuda":
-        fabric.print(f"Memory used: {torch.cuda.max_memory_reserved() / 1e9:.02f} GB", file=sys.stderr)
+        fabric.print(f"Memory used: {torch.cuda.max_memory_allocated() / 1e9:.02f} GB", file=sys.stderr)
 
 
 if __name__ == "__main__":

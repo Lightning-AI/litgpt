@@ -17,8 +17,8 @@ from lightning import Fabric
 wd = Path(__file__).parent.parent.resolve()
 sys.path.append(str(wd))
 
-from lit_parrot import Parrot, Tokenizer, Config
-from lit_parrot.utils import check_valid_checkpoint_dir, lazy_load
+from lit_gpt import GPT, Tokenizer, Config
+from lit_gpt.utils import check_valid_checkpoint_dir, lazy_load
 
 
 class GPTQQuantizer:
@@ -342,7 +342,7 @@ def main(
     print(f"Loading model {str(checkpoint_path)!r} with {config.__dict__}", file=sys.stderr)
     t0 = time.time()
     with fabric.init_module(empty_init=True):
-        model = Parrot(config)
+        model = GPT(config)
     with lazy_load(checkpoint_path) as checkpoint:
         model.load_state_dict(checkpoint)
     print(f"Time to load model: {time.time() - t0:.02f} seconds.", file=sys.stderr)
@@ -361,7 +361,7 @@ def main(
     t = time.perf_counter() - t0
 
     print(f"\n\nTime for quantization: {t:.02f} sec total", file=sys.stderr)
-    print(f"Memory used: {torch.cuda.max_memory_reserved() / 1e9:.02f} GB", file=sys.stderr)
+    print(f"Memory used: {torch.cuda.max_memory_allocated() / 1e9:.02f} GB", file=sys.stderr)
 
     torch.save(model.state_dict(), output_path)
 

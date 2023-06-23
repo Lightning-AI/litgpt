@@ -1,5 +1,5 @@
 def test_config():
-    from lit_parrot import Config
+    from lit_gpt import Config
 
     config = Config()
     assert config.block_size == 4096
