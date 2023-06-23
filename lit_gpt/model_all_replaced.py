@@ -221,7 +221,7 @@ class Block(nn.Module):
         q = q.permute(2, 0, 1, 3)
         k = k.permute(2, 0, 1, 3)
         v = v.permute(2, 0, 1, 3)
-        y = self.attn(q, k, v, ~mask)
+        y = self.attn(q, k, v, attention_mask=(~mask if mask is not None else None))
         y = y.transpose(0, 1)
 
         # output projection
