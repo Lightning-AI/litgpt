@@ -35,7 +35,7 @@ class GPT(BaseModel):
         self.kv_caches: List[KVCache] = []
 
     def _init_weights(self, module: nn.Module) -> None:
-        if isinstance(module, Linear):
+        if isinstance(module, (Linear, LayerNormLinear)):
             # https://huggingface.co/stabilityai/stablelm-base-alpha-3b/blob/main/config.json#L10
             torch.nn.init.normal_(module.weight, mean=0.0, std=0.02)
             if module.bias is not None:
@@ -47,7 +47,16 @@ class GPT(BaseModel):
             torch.nn.init.zeros_(module.bias)
             # https://huggingface.co/stabilityai/stablelm-base-alpha-3b/blob/main/config.json#L12
             module.eps = 1e-5
-        # TODO: init for LayerNormLinear and LayerNormMLP
+        if isinstance(module, (LayerNormLinear, LayerNormMLP)):
+            torch.nn.init.ones_(module.layer_norm_weight)
+            torch.nn.init.zeros_(module.layer_norm_bias)
+        if isinstance(module, LayerNormMLP):
+            torch.nn.init.normal_(module.fc1_weight, mean=0.0, std=0.02)
+            if module.fc1_bias is not None:
+                torch.nn.init.zeros_(module.fc1_bias)
+            torch.nn.init.normal_(module.fc2_weight, mean=0.0, std=0.02)
+            if module.fc2_bias is not None:
+                torch.nn.init.zeros_(module.fc2_bias)
 
     def forward(
         self,
