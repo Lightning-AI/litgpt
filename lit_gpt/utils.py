@@ -377,7 +377,7 @@ def step_csv_logger(*args: Any, **kwargs: Any) -> CSVLogger:
         return [v for _, v in sorted(out.items())]
 
     def save(self) -> None:
-        """Overriden to merge CSV by the step number."""
+        """Overridden to merge CSV by the step number."""
         import csv
 
         if not self.metrics:
