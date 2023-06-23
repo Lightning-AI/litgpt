@@ -28,7 +28,7 @@ spec:
       requests:
         cpu: 110
         memory: 960Gi
-  # if you set-up a persistent volume (named h100-data) via the CoreWeave UI
+  # if you set up a persistent volume (named h100-data) via the CoreWeave UI
   # uncomment the following. docs: https://docs.coreweave.com/storage/storage/using-storage-kubectl
   #  volumeMounts:
   #  - mountPath: /storage
@@ -36,7 +36,7 @@ spec:
   #volumes:
   #- name: "h100-data"
   #  persistentVolumeClaim:
-  #    claimName: filesystem-storage-pvc
+  #    claimName: h100-data
   affinity:
     nodeAffinity:
       requiredDuringSchedulingIgnoredDuringExecution:
@@ -72,10 +72,10 @@ FROM ghcr.io/coreweave/ml-containers/torch:ceeb8c2-nccl-cuda12.0.1-nccl2.18.1-1-
 
 RUN pip install --index-url https://download.pytorch.org/whl/nightly/cu121 --pre 'torch>=2.1.0dev' \
     && pip install git+https://github.com/Lightning-AI/lightning.git@carmocca/transformer-engine \
-    && pip install -U setuptools>=49.4.0 \
+    && pip install -U 'setuptools>=49.4.0' \
     && pip install flash-attn --no-build-isolation \
     && NVTE_FRAMEWORK=pytorch pip install git+https://github.com/NVIDIA/TransformerEngine.git@main --no-deps \
-    && git clone https://github.com/Lightning-AI/lit-parrot && cd lit-parrot && git checkout carmocca/h100 \
+    && git clone https://github.com/Lightning-AI/lit-gpt && cd lit-gpt && git checkout carmocca/h100 \
     && pip install -r requirements.txt
 ```
 
@@ -84,7 +84,7 @@ Then you'll need to push your image, here's on guide using DockerHub:
 1. Install Docker: If you haven't already, [install Docker](https://docs.docker.com/engine/install/) on your local machine.
 2. Build the Docker image: Open a terminal, navigate to the directory containing your Dockerfile, and run the following command to build the Docker image: 
     ```bash
-    docker build -t lit-parrot-h100:v1 .
+    docker build -t lit-gpt-h100:v1 .
     ```
     Docker will read the Dockerfile and execute the instructions to create the image. It may take some time, depending on the complexity of your image and the internet speed to fetch dependencies.
 
@@ -95,7 +95,7 @@ Then you'll need to push your image, here's on guide using DockerHub:
 
 4. Tag the Docker image: Before pushing the image, you need to tag it with the repository information.
     ```bash
-    docker tag lit-parrot-h100:v1 username/repository:v1
+    docker tag lit-gpt-h100:v1 username/repository:v1
     ```
     Replace username/repository:tag with your Docker Hub username and the desired repository name.
 
