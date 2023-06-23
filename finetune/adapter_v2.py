@@ -100,7 +100,7 @@ def main(fabric: L.Fabric, data_dir: Path, checkpoint_dir: Path, out_dir: Path):
     fabric.print(f"Loading model {str(checkpoint_path)!r} with {config.__dict__}")
     with fabric.init_module(empty_init=False):
         model = GPT(config)
-        model.apply(model._init_weights)
+        model.apply(model._init_weights)  # for the adapter weights
     with lazy_load(checkpoint_path) as checkpoint:
         # strict=False because missing keys due to adapter weights not contained in state dict
         model.load_state_dict(checkpoint, strict=False)
