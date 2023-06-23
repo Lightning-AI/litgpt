@@ -118,7 +118,7 @@ def main(fabric: L.Fabric, train_data_dir: Path, val_data_dir: Optional[Path]) -
 
     fabric.print(f"Loading model with {config.__dict__}")
     t0 = time.time()
-    with fabric.init_module():
+    with fabric.init_module(empty_init=False):
         model = GPT(config)
         model.apply(model._init_weights)
     fabric.print(f"Time to instantiate model: {time.time() - t0:.02f} seconds.")
