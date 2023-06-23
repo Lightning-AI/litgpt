@@ -36,7 +36,7 @@ def prepare(
 ) -> None:
     """Prepare the Alpaca dataset for instruction tuning.
 
-    The output is a training and validation dataset saved as `train.pt` and `val.pt`,
+    The output is a training and validation dataset saved as `train.pt` and `test.pt`,
     which stores the preprocessed and tokenized prompts and labels.
     """
     with open(checkpoint_dir / "lit_config.json", "r") as file:
