@@ -3,8 +3,7 @@
 Based on the nanoGPT implementation: https://github.com/karpathy/nanoGPT and
 https://github.com/EleutherAI/gpt-neox/tree/main/megatron/model.
 """
-import math
-from typing import List, Optional, Tuple, Union
+from typing import List, Optional, Tuple
 
 import torch
 import torch.nn as nn
@@ -15,7 +14,8 @@ from lit_gpt.config import Config
 from lit_gpt.model import apply_rope, GPT as BaseModel, RoPECache, KVCache
 from lit_gpt.utils import find_multiple
 
-USE_TE_ATTENTION = False  # numerical difference: https://github.com/NVIDIA/TransformerEngine/issues/267
+
+ATTN_MASK_TYPE = "padding"
 
 
 class GPT(BaseModel):
@@ -82,7 +82,7 @@ class GPT(BaseModel):
         # passing `attn_mask` to SDPA downgrades it to use the inefficient implementation. since we only need the mask
         # for the kv-cache support (only during inference), we only create it in that situation
         # this will be resolved by https://github.com/pytorch/pytorch/issues/96099
-        if (use_kv_cache or padding > 0 or USE_TE_ATTENTION) and self.mask_cache is None:
+        if (use_kv_cache or padding > 0) and self.mask_cache is None:
             self.mask_cache = self.build_mask_cache(idx)
 
         cos, sin = self.rope_cache
@@ -139,13 +139,12 @@ class Block(nn.Module):
         self.norm_1_attn = LayerNormLinear(
             config.n_embd, shape, bias=config.bias, params_dtype=torch.get_default_dtype()
         )
-        if USE_TE_ATTENTION:
-            self.attn = DotProductAttention(
-                num_attention_heads=config.n_head,
-                kv_channels=config.head_size,
-                attn_mask_type="padding",  # FIXME: this could be causal if we aren't padding
-                layer_number=block_idx,
-            )
+        self.attn = DotProductAttention(
+            num_attention_heads=config.n_head,
+            kv_channels=config.head_size,
+            attn_mask_type=ATTN_MASK_TYPE,
+            layer_number=block_idx,
+        )
         # output projection
         self.proj = Linear(config.n_embd, config.n_embd, bias=config.bias, params_dtype=torch.get_default_dtype())
         if config.shared_attention_norm:
@@ -209,26 +208,12 @@ class Block(nn.Module):
             v = cache_v.index_copy_(2, input_pos, v)
             kv_cache = k, v
 
-        if USE_TE_ATTENTION:
-            # flash attn requires (T, B, nh, hs)
-            q = q.permute(2, 0, 1, 3)
-            k = k.permute(2, 0, 1, 3)
-            v = v.permute(2, 0, 1, 3)
-            y = self.attn(q, k, v, mask)
-            y = y.transpose(0, 1)
-        else:
-            scale = 1.0 / math.sqrt(self.config.head_size)
-            if padding == 0:
-                y = F.scaled_dot_product_attention(q, k, v, mask, dropout_p=0.0, scale=scale)
-            else:
-                # `scaled_dot_product_attention` produces nans when padding is added
-                # https://github.com/pytorch/pytorch/issues/103749
-                att = (q @ k.transpose(-2, -1)) * scale  # (B, nh, T, T)
-                att = torch.masked_fill(att, ~mask, torch.finfo(att.dtype).min)
-                att = F.softmax(att, dim=-1)
-                y = att @ v  # (B, nh, T, hs)
-
-            y = y.transpose(1, 2).contiguous().view(B, T, C)  # re-assemble all head outputs side by side
+        # flash attn requires (T, B, nh, hs)
+        q = q.permute(2, 0, 1, 3)
+        k = k.permute(2, 0, 1, 3)
+        v = v.permute(2, 0, 1, 3)
+        y = self.attn(q, k, v, ~mask)
+        y = y.transpose(0, 1)
 
         # output projection
         h = self.proj(y)
