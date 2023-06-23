@@ -242,7 +242,7 @@ class CausalSelfAttention(nn.Module):
 
 class MLP(BaseMLP):
     def __init__(self, config: Config) -> None:
-        super(BaseMLP, self).__init__()
+        nn.Module.__init__(self)
         hidden_dim = 4 * config.n_embd
         self.fc = Linear(config.n_embd, hidden_dim, bias=config.bias, params_dtype=torch.get_default_dtype())
         self.proj = Linear(hidden_dim, config.n_embd, bias=config.bias, params_dtype=torch.get_default_dtype())
