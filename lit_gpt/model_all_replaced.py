@@ -152,7 +152,7 @@ class Block(nn.Module):
             num_attention_heads=config.n_head,
             kv_channels=config.head_size,
             attn_mask_type=ATTN_MASK_TYPE,
-            layer_number=block_idx,
+            layer_number=block_idx + 1,
         )
         # output projection
         self.proj = Linear(config.n_embd, config.n_embd, bias=config.bias, params_dtype=torch.get_default_dtype())
