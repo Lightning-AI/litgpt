@@ -19,9 +19,8 @@ or [prepare your own dataset](#tune-on-your-dataset).
 ## Running the finetuning
 
 ```bash
-python finetune/full.py --checkpoint_dir checkpoints/tiiuae/falcon-7b --precision "bf16-mixed"
+python finetune/full.py --checkpoint_dir checkpoints/tiiuae/falcon-7b
 ```
-
 
 Finetuning the falcon-7b model requires at least 8 GPUs with ~40 GB memory each.
 
