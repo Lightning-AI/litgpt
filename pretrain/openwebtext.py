@@ -1,4 +1,3 @@
-import glob
 import math
 import sys
 import time
@@ -7,22 +6,22 @@ from pathlib import Path
 from typing import Tuple, Optional
 
 import lightning as L
+import numpy as np
 import torch
 from lightning.fabric.strategies import FSDPStrategy, XLAStrategy
 from torch.distributed.fsdp.wrap import transformer_auto_wrap_policy
-from torch.utils.data import DataLoader
 
 # support running without installing as a package
 wd = Path(__file__).parent.parent.resolve()
 sys.path.append(str(wd))
 
-from lit_gpt.model import Block, GPT, Config
-from lit_gpt.packed_dataset import PackedDataset, CombinedDataset
+from lit_gpt import Config
+from lit_gpt.model import GPT, Block
+from lit_gpt.speed_monitor import SpeedMonitor, measure_flops, estimate_flops
 from lit_gpt.utils import step_csv_logger, chunked_cross_entropy
-from lit_gpt.speed_monitor import SpeedMonitor, estimate_flops, measure_flops
 
 model_name = "pythia-70m"
-name = "redpajama"
+name = "openwebtext"
 out_dir = Path("out") / name
 data_dir = Path("data") / name
 save_interval = 1000
@@ -46,29 +45,11 @@ warmup_iters = 2000
 lr_decay_iters = max_iters
 min_lr = 6e-5
 
-
-# Data proportions from https://arxiv.org/pdf/2302.13971.pdf Table 1
-data_config = [
-    ("arxiv", 2.5),
-    ("book", 4.5),
-    ("c4", 15.0),
-    ("cc", 67.0),
-    ("github", 4.5),
-    ("stackexchange", 2.0),
-    ("wikipedia", 4.5),
-]
-
 hparams = {k: v for k, v in locals().items() if isinstance(v, (int, float, str)) and not k.startswith("_")}
 logger = step_csv_logger("out", name, flush_logs_every_n_steps=log_interval)
 
 
-def setup(
-    devices: int = 4,
-    train_data_dir: Path = Path("data/redpajama_sample"),
-    val_data_dir: Optional[Path] = None,
-    precision: Optional[str] = None,
-    tpu: bool = False,
-) -> None:
+def setup(devices: int = 1, precision: Optional[str] = None, tpu: bool = False) -> None:
     if precision is None:
         precision = "32-true" if tpu else "bf16-mixed"
     if devices > 1:
@@ -90,10 +71,10 @@ def setup(
 
     fabric = L.Fabric(devices=devices, strategy=strategy, precision=precision, loggers=logger)
     fabric.print(hparams)
-    fabric.launch(main, train_data_dir, val_data_dir)
+    fabric.launch(main)
 
 
-def main(fabric: L.Fabric, train_data_dir: Path, val_data_dir: Optional[Path]) -> None:
+def main(fabric: L.Fabric) -> None:
     speed_monitor = SpeedMonitor(fabric, window_size=50, time_unit="seconds")
 
     fabric.seed_everything(1337 + fabric.global_rank)
@@ -101,21 +82,9 @@ def main(fabric: L.Fabric, train_data_dir: Path, val_data_dir: Optional[Path]) -
     if fabric.global_rank == 0:
         out_dir.mkdir(parents=True, exist_ok=True)
 
+    train_data, val_data = load_datasets(data_dir)
+
     config = Config.from_name(model_name)
-
-    train_dataloader, val_dataloader = create_dataloaders(
-        batch_size=micro_batch_size,
-        block_size=config.block_size,
-        fabric=fabric,
-        train_data_dir=train_data_dir,
-        val_data_dir=val_data_dir,
-        seed=1337,
-    )
-    if val_dataloader is None:
-        train_dataloader = fabric.setup_dataloaders(train_dataloader)
-    else:
-        train_dataloader, val_dataloader = fabric.setup_dataloaders(train_dataloader, val_dataloader)
-
     fabric.print(f"Loading model with {config.__dict__}")
     t0 = time.time()
     with fabric.init_module(empty_init=False):
@@ -132,7 +101,7 @@ def main(fabric: L.Fabric, train_data_dir: Path, val_data_dir: Optional[Path]) -
     model, optimizer = fabric.setup(model, optimizer)
 
     train_time = time.time()
-    train(fabric, model, optimizer, train_dataloader, val_dataloader, speed_monitor)
+    train(fabric, model, optimizer, train_data, val_data, speed_monitor)
     fabric.print(f"Training time: {(time.time()-train_time):.2f}s")
 
 
@@ -140,12 +109,11 @@ def train(
     fabric: L.Fabric,
     model: GPT,
     optimizer: torch.optim.Optimizer,
-    train_dataloader: DataLoader,
-    val_dataloader: Optional[DataLoader],
+    train_data: np.ndarray,
+    val_data: np.ndarray,
     speed_monitor: SpeedMonitor,
 ) -> None:
-    if val_dataloader is not None:
-        validate(fabric, model, val_dataloader)  # sanity check
+    validate(fabric, model, val_data)  # sanity check
 
     with torch.device("meta"):
         meta_model = GPT(model.config)
@@ -165,10 +133,7 @@ def train(
         import torch_xla.core.xla_model as xm
 
         xm.mark_step()
-    for iter_num, train_data in enumerate(train_dataloader):
-        if iter_num >= max_iters:
-            break
-
+    for iter_num in range(max_iters):
         # determine and set the learning rate for this iteration
         lr = get_lr(iter_num) if decay_lr else learning_rate
         for param_group in optimizer.param_groups:
@@ -176,8 +141,7 @@ def train(
 
         iter_t0 = time.time()
 
-        input_ids = train_data[:, 0 : model.config.block_size].contiguous()
-        targets = train_data[:, 1 : model.config.block_size + 1].contiguous()
+        input_ids, targets = get_batch(fabric, train_data, model.config.block_size)
 
         is_accumulating = (iter_num + 1) % gradient_accumulation_steps != 0
         with fabric.no_backward_sync(model, enabled=is_accumulating):
@@ -209,9 +173,9 @@ def train(
                 f" {(t1 - iter_t0) * 1000:.2f}ms{' (optimizer.step)' if not is_accumulating else ''}"
             )
 
-        if val_dataloader is not None and not is_accumulating and step_count % eval_interval == 0:
+        if not is_accumulating and step_count % eval_interval == 0:
             t0 = time.time()
-            val_loss = validate(fabric, model, val_dataloader)
+            val_loss = validate(fabric, model, val_data)
             t1 = time.time() - t0
             speed_monitor.eval_end(t1)
             fabric.print(f"step {iter_num}: val loss {val_loss:.4f}, val time: {t1 * 1000:.2f}ms")
@@ -223,14 +187,13 @@ def train(
 
 
 @torch.no_grad()
-def validate(fabric: L.Fabric, model: torch.nn.Module, val_dataloader: DataLoader) -> torch.Tensor:
+def validate(fabric: L.Fabric, model: torch.nn.Module, val_data: np.ndarray) -> torch.Tensor:
     fabric.print("Validating ...")
     model.eval()
 
     losses = torch.zeros(eval_iters, device=fabric.device)
-    for k, val_data in enumerate(val_dataloader):
-        input_ids = val_data[:, 0 : model.config.block_size].contiguous()
-        targets = val_data[:, 1 : model.config.block_size + 1].contiguous()
+    for k in range(eval_iters):
+        input_ids, targets = get_batch(fabric, val_data, model.config.block_size)
         logits = model(input_ids)
         loss = chunked_cross_entropy(logits, targets, chunk_size=0)
         losses[k] = loss.item()
@@ -240,68 +203,21 @@ def validate(fabric: L.Fabric, model: torch.nn.Module, val_dataloader: DataLoade
     return out
 
 
-def create_dataloader(
-    batch_size: int, block_size: int, data_dir: Path, fabric, shuffle: bool = True, seed: int = 12345
-) -> DataLoader:
-    datasets = []
-    for prefix, _ in data_config:
-        filenames = glob.glob(str(data_dir / f"{prefix}*"))
-        dataset = PackedDataset(
-            filenames,
-            n_chunks=4,
-            block_size=block_size,
-            shuffle=shuffle,
-            seed=seed,
-            num_processes=fabric.world_size,
-            process_rank=fabric.global_rank,
-        )
-        datasets.append(dataset)
-
-    if not datasets:
-        raise RuntimeError(
-            f"No data found at {data_dir}. Make sure you ran prepare_redpajama.py to create the dataset."
-        )
-
-    weights = [weight for _, weight in data_config]
-    sum_weights = sum(weights)
-    weights = [el / sum_weights for el in weights]
-
-    combined_dataset = CombinedDataset(datasets=datasets, seed=seed, weights=weights)
-
-    return DataLoader(combined_dataset, batch_size=batch_size, shuffle=False, pin_memory=True)
+def get_batch(fabric: L.Fabric, data: np.ndarray, block_size: int) -> Tuple[torch.Tensor, torch.Tensor]:
+    ix = torch.randint(len(data) - block_size, (micro_batch_size,))
+    x = torch.stack([torch.from_numpy((data[i : i + block_size]).astype(np.int64)) for i in ix])
+    y = torch.stack([torch.from_numpy((data[i + 1 : i + 1 + block_size]).astype(np.int64)) for i in ix])
+    if fabric.device.type in ("mps", "xla"):
+        x, y = fabric.to_device((x, y))
+    else:
+        x, y = fabric.to_device((x.pin_memory(), y.pin_memory()))
+    return x, y
 
 
-def create_dataloaders(
-    batch_size: int,
-    block_size: int,
-    fabric,
-    train_data_dir: Path = Path("data/redpajama_sample"),
-    val_data_dir: Optional[Path] = None,
-    seed: int = 12345,
-) -> Tuple[DataLoader, DataLoader]:
-    # Increase by one because we need the next word as well
-    effective_block_size = block_size + 1
-    train_dataloader = create_dataloader(
-        batch_size=batch_size,
-        block_size=effective_block_size,
-        fabric=fabric,
-        data_dir=train_data_dir,
-        shuffle=True,
-        seed=seed,
-    )
-    val_dataloader = (
-        create_dataloader(
-            batch_size=batch_size,
-            block_size=effective_block_size,
-            fabric=fabric,
-            data_dir=val_data_dir,
-            shuffle=False,
-            seed=seed,
-        )
-        if val_data_dir
-        else None
-    )
-    return train_dataloader, val_dataloader
+def load_datasets(data_dir: Path) -> Tuple[np.ndarray, np.ndarray]:
+    train_data = np.memmap(str(data_dir / "train.bin"), dtype=np.uint16, mode="r")
+    val_data = np.memmap(str(data_dir / "val.bin"), dtype=np.uint16, mode="r")
+    return train_data, val_data
 
 
 # learning rate decay scheduler (cosine with warmup)

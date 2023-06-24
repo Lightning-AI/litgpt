@@ -1,6 +1,6 @@
 # Inference
 
-We demonstrate how to run inference (next token prediction) with the Parrot base model in the [`generate.py`](generate.py) script:
+We demonstrate how to run inference (next token prediction) with the GPT base model in the [`generate.py`](generate.py) script:
 
 ```bash
 python generate/base.py --prompt "Hello, my name is" --checkpoint_dir checkpoints/stabilityai/stablelm-base-alpha-3b
@@ -40,10 +40,10 @@ See `python generate.py --help` for more options.
 You can also use GPTQ-style int4 quantization, but this needs conversions of the weights first:
 
 ```bash
-python quantize/gptq.py --dtype bfloat16
+python quantize/gptq.py --precision bf16-true
 ```
 
-GPTQ-style int4 quantization brings GPU usage down. As only the weights of the Linear layers are quantized, it is useful to also use `--dtype bfloat16` (default) even with the quantization enabled.
+GPTQ-style int4 quantization brings GPU usage down. As only the weights of the Linear layers are quantized, it is useful to also use `--precision bf16-true` (default) even with the quantization enabled.
 
 With the generated quantized checkpoint generation quantization then works as usual with `--quantize gptq.int4` and the newly generated checkpoint file:
 

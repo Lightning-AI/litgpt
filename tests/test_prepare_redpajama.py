@@ -15,24 +15,22 @@ def maybe_get_file(url, file_path):
 
 
 def test_prepare_sample(tmp_path):
-    tmp_path.mkdir(parents=True, exist_ok=True)
-
     vocabulary_path = tmp_path / "tokenizer.json"
     maybe_get_file("https://huggingface.co/stabilityai/stablelm-base-alpha-3b/raw/main/tokenizer.json", vocabulary_path)
-
     tokenizer_path = tmp_path / "tokenizer_config.json"
-    maybe_get_file("https://huggingface.co/stabilityai/stablelm-base-alpha-3b/raw/main/tokenizer_config.json", tokenizer_path)
+    maybe_get_file(
+        "https://huggingface.co/stabilityai/stablelm-base-alpha-3b/raw/main/tokenizer_config.json", tokenizer_path
+    )
+    with open(tmp_path / "lit_config.json", "w") as f:
+        json.dump({"block_size": 2048}, f)
 
     sample_path = tmp_path / "sample"
     source_path = sample_path / "source"
     dest_path = sample_path / "dest"
 
-    source_path.mkdir(parents=True, exist_ok=True)
+    source_path.mkdir(parents=True)
 
-    sample = {
-        "meta": {"some": "info"},
-        "text": "some text"
-    }
+    sample = {"meta": {"some": "info"}, "text": "some text"}
 
     jsonl_sample = "\n".join([json.dumps(el) for el in [sample] * 2])
 
@@ -42,25 +40,16 @@ def test_prepare_sample(tmp_path):
         with open(source_path / filename, "w") as f:
             f.write(jsonl_sample)
 
-    prepare_redpajama.prepare(
-        source_path=source_path,
-        vocabulary_path=vocabulary_path,
-        tokenizer_path=tokenizer_path,
-        destination_path=dest_path,
-        sample=True
-    )
+    prepare_redpajama.prepare(source_path=source_path, checkpoint_dir=tmp_path, destination_path=dest_path)
 
     bin_files = [el.replace(".jsonl", "_0000000000.bin") for el in prepare_redpajama.filenames_sample]
 
     assert set(os.listdir(dest_path)) == set(bin_files)
 
-    from lit_parrot import Tokenizer
-    from lit_parrot.packed_dataset import PackedDataset
+    from lit_gpt import Tokenizer
+    from lit_gpt.packed_dataset import PackedDataset
 
-    tokenizer = Tokenizer(
-        vocabulary_path=vocabulary_path,
-        config_path=tokenizer_path
-    )
+    tokenizer = Tokenizer(vocabulary_path, tokenizer_path)
 
     # artificially set block_size to fit the text
     block_size = len(tokenizer.encode("some text"))
@@ -74,53 +63,44 @@ def test_prepare_sample(tmp_path):
 
 
 def test_prepare_full(tmp_path):
-    tmp_path.mkdir(parents=True, exist_ok=True)
-
     vocabulary_path = tmp_path / "tokenizer.json"
     maybe_get_file("https://huggingface.co/stabilityai/stablelm-base-alpha-3b/raw/main/tokenizer.json", vocabulary_path)
-
     tokenizer_path = tmp_path / "tokenizer_config.json"
-    maybe_get_file("https://huggingface.co/stabilityai/stablelm-base-alpha-3b/raw/main/tokenizer_config.json", tokenizer_path)
+    maybe_get_file(
+        "https://huggingface.co/stabilityai/stablelm-base-alpha-3b/raw/main/tokenizer_config.json", tokenizer_path
+    )
+    with open(tmp_path / "lit_config.json", "w") as f:
+        json.dump({"block_size": 2048}, f)
 
     full_path = tmp_path / "full"
     source_path = full_path / "source"
     dest_path = full_path / "dest"
 
-    source_path.mkdir(parents=True, exist_ok=True)
+    source_path.mkdir(parents=True)
 
-    sample = {
-        "meta": {"some": "info"},
-        "text": "some text"
-    }
+    sample = {"meta": {"some": "info"}, "text": "some text"}
 
     jsonl_sample = "\n".join([json.dumps(el) for el in [sample] * 2])
 
     import scripts.prepare_redpajama as prepare_redpajama
 
     arxiv_file = source_path / "arxiv" / "arxiv_0.jsonl"
-    arxiv_file.parent.mkdir(parents=True, exist_ok=True)
+    arxiv_file.parent.mkdir(parents=True)
     with open(arxiv_file, "w") as f:
         f.write(jsonl_sample)
 
     import zstandard as zstd
 
     cc_file = source_path / "common_crawl" / "cc_0.jsonl"
-    cc_file.parent.mkdir(parents=True, exist_ok=True)
+    cc_file.parent.mkdir(parents=True)
     with zstd.open(cc_file, "wt", encoding="utf-8") as f:
         f.write(jsonl_sample)
 
-    filename_sets = {
-        "arxiv": "arxiv/arxiv*",
-        "common_crawl": "common_crawl/*",
-    }
+    filename_sets = {"arxiv": "arxiv/arxiv*", "common_crawl": "common_crawl/*"}
 
     with mock.patch.object(prepare_redpajama, "filename_sets", filename_sets):
         prepare_redpajama.prepare(
-            source_path=source_path,
-            vocabulary_path=vocabulary_path,
-            tokenizer_path=tokenizer_path,
-            destination_path=dest_path,
-            sample=False
+            source_path=source_path, checkpoint_dir=tmp_path, destination_path=dest_path, sample=False
         )
 
         all_names = prepare_redpajama.filename_sets.keys()
@@ -128,13 +108,10 @@ def test_prepare_full(tmp_path):
 
     assert set(os.listdir(dest_path)) == set(bin_files)
 
-    from lit_parrot import Tokenizer
-    from lit_parrot.packed_dataset import PackedDataset
+    from lit_gpt import Tokenizer
+    from lit_gpt.packed_dataset import PackedDataset
 
-    tokenizer = Tokenizer(
-        vocabulary_path=vocabulary_path,
-        config_path=tokenizer_path
-    )
+    tokenizer = Tokenizer(vocabulary_path, tokenizer_path)
 
     # artificially set block_size to fit the text
     block_size = len(tokenizer.encode("some text"))

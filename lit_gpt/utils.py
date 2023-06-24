@@ -3,123 +3,46 @@
 import functools
 import pickle
 import warnings
+from contextlib import contextmanager
 from io import BytesIO
 from pathlib import Path
+from types import MethodType
+from typing import Optional, Any, Union, List
 
 import torch
 import torch.utils._device
-from lightning.fabric.strategies import DeepSpeedStrategy, FSDPStrategy
-from torch.distributed.fsdp import FullStateDictConfig
-from torch.distributed.fsdp import FullyShardedDataParallel as FSDP
-from torch.distributed.fsdp import StateDictType
+from lightning.fabric.loggers import CSVLogger
 from torch.serialization import normalize_storage_type
 
 
 def find_multiple(n: int, k: int) -> int:
+    assert k > 0
     if n % k == 0:
         return n
     return n + k - (n % k)
 
 
-def save_model_checkpoint(fabric, model, file_path):
-    """Handles boilerplate logic for retrieving and saving the state_dict.
-
-    This will be upstreamed to Fabric soon.
-    """
-    file_path = Path(file_path)
-
-    if isinstance(fabric.strategy, DeepSpeedStrategy):
-        from deepspeed.utils.zero_to_fp32 import convert_zero_checkpoint_to_fp32_state_dict
-
-        fabric.save(file_path, {"model": model})
-        fabric.barrier()
-        if fabric.global_rank == 0:
-            # Create a consolidated checkpoint with the same name next to the deepspeed checkpoint
-            convert_zero_checkpoint_to_fp32_state_dict(file_path, file_path.with_suffix(".pth"))
+@contextmanager
+def quantization(mode: Optional[str] = None):
+    if mode is None:
+        yield
         return
 
-    if isinstance(fabric.strategy, FSDPStrategy):
-        save_policy = FullStateDictConfig(offload_to_cpu=(fabric.world_size > 1), rank0_only=True)
-        with FSDP.state_dict_type(model, StateDictType.FULL_STATE_DICT, save_policy):
-            state_dict = model._forward_module.state_dict()
+    if mode == "llm.int8":
+        from quantize.bnb import Linear8bitLt
+
+        quantized_linear_cls = Linear8bitLt
+    elif mode == "gptq.int4":
+        from quantize.bnb import ColBlockQuantizedLinear
+
+        quantized_linear_cls = functools.partial(ColBlockQuantizedLinear, bits=4, tile_cols=-1)
     else:
-        state_dict = model.state_dict()
+        raise ValueError(f"Unknown quantization mode: {mode}")
 
-    if fabric.global_rank == 0:
-        torch.save(state_dict, file_path)
-    fabric.barrier()
-
-
-class EmptyInitOnDevice(torch.overrides.TorchFunctionMode):
-    def __init__(self, device=None, dtype=None, quantization_mode=None):
-        """
-        Create tensors with given device and dtype and don't run initialization
-           (but instead use "empty tensors", i.e. uninitialized memory).
-
-            device: `torch.device` to work with
-            dtype: `torch.dtype` to work with
-            quantization_mode: optional string, quantization mode to work with, default `None`.
-                 Available modes: `llm.int8` bitsnbytes LLM.int8 quantization (only on GPU)
-                                  `gptq.int4`, `gptq.int8`: GPTQ pre-quantized models
-
-        Example::
-            with EmptyInitOnDevice("cuda", dtype=torch.bfloat16):
-               model = ...
-            model.load_state_dict(torch.load('checkpoint.pth'))
-        """
-
-        self.quantization_mode = quantization_mode
-        self.quantized_linear_cls = None
-        if self.quantization_mode == "llm.int8":
-            if device.type != "cuda":
-                raise ValueError("Quantization is only supported on the GPU.")
-            from quantize.bnb import Linear8bitLt
-
-            self.quantized_linear_cls = Linear8bitLt
-        elif self.quantization_mode == "gptq.int4":
-            from quantize.bnb import ColBlockQuantizedLinear
-
-            self.quantized_linear_cls = functools.partial(ColBlockQuantizedLinear, bits=4, tile_cols=-1)
-        elif self.quantization_mode == "gptq.int8":
-            from quantize.bnb import ColBlockQuantizedLinear
-
-            self.quantized_linear_cls = functools.partial(ColBlockQuantizedLinear, bits=8, tile_cols=-1)
-        elif self.quantization_mode is not None:
-            raise RuntimeError(f"unknown quantization mode {self.quantization_mode}")
-        self.device = device
-        self.dtype = dtype
-
-    def __enter__(self):
-        if self.quantized_linear_cls != None:
-            self.torch_linear_cls = torch.nn.Linear
-            torch.nn.Linear = self.quantized_linear_cls
-        return super().__enter__()
-
-    def __exit__(self, exc_type, exc_val, exc_tb):
-        if self.quantized_linear_cls != None:
-            torch.nn.Linear = self.torch_linear_cls
-        return super().__exit__(exc_type, exc_val, exc_tb)
-
-    def __torch_function__(self, func, types, args=(), kwargs=None):
-        kwargs = kwargs or {}
-        if getattr(func, "__module__", None) == "torch.nn.init":
-            if "tensor" in kwargs:
-                return kwargs["tensor"]
-            else:
-                return args[0]
-        if (
-            self.device is not None
-            and func in torch.utils._device._device_constructors()
-            and kwargs.get("device") is None
-        ):
-            kwargs["device"] = self.device
-        if (
-            self.dtype is not None
-            and func in torch.utils._device._device_constructors()
-            and kwargs.get("dtype") is None
-        ):
-            kwargs["dtype"] = self.dtype
-        return func(*args, **kwargs)
+    torch_linear_cls = torch.nn.Linear
+    torch.nn.Linear = quantized_linear_cls
+    yield
+    torch.nn.Linear = torch_linear_cls
 
 
 # this is taken from torchhacks https://github.com/lernapparat/torchhacks
@@ -285,7 +208,7 @@ def check_valid_checkpoint_dir(checkpoint_dir: Path) -> None:
     else:
         extra = ""
 
-    from lit_parrot.config import configs
+    from lit_gpt.config import configs
 
     # list other possible checkpoints to download
     not_downloaded = [c for c in configs if not any(c in str(a) for a in available)]
@@ -293,10 +216,10 @@ def check_valid_checkpoint_dir(checkpoint_dir: Path) -> None:
     supported = f"You can download:{joined}"
 
     raise OSError(
-        f"`--checkpoint_dir {str(checkpoint_dir)!r} is not a valid checkpoint directory."
+        f"`--checkpoint_dir {str(checkpoint_dir.absolute())!r} is not a valid checkpoint directory."
         " It must contain the files: 'lit_model.pth', 'lit_config.json', 'tokenizer.json' and 'tokenizer_config.json'."
         "\nPlease, follow the instructions at"
-        " https://github.com/Lightning-AI/lit-parrot/blob/main/howto/download_stablelm.md\n"
+        " https://github.com/Lightning-AI/lit-gpt/blob/main/howto/download_stablelm.md\n"
         f"{extra}\n{supported}"
     )
 
@@ -323,13 +246,7 @@ class SavingProxyForStorage:
         storage_key = saver._write_storage_and_return_key(storage)
         location = torch.serialization.location_tag(storage)
 
-        self.storage_info = (
-            "storage",
-            storage_type,
-            storage_key,
-            location,
-            storage_numel,
-        )
+        self.storage_info = ("storage", storage_type, storage_key, location, storage_numel)
 
     def __reduce_ex__(self, protocol_version):
         assert False, "this should be handled with out of band"
@@ -338,22 +255,14 @@ class SavingProxyForStorage:
 class SavingProxyForTensor:
     def __init__(self, tensor, saver, protocol_version=5):
         self.protocol_version = protocol_version
-        self.reduce_ret_fn, (storage, *other_reduce_args) = tensor.__reduce_ex__(
-            protocol_version
-        )
-        assert isinstance(
-            storage, torch.storage.TypedStorage
-        ), "Please check for updates"
-        storage_proxy = SavingProxyForStorage(
-            storage, saver, protocol_version=protocol_version
-        )
+        self.reduce_ret_fn, (storage, *other_reduce_args) = tensor.__reduce_ex__(protocol_version)
+        assert isinstance(storage, torch.storage.TypedStorage), "Please check for updates"
+        storage_proxy = SavingProxyForStorage(storage, saver, protocol_version=protocol_version)
         self.reduce_args = (storage_proxy, *other_reduce_args)
 
     def __reduce_ex__(self, protocol_version):
         if protocol_version != self.protocol_version:
-            raise RuntimeError(
-                f"Unexpected protocol version: expected {self.protocol_version}, got {protocol_version}"
-            )
+            raise RuntimeError(f"Unexpected protocol version: expected {self.protocol_version}, got {protocol_version}")
         return self.reduce_ret_fn, self.reduce_args
 
 
@@ -397,8 +306,7 @@ class IncrementalPyTorchPickler(pickle.Pickler):
                 if storage.data_ptr() in self.storage_dtypes:
                     if storage_dtype != self.storage_dtypes[storage.data_ptr()]:
                         raise RuntimeError(
-                            "Cannot save multiple tensors or storages that "
-                            "view the same data as different types"
+                            "Cannot save multiple tensors or storages that view the same data as different types"
                         )
                 else:
                     self.storage_dtypes[storage.data_ptr()] = storage_dtype
@@ -454,3 +362,75 @@ class incremental_save:
 
     def __exit__(self, type, value, traceback):
         self.zipfile.write_end_of_file()
+
+
+def step_csv_logger(*args: Any, **kwargs: Any) -> CSVLogger:
+    logger = CSVLogger(*args, **kwargs)
+
+    def merge_by(dicts, key):
+        from collections import defaultdict
+
+        out = defaultdict(dict)
+        for d in dicts:
+            if key in d:
+                out[d[key]].update(d)
+        return [v for _, v in sorted(out.items())]
+
+    def save(self) -> None:
+        """Overridden to merge CSV by the step number."""
+        import csv
+
+        if not self.metrics:
+            return
+        metrics = merge_by(self.metrics, "step")
+        keys = sorted({k for m in metrics for k in m})
+        with self._fs.open(self.metrics_file_path, "w", newline="") as f:
+            writer = csv.DictWriter(f, fieldnames=keys)
+            writer.writeheader()
+            writer.writerows(metrics)
+
+    logger.experiment.save = MethodType(save, logger.experiment)
+
+    return logger
+
+
+def chunked_cross_entropy(
+    logits: Union[torch.Tensor, List[torch.Tensor]], targets: torch.Tensor, chunk_size: int = 128
+) -> torch.Tensor:
+    # with large max_sequence_lengths, the beginning of `backward` allocates a large memory chunk which can dominate
+    # the memory usage in fine-tuning settings with low number of parameters.
+    # as a workaround hack, the cross entropy computation is chunked to force it to deallocate on the go, reducing
+    # the memory spike's magnitude
+
+    # lm_head was chunked (we are fine-tuning)
+    if isinstance(logits, list):
+        # don't want to chunk cross entropy
+        if chunk_size == 0:
+            logits = torch.cat(logits, dim=1)
+            logits = logits.reshape(-1, logits.size(-1))
+            targets = targets.reshape(-1)
+            return torch.nn.functional.cross_entropy(logits, targets, ignore_index=-1)
+
+        # chunk cross entropy
+        logit_chunks = [logit_chunk.reshape(-1, logit_chunk.size(-1)) for logit_chunk in logits]
+        target_chunks = [target_chunk.reshape(-1) for target_chunk in targets.split(logits[0].size(1), dim=1)]
+        loss_chunks = [
+            torch.nn.functional.cross_entropy(logit_chunk, target_chunk, ignore_index=-1, reduction="none")
+            for logit_chunk, target_chunk in zip(logit_chunks, target_chunks)
+        ]
+        return torch.cat(loss_chunks).mean()
+
+    # no chunking at all
+    logits = logits.reshape(-1, logits.size(-1))
+    targets = targets.reshape(-1)
+    if chunk_size == 0:
+        return torch.nn.functional.cross_entropy(logits, targets, ignore_index=-1)
+
+    # lm_head wasn't chunked, chunk cross entropy
+    logit_chunks = logits.split(chunk_size)
+    target_chunks = targets.split(chunk_size)
+    loss_chunks = [
+        torch.nn.functional.cross_entropy(logit_chunk, target_chunk, ignore_index=-1, reduction="none")
+        for logit_chunk, target_chunk in zip(logit_chunks, target_chunks)
+    ]
+    return torch.cat(loss_chunks).mean()

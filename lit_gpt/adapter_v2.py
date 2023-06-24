@@ -1,33 +1,37 @@
 """
-Utility functions to extend the original Parrot-Adapter method to Parrot-Adapter v2,
+Utility functions to extend the original GPT-Adapter method to GPT-Adapter v2,
 This is a port from Lit-LLaMA based on the code prepared by @rasbt aka Sebastian Raschka
 """
+from typing import Any
 
 import torch
-from torch import Tensor
 
-from lit_parrot.adapter import Parrot
-
-
-def get_adapter_substrings():
-    substrings = ["adapter_wte", "gating_factor"]  # regular adapter v1 parameters
-    substrings.extend(["adapter_scale", "adapter_bias"])  # adapter v2: new bias and scale used in Linear
-    substrings.extend(["norm_1", "norm_2", "ln_f"])  # adapter v2: Norm parameters are now trainable
-    return substrings
+from lit_gpt.adapter import GPT
 
 
-def mark_only_adapter_v2_as_trainable(model: Parrot) -> None:
+def adapter_filter(key: str, value: Any) -> bool:
+    adapter_substrings = (
+        # regular adapter v1 parameters
+        "adapter_wte",
+        "gating_factor",
+        # adapter v2: new bias and scale used in Linear
+        "adapter_scale",
+        "adapter_bias",
+        # adapter v2: Norm parameters are now trainable
+        "norm_1",
+        "norm_2",
+        "ln_f",
+    )
+    return any(s in key for s in adapter_substrings)
+
+
+def mark_only_adapter_v2_as_trainable(model: GPT) -> None:
     """Sets requires_grad=False for all non-adapter weights"""
     for name, param in model.named_parameters():
-        param.requires_grad = any(s in name for s in get_adapter_substrings())
+        param.requires_grad = adapter_filter(name, param)
 
 
-def adapter_v2_state_from_state_dict(state_dict: dict) -> dict:
-    """Return the model state dict with only the adapter weights for saving"""
-    return {name: param for name, param in state_dict.items() if any(s in name for s in get_adapter_substrings())}
-
-
-def adapter_v2_new_forward(self, input: Tensor) -> Tensor:
+def adapter_v2_new_forward(self, input: torch.Tensor) -> torch.Tensor:
     return self.adapter_scale * (torch.nn.functional.linear(input, self.weight, self.bias) + self.adapter_bias)
 
 

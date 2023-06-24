@@ -16,7 +16,7 @@ wd = Path(__file__).parent.parent.absolute()
 @pytest.mark.parametrize("parallel_residual", (False, True))
 @pytest.mark.parametrize("kv_cache", (False, True))
 def test_against_hf_model(rotary_pct, batch_size, n_embd, parallel_residual, kv_cache) -> None:
-    import lit_parrot
+    import lit_gpt
     from scripts.convert_hf_checkpoint import copy_weights_gpt_neox
 
     block_size = 64
@@ -26,7 +26,7 @@ def test_against_hf_model(rotary_pct, batch_size, n_embd, parallel_residual, kv_
     n_head = 8
     batch_size = 3
 
-    ours_config = lit_parrot.Config(
+    ours_config = lit_gpt.Config(
         block_size=block_size,
         vocab_size=vocab_size,
         n_layer=n_layer,
@@ -56,7 +56,7 @@ def test_against_hf_model(rotary_pct, batch_size, n_embd, parallel_residual, kv_
     theirs_model = GPTNeoXForCausalLM(theirs_config)
     # load the hf initialization into our model
     copy_weights_gpt_neox(state_dict, theirs_model.state_dict())
-    ours_model = lit_parrot.Parrot(ours_config)
+    ours_model = lit_gpt.GPT(ours_config)
     ours_model.load_state_dict(state_dict)
 
     token_sample = torch.randint(0, ours_config.padded_vocab_size, size=(batch_size, block_size), dtype=torch.int64)
@@ -74,13 +74,13 @@ def test_against_hf_model(rotary_pct, batch_size, n_embd, parallel_residual, kv_
         v_cache_shape = (batch_size, n_head, block_size, head_size)
         ours_kv_cache = torch.zeros(k_cache_shape), torch.zeros(v_cache_shape)
         (ours_block_out, ours_kv_cache) = ours_model.transformer.h[0](
-            ours_embed, rope, mask, block_size, torch.arange(block_size), ours_kv_cache
+            ours_embed, rope, block_size, mask, torch.arange(block_size), ours_kv_cache
         )
         for ours_cache, theirs_cache in zip(ours_kv_cache, theirs_kv_cache):
             torch.testing.assert_close(ours_cache, theirs_cache)
     else:
         (theirs_block_out,) = theirs_model.gpt_neox.layers[0](theirs_embed)
-        ours_block_out, _ = ours_model.transformer.h[0](ours_embed, rope, mask, block_size)
+        ours_block_out, _ = ours_model.transformer.h[0](ours_embed, rope, block_size, mask)
     torch.testing.assert_close(ours_block_out, theirs_block_out)
 
     theirs = theirs_model(token_sample)["logits"]
@@ -96,7 +96,7 @@ def test_against_original_falcon_40b():
         urlretrieve(url=url, filename=file_path)
 
     from tests.original_falcon_40b import RWConfig, RWForCausalLM
-    from lit_parrot import Config, Parrot
+    from lit_gpt import Config, GPT
     from scripts.convert_hf_checkpoint import copy_weights_falcon
 
     ours_config = Config.from_name("falcon-40b", n_layer=2, n_head=8, n_query_groups=4, n_embd=32)
@@ -113,52 +113,20 @@ def test_against_original_falcon_40b():
     state_dict = {}
     copy_weights_falcon("40b", state_dict, theirs_state_dict)
 
-    ours_model = Parrot(ours_config)
+    ours_model = GPT(ours_config)
     ours_model.load_state_dict(state_dict)
     y_ours = ours_model(x)
 
     torch.testing.assert_close(y_ours, y_theirs)
 
 
-@pytest.mark.skipif(not torch.cuda.is_available(), reason="Requires CUDA")
-@pytest.mark.xfail(raises=AssertionError)  # https://github.com/Lightning-AI/lit-parrot/issues/13
-@torch.inference_mode()
-def test_model_bfloat16() -> None:
-    import lit_parrot
-    from lit_parrot.utils import EmptyInitOnDevice
-
-    block_size = 64
-    vocab_size = 32000
-    n_layer = 16
-    n_head = 16
-    n_embd = 32
-
-    config = lit_parrot.Config(
-        block_size=block_size, vocab_size=vocab_size, n_layer=n_layer, n_head=n_head, n_embd=n_embd
-    )
-    model = lit_parrot.Parrot(config)
-    model.apply(model._init_weights)
-
-    batch_size = 3
-    token_sample = torch.randint(0, vocab_size, size=(batch_size, block_size), dtype=torch.int64)
-
-    expected = model(token_sample)
-
-    with EmptyInitOnDevice(device="cuda", dtype=torch.bfloat16):
-        model2 = lit_parrot.Parrot(config)
-    model2.load_state_dict(model.state_dict(keep_vars=True))
-
-    out = model2(token_sample.cuda()).float().cpu()
-    torch.testing.assert_close(out, expected, atol=5e-3, rtol=1e-3)
-
-
 @pytest.mark.skipif(sys.platform in ("win32", "darwin"), reason="torch.compile not supported on this platform")
 @torch.inference_mode()
 def test_model_compile():
-    import lit_parrot
+    import lit_gpt
 
-    config = lit_parrot.Config(block_size=8, vocab_size=8, n_layer=2, n_head=2, n_embd=4)
-    model = lit_parrot.Parrot(config)
+    config = lit_gpt.Config(block_size=8, vocab_size=8, n_layer=2, n_head=2, n_embd=4)
+    model = lit_gpt.GPT(config)
     model.apply(model._init_weights)
 
     model = torch.compile(model)
@@ -166,3 +134,37 @@ def test_model_compile():
     sample = torch.randint(model.config.vocab_size, size=(2, model.config.block_size), dtype=torch.int64)
     for _ in range(3):
         _ = model(sample)
+
+
+@torch.inference_mode()
+@pytest.mark.parametrize("set_highest_max_seq_length", (False, True))
+@pytest.mark.flaky(reruns=5)
+def test_kv_cache(set_highest_max_seq_length):
+    from lit_gpt import GPT, Config
+
+    config = Config(block_size=25, padded_vocab_size=5, n_layer=2, n_head=2, n_embd=8)
+    model = GPT(config)
+    idx = torch.randint(0, model.config.padded_vocab_size, (1, 5))
+    max_new_tokens = 20
+    max_seq_length = 25 if set_highest_max_seq_length else 10
+
+    def generate(logits):
+        logits = logits[:, -1:]
+        probs = torch.nn.functional.softmax(logits, dim=-1)
+        return torch.argmax(probs).unsqueeze(0).unsqueeze(0)
+
+    x_no_cache = idx
+    x_cache = idx
+    input_pos = torch.arange(0, 5)
+    for _ in range(max_new_tokens):
+        logits_no_cache = model(x_no_cache, max_seq_length)
+        out_no_cache = generate(logits_no_cache)
+
+        logits_cache = model(x_cache, max_seq_length, input_pos)
+        out_cache = generate(logits_cache)
+
+        torch.testing.assert_close(out_no_cache, out_cache, rtol=0, atol=0)
+
+        x_no_cache = torch.cat((x_no_cache, out_no_cache), dim=1)
+        x_cache = out_cache
+        input_pos = torch.tensor([input_pos[-1] + 1])

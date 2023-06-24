@@ -4,20 +4,20 @@ Based on the nanoGPT implementation: https://github.com/karpathy/nanoGPT and
 https://github.com/EleutherAI/gpt-neox/tree/main/megatron/model.
 """
 import math
-from typing import List, Optional, Tuple, Any, Union
+from typing import List, Optional, Tuple, Any
 
 import torch
 import torch.nn as nn
 from torch.nn import functional as F
 from typing_extensions import Self
 
-from lit_parrot.config import Config
+from lit_gpt.config import Config
 
 RoPECache = Tuple[torch.Tensor, torch.Tensor]
 KVCache = Tuple[torch.Tensor, torch.Tensor]
 
 
-class Parrot(nn.Module):
+class GPT(nn.Module):
     def __init__(self, config: Config) -> None:
         super().__init__()
         assert config.padded_vocab_size is not None
@@ -52,29 +52,36 @@ class Parrot(nn.Module):
     def reset_cache(self) -> None:
         self.kv_caches.clear()
         if self.mask_cache is not None and self.mask_cache.device.type == "xla":
-            # https://github.com/Lightning-AI/lit-parrot/pull/83#issuecomment-1558150179
+            # https://github.com/Lightning-AI/lit-gpt/pull/83#issuecomment-1558150179
             self.rope_cache = None
             self.mask_cache = None
 
     def forward(
         self, idx: torch.Tensor, max_seq_length: Optional[int] = None, input_pos: Optional[torch.Tensor] = None
-    ) -> Union[torch.Tensor, Tuple[torch.Tensor, List[KVCache]]]:
+    ) -> torch.Tensor:
         B, T = idx.size()
+        use_kv_cache = input_pos is not None
 
         block_size = self.config.block_size
         if max_seq_length is None:
             max_seq_length = block_size
-        assert T <= max_seq_length, f"Cannot forward sequence of length {T}, max seq length is only {max_seq_length}"
+        if use_kv_cache:  # not relevant otherwise
+            assert (
+                T <= max_seq_length
+            ), f"Cannot forward sequence of length {T}, max seq length is only {max_seq_length}"
         assert max_seq_length <= block_size, f"Cannot attend to {max_seq_length}, block size is only {block_size}"
         assert T <= block_size, f"Cannot forward sequence of length {T}, block size is only {block_size}"
 
         if self.rope_cache is None:
             self.rope_cache = self.build_rope_cache(idx)
-        if self.mask_cache is None:
+        # passing `attn_mask` to SDPA downgrades it to use the inefficient implementation. since we only need the mask
+        # for the kv-cache support (only during inference), we only create it in that situation
+        # this will be resolved by https://github.com/pytorch/pytorch/issues/96099
+        if use_kv_cache and self.mask_cache is None:
             self.mask_cache = self.build_mask_cache(idx)
 
         cos, sin = self.rope_cache
-        if input_pos is not None:
+        if use_kv_cache:
             cos = cos.index_select(0, input_pos)
             sin = sin.index_select(0, input_pos)
             mask = self.mask_cache.index_select(2, input_pos)
@@ -82,18 +89,18 @@ class Parrot(nn.Module):
         else:
             cos = cos[:T]
             sin = sin[:T]
-            mask = self.mask_cache[:, :, :T, :T]
+            mask = None
 
         # forward the model itself
         x = self.transformer.wte(idx)  # token embeddings of shape (b, t, n_embd)
 
-        if input_pos is None:  # proxy for use_cache=False
+        if not use_kv_cache:
             for block in self.transformer.h:
-                x, *_ = block(x, (cos, sin), mask, max_seq_length)
+                x, *_ = block(x, (cos, sin), max_seq_length)
         else:
             self.kv_caches = self.kv_caches or self.build_kv_caches(x, max_seq_length, cos.size(-1))
             for i, block in enumerate(self.transformer.h):
-                x, self.kv_caches[i] = block(x, (cos, sin), mask, max_seq_length, input_pos, self.kv_caches[i])
+                x, self.kv_caches[i] = block(x, (cos, sin), max_seq_length, mask, input_pos, self.kv_caches[i])
 
         x = self.transformer.ln_f(x)
 
@@ -127,12 +134,9 @@ class Parrot(nn.Module):
             rope_cache_length + self.config.head_size - int(self.config.rotary_percentage * self.config.head_size),
         )
         v_cache_shape = (B, heads, max_seq_length, self.config.head_size)
-        device, dtype = idx.device, idx.dtype
+        device = idx.device
         return [
-            (
-                torch.zeros(k_cache_shape, device=device, dtype=dtype),
-                torch.zeros(v_cache_shape, device=device, dtype=dtype),
-            )
+            (torch.zeros(k_cache_shape, device=device), torch.zeros(v_cache_shape, device=device))
             for _ in range(self.config.n_layer)
         ]
 
@@ -152,13 +156,13 @@ class Block(nn.Module):
         self,
         x: torch.Tensor,
         rope: RoPECache,
-        mask: torch.Tensor,
         max_seq_length: int,
+        mask: Optional[torch.Tensor] = None,
         input_pos: Optional[torch.Tensor] = None,
         kv_cache: Optional[KVCache] = None,
     ) -> Tuple[torch.Tensor, Optional[KVCache]]:
         n_1 = self.norm_1(x)
-        h, new_kv_cache = self.attn(n_1, rope, mask, max_seq_length, input_pos, kv_cache)
+        h, new_kv_cache = self.attn(n_1, rope, max_seq_length, mask, input_pos, kv_cache)
         if self.config.parallel_residual:
             n_2 = n_1 if self.config.shared_attention_norm else self.norm_2(x)
             x = x + h + self.mlp(n_2)
@@ -188,8 +192,8 @@ class CausalSelfAttention(nn.Module):
         self,
         x: torch.Tensor,
         rope: RoPECache,
-        mask: torch.Tensor,
         max_seq_length: int,
+        mask: Optional[torch.Tensor] = None,
         input_pos: Optional[torch.Tensor] = None,
         kv_cache: Optional[KVCache] = None,
     ) -> Tuple[torch.Tensor, Optional[KVCache]]:
@@ -221,19 +225,20 @@ class CausalSelfAttention(nn.Module):
 
         if input_pos is not None and kv_cache is not None:
             cache_k, cache_v = kv_cache
+            cache_k, cache_v = cache_k.to(dtype=k.dtype), cache_v.to(dtype=v.dtype)
             # check if reached token limit
             if input_pos[-1] >= max_seq_length:
                 input_pos = torch.tensor(max_seq_length - 1, device=input_pos.device)
                 # shift 1 position to the left
                 cache_k = torch.roll(cache_k, -1, dims=2)
                 cache_v = torch.roll(cache_v, -1, dims=2)
-            k = cache_k.index_copy(2, input_pos, k)
-            v = cache_v.index_copy(2, input_pos, v)
+            k = cache_k.index_copy_(2, input_pos, k)
+            v = cache_v.index_copy_(2, input_pos, v)
             kv_cache = k, v
 
         # efficient attention using Flash Attention CUDA kernels
         y = F.scaled_dot_product_attention(
-            q, k, v, attn_mask=mask, dropout_p=0.0, scale=1.0 / math.sqrt(self.config.head_size)
+            q, k, v, attn_mask=mask, dropout_p=0.0, scale=1.0 / math.sqrt(self.config.head_size), is_causal=mask is None
         )
 
         y = y.transpose(1, 2).contiguous().view(B, T, C)  # re-assemble all head outputs side by side
