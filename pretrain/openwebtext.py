@@ -24,15 +24,15 @@ model_name = "pythia-70m"
 name = "openwebtext"
 out_dir = Path("out") / name
 data_dir = Path("data") / name
-save_interval = 99999999999999999
-eval_interval = 99999999999999999
+save_interval = 1000
+eval_interval = 1000
 eval_iters = 100
 log_interval = 1
 
 # Hyperparameters
 learning_rate = 6e-4
-batch_size = 3
-micro_batch_size = 3
+batch_size = 125
+micro_batch_size = 5
 gradient_accumulation_steps = batch_size // micro_batch_size
 assert gradient_accumulation_steps > 0
 max_iters = 600000  # num_epochs * (epoch_size // micro_batch_size) // devices
@@ -44,7 +44,6 @@ decay_lr = True
 warmup_iters = 2000
 lr_decay_iters = max_iters
 min_lr = 6e-5
-fake_data = True  # FIXME
 
 hparams = {k: v for k, v in locals().items() if isinstance(v, (int, float, str)) and not k.startswith("_")}
 logger = step_csv_logger("out", name, flush_logs_every_n_steps=log_interval)
@@ -205,10 +204,6 @@ def validate(fabric: L.Fabric, model: torch.nn.Module, val_data: np.ndarray) -> 
 
 
 def get_batch(fabric: L.Fabric, data: np.ndarray, block_size: int) -> Tuple[torch.Tensor, torch.Tensor]:
-    if fake_data:
-        x = torch.randint(0, 100, (micro_batch_size, block_size), device=fabric.device)
-        y = torch.randint_like(x, 0, 100)
-        return x, y
     ix = torch.randint(len(data) - block_size, (micro_batch_size,))
     x = torch.stack([torch.from_numpy((data[i : i + block_size]).astype(np.int64)) for i in ix])
     y = torch.stack([torch.from_numpy((data[i + 1 : i + 1 + block_size]).astype(np.int64)) for i in ix])
@@ -220,8 +215,6 @@ def get_batch(fabric: L.Fabric, data: np.ndarray, block_size: int) -> Tuple[torc
 
 
 def load_datasets(data_dir: Path) -> Tuple[np.ndarray, np.ndarray]:
-    if fake_data:
-        return None, None  # type: ignore
     train_data = np.memmap(str(data_dir / "train.bin"), dtype=np.uint16, mode="r")
     val_data = np.memmap(str(data_dir / "val.bin"), dtype=np.uint16, mode="r")
     return train_data, val_data
