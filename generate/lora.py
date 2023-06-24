@@ -46,10 +46,10 @@ def main(
 
     Args:
         prompt: The prompt/instruction (Alpaca style).
+        input: Optional input (Alpaca style).
         lora_path: Path to the checkpoint with trained adapter weights, which are the output of
             `finetune/lora.py`.
         checkpoint_dir: The path to the checkpoint folder with pretrained GPT weights.
-        input: Optional input (Alpaca style).
         quantize: Whether to quantize the model and using which method:
             ``"llm.int8"``: LLM.int8() mode,
             ``"gptq.int4"``: GPTQ 4-bit mode.
