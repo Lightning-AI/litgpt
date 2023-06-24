@@ -1,8 +1,6 @@
 # Finetuning the whole model
 
-If you are interested in parameter-efficient finetuning, check out [finetune_adapter.md](finetune_adapter.md). In contrast to parameter-efficient finetining, this "full" approach finetunes all model parameters, which is substantially more expensive. It may only be recommended as a baseline for comparison studies.
-
-
+If you are interested in parameter-efficient finetuning, check out [finetune_adapter.md](finetune_adapter.md). In contrast to parameter-efficient finetuning, this "full" approach finetunes all model parameters, which is substantially more expensive. It may only be recommended as a baseline for comparison studies.
 
 ## Preparation
 
@@ -10,8 +8,7 @@ The steps here only need to be done once:
 
 1. Follow the instructions in the [README](../README.md) to install the dependencies.
 2. Download and convert the weights following our [guide](download_stablelm.md).
-3. If you want to utilize more than one GPU, you should `pip install deepspeed`.
-4. Download the data and generate the Alpaca instruction tuning dataset:
+3. Download the data and generate the Alpaca instruction tuning dataset:
 
 ```bash
 python scripts/prepare_alpaca.py --checkpoint_dir checkpoints/tiiuae/falcon-7b
@@ -26,11 +23,10 @@ python finetune/full.py --checkpoint_dir checkpoints/tiiuae/falcon-7b --precisio
 ```
 
 
-The finetuning the falcon-7b model requires at least 8 GPUs with ~40 GB memory each.
+Finetuning the falcon-7b model requires at least 8 GPUs with ~40 GB memory each.
 
 You can speed up training by setting the `devices` variable in the script to utilize more GPUs if available.
 Depending on the available GPU memory, you can also tune the `micro_batch_size` parameter to utilize the GPU efficiently.
-
 
 This script will save checkpoints periodically to the `out_dir` directory. If you are finetuning different models or on your own dataset, you can specify an output directory with your preferred name:
 
@@ -38,10 +34,14 @@ This script will save checkpoints periodically to the `out_dir` directory. If yo
 python finetune/full.py --out_dir out/full/my-model-finetuned
 ```
 
-
-If your GPU does not support `bfloat16`, you can try to pass the `--precision 32-true` argument, but it may require more GPUs as it may consume more memory.
+If your GPU does not support `bfloat16`, you can pass the `--precision 32-true` argument.
 For instance, to fine-tune on MPS (the GPU on modern Macs), you can run
 
+```bash
+python finetune/full.py --out_dir out/full/my-model-finetuned --precision 32-true
+```
+
+Note that `mps` as the accelerator will be picked up automatically by Fabric when running on a modern Mac.
 
 ## Test the model
 
@@ -57,7 +57,7 @@ Output:
 ```
 A good movie to watch on the weekend would be The Lion King, since it's a classic family film that everyone can enjoy...
 ```
-
+If your GPU supports `bfloat16`, the script will automatically use it.
 
 ## Tune on your dataset
 

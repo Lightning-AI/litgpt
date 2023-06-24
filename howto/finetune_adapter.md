@@ -14,7 +14,7 @@ The steps here only need to be done once:
 
 1. Follow the instructions in the [README](../README.md) to install the dependencies.
 2. Download and convert the weights following our [guide](download_stablelm.md).
-4. Download the data and generate the Alpaca instruction tuning dataset:
+3. Download the data and generate the Alpaca instruction tuning dataset:
 
 ```bash
 python scripts/prepare_alpaca.py --checkpoint_dir checkpoints/stabilityai/stablelm-base-alpha-3b
