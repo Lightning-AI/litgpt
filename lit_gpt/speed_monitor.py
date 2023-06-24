@@ -222,7 +222,7 @@ class SpeedMonitor:
             dev_samples_per_sec = elapsed_samples / elapsed_wct
             metrics.update(
                 {
-                    "throughput/batches_per_se": elapsed_batches * world_size / elapsed_wct,
+                    "throughput/batches_per_sec": elapsed_batches * world_size / elapsed_wct,
                     "throughput/samples_per_sec": samples_per_sec,
                     "throughput/device/batches_per_sec": elapsed_batches / elapsed_wct,
                     "throughput/device/samples_per_sec": dev_samples_per_sec,
