@@ -15,7 +15,7 @@ from lit_gpt.model import apply_rope, GPT as BaseModel, RoPECache, KVCache
 from lit_gpt.utils import find_multiple
 
 
-ATTN_MASK_TYPE = "padding"
+ATTN_MASK_TYPE = "causal"  # use "padding" for inference
 
 
 class GPT(BaseModel):
