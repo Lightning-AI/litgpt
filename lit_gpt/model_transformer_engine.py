@@ -1,8 +1,3 @@
-"""Full definition of a GPT NeoX Language Model, all of it in this single file.
-
-Based on the nanoGPT implementation: https://github.com/karpathy/nanoGPT and
-https://github.com/EleutherAI/gpt-neox/tree/main/megatron/model.
-"""
 from typing import List, Optional, Tuple
 
 import torch
