@@ -210,8 +210,8 @@ class CausalSelfAttention(nn.Module):
 
         # split batched computation into three
         if self.config._mlp_class == "LLaMAMLP":  # is llama
-            qkv = qkv.view(B, 1, -1, T, self.config.head_size)  # (B, 1, total_qkv, T, hs)
-            q, k, v = qkv.split(self.config.n_head, dim=2)
+            qkv = qkv.view(B, -1, T, self.config.head_size)  # (B, 1, total_qkv, T, hs)
+            q, k, v = qkv.split(self.config.n_head, dim=1)
         else:
             q, k, v = qkv.split((q_per_kv, 1, 1), dim=2)
 
