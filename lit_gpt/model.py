@@ -8,10 +8,10 @@ from typing import List, Optional, Tuple, Any
 
 import torch
 import torch.nn as nn
-from torch.nn import functional as F
 from typing_extensions import Self
 
 from lit_gpt.config import Config
+from lit_gpt.rmsnorm import RMSNorm
 
 RoPECache = Tuple[torch.Tensor, torch.Tensor]
 KVCache = Tuple[torch.Tensor, torch.Tensor]
@@ -28,7 +28,7 @@ class GPT(nn.Module):
             dict(
                 wte=nn.Embedding(config.padded_vocab_size, config.n_embd),
                 h=nn.ModuleList(Block(config) for _ in range(config.n_layer)),
-                ln_f=nn.LayerNorm(config.n_embd),
+                ln_f=config.norm_class(config.n_embd, eps=config.norm_eps),
             )
         )
         self.rope_cache: Optional[RoPECache] = None
@@ -37,17 +37,18 @@ class GPT(nn.Module):
 
     def _init_weights(self, module: nn.Module) -> None:
         if isinstance(module, nn.Linear):
-            # https://huggingface.co/stabilityai/stablelm-base-alpha-3b/blob/main/config.json#L10
-            torch.nn.init.normal_(module.weight, mean=0.0, std=0.02)
+            torch.nn.init.normal_(module.weight, mean=0.0, std=self.config.init_std)
             if module.bias is not None:
                 torch.nn.init.zeros_(module.bias)
         elif isinstance(module, nn.Embedding):
-            torch.nn.init.normal_(module.weight, mean=0.0, std=0.02)
+            torch.nn.init.normal_(module.weight, mean=0.0, std=self.config.init_std)
         elif isinstance(module, nn.LayerNorm):
             torch.nn.init.ones_(module.weight)
             torch.nn.init.zeros_(module.bias)
-            # https://huggingface.co/stabilityai/stablelm-base-alpha-3b/blob/main/config.json#L12
-            module.eps = 1e-5
+            module.eps = self.config.norm_eps
+        elif isinstance(module, RMSNorm):
+            torch.nn.init.ones_(module.scale)
+            module.eps = self.config.norm_eps
 
     def reset_cache(self) -> None:
         self.kv_caches.clear()
@@ -144,11 +145,11 @@ class GPT(nn.Module):
 class Block(nn.Module):
     def __init__(self, config: Config) -> None:
         super().__init__()
-        self.norm_1 = nn.LayerNorm(config.n_embd)
+        self.norm_1 = config.norm_class(config.n_embd, eps=config.norm_eps)
         self.attn = CausalSelfAttention(config)
         if not config.shared_attention_norm:
-            self.norm_2 = nn.LayerNorm(config.n_embd)
-        self.mlp = MLP(config)
+            self.norm_2 = config.norm_class(config.n_embd, eps=config.norm_eps)
+        self.mlp = config.mlp_class(config)
 
         self.config = config
 
@@ -200,13 +201,21 @@ class CausalSelfAttention(nn.Module):
         B, T, C = x.size()  # batch size, sequence length, embedding dimensionality (n_embd)
 
         qkv = self.attn(x)
+        is_llama = self.config._mlp_class == "LLaMAMLP"
 
         # assemble into a number of query groups to support MHA, MQA and GQA together (see `config.n_query_groups`)
         q_per_kv = self.config.n_head // self.config.n_query_groups
         # each group has 1+ queries, 1 key, and 1 value (hence the + 2)
-        qkv = qkv.view(B, T, self.config.n_query_groups, q_per_kv + 2, self.config.head_size).permute(0, 2, 3, 1, 4)
+        if is_llama:
+            qkv = qkv.view(B, T, self.config.n_query_groups * (q_per_kv + 2), 1, self.config.head_size)
+        else:
+            qkv = qkv.view(B, T, self.config.n_query_groups, q_per_kv + 2, self.config.head_size)
+        qkv = qkv.permute(0, 2, 3, 1, 4)
         # split batched computation into three
-        q, k, v = qkv.split((q_per_kv, 1, 1), dim=2)
+        if is_llama:
+            q, k, v = qkv.split(self.config.n_query_groups, dim=1)
+        else:
+            q, k, v = qkv.split((q_per_kv, 1, 1), dim=2)
         if self.config.n_query_groups != 1:  # doing this would require a full kv cache with MQA (inefficient!)
             # for MHA this is a no-op
             k = k.repeat_interleave(q_per_kv, dim=2)
@@ -237,7 +246,7 @@ class CausalSelfAttention(nn.Module):
             kv_cache = k, v
 
         # efficient attention using Flash Attention CUDA kernels
-        y = F.scaled_dot_product_attention(
+        y = torch.nn.functional.scaled_dot_product_attention(
             q, k, v, attn_mask=mask, dropout_p=0.0, scale=1.0 / math.sqrt(self.config.head_size), is_causal=mask is None
         )
 
@@ -249,17 +258,30 @@ class CausalSelfAttention(nn.Module):
         return y, kv_cache
 
 
-class MLP(nn.Module):
+class GptNeoxMLP(nn.Module):
     def __init__(self, config: Config) -> None:
         super().__init__()
-        hidden_dim = 4 * config.n_embd
-        self.fc = nn.Linear(config.n_embd, hidden_dim, bias=config.bias)
-        self.proj = nn.Linear(hidden_dim, config.n_embd, bias=config.bias)
+        self.fc = nn.Linear(config.n_embd, config.intermediate_size, bias=config.bias)
+        self.proj = nn.Linear(config.intermediate_size, config.n_embd, bias=config.bias)
 
     def forward(self, x: torch.Tensor) -> torch.Tensor:
-        # gpt-neox style MLP
         x = self.fc(x)
-        x = F.gelu(x)
+        x = torch.nn.functional.gelu(x)
+        x = self.proj(x)
+        return x
+
+
+class LLaMAMLP(nn.Module):
+    def __init__(self, config: Config) -> None:
+        super().__init__()
+        self.fc_1 = nn.Linear(config.n_embd, config.intermediate_size, bias=config.bias)
+        self.fc_2 = nn.Linear(config.n_embd, config.intermediate_size, bias=config.bias)
+        self.proj = nn.Linear(config.intermediate_size, config.n_embd, bias=config.bias)
+
+    def forward(self, x: torch.Tensor) -> torch.Tensor:
+        x_fc_1 = self.fc_1(x)
+        x_fc_2 = self.fc_2(x)
+        x = torch.nn.functional.silu(x_fc_1) * x_fc_2
         x = self.proj(x)
         return x
 

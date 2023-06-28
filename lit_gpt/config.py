@@ -1,9 +1,11 @@
+import math
 from dataclasses import dataclass
-from typing import Optional, Any
+from typing import Optional, Any, Type
 
+import torch
 from typing_extensions import Self
 
-from lit_gpt.utils import find_multiple
+import lit_gpt
 
 
 @dataclass
@@ -40,15 +42,29 @@ class Config:
     # credit https://arxiv.org/pdf/2305.13245.pdf
     n_query_groups: Optional[int] = None
     shared_attention_norm: bool = False
+    _norm_class: str = "LayerNorm"
+    norm_eps: float = 1e-5
+    _mlp_class: str = "GptNeoxMLP"
+    init_std: float = 0.02
+    intermediate_size: Optional[int] = None
 
     def __post_init__(self):
-        if self.padded_vocab_size is None:
-            self.padded_vocab_size = find_multiple(self.vocab_size, self.padding_multiple)
+        # error checking
         assert self.n_embd % self.n_head == 0
+        # vocab size should be a power of 2 to be optimal on hardware. compute the closest value
+        if self.padded_vocab_size is None:
+            self.padded_vocab_size = lit_gpt.utils.find_multiple(self.vocab_size, self.padding_multiple)
+        # compute the number of query groups
         if self.n_query_groups is not None:
             assert self.n_head % self.n_query_groups == 0
         else:
             self.n_query_groups = self.n_head
+        # compute the intermediate size for MLP if not set
+        if self.intermediate_size is None:
+            if self._mlp_class == "LLaMAMLP":
+                raise ValueError("The config needs to set the `intermediate_size`")
+            else:
+                self.intermediate_size = 4 * self.n_embd
 
     @property
     def head_size(self) -> int:
@@ -60,8 +76,20 @@ class Config:
         conf_dict.update(kwargs)
         return cls(**conf_dict)
 
+    @property
+    def mlp_class(self) -> Type:
+        # `self._mlp_class` cannot be the type to keep the config json serializable
+        return getattr(lit_gpt.model, self._mlp_class)
 
-# fmt: off
+    @property
+    def norm_class(self) -> Type:
+        # `self._norm_class` cannot be the type to keep the config json serializable
+        if self._norm_class == "RMSNorm":
+            from lit_gpt.rmsnorm import RMSNorm
+
+            return RMSNorm
+        return getattr(torch.nn, self._norm_class)
+
 
 ########################
 # Stability AI StableLM
@@ -108,11 +136,35 @@ configs.update(pythia_deduped)
 ####################################
 redpajama_incite = {
     # https://huggingface.co/togethercomputer/RedPajama-INCITE-Base-3B-v1/blob/main/config.json
-    "RedPajama-INCITE-{}-3B-v1": dict(block_size=2048, n_layer=32, n_embd=2560, n_head=32, padding_multiple=256, rotary_percentage=1.0, parallel_residual=False),
+    "RedPajama-INCITE-{}-3B-v1": dict(
+        block_size=2048,
+        n_layer=32,
+        n_embd=2560,
+        n_head=32,
+        padding_multiple=256,
+        rotary_percentage=1.0,
+        parallel_residual=False,
+    ),
     # https://huggingface.co/togethercomputer/RedPajama-INCITE-7B-Base/blob/main/config.json
-    "RedPajama-INCITE-7B-{}": dict(block_size=2048, n_layer=32, n_embd=4096, n_head=32, padding_multiple=256, rotary_percentage=1.0, parallel_residual=False),
+    "RedPajama-INCITE-7B-{}": dict(
+        block_size=2048,
+        n_layer=32,
+        n_embd=4096,
+        n_head=32,
+        padding_multiple=256,
+        rotary_percentage=1.0,
+        parallel_residual=False,
+    ),
     # this redirects to the checkpoint above. kept for those who had the old weights already downloaded
-    "RedPajama-INCITE-{}-7B-v0.1": dict(block_size=2048, n_layer=32, n_embd=4096, n_head=32, padding_multiple=256, rotary_percentage=1.0, parallel_residual=False),
+    "RedPajama-INCITE-{}-7B-v0.1": dict(
+        block_size=2048,
+        n_layer=32,
+        n_embd=4096,
+        n_head=32,
+        padding_multiple=256,
+        rotary_percentage=1.0,
+        parallel_residual=False,
+    ),
 }
 for k in list(redpajama_incite):
     for kind in ("Base", "Chat", "Instruct"):
@@ -135,7 +187,7 @@ falcon = {
         n_query_groups=1,
         bias=False,
         # this is not in the config, but in the original model implementation, only for this config
-        shared_attention_norm=True
+        shared_attention_norm=True,
     ),
     # https://huggingface.co/tiiuae/falcon-40b/blob/main/config.json
     "falcon-40b{}": dict(
@@ -153,3 +205,62 @@ falcon = {
 for k in list(falcon):
     for kind in ("", "-instruct"):
         configs[k.format(kind)] = falcon[k]
+
+
+##################
+# OpenLM Research
+##################
+openlm = {
+    # https://huggingface.co/openlm-research/open_llama_3b/blob/main/config.json
+    "open_llama_3b": dict(
+        block_size=2048,
+        vocab_size=32000,
+        padding_multiple=64,
+        n_layer=26,
+        n_head=32,
+        n_embd=3200,
+        rotary_percentage=1.0,
+        parallel_residual=False,
+        bias=False,
+        _norm_class="RMSNorm",
+        norm_eps=1e-6,
+        _mlp_class="LLaMAMLP",
+        intermediate_size=8640,
+        init_std=0.02 / math.sqrt(2 * 26),
+    ),
+    # https://huggingface.co/openlm-research/open_llama_7b/blob/main/config.json
+    "open_llama_7b": dict(
+        block_size=2048,
+        vocab_size=32000,
+        padding_multiple=64,
+        n_layer=32,
+        n_head=32,
+        n_embd=4096,
+        rotary_percentage=1.0,
+        parallel_residual=False,
+        bias=False,
+        _norm_class="RMSNorm",
+        norm_eps=1e-6,
+        _mlp_class="LLaMAMLP",
+        intermediate_size=11008,
+        init_std=0.02 / math.sqrt(2 * 32),
+    ),
+    # https://huggingface.co/openlm-research/open_llama_13b/blob/main/config.json
+    "open_llama_13b": dict(
+        block_size=2048,
+        vocab_size=32000,
+        padding_multiple=64,
+        n_layer=40,
+        n_head=40,
+        n_embd=5120,
+        rotary_percentage=1.0,
+        parallel_residual=False,
+        bias=False,
+        _norm_class="RMSNorm",
+        norm_eps=1e-6,
+        _mlp_class="LLaMAMLP",
+        intermediate_size=13824,
+        init_std=0.02 / math.sqrt(2 * 40),
+    ),
+}
+configs.update(openlm)

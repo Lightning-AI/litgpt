@@ -194,7 +194,7 @@ def check_valid_checkpoint_dir(checkpoint_dir: Path) -> None:
         checkpoint_dir.is_dir()
         and (checkpoint_dir / "lit_model.pth").is_file()
         and (checkpoint_dir / "lit_config.json").is_file()
-        and (checkpoint_dir / "tokenizer.json").is_file()
+        and ((checkpoint_dir / "tokenizer.json").is_file() or (checkpoint_dir / "tokenizer.model").is_file())
         and (checkpoint_dir / "tokenizer_config.json").is_file()
     ):
         # we're good

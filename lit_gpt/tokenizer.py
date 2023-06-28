@@ -3,25 +3,45 @@ from pathlib import Path
 from typing import Optional
 
 import torch
-from tokenizers import Tokenizer as HFTokenizer
 
 
 class Tokenizer:
-    def __init__(self, vocabulary_path: Path, config_path: Path) -> None:
-        # https://github.com/Stability-AI/StableLM/blob/e60081/configs/stablelm-base-alpha-3b.yaml#L108
-        self.processor = HFTokenizer.from_file(str(vocabulary_path))
-        with open(config_path) as fp:
-            config = json.load(fp)
-        bos_token = config.get("bos_token")
-        self.bos_id = self.token_to_id(bos_token) if bos_token is not None else None
-        self.eos_id = self.token_to_id(config["eos_token"])
+    def __init__(self, checkpoint_dir: Path) -> None:
+        if (vocabulary_path := checkpoint_dir / "tokenizer.json").is_file():
+            from tokenizers import Tokenizer as HFTokenizer
+
+            self.processor = HFTokenizer.from_file(str(vocabulary_path))
+            self.backend = "huggingface"
+            with open(checkpoint_dir / "tokenizer_config.json") as fp:
+                config = json.load(fp)
+            bos_token = config.get("bos_token")
+            self.bos_id = self.token_to_id(bos_token) if bos_token is not None else None
+            self.eos_id = self.token_to_id(config["eos_token"])
+        elif (vocabulary_path := checkpoint_dir / "tokenizer.model").is_file():
+            from sentencepiece import SentencePieceProcessor
+
+            self.processor = SentencePieceProcessor(model_file=str(vocabulary_path))
+            self.backend = "sentencepiece"
+            self.bos_id = self.processor.bos_id()
+            self.eos_id = self.processor.eos_id()
+        else:
+            raise NotImplementedError
 
     @property
     def vocab_size(self) -> int:
-        return self.processor.get_vocab_size(with_added_tokens=False)
+        if self.backend == "huggingface":
+            return self.processor.get_vocab_size(with_added_tokens=False)
+        if self.backend == "sentencepiece":
+            return self.processor.vocab_size()
+        raise RuntimeError
 
     def token_to_id(self, token: str) -> int:
-        id_ = self.processor.token_to_id(token)
+        if self.backend == "huggingface":
+            id_ = self.processor.token_to_id(token)
+        elif self.backend == "sentencepiece":
+            id_ = self.processor.piece_to_id(token)
+        else:
+            raise RuntimeError
         if id_ is None:
             raise ValueError(f"token {token!r} not found in the collection.")
         return id_
@@ -34,7 +54,12 @@ class Tokenizer:
         eos: bool = False,
         max_length: int = -1,
     ) -> torch.Tensor:
-        tokens = self.processor.encode(string).ids
+        if self.backend == "huggingface":
+            tokens = self.processor.encode(string).ids
+        elif self.backend == "sentencepiece":
+            tokens = self.processor.encode(string)
+        else:
+            raise RuntimeError
         if bos:
             bos_id = self.bos_id
             if bos_id is None:
