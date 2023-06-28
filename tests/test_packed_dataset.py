@@ -21,10 +21,7 @@ def test_packed_dataset(tmp_path):
     maybe_get_file("https://huggingface.co/stabilityai/stablelm-base-alpha-3b/raw/main/tokenizer_config.json", tokenizer_path)
 
     from lit_gpt import Tokenizer
-    tokenizer = Tokenizer(
-        vocabulary_path=vocabulary_path,
-        config_path=tokenizer_path
-    )
+    tokenizer = Tokenizer(tmp_path)
 
     texts = [
       "The moment of truth is upon us. " * 4,
