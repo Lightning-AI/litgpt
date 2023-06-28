@@ -5,7 +5,8 @@ from typing import Optional, Any, Type
 import torch
 from typing_extensions import Self
 
-import lit_gpt
+import lit_gpt.model
+from lit_gpt.utils import find_multiple
 
 
 @dataclass
@@ -53,7 +54,7 @@ class Config:
         assert self.n_embd % self.n_head == 0
         # vocab size should be a power of 2 to be optimal on hardware. compute the closest value
         if self.padded_vocab_size is None:
-            self.padded_vocab_size = lit_gpt.utils.find_multiple(self.vocab_size, self.padding_multiple)
+            self.padded_vocab_size = find_multiple(self.vocab_size, self.padding_multiple)
         # compute the number of query groups
         if self.n_query_groups is not None:
             assert self.n_head % self.n_query_groups == 0
