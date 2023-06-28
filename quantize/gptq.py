@@ -349,7 +349,7 @@ def main(
 
     model.eval()
 
-    tokenizer = Tokenizer(checkpoint_dir / "tokenizer.json", checkpoint_dir / "tokenizer_config.json")
+    tokenizer = Tokenizer(checkpoint_dir)
 
     test_string = get_sample_data()
     encoded_text = tokenizer.encode(test_string, eos=True)

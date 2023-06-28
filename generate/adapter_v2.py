@@ -95,7 +95,7 @@ def main(
     model.eval()
     model = fabric.setup(model)
 
-    tokenizer = Tokenizer(checkpoint_dir / "tokenizer.json", checkpoint_dir / "tokenizer_config.json")
+    tokenizer = Tokenizer(checkpoint_dir)
     sample = {"instruction": prompt, "input": input}
     prompt = generate_prompt(sample)
     encoded = tokenizer.encode(prompt, device=model.device)

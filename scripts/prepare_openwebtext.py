@@ -24,7 +24,7 @@ def prepare(
 ) -> None:
     destination_path.mkdir(parents=True, exist_ok=True)
 
-    tokenizer = Tokenizer(checkpoint_dir / "tokenizer.json", checkpoint_dir / "tokenizer_config.json")
+    tokenizer = Tokenizer(checkpoint_dir)
 
     # number of workers in .map() call
     # good number to use is ~order number of cpu cores // 2
