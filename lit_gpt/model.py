@@ -204,16 +204,14 @@ class CausalSelfAttention(nn.Module):
 
         # assemble into a number of query groups to support MHA, MQA and GQA together (see `config.n_query_groups`)
         q_per_kv = self.config.n_head // self.config.n_query_groups
-        # each group has 1+ queries, 1 key, and 1 value (hence the + 2)
-        qkv = qkv.view(B, T, self.config.n_query_groups, q_per_kv + 2, self.config.head_size)
-        qkv = qkv.permute(0, 2, 3, 1, 4)  # (B, n_query_groups, q_per_kv + 2, T, hs)
+        total_qkv = q_per_kv + 2  # each group has 1+ queries, 1 key, and 1 value
+        if self.config._mlp_class == "LLaMAMLP":  # is llama
+            qkv = qkv.view(B, T, total_qkv, self.config.n_query_groups, self.config.head_size).transpose(2, 3)
+        qkv = qkv.view(B, T, self.config.n_query_groups, total_qkv, self.config.head_size)
+        qkv = qkv.permute(0, 2, 3, 1, 4)  # (B, n_query_groups, total_qkv, T, hs)
 
         # split batched computation into three
-        if self.config._mlp_class == "LLaMAMLP":  # is llama
-            qkv = qkv.view(B, -1, T, self.config.head_size)  # (B, 1, total_qkv, T, hs)
-            q, k, v = qkv.split(self.config.n_head, dim=1)
-        else:
-            q, k, v = qkv.split((q_per_kv, 1, 1), dim=2)
+        q, k, v = qkv.split((q_per_kv, 1, 1), dim=2)
 
         # repeat k and v if necessary
         if self.config.n_query_groups != 1:  # doing this would require a full kv cache with MQA (inefficient!)
