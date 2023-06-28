@@ -103,7 +103,7 @@ def copy_weights_falcon(size: Literal["7b", "40b"], state_dict, hf_weights, save
         state_dict[to_name] = param
 
 
-def copy_weights_open_llama(state_dict, hf_weights, saver=None, dtype=torch.float32):
+def copy_weights_open_llama(config: Config, state_dict, hf_weights, saver=None, dtype=torch.float32):
     weight_map = {
         "model.embed_tokens.weight": "transformer.wte.weight",
         "model.layers.{}.input_layernorm.weight": "transformer.h.{}.norm_1.weight",
@@ -147,8 +147,14 @@ def copy_weights_open_llama(state_dict, hf_weights, saver=None, dtype=torch.floa
         state_dict[to_name] = param
 
     # this assumes that the qkv is not split across different `.bin` files
-    for i, qkv in qkv_weights.items():
-        state_dict[f"transformer.h.{i}.attn.attn.weight"] = torch.cat(qkv)
+    for i, (q, k, v) in qkv_weights.items():
+        # this assumes MHA which is true for the supported HF checkpoints
+        q = q.transpose(0, 1).reshape(-1, config.head_size)
+        k = k.transpose(0, 1).reshape(-1, config.head_size)
+        v = v.transpose(0, 1).reshape(-1, config.head_size)
+        qkv = torch.cat((q, k, v), dim=1)
+        qkv = qkv.reshape(-1, config.n_embd * 3).transpose(0, 1)
+        state_dict[f"transformer.h.{i}.attn.attn.weight"] = qkv
 
 
 def layer_template(layer_name: str, idx: int) -> Tuple[str, int]:
@@ -181,7 +187,7 @@ def convert_hf_checkpoint(
     if "falcon" in model_name:
         copy_fn = partial(copy_weights_falcon, "40b" if config.n_embd == 8192 else "7b")
     elif "open_llama" in model_name:
-        copy_fn = copy_weights_open_llama
+        copy_fn = partial(copy_weights_open_llama, config)
     else:
         copy_fn = copy_weights_gpt_neox
 

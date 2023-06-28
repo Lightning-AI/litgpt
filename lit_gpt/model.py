@@ -205,8 +205,6 @@ class CausalSelfAttention(nn.Module):
         # assemble into a number of query groups to support MHA, MQA and GQA together (see `config.n_query_groups`)
         q_per_kv = self.config.n_head // self.config.n_query_groups
         total_qkv = q_per_kv + 2  # each group has 1+ queries, 1 key, and 1 value
-        if self.config._mlp_class == "LLaMAMLP":  # is llama
-            qkv = qkv.view(B, T, total_qkv, self.config.n_query_groups, self.config.head_size).transpose(2, 3)
         qkv = qkv.view(B, T, self.config.n_query_groups, total_qkv, self.config.head_size)
         qkv = qkv.permute(0, 2, 3, 1, 4)  # (B, n_query_groups, total_qkv, T, hs)
 
