@@ -229,7 +229,7 @@ class CausalSelfAttention(nn.Module):
         q = torch.cat((q_roped, q[..., n_elem:]), dim=-1)
         k = torch.cat((k_roped, k[..., n_elem:]), dim=-1)
 
-        if input_pos is not None and kv_cache is not None:
+        if kv_cache is not None:
             cache_k, cache_v = kv_cache
             cache_k, cache_v = cache_k.to(dtype=k.dtype), cache_v.to(dtype=v.dtype)
             # check if reached token limit

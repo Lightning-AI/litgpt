@@ -17,7 +17,6 @@ from typing_extensions import Self
 from lit_gpt.config import Config as BaseConfig
 from lit_gpt.model import (
     GPT as BaseModel,
-    MLP,
     CausalSelfAttention as BaseCausalSelfAttention,
     apply_rope,
     RoPECache,
@@ -45,7 +44,7 @@ class GPT(BaseModel):
             dict(
                 wte=nn.Embedding(config.padded_vocab_size, config.n_embd),
                 h=nn.ModuleList(Block(config, i) for i in range(config.n_layer)),
-                ln_f=nn.LayerNorm(config.n_embd),
+                ln_f=config.norm_class(config.n_embd, eps=config.norm_eps),
             )
         )
 
@@ -130,11 +129,11 @@ class Block(nn.Module):
 
     def __init__(self, config: Config, block_idx: int) -> None:
         super().__init__()
-        self.norm_1 = nn.LayerNorm(config.n_embd)
+        self.norm_1 = config.norm_class(config.n_embd, eps=config.norm_eps)
         self.attn = CausalSelfAttention(config, block_idx)
         if not config.shared_attention_norm:
-            self.norm_2 = nn.LayerNorm(config.n_embd)
-        self.mlp = MLP(config)
+            self.norm_2 = config.norm_class(config.n_embd, eps=config.norm_eps)
+        self.mlp = config.mlp_class(config)
 
         self.config = config
 
@@ -195,14 +194,19 @@ class CausalSelfAttention(BaseCausalSelfAttention):
 
         # assemble into a number of query groups to support MHA, MQA and GQA together (see `config.n_query_groups`)
         q_per_kv = self.config.n_head // self.config.n_query_groups
-        # each group has 1+ queries, 1 key, and 1 value (hence the + 2)
-        qkv = qkv.view(B, T, self.config.n_query_groups, q_per_kv + 2, self.config.head_size).permute(0, 2, 3, 1, 4)
+        total_qkv = q_per_kv + 2  # each group has 1+ queries, 1 key, and 1 value
+        qkv = qkv.view(B, T, self.config.n_query_groups, total_qkv, self.config.head_size)
+        qkv = qkv.permute(0, 2, 3, 1, 4)  # (B, n_query_groups, total_qkv, T, hs)
+
         # split batched computation into three
         q, k, v = qkv.split((q_per_kv, 1, 1), dim=2)
+
+        # repeat k and v if necessary
         if self.config.n_query_groups != 1:  # doing this would require a full kv cache with MQA (inefficient!)
             # for MHA this is a no-op
             k = k.repeat_interleave(q_per_kv, dim=2)
             v = v.repeat_interleave(q_per_kv, dim=2)
+
         q = q.reshape(B, -1, T, self.config.head_size)  # (B, nh_q, T, hs)
         k = k.view(B, -1, T, self.config.head_size)  # (B, nh_k, T, hs)
         v = v.view(B, -1, T, self.config.head_size)  # (B, nh_v, T, hs)
@@ -229,7 +233,7 @@ class CausalSelfAttention(BaseCausalSelfAttention):
             kv_cache = k, v
 
         # efficient attention using Flash Attention CUDA kernels
-        y = F.scaled_dot_product_attention(
+        y = torch.nn.functional.scaled_dot_product_attention(
             q, k, v, attn_mask=mask, dropout_p=0.0, scale=1.0 / math.sqrt(self.config.head_size), is_causal=mask is None
         )
 

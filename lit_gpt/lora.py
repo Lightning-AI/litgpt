@@ -53,7 +53,6 @@ from typing_extensions import Self
 from lit_gpt.config import Config as BaseConfig
 from lit_gpt.model import (
     GPT as BaseModel,
-    MLP,
     Block as BaseBlock,
     CausalSelfAttention as BaseCausalSelfAttention,
     RoPECache,
@@ -405,7 +404,7 @@ class GPT(BaseModel):
             dict(
                 wte=nn.Embedding(config.padded_vocab_size, config.n_embd),
                 h=nn.ModuleList(Block(config) for i in range(config.n_layer)),
-                ln_f=nn.LayerNorm(config.n_embd),
+                ln_f=config.norm_class(config.n_embd, eps=config.norm_eps),
             )
         )
 
@@ -479,11 +478,11 @@ class GPT(BaseModel):
 class Block(BaseBlock):
     def __init__(self, config: Config) -> None:
         nn.Module.__init__(self)
-        self.norm_1 = nn.LayerNorm(config.n_embd)
+        self.norm_1 = config.norm_class(config.n_embd, eps=config.norm_eps)
         self.attn = CausalSelfAttention(config)
         if not config.shared_attention_norm:
-            self.norm_2 = nn.LayerNorm(config.n_embd)
-        self.mlp = MLP(config)
+            self.norm_2 = config.norm_class(config.n_embd, eps=config.norm_eps)
+        self.mlp = config.mlp_class(config)
 
         self.config = config
 
