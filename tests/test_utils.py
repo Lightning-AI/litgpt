@@ -2,6 +2,9 @@ import os
 import pathlib
 import sys
 import tempfile
+import textwrap
+from contextlib import redirect_stderr
+from io import StringIO
 
 import pytest
 import torch
@@ -64,27 +67,50 @@ def test_check_valid_checkpoint_dir(tmp_path):
 
     os.chdir(tmp_path)
 
-    match = "must contain the files: 'lit_model.pth', 'lit_config.json', 'tokenizer.json' and 'tokenizer_config.json'."
-    with pytest.raises(OSError, match=match):
+    out = StringIO()
+    with pytest.raises(SystemExit), redirect_stderr(out):
         check_valid_checkpoint_dir(tmp_path)
+    out = out.getvalue().strip()
+    expected = f"""
+--checkpoint_dir '{str(tmp_path.absolute())}' is missing the files: ['lit_model.pth', 'lit_config.json', 'tokenizer.json', 'tokenizer_config.json'].
+Find download instructions at https://github.com/Lightning-AI/lit-gpt/blob/main/howto
 
+See all download options by running:
+ python scripts/download.py
+    """.strip()
+    assert out == expected
+
+    out = StringIO()
     checkpoint_dir = tmp_path / "checkpoints" / "stabilityai" / "stablelm-base-alpha-3b"
-    match = (
-        r"checkpoint_dir '\/.*checkpoints\/stabilityai\/stablelm-base-alpha-3b' is not.*\nPlease, follow"
-        r" the instructions.*download_stablelm\.md\n\nYou can download:\n \* stablelm-base-alpha-3b\n \* stablelm-base-"
-        r"alpha-7b\n"
-    )
-    with pytest.raises(OSError, match=match):
+    with pytest.raises(SystemExit), redirect_stderr(out):
         check_valid_checkpoint_dir(checkpoint_dir)
+    out = out.getvalue().strip()
+    expected = f"""
+--checkpoint_dir '{str(checkpoint_dir.absolute())}' is not a checkpoint directory.
+Find download instructions at https://github.com/Lightning-AI/lit-gpt/blob/main/howto
 
+See all download options by running:
+ python scripts/download.py
+    """.strip()
+    assert out == expected
+
+    out = StringIO()
     checkpoint_dir.mkdir(parents=True)
-    match = (
-        r"checkpoint_dir '.*foo' is not.*\nPlease, follow the instructions.*download_stablelm\.md\n\nYou"
-        r" have downloaded locally:\n --checkpoint_dir '.+checkpoints\/stabilityai\/stablelm-base-alpha-3b'\n\nYou can"
-        r" download:\n \* stablelm-base-alpha-7b\n"
-    )
-    with pytest.raises(OSError, match=match):
-        check_valid_checkpoint_dir(tmp_path / "foo")
+    foo_checkpoint_dir = tmp_path / "foo"
+    with pytest.raises(SystemExit), redirect_stderr(out):
+        check_valid_checkpoint_dir(foo_checkpoint_dir)
+    out = out.getvalue().strip()
+    expected = f"""
+--checkpoint_dir '{str(foo_checkpoint_dir.absolute())}' is not a checkpoint directory.
+Find download instructions at https://github.com/Lightning-AI/lit-gpt/blob/main/howto
+
+You have downloaded locally:
+ --checkpoint_dir '{str(checkpoint_dir.absolute())}'
+
+See all download options by running:
+ python scripts/download.py
+    """.strip()
+    assert out == expected
 
 
 def test_incremental_write(tmp_path):
