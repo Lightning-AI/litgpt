@@ -208,10 +208,10 @@ for k in list(falcon):
         configs[k.format(kind)] = falcon[k]
 
 
-##################
-# OpenLM Research
-##################
-openlm = {
+#############################
+# OpenLM Research Open LLaMA
+#############################
+open_llama = {
     # https://huggingface.co/openlm-research/open_llama_3b/blob/main/config.json
     "open_llama_3b": dict(
         block_size=2048,
@@ -264,4 +264,4 @@ openlm = {
         init_std=0.02 / math.sqrt(2 * 40),
     ),
 }
-configs.update(openlm)
+configs.update(open_llama)
