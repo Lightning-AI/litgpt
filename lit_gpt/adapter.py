@@ -11,7 +11,6 @@ from typing import Optional, Tuple, Any, List, Union
 
 import torch
 import torch.nn as nn
-from torch.nn import functional as F
 from typing_extensions import Self
 
 from lit_gpt.config import Config as BaseConfig
@@ -256,7 +255,9 @@ class CausalSelfAttention(BaseCausalSelfAttention):
                 adapter_kv_cache = (ak, av)
 
             amask = torch.ones(T, aT, dtype=torch.bool, device=x.device)
-            ay = F.scaled_dot_product_attention(q, ak, av, attn_mask=amask, dropout_p=0.0, is_causal=False)
+            ay = torch.nn.functional.scaled_dot_product_attention(
+                q, ak, av, attn_mask=amask, dropout_p=0.0, is_causal=False
+            )
             y = y + self.gating_factor * ay
 
         y = y.transpose(1, 2).contiguous().view(B, T, C)  # re-assemble all head outputs side by side

@@ -4,7 +4,7 @@ import json
 import sys
 from functools import partial
 from pathlib import Path
-from typing import Optional, Literal, Tuple, Dict, List, Any, Union
+from typing import Optional, Literal, Tuple, Dict, List, Union
 
 import torch
 
