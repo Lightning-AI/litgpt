@@ -4,7 +4,7 @@ import json
 import sys
 from functools import partial
 from pathlib import Path
-from typing import Optional, Literal, Tuple
+from typing import Optional, Literal, Tuple, Dict, List, Any
 
 import torch
 
@@ -103,7 +103,14 @@ def copy_weights_falcon(size: Literal["7b", "40b"], state_dict, hf_weights, save
         state_dict[to_name] = param
 
 
-def copy_weights_open_llama(config: Config, state_dict, hf_weights, saver=None, dtype=torch.float32):
+def copy_weights_open_llama(
+    config: Config,
+    qkv_weights: Dict[int, List[Optional[torch.Tensor]]],
+    state_dict: Dict[str, Any],
+    hf_weights: Dict[str, Any],
+    saver: Optional[incremental_save] = None,
+    dtype: torch.dtype = torch.float32,
+) -> None:
     weight_map = {
         "model.embed_tokens.weight": "transformer.wte.weight",
         "model.layers.{}.input_layernorm.weight": "transformer.h.{}.norm_1.weight",
@@ -119,8 +126,6 @@ def copy_weights_open_llama(config: Config, state_dict, hf_weights, saver=None, 
         "model.norm.weight": "transformer.ln_f.weight",
         "lm_head.weight": "lm_head.weight",
     }
-    # holder to reconstitute the split q, k, v
-    qkv_weights = {}
 
     for name, param in hf_weights.items():
         if hasattr(param, "_load_tensor"):
@@ -146,8 +151,10 @@ def copy_weights_open_llama(config: Config, state_dict, hf_weights, saver=None, 
             param = saver.store_early(param)
         state_dict[to_name] = param
 
-    # this assumes that the qkv is not split across different `.bin` files
     for i, (q, k, v) in qkv_weights.items():
+        if q is None or k is None or v is None:
+            # split across different .bin files
+            continue
         # this assumes MHA which is true for the supported HF checkpoints
         q = q.transpose(0, 1).reshape(-1, config.head_size)
         k = k.transpose(0, 1).reshape(-1, config.head_size)
@@ -187,7 +194,9 @@ def convert_hf_checkpoint(
     if "falcon" in model_name:
         copy_fn = partial(copy_weights_falcon, "40b" if config.n_embd == 8192 else "7b")
     elif "open_llama" in model_name:
-        copy_fn = partial(copy_weights_open_llama, config)
+        # holder to reconstitute the split q, k, v
+        qkv_weights = {}
+        copy_fn = partial(copy_weights_open_llama, config, qkv_weights)
     else:
         copy_fn = copy_weights_gpt_neox
 

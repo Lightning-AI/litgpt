@@ -145,13 +145,12 @@ def test_against_original_open_llama_3b():
     theirs_model = LlamaForCausalLM(theirs_config)
     theirs_state_dict = theirs_model.state_dict()
     state_dict = {}
-    copy_weights_open_llama(ours_config, state_dict, theirs_state_dict)
+    copy_weights_open_llama(ours_config, {}, state_dict, theirs_state_dict)
     ours_model = GPT(ours_config)
     ours_model.load_state_dict(state_dict)
 
-    x = torch.randn(2, T, ours_config.n_embd)  # B, T, n_embd
-
     # test rope
+    x = torch.randn(2, T, ours_config.n_embd)  # B, T, n_embd
     ours_cos, ours_sin = ours_model.build_rope_cache(x)
     ours_cos, ours_sin = ours_cos[:T], ours_sin[:T]  # this is done in our model forward
     theirs_cos, theirs_sin = theirs_model.model.layers[0].self_attn.rotary_emb(x, T)
