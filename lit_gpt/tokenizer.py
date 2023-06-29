@@ -7,7 +7,15 @@ import torch
 
 class Tokenizer:
     def __init__(self, checkpoint_dir: Path) -> None:
-        if (vocabulary_path := checkpoint_dir / "tokenizer.json").is_file():
+        # some checkpoints have both files, `.model` takes precedence
+        if (vocabulary_path := checkpoint_dir / "tokenizer.model").is_file():
+            from sentencepiece import SentencePieceProcessor
+
+            self.processor = SentencePieceProcessor(model_file=str(vocabulary_path))
+            self.backend = "sentencepiece"
+            self.bos_id = self.processor.bos_id()
+            self.eos_id = self.processor.eos_id()
+        elif (vocabulary_path := checkpoint_dir / "tokenizer.json").is_file():
             from tokenizers import Tokenizer as HFTokenizer
 
             self.processor = HFTokenizer.from_file(str(vocabulary_path))
@@ -17,13 +25,6 @@ class Tokenizer:
             bos_token = config.get("bos_token")
             self.bos_id = self.token_to_id(bos_token) if bos_token is not None else None
             self.eos_id = self.token_to_id(config["eos_token"])
-        elif (vocabulary_path := checkpoint_dir / "tokenizer.model").is_file():
-            from sentencepiece import SentencePieceProcessor
-
-            self.processor = SentencePieceProcessor(model_file=str(vocabulary_path))
-            self.backend = "sentencepiece"
-            self.bos_id = self.processor.bos_id()
-            self.eos_id = self.processor.eos_id()
         else:
             raise NotImplementedError
 
