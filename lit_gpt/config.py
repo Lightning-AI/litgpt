@@ -46,7 +46,6 @@ class Config:
     _norm_class: Literal["LayerNorm", "RMSNorm"] = "LayerNorm"
     norm_eps: float = 1e-5
     _mlp_class: Literal["GptNeoxMLP", "LLaMAMLP"] = "GptNeoxMLP"
-    init_std: float = 0.02
     intermediate_size: Optional[int] = None
 
     def __post_init__(self):
@@ -227,7 +226,6 @@ open_llama = {
         norm_eps=1e-6,
         _mlp_class="LLaMAMLP",
         intermediate_size=8640,
-        init_std=0.02 / math.sqrt(2 * 26),
     ),
     # https://huggingface.co/openlm-research/open_llama_7b/blob/main/config.json
     "open_llama_7b": dict(
@@ -244,7 +242,6 @@ open_llama = {
         norm_eps=1e-6,
         _mlp_class="LLaMAMLP",
         intermediate_size=11008,
-        init_std=0.02 / math.sqrt(2 * 32),
     ),
     # https://huggingface.co/openlm-research/open_llama_13b/blob/main/config.json
     "open_llama_13b": dict(
@@ -261,7 +258,6 @@ open_llama = {
         norm_eps=1e-6,
         _mlp_class="LLaMAMLP",
         intermediate_size=13824,
-        init_std=0.02 / math.sqrt(2 * 40),
     ),
 }
 configs.update(open_llama)
