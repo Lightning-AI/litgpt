@@ -11,6 +11,8 @@ from lit_gpt.utils import find_multiple
 
 @dataclass
 class Config:
+    org: str
+    name: str
     block_size: int = 4096
     vocab_size: int = 50254
     padding_multiple: int = 512
@@ -72,7 +74,7 @@ class Config:
 
     @classmethod
     def from_name(cls, name: str, **kwargs: Any) -> Self:
-        conf_dict = configs[name].copy()
+        conf_dict = name_to_config[name].copy()
         conf_dict.update(kwargs)
         return cls(**conf_dict)
 
@@ -94,49 +96,65 @@ class Config:
 ########################
 # Stability AI StableLM
 ########################
-configs = {
+configs = [
     # https://huggingface.co/stabilityai/stablelm-base-alpha-3b/blob/main/config.json
-    "stablelm-base-alpha-3b": dict(padding_multiple=512),
+    dict(org="stabilityai", name="stablelm-base-alpha-3b", padding_multiple=512),
     # https://huggingface.co/stabilityai/stablelm-base-alpha-7b/blob/main/config.json
-    "stablelm-base-alpha-7b": dict(n_head=48, n_embd=6144, padding_multiple=256),
+    dict(org="stabilityai", name="stablelm-base-alpha-7b", n_head=48, n_embd=6144, padding_multiple=256),
     # https://huggingface.co/stabilityai/stablelm-tuned-alpha-3b/blob/main/config.json
-    "stablelm-tuned-alpha-3b": dict(n_head=32, padding_multiple=512),
+    dict(org="stabilityai", name="stablelm-tuned-alpha-3b", n_head=32, padding_multiple=512),
     # https://huggingface.co/stabilityai/stablelm-tuned-alpha-7b/blob/main/config.json
-    "stablelm-tuned-alpha-7b": dict(n_head=48, n_embd=6144, padding_multiple=256),
-}
+    dict(org="stabilityai", name="sstablelm-tuned-alpha-7b", n_head=48, n_embd=6144, padding_multiple=256),
+]
 
 ####################
 # EleutherAI Pythia
 ####################
-pythia = {
+pythia = [
     # https://huggingface.co/EleutherAI/pythia-70m/blob/main/config.json
-    "pythia-70m": dict(block_size=2048, n_layer=6, n_embd=512, n_head=8, padding_multiple=128),
+    dict(org="EleutherAI", name="pythia-70m", block_size=2048, n_layer=6, n_embd=512, n_head=8, padding_multiple=128),
     # https://huggingface.co/EleutherAI/pythia-160m/blob/main/config.json
-    "pythia-160m": dict(block_size=2048, n_layer=12, n_embd=768, n_head=12, padding_multiple=128),
+    dict(
+        org="EleutherAI", name="pythia-160m", block_size=2048, n_layer=12, n_embd=768, n_head=12, padding_multiple=128
+    ),
     # https://huggingface.co/EleutherAI/pythia-410m/blob/main/config.json
-    "pythia-410m": dict(block_size=2048, n_layer=24, n_embd=1024, n_head=16, padding_multiple=128),
+    dict(
+        org="EleutherAI", name="pythia-410m", block_size=2048, n_layer=24, n_embd=1024, n_head=16, padding_multiple=128
+    ),
     # https://huggingface.co/EleutherAI/pythia-1b/blob/main/config.json
-    "pythia-1b": dict(block_size=2048, n_layer=16, n_embd=2048, n_head=8, padding_multiple=128),
+    dict(org="EleutherAI", name="pythia-1b", block_size=2048, n_layer=16, n_embd=2048, n_head=8, padding_multiple=128),
     # https://huggingface.co/EleutherAI/pythia-1.4b/blob/main/config.json
-    "pythia-1.4b": dict(block_size=2048, n_layer=24, n_embd=2048, n_head=16, padding_multiple=128),
+    dict(
+        org="EleutherAI", name="pythia-1.4b", block_size=2048, n_layer=24, n_embd=2048, n_head=16, padding_multiple=128
+    ),
     # https://huggingface.co/EleutherAI/pythia-2.8b/blob/main/config.json
-    "pythia-2.8b": dict(block_size=2048, n_layer=32, n_embd=2560, n_head=32, padding_multiple=128),
+    dict(
+        org="EleutherAI", name="pythia-2.8b", block_size=2048, n_layer=32, n_embd=2560, n_head=32, padding_multiple=128
+    ),
     # https://huggingface.co/EleutherAI/pythia-6.9b/blob/main/config.json
-    "pythia-6.9b": dict(block_size=2048, n_layer=32, n_embd=4096, n_head=32, padding_multiple=256),
+    dict(
+        org="EleutherAI", name="pythia-6.9b", block_size=2048, n_layer=32, n_embd=4096, n_head=32, padding_multiple=256
+    ),
     # https://huggingface.co/EleutherAI/pythia-12b/blob/main/config.json
-    "pythia-12b": dict(block_size=2048, n_layer=36, n_embd=5120, n_head=40, padding_multiple=512),
-}
-configs.update(pythia)
-pythia_deduped = {f"{k}-deduped": pythia[k] for k in pythia}
-configs.update(pythia_deduped)
+    dict(
+        org="EleutherAI", name="pythia-12b", block_size=2048, n_layer=36, n_embd=5120, n_head=40, padding_multiple=512
+    ),
+]
+configs.extend(pythia)
+for c in pythia:
+    pythia_deduped = c.copy()
+    pythia_deduped["name"] = f"{c['name']}-deduped"
+    configs.append(pythia_deduped)
 
 
 ####################################
 # togethercomputer RedPajama INCITE
 ####################################
-redpajama_incite = {
+redpajama_incite = [
     # https://huggingface.co/togethercomputer/RedPajama-INCITE-Base-3B-v1/blob/main/config.json
-    "RedPajama-INCITE-{}-3B-v1": dict(
+    dict(
+        org="togethercomputer",
+        name="RedPajama-INCITE-{}-3B-v1",
         block_size=2048,
         n_layer=32,
         n_embd=2560,
@@ -146,7 +164,9 @@ redpajama_incite = {
         parallel_residual=False,
     ),
     # https://huggingface.co/togethercomputer/RedPajama-INCITE-7B-Base/blob/main/config.json
-    "RedPajama-INCITE-7B-{}": dict(
+    dict(
+        org="togethercomputer",
+        name="RedPajama-INCITE-7B-{}",
         block_size=2048,
         n_layer=32,
         n_embd=4096,
@@ -156,7 +176,9 @@ redpajama_incite = {
         parallel_residual=False,
     ),
     # this redirects to the checkpoint above. kept for those who had the old weights already downloaded
-    "RedPajama-INCITE-{}-7B-v0.1": dict(
+    dict(
+        org="togethercomputer",
+        name="RedPajama-INCITE-{}-7B-v0.1",
         block_size=2048,
         n_layer=32,
         n_embd=4096,
@@ -165,18 +187,21 @@ redpajama_incite = {
         rotary_percentage=1.0,
         parallel_residual=False,
     ),
-}
-for k in list(redpajama_incite):
+]
+for c in redpajama_incite:
     for kind in ("Base", "Chat", "Instruct"):
-        configs[k.format(kind)] = redpajama_incite[k]
+        c["name"] = c["name"].format(kind)
+        configs.append(c)
 
 
 #################
 # TII UAE Falcon
 #################
-falcon = {
+falcon = [
     # https://huggingface.co/tiiuae/falcon-7b/blob/main/config.json
-    "falcon-7b{}": dict(
+    dict(
+        org="tiiuae",
+        name="falcon-7b{}",
         block_size=2048,
         padded_vocab_size=65024,
         n_layer=32,
@@ -190,7 +215,9 @@ falcon = {
         shared_attention_norm=True,
     ),
     # https://huggingface.co/tiiuae/falcon-40b/blob/main/config.json
-    "falcon-40b{}": dict(
+    dict(
+        org="tiiuae",
+        name="falcon-40b{}",
         block_size=2048,
         padded_vocab_size=65024,
         n_layer=60,
@@ -201,18 +228,21 @@ falcon = {
         n_query_groups=8,
         bias=False,
     ),
-}
-for k in list(falcon):
+]
+for c in falcon:
     for kind in ("", "-instruct"):
-        configs[k.format(kind)] = falcon[k]
+        c["name"] = c["name"].format(kind)
+        configs.append(c)
 
 
 #############################
 # OpenLM Research Open LLaMA
 #############################
-open_LLaMA = {
+open_LLaMA = [
     # https://huggingface.co/openlm-research/open_llama_3b/blob/main/config.json
-    "open_llama_3b": dict(
+    dict(
+        org="openlm-research",
+        name="open_llama_3b",
         block_size=2048,
         vocab_size=32000,
         padding_multiple=64,
@@ -228,7 +258,9 @@ open_LLaMA = {
         intermediate_size=8640,
     ),
     # https://huggingface.co/openlm-research/open_llama_7b/blob/main/config.json
-    "open_llama_7b": dict(
+    dict(
+        org="openlm-research",
+        name="open_llama_7b",
         block_size=2048,
         vocab_size=32000,
         padding_multiple=64,
@@ -244,7 +276,9 @@ open_LLaMA = {
         intermediate_size=11008,
     ),
     # https://huggingface.co/openlm-research/open_llama_13b/blob/main/config.json
-    "open_llama_13b": dict(
+    dict(
+        org="openlm-research",
+        name="open_llama_13b",
         block_size=2048,
         vocab_size=32000,
         padding_multiple=64,
@@ -259,5 +293,132 @@ open_LLaMA = {
         _mlp_class="LLaMAMLP",
         intermediate_size=13824,
     ),
-}
-configs.update(open_LLaMA)
+]
+configs.extend(open_LLaMA)
+
+
+###############
+# LMSYS Vicuna
+###############
+vicuna = [
+    # https://huggingface.co/lmsys/vicuna-7b-v1.3/blob/main/config.json
+    dict(
+        org="lmsys",
+        name="vicuna-7b-v1.3",
+        block_size=2048,
+        vocab_size=32000,
+        padding_multiple=64,
+        n_layer=32,
+        n_head=32,
+        n_embd=4096,
+        rotary_percentage=1.0,
+        parallel_residual=False,
+        bias=False,
+        _norm_class="RMSNorm",
+        norm_eps=1e-6,
+        _mlp_class="LLaMAMLP",
+        intermediate_size=11008,
+    ),
+    # https://huggingface.co/lmsys/vicuna-13b-v1.3/blob/main/config.json
+    dict(
+        org="lmsys",
+        name="vicuna-13b-v1.3",
+        block_size=2048,
+        vocab_size=32000,
+        padding_multiple=64,
+        n_layer=40,
+        n_head=40,
+        n_embd=5120,
+        rotary_percentage=1.0,
+        parallel_residual=False,
+        bias=False,
+        _norm_class="RMSNorm",
+        norm_eps=1e-6,
+        _mlp_class="LLaMAMLP",
+        intermediate_size=13824,
+    ),
+    # https://huggingface.co/lmsys/vicuna-33b-v1.3/blob/main/config.json
+    dict(
+        org="lmsys",
+        name="vicuna-33b-v1.3",
+        block_size=2048,
+        vocab_size=32000,
+        padding_multiple=64,
+        n_layer=60,
+        n_head=52,
+        n_embd=6656,
+        rotary_percentage=1.0,
+        parallel_residual=False,
+        bias=False,
+        _norm_class="RMSNorm",
+        norm_eps=1e-6,
+        _mlp_class="LLaMAMLP",
+        intermediate_size=17920,
+    ),
+]
+configs.extend(vicuna)
+
+
+###########
+# WizardLM
+###########
+wizardlm = [
+    # https://huggingface.co/WizardLM/WizardLM-7B-V1.0/blob/main/config.json
+    dict(
+        org="WizardLM",
+        name="WizardLM-7B-V1.0",
+        block_size=2048,
+        vocab_size=32001,
+        padding_multiple=64,
+        n_layer=32,
+        n_head=32,
+        n_embd=4096,
+        rotary_percentage=1.0,
+        parallel_residual=False,
+        bias=False,
+        _norm_class="RMSNorm",
+        norm_eps=1e-6,
+        _mlp_class="LLaMAMLP",
+        intermediate_size=11008,
+    ),
+    # https://huggingface.co/WizardLM/WizardLM-13B-V1.0/blob/main/config.json
+    dict(
+        org="WizardLM",
+        name="WizardLM-13B-V1.0",
+        block_size=2048,
+        vocab_size=32001,
+        padding_multiple=64,
+        n_layer=40,
+        n_head=40,
+        n_embd=5120,
+        rotary_percentage=1.0,
+        parallel_residual=False,
+        bias=False,
+        _norm_class="RMSNorm",
+        norm_eps=1e-6,
+        _mlp_class="LLaMAMLP",
+        intermediate_size=13824,
+    ),
+    # https://huggingface.co/WizardLM/WizardLM-30B-V1.0/blob/main/config.json
+    dict(
+        org="WizardLM",
+        name="WizardLM-30B-V1.0",
+        block_size=2048,
+        vocab_size=32001,
+        padding_multiple=64,
+        n_layer=60,
+        n_head=52,
+        n_embd=6656,
+        rotary_percentage=1.0,
+        parallel_residual=False,
+        bias=False,
+        _norm_class="RMSNorm",
+        norm_eps=1e-6,
+        _mlp_class="LLaMAMLP",
+        intermediate_size=17920,
+    ),
+]
+configs.extend(wizardlm)
+
+
+name_to_config = {config["name"]: config for config in configs}

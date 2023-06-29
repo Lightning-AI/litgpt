@@ -231,6 +231,21 @@ def prompt_config(checkpoint_dir: Path, tokenizer: Tokenizer) -> Tuple[str, Tupl
             [193, tokenizer.token_to_id("User")],  # 193: '\n'
         )
         return system_prompt, stop_tokens
+    if re.search("WizardLM-7B", checkpoint_name):
+        system_prompt = "{prompt}\n\n### Response:"
+        stop_tokens = (
+            [tokenizer.eos_id],
+        )
+        return system_prompt, stop_tokens
+    if re.search("WizardLM-(13|30)B", checkpoint_name):
+        system_prompt = (
+            "A chat between a curious user and an artificial intelligence assistant. The assistant gives helpful,"
+            " detailed, and polite answers to the user's questions. USER: {prompt} ASSISTANT:"
+        )
+        stop_tokens = (
+            [tokenizer.eos_id],
+        )
+        return system_prompt, stop_tokens
 
     # default format
     return "{prompt}", ([tokenizer.eos_id],)
