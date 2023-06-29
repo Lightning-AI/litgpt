@@ -42,9 +42,12 @@ class Config:
     shared_attention_norm: bool = False
 
     def __post_init__(self):
+        # error checking
+        assert self.n_embd % self.n_head == 0
+        # vocab size should be a power of 2 to be optimal on hardware. compute the closest value
         if self.padded_vocab_size is None:
             self.padded_vocab_size = find_multiple(self.vocab_size, self.padding_multiple)
-        assert self.n_embd % self.n_head == 0
+        # compute the number of query groups
         if self.n_query_groups is not None:
             assert self.n_head % self.n_query_groups == 0
         else:

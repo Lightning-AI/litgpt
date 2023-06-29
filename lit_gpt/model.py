@@ -8,7 +8,6 @@ from typing import List, Optional, Tuple, Any
 
 import torch
 import torch.nn as nn
-from torch.nn import functional as F
 from typing_extensions import Self
 
 from lit_gpt.config import Config
@@ -203,14 +202,19 @@ class CausalSelfAttention(nn.Module):
 
         # assemble into a number of query groups to support MHA, MQA and GQA together (see `config.n_query_groups`)
         q_per_kv = self.config.n_head // self.config.n_query_groups
-        # each group has 1+ queries, 1 key, and 1 value (hence the + 2)
-        qkv = qkv.view(B, T, self.config.n_query_groups, q_per_kv + 2, self.config.head_size).permute(0, 2, 3, 1, 4)
+        total_qkv = q_per_kv + 2  # each group has 1+ queries, 1 key, and 1 value
+        qkv = qkv.view(B, T, self.config.n_query_groups, total_qkv, self.config.head_size)
+        qkv = qkv.permute(0, 2, 3, 1, 4)  # (B, n_query_groups, total_qkv, T, hs)
+
         # split batched computation into three
         q, k, v = qkv.split((q_per_kv, 1, 1), dim=2)
+
+        # repeat k and v if necessary
         if self.config.n_query_groups != 1:  # doing this would require a full kv cache with MQA (inefficient!)
             # for MHA this is a no-op
             k = k.repeat_interleave(q_per_kv, dim=2)
             v = v.repeat_interleave(q_per_kv, dim=2)
+
         q = q.reshape(B, -1, T, self.config.head_size)  # (B, nh_q, T, hs)
         k = k.view(B, -1, T, self.config.head_size)  # (B, nh_k, T, hs)
         v = v.view(B, -1, T, self.config.head_size)  # (B, nh_v, T, hs)
@@ -223,7 +227,7 @@ class CausalSelfAttention(nn.Module):
         q = torch.cat((q_roped, q[..., n_elem:]), dim=-1)
         k = torch.cat((k_roped, k[..., n_elem:]), dim=-1)
 
-        if input_pos is not None and kv_cache is not None:
+        if kv_cache is not None:
             cache_k, cache_v = kv_cache
             cache_k, cache_v = cache_k.to(dtype=k.dtype), cache_v.to(dtype=v.dtype)
             # check if reached token limit
@@ -237,7 +241,7 @@ class CausalSelfAttention(nn.Module):
             kv_cache = k, v
 
         # efficient attention using Flash Attention CUDA kernels
-        y = F.scaled_dot_product_attention(
+        y = torch.nn.functional.scaled_dot_product_attention(
             q, k, v, attn_mask=mask, dropout_p=0.0, scale=1.0 / math.sqrt(self.config.head_size), is_causal=mask is None
         )
 
