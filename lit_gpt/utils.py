@@ -217,7 +217,7 @@ def check_valid_checkpoint_dir(checkpoint_dir: Path) -> None:
 
     error_message = (
         f"--checkpoint_dir {str(checkpoint_dir.absolute())!r}{problem}."
-        "\nFind download instructions at https://github.com/Lightning-AI/lit-gpt/blob/main/howto\n"
+        "\nFind download instructions at https://github.com/Lightning-AI/lit-gpt/blob/main/tutorials\n"
         f"{extra}\nSee all download options by running:\n python scripts/download.py"
     )
     print(error_message, file=sys.stderr)
