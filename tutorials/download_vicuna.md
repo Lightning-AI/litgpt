@@ -31,5 +31,5 @@ You're done! To execute the model just run:
 ```bash
 pip install sentencepiece
 
-python generate/chat.py --checkpoint_dir checkpoints/lmsys/vicuna-7b-v1.3
+python chat/base.py --checkpoint_dir checkpoints/lmsys/vicuna-7b-v1.3
 ```
