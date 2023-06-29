@@ -2,6 +2,7 @@
 
 import functools
 import pickle
+import sys
 import warnings
 from contextlib import contextmanager
 from io import BytesIO
@@ -190,15 +191,21 @@ class lazy_load:
 
 
 def check_valid_checkpoint_dir(checkpoint_dir: Path) -> None:
-    if (
-        checkpoint_dir.is_dir()
-        and (checkpoint_dir / "lit_model.pth").is_file()
-        and (checkpoint_dir / "lit_config.json").is_file()
-        and ((checkpoint_dir / "tokenizer.json").is_file() or (checkpoint_dir / "tokenizer.model").is_file())
-        and (checkpoint_dir / "tokenizer_config.json").is_file()
-    ):
-        # we're good
-        return
+    files = {
+        "lit_model.pth": (checkpoint_dir / "lit_model.pth").is_file(),
+        "lit_config.json": (checkpoint_dir / "lit_config.json").is_file(),
+        "tokenizer.json OR tokenizer.model": (checkpoint_dir / "tokenizer.json").is_file() or (
+            checkpoint_dir / "tokenizer.model"
+        ).is_file(),
+        "tokenizer_config.json": (checkpoint_dir / "tokenizer_config.json").is_file(),
+    }
+    if checkpoint_dir.is_dir():
+        if all(files.values()):
+            # we're good
+            return
+        problem = f" is missing the files: {[f for f, exists in files.items() if not exists]!r}"
+    else:
+        problem = " is not a checkpoint directory"
 
     # list locally available checkpoints
     available = list(Path("checkpoints").glob("*/*"))
@@ -208,20 +215,13 @@ def check_valid_checkpoint_dir(checkpoint_dir: Path) -> None:
     else:
         extra = ""
 
-    from lit_gpt.config import configs
-
-    # list other possible checkpoints to download
-    not_downloaded = [c for c in configs if not any(c in str(a) for a in available)]
-    joined = "\n * ".join([""] + not_downloaded)
-    supported = f"You can download:{joined}"
-
-    raise OSError(
-        f"`--checkpoint_dir {str(checkpoint_dir.absolute())!r} is not a valid checkpoint directory."
-        " It must contain the files: 'lit_model.pth', 'lit_config.json', 'tokenizer.json' and 'tokenizer_config.json'."
-        "\nPlease, follow the instructions at"
-        " https://github.com/Lightning-AI/lit-gpt/blob/main/howto/download_stablelm.md\n"
-        f"{extra}\n{supported}"
+    error_message = (
+        f"--checkpoint_dir {str(checkpoint_dir.absolute())!r}{problem}."
+        "\nFind download instructions at https://github.com/Lightning-AI/lit-gpt/blob/main/howto\n"
+        f"{extra}\nSee all download options by running:\n python scripts/download.py"
     )
+    print(error_message, file=sys.stderr)
+    raise SystemExit(1)
 
 
 class SavingProxyForStorage:
