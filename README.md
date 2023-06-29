@@ -19,23 +19,17 @@
 
 # ⚡ Lit-GPT
 
-Hackable implementation of state-of-the-art open-source large language models:
+Hackable [implementation](lit_gpt/model.py) of state-of-the-art open-source large language models released under the **Apache 2.0 license**.
 
-- StabilityAI [StableLM](https://github.com/Stability-AI/StableLM)
-- EleutherAI [Pythia](https://github.com/EleutherAI/pythia)
-- Together [RedPajama-INCITE](https://www.together.xyz/blog/redpajama-models-v1)
-- TII UAE [Falcon](https://falconllm.tii.ae)
+Supports popular public checkpoints such as:
 
-released under the **Apache 2.0 license**.
+- TII UAE [Falcon](howto/download_falcon.md)
+- OpenLM Research [OpenLLaMA](howto/download_openllama.md)
+- Together [RedPajama-INCITE](howto/download_redpajama_incite.md)
+- EleutherAI [Pythia](howto/download_pythia.md)
+- StabilityAI [StableLM](howto/download_stablelm.md)
 
-This implementation builds on [Lit-LLaMA](https://github.com/lightning-AI/lit-llama) and [nanoGPT](https://github.com/karpathy/nanoGPT), and it's powered by [Lightning Fabric](https://lightning.ai/docs/fabric/stable/) ⚡.
-
-Weights can be downloaded following these instructions:
-
-- [StableLM](howto/download_stablelm.md)
-- [Pythia](howto/download_pythia.md)
-- [Redpajama-INCITE](howto/download_redpajama_incite.md)
-- [Falcon](howto/download_falcon.md)
+This implementation extends on [Lit-LLaMA](https://github.com/lightning-AI/lit-llama) and [nanoGPT](https://github.com/karpathy/nanoGPT), and it's **powered by [Lightning Fabric](https://lightning.ai/docs/fabric/stable/) ⚡**.
 
 ## Design principles
 
@@ -45,7 +39,7 @@ This repository follows the main principle of **openness through clarity**.
 
 - **Simple:** Single-file implementation without boilerplate.
 - **Correct:** Numerically equivalent to the original model.
-- **Optimized:** Runs on consumer hardware or at scale.
+- **Optimized:** Runs fast on consumer hardware or at scale.
 - **Open-source:** No strings attached.
 
 Avoiding code duplication is **not** a goal. **Readability** and **hackability** are.
@@ -65,7 +59,7 @@ git clone https://github.com/Lightning-AI/lit-gpt
 cd lit-gpt
 ```
 
-Lit-GPT currently relies on FlashAttention from PyTorch nightly. Until PyTorch 2.1 is released you'll need to install nightly manually.
+Lit-GPT currently relies on flash attention from PyTorch nightly. Until PyTorch 2.1 is released you'll need to install nightly manually.
 Luckily that is straightforward:
 
 **On CUDA**
@@ -136,12 +130,11 @@ python finetune/adapter.py
 
 or Adapter v2 ([Gao et al. 2023](https://arxiv.org/abs/2304.15010)):
 
-```python 
-finetune/adapter_v2.py
+```bash
+python finetune/adapter_v2.py
 ```
 
 or LoRA ([Hu et al. 2021](https://arxiv.org/abs/2106.09685)):
-
 
 ```bash
 python finetune/lora.py
@@ -182,7 +175,7 @@ We are on a quest towards fully open source AI.
 Join us and start contributing, especially on the following areas:
 
 - [ ] [Pre-training](https://github.com/Lightning-AI/lit-gpt/labels/pre-training)
-- [ ] [Fine-tuning (full and adapter)](https://github.com/Lightning-AI/lit-gpt/labels/fine-tuning)
+- [ ] [Fine-tuning](https://github.com/Lightning-AI/lit-gpt/labels/fine-tuning)
 - [ ] [Quantization](https://github.com/Lightning-AI/lit-gpt/labels/quantization)
 - [ ] [Sparsification](https://github.com/Lightning-AI/lit-gpt/labels/sparsification)
 

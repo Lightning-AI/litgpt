@@ -24,7 +24,7 @@ def test_packed_dataset(tmp_path):
 
     from lit_gpt import Tokenizer
 
-    tokenizer = Tokenizer(vocabulary_path=vocabulary_path, config_path=tokenizer_path)
+    tokenizer = Tokenizer(tmp_path)
 
     texts = ["The moment of truth is upon us. " * 4, "Time to open the fridge. " * 4]
 

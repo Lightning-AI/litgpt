@@ -46,7 +46,7 @@ def prepare_sample(
     """Prepare the "Red Pajama" dataset using the original tokenizer."""
     destination_path.mkdir(parents=True, exist_ok=True)
 
-    tokenizer = Tokenizer(checkpoint_dir / "tokenizer.json", checkpoint_dir / "tokenizer_config.json")
+    tokenizer = Tokenizer(checkpoint_dir)
 
     for name in filenames_sample:
         if match and match not in name:
@@ -92,7 +92,7 @@ def prepare_full(
 
     destination_path.mkdir(parents=True, exist_ok=True)
 
-    tokenizer = Tokenizer(checkpoint_dir / "tokenizer.json", checkpoint_dir / "tokenizer_config.json")
+    tokenizer = Tokenizer(checkpoint_dir)
 
     for set_name, pattern in filename_sets.items():
         if match and match not in set_name:

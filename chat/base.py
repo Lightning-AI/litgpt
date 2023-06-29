@@ -138,7 +138,7 @@ def main(
     model.eval()
     model = fabric.setup_module(model)
 
-    tokenizer = Tokenizer(checkpoint_dir / "tokenizer.json", checkpoint_dir / "tokenizer_config.json")
+    tokenizer = Tokenizer(checkpoint_dir)
     system_prompt, stop_tokens = prompt_config(checkpoint_dir, tokenizer)
 
     while True:

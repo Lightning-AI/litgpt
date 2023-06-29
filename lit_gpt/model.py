@@ -11,6 +11,7 @@ import torch.nn as nn
 from typing_extensions import Self
 
 from lit_gpt.config import Config
+from lit_gpt.rmsnorm import RMSNorm
 
 RoPECache = Tuple[torch.Tensor, torch.Tensor]
 KVCache = Tuple[torch.Tensor, torch.Tensor]
@@ -27,7 +28,7 @@ class GPT(nn.Module):
             dict(
                 wte=nn.Embedding(config.padded_vocab_size, config.n_embd),
                 h=nn.ModuleList(Block(config) for _ in range(config.n_layer)),
-                ln_f=nn.LayerNorm(config.n_embd),
+                ln_f=config.norm_class(config.n_embd, eps=config.norm_eps),
             )
         )
         self.rope_cache: Optional[RoPECache] = None
@@ -36,7 +37,6 @@ class GPT(nn.Module):
 
     def _init_weights(self, module: nn.Module) -> None:
         if isinstance(module, nn.Linear):
-            # https://huggingface.co/stabilityai/stablelm-base-alpha-3b/blob/main/config.json#L10
             torch.nn.init.normal_(module.weight, mean=0.0, std=0.02)
             if module.bias is not None:
                 torch.nn.init.zeros_(module.bias)
@@ -45,8 +45,10 @@ class GPT(nn.Module):
         elif isinstance(module, nn.LayerNorm):
             torch.nn.init.ones_(module.weight)
             torch.nn.init.zeros_(module.bias)
-            # https://huggingface.co/stabilityai/stablelm-base-alpha-3b/blob/main/config.json#L12
-            module.eps = 1e-5
+            module.eps = self.config.norm_eps
+        elif isinstance(module, RMSNorm):
+            torch.nn.init.ones_(module.weight)
+            module.eps = self.config.norm_eps
 
     def reset_cache(self) -> None:
         self.kv_caches.clear()
@@ -143,11 +145,11 @@ class GPT(nn.Module):
 class Block(nn.Module):
     def __init__(self, config: Config) -> None:
         super().__init__()
-        self.norm_1 = nn.LayerNorm(config.n_embd)
+        self.norm_1 = config.norm_class(config.n_embd, eps=config.norm_eps)
         self.attn = CausalSelfAttention(config)
         if not config.shared_attention_norm:
-            self.norm_2 = nn.LayerNorm(config.n_embd)
-        self.mlp = MLP(config)
+            self.norm_2 = config.norm_class(config.n_embd, eps=config.norm_eps)
+        self.mlp = config.mlp_class(config)
 
         self.config = config
 
@@ -253,17 +255,30 @@ class CausalSelfAttention(nn.Module):
         return y, kv_cache
 
 
-class MLP(nn.Module):
+class GptNeoxMLP(nn.Module):
     def __init__(self, config: Config) -> None:
         super().__init__()
-        hidden_dim = 4 * config.n_embd
-        self.fc = nn.Linear(config.n_embd, hidden_dim, bias=config.bias)
-        self.proj = nn.Linear(hidden_dim, config.n_embd, bias=config.bias)
+        self.fc = nn.Linear(config.n_embd, config.intermediate_size, bias=config.bias)
+        self.proj = nn.Linear(config.intermediate_size, config.n_embd, bias=config.bias)
 
     def forward(self, x: torch.Tensor) -> torch.Tensor:
-        # gpt-neox style MLP
         x = self.fc(x)
         x = torch.nn.functional.gelu(x)
+        x = self.proj(x)
+        return x
+
+
+class LLaMAMLP(nn.Module):
+    def __init__(self, config: Config) -> None:
+        super().__init__()
+        self.fc_1 = nn.Linear(config.n_embd, config.intermediate_size, bias=config.bias)
+        self.fc_2 = nn.Linear(config.n_embd, config.intermediate_size, bias=config.bias)
+        self.proj = nn.Linear(config.intermediate_size, config.n_embd, bias=config.bias)
+
+    def forward(self, x: torch.Tensor) -> torch.Tensor:
+        x_fc_1 = self.fc_1(x)
+        x_fc_2 = self.fc_2(x)
+        x = torch.nn.functional.silu(x_fc_1) * x_fc_2
         x = self.proj(x)
         return x
 

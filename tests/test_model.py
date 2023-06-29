@@ -1,21 +1,25 @@
+import operator
 import sys
 from pathlib import Path
 from urllib.request import urlretrieve
 
 import pytest
 import torch
-from transformers import GPTNeoXForCausalLM, PretrainedConfig
+from lightning_utilities import compare_version
 
 wd = Path(__file__).parent.parent.absolute()
 
 
-@torch.inference_mode()
+@pytest.mark.skipif(
+    compare_version("transformers", operator.gt, "4.27.3"), reason="Not updated to the latest transformers API"
+)
 @pytest.mark.parametrize("rotary_pct", (0.25, 1))
 @pytest.mark.parametrize("batch_size", (1, 3))
 @pytest.mark.parametrize("n_embd", (16, 32))
 @pytest.mark.parametrize("parallel_residual", (False, True))
 @pytest.mark.parametrize("kv_cache", (False, True))
 def test_against_hf_model(rotary_pct, batch_size, n_embd, parallel_residual, kv_cache) -> None:
+    from transformers import GPTNeoXForCausalLM, PretrainedConfig
     import lit_gpt
     from scripts.convert_hf_checkpoint import copy_weights_gpt_neox
 
@@ -104,20 +108,65 @@ def test_against_original_falcon_40b():
         hidden_size=32, n_head=8, n_head_kv=4, n_layer=2, parallel_attn=True, vocab_size=65024, bias=False
     )
 
-    x = torch.tensor([[9856, 23, 491, 1536, 304]], dtype=torch.int32)
-
     theirs_model = RWForCausalLM(theirs_config)
-    y_theirs = theirs_model(x)["logits"]
-
     theirs_state_dict = theirs_model.state_dict()
     state_dict = {}
     copy_weights_falcon("40b", state_dict, theirs_state_dict)
-
     ours_model = GPT(ours_config)
     ours_model.load_state_dict(state_dict)
-    y_ours = ours_model(x)
 
-    torch.testing.assert_close(y_ours, y_theirs)
+    # test end to end
+    x = torch.tensor([[9856, 23, 491, 1536, 304]], dtype=torch.int32)
+    ours_y = ours_model(x)
+    theirs_y = theirs_model(x)["logits"]
+    torch.testing.assert_close(ours_y, theirs_y)
+
+
+@pytest.mark.skipif(compare_version("transformers", operator.lt, "4.28.0"), reason="Llama wasn't implemented")
+@torch.inference_mode()
+def test_against_original_open_llama_3b():
+    from lit_gpt import Config, GPT
+    from scripts.convert_hf_checkpoint import copy_weights_open_llama
+    from transformers.models.llama.modeling_llama import LlamaForCausalLM, apply_rotary_pos_emb
+    from transformers.models.llama.configuration_llama import LlamaConfig
+    from lit_gpt import apply_rope
+
+    ours_config = Config.from_name("open_llama_3b", n_layer=2, n_head=8, n_embd=32, intermediate_size=86)
+    T = 5
+    theirs_config = LlamaConfig(
+        hidden_size=ours_config.n_embd,
+        num_attention_heads=ours_config.n_head,
+        num_hidden_layers=ours_config.n_layer,
+        intermediate_size=ours_config.intermediate_size,
+        max_position_embeddings=T,
+    )
+    assert ours_config.intermediate_size == theirs_config.intermediate_size
+
+    theirs_model = LlamaForCausalLM(theirs_config)
+    theirs_state_dict = theirs_model.state_dict()
+    state_dict = {}
+    copy_weights_open_llama(ours_config, {}, state_dict, theirs_state_dict)
+    ours_model = GPT(ours_config)
+    ours_model.load_state_dict(state_dict)
+
+    # test rope
+    x = torch.randn(2, T, ours_config.n_embd)  # B, T, n_embd
+    ours_cos, ours_sin = ours_model.build_rope_cache(x)
+    ours_cos, ours_sin = ours_cos[:T], ours_sin[:T]  # this is done in our model forward
+    theirs_cos, theirs_sin = theirs_model.model.layers[0].self_attn.rotary_emb(x, T)
+    torch.testing.assert_close(ours_cos, theirs_cos.squeeze())
+    torch.testing.assert_close(ours_sin, theirs_sin.squeeze())
+    q = torch.randn(1, ours_config.n_head, T, ours_config.head_size)
+    ours_q_roped = apply_rope(q, ours_cos, ours_sin)
+    theirs_q_roped, _ = apply_rotary_pos_emb(q, q, theirs_cos, theirs_sin, torch.arange(T).unsqueeze(0))
+    torch.testing.assert_close(ours_q_roped, theirs_q_roped)
+
+    # test end to end
+    x = torch.tensor([[9856, 23, 491, 1536, 304]], dtype=torch.int32)
+    assert x.size(1) == T
+    ours_y = ours_model(x)
+    theirs_y = theirs_model(x)["logits"]
+    torch.testing.assert_close(ours_y, theirs_y)
 
 
 @pytest.mark.skipif(sys.platform in ("win32", "darwin"), reason="torch.compile not supported on this platform")

@@ -49,7 +49,7 @@ def test_prepare_sample(tmp_path):
     from lit_gpt import Tokenizer
     from lit_gpt.packed_dataset import PackedDataset
 
-    tokenizer = Tokenizer(vocabulary_path, tokenizer_path)
+    tokenizer = Tokenizer(tmp_path)
 
     # artificially set block_size to fit the text
     block_size = len(tokenizer.encode("some text"))
@@ -111,7 +111,7 @@ def test_prepare_full(tmp_path):
     from lit_gpt import Tokenizer
     from lit_gpt.packed_dataset import PackedDataset
 
-    tokenizer = Tokenizer(vocabulary_path, tokenizer_path)
+    tokenizer = Tokenizer(tmp_path)
 
     # artificially set block_size to fit the text
     block_size = len(tokenizer.encode("some text"))

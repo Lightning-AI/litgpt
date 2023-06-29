@@ -1,3 +1,4 @@
+import re
 from pathlib import Path
 import sys
 from typing import Optional
@@ -11,11 +12,16 @@ def download_from_hub(repo_id: Optional[str] = None) -> None:
     if repo_id is None:
         from lit_gpt.config import configs
 
-        orgs = {"stablelm": "stabilityai", "pythia": "EleutherAI", "RedPajama": "togethercomputer", "falcon": "tiiuae"}
-        names = [f"{orgs[el.split('-')[0]]}/{el}" for el in configs.keys()]
-
+        orgs = {
+            "stablelm": "stabilityai",
+            "pythia": "EleutherAI",
+            "RedPajama": "togethercomputer",
+            "falcon": "tiiuae",
+            "open": "openlm-research",
+        }
+        options = [f"{orgs[re.split('-|_', name)[0]]}/{name}" for name in configs]
         print("Please specify --repo_id <repo_id>. Available values:")
-        print("\n".join(names))
+        print("\n".join(options))
         return
 
     from huggingface_hub import snapshot_download

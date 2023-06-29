@@ -4,7 +4,7 @@ import json
 import sys
 from functools import partial
 from pathlib import Path
-from typing import Optional, Literal, Tuple, Dict, Union
+from typing import Optional, Literal, Tuple, Dict, List, Union
 
 import torch
 
@@ -108,6 +108,67 @@ def copy_weights_falcon(
         state_dict[to_name] = param
 
 
+def copy_weights_open_llama(
+    config: Config,
+    qkv_weights: Dict[int, List[Optional[NotYetLoadedTensor]]],
+    state_dict: Dict[str, torch.Tensor],
+    hf_weights: Dict[str, Union[torch.Tensor, NotYetLoadedTensor]],
+    saver: Optional[incremental_save] = None,
+    dtype: torch.dtype = torch.float32,
+) -> None:
+    weight_map = {
+        "model.embed_tokens.weight": "transformer.wte.weight",
+        "model.layers.{}.input_layernorm.weight": "transformer.h.{}.norm_1.weight",
+        "model.layers.{}.self_attn.q_proj.weight": None,
+        "model.layers.{}.self_attn.k_proj.weight": None,
+        "model.layers.{}.self_attn.v_proj.weight": None,
+        "model.layers.{}.self_attn.o_proj.weight": "transformer.h.{}.attn.proj.weight",
+        "model.layers.{}.self_attn.rotary_emb.inv_freq": None,
+        "model.layers.{}.post_attention_layernorm.weight": "transformer.h.{}.norm_2.weight",
+        "model.layers.{}.mlp.gate_proj.weight": "transformer.h.{}.mlp.fc_1.weight",
+        "model.layers.{}.mlp.up_proj.weight": "transformer.h.{}.mlp.fc_2.weight",
+        "model.layers.{}.mlp.down_proj.weight": "transformer.h.{}.mlp.proj.weight",
+        "model.norm.weight": "transformer.ln_f.weight",
+        "lm_head.weight": "lm_head.weight",
+    }
+
+    for name, param in hf_weights.items():
+        if "model.layers" in name:
+            from_name, number = layer_template(name, 2)
+            qkv = qkv_weights.setdefault(number, [None, None, None])
+            if "q_proj" in name:
+                qkv[0] = param
+            elif "k_proj" in name:
+                qkv[1] = param
+            elif "v_proj" in name:
+                qkv[2] = param
+            to_name = weight_map[from_name]
+            if to_name is None:
+                continue
+            to_name = to_name.format(number)
+        else:
+            to_name = weight_map[name]
+        param = load_param(param, dtype)
+        if saver is not None:
+            param = saver.store_early(param)
+        state_dict[to_name] = param
+
+    for i, (q, k, v) in list(qkv_weights.items()):
+        if q is None or k is None or v is None:
+            # split across different .bin files
+            continue
+        q = load_param(q, dtype)
+        k = load_param(k, dtype)
+        v = load_param(v, dtype)
+        # this assumes MHA which is true for the supported HF checkpoints
+        q = q.transpose(0, 1).reshape(-1, config.head_size)
+        k = k.transpose(0, 1).reshape(-1, config.head_size)
+        v = v.transpose(0, 1).reshape(-1, config.head_size)
+        qkv = torch.cat((q, k, v), dim=1).reshape(-1, config.n_embd * 3).transpose(0, 1)
+        state_dict[f"transformer.h.{i}.attn.attn.weight"] = qkv
+        del qkv_weights[i]
+
+
 def layer_template(layer_name: str, idx: int) -> Tuple[str, int]:
     split = layer_name.split(".")
     number = int(split[idx])
@@ -145,6 +206,10 @@ def convert_hf_checkpoint(
 
     if "falcon" in model_name:
         copy_fn = partial(copy_weights_falcon, "40b" if config.n_embd == 8192 else "7b")
+    elif "open_llama" in model_name:
+        # holder to reconstitute the split q, k, v
+        qkv_weights = {}
+        copy_fn = partial(copy_weights_open_llama, config, qkv_weights)
     else:
         copy_fn = copy_weights_gpt_neox
 

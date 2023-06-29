@@ -72,7 +72,7 @@ def test_check_valid_checkpoint_dir(tmp_path):
         check_valid_checkpoint_dir(tmp_path)
     out = out.getvalue().strip()
     expected = f"""
---checkpoint_dir '{str(tmp_path.absolute())}' is missing the files: ['lit_model.pth', 'lit_config.json', 'tokenizer.json', 'tokenizer_config.json'].
+--checkpoint_dir '{str(tmp_path.absolute())}' is missing the files: ['lit_model.pth', 'lit_config.json', 'tokenizer.json OR tokenizer.model', 'tokenizer_config.json'].
 Find download instructions at https://github.com/Lightning-AI/lit-gpt/blob/main/howto
 
 See all download options by running:

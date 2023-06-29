@@ -51,7 +51,7 @@ def prepare(
         data = json.load(file)
 
     print("Loading tokenizer...")
-    tokenizer = Tokenizer(checkpoint_dir / "tokenizer.json", checkpoint_dir / "tokenizer_config.json")
+    tokenizer = Tokenizer(checkpoint_dir)
 
     # Partition the dataset into train and test
     train_split_size = len(data) - test_split_size

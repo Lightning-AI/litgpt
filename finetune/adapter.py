@@ -130,7 +130,7 @@ def train(
     out_dir: Path,
     speed_monitor: SpeedMonitor,
 ) -> None:
-    tokenizer = Tokenizer(checkpoint_dir / "tokenizer.json", checkpoint_dir / "tokenizer_config.json")
+    tokenizer = Tokenizer(checkpoint_dir)
     max_seq_length, longest_seq_length, longest_seq_ix = get_max_seq_length(train_data)
 
     validate(fabric, model, val_data, tokenizer, longest_seq_length)  # sanity check

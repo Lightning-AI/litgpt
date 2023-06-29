@@ -1,8 +1,11 @@
+import math
 from dataclasses import dataclass
-from typing import Optional, Any
+from typing import Optional, Any, Type, Literal
 
+import torch
 from typing_extensions import Self
 
+import lit_gpt.model
 from lit_gpt.utils import find_multiple
 
 
@@ -40,6 +43,10 @@ class Config:
     # credit https://arxiv.org/pdf/2305.13245.pdf
     n_query_groups: Optional[int] = None
     shared_attention_norm: bool = False
+    _norm_class: Literal["LayerNorm", "RMSNorm"] = "LayerNorm"
+    norm_eps: float = 1e-5
+    _mlp_class: Literal["GptNeoxMLP", "LLaMAMLP"] = "GptNeoxMLP"
+    intermediate_size: Optional[int] = None
 
     def __post_init__(self):
         # error checking
@@ -52,6 +59,12 @@ class Config:
             assert self.n_head % self.n_query_groups == 0
         else:
             self.n_query_groups = self.n_head
+        # compute the intermediate size for MLP if not set
+        if self.intermediate_size is None:
+            if self._mlp_class == "LLaMAMLP":
+                raise ValueError("The config needs to set the `intermediate_size`")
+            else:
+                self.intermediate_size = 4 * self.n_embd
 
     @property
     def head_size(self) -> int:
@@ -62,6 +75,20 @@ class Config:
         conf_dict = configs[name].copy()
         conf_dict.update(kwargs)
         return cls(**conf_dict)
+
+    @property
+    def mlp_class(self) -> Type:
+        # `self._mlp_class` cannot be the type to keep the config json serializable
+        return getattr(lit_gpt.model, self._mlp_class)
+
+    @property
+    def norm_class(self) -> Type:
+        # `self._norm_class` cannot be the type to keep the config json serializable
+        if self._norm_class == "RMSNorm":
+            from lit_gpt.rmsnorm import RMSNorm
+
+            return RMSNorm
+        return getattr(torch.nn, self._norm_class)
 
 
 ########################
@@ -178,3 +205,59 @@ falcon = {
 for k in list(falcon):
     for kind in ("", "-instruct"):
         configs[k.format(kind)] = falcon[k]
+
+
+#############################
+# OpenLM Research Open LLaMA
+#############################
+open_llama = {
+    # https://huggingface.co/openlm-research/open_llama_3b/blob/main/config.json
+    "open_llama_3b": dict(
+        block_size=2048,
+        vocab_size=32000,
+        padding_multiple=64,
+        n_layer=26,
+        n_head=32,
+        n_embd=3200,
+        rotary_percentage=1.0,
+        parallel_residual=False,
+        bias=False,
+        _norm_class="RMSNorm",
+        norm_eps=1e-6,
+        _mlp_class="LLaMAMLP",
+        intermediate_size=8640,
+    ),
+    # https://huggingface.co/openlm-research/open_llama_7b/blob/main/config.json
+    "open_llama_7b": dict(
+        block_size=2048,
+        vocab_size=32000,
+        padding_multiple=64,
+        n_layer=32,
+        n_head=32,
+        n_embd=4096,
+        rotary_percentage=1.0,
+        parallel_residual=False,
+        bias=False,
+        _norm_class="RMSNorm",
+        norm_eps=1e-6,
+        _mlp_class="LLaMAMLP",
+        intermediate_size=11008,
+    ),
+    # https://huggingface.co/openlm-research/open_llama_13b/blob/main/config.json
+    "open_llama_13b": dict(
+        block_size=2048,
+        vocab_size=32000,
+        padding_multiple=64,
+        n_layer=40,
+        n_head=40,
+        n_embd=5120,
+        rotary_percentage=1.0,
+        parallel_residual=False,
+        bias=False,
+        _norm_class="RMSNorm",
+        norm_eps=1e-6,
+        _mlp_class="LLaMAMLP",
+        intermediate_size=13824,
+    ),
+}
+configs.update(open_llama)
