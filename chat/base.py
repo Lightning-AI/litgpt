@@ -235,7 +235,7 @@ def prompt_config(checkpoint_dir: Path, tokenizer: Tokenizer) -> Tuple[str, Tupl
         # https://github.com/lm-sys/FastChat/blob/main/docs/vicuna_weights_version.md#prompt-template
         system_prompt = (
             "A chat between a curious user and an artificial intelligence assistant. The assistant gives helpful, "
-            " detailed, and polite answers to the user's questions.\n\nUSER: {prompt}\nASSISTANT: "
+            "detailed, and polite answers to the user's questions. USER: {prompt} ASSISTANT:"
         )
         stop_tokens = ([tokenizer.eos_id],)
         return system_prompt, stop_tokens
