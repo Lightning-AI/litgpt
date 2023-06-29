@@ -16,7 +16,12 @@ from lit_gpt import Config
 from lit_gpt.utils import lazy_load, incremental_save, NotYetLoadedTensor
 
 
-def copy_weights_gpt_neox(state_dict, hf_weights, saver=None, dtype=torch.float32):
+def copy_weights_gpt_neox(
+    state_dict: Dict[str, torch.Tensor],
+    hf_weights: Dict[str, Union[torch.Tensor, NotYetLoadedTensor]],
+    saver: Optional[incremental_save] = None,
+    dtype: torch.dtype = torch.float32,
+) -> None:
     weight_map = {
         "gpt_neox.embed_in.weight": "transformer.wte.weight",
         "gpt_neox.layers.{}.input_layernorm.bias": "transformer.h.{}.norm_1.bias",
@@ -54,7 +59,13 @@ def copy_weights_gpt_neox(state_dict, hf_weights, saver=None, dtype=torch.float3
         state_dict[to_name] = param
 
 
-def copy_weights_falcon(size: Literal["7b", "40b"], state_dict, hf_weights, saver=None, dtype=torch.float32):
+def copy_weights_falcon(
+    size: Literal["7b", "40b"],
+    state_dict: Dict[str, torch.Tensor],
+    hf_weights: Dict[str, Union[torch.Tensor, NotYetLoadedTensor]],
+    saver: Optional[incremental_save] = None,
+    dtype: torch.dtype = torch.float32,
+) -> None:
     weight_map = {
         "transformer.word_embeddings.weight": "transformer.wte.weight",
         "transformer.h.{}.self_attention.query_key_value.weight": "transformer.h.{}.attn.attn.weight",
@@ -100,8 +111,8 @@ def copy_weights_falcon(size: Literal["7b", "40b"], state_dict, hf_weights, save
 def copy_weights_open_llama(
     config: Config,
     qkv_weights: Dict[int, List[Optional[NotYetLoadedTensor]]],
-    state_dict: Dict[str, Any],
-    hf_weights: Dict[str, Any],
+    state_dict: Dict[str, torch.Tensor],
+    hf_weights: Dict[str, Union[torch.Tensor, NotYetLoadedTensor]],
     saver: Optional[incremental_save] = None,
     dtype: torch.dtype = torch.float32,
 ) -> None:
