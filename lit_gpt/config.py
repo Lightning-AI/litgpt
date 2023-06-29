@@ -11,8 +11,8 @@ from lit_gpt.utils import find_multiple
 
 @dataclass
 class Config:
-    org: str
-    name: str
+    org: str = "Lightning-AI"
+    name: str = "lit-GPT"
     block_size: int = 4096
     vocab_size: int = 50254
     padding_multiple: int = 512

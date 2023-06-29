@@ -1,7 +1,14 @@
+import operator
+
+import pytest
 import torch
+from lightning_utilities import compare_version
 from transformers.models.gpt_neox.modeling_gpt_neox import RotaryEmbedding, apply_rotary_pos_emb
 
 
+@pytest.mark.skipif(
+    compare_version("transformers", operator.gt, "4.27.3"), reason="Not updated to the latest transformers API"
+)
 @torch.inference_mode()
 def test_rope():
     import lit_gpt
