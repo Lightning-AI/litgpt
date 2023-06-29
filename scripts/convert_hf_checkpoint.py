@@ -4,7 +4,7 @@ import json
 import sys
 from functools import partial
 from pathlib import Path
-from typing import Optional, Literal, Tuple
+from typing import Optional, Literal, Tuple, Dict, Union
 
 import torch
 
@@ -13,10 +13,15 @@ wd = Path(__file__).parent.parent.resolve()
 sys.path.append(str(wd))
 
 from lit_gpt import Config
-from lit_gpt.utils import lazy_load, incremental_save
+from lit_gpt.utils import lazy_load, incremental_save, NotYetLoadedTensor
 
 
-def copy_weights_gpt_neox(state_dict, hf_weights, saver=None, dtype=torch.float32):
+def copy_weights_gpt_neox(
+    state_dict: Dict[str, torch.Tensor],
+    hf_weights: Dict[str, Union[torch.Tensor, NotYetLoadedTensor]],
+    saver: Optional[incremental_save] = None,
+    dtype: torch.dtype = torch.float32,
+) -> None:
     weight_map = {
         "gpt_neox.embed_in.weight": "transformer.wte.weight",
         "gpt_neox.layers.{}.input_layernorm.bias": "transformer.h.{}.norm_1.bias",
@@ -40,10 +45,6 @@ def copy_weights_gpt_neox(state_dict, hf_weights, saver=None, dtype=torch.float3
     }
 
     for name, param in hf_weights.items():
-        if hasattr(param, "_load_tensor"):
-            # support tensors loaded via `lazy_load()`
-            param = param._load_tensor()
-        param = param.to(dtype=dtype)
         if "gpt_neox.layers" in name:
             from_name, number = layer_template(name, 2)
             to_name = weight_map[from_name]
@@ -52,12 +53,19 @@ def copy_weights_gpt_neox(state_dict, hf_weights, saver=None, dtype=torch.float3
             to_name = to_name.format(number)
         else:
             to_name = weight_map[name]
+        param = load_param(param, dtype)
         if saver is not None:
             param = saver.store_early(param)
         state_dict[to_name] = param
 
 
-def copy_weights_falcon(size: Literal["7b", "40b"], state_dict, hf_weights, saver=None, dtype=torch.float32):
+def copy_weights_falcon(
+    size: Literal["7b", "40b"],
+    state_dict: Dict[str, torch.Tensor],
+    hf_weights: Dict[str, Union[torch.Tensor, NotYetLoadedTensor]],
+    saver: Optional[incremental_save] = None,
+    dtype: torch.dtype = torch.float32,
+) -> None:
     weight_map = {
         "transformer.word_embeddings.weight": "transformer.wte.weight",
         "transformer.h.{}.self_attention.query_key_value.weight": "transformer.h.{}.attn.attn.weight",
@@ -89,15 +97,12 @@ def copy_weights_falcon(size: Literal["7b", "40b"], state_dict, hf_weights, save
         raise NotImplementedError
 
     for name, param in hf_weights.items():
-        if hasattr(param, "_load_tensor"):
-            # support tensors loaded via `lazy_load()`
-            param = param._load_tensor()
-        param = param.to(dtype=dtype)
         if "transformer.h" in name:
             from_name, number = layer_template(name, 2)
             to_name = weight_map[from_name].format(number)
         else:
             to_name = weight_map[name]
+        param = load_param(param, dtype)
         if saver is not None:
             param = saver.store_early(param)
         state_dict[to_name] = param
@@ -109,6 +114,14 @@ def layer_template(layer_name: str, idx: int) -> Tuple[str, int]:
     split[idx] = "{}"
     from_name = ".".join(split)
     return from_name, number
+
+
+def load_param(param: Union[torch.Tensor, NotYetLoadedTensor], dtype: torch.dtype) -> torch.Tensor:
+    if hasattr(param, "_load_tensor"):
+        # support tensors loaded via `lazy_load()`
+        param = param._load_tensor()
+    param = param.to(dtype=dtype)
+    return param
 
 
 @torch.inference_mode()
@@ -130,11 +143,10 @@ def convert_hf_checkpoint(
     with open(checkpoint_dir / "lit_config.json", "w") as json_config:
         json.dump(config.__dict__, json_config)
 
-    copy_fn = (
-        partial(copy_weights_falcon, "40b" if config.n_embd == 8192 else "7b")
-        if "falcon" in model_name
-        else copy_weights_gpt_neox
-    )
+    if "falcon" in model_name:
+        copy_fn = partial(copy_weights_falcon, "40b" if config.n_embd == 8192 else "7b")
+    else:
+        copy_fn = copy_weights_gpt_neox
 
     # initialize a new empty state dict to hold our new weights
     sd = {}
