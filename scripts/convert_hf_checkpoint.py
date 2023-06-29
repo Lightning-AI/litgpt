@@ -108,7 +108,7 @@ def copy_weights_falcon(
         state_dict[to_name] = param
 
 
-def copy_weights_open_LLaMA(
+def copy_weights_open_llama(
     config: Config,
     qkv_weights: Dict[int, List[Optional[NotYetLoadedTensor]]],
     state_dict: Dict[str, torch.Tensor],
@@ -209,7 +209,7 @@ def convert_hf_checkpoint(
     elif config._mlp_class == "LLaMAMLP":
         # holder to reconstitute the split q, k, v
         qkv_weights = {}
-        copy_fn = partial(copy_weights_open_LLaMA, config, qkv_weights)
+        copy_fn = partial(copy_weights_open_llama, config, qkv_weights)
     else:
         copy_fn = copy_weights_gpt_neox
 
