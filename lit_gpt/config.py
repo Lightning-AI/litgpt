@@ -1,6 +1,6 @@
 import math
 from dataclasses import dataclass
-from typing import Optional, Any, Type
+from typing import Optional, Any, Type, Literal
 
 import torch
 from typing_extensions import Self
@@ -43,9 +43,9 @@ class Config:
     # credit https://arxiv.org/pdf/2305.13245.pdf
     n_query_groups: Optional[int] = None
     shared_attention_norm: bool = False
-    _norm_class: str = "LayerNorm"
+    _norm_class: Literal["LayerNorm", "RMSNorm"] = "LayerNorm"
     norm_eps: float = 1e-5
-    _mlp_class: str = "GptNeoxMLP"
+    _mlp_class: Literal["GptNeoxMLP", "LLaMAMLP"] = "GptNeoxMLP"
     init_std: float = 0.02
     intermediate_size: Optional[int] = None
 
