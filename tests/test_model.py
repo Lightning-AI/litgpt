@@ -124,9 +124,9 @@ def test_against_original_falcon_40b():
 
 @pytest.mark.skipif(compare_version("transformers", operator.lt, "4.28.0"), reason="Llama wasn't implemented")
 @torch.inference_mode()
-def test_against_original_open_llama_3b():
+def test_against_original_open_LLaMA_3b():
     from lit_gpt import Config, GPT
-    from scripts.convert_hf_checkpoint import copy_weights_open_llama
+    from scripts.convert_hf_checkpoint import copy_weights_open_LLaMA
     from transformers.models.llama.modeling_llama import LlamaForCausalLM, apply_rotary_pos_emb
     from transformers.models.llama.configuration_llama import LlamaConfig
     from lit_gpt import apply_rope
@@ -145,7 +145,7 @@ def test_against_original_open_llama_3b():
     theirs_model = LlamaForCausalLM(theirs_config)
     theirs_state_dict = theirs_model.state_dict()
     state_dict = {}
-    copy_weights_open_llama(ours_config, {}, state_dict, theirs_state_dict)
+    copy_weights_open_LLaMA(ours_config, {}, state_dict, theirs_state_dict)
     ours_model = GPT(ours_config)
     ours_model.load_state_dict(state_dict)
 

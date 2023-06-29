@@ -210,7 +210,7 @@ for k in list(falcon):
 #############################
 # OpenLM Research Open LLaMA
 #############################
-open_llama = {
+open_LLaMA = {
     # https://huggingface.co/openlm-research/open_llama_3b/blob/main/config.json
     "open_llama_3b": dict(
         block_size=2048,
@@ -260,4 +260,4 @@ open_llama = {
         intermediate_size=13824,
     ),
 }
-configs.update(open_llama)
+configs.update(open_LLaMA)
