@@ -70,17 +70,21 @@ def copy_weights_falcon(size: Literal["7b", "40b"], state_dict, hf_weights, save
     }
     # the original model definition is different for each size
     if size == "7b":
-        weight_map.update({
-            "transformer.h.{}.input_layernorm.bias": "transformer.h.{}.norm_1.bias",
-            "transformer.h.{}.input_layernorm.weight": "transformer.h.{}.norm_1.weight",
-        })
+        weight_map.update(
+            {
+                "transformer.h.{}.input_layernorm.bias": "transformer.h.{}.norm_1.bias",
+                "transformer.h.{}.input_layernorm.weight": "transformer.h.{}.norm_1.weight",
+            }
+        )
     elif size == "40b":
-        weight_map.update({
-            "transformer.h.{}.ln_attn.bias": "transformer.h.{}.norm_1.bias",
-            "transformer.h.{}.ln_attn.weight": "transformer.h.{}.norm_1.weight",
-            "transformer.h.{}.ln_mlp.bias": "transformer.h.{}.norm_2.bias",
-            "transformer.h.{}.ln_mlp.weight": "transformer.h.{}.norm_2.weight",
-        })
+        weight_map.update(
+            {
+                "transformer.h.{}.ln_attn.bias": "transformer.h.{}.norm_1.bias",
+                "transformer.h.{}.ln_attn.weight": "transformer.h.{}.norm_1.weight",
+                "transformer.h.{}.ln_mlp.bias": "transformer.h.{}.norm_2.bias",
+                "transformer.h.{}.ln_mlp.weight": "transformer.h.{}.norm_2.weight",
+            }
+        )
     else:
         raise NotImplementedError
 

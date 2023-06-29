@@ -18,18 +18,15 @@ def test_packed_dataset(tmp_path):
     maybe_get_file("https://huggingface.co/stabilityai/stablelm-base-alpha-3b/raw/main/tokenizer.json", vocabulary_path)
 
     tokenizer_path = tmp_path / "tokenizer_config.json"
-    maybe_get_file("https://huggingface.co/stabilityai/stablelm-base-alpha-3b/raw/main/tokenizer_config.json", tokenizer_path)
-
-    from lit_gpt import Tokenizer
-    tokenizer = Tokenizer(
-        vocabulary_path=vocabulary_path,
-        config_path=tokenizer_path
+    maybe_get_file(
+        "https://huggingface.co/stabilityai/stablelm-base-alpha-3b/raw/main/tokenizer_config.json", tokenizer_path
     )
 
-    texts = [
-      "The moment of truth is upon us. " * 4,
-      "Time to open the fridge. " * 4
-    ]
+    from lit_gpt import Tokenizer
+
+    tokenizer = Tokenizer(vocabulary_path=vocabulary_path, config_path=tokenizer_path)
+
+    texts = ["The moment of truth is upon us. " * 4, "Time to open the fridge. " * 4]
 
     from lit_gpt.packed_dataset import PackedDatasetBuilder, PackedDataset, HDR_SIZE
 
@@ -59,19 +56,14 @@ def test_packed_dataset(tmp_path):
 
     import numpy as np
 
-    ex_tokenized = [
-        tokenizer.encode(text).numpy().astype(builder.dtype)
-        for text in texts
-    ]
+    ex_tokenized = [tokenizer.encode(text).numpy().astype(builder.dtype) for text in texts]
     ex_tokenized = np.concatenate(ex_tokenized)
-    ex_tokenized = ex_tokenized[:2 * chunk_size]
+    ex_tokenized = ex_tokenized[: 2 * chunk_size]
 
     for filename, el in zip(filenames, np.array_split(ex_tokenized, 2)):
         mmap = np.memmap(filename, mode="r", order="C", offset=HDR_SIZE)
         count = len(mmap) // np.dtype(builder.dtype).itemsize
-        arr = np.frombuffer(
-            mmap, dtype=builder.dtype, count=count, offset=0
-        )
+        arr = np.frombuffer(mmap, dtype=builder.dtype, count=count, offset=0)
         where_eos = np.where(arr == tokenizer.eos_id)
         # we expect two EOS tokens, one per file
         assert len(where_eos) == 1
@@ -115,7 +107,7 @@ def test_packed_dataset(tmp_path):
     n_chunks = 2
     ex_chunks = np.split(ex_tokenized, n_chunks)
     n_splits = ex_tokenized.shape[0] // n_chunks // block_size_
-    ex_splits = [np.split(el[:n_splits * block_size_], n_splits) for el in ex_chunks]
+    ex_splits = [np.split(el[: n_splits * block_size_], n_splits) for el in ex_chunks]
     ex_split = sum(ex_splits, [])
 
     dataset = PackedDataset(filenames=filenames, n_chunks=n_chunks, block_size=block_size_, seed=12345)
@@ -133,7 +125,7 @@ class SimpleDataset(IterableDataset):
 
     def __iter__(self):
         return iter(range(self._start, self._end))
-        
+
 
 def test_combined_dataset(tmp_path):
     from lit_gpt.packed_dataset import CombinedDataset
@@ -182,7 +174,7 @@ def test_sharded_packed_dataset(monkeypatch):
     iter(PackedDataset(filenames=filenames, n_chunks=2, block_size=2, num_processes=2, process_rank=1))
     assert dataset_iterator_mock.call_args[1]["filenames"] == ["1", "3", "5", "7", "9"]
     dataset_iterator_mock.reset_mock()
-    
+
     # world_size = 3, rank = 0 (dataset size not cleanly divisible by world size)
     iter(PackedDataset(filenames=filenames, n_chunks=2, block_size=2, num_processes=3, process_rank=0))
     assert dataset_iterator_mock.call_args[1]["filenames"] == ["0", "3", "6"]

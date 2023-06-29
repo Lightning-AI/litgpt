@@ -41,7 +41,10 @@ def test_main(fake_checkpoint_dir, monkeypatch, version):
 
     assert len(tokenizer_mock.return_value.decode.mock_calls) == num_samples
     assert torch.allclose(tokenizer_mock.return_value.decode.call_args[0][0], generate_mock.return_value)
-    assert generate_mock.mock_calls == [call(ANY, ANY, ANY, max_seq_length=101, temperature=2.0, top_k=2, eos_id=ANY)] * num_samples
+    assert (
+        generate_mock.mock_calls
+        == [call(ANY, ANY, ANY, max_seq_length=101, temperature=2.0, top_k=2, eos_id=ANY)] * num_samples
+    )
     # only the generated result is printed to stdout
     assert out.getvalue() == "foo bar baz\n" * num_samples
 

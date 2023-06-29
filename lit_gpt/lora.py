@@ -190,9 +190,13 @@ class MergedLinear(nn.Linear, LoRALayer):
             if enable_q:
                 lora_ind.append(torch.arange(0, self.in_features, device=self.weight.device))
             if enable_k:
-                lora_ind.append(torch.arange(self.in_features, self.in_features + self.kv_embd_size, device=self.weight.device))
+                lora_ind.append(
+                    torch.arange(self.in_features, self.in_features + self.kv_embd_size, device=self.weight.device)
+                )
             if enable_v:
-                lora_ind.append(torch.arange(self.in_features + self.kv_embd_size, self.out_features, device=self.weight.device))
+                lora_ind.append(
+                    torch.arange(self.in_features + self.kv_embd_size, self.out_features, device=self.weight.device)
+                )
             self.lora_ind = torch.cat(lora_ind)
         self.reset_parameters()
         if fan_in_fan_out:
