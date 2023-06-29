@@ -263,7 +263,7 @@ class MLP(nn.Module):
     def forward(self, x: torch.Tensor) -> torch.Tensor:
         # gpt-neox style MLP
         x = self.fc(x)
-        x = F.gelu(x)
+        x = torch.nn.functional.gelu(x)
         x = self.proj(x)
         return x
 
