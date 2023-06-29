@@ -20,7 +20,13 @@ def download_from_hub(repo_id: Optional[str] = None) -> None:
 
     from huggingface_hub import snapshot_download
 
-    snapshot_download(repo_id, local_dir=f"checkpoints/{repo_id}", local_dir_use_symlinks=False, resume_download=True)
+    snapshot_download(
+        repo_id,
+        local_dir=f"checkpoints/{repo_id}",
+        local_dir_use_symlinks=False,
+        resume_download=True,
+        allow_patterns=["*.bin*", "tokenizer*"],
+    )
 
 
 if __name__ == "__main__":
