@@ -23,11 +23,11 @@ Hackable [implementation](lit_gpt/model.py) of state-of-the-art open-source larg
 
 Supports popular public checkpoints such as:
 
-- TII UAE [Falcon](howto/download_falcon.md)
-- OpenLM Research [OpenLLaMA](howto/download_openllama.md)
-- Together [RedPajama-INCITE](howto/download_redpajama_incite.md)
-- EleutherAI [Pythia](howto/download_pythia.md)
-- StabilityAI [StableLM](howto/download_stablelm.md)
+- TII UAE [Falcon](tutorials/download_falcon.md)
+- OpenLM Research [OpenLLaMA](tutorials/download_openllama.md)
+- Together [RedPajama-INCITE](tutorials/download_redpajama_incite.md)
+- EleutherAI [Pythia](tutorials/download_pythia.md)
+- StabilityAI [StableLM](tutorials/download_stablelm.md)
 
 This implementation extends on [Lit-LLaMA](https://github.com/lightning-AI/lit-llama) and [nanoGPT](https://github.com/karpathy/nanoGPT), and it's **powered by [Lightning Fabric](https://lightning.ai/docs/fabric/stable/) ⚡**.
 
@@ -86,7 +86,7 @@ You are all set! 🎉
 
 ## Use the model
 
-To generate text predictions, you need to download the model weights. **If you don't have them, check out our [guide](howto/download_stablelm.md).**
+To generate text predictions, you need to download the model weights. **If you don't have them, check out our [guide](tutorials/download_stablelm.md).**
 
 Run inference:
 
@@ -96,7 +96,7 @@ python generate/base.py --prompt "Hello, my name is"
 
 This will run the 3B pre-trained model and require ~7 GB of GPU memory using the `bfloat16` datatype.
 
-[Full guide for generating samples from the model](howto/inference.md).
+[Full guide for generating samples from the model](tutorials/inference.md).
 
 You can also chat with the model interactively:
 
@@ -106,7 +106,7 @@ python chat/base.py
 
 ### Run large models on smaller consumer devices
 
-We support LLM.int8 and GPTQ.int4 inference by following [this guide](howto/inference.md#run-large-models-on-consumer-devices).
+We support LLM.int8 and GPTQ.int4 inference by following [this guide](tutorials/inference.md#run-large-models-on-consumer-devices).
 
 ## Finetune the model
 
@@ -140,7 +140,7 @@ or LoRA ([Hu et al. 2021](https://arxiv.org/abs/2106.09685)):
 python finetune/lora.py
 ```
 
-(Please see the [howto/finetune_adapter](howto/finetune_adapter.md) for details on the differences between the two adapter methods.)
+(Please see the [tutorials/finetune_adapter](tutorials/finetune_adapter.md) for details on the differences between the two adapter methods.)
 
 The finetuning requires at least one GPU with ~12 GB memory (RTX 3060).
 
@@ -151,8 +151,8 @@ More details about each finetuning method and how you can apply it to your own d
 
 These technical tutorials illustrate how to run the finetuning code.
 
-- [Finetune with Adapters](howto/finetune_adapter.md)
-- [Finetune with LoRA](howto/finetune_lora.md)
+- [Finetune with Adapters](tutorials/finetune_adapter.md)
+- [Finetune with LoRA](tutorials/finetune_lora.md)
 
 ### Understanding Finetuning -- Conceptual Tutorials
 
