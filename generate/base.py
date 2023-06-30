@@ -15,9 +15,9 @@ from torch.distributed.fsdp.wrap import transformer_auto_wrap_policy
 wd = Path(__file__).parent.parent.resolve()
 sys.path.append(str(wd))
 
-from lit_parrot import Parrot, Tokenizer, Config
-from lit_parrot.model import Block
-from lit_parrot.utils import lazy_load, check_valid_checkpoint_dir, quantization
+from lit_gpt import GPT, Tokenizer, Config
+from lit_gpt.model import Block
+from lit_gpt.utils import lazy_load, check_valid_checkpoint_dir, quantization
 
 
 @torch.no_grad()
@@ -144,18 +144,18 @@ def main(
     fabric.print(f"Loading model {str(checkpoint_path)!r} with {config.__dict__}", file=sys.stderr)
     t0 = time.time()
     with fabric.init_module(empty_init=True), quantization(quantize):
-        model = Parrot(config)
+        model = GPT(config)
     fabric.print(f"Time to instantiate model: {time.time() - t0:.02f} seconds.", file=sys.stderr)
 
     t0 = time.time()
     with lazy_load(checkpoint_path) as checkpoint:
-        model.load_state_dict(checkpoint, strict=False)
+        model.load_state_dict(checkpoint.get("model", checkpoint), strict=quantize is None)
     fabric.print(f"Time to load the model weights: {time.time() - t0:.02f} seconds.", file=sys.stderr)
 
     model.eval()
     model = fabric.setup_module(model)
 
-    tokenizer = Tokenizer(checkpoint_dir / "tokenizer.json", checkpoint_dir / "tokenizer_config.json")
+    tokenizer = Tokenizer(checkpoint_dir)
     encoded = tokenizer.encode(prompt, device=fabric.device)
     prompt_length = encoded.size(0)
     max_returned_tokens = prompt_length + max_new_tokens
@@ -184,7 +184,7 @@ def main(
             f"Time for inference {i + 1}: {t:.02f} sec total, {tokens_generated / t:.02f} tokens/sec", file=sys.stderr
         )
     if fabric.device.type == "cuda":
-        fabric.print(f"Memory used: {torch.cuda.max_memory_reserved() / 1e9:.02f} GB", file=sys.stderr)
+        fabric.print(f"Memory used: {torch.cuda.max_memory_allocated() / 1e9:.02f} GB", file=sys.stderr)
 
 
 if __name__ == "__main__":

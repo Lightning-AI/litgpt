@@ -15,17 +15,17 @@ from torch.distributed.fsdp.wrap import transformer_auto_wrap_policy
 wd = Path(__file__).parent.parent.resolve()
 sys.path.append(str(wd))
 
-from generate.base import generate
-from lit_gpt import Tokenizer
-from lit_gpt.adapter import GPT, Config, Block
-from lit_gpt.utils import lazy_load, check_valid_checkpoint_dir, quantization
 from scripts.prepare_alpaca import generate_prompt
+from generate.base import generate
+from lit_gpt import GPT, Tokenizer, Config
+from lit_gpt.model import Block
+from lit_gpt.utils import lazy_load, check_valid_checkpoint_dir, quantization
 
 
 def main(
     prompt: str = "What food do lamas eat?",
     input: str = "",
-    adapter_path: Path = Path("out/adapter/alpaca/lit_model_adapter_finetuned.pth"),
+    finetuned_path: Path = Path("out/full/alpaca/lit_model_finetuned.pth"),
     checkpoint_dir: Path = Path(f"checkpoints/stabilityai/stablelm-base-alpha-3b"),
     quantize: Literal["llm.int8", "gptq.int4"] = None,
     max_new_tokens: int = 100,
@@ -36,14 +36,14 @@ def main(
     precision: str = "bf16-true",
 ) -> None:
     """Generates a response based on a given instruction and an optional input.
-    This script will only work with checkpoints from the instruction-tuned GPT-Adapter model.
-    See `finetune/adapter.py`.
+    This script will only work with checkpoints from the instruction-tuned GPT model.
+    See `finetune/full.py`.
 
     Args:
         prompt: The prompt/instruction (Alpaca style).
         input: Optional input (Alpaca style).
-        adapter_path: Path to the checkpoint with trained adapter weights, which are the output of
-            `finetune/adapter.py`.
+        finetuned_path: Path to the checkpoint with trained weights, which are the output of
+            `finetune/full.py`.
         checkpoint_dir: The path to the checkpoint folder with pretrained GPT weights.
         quantize: Whether to quantize the model and using which method:
             ``"llm.int8"``: LLM.int8() mode,
@@ -67,15 +67,10 @@ def main(
     with open(checkpoint_dir / "lit_config.json") as fp:
         config = Config(**json.load(fp))
 
-    if quantize is not None and devices > 1:
+    if quantize is not None:
+        # TODO: we need to clean-up the logic for quantizing the finetuned models and loading them after
         raise NotImplementedError
-    if quantize == "gptq.int4":
-        model_file = "lit_model_gptq.4bit.pth"
-        if not (checkpoint_dir / model_file).is_file():
-            raise ValueError("Please run `python quantize/gptq.py` first")
-    else:
-        model_file = "lit_model.pth"
-    checkpoint_path = checkpoint_dir / model_file
+    checkpoint_path = finetuned_path
 
     fabric.print(f"Loading model {str(checkpoint_path)!r} with {config.__dict__}", file=sys.stderr)
     t0 = time.time()
@@ -84,9 +79,8 @@ def main(
     fabric.print(f"Time to instantiate model: {time.time() - t0:.02f} seconds.", file=sys.stderr)
 
     t0 = time.time()
-    with lazy_load(checkpoint_path) as checkpoint, lazy_load(adapter_path) as adapter_checkpoint:
-        checkpoint.update(adapter_checkpoint.get("model", adapter_checkpoint))
-        model.load_state_dict(checkpoint, strict=quantize is None)
+    with lazy_load(finetuned_path) as checkpoint:
+        model.load_state_dict(checkpoint.get("model", checkpoint), strict=quantize is None)
     fabric.print(f"Time to load the model weights: {time.time() - t0:.02f} seconds.", file=sys.stderr)
 
     model.eval()

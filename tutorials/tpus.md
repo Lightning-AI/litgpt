@@ -5,15 +5,15 @@ This project uses `lightning.Fabric` under the hood, which itself supports TPUs 
 The following commands will allow you to set up a `Google Cloud` instance with a [TPU v4](https://cloud.google.com/tpu/docs/system-architecture-tpu-vm) VM:
 
 ```shell
-gcloud compute tpus tpu-vm create lit-parrot --version=tpu-vm-v4-base --accelerator-type=v4-8 --zone=us-central2-b
-gcloud compute tpus tpu-vm ssh lit-parrot --zone=us-central2-b
+gcloud compute tpus tpu-vm create lit-gpt --version=tpu-vm-v4-base --accelerator-type=v4-8 --zone=us-central2-b
+gcloud compute tpus tpu-vm ssh lit-gpt --zone=us-central2-b
 ```
 
 Now that you are in the machine, let's clone the repository and install the dependencies
 
 ```shell
-git clone https://github.com/Lightning-AI/lit-parrot
-cd lit-parrot
+git clone https://github.com/Lightning-AI/lit-gpt
+cd lit-gpt
 pip install -r requirements.txt
 ```
 
@@ -24,7 +24,7 @@ sudo apt update
 sudo apt install libopenblas-dev
 ```
 
-Since Lit-Parrot requires a torch version newer than torch 2.0.0, we need to manually install nightly builds of torch and torch_xla:
+Since Lit-GPT requires a torch version newer than torch 2.0.0, we need to manually install nightly builds of torch and torch_xla:
 
 ```shell
 pip install https://storage.googleapis.com/tpu-pytorch/wheels/tpuvm/torch-nightly-cp38-cp38-linux_x86_64.whl
@@ -61,5 +61,5 @@ Coming soon.
 > **Warning**
 > When you are done, remember to delete your instance 
 > ```shell
-> gcloud compute tpus tpu-vm delete lit-parrot --zone=us-central2-b
+> gcloud compute tpus tpu-vm delete lit-gpt --zone=us-central2-b
 > ```

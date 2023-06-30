@@ -1,33 +1,27 @@
 import os
 import sys
 import time
-from functools import partial
 from pathlib import Path
 from typing import Optional, List, Dict, Tuple
 
 import lightning as L
 import torch
-from lightning.fabric.strategies import FSDPStrategy, XLAStrategy
-from torch.distributed.fsdp.wrap import transformer_auto_wrap_policy
+from lightning.fabric.strategies import XLAStrategy
 
 # support running without installing as a package
 wd = Path(__file__).parent.parent.resolve()
 sys.path.append(str(wd))
 
 from generate.base import generate
-from lit_gpt.adapter import GPT, Config, Block
-from lit_gpt.adapter_v2 import (
-    mark_only_adapter_v2_as_trainable,
-    add_adapter_v2_parameters_to_linear_layers,
-    adapter_filter,
-)
+from lit_gpt.lora import mark_only_lora_as_trainable, lora_filter, GPT, Config
 from lit_gpt.tokenizer import Tokenizer
 from lit_gpt.utils import lazy_load, check_valid_checkpoint_dir, step_csv_logger, chunked_cross_entropy
 from lit_gpt.speed_monitor import SpeedMonitor, measure_flops, estimate_flops
 from scripts.prepare_alpaca import generate_prompt
 
-eval_interval = 600
-save_interval = 1000
+
+eval_interval = 100
+save_interval = 100
 eval_iters = 100
 log_interval = 1
 devices = 1
@@ -35,16 +29,17 @@ devices = 1
 override_max_seq_length = None
 
 # Hyperparameters
-learning_rate = 3e-3
-batch_size = 128 / devices
-micro_batch_size = 2  # set to 2 because this is fit into 12GB Vram
+learning_rate = 3e-4
+batch_size = 128
+micro_batch_size = 4
 gradient_accumulation_iters = batch_size // micro_batch_size
 assert gradient_accumulation_iters > 0
-epoch_size = 50000  # train dataset size
-num_epochs = 5
-max_iters = num_epochs * (epoch_size // micro_batch_size) // devices
-weight_decay = 0.02
-warmup_iters = 2 * (epoch_size // micro_batch_size) // devices // gradient_accumulation_iters # 2 epochs
+max_iters = 50000  # train dataset size
+weight_decay = 0.01
+lora_r = 8
+lora_alpha = 16
+lora_dropout = 0.05
+warmup_iters = 100
 
 hparams = {k: v for k, v in locals().items() if isinstance(v, (int, float, str)) and not k.startswith("_")}
 
@@ -52,7 +47,7 @@ hparams = {k: v for k, v in locals().items() if isinstance(v, (int, float, str))
 def setup(
     data_dir: Path = Path("data/alpaca"),
     checkpoint_dir: Path = Path("checkpoints/stabilityai/stablelm-base-alpha-3b"),
-    out_dir: Path = Path("out/adapter_v2/alpaca"),
+    out_dir: Path = Path("out/lora/alpaca"),
     precision: Optional[str] = None,
     tpu: bool = False,
 ):
@@ -65,14 +60,7 @@ def setup(
             fabric_devices = "auto"
             strategy = XLAStrategy(sync_module_states=False)
         else:
-            auto_wrap_policy = partial(transformer_auto_wrap_policy, transformer_layer_cls={Block})
-            strategy = FSDPStrategy(
-                auto_wrap_policy=auto_wrap_policy,
-                activation_checkpointing=Block,
-                state_dict_type="full",
-                limit_all_gathers=True,
-                cpu_offload=False,
-            )
+            raise NotImplementedError
     else:
         strategy = "auto"
 
@@ -95,18 +83,17 @@ def main(fabric: L.Fabric, data_dir: Path, checkpoint_dir: Path, out_dir: Path):
     train_data = torch.load(data_dir / "train.pt")
     val_data = torch.load(data_dir / "test.pt")
 
-    config = Config.from_name(name=checkpoint_dir.name)
+    config = Config.from_name(name=checkpoint_dir.name, r=lora_r, alpha=lora_alpha, dropout=lora_dropout)
     checkpoint_path = checkpoint_dir / "lit_model.pth"
     fabric.print(f"Loading model {str(checkpoint_path)!r} with {config.__dict__}")
     with fabric.init_module(empty_init=False):
         model = GPT(config)
-        model.apply(model._init_weights)  # for the adapter weights
+        model.apply(model._init_weights)  # for the LoRA weights
     with lazy_load(checkpoint_path) as checkpoint:
-        # strict=False because missing keys due to adapter weights not contained in state dict
+        # strict=False because missing keys due to LoRA weights not contained in state dict
         model.load_state_dict(checkpoint, strict=False)
 
-    add_adapter_v2_parameters_to_linear_layers(model)
-    mark_only_adapter_v2_as_trainable(model)
+    mark_only_lora_as_trainable(model)
 
     trainable_params = [p for p in model.parameters() if p.requires_grad]
     num_params = sum(p.numel() for p in trainable_params)
@@ -121,9 +108,9 @@ def main(fabric: L.Fabric, data_dir: Path, checkpoint_dir: Path, out_dir: Path):
     train(fabric, model, optimizer, train_data, val_data, checkpoint_dir, out_dir, speed_monitor)
     fabric.print(f"Training time: {(time.time()-train_time):.2f}s")
 
-    # Save the final checkpoint at the end of training
-    save_path = out_dir / "lit_model_adapter_finetuned.pth"
-    save_adapter_v2_checkpoint(fabric, model, save_path)
+    # Save the final LoRA checkpoint at the end of training
+    save_path = out_dir / "lit_model_lora_finetuned.pth"
+    save_lora_checkpoint(fabric, model, save_path)
 
 
 def train(
@@ -212,7 +199,7 @@ def train(
             fabric.barrier()
         if not is_accumulating and step_count % save_interval == 0:
             checkpoint_path = out_dir / f"iter-{iter_num:06d}-ckpt.pth"
-            save_adapter_v2_checkpoint(fabric, model, checkpoint_path)
+            save_lora_checkpoint(fabric, model, checkpoint_path)
 
 
 @torch.no_grad()
@@ -290,9 +277,9 @@ def get_max_seq_length(data: List[Dict]) -> Tuple[int, int, int]:
     )
 
 
-def save_adapter_v2_checkpoint(fabric, model, file_path: Path):
-    fabric.print(f"Saving adapter v2 weights to {str(file_path)!r}")
-    fabric.save(file_path, {"model": model}, filter={"model": adapter_filter})
+def save_lora_checkpoint(fabric, model, file_path: Path):
+    fabric.print(f"Saving LoRA weights to {str(file_path)!r}")
+    fabric.save(file_path, {"model": model}, filter={"model": lora_filter})
 
 
 if __name__ == "__main__":

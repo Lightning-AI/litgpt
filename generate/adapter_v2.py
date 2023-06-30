@@ -16,11 +16,11 @@ wd = Path(__file__).parent.parent.resolve()
 sys.path.append(str(wd))
 
 from generate.base import generate
-from lit_parrot import Tokenizer
-from lit_parrot.adapter import Block
-from lit_parrot.adapter import Parrot, Config
-from lit_parrot.adapter_v2 import add_adapter_v2_parameters_to_linear_layers
-from lit_parrot.utils import lazy_load, check_valid_checkpoint_dir, quantization
+from lit_gpt import Tokenizer
+from lit_gpt.adapter import Block
+from lit_gpt.adapter import GPT, Config
+from lit_gpt.adapter_v2 import add_adapter_v2_parameters_to_linear_layers
+from lit_gpt.utils import lazy_load, check_valid_checkpoint_dir, quantization
 from scripts.prepare_alpaca import generate_prompt
 
 
@@ -38,15 +38,15 @@ def main(
     precision: str = "bf16-true",
 ) -> None:
     """Generates a response based on a given instruction and an optional input.
-    This script will only work with checkpoints from the instruction-tuned Parrot-AdapterV2 model.
+    This script will only work with checkpoints from the instruction-tuned GPT-AdapterV2 model.
     See `finetune/adapter_v2.py`.
 
     Args:
         prompt: The prompt/instruction (Alpaca style).
+        input: Optional input (Alpaca style).
         adapter_path: Path to the checkpoint with trained adapter weights, which are the output of
             `finetune/adapter_v2.py`.
-        checkpoint_dir: The path to the checkpoint folder with pretrained Parrot weights.
-        input: Optional input (Alpaca style).
+        checkpoint_dir: The path to the checkpoint folder with pretrained GPT weights.
         quantize: Whether to quantize the model and using which method:
             ``"llm.int8"``: LLM.int8() mode,
             ``"gptq.int4"``: GPTQ 4-bit mode.
@@ -82,22 +82,20 @@ def main(
     fabric.print(f"Loading model {str(checkpoint_path)!r} with {config.__dict__}", file=sys.stderr)
     t0 = time.time()
     with fabric.init_module(empty_init=True), quantization(quantize):
-        model = Parrot(config)
+        model = GPT(config)
         add_adapter_v2_parameters_to_linear_layers(model)
     fabric.print(f"Time to instantiate model: {time.time() - t0:.02f} seconds.", file=sys.stderr)
 
     t0 = time.time()
-    with lazy_load(checkpoint_path) as pretrained_checkpoint, lazy_load(adapter_path) as adapter_checkpoint:
-        # 1. Load the pretrained weights
-        model.load_state_dict(pretrained_checkpoint, strict=False)
-        # 2. Load the fine-tuned adapter weights
-        model.load_state_dict(adapter_checkpoint, strict=False)
+    with lazy_load(checkpoint_path) as checkpoint, lazy_load(adapter_path) as adapter_checkpoint:
+        checkpoint.update(adapter_checkpoint.get("model", adapter_checkpoint))
+        model.load_state_dict(checkpoint, strict=quantize is None)
     fabric.print(f"Time to load the model weights: {time.time() - t0:.02f} seconds.", file=sys.stderr)
 
     model.eval()
     model = fabric.setup(model)
 
-    tokenizer = Tokenizer(checkpoint_dir / "tokenizer.json", checkpoint_dir / "tokenizer_config.json")
+    tokenizer = Tokenizer(checkpoint_dir)
     sample = {"instruction": prompt, "input": input}
     prompt = generate_prompt(sample)
     encoded = tokenizer.encode(prompt, device=model.device)
@@ -124,7 +122,7 @@ def main(
     tokens_generated = y.size(0) - prompt_length
     fabric.print(f"\n\nTime for inference: {t:.02f} sec total, {tokens_generated / t:.02f} tokens/sec", file=sys.stderr)
     if fabric.device.type == "cuda":
-        fabric.print(f"Memory used: {torch.cuda.max_memory_reserved() / 1e9:.02f} GB", file=sys.stderr)
+        fabric.print(f"Memory used: {torch.cuda.max_memory_allocated() / 1e9:.02f} GB", file=sys.stderr)
 
 
 if __name__ == "__main__":

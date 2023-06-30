@@ -3,7 +3,7 @@ import sys
 import time
 from functools import partial
 from pathlib import Path
-from typing import Optional, List, Dict, Tuple
+from typing import Optional, Tuple, Dict, List
 
 import lightning as L
 import torch
@@ -15,12 +15,7 @@ wd = Path(__file__).parent.parent.resolve()
 sys.path.append(str(wd))
 
 from generate.base import generate
-from lit_gpt.adapter import GPT, Config, Block
-from lit_gpt.adapter_v2 import (
-    mark_only_adapter_v2_as_trainable,
-    add_adapter_v2_parameters_to_linear_layers,
-    adapter_filter,
-)
+from lit_gpt.model import GPT, Config, Block
 from lit_gpt.tokenizer import Tokenizer
 from lit_gpt.utils import lazy_load, check_valid_checkpoint_dir, step_csv_logger, chunked_cross_entropy
 from lit_gpt.speed_monitor import SpeedMonitor, measure_flops, estimate_flops
@@ -35,16 +30,16 @@ devices = 1
 override_max_seq_length = None
 
 # Hyperparameters
-learning_rate = 3e-3
-batch_size = 128 / devices
-micro_batch_size = 2  # set to 2 because this is fit into 12GB Vram
+learning_rate = 9e-3
+batch_size = 64 / devices
+micro_batch_size = 1
 gradient_accumulation_iters = batch_size // micro_batch_size
 assert gradient_accumulation_iters > 0
 epoch_size = 50000  # train dataset size
 num_epochs = 5
 max_iters = num_epochs * (epoch_size // micro_batch_size) // devices
 weight_decay = 0.02
-warmup_iters = 2 * (epoch_size // micro_batch_size) // devices // gradient_accumulation_iters # 2 epochs
+warmup_iters = 2 * (epoch_size // micro_batch_size) // devices  # 2 epochs
 
 hparams = {k: v for k, v in locals().items() if isinstance(v, (int, float, str)) and not k.startswith("_")}
 
@@ -52,7 +47,7 @@ hparams = {k: v for k, v in locals().items() if isinstance(v, (int, float, str))
 def setup(
     data_dir: Path = Path("data/alpaca"),
     checkpoint_dir: Path = Path("checkpoints/stabilityai/stablelm-base-alpha-3b"),
-    out_dir: Path = Path("out/adapter_v2/alpaca"),
+    out_dir: Path = Path("out/full/alpaca"),
     precision: Optional[str] = None,
     tpu: bool = False,
 ):
@@ -100,21 +95,13 @@ def main(fabric: L.Fabric, data_dir: Path, checkpoint_dir: Path, out_dir: Path):
     fabric.print(f"Loading model {str(checkpoint_path)!r} with {config.__dict__}")
     with fabric.init_module(empty_init=False):
         model = GPT(config)
-        model.apply(model._init_weights)  # for the adapter weights
     with lazy_load(checkpoint_path) as checkpoint:
-        # strict=False because missing keys due to adapter weights not contained in state dict
-        model.load_state_dict(checkpoint, strict=False)
+        model.load_state_dict(checkpoint)
 
-    add_adapter_v2_parameters_to_linear_layers(model)
-    mark_only_adapter_v2_as_trainable(model)
-
-    trainable_params = [p for p in model.parameters() if p.requires_grad]
-    num_params = sum(p.numel() for p in trainable_params)
+    num_params = sum(p.numel() for p in model.parameters())
     fabric.print(f"Number of trainable parameters: {num_params}")
-    num_params = sum(p.numel() for p in model.parameters() if not p.requires_grad)
-    fabric.print(f"Number of non trainable parameters: {num_params}")
 
-    optimizer = torch.optim.AdamW(trainable_params, lr=learning_rate, weight_decay=weight_decay)
+    optimizer = torch.optim.AdamW(model.parameters(), lr=learning_rate, weight_decay=weight_decay)
     model, optimizer = fabric.setup(model, optimizer)
 
     train_time = time.time()
@@ -122,8 +109,8 @@ def main(fabric: L.Fabric, data_dir: Path, checkpoint_dir: Path, out_dir: Path):
     fabric.print(f"Training time: {(time.time()-train_time):.2f}s")
 
     # Save the final checkpoint at the end of training
-    save_path = out_dir / "lit_model_adapter_finetuned.pth"
-    save_adapter_v2_checkpoint(fabric, model, save_path)
+    save_path = out_dir / "lit_model_finetuned.pth"
+    save_checkpoint(fabric, model, save_path)
 
 
 def train(
@@ -174,10 +161,9 @@ def train(
 
         is_accumulating = (iter_num + 1) % gradient_accumulation_iters != 0
         with fabric.no_backward_sync(model, enabled=is_accumulating):
-            logits = model(input_ids, max_seq_length=max_seq_length, lm_head_chunk_size=128)
+            logits = model(input_ids, max_seq_length=max_seq_length)
             # shift the targets such that output n predicts token n+1
-            logits[-1] = logits[-1][..., :-1, :]
-            loss = chunked_cross_entropy(logits, targets[..., 1:])
+            loss = chunked_cross_entropy(logits[..., :-1, :], targets[..., 1:], chunk_size=0)
             fabric.backward(loss / gradient_accumulation_iters)
 
         if not is_accumulating:
@@ -212,7 +198,7 @@ def train(
             fabric.barrier()
         if not is_accumulating and step_count % save_interval == 0:
             checkpoint_path = out_dir / f"iter-{iter_num:06d}-ckpt.pth"
-            save_adapter_v2_checkpoint(fabric, model, checkpoint_path)
+            save_checkpoint(fabric, model, checkpoint_path)
 
 
 @torch.no_grad()
@@ -290,9 +276,9 @@ def get_max_seq_length(data: List[Dict]) -> Tuple[int, int, int]:
     )
 
 
-def save_adapter_v2_checkpoint(fabric, model, file_path: Path):
-    fabric.print(f"Saving adapter v2 weights to {str(file_path)!r}")
-    fabric.save(file_path, {"model": model}, filter={"model": adapter_filter})
+def save_checkpoint(fabric, model, file_path: Path):
+    fabric.print(f"Saving weights to {str(file_path)!r}")
+    fabric.save(file_path, {"model": model})
 
 
 if __name__ == "__main__":

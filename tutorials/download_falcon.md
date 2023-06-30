@@ -21,7 +21,7 @@ tiiuae/falcon-40b
 tiiuae/falcon-40b-instruct
 ```
 
-In order to use a specific Falcon checkpoint, for instance [falcon-7b](https://huggingface.co/tiiuae/falcon-7b), download the weights and convert the checkpoint to the lit-parrot format:
+In order to use a specific Falcon checkpoint, for instance [falcon-7b](https://huggingface.co/tiiuae/falcon-7b), download the weights and convert the checkpoint to the lit-gpt format:
 
 ```bash
 pip install huggingface_hub
@@ -36,3 +36,5 @@ You're done! To execute the model just run:
 ```bash
 python generate/base.py --prompt "Hello, my name is" --checkpoint_dir checkpoints/tiiuae/falcon-7b
 ```
+
+or [![Open In Colab](https://colab.research.google.com/assets/colab-badge.svg)](https://colab.research.google.com/github/Lightning-AI/lit-gpt/blob/main/notebooks/falcon-inference.ipynb)

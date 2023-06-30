@@ -19,7 +19,7 @@ stabilityai/stablelm-tuned-alpha-3b
 stabilityai/stablelm-tuned-alpha-7b
 ```
 
-In order to use a specific StableLM checkpoint, for instance [stablelm-base-alpha-3b](http://huggingface.co/stabilityai/stablelm-base-alpha-3b), download the weights and convert the checkpoint to the lit-stablelm format:
+In order to use a specific StableLM checkpoint, for instance [stablelm-base-alpha-3b](http://huggingface.co/stabilityai/stablelm-base-alpha-3b), download the weights and convert the checkpoint to the lit-gpt format:
 
 ```bash
 pip install huggingface_hub

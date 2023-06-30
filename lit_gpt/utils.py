@@ -2,18 +2,17 @@
 
 import functools
 import pickle
+import sys
 import warnings
 from contextlib import contextmanager
 from io import BytesIO
 from pathlib import Path
-from typing import Optional
+from types import MethodType
+from typing import Optional, Any, Union, List
 
 import torch
 import torch.utils._device
-from lightning.fabric.strategies import DeepSpeedStrategy, FSDPStrategy
-from torch.distributed.fsdp import FullStateDictConfig
-from torch.distributed.fsdp import FullyShardedDataParallel as FSDP
-from torch.distributed.fsdp import StateDictType
+from lightning.fabric.loggers import CSVLogger
 from torch.serialization import normalize_storage_type
 
 
@@ -22,35 +21,6 @@ def find_multiple(n: int, k: int) -> int:
     if n % k == 0:
         return n
     return n + k - (n % k)
-
-
-def save_model_checkpoint(fabric, model, file_path):
-    """Handles boilerplate logic for retrieving and saving the state_dict.
-
-    This will be upstreamed to Fabric soon.
-    """
-    file_path = Path(file_path)
-
-    if isinstance(fabric.strategy, DeepSpeedStrategy):
-        from deepspeed.utils.zero_to_fp32 import convert_zero_checkpoint_to_fp32_state_dict
-
-        fabric.save(file_path, {"model": model})
-        fabric.barrier()
-        if fabric.global_rank == 0:
-            # Create a consolidated checkpoint with the same name next to the deepspeed checkpoint
-            convert_zero_checkpoint_to_fp32_state_dict(file_path, file_path.with_suffix(".pth"))
-        return
-
-    if isinstance(fabric.strategy, FSDPStrategy):
-        save_policy = FullStateDictConfig(offload_to_cpu=(fabric.world_size > 1), rank0_only=True)
-        with FSDP.state_dict_type(model, StateDictType.FULL_STATE_DICT, save_policy):
-            state_dict = model._forward_module.state_dict()
-    else:
-        state_dict = model.state_dict()
-
-    if fabric.global_rank == 0:
-        torch.save(state_dict, file_path)
-    fabric.barrier()
 
 
 @contextmanager
@@ -221,15 +191,21 @@ class lazy_load:
 
 
 def check_valid_checkpoint_dir(checkpoint_dir: Path) -> None:
-    if (
-        checkpoint_dir.is_dir()
-        and (checkpoint_dir / "lit_model.pth").is_file()
-        and (checkpoint_dir / "lit_config.json").is_file()
-        and (checkpoint_dir / "tokenizer.json").is_file()
-        and (checkpoint_dir / "tokenizer_config.json").is_file()
-    ):
-        # we're good
-        return
+    files = {
+        "lit_model.pth": (checkpoint_dir / "lit_model.pth").is_file(),
+        "lit_config.json": (checkpoint_dir / "lit_config.json").is_file(),
+        "tokenizer.json OR tokenizer.model": (checkpoint_dir / "tokenizer.json").is_file() or (
+            checkpoint_dir / "tokenizer.model"
+        ).is_file(),
+        "tokenizer_config.json": (checkpoint_dir / "tokenizer_config.json").is_file(),
+    }
+    if checkpoint_dir.is_dir():
+        if all(files.values()):
+            # we're good
+            return
+        problem = f" is missing the files: {[f for f, exists in files.items() if not exists]!r}"
+    else:
+        problem = " is not a checkpoint directory"
 
     # list locally available checkpoints
     available = list(Path("checkpoints").glob("*/*"))
@@ -239,20 +215,13 @@ def check_valid_checkpoint_dir(checkpoint_dir: Path) -> None:
     else:
         extra = ""
 
-    from lit_parrot.config import configs
-
-    # list other possible checkpoints to download
-    not_downloaded = [c for c in configs if not any(c in str(a) for a in available)]
-    joined = "\n * ".join([""] + not_downloaded)
-    supported = f"You can download:{joined}"
-
-    raise OSError(
-        f"`--checkpoint_dir {str(checkpoint_dir.absolute())!r} is not a valid checkpoint directory."
-        " It must contain the files: 'lit_model.pth', 'lit_config.json', 'tokenizer.json' and 'tokenizer_config.json'."
-        "\nPlease, follow the instructions at"
-        " https://github.com/Lightning-AI/lit-parrot/blob/main/howto/download_stablelm.md\n"
-        f"{extra}\n{supported}"
+    error_message = (
+        f"--checkpoint_dir {str(checkpoint_dir.absolute())!r}{problem}."
+        "\nFind download instructions at https://github.com/Lightning-AI/lit-gpt/blob/main/tutorials\n"
+        f"{extra}\nSee all download options by running:\n python scripts/download.py"
     )
+    print(error_message, file=sys.stderr)
+    raise SystemExit(1)
 
 
 class SavingProxyForStorage:
@@ -393,3 +362,75 @@ class incremental_save:
 
     def __exit__(self, type, value, traceback):
         self.zipfile.write_end_of_file()
+
+
+def step_csv_logger(*args: Any, **kwargs: Any) -> CSVLogger:
+    logger = CSVLogger(*args, **kwargs)
+
+    def merge_by(dicts, key):
+        from collections import defaultdict
+
+        out = defaultdict(dict)
+        for d in dicts:
+            if key in d:
+                out[d[key]].update(d)
+        return [v for _, v in sorted(out.items())]
+
+    def save(self) -> None:
+        """Overridden to merge CSV by the step number."""
+        import csv
+
+        if not self.metrics:
+            return
+        metrics = merge_by(self.metrics, "step")
+        keys = sorted({k for m in metrics for k in m})
+        with self._fs.open(self.metrics_file_path, "w", newline="") as f:
+            writer = csv.DictWriter(f, fieldnames=keys)
+            writer.writeheader()
+            writer.writerows(metrics)
+
+    logger.experiment.save = MethodType(save, logger.experiment)
+
+    return logger
+
+
+def chunked_cross_entropy(
+    logits: Union[torch.Tensor, List[torch.Tensor]], targets: torch.Tensor, chunk_size: int = 128
+) -> torch.Tensor:
+    # with large max_sequence_lengths, the beginning of `backward` allocates a large memory chunk which can dominate
+    # the memory usage in fine-tuning settings with low number of parameters.
+    # as a workaround hack, the cross entropy computation is chunked to force it to deallocate on the go, reducing
+    # the memory spike's magnitude
+
+    # lm_head was chunked (we are fine-tuning)
+    if isinstance(logits, list):
+        # don't want to chunk cross entropy
+        if chunk_size == 0:
+            logits = torch.cat(logits, dim=1)
+            logits = logits.reshape(-1, logits.size(-1))
+            targets = targets.reshape(-1)
+            return torch.nn.functional.cross_entropy(logits, targets, ignore_index=-1)
+
+        # chunk cross entropy
+        logit_chunks = [logit_chunk.reshape(-1, logit_chunk.size(-1)) for logit_chunk in logits]
+        target_chunks = [target_chunk.reshape(-1) for target_chunk in targets.split(logits[0].size(1), dim=1)]
+        loss_chunks = [
+            torch.nn.functional.cross_entropy(logit_chunk, target_chunk, ignore_index=-1, reduction="none")
+            for logit_chunk, target_chunk in zip(logit_chunks, target_chunks)
+        ]
+        return torch.cat(loss_chunks).mean()
+
+    # no chunking at all
+    logits = logits.reshape(-1, logits.size(-1))
+    targets = targets.reshape(-1)
+    if chunk_size == 0:
+        return torch.nn.functional.cross_entropy(logits, targets, ignore_index=-1)
+
+    # lm_head wasn't chunked, chunk cross entropy
+    logit_chunks = logits.split(chunk_size)
+    target_chunks = targets.split(chunk_size)
+    loss_chunks = [
+        torch.nn.functional.cross_entropy(logit_chunk, target_chunk, ignore_index=-1, reduction="none")
+        for logit_chunk, target_chunk in zip(logit_chunks, target_chunks)
+    ]
+    return torch.cat(loss_chunks).mean()

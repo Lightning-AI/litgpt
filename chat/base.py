@@ -4,7 +4,7 @@ import sys
 import time
 import warnings
 from pathlib import Path
-from typing import Optional, Tuple, List, Literal
+from typing import Optional, Tuple, List, Literal, Iterator
 
 import lightning as L
 import torch
@@ -13,8 +13,8 @@ import torch
 wd = Path(__file__).parent.parent.resolve()
 sys.path.append(str(wd))
 
-from lit_parrot import Parrot, Tokenizer, Config
-from lit_parrot.utils import lazy_load, check_valid_checkpoint_dir, quantization
+from lit_gpt import GPT, Tokenizer, Config
+from lit_gpt.utils import lazy_load, check_valid_checkpoint_dir, quantization
 
 
 @torch.no_grad()
@@ -95,6 +95,28 @@ def generate(
             yield_i += 1
 
 
+def decode(fabric: L.Fabric, tokenizer: Tokenizer, token_stream: Iterator[torch.Tensor]) -> int:
+    tokens_generated = 0
+    if tokenizer.backend == "hugginface":
+        for token in token_stream:
+            fabric.print(tokenizer.decode(token), end="", flush=True)
+            tokens_generated += 1
+    elif tokenizer.backend == "sentencepiece":
+        # sentencepiece does not support decoding token-by-token because it adds spaces based on the surrounding tokens
+        # meaning that we need to decode everything each time
+        so_far = torch.tensor([], dtype=torch.long, device=fabric.device)
+        decoded_so_far = ""
+        for token in token_stream:
+            so_far = torch.cat((so_far, token.view(-1)))
+            decoded_new = tokenizer.decode(so_far)
+            fabric.print(decoded_new[len(decoded_so_far) :], end="", flush=True)
+            decoded_so_far = decoded_new
+            tokens_generated += 1
+    else:
+        raise NotImplementedError(tokenizer.backend)
+    return tokens_generated
+
+
 def main(
     *,
     top_k: int = 200,
@@ -103,7 +125,7 @@ def main(
     quantize: Literal["llm.int8", "gptq.int4"] = None,
     precision: str = "bf16-true",
 ) -> None:
-    """Starts a conversation with a tuned Parrot model.
+    """Starts a conversation with a tuned GPT model.
 
     Args:
         top_k: The number of top most probable tokens to consider in the sampling process.
@@ -129,16 +151,16 @@ def main(
     else:
         model_file = "lit_model.pth"
     checkpoint_path = checkpoint_dir / model_file
-    print(f"Loading model {str(checkpoint_path)!r} with {config.__dict__}", file=sys.stderr)
+    fabric.print(f"Loading model {str(checkpoint_path)!r} with {config.__dict__}", file=sys.stderr)
     with fabric.init_module(empty_init=True), quantization(quantize):
-        model = Parrot(config)
+        model = GPT(config)
     with lazy_load(checkpoint_path) as checkpoint:
-        model.load_state_dict(checkpoint, strict=False)
+        model.load_state_dict(checkpoint.get("model", checkpoint), strict=quantize is None)
 
     model.eval()
     model = fabric.setup_module(model)
 
-    tokenizer = Tokenizer(checkpoint_dir / "tokenizer.json", checkpoint_dir / "tokenizer_config.json")
+    tokenizer = Tokenizer(checkpoint_dir)
     system_prompt, stop_tokens = prompt_config(checkpoint_dir, tokenizer)
 
     while True:
@@ -160,20 +182,19 @@ def main(
             top_k=top_k,
             stop_tokens=stop_tokens,
         )
-        print(">> Reply: ", end="")
+        fabric.print(">> Reply: ", end="")
         try:
-            tokens_generated = 0
             t0 = time.perf_counter()
-            for token in y:
-                print(tokenizer.decode(token), end="", flush=True)
-                tokens_generated += 1
+            tokens_generated = decode(fabric, tokenizer, y)
             t = time.perf_counter() - t0
             model.reset_cache()
-            print(f"\nTime for inference: {t:.02f} sec total, {tokens_generated / t:.02f} tokens/sec", file=sys.stderr)
+            fabric.print(
+                f"\nTime for inference: {t:.02f} sec total, {tokens_generated / t:.02f} tokens/sec", file=sys.stderr
+            )
         except KeyboardInterrupt:
             # support stopping generation
             pass
-        print()
+        fabric.print()
 
 
 def prompt_config(checkpoint_dir: Path, tokenizer: Tokenizer) -> Tuple[str, Tuple[List[int], ...]]:
@@ -230,6 +251,14 @@ def prompt_config(checkpoint_dir: Path, tokenizer: Tokenizer) -> Tuple[str, Tupl
             [tokenizer.token_to_id("User"), tokenizer.token_to_id(":")],
             [193, tokenizer.token_to_id("User")],  # 193: '\n'
         )
+        return system_prompt, stop_tokens
+    if re.search(r"vicuna", checkpoint_name):
+        # https://github.com/lm-sys/FastChat/blob/main/docs/vicuna_weights_version.md#prompt-template
+        system_prompt = (
+            "A chat between a curious user and an artificial intelligence assistant. The assistant gives helpful, "
+            "detailed, and polite answers to the user's questions. USER: {prompt} ASSISTANT:"
+        )
+        stop_tokens = ([tokenizer.eos_id],)
         return system_prompt, stop_tokens
 
     # default format

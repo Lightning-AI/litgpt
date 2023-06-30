@@ -17,15 +17,20 @@ sys.path.append(str(wd))
 
 from generate.base import generate
 from lit_gpt import Tokenizer
-from lit_gpt.adapter import GPT, Config, Block
+from lit_gpt.lora import GPT, Config, Block
 from lit_gpt.utils import lazy_load, check_valid_checkpoint_dir, quantization
 from scripts.prepare_alpaca import generate_prompt
+
+
+lora_r = 8
+lora_alpha = 16
+lora_dropout = 0.05
 
 
 def main(
     prompt: str = "What food do lamas eat?",
     input: str = "",
-    adapter_path: Path = Path("out/adapter/alpaca/lit_model_adapter_finetuned.pth"),
+    lora_path: Path = Path("out/lora/alpaca/lit_model_lora_finetuned.pth"),
     checkpoint_dir: Path = Path(f"checkpoints/stabilityai/stablelm-base-alpha-3b"),
     quantize: Literal["llm.int8", "gptq.int4"] = None,
     max_new_tokens: int = 100,
@@ -36,14 +41,14 @@ def main(
     precision: str = "bf16-true",
 ) -> None:
     """Generates a response based on a given instruction and an optional input.
-    This script will only work with checkpoints from the instruction-tuned GPT-Adapter model.
-    See `finetune/adapter.py`.
+    This script will only work with checkpoints from the instruction-tuned GPT-LoRA model.
+    See `finetune/lora.py`.
 
     Args:
         prompt: The prompt/instruction (Alpaca style).
         input: Optional input (Alpaca style).
-        adapter_path: Path to the checkpoint with trained adapter weights, which are the output of
-            `finetune/adapter.py`.
+        lora_path: Path to the checkpoint with trained adapter weights, which are the output of
+            `finetune/lora.py`.
         checkpoint_dir: The path to the checkpoint folder with pretrained GPT weights.
         quantize: Whether to quantize the model and using which method:
             ``"llm.int8"``: LLM.int8() mode,
@@ -65,7 +70,7 @@ def main(
     check_valid_checkpoint_dir(checkpoint_dir)
 
     with open(checkpoint_dir / "lit_config.json") as fp:
-        config = Config(**json.load(fp))
+        config = Config(r=lora_r, alpha=lora_alpha, dropout=lora_dropout, **json.load(fp))
 
     if quantize is not None and devices > 1:
         raise NotImplementedError
@@ -84,8 +89,8 @@ def main(
     fabric.print(f"Time to instantiate model: {time.time() - t0:.02f} seconds.", file=sys.stderr)
 
     t0 = time.time()
-    with lazy_load(checkpoint_path) as checkpoint, lazy_load(adapter_path) as adapter_checkpoint:
-        checkpoint.update(adapter_checkpoint.get("model", adapter_checkpoint))
+    with lazy_load(checkpoint_path) as checkpoint, lazy_load(lora_path) as lora_checkpoint:
+        checkpoint.update(lora_checkpoint.get("model", lora_checkpoint))
         model.load_state_dict(checkpoint, strict=quantize is None)
     fabric.print(f"Time to load the model weights: {time.time() - t0:.02f} seconds.", file=sys.stderr)
 
