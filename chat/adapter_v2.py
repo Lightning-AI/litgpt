@@ -21,7 +21,7 @@ from lit_gpt.utils import lazy_load, check_valid_checkpoint_dir, quantization
 
 def main(
     *,
-    adapter_path: Path = Path("finetuned/adapter/stabilityai/stablelm-base-alpha-3b/alpaca/lit_model_adapter_finetuned.pth"),
+    adapter_path: Path = Path("out/adapter_v2/alpaca/lit_model_adapter_finetuned.pth"),
     checkpoint_dir: Path = Path(f"checkpoints/stabilityai/stablelm-base-alpha-3b"),
     quantize: Literal["llm.int8", "gptq.int4"] = None,
     top_k: int = 200,
@@ -31,13 +31,15 @@ def main(
     """Starts a conversation with a tuned GPT model.
 
     Args:
-        top_k: The number of top most probable tokens to consider in the sampling process.
-        temperature: A value controlling the randomness of the sampling process. Higher values result in more random
-            samples.
+        adapter_path: Path to the checkpoint with trained adapter weights, which are the output of
+            `finetune/adapter.py`.
         checkpoint_dir: The checkpoint directory to load.
         quantize: Whether to quantize the model and using which method:
             ``"llm.int8"``: LLM.int8() mode,
             ``"gptq.int4"``: GPTQ 4-bit mode.
+        top_k: The number of top most probable tokens to consider in the sampling process.
+        temperature: A value controlling the randomness of the sampling process. Higher values result in more random
+            samples.
         precision: Indicates the Fabric precision setting to use.
     """
     check_valid_checkpoint_dir(checkpoint_dir)
