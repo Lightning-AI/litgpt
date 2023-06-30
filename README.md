@@ -25,6 +25,7 @@ Supports popular public checkpoints such as:
 
 - TII UAE [Falcon](tutorials/download_falcon.md)
 - OpenLM Research [OpenLLaMA](tutorials/download_openllama.md)
+- LMSYS [Vicuna](tutorials/download_vicuna.md)
 - Together [RedPajama-INCITE](tutorials/download_redpajama_incite.md)
 - EleutherAI [Pythia](tutorials/download_pythia.md)
 - StabilityAI [StableLM](tutorials/download_stablelm.md)
