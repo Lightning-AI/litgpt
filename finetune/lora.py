@@ -39,7 +39,7 @@ weight_decay = 0.01
 lora_r = 8
 lora_alpha = 16
 lora_dropout = 0.05
-warmup_iters = 100
+warmup_steps = 100
 
 hparams = {k: v for k, v in locals().items() if isinstance(v, (int, float, str)) and not k.startswith("_")}
 
@@ -147,9 +147,9 @@ def train(
 
         xm.mark_step()
     for iter_num in range(max_iters):
-        if step_count <= warmup_iters:
+        if step_count <= warmup_steps:
             # linear warmup
-            lr = learning_rate * step_count / warmup_iters
+            lr = learning_rate * step_count / warmup_steps
             for param_group in optimizer.param_groups:
                 param_group["lr"] = lr
 
