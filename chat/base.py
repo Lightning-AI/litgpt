@@ -4,7 +4,7 @@ import sys
 import time
 import warnings
 from pathlib import Path
-from typing import Optional, Tuple, List, Literal
+from typing import Optional, Tuple, List, Literal, Iterator
 
 import lightning as L
 import torch
@@ -95,6 +95,28 @@ def generate(
             yield_i += 1
 
 
+def decode(fabric: L.Fabric, tokenizer: Tokenizer, token_stream: Iterator[torch.Tensor]) -> int:
+    tokens_generated = 0
+    if tokenizer.backend == "hugginface":
+        for token in token_stream:
+            fabric.print(tokenizer.decode(token), end="", flush=True)
+            tokens_generated += 1
+    elif tokenizer.backend == "sentencepiece":
+        # sentencepiece does not support decoding token-by-token because it adds spaces based on the surrounding tokens
+        # meaning that we need to decode everything each time
+        so_far = torch.tensor([], dtype=torch.long, device=fabric.device)
+        decoded_so_far = ""
+        for token in token_stream:
+            so_far = torch.cat((so_far, token.view(-1)))
+            decoded_new = tokenizer.decode(so_far)
+            fabric.print(decoded_new[len(decoded_so_far) :], end="", flush=True)
+            decoded_so_far = decoded_new
+            tokens_generated += 1
+    else:
+        raise NotImplementedError(tokenizer.backend)
+    return tokens_generated
+
+
 def main(
     *,
     top_k: int = 200,
@@ -129,7 +151,7 @@ def main(
     else:
         model_file = "lit_model.pth"
     checkpoint_path = checkpoint_dir / model_file
-    print(f"Loading model {str(checkpoint_path)!r} with {config.__dict__}", file=sys.stderr)
+    fabric.print(f"Loading model {str(checkpoint_path)!r} with {config.__dict__}", file=sys.stderr)
     with fabric.init_module(empty_init=True), quantization(quantize):
         model = GPT(config)
     with lazy_load(checkpoint_path) as checkpoint:
@@ -160,20 +182,19 @@ def main(
             top_k=top_k,
             stop_tokens=stop_tokens,
         )
-        print(">> Reply: ", end="")
+        fabric.print(">> Reply: ", end="")
         try:
-            tokens_generated = 0
             t0 = time.perf_counter()
-            for token in y:
-                print(tokenizer.decode(token), end="", flush=True)
-                tokens_generated += 1
+            tokens_generated = decode(fabric, tokenizer, y)
             t = time.perf_counter() - t0
             model.reset_cache()
-            print(f"\nTime for inference: {t:.02f} sec total, {tokens_generated / t:.02f} tokens/sec", file=sys.stderr)
+            fabric.print(
+                f"\nTime for inference: {t:.02f} sec total, {tokens_generated / t:.02f} tokens/sec", file=sys.stderr
+            )
         except KeyboardInterrupt:
             # support stopping generation
             pass
-        print()
+        fabric.print()
 
 
 def prompt_config(checkpoint_dir: Path, tokenizer: Tokenizer) -> Tuple[str, Tuple[List[int], ...]]:
