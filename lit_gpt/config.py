@@ -142,9 +142,9 @@ pythia = [
 ]
 configs.extend(pythia)
 for c in pythia:
-    pythia_deduped = c.copy()
-    pythia_deduped["name"] = f"{c['name']}-deduped"
-    configs.append(pythia_deduped)
+    copy = c.copy()
+    copy["name"] = f"{c['name']}-deduped"
+    configs.append(copy)
 
 
 ####################################
@@ -190,8 +190,9 @@ redpajama_incite = [
 ]
 for c in redpajama_incite:
     for kind in ("Base", "Chat", "Instruct"):
-        c["name"] = c["name"].format(kind)
-        configs.append(c)
+        copy = c.copy()
+        copy["name"] = c["name"].format(kind)
+        configs.append(copy)
 
 
 #################
@@ -231,8 +232,9 @@ falcon = [
 ]
 for c in falcon:
     for kind in ("", "-instruct"):
-        c["name"] = c["name"].format(kind)
-        configs.append(c)
+        copy = c.copy()
+        copy["name"] = c["name"].format(kind)
+        configs.append(copy)
 
 
 #############################
