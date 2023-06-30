@@ -20,7 +20,7 @@ from lit_gpt.utils import lazy_load, check_valid_checkpoint_dir, quantization
 
 def main(
     *,
-    adapter_path: Path = Path("out/adapter/alpaca/lit_model_adapter_finetuned.pth"),
+    adapter_path: Path = Path("out/adapter/alpaca/lit_model_adapter_finetuned.pth"), 
     checkpoint_dir: Path = Path(f"checkpoints/stabilityai/stablelm-base-alpha-3b"),
     quantize: Literal["llm.int8", "gptq.int4"] = None,
     top_k: int = 200,
