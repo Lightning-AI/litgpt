@@ -30,7 +30,7 @@ devices = 1
 override_max_seq_length = None
 
 # Hyperparameters
-learning_rate = 9e-3
+learning_rate = 3e-3
 batch_size = 64 / devices
 micro_batch_size = 1
 gradient_accumulation_iters = batch_size // micro_batch_size
@@ -39,7 +39,7 @@ epoch_size = 50000  # train dataset size
 num_epochs = 5
 max_iters = num_epochs * (epoch_size // micro_batch_size) // devices
 weight_decay = 0.02
-warmup_iters = 2 * (epoch_size // micro_batch_size) // devices  # 2 epochs
+warmup_steps = 2 * (epoch_size // micro_batch_size) // devices // gradient_accumulation_iters # 2 epochs
 
 hparams = {k: v for k, v in locals().items() if isinstance(v, (int, float, str)) and not k.startswith("_")}
 
@@ -147,9 +147,9 @@ def train(
 
         xm.mark_step()
     for iter_num in range(max_iters):
-        if step_count <= warmup_iters:
+        if step_count <= warmup_steps:
             # linear warmup
-            lr = learning_rate * step_count / warmup_iters
+            lr = learning_rate * step_count / warmup_steps
             for param_group in optimizer.param_groups:
                 param_group["lr"] = lr
 
