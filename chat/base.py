@@ -97,7 +97,7 @@ def generate(
 
 def decode(fabric: L.Fabric, tokenizer: Tokenizer, token_stream: Iterator[torch.Tensor]) -> int:
     tokens_generated = 0
-    if tokenizer.backend == "hugginface":
+    if tokenizer.backend == "huggingface":
         for token in token_stream:
             fabric.print(tokenizer.decode(token), end="", flush=True)
             tokens_generated += 1
