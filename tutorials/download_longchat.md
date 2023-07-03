@@ -14,7 +14,6 @@ which will print
 ```text
 lmsys/longchat-7b-16k
 lmsys/longchat-13b-16k
-
 ```
 
 In order to use a specific checkpoint, for instance [longchat-7b-16k](https://huggingface.co/lmsys/longchat-7b-16k), download the weights and convert the checkpoint to the lit-gpt format:
