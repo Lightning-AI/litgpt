@@ -19,7 +19,7 @@ sys.path.append(str(wd))
 from lit_gpt.model import Block, GPT, Config
 from lit_gpt.packed_dataset import PackedDataset, CombinedDataset
 from lit_gpt.utils import step_csv_logger, chunked_cross_entropy
-from lit_gpt.speed_monitor import SpeedMonitor, estimate_flops, measure_flops
+from lit_gpt.speed_monitor import SpeedMonitorFabric as SpeedMonitor, estimate_flops, measure_flops
 
 model_name = "pythia-70m"
 name = "redpajama"
@@ -142,7 +142,7 @@ def train(
     optimizer: torch.optim.Optimizer,
     train_dataloader: DataLoader,
     val_dataloader: Optional[DataLoader],
-    speed_monitor: SpeedMonitor,
+    speed_monitor: SpeedMonitorFabric,
 ) -> None:
     if val_dataloader is not None:
         validate(fabric, model, val_dataloader)  # sanity check

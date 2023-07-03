@@ -1,12 +1,15 @@
 # Copyright 2022 MosaicML Composer authors
 # SPDX-License-Identifier: Apache-2.0
 # Adapted for standalone use
+import time
 from collections import deque
 from contextlib import nullcontext
-from typing import Deque, Optional
+from typing import Deque, Optional, Any, Dict, Callable
 
 import torch
-from lightning import Fabric
+from lightning import Fabric, Callback, Trainer, LightningModule
+from lightning.pytorch.utilities.rank_zero import rank_zero_only as trainer_rank_zero_only
+from lightning.fabric.utilities.rank_zero import rank_zero_only as fabric_rank_zero_only
 from torch.utils.flop_counter import FlopCounterMode
 
 from lit_gpt import GPT
@@ -115,7 +118,7 @@ def get_flops_available(device: torch.device, precision: str) -> Optional[float]
     return None
 
 
-class SpeedMonitor:
+class SpeedMonitorBase:
     """Logs the training throughput and utilization.
 
     +-------------------------------------+-----------------------------------------------------------+
@@ -167,10 +170,15 @@ class SpeedMonitor:
             'seconds', 'minutes', 'hours', or 'days'. Defaults to 'hours'.
     """
 
-    def __init__(self, fabric: Fabric, window_size: int = 100, time_unit: str = "hours"):
-        self.fabric = fabric
-        # TODO: this will not work properly if a precision plugin is passed to Fabric
-        self.flops_available = get_flops_available(fabric.device, fabric._connector._precision_input)
+    def __init__(
+        self,
+        flops_available: float,
+        log_dict: Callable[[Dict, int], None],
+        window_size: int = 100,
+        time_unit: str = "hours",
+    ):
+        self.flops_available = flops_available
+        self.log_dict = log_dict
 
         # Track the batch num samples and wct to compute throughput over a window of batches
         self.history_samples: Deque[int] = deque(maxlen=window_size + 1)
@@ -261,10 +269,78 @@ class SpeedMonitor:
             }
         )
 
-        self.fabric.log_dict(metrics, step)
+        self.log_dict(metrics, step)
 
     def eval_end(self, eval_elapsed: float):
         self.total_eval_wct += eval_elapsed  # seconds
+
+
+class SpeedMonitorFabric(SpeedMonitorBase):
+    def __init__(self, fabric: Fabric, *args: Any, **kwargs: Any) -> None:
+        # TODO: this will not work properly if a precision plugin is passed to Fabric
+        flops_available = get_flops_available(fabric.device, fabric._connector._precision_input)
+        super().__init__(flops_available, fabric.log_dict, *args, **kwargs)
+
+    @fabric_rank_zero_only
+    def on_train_batch_end(self, *args: Any, **kwargs: Any):
+        super().on_train_batch_end(*args, **kwargs)
+
+
+class SpeedMonitorCallback(Callback):
+    def __init__(self, length_fn: Callable[[Any], int], batch_size: int, **kwargs: Any) -> None:
+        super().__init__()
+        self.speed_monitor: Optional[SpeedMonitorBase] = None
+        self.speed_monitor_kwargs = kwargs
+        self.length_fn = length_fn
+        self.batch_size = batch_size
+        self.eval_t0: int = 0
+        self.train_t0: int = 0
+        self.total_lengths: int = 0
+
+    def setup(self, trainer: Trainer, pl_module: LightningModule, stage: str) -> None:
+        if self.speed_monitor is not None:
+            return  # already setup
+        # TODO: this will not work properly if a precision plugin is passed to Trainer
+        flops_available = get_flops_available(
+            trainer.strategy.root_device, trainer._accelerator_connector._precision_flag
+        )
+        self.speed_monitor = SpeedMonitorBase(flops_available, trainer.logger.log_metrics, **self.speed_monitor_kwargs)
+
+    @trainer_rank_zero_only
+    def on_train_start(self, trainer: Trainer, pl_module: LightningModule) -> None:
+        if trainer.fit_loop._should_accumulate():
+            return
+
+        self.train_t0 = time.time()
+
+    @trainer_rank_zero_only
+    def on_train_batch_end(
+        self, trainer: Trainer, pl_module: LightningModule, outputs: Any, batch: Any, batch_idx: int
+    ) -> None:
+        self.total_lengths += self.length_fn(batch)
+        if trainer.fit_loop._should_accumulate():
+            return
+        train_elapsed = time.time() - self.train_t0
+        assert self.speed_monitor is not None
+        iter_num = trainer.fit_loop.total_batch_idx
+        self.speed_monitor.on_train_batch_end(
+            (iter_num + 1) * self.batch_size,
+            train_elapsed,
+            # this assumes that device FLOPs are the same and that all devices have the same batch size
+            trainer.world_size,
+            flops_per_batch=pl_module.measured_flops,
+            lengths=self.total_lengths,
+        )
+
+    @trainer_rank_zero_only
+    def on_validation_start(self, trainer: Trainer, pl_module: LightningModule) -> None:
+        self.eval_t0 = time.time()
+
+    @trainer_rank_zero_only
+    def on_validation_end(self, trainer: Trainer, pl_module: LightningModule) -> None:
+        eval_elapsed = time.time() - self.eval_t0
+        assert self.speed_monitor is not None
+        self.speed_monitor.eval_end(eval_elapsed)
 
 
 def estimate_flops(model: GPT) -> int:
