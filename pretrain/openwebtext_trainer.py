@@ -142,6 +142,7 @@ def main(devices: int = 1, precision: Optional[str] = None, tpu: bool = False) -
         callbacks=[speed_monitor, model_checkpoint],
         max_steps=max_iters,
         max_epochs=1,
+        limit_val_batches=eval_iters,
         accumulate_grad_batches=gradient_accumulation_steps,
         log_every_n_steps=log_interval,
         val_check_interval=eval_interval,
