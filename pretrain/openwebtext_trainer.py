@@ -70,7 +70,7 @@ class LightningGPTModule(L.LightningModule):
             trainer.print(f"Measured TFLOPs: {self.measured_flops * trainer.world_size / 1e12:.2f}")
             del meta_model, x
 
-        # TODO: hack until the Trainer supports `trainer.init_module()`
+        # TODO: hack until the Trainer supports `trainer.init_module()` or this can be done in `configure_sharded_model`
         fabric = L.Fabric(
             devices=1,
             accelerator=trainer._accelerator_connector._accelerator_flag,
