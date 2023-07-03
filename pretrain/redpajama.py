@@ -142,7 +142,7 @@ def train(
     optimizer: torch.optim.Optimizer,
     train_dataloader: DataLoader,
     val_dataloader: Optional[DataLoader],
-    speed_monitor: SpeedMonitorFabric,
+    speed_monitor: SpeedMonitor,
 ) -> None:
     if val_dataloader is not None:
         validate(fabric, model, val_dataloader)  # sanity check
