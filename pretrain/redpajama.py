@@ -4,7 +4,7 @@ import sys
 import time
 from functools import partial
 from pathlib import Path
-from typing import Tuple, Optional
+from typing import Tuple, Optional, Union
 
 import lightning as L
 import torch
@@ -24,8 +24,7 @@ from lit_gpt.speed_monitor import SpeedMonitor, estimate_flops, measure_flops
 model_name = "pythia-70m"
 name = "redpajama"
 out_dir = Path("out") / name
-data_dir = Path("data") / name
-save_interval = 1000
+save_interval = 10
 eval_interval = 1000
 eval_iters = 100
 log_interval = 1
@@ -68,6 +67,7 @@ def setup(
     val_data_dir: Optional[Path] = None,
     precision: Optional[str] = None,
     tpu: bool = False,
+    resume: Union[bool, Path] = False,
 ) -> None:
     if precision is None:
         precision = "32-true" if tpu else "bf16-mixed"
@@ -90,10 +90,10 @@ def setup(
 
     fabric = L.Fabric(devices=devices, strategy=strategy, precision=precision, loggers=logger)
     fabric.print(hparams)
-    fabric.launch(main, train_data_dir, val_data_dir)
+    fabric.launch(main, train_data_dir, val_data_dir, resume)
 
 
-def main(fabric: L.Fabric, train_data_dir: Path, val_data_dir: Optional[Path]) -> None:
+def main(fabric, train_data_dir, val_data_dir, resume):
     speed_monitor = SpeedMonitor(fabric, window_size=50, time_unit="seconds")
 
     fabric.seed_everything(1337 + fabric.global_rank)
@@ -131,19 +131,29 @@ def main(fabric: L.Fabric, train_data_dir: Path, val_data_dir: Optional[Path]) -
     )
     model, optimizer = fabric.setup(model, optimizer)
 
+    state = {
+        "model": model,
+        "optimizer": optimizer,
+        "hparams": hparams,
+        "iter_num": 0,
+        "step_count": 0,
+    }
+
+    if resume is True:
+        resume = sorted(out_dir.glob("*.pth"))[-1]
+    if resume:
+        fabric.print(f"Resuming training from {resume}")
+        fabric.load(resume, state)
+
     train_time = time.time()
-    train(fabric, model, optimizer, train_dataloader, val_dataloader, speed_monitor)
+    train(fabric, state, train_dataloader, val_dataloader, speed_monitor)
     fabric.print(f"Training time: {(time.time()-train_time):.2f}s")
 
 
-def train(
-    fabric: L.Fabric,
-    model: GPT,
-    optimizer: torch.optim.Optimizer,
-    train_dataloader: DataLoader,
-    val_dataloader: Optional[DataLoader],
-    speed_monitor: SpeedMonitor,
-) -> None:
+def train(fabric, state, train_dataloader, val_dataloader, speed_monitor):
+    model = state["model"]
+    optimizer = state["optimizer"]
+
     if val_dataloader is not None:
         validate(fabric, model, val_dataloader)  # sanity check
 
@@ -157,7 +167,6 @@ def train(
         fabric.print(f"Measured TFLOPs: {measured_flops * fabric.world_size / 1e12:.2f}")
         del meta_model, x
 
-    step_count = 0
     total_lengths = 0
     total_t0 = time.time()
 
@@ -165,12 +174,12 @@ def train(
         import torch_xla.core.xla_model as xm
 
         xm.mark_step()
-    for iter_num, train_data in enumerate(train_dataloader):
-        if iter_num >= max_iters:
+    for state["iter_num"], train_data in enumerate(train_dataloader, state["iter_num"]):
+        if state["iter_num"] >= max_iters:
             break
 
         # determine and set the learning rate for this iteration
-        lr = get_lr(iter_num) if decay_lr else learning_rate
+        lr = get_lr(state["iter_num"]) if decay_lr else learning_rate
         for param_group in optimizer.param_groups:
             param_group["lr"] = lr
 
@@ -179,7 +188,7 @@ def train(
         input_ids = train_data[:, 0 : model.config.block_size].contiguous()
         targets = train_data[:, 1 : model.config.block_size + 1].contiguous()
 
-        is_accumulating = (iter_num + 1) % gradient_accumulation_steps != 0
+        is_accumulating = (state["iter_num"] + 1) % gradient_accumulation_steps != 0
         with fabric.no_backward_sync(model, enabled=is_accumulating):
             logits = model(input_ids)
             loss = chunked_cross_entropy(logits, targets, chunk_size=0)
@@ -189,37 +198,37 @@ def train(
             fabric.clip_gradients(model, optimizer, max_norm=grad_clip)
             optimizer.step()
             optimizer.zero_grad()
-            step_count += 1
+            state["step_count"] += 1
         elif fabric.device.type == "xla":
             xm.mark_step()
 
         t1 = time.time()
         total_lengths += input_ids.size(1)
         speed_monitor.on_train_batch_end(
-            (iter_num + 1) * micro_batch_size,
+            (state["iter_num"] + 1) * micro_batch_size,
             t1 - total_t0,
             # this assumes that device FLOPs are the same and that all devices have the same batch size
             fabric.world_size,
             flops_per_batch=measured_flops,
             lengths=total_lengths,
         )
-        if iter_num % log_interval == 0:
+        if state["iter_num"] % log_interval == 0:
             fabric.print(
-                f"iter {iter_num} step {step_count}: loss {loss.item():.4f}, iter time:"
+                f"iter {state['iter_num']} step {state['step_count']}: loss {loss.item():.4f}, iter time:"
                 f" {(t1 - iter_t0) * 1000:.2f}ms{' (optimizer.step)' if not is_accumulating else ''}"
             )
 
-        if val_dataloader is not None and not is_accumulating and step_count % eval_interval == 0:
+        if val_dataloader is not None and not is_accumulating and state["step_count"] % eval_interval == 0:
             t0 = time.time()
             val_loss = validate(fabric, model, val_dataloader)
             t1 = time.time() - t0
             speed_monitor.eval_end(t1)
-            fabric.print(f"step {iter_num}: val loss {val_loss:.4f}, val time: {t1 * 1000:.2f}ms")
+            fabric.print(f"step {state['iter_num']}: val loss {val_loss:.4f}, val time: {t1 * 1000:.2f}ms")
             fabric.barrier()
-        if not is_accumulating and step_count % save_interval == 0:
-            checkpoint_path = out_dir / f"iter-{iter_num:06d}-ckpt.pth"
+        if not is_accumulating and state["step_count"] % save_interval == 0:
+            checkpoint_path = out_dir / f"iter-{state['iter_num']:06d}-ckpt.pth"
             fabric.print(f"Saving checkpoint to {str(checkpoint_path)!r}")
-            fabric.save(checkpoint_path, {"model": model})
+            fabric.save(checkpoint_path, state)
 
 
 @torch.no_grad()
