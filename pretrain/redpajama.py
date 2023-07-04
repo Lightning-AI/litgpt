@@ -4,7 +4,7 @@ import sys
 import time
 from functools import partial
 from pathlib import Path
-from typing import Tuple, Optional
+from typing import Tuple, Optional, Union
 
 import lightning as L
 import torch
@@ -67,7 +67,7 @@ def setup(
     val_data_dir: Optional[Path] = None,
     precision: Optional[str] = None,
     tpu: bool = False,
-    resume: bool | Path = False,
+    resume: Union[bool, Path] = False,
 ) -> None:
     if precision is None:
         precision = "32-true" if tpu else "bf16-mixed"
