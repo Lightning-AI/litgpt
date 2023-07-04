@@ -140,10 +140,8 @@ def main(fabric, train_data_dir, val_data_dir, resume):
     }
 
     if resume is True:
-        latest = sorted(out_dir.glob("*.pth"))[-1]
-        fabric.print(f"Resuming training from {latest}")
-        fabric.load(latest, state)
-    elif resume:
+        resume = sorted(out_dir.glob("*.pth"))[-1]
+    if resume:
         fabric.print(f"Resuming training from {resume}")
         fabric.load(resume, state)
 
