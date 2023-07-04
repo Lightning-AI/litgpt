@@ -57,33 +57,38 @@ class Trainer(L.Trainer):
 
 
 class LightningGPTModule(L.LightningModule):
-    def __init__(self, trainer: Trainer, config: Config) -> None:
+    def __init__(self, config: Config) -> None:
         super().__init__()
+        self.config = config
+        self.module: Optional[torch.nn.Module] = None
+        self.measured_flops: Optional[int] = None
 
-        with torch.device("meta"):
-            meta_model = GPT(config)
-            # estimated is too much of an optimistic estimate, left just for reference
-            estimated_flops = estimate_flops(meta_model) * micro_batch_size
-            trainer.print(f"Estimated TFLOPs: {estimated_flops * trainer.world_size / 1e12:.2f}")
-            x = torch.randint(0, 1, (micro_batch_size, config.block_size))
-            self.measured_flops = measure_flops(meta_model, x)
-            trainer.print(f"Measured TFLOPs: {self.measured_flops * trainer.world_size / 1e12:.2f}")
-            del meta_model, x
-
-        # TODO: hack until the Trainer supports `trainer.init_module()` or this can be done in `configure_sharded_model`
-        fabric = L.Fabric(
+    def configure_sharded_model(self) -> None:
+        trainer = self.trainer
+        # TODO: hack until the Trainer supports `trainer.init_module()`
+        with L.Fabric(
             devices=1,
             accelerator=trainer._accelerator_connector._accelerator_flag,
             precision=trainer._accelerator_connector._precision_flag,
-        )
-        with fabric.init_module(empty_init=False):
-            self.module = GPT(config)
+        ).init_module(empty_init=False):
+            self.module = GPT(self.config)
             self.module.apply(self.module._init_weights)
 
     def configure_optimizers(self) -> torch.optim.Optimizer:
         return torch.optim.AdamW(
             self.module.parameters(), lr=learning_rate, weight_decay=weight_decay, betas=(beta1, beta2), foreach=False
         )
+
+    def on_fit_start(self) -> None:
+        trainer = self.trainer
+        with torch.device("meta"):
+            meta_model = GPT(self.module.config)
+            # estimated is too much of an optimistic estimate, left just for reference
+            estimated_flops = estimate_flops(meta_model) * micro_batch_size
+            self.print(f"Estimated TFLOPs: {estimated_flops * trainer.world_size / 1e12:.2f}")
+            x = torch.randint(0, 1, (micro_batch_size, meta_model.config.block_size))
+            self.measured_flops = measure_flops(meta_model, x)
+            self.print(f"Measured TFLOPs: {self.measured_flops * trainer.world_size / 1e12:.2f}")
 
     def on_train_batch_start(self, batch: Any, batch_idx: int) -> None:
         if not decay_lr:
@@ -101,7 +106,7 @@ class LightningGPTModule(L.LightningModule):
         self.log("train_loss", loss, on_step=True, on_epoch=False, prog_bar=True)
         return loss
 
-    def validation_step(self, batch: Any, batch_idx: int) -> torch.Tensor:
+    def validation_step(self, batch: Any, batch_idx: int) -> None:
         input_ids, targets = batch
         logits = self.module(input_ids)
         loss = chunked_cross_entropy(logits, targets, chunk_size=0)
@@ -158,7 +163,7 @@ def main(devices: int = 1, precision: Optional[str] = None, tpu: bool = False) -
     config = Config.from_name(model_name)
     trainer.print(f"Loading model with {config.__dict__}")
     t0 = time.time()
-    model = LightningGPTModule(trainer, config)
+    model = LightningGPTModule(config)
     trainer.print(f"Time to instantiate model: {time.time() - t0:.02f} seconds.")
 
     train_data = Dataset(str(data_dir / "train.bin"), config.block_size)

@@ -323,12 +323,13 @@ class SpeedMonitorCallback(Callback):
         train_elapsed = time.time() - self.train_t0
         assert self.speed_monitor is not None
         iter_num = trainer.fit_loop.total_batch_idx
+        assert (measured_flops := pl_module.measured_flops) is not None
         self.speed_monitor.on_train_batch_end(
             (iter_num + 1) * self.batch_size,
             train_elapsed,
             # this assumes that device FLOPs are the same and that all devices have the same batch size
             trainer.world_size,
-            flops_per_batch=pl_module.measured_flops,
+            flops_per_batch=measured_flops,
             lengths=self.total_lengths,
         )
 
