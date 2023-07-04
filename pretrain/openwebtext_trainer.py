@@ -106,7 +106,6 @@ class LightningGPTModule(L.LightningModule):
         logits = self.module(input_ids)
         loss = chunked_cross_entropy(logits, targets, chunk_size=0)
         self.log("val_loss", loss, on_step=False, on_epoch=True, prog_bar=True)
-        return loss
 
 
 def main(devices: int = 1, precision: Optional[str] = None, tpu: bool = False) -> None:
