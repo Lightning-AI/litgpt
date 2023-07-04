@@ -138,7 +138,7 @@ def main(devices: int = 1, precision: Optional[str] = None, tpu: bool = False) -
     speed_monitor = SpeedMonitorCallback(
         length_fn=lambda batch: batch[0].size(1), batch_size=micro_batch_size, window_size=50, time_unit="seconds"
     )
-    model_checkpoint = ModelCheckpoint(dirpath=out_dir, every_n_train_steps=save_interval, verbose=True)
+    model_checkpoint = ModelCheckpoint(dirpath=out_dir, every_n_train_steps=save_interval, save_last=True, verbose=True)
     trainer = Trainer(
         devices=devices,
         strategy=strategy,
@@ -170,7 +170,7 @@ def main(devices: int = 1, precision: Optional[str] = None, tpu: bool = False) -
     val_data = Dataset(str(data_dir / "val.bin"), config.block_size)
 
     t0 = time.time()
-    trainer.fit(model, train_data, val_data)
+    trainer.fit(model, train_data, val_data, ckpt_path="last")
     trainer.print(f"Training time: {(time.time()-t0):.2f}s")
 
 
