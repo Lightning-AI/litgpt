@@ -105,7 +105,7 @@ configs = [
     # https://huggingface.co/stabilityai/stablelm-tuned-alpha-3b/blob/main/config.json
     dict(org="stabilityai", name="stablelm-tuned-alpha-3b", n_head=32, padding_multiple=512),
     # https://huggingface.co/stabilityai/stablelm-tuned-alpha-7b/blob/main/config.json
-    dict(org="stabilityai", name="sstablelm-tuned-alpha-7b", n_head=48, n_embd=6144, padding_multiple=256),
+    dict(org="stabilityai", name="stablelm-tuned-alpha-7b", n_head=48, n_embd=6144, padding_multiple=256),
 ]
 
 ####################
