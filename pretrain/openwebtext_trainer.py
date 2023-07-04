@@ -122,7 +122,8 @@ def main(devices: int = 1, precision: Optional[str] = None, tpu: bool = False) -
             strategy = FSDPStrategy(
                 auto_wrap_policy=auto_wrap_policy,
                 activation_checkpointing=Block,
-                state_dict_type="full",
+                # the argument is not available in the Trainer strategy, but it's the default anyways
+                # state_dict_type="full",
                 limit_all_gathers=True,
                 cpu_offload=False,
             )
