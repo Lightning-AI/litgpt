@@ -134,7 +134,7 @@ def main(devices: int = 1, precision: Optional[str] = None, tpu: bool = False) -
     speed_monitor = SpeedMonitorCallback(
         length_fn=lambda batch: batch[0].size(1), batch_size=micro_batch_size, window_size=50, time_unit="seconds"
     )
-    model_checkpoint = ModelCheckpoint(dirpath=out_dir, every_n_train_steps=save_interval)
+    model_checkpoint = ModelCheckpoint(dirpath=out_dir, every_n_train_steps=save_interval, verbose=True)
     trainer = Trainer(
         devices=devices,
         strategy=strategy,
@@ -161,8 +161,6 @@ def main(devices: int = 1, precision: Optional[str] = None, tpu: bool = False) -
     t0 = time.time()
     model = LightningGPTModule(trainer, config)
     trainer.print(f"Time to instantiate model: {time.time() - t0:.02f} seconds.")
-    num_total_params = sum(p.numel() for p in model.parameters())
-    trainer.print(f"Total parameters {num_total_params}")
 
     train_data = Dataset(str(data_dir / "train.bin"), config.block_size)
     val_data = Dataset(str(data_dir / "val.bin"), config.block_size)
