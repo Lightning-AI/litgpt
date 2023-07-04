@@ -67,7 +67,7 @@ def setup(
     val_data_dir: Optional[Path] = None,
     precision: Optional[str] = None,
     tpu: bool = False,
-    resume: Path | None = None,
+    resume: bool | Path = False,
 ) -> None:
     if precision is None:
         precision = "32-true" if tpu else "bf16-mixed"
@@ -139,7 +139,11 @@ def main(fabric, train_data_dir, val_data_dir, resume):
         "step_count": 0,
     }
 
-    if resume:
+    if resume is True:
+        latest = sorted(out_dir.glob("*.pth"))[-1]
+        fabric.print(f"Resuming training from {latest}")
+        fabric.load(latest, state)
+    elif resume:
         fabric.print(f"Resuming training from {resume}")
         fabric.load(resume, state)
 
