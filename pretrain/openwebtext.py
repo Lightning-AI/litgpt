@@ -50,10 +50,7 @@ logger = step_csv_logger("out", name, flush_logs_every_n_steps=log_interval)
 
 
 def setup(
-    devices: int = 1,
-    precision: Optional[str] = None,
-    tpu: bool = False, 
-    resume: Union[bool, Path] = False,
+    devices: int = 1, precision: Optional[str] = None, tpu: bool = False, resume: Union[bool, Path] = False
 ) -> None:
     if precision is None:
         precision = "32-true" if tpu else "bf16-mixed"
@@ -105,13 +102,7 @@ def main(fabric, resume) -> None:
     )
     model, optimizer = fabric.setup(model, optimizer)
 
-    state = {
-        "model": model,
-        "optimizer": optimizer,
-        "hparams": hparams,
-        "iter_num": 0,
-        "step_count": 0,
-    }
+    state = {"model": model, "optimizer": optimizer, "hparams": hparams, "iter_num": 0, "step_count": 0}
 
     if resume is True:
         resume = sorted(out_dir.glob("*.pth"))[-1]
@@ -222,10 +213,11 @@ def get_batch(fabric: L.Fabric, data: np.ndarray, block_size: int) -> Tuple[torc
     ix = torch.randint(len(data) - block_size, (micro_batch_size,))
     x = torch.stack([torch.from_numpy((data[i : i + block_size]).astype(np.int64)) for i in ix])
     y = torch.stack([torch.from_numpy((data[i + 1 : i + 1 + block_size]).astype(np.int64)) for i in ix])
-    if fabric.device.type in ("mps", "xla"):
-        x, y = fabric.to_device((x, y))
-    else:
+
+    if fabric.device.type == "cuda" and x.device.type == "cpu":
         x, y = fabric.to_device((x.pin_memory(), y.pin_memory()))
+    else:
+        x, y = fabric.to_device((x, y))
     return x, y
 
 

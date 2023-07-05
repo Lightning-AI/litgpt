@@ -131,13 +131,7 @@ def main(fabric, train_data_dir, val_data_dir, resume):
     )
     model, optimizer = fabric.setup(model, optimizer)
 
-    state = {
-        "model": model,
-        "optimizer": optimizer,
-        "hparams": hparams,
-        "iter_num": 0,
-        "step_count": 0,
-    }
+    state = {"model": model, "optimizer": optimizer, "hparams": hparams, "iter_num": 0, "step_count": 0}
 
     if resume is True:
         resume = sorted(out_dir.glob("*.pth"))[-1]
