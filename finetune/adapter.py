@@ -264,10 +264,10 @@ def get_batch(
     x = torch.stack([pad_right(x, pad_id=0) for x in input_ids])
     y = torch.stack([pad_right(x, pad_id=-1) for x in labels])
 
-    if fabric.device.type in ("mps", "xla"):
-        x, y = fabric.to_device((x, y))
-    else:
+    if fabric.device.type == "cpu":
         x, y = fabric.to_device((x.pin_memory(), y.pin_memory()))
+    else:
+        x, y = fabric.to_device((x, y))
     return x, y
 
 
