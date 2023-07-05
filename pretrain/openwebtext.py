@@ -214,7 +214,7 @@ def get_batch(fabric: L.Fabric, data: np.ndarray, block_size: int) -> Tuple[torc
     x = torch.stack([torch.from_numpy((data[i : i + block_size]).astype(np.int64)) for i in ix])
     y = torch.stack([torch.from_numpy((data[i + 1 : i + 1 + block_size]).astype(np.int64)) for i in ix])
 
-    if fabric.device.type == "cpu":
+    if fabric.device.type == "cuda" and x.device.type == "cpu":
         x, y = fabric.to_device((x.pin_memory(), y.pin_memory()))
     else:
         x, y = fabric.to_device((x, y))
