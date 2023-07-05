@@ -2,7 +2,6 @@ from contextlib import redirect_stdout
 from dataclasses import asdict
 from io import StringIO
 from unittest.mock import Mock
-from urllib.request import urlretrieve
 
 import torch
 from lightning import Fabric

@@ -3,7 +3,6 @@ from io import StringIO
 from unittest.mock import Mock
 
 import torch
-
 from lightning import Fabric
 
 
