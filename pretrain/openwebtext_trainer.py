@@ -49,12 +49,6 @@ min_lr = 6e-5
 hparams = {k: v for k, v in locals().items() if isinstance(v, (int, float, str)) and not k.startswith("_")}
 
 
-class Trainer(L.Trainer):
-    # TODO: upstream this
-    def print(self, *args: Any, **kwargs: Any) -> None:
-        if self.local_rank == 0:
-            print(*args, **kwargs)
-
 
 class LightningGPTModule(L.LightningModule):
     def __init__(self, config: Config) -> None:
@@ -139,7 +133,7 @@ def main(devices: int = 1, precision: Optional[str] = None, tpu: bool = False) -
         length_fn=lambda batch: batch[0].size(1), batch_size=micro_batch_size, window_size=50, time_unit="seconds"
     )
     model_checkpoint = ModelCheckpoint(dirpath=out_dir, every_n_train_steps=save_interval, save_last=True, verbose=True)
-    trainer = Trainer(
+    trainer = L.Trainer(
         devices=devices,
         strategy=strategy,
         precision=precision,
