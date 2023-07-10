@@ -22,7 +22,7 @@ The steps here only need to be done once:
    python scripts/prepare_alpaca.py
    ```
 
-(See this blog article [How To Finetune GPT Like Large Language Models on a Custom Dataset](https://lightning.ai/blog/how-to-finetune-gpt-like-large-language-models-on-a-custom-dataset) for how to prepare and use custom datasets.)
+(See [this blog article](https://lightning.ai/blog/how-to-finetune-gpt-like-large-language-models-on-a-custom-dataset) for how to prepare and use custom datasets.)
 
 ## Running the finetuning
 
