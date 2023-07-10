@@ -1,0 +1,28 @@
+[tool.poetry]
+name = "lit-gpt"
+version = "0.1.0"
+description = ""
+authors = ["louisoutin <louis.outin@gmail.com>"]
+readme = "README.md"
+packages = [{include = "lit_gpt"}]
+
+[tool.poetry.dependencies]
+python = ">=3.10,<3.13"
+lightning = "^2.0.4"
+bitsandbytes = "^0.39.1"
+scipy = "^1.11.1"
+datasets = "^2.13.1"
+zstandard = "^0.21.0"
+jsonargparse = {extras = ["signatures"], version = "^4.22.1"}
+tokenizers = "^0.13.3"
+
+
+[tool.poetry.group.dev.dependencies]
+notebook = "^6.5.4"
+mypy = "^1.4.1"
+isort = "^5.12.0"
+black = "^23.3.0"
+
+[build-system]
+requires = ["poetry-core"]
+build-backend = "poetry.core.masonry.api"
