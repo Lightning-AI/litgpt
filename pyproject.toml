@@ -2,7 +2,7 @@
 name = "lit-gpt"
 version = "0.1.0"
 description = ""
-authors = ["louisoutin <louis.outin@gmail.com>"]
+authors = ["Lightning AI"]
 readme = "README.md"
 packages = [{include = "lit_gpt"}]
 
