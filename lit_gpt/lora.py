@@ -455,6 +455,7 @@ class Config(BaseConfig):
             "This scaling helps to reduce the need to retune hyperparameters when we vary r"
             https://arxiv.org/pdf/2106.09685.pdf (section 4.1)
         dropout: dropout that is applied on the input in the LoRA branch (before multiplying by matrix A)
+        *_lora: either apply LoRA to the specified weights or not
     """
 
     r: int = 0.0

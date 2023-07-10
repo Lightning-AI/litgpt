@@ -50,6 +50,12 @@ def setup(
     out_dir: Path = Path("out/lora/alpaca"),
     precision: Optional[str] = None,
     tpu: bool = False,
+    query_lora: bool = True,
+    key_lora: bool = False,
+    value_lora: bool = True,
+    projection_lora: bool = False,
+    mlp_lora: bool = False,
+    head_lora: bool = False,
 ):
     if precision is None:
         precision = "32-true" if tpu else "bf16-mixed"
@@ -67,10 +73,21 @@ def setup(
     logger = step_csv_logger(out_dir.parent, out_dir.name, flush_logs_every_n_steps=log_interval)
     fabric = L.Fabric(devices=fabric_devices, strategy=strategy, precision=precision, loggers=logger)
     fabric.print(hparams)
-    fabric.launch(main, data_dir, checkpoint_dir, out_dir)
+    fabric.launch(main, data_dir, checkpoint_dir, out_dir, query_lora, key_lora, value_lora, projection_lora, mlp_lora, head_lora)
 
 
-def main(fabric: L.Fabric, data_dir: Path, checkpoint_dir: Path, out_dir: Path):
+def main(
+    fabric: L.Fabric,
+    data_dir: Path,
+    checkpoint_dir: Path,
+    out_dir: Path,
+    query_lora: bool,
+    key_lora: bool,
+    value_lora: bool,
+    projection_lora: bool,
+    mlp_lora: bool,
+    head_lora: bool,
+):
     check_valid_checkpoint_dir(checkpoint_dir)
 
     speed_monitor = SpeedMonitor(fabric, window_size=50, time_unit="seconds")
@@ -83,7 +100,18 @@ def main(fabric: L.Fabric, data_dir: Path, checkpoint_dir: Path, out_dir: Path):
     train_data = torch.load(data_dir / "train.pt")
     val_data = torch.load(data_dir / "test.pt")
 
-    config = Config.from_name(name=checkpoint_dir.name, r=lora_r, alpha=lora_alpha, dropout=lora_dropout)
+    config = Config.from_name(
+        name=checkpoint_dir.name,
+        r=lora_r,
+        alpha=lora_alpha,
+        dropout=lora_dropout,
+        query_lora=query_lora,
+        key_lora=key_lora,
+        value_lora=value_lora,
+        projection_lora=projection_lora,
+        mlp_lora=mlp_lora,
+        head_lora=head_lora,
+    )
     checkpoint_path = checkpoint_dir / "lit_model.pth"
     fabric.print(f"Loading model {str(checkpoint_path)!r} with {config.__dict__}")
     with fabric.init_module(empty_init=False):
@@ -97,9 +125,9 @@ def main(fabric: L.Fabric, data_dir: Path, checkpoint_dir: Path, out_dir: Path):
 
     trainable_params = [p for p in model.parameters() if p.requires_grad]
     num_params = sum(p.numel() for p in trainable_params)
-    fabric.print(f"Number of trainable parameters: {num_params}")
+    fabric.print(f"Number of trainable parameters: {num_params:,}")
     num_params = sum(p.numel() for p in model.parameters() if not p.requires_grad)
-    fabric.print(f"Number of non trainable parameters: {num_params}")
+    fabric.print(f"Number of non trainable parameters: {num_params:,}")
 
     optimizer = torch.optim.AdamW(trainable_params, lr=learning_rate, weight_decay=weight_decay)
     model, optimizer = fabric.setup(model, optimizer)
@@ -257,7 +285,7 @@ def get_batch(
     x = torch.stack([pad_right(x, pad_id=0) for x in input_ids])
     y = torch.stack([pad_right(x, pad_id=-1) for x in labels])
 
-    if fabric.device.type in ("mps", "xla"):
+    if fabric.device.type in ("cpu", "mps", "xla"):
         x, y = fabric.to_device((x, y))
     else:
         x, y = fabric.to_device((x.pin_memory(), y.pin_memory()))
