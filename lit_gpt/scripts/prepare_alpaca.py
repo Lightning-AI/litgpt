@@ -33,15 +33,17 @@ def prepare(
     data_file_name: str = DATA_FILE_NAME,
     data_file_url: str = DATA_FILE_URL,
     ignore_index: int = IGNORE_INDEX,
+    max_seq_length: int | None = None,
 ) -> None:
     """Prepare the Alpaca dataset for instruction tuning.
 
     The output is a training and test dataset saved as `train.pt` and `test.pt`,
     which stores the preprocessed and tokenized prompts and labels.
     """
-    with open(checkpoint_dir / "lit_config.json", "r") as file:
-        config = json.load(file)
-        max_seq_length = config["block_size"]
+    if max_seq_length is None:
+        with open(checkpoint_dir / "lit_config.json", "r") as file:
+            config = json.load(file)
+            max_seq_length = config["block_size"]
 
     destination_path.mkdir(parents=True, exist_ok=True)
     data_file_path = destination_path / data_file_name
@@ -62,7 +64,7 @@ def prepare(
 
     print(f"train has {len(train_set):,} samples")
     print(f"test has {len(test_set):,} samples")
-
+    print(f"Using max_seq_len={max_seq_length}")
     print("Processing train split ...")
     train_set = [
         prepare_sample(

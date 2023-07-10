@@ -7,7 +7,10 @@ wd = Path(__file__).parent.parent.resolve()
 sys.path.append(str(wd))
 
 
-def download_from_hub(repo_id: Optional[str] = None) -> None:
+def download_from_hub(repo_id: Optional[str] = None, directory: Optional[str] = None) -> None:
+    if directory is None:
+        directory = "checkpoints/"
+
     if repo_id is None:
         from lit_gpt.config import configs
 
@@ -20,7 +23,7 @@ def download_from_hub(repo_id: Optional[str] = None) -> None:
 
     snapshot_download(
         repo_id,
-        local_dir=f"checkpoints/{repo_id}",
+        local_dir=str(Path(directory) / Path(repo_id)),
         local_dir_use_symlinks=False,
         resume_download=True,
         allow_patterns=["*.bin*", "tokenizer*"],
