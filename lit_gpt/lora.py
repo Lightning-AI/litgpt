@@ -460,6 +460,40 @@ class Config(BaseConfig):
     r: int = 0.0
     alpha: int = 1.0
     dropout: float = 0.0
+    query_lora: bool = False
+    key_lora: bool = False
+    value_lora: bool = False
+    projection_lora: bool = False
+    mlp_lora: bool = False
+    head_lora: bool = False
+
+
+class GptNeoxMLP(nn.Module):
+    def __init__(self, config: Config) -> None:
+        super().__init__()
+        self.fc = Linear(config.n_embd, config.intermediate_size, bias=config.bias, r=config.r, lora_alpha=config.alpha, lora_dropout=config.dropout)
+        self.proj = Linear(config.intermediate_size, config.n_embd, bias=config.bias, r=config.r, lora_alpha=config.alpha, lora_dropout=config.dropout)
+
+    def forward(self, x: torch.Tensor) -> torch.Tensor:
+        x = self.fc(x)
+        x = torch.nn.functional.gelu(x)
+        x = self.proj(x)
+        return x
+
+
+class LLaMAMLP(nn.Module):
+    def __init__(self, config: Config) -> None:
+        super().__init__()
+        self.fc_1 = Linear(config.n_embd, config.intermediate_size, bias=config.bias, r=config.r, lora_alpha=config.alpha, lora_dropout=config.dropout)
+        self.fc_2 = Linear(config.n_embd, config.intermediate_size, bias=config.bias, r=config.r, lora_alpha=config.alpha, lora_dropout=config.dropout)
+        self.proj = Linear(config.intermediate_size, config.n_embd, bias=config.bias, r=config.r, lora_alpha=config.alpha, lora_dropout=config.dropout)
+
+    def forward(self, x: torch.Tensor) -> torch.Tensor:
+        x_fc_1 = self.fc_1(x)
+        x_fc_2 = self.fc_2(x)
+        x = torch.nn.functional.silu(x_fc_1) * x_fc_2
+        x = self.proj(x)
+        return x
 
 
 class GPT(BaseModel):
@@ -468,7 +502,11 @@ class GPT(BaseModel):
         assert config.padded_vocab_size is not None
         self.config = config
 
-        self.lm_head = nn.Linear(config.n_embd, config.padded_vocab_size, bias=False)
+        if config.head_lora:
+            self.lm_head = Linear(config.n_embd, config.padded_vocab_size, bias=False, r=config.r, lora_alpha=config.alpha, lora_dropout=config.dropout)
+        else:
+            self.lm_head = nn.Linear(config.n_embd, config.padded_vocab_size, bias=False)
+
         self.transformer = nn.ModuleDict(
             dict(
                 wte=nn.Embedding(config.padded_vocab_size, config.n_embd),
@@ -575,7 +613,7 @@ class CausalSelfAttention(BaseCausalSelfAttention):
             r=config.r,
             lora_alpha=config.alpha,
             lora_dropout=config.dropout,
-            enable_lora=(True, False, True),
+            enable_lora=(config.query_lora, config.key_lora, config.value_lora),
             fan_in_fan_out=False,
             merge_weights=True,
             bias=config.bias,
@@ -584,6 +622,9 @@ class CausalSelfAttention(BaseCausalSelfAttention):
             n_query_groups=config.n_query_groups,
         )
         # output projection
-        self.proj = nn.Linear(config.n_embd, config.n_embd, bias=config.bias)
+        if config.projection_lora:
+            self.proj = Linear(config.n_embd, config.n_embd, bias=config.bias, r=config.r, lora_alpha=config.alpha, lora_dropout=config.dropout)
+        else:
+            self.proj = nn.Linear(config.n_embd, config.n_embd, bias=config.bias)
 
         self.config = config
