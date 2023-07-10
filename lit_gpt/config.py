@@ -81,7 +81,7 @@ class Config:
     @property
     def mlp_class(self) -> Type:
         # `self._mlp_class` cannot be the type to keep the config json serializable
-        obj = lit_gpt.lora if hasattr(self, "mlp_lora") else lit_gpt.model
+        obj = lit_gpt.lora if (hasattr(self, "mlp_lora") and self.mlp_lora) else lit_gpt.model
         return getattr(obj, self._mlp_class)
 
     @property
