@@ -15,7 +15,6 @@ priority = "explicit"
 python = ">=3.10,<3.13"
 torch = {version = "^2.1.0dev", source = "pytorch_nightly_cpu"}
 pydantic = "1.10.11"
-lightning = ">=2.0.5"
 bitsandbytes = "^0.39.1"
 scipy = "^1.11.1"
 datasets = "^2.13.1"
@@ -23,6 +22,7 @@ zstandard = "^0.21.0"
 jsonargparse = {extras = ["signatures"], version = "^4.22.1"}
 tokenizers = "^0.13.3"
 huggingface-hub = "^0.16.4"
+lightning = {git = "https://github.com/Lightning-AI/lightning.git"}
 
 [tool.poetry.group.dev.dependencies]
 notebook = "^6.5.4"
