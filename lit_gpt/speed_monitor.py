@@ -1,6 +1,3 @@
-# Copyright 2022 MosaicML Composer authors
-# SPDX-License-Identifier: Apache-2.0
-# Adapted for standalone use
 from collections import deque
 from contextlib import nullcontext
 from typing import Deque, Optional
@@ -114,6 +111,8 @@ def get_flops_available(device: torch.device, precision: str) -> Optional[float]
 
     return None
 
+
+# Adapted from https://github.com/mosaicml/composer/blob/f2a2dc820cb75023b9eb7c46fdfd25273712abd0/composer/callbacks/speed_monitor.py
 
 class SpeedMonitor:
     """Logs the training throughput and utilization.
