@@ -15,9 +15,15 @@ sys.path.append(str(wd))
 from generate.base import generate
 from lit_gpt.lora import mark_only_lora_as_trainable, lora_filter, GPT, Config
 from lit_gpt.tokenizer import Tokenizer
-from lit_gpt.utils import lazy_load, check_valid_checkpoint_dir, step_csv_logger, chunked_cross_entropy
+from lit_gpt.utils import (
+    lazy_load,
+    check_valid_checkpoint_dir,
+    step_csv_logger,
+    chunked_cross_entropy,
+)
 from lit_gpt.speed_monitor import SpeedMonitor, measure_flops, estimate_flops
 from scripts.prepare_alpaca import generate_prompt
+from torch.utils.tensorboard import SummaryWriter
 
 
 eval_interval = 100
@@ -41,7 +47,11 @@ lora_alpha = 16
 lora_dropout = 0.05
 warmup_steps = 100
 
-hparams = {k: v for k, v in locals().items() if isinstance(v, (int, float, str)) and not k.startswith("_")}
+hparams = {
+    k: v
+    for k, v in locals().items()
+    if isinstance(v, (int, float, str)) and not k.startswith("_")
+}
 
 
 def setup(
@@ -64,8 +74,12 @@ def setup(
     else:
         strategy = "auto"
 
-    logger = step_csv_logger(out_dir.parent, out_dir.name, flush_logs_every_n_steps=log_interval)
-    fabric = L.Fabric(devices=fabric_devices, strategy=strategy, precision=precision, loggers=logger)
+    logger = step_csv_logger(
+        out_dir.parent, out_dir.name, flush_logs_every_n_steps=log_interval
+    )
+    fabric = L.Fabric(
+        devices=fabric_devices, strategy=strategy, precision=precision, loggers=logger
+    )
     fabric.print(f"Devices: {fabric_devices}")
     fabric.print(hparams)
     fabric.launch(main, data_dir, checkpoint_dir, out_dir)
@@ -75,6 +89,8 @@ def main(fabric: L.Fabric, data_dir: Path, checkpoint_dir: Path, out_dir: Path):
     check_valid_checkpoint_dir(checkpoint_dir)
 
     speed_monitor = SpeedMonitor(fabric, window_size=50, time_unit="seconds")
+    # default `log_dir` is "runs" - we'll be more specific here
+    writer = SummaryWriter(str(Path(out_dir) / "tensorboard"))
 
     fabric.seed_everything(1337 + fabric.global_rank)
 
@@ -84,7 +100,9 @@ def main(fabric: L.Fabric, data_dir: Path, checkpoint_dir: Path, out_dir: Path):
     train_data = torch.load(data_dir / "train.pt")
     val_data = torch.load(data_dir / "test.pt")
 
-    config = Config.from_name(name=checkpoint_dir.name, r=lora_r, alpha=lora_alpha, dropout=lora_dropout)
+    config = Config.from_name(
+        name=checkpoint_dir.name, r=lora_r, alpha=lora_alpha, dropout=lora_dropout
+    )
     checkpoint_path = checkpoint_dir / "lit_model.pth"
     fabric.print(f"Loading model {str(checkpoint_path)!r} with {config.__dict__}")
     with fabric.init_module(empty_init=False):
@@ -102,11 +120,23 @@ def main(fabric: L.Fabric, data_dir: Path, checkpoint_dir: Path, out_dir: Path):
     num_params = sum(p.numel() for p in model.parameters() if not p.requires_grad)
     fabric.print(f"Number of non trainable parameters: {num_params}")
 
-    optimizer = torch.optim.AdamW(trainable_params, lr=learning_rate, weight_decay=weight_decay)
+    optimizer = torch.optim.AdamW(
+        trainable_params, lr=learning_rate, weight_decay=weight_decay
+    )
     model, optimizer = fabric.setup(model, optimizer)
 
     train_time = time.time()
-    train(fabric, model, optimizer, train_data, val_data, checkpoint_dir, out_dir, speed_monitor)
+    train(
+        fabric,
+        model,
+        optimizer,
+        train_data,
+        val_data,
+        checkpoint_dir,
+        out_dir,
+        speed_monitor,
+        writer,
+    )
     fabric.print(f"Training time: {(time.time()-train_time):.2f}s")
 
     # Save the final LoRA checkpoint at the end of training
@@ -123,20 +153,27 @@ def train(
     checkpoint_dir: Path,
     out_dir: Path,
     speed_monitor: SpeedMonitor,
+    writer: SummaryWriter,
 ) -> None:
     tokenizer = Tokenizer(checkpoint_dir)
     max_seq_length, longest_seq_length, longest_seq_ix = get_max_seq_length(train_data)
 
-    validate(fabric, model, val_data, tokenizer, longest_seq_length)  # sanity check
+    validate(
+        fabric, model, val_data, tokenizer, longest_seq_length, 0, writer
+    )  # sanity check
 
     with torch.device("meta"):
         meta_model = GPT(model.config)
         # estimated is too much of an optimistic estimate, left just for reference
         estimated_flops = estimate_flops(meta_model) * micro_batch_size
-        fabric.print(f"Estimated TFLOPs: {estimated_flops * fabric.world_size / 1e12:.2f}")
+        fabric.print(
+            f"Estimated TFLOPs: {estimated_flops * fabric.world_size / 1e12:.2f}"
+        )
         x = torch.randint(0, 1, (micro_batch_size, model.config.block_size))
         measured_flops = measure_flops(meta_model, x)
-        fabric.print(f"Measured TFLOPs: {measured_flops * fabric.world_size / 1e12:.2f}")
+        fabric.print(
+            f"Measured TFLOPs: {measured_flops * fabric.world_size / 1e12:.2f}"
+        )
         del meta_model, x
 
     step_count = 0
@@ -157,12 +194,17 @@ def train(
         iter_t0 = time.time()
 
         input_ids, targets = get_batch(
-            fabric, train_data, longest_seq_length, longest_seq_ix if iter_num == 0 else None
+            fabric,
+            train_data,
+            longest_seq_length,
+            longest_seq_ix if iter_num == 0 else None,
         )
 
         is_accumulating = (iter_num + 1) % gradient_accumulation_iters != 0
         with fabric.no_backward_sync(model, enabled=is_accumulating):
-            logits = model(input_ids, max_seq_length=max_seq_length, lm_head_chunk_size=128)
+            logits = model(
+                input_ids, max_seq_length=max_seq_length, lm_head_chunk_size=128
+            )
             # shift the targets such that output n predicts token n+1
             logits[-1] = logits[-1][..., :-1, :]
             loss = chunked_cross_entropy(logits, targets[..., 1:])
@@ -190,14 +232,22 @@ def train(
                 f"iter {iter_num} step {step_count}: loss {loss.item():.4f}, iter time:"
                 f" {(t1 - iter_t0) * 1000:.2f}ms{' (optimizer.step)' if not is_accumulating else ''}"
             )
+            writer.add_scalar("training loss", loss.item(), iter_num)
+            writer.add_scalar("training time ms", (t1 - iter_t0) * 1000, iter_num)
 
         if not is_accumulating and step_count % eval_interval == 0:
             t0 = time.time()
-            val_loss = validate(fabric, model, val_data, tokenizer, longest_seq_length)
+            val_loss = validate(
+                fabric, model, val_data, tokenizer, longest_seq_length, iter_num, writer
+            )
             t1 = time.time() - t0
             speed_monitor.eval_end(t1)
-            fabric.print(f"step {iter_num}: val loss {val_loss:.4f}, val time: {t1 * 1000:.2f}ms")
+            fabric.print(
+                f"step {iter_num}: val loss {val_loss:.4f}, val time: {t1 * 1000:.2f}ms"
+            )
             fabric.barrier()
+            writer.add_scalar("validation loss", val_loss, iter_num)
+            writer.add_scalar("validation time ms", t1 * 1000, iter_num)
         if not is_accumulating and step_count % save_interval == 0:
             checkpoint_path = out_dir / f"iter-{iter_num:06d}-ckpt.pth"
             save_lora_checkpoint(fabric, model, checkpoint_path)
@@ -205,8 +255,14 @@ def train(
 
 @torch.no_grad()
 def validate(
-    fabric: L.Fabric, model: GPT, val_data: List[Dict], tokenizer: Tokenizer, longest_seq_length: int
-) -> torch.Tensor:
+    fabric: L.Fabric,
+    model: GPT,
+    val_data: List[Dict],
+    tokenizer: Tokenizer,
+    longest_seq_length: int,
+    iter_num: int,
+    writer: SummaryWriter,
+) -> float:
     fabric.print("Validating ...")
     model.eval()
     losses = torch.zeros(eval_iters)
@@ -217,27 +273,39 @@ def validate(
         losses[k] = loss.item()
     val_loss = losses.mean()
 
-    # produce an example:
-    instruction = "Recommend a movie for me to watch during the weekend and explain the reason."
-    fabric.print(instruction)
-    sample = {"instruction": instruction, "input": ""}
-    prompt = generate_prompt(sample)
-    encoded = tokenizer.encode(prompt, device=model.device)
-    max_returned_tokens = len(encoded) + 100
-    output = generate(
-        model, idx=encoded, max_returned_tokens=max_returned_tokens, max_seq_length=max_returned_tokens, temperature=0.8
-    )
-    output = tokenizer.decode(output)
-    fabric.print(output)
+    # produce first 10 examples:
+
+    for sample in val_data[: min(len(val_data), 10)]:
+        fabric.print(sample)
+        prompt = generate_prompt(sample)
+        encoded = tokenizer.encode(prompt, device=model.device)
+        max_returned_tokens = len(encoded) + 100
+        output = generate(
+            model,
+            idx=encoded,
+            max_returned_tokens=max_returned_tokens,
+            max_seq_length=max_returned_tokens,
+            temperature=0.8,
+        )
+        output = tokenizer.decode(output)
+        fabric.print(output)
+        text_to_print: str = f"""Instruction:
+{sample}
+
+Answer:
+{output}"""
+        writer.add_text("example prediction", text_to_print, iter_num)
 
     model.reset_cache()
-
     model.train()
     return val_loss.item()
 
 
 def get_batch(
-    fabric: L.Fabric, data: List[Dict], longest_seq_length: int, longest_seq_ix: Optional[int] = None
+    fabric: L.Fabric,
+    data: List[Dict],
+    longest_seq_length: int,
+    longest_seq_ix: Optional[int] = None,
 ) -> Tuple[torch.Tensor, torch.Tensor]:
     ix = torch.randint(len(data), (micro_batch_size,))
     if longest_seq_ix is not None:
@@ -248,7 +316,11 @@ def get_batch(
     labels = [data[i]["labels"].type(torch.int64) for i in ix]
 
     # it's better to pad to a fixed seq length with XLA to avoid recompilation
-    max_len = max(len(s) for s in input_ids) if fabric.device.type != "xla" else longest_seq_length
+    max_len = (
+        max(len(s) for s in input_ids)
+        if fabric.device.type != "xla"
+        else longest_seq_length
+    )
 
     def pad_right(x, pad_id):
         # pad right based on the longest sequence
@@ -272,7 +344,9 @@ def get_max_seq_length(data: List[Dict]) -> Tuple[int, int, int]:
     longest_seq_ix = lengths.index(max_seq_length)
     # support easy override at the top of the file
     return (
-        override_max_seq_length if isinstance(override_max_seq_length, int) else max_seq_length,
+        override_max_seq_length
+        if isinstance(override_max_seq_length, int)
+        else max_seq_length,
         max_seq_length,
         longest_seq_ix,
     )

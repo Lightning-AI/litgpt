@@ -11,3 +11,4 @@ out
 wandb
 
 tests/original_falcon_40b.py
+.vscode/settings.json
