@@ -1565,7 +1565,7 @@ ui = ["panel (>=1.0.0,<2.0)", "streamlit (>=1.13.0,<2.0)"]
 [package.source]
 type = "git"
 url = "https://github.com/Lightning-AI/lightning.git"
-reference = "HEAD"
+reference = "master"
 resolved_reference = "b16c35d6730bd6b1b178ec3e02a85f578441e670"
 
 [[package]]
@@ -3860,4 +3860,4 @@ cffi = ["cffi (>=1.11)"]
 [metadata]
 lock-version = "2.0"
 python-versions = ">=3.10,<3.13"
-content-hash = "1985423065e6f5881e479936940800944dd24681d7960e48ac527acbea127a8f"
+content-hash = "a27f802309a69a3f0da1382b6dc6c16a4f4a323446c311128a7a1d494dc12ae1"

@@ -22,7 +22,7 @@ zstandard = "^0.21.0"
 jsonargparse = {extras = ["signatures"], version = "^4.22.1"}
 tokenizers = "^0.13.3"
 huggingface-hub = "^0.16.4"
-lightning = {git = "https://github.com/Lightning-AI/lightning.git"}
+lightning = {git = "https://github.com/Lightning-AI/lightning.git", branch= "master"}
 
 [tool.poetry.group.dev.dependencies]
 notebook = "^6.5.4"
