@@ -24,7 +24,7 @@ eval_interval = 100
 save_interval = 100
 eval_iters = 100
 log_interval = 1
-devices = 1
+devices = torch.cuda.device_count()
 # change this value to force a maximum sequence length
 override_max_seq_length = None
 
@@ -66,6 +66,7 @@ def setup(
 
     logger = step_csv_logger(out_dir.parent, out_dir.name, flush_logs_every_n_steps=log_interval)
     fabric = L.Fabric(devices=fabric_devices, strategy=strategy, precision=precision, loggers=logger)
+    fabric.print(f"Devices: {fabric_devices}")
     fabric.print(hparams)
     fabric.launch(main, data_dir, checkpoint_dir, out_dir)
 
