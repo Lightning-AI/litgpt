@@ -43,13 +43,14 @@ two matrices of a lower rank.
 
 import math
 from dataclasses import dataclass
-from typing import Optional, Tuple, Any, List, Union
+from typing import Optional, Tuple, Any, List, Type, Union
 
 import torch
 import torch.nn as nn
 from torch.nn import functional as F
 from typing_extensions import Self
 
+import lit_gpt
 from lit_gpt.config import Config as BaseConfig
 from lit_gpt.model import (
     GPT as BaseModel,
@@ -468,6 +469,11 @@ class Config(BaseConfig):
     mlp_lora: bool = False
     head_lora: bool = False
 
+    @property
+    def mlp_class(self) -> Type:
+        # `self._mlp_class` cannot be the type to keep the config json serializable
+        obj = lit_gpt.lora if self.mlp_lora else lit_gpt.model
+        return getattr(obj, self._mlp_class)
 
 class GptNeoxMLP(nn.Module):
     def __init__(self, config: Config) -> None:
