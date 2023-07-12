@@ -2,7 +2,7 @@
 lightning @ git+https://github.com/Lightning-AI/lightning@master
 tokenizers
 jsonargparse[signatures]  # CLI
-bitsandbytes  # quantize
+bitsandbytes>=0.40.0  # quantize
 scipy  # TODO: remove when bnb has resolved https://github.com/TimDettmers/bitsandbytes/issues/544 and released the fix
 datasets  # quantize/gptq.py
 zstandard  # prepare_redpajama.py

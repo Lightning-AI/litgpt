@@ -4,7 +4,7 @@ import time
 import warnings
 from functools import partial
 from pathlib import Path
-from typing import Literal
+from typing import Literal, Optional
 
 import lightning as L
 import torch
@@ -27,7 +27,9 @@ def main(
     input: str = "",
     adapter_path: Path = Path("out/adapter/alpaca/lit_model_adapter_finetuned.pth"),
     checkpoint_dir: Path = Path(f"checkpoints/stabilityai/stablelm-base-alpha-3b"),
-    quantize: Literal["llm.int8", "gptq.int4"] = None,
+    quantize: Optional[
+        Literal["llm.int8", "qlora.fp4", "qlora.fp4-dq", "qlora.nf4", "qlora.nf4-dq", "gptq.int4"]
+    ] = None,
     max_new_tokens: int = 100,
     top_k: int = 200,
     temperature: float = 0.8,
@@ -45,9 +47,8 @@ def main(
         adapter_path: Path to the checkpoint with trained adapter weights, which are the output of
             `finetune/adapter.py`.
         checkpoint_dir: The path to the checkpoint folder with pretrained GPT weights.
-        quantize: Whether to quantize the model and using which method:
-            ``"llm.int8"``: LLM.int8() mode,
-            ``"gptq.int4"``: GPTQ 4-bit mode.
+        quantize: Whether to quantize the model and using which method.
+            See https://github.com/Lightning-AI/lit-gpt/blob/main/tutorials/quantize.md
         max_new_tokens: The number of generation steps to take.
         top_k: The number of top most probable tokens to consider in the sampling process.
         temperature: A value controlling the randomness of the sampling process. Higher values result in more random

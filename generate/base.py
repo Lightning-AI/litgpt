@@ -98,7 +98,9 @@ def main(
     top_k: int = 200,
     temperature: float = 0.8,
     checkpoint_dir: Path = Path(f"checkpoints/stabilityai/stablelm-base-alpha-3b"),
-    quantize: Literal["llm.int8", "gptq.int4"] = None,
+    quantize: Optional[
+        Literal["llm.int8", "qlora.fp4", "qlora.fp4-dq", "qlora.nf4", "qlora.nf4-dq", "gptq.int4"]
+    ] = None,
     strategy: str = "auto",
     devices: int = 1,
     precision: str = "bf16-true",
@@ -113,9 +115,8 @@ def main(
         temperature: A value controlling the randomness of the sampling process. Higher values result in more random
             samples.
         checkpoint_dir: The checkpoint directory to load.
-        quantize: Whether to quantize the model and using which method:
-            ``"llm.int8"``: LLM.int8() mode,
-            ``"gptq.int4"``: GPTQ 4-bit mode.
+        quantize: Whether to quantize the model and using which method.
+            See https://github.com/Lightning-AI/lit-gpt/blob/main/tutorials/quantize.md
         strategy: Indicates the Fabric strategy setting to use.
         devices: How many devices to use.
         precision: Indicates the Fabric precision setting to use.
