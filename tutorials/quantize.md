@@ -8,10 +8,10 @@ However, this might not be enough for large models or when using GPUs with limit
 
 ### Baseline
 
-All the examples below were run using the script parameters ` --checkpoint_dir checkpoints/tiiuae/falcon-7b --precision bf16-true --max_new_tokens 256` on an A100 40GB GPU.
+All the examples below were run on an A100 40GB GPU.
 
 ```bash
-python generate/base.py
+python generate/base.py --checkpoint_dir checkpoints/tiiuae/falcon-7b --precision bf16-true --max_new_tokens 256
 ...
 Time for inference 1: 9.76 sec total, 26.23 tokens/sec.
 Memory used: 14.51 GB
@@ -26,7 +26,7 @@ Enabled with [bitsandbyes](https://github.com/TimDettmers/bitsandbytes). Check o
 Uses the normalized float 4 (nf4) data type. This is recommended over "fp4" based on the paper's experimental results and theoretical analysis. 
 
 ```bash
-python generate/base.py --quantize qlora.nf4
+python generate/base.py --quantize qlora.nf4 --checkpoint_dir checkpoints/tiiuae/falcon-7b --precision bf16-true --max_new_tokens 256
 ...
 Time for inference 1: 8.92 sec total, 28.69 tokens/sec
 Memory used: 5.72 GB
@@ -39,7 +39,7 @@ Enabled with [bitsandbyes](https://github.com/TimDettmers/bitsandbytes). Check o
 "dq" stands for "Double Quantization" which reduces the average memory footprint by quantizing the quantization constants.
 
 ```bash
-python generate/base.py --quantize qlora.nf4-dq
+python generate/base.py --quantize qlora.nf4-dq --checkpoint_dir checkpoints/tiiuae/falcon-7b --precision bf16-true --max_new_tokens 256
 ...
 Time for inference 1: 12.06 sec total, 21.23 tokens/sec
 Memory used: 5.37 GB
@@ -53,7 +53,7 @@ The `qlora` suffix is used because this technique was introduced in the QLoRA pa
 Uses pure FP4 quantization.
 
 ```bash
-python generate/base.py --quantize qlora.fp4
+python generate/base.py --quantize qlora.fp4 --checkpoint_dir checkpoints/tiiuae/falcon-7b --precision bf16-true --max_new_tokens 256
 ...
 Time for inference 1: 9.20 sec total, 27.83 tokens/sec
 Memory used: 5.72 GB
@@ -66,7 +66,7 @@ Enabled with [bitsandbyes](https://github.com/TimDettmers/bitsandbytes). Check o
 "dq" stands for "Double Quantization" which reduces the average memory footprint by quantizing the quantization constants.
 
 ```bash
-python generate/base.py --quantize qlora.fp4-dq
+python generate/base.py --quantize qlora.fp4-dq --checkpoint_dir checkpoints/tiiuae/falcon-7b --precision bf16-true --max_new_tokens 256
 ...
 Time for inference 1: 12.12 sec total, 21.13 tokens/sec
 Memory used: 5.37 GB
@@ -77,7 +77,7 @@ Memory used: 5.37 GB
 Enabled with [bitsandbyes](https://github.com/TimDettmers/bitsandbytes). Check out the [paper](https://arxiv.org/abs/2110.02861) to learn more about how it works.
 
 ```bash
-python generate/base.py --quantize llm.int8
+python generate/base.py --quantize llm.int8 --checkpoint_dir checkpoints/tiiuae/falcon-7b --precision bf16-true --max_new_tokens 256
 ...
 Time for inference 1: 24.17 sec total, 10.59 tokens/sec
 Memory used: 8.71 GB
@@ -101,7 +101,7 @@ It is important to note that this conversion step required a considerable amount
 generation then works as usual with `--quantize gptq.int4` which will load the newly quantized checkpoint file:
 
 ```bash
-python generate/base.py --quantize gptq.int4 --precision 32-true
+python generate/base.py --quantize gptq.int4 --checkpoint_dir checkpoints/tiiuae/falcon-7b --precision 32-true --max_new_tokens 256
 ...
 Time for inference 1: 39.50 sec total, 6.48 tokens/sec
 Memory used: 5.05 GB
