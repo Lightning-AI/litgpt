@@ -33,7 +33,7 @@ def main(
     lora_path: Path = Path("out/lora/alpaca/lit_model_lora_finetuned.pth"),
     checkpoint_dir: Path = Path(f"checkpoints/stabilityai/stablelm-base-alpha-3b"),
     quantize: Optional[
-        Literal["llm.int8", "qlora.fp4", "qlora.fp4-dq", "qlora.nf4", "qlora.nf4-dq", "gptq.int4"]
+        Literal["qlora.nf4", "qlora.nf4-dq", "qlora.fp4", "qlora.fp4-dq", "llm.int8", "gptq.int4"]
     ] = None,
     max_new_tokens: int = 100,
     top_k: int = 200,
@@ -52,8 +52,11 @@ def main(
         lora_path: Path to the checkpoint with trained adapter weights, which are the output of
             `finetune/lora.py`.
         checkpoint_dir: The path to the checkpoint folder with pretrained GPT weights.
-        quantize: Whether to quantize the model and using which method.
-            See https://github.com/Lightning-AI/lit-gpt/blob/main/tutorials/quantize.md
+        quantize: Whether to quantize the model and using which method:
+            - qlora.nf4, qlora.nf4-dq, qlora.fp4, qlora.fp4-dq: 4-bit quantization from bitsandbytes
+            - llm.int8: 8-bit quantization from bitsandbytes
+            - gptq.int4: 4-bit quantization from GPTQ
+            for more details, see https://github.com/Lightning-AI/lit-gpt/blob/main/tutorials/quantize.md
         max_new_tokens: The number of generation steps to take.
         top_k: The number of top most probable tokens to consider in the sampling process.
         temperature: A value controlling the randomness of the sampling process. Higher values result in more random
