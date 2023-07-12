@@ -33,19 +33,19 @@ def quantization(mode: Optional[str] = None):
         from quantize.bnb import InferenceLinear8bitLt
 
         quantized_linear_cls = InferenceLinear8bitLt
-    elif mode == "qlora.fp4":
+    elif mode == "bnb.fp4":
         from quantize.bnb import Linear4bit
 
         quantized_linear_cls = partial(Linear4bit, quant_type="fp4", compress_statistics=False)
-    elif mode == "qlora.fp4-dq":
+    elif mode == "bnb.fp4-dq":
         from quantize.bnb import Linear4bit
 
         quantized_linear_cls = partial(Linear4bit, quant_type="fp4", compress_statistics=True)
-    elif mode == "qlora.nf4":
+    elif mode == "bnb.nf4":
         from quantize.bnb import Linear4bit
 
         quantized_linear_cls = partial(Linear4bit, quant_type="nf4", compress_statistics=False)
-    elif mode == "qlora.nf4-dq":
+    elif mode == "bnb.nf4-dq":
         from quantize.bnb import Linear4bit
 
         quantized_linear_cls = partial(Linear4bit, quant_type="nf4", compress_statistics=True)

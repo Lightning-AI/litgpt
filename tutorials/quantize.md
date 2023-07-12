@@ -19,20 +19,20 @@ Memory used: 14.51 GB
 
 To reduce the memory requirements further, Lit-GPT supports several quantization techniques:
 
-## `qlora.nf4`
+## `bnb.nf4`
 
 Enabled with [bitsandbyes](https://github.com/TimDettmers/bitsandbytes). Check out the [paper](https://arxiv.org/abs/2305.14314v1) to learn more about how it works.
 
 Uses the normalized float 4 (nf4) data type. This is recommended over "fp4" based on the paper's experimental results and theoretical analysis. 
 
 ```bash
-python generate/base.py --quantize qlora.nf4 --checkpoint_dir checkpoints/tiiuae/falcon-7b --precision bf16-true --max_new_tokens 256
+python generate/base.py --quantize bnb.nf4 --checkpoint_dir checkpoints/tiiuae/falcon-7b --precision bf16-true --max_new_tokens 256
 ...
 Time for inference 1: 8.92 sec total, 28.69 tokens/sec
 Memory used: 5.72 GB
 ```
 
-## `qlora.nf4-dq`
+## `bnb.nf4-dq`
 
 Enabled with [bitsandbyes](https://github.com/TimDettmers/bitsandbytes). Check out the [paper](https://arxiv.org/abs/2305.14314v1) to learn more about how it works.
 
@@ -40,27 +40,26 @@ Enabled with [bitsandbyes](https://github.com/TimDettmers/bitsandbytes). Check o
 In average, this amounts to about 0.37 bits per parameter (approximately 3 GB for a 65B model).
 
 ```bash
-python generate/base.py --quantize qlora.nf4-dq --checkpoint_dir checkpoints/tiiuae/falcon-7b --precision bf16-true --max_new_tokens 256
+python generate/base.py --quantize bnb.nf4-dq --checkpoint_dir checkpoints/tiiuae/falcon-7b --precision bf16-true --max_new_tokens 256
 ...
 Time for inference 1: 12.06 sec total, 21.23 tokens/sec
 Memory used: 5.37 GB
 ```
 
-## `qlora.fp4`
+## `bnb.fp4`
 
 Enabled with [bitsandbyes](https://github.com/TimDettmers/bitsandbytes). Check out the [paper](https://arxiv.org/abs/2305.14314v1) to learn more about how it works.
 
-The `qlora` suffix is used because this technique was introduced in the QLoRA paper, but it can be used with or without LoRA.
 Uses pure FP4 quantization.
 
 ```bash
-python generate/base.py --quantize qlora.fp4 --checkpoint_dir checkpoints/tiiuae/falcon-7b --precision bf16-true --max_new_tokens 256
+python generate/base.py --quantize bnb.fp4 --checkpoint_dir checkpoints/tiiuae/falcon-7b --precision bf16-true --max_new_tokens 256
 ...
 Time for inference 1: 9.20 sec total, 27.83 tokens/sec
 Memory used: 5.72 GB
 ```
 
-## `qlora.fp4-dq`
+## `bnb.fp4-dq`
 
 Enabled with [bitsandbyes](https://github.com/TimDettmers/bitsandbytes). Check out the [paper](https://arxiv.org/abs/2305.14314v1) to learn more about how it works.
 
@@ -68,7 +67,7 @@ Enabled with [bitsandbyes](https://github.com/TimDettmers/bitsandbytes). Check o
 In average, this amounts to about 0.37 bits per parameter (approximately 3 GB for a 65B model).
 
 ```bash
-python generate/base.py --quantize qlora.fp4-dq --checkpoint_dir checkpoints/tiiuae/falcon-7b --precision bf16-true --max_new_tokens 256
+python generate/base.py --quantize bnb.fp4-dq --checkpoint_dir checkpoints/tiiuae/falcon-7b --precision bf16-true --max_new_tokens 256
 ...
 Time for inference 1: 12.12 sec total, 21.13 tokens/sec
 Memory used: 5.37 GB
