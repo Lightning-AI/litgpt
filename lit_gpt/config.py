@@ -296,13 +296,12 @@ open_LLaMA = [
         _mlp_class="LLaMAMLP",
         intermediate_size=13824,
     ),
-    # https://huggingface.co/TheBloke/Nous-Hermes-13B/blob/main/config.json
+    # https://huggingface.co/NousResearch/Nous-Hermes-13B/blob/main/config.json
     dict(
         org="NousResearch",
         name="Nous-Hermes-13b",
         block_size=2048,
-        vocab_size=32001,
-        padding_multiple=1,
+        padded_vocab_size=32001,
         n_layer=40,
         n_head=40,
         n_embd=5120,
