@@ -39,6 +39,12 @@ weight_decay = 0.01
 lora_r = 8
 lora_alpha = 16
 lora_dropout = 0.05
+lora_query = True
+lora_key = False
+lora_value = True
+lora_projection = False
+lora_mlp = False
+lora_head = False
 warmup_steps = 100
 
 hparams = {k: v for k, v in locals().items() if isinstance(v, (int, float, str)) and not k.startswith("_")}
@@ -50,12 +56,6 @@ def setup(
     out_dir: Path = Path("out/lora/alpaca"),
     precision: Optional[str] = None,
     tpu: bool = False,
-    query_lora: bool = True,
-    key_lora: bool = False,
-    value_lora: bool = True,
-    projection_lora: bool = False,
-    mlp_lora: bool = False,
-    head_lora: bool = False,
 ):
     if precision is None:
         precision = "32-true" if tpu else "bf16-mixed"
@@ -73,7 +73,7 @@ def setup(
     logger = step_csv_logger(out_dir.parent, out_dir.name, flush_logs_every_n_steps=log_interval)
     fabric = L.Fabric(devices=fabric_devices, strategy=strategy, precision=precision, loggers=logger)
     fabric.print(hparams)
-    fabric.launch(main, data_dir, checkpoint_dir, out_dir, query_lora, key_lora, value_lora, projection_lora, mlp_lora, head_lora)
+    fabric.launch(main, data_dir, checkpoint_dir, out_dir)
 
 
 def main(
@@ -81,12 +81,6 @@ def main(
     data_dir: Path,
     checkpoint_dir: Path,
     out_dir: Path,
-    query_lora: bool,
-    key_lora: bool,
-    value_lora: bool,
-    projection_lora: bool,
-    mlp_lora: bool,
-    head_lora: bool,
 ):
     check_valid_checkpoint_dir(checkpoint_dir)
 
@@ -105,12 +99,12 @@ def main(
         r=lora_r,
         alpha=lora_alpha,
         dropout=lora_dropout,
-        query_lora=query_lora,
-        key_lora=key_lora,
-        value_lora=value_lora,
-        projection_lora=projection_lora,
-        mlp_lora=mlp_lora,
-        head_lora=head_lora,
+        lora_query=lora_query,
+        lora_key=lora_key,
+        lora_value=lora_value,
+        lora_projection=lora_projection,
+        lora_mlp=lora_mlp,
+        lora_head=lora_head,
     )
     checkpoint_path = checkpoint_dir / "lit_model.pth"
     fabric.print(f"Loading model {str(checkpoint_path)!r} with {config.__dict__}")
