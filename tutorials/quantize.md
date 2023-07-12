@@ -73,12 +73,12 @@ Time for inference 1: 12.12 sec total, 21.13 tokens/sec
 Memory used: 5.37 GB
 ```
 
-## `llm.int8`
+## `bnb.int8`
 
 Enabled with [bitsandbyes](https://github.com/TimDettmers/bitsandbytes). Check out the [paper](https://arxiv.org/abs/2110.02861) to learn more about how it works.
 
 ```bash
-python generate/base.py --quantize llm.int8 --checkpoint_dir checkpoints/tiiuae/falcon-7b --precision bf16-true --max_new_tokens 256
+python generate/base.py --quantize bnb.int8 --checkpoint_dir checkpoints/tiiuae/falcon-7b --precision bf16-true --max_new_tokens 256
 ...
 Time for inference 1: 24.17 sec total, 10.59 tokens/sec
 Memory used: 8.71 GB

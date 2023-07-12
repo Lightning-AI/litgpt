@@ -29,7 +29,7 @@ def quantization(mode: Optional[str] = None):
         yield
         return
 
-    if mode == "llm.int8":
+    if mode == "bnb.int8":
         from quantize.bnb import InferenceLinear8bitLt
 
         quantized_linear_cls = InferenceLinear8bitLt

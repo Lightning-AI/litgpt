@@ -33,7 +33,7 @@ def main(
     lora_path: Path = Path("out/lora/alpaca/lit_model_lora_finetuned.pth"),
     checkpoint_dir: Path = Path(f"checkpoints/stabilityai/stablelm-base-alpha-3b"),
     quantize: Optional[
-        Literal["bnb.nf4", "bnb.nf4-dq", "bnb.fp4", "bnb.fp4-dq", "llm.int8", "gptq.int4"]
+        Literal["bnb.nf4", "bnb.nf4-dq", "bnb.fp4", "bnb.fp4-dq", "bnb.int8", "gptq.int4"]
     ] = None,
     max_new_tokens: int = 100,
     top_k: int = 200,
@@ -54,7 +54,7 @@ def main(
         checkpoint_dir: The path to the checkpoint folder with pretrained GPT weights.
         quantize: Whether to quantize the model and using which method:
             - bnb.nf4, bnb.nf4-dq, bnb.fp4, bnb.fp4-dq: 4-bit quantization from bitsandbytes
-            - llm.int8: 8-bit quantization from bitsandbytes
+            - bnb.int8: 8-bit quantization from bitsandbytes
             - gptq.int4: 4-bit quantization from GPTQ
             for more details, see https://github.com/Lightning-AI/lit-gpt/blob/main/tutorials/quantize.md
         max_new_tokens: The number of generation steps to take.
