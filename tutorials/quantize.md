@@ -37,6 +37,7 @@ Memory used: 5.72 GB
 Enabled with [bitsandbyes](https://github.com/TimDettmers/bitsandbytes). Check out the [paper](https://arxiv.org/abs/2305.14314v1) to learn more about how it works.
 
 "dq" stands for "Double Quantization" which reduces the average memory footprint by quantizing the quantization constants.
+In average, this amounts to about 0.37 bits per parameter (approximately 3 GB for a 65B model).
 
 ```bash
 python generate/base.py --quantize qlora.nf4-dq --checkpoint_dir checkpoints/tiiuae/falcon-7b --precision bf16-true --max_new_tokens 256
@@ -64,6 +65,7 @@ Memory used: 5.72 GB
 Enabled with [bitsandbyes](https://github.com/TimDettmers/bitsandbytes). Check out the [paper](https://arxiv.org/abs/2305.14314v1) to learn more about how it works.
 
 "dq" stands for "Double Quantization" which reduces the average memory footprint by quantizing the quantization constants.
+In average, this amounts to about 0.37 bits per parameter (approximately 3 GB for a 65B model).
 
 ```bash
 python generate/base.py --quantize qlora.fp4-dq --checkpoint_dir checkpoints/tiiuae/falcon-7b --precision bf16-true --max_new_tokens 256
