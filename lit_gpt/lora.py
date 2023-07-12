@@ -134,7 +134,7 @@ class MergedLinear(nn.Linear, LoRALayer):
                 fine-tuned model as a standalone one (without storing LoRA weight separately) plus it helps to reduce
                 overhead during inference.
         """
-        nn.Linear.__init__(self, in_features, out_features, **kwargs)
+        super().__init__(in_features, out_features, **kwargs)
         LoRALayer.__init__(self, r=r, lora_alpha=lora_alpha, lora_dropout=lora_dropout, merge_weights=merge_weights)
         if isinstance(enable_lora, bool):
             enable_lora = [enable_lora] * 3
