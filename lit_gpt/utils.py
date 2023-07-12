@@ -1,6 +1,6 @@
 """Utility functions for training and inference."""
 
-import functools
+from functools import partial
 import pickle
 import sys
 import warnings
@@ -29,14 +29,30 @@ def quantization(mode: Optional[str] = None):
         yield
         return
 
-    if mode == "llm.int8":
-        from quantize.bnb import Linear8bitLt
+    if mode == "bnb.int8":
+        from quantize.bnb import InferenceLinear8bitLt
 
-        quantized_linear_cls = Linear8bitLt
+        quantized_linear_cls = InferenceLinear8bitLt
+    elif mode == "bnb.fp4":
+        from quantize.bnb import Linear4bit
+
+        quantized_linear_cls = partial(Linear4bit, quant_type="fp4", compress_statistics=False)
+    elif mode == "bnb.fp4-dq":
+        from quantize.bnb import Linear4bit
+
+        quantized_linear_cls = partial(Linear4bit, quant_type="fp4", compress_statistics=True)
+    elif mode == "bnb.nf4":
+        from quantize.bnb import Linear4bit
+
+        quantized_linear_cls = partial(Linear4bit, quant_type="nf4", compress_statistics=False)
+    elif mode == "bnb.nf4-dq":
+        from quantize.bnb import Linear4bit
+
+        quantized_linear_cls = partial(Linear4bit, quant_type="nf4", compress_statistics=True)
     elif mode == "gptq.int4":
-        from quantize.bnb import ColBlockQuantizedLinear
+        from quantize.gptq import ColBlockQuantizedLinear
 
-        quantized_linear_cls = functools.partial(ColBlockQuantizedLinear, bits=4, tile_cols=-1)
+        quantized_linear_cls = partial(ColBlockQuantizedLinear, bits=4, tile_cols=-1)
     else:
         raise ValueError(f"Unknown quantization mode: {mode}")
 
@@ -159,11 +175,11 @@ class LazyLoadingUnpickler(pickle.Unpickler):
     def find_class(self, module, name):
         res = super().find_class(module, name)
         if module == "torch._utils" and name == "_rebuild_tensor_v2":
-            return functools.partial(NotYetLoadedTensor.rebuild_tensor_v2, archiveinfo=self)
+            return partial(NotYetLoadedTensor.rebuild_tensor_v2, archiveinfo=self)
         elif module == "torch._tensor" and name == "_rebuild_from_type_v2":
-            return functools.partial(NotYetLoadedTensor.rebuild_from_type_v2, archiveinfo=self)
+            return partial(NotYetLoadedTensor.rebuild_from_type_v2, archiveinfo=self)
         elif module == "torch._utils" and name == "_rebuild_parameter":
-            return functools.partial(NotYetLoadedTensor.rebuild_parameter, archiveinfo=self)
+            return partial(NotYetLoadedTensor.rebuild_parameter, archiveinfo=self)
         return res
 
     def persistent_load(self, pid):

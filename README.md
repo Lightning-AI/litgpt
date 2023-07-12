@@ -107,7 +107,7 @@ python chat/base.py
 
 ### Run large models on smaller consumer devices
 
-We support LLM.int8 and GPTQ.int4 inference by following [this guide](tutorials/inference.md#run-large-models-on-consumer-devices).
+We support 4-bit quantization (as in QLoRA), LLM.int8, and GPTQ.int4 inference by following [this guide](tutorials/quantize.md).
 
 ## Finetune the model
 
