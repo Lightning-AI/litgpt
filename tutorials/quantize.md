@@ -19,15 +19,30 @@ Memory used: 14.51 GB
 
 To reduce the memory requirements further, Lit-GPT supports several quantization techniques:
 
-## `llm.int8`
+## `qlora.nf4`
 
-Enabled with [bitsandbyes](https://github.com/TimDettmers/bitsandbytes). Check out the [paper](https://arxiv.org/abs/2110.02861) to learn more about how it works.
+Enabled with [bitsandbyes](https://github.com/TimDettmers/bitsandbytes). Check out the [paper](https://arxiv.org/abs/2305.14314v1) to learn more about how it works.
+
+Uses the normalized float 4 (nf4) data type. This is recommended over "fp4" based on the paper's experimental results and theoretical analysis. 
 
 ```bash
-python generate/base.py --quantize llm.int8
+python generate/base.py --quantize qlora.nf4
 ...
-Time for inference 1: 24.17 sec total, 10.59 tokens/sec
-Memory used: 8.71 GB
+Time for inference 1: 8.92 sec total, 28.69 tokens/sec
+Memory used: 5.72 GB
+```
+
+## `qlora.nf4-dq`
+
+Enabled with [bitsandbyes](https://github.com/TimDettmers/bitsandbytes). Check out the [paper](https://arxiv.org/abs/2305.14314v1) to learn more about how it works.
+
+"dq" stands for "Double Quantization" which reduces the average memory footprint by quantizing the quantization constants.
+
+```bash
+python generate/base.py --quantize qlora.nf4-dq
+...
+Time for inference 1: 12.06 sec total, 21.23 tokens/sec
+Memory used: 5.37 GB
 ```
 
 ## `qlora.fp4`
@@ -57,30 +72,15 @@ Time for inference 1: 12.12 sec total, 21.13 tokens/sec
 Memory used: 5.37 GB
 ```
 
-## `qlora.nf4`
+## `llm.int8`
 
-Enabled with [bitsandbyes](https://github.com/TimDettmers/bitsandbytes). Check out the [paper](https://arxiv.org/abs/2305.14314v1) to learn more about how it works.
-
-Uses the normalized float 4 (nf4) data type. This is recommender over "fp4" based on the paper's experimental results and theoretical analysis. 
+Enabled with [bitsandbyes](https://github.com/TimDettmers/bitsandbytes). Check out the [paper](https://arxiv.org/abs/2110.02861) to learn more about how it works.
 
 ```bash
-python generate/base.py --quantize qlora.nf4
+python generate/base.py --quantize llm.int8
 ...
-Time for inference 1: 8.92 sec total, 28.69 tokens/sec
-Memory used: 5.72 GB
-```
-
-## `qlora.nf4-dq`
-
-Enabled with [bitsandbyes](https://github.com/TimDettmers/bitsandbytes). Check out the [paper](https://arxiv.org/abs/2305.14314v1) to learn more about how it works.
-
-"dq" stands for "Double Quantization" which reduces the average memory footprint by quantizing the quantization constants.
-
-```bash
-python generate/base.py --quantize qlora.nf4-dq
-...
-Time for inference 1: 12.06 sec total, 21.23 tokens/sec
-Memory used: 5.37 GB
+Time for inference 1: 24.17 sec total, 10.59 tokens/sec
+Memory used: 8.71 GB
 ```
 
 ## `gptq.int4`
