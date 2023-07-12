@@ -180,5 +180,4 @@ def test_lora_init_when_linear_overridden():
     torch.nn.Linear = MyLinear
     layer = MergedLinear(1, 1, 1, 1)
     assert isinstance(layer, original_linear)
-
     torch.nn.Linear = original_linear
