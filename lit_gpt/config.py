@@ -370,7 +370,7 @@ long_chat = [
     dict(
         org="lmsys",
         name="longchat-7b-16k",
-        block_size=2048,
+        block_size=16384,
         vocab_size=32000,
         padding_multiple=64,
         n_layer=32,
@@ -389,7 +389,7 @@ long_chat = [
     dict(
         org="lmsys",
         name="longchat-13b-16k",
-        block_size=2048,
+        block_size=16384,
         vocab_size=32000,
         padding_multiple=64,
         n_layer=40,
