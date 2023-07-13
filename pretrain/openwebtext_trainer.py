@@ -57,16 +57,9 @@ class LightningGPTModule(L.LightningModule):
         self.module: Optional[torch.nn.Module] = None
         self.measured_flops: Optional[int] = None
 
-    def configure_sharded_model(self) -> None:
-        trainer = self.trainer
-        # TODO: hack until the Trainer supports `trainer.init_module()`
-        with L.Fabric(
-            devices=1,
-            accelerator=trainer._accelerator_connector._accelerator_flag,
-            precision=trainer._accelerator_connector._precision_flag,
-        ).init_module(empty_init=False):
-            self.module = GPT(self.config)
-            self.module.apply(self.module._init_weights)
+    def configure_model(self) -> None:
+        self.module = GPT(self.config)
+        self.module.apply(self.module._init_weights)
 
     def configure_optimizers(self) -> torch.optim.Optimizer:
         return torch.optim.AdamW(
