@@ -36,23 +36,44 @@ def quantization(mode: Optional[str] = None):
     elif mode == "bnb.fp4":
         from quantize.bnb import Linear4bit
 
-        quantized_linear_cls = partial(Linear4bit, quant_type="fp4", compress_statistics=False)
+        # Use a class instead `functools.partial` to respect `isinstance` checks and attribute accesses
+        class QuantizedLinear(Linear4bit):
+            def __init__(self, *args, **kwargs):
+                super().__init__(*args, quant_type="fp4", compress_statistics=False, **kwargs)
+
+        quantized_linear_cls = QuantizedLinear
     elif mode == "bnb.fp4-dq":
         from quantize.bnb import Linear4bit
 
-        quantized_linear_cls = partial(Linear4bit, quant_type="fp4", compress_statistics=True)
+        class QuantizedLinear(Linear4bit):
+            def __init__(self, *args, **kwargs):
+                super().__init__(*args, quant_type="fp4", compress_statistics=True, **kwargs)
+
+        quantized_linear_cls = QuantizedLinear
     elif mode == "bnb.nf4":
         from quantize.bnb import Linear4bit
 
-        quantized_linear_cls = partial(Linear4bit, quant_type="nf4", compress_statistics=False)
+        class QuantizedLinear(Linear4bit):
+            def __init__(self, *args, **kwargs):
+                super().__init__(*args, quant_type="nf4", compress_statistics=False, **kwargs)
+
+        quantized_linear_cls = QuantizedLinear
     elif mode == "bnb.nf4-dq":
         from quantize.bnb import Linear4bit
 
-        quantized_linear_cls = partial(Linear4bit, quant_type="nf4", compress_statistics=True)
+        class QuantizedLinear(Linear4bit):
+            def __init__(self, *args, **kwargs):
+                super().__init__(*args, quant_type="nf4", compress_statistics=True, **kwargs)
+
+        quantized_linear_cls = QuantizedLinear
     elif mode == "gptq.int4":
         from quantize.gptq import ColBlockQuantizedLinear
 
-        quantized_linear_cls = partial(ColBlockQuantizedLinear, bits=4, tile_cols=-1)
+        class QuantizedLinear(ColBlockQuantizedLinear):
+            def __init__(self, *args, **kwargs):
+                super().__init__(*args, bits=4, tile_cols=-1, **kwargs)
+
+        quantized_linear_cls = QuantizedLinear
     else:
         raise ValueError(f"Unknown quantization mode: {mode}")
 
