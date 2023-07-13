@@ -456,23 +456,23 @@ class Config(BaseConfig):
             "This scaling helps to reduce the need to retune hyperparameters when we vary r"
             https://arxiv.org/pdf/2106.09685.pdf (section 4.1)
         dropout: dropout that is applied on the input in the LoRA branch (before multiplying by matrix A)
-        *_lora: either apply LoRA to the specified weights or not
+        to_*: either apply LoRA to the specified weights or not
     """
 
     r: int = 0.0
     alpha: int = 1.0
     dropout: float = 0.0
-    lora_query: bool = False
-    lora_key: bool = False
-    lora_value: bool = False
-    lora_projection: bool = False
-    lora_mlp: bool = False
-    lora_head: bool = False
+    to_query: bool = False
+    to_key: bool = False
+    to_value: bool = False
+    to_projection: bool = False
+    to_mlp: bool = False
+    to_head: bool = False
 
     @property
     def mlp_class(self) -> Type:
         # `self._mlp_class` cannot be the type to keep the config json serializable
-        obj = lit_gpt.lora if self.lora_mlp else lit_gpt.model
+        obj = lit_gpt.lora if self.to_mlp else lit_gpt.model
         return getattr(obj, self._mlp_class)
 
 class GptNeoxMLP(nn.Module):
@@ -509,7 +509,7 @@ class GPT(BaseModel):
         assert config.padded_vocab_size is not None
         self.config = config
 
-        if config.lora_head:
+        if config.to_head:
             self.lm_head = Linear(config.n_embd, config.padded_vocab_size, bias=False, r=config.r, lora_alpha=config.alpha, lora_dropout=config.dropout)
         else:
             self.lm_head = nn.Linear(config.n_embd, config.padded_vocab_size, bias=False)
@@ -620,7 +620,7 @@ class CausalSelfAttention(BaseCausalSelfAttention):
             r=config.r,
             lora_alpha=config.alpha,
             lora_dropout=config.dropout,
-            enable_lora=(config.lora_query, config.lora_key, config.lora_value),
+            enable_lora=(config.to_query, config.to_key, config.to_value),
             fan_in_fan_out=False,
             merge_weights=True,
             bias=config.bias,
@@ -629,7 +629,7 @@ class CausalSelfAttention(BaseCausalSelfAttention):
             n_query_groups=config.n_query_groups,
         )
         # output projection
-        if config.lora_projection:
+        if config.to_projection:
             self.proj = Linear(config.n_embd, config.n_embd, bias=config.bias, r=config.r, lora_alpha=config.alpha, lora_dropout=config.dropout)
         else:
             self.proj = nn.Linear(config.n_embd, config.n_embd, bias=config.bias)

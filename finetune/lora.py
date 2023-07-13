@@ -99,12 +99,12 @@ def main(
         r=lora_r,
         alpha=lora_alpha,
         dropout=lora_dropout,
-        lora_query=lora_query,
-        lora_key=lora_key,
-        lora_value=lora_value,
-        lora_projection=lora_projection,
-        lora_mlp=lora_mlp,
-        lora_head=lora_head,
+        to_query=lora_query,
+        to_key=lora_key,
+        to_value=lora_value,
+        to_projection=lora_projection,
+        to_mlp=lora_mlp,
+        to_head=lora_head,
     )
     checkpoint_path = checkpoint_dir / "lit_model.pth"
     fabric.print(f"Loading model {str(checkpoint_path)!r} with {config.__dict__}")
