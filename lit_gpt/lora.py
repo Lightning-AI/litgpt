@@ -203,7 +203,7 @@ class MergedLinear(nn.Linear, LoRALayer):
 
     def reset_parameters(self):
         """Reset all the weights, even including pretrained ones."""
-        nn.Linear.reset_parameters(self)
+        super().reset_parameters()
         if hasattr(self, "lora_A"):
             # initialize A the same way as the default for nn.Linear and B to zero
             # Wondering why 'a' is equal to math.sqrt(5)?: https://github.com/pytorch/pytorch/issues/15314
@@ -267,7 +267,7 @@ class MergedLinear(nn.Linear, LoRALayer):
 
         # despite being called from nn.Linear this method will put all layers into train mode, including nn.Dropout
         # of course except parameters (such as self.lora_A, self.lora_B)
-        nn.Linear.train(self, mode)
+        super().train(mode)
 
         # if train(True) -> unmerge unless we already have them unmerged
         # if train(False) -> merge unless we already have them merged
