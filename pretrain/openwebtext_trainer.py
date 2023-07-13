@@ -49,7 +49,6 @@ min_lr = 6e-5
 hparams = {k: v for k, v in locals().items() if isinstance(v, (int, float, str)) and not k.startswith("_")}
 
 
-
 class LightningGPTModule(L.LightningModule):
     def __init__(self, config: Config) -> None:
         super().__init__()

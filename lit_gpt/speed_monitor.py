@@ -1,6 +1,3 @@
-# Copyright 2022 MosaicML Composer authors
-# SPDX-License-Identifier: Apache-2.0
-# Adapted for standalone use
 import time
 from collections import deque
 from contextlib import nullcontext
@@ -8,8 +5,8 @@ from typing import Deque, Optional, Any, Dict, Callable
 
 import torch
 from lightning import Fabric, Callback, Trainer, LightningModule
-from lightning.pytorch.utilities.rank_zero import rank_zero_only as trainer_rank_zero_only
 from lightning.fabric.utilities.rank_zero import rank_zero_only as fabric_rank_zero_only
+from lightning.pytorch.utilities.rank_zero import rank_zero_only as trainer_rank_zero_only
 from torch.utils.flop_counter import FlopCounterMode
 
 from lit_gpt import GPT
@@ -116,6 +113,9 @@ def get_flops_available(device: torch.device, precision: str) -> Optional[float]
             )
 
     return None
+
+
+# Adapted from https://github.com/mosaicml/composer/blob/f2a2dc820cb75023b9eb7c46fdfd25273712abd0/composer/callbacks/speed_monitor.py
 
 
 class SpeedMonitorBase:

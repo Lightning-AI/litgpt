@@ -117,8 +117,9 @@ class GPT(nn.Module):
         return build_rope_cache(
             seq_len=self.config.block_size,
             n_elem=int(self.config.rotary_percentage * self.config.head_size),
-            dtype=idx.dtype,
+            dtype=torch.get_default_dtype(),
             device=idx.device,
+            condense_ratio=self.config.condense_ratio
         )
 
     def build_mask_cache(self, idx: torch.Tensor) -> torch.Tensor:
@@ -284,7 +285,7 @@ class LLaMAMLP(nn.Module):
 
 
 def build_rope_cache(
-    seq_len: int, n_elem: int, dtype: torch.dtype, device: torch.device, base: int = 10000
+    seq_len: int, n_elem: int, dtype: torch.dtype, device: torch.device, base: int = 10000, condense_ratio: int = 1
 ) -> RoPECache:
     """Enhanced Transformer with Rotary Position Embedding.
 
@@ -293,13 +294,13 @@ def build_rope_cache(
     https://github.com/labmlai/annotated_deep_learning_paper_implementations/blob/master/license.
     """
     # $\Theta = {\theta_i = 10000^{\frac{2(i-1)}{d}}, i \in [1, 2, ..., \frac{d}{2}]}$
-    theta = 1.0 / (base ** (torch.arange(0, n_elem, 2, dtype=dtype, device=device) / n_elem))
+    theta = 1.0 / (base ** (torch.arange(0, n_elem, 2, device=device) / n_elem))
 
     # Create position indexes `[0, 1, ..., seq_len - 1]`
-    seq_idx = torch.arange(seq_len, dtype=dtype, device=device)
+    seq_idx = torch.arange(seq_len, device=device) / condense_ratio
 
     # Calculate the product of position index and $\theta_i$
-    idx_theta = torch.outer(seq_idx, theta).float().repeat(1, 2)
+    idx_theta = torch.outer(seq_idx, theta).repeat(1, 2)
 
     cos, sin = torch.cos(idx_theta), torch.sin(idx_theta)
 
