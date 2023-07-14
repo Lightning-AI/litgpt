@@ -331,6 +331,10 @@ class LoRAQKVLinear(LoRALinear):
         Returns:
             A tensor with weight updates and zeros for deselected q, k or v
         """
+        # we need to do zero padding only if one of QKV matrices is disabled from LoRA
+        if all(self.enable_lora):
+            return x
+
         # Let's image that:
         # ⚬ input x has shape (64, 64, 256): (batch_size, sequence_length, embeddings_size)
         # ⚬ embeddings_size: 128
