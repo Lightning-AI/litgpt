@@ -92,15 +92,41 @@ class LoRALinear(nn.Linear, LoRALayer):
     # LoRA implemented in a dense layer
     def __init__(
         self,
+        # ↓ this part is for pretrained weights
         in_features: int,
         out_features: int,
+        # ↓ the remaining part is for LoRA
         r: int = 0,
         lora_alpha: int = 1,
         lora_dropout: float = 0.,
-        fan_in_fan_out: bool = False, # Set this to True if the layer to replace stores weight like (fan_in, fan_out)
+        fan_in_fan_out: bool = False,
         merge_weights: bool = True,
         **kwargs
     ):
+        """LoRA wrapper around linear class.
+
+        This class has three weight matrices:
+            1. Pretrained weights are stored as `self.weight` (because of the nn.Linear inheritance)
+            2. LoRA A matrix as `self.lora_A`
+            3. LoRA B matrix as `self.lora_B`
+        Only LoRA's A and B matrices are updated, pretrained weights stay frozen.
+
+        Args:
+            in_features: number of input features of the pretrained weights
+            out_features: number of output features of the pretrained weights
+            r: rank of the weight update matrices. To make sense of using LoRA the rank should be smaller than the rank of
+                the weights of the model.  The rank can be as low as 1: https://arxiv.org/pdf/2106.09685.pdf (section 7.2)
+            lora_alpha: alpha is needed for scaling updates as alpha/r
+                "This scaling helps to reduce the need to retune hyperparameters when we vary r"
+                https://arxiv.org/pdf/2106.09685.pdf (section 4.1)
+            lora_dropout: dropout that is applied on the input in the LoRA branch (before multiplying by matrix A)
+            fan_in_fan_out: set this to True if the layer to replace stores weight like (fan_in, fan_out).  For example, gpt-2 uses
+                `Conv1D` which stores weights like (fan_in, fan_out) and hence this should be set to `True`
+                https://github.com/huggingface/peft/blob/main/src/peft/tuners/lora.py#LL53C9-L53C112
+            merge_weights: whether we want to merge pretrained weights and LoRA weight updates. This is useful if one wants to use
+                fine-tuned model as a standalone one (without storing LoRA weight separately) plus it helps to reduce
+                overhead during inference.
+        """
         super().__init__(in_features, out_features, **kwargs)
         LoRALayer.__init__(self, r=r, lora_alpha=lora_alpha, lora_dropout=lora_dropout, merge_weights=merge_weights)
 
@@ -126,9 +152,23 @@ class LoRALinear(nn.Linear, LoRALayer):
             nn.init.zeros_(self.lora_B)
 
     def train(self, mode: bool = True):
+        """Set the module into train or eval mode.
+
+        Args:
+            mode: if True the module will be set into train mode, if False - eval mode.
+        """
+
         def T(w):
             return w.transpose(0, 1) if self.fan_in_fan_out else w
-        nn.Linear.train(self, mode)
+
+        # despite being called from nn.Linear this method will put all layers into train mode, including nn.Dropout
+        # of course except parameters (such as self.lora_A, self.lora_B)
+        super().train(self, mode)
+
+        # if we want to put the layer into `train` mode then subtract LoRA weights if weights are already merged, so we
+        # can keep original weights untouched and train LoRA's matrices A and B separately.
+        # if we want to put into 'eval` mode - merge pretrained weights with LoRA's matrices A and B (if it's not
+        # already done) to reduce computation overhead during inference.
         if mode:
             if self.merge_weights and self.merged:
                 # Make sure that the weights are not merged
@@ -145,6 +185,9 @@ class LoRALinear(nn.Linear, LoRALayer):
     def forward(self, x: torch.Tensor):
         def T(w):
             return w.transpose(0, 1) if self.fan_in_fan_out else w
+
+        # if weights are merged or rank is less or equal to zero (LoRA disabled) - it's a regular nn.Linear forward pass;
+        # otherwise calculate weight update matrix (lora_A @ lora_B) and add these updates to pretrained weights
         if self.r > 0 and not self.merged:
             result = F.linear(x, T(self.weight), bias=self.bias)
             if self.r > 0:
@@ -184,7 +227,7 @@ class LoRAQKVLinear(LoRALinear):
             in_features: number of input features of the pretrained weights
             out_features: number of output features of the pretrained weights
             n_head: number of attention heads
-            n_query_groups: number of query groups
+            n_query_groups: number of query groups (see diagram in `lit_gpt/config.py`)
             r: rank of the weight update matrices. To make sense of using LoRA the rank should be smaller than the rank of
                 the weights of the model.  The rank can be as low as 1: https://arxiv.org/pdf/2106.09685.pdf (section 7.2)
             lora_alpha: alpha is needed for scaling updates as alpha/r
