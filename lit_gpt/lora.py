@@ -475,32 +475,20 @@ class Config(BaseConfig):
         obj = lit_gpt.lora if self.to_mlp else lit_gpt.model
         return getattr(obj, self._mlp_class)
 
-class GptNeoxMLP(nn.Module):
+
+class GptNeoxMLP(lit_gpt.model.GptNeoxMLP):
     def __init__(self, config: Config) -> None:
         super().__init__()
         self.fc = Linear(config.n_embd, config.intermediate_size, bias=config.bias, r=config.r, lora_alpha=config.alpha, lora_dropout=config.dropout)
         self.proj = Linear(config.intermediate_size, config.n_embd, bias=config.bias, r=config.r, lora_alpha=config.alpha, lora_dropout=config.dropout)
 
-    def forward(self, x: torch.Tensor) -> torch.Tensor:
-        x = self.fc(x)
-        x = torch.nn.functional.gelu(x)
-        x = self.proj(x)
-        return x
 
-
-class LLaMAMLP(nn.Module):
+class LLaMAMLP(lit_gpt.model.LLaMAMLP):
     def __init__(self, config: Config) -> None:
         super().__init__()
         self.fc_1 = Linear(config.n_embd, config.intermediate_size, bias=config.bias, r=config.r, lora_alpha=config.alpha, lora_dropout=config.dropout)
         self.fc_2 = Linear(config.n_embd, config.intermediate_size, bias=config.bias, r=config.r, lora_alpha=config.alpha, lora_dropout=config.dropout)
         self.proj = Linear(config.intermediate_size, config.n_embd, bias=config.bias, r=config.r, lora_alpha=config.alpha, lora_dropout=config.dropout)
-
-    def forward(self, x: torch.Tensor) -> torch.Tensor:
-        x_fc_1 = self.fc_1(x)
-        x_fc_2 = self.fc_2(x)
-        x = torch.nn.functional.silu(x_fc_1) * x_fc_2
-        x = self.proj(x)
-        return x
 
 
 class GPT(BaseModel):
