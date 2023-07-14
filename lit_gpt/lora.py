@@ -88,7 +88,7 @@ class LoRALayer:
         self.merge_weights = merge_weights
 
 
-class Linear(nn.Linear, LoRALayer):
+class LoRALinear(nn.Linear, LoRALayer):
     # LoRA implemented in a dense layer
     def __init__(
         self,
@@ -102,8 +102,7 @@ class Linear(nn.Linear, LoRALayer):
         **kwargs
     ):
         nn.Linear.__init__(self, in_features, out_features, **kwargs)
-        LoRALayer.__init__(self, r=r, lora_alpha=lora_alpha, lora_dropout=lora_dropout,
-                           merge_weights=merge_weights)
+        LoRALayer.__init__(self, r=r, lora_alpha=lora_alpha, lora_dropout=lora_dropout, merge_weights=merge_weights)
 
         self.fan_in_fan_out = fan_in_fan_out
         # Actual trainable parameters
@@ -118,9 +117,11 @@ class Linear(nn.Linear, LoRALayer):
             self.weight.data = self.weight.data.transpose(0, 1)
 
     def reset_parameters(self):
+        """Reset all the weights, even including pretrained ones."""
         nn.Linear.reset_parameters(self)
-        if hasattr(self, 'lora_A'):
+        if hasattr(self, "lora_A"):
             # initialize A the same way as the default for nn.Linear and B to zero
+            # Wondering why 'a' is equal to math.sqrt(5)?: https://github.com/pytorch/pytorch/issues/15314
             nn.init.kaiming_uniform_(self.lora_A, a=math.sqrt(5))
             nn.init.zeros_(self.lora_B)
 
@@ -153,7 +154,7 @@ class Linear(nn.Linear, LoRALayer):
             return F.linear(x, T(self.weight), bias=self.bias)
 
 
-class MergedLinear(nn.Linear, LoRALayer):
+class LoRAQKVLinear(LoRALinear):
     # LoRA implemented in a dense layer
     def __init__(
         self,
@@ -266,15 +267,6 @@ class MergedLinear(nn.Linear, LoRALayer):
         self.reset_parameters()
         if fan_in_fan_out:
             self.weight.data = self.weight.data.T
-
-    def reset_parameters(self):
-        """Reset all the weights, even including pretrained ones."""
-        nn.Linear.reset_parameters(self)
-        if hasattr(self, "lora_A"):
-            # initialize A the same way as the default for nn.Linear and B to zero
-            # Wondering why 'a' is equal to math.sqrt(5)?: https://github.com/pytorch/pytorch/issues/15314
-            nn.init.kaiming_uniform_(self.lora_A, a=math.sqrt(5))
-            nn.init.zeros_(self.lora_B)
 
     def zero_pad(self, x: torch.Tensor) -> torch.Tensor:
         """Properly pad weight updates with zeros.
@@ -483,7 +475,7 @@ class GPT(BaseModel):
         self.config = config
 
         if config.to_head:
-            self.lm_head = Linear(config.n_embd, config.padded_vocab_size, bias=False, r=config.r, lora_alpha=config.alpha, lora_dropout=config.dropout)
+            self.lm_head = LoRALinear(config.n_embd, config.padded_vocab_size, bias=False, r=config.r, lora_alpha=config.alpha, lora_dropout=config.dropout)
         else:
             self.lm_head = nn.Linear(config.n_embd, config.padded_vocab_size, bias=False)
 
@@ -587,7 +579,7 @@ class CausalSelfAttention(BaseCausalSelfAttention):
         nn.Module.__init__(self)
         shape = (config.n_head + 2 * config.n_query_groups) * config.head_size
         # key, query, value projections for all heads, but in a batch
-        self.attn = MergedLinear(
+        self.attn = LoRAQKVLinear(
             in_features=config.n_embd,
             out_features=shape,
             r=config.r,
@@ -603,7 +595,7 @@ class CausalSelfAttention(BaseCausalSelfAttention):
         )
         # output projection
         if config.to_projection:
-            self.proj = Linear(config.n_embd, config.n_embd, bias=config.bias, r=config.r, lora_alpha=config.alpha, lora_dropout=config.dropout)
+            self.proj = LoRALinear(config.n_embd, config.n_embd, bias=config.bias, r=config.r, lora_alpha=config.alpha, lora_dropout=config.dropout)
         else:
             self.proj = nn.Linear(config.n_embd, config.n_embd, bias=config.bias)
 
@@ -613,13 +605,13 @@ class CausalSelfAttention(BaseCausalSelfAttention):
 class GptNeoxMLP(lit_gpt.model.GptNeoxMLP):
     def __init__(self, config: Config) -> None:
         nn.Module.__init__(self)
-        self.fc = Linear(config.n_embd, config.intermediate_size, bias=config.bias, r=config.r, lora_alpha=config.alpha, lora_dropout=config.dropout)
-        self.proj = Linear(config.intermediate_size, config.n_embd, bias=config.bias, r=config.r, lora_alpha=config.alpha, lora_dropout=config.dropout)
+        self.fc = LoRALinear(config.n_embd, config.intermediate_size, bias=config.bias, r=config.r, lora_alpha=config.alpha, lora_dropout=config.dropout)
+        self.proj = LoRALinear(config.intermediate_size, config.n_embd, bias=config.bias, r=config.r, lora_alpha=config.alpha, lora_dropout=config.dropout)
 
 
 class LLaMAMLP(lit_gpt.model.LLaMAMLP):
     def __init__(self, config: Config) -> None:
         nn.Module.__init__(self)
-        self.fc_1 = Linear(config.n_embd, config.intermediate_size, bias=config.bias, r=config.r, lora_alpha=config.alpha, lora_dropout=config.dropout)
-        self.fc_2 = Linear(config.n_embd, config.intermediate_size, bias=config.bias, r=config.r, lora_alpha=config.alpha, lora_dropout=config.dropout)
-        self.proj = Linear(config.intermediate_size, config.n_embd, bias=config.bias, r=config.r, lora_alpha=config.alpha, lora_dropout=config.dropout)
+        self.fc_1 = LoRALinear(config.n_embd, config.intermediate_size, bias=config.bias, r=config.r, lora_alpha=config.alpha, lora_dropout=config.dropout)
+        self.fc_2 = LoRALinear(config.n_embd, config.intermediate_size, bias=config.bias, r=config.r, lora_alpha=config.alpha, lora_dropout=config.dropout)
+        self.proj = LoRALinear(config.intermediate_size, config.n_embd, bias=config.bias, r=config.r, lora_alpha=config.alpha, lora_dropout=config.dropout)
