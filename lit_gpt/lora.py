@@ -101,7 +101,7 @@ class LoRALinear(nn.Linear, LoRALayer):
         merge_weights: bool = True,
         **kwargs
     ):
-        nn.Linear.__init__(self, in_features, out_features, **kwargs)
+        super().__init__(in_features, out_features, **kwargs)
         LoRALayer.__init__(self, r=r, lora_alpha=lora_alpha, lora_dropout=lora_dropout, merge_weights=merge_weights)
 
         self.fan_in_fan_out = fan_in_fan_out
@@ -118,7 +118,7 @@ class LoRALinear(nn.Linear, LoRALayer):
 
     def reset_parameters(self):
         """Reset all the weights, even including pretrained ones."""
-        nn.Linear.reset_parameters(self)
+        super().reset_parameters()
         if hasattr(self, "lora_A"):
             # initialize A the same way as the default for nn.Linear and B to zero
             # Wondering why 'a' is equal to math.sqrt(5)?: https://github.com/pytorch/pytorch/issues/15314
