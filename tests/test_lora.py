@@ -2,6 +2,7 @@ from contextlib import redirect_stdout
 from io import StringIO
 from unittest.mock import Mock
 
+import pytest
 import torch
 from lightning import Fabric
 
@@ -165,3 +166,21 @@ def test_lora_script(tmp_path, fake_checkpoint_dir, monkeypatch):
     assert logs.count("optimizer.step") == module.max_iters
     assert logs.count("val loss") == module.max_iters // module.eval_interval
     assert "of trainable parameters: 512" in logs
+
+
+@pytest.mark.parametrize(
+    ("apply_to", "layer_name"),
+    (
+        ("to_projection", "transformer.h.0.attn.proj"),
+        ("to_mlp", "transformer.h.0.mlp.fc"),
+        ("to_head", "lm_head"),
+    ),
+)
+def test_lora_linear_utilization(apply_to, layer_name):
+    from lit_gpt.lora import GPT, Config
+
+    config = Config(n_layer=1, n_head=4, n_embd=8, block_size=1, vocab_size=1, r=2, alpha=8, dropout=0.1, **{apply_to: True})
+    state_dict = GPT(config).state_dict()
+
+    expected_layer_names = [layer_name + lora_sublayer for lora_sublayer in (".lora_A", ".lora_B")]
+    assert all(layer_name in state_dict for layer_name in expected_layer_names)
