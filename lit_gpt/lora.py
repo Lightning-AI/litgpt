@@ -325,7 +325,7 @@ class LoRAQKVLinear(LoRALinear):
 
         # despite being called from nn.Linear this method will put all layers into train mode, including nn.Dropout
         # of course except parameters (such as self.lora_A, self.lora_B)
-        super().train(mode)
+        super(LoRALinear, self).train(mode)
 
         # if train(True) -> unmerge unless we already have them unmerged
         # if train(False) -> merge unless we already have them merged
