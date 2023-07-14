@@ -163,7 +163,7 @@ class LoRALinear(nn.Linear, LoRALayer):
 
         # despite being called from nn.Linear this method will put all layers into train mode, including nn.Dropout
         # of course except parameters (such as self.lora_A, self.lora_B)
-        super().train(self, mode)
+        super().train(mode)
 
         # if we want to put the layer into `train` mode then subtract LoRA weights if weights are already merged, so we
         # can keep original weights untouched and train LoRA's matrices A and B separately.
@@ -331,7 +331,7 @@ class LoRAQKVLinear(LoRALinear):
         Returns:
             A tensor with weight updates and zeros for deselected q, k or v
         """
-        # we need to do zero padding only if one of QKV matrices is disabled from LoRA
+        # we need to do zero padding only if LoRA is disabled for one of QKV matrices
         if all(self.enable_lora):
             return x
 
