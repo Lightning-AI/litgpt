@@ -297,7 +297,7 @@ def build_rope_cache(
     theta = 1.0 / (base ** (torch.arange(0, n_elem, 2, device=device) / n_elem))
 
     # Create position indexes `[0, 1, ..., seq_len - 1]`
-    seq_idx = torch.arange(seq_len * condense_ratio, device=device) / condense_ratio
+    seq_idx = torch.arange(seq_len, device=device) / condense_ratio
 
     # Calculate the product of position index and $\theta_i$
     idx_theta = torch.outer(seq_idx, theta).repeat(1, 2)

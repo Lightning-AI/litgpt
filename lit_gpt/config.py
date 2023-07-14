@@ -1,4 +1,3 @@
-import math
 from dataclasses import dataclass
 from typing import Optional, Any, Type, Literal
 
@@ -370,7 +369,7 @@ long_chat = [
     dict(
         org="lmsys",
         name="longchat-7b-16k",
-        block_size=2048,
+        block_size=16384,
         vocab_size=32000,
         padding_multiple=64,
         n_layer=32,
@@ -389,7 +388,7 @@ long_chat = [
     dict(
         org="lmsys",
         name="longchat-13b-16k",
-        block_size=2048,
+        block_size=16384,
         vocab_size=32000,
         padding_multiple=64,
         n_layer=40,
@@ -406,6 +405,31 @@ long_chat = [
     ),
 ]
 configs.extend(long_chat)
+
+
+######################
+# NousResearch Hermes
+######################
+nous_research = [
+    # https://huggingface.co/NousResearch/Nous-Hermes-13B/blob/main/config.json
+    dict(
+        org="NousResearch",
+        name="Nous-Hermes-13b",
+        block_size=2048,
+        padded_vocab_size=32001,
+        n_layer=40,
+        n_head=40,
+        n_embd=5120,
+        rotary_percentage=1.0,
+        parallel_residual=False,
+        bias=False,
+        _norm_class="RMSNorm",
+        norm_eps=1e-6,
+        _mlp_class="LLaMAMLP",
+        intermediate_size=13824,
+    ),
+]
+configs.extend(nous_research)
 
 
 name_to_config = {config["name"]: config for config in configs}

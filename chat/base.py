@@ -122,7 +122,9 @@ def main(
     top_k: int = 200,
     temperature: float = 0.8,
     checkpoint_dir: Path = Path(f"checkpoints/stabilityai/stablelm-tuned-alpha-3b"),
-    quantize: Literal["llm.int8", "gptq.int4"] = None,
+    quantize: Optional[
+        Literal["bnb.nf4", "bnb.nf4-dq", "bnb.fp4", "bnb.fp4-dq", "bnb.int8", "gptq.int4"]
+    ] = None,
     precision: str = "bf16-true",
 ) -> None:
     """Starts a conversation with a tuned GPT model.
@@ -133,8 +135,10 @@ def main(
             samples.
         checkpoint_dir: The checkpoint directory to load.
         quantize: Whether to quantize the model and using which method:
-            ``"llm.int8"``: LLM.int8() mode,
-            ``"gptq.int4"``: GPTQ 4-bit mode.
+            - bnb.nf4, bnb.nf4-dq, bnb.fp4, bnb.fp4-dq: 4-bit quantization from bitsandbytes
+            - bnb.int8: 8-bit quantization from bitsandbytes
+            - gptq.int4: 4-bit quantization from GPTQ
+            for more details, see https://github.com/Lightning-AI/lit-gpt/blob/main/tutorials/quantize.md
         precision: Indicates the Fabric precision setting to use.
     """
     check_valid_checkpoint_dir(checkpoint_dir)
