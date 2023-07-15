@@ -54,7 +54,6 @@ def prepare(
     tokenizer = Tokenizer(checkpoint_dir)
 
     # Partition the dataset into train and test
-    train_split_fraction = 1.0 - test_split_fraction
     train_set, test_set = random_split(
         data, [1. - test_split_fraction, test_split_fraction], generator=torch.Generator().manual_seed(seed)
     )
