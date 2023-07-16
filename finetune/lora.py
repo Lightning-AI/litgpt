@@ -16,7 +16,7 @@ from generate.base import generate
 from lit_gpt.lora import mark_only_lora_as_trainable, lora_filter, GPT, Config
 from lit_gpt.tokenizer import Tokenizer
 from lit_gpt.utils import lazy_load, check_valid_checkpoint_dir, step_csv_logger, chunked_cross_entropy
-from lit_gpt.speed_monitor import SpeedMonitor, measure_flops, estimate_flops
+from lit_gpt.speed_monitor import SpeedMonitorFabric as SpeedMonitor, measure_flops, estimate_flops
 from scripts.prepare_alpaca import generate_prompt
 
 
@@ -97,9 +97,9 @@ def main(fabric: L.Fabric, data_dir: Path, checkpoint_dir: Path, out_dir: Path):
 
     trainable_params = [p for p in model.parameters() if p.requires_grad]
     num_params = sum(p.numel() for p in trainable_params)
-    fabric.print(f"Number of trainable parameters: {num_params}")
+    fabric.print(f"Number of trainable parameters: {num_params:,}")
     num_params = sum(p.numel() for p in model.parameters() if not p.requires_grad)
-    fabric.print(f"Number of non trainable parameters: {num_params}")
+    fabric.print(f"Number of non trainable parameters: {num_params:,}")
 
     optimizer = torch.optim.AdamW(trainable_params, lr=learning_rate, weight_decay=weight_decay)
     model, optimizer = fabric.setup(model, optimizer)

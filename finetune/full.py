@@ -18,7 +18,7 @@ from generate.base import generate
 from lit_gpt.model import GPT, Config, Block
 from lit_gpt.tokenizer import Tokenizer
 from lit_gpt.utils import lazy_load, check_valid_checkpoint_dir, step_csv_logger, chunked_cross_entropy
-from lit_gpt.speed_monitor import SpeedMonitor, measure_flops, estimate_flops
+from lit_gpt.speed_monitor import SpeedMonitorFabric as SpeedMonitor, measure_flops, estimate_flops
 from scripts.prepare_alpaca import generate_prompt
 
 eval_interval = 600
@@ -99,7 +99,7 @@ def main(fabric: L.Fabric, data_dir: Path, checkpoint_dir: Path, out_dir: Path):
         model.load_state_dict(checkpoint)
 
     num_params = sum(p.numel() for p in model.parameters())
-    fabric.print(f"Number of trainable parameters: {num_params}")
+    fabric.print(f"Number of trainable parameters: {num_params:,}")
 
     optimizer = torch.optim.AdamW(model.parameters(), lr=learning_rate, weight_decay=weight_decay)
     model, optimizer = fabric.setup(model, optimizer)
