@@ -89,6 +89,8 @@ def main(fabric: L.Fabric, data_dir: Path, checkpoint_dir: Path, out_dir: Path):
     train_data = torch.load(data_dir / "train.pt")
     val_data = torch.load(data_dir / "test.pt")
 
+    if not any((lora_query, lora_key, lora_value, lora_projection, lora_mlp, lora_head)):
+        fabric.print("Warning: all LoRA layers are disabled!")
     config = Config.from_name(
         name=checkpoint_dir.name,
         r=lora_r,
