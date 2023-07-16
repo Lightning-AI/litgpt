@@ -430,7 +430,7 @@ class LoRAQKVLinear(LoRALinear):
         else:
             # `F.linear` automatically transposes the second argument (T(self.weight) in our case)
             result = F.linear(x, T(self.weight), bias=self.bias)  # (64, 64, 128) @ (384, 128) -> (64, 64, 384)
-            if self.r > 0:
+            if self.r > 0 and any(self.enable_lora):
                 after_A = F.linear(self.lora_dropout(x), self.lora_A)  # (64, 64, 128) @ (4, 128) -> (64, 64, 4)
                 # For F.conv1d:
                 # ⚬ input: input tensor of shape (mini-batch, in_channels, iW)

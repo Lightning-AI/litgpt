@@ -198,5 +198,21 @@ def test_lora_linear_utilization(apply_to, layer_name):
     config = Config(n_layer=1, n_head=4, n_embd=8, block_size=1, vocab_size=1, r=2, alpha=8, dropout=0.1, **{apply_to: True})
     state_dict = GPT(config).state_dict()
 
-    expected_layer_names = [layer_name + lora_sublayer for lora_sublayer in (".lora_A", ".lora_B")]
-    assert all(layer_name in state_dict for layer_name in expected_layer_names)
+    assert all(layer_name + lora_sublayer in state_dict for lora_sublayer in (".lora_A", ".lora_B"))
+
+
+@pytest.mark.parametrize(
+    "apply_to",
+    (None, "to_query", "to_key", "to_value", "to_projection", "to_mlp", "to_head"),
+)
+def test_lora_layer_forward_no_exception(apply_to):
+    from lit_gpt.lora import GPT, Config
+
+    config = Config(n_layer=1, n_head=4, n_embd=8, block_size=1, vocab_size=1, r=2, alpha=8, dropout=0.1)
+    if apply_to:
+        setattr(config, apply_to, True)
+    input_ids = torch.tensor([[1]])
+    model = GPT(config)
+    model.eval()
+
+    model(input_ids)
