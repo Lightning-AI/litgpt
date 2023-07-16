@@ -165,3 +165,19 @@ def test_lora_script(tmp_path, fake_checkpoint_dir, monkeypatch):
     assert logs.count("optimizer.step") == module.max_iters
     assert logs.count("val loss") == module.max_iters // module.eval_interval
     assert "of trainable parameters: 512" in logs
+
+
+def test_lora_init_when_linear_overridden():
+    from lit_gpt.lora import MergedLinear
+
+    class MyLinear(torch.nn.Linear):
+        def __init__(self, *args, **kwargs):
+            # this needs to be implemented to demonstrate the failure
+            super().__init__(*args, **kwargs)
+
+    original_linear = torch.nn.Linear
+    # Our bnb does this sort of monkey patching
+    torch.nn.Linear = MyLinear
+    layer = MergedLinear(1, 1, 1, 1)
+    assert isinstance(layer, original_linear)
+    torch.nn.Linear = original_linear

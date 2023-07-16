@@ -27,32 +27,7 @@ fine-tuned for chatting such as `stabilityai/stablelm-tuned-alpha-3b` or `togeth
 
 ## Run a large model on one smaller device
 
-On GPUs with `bfloat16` support, the `generate.py` script will automatically convert the weights and consume less memory.
-For large models, GPUs with less memory, or ones that don't support `bfloat16`, enable quantization (`--quantize llm.int8`):
-
-```bash
-python generate.py --quantize llm.int8 --prompt "Hello, my name is"
-```
-
-For instance, `falcon-7b` requires ~15 GB without int8 and ~10GB with it. However, inference speed goes from 30 tokens/sec to 10 tokens/sec on an A100.
-See `python generate.py --help` for more options.
-
-You can also use GPTQ-style int4 quantization, but this needs conversions of the weights first:
-
-```bash
-python quantize/gptq.py --precision bf16-true
-```
-
-GPTQ-style int4 quantization brings GPU usage down. As only the weights of the Linear layers are quantized, it is useful to also use `--precision bf16-true` (default) even with the quantization enabled.
-
-With the generated quantized checkpoint generation quantization then works as usual with `--quantize gptq.int4` and the newly generated checkpoint file:
-
-```bash
-python generate.py --quantize gptq.int4
-```
-
-For instance, `falcon-40b` "only" requires ~24 GB to generate using this technique, otherwise more than +40GB are required. On an A100 it takes 1 token/sec.
-However, ~32 GB were required during the conversion step.
+Check out our [quantization tutorial](quantize.md).
 
 ## Run a large model on multiple smaller devices
 
