@@ -139,8 +139,9 @@ def copy_weights_open_llama(
 @torch.inference_mode()
 def convert_lit_checkpoint(
     *,
-    checkpoint_dir: Path("checkpoints/tiiuae/falcon-7b"),
+    checkpoint_dir: Path = Path("checkpoints/tiiuae/falcon-7b"),
     model_name: Optional[str] = None,
+    testing: bool = True
 ) -> None:
     if model_name is None:
         model_name = checkpoint_dir.name
@@ -159,7 +160,8 @@ def convert_lit_checkpoint(
     sd = {}
 
     # load the checkpoint
-    pth_file = checkpoint_dir / "lit_model_finetuned.pth"
+    pth = "lit_model_finetuned.pth" if not testing else "lit_model.pth"
+    pth_file = checkpoint_dir / pth
 
     with incremental_save(checkpoint_dir / "lit_hf_model.bin") as saver:
         with contextlib.ExitStack() as stack:
