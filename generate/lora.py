@@ -9,7 +9,6 @@ from typing import Literal, Optional
 import lightning as L
 import torch
 from lightning.fabric.strategies import FSDPStrategy
-from torch.distributed.fsdp.wrap import transformer_auto_wrap_policy
 
 # support running without installing as a package
 wd = Path(__file__).parent.parent.resolve()
@@ -66,8 +65,7 @@ def main(
         precision: Indicates the Fabric precision setting to use.
     """
     if strategy == "fsdp":
-        auto_wrap_policy = partial(transformer_auto_wrap_policy, transformer_layer_cls={Block})
-        strategy = FSDPStrategy(auto_wrap_policy=auto_wrap_policy, cpu_offload=False)
+        strategy = FSDPStrategy(auto_wrap_policy={Block}, cpu_offload=False)
     fabric = L.Fabric(devices=devices, precision=precision, strategy=strategy)
     fabric.launch()
 
