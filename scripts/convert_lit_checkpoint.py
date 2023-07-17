@@ -161,7 +161,7 @@ def convert_lit_checkpoint(
     # load the checkpoint
     pth_file = checkpoint_dir / "lit_model_finetuned.pth"
 
-    with incremental_save(checkpoint_dir / "lit_hf_model.pth") as saver:
+    with incremental_save(checkpoint_dir / "lit_hf_model.bin") as saver:
         with contextlib.ExitStack() as stack:
             lit_weights = stack.enter_context(lazy_load(pth_file))
             copy_fn(sd, lit_weights, saver=saver)
