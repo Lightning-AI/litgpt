@@ -15,7 +15,7 @@ if __name__ == "__main__":
     hf_weight_map = hf_md["weight_map"]
 
     assert all(
-        litkey in list(hf_weight_map.keys()) for litkey in list(lit_hf_weights_keys)
+        litkey in list(hf_weight_map.keys()) for litkey in lit_hf_weights_keys
     ), "does not match"
 
     print("passed")
