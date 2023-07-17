@@ -36,6 +36,7 @@ def copy_weights_gpt_neox(
     lit_weights: Dict[str, Union[torch.Tensor, NotYetLoadedTensor]],
     saver: Optional[incremental_save] = None,
 ):
+    # TODO: resolve for duplicate None keys in convert_hf script
     # key = lit-GPT weight name, value = huggingface weight name
     weight_map = {
         "transformer.wte.weight": "gpt_neox.embed_in.weight",
