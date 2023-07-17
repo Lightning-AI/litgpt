@@ -139,7 +139,7 @@ def main(devices: int = 1, precision: Optional[str] = None, tpu: bool = False) -
         val_check_interval=eval_interval,
     )
 
-    L.seed_everything(1337 + trainer.global_rank, workers=True)
+    L.seed_everything(1337)  # same seed for every process to init model (FSDP)
 
     trainer.print(hparams)
 
@@ -152,8 +152,8 @@ def main(devices: int = 1, precision: Optional[str] = None, tpu: bool = False) -
     model = LightningGPTModule(config)
     trainer.print(f"Time to instantiate model: {time.time() - t0:.02f} seconds.")
 
-    train_data = Dataset(str(data_dir / "train.bin"), config.block_size)
-    val_data = Dataset(str(data_dir / "val.bin"), config.block_size)
+    train_data = Dataset(str(data_dir / "train.bin"), config.block_size, rank=trainer.global_rank)
+    val_data = Dataset(str(data_dir / "val.bin"), config.block_size, rank=trainer.global_rank)
 
     t0 = time.time()
     trainer.fit(model, train_data, val_data, ckpt_path="last")
@@ -161,11 +161,13 @@ def main(devices: int = 1, precision: Optional[str] = None, tpu: bool = False) -
 
 
 class Dataset:
-    def __init__(self, bin: str, block_size: int) -> None:
+    def __init__(self, bin: str, block_size: int, rank: int = 0) -> None:
         self.data = np.memmap(bin, dtype=np.uint16, mode="r")
         self.block_size = block_size
+        self.rank = rank
 
     def __iter__(self):
+        L.seed_everything(1337 + self.rank)
         while True:
             ix = torch.randint(len(self.data) - self.block_size, (micro_batch_size,))
             x = torch.stack([torch.from_numpy((self.data[i : i + self.block_size]).astype(np.int64)) for i in ix])

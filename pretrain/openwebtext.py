@@ -79,12 +79,10 @@ def setup(
 def main(fabric, resume) -> None:
     speed_monitor = SpeedMonitor(fabric, window_size=50, time_unit="seconds")
 
-    fabric.seed_everything(1337 + fabric.global_rank)
-
     if fabric.global_rank == 0:
         out_dir.mkdir(parents=True, exist_ok=True)
 
-    train_data, val_data = load_datasets(data_dir)
+    fabric.seed_everything(1337)  # same seed for every process to init model (FSDP)
 
     config = Config.from_name(model_name)
     fabric.print(f"Loading model with {config.__dict__}")
@@ -101,6 +99,9 @@ def main(fabric, resume) -> None:
         model.parameters(), lr=learning_rate, weight_decay=weight_decay, betas=(beta1, beta2), foreach=False
     )
     model, optimizer = fabric.setup(model, optimizer)
+
+    fabric.seed_everything(1337 + fabric.global_rank)
+    train_data, val_data = load_datasets(data_dir)
 
     state = {"model": model, "optimizer": optimizer, "hparams": hparams, "iter_num": 0, "step_count": 0}
 
