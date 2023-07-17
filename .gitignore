@@ -3,6 +3,7 @@ __pycache__
 .DS_Store
 *.egg-info
 build
+.venv
 
 # data
 data
