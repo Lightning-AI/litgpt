@@ -2,7 +2,6 @@ import json
 import sys
 import time
 import warnings
-from functools import partial
 from pathlib import Path
 from typing import Literal, Optional
 

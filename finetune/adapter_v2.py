@@ -1,7 +1,6 @@
 import os
 import sys
 import time
-from functools import partial
 from pathlib import Path
 from typing import Optional, List, Dict, Tuple
 
