@@ -98,10 +98,10 @@ class LoRALinear(nn.Linear, LoRALayer):
         # ↓ the remaining part is for LoRA
         r: int = 0,
         lora_alpha: int = 1,
-        lora_dropout: float = 0.,
+        lora_dropout: float = 0.0,
         fan_in_fan_out: bool = False,
         merge_weights: bool = True,
-        **kwargs
+        **kwargs,
     ):
         """LoRA wrapper around linear class.
 
@@ -191,7 +191,9 @@ class LoRALinear(nn.Linear, LoRALayer):
         if self.r > 0 and not self.merged:
             result = F.linear(x, T(self.weight), bias=self.bias)
             if self.r > 0:
-                result += (self.lora_dropout(x) @ self.lora_A.transpose(0, 1) @ self.lora_B.transpose(0, 1)) * self.scaling
+                result += (
+                    self.lora_dropout(x) @ self.lora_A.transpose(0, 1) @ self.lora_B.transpose(0, 1)
+                ) * self.scaling
             return result
         else:
             return F.linear(x, T(self.weight), bias=self.bias)
@@ -522,7 +524,14 @@ class GPT(BaseModel):
         self.config = config
 
         if config.to_head:
-            self.lm_head = LoRALinear(config.n_embd, config.padded_vocab_size, bias=False, r=config.r, lora_alpha=config.alpha, lora_dropout=config.dropout)
+            self.lm_head = LoRALinear(
+                config.n_embd,
+                config.padded_vocab_size,
+                bias=False,
+                r=config.r,
+                lora_alpha=config.alpha,
+                lora_dropout=config.dropout,
+            )
         else:
             self.lm_head = nn.Linear(config.n_embd, config.padded_vocab_size, bias=False)
 
@@ -642,7 +651,14 @@ class CausalSelfAttention(BaseCausalSelfAttention):
         )
         # output projection
         if config.to_projection:
-            self.proj = LoRALinear(config.n_embd, config.n_embd, bias=config.bias, r=config.r, lora_alpha=config.alpha, lora_dropout=config.dropout)
+            self.proj = LoRALinear(
+                config.n_embd,
+                config.n_embd,
+                bias=config.bias,
+                r=config.r,
+                lora_alpha=config.alpha,
+                lora_dropout=config.dropout,
+            )
         else:
             self.proj = nn.Linear(config.n_embd, config.n_embd, bias=config.bias)
 
@@ -652,13 +668,48 @@ class CausalSelfAttention(BaseCausalSelfAttention):
 class GptNeoxMLP(lit_gpt.model.GptNeoxMLP):
     def __init__(self, config: Config) -> None:
         nn.Module.__init__(self)
-        self.fc = LoRALinear(config.n_embd, config.intermediate_size, bias=config.bias, r=config.r, lora_alpha=config.alpha, lora_dropout=config.dropout)
-        self.proj = LoRALinear(config.intermediate_size, config.n_embd, bias=config.bias, r=config.r, lora_alpha=config.alpha, lora_dropout=config.dropout)
+        self.fc = LoRALinear(
+            config.n_embd,
+            config.intermediate_size,
+            bias=config.bias,
+            r=config.r,
+            lora_alpha=config.alpha,
+            lora_dropout=config.dropout,
+        )
+        self.proj = LoRALinear(
+            config.intermediate_size,
+            config.n_embd,
+            bias=config.bias,
+            r=config.r,
+            lora_alpha=config.alpha,
+            lora_dropout=config.dropout,
+        )
 
 
 class LLaMAMLP(lit_gpt.model.LLaMAMLP):
     def __init__(self, config: Config) -> None:
         nn.Module.__init__(self)
-        self.fc_1 = LoRALinear(config.n_embd, config.intermediate_size, bias=config.bias, r=config.r, lora_alpha=config.alpha, lora_dropout=config.dropout)
-        self.fc_2 = LoRALinear(config.n_embd, config.intermediate_size, bias=config.bias, r=config.r, lora_alpha=config.alpha, lora_dropout=config.dropout)
-        self.proj = LoRALinear(config.intermediate_size, config.n_embd, bias=config.bias, r=config.r, lora_alpha=config.alpha, lora_dropout=config.dropout)
+        self.fc_1 = LoRALinear(
+            config.n_embd,
+            config.intermediate_size,
+            bias=config.bias,
+            r=config.r,
+            lora_alpha=config.alpha,
+            lora_dropout=config.dropout,
+        )
+        self.fc_2 = LoRALinear(
+            config.n_embd,
+            config.intermediate_size,
+            bias=config.bias,
+            r=config.r,
+            lora_alpha=config.alpha,
+            lora_dropout=config.dropout,
+        )
+        self.proj = LoRALinear(
+            config.intermediate_size,
+            config.n_embd,
+            bias=config.bias,
+            r=config.r,
+            lora_alpha=config.alpha,
+            lora_dropout=config.dropout,
+        )

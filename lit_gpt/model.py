@@ -119,7 +119,7 @@ class GPT(nn.Module):
             n_elem=int(self.config.rotary_percentage * self.config.head_size),
             dtype=torch.get_default_dtype(),
             device=idx.device,
-            condense_ratio=self.config.condense_ratio
+            condense_ratio=self.config.condense_ratio,
         )
 
     def build_mask_cache(self, idx: torch.Tensor) -> torch.Tensor:

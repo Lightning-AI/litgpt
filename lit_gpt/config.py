@@ -427,7 +427,7 @@ nous_research = [
         norm_eps=1e-6,
         _mlp_class="LLaMAMLP",
         intermediate_size=13824,
-    ),
+    )
 ]
 configs.extend(nous_research)
 
