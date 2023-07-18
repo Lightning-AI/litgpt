@@ -65,8 +65,7 @@ class Config:
         if self.intermediate_size is None:
             if self._mlp_class == "LLaMAMLP":
                 raise ValueError("The config needs to set the `intermediate_size`")
-            else:
-                self.intermediate_size = 4 * self.n_embd
+            self.intermediate_size = 4 * self.n_embd
 
     @property
     def head_size(self) -> int:
@@ -427,7 +426,7 @@ nous_research = [
         norm_eps=1e-6,
         _mlp_class="LLaMAMLP",
         intermediate_size=13824,
-    ),
+    )
 ]
 configs.extend(nous_research)
 

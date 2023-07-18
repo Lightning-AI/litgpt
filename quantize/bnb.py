@@ -37,7 +37,7 @@ if _BITSANDBYTES_AVAILABLE:
 
         def _load_from_state_dict(self, local_state_dict, *args, **kwargs):
             # There is only one key that ends with `*.weight`, the other one is the bias
-            weight_key = next((name for name in local_state_dict.keys() if name.endswith("weight")), None)
+            weight_key = next((name for name in local_state_dict if name.endswith("weight")), None)
             if weight_key is None:
                 return
 

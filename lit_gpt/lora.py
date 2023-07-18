@@ -98,10 +98,10 @@ class LoRALinear(nn.Linear, LoRALayer):
         # ↓ the remaining part is for LoRA
         r: int = 0,
         lora_alpha: int = 1,
-        lora_dropout: float = 0.,
+        lora_dropout: float = 0.0,
         fan_in_fan_out: bool = False,
         merge_weights: bool = True,
-        **kwargs
+        **kwargs,
     ):
         """LoRA wrapper around linear class.
 
@@ -191,10 +191,11 @@ class LoRALinear(nn.Linear, LoRALayer):
         if self.r > 0 and not self.merged:
             result = F.linear(x, T(self.weight), bias=self.bias)
             if self.r > 0:
-                result += (self.lora_dropout(x) @ self.lora_A.transpose(0, 1) @ self.lora_B.transpose(0, 1)) * self.scaling
+                result += (
+                    self.lora_dropout(x) @ self.lora_A.transpose(0, 1) @ self.lora_B.transpose(0, 1)
+                ) * self.scaling
             return result
-        else:
-            return F.linear(x, T(self.weight), bias=self.bias)
+        return F.linear(x, T(self.weight), bias=self.bias)
 
 
 class LoRAQKVLinear(LoRALinear):
@@ -427,25 +428,24 @@ class LoRAQKVLinear(LoRALinear):
         # and do the summation (as per scheme at the top of the file)
         if self.merged:
             return F.linear(x, T(self.weight), bias=self.bias)
-        else:
-            # `F.linear` automatically transposes the second argument (T(self.weight) in our case)
-            result = F.linear(x, T(self.weight), bias=self.bias)  # (64, 64, 128) @ (384, 128) -> (64, 64, 384)
-            if self.r > 0 and any(self.enable_lora):
-                after_A = F.linear(self.lora_dropout(x), self.lora_A)  # (64, 64, 128) @ (4, 128) -> (64, 64, 4)
-                # For F.conv1d:
-                # ⚬ input: input tensor of shape (mini-batch, in_channels, iW)
-                # ⚬ weight: filters of shape (out_channels, in_channels/groups, kW)
-                # ⚬ groups: split input into groups, in_channels should be divisible by the number of groups. Default: 1
-                # presumably iW - sequence width/length, kW - kernel width
-                after_B = F.conv1d(
-                    after_A.transpose(-2, -1),  # (64, 64, 4) -> (64, 4, 64)
-                    self.lora_B.unsqueeze(-1),  # (256, 2) -> (256, 2, 1)
-                    groups=sum(self.enable_lora),
-                ).transpose(
-                    -2, -1
-                )  # (64, 4, 64) @ (256, 2, 1) -> (64, 256, 64) -> (64, 64, 256)
-                result += self.zero_pad(after_B) * self.scaling  # (64, 64, 256) after zero_pad (64, 64, 384)
-            return result
+        # `F.linear` automatically transposes the second argument (T(self.weight) in our case)
+        result = F.linear(x, T(self.weight), bias=self.bias)  # (64, 64, 128) @ (384, 128) -> (64, 64, 384)
+        if self.r > 0 and any(self.enable_lora):
+            after_A = F.linear(self.lora_dropout(x), self.lora_A)  # (64, 64, 128) @ (4, 128) -> (64, 64, 4)
+            # For F.conv1d:
+            # ⚬ input: input tensor of shape (mini-batch, in_channels, iW)
+            # ⚬ weight: filters of shape (out_channels, in_channels/groups, kW)
+            # ⚬ groups: split input into groups, in_channels should be divisible by the number of groups. Default: 1
+            # presumably iW - sequence width/length, kW - kernel width
+            after_B = F.conv1d(
+                after_A.transpose(-2, -1),  # (64, 64, 4) -> (64, 4, 64)
+                self.lora_B.unsqueeze(-1),  # (256, 2) -> (256, 2, 1)
+                groups=sum(self.enable_lora),
+            ).transpose(
+                -2, -1
+            )  # (64, 4, 64) @ (256, 2, 1) -> (64, 256, 64) -> (64, 64, 256)
+            result += self.zero_pad(after_B) * self.scaling  # (64, 64, 256) after zero_pad (64, 64, 384)
+        return result
 
 
 def mark_only_lora_as_trainable(model: nn.Module, bias: str = "none") -> None:
@@ -469,7 +469,7 @@ def mark_only_lora_as_trainable(model: nn.Module, bias: str = "none") -> None:
     # depending on the `bias` value unfreeze bias weights
     if bias == "none":
         return
-    elif bias == "all":
+    if bias == "all":
         for n, p in model.named_parameters():
             if "bias" in n:
                 p.requires_grad = True
@@ -522,7 +522,14 @@ class GPT(BaseModel):
         self.config = config
 
         if config.to_head:
-            self.lm_head = LoRALinear(config.n_embd, config.padded_vocab_size, bias=False, r=config.r, lora_alpha=config.alpha, lora_dropout=config.dropout)
+            self.lm_head = LoRALinear(
+                config.n_embd,
+                config.padded_vocab_size,
+                bias=False,
+                r=config.r,
+                lora_alpha=config.alpha,
+                lora_dropout=config.dropout,
+            )
         else:
             self.lm_head = nn.Linear(config.n_embd, config.padded_vocab_size, bias=False)
 
@@ -553,10 +560,10 @@ class GPT(BaseModel):
             max_seq_length = block_size
         if use_kv_cache:  # not relevant otherwise
             assert (
-                T <= max_seq_length
+                max_seq_length >= T
             ), f"Cannot forward sequence of length {T}, max seq length is only {max_seq_length}"
         assert max_seq_length <= block_size, f"Cannot attend to {max_seq_length}, block size is only {block_size}"
-        assert T <= block_size, f"Cannot forward sequence of length {T}, block size is only {block_size}"
+        assert block_size >= T, f"Cannot forward sequence of length {T}, block size is only {block_size}"
 
         if self.rope_cache is None:
             self.rope_cache = self.build_rope_cache(idx)
@@ -593,8 +600,7 @@ class GPT(BaseModel):
         if lm_head_chunk_size > 0:
             # chunk the lm head logits to reduce the peak memory used by autograd
             return [self.lm_head(x_i) for x_i in x.split(lm_head_chunk_size, dim=1)]
-        else:
-            return self.lm_head(x)  # (b, t, vocab_size)
+        return self.lm_head(x)  # (b, t, vocab_size)
 
     @classmethod
     def from_name(cls, name: str, **kwargs: Any) -> Self:
@@ -642,7 +648,14 @@ class CausalSelfAttention(BaseCausalSelfAttention):
         )
         # output projection
         if config.to_projection:
-            self.proj = LoRALinear(config.n_embd, config.n_embd, bias=config.bias, r=config.r, lora_alpha=config.alpha, lora_dropout=config.dropout)
+            self.proj = LoRALinear(
+                config.n_embd,
+                config.n_embd,
+                bias=config.bias,
+                r=config.r,
+                lora_alpha=config.alpha,
+                lora_dropout=config.dropout,
+            )
         else:
             self.proj = nn.Linear(config.n_embd, config.n_embd, bias=config.bias)
 
@@ -652,13 +665,48 @@ class CausalSelfAttention(BaseCausalSelfAttention):
 class GptNeoxMLP(lit_gpt.model.GptNeoxMLP):
     def __init__(self, config: Config) -> None:
         nn.Module.__init__(self)
-        self.fc = LoRALinear(config.n_embd, config.intermediate_size, bias=config.bias, r=config.r, lora_alpha=config.alpha, lora_dropout=config.dropout)
-        self.proj = LoRALinear(config.intermediate_size, config.n_embd, bias=config.bias, r=config.r, lora_alpha=config.alpha, lora_dropout=config.dropout)
+        self.fc = LoRALinear(
+            config.n_embd,
+            config.intermediate_size,
+            bias=config.bias,
+            r=config.r,
+            lora_alpha=config.alpha,
+            lora_dropout=config.dropout,
+        )
+        self.proj = LoRALinear(
+            config.intermediate_size,
+            config.n_embd,
+            bias=config.bias,
+            r=config.r,
+            lora_alpha=config.alpha,
+            lora_dropout=config.dropout,
+        )
 
 
 class LLaMAMLP(lit_gpt.model.LLaMAMLP):
     def __init__(self, config: Config) -> None:
         nn.Module.__init__(self)
-        self.fc_1 = LoRALinear(config.n_embd, config.intermediate_size, bias=config.bias, r=config.r, lora_alpha=config.alpha, lora_dropout=config.dropout)
-        self.fc_2 = LoRALinear(config.n_embd, config.intermediate_size, bias=config.bias, r=config.r, lora_alpha=config.alpha, lora_dropout=config.dropout)
-        self.proj = LoRALinear(config.intermediate_size, config.n_embd, bias=config.bias, r=config.r, lora_alpha=config.alpha, lora_dropout=config.dropout)
+        self.fc_1 = LoRALinear(
+            config.n_embd,
+            config.intermediate_size,
+            bias=config.bias,
+            r=config.r,
+            lora_alpha=config.alpha,
+            lora_dropout=config.dropout,
+        )
+        self.fc_2 = LoRALinear(
+            config.n_embd,
+            config.intermediate_size,
+            bias=config.bias,
+            r=config.r,
+            lora_alpha=config.alpha,
+            lora_dropout=config.dropout,
+        )
+        self.proj = LoRALinear(
+            config.intermediate_size,
+            config.n_embd,
+            bias=config.bias,
+            r=config.r,
+            lora_alpha=config.alpha,
+            lora_dropout=config.dropout,
+        )

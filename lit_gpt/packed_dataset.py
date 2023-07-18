@@ -15,7 +15,7 @@ dtypes = {1: np.uint8, 2: np.int8, 3: np.int16, 4: np.int32, 5: np.int64, 6: np.
 
 
 def code(dtype):
-    for k in dtypes.keys():
+    for k in dtypes:
         if dtypes[k] == dtype:
             return k
     raise ValueError(dtype)
@@ -153,7 +153,7 @@ class PackedDatasetIterator:
             magic = f.read(len(HDR_MAGIC))
             assert magic == HDR_MAGIC, "File doesn't match expected format."
             version = struct.unpack("<Q", f.read(8))
-            assert (1,) == version
+            assert version == (1,)
             (dtype_code,) = struct.unpack("<B", f.read(1))
             dtype = dtypes[dtype_code]
             (chunk_size,) = struct.unpack("<Q", f.read(8))
@@ -171,8 +171,7 @@ class PackedDatasetIterator:
         if self._n_chunks > len(self._filenames[self._file_idx :]):
             if not self._wrap:
                 raise StopIteration
-            else:
-                self._file_idx = 0
+            self._file_idx = 0
 
         for i in range(self._n_chunks):
             filename = self._filenames[self._file_idx + i]

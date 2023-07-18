@@ -145,17 +145,15 @@ class NotYetLoadedTensor:
         with warnings.catch_warnings():
             warnings.simplefilter("ignore")
             storage = torch.storage.TypedStorage(wrap_storage=uts, dtype=self.metatensor.dtype, _internal=True)
-        tensor = torch._utils._rebuild_tensor_v2(storage, *self.rebuild_args)
-        return tensor
+        return torch._utils._rebuild_tensor_v2(storage, *self.rebuild_args)
 
     @classmethod
     def __torch_function__(cls, func, types, args=(), kwargs=None):
         if kwargs is None:
             kwargs = {}
         loaded_args = [(a._load_tensor() if isinstance(a, NotYetLoadedTensor) else a) for a in args]
-        res = func(*loaded_args, **kwargs)
+        return func(*loaded_args, **kwargs)
         # gc.collect would be costly here, maybe do it optionally
-        return res
 
     def __getattr__(self, name):
         # properties
@@ -197,9 +195,9 @@ class LazyLoadingUnpickler(pickle.Unpickler):
         res = super().find_class(module, name)
         if module == "torch._utils" and name == "_rebuild_tensor_v2":
             return partial(NotYetLoadedTensor.rebuild_tensor_v2, archiveinfo=self)
-        elif module == "torch._tensor" and name == "_rebuild_from_type_v2":
+        if module == "torch._tensor" and name == "_rebuild_from_type_v2":
             return partial(NotYetLoadedTensor.rebuild_from_type_v2, archiveinfo=self)
-        elif module == "torch._utils" and name == "_rebuild_parameter":
+        if module == "torch._utils" and name == "_rebuild_parameter":
             return partial(NotYetLoadedTensor.rebuild_parameter, archiveinfo=self)
         return res
 
@@ -247,7 +245,7 @@ def check_valid_checkpoint_dir(checkpoint_dir: Path) -> None:
     # list locally available checkpoints
     available = list(Path("checkpoints").glob("*/*"))
     if available:
-        options = f"\n --checkpoint_dir ".join([""] + [repr(str(p.resolve())) for p in available])
+        options = "\n --checkpoint_dir ".join([""] + [repr(str(p.resolve())) for p in available])
         extra = f"\nYou have downloaded locally:{options}\n"
     else:
         extra = ""

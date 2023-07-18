@@ -18,7 +18,7 @@ DATA_FILE_URL = "https://raw.githubusercontent.com/tloen/alpaca-lora/main/alpaca
 DATA_FILE_NAME = "alpaca_data_cleaned_archive.json"
 DESTINATION_PATH = Path("data/alpaca")
 CHECKPOINT_DIR = Path("checkpoints/stabilityai/stablelm-base-alpha-3b")
-TEST_SPLIT_FRACTION = 0.03865    # to get exactly 2000 test samples
+TEST_SPLIT_FRACTION = 0.03865  # to get exactly 2000 test samples
 IGNORE_INDEX = -1
 MASK_INPUTS = False  # as in alpaca-lora
 SEED = 42
@@ -55,7 +55,7 @@ def prepare(
 
     # Partition the dataset into train and test
     train_set, test_set = random_split(
-        data, [1. - test_split_fraction, test_split_fraction], generator=torch.Generator().manual_seed(seed)
+        data, [1.0 - test_split_fraction, test_split_fraction], generator=torch.Generator().manual_seed(seed)
     )
     train_set, test_set = list(train_set), list(test_set)
 
