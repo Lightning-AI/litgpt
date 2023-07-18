@@ -33,12 +33,13 @@ meta-llama/Llama-2-70b-chat
 meta-llama/Llama-2-70b-chat-hf
 ```
 
-In order to use a specific checkpoint, for instance [Llama-2-7b-chat-hf](https://huggingface.co/meta-llama/Llama-2-7b-chat-hf), download the weights and convert the checkpoint to the lit-gpt format:
+In order to use a specific checkpoint, for instance [Llama-2-7b-chat-hf](https://huggingface.co/meta-llama/Llama-2-7b-chat-hf), download the weights and convert the checkpoint to the lit-gpt format.
+This requires that you've been granted access to the weights on the HuggingFace hub. You can do so by following the steps at https://huggingface.co/meta-llama/Llama-2-7b
 
 ```bash
 pip install huggingface_hub
 
-python scripts/download.py --repo_id meta-llama/Llama-2-7b-chat-hf
+python scripts/download.py --repo_id meta-llama/Llama-2-7b-chat-hf --token your_hf_token
 
 python scripts/convert_hf_checkpoint.py --checkpoint_dir checkpoints/meta-llama/Llama-2-7b-chat-hf
 ```
