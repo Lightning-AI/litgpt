@@ -230,10 +230,7 @@ class CausalSelfAttention(BaseCausalSelfAttention):
             v = cache_v.index_copy_(2, input_pos, v)
             kv_cache = k, v
 
-        # efficient attention using Flash Attention CUDA kernels
-        y = torch.nn.functional.scaled_dot_product_attention(
-            q, k, v, attn_mask=mask, dropout_p=0.0, scale=1.0 / math.sqrt(self.config.head_size), is_causal=mask is None
-        )
+        y = self.scaled_dot_product_attention(q, k, v, mask=mask)
 
         if self.block_idx >= self.config.adapter_start_layer:
             aT = self.config.adapter_prompt_length

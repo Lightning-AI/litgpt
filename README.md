@@ -75,6 +75,12 @@ pip install --index-url https://download.pytorch.org/whl/nightly/cu118 --pre 'to
 pip install --index-url https://download.pytorch.org/whl/nightly/cpu --pre 'torch>=2.1.0dev'
 ```
 
+**(Optional) install Flash Attention 2**
+
+```bash
+pip install 'flash-attn>=2.0.0.post1' --no-build-isolation
+```
+
 All good, now install the dependencies:
 
 ```bash
