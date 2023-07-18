@@ -253,11 +253,13 @@ class CausalSelfAttention(nn.Module):
 
         return y, kv_cache
 
-    def scaled_dot_product_attention(self, q: torch.Tensor, k: torch.Tensor, v: torch.Tensor,
-            mask: Optional[torch.Tensor] = None):
+    def scaled_dot_product_attention(
+        self, q: torch.Tensor, k: torch.Tensor, v: torch.Tensor, mask: Optional[torch.Tensor] = None
+    ):
         scale = 1.0 / math.sqrt(self.config.head_size)
         if FlashAttention2Available and mask is None:
             from flash_attn import flash_attn_func
+
             # flash-attn requires (B, T, nh, hs)
             q = q.permute(0, 2, 1, 3)
             k = k.permute(0, 2, 1, 3)
@@ -266,7 +268,6 @@ class CausalSelfAttention(nn.Module):
         return torch.nn.functional.scaled_dot_product_attention(
             q, k, v, attn_mask=mask, dropout_p=0.0, scale=scale, is_causal=mask is None
         )
-
 
 
 class GptNeoxMLP(nn.Module):
