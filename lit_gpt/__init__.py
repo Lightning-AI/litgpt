@@ -1,4 +1,4 @@
-from lit_gpt.model import GPT, build_rope_cache, apply_rope
+from lit_gpt.model import GPT
 from lit_gpt.config import Config
 from lit_gpt.tokenizer import Tokenizer
 
@@ -14,3 +14,6 @@ if not bool(RequirementCache("lightning>=2.1.0.dev0")):
         "Lit-GPT requires Lightning nightly (future lightning 2.1). Please run:\n"
         " pip uninstall -y lightning; pip install -r requirements.txt"
     )
+
+
+__all__ = ["GPT", "Config", "Tokenizer"]

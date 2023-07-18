@@ -129,7 +129,7 @@ def test_against_original_open_llama_3b():
     from scripts.convert_hf_checkpoint import copy_weights_open_llama
     from transformers.models.llama.modeling_llama import LlamaForCausalLM, apply_rotary_pos_emb
     from transformers.models.llama.configuration_llama import LlamaConfig
-    from lit_gpt import apply_rope
+    from lit_gpt.model import apply_rope
 
     ours_config = Config.from_name("open_llama_3b", n_layer=2, n_head=8, n_embd=32, intermediate_size=86)
     T = 5
