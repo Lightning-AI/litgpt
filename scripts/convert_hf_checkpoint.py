@@ -209,7 +209,7 @@ def convert_hf_checkpoint(
     if pytorch_bin_map_json_path.is_file():  # not all checkpoints have this file
         with open(pytorch_bin_map_json_path) as json_map:
             bin_index = json.load(json_map)
-        bin_files = set(checkpoint_dir / bin for bin in bin_index["weight_map"].values())
+        bin_files = {checkpoint_dir / bin for bin in bin_index["weight_map"].values()}
     else:
         bin_files = set(checkpoint_dir.glob("*.bin"))
     if not bin_files:

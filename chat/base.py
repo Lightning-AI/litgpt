@@ -26,7 +26,7 @@ def generate(
     *,
     temperature: float = 1.0,
     top_k: Optional[int] = None,
-    stop_tokens: Tuple[List[int], ...] = tuple(),
+    stop_tokens: Tuple[List[int], ...] = (),
 ):
     """Takes a conditioning sequence (prompt) as input and continues to generate as many tokens as possible.
 
@@ -121,10 +121,8 @@ def main(
     *,
     top_k: int = 200,
     temperature: float = 0.8,
-    checkpoint_dir: Path = Path(f"checkpoints/stabilityai/stablelm-tuned-alpha-3b"),
-    quantize: Optional[
-        Literal["bnb.nf4", "bnb.nf4-dq", "bnb.fp4", "bnb.fp4-dq", "bnb.int8", "gptq.int4"]
-    ] = None,
+    checkpoint_dir: Path = Path("checkpoints/stabilityai/stablelm-tuned-alpha-3b"),
+    quantize: Optional[Literal["bnb.nf4", "bnb.nf4-dq", "bnb.fp4", "bnb.fp4-dq", "bnb.int8", "gptq.int4"]] = None,
     precision: str = "bf16-true",
 ) -> None:
     """Starts a conversation with a tuned GPT model.

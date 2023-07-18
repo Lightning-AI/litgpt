@@ -11,7 +11,7 @@ import torch
 @pytest.mark.parametrize(
     ("generated", "stop_tokens", "expected"),
     [
-        (repeat(1), tuple(), [1] * 8),
+        (repeat(1), (), [1] * 8),
         ([1, 2, 3, 0], ([0],), [1, 2, 3]),
         ([1, 2, 3, 0], ([9], [2, 4], [1, 2, 3, 0]), []),
         ([1, 2, 3, 0, 0], ([0, 0, 0], [0, 0]), [1, 2, [3]]),

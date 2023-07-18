@@ -68,10 +68,10 @@ class GPT(nn.Module):
             max_seq_length = block_size
         if use_kv_cache:  # not relevant otherwise
             assert (
-                T <= max_seq_length
+                max_seq_length >= T
             ), f"Cannot forward sequence of length {T}, max seq length is only {max_seq_length}"
         assert max_seq_length <= block_size, f"Cannot attend to {max_seq_length}, block size is only {block_size}"
-        assert T <= block_size, f"Cannot forward sequence of length {T}, block size is only {block_size}"
+        assert block_size >= T, f"Cannot forward sequence of length {T}, block size is only {block_size}"
 
         if self.rope_cache is None:
             self.rope_cache = self.build_rope_cache(idx)
@@ -105,9 +105,7 @@ class GPT(nn.Module):
 
         x = self.transformer.ln_f(x)
 
-        logits = self.lm_head(x)  # (b, t, vocab_size)
-
-        return logits
+        return self.lm_head(x)  # (b, t, vocab_size)
 
     @classmethod
     def from_name(cls, name: str, **kwargs: Any) -> Self:
@@ -265,8 +263,7 @@ class GptNeoxMLP(nn.Module):
     def forward(self, x: torch.Tensor) -> torch.Tensor:
         x = self.fc(x)
         x = torch.nn.functional.gelu(x)
-        x = self.proj(x)
-        return x
+        return self.proj(x)
 
 
 class LLaMAMLP(nn.Module):
@@ -280,8 +277,7 @@ class LLaMAMLP(nn.Module):
         x_fc_1 = self.fc_1(x)
         x_fc_2 = self.fc_2(x)
         x = torch.nn.functional.silu(x_fc_1) * x_fc_2
-        x = self.proj(x)
-        return x
+        return self.proj(x)
 
 
 def build_rope_cache(
