@@ -78,7 +78,7 @@ pip install --index-url https://download.pytorch.org/whl/nightly/cpu --pre 'torc
 **(Optional) install Flash Attention 2**
 
 ```bash
-pip install 'flash-attn>=2.0.0.post1' --no-build-isolation
+MAX_JOBS=4 pip install 'flash-attn>=2.0.0.post1' --no-build-isolation
 ```
 
 All good, now install the dependencies:
