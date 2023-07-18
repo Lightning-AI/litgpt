@@ -5,7 +5,7 @@ __pycache__
 build
 .venv
 .vscode
-.ruff*
+*ruff*
 
 # data
 data

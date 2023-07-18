@@ -1,20 +1,18 @@
 import contextlib
 import gc
-import json
-import re
 import sys
 from functools import partial
 from pathlib import Path
 from typing import Optional, Literal, Tuple, Dict, List, Union
+
+from lit_gpt import Config
+from lit_gpt.utils import lazy_load, incremental_save, NotYetLoadedTensor
 
 import torch
 
 # support running without installing as a package
 wd = Path(__file__).parent.parent.resolve()
 sys.path.append(str(wd))
-
-from lit_gpt import Config
-from lit_gpt.utils import lazy_load, incremental_save, NotYetLoadedTensor
 
 
 def layer_template(layer_name: str, idx: int) -> Tuple[str, int]:
