@@ -2,10 +2,10 @@ import torch
 import json
 
 if __name__ == "__main__":
-    lit_hf_ckpt = "checkpoints/tiiuae/falcon-7b/lit_hf_model.bin"
-    lit_hf_model = torch.load(lit_hf_ckpt)
+    lit_ckpt = "checkpoints/tiiuae/falcon-7b/lit_model_finetuned.bin"
+    lit_model = torch.load(lit_ckpt)
 
-    lit_hf_weights_keys = [k for k in lit_hf_model.keys()]
+    lit_weight_keys = [k for k in lit_model.keys()]
 
     hf_keys_path = "checkpoints/tiiuae/falcon-7b/pytorch_model.bin.index.json"
 
@@ -15,7 +15,7 @@ if __name__ == "__main__":
     hf_weight_map = hf_md["weight_map"]
 
     assert all(
-        litkey in list(hf_weight_map.keys()) for litkey in lit_hf_weights_keys
+        litkey in list(hf_weight_map.keys()) for litkey in lit_weight_keys
     ), "does not match"
 
     print("passed")
