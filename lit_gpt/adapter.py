@@ -5,7 +5,6 @@ https://arxiv.org/abs/2303.16199
 
 Port for Lit-GPT
 """
-import math
 from dataclasses import dataclass
 from typing import Optional, Tuple, Any, List, Union
 
