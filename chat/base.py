@@ -262,6 +262,7 @@ def prompt_config(checkpoint_dir: Path, tokenizer: Tokenizer) -> Tuple[str, Tupl
         )
         stop_tokens = ([tokenizer.eos_id],)
         return system_prompt, stop_tokens
+    # TODO: add proper prompting for llama 2
 
     # default format
     return "{prompt}", ([tokenizer.eos_id],)

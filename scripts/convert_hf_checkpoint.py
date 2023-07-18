@@ -166,6 +166,17 @@ def copy_weights_open_llama(
         del qkv_weights[i]
 
 
+def copy_weights_llama_2(
+    config: Config,
+    qkv_weights: Dict[int, List[Optional[NotYetLoadedTensor]]],
+    state_dict: Dict[str, torch.Tensor],
+    hf_weights: Dict[str, Union[torch.Tensor, NotYetLoadedTensor]],
+    saver: Optional[incremental_save] = None,
+) -> None:
+    # FIXME
+    ...
+
+
 def layer_template(layer_name: str, idx: int) -> Tuple[str, int]:
     split = layer_name.split(".")
     number = int(split[idx])
@@ -194,6 +205,8 @@ def convert_hf_checkpoint(
 
     if "falcon" in model_name:
         copy_fn = partial(copy_weights_falcon, "40b" if config.n_embd == 8192 else "7b")
+    elif "llama-2" in model_name:
+        copy_fn = copy_weights_llama_2
     elif config._mlp_class == "LLaMAMLP":
         # holder to reconstitute the split q, k, v
         qkv_weights = {}

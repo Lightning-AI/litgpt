@@ -1,5 +1,6 @@
 import sys
 from pathlib import Path
+from unittest.mock import Mock
 from urllib.request import urlretrieve
 
 import pytest
@@ -163,6 +164,53 @@ def test_against_original_open_llama_3b():
     assert x.size(1) == T
     ours_y = ours_model(x)
     theirs_y = theirs_model(x)["logits"]
+    torch.testing.assert_close(ours_y, theirs_y)
+
+
+@torch.inference_mode()
+def test_against_original_llama(monkeypatch):
+    file_path = wd / "tests" / "original_llama_2.py"
+    url = "https://raw.githubusercontent.com/facebookresearch/llama/cfc3fc8c1/llama/model.py"
+    if not file_path.is_file():
+        urlretrieve(url=url, filename=file_path)
+
+    fairscale_mock = Mock()
+
+    class MockParallelLinear(torch.nn.Linear):
+        # ignore fairscale specific args
+        def __init__(self, in_features, out_features, bias, **kwargs):
+            super().__init__(in_features, out_features, bias)
+
+    class MockParallelEmbedding(torch.nn.Embedding):
+        # ignore init_method
+        def __init__(self, *args, init_method=None, **kwargs):
+            super().__init__(*args, **kwargs)
+
+    fairscale_mock.ColumnParallelLinear = MockParallelLinear
+    fairscale_mock.RowParallelLinear = MockParallelLinear
+    fairscale_mock.ParallelEmbedding = MockParallelEmbedding
+    fairscale_mock.nn.model_parallel.initialize.get_model_parallel_world_size.return_value = 1
+    monkeypatch.setitem(sys.modules, "fairscale", fairscale_mock)
+    monkeypatch.setitem(sys.modules, "fairscale.nn.model_parallel.layers", fairscale_mock)
+    monkeypatch.setitem(sys.modules, "fairscale.nn.model_parallel.initialize", fairscale_mock)
+
+    from tests.original_llama_2 import Transformer, ModelArgs
+    from lit_gpt import Config, GPT
+
+    ours_config = Config.from_name(name="Llama-2-7b", n_layer=2, n_head=8, n_embd=32, padded_vocab_size=16)
+    theirs_config = ModelArgs(n_layers=2, n_heads=8, dim=32, vocab_size=16)
+
+    theirs_model = Transformer(theirs_config)
+    # theirs_state_dict = theirs_model.state_dict()
+    # state_dict = {}
+    # copy_weights_llama_2(state_dict, theirs_state_dict)
+    ours_model = GPT(ours_config)
+    # ours_model.load_state_dict(state_dict)
+
+    # test end to end
+    x = torch.tensor([[5, 2, 6, 0, 10]], dtype=torch.int32)
+    ours_y = ours_model(x)
+    theirs_y = theirs_model(x, 0)
     torch.testing.assert_close(ours_y, theirs_y)
 
 

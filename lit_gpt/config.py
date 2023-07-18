@@ -431,4 +431,45 @@ nous_research = [
 configs.extend(nous_research)
 
 
+###########################
+# Meta LLaMA 2
+###########################
+llama_2 = [
+    dict(
+        org="meta-llama",
+        name="Llama-2-7b{}",
+        block_size=4096,
+        vocab_size=32000,
+        padding_multiple=64,
+        n_layer=32,
+        n_head=32,
+        n_embd=4096,
+        rotary_percentage=1.0,
+        parallel_residual=False,
+        bias=False,
+        _norm_class="RMSNorm",
+        norm_eps=1e-6,
+        _mlp_class="LLaMAMLP",
+        intermediate_size=11008,
+    ),
+    dict(
+        org="meta-llama",
+        name="Llama-2-13b{}",
+        block_size=4096,
+        # FIXME
+    ),
+    dict(
+        org="meta-llama",
+        name="Llama-2-70b{}",
+        block_size=4096,
+        # FIXME
+    ),
+]
+for c in llama_2:
+    for kind in ("", "-hf", "-chat", "-chat-hf"):
+        copy = c.copy()
+        copy["name"] = c["name"].format(kind)
+        configs.append(copy)
+
+
 name_to_config = {config["name"]: config for config in configs}
