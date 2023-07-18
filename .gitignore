@@ -11,4 +11,3 @@ out
 wandb
 
 tests/original_falcon_40b.py
-tests/original_llama_2.py

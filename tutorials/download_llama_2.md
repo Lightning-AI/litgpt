@@ -19,17 +19,11 @@ python scripts/download.py | grep Llama-2
 which will print
 
 ```text
-meta-llama/Llama-2-7b
 meta-llama/Llama-2-7b-hf
-meta-llama/Llama-2-7b-chat
 meta-llama/Llama-2-7b-chat-hf
-meta-llama/Llama-2-13b
 meta-llama/Llama-2-13b-hf
-meta-llama/Llama-2-13b-chat
 meta-llama/Llama-2-13b-chat-hf
-meta-llama/Llama-2-70b
 meta-llama/Llama-2-70b-hf
-meta-llama/Llama-2-70b-chat
 meta-llama/Llama-2-70b-chat-hf
 ```
 
