@@ -166,15 +166,22 @@ def test_against_original_open_llama_3b():
     torch.testing.assert_close(ours_y, theirs_y)
 
 
-@pytest.mark.skipif(compare_version("transformers", operator.lt, "4.28.0"), reason="Llama wasn't implemented")
 @torch.inference_mode()
-def test_against_hf_llama2(monkeypatch):
+@pytest.mark.parametrize("size", ("7b", "70b"))
+def test_against_hf_llama2(size):
     from lit_gpt import Config, GPT
     from scripts.convert_hf_checkpoint import copy_weights_hf_llama
     from transformers.models.llama.modeling_llama import LlamaForCausalLM
     from transformers.models.llama.configuration_llama import LlamaConfig
 
-    ours_config = Config.from_name("Llama-2-7b-hf", n_layer=2, n_head=8, n_embd=32, intermediate_size=86)
+    if size == "7b":
+        ours_kwargs = {"name": "Llama-2-7b-hf"}
+        theirs_kwargs = {}
+    else:
+        ours_kwargs = {"name": "Llama-2-70b-chat-hf", "n_query_groups": 2}
+        theirs_kwargs = {"num_key_value_heads": 2}
+
+    ours_config = Config.from_name(n_layer=2, n_head=8, n_embd=32, intermediate_size=86, **ours_kwargs)
     T = 5
     theirs_config = LlamaConfig(
         hidden_size=ours_config.n_embd,
@@ -182,6 +189,8 @@ def test_against_hf_llama2(monkeypatch):
         num_hidden_layers=ours_config.n_layer,
         intermediate_size=ours_config.intermediate_size,
         max_position_embeddings=T,
+        rms_norm_eps=1e-5,
+        **theirs_kwargs
     )
     assert ours_config.intermediate_size == theirs_config.intermediate_size
 

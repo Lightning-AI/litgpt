@@ -157,11 +157,12 @@ def copy_weights_hf_llama(
         q = load_param(q)
         k = load_param(k)
         v = load_param(v)
-        # this assumes MHA which is true for the supported HF checkpoints
-        q = q.transpose(0, 1).reshape(-1, config.head_size)
-        k = k.transpose(0, 1).reshape(-1, config.head_size)
-        v = v.transpose(0, 1).reshape(-1, config.head_size)
-        qkv = torch.cat((q, k, v), dim=1).reshape(-1, config.n_embd * 3).transpose(0, 1)
+        q_per_kv = config.n_head // config.n_query_groups
+        qs = torch.split(q, config.head_size * q_per_kv)
+        ks = torch.split(k, config.head_size)
+        vs = torch.split(v, config.head_size)
+        cycled = [t for group in zip(qs, ks, vs) for t in group]
+        qkv = torch.cat(cycled)
         state_dict[f"transformer.h.{i}.attn.attn.weight"] = qkv
         del qkv_weights[i]
 
