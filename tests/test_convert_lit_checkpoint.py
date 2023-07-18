@@ -14,7 +14,8 @@ def test_falcon_conversion(model_size):
     lit_model = torch.load(chkptpath)
     lit_weight_keys = [k for k in lit_model.keys()]
 
-    hf_keys_path = "checkpoints/tiiuae/falcon-7b/pytorch_model.bin.index.json"
+    hf_keys_path = f"checkpoints/tiiuae/falcon-{model_size}/pytorch_model.bin.index.json"
+    
     with open(hf_keys_path, "r") as json_file:
         hf_md = json.load(json_file)
     hf_weight_keys = list(hf_md["weight_map"])
