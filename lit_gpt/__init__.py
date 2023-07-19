@@ -9,10 +9,11 @@ if not bool(RequirementCache("torch>=2.1.0dev")):
         "Lit-GPT requires torch nightly (future torch 2.1). Please follow the installation instructions in the"
         " repository README.md"
     )
-if not bool(RequirementCache("lightning>=2.1.0.dev0")):
+_LIGHTNING_AVAILABLE = RequirementCache("lightning>=2.1.0.dev0")
+if not bool(_LIGHTNING_AVAILABLE):
     raise ImportError(
         "Lit-GPT requires Lightning nightly (future lightning 2.1). Please run:\n"
-        " pip uninstall -y lightning; pip install -r requirements.txt"
+        f" pip uninstall -y lightning; pip install -r requirements.txt\n{str(_LIGHTNING_AVAILABLE)}"
     )
 
 

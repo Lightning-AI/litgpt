@@ -195,9 +195,4 @@ if __name__ == "__main__":
         "ignore",
         message="ComplexHalf support is experimental and many operators don't support it yet",
     )
-    warnings.filterwarnings(
-        # Triggered in bitsandbytes/autograd/_functions.py:298
-        "ignore",
-        message="MatMul8bitLt: inputs will be cast from torch.bfloat16 to float16 during quantization",
-    )
     CLI(main)
