@@ -5,7 +5,6 @@ https://arxiv.org/abs/2303.16199
 
 Port for Lit-GPT
 """
-import math
 from dataclasses import dataclass
 from typing import Optional, Tuple, Any, List, Union
 
@@ -230,10 +229,7 @@ class CausalSelfAttention(BaseCausalSelfAttention):
             v = cache_v.index_copy_(2, input_pos, v)
             kv_cache = k, v
 
-        # efficient attention using Flash Attention CUDA kernels
-        y = torch.nn.functional.scaled_dot_product_attention(
-            q, k, v, attn_mask=mask, dropout_p=0.0, scale=1.0 / math.sqrt(self.config.head_size), is_causal=mask is None
-        )
+        y = self.scaled_dot_product_attention(q, k, v, mask=mask)
 
         if self.block_idx >= self.config.adapter_start_layer:
             aT = self.config.adapter_prompt_length
@@ -254,9 +250,7 @@ class CausalSelfAttention(BaseCausalSelfAttention):
                 adapter_kv_cache = (ak, av)
 
             amask = torch.ones(T, aT, dtype=torch.bool, device=x.device)
-            ay = torch.nn.functional.scaled_dot_product_attention(
-                q, ak, av, attn_mask=amask, dropout_p=0.0, is_causal=False
-            )
+            ay = self.scaled_dot_product_attention(q, ak, av, amask)
             y = y + self.gating_factor * ay
 
         y = y.transpose(1, 2).contiguous().view(B, T, C)  # re-assemble all head outputs side by side
