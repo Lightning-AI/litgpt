@@ -93,7 +93,7 @@ def copy_weights_falcon(
         state_dict[to_name] = param
 
 
-def copy_weights_open_llama(
+def copy_weights_hf_llama(
     config: Config,
     qkv_weights: Dict[int, List[Optional[NotYetLoadedTensor]]],
     state_dict: Dict[str, torch.Tensor],
@@ -117,8 +117,9 @@ def copy_weights_open_llama(
     }
 
     for name, param in lit_weights.items():
-        if "model.layers" in name:
+        if "transformer.h" in name:
             from_name, number = layer_template(name, 2)
+            print(from_name)
             qkv = qkv_weights.setdefault(number, [None, None, None])
             if "q_proj" in name:
                 qkv[0] = param
@@ -131,7 +132,12 @@ def copy_weights_open_llama(
                 continue
             to_name = to_name.format(number)
         else:
+            print(name)
             to_name = get_to_name(name, weight_map)
+        param = load_param(param)
+        if saver is not None:
+            param = saver.store_early(param)
+        state_dict[to_name] = param
 
     for i, (q, k, v) in list(qkv_weights.items()):
         if q is None or k is None or v is None:
@@ -196,7 +202,7 @@ def convert_lit_checkpoint(
     elif config._mlp_class == "LLaMAMLP":
         # holder to reconstitute the split q, k, v
         qkv_weights = {}
-        copy_fn = partial(copy_weights_open_llama, config, qkv_weights)
+        copy_fn = partial(copy_weights_hf_llama, config, qkv_weights)
     else:
         copy_fn = copy_weights_gpt_neox
 
