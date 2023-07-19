@@ -1,14 +1,12 @@
 import os
 import sys
 import time
-from functools import partial
 from pathlib import Path
 from typing import Optional, List, Dict, Tuple
 
 import lightning as L
 import torch
 from lightning.fabric.strategies import FSDPStrategy, XLAStrategy
-from torch.distributed.fsdp.wrap import transformer_auto_wrap_policy
 
 # support running without installing as a package
 wd = Path(__file__).parent.parent.resolve()
@@ -65,10 +63,9 @@ def setup(
             fabric_devices = "auto"
             strategy = XLAStrategy(sync_module_states=False)
         else:
-            auto_wrap_policy = partial(transformer_auto_wrap_policy, transformer_layer_cls={Block})
             strategy = FSDPStrategy(
-                auto_wrap_policy=auto_wrap_policy,
-                activation_checkpointing=Block,
+                auto_wrap_policy={Block},
+                activation_checkpointing_policy={Block},
                 state_dict_type="full",
                 limit_all_gathers=True,
                 cpu_offload=False,
@@ -87,7 +84,7 @@ def main(fabric: L.Fabric, data_dir: Path, checkpoint_dir: Path, out_dir: Path):
 
     speed_monitor = SpeedMonitor(fabric, window_size=50, time_unit="seconds")
 
-    fabric.seed_everything(1337 + fabric.global_rank)
+    fabric.seed_everything(1337)  # same seed for every process to init model (FSDP)
 
     if fabric.global_rank == 0:
         os.makedirs(out_dir, exist_ok=True)
@@ -116,6 +113,8 @@ def main(fabric: L.Fabric, data_dir: Path, checkpoint_dir: Path, out_dir: Path):
 
     optimizer = torch.optim.AdamW(trainable_params, lr=learning_rate, weight_decay=weight_decay)
     model, optimizer = fabric.setup(model, optimizer)
+
+    fabric.seed_everything(1337 + fabric.global_rank)
 
     train_time = time.time()
     train(fabric, model, optimizer, train_data, val_data, checkpoint_dir, out_dir, speed_monitor)

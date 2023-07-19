@@ -2,6 +2,7 @@ from contextlib import redirect_stdout
 from io import StringIO
 from unittest.mock import Mock
 
+import pytest
 import torch
 from lightning import Fabric
 
@@ -19,7 +20,18 @@ def test_lora_layer_replacement():
 def test_lora_merge_unmerge():
     from lit_gpt.lora import mark_only_lora_as_trainable, GPT, Config
 
-    config = Config(n_layer=1, n_head=2, n_embd=8, block_size=8, vocab_size=8, r=8, alpha=8, dropout=0.1)
+    config = Config(
+        n_layer=1,
+        n_head=2,
+        n_embd=8,
+        block_size=8,
+        vocab_size=8,
+        r=8,
+        alpha=8,
+        dropout=0.1,
+        to_query=True,
+        to_value=True,
+    )
     model = GPT(config)
 
     initial_weight = model.transformer.h[0].attn.attn.weight.clone()
@@ -63,7 +75,18 @@ def test_lora_mqa_gqa():
     from lit_gpt.lora import GPT, Config
 
     # MHA
-    config = Config(n_layer=1, n_head=4, n_embd=8, block_size=1, vocab_size=1, r=2, alpha=8, dropout=0.1)
+    config = Config(
+        n_layer=1,
+        n_head=4,
+        n_embd=8,
+        block_size=1,
+        vocab_size=1,
+        r=2,
+        alpha=8,
+        dropout=0.1,
+        to_query=True,
+        to_value=True,
+    )
     assert config.n_query_groups == config.n_head
     model = GPT(config)
     attn = model.transformer.h[0].attn.attn
@@ -101,7 +124,7 @@ def test_lora_filter(tmp_path):
     from lit_gpt.lora import lora_filter, GPT
 
     fabric = Fabric(devices=1)
-    model = GPT.from_name("pythia-70m", n_layer=3, r=1)
+    model = GPT.from_name("pythia-70m", n_layer=3, r=1, to_query=True, to_value=True)
     save_path = tmp_path / "model.pth"
     fabric.save(save_path, {"model": model}, filter={"model": lora_filter})
     saved = torch.load(save_path)["model"]
@@ -153,7 +176,7 @@ def test_lora_script(tmp_path, fake_checkpoint_dir, monkeypatch):
     with redirect_stdout(stdout):
         module.setup(data_dir=tmp_path, checkpoint_dir=fake_checkpoint_dir, out_dir=tmp_path, precision="32-true")
 
-    assert set(p.name for p in tmp_path.glob("*.pth")) == {
+    assert {p.name for p in tmp_path.glob("*.pth")} == {
         "iter-000001-ckpt.pth",
         "iter-000003-ckpt.pth",
         "iter-000005-ckpt.pth",
@@ -168,7 +191,7 @@ def test_lora_script(tmp_path, fake_checkpoint_dir, monkeypatch):
 
 
 def test_lora_init_when_linear_overridden():
-    from lit_gpt.lora import MergedLinear
+    from lit_gpt.lora import LoRAQKVLinear
 
     class MyLinear(torch.nn.Linear):
         def __init__(self, *args, **kwargs):
@@ -178,6 +201,35 @@ def test_lora_init_when_linear_overridden():
     original_linear = torch.nn.Linear
     # Our bnb does this sort of monkey patching
     torch.nn.Linear = MyLinear
-    layer = MergedLinear(1, 1, 1, 1)
+    layer = LoRAQKVLinear(1, 1, 1, 1)
     assert isinstance(layer, original_linear)
     torch.nn.Linear = original_linear
+
+
+@pytest.mark.parametrize(
+    ("apply_to", "layer_name"),
+    (("to_projection", "transformer.h.0.attn.proj"), ("to_mlp", "transformer.h.0.mlp.fc"), ("to_head", "lm_head")),
+)
+def test_lora_linear_utilization(apply_to, layer_name):
+    from lit_gpt.lora import GPT, Config
+
+    config = Config(
+        n_layer=1, n_head=4, n_embd=8, block_size=1, vocab_size=1, r=2, alpha=8, dropout=0.1, **{apply_to: True}
+    )
+    state_dict = GPT(config).state_dict()
+
+    assert all(layer_name + lora_sublayer in state_dict for lora_sublayer in (".lora_A", ".lora_B"))
+
+
+@pytest.mark.parametrize("apply_to", (None, "to_query", "to_key", "to_value", "to_projection", "to_mlp", "to_head"))
+def test_lora_layer_forward_no_exception(apply_to):
+    from lit_gpt.lora import GPT, Config
+
+    config = Config(n_layer=1, n_head=4, n_embd=8, block_size=1, vocab_size=1, r=2, alpha=8, dropout=0.1)
+    if apply_to:
+        setattr(config, apply_to, True)
+    input_ids = torch.tensor([[1]])
+    model = GPT(config)
+    model.eval()
+
+    model(input_ids)

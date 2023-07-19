@@ -1,7 +1,6 @@
 import math
 import sys
 import time
-from functools import partial
 from pathlib import Path
 from typing import Optional, Any
 
@@ -11,7 +10,6 @@ import torch
 from lightning.pytorch.callbacks import ModelCheckpoint
 from lightning.pytorch.loggers import CSVLogger
 from lightning.pytorch.strategies import FSDPStrategy, XLAStrategy
-from torch.distributed.fsdp.wrap import transformer_auto_wrap_policy
 
 # support running without installing as a package
 wd = Path(__file__).parent.parent.resolve()
@@ -108,10 +106,9 @@ def main(devices: int = 1, precision: Optional[str] = None, tpu: bool = False) -
             devices = "auto"
             strategy = XLAStrategy(sync_module_states=False)
         else:
-            auto_wrap_policy = partial(transformer_auto_wrap_policy, transformer_layer_cls={Block})
             strategy = FSDPStrategy(
-                auto_wrap_policy=auto_wrap_policy,
-                activation_checkpointing=Block,
+                auto_wrap_policy={Block},
+                activation_checkpointing_policy={Block},
                 # the argument is not available in the Trainer strategy, but it's the default anyways
                 # state_dict_type="full",
                 limit_all_gathers=True,
@@ -139,7 +136,7 @@ def main(devices: int = 1, precision: Optional[str] = None, tpu: bool = False) -
         val_check_interval=eval_interval,
     )
 
-    L.seed_everything(1337 + trainer.global_rank, workers=True)
+    L.seed_everything(1337)  # same seed for every process to init model (FSDP)
 
     trainer.print(hparams)
 
@@ -152,8 +149,8 @@ def main(devices: int = 1, precision: Optional[str] = None, tpu: bool = False) -
     model = LightningGPTModule(config)
     trainer.print(f"Time to instantiate model: {time.time() - t0:.02f} seconds.")
 
-    train_data = Dataset(str(data_dir / "train.bin"), config.block_size)
-    val_data = Dataset(str(data_dir / "val.bin"), config.block_size)
+    train_data = Dataset(str(data_dir / "train.bin"), config.block_size, rank=trainer.global_rank)
+    val_data = Dataset(str(data_dir / "val.bin"), config.block_size, rank=trainer.global_rank)
 
     t0 = time.time()
     trainer.fit(model, train_data, val_data, ckpt_path="last")
@@ -161,11 +158,13 @@ def main(devices: int = 1, precision: Optional[str] = None, tpu: bool = False) -
 
 
 class Dataset:
-    def __init__(self, bin: str, block_size: int) -> None:
+    def __init__(self, bin: str, block_size: int, rank: int = 0) -> None:
         self.data = np.memmap(bin, dtype=np.uint16, mode="r")
         self.block_size = block_size
+        self.rank = rank
 
     def __iter__(self):
+        L.seed_everything(1337 + self.rank)
         while True:
             ix = torch.randint(len(self.data) - self.block_size, (micro_batch_size,))
             x = torch.stack([torch.from_numpy((self.data[i : i + self.block_size]).astype(np.int64)) for i in ix])

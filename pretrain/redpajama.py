@@ -2,14 +2,12 @@ import glob
 import math
 import sys
 import time
-from functools import partial
 from pathlib import Path
 from typing import Tuple, Optional, Union
 
 import lightning as L
 import torch
 from lightning.fabric.strategies import FSDPStrategy, XLAStrategy
-from torch.distributed.fsdp.wrap import transformer_auto_wrap_policy
 from torch.utils.data import DataLoader
 
 # support running without installing as a package
@@ -77,10 +75,9 @@ def setup(
             devices = "auto"
             strategy = XLAStrategy(sync_module_states=False)
         else:
-            auto_wrap_policy = partial(transformer_auto_wrap_policy, transformer_layer_cls={Block})
             strategy = FSDPStrategy(
-                auto_wrap_policy=auto_wrap_policy,
-                activation_checkpointing=Block,
+                auto_wrap_policy={Block},
+                activation_checkpointing_policy={Block},
                 state_dict_type="full",
                 limit_all_gathers=True,
                 cpu_offload=False,
@@ -96,8 +93,6 @@ def setup(
 def main(fabric, train_data_dir, val_data_dir, resume):
     speed_monitor = SpeedMonitor(fabric, window_size=50, time_unit="seconds")
 
-    fabric.seed_everything(1337 + fabric.global_rank)
-
     if fabric.global_rank == 0:
         out_dir.mkdir(parents=True, exist_ok=True)
 
@@ -109,12 +104,14 @@ def main(fabric, train_data_dir, val_data_dir, resume):
         fabric=fabric,
         train_data_dir=train_data_dir,
         val_data_dir=val_data_dir,
-        seed=1337,
+        seed=(1337 + fabric.global_rank),
     )
     if val_dataloader is None:
         train_dataloader = fabric.setup_dataloaders(train_dataloader)
     else:
         train_dataloader, val_dataloader = fabric.setup_dataloaders(train_dataloader, val_dataloader)
+
+    fabric.seed_everything(1337)  # same seed for every process to init model (FSDP)
 
     fabric.print(f"Loading model with {config.__dict__}")
     t0 = time.time()

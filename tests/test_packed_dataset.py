@@ -134,24 +134,25 @@ def test_combined_dataset(tmp_path):
     dataset2 = SimpleDataset(10, 20)
     dataset = CombinedDataset(datasets=[dataset1, dataset2], weights=[1.0, 0.0], seed=12345)
 
-    res = [el for el in dataset]
+    res = list(dataset)
     assert res == list(range(0, 10))
 
     dataset1 = SimpleDataset(0, 10)
     dataset2 = SimpleDataset(10, 20)
     dataset = CombinedDataset(datasets=[dataset1, dataset2], weights=[0.0, 1.0], seed=12345)
 
-    res = [el for el in dataset]
+    res = list(dataset)
     assert res == list(range(10, 20))
 
     dataset1 = SimpleDataset(0, 10)
     dataset2 = SimpleDataset(10, 20)
     dataset = CombinedDataset(datasets=[dataset1, dataset2], weights=[0.5, 0.5], seed=12345)
 
-    res = [el for el in dataset]
+    res = list(dataset)
     assert 9 in res or 19 in res
     if len(res) > 10:
-        assert 0 in res and 10 in res
+        assert 0 in res
+        assert 10 in res
 
 
 def test_sharded_packed_dataset(monkeypatch):

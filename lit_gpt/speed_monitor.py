@@ -356,8 +356,7 @@ def estimate_flops(model: GPT) -> int:
     flops_per_seq = flops_per_token * model.config.block_size
     attn_flops_per_seq = model.config.n_layer * 2 * 2 * (model.config.n_embd * (model.config.block_size**2))
     mult = 3 if model.training else 1
-    total_flops = mult * (flops_per_seq + attn_flops_per_seq)
-    return total_flops
+    return mult * (flops_per_seq + attn_flops_per_seq)
 
 
 def measure_flops(model: GPT, x: torch.Tensor) -> int:

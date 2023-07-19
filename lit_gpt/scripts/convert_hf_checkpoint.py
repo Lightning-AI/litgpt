@@ -106,7 +106,7 @@ def copy_weights_falcon(
         state_dict[to_name] = param
 
 
-def copy_weights_open_llama(
+def copy_weights_hf_llama(
     config: Config,
     qkv_weights: Dict[int, List[Optional[NotYetLoadedTensor]]],
     state_dict: Dict[str, torch.Tensor],
@@ -157,11 +157,12 @@ def copy_weights_open_llama(
         q = load_param(q)
         k = load_param(k)
         v = load_param(v)
-        # this assumes MHA which is true for the supported HF checkpoints
-        q = q.transpose(0, 1).reshape(-1, config.head_size)
-        k = k.transpose(0, 1).reshape(-1, config.head_size)
-        v = v.transpose(0, 1).reshape(-1, config.head_size)
-        qkv = torch.cat((q, k, v), dim=1).reshape(-1, config.n_embd * 3).transpose(0, 1)
+        q_per_kv = config.n_head // config.n_query_groups
+        qs = torch.split(q, config.head_size * q_per_kv)
+        ks = torch.split(k, config.head_size)
+        vs = torch.split(v, config.head_size)
+        cycled = [t for group in zip(qs, ks, vs) for t in group]
+        qkv = torch.cat(cycled)
         state_dict[f"transformer.h.{i}.attn.attn.weight"] = qkv
         del qkv_weights[i]
 
@@ -183,9 +184,7 @@ def load_param(param: Union[torch.Tensor, NotYetLoadedTensor]) -> torch.Tensor:
 
 @torch.inference_mode()
 def convert_hf_checkpoint(
-    *,
-    checkpoint_dir: Path = Path("checkpoints/stabilityai/stablelm-base-alpha-3b"),
-    model_name: Optional[str] = None,
+    *, checkpoint_dir: Path = Path("checkpoints/stabilityai/stablelm-base-alpha-3b"), model_name: Optional[str] = None
 ) -> None:
     if model_name is None:
         model_name = checkpoint_dir.name
@@ -199,7 +198,7 @@ def convert_hf_checkpoint(
     elif config._mlp_class == "LLaMAMLP":
         # holder to reconstitute the split q, k, v
         qkv_weights = {}
-        copy_fn = partial(copy_weights_open_llama, config, qkv_weights)
+        copy_fn = partial(copy_weights_hf_llama, config, qkv_weights)
     else:
         copy_fn = copy_weights_gpt_neox
 
@@ -211,7 +210,7 @@ def convert_hf_checkpoint(
     if pytorch_bin_map_json_path.is_file():  # not all checkpoints have this file
         with open(pytorch_bin_map_json_path) as json_map:
             bin_index = json.load(json_map)
-        bin_files = set(checkpoint_dir / bin for bin in bin_index["weight_map"].values())
+        bin_files = {checkpoint_dir / bin for bin in bin_index["weight_map"].values()}
     else:
         bin_files = set(checkpoint_dir.glob("*.bin"))
     if not bin_files:

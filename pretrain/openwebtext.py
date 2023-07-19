@@ -1,7 +1,6 @@
 import math
 import sys
 import time
-from functools import partial
 from pathlib import Path
 from typing import Tuple, Optional, Union
 
@@ -9,7 +8,6 @@ import lightning as L
 import numpy as np
 import torch
 from lightning.fabric.strategies import FSDPStrategy, XLAStrategy
-from torch.distributed.fsdp.wrap import transformer_auto_wrap_policy
 
 # support running without installing as a package
 wd = Path(__file__).parent.parent.resolve()
@@ -60,10 +58,9 @@ def setup(
             devices = "auto"
             strategy = XLAStrategy(sync_module_states=False)
         else:
-            auto_wrap_policy = partial(transformer_auto_wrap_policy, transformer_layer_cls={Block})
             strategy = FSDPStrategy(
-                auto_wrap_policy=auto_wrap_policy,
-                activation_checkpointing=Block,
+                auto_wrap_policy={Block},
+                activation_checkpointing_policy={Block},
                 state_dict_type="full",
                 limit_all_gathers=True,
                 cpu_offload=False,
@@ -79,12 +76,10 @@ def setup(
 def main(fabric, resume) -> None:
     speed_monitor = SpeedMonitor(fabric, window_size=50, time_unit="seconds")
 
-    fabric.seed_everything(1337 + fabric.global_rank)
-
     if fabric.global_rank == 0:
         out_dir.mkdir(parents=True, exist_ok=True)
 
-    train_data, val_data = load_datasets(data_dir)
+    fabric.seed_everything(1337)  # same seed for every process to init model (FSDP)
 
     config = Config.from_name(model_name)
     fabric.print(f"Loading model with {config.__dict__}")
@@ -101,6 +96,9 @@ def main(fabric, resume) -> None:
         model.parameters(), lr=learning_rate, weight_decay=weight_decay, betas=(beta1, beta2), foreach=False
     )
     model, optimizer = fabric.setup(model, optimizer)
+
+    fabric.seed_everything(1337 + fabric.global_rank)
+    train_data, val_data = load_datasets(data_dir)
 
     state = {"model": model, "optimizer": optimizer, "hparams": hparams, "iter_num": 0, "step_count": 0}
 
