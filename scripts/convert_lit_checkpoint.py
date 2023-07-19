@@ -5,47 +5,14 @@ from functools import partial
 from pathlib import Path
 from typing import Optional, Literal, Tuple, Dict, List, Union
 
-from lit_gpt import Config
-from lit_gpt.utils import lazy_load, incremental_save, NotYetLoadedTensor
-
 import torch
 
 # support running without installing as a package
 wd = Path(__file__).parent.parent.resolve()
 sys.path.append(str(wd))
 
-
-def layer_template(layer_name: str, idx: int) -> Tuple[str, int]:
-    split = layer_name.split(".")
-    number = split[idx]
-    split[idx] = "{}"
-    from_name = ".".join(split)
-    return from_name, number
-
-
-def load_param(param: Union[torch.Tensor, NotYetLoadedTensor]) -> torch.Tensor:
-    if hasattr(param, "_load_tensor"):
-        # support tensors loaded via `lazy_load()`
-        return param._load_tensor()
-    return param
-
-
-def get_to_name(
-    lit_key_name: str,
-    weight_map: Dict[str, str],
-) -> str:
-    none_keys = (
-        "gpt_neox.layers.{}.attention.rotary_emb.inv_freq",
-        "gpt_neox.layers.{}.attention.bias",
-        "gpt_neox.layers.{}.attention.masked_bias",
-        "model.layers.{}.self_attn.q_proj.weight",
-        "model.layers.{}.self_attn.k_proj.weight",
-        "model.layers.{}.self_attn.v_proj.weight",
-        "model.layers.{}.self_attn.rotary_emb.inv_freq",
-    )
-    for k, v in weight_map.items():
-        if lit_key_name == v:
-            return k
+from lit_gpt import Config
+from lit_gpt.utils import lazy_load, incremental_save, NotYetLoadedTensor
 
 
 def copy_weights_gpt_neox(
@@ -148,15 +115,77 @@ def copy_weights_open_llama(
         "model.norm.weight": "transformer.ln_f.weight",
         "lm_head.weight": "lm_head.weight",
     }
-    # TODO: add conversion logic
+
+    for name, param in lit_weights.items():
+        if "model.layers" in name:
+            from_name, number = layer_template(name, 2)
+            qkv = qkv_weights.setdefault(number, [None, None, None])
+            if "q_proj" in name:
+                qkv[0] = param
+            elif "k_proj" in name:
+                qkv[1] = param
+            elif "v_proj" in name:
+                qkv[2] = param
+            to_name = get_to_name(from_name, weight_map)
+            if to_name is None:
+                continue
+            to_name = to_name.format(number)
+        else:
+            to_name = get_to_name(name, weight_map)
+
+    for i, (q, k, v) in list(qkv_weights.items()):
+        if q is None or k is None or v is None:
+            # split across different .bin files
+            continue
+        q = load_param(q)
+        k = load_param(k)
+        v = load_param(v)
+        # this assumes MHA which is true for the supported HF checkpoints
+        q = q.transpose(0, 1).reshape(-1, config.head_size)
+        k = k.transpose(0, 1).reshape(-1, config.head_size)
+        v = v.transpose(0, 1).reshape(-1, config.head_size)
+        qkv = torch.cat((q, k, v), dim=1).reshape(-1, config.n_embd * 3).transpose(0, 1)
+        state_dict[f"transformer.h.{i}.attn.attn.weight"] = qkv
+        del qkv_weights[i]
+
+
+def layer_template(layer_name: str, idx: int) -> Tuple[str, int]:
+    split = layer_name.split(".")
+    print(split)
+    number = split[idx]
+    split[idx] = "{}"
+    from_name = ".".join(split)
+    return from_name, number
+
+
+def load_param(param: Union[torch.Tensor, NotYetLoadedTensor]) -> torch.Tensor:
+    if hasattr(param, "_load_tensor"):
+        # support tensors loaded via `lazy_load()`
+        return param._load_tensor()
+    return param
+
+
+def get_to_name(
+    lit_key_name: str,
+    weight_map: Dict[str, str],
+) -> str:
+    none_keys = (
+        "gpt_neox.layers.{}.attention.rotary_emb.inv_freq",
+        "gpt_neox.layers.{}.attention.bias",
+        "gpt_neox.layers.{}.attention.masked_bias",
+        "model.layers.{}.self_attn.q_proj.weight",
+        "model.layers.{}.self_attn.k_proj.weight",
+        "model.layers.{}.self_attn.v_proj.weight",
+        "model.layers.{}.self_attn.rotary_emb.inv_freq",
+    )
+    for k, v in weight_map.items():
+        if lit_key_name == v:
+            return k
 
 
 @torch.inference_mode()
 def convert_lit_checkpoint(
-    *,
-    checkpoint_dir: Path = Path("checkpoints/tiiuae/falcon-7b"),
-    model_name: Optional[str] = None,
-    testing: bool = True
+    *, checkpoint_dir: Path = Path("checkpoints/tiiuae/falcon-7b"), model_name: Optional[str] = None
 ) -> None:
     if model_name is None:
         model_name = checkpoint_dir.name
@@ -174,9 +203,7 @@ def convert_lit_checkpoint(
     # initialize a new empty state dict to hold our new weights
     sd = {}
 
-    # load the checkpoint
-    pth = "lit_model_finetuned.pth" if not testing else "lit_model.pth"
-    pth_file = checkpoint_dir / pth
+    pth_file = checkpoint_dir / "lit_model.pth"
 
     with incremental_save(checkpoint_dir / "lit_model_finetuned.bin") as saver:
         with contextlib.ExitStack() as stack:
