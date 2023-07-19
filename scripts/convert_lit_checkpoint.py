@@ -42,7 +42,19 @@ def copy_weights_gpt_neox(
         "embed_out.weight": "lm_head.weight",
     }
 
-    # TODO: add conversion logic
+    for name, param in lit_weights.items():
+        if "transformer.h" in name:
+            from_name, number = layer_template(name, 2)
+            to_name = get_to_name(from_name, weight_map).format(number)
+            if to_name is None:
+                continue
+            to_name = to_name.format(number)
+        else:
+            to_name = get_to_name(name, weight_map)
+        param = load_param(param)
+        if saver is not None:
+            param = saver.store_early(param)
+        state_dict[to_name] = param
 
 
 def copy_weights_falcon(
@@ -119,7 +131,6 @@ def copy_weights_hf_llama(
     for name, param in lit_weights.items():
         if "transformer.h" in name:
             from_name, number = layer_template(name, 2)
-            print(from_name)
             qkv = qkv_weights.setdefault(number, [None, None, None])
             if "q_proj" in name:
                 qkv[0] = param
@@ -132,7 +143,6 @@ def copy_weights_hf_llama(
                 continue
             to_name = to_name.format(number)
         else:
-            print(name)
             to_name = get_to_name(name, weight_map)
         param = load_param(param)
         if saver is not None:
@@ -157,7 +167,6 @@ def copy_weights_hf_llama(
 
 def layer_template(layer_name: str, idx: int) -> Tuple[str, int]:
     split = layer_name.split(".")
-    print(split)
     number = split[idx]
     split[idx] = "{}"
     from_name = ".".join(split)
