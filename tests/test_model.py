@@ -1,25 +1,20 @@
-import operator
 import sys
 from pathlib import Path
 from urllib.request import urlretrieve
 
 import pytest
 import torch
-from lightning_utilities import compare_version
 
 wd = Path(__file__).parent.parent.absolute()
 
 
-@pytest.mark.skipif(
-    compare_version("transformers", operator.gt, "4.27.3"), reason="Not updated to the latest transformers API"
-)
 @pytest.mark.parametrize("rotary_pct", (0.25, 1))
 @pytest.mark.parametrize("batch_size", (1, 3))
 @pytest.mark.parametrize("n_embd", (16, 32))
 @pytest.mark.parametrize("parallel_residual", (False, True))
 @pytest.mark.parametrize("kv_cache", (False, True))
 def test_against_hf_model(rotary_pct, batch_size, n_embd, parallel_residual, kv_cache) -> None:
-    from transformers import GPTNeoXForCausalLM, PretrainedConfig
+    from transformers import GPTNeoXForCausalLM, GPTNeoXConfig
     import lit_gpt
     from scripts.convert_hf_checkpoint import copy_weights_gpt_neox
 
@@ -40,7 +35,7 @@ def test_against_hf_model(rotary_pct, batch_size, n_embd, parallel_residual, kv_
         parallel_residual=parallel_residual,
     )
     assert ours_config.padded_vocab_size == 512
-    theirs_config = PretrainedConfig(
+    theirs_config = GPTNeoXConfig(
         hidden_act="gelu",
         hidden_size=n_embd,
         num_attention_heads=n_head,
@@ -71,8 +66,11 @@ def test_against_hf_model(rotary_pct, batch_size, n_embd, parallel_residual, kv_
 
     rope = ours_model.build_rope_cache(token_sample)
     mask = ours_model.build_mask_cache(token_sample)
+    position_ids = torch.arange(block_size).unsqueeze(0)
     if kv_cache:
-        (theirs_block_out, theirs_kv_cache) = theirs_model.gpt_neox.layers[0](theirs_embed, use_cache=True)
+        (theirs_block_out, theirs_kv_cache) = theirs_model.gpt_neox.layers[0](
+            theirs_embed, use_cache=True, position_ids=position_ids
+        )
         head_size = n_embd // n_head
         k_cache_shape = (batch_size, n_head, block_size, rope[0].size(-1) + head_size - int(rotary_pct * head_size))
         v_cache_shape = (batch_size, n_head, block_size, head_size)
@@ -83,7 +81,7 @@ def test_against_hf_model(rotary_pct, batch_size, n_embd, parallel_residual, kv_
         for ours_cache, theirs_cache in zip(ours_kv_cache, theirs_kv_cache):
             torch.testing.assert_close(ours_cache, theirs_cache)
     else:
-        (theirs_block_out,) = theirs_model.gpt_neox.layers[0](theirs_embed)
+        (theirs_block_out,) = theirs_model.gpt_neox.layers[0](theirs_embed, position_ids=position_ids)
         ours_block_out, _ = ours_model.transformer.h[0](ours_embed, rope, block_size, mask)
     torch.testing.assert_close(ours_block_out, theirs_block_out)
 
@@ -122,7 +120,6 @@ def test_against_original_falcon_40b():
     torch.testing.assert_close(ours_y, theirs_y)
 
 
-@pytest.mark.skipif(compare_version("transformers", operator.lt, "4.28.0"), reason="Llama wasn't implemented")
 @torch.inference_mode()
 def test_against_original_open_llama_3b():
     from lit_gpt import Config, GPT
