@@ -201,7 +201,10 @@ def get_to_name(lit_key_name: str, weight_map: Dict[str, str]) -> str:
 
 @torch.inference_mode()
 def convert_lit_checkpoint(
-    *, checkpoint_dir: Path = Path("checkpoints/tiiuae/falcon-7b"), model_name: Optional[str] = None
+    *,
+    checkpoint_dir: Path = Path("checkpoints/tiiuae/falcon-7b"),
+    checkpoint_name: str = "lit_model_finetuned.pth",
+    model_name: Optional[str] = None,
 ) -> None:
     if model_name is None:
         model_name = checkpoint_dir.name
@@ -218,7 +221,9 @@ def convert_lit_checkpoint(
     # initialize a new empty state dict to hold our new weights
     sd = {}
 
-    pth_file = checkpoint_dir / "lit_model_finetuned.pth"
+    # checkpoint_name cannot be hardcoded because there exists different outputs such as
+    # ("lit_model_finetuned.pth", "lit_model_lora_finetuned.pth", "lit_model_adapter_finetuned.pth"")
+    pth_file = checkpoint_dir / checkpoint_name
 
     with incremental_save(checkpoint_dir / "lit_model_finetuned.bin") as saver:
         with contextlib.ExitStack() as stack:
