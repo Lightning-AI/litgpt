@@ -21,7 +21,9 @@ To reduce the memory requirements further, Lit-GPT supports several quantization
 
 ## `bnb.nf4`
 
-Enabled with [bitsandbyes](https://github.com/TimDettmers/bitsandbytes). Check out the [paper](https://arxiv.org/abs/2305.14314v1) to learn more about how it works.
+Enabled with [bitsandbytes](https://github.com/TimDettmers/bitsandbytes). Check out the [paper](https://arxiv.org/abs/2305.14314v1) to learn more about how it works.
+
+> **Note**: for now `bitsandbytes` only supports `CUDA` device and `Linux` operating system.
 
 Uses the normalized float 4 (nf4) data type. This is recommended over "fp4" based on the paper's experimental results and theoretical analysis. 
 
