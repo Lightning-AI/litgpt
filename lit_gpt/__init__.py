@@ -6,6 +6,9 @@ if not bool(RequirementCache("torch>=2.1.0dev")):
         " repository README.md"
     )
 if (
+    # environments like colab often come with these pre-installed. since there's a 1:1 mapping of torch version to
+    # these, their nightly would need to be installed too. even though lit-gpt doesn't import or use them, they get
+    # imported by the dependency chain of lightning
     bool(RequirementCache("torchaudio<2.1.0"))
     or bool(RequirementCache("torchvision<0.16.0"))
     or bool(RequirementCache("torchtext<0.16.0"))
