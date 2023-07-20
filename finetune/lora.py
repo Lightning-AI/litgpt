@@ -31,9 +31,6 @@ override_max_seq_length = None
 # Hyperparameters
 learning_rate = 3e-4
 batch_size = 128
-micro_batch_size = 4
-gradient_accumulation_iters = batch_size // micro_batch_size
-assert gradient_accumulation_iters > 0
 max_iters = 50000  # train dataset size
 weight_decay = 0.01
 lora_r = 8
@@ -56,6 +53,7 @@ def setup(
     out_dir: Path = Path("out/lora/alpaca"),
     precision: Optional[str] = None,
     tpu: bool = False,
+    microbatchsize: int = 4
 ):
     if precision is None:
         precision = "32-true" if tpu else "bf16-mixed"
@@ -69,6 +67,11 @@ def setup(
             raise NotImplementedError
     else:
         strategy = "auto"
+
+    global micro_batch_size, gradient_accumulation_iters
+    micro_batch_size = microbatchsize
+    gradient_accumulation_iters = batch_size // micro_batch_size
+    assert gradient_accumulation_iters > 0
 
     logger = step_csv_logger(out_dir.parent, out_dir.name, flush_logs_every_n_steps=log_interval)
     fabric = L.Fabric(devices=fabric_devices, strategy=strategy, precision=precision, loggers=logger)

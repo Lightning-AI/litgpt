@@ -30,14 +30,9 @@ override_max_seq_length = None
 # Hyperparameters
 learning_rate = 3e-3
 batch_size = 64 / devices
-micro_batch_size = 4
-gradient_accumulation_iters = batch_size // micro_batch_size
-assert gradient_accumulation_iters > 0
 epoch_size = 50000  # train dataset size
 num_epochs = 5
-max_iters = num_epochs * (epoch_size // micro_batch_size) // devices
 weight_decay = 0.02
-warmup_steps = 2 * (epoch_size // micro_batch_size) // devices // gradient_accumulation_iters  # 2 epochs
 
 hparams = {k: v for k, v in locals().items() if isinstance(v, (int, float, str)) and not k.startswith("_")}
 
@@ -48,6 +43,7 @@ def setup(
     out_dir: Path = Path("out/adapter/alpaca"),
     precision: Optional[str] = None,
     tpu: bool = False,
+    microbatchsize: int = 4
 ):
     if precision is None:
         precision = "32-true" if tpu else "bf16-mixed"
@@ -67,6 +63,13 @@ def setup(
             )
     else:
         strategy = "auto"
+
+    global micro_batch_size, gradient_accumulation_iters, max_iters, warmup_steps
+    micro_batch_size = microbatchsize
+    gradient_accumulation_iters = batch_size // micro_batch_size
+    assert gradient_accumulation_iters > 0
+    max_iters = num_epochs * (epoch_size // micro_batch_size) // devices
+    warmup_steps = 2 * (epoch_size // micro_batch_size) // devices // gradient_accumulation_iters  # 2 epochs
 
     logger = step_csv_logger(out_dir.parent, out_dir.name, flush_logs_every_n_steps=log_interval)
     fabric = L.Fabric(devices=fabric_devices, strategy=strategy, precision=precision, loggers=logger)
