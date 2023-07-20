@@ -168,8 +168,6 @@ class Dataset(IterableDataset):
     
     def __iter__(self):
         data = np.memmap(self.data_file, dtype=np.uint16, mode="r")
-        worker_id = torch.utils.data.get_worker_info().id
-        print("work init", worker_id, torch.initial_seed())
         while True:
             i = torch.randint(len(data) - self.block_size, (1,)).item()
             x = torch.from_numpy((data[i : i + self.block_size]).astype(np.int64))

@@ -80,7 +80,7 @@ def main(fabric, resume) -> None:
     if fabric.global_rank == 0:
         out_dir.mkdir(parents=True, exist_ok=True)
 
-    fabric.seed_everything(1337)  # same seed for every process to init model (FSDP)
+    fabric.seed_everything(1337, workers=True)  # same seed for every process to init model (FSDP)
 
     config = Config.from_name(model_name)
     fabric.print(f"Loading model with {config.__dict__}")
@@ -98,7 +98,6 @@ def main(fabric, resume) -> None:
     )
     model, optimizer = fabric.setup(model, optimizer)
 
-    fabric.seed_everything(1337 + fabric.global_rank)
     train_data, val_data = load_datasets(data_dir, block_size=model.config.block_size)
     train_dataloader = DataLoader(train_data, batch_size=micro_batch_size, num_workers=2)
     val_dataloader = DataLoader(val_data, batch_size=micro_batch_size, num_workers=2)
