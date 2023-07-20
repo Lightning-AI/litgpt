@@ -166,22 +166,22 @@ def tensor_split(param: Union[torch.Tensor, NotYetLoadedTensor], config: Config,
         head_size = config.head_size
         nobs = param.shape[0] + 1
         nsplits = len(("q", "k", "v"))
-        split_range = range(head_size, nobs, head_size * nsplits)
+        splice_starts = range(head_size, nobs, head_size * nsplits)
 
-        def stop(start, hs=head_size) -> int:
-            return start + hs
+        def middle(start, head_size) -> int:
+            return start + head_size
 
-        def step(start, hs=head_size) -> int:
-            return start + int(hs * 2)
+        def end(start, head_size) -> int:
+            return start + int(head_size * 2)
 
-        splits = [(start, stop(start), step(start)) for start in split_range]
+        splices = [(start, middle(start), end(start)) for start in splice_starts]
 
     qc = ()
     kc = ()
     vc = ()
 
-    for split in splits:
-        qs, ks, vs = split
+    for splice in splices:
+        qs, ks, vs = splice
         qc += (param[qs - head_size : qs, :],)
         kc += (param[qs:ks, :],)
         vc += (param[ks:vs, :],)
