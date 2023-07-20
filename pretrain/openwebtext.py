@@ -220,7 +220,7 @@ def load_datasets(data_dir: Path, block_size: int):
     return train_data, val_data
 
 
-class Dataset(torch.utils.data.IterableDataset):
+class Dataset(IterableDataset):
     def __init__(self, data_file: Path, block_size: int):
         super().__init__()
         self.data_file = data_file
