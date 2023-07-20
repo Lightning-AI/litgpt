@@ -176,7 +176,7 @@ def tensor_split(param: Union[torch.Tensor, NotYetLoadedTensor], config: Config,
         qs, ks, vs = split
         qc += (param[qs - config.head_size : qs, :],)
         kc += (param[qs:ks, :],)
-        vc += (param[ks:vs],)
+        vc += (param[ks:vs, :],)
 
     q = torch.cat(qc)
     k = torch.cat(kc)
@@ -185,10 +185,7 @@ def tensor_split(param: Union[torch.Tensor, NotYetLoadedTensor], config: Config,
     return q, k, v
 
 
-def get_to_name(
-    lit_key_name: str,
-    weight_map: Dict[str, str],
-) -> str:
+def get_to_name(lit_key_name: str, weight_map: Dict[str, str]) -> str:
     for k, v in weight_map.items():
         if lit_key_name == v:
             return k
