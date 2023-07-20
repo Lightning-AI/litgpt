@@ -106,7 +106,7 @@ def copy_weights_falcon(
         state_dict[to_name] = param
 
 
-def copy_weights_open_llama(
+def copy_weights_hf_llama(
     config: Config,
     qkv_weights: Dict[int, List[Optional[NotYetLoadedTensor]]],
     state_dict: Dict[str, torch.Tensor],
@@ -157,11 +157,12 @@ def copy_weights_open_llama(
         q = load_param(q)
         k = load_param(k)
         v = load_param(v)
-        # this assumes MHA which is true for the supported HF checkpoints
-        q = q.transpose(0, 1).reshape(-1, config.head_size)
-        k = k.transpose(0, 1).reshape(-1, config.head_size)
-        v = v.transpose(0, 1).reshape(-1, config.head_size)
-        qkv = torch.cat((q, k, v), dim=1).reshape(-1, config.n_embd * 3).transpose(0, 1)
+        q_per_kv = config.n_head // config.n_query_groups
+        qs = torch.split(q, config.head_size * q_per_kv)
+        ks = torch.split(k, config.head_size)
+        vs = torch.split(v, config.head_size)
+        cycled = [t for group in zip(qs, ks, vs) for t in group]
+        qkv = torch.cat(cycled)
         state_dict[f"transformer.h.{i}.attn.attn.weight"] = qkv
         del qkv_weights[i]
 
@@ -197,7 +198,7 @@ def convert_hf_checkpoint(
     elif config._mlp_class == "LLaMAMLP":
         # holder to reconstitute the split q, k, v
         qkv_weights = {}
-        copy_fn = partial(copy_weights_open_llama, config, qkv_weights)
+        copy_fn = partial(copy_weights_hf_llama, config, qkv_weights)
     else:
         copy_fn = copy_weights_gpt_neox
 

@@ -23,6 +23,7 @@ Hackable [implementation](lit_gpt/model.py) of state-of-the-art open-source larg
 
 Supports popular public checkpoints such as:
 
+- Meta AI [LLaMA 2](tutorials/download_llama_2.md)
 - TII UAE [Falcon](tutorials/download_falcon.md)
 - OpenLM Research [OpenLLaMA](tutorials/download_openllama.md)
 - LMSYS [Vicuna](tutorials/download_vicuna.md) and [LongChat](tutorials/download_longchat.md)
@@ -73,6 +74,12 @@ pip install --index-url https://download.pytorch.org/whl/nightly/cu118 --pre 'to
 
 ```bash
 pip install --index-url https://download.pytorch.org/whl/nightly/cpu --pre 'torch>=2.1.0dev'
+```
+
+**(Optional) install Flash Attention 2**
+
+```bash
+MAX_JOBS=4 pip install 'flash-attn>=2.0.0.post1' --no-build-isolation
 ```
 
 All good, now install the dependencies:
@@ -193,7 +200,7 @@ Don't forget to [join our Discord](https://discord.gg/VptPCZkGNa)!
 - [@TimDettmers](https://github.com/TimDettmers) for [bitsandbytes](https://github.com/TimDettmers/bitsandbytes)
 - [@IST-DASLab](https://github.com/IST-DASLab) for [GPTQ](https://github.com/IST-DASLab/gptq)
 - [@Microsoft](https://github.com/microsoft) for [LoRA](https://github.com/microsoft/LoRA)
-
+- [@tridao](https://github.com/tridao) for [Flash Attention 2](https://github.com/Dao-AILab/flash-attention)
 
 ## License
 
