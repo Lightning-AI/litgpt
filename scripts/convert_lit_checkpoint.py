@@ -13,6 +13,7 @@ sys.path.append(str(wd))
 
 from lit_gpt import Config
 from lit_gpt.utils import lazy_load, incremental_save, NotYetLoadedTensor
+from scripts.convert_hf_checkpoint import load_param, layer_template
 
 
 def copy_weights_gpt_neox(
@@ -129,7 +130,8 @@ def copy_weights_hf_llama(
     }
 
     for name, param in lit_weights.items():
-        if "transformer.h" in name:
+        # handle name
+        if "transformer.h" in name and not name.endswith(".attn.attn.weight"):
             from_name, number = layer_template(name, 2)
             qkv = qkv_weights.setdefault(number, [None, None, None])
             if "q_proj" in name:
@@ -142,42 +144,44 @@ def copy_weights_hf_llama(
             if to_name is None:
                 continue
             to_name = to_name.format(number)
+        elif name.endswith(".attn.attn.weight"):
+            q = "model.layers.{}.self_attn.q_proj.weight".format(number)
+            k = "model.layers.{}.self_attn.k_proj.weight".format(number)
+            v = "model.layers.{}.self_attn.v_proj.weight".format(number)
         else:
             to_name = get_to_name(name, weight_map)
-        param = load_param(param)
-        if saver is not None:
-            param = saver.store_early(param)
-        state_dict[to_name] = param
 
-    for i, (q, k, v) in list(qkv_weights.items()):
-        if q is None or k is None or v is None:
-            # split across different .bin files
-            continue
-        q = load_param(q)
-        k = load_param(k)
-        v = load_param(v)
-        # this assumes MHA which is true for the supported HF checkpoints
-        q = q.transpose(0, 1).reshape(-1, config.head_size)
-        k = k.transpose(0, 1).reshape(-1, config.head_size)
-        v = v.transpose(0, 1).reshape(-1, config.head_size)
-        qkv = torch.cat((q, k, v), dim=1).reshape(-1, config.n_embd * 3).transpose(0, 1)
-        state_dict[f"transformer.h.{i}.attn.attn.weight"] = qkv
-        del qkv_weights[i]
+        # handle param
+        if name.endswith(".attn.attn.weight"):
+            qkv = load_param(param)
+            qp, kp, vp = tensor_split(qkv, config, "llama")
+            for n, p in zip((q, k, v), (qp, kp, vp)):
+                if saver is not None:
+                    param = saver.store_early(p)
+                state_dict[n] = param
+        else:
+            param = load_param(param)
+            if saver is not None:
+                param = saver.store_early(param)
+            state_dict[to_name] = param
 
 
-def layer_template(layer_name: str, idx: int) -> Tuple[str, int]:
-    split = layer_name.split(".")
-    number = split[idx]
-    split[idx] = "{}"
-    from_name = ".".join(split)
-    return from_name, number
+def tensor_split(param: Union[torch.Tensor, NotYetLoadedTensor], config: Config, model_name: str) -> torch.Tensor:
+    if model_name != "llama":
+        raise NotImplementedError(f"{model_name}")
+    else:
+        splits = [
+            (start, start + config.head_size, start + int(config.head_size * 2))
+            for start in range(100, param.shape[0] + 1, config.head_size * len(("q", "k", "v")))
+        ]
 
+    for split in splits:
+        q, k, v = split
+        qp = param[q - config.head_size : q, :]
+        kp = param[q:k, :]
+        vp = param[k:v]
 
-def load_param(param: Union[torch.Tensor, NotYetLoadedTensor]) -> torch.Tensor:
-    if hasattr(param, "_load_tensor"):
-        # support tensors loaded via `lazy_load()`
-        return param._load_tensor()
-    return param
+    return qp, kp, vp
 
 
 def get_to_name(
