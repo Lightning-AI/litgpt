@@ -3,7 +3,7 @@ import gc
 import sys
 from functools import partial
 from pathlib import Path
-from typing import Optional, Literal, Dict, List, Union
+from typing import Optional, Literal, Dict, Union
 
 import torch
 
@@ -163,10 +163,18 @@ def tensor_split(param: Union[torch.Tensor, NotYetLoadedTensor], config: Config,
     if model_name != "llama":
         raise NotImplementedError(f"{model_name}")
     else:
-        splits = [
-            (start, start + config.head_size, start + int(config.head_size * 2))
-            for start in range(100, param.shape[0] + 1, config.head_size * len(("q", "k", "v")))
-        ]
+        head_size = config.head_size
+        nobs = param.shape[0] + 1
+        nsplits = len(("q", "k", "v"))
+        split_range = range(head_size, nobs, head_size * nsplits)
+
+        def stop(start, hs=head_size) -> int:
+            return start + hs
+
+        def step(start, hs=head_size) -> int:
+            return start + int(hs * 2)
+
+        splits = [(start, stop(start), step(start)) for start in split_range]
 
     qc = ()
     kc = ()
@@ -174,7 +182,7 @@ def tensor_split(param: Union[torch.Tensor, NotYetLoadedTensor], config: Config,
 
     for split in splits:
         qs, ks, vs = split
-        qc += (param[qs - config.head_size : qs, :],)
+        qc += (param[qs - head_size : qs, :],)
         kc += (param[qs:ks, :],)
         vc += (param[ks:vs, :],)
 
@@ -210,7 +218,7 @@ def convert_lit_checkpoint(
     # initialize a new empty state dict to hold our new weights
     sd = {}
 
-    pth_file = checkpoint_dir / "lit_model.pth"
+    pth_file = checkpoint_dir / "lit_model_finetuned.pth"
 
     with incremental_save(checkpoint_dir / "lit_model_finetuned.bin") as saver:
         with contextlib.ExitStack() as stack:
