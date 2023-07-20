@@ -133,18 +133,12 @@ def copy_weights_hf_llama(
         # handle name
         if "transformer.h" in name and not name.endswith(".attn.attn.weight"):
             from_name, number = layer_template(name, 2)
-            qkv = qkv_weights.setdefault(number, [None, None, None])
-            if "q_proj" in name:
-                qkv[0] = param
-            elif "k_proj" in name:
-                qkv[1] = param
-            elif "v_proj" in name:
-                qkv[2] = param
             to_name = get_to_name(from_name, weight_map)
             if to_name is None:
                 continue
             to_name = to_name.format(number)
         elif name.endswith(".attn.attn.weight"):
+            from_name, number = layer_template(name, 2)
             q = "model.layers.{}.self_attn.q_proj.weight".format(number)
             k = "model.layers.{}.self_attn.k_proj.weight".format(number)
             v = "model.layers.{}.self_attn.v_proj.weight".format(number)
@@ -155,10 +149,10 @@ def copy_weights_hf_llama(
         if name.endswith(".attn.attn.weight"):
             qkv = load_param(param)
             qp, kp, vp = tensor_split(qkv, config, "llama")
-            for n, p in zip((q, k, v), (qp, kp, vp)):
+            for to_name, _param in zip((q, k, v), (qp, kp, vp)):
                 if saver is not None:
-                    param = saver.store_early(p)
-                state_dict[n] = param
+                    param = saver.store_early(_param)
+                state_dict[to_name] = param
         else:
             param = load_param(param)
             if saver is not None:
@@ -175,13 +169,21 @@ def tensor_split(param: Union[torch.Tensor, NotYetLoadedTensor], config: Config,
             for start in range(100, param.shape[0] + 1, config.head_size * len(("q", "k", "v")))
         ]
 
-    for split in splits:
-        q, k, v = split
-        qp = param[q - config.head_size : q, :]
-        kp = param[q:k, :]
-        vp = param[k:v]
+    qc = []
+    kc = []
+    vc = []
 
-    return qp, kp, vp
+    for split in splits:
+        qs, ks, vs = split
+        qc.append(param[qs - config.head_size : qs, :])
+        kc.append(param[qs:ks, :])
+        vc.append(param[ks:vs])
+
+    q = torch.cat(qc)
+    k = torch.cat(kc)
+    v = torch.cat(vc)
+
+    return q, k, v
 
 
 def get_to_name(
