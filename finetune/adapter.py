@@ -34,8 +34,6 @@ epoch_size = 50000  # train dataset size
 num_epochs = 5
 weight_decay = 0.02
 
-hparams = {k: v for k, v in locals().items() if isinstance(v, (int, float, str)) and not k.startswith("_")}
-
 
 def setup(
     data_dir: Path = Path("data/alpaca"),
@@ -73,7 +71,7 @@ def setup(
 
     logger = step_csv_logger(out_dir.parent, out_dir.name, flush_logs_every_n_steps=log_interval)
     fabric = L.Fabric(devices=fabric_devices, strategy=strategy, precision=precision, loggers=logger)
-    fabric.print(hparams)
+    fabric.print({k: v for k, v in globals().items() if isinstance(v, (int, float, str)) and not k.startswith("_")})
     fabric.launch(main, data_dir, checkpoint_dir, out_dir)
 
 
