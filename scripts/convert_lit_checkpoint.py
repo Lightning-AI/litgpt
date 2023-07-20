@@ -169,15 +169,15 @@ def tensor_split(param: Union[torch.Tensor, NotYetLoadedTensor], config: Config,
             for start in range(100, param.shape[0] + 1, config.head_size * len(("q", "k", "v")))
         ]
 
-    qc = []
-    kc = []
-    vc = []
+    qc = ()
+    kc = ()
+    vc = ()
 
     for split in splits:
         qs, ks, vs = split
-        qc.append(param[qs - config.head_size : qs, :])
-        kc.append(param[qs:ks, :])
-        vc.append(param[ks:vs])
+        qc += (param[qs - config.head_size : qs, :],)
+        kc += (param[qs:ks, :],)
+        vc += (param[ks:vs],)
 
     q = torch.cat(qc)
     k = torch.cat(kc)
