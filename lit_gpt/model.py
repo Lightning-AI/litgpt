@@ -8,6 +8,7 @@ from typing import List, Optional, Tuple, Any
 
 import torch
 import torch.nn as nn
+from lightning_utilities.core.imports import RequirementCache
 from typing_extensions import Self
 
 from lit_gpt.config import Config
@@ -15,6 +16,8 @@ from lit_gpt.rmsnorm import RMSNorm
 
 RoPECache = Tuple[torch.Tensor, torch.Tensor]
 KVCache = Tuple[torch.Tensor, torch.Tensor]
+
+FlashAttention2Available = RequirementCache("flash-attn>=2.0.0.post1")
 
 
 class GPT(nn.Module):
@@ -241,10 +244,7 @@ class CausalSelfAttention(nn.Module):
             v = cache_v.index_copy_(2, input_pos, v)
             kv_cache = k, v
 
-        # efficient attention using Flash Attention CUDA kernels
-        y = torch.nn.functional.scaled_dot_product_attention(
-            q, k, v, attn_mask=mask, dropout_p=0.0, scale=1.0 / math.sqrt(self.config.head_size), is_causal=mask is None
-        )
+        y = self.scaled_dot_product_attention(q, k, v, mask=mask)
 
         y = y.transpose(1, 2).contiguous().view(B, T, C)  # re-assemble all head outputs side by side
 
@@ -252,6 +252,27 @@ class CausalSelfAttention(nn.Module):
         y = self.proj(y)
 
         return y, kv_cache
+
+    def scaled_dot_product_attention(
+        self, q: torch.Tensor, k: torch.Tensor, v: torch.Tensor, mask: Optional[torch.Tensor] = None
+    ):
+        scale = 1.0 / math.sqrt(self.config.head_size)
+        if (
+            FlashAttention2Available
+            and mask is None
+            and q.device.type == "cuda"
+            and q.dtype in (torch.float16, torch.bfloat16)
+        ):
+            from flash_attn import flash_attn_func
+
+            # flash-attn requires (B, T, nh, hs)
+            q = q.transpose(1, 2)
+            k = k.transpose(1, 2)
+            v = v.transpose(1, 2)
+            return flash_attn_func(q, k, v, dropout_p=0.0, softmax_scale=scale, causal=True).transpose(1, 2)
+        return torch.nn.functional.scaled_dot_product_attention(
+            q, k, v, attn_mask=mask, dropout_p=0.0, scale=scale, is_causal=mask is None
+        )
 
 
 class GptNeoxMLP(nn.Module):

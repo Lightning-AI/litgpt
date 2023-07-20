@@ -93,8 +93,6 @@ def setup(
 def main(fabric, train_data_dir, val_data_dir, resume):
     speed_monitor = SpeedMonitor(fabric, window_size=50, time_unit="seconds")
 
-    fabric.seed_everything(1337 + fabric.global_rank)
-
     if fabric.global_rank == 0:
         out_dir.mkdir(parents=True, exist_ok=True)
 
@@ -106,12 +104,14 @@ def main(fabric, train_data_dir, val_data_dir, resume):
         fabric=fabric,
         train_data_dir=train_data_dir,
         val_data_dir=val_data_dir,
-        seed=1337,
+        seed=(1337 + fabric.global_rank),
     )
     if val_dataloader is None:
         train_dataloader = fabric.setup_dataloaders(train_dataloader)
     else:
         train_dataloader, val_dataloader = fabric.setup_dataloaders(train_dataloader, val_dataloader)
+
+    fabric.seed_everything(1337)  # same seed for every process to init model (FSDP)
 
     fabric.print(f"Loading model with {config.__dict__}")
     t0 = time.time()
