@@ -3,7 +3,7 @@ import gc
 import sys
 from functools import partial
 from pathlib import Path
-from typing import Optional, Literal, Tuple, Dict, List, Union
+from typing import Optional, Literal, Dict, List, Union
 
 import torch
 
@@ -108,7 +108,6 @@ def copy_weights_falcon(
 
 def copy_weights_hf_llama(
     config: Config,
-    qkv_weights: Dict[int, List[Optional[NotYetLoadedTensor]]],
     state_dict: Dict[str, torch.Tensor],
     lit_weights: Dict[str, Union[torch.Tensor, NotYetLoadedTensor]],
     saver: Optional[incremental_save] = None,
@@ -190,15 +189,6 @@ def get_to_name(
     lit_key_name: str,
     weight_map: Dict[str, str],
 ) -> str:
-    none_keys = (
-        "gpt_neox.layers.{}.attention.rotary_emb.inv_freq",
-        "gpt_neox.layers.{}.attention.bias",
-        "gpt_neox.layers.{}.attention.masked_bias",
-        "model.layers.{}.self_attn.q_proj.weight",
-        "model.layers.{}.self_attn.k_proj.weight",
-        "model.layers.{}.self_attn.v_proj.weight",
-        "model.layers.{}.self_attn.rotary_emb.inv_freq",
-    )
     for k, v in weight_map.items():
         if lit_key_name == v:
             return k
@@ -216,8 +206,7 @@ def convert_lit_checkpoint(
         copy_fn = partial(copy_weights_falcon, "40b" if config.n_embd == 8192 else "7b")
     elif config._mlp_class == "LLaMAMLP":
         # holder to reconstitute the split q, k, v
-        qkv_weights = {}
-        copy_fn = partial(copy_weights_hf_llama, config, qkv_weights)
+        copy_fn = partial(copy_weights_hf_llama, config)
     else:
         copy_fn = copy_weights_gpt_neox
 
