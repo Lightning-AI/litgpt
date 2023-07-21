@@ -2,7 +2,7 @@ import math
 import sys
 import time
 from pathlib import Path
-from typing import Tuple, Optional, Union
+from typing import Optional, Union
 
 import lightning as L
 import numpy as np
@@ -224,7 +224,7 @@ class Dataset(IterableDataset):
         super().__init__()
         self.data_file = data_file
         self.block_size = block_size
-    
+
     def __iter__(self):
         data = np.memmap(self.data_file, dtype=np.uint16, mode="r")
         while True:
