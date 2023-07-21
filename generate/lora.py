@@ -15,7 +15,7 @@ sys.path.append(str(wd))
 
 from generate.base import generate
 from lit_gpt import Tokenizer
-from lit_gpt.lora import GPT, Config, Block
+from lit_gpt.lora import GPT, Config, Block, merge_lora_weights
 from lit_gpt.utils import lazy_load, check_valid_checkpoint_dir, quantization
 from scripts.prepare_alpaca import generate_prompt
 
@@ -34,8 +34,8 @@ lora_head = False
 def main(
     prompt: str = "What food do lamas eat?",
     input: str = "",
-    lora_path: Path = Path("out/lora/alpaca/lit_model_lora_finetuned.pth"),
-    checkpoint_dir: Path = Path("checkpoints/stabilityai/stablelm-base-alpha-3b"),
+    lora_path: Path = Path("out/lora/alpaca/sanity_checkpoint.pth"),
+    checkpoint_dir: Path = Path("checkpoints/EleutherAI/pythia-1b"),
     quantize: Optional[Literal["bnb.nf4", "bnb.nf4-dq", "bnb.fp4", "bnb.fp4-dq", "bnb.int8", "gptq.int4"]] = None,
     max_new_tokens: int = 100,
     top_k: int = 200,
@@ -111,6 +111,7 @@ def main(
     fabric.print(f"Time to load the model weights: {time.time() - t0:.02f} seconds.", file=sys.stderr)
 
     model.eval()
+    merge_lora_weights(model)
     model = fabric.setup(model)
 
     tokenizer = Tokenizer(checkpoint_dir)

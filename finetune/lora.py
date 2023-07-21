@@ -52,7 +52,7 @@ hparams = {k: v for k, v in locals().items() if isinstance(v, (int, float, str))
 
 def setup(
     data_dir: Path = Path("data/alpaca"),
-    checkpoint_dir: Path = Path("checkpoints/stabilityai/stablelm-base-alpha-3b"),
+    checkpoint_dir: Path = Path("checkpoints/EleutherAI/pythia-1b"),
     out_dir: Path = Path("out/lora/alpaca"),
     precision: Optional[str] = None,
     tpu: bool = False,
@@ -70,6 +70,8 @@ def setup(
             strategy=FSDPStrategy(
                 auto_wrap_policy={Block},
                 activation_checkpointing_policy={Block},
+                state_dict_type="full",
+                limit_all_gathers=True,
             )
     else:
         strategy = "auto"
@@ -130,6 +132,11 @@ def main(fabric: L.Fabric, data_dir: Path, checkpoint_dir: Path, out_dir: Path):
     fabric.seed_everything(1337 + fabric.global_rank)
 
     train_time = time.time()
+    
+    # sanity check
+    save_path = out_dir / "sanity_checkpoint.pth"
+    save_lora_checkpoint(fabric, model, save_path)
+
     train(fabric, model, optimizer, train_data, val_data, checkpoint_dir, out_dir, speed_monitor)
     fabric.print(f"Training time: {(time.time()-train_time):.2f}s")
 
