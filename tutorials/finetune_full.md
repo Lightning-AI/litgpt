@@ -68,7 +68,7 @@ With only a few modifications, you can prepare and train on your own instruction
    A row has an entry for 'instruction', 'input', and 'output', where 'input' is optional an can be
    the empty string if the instruction doesn't require a context. Below is an example json file:
 
-    ```json
+    ```text
     [
         {
             "instruction": "Arrange the given numbers in ascending order.",
