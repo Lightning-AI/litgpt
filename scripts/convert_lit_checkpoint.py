@@ -213,11 +213,8 @@ def convert_lit_checkpoint(
 
     if "falcon" in model_name:
         copy_fn = partial(copy_weights_falcon, "40b" if config.n_embd == 8192 else "7b")
-    elif config._mlp_class == "LLaMAMLP":
-        # holder to reconstitute the split q, k, v
-        copy_fn = partial(copy_weights_hf_llama, config)
     else:
-        copy_fn = copy_weights_gpt_neox
+        raise NotImplementedError(f"Conversion for {model_name} is not yet supported")
 
     # initialize a new empty state dict to hold our new weights
     sd = {}
