@@ -1,4 +1,4 @@
-from lightning_utilities.core.imports import RequirementCache
+from lightning_utilities.core.imports import RequirementCache, package_available
 
 if not bool(RequirementCache("torch>=2.1.0dev")):
     raise ImportError(
@@ -9,9 +9,9 @@ if (
     # environments like colab often come with these pre-installed. since there's a 1:1 mapping of torch version to
     # these, their nightly would need to be installed too. even though lit-gpt doesn't import or use them, they get
     # imported by the dependency chain of lightning
-    bool(RequirementCache("torchaudio<2.1.0"))
-    or bool(RequirementCache("torchvision<0.16.0"))
-    or bool(RequirementCache("torchtext<0.16.0"))
+    (package_available("torchaudio") and RequirementCache("torchaudio<2.1.0"))
+    or (package_available("torchvision") and RequirementCache("torchvision<0.16.0"))
+    or (package_available("torchtext") and RequirementCache("torchtext<0.16.0"))
 ):
     raise ImportError(
         "You are running in an environment that already had torchvision, torchtext, or torchaudio installed. These will"
