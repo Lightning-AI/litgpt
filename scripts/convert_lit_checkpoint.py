@@ -203,8 +203,8 @@ def get_to_name(lit_key_name: str, weight_map: Dict[str, str]) -> str:
 @torch.inference_mode()
 def convert_lit_checkpoint(
     *,
+    checkpoint_name: str,
     checkpoint_dir: Path = Path("checkpoints/tiiuae/falcon-7b"),
-    checkpoint_name: str = "lit_model_finetuned.pth",
     model_name: Optional[str] = None,
 ) -> None:
     if model_name is None:
