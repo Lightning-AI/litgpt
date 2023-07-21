@@ -75,7 +75,7 @@ def main(
     check_valid_checkpoint_dir(checkpoint_dir)
 
     with open(checkpoint_dir / "lit_config.json") as fp:
-        config = Config(
+        config_params = dict(
             r=lora_r,
             alpha=lora_alpha,
             dropout=lora_dropout,
@@ -85,8 +85,9 @@ def main(
             to_projection=lora_projection,
             to_mlp=lora_mlp,
             to_head=lora_head,
-            **json.load(fp),
         )
+        config_params.update(**json.load(fp))
+        config = Config(**config_params)
 
     if quantize is not None and devices > 1:
         raise NotImplementedError
