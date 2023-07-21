@@ -56,6 +56,7 @@ def test_against_original_falcon_40b():
     their_y = their_model(x)["logits"]
     ground_truth_y = ground_truth_their_model(x)["logits"]
     torch.testing.assert_close(our_y, ground_truth_y)
+    torch.testing.assert_close(our_y, their_y)
 
 
 @torch.inference_mode()
