@@ -5,8 +5,6 @@ __pycache__
 build
 .venv
 .vscode
-*ruff*
-pyproject.toml
 
 # data
 data
