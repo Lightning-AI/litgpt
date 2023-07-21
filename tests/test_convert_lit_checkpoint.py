@@ -16,8 +16,8 @@ def test_against_original_falcon_40b():
 
     from tests.original_falcon_40b import RWConfig, RWForCausalLM
     from lit_gpt import Config, GPT
-    from scripts.convert_lit_checkpoint import copy_weights_falcon
-    from scripts.convert_hf_checkpoint import copy_weights_falcon as copy_weights_falcon_hf
+    from scripts.convert_lit_checkpoint import copy_weights_falcon as copy_to_theirs
+    from scripts.convert_hf_checkpoint import copy_weights_falcon as copy_to_ours
 
     # the unchanged model config
     our_config = Config.from_name("falcon-40b", n_layer=2, n_head=8, n_query_groups=4, n_embd=32)
