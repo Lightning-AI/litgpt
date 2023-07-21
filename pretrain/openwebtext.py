@@ -2,11 +2,12 @@ import math
 import sys
 import time
 from pathlib import Path
-from typing import Tuple, Optional, Union
+from typing import Optional, Union
 
 import lightning as L
 import numpy as np
 import torch
+from torch.utils.data import DataLoader, IterableDataset
 from lightning.fabric.strategies import FSDPStrategy, XLAStrategy
 
 # support running without installing as a package
@@ -79,7 +80,7 @@ def main(fabric, resume) -> None:
     if fabric.global_rank == 0:
         out_dir.mkdir(parents=True, exist_ok=True)
 
-    fabric.seed_everything(1337)  # same seed for every process to init model (FSDP)
+    fabric.seed_everything(1337, workers=True)  # same seed for every process to init model (FSDP)
 
     config = Config.from_name(model_name)
     fabric.print(f"Loading model with {config.__dict__}")
@@ -97,8 +98,10 @@ def main(fabric, resume) -> None:
     )
     model, optimizer = fabric.setup(model, optimizer)
 
-    fabric.seed_everything(1337 + fabric.global_rank)
-    train_data, val_data = load_datasets(data_dir)
+    train_data, val_data = load_datasets(data_dir, block_size=model.config.block_size)
+    train_dataloader = DataLoader(train_data, batch_size=micro_batch_size, num_workers=2)
+    val_dataloader = DataLoader(val_data, batch_size=micro_batch_size, num_workers=2)
+    train_dataloader, val_dataloader = fabric.setup_dataloaders(train_dataloader, val_dataloader)
 
     state = {"model": model, "optimizer": optimizer, "hparams": hparams, "iter_num": 0, "step_count": 0}
 
@@ -109,15 +112,15 @@ def main(fabric, resume) -> None:
         fabric.load(resume, state)
 
     train_time = time.time()
-    train(fabric, state, train_data, val_data, speed_monitor)
+    train(fabric, state, train_dataloader, val_dataloader, speed_monitor)
     fabric.print(f"Training time: {(time.time()-train_time):.2f}s")
 
 
-def train(fabric, state, train_data, val_data, speed_monitor):
+def train(fabric, state, train_dataloader, val_dataloader, speed_monitor):
     model = state["model"]
     optimizer = state["optimizer"]
 
-    validate(fabric, model, val_data)  # sanity check
+    validate(fabric, model, val_dataloader)  # sanity check
 
     with torch.device("meta"):
         meta_model = GPT(model.config)
@@ -137,6 +140,8 @@ def train(fabric, state, train_data, val_data, speed_monitor):
 
         xm.mark_step()
 
+    train_iter = iter(train_dataloader)
+
     for state["iter_num"] in range(state["iter_num"], max_iters):
         # determine and set the learning rate for this iteration
         lr = get_lr(state["iter_num"]) if decay_lr else learning_rate
@@ -145,7 +150,7 @@ def train(fabric, state, train_data, val_data, speed_monitor):
 
         iter_t0 = time.time()
 
-        input_ids, targets = get_batch(fabric, train_data, model.config.block_size)
+        input_ids, targets = next(train_iter)
 
         is_accumulating = (state["iter_num"] + 1) % gradient_accumulation_steps != 0
         with fabric.no_backward_sync(model, enabled=is_accumulating):
@@ -191,13 +196,14 @@ def train(fabric, state, train_data, val_data, speed_monitor):
 
 
 @torch.no_grad()
-def validate(fabric: L.Fabric, model: torch.nn.Module, val_data: np.ndarray) -> torch.Tensor:
+def validate(fabric: L.Fabric, model: torch.nn.Module, val_dataloader: DataLoader) -> torch.Tensor:
     fabric.print("Validating ...")
     model.eval()
+    val_iter = iter(val_dataloader)
 
     losses = torch.zeros(eval_iters, device=fabric.device)
     for k in range(eval_iters):
-        input_ids, targets = get_batch(fabric, val_data, model.config.block_size)
+        input_ids, targets = next(val_iter)
         logits = model(input_ids)
         loss = chunked_cross_entropy(logits, targets, chunk_size=0)
         losses[k] = loss.item()
@@ -207,22 +213,25 @@ def validate(fabric: L.Fabric, model: torch.nn.Module, val_data: np.ndarray) -> 
     return out
 
 
-def get_batch(fabric: L.Fabric, data: np.ndarray, block_size: int) -> Tuple[torch.Tensor, torch.Tensor]:
-    ix = torch.randint(len(data) - block_size, (micro_batch_size,))
-    x = torch.stack([torch.from_numpy((data[i : i + block_size]).astype(np.int64)) for i in ix])
-    y = torch.stack([torch.from_numpy((data[i + 1 : i + 1 + block_size]).astype(np.int64)) for i in ix])
-
-    if fabric.device.type == "cuda" and x.device.type == "cpu":
-        x, y = fabric.to_device((x.pin_memory(), y.pin_memory()))
-    else:
-        x, y = fabric.to_device((x, y))
-    return x, y
-
-
-def load_datasets(data_dir: Path) -> Tuple[np.ndarray, np.ndarray]:
-    train_data = np.memmap(str(data_dir / "train.bin"), dtype=np.uint16, mode="r")
-    val_data = np.memmap(str(data_dir / "val.bin"), dtype=np.uint16, mode="r")
+def load_datasets(data_dir: Path, block_size: int):
+    train_data = Dataset(str(data_dir / "train.bin"), block_size=block_size)
+    val_data = Dataset(str(data_dir / "val.bin"), block_size=block_size)
     return train_data, val_data
+
+
+class Dataset(IterableDataset):
+    def __init__(self, data_file: Path, block_size: int):
+        super().__init__()
+        self.data_file = data_file
+        self.block_size = block_size
+
+    def __iter__(self):
+        data = np.memmap(self.data_file, dtype=np.uint16, mode="r")
+        while True:
+            i = torch.randint(len(data) - self.block_size, (1,)).item()
+            x = torch.from_numpy((data[i : i + self.block_size]).astype(np.int64))
+            y = torch.from_numpy((data[i + 1 : i + 1 + self.block_size]).astype(np.int64))
+            yield x, y
 
 
 # learning rate decay scheduler (cosine with warmup)

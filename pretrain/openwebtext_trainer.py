@@ -7,6 +7,7 @@ from typing import Optional, Any
 import lightning as L
 import numpy as np
 import torch
+from torch.utils.data import DataLoader, IterableDataset
 from lightning.pytorch.callbacks import ModelCheckpoint
 from lightning.pytorch.loggers import CSVLogger
 from lightning.pytorch.strategies import FSDPStrategy, XLAStrategy
@@ -136,7 +137,7 @@ def main(devices: int = 1, precision: Optional[str] = None, tpu: bool = False) -
         val_check_interval=eval_interval,
     )
 
-    L.seed_everything(1337)  # same seed for every process to init model (FSDP)
+    L.seed_everything(1337, workers=True)  # same seed for every process to init model (FSDP)
 
     trainer.print(hparams)
 
@@ -149,28 +150,28 @@ def main(devices: int = 1, precision: Optional[str] = None, tpu: bool = False) -
     model = LightningGPTModule(config)
     trainer.print(f"Time to instantiate model: {time.time() - t0:.02f} seconds.")
 
-    train_data = Dataset(str(data_dir / "train.bin"), config.block_size, rank=trainer.global_rank)
-    val_data = Dataset(str(data_dir / "val.bin"), config.block_size, rank=trainer.global_rank)
+    train_data = Dataset(str(data_dir / "train.bin"), config.block_size)
+    val_data = Dataset(str(data_dir / "val.bin"), config.block_size)
+    train_dataloader = DataLoader(train_data, batch_size=micro_batch_size, num_workers=2)
+    val_dataloader = DataLoader(val_data, batch_size=micro_batch_size, num_workers=2)
 
     t0 = time.time()
-    trainer.fit(model, train_data, val_data, ckpt_path="last")
+    trainer.fit(model, train_dataloader, val_dataloader, ckpt_path="last")
     trainer.print(f"Training time: {(time.time()-t0):.2f}s")
 
 
-class Dataset:
-    def __init__(self, bin: str, block_size: int, rank: int = 0) -> None:
-        self.data = np.memmap(bin, dtype=np.uint16, mode="r")
+class Dataset(IterableDataset):
+    def __init__(self, data_file: Path, block_size: int):
+        super().__init__()
+        self.data_file = data_file
         self.block_size = block_size
-        self.rank = rank
 
     def __iter__(self):
-        L.seed_everything(1337 + self.rank)
+        data = np.memmap(self.data_file, dtype=np.uint16, mode="r")
         while True:
-            ix = torch.randint(len(self.data) - self.block_size, (micro_batch_size,))
-            x = torch.stack([torch.from_numpy((self.data[i : i + self.block_size]).astype(np.int64)) for i in ix])
-            y = torch.stack(
-                [torch.from_numpy((self.data[i + 1 : i + 1 + self.block_size]).astype(np.int64)) for i in ix]
-            )
+            i = torch.randint(len(data) - self.block_size, (1,)).item()
+            x = torch.from_numpy((data[i : i + self.block_size]).astype(np.int64))
+            y = torch.from_numpy((data[i + 1 : i + 1 + self.block_size]).astype(np.int64))
             yield x, y
 
 
