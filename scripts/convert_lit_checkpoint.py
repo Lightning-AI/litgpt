@@ -163,16 +163,17 @@ def tensor_split(param: Union[torch.Tensor, NotYetLoadedTensor], config: Config,
     if model_name != "llama":
         raise NotImplementedError(f"{model_name}")
     else:
-        head_size = config.head_size
-        nobs = param.shape[0] + 1
-        nsplits = len(("q", "k", "v"))
-        splice_starts = range(head_size, nobs, head_size * nsplits)
 
         def middle(start, head_size) -> int:
             return start + head_size
 
         def end(start, head_size) -> int:
             return start + int(head_size * 2)
+
+        head_size = config.head_size
+        nobs = param.shape[0] + 1
+        nsplits = len(("q", "k", "v"))
+        splice_starts = range(head_size, nobs, head_size * nsplits)
 
         splices = [(start, middle(start), end(start)) for start in splice_starts]
 
@@ -224,8 +225,9 @@ def convert_lit_checkpoint(
     # checkpoint_name cannot be hardcoded because there exists different outputs such as
     # ("lit_model_finetuned.pth", "lit_model_lora_finetuned.pth", "lit_model_adapter_finetuned.pth"")
     pth_file = checkpoint_dir / checkpoint_name
+    bin_file = checkpoint_name.replace(".pth", ".bin")
 
-    with incremental_save(checkpoint_dir / "lit_model_finetuned.bin") as saver:
+    with incremental_save(checkpoint_dir / bin_file) as saver:
         with contextlib.ExitStack() as stack:
             lit_weights = stack.enter_context(lazy_load(pth_file))
             copy_fn(sd, lit_weights, saver=saver)
