@@ -59,7 +59,8 @@ You'll notice that afterwards, generation times drop to ~2s.
 Coming soon.
 
 > **Warning**
-> When you are done, remember to delete your instance 
+> When you are done, remember to delete your instance
+>
 > ```shell
 > gcloud compute tpus tpu-vm delete lit-gpt --zone=us-central2-b
 > ```
