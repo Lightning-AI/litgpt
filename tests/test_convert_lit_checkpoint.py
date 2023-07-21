@@ -8,19 +8,21 @@ import torch
 wd = Path(__file__).parent.parent.absolute()
 
 
-def test_convert_hf_checkpoint(tmp_path):
+def test_convert_lit_checkpoint(tmp_path):
     from scripts.convert_lit_checkpoint import convert_lit_checkpoint
 
+    chkpt_name = "lit_model_finetuned"
+
     with pytest.raises(RuntimeError, match="open file failed because of errno 2 on fopen"):
-        convert_lit_checkpoint(checkpoint_name="falcon-7b.pth", checkpoint_dir=tmp_path, model_name="falcon-7b")
+        convert_lit_checkpoint(checkpoint_name=chkpt_name, checkpoint_dir=tmp_path, model_name="falcon-7b")
 
-    bin_file = tmp_path / "foo.bin"
-    bin_file.touch()
+    chkpt_file = tmp_path / "lit_model_finetuned"
+    chkpt_file.touch()
     with mock.patch("scripts.convert_lit_checkpoint.lazy_load") as load:
-        convert_lit_checkpoint(checkpoint_name="foo.bin", checkpoint_dir=tmp_path, model_name="falcon-7b")
-    load.assert_called_with(bin_file)
+        convert_lit_checkpoint(checkpoint_name=chkpt_name, checkpoint_dir=tmp_path, model_name="falcon-7b")
+    load.assert_called_with(chkpt_file)
 
-    assert {p.name for p in tmp_path.glob("*")} == {"falcon-7b.bin", "foo.bin"}
+    assert {p.name for p in tmp_path.glob("*")} == {chkpt_name, "lit_model_finetuned.bin"}
 
 
 @torch.inference_mode()
