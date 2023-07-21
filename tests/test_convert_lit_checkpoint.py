@@ -11,16 +11,16 @@ wd = Path(__file__).parent.parent.absolute()
 def test_convert_hf_checkpoint(tmp_path):
     from scripts.convert_lit_checkpoint import convert_lit_checkpoint
 
-    with pytest.raises(ValueError, match="to contain .bin"):
+    with pytest.raises(RuntimeError, match="open file failed because of errno 2 on fopen"):
         convert_lit_checkpoint(checkpoint_name="falcon-7b.pth", checkpoint_dir=tmp_path, model_name="falcon-7b")
 
-    pth_file = tmp_path / "foo.pth"
-    pth_file.touch()
+    bin_file = tmp_path / "foo.bin"
+    bin_file.touch()
     with mock.patch("scripts.convert_lit_checkpoint.lazy_load") as load:
-        convert_lit_checkpoint(checkpoint_name="falcon-7b.pth", checkpoint_dir=tmp_path, model_name="falcon-7b")
-    load.assert_called_with(pth_file)
+        convert_lit_checkpoint(checkpoint_name="foo.bin", checkpoint_dir=tmp_path, model_name="falcon-7b")
+    load.assert_called_with(bin_file)
 
-    assert {p.name for p in tmp_path.glob("*")} == {"foo.pth", "lit_config.json", "lit_model.pth"}
+    assert {p.name for p in tmp_path.glob("*")} == {"falcon-7b.bin", "foo.bin"}
 
 
 @torch.inference_mode()
