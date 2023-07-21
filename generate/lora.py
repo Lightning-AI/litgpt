@@ -23,6 +23,12 @@ from scripts.prepare_alpaca import generate_prompt
 lora_r = 8
 lora_alpha = 16
 lora_dropout = 0.05
+lora_query = True
+lora_key = False
+lora_value = True
+lora_projection = False
+lora_mlp = False
+lora_head = False
 
 
 def main(
@@ -69,7 +75,18 @@ def main(
     check_valid_checkpoint_dir(checkpoint_dir)
 
     with open(checkpoint_dir / "lit_config.json") as fp:
-        config = Config(r=lora_r, alpha=lora_alpha, dropout=lora_dropout, **json.load(fp))
+        config = Config(
+            r=lora_r,
+            alpha=lora_alpha,
+            dropout=lora_dropout,
+            to_query=lora_query,
+            to_key=lora_key,
+            to_value=lora_value,
+            to_projection=lora_projection,
+            to_mlp=lora_mlp,
+            to_head=lora_head,
+            **json.load(fp),
+        )
 
     if quantize is not None and devices > 1:
         raise NotImplementedError
