@@ -5,8 +5,10 @@ We demonstrate how to run inference (next token prediction) with the GPT base mo
 ```bash
 python generate/base.py --prompt "Hello, my name is" --checkpoint_dir checkpoints/stabilityai/stablelm-base-alpha-3b
 ```
+
 Output:
-```
+
+```text
 Hello, my name is Levi Durrer, I'm an Austrian journalist - Chairman of the Press Blair Party, with 37 years in the Press Blair International, and two years in the Spectre of Austerity for the other. I'm crossing my fingers that you will feel
 ```
 

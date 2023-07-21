@@ -30,7 +30,7 @@ python finetune/adapter.py --checkpoint_dir checkpoints/stabilityai/stablelm-bas
 
 or for Adapter V2
 
-```bash 
+```bash
 python finetune/adapter_v2.py --checkpoint_dir checkpoints/stabilityai/stablelm-base-alpha-3b
 ```
 
@@ -40,6 +40,7 @@ Depending on the available GPU memory, you can also tune the `micro_batch_size` 
 To fit Adapter V2 to 12GB memory set micro_batch_size = 2.
 
 For example, the following settings will let you finetune the model in under 1 hour:
+
 ```python
 devices = 4
 micro_batch_size = 4
@@ -78,27 +79,29 @@ python generate/adapter.py \
 
 or for Adapter V2
 
-```bash 
+```bash
 python generate/adapter_v2.py \
     --prompt "Recommend a movie to watch on the weekend." \
     --checkpoint_dir checkpoints/stabilityai/stablelm-base-alpha-3b
 ```
 
 Output:
-```
+
+```text
 A good movie to watch on the weekend would be The Lion King, since it's a classic family film that everyone can enjoy...
 ```
+
 If your GPU supports `bfloat16`, the script will automatically use it.
 
 ## Tune on your dataset
 
 With only a few modifications, you can prepare and train on your own instruction dataset.
 
-1. Create a json file in which each row holds one instruction-response pair. 
-   A row has an entry for 'instruction', 'input', and 'output', where 'input' is optional an can be 
+1. Create a json file in which each row holds one instruction-response pair.
+   A row has an entry for 'instruction', 'input', and 'output', where 'input' is optional an can be
    the empty string if the instruction doesn't require a context. Below is an example json file:
 
-    ```
+    ```text
     [
         {
             "instruction": "Arrange the given numbers in ascending order.",
@@ -123,7 +126,7 @@ With only a few modifications, you can prepare and train on your own instruction
     ```
 
 5. Run `finetune/adapter.py` by passing in the location of your data (and optionally other parameters):
-   
+
     ```bash
     python finetune/adapter.py \
         --data_dir data/mydata/ \
@@ -131,8 +134,7 @@ With only a few modifications, you can prepare and train on your own instruction
         --out_dir data/mydata-finetuned
     ```
 
-
 ## Troubleshooting
 
 If you run into a CUDA error "Expected is_sm80 to be true, but got false", uncomment the line
-`torch.backends.cuda.enable_flash_sdp(False)` in the finetune script (see https://github.com/Lightning-AI/lit-llama/issues/101).
+`torch.backends.cuda.enable_flash_sdp(False)` in the finetune script (see <https://github.com/Lightning-AI/lit-llama/issues/101>).

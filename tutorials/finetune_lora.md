@@ -45,8 +45,10 @@ You can test the finetuned model with your own instructions by running:
 ```bash
 python generate/lora.py --prompt "Recommend a movie to watch on the weekend."
 ```
+
 Output:
-```
+
+```text
 I would recommend the movie The Martian (2015). It is a sci-fi movie starring Matt Damon that follows the story of...
 ```
 
@@ -56,11 +58,11 @@ If your GPU supports `bfloat16`, you can additionally pass `--precision bf16-tru
 
 With only a few modifications, you can prepare and train on your own instruction dataset.
 
-1. Create a json file in which each row holds one instruction-response pair. 
-   A row has an entry for 'instruction', 'input', and 'output', where 'input' is optional an can be 
+1. Create a json file in which each row holds one instruction-response pair.
+   A row has an entry for 'instruction', 'input', and 'output', where 'input' is optional an can be
    the empty string if the instruction doesn't require a context. Below is an example json file:
 
-    ```
+    ```text
     [
         {
             "instruction": "Arrange the given numbers in ascending order.",
@@ -85,13 +87,12 @@ With only a few modifications, you can prepare and train on your own instruction
     ```
 
 5. Run `finetune/lora.py` by passing in the location of your data (and optionally other parameters):
-   
+
     ```bash
     python finetune/lora.py --data_dir data/mydata/ --out_dir out/myexperiment
     ```
 
-
 ## Troubleshooting
 
 If you run into a CUDA error "Expected is_sm80 to be true, but got false", uncomment the line
-`torch.backends.cuda.enable_flash_sdp(False)` in the script below (see https://github.com/Lightning-AI/lit-llama/issues/101).
+`torch.backends.cuda.enable_flash_sdp(False)` in the script below (see <https://github.com/Lightning-AI/lit-llama/issues/101>).
