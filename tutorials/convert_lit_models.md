@@ -11,10 +11,12 @@ The way the script is used depends on the finetuning method. The commands for co
 
 ### Full Finetuning
 
-After full finetuning, your checkpoint directory will contain a file named `lit_model_finetuned.pth`. This file name is the default `checkpoint_name` and converting the finetuned model back to its original weights naming convention can be done with:
+After full finetuning, your checkpoint directory will contain a file named `lit_model_finetuned.pth`and converting the finetuned model back to its original weights naming convention can be done by setting the `--checkpoint_name` with:
 
 ```sh
-python scripts/convert_lit_checkpoint.py --checkpoint_dir=checkpoints/tiiuae/falcon-7b
+python scripts/convert_lit_checkpoint.py \
+    --checkpoint_dir=checkpoints/tiiuae/falcon-7b
+    --checkpoint_name=lit_model_finetuned
 ```
 
 ### Adapter and Adapter V2 Finetuning
@@ -24,7 +26,7 @@ After finetuning with either Adapter technique, your checkpoint directory will c
 ```sh
 python scripts/convert_lit_checkpoint.py \
     --checkpoint_dir=checkpoints/tiiuae/falcon-7b \
-    --checkpoint_name=lit_model_adapter_finetuned.pth
+    --checkpoint_name=lit_model_adapter_finetuned
 ```
 
 ### LoRA Finetuning
@@ -34,5 +36,5 @@ After finetuning with LoRA, your checkpoint directory will contain a file named 
 ```sh
 python scripts/convert_lit_checkpoint.py \
     --checkpoint_dir=checkpoints/tiiuae/falcon-7b \
-    --checkpoint_name=lit_model_lora_finetuned.pth
+    --checkpoint_name=lit_model_lora_finetuned
 ```
