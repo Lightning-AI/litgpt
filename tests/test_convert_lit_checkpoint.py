@@ -16,11 +16,11 @@ def test_convert_lit_checkpoint(tmp_path):
     with pytest.raises(RuntimeError, match="open file failed because of errno 2 on fopen"):
         convert_lit_checkpoint(checkpoint_name=chkpt_name, checkpoint_dir=tmp_path, model_name="falcon-7b")
 
-    chkpt_file = tmp_path / "lit_model_finetuned"
-    chkpt_file.touch()
+    chkpt_filename = tmp_path / "lit_model_finetuned"
+    chkpt_filename.touch()
     with mock.patch("scripts.convert_lit_checkpoint.lazy_load") as load:
         convert_lit_checkpoint(checkpoint_name=chkpt_name, checkpoint_dir=tmp_path, model_name="falcon-7b")
-    load.assert_called_with(chkpt_file)
+    load.assert_called_with(chkpt_filename)
 
     assert {p.name for p in tmp_path.glob("*")} == {chkpt_name, "lit_model_finetuned.bin"}
 
