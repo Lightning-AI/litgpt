@@ -39,6 +39,12 @@ weight_decay = 0.01
 lora_r = 8
 lora_alpha = 16
 lora_dropout = 0.05
+lora_query = True
+lora_key = False
+lora_value = True
+lora_projection = False
+lora_mlp = False
+lora_head = False
 warmup_steps = 100
 
 hparams = {k: v for k, v in locals().items() if isinstance(v, (int, float, str)) and not k.startswith("_")}
@@ -75,7 +81,7 @@ def main(fabric: L.Fabric, data_dir: Path, checkpoint_dir: Path, out_dir: Path):
 
     speed_monitor = SpeedMonitor(fabric, window_size=50, time_unit="seconds")
 
-    fabric.seed_everything(1337 + fabric.global_rank)
+    fabric.seed_everything(1337)  # same seed for every process to init model (FSDP)
 
     if fabric.global_rank == 0:
         os.makedirs(out_dir, exist_ok=True)
@@ -83,7 +89,20 @@ def main(fabric: L.Fabric, data_dir: Path, checkpoint_dir: Path, out_dir: Path):
     train_data = torch.load(data_dir / "train.pt")
     val_data = torch.load(data_dir / "test.pt")
 
-    config = Config.from_name(name=checkpoint_dir.name, r=lora_r, alpha=lora_alpha, dropout=lora_dropout)
+    if not any((lora_query, lora_key, lora_value, lora_projection, lora_mlp, lora_head)):
+        fabric.print("Warning: all LoRA layers are disabled!")
+    config = Config.from_name(
+        name=checkpoint_dir.name,
+        r=lora_r,
+        alpha=lora_alpha,
+        dropout=lora_dropout,
+        to_query=lora_query,
+        to_key=lora_key,
+        to_value=lora_value,
+        to_projection=lora_projection,
+        to_mlp=lora_mlp,
+        to_head=lora_head,
+    )
     checkpoint_path = checkpoint_dir / "lit_model.pth"
     fabric.print(f"Loading model {str(checkpoint_path)!r} with {config.__dict__}")
     with fabric.init_module(empty_init=False):
@@ -103,6 +122,8 @@ def main(fabric: L.Fabric, data_dir: Path, checkpoint_dir: Path, out_dir: Path):
 
     optimizer = torch.optim.AdamW(trainable_params, lr=learning_rate, weight_decay=weight_decay)
     model, optimizer = fabric.setup(model, optimizer)
+
+    fabric.seed_everything(1337 + fabric.global_rank)
 
     train_time = time.time()
     train(fabric, model, optimizer, train_data, val_data, checkpoint_dir, out_dir, speed_monitor)

@@ -34,7 +34,9 @@ The finetuning requires at least one GPU with ~24 GB memory (RTX 3090).
 
 This script will save checkpoints periodically to the folder `out/`.
 
-
+> **Note**: LoRA can be applied to not only `query`, `key` or `value` matrices, but also to `projection`, `mlp` and classification `head`.
+According to [QLoRA](https://arxiv.org/abs/2305.14314) paper (section 4): "LoRA on all linear transformer block layers are required to match full finetuning performance".
+By default LoRA is applied only to the `query` and `value` matrices. In order to apply LoRA to other weight matrices - change the variables in `finetune/lora.py` accordingly.
 
 ## Test the model
 
