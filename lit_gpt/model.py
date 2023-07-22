@@ -216,12 +216,12 @@ class CausalSelfAttention(nn.Module):
         # repeat k and v if necessary
         if self.config.n_query_groups != 1:  # doing this would require a full kv cache with MQA (inefficient!)
             # for MHA this is a no-op
-            k = k.repeat_interleave(q_per_kv, dim=2)
-            v = v.repeat_interleave(q_per_kv, dim=2)
+            k = k.expand(B, self.config.n_query_groups, q_per_kv, T, self.config.head_size)
+            v = v.expand(B, self.config.n_query_groups, q_per_kv, T, self.config.head_size)
 
         q = q.reshape(B, -1, T, self.config.head_size)  # (B, nh_q, T, hs)
-        k = k.view(B, -1, T, self.config.head_size)  # (B, nh_k, T, hs)
-        v = v.view(B, -1, T, self.config.head_size)  # (B, nh_v, T, hs)
+        k = k.reshape(B, -1, T, self.config.head_size)  # (B, nh_k, T, hs)
+        v = v.reshape(B, -1, T, self.config.head_size)  # (B, nh_v, T, hs)
 
         n_elem = int(self.config.rotary_percentage * self.config.head_size)
 
@@ -246,7 +246,7 @@ class CausalSelfAttention(nn.Module):
 
         y = self.scaled_dot_product_attention(q, k, v, mask=mask)
 
-        y = y.transpose(1, 2).contiguous().view(B, T, C)  # re-assemble all head outputs side by side
+        y = y.reshape(B, T, C)  # re-assemble all head outputs side by side
 
         # output projection
         y = self.proj(y)
@@ -269,10 +269,11 @@ class CausalSelfAttention(nn.Module):
             q = q.transpose(1, 2)
             k = k.transpose(1, 2)
             v = v.transpose(1, 2)
-            return flash_attn_func(q, k, v, dropout_p=0.0, softmax_scale=scale, causal=True).transpose(1, 2)
-        return torch.nn.functional.scaled_dot_product_attention(
+            return flash_attn_func(q, k, v, dropout_p=0.0, softmax_scale=scale, causal=True)
+        y = torch.nn.functional.scaled_dot_product_attention(
             q, k, v, attn_mask=mask, dropout_p=0.0, scale=scale, is_causal=mask is None
         )
+        return y.transpose(1, 2)
 
 
 class GptNeoxMLP(nn.Module):

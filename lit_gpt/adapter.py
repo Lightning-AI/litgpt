@@ -253,7 +253,7 @@ class CausalSelfAttention(BaseCausalSelfAttention):
             ay = self.scaled_dot_product_attention(q, ak, av, amask)
             y = y + self.gating_factor * ay
 
-        y = y.transpose(1, 2).contiguous().view(B, T, C)  # re-assemble all head outputs side by side
+        y = y.reshape(B, T, C)  # re-assemble all head outputs side by side
 
         # output projection
         y = self.proj(y)
