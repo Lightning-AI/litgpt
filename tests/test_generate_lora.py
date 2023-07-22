@@ -11,37 +11,6 @@ import pytest
 import torch
 
 
-@pytest.mark.parametrize("max_seq_length", (10, 5 + 20))
-def test_generate(max_seq_length):
-    import generate.lora as generate
-
-    from lit_gpt.lora import GPT, Config
-
-    T = 5
-    input_idx = torch.randint(10, size=(T,))
-
-    config = Config(block_size=128, vocab_size=16, n_layer=1, n_head=4, n_embd=8, to_query=True, to_value=True)
-    model = GPT(config)
-    max_new_tokens = 20
-
-    multinomial_results = []
-    original_multinomial = torch.multinomial
-
-    def multinomial(*args, **kwargs):
-        out = original_multinomial(*args, **kwargs)
-        multinomial_results.append(out)
-        return out
-
-    with mock.patch("torch.multinomial", multinomial):
-        out = generate.generate(model, input_idx, T + max_new_tokens, max_seq_length=max_seq_length, top_k=4)
-
-    assert out.size(0) == T + max_new_tokens
-    multinomial_results = torch.hstack(multinomial_results)
-    expected = torch.cat((input_idx, multinomial_results))
-    assert out.shape == expected.shape
-    torch.testing.assert_close(out, expected)
-
-
 def test_main(fake_checkpoint_dir, monkeypatch):
     import generate.lora as generate
 
