@@ -15,7 +15,7 @@ sys.path.append(str(wd))
 
 from generate.base import generate
 from lit_gpt import Tokenizer
-from lit_gpt.lora import GPT, Config, Block
+from lit_gpt.lora import GPT, Config, Block, merge_lora_weights
 from lit_gpt.utils import lazy_load, check_valid_checkpoint_dir, quantization
 from scripts.prepare_alpaca import generate_prompt
 
@@ -111,6 +111,7 @@ def main(
     fabric.print(f"Time to load the model weights: {time.time() - t0:.02f} seconds.", file=sys.stderr)
 
     model.eval()
+    merge_lora_weights(model)
     model = fabric.setup(model)
 
     tokenizer = Tokenizer(checkpoint_dir)

@@ -151,36 +151,17 @@ class LoRALinear(nn.Linear, LoRALayer):
             nn.init.kaiming_uniform_(self.lora_A, a=math.sqrt(5))
             nn.init.zeros_(self.lora_B)
 
-    def train(self, mode: bool = True):
-        """Set the module into train or eval mode.
-
-        Args:
-            mode: if True the module will be set into train mode, if False - eval mode.
-        """
+    def merge(self):
+        """Merges the LoRA weights into the full-rank weights (W = W + delta_W)."""
 
         def T(w):
             return w.transpose(0, 1) if self.fan_in_fan_out else w
 
-        # despite being called from nn.Linear this method will put all layers into train mode, including nn.Dropout
-        # of course except parameters (such as self.lora_A, self.lora_B)
-        super().train(mode)
-
-        # if we want to put the layer into `train` mode then subtract LoRA weights if weights are already merged, so we
-        # can keep original weights untouched and train LoRA's matrices A and B separately.
-        # if we want to put into 'eval` mode - merge pretrained weights with LoRA's matrices A and B (if it's not
-        # already done) to reduce computation overhead during inference.
-        if mode:
-            if self.merge_weights and self.merged:
-                # Make sure that the weights are not merged
-                if self.r > 0:
-                    self.weight.data -= T(self.lora_B @ self.lora_A) * self.scaling
-                self.merged = False
-        else:
-            if self.merge_weights and not self.merged:
-                # Merge the weights and mark it
-                if self.r > 0:
-                    self.weight.data += T(self.lora_B @ self.lora_A) * self.scaling
-                self.merged = True
+        if self.merge_weights and not self.merged:
+            # Merge the weights and mark it
+            if self.r > 0:
+                self.weight.data += T(self.lora_B @ self.lora_A) * self.scaling
+            self.merged = True
 
     def forward(self, x: torch.Tensor):
         def T(w):
@@ -307,7 +288,7 @@ class LoRAQKVLinear(LoRALinear):
                 lora_ind.append(
                     torch.arange(self.in_features + self.kv_embd_size, self.out_features, device=self.weight.device)
                 )
-            self.lora_ind = torch.cat(lora_ind)
+            self.register_buffer("lora_ind", torch.cat(lora_ind), persistent=False)
         self.reset_parameters()
         if fan_in_fan_out:
             self.weight.data = self.weight.data.T
@@ -354,36 +335,17 @@ class LoRAQKVLinear(LoRALinear):
         result = result.index_copy(1, self.lora_ind, x.reshape(-1, shape))  # (4096, 256)
         return result.view((*x.shape[:-1], self.out_features)).transpose(0, 1)  # (64, 64, 384)
 
-    def train(self, mode: bool = True):
-        """Set the module into train or eval mode if `mode` is True of False respectively.
-
-        For train mode (train(True)) if weights are merged we need to subtract weights updates (LoRA_A @ LoRA_B) from
-        pretrained weights so we can continue training LoRA's matrices A and B and keep pretrained weights frozen.
-
-        For eval mode (train(False)) if weights are not merged we need to add weight updates to pretrained weights in
-        order to reduce computational overhead during inference.
-
-        Args:
-            mode: if True the module will be set into train mode (affects Dropout and BatchNorm), if False - eval mode.
-
-        """
+    def merge(self):
+        """Merges the LoRA weights into the full-rank weights (W = W + delta_W)."""
 
         def T(w):
             return w.T if self.fan_in_fan_out else w
-
-        # despite being called from nn.Linear this method will put all layers into train mode, including nn.Dropout
-        # of course except parameters (such as self.lora_A, self.lora_B)
-        super(LoRALinear, self).train(mode)
-
-        # if train(True) -> unmerge unless we already have them unmerged
-        # if train(False) -> merge unless we already have them merged
-        should = self.merged if mode else not self.merged
 
         # Let's assume that:
         # ⚬ self.weight.data: (384, 128) or (3 * embedding_size, embedding_size)
         # ⚬ self.lora_A.data: (4, 128)
         # ⚬ self.lora_B.data: (256, 2)
-        if self.merge_weights and should:
+        if self.merge_weights and not self.merged:
             if self.r > 0 and any(self.enable_lora):
                 delta_w = F.conv1d(
                     self.lora_A.data.unsqueeze(0),  # (4, 128) -> (1, 4, 128)
@@ -392,12 +354,11 @@ class LoRAQKVLinear(LoRALinear):
                 ).squeeze(
                     0
                 )  # (1, 4, 128) @ (256, 2, 1) -> (1, 256, 128) -> (256, 128)
-                # -1: W = W - delta_W (unmerge), +1: W = W + delta_W (merge)
-                sign = -1 if mode else 1
-                self.weight.data += sign * self.zero_pad(
+                # W = W + delta_W (merge)
+                self.weight.data += self.zero_pad(
                     T(delta_w * self.scaling)
                 )  # (256, 128) after zero_pad (384, 128)
-            self.merged = not mode
+            self.merged = True
 
     def forward(self, x: torch.Tensor) -> torch.Tensor:
         """Do the forward pass.
@@ -710,3 +671,10 @@ class LLaMAMLP(lit_gpt.model.LLaMAMLP):
             lora_alpha=config.alpha,
             lora_dropout=config.dropout,
         )
+
+
+def merge_lora_weights(model: GPT) -> None:
+    """Merge LoRA weights into the full-rank weights to speed up inference."""
+    for module in model.modules():
+        if isinstance(module, LoRALinear):
+            module.merge()

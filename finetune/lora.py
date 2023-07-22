@@ -6,14 +6,14 @@ from typing import Optional, List, Dict, Tuple
 
 import lightning as L
 import torch
-from lightning.fabric.strategies import XLAStrategy
+from lightning.fabric.strategies import XLAStrategy, FSDPStrategy
 
 # support running without installing as a package
 wd = Path(__file__).parent.parent.resolve()
 sys.path.append(str(wd))
 
 from generate.base import generate
-from lit_gpt.lora import mark_only_lora_as_trainable, lora_filter, GPT, Config
+from lit_gpt.lora import mark_only_lora_as_trainable, lora_filter, GPT, Config, Block
 from lit_gpt.tokenizer import Tokenizer
 from lit_gpt.utils import lazy_load, check_valid_checkpoint_dir, step_csv_logger, chunked_cross_entropy
 from lit_gpt.speed_monitor import SpeedMonitorFabric as SpeedMonitor, measure_flops, estimate_flops
@@ -66,7 +66,13 @@ def setup(
             fabric_devices = "auto"
             strategy = XLAStrategy(sync_module_states=False)
         else:
-            raise NotImplementedError
+            precision="bf16-true"
+            strategy=FSDPStrategy(
+                auto_wrap_policy={Block},
+                activation_checkpointing_policy={Block},
+                state_dict_type="full",
+                limit_all_gathers=True,
+            )
     else:
         strategy = "auto"
 
