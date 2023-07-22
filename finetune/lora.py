@@ -132,11 +132,6 @@ def main(fabric: L.Fabric, data_dir: Path, checkpoint_dir: Path, out_dir: Path):
     fabric.seed_everything(1337 + fabric.global_rank)
 
     train_time = time.time()
-    
-    # sanity check
-    save_path = out_dir / "sanity_checkpoint.pth"
-    save_lora_checkpoint(fabric, model, save_path)
-
     train(fabric, model, optimizer, train_data, val_data, checkpoint_dir, out_dir, speed_monitor)
     fabric.print(f"Training time: {(time.time()-train_time):.2f}s")
 
