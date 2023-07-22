@@ -64,11 +64,6 @@ def copy_weights_falcon(
         state_dict[to_name] = param
 
 
-def get_to_name(lit_key_name: str, weight_map: Dict[str, str]) -> str:
-    for k, v in weight_map.items():
-        if lit_key_name == v:
-            return k
-
 
 @torch.inference_mode()
 def convert_lit_checkpoint(
