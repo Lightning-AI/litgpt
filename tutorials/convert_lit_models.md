@@ -4,7 +4,7 @@ Several models retrieved from external sources must be reformatted with naming c
 
 The way the script is used depends on the finetuning method. The commands for converting a model back to its original format after using one of the several finetuning methods supported by Lit-GPT are shown below.
 
-> **Note**
+> [!NOTE]
 > each example shown below uses Falcon-7B please be sure to update --checkpoint_dir accordingly
 
 ### Full Finetuning
