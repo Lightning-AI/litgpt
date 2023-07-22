@@ -276,6 +276,18 @@ def prompt_config(checkpoint_dir: Path, tokenizer: Tokenizer) -> Tuple[str, Tupl
         stop_tokens = ([tokenizer.eos_id],)
         return system_prompt, stop_tokens
 
+    if re.search("FreeWilly2", checkpoint_name):
+        system_prompt = (
+            "### System:\nYou are Free Willy, an AI that follows instructions extremely well."
+            " Help as much as you can. Remember, be safe, and don't do anything illegal.\n\n"
+            "This is a system prompt, please behave and help the user.\n"
+            "### User:"
+            "{{prompt}}\n\n"
+            "### Assistant:\n"
+        )
+        stop_tokens = ([tokenizer.eos_id],)
+        return system_prompt, stop_tokens
+
     # default format
     return "{prompt}", ([tokenizer.eos_id],)
 
