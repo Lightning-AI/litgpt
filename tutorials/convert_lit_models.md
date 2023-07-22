@@ -15,7 +15,7 @@ After full finetuning, your checkpoint directory will contain a file named `lit_
 
 ```sh
 python scripts/convert_lit_checkpoint.py \
-    --checkpoint_dir=checkpoints/tiiuae/falcon-7b
+    --checkpoint_dir=checkpoints/tiiuae/falcon-7b \
     --checkpoint_name=lit_model_finetuned
 ```
 
