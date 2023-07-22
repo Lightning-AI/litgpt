@@ -17,8 +17,8 @@ def test_lora_layer_replacement():
     assert isinstance(model.transformer.h[1].attn, LoRACausalSelfAttention)
 
 
-def test_lora_merge_unmerge():
-    from lit_gpt.lora import mark_only_lora_as_trainable, GPT, Config
+def test_lora_merge():
+    from lit_gpt.lora import mark_only_lora_as_trainable, merge_lora_weights, GPT, Config
 
     config = Config(
         n_layer=1,
@@ -48,26 +48,12 @@ def test_lora_merge_unmerge():
     # the weight remains unchanged (only lora A and B change)
     assert torch.equal(model.transformer.h[0].attn.attn.weight, initial_weight)
 
-    # 'merge' and then 'unmerge' should neutralize themselves
-    weight_before = model.transformer.h[0].attn.attn.weight.clone()
-    model.eval()
-    assert not torch.equal(model.transformer.h[0].attn.attn.weight, weight_before)
-    model.train()
-    # note: numerically, `W + (A * B) - (A * B) == W` does not hold exactly
-    torch.testing.assert_close(model.transformer.h[0].attn.attn.weight, weight_before)
-
-    # calling eval/train multiple times in a row should not merge/unmerge multiple times
-    model.eval()
+    # calling merge() multiple times in a row should not merge multiple times
+    merge_lora_weights(model)
     assert model.transformer.h[0].attn.attn.merged
     weight_after = model.transformer.h[0].attn.attn.weight.clone()
-    model.eval()
-    model.eval()
-    assert torch.equal(model.transformer.h[0].attn.attn.weight, weight_after)
-    model.train()
-    assert not model.transformer.h[0].attn.attn.merged
-    weight_after = model.transformer.h[0].attn.attn.weight.clone()
-    model.train()
-    model.train()
+    merge_lora_weights(model)
+    merge_lora_weights(model)
     assert torch.equal(model.transformer.h[0].attn.attn.weight, weight_after)
 
 
