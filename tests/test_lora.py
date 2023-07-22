@@ -31,12 +31,13 @@ def test_lora_merge():
         dropout=0.1,
         to_query=True,
         to_value=True,
+        to_projection=True,
     )
     model = GPT(config)
-
-    initial_weight = model.transformer.h[0].attn.attn.weight.clone()
     model.train()
-    assert torch.equal(model.transformer.h[0].attn.attn.weight, initial_weight)
+    
+    initial_weight = model.transformer.h[0].attn.proj.weight.clone()
+    assert torch.equal(model.transformer.h[0].attn.proj.weight, initial_weight)
 
     # perform an update to the LoRA weights
     mark_only_lora_as_trainable(model)
@@ -46,15 +47,22 @@ def test_lora_merge():
     optimizer.step()
     optimizer.zero_grad()
     # the weight remains unchanged (only lora A and B change)
-    assert torch.equal(model.transformer.h[0].attn.attn.weight, initial_weight)
+    assert torch.equal(model.transformer.h[0].attn.proj.weight, initial_weight)
 
     # calling merge() multiple times in a row should not merge multiple times
     merge_lora_weights(model)
     assert model.transformer.h[0].attn.attn.merged
-    weight_after = model.transformer.h[0].attn.attn.weight.clone()
+    weight_after = model.transformer.h[0].attn.proj.weight.clone()
     merge_lora_weights(model)
     merge_lora_weights(model)
-    assert torch.equal(model.transformer.h[0].attn.attn.weight, weight_after)
+    assert torch.equal(model.transformer.h[0].attn.proj.weight, weight_after)
+
+    # check that `W_after = W_initial + (A x B)`
+    a = model.transformer.h[0].attn.proj.lora_A
+    b = model.transformer.h[0].attn.proj.lora_B
+    scaling = model.transformer.h[0].attn.proj.scaling
+    delta_w = (b @ a) * scaling
+    torch.testing.assert_close(weight_after, initial_weight + delta_w)
 
 
 def test_lora_mqa_gqa():
