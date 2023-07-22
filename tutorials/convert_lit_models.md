@@ -6,8 +6,7 @@ The way the script is used depends on the finetuning method. The commands for co
 
 > **Note**
 >
-> each example shown below uses Falcon-7B <br/>
-> please be sure to update --checkpoint_dir accordingly
+> each example shown below uses Falcon-7B please be sure to update --checkpoint_dir accordingly
 
 ### Full Finetuning
 
