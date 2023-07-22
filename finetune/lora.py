@@ -24,7 +24,7 @@ eval_interval = 100
 save_interval = 100
 eval_iters = 100
 log_interval = 1
-devices = 2
+devices = 1
 # change this value to force a maximum sequence length
 override_max_seq_length = None
 
@@ -52,7 +52,7 @@ hparams = {k: v for k, v in locals().items() if isinstance(v, (int, float, str))
 
 def setup(
     data_dir: Path = Path("data/alpaca"),
-    checkpoint_dir: Path = Path("checkpoints/EleutherAI/pythia-1b"),
+    checkpoint_dir: Path = Path("stabilityai/stablelm-base-alpha-3b"),
     out_dir: Path = Path("out/lora/alpaca"),
     precision: Optional[str] = None,
     tpu: bool = False,
