@@ -21,24 +21,17 @@ from lit_gpt.utils import check_valid_checkpoint_dir, lazy_load, quantization
 
 
 def build_llm(
-    checkpoint_dir: Path = Path(f"checkpoints/stabilityai/stablelm-base-alpha-3b"),
-    quantize: Optional[
-        Literal[
-            "bnb.nf4", "bnb.nf4-dq", "bnb.fp4", "bnb.fp4-dq", "bnb.int8", "gptq.int4"
-        ]
-    ] = None,
+    checkpoint_dir: Path = Path("checkpoints/stabilityai/stablelm-base-alpha-3b"),
+    quantize: Optional[Literal["bnb.nf4", "bnb.nf4-dq", "bnb.fp4", "bnb.fp4-dq", "bnb.int8", "gptq.int4"]] = None,
     strategy: str = "auto",
     devices: int = 1,
     precision: str = "bf16-true",
 ):
     if strategy == "fsdp":
-        auto_wrap_policy = partial(
-            transformer_auto_wrap_policy, transformer_layer_cls={Block}
-        )
-        strategy = FSDPStrategy(auto_wrap_policy=auto_wrap_policy, cpu_offload=False)
+        strategy = FSDPStrategy(auto_wrap_policy={Block}, cpu_offload=False)
     fabric = L.Fabric(devices=devices, precision=precision, strategy=strategy)
     fabric.launch()
-    checkpoint_dir = Path(checkpoint_dir)
+
     check_valid_checkpoint_dir(checkpoint_dir)
 
     with open(checkpoint_dir / "lit_config.json") as fp:
@@ -54,29 +47,22 @@ def build_llm(
         model_file = "lit_model.pth"
     checkpoint_path = checkpoint_dir / model_file
 
-    fabric.print(
-        f"Loading model {str(checkpoint_path)!r} with {config.__dict__}",
-        file=sys.stderr,
-    )
+    fabric.print(f"Loading model {str(checkpoint_path)!r} with {config.__dict__}", file=sys.stderr)
     t0 = time.time()
     with fabric.init_module(empty_init=True), quantization(quantize):
         model = GPT(config)
-    fabric.print(
-        f"Time to instantiate model: {time.time() - t0:.02f} seconds.", file=sys.stderr
-    )
+    fabric.print(f"Time to instantiate model: {time.time() - t0:.02f} seconds.", file=sys.stderr)
 
     t0 = time.time()
     with lazy_load(checkpoint_path) as checkpoint:
         model.load_state_dict(
             checkpoint.get("model", checkpoint), strict=quantize is None
         )
-    fabric.print(
-        f"Time to load the model weights: {time.time() - t0:.02f} seconds.",
-        file=sys.stderr,
-    )
+    fabric.print(f"Time to load the model weights: {time.time() - t0:.02f} seconds.", file=sys.stderr)
 
     model.eval()
     model = fabric.setup_module(model)
+
     tokenizer = Tokenizer(checkpoint_dir)
     return model, tokenizer, fabric
 
@@ -159,11 +145,7 @@ def main(
     top_k: int = 200,
     temperature: float = 0.8,
     checkpoint_dir: Path = Path(f"checkpoints/stabilityai/stablelm-base-alpha-3b"),
-    quantize: Optional[
-        Literal[
-            "bnb.nf4", "bnb.nf4-dq", "bnb.fp4", "bnb.fp4-dq", "bnb.int8", "gptq.int4"
-        ]
-    ] = None,
+    quantize: Optional[Literal["bnb.nf4", "bnb.nf4-dq", "bnb.fp4", "bnb.fp4-dq", "bnb.int8", "gptq.int4"]] = None,
     strategy: str = "auto",
     devices: int = 1,
     precision: str = "bf16-true",
@@ -214,14 +196,10 @@ def main(
         fabric.print(tokenizer.decode(y))
         tokens_generated = y.size(0) - prompt_length
         fabric.print(
-            f"Time for inference {i + 1}: {t:.02f} sec total, {tokens_generated / t:.02f} tokens/sec",
-            file=sys.stderr,
+            f"Time for inference {i + 1}: {t:.02f} sec total, {tokens_generated / t:.02f} tokens/sec", file=sys.stderr
         )
     if fabric.device.type == "cuda":
-        fabric.print(
-            f"Memory used: {torch.cuda.max_memory_allocated() / 1e9:.02f} GB",
-            file=sys.stderr,
-        )
+        fabric.print(f"Memory used: {torch.cuda.max_memory_allocated() / 1e9:.02f} GB", file=sys.stderr)
 
 
 if __name__ == "__main__":
@@ -232,10 +210,5 @@ if __name__ == "__main__":
         # Triggered internally at ../aten/src/ATen/EmptyTensor.cpp:31
         "ignore",
         message="ComplexHalf support is experimental and many operators don't support it yet",
-    )
-    warnings.filterwarnings(
-        # Triggered in bitsandbytes/autograd/_functions.py:298
-        "ignore",
-        message="MatMul8bitLt: inputs will be cast from torch.bfloat16 to float16 during quantization",
     )
     CLI(main)
