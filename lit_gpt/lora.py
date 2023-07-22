@@ -676,6 +676,5 @@ class LLaMAMLP(lit_gpt.model.LLaMAMLP):
 def merge_lora_weights(model: GPT) -> None:
     """Merge LoRA weights into the full-rank weights to speed up inference."""
     for module in model.modules():
-        merge_fn = getattr(module, "merge", None)
-        if callable(merge_fn):
-            merge_fn()
+        if isinstance(module, LoRALinear):
+            module.merge()
