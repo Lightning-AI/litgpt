@@ -499,7 +499,7 @@ for c in llama_2:
 
 
 ###############
-# Meta LLaMA 2
+# Stability AI FreeWilly2
 ###############
 freewilly_2 = [
     # https://huggingface.co/stabilityai/FreeWilly2/blob/main/config.json
