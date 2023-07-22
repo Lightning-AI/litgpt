@@ -11,7 +11,7 @@ wd = Path(__file__).parent.parent.absolute()
 def test_convert_lit_checkpoint(tmp_path):
     from scripts.convert_lit_checkpoint import convert_lit_checkpoint
 
-    chkpt_name = "lit_model_finetuned"
+    ckpt_name = "lit_model_finetuned"
 
     with pytest.raises(RuntimeError, match="open file failed because of errno 2 on fopen"):
         convert_lit_checkpoint(checkpoint_name=chkpt_name, checkpoint_dir=tmp_path, model_name="falcon-7b")
