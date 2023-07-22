@@ -443,7 +443,7 @@ def mark_only_lora_as_trainable(model: nn.Module, bias: str = "none") -> None:
 
 
 def lora_filter(key: str, value: Any) -> bool:
-    return "lora_" in key
+    return "lora_" in key and "lora_ind" not in key
 
 
 @dataclass
