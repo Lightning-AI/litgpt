@@ -288,7 +288,7 @@ class LoRAQKVLinear(LoRALinear):
                 lora_ind.append(
                     torch.arange(self.in_features + self.kv_embd_size, self.out_features, device=self.weight.device)
                 )
-            self.register_buffer("lora_ind", torch.cat(lora_ind))
+            self.register_buffer("lora_ind", torch.cat(lora_ind), persistent=False)
         self.reset_parameters()
         if fan_in_fan_out:
             self.weight.data = self.weight.data.T
@@ -443,7 +443,7 @@ def mark_only_lora_as_trainable(model: nn.Module, bias: str = "none") -> None:
 
 
 def lora_filter(key: str, value: Any) -> bool:
-    return "lora_" in key and "lora_ind" not in key
+    return "lora_" in key
 
 
 @dataclass
