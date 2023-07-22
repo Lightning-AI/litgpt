@@ -14,15 +14,15 @@ def test_convert_lit_checkpoint(tmp_path):
     ckpt_name = "lit_model_finetuned"
 
     with pytest.raises(RuntimeError, match="open file failed because of errno 2 on fopen"):
-        convert_lit_checkpoint(checkpoint_name=chkpt_name, checkpoint_dir=tmp_path, model_name="falcon-7b")
+        convert_lit_checkpoint(checkpoint_name=ckpt_name, checkpoint_dir=tmp_path, model_name="falcon-7b")
 
-    chkpt_filename = tmp_path / "lit_model_finetuned"
-    chkpt_filename.touch()
+    ckpt_path = tmp_path / "lit_model_finetuned"
+    ckpt_path.touch()
     with mock.patch("scripts.convert_lit_checkpoint.lazy_load") as load:
-        convert_lit_checkpoint(checkpoint_name=chkpt_name, checkpoint_dir=tmp_path, model_name="falcon-7b")
-    load.assert_called_with(chkpt_filename)
+        convert_lit_checkpoint(checkpoint_name=ckpt_name, checkpoint_dir=tmp_path, model_name="falcon-7b")
+    load.assert_called_with(ckpt_path)
 
-    assert {p.name for p in tmp_path.glob("*")} == {chkpt_name, "lit_model_finetuned.bin"}
+    assert {p.name for p in tmp_path.glob("*")} == {ckpt_name, "lit_model_finetuned.bin"}
 
 
 @torch.inference_mode()
