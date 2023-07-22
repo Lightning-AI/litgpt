@@ -5,7 +5,6 @@ https://arxiv.org/abs/2303.16199
 
 Port for Lit-GPT
 """
-import math
 from dataclasses import dataclass
 from typing import Optional, Tuple, Any, List, Union
 
@@ -71,10 +70,10 @@ class GPT(BaseModel):
             max_seq_length = block_size
         if use_kv_cache:  # not relevant otherwise
             assert (
-                T <= max_seq_length
+                max_seq_length >= T
             ), f"Cannot forward sequence of length {T}, max seq length is only {max_seq_length}"
         assert max_seq_length <= block_size, f"Cannot attend to {max_seq_length}, block size is only {block_size}"
-        assert T <= block_size, f"Cannot forward sequence of length {T}, block size is only {block_size}"
+        assert block_size >= T, f"Cannot forward sequence of length {T}, block size is only {block_size}"
 
         if self.rope_cache is None:
             self.rope_cache = self.build_rope_cache(idx)
@@ -114,8 +113,7 @@ class GPT(BaseModel):
         if lm_head_chunk_size > 0:
             # chunk the lm head logits to reduce the peak memory used by autograd
             return [self.lm_head(x_i) for x_i in x.split(lm_head_chunk_size, dim=1)]
-        else:
-            return self.lm_head(x)  # (b, t, vocab_size)
+        return self.lm_head(x)  # (b, t, vocab_size)
 
     @classmethod
     def from_name(cls, name: str, **kwargs: Any) -> Self:
@@ -231,10 +229,7 @@ class CausalSelfAttention(BaseCausalSelfAttention):
             v = cache_v.index_copy_(2, input_pos, v)
             kv_cache = k, v
 
-        # efficient attention using Flash Attention CUDA kernels
-        y = torch.nn.functional.scaled_dot_product_attention(
-            q, k, v, attn_mask=mask, dropout_p=0.0, scale=1.0 / math.sqrt(self.config.head_size), is_causal=mask is None
-        )
+        y = self.scaled_dot_product_attention(q, k, v, mask=mask)
 
         if self.block_idx >= self.config.adapter_start_layer:
             aT = self.config.adapter_prompt_length
@@ -255,9 +250,7 @@ class CausalSelfAttention(BaseCausalSelfAttention):
                 adapter_kv_cache = (ak, av)
 
             amask = torch.ones(T, aT, dtype=torch.bool, device=x.device)
-            ay = torch.nn.functional.scaled_dot_product_attention(
-                q, ak, av, attn_mask=amask, dropout_p=0.0, is_causal=False
-            )
+            ay = self.scaled_dot_product_attention(q, ak, av, amask)
             y = y + self.gating_factor * ay
 
         y = y.transpose(1, 2).contiguous().view(B, T, C)  # re-assemble all head outputs side by side

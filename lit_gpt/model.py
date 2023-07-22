@@ -8,6 +8,7 @@ from typing import List, Optional, Tuple, Any
 
 import torch
 import torch.nn as nn
+from lightning_utilities.core.imports import RequirementCache
 from typing_extensions import Self
 
 from lit_gpt.config import Config
@@ -15,6 +16,8 @@ from lit_gpt.rmsnorm import RMSNorm
 
 RoPECache = Tuple[torch.Tensor, torch.Tensor]
 KVCache = Tuple[torch.Tensor, torch.Tensor]
+
+FlashAttention2Available = RequirementCache("flash-attn>=2.0.0.post1")
 
 
 class GPT(nn.Module):
@@ -68,10 +71,10 @@ class GPT(nn.Module):
             max_seq_length = block_size
         if use_kv_cache:  # not relevant otherwise
             assert (
-                T <= max_seq_length
+                max_seq_length >= T
             ), f"Cannot forward sequence of length {T}, max seq length is only {max_seq_length}"
         assert max_seq_length <= block_size, f"Cannot attend to {max_seq_length}, block size is only {block_size}"
-        assert T <= block_size, f"Cannot forward sequence of length {T}, block size is only {block_size}"
+        assert block_size >= T, f"Cannot forward sequence of length {T}, block size is only {block_size}"
 
         if self.rope_cache is None:
             self.rope_cache = self.build_rope_cache(idx)
@@ -105,9 +108,7 @@ class GPT(nn.Module):
 
         x = self.transformer.ln_f(x)
 
-        logits = self.lm_head(x)  # (b, t, vocab_size)
-
-        return logits
+        return self.lm_head(x)  # (b, t, vocab_size)
 
     @classmethod
     def from_name(cls, name: str, **kwargs: Any) -> Self:
@@ -119,7 +120,7 @@ class GPT(nn.Module):
             n_elem=int(self.config.rotary_percentage * self.config.head_size),
             dtype=torch.get_default_dtype(),
             device=idx.device,
-            condense_ratio=self.config.condense_ratio
+            condense_ratio=self.config.condense_ratio,
         )
 
     def build_mask_cache(self, idx: torch.Tensor) -> torch.Tensor:
@@ -243,10 +244,7 @@ class CausalSelfAttention(nn.Module):
             v = cache_v.index_copy_(2, input_pos, v)
             kv_cache = k, v
 
-        # efficient attention using Flash Attention CUDA kernels
-        y = torch.nn.functional.scaled_dot_product_attention(
-            q, k, v, attn_mask=mask, dropout_p=0.0, scale=1.0 / math.sqrt(self.config.head_size), is_causal=mask is None
-        )
+        y = self.scaled_dot_product_attention(q, k, v, mask=mask)
 
         y = y.transpose(1, 2).contiguous().view(B, T, C)  # re-assemble all head outputs side by side
 
@@ -254,6 +252,27 @@ class CausalSelfAttention(nn.Module):
         y = self.proj(y)
 
         return y, kv_cache
+
+    def scaled_dot_product_attention(
+        self, q: torch.Tensor, k: torch.Tensor, v: torch.Tensor, mask: Optional[torch.Tensor] = None
+    ):
+        scale = 1.0 / math.sqrt(self.config.head_size)
+        if (
+            FlashAttention2Available
+            and mask is None
+            and q.device.type == "cuda"
+            and q.dtype in (torch.float16, torch.bfloat16)
+        ):
+            from flash_attn import flash_attn_func
+
+            # flash-attn requires (B, T, nh, hs)
+            q = q.transpose(1, 2)
+            k = k.transpose(1, 2)
+            v = v.transpose(1, 2)
+            return flash_attn_func(q, k, v, dropout_p=0.0, softmax_scale=scale, causal=True).transpose(1, 2)
+        return torch.nn.functional.scaled_dot_product_attention(
+            q, k, v, attn_mask=mask, dropout_p=0.0, scale=scale, is_causal=mask is None
+        )
 
 
 class GptNeoxMLP(nn.Module):
@@ -265,8 +284,7 @@ class GptNeoxMLP(nn.Module):
     def forward(self, x: torch.Tensor) -> torch.Tensor:
         x = self.fc(x)
         x = torch.nn.functional.gelu(x)
-        x = self.proj(x)
-        return x
+        return self.proj(x)
 
 
 class LLaMAMLP(nn.Module):
@@ -280,8 +298,7 @@ class LLaMAMLP(nn.Module):
         x_fc_1 = self.fc_1(x)
         x_fc_2 = self.fc_2(x)
         x = torch.nn.functional.silu(x_fc_1) * x_fc_2
-        x = self.proj(x)
-        return x
+        return self.proj(x)
 
 
 def build_rope_cache(

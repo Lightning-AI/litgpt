@@ -2,14 +2,12 @@ import json
 import sys
 import time
 import warnings
-from functools import partial
 from pathlib import Path
 from typing import Literal, Optional
 
 import lightning as L
 import torch
 from lightning.fabric.strategies import FSDPStrategy
-from torch.distributed.fsdp.wrap import transformer_auto_wrap_policy
 
 # support running without installing as a package
 wd = Path(__file__).parent.parent.resolve()
@@ -17,7 +15,7 @@ sys.path.append(str(wd))
 
 from generate.base import generate
 from lit_gpt import Tokenizer
-from lit_gpt.lora import GPT, Config, Block
+from lit_gpt.lora import GPT, Config, Block, merge_lora_weights
 from lit_gpt.utils import lazy_load, check_valid_checkpoint_dir, quantization
 from scripts.prepare_alpaca import generate_prompt
 
@@ -25,16 +23,20 @@ from scripts.prepare_alpaca import generate_prompt
 lora_r = 8
 lora_alpha = 16
 lora_dropout = 0.05
+lora_query = True
+lora_key = False
+lora_value = True
+lora_projection = False
+lora_mlp = False
+lora_head = False
 
 
 def main(
     prompt: str = "What food do lamas eat?",
     input: str = "",
     lora_path: Path = Path("out/lora/alpaca/lit_model_lora_finetuned.pth"),
-    checkpoint_dir: Path = Path(f"checkpoints/stabilityai/stablelm-base-alpha-3b"),
-    quantize: Optional[
-        Literal["bnb.nf4", "bnb.nf4-dq", "bnb.fp4", "bnb.fp4-dq", "bnb.int8", "gptq.int4"]
-    ] = None,
+    checkpoint_dir: Path = Path("checkpoints/stabilityai/stablelm-base-alpha-3b"),
+    quantize: Optional[Literal["bnb.nf4", "bnb.nf4-dq", "bnb.fp4", "bnb.fp4-dq", "bnb.int8", "gptq.int4"]] = None,
     max_new_tokens: int = 100,
     top_k: int = 200,
     temperature: float = 0.8,
@@ -66,15 +68,25 @@ def main(
         precision: Indicates the Fabric precision setting to use.
     """
     if strategy == "fsdp":
-        auto_wrap_policy = partial(transformer_auto_wrap_policy, transformer_layer_cls={Block})
-        strategy = FSDPStrategy(auto_wrap_policy=auto_wrap_policy, cpu_offload=False)
+        strategy = FSDPStrategy(auto_wrap_policy={Block}, cpu_offload=False)
     fabric = L.Fabric(devices=devices, precision=precision, strategy=strategy)
     fabric.launch()
 
     check_valid_checkpoint_dir(checkpoint_dir)
 
     with open(checkpoint_dir / "lit_config.json") as fp:
-        config = Config(r=lora_r, alpha=lora_alpha, dropout=lora_dropout, **json.load(fp))
+        config = Config(
+            r=lora_r,
+            alpha=lora_alpha,
+            dropout=lora_dropout,
+            to_query=lora_query,
+            to_key=lora_key,
+            to_value=lora_value,
+            to_projection=lora_projection,
+            to_mlp=lora_mlp,
+            to_head=lora_head,
+            **json.load(fp),
+        )
 
     if quantize is not None and devices > 1:
         raise NotImplementedError
@@ -99,6 +111,7 @@ def main(
     fabric.print(f"Time to load the model weights: {time.time() - t0:.02f} seconds.", file=sys.stderr)
 
     model.eval()
+    merge_lora_weights(model)
     model = fabric.setup(model)
 
     tokenizer = Tokenizer(checkpoint_dir)

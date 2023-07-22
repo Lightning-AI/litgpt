@@ -3,7 +3,7 @@
 When `--precision bf16-true` or `--precision 16-true` is used, the model weights will automatically be converted and consume less memory.
 However, this might not be enough for large models or when using GPUs with limited memory.
 
-> **Note**: 
+> **Note**:
 > Quantization is only supported with inference (generate and chat scripts).
 
 ### Baseline
@@ -21,9 +21,12 @@ To reduce the memory requirements further, Lit-GPT supports several quantization
 
 ## `bnb.nf4`
 
-Enabled with [bitsandbyes](https://github.com/TimDettmers/bitsandbytes). Check out the [paper](https://arxiv.org/abs/2305.14314v1) to learn more about how it works.
+Enabled with [bitsandbytes](https://github.com/TimDettmers/bitsandbytes). Check out the [paper](https://arxiv.org/abs/2305.14314v1) to learn more about how it works.
 
-Uses the normalized float 4 (nf4) data type. This is recommended over "fp4" based on the paper's experimental results and theoretical analysis. 
+> **Note**: `bitsandbytes` only supports `CUDA` devices and the `Linux` operating system.
+Windows users should use [WSL2](https://learn.microsoft.com/en-us/windows/ai/directml/gpu-cuda-in-wsl).
+
+Uses the normalized float 4 (nf4) data type. This is recommended over "fp4" based on the paper's experimental results and theoretical analysis.
 
 ```bash
 python generate/base.py --quantize bnb.nf4 --checkpoint_dir checkpoints/tiiuae/falcon-7b --precision bf16-true --max_new_tokens 256
@@ -34,7 +37,7 @@ Memory used: 5.72 GB
 
 ## `bnb.nf4-dq`
 
-Enabled with [bitsandbyes](https://github.com/TimDettmers/bitsandbytes). Check out the [paper](https://arxiv.org/abs/2305.14314v1) to learn more about how it works.
+Enabled with [bitsandbytes](https://github.com/TimDettmers/bitsandbytes). Check out the [paper](https://arxiv.org/abs/2305.14314v1) to learn more about how it works.
 
 "dq" stands for "Double Quantization" which reduces the average memory footprint by quantizing the quantization constants.
 In average, this amounts to about 0.37 bits per parameter (approximately 3 GB for a 65B model).
@@ -48,7 +51,7 @@ Memory used: 5.37 GB
 
 ## `bnb.fp4`
 
-Enabled with [bitsandbyes](https://github.com/TimDettmers/bitsandbytes). Check out the [paper](https://arxiv.org/abs/2305.14314v1) to learn more about how it works.
+Enabled with [bitsandbytes](https://github.com/TimDettmers/bitsandbytes). Check out the [paper](https://arxiv.org/abs/2305.14314v1) to learn more about how it works.
 
 Uses pure FP4 quantization.
 
@@ -61,7 +64,7 @@ Memory used: 5.72 GB
 
 ## `bnb.fp4-dq`
 
-Enabled with [bitsandbyes](https://github.com/TimDettmers/bitsandbytes). Check out the [paper](https://arxiv.org/abs/2305.14314v1) to learn more about how it works.
+Enabled with [bitsandbytes](https://github.com/TimDettmers/bitsandbytes). Check out the [paper](https://arxiv.org/abs/2305.14314v1) to learn more about how it works.
 
 "dq" stands for "Double Quantization" which reduces the average memory footprint by quantizing the quantization constants.
 In average, this amounts to about 0.37 bits per parameter (approximately 3 GB for a 65B model).
@@ -75,7 +78,7 @@ Memory used: 5.37 GB
 
 ## `bnb.int8`
 
-Enabled with [bitsandbyes](https://github.com/TimDettmers/bitsandbytes). Check out the [paper](https://arxiv.org/abs/2110.02861) to learn more about how it works.
+Enabled with [bitsandbytes](https://github.com/TimDettmers/bitsandbytes). Check out the [paper](https://arxiv.org/abs/2110.02861) to learn more about how it works.
 
 ```bash
 python generate/base.py --quantize bnb.int8 --checkpoint_dir checkpoints/tiiuae/falcon-7b --precision bf16-true --max_new_tokens 256

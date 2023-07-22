@@ -43,13 +43,14 @@ two matrices of a lower rank.
 
 import math
 from dataclasses import dataclass
-from typing import Optional, Tuple, Any, List, Union
+from typing import Optional, Tuple, Any, List, Type, Union
 
 import torch
 import torch.nn as nn
 from torch.nn import functional as F
 from typing_extensions import Self
 
+import lit_gpt
 from lit_gpt.config import Config as BaseConfig
 from lit_gpt.model import (
     GPT as BaseModel,
@@ -87,7 +88,98 @@ class LoRALayer:
         self.merge_weights = merge_weights
 
 
-class MergedLinear(nn.Linear, LoRALayer):
+class LoRALinear(nn.Linear, LoRALayer):
+    # LoRA implemented in a dense layer
+    def __init__(
+        self,
+        # ↓ this part is for pretrained weights
+        in_features: int,
+        out_features: int,
+        # ↓ the remaining part is for LoRA
+        r: int = 0,
+        lora_alpha: int = 1,
+        lora_dropout: float = 0.0,
+        fan_in_fan_out: bool = False,
+        merge_weights: bool = True,
+        **kwargs,
+    ):
+        """LoRA wrapper around linear class.
+
+        This class has three weight matrices:
+            1. Pretrained weights are stored as `self.weight` (because of the nn.Linear inheritance)
+            2. LoRA A matrix as `self.lora_A`
+            3. LoRA B matrix as `self.lora_B`
+        Only LoRA's A and B matrices are updated, pretrained weights stay frozen.
+
+        Args:
+            in_features: number of input features of the pretrained weights
+            out_features: number of output features of the pretrained weights
+            r: rank of the weight update matrices. To make sense of using LoRA the rank should be smaller than the rank of
+                the weights of the model.  The rank can be as low as 1: https://arxiv.org/pdf/2106.09685.pdf (section 7.2)
+            lora_alpha: alpha is needed for scaling updates as alpha/r
+                "This scaling helps to reduce the need to retune hyperparameters when we vary r"
+                https://arxiv.org/pdf/2106.09685.pdf (section 4.1)
+            lora_dropout: dropout that is applied on the input in the LoRA branch (before multiplying by matrix A)
+            fan_in_fan_out: set this to True if the layer to replace stores weight like (fan_in, fan_out).  For example, gpt-2 uses
+                `Conv1D` which stores weights like (fan_in, fan_out) and hence this should be set to `True`
+                https://github.com/huggingface/peft/blob/main/src/peft/tuners/lora.py#LL53C9-L53C112
+            merge_weights: whether we want to merge pretrained weights and LoRA weight updates. This is useful if one wants to use
+                fine-tuned model as a standalone one (without storing LoRA weight separately) plus it helps to reduce
+                overhead during inference.
+        """
+        super().__init__(in_features, out_features, **kwargs)
+        LoRALayer.__init__(self, r=r, lora_alpha=lora_alpha, lora_dropout=lora_dropout, merge_weights=merge_weights)
+
+        self.fan_in_fan_out = fan_in_fan_out
+        # Actual trainable parameters
+        if r > 0:
+            self.lora_A = nn.Parameter(self.weight.new_zeros((r, in_features)))
+            self.lora_B = nn.Parameter(self.weight.new_zeros((out_features, r)))
+            self.scaling = self.lora_alpha / self.r
+            # Freezing the pre-trained weight matrix
+            self.weight.requires_grad = False
+        self.reset_parameters()
+        if fan_in_fan_out:
+            self.weight.data = self.weight.data.transpose(0, 1)
+
+    def reset_parameters(self):
+        """Reset all the weights, even including pretrained ones."""
+        super().reset_parameters()
+        if hasattr(self, "lora_A"):
+            # initialize A the same way as the default for nn.Linear and B to zero
+            # Wondering why 'a' is equal to math.sqrt(5)?: https://github.com/pytorch/pytorch/issues/15314
+            nn.init.kaiming_uniform_(self.lora_A, a=math.sqrt(5))
+            nn.init.zeros_(self.lora_B)
+
+    def merge(self):
+        """Merges the LoRA weights into the full-rank weights (W = W + delta_W)."""
+
+        def T(w):
+            return w.transpose(0, 1) if self.fan_in_fan_out else w
+
+        if self.merge_weights and not self.merged:
+            # Merge the weights and mark it
+            if self.r > 0:
+                self.weight.data += T(self.lora_B @ self.lora_A) * self.scaling
+            self.merged = True
+
+    def forward(self, x: torch.Tensor):
+        def T(w):
+            return w.transpose(0, 1) if self.fan_in_fan_out else w
+
+        # if weights are merged or rank is less or equal to zero (LoRA disabled) - it's a regular nn.Linear forward pass;
+        # otherwise calculate weight update matrix (lora_A @ lora_B) and add these updates to pretrained weights
+        if self.r > 0 and not self.merged:
+            result = F.linear(x, T(self.weight), bias=self.bias)
+            if self.r > 0:
+                result += (
+                    self.lora_dropout(x) @ self.lora_A.transpose(0, 1) @ self.lora_B.transpose(0, 1)
+                ) * self.scaling
+            return result
+        return F.linear(x, T(self.weight), bias=self.bias)
+
+
+class LoRAQKVLinear(LoRALinear):
     # LoRA implemented in a dense layer
     def __init__(
         self,
@@ -117,7 +209,7 @@ class MergedLinear(nn.Linear, LoRALayer):
             in_features: number of input features of the pretrained weights
             out_features: number of output features of the pretrained weights
             n_head: number of attention heads
-            n_query_groups: number of query groups
+            n_query_groups: number of query groups (see diagram in `lit_gpt/config.py`)
             r: rank of the weight update matrices. To make sense of using LoRA the rank should be smaller than the rank of
                 the weights of the model.  The rank can be as low as 1: https://arxiv.org/pdf/2106.09685.pdf (section 7.2)
             lora_alpha: alpha is needed for scaling updates as alpha/r
@@ -196,19 +288,10 @@ class MergedLinear(nn.Linear, LoRALayer):
                 lora_ind.append(
                     torch.arange(self.in_features + self.kv_embd_size, self.out_features, device=self.weight.device)
                 )
-            self.lora_ind = torch.cat(lora_ind)
+            self.register_buffer("lora_ind", torch.cat(lora_ind), persistent=False)
         self.reset_parameters()
         if fan_in_fan_out:
             self.weight.data = self.weight.data.T
-
-    def reset_parameters(self):
-        """Reset all the weights, even including pretrained ones."""
-        nn.Linear.reset_parameters(self)
-        if hasattr(self, "lora_A"):
-            # initialize A the same way as the default for nn.Linear and B to zero
-            # Wondering why 'a' is equal to math.sqrt(5)?: https://github.com/pytorch/pytorch/issues/15314
-            nn.init.kaiming_uniform_(self.lora_A, a=math.sqrt(5))
-            nn.init.zeros_(self.lora_B)
 
     def zero_pad(self, x: torch.Tensor) -> torch.Tensor:
         """Properly pad weight updates with zeros.
@@ -230,6 +313,10 @@ class MergedLinear(nn.Linear, LoRALayer):
         Returns:
             A tensor with weight updates and zeros for deselected q, k or v
         """
+        # we need to do zero padding only if LoRA is disabled for one of QKV matrices
+        if all(self.enable_lora):
+            return x
+
         # Let's image that:
         # ⚬ input x has shape (64, 64, 256): (batch_size, sequence_length, embeddings_size)
         # ⚬ embeddings_size: 128
@@ -248,36 +335,17 @@ class MergedLinear(nn.Linear, LoRALayer):
         result = result.index_copy(1, self.lora_ind, x.reshape(-1, shape))  # (4096, 256)
         return result.view((*x.shape[:-1], self.out_features)).transpose(0, 1)  # (64, 64, 384)
 
-    def train(self, mode: bool = True):
-        """Set the module into train or eval mode if `mode` is True of False respectively.
-
-        For train mode (train(True)) if weights are merged we need to subtract weights updates (LoRA_A @ LoRA_B) from
-        pretrained weights so we can continue training LoRA's matrices A and B and keep pretrained weights frozen.
-
-        For eval mode (train(False)) if weights are not merged we need to add weight updates to pretrained weights in
-        order to reduce computational overhead during inference.
-
-        Args:
-            mode: if True the module will be set into train mode (affects Dropout and BatchNorm), if False - eval mode.
-
-        """
+    def merge(self):
+        """Merges the LoRA weights into the full-rank weights (W = W + delta_W)."""
 
         def T(w):
             return w.T if self.fan_in_fan_out else w
-
-        # despite being called from nn.Linear this method will put all layers into train mode, including nn.Dropout
-        # of course except parameters (such as self.lora_A, self.lora_B)
-        nn.Linear.train(self, mode)
-
-        # if train(True) -> unmerge unless we already have them unmerged
-        # if train(False) -> merge unless we already have them merged
-        should = self.merged if mode else not self.merged
 
         # Let's assume that:
         # ⚬ self.weight.data: (384, 128) or (3 * embedding_size, embedding_size)
         # ⚬ self.lora_A.data: (4, 128)
         # ⚬ self.lora_B.data: (256, 2)
-        if self.merge_weights and should:
+        if self.merge_weights and not self.merged:
             if self.r > 0 and any(self.enable_lora):
                 delta_w = F.conv1d(
                     self.lora_A.data.unsqueeze(0),  # (4, 128) -> (1, 4, 128)
@@ -286,12 +354,11 @@ class MergedLinear(nn.Linear, LoRALayer):
                 ).squeeze(
                     0
                 )  # (1, 4, 128) @ (256, 2, 1) -> (1, 256, 128) -> (256, 128)
-                # -1: W = W - delta_W (unmerge), +1: W = W + delta_W (merge)
-                sign = -1 if mode else 1
-                self.weight.data += sign * self.zero_pad(
+                # W = W + delta_W (merge)
+                self.weight.data += self.zero_pad(
                     T(delta_w * self.scaling)
                 )  # (256, 128) after zero_pad (384, 128)
-            self.merged = not mode
+            self.merged = True
 
     def forward(self, x: torch.Tensor) -> torch.Tensor:
         """Do the forward pass.
@@ -322,25 +389,24 @@ class MergedLinear(nn.Linear, LoRALayer):
         # and do the summation (as per scheme at the top of the file)
         if self.merged:
             return F.linear(x, T(self.weight), bias=self.bias)
-        else:
-            # `F.linear` automatically transposes the second argument (T(self.weight) in our case)
-            result = F.linear(x, T(self.weight), bias=self.bias)  # (64, 64, 128) @ (384, 128) -> (64, 64, 384)
-            if self.r > 0:
-                after_A = F.linear(self.lora_dropout(x), self.lora_A)  # (64, 64, 128) @ (4, 128) -> (64, 64, 4)
-                # For F.conv1d:
-                # ⚬ input: input tensor of shape (mini-batch, in_channels, iW)
-                # ⚬ weight: filters of shape (out_channels, in_channels/groups, kW)
-                # ⚬ groups: split input into groups, in_channels should be divisible by the number of groups. Default: 1
-                # presumably iW - sequence width/length, kW - kernel width
-                after_B = F.conv1d(
-                    after_A.transpose(-2, -1),  # (64, 64, 4) -> (64, 4, 64)
-                    self.lora_B.unsqueeze(-1),  # (256, 2) -> (256, 2, 1)
-                    groups=sum(self.enable_lora),
-                ).transpose(
-                    -2, -1
-                )  # (64, 4, 64) @ (256, 2, 1) -> (64, 256, 64) -> (64, 64, 256)
-                result += self.zero_pad(after_B) * self.scaling  # (64, 64, 256) after zero_pad (64, 64, 384)
-            return result
+        # `F.linear` automatically transposes the second argument (T(self.weight) in our case)
+        result = F.linear(x, T(self.weight), bias=self.bias)  # (64, 64, 128) @ (384, 128) -> (64, 64, 384)
+        if self.r > 0 and any(self.enable_lora):
+            after_A = F.linear(self.lora_dropout(x), self.lora_A)  # (64, 64, 128) @ (4, 128) -> (64, 64, 4)
+            # For F.conv1d:
+            # ⚬ input: input tensor of shape (mini-batch, in_channels, iW)
+            # ⚬ weight: filters of shape (out_channels, in_channels/groups, kW)
+            # ⚬ groups: split input into groups, in_channels should be divisible by the number of groups. Default: 1
+            # presumably iW - sequence width/length, kW - kernel width
+            after_B = F.conv1d(
+                after_A.transpose(-2, -1),  # (64, 64, 4) -> (64, 4, 64)
+                self.lora_B.unsqueeze(-1),  # (256, 2) -> (256, 2, 1)
+                groups=sum(self.enable_lora),
+            ).transpose(
+                -2, -1
+            )  # (64, 4, 64) @ (256, 2, 1) -> (64, 256, 64) -> (64, 64, 256)
+            result += self.zero_pad(after_B) * self.scaling  # (64, 64, 256) after zero_pad (64, 64, 384)
+        return result
 
 
 def mark_only_lora_as_trainable(model: nn.Module, bias: str = "none") -> None:
@@ -364,7 +430,7 @@ def mark_only_lora_as_trainable(model: nn.Module, bias: str = "none") -> None:
     # depending on the `bias` value unfreeze bias weights
     if bias == "none":
         return
-    elif bias == "all":
+    if bias == "all":
         for n, p in model.named_parameters():
             if "bias" in n:
                 p.requires_grad = True
@@ -390,11 +456,24 @@ class Config(BaseConfig):
             "This scaling helps to reduce the need to retune hyperparameters when we vary r"
             https://arxiv.org/pdf/2106.09685.pdf (section 4.1)
         dropout: dropout that is applied on the input in the LoRA branch (before multiplying by matrix A)
+        to_*: either apply LoRA to the specified weights or not
     """
 
     r: int = 0.0
     alpha: int = 1.0
     dropout: float = 0.0
+    to_query: bool = False
+    to_key: bool = False
+    to_value: bool = False
+    to_projection: bool = False
+    to_mlp: bool = False
+    to_head: bool = False
+
+    @property
+    def mlp_class(self) -> Type:
+        # `self._mlp_class` cannot be the type to keep the config json serializable
+        obj = lit_gpt.lora if self.to_mlp else lit_gpt.model
+        return getattr(obj, self._mlp_class)
 
 
 class GPT(BaseModel):
@@ -403,7 +482,18 @@ class GPT(BaseModel):
         assert config.padded_vocab_size is not None
         self.config = config
 
-        self.lm_head = nn.Linear(config.n_embd, config.padded_vocab_size, bias=False)
+        if config.to_head:
+            self.lm_head = LoRALinear(
+                config.n_embd,
+                config.padded_vocab_size,
+                bias=False,
+                r=config.r,
+                lora_alpha=config.alpha,
+                lora_dropout=config.dropout,
+            )
+        else:
+            self.lm_head = nn.Linear(config.n_embd, config.padded_vocab_size, bias=False)
+
         self.transformer = nn.ModuleDict(
             dict(
                 wte=nn.Embedding(config.padded_vocab_size, config.n_embd),
@@ -431,10 +521,10 @@ class GPT(BaseModel):
             max_seq_length = block_size
         if use_kv_cache:  # not relevant otherwise
             assert (
-                T <= max_seq_length
+                max_seq_length >= T
             ), f"Cannot forward sequence of length {T}, max seq length is only {max_seq_length}"
         assert max_seq_length <= block_size, f"Cannot attend to {max_seq_length}, block size is only {block_size}"
-        assert T <= block_size, f"Cannot forward sequence of length {T}, block size is only {block_size}"
+        assert block_size >= T, f"Cannot forward sequence of length {T}, block size is only {block_size}"
 
         if self.rope_cache is None:
             self.rope_cache = self.build_rope_cache(idx)
@@ -471,8 +561,7 @@ class GPT(BaseModel):
         if lm_head_chunk_size > 0:
             # chunk the lm head logits to reduce the peak memory used by autograd
             return [self.lm_head(x_i) for x_i in x.split(lm_head_chunk_size, dim=1)]
-        else:
-            return self.lm_head(x)  # (b, t, vocab_size)
+        return self.lm_head(x)  # (b, t, vocab_size)
 
     @classmethod
     def from_name(cls, name: str, **kwargs: Any) -> Self:
@@ -504,13 +593,13 @@ class CausalSelfAttention(BaseCausalSelfAttention):
         nn.Module.__init__(self)
         shape = (config.n_head + 2 * config.n_query_groups) * config.head_size
         # key, query, value projections for all heads, but in a batch
-        self.attn = MergedLinear(
+        self.attn = LoRAQKVLinear(
             in_features=config.n_embd,
             out_features=shape,
             r=config.r,
             lora_alpha=config.alpha,
             lora_dropout=config.dropout,
-            enable_lora=(True, False, True),
+            enable_lora=(config.to_query, config.to_key, config.to_value),
             fan_in_fan_out=False,
             merge_weights=True,
             bias=config.bias,
@@ -519,6 +608,73 @@ class CausalSelfAttention(BaseCausalSelfAttention):
             n_query_groups=config.n_query_groups,
         )
         # output projection
-        self.proj = nn.Linear(config.n_embd, config.n_embd, bias=config.bias)
+        if config.to_projection:
+            self.proj = LoRALinear(
+                config.n_embd,
+                config.n_embd,
+                bias=config.bias,
+                r=config.r,
+                lora_alpha=config.alpha,
+                lora_dropout=config.dropout,
+            )
+        else:
+            self.proj = nn.Linear(config.n_embd, config.n_embd, bias=config.bias)
 
         self.config = config
+
+
+class GptNeoxMLP(lit_gpt.model.GptNeoxMLP):
+    def __init__(self, config: Config) -> None:
+        nn.Module.__init__(self)
+        self.fc = LoRALinear(
+            config.n_embd,
+            config.intermediate_size,
+            bias=config.bias,
+            r=config.r,
+            lora_alpha=config.alpha,
+            lora_dropout=config.dropout,
+        )
+        self.proj = LoRALinear(
+            config.intermediate_size,
+            config.n_embd,
+            bias=config.bias,
+            r=config.r,
+            lora_alpha=config.alpha,
+            lora_dropout=config.dropout,
+        )
+
+
+class LLaMAMLP(lit_gpt.model.LLaMAMLP):
+    def __init__(self, config: Config) -> None:
+        nn.Module.__init__(self)
+        self.fc_1 = LoRALinear(
+            config.n_embd,
+            config.intermediate_size,
+            bias=config.bias,
+            r=config.r,
+            lora_alpha=config.alpha,
+            lora_dropout=config.dropout,
+        )
+        self.fc_2 = LoRALinear(
+            config.n_embd,
+            config.intermediate_size,
+            bias=config.bias,
+            r=config.r,
+            lora_alpha=config.alpha,
+            lora_dropout=config.dropout,
+        )
+        self.proj = LoRALinear(
+            config.intermediate_size,
+            config.n_embd,
+            bias=config.bias,
+            r=config.r,
+            lora_alpha=config.alpha,
+            lora_dropout=config.dropout,
+        )
+
+
+def merge_lora_weights(model: GPT) -> None:
+    """Merge LoRA weights into the full-rank weights to speed up inference."""
+    for module in model.modules():
+        if isinstance(module, LoRALinear):
+            module.merge()

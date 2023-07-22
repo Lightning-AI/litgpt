@@ -53,20 +53,22 @@ python generate/full.py \
 ```
 
 Output:
-```
+
+```text
 A good movie to watch on the weekend would be The Lion King, since it's a classic family film that everyone can enjoy...
 ```
+
 If your GPU supports `bfloat16`, the script will automatically use it.
 
 ## Tune on your dataset
 
 With only a few modifications, you can prepare and train on your own instruction dataset.
 
-1. Create a json file in which each row holds one instruction-response pair. 
-   A row has an entry for 'instruction', 'input', and 'output', where 'input' is optional an can be 
+1. Create a json file in which each row holds one instruction-response pair.
+   A row has an entry for 'instruction', 'input', and 'output', where 'input' is optional an can be
    the empty string if the instruction doesn't require a context. Below is an example json file:
 
-    ```
+    ```text
     [
         {
             "instruction": "Arrange the given numbers in ascending order.",
@@ -91,7 +93,7 @@ With only a few modifications, you can prepare and train on your own instruction
     ```
 
 5. Run `finetune/full.py` by passing in the location of your data (and optionally other parameters):
-   
+
     ```bash
     python finetune/full.py \
         --data_dir data/mydata/ \
@@ -99,8 +101,7 @@ With only a few modifications, you can prepare and train on your own instruction
         --out_dir data/mydata-finetuned
     ```
 
-
 ## Troubleshooting
 
 If you run into a CUDA error "Expected is_sm80 to be true, but got false", uncomment the line
-`torch.backends.cuda.enable_flash_sdp(False)` in the finetune script (see https://github.com/Lightning-AI/lit-llama/issues/101).
+`torch.backends.cuda.enable_flash_sdp(False)` in the finetune script (see <https://github.com/Lightning-AI/lit-llama/issues/101>).

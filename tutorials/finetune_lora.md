@@ -34,7 +34,9 @@ The finetuning requires at least one GPU with ~24 GB memory (RTX 3090).
 
 This script will save checkpoints periodically to the folder `out/`.
 
-
+> **Note**: LoRA can be applied to not only `query`, `key` or `value` matrices, but also to `projection`, `mlp` and classification `head`.
+According to [QLoRA](https://arxiv.org/abs/2305.14314) paper (section 4): "LoRA on all linear transformer block layers are required to match full finetuning performance".
+By default LoRA is applied only to the `query` and `value` matrices. In order to apply LoRA to other weight matrices - change the variables in `finetune/lora.py` accordingly.
 
 ## Test the model
 
@@ -43,8 +45,10 @@ You can test the finetuned model with your own instructions by running:
 ```bash
 python generate/lora.py --prompt "Recommend a movie to watch on the weekend."
 ```
+
 Output:
-```
+
+```text
 I would recommend the movie The Martian (2015). It is a sci-fi movie starring Matt Damon that follows the story of...
 ```
 
@@ -54,11 +58,11 @@ If your GPU supports `bfloat16`, you can additionally pass `--precision bf16-tru
 
 With only a few modifications, you can prepare and train on your own instruction dataset.
 
-1. Create a json file in which each row holds one instruction-response pair. 
-   A row has an entry for 'instruction', 'input', and 'output', where 'input' is optional an can be 
+1. Create a json file in which each row holds one instruction-response pair.
+   A row has an entry for 'instruction', 'input', and 'output', where 'input' is optional an can be
    the empty string if the instruction doesn't require a context. Below is an example json file:
 
-    ```
+    ```text
     [
         {
             "instruction": "Arrange the given numbers in ascending order.",
@@ -83,13 +87,12 @@ With only a few modifications, you can prepare and train on your own instruction
     ```
 
 5. Run `finetune/lora.py` by passing in the location of your data (and optionally other parameters):
-   
+
     ```bash
     python finetune/lora.py --data_dir data/mydata/ --out_dir out/myexperiment
     ```
 
-
 ## Troubleshooting
 
 If you run into a CUDA error "Expected is_sm80 to be true, but got false", uncomment the line
-`torch.backends.cuda.enable_flash_sdp(False)` in the script below (see https://github.com/Lightning-AI/lit-llama/issues/101).
+`torch.backends.cuda.enable_flash_sdp(False)` in the script below (see <https://github.com/Lightning-AI/lit-llama/issues/101>).
