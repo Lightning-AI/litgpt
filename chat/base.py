@@ -280,7 +280,7 @@ def prompt_config(checkpoint_dir: Path, tokenizer: Tokenizer) -> Tuple[str, Tupl
         system_prompt = (
             "### System:\nThis is a system prompt, please behave and help the user.\n\n"
             "### User:\n"
-            "{{prompt}}\n\n"
+            "{prompt}\n\n"
             "### Assistant:\n"
         )
         stop_tokens = ([tokenizer.eos_id],)
