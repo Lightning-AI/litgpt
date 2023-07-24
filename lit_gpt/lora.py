@@ -159,14 +159,12 @@ class LoRALinear(nn.Linear, LoRALayer):
     def forward(self, x: torch.Tensor):
         # if weights are merged or rank is less or equal to zero (LoRA disabled) - it's a regular nn.Linear forward pass;
         # otherwise calculate weight update matrix (lora_A @ lora_B) and add these updates to pretrained weights
+        result = F.linear(x, self.T(self.weight), bias=self.bias)
         if self.r > 0 and not self.merged:
-            result = F.linear(x, self.T(self.weight), bias=self.bias)
-            if self.r > 0:
-                result += (
-                    self.lora_dropout(x) @ self.lora_A.transpose(0, 1) @ self.lora_B.transpose(0, 1)
-                ) * self.scaling
-            return result
-        return F.linear(x, self.T(self.weight), bias=self.bias)
+            result += (
+                self.lora_dropout(x) @ self.lora_A.transpose(0, 1) @ self.lora_B.transpose(0, 1)
+            ) * self.scaling
+        return result
 
 
 class LoRAQKVLinear(LoRALinear):
@@ -362,16 +360,10 @@ class LoRAQKVLinear(LoRALinear):
         # ⚬ self.lora_A.data: (4, 128)
         # ⚬ self.lora_B.data: (256, 2)
 
-        # the logic here is that the weights are merged only during inference
-        # so if they are merged we don't need to do anything with LoRA's A and B matrices
-        # but if the weights are not merged that means that the forward method is called during
-        # training and we need to forward pass input through pretrained weights, LoRA A and B matrices
-        # and do the summation (as per scheme at the top of the file)
-        if self.merged:
-            return F.linear(x, self.T(self.weight), bias=self.bias)
-        # `F.linear` automatically transposes the second argument (self.T(self.weight) in our case)
-        result = F.linear(x, self.T(self.weight), bias=self.bias)  # (64, 64, 128) @ (384, 128) -> (64, 64, 384)
-        if self.r > 0 and any(self.enable_lora):
+        # if weights are merged, or LoRA is disabled (r <= 0 or all `enable_lora` are False) - it's a regular nn.Linear forward pass;
+        # otherwise calculate weight update matrix and add these updates to pretrained weights
+        result = F.linear(x, self.T(self.weight), bias=self.bias)
+        if all((self.r > 0, any(self.enable_lora), not self.merged)):
             after_A = F.linear(self.lora_dropout(x), self.lora_A)  # (64, 64, 128) @ (4, 128) -> (64, 64, 4)
             # For F.conv1d:
             # ⚬ input: input tensor of shape (mini-batch, in_channels, iW)
@@ -379,12 +371,10 @@ class LoRAQKVLinear(LoRALinear):
             # ⚬ groups: split input into groups, in_channels should be divisible by the number of groups. Default: 1
             # presumably iW - sequence width/length, kW - kernel width
             after_B = F.conv1d(
-                after_A.transpose(-2, -1),  # (64, 64, 4) -> (64, 4, 64)
+                after_A.mT,  # (64, 64, 4) -> (64, 4, 64)
                 self.lora_B.unsqueeze(-1),  # (256, 2) -> (256, 2, 1)
                 groups=sum(self.enable_lora),
-            ).transpose(
-                -2, -1
-            )  # (64, 4, 64) @ (256, 2, 1) -> (64, 256, 64) -> (64, 64, 256)
+            ).mT  # (64, 4, 64) @ (256, 2, 1) -> (64, 256, 64) -> (64, 64, 256)
             result += self.zero_pad(after_B) * self.scaling  # (64, 64, 256) after zero_pad (64, 64, 384)
         return result
 
