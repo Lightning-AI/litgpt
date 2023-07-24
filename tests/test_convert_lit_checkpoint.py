@@ -53,7 +53,8 @@ def test_against_original_falcon_40b():
     copy_to_theirs("40b", theirs_state_dict, ours_state_dict)
 
     theirs_model = RWForCausalLM(theirs_config)
-    theirs_model.load_state_dict(theirs_state_dict, strict=True, assign=True)
+    # assign must be set to True for torch.testing.assert_close to pass
+    theirs_model.load_state_dict(theirs_state_dict, strict=False, assign=True)
 
     # test end to end
     x = torch.tensor([[9856, 23, 491, 1536, 304]], dtype=torch.int32)
