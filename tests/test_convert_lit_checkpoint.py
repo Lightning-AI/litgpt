@@ -35,34 +35,28 @@ def test_against_original_falcon_40b():
     from tests.original_falcon_40b import RWConfig, RWForCausalLM
     from lit_gpt import Config, GPT
     from scripts.convert_lit_checkpoint import copy_weights_falcon as copy_to_theirs
-    from scripts.convert_hf_checkpoint import copy_weights_falcon as copy_to_ours
-
-    theirs_config = RWConfig(
-        hidden_size=32, n_head=8, n_head_kv=4, n_layer=2, parallel_attn=True, vocab_size=65024, bias=False
-    )
-
-    theirs_model = RWForCausalLM(theirs_config)
-    theirs_state_dict = theirs_model.state_dict()
 
     ours_config = Config.from_name("falcon-40b", n_layer=2, n_head=8, n_query_groups=4, n_embd=32)
+    theirs_config = RWConfig(
+        hidden_size=32,
+        n_head=8,
+        n_head_kv=4,
+        n_layer=2,
+        parallel_attn=True,
+        vocab_size=65024,
+        bias=False,
+    )
+
     ours_model = GPT(ours_config)
-    ours_state_dict = {}
-    copy_to_ours("40b", ours_state_dict, theirs_state_dict)
-    ours_model.load_state_dict(ours_state_dict)
+    ours_state_dict = ours_model.state_dict()
+    theirs_state_dict = {}
+    copy_to_theirs("40b", theirs_state_dict, ours_state_dict)
 
-    converted_model = RWForCausalLM(theirs_config)
-    converted_state_dict = {}
-    copy_to_theirs("40b", converted_state_dict, ours_state_dict)
-    converted_model.load_state_dict(converted_state_dict)
+    theirs_model = RWForCausalLM(theirs_config)
+    theirs_model.load_state_dict(theirs_state_dict, strict=True, assign=True)
 
-    # test converted model matches their model
-    x = torch.tensor([[9856, 23, 491, 1536, 304]], dtype=torch.int32)
-    converted_y = converted_model(x)["logits"]
-    their_y = theirs_model(x)["logits"]
-    torch.testing.assert_close(converted_y, their_y)
-
-    # test our model matches their model
+    # test end to end
     x = torch.tensor([[9856, 23, 491, 1536, 304]], dtype=torch.int32)
     ours_y = ours_model(x)
-    their_y = theirs_model(x)["logits"]
-    torch.testing.assert_close(ours_y, their_y)
+    theirs_y = theirs_model(x)["logits"]
+    torch.testing.assert_close(ours_y, theirs_y)
