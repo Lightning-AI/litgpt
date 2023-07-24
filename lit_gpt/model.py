@@ -1,3 +1,4 @@
+model.py in main 
 """Full definition of a GPT NeoX Language Model, all of it in this single file.
 
 Based on the nanoGPT implementation: https://github.com/karpathy/nanoGPT and
