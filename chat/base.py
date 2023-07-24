@@ -279,7 +279,7 @@ def prompt_config(checkpoint_dir: Path, tokenizer: Tokenizer) -> Tuple[str, Tupl
     if re.search("FreeWilly2", checkpoint_name):
         system_prompt = (
             "### System:\nThis is a system prompt, please behave and help the user.\n\n"
-            "### User:"
+            "### User:\n"
             "{{prompt}}\n\n"
             "### Assistant:\n"
         )
