@@ -34,7 +34,23 @@ Supports popular public checkpoints such as:
 
 This implementation extends on [Lit-LLaMA](https://github.com/lightning-AI/lit-llama) and [nanoGPT](https://github.com/karpathy/nanoGPT), and it's **powered by [Lightning Fabric](https://lightning.ai/docs/fabric/stable/) ⚡**.
 
-## Design principles
+
+
+---
+
+**NeurIPS 2023 Large Language Model Efficiency Challenge: 1 LLM + 1GPU + 1Day**
+
+Lit-GPT is the official starter-kit of the [NeurIPS 2023 LLM efficiency challenge](https://llm-efficiency-challenge.github.io), which is focused on tackling the three main challenges of LLMs: 1) transparency, standard benchmarks, and 3) hardware access. 
+
+If you are interested in participating, you can learn more on the official NeurIPS LLM efficiency challenge website [here](https://llm-efficiency-challenge.github.io). **The submission deadline is Oct 15th, 2023.**
+
+---
+
+
+
+
+
+## Lit-GPT design principles
 
 This repository follows the main principle of **openness through clarity**.
 
