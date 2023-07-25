@@ -64,6 +64,41 @@ def copy_weights_falcon(
         state_dict[to_name] = param
 
 
+def copy_weights_gpt_neox(
+    state_dict: Dict[str, torch.Tensor],
+    lit_weights: Dict[str, Union[torch.Tensor, NotYetLoadedTensor]],
+    saver: Optional[incremental_save] = None,
+) -> None:
+    weight_map = {
+        "transformer.wte.weight": "gpt_neox.embed_in.weight",
+        "transformer.h.{}.norm_1.bias": "gpt_neox.layers.{}.input_layernorm.bias",
+        "transformer.h.{}.norm_1.weight": "gpt_neox.layers.{}.input_layernorm.weight",
+        "transformer.h.{}.attn.attn.bias": "gpt_neox.layers.{}.attention.query_key_value.bias",
+        "transformer.h.{}.attn.attn.weight": "gpt_neox.layers.{}.attention.query_key_value.weight",
+        "transformer.h.{}.attn.proj.bias": "gpt_neox.layers.{}.attention.dense.bias",
+        "transformer.h.{}.attn.proj.weight": "gpt_neox.layers.{}.attention.dense.weight",
+        "transformer.h.{}.norm_2.bias": "gpt_neox.layers.{}.post_attention_layernorm.bias",
+        "transformer.h.{}.norm_2.weight": "gpt_neox.layers.{}.post_attention_layernorm.weight",
+        "transformer.h.{}.mlp.fc.bias": "gpt_neox.layers.{}.mlp.dense_h_to_4h.bias",
+        "transformer.h.{}.mlp.fc.weight": "gpt_neox.layers.{}.mlp.dense_h_to_4h.weight",
+        "transformer.h.{}.mlp.proj.bias": "gpt_neox.layers.{}.mlp.dense_4h_to_h.bias",
+        "transformer.h.{}.mlp.proj.weight": "gpt_neox.layers.{}.mlp.dense_4h_to_h.weight",
+        "transformer.ln_f.bias": "gpt_neox.final_layer_norm.bias",
+        "transformer.ln_f.weight": "gpt_neox.final_layer_norm.weight",
+        "lm_head.weight": "embed_out.weight",
+    }
+
+    for name, param in lit_weights.items():
+        if "transformer.h" in name:
+            from_name, number = layer_template(name, 2)
+            to_name = weight_map[from_name].format(number)
+        else:
+            to_name = weight_map[name]
+        param = load_param(param)
+        if saver is not None:
+            param = saver.store_early(param)
+        state_dict[to_name] = param
+
 
 @torch.inference_mode()
 def convert_lit_checkpoint(
@@ -78,8 +113,10 @@ def convert_lit_checkpoint(
 
     if "falcon" in model_name:
         copy_fn = partial(copy_weights_falcon, "40b" if config.n_embd == 8192 else "7b")
-    else:
+    elif config._mlp_class == "LLaMAMLP":
         raise NotImplementedError(f"Conversion for {model_name} is not yet supported")
+    else:
+        copy_fn = copy_weights_gpt_neox
 
     # initialize a new empty state dict to hold our new weights
     sd = {}
