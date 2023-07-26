@@ -147,14 +147,18 @@ class LoRALinear(nn.Linear, LoRALayer):
         """Transpose input tensor if weights are stored in format (fan_in, fan_out)"""
         return x.transpose(0, 1) if self.fan_in_fan_out else x
 
-    def merge(self):
-        """Merges the LoRA weights into the full-rank weights (W = W + delta_W)."""
+    def merge(self, verbose = True):
+        """Merges the LoRA weights into the full-rank weights (W = W + delta_W).
 
-        if not self.merged:
-            # Merge the weights and mark it
-            if self.r > 0:
-                self.weight.data += self.T(self.lora_B @ self.lora_A) * self.scaling
+        Args:
+            verbose: tell if something is preventing from merging the weights
+        """
+
+        if self.r > 0 and not self.merged:
+            self.weight.data += self.T(self.lora_B @ self.lora_A) * self.scaling
             self.merged = True
+        elif self.r <= 0 and verbose:
+            print("LoRA weights are disabled and thus cannot be merged.")
 
     def forward(self, x: torch.Tensor):
         # if weights are merged or rank is less or equal to zero (LoRA disabled) - it's a regular nn.Linear forward pass;
@@ -319,27 +323,34 @@ class LoRAQKVLinear(LoRALinear):
         result = result.index_copy(1, self.lora_ind, x.reshape(-1, shape))  # (4096, 256)
         return result.view((*x.shape[:-1], self.out_features)).transpose(0, 1)  # (64, 64, 384)
 
-    def merge(self):
-        """Merges the LoRA weights into the full-rank weights (W = W + delta_W)."""
+    def merge(self, verbose = True):
+        """Merges the LoRA weights into the full-rank weights (W = W + delta_W).
+
+        Args:
+            verbose: tell if something is preventing from merging the weights
+        """
 
         # Let's assume that:
         # ⚬ self.weight.data: (384, 128) or (3 * embedding_size, embedding_size)
         # ⚬ self.lora_A.data: (4, 128)
         # ⚬ self.lora_B.data: (256, 2)
-        if not self.merged:
-            if self.r > 0 and any(self.enable_lora):
-                delta_w = F.conv1d(
-                    self.lora_A.data.unsqueeze(0),  # (4, 128) -> (1, 4, 128)
-                    self.lora_B.data.unsqueeze(-1),  # (256, 2) -> (256, 2, 1)
-                    groups=sum(self.enable_lora),
-                ).squeeze(
-                    0
-                )  # (1, 4, 128) @ (256, 2, 1) -> (1, 256, 128) -> (256, 128)
-                # W = W + delta_W (merge)
-                self.weight.data += self.zero_pad(
-                    self.T(delta_w * self.scaling)
-                )  # (256, 128) after zero_pad (384, 128)
+        if all((self.r > 0, any(self.enable_lora), not self.merged)):
+            delta_w = F.conv1d(
+                self.lora_A.data.unsqueeze(0),  # (4, 128) -> (1, 4, 128)
+                self.lora_B.data.unsqueeze(-1),  # (256, 2) -> (256, 2, 1)
+                groups=sum(self.enable_lora),
+            ).squeeze(
+                0
+            )  # (1, 4, 128) @ (256, 2, 1) -> (1, 256, 128) -> (256, 128)
+            # W = W + delta_W (merge)
+            self.weight.data += self.zero_pad(
+                self.T(delta_w * self.scaling)
+            )  # (256, 128) after zero_pad (384, 128)
             self.merged = True
+        elif self.r <= 0 and verbose:
+            print("LoRA weights are disabled and thus cannot be merged.")
+        elif not any(self.enable_lora) and verbose:
+            print("LoRA weights are disabled for query, key and value matrices and thus cannot be merged.")
 
     def forward(self, x: torch.Tensor) -> torch.Tensor:
         """Do the forward pass.
@@ -464,7 +475,7 @@ class GPT(BaseModel):
         self.transformer = nn.ModuleDict(
             dict(
                 wte=nn.Embedding(config.padded_vocab_size, config.n_embd),
-                h=nn.ModuleList(Block(config) for i in range(config.n_layer)),
+                h=nn.ModuleList(Block(config) for _ in range(config.n_layer)),
                 ln_f=config.norm_class(config.n_embd, eps=config.norm_eps),
             )
         )
@@ -640,4 +651,4 @@ def merge_lora_weights(model: GPT) -> None:
     """Merge LoRA weights into the full-rank weights to speed up inference."""
     for module in model.modules():
         if isinstance(module, LoRALinear):
-            module.merge()
+            module.merge(verbose=False)
