@@ -14,13 +14,13 @@ It's useful to start with a baseline to have a reference point for memory saving
 
 
 ```bash
-python generate/base.py --checkpoint_dir checkpoints/tiiuae/falcon-7b --precision 32-full --max_new_tokens 256
+python generate/base.py --checkpoint_dir checkpoints/tiiuae/falcon-7b --precision 32-true --max_new_tokens 256
 ...
 Time for inference 1: 10.69 sec total, 23.95 tokens/sec.
 Memory used: 28.95 GB
 ```bash
 
-First, using a lower precision compared to 32-bit float can result in two times reduced memory consumption. You can either try setting `--precision 16-full` for regular 16-bit precision or  `--precision bf16-full` if your GPU supports brain-float 16-bit precision. ([This brief video](https://lightning.ai/courses/deep-learning-fundamentals/9.0-overview-techniques-for-speeding-up-model-training/unit-9.1-accelerated-model-training-via-mixed-precision-training/) explains the difference between regular 16-bit and bf16-bit precision.) 
+First, using a lower precision compared to 32-bit float can result in two times reduced memory consumption. You can either try setting `--precision 16-true` for regular 16-bit precision or  `--precision bf16-true` if your GPU supports brain-float 16-bit precision. ([This brief video](https://lightning.ai/courses/deep-learning-fundamentals/9.0-overview-techniques-for-speeding-up-model-training/unit-9.1-accelerated-model-training-via-mixed-precision-training/) explains the difference between regular 16-bit and bf16-bit precision.) 
 
 
 In short, when `--precision bf16-true` or `--precision 16-true` is used, the model weights will automatically be converted and consume less memory.
