@@ -124,6 +124,7 @@ def main(
     checkpoint_dir: Path = Path("checkpoints/stabilityai/stablelm-tuned-alpha-3b"),
     quantize: Optional[Literal["bnb.nf4", "bnb.nf4-dq", "bnb.fp4", "bnb.fp4-dq", "bnb.int8", "gptq.int4"]] = None,
     precision: str = "bf16-true",
+    devices:int = 1,
 ) -> None:
     """Starts a conversation with a tuned GPT model.
 
@@ -138,13 +139,15 @@ def main(
             - gptq.int4: 4-bit quantization from GPTQ
             for more details, see https://github.com/Lightning-AI/lit-gpt/blob/main/tutorials/quantize.md
         precision: Indicates the Fabric precision setting to use.
+        devices: How many devices to use.
     """
+    fabric = L.Fabric(devices=devices, precision=precision)
+    fabric.launch()
+
     check_valid_checkpoint_dir(checkpoint_dir)
 
     with open(checkpoint_dir / "lit_config.json") as fp:
         config = Config(**json.load(fp))
-
-    fabric = L.Fabric(devices=1, precision=precision)
 
     if quantize == "gptq.int4":
         model_file = "lit_model_gptq.4bit.pth"
@@ -165,38 +168,42 @@ def main(
     tokenizer = Tokenizer(checkpoint_dir)
     system_prompt, stop_tokens = prompt_config(checkpoint_dir, tokenizer)
 
-    while True:
-        try:
-            prompt = input(">> Prompt: ")
-        except KeyboardInterrupt:
-            break
-        if not prompt:
-            break
-        prompt = system_prompt.format(prompt=prompt)
-        encoded_prompt = tokenizer.encode(prompt, device=fabric.device)
-        max_returned_tokens = model.config.block_size
-        y = generate(
-            model,
-            encoded_prompt,
-            max_returned_tokens,
-            max_seq_length=max_returned_tokens,
-            temperature=temperature,
-            top_k=top_k,
-            stop_tokens=stop_tokens,
-        )
-        fabric.print(">> Reply: ", end="")
-        try:
-            t0 = time.perf_counter()
-            tokens_generated = decode(fabric, tokenizer, y)
-            t = time.perf_counter() - t0
-            model.reset_cache()
-            fabric.print(
-                f"\nTime for inference: {t:.02f} sec total, {tokens_generated / t:.02f} tokens/sec", file=sys.stderr
+    def chat_loop():
+        while True:
+            try:
+                prompt = input(">> Prompt: ")
+            except KeyboardInterrupt:
+                break
+            if not prompt:
+                break
+            prompt = system_prompt.format(prompt=prompt)
+            encoded_prompt = tokenizer.encode(prompt, device=fabric.device)
+            max_returned_tokens = model.config.block_size
+            y = generate(
+                model,
+                encoded_prompt,
+                max_returned_tokens,
+                max_seq_length=max_returned_tokens,
+                temperature=temperature,
+                top_k=top_k,
+                stop_tokens=stop_tokens,
             )
-        except KeyboardInterrupt:
-            # support stopping generation
-            pass
-        fabric.print()
+            fabric.print(">> Reply: ", end="")
+            try:
+                t0 = time.perf_counter()
+                tokens_generated = decode(fabric, tokenizer, y)
+                t = time.perf_counter() - t0
+                model.reset_cache()
+                fabric.print(
+                    f"\nTime for inference: {t:.02f} sec total, {tokens_generated / t:.02f} tokens/sec", file=sys.stderr
+                )
+            except KeyboardInterrupt:
+                # support stopping generation
+                pass
+            fabric.print()
+    
+    if fabric.global_rank == 0:
+        chat_loop()
 
 
 def prompt_config(checkpoint_dir: Path, tokenizer: Tokenizer) -> Tuple[str, Tuple[List[int], ...]]:
