@@ -83,9 +83,53 @@ def test_against_original_gpt_neox():
     ours_model = GPT(ours_config)
     ours_state_dict = ours_model.state_dict()
     theirs_state_dict = {}
-    copy_to_theirs(theirs_state_dict, ours_state_dict)
+    copy_to_theirs(ours_config, theirs_state_dict, ours_state_dict)
 
     theirs_model = GPTNeoXForCausalLM(theirs_config)
+    # assign must be set to True for torch.testing.assert_close to pass
+    theirs_model.load_state_dict(theirs_state_dict, strict=False, assign=True)
+
+    # test end to end
+    x = torch.tensor([[9856, 23, 491, 1536, 304]], dtype=torch.int32)
+    ours_y = ours_model(x)
+    theirs_y = theirs_model(x)["logits"]
+    torch.testing.assert_close(ours_y, theirs_y)
+
+
+@torch.inference_mode()
+@pytest.mark.parametrize("size", ("7b", "70b"))
+def test_against_llama(size):
+    from lit_gpt import Config, GPT
+    from scripts.convert_lit_checkpoint import copy_weights_llama as copy_to_theirs
+    from transformers.models.llama.modeling_llama import LlamaForCausalLM
+    from transformers.models.llama.configuration_llama import LlamaConfig
+
+    if size == "7b":
+        ours_kwargs = {"name": "Llama-2-7b-hf"}
+        theirs_kwargs = {}
+    else:
+        ours_kwargs = {"name": "Llama-2-70b-chat-hf", "n_query_groups": 2}
+        theirs_kwargs = {"num_key_value_heads": 2}
+
+    ours_config = Config.from_name(n_layer=2, n_head=8, n_embd=32, intermediate_size=86, **ours_kwargs)
+    T = 5
+    theirs_config = LlamaConfig(
+        hidden_size=ours_config.n_embd,
+        num_attention_heads=ours_config.n_head,
+        num_hidden_layers=ours_config.n_layer,
+        intermediate_size=ours_config.intermediate_size,
+        max_position_embeddings=T,
+        rms_norm_eps=1e-5,
+        **theirs_kwargs
+    )
+    assert ours_config.intermediate_size == theirs_config.intermediate_size
+
+    ours_model = GPT(ours_config)
+    ours_state_dict = ours_model.state_dict()
+    theirs_state_dict = {}
+    copy_to_theirs(ours_config, theirs_state_dict, ours_state_dict)
+
+    theirs_model = LlamaForCausalLM(theirs_config)
     # assign must be set to True for torch.testing.assert_close to pass
     theirs_model.load_state_dict(theirs_state_dict, strict=False, assign=True)
 

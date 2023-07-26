@@ -100,6 +100,83 @@ def copy_weights_gpt_neox(
         state_dict[to_name] = param
 
 
+def copy_weights_llama(
+    config: Config,
+    state_dict: Dict[str, torch.Tensor],
+    lit_weights: Dict[str, Union[torch.Tensor, NotYetLoadedTensor]],
+    saver: Optional[incremental_save] = None,
+):
+    weight_map = {
+        "transformer.wte.weight": "model.embed_tokens.weight",
+        "transformer.h.{}.norm_1.weight": "model.layers.{}.input_layernorm.weight",
+        "transformer.h.{}.attn.proj.weight": "model.layers.{}.self_attn.o_proj.weight",
+        "transformer.h.{}.norm_2.weight": "model.layers.{}.post_attention_layernorm.weight",
+        "transformer.h.{}.mlp.fc_1.weight": "model.layers.{}.mlp.gate_proj.weight",
+        "transformer.h.{}.mlp.fc_2.weight": "model.layers.{}.mlp.up_proj.weight",
+        "transformer.h.{}.mlp.proj.weight": "model.layers.{}.mlp.down_proj.weight",
+        "transformer.ln_f.weight": "model.norm.weight",
+        "lm_head.weight": "lm_head.weight",
+    }
+
+    for name, param in lit_weights.items():
+        # handle name
+        if "transformer.h" in name and not name.endswith(".attn.attn.weight"):
+            from_name, number = layer_template(name, 2)
+            to_name = weight_map[from_name]
+            if to_name is None:
+                continue
+            to_name = to_name.format(number)
+        elif name.endswith(".attn.attn.weight"):
+            from_name, number = layer_template(name, 2)
+            q = "model.layers.{}.self_attn.q_proj.weight".format(number)
+            k = "model.layers.{}.self_attn.k_proj.weight".format(number)
+            v = "model.layers.{}.self_attn.v_proj.weight".format(number)
+        else:
+            to_name = weight_map[name]
+
+        # handle param
+        if name.endswith(".attn.attn.weight"):
+            qkv = load_param(param)
+            qp, kp, vp = tensor_split(qkv, config, "llama")
+            for to_name, to_param in zip((q, k, v), (qp, kp, vp)):
+                if saver is not None:
+                    param = saver.store_early(to_param)
+                state_dict[to_name] = to_param
+        else:
+            param = load_param(param)
+            if saver is not None:
+                param = saver.store_early(param)
+            state_dict[to_name] = param
+
+
+def tensor_split(param: Union[torch.Tensor, NotYetLoadedTensor], config: Config, model_name: str) -> torch.Tensor:
+    if model_name != "llama":
+        raise NotImplementedError(f"{model_name}")
+    else:
+        q_stride = config.head_size * config.n_head
+        kv_stride = config.head_size
+        nobs = param.shape[0]
+        starts = range(q_stride, nobs, kv_stride * 2)
+        splices = [(start, start + kv_stride, start + (kv_stride * 2)) for start in starts]
+        assert len(splices) == config.n_query_groups
+
+        qc = ()
+        kc = ()
+        vc = ()
+
+        for splice in splices:
+            qs, ks, vs = splice
+            qc += (param[qs - qs : qs, :],)
+            kc += (param[qs:ks, :],)
+            vc += (param[ks:vs, :],)
+
+        q = torch.cat(qc)
+        k = torch.cat(kc)
+        v = torch.cat(vc)
+
+        return q, k, v
+
+
 @torch.inference_mode()
 def convert_lit_checkpoint(
     *,
