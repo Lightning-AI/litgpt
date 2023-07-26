@@ -83,7 +83,37 @@ def test_against_original_gpt_neox():
     ours_model = GPT(ours_config)
     ours_state_dict = ours_model.state_dict()
     theirs_state_dict = {}
-    copy_to_theirs(ours_config, theirs_state_dict, ours_state_dict)
+    copy_to_theirs(theirs_state_dict, ours_state_dict)
+
+    theirs_model = GPTNeoXForCausalLM(theirs_config)
+    # assign must be set to True for torch.testing.assert_close to pass
+    theirs_model.load_state_dict(theirs_state_dict, strict=False, assign=True)
+
+    # test end to end
+    x = torch.tensor([[9856, 23, 491, 1536, 304]], dtype=torch.int32)
+    ours_y = ours_model(x)
+    theirs_y = theirs_model(x)["logits"]
+    torch.testing.assert_close(ours_y, theirs_y)
+
+    from lit_gpt import Config, GPT
+    from scripts.convert_lit_checkpoint import copy_weights_gpt_neox as copy_to_theirs
+    from transformers import GPTNeoXConfig, GPTNeoXForCausalLM
+
+    ours_config = Config.from_name("pythia-1b", block_size=2048, n_layer=2, n_embd=2048, n_head=8, padding_multiple=128)
+    theirs_config = GPTNeoXConfig(
+        hidden_size=ours_config.n_embd,
+        intermediate_size=ours_config.intermediate_size,
+        num_hidden_layers=ours_config.n_layer,
+        num_attention_heads=ours_config.n_head,
+        n_head_kv=ours_config.n_query_groups,
+        vocab_size=ours_config.padded_vocab_size,
+        bias=ours_config.bias,
+    )
+
+    ours_model = GPT(ours_config)
+    ours_state_dict = ours_model.state_dict()
+    theirs_state_dict = {}
+    copy_to_theirs(theirs_state_dict, ours_state_dict)
 
     theirs_model = GPTNeoXForCausalLM(theirs_config)
     # assign must be set to True for torch.testing.assert_close to pass
