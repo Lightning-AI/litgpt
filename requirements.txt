@@ -1,5 +1,5 @@
 # torch>=2.1.0dev
-lightning @ git+https://github.com/Lightning-AI/lightning@master
+lightning @ git+https://github.com/Lightning-AI/lightning@fabric/lazy-load
 tokenizers
 jsonargparse[signatures]  # CLI
 bitsandbytes>=0.40.0  # quantize
