@@ -103,10 +103,21 @@ def copy_weights_gpt_neox(
 @torch.inference_mode()
 def convert_lit_checkpoint(
     *,
-    checkpoint_name: str,
+    checkpoint_name: str = "",
     checkpoint_dir: Path = Path("checkpoints/tiiuae/falcon-7b"),
     model_name: Optional[str] = None,
 ) -> None:
+    # pydantic or jsonargparse do not have a clear way to allow for
+    # required arguments, leading to setting checkpoint_name to ""
+    # in order for users to be able to use --checkpoint_name as an option/arg
+    if checkpoint_name == "":
+        raise ValueError(
+            """
+            Checkpoint name should be set to one of
+            (lit_model_finetuned, lit_model_lora_finetuned, lit_model_adapter_finetuned).
+            Please see ``tutorials/convert_lit_models.md``.
+            """
+        )
     if model_name is None:
         model_name = checkpoint_dir.name
     config = Config.from_name(model_name)
@@ -123,7 +134,7 @@ def convert_lit_checkpoint(
 
     # checkpoint_name cannot be hardcoded because there exists different outputs such as
     # ("lit_model_finetuned.pth", "lit_model_lora_finetuned.pth", "lit_model_adapter_finetuned.pth"")
-    pth_file = checkpoint_dir / checkpoint_name
+    pth_file = checkpoint_dir / "".join([checkpoint_name, ".pth"])
     bin_file = "".join([checkpoint_name, ".bin"])
 
     with incremental_save(checkpoint_dir / bin_file) as saver:
