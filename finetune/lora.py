@@ -114,27 +114,9 @@ def main(fabric: L.Fabric, data_dir: Path, checkpoint_dir: Path, out_dir: Path):
     with fabric.init_module(empty_init=True):
         model = GPT(config)
         # model.apply(model._init_weights)  # for the LoRA weights
-
-    # fabric.print(f"Loading checkpoint")
-
-    # print("torch raw load")
-    # c = torch.load(checkpoint_path)
-    # print(set(p.device for p in c.values()))
-    # import psutil
-    # model.load_state_dict(c, strict=False)
-    # # print(psutil.virtual_memory()
-    # del c
-
-    # print("lazy load")
-    # with lazy_load(checkpoint_path) as checkpoint:
-    #     # strict=False because missing keys due to LoRA weights not contained in state dict
-    #     model.load_state_dict(checkpoint, strict=False)
-
     mark_only_lora_as_trainable(model)
 
     model = fabric.setup_module(model)
-
-    print("meta?", any(p.data.is_meta for p in model.parameters()))
 
     trainable_params = [p for p in model.parameters() if p.requires_grad]
     num_params = sum(p.numel() for p in trainable_params)
@@ -144,12 +126,7 @@ def main(fabric: L.Fabric, data_dir: Path, checkpoint_dir: Path, out_dir: Path):
 
     optimizer = torch.optim.AdamW(trainable_params, lr=learning_rate, weight_decay=weight_decay)
     optimizer = fabric.setup_optimizers(optimizer)
-
-    assert fabric.device.type == "cuda"
-    # assert model.device.type == "cuda"
-
-    # print("fabric raw load")
-    # fabric.load_raw(checkpoint_path, model, strict=False)
+    fabric.load_raw(checkpoint_path, model, strict=False)
 
     fabric.seed_everything(1337 + fabric.global_rank)
 
@@ -272,7 +249,6 @@ def validate(
     prompt = generate_prompt(sample)
     encoded = tokenizer.encode(prompt, device=fabric.device)
     max_returned_tokens = len(encoded) + 100
-    print(fabric.device, encoded.device)
     output = generate(
         model, idx=encoded, max_returned_tokens=max_returned_tokens, max_seq_length=max_returned_tokens, temperature=0.8
     )
