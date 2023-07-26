@@ -153,22 +153,41 @@ def tensor_split(param: Union[torch.Tensor, NotYetLoadedTensor], config: Config,
     if model_name != "llama":
         raise NotImplementedError(f"{model_name}")
     else:
-        q_stride = config.head_size * config.n_head
-        kv_stride = config.head_size
+
+        def kstart(start, blen, klen) -> int:
+            """returns start index of keys in batch"""
+            return start + (blen - (klen * 2))
+
+        def vstart(start, blen, klen) -> int:
+            """returns start index of values in batch"""
+            return start + blen - klen
+
+        def vend(start, blen) -> int:
+            """returns last index of values in batch"""
+            return start + blen
+
+        # num observations
         nobs = param.shape[0]
-        starts = range(q_stride, nobs, kv_stride * 2)
-        splices = [(start, start + kv_stride, start + (kv_stride * 2)) for start in starts]
-        assert len(splices) == config.n_query_groups
+        # batch length
+        blen = nobs // config.n_query_groups
+        # key length in batch
+        klen = config.head_size
+        # value length in batch
+        vlen = config.head_size
+        # the starting index of each new batch
+        starts = range(0, nobs, blen)
+        # the indices to splice on
+        splices = [(s, kstart(s, blen, klen), vstart(s, blen, vlen), vend(s, blen)) for s in starts]
 
         qc = ()
         kc = ()
         vc = ()
 
         for splice in splices:
-            qs, ks, vs = splice
-            qc += (param[qs - qs : qs, :],)
-            kc += (param[qs:ks, :],)
-            vc += (param[ks:vs, :],)
+            qs, ks, vs, ve = splice
+            qc += (param[qs:ks, :],)
+            kc += (param[ks:vs, :],)
+            vc += (param[vs:ve, :],)
 
         q = torch.cat(qc)
         k = torch.cat(kc)

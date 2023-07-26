@@ -98,7 +98,7 @@ def test_against_original_gpt_neox():
 
 @torch.inference_mode()
 @pytest.mark.parametrize("size", ("7b", "70b"))
-def test_against_llama(size):
+def test_against_llama2(size):
     from lit_gpt import Config, GPT
     from scripts.convert_lit_checkpoint import copy_weights_llama as copy_to_theirs
     from transformers.models.llama.modeling_llama import LlamaForCausalLM
