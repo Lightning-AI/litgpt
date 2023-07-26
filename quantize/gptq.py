@@ -555,7 +555,7 @@ def main(
     n_samples: int = 128,
     precision: str = "bf16-true",
 ) -> None:
-    """Generates text samples based on a pre-trained LLaMA model and tokenizer.
+    """Generates text samples based on a pre-trained LLM and tokenizer.
 
     Args:
         checkpoint_dir: The checkpoint directory to load.
