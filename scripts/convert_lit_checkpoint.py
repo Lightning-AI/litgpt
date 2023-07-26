@@ -119,30 +119,30 @@ def copy_weights_llama(
     }
 
     for name, param in lit_weights.items():
-        # handle name
-        if "transformer.h" in name and not name.endswith(".attn.attn.weight"):
-            from_name, number = layer_template(name, 2)
-            to_name = weight_map[from_name]
-            if to_name is None:
-                continue
-            to_name = to_name.format(number)
-        elif name.endswith(".attn.attn.weight"):
+        if name.endswith(".attn.attn.weight"):
             from_name, number = layer_template(name, 2)
             q = "model.layers.{}.self_attn.q_proj.weight".format(number)
             k = "model.layers.{}.self_attn.k_proj.weight".format(number)
             v = "model.layers.{}.self_attn.v_proj.weight".format(number)
-        else:
-            to_name = weight_map[name]
-
-        # handle param
-        if name.endswith(".attn.attn.weight"):
             qkv = load_param(param)
             qp, kp, vp = tensor_split(qkv, config, "llama")
             for to_name, to_param in zip((q, k, v), (qp, kp, vp)):
                 if saver is not None:
                     param = saver.store_early(to_param)
                 state_dict[to_name] = to_param
+        elif "transformer.h" in name:
+            from_name, number = layer_template(name, 2)
+            to_name = weight_map[from_name]
+            if to_name is None:
+                continue
+            to_name = to_name.format(number)
+            param = load_param(param)
+            if saver is not None:
+                param = saver.store_early(param)
+            state_dict[to_name] = param
+
         else:
+            to_name = weight_map[name]
             param = load_param(param)
             if saver is not None:
                 param = saver.store_early(param)
@@ -150,50 +150,46 @@ def copy_weights_llama(
 
 
 def tensor_split(param: Union[torch.Tensor, NotYetLoadedTensor], config: Config, model_name: str) -> torch.Tensor:
-    if model_name != "llama":
-        raise NotImplementedError(f"{model_name}")
-    else:
+    def kstart(start, blen, klen) -> int:
+        """returns start index of keys in batch"""
+        return start + (blen - (klen * 2))
 
-        def kstart(start, blen, klen) -> int:
-            """returns start index of keys in batch"""
-            return start + (blen - (klen * 2))
+    def vstart(start, blen, klen) -> int:
+        """returns start index of values in batch"""
+        return start + blen - klen
 
-        def vstart(start, blen, klen) -> int:
-            """returns start index of values in batch"""
-            return start + blen - klen
+    def vend(start, blen) -> int:
+        """returns last index of values in batch"""
+        return start + blen
 
-        def vend(start, blen) -> int:
-            """returns last index of values in batch"""
-            return start + blen
+    # num observations
+    nobs = param.shape[0]
+    # batch length
+    blen = nobs // config.n_query_groups
+    # key length in batch
+    klen = config.head_size
+    # value length in batch
+    vlen = config.head_size
+    # the starting index of each new batch
+    starts = range(0, nobs, blen)
+    # the indices to splice on
+    splices = [(s, kstart(s, blen, klen), vstart(s, blen, vlen), vend(s, blen)) for s in starts]
 
-        # num observations
-        nobs = param.shape[0]
-        # batch length
-        blen = nobs // config.n_query_groups
-        # key length in batch
-        klen = config.head_size
-        # value length in batch
-        vlen = config.head_size
-        # the starting index of each new batch
-        starts = range(0, nobs, blen)
-        # the indices to splice on
-        splices = [(s, kstart(s, blen, klen), vstart(s, blen, vlen), vend(s, blen)) for s in starts]
+    qc = ()
+    kc = ()
+    vc = ()
 
-        qc = ()
-        kc = ()
-        vc = ()
+    for splice in splices:
+        qs, ks, vs, ve = splice
+        qc += (param[qs:ks, :],)
+        kc += (param[ks:vs, :],)
+        vc += (param[vs:ve, :],)
 
-        for splice in splices:
-            qs, ks, vs, ve = splice
-            qc += (param[qs:ks, :],)
-            kc += (param[ks:vs, :],)
-            vc += (param[vs:ve, :],)
+    q = torch.cat(qc)
+    k = torch.cat(kc)
+    v = torch.cat(vc)
 
-        q = torch.cat(qc)
-        k = torch.cat(kc)
-        v = torch.cat(vc)
-
-        return q, k, v
+    return q, k, v
 
 
 @torch.inference_mode()
