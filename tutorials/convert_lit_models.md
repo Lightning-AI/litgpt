@@ -13,7 +13,7 @@ After full finetuning, your checkpoint directory will contain a file named `lit_
 
 ```sh
 python scripts/convert_lit_checkpoint.py \
-    --checkpoint_name lit_model_finetuned \
+    --checkpoint_name lit_model_finetuned.pth \
     --checkpoint_dir checkpoints/tiiuae/falcon-7b
 ```
 
@@ -23,7 +23,7 @@ After finetuning with either Adapter technique, your checkpoint directory will c
 
 ```sh
 python scripts/convert_lit_checkpoint.py \
-    --checkpoint_name lit_model_adapter_finetuned \
+    --checkpoint_name lit_model_adapter_finetuned.pth \
     --checkpoint_dir checkpoints/tiiuae/falcon-7b
 ```
 
@@ -33,6 +33,6 @@ After finetuning with LoRA, your checkpoint directory will contain a file named 
 
 ```sh
 python scripts/convert_lit_checkpoint.py \
-    --checkpoint_name lit_model_lora_finetuned
+    --checkpoint_name lit_model_lora_finetuned.pth \
     --checkpoint_dir checkpoints/tiiuae/falcon-7b
 ```

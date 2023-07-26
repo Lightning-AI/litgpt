@@ -16,13 +16,13 @@ def test_convert_lit_checkpoint(tmp_path):
     with pytest.raises(RuntimeError, match="open file failed because of errno 2 on fopen"):
         convert_lit_checkpoint(checkpoint_name=ckpt_name, checkpoint_dir=tmp_path, model_name="falcon-7b")
 
-    ckpt_path = tmp_path / "lit_model_finetuned.pth"
+    ckpt_path = tmp_path / "lit_model_finetuned"
     ckpt_path.touch()
     with mock.patch("scripts.convert_lit_checkpoint.lazy_load") as load:
         convert_lit_checkpoint(checkpoint_name=ckpt_name, checkpoint_dir=tmp_path, model_name="falcon-7b")
     load.assert_called_with(ckpt_path)
 
-    assert {p.name for p in tmp_path.glob("*")} == {"lit_model_finetuned.pth", "lit_model_finetuned.bin"}
+    assert {p.name for p in tmp_path.glob("*")} == {"lit_model_finetuned", "lit_model_finetuned.bin"}
 
 
 @torch.inference_mode()
@@ -69,7 +69,14 @@ def test_against_original_gpt_neox():
     from scripts.convert_lit_checkpoint import copy_weights_gpt_neox as copy_to_theirs
     from transformers import GPTNeoXConfig, GPTNeoXForCausalLM
 
-    ours_config = Config.from_name("pythia-1b", block_size=2048, n_layer=2, n_embd=2048, n_head=8, padding_multiple=128)
+    ours_config = Config.from_name(
+        "pythia-1b",
+        block_size=2048,
+        n_layer=2,
+        n_embd=2048,
+        n_head=8,
+        padding_multiple=128,
+    )
     theirs_config = GPTNeoXConfig(
         hidden_size=ours_config.n_embd,
         intermediate_size=ours_config.intermediate_size,
