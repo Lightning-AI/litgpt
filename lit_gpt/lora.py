@@ -452,17 +452,14 @@ class GPT(BaseModel):
         assert config.padded_vocab_size is not None
         self.config = config
 
-        if config.to_head:
-            self.lm_head = LoRALinear(
-                config.n_embd,
-                config.padded_vocab_size,
-                bias=False,
-                r=config.r,
-                lora_alpha=config.alpha,
-                lora_dropout=config.dropout,
-            )
-        else:
-            self.lm_head = nn.Linear(config.n_embd, config.padded_vocab_size, bias=False)
+        self.lm_head = LoRALinear(
+            config.n_embd,
+            config.padded_vocab_size,
+            bias=False,
+            r=config.r if config.to_head else 0,
+            lora_alpha=config.alpha,
+            lora_dropout=config.dropout,
+        )
 
         self.transformer = nn.ModuleDict(
             dict(
@@ -577,17 +574,14 @@ class CausalSelfAttention(BaseCausalSelfAttention):
             n_query_groups=config.n_query_groups,
         )
         # output projection
-        if config.to_projection:
-            self.proj = LoRALinear(
-                config.n_embd,
-                config.n_embd,
-                bias=config.bias,
-                r=config.r,
-                lora_alpha=config.alpha,
-                lora_dropout=config.dropout,
-            )
-        else:
-            self.proj = nn.Linear(config.n_embd, config.n_embd, bias=config.bias)
+        self.proj = LoRALinear(
+            config.n_embd,
+            config.n_embd,
+            bias=config.bias,
+            r=config.r if config.to_projection else 0,
+            lora_alpha=config.alpha,
+            lora_dropout=config.dropout,
+        )
 
         self.config = config
 
