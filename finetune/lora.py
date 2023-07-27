@@ -128,6 +128,8 @@ def main(fabric: L.Fabric, data_dir: Path, checkpoint_dir: Path, out_dir: Path):
     optimizer = fabric.setup_optimizers(optimizer)
     fabric.load_raw(checkpoint_path, model, strict=False)
 
+    assert not any(p.data.is_meta for p in model.parameters())
+
     fabric.seed_everything(1337 + fabric.global_rank)
 
     train_time = time.time()
