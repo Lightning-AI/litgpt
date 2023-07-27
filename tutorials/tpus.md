@@ -38,7 +38,7 @@ export PJRT_DEVICE=TPU
 export ALLOW_MULTIPLE_LIBTPU_LOAD=1
 ```
 
-> **Note**
+> [!NOTE]\
 > You can find an extensive guide on how to get set-up and all the available options [here](https://cloud.google.com/tpu/docs/v4-users-guide).
 
 Since you created a new machine, you'll probably need to download the weights. You could scp them into the machine with `gcloud compute tpus tpu-vm scp` or you can follow the steps described in our [downloading guide](download_stablelm.md).
