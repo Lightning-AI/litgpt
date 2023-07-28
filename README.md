@@ -115,7 +115,7 @@ python chat/base.py
 
 ### Run large models on smaller consumer devices
 
-We support 4-bit quantization (as in QLoRA), LLM.int8, and GPTQ.int4 inference by following [this guide](tutorials/quantize.md).
+We support 4-bit quantization (as in QLoRA), nf4, nf4-dq, fp4, fp4-dq and GPTQ.int4 inference by following [this guide](tutorials/quantize.md).
 
 ## Finetune the model
 
@@ -171,9 +171,6 @@ Looking for conceptual tutorials and explanations? We have some additional artic
 
 - [Parameter-Efficient LLM Finetuning With Low-Rank Adaptation (LoRA)](https://lightning.ai/pages/community/tutorial/lora-llm/)
 
-## Pre-training
-
-Porting from Lit-LLaMA in progress 👷
 
 ## Get involved!
 
