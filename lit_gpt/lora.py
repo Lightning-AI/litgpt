@@ -289,10 +289,6 @@ class LoRAQKVLinear(LoRALinear):
         if fan_in_fan_out:
             self.weight.data = self.weight.data.T
 
-    def T(self, x: torch.Tensor) -> torch.Tensor:
-        """Transpose input tensor if weights are stored in format (fan_in, fan_out)"""
-        return x.permute(*torch.arange(x.ndim -1, -1, -1)) if self.fan_in_fan_out else x
-
     def zero_pad(self, x: torch.Tensor) -> torch.Tensor:
         """Properly pad weight updates with zeros.
 
