@@ -38,7 +38,7 @@ This implementation extends on [Lit-LLaMA](https://github.com/lightning-AI/lit-l
 
 ---
 
-**NeurIPS 2023 Large Language Model Efficiency Challenge: 1 LLM + 1 GPU + 1 Day**
+**🏆 NeurIPS 2023 Large Language Model Efficiency Challenge: 1 LLM + 1 GPU + 1 Day**
 
 The Lit-GPT is the official starter kit for the [NeurIPS 2023 LLM Efficiency Challenge](https://llm-efficiency-challenge.github.io), which is a competition focused on finetuning an existing foundational (base) LLM for 24 hours on a single GPU. The competition has two tracks, one for the A100 and another for the 4090 GPUs.
 
