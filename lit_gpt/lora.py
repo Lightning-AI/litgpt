@@ -62,7 +62,7 @@ from lit_gpt.model import (
 
 
 class LoRALayer:
-    def __init__(self, r: int, lora_alpha: int, lora_dropout: float, merge_weights: bool):
+    def __init__(self, r: int, lora_alpha: int, lora_dropout: float):
         """Store LoRA specific attributes in a class.
 
         Args:
@@ -72,9 +72,6 @@ class LoRALayer:
                 "This scaling helps to reduce the need to retune hyperparameters when we vary r"
                 https://arxiv.org/pdf/2106.09685.pdf (section 4.1)
             lora_dropout: dropout that is applied on the input in the LoRA branch (before multiplying by matrix A)
-            merge_weights: whether we want to merge pretrained weights and LoRA weight updates. This is useful if one wants to use
-                fine-tuned model as a standalone one (without storing LoRA weights separately) plus it helps to reduce
-                overhead during inference.
         """
         self.r = r
         self.lora_alpha = lora_alpha
@@ -85,7 +82,6 @@ class LoRALayer:
             self.lora_dropout = lambda x: x
         # Mark the weight as unmerged
         self.merged = False
-        self.merge_weights = merge_weights
 
 
 class LoRALinear(nn.Linear, LoRALayer):
@@ -100,7 +96,6 @@ class LoRALinear(nn.Linear, LoRALayer):
         lora_alpha: int = 1,
         lora_dropout: float = 0.0,
         fan_in_fan_out: bool = False,
-        merge_weights: bool = True,
         **kwargs,
     ):
         """LoRA wrapper around linear class.
@@ -123,12 +118,9 @@ class LoRALinear(nn.Linear, LoRALayer):
             fan_in_fan_out: set this to True if the layer to replace stores weight like (fan_in, fan_out).  For example, gpt-2 uses
                 `Conv1D` which stores weights like (fan_in, fan_out) and hence this should be set to `True`
                 https://github.com/huggingface/peft/blob/main/src/peft/tuners/lora.py#LL53C9-L53C112
-            merge_weights: whether we want to merge pretrained weights and LoRA weight updates. This is useful if one wants to use
-                fine-tuned model as a standalone one (without storing LoRA weight separately) plus it helps to reduce
-                overhead during inference.
         """
         super().__init__(in_features, out_features, **kwargs)
-        LoRALayer.__init__(self, r=r, lora_alpha=lora_alpha, lora_dropout=lora_dropout, merge_weights=merge_weights)
+        LoRALayer.__init__(self, r=r, lora_alpha=lora_alpha, lora_dropout=lora_dropout)
 
         self.fan_in_fan_out = fan_in_fan_out
         # Actual trainable parameters
@@ -157,7 +149,7 @@ class LoRALinear(nn.Linear, LoRALayer):
         def T(w):
             return w.transpose(0, 1) if self.fan_in_fan_out else w
 
-        if self.merge_weights and not self.merged:
+        if not self.merged:
             # Merge the weights and mark it
             if self.r > 0:
                 self.weight.data += T(self.lora_B @ self.lora_A) * self.scaling
@@ -194,7 +186,6 @@ class LoRAQKVLinear(LoRALinear):
         lora_dropout: float = 0.0,
         enable_lora: Union[bool, Tuple[bool, bool, bool]] = False,
         fan_in_fan_out: bool = False,
-        merge_weights: bool = True,
         **kwargs,
     ):
         """LoRA wrapper around linear class that is used for calculation of q, k and v matrices.
@@ -222,12 +213,9 @@ class LoRAQKVLinear(LoRALinear):
             fan_in_fan_out: set this to True if the layer to replace stores weight like (fan_in, fan_out).  For example, gpt-2 uses
                 `Conv1D` which stores weights like (fan_in, fan_out) and hence this should be set to `True`
                 https://github.com/huggingface/peft/blob/main/src/peft/tuners/lora.py#LL53C9-L53C112
-            merge_weights: whether we want to merge pretrained weights and LoRA weight updates. This is useful if one wants to use
-                fine-tuned model as a standalone one (without storing LoRA weight separately) plus it helps to reduce
-                overhead during inference.
         """
         super().__init__(in_features, out_features, **kwargs)
-        LoRALayer.__init__(self, r=r, lora_alpha=lora_alpha, lora_dropout=lora_dropout, merge_weights=merge_weights)
+        LoRALayer.__init__(self, r=r, lora_alpha=lora_alpha, lora_dropout=lora_dropout)
         if isinstance(enable_lora, bool):
             enable_lora = [enable_lora] * 3
         assert len(enable_lora) == 3
@@ -345,7 +333,7 @@ class LoRAQKVLinear(LoRALinear):
         # ⚬ self.weight.data: (384, 128) or (3 * embedding_size, embedding_size)
         # ⚬ self.lora_A.data: (4, 128)
         # ⚬ self.lora_B.data: (256, 2)
-        if self.merge_weights and not self.merged:
+        if not self.merged:
             if self.r > 0 and any(self.enable_lora):
                 delta_w = F.conv1d(
                     self.lora_A.data.unsqueeze(0),  # (4, 128) -> (1, 4, 128)
@@ -601,7 +589,6 @@ class CausalSelfAttention(BaseCausalSelfAttention):
             lora_dropout=config.dropout,
             enable_lora=(config.to_query, config.to_key, config.to_value),
             fan_in_fan_out=False,
-            merge_weights=True,
             bias=config.bias,
             # for MQA/GQA support
             n_head=config.n_head,
