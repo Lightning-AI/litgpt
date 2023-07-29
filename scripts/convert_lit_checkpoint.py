@@ -229,4 +229,4 @@ def convert_lit_checkpoint(
 if __name__ == "__main__":
     from jsonargparse import CLI
 
-    CLI(convert_lit_checkpoint)
+    CLI(convert_lit_checkpoint, as_positional=False)
