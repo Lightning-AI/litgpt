@@ -216,9 +216,9 @@ def convert_lit_checkpoint(
     # checkpoint_name cannot be hardcoded because there exists different outputs such as
     # ("lit_model_finetuned.pth", "lit_model_lora_finetuned.pth", "lit_model_adapter_finetuned.pth"")
     pth_file = checkpoint_dir / checkpoint_name
-    bin_file = "".join([checkpoint_name, ".bin"])
+    bin_file = pth_file.with_suffix(".bin")
 
-    with incremental_save(checkpoint_dir / bin_file) as saver:
+    with incremental_save(bin_file) as saver:
         with contextlib.ExitStack() as stack:
             lit_weights = stack.enter_context(lazy_load(pth_file))
             copy_fn(sd, lit_weights, saver=saver)
