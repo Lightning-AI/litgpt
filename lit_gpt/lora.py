@@ -67,7 +67,7 @@ class LoRALayer:
 
         Args:
             r: rank of the weight update matrices. To make sense of using LoRA the rank should be smaller than the rank of
-                the weights of the model.  The rank can be as low as 1: https://arxiv.org/pdf/2106.09685.pdf (section 7.2)
+                the weights of the model. The rank can be as low as 1: https://arxiv.org/pdf/2106.09685.pdf (section 7.2)
             lora_alpha: alpha is needed for scaling updates as alpha/r
                 "This scaling helps to reduce the need to retune hyperparameters when we vary r"
                 https://arxiv.org/pdf/2106.09685.pdf (section 4.1)
@@ -110,12 +110,12 @@ class LoRALinear(nn.Linear, LoRALayer):
             in_features: number of input features of the pretrained weights
             out_features: number of output features of the pretrained weights
             r: rank of the weight update matrices. To make sense of using LoRA the rank should be smaller than the rank of
-                the weights of the model.  The rank can be as low as 1: https://arxiv.org/pdf/2106.09685.pdf (section 7.2)
+                the weights of the model. The rank can be as low as 1: https://arxiv.org/pdf/2106.09685.pdf (section 7.2)
             lora_alpha: alpha is needed for scaling updates as alpha/r
                 "This scaling helps to reduce the need to retune hyperparameters when we vary r"
                 https://arxiv.org/pdf/2106.09685.pdf (section 4.1)
             lora_dropout: dropout that is applied on the input in the LoRA branch (before multiplying by matrix A)
-            fan_in_fan_out: set this to True if the layer to replace stores weight like (fan_in, fan_out).  For example, gpt-2 uses
+            fan_in_fan_out: set this to True if the layer to replace stores weight like (fan_in, fan_out). For example, gpt-2 uses
                 `Conv1D` which stores weights like (fan_in, fan_out) and hence this should be set to `True`
                 https://github.com/huggingface/peft/blob/main/src/peft/tuners/lora.py#LL53C9-L53C112
         """
@@ -202,7 +202,7 @@ class LoRAQKVLinear(LoRALinear):
             n_head: number of attention heads
             n_query_groups: number of query groups (see diagram in `lit_gpt/config.py`)
             r: rank of the weight update matrices. To make sense of using LoRA the rank should be smaller than the rank of
-                the weights of the model.  The rank can be as low as 1: https://arxiv.org/pdf/2106.09685.pdf (section 7.2)
+                the weights of the model. The rank can be as low as 1: https://arxiv.org/pdf/2106.09685.pdf (section 7.2)
             lora_alpha: alpha is needed for scaling updates as alpha/r
                 "This scaling helps to reduce the need to retune hyperparameters when we vary r"
                 https://arxiv.org/pdf/2106.09685.pdf (section 4.1)
@@ -210,7 +210,7 @@ class LoRAQKVLinear(LoRALinear):
             enable_lora: MergeLinear class is for attention mechanism where qkv are calculated with a single weight matrix. If we
                 don't want to apply LoRA we can set it as False. For example if we want to apply LoRA only to `query`
                 and `value` but keep `key` without weight updates we should pass `[True, False, True]`
-            fan_in_fan_out: set this to True if the layer to replace stores weight like (fan_in, fan_out).  For example, gpt-2 uses
+            fan_in_fan_out: set this to True if the layer to replace stores weight like (fan_in, fan_out). For example, gpt-2 uses
                 `Conv1D` which stores weights like (fan_in, fan_out) and hence this should be set to `True`
                 https://github.com/huggingface/peft/blob/main/src/peft/tuners/lora.py#LL53C9-L53C112
         """
@@ -439,7 +439,7 @@ class Config(BaseConfig):
     """
     Args:
         r: rank of the weight update matrices. To make sense of using LoRA the rank should be smaller than the rank of
-            the weights of the model.  The rank can be as low as 1: https://arxiv.org/pdf/2106.09685.pdf (section 7.2)
+            the weights of the model. The rank can be as low as 1: https://arxiv.org/pdf/2106.09685.pdf (section 7.2)
         alpha: alpha is needed for scaling updates as alpha/r
             "This scaling helps to reduce the need to retune hyperparameters when we vary r"
             https://arxiv.org/pdf/2106.09685.pdf (section 4.1)
