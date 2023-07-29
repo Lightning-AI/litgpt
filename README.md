@@ -23,7 +23,8 @@ Hackable [implementation](lit_gpt/model.py) of state-of-the-art open-source larg
 
 Supports popular public checkpoints such as:
 
-- Meta AI [LLaMA 2](tutorials/download_llama_2.md)
+- Meta AI [Llama 2](tutorials/download_llama_2.md)
+- Stability AI [FreeWilly2](tutorials/download_freewilly_2.md)
 - TII UAE [Falcon](tutorials/download_falcon.md)
 - OpenLM Research [OpenLLaMA](tutorials/download_openllama.md)
 - LMSYS [Vicuna](tutorials/download_vicuna.md) and [LongChat](tutorials/download_longchat.md)
