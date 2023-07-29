@@ -512,12 +512,12 @@ class GPT(BaseModel):
         assert block_size >= T, f"Cannot forward sequence of length {T}, block size is only {block_size}"
 
         if self.rope_cache is None:
-            self.rope_cache = self.build_rope_cache(idx)
+            self.rope_cache = self.build_rope_cache(idx)  # 2 * (block_size, head_size * rotary_percentage)
         # passing `attn_mask` to SDPA downgrades it to use the inefficient implementation. since we only need the mask
         # for the kv-cache support (only during inference), we only create it in that situation
         # this will be resolved by https://github.com/pytorch/pytorch/issues/96099
         if use_kv_cache and self.mask_cache is None:
-            self.mask_cache = self.build_mask_cache(idx)
+            self.mask_cache = self.build_mask_cache(idx)  # (1, 1, block_size, block_size)
 
         cos, sin = self.rope_cache
         if use_kv_cache:
@@ -531,7 +531,7 @@ class GPT(BaseModel):
             mask = None
 
         # forward the model itself
-        x = self.transformer.wte(idx)  # token embeddings of shape (b, t, n_embd)
+        x = self.transformer.wte(idx)  # token embeddings of shape (B, T, n_embd)
 
         if not use_kv_cache:
             for block in self.transformer.h:
@@ -546,7 +546,7 @@ class GPT(BaseModel):
         if lm_head_chunk_size > 0:
             # chunk the lm head logits to reduce the peak memory used by autograd
             return [self.lm_head(x_i) for x_i in x.split(lm_head_chunk_size, dim=1)]
-        return self.lm_head(x)  # (b, t, vocab_size)
+        return self.lm_head(x)  # (B, T, vocab_size)
 
     @classmethod
     def from_name(cls, name: str, **kwargs: Any) -> Self:
