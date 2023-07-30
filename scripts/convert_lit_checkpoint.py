@@ -100,7 +100,7 @@ def copy_weights_gpt_neox(
         state_dict[to_name] = param
 
 
-def maybe_unwrap_statedict(lit_weights) -> Dict:
+def maybe_unwrap_statedict(lit_weights: Dict[str, torch.Tensor]) -> Dict[str, torch.Tensor]:
     if lit_weights.get("model"):
         return lit_weights["model"]
     else:
