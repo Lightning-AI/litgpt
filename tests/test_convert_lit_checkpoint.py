@@ -103,7 +103,7 @@ def test_against_original_gpt_neox():
     torch.testing.assert_close(ours_y, theirs_y)
 
 
-def test_convert_model_unwrap(tmp_path):
+def test_maybe_unwrap_statedict(tmp_path):
     import lightning as L
     import torch
     from lit_gpt import Config, GPT
