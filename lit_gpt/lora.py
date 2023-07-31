@@ -474,7 +474,7 @@ class GPT(BaseModel):
             config.n_embd,
             config.padded_vocab_size,
             bias=False,
-            r=config.r if config.to_head else 0,
+            r=(config.r if config.to_head else 0),
             lora_alpha=config.alpha,
             lora_dropout=config.dropout,
         )
