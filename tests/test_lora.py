@@ -247,3 +247,33 @@ def test_lora_layer_forward_no_exception(apply_to):
     model.eval()
 
     model(input_ids)
+
+
+@pytest.mark.parametrize(("rank", "expected_merged"), ((-1, False), (0, False), (1, True)))
+def test_lora_linear_weights_merged_status(rank, expected_merged):
+    from lit_gpt.lora import LoRALinear
+
+    layer = LoRALinear(10, 10, r=rank)
+    assert not layer.merged
+    layer.merge()
+    assert layer.merged == expected_merged
+
+
+@pytest.mark.parametrize(
+    ("rank", "enable_lora", "expected_merged"),
+    (
+        (-1, True, False),
+        (0, True, False),
+        (1, True, True),
+        (-1, False, False),
+        (0, False, False),
+        (1, False, False),
+    ),
+)
+def test_lora_qkv_linear_weights_merged_status(rank, enable_lora, expected_merged):
+    from lit_gpt.lora import LoRAQKVLinear
+
+    layer = LoRAQKVLinear(10, 3 * 10, n_head=2, n_query_groups=2, r=rank, enable_lora=enable_lora)
+    assert not layer.merged
+    layer.merge()
+    assert layer.merged == expected_merged
