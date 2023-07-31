@@ -363,7 +363,7 @@ class LoRAQKVLinear(LoRALinear):
         # if weights are merged or LoRA is disabled (r <= 0 or all `enable_lora` are False) - it's only a regular nn.Linear forward pass;
         # otherwise in addition do the forward pass with LoRA weights and add it's output to the output from pretrained weights
         result = F.linear(x, self.T(self.weight), bias=self.bias)
-        if all((self.r > 0, any(self.enable_lora), not self.merged)):
+        if self.r > 0 and any(self.enable_lora) and not self.merged):
             after_A = F.linear(self.lora_dropout(x), self.lora_A)  # (64, 64, 128) @ (4, 128) -> (64, 64, 4)
             # For F.conv1d:
             # ⚬ input: input tensor of shape (mini-batch, in_channels, iW)
