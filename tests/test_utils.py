@@ -7,6 +7,7 @@ from io import StringIO
 
 import pytest
 import torch
+import torch.nn.functional as F
 
 
 class ATensor(torch.Tensor):
@@ -137,17 +138,23 @@ def test_chunked_cross_entropy(B):
     T = 25
     regular_logits = torch.randn(B, T, V)
     targets = torch.randint(0, V, (B, T))
-    regular_y = chunked_cross_entropy(regular_logits, targets, chunk_size=0)
-    assert regular_y.numel() == 1
 
-    chunked_y = chunked_cross_entropy(regular_logits, targets, chunk_size=10)
-    torch.testing.assert_close(chunked_y, regular_y)
+    baseline_loss = F.cross_entropy(regular_logits.reshape(-1, regular_logits.size(-1)), targets.reshape(-1))
+    regular_loss = chunked_cross_entropy(regular_logits, targets, chunk_size=0)
+    assert torch.equal(baseline_loss, regular_loss)
+    assert regular_loss.numel() == 1
+
+    chunked_loss = chunked_cross_entropy(regular_logits, targets, chunk_size=10)
+    torch.testing.assert_close(chunked_loss, regular_loss)
+    torch.testing.assert_close(chunked_loss, baseline_loss)
 
     logit_chunk_size = 6
     assert T % logit_chunk_size != 0  # ensure leftover
     chunked_logits = list(regular_logits.split(logit_chunk_size, dim=1))
-    chunked_y = chunked_cross_entropy(chunked_logits, targets, chunk_size=0)
-    torch.testing.assert_close(chunked_y, regular_y)
+    chunked_loss = chunked_cross_entropy(chunked_logits, targets, chunk_size=0)
+    torch.testing.assert_close(chunked_loss, regular_loss)
+    torch.testing.assert_close(chunked_loss, baseline_loss)
 
-    chunked_y = chunked_cross_entropy(chunked_logits, targets, chunk_size=10)
-    torch.testing.assert_close(chunked_y, regular_y)
+    chunked_loss = chunked_cross_entropy(chunked_logits, targets, chunk_size=10)
+    torch.testing.assert_close(chunked_loss, regular_loss)
+    torch.testing.assert_close(chunked_loss, baseline_loss)
