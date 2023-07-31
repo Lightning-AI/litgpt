@@ -100,11 +100,8 @@ def copy_weights_gpt_neox(
         state_dict[to_name] = param
 
 
-def maybe_unwrap_statedict(lit_weights: Dict[str, torch.Tensor]) -> Dict[str, torch.Tensor]:
-    if lit_weights.get("model"):
-        return lit_weights["model"]
-    else:
-        return lit_weights
+def maybe_unwrap_state_dict(lit_weights: Dict[str, torch.Tensor]) -> Dict[str, torch.Tensor]:
+    return lit_weights.get("model", lit_weights)
 
 @torch.inference_mode()
 def convert_lit_checkpoint(
@@ -135,7 +132,7 @@ def convert_lit_checkpoint(
     with incremental_save(bin_file) as saver:
         with contextlib.ExitStack() as stack:
             lit_weights = stack.enter_context(lazy_load(pth_file))
-            lit_weights = maybe_unwrap_statedict(lit_weights)
+            lit_weights = maybe_unwrap_state_dict(lit_weights)
             copy_fn(sd, lit_weights, saver=saver)
             gc.collect()
         saver.save(sd)
