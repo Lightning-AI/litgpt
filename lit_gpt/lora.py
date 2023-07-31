@@ -150,10 +150,9 @@ class LoRALinear(nn.Linear, LoRALayer):
     def merge(self):
         """Merges the LoRA weights into the full-rank weights (W = W + delta_W)."""
 
-        if not self.merged:
+        if self.r > 0 and not self.merged:
             # Merge the weights and mark it
-            if self.r > 0:
-                self.weight.data += self.T(self.lora_B @ self.lora_A) * self.scaling
+            self.weight.data += self.T(self.lora_B @ self.lora_A) * self.scaling
             self.merged = True
 
     def forward(self, x: torch.Tensor):
@@ -326,19 +325,16 @@ class LoRAQKVLinear(LoRALinear):
         # ⚬ self.weight.data: (384, 128) or (3 * embedding_size, embedding_size)
         # ⚬ self.lora_A.data: (4, 128)
         # ⚬ self.lora_B.data: (256, 2)
-        if not self.merged:
-            if self.r > 0 and any(self.enable_lora):
-                delta_w = F.conv1d(
-                    self.lora_A.data.unsqueeze(0),  # (4, 128) -> (1, 4, 128)
-                    self.lora_B.data.unsqueeze(-1),  # (256, 2) -> (256, 2, 1)
-                    groups=sum(self.enable_lora),
-                ).squeeze(
-                    0
-                )  # (1, 4, 128) @ (256, 2, 1) -> (1, 256, 128) -> (256, 128)
-                # W = W + delta_W (merge)
-                self.weight.data += self.zero_pad(
-                    self.T(delta_w * self.scaling)
-                )  # (256, 128) after zero_pad (384, 128)
+        if self.r > 0 and any(self.enable_lora) and not self.merged:
+            delta_w = F.conv1d(
+                self.lora_A.data.unsqueeze(0),  # (4, 128) -> (1, 4, 128)
+                self.lora_B.data.unsqueeze(-1),  # (256, 2) -> (256, 2, 1)
+                groups=sum(self.enable_lora),
+            ).squeeze(0)  # (1, 4, 128) @ (256, 2, 1) -> (1, 256, 128) -> (256, 128)
+            # W = W + delta_W (merge)
+            self.weight.data += self.zero_pad(
+                self.T(delta_w * self.scaling)
+            )  # (256, 128) after zero_pad (384, 128)
             self.merged = True
 
     def forward(self, x: torch.Tensor) -> torch.Tensor:
