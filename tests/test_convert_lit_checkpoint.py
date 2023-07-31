@@ -142,6 +142,6 @@ def test_maybe_unwrap_statedict(tmp_path):
     assert ckpt_from_unwrapped.get("embed_out.weight") is not None
     
     # assert maybe_unwrap_statedict is called
-    with mock.patch("scripts.convert_lit_checkpoint.maybe_unwrap_statedict") as load:
+    with mock.patch("scripts.convert_lit_checkpoint.maybe_unwrap_statedict") as maybe_unwrap:
         convert_lit_checkpoint(checkpoint_name=ckpt_name, checkpoint_dir=tmp_path, model_name=model_name)
-    load.assert_called()
+    maybe_unwrap.assert_called()
