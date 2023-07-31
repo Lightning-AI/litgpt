@@ -74,6 +74,6 @@ def prepare(
 
 
 if __name__ == "__main__":
-    from jsonargparse.cli import CLI
+    from jsonargparse import CLI
 
     CLI(prepare)

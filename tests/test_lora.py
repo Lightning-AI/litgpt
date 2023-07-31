@@ -17,8 +17,8 @@ def test_lora_layer_replacement():
     assert isinstance(model.transformer.h[1].attn, LoRACausalSelfAttention)
 
 
-def test_lora_merge_unmerge():
-    from lit_gpt.lora import mark_only_lora_as_trainable, GPT, Config
+def test_lora_merge():
+    from lit_gpt.lora import mark_only_lora_as_trainable, merge_lora_weights, GPT, Config
 
     config = Config(
         n_layer=1,
@@ -31,12 +31,13 @@ def test_lora_merge_unmerge():
         dropout=0.1,
         to_query=True,
         to_value=True,
+        to_projection=True,
     )
     model = GPT(config)
-
-    initial_weight = model.transformer.h[0].attn.attn.weight.clone()
     model.train()
-    assert torch.equal(model.transformer.h[0].attn.attn.weight, initial_weight)
+
+    initial_weight = model.transformer.h[0].attn.proj.weight.clone()
+    assert torch.equal(model.transformer.h[0].attn.proj.weight, initial_weight)
 
     # perform an update to the LoRA weights
     mark_only_lora_as_trainable(model)
@@ -46,29 +47,22 @@ def test_lora_merge_unmerge():
     optimizer.step()
     optimizer.zero_grad()
     # the weight remains unchanged (only lora A and B change)
-    assert torch.equal(model.transformer.h[0].attn.attn.weight, initial_weight)
+    assert torch.equal(model.transformer.h[0].attn.proj.weight, initial_weight)
 
-    # 'merge' and then 'unmerge' should neutralize themselves
-    weight_before = model.transformer.h[0].attn.attn.weight.clone()
-    model.eval()
-    assert not torch.equal(model.transformer.h[0].attn.attn.weight, weight_before)
-    model.train()
-    # note: numerically, `W + (A * B) - (A * B) == W` does not hold exactly
-    torch.testing.assert_close(model.transformer.h[0].attn.attn.weight, weight_before)
-
-    # calling eval/train multiple times in a row should not merge/unmerge multiple times
-    model.eval()
+    # calling merge() multiple times in a row should not merge multiple times
+    merge_lora_weights(model)
     assert model.transformer.h[0].attn.attn.merged
-    weight_after = model.transformer.h[0].attn.attn.weight.clone()
-    model.eval()
-    model.eval()
-    assert torch.equal(model.transformer.h[0].attn.attn.weight, weight_after)
-    model.train()
-    assert not model.transformer.h[0].attn.attn.merged
-    weight_after = model.transformer.h[0].attn.attn.weight.clone()
-    model.train()
-    model.train()
-    assert torch.equal(model.transformer.h[0].attn.attn.weight, weight_after)
+    weight_after = model.transformer.h[0].attn.proj.weight.clone()
+    merge_lora_weights(model)
+    merge_lora_weights(model)
+    assert torch.equal(model.transformer.h[0].attn.proj.weight, weight_after)
+
+    # check that `W_after = W_initial + (A x B)`
+    a = model.transformer.h[0].attn.proj.lora_A
+    b = model.transformer.h[0].attn.proj.lora_B
+    scaling = model.transformer.h[0].attn.proj.scaling
+    delta_w = (b @ a) * scaling
+    torch.testing.assert_close(weight_after, initial_weight + delta_w)
 
 
 def test_lora_mqa_gqa():
@@ -207,18 +201,38 @@ def test_lora_init_when_linear_overridden():
 
 
 @pytest.mark.parametrize(
-    ("apply_to", "layer_name"),
-    (("to_projection", "transformer.h.0.attn.proj"), ("to_mlp", "transformer.h.0.mlp.fc"), ("to_head", "lm_head")),
+    ("apply_to", "target_layer_names", "mlp_class_name"),
+    (
+        ("to_projection", "transformer.h.0.attn.proj", "GptNeoxMLP"),
+        ("to_mlp", ("transformer.h.0.mlp.fc", "transformer.h.0.mlp.proj"), "GptNeoxMLP"),
+        ("to_head", "lm_head", "GptNeoxMLP"),
+        ("to_projection", "transformer.h.0.attn.proj", "LLaMAMLP"),
+        ("to_mlp", ("transformer.h.0.mlp.fc_1", "transformer.h.0.mlp.fc_2", "transformer.h.0.mlp.proj"), "LLaMAMLP"),
+        ("to_head", "lm_head", "LLaMAMLP"),
+    ),
 )
-def test_lora_linear_utilization(apply_to, layer_name):
+def test_lora_linear_utilization(apply_to, target_layer_names, mlp_class_name):
     from lit_gpt.lora import GPT, Config
 
     config = Config(
         n_layer=1, n_head=4, n_embd=8, block_size=1, vocab_size=1, r=2, alpha=8, dropout=0.1, **{apply_to: True}
     )
+    config._mlp_class = mlp_class_name
     state_dict = GPT(config).state_dict()
 
-    assert all(layer_name + lora_sublayer in state_dict for lora_sublayer in (".lora_A", ".lora_B"))
+    if isinstance(target_layer_names, str):
+        target_layer_names = (target_layer_names,)
+    lora_sublayers = (".lora_A", ".lora_B")
+
+    # check that all the target layers have LoRA weights
+    for layer_name in target_layer_names:
+        for lora_sublayer in lora_sublayers:
+            assert layer_name + lora_sublayer in state_dict
+
+    # check that only target layers have LoRA weights
+    for key in state_dict:
+        if key.endswith(lora_sublayers):
+            assert key.startswith(target_layer_names)
 
 
 @pytest.mark.parametrize("apply_to", (None, "to_query", "to_key", "to_value", "to_projection", "to_mlp", "to_head"))
@@ -233,3 +247,33 @@ def test_lora_layer_forward_no_exception(apply_to):
     model.eval()
 
     model(input_ids)
+
+
+@pytest.mark.parametrize(("rank", "expected_merged"), ((-1, False), (0, False), (1, True)))
+def test_lora_linear_weights_merged_status(rank, expected_merged):
+    from lit_gpt.lora import LoRALinear
+
+    layer = LoRALinear(10, 10, r=rank)
+    assert not layer.merged
+    layer.merge()
+    assert layer.merged == expected_merged
+
+
+@pytest.mark.parametrize(
+    ("rank", "enable_lora", "expected_merged"),
+    (
+        (-1, True, False),
+        (0, True, False),
+        (1, True, True),
+        (-1, False, False),
+        (0, False, False),
+        (1, False, False),
+    ),
+)
+def test_lora_qkv_linear_weights_merged_status(rank, enable_lora, expected_merged):
+    from lit_gpt.lora import LoRAQKVLinear
+
+    layer = LoRAQKVLinear(10, 3 * 10, n_head=2, n_query_groups=2, r=rank, enable_lora=enable_lora)
+    assert not layer.merged
+    layer.merge()
+    assert layer.merged == expected_merged

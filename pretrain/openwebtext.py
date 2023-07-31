@@ -70,11 +70,11 @@ def setup(
         strategy = "auto"
 
     fabric = L.Fabric(devices=devices, strategy=strategy, precision=precision, loggers=logger)
-    fabric.print(hparams)
     fabric.launch(main, resume=resume)
 
 
 def main(fabric, resume) -> None:
+    fabric.print(hparams)
     speed_monitor = SpeedMonitor(fabric, window_size=50, time_unit="seconds")
 
     if fabric.global_rank == 0:
