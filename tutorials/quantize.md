@@ -1,30 +1,47 @@
 # Quantize the model
 
-When `--precision bf16-true` or `--precision 16-true` is used, the model weights will automatically be converted and consume less memory.
-However, this might not be enough for large models or when using GPUs with limited memory.
+This document provides different strategies for quantizing the various models available in Lit-GPT to reduce GPU memory usage, which is useful for running larger models on certain GPU hardware.
 
-> **Note**:
+**All the examples below were run on an A100 40GB GPU.**
+
+> [!NOTE]\:
 > Quantization is only supported with inference (generate and chat scripts).
 
-### Baseline
 
-All the examples below were run on an A100 40GB GPU.
+## Baseline
+
+It's useful to start with a baseline to have a reference point for memory savings via the various quantization methods.
+
+```bash
+python generate/base.py --checkpoint_dir checkpoints/tiiuae/falcon-7b --precision 32-true --max_new_tokens 256
+...
+Time for inference 1: 10.69 sec total, 23.95 tokens/sec.
+Memory used: 28.95 GB
+```
+
+First, using a lower precision compared to 32-bit float can result in two times reduced memory consumption. You can either try setting `--precision 16-true` for regular 16-bit precision or  `--precision bf16-true` if your GPU supports brain-float 16-bit precision. ([This brief video](https://lightning.ai/courses/deep-learning-fundamentals/9.0-overview-techniques-for-speeding-up-model-training/unit-9.1-accelerated-model-training-via-mixed-precision-training/) explains the difference between regular 16-bit and bf16-bit precision.)
+
+In short, when `--precision bf16-true` or `--precision 16-true` is used, the model weights will automatically be converted and consume less memory.
+However, this might not be enough for large models or when using GPUs with limited memory.
 
 ```bash
 python generate/base.py --checkpoint_dir checkpoints/tiiuae/falcon-7b --precision bf16-true --max_new_tokens 256
 ...
 Time for inference 1: 9.76 sec total, 26.23 tokens/sec.
 Memory used: 14.51 GB
-```
+````
 
-To reduce the memory requirements further, Lit-GPT supports several quantization techniques:
+To reduce the memory requirements further, Lit-GPT supports several quantization techniques, which are shown below.
+
+> [!NOTE]\:
+> Most quantization examples below also use the `--precision bf16-true` setting explained above. If your GPU does not support the bfloat-format, you can change it to `--precision 16-true`.
 
 ## `bnb.nf4`
 
 Enabled with [bitsandbytes](https://github.com/TimDettmers/bitsandbytes). Check out the [paper](https://arxiv.org/abs/2305.14314v1) to learn more about how it works.
 
-> **Note**: `bitsandbytes` only supports `CUDA` devices and the `Linux` operating system.
-Windows users should use [WSL2](https://learn.microsoft.com/en-us/windows/ai/directml/gpu-cuda-in-wsl).
+> [!NOTE]\: `bitsandbytes` only supports `CUDA` devices and the `Linux` operating system.
+> Windows users should use [WSL2](https://learn.microsoft.com/en-us/windows/ai/directml/gpu-cuda-in-wsl).
 
 Uses the normalized float 4 (nf4) data type. This is recommended over "fp4" based on the paper's experimental results and theoretical analysis.
 
