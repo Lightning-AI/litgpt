@@ -596,7 +596,7 @@ class CausalSelfAttention(BaseCausalSelfAttention):
             config.n_embd,
             config.n_embd,
             bias=config.bias,
-            r=config.r if config.to_projection else 0,
+            r=(config.r if config.to_projection else 0),
             lora_alpha=config.alpha,
             lora_dropout=config.dropout,
         )
