@@ -143,35 +143,27 @@ class LoRALinear(nn.Linear, LoRALayer):
             nn.init.kaiming_uniform_(self.lora_A, a=math.sqrt(5))
             nn.init.zeros_(self.lora_B)
 
-    def merge(self, verbose: bool = True):
-        """Merges the LoRA weights into the full-rank weights (W = W + delta_W).
+    def T(self, x: torch.Tensor) -> torch.Tensor:
+        """Transpose input tensor if weights are stored in format (fan_in, fan_out)"""
+        return x.transpose(0, 1) if self.fan_in_fan_out else x
 
-        Args:
-            verbose: notify if something is preventing from merging the weights
-        """
-        def T(w):
-            return w.transpose(0, 1) if self.fan_in_fan_out else w
+    def merge(self):
+        """Merges the LoRA weights into the full-rank weights (W = W + delta_W)."""
 
         if self.r > 0 and not self.merged:
-            self.weight.data += T(self.lora_B @ self.lora_A) * self.scaling
+            # Merge the weights and mark it
+            self.weight.data += self.T(self.lora_B @ self.lora_A) * self.scaling
             self.merged = True
-        elif self.r <= 0 and verbose:
-            print("LoRA weights are disabled and thus cannot be merged.")
 
     def forward(self, x: torch.Tensor):
-        def T(w):
-            return w.transpose(0, 1) if self.fan_in_fan_out else w
-
-        # if weights are merged or rank is less or equal to zero (LoRA disabled) - it's a regular nn.Linear forward pass;
-        # otherwise calculate weight update matrix (lora_A @ lora_B) and add these updates to pretrained weights
+        # if weights are merged or rank is less or equal to zero (LoRA is disabled) - it's only a regular nn.Linear forward pass;
+        # otherwise in addition do the forward pass with LoRA weights and add it's output to the output from pretrained weights
+        result = F.linear(x, self.T(self.weight), bias=self.bias)
         if self.r > 0 and not self.merged:
-            result = F.linear(x, T(self.weight), bias=self.bias)
-            if self.r > 0:
-                result += (
-                    self.lora_dropout(x) @ self.lora_A.transpose(0, 1) @ self.lora_B.transpose(0, 1)
-                ) * self.scaling
-            return result
-        return F.linear(x, T(self.weight), bias=self.bias)
+            result += (
+                self.lora_dropout(x) @ self.lora_A.transpose(0, 1) @ self.lora_B.transpose(0, 1)
+            ) * self.scaling
+        return result
 
 
 class LoRAQKVLinear(LoRALinear):
@@ -326,21 +318,14 @@ class LoRAQKVLinear(LoRALinear):
         result = result.index_copy(1, self.lora_ind, x.reshape(-1, shape))  # (4096, 256)
         return result.view((*x.shape[:-1], self.out_features)).transpose(0, 1)  # (64, 64, 384)
 
-    def merge(self, verbose: bool = True):
-        """Merges the LoRA weights into the full-rank weights (W = W + delta_W).
-
-        Args:
-            verbose: notify if something is preventing from merging the weights
-        """
-
-        def T(w):
-            return w.T if self.fan_in_fan_out else w
+    def merge(self):
+        """Merges the LoRA weights into the full-rank weights (W = W + delta_W)."""
 
         # Let's assume that:
         # ⚬ self.weight.data: (384, 128) or (3 * embedding_size, embedding_size)
         # ⚬ self.lora_A.data: (4, 128)
         # ⚬ self.lora_B.data: (256, 2)
-        if all((self.r > 0, any(self.enable_lora), not self.merged)):
+        if self.r > 0 and any(self.enable_lora) and not self.merged:
             delta_w = F.conv1d(
                 self.lora_A.data.unsqueeze(0),  # (4, 128) -> (1, 4, 128)
                 self.lora_B.data.unsqueeze(-1),  # (256, 2) -> (256, 2, 1)
@@ -348,13 +333,9 @@ class LoRAQKVLinear(LoRALinear):
             ).squeeze(0)  # (1, 4, 128) @ (256, 2, 1) -> (1, 256, 128) -> (256, 128)
             # W = W + delta_W (merge)
             self.weight.data += self.zero_pad(
-                T(delta_w * self.scaling)
+                self.T(delta_w * self.scaling)
             )  # (256, 128) after zero_pad (384, 128)
             self.merged = True
-        elif self.r <= 0 and verbose:
-            print("LoRA weights are disabled and thus cannot be merged.")
-        elif not any(self.enable_lora) and verbose:
-            print("LoRA weights are disabled for query, key and value matrices and thus cannot be merged.")
 
     def forward(self, x: torch.Tensor) -> torch.Tensor:
         """Do the forward pass.
@@ -369,25 +350,16 @@ class LoRAQKVLinear(LoRALinear):
             Output tensor of shape (batch_size, context_length, 3 * embedding_size)
         """
 
-        def T(w):
-            return w.T if self.fan_in_fan_out else w
-
         # Let's assume that:
         # ⚬ x: (64, 64, 128) or (batch_size, context_length, embedding_size)
         # ⚬ self.weight: (384, 128) or (3 * embedding_size, embedding_size)
         # ⚬ self.lora_A.data: (4, 128)
         # ⚬ self.lora_B.data: (256, 2)
 
-        # the logic here is that the weights are merged only during inference
-        # so if they are merged we don't need to do anything with LoRA's A and B matrices
-        # but if the weights are not merged that means that the forward method is called during
-        # training and we need to forward pass input through pretrained weights, LoRA A and B matrices
-        # and do the summation (as per scheme at the top of the file)
-        if self.merged:
-            return F.linear(x, T(self.weight), bias=self.bias)
-        # `F.linear` automatically transposes the second argument (T(self.weight) in our case)
-        result = F.linear(x, T(self.weight), bias=self.bias)  # (64, 64, 128) @ (384, 128) -> (64, 64, 384)
-        if self.r > 0 and any(self.enable_lora):
+        # if weights are merged or LoRA is disabled (r <= 0 or all `enable_lora` are False) - it's only a regular nn.Linear forward pass;
+        # otherwise in addition do the forward pass with LoRA weights and add it's output to the output from pretrained weights
+        result = F.linear(x, self.T(self.weight), bias=self.bias)
+        if self.r > 0 and any(self.enable_lora) and not self.merged:
             after_A = F.linear(self.lora_dropout(x), self.lora_A)  # (64, 64, 128) @ (4, 128) -> (64, 64, 4)
             # For F.conv1d:
             # ⚬ input: input tensor of shape (mini-batch, in_channels, iW)
@@ -398,9 +370,7 @@ class LoRAQKVLinear(LoRALinear):
                 after_A.transpose(-2, -1),  # (64, 64, 4) -> (64, 4, 64)
                 self.lora_B.unsqueeze(-1),  # (256, 2) -> (256, 2, 1)
                 groups=sum(self.enable_lora),
-            ).transpose(
-                -2, -1
-            )  # (64, 4, 64) @ (256, 2, 1) -> (64, 256, 64) -> (64, 64, 256)
+            ).transpose(-2, -1)  # (64, 4, 64) @ (256, 2, 1) -> (64, 256, 64) -> (64, 64, 256)
             result += self.zero_pad(after_B) * self.scaling  # (64, 64, 256) after zero_pad (64, 64, 384)
         return result
 
@@ -672,4 +642,4 @@ def merge_lora_weights(model: GPT) -> None:
     """Merge LoRA weights into the full-rank weights to speed up inference."""
     for module in model.modules():
         if isinstance(module, LoRALinear):
-            module.merge(verbose=False)
+            module.merge()
