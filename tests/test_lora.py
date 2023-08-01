@@ -35,7 +35,7 @@ def test_lora_merge():
     )
     model = GPT(config)
     model.train()
-    
+
     initial_weight = model.transformer.h[0].attn.proj.weight.clone()
     assert torch.equal(model.transformer.h[0].attn.proj.weight, initial_weight)
 
@@ -201,18 +201,38 @@ def test_lora_init_when_linear_overridden():
 
 
 @pytest.mark.parametrize(
-    ("apply_to", "layer_name"),
-    (("to_projection", "transformer.h.0.attn.proj"), ("to_mlp", "transformer.h.0.mlp.fc"), ("to_head", "lm_head")),
+    ("apply_to", "target_layer_names", "mlp_class_name"),
+    (
+        ("to_projection", "transformer.h.0.attn.proj", "GptNeoxMLP"),
+        ("to_mlp", ("transformer.h.0.mlp.fc", "transformer.h.0.mlp.proj"), "GptNeoxMLP"),
+        ("to_head", "lm_head", "GptNeoxMLP"),
+        ("to_projection", "transformer.h.0.attn.proj", "LLaMAMLP"),
+        ("to_mlp", ("transformer.h.0.mlp.fc_1", "transformer.h.0.mlp.fc_2", "transformer.h.0.mlp.proj"), "LLaMAMLP"),
+        ("to_head", "lm_head", "LLaMAMLP"),
+    ),
 )
-def test_lora_linear_utilization(apply_to, layer_name):
+def test_lora_linear_utilization(apply_to, target_layer_names, mlp_class_name):
     from lit_gpt.lora import GPT, Config
 
     config = Config(
         n_layer=1, n_head=4, n_embd=8, block_size=1, vocab_size=1, r=2, alpha=8, dropout=0.1, **{apply_to: True}
     )
+    config._mlp_class = mlp_class_name
     state_dict = GPT(config).state_dict()
 
-    assert all(layer_name + lora_sublayer in state_dict for lora_sublayer in (".lora_A", ".lora_B"))
+    if isinstance(target_layer_names, str):
+        target_layer_names = (target_layer_names,)
+    lora_sublayers = (".lora_A", ".lora_B")
+
+    # check that all the target layers have LoRA weights
+    for layer_name in target_layer_names:
+        for lora_sublayer in lora_sublayers:
+            assert layer_name + lora_sublayer in state_dict
+
+    # check that only target layers have LoRA weights
+    for key in state_dict:
+        if key.endswith(lora_sublayers):
+            assert key.startswith(target_layer_names)
 
 
 @pytest.mark.parametrize("apply_to", (None, "to_query", "to_key", "to_value", "to_projection", "to_mlp", "to_head"))
@@ -227,3 +247,33 @@ def test_lora_layer_forward_no_exception(apply_to):
     model.eval()
 
     model(input_ids)
+
+
+@pytest.mark.parametrize(("rank", "expected_merged"), ((-1, False), (0, False), (1, True)))
+def test_lora_linear_weights_merged_status(rank, expected_merged):
+    from lit_gpt.lora import LoRALinear
+
+    layer = LoRALinear(10, 10, r=rank)
+    assert not layer.merged
+    layer.merge()
+    assert layer.merged == expected_merged
+
+
+@pytest.mark.parametrize(
+    ("rank", "enable_lora", "expected_merged"),
+    (
+        (-1, True, False),
+        (0, True, False),
+        (1, True, True),
+        (-1, False, False),
+        (0, False, False),
+        (1, False, False),
+    ),
+)
+def test_lora_qkv_linear_weights_merged_status(rank, enable_lora, expected_merged):
+    from lit_gpt.lora import LoRAQKVLinear
+
+    layer = LoRAQKVLinear(10, 3 * 10, n_head=2, n_query_groups=2, r=rank, enable_lora=enable_lora)
+    assert not layer.merged
+    layer.merge()
+    assert layer.merged == expected_merged
