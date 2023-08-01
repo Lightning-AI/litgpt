@@ -115,7 +115,7 @@ def test_maybe_unwrap_state_dict(tmp_path):
     ckpt_path: Path = tmp_path / "lit_model_finetune.pth"
     ckpt_name = ckpt_path.name
 
-    model_name = "pythia-1b"
+    model_name = "pythia-70m"
     ours_config = Config.from_name(
         model_name,
         block_size=2048,
