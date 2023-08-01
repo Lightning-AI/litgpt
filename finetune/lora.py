@@ -24,7 +24,7 @@ eval_interval = 100
 save_interval = 100
 eval_iters = 100
 log_interval = 1
-devices = 4
+devices = 2
 # change this value to force a maximum sequence length
 override_max_seq_length = None
 
@@ -51,8 +51,9 @@ hparams = {k: v for k, v in locals().items() if isinstance(v, (int, float, str))
 
 
 def setup(
-    data_dir: Path = Path("data/alpaca"),
-    checkpoint_dir: Path = Path("checkpoints/stabilityai/stablelm-base-alpha-3b"),
+    data_dir: Path = Path("data/alpaca-pythia"),
+    # stabilityai/stablelm-base-alpha-3b
+    checkpoint_dir: Path = Path("checkpoints/EleutherAI/pythia-1b"),
     out_dir: Path = Path("out/lora/alpaca"),
     precision: Optional[str] = None,
     tpu: bool = False,
@@ -111,9 +112,9 @@ def main(fabric: L.Fabric, data_dir: Path, checkpoint_dir: Path, out_dir: Path):
     )
     checkpoint_path = checkpoint_dir / "lit_model.pth"
     fabric.print(f"Loading model {str(checkpoint_path)!r} with {config.__dict__}")
-    with fabric.init_module(empty_init=True):
+    with fabric.init_module(empty_init=False):
         model = GPT(config)
-        # model.apply(model._init_weights)  # for the LoRA weights
+        model.apply(model._init_weights)  # for the LoRA weights
     mark_only_lora_as_trainable(model)
 
     model = fabric.setup_module(model)
