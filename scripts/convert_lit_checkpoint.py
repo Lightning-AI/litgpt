@@ -103,6 +103,7 @@ def copy_weights_gpt_neox(
 def maybe_unwrap_state_dict(lit_weights: Dict[str, torch.Tensor]) -> Dict[str, torch.Tensor]:
     return lit_weights.get("model", lit_weights)
 
+
 @torch.inference_mode()
 def convert_lit_checkpoint(
     *,
