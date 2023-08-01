@@ -149,9 +149,7 @@ def copy_weights_llama(
             state_dict[to_name] = param
 
 
-def tensor_split(
-    param: Union[torch.Tensor, NotYetLoadedTensor], config: Config, model_name: str
-) -> torch.Tensor:
+def tensor_split(param: Union[torch.Tensor, NotYetLoadedTensor], config: Config, model_name: str) -> torch.Tensor:
     def kstart(start, blen, klen) -> int:
         """returns start index of keys in batch"""
         return start + (blen - (klen * 2))
@@ -175,9 +173,7 @@ def tensor_split(
     # the starting index of each new batch
     starts = range(0, nobs, blen)
     # the indices to splice on
-    splices = [
-        (s, kstart(s, blen, klen), vstart(s, blen, vlen), vend(s, blen)) for s in starts
-    ]
+    splices = [(s, kstart(s, blen, klen), vstart(s, blen, vlen), vend(s, blen)) for s in starts]
 
     qc = ()
     kc = ()
@@ -194,6 +190,10 @@ def tensor_split(
     v = torch.cat(vc)
 
     return q, k, v
+
+
+def maybe_unwrap_state_dict(lit_weights: Dict[str, torch.Tensor]) -> Dict[str, torch.Tensor]:
+    return lit_weights.get("model", lit_weights)
 
 
 @torch.inference_mode()
@@ -226,6 +226,7 @@ def convert_lit_checkpoint(
     with incremental_save(bin_file) as saver:
         with contextlib.ExitStack() as stack:
             lit_weights = stack.enter_context(lazy_load(pth_file))
+            lit_weights = maybe_unwrap_state_dict(lit_weights)
             copy_fn(sd, lit_weights, saver=saver)
             gc.collect()
         saver.save(sd)
