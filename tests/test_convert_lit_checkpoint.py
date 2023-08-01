@@ -14,13 +14,19 @@ def test_convert_lit_checkpoint(tmp_path):
 
     ckpt_name = "lit_model.pth"
 
-    with pytest.raises(RuntimeError, match="open file failed because of errno 2 on fopen"):
-        convert_lit_checkpoint(checkpoint_name=ckpt_name, checkpoint_dir=tmp_path, model_name="falcon-7b")
+    with pytest.raises(
+        RuntimeError, match="open file failed because of errno 2 on fopen"
+    ):
+        convert_lit_checkpoint(
+            checkpoint_name=ckpt_name, checkpoint_dir=tmp_path, model_name="falcon-7b"
+        )
 
     ckpt_path = tmp_path / "lit_model.pth"
     ckpt_path.touch()
     with mock.patch("scripts.convert_lit_checkpoint.lazy_load") as load:
-        convert_lit_checkpoint(checkpoint_name=ckpt_name, checkpoint_dir=tmp_path, model_name="falcon-7b")
+        convert_lit_checkpoint(
+            checkpoint_name=ckpt_name, checkpoint_dir=tmp_path, model_name="falcon-7b"
+        )
     load.assert_called_with(ckpt_path)
 
     assert {p.name for p in tmp_path.glob("*")} == {"lit_model.pth", "lit_model.bin"}
@@ -37,7 +43,9 @@ def test_against_original_falcon_40b():
     from lit_gpt import Config, GPT
     from scripts.convert_lit_checkpoint import copy_weights_falcon as copy_to_theirs
 
-    ours_config = Config.from_name("falcon-40b", n_layer=2, n_head=8, n_query_groups=4, n_embd=32)
+    ours_config = Config.from_name(
+        "falcon-40b", n_layer=2, n_head=8, n_query_groups=4, n_embd=32
+    )
     theirs_config = RWConfig(
         hidden_size=32,
         n_head=8,
@@ -104,6 +112,52 @@ def test_against_original_gpt_neox():
     torch.testing.assert_close(ours_y, theirs_y)
 
 
+@torch.inference_mode()
+@pytest.mark.parametrize("size", ("7b", "70b"))
+def test_against_original_llama2(size):
+    from lit_gpt import Config, GPT
+    from scripts.convert_lit_checkpoint import copy_weights_llama as copy_to_theirs
+    from transformers.models.llama.modeling_llama import LlamaForCausalLM
+    from transformers.models.llama.configuration_llama import LlamaConfig
+
+    if size == "7b":
+        ours_kwargs = {"name": "Llama-2-7b-hf"}
+        theirs_kwargs = {}
+    else:
+        ours_kwargs = {"name": "Llama-2-70b-chat-hf", "n_query_groups": 2}
+        theirs_kwargs = {"num_key_value_heads": 2}
+
+    ours_config = Config.from_name(
+        n_layer=2, n_head=8, n_embd=32, intermediate_size=86, **ours_kwargs
+    )
+    T = 5
+    theirs_config = LlamaConfig(
+        hidden_size=ours_config.n_embd,
+        num_attention_heads=ours_config.n_head,
+        num_hidden_layers=ours_config.n_layer,
+        intermediate_size=ours_config.intermediate_size,
+        max_position_embeddings=T,
+        rms_norm_eps=1e-5,
+        **theirs_kwargs
+    )
+    assert ours_config.intermediate_size == theirs_config.intermediate_size
+
+    ours_model = GPT(ours_config)
+    ours_state_dict = ours_model.state_dict()
+    theirs_state_dict = {}
+    copy_to_theirs(ours_config, theirs_state_dict, ours_state_dict)
+
+    theirs_model = LlamaForCausalLM(theirs_config)
+    # assign must be set to True for torch.testing.assert_close to pass
+    theirs_model.load_state_dict(theirs_state_dict, strict=False, assign=True)
+
+    # test end to end
+    x = torch.tensor([[9856, 23, 491, 1536, 304]], dtype=torch.int32)
+    ours_y = ours_model(x)
+    theirs_y = theirs_model(x)["logits"]
+    torch.testing.assert_close(ours_y, theirs_y)
+
+
 def test_maybe_unwrap_state_dict(tmp_path):
     from lit_gpt import Config, GPT
     from scripts.convert_lit_checkpoint import convert_lit_checkpoint
@@ -134,13 +188,19 @@ def test_maybe_unwrap_state_dict(tmp_path):
 
     # convert and check that model key does not exist
     # and that a known key for pythia exists
-    convert_lit_checkpoint(checkpoint_name=ckpt_name, checkpoint_dir=tmp_path, model_name=model_name)
+    convert_lit_checkpoint(
+        checkpoint_name=ckpt_name, checkpoint_dir=tmp_path, model_name=model_name
+    )
     bin_file = ckpt_path.with_suffix(".bin")
     ckpt_from_unwrapped = torch.load(bin_file)
     assert ckpt_from_unwrapped.get("model") is None
     assert ckpt_from_unwrapped.get("embed_out.weight") is not None
-    
+
     # assert maybe_unwrap_state_dict is called
-    with mock.patch("scripts.convert_lit_checkpoint.maybe_unwrap_state_dict") as maybe_unwrap:
-        convert_lit_checkpoint(checkpoint_name=ckpt_name, checkpoint_dir=tmp_path, model_name=model_name)
+    with mock.patch(
+        "scripts.convert_lit_checkpoint.maybe_unwrap_state_dict"
+    ) as maybe_unwrap:
+        convert_lit_checkpoint(
+            checkpoint_name=ckpt_name, checkpoint_dir=tmp_path, model_name=model_name
+        )
     maybe_unwrap.assert_called()
