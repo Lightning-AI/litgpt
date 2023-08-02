@@ -323,7 +323,7 @@ def build_rope_cache(
 
     # this is to mimic the behaviour of complex32, else we will get different results
     if dtype in (torch.float16, torch.bfloat16, torch.int8):
-        return cos.half(), sin.half()
+        return cos.type(dtype), sin.type(dtype)
     return cos, sin
 
 
