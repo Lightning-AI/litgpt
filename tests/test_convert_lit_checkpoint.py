@@ -26,7 +26,7 @@ def test_convert_lit_checkpoint(tmp_path):
     assert {p.name for p in tmp_path.glob("*")} == {"lit_model.pth", "lit_model.bin"}
 
 
-def test_convert_lit_checkpoint__llama2(tmp_path):
+def test_convert_lit_checkpoint_llama2(tmp_path):
     from lit_gpt import Config, GPT
     from scripts.convert_lit_checkpoint import convert_lit_checkpoint
     from finetune.full import save_checkpoint
@@ -48,7 +48,7 @@ def test_convert_lit_checkpoint__llama2(tmp_path):
     )
     ours_model = GPT(ours_config)
 
-    # save checkpoint to avoid RunTimeError
+    # save checkpoint to avoid RunTimeError for PytorchStreamReader
     save_checkpoint(fabric, ours_model, ckpt_path)
     # this should not cause a TypeError
     convert_lit_checkpoint(checkpoint_name=ckpt_name, checkpoint_dir=tmp_path, model_name=model_name)
