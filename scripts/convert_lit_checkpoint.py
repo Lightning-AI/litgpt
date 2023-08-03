@@ -210,8 +210,7 @@ def convert_lit_checkpoint(
     if "falcon" in model_name:
         copy_fn = partial(copy_weights_falcon, "40b" if config.n_embd == 8192 else "7b")
     elif config._mlp_class == "LLaMAMLP":
-        qkv_weights = {}
-        copy_fn = partial(copy_weights_llama, config, qkv_weights)
+        copy_fn = partial(copy_weights_llama, config)
     else:
         copy_fn = copy_weights_gpt_neox
 
