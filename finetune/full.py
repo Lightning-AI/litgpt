@@ -46,7 +46,7 @@ def setup(
     data_dir: Path = Path("data/alpaca-pythia"),
     checkpoint_dir: Path = Path("checkpoints/EleutherAI/pythia-1b"),
     out_dir: Path = Path("out/full/alpaca"),
-    precision: Optional[str] = "bf16-true",
+    precision: Optional[str] = None,
     tpu: bool = False,
 ):
     if precision is None:
