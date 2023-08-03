@@ -15,7 +15,7 @@ sys.path.append(str(wd))
 from generate.base import generate
 from lit_gpt.lora import mark_only_lora_as_trainable, lora_filter, GPT, Config, Block
 from lit_gpt.tokenizer import Tokenizer
-from lit_gpt.utils import lazy_load, check_valid_checkpoint_dir, step_csv_logger, chunked_cross_entropy
+from lit_gpt.utils import num_parameters, check_valid_checkpoint_dir, step_csv_logger, chunked_cross_entropy
 from lit_gpt.speed_monitor import SpeedMonitorFabric as SpeedMonitor, measure_flops, estimate_flops
 from scripts.prepare_alpaca import generate_prompt
 
@@ -24,7 +24,7 @@ eval_interval = 100
 save_interval = 100
 eval_iters = 100
 log_interval = 1
-devices = 2
+devices = 4
 # change this value to force a maximum sequence length
 override_max_seq_length = None
 
@@ -51,9 +51,8 @@ hparams = {k: v for k, v in locals().items() if isinstance(v, (int, float, str))
 
 
 def setup(
-    data_dir: Path = Path("data/alpaca-pythia"),
-    # stabilityai/stablelm-base-alpha-3b
-    checkpoint_dir: Path = Path("checkpoints/EleutherAI/pythia-1b"),
+    data_dir: Path = Path("data/alpaca"),
+    checkpoint_dir: Path = Path("checkpoints/stabilityai/stablelm-base-alpha-3b"),
     out_dir: Path = Path("out/lora/alpaca"),
     precision: Optional[str] = None,
     tpu: bool = False,
@@ -112,24 +111,20 @@ def main(fabric: L.Fabric, data_dir: Path, checkpoint_dir: Path, out_dir: Path):
     )
     checkpoint_path = checkpoint_dir / "lit_model.pth"
     fabric.print(f"Loading model {str(checkpoint_path)!r} with {config.__dict__}")
-    with fabric.init_module(empty_init=False):
+    with fabric.init_module(empty_init=True):
         model = GPT(config)
-        model.apply(model._init_weights)  # for the LoRA weights
+        model.apply(model._init_weights)
     mark_only_lora_as_trainable(model)
 
+    fabric.print(f"Number of trainable parameters: {num_parameters(model, requires_grad=True):,}")
+    fabric.print(f"Number of non trainable parameters: {num_parameters(model, requires_grad=False):,}")
+
     model = fabric.setup_module(model)
-
-    trainable_params = [p for p in model.parameters() if p.requires_grad]
-    num_params = sum(p.numel() for p in trainable_params)
-    fabric.print(f"Number of trainable parameters: {num_params:,}")
-    num_params = sum(p.numel() for p in model.parameters() if not p.requires_grad)
-    fabric.print(f"Number of non trainable parameters: {num_params:,}")
-
-    optimizer = torch.optim.AdamW(trainable_params, lr=learning_rate, weight_decay=weight_decay)
+    params = [p for p in model.parameters() if p.requires_grad]
+    optimizer = torch.optim.AdamW(params, lr=learning_rate, weight_decay=weight_decay)
     optimizer = fabric.setup_optimizers(optimizer)
+    
     fabric.load_raw(checkpoint_path, model, strict=False)
-
-    assert not any(p.data.is_meta for p in model.parameters())
 
     fabric.seed_everything(1337 + fabric.global_rank)
 

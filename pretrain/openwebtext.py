@@ -17,7 +17,7 @@ sys.path.append(str(wd))
 from lit_gpt import Config
 from lit_gpt.model import GPT, Block
 from lit_gpt.speed_monitor import SpeedMonitorFabric as SpeedMonitor, measure_flops, estimate_flops
-from lit_gpt.utils import step_csv_logger, chunked_cross_entropy
+from lit_gpt.utils import num_parameters, step_csv_logger, chunked_cross_entropy
 
 model_name = "pythia-70m"
 name = "openwebtext"
@@ -89,9 +89,7 @@ def main(fabric, resume) -> None:
         model = GPT(config)
         model.apply(model._init_weights)
     fabric.print(f"Time to instantiate model: {time.time() - t0:.02f} seconds.")
-
-    num_total_params = sum(p.numel() for p in model.parameters())
-    fabric.print(f"Total parameters {num_total_params}")
+    fabric.print(f"Total parameters {num_parameters(model):,}")
 
     optimizer = torch.optim.AdamW(
         model.parameters(), lr=learning_rate, weight_decay=weight_decay, betas=(beta1, beta2), foreach=False

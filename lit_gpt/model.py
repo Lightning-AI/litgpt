@@ -45,13 +45,6 @@ class GPT(nn.Module):
                 torch.nn.init.zeros_(module.bias)
         elif isinstance(module, nn.Embedding):
             torch.nn.init.normal_(module.weight, mean=0.0, std=0.02)
-        elif isinstance(module, nn.LayerNorm):
-            torch.nn.init.ones_(module.weight)
-            torch.nn.init.zeros_(module.bias)
-            module.eps = self.config.norm_eps
-        elif isinstance(module, RMSNorm):
-            torch.nn.init.ones_(module.weight)
-            module.eps = self.config.norm_eps
 
     def reset_cache(self) -> None:
         self.kv_caches.clear()
