@@ -23,14 +23,14 @@ eval_interval = 600
 save_interval = 1000
 eval_iters = 100
 log_interval = 1
-devices = 4
+devices = 1
 # change this value to force a maximum sequence length
 override_max_seq_length = None
 
 # Hyperparameters
 learning_rate = 3e-3
 batch_size = 64 / devices
-micro_batch_size = 4
+micro_batch_size = 1
 gradient_accumulation_iters = batch_size // micro_batch_size
 assert gradient_accumulation_iters > 0
 epoch_size = 50000  # train dataset size
@@ -43,8 +43,8 @@ hparams = {k: v for k, v in locals().items() if isinstance(v, (int, float, str))
 
 
 def setup(
-    data_dir: Path = Path("data/alpaca-pythia"),
-    checkpoint_dir: Path = Path("checkpoints/EleutherAI/pythia-1b"),
+    data_dir: Path = Path("data/alpaca"),
+    checkpoint_dir: Path = Path("checkpoints/stabilityai/stablelm-base-alpha-3b"),
     out_dir: Path = Path("out/full/alpaca"),
     precision: Optional[str] = None,
     tpu: bool = False,
