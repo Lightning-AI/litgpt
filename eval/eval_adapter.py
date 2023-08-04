@@ -91,7 +91,6 @@ def generate(
     return idx
 
 
-
 class EvalHarnessAdapter(BaseLM):
     def __init__(
         self,
@@ -102,8 +101,16 @@ class EvalHarnessAdapter(BaseLM):
         device="auto",
         devices: int = 1,
         strategy: str = "auto",
-        quantize: Optional[Literal["bnb.nf4", "bnb.nf4-dq", "bnb.fp4", "bnb.fp4-dq", "bnb.int8", "gptq.int4"]] = None,
-
+        quantize: Optional[
+            Literal[
+                "bnb.nf4",
+                "bnb.nf4-dq",
+                "bnb.fp4",
+                "bnb.fp4-dq",
+                "bnb.int8",
+                "gptq.int4",
+            ]
+        ] = None,
     ):
         super().__init__()
         assert isinstance(device, str)
@@ -113,7 +120,9 @@ class EvalHarnessAdapter(BaseLM):
 
         if strategy == "fsdp":
             strategy = FSDPStrategy(auto_wrap_policy={Block}, cpu_offload=False)
-        self.fabric = fabric = L.Fabric(devices=devices, precision=precision, strategy=strategy)
+        self.fabric = fabric = L.Fabric(
+            devices=devices, precision=precision, strategy=strategy
+        )
         fabric.launch()
 
         checkpoint_dir = Path(checkpoint_dir)
@@ -133,16 +142,27 @@ class EvalHarnessAdapter(BaseLM):
             model_file = "lit_model.pth"
         checkpoint_path = checkpoint_dir / model_file
 
-        fabric.print(f"Loading model {str(checkpoint_path)!r} with {config.__dict__}", file=sys.stderr)
+        fabric.print(
+            f"Loading model {str(checkpoint_path)!r} with {config.__dict__}",
+            file=sys.stderr,
+        )
         t0 = time.time()
         with fabric.init_module(empty_init=True), quantization(quantize):
             model = GPT(config)
-        fabric.print(f"Time to instantiate model: {time.time() - t0:.02f} seconds.", file=sys.stderr)
+        fabric.print(
+            f"Time to instantiate model: {time.time() - t0:.02f} seconds.",
+            file=sys.stderr,
+        )
 
         t0 = time.time()
         with lazy_load(checkpoint_path) as checkpoint:
-            model.load_state_dict(checkpoint.get("model", checkpoint), strict=quantize is None)
-        fabric.print(f"Time to load the model weights: {time.time() - t0:.02f} seconds.", file=sys.stderr)
+            model.load_state_dict(
+                checkpoint.get("model", checkpoint), strict=quantize is None
+            )
+        fabric.print(
+            f"Time to load the model weights: {time.time() - t0:.02f} seconds.",
+            file=sys.stderr,
+        )
 
         model.eval()
         self.model = fabric.setup_module(model)
@@ -175,7 +195,7 @@ class EvalHarnessAdapter(BaseLM):
 
     @property
     def batch_size(self):
-        return self.batch_size_per_gpu  * self.fabric.world_size
+        return self.batch_size_per_gpu * self.fabric.world_size
 
     @property
     def device(self):
@@ -211,7 +231,7 @@ class EvalHarnessAdapter(BaseLM):
         )
 
         return self.tokenizer.decode(out)
-    
+
     @torch.no_grad()
     def run_eval(
         self,
@@ -295,9 +315,7 @@ def run_eval_harness(
     bootstrap_iters=2,
 ):
     adapter = EvalHarnessAdapter(
-        checkpoint_dir=checkpoint_dir,
-        precision=precision,
-        batch_size=batch_size
+        checkpoint_dir=checkpoint_dir, precision=precision, batch_size=batch_size
     )
     adapter.fabric.print("Running evaluation harness...")
     return adapter.run_eval(
@@ -307,11 +325,12 @@ def run_eval_harness(
         use_cache=False,
     )
 
+
 if __name__ == "__main__":
     results = run_eval_harness(
-        checkpoint_dir="checkpoints/EleutherAI/pythia-70m",
-        precision="32",
-        eval_tasks=["piqa"],
-        batch_size=64
+        checkpoint_dir="/data/aniket/Llama-2-7b-hf/",
+        precision="bf16-true",
+        eval_tasks=["truthfulqa_mc"],
+        batch_size=64,
     )
     print(results)
