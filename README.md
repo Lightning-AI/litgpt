@@ -21,16 +21,18 @@
 
 Hackable [implementation](lit_gpt/model.py) of state-of-the-art open-source large language models released under the **Apache 2.0 license**.
 
-Supports popular public checkpoints such as:
+Supports the following popular model checkpoints:
 
-- Meta AI [Llama 2](tutorials/download_llama_2.md)
-- Stability AI [FreeWilly2](tutorials/download_freewilly_2.md)
-- TII UAE [Falcon](tutorials/download_falcon.md)
-- OpenLM Research [OpenLLaMA](tutorials/download_openllama.md)
-- LMSYS [Vicuna](tutorials/download_vicuna.md) and [LongChat](tutorials/download_longchat.md)
-- Together [RedPajama-INCITE](tutorials/download_redpajama_incite.md)
-- EleutherAI [Pythia](tutorials/download_pythia.md)
-- StabilityAI [StableLM](tutorials/download_stablelm.md)
+| Model and usage                                                                                              | Reference                                                                                        |
+|--------------------------------------------------------------------------------------------------------------|--------------------------------------------------------------------------------------------------|
+| Meta AI [Llama 2](tutorials/download_llama_2.md)                                                             | [Touvron et al. 2023](https://arxiv.org/abs/2307.09288)                                          |
+| Stability AI [FreeWilly2](tutorials/download_freewilly_2.md)                                                 | [Stability AI 2023](https://stability.ai/blog/stable-beluga-large-instruction-fine-tuned-models) |
+| TII UAE [Falcon](tutorials/download_falcon.md)                                                               | [TII 2023](https://falconllm.tii.ae)                                                             |
+| OpenLM Research [OpenLLaMA](tutorials/download_openllama.md)                                                 | [Geng & Liu 2023](https://github.com/openlm-research/open_llama)                                 |
+| LMSYS [Vicuna](tutorials/download_vicuna.md)                                                                 | [Li et al. 2023](https://lmsys.org/blog/2023-06-29-longchat)                                     |
+| Together [RedPajama-INCITE](tutorials/download_redpajama_incite.md)                                          | [Together 2023](https://together.ai/blog/redpajama-models-v1)                                    |
+| EleutherAI [Pythia](tutorials/download_pythia.md) ([Biderman et al. 2023](https://arxiv.org/abs/2304.01373)) | [Biderman et al. 2023](https://arxiv.org/abs/2304.01373)                                         |
+| StabilityAI [StableLM](tutorials/download_stablelm.md)                                                       | [Stability AI 2023](https://github.com/Stability-AI/StableLM)       
 
 This implementation extends on [Lit-LLaMA](https://github.com/lightning-AI/lit-llama) and [nanoGPT](https://github.com/karpathy/nanoGPT), and it's **powered by [Lightning Fabric](https://lightning.ai/docs/fabric/stable/) ⚡**.
 
@@ -208,7 +210,8 @@ Join us and start contributing, especially on the following areas:
 
 We welcome all individual contributors, regardless of their level of experience or hardware. Your contributions are valuable, and we are excited to see what you can accomplish in this collaborative and supportive environment.
 
-Unsure about contributing? Check out our [Contributing to Lit-LLaMA: A Hitchhiker’s Guide to the Quest for Fully Open-Source AI](https://lightning.ai/pages/community/tutorial/contributing-to-lit-llama-a-hitchhikers-guide-to-the-quest-for-fully-open-source-ai/) guide. The same guidelines apply to Lit-GPT.
+Unsure about contributing? Check out our [How to Contribute to Lit-GPT and Lit-LLaMA
+](https://lightning.ai/pages/community/tutorial/how-to-contribute-to-litgpt/) guide.
 
 Don't forget to [join our Discord](https://discord.gg/VptPCZkGNa)!
 
