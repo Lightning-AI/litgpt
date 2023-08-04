@@ -40,10 +40,10 @@ def test_convert_lit_checkpoint_llama2(tmp_path):
     model_name = "Llama-2-7b-hf"
     ours_config = Config.from_name(
         model_name,
-        block_size=2048,
+        block_size=8,
         n_layer=2,
-        n_embd=2048,
-        n_head=8,
+        n_embd=32,
+        n_head=2,
         padding_multiple=128,
     )
     ours_model = GPT(ours_config)
@@ -190,10 +190,10 @@ def test_maybe_unwrap_state_dict(tmp_path):
     model_name = "pythia-70m"
     ours_config = Config.from_name(
         model_name,
-        block_size=2048,
+        block_size=8,
         n_layer=2,
-        n_embd=2048,
-        n_head=8,
+        n_embd=32,
+        n_head=2,
         padding_multiple=128,
     )
     ours_model = GPT(ours_config)
