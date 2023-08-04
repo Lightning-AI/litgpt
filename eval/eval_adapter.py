@@ -1,11 +1,12 @@
 import json
+import warnings
 
 from lm_eval import tasks, evaluator, base
 
 import sys
 import time
 from pathlib import Path
-from typing import Literal, Optional
+from typing import Literal, Optional, List
 
 import lightning as L
 import torch
@@ -245,12 +246,10 @@ class EvalHarnessAdapter(BaseLM):
     ):
         if eval_tasks is None:
             eval_tasks = [
-                "lambada",
+                "arc_challenge",
                 "piqa",
                 "hellaswag",
-                "winogrande",
-                "mathqa",
-                "pubmedqa",
+                "hendrycksTest-*",
             ]
 
         # Returns a list containing all values of the task registry that
@@ -307,10 +306,10 @@ class EvalHarnessAdapter(BaseLM):
 
 
 def run_eval_harness(
-    checkpoint_dir: Path = Path(""),
-    precision: str = "32",
+    checkpoint_dir: str = "",
+    precision: str = "bf16-true",
     batch_size=1,
-    eval_tasks=None,
+    eval_tasks:Optional[List[str]]=None,
     num_fewshot=0,
     bootstrap_iters=2,
 ):
@@ -318,19 +317,27 @@ def run_eval_harness(
         checkpoint_dir=checkpoint_dir, precision=precision, batch_size=batch_size
     )
     adapter.fabric.print("Running evaluation harness...")
-    return adapter.run_eval(
+    results = adapter.run_eval(
         eval_tasks=eval_tasks,
         num_fewshot=num_fewshot,
         bootstrap_iters=bootstrap_iters,
         use_cache=False,
     )
+    data = json.dumps(results)
+    filename = str(time.time()) + "-eval.txt"
+    with open(filename, "w") as fw:
+        fw.write(data)
+    print(f"saved the results in {filename}")
+    return results
 
 
 if __name__ == "__main__":
-    results = run_eval_harness(
-        checkpoint_dir="/data/aniket/Llama-2-7b-hf/",
-        precision="bf16-true",
-        eval_tasks=["truthfulqa_mc"],
-        batch_size=64,
+    from jsonargparse import CLI
+
+    torch.set_float32_matmul_precision("high")
+    warnings.filterwarnings(
+        # Triggered internally at ../aten/src/ATen/EmptyTensor.cpp:31
+        "ignore",
+        message="ComplexHalf support is experimental and many operators don't support it yet",
     )
-    print(results)
+    CLI(run_eval_harness)
