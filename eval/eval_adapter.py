@@ -1,16 +1,14 @@
 import json
-import warnings
-
-from lm_eval import tasks, evaluator, base
-
 import sys
 import time
+import warnings
 from pathlib import Path
-from typing import Literal, Optional, List
+from typing import List, Literal, Optional
 
 import lightning as L
 import torch
 from lightning.fabric.strategies import FSDPStrategy
+from lm_eval import base, evaluator, tasks
 from lm_eval.base import BaseLM
 
 # support running without installing as a package
@@ -93,6 +91,8 @@ def generate(
 
 
 class EvalHarnessAdapter(BaseLM):
+    # Credits:
+    # https://github.com/EleutherAI/gpt-neox/blob/main/eval_tasks/eval_adapter.py
     def __init__(
         self,
         checkpoint_dir: str = "",
@@ -115,7 +115,6 @@ class EvalHarnessAdapter(BaseLM):
     ):
         super().__init__()
         assert isinstance(device, str)
-        # assert precision in ["float32", "bfloat16"]
         assert isinstance(batch_size, int)
         assert isinstance(checkpoint_dir, str)
 
@@ -271,15 +270,13 @@ class EvalHarnessAdapter(BaseLM):
         # the tasks are downloaded *as they are initialized*, and the downloads don't like multithreading.
         # so we download them once on the local main rank, wait, and then initialize them on all other ranks, which *should* load from the cache.
         if self.fabric.local_rank == 0:
-            task_dict = tasks.get_task_dict(eval_tasks)
+            tasks.get_task_dict(eval_tasks)
         # torch barrier
         self.fabric.barrier()
         task_dict = tasks.get_task_dict(eval_tasks)
 
         lm = self
         if use_cache:
-            # TODO(jon-tow): Append a subset of `neox_args` to the cache database
-            # name arg to distinguish model runs that use different configurations.
             lm = base.CachingLM(lm, "lm_cache/" + name + ".db")
 
         results = evaluator.evaluate(
@@ -292,7 +289,7 @@ class EvalHarnessAdapter(BaseLM):
         )
 
         results["config"] = {
-            "model": name,
+            "model": self.model.config.name,
             "num_fewshot": num_fewshot,
             "batch_size": self.batch_size,
             "device": str(self.device),
@@ -309,12 +306,33 @@ def run_eval_harness(
     checkpoint_dir: str = "",
     precision: str = "bf16-true",
     batch_size=1,
-    eval_tasks:Optional[List[str]]=None,
+    eval_tasks: Optional[List[str]] = None,
     num_fewshot=0,
     bootstrap_iters=2,
+    temperature=1.0,
+    device="auto",
+    devices: int = 1,
+    strategy: str = "auto",
+    quantize: Optional[
+        Literal[
+            "bnb.nf4",
+            "bnb.nf4-dq",
+            "bnb.fp4",
+            "bnb.fp4-dq",
+            "bnb.int8",
+            "gptq.int4",
+        ]
+    ] = None,
 ):
     adapter = EvalHarnessAdapter(
-        checkpoint_dir=checkpoint_dir, precision=precision, batch_size=batch_size
+        checkpoint_dir=checkpoint_dir,
+        precision=precision,
+        batch_size=batch_size,
+        temperature=temperature,
+        device=device,
+        devices=devices,
+        strategy=strategy,
+        quantize=quantize,
     )
     adapter.fabric.print("Running evaluation harness...")
     results = adapter.run_eval(
@@ -327,7 +345,7 @@ def run_eval_harness(
     filename = str(time.time()) + "-eval.txt"
     with open(filename, "w") as fw:
         fw.write(data)
-    print(f"saved the results in {filename}")
+    print(f"Results saved at {filename}")
     return results
 
 
@@ -340,4 +358,5 @@ if __name__ == "__main__":
         "ignore",
         message="ComplexHalf support is experimental and many operators don't support it yet",
     )
-    CLI(run_eval_harness)
+    result = CLI(run_eval_harness)
+    print(result)
