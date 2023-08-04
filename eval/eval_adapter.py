@@ -1,11 +1,9 @@
 import json
-import dataclasses
 
-from lm_eval import tasks, evaluator, utils, base
+from lm_eval import tasks, evaluator, base
 
 import sys
 import time
-import warnings
 from pathlib import Path
 from typing import Literal, Optional
 
@@ -179,9 +177,7 @@ class EvalHarnessAdapter(BaseLM):
 
     @property
     def batch_size(self):
-        # TODO: fix multi-gpu
-        assert self.batch_size_per_gpu == 1
-        return self.batch_size_per_gpu  # * gpus
+        return self.batch_size_per_gpu  * self.fabric.world_size
 
     @property
     def device(self):
@@ -316,5 +312,8 @@ def run_eval_harness(
 
 if __name__ == "__main__":
     run_eval_harness(
-        checkpoint_dir="checkpoints/EleutherAI/pythia-70m"
+        checkpoint_dir="checkpoints/EleutherAI/pythia-70m",
+        precision="16-true",
+        eval_tasks=["hellaswag"],
+        batch_size=16
     )
