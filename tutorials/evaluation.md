@@ -1,0 +1,23 @@
+# LLM Evaluation
+
+## Using lm-evaluation-harness
+
+You can evaluate Lit-GPT using [EleutherAI's lm-eval](https://github.com/EleutherAI/lm-evaluation-harness/tree/master) framework large number of different evaluation tasks.
+
+You need to install the `lm-eval` framework first:
+
+```bash
+git clone https://github.com/EleutherAI/lm-evaluation-harness
+cd lm-evaluation-harness
+pip install -e .
+```
+
+To evaluate Lit-GPT:
+
+```bash
+python eval/eval_adapter.py \
+        --checkpoint_dir "checkpoints/Llama-2-7b-hf/" \
+        --precision "bf16-true" \
+        --eval_tasks "[truthfulqa_mc]" \
+        --batch_size 4
+```
