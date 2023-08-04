@@ -98,7 +98,6 @@ class EvalHarnessAdapter(BaseLM):
         checkpoint_dir: str = "",
         precision: str = "float32",
         batch_size=1,
-        do_sample=False,
         temperature=1.0,
         device="auto",
         devices: int = 1,
@@ -153,7 +152,6 @@ class EvalHarnessAdapter(BaseLM):
         # multithreading and batching
         self.batch_size_per_gpu = batch_size
 
-        self.do_sample = do_sample
         self.temperature = temperature
 
     @classmethod
@@ -207,7 +205,6 @@ class EvalHarnessAdapter(BaseLM):
             idx=context[0],
             max_new_tokens=max_length,
             max_seq_length=self.model.config.block_size,
-            do_sample=self.do_sample,
             temperature=self.temperature,
             top_k=None,
             eos_id=eos_token_id,
@@ -311,9 +308,10 @@ def run_eval_harness(
     )
 
 if __name__ == "__main__":
-    run_eval_harness(
+    results = run_eval_harness(
         checkpoint_dir="checkpoints/EleutherAI/pythia-70m",
-        precision="16-true",
-        eval_tasks=["hellaswag"],
-        batch_size=16
+        precision="32",
+        eval_tasks=["piqa"],
+        batch_size=64
     )
+    print(results)
