@@ -2,7 +2,7 @@
 
 ## Using lm-evaluation-harness
 
-You can evaluate Lit-GPT using [EleutherAI's lm-eval](https://github.com/EleutherAI/lm-evaluation-harness/tree/master) framework large number of different evaluation tasks.
+You can evaluate Lit-GPT using [EleutherAI's lm-eval](https://github.com/EleutherAI/lm-evaluation-harness/tree/master) framework with a large number of different evaluation tasks.
 
 You need to install the `lm-eval` framework first:
 
