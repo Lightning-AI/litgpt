@@ -15,12 +15,12 @@ def test_convert_lit_checkpoint(tmp_path):
     ckpt_name = "lit_model.pth"
 
     with pytest.raises(RuntimeError, match="open file failed because of errno 2 on fopen"):
-        convert_lit_checkpoint(checkpoint_name=ckpt_name, checkpoint_dir=tmp_path, model_name="falcon-7b")
+        convert_lit_checkpoint(checkpoint_name=ckpt_name, out_dir=tmp_path, model_name="falcon-7b")
 
     ckpt_path = tmp_path / "lit_model.pth"
     ckpt_path.touch()
     with mock.patch("scripts.convert_lit_checkpoint.lazy_load") as load:
-        convert_lit_checkpoint(checkpoint_name=ckpt_name, checkpoint_dir=tmp_path, model_name="falcon-7b")
+        convert_lit_checkpoint(checkpoint_name=ckpt_name, out_dir=tmp_path, model_name="falcon-7b")
     load.assert_called_with(ckpt_path)
 
     assert {p.name for p in tmp_path.glob("*")} == {"lit_model.pth", "lit_model.bin"}
@@ -51,7 +51,7 @@ def test_convert_lit_checkpoint_llama2(tmp_path):
     # save checkpoint to avoid RunTimeError for PytorchStreamReader
     save_checkpoint(fabric, ours_model, ckpt_path)
     # this should not cause a TypeError
-    convert_lit_checkpoint(checkpoint_name=ckpt_name, checkpoint_dir=tmp_path, model_name=model_name)
+    convert_lit_checkpoint(checkpoint_name=ckpt_name, out_dir=tmp_path, model_name=model_name)
 
 
 @torch.inference_mode()
