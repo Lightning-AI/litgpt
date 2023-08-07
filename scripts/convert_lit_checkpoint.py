@@ -200,7 +200,7 @@ def maybe_unwrap_state_dict(lit_weights: Dict[str, torch.Tensor]) -> Dict[str, t
 def convert_lit_checkpoint(
     *,
     checkpoint_name: str,
-    checkpoint_dir: Path,
+    out_dir: Path,
     model_name: str,
 ) -> None:
     config = Config.from_name(model_name)
