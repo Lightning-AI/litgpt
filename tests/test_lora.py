@@ -79,8 +79,23 @@ def test_lora_mqa_gqa():
         alpha=8,
         dropout=0.1,
         to_query=True,
+        # to_key=True,
         to_value=True,
     )
+    # Falcon-7B config
+    # config = Config(
+    #     block_size=2048,
+    #     padded_vocab_size=65024,
+    #     n_layer=32,
+    #     n_head=71,
+    #     n_embd=4544,
+    #     rotary_percentage=1.0,
+    #     parallel_residual=True,
+    #     n_query_groups=1,
+    #     bias=False,
+    #     # this is not in the config, but in the original model implementation, only for this config
+    #     shared_attention_norm=True,
+    # )
     assert config.n_query_groups == config.n_head
     model = GPT(config)
     attn = model.transformer.h[0].attn.attn
@@ -247,6 +262,27 @@ def test_lora_layer_forward_no_exception(apply_to):
     model.eval()
 
     model(input_ids)
+
+@torch.inference_mode()
+def test_lora_layer_forward_no_exception_1():
+    from lit_gpt.lora import GPT, Config
+
+    # config = Config(n_layer=1, n_head=4, n_embd=8, block_size=1, vocab_size=1, r=2, alpha=8, dropout=0.1, to_query=True, to_key=True, to_value=True)
+    config = Config(n_layer=1, n_head=6, n_query_groups=2, n_embd=12, block_size=1, vocab_size=1, r=2, alpha=8, dropout=0.1, to_query=True, to_key=True, to_value=True)
+    input_ids = torch.tensor([[1]])
+    model = GPT(config)
+
+    model(input_ids)
+
+@torch.inference_mode()
+def test_lora_layer_forward_no_exception_2():
+    from lit_gpt.lora import GPT, Config, merge_lora_weights
+
+    # config = Config(n_layer=1, n_head=4, n_embd=8, block_size=1, vocab_size=1, r=2, alpha=8, dropout=0.1, to_query=True, to_key=True, to_value=True)
+    config = Config(n_layer=1, n_head=6, n_query_groups=2, n_embd=12, block_size=1, vocab_size=1, r=2, alpha=8, dropout=0.1, to_query=True, to_key=True, to_value=True)
+    input_ids = torch.tensor([[1]])
+    model = GPT(config)
+    merge_lora_weights(model)
 
 
 @pytest.mark.parametrize(("rank", "expected_merged"), ((-1, False), (0, False), (1, True)))
