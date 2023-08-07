@@ -206,7 +206,7 @@ def test_maybe_unwrap_state_dict(tmp_path):
 
     # convert and check that model key does not exist
     # and that a known key for pythia exists
-    convert_lit_checkpoint(checkpoint_name=ckpt_name, checkpoint_dir=tmp_path, model_name=model_name)
+    convert_lit_checkpoint(checkpoint_name=ckpt_name, out_dir=tmp_path, model_name=model_name)
     bin_file = ckpt_path.with_suffix(".bin")
     ckpt_from_unwrapped = torch.load(bin_file)
     assert ckpt_from_unwrapped.get("model") is None
@@ -214,5 +214,5 @@ def test_maybe_unwrap_state_dict(tmp_path):
 
     # assert maybe_unwrap_state_dict is called
     with mock.patch("scripts.convert_lit_checkpoint.maybe_unwrap_state_dict") as maybe_unwrap:
-        convert_lit_checkpoint(checkpoint_name=ckpt_name, checkpoint_dir=tmp_path, model_name=model_name)
+        convert_lit_checkpoint(checkpoint_name=ckpt_name, out_dir=tmp_path, model_name=model_name)
     maybe_unwrap.assert_called()
