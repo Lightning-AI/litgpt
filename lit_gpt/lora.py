@@ -322,6 +322,17 @@ class LoRAQKVLinear(LoRALinear):
         result = result.index_copy(1, self.lora_ind, x.reshape(-1, shape))  # (4096, 256)
         return result.view((*x.shape[:-1], self.out_features)).transpose(0, 1)  # (64, 64, 384)
 
+    def conv1d(self, input: torch.Tensor, weight: torch.Tensor) -> torch.Tensor:
+        if self.n_head == self.n_query_groups:
+            return F.conv1d(input, weight, groups=sum(self.enable_lora))
+
+        input_splitted = input.chunk(sum(self.enable_lora), dim=1)
+        weight_splitted = weight.split(self.shapes)
+        return torch.cat(
+            [F.conv1d(a, b) for a, b in zip(input_splitted, weight_splitted)],
+            dim=1,
+        )
+
     def merge(self):
         """Merges the LoRA weights into the full-rank weights (W = W + delta_W)."""
 
@@ -329,32 +340,11 @@ class LoRAQKVLinear(LoRALinear):
         # ⚬ self.weight.data: (384, 128) or (3 * embedding_size, embedding_size)
         # ⚬ self.lora_A.data: (4, 128)
         # ⚬ self.lora_B.data: (256, 2)
-        # TODO: fix conv1d
         if self.r > 0 and any(self.enable_lora) and not self.merged:
-            if self.n_head == self.n_query_groups:
-                delta_w = F.conv1d(
-                    self.lora_A.data.unsqueeze(0),  # (4, 128) -> (1, 4, 128)
-                    self.lora_B.data.unsqueeze(-1),  # (256, 2) -> (256, 2, 1)
-                    groups=sum(self.enable_lora),
-                ).squeeze(0)  # (1, 4, 128) @ (256, 2, 1) -> (1, 256, 128) -> (256, 128)
-            else:
-                # delta_w = []
-                # lora_A_splitted = self.lora_A.data.unsqueeze(0).chunk(sum(self.enable_lora), dim=1)
-                # lora_B_splitted = self.lora_B.data.unsqueeze(-1).split(self.shapes)
-                # for a, b in zip(lora_A_splitted, lora_B_splitted):
-                #     delta_w.append(F.conv1d(a, b))
-                # delta_w = torch.cat(delta_w, dim=1).squeeze(0)
-                lora_A_splitted = self.lora_A.data.unsqueeze(0).chunk(sum(self.enable_lora), dim=1)
-                lora_B_splitted = self.lora_B.data.unsqueeze(-1).split(self.shapes)
-                delta_w = torch.cat(
-                    [F.conv1d(a, b) for a, b in zip(lora_A_splitted, lora_B_splitted)],
-                    dim=1,
-                ).squeeze(0)
-            # delta_w = F.conv1d(
-            #     self.lora_A.data.unsqueeze(0),  # (4, 128) -> (1, 4, 128)
-            #     self.lora_B.data.unsqueeze(-1),  # (256, 2) -> (256, 2, 1)
-            #     groups=sum(self.enable_lora),
-            # ).squeeze(0)  # (1, 4, 128) @ (256, 2, 1) -> (1, 256, 128) -> (256, 128)
+            delta_w = self.conv1d(
+                self.lora_A.data.unsqueeze(0),  # (4, 128) -> (1, 4, 128)
+                self.lora_B.data.unsqueeze(-1),  # (256, 2) -> (256, 2, 1)
+            ).squeeze(0)  # (1, 4, 128) @ (256, 2, 1) -> (1, 256, 128) -> (256, 128)
             # W = W + delta_W (merge)
             self.weight.data += self.zero_pad(
                 self.T(delta_w * self.scaling)
@@ -390,21 +380,10 @@ class LoRAQKVLinear(LoRALinear):
             # ⚬ weight: filters of shape (out_channels, in_channels/groups, kW)
             # ⚬ groups: split input into groups, in_channels should be divisible by the number of groups. Default: 1
             # presumably iW - sequence width/length, kW - kernel width
-            if self.n_head == self.n_query_groups:
-                after_B = F.conv1d(
-                    after_A.transpose(-2, -1),  # (64, 64, 4) -> (64, 4, 64)
-                    self.lora_B.unsqueeze(-1),  # (256, 2) -> (256, 2, 1)
-                    groups=sum(self.enable_lora),
-                ).transpose(-2, -1)  # (64, 4, 64) @ (256, 2, 1) -> (64, 256, 64) -> (64, 64, 256)
-            else:
-                # TODO: add shapes
-                after_A_splitted = after_A.transpose(-2, -1).chunk(sum(self.enable_lora), dim=1) # (64, 64, 4) -> (64, 4, 64) -> 2 * (64, 2, 64)
-                lora_B_splitted = self.lora_B.unsqueeze(-1).split(self.shapes) # (256, 2) -> (256, 2, 1) -> 2 * (?, 2, 1)
-                after_B = torch.cat(
-                    [F.conv1d(a, b) for a, b in zip(after_A_splitted, lora_B_splitted)],
-                    dim=1,
-                ).transpose(-2, -1) # (64, 256, 64) -> (64, 64, 256)
-
+            after_B = self.conv1d(
+                after_A.transpose(-2, -1),  # (64, 64, 4) -> (64, 4, 64)
+                self.lora_B.unsqueeze(-1),  # (256, 2) -> (256, 2, 1)
+            ).transpose(-2, -1)  # (64, 4, 64) @ (256, 2, 1) -> (64, 256, 64) -> (64, 64, 256)
             result += self.zero_pad(after_B) * self.scaling  # (64, 64, 256) after zero_pad (64, 64, 384)
 
         return result
