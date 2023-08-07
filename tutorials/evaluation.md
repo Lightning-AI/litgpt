@@ -19,5 +19,6 @@ python eval/lm_eval_harness.py \
         --checkpoint_dir "checkpoints/Llama-2-7b-hf/" \
         --precision "bf16-true" \
         --eval_tasks "[truthfulqa_mc,hellaswag]" \
-        --batch_size 4
+        --batch_size 4 \
+        --save_filepath "results.json"
 ```

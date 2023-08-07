@@ -96,7 +96,7 @@ class EvalHarnessAdapter(BaseLM):
     def __init__(
         self,
         checkpoint_dir: str = "",
-        precision: str = "float32",
+        precision: str = "bf16-true",
         batch_size=1,
         temperature=1.0,
         device="auto",
@@ -169,9 +169,7 @@ class EvalHarnessAdapter(BaseLM):
         self.tokenizer = Tokenizer(checkpoint_dir)
         self.vocab_size = self.tokenizer.vocab_size
 
-        # multithreading and batching
         self.batch_size_per_gpu = batch_size
-
         self.temperature = temperature
 
     @classmethod
@@ -323,6 +321,7 @@ def run_eval_harness(
             "gptq.int4",
         ]
     ] = None,
+    save_filepath: Optional[str] = None,
 ):
     adapter = EvalHarnessAdapter(
         checkpoint_dir=checkpoint_dir,
@@ -341,11 +340,11 @@ def run_eval_harness(
         bootstrap_iters=bootstrap_iters,
         use_cache=False,
     )
-    data = json.dumps(results)
-    filename = str(time.time()) + "-eval.txt"
-    with open(filename, "w") as fw:
-        fw.write(data)
-    print(f"Results saved at {filename}")
+    if save_filepath:
+        data = json.dumps(results)
+        with open(save_filepath, "w") as fw:
+            fw.write(data)
+        print(f"Results saved at {save_filepath}")
     return results
 
 
