@@ -231,8 +231,8 @@ class LoRAQKVLinear(LoRALinear):
             enable_q, enable_k, enable_v = enable_lora
             self.kv_embd_size = self.in_features // (n_head // n_query_groups)
             # shape = self.in_features * enable_q + self.kv_embd_size * enable_k + self.kv_embd_size * enable_v
-            self.shapes = (self.in_features * enable_q, self.kv_embd_size * enable_k, self.kv_embd_size * enable_v)
-            self.lora_B = nn.Parameter(self.weight.new_zeros(sum(self.shapes), r))  # (256, 2))
+            self.qkv_shapes = (self.in_features * enable_q, self.kv_embd_size * enable_k, self.kv_embd_size * enable_v)
+            self.lora_B = nn.Parameter(self.weight.new_zeros(sum(self.qkv_shapes), r))  # (256, 2))
             # Notes about shapes above
             # - self.lora_A has shape (4, 128): 4 because rank is 2 and LoRA is applied only to two matrices;
             # 128 is the input size of the x (embedding size). (4, 128) and not (128, 4) because later on in
@@ -352,7 +352,7 @@ class LoRAQKVLinear(LoRALinear):
         # ⚬ r: rank of all LoRA layers (equal in size)
 
         input_splitted = input.chunk(sum(self.enable_lora), dim=1) # N * (B, C // N, T)
-        weight_splitted = weight.split(self.shapes) # N * (output C', r)
+        weight_splitted = weight.split(self.qkv_shapes) # N * (output C', r)
         return torch.cat(
             [F.conv1d(a, b) for a, b in zip(input_splitted, weight_splitted)], # (B, output C', T)
             dim=1,
