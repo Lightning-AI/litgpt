@@ -31,7 +31,7 @@ Supports the following popular model checkpoints:
 | OpenLM Research [OpenLLaMA](tutorials/download_openllama.md)                                                 | [Geng & Liu 2023](https://github.com/openlm-research/open_llama)                                 |
 | LMSYS [Vicuna](tutorials/download_vicuna.md)                                                                 | [Li et al. 2023](https://lmsys.org/blog/2023-06-29-longchat)                                     |
 | Together [RedPajama-INCITE](tutorials/download_redpajama_incite.md)                                          | [Together 2023](https://together.ai/blog/redpajama-models-v1)                                    |
-| EleutherAI [Pythia](tutorials/download_pythia.md) ([Biderman et al. 2023](https://arxiv.org/abs/2304.01373)) | [Biderman et al. 2023](https://arxiv.org/abs/2304.01373)                                         |
+| EleutherAI [Pythia](tutorials/download_pythia.md) | [Biderman et al. 2023](https://arxiv.org/abs/2304.01373)                                         |
 | StabilityAI [StableLM](tutorials/download_stablelm.md)                                                       | [Stability AI 2023](https://github.com/Stability-AI/StableLM)       
 
 This implementation extends on [Lit-LLaMA](https://github.com/lightning-AI/lit-llama) and [nanoGPT](https://github.com/karpathy/nanoGPT), and it's **powered by [Lightning Fabric](https://lightning.ai/docs/fabric/stable/) ⚡**.
