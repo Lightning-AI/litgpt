@@ -12,10 +12,22 @@ cd lm-evaluation-harness
 pip install -e .
 ```
 
-To evaluate Lit-GPT:
+### To evaluate Lit-GPT base models:
 
 ```bash
 python eval/lm_eval_harness.py \
+        --checkpoint_dir "checkpoints/Llama-2-7b-hf/" \
+        --precision "bf16-true" \
+        --eval_tasks "[truthfulqa_mc,hellaswag]" \
+        --batch_size 4 \
+        --save_filepath "results.json"
+```
+
+### To evaluate LoRA finetuned LLMs:
+
+```bash
+python eval/lm_eval_harness_lora.py \
+        --lora_path "lit_model_lora_finetuned.pth" \
         --checkpoint_dir "checkpoints/Llama-2-7b-hf/" \
         --precision "bf16-true" \
         --eval_tasks "[truthfulqa_mc,hellaswag]" \
