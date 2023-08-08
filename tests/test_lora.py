@@ -261,7 +261,7 @@ def test_lora_gpt_apply_lora_forward_no_exception(apply_to):
         ),
     ),
 )
-def test_lora_gpt_forward_query_groups_no_exception(n_query_groups, apply_to):
+def test_lora_gpt_query_groups_forward_no_exception(n_query_groups, apply_to):
     from lit_gpt.lora import GPT, Config, mark_only_lora_as_trainable
 
     keys = ("to_query", "to_key", "to_value")
@@ -282,6 +282,40 @@ def test_lora_gpt_forward_query_groups_no_exception(n_query_groups, apply_to):
     )
     model = GPT(config)
     mark_only_lora_as_trainable(model)
+
+
+@torch.inference_mode()
+@pytest.mark.parametrize(
+    ("n_head", "enable_lora"),
+    list(
+        product(
+            (1, 2, 3, 6, 12),
+            [p for p in product((False, True), repeat=3) if any(p)] # skip enable_lora=(False, False, False)
+        ),
+    ),
+)
+def test_lora_qkv_linear_compare_conv1d(n_head, enable_lora):
+    from torch.nn import functional as F
+    from lit_gpt.lora import LoRAQKVLinear
+
+    C = 12
+    layer = LoRAQKVLinear(C, 3 * C, n_head=n_head, n_query_groups=n_head, r=2, enable_lora=enable_lora)
+    x = torch.randn((1, 1, C))
+    a = F.linear(x, layer.lora_A).transpose(-2, -1) # after_A
+    b = layer.lora_B.data.unsqueeze(-1)
+
+    # original PyTorch conv1d function output
+    conv1d_pytorch = F.conv1d(a, b, groups=sum(layer.enable_lora))
+
+    # custom conv1d
+    conv1d_custom = layer.conv1d(a, b)
+
+    # custom conv1d forced to split, apply and concat tensors
+    layer.n_head = layer.n_query_groups + 1
+    conv1d_custom_forced = layer.conv1d(a, b)
+
+    assert torch.allclose(conv1d_pytorch, conv1d_custom)
+    assert torch.allclose(conv1d_pytorch, conv1d_custom_forced)
 
 
 @pytest.mark.parametrize(("rank", "expected_merged"), ((-1, False), (0, False), (1, True)))
