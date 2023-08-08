@@ -323,15 +323,40 @@ class LoRAQKVLinear(LoRALinear):
         return result.view((*x.shape[:-1], self.out_features)).transpose(0, 1)  # (64, 64, 384)
 
     def conv1d(self, input: torch.Tensor, weight: torch.Tensor) -> torch.Tensor:
+        """An extension of the `torch.nn.functional.conv1d` function with a logic specific to grouped queries.
+
+        If the number of heads is equal to the number of query groups - grouped queries are disabled
+        (see scheme in `lit_gpt/config.py:Config`). In this case the combined QKV matrix consists of equal sized
+        query, key and value parts, which means we can utilize `groups` argument from `conv1d`: with this argument the
+        input and weight matrices will be splitted in equal sized parts and applied separately (like having multiple
+        conv layers side by side).
+
+        Otherwise QKV matrix consists of not equal sized parts and thus we have to split input and weight matrices manually,
+        apply each part of the weight matrix to the corresponding input's part and concatenate the result.
+
+        Args:
+            input: input matrix of shape (B, C, T)
+            weight: weight matrix of shape (output C, rank).
+                "output C" is defined as a sum of embedding sizes for each enabled LoRA layer (see init method of the class).
+
+        Returns:
+            A tensor with a shape (B, output C, T)
+
+        """
         if self.n_head == self.n_query_groups:
             return F.conv1d(input, weight, groups=sum(self.enable_lora))
 
-        input_splitted = input.chunk(sum(self.enable_lora), dim=1)
-        weight_splitted = weight.split(self.shapes)
+        # Notation:
+        # ⚬ N: number of enabled LoRA layers (self.enable_lora)
+        # ⚬ output C': embeddings size for each LoRA layer (not equal in size)
+        # ⚬ r: rank of all LoRA layers (equal in size)
+
+        input_splitted = input.chunk(sum(self.enable_lora), dim=1) # N * (B, C // N, T)
+        weight_splitted = weight.split(self.shapes) # N * (output C', r)
         return torch.cat(
-            [F.conv1d(a, b) for a, b in zip(input_splitted, weight_splitted)],
+            [F.conv1d(a, b) for a, b in zip(input_splitted, weight_splitted)], # (B, output C', T)
             dim=1,
-        )
+        ) # (B, output C, T)
 
     def merge(self):
         """Merges the LoRA weights into the full-rank weights (W = W + delta_W)."""
