@@ -18,79 +18,10 @@ sys.path.append(str(wd))
 from lit_gpt import GPT, Config, Tokenizer
 from lit_gpt.model import Block
 from lit_gpt.utils import check_valid_checkpoint_dir, lazy_load, quantization
+from generate.base import generate
 
 
-@torch.no_grad()
-def generate(
-    model: torch.nn.Module,
-    idx: torch.Tensor,
-    max_returned_tokens: int,
-    max_seq_length: int,
-    *,
-    temperature: float = 1.0,
-    top_k: Optional[int] = None,
-    eos_id: Optional[int] = None,
-) -> torch.Tensor:
-    """Takes a conditioning sequence (prompt) as input and continues to generate as many tokens as requested.
-
-    The implementation of this function is modified from A. Karpathy's nanoGPT.
-
-    Args:
-        model: The model to use.
-        idx: Tensor of shape (T) with indices of the prompt sequence.
-        max_returned_tokens: The maximum number of tokens to return (given plus generated).
-        max_seq_length: The maximum sequence length allowed. Should be less or equal than the block size.
-        temperature: Scales the predicted logits by 1 / temperature.
-        top_k: If specified, only sample among the tokens with the k highest probabilities.
-        eos_id: If specified, stop generating any more token once the <eos> token is triggered.
-    """
-    T = idx.size(0)
-    assert max_returned_tokens > T
-    device, dtype = idx.device, idx.dtype
-    # create an empty tensor of the expected final shape and fill in the current tokens
-    empty = torch.empty(max_returned_tokens, dtype=dtype, device=device)
-    empty[:T] = idx
-    idx = empty
-    input_pos = torch.arange(0, T, device=device)
-
-    if idx.device.type == "xla":
-        import torch_xla.core.xla_model as xm
-
-        xm.mark_step()
-
-    # generate up to a fixed number of tokens
-    for _ in range(max_returned_tokens - T):
-        x = idx.index_select(0, input_pos).view(1, -1)
-
-        # forward
-        logits = model(x, max_seq_length, input_pos)
-        logits = logits[0, -1] / temperature
-
-        # optionally crop the logits to only the top k options
-        if top_k is not None:
-            v, _ = torch.topk(logits, min(top_k, logits.size(-1)))
-            logits = torch.where(logits < v[[-1]], -float("Inf"), logits)
-
-        probs = torch.nn.functional.softmax(logits, dim=-1)
-        idx_next = torch.multinomial(probs, num_samples=1).to(dtype=dtype)
-
-        # advance
-        input_pos = input_pos[-1:] + 1
-
-        if idx.device.type == "xla":
-            xm.mark_step()
-
-        # concatenate the new generation
-        idx = idx.index_copy(0, input_pos, idx_next)
-
-        # if <eos> token is triggered, return the output (stop generation)
-        if idx_next == eos_id:
-            return idx[:input_pos]  # include the EOS token
-
-    return idx
-
-
-class EvalHarnessAdapter(BaseLM):
+class EvalHarnessBase(BaseLM):
     # Credits:
     # https://github.com/EleutherAI/gpt-neox/blob/main/eval_tasks/eval_adapter.py
     def __init__(
@@ -323,7 +254,7 @@ def run_eval_harness(
     ] = None,
     save_filepath: Optional[str] = None,
 ):
-    adapter = EvalHarnessAdapter(
+    eval_harness = EvalHarnessBase(
         checkpoint_dir=checkpoint_dir,
         precision=precision,
         batch_size=batch_size,
@@ -333,8 +264,8 @@ def run_eval_harness(
         strategy=strategy,
         quantize=quantize,
     )
-    adapter.fabric.print("Running evaluation harness...")
-    results = adapter.run_eval(
+    eval_harness.fabric.print("Running evaluation harness...")
+    results = eval_harness.run_eval(
         eval_tasks=eval_tasks,
         num_fewshot=num_fewshot,
         bootstrap_iters=bootstrap_iters,
