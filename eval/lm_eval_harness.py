@@ -48,6 +48,8 @@ class EvalHarnessBase(BaseLM):
         assert isinstance(device, str)
         assert isinstance(batch_size, int)
         assert isinstance(checkpoint_dir, str)
+        self.batch_size_per_gpu = batch_size
+        self.temperature = temperature
 
         if strategy == "fsdp":
             strategy = FSDPStrategy(auto_wrap_policy={Block}, cpu_offload=False)
@@ -57,7 +59,6 @@ class EvalHarnessBase(BaseLM):
         fabric.launch()
 
         checkpoint_dir = Path(checkpoint_dir)
-
         check_valid_checkpoint_dir(checkpoint_dir)
 
         with open(checkpoint_dir / "lit_config.json") as fp:
@@ -99,9 +100,6 @@ class EvalHarnessBase(BaseLM):
         self.model = fabric.setup_module(model)
         self.tokenizer = Tokenizer(checkpoint_dir)
         self.vocab_size = self.tokenizer.vocab_size
-
-        self.batch_size_per_gpu = batch_size
-        self.temperature = temperature
 
     @classmethod
     def create_from_arg_string(cls, arg_string, additional_config=None):
