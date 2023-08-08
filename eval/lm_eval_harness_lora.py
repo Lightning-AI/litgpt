@@ -1,4 +1,5 @@
 import json
+import os
 import sys
 import time
 import warnings
@@ -49,6 +50,7 @@ class EvalHarnessLoRA(EvalHarnessAdapter):
         ]
         | None = None,
     ):
+        assert os.path.exists(lora_path)
         assert isinstance(device, str)
         assert isinstance(batch_size, int)
         assert isinstance(checkpoint_dir, str)
