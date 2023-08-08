@@ -4,23 +4,22 @@ import sys
 import time
 import warnings
 from pathlib import Path
-from typing import Literal, Optional, List
+from typing import List, Literal, Optional
 
 import lightning as L
 import torch
 from lightning.fabric.strategies import FSDPStrategy
-from lm_eval_harness import EvalHarnessAdapter
+from lm_eval.base import BaseLM
 
 # support running without installing as a package
 wd = Path(__file__).parent.parent.resolve()
 sys.path.append(str(wd))
-
-from generate.base import generate
 from lit_gpt import Tokenizer
 from lit_gpt.lora import GPT, Block, Config, merge_lora_weights
 from lit_gpt.utils import check_valid_checkpoint_dir, lazy_load, quantization
 from scripts.prepare_alpaca import generate_prompt
 
+from lm_eval_harness import EvalHarnessAdapter
 
 lora_r = 8
 lora_alpha = 16
@@ -50,15 +49,20 @@ class EvalHarnessLoRA(EvalHarnessAdapter):
         ]
         | None = None,
     ):
+        super(BaseLM, self).__init__()
         assert os.path.exists(lora_path)
         assert isinstance(device, str)
         assert isinstance(batch_size, int)
         assert isinstance(checkpoint_dir, str)
         self.input = input
-        
+        lora_path = Path(lora_path)
+        checkpoint_dir = Path(checkpoint_dir)
+
         if strategy == "fsdp":
             strategy = FSDPStrategy(auto_wrap_policy={Block}, cpu_offload=False)
-        fabric = L.Fabric(devices=devices, accelerator=device, precision=precision, strategy=strategy)
+        fabric = L.Fabric(
+            devices=devices, accelerator=device, precision=precision, strategy=strategy
+        )
         fabric.launch()
 
         check_valid_checkpoint_dir(checkpoint_dir)
