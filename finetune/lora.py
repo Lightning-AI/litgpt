@@ -113,7 +113,7 @@ def main(fabric: L.Fabric, data_dir: Path, checkpoint_dir: Path, out_dir: Path, 
     )
     checkpoint_path = checkpoint_dir / "lit_model.pth"
     fabric.print(f"Loading model {str(checkpoint_path)!r} with {config.__dict__}")
-    with fabric.init_module(empty_init=True), quantization(quantize):
+    with fabric.init_module(empty_init=False), quantization(quantize):
         model = GPT(config)
         model.apply(model._init_weights)  # for the LoRA weights
     with lazy_load(checkpoint_path) as checkpoint:
