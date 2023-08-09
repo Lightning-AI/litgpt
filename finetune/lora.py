@@ -6,14 +6,14 @@ from typing import Optional, List, Dict, Tuple, Literal
 
 import lightning as L
 import torch
-from lightning.fabric.strategies import XLAStrategy
+from lightning.fabric.strategies import XLAStrategy, FSDPStrategy
 
 # support running without installing as a package
 wd = Path(__file__).parent.parent.resolve()
 sys.path.append(str(wd))
 
 from generate.base import generate
-from lit_gpt.lora import mark_only_lora_as_trainable, lora_filter, GPT, Config
+from lit_gpt.lora import mark_only_lora_as_trainable, lora_filter, GPT, Config, Block
 from lit_gpt.tokenizer import Tokenizer
 from lit_gpt.utils import lazy_load, check_valid_checkpoint_dir, step_csv_logger, chunked_cross_entropy, quantization
 from lit_gpt.speed_monitor import SpeedMonitorFabric as SpeedMonitor, measure_flops, estimate_flops
@@ -67,12 +67,19 @@ def setup(
             fabric_devices = "auto"
             strategy = XLAStrategy(sync_module_states=False)
         else:
-            raise NotImplementedError
+            precision="bf16-true"
+            strategy=FSDPStrategy(
+                auto_wrap_policy={Block},
+                activation_checkpointing_policy={Block},
+                state_dict_type="full",
+                limit_all_gathers=True,
+            )
     else:
         strategy = "auto"
 
     logger = step_csv_logger(out_dir.parent, out_dir.name, flush_logs_every_n_steps=log_interval)
     fabric = L.Fabric(devices=fabric_devices, strategy=strategy, precision=precision, loggers=logger)
+
     fabric.print(hparams)
     fabric.launch(main, data_dir, checkpoint_dir, out_dir, quantize)
 
@@ -309,6 +316,6 @@ if __name__ == "__main__":
     # torch.backends.cuda.enable_flash_sdp(False)
     torch.set_float32_matmul_precision("high")
 
-    from jsonargparse.cli import CLI
+    from jsonargparse import CLI
 
     CLI(setup)
