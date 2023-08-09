@@ -261,8 +261,8 @@ def test_lora_gpt_apply_lora_forward_no_exception(apply_to):
         ),
     ),
 )
-def test_lora_gpt_query_groups_forward_no_exception(n_query_groups, apply_to):
-    from lit_gpt.lora import GPT, Config, mark_only_lora_as_trainable
+def test_lora_gpt_query_groups_merge_and_forward_no_exception(n_query_groups, apply_to):
+    from lit_gpt.lora import GPT, Config, merge_lora_weights
 
     keys = ("to_query", "to_key", "to_value")
     values = apply_to
@@ -281,7 +281,9 @@ def test_lora_gpt_query_groups_forward_no_exception(n_query_groups, apply_to):
         **apply_to,
     )
     model = GPT(config)
-    mark_only_lora_as_trainable(model)
+    merge_lora_weights(model)
+    input_ids = torch.tensor([[1]])
+    model(input_ids)
 
 
 @torch.inference_mode()
