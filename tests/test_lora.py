@@ -279,6 +279,7 @@ def test_lora_qkv_linear_weights_merged_status(rank, enable_lora, expected_merge
     assert layer.merged == expected_merged
 
 
+@pytest.mark.skipif(torch.cuda.is_available() is False, reason="Quantization not supported on CPU. Skipping Test.")
 def test_lora_script_with_quantize(tmp_path, fake_checkpoint_dir, monkeypatch):
     import finetune.lora as module
 

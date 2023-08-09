@@ -3,6 +3,7 @@ from dataclasses import asdict
 from io import StringIO
 from unittest.mock import Mock
 
+import pytest
 import torch
 from lightning import Fabric
 
@@ -92,6 +93,7 @@ def test_adapter_script(tmp_path, fake_checkpoint_dir, monkeypatch):
     assert "of trainable parameters: 168" in logs
 
 
+@pytest.mark.skipif(torch.cuda.is_available() is False, reason="Quantization not supported on CPU. Skipping Test.")
 def test_adapter_script_with_quantize(tmp_path, fake_checkpoint_dir, monkeypatch):
     import finetune.adapter as module
 
