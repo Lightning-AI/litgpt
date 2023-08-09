@@ -34,11 +34,7 @@ batch_size = 128
 micro_batch_size = 4
 gradient_accumulation_iters = batch_size // micro_batch_size
 assert gradient_accumulation_iters > 0
-<<<<<<< HEAD
-max_iters = 5000  # train dataset size
-=======
 max_iters = 50000  # train dataset size
->>>>>>> 5b46d4c433515ac433a88d4bcc41fa4e3aa89011
 weight_decay = 0.01
 lora_r = 8
 lora_alpha = 16
