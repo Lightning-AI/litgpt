@@ -56,7 +56,7 @@ def setup(
     out_dir: Path = Path("out/lora/alpaca"),
     precision: Optional[str] = None,
     tpu: bool = False,
-    quantize: Optional[Literal["bnb.nf4", "bnb.nf4-dq", "bnb.fp4", "bnb.fp4-dq", "bnb.int8"]] = None,
+    quantize: Optional[Literal["bnb.nf4", "bnb.nf4-dq", "bnb.fp4", "bnb.fp4-dq"]] = None,
 ):
     if precision is None:
         precision = "32-true" if tpu else "bf16-mixed"
@@ -111,7 +111,7 @@ def main(fabric: L.Fabric, data_dir: Path, checkpoint_dir: Path, out_dir: Path, 
     )
     checkpoint_path = checkpoint_dir / "lit_model.pth"
     fabric.print(f"Loading model {str(checkpoint_path)!r} with {config.__dict__}")
-    with fabric.init_module(empty_init=True), quantization(quantize):
+    with fabric.init_module(empty_init=False), quantization(quantize):
         model = GPT(config)
         model.apply(model._init_weights)  # for the LoRA weights
     with lazy_load(checkpoint_path) as checkpoint:
