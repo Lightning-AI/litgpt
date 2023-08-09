@@ -34,7 +34,11 @@ batch_size = 128
 micro_batch_size = 4
 gradient_accumulation_iters = batch_size // micro_batch_size
 assert gradient_accumulation_iters > 0
+<<<<<<< HEAD
 max_iters = 5000  # train dataset size
+=======
+max_iters = 50000  # train dataset size
+>>>>>>> 5b46d4c433515ac433a88d4bcc41fa4e3aa89011
 weight_decay = 0.01
 lora_r = 8
 lora_alpha = 16
@@ -81,7 +85,6 @@ def setup(
     fabric = L.Fabric(devices=fabric_devices, strategy=strategy, precision=precision, loggers=logger)
     fabric.print(hparams)
     fabric.launch(main, data_dir, checkpoint_dir, out_dir, quantize)
-
 
 def main(fabric: L.Fabric, data_dir: Path, checkpoint_dir: Path, out_dir: Path, quantize: Literal = None):
     check_valid_checkpoint_dir(checkpoint_dir)

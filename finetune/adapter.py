@@ -74,7 +74,6 @@ def setup(
     fabric.print(hparams)
     fabric.launch(main, data_dir, checkpoint_dir, out_dir, quantize)
 
-
 def main(fabric: L.Fabric, data_dir: Path, checkpoint_dir: Path, out_dir: Path, quantize: Literal = None):
     check_valid_checkpoint_dir(checkpoint_dir)
 
