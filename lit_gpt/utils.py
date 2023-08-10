@@ -11,6 +11,7 @@ from types import MethodType
 from typing import Optional, Any, Union, List, TypeVar, Type
 
 import torch
+import torch.nn as nn
 import torch.utils._device
 from lightning.fabric.loggers import CSVLogger
 from torch.serialization import normalize_storage_type
@@ -21,6 +22,13 @@ def find_multiple(n: int, k: int) -> int:
     if n % k == 0:
         return n
     return n + k - (n % k)
+
+
+def num_parameters(module: nn.Module, requires_grad: Optional[bool] = None) -> int:
+    return sum(
+        p.numel() for p in module.parameters()
+        if requires_grad is None or p.requires_grad == requires_grad
+    )
 
 
 @contextmanager

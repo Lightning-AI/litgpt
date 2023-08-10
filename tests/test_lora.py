@@ -8,13 +8,15 @@ from lightning import Fabric
 
 
 def test_lora_layer_replacement():
-    from lit_gpt.lora import CausalSelfAttention as LoRACausalSelfAttention, GPT, Config
+    from lit_gpt.lora import CausalSelfAttention as LoRACausalSelfAttention, GPT, Config, LoRALinear
 
     config = Config(n_layer=2, n_head=4, n_embd=8, block_size=8, vocab_size=8, r=8, alpha=8, dropout=0.1)
     model = GPT(config)
 
     assert isinstance(model.transformer.h[0].attn, LoRACausalSelfAttention)
     assert isinstance(model.transformer.h[1].attn, LoRACausalSelfAttention)
+    assert isinstance(model.lm_head, LoRALinear)
+    assert isinstance(model.transformer.h[0].mlp.proj, LoRALinear)
 
 
 def test_lora_merge():
@@ -87,7 +89,7 @@ def test_lora_mqa_gqa():
     assert attn.weight.shape == (24, 8)
     assert attn.lora_A.shape == (4, 8)
     assert attn.lora_B.shape == (16, 2)
-    assert attn.lora_ind.tolist() == [0, 1, 2, 3, 4, 5, 6, 7, 16, 17, 18, 19, 20, 21, 22, 23]
+    assert attn.lora_ind == [0, 1, 2, 3, 4, 5, 6, 7, 16, 17, 18, 19, 20, 21, 22, 23]
     x = torch.randint(0, 8, size=(3, 5, 16), dtype=torch.int64)
     assert attn.zero_pad(x).shape == (3, 5, 24)
 
@@ -98,7 +100,7 @@ def test_lora_mqa_gqa():
     assert attn.weight.shape == (12, 8)
     assert attn.lora_A.shape == (4, 8)
     assert attn.lora_B.shape == (10, 2)
-    assert attn.lora_ind.tolist() == [0, 1, 2, 3, 4, 5, 6, 7, 10, 11]
+    assert attn.lora_ind == [0, 1, 2, 3, 4, 5, 6, 7, 10, 11]
     x = torch.randint(0, 8, size=(3, 5, 10), dtype=torch.int64)
     assert attn.zero_pad(x).shape == (3, 5, 12)
 
@@ -109,7 +111,7 @@ def test_lora_mqa_gqa():
     assert attn.weight.shape == (16, 8)
     assert attn.lora_A.shape == (4, 8)
     assert attn.lora_B.shape == (12, 2)
-    assert attn.lora_ind.tolist() == [0, 1, 2, 3, 4, 5, 6, 7, 12, 13, 14, 15]
+    assert attn.lora_ind == [0, 1, 2, 3, 4, 5, 6, 7, 12, 13, 14, 15]
     x = torch.randint(0, 8, size=(3, 5, 12), dtype=torch.int64)
     assert attn.zero_pad(x).shape == (3, 5, 16)
 
@@ -247,3 +249,33 @@ def test_lora_layer_forward_no_exception(apply_to):
     model.eval()
 
     model(input_ids)
+
+
+@pytest.mark.parametrize(("rank", "expected_merged"), ((-1, False), (0, False), (1, True)))
+def test_lora_linear_weights_merged_status(rank, expected_merged):
+    from lit_gpt.lora import LoRALinear
+
+    layer = LoRALinear(10, 10, r=rank)
+    assert not layer.merged
+    layer.merge()
+    assert layer.merged == expected_merged
+
+
+@pytest.mark.parametrize(
+    ("rank", "enable_lora", "expected_merged"),
+    (
+        (-1, True, False),
+        (0, True, False),
+        (1, True, True),
+        (-1, False, False),
+        (0, False, False),
+        (1, False, False),
+    ),
+)
+def test_lora_qkv_linear_weights_merged_status(rank, enable_lora, expected_merged):
+    from lit_gpt.lora import LoRAQKVLinear
+
+    layer = LoRAQKVLinear(10, 3 * 10, n_head=2, n_query_groups=2, r=rank, enable_lora=enable_lora)
+    assert not layer.merged
+    layer.merge()
+    assert layer.merged == expected_merged

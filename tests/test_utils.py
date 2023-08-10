@@ -158,3 +158,18 @@ def test_chunked_cross_entropy(B):
     chunked_loss = chunked_cross_entropy(chunked_logits, targets, chunk_size=10)
     torch.testing.assert_close(chunked_loss, regular_loss)
     torch.testing.assert_close(chunked_loss, baseline_loss)
+
+
+def test_num_parameters():
+    from lit_gpt.utils import num_parameters
+
+    model = torch.nn.Linear(2, 2)
+    assert num_parameters(model) == 6
+    assert num_parameters(model, requires_grad=True) == 6
+    assert num_parameters(model, requires_grad=False) == 0
+
+    model = torch.nn.Linear(2, 2)
+    model.bias.requires_grad = False
+    assert num_parameters(model) == 6
+    assert num_parameters(model, requires_grad=True) == 4
+    assert num_parameters(model, requires_grad=False) == 2
