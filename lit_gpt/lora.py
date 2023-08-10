@@ -267,18 +267,13 @@ class LoRAQKVLinear(LoRALinear):
             # ________________________________________
             # | query         | key       | value    |
             # ----------------------------------------
-            lora_ind = []
+            self.lora_ind = []
             if enable_q:
-                lora_ind.append(torch.arange(0, self.in_features, device=self.weight.device))
+                self.lora_ind.extend(range(0, self.in_features))
             if enable_k:
-                lora_ind.append(
-                    torch.arange(self.in_features, self.in_features + self.kv_embd_size, device=self.weight.device)
-                )
+                self.lora_ind.extend(range(self.in_features, self.in_features + self.kv_embd_size))
             if enable_v:
-                lora_ind.append(
-                    torch.arange(self.in_features + self.kv_embd_size, self.out_features, device=self.weight.device)
-                )
-            self.register_buffer("lora_ind", torch.cat(lora_ind), persistent=False)
+                self.lora_ind.extend(range(self.in_features + self.kv_embd_size, self.out_features))
         self.reset_parameters()
         if fan_in_fan_out:
             self.weight.data = self.weight.data.T
@@ -322,7 +317,7 @@ class LoRAQKVLinear(LoRALinear):
         result = result.view(-1, self.out_features)  # (4096, 384)
         enable_q, enable_k, enable_v = self.enable_lora
         shape = self.in_features * enable_q + self.kv_embd_size * enable_k + self.kv_embd_size * enable_v
-        result = result.index_copy(1, self.lora_ind, x.reshape(-1, shape))  # (4096, 256)
+        result = result.index_copy(1, torch.tensor(self.lora_ind, device=result.device), x.reshape(-1, shape)) # (4096, 256)
         return result.view((*x.shape[:-1], self.out_features)).transpose(0, 1)  # (64, 64, 384)
 
     def conv1d(self, input: torch.Tensor, weight: torch.Tensor) -> torch.Tensor:
@@ -479,9 +474,7 @@ class Config(BaseConfig):
 
     @property
     def mlp_class(self) -> Type:
-        # `self._mlp_class` cannot be the type to keep the config json serializable
-        obj = lit_gpt.lora if self.to_mlp else lit_gpt.model
-        return getattr(obj, self._mlp_class)
+        return getattr(lit_gpt.lora, self._mlp_class)
 
 
 class GPT(BaseModel):
@@ -631,7 +624,7 @@ class GptNeoxMLP(lit_gpt.model.GptNeoxMLP):
             config.n_embd,
             config.intermediate_size,
             bias=config.bias,
-            r=config.r,
+            r=(config.r if config.to_mlp else 0),
             lora_alpha=config.alpha,
             lora_dropout=config.dropout,
         )
@@ -639,7 +632,7 @@ class GptNeoxMLP(lit_gpt.model.GptNeoxMLP):
             config.intermediate_size,
             config.n_embd,
             bias=config.bias,
-            r=config.r,
+            r=(config.r if config.to_mlp else 0),
             lora_alpha=config.alpha,
             lora_dropout=config.dropout,
         )
@@ -652,7 +645,7 @@ class LLaMAMLP(lit_gpt.model.LLaMAMLP):
             config.n_embd,
             config.intermediate_size,
             bias=config.bias,
-            r=config.r,
+            r=(config.r if config.to_mlp else 0),
             lora_alpha=config.alpha,
             lora_dropout=config.dropout,
         )
@@ -660,7 +653,7 @@ class LLaMAMLP(lit_gpt.model.LLaMAMLP):
             config.n_embd,
             config.intermediate_size,
             bias=config.bias,
-            r=config.r,
+            r=(config.r if config.to_mlp else 0),
             lora_alpha=config.alpha,
             lora_dropout=config.dropout,
         )
@@ -668,7 +661,7 @@ class LLaMAMLP(lit_gpt.model.LLaMAMLP):
             config.intermediate_size,
             config.n_embd,
             bias=config.bias,
-            r=config.r,
+            r=(config.r if config.to_mlp else 0),
             lora_alpha=config.alpha,
             lora_dropout=config.dropout,
         )

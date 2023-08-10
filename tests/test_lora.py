@@ -9,13 +9,15 @@ from lightning import Fabric
 
 
 def test_lora_layer_replacement():
-    from lit_gpt.lora import CausalSelfAttention as LoRACausalSelfAttention, GPT, Config
+    from lit_gpt.lora import CausalSelfAttention as LoRACausalSelfAttention, GPT, Config, LoRALinear
 
     config = Config(n_layer=2, n_head=4, n_embd=8, block_size=8, vocab_size=8, r=8, alpha=8, dropout=0.1)
     model = GPT(config)
 
     assert isinstance(model.transformer.h[0].attn, LoRACausalSelfAttention)
     assert isinstance(model.transformer.h[1].attn, LoRACausalSelfAttention)
+    assert isinstance(model.lm_head, LoRALinear)
+    assert isinstance(model.transformer.h[0].mlp.proj, LoRALinear)
 
 
 def test_lora_merge():
@@ -88,7 +90,7 @@ def test_lora_mqa_gqa():
     assert attn.weight.shape == (24, 8)
     assert attn.lora_A.shape == (4, 8)
     assert attn.lora_B.shape == (16, 2)
-    assert attn.lora_ind.tolist() == [0, 1, 2, 3, 4, 5, 6, 7, 16, 17, 18, 19, 20, 21, 22, 23]
+    assert attn.lora_ind == [0, 1, 2, 3, 4, 5, 6, 7, 16, 17, 18, 19, 20, 21, 22, 23]
     x = torch.randint(0, 8, size=(3, 5, 16), dtype=torch.int64)
     assert attn.zero_pad(x).shape == (3, 5, 24)
 
@@ -99,7 +101,7 @@ def test_lora_mqa_gqa():
     assert attn.weight.shape == (12, 8)
     assert attn.lora_A.shape == (4, 8)
     assert attn.lora_B.shape == (10, 2)
-    assert attn.lora_ind.tolist() == [0, 1, 2, 3, 4, 5, 6, 7, 10, 11]
+    assert attn.lora_ind == [0, 1, 2, 3, 4, 5, 6, 7, 10, 11]
     x = torch.randint(0, 8, size=(3, 5, 10), dtype=torch.int64)
     assert attn.zero_pad(x).shape == (3, 5, 12)
 
@@ -110,7 +112,7 @@ def test_lora_mqa_gqa():
     assert attn.weight.shape == (16, 8)
     assert attn.lora_A.shape == (4, 8)
     assert attn.lora_B.shape == (12, 2)
-    assert attn.lora_ind.tolist() == [0, 1, 2, 3, 4, 5, 6, 7, 12, 13, 14, 15]
+    assert attn.lora_ind == [0, 1, 2, 3, 4, 5, 6, 7, 12, 13, 14, 15]
     x = torch.randint(0, 8, size=(3, 5, 12), dtype=torch.int64)
     assert attn.zero_pad(x).shape == (3, 5, 16)
 
