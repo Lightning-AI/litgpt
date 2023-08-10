@@ -279,52 +279,59 @@ def test_lora_qkv_linear_weights_merged_status(rank, enable_lora, expected_merge
     assert layer.merged == expected_merged
 
 
-@pytest.mark.skipif(torch.cuda.is_available() is False, reason="Quantization not supported on CPU. Skipping Test.")
-def test_lora_script_with_quantize(tmp_path, fake_checkpoint_dir, monkeypatch):
-    import finetune.lora as module
+@pytest.mark.skipif(not torch.cuda.is_available(), reason="Quantization not supported on CPU. Skipping Test.")
+def test_lora_merge_with_quantize():
+    from lit_gpt.lora import mark_only_lora_as_trainable, merge_lora_weights, GPT, Config
+    from lit_gpt.utils import quantization
+    import bitsandbytes as bnb
 
-    module.gradient_accumulation_iters = 1
-    module.save_interval = 2
-    module.eval_interval = 2
-    module.eval_iters = 2
-    module.max_iters = 6
+    config = Config(
+        n_layer=1,
+        n_head=2,
+        n_embd=8,
+        block_size=8,
+        vocab_size=8,
+        r=8,
+        alpha=8,
+        dropout=0.1,
+        to_query=True,
+        to_value=True,
+        to_projection=True,
+    )
+    fabric = Fabric(devices=1, precision="bf16-mixed")
+    with fabric.init_module(empty_init=False), quantization("bnb.nf4"):
+        model = GPT(config)
+        model.apply(model._init_weights)  # for the LoRA weights
 
-    data = [
-        {"input_ids": torch.tensor([0, 1, 2]), "labels": torch.tensor([1, 2, 3])},
-        {"input_ids": torch.tensor([1, 2, 3]), "labels": torch.tensor([2, 3, 4])},
-    ]
-    torch.save(data, tmp_path / "train.pt")
-    torch.save(data, tmp_path / "test.pt")
+    optimizer = bnb.optim.PagedAdamW(model.parameters(), lr=1.0)
+    model, optimizer = fabric.setup(model, optimizer)
 
-    from lit_gpt.config import name_to_config
+    model.train()
 
-    model_config = dict(block_size=128, n_layer=2, n_embd=8, n_head=4, padded_vocab_size=8)
-    monkeypatch.setitem(name_to_config, "tmp", model_config)
+    initial_weight = model.transformer.h[0].attn.proj.weight.clone()
+    assert torch.equal(model.transformer.h[0].attn.proj.weight, initial_weight)
 
-    load_mock = Mock()
-    load_mock.return_value = load_mock
-    load_mock.__enter__ = Mock()
-    load_mock.__exit__ = Mock()
-    monkeypatch.setattr(module, "lazy_load", load_mock)
+    # perform an update to the LoRA weights
+    mark_only_lora_as_trainable(model)
 
-    tokenizer_mock = Mock()
-    tokenizer_mock.return_value = tokenizer_mock
-    tokenizer_mock.encode = lambda *_, **kwargs: torch.tensor([3, 2, 1], **kwargs)
-    monkeypatch.setattr(module, "Tokenizer", tokenizer_mock)
+    y = model(torch.randint(0, 8, size=(2, 4), dtype=torch.int64, device=fabric.device))
+    y.sum().backward()
+    optimizer.step()
+    optimizer.zero_grad()
+    # the weight remains unchanged (only lora A and B change)
+    assert torch.equal(model.transformer.h[0].attn.proj.weight, initial_weight)
 
-    stdout = StringIO()
-    with redirect_stdout(stdout):
-        module.setup(data_dir=tmp_path, checkpoint_dir=fake_checkpoint_dir, out_dir=tmp_path, precision="32-true", quantize="bnb.nf4")
+    # calling merge() multiple times in a row should not merge multiple times
+    merge_lora_weights(model)
+    assert model.transformer.h[0].attn.attn.merged
+    weight_after = model.transformer.h[0].attn.proj.weight.clone()
+    merge_lora_weights(model)
+    merge_lora_weights(model)
+    assert torch.equal(model.transformer.h[0].attn.proj.weight, weight_after)
 
-    assert {p.name for p in tmp_path.glob("*.pth")} == {
-        "iter-000001-ckpt.pth",
-        "iter-000003-ckpt.pth",
-        "iter-000005-ckpt.pth",
-        "lit_model_lora_finetuned.pth",
-    }
-    assert (tmp_path / "version_0" / "metrics.csv").is_file()
-
-    logs = stdout.getvalue()
-    assert logs.count("optimizer.step") == module.max_iters
-    assert logs.count("val loss") == module.max_iters // module.eval_interval
-    assert "of trainable parameters: 512" in logs
+    # check that `W_after = W_initial + (A x B)`
+    a = model.transformer.h[0].attn.proj.lora_A
+    b = model.transformer.h[0].attn.proj.lora_B
+    scaling = model.transformer.h[0].attn.proj.scaling
+    delta_w = (b @ a) * scaling
+    torch.testing.assert_close(weight_after, initial_weight + delta_w)

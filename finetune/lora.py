@@ -31,7 +31,7 @@ override_max_seq_length = None
 # Hyperparameters
 learning_rate = 3e-4
 batch_size = 128
-micro_batch_size = 4
+micro_batch_size = 1
 gradient_accumulation_iters = batch_size // micro_batch_size
 assert gradient_accumulation_iters > 0
 max_iters = 50000  # train dataset size
@@ -62,6 +62,11 @@ def setup(
         precision = "32-true" if tpu else "bf16-mixed"
     fabric_devices = devices
     if fabric_devices > 1:
+        if quantize:
+            raise NotImplementedError(
+                "Quantization is currently not supported for multi-GPU training. "
+                "Please set devices=1 when using the --quantization flag."
+            )
         if tpu:
             # For multi-host TPU training, the device count for Fabric is limited to the count on a single host.
             fabric_devices = "auto"
@@ -82,7 +87,8 @@ def setup(
     fabric.print(hparams)
     fabric.launch(main, data_dir, checkpoint_dir, out_dir, quantize)
 
-def main(fabric: L.Fabric, data_dir: Path, checkpoint_dir: Path, out_dir: Path, quantize: Literal = None):
+
+def main(fabric: L.Fabric, data_dir: Path, checkpoint_dir: Path, out_dir: Path, quantize: Optional[str] = None):
     check_valid_checkpoint_dir(checkpoint_dir)
 
     speed_monitor = SpeedMonitor(fabric, window_size=50, time_unit="seconds")
@@ -126,7 +132,11 @@ def main(fabric: L.Fabric, data_dir: Path, checkpoint_dir: Path, out_dir: Path, 
     num_params = sum(p.numel() for p in model.parameters() if not p.requires_grad)
     fabric.print(f"Number of non trainable parameters: {num_params:,}")
 
-    optimizer = torch.optim.AdamW(trainable_params, lr=learning_rate, weight_decay=weight_decay)
+    if quantize and quantize.startswith("bnb."):
+        import bitsandbytes as bnb
+        optimizer = bnb.optim.PagedAdamW(trainable_params, lr=learning_rate, weight_decay=weight_decay)
+    else:
+        optimizer = torch.optim.AdamW(trainable_params, lr=learning_rate, weight_decay=weight_decay)
     model, optimizer = fabric.setup(model, optimizer)
 
     fabric.seed_everything(1337 + fabric.global_rank)
@@ -228,6 +238,10 @@ def train(
             checkpoint_path = out_dir / f"iter-{iter_num:06d}-ckpt.pth"
             save_lora_checkpoint(fabric, model, checkpoint_path)
 
+    if fabric.device.type == "cuda":
+        fabric.print(f"Memory used: {torch.cuda.max_memory_allocated() / 1e9:.02f} GB", file=sys.stderr)
+
+
 
 @torch.no_grad()
 def validate(
@@ -317,3 +331,4 @@ if __name__ == "__main__":
     from jsonargparse import CLI
 
     CLI(setup)
+
