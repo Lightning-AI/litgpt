@@ -231,7 +231,7 @@ def validate(
     fabric.print(instruction)
     sample = {"instruction": instruction, "input": ""}
     prompt = generate_prompt(sample)
-    encoded = tokenizer.encode(prompt, device=model.device)
+    encoded = tokenizer.encode(prompt, device=fabric.device)
     max_returned_tokens = len(encoded) + 100
     output = generate(
         model, idx=encoded, max_returned_tokens=max_returned_tokens, max_seq_length=max_returned_tokens, temperature=0.8
