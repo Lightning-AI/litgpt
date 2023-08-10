@@ -16,7 +16,7 @@ sys.path.append(str(wd))
 
 from lit_gpt.model import Block, GPT, Config
 from lit_gpt.packed_dataset import PackedDataset, CombinedDataset
-from lit_gpt.utils import step_csv_logger, chunked_cross_entropy
+from lit_gpt.utils import num_parameters, step_csv_logger, chunked_cross_entropy
 from lit_gpt.speed_monitor import SpeedMonitorFabric as SpeedMonitor, estimate_flops, measure_flops
 
 model_name = "pythia-70m"
@@ -115,18 +115,18 @@ def main(fabric, train_data_dir, val_data_dir, resume):
 
     fabric.print(f"Loading model with {config.__dict__}")
     t0 = time.time()
-    with fabric.init_module(empty_init=False):
+    with fabric.init_module(empty_init=True):
         model = GPT(config)
         model.apply(model._init_weights)
+
     fabric.print(f"Time to instantiate model: {time.time() - t0:.02f} seconds.")
+    fabric.print(f"Total parameters {num_parameters(model):,}")
 
-    num_total_params = sum(p.numel() for p in model.parameters())
-    fabric.print(f"Total parameters {num_total_params}")
-
+    model = fabric.setup(model)
     optimizer = torch.optim.AdamW(
         model.parameters(), lr=learning_rate, weight_decay=weight_decay, betas=(beta1, beta2), foreach=False
     )
-    model, optimizer = fabric.setup(model, optimizer)
+    optimizer = fabric.setup_optimizers(optimizer)
 
     state = {"model": model, "optimizer": optimizer, "hparams": hparams, "iter_num": 0, "step_count": 0}
 
