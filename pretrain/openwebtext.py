@@ -17,7 +17,7 @@ sys.path.append(str(wd))
 from lit_gpt import Config
 from lit_gpt.model import GPT, Block
 from lit_gpt.speed_monitor import SpeedMonitorFabric as SpeedMonitor, measure_flops, estimate_flops
-from lit_gpt.utils import step_csv_logger, chunked_cross_entropy
+from lit_gpt.utils import num_parameters, step_csv_logger, chunked_cross_entropy
 
 model_name = "pythia-70m"
 name = "openwebtext"
@@ -70,11 +70,11 @@ def setup(
         strategy = "auto"
 
     fabric = L.Fabric(devices=devices, strategy=strategy, precision=precision, loggers=logger)
+    fabric.print(hparams)
     fabric.launch(main, resume=resume)
 
 
 def main(fabric, resume) -> None:
-    fabric.print(hparams)
     speed_monitor = SpeedMonitor(fabric, window_size=50, time_unit="seconds")
 
     if fabric.global_rank == 0:
@@ -85,18 +85,19 @@ def main(fabric, resume) -> None:
     config = Config.from_name(model_name)
     fabric.print(f"Loading model with {config.__dict__}")
     t0 = time.time()
-    with fabric.init_module(empty_init=False):
+    with fabric.init_module(empty_init=True):
         model = GPT(config)
         model.apply(model._init_weights)
+
     fabric.print(f"Time to instantiate model: {time.time() - t0:.02f} seconds.")
+    fabric.print(f"Total parameters {num_parameters(model):,}")
 
-    num_total_params = sum(p.numel() for p in model.parameters())
-    fabric.print(f"Total parameters {num_total_params}")
-
+    model = fabric.setup(model)
     optimizer = torch.optim.AdamW(
         model.parameters(), lr=learning_rate, weight_decay=weight_decay, betas=(beta1, beta2), foreach=False
     )
-    model, optimizer = fabric.setup(model, optimizer)
+    optimizer = fabric.setup_optimizers(optimizer)
+
 
     train_data, val_data = load_datasets(data_dir, block_size=model.config.block_size)
     train_dataloader = DataLoader(train_data, batch_size=micro_batch_size, num_workers=2)
@@ -184,7 +185,7 @@ def train(fabric, state, train_dataloader, val_dataloader, speed_monitor):
 
         if not is_accumulating and state["step_count"] % eval_interval == 0:
             t0 = time.time()
-            val_loss = validate(fabric, model, val_data)
+            val_loss = validate(fabric, model, val_dataloader)
             t1 = time.time() - t0
             speed_monitor.eval_end(t1)
             fabric.print(f"step {state['iter_num']}: val loss {val_loss:.4f}, val time: {t1 * 1000:.2f}ms")

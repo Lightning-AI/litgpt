@@ -12,7 +12,7 @@ cd lm-evaluation-harness
 pip install -e .
 ```
 
-To evaluate Lit-GPT:
+### To evaluate Lit-GPT base models:
 
 ```bash
 python eval/lm_eval_harness.py \
