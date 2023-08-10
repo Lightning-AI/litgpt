@@ -37,7 +37,7 @@ python eval/lm_eval_harness_lora.py \
 
 ## FAQs
 
-* How do I evaluate on MMLU?
+* **How do I evaluate on MMLU?**
 
   MMLU is available as with lm-eval harness but the task name is not MMLU. You can use `hendrycksTest*` as regex to evaluate on MMLU.
   ```
@@ -52,5 +52,6 @@ python eval/lm_eval_harness_lora.py \
   ```
 
 
-* Is Truthful MC is not available in lm-eval?
+* **Is Truthful MC is not available in lm-eval?**
+
   It is available as `truthfulqa_mc`.
