@@ -2,7 +2,7 @@ import os
 import sys
 import time
 from pathlib import Path
-from typing import Optional, List, Dict, Tuple, Literal
+from typing import Optional, List, Dict, Tuple
 
 import lightning as L
 import torch
