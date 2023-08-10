@@ -32,7 +32,7 @@ Supports the following popular model checkpoints:
 | LMSYS [Vicuna](tutorials/download_vicuna.md)                                                                 | [Li et al. 2023](https://lmsys.org/blog/2023-06-29-longchat)                                     |
 | Together [RedPajama-INCITE](tutorials/download_redpajama_incite.md)                                          | [Together 2023](https://together.ai/blog/redpajama-models-v1)                                    |
 | EleutherAI [Pythia](tutorials/download_pythia.md) | [Biderman et al. 2023](https://arxiv.org/abs/2304.01373)                                         |
-| StabilityAI [StableLM](tutorials/download_stablelm.md)                                                       | [Stability AI 2023](https://github.com/Stability-AI/StableLM)       
+| StabilityAI [StableLM](tutorials/download_stablelm.md)                                                       | [Stability AI 2023](https://github.com/Stability-AI/StableLM)
 
 This implementation extends on [Lit-LLaMA](https://github.com/lightning-AI/lit-llama) and [nanoGPT](https://github.com/karpathy/nanoGPT), and it's **powered by [Lightning Fabric](https://lightning.ai/docs/fabric/stable/) ⚡**.
 
@@ -44,7 +44,7 @@ This implementation extends on [Lit-LLaMA](https://github.com/lightning-AI/lit-l
 
 The Lit-GPT repository is the official starter kit for the [NeurIPS 2023 LLM Efficiency Challenge](https://llm-efficiency-challenge.github.io), which is a competition focused on finetuning an existing non-instruction tuned LLM for 24 hours on a single GPU. The competition has two tracks, one for the A100 and another for the 4090 GPUs.
 
-If you are interested in participating, you can learn more about the NeurIPS LLM Efficiency Challenge on the official website [here](https://llm-efficiency-challenge.github.io). 
+If you are interested in participating, you can learn more about the NeurIPS LLM Efficiency Challenge on the official website [here](https://llm-efficiency-challenge.github.io).
 
 **The submission deadline is Oct 15th, 2023.**
 
@@ -88,13 +88,13 @@ Luckily that is straightforward:
 **On CUDA**
 
 ```bash
-pip install --index-url https://download.pytorch.org/whl/nightly/cu118 --pre 'torch>=2.1.0dev'
+pip install --index-url https://download.pytorch.org/whl/nightly/cu118 --pre 'torch==2.1.0.dev20230703'
 ```
 
 **On CPU (incl Macs)**
 
 ```bash
-pip install --index-url https://download.pytorch.org/whl/nightly/cpu --pre 'torch>=2.1.0dev'
+pip install --index-url https://download.pytorch.org/whl/nightly/cpu --pre 'torch==2.1.0.dev20230703'
 ```
 
 **(Optional) install Flash Attention 2**
