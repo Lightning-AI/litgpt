@@ -19,7 +19,7 @@ from lit_gpt.model import GPT, Block
 from lit_gpt.speed_monitor import SpeedMonitorFabric as SpeedMonitor, measure_flops, estimate_flops
 from lit_gpt.utils import step_csv_logger, chunked_cross_entropy
 
-model_name = "pythia-70m"
+model_name = "vicuna-7b-v1.3"
 name = "openwebtext"
 out_dir = Path("out") / name
 data_dir = Path("data") / name
@@ -85,9 +85,8 @@ def main(fabric, resume) -> None:
     config = Config.from_name(model_name)
     fabric.print(f"Loading model with {config.__dict__}")
     t0 = time.time()
-    with fabric.init_module(empty_init=False):
+    with fabric.init_module(empty_init=True):
         model = GPT(config)
-        model.apply(model._init_weights)
     
     fabric.print(f"Time to instantiate model: {time.time() - t0:.02f} seconds.")
     num_total_params = sum(p.numel() for p in model.parameters())
@@ -186,7 +185,7 @@ def train(fabric, state, train_dataloader, val_dataloader, speed_monitor):
 
         if not is_accumulating and state["step_count"] % eval_interval == 0:
             t0 = time.time()
-            val_loss = validate(fabric, model, val_data)
+            val_loss = validate(fabric, model, val_dataloader)
             t1 = time.time() - t0
             speed_monitor.eval_end(t1)
             fabric.print(f"step {state['iter_num']}: val loss {val_loss:.4f}, val time: {t1 * 1000:.2f}ms")
