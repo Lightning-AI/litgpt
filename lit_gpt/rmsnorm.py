@@ -19,3 +19,6 @@ class RMSNorm(torch.nn.Module):
         norm_x = torch.mean(x * x, dim=self.dim, keepdim=True)
         x_normed = x * torch.rsqrt(norm_x + self.eps)
         return self.weight * x_normed
+
+    def reset_parameters(self):
+        torch.nn.init.ones_(self.weight)
