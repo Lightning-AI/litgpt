@@ -11,8 +11,6 @@ import torch.nn as nn
 from lightning_utilities.core.imports import RequirementCache
 from typing_extensions import Self
 
-nn.LayerNorm
-
 from lit_gpt.config import Config
 
 RoPECache = Tuple[torch.Tensor, torch.Tensor]
