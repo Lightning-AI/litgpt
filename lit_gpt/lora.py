@@ -211,13 +211,13 @@ class LoRAQKVLinear(LoRALinear):
         """
         super().__init__(in_features, out_features, **kwargs)
         LoRALayer.__init__(self, r=r, lora_alpha=lora_alpha, lora_dropout=lora_dropout)
+        self.n_head = n_head
+        self.n_query_groups = n_query_groups
         if isinstance(enable_lora, bool):
             enable_lora = [enable_lora] * 3
         assert len(enable_lora) == 3
         self.enable_lora = enable_lora
         self.fan_in_fan_out = fan_in_fan_out
-        self.n_head = n_head
-        self.n_query_groups = n_query_groups
 
         # Actual trainable parameters
         # To better understand initialization let's imagine that we have such parameters:
