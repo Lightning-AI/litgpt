@@ -7,8 +7,8 @@ from typing import Optional, Union
 import lightning as L
 import numpy as np
 import torch
-from torch.utils.data import DataLoader, IterableDataset
 from lightning.fabric.strategies import FSDPStrategy, XLAStrategy
+from torch.utils.data import DataLoader, IterableDataset
 
 # support running without installing as a package
 wd = Path(__file__).parent.parent.resolve()
@@ -16,8 +16,9 @@ sys.path.append(str(wd))
 
 from lit_gpt import Config
 from lit_gpt.model import GPT, Block
-from lit_gpt.speed_monitor import SpeedMonitorFabric as SpeedMonitor, measure_flops, estimate_flops
-from lit_gpt.utils import num_parameters, step_csv_logger, chunked_cross_entropy
+from lit_gpt.speed_monitor import SpeedMonitorFabric as SpeedMonitor
+from lit_gpt.speed_monitor import estimate_flops, measure_flops
+from lit_gpt.utils import chunked_cross_entropy, num_parameters, step_csv_logger
 
 model_name = "pythia-70m"
 name = "openwebtext"

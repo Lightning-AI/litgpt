@@ -1,14 +1,14 @@
 """Utility functions for training and inference."""
 
-from functools import partial
 import pickle
 import sys
 import warnings
 from contextlib import contextmanager
+from functools import partial
 from io import BytesIO
 from pathlib import Path
 from types import MethodType
-from typing import Optional, Any, Union, List, TypeVar, Type
+from typing import Any, List, Optional, Type, TypeVar, Union
 
 import torch
 import torch.nn as nn

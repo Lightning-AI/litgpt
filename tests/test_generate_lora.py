@@ -1,10 +1,10 @@
 import json
 import subprocess
 import sys
-from contextlib import redirect_stdout, redirect_stderr
+from contextlib import redirect_stderr, redirect_stdout
 from io import StringIO
 from pathlib import Path
-from unittest.mock import Mock, call, ANY
+from unittest.mock import ANY, Mock, call
 
 import torch
 

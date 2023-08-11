@@ -3,7 +3,7 @@ import math
 import sys
 import time
 from pathlib import Path
-from typing import Tuple, Optional, Union
+from typing import Optional, Tuple, Union
 
 import lightning as L
 import torch
@@ -14,10 +14,11 @@ from torch.utils.data import DataLoader
 wd = Path(__file__).parent.parent.resolve()
 sys.path.append(str(wd))
 
-from lit_gpt.model import Block, GPT, Config
-from lit_gpt.packed_dataset import PackedDataset, CombinedDataset
-from lit_gpt.utils import num_parameters, step_csv_logger, chunked_cross_entropy
-from lit_gpt.speed_monitor import SpeedMonitorFabric as SpeedMonitor, estimate_flops, measure_flops
+from lit_gpt.model import GPT, Block, Config
+from lit_gpt.packed_dataset import CombinedDataset, PackedDataset
+from lit_gpt.speed_monitor import SpeedMonitorFabric as SpeedMonitor
+from lit_gpt.speed_monitor import estimate_flops, measure_flops
+from lit_gpt.utils import chunked_cross_entropy, num_parameters, step_csv_logger
 
 model_name = "pythia-70m"
 name = "redpajama"

@@ -8,7 +8,8 @@ from lightning import Fabric
 
 
 def test_lora_layer_replacement():
-    from lit_gpt.lora import CausalSelfAttention as LoRACausalSelfAttention, GPT, Config, LoRALinear
+    from lit_gpt.lora import GPT, Config, LoRALinear
+    from lit_gpt.lora import CausalSelfAttention as LoRACausalSelfAttention
 
     config = Config(n_layer=2, n_head=4, n_embd=8, block_size=8, vocab_size=8, r=8, alpha=8, dropout=0.1)
     model = GPT(config)
@@ -20,7 +21,7 @@ def test_lora_layer_replacement():
 
 
 def test_lora_merge():
-    from lit_gpt.lora import mark_only_lora_as_trainable, merge_lora_weights, GPT, Config
+    from lit_gpt.lora import GPT, Config, mark_only_lora_as_trainable, merge_lora_weights
 
     config = Config(
         n_layer=1,
@@ -117,7 +118,7 @@ def test_lora_mqa_gqa():
 
 
 def test_lora_filter(tmp_path):
-    from lit_gpt.lora import lora_filter, GPT
+    from lit_gpt.lora import GPT, lora_filter
 
     fabric = Fabric(devices=1)
     model = GPT.from_name("pythia-70m", n_layer=3, r=1, to_query=True, to_value=True)
@@ -308,9 +309,9 @@ def test_bnb_replacement(mode, expected):
     if not _BITSANDBYTES_AVAILABLE:
         pytest.skip("BNB not available")
 
-    from quantize.bnb import bnb
+    from lit_gpt.lora import LoRALinear, LoRAQKVLinear
     from lit_gpt.utils import quantization
-    from lit_gpt.lora import LoRAQKVLinear, LoRALinear
+    from quantize.bnb import bnb
 
     with quantization(mode):
         linear = LoRALinear(1, 1)

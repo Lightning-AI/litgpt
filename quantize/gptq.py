@@ -17,11 +17,11 @@ from lightning import Fabric
 wd = Path(__file__).parent.parent.resolve()
 sys.path.append(str(wd))
 
-from lit_gpt import GPT, Tokenizer, Config
-from lit_gpt.utils import check_valid_checkpoint_dir, lazy_load
-
 import triton
 import triton.language as tl
+
+from lit_gpt import GPT, Config, Tokenizer
+from lit_gpt.utils import check_valid_checkpoint_dir, lazy_load
 
 
 # This is adapted from the OpenAI Triton matmul example.
