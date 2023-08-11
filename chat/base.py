@@ -4,7 +4,7 @@ import sys
 import time
 import warnings
 from pathlib import Path
-from typing import Optional, Tuple, List, Literal, Iterator
+from typing import Iterator, List, Literal, Optional, Tuple
 
 import lightning as L
 import torch
@@ -13,8 +13,8 @@ import torch
 wd = Path(__file__).parent.parent.resolve()
 sys.path.append(str(wd))
 
-from lit_gpt import GPT, Tokenizer, Config
-from lit_gpt.utils import lazy_load, check_valid_checkpoint_dir, quantization
+from lit_gpt import GPT, Config, Tokenizer
+from lit_gpt.utils import check_valid_checkpoint_dir, lazy_load, quantization
 
 
 @torch.no_grad()

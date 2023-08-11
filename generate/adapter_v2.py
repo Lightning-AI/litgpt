@@ -15,10 +15,9 @@ sys.path.append(str(wd))
 
 from generate.base import generate
 from lit_gpt import Tokenizer
-from lit_gpt.adapter import Block
-from lit_gpt.adapter import GPT, Config
+from lit_gpt.adapter import GPT, Block, Config
 from lit_gpt.adapter_v2 import add_adapter_v2_parameters_to_linear_layers
-from lit_gpt.utils import lazy_load, check_valid_checkpoint_dir, quantization
+from lit_gpt.utils import check_valid_checkpoint_dir, lazy_load, quantization
 from scripts.prepare_alpaca import generate_prompt
 
 

@@ -14,12 +14,12 @@ from lm_eval.base import BaseLM
 # support running without installing as a package
 wd = Path(__file__).parent.parent.resolve()
 sys.path.append(str(wd))
+from lm_eval_harness import EvalHarnessAdapter
+
 from lit_gpt import Tokenizer
 from lit_gpt.lora import GPT, Block, Config, merge_lora_weights
 from lit_gpt.utils import check_valid_checkpoint_dir, lazy_load, quantization
 from scripts.prepare_alpaca import generate_prompt
-
-from lm_eval_harness import EvalHarnessAdapter
 
 lora_r = 8
 lora_alpha = 16

@@ -11,9 +11,8 @@ from tqdm import tqdm
 wd = Path(__file__).parent.parent.resolve()
 sys.path.append(str(wd))
 
-from lit_gpt import Tokenizer, Config
 import lit_gpt.packed_dataset as packed_dataset
-
+from lit_gpt import Config, Tokenizer
 
 filenames_sample = [
     "arxiv_sample.jsonl",

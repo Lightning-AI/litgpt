@@ -8,8 +8,8 @@ from lightning import Fabric
 
 def test_config_identical():
     import lit_gpt.adapter as gpt_adapter
-    from lit_gpt.adapter_v2 import adapter_v2_linear_with_bias_and_scale
     import lit_gpt.model as gpt
+    from lit_gpt.adapter_v2 import adapter_v2_linear_with_bias_and_scale
 
     name = "pythia-70m"
     with Fabric(accelerator="cpu").init_module(empty_init=True):

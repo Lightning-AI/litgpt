@@ -43,7 +43,7 @@ two matrices of a lower rank.
 
 import math
 from dataclasses import dataclass
-from typing import Optional, Tuple, Any, List, Type, Union
+from typing import Any, List, Optional, Tuple, Type, Union
 
 import torch
 import torch.nn as nn
@@ -52,13 +52,10 @@ from typing_extensions import Self
 
 import lit_gpt
 from lit_gpt.config import Config as BaseConfig
-from lit_gpt.model import (
-    GPT as BaseModel,
-    Block as BaseBlock,
-    CausalSelfAttention as BaseCausalSelfAttention,
-    RoPECache,
-    KVCache,
-)
+from lit_gpt.model import GPT as BaseModel
+from lit_gpt.model import Block as BaseBlock
+from lit_gpt.model import CausalSelfAttention as BaseCausalSelfAttention
+from lit_gpt.model import KVCache, RoPECache
 
 
 class LoRALayer(nn.Module):
