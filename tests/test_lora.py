@@ -284,11 +284,18 @@ def test_lora_qkv_linear_weights_merged_status(rank, enable_lora, expected_merge
     assert layer.merged == expected_merged
 
 
-@pytest.mark.skipif(not torch.cuda.is_available(), reason="Quantization not supported on CPU. Skipping Test.")
+@pytest.mark.skipif(not torch.cuda.is_available(), reason="8bit requires CUDA")
+# platform dependent cuda issue: libbitsandbytes_cpu.so: undefined symbol: cquantize_blockwise_fp16_nf4
+@pytest.mark.xfail(raises=AttributeError, strict=False)
 def test_lora_merge_with_quantize():
+    from quantize.bnb import _BITSANDBYTES_AVAILABLE
+
+    if not _BITSANDBYTES_AVAILABLE:
+        pytest.skip("BNB not available")
+
+    from quantize.bnb import bnb
     from lit_gpt.lora import mark_only_lora_as_trainable, merge_lora_weights, GPT, Config
     from lit_gpt.utils import quantization
-    import bitsandbytes as bnb
 
     config = Config(
         n_layer=1,
@@ -306,7 +313,7 @@ def test_lora_merge_with_quantize():
     fabric = Fabric(devices=1, precision="bf16-mixed")
     with fabric.init_module(empty_init=False), quantization("bnb.nf4"):
         model = GPT(config)
-        model.apply(model._init_weights)  # for the LoRA weights
+        model.apply(model._init_weights)
 
     optimizer = bnb.optim.PagedAdamW(model.parameters(), lr=1.0)
     model, optimizer = fabric.setup(model, optimizer)
