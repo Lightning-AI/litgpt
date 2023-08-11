@@ -282,3 +282,25 @@ def test_lora_qkv_linear_weights_merged_status(rank, enable_lora, expected_merge
     assert not layer.merged
     layer.merge()
     assert layer.merged == expected_merged
+
+
+def test_bnb_replacement():
+    from quantize.bnb import _BITSANDBYTES_AVAILABLE
+
+    if not _BITSANDBYTES_AVAILABLE:
+        pytest.skip("BNB not available")
+
+    from quantize.bnb import bnb
+    from lit_gpt.utils import quantization
+
+    with quantization("bnb.nf4"):
+        linear = torch.nn.Linear(1, 1)
+    assert isinstance(linear, bnb.modules.Linear4bit)
+
+    from lit_gpt.lora import LoRAQKVLinear, LoRALinear
+
+    with quantization("bnb.nf4"):
+        linear = LoRALinear(1, 1)
+        qkv = LoRAQKVLinear(1, 1, 1, 1)
+    assert isinstance(linear.linear, bnb.modules.Linear4bit)
+    assert isinstance(qkv.linear, bnb.modules.Linear4bit)
