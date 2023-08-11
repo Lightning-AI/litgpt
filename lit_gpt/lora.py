@@ -148,9 +148,7 @@ class LoRALinear(LoRALayer):
         # otherwise in addition do the forward pass with LoRA weights and add it's output to the output from pretrained weights
         result = self.linear(x)
         if self.r > 0 and not self.merged:
-            result += (
-                self.lora_dropout(x) @ self.lora_A.transpose(0, 1) @ self.lora_B.transpose(0, 1)
-            ) * self.scaling
+            result += (self.lora_dropout(x) @ self.lora_A.transpose(0, 1) @ self.lora_B.transpose(0, 1)) * self.scaling
         return result
 
 
@@ -291,7 +289,9 @@ class LoRAQKVLinear(LoRALinear):
         result = result.view(-1, self.linear.out_features)  # (4096, 384)
         enable_q, enable_k, enable_v = self.enable_lora
         shape = self.linear.in_features * enable_q + self.kv_embd_size * enable_k + self.kv_embd_size * enable_v
-        result = result.index_copy(1, torch.tensor(self.lora_ind, device=result.device), x.reshape(-1, shape)) # (4096, 256)
+        result = result.index_copy(
+            1, torch.tensor(self.lora_ind, device=result.device), x.reshape(-1, shape)
+        )  # (4096, 256)
         return result.view((*x.shape[:-1], self.linear.out_features)).transpose(0, 1)  # (64, 64, 384)
 
     def merge(self):
@@ -306,7 +306,9 @@ class LoRAQKVLinear(LoRALinear):
                 self.lora_A.data.unsqueeze(0),  # (4, 128) -> (1, 4, 128)
                 self.lora_B.data.unsqueeze(-1),  # (256, 2) -> (256, 2, 1)
                 groups=sum(self.enable_lora),
-            ).squeeze(0)  # (1, 4, 128) @ (256, 2, 1) -> (1, 256, 128) -> (256, 128)
+            ).squeeze(
+                0
+            )  # (1, 4, 128) @ (256, 2, 1) -> (1, 256, 128) -> (256, 128)
             # W = W + delta_W (merge)
             self.linear.weight.data += self.zero_pad(delta_w * self.scaling)  # (256, 128) after zero_pad (384, 128)
             self.merged = True
@@ -344,7 +346,9 @@ class LoRAQKVLinear(LoRALinear):
                 after_A.transpose(-2, -1),  # (64, 64, 4) -> (64, 4, 64)
                 self.lora_B.unsqueeze(-1),  # (256, 2) -> (256, 2, 1)
                 groups=sum(self.enable_lora),
-            ).transpose(-2, -1)  # (64, 4, 64) @ (256, 2, 1) -> (64, 256, 64) -> (64, 64, 256)
+            ).transpose(
+                -2, -1
+            )  # (64, 4, 64) @ (256, 2, 1) -> (64, 256, 64) -> (64, 64, 256)
             result += self.zero_pad(after_B) * self.scaling  # (64, 64, 256) after zero_pad (64, 64, 384)
         return result
 

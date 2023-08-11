@@ -33,16 +33,7 @@ class EvalHarnessBase(BaseLM):
         device="auto",
         devices: int = 1,
         strategy: str = "auto",
-        quantize: Optional[
-            Literal[
-                "bnb.nf4",
-                "bnb.nf4-dq",
-                "bnb.fp4",
-                "bnb.fp4-dq",
-                "bnb.int8",
-                "gptq.int4",
-            ]
-        ] = None,
+        quantize: Optional[Literal["bnb.nf4", "bnb.nf4-dq", "bnb.fp4", "bnb.fp4-dq", "bnb.int8", "gptq.int4"]] = None,
     ):
         super().__init__()
         assert isinstance(device, str)
@@ -53,9 +44,7 @@ class EvalHarnessBase(BaseLM):
 
         if strategy == "fsdp":
             strategy = FSDPStrategy(auto_wrap_policy={Block}, cpu_offload=False)
-        self.fabric = fabric = L.Fabric(
-            devices=devices, precision=precision, strategy=strategy
-        )
+        self.fabric = fabric = L.Fabric(devices=devices, precision=precision, strategy=strategy)
         fabric.launch()
 
         checkpoint_dir = Path(checkpoint_dir)
@@ -74,27 +63,16 @@ class EvalHarnessBase(BaseLM):
             model_file = "lit_model.pth"
         checkpoint_path = checkpoint_dir / model_file
 
-        fabric.print(
-            f"Loading model {str(checkpoint_path)!r} with {config.__dict__}",
-            file=sys.stderr,
-        )
+        fabric.print(f"Loading model {str(checkpoint_path)!r} with {config.__dict__}", file=sys.stderr)
         t0 = time.time()
         with fabric.init_module(empty_init=True), quantization(quantize):
             model = GPT(config)
-        fabric.print(
-            f"Time to instantiate model: {time.time() - t0:.02f} seconds.",
-            file=sys.stderr,
-        )
+        fabric.print(f"Time to instantiate model: {time.time() - t0:.02f} seconds.", file=sys.stderr)
 
         t0 = time.time()
         with lazy_load(checkpoint_path) as checkpoint:
-            model.load_state_dict(
-                checkpoint.get("model", checkpoint), strict=quantize is None
-            )
-        fabric.print(
-            f"Time to load the model weights: {time.time() - t0:.02f} seconds.",
-            file=sys.stderr,
-        )
+            model.load_state_dict(checkpoint.get("model", checkpoint), strict=quantize is None)
+        fabric.print(f"Time to load the model weights: {time.time() - t0:.02f} seconds.", file=sys.stderr)
 
         model.eval()
         self.model = fabric.setup_module(model)
@@ -171,12 +149,7 @@ class EvalHarnessBase(BaseLM):
         limit=None,
     ):
         if eval_tasks is None:
-            eval_tasks = [
-                "arc_challenge",
-                "piqa",
-                "hellaswag",
-                "hendrycksTest-*",
-            ]
+            eval_tasks = ["arc_challenge", "piqa", "hellaswag", "hendrycksTest-*"]
 
         # Returns a list containing all values of the task registry that
         # match at least one of the patterns
@@ -200,7 +173,7 @@ class EvalHarnessBase(BaseLM):
             tasks.get_task_dict(eval_tasks)
         # torch barrier
         self.fabric.barrier()
-        task_dict = tasks.get_task_dict(eval_tasks)
+        tasks.get_task_dict(eval_tasks)
 
         lm = self
         if use_cache:
@@ -240,16 +213,7 @@ def run_eval_harness(
     device="auto",
     devices: int = 1,
     strategy: str = "auto",
-    quantize: Optional[
-        Literal[
-            "bnb.nf4",
-            "bnb.nf4-dq",
-            "bnb.fp4",
-            "bnb.fp4-dq",
-            "bnb.int8",
-            "gptq.int4",
-        ]
-    ] = None,
+    quantize: Optional[Literal["bnb.nf4", "bnb.nf4-dq", "bnb.fp4", "bnb.fp4-dq", "bnb.int8", "gptq.int4"]] = None,
     save_filepath: Optional[str] = None,
 ):
     eval_harness = EvalHarnessBase(
@@ -264,10 +228,7 @@ def run_eval_harness(
     )
     eval_harness.fabric.print("Running evaluation harness...")
     results = eval_harness.run_eval(
-        eval_tasks=eval_tasks,
-        num_fewshot=num_fewshot,
-        bootstrap_iters=bootstrap_iters,
-        use_cache=False,
+        eval_tasks=eval_tasks, num_fewshot=num_fewshot, bootstrap_iters=bootstrap_iters, use_cache=False
     )
     if save_filepath:
         data = json.dumps(results)

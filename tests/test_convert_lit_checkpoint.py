@@ -38,14 +38,7 @@ def test_convert_lit_checkpoint_llama2(tmp_path):
     ckpt_name = ckpt_path.name
 
     model_name = "Llama-2-7b-hf"
-    ours_config = Config.from_name(
-        model_name,
-        block_size=8,
-        n_layer=2,
-        n_embd=32,
-        n_head=2,
-        padding_multiple=128,
-    )
+    ours_config = Config.from_name(model_name, block_size=8, n_layer=2, n_embd=32, n_head=2, padding_multiple=128)
     ours_model = GPT(ours_config)
 
     # save checkpoint to avoid RunTimeError for PytorchStreamReader
@@ -67,13 +60,7 @@ def test_against_original_falcon_40b():
 
     ours_config = Config.from_name("falcon-40b", n_layer=2, n_head=8, n_query_groups=4, n_embd=32)
     theirs_config = RWConfig(
-        hidden_size=32,
-        n_head=8,
-        n_head_kv=4,
-        n_layer=2,
-        parallel_attn=True,
-        vocab_size=65024,
-        bias=False,
+        hidden_size=32, n_head=8, n_head_kv=4, n_layer=2, parallel_attn=True, vocab_size=65024, bias=False
     )
 
     ours_model = GPT(ours_config)
@@ -98,14 +85,7 @@ def test_against_original_gpt_neox():
     from scripts.convert_lit_checkpoint import copy_weights_gpt_neox as copy_to_theirs
     from transformers import GPTNeoXConfig, GPTNeoXForCausalLM
 
-    ours_config = Config.from_name(
-        "pythia-1b",
-        block_size=2048,
-        n_layer=2,
-        n_embd=2048,
-        n_head=8,
-        padding_multiple=128,
-    )
+    ours_config = Config.from_name("pythia-1b", block_size=2048, n_layer=2, n_embd=2048, n_head=8, padding_multiple=128)
     theirs_config = GPTNeoXConfig(
         hidden_size=ours_config.n_embd,
         intermediate_size=ours_config.intermediate_size,
@@ -188,14 +168,7 @@ def test_maybe_unwrap_state_dict(tmp_path):
     ckpt_name = ckpt_path.name
 
     model_name = "pythia-70m"
-    ours_config = Config.from_name(
-        model_name,
-        block_size=8,
-        n_layer=2,
-        n_embd=32,
-        n_head=2,
-        padding_multiple=128,
-    )
+    ours_config = Config.from_name(model_name, block_size=8, n_layer=2, n_embd=32, n_head=2, padding_multiple=128)
     ours_model = GPT(ours_config)
 
     # save checkpoint and check for model key
