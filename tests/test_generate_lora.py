@@ -4,10 +4,8 @@ import sys
 from contextlib import redirect_stdout, redirect_stderr
 from io import StringIO
 from pathlib import Path
-from unittest import mock
 from unittest.mock import Mock, call, ANY
 
-import pytest
 import torch
 
 

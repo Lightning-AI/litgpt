@@ -66,8 +66,7 @@ def setup(
             fabric_devices = "auto"
             strategy = XLAStrategy(sync_module_states=False)
         else:
-            precision="bf16-true"
-            strategy=FSDPStrategy(
+            strategy = FSDPStrategy(
                 auto_wrap_policy={Block},
                 activation_checkpointing_policy={Block},
                 state_dict_type="full",

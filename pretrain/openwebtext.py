@@ -98,7 +98,6 @@ def main(fabric, resume) -> None:
     )
     optimizer = fabric.setup_optimizers(optimizer)
 
-
     train_data, val_data = load_datasets(data_dir, block_size=model.config.block_size)
     train_dataloader = DataLoader(train_data, batch_size=micro_batch_size, num_workers=2)
     val_dataloader = DataLoader(val_data, batch_size=micro_batch_size, num_workers=2)

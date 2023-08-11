@@ -520,7 +520,7 @@ freewilly_2 = [
         norm_eps=1e-5,
         _mlp_class="LLaMAMLP",
         intermediate_size=28672,
-    ),
+    )
 ]
 configs.extend(freewilly_2)
 
