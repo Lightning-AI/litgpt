@@ -157,7 +157,7 @@ class LoRALinear(LoRALayer):
     def forward(self, x: torch.Tensor):
         # if weights are merged or rank is less or equal to zero (LoRA is disabled) - it's only a regular nn.Linear forward pass;
         # otherwise in addition do the forward pass with LoRA weights and add it's output to the output from pretrained weights
-        result = F.linear(x, self.T(self.linear.weight), bias=self.linear.bias)
+        result = self.linear(x)
         if self.r > 0 and not self.merged:
             result += (
                 self.lora_dropout(x) @ self.lora_A.transpose(0, 1) @ self.lora_B.transpose(0, 1)
@@ -352,7 +352,7 @@ class LoRAQKVLinear(LoRALinear):
 
         # if weights are merged or LoRA is disabled (r <= 0 or all `enable_lora` are False) - it's only a regular nn.Linear forward pass;
         # otherwise in addition do the forward pass with LoRA weights and add it's output to the output from pretrained weights
-        result = F.linear(x, self.T(self.linear.weight), bias=self.linear.bias)
+        result = self.linear(x)
         if self.r > 0 and any(self.enable_lora) and not self.merged:
             after_A = F.linear(self.lora_dropout(x), self.lora_A)  # (64, 64, 128) @ (4, 128) -> (64, 64, 4)
             # For F.conv1d:
