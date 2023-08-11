@@ -3,7 +3,7 @@ import sys
 import time
 import warnings
 from pathlib import Path
-from typing import Optional, Literal
+from typing import Literal, Optional
 
 import lightning as L
 import torch
@@ -13,9 +13,9 @@ from lightning.fabric.strategies import FSDPStrategy
 wd = Path(__file__).parent.parent.resolve()
 sys.path.append(str(wd))
 
-from lit_gpt import GPT, Tokenizer, Config
+from lit_gpt import GPT, Config, Tokenizer
 from lit_gpt.model import Block
-from lit_gpt.utils import lazy_load, check_valid_checkpoint_dir, quantization
+from lit_gpt.utils import check_valid_checkpoint_dir, lazy_load, quantization
 
 
 @torch.no_grad()

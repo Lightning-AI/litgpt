@@ -2,23 +2,23 @@ import os
 import sys
 import time
 from pathlib import Path
-from typing import Optional, List, Dict, Tuple
+from typing import Dict, List, Optional, Tuple
 
 import lightning as L
 import torch
-from lightning.fabric.strategies import XLAStrategy, FSDPStrategy
+from lightning.fabric.strategies import FSDPStrategy, XLAStrategy
 
 # support running without installing as a package
 wd = Path(__file__).parent.parent.resolve()
 sys.path.append(str(wd))
 
 from generate.base import generate
-from lit_gpt.lora import mark_only_lora_as_trainable, lora_filter, GPT, Config, Block
+from lit_gpt.lora import GPT, Block, Config, lora_filter, mark_only_lora_as_trainable
+from lit_gpt.speed_monitor import SpeedMonitorFabric as SpeedMonitor
+from lit_gpt.speed_monitor import estimate_flops, measure_flops
 from lit_gpt.tokenizer import Tokenizer
-from lit_gpt.utils import lazy_load, check_valid_checkpoint_dir, step_csv_logger, chunked_cross_entropy
-from lit_gpt.speed_monitor import SpeedMonitorFabric as SpeedMonitor, measure_flops, estimate_flops
+from lit_gpt.utils import check_valid_checkpoint_dir, chunked_cross_entropy, lazy_load, num_parameters, step_csv_logger
 from scripts.prepare_alpaca import generate_prompt
-
 
 eval_interval = 100
 save_interval = 100
@@ -66,8 +66,7 @@ def setup(
             fabric_devices = "auto"
             strategy = XLAStrategy(sync_module_states=False)
         else:
-            precision="bf16-true"
-            strategy=FSDPStrategy(
+            strategy = FSDPStrategy(
                 auto_wrap_policy={Block},
                 activation_checkpointing_policy={Block},
                 state_dict_type="full",
@@ -78,11 +77,11 @@ def setup(
 
     logger = step_csv_logger(out_dir.parent, out_dir.name, flush_logs_every_n_steps=log_interval)
     fabric = L.Fabric(devices=fabric_devices, strategy=strategy, precision=precision, loggers=logger)
+    fabric.print(hparams)
     fabric.launch(main, data_dir, checkpoint_dir, out_dir)
 
 
 def main(fabric: L.Fabric, data_dir: Path, checkpoint_dir: Path, out_dir: Path):
-    fabric.print(hparams)
     check_valid_checkpoint_dir(checkpoint_dir)
 
     speed_monitor = SpeedMonitor(fabric, window_size=50, time_unit="seconds")
@@ -120,11 +119,9 @@ def main(fabric: L.Fabric, data_dir: Path, checkpoint_dir: Path, out_dir: Path):
 
     mark_only_lora_as_trainable(model)
 
+    fabric.print(f"Number of trainable parameters: {num_parameters(model, requires_grad=True):,}")
+    fabric.print(f"Number of non trainable parameters: {num_parameters(model, requires_grad=False):,}")
     trainable_params = [p for p in model.parameters() if p.requires_grad]
-    num_params = sum(p.numel() for p in trainable_params)
-    fabric.print(f"Number of trainable parameters: {num_params:,}")
-    num_params = sum(p.numel() for p in model.parameters() if not p.requires_grad)
-    fabric.print(f"Number of non trainable parameters: {num_params:,}")
 
     optimizer = torch.optim.AdamW(trainable_params, lr=learning_rate, weight_decay=weight_decay)
     model, optimizer = fabric.setup(model, optimizer)
@@ -248,7 +245,7 @@ def validate(
     fabric.print(instruction)
     sample = {"instruction": instruction, "input": ""}
     prompt = generate_prompt(sample)
-    encoded = tokenizer.encode(prompt, device=model.device)
+    encoded = tokenizer.encode(prompt, device=fabric.device)
     max_returned_tokens = len(encoded) + 100
     output = generate(
         model, idx=encoded, max_returned_tokens=max_returned_tokens, max_seq_length=max_returned_tokens, temperature=0.8

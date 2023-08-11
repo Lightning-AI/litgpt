@@ -3,7 +3,7 @@ import math
 import sys
 import time
 from pathlib import Path
-from typing import Tuple, Optional, Union
+from typing import Optional, Tuple, Union
 
 import lightning as L
 import torch
@@ -14,10 +14,11 @@ from torch.utils.data import DataLoader
 wd = Path(__file__).parent.parent.resolve()
 sys.path.append(str(wd))
 
-from lit_gpt.model import Block, GPT, Config
-from lit_gpt.packed_dataset import PackedDataset, CombinedDataset
-from lit_gpt.utils import step_csv_logger, chunked_cross_entropy
-from lit_gpt.speed_monitor import SpeedMonitorFabric as SpeedMonitor, estimate_flops, measure_flops
+from lit_gpt.model import GPT, Block, Config
+from lit_gpt.packed_dataset import CombinedDataset, PackedDataset
+from lit_gpt.speed_monitor import SpeedMonitorFabric as SpeedMonitor
+from lit_gpt.speed_monitor import estimate_flops, measure_flops
+from lit_gpt.utils import chunked_cross_entropy, num_parameters, step_csv_logger
 
 model_name = "pythia-70m"
 name = "redpajama"
@@ -86,11 +87,11 @@ def setup(
         strategy = "auto"
 
     fabric = L.Fabric(devices=devices, strategy=strategy, precision=precision, loggers=logger)
+    fabric.print(hparams)
     fabric.launch(main, train_data_dir, val_data_dir, resume)
 
 
 def main(fabric, train_data_dir, val_data_dir, resume):
-    fabric.print(hparams)
     speed_monitor = SpeedMonitor(fabric, window_size=50, time_unit="seconds")
 
     if fabric.global_rank == 0:
@@ -115,18 +116,18 @@ def main(fabric, train_data_dir, val_data_dir, resume):
 
     fabric.print(f"Loading model with {config.__dict__}")
     t0 = time.time()
-    with fabric.init_module(empty_init=False):
+    with fabric.init_module(empty_init=True):
         model = GPT(config)
         model.apply(model._init_weights)
+
     fabric.print(f"Time to instantiate model: {time.time() - t0:.02f} seconds.")
+    fabric.print(f"Total parameters {num_parameters(model):,}")
 
-    num_total_params = sum(p.numel() for p in model.parameters())
-    fabric.print(f"Total parameters {num_total_params}")
-
+    model = fabric.setup(model)
     optimizer = torch.optim.AdamW(
         model.parameters(), lr=learning_rate, weight_decay=weight_decay, betas=(beta1, beta2), foreach=False
     )
-    model, optimizer = fabric.setup(model, optimizer)
+    optimizer = fabric.setup_optimizers(optimizer)
 
     state = {"model": model, "optimizer": optimizer, "hparams": hparams, "iter_num": 0, "step_count": 0}
 

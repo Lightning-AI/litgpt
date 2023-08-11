@@ -14,7 +14,8 @@ wd = Path(__file__).parent.parent.absolute()
 @pytest.mark.parametrize("parallel_residual", (False, True))
 @pytest.mark.parametrize("kv_cache", (False, True))
 def test_against_hf_model(rotary_pct, batch_size, n_embd, parallel_residual, kv_cache) -> None:
-    from transformers import GPTNeoXForCausalLM, GPTNeoXConfig
+    from transformers import GPTNeoXConfig, GPTNeoXForCausalLM
+
     import lit_gpt
     from scripts.convert_hf_checkpoint import copy_weights_gpt_neox
 
@@ -97,9 +98,9 @@ def test_against_original_falcon_40b():
     if not file_path.is_file():
         urlretrieve(url=url, filename=file_path)
 
-    from tests.original_falcon_40b import RWConfig, RWForCausalLM
-    from lit_gpt import Config, GPT
+    from lit_gpt import GPT, Config
     from scripts.convert_hf_checkpoint import copy_weights_falcon
+    from tests.original_falcon_40b import RWConfig, RWForCausalLM
 
     ours_config = Config.from_name("falcon-40b", n_layer=2, n_head=8, n_query_groups=4, n_embd=32)
     theirs_config = RWConfig(
@@ -122,11 +123,12 @@ def test_against_original_falcon_40b():
 
 @torch.inference_mode()
 def test_against_original_open_llama_3b():
-    from lit_gpt import Config, GPT
-    from scripts.convert_hf_checkpoint import copy_weights_hf_llama
-    from transformers.models.llama.modeling_llama import LlamaForCausalLM, apply_rotary_pos_emb
     from transformers.models.llama.configuration_llama import LlamaConfig
+    from transformers.models.llama.modeling_llama import LlamaForCausalLM, apply_rotary_pos_emb
+
+    from lit_gpt import GPT, Config
     from lit_gpt.model import apply_rope
+    from scripts.convert_hf_checkpoint import copy_weights_hf_llama
 
     ours_config = Config.from_name("open_llama_3b", n_layer=2, n_head=8, n_embd=32, intermediate_size=86)
     T = 5
@@ -169,10 +171,11 @@ def test_against_original_open_llama_3b():
 @torch.inference_mode()
 @pytest.mark.parametrize("size", ("7b", "70b"))
 def test_against_hf_llama2(size):
-    from lit_gpt import Config, GPT
-    from scripts.convert_hf_checkpoint import copy_weights_hf_llama
-    from transformers.models.llama.modeling_llama import LlamaForCausalLM
     from transformers.models.llama.configuration_llama import LlamaConfig
+    from transformers.models.llama.modeling_llama import LlamaForCausalLM
+
+    from lit_gpt import GPT, Config
+    from scripts.convert_hf_checkpoint import copy_weights_hf_llama
 
     if size == "7b":
         ours_kwargs = {"name": "Llama-2-7b-hf"}

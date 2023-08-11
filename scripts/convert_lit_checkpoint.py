@@ -3,7 +3,7 @@ import gc
 import sys
 from functools import partial
 from pathlib import Path
-from typing import Optional, Literal, Dict, Union
+from typing import Dict, Literal, Optional, Union
 
 import torch
 
@@ -12,8 +12,8 @@ wd = Path(__file__).parent.parent.resolve()
 sys.path.append(str(wd))
 
 from lit_gpt import Config
-from lit_gpt.utils import lazy_load, incremental_save, NotYetLoadedTensor
-from scripts.convert_hf_checkpoint import load_param, layer_template
+from lit_gpt.utils import NotYetLoadedTensor, incremental_save, lazy_load
+from scripts.convert_hf_checkpoint import layer_template, load_param
 
 
 def copy_weights_falcon(
