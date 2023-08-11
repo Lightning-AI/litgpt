@@ -291,9 +291,16 @@ def test_lora_qkv_linear_weights_merged_status(rank, enable_lora, expected_merge
         ("bnb.nf4-dq", "Linear4bit"),
         ("bnb.fp4", "Linear4bit"),
         ("bnb.fp4-dq", "Linear4bit"),
-        # platform dependent cuda issue: libbitsandbytes_cpu.so: undefined symbol: cget_col_row_stats
-        pytest.param("bnb.int8", "Linear8bitLt", marks=pytest.mark.xfail(raises=AttributeError, strict=False)),
-    )
+        pytest.param(
+            "bnb.int8",
+            "Linear8bitLt",
+            marks=[
+                pytest.mark.skipif(not torch.cuda.is_available(), reason="8bit requires CUDA"),
+                # platform dependent cuda issue: libbitsandbytes_cpu.so: undefined symbol: cget_col_row_stats
+                pytest.mark.xfail(raises=AttributeError, strict=False),
+            ],
+        ),
+    ),
 )
 def test_bnb_replacement(mode, expected):
     from quantize.bnb import _BITSANDBYTES_AVAILABLE
