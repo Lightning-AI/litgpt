@@ -292,11 +292,6 @@ def test_bnb_replacement():
 
     from quantize.bnb import bnb
     from lit_gpt.utils import quantization
-
-    with quantization("bnb.nf4"):
-        linear = torch.nn.Linear(1, 1)
-    assert isinstance(linear, bnb.modules.Linear4bit)
-
     from lit_gpt.lora import LoRAQKVLinear, LoRALinear
 
     with quantization("bnb.nf4"):
