@@ -96,7 +96,6 @@ class LoRALinear(LoRALayer):
         r: int = 0,
         lora_alpha: int = 1,
         lora_dropout: float = 0.0,
-        fan_in_fan_out: bool = False,
         **kwargs,
     ):
         """LoRA wrapper around linear class.
@@ -116,14 +115,10 @@ class LoRALinear(LoRALayer):
                 "This scaling helps to reduce the need to retune hyperparameters when we vary r"
                 https://arxiv.org/pdf/2106.09685.pdf (section 4.1)
             lora_dropout: dropout that is applied on the input in the LoRA branch (before multiplying by matrix A)
-            fan_in_fan_out: set this to True if the layer to replace stores weight like (fan_in, fan_out). For example, gpt-2 uses
-                `Conv1D` which stores weights like (fan_in, fan_out) and hence this should be set to `True`
-                https://github.com/huggingface/peft/blob/main/src/peft/tuners/lora.py#LL53C9-L53C112
         """
         super().__init__(r=r, lora_alpha=lora_alpha, lora_dropout=lora_dropout)
         self.linear = torch.nn.Linear(in_features, out_features, **kwargs)
 
-        self.fan_in_fan_out = fan_in_fan_out
         # Actual trainable parameters
         if r > 0:
             self.lora_A = nn.Parameter(self.linear.weight.new_zeros((r, in_features)))
@@ -132,8 +127,6 @@ class LoRALinear(LoRALayer):
             # Freezing the pre-trained weight matrix
             self.linear.weight.requires_grad = False
         self.reset_parameters()
-        if fan_in_fan_out:
-            self.linear.weight.data = self.linear.weight.data.transpose(0, 1)
 
     def reset_parameters(self):
         """Reset all the weights, even including pretrained ones."""
@@ -143,15 +136,11 @@ class LoRALinear(LoRALayer):
             nn.init.kaiming_uniform_(self.lora_A, a=math.sqrt(5))
             nn.init.zeros_(self.lora_B)
 
-    def T(self, x: torch.Tensor) -> torch.Tensor:
-        """Transpose input tensor if weights are stored in format (fan_in, fan_out)"""
-        return x.transpose(0, 1) if self.fan_in_fan_out else x
-
     def merge(self):
         """Merges the LoRA weights into the full-rank weights (W = W + delta_W)."""
         if self.r > 0 and not self.merged:
             # Merge the weights and mark it
-            self.linear.weight.data += self.T(self.lora_B @ self.lora_A) * self.scaling
+            self.linear.weight.data += (self.lora_B @ self.lora_A) * self.scaling
             self.merged = True
 
     def forward(self, x: torch.Tensor):
@@ -179,7 +168,6 @@ class LoRAQKVLinear(LoRALinear):
         lora_alpha: int = 1,
         lora_dropout: float = 0.0,
         enable_lora: Union[bool, Tuple[bool, bool, bool]] = False,
-        fan_in_fan_out: bool = False,
         **kwargs,
     ):
         """LoRA wrapper around linear class that is used for calculation of q, k and v matrices.
@@ -204,9 +192,6 @@ class LoRAQKVLinear(LoRALinear):
             enable_lora: MergeLinear class is for attention mechanism where qkv are calculated with a single weight matrix. If we
                 don't want to apply LoRA we can set it as False. For example if we want to apply LoRA only to `query`
                 and `value` but keep `key` without weight updates we should pass `[True, False, True]`
-            fan_in_fan_out: set this to True if the layer to replace stores weight like (fan_in, fan_out). For example, gpt-2 uses
-                `Conv1D` which stores weights like (fan_in, fan_out) and hence this should be set to `True`
-                https://github.com/huggingface/peft/blob/main/src/peft/tuners/lora.py#LL53C9-L53C112
         """
         super(LoRALinear, self).__init__(r=r, lora_alpha=lora_alpha, lora_dropout=lora_dropout)
         self.linear = torch.nn.Linear(in_features, out_features, **kwargs)
@@ -214,7 +199,6 @@ class LoRAQKVLinear(LoRALinear):
             enable_lora = [enable_lora] * 3
         assert len(enable_lora) == 3
         self.enable_lora = enable_lora
-        self.fan_in_fan_out = fan_in_fan_out
 
         # Actual trainable parameters
         # To better understand initialization let's imagine that we have such parameters:
@@ -267,8 +251,6 @@ class LoRAQKVLinear(LoRALinear):
             if enable_v:
                 self.lora_ind.extend(range(self.linear.in_features + self.kv_embd_size, self.linear.out_features))
         self.reset_parameters()
-        if fan_in_fan_out:
-            self.linear.weight.data = self.linear.weight.data.T
 
     def zero_pad(self, x: torch.Tensor) -> torch.Tensor:
         """Properly pad weight updates with zeros.
@@ -326,9 +308,7 @@ class LoRAQKVLinear(LoRALinear):
                 groups=sum(self.enable_lora),
             ).squeeze(0)  # (1, 4, 128) @ (256, 2, 1) -> (1, 256, 128) -> (256, 128)
             # W = W + delta_W (merge)
-            self.linear.weight.data += self.zero_pad(
-                self.T(delta_w * self.scaling)
-            )  # (256, 128) after zero_pad (384, 128)
+            self.linear.weight.data += self.zero_pad(delta_w * self.scaling)  # (256, 128) after zero_pad (384, 128)
             self.merged = True
 
     def forward(self, x: torch.Tensor) -> torch.Tensor:
@@ -555,7 +535,6 @@ class CausalSelfAttention(BaseCausalSelfAttention):
             lora_alpha=config.alpha,
             lora_dropout=config.dropout,
             enable_lora=(config.to_query, config.to_key, config.to_value),
-            fan_in_fan_out=False,
             bias=config.bias,
             # for MQA/GQA support
             n_head=config.n_head,
