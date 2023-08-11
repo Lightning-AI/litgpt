@@ -88,13 +88,13 @@ Luckily that is straightforward:
 **On CUDA**
 
 ```bash
-pip install --index-url https://download.pytorch.org/whl/nightly/cu118 --pre 'torch==2.1.0.dev20230703'
+pip install --index-url https://download.pytorch.org/whl/nightly/cu118 --pre 'torch==2.1.0.dev20230810'
 ```
 
 **On CPU (incl Macs)**
 
 ```bash
-pip install --index-url https://download.pytorch.org/whl/nightly/cpu --pre 'torch==2.1.0.dev20230703'
+pip install --index-url https://download.pytorch.org/whl/nightly/cpu --pre 'torch==2.1.0.dev20230810'
 ```
 
 **(Optional) install Flash Attention 2**
