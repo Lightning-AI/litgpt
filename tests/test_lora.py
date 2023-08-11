@@ -38,8 +38,8 @@ def test_lora_merge():
     model = GPT(config)
     model.train()
 
-    initial_weight = model.transformer.h[0].attn.proj.weight.clone()
-    assert torch.equal(model.transformer.h[0].attn.proj.weight, initial_weight)
+    initial_weight = model.transformer.h[0].attn.proj.linear.weight.clone()
+    assert torch.equal(model.transformer.h[0].attn.proj.linear.weight, initial_weight)
 
     # perform an update to the LoRA weights
     mark_only_lora_as_trainable(model)
@@ -49,15 +49,15 @@ def test_lora_merge():
     optimizer.step()
     optimizer.zero_grad()
     # the weight remains unchanged (only lora A and B change)
-    assert torch.equal(model.transformer.h[0].attn.proj.weight, initial_weight)
+    assert torch.equal(model.transformer.h[0].attn.proj.linear.weight, initial_weight)
 
     # calling merge() multiple times in a row should not merge multiple times
     merge_lora_weights(model)
     assert model.transformer.h[0].attn.attn.merged
-    weight_after = model.transformer.h[0].attn.proj.weight.clone()
+    weight_after = model.transformer.h[0].attn.proj.linear.weight.clone()
     merge_lora_weights(model)
     merge_lora_weights(model)
-    assert torch.equal(model.transformer.h[0].attn.proj.weight, weight_after)
+    assert torch.equal(model.transformer.h[0].attn.proj.linear.weight, weight_after)
 
     # check that `W_after = W_initial + (A x B)`
     a = model.transformer.h[0].attn.proj.lora_A
@@ -86,7 +86,7 @@ def test_lora_mqa_gqa():
     assert config.n_query_groups == config.n_head
     model = GPT(config)
     attn = model.transformer.h[0].attn.attn
-    assert attn.weight.shape == (24, 8)
+    assert attn.linear.weight.shape == (24, 8)
     assert attn.lora_A.shape == (4, 8)
     assert attn.lora_B.shape == (16, 2)
     assert attn.lora_ind == [0, 1, 2, 3, 4, 5, 6, 7, 16, 17, 18, 19, 20, 21, 22, 23]
@@ -97,7 +97,7 @@ def test_lora_mqa_gqa():
     config.n_query_groups = 1
     model = GPT(config)
     attn = model.transformer.h[0].attn.attn
-    assert attn.weight.shape == (12, 8)
+    assert attn.linear.weight.shape == (12, 8)
     assert attn.lora_A.shape == (4, 8)
     assert attn.lora_B.shape == (10, 2)
     assert attn.lora_ind == [0, 1, 2, 3, 4, 5, 6, 7, 10, 11]
@@ -108,7 +108,7 @@ def test_lora_mqa_gqa():
     config.n_query_groups = 2
     model = GPT(config)
     attn = model.transformer.h[0].attn.attn
-    assert attn.weight.shape == (16, 8)
+    assert attn.linear.weight.shape == (16, 8)
     assert attn.lora_A.shape == (4, 8)
     assert attn.lora_B.shape == (12, 2)
     assert attn.lora_ind == [0, 1, 2, 3, 4, 5, 6, 7, 12, 13, 14, 15]
