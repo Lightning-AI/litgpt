@@ -284,7 +284,18 @@ def test_lora_qkv_linear_weights_merged_status(rank, enable_lora, expected_merge
     assert layer.merged == expected_merged
 
 
-def test_bnb_replacement():
+@pytest.mark.parametrize(
+    ("mode", "expected"),
+    (
+        ("bnb.nf4", "Linear4bit"),
+        ("bnb.nf4-dq", "Linear4bit"),
+        ("bnb.fp4", "Linear4bit"),
+        ("bnb.fp4-dq", "Linear4bit"),
+        # platform dependent cuda issue: libbitsandbytes_cpu.so: undefined symbol: cget_col_row_stats
+        pytest.param("bnb.int8", "Linear8bitLt", marks=pytest.mark.xfail(raises=AttributeError, strict=False)),
+    )
+)
+def test_bnb_replacement(mode, expected):
     from quantize.bnb import _BITSANDBYTES_AVAILABLE
 
     if not _BITSANDBYTES_AVAILABLE:
@@ -294,8 +305,9 @@ def test_bnb_replacement():
     from lit_gpt.utils import quantization
     from lit_gpt.lora import LoRAQKVLinear, LoRALinear
 
-    with quantization("bnb.nf4"):
+    with quantization(mode):
         linear = LoRALinear(1, 1)
         qkv = LoRAQKVLinear(1, 1, 1, 1)
-    assert isinstance(linear.linear, bnb.modules.Linear4bit)
-    assert isinstance(qkv.linear, bnb.modules.Linear4bit)
+    expected = getattr(bnb.modules, expected)
+    assert isinstance(linear.linear, expected)
+    assert isinstance(qkv.linear, expected)
