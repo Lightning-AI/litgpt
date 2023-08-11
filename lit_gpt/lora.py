@@ -315,9 +315,11 @@ class LoRAQKVLinear(LoRALinear):
         x = x.transpose(0, 1)
         result = x.new_zeros((*x.shape[:-1], self.out_features))  # (64, 64, 384)
         result = result.view(-1, self.out_features)  # (4096, 384)
-        enable_q, enable_k, enable_v = self.enable_lora
-        shape = self.in_features * enable_q + self.kv_embd_size * enable_k + self.kv_embd_size * enable_v
-        result = result.index_copy(1, torch.tensor(self.lora_ind, device=result.device), x.reshape(-1, shape)) # (4096, 256)
+        result = result.index_copy(
+            1,
+            torch.tensor(self.lora_ind, device=result.device),
+            x.reshape(-1, sum(self.qkv_shapes)),
+        ) # (4096, 256)
         return result.view((*x.shape[:-1], self.out_features)).transpose(0, 1)  # (64, 64, 384)
 
     def conv1d(self, input: torch.Tensor, weight: torch.Tensor) -> torch.Tensor:
