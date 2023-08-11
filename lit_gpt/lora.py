@@ -43,7 +43,7 @@ two matrices of a lower rank.
 
 import math
 from dataclasses import dataclass
-from typing import Optional, Tuple, Any, List, Type, Union
+from typing import Any, List, Optional, Tuple, Type, Union
 
 import torch
 import torch.nn as nn
