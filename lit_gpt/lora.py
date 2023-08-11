@@ -102,7 +102,7 @@ class LoRALinear(LoRALayer):
         """LoRA wrapper around linear class.
 
         This class has three weight matrices:
-            1. Pretrained weights are stored as `self.linear.weight` (because of the nn.Linear inheritance)
+            1. Pretrained weights are stored as `self.linear.weight`
             2. LoRA A matrix as `self.lora_A`
             3. LoRA B matrix as `self.lora_B`
         Only LoRA's A and B matrices are updated, pretrained weights stay frozen.
@@ -137,7 +137,7 @@ class LoRALinear(LoRALayer):
 
     def reset_parameters(self):
         """Reset all the weights, even including pretrained ones."""
-        if self.r > 0:
+        if hasattr(self, "lora_A"):
             # initialize A the same way as the default for nn.Linear and B to zero
             # Wondering why 'a' is equal to math.sqrt(5)?: https://github.com/pytorch/pytorch/issues/15314
             nn.init.kaiming_uniform_(self.lora_A, a=math.sqrt(5))
@@ -185,7 +185,7 @@ class LoRAQKVLinear(LoRALinear):
         """LoRA wrapper around linear class that is used for calculation of q, k and v matrices.
 
         This class has three weight matrices:
-            1. Pretrained weights are stored as `self.linear.weight` (because of the nn.Linear inheritance)
+            1. Pretrained weights are stored as `self.linear.weight`
             2. LoRA A matrix as `self.lora_A`
             3. LoRA B matrix as `self.lora_B`
         Only LoRA's A and B matrices are updated, pretrained weights stay frozen.
@@ -208,7 +208,8 @@ class LoRAQKVLinear(LoRALinear):
                 `Conv1D` which stores weights like (fan_in, fan_out) and hence this should be set to `True`
                 https://github.com/huggingface/peft/blob/main/src/peft/tuners/lora.py#LL53C9-L53C112
         """
-        super().__init__(in_features, out_features, r=r, lora_alpha=lora_alpha, lora_dropout=lora_dropout, **kwargs)
+        super(LoRALinear, self).__init__(r=r, lora_alpha=lora_alpha, lora_dropout=lora_dropout)
+        self.linear = torch.nn.Linear(in_features, out_features, **kwargs)
         if isinstance(enable_lora, bool):
             enable_lora = [enable_lora] * 3
         assert len(enable_lora) == 3

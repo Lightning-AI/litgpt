@@ -198,7 +198,7 @@ def test_lora_init_when_linear_overridden():
     # Our bnb does this sort of monkey patching
     torch.nn.Linear = MyLinear
     layer = LoRAQKVLinear(1, 1, 1, 1)
-    assert isinstance(layer, original_linear)
+    assert isinstance(layer.linear, original_linear)
     torch.nn.Linear = original_linear
 
 
@@ -206,10 +206,10 @@ def test_lora_init_when_linear_overridden():
     ("apply_to", "target_layer_names", "mlp_class_name"),
     (
         ("to_projection", "transformer.h.0.attn.proj", "GptNeoxMLP"),
-        ("to_mlp", ("transformer.h.0.mlp.fc", "transformer.h.0.mlp.proj"), "GptNeoxMLP"),
+        ("to_mlp", {"transformer.h.0.mlp.fc", "transformer.h.0.mlp.proj"}, "GptNeoxMLP"),
         ("to_head", "lm_head", "GptNeoxMLP"),
         ("to_projection", "transformer.h.0.attn.proj", "LLaMAMLP"),
-        ("to_mlp", ("transformer.h.0.mlp.fc_1", "transformer.h.0.mlp.fc_2", "transformer.h.0.mlp.proj"), "LLaMAMLP"),
+        ("to_mlp", {"transformer.h.0.mlp.fc_1", "transformer.h.0.mlp.fc_2", "transformer.h.0.mlp.proj"}, "LLaMAMLP"),
         ("to_head", "lm_head", "LLaMAMLP"),
     ),
 )
@@ -217,13 +217,23 @@ def test_lora_linear_utilization(apply_to, target_layer_names, mlp_class_name):
     from lit_gpt.lora import GPT, Config
 
     config = Config(
-        n_layer=1, n_head=4, n_embd=8, block_size=1, vocab_size=1, r=2, alpha=8, dropout=0.1, **{apply_to: True}
+        n_layer=1,
+        n_head=4,
+        n_embd=8,
+        block_size=1,
+        vocab_size=1,
+        r=2,
+        alpha=8,
+        dropout=0.1,
+        _mlp_class=mlp_class_name,
+        intermediate_size=8 * 3,
+        **{apply_to: True}
     )
-    config._mlp_class = mlp_class_name
-    state_dict = GPT(config).state_dict()
+    model = GPT(config)
+    state_dict = model.state_dict()
 
     if isinstance(target_layer_names, str):
-        target_layer_names = (target_layer_names,)
+        target_layer_names = {target_layer_names}
     lora_sublayers = (".lora_A", ".lora_B")
 
     # check that all the target layers have LoRA weights
@@ -232,9 +242,9 @@ def test_lora_linear_utilization(apply_to, target_layer_names, mlp_class_name):
             assert layer_name + lora_sublayer in state_dict
 
     # check that only target layers have LoRA weights
-    for key in state_dict:
-        if key.endswith(lora_sublayers):
-            assert key.startswith(target_layer_names)
+    lora_params = [k for k in state_dict if k.endswith(lora_sublayers)]
+    lora_params = {k[:-7] for k in lora_params}
+    assert lora_params == target_layer_names
 
 
 @pytest.mark.parametrize("apply_to", (None, "to_query", "to_key", "to_value", "to_projection", "to_mlp", "to_head"))
@@ -263,14 +273,7 @@ def test_lora_linear_weights_merged_status(rank, expected_merged):
 
 @pytest.mark.parametrize(
     ("rank", "enable_lora", "expected_merged"),
-    (
-        (-1, True, False),
-        (0, True, False),
-        (1, True, True),
-        (-1, False, False),
-        (0, False, False),
-        (1, False, False),
-    ),
+    ((-1, True, False), (0, True, False), (1, True, True), (-1, False, False), (0, False, False), (1, False, False)),
 )
 def test_lora_qkv_linear_weights_merged_status(rank, enable_lora, expected_merged):
     from lit_gpt.lora import LoRAQKVLinear
