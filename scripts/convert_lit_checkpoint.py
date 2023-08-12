@@ -198,7 +198,6 @@ def maybe_unwrap_state_dict(lit_weights: Dict[str, torch.Tensor]) -> Dict[str, t
 
 def maybe_raise_finetune_warning(lit_weights: Dict[str, torch.Tensor], checkpoint_dir: Path) -> None:
     weight_names = set([wk.split(".")[-1] for wk in lit_weights.keys()])
-    print(weight_names)
     # adapter
     if "gating_factor" in weight_names:
         raise Exception(f"Converting models finetuned with adapter not yet support")
