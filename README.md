@@ -17,6 +17,8 @@
 
 </div>
 
+&nbsp;
+
 # ⚡ Lit-GPT
 
 Hackable [implementation](lit_gpt/model.py) of state-of-the-art open-source large language models released under the **Apache 2.0 license**.
@@ -36,7 +38,7 @@ Supports the following popular model checkpoints:
 
 This implementation extends on [Lit-LLaMA](https://github.com/lightning-AI/lit-llama) and [nanoGPT](https://github.com/karpathy/nanoGPT), and it's **powered by [Lightning Fabric](https://lightning.ai/docs/fabric/stable/) ⚡**.
 
-
+&nbsp;
 
 ---
 
@@ -51,7 +53,7 @@ If you are interested in participating, you can learn more about the NeurIPS LLM
 ---
 
 
-
+&nbsp;
 
 
 ## Lit-GPT design principles
@@ -66,6 +68,8 @@ This repository follows the main principle of **openness through clarity**.
 - **Open-source:** No strings attached.
 
 Avoiding code duplication is **not** a goal. **Readability** and **hackability** are.
+
+&nbsp;
 
 ## Get involved!
 
@@ -83,7 +87,9 @@ cd lit-gpt
 ```
 
 Lit-GPT currently relies on flash attention from PyTorch nightly. Until PyTorch 2.1 is released you'll need to install nightly manually.
-Luckily that is straightforward:
+Luckily this is straightforward, as shown below.
+
+&nbsp;
 
 **On CUDA**
 
@@ -133,9 +139,13 @@ You can also chat with the model interactively:
 python chat/base.py
 ```
 
+&nbsp;
+
 ### Run large models on smaller consumer devices
 
 We support 4-bit quantization (as in QLoRA), LLM.int8, and GPTQ.int4 inference by following [this guide](tutorials/quantize.md).
+
+&nbsp;
 
 ## Finetune the model
 
@@ -176,12 +186,16 @@ The finetuning requires at least one GPU with ~12 GB memory (RTX 3060).
 It is expected that you have downloaded the pretrained weights as described above.
 More details about each finetuning method and how you can apply it to your own data can be found in our technical how-to guides.
 
+&nbsp;
+
 ### Finetuning How-To Guides
 
 These technical tutorials illustrate how to run the finetuning code.
 
 - [Finetune with Adapters](tutorials/finetune_adapter.md)
 - [Finetune with LoRA](tutorials/finetune_lora.md)
+
+&nbsp;
 
 ### Understanding Finetuning -- Conceptual Tutorials
 
@@ -191,9 +205,13 @@ Looking for conceptual tutorials and explanations? We have some additional artic
 
 - [Parameter-Efficient LLM Finetuning With Low-Rank Adaptation (LoRA)](https://lightning.ai/pages/community/tutorial/lora-llm/)
 
+&nbsp;
+
 ## Pre-training
 
 Porting from Lit-LLaMA in progress 👷
+
+&nbsp;
 
 ## Get involved!
 
@@ -215,6 +233,8 @@ Unsure about contributing? Check out our [How to Contribute to Lit-GPT and Lit-L
 
 Don't forget to [join our Discord](https://discord.gg/VptPCZkGNa)!
 
+&nbsp;
+
 ## Acknowledgements
 
 - [@karpathy](https://github.com/karpathy) for [nanoGPT](https://github.com/karpathy/nanoGPT)
@@ -223,6 +243,8 @@ Don't forget to [join our Discord](https://discord.gg/VptPCZkGNa)!
 - [@IST-DASLab](https://github.com/IST-DASLab) for [GPTQ](https://github.com/IST-DASLab/gptq)
 - [@Microsoft](https://github.com/microsoft) for [LoRA](https://github.com/microsoft/LoRA)
 - [@tridao](https://github.com/tridao) for [Flash Attention 2](https://github.com/Dao-AILab/flash-attention)
+
+&nbsp;
 
 ## License
 
