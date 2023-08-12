@@ -203,7 +203,7 @@ def maybe_raise_finetune_warning(lit_weights: Dict[str, torch.Tensor], checkpoin
         raise Exception(f"Converting models finetuned with adapter not yet support")
     # adapter v2
     elif "adapter_bias" in weight_names:
-        raise Exception(f"Converting models finetuned with adapterV2 not yet support")
+        raise Exception(f"Converting models finetuned with adapter_v2 not yet support")
     # LoRA or QLoRA
     elif any(["lora" in wn for wn in weight_names]):
         technique = checkpoint_dir.parent.name
