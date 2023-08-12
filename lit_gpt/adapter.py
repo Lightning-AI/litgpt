@@ -6,20 +6,16 @@ https://arxiv.org/abs/2303.16199
 Port for Lit-GPT
 """
 from dataclasses import dataclass
-from typing import Optional, Tuple, Any, List, Union
+from typing import Any, List, Optional, Tuple, Union
 
 import torch
 import torch.nn as nn
 from typing_extensions import Self
 
 from lit_gpt.config import Config as BaseConfig
-from lit_gpt.model import (
-    GPT as BaseModel,
-    CausalSelfAttention as BaseCausalSelfAttention,
-    apply_rope,
-    RoPECache,
-    KVCache,
-)
+from lit_gpt.model import GPT as BaseModel
+from lit_gpt.model import CausalSelfAttention as BaseCausalSelfAttention
+from lit_gpt.model import KVCache, RoPECache, apply_rope
 
 
 @dataclass

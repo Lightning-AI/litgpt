@@ -1,11 +1,11 @@
 import json
 import subprocess
 import sys
-from contextlib import redirect_stdout, redirect_stderr
+from contextlib import redirect_stderr, redirect_stdout
 from io import StringIO
 from pathlib import Path
 from unittest import mock
-from unittest.mock import Mock, call, ANY
+from unittest.mock import ANY, Mock, call
 
 import pytest
 import torch
@@ -14,7 +14,6 @@ import torch
 @pytest.mark.parametrize("max_seq_length", (10, 20 + 5))
 def test_generate(max_seq_length):
     import generate.base as generate
-
     from lit_gpt import GPT, Config
 
     T = 5
