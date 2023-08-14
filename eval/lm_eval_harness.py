@@ -15,10 +15,10 @@ from lm_eval.base import BaseLM
 wd = Path(__file__).parent.parent.resolve()
 sys.path.append(str(wd))
 
+from generate.base import generate
 from lit_gpt import GPT, Config, Tokenizer
 from lit_gpt.model import Block
 from lit_gpt.utils import check_valid_checkpoint_dir, lazy_load, quantization
-from generate.base import generate
 
 
 class EvalHarnessBase(BaseLM):

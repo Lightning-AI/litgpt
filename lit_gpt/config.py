@@ -1,5 +1,5 @@
 from dataclasses import dataclass
-from typing import Optional, Any, Type, Literal
+from typing import Any, Literal, Optional, Type
 
 import torch
 from typing_extensions import Self

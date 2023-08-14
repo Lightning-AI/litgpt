@@ -2,15 +2,15 @@ import math
 import sys
 import time
 from pathlib import Path
-from typing import Optional, Any
+from typing import Any, Optional
 
 import lightning as L
 import numpy as np
 import torch
-from torch.utils.data import DataLoader, IterableDataset
 from lightning.pytorch.callbacks import ModelCheckpoint
 from lightning.pytorch.loggers import CSVLogger
 from lightning.pytorch.strategies import FSDPStrategy, XLAStrategy
+from torch.utils.data import DataLoader, IterableDataset
 
 # support running without installing as a package
 wd = Path(__file__).parent.parent.resolve()
@@ -18,8 +18,8 @@ sys.path.append(str(wd))
 
 from lit_gpt import Config
 from lit_gpt.model import GPT, Block
-from lit_gpt.speed_monitor import measure_flops, estimate_flops, SpeedMonitorCallback
-from lit_gpt.utils import step_csv_logger, chunked_cross_entropy
+from lit_gpt.speed_monitor import SpeedMonitorCallback, estimate_flops, measure_flops
+from lit_gpt.utils import chunked_cross_entropy, step_csv_logger
 
 model_name = "pythia-70m"
 name = "openwebtext"
