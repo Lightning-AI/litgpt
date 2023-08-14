@@ -85,12 +85,12 @@ def main(fabric, resume) -> None:
 
     config = Config.from_name(model_name)
     fabric.print(f"Loading model with {config.__dict__}")
-    t0 = time.time()
+    t0 = time.perf_counter()
     with fabric.init_module(empty_init=True):
         model = GPT(config)
         model.apply(model._init_weights)
 
-    fabric.print(f"Time to instantiate model: {time.time() - t0:.02f} seconds.")
+    fabric.print(f"Time to instantiate model: {time.perf_counter() - t0:.02f} seconds.")
     fabric.print(f"Total parameters {num_parameters(model):,}")
 
     model = fabric.setup(model)
@@ -112,9 +112,9 @@ def main(fabric, resume) -> None:
         fabric.print(f"Resuming training from {resume}")
         fabric.load(resume, state)
 
-    train_time = time.time()
+    train_time = time.perf_counter()
     train(fabric, state, train_dataloader, val_dataloader, speed_monitor)
-    fabric.print(f"Training time: {(time.time()-train_time):.2f}s")
+    fabric.print(f"Training time: {(time.perf_counter()-train_time):.2f}s")
 
 
 def train(fabric, state, train_dataloader, val_dataloader, speed_monitor):
@@ -134,7 +134,7 @@ def train(fabric, state, train_dataloader, val_dataloader, speed_monitor):
         del meta_model, x
 
     total_lengths = 0
-    total_t0 = time.time()
+    total_t0 = time.perf_counter()
 
     if fabric.device.type == "xla":
         import torch_xla.core.xla_model as xm
@@ -149,7 +149,7 @@ def train(fabric, state, train_dataloader, val_dataloader, speed_monitor):
         for param_group in optimizer.param_groups:
             param_group["lr"] = lr
 
-        iter_t0 = time.time()
+        iter_t0 = time.perf_counter()
 
         input_ids, targets = next(train_iter)
 
@@ -167,7 +167,7 @@ def train(fabric, state, train_dataloader, val_dataloader, speed_monitor):
         elif fabric.device.type == "xla":
             xm.mark_step()
 
-        t1 = time.time()
+        t1 = time.perf_counter()
         total_lengths += input_ids.size(1)
         speed_monitor.on_train_batch_end(
             (state["iter_num"] + 1) * micro_batch_size,
@@ -184,9 +184,9 @@ def train(fabric, state, train_dataloader, val_dataloader, speed_monitor):
             )
 
         if not is_accumulating and state["step_count"] % eval_interval == 0:
-            t0 = time.time()
+            t0 = time.perf_counter()
             val_loss = validate(fabric, model, val_dataloader)
-            t1 = time.time() - t0
+            t1 = time.perf_counter() - t0
             speed_monitor.eval_end(t1)
             fabric.print(f"step {state['iter_num']}: val loss {val_loss:.4f}, val time: {t1 * 1000:.2f}ms")
             fabric.barrier()
