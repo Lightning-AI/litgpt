@@ -200,13 +200,13 @@ def maybe_raise_finetune_warning(lit_weights: Dict[str, torch.Tensor]) -> None:
     weight_names = {wk.split(".")[-1] for wk in lit_weights}
     # adapter
     if "gating_factor" in weight_names:
-        raise NotImplementedError(f"Converting models finetuned with adapter not yet supported")
+        raise NotImplementedError(f"Converting models finetuned with adapter not yet supported.")
     # adapter v2
     elif "adapter_bias" in weight_names:
-        raise NotImplementedError(f"Converting models finetuned with adapter_v2 not yet supported")
+        raise NotImplementedError(f"Converting models finetuned with adapter_v2 not yet supported.")
     # LoRA or QLoRA
     elif any(["lora" in wn for wn in weight_names]):
-        raise NotImplementedError(f"Converting models finetuned with LoRA or QLoRA not yet supported")
+        raise NotImplementedError(f"Model weights must be merged using `lora.merge_lora_weights()` before conversion.")
 
 
 @torch.inference_mode()

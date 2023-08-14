@@ -265,5 +265,5 @@ def test_maybe_raise_finetune_warning_lora(tmp_path):
     # save checkpoint to avoid RunTimeError for PytorchStreamReader
     save_lora_checkpoint(fabric, ours_model, ckpt_path)
 
-    with pytest.raises(NotImplementedError, match=r"Converting models finetuned with LoRA *"):
+    with pytest.raises(NotImplementedError, match=r"Model weights must be merged using"):
         convert_lit_checkpoint(checkpoint_name=ckpt_path.name, out_dir=ckpt_path.parent, model_name=model_name)
