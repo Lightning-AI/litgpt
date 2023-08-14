@@ -202,9 +202,16 @@ def test_maybe_raise_finetune_warning_adapter(tmp_path):
     fabric = L.Fabric(devices=1)
 
     model_name = "Llama-2-7b-hf"
-    ours_config = Config.from_name(model_name, block_size=8, n_layer=2, n_embd=32, n_head=2, padding_multiple=128)
+    ours_config = Config.from_name(
+        model_name,
+        adapter_start_layer=0,
+        block_size=8,
+        n_layer=2,
+        n_embd=32,
+        n_head=2,
+        padding_multiple=128,
+    )
     ours_model = GPT(ours_config)
-    ours_model.gating_factor = torch.nn.Parameter()
 
     ckpt_path = tmp_path / "lit_model_adapter.pth"
 
