@@ -1,5 +1,6 @@
 from contextlib import redirect_stdout
 from io import StringIO
+from itertools import product
 from unittest.mock import Mock
 
 import pytest
@@ -228,7 +229,7 @@ def test_lora_linear_utilization(apply_to, target_layer_names, mlp_class_name):
         dropout=0.1,
         _mlp_class=mlp_class_name,
         intermediate_size=8 * 3,
-        **{apply_to: True}
+        **{apply_to: True},
     )
     model = GPT(config)
     state_dict = model.state_dict()
@@ -248,8 +249,9 @@ def test_lora_linear_utilization(apply_to, target_layer_names, mlp_class_name):
     assert lora_params == target_layer_names
 
 
+@torch.inference_mode()
 @pytest.mark.parametrize("apply_to", (None, "to_query", "to_key", "to_value", "to_projection", "to_mlp", "to_head"))
-def test_lora_layer_forward_no_exception(apply_to):
+def test_lora_gpt_apply_lora_forward_no_exception(apply_to):
     from lit_gpt.lora import GPT, Config
 
     config = Config(n_layer=1, n_head=4, n_embd=8, block_size=1, vocab_size=1, r=2, alpha=8, dropout=0.1)
@@ -260,6 +262,73 @@ def test_lora_layer_forward_no_exception(apply_to):
     model.eval()
 
     model(input_ids)
+
+
+@torch.inference_mode()
+@pytest.mark.parametrize("n_query_groups", (1, 2, 3, 6))
+@pytest.mark.parametrize("apply_to", product((False, True), repeat=3))
+def test_lora_gpt_query_groups_merge_and_forward_no_exception(n_query_groups, apply_to):
+    from lit_gpt.lora import GPT, Config, merge_lora_weights
+
+    keys = ("to_query", "to_key", "to_value")
+    values = apply_to
+    apply_to = dict(zip(keys, values))
+
+    config = Config(
+        n_layer=1,
+        n_head=6,
+        n_embd=12,
+        block_size=1,
+        vocab_size=1,
+        r=2,
+        alpha=8,
+        dropout=0.1,
+        n_query_groups=n_query_groups,
+        **apply_to,
+    )
+    model = GPT(config)
+    merge_lora_weights(model)
+    input_ids = torch.tensor([[1]])
+    model(input_ids)
+
+
+@torch.inference_mode()
+@pytest.mark.parametrize("n_head", (1, 2, 3, 6, 12))
+@pytest.mark.parametrize(
+    "enable_lora",
+    [
+        (False, False, True),
+        (False, True, False),
+        (False, True, True),
+        (True, False, False),
+        (True, False, True),
+        (True, True, False),
+        (True, True, True),
+    ],
+)
+def test_lora_qkv_linear_compare_conv1d(n_head, enable_lora):
+    from torch.nn import functional as F
+
+    from lit_gpt.lora import LoRAQKVLinear
+
+    C = 12
+    layer = LoRAQKVLinear(C, 3 * C, n_head=n_head, n_query_groups=n_head, r=2, enable_lora=enable_lora)
+    x = torch.randn((1, 1, C))
+    a = F.linear(x, layer.lora_A).transpose(-2, -1)  # after_A
+    b = layer.lora_B.data.unsqueeze(-1)
+
+    # original PyTorch conv1d function output
+    conv1d_pytorch = F.conv1d(a, b, groups=sum(layer.enable_lora))
+
+    # custom conv1d
+    conv1d_custom = layer.conv1d(a, b)
+
+    # custom conv1d forced to split, apply and concat tensors
+    layer.n_head = layer.n_query_groups + 1
+    conv1d_custom_forced = layer.conv1d(a, b)
+
+    assert torch.allclose(conv1d_pytorch, conv1d_custom)
+    assert torch.allclose(conv1d_pytorch, conv1d_custom_forced)
 
 
 @pytest.mark.parametrize(("rank", "expected_merged"), ((-1, False), (0, False), (1, True)))
