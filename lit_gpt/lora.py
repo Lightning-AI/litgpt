@@ -208,7 +208,11 @@ class LoRAQKVLinear(LoRALinear):
             enable_q, enable_k, enable_v = enable_lora
             self.kv_embd_size = self.linear.in_features // (n_head // n_query_groups)
             # qkv_shapes will be used to split a tensor with weights correctly
-            qkv_shapes = (self.linear.in_features * enable_q, self.kv_embd_size * enable_k, self.kv_embd_size * enable_v)
+            qkv_shapes = (
+                self.linear.in_features * enable_q,
+                self.kv_embd_size * enable_k,
+                self.kv_embd_size * enable_v,
+            )
             self.qkv_shapes = [s for s in qkv_shapes if s]
             self.lora_B = nn.Parameter(self.linear.weight.new_zeros(sum(self.qkv_shapes), r))  # (256, 2))
             # Notes about shapes above

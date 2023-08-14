@@ -229,7 +229,7 @@ def test_lora_linear_utilization(apply_to, target_layer_names, mlp_class_name):
         dropout=0.1,
         _mlp_class=mlp_class_name,
         intermediate_size=8 * 3,
-        **{apply_to: True}
+        **{apply_to: True},
     )
     model = GPT(config)
     state_dict = model.state_dict()
@@ -308,12 +308,13 @@ def test_lora_gpt_query_groups_merge_and_forward_no_exception(n_query_groups, ap
 )
 def test_lora_qkv_linear_compare_conv1d(n_head, enable_lora):
     from torch.nn import functional as F
+
     from lit_gpt.lora import LoRAQKVLinear
 
     C = 12
     layer = LoRAQKVLinear(C, 3 * C, n_head=n_head, n_query_groups=n_head, r=2, enable_lora=enable_lora)
     x = torch.randn((1, 1, C))
-    a = F.linear(x, layer.lora_A).transpose(-2, -1) # after_A
+    a = F.linear(x, layer.lora_A).transpose(-2, -1)  # after_A
     b = layer.lora_B.data.unsqueeze(-1)
 
     # original PyTorch conv1d function output
