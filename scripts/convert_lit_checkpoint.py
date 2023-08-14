@@ -3,7 +3,7 @@ import gc
 import sys
 from functools import partial
 from pathlib import Path
-from typing import Optional, Literal, Dict, Union
+from typing import Dict, Literal, Optional, Union
 
 import torch
 
@@ -12,8 +12,8 @@ wd = Path(__file__).parent.parent.resolve()
 sys.path.append(str(wd))
 
 from lit_gpt import Config
-from lit_gpt.utils import lazy_load, incremental_save, NotYetLoadedTensor
-from scripts.convert_hf_checkpoint import load_param, layer_template
+from lit_gpt.utils import NotYetLoadedTensor, incremental_save, lazy_load
+from scripts.convert_hf_checkpoint import layer_template, load_param
 
 
 def copy_weights_falcon(
@@ -200,11 +200,9 @@ def maybe_unwrap_state_dict(lit_weights: Dict[str, torch.Tensor]) -> Dict[str, t
 def convert_lit_checkpoint(
     *,
     checkpoint_name: str,
-    checkpoint_dir: Path = Path("checkpoints/tiiuae/falcon-7b"),
-    model_name: Optional[str] = None,
+    out_dir: Path,
+    model_name: str,
 ) -> None:
-    if model_name is None:
-        model_name = checkpoint_dir.name
     config = Config.from_name(model_name)
 
     if "falcon" in model_name:
@@ -219,7 +217,7 @@ def convert_lit_checkpoint(
 
     # checkpoint_name cannot be hardcoded because there exists different outputs such as
     # ("lit_model_finetuned.pth", "lit_model_lora_finetuned.pth", "lit_model_adapter_finetuned.pth"")
-    pth_file = checkpoint_dir / checkpoint_name
+    pth_file = out_dir / checkpoint_name
     bin_file = pth_file.with_suffix(".bin")
 
     with incremental_save(bin_file) as saver:

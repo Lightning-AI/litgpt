@@ -43,7 +43,7 @@ two matrices of a lower rank.
 
 import math
 from dataclasses import dataclass
-from typing import Optional, Tuple, Any, List, Type, Union
+from typing import Any, List, Optional, Tuple, Type, Union
 
 import torch
 import torch.nn as nn
@@ -52,13 +52,10 @@ from typing_extensions import Self
 
 import lit_gpt
 from lit_gpt.config import Config as BaseConfig
-from lit_gpt.model import (
-    GPT as BaseModel,
-    Block as BaseBlock,
-    CausalSelfAttention as BaseCausalSelfAttention,
-    RoPECache,
-    KVCache,
-)
+from lit_gpt.model import GPT as BaseModel
+from lit_gpt.model import Block as BaseBlock
+from lit_gpt.model import CausalSelfAttention as BaseCausalSelfAttention
+from lit_gpt.model import KVCache, RoPECache
 
 
 class LoRALayer(nn.Module):
@@ -148,9 +145,7 @@ class LoRALinear(LoRALayer):
         # otherwise in addition do the forward pass with LoRA weights and add it's output to the output from pretrained weights
         result = self.linear(x)
         if self.r > 0 and not self.merged:
-            result += (
-                self.lora_dropout(x) @ self.lora_A.transpose(0, 1) @ self.lora_B.transpose(0, 1)
-            ) * self.scaling
+            result += (self.lora_dropout(x) @ self.lora_A.transpose(0, 1) @ self.lora_B.transpose(0, 1)) * self.scaling
         return result
 
 
@@ -195,6 +190,8 @@ class LoRAQKVLinear(LoRALinear):
         """
         super(LoRALinear, self).__init__(r=r, lora_alpha=lora_alpha, lora_dropout=lora_dropout)
         self.linear = torch.nn.Linear(in_features, out_features, **kwargs)
+        self.n_head = n_head
+        self.n_query_groups = n_query_groups
         if isinstance(enable_lora, bool):
             enable_lora = [enable_lora] * 3
         assert len(enable_lora) == 3
@@ -210,8 +207,14 @@ class LoRAQKVLinear(LoRALinear):
             self.lora_A = nn.Parameter(self.linear.weight.new_zeros((r * sum(enable_lora), in_features)))  # (4, 128)
             enable_q, enable_k, enable_v = enable_lora
             self.kv_embd_size = self.linear.in_features // (n_head // n_query_groups)
-            shape = self.linear.in_features * enable_q + self.kv_embd_size * enable_k + self.kv_embd_size * enable_v
-            self.lora_B = nn.Parameter(self.linear.weight.new_zeros(shape, r))  # (256, 2))
+            # qkv_shapes will be used to split a tensor with weights correctly
+            qkv_shapes = (
+                self.linear.in_features * enable_q,
+                self.kv_embd_size * enable_k,
+                self.kv_embd_size * enable_v,
+            )
+            self.qkv_shapes = [s for s in qkv_shapes if s]
+            self.lora_B = nn.Parameter(self.linear.weight.new_zeros(sum(self.qkv_shapes), r))  # (256, 2))
             # Notes about shapes above
             # - self.lora_A has shape (4, 128): 4 because rank is 2 and LoRA is applied only to two matrices;
             # 128 is the input size of the x (embedding size). (4, 128) and not (128, 4) because later on in
@@ -289,10 +292,45 @@ class LoRAQKVLinear(LoRALinear):
         x = x.transpose(0, 1)
         result = x.new_zeros((*x.shape[:-1], self.linear.out_features))  # (64, 64, 384)
         result = result.view(-1, self.linear.out_features)  # (4096, 384)
-        enable_q, enable_k, enable_v = self.enable_lora
-        shape = self.linear.in_features * enable_q + self.kv_embd_size * enable_k + self.kv_embd_size * enable_v
-        result = result.index_copy(1, torch.tensor(self.lora_ind, device=result.device), x.reshape(-1, shape)) # (4096, 256)
+        result = result.index_copy(
+            1, torch.tensor(self.lora_ind, device=result.device), x.reshape(-1, sum(self.qkv_shapes))
+        )  # (4096, 256)
         return result.view((*x.shape[:-1], self.linear.out_features)).transpose(0, 1)  # (64, 64, 384)
+
+    def conv1d(self, input: torch.Tensor, weight: torch.Tensor) -> torch.Tensor:
+        """An extension of the `torch.nn.functional.conv1d` function with a logic specific to grouped queries.
+
+        If the number of heads is equal to the number of query groups - grouped queries are disabled
+        (see scheme in `lit_gpt/config.py:Config`). In this case the combined QKV matrix consists of equally sized
+        query, key and value parts, which means we can utilize `groups` argument from `conv1d`: with this argument the
+        input and weight matrices will be splitted in equally sized parts and applied separately (like having multiple
+        conv layers side by side).
+
+        Otherwise QKV matrix consists of unequally sized parts and thus we have to split input and weight matrices manually,
+        apply each part of the weight matrix to the corresponding input's part and concatenate the result.
+
+        Args:
+            input: input matrix of shape (B, C, T)
+            weight: weight matrix of shape (C_output, rank, 1).
+                "C_output" is defined as a sum of embedding sizes for each enabled LoRA layer (see init method of the class).
+
+        Returns:
+            A tensor with a shape (B, C_output, T)
+
+        """
+        if self.n_head == self.n_query_groups:
+            return F.conv1d(input, weight, groups=sum(self.enable_lora))  # (B, C_output, T)
+
+        # Notation:
+        # ⚬ N: number of enabled LoRA layers (self.enable_lora)
+        # ⚬ C_output': embeddings size for each LoRA layer (not equal in size)
+        # ⚬ r: rank of all LoRA layers (equal in size)
+
+        input_splitted = input.chunk(sum(self.enable_lora), dim=1)  # N * (B, C // N, T)
+        weight_splitted = weight.split(self.qkv_shapes)  # N * (C_output', r, 1)
+        return torch.cat(
+            [F.conv1d(a, b) for a, b in zip(input_splitted, weight_splitted)], dim=1  # (B, C_output', T)
+        )  # (B, C_output, T)
 
     def merge(self):
         """Merges the LoRA weights into the full-rank weights (W = W + delta_W)."""
@@ -302,11 +340,12 @@ class LoRAQKVLinear(LoRALinear):
         # ⚬ self.lora_A.data: (4, 128)
         # ⚬ self.lora_B.data: (256, 2)
         if self.r > 0 and any(self.enable_lora) and not self.merged:
-            delta_w = F.conv1d(
+            delta_w = self.conv1d(
                 self.lora_A.data.unsqueeze(0),  # (4, 128) -> (1, 4, 128)
                 self.lora_B.data.unsqueeze(-1),  # (256, 2) -> (256, 2, 1)
-                groups=sum(self.enable_lora),
-            ).squeeze(0)  # (1, 4, 128) @ (256, 2, 1) -> (1, 256, 128) -> (256, 128)
+            ).squeeze(
+                0
+            )  # (1, 4, 128) @ (256, 2, 1) -> (1, 256, 128) -> (256, 128)
             # W = W + delta_W (merge)
             self.linear.weight.data += self.zero_pad(delta_w * self.scaling)  # (256, 128) after zero_pad (384, 128)
             self.merged = True
@@ -340,12 +379,14 @@ class LoRAQKVLinear(LoRALinear):
             # ⚬ weight: filters of shape (out_channels, in_channels/groups, kW)
             # ⚬ groups: split input into groups, in_channels should be divisible by the number of groups. Default: 1
             # presumably iW - sequence width/length, kW - kernel width
-            after_B = F.conv1d(
+            after_B = self.conv1d(
                 after_A.transpose(-2, -1),  # (64, 64, 4) -> (64, 4, 64)
                 self.lora_B.unsqueeze(-1),  # (256, 2) -> (256, 2, 1)
-                groups=sum(self.enable_lora),
-            ).transpose(-2, -1)  # (64, 4, 64) @ (256, 2, 1) -> (64, 256, 64) -> (64, 64, 256)
+            ).transpose(
+                -2, -1
+            )  # (64, 4, 64) @ (256, 2, 1) -> (64, 256, 64) -> (64, 64, 256)
             result += self.zero_pad(after_B) * self.scaling  # (64, 64, 256) after zero_pad (64, 64, 384)
+
         return result
 
 

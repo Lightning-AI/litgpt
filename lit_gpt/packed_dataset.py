@@ -3,13 +3,12 @@
 
 
 import os
-import struct
 import random
+import struct
 
 import numpy as np
 import torch
 from torch.utils.data import IterableDataset, get_worker_info
-
 
 dtypes = {1: np.uint8, 2: np.int8, 3: np.int16, 4: np.int32, 5: np.int64, 6: np.float32, 7: np.float64, 8: np.uint16}
 

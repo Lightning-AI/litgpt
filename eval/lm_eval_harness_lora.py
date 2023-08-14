@@ -14,12 +14,12 @@ from lm_eval.base import BaseLM
 # support running without installing as a package
 wd = Path(__file__).parent.parent.resolve()
 sys.path.append(str(wd))
+from lm_eval_harness import EvalHarnessAdapter
+
 from lit_gpt import Tokenizer
 from lit_gpt.lora import GPT, Block, Config, merge_lora_weights
 from lit_gpt.utils import check_valid_checkpoint_dir, lazy_load, quantization
 from scripts.prepare_alpaca import generate_prompt
-
-from lm_eval_harness import EvalHarnessAdapter
 
 lora_r = 8
 lora_alpha = 16
@@ -44,10 +44,7 @@ class EvalHarnessLoRA(EvalHarnessAdapter):
         device="auto",
         devices: int = 1,
         strategy: str = "auto",
-        quantize: Literal[
-            "bnb.nf4", "bnb.nf4-dq", "bnb.fp4", "bnb.fp4-dq", "bnb.int8", "gptq.int4"
-        ]
-        | None = None,
+        quantize: Literal["bnb.nf4", "bnb.nf4-dq", "bnb.fp4", "bnb.fp4-dq", "bnb.int8", "gptq.int4"] | None = None,
     ):
         super(BaseLM, self).__init__()
         assert os.path.exists(lora_path)
@@ -60,9 +57,7 @@ class EvalHarnessLoRA(EvalHarnessAdapter):
 
         if strategy == "fsdp":
             strategy = FSDPStrategy(auto_wrap_policy={Block}, cpu_offload=False)
-        fabric = L.Fabric(
-            devices=devices, accelerator=device, precision=precision, strategy=strategy
-        )
+        fabric = L.Fabric(devices=devices, accelerator=device, precision=precision, strategy=strategy)
         fabric.launch()
 
         check_valid_checkpoint_dir(checkpoint_dir)
@@ -92,28 +87,17 @@ class EvalHarnessLoRA(EvalHarnessAdapter):
             model_file = "lit_model.pth"
         checkpoint_path = checkpoint_dir / model_file
 
-        fabric.print(
-            f"Loading model {str(checkpoint_path)!r} with {config.__dict__}",
-            file=sys.stderr,
-        )
+        fabric.print(f"Loading model {str(checkpoint_path)!r} with {config.__dict__}", file=sys.stderr)
         t0 = time.time()
         with fabric.init_module(empty_init=True), quantization(quantize):
             model = GPT(config)
-        fabric.print(
-            f"Time to instantiate model: {time.time() - t0:.02f} seconds.",
-            file=sys.stderr,
-        )
+        fabric.print(f"Time to instantiate model: {time.time() - t0:.02f} seconds.", file=sys.stderr)
 
         t0 = time.time()
-        with lazy_load(checkpoint_path) as checkpoint, lazy_load(
-            lora_path
-        ) as lora_checkpoint:
+        with lazy_load(checkpoint_path) as checkpoint, lazy_load(lora_path) as lora_checkpoint:
             checkpoint.update(lora_checkpoint.get("model", lora_checkpoint))
             model.load_state_dict(checkpoint, strict=quantize is None)
-        fabric.print(
-            f"Time to load the model weights: {time.time() - t0:.02f} seconds.",
-            file=sys.stderr,
-        )
+        fabric.print(f"Time to load the model weights: {time.time() - t0:.02f} seconds.", file=sys.stderr)
 
         model.eval()
         merge_lora_weights(model)
@@ -143,16 +127,7 @@ def run_eval_harness(
     device="auto",
     devices: int = 1,
     strategy: str = "auto",
-    quantize: Optional[
-        Literal[
-            "bnb.nf4",
-            "bnb.nf4-dq",
-            "bnb.fp4",
-            "bnb.fp4-dq",
-            "bnb.int8",
-            "gptq.int4",
-        ]
-    ] = None,
+    quantize: Optional[Literal["bnb.nf4", "bnb.nf4-dq", "bnb.fp4", "bnb.fp4-dq", "bnb.int8", "gptq.int4"]] = None,
     save_filepath: Optional[str] = None,
 ):
     eval_harness = EvalHarnessLoRA(
@@ -169,10 +144,7 @@ def run_eval_harness(
     )
     eval_harness.fabric.print("Running evaluation harness...")
     results = eval_harness.run_eval(
-        eval_tasks=eval_tasks,
-        num_fewshot=num_fewshot,
-        bootstrap_iters=bootstrap_iters,
-        use_cache=False,
+        eval_tasks=eval_tasks, num_fewshot=num_fewshot, bootstrap_iters=bootstrap_iters, use_cache=False
     )
     if save_filepath:
         data = json.dumps(results)

@@ -7,8 +7,8 @@ from typing import Optional, Union
 import lightning as L
 import numpy as np
 import torch
-from torch.utils.data import DataLoader, IterableDataset
 from lightning.fabric.strategies import FSDPStrategy, XLAStrategy
+from torch.utils.data import DataLoader, IterableDataset
 
 # support running without installing as a package
 wd = Path(__file__).parent.parent.resolve()
@@ -16,8 +16,9 @@ sys.path.append(str(wd))
 
 from lit_gpt import Config
 from lit_gpt.model import GPT, Block
-from lit_gpt.speed_monitor import SpeedMonitorFabric as SpeedMonitor, measure_flops, estimate_flops
-from lit_gpt.utils import num_parameters, step_csv_logger, chunked_cross_entropy
+from lit_gpt.speed_monitor import SpeedMonitorFabric as SpeedMonitor
+from lit_gpt.speed_monitor import estimate_flops, measure_flops
+from lit_gpt.utils import chunked_cross_entropy, num_parameters, step_csv_logger
 
 model_name = "pythia-70m"
 name = "openwebtext"
@@ -97,7 +98,6 @@ def main(fabric, resume) -> None:
         model.parameters(), lr=learning_rate, weight_decay=weight_decay, betas=(beta1, beta2), foreach=False
     )
     optimizer = fabric.setup_optimizers(optimizer)
-
 
     train_data, val_data = load_datasets(data_dir, block_size=model.config.block_size)
     train_dataloader = DataLoader(train_data, batch_size=micro_batch_size, num_workers=2)
