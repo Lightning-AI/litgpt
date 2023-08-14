@@ -264,15 +264,8 @@ def test_lora_gpt_apply_lora_forward_no_exception(apply_to):
 
 
 @torch.inference_mode()
-@pytest.mark.parametrize(
-    ("n_query_groups", "apply_to"),
-    list(
-        product(
-            (1, 2, 3, 6),
-            product((False, True), repeat=3),
-        ),
-    ),
-)
+@pytest.mark.parametrize("n_query_groups", (1, 2, 3, 6))
+@pytest.mark.parametrize("apply_to", product((False, True), repeat=3))
 def test_lora_gpt_query_groups_merge_and_forward_no_exception(n_query_groups, apply_to):
     from lit_gpt.lora import GPT, Config, merge_lora_weights
 
@@ -299,14 +292,18 @@ def test_lora_gpt_query_groups_merge_and_forward_no_exception(n_query_groups, ap
 
 
 @torch.inference_mode()
+@pytest.mark.parametrize("n_head", (1, 2, 3, 6, 12))
 @pytest.mark.parametrize(
-    ("n_head", "enable_lora"),
-    list(
-        product(
-            (1, 2, 3, 6, 12),
-            [p for p in product((False, True), repeat=3) if any(p)] # skip enable_lora=(False, False, False)
-        ),
-    ),
+    "enable_lora",
+    [
+        (False, False, True),
+        (False, True, False),
+        (False, True, True),
+        (True, False, False),
+        (True, False, True),
+        (True, True, False),
+        (True, True, True),
+    ],
 )
 def test_lora_qkv_linear_compare_conv1d(n_head, enable_lora):
     from torch.nn import functional as F
