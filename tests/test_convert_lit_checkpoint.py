@@ -218,16 +218,24 @@ def test_maybe_raise_finetune_warning_adapter(tmp_path):
 def test_maybe_raise_finetune_warning_adapter_v2(tmp_path):
     from lit_gpt.adapter import Config
     from lit_gpt.adapter_v2 import GPT
-    from finetune.adapter_v2 import save_adapter_v2_checkpoint
+    from finetune.adapter_v2 import save_adapter_v2_checkpoint, add_adapter_v2_parameters_to_linear_layers
     from scripts.convert_lit_checkpoint import convert_lit_checkpoint
 
     # fabric is needed for finetune.full::save_checkpoint
     fabric = L.Fabric(devices=1)
 
     model_name = "Llama-2-7b-hf"
-    ours_config = Config.from_name(model_name, block_size=8, n_layer=2, n_embd=32, n_head=2, padding_multiple=128)
+    ours_config = Config.from_name(
+        model_name,
+        adapter_start_layer=0,
+        block_size=8,
+        n_layer=2,
+        n_embd=32,
+        n_head=2,
+        padding_multiple=128,
+    )
     ours_model = GPT(ours_config)
-    ours_model.adapter_bias = torch.nn.Parameter()
+    add_adapter_v2_parameters_to_linear_layers(ours_model)
 
     ckpt_path = tmp_path / "lit_model_adapter_v2.pth"
 
@@ -258,7 +266,6 @@ def test_maybe_raise_finetune_warning_lora(tmp_path):
         padding_multiple=128,
     )
     ours_model = GPT(ours_config)
-    print(ours_model.state_dict().keys())
 
     ckpt_path = tmp_path / "lit_model_lora.pth"
 
