@@ -193,28 +193,6 @@ def test_maybe_unwrap_state_dict(tmp_path):
     maybe_unwrap.assert_called()
 
 
-def test_maybe_raise_finetune_warning_lora(tmp_path):
-    from lit_gpt.lora import GPT, Config
-    from finetune.lora import save_lora_checkpoint
-    from scripts.convert_lit_checkpoint import convert_lit_checkpoint
-
-    # fabric is needed for finetune.full::save_checkpoint
-    fabric = L.Fabric(devices=1)
-
-    model_name = "Llama-2-7b-hf"
-    ours_config = Config.from_name(model_name, block_size=8, n_layer=2, n_embd=32, n_head=2, padding_multiple=128)
-    ours_model = GPT(ours_config)
-    ours_model.lora_A = torch.nn.Parameter()
-
-    ckpt_path = tmp_path / "lit_model.pth"
-
-    # save checkpoint to avoid RunTimeError for PytorchStreamReader
-    save_lora_checkpoint(fabric, ours_model, ckpt_path)
-
-    with pytest.raises(Exception, match=r"Converting models finetuned with *"):
-        convert_lit_checkpoint(checkpoint_name=ckpt_path.name, checkpoint_dir=ckpt_path.parent, model_name=model_name)
-
-
 def test_maybe_raise_finetune_warning_adapter(tmp_path):
     from lit_gpt.adapter import GPT, Config
     from finetune.adapter import save_adapter_checkpoint
@@ -228,18 +206,16 @@ def test_maybe_raise_finetune_warning_adapter(tmp_path):
     ours_model = GPT(ours_config)
     ours_model.gating_factor = torch.nn.Parameter()
 
-    ckpt_path = tmp_path / "lit_model.pth"
+    ckpt_path = tmp_path / "lit_model_adapter.pth"
 
     # save checkpoint to avoid RunTimeError for PytorchStreamReader
     save_adapter_checkpoint(fabric, ours_model, ckpt_path)
 
-    with pytest.raises(Exception, match="Converting models finetuned with adapter *"):
-        convert_lit_checkpoint(checkpoint_name=ckpt_path.name, checkpoint_dir=ckpt_path.parent, model_name=model_name)
+    with pytest.raises(NotImplementedError, match="Converting models finetuned with adapter *"):
+        convert_lit_checkpoint(checkpoint_name=ckpt_path.name, out_dir=ckpt_path.parent, model_name=model_name)
 
 
 def test_maybe_raise_finetune_warning_adapter_v2(tmp_path):
-    # same config as adapter is required
-    # lit_gpt.config.Config will throw AttributeError for no 'adapter_start_layer'
     from lit_gpt.adapter import Config
     from lit_gpt.adapter_v2 import GPT
     from finetune.adapter_v2 import save_adapter_v2_checkpoint
@@ -253,10 +229,41 @@ def test_maybe_raise_finetune_warning_adapter_v2(tmp_path):
     ours_model = GPT(ours_config)
     ours_model.adapter_bias = torch.nn.Parameter()
 
-    ckpt_path = tmp_path / "lit_model.pth"
+    ckpt_path = tmp_path / "lit_model_adapter_v2.pth"
 
     # save checkpoint to avoid RunTimeError for PytorchStreamReader
     save_adapter_v2_checkpoint(fabric, ours_model, ckpt_path)
 
-    with pytest.raises(Exception, match="Converting models finetuned with adapter *"):
-        convert_lit_checkpoint(checkpoint_name=ckpt_path.name, checkpoint_dir=ckpt_path.parent, model_name=model_name)
+    with pytest.raises(NotImplementedError, match="Converting models finetuned with adapter_v2"):
+        convert_lit_checkpoint(checkpoint_name=ckpt_path.name, out_dir=ckpt_path.parent, model_name=model_name)
+
+
+def test_maybe_raise_finetune_warning_lora(tmp_path):
+    from lit_gpt.lora import GPT, Config
+    from finetune.lora import save_lora_checkpoint
+    from scripts.convert_lit_checkpoint import convert_lit_checkpoint
+
+    # fabric is needed for finetune.full::save_checkpoint
+    fabric = L.Fabric(devices=1)
+
+    model_name = "Llama-2-7b-hf"
+    ours_config = Config.from_name(
+        model_name,
+        r=1,
+        to_mlp=True,
+        block_size=8,
+        n_layer=2,
+        n_embd=32,
+        n_head=2,
+        padding_multiple=128,
+    )
+    ours_model = GPT(ours_config)
+    print(ours_model.state_dict().keys())
+
+    ckpt_path = tmp_path / "lit_model_lora.pth"
+
+    # save checkpoint to avoid RunTimeError for PytorchStreamReader
+    save_lora_checkpoint(fabric, ours_model, ckpt_path)
+
+    with pytest.raises(NotImplementedError, match=r"Converting models finetuned with LoRA *"):
+        convert_lit_checkpoint(checkpoint_name=ckpt_path.name, out_dir=ckpt_path.parent, model_name=model_name)
