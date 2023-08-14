@@ -146,18 +146,18 @@ def main(devices: int = 1, precision: Optional[str] = None, tpu: bool = False) -
 
     config = Config.from_name(model_name)
     trainer.print(f"Loading model with {config.__dict__}")
-    t0 = time.time()
+    t0 = time.perf_counter()
     model = LightningGPTModule(config)
-    trainer.print(f"Time to instantiate model: {time.time() - t0:.02f} seconds.")
+    trainer.print(f"Time to instantiate model: {time.perf_counter() - t0:.02f} seconds.")
 
     train_data = Dataset(str(data_dir / "train.bin"), config.block_size)
     val_data = Dataset(str(data_dir / "val.bin"), config.block_size)
     train_dataloader = DataLoader(train_data, batch_size=micro_batch_size, num_workers=2)
     val_dataloader = DataLoader(val_data, batch_size=micro_batch_size, num_workers=2)
 
-    t0 = time.time()
+    t0 = time.perf_counter()
     trainer.fit(model, train_dataloader, val_dataloader, ckpt_path="last")
-    trainer.print(f"Training time: {(time.time()-t0):.2f}s")
+    trainer.print(f"Training time: {(time.perf_counter()-t0):.2f}s")
 
 
 class Dataset(IterableDataset):

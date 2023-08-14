@@ -99,16 +99,16 @@ def main(
     checkpoint_path = checkpoint_dir / model_file
 
     fabric.print(f"Loading model {str(checkpoint_path)!r} with {config.__dict__}", file=sys.stderr)
-    t0 = time.time()
+    t0 = time.perf_counter()
     with fabric.init_module(empty_init=True), quantization(quantize):
         model = GPT(config)
-    fabric.print(f"Time to instantiate model: {time.time() - t0:.02f} seconds.", file=sys.stderr)
+    fabric.print(f"Time to instantiate model: {time.perf_counter() - t0:.02f} seconds.", file=sys.stderr)
 
-    t0 = time.time()
+    t0 = time.perf_counter()
     with lazy_load(checkpoint_path) as checkpoint, lazy_load(lora_path) as lora_checkpoint:
         checkpoint.update(lora_checkpoint.get("model", lora_checkpoint))
         model.load_state_dict(checkpoint, strict=quantize is None)
-    fabric.print(f"Time to load the model weights: {time.time() - t0:.02f} seconds.", file=sys.stderr)
+    fabric.print(f"Time to load the model weights: {time.perf_counter() - t0:.02f} seconds.", file=sys.stderr)
 
     model.eval()
     merge_lora_weights(model)
