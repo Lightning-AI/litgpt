@@ -71,6 +71,7 @@ class LoRALayer(nn.Module):
             lora_dropout: dropout that is applied on the input in the LoRA branch (before multiplying by matrix A)
         """
         super().__init__()
+        assert r >= 0
         self.r = r
         self.lora_alpha = lora_alpha
         # Optional dropout
@@ -121,9 +122,7 @@ class LoRALinear(LoRALayer):
             self.lora_A = nn.Parameter(self.linear.weight.new_zeros((r, in_features)))
             self.lora_B = nn.Parameter(self.linear.weight.new_zeros((out_features, r)))
             self.scaling = self.lora_alpha / self.r
-            # Freezing the pre-trained weight matrix
-            self.linear.weight.requires_grad = False
-        self.reset_parameters()
+            self.reset_parameters()
 
     def reset_parameters(self):
         """Reset all the weights, even including pretrained ones."""
@@ -143,10 +142,11 @@ class LoRALinear(LoRALayer):
     def forward(self, x: torch.Tensor):
         # if weights are merged or rank is less or equal to zero (LoRA is disabled) - it's only a regular nn.Linear forward pass;
         # otherwise in addition do the forward pass with LoRA weights and add it's output to the output from pretrained weights
-        result = self.linear(x)
-        if self.r > 0 and not self.merged:
-            result += (self.lora_dropout(x) @ self.lora_A.transpose(0, 1) @ self.lora_B.transpose(0, 1)) * self.scaling
-        return result
+        pretrained = self.linear(x)
+        if self.r == 0 or self.merged:
+            return pretrained
+        lora = (self.lora_dropout(x) @ self.lora_A.transpose(0, 1) @ self.lora_B.transpose(0, 1)) * self.scaling
+        return pretrained + lora
 
 
 class LoRAQKVLinear(LoRALinear):
@@ -232,9 +232,6 @@ class LoRAQKVLinear(LoRALinear):
             # https://github.com/cloneofsimo/lora
             self.scaling = self.lora_alpha / self.r
 
-            # Freezing the pre-trained weight matrix
-            self.linear.weight.requires_grad = False  # (384, 128)
-
             # Compute the indices
             # Indices are needed to properly pad weight updates with zeros. If we want to fine-tune queries and values,
             # but not keys, then the weights update should be:
@@ -253,7 +250,7 @@ class LoRAQKVLinear(LoRALinear):
                 self.lora_ind.extend(range(self.linear.in_features, self.linear.in_features + self.kv_embd_size))
             if enable_v:
                 self.lora_ind.extend(range(self.linear.in_features + self.kv_embd_size, self.linear.out_features))
-        self.reset_parameters()
+            self.reset_parameters()
 
     def zero_pad(self, x: torch.Tensor) -> torch.Tensor:
         """Properly pad weight updates with zeros.
@@ -371,23 +368,21 @@ class LoRAQKVLinear(LoRALinear):
 
         # if weights are merged or LoRA is disabled (r <= 0 or all `enable_lora` are False) - it's only a regular nn.Linear forward pass;
         # otherwise in addition do the forward pass with LoRA weights and add it's output to the output from pretrained weights
-        result = self.linear(x)
-        if self.r > 0 and any(self.enable_lora) and not self.merged:
-            after_A = F.linear(self.lora_dropout(x), self.lora_A)  # (64, 64, 128) @ (4, 128) -> (64, 64, 4)
-            # For F.conv1d:
-            # ⚬ input: input tensor of shape (mini-batch, in_channels, iW)
-            # ⚬ weight: filters of shape (out_channels, in_channels/groups, kW)
-            # ⚬ groups: split input into groups, in_channels should be divisible by the number of groups. Default: 1
-            # presumably iW - sequence width/length, kW - kernel width
-            after_B = self.conv1d(
-                after_A.transpose(-2, -1),  # (64, 64, 4) -> (64, 4, 64)
-                self.lora_B.unsqueeze(-1),  # (256, 2) -> (256, 2, 1)
-            ).transpose(
-                -2, -1
-            )  # (64, 4, 64) @ (256, 2, 1) -> (64, 256, 64) -> (64, 64, 256)
-            result += self.zero_pad(after_B) * self.scaling  # (64, 64, 256) after zero_pad (64, 64, 384)
-
-        return result
+        pretrained = self.linear(x)
+        if self.r == 0 or not any(self.enable_lora) or self.merged:
+            return pretrained
+        after_A = F.linear(self.lora_dropout(x), self.lora_A)  # (64, 64, 128) @ (4, 128) -> (64, 64, 4)
+        # For F.conv1d:
+        # ⚬ input: input tensor of shape (mini-batch, in_channels, iW)
+        # ⚬ weight: filters of shape (out_channels, in_channels/groups, kW)
+        after_B = self.conv1d(
+            after_A.transpose(-2, -1),  # (64, 64, 4) -> (64, 4, 64)
+            self.lora_B.unsqueeze(-1),  # (256, 2) -> (256, 2, 1)
+        ).transpose(
+            -2, -1
+        )  # (64, 4, 64) @ (256, 2, 1) -> (64, 256, 64) -> (64, 64, 256)
+        lora = self.zero_pad(after_B) * self.scaling  # (64, 64, 256) after zero_pad (64, 64, 384)
+        return pretrained + lora
 
 
 def mark_only_lora_as_trainable(model: nn.Module, bias: str = "none") -> None:
@@ -542,6 +537,12 @@ class GPT(BaseModel):
     @classmethod
     def from_name(cls, name: str, **kwargs: Any) -> Self:
         return cls(Config.from_name(name, **kwargs))
+
+    def _init_weights(self, module: nn.Module) -> None:
+        """Meant to be used with `gpt.apply(gpt._init_weights)`. Unused method left for completeness."""
+        super()._init_weights(module)
+        if isinstance(module, LoRALinear):
+            module.reset_parameters()
 
 
 class Block(BaseBlock):

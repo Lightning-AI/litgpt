@@ -15,7 +15,7 @@ sys.path.append(str(wd))
 from generate.base import generate
 from lit_gpt.lora import GPT, Block, Config, lora_filter, mark_only_lora_as_trainable
 from lit_gpt.speed_monitor import SpeedMonitorFabric as SpeedMonitor
-from lit_gpt.speed_monitor import estimate_flops, measure_flops
+from lit_gpt.speed_monitor import measure_flops
 from lit_gpt.tokenizer import Tokenizer
 from lit_gpt.utils import lazy_load, num_parameters, check_valid_checkpoint_dir, step_csv_logger, chunked_cross_entropy, quantization
 from lit_gpt.speed_monitor import SpeedMonitorFabric as SpeedMonitor, measure_flops, estimate_flops
@@ -119,7 +119,6 @@ def main(fabric: L.Fabric, data_dir: Path, checkpoint_dir: Path, out_dir: Path, 
     fabric.print(f"Loading model {str(checkpoint_path)!r} with {config.__dict__}")
     with fabric.init_module(empty_init=False), quantization(quantize):
         model = GPT(config)
-        model.apply(model._init_weights)  # for the LoRA weights
     with lazy_load(checkpoint_path) as checkpoint:
         # strict=False because missing keys due to LoRA weights not contained in state dict
         model.load_state_dict(checkpoint, strict=False)
@@ -139,9 +138,11 @@ def main(fabric: L.Fabric, data_dir: Path, checkpoint_dir: Path, out_dir: Path, 
 
     fabric.seed_everything(1337 + fabric.global_rank)
 
-    train_time = time.time()
+    train_time = time.perf_counter()
     train(fabric, model, optimizer, train_data, val_data, checkpoint_dir, out_dir, speed_monitor)
-    fabric.print(f"Training time: {(time.time()-train_time):.2f}s")
+    fabric.print(f"Training time: {(time.perf_counter()-train_time):.2f}s")
+    if fabric.device.type == "cuda":
+        fabric.print(f"Memory used: {torch.cuda.max_memory_allocated() / 1e9:.02f} GB")
 
     # Save the final LoRA checkpoint at the end of training
     save_path = out_dir / "lit_model_lora_finetuned.pth"
@@ -165,17 +166,17 @@ def train(
 
     with torch.device("meta"):
         meta_model = GPT(model.config)
-        # estimated is too much of an optimistic estimate, left just for reference
-        estimated_flops = estimate_flops(meta_model) * micro_batch_size
-        fabric.print(f"Estimated TFLOPs: {estimated_flops * fabric.world_size / 1e12:.2f}")
-        x = torch.randint(0, 1, (micro_batch_size, model.config.block_size))
+        # estimated flops doesn't account for frozen weights, so it's not reported
+        mark_only_lora_as_trainable(meta_model)
+        # TODO: this assumes that samples have a fixed length which is most likely false during finetuning
+        x = torch.randint(0, 1, (micro_batch_size, longest_seq_length))
         measured_flops = measure_flops(meta_model, x)
         fabric.print(f"Measured TFLOPs: {measured_flops * fabric.world_size / 1e12:.2f}")
         del meta_model, x
 
     step_count = 0
     total_lengths = 0
-    total_t0 = time.time()
+    total_t0 = time.perf_counter()
 
     if fabric.device.type == "xla":
         import torch_xla.core.xla_model as xm
@@ -188,7 +189,7 @@ def train(
             for param_group in optimizer.param_groups:
                 param_group["lr"] = lr
 
-        iter_t0 = time.time()
+        iter_t0 = time.perf_counter()
 
         input_ids, targets = get_batch(
             fabric, train_data, longest_seq_length, longest_seq_ix if iter_num == 0 else None
@@ -209,7 +210,7 @@ def train(
         elif fabric.device.type == "xla":
             xm.mark_step()
 
-        t1 = time.time()
+        t1 = time.perf_counter()
         total_lengths += input_ids.size(1)
         speed_monitor.on_train_batch_end(
             (iter_num + 1) * micro_batch_size,
@@ -226,19 +227,15 @@ def train(
             )
 
         if not is_accumulating and step_count % eval_interval == 0:
-            t0 = time.time()
+            t0 = time.perf_counter()
             val_loss = validate(fabric, model, val_data, tokenizer, longest_seq_length)
-            t1 = time.time() - t0
+            t1 = time.perf_counter() - t0
             speed_monitor.eval_end(t1)
             fabric.print(f"step {iter_num}: val loss {val_loss:.4f}, val time: {t1 * 1000:.2f}ms")
             fabric.barrier()
         if not is_accumulating and step_count % save_interval == 0:
             checkpoint_path = out_dir / f"iter-{iter_num:06d}-ckpt.pth"
             save_lora_checkpoint(fabric, model, checkpoint_path)
-
-    if fabric.device.type == "cuda":
-        fabric.print(f"Memory used: {torch.cuda.max_memory_allocated() / 1e9:.02f} GB")
-
 
 
 @torch.no_grad()

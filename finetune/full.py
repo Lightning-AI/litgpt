@@ -103,9 +103,11 @@ def main(fabric: L.Fabric, data_dir: Path, checkpoint_dir: Path, out_dir: Path):
 
     fabric.seed_everything(1337 + fabric.global_rank)
 
-    train_time = time.time()
+    train_time = time.perf_counter()
     train(fabric, model, optimizer, train_data, val_data, checkpoint_dir, out_dir, speed_monitor)
-    fabric.print(f"Training time: {(time.time()-train_time):.2f}s")
+    fabric.print(f"Training time: {(time.perf_counter()-train_time):.2f}s")
+    if fabric.device.type == "cuda":
+        fabric.print(f"Memory used: {torch.cuda.max_memory_allocated() / 1e9:.02f} GB")
 
     # Save the final checkpoint at the end of training
     save_path = out_dir / "lit_model_finetuned.pth"
@@ -132,14 +134,15 @@ def train(
         # estimated is too much of an optimistic estimate, left just for reference
         estimated_flops = estimate_flops(meta_model) * micro_batch_size
         fabric.print(f"Estimated TFLOPs: {estimated_flops * fabric.world_size / 1e12:.2f}")
-        x = torch.randint(0, 1, (micro_batch_size, model.config.block_size))
+        # TODO: this assumes that samples have a fixed length which is most likely false during finetuning
+        x = torch.randint(0, 1, (micro_batch_size, longest_seq_length))
         measured_flops = measure_flops(meta_model, x)
         fabric.print(f"Measured TFLOPs: {measured_flops * fabric.world_size / 1e12:.2f}")
         del meta_model, x
 
     step_count = 0
     total_lengths = 0
-    total_t0 = time.time()
+    total_t0 = time.perf_counter()
 
     if fabric.device.type == "xla":
         import torch_xla.core.xla_model as xm
@@ -152,7 +155,7 @@ def train(
             for param_group in optimizer.param_groups:
                 param_group["lr"] = lr
 
-        iter_t0 = time.time()
+        iter_t0 = time.perf_counter()
 
         input_ids, targets = get_batch(
             fabric, train_data, longest_seq_length, longest_seq_ix if iter_num == 0 else None
@@ -172,7 +175,7 @@ def train(
         elif fabric.device.type == "xla":
             xm.mark_step()
 
-        t1 = time.time()
+        t1 = time.perf_counter()
         total_lengths += input_ids.size(1)
         speed_monitor.on_train_batch_end(
             (iter_num + 1) * micro_batch_size,
@@ -189,9 +192,9 @@ def train(
             )
 
         if not is_accumulating and step_count % eval_interval == 0:
-            t0 = time.time()
+            t0 = time.perf_counter()
             val_loss = validate(fabric, model, val_data, tokenizer, longest_seq_length)
-            t1 = time.time() - t0
+            t1 = time.perf_counter() - t0
             speed_monitor.eval_end(t1)
             fabric.print(f"step {iter_num}: val loss {val_loss:.4f}, val time: {t1 * 1000:.2f}ms")
             fabric.barrier()
