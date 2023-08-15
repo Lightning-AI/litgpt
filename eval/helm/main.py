@@ -20,7 +20,7 @@ sys.path.append(str(wd))
 
 from lit_gpt.model import Block
 
-from .generate import generate
+from generate import generate
 
 torch.set_float32_matmul_precision("high")
 
