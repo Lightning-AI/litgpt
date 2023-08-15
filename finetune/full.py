@@ -179,15 +179,17 @@ def train(
         )
         if iter_num % log_interval == 0:
             fabric.print(
-                f"iter {iter_num} step {step_count}: loss {loss.item():.4f}, iter time:"
-                f" {(t1 - iter_t0) * 1000:.2f}ms{' (optimizer.step)' if not is_accumulating else ''}"
+                f"iter {iter_num} step {step_count}: loss {loss.item():.4f},"
+                f" iter_time: {(t1 - iter_t0) * 1000:.2f}ms{' (optimizer.step)' if not is_accumulating else ''},"
+                f" TFLOPs/device: {flops_per_batch / 1e12:.2f},"
+                f" Batch shape: {input_ids.shape}"
             )
 
         if not is_accumulating and step_count % eval_interval == 0:
             t0 = time.perf_counter()
             val_loss = validate(fabric, model, val_data, tokenizer, longest_seq_length)
             t1 = time.perf_counter() - t0
-            speed_monitor.eval_end(ts1)
+            speed_monitor.eval_end(t1)
             fabric.print(f"step {iter_num}: val loss {val_loss:.4f}, val time: {t1 * 1000:.2f}ms")
             fabric.barrier()
         if not is_accumulating and step_count % save_interval == 0:
