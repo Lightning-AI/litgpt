@@ -363,9 +363,9 @@ def test_lora_merge_with_quantize():
     if not _BITSANDBYTES_AVAILABLE:
         pytest.skip("BNB not available")
 
-    from quantize.bnb import bnb
-    from lit_gpt.lora import mark_only_lora_as_trainable, merge_lora_weights, GPT, Config
+    from lit_gpt.lora import GPT, Config, mark_only_lora_as_trainable, merge_lora_weights
     from lit_gpt.utils import quantization
+    from quantize.bnb import bnb
 
     config = Config(
         n_layer=1,
@@ -418,7 +418,7 @@ def test_lora_merge_with_quantize():
     delta_w = (b @ a) * scaling
     torch.testing.assert_close(weight_after, initial_weight + delta_w)
 
-    
+
 @pytest.mark.parametrize(
     ("mode", "expected"),
     (

@@ -2,7 +2,7 @@ import os
 import sys
 import time
 from pathlib import Path
-from typing import Optional, List, Dict, Tuple, Literal
+from typing import Dict, List, Literal, Optional, Tuple
 
 import lightning as L
 import torch
@@ -17,8 +17,14 @@ from lit_gpt.lora import GPT, Block, Config, lora_filter, mark_only_lora_as_trai
 from lit_gpt.speed_monitor import SpeedMonitorFabric as SpeedMonitor
 from lit_gpt.speed_monitor import measure_flops
 from lit_gpt.tokenizer import Tokenizer
-from lit_gpt.utils import lazy_load, num_parameters, check_valid_checkpoint_dir, step_csv_logger, chunked_cross_entropy, quantization
-from lit_gpt.speed_monitor import SpeedMonitorFabric as SpeedMonitor, measure_flops, estimate_flops
+from lit_gpt.utils import (
+    check_valid_checkpoint_dir,
+    chunked_cross_entropy,
+    lazy_load,
+    num_parameters,
+    quantization,
+    step_csv_logger,
+)
 from scripts.prepare_alpaca import generate_prompt
 
 eval_interval = 100
@@ -32,7 +38,7 @@ override_max_seq_length = None
 # Hyperparameters
 learning_rate = 3e-4
 batch_size = 128
-micro_batch_size = 1
+micro_batch_size = 4
 gradient_accumulation_iters = batch_size // micro_batch_size
 assert gradient_accumulation_iters > 0
 max_iters = 50000  # train dataset size
@@ -131,6 +137,7 @@ def main(fabric: L.Fabric, data_dir: Path, checkpoint_dir: Path, out_dir: Path, 
 
     if quantize and quantize.startswith("bnb."):
         import bitsandbytes as bnb
+
         optimizer = bnb.optim.PagedAdamW(trainable_params, lr=learning_rate, weight_decay=weight_decay)
     else:
         optimizer = torch.optim.AdamW(trainable_params, lr=learning_rate, weight_decay=weight_decay)
@@ -326,4 +333,3 @@ if __name__ == "__main__":
     from jsonargparse import CLI
 
     CLI(setup)
-
