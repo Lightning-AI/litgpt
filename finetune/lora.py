@@ -117,7 +117,6 @@ def main(fabric: L.Fabric, data_dir: Path, checkpoint_dir: Path, out_dir: Path):
 
     fabric.print(f"Number of trainable parameters: {num_parameters(model, requires_grad=True):,}")
     fabric.print(f"Number of non trainable parameters: {num_parameters(model, requires_grad=False):,}")
-    trainable_params = [p for p in model.parameters() if p.requires_grad]
 
     model = fabric.setup_module(model)
     params = [p for p in model.parameters() if p.requires_grad]
