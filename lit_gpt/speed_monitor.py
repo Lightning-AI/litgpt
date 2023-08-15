@@ -164,6 +164,15 @@ class SpeedMonitorBase:
     | `time/total`                        | Total elapsed time (time/train + time/val)                |
     +-------------------------------------+-----------------------------------------------------------+
 
+    Notes:
+        - The implementation assumes that devices are homogeneous as it normalizes by the world size.
+        - Tokens/sec, flops/sec and MFU do not account for padding tokens if present. We suggest using samples/sec or
+            batches/sec to measure throughput under this circumstance.
+        - Be careful when comparing MFU numbers across projects, as this will highly depend on the ``flops_per_batch``.
+            There is no widespread, realistic, and reliable implementation to compute them.
+            We suggest using our ``measure_flops`` function, but many other works will use ``estimated_flops`` which
+            will almost always be an overestimate when compared to the true value.
+
     Args:
         window_size (int, optional): Number of batches to use for a rolling average of throughput.
             Defaults to 100.
@@ -237,7 +246,6 @@ class SpeedMonitorBase:
                     "throughput/device/samples_per_sec": dev_samples_per_sec,
                 }
             )
-            # Assumes no padding.
             if lengths is not None:
                 elapsed_lengths = int(self.history_lengths[-1]) - int(self.history_lengths[0])
                 avg_length = elapsed_lengths / elapsed_batches
@@ -344,6 +352,7 @@ class SpeedMonitorCallback(Callback):
         eval_elapsed = time.perf_counter() - self.eval_t0
         assert self.speed_monitor is not None
         self.speed_monitor.eval_end(eval_elapsed)
+
 
 def flops_per_param(config: Config, n_params: int) -> int:
     flops_per_token = 2 * n_params  # each parameter is used for a MAC (2 FLOPS) per network operation
