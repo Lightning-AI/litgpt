@@ -204,6 +204,11 @@ def train(
             save_adapter_checkpoint(fabric, model, checkpoint_path)
 
 
+def save_adapter_checkpoint(fabric, model, file_path: Path):
+    fabric.print(f"Saving adapter weights to {str(file_path)!r}")
+    fabric.save(file_path, {"model": model}, filter={"model": adapter_filter})
+
+
 @torch.no_grad()
 def validate(
     fabric: L.Fabric, model: GPT, val_data: List[Dict], tokenizer: Tokenizer, longest_seq_length: int
@@ -277,11 +282,6 @@ def get_max_seq_length(data: List[Dict]) -> Tuple[int, int, int]:
         max_seq_length,
         longest_seq_ix,
     )
-
-
-def save_adapter_checkpoint(fabric, model, file_path: Path):
-    fabric.print(f"Saving adapter weights to {str(file_path)!r}")
-    fabric.save(file_path, {"model": model}, filter={"model": adapter_filter})
 
 
 def measured_flops(meta_model: GPT, batch_shape: torch.Size) -> int:

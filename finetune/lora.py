@@ -2,19 +2,23 @@ import os
 import sys
 import time
 from pathlib import Path
-from typing import Dict, List, Optional
+from typing import Dict, List, Optional, Tuple
 
 import lightning as L
 import torch
 from lightning.fabric.strategies import FSDPStrategy, XLAStrategy
 
+from generate.base import generate
+from scripts.prepare_alpaca import generate_prompt
+
 # support running without installing as a package
 wd = Path(__file__).parent.parent.resolve()
 sys.path.append(str(wd))
 
-from finetune.adapter import measured_flops, get_max_seq_length, validate, get_batch
+from finetune.adapter import get_batch, get_max_seq_length, measured_flops, validate
 from lit_gpt.lora import GPT, Block, Config, lora_filter, mark_only_lora_as_trainable
 from lit_gpt.speed_monitor import SpeedMonitorFabric as SpeedMonitor
+from lit_gpt.speed_monitor import measure_flops
 from lit_gpt.tokenizer import Tokenizer
 from lit_gpt.utils import check_valid_checkpoint_dir, chunked_cross_entropy, lazy_load, num_parameters, step_csv_logger
 
@@ -224,6 +228,87 @@ def train(
 def save_lora_checkpoint(fabric, model, file_path: Path):
     fabric.print(f"Saving LoRA weights to {str(file_path)!r}")
     fabric.save(file_path, {"model": model}, filter={"model": lora_filter})
+
+
+@torch.no_grad()
+def validate(
+    fabric: L.Fabric, model: GPT, val_data: List[Dict], tokenizer: Tokenizer, longest_seq_length: int
+) -> torch.Tensor:
+    fabric.print("Validating ...")
+    model.eval()
+    losses = torch.zeros(eval_iters)
+    for k in range(eval_iters):
+        input_ids, targets = get_batch(fabric, val_data, longest_seq_length)
+        logits = model(input_ids)
+        loss = chunked_cross_entropy(logits, targets, chunk_size=0)
+        losses[k] = loss.item()
+    val_loss = losses.mean()
+
+    # produce an example:
+    instruction = "Recommend a movie for me to watch during the weekend and explain the reason."
+    fabric.print(instruction)
+    sample = {"instruction": instruction, "input": ""}
+    prompt = generate_prompt(sample)
+    encoded = tokenizer.encode(prompt, device=fabric.device)
+    max_returned_tokens = len(encoded) + 100
+    output = generate(
+        model, idx=encoded, max_returned_tokens=max_returned_tokens, max_seq_length=max_returned_tokens, temperature=0.8
+    )
+    output = tokenizer.decode(output)
+    fabric.print(output)
+
+    model.reset_cache()
+
+    model.train()
+    return val_loss.item()
+
+
+def get_batch(
+    fabric: L.Fabric, data: List[Dict], longest_seq_length: int, longest_seq_ix: Optional[int] = None
+) -> Tuple[torch.Tensor, torch.Tensor]:
+    ix = torch.randint(len(data), (micro_batch_size,))
+    if longest_seq_ix is not None:
+        # force the longest sample at the beginning so potential OOMs happen right away
+        ix[0] = longest_seq_ix
+
+    input_ids = [data[i]["input_ids"].type(torch.int64) for i in ix]
+    labels = [data[i]["labels"].type(torch.int64) for i in ix]
+
+    # it's better to pad to a fixed seq length with XLA to avoid recompilation
+    max_len = max(len(s) for s in input_ids) if fabric.device.type != "xla" else longest_seq_length
+
+    def pad_right(x, pad_id):
+        # pad right based on the longest sequence
+        n = max_len - len(x)
+        return torch.cat((x, torch.full((n,), pad_id, dtype=x.dtype)))
+
+    x = torch.stack([pad_right(x, pad_id=0) for x in input_ids])
+    y = torch.stack([pad_right(x, pad_id=-1) for x in labels])
+
+    if fabric.device.type == "cuda" and x.device.type == "cpu":
+        x, y = fabric.to_device((x.pin_memory(), y.pin_memory()))
+    else:
+        x, y = fabric.to_device((x, y))
+    return x, y
+
+
+def get_max_seq_length(data: List[Dict]) -> Tuple[int, int, int]:
+    # find out the minimum max_seq_length required during fine-tuning (saves memory!)
+    lengths = [len(d["input_ids"]) for d in data]
+    max_seq_length = max(lengths)
+    longest_seq_ix = lengths.index(max_seq_length)
+    # support easy override at the top of the file
+    return (
+        override_max_seq_length if isinstance(override_max_seq_length, int) else max_seq_length,
+        max_seq_length,
+        longest_seq_ix,
+    )
+
+
+def measured_flops(meta_model: GPT, batch_shape: torch.Size) -> int:
+    with torch.device("meta"):
+        x = torch.randint(0, 1, batch_shape)
+        return measure_flops(meta_model, x)
 
 
 if __name__ == "__main__":
