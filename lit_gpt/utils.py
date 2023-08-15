@@ -479,7 +479,7 @@ def chunked_cross_entropy(
     return torch.cat(loss_chunks).mean()
 
 
-def get_default_supported_precision(training: bool, tpu: bool = False):
+def get_default_supported_precision(training: bool, tpu: bool = False) -> str:
     """Return default precision that is supported by the hardware.
 
     Args:
