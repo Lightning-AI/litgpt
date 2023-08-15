@@ -20,7 +20,7 @@ from lit_gpt.adapter_v2 import (
     mark_only_adapter_v2_as_trainable,
 )
 from lit_gpt.speed_monitor import SpeedMonitorFabric as SpeedMonitor
-from lit_gpt.speed_monitor import estimate_flops, measure_flops
+from lit_gpt.speed_monitor import measure_flops
 from lit_gpt.tokenizer import Tokenizer
 from lit_gpt.utils import check_valid_checkpoint_dir, chunked_cross_entropy, lazy_load, num_parameters, step_csv_logger
 from scripts.prepare_alpaca import generate_prompt
@@ -98,7 +98,6 @@ def main(fabric: L.Fabric, data_dir: Path, checkpoint_dir: Path, out_dir: Path):
     fabric.print(f"Loading model {str(checkpoint_path)!r} with {config.__dict__}")
     with fabric.init_module(empty_init=False):
         model = GPT(config)
-        model.apply(model._init_weights)  # for the adapter weights
     with lazy_load(checkpoint_path) as checkpoint:
         # strict=False because missing keys due to adapter weights not contained in state dict
         model.load_state_dict(checkpoint, strict=False)

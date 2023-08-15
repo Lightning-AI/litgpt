@@ -123,10 +123,11 @@ class LoRALinear(LoRALayer):
             self.scaling = self.lora_alpha / self.r
             # Freezing the pre-trained weight matrix
             self.linear.weight.requires_grad = False
+            self.reset_parameters()
 
     def reset_parameters(self):
         """Reset all the weights, even including pretrained ones."""
-        if hasattr(self, "lora_A"):
+        if self.r > 0:
             # initialize A the same way as the default for nn.Linear and B to zero
             # Wondering why 'a' is equal to math.sqrt(5)?: https://github.com/pytorch/pytorch/issues/15314
             nn.init.kaiming_uniform_(self.lora_A, a=math.sqrt(5))
@@ -252,6 +253,7 @@ class LoRAQKVLinear(LoRALinear):
                 self.lora_ind.extend(range(self.linear.in_features, self.linear.in_features + self.kv_embd_size))
             if enable_v:
                 self.lora_ind.extend(range(self.linear.in_features + self.kv_embd_size, self.linear.out_features))
+            self.reset_parameters()
 
     def zero_pad(self, x: torch.Tensor) -> torch.Tensor:
         """Properly pad weight updates with zeros.
