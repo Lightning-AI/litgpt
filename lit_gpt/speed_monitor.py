@@ -9,7 +9,8 @@ from lightning.fabric.utilities.rank_zero import rank_zero_only as fabric_rank_z
 from lightning.pytorch.utilities.rank_zero import rank_zero_only as trainer_rank_zero_only
 from torch.utils.flop_counter import FlopCounterMode
 
-from lit_gpt import GPT
+from lit_gpt import GPT, Config
+from lit_gpt.utils import num_parameters
 
 GPU_AVAILABLE_FLOPS = {
     # source: https://resources.nvidia.com/en-us-tensor-core/nvidia-tensor-core-gpu-datasheet
@@ -344,6 +345,12 @@ class SpeedMonitorCallback(Callback):
         assert self.speed_monitor is not None
         self.speed_monitor.eval_end(eval_elapsed)
 
+def flops_per_param(config: Config, n_params: int) -> int:
+    flops_per_token = 2 * n_params  # each parameter is used for a MAC (2 FLOPS) per network operation
+    flops_per_seq = flops_per_token * config.block_size
+    attn_flops_per_seq = config.n_layer * 2 * 2 * (config.n_embd * (config.block_size**2))
+    return flops_per_seq + attn_flops_per_seq
+
 
 def estimate_flops(model: GPT) -> int:
     """Measures estimated FLOPs for MFU: https://arxiv.org/abs/2205.05198"""
@@ -351,13 +358,15 @@ def estimate_flops(model: GPT) -> int:
     # this FLOP computation (e.g. embedding, norm). For this reason, the result will be higher by a fixed percentage
     # (~10%) compared to the measured FLOPs, making those lower but more realistic.
     # For a proper estimate, this needs a more fine-grained calculation as in Appendix A of the paper.
-    n_params = sum(p.numel() for p in model.parameters())
-    # credit: https://github.com/mosaicml/examples/blob/release/v0.0.4/examples/llm/throughput/README.md#mfu-and-hfu
-    flops_per_token = 2 * n_params
-    flops_per_seq = flops_per_token * model.config.block_size
-    attn_flops_per_seq = model.config.n_layer * 2 * 2 * (model.config.n_embd * (model.config.block_size**2))
-    mult = 3 if model.training else 1
-    return mult * (flops_per_seq + attn_flops_per_seq)
+    n_trainable_params = num_parameters(model, requires_grad=True)
+    trainable_flops = flops_per_param(model.config, n_trainable_params)
+    # forward + backward + gradients (assumes no gradient accumulation)
+    ops_per_step = 3 if model.training else 1
+    n_frozen_params = num_parameters(model, requires_grad=False)
+    frozen_flops = flops_per_param(model.config, n_frozen_params)
+    # forward + backward
+    frozen_ops_per_step = 2 if model.training else 1
+    return ops_per_step * trainable_flops + frozen_ops_per_step * frozen_flops
 
 
 def measure_flops(model: GPT, x: torch.Tensor) -> int:
