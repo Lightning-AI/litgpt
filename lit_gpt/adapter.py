@@ -204,12 +204,12 @@ class CausalSelfAttention(BaseCausalSelfAttention):
         # repeat k and v if necessary
         if self.config.n_query_groups != 1:  # doing this would require a full kv cache with MQA (inefficient!)
             # for MHA this is a no-op
-            k = k.repeat_interleave(q_per_kv, dim=2)
-            v = v.repeat_interleave(q_per_kv, dim=2)
+            k = k.expand(B, self.config.n_query_groups, q_per_kv, T, self.config.head_size)
+            v = v.expand(B, self.config.n_query_groups, q_per_kv, T, self.config.head_size)
 
         q = q.reshape(B, -1, T, self.config.head_size)  # (B, nh_q, T, hs)
-        k = k.view(B, -1, T, self.config.head_size)  # (B, nh_k, T, hs)
-        v = v.view(B, -1, T, self.config.head_size)  # (B, nh_v, T, hs)
+        k = k.reshape(B, -1, T, self.config.head_size)  # (B, nh_k, T, hs)
+        v = v.reshape(B, -1, T, self.config.head_size)  # (B, nh_v, T, hs)
 
         n_elem = int(self.config.rotary_percentage * self.config.head_size)
 
