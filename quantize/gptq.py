@@ -577,7 +577,7 @@ def main(
     checkpoint_dir: Path = Path("checkpoints/stabilityai/stablelm-base-alpha-3b"),
     output_path: Optional[Path] = None,
     n_samples: int = 128,
-    precision: str = "bf16-true",
+    precision: Optional[str] = None,
 ) -> None:
     """Generates text samples based on a pre-trained LLM and tokenizer.
 
@@ -587,6 +587,12 @@ def main(
         n_samples: Number of example inputs to use for statistics (default: 128)
         precision: The precision to use to load the model.
     """
+    if not precision:
+        if not torch.cuda.is_available() or torch.cuda.is_bf16_supported():
+            precision = "bf16-true"
+        else:
+            precision = "16-true"
+
     if output_path is None:
         output_path = checkpoint_dir / "lit_model_gptq.4bit.pth"
     check_valid_checkpoint_dir(checkpoint_dir)

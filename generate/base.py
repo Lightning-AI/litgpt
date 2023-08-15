@@ -99,7 +99,7 @@ def main(
     quantize: Optional[Literal["bnb.nf4", "bnb.nf4-dq", "bnb.fp4", "bnb.fp4-dq", "bnb.int8", "gptq.int4"]] = None,
     strategy: str = "auto",
     devices: int = 1,
-    precision: str = None,
+    precision: Optional[str] = None,
 ) -> None:
     """Generates text samples based on a pre-trained model and tokenizer.
 
