@@ -122,6 +122,7 @@ def main(fabric: L.Fabric, data_dir: Path, checkpoint_dir: Path, out_dir: Path):
     optimizer = torch.optim.AdamW(params, lr=learning_rate, weight_decay=weight_decay)
     optimizer = fabric.setup_optimizers(optimizer)
     
+    # strict=False because missing keys due to LoRA weights not contained in state dict
     fabric.load_raw(checkpoint_path, model, strict=False)
 
     fabric.seed_everything(1337 + fabric.global_rank)
