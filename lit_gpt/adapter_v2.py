@@ -10,6 +10,7 @@ from typing import Any, Dict, List, Optional, Tuple, Type
 
 import torch
 import torch.nn as nn
+from typing_extensions import Self
 
 import lit_gpt
 from lit_gpt.adapter import GPT as BaseModel
@@ -80,6 +81,10 @@ class GPT(BaseModel):
         self.mask_cache: Optional[torch.Tensor] = None
         self.kv_caches: List[KVCache] = []
         self.adapter_kv_caches: List[KVCache] = []
+
+    @classmethod
+    def from_name(cls, name: str, **kwargs: Any) -> Self:
+        return cls(Config.from_name(name, **kwargs))
 
     def _init_weights(self, module: nn.Module) -> None:
         """Meant to be used with `gpt.apply(gpt._init_weights)`. Unused method left for completeness."""
@@ -243,6 +248,16 @@ class GptNeoxMLP(lit_gpt.model.GptNeoxMLP):
         self.fc = AdapterV2Linear(config.n_embd, config.intermediate_size, bias=config.bias)
         self.proj = AdapterV2Linear(config.intermediate_size, config.n_embd, bias=config.bias)
 
+    def _load_from_state_dict(self, state_dict: Dict, prefix: str, *args: Any, **kwargs: Any) -> None:
+        """For compatibility with older checkpoints."""
+        mapping = {
+            "fc.weight": "fc.linear.weight",
+            "fc.bias": "fc.linear.bias",
+            "proj.weight": "proj.linear.weight",
+            "proj.bias": "proj.linear.bias",
+        }
+        state_dict = map_old_state_dict_weights(state_dict, mapping, prefix)
+        super()._load_from_state_dict(state_dict, prefix, *args, **kwargs)
 
 class LLaMAMLP(lit_gpt.model.LLaMAMLP):
     def __init__(self, config: Config) -> None:
@@ -250,6 +265,19 @@ class LLaMAMLP(lit_gpt.model.LLaMAMLP):
         self.fc_1 = AdapterV2Linear(config.n_embd, config.intermediate_size, bias=config.bias)
         self.fc_2 = AdapterV2Linear(config.n_embd, config.intermediate_size, bias=config.bias)
         self.proj = AdapterV2Linear(config.intermediate_size, config.n_embd, bias=config.bias)
+
+    def _load_from_state_dict(self, state_dict: Dict, prefix: str, *args: Any, **kwargs: Any) -> None:
+        """For compatibility with older checkpoints."""
+        mapping = {
+            "fc_1.weight": "fc_1.linear.weight",
+            "fc_1.bias": "fc_1.linear.bias",
+            "fc_2.weight": "fc_2.linear.weight",
+            "fc_2.bias": "fc_2.linear.bias",
+            "proj.weight": "proj.linear.weight",
+            "proj.bias": "proj.linear.bias",
+        }
+        state_dict = map_old_state_dict_weights(state_dict, mapping, prefix)
+        super()._load_from_state_dict(state_dict, prefix, *args, **kwargs)
 
 
 def mark_only_adapter_v2_as_trainable(model: GPT) -> None:
