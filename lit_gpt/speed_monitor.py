@@ -347,13 +347,19 @@ class SpeedMonitorCallback(Callback):
 
 def flops_per_param(config: Config, n_params: int) -> int:
     flops_per_token = 2 * n_params  # each parameter is used for a MAC (2 FLOPS) per network operation
+    # TODO: this assumes that all samples have a fixed length equal to the block size
     flops_per_seq = flops_per_token * config.block_size
     attn_flops_per_seq = config.n_layer * 2 * 2 * (config.n_embd * (config.block_size**2))
     return flops_per_seq + attn_flops_per_seq
 
 
 def estimate_flops(model: GPT) -> int:
-    """Measures estimated FLOPs for MFU: https://arxiv.org/abs/2205.05198"""
+    """Measures estimated FLOPs for MFU.
+
+    Refs:
+        * https://ar5iv.labs.arxiv.org/html/2205.05198#A1
+        * https://ar5iv.labs.arxiv.org/html/2204.02311#A2
+    """
     # using all parameters for this is a naive over estimation because not all model parameters actually contribute to
     # this FLOP computation (e.g. embedding, norm). For this reason, the result will be higher by a fixed percentage
     # (~10%) compared to the measured FLOPs, making those lower but more realistic.

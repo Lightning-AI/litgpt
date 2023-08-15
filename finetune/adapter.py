@@ -142,7 +142,8 @@ def train(
         # consider passing `estimated_flops` to `SpeedMonitor(flops_per_batch=...)` instead
         estimated_flops = estimate_flops(meta_model) * micro_batch_size
         fabric.print(f"Estimated TFLOPs: {estimated_flops * fabric.world_size / 1e12:.2f}")
-        # TODO: this assumes that samples have a fixed length which is most likely false during finetuning
+        # TODO: this assumes that all samples have a fixed length equal to the longest sequence length
+        # which is most likely false during finetuning
         x = torch.randint(0, 1, (micro_batch_size, longest_seq_length))
         measured_flops = measure_flops(meta_model, x)
         fabric.print(f"Measured TFLOPs: {measured_flops * fabric.world_size / 1e12:.2f}")
