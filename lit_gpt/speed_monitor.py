@@ -121,47 +121,31 @@ def get_flops_available(device: torch.device, precision: str) -> Optional[float]
 class SpeedMonitorBase:
     """Logs the training throughput and utilization.
 
-    +-------------------------------------+-----------------------------------------------------------+
-    | Key                                 | Logged data                                               |
-    +=====================================+===========================================================+
-    |                                     | Rolling average (over `window_size` most recent           |
-    | `throughput/batches_per_sec`        | batches) of the number of batches processed per second    |
-    |                                     |                                                           |
-    +-------------------------------------+-----------------------------------------------------------+
-    |                                     | Rolling average (over `window_size` most recent           |
-    | `throughput/samples_per_sec`        | batches) of the number of samples processed per second    |
-    |                                     |                                                           |
-    +-------------------------------------+-----------------------------------------------------------+
-    |                                     | Rolling average (over `window_size` most recent           |
-    | `throughput/tokens_per_sec`         | batches) of the number of tokens processed per second.    |
-    |                                     | This may include padding depending on dataset             |
-    +-------------------------------------+-----------------------------------------------------------+
-    |                                     | Estimates flops by `flops_per_batch * batches_per_sec`    |
-    | `throughput/flops_per_sec`          |                                                           |
-    |                                     |                                                           |
-    +-------------------------------------+-----------------------------------------------------------+
-    | `throughput/device/batches_per_sec` | `throughput/batches_per_sec` divided by world size        |
-    +-------------------------------------+-----------------------------------------------------------+
-    | `throughput/device/samples_per_sec` | `throughput/samples_per_sec` divided by world size        |
-    +-------------------------------------+-----------------------------------------------------------+
-    |                                     | `throughput/tokens_per_sec` divided by world size. This   |
-    | `throughput/device/tokens_per_sec`  | may include pad tokens depending on dataset               |
-    |                                     |                                                           |
-    +-------------------------------------+-----------------------------------------------------------+
-    |                                     | `throughput/flops_per_sec` divided by world size. Only    |
-    | `throughput/device/flops_per_sec`   | logged when model has attribute `flops_per_batch`         |
-    |                                     |                                                           |
-    +-------------------------------------+-----------------------------------------------------------+
-    |                                     | `throughput/device/flops_per_sec` divided by world size.  |
-    | `throughput/device/mfu`             |                                                           |
-    |                                     |                                                           |
-    +-------------------------------------+-----------------------------------------------------------+
-    | `time/train`                        | Total elapsed training time                               |
-    +-------------------------------------+-----------------------------------------------------------+
-    | `time/val`                          | Total elapsed validation time                             |
-    +-------------------------------------+-----------------------------------------------------------+
-    | `time/total`                        | Total elapsed time (time/train + time/val)                |
-    +-------------------------------------+-----------------------------------------------------------+
+    +-------------------------------------+---------------------------------------------------------+
+    | Key                                 | Logged data                                             |
+    +-------------------------------------+---------------------------------------------------------+
+    | `throughput/batches_per_sec`        | Rolling avg of batches processed/sec                    |
+    | `throughput/samples_per_sec`        | Rolling avg of samples processed/sec                    |
+    | `throughput/tokens_per_sec`         | Rolling avg of tokens processed/sec                     |
+    | `throughput/flops_per_sec`          | Est. flops via flops_per_batch * batches_per_sec        |
+    | `throughput/device/batches_per_sec` | `throughput/batches_per_sec` / world size               |
+    | `throughput/device/samples_per_sec` | `throughput/samples_per_sec` / world size               |
+    | `throughput/device/tokens_per_sec`  | `throughput/tokens_per_sec` / world size                |
+    | `throughput/device/flops_per_sec`   | `throughput/flops_per_sec` / world size (if avail.)     |
+    | `throughput/device/mfu`             | `throughput/device/flops_per_sec` / world size          |
+    | `time/train`                        | Total elapsed training time                             |
+    | `time/val`                          | Total elapsed validation time                           |
+    | `time/total`                        | Total elapsed time (train + val)                        |
+    +-------------------------------------+---------------------------------------------------------+
+
+    Notes:
+        - The implementation assumes that devices are homogeneous as it normalizes by the world size.
+        - Tokens/sec, flops/sec and MFU do not account for padding tokens if present. We suggest using samples/sec or
+            batches/sec to measure throughtput under this circumstance.
+        - Be careful when comparing MFU numbers across projects, as this will highly depend on the ``flops_per_batch``.
+            There is no widespread, realistic, and reliable implementation to compute them.
+            We suggest using our ``measure_flops`` function, but many other works will use ``estimated_flops`` which
+            will almost always be an overestimate when compared to the true value.
 
     Args:
         window_size (int, optional): Number of batches to use for a rolling average of throughput.
@@ -236,7 +220,6 @@ class SpeedMonitorBase:
                     "throughput/device/samples_per_sec": dev_samples_per_sec,
                 }
             )
-            # Assumes no padding.
             if lengths is not None:
                 elapsed_lengths = int(self.history_lengths[-1]) - int(self.history_lengths[0])
                 metrics.update(
@@ -355,6 +338,7 @@ def estimate_flops(model: GPT) -> int:
     flops_per_token = 2 * n_params
     flops_per_seq = flops_per_token * model.config.block_size
     attn_flops_per_seq = model.config.n_layer * 2 * 2 * (model.config.n_embd * (model.config.block_size**2))
+    # this assumes that there are no frozen parameters
     mult = 3 if model.training else 1
     return mult * (flops_per_seq + attn_flops_per_seq)
 

@@ -15,7 +15,7 @@ sys.path.append(str(wd))
 from generate.base import generate
 from lit_gpt.adapter import GPT, Block, Config, adapter_filter, mark_only_adapter_as_trainable
 from lit_gpt.speed_monitor import SpeedMonitorFabric as SpeedMonitor
-from lit_gpt.speed_monitor import estimate_flops, measure_flops
+from lit_gpt.speed_monitor import measure_flops
 from lit_gpt.tokenizer import Tokenizer
 from lit_gpt.utils import check_valid_checkpoint_dir, chunked_cross_entropy, lazy_load, num_parameters, step_csv_logger
 from scripts.prepare_alpaca import generate_prompt
@@ -137,11 +137,6 @@ def train(
         meta_model = GPT(model.config)
         # estimated flops doesn't account for frozen weights, so it's not reported
         mark_only_adapter_as_trainable(meta_model)
-        # TODO: this assumes that samples have a fixed length which is most likely false during finetuning
-        x = torch.randint(0, 1, (micro_batch_size, longest_seq_length))
-        measured_flops = measure_flops(meta_model, x)
-        fabric.print(f"Measured TFLOPs: {measured_flops * fabric.world_size / 1e12:.2f}")
-        del meta_model, x
 
     step_count = 0
     total_lengths = 0
@@ -181,18 +176,20 @@ def train(
 
         t1 = time.perf_counter()
         total_lengths += input_ids.size(1)
+        flops_per_batch = measured_flops(meta_model, input_ids.shape)
         speed_monitor.on_train_batch_end(
             (iter_num + 1) * micro_batch_size,
             t1 - total_t0,
-            # this assumes that device FLOPs are the same and that all devices have the same batch size
             fabric.world_size,
-            flops_per_batch=measured_flops,
+            flops_per_batch=flops_per_batch,
             lengths=total_lengths,
         )
         if iter_num % log_interval == 0:
             fabric.print(
-                f"iter {iter_num} step {step_count}: loss {loss.item():.4f}, iter time:"
-                f" {(t1 - iter_t0) * 1000:.2f}ms{' (optimizer.step)' if not is_accumulating else ''}"
+                f"iter {iter_num} step {step_count}: loss {loss.item():.4f},"
+                f" iter_time: {(t1 - iter_t0) * 1000:.2f}ms{' (optimizer.step)' if not is_accumulating else ''},"
+                f" TFLOPs/device: {flops_per_batch / 1e12:.2f},"
+                f" Batch shape: {input_ids.shape}"
             )
 
         if not is_accumulating and step_count % eval_interval == 0:
@@ -285,6 +282,12 @@ def get_max_seq_length(data: List[Dict]) -> Tuple[int, int, int]:
 def save_adapter_checkpoint(fabric, model, file_path: Path):
     fabric.print(f"Saving adapter weights to {str(file_path)!r}")
     fabric.save(file_path, {"model": model}, filter={"model": adapter_filter})
+
+
+def measured_flops(meta_model: GPT, batch_shape: Tuple[int, ...]) -> int:
+    with torch.device("meta"):
+        x = torch.randint(0, 1, batch_shape)
+        return measure_flops(meta_model, x)
 
 
 if __name__ == "__main__":

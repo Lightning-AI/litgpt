@@ -2,7 +2,7 @@ import os
 import sys
 import time
 from pathlib import Path
-from typing import Dict, List, Optional, Tuple
+from typing import Dict, List, Optional
 
 import lightning as L
 import torch
@@ -12,13 +12,11 @@ from lightning.fabric.strategies import FSDPStrategy, XLAStrategy
 wd = Path(__file__).parent.parent.resolve()
 sys.path.append(str(wd))
 
-from generate.base import generate
+from finetune.adapter import measured_flops, get_max_seq_length, validate, get_batch
 from lit_gpt.lora import GPT, Block, Config, lora_filter, mark_only_lora_as_trainable
 from lit_gpt.speed_monitor import SpeedMonitorFabric as SpeedMonitor
-from lit_gpt.speed_monitor import estimate_flops, measure_flops
 from lit_gpt.tokenizer import Tokenizer
 from lit_gpt.utils import check_valid_checkpoint_dir, chunked_cross_entropy, lazy_load, num_parameters, step_csv_logger
-from scripts.prepare_alpaca import generate_prompt
 
 eval_interval = 100
 save_interval = 100
@@ -156,11 +154,6 @@ def train(
         meta_model = GPT(model.config)
         # estimated flops doesn't account for frozen weights, so it's not reported
         mark_only_lora_as_trainable(meta_model)
-        # TODO: this assumes that samples have a fixed length which is most likely false during finetuning
-        x = torch.randint(0, 1, (micro_batch_size, longest_seq_length))
-        measured_flops = measure_flops(meta_model, x)
-        fabric.print(f"Measured TFLOPs: {measured_flops * fabric.world_size / 1e12:.2f}")
-        del meta_model, x
 
     step_count = 0
     total_lengths = 0
@@ -200,18 +193,20 @@ def train(
 
         t1 = time.perf_counter()
         total_lengths += input_ids.size(1)
+        flops_per_batch = measured_flops(meta_model, input_ids.shape)
         speed_monitor.on_train_batch_end(
             (iter_num + 1) * micro_batch_size,
             t1 - total_t0,
-            # this assumes that device FLOPs are the same and that all devices have the same batch size
             fabric.world_size,
-            flops_per_batch=measured_flops,
+            flops_per_batch=flops_per_batch,
             lengths=total_lengths,
         )
         if iter_num % log_interval == 0:
             fabric.print(
-                f"iter {iter_num} step {step_count}: loss {loss.item():.4f}, iter time:"
-                f" {(t1 - iter_t0) * 1000:.2f}ms{' (optimizer.step)' if not is_accumulating else ''}"
+                f"iter {iter_num} step {step_count}: loss {loss.item():.4f},"
+                f" iter_time: {(t1 - iter_t0) * 1000:.2f}ms{' (optimizer.step)' if not is_accumulating else ''},"
+                f" TFLOPs/device: {flops_per_batch / 1e12:.2f},"
+                f" Batch shape: {input_ids.shape}"
             )
 
         if not is_accumulating and step_count % eval_interval == 0:
@@ -224,81 +219,6 @@ def train(
         if not is_accumulating and step_count % save_interval == 0:
             checkpoint_path = out_dir / f"iter-{iter_num:06d}-ckpt.pth"
             save_lora_checkpoint(fabric, model, checkpoint_path)
-
-
-@torch.no_grad()
-def validate(
-    fabric: L.Fabric, model: GPT, val_data: List[Dict], tokenizer: Tokenizer, longest_seq_length: int
-) -> torch.Tensor:
-    fabric.print("Validating ...")
-    model.eval()
-    losses = torch.zeros(eval_iters)
-    for k in range(eval_iters):
-        input_ids, targets = get_batch(fabric, val_data, longest_seq_length)
-        logits = model(input_ids)
-        loss = chunked_cross_entropy(logits, targets, chunk_size=0)
-        losses[k] = loss.item()
-    val_loss = losses.mean()
-
-    # produce an example:
-    instruction = "Recommend a movie for me to watch during the weekend and explain the reason."
-    fabric.print(instruction)
-    sample = {"instruction": instruction, "input": ""}
-    prompt = generate_prompt(sample)
-    encoded = tokenizer.encode(prompt, device=fabric.device)
-    max_returned_tokens = len(encoded) + 100
-    output = generate(
-        model, idx=encoded, max_returned_tokens=max_returned_tokens, max_seq_length=max_returned_tokens, temperature=0.8
-    )
-    output = tokenizer.decode(output)
-    fabric.print(output)
-
-    model.reset_cache()
-
-    model.train()
-    return val_loss.item()
-
-
-def get_batch(
-    fabric: L.Fabric, data: List[Dict], longest_seq_length: int, longest_seq_ix: Optional[int] = None
-) -> Tuple[torch.Tensor, torch.Tensor]:
-    ix = torch.randint(len(data), (micro_batch_size,))
-    if longest_seq_ix is not None:
-        # force the longest sample at the beginning so potential OOMs happen right away
-        ix[0] = longest_seq_ix
-
-    input_ids = [data[i]["input_ids"].type(torch.int64) for i in ix]
-    labels = [data[i]["labels"].type(torch.int64) for i in ix]
-
-    # it's better to pad to a fixed seq length with XLA to avoid recompilation
-    max_len = max(len(s) for s in input_ids) if fabric.device.type != "xla" else longest_seq_length
-
-    def pad_right(x, pad_id):
-        # pad right based on the longest sequence
-        n = max_len - len(x)
-        return torch.cat((x, torch.full((n,), pad_id, dtype=x.dtype)))
-
-    x = torch.stack([pad_right(x, pad_id=0) for x in input_ids])
-    y = torch.stack([pad_right(x, pad_id=-1) for x in labels])
-
-    if fabric.device.type == "cuda" and x.device.type == "cpu":
-        x, y = fabric.to_device((x.pin_memory(), y.pin_memory()))
-    else:
-        x, y = fabric.to_device((x, y))
-    return x, y
-
-
-def get_max_seq_length(data: List[Dict]) -> Tuple[int, int, int]:
-    # find out the minimum max_seq_length required during fine-tuning (saves memory!)
-    lengths = [len(d["input_ids"]) for d in data]
-    max_seq_length = max(lengths)
-    longest_seq_ix = lengths.index(max_seq_length)
-    # support easy override at the top of the file
-    return (
-        override_max_seq_length if isinstance(override_max_seq_length, int) else max_seq_length,
-        max_seq_length,
-        longest_seq_ix,
-    )
 
 
 def save_lora_checkpoint(fabric, model, file_path: Path):
