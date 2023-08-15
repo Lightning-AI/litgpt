@@ -150,8 +150,10 @@ def train(
     step_count = 0
     total_lengths = 0
     total_t0 = time.perf_counter()
+    tpu = fabric.device.type == "xla"
+    world_size = fabric.world_size
 
-    if fabric.device.type == "xla":
+    if tpu:
         import torch_xla.core.xla_model as xm
 
         xm.mark_step()
@@ -179,7 +181,7 @@ def train(
             optimizer.step()
             optimizer.zero_grad()
             step_count += 1
-        elif fabric.device.type == "xla":
+        elif tpu:
             xm.mark_step()
 
         t1 = time.perf_counter()
@@ -188,14 +190,16 @@ def train(
             (iter_num + 1) * micro_batch_size,
             t1 - total_t0,
             # this assumes that device FLOPs are the same and that all devices have the same batch size
-            fabric.world_size,
+            world_size,
             flops_per_batch=measured_flops,
             lengths=total_lengths,
         )
         if iter_num % log_interval == 0:
             fabric.print(
-                f"iter {iter_num} step {step_count}: loss {loss.item():.4f}, iter time:"
-                f" {(t1 - iter_t0) * 1000:.2f}ms{' (optimizer.step)' if not is_accumulating else ''}"
+                f"iter {iter_num} step {step_count}:"
+                + (f" loss {loss.item():.4f}," if not tpu else "") +
+                f" iter time: {(t1 - iter_t0) * 1000:.2f}ms"
+                + (" (optimizer.step)" if not is_accumulating else "")
             )
 
         if not is_accumulating and step_count % eval_interval == 0:
