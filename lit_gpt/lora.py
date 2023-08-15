@@ -380,8 +380,6 @@ class LoRAQKVLinear(LoRALinear):
         # For F.conv1d:
         # ⚬ input: input tensor of shape (mini-batch, in_channels, iW)
         # ⚬ weight: filters of shape (out_channels, in_channels/groups, kW)
-        # ⚬ groups: split input into groups, in_channels should be divisible by the number of groups. Default: 1
-        # presumably iW - sequence width/length, kW - kernel width
         after_B = self.conv1d(
             after_A.transpose(-2, -1),  # (64, 64, 4) -> (64, 4, 64)
             self.lora_B.unsqueeze(-1),  # (256, 2) -> (256, 2, 1)
