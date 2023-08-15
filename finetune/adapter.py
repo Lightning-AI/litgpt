@@ -139,10 +139,10 @@ def train(
         mark_only_adapter_as_trainable(meta_model)
         # "estimated" is not as precise as "measured". Estimated is optimistic but widely used in the wild.
         # When comparing MFU or FLOP numbers with other projects that use estimated FLOPs,
-        # consider passing `estimated_flops` to `SpeedMonitor(flops_per_batch=...)` instead
+        # consider passing `SpeedMonitor(flops_per_batch=estimated_flops)` instead
         estimated_flops = estimate_flops(meta_model) * micro_batch_size
         fabric.print(f"Estimated TFLOPs: {estimated_flops * fabric.world_size / 1e12:.2f}")
-        # TODO: this assumes that all samples have a fixed length equal to the longest sequence length
+        # this assumes that all samples have a fixed length equal to the longest sequence length
         # which is most likely false during finetuning
         x = torch.randint(0, 1, (micro_batch_size, longest_seq_length))
         measured_flops = measure_flops(meta_model, x)
