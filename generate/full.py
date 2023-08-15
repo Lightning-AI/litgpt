@@ -13,11 +13,11 @@ from lightning.fabric.strategies import FSDPStrategy
 wd = Path(__file__).parent.parent.resolve()
 sys.path.append(str(wd))
 
-from scripts.prepare_alpaca import generate_prompt
 from generate.base import generate
-from lit_gpt import GPT, Tokenizer, Config
+from lit_gpt import GPT, Config, Tokenizer
 from lit_gpt.model import Block
-from lit_gpt.utils import lazy_load, check_valid_checkpoint_dir, quantization
+from lit_gpt.utils import check_valid_checkpoint_dir, get_default_supported_precision, lazy_load, quantization
+from scripts.prepare_alpaca import generate_prompt
 
 
 def main(
@@ -31,7 +31,7 @@ def main(
     temperature: float = 0.8,
     strategy: str = "auto",
     devices: int = 1,
-    precision: str = "bf16-true",
+    precision: Optional[str] = None,
 ) -> None:
     """Generates a response based on a given instruction and an optional input.
     This script will only work with checkpoints from the instruction-tuned GPT model.
@@ -56,6 +56,8 @@ def main(
         devices: How many devices to use.
         precision: Indicates the Fabric precision setting to use.
     """
+    precision = precision or get_default_supported_precision(training=False)
+
     if strategy == "fsdp":
         strategy = FSDPStrategy(auto_wrap_policy={Block}, cpu_offload=False)
     fabric = L.Fabric(devices=devices, precision=precision, strategy=strategy)
@@ -72,15 +74,15 @@ def main(
     checkpoint_path = finetuned_path
 
     fabric.print(f"Loading model {str(checkpoint_path)!r} with {config.__dict__}", file=sys.stderr)
-    t0 = time.time()
+    t0 = time.perf_counter()
     with fabric.init_module(empty_init=True), quantization(quantize):
         model = GPT(config)
-    fabric.print(f"Time to instantiate model: {time.time() - t0:.02f} seconds.", file=sys.stderr)
+    fabric.print(f"Time to instantiate model: {time.perf_counter() - t0:.02f} seconds.", file=sys.stderr)
 
-    t0 = time.time()
+    t0 = time.perf_counter()
     with lazy_load(finetuned_path) as checkpoint:
         model.load_state_dict(checkpoint.get("model", checkpoint), strict=quantize is None)
-    fabric.print(f"Time to load the model weights: {time.time() - t0:.02f} seconds.", file=sys.stderr)
+    fabric.print(f"Time to load the model weights: {time.perf_counter() - t0:.02f} seconds.", file=sys.stderr)
 
     model.eval()
     model = fabric.setup(model)

@@ -1,16 +1,17 @@
 """Utility functions for training and inference."""
 
-from functools import partial
 import pickle
 import sys
 import warnings
 from contextlib import contextmanager
+from functools import partial
 from io import BytesIO
 from pathlib import Path
 from types import MethodType
-from typing import Optional, Any, Union, List, TypeVar, Type
+from typing import Any, Dict, List, Mapping, Optional, Type, TypeVar, Union
 
 import torch
+import torch.nn as nn
 import torch.utils._device
 from lightning.fabric.loggers import CSVLogger
 from torch.serialization import normalize_storage_type
@@ -21,6 +22,10 @@ def find_multiple(n: int, k: int) -> int:
     if n % k == 0:
         return n
     return n + k - (n % k)
+
+
+def num_parameters(module: nn.Module, requires_grad: Optional[bool] = None) -> int:
+    return sum(p.numel() for p in module.parameters() if requires_grad is None or p.requires_grad == requires_grad)
 
 
 @contextmanager
@@ -472,3 +477,29 @@ def chunked_cross_entropy(
         for logit_chunk, target_chunk in zip(logit_chunks, target_chunks)
     ]
     return torch.cat(loss_chunks).mean()
+
+
+def map_old_state_dict_weights(state_dict: Dict, mapping: Mapping, prefix: str) -> Dict:
+    for checkpoint_name, attribute_name in mapping.items():
+        full_checkpoint_name = prefix + checkpoint_name
+        if full_checkpoint_name in state_dict:
+            full_attribute_name = prefix + attribute_name
+            state_dict[full_attribute_name] = state_dict.pop(full_checkpoint_name)
+    return state_dict
+
+
+def get_default_supported_precision(training: bool, tpu: bool = False) -> str:
+    """Return default precision that is supported by the hardware.
+
+    Args:
+        training: `-mixed` or `-true` version of the precision to use
+        tpu: whether TPU device is used
+
+    Returns:
+        default precision that is suitable for the task and is supported by the hardware
+    """
+    if tpu:
+        return "32-true"
+    if not torch.cuda.is_available() or torch.cuda.is_bf16_supported():
+        return "bf16-mixed" if training else "bf16-true"
+    return "16-mixed" if training else "16-true"

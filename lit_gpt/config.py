@@ -1,5 +1,5 @@
 from dataclasses import dataclass
-from typing import Optional, Any, Type, Literal
+from typing import Any, Literal, Optional, Type
 
 import torch
 from typing_extensions import Self
@@ -496,6 +496,33 @@ for c in llama_2:
         copy = c.copy()
         copy["name"] = c["name"].format(kind)
         configs.append(copy)
+
+
+##########################
+# Stability AI FreeWilly2
+##########################
+freewilly_2 = [
+    # https://huggingface.co/stabilityai/FreeWilly2/blob/main/config.json
+    dict(
+        org="stabilityai",
+        name="FreeWilly2",
+        block_size=4096,
+        vocab_size=32000,
+        padding_multiple=64,
+        n_layer=80,
+        n_head=64,
+        n_embd=8192,
+        n_query_groups=8,
+        rotary_percentage=1.0,
+        parallel_residual=False,
+        bias=False,
+        _norm_class="RMSNorm",
+        norm_eps=1e-5,
+        _mlp_class="LLaMAMLP",
+        intermediate_size=28672,
+    )
+]
+configs.extend(freewilly_2)
 
 
 name_to_config = {config["name"]: config for config in configs}

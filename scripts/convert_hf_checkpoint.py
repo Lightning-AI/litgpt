@@ -4,7 +4,7 @@ import json
 import sys
 from functools import partial
 from pathlib import Path
-from typing import Optional, Literal, Tuple, Dict, List, Union
+from typing import Dict, List, Literal, Optional, Tuple, Union
 
 import torch
 
@@ -13,7 +13,7 @@ wd = Path(__file__).parent.parent.resolve()
 sys.path.append(str(wd))
 
 from lit_gpt import Config
-from lit_gpt.utils import lazy_load, incremental_save, NotYetLoadedTensor
+from lit_gpt.utils import NotYetLoadedTensor, incremental_save, lazy_load
 
 
 def copy_weights_gpt_neox(

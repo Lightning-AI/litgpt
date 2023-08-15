@@ -2,15 +2,15 @@ import math
 import sys
 import time
 from pathlib import Path
-from typing import Optional, Any
+from typing import Any, Optional
 
 import lightning as L
 import numpy as np
 import torch
-from torch.utils.data import DataLoader, IterableDataset
 from lightning.pytorch.callbacks import ModelCheckpoint
 from lightning.pytorch.loggers import CSVLogger
 from lightning.pytorch.strategies import FSDPStrategy, XLAStrategy
+from torch.utils.data import DataLoader, IterableDataset
 
 # support running without installing as a package
 wd = Path(__file__).parent.parent.resolve()
@@ -18,8 +18,8 @@ sys.path.append(str(wd))
 
 from lit_gpt import Config
 from lit_gpt.model import GPT, Block
-from lit_gpt.speed_monitor import measure_flops, estimate_flops, SpeedMonitorCallback
-from lit_gpt.utils import step_csv_logger, chunked_cross_entropy
+from lit_gpt.speed_monitor import SpeedMonitorCallback, estimate_flops, measure_flops
+from lit_gpt.utils import chunked_cross_entropy, get_default_supported_precision, step_csv_logger
 
 model_name = "pythia-70m"
 name = "openwebtext"
@@ -99,8 +99,8 @@ class LightningGPTModule(L.LightningModule):
 
 
 def main(devices: int = 1, precision: Optional[str] = None, tpu: bool = False) -> None:
-    if precision is None:
-        precision = "32-true" if tpu else "bf16-mixed"
+    precision = precision or get_default_supported_precision(training=True, tpu=tpu)
+
     if devices > 1:
         if tpu:
             # For multi-host TPU training, the device count for Fabric is limited to the count on a single host.
@@ -146,18 +146,20 @@ def main(devices: int = 1, precision: Optional[str] = None, tpu: bool = False) -
 
     config = Config.from_name(model_name)
     trainer.print(f"Loading model with {config.__dict__}")
-    t0 = time.time()
+    t0 = time.perf_counter()
     model = LightningGPTModule(config)
-    trainer.print(f"Time to instantiate model: {time.time() - t0:.02f} seconds.")
+    trainer.print(f"Time to instantiate model: {time.perf_counter() - t0:.02f} seconds.")
 
     train_data = Dataset(str(data_dir / "train.bin"), config.block_size)
     val_data = Dataset(str(data_dir / "val.bin"), config.block_size)
     train_dataloader = DataLoader(train_data, batch_size=micro_batch_size, num_workers=2)
     val_dataloader = DataLoader(val_data, batch_size=micro_batch_size, num_workers=2)
 
-    t0 = time.time()
+    t0 = time.perf_counter()
     trainer.fit(model, train_dataloader, val_dataloader, ckpt_path="last")
-    trainer.print(f"Training time: {(time.time()-t0):.2f}s")
+    trainer.print(f"Training time: {(time.perf_counter()-t0):.2f}s")
+    if trainer.strategy.root_device.type == "cuda":
+        trainer.print(f"Memory used: {torch.cuda.max_memory_allocated() / 1e9:.02f} GB")
 
 
 class Dataset(IterableDataset):

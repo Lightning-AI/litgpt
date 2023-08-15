@@ -4,7 +4,7 @@ Based on the nanoGPT implementation: https://github.com/karpathy/nanoGPT and
 https://github.com/EleutherAI/gpt-neox/tree/main/megatron/model.
 """
 import math
-from typing import List, Optional, Tuple, Any
+from typing import Any, List, Optional, Tuple
 
 import torch
 import torch.nn as nn
@@ -12,7 +12,6 @@ from lightning_utilities.core.imports import RequirementCache
 from typing_extensions import Self
 
 from lit_gpt.config import Config
-from lit_gpt.rmsnorm import RMSNorm
 
 RoPECache = Tuple[torch.Tensor, torch.Tensor]
 KVCache = Tuple[torch.Tensor, torch.Tensor]
@@ -39,19 +38,13 @@ class GPT(nn.Module):
         self.kv_caches: List[KVCache] = []
 
     def _init_weights(self, module: nn.Module) -> None:
+        """Meant to be used with `gpt.apply(gpt._init_weights)`."""
         if isinstance(module, nn.Linear):
             torch.nn.init.normal_(module.weight, mean=0.0, std=0.02)
             if module.bias is not None:
                 torch.nn.init.zeros_(module.bias)
         elif isinstance(module, nn.Embedding):
             torch.nn.init.normal_(module.weight, mean=0.0, std=0.02)
-        elif isinstance(module, nn.LayerNorm):
-            torch.nn.init.ones_(module.weight)
-            torch.nn.init.zeros_(module.bias)
-            module.eps = self.config.norm_eps
-        elif isinstance(module, RMSNorm):
-            torch.nn.init.ones_(module.weight)
-            module.eps = self.config.norm_eps
 
     def reset_cache(self) -> None:
         self.kv_caches.clear()

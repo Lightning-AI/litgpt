@@ -6,20 +6,16 @@ https://arxiv.org/abs/2303.16199
 Port for Lit-GPT
 """
 from dataclasses import dataclass
-from typing import Optional, Tuple, Any, List, Union
+from typing import Any, List, Optional, Tuple, Union
 
 import torch
 import torch.nn as nn
 from typing_extensions import Self
 
 from lit_gpt.config import Config as BaseConfig
-from lit_gpt.model import (
-    GPT as BaseModel,
-    CausalSelfAttention as BaseCausalSelfAttention,
-    apply_rope,
-    RoPECache,
-    KVCache,
-)
+from lit_gpt.model import GPT as BaseModel
+from lit_gpt.model import CausalSelfAttention as BaseCausalSelfAttention
+from lit_gpt.model import KVCache, RoPECache, apply_rope
 
 
 @dataclass
@@ -119,6 +115,12 @@ class GPT(BaseModel):
     def from_name(cls, name: str, **kwargs: Any) -> Self:
         return cls(Config.from_name(name, **kwargs))
 
+    def _init_weights(self, module: nn.Module) -> None:
+        """Meant to be used with `gpt.apply(gpt._init_weights)`. Unused method left for completeness."""
+        super()._init_weights(module)
+        if isinstance(module, CausalSelfAttention):
+            module.reset_parameters()
+
 
 class Block(nn.Module):
     """The implementation is identical to `lit_gpt.model.Block` with the exception that
@@ -173,6 +175,7 @@ class CausalSelfAttention(BaseCausalSelfAttention):
             self.adapter_wte = nn.Embedding(config.adapter_prompt_length, config.n_embd)
             # gate for adaption
             self.gating_factor = torch.nn.Parameter(torch.zeros(1, 1, config.n_head, 1))
+            self.reset_parameters()
         self.block_idx = block_idx
 
     def forward(
@@ -259,6 +262,9 @@ class CausalSelfAttention(BaseCausalSelfAttention):
         y = self.proj(y)
 
         return y, kv_cache, adapter_kv_cache
+
+    def reset_parameters(self) -> None:
+        torch.nn.init.zeros_(self.gating_factor)
 
 
 def mark_only_adapter_as_trainable(model: GPT) -> None:

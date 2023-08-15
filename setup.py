@@ -1,7 +1,6 @@
 import os
 
-from setuptools import setup, find_packages
-
+from setuptools import find_packages, setup
 
 _PATH_ROOT = os.path.dirname(__file__)
 
@@ -17,7 +16,6 @@ setup(
     install_requires=[
         # "torch>=2.1.0dev",
         "lightning @ git+https://github.com/Lightning-AI/lightning@master",
-        "tokenizers",
     ],
     packages=find_packages(),
     long_description=readme,

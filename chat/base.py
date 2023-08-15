@@ -4,7 +4,7 @@ import sys
 import time
 import warnings
 from pathlib import Path
-from typing import Optional, Tuple, List, Literal, Iterator
+from typing import Iterator, List, Literal, Optional, Tuple
 
 import lightning as L
 import torch
@@ -13,8 +13,8 @@ import torch
 wd = Path(__file__).parent.parent.resolve()
 sys.path.append(str(wd))
 
-from lit_gpt import GPT, Tokenizer, Config
-from lit_gpt.utils import lazy_load, check_valid_checkpoint_dir, quantization
+from lit_gpt import GPT, Config, Tokenizer
+from lit_gpt.utils import check_valid_checkpoint_dir, get_default_supported_precision, lazy_load, quantization
 
 
 @torch.no_grad()
@@ -123,7 +123,7 @@ def main(
     temperature: float = 0.8,
     checkpoint_dir: Path = Path("checkpoints/stabilityai/stablelm-tuned-alpha-3b"),
     quantize: Optional[Literal["bnb.nf4", "bnb.nf4-dq", "bnb.fp4", "bnb.fp4-dq", "bnb.int8", "gptq.int4"]] = None,
-    precision: str = "bf16-true",
+    precision: Optional[str] = None,
 ) -> None:
     """Starts a conversation with a tuned GPT model.
 
@@ -139,6 +139,8 @@ def main(
             for more details, see https://github.com/Lightning-AI/lit-gpt/blob/main/tutorials/quantize.md
         precision: Indicates the Fabric precision setting to use.
     """
+    precision = precision or get_default_supported_precision(training=False)
+
     check_valid_checkpoint_dir(checkpoint_dir)
 
     with open(checkpoint_dir / "lit_config.json") as fp:
@@ -272,6 +274,16 @@ def prompt_config(checkpoint_dir: Path, tokenizer: Tokenizer) -> Tuple[str, Tupl
             " positive in nature.\n\nIf a question does not make any sense, or is not factually coherent, explain why"
             " instead of answering something not correct. If you don't know the answer to a question, please don't"
             f" share false information.{e_sys} {{prompt}} {e_inst} "
+        )
+        stop_tokens = ([tokenizer.eos_id],)
+        return system_prompt, stop_tokens
+
+    if re.search("FreeWilly2", checkpoint_name):
+        system_prompt = (
+            "### System:\nThis is a system prompt, please behave and help the user.\n\n"
+            "### User:\n"
+            "{prompt}\n\n"
+            "### Assistant:\n"
         )
         stop_tokens = ([tokenizer.eos_id],)
         return system_prompt, stop_tokens

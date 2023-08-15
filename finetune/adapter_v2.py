@@ -2,7 +2,7 @@ import os
 import sys
 import time
 from pathlib import Path
-from typing import Optional, List, Dict, Tuple
+from typing import Dict, List, Optional, Tuple
 
 import lightning as L
 import torch
@@ -13,15 +13,18 @@ wd = Path(__file__).parent.parent.resolve()
 sys.path.append(str(wd))
 
 from generate.base import generate
-from lit_gpt.adapter import GPT, Config, Block
-from lit_gpt.adapter_v2 import (
-    mark_only_adapter_v2_as_trainable,
-    add_adapter_v2_parameters_to_linear_layers,
-    adapter_filter,
-)
+from lit_gpt.adapter_v2 import GPT, Block, Config, adapter_filter, mark_only_adapter_v2_as_trainable
+from lit_gpt.speed_monitor import SpeedMonitorFabric as SpeedMonitor
+from lit_gpt.speed_monitor import measure_flops
 from lit_gpt.tokenizer import Tokenizer
-from lit_gpt.utils import lazy_load, check_valid_checkpoint_dir, step_csv_logger, chunked_cross_entropy
-from lit_gpt.speed_monitor import SpeedMonitorFabric as SpeedMonitor, measure_flops, estimate_flops
+from lit_gpt.utils import (
+    check_valid_checkpoint_dir,
+    chunked_cross_entropy,
+    get_default_supported_precision,
+    lazy_load,
+    num_parameters,
+    step_csv_logger,
+)
 from scripts.prepare_alpaca import generate_prompt
 
 eval_interval = 600
@@ -54,8 +57,8 @@ def setup(
     precision: Optional[str] = None,
     tpu: bool = False,
 ):
-    if precision is None:
-        precision = "32-true" if tpu else "bf16-mixed"
+    precision = precision or get_default_supported_precision(training=True, tpu=tpu)
+
     fabric_devices = devices
     if fabric_devices > 1:
         if tpu:
@@ -97,28 +100,26 @@ def main(fabric: L.Fabric, data_dir: Path, checkpoint_dir: Path, out_dir: Path):
     fabric.print(f"Loading model {str(checkpoint_path)!r} with {config.__dict__}")
     with fabric.init_module(empty_init=False):
         model = GPT(config)
-        model.apply(model._init_weights)  # for the adapter weights
     with lazy_load(checkpoint_path) as checkpoint:
         # strict=False because missing keys due to adapter weights not contained in state dict
         model.load_state_dict(checkpoint, strict=False)
 
-    add_adapter_v2_parameters_to_linear_layers(model)
     mark_only_adapter_v2_as_trainable(model)
 
+    fabric.print(f"Number of trainable parameters: {num_parameters(model, requires_grad=True):,}")
+    fabric.print(f"Number of non trainable parameters: {num_parameters(model, requires_grad=False):,}")
     trainable_params = [p for p in model.parameters() if p.requires_grad]
-    num_params = sum(p.numel() for p in trainable_params)
-    fabric.print(f"Number of trainable parameters: {num_params:,}")
-    num_params = sum(p.numel() for p in model.parameters() if not p.requires_grad)
-    fabric.print(f"Number of non trainable parameters: {num_params:,}")
 
     optimizer = torch.optim.AdamW(trainable_params, lr=learning_rate, weight_decay=weight_decay)
     model, optimizer = fabric.setup(model, optimizer)
 
     fabric.seed_everything(1337 + fabric.global_rank)
 
-    train_time = time.time()
+    train_time = time.perf_counter()
     train(fabric, model, optimizer, train_data, val_data, checkpoint_dir, out_dir, speed_monitor)
-    fabric.print(f"Training time: {(time.time()-train_time):.2f}s")
+    fabric.print(f"Training time: {(time.perf_counter()-train_time):.2f}s")
+    if fabric.device.type == "cuda":
+        fabric.print(f"Memory used: {torch.cuda.max_memory_allocated() / 1e9:.02f} GB")
 
     # Save the final checkpoint at the end of training
     save_path = out_dir / "lit_model_adapter_finetuned.pth"
@@ -142,17 +143,17 @@ def train(
 
     with torch.device("meta"):
         meta_model = GPT(model.config)
-        # estimated is too much of an optimistic estimate, left just for reference
-        estimated_flops = estimate_flops(meta_model) * micro_batch_size
-        fabric.print(f"Estimated TFLOPs: {estimated_flops * fabric.world_size / 1e12:.2f}")
-        x = torch.randint(0, 1, (micro_batch_size, model.config.block_size))
+        # estimated flops doesn't account for frozen weights, so it's not reported
+        mark_only_adapter_v2_as_trainable(meta_model)
+        # TODO: this assumes that samples have a fixed length which is most likely false during finetuning
+        x = torch.randint(0, 1, (micro_batch_size, longest_seq_length))
         measured_flops = measure_flops(meta_model, x)
         fabric.print(f"Measured TFLOPs: {measured_flops * fabric.world_size / 1e12:.2f}")
         del meta_model, x
 
     step_count = 0
     total_lengths = 0
-    total_t0 = time.time()
+    total_t0 = time.perf_counter()
 
     if fabric.device.type == "xla":
         import torch_xla.core.xla_model as xm
@@ -165,7 +166,7 @@ def train(
             for param_group in optimizer.param_groups:
                 param_group["lr"] = lr
 
-        iter_t0 = time.time()
+        iter_t0 = time.perf_counter()
 
         input_ids, targets = get_batch(
             fabric, train_data, longest_seq_length, longest_seq_ix if iter_num == 0 else None
@@ -186,7 +187,7 @@ def train(
         elif fabric.device.type == "xla":
             xm.mark_step()
 
-        t1 = time.time()
+        t1 = time.perf_counter()
         total_lengths += input_ids.size(1)
         speed_monitor.on_train_batch_end(
             (iter_num + 1) * micro_batch_size,
@@ -203,9 +204,9 @@ def train(
             )
 
         if not is_accumulating and step_count % eval_interval == 0:
-            t0 = time.time()
+            t0 = time.perf_counter()
             val_loss = validate(fabric, model, val_data, tokenizer, longest_seq_length)
-            t1 = time.time() - t0
+            t1 = time.perf_counter() - t0
             speed_monitor.eval_end(t1)
             fabric.print(f"step {iter_num}: val loss {val_loss:.4f}, val time: {t1 * 1000:.2f}ms")
             fabric.barrier()
@@ -224,7 +225,7 @@ def validate(
     for k in range(eval_iters):
         input_ids, targets = get_batch(fabric, val_data, longest_seq_length)
         logits = model(input_ids)
-        loss = chunked_cross_entropy(logits, targets, chunk_size=0)
+        loss = chunked_cross_entropy(logits[..., :-1, :], targets[..., 1:], chunk_size=0)
         losses[k] = loss.item()
     val_loss = losses.mean()
 
@@ -233,7 +234,7 @@ def validate(
     fabric.print(instruction)
     sample = {"instruction": instruction, "input": ""}
     prompt = generate_prompt(sample)
-    encoded = tokenizer.encode(prompt, device=model.device)
+    encoded = tokenizer.encode(prompt, device=fabric.device)
     max_returned_tokens = len(encoded) + 100
     output = generate(
         model, idx=encoded, max_returned_tokens=max_returned_tokens, max_seq_length=max_returned_tokens, temperature=0.8
@@ -299,6 +300,6 @@ if __name__ == "__main__":
     # torch.backends.cuda.enable_flash_sdp(False)
     torch.set_float32_matmul_precision("high")
 
-    from jsonargparse.cli import CLI
+    from jsonargparse import CLI
 
     CLI(setup)

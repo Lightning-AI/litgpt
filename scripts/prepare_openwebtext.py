@@ -6,7 +6,6 @@ from pathlib import Path
 from typing import Union
 
 import numpy as np
-from datasets import load_dataset  # huggingface datasets
 from tqdm import tqdm
 
 # support running without installing as a package
@@ -22,6 +21,8 @@ def prepare(
     seed: int = 42,
     test_size: Union[float, int, None] = 0.0005,
 ) -> None:
+    from datasets import load_dataset  # huggingface datasets
+
     destination_path.mkdir(parents=True, exist_ok=True)
 
     tokenizer = Tokenizer(checkpoint_dir)
@@ -74,6 +75,6 @@ def prepare(
 
 
 if __name__ == "__main__":
-    from jsonargparse.cli import CLI
+    from jsonargparse import CLI
 
     CLI(prepare)

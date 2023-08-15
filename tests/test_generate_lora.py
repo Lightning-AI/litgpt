@@ -6,19 +6,24 @@ from io import StringIO
 from pathlib import Path
 from unittest.mock import ANY, Mock, call
 
-import pytest
 import torch
 
 
-@pytest.mark.parametrize("version", ("v1", "v2"))
-def test_main(fake_checkpoint_dir, monkeypatch, version):
-    if version == "v1":
-        import generate.adapter as generate
-    else:
-        import generate.adapter_v2 as generate
+def test_main(fake_checkpoint_dir, monkeypatch):
+    import generate.lora as generate
 
     config_path = fake_checkpoint_dir / "lit_config.json"
-    config = {"block_size": 16, "vocab_size": 50, "n_layer": 2, "n_head": 4, "n_embd": 8, "rotary_percentage": 1}
+    config = {
+        "block_size": 16,
+        "vocab_size": 50,
+        "n_layer": 2,
+        "n_head": 4,
+        "n_embd": 8,
+        "rotary_percentage": 1,
+        "to_query": False,
+        "to_value": False,
+        "to_projection": True,
+    }
     config_path.write_text(json.dumps(config))
 
     load_mock = Mock()
@@ -51,9 +56,22 @@ def test_main(fake_checkpoint_dir, monkeypatch, version):
     assert "'padded_vocab_size': 512, 'n_layer': 2, 'n_head': 4, 'n_embd': 8" in err.getvalue()
 
 
-@pytest.mark.parametrize("version", ("", "_v2"))
-def test_cli(version):
-    cli_path = Path(__file__).parent.parent / "generate" / f"adapter{version}.py"
+def test_lora_variables_exist():
+    import generate.lora as generate
+
+    for lora_argument in ("r", "alpha", "dropout", "query", "key", "value", "projection", "mlp", "head"):
+        assert getattr(generate, f"lora_{lora_argument}", None) is not None
+
+
+def test_lora_is_enabled():
+    import generate.lora as generate
+
+    lora_arguments = ("query", "key", "value", "projection", "mlp", "head")
+    assert any(getattr(generate, f"lora_{lora_argument}") for lora_argument in lora_arguments)
+
+
+def test_cli():
+    cli_path = Path(__file__).parent.parent / "generate" / "lora.py"
     output = subprocess.check_output([sys.executable, cli_path, "-h"])
     output = str(output.decode())
     assert "Generates a response" in output
