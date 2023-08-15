@@ -183,10 +183,9 @@ def load_param(param: Union[torch.Tensor, NotYetLoadedTensor], name: str, dtype:
         # support tensors loaded via `lazy_load()`
         print(f"Loading {name} into RAM")
         param = param._load_tensor()
-    if dtype is not None:
-        if dtype != param.dtype:
-            print(f"Converting {name} from {param.dtype} to {dtype}")
-            param = param.to(dtype)
+    if dtype != param.dtype:
+        print(f"Converting {name} from {param.dtype} to {dtype}")
+        param = param.to(dtype)
     return param
 
 
