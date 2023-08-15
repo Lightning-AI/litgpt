@@ -56,6 +56,32 @@ python eval/lm_eval_harness_lora.py \
         --save_filepath "results.json"
 ```
 
+## Using Holistic Evaluation of Language Models (HELM)
+
+You can evaluate Lit-GPT using [HELM](https://crfm.stanford.edu/helm/latest/), a benchmark that aims to improve the transparency of language models.
+
+You need to install the `helm` framework first:
+
+<!-- TODO: update to official helm branch once https://github.com/stanford-crfm/helm/pull/1693 is merged. -->
+```bash
+pip install git+https://github.com/drisspg/helm.git@neruips_client
+```
+
+**Step 1:** Run Lit-GPT as API
+
+```shell
+python eval/helm/main.py \
+        --checkpoint_dir "checkpoints/Llama-2-7b-hf/" \
+        --precision "bf16-true"
+```
+
+**Step 2:** Evaluate with HELM CLI
+```shell
+helm-run --conf-paths run_specs.conf --suite v1 --max-eval-instances 1000
+helm-summarize --suite v1
+```
+
+
 ## FAQs
 
 * **How do I evaluate on MMLU?**
