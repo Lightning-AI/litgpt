@@ -202,8 +202,8 @@ def train(
         if iter_num % log_interval == 0:
             fabric.print(
                 f"iter {iter_num} step {step_count}:"
-                + (f" loss {loss.item():.4f}," if not tpu else "") +
-                f" iter time: {(t1 - iter_t0) * 1000:.2f}ms"
+                + (f" loss {loss.item():.4f}," if not tpu else "")
+                + f" iter time: {(t1 - iter_t0) * 1000:.2f}ms"
                 + (" (optimizer.step)" if not is_accumulating else "")
             )
 
