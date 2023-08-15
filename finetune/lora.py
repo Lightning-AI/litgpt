@@ -225,11 +225,6 @@ def train(
             save_lora_checkpoint(fabric, model, checkpoint_path)
 
 
-def save_lora_checkpoint(fabric, model, file_path: Path):
-    fabric.print(f"Saving LoRA weights to {str(file_path)!r}")
-    fabric.save(file_path, {"model": model}, filter={"model": lora_filter})
-
-
 @torch.no_grad()
 def validate(
     fabric: L.Fabric, model: GPT, val_data: List[Dict], tokenizer: Tokenizer, longest_seq_length: int
@@ -261,6 +256,12 @@ def validate(
 
     model.train()
     return val_loss.item()
+
+
+def measured_flops(meta_model: GPT, batch_shape: torch.Size) -> int:
+    with torch.device("meta"):
+        x = torch.randint(0, 1, batch_shape)
+        return measure_flops(meta_model, x)
 
 
 def get_batch(
@@ -305,10 +306,9 @@ def get_max_seq_length(data: List[Dict]) -> Tuple[int, int, int]:
     )
 
 
-def measured_flops(meta_model: GPT, batch_shape: torch.Size) -> int:
-    with torch.device("meta"):
-        x = torch.randint(0, 1, batch_shape)
-        return measure_flops(meta_model, x)
+def save_lora_checkpoint(fabric, model, file_path: Path):
+    fabric.print(f"Saving LoRA weights to {str(file_path)!r}")
+    fabric.save(file_path, {"model": model}, filter={"model": lora_filter})
 
 
 if __name__ == "__main__":

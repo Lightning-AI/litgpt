@@ -200,9 +200,10 @@ def train(
             save_checkpoint(fabric, model, checkpoint_path)
 
 
-def save_checkpoint(fabric, model, file_path: Path):
-    fabric.print(f"Saving weights to {str(file_path)!r}")
-    fabric.save(file_path, {"model": model})
+def measured_flops(meta_model: GPT, batch_shape: torch.Size) -> int:
+    with torch.device("meta"):
+        x = torch.randint(0, 1, batch_shape)
+        return measure_flops(meta_model, x)
 
 
 @torch.no_grad()
@@ -280,10 +281,9 @@ def get_max_seq_length(data: List[Dict]) -> Tuple[int, int, int]:
     )
 
 
-def measured_flops(meta_model: GPT, batch_shape: torch.Size) -> int:
-    with torch.device("meta"):
-        x = torch.randint(0, 1, batch_shape)
-        return measure_flops(meta_model, x)
+def save_checkpoint(fabric, model, file_path: Path):
+    fabric.print(f"Saving weights to {str(file_path)!r}")
+    fabric.save(file_path, {"model": model})
 
 
 if __name__ == "__main__":
