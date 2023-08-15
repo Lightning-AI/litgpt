@@ -123,7 +123,6 @@ class LoRALinear(LoRALayer):
             self.scaling = self.lora_alpha / self.r
             # Freezing the pre-trained weight matrix
             self.linear.weight.requires_grad = False
-        self.reset_parameters()
 
     def reset_parameters(self):
         """Reset all the weights, even including pretrained ones."""
@@ -253,7 +252,6 @@ class LoRAQKVLinear(LoRALinear):
                 self.lora_ind.extend(range(self.linear.in_features, self.linear.in_features + self.kv_embd_size))
             if enable_v:
                 self.lora_ind.extend(range(self.linear.in_features + self.kv_embd_size, self.linear.out_features))
-        self.reset_parameters()
 
     def zero_pad(self, x: torch.Tensor) -> torch.Tensor:
         """Properly pad weight updates with zeros.
@@ -542,6 +540,11 @@ class GPT(BaseModel):
     @classmethod
     def from_name(cls, name: str, **kwargs: Any) -> Self:
         return cls(Config.from_name(name, **kwargs))
+
+    def _init_weights(self, module: nn.Module) -> None:
+        super()._init_weights(module)
+        if isinstance(module, LoRALinear):
+            module.reset_parameters()
 
 
 class Block(BaseBlock):
