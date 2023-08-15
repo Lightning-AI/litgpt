@@ -6,10 +6,11 @@ https://arxiv.org/abs/2304.15010
 Port for Lit-GPT
 """
 from dataclasses import dataclass
-from typing import Any, List, Optional, Tuple, Type
+from typing import Any, Dict, List, Optional, Tuple, Type
 
 import torch
 import torch.nn as nn
+from typing_extensions import Self
 
 import lit_gpt
 from lit_gpt.adapter import GPT as BaseModel
@@ -18,6 +19,7 @@ from lit_gpt.adapter import Config as BaseConfig
 from lit_gpt.adapter import KVCache, RoPECache
 from lit_gpt.model import CausalSelfAttention as BaseCausalSelfAttention
 from lit_gpt.model import apply_rope
+from lit_gpt.utils import map_old_state_dict_weights
 
 
 @dataclass
@@ -80,6 +82,10 @@ class GPT(BaseModel):
         self.kv_caches: List[KVCache] = []
         self.adapter_kv_caches: List[KVCache] = []
 
+    @classmethod
+    def from_name(cls, name: str, **kwargs: Any) -> Self:
+        return cls(Config.from_name(name, **kwargs))
+
     def _init_weights(self, module: nn.Module) -> None:
         """Meant to be used with `gpt.apply(gpt._init_weights)`. Unused method left for completeness."""
         super()._init_weights(module)
@@ -87,6 +93,12 @@ class GPT(BaseModel):
             module.reset_parameters()
         if isinstance(module, AdapterV2Linear):
             module.reset_parameters()
+
+    def _load_from_state_dict(self, state_dict: Dict, prefix: str, *args: Any, **kwargs: Any) -> None:
+        """For compatibility with older checkpoints."""
+        mapping = {"lm_head.weight": "lm_head.linear.weight"}
+        state_dict = map_old_state_dict_weights(state_dict, mapping, prefix)
+        super()._load_from_state_dict(state_dict, prefix, *args, **kwargs)
 
 
 class Block(BaseBlock):
@@ -218,12 +230,34 @@ class CausalSelfAttention(BaseCausalSelfAttention):
     def reset_parameters(self) -> None:
         torch.nn.init.zeros_(self.gating_factor)
 
+    def _load_from_state_dict(self, state_dict: Dict, prefix: str, *args: Any, **kwargs: Any) -> None:
+        """For compatibility with older checkpoints."""
+        mapping = {
+            "attn.weight": "attn.linear.weight",
+            "attn.bias": "attn.linear.bias",
+            "proj.weight": "proj.linear.weight",
+            "proj.bias": "proj.linear.bias",
+        }
+        state_dict = map_old_state_dict_weights(state_dict, mapping, prefix)
+        super()._load_from_state_dict(state_dict, prefix, *args, **kwargs)
+
 
 class GptNeoxMLP(lit_gpt.model.GptNeoxMLP):
     def __init__(self, config: Config) -> None:
         nn.Module.__init__(self)
         self.fc = AdapterV2Linear(config.n_embd, config.intermediate_size, bias=config.bias)
         self.proj = AdapterV2Linear(config.intermediate_size, config.n_embd, bias=config.bias)
+
+    def _load_from_state_dict(self, state_dict: Dict, prefix: str, *args: Any, **kwargs: Any) -> None:
+        """For compatibility with older checkpoints."""
+        mapping = {
+            "fc.weight": "fc.linear.weight",
+            "fc.bias": "fc.linear.bias",
+            "proj.weight": "proj.linear.weight",
+            "proj.bias": "proj.linear.bias",
+        }
+        state_dict = map_old_state_dict_weights(state_dict, mapping, prefix)
+        super()._load_from_state_dict(state_dict, prefix, *args, **kwargs)
 
 
 class LLaMAMLP(lit_gpt.model.LLaMAMLP):
@@ -232,6 +266,19 @@ class LLaMAMLP(lit_gpt.model.LLaMAMLP):
         self.fc_1 = AdapterV2Linear(config.n_embd, config.intermediate_size, bias=config.bias)
         self.fc_2 = AdapterV2Linear(config.n_embd, config.intermediate_size, bias=config.bias)
         self.proj = AdapterV2Linear(config.intermediate_size, config.n_embd, bias=config.bias)
+
+    def _load_from_state_dict(self, state_dict: Dict, prefix: str, *args: Any, **kwargs: Any) -> None:
+        """For compatibility with older checkpoints."""
+        mapping = {
+            "fc_1.weight": "fc_1.linear.weight",
+            "fc_1.bias": "fc_1.linear.bias",
+            "fc_2.weight": "fc_2.linear.weight",
+            "fc_2.bias": "fc_2.linear.bias",
+            "proj.weight": "proj.linear.weight",
+            "proj.bias": "proj.linear.bias",
+        }
+        state_dict = map_old_state_dict_weights(state_dict, mapping, prefix)
+        super()._load_from_state_dict(state_dict, prefix, *args, **kwargs)
 
 
 def mark_only_adapter_v2_as_trainable(model: GPT) -> None:
