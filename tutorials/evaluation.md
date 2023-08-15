@@ -7,12 +7,8 @@ You can evaluate Lit-GPT using [EleutherAI's lm-eval](https://github.com/Eleuthe
 You need to install the `lm-eval` framework first:
 
 ```bash
-git clone https://github.com/EleutherAI/lm-evaluation-harness
-cd lm-evaluation-harness
-pip install -e .
+pip install https://github.com/EleutherAI/lm-evaluation-harness/archive/refs/heads/master.zip -U
 ```
-
-
 
 ### Evaluating Lit-GPT base models
 
@@ -28,8 +24,7 @@ python eval/lm_eval_harness.py \
 
 To evaluate on LLMs on specific tasks, for example, TruthfulQA and HellaSwag, you can use the `--eval_task` flag as follows:
 
-
-```python
+```bash
 python eval/lm_eval_harness.py \
         --checkpoint_dir "checkpoints/Llama-2-7b-hf/" \
         --eval_tasks "[truthfulqa_mc,hellaswag]" \

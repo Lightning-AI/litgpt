@@ -24,7 +24,7 @@ jobs:
           - {os: "macOS-11", python-version: "3.10"}
           - {os: "ubuntu-20.04", python-version: "3.10"}
           - {os: "windows-2022", python-version: "3.10"}
-    timeout-minutes: 20
+    timeout-minutes: 25
 
     steps:
     - uses: actions/checkout@v3
@@ -38,10 +38,24 @@ jobs:
           requirements.txt
           setup.py
 
-    - name: Run tests without the package installed
+    - name: Install minimal dependencies
       run: |
         pip install --index-url https://download.pytorch.org/whl/nightly/cpu --pre torch>=2.1.0dev
-        pip install pytest pytest-rerunfailures -r requirements.txt transformers einops
+        pip install -r requirements.txt
+        pip list
+        # make sure all modules are importable
+        modules=$(
+          find * -type f -name "*.py" | \
+          grep -v tests | grep "/" | grep -v lm_eval | \
+          sed 's/\.py$//' | sed 's/\//./g' | \
+          sed 's/.__init__//g' | xargs -I {} echo "import {};"
+        )
+        echo "$modules"
+        python -c "$modules"
+
+    - name: Run tests without the package installed
+      run: |
+        pip install pytest pytest-rerunfailures transformers einops bitsandbytes scipy tokenizers zstandard
         pip list
 
         pytest --disable-pytest-warnings --strict-markers --color=yes
