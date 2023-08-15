@@ -121,13 +121,11 @@ class LoRALinear(LoRALayer):
             self.lora_A = nn.Parameter(self.linear.weight.new_zeros((r, in_features)))
             self.lora_B = nn.Parameter(self.linear.weight.new_zeros((out_features, r)))
             self.scaling = self.lora_alpha / self.r
-            # Freezing the pre-trained weight matrix
-            self.linear.weight.requires_grad = False
             self.reset_parameters()
 
     def reset_parameters(self):
         """Reset all the weights, even including pretrained ones."""
-        if self.r > 0:
+        if hasattr(self, "lora_A"):
             # initialize A the same way as the default for nn.Linear and B to zero
             # Wondering why 'a' is equal to math.sqrt(5)?: https://github.com/pytorch/pytorch/issues/15314
             nn.init.kaiming_uniform_(self.lora_A, a=math.sqrt(5))
@@ -231,9 +229,6 @@ class LoRAQKVLinear(LoRALinear):
             # tune these values to your needs. This value can be even slightly greater than 1.0!
             # https://github.com/cloneofsimo/lora
             self.scaling = self.lora_alpha / self.r
-
-            # Freezing the pre-trained weight matrix
-            self.linear.weight.requires_grad = False  # (384, 128)
 
             # Compute the indices
             # Indices are needed to properly pad weight updates with zeros. If we want to fine-tune queries and values,

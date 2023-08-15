@@ -388,3 +388,26 @@ def test_bnb_replacement(mode, expected):
     expected = getattr(bnb.modules, expected)
     assert isinstance(linear.linear, expected)
     assert isinstance(qkv.linear, expected)
+
+
+def test_lora_gpt_init_weights():
+    from lit_gpt.lora import Config, GPT
+
+    config = Config(
+        n_layer=1,
+        n_head=6,
+        n_embd=12,
+        block_size=1,
+        vocab_size=1,
+        r=2,
+        alpha=8,
+        to_head=True
+    )
+    model = GPT(config)
+    param = model.lm_head.lora_B.data
+
+    assert (param == 0).all()
+    torch.nn.init.constant_(param, 1.23)
+    assert (param != 0).any()
+    model.apply(model._init_weights)
+    assert (param == 0).all()

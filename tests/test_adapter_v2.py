@@ -7,18 +7,13 @@ from lightning import Fabric
 
 
 def test_config_identical():
-    import lit_gpt.adapter as gpt_adapter
+    import lit_gpt.adapter_v2 as gpt_adapter
     import lit_gpt.model as gpt
-    from lit_gpt.adapter_v2 import adapter_v2_linear_with_bias_and_scale
 
     name = "pythia-70m"
     with Fabric(accelerator="cpu").init_module(empty_init=True):
         base_model = gpt.GPT.from_name(name)
         adapter_model = gpt_adapter.GPT.from_name(name)
-
-        for module in adapter_model.modules():
-            if isinstance(module, torch.nn.Linear):
-                adapter_v2_linear_with_bias_and_scale(module)
 
     assert not hasattr(base_model.transformer.h[2].attn.attn, "adapter_bias")
     assert not hasattr(base_model.transformer.h[2].attn.attn, "adapter_scale")
@@ -104,3 +99,24 @@ def test_adapter_v2_script(tmp_path, fake_checkpoint_dir, monkeypatch):
     assert logs.count("optimizer.step") == module.max_iters
     assert logs.count("val loss") == module.max_iters // module.eval_interval
     assert "of trainable parameters: 552" in logs
+
+
+def test_adapter_v2_gpt_init_weights():
+    from lit_gpt.adapter_v2 import Config, GPT
+
+    config = Config(
+        n_layer=1,
+        n_head=6,
+        n_embd=12,
+        block_size=1,
+        vocab_size=1,
+        adapter_start_layer=0,
+    )
+    model = GPT(config)
+
+    for param in (model.transformer.h[0].attn.gating_factor, model.lm_head.adapter_bias):
+        assert (param == 0).all()
+        torch.nn.init.constant_(param, 1.23)
+        assert (param != 0).any()
+        model.apply(model._init_weights)
+        assert (param == 0).all()

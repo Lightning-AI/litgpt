@@ -12,6 +12,7 @@ import lit_gpt
 from lit_gpt.adapter import Block as BaseBlock
 from lit_gpt.adapter import Config as BaseConfig
 from lit_gpt.adapter import GPT as BaseModel
+from lit_gpt.model import CausalSelfAttention as BaseCausalSelfAttention
 from lit_gpt.adapter import KVCache, RoPECache
 from lit_gpt.model import apply_rope
 
@@ -38,11 +39,6 @@ def adapter_filter(key: str, value: Any) -> bool:
     )
     return any(s in key for s in adapter_substrings)
 
-
-def mark_only_adapter_v2_as_trainable(model: GPT) -> None:
-    """Sets requires_grad=False for all non-adapter weights"""
-    for name, param in model.named_parameters():
-        param.requires_grad = adapter_filter(name, param)
 
 
 class AdapterV2Linear(torch.nn.Module):
@@ -106,7 +102,7 @@ class Block(BaseBlock):
         self.config = config
 
 
-class CausalSelfAttention(nn.Module):
+class CausalSelfAttention(BaseCausalSelfAttention):
     def __init__(self, config: Config, block_idx: int) -> None:
         """Causal self-attention with calculating qkv matrices with a single matrix* and Low Ranking Adaptation for
         parameter-efficient fine-tuning.
@@ -114,7 +110,8 @@ class CausalSelfAttention(nn.Module):
         *Instead of creating multiple heads and concatenating the result (in addition to creating separate matrices for
         query, key and value for each head) we can do this in a single pass with a single weight matrix.
         """
-        super().__init__()
+        # Skip the parent class __init__ altogether and replace it to avoid useless allocations
+        nn.Module.__init__(self)
         shape = (config.n_head + 2 * config.n_query_groups) * config.head_size
         # key, query, value projections for all heads, but in a batch
         self.attn = AdapterV2Linear(in_features=config.n_embd, out_features=shape, bias=config.bias)
@@ -232,3 +229,9 @@ class LLaMAMLP(lit_gpt.model.LLaMAMLP):
         self.fc_1 = AdapterV2Linear(config.n_embd, config.intermediate_size, bias=config.bias)
         self.fc_2 = AdapterV2Linear(config.n_embd, config.intermediate_size, bias=config.bias)
         self.proj = AdapterV2Linear(config.intermediate_size, config.n_embd, bias=config.bias)
+
+
+def mark_only_adapter_v2_as_trainable(model: GPT) -> None:
+    """Sets requires_grad=False for all non-adapter weights"""
+    for name, param in model.named_parameters():
+        param.requires_grad = adapter_filter(name, param)

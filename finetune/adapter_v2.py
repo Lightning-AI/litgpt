@@ -13,10 +13,9 @@ wd = Path(__file__).parent.parent.resolve()
 sys.path.append(str(wd))
 
 from generate.base import generate
-from lit_gpt.adapter import GPT, Block, Config
 from lit_gpt.adapter_v2 import (
     adapter_filter,
-    add_adapter_v2_parameters_to_linear_layers,
+    GPT, Config, Block,
     mark_only_adapter_v2_as_trainable,
 )
 from lit_gpt.speed_monitor import SpeedMonitorFabric as SpeedMonitor
@@ -102,7 +101,6 @@ def main(fabric: L.Fabric, data_dir: Path, checkpoint_dir: Path, out_dir: Path):
         # strict=False because missing keys due to adapter weights not contained in state dict
         model.load_state_dict(checkpoint, strict=False)
 
-    add_adapter_v2_parameters_to_linear_layers(model)
     mark_only_adapter_v2_as_trainable(model)
 
     fabric.print(f"Number of trainable parameters: {num_parameters(model, requires_grad=True):,}")
@@ -141,7 +139,6 @@ def train(
     with torch.device("meta"):
         meta_model = GPT(model.config)
         # estimated flops doesn't account for frozen weights, so it's not reported
-        add_adapter_v2_parameters_to_linear_layers(meta_model)
         mark_only_adapter_v2_as_trainable(meta_model)
         # TODO: this assumes that samples have a fixed length which is most likely false during finetuning
         x = torch.randint(0, 1, (micro_batch_size, longest_seq_length))
