@@ -1,6 +1,9 @@
-"""
-Utility functions to extend the original GPT-Adapter method to GPT-Adapter v2,
-This is a port from Lit-LLaMA based on the code prepared by @rasbt aka Sebastian Raschka
+"""Implementation of the paper:
+
+LLaMA-Adapter V2: Parameter-Efficient Visual Instruction Model
+https://arxiv.org/abs/2304.15010
+
+Port for Lit-GPT
 """
 from dataclasses import dataclass
 from typing import Any, List, Optional, Tuple, Type
