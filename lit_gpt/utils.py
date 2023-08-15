@@ -8,7 +8,7 @@ from functools import partial
 from io import BytesIO
 from pathlib import Path
 from types import MethodType
-from typing import Any, List, Optional, Type, TypeVar, Union
+from typing import Any, Dict, List, Mapping, Optional, Type, TypeVar, Union
 
 import torch
 import torch.nn as nn
@@ -477,3 +477,12 @@ def chunked_cross_entropy(
         for logit_chunk, target_chunk in zip(logit_chunks, target_chunks)
     ]
     return torch.cat(loss_chunks).mean()
+
+
+def map_old_state_dict_weights(state_dict: Dict, mapping: Mapping, prefix: str) -> Dict:
+    for checkpoint_name, attribute_name in mapping.items():
+        full_checkpoint_name = prefix + checkpoint_name
+        if full_checkpoint_name in state_dict:
+            full_attribute_name = prefix + attribute_name
+            state_dict[full_attribute_name] = state_dict.pop(full_checkpoint_name)
+    return state_dict
