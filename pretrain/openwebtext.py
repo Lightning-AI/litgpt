@@ -115,6 +115,8 @@ def main(fabric, resume) -> None:
     train_time = time.perf_counter()
     train(fabric, state, train_dataloader, val_dataloader, speed_monitor)
     fabric.print(f"Training time: {(time.perf_counter()-train_time):.2f}s")
+    if fabric.device.type == "cuda":
+        fabric.print(f"Memory used: {torch.cuda.max_memory_allocated() / 1e9:.02f} GB")
 
 
 def train(fabric, state, train_dataloader, val_dataloader, speed_monitor):

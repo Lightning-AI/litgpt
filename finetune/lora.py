@@ -15,7 +15,7 @@ sys.path.append(str(wd))
 from generate.base import generate
 from lit_gpt.lora import GPT, Block, Config, lora_filter, mark_only_lora_as_trainable
 from lit_gpt.speed_monitor import SpeedMonitorFabric as SpeedMonitor
-from lit_gpt.speed_monitor import estimate_flops, measure_flops
+from lit_gpt.speed_monitor import measure_flops
 from lit_gpt.tokenizer import Tokenizer
 from lit_gpt.utils import check_valid_checkpoint_dir, chunked_cross_entropy, lazy_load, num_parameters, step_csv_logger
 from scripts.prepare_alpaca import generate_prompt
@@ -130,6 +130,8 @@ def main(fabric: L.Fabric, data_dir: Path, checkpoint_dir: Path, out_dir: Path):
     train_time = time.perf_counter()
     train(fabric, model, optimizer, train_data, val_data, checkpoint_dir, out_dir, speed_monitor)
     fabric.print(f"Training time: {(time.perf_counter()-train_time):.2f}s")
+    if fabric.device.type == "cuda":
+        fabric.print(f"Memory used: {torch.cuda.max_memory_allocated() / 1e9:.02f} GB")
 
     # Save the final LoRA checkpoint at the end of training
     save_path = out_dir / "lit_model_lora_finetuned.pth"
