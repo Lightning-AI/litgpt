@@ -71,6 +71,7 @@ class LoRALayer(nn.Module):
             lora_dropout: dropout that is applied on the input in the LoRA branch (before multiplying by matrix A)
         """
         super().__init__()
+        assert r >= 0
         self.r = r
         self.lora_alpha = lora_alpha
         # Optional dropout
@@ -143,10 +144,11 @@ class LoRALinear(LoRALayer):
     def forward(self, x: torch.Tensor):
         # if weights are merged or rank is less or equal to zero (LoRA is disabled) - it's only a regular nn.Linear forward pass;
         # otherwise in addition do the forward pass with LoRA weights and add it's output to the output from pretrained weights
-        result = self.linear(x)
-        if self.r > 0 and not self.merged:
-            result += (self.lora_dropout(x) @ self.lora_A.transpose(0, 1) @ self.lora_B.transpose(0, 1)) * self.scaling
-        return result
+        pretrained = self.linear(x)
+        if self.r == 0 or self.merged:
+            return pretrained
+        lora = (self.lora_dropout(x) @ self.lora_A.transpose(0, 1) @ self.lora_B.transpose(0, 1)) * self.scaling
+        return pretrained + lora
 
 
 class LoRAQKVLinear(LoRALinear):
@@ -371,23 +373,23 @@ class LoRAQKVLinear(LoRALinear):
 
         # if weights are merged or LoRA is disabled (r <= 0 or all `enable_lora` are False) - it's only a regular nn.Linear forward pass;
         # otherwise in addition do the forward pass with LoRA weights and add it's output to the output from pretrained weights
-        result = self.linear(x)
-        if self.r > 0 and any(self.enable_lora) and not self.merged:
-            after_A = F.linear(self.lora_dropout(x), self.lora_A)  # (64, 64, 128) @ (4, 128) -> (64, 64, 4)
-            # For F.conv1d:
-            # ⚬ input: input tensor of shape (mini-batch, in_channels, iW)
-            # ⚬ weight: filters of shape (out_channels, in_channels/groups, kW)
-            # ⚬ groups: split input into groups, in_channels should be divisible by the number of groups. Default: 1
-            # presumably iW - sequence width/length, kW - kernel width
-            after_B = self.conv1d(
-                after_A.transpose(-2, -1),  # (64, 64, 4) -> (64, 4, 64)
-                self.lora_B.unsqueeze(-1),  # (256, 2) -> (256, 2, 1)
-            ).transpose(
-                -2, -1
-            )  # (64, 4, 64) @ (256, 2, 1) -> (64, 256, 64) -> (64, 64, 256)
-            result += self.zero_pad(after_B) * self.scaling  # (64, 64, 256) after zero_pad (64, 64, 384)
-
-        return result
+        pretrained = self.linear(x)
+        if self.r == 0 or not any(self.enable_lora) or self.merged:
+            return pretrained
+        after_A = F.linear(self.lora_dropout(x), self.lora_A)  # (64, 64, 128) @ (4, 128) -> (64, 64, 4)
+        # For F.conv1d:
+        # ⚬ input: input tensor of shape (mini-batch, in_channels, iW)
+        # ⚬ weight: filters of shape (out_channels, in_channels/groups, kW)
+        # ⚬ groups: split input into groups, in_channels should be divisible by the number of groups. Default: 1
+        # presumably iW - sequence width/length, kW - kernel width
+        after_B = self.conv1d(
+            after_A.transpose(-2, -1),  # (64, 64, 4) -> (64, 4, 64)
+            self.lora_B.unsqueeze(-1),  # (256, 2) -> (256, 2, 1)
+        ).transpose(
+            -2, -1
+        )  # (64, 4, 64) @ (256, 2, 1) -> (64, 256, 64) -> (64, 64, 256)
+        lora = self.zero_pad(after_B) * self.scaling  # (64, 64, 256) after zero_pad (64, 64, 384)
+        return pretrained + lora
 
 
 def mark_only_lora_as_trainable(model: nn.Module, bias: str = "none") -> None:
