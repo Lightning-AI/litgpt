@@ -78,6 +78,7 @@ class GPT(BaseModel):
         self.adapter_kv_caches: List[KVCache] = []
 
     def _init_weights(self, module: nn.Module) -> None:
+        """Meant to be used with `gpt.apply(gpt._init_weights)`. Unused method left for completeness."""
         super()._init_weights(module)
         if isinstance(module, CausalSelfAttention):
             module.reset_parameters()
