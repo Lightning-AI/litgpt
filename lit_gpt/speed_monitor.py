@@ -347,7 +347,8 @@ class SpeedMonitorCallback(Callback):
 
 def flops_per_param(config: Config, n_params: int) -> int:
     flops_per_token = 2 * n_params  # each parameter is used for a MAC (2 FLOPS) per network operation
-    # TODO: this assumes that all samples have a fixed length equal to the block size
+    # this assumes that all samples have a fixed length equal to the block size
+    # which is most likely false during finetuning
     flops_per_seq = flops_per_token * config.block_size
     attn_flops_per_seq = config.n_layer * 2 * 2 * (config.n_embd * (config.block_size**2))
     return flops_per_seq + attn_flops_per_seq
