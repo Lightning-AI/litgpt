@@ -189,7 +189,7 @@ def train(
                 f"iter {iter_num} step {step_count}: loss {loss.item():.4f},"
                 f" iter_time: {(t1 - iter_t0) * 1000:.2f}ms{' (optimizer.step)' if not is_accumulating else ''},"
                 f" TFLOPs/device: {flops_per_batch / 1e12:.2f},"
-                f" Batch shape: {input_ids.shape}"
+                f" Batch shape: {tuple(input_ids.shape)}"
             )
 
         if not is_accumulating and step_count % eval_interval == 0:
@@ -284,7 +284,7 @@ def save_adapter_checkpoint(fabric, model, file_path: Path):
     fabric.save(file_path, {"model": model}, filter={"model": adapter_filter})
 
 
-def measured_flops(meta_model: GPT, batch_shape: Tuple[int, ...]) -> int:
+def measured_flops(meta_model: GPT, batch_shape: torch.Size) -> int:
     with torch.device("meta"):
         x = torch.randint(0, 1, batch_shape)
         return measure_flops(meta_model, x)
