@@ -158,6 +158,8 @@ def main(devices: int = 1, precision: Optional[str] = None, tpu: bool = False) -
     t0 = time.perf_counter()
     trainer.fit(model, train_dataloader, val_dataloader, ckpt_path="last")
     trainer.print(f"Training time: {(time.perf_counter()-t0):.2f}s")
+    if trainer.strategy.root_device.type == "cuda":
+        trainer.print(f"Memory used: {torch.cuda.max_memory_allocated() / 1e9:.02f} GB")
 
 
 class Dataset(IterableDataset):
