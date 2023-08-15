@@ -123,7 +123,7 @@ def main(
     temperature: float = 0.8,
     checkpoint_dir: Path = Path("checkpoints/stabilityai/stablelm-tuned-alpha-3b"),
     quantize: Optional[Literal["bnb.nf4", "bnb.nf4-dq", "bnb.fp4", "bnb.fp4-dq", "bnb.int8", "gptq.int4"]] = None,
-    precision: str = "bf16-true",
+    precision: Optional[str] = None,
 ) -> None:
     """Starts a conversation with a tuned GPT model.
 
@@ -139,6 +139,12 @@ def main(
             for more details, see https://github.com/Lightning-AI/lit-gpt/blob/main/tutorials/quantize.md
         precision: Indicates the Fabric precision setting to use.
     """
+    if not precision:
+        if not torch.cuda.is_available() or torch.cuda.is_bf16_supported():
+            precision = "bf16-true"
+        else:
+            precision = "16-true"
+
     check_valid_checkpoint_dir(checkpoint_dir)
 
     with open(checkpoint_dir / "lit_config.json") as fp:

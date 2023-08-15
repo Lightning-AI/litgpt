@@ -53,7 +53,13 @@ def setup(
     devices: int = 1, precision: Optional[str] = None, tpu: bool = False, resume: Union[bool, Path] = False
 ) -> None:
     if precision is None:
-        precision = "32-true" if tpu else "bf16-mixed"
+        if tpu:
+            precision = "32-true"
+        elif not torch.cuda.is_available() or torch.cuda.is_bf16_supported():
+            precision = "bf16-mixed"
+        else:
+            precision = "16-mixed"
+
     if devices > 1:
         if tpu:
             # For multi-host TPU training, the device count for Fabric is limited to the count on a single host.

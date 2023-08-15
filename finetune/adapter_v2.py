@@ -56,7 +56,13 @@ def setup(
     tpu: bool = False,
 ):
     if precision is None:
-        precision = "32-true" if tpu else "bf16-mixed"
+        if tpu:
+            precision = "32-true"
+        elif not torch.cuda.is_available() or torch.cuda.is_bf16_supported():
+            precision = "bf16-mixed"
+        else:
+            precision = "16-mixed"
+
     fabric_devices = devices
     if fabric_devices > 1:
         if tpu:

@@ -99,7 +99,7 @@ def main(
     quantize: Optional[Literal["bnb.nf4", "bnb.nf4-dq", "bnb.fp4", "bnb.fp4-dq", "bnb.int8", "gptq.int4"]] = None,
     strategy: str = "auto",
     devices: int = 1,
-    precision: str = "bf16-true",
+    precision: str = None,
 ) -> None:
     """Generates text samples based on a pre-trained model and tokenizer.
 
@@ -120,6 +120,12 @@ def main(
         devices: How many devices to use.
         precision: Indicates the Fabric precision setting to use.
     """
+    if not precision:
+        if not torch.cuda.is_available() or torch.cuda.is_bf16_supported():
+            precision = "bf16-true"
+        else:
+            precision = "16-true"
+
     if strategy == "fsdp":
         strategy = FSDPStrategy(auto_wrap_policy={Block}, cpu_offload=False)
     fabric = L.Fabric(devices=devices, precision=precision, strategy=strategy)

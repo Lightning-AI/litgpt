@@ -31,7 +31,7 @@ def main(
     temperature: float = 0.8,
     strategy: str = "auto",
     devices: int = 1,
-    precision: str = "bf16-true",
+    precision: str = None,
 ) -> None:
     """Generates a response based on a given instruction and an optional input.
     This script will only work with checkpoints from the instruction-tuned GPT model.
@@ -56,6 +56,12 @@ def main(
         devices: How many devices to use.
         precision: Indicates the Fabric precision setting to use.
     """
+    if not precision:
+        if not torch.cuda.is_available() or torch.cuda.is_bf16_supported():
+            precision = "bf16-true"
+        else:
+            precision = "16-true"
+
     if strategy == "fsdp":
         strategy = FSDPStrategy(auto_wrap_policy={Block}, cpu_offload=False)
     fabric = L.Fabric(devices=devices, precision=precision, strategy=strategy)
