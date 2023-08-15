@@ -20,6 +20,7 @@ from lit_gpt.tokenizer import Tokenizer
 from lit_gpt.utils import (
     check_valid_checkpoint_dir,
     chunked_cross_entropy,
+    get_default_supported_precision,
     lazy_load,
     num_parameters,
     quantization,
@@ -65,8 +66,8 @@ def setup(
     tpu: bool = False,
     quantize: Optional[Literal["bnb.nf4", "bnb.nf4-dq", "bnb.fp4", "bnb.fp4-dq"]] = None,
 ):
-    if precision is None:
-        precision = "32-true" if tpu else "bf16-mixed"
+    precision = precision or get_default_supported_precision(training=True, tpu=tpu)
+
     fabric_devices = devices
     if fabric_devices > 1:
         if quantize:
@@ -255,7 +256,7 @@ def validate(
     for k in range(eval_iters):
         input_ids, targets = get_batch(fabric, val_data, longest_seq_length)
         logits = model(input_ids)
-        loss = chunked_cross_entropy(logits, targets, chunk_size=0)
+        loss = chunked_cross_entropy(logits[..., :-1, :], targets[..., 1:], chunk_size=0)
         losses[k] = loss.item()
     val_loss = losses.mean()
 

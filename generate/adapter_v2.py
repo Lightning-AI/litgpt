@@ -16,7 +16,7 @@ sys.path.append(str(wd))
 from generate.base import generate
 from lit_gpt import Tokenizer
 from lit_gpt.adapter_v2 import GPT, Block, Config
-from lit_gpt.utils import check_valid_checkpoint_dir, lazy_load, quantization
+from lit_gpt.utils import check_valid_checkpoint_dir, get_default_supported_precision, lazy_load, quantization
 from scripts.prepare_alpaca import generate_prompt
 
 
@@ -31,7 +31,7 @@ def main(
     temperature: float = 0.8,
     strategy: str = "auto",
     devices: int = 1,
-    precision: str = "bf16-true",
+    precision: Optional[str] = None,
 ) -> None:
     """Generates a response based on a given instruction and an optional input.
     This script will only work with checkpoints from the instruction-tuned GPT-AdapterV2 model.
@@ -56,6 +56,8 @@ def main(
         devices: How many devices to use.
         precision: Indicates the Fabric precision setting to use.
     """
+    precision = precision or get_default_supported_precision(training=False)
+
     if strategy == "fsdp":
         strategy = FSDPStrategy(auto_wrap_policy={Block}, cpu_offload=False)
     fabric = L.Fabric(devices=devices, precision=precision, strategy=strategy)
