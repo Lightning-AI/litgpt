@@ -13,11 +13,7 @@ wd = Path(__file__).parent.parent.resolve()
 sys.path.append(str(wd))
 
 from generate.base import generate
-from lit_gpt.adapter_v2 import (
-    adapter_filter,
-    GPT, Config, Block,
-    mark_only_adapter_v2_as_trainable,
-)
+from lit_gpt.adapter_v2 import GPT, Block, Config, adapter_filter, mark_only_adapter_v2_as_trainable
 from lit_gpt.speed_monitor import SpeedMonitorFabric as SpeedMonitor
 from lit_gpt.speed_monitor import measure_flops
 from lit_gpt.tokenizer import Tokenizer

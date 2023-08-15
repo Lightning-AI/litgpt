@@ -93,16 +93,9 @@ def test_adapter_script(tmp_path, fake_checkpoint_dir, monkeypatch):
 
 
 def test_adapter_gpt_init_weights():
-    from lit_gpt.adapter import Config, GPT
+    from lit_gpt.adapter import GPT, Config
 
-    config = Config(
-        n_layer=1,
-        n_head=6,
-        n_embd=12,
-        block_size=1,
-        vocab_size=1,
-        adapter_start_layer=0,
-    )
+    config = Config(n_layer=1, n_head=6, n_embd=12, block_size=1, vocab_size=1, adapter_start_layer=0)
     model = GPT(config)
     param = model.transformer.h[0].attn.gating_factor
 
@@ -111,4 +104,3 @@ def test_adapter_gpt_init_weights():
     assert (param != 0).any()
     model.apply(model._init_weights)
     assert (param == 0).all()
-

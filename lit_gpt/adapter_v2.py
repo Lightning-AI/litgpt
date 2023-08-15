@@ -3,17 +3,17 @@ Utility functions to extend the original GPT-Adapter method to GPT-Adapter v2,
 This is a port from Lit-LLaMA based on the code prepared by @rasbt aka Sebastian Raschka
 """
 from dataclasses import dataclass
-from typing import Any, Optional, List, Tuple, Type
+from typing import Any, List, Optional, Tuple, Type
 
 import torch
 import torch.nn as nn
 
 import lit_gpt
+from lit_gpt.adapter import GPT as BaseModel
 from lit_gpt.adapter import Block as BaseBlock
 from lit_gpt.adapter import Config as BaseConfig
-from lit_gpt.adapter import GPT as BaseModel
-from lit_gpt.model import CausalSelfAttention as BaseCausalSelfAttention
 from lit_gpt.adapter import KVCache, RoPECache
+from lit_gpt.model import CausalSelfAttention as BaseCausalSelfAttention
 from lit_gpt.model import apply_rope
 
 
@@ -38,7 +38,6 @@ def adapter_filter(key: str, value: Any) -> bool:
         "ln_f",
     )
     return any(s in key for s in adapter_substrings)
-
 
 
 class AdapterV2Linear(torch.nn.Module):

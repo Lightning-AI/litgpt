@@ -31,22 +31,36 @@ def test_adapter_v2_filter(tmp_path):
     saved = torch.load(save_path)["model"]
 
     expected = {
-        "transformer.h.0.norm_1.bias",
-        "transformer.h.0.norm_1.weight",
-        "transformer.h.0.norm_2.bias",
-        "transformer.h.0.norm_2.weight",
-        "transformer.h.1.norm_1.bias",
-        "transformer.h.1.norm_1.weight",
-        "transformer.h.1.norm_2.bias",
-        "transformer.h.1.norm_2.weight",
-        "transformer.h.2.attn.adapter_wte.weight",
-        "transformer.h.2.attn.gating_factor",
-        "transformer.h.2.norm_1.bias",
-        "transformer.h.2.norm_1.weight",
         "transformer.h.2.norm_2.bias",
-        "transformer.h.2.norm_2.weight",
+        "transformer.h.2.attn.gating_factor",
+        "transformer.h.2.attn.adapter_wte.weight",
         "transformer.ln_f.bias",
+        "transformer.h.1.norm_1.weight",
+        "transformer.h.2.norm_2.weight",
+        "transformer.h.1.attn.attn.adapter_scale",
+        "lm_head.adapter_bias",
+        "transformer.h.0.attn.attn.adapter_scale",
+        "transformer.h.1.attn.proj.adapter_scale",
+        "transformer.h.1.norm_2.bias",
+        "transformer.h.2.attn.attn.adapter_scale",
+        "transformer.h.0.attn.attn.adapter_bias",
         "transformer.ln_f.weight",
+        "transformer.h.1.norm_2.weight",
+        "transformer.h.0.norm_2.bias",
+        "transformer.h.2.attn.proj.adapter_scale",
+        "transformer.h.0.attn.proj.adapter_scale",
+        "transformer.h.2.attn.attn.adapter_bias",
+        "transformer.h.2.norm_1.weight",
+        "transformer.h.0.norm_2.weight",
+        "transformer.h.1.attn.proj.adapter_bias",
+        "lm_head.adapter_scale",
+        "transformer.h.2.norm_1.bias",
+        "transformer.h.0.attn.proj.adapter_bias",
+        "transformer.h.1.attn.attn.adapter_bias",
+        "transformer.h.0.norm_1.weight",
+        "transformer.h.2.attn.proj.adapter_bias",
+        "transformer.h.0.norm_1.bias",
+        "transformer.h.1.norm_1.bias",
     }
     assert set(saved) == expected
 
@@ -102,16 +116,9 @@ def test_adapter_v2_script(tmp_path, fake_checkpoint_dir, monkeypatch):
 
 
 def test_adapter_v2_gpt_init_weights():
-    from lit_gpt.adapter_v2 import Config, GPT
+    from lit_gpt.adapter_v2 import GPT, Config
 
-    config = Config(
-        n_layer=1,
-        n_head=6,
-        n_embd=12,
-        block_size=1,
-        vocab_size=1,
-        adapter_start_layer=0,
-    )
+    config = Config(n_layer=1, n_head=6, n_embd=12, block_size=1, vocab_size=1, adapter_start_layer=0)
     model = GPT(config)
 
     for param in (model.transformer.h[0].attn.gating_factor, model.lm_head.adapter_bias):

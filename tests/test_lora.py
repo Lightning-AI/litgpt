@@ -391,18 +391,9 @@ def test_bnb_replacement(mode, expected):
 
 
 def test_lora_gpt_init_weights():
-    from lit_gpt.lora import Config, GPT
+    from lit_gpt.lora import GPT, Config
 
-    config = Config(
-        n_layer=1,
-        n_head=6,
-        n_embd=12,
-        block_size=1,
-        vocab_size=1,
-        r=2,
-        alpha=8,
-        to_head=True
-    )
+    config = Config(n_layer=1, n_head=6, n_embd=12, block_size=1, vocab_size=1, r=2, alpha=8, to_head=True)
     model = GPT(config)
     param = model.lm_head.lora_B.data
 
