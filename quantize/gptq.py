@@ -19,7 +19,7 @@ sys.path.append(str(wd))
 from lightning_utilities.core.imports import RequirementCache
 
 from lit_gpt import GPT, Config, Tokenizer
-from lit_gpt.utils import check_valid_checkpoint_dir, lazy_load
+from lit_gpt.utils import check_valid_checkpoint_dir, get_default_supported_precision, lazy_load
 
 _TRITON_AVAILABLE = RequirementCache("triton")
 if _TRITON_AVAILABLE:
@@ -577,7 +577,7 @@ def main(
     checkpoint_dir: Path = Path("checkpoints/stabilityai/stablelm-base-alpha-3b"),
     output_path: Optional[Path] = None,
     n_samples: int = 128,
-    precision: str = "bf16-true",
+    precision: Optional[str] = None,
 ) -> None:
     """Generates text samples based on a pre-trained LLM and tokenizer.
 
@@ -587,6 +587,8 @@ def main(
         n_samples: Number of example inputs to use for statistics (default: 128)
         precision: The precision to use to load the model.
     """
+    precision = precision or get_default_supported_precision(training=False)
+
     if output_path is None:
         output_path = checkpoint_dir / "lit_model_gptq.4bit.pth"
     check_valid_checkpoint_dir(checkpoint_dir)
