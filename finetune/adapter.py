@@ -218,8 +218,7 @@ def validate(
     for k in range(eval_iters):
         input_ids, targets = get_batch(fabric, val_data, longest_seq_length)
         logits = model(input_ids)
-        logits[-1] = logits[-1][..., :-1, :]
-        loss = chunked_cross_entropy(logits, targets[..., 1:], chunk_size=0)
+        loss = chunked_cross_entropy(logits[..., :-1, :], targets[..., 1:] chunk_size=0)
         losses[k] = loss.item()
     val_loss = losses.mean()
 
