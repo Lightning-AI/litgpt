@@ -10,7 +10,6 @@ from pathlib import Path
 from typing import Optional
 
 import torch
-from datasets import load_dataset
 from lightning import Fabric
 
 # support running without installing as a package
@@ -446,6 +445,8 @@ class GPTQQuantizer:
 
 
 def get_sample_data():
+    from datasets import load_dataset
+
     traindata = load_dataset(
         "allenai/c4", "allenai--c4", data_files={"train": "en/c4-train.00000-of-01024.json.gz"}, split="train"
     )
