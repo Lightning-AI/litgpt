@@ -32,5 +32,7 @@ python scripts/convert_hf_checkpoint.py --checkpoint_dir checkpoints/stabilityai
 You're done! To execute the model just run:
 
 ```bash
+pip install tokenizers
+
 python generate/base.py --prompt "Hello, my name is" --checkpoint_dir checkpoints/stabilityai/stablelm-base-alpha-3b
 ```

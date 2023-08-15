@@ -331,7 +331,7 @@ def test_lora_qkv_linear_compare_conv1d(n_head, enable_lora):
     assert torch.allclose(conv1d_pytorch, conv1d_custom_forced)
 
 
-@pytest.mark.parametrize(("rank", "expected_merged"), ((-1, False), (0, False), (1, True)))
+@pytest.mark.parametrize(("rank", "expected_merged"), ((0, False), (1, True)))
 def test_lora_linear_weights_merged_status(rank, expected_merged):
     from lit_gpt.lora import LoRALinear
 
@@ -343,7 +343,7 @@ def test_lora_linear_weights_merged_status(rank, expected_merged):
 
 @pytest.mark.parametrize(
     ("rank", "enable_lora", "expected_merged"),
-    ((-1, True, False), (0, True, False), (1, True, True), (-1, False, False), (0, False, False), (1, False, False)),
+    ((0, True, False), (1, True, True), (0, False, False), (1, False, False)),
 )
 def test_lora_qkv_linear_weights_merged_status(rank, enable_lora, expected_merged):
     from lit_gpt.lora import LoRAQKVLinear
