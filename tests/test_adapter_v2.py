@@ -31,37 +31,29 @@ def test_adapter_v2_filter(tmp_path):
     saved = torch.load(save_path)["model"]
 
     expected = {
-        'lm_head.adapter_bias',
-        'lm_head.adapter_scale',
-        'transformer.h.0.attn.attn.adapter_bias',
-        'transformer.h.0.attn.attn.adapter_scale',
-        'transformer.h.0.attn.proj.adapter_bias',
-        'transformer.h.0.attn.proj.adapter_scale',
-        'transformer.h.0.norm_1.bias',
-        'transformer.h.0.norm_1.weight',
-        'transformer.h.0.norm_2.bias',
-        'transformer.h.0.norm_2.weight',
-        'transformer.h.1.attn.attn.adapter_bias',
-        'transformer.h.1.attn.attn.adapter_scale',
-        'transformer.h.1.attn.proj.adapter_bias',
-        'transformer.h.1.attn.proj.adapter_scale',
-        'transformer.h.1.norm_1.bias',
-        'transformer.h.1.norm_1.weight',
-        'transformer.h.1.norm_2.bias',
-        'transformer.h.1.norm_2.weight',
-        'transformer.h.2.attn.adapter_wte.weight',
-        'transformer.h.2.attn.attn.adapter_bias',
-        'transformer.h.2.attn.attn.adapter_scale',
-        'transformer.h.2.attn.gating_factor',
-        'transformer.h.2.attn.proj.adapter_bias',
-        'transformer.h.2.attn.proj.adapter_scale',
-        'transformer.h.2.norm_1.bias',
-        'transformer.h.2.norm_1.weight',
-        'transformer.h.2.norm_2.bias',
-        'transformer.h.2.norm_2.weight',
-        'transformer.ln_f.bias',
-        'transformer.ln_f.weight'
+        "lm_head.adapter_bias",
+        "lm_head.adapter_scale",
+        "transformer.ln_f.bias",
+        "transformer.ln_f.weight",
+        "transformer.h.2.attn.adapter_wte.weight",
+        "transformer.h.2.attn.gating_factor",
     }
+    for layer in range(3):
+        for param in (
+            "attn.attn.adapter_bias",
+            "attn.attn.adapter_scale",
+            "attn.proj.adapter_bias",
+            "attn.proj.adapter_scale",
+            "mlp.fc.adapter_bias",
+            "mlp.fc.adapter_scale",
+            "mlp.proj.adapter_bias",
+            "mlp.proj.adapter_scale",
+            "norm_1.bias",
+            "norm_1.weight",
+            "norm_2.bias",
+            "norm_2.weight",
+        ):
+            expected.add(f"transformer.h.{layer}.{param}")
     assert set(saved) == expected
 
 

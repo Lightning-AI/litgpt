@@ -259,6 +259,7 @@ class GptNeoxMLP(lit_gpt.model.GptNeoxMLP):
         state_dict = map_old_state_dict_weights(state_dict, mapping, prefix)
         super()._load_from_state_dict(state_dict, prefix, *args, **kwargs)
 
+
 class LLaMAMLP(lit_gpt.model.LLaMAMLP):
     def __init__(self, config: Config) -> None:
         nn.Module.__init__(self)
