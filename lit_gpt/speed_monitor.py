@@ -1,10 +1,10 @@
 import time
 from collections import deque
 from contextlib import nullcontext
-from typing import Deque, Optional, Any, Dict, Callable
+from typing import Any, Callable, Deque, Dict, Optional
 
 import torch
-from lightning import Fabric, Callback, Trainer, LightningModule
+from lightning import Callback, Fabric, LightningModule, Trainer
 from lightning.fabric.utilities.rank_zero import rank_zero_only as fabric_rank_zero_only
 from lightning.pytorch.utilities.rank_zero import rank_zero_only as trainer_rank_zero_only
 from torch.utils.flop_counter import FlopCounterMode
@@ -311,7 +311,7 @@ class SpeedMonitorCallback(Callback):
         if trainer.fit_loop._should_accumulate():
             return
 
-        self.train_t0 = time.time()
+        self.train_t0 = time.perf_counter()
 
     @trainer_rank_zero_only
     def on_train_batch_end(
@@ -320,7 +320,7 @@ class SpeedMonitorCallback(Callback):
         self.total_lengths += self.length_fn(batch)
         if trainer.fit_loop._should_accumulate():
             return
-        train_elapsed = time.time() - self.train_t0
+        train_elapsed = time.perf_counter() - self.train_t0
         assert self.speed_monitor is not None
         iter_num = trainer.fit_loop.total_batch_idx
         assert (measured_flops := pl_module.measured_flops) is not None
@@ -335,11 +335,11 @@ class SpeedMonitorCallback(Callback):
 
     @trainer_rank_zero_only
     def on_validation_start(self, trainer: Trainer, pl_module: LightningModule) -> None:
-        self.eval_t0 = time.time()
+        self.eval_t0 = time.perf_counter()
 
     @trainer_rank_zero_only
     def on_validation_end(self, trainer: Trainer, pl_module: LightningModule) -> None:
-        eval_elapsed = time.time() - self.eval_t0
+        eval_elapsed = time.perf_counter() - self.eval_t0
         assert self.speed_monitor is not None
         self.speed_monitor.eval_end(eval_elapsed)
 

@@ -22,4 +22,3 @@ class RMSNorm(torch.nn.Module):
 
     def reset_parameters(self):
         torch.nn.init.ones_(self.weight)
-        self.eps = self.config.norm_eps

@@ -3,7 +3,7 @@ import gc
 import sys
 from functools import partial
 from pathlib import Path
-from typing import Optional, Literal, Dict, Union
+from typing import Dict, Literal, Optional, Union
 
 import torch
 
@@ -12,8 +12,8 @@ wd = Path(__file__).parent.parent.resolve()
 sys.path.append(str(wd))
 
 from lit_gpt import Config
-from lit_gpt.utils import lazy_load, incremental_save, NotYetLoadedTensor
-from scripts.convert_hf_checkpoint import load_param, layer_template
+from lit_gpt.utils import NotYetLoadedTensor, incremental_save, lazy_load
+from scripts.convert_hf_checkpoint import layer_template, load_param
 
 
 def copy_weights_falcon(
@@ -100,6 +100,98 @@ def copy_weights_gpt_neox(
         state_dict[to_name] = param
 
 
+def copy_weights_llama(
+    config: Config,
+    state_dict: Dict[str, torch.Tensor],
+    lit_weights: Dict[str, Union[torch.Tensor, NotYetLoadedTensor]],
+    saver: Optional[incremental_save] = None,
+):
+    weight_map = {
+        "transformer.wte.weight": "model.embed_tokens.weight",
+        "transformer.h.{}.norm_1.weight": "model.layers.{}.input_layernorm.weight",
+        "transformer.h.{}.attn.proj.weight": "model.layers.{}.self_attn.o_proj.weight",
+        "transformer.h.{}.norm_2.weight": "model.layers.{}.post_attention_layernorm.weight",
+        "transformer.h.{}.mlp.fc_1.weight": "model.layers.{}.mlp.gate_proj.weight",
+        "transformer.h.{}.mlp.fc_2.weight": "model.layers.{}.mlp.up_proj.weight",
+        "transformer.h.{}.mlp.proj.weight": "model.layers.{}.mlp.down_proj.weight",
+        "transformer.ln_f.weight": "model.norm.weight",
+        "lm_head.weight": "lm_head.weight",
+    }
+
+    for name, param in lit_weights.items():
+        if name.endswith(".attn.attn.weight"):
+            from_name, number = layer_template(name, 2)
+            q = "model.layers.{}.self_attn.q_proj.weight".format(number)
+            k = "model.layers.{}.self_attn.k_proj.weight".format(number)
+            v = "model.layers.{}.self_attn.v_proj.weight".format(number)
+            qkv = load_param(param)
+            qp, kp, vp = tensor_split(qkv, config, "llama")
+            for to_name, to_param in zip((q, k, v), (qp, kp, vp)):
+                if saver is not None:
+                    param = saver.store_early(to_param)
+                state_dict[to_name] = to_param
+        elif "transformer.h" in name:
+            from_name, number = layer_template(name, 2)
+            to_name = weight_map[from_name]
+            if to_name is None:
+                continue
+            to_name = to_name.format(number)
+            param = load_param(param)
+            if saver is not None:
+                param = saver.store_early(param)
+            state_dict[to_name] = param
+
+        else:
+            to_name = weight_map[name]
+            param = load_param(param)
+            if saver is not None:
+                param = saver.store_early(param)
+            state_dict[to_name] = param
+
+
+def tensor_split(param: Union[torch.Tensor, NotYetLoadedTensor], config: Config, model_name: str) -> torch.Tensor:
+    def kstart(start, blen, klen) -> int:
+        """returns start index of keys in batch"""
+        return start + (blen - (klen * 2))
+
+    def vstart(start, blen, klen) -> int:
+        """returns start index of values in batch"""
+        return start + blen - klen
+
+    def vend(start, blen) -> int:
+        """returns last index of values in batch"""
+        return start + blen
+
+    # num observations
+    nobs = param.shape[0]
+    # batch length
+    blen = nobs // config.n_query_groups
+    # key length in batch
+    klen = config.head_size
+    # value length in batch
+    vlen = config.head_size
+    # the starting index of each new batch
+    starts = range(0, nobs, blen)
+    # the indices to splice on
+    splices = [(s, kstart(s, blen, klen), vstart(s, blen, vlen), vend(s, blen)) for s in starts]
+
+    qc = ()
+    kc = ()
+    vc = ()
+
+    for splice in splices:
+        qs, ks, vs, ve = splice
+        qc += (param[qs:ks, :],)
+        kc += (param[ks:vs, :],)
+        vc += (param[vs:ve, :],)
+
+    q = torch.cat(qc)
+    k = torch.cat(kc)
+    v = torch.cat(vc)
+
+    return q, k, v
+
+
 def maybe_unwrap_state_dict(lit_weights: Dict[str, torch.Tensor]) -> Dict[str, torch.Tensor]:
     return lit_weights.get("model", lit_weights)
 
@@ -108,17 +200,15 @@ def maybe_unwrap_state_dict(lit_weights: Dict[str, torch.Tensor]) -> Dict[str, t
 def convert_lit_checkpoint(
     *,
     checkpoint_name: str,
-    checkpoint_dir: Path = Path("checkpoints/tiiuae/falcon-7b"),
-    model_name: Optional[str] = None,
+    out_dir: Path,
+    model_name: str,
 ) -> None:
-    if model_name is None:
-        model_name = checkpoint_dir.name
     config = Config.from_name(model_name)
 
     if "falcon" in model_name:
         copy_fn = partial(copy_weights_falcon, "40b" if config.n_embd == 8192 else "7b")
     elif config._mlp_class == "LLaMAMLP":
-        raise NotImplementedError(f"Conversion for {model_name} is not yet supported")
+        copy_fn = partial(copy_weights_llama, config)
     else:
         copy_fn = copy_weights_gpt_neox
 
@@ -127,7 +217,7 @@ def convert_lit_checkpoint(
 
     # checkpoint_name cannot be hardcoded because there exists different outputs such as
     # ("lit_model_finetuned.pth", "lit_model_lora_finetuned.pth", "lit_model_adapter_finetuned.pth"")
-    pth_file = checkpoint_dir / checkpoint_name
+    pth_file = out_dir / checkpoint_name
     bin_file = pth_file.with_suffix(".bin")
 
     with incremental_save(bin_file) as saver:

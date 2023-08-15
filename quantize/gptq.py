@@ -17,11 +17,11 @@ from lightning import Fabric
 wd = Path(__file__).parent.parent.resolve()
 sys.path.append(str(wd))
 
-from lit_gpt import GPT, Tokenizer, Config
-from lit_gpt.utils import check_valid_checkpoint_dir, lazy_load
-
 import triton
 import triton.language as tl
+
+from lit_gpt import GPT, Config, Tokenizer
+from lit_gpt.utils import check_valid_checkpoint_dir, lazy_load
 
 
 # This is adapted from the OpenAI Triton matmul example.
@@ -576,12 +576,12 @@ def main(
     # we avoid loading the entire model on the GPU and do this block by block
     checkpoint_path = checkpoint_dir / "lit_model.pth"
     print(f"Loading model {str(checkpoint_path)!r} with {config.__dict__}", file=sys.stderr)
-    t0 = time.time()
+    t0 = time.perf_counter()
     with fabric.init_module(empty_init=True):
         model = GPT(config)
     with lazy_load(checkpoint_path) as checkpoint:
         model.load_state_dict(checkpoint)
-    print(f"Time to load model: {time.time() - t0:.02f} seconds.", file=sys.stderr)
+    print(f"Time to load model: {time.perf_counter() - t0:.02f} seconds.", file=sys.stderr)
 
     model.eval()
 
