@@ -19,7 +19,7 @@ sys.path.append(str(wd))
 from lit_gpt import Config
 from lit_gpt.model import GPT, Block
 from lit_gpt.speed_monitor import SpeedMonitorCallback, estimate_flops, measure_flops
-from lit_gpt.utils import chunked_cross_entropy, step_csv_logger
+from lit_gpt.utils import chunked_cross_entropy, get_default_supported_precision, step_csv_logger
 
 model_name = "pythia-70m"
 name = "openwebtext"
@@ -99,13 +99,7 @@ class LightningGPTModule(L.LightningModule):
 
 
 def main(devices: int = 1, precision: Optional[str] = None, tpu: bool = False) -> None:
-    if precision is None:
-        if tpu:
-            precision = "32-true"
-        elif not torch.cuda.is_available() or torch.cuda.is_bf16_supported():
-            precision = "bf16-mixed"
-        else:
-            precision = "16-mixed"
+    precision = precision or get_default_supported_precision(training=True, tpu=tpu)
 
     if devices > 1:
         if tpu:

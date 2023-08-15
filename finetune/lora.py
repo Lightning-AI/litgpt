@@ -17,7 +17,7 @@ from lit_gpt.lora import GPT, Block, Config, lora_filter, mark_only_lora_as_trai
 from lit_gpt.speed_monitor import SpeedMonitorFabric as SpeedMonitor
 from lit_gpt.speed_monitor import measure_flops
 from lit_gpt.tokenizer import Tokenizer
-from lit_gpt.utils import check_valid_checkpoint_dir, chunked_cross_entropy, lazy_load, num_parameters, step_csv_logger
+from lit_gpt.utils import check_valid_checkpoint_dir, chunked_cross_entropy, get_default_supported_precision, lazy_load, num_parameters, step_csv_logger
 from scripts.prepare_alpaca import generate_prompt
 
 eval_interval = 100
@@ -57,13 +57,7 @@ def setup(
     precision: Optional[str] = None,
     tpu: bool = False,
 ):
-    if precision is None:
-        if tpu:
-            precision = "32-true"
-        elif not torch.cuda.is_available() or torch.cuda.is_bf16_supported():
-            precision = "bf16-mixed"
-        else:
-            precision = "16-mixed"
+    precision = precision or get_default_supported_precision(training=True, tpu=tpu)
 
     fabric_devices = devices
     if fabric_devices > 1:

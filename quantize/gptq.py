@@ -19,7 +19,7 @@ sys.path.append(str(wd))
 from lightning_utilities.core.imports import RequirementCache
 
 from lit_gpt import GPT, Config, Tokenizer
-from lit_gpt.utils import check_valid_checkpoint_dir, lazy_load
+from lit_gpt.utils import check_valid_checkpoint_dir, get_default_supported_precision, lazy_load
 
 _TRITON_AVAILABLE = RequirementCache("triton")
 if _TRITON_AVAILABLE:
@@ -587,11 +587,7 @@ def main(
         n_samples: Number of example inputs to use for statistics (default: 128)
         precision: The precision to use to load the model.
     """
-    if not precision:
-        if not torch.cuda.is_available() or torch.cuda.is_bf16_supported():
-            precision = "bf16-true"
-        else:
-            precision = "16-true"
+    precision = precision or get_default_supported_precision(training=False)
 
     if output_path is None:
         output_path = checkpoint_dir / "lit_model_gptq.4bit.pth"

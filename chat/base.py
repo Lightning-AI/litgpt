@@ -14,7 +14,7 @@ wd = Path(__file__).parent.parent.resolve()
 sys.path.append(str(wd))
 
 from lit_gpt import GPT, Config, Tokenizer
-from lit_gpt.utils import check_valid_checkpoint_dir, lazy_load, quantization
+from lit_gpt.utils import check_valid_checkpoint_dir, get_default_supported_precision, lazy_load, quantization
 
 
 @torch.no_grad()
@@ -139,11 +139,7 @@ def main(
             for more details, see https://github.com/Lightning-AI/lit-gpt/blob/main/tutorials/quantize.md
         precision: Indicates the Fabric precision setting to use.
     """
-    if not precision:
-        if not torch.cuda.is_available() or torch.cuda.is_bf16_supported():
-            precision = "bf16-true"
-        else:
-            precision = "16-true"
+    precision = precision or get_default_supported_precision(training=False)
 
     check_valid_checkpoint_dir(checkpoint_dir)
 

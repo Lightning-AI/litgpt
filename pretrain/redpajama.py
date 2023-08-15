@@ -18,7 +18,7 @@ from lit_gpt.model import GPT, Block, Config
 from lit_gpt.packed_dataset import CombinedDataset, PackedDataset
 from lit_gpt.speed_monitor import SpeedMonitorFabric as SpeedMonitor
 from lit_gpt.speed_monitor import estimate_flops, measure_flops
-from lit_gpt.utils import chunked_cross_entropy, num_parameters, step_csv_logger
+from lit_gpt.utils import chunked_cross_entropy, get_default_supported_precision, num_parameters, step_csv_logger
 
 model_name = "pythia-70m"
 name = "redpajama"
@@ -68,13 +68,7 @@ def setup(
     tpu: bool = False,
     resume: Union[bool, Path] = False,
 ) -> None:
-    if precision is None:
-        if tpu:
-            precision = "32-true"
-        elif not torch.cuda.is_available() or torch.cuda.is_bf16_supported():
-            precision = "bf16-mixed"
-        else:
-            precision = "16-mixed"
+    precision = precision or get_default_supported_precision(training=True, tpu=tpu)
 
     if devices > 1:
         if tpu:

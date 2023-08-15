@@ -18,7 +18,7 @@ from lm_eval_harness import EvalHarnessAdapter
 
 from lit_gpt import Tokenizer
 from lit_gpt.lora import GPT, Block, Config, merge_lora_weights
-from lit_gpt.utils import check_valid_checkpoint_dir, lazy_load, quantization
+from lit_gpt.utils import check_valid_checkpoint_dir, get_default_supported_precision, lazy_load, quantization
 from scripts.prepare_alpaca import generate_prompt
 
 lora_r = 8
@@ -130,11 +130,7 @@ def run_eval_harness(
     quantize: Optional[Literal["bnb.nf4", "bnb.nf4-dq", "bnb.fp4", "bnb.fp4-dq", "bnb.int8", "gptq.int4"]] = None,
     save_filepath: Optional[str] = None,
 ):
-    if not precision:
-        if not torch.cuda.is_available() or torch.cuda.is_bf16_supported():
-            precision = "bf16-true"
-        else:
-            precision = "16-true"
+    precision = precision or get_default_supported_precision(training=False)
 
     eval_harness = EvalHarnessLoRA(
         lora_path=lora_path,
