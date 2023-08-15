@@ -50,7 +50,7 @@ jobs:
         python -c "import torch ; mgpu = torch.cuda.device_count() ; assert mgpu == 2, f'GPU: {mgpu}'"
       displayName: 'Image info & NVIDIA'
 
-    - script: pip install pytest pytest-rerunfailures -r requirements.txt transformers einops bitsandbytes scipy tokenizers
+    - script: pip install pytest pytest-rerunfailures -r requirements.txt transformers einops bitsandbytes scipy tokenizers zstandard
       displayName: 'Install dependencies'
 
     - bash: pytest -v --durations=10 --disable-pytest-warnings --strict-markers --color=yes
