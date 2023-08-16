@@ -375,7 +375,7 @@ vicuna = [
     ),
     dict(
         org="lmsys",
-        name="vicuna-7b-16k-v1.5",
+        name="vicuna-7b-v1.5-16k",
         block_size=16384,
         vocab_size=32000,
         padding_multiple=64,
@@ -410,7 +410,7 @@ vicuna = [
     ),
     dict(
         org="lmsys",
-        name="vicuna-13b-16k-v1.5",
+        name="vicuna-13b-v1.5-16k",
         block_size=16384,
         vocab_size=32000,
         padding_multiple=64,
