@@ -167,11 +167,11 @@ class SpeedMonitorBase:
     Notes:
         - The implementation assumes that devices are homogeneous as it normalizes by the world size.
         - Tokens/sec, flops/sec and MFU do not account for padding tokens if present. We suggest using samples/sec or
-            batches/sec to measure throughput under this circumstance.
+          batches/sec to measure throughput under this circumstance.
         - Be careful when comparing MFU numbers across projects, as this will highly depend on the ``flops_per_batch``.
-            There is no widespread, realistic, and reliable implementation to compute them.
-            We suggest using our ``measure_flops`` function, but many other works will use ``estimated_flops`` which
-            will almost always be an overestimate when compared to the true value.
+          There is no widespread, realistic, and reliable implementation to compute them.
+          We suggest using our ``measure_flops`` function, but many other works will use ``estimated_flops`` which
+          will almost always be an overestimate when compared to the true value.
 
     Args:
         window_size (int, optional): Number of batches to use for a rolling average of throughput.
