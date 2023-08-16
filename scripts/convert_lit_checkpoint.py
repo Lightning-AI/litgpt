@@ -196,6 +196,19 @@ def maybe_unwrap_state_dict(lit_weights: Dict[str, torch.Tensor]) -> Dict[str, t
     return lit_weights.get("model", lit_weights)
 
 
+def check_conversion_supported(lit_weights: Dict[str, torch.Tensor]) -> None:
+    weight_names = {wk.split(".")[-1] for wk in lit_weights}
+    # LoRA or QLoRA
+    if any("lora" in wn for wn in weight_names):
+        raise ValueError(f"Model weights must be merged using `lora.merge_lora_weights()` before conversion.")
+    # adapter v2. adapter_bias will only be in adapter_v2
+    elif "adapter_bias" in weight_names:
+        raise NotImplementedError(f"Converting models finetuned with adapter_v2 not yet supported.")
+    # adapter. gating_factor is in adapter and adapter_v2
+    elif "gating_factor" in weight_names:
+        raise NotImplementedError(f"Converting models finetuned with adapter not yet supported.")
+
+
 @torch.inference_mode()
 def convert_lit_checkpoint(
     *,
@@ -224,6 +237,7 @@ def convert_lit_checkpoint(
         with contextlib.ExitStack() as stack:
             lit_weights = stack.enter_context(lazy_load(pth_file))
             lit_weights = maybe_unwrap_state_dict(lit_weights)
+            check_conversion_supported(lit_weights)
             copy_fn(sd, lit_weights, saver=saver)
             gc.collect()
         saver.save(sd)
