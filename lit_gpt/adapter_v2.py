@@ -136,7 +136,7 @@ class CausalSelfAttention(BaseCausalSelfAttention):
             # adapter embedding layer
             self.adapter_wte = nn.Embedding(config.adapter_prompt_length, config.n_embd)
             # gate for adaption
-            self.gating_factor = torch.nn.Parameter(torch.zeros(1, config.n_head, 1, 1))
+            self.gating_factor = torch.nn.Parameter(torch.zeros(1, 1, config.n_head, 1))
             self.reset_parameters()
         self.block_idx = block_idx
 
@@ -168,12 +168,12 @@ class CausalSelfAttention(BaseCausalSelfAttention):
         # repeat k and v if necessary
         if self.config.n_query_groups != 1:  # doing this would require a full kv cache with MQA (inefficient!)
             # for MHA this is a no-op
-            k = k.repeat_interleave(q_per_kv, dim=2)
-            v = v.repeat_interleave(q_per_kv, dim=2)
+            k = k.expand(B, self.config.n_query_groups, q_per_kv, T, self.config.head_size)
+            v = v.expand(B, self.config.n_query_groups, q_per_kv, T, self.config.head_size)
 
         q = q.reshape(B, -1, T, self.config.head_size)  # (B, nh_q, T, hs)
-        k = k.view(B, -1, T, self.config.head_size)  # (B, nh_k, T, hs)
-        v = v.view(B, -1, T, self.config.head_size)  # (B, nh_v, T, hs)
+        k = k.reshape(B, -1, T, self.config.head_size)  # (B, nh_k, T, hs)
+        v = v.reshape(B, -1, T, self.config.head_size)  # (B, nh_v, T, hs)
 
         n_elem = int(self.config.rotary_percentage * self.config.head_size)
 
@@ -220,7 +220,7 @@ class CausalSelfAttention(BaseCausalSelfAttention):
             ay = self.scaled_dot_product_attention(q, ak, av, amask)
             y = y + self.gating_factor * ay
 
-        y = y.transpose(1, 2).contiguous().view(B, T, C)  # re-assemble all head outputs side by side
+        y = y.reshape(B, T, C)  # re-assemble all head outputs side by side
 
         # output projection
         y = self.proj(y)
@@ -239,6 +239,11 @@ class CausalSelfAttention(BaseCausalSelfAttention):
             "proj.bias": "proj.linear.bias",
         }
         state_dict = map_old_state_dict_weights(state_dict, mapping, prefix)
+        if (
+            (key := prefix + "gating_factor") in state_dict
+            and state_dict[key].size(1) == self.config.n_head
+        ):
+            state_dict[key] = state_dict[key].permute(0, 2, 1, 3)
         super()._load_from_state_dict(state_dict, prefix, *args, **kwargs)
 
 
