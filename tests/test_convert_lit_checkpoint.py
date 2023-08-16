@@ -193,7 +193,7 @@ def test_maybe_unwrap_state_dict(tmp_path):
     maybe_unwrap.assert_called()
 
 
-def test_check_conversion_supported_adapter(tmp_path):
+def test_check_conversion_supported_adapter():
     from scripts.convert_lit_checkpoint import check_conversion_supported
 
     lit_weights = {"some.key.name": "some.key.value", "error.key.gating_factor": "some.key.value"}
@@ -202,7 +202,7 @@ def test_check_conversion_supported_adapter(tmp_path):
         check_conversion_supported(lit_weights=lit_weights)
 
 
-def test_check_conversion_supported_adapter_v2(tmp_path):
+def test_check_conversion_supported_adapter_v2():
     from scripts.convert_lit_checkpoint import check_conversion_supported
 
     lit_weights = {"some.key.name": "some.key.value", "error.key.adapter_bias": "some.key.value"}
@@ -211,10 +211,10 @@ def test_check_conversion_supported_adapter_v2(tmp_path):
         check_conversion_supported(lit_weights=lit_weights)
 
 
-def test_check_conversion_supported_lora(tmp_path):
+def test_check_conversion_supported_lora():
     from scripts.convert_lit_checkpoint import check_conversion_supported
 
     lit_weights = {"some.key.name": "some.key.value", "error.key.lora": "some.key.value"}
 
-    with pytest.raises(NotImplementedError, match=r"Model weights must be merged using"):
+    with pytest.raises(ValueError, match=r"Model weights must be merged using"):
         check_conversion_supported(lit_weights=lit_weights)
