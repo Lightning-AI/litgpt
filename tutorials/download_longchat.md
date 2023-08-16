@@ -26,6 +26,9 @@ python scripts/download.py --repo_id lmsys/longchat-7b-16k
 python scripts/convert_hf_checkpoint.py --checkpoint_dir checkpoints/lmsys/longchat-7b-16k
 ```
 
+By default, the convert_hf_checkpoint step will use the data type of the HF checkpoint's parameters. In cases where RAM
+or disk size is constrained, it might be useful to pass `--dtype bfloat16` to convert all parameters into this smaller precision before continuing.
+
 You're done! To execute the model just run:
 
 ```bash

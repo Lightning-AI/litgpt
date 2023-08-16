@@ -3,7 +3,7 @@ import gc
 import sys
 from functools import partial
 from pathlib import Path
-from typing import Dict, Literal, Optional, Union
+from typing import Dict, Literal, Optional, Union, Tuple
 
 import torch
 
@@ -58,7 +58,7 @@ def copy_weights_falcon(
             to_name = weight_map[from_name].format(number)
         else:
             to_name = weight_map[name]
-        param = load_param(param)
+        param = load_param(param, name, None)
         if saver is not None:
             param = saver.store_early(param)
         state_dict[to_name] = param
@@ -94,7 +94,7 @@ def copy_weights_gpt_neox(
             to_name = weight_map[from_name].format(number)
         else:
             to_name = weight_map[name]
-        param = load_param(param)
+        param = load_param(param, name, None)
         if saver is not None:
             param = saver.store_early(param)
         state_dict[to_name] = param
@@ -124,32 +124,32 @@ def copy_weights_llama(
             q = "model.layers.{}.self_attn.q_proj.weight".format(number)
             k = "model.layers.{}.self_attn.k_proj.weight".format(number)
             v = "model.layers.{}.self_attn.v_proj.weight".format(number)
-            qkv = load_param(param)
-            qp, kp, vp = tensor_split(qkv, config, "llama")
-            for to_name, to_param in zip((q, k, v), (qp, kp, vp)):
+            qkv = load_param(param, name, None)
+            qp, kp, vp = tensor_split(qkv, config)
+            for to_name, param in zip((q, k, v), (qp, kp, vp)):
                 if saver is not None:
-                    param = saver.store_early(to_param)
-                state_dict[to_name] = to_param
+                    param = saver.store_early(param)
+                state_dict[to_name] = param
         elif "transformer.h" in name:
             from_name, number = layer_template(name, 2)
             to_name = weight_map[from_name]
             if to_name is None:
                 continue
             to_name = to_name.format(number)
-            param = load_param(param)
+            param = load_param(param, name, None)
             if saver is not None:
                 param = saver.store_early(param)
             state_dict[to_name] = param
 
         else:
             to_name = weight_map[name]
-            param = load_param(param)
+            param = load_param(param, name, None)
             if saver is not None:
                 param = saver.store_early(param)
             state_dict[to_name] = param
 
 
-def tensor_split(param: Union[torch.Tensor, NotYetLoadedTensor], config: Config, model_name: str) -> torch.Tensor:
+def tensor_split(param: Union[torch.Tensor, NotYetLoadedTensor], config: Config) -> Tuple[torch.Tensor, torch.Tensor, torch.Tensor]:
     def kstart(start, blen, klen) -> int:
         """returns start index of keys in batch"""
         return start + (blen - (klen * 2))
