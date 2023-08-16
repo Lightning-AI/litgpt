@@ -193,91 +193,28 @@ def test_maybe_unwrap_state_dict(tmp_path):
     maybe_unwrap.assert_called()
 
 
-def test_maybe_raise_finetune_warning_adapter(tmp_path):
-    from lit_gpt.adapter import GPT, Config
-    from finetune.adapter import save_adapter_checkpoint
-    from scripts.convert_lit_checkpoint import convert_lit_checkpoint
+def test_check_conversion_supported_adapter(tmp_path):
+    from scripts.convert_lit_checkpoint import check_conversion_supported
 
-    # fabric is needed for finetune.full::save_checkpoint
-    fabric = L.Fabric(devices=1)
-
-    model_name = "Llama-2-7b-hf"
-    ours_config = Config.from_name(
-        model_name,
-        adapter_start_layer=0,
-        block_size=8,
-        n_layer=2,
-        n_embd=32,
-        n_head=2,
-        padding_multiple=128,
-    )
-    ours_model = GPT(ours_config)
-
-    ckpt_path = tmp_path / "lit_model_adapter.pth"
-
-    # save checkpoint to avoid RunTimeError for PytorchStreamReader
-    save_adapter_checkpoint(fabric, ours_model, ckpt_path)
+    lit_weights = {"some.key.name": "some.key.value", "some.key.name.gating_factor": "some.key.value"}
 
     with pytest.raises(NotImplementedError, match="Converting models finetuned with adapter *"):
-        convert_lit_checkpoint(checkpoint_name=ckpt_path.name, out_dir=ckpt_path.parent, model_name=model_name)
+        check_conversion_supported(lit_weights=lit_weights)
 
 
-def test_maybe_raise_finetune_warning_adapter_v2(tmp_path):
-    from lit_gpt.adapter import Config
-    from lit_gpt.adapter_v2 import GPT
-    from finetune.adapter_v2 import save_adapter_v2_checkpoint, add_adapter_v2_parameters_to_linear_layers
-    from scripts.convert_lit_checkpoint import convert_lit_checkpoint
+def test_check_conversion_supported_adapter_v2(tmp_path):
+    from scripts.convert_lit_checkpoint import check_conversion_supported
 
-    # fabric is needed for finetune.full::save_checkpoint
-    fabric = L.Fabric(devices=1)
-
-    model_name = "Llama-2-7b-hf"
-    ours_config = Config.from_name(
-        model_name,
-        adapter_start_layer=0,
-        block_size=8,
-        n_layer=2,
-        n_embd=32,
-        n_head=2,
-        padding_multiple=128,
-    )
-    ours_model = GPT(ours_config)
-    add_adapter_v2_parameters_to_linear_layers(ours_model)
-
-    ckpt_path = tmp_path / "lit_model_adapter_v2.pth"
-
-    # save checkpoint to avoid RunTimeError for PytorchStreamReader
-    save_adapter_v2_checkpoint(fabric, ours_model, ckpt_path)
+    lit_weights = {"some.key.name": "some.key.value", "some.key.name.adapter_bias": "some.key.value"}
 
     with pytest.raises(NotImplementedError, match="Converting models finetuned with adapter_v2"):
-        convert_lit_checkpoint(checkpoint_name=ckpt_path.name, out_dir=ckpt_path.parent, model_name=model_name)
+        check_conversion_supported(lit_weights=lit_weights)
 
 
-def test_maybe_raise_finetune_warning_lora(tmp_path):
-    from lit_gpt.lora import GPT, Config
-    from finetune.lora import save_lora_checkpoint
-    from scripts.convert_lit_checkpoint import convert_lit_checkpoint
+def test_check_conversion_supported_lora(tmp_path):
+    from scripts.convert_lit_checkpoint import check_conversion_supported
 
-    # fabric is needed for finetune.full::save_checkpoint
-    fabric = L.Fabric(devices=1)
-
-    model_name = "Llama-2-7b-hf"
-    ours_config = Config.from_name(
-        model_name,
-        r=1,
-        to_mlp=True,
-        block_size=8,
-        n_layer=2,
-        n_embd=32,
-        n_head=2,
-        padding_multiple=128,
-    )
-    ours_model = GPT(ours_config)
-
-    ckpt_path = tmp_path / "lit_model_lora.pth"
-
-    # save checkpoint to avoid RunTimeError for PytorchStreamReader
-    save_lora_checkpoint(fabric, ours_model, ckpt_path)
+    lit_weights = {"some.key.name": "some.key.value", "some.key.name.lora": "some.key.value"}
 
     with pytest.raises(NotImplementedError, match=r"Model weights must be merged using"):
-        convert_lit_checkpoint(checkpoint_name=ckpt_path.name, out_dir=ckpt_path.parent, model_name=model_name)
+        check_conversion_supported(lit_weights=lit_weights)
