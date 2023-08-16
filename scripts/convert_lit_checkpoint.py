@@ -205,7 +205,7 @@ def check_conversion_supported(lit_weights: Dict[str, torch.Tensor]) -> None:
     elif "adapter_bias" in weight_names:
         raise NotImplementedError(f"Converting models finetuned with adapter_v2 not yet supported.")
     # adapter. gating_factor is in adapter and adapter_v2
-    if "gating_factor" in weight_names:
+    elif "gating_factor" in weight_names:
         raise NotImplementedError(f"Converting models finetuned with adapter not yet supported.")
 
 
