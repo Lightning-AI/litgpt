@@ -123,7 +123,7 @@ def main(fabric, train_data_dir, val_data_dir, resume):
     fabric.print(f"Time to instantiate model: {time.perf_counter() - t0:.02f} seconds.")
     fabric.print(f"Total parameters {num_parameters(model):,}")
 
-    model = fabric.setup(model)
+    model = fabric.setup_module(model)
     optimizer = torch.optim.AdamW(
         model.parameters(), lr=learning_rate, weight_decay=weight_decay, betas=(beta1, beta2), foreach=False
     )

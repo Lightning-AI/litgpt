@@ -21,7 +21,6 @@ from lit_gpt.utils import (
     check_valid_checkpoint_dir,
     chunked_cross_entropy,
     get_default_supported_precision,
-    lazy_load,
     num_parameters,
     step_csv_logger,
 )
@@ -98,15 +97,16 @@ def main(fabric: L.Fabric, data_dir: Path, checkpoint_dir: Path, out_dir: Path):
     config = Config.from_name(name=checkpoint_dir.name)
     checkpoint_path = checkpoint_dir / "lit_model.pth"
     fabric.print(f"Loading model {str(checkpoint_path)!r} with {config.__dict__}")
-    with fabric.init_module(empty_init=False):
+    with fabric.init_module(empty_init=True):
         model = GPT(config)
-    with lazy_load(checkpoint_path) as checkpoint:
-        model.load_state_dict(checkpoint)
+    checkpoint = torch.load(str(checkpoint_path), mmap=True)
+    model.load_state_dict(checkpoint, assign=True)
 
     fabric.print(f"Number of trainable parameters: {num_parameters(model, requires_grad=True):,}")
 
-    optimizer = torch.optim.AdamW(model.parameters(), lr=learning_rate, weight_decay=weight_decay)
-    model, optimizer = fabric.setup(model, optimizer)
+    model = fabric.setup_module(model)
+    optimizer = torch.optim.AdamW(model.parameters(), lr=learning_rate, weight_decay=weight_decay, foreach=False)
+    optimizer = fabric.setup_optimizers(optimizer)
 
     fabric.seed_everything(1337 + fabric.global_rank)
 

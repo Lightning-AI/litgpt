@@ -21,7 +21,6 @@ from lit_gpt.utils import (
     check_valid_checkpoint_dir,
     chunked_cross_entropy,
     get_default_supported_precision,
-    lazy_load,
     num_parameters,
     step_csv_logger,
 )
@@ -98,20 +97,21 @@ def main(fabric: L.Fabric, data_dir: Path, checkpoint_dir: Path, out_dir: Path):
     config = Config.from_name(name=checkpoint_dir.name)
     checkpoint_path = checkpoint_dir / "lit_model.pth"
     fabric.print(f"Loading model {str(checkpoint_path)!r} with {config.__dict__}")
-    with fabric.init_module(empty_init=False):
+    with fabric.init_module(empty_init=True):
         model = GPT(config)
-    with lazy_load(checkpoint_path) as checkpoint:
-        # strict=False because missing keys due to adapter weights not contained in state dict
-        model.load_state_dict(checkpoint, strict=False)
+    checkpoint = torch.load(str(checkpoint_path), mmap=True)
+    # strict=False because missing keys due to adapter weights not contained in state dict
+    model.load_state_dict(checkpoint, strict=False, assign=True)
 
     mark_only_adapter_as_trainable(model)
 
     fabric.print(f"Number of trainable parameters: {num_parameters(model, requires_grad=True):,}")
     fabric.print(f"Number of non trainable parameters: {num_parameters(model, requires_grad=False):,}")
-    trainable_params = [p for p in model.parameters() if p.requires_grad]
 
+    model = fabric.setup_module(model)
+    trainable_params = [p for p in model.parameters() if p.requires_grad]
     optimizer = torch.optim.AdamW(trainable_params, lr=learning_rate, weight_decay=weight_decay)
-    model, optimizer = fabric.setup(model, optimizer)
+    optimizer = fabric.setup_optimizers(optimizer)
 
     fabric.seed_everything(1337 + fabric.global_rank)
 

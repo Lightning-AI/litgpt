@@ -88,12 +88,13 @@ def main(fabric, resume) -> None:
     t0 = time.perf_counter()
     with fabric.init_module(empty_init=True):
         model = GPT(config)
+        # TODO: what to do with this?
         model.apply(model._init_weights)
 
     fabric.print(f"Time to instantiate model: {time.perf_counter() - t0:.02f} seconds.")
     fabric.print(f"Total parameters {num_parameters(model):,}")
 
-    model = fabric.setup(model)
+    model = fabric.setup_module(model)
     optimizer = torch.optim.AdamW(
         model.parameters(), lr=learning_rate, weight_decay=weight_decay, betas=(beta1, beta2), foreach=False
     )
