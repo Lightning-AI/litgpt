@@ -18,7 +18,7 @@ sys.path.append(str(wd))
 from generate.base import generate
 from lit_gpt import GPT, Config, Tokenizer
 from lit_gpt.model import Block
-from lit_gpt.utils import check_valid_checkpoint_dir, lazy_load, quantization
+from lit_gpt.utils import check_valid_checkpoint_dir, get_default_supported_precision, lazy_load, quantization
 
 
 class EvalHarnessBase(BaseLM):
@@ -204,7 +204,7 @@ class EvalHarnessBase(BaseLM):
 
 def run_eval_harness(
     checkpoint_dir: str = "",
-    precision: str = "bf16-true",
+    precision: Optional[str] = None,
     batch_size=1,
     eval_tasks: Optional[List[str]] = None,
     num_fewshot=0,
@@ -216,6 +216,8 @@ def run_eval_harness(
     quantize: Optional[Literal["bnb.nf4", "bnb.nf4-dq", "bnb.fp4", "bnb.fp4-dq", "bnb.int8", "gptq.int4"]] = None,
     save_filepath: Optional[str] = None,
 ):
+    precision = precision or get_default_supported_precision(training=False)
+
     eval_harness = EvalHarnessBase(
         checkpoint_dir=checkpoint_dir,
         precision=precision,

@@ -331,7 +331,7 @@ def test_lora_qkv_linear_compare_conv1d(n_head, enable_lora):
     assert torch.allclose(conv1d_pytorch, conv1d_custom_forced)
 
 
-@pytest.mark.parametrize(("rank", "expected_merged"), ((-1, False), (0, False), (1, True)))
+@pytest.mark.parametrize(("rank", "expected_merged"), ((0, False), (1, True)))
 def test_lora_linear_weights_merged_status(rank, expected_merged):
     from lit_gpt.lora import LoRALinear
 
@@ -343,7 +343,7 @@ def test_lora_linear_weights_merged_status(rank, expected_merged):
 
 @pytest.mark.parametrize(
     ("rank", "enable_lora", "expected_merged"),
-    ((-1, True, False), (0, True, False), (1, True, True), (-1, False, False), (0, False, False), (1, False, False)),
+    ((0, True, False), (1, True, True), (0, False, False), (1, False, False)),
 )
 def test_lora_qkv_linear_weights_merged_status(rank, enable_lora, expected_merged):
     from lit_gpt.lora import LoRAQKVLinear
@@ -388,3 +388,17 @@ def test_bnb_replacement(mode, expected):
     expected = getattr(bnb.modules, expected)
     assert isinstance(linear.linear, expected)
     assert isinstance(qkv.linear, expected)
+
+
+def test_lora_gpt_init_weights():
+    from lit_gpt.lora import GPT, Config
+
+    config = Config(n_layer=1, n_head=6, n_embd=12, block_size=1, vocab_size=1, r=2, alpha=8, to_head=True)
+    model = GPT(config)
+    param = model.lm_head.lora_B.data
+
+    assert (param == 0).all()
+    torch.nn.init.constant_(param, 1.23)
+    assert (param != 0).any()
+    model.apply(model._init_weights)
+    assert (param == 0).all()

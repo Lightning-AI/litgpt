@@ -19,7 +19,7 @@ sys.path.append(str(wd))
 from lit_gpt import Config
 from lit_gpt.model import GPT, Block
 from lit_gpt.speed_monitor import SpeedMonitorCallback, estimate_flops, measure_flops
-from lit_gpt.utils import chunked_cross_entropy, step_csv_logger
+from lit_gpt.utils import chunked_cross_entropy, get_default_supported_precision, step_csv_logger
 
 model_name = "pythia-70m"
 name = "openwebtext"
@@ -99,8 +99,8 @@ class LightningGPTModule(L.LightningModule):
 
 
 def main(devices: int = 1, precision: Optional[str] = None, tpu: bool = False) -> None:
-    if precision is None:
-        precision = "32-true" if tpu else "bf16-mixed"
+    precision = precision or get_default_supported_precision(training=True, tpu=tpu)
+
     if devices > 1:
         if tpu:
             # For multi-host TPU training, the device count for Fabric is limited to the count on a single host.
@@ -158,6 +158,8 @@ def main(devices: int = 1, precision: Optional[str] = None, tpu: bool = False) -
     t0 = time.perf_counter()
     trainer.fit(model, train_dataloader, val_dataloader, ckpt_path="last")
     trainer.print(f"Training time: {(time.perf_counter()-t0):.2f}s")
+    if trainer.strategy.root_device.type == "cuda":
+        trainer.print(f"Memory used: {torch.cuda.max_memory_allocated() / 1e9:.02f} GB")
 
 
 class Dataset(IterableDataset):

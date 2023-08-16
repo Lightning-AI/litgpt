@@ -18,7 +18,7 @@ from lit_gpt import Config
 from lit_gpt.model import GPT, Block
 from lit_gpt.speed_monitor import SpeedMonitorFabric as SpeedMonitor
 from lit_gpt.speed_monitor import estimate_flops, measure_flops
-from lit_gpt.utils import chunked_cross_entropy, num_parameters, step_csv_logger
+from lit_gpt.utils import chunked_cross_entropy, get_default_supported_precision, num_parameters, step_csv_logger
 
 model_name = "pythia-70m"
 name = "openwebtext"
@@ -52,8 +52,8 @@ logger = step_csv_logger("out", name, flush_logs_every_n_steps=log_interval)
 def setup(
     devices: int = 1, precision: Optional[str] = None, tpu: bool = False, resume: Union[bool, Path] = False
 ) -> None:
-    if precision is None:
-        precision = "32-true" if tpu else "bf16-mixed"
+    precision = precision or get_default_supported_precision(training=True, tpu=tpu)
+
     if devices > 1:
         if tpu:
             # For multi-host TPU training, the device count for Fabric is limited to the count on a single host.
@@ -115,6 +115,8 @@ def main(fabric, resume) -> None:
     train_time = time.perf_counter()
     train(fabric, state, train_dataloader, val_dataloader, speed_monitor)
     fabric.print(f"Training time: {(time.perf_counter()-train_time):.2f}s")
+    if fabric.device.type == "cuda":
+        fabric.print(f"Memory used: {torch.cuda.max_memory_allocated() / 1e9:.02f} GB")
 
 
 def train(fabric, state, train_dataloader, val_dataloader, speed_monitor):
