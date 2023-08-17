@@ -14,7 +14,7 @@ from lm_eval.base import BaseLM
 # support running without installing as a package
 wd = Path(__file__).parent.parent.resolve()
 sys.path.append(str(wd))
-from lm_eval_harness import EvalHarnessAdapter
+from lm_eval_harness import EvalHarnessBase
 
 from lit_gpt import Tokenizer
 from lit_gpt.lora import GPT, Block, Config, merge_lora_weights
@@ -32,7 +32,7 @@ lora_mlp = False
 lora_head = False
 
 
-class EvalHarnessLoRA(EvalHarnessAdapter):
+class EvalHarnessLoRA(EvalHarnessBase):
     def __init__(
         self,
         lora_path: str = "",
