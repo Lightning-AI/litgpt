@@ -6,7 +6,7 @@ https://arxiv.org/abs/2303.16199
 Port for Lit-GPT
 """
 from dataclasses import dataclass
-from typing import Any, List, Optional, Tuple, Union, Dict
+from typing import Any, Dict, List, Optional, Tuple, Union
 
 import torch
 import torch.nn as nn
