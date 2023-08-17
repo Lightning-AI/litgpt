@@ -3,7 +3,7 @@ import gc
 import sys
 from functools import partial
 from pathlib import Path
-from typing import Dict, Literal, Optional, Union, Tuple
+from typing import Dict, Literal, Optional, Tuple, Union
 
 import torch
 
@@ -149,7 +149,9 @@ def copy_weights_llama(
             state_dict[to_name] = param
 
 
-def tensor_split(param: Union[torch.Tensor, NotYetLoadedTensor], config: Config) -> Tuple[torch.Tensor, torch.Tensor, torch.Tensor]:
+def tensor_split(
+    param: Union[torch.Tensor, NotYetLoadedTensor], config: Config
+) -> Tuple[torch.Tensor, torch.Tensor, torch.Tensor]:
     def kstart(start, blen, klen) -> int:
         """returns start index of keys in batch"""
         return start + (blen - (klen * 2))
@@ -200,22 +202,17 @@ def check_conversion_supported(lit_weights: Dict[str, torch.Tensor]) -> None:
     weight_names = {wk.split(".")[-1] for wk in lit_weights}
     # LoRA or QLoRA
     if any("lora" in wn for wn in weight_names):
-        raise ValueError(f"Model weights must be merged using `lora.merge_lora_weights()` before conversion.")
+        raise ValueError("Model weights must be merged using `lora.merge_lora_weights()` before conversion.")
     # adapter v2. adapter_bias will only be in adapter_v2
     elif "adapter_bias" in weight_names:
-        raise NotImplementedError(f"Converting models finetuned with adapter_v2 not yet supported.")
+        raise NotImplementedError("Converting models finetuned with adapter_v2 not yet supported.")
     # adapter. gating_factor is in adapter and adapter_v2
     elif "gating_factor" in weight_names:
-        raise NotImplementedError(f"Converting models finetuned with adapter not yet supported.")
+        raise NotImplementedError("Converting models finetuned with adapter not yet supported.")
 
 
 @torch.inference_mode()
-def convert_lit_checkpoint(
-    *,
-    checkpoint_name: str,
-    out_dir: Path,
-    model_name: str,
-) -> None:
+def convert_lit_checkpoint(*, checkpoint_name: str, out_dir: Path, model_name: str) -> None:
     config = Config.from_name(model_name)
 
     if "falcon" in model_name:

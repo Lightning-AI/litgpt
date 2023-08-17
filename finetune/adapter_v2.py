@@ -14,8 +14,8 @@ sys.path.append(str(wd))
 
 from generate.base import generate
 from lit_gpt.adapter_v2 import GPT, Block, Config, adapter_filter, mark_only_adapter_v2_as_trainable
-from lit_gpt.speed_monitor import SpeedMonitorFabric as SpeedMonitor, estimate_flops
-from lit_gpt.speed_monitor import measure_flops
+from lit_gpt.speed_monitor import SpeedMonitorFabric as SpeedMonitor
+from lit_gpt.speed_monitor import estimate_flops, measure_flops
 from lit_gpt.tokenizer import Tokenizer
 from lit_gpt.utils import (
     check_valid_checkpoint_dir,
