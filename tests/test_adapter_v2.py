@@ -119,3 +119,17 @@ def test_adapter_v2_gpt_init_weights():
         assert (param != 0).any()
         model.apply(model._init_weights)
         assert (param == 0).all()
+
+
+def test_base_model_can_be_adapter_v2_loaded():
+    from lit_gpt.adapter_v2 import GPT as AdapterV2GPT
+    from lit_gpt.adapter_v2 import adapter_filter
+    from lit_gpt.model import GPT as BaseGPT
+
+    base_model = BaseGPT.from_name("pythia-70m", bias=True, n_layer=2)
+    base_model_state_dict = base_model.state_dict()
+    lora_model = AdapterV2GPT.from_name("pythia-70m", bias=True, n_layer=2, adapter_start_layer=0)
+    keys = lora_model.load_state_dict(base_model_state_dict, strict=False)
+    assert not keys.unexpected_keys
+    for k in keys.missing_keys:
+        assert adapter_filter(k, None)
