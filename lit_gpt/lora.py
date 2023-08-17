@@ -43,7 +43,7 @@ two matrices of a lower rank.
 
 import math
 from dataclasses import dataclass
-from typing import Any, List, Optional, Tuple, Type, Union
+from typing import Any, Dict, List, Optional, Tuple, Type, Union
 
 import torch
 import torch.nn as nn
@@ -56,6 +56,7 @@ from lit_gpt.model import GPT as BaseModel
 from lit_gpt.model import Block as BaseBlock
 from lit_gpt.model import CausalSelfAttention as BaseCausalSelfAttention
 from lit_gpt.model import KVCache, RoPECache
+from lit_gpt.utils import map_old_state_dict_weights
 
 
 class LoRALayer(nn.Module):
@@ -435,8 +436,8 @@ class Config(BaseConfig):
         to_*: either apply LoRA to the specified weights or not
     """
 
-    r: int = 0.0
-    alpha: int = 1.0
+    r: int = 0
+    alpha: int = 1
     dropout: float = 0.0
     to_query: bool = False
     to_key: bool = False
@@ -544,6 +545,12 @@ class GPT(BaseModel):
         if isinstance(module, LoRALinear):
             module.reset_parameters()
 
+    def _load_from_state_dict(self, state_dict: Dict, prefix: str, *args: Any, **kwargs: Any) -> None:
+        """For compatibility with base checkpoints."""
+        mapping = {"lm_head.weight": "lm_head.linear.weight"}
+        state_dict = map_old_state_dict_weights(state_dict, mapping, prefix)
+        super()._load_from_state_dict(state_dict, prefix, *args, **kwargs)
+
 
 class Block(BaseBlock):
     def __init__(self, config: Config) -> None:
@@ -594,6 +601,17 @@ class CausalSelfAttention(BaseCausalSelfAttention):
 
         self.config = config
 
+    def _load_from_state_dict(self, state_dict: Dict, prefix: str, *args: Any, **kwargs: Any) -> None:
+        """For compatibility with base checkpoints."""
+        mapping = {
+            "attn.weight": "attn.linear.weight",
+            "attn.bias": "attn.linear.bias",
+            "proj.weight": "proj.linear.weight",
+            "proj.bias": "proj.linear.bias",
+        }
+        state_dict = map_old_state_dict_weights(state_dict, mapping, prefix)
+        super()._load_from_state_dict(state_dict, prefix, *args, **kwargs)
+
 
 class GptNeoxMLP(lit_gpt.model.GptNeoxMLP):
     def __init__(self, config: Config) -> None:
@@ -614,6 +632,17 @@ class GptNeoxMLP(lit_gpt.model.GptNeoxMLP):
             lora_alpha=config.alpha,
             lora_dropout=config.dropout,
         )
+
+    def _load_from_state_dict(self, state_dict: Dict, prefix: str, *args: Any, **kwargs: Any) -> None:
+        """For compatibility with base checkpoints."""
+        mapping = {
+            "fc.weight": "fc.linear.weight",
+            "fc.bias": "fc.linear.bias",
+            "proj.weight": "proj.linear.weight",
+            "proj.bias": "proj.linear.bias",
+        }
+        state_dict = map_old_state_dict_weights(state_dict, mapping, prefix)
+        super()._load_from_state_dict(state_dict, prefix, *args, **kwargs)
 
 
 class LLaMAMLP(lit_gpt.model.LLaMAMLP):
@@ -643,6 +672,19 @@ class LLaMAMLP(lit_gpt.model.LLaMAMLP):
             lora_alpha=config.alpha,
             lora_dropout=config.dropout,
         )
+
+    def _load_from_state_dict(self, state_dict: Dict, prefix: str, *args: Any, **kwargs: Any) -> None:
+        """For compatibility with base checkpoints."""
+        mapping = {
+            "fc_1.weight": "fc_1.linear.weight",
+            "fc_1.bias": "fc_1.linear.bias",
+            "fc_2.weight": "fc_2.linear.weight",
+            "fc_2.bias": "fc_2.linear.bias",
+            "proj.weight": "proj.linear.weight",
+            "proj.bias": "proj.linear.bias",
+        }
+        state_dict = map_old_state_dict_weights(state_dict, mapping, prefix)
+        super()._load_from_state_dict(state_dict, prefix, *args, **kwargs)
 
 
 def merge_lora_weights(model: GPT) -> None:
