@@ -41,22 +41,32 @@ export ALLOW_MULTIPLE_LIBTPU_LOAD=1
 > [!NOTE]\
 > You can find an extensive guide on how to get set-up and all the available options [here](https://cloud.google.com/tpu/docs/v4-users-guide).
 
-Since you created a new machine, you'll probably need to download the weights. You could scp them into the machine with `gcloud compute tpus tpu-vm scp` or you can follow the steps described in our [downloading guide](download_stablelm.md).
+Since you created a new machine, you'll probably need to download the weights.
+You could scp them into the machine with `gcloud compute tpus tpu-vm scp` or you can follow the steps described in our [downloading guide](download_stablelm.md).
+
+It is also a good idea to setup a persistent disk from which you can read and load checkpoints. You can do so by TODO(@gkroiz).
 
 ## Inference
 
 Generation works out-of-the-box with TPUs:
 
 ```shell
-python3 generate/base.py --prompt "Hello, my name is" --num_samples 3
+python3 xla/generate/base.py --prompt "Hello, my name is" --num_samples 3
 ```
 
-This command will take take ~17s for the first generation time as XLA needs to compile the graph.
+This command will take ~17s for the first generation time as XLA needs to compile the graph.
 You'll notice that afterwards, generation times drop to ~2s.
 
 ## Finetuning
 
-Coming soon.
+You can get started fine-tuning Falcon 7B with adapter by running the following:
+
+```shell
+python3 xla/generate/adapter.py --checkpoint_dir checkpoints/tiiuae/falcon-7b
+```
+
+
+
 
 > **Warning**
 > When you are done, remember to delete your instance

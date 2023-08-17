@@ -49,11 +49,6 @@ def generate(
     buffer_length = max((len(tokens) for tokens in stop_tokens), default=1)
     buffer = torch.full((buffer_length,), -999, device=device)  # fill with non-existing token
 
-    if idx.device.type == "xla":
-        import torch_xla.core.xla_model as xm
-
-        xm.mark_step()
-
     yield_i = -1
     # generate up to a fixed number of tokens
     for t in range(max_returned_tokens - T):
@@ -71,9 +66,6 @@ def generate(
 
         # advance
         input_pos = input_pos[-1:] + 1
-
-        if idx.device.type == "xla":
-            xm.mark_step()
 
         # concatenate the new generation
         buffer[min(t, buffer_length - 1)] = idx

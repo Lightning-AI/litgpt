@@ -6,7 +6,7 @@ from typing import Dict, List, Optional, Tuple
 
 import lightning as L
 import torch
-from lightning.fabric.strategies import FSDPStrategy, XLAStrategy
+from lightning.fabric.strategies import FSDPStrategy
 
 # support running without installing as a package
 wd = Path(__file__).parent.parent.resolve()
@@ -62,23 +62,17 @@ def setup(
     checkpoint_dir: Path = Path("checkpoints/stabilityai/stablelm-base-alpha-3b"),
     out_dir: Path = Path("out/lora/alpaca"),
     precision: Optional[str] = None,
-    tpu: bool = False,
 ):
-    precision = precision or get_default_supported_precision(training=True, tpu=tpu)
+    precision = precision or get_default_supported_precision(training=True)
 
     fabric_devices = devices
     if fabric_devices > 1:
-        if tpu:
-            # For multi-host TPU training, the device count for Fabric is limited to the count on a single host.
-            fabric_devices = "auto"
-            strategy = XLAStrategy(sync_module_states=False)
-        else:
-            strategy = FSDPStrategy(
-                auto_wrap_policy={Block},
-                activation_checkpointing_policy={Block},
-                state_dict_type="full",
-                limit_all_gathers=True,
-            )
+        strategy = FSDPStrategy(
+            auto_wrap_policy={Block},
+            activation_checkpointing_policy={Block},
+            state_dict_type="full",
+            limit_all_gathers=True,
+        )
     else:
         strategy = "auto"
 
@@ -179,10 +173,6 @@ def train(
     total_lengths = 0
     total_t0 = time.perf_counter()
 
-    if fabric.device.type == "xla":
-        import torch_xla.core.xla_model as xm
-
-        xm.mark_step()
     for iter_num in range(max_iters):
         if step_count <= warmup_steps:
             # linear warmup
@@ -208,8 +198,6 @@ def train(
             optimizer.step()
             optimizer.zero_grad()
             step_count += 1
-        elif fabric.device.type == "xla":
-            xm.mark_step()
 
         t1 = time.perf_counter()
         total_lengths += input_ids.size(1)
@@ -283,8 +271,7 @@ def get_batch(
     input_ids = [data[i]["input_ids"].type(torch.int64) for i in ix]
     labels = [data[i]["labels"].type(torch.int64) for i in ix]
 
-    # it's better to pad to a fixed seq length with XLA to avoid recompilation
-    max_len = max(len(s) for s in input_ids) if fabric.device.type != "xla" else longest_seq_length
+    max_len = max(len(s) for s in input_ids)
 
     def pad_right(x, pad_id):
         # pad right based on the longest sequence

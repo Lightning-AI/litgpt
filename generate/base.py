@@ -51,11 +51,6 @@ def generate(
     idx = empty
     input_pos = torch.arange(0, T, device=device)
 
-    if idx.device.type == "xla":
-        import torch_xla.core.xla_model as xm
-
-        xm.mark_step()
-
     # generate up to a fixed number of tokens
     for _ in range(max_returned_tokens - T):
         x = idx.index_select(0, input_pos).view(1, -1)
@@ -74,9 +69,6 @@ def generate(
 
         # advance
         input_pos = input_pos[-1:] + 1
-
-        if idx.device.type == "xla":
-            xm.mark_step()
 
         # concatenate the new generation
         idx = idx.index_copy(0, input_pos, idx_next)
