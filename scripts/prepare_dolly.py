@@ -1,30 +1,29 @@
 """Implementation derived from https://github.com/tloen/alpaca-lora"""
+import json
 import sys
 from pathlib import Path
-
-# support running without installing as a package
-wd = Path(__file__).parent.parent.resolve()
-sys.path.append(str(wd))
-
-import json
 
 import requests
 import torch
 from torch.utils.data import random_split
 from tqdm import tqdm
 
+# support running without installing as a package
+wd = Path(__file__).parent.parent.resolve()
+sys.path.append(str(wd))
+
 from lit_gpt.tokenizer import Tokenizer
 
-DESTINATION_PATH = Path("data/dolly")
-CHECKPOINT_DIR = Path("checkpoints/stabilityai/stablelm-base-alpha-3b")
 DATA_FILE_URL = (
     "https://huggingface.co/datasets/databricks/databricks-dolly-15k/resolve/main/databricks-dolly-15k.jsonl"
 )
 DATA_FILE_NAME = "dolly_data_cleaned.json"
-MASK_INPUTS = False
+DESTINATION_PATH = Path("data/dolly")
+CHECKPOINT_DIR = Path("checkpoints/stabilityai/stablelm-base-alpha-3b")
 TEST_SPLIT_FRACTION = 0.1333  # to get exactly 2000 test samples
-SEED = 42
 IGNORE_INDEX = -1
+MASK_INPUTS = False
+SEED = 42
 
 
 def prepare(
@@ -42,7 +41,6 @@ def prepare(
     The output is a training and test dataset saved as `train.pt` and `test.pt`,
     which stores the preprocessed and tokenized prompts and labels.
     """
-
     with open(checkpoint_dir / "lit_config.json", "r") as file:
         config = json.load(file)
         max_seq_length = config["block_size"]
@@ -69,7 +67,7 @@ def prepare(
     train_set, test_set = list(train_set), list(test_set)
 
     print(f"train has {len(train_set):,} samples")
-    print(f"val has {len(test_set):,} samples")
+    print(f"test has {len(test_set):,} samples")
 
     print("Processing train split ...")
     train_set = [
