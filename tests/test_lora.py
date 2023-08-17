@@ -402,3 +402,28 @@ def test_lora_gpt_init_weights():
     assert (param != 0).any()
     model.apply(model._init_weights)
     assert (param == 0).all()
+
+
+def test_base_model_can_be_lora_loaded():
+    from lit_gpt.lora import GPT as LoRAGPT
+    from lit_gpt.lora import lora_filter
+    from lit_gpt.model import GPT as BaseGPT
+
+    base_model = BaseGPT.from_name("pythia-70m", bias=True, n_layer=2)
+    base_model_state_dict = base_model.state_dict()
+    lora_model = LoRAGPT.from_name(
+        "pythia-70m",
+        bias=True,
+        n_layer=2,
+        r=1,
+        to_query=True,
+        to_key=True,
+        to_value=True,
+        to_projection=True,
+        to_mlp=True,
+        to_head=True,
+    )
+    keys = lora_model.load_state_dict(base_model_state_dict, strict=False)
+    assert not keys.unexpected_keys
+    for k in keys.missing_keys:
+        assert lora_filter(k, None)
