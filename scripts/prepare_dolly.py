@@ -7,6 +7,7 @@ import requests
 import torch
 from torch.utils.data import random_split
 from tqdm import tqdm
+from typing import Optional
 
 # support running without installing as a package
 wd = Path(__file__).parent.parent.resolve()
@@ -20,7 +21,7 @@ DATA_FILE_URL = (
 DATA_FILE_NAME = "dolly_data_cleaned.json"
 DESTINATION_PATH = Path("data/dolly")
 CHECKPOINT_DIR = Path("checkpoints/stabilityai/stablelm-base-alpha-3b")
-TEST_SPLIT_FRACTION = 0.1333  # to get exactly 2000 test samples
+TEST_SPLIT_FRACTION = 0.1
 IGNORE_INDEX = -1
 MASK_INPUTS = False
 SEED = 42
@@ -35,22 +36,25 @@ def prepare(
     data_file_name: str = DATA_FILE_NAME,
     data_file_url: str = DATA_FILE_URL,
     ignore_index: int = IGNORE_INDEX,
+    max_seq_length: Optional[int] = None,
 ) -> None:
     """Prepare the Alpaca dataset for instruction tuning.
 
     The output is a training and test dataset saved as `train.pt` and `test.pt`,
     which stores the preprocessed and tokenized prompts and labels.
     """
-    with open(checkpoint_dir / "lit_config.json", "r") as file:
-        config = json.load(file)
-        max_seq_length = config["block_size"]
+
+    if max_seq_length is None:
+        with open(checkpoint_dir / "lit_config.json", "r", encoding="utf-8") as file:
+            config = json.load(file)
+            max_seq_length = config["block_size"]
 
     destination_path.mkdir(parents=True, exist_ok=True)
     data_file_path = destination_path / data_file_name
     print("Loading data file...")
     download_if_missing(data_file_path, data_file_url)
 
-    with open(data_file_path, "r") as file:
+    with open(data_file_path, "r", encoding="utf-8") as file:
         data = file.readlines()
         data = [json.loads(line) for line in data]
     for item in data:
