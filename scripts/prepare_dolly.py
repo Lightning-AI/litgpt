@@ -6,17 +6,20 @@ from pathlib import Path
 wd = Path(__file__).parent.parent.resolve()
 sys.path.append(str(wd))
 
-import torch
-import requests
 import json
+
+import requests
+import torch
 from torch.utils.data import random_split
-from lit_gpt.tokenizer import Tokenizer
 from tqdm import tqdm
 
+from lit_gpt.tokenizer import Tokenizer
 
 DESTINATION_PATH = Path("data/dolly")
 CHECKPOINT_DIR = Path("checkpoints/stabilityai/stablelm-base-alpha-3b")
-DATA_FILE_URL = "https://huggingface.co/datasets/databricks/databricks-dolly-15k/resolve/main/databricks-dolly-15k.jsonl"
+DATA_FILE_URL = (
+    "https://huggingface.co/datasets/databricks/databricks-dolly-15k/resolve/main/databricks-dolly-15k.jsonl"
+)
 DATA_FILE_NAME = "dolly_data_cleaned.json"
 MASK_INPUTS = False
 TEST_SPLIT_FRACTION = 0.1333  # to get exactly 2000 test samples
@@ -44,12 +47,11 @@ def prepare(
         config = json.load(file)
         max_seq_length = config["block_size"]
 
-
     destination_path.mkdir(parents=True, exist_ok=True)
     data_file_path = destination_path / data_file_name
     print("Loading data file...")
     download_if_missing(data_file_path, data_file_url)
-    
+
     with open(data_file_path, "r") as file:
         data = file.readlines()
         data = [json.loads(line) for line in data]
@@ -82,7 +84,6 @@ def prepare(
     ]
     torch.save(train_set, destination_path / "train.pt")
 
-
     print("Processing test split ...")
     test_set = [
         prepare_sample(
@@ -95,7 +96,6 @@ def prepare(
         for sample in tqdm(test_set)
     ]
     torch.save(test_set, destination_path / "test.pt")
-
 
 
 def download_if_missing(file_path: Path, file_url: str):
