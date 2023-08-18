@@ -50,6 +50,28 @@ and optionally with double-quantization:
 python finetune/lora.py --quantize "bnb.nf4-dq"
 ```
 
+The table below lists a comparison with different settings on a StableLM 3B model finetuned with LoRA on Alpaca for 5,000 iterations using a microbatch size of 4:
+
+| Settings                                                | Training Memory  | Training Time  | Loss      | Inference Memory |
+|---------------------------------------------------------|------------------|----------------|-----------|------------------|
+| Default (bfloat16-mixed)                                | 33.50 GB         | 591.78s        | 0.9207    | 7.61 GB          |
+| --precision "bf16-true"                                 | 15.86 GB         | 592.14s        | 0.9180    | 7.61 GB          |
+| --quantize "bnb.nf4"                                    | 22.34 GB         | 944.93s        | 0.9417    | 3.25 GB          |
+| --quantize "bnb.nf4-dq"                                 | 22.18 GB         | 962.23s        | 0.9383    | 3.08 GB          |
+| --precision "bf16-true"  --quantize "bnb.nf4"           | 14.81 GB         | 802.02s        | 0.9408    | 3.25 GB          |
+| --precision "bf16-true"  --quantize "bnb.nf4-dq"        | 14.65 GB         | 802.94s        | 0.9384    | 3.08 GB          |
+
+The advantages of QLoRA-style quantization are more pronounced in larger models, such as Llama 2 7B. The table below summarizes the results for Llama 2 7B on Alpaca for 5,000 iterations using a microbatch size of 4:
+
+| Settings                                            | Training Memory  | Training Time  | Loss   | Inference Memory |
+|-----------------------------------------------------|------------------|----------------|--------|------------------|
+| Default (bfloat16-mixed)                            | OutOfMemoryError | N/A            | N/A    | N/A              |
+| --precision "bf16-true"                             | 20.60 GB         | 876.30s        | 0.8696 | 13.82 GB         |
+| --quantize "bnb.nf4"                                | 19.62 GB         | 1320.63s       | 1.0178 | 4.66 GB          |
+| --quantize "bnb.nf4-dq"                             | 19.32 GB         | 1359.10s       | 1.0132 | 4.34 GB          |
+| --precision "bf16-true"  --quantize "bnb.nf4"       | 13.44 GB         | 1089.79s       | 1.0130 | 4.66 GB          |
+| --precision "bf16-true"  --quantize "bnb.nf4-dq"    | 13.15 GB         | 1135.86s       | 1.0124 | 4.34 GB          |
+
 ## Test the model
 
 You can test the finetuned model with your own instructions by running:
