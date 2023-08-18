@@ -126,7 +126,7 @@ python generate/base.py \
 
 The following command will download and preprocess the Dolly15k dataset for the StableLM 3B Base model:
 
-```python
+```bash
 python scripts/prepare_dolly.py \
   --checkpoint_dir checkpoints/stabilityai/stablelm-base-alpha-3b \
   --destination_path data/dolly-stablelm3b \
