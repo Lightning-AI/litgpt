@@ -12,16 +12,24 @@ This quick start guide is a short starter guide illustrating the main steps to g
 
 ## Competition Facts
 
+
+&nbsp;
+
 **Permitted GPUs:**
 
 - 1x A100 (40 GB RAM);
 - 1x RTX 4090 (24 GB RAM).
 
+&nbsp;
+
 **Permitted models:**
 
 - All transformer-based LLM base models that are not finetuned yet.
 
-The subset of Lit-GPT models supported in this competition is listed in the Table below.
+The subset of Lit-GPT models supported in this competition is listed in the table below.
+These don't include models that have been finetuned or otherwise aligned, as per the rules of the challenge.
+
+&nbsp;
 
 | Models in Lit-GPT         | Reference                                                    |
 | ------------------------- | ------------------------------------------------------------ |
@@ -30,6 +38,8 @@ The subset of Lit-GPT models supported in this competition is listed in the Tabl
 | OpenLM Research OpenLLaMA | [Geng & Liu 2023](https://github.com/openlm-research/open_llama) |
 | EleutherAI Pythia         | [Biderman et al. 2023](https://arxiv.org/abs/2304.01373)     |
 | StabilityAI StableLM Base | [Stability AI 2023](https://github.com/Stability-AI/StableLM) |
+
+&nbsp;
 
 **Permitted datasets**
 
@@ -41,12 +51,15 @@ Examples of permitted datasets are the following:
 - [OpenAssistant Conversations Dataset (oasst1)](https://huggingface.co/datasets/OpenAssistant/oasst1)
 - [The Flan Collection](https://github.com/google-research/FLAN/tree/main/flan/v2)
 
-It is allowed to create your own datasets if it is made publicly accessible under an open-source license.
+You are allowed to create your own datasets if they are made 
+publicly accessible under an open-source license, and they are not generated from other LLMs (even open-source ones).
 
 Helpful competition rules relevant to the dataset choice:
 
 - The maximum prompt/completion length the models are expected to handle is 2048 tokens. 
 - The evaluation will be on English texts only.
+
+&nbsp;
 
 **Submission deadline**
 
@@ -85,9 +98,9 @@ pip install -r requirements.txt tokenizers sentencepiece
 
 ## Downloading Model Checkpoints
 
-This section explains how to download the StableLM 3B Base model, the smallest model supported in Lit-GPT. (The downloaded and converted checkpoints will occupy approximately 28 Gb of disk space.)
+This section explains how to download the StableLM 3B Base model, one of the smallest models supported in Lit-GPT (except for Pythia). The downloaded and converted checkpoints will occupy approximately 28 Gb of disk space.
 
-```
+```bash
 pip install huggingface_hub
 
 python scripts/download.py \
@@ -101,7 +114,7 @@ While StableLM 3B Base is useful as a first starter model to set things up, you 
 
 After downloading and converting the model checkpoint, you can test the model via the following command: 
 
-```
+```bash
 python generate/base.py \
   --prompt "LLM efficiency competitions are fun, because" \
   --checkpoint_dir checkpoints/stabilityai/stablelm-base-alpha-3b
@@ -115,9 +128,9 @@ The following command will download and preprocess the Dolly15k dataset for the 
 
 ```python
 python scripts/prepare_dolly.py \
---checkpoint_dir checkpoints/stabilityai/stablelm-base-alpha-3b \
---destination_path data/dolly-stablelm3b \
---max_seq_length 2048
+  --checkpoint_dir checkpoints/stabilityai/stablelm-base-alpha-3b \
+  --destination_path data/dolly-stablelm3b \
+  --max_seq_length 2048
 ```
 
 **Important note**
@@ -158,7 +171,7 @@ HELM is currently also being integrated into Lit-GPT to evaluate LLMs before sub
 
 However, a tool with a more convenient interface is Eleuther AI's Evaluation Harness, which contains some tasks, for example, TruthfulQA and Gsm8k, that overlap with HELM. We can set up the Evaluation Harness as follows:
 
-```
+```bash
 cd ..
 git clone https://github.com/EleutherAI/lm-evaluation-harness
 cd lm-evaluation-harness
@@ -179,7 +192,7 @@ python eval/lm_eval_harness.py \
 
 (You can find a full task list in the task table [here](https://github.com/EleutherAI/lm-evaluation-harness/blob/master/docs/task_table.md).)
 
-To evaluate a LoRA-finetuned model, use `lm_eval_harness_lora.py` instead of `eval/lm_eval_harness.py`.
+To evaluate a LoRA-finetuned model, use `eval/lm_eval_harness_lora.py` instead of `eval/lm_eval_harness.py`.
 
 
 &nbsp;
@@ -194,7 +207,7 @@ You will be required to submit a Docker image for the submission itself. Fortuna
 ## Additional Information & Resources
 
 - [The official NeurIPS 2023 LLM Efficiency Challenge competition website](https://llm-efficiency-challenge.github.io/)
-- A more extensive guide, including environment setup tips: [The NeurIPS 2023 LLM Efficiency Challenge Starter Guide](The NeurIPS 2023 LLM Efficiency Challenge Starter Guide)
+- A more extensive guide, including environment setup tips: [The NeurIPS 2023 LLM Efficiency Challenge Starter Guide]([The NeurIPS 2023 LLM Efficiency Challenge Starter Guide](https://lightning.ai/pages/community/tutorial/neurips2023-llm-efficiency-guide))
 - [Official competition Discord](https://discord.com/login?redirect_to=%2Fchannels%2F1077906959069626439%2F1134560480795570186) and [Lightning AI + Lit-GPT Discord](https://discord.com/invite/MWAEvnC5fU)
 - LoRA vs Adapter vs Adapter v2 comparison in Lit-GPT using Falcon 7B: [Finetuning Falcon LLMs More Efficiently With LoRA and Adapters](https://lightning.ai/pages/community/finetuning-falcon-efficiently/)
 - [Dealing with out-of-memory (OOM) errors in Lit-GPT](https://github.com/Lightning-AI/lit-gpt/blob/main/tutorials/oom.md)
