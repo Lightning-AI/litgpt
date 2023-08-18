@@ -69,7 +69,7 @@ python eval/helm/main.py \
         --precision "bf16-true"
 ```
 
-**Step 2:** Evaluate with HELM CLI
+**Step 2:** Run the evaluation through the HELM CLI
 
 Create a `run_specs.conf` file that contains tasks on which you want to evaluate your LLM. You can find a list of tasks [here](https://github.com/stanford-crfm/helm/blob/main/src/helm/benchmark/presentation/run_specs.conf).
 
