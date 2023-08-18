@@ -1,4 +1,4 @@
-# Lit-GPT imports
+# Credits: https://github.com/llm-efficiency-challenge/neurips_llm_efficiency_challenge
 import json
 import logging
 import sys
