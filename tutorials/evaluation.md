@@ -57,9 +57,8 @@ You can evaluate Lit-GPT using [HELM](https://crfm.stanford.edu/helm/latest/), a
 
 You need to install the `helm` framework first:
 
-<!-- TODO: update to official helm branch once https://github.com/stanford-crfm/helm/pull/1693 is merged. -->
 ```bash
-pip install git+https://github.com/drisspg/helm.git@neruips_client
+pip install git+https://github.com/stanford-crfm/helm.git@main
 ```
 
 **Step 1:** Run Lit-GPT as API
