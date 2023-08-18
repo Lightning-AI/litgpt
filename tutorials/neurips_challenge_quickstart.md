@@ -98,7 +98,7 @@ pip install -r requirements.txt tokenizers sentencepiece
 
 ## Downloading Model Checkpoints
 
-This section explains how to download the StableLM 3B Base model, one of the smallest models supported in Lit-GPT (except for Pythia). The downloaded and converted checkpoints will occupy approximately 28 Gb of disk space.
+This section explains how to download the StableLM 3B Base model, one of the smallest models supported in Lit-GPT (an even smaller, supported model is Pythia, which starts at 70M parameters). The downloaded and converted checkpoints will occupy approximately 28 Gb of disk space.
 
 ```bash
 pip install huggingface_hub
