@@ -148,7 +148,7 @@ def copy_weights_hf_llama(
             to_name = to_name.format(number)
         else:
             to_name = weight_map[name]
-        param = load_param(param, name, param)
+        param = load_param(param, name, dtype)
         if saver is not None:
             param = saver.store_early(param)
         state_dict[to_name] = param
