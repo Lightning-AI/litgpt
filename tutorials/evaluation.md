@@ -61,7 +61,7 @@ You need to install the `helm` framework first:
 pip install git+https://github.com/stanford-crfm/helm.git@main
 ```
 
-**Step 1:** Run Lit-GPT as API
+**Step 1:** Run the evaluation server for Lit-GPT
 
 ```shell
 python eval/helm/main.py \
