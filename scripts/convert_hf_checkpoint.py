@@ -181,10 +181,10 @@ def layer_template(layer_name: str, idx: int) -> Tuple[str, int]:
 def load_param(param: Union[torch.Tensor, NotYetLoadedTensor], name: str, dtype: Optional[torch.dtype]) -> torch.Tensor:
     if hasattr(param, "_load_tensor"):
         # support tensors loaded via `lazy_load()`
-        print(f"Loading {name} into RAM")
+        print(f"Loading {name!r} into RAM")
         param = param._load_tensor()
-    if dtype != param.dtype:
-        print(f"Converting {name} from {param.dtype} to {dtype}")
+    if dtype is not None and type(dtype) is not NotYetLoadedTensor and dtype != param.dtype:
+        print(f"Converting {name!r} from {param.dtype} to {dtype}")
         param = param.to(dtype)
     return param
 
