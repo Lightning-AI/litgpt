@@ -193,7 +193,7 @@ More details about each finetuning method and how you can apply it to your own d
 These technical tutorials illustrate how to run the finetuning code.
 
 - [Finetune with Adapters](tutorials/finetune_adapter.md)
-- [Finetune with LoRA](tutorials/finetune_lora.md)
+- [Finetune with LoRA or QLoRA](tutorials/finetune_lora.md)
 
 &nbsp;
 
