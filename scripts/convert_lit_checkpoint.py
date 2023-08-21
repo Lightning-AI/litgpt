@@ -197,12 +197,7 @@ def maybe_unwrap_state_dict(lit_weights: Dict[str, torch.Tensor]) -> Dict[str, t
 
 
 @torch.inference_mode()
-def convert_lit_checkpoint(
-    *,
-    checkpoint_name: str,
-    out_dir: Path,
-    model_name: str,
-) -> None:
+def convert_lit_checkpoint(*, checkpoint_name: str, out_dir: Path, model_name: str) -> None:
     config = Config.from_name(model_name)
 
     if "falcon" in model_name:
