@@ -138,7 +138,7 @@ def test_against_original_llama2(size):
         intermediate_size=ours_config.intermediate_size,
         max_position_embeddings=T,
         rms_norm_eps=1e-5,
-        **theirs_kwargs
+        **theirs_kwargs,
     )
     assert ours_config.intermediate_size == theirs_config.intermediate_size
 
@@ -191,3 +191,30 @@ def test_maybe_unwrap_state_dict(tmp_path):
     with mock.patch("scripts.convert_lit_checkpoint.maybe_unwrap_state_dict") as maybe_unwrap:
         convert_lit_checkpoint(checkpoint_name=ckpt_name, out_dir=tmp_path, model_name=model_name)
     maybe_unwrap.assert_called()
+
+
+def test_check_conversion_supported_adapter():
+    from scripts.convert_lit_checkpoint import check_conversion_supported
+
+    lit_weights = {"some.key.name": "some.key.value", "error.key.gating_factor": "some.key.value"}
+
+    with pytest.raises(NotImplementedError, match="Converting models finetuned with adapter *"):
+        check_conversion_supported(lit_weights=lit_weights)
+
+
+def test_check_conversion_supported_adapter_v2():
+    from scripts.convert_lit_checkpoint import check_conversion_supported
+
+    lit_weights = {"some.key.name": "some.key.value", "error.key.adapter_bias": "some.key.value"}
+
+    with pytest.raises(NotImplementedError, match="Converting models finetuned with adapter_v2"):
+        check_conversion_supported(lit_weights=lit_weights)
+
+
+def test_check_conversion_supported_lora():
+    from scripts.convert_lit_checkpoint import check_conversion_supported
+
+    lit_weights = {"some.key.name": "some.key.value", "error.key.lora": "some.key.value"}
+
+    with pytest.raises(ValueError, match=r"Model weights must be merged using"):
+        check_conversion_supported(lit_weights=lit_weights)
