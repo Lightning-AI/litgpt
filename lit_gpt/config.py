@@ -595,4 +595,29 @@ freewilly_2 = [
 configs.extend(freewilly_2)
 
 
+##########################
+# NousResearch Nous-Hermes-Llama2-13b
+##########################
+nous_hermes_llama2_13b = [
+    # https://huggingface.co/NousResearch/Nous-Hermes-Llama2-13b
+    dict(
+        org="nousresearch",
+        name="Nous-Hermes-Llama2-13b",
+        block_size=4096,
+        vocab_size=32032,
+        intermediate_size=13824,
+        n_layer=40,
+        n_head=40,
+        n_embd=5120,
+        n_query_groups=40,
+        bias=False,
+        norm_eps=1e-05,
+        rotary_percentage=1.0,
+        parallel_residual=False,
+        _norm_class="RMSNorm",
+        _mlp_class="LLaMAMLP",
+    )
+]
+configs.extend(nous_hermes_llama2_13b)
+
 name_to_config = {config["name"]: config for config in configs}
