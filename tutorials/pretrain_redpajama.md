@@ -1,4 +1,4 @@
-# Pretrain LLaMA on RedPajama
+# Pretrain Llama 2 on RedPajama
 
 This tutorial will walk you through setting up the RedPajama dataset and launching the pretraining script.
 
