@@ -129,7 +129,7 @@ Run inference:
 python generate/base.py --prompt "Hello, my name is"
 ```
 
-This will run the 3B pre-trained model and require ~7 GB of GPU memory using the `bfloat16` datatype.
+This will run the 3B pretrained model and require ~7 GB of GPU memory using the `bfloat16` datatype.
 
 [Full guide for generating samples from the model](tutorials/inference.md).
 
@@ -207,9 +207,15 @@ Looking for conceptual tutorials and explanations? We have some additional artic
 
 &nbsp;
 
-## Pre-training
+## Pretraining
 
-Porting from Lit-LLaMA in progress 👷
+
+
+We provide [a simple training script based on Fabric](pretrain/redpajama.py) if you want to venture into pretraining on RedPajama, a reproduction of the original LLaMA dataset. Conversion scripts for our optimized streaming `PackedDataset`are included. We also have [an alternative RedPajama pretraining script using PyTorch Lightning `Trainer` class](pretrain/redpajama_trainer.py), which has additional features compared to the leaner Fabric implementation.
+
+Follow this guide to start pretraining on the RedPajama dataset:
+
+- [Pretrain on RedPajama](tutorials/pretrain_redpajama.md)
 
 &nbsp;
 
@@ -221,7 +227,7 @@ We are on a quest towards fully open source AI.
 
 Join us and start contributing, especially on the following areas:
 
-- [ ] [Pre-training](https://github.com/Lightning-AI/lit-gpt/labels/pre-training)
+- [ ] [Pretraining](https://github.com/Lightning-AI/lit-gpt/labels/pre-training)
 - [ ] [Fine-tuning](https://github.com/Lightning-AI/lit-gpt/labels/fine-tuning)
 - [ ] [Quantization](https://github.com/Lightning-AI/lit-gpt/labels/quantization)
 - [ ] [Sparsification](https://github.com/Lightning-AI/lit-gpt/labels/sparsification)
