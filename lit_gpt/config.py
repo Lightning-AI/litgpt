@@ -510,7 +510,6 @@ nous_research = [
         rotary_percentage=1.0,
         parallel_residual=False,
         bias=False,
-        n_query_groups=40,
         _norm_class="RMSNorm",
         norm_eps=1e-05,
         _mlp_class="LLaMAMLP",
