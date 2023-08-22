@@ -571,7 +571,7 @@ for c in llama_2:
 ##########################
 # Stability AI FreeWilly2
 ##########################
-freewilly_2 = [
+stabilityai = [
     # https://huggingface.co/stabilityai/FreeWilly2/blob/main/config.json
     dict(
         org="stabilityai",
@@ -590,9 +590,26 @@ freewilly_2 = [
         norm_eps=1e-5,
         _mlp_class="LLaMAMLP",
         intermediate_size=28672,
+    ),
+    
+    # https://huggingface.co/stabilityai/stablecode-completion-alpha-3b/blob/main/config.json
+    dict(
+        org="stabilityai",
+        name="stablecode-completion-alpha-3b",
+        block_size=16384,
+        vocab_size=49152,
+        n_layer=32,
+        n_head=32,
+        n_embd=2560,
+        rotary_percentage=0.25,
+        parallel_residual=True,
+        bias=True,
+        _norm_class="LayerNorm",
+        norm_eps=1e-05,
+        _mlp_class="GptNeoxMLP",
+        intermediate_size=10240,
     )
 ]
-configs.extend(freewilly_2)
-
+configs.extend(stabilityai)
 
 name_to_config = {config["name"]: config for config in configs}
