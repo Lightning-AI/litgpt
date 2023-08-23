@@ -1,7 +1,6 @@
 import json
 import sys
 import time
-import warnings
 from pathlib import Path
 
 import lightning as L
@@ -10,11 +9,11 @@ import lightning as L
 wd = Path(__file__).parent.parent.parent.resolve()
 sys.path.append(str(wd))
 
-from xla.generate.base import generate
 from lit_gpt import Tokenizer
 from lit_gpt.adapter import GPT, Config
 from lit_gpt.utils import check_valid_checkpoint_dir, lazy_load
 from scripts.prepare_alpaca import generate_prompt
+from xla.generate.base import generate
 
 
 def main(
@@ -106,9 +105,4 @@ def main(
 if __name__ == "__main__":
     from jsonargparse import CLI
 
-    warnings.filterwarnings(
-        # Triggered internally at ../aten/src/ATen/EmptyTensor.cpp:31
-        "ignore",
-        message="ComplexHalf support is experimental and many operators don't support it yet",
-    )
     CLI(main)

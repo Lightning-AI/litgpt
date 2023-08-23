@@ -46,6 +46,8 @@ You could scp them into the machine with `gcloud compute tpus tpu-vm scp` or you
 
 It is also a good idea to setup a persistent disk from which you can read and load checkpoints. You can do so by TODO(@gkroiz).
 
+We have bespoke versions of our regular recipes to run with XLA in this directory.
+
 ## Inference
 
 Generation works out-of-the-box with TPUs:

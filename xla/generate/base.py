@@ -1,7 +1,6 @@
 import json
 import sys
 import time
-import warnings
 from pathlib import Path
 from typing import Optional
 
@@ -12,9 +11,10 @@ import torch
 wd = Path(__file__).parent.parent.parent.resolve()
 sys.path.append(str(wd))
 
+import torch_xla.core.xla_model as xm
+
 from lit_gpt import GPT, Config, Tokenizer
 from lit_gpt.utils import check_valid_checkpoint_dir, lazy_load
-import torch_xla.core.xla_model as xm
 
 
 @torch.no_grad()
@@ -169,10 +169,4 @@ def main(
 if __name__ == "__main__":
     from jsonargparse import CLI
 
-    torch.set_float32_matmul_precision("high")
-    warnings.filterwarnings(
-        # Triggered internally at ../aten/src/ATen/EmptyTensor.cpp:31
-        "ignore",
-        message="ComplexHalf support is experimental and many operators don't support it yet",
-    )
     CLI(main)
