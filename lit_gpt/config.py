@@ -497,7 +497,6 @@ nous_research = [
         _mlp_class="LLaMAMLP",
         intermediate_size=13824,
     ),
-    
     # https://huggingface.co/NousResearch/Nous-Hermes-Llama2-13b
     dict(
         org="NousResearch",
@@ -611,5 +610,6 @@ freewilly_2 = [
     )
 ]
 configs.extend(freewilly_2)
+
 
 name_to_config = {config["name"]: config for config in configs}
