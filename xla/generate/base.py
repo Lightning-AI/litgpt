@@ -10,12 +10,13 @@ import torch
 from lightning.fabric.strategies import FSDPStrategy
 
 # support running without installing as a package
-wd = Path(__file__).parent.parent.resolve()
+wd = Path(__file__).parent.parent.parent.resolve()
 sys.path.append(str(wd))
 
 from lit_gpt import GPT, Config, Tokenizer
 from lit_gpt.model import Block
 from lit_gpt.utils import check_valid_checkpoint_dir, get_default_supported_precision, lazy_load, quantization
+import torch_xla.core.xla_model as xm
 
 
 @torch.no_grad()
@@ -51,6 +52,8 @@ def generate(
     idx = empty
     input_pos = torch.arange(0, T, device=device)
 
+    xm.mark_step()
+
     # generate up to a fixed number of tokens
     for _ in range(max_returned_tokens - T):
         x = idx.index_select(0, input_pos).view(1, -1)
@@ -69,6 +72,8 @@ def generate(
 
         # advance
         input_pos = input_pos[-1:] + 1
+
+        xm.mark_step()
 
         # concatenate the new generation
         idx = idx.index_copy(0, input_pos, idx_next)
