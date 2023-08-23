@@ -636,6 +636,23 @@ stablecode = [
         intermediate_size=10240,
     ),
     
+    # https://huggingface.co/stabilityai/stablecode-instruct-alpha-3b/blob/main/config.json
+    dict(
+        org="stabilityai",
+        name="stablecode-instruct-alpha-3b",
+        block_size=4096,
+        vocab_size=49152,
+        n_layer=32,
+        n_head=32,
+        n_embd=2560,
+        rotary_percentage=0.25,
+        parallel_residual=True,
+        bias=True,
+        _norm_class="LayerNorm",
+        norm_eps=1e-05,
+        _mlp_class="GptNeoxMLP",
+        intermediate_size=10240,
+    ),
     
 ]
 configs.extend(stablecode)
