@@ -245,6 +245,7 @@ def get_batch(
     input_ids = [data[i]["input_ids"].type(torch.int64) for i in ix]
     labels = [data[i]["labels"].type(torch.int64) for i in ix]
 
+    # this could be `longest_seq_length` to have a fixed size for all batches
     max_len = max(len(s) for s in input_ids)
 
     def pad_right(x, pad_id):
