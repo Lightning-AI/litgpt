@@ -74,7 +74,7 @@ export PJRT_DEVICE=TPU
 Since you created a new machine, you'll probably need to download the weights.
 You could scp them into the machine with `gcloud compute tpus tpu-vm scp` or you can follow the steps described in our [downloading guide](download_stablelm.md).
 
-It is also a good idea to setup a persistent disk from which you can read and load checkpoints.
+It is also a good idea to set up a persistent disk from which you can read and load checkpoints.
 You can do so by following [this guide](https://cloud.google.com/tpu/docs/setup-persistent-disk#setting_up_a_tpu_vm_and_a_persistent_disk).
 Using multiple slices in a pod (multihost) does not support read-write disks, so persistent disks cannot be used to save checkpoints.
 Persistent disks can still be useful in read-only mode to load pretrained weights before finetuning or inference.
@@ -108,11 +108,18 @@ And generation with the adapter finetuned model weights can be done with:
 python3 xla/generate/adapter.py --checkpoint_dir checkpoints/tiiuae/falcon-7b --precision bf16-true --adapter_path out/adapter/alpaca/lit_model_adapter_finetuned.pth
 ```
 
----
-
 > **Warning**
 > When you are done, remember to delete your instance
 >
 > ```shell
 > gcloud compute tpus tpu-vm delete lit-gpt --zone=us-central2-b
 > ```
+
+## Computational performance
+
+We were able to reach 49.57% MFU with Falcon 7B on a v4-32 (micro batch size 7) and 39.67% MFU with Falcon 40B on a v4-512 (micro batch size 3) using the [adapter finetuning script](finetune/adapter.py) and XLA's FSDP implementation.
+
+Since the TPU VM hosts is limited in system memory (RAM) compared to device memory (HBM), we enabled specific techniques to limit peak RAM usage when loading the model and pretrained weights before sharding as well as when saving sharded checkpoints.
+A v4 chip has 32 GiB HBM, so at 4 devices per host that's 4*32=128 GiB HBM. In comparison, each host has 188 GiB RAM but that's shared across the devices.
+This means that any RAM allocation over 188/4=47 GiB would already max out the host's RAM memory.
+A ~24B parameter model on CPU (with half precision) would be the largest possible model under this setup without the techniques used in our scripts.
