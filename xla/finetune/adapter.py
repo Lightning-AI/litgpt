@@ -51,7 +51,7 @@ hparams = {k: v for k, v in locals().items() if isinstance(v, (int, float, str))
 
 def setup(
     data_dir: Path = Path("data/alpaca"),
-    checkpoint_dir: Path = Path("checkpoints/stabilityai/stablelm-base-alpha-3b"),
+    checkpoint_dir: Path = Path("checkpoints/tiiuae/falcon-7b"),
     out_dir: Path = Path("out/adapter/alpaca"),
     precision: str = "bf16-true",
 ):
@@ -99,8 +99,6 @@ def main(fabric: L.Fabric, data_dir: Path, checkpoint_dir: Path, out_dir: Path):
     train_time = time.perf_counter()
     train(fabric, model, optimizer, train_data, val_data, checkpoint_dir, out_dir, speed_monitor)
     fabric.print(f"Training time: {(time.perf_counter()-train_time):.2f}s")
-    if fabric.device.type == "cuda":
-        fabric.print(f"Memory used: {torch.cuda.max_memory_allocated() / 1e9:.02f} GB")
 
     # Save the final checkpoint at the end of training
     save_path = out_dir / "lit_model_adapter_finetuned.pth"
@@ -255,10 +253,7 @@ def get_batch(
     x = torch.stack([pad_right(x, pad_id=0) for x in input_ids])
     y = torch.stack([pad_right(x, pad_id=-1) for x in labels])
 
-    if fabric.device.type == "cuda" and x.device.type == "cpu":
-        x, y = fabric.to_device((x.pin_memory(), y.pin_memory()))
-    else:
-        x, y = fabric.to_device((x, y))
+    x, y = fabric.to_device((x, y))
     return x, y
 
 

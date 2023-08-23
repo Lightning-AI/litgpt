@@ -222,6 +222,8 @@ Using TPUs with Lightning is as straightforward as changing one line of code.
 
 We provide scripts fully optimized for TPUs in the [XLA directory](xla)
 
+&nbsp;
+
 ## Get involved!
 
 We are on a quest towards fully open source AI.
