@@ -26,32 +26,43 @@ eval_interval = 600
 save_interval = 1000
 eval_iters = 100
 log_interval = 1
+devices = 1
 # change this value to force a maximum sequence length
 override_max_seq_length = None
 
 # Hyperparameters
 learning_rate = 3e-3
-batch_size = 1
-micro_batch_size = 1
+batch_size = 64 / devices
+micro_batch_size = 4
 gradient_accumulation_iters = batch_size // micro_batch_size
 assert gradient_accumulation_iters > 0
 epoch_size = 50000  # train dataset size
 num_epochs = 5
-max_iters = num_epochs * (epoch_size // micro_batch_size)
-warmup_steps = 2 * (epoch_size // micro_batch_size) // gradient_accumulation_iters  # 2 epochs
+max_iters = num_epochs * (epoch_size // micro_batch_size) // devices
+weight_decay = 0.02
+warmup_steps = 2 * (epoch_size // micro_batch_size) // devices // gradient_accumulation_iters  # 2 epochs
 
 hparams = {k: v for k, v in locals().items() if isinstance(v, (int, float, str)) and not k.startswith("_")}
 
 
 def setup(
+    *,
     data_dir: Path = Path("data/alpaca"),
     checkpoint_dir: Path = Path("checkpoints/tiiuae/falcon-7b"),
     out_dir: Path = Path("out/adapter/alpaca"),
     precision: str = "bf16-true",
 ):
-    strategy = XLAFSDPStrategy(state_dict_type="full", sequential_save=True)
+    fabric_devices = devices
+    if devices > 1:
+        fabric_devices = "auto"
+        strategy = XLAFSDPStrategy(state_dict_type="full", sequential_save=True)
+    else:
+        strategy = "auto"
     logger = step_csv_logger(out_dir.parent, out_dir.name, flush_logs_every_n_steps=log_interval)
-    fabric = L.Fabric(devices="auto", strategy=strategy, precision=precision, loggers=logger)
+    fabric = L.Fabric(devices=fabric_devices, strategy=strategy, precision=precision, loggers=logger)
+    if fabric_devices == "auto":
+        # xla doesn't allow running distributed with a subset of devices
+        assert devices == len(strategy.parallel_devices)
     fabric.print(hparams)
     fabric.launch(main, data_dir, checkpoint_dir, out_dir)
 

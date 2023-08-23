@@ -4,6 +4,7 @@ import time
 from pathlib import Path
 
 import lightning as L
+from lightning.fabric.strategies import XLAFSDPStrategy
 
 # support running without installing as a package
 wd = Path(__file__).parent.parent.parent.resolve()
@@ -16,21 +17,21 @@ from scripts.prepare_alpaca import generate_prompt
 from xla.generate.base import generate
 
 
-def main(
+def setup(
     prompt: str = "What food do lamas eat?",
+    *,
     input: str = "",
     adapter_path: Path = Path("out/adapter/alpaca/lit_model_adapter_finetuned.pth"),
     checkpoint_dir: Path = Path("checkpoints/tiiuae/falcon-7b"),
     max_new_tokens: int = 100,
     top_k: int = 200,
     temperature: float = 0.8,
-    strategy: str = "auto",
     devices: int = 1,
     precision: str = "bf16-true",
-) -> None:
+):
     """Generates a response based on a given instruction and an optional input.
     This script will only work with checkpoints from the instruction-tuned GPT-Adapter model.
-    See `finetune/adapter.py`.
+    See `xla/finetune/adapter.py`.
 
     Args:
         prompt: The prompt/instruction (Alpaca style).
@@ -42,16 +43,32 @@ def main(
         top_k: The number of top most probable tokens to consider in the sampling process.
         temperature: A value controlling the randomness of the sampling process. Higher values result in more random
             samples.
-        strategy: Indicates the Fabric strategy setting to use.
         devices: How many devices to use.
         precision: Indicates the Fabric precision setting to use.
     """
-    if strategy == "fsdp":
-        # FIXME
-        strategy = None
-    fabric = L.Fabric(devices=devices, precision=precision, strategy=strategy)
-    fabric.launch()
+    fabric_devices = devices
+    if devices > 1:
+        fabric_devices = "auto"
+        strategy = XLAFSDPStrategy()
+    else:
+        strategy = "auto"
+    fabric = L.Fabric(devices=fabric_devices, precision=precision, strategy=strategy)
+    if fabric_devices == "auto":
+        # xla doesn't allow running distributed with a subset of devices
+        assert devices == len(strategy.parallel_devices)
+    fabric.launch(main, prompt, input, adapter_path, checkpoint_dir, max_new_tokens, top_k, temperature)
 
+
+def main(
+    fabric: L.Fabric,
+    prompt: str,
+    input: str,
+    adapter_path: Path,
+    checkpoint_dir: Path,
+    max_new_tokens: int,
+    top_k: int,
+    temperature: float,
+) -> None:
     check_valid_checkpoint_dir(checkpoint_dir)
 
     with open(checkpoint_dir / "lit_config.json") as fp:
@@ -105,4 +122,4 @@ def main(
 if __name__ == "__main__":
     from jsonargparse import CLI
 
-    CLI(main)
+    CLI(setup)

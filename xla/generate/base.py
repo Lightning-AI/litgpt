@@ -6,6 +6,7 @@ from typing import Optional
 
 import lightning as L
 import torch
+from lightning.fabric.strategies import XLAFSDPStrategy
 
 # support running without installing as a package
 wd = Path(__file__).parent.parent.parent.resolve()
@@ -83,18 +84,17 @@ def generate(
     return idx
 
 
-def main(
-    prompt: str = "Hello, my name is",
+def setup(
+    prompt: str = "What food do lamas eat?",
     *,
     num_samples: int = 1,
-    max_new_tokens: int = 50,
+    max_new_tokens: int = 100,
     top_k: int = 200,
     temperature: float = 0.8,
-    checkpoint_dir: Path = Path("checkpoints/stabilityai/stablelm-base-alpha-3b"),
-    strategy: str = "auto",
+    checkpoint_dir: Path = Path("checkpoints/tiiuae/falcon-7b"),
     devices: int = 1,
     precision: str = "bf16-true",
-) -> None:
+):
     """Generates text samples based on a pre-trained model and tokenizer.
 
     Args:
@@ -105,16 +105,31 @@ def main(
         temperature: A value controlling the randomness of the sampling process. Higher values result in more random
             samples.
         checkpoint_dir: The checkpoint directory to load.
-        strategy: Indicates the Fabric strategy setting to use.
         devices: How many devices to use.
         precision: Indicates the Fabric precision setting to use.
     """
-    if strategy == "fsdp":
-        # FIXME
-        strategy = None
-    fabric = L.Fabric(devices=devices, precision=precision, strategy=strategy)
-    fabric.launch()
+    fabric_devices = devices
+    if devices > 1:
+        fabric_devices = "auto"
+        strategy = XLAFSDPStrategy()
+    else:
+        strategy = "auto"
+    fabric = L.Fabric(devices=fabric_devices, precision=precision, strategy=strategy)
+    if fabric_devices == "auto":
+        # xla doesn't allow running distributed with a subset of devices
+        assert devices == len(strategy.parallel_devices)
+    fabric.launch(main, prompt, num_samples, max_new_tokens, top_k, temperature, checkpoint_dir)
 
+
+def main(
+    fabric: L.Fabric,
+    prompt: str,
+    num_samples: int,
+    max_new_tokens: int,
+    top_k: int,
+    temperature: float,
+    checkpoint_dir: Path,
+) -> None:
     check_valid_checkpoint_dir(checkpoint_dir)
 
     with open(checkpoint_dir / "lit_config.json") as fp:
@@ -169,4 +184,4 @@ def main(
 if __name__ == "__main__":
     from jsonargparse import CLI
 
-    CLI(main)
+    CLI(setup)

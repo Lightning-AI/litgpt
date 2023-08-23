@@ -64,6 +64,12 @@ You'll notice that afterwards, generation times drop to ~2s.
 You can get started fine-tuning Falcon 7B with adapter by running the following:
 
 ```shell
+python3 xla/finetune/adapter.py --checkpoint_dir checkpoints/tiiuae/falcon-7b --precision bf16-true
+```
+
+You can get started fine-tuning Falcon 7B with adapter by 
+
+```shell
 python3 xla/generate/adapter.py --checkpoint_dir checkpoints/tiiuae/falcon-7b --precision bf16-true
 ```
 
