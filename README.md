@@ -46,7 +46,7 @@ This implementation extends on [Lit-LLaMA](https://github.com/lightning-AI/lit-l
 
 The Lit-GPT repository is the official starter kit for the [NeurIPS 2023 LLM Efficiency Challenge](https://llm-efficiency-challenge.github.io), which is a competition focused on finetuning an existing non-instruction tuned LLM for 24 hours on a single GPU. The competition has two tracks, one for the A100 and another for the 4090 GPUs.
 
-If you are interested in participating, you can learn more about the NeurIPS LLM Efficiency Challenge on the official website [here](https://llm-efficiency-challenge.github.io).
+If you are interested in participating, you can learn more about the NeurIPS LLM Efficiency Challenge on the official website [here](https://llm-efficiency-challenge.github.io). Also see the [Lit-GPT NeurIPS Challenge Quickstart Guide](tutorials/neurips_challenge_quickstart.md) for helpful tips.
 
 **The submission deadline is Oct 15th, 2023.**
 
@@ -193,7 +193,7 @@ More details about each finetuning method and how you can apply it to your own d
 These technical tutorials illustrate how to run the finetuning code.
 
 - [Finetune with Adapters](tutorials/finetune_adapter.md)
-- [Finetune with LoRA](tutorials/finetune_lora.md)
+- [Finetune with LoRA or QLoRA](tutorials/finetune_lora.md)
 
 &nbsp;
 
