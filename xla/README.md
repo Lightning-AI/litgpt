@@ -45,6 +45,8 @@ Since you created a new machine, you'll probably need to download the weights.
 You could scp them into the machine with `gcloud compute tpus tpu-vm scp` or you can follow the steps described in our [downloading guide](download_stablelm.md).
 
 It is also a good idea to setup a persistent disk from which you can read and load checkpoints. You can do so by following [this guide](https://cloud.google.com/tpu/docs/setup-persistent-disk#setting_up_a_tpu_vm_and_a_persistent_disk).
+TPU slices in a pod (multihost) does not support read-write disks, so persistent disks cannot be used to save checkpoints. Persistent disks can still be useful in read-only mode to load pretrained weights before finetuning or inference.
+In the multihost setting, since FSDP will save checkpoint shards per host and consolidate them into a single checkpoint, it's recommended that the consolidated checkpoints are uploaded to a Google Cloud bucket for safekeeping. This is not implemented in these scripts.
 
 We have bespoke versions of our regular recipes to run with XLA in this directory.
 
