@@ -9,6 +9,34 @@ gcloud compute tpus tpu-vm create lit-gpt --version=tpu-vm-v4-base --accelerator
 gcloud compute tpus tpu-vm ssh lit-gpt --zone=us-central2-b
 ```
 
+<details>
+<summary>Multihost caveats</summary>
+  
+SSH'ing into the machine and running commands manually will only work when using a single host (1 slice in the TPU pod).
+In multi-host environments, it's necessary to launch all commands on all hosts simultaneously.
+For local development, we suggest uploading a zip with all your current changes and executing that inside the VM from your personal computer:
+
+```shell
+# zip the local directory. exclude large directories from the zip. you might want to keep them
+zip -r local_changes.zip . -x  ".git/*" "checkpoints/*" "data/*" "out/*"
+# copy the .zip to the TPU VM
+gcloud compute tpus tpu-vm scp --worker=all local_changes.zip "lit-gpt:~"
+# unzip on each host
+gcloud compute tpus tpu-vm ssh lit-gpt --worker=all --command="cd ~; unzip -q -o local_changes.zip"
+
+# example of typical workflow
+gcloud compute tpus tpu-vm ssh tmp --worker=all --command="cd ~; bash install_dependencies.sh"
+gcloud compute tpus tpu-vm ssh tmp --worker=all --command="cd ~; bash prepare_checkpoints.sh"
+gcloud compute tpus tpu-vm ssh tmp --worker=all --command="cd ~; bash run_desired_script.sh"
+
+# this will allow you to kill all python processes on all workers
+gcloud compute tpus tpu-vm ssh tmp --worker=all --command="pkill -e python"
+```
+
+The rest of this guide will assume that it's being run in a single host for simplicity.
+
+</details>
+
 Now that you are in the machine, let's clone the repository and install the dependencies
 
 ```shell
@@ -34,8 +62,10 @@ pip install https://storage.googleapis.com/tpu-pytorch/wheels/tpuvm/torch_xla-ni
 By default, computations will run using the new (and experimental) PjRT runtime. Still, it's recommended that you set the following environment variables
 
 ```shell
-export PJRT_DEVICE=TPU
 export ALLOW_MULTIPLE_LIBTPU_LOAD=1
+export PT_XLA_DEBUG=0
+export USE_TORCH=ON
+export PJRT_DEVICE=TPU
 ```
 
 > [!NOTE]\
@@ -72,10 +102,10 @@ You can get started fine-tuning Falcon 7B with adapter by running the following:
 python3 xla/finetune/adapter.py --checkpoint_dir checkpoints/tiiuae/falcon-7b --precision bf16-true
 ```
 
-You can get started fine-tuning Falcon 7B with adapter by 
+And generation with the adapter finetuned model weights can be done with:
 
 ```shell
-python3 xla/generate/adapter.py --checkpoint_dir checkpoints/tiiuae/falcon-7b --precision bf16-true
+python3 xla/generate/adapter.py --checkpoint_dir checkpoints/tiiuae/falcon-7b --precision bf16-true --adapter_path out/adapter/alpaca/lit_model_adapter_finetuned.pth
 ```
 
 ---
