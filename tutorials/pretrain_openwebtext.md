@@ -133,7 +133,7 @@ The `pretrain/openwebtext.py` used and discussed above uses Lightning Fabric, wh
 The PyTorch Lightning Trainer, which shares the same accelerator code with Fabric, offers additional features, such as more advanced checkpointing and logging. If you prefer using the PyTorch Lightning Trainer, you can use the alternative `pretrain/openwebtext_trainer.py` script:
 
 ```bash
-python pretrain/openwebtext.py \
+python pretrain/openwebtext_trainer.py \
   --devices 4 \
   --train_data_dir data/lit-openwebtext
 ```
