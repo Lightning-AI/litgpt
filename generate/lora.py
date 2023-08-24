@@ -16,7 +16,7 @@ sys.path.append(str(wd))
 from generate.base import generate
 from lit_gpt import Tokenizer
 from lit_gpt.lora import GPT, Block, Config, merge_lora_weights
-from lit_gpt.utils import check_valid_checkpoint_dir, lazy_load, quantization
+from lit_gpt.utils import check_valid_checkpoint_dir, get_default_supported_precision, lazy_load, quantization
 from scripts.prepare_alpaca import generate_prompt
 
 lora_r = 8
@@ -41,7 +41,7 @@ def main(
     temperature: float = 0.8,
     strategy: str = "auto",
     devices: int = 1,
-    precision: str = "bf16-true",
+    precision: Optional[str] = None,
 ) -> None:
     """Generates a response based on a given instruction and an optional input.
     This script will only work with checkpoints from the instruction-tuned GPT-LoRA model.
@@ -66,6 +66,8 @@ def main(
         devices: How many devices to use.
         precision: Indicates the Fabric precision setting to use.
     """
+    precision = precision or get_default_supported_precision(training=False)
+
     if strategy == "fsdp":
         strategy = FSDPStrategy(auto_wrap_policy={Block}, cpu_offload=False)
     fabric = L.Fabric(devices=devices, precision=precision, strategy=strategy)
@@ -99,16 +101,16 @@ def main(
     checkpoint_path = checkpoint_dir / model_file
 
     fabric.print(f"Loading model {str(checkpoint_path)!r} with {config.__dict__}", file=sys.stderr)
-    t0 = time.time()
+    t0 = time.perf_counter()
     with fabric.init_module(empty_init=True), quantization(quantize):
         model = GPT(config)
-    fabric.print(f"Time to instantiate model: {time.time() - t0:.02f} seconds.", file=sys.stderr)
+    fabric.print(f"Time to instantiate model: {time.perf_counter() - t0:.02f} seconds.", file=sys.stderr)
 
-    t0 = time.time()
+    t0 = time.perf_counter()
     with lazy_load(checkpoint_path) as checkpoint, lazy_load(lora_path) as lora_checkpoint:
         checkpoint.update(lora_checkpoint.get("model", lora_checkpoint))
         model.load_state_dict(checkpoint, strict=quantize is None)
-    fabric.print(f"Time to load the model weights: {time.time() - t0:.02f} seconds.", file=sys.stderr)
+    fabric.print(f"Time to load the model weights: {time.perf_counter() - t0:.02f} seconds.", file=sys.stderr)
 
     model.eval()
     merge_lora_weights(model)

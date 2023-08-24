@@ -5,7 +5,7 @@ This document provides different strategies for quantizing the various models av
 **All the examples below were run on an A100 40GB GPU.**
 
 > [!NOTE]\:
-> Quantization is only supported with inference (generate and chat scripts).
+> Quantization also supports finetuning via [QLoRA](finetune_lora.md)
 
 
 ## Baseline
@@ -46,6 +46,8 @@ Enabled with [bitsandbytes](https://github.com/TimDettmers/bitsandbytes). Check 
 Uses the normalized float 4 (nf4) data type. This is recommended over "fp4" based on the paper's experimental results and theoretical analysis.
 
 ```bash
+pip install scipy bitsandbytes  # scipy is required until https://github.com/TimDettmers/bitsandbytes/pull/525 is released
+
 python generate/base.py --quantize bnb.nf4 --checkpoint_dir checkpoints/tiiuae/falcon-7b --precision bf16-true --max_new_tokens 256
 ...
 Time for inference 1: 8.92 sec total, 28.69 tokens/sec
@@ -60,6 +62,8 @@ Enabled with [bitsandbytes](https://github.com/TimDettmers/bitsandbytes). Check 
 In average, this amounts to about 0.37 bits per parameter (approximately 3 GB for a 65B model).
 
 ```bash
+pip install scipy bitsandbytes  # scipy is required until https://github.com/TimDettmers/bitsandbytes/pull/525 is released
+
 python generate/base.py --quantize bnb.nf4-dq --checkpoint_dir checkpoints/tiiuae/falcon-7b --precision bf16-true --max_new_tokens 256
 ...
 Time for inference 1: 12.06 sec total, 21.23 tokens/sec
@@ -73,6 +77,8 @@ Enabled with [bitsandbytes](https://github.com/TimDettmers/bitsandbytes). Check 
 Uses pure FP4 quantization.
 
 ```bash
+pip install scipy bitsandbytes  # scipy is required until https://github.com/TimDettmers/bitsandbytes/pull/525 is released
+
 python generate/base.py --quantize bnb.fp4 --checkpoint_dir checkpoints/tiiuae/falcon-7b --precision bf16-true --max_new_tokens 256
 ...
 Time for inference 1: 9.20 sec total, 27.83 tokens/sec
@@ -87,6 +93,8 @@ Enabled with [bitsandbytes](https://github.com/TimDettmers/bitsandbytes). Check 
 In average, this amounts to about 0.37 bits per parameter (approximately 3 GB for a 65B model).
 
 ```bash
+pip install scipy bitsandbytes  # scipy is required until https://github.com/TimDettmers/bitsandbytes/pull/525 is released
+
 python generate/base.py --quantize bnb.fp4-dq --checkpoint_dir checkpoints/tiiuae/falcon-7b --precision bf16-true --max_new_tokens 256
 ...
 Time for inference 1: 12.12 sec total, 21.13 tokens/sec
@@ -98,6 +106,8 @@ Memory used: 5.37 GB
 Enabled with [bitsandbytes](https://github.com/TimDettmers/bitsandbytes). Check out the [paper](https://arxiv.org/abs/2110.02861) to learn more about how it works.
 
 ```bash
+pip install scipy bitsandbytes  # scipy is required until https://github.com/TimDettmers/bitsandbytes/pull/525 is released
+
 python generate/base.py --quantize bnb.int8 --checkpoint_dir checkpoints/tiiuae/falcon-7b --precision bf16-true --max_new_tokens 256
 ...
 Time for inference 1: 24.17 sec total, 10.59 tokens/sec
@@ -111,6 +121,8 @@ Check out the [paper](https://arxiv.org/abs/2210.17323) to learn more about how 
 This technique needs a conversion of the weights first:
 
 ```bash
+pip install datasets
+
 python quantize/gptq.py --precision bf16-true --checkpoint_dir checkpoints/tiiuae/falcon-7b
 ...
 Time for quantization: 850.25 sec total

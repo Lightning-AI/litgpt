@@ -9,7 +9,8 @@ from lightning.fabric.utilities.rank_zero import rank_zero_only as fabric_rank_z
 from lightning.pytorch.utilities.rank_zero import rank_zero_only as trainer_rank_zero_only
 from torch.utils.flop_counter import FlopCounterMode
 
-from lit_gpt import GPT
+from lit_gpt import GPT, Config
+from lit_gpt.utils import num_parameters
 
 GPU_AVAILABLE_FLOPS = {
     # source: https://resources.nvidia.com/en-us-tensor-core/nvidia-tensor-core-gpu-datasheet
@@ -163,6 +164,15 @@ class SpeedMonitorBase:
     | `time/total`                        | Total elapsed time (time/train + time/val)                |
     +-------------------------------------+-----------------------------------------------------------+
 
+    Notes:
+        - The implementation assumes that devices are homogeneous as it normalizes by the world size.
+        - Tokens/sec, flops/sec and MFU do not account for padding tokens if present. We suggest using samples/sec or
+          batches/sec to measure throughput under this circumstance.
+        - Be careful when comparing MFU numbers across projects, as this will highly depend on the ``flops_per_batch``.
+          There is no widespread, realistic, and reliable implementation to compute them.
+          We suggest using our ``measure_flops`` function, but many other works will use ``estimated_flops`` which
+          will almost always be an overestimate when compared to the true value.
+
     Args:
         window_size (int, optional): Number of batches to use for a rolling average of throughput.
             Defaults to 100.
@@ -236,13 +246,13 @@ class SpeedMonitorBase:
                     "throughput/device/samples_per_sec": dev_samples_per_sec,
                 }
             )
-            # Assumes no padding.
             if lengths is not None:
                 elapsed_lengths = int(self.history_lengths[-1]) - int(self.history_lengths[0])
+                avg_length = elapsed_lengths / elapsed_batches
                 metrics.update(
                     {
-                        "throughput/tokens_per_sec": samples_per_sec * elapsed_lengths,
-                        "throughput/device/tokens_per_sec": dev_samples_per_sec * elapsed_lengths,
+                        "throughput/tokens_per_sec": samples_per_sec * avg_length,
+                        "throughput/device/tokens_per_sec": dev_samples_per_sec * avg_length,
                     }
                 )
 
@@ -311,7 +321,7 @@ class SpeedMonitorCallback(Callback):
         if trainer.fit_loop._should_accumulate():
             return
 
-        self.train_t0 = time.time()
+        self.train_t0 = time.perf_counter()
 
     @trainer_rank_zero_only
     def on_train_batch_end(
@@ -320,7 +330,7 @@ class SpeedMonitorCallback(Callback):
         self.total_lengths += self.length_fn(batch)
         if trainer.fit_loop._should_accumulate():
             return
-        train_elapsed = time.time() - self.train_t0
+        train_elapsed = time.perf_counter() - self.train_t0
         assert self.speed_monitor is not None
         iter_num = trainer.fit_loop.total_batch_idx
         assert (measured_flops := pl_module.measured_flops) is not None
@@ -335,28 +345,44 @@ class SpeedMonitorCallback(Callback):
 
     @trainer_rank_zero_only
     def on_validation_start(self, trainer: Trainer, pl_module: LightningModule) -> None:
-        self.eval_t0 = time.time()
+        self.eval_t0 = time.perf_counter()
 
     @trainer_rank_zero_only
     def on_validation_end(self, trainer: Trainer, pl_module: LightningModule) -> None:
-        eval_elapsed = time.time() - self.eval_t0
+        eval_elapsed = time.perf_counter() - self.eval_t0
         assert self.speed_monitor is not None
         self.speed_monitor.eval_end(eval_elapsed)
 
 
+def flops_per_param(config: Config, n_params: int) -> int:
+    flops_per_token = 2 * n_params  # each parameter is used for a MAC (2 FLOPS) per network operation
+    # this assumes that all samples have a fixed length equal to the block size
+    # which is most likely false during finetuning
+    flops_per_seq = flops_per_token * config.block_size
+    attn_flops_per_seq = config.n_layer * 2 * 2 * (config.n_embd * (config.block_size**2))
+    return flops_per_seq + attn_flops_per_seq
+
+
 def estimate_flops(model: GPT) -> int:
-    """Measures estimated FLOPs for MFU: https://arxiv.org/abs/2205.05198"""
+    """Measures estimated FLOPs for MFU.
+
+    Refs:
+        * https://ar5iv.labs.arxiv.org/html/2205.05198#A1
+        * https://ar5iv.labs.arxiv.org/html/2204.02311#A2
+    """
     # using all parameters for this is a naive over estimation because not all model parameters actually contribute to
     # this FLOP computation (e.g. embedding, norm). For this reason, the result will be higher by a fixed percentage
     # (~10%) compared to the measured FLOPs, making those lower but more realistic.
     # For a proper estimate, this needs a more fine-grained calculation as in Appendix A of the paper.
-    n_params = sum(p.numel() for p in model.parameters())
-    # credit: https://github.com/mosaicml/examples/blob/release/v0.0.4/examples/llm/throughput/README.md#mfu-and-hfu
-    flops_per_token = 2 * n_params
-    flops_per_seq = flops_per_token * model.config.block_size
-    attn_flops_per_seq = model.config.n_layer * 2 * 2 * (model.config.n_embd * (model.config.block_size**2))
-    mult = 3 if model.training else 1
-    return mult * (flops_per_seq + attn_flops_per_seq)
+    n_trainable_params = num_parameters(model, requires_grad=True)
+    trainable_flops = flops_per_param(model.config, n_trainable_params)
+    # forward + backward + gradients (assumes no gradient accumulation)
+    ops_per_step = 3 if model.training else 1
+    n_frozen_params = num_parameters(model, requires_grad=False)
+    frozen_flops = flops_per_param(model.config, n_frozen_params)
+    # forward + backward
+    frozen_ops_per_step = 2 if model.training else 1
+    return ops_per_step * trainable_flops + frozen_ops_per_step * frozen_flops
 
 
 def measure_flops(model: GPT, x: torch.Tensor) -> int:

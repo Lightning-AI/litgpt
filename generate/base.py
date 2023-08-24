@@ -15,7 +15,7 @@ sys.path.append(str(wd))
 
 from lit_gpt import GPT, Config, Tokenizer
 from lit_gpt.model import Block
-from lit_gpt.utils import check_valid_checkpoint_dir, lazy_load, quantization
+from lit_gpt.utils import check_valid_checkpoint_dir, get_default_supported_precision, lazy_load, quantization
 
 
 @torch.no_grad()
@@ -99,7 +99,7 @@ def main(
     quantize: Optional[Literal["bnb.nf4", "bnb.nf4-dq", "bnb.fp4", "bnb.fp4-dq", "bnb.int8", "gptq.int4"]] = None,
     strategy: str = "auto",
     devices: int = 1,
-    precision: str = "bf16-true",
+    precision: Optional[str] = None,
 ) -> None:
     """Generates text samples based on a pre-trained model and tokenizer.
 
@@ -120,6 +120,8 @@ def main(
         devices: How many devices to use.
         precision: Indicates the Fabric precision setting to use.
     """
+    precision = precision or get_default_supported_precision(training=False)
+
     if strategy == "fsdp":
         strategy = FSDPStrategy(auto_wrap_policy={Block}, cpu_offload=False)
     fabric = L.Fabric(devices=devices, precision=precision, strategy=strategy)
@@ -141,15 +143,15 @@ def main(
     checkpoint_path = checkpoint_dir / model_file
 
     fabric.print(f"Loading model {str(checkpoint_path)!r} with {config.__dict__}", file=sys.stderr)
-    t0 = time.time()
+    t0 = time.perf_counter()
     with fabric.init_module(empty_init=True), quantization(quantize):
         model = GPT(config)
-    fabric.print(f"Time to instantiate model: {time.time() - t0:.02f} seconds.", file=sys.stderr)
+    fabric.print(f"Time to instantiate model: {time.perf_counter() - t0:.02f} seconds.", file=sys.stderr)
 
-    t0 = time.time()
+    t0 = time.perf_counter()
     with lazy_load(checkpoint_path) as checkpoint:
         model.load_state_dict(checkpoint.get("model", checkpoint), strict=quantize is None)
-    fabric.print(f"Time to load the model weights: {time.time() - t0:.02f} seconds.", file=sys.stderr)
+    fabric.print(f"Time to load the model weights: {time.perf_counter() - t0:.02f} seconds.", file=sys.stderr)
 
     model.eval()
     model = fabric.setup_module(model)

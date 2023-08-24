@@ -15,12 +15,12 @@ def test_convert_lit_checkpoint(tmp_path):
     ckpt_name = "lit_model.pth"
 
     with pytest.raises(RuntimeError, match="open file failed because of errno 2 on fopen"):
-        convert_lit_checkpoint(checkpoint_name=ckpt_name, checkpoint_dir=tmp_path, model_name="falcon-7b")
+        convert_lit_checkpoint(checkpoint_name=ckpt_name, out_dir=tmp_path, model_name="falcon-7b")
 
     ckpt_path = tmp_path / "lit_model.pth"
     ckpt_path.touch()
     with mock.patch("scripts.convert_lit_checkpoint.lazy_load") as load:
-        convert_lit_checkpoint(checkpoint_name=ckpt_name, checkpoint_dir=tmp_path, model_name="falcon-7b")
+        convert_lit_checkpoint(checkpoint_name=ckpt_name, out_dir=tmp_path, model_name="falcon-7b")
     load.assert_called_with(ckpt_path)
 
     assert {p.name for p in tmp_path.glob("*")} == {"lit_model.pth", "lit_model.bin"}
@@ -44,7 +44,7 @@ def test_convert_lit_checkpoint_llama2(tmp_path):
     # save checkpoint to avoid RunTimeError for PytorchStreamReader
     save_checkpoint(fabric, ours_model, ckpt_path)
     # this should not cause a TypeError
-    convert_lit_checkpoint(checkpoint_name=ckpt_name, checkpoint_dir=tmp_path, model_name=model_name)
+    convert_lit_checkpoint(checkpoint_name=ckpt_name, out_dir=tmp_path, model_name=model_name)
 
 
 @torch.inference_mode()
@@ -138,7 +138,7 @@ def test_against_original_llama2(size):
         intermediate_size=ours_config.intermediate_size,
         max_position_embeddings=T,
         rms_norm_eps=1e-5,
-        **theirs_kwargs
+        **theirs_kwargs,
     )
     assert ours_config.intermediate_size == theirs_config.intermediate_size
 
@@ -181,7 +181,7 @@ def test_maybe_unwrap_state_dict(tmp_path):
 
     # convert and check that model key does not exist
     # and that a known key for pythia exists
-    convert_lit_checkpoint(checkpoint_name=ckpt_name, checkpoint_dir=tmp_path, model_name=model_name)
+    convert_lit_checkpoint(checkpoint_name=ckpt_name, out_dir=tmp_path, model_name=model_name)
     bin_file = ckpt_path.with_suffix(".bin")
     ckpt_from_unwrapped = torch.load(bin_file)
     assert ckpt_from_unwrapped.get("model") is None
@@ -189,5 +189,32 @@ def test_maybe_unwrap_state_dict(tmp_path):
 
     # assert maybe_unwrap_state_dict is called
     with mock.patch("scripts.convert_lit_checkpoint.maybe_unwrap_state_dict") as maybe_unwrap:
-        convert_lit_checkpoint(checkpoint_name=ckpt_name, checkpoint_dir=tmp_path, model_name=model_name)
+        convert_lit_checkpoint(checkpoint_name=ckpt_name, out_dir=tmp_path, model_name=model_name)
     maybe_unwrap.assert_called()
+
+
+def test_check_conversion_supported_adapter():
+    from scripts.convert_lit_checkpoint import check_conversion_supported
+
+    lit_weights = {"some.key.name": "some.key.value", "error.key.gating_factor": "some.key.value"}
+
+    with pytest.raises(NotImplementedError, match="Converting models finetuned with adapter *"):
+        check_conversion_supported(lit_weights=lit_weights)
+
+
+def test_check_conversion_supported_adapter_v2():
+    from scripts.convert_lit_checkpoint import check_conversion_supported
+
+    lit_weights = {"some.key.name": "some.key.value", "error.key.adapter_bias": "some.key.value"}
+
+    with pytest.raises(NotImplementedError, match="Converting models finetuned with adapter_v2"):
+        check_conversion_supported(lit_weights=lit_weights)
+
+
+def test_check_conversion_supported_lora():
+    from scripts.convert_lit_checkpoint import check_conversion_supported
+
+    lit_weights = {"some.key.name": "some.key.value", "error.key.lora": "some.key.value"}
+
+    with pytest.raises(ValueError, match=r"Model weights must be merged using"):
+        check_conversion_supported(lit_weights=lit_weights)

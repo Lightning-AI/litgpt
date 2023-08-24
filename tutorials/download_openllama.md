@@ -28,6 +28,9 @@ python scripts/download.py --repo_id openlm-research/open_llama_3b
 python scripts/convert_hf_checkpoint.py --checkpoint_dir checkpoints/openlm-research/open_llama_3b
 ```
 
+By default, the convert_hf_checkpoint step will use the data type of the HF checkpoint's parameters. In cases where RAM
+or disk size is constrained, it might be useful to pass `--dtype bfloat16` to convert all parameters into this smaller precision before continuing.
+
 You're done! To execute the model just run:
 
 ```bash

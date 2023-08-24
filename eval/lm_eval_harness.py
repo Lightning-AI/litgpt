@@ -18,7 +18,7 @@ sys.path.append(str(wd))
 from generate.base import generate
 from lit_gpt import GPT, Config, Tokenizer
 from lit_gpt.model import Block
-from lit_gpt.utils import check_valid_checkpoint_dir, lazy_load, quantization
+from lit_gpt.utils import check_valid_checkpoint_dir, get_default_supported_precision, lazy_load, quantization
 
 
 class EvalHarnessBase(BaseLM):
@@ -64,15 +64,15 @@ class EvalHarnessBase(BaseLM):
         checkpoint_path = checkpoint_dir / model_file
 
         fabric.print(f"Loading model {str(checkpoint_path)!r} with {config.__dict__}", file=sys.stderr)
-        t0 = time.time()
+        t0 = time.perf_counter()
         with fabric.init_module(empty_init=True), quantization(quantize):
             model = GPT(config)
-        fabric.print(f"Time to instantiate model: {time.time() - t0:.02f} seconds.", file=sys.stderr)
+        fabric.print(f"Time to instantiate model: {time.perf_counter() - t0:.02f} seconds.", file=sys.stderr)
 
-        t0 = time.time()
+        t0 = time.perf_counter()
         with lazy_load(checkpoint_path) as checkpoint:
             model.load_state_dict(checkpoint.get("model", checkpoint), strict=quantize is None)
-        fabric.print(f"Time to load the model weights: {time.time() - t0:.02f} seconds.", file=sys.stderr)
+        fabric.print(f"Time to load the model weights: {time.perf_counter() - t0:.02f} seconds.", file=sys.stderr)
 
         model.eval()
         self.model = fabric.setup_module(model)
@@ -204,7 +204,7 @@ class EvalHarnessBase(BaseLM):
 
 def run_eval_harness(
     checkpoint_dir: str = "",
-    precision: str = "bf16-true",
+    precision: Optional[str] = None,
     batch_size=1,
     eval_tasks: Optional[List[str]] = None,
     num_fewshot=0,
@@ -216,6 +216,8 @@ def run_eval_harness(
     quantize: Optional[Literal["bnb.nf4", "bnb.nf4-dq", "bnb.fp4", "bnb.fp4-dq", "bnb.int8", "gptq.int4"]] = None,
     save_filepath: Optional[str] = None,
 ):
+    precision = precision or get_default_supported_precision(training=False)
+
     eval_harness = EvalHarnessBase(
         checkpoint_dir=checkpoint_dir,
         precision=precision,

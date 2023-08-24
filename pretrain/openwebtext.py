@@ -18,7 +18,7 @@ from lit_gpt import Config
 from lit_gpt.model import GPT, Block
 from lit_gpt.speed_monitor import SpeedMonitorFabric as SpeedMonitor
 from lit_gpt.speed_monitor import estimate_flops, measure_flops
-from lit_gpt.utils import chunked_cross_entropy, num_parameters, step_csv_logger
+from lit_gpt.utils import chunked_cross_entropy, get_default_supported_precision, num_parameters, step_csv_logger
 
 model_name = "pythia-70m"
 name = "openwebtext"
@@ -52,8 +52,8 @@ logger = step_csv_logger("out", name, flush_logs_every_n_steps=log_interval)
 def setup(
     devices: int = 1, precision: Optional[str] = None, tpu: bool = False, resume: Union[bool, Path] = False
 ) -> None:
-    if precision is None:
-        precision = "32-true" if tpu else "bf16-mixed"
+    precision = precision or get_default_supported_precision(training=True, tpu=tpu)
+
     if devices > 1:
         if tpu:
             # For multi-host TPU training, the device count for Fabric is limited to the count on a single host.
@@ -85,12 +85,12 @@ def main(fabric, resume) -> None:
 
     config = Config.from_name(model_name)
     fabric.print(f"Loading model with {config.__dict__}")
-    t0 = time.time()
+    t0 = time.perf_counter()
     with fabric.init_module(empty_init=True):
         model = GPT(config)
         model.apply(model._init_weights)
 
-    fabric.print(f"Time to instantiate model: {time.time() - t0:.02f} seconds.")
+    fabric.print(f"Time to instantiate model: {time.perf_counter() - t0:.02f} seconds.")
     fabric.print(f"Total parameters {num_parameters(model):,}")
 
     model = fabric.setup(model)
@@ -112,9 +112,11 @@ def main(fabric, resume) -> None:
         fabric.print(f"Resuming training from {resume}")
         fabric.load(resume, state)
 
-    train_time = time.time()
+    train_time = time.perf_counter()
     train(fabric, state, train_dataloader, val_dataloader, speed_monitor)
-    fabric.print(f"Training time: {(time.time()-train_time):.2f}s")
+    fabric.print(f"Training time: {(time.perf_counter()-train_time):.2f}s")
+    if fabric.device.type == "cuda":
+        fabric.print(f"Memory used: {torch.cuda.max_memory_allocated() / 1e9:.02f} GB")
 
 
 def train(fabric, state, train_dataloader, val_dataloader, speed_monitor):
@@ -125,7 +127,9 @@ def train(fabric, state, train_dataloader, val_dataloader, speed_monitor):
 
     with torch.device("meta"):
         meta_model = GPT(model.config)
-        # estimated is too much of an optimistic estimate, left just for reference
+        # "estimated" is not as precise as "measured". Estimated is optimistic but widely used in the wild.
+        # When comparing MFU or FLOP numbers with other projects that use estimated FLOPs,
+        # consider passing `SpeedMonitor(flops_per_batch=estimated_flops)` instead
         estimated_flops = estimate_flops(meta_model) * micro_batch_size
         fabric.print(f"Estimated TFLOPs: {estimated_flops * fabric.world_size / 1e12:.2f}")
         x = torch.randint(0, 1, (micro_batch_size, model.config.block_size))
@@ -134,7 +138,7 @@ def train(fabric, state, train_dataloader, val_dataloader, speed_monitor):
         del meta_model, x
 
     total_lengths = 0
-    total_t0 = time.time()
+    total_t0 = time.perf_counter()
 
     if fabric.device.type == "xla":
         import torch_xla.core.xla_model as xm
@@ -149,7 +153,7 @@ def train(fabric, state, train_dataloader, val_dataloader, speed_monitor):
         for param_group in optimizer.param_groups:
             param_group["lr"] = lr
 
-        iter_t0 = time.time()
+        iter_t0 = time.perf_counter()
 
         input_ids, targets = next(train_iter)
 
@@ -167,7 +171,7 @@ def train(fabric, state, train_dataloader, val_dataloader, speed_monitor):
         elif fabric.device.type == "xla":
             xm.mark_step()
 
-        t1 = time.time()
+        t1 = time.perf_counter()
         total_lengths += input_ids.size(1)
         speed_monitor.on_train_batch_end(
             (state["iter_num"] + 1) * micro_batch_size,
@@ -184,9 +188,9 @@ def train(fabric, state, train_dataloader, val_dataloader, speed_monitor):
             )
 
         if not is_accumulating and state["step_count"] % eval_interval == 0:
-            t0 = time.time()
+            t0 = time.perf_counter()
             val_loss = validate(fabric, model, val_dataloader)
-            t1 = time.time() - t0
+            t1 = time.perf_counter() - t0
             speed_monitor.eval_end(t1)
             fabric.print(f"step {state['iter_num']}: val loss {val_loss:.4f}, val time: {t1 * 1000:.2f}ms")
             fabric.barrier()
