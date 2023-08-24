@@ -115,7 +115,7 @@ python chat/base.py
 
 ### Run large models on smaller consumer devices
 
-We support 4-bit quantization (as in QLoRA), nf4, nf4-dq, fp4, fp4-dq and GPTQ.int4 inference by following [this guide](tutorials/quantize.md).
+We support 4-bit quantization (as in QLoRA), nf4, nf4-dq, fp4, fp4-dq, GPTQ.int4 and 8-bit quantization bnb.int8 inference by following [this guide](tutorials/quantize.md).
 
 ## Finetune the model
 
