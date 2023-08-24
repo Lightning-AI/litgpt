@@ -480,7 +480,6 @@ configs.extend(long_chat)
 # NousResearch Hermes
 ######################
 nous_research = [
-    
     # https://huggingface.co/NousResearch/Nous-Hermes-llama-2-7b/blob/main/config.json
     dict(
         org="NousResearch",
@@ -498,7 +497,6 @@ nous_research = [
         _mlp_class="LLaMAMLP",
         intermediate_size=11008,
     ),
-    
     # https://huggingface.co/NousResearch/Nous-Hermes-13B/blob/main/config.json
     dict(
         org="NousResearch",
@@ -516,13 +514,12 @@ nous_research = [
         _mlp_class="LLaMAMLP",
         intermediate_size=13824,
     ),
-    
     # https://huggingface.co/NousResearch/Nous-Hermes-Llama2-13b
     dict(
         org="NousResearch",
         name="Nous-Hermes-Llama2-13b",
         block_size=4096,
-        vocab_size=32032,
+        padded_vocab_size=32032,
         n_layer=40,
         n_head=40,
         n_embd=5120,
