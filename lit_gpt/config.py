@@ -594,5 +594,153 @@ freewilly_2 = [
 ]
 configs.extend(freewilly_2)
 
+platypus = [
+    
+    # https://huggingface.co/garage-bAInd/Platypus-30B/tree/main
+    dict(
+        org="garage-bAInd",
+        name="Platypus-30B",
+        block_size=2048,
+        vocab_size=32000,
+        n_layer=60,
+        n_head=52,
+        n_embd=6656,
+        rotary_percentage=1.0,
+        parallel_residual=False,
+        bias=False,
+        _norm_class="RMSNorm",
+        norm_eps=1e-06,
+        _mlp_class="LLaMAMLP",
+        intermediate_size=17920,
+    ),
+    
+    # https://huggingface.co/garage-bAInd/Platypus2-7B/blob/main/config.json
+    dict(
+        org="garage-bAInd",
+        name="Platypus2-7B",
+        block_size=4096,
+        vocab_size=32000,
+        n_layer=32,
+        n_head=32,
+        n_embd=8192,
+        rotary_percentage=1.0,
+        parallel_residual=False,
+        bias=False,
+        _norm_class="RMSNorm",
+        norm_eps=1e-05,
+        _mlp_class="LLaMAMLP",
+        intermediate_size=11008,
+    ),
+    
+    # https://huggingface.co/garage-bAInd/Platypus2-13B/tree/main
+    dict(
+        org="garage-bAInd",
+        name="Platypus2-13B",
+        block_size=4096,
+        vocab_size=32000,
+        n_layer=40,
+        n_head=40,
+        n_embd=5120,
+        rotary_percentage=1.0,
+        parallel_residual=False,
+        bias=False,
+        _norm_class="RMSNorm",
+        norm_eps=1e-05,
+        _mlp_class="LLaMAMLP",
+        intermediate_size=13824,
+    ),
+    
+    # https://huggingface.co/garage-bAInd/Platypus2-70B/blob/main/config.json
+    dict(
+        org="garage-bAInd",
+        name="Platypus2-70B",
+        block_size=4096,
+        vocab_size=32000,
+        n_layer=80,
+        n_head=64,
+        n_embd=8192,
+        rotary_percentage=1.0,
+        parallel_residual=False,
+        bias=False,
+        _norm_class="RMSNorm",
+        norm_eps=1e-05,
+        _mlp_class="LLaMAMLP",
+        intermediate_size=28672,
+    ),
+    
+    # https://huggingface.co/garage-bAInd/Camel-Platypus2-13B/blob/main/config.json
+    dict(
+        org="garage-bAInd",
+        name="Camel-Platypus2-13B",
+        block_size=4096,
+        vocab_size=32000,
+        n_layer=40,
+        n_head=40,
+        n_embd=5120,
+        rotary_percentage=1.0,
+        parallel_residual=False,
+        bias=False,
+        _norm_class="RMSNorm",
+        norm_eps=1e-05,
+        _mlp_class="LLaMAMLP",
+        intermediate_size=13824,
+    ),
+    
+    # https://huggingface.co/garage-bAInd/Camel-Platypus2-70B/blob/main/config.json
+    dict(
+        org="garage-bAInd",
+        name="Camel-Platypus2-70B",
+        block_size=4096,
+        vocab_size=32000,
+        n_layer=80,
+        n_head=64,
+        n_embd=8192,
+        rotary_percentage=1.0,
+        parallel_residual=False,
+        bias=False,
+        _norm_class="RMSNorm",
+        norm_eps=1e-05,
+        _mlp_class="LLaMAMLP",
+        intermediate_size=28672,
+    ),
+    
+    # https://huggingface.co/garage-bAInd/Stable-Platypus2-13B/blob/main/config.json
+    dict(
+        org="garage-bAInd",
+        name="Stable-Platypus2-13B",
+        block_size=4096,
+        vocab_size=32000,
+        n_layer=40,
+        n_head=40,
+        n_embd=5120,
+        rotary_percentage=1.0,
+        parallel_residual=False,
+        bias=False,
+        _norm_class="RMSNorm",
+        norm_eps=1e-05,
+        _mlp_class="LLaMAMLP",
+        intermediate_size=13824,
+    ),
+    
+    # https://huggingface.co/garage-bAInd/Platypus2-70B-instruct/blob/main/config.json
+    dict(
+        org="garage-bAInd",
+        name="Platypus2-70B-instruct",
+        block_size=4096,
+        vocab_size=32000,
+        n_layer=80,
+        n_head=64,
+        n_embd=8192,
+        rotary_percentage=1.0,
+        parallel_residual=False,
+        bias=False,
+        _norm_class="RMSNorm",
+        norm_eps=1e-05,
+        _mlp_class="LLaMAMLP",
+        intermediate_size=28672,
+    ),
+]
+
+configs.extend(platypus)
 
 name_to_config = {config["name"]: config for config in configs}
