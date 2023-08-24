@@ -8,15 +8,15 @@ This tutorial will walk you through setting up the RedPajama dataset and launchi
 
 It contains a total of 1.2 trillion tokens, divided into
 
-```text
-Commoncrawl   878B
-C4            175B
-GitHub         59B
-Books          26B
-ArXiv          28B
-Wikipedia      24B
-StackExchange  20B
-```
+| Name          | Size |
+|---------------|------|
+| Commoncrawl   | 878B |
+| C4            | 175B |
+| GitHub        | 59B  |
+| Books         | 26B  |
+| ArXiv         | 28B  |
+| Wikipedia     | 24B  |
+| StackExchange | 20B  |
 
 The [RedPajama repo](https://github.com/togethercomputer/RedPajama-Data) contains the source code for collecting and preparing the dataset, which is Apache 2.0 licensed.
 
@@ -80,7 +80,7 @@ python pretrain/redpajama.py --devices 4 --train_data_dir data/lit-redpajama-sam
 
 The script will save checkpoints periodically to the folder `out/`.
 
-By default, the `train_redpajama.py` script will pretrain the Llama 2 7B model with FSDP in
+By default, the `pretrain/redpajama.py` script will pretrain the Llama 2 7B model with FSDP in
 `bfloat16` precision and gradient accumulation.
 
 You can easily change the size of the model by passing a different string to the model name variable
@@ -92,43 +92,16 @@ model_name = "Llama-2-7b-hf"
 at the top of this script.
 
 
-The currently supported model names are contained in the [config.py](https://github.com/Lightning-AI/lit-gpt/lit_gpt/config.py#L114) file and include:
+The currently supported model names are contained in the [config.py](https://github.com/Lightning-AI/lit-gpt/lit_gpt/config.py) file. 
+You can either search this file for lines containing "name =" or obtain the list of all supported models programmatically, as follows:
 
+```python
+from lit_gpt.config import configs
 
-- falcon-7b
-- falcon-40b
-- FreeWilly2
-- Llama-2-7b-hf
-- Llama-2-13b-hf
-- Llama-2-70b-hf
-- longchat-7b-16k
-- longchat-13b-16k
-- Nous-Hermes-13b
-- open_llama_3b
-- open_llama_7b
-- open_llama_13b
-- pythia-70m
-- pythia-160m
-- pythia-410m
-- pythia-1b
-- pythia-1.4b
-- pythia-2.8b
-- pythia-6.9b
-- pythia-12b
-- RedPajama-INCITE-{}-3B-v1
-- RedPajama-INCITE-7B-{}
-- RedPajama-INCITE-{}-7B-v0.1
-- stablelm-base-alpha-3b
-- stablelm-base-alpha-7b
-- stablelm-tuned-alpha-3b
-- stablelm-tuned-alpha-7b
-- vicuna-7b-v1.3
-- vicuna-13b-v1.3
-- vicuna-33b-v1.3
-- vicuna-7b-v1.5
-- vicuna-7b-v1.5-16k
-- vicuna-13b-v1.5
-- vicuna-13b-v1.5-16k
+for conf in configs:
+    print(conf["name"])
+```
+
 
 
 Keep in mind that the original LLaMA training for the 7B model required 83k A100 80GB
@@ -165,8 +138,9 @@ lr_decay_iters = max_iters
 min_lr = 6e-5
 ```
 
-In particular, `micro_batch_size` should be adjusted so the process will use the available
-GPU memory.
+For instance, `micro_batch_size` should be adjusted so the process will use the available
+GPU memory. For more tips to avoid out-of-memory issues, please also see the more detailed
+[Dealing with out-of-memory (OOM) errors](oom.md) guide.
 
 Last, logging is kept minimal in the script. In order to use a particular logger
 please refer to <https://lightning.ai/docs/fabric/stable/api/loggers.html> or
