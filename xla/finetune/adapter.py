@@ -182,7 +182,7 @@ def train(
             t1 - total_t0,
             # this assumes that device FLOPs are the same and that all devices have the same batch size
             fabric.world_size,
-            flops_per_batch=measured_flops,
+            flops_per_batch=estimated_flops,
             lengths=total_lengths,
         )
         if iter_num % log_interval == 0:
