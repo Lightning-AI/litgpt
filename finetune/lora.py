@@ -122,6 +122,9 @@ def main(fabric: L.Fabric, data_dir: Path, checkpoint_dir: Path, out_dir: Path, 
         to_mlp=lora_mlp,
         to_head=lora_head,
     )
+
+    padded_vocab_size = config.__dict__["padded_vocab_size"]
+
     checkpoint_path = checkpoint_dir / "lit_model.pth"
     fabric.print(f"Loading model {str(checkpoint_path)!r} with {config.__dict__}")
     with fabric.init_module(empty_init=False), quantization(quantize):
@@ -147,7 +150,7 @@ def main(fabric: L.Fabric, data_dir: Path, checkpoint_dir: Path, out_dir: Path, 
     fabric.seed_everything(1337 + fabric.global_rank)
 
     train_time = time.perf_counter()
-    train(fabric, model, optimizer, train_data, val_data, checkpoint_dir, out_dir, speed_monitor)
+    train(fabric, model, optimizer, train_data, val_data, checkpoint_dir, out_dir, speed_monitor, padded_vocab_size)
     fabric.print(f"Training time: {(time.perf_counter()-train_time):.2f}s")
     if fabric.device.type == "cuda":
         fabric.print(f"Memory used: {torch.cuda.max_memory_allocated() / 1e9:.02f} GB")
@@ -166,11 +169,12 @@ def train(
     checkpoint_dir: Path,
     out_dir: Path,
     speed_monitor: SpeedMonitor,
+    padded_vocab_size: int,
 ) -> None:
     tokenizer = Tokenizer(checkpoint_dir)
     max_seq_length, longest_seq_length, longest_seq_ix = get_max_seq_length(train_data)
 
-    validate(fabric, model, val_data, tokenizer, longest_seq_length)  # sanity check
+    validate(fabric, model, val_data, tokenizer, longest_seq_length, padded_vocab_size)  # sanity check
 
     with torch.device("meta"):
         meta_model = GPT(model.config)
@@ -241,7 +245,7 @@ def train(
 
         if not is_accumulating and step_count % eval_interval == 0:
             t0 = time.perf_counter()
-            val_loss = validate(fabric, model, val_data, tokenizer, longest_seq_length)
+            val_loss = validate(fabric, model, val_data, tokenizer, longest_seq_length, padded_vocab_size)
             t1 = time.perf_counter() - t0
             speed_monitor.eval_end(t1)
             fabric.print(f"step {iter_num}: val loss {val_loss:.4f}, val time: {t1 * 1000:.2f}ms")
@@ -253,13 +257,22 @@ def train(
 
 @torch.no_grad()
 def validate(
-    fabric: L.Fabric, model: GPT, val_data: List[Dict], tokenizer: Tokenizer, longest_seq_length: int
+    fabric: L.Fabric, 
+    model: GPT, 
+    val_data: List[Dict], 
+    tokenizer: Tokenizer, 
+    longest_seq_length: int,
+    padded_vocab_size: int,
 ) -> torch.Tensor:
     fabric.print("Validating ...")
     model.eval()
     losses = torch.zeros(eval_iters)
     for k in range(eval_iters):
         input_ids, targets = get_batch(fabric, val_data, longest_seq_length)
+        if (input_ids > padded_vocab_size).any():
+            raise ValueError("Some input IDs exceed the vocabulary size of this model. "
+                             "Please make sure you used this model's "
+                             "tokenizer to prepare the dataset.")
         logits = model(input_ids)
         loss = chunked_cross_entropy(logits[..., :-1, :], targets[..., 1:], chunk_size=0)
         losses[k] = loss.item()
