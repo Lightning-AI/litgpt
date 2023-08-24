@@ -4,6 +4,7 @@ from contextlib import nullcontext
 from typing import Any, Callable, Deque, Dict, Optional
 
 import torch
+from lightning.fabric.accelerators.xla import _XLA_GREATER_EQUAL_2_1
 from lightning import Callback, Fabric, LightningModule, Trainer
 from lightning.fabric.utilities.rank_zero import rank_zero_only as fabric_rank_zero_only
 from lightning.pytorch.utilities.rank_zero import rank_zero_only as trainer_rank_zero_only
@@ -68,6 +69,7 @@ TPU_AVAILABLE_FLOPS = {
     "v3": 123e12,
     # source: https://cloud.google.com/tpu/docs/system-architecture-tpu-vm#tpu_v4
     "v4": 275e12,
+    "v5": 1e1,
 }
 
 
@@ -102,16 +104,19 @@ def get_flops_available(device: torch.device, precision: str) -> Optional[float]
                     "MFU cannot be calculated and reported."
                 )
     elif device.type == "xla":
-        from torch_xla.experimental import tpu
+        if _XLA_GREATER_EQUAL_2_1:
+            from torch_xla._internal import tpu
+        else:
+            from torch_xla.experimental import tpu
 
         device_name = tpu.get_tpu_env()["TYPE"].lower()
-        try:
-            return int(TPU_AVAILABLE_FLOPS[device_name])
-        except KeyError:
-            raise KeyError(
-                f"flop count not found for {device_name} with precision: {precision}; "
-                "MFU cannot be calculated and reported."
-            )
+        for chip in TPU_AVAILABLE_FLOPS:
+            if device_name.startswith(chip):
+                return int(TPU_AVAILABLE_FLOPS[chip])
+        raise KeyError(
+            f"flop count not found for {device_name} with precision: {precision}; "
+            "MFU cannot be calculated and reported."
+        )
 
     return None
 
