@@ -4,20 +4,15 @@ This tutorial will walk you through setting up the OpenWebText dataset and launc
 
 ## What's OpenWebText
 
-[OpenWebText](https://github.com/jcpeterson/openwebtext) is an open-source reproduction of OpenAI's unreleased WebText training dataset, which was originally used to train GPT-2. 
-
-The version that is used here consists of 8M documents and is loaded via the `load_dataset("openwebtext", ...)` function from the [datasets](https://github.com/huggingface/datasets) Python package.
-
-[Please refer to the website hosting the dataset](https://huggingface.co/datasets/Skylion007/openwebtext) for license information.
+[OpenWebText](https://github.com/jcpeterson/openwebtext) is an open-source reproduction of OpenAI's unreleased WebText training dataset, which was originally used to train GPT-2. The version that is used here consists of 8M documents and is loaded via the `load_dataset("openwebtext", ...)` function from the [datasets](https://github.com/huggingface/datasets) Python package. [Please refer to the website hosting the dataset](https://huggingface.co/datasets/Skylion007/openwebtext) for the licensing information.
 
 
 ## Prepare OpenWebText for training
 
 
-In order to start pretraining lit-gpt
-on it, you need to read, tokenize, and write the data in binary format.
+In order to start pretraining lit-gpt on it, you need to read, tokenize, and write the data in binary format.
 
-Do prepare the dataset with the Llama 2 tokenizer, run
+To prepare the dataset with the Llama 2 tokenizer, run
 
 ```bash
 python scripts/prepare_openwebtext.py \
@@ -52,7 +47,11 @@ model_name = "Llama-2-7b-hf"
 at the top of this script.
 
 The currently supported model names are contained in the [config.py](https://github.com/Lightning-AI/lit-gpt/lit_gpt/config.py) file. 
-You can either search this file for lines containing "name =" or obtain the list of all supported models programmatically, as follows:
+You can 
+
+1) either search this file for lines containing "name =",
+2) run `python scripts/download.py` without additional command line arguments,
+3) or obtain the list of all supported models programmatically, as follows:
 
 ```python
 from lit_gpt.config import configs
@@ -64,36 +63,14 @@ for conf in configs:
 Keep in mind that the original LLaMA training for the 7B model required 83k A100 80GB
 hours (on a bigger dataset). However, for full pretraining on OpenWebText, you'll likely still need access to a cluster.
 
-Once you're in a cluster, you can follow [these instructions](https://lightning.ai/docs/fabric/stable/guide/multi_node/other.html)
+Once you're in a cluster, you can follow [these instructions](https://lightning.ai/docs/fabric/stable/fundamentals/launch.html#launch-on-a-cluster)
 to launch the script across machines:
 
 - [SLURM cluster](https://lightning.ai/docs/fabric/stable/guide/multi_node/slurm.html)
 - [Barebones cluster](https://lightning.ai/docs/fabric/stable/guide/multi_node/barebones.html)
 - [MPI](https://lightning.ai/docs/fabric/stable/guide/multi_node/other.html)
 
-The script contains several configurations and hyperparameters you can tweak:
-
-```python
-out_dir = "out/training"
-save_interval = 1000
-eval_interval = 1000
-eval_iters = 100
-log_interval = 1
-
-# Hyperparameters
-learning_rate = 6e-4
-batch_size = 125
-micro_batch_size = 6
-max_iters = 600000  # num_epochs * (epoch_size // micro_batch_size) // devices
-weight_decay = 1e-1
-beta1 = 0.9
-beta2 = 0.95
-grad_clip = 1.0
-decay_lr = True
-warmup_iters = 2000
-lr_decay_iters = max_iters
-min_lr = 6e-5
-```
+The [script contains several configurations and hyperparameters](https://github.com/Lightning-AI/lit-gpt/blob/main/pretrain/redpajama.py#L23-L45) you can tweak.
 
 For instance, `micro_batch_size` should be adjusted so the process will use the available
 GPU memory. For more tips to avoid out-of-memory issues, please also see the more detailed
@@ -109,7 +86,7 @@ To train a smaller Pythia 70M model on a single GPU, you can modify the `pretrai
 
 
 ```python
-model_name = "Pythia-70m"
+model_name = "pythia-70m"
 ```
 
 (Please see the the `download_*` scripts in the [../tutorials](../tutorials) for more information on downloading model checkpoints for different models.)
@@ -126,7 +103,7 @@ python pretrain/openwebtext.py \
   --train_data_dir data/lit-openwebtext
 ```
 
-## Using the Trainer Class
+## Using the PyTorch Lightning `Trainer`
 
 The `pretrain/openwebtext.py` used and discussed above uses Lightning Fabric, which is an open-source library for accessing more advanced PyTorch features conveniently (for example, mixed-precision training, multi-GPU training like FSDP, and more).
 
