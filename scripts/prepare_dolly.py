@@ -2,12 +2,12 @@
 import json
 import sys
 from pathlib import Path
+from typing import Optional
 
 import requests
 import torch
 from torch.utils.data import random_split
 from tqdm import tqdm
-from typing import Optional
 
 # support running without installing as a package
 wd = Path(__file__).parent.parent.resolve()
