@@ -41,7 +41,7 @@ override_max_seq_length = None
 # Hyperparameters
 learning_rate = 3e-4
 batch_size = 128
-micro_batch_size = 1
+micro_batch_size = 4
 gradient_accumulation_iters = batch_size // micro_batch_size
 assert gradient_accumulation_iters > 0
 max_iters = 50000  # train dataset size
