@@ -628,5 +628,43 @@ freewilly_2 = [
 ]
 configs.extend(freewilly_2)
 
+##########################
+# Stability AI StableCode
+##########################
+stablecode = [
+    # https://huggingface.co/stabilityai/stablecode-completion-alpha-3b/blob/main/config.json
+    dict(
+        org="stabilityai",
+        name="stablecode-completion-alpha-3b",
+        block_size=4096,
+        vocab_size=49152,
+        n_layer=32,
+        n_head=32,
+        n_embd=2560,
+        condense_ratio=4,
+    ),
+    # https://huggingface.co/stabilityai/stablecode-completion-alpha-3b-4k/blob/main/config.json
+    dict(
+        org="stabilityai",
+        name="stablecode-completion-alpha-3b-4k",
+        block_size=4096,
+        vocab_size=49152,
+        n_layer=32,
+        n_head=32,
+        n_embd=2560,
+    ),
+    # https://huggingface.co/stabilityai/stablecode-instruct-alpha-3b/blob/main/config.json
+    dict(
+        org="stabilityai",
+        name="stablecode-instruct-alpha-3b",
+        block_size=4096,
+        vocab_size=49152,
+        n_layer=32,
+        n_head=32,
+        n_embd=2560,
+    ),
+]
+configs.extend(stablecode)
+
 
 name_to_config = {config["name"]: config for config in configs}

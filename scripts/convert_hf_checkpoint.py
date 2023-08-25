@@ -226,6 +226,8 @@ def convert_hf_checkpoint(
         bin_files = {checkpoint_dir / bin for bin in bin_index["weight_map"].values()}
     else:
         bin_files = set(checkpoint_dir.glob("*.bin"))
+        # some checkpoints serialize the training arguments
+        bin_files = {f for f in bin_files if f.name != "training_args.bin"}
     if not bin_files:
         raise ValueError(f"Expected {str(checkpoint_dir)!r} to contain .bin files")
 
