@@ -19,7 +19,9 @@ from lit_gpt.speed_monitor import estimate_flops, measure_flops
 from lit_gpt.tokenizer import Tokenizer
 from lit_gpt.utils import (
     check_valid_checkpoint_dir,
+    check_compatible_tokenization,
     chunked_cross_entropy,
+    get_batch,
     get_default_supported_precision,
     lazy_load,
     num_parameters,
@@ -39,7 +41,7 @@ override_max_seq_length = None
 # Hyperparameters
 learning_rate = 3e-4
 batch_size = 128
-micro_batch_size = 4
+micro_batch_size = 1
 gradient_accumulation_iters = batch_size // micro_batch_size
 assert gradient_accumulation_iters > 0
 max_iters = 50000  # train dataset size
@@ -123,8 +125,6 @@ def main(fabric: L.Fabric, data_dir: Path, checkpoint_dir: Path, out_dir: Path, 
         to_head=lora_head,
     )
 
-    padded_vocab_size = config.__dict__["padded_vocab_size"]
-
     checkpoint_path = checkpoint_dir / "lit_model.pth"
     fabric.print(f"Loading model {str(checkpoint_path)!r} with {config.__dict__}")
     with fabric.init_module(empty_init=False), quantization(quantize):
@@ -150,7 +150,7 @@ def main(fabric: L.Fabric, data_dir: Path, checkpoint_dir: Path, out_dir: Path, 
     fabric.seed_everything(1337 + fabric.global_rank)
 
     train_time = time.perf_counter()
-    train(fabric, model, optimizer, train_data, val_data, checkpoint_dir, out_dir, speed_monitor, padded_vocab_size)
+    train(fabric, model, optimizer, train_data, val_data, checkpoint_dir, out_dir, speed_monitor)
     fabric.print(f"Training time: {(time.perf_counter()-train_time):.2f}s")
     if fabric.device.type == "cuda":
         fabric.print(f"Memory used: {torch.cuda.max_memory_allocated() / 1e9:.02f} GB")
@@ -169,12 +169,12 @@ def train(
     checkpoint_dir: Path,
     out_dir: Path,
     speed_monitor: SpeedMonitor,
-    padded_vocab_size: int,
 ) -> None:
     tokenizer = Tokenizer(checkpoint_dir)
     max_seq_length, longest_seq_length, longest_seq_ix = get_max_seq_length(train_data)
 
-    validate(fabric, model, val_data, tokenizer, longest_seq_length, padded_vocab_size)  # sanity check
+    check_compatible_tokenization(fabric, model, val_data, eval_iters, micro_batch_size, longest_seq_length) # sanity check
+    validate(fabric, model, val_data, tokenizer, longest_seq_length)  # sanity check
 
     with torch.device("meta"):
         meta_model = GPT(model.config)
@@ -209,7 +209,7 @@ def train(
         iter_t0 = time.perf_counter()
 
         input_ids, targets = get_batch(
-            fabric, train_data, longest_seq_length, longest_seq_ix if iter_num == 0 else None
+            fabric, train_data, longest_seq_length, micro_batch_size, longest_seq_ix if iter_num == 0 else None
         )
 
         is_accumulating = (iter_num + 1) % gradient_accumulation_iters != 0
@@ -245,7 +245,7 @@ def train(
 
         if not is_accumulating and step_count % eval_interval == 0:
             t0 = time.perf_counter()
-            val_loss = validate(fabric, model, val_data, tokenizer, longest_seq_length, padded_vocab_size)
+            val_loss = validate(fabric, model, val_data, tokenizer, longest_seq_length)
             t1 = time.perf_counter() - t0
             speed_monitor.eval_end(t1)
             fabric.print(f"step {iter_num}: val loss {val_loss:.4f}, val time: {t1 * 1000:.2f}ms")
@@ -262,17 +262,12 @@ def validate(
     val_data: List[Dict], 
     tokenizer: Tokenizer, 
     longest_seq_length: int,
-    padded_vocab_size: int,
 ) -> torch.Tensor:
     fabric.print("Validating ...")
     model.eval()
     losses = torch.zeros(eval_iters)
     for k in range(eval_iters):
-        input_ids, targets = get_batch(fabric, val_data, longest_seq_length)
-        if (input_ids > padded_vocab_size).any():
-            raise ValueError("Some input IDs exceed the vocabulary size of this model. "
-                             "Please make sure you used this model's "
-                             "tokenizer to prepare the dataset.")
+        input_ids, targets = get_batch(fabric, val_data, longest_seq_length, micro_batch_size)
         logits = model(input_ids)
         loss = chunked_cross_entropy(logits[..., :-1, :], targets[..., 1:], chunk_size=0)
         losses[k] = loss.item()
@@ -295,35 +290,6 @@ def validate(
 
     model.train()
     return val_loss.item()
-
-
-def get_batch(
-    fabric: L.Fabric, data: List[Dict], longest_seq_length: int, longest_seq_ix: Optional[int] = None
-) -> Tuple[torch.Tensor, torch.Tensor]:
-    ix = torch.randint(len(data), (micro_batch_size,))
-    if longest_seq_ix is not None:
-        # force the longest sample at the beginning so potential OOMs happen right away
-        ix[0] = longest_seq_ix
-
-    input_ids = [data[i]["input_ids"].type(torch.int64) for i in ix]
-    labels = [data[i]["labels"].type(torch.int64) for i in ix]
-
-    # it's better to pad to a fixed seq length with XLA to avoid recompilation
-    max_len = max(len(s) for s in input_ids) if fabric.device.type != "xla" else longest_seq_length
-
-    def pad_right(x, pad_id):
-        # pad right based on the longest sequence
-        n = max_len - len(x)
-        return torch.cat((x, torch.full((n,), pad_id, dtype=x.dtype)))
-
-    x = torch.stack([pad_right(x, pad_id=0) for x in input_ids])
-    y = torch.stack([pad_right(x, pad_id=-1) for x in labels])
-
-    if fabric.device.type == "cuda" and x.device.type == "cpu":
-        x, y = fabric.to_device((x.pin_memory(), y.pin_memory()))
-    else:
-        x, y = fabric.to_device((x, y))
-    return x, y
 
 
 def get_max_seq_length(data: List[Dict]) -> Tuple[int, int, int]:
