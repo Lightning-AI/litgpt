@@ -594,5 +594,186 @@ freewilly_2 = [
 ]
 configs.extend(freewilly_2)
 
+code_llama = [
+    
+    ################
+    ## Base Model ##	
+    ################
+    
+    # https://huggingface.co/codellama/CodeLlama-7b-hf/blob/main/config.json
+    dict(
+        org="codellama",
+        name="CodeLlama-7b-hf",
+        block_size=16384,
+        vocab_size=32016,
+        n_layer=32,
+        n_head=32,
+        n_embd=4096,
+        rotary_percentage=1.0,
+        parallel_residual=False,
+        bias=False,
+        _norm_class="RMSNorm",
+        norm_eps=1e-05,
+        _mlp_class="LLaMAMLP",
+        intermediate_size=11008,
+    ),
+    
+    # https://huggingface.co/codellama/CodeLlama-13b-hf/blob/main/config.json
+    dict(
+        org="codellama",
+        name="CodeLlama-13b-hf",
+        block_size=16384,
+        vocab_size=32016,
+        n_layer=40,
+        n_head=40,
+        n_embd=5120,
+        rotary_percentage=1.0,
+        parallel_residual=False,
+        bias=False,
+        _norm_class="RMSNorm",
+        norm_eps=1e-05,
+        _mlp_class="LLaMAMLP",
+        intermediate_size=13824,
+    ),
+    
+    # https://huggingface.co/codellama/CodeLlama-34b-hf/blob/main/config.json
+    dict(
+        org="codellama",
+        name="CodeLlama-34b-hf",
+        block_size=16384,
+        vocab_size=32000,
+        n_layer=48,
+        n_head=64,
+        n_embd=8192,
+        rotary_percentage=1.0,
+        parallel_residual=False,
+        bias=False,
+        _norm_class="RMSNorm",
+        norm_eps=1e-05,
+        _mlp_class="LLaMAMLP",
+        intermediate_size=22016,
+    ),
+    
+    
+    ################
+    ##   Python   ##	
+    ################
+    
+    # https://huggingface.co/codellama/CodeLlama-7b-Python-hf/tree/main
+    dict(
+        org="codellama",
+        name="CodeLlama-7b-Python-hf",
+        block_size=16384,
+        vocab_size=32000,
+        n_layer=32,
+        n_head=32,
+        n_embd=4096,
+        rotary_percentage=1.0,
+        parallel_residual=False,
+        bias=False,
+        _norm_class="RMSNorm",
+        norm_eps=1e-05,
+        _mlp_class="LLaMAMLP",
+        intermediate_size=11008,
+    ),
+    
+    # https://huggingface.co/codellama/CodeLlama-13b-Python-hf/blob/main/config.json
+    dict(
+        org="codellama",
+        name="CodeLlama-13b-Python-hf",
+        block_size=16384,
+        vocab_size=32000,
+        n_layer=40,
+        n_head=40,
+        n_embd=5120,
+        rotary_percentage=1.0,
+        parallel_residual=False,
+        bias=False,
+        _norm_class="RMSNorm",
+        norm_eps=1e-05,
+        _mlp_class="LLaMAMLP",
+        intermediate_size=13824,
+    ),
+    
+    # https://huggingface.co/codellama/CodeLlama-34b-Python-hf/tree/main
+    dict(
+        org="codellama",
+        name="CodeLlama-34b-Python-hf",
+        block_size=16384,
+        vocab_size=32000,
+        padding_multiple=64,
+        n_layer=48,
+        n_head=64,
+        n_embd=8192,
+        rotary_percentage=1.0,
+        parallel_residual=False,
+        bias=False,
+        _norm_class="RMSNorm",
+        norm_eps=1e-05,
+        _mlp_class="LLaMAMLP",
+        intermediate_size=22016,
+    ),
+    
+    
+    ################
+    ##  Instruct  ##	
+    ################
+    
+    
+    # https://huggingface.co/codellama/CodeLlama-7b-Instruct-hf/tree/main
+    dict(
+        org="codellama",
+        name="CodeLlama-7b-Instruct-hf",
+        block_size=16384,
+        vocab_size=32000,
+        n_layer=32,
+        n_head=32,
+        n_embd=4096,
+        rotary_percentage=1.0,
+        parallel_residual=False,
+        bias=False,
+        _norm_class="RMSNorm",
+        norm_eps=1e-05,
+        _mlp_class="LLaMAMLP",
+        intermediate_size=11008,
+    ),
+    
+    # https://huggingface.co/codellama/CodeLlama-13b-Instruct-hf/blob/main/config.json
+    dict(
+        org="codellama",
+        name="CodeLlama-13b-Instruct-hf",
+        block_size=2048,
+        vocab_size=32016,
+        n_layer=40,
+        n_head=40,
+        n_embd=5120,
+        rotary_percentage=1.0,
+        parallel_residual=False,
+        bias=False,
+        _norm_class="RMSNorm",
+        norm_eps=1e-05,
+        _mlp_class="LLaMAMLP",
+        intermediate_size=13824,
+    ),
+    
+    # https://huggingface.co/codellama/CodeLlama-34b-Instruct-hf/blob/main/config.json
+    dict(
+        org="codellama",
+        name="CodeLlama-34b-Instruct-hf",
+        block_size=16384,
+        vocab_size=32000,
+        n_layer=48,
+        n_head=64,
+        n_embd=8192,
+        rotary_percentage=1.0,
+        parallel_residual=False,
+        bias=False,
+        _norm_class="RMSNorm",
+        norm_eps=1e-05,
+        _mlp_class="LLaMAMLP",
+        intermediate_size=22016,
+    ),
+]
+configs.extend(code_llama)
 
 name_to_config = {config["name"]: config for config in configs}
