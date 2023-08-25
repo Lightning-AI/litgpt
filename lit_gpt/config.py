@@ -127,17 +127,11 @@ pythia = [
         org="EleutherAI", name="pythia-1.4b", block_size=2048, n_layer=24, n_embd=2048, n_head=16, padding_multiple=128
     ),
     # https://huggingface.co/EleutherAI/pythia-2.8b/blob/main/config.json
-    dict(
-        org="EleutherAI", name="pythia-2.8b", block_size=2048, n_layer=32, n_embd=2560, padding_multiple=128
-    ),
+    dict(org="EleutherAI", name="pythia-2.8b", block_size=2048, n_layer=32, n_embd=2560, padding_multiple=128),
     # https://huggingface.co/EleutherAI/pythia-6.9b/blob/main/config.json
-    dict(
-        org="EleutherAI", name="pythia-6.9b", block_size=2048, n_layer=32, padding_multiple=256
-    ),
+    dict(org="EleutherAI", name="pythia-6.9b", block_size=2048, n_layer=32, padding_multiple=256),
     # https://huggingface.co/EleutherAI/pythia-12b/blob/main/config.json
-    dict(
-        org="EleutherAI", name="pythia-12b", block_size=2048, n_layer=36, n_embd=5120, n_head=40
-    ),
+    dict(org="EleutherAI", name="pythia-12b", block_size=2048, n_layer=36, n_embd=5120, n_head=40),
 ]
 configs.extend(pythia)
 for c in pythia:
@@ -604,6 +598,140 @@ freewilly_2 = [
     )
 ]
 configs.extend(freewilly_2)
+
+
+########################
+# garage-bAInd Platypus
+########################
+platypus = [
+    # https://huggingface.co/garage-bAInd/Platypus-30B/blob/main/config.json
+    dict(
+        org="garage-bAInd",
+        name="Platypus-30B",
+        block_size=2048,
+        padded_vocab_size=32000,
+        n_layer=60,
+        n_head=52,
+        n_embd=6656,
+        rotary_percentage=1.0,
+        parallel_residual=False,
+        bias=False,
+        _norm_class="RMSNorm",
+        norm_eps=1e-06,
+        _mlp_class="LLaMAMLP",
+        intermediate_size=17920,
+    ),
+    # https://huggingface.co/garage-bAInd/Platypus2-7B/blob/main/config.json
+    dict(
+        org="garage-bAInd",
+        name="Platypus2-7B",
+        padded_vocab_size=32000,
+        n_layer=32,
+        n_embd=4096,
+        rotary_percentage=1.0,
+        parallel_residual=False,
+        bias=False,
+        _norm_class="RMSNorm",
+        norm_eps=1e-05,
+        _mlp_class="LLaMAMLP",
+        intermediate_size=11008,
+    ),
+    # https://huggingface.co/garage-bAInd/Platypus2-13B/blob/main/config.json
+    dict(
+        org="garage-bAInd",
+        name="Platypus2-13B",
+        padded_vocab_size=32000,
+        n_layer=40,
+        n_head=40,
+        n_embd=5120,
+        rotary_percentage=1.0,
+        parallel_residual=False,
+        bias=False,
+        _norm_class="RMSNorm",
+        norm_eps=1e-05,
+        _mlp_class="LLaMAMLP",
+        intermediate_size=13824,
+    ),
+    # https://huggingface.co/garage-bAInd/Platypus2-70B/blob/main/config.json
+    dict(
+        org="garage-bAInd",
+        name="Platypus2-70B",
+        padded_vocab_size=32000,
+        n_layer=80,
+        n_head=64,
+        n_embd=8192,
+        rotary_percentage=1.0,
+        parallel_residual=False,
+        bias=False,
+        _norm_class="RMSNorm",
+        _mlp_class="LLaMAMLP",
+        intermediate_size=28672,
+    ),
+    # https://huggingface.co/garage-bAInd/Camel-Platypus2-13B/blob/main/config.json
+    dict(
+        org="garage-bAInd",
+        name="Camel-Platypus2-13B",
+        padded_vocab_size=32000,
+        n_layer=40,
+        n_head=40,
+        n_embd=5120,
+        rotary_percentage=1.0,
+        parallel_residual=False,
+        bias=False,
+        _norm_class="RMSNorm",
+        _mlp_class="LLaMAMLP",
+        intermediate_size=13824,
+    ),
+    # https://huggingface.co/garage-bAInd/Camel-Platypus2-70B/blob/main/config.json
+    dict(
+        org="garage-bAInd",
+        name="Camel-Platypus2-70B",
+        padded_vocab_size=32000,
+        n_layer=80,
+        n_head=64,
+        n_embd=8192,
+        n_query_groups=8,
+        rotary_percentage=1.0,
+        parallel_residual=False,
+        bias=False,
+        _norm_class="RMSNorm",
+        _mlp_class="LLaMAMLP",
+        intermediate_size=28672,
+    ),
+    # https://huggingface.co/garage-bAInd/Stable-Platypus2-13B/blob/main/config.json
+    dict(
+        org="garage-bAInd",
+        name="Stable-Platypus2-13B",
+        padded_vocab_size=32000,
+        n_layer=40,
+        n_head=40,
+        n_embd=5120,
+        rotary_percentage=1.0,
+        parallel_residual=False,
+        bias=False,
+        _norm_class="RMSNorm",
+        _mlp_class="LLaMAMLP",
+        intermediate_size=13824,
+    ),
+    # https://huggingface.co/garage-bAInd/Platypus2-70B-instruct/blob/main/config.json
+    dict(
+        org="garage-bAInd",
+        name="Platypus2-70B-instruct",
+        padded_vocab_size=32000,
+        n_layer=80,
+        n_head=64,
+        n_embd=8192,
+        n_query_groups=8,
+        rotary_percentage=1.0,
+        parallel_residual=False,
+        bias=False,
+        _norm_class="RMSNorm",
+        _mlp_class="LLaMAMLP",
+        intermediate_size=28672,
+    ),
+]
+configs.extend(platypus)
+
 
 ##########################
 # Stability AI StableCode
