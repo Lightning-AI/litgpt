@@ -290,6 +290,7 @@ def prompt_config(checkpoint_dir: Path, tokenizer: Tokenizer) -> Tuple[str, Tupl
 
     if re.search("Platypus", checkpoint_name):
         system_prompt = "### Instruction:\n\n{prompt}\n\n### Response:\n"
+        # this checkpoint doesn't emit the eos token very consistently
         stop_tokens = ([tokenizer.eos_id],)
         return system_prompt, stop_tokens
 
