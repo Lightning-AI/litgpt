@@ -8,12 +8,11 @@ from functools import partial
 from io import BytesIO
 from pathlib import Path
 from types import MethodType
-from typing import Any, Dict, List, Mapping, Optional, Tuple, Type, TypeVar, Union
+from typing import Any, Dict, List, Mapping, Optional, Type, TypeVar, Union
 
 import torch
 import torch.nn as nn
 import torch.utils._device
-import lightning as L
 from lightning.fabric.loggers import CSVLogger
 from torch.serialization import normalize_storage_type
 
@@ -23,61 +22,6 @@ def find_multiple(n: int, k: int) -> int:
     if n % k == 0:
         return n
     return n + k - (n % k)
-
-
-def get_batch(
-    fabric: L.Fabric,
-    data: List[Dict],
-    longest_seq_length: int,
-    micro_batch_size: int,
-    longest_seq_ix: Optional[int] = None
-) -> Tuple[torch.Tensor, torch.Tensor]:
-    ix = torch.randint(len(data), (micro_batch_size,))
-    if longest_seq_ix is not None:
-        # force the longest sample at the beginning so potential OOMs happen right away
-        ix[0] = longest_seq_ix
-
-    input_ids = [data[i]["input_ids"].type(torch.int64) for i in ix]
-    labels = [data[i]["labels"].type(torch.int64) for i in ix]
-
-    # it's better to pad to a fixed seq length with XLA to avoid recompilation
-    max_len = max(len(s) for s in input_ids) if fabric.device.type != "xla" else longest_seq_length
-
-    def pad_right(x, pad_id):
-        # pad right based on the longest sequence
-        n = max_len - len(x)
-        return torch.cat((x, torch.full((n,), pad_id, dtype=x.dtype)))
-
-    x = torch.stack([pad_right(x, pad_id=0) for x in input_ids])
-    y = torch.stack([pad_right(x, pad_id=-1) for x in labels])
-
-    if fabric.device.type == "cuda" and x.device.type == "cpu":
-        x, y = fabric.to_device((x.pin_memory(), y.pin_memory()))
-    else:
-        x, y = fabric.to_device((x, y))
-    return x, y
-
-
-@torch.no_grad()
-def check_compatible_tokenization(
-        fabric: L.Fabric,
-        model,
-        val_data: List[Dict],
-        eval_iters: int,
-        micro_batch_size: int,
-        longest_seq_length: int,
-    ) -> None:
-    fabric.print("Checking tokenization ...")
-
-    model.eval()
-    for _ in range(eval_iters):
-        input_ids, target_ids = get_batch(fabric, val_data, micro_batch_size, longest_seq_length)
-
-        if (input_ids > model.config.padded_vocab_size).any():
-            raise ValueError(
-                "Some input IDs exceed the vocabulary size of this model. "
-                "Please make sure you used this model's "
-                "tokenizer to prepare the dataset.")
 
 
 def num_parameters(module: nn.Module, requires_grad: Optional[bool] = None) -> int:
