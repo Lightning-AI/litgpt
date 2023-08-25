@@ -628,12 +628,11 @@ freewilly_2 = [
 ]
 configs.extend(freewilly_2)
 
-#################
-# Stability AI 
-##################
+##########################
+# Stability AI StableCode
+##########################
 
 stablecode = [
-    
     # https://huggingface.co/stabilityai/stablecode-completion-alpha-3b/blob/main/config.json
     dict(
         org="stabilityai",
@@ -651,7 +650,6 @@ stablecode = [
         _mlp_class="GptNeoxMLP",
         intermediate_size=10240,
     ),
-    
     # https://huggingface.co/stabilityai/stablecode-completion-alpha-3b-4k/blob/main/config.json
     dict(
         org="stabilityai",
@@ -669,7 +667,6 @@ stablecode = [
         _mlp_class="GptNeoxMLP",
         intermediate_size=10240,
     ),
-    
     # https://huggingface.co/stabilityai/stablecode-instruct-alpha-3b/blob/main/config.json
     dict(
         org="stabilityai",
@@ -687,7 +684,6 @@ stablecode = [
         _mlp_class="GptNeoxMLP",
         intermediate_size=10240,
     ),
-    
 ]
 configs.extend(stablecode)
 
