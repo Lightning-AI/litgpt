@@ -91,9 +91,12 @@ model_name = "Llama-2-7b-hf"
 
 at the top of this script.
 
-
 The currently supported model names are contained in the [config.py](https://github.com/Lightning-AI/lit-gpt/lit_gpt/config.py) file. 
-You can either search this file for lines containing "name =" or obtain the list of all supported models programmatically, as follows:
+You can 
+
+1) either search this file for lines containing "name =",
+2) run `python scripts/download.py` without additional command line arguments,
+3) or 
 
 ```python
 from lit_gpt.config import configs
@@ -102,41 +105,17 @@ for conf in configs:
     print(conf["name"])
 ```
 
-
-
 Keep in mind that the original LLaMA training for the 7B model required 83k A100 80GB
 hours, so you'll need access to a cluster.
 
-Once you're in a cluster, you can follow [these instructions](https://lightning.ai/docs/fabric/stable/guide/multi_node/other.html)
+Once you're in a cluster, you can follow [these instructions](https://lightning.ai/docs/fabric/stable/fundamentals/launch.html#launch-on-a-cluster)
 to launch the script across machines:
 
 - [SLURM cluster](https://lightning.ai/docs/fabric/stable/guide/multi_node/slurm.html)
 - [Barebones cluster](https://lightning.ai/docs/fabric/stable/guide/multi_node/barebones.html)
 - [MPI](https://lightning.ai/docs/fabric/stable/guide/multi_node/other.html)
 
-The script contains several configurations and hyperparameters you can tweak:
-
-```python
-out_dir = "out/training"
-save_interval = 1000
-eval_interval = 1000
-eval_iters = 100
-log_interval = 1
-
-# Hyperparameters
-learning_rate = 6e-4
-batch_size = 125
-micro_batch_size = 6
-max_iters = 600000  # num_epochs * (epoch_size // micro_batch_size) // devices
-weight_decay = 1e-1
-beta1 = 0.9
-beta2 = 0.95
-grad_clip = 1.0
-decay_lr = True
-warmup_iters = 2000
-lr_decay_iters = max_iters
-min_lr = 6e-5
-```
+The [script contains several configurations and hyperparameters](https://github.com/Lightning-AI/lit-gpt/blob/main/pretrain/openwebtext.py#L23-L46) you can tweak.
 
 For instance, `micro_batch_size` should be adjusted so the process will use the available
 GPU memory. For more tips to avoid out-of-memory issues, please also see the more detailed

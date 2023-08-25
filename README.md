@@ -211,11 +211,12 @@ Looking for conceptual tutorials and explanations? We have some additional artic
 
 
 
-We provide [a simple training script based on Fabric](pretrain/redpajama.py) if you want to venture into pretraining on RedPajama, a reproduction of the original LLaMA dataset. Conversion scripts for our optimized streaming `PackedDataset` are included.
+We provide simple training scripts based on Fabric if you want to venture into pretraining. Conversion scripts for our optimized streaming `PackedDataset` are included.
 
-Follow this guide to start pretraining on the RedPajama dataset:
+Follow this guide to start pretraining on
 
-- [Pretrain on RedPajama](tutorials/pretrain_redpajama.md)
+- [RedPajama, a reproduction of LLaMA's training set](tutorials/pretrain_redpajama.md)
+- [OpenWeb Text, a reproduction of GPT-2's dataset](tutorials/pretrain_openwebtext.md)
 
 &nbsp;
 
