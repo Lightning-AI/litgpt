@@ -631,7 +631,6 @@ configs.extend(freewilly_2)
 ##########################
 # Stability AI StableCode
 ##########################
-
 stablecode = [
     # https://huggingface.co/stabilityai/stablecode-completion-alpha-3b/blob/main/config.json
     dict(
