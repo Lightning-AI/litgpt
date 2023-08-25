@@ -27,7 +27,7 @@ class Tokenizer:
                 self.bos_id = config.get("bos_token_id")
                 self.eos_id = config.get("eos_token_id")
 
-            if (special_tokens_path := checkpoint_dir / "tokenizer_config.json").is_file():
+            elif (special_tokens_path := checkpoint_dir / "tokenizer_config.json").is_file():
                 with open(special_tokens_path) as fp:
                     config = json.load(fp)
                 bos_token = config.get("bos_token")
