@@ -50,12 +50,13 @@ def generate(
     empty = torch.empty(max_returned_tokens, dtype=dtype, device=device)
     empty[:T] = idx
     idx = empty
-    input_pos = torch.arange(0, T, device=device)
+    # TODO: FSDP has an internal broadcasting issue, so we are forced to have this be of length 1 until it's fixed
+    input_pos = torch.tensor([0], device=device)
 
     xm.mark_step()
 
     # generate up to a fixed number of tokens
-    for _ in range(max_returned_tokens - T):
+    for _ in range(max_returned_tokens):
         x = idx.index_select(0, input_pos).view(1, -1)
 
         # forward
