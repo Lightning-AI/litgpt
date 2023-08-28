@@ -7,12 +7,13 @@ from typing import Dict, List, Optional, Tuple
 import lightning as L
 import torch
 from lightning.fabric.strategies import XLAFSDPStrategy
+from lightning.fabric.accelerators import XLAAccelerator
+
+import torch_xla.core.xla_model as xm
 
 # support running without installing as a package
 wd = Path(__file__).parent.parent.parent.resolve()
 sys.path.append(str(wd))
-
-import torch_xla.core.xla_model as xm
 
 from generate.base import generate
 from lit_gpt.adapter import GPT, Config, adapter_filter, mark_only_adapter_as_trainable
@@ -26,7 +27,7 @@ eval_interval = 600
 save_interval = 1000
 eval_iters = 100
 log_interval = 1
-devices = 4
+devices = XLAAccelerator.auto_device_count()
 # change this value to force a maximum sequence length
 override_max_seq_length = None
 
@@ -52,17 +53,9 @@ def setup(
     out_dir: Path = Path("out/adapter/alpaca"),
     precision: str = "bf16-true",
 ):
-    fabric_devices = devices
-    if devices > 1:
-        fabric_devices = "auto"
-        strategy = XLAFSDPStrategy(state_dict_type="full", sequential_save=True)
-    else:
-        strategy = "auto"
+    strategy = XLAFSDPStrategy(state_dict_type="full", sequential_save=True) if devices > 1 else "auto"
     logger = step_csv_logger(out_dir.parent, out_dir.name, flush_logs_every_n_steps=log_interval)
-    fabric = L.Fabric(devices=fabric_devices, strategy=strategy, precision=precision, loggers=logger)
-    if fabric_devices == "auto":
-        # xla doesn't allow running distributed with a subset of devices
-        assert devices == len(strategy.parallel_devices)
+    fabric = L.Fabric(devices=devices, strategy=strategy, precision=precision, loggers=logger)
     fabric.print(hparams)
     fabric.launch(main, data_dir, checkpoint_dir, out_dir)
 

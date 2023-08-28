@@ -215,7 +215,7 @@ Porting from Lit-LLaMA in progress 👷
 
 ## XLA
 
-Lightning AI has partnered with Google to add first-class support for Cloud TPUs in Lightning’s frameworks and Lit-GPT,
+Lightning AI has partnered with Google to add first-class support for [Cloud TPUs](https://cloud.google.com/tpu) in [Lightning’s frameworks](https://github.com/Lightning-AI/lightning) and Lit-GPT,
 helping democratize AI for millions of developers and researchers worldwide.
 
 Using TPUs with Lightning is as straightforward as changing one line of code.

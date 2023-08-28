@@ -2,12 +2,17 @@
 
 This project utilizes [`Fabric`](https://lightning.ai/docs/fabric/stable), which supports TPUs via [PyTorch XLA](https://github.com/pytorch/xla).
 
+> [!NOTE]
+> This guide assumes that you have already set-up your [Google Cloud environment](https://cloud.google.com/run/docs/setup).
+
 To set up a Google Cloud instance with a TPU v4 VM, run the following commands:
 
 ```shell
 gcloud compute tpus tpu-vm create lit-gpt --version=tpu-vm-v4-base --accelerator-type=v4-8 --zone=us-central2-b
 gcloud compute tpus tpu-vm ssh lit-gpt --zone=us-central2-b
 ```
+
+You can also choose a different TPU type. To do so, change the `version`, `accelerator-type`, and `zone` arguments. Find all regions and zones [here](https://cloud.google.com/tpu/docs/regions-zones).
 
 <details>
 <summary>Multihost caveats</summary>
@@ -104,7 +109,7 @@ python3 xla/finetune/adapter.py --checkpoint_dir checkpoints/tiiuae/falcon-7b --
 To generate text with the adapter fine-tuned model weights, use the following command:
 
 ```shell
-python3 xla/generate/adapter.py --checkpoint_dir checkpoints/tiiuae/falcon-7b --precision bf16-true --adapter_path out/adapter/alpaca/lit_model_adapter_finetuned.pth --devices 4
+python3 xla/generate/adapter.py --checkpoint_dir checkpoints/tiiuae/falcon-7b --precision bf16-true --adapter_path out/adapter/alpaca/lit_model_adapter_finetuned.pth
 ```
 
 > **Warning**

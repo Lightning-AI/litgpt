@@ -7,12 +7,13 @@ from typing import Optional
 import lightning as L
 import torch
 from lightning.fabric.strategies import XLAFSDPStrategy
+from lightning.fabric.accelerators import XLAAccelerator
+
+import torch_xla.core.xla_model as xm
 
 # support running without installing as a package
 wd = Path(__file__).parent.parent.parent.resolve()
 sys.path.append(str(wd))
-
-import torch_xla.core.xla_model as xm
 
 from lit_gpt import GPT, Config, Tokenizer
 from lit_gpt.utils import check_valid_checkpoint_dir, lazy_load
@@ -92,7 +93,6 @@ def setup(
     top_k: int = 200,
     temperature: float = 0.8,
     checkpoint_dir: Path = Path("checkpoints/tiiuae/falcon-7b"),
-    devices: int = 1,
     precision: str = "bf16-true",
 ):
     """Generates text samples based on a pre-trained model and tokenizer.
@@ -105,19 +105,11 @@ def setup(
         temperature: A value controlling the randomness of the sampling process. Higher values result in more random
             samples.
         checkpoint_dir: The checkpoint directory to load.
-        devices: How many devices to use.
         precision: Indicates the Fabric precision setting to use.
     """
-    fabric_devices = devices
-    if devices > 1:
-        fabric_devices = "auto"
-        strategy = XLAFSDPStrategy()
-    else:
-        strategy = "auto"
-    fabric = L.Fabric(devices=fabric_devices, precision=precision, strategy=strategy)
-    if fabric_devices == "auto":
-        # xla doesn't allow running distributed with a subset of devices
-        assert devices == len(strategy.parallel_devices)
+    devices = XLAAccelerator.auto_device_count()
+    strategy = XLAFSDPStrategy() if devices > 1 else "auto"
+    fabric = L.Fabric(devices=devices, precision=precision, strategy=strategy)
     fabric.launch(main, prompt, num_samples, max_new_tokens, top_k, temperature, checkpoint_dir)
 
 
