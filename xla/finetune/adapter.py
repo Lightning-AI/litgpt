@@ -6,10 +6,9 @@ from typing import Dict, List, Optional, Tuple
 
 import lightning as L
 import torch
-from lightning.fabric.strategies import XLAFSDPStrategy
-from lightning.fabric.accelerators import XLAAccelerator
-
 import torch_xla.core.xla_model as xm
+from lightning.fabric.accelerators import XLAAccelerator
+from lightning.fabric.strategies import XLAFSDPStrategy
 
 # support running without installing as a package
 wd = Path(__file__).parent.parent.parent.resolve()
@@ -22,9 +21,10 @@ from lit_gpt.speed_monitor import estimate_flops, measure_flops
 from lit_gpt.tokenizer import Tokenizer
 from lit_gpt.utils import check_valid_checkpoint_dir, chunked_cross_entropy, lazy_load, num_parameters, step_csv_logger
 from scripts.prepare_alpaca import generate_prompt
+from xla.utils import rank_print
 
-eval_interval = 600
-save_interval = 1000
+eval_interval = 100
+save_interval = 100
 eval_iters = 100
 log_interval = 1
 devices = XLAAccelerator.auto_device_count()
@@ -33,7 +33,7 @@ override_max_seq_length = None
 
 # Hyperparameters
 learning_rate = 3e-3
-batch_size = 64 / devices
+batch_size = 4
 micro_batch_size = 4
 gradient_accumulation_iters = batch_size // micro_batch_size
 assert gradient_accumulation_iters > 0
@@ -56,7 +56,7 @@ def setup(
     strategy = XLAFSDPStrategy(state_dict_type="full", sequential_save=True) if devices > 1 else "auto"
     logger = step_csv_logger(out_dir.parent, out_dir.name, flush_logs_every_n_steps=log_interval)
     fabric = L.Fabric(devices=devices, strategy=strategy, precision=precision, loggers=logger)
-    fabric.print(hparams)
+    rank_print(fabric, hparams)
     fabric.launch(main, data_dir, checkpoint_dir, out_dir)
 
 
@@ -75,7 +75,7 @@ def main(fabric: L.Fabric, data_dir: Path, checkpoint_dir: Path, out_dir: Path):
 
     config = Config.from_name(name=checkpoint_dir.name, adapter_start_layer=0)
     checkpoint_path = checkpoint_dir / "lit_model.pth"
-    fabric.print(f"Loading model {str(checkpoint_path)!r} with {config.__dict__}")
+    rank_print(fabric, f"Loading model {str(checkpoint_path)!r} with {config.__dict__}")
     with fabric.init_module(empty_init=False):
         model = GPT(config)
     with lazy_load(checkpoint_path) as checkpoint:
@@ -84,8 +84,8 @@ def main(fabric: L.Fabric, data_dir: Path, checkpoint_dir: Path, out_dir: Path):
 
     mark_only_adapter_as_trainable(model)
 
-    fabric.print(f"Number of trainable parameters: {num_parameters(model, requires_grad=True):,}")
-    fabric.print(f"Number of non trainable parameters: {num_parameters(model, requires_grad=False):,}")
+    rank_print(fabric, f"Number of trainable parameters: {num_parameters(model, requires_grad=True):,}")
+    rank_print(fabric, f"Number of non trainable parameters: {num_parameters(model, requires_grad=False):,}")
 
     model = fabric.setup_module(model)
     trainable_params = [p for p in model.parameters() if p.requires_grad]
@@ -96,7 +96,7 @@ def main(fabric: L.Fabric, data_dir: Path, checkpoint_dir: Path, out_dir: Path):
 
     train_time = time.perf_counter()
     train(fabric, model, optimizer, train_data, val_data, checkpoint_dir, out_dir, speed_monitor)
-    fabric.print(f"Training time: {(time.perf_counter()-train_time):.2f}s")
+    rank_print(fabric, f"Training time: {(time.perf_counter()-train_time):.2f}s")
 
     # Save the final checkpoint at the end of training
     save_path = out_dir / "lit_model_adapter_finetuned.pth"
@@ -116,8 +116,6 @@ def train(
     tokenizer = Tokenizer(checkpoint_dir)
     max_seq_length, longest_seq_length, longest_seq_ix = get_max_seq_length(train_data)
 
-    validate(fabric, model, val_data, tokenizer, longest_seq_length)  # sanity check
-
     with torch.device("meta"):
         meta_model = GPT(model.config)
         mark_only_adapter_as_trainable(meta_model)
@@ -125,12 +123,12 @@ def train(
         # When comparing MFU or FLOP numbers with other projects that use estimated FLOPs,
         # consider passing `SpeedMonitor(flops_per_batch=estimated_flops)` instead
         estimated_flops = estimate_flops(meta_model) * micro_batch_size
-        fabric.print(f"Estimated TFLOPs: {estimated_flops * fabric.world_size / 1e12:.2f}")
+        rank_print(fabric, f"Estimated TFLOPs: {estimated_flops * fabric.world_size / 1e12:.2f}")
         # this assumes that all samples have a fixed length equal to the longest sequence length
         # which is most likely false during finetuning
         x = torch.randint(0, 1, (micro_batch_size, longest_seq_length))
         measured_flops = measure_flops(meta_model, x)
-        fabric.print(f"Measured TFLOPs: {measured_flops * fabric.world_size / 1e12:.2f}")
+        rank_print(fabric, f"Measured TFLOPs: {measured_flops * fabric.world_size / 1e12:.2f}")
         del meta_model, x
 
     step_count = 0
@@ -179,12 +177,12 @@ def train(
             lengths=total_lengths,
         )
         if iter_num % log_interval == 0:
-            fabric.print(
+            rank_print(
+                fabric,
                 f"iter {iter_num} step {step_count}:"
                 # uncomment to print the loss. this will considerably slow down the iteration times
                 # + f" loss {loss.item():.4f},"
-                + f" iter time: {(t1 - iter_t0) * 1000:.2f}ms"
-                + (" (optimizer.step)" if not is_accumulating else "")
+                + f" iter time: {(t1 - iter_t0) * 1000:.2f}ms" + (" (optimizer.step)" if not is_accumulating else ""),
             )
 
         if not is_accumulating and step_count % eval_interval == 0:
@@ -192,7 +190,7 @@ def train(
             val_loss = validate(fabric, model, val_data, tokenizer, longest_seq_length)
             t1 = time.perf_counter() - t0
             speed_monitor.eval_end(t1)
-            fabric.print(f"step {iter_num}: val loss {val_loss:.4f}, val time: {t1 * 1000:.2f}ms")
+            rank_print(fabric, f"step {iter_num}: val loss {val_loss:.4f}, val time: {t1 * 1000:.2f}ms")
             fabric.barrier()
         if not is_accumulating and step_count % save_interval == 0:
             checkpoint_path = out_dir / f"iter-{iter_num:06d}-ckpt.pth"
@@ -203,7 +201,7 @@ def train(
 def validate(
     fabric: L.Fabric, model: GPT, val_data: List[Dict], tokenizer: Tokenizer, longest_seq_length: int
 ) -> torch.Tensor:
-    fabric.print("Validating ...")
+    rank_print(fabric, "Validating ...")
     model.eval()
     losses = torch.zeros(eval_iters)
     for k in range(eval_iters):
@@ -215,7 +213,7 @@ def validate(
 
     # produce an example:
     instruction = "Recommend a movie for me to watch during the weekend and explain the reason."
-    fabric.print(instruction)
+    rank_print(fabric, instruction)
     sample = {"instruction": instruction, "input": ""}
     prompt = generate_prompt(sample)
     encoded = tokenizer.encode(prompt, device=fabric.device)
@@ -224,7 +222,7 @@ def validate(
         model, idx=encoded, max_returned_tokens=max_returned_tokens, max_seq_length=max_returned_tokens, temperature=0.8
     )
     output = tokenizer.decode(output)
-    fabric.print(output)
+    rank_print(fabric, output)
 
     model.reset_cache()
 
@@ -269,7 +267,7 @@ def get_max_seq_length(data: List[Dict]) -> Tuple[int, int, int]:
 
 
 def save_adapter_checkpoint(fabric, model, file_path: Path):
-    fabric.print(f"Saving adapter weights to {str(file_path)!r}")
+    rank_print(fabric, f"Saving adapter weights to {str(file_path)!r}")
     fabric.save(file_path, {"model": model}, filter={"model": adapter_filter})
 
 

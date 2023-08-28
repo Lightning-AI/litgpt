@@ -6,10 +6,9 @@ from typing import Optional
 
 import lightning as L
 import torch
-from lightning.fabric.strategies import XLAFSDPStrategy
-from lightning.fabric.accelerators import XLAAccelerator
-
 import torch_xla.core.xla_model as xm
+from lightning.fabric.accelerators import XLAAccelerator
+from lightning.fabric.strategies import XLAFSDPStrategy
 
 # support running without installing as a package
 wd = Path(__file__).parent.parent.parent.resolve()
@@ -17,6 +16,7 @@ sys.path.append(str(wd))
 
 from lit_gpt import GPT, Config, Tokenizer
 from lit_gpt.utils import check_valid_checkpoint_dir, lazy_load
+from xla.utils import rank_print
 
 
 @torch.no_grad()
@@ -130,16 +130,16 @@ def main(
 
     checkpoint_path = checkpoint_dir / "lit_model.pth"
 
-    fabric.print(f"Loading model {str(checkpoint_path)!r} with {config.__dict__}", file=sys.stderr)
+    rank_print(fabric, f"Loading model {str(checkpoint_path)!r} with {config.__dict__}", file=sys.stderr)
     t0 = time.perf_counter()
     with fabric.init_module(empty_init=True):
         model = GPT(config)
-    fabric.print(f"Time to instantiate model: {time.perf_counter() - t0:.02f} seconds.", file=sys.stderr)
+    rank_print(fabric, f"Time to instantiate model: {time.perf_counter() - t0:.02f} seconds.", file=sys.stderr)
 
     t0 = time.perf_counter()
     with lazy_load(checkpoint_path) as checkpoint:
         model.load_state_dict(checkpoint.get("model", checkpoint))
-    fabric.print(f"Time to load the model weights: {time.perf_counter() - t0:.02f} seconds.", file=sys.stderr)
+    rank_print(fabric, f"Time to load the model weights: {time.perf_counter() - t0:.02f} seconds.", file=sys.stderr)
 
     model.eval()
     model = fabric.setup_module(model)
@@ -169,8 +169,10 @@ def main(
         model.reset_cache()
         fabric.print(tokenizer.decode(y))
         tokens_generated = y.size(0) - prompt_length
-        fabric.print(
-            f"Time for inference {i + 1}: {t:.02f} sec total, {tokens_generated / t:.02f} tokens/sec", file=sys.stderr
+        rank_print(
+            fabric,
+            f"Time for inference {i + 1}: {t:.02f} sec total, {tokens_generated / t:.02f} tokens/sec",
+            file=sys.stderr,
         )
 
 
