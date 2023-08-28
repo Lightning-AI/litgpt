@@ -187,28 +187,6 @@ for c in redpajama_incite:
         copy = c.copy()
         copy["name"] = c["name"].format(kind)
         configs.append(copy)
-        
-        
-#############################
-# togethercomputer LLaMA-2
-#############################
-togethercomputer_llama_2 = [
-    # https://huggingface.co/togethercomputer/LLaMA-2-7B-32K/blob/main/config.json
-    dict(
-        org="togethercomputer",
-        name="LLaMA-2-7B-32K",
-        block_size=32768,
-        vocab_size=32000,
-        n_layer=32,
-        n_head=32,
-        n_embd=4096,
-        padding_multiple=256,
-        rotary_percentage=1.0,
-        parallel_residual=False,
-        intermediate_size=11008,
-    )
-]
-
 
 #################
 # TII UAE Falcon
