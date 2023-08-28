@@ -25,16 +25,19 @@ Hackable [implementation](lit_gpt/model.py) of state-of-the-art open-source larg
 
 Supports the following popular model checkpoints:
 
-| Model and usage                                                     | Reference                                                                                        |
-|---------------------------------------------------------------------|--------------------------------------------------------------------------------------------------|
-| Meta AI [Llama 2](tutorials/download_llama_2.md)                    | [Touvron et al. 2023](https://arxiv.org/abs/2307.09288)                                          |
-| Stability AI [FreeWilly2](tutorials/download_freewilly_2.md)        | [Stability AI 2023](https://stability.ai/blog/stable-beluga-large-instruction-fine-tuned-models) |
-| TII UAE [Falcon](tutorials/download_falcon.md)                      | [TII 2023](https://falconllm.tii.ae)                                                             |
-| OpenLM Research [OpenLLaMA](tutorials/download_openllama.md)        | [Geng & Liu 2023](https://github.com/openlm-research/open_llama)                                 |
-| LMSYS [Vicuna](tutorials/download_vicuna.md)                        | [Li et al. 2023](https://lmsys.org/blog/2023-06-29-longchat)                                     |
-| Together [RedPajama-INCITE](tutorials/download_redpajama_incite.md) | [Together 2023](https://together.ai/blog/redpajama-models-v1)                                    |
-| EleutherAI [Pythia](tutorials/download_pythia.md)                   | [Biderman et al. 2023](https://arxiv.org/abs/2304.01373)                                         |
-| StabilityAI [StableLM](tutorials/download_stablelm.md)              | [Stability AI 2023](https://github.com/Stability-AI/StableLM)                                    |
+| Model and usage                                                                | Reference                                                                                        |
+|--------------------------------------------------------------------------------|--------------------------------------------------------------------------------------------------|
+| Meta AI [Llama 2](tutorials/download_llama_2.md)                               | [Touvron et al. 2023](https://arxiv.org/abs/2307.09288)                                          |
+| LMSYS [LongChat](tutorials/download_longchat.md)                               | [LongChat Team 2023](https://lmsys.org/blog/2023-06-29-longchat/)                                |
+| Stability AI [FreeWilly2](tutorials/download_freewilly_2.md)                   | [Stability AI 2023](https://stability.ai/blog/stable-beluga-large-instruction-fine-tuned-models) |
+| TII UAE [Falcon](tutorials/download_falcon.md)                                 | [TII 2023](https://falconllm.tii.ae)                                                             |
+| OpenLM Research [OpenLLaMA](tutorials/download_openllama.md)                   | [Geng & Liu 2023](https://github.com/openlm-research/open_llama)                                 |
+| LMSYS [Vicuna](tutorials/download_vicuna.md)                                   | [Li et al. 2023](https://lmsys.org/blog/2023-06-29-longchat)                                     |
+| Together [RedPajama-INCITE](tutorials/download_redpajama_incite.md)            | [Together 2023](https://together.ai/blog/redpajama-models-v1)                                    |
+| EleutherAI [Pythia](tutorials/download_pythia.md)                              | [Biderman et al. 2023](https://arxiv.org/abs/2304.01373)                                         |
+| StabilityAI [StableLM](tutorials/download_stablelm.md)                         | [Stability AI 2023](https://github.com/Stability-AI/StableLM)                                    |
+| Platypus                                                                       | [Lee, Hunter, and Ruiz 2023](https://arxiv.org/abs/2308.07317)                                   |
+| NousResearch Nous-Hermes                                                       | [Org page](https://huggingface.co/NousResearch)                                |
 
 This implementation extends on [Lit-LLaMA](https://github.com/lightning-AI/lit-llama) and [nanoGPT](https://github.com/karpathy/nanoGPT), and it's **powered by [Lightning Fabric](https://lightning.ai/docs/fabric/stable/) ⚡**.
 
@@ -129,7 +132,7 @@ Run inference:
 python generate/base.py --prompt "Hello, my name is"
 ```
 
-This will run the 3B pre-trained model and require ~7 GB of GPU memory using the `bfloat16` datatype.
+This will run the 3B pretrained model and require ~7 GB of GPU memory using the `bfloat16` datatype.
 
 [Full guide for generating samples from the model](tutorials/inference.md).
 
@@ -207,9 +210,16 @@ Looking for conceptual tutorials and explanations? We have some additional artic
 
 &nbsp;
 
-## Pre-training
+## Pretraining
 
-Porting from Lit-LLaMA in progress 👷
+
+
+We provide simple training scripts based on Fabric if you want to venture into pretraining. Conversion scripts for our optimized streaming `PackedDataset` are included.
+
+Follow this guide to start pretraining on
+
+- [RedPajama, a reproduction of LLaMA's training set](tutorials/pretrain_redpajama.md)
+- [OpenWeb Text, a reproduction of GPT-2's dataset](tutorials/pretrain_openwebtext.md)
 
 &nbsp;
 
@@ -232,7 +242,7 @@ We are on a quest towards fully open source AI.
 
 Join us and start contributing, especially on the following areas:
 
-- [ ] [Pre-training](https://github.com/Lightning-AI/lit-gpt/labels/pre-training)
+- [ ] [Pretraining](https://github.com/Lightning-AI/lit-gpt/labels/pre-training)
 - [ ] [Fine-tuning](https://github.com/Lightning-AI/lit-gpt/labels/fine-tuning)
 - [ ] [Quantization](https://github.com/Lightning-AI/lit-gpt/labels/quantization)
 - [ ] [Sparsification](https://github.com/Lightning-AI/lit-gpt/labels/sparsification)
@@ -249,7 +259,7 @@ Don't forget to [join our Discord](https://discord.gg/VptPCZkGNa)!
 ## Acknowledgements
 
 - [@karpathy](https://github.com/karpathy) for [nanoGPT](https://github.com/karpathy/nanoGPT)
-- [@EleutherAI](https://github.com/EleutherAI) for [GPT-NeoX](https://github.com/EleutherAI/gpt-neox)
+- [@EleutherAI](https://github.com/EleutherAI) for [GPT-NeoX](https://github.com/EleutherAI/gpt-neox) and the [Evaluation Harness](https://github.com/EleutherAI/lm-evaluation-harness)
 - [@TimDettmers](https://github.com/TimDettmers) for [bitsandbytes](https://github.com/TimDettmers/bitsandbytes)
 - [@IST-DASLab](https://github.com/IST-DASLab) for [GPTQ](https://github.com/IST-DASLab/gptq)
 - [@Microsoft](https://github.com/microsoft) for [LoRA](https://github.com/microsoft/LoRA)
