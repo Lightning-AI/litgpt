@@ -37,7 +37,7 @@ Supports the following popular model checkpoints:
 | EleutherAI [Pythia](tutorials/download_pythia.md)                              | [Biderman et al. 2023](https://arxiv.org/abs/2304.01373)                                         |
 | StabilityAI [StableLM](tutorials/download_stablelm.md)                         | [Stability AI 2023](https://github.com/Stability-AI/StableLM)                                    |
 | Platypus                                                                       | [Lee, Hunter, and Ruiz 2023](https://arxiv.org/abs/2308.07317)                                   |
-| NousResearch Nous-Hermes                                                       | [Model Card](https://huggingface.co/NousResearch/Nous-Hermes-13b)                                |
+| NousResearch Nous-Hermes                                                       | [Model Card](https://huggingface.co/NousResearch)                                |
 
 This implementation extends on [Lit-LLaMA](https://github.com/lightning-AI/lit-llama) and [nanoGPT](https://github.com/karpathy/nanoGPT), and it's **powered by [Lightning Fabric](https://lightning.ai/docs/fabric/stable/) ⚡**.
 
