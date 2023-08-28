@@ -14,7 +14,7 @@ from lightning.fabric.strategies import XLAFSDPStrategy
 wd = Path(__file__).parent.parent.parent.resolve()
 sys.path.append(str(wd))
 
-from generate.base import generate
+from xla.generate.base import generate
 from lit_gpt.adapter import GPT, Config, adapter_filter, mark_only_adapter_as_trainable
 from lit_gpt.speed_monitor import SpeedMonitorFabric as SpeedMonitor
 from lit_gpt.speed_monitor import estimate_flops, measure_flops
@@ -190,7 +190,7 @@ def train(
             val_loss = validate(fabric, model, val_data, tokenizer, longest_seq_length)
             t1 = time.perf_counter() - t0
             speed_monitor.eval_end(t1)
-            rank_print(fabric, f"step {iter_num}: val loss {val_loss:.4f}, val time: {t1 * 1000:.2f}ms")
+            rank_print(fabric, f"step {iter_num}: val loss {val_loss.item():.4f}, val time: {t1 * 1000:.2f}ms")
             fabric.barrier()
         if not is_accumulating and step_count % save_interval == 0:
             checkpoint_path = out_dir / f"iter-{iter_num:06d}-ckpt.pth"
@@ -204,11 +204,12 @@ def validate(
     rank_print(fabric, "Validating ...")
     model.eval()
     losses = torch.zeros(eval_iters)
+    xm.mark_step()
     for k in range(eval_iters):
         input_ids, targets = get_batch(fabric, val_data, longest_seq_length)
         logits = model(input_ids)
-        loss = chunked_cross_entropy(logits[..., :-1, :], targets[..., 1:], chunk_size=0)
-        losses[k] = loss.item()
+        xm.mark_step()
+        losses[k] = chunked_cross_entropy(logits[..., :-1, :], targets[..., 1:], chunk_size=0)
     val_loss = losses.mean()
 
     # produce an example:
@@ -227,7 +228,7 @@ def validate(
     model.reset_cache()
 
     model.train()
-    return val_loss.item()
+    return val_loss
 
 
 def get_batch(
