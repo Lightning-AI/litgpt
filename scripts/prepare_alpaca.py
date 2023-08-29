@@ -91,7 +91,7 @@ def prepare(
 
 def download_if_missing(file_path: Path, file_url: str):
     """Downloads the raw json data file and saves it in the given destination."""
-    if file_path.exists():
+    if file_path.exists() and file_path.stat().st_size > 0:
         return
     with open(file_path, "w", encoding="utf-8") as f:
         f.write(requests.get(file_url).text)
