@@ -35,7 +35,7 @@ def prepare(
     data_repo_id: str = DATA_REPO_ID,
     ignore_index: int = IGNORE_INDEX,
     max_seq_length: Optional[int] = None,
-    hf_access_token: str = None
+    token: Optional[str] = os.getenv("HF_TOKEN")
 ) -> None:
     """Prepare the LIMA dataset for instruction tuning.
 
