@@ -56,7 +56,7 @@ def setup(
     if devices > 1:
         strategy = XLAFSDPStrategy(
             state_dict_type="full",  # change to "sharded" in multi-host environments where the filesystem is not shared
-            sequential_save=True
+            sequential_save=True,
         )
     else:
         strategy = "auto"
