@@ -95,6 +95,8 @@ def get_flops_available(device: torch.device, precision: str) -> Optional[float]
 
         if device_name is not None:
             try:
+                if precision == "transformer-engine":
+                    precision = "8-mixed"
                 return int(GPU_AVAILABLE_FLOPS[device_name][precision])
             except KeyError:
                 raise KeyError(
