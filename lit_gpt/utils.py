@@ -496,18 +496,15 @@ def map_old_state_dict_weights(state_dict: Dict, mapping: Mapping, prefix: str) 
     return state_dict
 
 
-def get_default_supported_precision(training: bool, tpu: bool = False) -> str:
+def get_default_supported_precision(training: bool) -> str:
     """Return default precision that is supported by the hardware.
 
     Args:
         training: `-mixed` or `-true` version of the precision to use
-        tpu: whether TPU device is used
 
     Returns:
         default precision that is suitable for the task and is supported by the hardware
     """
-    if tpu:
-        return "32-true"
     if not torch.cuda.is_available() or torch.cuda.is_bf16_supported():
         return "bf16-mixed" if training else "bf16-true"
     return "16-mixed" if training else "16-true"

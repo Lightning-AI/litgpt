@@ -9,7 +9,7 @@ import numpy as np
 import torch
 from lightning.pytorch.callbacks import ModelCheckpoint
 from lightning.pytorch.loggers import CSVLogger
-from lightning.pytorch.strategies import FSDPStrategy, XLAStrategy
+from lightning.pytorch.strategies import FSDPStrategy
 from torch.utils.data import DataLoader, IterableDataset
 
 # support running without installing as a package
@@ -100,23 +100,18 @@ class LightningGPTModule(L.LightningModule):
         self.log("val_loss", loss, on_step=False, on_epoch=True, prog_bar=True)
 
 
-def main(devices: int = 1, precision: Optional[str] = None, tpu: bool = False) -> None:
-    precision = precision or get_default_supported_precision(training=True, tpu=tpu)
+def main(devices: int = 1, precision: Optional[str] = None) -> None:
+    precision = precision or get_default_supported_precision(training=True)
 
     if devices > 1:
-        if tpu:
-            # For multi-host TPU training, the device count for Fabric is limited to the count on a single host.
-            devices = "auto"
-            strategy = XLAStrategy(sync_module_states=False)
-        else:
-            strategy = FSDPStrategy(
-                auto_wrap_policy={Block},
-                activation_checkpointing_policy={Block},
-                # the argument is not available in the Trainer strategy, but it's the default anyways
-                # state_dict_type="full",
-                limit_all_gathers=True,
-                cpu_offload=False,
-            )
+        strategy = FSDPStrategy(
+            auto_wrap_policy={Block},
+            activation_checkpointing_policy={Block},
+            # the argument is not available in the Trainer strategy, but it's the default anyways
+            # state_dict_type="full",
+            limit_all_gathers=True,
+            cpu_offload=False,
+        )
     else:
         strategy = "auto"
 
