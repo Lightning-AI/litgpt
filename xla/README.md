@@ -38,6 +38,9 @@ gcloud compute tpus tpu-vm ssh tmp --worker=all --command="cd ~; bash run_desire
 gcloud compute tpus tpu-vm ssh tmp --worker=all --command="pkill -e python"
 ```
 
+Notice how the commands to install the environment and prepare checkpoints need to be run on all workers, since the filesystem
+for each worker (host) is not shared.
+
 For the rest of this tutorial, it will be assumed that it is being run on a single host for simplicity.
 
 </details>
@@ -105,6 +108,28 @@ To get started fine-tuning Falcon 7B with adapter, run the following command:
 ```shell
 python3 xla/finetune/adapter.py --checkpoint_dir checkpoints/tiiuae/falcon-7b --precision bf16-true
 ```
+
+<details>
+<summary>Multihost caveats</summary>
+  
+This script is configured to save "full" checkpoints, which isn't possible on multihost TPU VMs.
+Here's how you can consolidate them together into a single one after training with `state_dict_type="sharded"`:
+
+```shell
+path_to_shards="out/adapter/alpaca/lit_model_adapter_finetuned"
+mkdir -p $path_to_shards
+workers=4  # 4 hosts
+for ((i = 0; i < workers; i++)); do
+  # aggregate all shards locally
+  gcloud compute tpus tpu-vm scp --worker=$i "lit-gpt:${path_to_shards}/*" "${path_to_shards}/" --zone us-central2-b
+done
+# copy all shards to all workers
+gcloud compute tpus tpu-vm scp --worker=all ${path_to_shards}/* "lit-gpt:${path_to_shards}/" --zone us-central2-b
+# consolidate the shards in each worker
+gcloud compute tpus tpu-vm ssh tmp --worker=all --command="python -m torch_xla.distributed.fsdp.consolidate_sharded_ckpts --ckpt_prefix ${path_to_shards}/checkpoint --ckpt_suffix '_rank-*-of-*.pth' --save_path ${path_to_shards}.pth" --zone us-central2-b
+```
+
+</details>
 
 To generate text with the adapter fine-tuned model weights, use the following command:
 

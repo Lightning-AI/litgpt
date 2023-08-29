@@ -53,7 +53,13 @@ def setup(
     out_dir: Path = Path("out/adapter/alpaca"),
     precision: str = "bf16-true",
 ):
-    strategy = XLAFSDPStrategy(state_dict_type="full", sequential_save=True) if devices > 1 else "auto"
+    if devices > 1:
+        strategy = XLAFSDPStrategy(
+            state_dict_type="full",  # change to "sharded" in multi-host environments where the filesystem is not shared
+            sequential_save=True
+        )
+    else:
+        strategy = "auto"
     logger = step_csv_logger(out_dir.parent, out_dir.name, flush_logs_every_n_steps=log_interval)
     fabric = L.Fabric(devices=devices, strategy=strategy, precision=precision, loggers=logger)
     rank_print(fabric, hparams)

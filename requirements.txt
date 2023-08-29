@@ -1,5 +1,5 @@
 # torch>=2.1.0dev
-lightning @ git+https://github.com/Lightning-AI/lightning@master
+lightning @ git+https://github.com/Lightning-AI/lightning@carmocca/xlafsdp-ckpt-fixes
 jsonargparse[signatures]  # CLI
 
 # other optional dependencies are

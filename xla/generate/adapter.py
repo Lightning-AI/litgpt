@@ -49,7 +49,7 @@ def setup(
     fabric_devices = devices
     if devices > 1:
         fabric_devices = "auto"
-        strategy = XLAFSDPStrategy()
+        strategy = XLAFSDPStrategy(state_dict_type="full")
     else:
         strategy = "auto"
     fabric = L.Fabric(devices=fabric_devices, precision=precision, strategy=strategy)
