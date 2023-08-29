@@ -56,6 +56,9 @@ class Config:
         # vocab size should be a power of 2 to be optimal on hardware. compute the closest value
         if self.padded_vocab_size is None:
             self.padded_vocab_size = find_multiple(self.vocab_size, self.padding_multiple)
+        else:
+            # vocab size shouldn't be larger than padded vocab size
+            self.vocab_size = min(self.vocab_size, self.padded_vocab_size)
         # compute the number of query groups
         if self.n_query_groups is not None:
             assert self.n_head % self.n_query_groups == 0
