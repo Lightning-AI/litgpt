@@ -69,7 +69,8 @@ TPU_AVAILABLE_FLOPS = {
     "v3": 123e12,
     # source: https://cloud.google.com/tpu/docs/system-architecture-tpu-vm#tpu_v4
     "v4": 275e12,
-    "v5": 1e1,
+    # source: https://cloud.google.com/tpu/docs/v5e-training
+    "v5litepod": 197e12,
 }
 
 
@@ -110,13 +111,13 @@ def get_flops_available(device: torch.device, precision: str) -> Optional[float]
             from torch_xla.experimental import tpu
 
         device_name = tpu.get_tpu_env()["TYPE"].lower()
-        for chip in TPU_AVAILABLE_FLOPS:
-            if device_name.startswith(chip):
-                return int(TPU_AVAILABLE_FLOPS[chip])
-        raise KeyError(
-            f"flop count not found for {device_name} with precision: {precision}; "
-            "MFU cannot be calculated and reported."
-        )
+        try:
+            return int(TPU_AVAILABLE_FLOPS[device_name])
+        except KeyError:
+            raise KeyError(
+                f"flop count not found for {device_name} with precision: {precision}; "
+                "MFU cannot be calculated and reported."
+            )
 
     return None
 
