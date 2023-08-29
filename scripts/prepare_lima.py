@@ -5,7 +5,6 @@ import os
 from pathlib import Path
 from typing import Optional
 
-from datasets import load_dataset
 import torch
 from torch.utils.data import random_split
 from tqdm import tqdm
