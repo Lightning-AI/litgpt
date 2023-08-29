@@ -3,13 +3,14 @@
 Currently supported datasets:
 
 
-| Name | Task | Size | Reference Repo | Paper / Blog | |
+| Name         | Task        | Size                | Reference Repo                                                  | Paper / Blog                                                                                                              |   |
 |--------------|-------------|---------------------|-----------------------------------------------------------------|---------------------------------------------------------------------------------------------------------------------------|---|
-| Alpaca | Finetuning | 51,759 samples | [URL](https://github.com/tatsu-lab/stanford_alpaca) | [URL](https://crfm.stanford.edu/2023/03/13/alpaca.html) | |
-| Alpaca Libre | Finetuning | 55,370 samples | [URL](https://github.com/mobarski/alpaca-libre) | - | |
-| Dolly | Finetuning | 15,011 samples | [URL](https://github.com/databrickslabs/dolly/tree/master/data) | [URL](https://www.databricks.com/blog/2023/04/12/dolly-first-open-commercially-viable-instruction-tuned-llm) | |
-| OpenWeb Text | Pretraining | 8,013,769 documents | [URL](https://github.com/jcpeterson/openwebtext) | [URL](https://d4mucfpksywv.cloudfront.net/better-language-models/language_models_are_unsupervised_multitask_learners.pdf) | |
-| RedPajama | Pretraining | 1.2 T tokens | [URL](https://github.com/togethercomputer/RedPajama-Data) | [URL](https://together.ai/blog/redpajama-models-v1) | |
+| Alpaca       | Finetuning  | 51,759 samples      | [URL](https://github.com/tatsu-lab/stanford_alpaca)             | [URL](https://crfm.stanford.edu/2023/03/13/alpaca.html)                                                                   |   |
+| Alpaca Libre | Finetuning  | 55,370 samples      | [URL](https://github.com/mobarski/alpaca-libre)                 | -                                                                                                                         |   |
+| Dolly        | Finetuning  | 15,011 samples      | [URL](https://github.com/databrickslabs/dolly/tree/master/data) | [URL](https://www.databricks.com/blog/2023/04/12/dolly-first-open-commercially-viable-instruction-tuned-llm)              |   |
+| LIMA         | Finetuning  | 1,084 samples       | [URL](https://huggingface.co/datasets/GAIR/lima)                | [URL](https://arxiv.org/abs/2305.11206)                                                                                   |   |
+| OpenWeb Text | Pretraining | 8,013,769 documents | [URL](https://github.com/jcpeterson/openwebtext)                | [URL](https://d4mucfpksywv.cloudfront.net/better-language-models/language_models_are_unsupervised_multitask_learners.pdf) |   |
+| RedPajama    | Pretraining | 1.2 T tokens        | [URL](https://github.com/togethercomputer/RedPajama-Data)       | [URL](https://together.ai/blog/redpajama-models-v1)                                                                       |   |
 
 &nbsp;
 
@@ -77,7 +78,7 @@ Please read the [tutorials/finetune_*.md](../tutorials) documents for more infor
 
 ### Dolly
 
-The Dolly dataset is a publicly available collection of 15k instruction-following entries created by Databricks. It spans multiple behavioral domains, as described in the [InstructGPT paper](https://arxiv.org/abs/2203.02155). These include areas like brainstorming, classification, closed QA, content creation, information retrieval, open QA, and summary generation.
+The Dolly dataset is a publicly available collection of 15k instruction-following entries created by Databricks. It spans multiple behavioral domains, as described in the [InstructGPT paper](https://arxiv.org/abs/2203.02155) paper. These include areas like brainstorming, classification, closed QA, content creation, information retrieval, open QA, and summary generation.
 
 The usage is similar to the Alpaca dataset described above. Using Falcon 7b as an example, we can prepare the dataset as follows:
 
@@ -89,6 +90,34 @@ python scripts/prepare_dolly.py \
  --destination_path "data/dolly"
 ```
 
+By default, the maximum sequence length is obtained from the model configuration file. In case you run into out-of-memory errors, 
+you can try to lower the context length via the `--max_seq_length` argument manually, for example, setting `--max_seq_length 2048`.
+
+
+&nbsp;
+
+### LIMA
+
+The LIMA dataset is a collection of 1,000 carefully curated prompts and responses, as described in the [LIMA: Less Is More for Alignment](https://arxiv.org/abs/2305.11206) paper. 
+
+The usage is similar to the Dolly dataset described above except that it requires an Hugging Face access token that you need to copy & paste from your Hugging Face account. Using Falcon 7b as an example, we can prepare the dataset as follows:
+
+```bash
+python scripts/prepare_lima.py \
+ --checkpoint_dir "checkpoints/tiiuae/falcon-7b" \
+ --hf_access_token "insert_your_token_here" \
+ --destination_path "data/lima"
+```
+
+LIMA contains a handful of multiturn conversations. By default, only the first instruction-response pairs from 
+each of these multiturn conversations are included. If you want to override this behavior and include the follow up instructions 
+and responses, set `--include_multiturn_conversations True`.
+
+By default, the maximum sequence length is obtained from the model configuration file. In case you run into out-of-memory errors, 
+you can try to lower the context length via the `--max_seq_length` argument manually, for example, setting `--max_seq_length 2048`.
+
+
+&nbsp;
 
 ## Preparing Pretraining Datasets
 
