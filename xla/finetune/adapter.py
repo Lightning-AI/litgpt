@@ -23,9 +23,9 @@ from lit_gpt.utils import check_valid_checkpoint_dir, chunked_cross_entropy, laz
 from scripts.prepare_alpaca import generate_prompt
 from xla.utils import rank_print
 
-eval_interval = 100
-save_interval = 100
-eval_iters = 100
+eval_interval = 200
+save_interval = 200
+eval_iters = 50
 log_interval = 1
 devices = XLAAccelerator.auto_device_count()
 # change this value to force a maximum sequence length
@@ -33,8 +33,8 @@ override_max_seq_length = None
 
 # Hyperparameters
 learning_rate = 3e-3
-batch_size = 4
-micro_batch_size = 4
+batch_size = 1
+micro_batch_size = 1
 gradient_accumulation_iters = batch_size // micro_batch_size
 assert gradient_accumulation_iters > 0
 epoch_size = 50000  # train dataset size
@@ -55,7 +55,7 @@ def setup(
 ):
     if devices > 1:
         strategy = XLAFSDPStrategy(
-            state_dict_type="full",  # change to "sharded" in multi-host environments where the filesystem is not shared
+            state_dict_type="sharded",  # change to "sharded" in multi-host environments where the filesystem is not shared
             sequential_save=True,
         )
     else:
