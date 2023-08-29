@@ -56,7 +56,7 @@ def setup(
     if devices > 1:
         strategy = XLAFSDPStrategy(
             auto_wrap_policy={Block},
-            autivation_checkpointing_policy={Block},
+            activation_checkpointing_policy={Block},
             state_dict_type="sharded",  # change to "sharded" in multi-host environments where the filesystem is not shared
             sequential_save=True,
         )
