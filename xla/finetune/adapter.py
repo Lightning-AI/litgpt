@@ -90,12 +90,13 @@ def main(fabric: L.Fabric, data_dir: Path, checkpoint_dir: Path, out_dir: Path):
         # strict=False because missing keys due to adapter weights not contained in state dict
         model.load_state_dict(checkpoint, strict=False)
 
+    model = fabric.setup_module(model)
+    # mark as trainable only after sharding due to https://github.com/pytorch/xla/pull/5484
     mark_only_adapter_as_trainable(model)
-
+    # these are not correct in the sharding case
     rank_print(fabric, f"Number of trainable parameters: {num_parameters(model, requires_grad=True):,}")
     rank_print(fabric, f"Number of non trainable parameters: {num_parameters(model, requires_grad=False):,}")
 
-    model = fabric.setup_module(model)
     trainable_params = [p for p in model.parameters() if p.requires_grad]
     optimizer = torch.optim.SGD(trainable_params, lr=learning_rate)
     optimizer = fabric.setup_optimizers(optimizer)
