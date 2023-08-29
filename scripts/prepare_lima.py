@@ -45,8 +45,9 @@ def prepare(
 
     if hf_access_token is None:
         raise ValueError(
-            "This dataset requires authentication. Please provide "
-            "your Hugging Face Access Token via `--hf_access_token`."
+            "LIMA requires authentication, please set the `HF_TOKEN=your_token` environment"
+            " variable or pass --token=your_token. You can find your token by visiting"
+            " https://huggingface.co/settings/tokens"
         )
 
     if max_seq_length is None:
