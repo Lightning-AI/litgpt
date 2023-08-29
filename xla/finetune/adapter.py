@@ -15,7 +15,7 @@ wd = Path(__file__).parent.parent.parent.resolve()
 sys.path.append(str(wd))
 
 from xla.generate.base import generate
-from lit_gpt.adapter import GPT, Config, adapter_filter, mark_only_adapter_as_trainable
+from lit_gpt.adapter import GPT, Config, adapter_filter, mark_only_adapter_as_trainable, Block
 from lit_gpt.speed_monitor import SpeedMonitorFabric as SpeedMonitor
 from lit_gpt.speed_monitor import estimate_flops, measure_flops
 from lit_gpt.tokenizer import Tokenizer
@@ -55,6 +55,8 @@ def setup(
 ):
     if devices > 1:
         strategy = XLAFSDPStrategy(
+            auto_wrap_policy={Block},
+            autivation_checkpointing_policy={Block},
             state_dict_type="sharded",  # change to "sharded" in multi-host environments where the filesystem is not shared
             sequential_save=True,
         )
