@@ -17,7 +17,7 @@ from lit_gpt.tokenizer import Tokenizer
 DATA_FILE_URL = "https://raw.githubusercontent.com/tloen/alpaca-lora/main/alpaca_data_cleaned_archive.json"
 DATA_FILE_NAME = "alpaca_data_cleaned_archive.json"
 DESTINATION_PATH = Path("data/alpaca")
-CHECKPOINT_DIR = Path("checkpoints/tiiuae/falcon-7b")
+CHECKPOINT_DIR = Path("checkpoints/stabilityai/stablelm-base-alpha-3b")
 TEST_SPLIT_FRACTION = 0.03865  # to get exactly 2000 test samples
 IGNORE_INDEX = -1
 MASK_INPUTS = False  # as in alpaca-lora
