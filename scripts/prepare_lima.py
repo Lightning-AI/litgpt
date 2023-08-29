@@ -58,6 +58,7 @@ def prepare(
     destination_path.mkdir(parents=True, exist_ok=True)
     print("Loading data file...")
 
+    from datasets import load_dataset
     dataset = load_dataset(data_repo_id, use_auth_token=hf_access_token)
     train_data = format_dataset(dataset["train"], include_multiturn_conversations)
 
