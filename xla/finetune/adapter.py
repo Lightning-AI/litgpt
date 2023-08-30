@@ -15,26 +15,29 @@ wd = Path(__file__).parent.parent.parent.resolve()
 sys.path.append(str(wd))
 
 from xla.generate.base import generate
-from lit_gpt.adapter import GPT, Config, adapter_filter, mark_only_adapter_as_trainable
+from lit_gpt.adapter import GPT, Config, adapter_filter, mark_only_adapter_as_trainable, Block
 from lit_gpt.speed_monitor import SpeedMonitorFabric as SpeedMonitor
 from lit_gpt.speed_monitor import estimate_flops, measure_flops
 from lit_gpt.tokenizer import Tokenizer
 from lit_gpt.utils import check_valid_checkpoint_dir, chunked_cross_entropy, lazy_load, num_parameters, step_csv_logger
 from scripts.prepare_alpaca import generate_prompt
-from xla.utils import rank_print
+from xla.utils import rank_print, sequential_load_and_fsdp_wrap
 
-eval_interval = 100
-save_interval = 100
+eval_interval = 200
+save_interval = 200
 eval_iters = 100
 log_interval = 1
 devices = XLAAccelerator.auto_device_count()
 # change this value to force a maximum sequence length
 override_max_seq_length = None
+# the state of very large models will not fit on the system RAM, this flag can alleviate it by loading it on each rank
+# sequentially
+reduce_cpu_memory_usage_during_load = False
 
 # Hyperparameters
 learning_rate = 3e-3
 batch_size = 4
-micro_batch_size = 4
+micro_batch_size = batch_size
 gradient_accumulation_iters = batch_size // micro_batch_size
 assert gradient_accumulation_iters > 0
 epoch_size = 50000  # train dataset size
@@ -55,6 +58,8 @@ def setup(
 ):
     if devices > 1:
         strategy = XLAFSDPStrategy(
+            auto_wrap_policy={Block},
+            activation_checkpointing_policy={Block},
             state_dict_type="full",  # change to "sharded" in multi-host environments where the filesystem is not shared
             sequential_save=True,
         )
@@ -82,18 +87,23 @@ def main(fabric: L.Fabric, data_dir: Path, checkpoint_dir: Path, out_dir: Path):
     config = Config.from_name(name=checkpoint_dir.name, adapter_start_layer=0)
     checkpoint_path = checkpoint_dir / "lit_model.pth"
     rank_print(fabric, f"Loading model {str(checkpoint_path)!r} with {config.__dict__}")
-    with fabric.init_module(empty_init=False):
-        model = GPT(config)
-    with lazy_load(checkpoint_path) as checkpoint:
-        # strict=False because missing keys due to adapter weights not contained in state dict
-        model.load_state_dict(checkpoint, strict=False)
 
+    if reduce_cpu_memory_usage_during_load:
+        model = sequential_load_and_fsdp_wrap(fabric, lambda: GPT(config), checkpoint_path)
+    else:
+        with fabric.init_module(empty_init=False):
+            model = GPT(config)
+        with lazy_load(checkpoint_path) as checkpoint:
+            # strict=False because missing keys due to adapter weights not contained in state dict
+            model.load_state_dict(checkpoint, strict=False)
+
+    model = fabric.setup_module(model)
+    # mark as trainable only after sharding due to https://github.com/pytorch/xla/pull/5484
     mark_only_adapter_as_trainable(model)
-
+    # these are not correct in the sharding case
     rank_print(fabric, f"Number of trainable parameters: {num_parameters(model, requires_grad=True):,}")
     rank_print(fabric, f"Number of non trainable parameters: {num_parameters(model, requires_grad=False):,}")
 
-    model = fabric.setup_module(model)
     trainable_params = [p for p in model.parameters() if p.requires_grad]
     optimizer = torch.optim.SGD(trainable_params, lr=learning_rate)
     optimizer = fabric.setup_optimizers(optimizer)

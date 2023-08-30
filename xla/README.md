@@ -106,6 +106,8 @@ Subsequent generations will take around 2 seconds.
 To get started fine-tuning Falcon 7B with adapter, run the following command:
 
 ```shell
+python3 scripts/prepare_alpaca.py --checkpoint_dir checkpoints/tiiuae/falcon-7b
+
 python3 xla/finetune/adapter.py --checkpoint_dir checkpoints/tiiuae/falcon-7b --precision bf16-true
 ```
 
@@ -130,6 +132,9 @@ gcloud compute tpus tpu-vm ssh tmp --worker=all --command="python -m torch_xla.d
 ```
 
 </details>
+
+Since the TPU VM host RAM is limited (200 GB), we implement a technique to sequentially load and shard the checkpoint that can be enabled by
+setting `reduce_cpu_memory_usage_during_load = True`. This is necessary to load falcon-40b.
 
 To generate text with the adapter fine-tuned model weights, use the following command:
 
