@@ -32,7 +32,7 @@ def download_from_hub(repo_id: Optional[str] = None, access_token: Optional[str]
         local_dir_use_symlinks=False,
         resume_download=True,
         allow_patterns=["*.bin*", "tokenizer*", "generation_config.json"],
-        token=token,
+        token=access_token,
     )
 
 
