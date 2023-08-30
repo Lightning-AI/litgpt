@@ -37,7 +37,7 @@ def prepare(
     data_file_url: str = DATA_FILE_URL,
     ignore_index: int = IGNORE_INDEX,
 ) -> None:
-    """Prepre the Alpaca dataset for instruction tuning.
+    """Prepare the Alpaca dataset for instruction tuning.
 
     The output is a training and test dataset saved as `train.pt` and `test.pt`,
     which stores the preprocessed and tokenized prompts and labels.

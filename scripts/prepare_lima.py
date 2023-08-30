@@ -34,7 +34,7 @@ def prepare(
     include_multiturn_conversations: bool = False,
     data_repo_id: str = DATA_REPO_ID,
     ignore_index: int = IGNORE_INDEX,
-    access_token: Optional[str] = os.getenv("HF_TOKEN")
+    access_token: Optional[str] = os.getenv("HF_TOKEN"),
 ) -> None:
     """Prepare the LIMA dataset for instruction tuning.
 
@@ -57,6 +57,7 @@ def prepare(
     print("Loading data file...")
 
     from datasets import load_dataset
+
     dataset = load_dataset(data_repo_id, use_auth_token=access_token)
     train_data = format_dataset(dataset["train"], include_multiturn_conversations)
 
@@ -110,17 +111,11 @@ def format_dataset(dataset_partition, include_multi_turn_conversations):
     for entry in dataset_partition:
         convo = entry["conversations"]
         if include_multi_turn_conversations:
-            for i in range(0, len(convo)-1, 2):
-                formatted_ds.append(
-                    {"instruction": convo[i],
-                    "input": "",
-                    "output": convo[i + 1]})
+            for i in range(0, len(convo) - 1, 2):
+                formatted_ds.append({"instruction": convo[i], "input": "", "output": convo[i + 1]})
 
         else:
-            formatted_ds.append(
-                {"instruction": convo[0],
-                "input": "",
-                "output": convo[1]})      
+            formatted_ds.append({"instruction": convo[0], "input": "", "output": convo[1]})
 
     return formatted_ds
 
