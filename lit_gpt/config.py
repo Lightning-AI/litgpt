@@ -603,10 +603,6 @@ configs.extend(freewilly_2)
 
 code_llama = [
     
-    ################
-    ## Base Model ##	
-    ################
-    
     # https://huggingface.co/codellama/CodeLlama-7b-hf/blob/main/config.json
     dict(
         org="codellama",
@@ -665,12 +661,7 @@ code_llama = [
         intermediate_size=22016,
     ),
     
-    
-    ################
-    ##   Python   ##	
-    ################
-    
-    # https://huggingface.co/codellama/CodeLlama-7b-Python-hf/tree/main
+    # https://huggingface.co/codellama/CodeLlama-7b-Python-hf/blob/main/config.json
     dict(
         org="codellama",
         name="CodeLlama-7b-Python-hf",
@@ -708,7 +699,7 @@ code_llama = [
         intermediate_size=13824,
     ),
     
-    # https://huggingface.co/codellama/CodeLlama-34b-Python-hf/tree/main
+    # https://huggingface.co/codellama/CodeLlama-34b-Python-hf/blob/main/config.json
     dict(
         org="codellama",
         name="CodeLlama-34b-Python-hf",
@@ -728,13 +719,7 @@ code_llama = [
         intermediate_size=22016,
     ),
     
-    
-    ################
-    ##  Instruct  ##	
-    ################
-    
-    
-    # https://huggingface.co/codellama/CodeLlama-7b-Instruct-hf/tree/main
+    # https://huggingface.co/codellama/CodeLlama-7b-Instruct-hf/tree/main/config.json
     dict(
         org="codellama",
         name="CodeLlama-7b-Instruct-hf",
