@@ -40,7 +40,7 @@ Supports the following popular model checkpoints:
 | StabilityAI [StableLM](tutorials/download_stablelm.md)                         | [Stability AI 2023](https://github.com/Stability-AI/StableLM)                                    |
 | Platypus                                                                       | [Lee, Hunter, and Ruiz 2023](https://arxiv.org/abs/2308.07317)                                   |
 | NousResearch Nous-Hermes                                                       | [Org page](https://huggingface.co/NousResearch)                                                  |
-| Meta AI Code Llama                                                             | [Rozière et al. 2023](https://arxiv.org/abs/2308.12950)                                          |
+| Meta AI [Code Llama](tutorials/download_code_llama.md)                                                             | [Rozière et al. 2023](https://arxiv.org/abs/2308.12950)                                          |
 
 This implementation extends on [Lit-LLaMA](https://github.com/lightning-AI/lit-llama) and [nanoGPT](https://github.com/karpathy/nanoGPT), and it's **powered by [Lightning Fabric](https://lightning.ai/docs/fabric/stable/) ⚡**.
 
