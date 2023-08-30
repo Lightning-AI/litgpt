@@ -1,10 +1,10 @@
 """Implementation derived from https://github.com/tloen/alpaca-lora"""
 import json
 import sys
+import os
 from pathlib import Path
 from typing import Optional
 
-import requests
 import torch
 from torch.utils.data import random_split
 from tqdm import tqdm
@@ -15,56 +15,63 @@ sys.path.append(str(wd))
 
 from lit_gpt.tokenizer import Tokenizer
 
-DATA_FILE_URL = (
-    "https://huggingface.co/datasets/databricks/databricks-dolly-15k/resolve/main/databricks-dolly-15k.jsonl"
-)
-DATA_FILE_NAME = "dolly_data_cleaned.json"
-DESTINATION_PATH = Path("data/dolly")
+DATA_REPO_ID = "GAIR/lima"
+DATA_FILE_NAME = "lima_data_cleaned_archive.json"
+DESTINATION_PATH = Path("data/lima")
 CHECKPOINT_DIR = Path("checkpoints/stabilityai/stablelm-base-alpha-3b")
 TEST_SPLIT_FRACTION = 0.1
+MASK_INPUTS = False  # as in alpaca-lora
 IGNORE_INDEX = -1
-MASK_INPUTS = False
 SEED = 42
 
 
 def prepare(
     destination_path: Path = DESTINATION_PATH,
-    checkpoint_dir: Path = CHECKPOINT_DIR,
     test_split_fraction: float = TEST_SPLIT_FRACTION,
-    seed: int = SEED,
+    checkpoint_dir: Path = CHECKPOINT_DIR,
     mask_inputs: bool = MASK_INPUTS,
-    data_file_name: str = DATA_FILE_NAME,
-    data_file_url: str = DATA_FILE_URL,
+    seed: int = SEED,
+    include_multiturn_conversations: bool = False,
+    data_repo_id: str = DATA_REPO_ID,
     ignore_index: int = IGNORE_INDEX,
+    access_token: Optional[str] = os.getenv("HF_TOKEN"),
 ) -> None:
-    """Prepare the Alpaca dataset for instruction tuning.
+    """Prepare the LIMA dataset for instruction tuning.
 
     The output is a training and test dataset saved as `train.pt` and `test.pt`,
     which stores the preprocessed and tokenized prompts and labels.
     """
+
+    if access_token is None:
+        raise ValueError(
+            "LIMA requires authentication, please set the `HF_TOKEN=your_token` environment"
+            " variable or pass --access_token=your_token. You can find your token by visiting"
+            " https://huggingface.co/settings/tokens"
+        )
 
     with open(checkpoint_dir / "lit_config.json", "r", encoding="utf-8") as file:
         config = json.load(file)
         max_seq_length = config["block_size"]
 
     destination_path.mkdir(parents=True, exist_ok=True)
-    data_file_path = destination_path / data_file_name
     print("Loading data file...")
-    download_if_missing(data_file_path, data_file_url)
 
-    with open(data_file_path, "r", encoding="utf-8") as file:
-        data = file.readlines()
-        data = [json.loads(line) for line in data]
-    for item in data:
-        item["input"] = item.pop("context")
-        item["output"] = item.pop("response")
+    from datasets import load_dataset
+
+    dataset = load_dataset(data_repo_id, use_auth_token=access_token)
+    train_data = format_dataset(dataset["train"], include_multiturn_conversations)
+
+    # test set is present but doesn't have any solutions, so we cannot use it here
+    # but have to create our own
+    # for consistency with prepare_alpaca.py and prepare_dolly.py
+    # test_set = format_dataset(dataset["test"], include_multiturn_conversations)
 
     print("Loading tokenizer...")
     tokenizer = Tokenizer(checkpoint_dir)
 
     # Partition the dataset into train and test
     train_set, test_set = random_split(
-        data, [1.0 - test_split_fraction, test_split_fraction], generator=torch.Generator().manual_seed(seed)
+        train_data, [1.0 - test_split_fraction, test_split_fraction], generator=torch.Generator().manual_seed(seed)
     )
     train_set, test_set = list(train_set), list(test_set)
 
@@ -98,12 +105,19 @@ def prepare(
     torch.save(test_set, destination_path / "test.pt")
 
 
-def download_if_missing(file_path: Path, file_url: str):
-    """Downloads the raw json data file and saves it in the given destination."""
-    if file_path.exists():
-        return
-    with open(file_path, "w", encoding="utf-8") as f:
-        f.write(requests.get(file_url).text)
+def format_dataset(dataset_partition, include_multi_turn_conversations):
+    formatted_ds = []
+
+    for entry in dataset_partition:
+        convo = entry["conversations"]
+        if include_multi_turn_conversations:
+            for i in range(0, len(convo) - 1, 2):
+                formatted_ds.append({"instruction": convo[i], "input": "", "output": convo[i + 1]})
+
+        else:
+            formatted_ds.append({"instruction": convo[0], "input": "", "output": convo[1]})
+
+    return formatted_ds
 
 
 def prepare_sample(
