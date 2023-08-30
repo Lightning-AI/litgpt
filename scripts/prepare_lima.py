@@ -15,25 +15,16 @@ sys.path.append(str(wd))
 
 from lit_gpt.tokenizer import Tokenizer
 
-DATA_REPO_ID = "GAIR/lima"
-DATA_FILE_NAME = "lima_data_cleaned_archive.json"
-DESTINATION_PATH = Path("data/lima")
-CHECKPOINT_DIR = Path("checkpoints/stabilityai/stablelm-base-alpha-3b")
-TEST_SPLIT_FRACTION = 0.1
-MASK_INPUTS = False  # as in alpaca-lora
-IGNORE_INDEX = -1
-SEED = 42
-
 
 def prepare(
-    destination_path: Path = DESTINATION_PATH,
-    test_split_fraction: float = TEST_SPLIT_FRACTION,
-    checkpoint_dir: Path = CHECKPOINT_DIR,
-    mask_inputs: bool = MASK_INPUTS,
-    seed: int = SEED,
+    destination_path: Path = Path("data/lima"),
+    test_split_fraction: float = 0.1,
+    checkpoint_dir: Path = Path("checkpoints/stabilityai/stablelm-base-alpha-3b"),
+    mask_inputs: bool = False,  # as in alpaca-lora
+    seed: int = 42,
     include_multiturn_conversations: bool = False,
-    data_repo_id: str = DATA_REPO_ID,
-    ignore_index: int = IGNORE_INDEX,
+    data_repo_id: str = "GAIR/lima",
+    ignore_index: int = -1,
     access_token: Optional[str] = os.getenv("HF_TOKEN"),
 ) -> None:
     """Prepare the LIMA dataset for instruction tuning.
@@ -120,13 +111,7 @@ def format_dataset(dataset_partition, include_multi_turn_conversations):
     return formatted_ds
 
 
-def prepare_sample(
-    example: dict,
-    tokenizer: Tokenizer,
-    max_length: int,
-    mask_inputs: bool = MASK_INPUTS,
-    ignore_index: int = IGNORE_INDEX,
-):
+def prepare_sample(example: dict, tokenizer: Tokenizer, max_length: int, mask_inputs: bool, ignore_index: int):
     """Processes a single sample.
 
     Each sample in the dataset consists of:

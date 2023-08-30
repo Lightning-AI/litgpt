@@ -15,27 +15,16 @@ sys.path.append(str(wd))
 
 from lit_gpt.tokenizer import Tokenizer
 
-DATA_FILE_URL = (
-    "https://huggingface.co/datasets/databricks/databricks-dolly-15k/resolve/main/databricks-dolly-15k.jsonl"
-)
-DATA_FILE_NAME = "dolly_data_cleaned.json"
-DESTINATION_PATH = Path("data/dolly")
-CHECKPOINT_DIR = Path("checkpoints/stabilityai/stablelm-base-alpha-3b")
-TEST_SPLIT_FRACTION = 0.1
-IGNORE_INDEX = -1
-MASK_INPUTS = False
-SEED = 42
-
 
 def prepare(
-    destination_path: Path = DESTINATION_PATH,
-    checkpoint_dir: Path = CHECKPOINT_DIR,
-    test_split_fraction: float = TEST_SPLIT_FRACTION,
-    seed: int = SEED,
-    mask_inputs: bool = MASK_INPUTS,
-    data_file_name: str = DATA_FILE_NAME,
-    data_file_url: str = DATA_FILE_URL,
-    ignore_index: int = IGNORE_INDEX,
+    destination_path: Path = Path("data/dolly"),
+    checkpoint_dir: Path = Path("checkpoints/stabilityai/stablelm-base-alpha-3b"),
+    test_split_fraction: float = 0.1,
+    seed: int = 42,
+    mask_inputs: bool = False,
+    data_file_name: str = "dolly_data_cleaned.json",
+    data_file_url: str = "https://huggingface.co/datasets/databricks/databricks-dolly-15k/resolve/main/databricks-dolly-15k.jsonl",
+    ignore_index: int = -1,
 ) -> None:
     """Prepare the Alpaca dataset for instruction tuning.
 
@@ -110,8 +99,8 @@ def prepare_sample(
     example: dict,
     tokenizer: Tokenizer,
     max_length: int,
-    mask_inputs: bool = MASK_INPUTS,
-    ignore_index: int = IGNORE_INDEX,
+    mask_inputs: bool,
+    ignore_index: int,
 ):
     """Processes a single sample.
 
