@@ -93,7 +93,7 @@ The usage is similar to the Dolly dataset described above except that it require
 ```bash
 python scripts/prepare_lima.py \
  --checkpoint_dir "checkpoints/tiiuae/falcon-7b" \
- --hf_access_token "insert_your_token_here" \
+ --access_token "insert_your_token_here" \
  --destination_path "data/lima"
 ```
 

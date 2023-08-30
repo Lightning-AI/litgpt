@@ -132,12 +132,8 @@ python scripts/prepare_dolly.py \
   --destination_path data/dolly-stablelm3b
 ```
 
---- 
-**Important Note**
-
-The preprocessed dataset is specific to the StableLM 3B model. If you use a different model like Falcon or Llama 2 later, you'll need to process the dataset with that model checkpoint directory. This is because each model uses a different tokenizer.
-
---- 
+> [!NOTE]
+> The preprocessed dataset is specific to the StableLM 3B model. If you use a different model like Falcon or Llama 2 later, you'll need to process the dataset with that model checkpoint directory. This is because each model uses a different tokenizer.
 
 &nbsp;
 
