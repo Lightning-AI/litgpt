@@ -45,7 +45,7 @@ def prepare(
     if access_token is None:
         raise ValueError(
             "LIMA requires authentication, please set the `HF_TOKEN=your_token` environment"
-            " variable or pass --token=your_token. You can find your token by visiting"
+            " variable or pass --access_token=your_token. You can find your token by visiting"
             " https://huggingface.co/settings/tokens"
         )
 
