@@ -111,9 +111,7 @@ def main(
 
     tokens_generated = y.size(0) - prompt_length
     rank_print(
-        fabric,
-        f"\n\nTime for inference: {t:.02f} sec total, {tokens_generated / t:.02f} tokens/sec",
-        file=sys.stderr,
+        fabric, f"\n\nTime for inference: {t:.02f} sec total, {tokens_generated / t:.02f} tokens/sec", file=sys.stderr
     )
 
 
