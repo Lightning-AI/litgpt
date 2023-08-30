@@ -20,7 +20,7 @@ def rank_print(fabric: L.Fabric, message: object, *, flush: bool = True, **kwarg
         print(message, flush=flush, **kwargs)
 
 
-def materialize_parameters(module: torch.nn.Module, device: torch.device)-> None:
+def materialize_parameters(module: torch.nn.Module, device: torch.device) -> None:
     for module_name, module in module.named_modules():
         if any(
             param.is_meta for param in itertools.chain(module.parameters(recurse=False), module.buffers(recurse=False))
