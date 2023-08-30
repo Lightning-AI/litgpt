@@ -24,8 +24,6 @@ The steps here only need to be done once:
 
 For more information about dataset preparation, also see the [prepare_dataset.md](./prepare_dataset.md) tutorial.
 
-(See [this blog article](https://lightning.ai/blog/how-to-finetune-gpt-like-large-language-models-on-a-custom-dataset) for how to prepare and use custom datasets.)
-
 
 
 ## Running the finetuning
