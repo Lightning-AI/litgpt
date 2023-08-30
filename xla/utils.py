@@ -39,9 +39,8 @@ def sequential_load_and_fsdp_wrap(
     with fabric.init_module(empty_init=False), torch.device("meta"):
         model = get_model()
 
-    # TODO: this could be made more efficient with separate process groups for each host with each local_rank==0
-    # loading the checkpoint
-    if fabric.global_rank == 0:
+    # TODO: this could be made faster by broadcasting in separate process groups for each host
+    if fabric.local_rank == 0:
         # load the full checkpoint on a single rank to limit the system memory usage
         state_dict = torch.load(checkpoint_path, map_location="cpu", mmap=False)  # mmap=True hangs
     else:
