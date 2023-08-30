@@ -105,12 +105,10 @@ python finetune/lora.py
  --out_dir "out/lora/alpaca"
 ```
 
-&nbsp;
+Please read the [tutorials/finetune_*.md](../tutorials) documents for more information about finetuning models.
 
 > [!IMPORTANT]
 > Make sure that the `prepare_*.py` and `finetune/*.py` scripts use the same model checkpoint specified via `--checkpoint_dir`.
-
-Please read the [tutorials/finetune_*.md](../tutorials) documents for more information about finetuning models.
 
 > [!IMPORTANT]
 > By default, the maximum sequence length is obtained from the model configuration file. In case you run into out-of-memory errors, especially in the cases of LIMA and Dolly,  
