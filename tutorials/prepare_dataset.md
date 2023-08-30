@@ -76,9 +76,6 @@ The usage is similar to the Alpaca dataset described above. Using Falcon 7b as a
 ```bash
 python scripts/prepare_dolly.py \
  --checkpoint_dir "checkpoints/tiiuae/falcon-7b" \
- --data_file_url "https://raw.githubusercontent.com/mobarski/alpaca-libre/main/data/output/alpaca_libre_ok_tasks_v4.json" \
- --data_file_name "alpaca_libre_data_cleaned_archive.json" \
- --destination_path "data/dolly"
 ```
 
 
@@ -93,16 +90,12 @@ The usage is similar to the Dolly dataset described above except that it require
 ```bash
 python scripts/prepare_lima.py \
  --checkpoint_dir "checkpoints/tiiuae/falcon-7b" \
- --access_token "insert_your_token_here" \
- --destination_path "data/lima"
+ --access_token "insert_your_token_here"
 ```
 
 LIMA contains a handful of multiturn conversations. By default, only the first instruction-response pairs from 
 each of these multiturn conversations are included. If you want to override this behavior and include the follow up instructions 
 and responses, set `--include_multiturn_conversations True`.
-
-By default, the maximum sequence length is obtained from the model configuration file. In case you run into out-of-memory errors, 
-you can try to lower the context length via the `--max_seq_length` argument manually, for example, setting `--max_seq_length 2048`.
 
 
 &nbsp;
