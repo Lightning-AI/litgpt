@@ -25,7 +25,6 @@ The steps here only need to be done once before preparing the finetuning dataset
 1. Follow the instructions in the [README](../README.md) to install the dependencies.
 2. Download and convert the weights following our [guide](download_falcon.md).
 
-
 &nbsp;
 
 ### Alpaca and Alpaca Libre
@@ -53,7 +52,6 @@ python scripts/prepare_alpaca.py \
 
 To use Alpaca Libre instead of the original Alpaca dataset, use the following command:
 
-
 ```bash
 python scripts/prepare_alpaca.py \
  --checkpoint_dir "checkpoints/tiiuae/falcon-7b" \
@@ -61,9 +59,6 @@ python scripts/prepare_alpaca.py \
  --data_file_name "alpaca_libre_data_cleaned_archive.json" \
  --destination_path "data/alpaca_libre"
 ```
-
-
-
 
 &nbsp;
 
@@ -77,7 +72,6 @@ The usage is similar to the Alpaca dataset described above. Using Falcon 7b as a
 python scripts/prepare_dolly.py \
  --checkpoint_dir "checkpoints/tiiuae/falcon-7b" \
 ```
-
 
 &nbsp;
 
@@ -113,19 +107,14 @@ python finetune/lora.py
 
 &nbsp;
 
-**Important Note About Checkpoint Directories**
-
-It's important to make sure that the `prepare_*.py` and `finetune/*.py` scripts use the same model checkpoint specified via `--checkpoint_dir`.
+> [!IMPORTANT]
+> Make sure that the `prepare_*.py` and `finetune/*.py` scripts use the same model checkpoint specified via `--checkpoint_dir`.
 
 Please read the [tutorials/finetune_*.md](../tutorials) documents for more information about finetuning models.
 
-&nbsp;
-
-**Important Note About Context Lengths**
-
-By default, the maximum sequence length is obtained from the model configuration file. In case you run into out-of-memory errors, especially in
-the cases of LIMA and Dolly,  
-you can try to lower the context length by editing the  [`finetune/lora.py` file](https://github.com/Lightning-AI/lit-gpt/blob/main/finetune/lora.py#L37) and change `override_max_seq_length = None` to `override_max_seq_length = 2048`.
+> [!IMPORTANT]
+> By default, the maximum sequence length is obtained from the model configuration file. In case you run into out-of-memory errors, especially in the cases of LIMA and Dolly,  
+> you can try to lower the context length by editing the  [`finetune/lora.py` file](https://github.com/Lightning-AI/lit-gpt/blob/main/finetune/lora.py#L37) and change `override_max_seq_length = None` to `override_max_seq_length = 2048`.
 
 &nbsp;
 
