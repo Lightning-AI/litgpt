@@ -34,8 +34,7 @@ def prepare(
     include_multiturn_conversations: bool = False,
     data_repo_id: str = DATA_REPO_ID,
     ignore_index: int = IGNORE_INDEX,
-    max_seq_length: Optional[int] = None,
-    token: Optional[str] = os.getenv("HF_TOKEN")
+    access_token: Optional[str] = os.getenv("HF_TOKEN")
 ) -> None:
     """Prepare the LIMA dataset for instruction tuning.
 
@@ -43,23 +42,22 @@ def prepare(
     which stores the preprocessed and tokenized prompts and labels.
     """
 
-    if hf_access_token is None:
+    if access_token is None:
         raise ValueError(
             "LIMA requires authentication, please set the `HF_TOKEN=your_token` environment"
             " variable or pass --token=your_token. You can find your token by visiting"
             " https://huggingface.co/settings/tokens"
         )
 
-    if max_seq_length is None:
-        with open(checkpoint_dir / "lit_config.json", "r", encoding="utf-8") as file:
-            config = json.load(file)
-            max_seq_length = config["block_size"]
+    with open(checkpoint_dir / "lit_config.json", "r", encoding="utf-8") as file:
+        config = json.load(file)
+        max_seq_length = config["block_size"]
 
     destination_path.mkdir(parents=True, exist_ok=True)
     print("Loading data file...")
 
     from datasets import load_dataset
-    dataset = load_dataset(data_repo_id, use_auth_token=hf_access_token)
+    dataset = load_dataset(data_repo_id, use_auth_token=access_token)
     train_data = format_dataset(dataset["train"], include_multiturn_conversations)
 
     # test set is present but doesn't have any solutions, so we cannot use it here
@@ -117,7 +115,7 @@ def format_dataset(dataset_partition, include_multi_turn_conversations):
                     {"instruction": convo[i],
                     "input": "",
                     "output": convo[i + 1]})
-                
+
         else:
             formatted_ds.append(
                 {"instruction": convo[0],
