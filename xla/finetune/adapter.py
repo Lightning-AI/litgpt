@@ -21,7 +21,7 @@ from lit_gpt.speed_monitor import estimate_flops, measure_flops
 from lit_gpt.tokenizer import Tokenizer
 from lit_gpt.utils import check_valid_checkpoint_dir, chunked_cross_entropy, lazy_load, num_parameters, step_csv_logger
 from scripts.prepare_alpaca import generate_prompt
-from xla.utils import rank_print, sequential_init
+from xla.utils import rank_print, sequential_load_and_fsdp_wrap
 
 eval_interval = 200
 save_interval = 200
@@ -89,7 +89,7 @@ def main(fabric: L.Fabric, data_dir: Path, checkpoint_dir: Path, out_dir: Path):
     rank_print(fabric, f"Loading model {str(checkpoint_path)!r} with {config.__dict__}")
 
     if reduce_cpu_memory_usage_during_load:
-        model = sequential_init(fabric, lambda: GPT(config), checkpoint_path)
+        model = sequential_load_and_fsdp_wrap(fabric, lambda: GPT(config), checkpoint_path)
     else:
         with fabric.init_module(empty_init=False):
             model = GPT(config)
