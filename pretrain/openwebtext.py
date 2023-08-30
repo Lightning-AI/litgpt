@@ -7,7 +7,7 @@ from typing import Optional, Union
 import lightning as L
 import numpy as np
 import torch
-from lightning.fabric.strategies import FSDPStrategy, XLAStrategy
+from lightning.fabric.strategies import FSDPStrategy
 from torch.utils.data import DataLoader, IterableDataset
 
 # support running without installing as a package
@@ -49,24 +49,17 @@ hparams = {k: v for k, v in locals().items() if isinstance(v, (int, float, str))
 logger = step_csv_logger("out", name, flush_logs_every_n_steps=log_interval)
 
 
-def setup(
-    devices: int = 1, precision: Optional[str] = None, tpu: bool = False, resume: Union[bool, Path] = False
-) -> None:
-    precision = precision or get_default_supported_precision(training=True, tpu=tpu)
+def setup(devices: int = 1, precision: Optional[str] = None, resume: Union[bool, Path] = False) -> None:
+    precision = precision or get_default_supported_precision(training=True)
 
     if devices > 1:
-        if tpu:
-            # For multi-host TPU training, the device count for Fabric is limited to the count on a single host.
-            devices = "auto"
-            strategy = XLAStrategy(sync_module_states=False)
-        else:
-            strategy = FSDPStrategy(
-                auto_wrap_policy={Block},
-                activation_checkpointing_policy={Block},
-                state_dict_type="full",
-                limit_all_gathers=True,
-                cpu_offload=False,
-            )
+        strategy = FSDPStrategy(
+            auto_wrap_policy={Block},
+            activation_checkpointing_policy={Block},
+            state_dict_type="full",
+            limit_all_gathers=True,
+            cpu_offload=False,
+        )
     else:
         strategy = "auto"
 
@@ -140,11 +133,6 @@ def train(fabric, state, train_dataloader, val_dataloader, speed_monitor):
     total_lengths = 0
     total_t0 = time.perf_counter()
 
-    if fabric.device.type == "xla":
-        import torch_xla.core.xla_model as xm
-
-        xm.mark_step()
-
     train_iter = iter(train_dataloader)
 
     for state["iter_num"] in range(state["iter_num"], max_iters):
@@ -168,8 +156,6 @@ def train(fabric, state, train_dataloader, val_dataloader, speed_monitor):
             optimizer.step()
             optimizer.zero_grad()
             state["step_count"] += 1
-        elif fabric.device.type == "xla":
-            xm.mark_step()
 
         t1 = time.perf_counter()
         total_lengths += input_ids.size(1)

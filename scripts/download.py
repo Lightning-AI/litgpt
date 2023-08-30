@@ -8,7 +8,7 @@ wd = Path(__file__).parent.parent.resolve()
 sys.path.append(str(wd))
 
 
-def download_from_hub(repo_id: Optional[str] = None, token: Optional[str] = os.getenv("HF_TOKEN")) -> None:
+def download_from_hub(repo_id: Optional[str] = None, access_token: Optional[str] = os.getenv("HF_TOKEN")) -> None:
     if repo_id is None:
         from lit_gpt.config import configs
 
@@ -19,10 +19,10 @@ def download_from_hub(repo_id: Optional[str] = None, token: Optional[str] = os.g
 
     from huggingface_hub import snapshot_download
 
-    if "meta-llama" in repo_id and not token:
+    if "meta-llama" in repo_id and not access_token:
         raise ValueError(
             "the meta-llama models require authentication, please set the `HF_TOKEN=your_token` environment"
-            " variable or pass --token=your_token. You can find your token by visiting"
+            " variable or pass --access_token=your_token. You can find your token by visiting"
             " https://huggingface.co/settings/tokens"
         )
 

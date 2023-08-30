@@ -36,7 +36,6 @@ def prepare(
     data_file_name: str = DATA_FILE_NAME,
     data_file_url: str = DATA_FILE_URL,
     ignore_index: int = IGNORE_INDEX,
-    max_seq_length: Optional[int] = None,
 ) -> None:
     """Prepare the Alpaca dataset for instruction tuning.
 
@@ -44,10 +43,9 @@ def prepare(
     which stores the preprocessed and tokenized prompts and labels.
     """
 
-    if max_seq_length is None:
-        with open(checkpoint_dir / "lit_config.json", "r", encoding="utf-8") as file:
-            config = json.load(file)
-            max_seq_length = config["block_size"]
+    with open(checkpoint_dir / "lit_config.json", "r", encoding="utf-8") as file:
+        config = json.load(file)
+        max_seq_length = config["block_size"]
 
     destination_path.mkdir(parents=True, exist_ok=True)
     data_file_path = destination_path / data_file_name
