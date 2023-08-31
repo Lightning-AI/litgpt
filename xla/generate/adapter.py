@@ -12,7 +12,7 @@ wd = Path(__file__).parent.parent.parent.resolve()
 sys.path.append(str(wd))
 
 from lit_gpt import Tokenizer
-from lit_gpt.adapter import GPT, Config
+from lit_gpt.adapter import GPT, Config, Block
 from lit_gpt.utils import check_valid_checkpoint_dir, lazy_load
 from scripts.prepare_alpaca import generate_prompt
 from xla.generate.base import generate
@@ -47,7 +47,7 @@ def setup(
         precision: Indicates the Fabric precision setting to use.
     """
     devices = XLAAccelerator.auto_device_count()
-    strategy = XLAFSDPStrategy() if devices > 1 else "auto"
+    strategy = XLAFSDPStrategy(auto_wrap_policy={Block}) if devices > 1 else "auto"
     fabric = L.Fabric(devices=devices, precision=precision, strategy=strategy)
     fabric.launch(main, prompt, input, adapter_path, checkpoint_dir, max_new_tokens, top_k, temperature)
 
@@ -111,9 +111,7 @@ def main(
 
     tokens_generated = y.size(0) - prompt_length
     rank_print(
-        fabric,
-        f"\n\nTime for inference: {t:.02f} sec total, {tokens_generated / t:.02f} tokens/sec",
-        file=sys.stderr,
+        fabric, f"\n\nTime for inference: {t:.02f} sec total, {tokens_generated / t:.02f} tokens/sec", file=sys.stderr
     )
 
 
