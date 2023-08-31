@@ -18,11 +18,13 @@ The steps here only need to be done once:
 
 3. Download the data and generate the instruction tuning dataset:
 
-   ```bash
-   python scripts/prepare_alpaca.py
-   ```
+```bash
+python scripts/prepare_alpaca.py --checkpoint_dir checkpoints/stabilityai/stablelm-base-alpha-3b
+```
 
-(See [this blog article](https://lightning.ai/blog/how-to-finetune-gpt-like-large-language-models-on-a-custom-dataset) for how to prepare and use custom datasets.)
+or [prepare your own dataset](#tune-on-your-dataset).
+
+For more information about dataset preparation, also see the [prepare_dataset.md](./prepare_dataset.md) tutorial.
 
 ## Running the finetuning
 

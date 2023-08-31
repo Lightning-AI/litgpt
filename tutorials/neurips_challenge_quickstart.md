@@ -129,13 +129,11 @@ The following command will download and preprocess the Dolly15k dataset for the 
 ```bash
 python scripts/prepare_dolly.py \
   --checkpoint_dir checkpoints/stabilityai/stablelm-base-alpha-3b \
-  --destination_path data/dolly-stablelm3b \
-  --max_seq_length 2048
+  --destination_path data/dolly-stablelm3b
 ```
 
-**Important note**
-
-The preprocessed dataset is specific to the StableLM 3B model. If you use a different model like Falcon or Llama 2 later, you'll need to process the dataset with that model checkpoint directory. This is because each model uses a different tokenizer.
+> [!NOTE]
+> The preprocessed dataset is specific to the StableLM 3B model. If you use a different model like Falcon or Llama 2 later, you'll need to process the dataset with that model checkpoint directory. This is because each model uses a different tokenizer.
 
 &nbsp;
 
@@ -144,6 +142,9 @@ The preprocessed dataset is specific to the StableLM 3B model. If you use a diff
 [Low-rank Adaptation (LoRA)](https://lightning.ai/pages/community/tutorial/lora-llm/) is a good choice for a first finetuning run. The Dolly dataset has ~15k samples, and the finetuning might take half an hour. 
 
 To accelerate this for testing purposes, edit the [./finetune/lora.py](https://github.com/Lightning-AI/lit-gpt/blob/main/finetune/lora.py) script and change `max_iters = 50000` to `max_iters = 500` at the top of the file.
+
+> [!NOTE]
+> The Dolly dataset has a relatively long context length, which could result in out-of-memory issues. The maximum context length that is used for the evaluation, [according to the official competition rules](https://llm-efficiency-challenge.github.io/question), is 2,048 tokens. Hence, it's highly recommended to edit the  [`finetune/lora.py` file](https://github.com/Lightning-AI/lit-gpt/blob/main/finetune/lora.py#L37) and change `override_max_seq_length = None` to `override_max_seq_length = 2048`.
 
 The following command finetunes the model:
 

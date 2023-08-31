@@ -95,13 +95,7 @@ def download_if_missing(file_path: Path, file_url: str):
         f.write(requests.get(file_url).text)
 
 
-def prepare_sample(
-    example: dict,
-    tokenizer: Tokenizer,
-    max_length: int,
-    mask_inputs: bool,
-    ignore_index: int,
-):
+def prepare_sample(example: dict, tokenizer: Tokenizer, max_length: int, mask_inputs: bool, ignore_index: int):
     """Processes a single sample.
 
     Each sample in the dataset consists of:

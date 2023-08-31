@@ -192,7 +192,7 @@ More details about each finetuning method and how you can apply it to your own d
 
 &nbsp;
 
-### Finetuning How-To Guides
+### Finetuning how-to guides
 
 These technical tutorials illustrate how to run the finetuning code.
 
@@ -201,7 +201,7 @@ These technical tutorials illustrate how to run the finetuning code.
 
 &nbsp;
 
-### Understanding Finetuning -- Conceptual Tutorials
+### Understanding finetuning -- conceptual tutorials
 
 Looking for conceptual tutorials and explanations? We have some additional articles below:
 
@@ -213,14 +213,22 @@ Looking for conceptual tutorials and explanations? We have some additional artic
 
 ## Pretraining
 
-
-
 We provide simple training scripts based on Fabric if you want to venture into pretraining. Conversion scripts for our optimized streaming `PackedDataset` are included.
 
 Follow this guide to start pretraining on
 
 - [RedPajama, a reproduction of LLaMA's training set](tutorials/pretrain_redpajama.md)
 - [OpenWeb Text, a reproduction of GPT-2's dataset](tutorials/pretrain_openwebtext.md)
+
+
+
+&nbsp;
+
+
+## Supported datasets
+
+Lit-GPT includes a variety of dataset preparation scripts for finetuning and pretraining. Additional information about the datasets and dataset preparation is provided in the [Preparing Datasets](https://github.com/Lightning-AI/lit-gpt/blob/main/tutorials/prepare_dataset.md) tutorial.
+
 
 &nbsp;
 
