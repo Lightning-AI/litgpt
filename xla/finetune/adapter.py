@@ -14,13 +14,13 @@ from lightning.fabric.strategies import XLAFSDPStrategy
 wd = Path(__file__).parent.parent.parent.resolve()
 sys.path.append(str(wd))
 
-from xla.generate.base import generate
-from lit_gpt.adapter import GPT, Config, adapter_filter, mark_only_adapter_as_trainable, Block
+from lit_gpt.adapter import GPT, Block, Config, adapter_filter, mark_only_adapter_as_trainable
 from lit_gpt.speed_monitor import SpeedMonitorFabric as SpeedMonitor
 from lit_gpt.speed_monitor import estimate_flops, measure_flops
 from lit_gpt.tokenizer import Tokenizer
 from lit_gpt.utils import check_valid_checkpoint_dir, chunked_cross_entropy, lazy_load, num_parameters, step_csv_logger
 from scripts.prepare_alpaca import generate_prompt
+from xla.generate.base import generate
 from xla.utils import rank_print, sequential_load_and_fsdp_wrap
 
 eval_interval = 200

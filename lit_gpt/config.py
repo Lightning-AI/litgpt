@@ -601,8 +601,8 @@ freewilly_2 = [
 ]
 configs.extend(freewilly_2)
 
+
 code_llama = [
-    
     # https://huggingface.co/codellama/CodeLlama-7b-hf/blob/main/config.json
     dict(
         org="codellama",
@@ -621,7 +621,6 @@ code_llama = [
         _mlp_class="LLaMAMLP",
         intermediate_size=11008,
     ),
-    
     # https://huggingface.co/codellama/CodeLlama-13b-hf/blob/main/config.json
     dict(
         org="codellama",
@@ -640,7 +639,6 @@ code_llama = [
         _mlp_class="LLaMAMLP",
         intermediate_size=13824,
     ),
-    
     # https://huggingface.co/codellama/CodeLlama-34b-hf/blob/main/config.json
     dict(
         org="codellama",
@@ -660,7 +658,6 @@ code_llama = [
         _mlp_class="LLaMAMLP",
         intermediate_size=22016,
     ),
-    
     # https://huggingface.co/codellama/CodeLlama-7b-Python-hf/blob/main/config.json
     dict(
         org="codellama",
@@ -679,7 +676,6 @@ code_llama = [
         _mlp_class="LLaMAMLP",
         intermediate_size=11008,
     ),
-    
     # https://huggingface.co/codellama/CodeLlama-13b-Python-hf/blob/main/config.json
     dict(
         org="codellama",
@@ -698,7 +694,6 @@ code_llama = [
         _mlp_class="LLaMAMLP",
         intermediate_size=13824,
     ),
-    
     # https://huggingface.co/codellama/CodeLlama-34b-Python-hf/blob/main/config.json
     dict(
         org="codellama",
@@ -718,7 +713,6 @@ code_llama = [
         _mlp_class="LLaMAMLP",
         intermediate_size=22016,
     ),
-    
     # https://huggingface.co/codellama/CodeLlama-7b-Instruct-hf/tree/main/config.json
     dict(
         org="codellama",
@@ -737,7 +731,6 @@ code_llama = [
         _mlp_class="LLaMAMLP",
         intermediate_size=11008,
     ),
-    
     # https://huggingface.co/codellama/CodeLlama-13b-Instruct-hf/blob/main/config.json
     dict(
         org="codellama",
@@ -756,7 +749,6 @@ code_llama = [
         _mlp_class="LLaMAMLP",
         intermediate_size=13824,
     ),
-    
     # https://huggingface.co/codellama/CodeLlama-34b-Instruct-hf/blob/main/config.json
     dict(
         org="codellama",
@@ -778,6 +770,7 @@ code_llama = [
     ),
 ]
 configs.extend(code_llama)
+
 
 ########################
 # garage-bAInd Platypus

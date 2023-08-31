@@ -106,7 +106,7 @@ def sequential_load_and_fsdp_wrap(
     assert not state_dict
 
     # materialize any leftover meta parameters, regular FSDP does it automatically
-    rank_print(fabric, f"Materializing leftover parameters")
+    rank_print(fabric, "Materializing leftover parameters")
     materialize_parameters(model, fabric.device)
 
     return model

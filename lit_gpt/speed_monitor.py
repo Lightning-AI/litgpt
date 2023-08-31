@@ -4,8 +4,8 @@ from contextlib import nullcontext
 from typing import Any, Callable, Deque, Dict, Optional
 
 import torch
-from lightning.fabric.accelerators.xla import _XLA_GREATER_EQUAL_2_1
 from lightning import Callback, Fabric, LightningModule, Trainer
+from lightning.fabric.accelerators.xla import _XLA_GREATER_EQUAL_2_1
 from lightning.fabric.utilities.rank_zero import rank_zero_only as fabric_rank_zero_only
 from lightning.pytorch.utilities.rank_zero import rank_zero_only as trainer_rank_zero_only
 from torch.utils.flop_counter import FlopCounterMode
