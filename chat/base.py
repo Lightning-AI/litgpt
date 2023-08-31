@@ -295,7 +295,13 @@ def prompt_config(checkpoint_dir: Path, tokenizer: Tokenizer) -> Tuple[str, Tupl
         system_prompt = "###Instruction\n{prompt}###Response\n"
         stop_tokens = ([tokenizer.eos_id],)
         return system_prompt, stop_tokens
-
+    
+    if re.search("CodeLlama", checkpoint_name):
+        b_inst, e_inst = "<s>[INST]", "[/INST]"
+        system_prompt = (f"{b_inst} {{prompt}} {e_inst}")
+        stop_tokens = ([tokenizer.eos_id],)
+        return system_prompt, stop_tokens
+    
     # default format
     return "{prompt}", ([tokenizer.eos_id],)
 
