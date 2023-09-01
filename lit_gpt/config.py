@@ -49,6 +49,7 @@ class Config:
     _mlp_class: Literal["GptNeoxMLP", "LLaMAMLP"] = "GptNeoxMLP"
     intermediate_size: Optional[int] = None
     condense_ratio: int = 1
+    rope_base: int = 10000
 
     def __post_init__(self):
         # error checking
@@ -621,6 +622,7 @@ code_llama = [
         norm_eps=1e-05,
         _mlp_class="LLaMAMLP",
         intermediate_size=11008,
+        rope_base=1000000,
     ),
     # https://huggingface.co/codellama/CodeLlama-13b-hf/blob/main/config.json
     dict(

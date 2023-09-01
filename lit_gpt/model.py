@@ -114,6 +114,7 @@ class GPT(nn.Module):
             dtype=torch.get_default_dtype(),
             device=idx.device,
             condense_ratio=self.config.condense_ratio,
+            base=self.config.rope_base,
         )
 
     def build_mask_cache(self, idx: torch.Tensor) -> torch.Tensor:
