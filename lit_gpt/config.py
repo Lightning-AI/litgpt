@@ -912,7 +912,6 @@ stablecode = [
         vocab_size=49152,
         n_layer=32,
         n_embd=2560,
-        condense_ratio=4,
     ),
     # https://huggingface.co/stabilityai/stablecode-completion-alpha-3b-4k/blob/main/config.json
     dict(org="stabilityai", name="stablecode-completion-alpha-3b-4k", vocab_size=49152, n_layer=32, n_embd=2560),
