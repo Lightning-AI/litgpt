@@ -155,7 +155,6 @@ redpajama_incite = [
         block_size=2048,
         n_layer=32,
         n_embd=2560,
-        n_head=32,
         padding_multiple=256,
         rotary_percentage=1.0,
         parallel_residual=False,
@@ -166,7 +165,6 @@ redpajama_incite = [
         name="RedPajama-INCITE-7B-{}",
         block_size=2048,
         n_layer=32,
-        n_head=32,
         padding_multiple=256,
         rotary_percentage=1.0,
         parallel_residual=False,
@@ -177,7 +175,6 @@ redpajama_incite = [
         name="RedPajama-INCITE-{}-7B-v0.1",
         block_size=2048,
         n_layer=32,
-        n_head=32,
         padding_multiple=256,
         rotary_percentage=1.0,
         parallel_residual=False,
@@ -242,7 +239,6 @@ open_LLaMA = [
         vocab_size=32000,
         padding_multiple=64,
         n_layer=26,
-        n_head=32,
         n_embd=3200,
         rotary_percentage=1.0,
         parallel_residual=False,
@@ -260,7 +256,6 @@ open_LLaMA = [
         vocab_size=32000,
         padding_multiple=64,
         n_layer=32,
-        n_head=32,
         rotary_percentage=1.0,
         parallel_residual=False,
         bias=False,
@@ -303,7 +298,6 @@ vicuna = [
         vocab_size=32000,
         padding_multiple=64,
         n_layer=32,
-        n_head=32,
         rotary_percentage=1.0,
         parallel_residual=False,
         bias=False,
@@ -354,7 +348,6 @@ vicuna = [
         vocab_size=32000,
         padding_multiple=64,
         n_layer=32,
-        n_head=32,
         rotary_percentage=1.0,
         parallel_residual=False,
         bias=False,
@@ -369,7 +362,6 @@ vicuna = [
         vocab_size=32000,
         padding_multiple=64,
         n_layer=32,
-        n_head=32,
         rotary_percentage=1.0,
         parallel_residual=False,
         bias=False,
@@ -406,7 +398,6 @@ vicuna = [
         parallel_residual=False,
         bias=False,
         _norm_class="RMSNorm",
-        norm_eps=1e-5,
         _mlp_class="LLaMAMLP",
         intermediate_size=13824,
         condense_ratio=4,
@@ -427,7 +418,6 @@ long_chat = [
         vocab_size=32000,
         padding_multiple=64,
         n_layer=32,
-        n_head=32,
         rotary_percentage=1.0,
         parallel_residual=False,
         bias=False,
@@ -468,11 +458,8 @@ nous_research = [
     dict(
         org="NousResearch",
         name="Nous-Hermes-llama-2-7b",
-        block_size=4096,
         padded_vocab_size=32000,
         n_layer=32,
-        n_head=32,
-        n_embd=4096,
         rotary_percentage=1.0,
         parallel_residual=False,
         bias=False,
@@ -502,7 +489,6 @@ nous_research = [
     dict(
         org="NousResearch",
         name="Nous-Hermes-Llama2-13b",
-        block_size=4096,
         padded_vocab_size=32032,
         n_layer=40,
         n_head=40,
@@ -530,7 +516,6 @@ llama_2 = [
         vocab_size=32000,
         padding_multiple=64,
         n_layer=32,
-        n_head=32,
         rotary_percentage=1.0,
         parallel_residual=False,
         bias=False,
@@ -613,8 +598,6 @@ code_llama = [
         vocab_size=32016,
         padding_multiple=16,
         n_layer=32,
-        n_head=32,
-        n_embd=4096,
         rotary_percentage=1.0,
         parallel_residual=False,
         bias=False,
@@ -641,6 +624,7 @@ code_llama = [
         norm_eps=1e-05,
         _mlp_class="LLaMAMLP",
         intermediate_size=13824,
+        rope_base=1000000,
     ),
     # https://huggingface.co/codellama/CodeLlama-34b-hf/blob/main/config.json
     dict(
@@ -660,6 +644,7 @@ code_llama = [
         norm_eps=1e-05,
         _mlp_class="LLaMAMLP",
         intermediate_size=22016,
+        rope_base=1000000,
     ),
     # https://huggingface.co/codellama/CodeLlama-7b-Python-hf/blob/main/config.json
     dict(
@@ -669,8 +654,6 @@ code_llama = [
         vocab_size=32000,
         padding_multiple=64,
         n_layer=32,
-        n_head=32,
-        n_embd=4096,
         rotary_percentage=1.0,
         parallel_residual=False,
         bias=False,
@@ -678,6 +661,7 @@ code_llama = [
         norm_eps=1e-05,
         _mlp_class="LLaMAMLP",
         intermediate_size=11008,
+        rope_base=1000000,
     ),
     # https://huggingface.co/codellama/CodeLlama-13b-Python-hf/blob/main/config.json
     dict(
@@ -696,6 +680,7 @@ code_llama = [
         norm_eps=1e-05,
         _mlp_class="LLaMAMLP",
         intermediate_size=13824,
+        rope_base=1000000,
     ),
     # https://huggingface.co/codellama/CodeLlama-34b-Python-hf/blob/main/config.json
     dict(
@@ -715,6 +700,7 @@ code_llama = [
         norm_eps=1e-05,
         _mlp_class="LLaMAMLP",
         intermediate_size=22016,
+        rope_base=1000000,
     ),
     # https://huggingface.co/codellama/CodeLlama-7b-Instruct-hf/tree/main/config.json
     dict(
@@ -724,8 +710,6 @@ code_llama = [
         vocab_size=32016,
         padding_multiple=16,
         n_layer=32,
-        n_head=32,
-        n_embd=4096,
         rotary_percentage=1.0,
         parallel_residual=False,
         bias=False,
@@ -733,6 +717,7 @@ code_llama = [
         norm_eps=1e-05,
         _mlp_class="LLaMAMLP",
         intermediate_size=11008,
+        rope_base=1000000,
     ),
     # https://huggingface.co/codellama/CodeLlama-13b-Instruct-hf/blob/main/config.json
     dict(
@@ -751,6 +736,7 @@ code_llama = [
         norm_eps=1e-05,
         _mlp_class="LLaMAMLP",
         intermediate_size=13824,
+        rope_base=1000000,
     ),
     # https://huggingface.co/codellama/CodeLlama-34b-Instruct-hf/blob/main/config.json
     dict(
@@ -770,6 +756,7 @@ code_llama = [
         norm_eps=1e-05,
         _mlp_class="LLaMAMLP",
         intermediate_size=22016,
+        rope_base=1000000,
     ),
 ]
 configs.extend(code_llama)
@@ -802,7 +789,6 @@ platypus = [
         name="Platypus2-7B",
         padded_vocab_size=32000,
         n_layer=32,
-        n_embd=4096,
         rotary_percentage=1.0,
         parallel_residual=False,
         bias=False,
@@ -916,10 +902,8 @@ stablecode = [
     dict(
         org="stabilityai",
         name="stablecode-completion-alpha-3b",
-        block_size=4096,
         vocab_size=49152,
         n_layer=32,
-        n_head=32,
         n_embd=2560,
         condense_ratio=4,
     ),
@@ -927,20 +911,16 @@ stablecode = [
     dict(
         org="stabilityai",
         name="stablecode-completion-alpha-3b-4k",
-        block_size=4096,
         vocab_size=49152,
         n_layer=32,
-        n_head=32,
         n_embd=2560,
     ),
     # https://huggingface.co/stabilityai/stablecode-instruct-alpha-3b/blob/main/config.json
     dict(
         org="stabilityai",
         name="stablecode-instruct-alpha-3b",
-        block_size=4096,
         vocab_size=49152,
         n_layer=32,
-        n_head=32,
         n_embd=2560,
     ),
 ]

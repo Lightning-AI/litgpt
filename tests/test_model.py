@@ -176,7 +176,7 @@ def test_against_original_open_llama_3b():
     [
         {"name": "Llama-2-7b-hf"},
         pytest.param(
-            {"name": "CodeLlama-7b-hf", "rope_base": 1000000},
+            {"name": "CodeLlama-7b-hf"},
             marks=pytest.mark.skipif(
                 compare_version("transformers", operator.lt, "4.33.0", use_base_version=True),
                 reason="requires rope_theta",
