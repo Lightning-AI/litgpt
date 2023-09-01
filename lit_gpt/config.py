@@ -48,7 +48,7 @@ class Config:
     norm_eps: float = 1e-5
     _mlp_class: Literal["GptNeoxMLP", "LLaMAMLP"] = "GptNeoxMLP"
     intermediate_size: Optional[int] = None
-    condense_ratio: int = 1
+    rope_condense_ratio: int = 1
     rope_base: int = 10000
 
     def __post_init__(self):
@@ -78,6 +78,8 @@ class Config:
     @classmethod
     def from_name(cls, name: str, **kwargs: Any) -> Self:
         conf_dict = name_to_config[name].copy()
+        if "condense_ratio" in kwargs:  # legacy name
+            kwargs["rope_condense_ratio"] = kwargs.pop("condense_ratio")
         conf_dict.update(kwargs)
         return cls(**conf_dict)
 
@@ -342,6 +344,7 @@ vicuna = [
         _mlp_class="LLaMAMLP",
         intermediate_size=17920,
     ),
+    # https://huggingface.co/lmsys/vicuna-7b-v1.5/blob/main/config.json
     dict(
         org="lmsys",
         name="vicuna-7b-v1.5",
@@ -355,6 +358,7 @@ vicuna = [
         _mlp_class="LLaMAMLP",
         intermediate_size=11008,
     ),
+    # https://huggingface.co/lmsys/vicuna-7b-v1.5-16k/blob/main/config.json
     dict(
         org="lmsys",
         name="vicuna-7b-v1.5-16k",
@@ -368,8 +372,9 @@ vicuna = [
         _norm_class="RMSNorm",
         _mlp_class="LLaMAMLP",
         intermediate_size=11008,
-        condense_ratio=4,
+        rope_condense_ratio=4,
     ),
+    # https://huggingface.co/lmsys/vicuna-13b-v1.5/blob/main/config.json
     dict(
         org="lmsys",
         name="vicuna-13b-v1.5",
@@ -385,6 +390,7 @@ vicuna = [
         _mlp_class="LLaMAMLP",
         intermediate_size=13824,
     ),
+    # https://huggingface.co/lmsys/vicuna-13b-v1.5-16k/blob/main/config.json
     dict(
         org="lmsys",
         name="vicuna-13b-v1.5-16k",
@@ -400,7 +406,7 @@ vicuna = [
         _norm_class="RMSNorm",
         _mlp_class="LLaMAMLP",
         intermediate_size=13824,
-        condense_ratio=4,
+        rope_condense_ratio=4,
     ),
 ]
 configs.extend(vicuna)
@@ -425,7 +431,7 @@ long_chat = [
         norm_eps=1e-6,
         _mlp_class="LLaMAMLP",
         intermediate_size=11008,
-        condense_ratio=8,
+        rope_condense_ratio=8,
     ),
     # https://huggingface.co/lmsys/longchat-13b-16k/blob/main/config.json
     dict(
@@ -902,27 +908,16 @@ stablecode = [
     dict(
         org="stabilityai",
         name="stablecode-completion-alpha-3b",
+        block_size=16384,
         vocab_size=49152,
         n_layer=32,
         n_embd=2560,
         condense_ratio=4,
     ),
     # https://huggingface.co/stabilityai/stablecode-completion-alpha-3b-4k/blob/main/config.json
-    dict(
-        org="stabilityai",
-        name="stablecode-completion-alpha-3b-4k",
-        vocab_size=49152,
-        n_layer=32,
-        n_embd=2560,
-    ),
+    dict(org="stabilityai", name="stablecode-completion-alpha-3b-4k", vocab_size=49152, n_layer=32, n_embd=2560),
     # https://huggingface.co/stabilityai/stablecode-instruct-alpha-3b/blob/main/config.json
-    dict(
-        org="stabilityai",
-        name="stablecode-instruct-alpha-3b",
-        vocab_size=49152,
-        n_layer=32,
-        n_embd=2560,
-    ),
+    dict(org="stabilityai", name="stablecode-instruct-alpha-3b", vocab_size=49152, n_layer=32, n_embd=2560),
 ]
 configs.extend(stablecode)
 
