@@ -117,6 +117,7 @@ def test_incremental_write(tmp_path):
     from lit_gpt.utils import incremental_save
 
     sd = {str(k): torch.randn(5, 10) for k in range(3)}
+    sd["0"].someattr = 1
     sd_expected = {k: v.clone() for k, v in sd.items()}
     fn = str(tmp_path / "test.pt")
     with incremental_save(fn) as f:
@@ -125,6 +126,7 @@ def test_incremental_write(tmp_path):
         f.save(sd)
     sd_actual = torch.load(fn)
     assert sd_actual.keys() == sd_expected.keys()
+    assert sd_actual["0"].someattr == 1  # requires PyTorch 2.0+
     for k, v_expected in sd_expected.items():
         v_actual = sd_actual[k]
         torch.testing.assert_close(v_expected, v_actual)

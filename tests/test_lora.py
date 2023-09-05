@@ -354,6 +354,71 @@ def test_lora_qkv_linear_weights_merged_status(rank, enable_lora, expected_merge
     assert layer.merged == expected_merged
 
 
+@pytest.mark.skipif(not torch.cuda.is_available(), reason="8bit requires CUDA")
+# platform dependent cuda issue: libbitsandbytes_cpu.so: undefined symbol: cquantize_blockwise_fp16_nf4
+@pytest.mark.xfail(raises=AttributeError, strict=False)
+def test_lora_merge_with_quantize():
+    from quantize.bnb import _BITSANDBYTES_AVAILABLE
+
+    if not _BITSANDBYTES_AVAILABLE:
+        pytest.skip("BNB not available")
+
+    from lit_gpt.lora import GPT, Config, mark_only_lora_as_trainable, merge_lora_weights
+    from lit_gpt.utils import quantization
+    from quantize.bnb import bnb
+
+    config = Config(
+        n_layer=1,
+        n_head=2,
+        n_embd=8,
+        block_size=8,
+        vocab_size=8,
+        r=8,
+        alpha=8,
+        dropout=0.1,
+        to_query=True,
+        to_value=True,
+        to_projection=True,
+    )
+    fabric = Fabric(devices=1, precision="bf16-mixed")
+    with fabric.init_module(empty_init=False), quantization("bnb.nf4"):
+        model = GPT(config)
+        model.apply(model._init_weights)
+
+    optimizer = bnb.optim.PagedAdamW(model.parameters(), lr=1.0)
+    model, optimizer = fabric.setup(model, optimizer)
+
+    model.train()
+
+    initial_weight = model.transformer.h[0].attn.proj.weight.clone()
+    assert torch.equal(model.transformer.h[0].attn.proj.weight, initial_weight)
+
+    # perform an update to the LoRA weights
+    mark_only_lora_as_trainable(model)
+
+    y = model(torch.randint(0, 8, size=(2, 4), dtype=torch.int64, device=fabric.device))
+    y.sum().backward()
+    optimizer.step()
+    optimizer.zero_grad()
+    # the weight remains unchanged (only lora A and B change)
+    assert torch.equal(model.transformer.h[0].attn.proj.weight, initial_weight)
+
+    # calling merge() multiple times in a row should not merge multiple times
+    merge_lora_weights(model)
+    assert model.transformer.h[0].attn.attn.merged
+    weight_after = model.transformer.h[0].attn.proj.weight.clone()
+    merge_lora_weights(model)
+    merge_lora_weights(model)
+    assert torch.equal(model.transformer.h[0].attn.proj.weight, weight_after)
+
+    # check that `W_after = W_initial + (A x B)`
+    a = model.transformer.h[0].attn.proj.lora_A
+    b = model.transformer.h[0].attn.proj.lora_B
+    scaling = model.transformer.h[0].attn.proj.scaling
+    delta_w = (b @ a) * scaling
+    torch.testing.assert_close(weight_after, initial_weight + delta_w)
+
+
 @pytest.mark.parametrize(
     ("mode", "expected"),
     (

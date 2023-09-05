@@ -8,6 +8,7 @@ build
 
 # data
 data
+datasets
 checkpoints
 out
 wandb

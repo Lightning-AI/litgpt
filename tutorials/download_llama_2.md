@@ -35,7 +35,7 @@ After access is granted, you can find your HF hub token in <https://huggingface.
 ```bash
 pip install huggingface_hub
 
-python scripts/download.py --repo_id meta-llama/Llama-2-7b-chat-hf --token your_hf_token
+python scripts/download.py --repo_id meta-llama/Llama-2-7b-chat-hf --access_token your_hf_token
 
 python scripts/convert_hf_checkpoint.py --checkpoint_dir checkpoints/meta-llama/Llama-2-7b-chat-hf
 ```

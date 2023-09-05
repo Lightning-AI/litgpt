@@ -148,7 +148,7 @@ def copy_weights_hf_llama(
             to_name = to_name.format(number)
         else:
             to_name = weight_map[name]
-        param = load_param(param, name, param)
+        param = load_param(param, name, dtype)
         if saver is not None:
             param = saver.store_early(param)
         state_dict[to_name] = param
@@ -181,10 +181,10 @@ def layer_template(layer_name: str, idx: int) -> Tuple[str, int]:
 def load_param(param: Union[torch.Tensor, NotYetLoadedTensor], name: str, dtype: Optional[torch.dtype]) -> torch.Tensor:
     if hasattr(param, "_load_tensor"):
         # support tensors loaded via `lazy_load()`
-        print(f"Loading {name} into RAM")
+        print(f"Loading {name!r} into RAM")
         param = param._load_tensor()
-    if dtype != param.dtype:
-        print(f"Converting {name} from {param.dtype} to {dtype}")
+    if dtype is not None and type(dtype) is not NotYetLoadedTensor and dtype != param.dtype:
+        print(f"Converting {name!r} from {param.dtype} to {dtype}")
         param = param.to(dtype)
     return param
 
@@ -226,6 +226,8 @@ def convert_hf_checkpoint(
         bin_files = {checkpoint_dir / bin for bin in bin_index["weight_map"].values()}
     else:
         bin_files = set(checkpoint_dir.glob("*.bin"))
+        # some checkpoints serialize the training arguments
+        bin_files = {f for f in bin_files if f.name != "training_args.bin"}
     if not bin_files:
         raise ValueError(f"Expected {str(checkpoint_dir)!r} to contain .bin files")
 

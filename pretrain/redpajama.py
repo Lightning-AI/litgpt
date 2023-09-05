@@ -7,7 +7,7 @@ from typing import Optional, Tuple, Union
 
 import lightning as L
 import torch
-from lightning.fabric.strategies import FSDPStrategy, XLAStrategy
+from lightning.fabric.strategies import FSDPStrategy
 from torch.utils.data import DataLoader
 
 # support running without installing as a package
@@ -20,10 +20,10 @@ from lit_gpt.speed_monitor import SpeedMonitorFabric as SpeedMonitor
 from lit_gpt.speed_monitor import estimate_flops, measure_flops
 from lit_gpt.utils import chunked_cross_entropy, get_default_supported_precision, num_parameters, step_csv_logger
 
-model_name = "pythia-70m"
+model_name = "Llama-2-7b-hf"
 name = "redpajama"
 out_dir = Path("out") / name
-save_interval = 10
+save_interval = 1000
 eval_interval = 1000
 eval_iters = 100
 log_interval = 1
@@ -31,7 +31,7 @@ log_interval = 1
 # Hyperparameters
 learning_rate = 6e-4
 batch_size = 125
-micro_batch_size = 5
+micro_batch_size = 6
 gradient_accumulation_steps = batch_size // micro_batch_size
 assert gradient_accumulation_steps > 0
 max_iters = 600000  # num_epochs * (epoch_size // micro_batch_size) // devices
@@ -65,24 +65,18 @@ def setup(
     train_data_dir: Path = Path("data/redpajama_sample"),
     val_data_dir: Optional[Path] = None,
     precision: Optional[str] = None,
-    tpu: bool = False,
     resume: Union[bool, Path] = False,
 ) -> None:
-    precision = precision or get_default_supported_precision(training=True, tpu=tpu)
+    precision = precision or get_default_supported_precision(training=True)
 
     if devices > 1:
-        if tpu:
-            # For multi-host TPU training, the device count for Fabric is limited to the count on a single host.
-            devices = "auto"
-            strategy = XLAStrategy(sync_module_states=False)
-        else:
-            strategy = FSDPStrategy(
-                auto_wrap_policy={Block},
-                activation_checkpointing_policy={Block},
-                state_dict_type="full",
-                limit_all_gathers=True,
-                cpu_offload=False,
-            )
+        strategy = FSDPStrategy(
+            auto_wrap_policy={Block},
+            activation_checkpointing_policy={Block},
+            state_dict_type="full",
+            limit_all_gathers=True,
+            cpu_offload=False,
+        )
     else:
         strategy = "auto"
 
@@ -166,10 +160,6 @@ def train(fabric, state, train_dataloader, val_dataloader, speed_monitor):
     total_lengths = 0
     total_t0 = time.perf_counter()
 
-    if fabric.device.type == "xla":
-        import torch_xla.core.xla_model as xm
-
-        xm.mark_step()
     for state["iter_num"], train_data in enumerate(train_dataloader, state["iter_num"]):
         if state["iter_num"] >= max_iters:
             break
@@ -195,8 +185,6 @@ def train(fabric, state, train_dataloader, val_dataloader, speed_monitor):
             optimizer.step()
             optimizer.zero_grad()
             state["step_count"] += 1
-        elif fabric.device.type == "xla":
-            xm.mark_step()
 
         t1 = time.perf_counter()
         total_lengths += input_ids.size(1)

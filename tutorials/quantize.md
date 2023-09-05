@@ -5,7 +5,7 @@ This document provides different strategies for quantizing the various models av
 **All the examples below were run on an A100 40GB GPU.**
 
 > [!NOTE]\:
-> Quantization is only supported with inference (generate and chat scripts).
+> Quantization also supports finetuning via [QLoRA](finetune_lora.md)
 
 
 ## Baseline
