@@ -6,10 +6,10 @@ import time
 import warnings
 from pathlib import Path
 from typing import Dict, List, Literal, Optional
-import uvicorn
 
 import lightning as L
 import torch
+import uvicorn
 from fastapi import FastAPI
 from lightning.fabric.strategies import FSDPStrategy
 from pydantic import BaseModel
@@ -18,15 +18,11 @@ from pydantic import BaseModel
 wd = Path(__file__).parent.parent.resolve()
 sys.path.append(str(wd))
 
+from lit_gpt import GPT, Config, Tokenizer
 from lit_gpt.model import Block
+from lit_gpt.utils import check_valid_checkpoint_dir, lazy_load, quantization
 
 from generate import generate
-
-torch.set_float32_matmul_precision("high")
-
-
-from lit_gpt import GPT, Config, Tokenizer
-from lit_gpt.utils import check_valid_checkpoint_dir, lazy_load, quantization
 
 logger = logging.getLogger(__name__)
 logging.basicConfig(level=logging.INFO)
@@ -78,7 +74,7 @@ def main(
             "bnb.nf4", "bnb.nf4-dq", "bnb.fp4", "bnb.fp4-dq", "bnb.int8", "gptq.int4"
         ]
     ] = None,
-    port=8080
+    port=8080,
 ):
     if strategy == "fsdp":
         strategy = FSDPStrategy(auto_wrap_policy={Block}, cpu_offload=False)
@@ -159,13 +155,11 @@ def main(
     async def tokenize(input_data: TokenizeRequest) -> TokenizeResponse:
         logger.info("Using device: {}".format(fabric.device))
         t0 = time.perf_counter()
-        encoded = tokenizer.encode(
-            input_data.text, bos=True, eos=False, device=fabric.device
-        )
+        encoded = tokenizer.encode(input_data.text, device=fabric.device)
         t = time.perf_counter() - t0
         tokens = encoded.tolist()
         return TokenizeResponse(tokens=tokens, request_time=t)
-    
+
     uvicorn.run(app, port=port)
 
 
