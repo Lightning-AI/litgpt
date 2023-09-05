@@ -505,6 +505,8 @@ def get_default_supported_precision(training: bool) -> str:
     Returns:
         default precision that is suitable for the task and is supported by the hardware
     """
-    if torch.backends.mps.is_available() or (torch.cuda.is_available() and not torch.cuda.is_bf16_supported()):
+    from lightning.fabric.accelerators import MPSAccelerator
+
+    if MPSAccelerator.is_available() or (torch.cuda.is_available() and not torch.cuda.is_bf16_supported()):
         return "16-mixed" if training else "16-true"
     return "bf16-mixed" if training else "bf16-true"
