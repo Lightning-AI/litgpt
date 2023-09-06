@@ -91,6 +91,8 @@ class Config:
             json_kwargs = json.load(fp)
         if "condense_ratio" in json_kwargs:  # legacy name
             json_kwargs["rope_condense_ratio"] = json_kwargs.pop("condense_ratio")
+        if "condense_ratio" in kwargs:  # legacy name
+            kwargs["rope_condense_ratio"] = kwargs.pop("condense_ratio")
         json_kwargs.update(kwargs)
         return cls(**json_kwargs)
 
