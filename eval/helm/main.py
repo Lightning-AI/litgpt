@@ -155,7 +155,7 @@ def main(
     async def tokenize(input_data: TokenizeRequest) -> TokenizeResponse:
         logger.info("Using device: {}".format(fabric.device))
         t0 = time.perf_counter()
-        encoded = tokenizer.encode(input_data.text, device=fabric.device)
+        encoded = tokenizer.encode(input_data.text, bos=True, eos=False, device=fabric.device)
         t = time.perf_counter() - t0
         tokens = encoded.tolist()
         return TokenizeResponse(tokens=tokens, request_time=t)
