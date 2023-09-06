@@ -2,7 +2,6 @@
 # E. Frantar et al GPTQ: Accurate Post-training Compression for GPT, arXiv:2210.17323
 # portions copyright by the authors licensed under the Apache License 2.0
 import gc
-import json
 import math
 import sys
 import time
