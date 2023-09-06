@@ -50,8 +50,7 @@ class EvalHarnessBase(BaseLM):
         checkpoint_dir = Path(checkpoint_dir)
         check_valid_checkpoint_dir(checkpoint_dir)
 
-        with open(checkpoint_dir / "lit_config.json") as fp:
-            config = Config(**json.load(fp))
+        config = Config.from_json(checkpoint_dir / "lit_config.json")
 
         if quantize is not None and devices > 1:
             raise NotImplementedError

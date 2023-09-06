@@ -65,8 +65,7 @@ def main(
 
     check_valid_checkpoint_dir(checkpoint_dir)
 
-    with open(checkpoint_dir / "lit_config.json") as fp:
-        config = Config(**json.load(fp))
+    config = Config.from_json(checkpoint_dir / "lit_config.json")
 
     if quantize is not None:
         # TODO: we need to clean-up the logic for quantizing the finetuned models and loading them after

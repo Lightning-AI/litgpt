@@ -593,8 +593,7 @@ def main(
         output_path = checkpoint_dir / "lit_model_gptq.4bit.pth"
     check_valid_checkpoint_dir(checkpoint_dir)
 
-    with open(checkpoint_dir / "lit_config.json") as fp:
-        config = Config(**json.load(fp))
+    config = Config.from_json(checkpoint_dir / "lit_config.json")
 
     device = "cuda"
     fabric = Fabric(accelerator="cuda", precision=precision)
