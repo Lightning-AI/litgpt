@@ -89,10 +89,10 @@ class Config:
     def from_json(cls, path: Union[str, Path], **kwargs: Any) -> Self:
         with open(path, encoding="utf-8") as fp:
             json_kwargs = json.load(fp)
-            if "condense_ratio" in json_kwargs:  # legacy name
-                json_kwargs["rope_condense_ratio"] = json_kwargs.pop("condense_ratio")
-            json_kwargs.update(kwargs)
-            return cls(**json_kwargs)
+        if "condense_ratio" in json_kwargs:  # legacy name
+            json_kwargs["rope_condense_ratio"] = json_kwargs.pop("condense_ratio")
+        json_kwargs.update(kwargs)
+        return cls(**json_kwargs)
 
     @property
     def mlp_class(self) -> Type:
