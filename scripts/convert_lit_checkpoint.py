@@ -204,10 +204,10 @@ def check_conversion_supported(lit_weights: Dict[str, torch.Tensor]) -> None:
     if any("lora" in wn for wn in weight_names):
         raise ValueError("Model weights must be merged using `lora.merge_lora_weights()` before conversion.")
     # adapter v2. adapter_bias will only be in adapter_v2
-    elif "adapter_bias" in weight_names:
+    if "adapter_bias" in weight_names:
         raise NotImplementedError("Converting models finetuned with adapter_v2 not yet supported.")
     # adapter. gating_factor is in adapter and adapter_v2
-    elif "gating_factor" in weight_names:
+    if "gating_factor" in weight_names:
         raise NotImplementedError("Converting models finetuned with adapter not yet supported.")
 
 

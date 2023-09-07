@@ -46,7 +46,7 @@ jobs:
         # make sure all modules are importable
         modules=$(
           find * -type f -name "*.py" | \
-          grep -v tests | grep "/" | grep -v lm_eval | grep -v xla | \ 
+          grep -v tests | grep "/" | grep -v lm_eval | grep -v xla | \
           sed 's/\.py$//' | sed 's/\//./g' | \
           sed 's/.__init__//g' | xargs -I {} echo "import {};"
         )

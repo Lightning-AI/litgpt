@@ -77,4 +77,7 @@ if _BITSANDBYTES_AVAILABLE:
 else:
 
     def __getattr__(name):
+        if name == "__path__":
+            # https://stackoverflow.com/a/60803436
+            raise RuntimeError("Please import with `import quantize.bnb` instead of `from quantize.bnb`")
         raise ModuleNotFoundError(str(_BITSANDBYTES_AVAILABLE))
