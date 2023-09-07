@@ -108,7 +108,7 @@ def main(
             L.seed_everything(input_data.seed)
         logger.info("Using device: {}".format(fabric.device))
         encoded = tokenizer.encode(
-            input_data.prompt, bos=True, eos=False, device=fabric.device
+            input_data.prompt, device=fabric.device
         )
         prompt_length = encoded.size(0)
         max_returned_tokens = prompt_length + input_data.max_new_tokens
@@ -155,7 +155,7 @@ def main(
     async def tokenize(input_data: TokenizeRequest) -> TokenizeResponse:
         logger.info("Using device: {}".format(fabric.device))
         t0 = time.perf_counter()
-        encoded = tokenizer.encode(input_data.text, bos=True, eos=False, device=fabric.device)
+        encoded = tokenizer.encode(input_data.text, device=fabric.device)
         t = time.perf_counter() - t0
         tokens = encoded.tolist()
         return TokenizeResponse(tokens=tokens, request_time=t)
