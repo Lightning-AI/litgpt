@@ -448,9 +448,9 @@ def test_bnb_replacement(mode, expected):
         linear = LoRALinear(1, 1)
         qkv = LoRAQKVLinear(1, 1, 1, 1)
 
-    import bitsandbytes.modules as modules
+    import bitsandbytes
 
-    expected = getattr(modules, expected)
+    expected = getattr(bitsandbytes.modules, expected)
     assert isinstance(linear.linear, expected)
     assert isinstance(qkv.linear, expected)
 
