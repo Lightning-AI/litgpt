@@ -231,7 +231,7 @@ for c in falcon:
 # https://huggingface.co/tiiuae/falcon-180b/blob/main/config.json
 falcon180b = dict(
         org="tiiuae",
-        name="falcon-180b{}",
+        name="falcon-180B{}",
         block_size=2048,
         padded_vocab_size=65024,
         n_layer=80,
