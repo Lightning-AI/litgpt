@@ -130,7 +130,7 @@ def main(
         t = time.perf_counter() - t0
 
         model.reset_cache()
-        output = tokenizer.decode(tokens)
+        output = tokenizer.decode(tokens[prompt_length:])
         tokens_generated = tokens.size(0) - prompt_length
         logger.info(
             f"Time for inference: {t:.02f} sec total, {tokens_generated / t:.02f} tokens/sec"
