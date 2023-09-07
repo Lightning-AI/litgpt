@@ -384,37 +384,36 @@ def test_lora_merge_with_quantize():
         model = GPT(config)
         model.apply(model._init_weights)
 
-    optimizer = bnb.bnb.optim.PagedAdamW(model.parameters(), lr=1.0)
+    mark_only_lora_as_trainable(model)
+
+    from bitsandbytes.optim import PagedAdamW
+
+    optimizer = PagedAdamW(model.parameters(), lr=1.0)
     model, optimizer = fabric.setup(model, optimizer)
 
     model.train()
 
-    initial_weight = model.transformer.h[0].attn.proj.weight.clone()
-    assert torch.equal(model.transformer.h[0].attn.proj.weight, initial_weight)
+    attn_proj = model.transformer.h[0].attn.proj
+    initial_weight = attn_proj.linear.weight.clone()
 
     # perform an update to the LoRA weights
-    mark_only_lora_as_trainable(model)
-
     y = model(torch.randint(0, 8, size=(2, 4), dtype=torch.int64, device=fabric.device))
     y.sum().backward()
     optimizer.step()
     optimizer.zero_grad()
     # the weight remains unchanged (only lora A and B change)
-    assert torch.equal(model.transformer.h[0].attn.proj.weight, initial_weight)
+    assert torch.equal(attn_proj.linear.weight, initial_weight)
 
     # calling merge() multiple times in a row should not merge multiple times
     merge_lora_weights(model)
-    assert model.transformer.h[0].attn.attn.merged
-    weight_after = model.transformer.h[0].attn.proj.weight.clone()
+    assert attn_proj.merged
+    weight_after = attn_proj.linear.weight.clone()
     merge_lora_weights(model)
     merge_lora_weights(model)
-    assert torch.equal(model.transformer.h[0].attn.proj.weight, weight_after)
+    assert torch.equal(attn_proj.linear.weight, weight_after)
 
     # check that `W_after = W_initial + (A x B)`
-    a = model.transformer.h[0].attn.proj.lora_A
-    b = model.transformer.h[0].attn.proj.lora_B
-    scaling = model.transformer.h[0].attn.proj.scaling
-    delta_w = (b @ a) * scaling
+    delta_w = (attn_proj.lora_B @ attn_proj.lora_A) * attn_proj.scaling
     torch.testing.assert_close(weight_after, initial_weight + delta_w)
 
 
@@ -448,7 +447,10 @@ def test_bnb_replacement(mode, expected):
     with quantization(mode):
         linear = LoRALinear(1, 1)
         qkv = LoRAQKVLinear(1, 1, 1, 1)
-    expected = getattr(bnb.bnb.modules, expected)
+
+    import bitsandbytes
+
+    expected = getattr(bitsandbytes.modules, expected)
     assert isinstance(linear.linear, expected)
     assert isinstance(qkv.linear, expected)
 
