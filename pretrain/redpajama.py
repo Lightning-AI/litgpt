@@ -207,7 +207,7 @@ def train(fabric, state, train_dataloader, val_dataloader, speed_monitor):
             val_loss = validate(fabric, model, val_dataloader)
             t1 = time.perf_counter() - t0
             speed_monitor.eval_end(t1)
-            fabric.print(f"step {state['iter_num']}: val loss {val_loss:.4f}, val time: {t1 * 1000:.2f}ms")
+            fabric.print(f"step {state['iter_num']}: val loss {val_loss.item():.4f}, val time: {t1 * 1000:.2f}ms")
             fabric.barrier()
         if not is_accumulating and state["step_count"] % save_interval == 0:
             checkpoint_path = out_dir / f"iter-{state['iter_num']:06d}-ckpt.pth"
@@ -225,8 +225,7 @@ def validate(fabric: L.Fabric, model: torch.nn.Module, val_dataloader: DataLoade
         input_ids = val_data[:, 0 : model.config.block_size].contiguous()
         targets = val_data[:, 1 : model.config.block_size + 1].contiguous()
         logits = model(input_ids)
-        loss = chunked_cross_entropy(logits, targets, chunk_size=0)
-        losses[k] = loss.item()
+        losses[k] = chunked_cross_entropy(logits, targets, chunk_size=0)
     out = losses.mean()
 
     model.train()
