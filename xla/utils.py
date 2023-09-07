@@ -49,14 +49,13 @@ def sequential_load_and_fsdp_wrap(
         # them as necessary
         state_dict = torch.load(checkpoint_path, map_location="meta", mmap=False)
 
-    fsdp_kwargs = fabric.strategy._fsdp_kwargs
+    fsdp_kwargs = fabric.strategy._parse_fsdp_kwargs()
     if "auto_wrapper_callable" in fsdp_kwargs:
         # includes activation checkpointing if configured
         wrap = fsdp_kwargs.pop("auto_wrapper_callable")
     else:
-        wrap = partial(_activation_checkpointing_auto_wrapper, tuple())
-    fsdp_kwargs.pop("auto_wrap_policy")  # we can ignore this
-    assert not fsdp_kwargs  # these would be silently ignored
+        wrap = partial(_activation_checkpointing_auto_wrapper, set())
+    fsdp_kwargs.pop("auto_wrap_policy", None)  # this needs to be removed or else root wrapping would error
 
     for i, block in enumerate(model.transformer.h):
         rank_print(fabric, f"Broadcasting transformer block {i}")
@@ -87,7 +86,7 @@ def sequential_load_and_fsdp_wrap(
 
         # shard the block
         rank_print(fabric, f"Wrapping transformer block {i}")
-        wrapped_block = wrap(block)
+        wrapped_block = wrap(block, **fsdp_kwargs)
         model.transformer.h[i] = wrapped_block
 
     # load the rest of the state_dict, this assumes that all keys need to be loaded
