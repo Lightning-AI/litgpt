@@ -386,7 +386,9 @@ def test_lora_merge_with_quantize():
 
     mark_only_lora_as_trainable(model)
 
-    optimizer = bnb.bnb.optim.PagedAdamW(model.parameters(), lr=1.0)
+    from bitsandbytes.optim import PagedAdamW
+
+    optimizer = PagedAdamW(model.parameters(), lr=1.0)
     model, optimizer = fabric.setup(model, optimizer)
 
     model.train()
@@ -445,7 +447,10 @@ def test_bnb_replacement(mode, expected):
     with quantization(mode):
         linear = LoRALinear(1, 1)
         qkv = LoRAQKVLinear(1, 1, 1, 1)
-    expected = getattr(bnb.bnb.modules, expected)
+
+    import bitsandbytes.modules as modules
+
+    expected = getattr(modules, expected)
     assert isinstance(linear.linear, expected)
     assert isinstance(qkv.linear, expected)
 
