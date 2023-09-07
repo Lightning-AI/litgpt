@@ -21,6 +21,7 @@ def test_legacy_args(tmp_path):
     from lit_gpt import Config
 
     config = Config.from_name("pythia-70m", condense_ratio=2)
+    assert not hasattr(config, "condense_ratio")
     assert config.rope_condense_ratio == 2
 
     json_path = tmp_path / "config.json"
@@ -28,6 +29,8 @@ def test_legacy_args(tmp_path):
         json.dump({"condense_ratio": 3}, fp)
 
     config = Config.from_json(json_path)
+    assert not hasattr(config, "condense_ratio")
     assert config.rope_condense_ratio == 3
     config = Config.from_json(json_path, condense_ratio=2)
+    assert not hasattr(config, "condense_ratio")
     assert config.rope_condense_ratio == 2
