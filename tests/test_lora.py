@@ -358,14 +358,13 @@ def test_lora_qkv_linear_weights_merged_status(rank, enable_lora, expected_merge
 # platform dependent cuda issue: libbitsandbytes_cpu.so: undefined symbol: cquantize_blockwise_fp16_nf4
 @pytest.mark.xfail(raises=AttributeError, strict=False)
 def test_lora_merge_with_quantize():
-    from quantize.bnb import _BITSANDBYTES_AVAILABLE
+    import quantize.bnb as bnb
 
-    if not _BITSANDBYTES_AVAILABLE:
+    if not bnb._BITSANDBYTES_AVAILABLE:
         pytest.skip("BNB not available")
 
     from lit_gpt.lora import GPT, Config, mark_only_lora_as_trainable, merge_lora_weights
     from lit_gpt.utils import quantization
-    from quantize.bnb import bnb
 
     config = Config(
         n_layer=1,
@@ -385,7 +384,7 @@ def test_lora_merge_with_quantize():
         model = GPT(config)
         model.apply(model._init_weights)
 
-    optimizer = bnb.optim.PagedAdamW(model.parameters(), lr=1.0)
+    optimizer = bnb.bnb.optim.PagedAdamW(model.parameters(), lr=1.0)
     model, optimizer = fabric.setup(model, optimizer)
 
     model.train()
@@ -438,19 +437,18 @@ def test_lora_merge_with_quantize():
     ),
 )
 def test_bnb_replacement(mode, expected):
-    from quantize.bnb import _BITSANDBYTES_AVAILABLE
+    import quantize.bnb as bnb
 
-    if not _BITSANDBYTES_AVAILABLE:
+    if not bnb._BITSANDBYTES_AVAILABLE:
         pytest.skip("BNB not available")
 
     from lit_gpt.lora import LoRALinear, LoRAQKVLinear
     from lit_gpt.utils import quantization
-    from quantize.bnb import bnb
 
     with quantization(mode):
         linear = LoRALinear(1, 1)
         qkv = LoRAQKVLinear(1, 1, 1, 1)
-    expected = getattr(bnb.modules, expected)
+    expected = getattr(bnb.bnb.modules, expected)
     assert isinstance(linear.linear, expected)
     assert isinstance(qkv.linear, expected)
 
