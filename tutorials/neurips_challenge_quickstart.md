@@ -166,7 +166,7 @@ If you are using an RTX 4090, change `micro_batch_size=4` to `micro_batch_size=1
 
 ## Local Evaluation
 
-The official Lit-GPT competition will use a small subset of HELM tasks for model evaluation, which includes BigBench (general), MMLU (knowledge), TruthfulQA (knowledge and harm in a multiple choice format), CNN/DailyMail (news summarization), GSM8K (math), and BBQ (bias)
+The official Lit-GPT competition will use a small subset of HELM tasks for model evaluation, which includes BigBench (general), MMLU (knowledge), TruthfulQA (knowledge and harm in a multiple choice format), CNN/DailyMail (news summarization), GSM8K (math), and BBQ (bias).
 
 HELM is currently also being integrated into Lit-GPT to evaluate LLMs before submission. 
 
