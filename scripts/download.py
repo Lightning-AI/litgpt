@@ -47,9 +47,9 @@ def download_from_hub(
         token=access_token,
     )
 
-    # convert sa
+    # convert safetensors to PyTorch binaries
     if download_safetensors:
-        print("Converting .safetensor files to .bin")
+        print("Converting .safetensor files to PyTorch binaries (.bin)")
         directory = f"checkpoints/{repo_id}"
         for filename in os.listdir(directory):
             full_path = os.path.join(directory, filename)
@@ -59,6 +59,7 @@ def download_from_hub(
                 new_filename = "pytorch_" + new_filename
                 new_full_path = os.path.join(directory, new_filename)
 
+                print(f"{filename} --> {new_filename}")
                 pt_state_dict = safetensors_load(full_path)
                 torch.save(pt_state_dict, new_full_path)
 
