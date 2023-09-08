@@ -114,6 +114,70 @@ Please read the [tutorials/finetune_*.md](../tutorials) documents for more infor
 > By default, the maximum sequence length is obtained from the model configuration file. In case you run into out-of-memory errors, especially in the cases of LIMA and Dolly,  
 > you can try to lower the context length by editing the  [`finetune/lora.py` file](https://github.com/Lightning-AI/lit-gpt/blob/main/finetune/lora.py#L37) and change `override_max_seq_length = None` to `override_max_seq_length = 2048`.
 
+
+## Preparing Custom Datasets for Instruction Finetuning
+
+The models in Lit-GPT expect datasets for instruction finetuning in the following format:
+
+```
+    {
+        "instruction": "Write a limerick about a    
+                        pelican.”,
+        "input": "",
+        "output": "There once was a pelican so fine,
+                   \nHis beak was as colorful as 
+                   sunshine,\nHe would fish all day,\nIn 
+                   a very unique way,\nThis pelican was 
+                   truly divine!\n\n\n"
+    },
+```
+
+Depending on the task, there can be an optional `"input"` text:
+
+```
+    {
+        "instruction": "Identify the odd one out from 
+                        the group.",
+        "input": "Carrot, Apple, Banana, Grape",
+        "output": "Carrot\n\n"
+    },
+```
+
+The easiest way to prepare a new dataset is to copy and modify one of the existing dataset preparation scripts:
+
+- [`scripts/prepare_alpaca.py`](https://github.com/Lightning-AI/lit-gpt/blob/main/scripts/prepare_alpaca.py) (if you plan to load a dataset from a JSON file);
+- [`scripts/prepare_lima.py`](https://github.com/Lightning-AI/lit-gpt/blob/main/scripts/prepare_lima.py) (if you plan to load a dataset using the `datasets` Python library).
+
+These scripts may look intimidating at first glance since they include code for tokenizing the dataset for a specific LLM that is provided via a checkpoint directory. However, note that you only need to modify a small fraction of the code file, namely the portion that downloads and formats the training data.
+
+In [`scripts/prepare_lima.py`](https://github.com/Lightning-AI/lit-gpt/blob/main/scripts/prepare_lima.py), these are the [line 26](https://github.com/Lightning-AI/lit-gpt/blob/98fad263a62e5e57821de817bdd5e316abfb34d4/scripts/prepare_lima.py#L26) for the HF repo ID, and the lines [50-53](https://github.com/Lightning-AI/lit-gpt/blob/98fad263a62e5e57821de817bdd5e316abfb34d4/scripts/prepare_lima.py#L50-L53), which save the dataset as `train_data`. Here, `train_data` is a list that contains the instruction examples in the format mentioned above:
+
+```
+[
+    {
+        "instruction": "Write a limerick about a    
+                        pelican.”,
+        "input": "",
+        "output": "There once was a pelican so fine,
+                   \nHis beak was as colorful as 
+                   sunshine,\nHe would fish all day,\nIn 
+                   a very unique way,\nThis pelican was 
+                   truly divine!\n\n\n"
+    },
+    {
+        "instruction": "Identify the odd one out from 
+                        the group.",
+        "input": "Carrot, Apple, Banana, Grape",
+        "output": "Carrot\n\n"
+    },
+]
+```
+
+
+In [`scripts/prepare_alpaca.py`](https://github.com/Lightning-AI/lit-gpt/blob/main/scripts/prepare_alpaca.py), you only need to modify [lines 24-25](https://github.com/Lightning-AI/lit-gpt/blob/98fad263a62e5e57821de817bdd5e316abfb34d4/scripts/prepare_alpaca.py#L24-L25) for the file name and URL, assuming the JSON file you are working with has the same format as the [Alpaca JSON file](https://raw.githubusercontent.com/tloen/alpaca-lora/main/alpaca_data_cleaned_archive.json).
+
+
+
 &nbsp;
 
 ## Preparing Pretraining Datasets
