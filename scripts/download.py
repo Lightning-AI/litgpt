@@ -12,7 +12,7 @@ sys.path.append(str(wd))
 def download_from_hub(
         repo_id: Optional[str] = None,
         access_token: Optional[str] = os.getenv("HF_TOKEN"),
-        download_safetensors: Optional[bool] = False,
+        from_safetensors: Optional[bool] = False,
         ) -> None:
     if repo_id is None:
         from lit_gpt.config import configs
@@ -32,8 +32,13 @@ def download_from_hub(
         )
 
     download_files = ["tokenizer*", "generation_config.json"]
-    if download_safetensors:
-        from safetensors.torch import load_file as safetensors_load
+    if from_safetensors:
+        try:
+            import safetensors
+        except ImportError:
+            print("safetensors is not installed. Install safetensors"
+                  " (`pip install safetensors`) and run this script again.")
+            quit()
         download_files.extend("*.safetensors*")
     else:
         download_files.extend("*.bin*")
@@ -48,7 +53,9 @@ def download_from_hub(
     )
 
     # convert safetensors to PyTorch binaries
-    if download_safetensors:
+    if from_safetensors:
+        from safetensors.torch import load_file as safetensors_load
+
         print("Converting .safetensor files to PyTorch binaries (.bin)")
         directory = f"checkpoints/{repo_id}"
         for filename in os.listdir(directory):
@@ -62,6 +69,7 @@ def download_from_hub(
                 print(f"{filename} --> {new_filename}")
                 pt_state_dict = safetensors_load(full_path)
                 torch.save(pt_state_dict, new_full_path)
+                os.remove(full_path)
 
 
 if __name__ == "__main__":
