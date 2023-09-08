@@ -55,19 +55,26 @@ def download_from_hub(
     # convert safetensors to PyTorch binaries
     if from_safetensors:
         from safetensors.torch import load_file as safetensors_load
+        from safetensors import SafetensorError
 
         print("Converting .safetensor files to PyTorch binaries (.bin)")
         directory = f"checkpoints/{repo_id}"
         for filename in os.listdir(directory):
             full_path = os.path.join(directory, filename)
 
-            if ".safetensors" in filename:
+            if filename.endswith(".safetensors"):
                 new_filename = filename.replace('.safetensors', '.bin')
                 new_filename = "pytorch_" + new_filename
                 new_full_path = os.path.join(directory, new_filename)
 
                 print(f"{filename} --> {new_filename}")
-                pt_state_dict = safetensors_load(full_path)
+                try:
+                    pt_state_dict = safetensors_load(full_path)
+                except SafetensorError as e:
+                    print(e)
+                    print(f"{filename} is likely corrupted. Please try to redownload it.")
+                    quit()
+
                 torch.save(pt_state_dict, new_full_path)
                 os.remove(full_path)
 
