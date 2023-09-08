@@ -2,13 +2,18 @@ import os
 import sys
 from pathlib import Path
 from typing import Optional
+import torch
 
 # support running without installing as a package
 wd = Path(__file__).parent.parent.resolve()
 sys.path.append(str(wd))
 
 
-def download_from_hub(repo_id: Optional[str] = None, access_token: Optional[str] = os.getenv("HF_TOKEN")) -> None:
+def download_from_hub(
+        repo_id: Optional[str] = None,
+        access_token: Optional[str] = os.getenv("HF_TOKEN"),
+        download_safetensors: Optional[bool] = False,
+        ) -> None:
     if repo_id is None:
         from lit_gpt.config import configs
 
@@ -26,14 +31,36 @@ def download_from_hub(repo_id: Optional[str] = None, access_token: Optional[str]
             " https://huggingface.co/settings/tokens"
         )
 
+    download_files = ["tokenizer*", "generation_config.json"]
+    if download_safetensors:
+        from safetensors.torch import load_file as safetensors_load
+        download_files.extend("*.safetensors*")
+    else:
+        download_files.extend("*.bin*")
+
     snapshot_download(
         repo_id,
         local_dir=f"checkpoints/{repo_id}",
         local_dir_use_symlinks=False,
         resume_download=True,
-        allow_patterns=["*.bin*", "tokenizer*", "generation_config.json"],
+        allow_patterns=download_files,
         token=access_token,
     )
+
+    # convert sa
+    if download_safetensors:
+        print("Converting .safetensor files to .bin")
+        directory = f"checkpoints/{repo_id}"
+        for filename in os.listdir(directory):
+            full_path = os.path.join(directory, filename)
+
+            if ".safetensors" in filename:
+                new_filename = filename.replace('.safetensors', '.bin')
+                new_filename = "pytorch_" + new_filename
+                new_full_path = os.path.join(directory, new_filename)
+
+                pt_state_dict = safetensors_load(full_path)
+                torch.save(pt_state_dict, new_full_path)
 
 
 if __name__ == "__main__":
