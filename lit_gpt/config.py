@@ -243,23 +243,22 @@ for c in falcon:
 
 # https://huggingface.co/tiiuae/falcon-180b/blob/main/config.json
 falcon180b = dict(
-        org="tiiuae",
-        name="falcon-180B{}",
-        block_size=2048,
-        padded_vocab_size=65024,
-        n_layer=80,
-        n_head=232,
-        n_embd=14848,
-        rotary_percentage=1.0,
-        n_query_groups=8,
-        bias=False,
-    )
+    org="tiiuae",
+    name="falcon-180B{}",
+    block_size=2048,
+    padded_vocab_size=65024,
+    n_layer=80,
+    n_head=232,
+    n_embd=14848,
+    rotary_percentage=1.0,
+    n_query_groups=8,
+    bias=False,
+)
 
 for kind in ("", "-chat"):
     copy = falcon180b.copy()
     copy["name"] = falcon180b["name"].format(kind)
     configs.append(copy)
-
 
 
 #############################

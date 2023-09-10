@@ -2,18 +2,20 @@ import os
 import sys
 from pathlib import Path
 from typing import Optional
+
 import torch
+from lightning_utilities.core.imports import RequirementCache
 
 # support running without installing as a package
 wd = Path(__file__).parent.parent.resolve()
 sys.path.append(str(wd))
 
+_SAFETENSORS_AVAILABLE = RequirementCache("safetensors")
+
 
 def download_from_hub(
-        repo_id: Optional[str] = None,
-        access_token: Optional[str] = os.getenv("HF_TOKEN"),
-        from_safetensors: Optional[bool] = False,
-        ) -> None:
+    repo_id: Optional[str] = None, access_token: Optional[str] = os.getenv("HF_TOKEN"), from_safetensors: bool = False
+) -> None:
     if repo_id is None:
         from lit_gpt.config import configs
 
@@ -24,28 +26,25 @@ def download_from_hub(
 
     from huggingface_hub import snapshot_download
 
-    if "meta-llama" in repo_id and not access_token:
+    if ("meta-llama" in repo_id or "falcon-180" in repo_id) and not access_token:
         raise ValueError(
-            "the meta-llama models require authentication, please set the `HF_TOKEN=your_token` environment"
+            f"{repo_id} requires authentication, please set the `HF_TOKEN=your_token` environment"
             " variable or pass --access_token=your_token. You can find your token by visiting"
             " https://huggingface.co/settings/tokens"
         )
 
     download_files = ["tokenizer*", "generation_config.json"]
     if from_safetensors:
-        try:
-            import safetensors
-        except ImportError:
-            print("safetensors is not installed. Install safetensors"
-                  " (`pip install safetensors`) and run this script again.")
-            quit()
-        download_files.extend("*.safetensors*")
+        if not _SAFETENSORS_AVAILABLE:
+            raise ModuleNotFoundError(str(_SAFETENSORS_AVAILABLE))
+        download_files.append("*.safetensors")
     else:
-        download_files.extend("*.bin*")
+        download_files.append("*.bin*")
 
+    directory = Path("checkpoints") / repo_id
     snapshot_download(
         repo_id,
-        local_dir=f"checkpoints/{repo_id}",
+        local_dir=directory,
         local_dir_use_symlinks=False,
         resume_download=True,
         allow_patterns=download_files,
@@ -54,29 +53,19 @@ def download_from_hub(
 
     # convert safetensors to PyTorch binaries
     if from_safetensors:
-        from safetensors.torch import load_file as safetensors_load
         from safetensors import SafetensorError
+        from safetensors.torch import load_file as safetensors_load
 
         print("Converting .safetensor files to PyTorch binaries (.bin)")
-        directory = f"checkpoints/{repo_id}"
-        for filename in os.listdir(directory):
-            full_path = os.path.join(directory, filename)
-
-            if filename.endswith(".safetensors"):
-                new_filename = filename.replace('.safetensors', '.bin')
-                new_filename = "pytorch_" + new_filename
-                new_full_path = os.path.join(directory, new_filename)
-
-                print(f"{filename} --> {new_filename}")
-                try:
-                    pt_state_dict = safetensors_load(full_path)
-                except SafetensorError as e:
-                    print(e)
-                    print(f"{filename} is likely corrupted. Please try to redownload it.")
-                    quit()
-
-                torch.save(pt_state_dict, new_full_path)
-                os.remove(full_path)
+        for safetensor_path in directory.glob("*.safetensors"):
+            bin_path = safetensor_path.with_suffix(".bin")
+            try:
+                result = safetensors_load(safetensor_path)
+            except SafetensorError as e:
+                raise RuntimeError(f"{safetensor_path} is likely corrupted. Please try to re-download it.") from e
+            print(f"{safetensor_path} --> {bin_path}")
+            torch.save(result, bin_path)
+            os.remove(safetensor_path)
 
 
 if __name__ == "__main__":
