@@ -20,7 +20,7 @@ Note that the dataset needs to be prepared separately for each type of model sin
 
 For the following examples, we will use a Falcon 7B model. However, the same methods are compatible with all other models as well.
 
-The steps here only need to be done once before preparing the finetuning datasets in the following subsections: 
+The steps here only need to be done once before preparing the finetuning datasets in the following subsections:
 
 1. Follow the instructions in the [README](../README.md) to install the dependencies.
 2. Download and convert the weights following our [guide](download_falcon.md).
@@ -87,8 +87,8 @@ python scripts/prepare_lima.py \
  --access_token "insert_your_token_here"
 ```
 
-LIMA contains a handful of multiturn conversations. By default, only the first instruction-response pairs from 
-each of these multiturn conversations are included. If you want to override this behavior and include the follow up instructions 
+LIMA contains a handful of multiturn conversations. By default, only the first instruction-response pairs from
+each of these multiturn conversations are included. If you want to override this behavior and include the follow up instructions
 and responses, set `--include_multiturn_conversations True`.
 
 
@@ -111,7 +111,7 @@ Please read the [tutorials/finetune_*.md](../tutorials) documents for more infor
 > Make sure that the `prepare_*.py` and `finetune/*.py` scripts use the same model checkpoint specified via `--checkpoint_dir`.
 
 > [!IMPORTANT]
-> By default, the maximum sequence length is obtained from the model configuration file. In case you run into out-of-memory errors, especially in the cases of LIMA and Dolly,  
+> By default, the maximum sequence length is obtained from the model configuration file. In case you run into out-of-memory errors, especially in the cases of LIMA and Dolly,
 > you can try to lower the context length by editing the  [`finetune/lora.py` file](https://github.com/Lightning-AI/lit-gpt/blob/main/finetune/lora.py#L37) and change `override_max_seq_length = None` to `override_max_seq_length = 2048`.
 
 &nbsp;
@@ -122,4 +122,3 @@ In addition to the finetuning dataset described above, Lit-GPT also supports sev
 
 - [Pretrain Llama 2 on OpenWebText](./pretrain_openwebtext.md)
 - [Pretrain Llama 2 on RedPajama](./pretrain_redpajama.md)
-

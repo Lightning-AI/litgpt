@@ -4,9 +4,8 @@ This document provides different strategies for quantizing the various models av
 
 **All the examples below were run on an A100 40GB GPU.**
 
-> [!NOTE]\:
+> [!NOTE]
 > Quantization also supports finetuning via [QLoRA](finetune_lora.md)
-
 
 ## Baseline
 
@@ -33,14 +32,15 @@ Memory used: 14.51 GB
 
 To reduce the memory requirements further, Lit-GPT supports several quantization techniques, which are shown below.
 
-> [!NOTE]\:
+> [!NOTE]
 > Most quantization examples below also use the `--precision bf16-true` setting explained above. If your GPU does not support the bfloat-format, you can change it to `--precision 16-true`.
 
 ## `bnb.nf4`
 
 Enabled with [bitsandbytes](https://github.com/TimDettmers/bitsandbytes). Check out the [paper](https://arxiv.org/abs/2305.14314v1) to learn more about how it works.
 
-> [!NOTE]\: `bitsandbytes` only supports `CUDA` devices and the `Linux` operating system.
+> [!NOTE]
+> `bitsandbytes` only supports `CUDA` devices and the `Linux` operating system.
 > Windows users should use [WSL2](https://learn.microsoft.com/en-us/windows/ai/directml/gpu-cuda-in-wsl).
 
 Uses the normalized float 4 (nf4) data type. This is recommended over "fp4" based on the paper's experimental results and theoretical analysis.

@@ -14,7 +14,7 @@ The steps here only need to be done once:
 python scripts/prepare_alpaca.py --checkpoint_dir checkpoints/tiiuae/falcon-7b
 ```
 
-or [prepare your own dataset](#tune-on-your-dataset). 
+or [prepare your own dataset](#tune-on-your-dataset).
 
 For more information about dataset preparation, also see the [prepare_dataset.md](./prepare_dataset.md) tutorial.
 
