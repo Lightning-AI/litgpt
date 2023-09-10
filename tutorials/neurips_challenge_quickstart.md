@@ -34,7 +34,7 @@ These don't include models that have been finetuned or otherwise aligned, as per
 | Models in Lit-GPT         | Reference                                                    |
 | ------------------------- | ------------------------------------------------------------ |
 | Meta AI Llama 2 Base      | [Touvron et al. 2023](https://arxiv.org/abs/2307.09288)      |
-| TII UAE Falcon Base       | [TII 2023](https://falconllm.tii.ae/)
+| TII UAE Falcon Base       | [TII 2023](https://falconllm.tii.ae/)                        |
 | OpenLM Research OpenLLaMA | [Geng & Liu 2023](https://github.com/openlm-research/open_llama) |
 | EleutherAI Pythia         | [Biderman et al. 2023](https://arxiv.org/abs/2304.01373)     |
 | StabilityAI StableLM Base | [Stability AI 2023](https://github.com/Stability-AI/StableLM) |
