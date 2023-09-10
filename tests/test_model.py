@@ -106,13 +106,52 @@ def test_against_original_falcon_40b():
 
     ours_config = Config.from_name("falcon-40b", n_layer=2, n_head=8, n_query_groups=4, n_embd=32)
     theirs_config = RWConfig(
-        hidden_size=32, n_head=8, n_head_kv=4, n_layer=2, parallel_attn=True, vocab_size=65024, bias=False
+        hidden_size=ours_config.n_embd,
+        n_head=ours_config.n_head,
+        n_head_kv=ours_config.n_query_groups,
+        n_layer=ours_config.n_layer,
+        parallel_attn=ours_config.parallel_residual,
+        vocab_size=ours_config.padded_vocab_size,
+        bias=ours_config.bias,
     )
 
     theirs_model = RWForCausalLM(theirs_config)
     theirs_state_dict = theirs_model.state_dict()
     state_dict = {}
-    copy_weights_falcon("40b", state_dict, theirs_state_dict)
+    copy_weights_falcon("falcon-40b", state_dict, theirs_state_dict)
+    ours_model = GPT(ours_config)
+    ours_model.load_state_dict(state_dict)
+
+    # test end to end
+    x = torch.tensor([[9856, 23, 491, 1536, 304]], dtype=torch.int32)
+    ours_y = ours_model(x)
+    theirs_y = theirs_model(x)["logits"]
+    torch.testing.assert_close(ours_y, theirs_y)
+
+
+@torch.inference_mode()
+def test_against_original_falcon_180b():
+    from transformers.models.falcon import FalconConfig, FalconForCausalLM
+
+    from lit_gpt import GPT, Config
+    from scripts.convert_hf_checkpoint import copy_weights_falcon
+
+    ours_config = Config.from_name("falcon-180B", n_layer=2, n_head=8, n_query_groups=4, n_embd=32)
+    theirs_config = FalconConfig(
+        hidden_size=ours_config.n_embd,
+        num_attention_heads=ours_config.n_head,
+        num_kv_heads=ours_config.n_query_groups,
+        num_hidden_layers=ours_config.n_layer,
+        parallel_attn=ours_config.parallel_residual,
+        vocab_size=ours_config.padded_vocab_size,
+        bias=ours_config.bias,
+        new_decoder_architecture=True,
+    )
+
+    theirs_model = FalconForCausalLM(theirs_config)
+    theirs_state_dict = theirs_model.state_dict()
+    state_dict = {}
+    copy_weights_falcon("falcon-180B", state_dict, theirs_state_dict)
     ours_model = GPT(ours_config)
     ours_model.load_state_dict(state_dict)
 
