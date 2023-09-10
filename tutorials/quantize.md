@@ -28,7 +28,7 @@ python generate/base.py --checkpoint_dir checkpoints/tiiuae/falcon-7b --precisio
 ...
 Time for inference 1: 9.76 sec total, 26.23 tokens/sec.
 Memory used: 14.51 GB
-````
+```
 
 To reduce the memory requirements further, Lit-GPT supports several quantization techniques, which are shown below.
 
