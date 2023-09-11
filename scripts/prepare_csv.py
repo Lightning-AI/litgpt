@@ -24,13 +24,12 @@ SEED = 42
 MASK_INPUTS = False
 IGNORE_INDEX = -1
 TEST_SPLIT_FRACTION = 0.1
-CHECKPOINT_DIR = Path("checkpoints/stabilityai/stablelm-base-alpha-3b")
-CSV_PATH = "instruction.csv"
-DESTINATION_DIR = Path("data/custom")
+CHECKPOINT_DIR = Path("checkpoints/pythia/pythia-1b")
+DESTINATION_DIR = Path("data/mydata")
 
 
 def prepare(
-    csv_path: Path = CSV_PATH,
+    csv_path: Path,
     destination_path: Path = DESTINATION_DIR,
     checkpoint_dir: Path = CHECKPOINT_DIR,
     datafile_name: Optional[str] = None,
@@ -40,10 +39,6 @@ def prepare(
     ignore_index: int = IGNORE_INDEX,
 ) -> None:
     """Prepare dataset for instruction tuning from csv
-
-    Args:
-        llm: str helps to generate dataset with llm specific system prompts. example
-        dolly or alpaca etc.
 
     The output is a training and test dataset saved as `train.pt` and `test.pt`,
     which stores the preprocessed and tokenized prompts and labels.
