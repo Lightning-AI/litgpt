@@ -24,7 +24,6 @@ def generate(
     model: GPT,
     idx: torch.Tensor,
     max_returned_tokens: int,
-    max_seq_length: int,
     *,
     temperature: float = 1.0,
     top_k: Optional[int] = None,
@@ -38,18 +37,17 @@ def generate(
         model: The model to use.
         idx: Tensor of shape (T) with indices of the prompt sequence.
         max_returned_tokens: The maximum number of tokens to return (given plus generated).
-        max_seq_length: The maximum sequence length allowed. Should be less or equal than the block size.
         temperature: Scales the predicted logits by 1 / temperature.
         top_k: If specified, only sample among the tokens with the k highest probabilities.
         eos_id: If specified, stop generating any more token once the <eos> token is triggered.
     """
     T = idx.size(0)
     assert max_returned_tokens > T
-    if max_seq_length < max_returned_tokens - 1:
+    if model.max_seq_length < max_returned_tokens - 1:
         # rolling the kv cache based on the `input_pos` value would be necessary. However, doing so would introduce a
         # data dependency on the `input_pos` tensor and impact model compilation. Since this setting is uncommon, we do
         # not support it to avoid negatively impacting the overall speed
-        raise NotImplementedError
+        raise NotImplementedError(f"max_seq_length {model.max_seq_length} needs to be < {max_returned_tokens - 1}")
 
     device, dtype = idx.device, idx.dtype
     # create an empty tensor of the expected final shape and fill in the current tokens
@@ -66,7 +64,7 @@ def generate(
         x = idx.index_select(0, input_pos).view(1, -1)
 
         # forward
-        logits = model(x, max_seq_length, input_pos)
+        logits = model(x, input_pos)
         logits = logits[0, -1] / temperature
 
         # optionally crop the logits to only the top k options
@@ -153,22 +151,15 @@ def main(
     encoded = tokenizer.encode(prompt, device=fabric.device)
     prompt_length = encoded.size(0)
     max_returned_tokens = prompt_length + max_new_tokens
-    assert max_returned_tokens <= model.config.block_size, (
-        max_returned_tokens,
-        model.config.block_size,
-    )  # maximum rope cache length
+
+    with fabric.init_tensor():
+        # set the max_seq_length to limit the memory usage to what we need
+        model.max_seq_length = max_returned_tokens
 
     L.seed_everything(1234)
     for i in range(num_samples):
         t0 = time.perf_counter()
-        y = generate(
-            model,
-            encoded,
-            max_returned_tokens,
-            max_seq_length=max_returned_tokens,
-            temperature=temperature,
-            top_k=top_k,
-        )
+        y = generate(model, encoded, max_returned_tokens, temperature=temperature, top_k=top_k)
         t = time.perf_counter() - t0
 
         model.reset_cache()
