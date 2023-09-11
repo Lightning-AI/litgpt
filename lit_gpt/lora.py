@@ -55,7 +55,7 @@ from lit_gpt.config import Config as BaseConfig
 from lit_gpt.model import GPT as BaseModel
 from lit_gpt.model import Block as BaseBlock
 from lit_gpt.model import CausalSelfAttention as BaseCausalSelfAttention
-from lit_gpt.model import KVCache, RoPECache
+from lit_gpt.model import KVCache
 from lit_gpt.utils import map_old_state_dict_weights
 
 
@@ -478,10 +478,7 @@ class GPT(BaseModel):
         self.kv_caches: List[KVCache] = []
 
     def forward(
-        self,
-        idx: torch.Tensor,
-        input_pos: Optional[torch.Tensor] = None,
-        lm_head_chunk_size: int = 0,
+        self, idx: torch.Tensor, input_pos: Optional[torch.Tensor] = None, lm_head_chunk_size: int = 0
     ) -> Union[torch.Tensor, List[torch.Tensor]]:
         T = idx.size(1)
         use_kv_cache = input_pos is not None
@@ -499,7 +496,7 @@ class GPT(BaseModel):
             cos = cos.index_select(0, input_pos)
             sin = sin.index_select(0, input_pos)
             mask = self.mask_cache.index_select(2, input_pos)
-            mask = mask[:, :, :, :self.max_seq_length]
+            mask = mask[:, :, :, : self.max_seq_length]
         else:
             cos = cos[:T]
             sin = sin[:T]

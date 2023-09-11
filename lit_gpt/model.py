@@ -73,9 +73,7 @@ class GPT(nn.Module):
             self.rope_cache = None
             self.mask_cache = None
 
-    def forward(
-        self, idx: torch.Tensor, input_pos: Optional[torch.Tensor] = None
-    ) -> torch.Tensor:
+    def forward(self, idx: torch.Tensor, input_pos: Optional[torch.Tensor] = None) -> torch.Tensor:
         T = idx.size(1)
         use_kv_cache = input_pos is not None
         block_size = self.config.block_size
@@ -92,7 +90,7 @@ class GPT(nn.Module):
             cos = cos.index_select(0, input_pos)
             sin = sin.index_select(0, input_pos)
             mask = self.mask_cache.index_select(2, input_pos)
-            mask = mask[:, :, :, :self.max_seq_length]
+            mask = mask[:, :, :, : self.max_seq_length]
         else:
             cos = cos[:T]
             sin = sin[:T]
@@ -226,10 +224,10 @@ class CausalSelfAttention(nn.Module):
         v = v.reshape(B, -1, T, self.config.head_size)  # (B, nh_v, T, hs)
 
         cos, sin = rope
-        q_roped = apply_rope(q[..., :self.config.rope_n_elem], cos, sin)
-        k_roped = apply_rope(k[..., :self.config.rope_n_elem], cos, sin)
-        q = torch.cat((q_roped, q[..., self.config.rope_n_elem:]), dim=-1)
-        k = torch.cat((k_roped, k[..., self.config.rope_n_elem:]), dim=-1)
+        q_roped = apply_rope(q[..., : self.config.rope_n_elem], cos, sin)
+        k_roped = apply_rope(k[..., : self.config.rope_n_elem], cos, sin)
+        q = torch.cat((q_roped, q[..., self.config.rope_n_elem :]), dim=-1)
+        k = torch.cat((k_roped, k[..., self.config.rope_n_elem :]), dim=-1)
 
         if kv_cache is not None:
             cache_k, cache_v = kv_cache

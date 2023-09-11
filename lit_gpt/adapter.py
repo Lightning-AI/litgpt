@@ -51,10 +51,7 @@ class GPT(BaseModel):
         self.adapter_kv_caches.clear()
 
     def forward(
-        self,
-        idx: torch.Tensor,
-        input_pos: Optional[torch.Tensor] = None,
-        lm_head_chunk_size: int = 0,
+        self, idx: torch.Tensor, input_pos: Optional[torch.Tensor] = None, lm_head_chunk_size: int = 0
     ) -> Union[torch.Tensor, List[torch.Tensor]]:
         T = idx.size(1)
         use_kv_cache = input_pos is not None
@@ -72,7 +69,7 @@ class GPT(BaseModel):
             cos = cos.index_select(0, input_pos)
             sin = sin.index_select(0, input_pos)
             mask = self.mask_cache.index_select(2, input_pos)
-            mask = mask[:, :, :, :self.max_seq_length]
+            mask = mask[:, :, :, : self.max_seq_length]
         else:
             cos = cos[:T]
             sin = sin[:T]
@@ -134,9 +131,7 @@ class Block(nn.Module):
         adapter_kv_cache: Optional[KVCache] = None,
     ) -> Tuple[torch.Tensor, Optional[KVCache], Optional[KVCache]]:
         n_1 = self.norm_1(x)
-        h, new_kv_cache, new_adapter_kv_cache = self.attn(
-            n_1, rope, mask, input_pos, kv_cache, adapter_kv_cache
-        )
+        h, new_kv_cache, new_adapter_kv_cache = self.attn(n_1, rope, mask, input_pos, kv_cache, adapter_kv_cache)
         if self.config.parallel_residual:
             n_2 = n_1 if self.config.shared_attention_norm else self.norm_2(x)
             x = x + h + self.mlp(n_2)
@@ -198,10 +193,10 @@ class CausalSelfAttention(BaseCausalSelfAttention):
         v = v.reshape(B, -1, T, self.config.head_size)  # (B, nh_v, T, hs)
 
         cos, sin = rope
-        q_roped = apply_rope(q[..., :self.config.rope_n_elem], cos, sin)
-        k_roped = apply_rope(k[..., :self.config.rope_n_elem], cos, sin)
-        q = torch.cat((q_roped, q[..., self.config.rope_n_elem:]), dim=-1)
-        k = torch.cat((k_roped, k[..., self.config.rope_n_elem:]), dim=-1)
+        q_roped = apply_rope(q[..., : self.config.rope_n_elem], cos, sin)
+        k_roped = apply_rope(k[..., : self.config.rope_n_elem], cos, sin)
+        q = torch.cat((q_roped, q[..., self.config.rope_n_elem :]), dim=-1)
+        k = torch.cat((k_roped, k[..., self.config.rope_n_elem :]), dim=-1)
 
         if kv_cache is not None:
             cache_k, cache_v = kv_cache
