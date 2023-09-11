@@ -75,8 +75,8 @@ class GPT(nn.Module):
 
     def forward(self, idx: torch.Tensor, input_pos: Optional[torch.Tensor] = None) -> torch.Tensor:
         T = idx.size(1)
-        block_size = self.config.block_size
-        assert block_size >= T, f"Cannot forward sequence of length {T}, block size is only {block_size}"
+        if self.max_seq_length < T:
+            raise ValueError(f"Cannot forward sequence of length {T}, max seq length is only {self.max_seq_length}.")
 
         if input_pos is not None:  # use the kv cache
             cos = self.cos.index_select(0, input_pos)
