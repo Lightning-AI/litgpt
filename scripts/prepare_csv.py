@@ -33,7 +33,6 @@ def prepare(
     csv_path: Path = None,
     destination_path: Path = DESTINATION_DIR,
     checkpoint_dir: Path = CHECKPOINT_DIR,
-    datafile_name: Optional[str] = None,
     test_split_fraction: float = TEST_SPLIT_FRACTION,
     seed: int = SEED,
     mask_inputs: bool = MASK_INPUTS,
@@ -51,7 +50,7 @@ def prepare(
         max_seq_length = config["block_size"]
 
     destination_path.mkdir(parents=True, exist_ok=True)
-    datafile_name = "dataset.json" if datafile_name is None else datafile_name
+    datafile_name = "dataset.json"
 
     # before the data file path, get the llm to be used
     logger.info("Loading data file ...")
@@ -62,10 +61,6 @@ def prepare(
 
     df = pd.read_csv(csv_path).fillna("")
     df_json = json.loads(df.to_json(orient="records", indent=4))
-    data_file_path = destination_path / datafile_name
-
-    with open(data_file_path, "w") as json_file:
-        json.dump(df_json, json_file)
 
     logger.info("Loading tokenizer ...")
     tokenizer = Tokenizer(checkpoint_dir)
