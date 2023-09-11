@@ -110,7 +110,7 @@ class GPT(nn.Module):
     def build_rope_cache(self, idx: torch.Tensor) -> RoPECache:
         return build_rope_cache(
             seq_len=self.config.block_size,
-            n_elem=int(self.config.rotary_percentage * self.config.head_size),
+            n_elem=self.config.rope_n_elem,
             dtype=torch.get_default_dtype(),
             device=idx.device,
             condense_ratio=self.config.rope_condense_ratio,
@@ -217,13 +217,11 @@ class CausalSelfAttention(nn.Module):
         k = k.reshape(B, -1, T, self.config.head_size)  # (B, nh_k, T, hs)
         v = v.reshape(B, -1, T, self.config.head_size)  # (B, nh_v, T, hs)
 
-        n_elem = int(self.config.rotary_percentage * self.config.head_size)
-
         cos, sin = rope
-        q_roped = apply_rope(q[..., :n_elem], cos, sin)
-        k_roped = apply_rope(k[..., :n_elem], cos, sin)
-        q = torch.cat((q_roped, q[..., n_elem:]), dim=-1)
-        k = torch.cat((k_roped, k[..., n_elem:]), dim=-1)
+        q_roped = apply_rope(q[..., :self.config.rope_n_elem], cos, sin)
+        k_roped = apply_rope(k[..., :self.config.rope_n_elem], cos, sin)
+        q = torch.cat((q_roped, q[..., self.config.rope_n_elem:]), dim=-1)
+        k = torch.cat((k_roped, k[..., self.config.rope_n_elem:]), dim=-1)
 
         if kv_cache is not None:
             cache_k, cache_v = kv_cache
@@ -291,7 +289,12 @@ class LLaMAMLP(nn.Module):
 
 
 def build_rope_cache(
-    seq_len: int, n_elem: int, dtype: torch.dtype, device: torch.device, base: int = 10000, condense_ratio: int = 1
+    seq_len: int,
+    n_elem: int,
+    dtype: torch.dtype,
+    device: Optional[torch.device] = None,
+    base: int = 10000,
+    condense_ratio: int = 1,
 ) -> RoPECache:
     """Enhanced Transformer with Rotary Position Embedding.
 
