@@ -18,7 +18,7 @@ from lit_gpt.utils import check_valid_checkpoint_dir, get_default_supported_prec
 
 @torch.no_grad()
 def generate(
-    model: torch.nn.Module,
+    model: GPT,
     idx: torch.Tensor,
     max_returned_tokens: int,
     max_seq_length: int,

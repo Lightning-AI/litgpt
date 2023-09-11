@@ -21,7 +21,7 @@ from xla.utils import rank_print
 
 @torch.no_grad()
 def generate(
-    model: torch.nn.Module,
+    model: GPT,
     idx: torch.Tensor,
     max_returned_tokens: int,
     max_seq_length: int,
