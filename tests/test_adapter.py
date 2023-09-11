@@ -49,6 +49,7 @@ def test_adapter_script(tmp_path, fake_checkpoint_dir, monkeypatch):
     module.save_interval = 2
     module.eval_interval = 2
     module.eval_iters = 2
+    module.eval_max_new_tokens = 1
     module.max_iters = 6
 
     data = [

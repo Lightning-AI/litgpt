@@ -91,12 +91,12 @@ model_name = "Llama-2-7b-hf"
 
 at the top of this script.
 
-The currently supported model names are contained in the [config.py](https://github.com/Lightning-AI/lit-gpt/lit_gpt/config.py) file. 
-You can 
+The currently supported model names are contained in the [config.py](https://github.com/Lightning-AI/lit-gpt/lit_gpt/config.py) file.
+You can
 
 1) either search this file for lines containing "name =",
 2) run `python scripts/download.py` without additional command line arguments,
-3) or 
+3) or
 
 ```python
 from lit_gpt.config import configs

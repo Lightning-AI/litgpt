@@ -67,25 +67,21 @@ def test_against_hf_model(rotary_pct, batch_size, n_embd, parallel_residual, kv_
     ours_embed = ours_model.transformer.wte(token_sample)
     torch.testing.assert_close(ours_embed, theirs_embed)
 
-    rope = ours_model.build_rope_cache(token_sample)
-    mask = ours_model.build_mask_cache(token_sample)
+    cos, sin = ours_model.cos, ours_model.sin
+    mask = ours_model.mask_cache
     position_ids = torch.arange(block_size).unsqueeze(0)
+    theirs_block = theirs_model.gpt_neox.layers[0]
+    ours_block = ours_model.transformer.h[0]
     if kv_cache:
-        (theirs_block_out, theirs_kv_cache) = theirs_model.gpt_neox.layers[0](
-            theirs_embed, use_cache=True, position_ids=position_ids
-        )
-        head_size = n_embd // n_head
-        k_cache_shape = (batch_size, n_head, block_size, rope[0].size(-1) + head_size - int(rotary_pct * head_size))
-        v_cache_shape = (batch_size, n_head, block_size, head_size)
-        ours_kv_cache = torch.zeros(k_cache_shape), torch.zeros(v_cache_shape)
-        (ours_block_out, ours_kv_cache) = ours_model.transformer.h[0](
-            ours_embed, rope, block_size, mask, torch.arange(block_size), ours_kv_cache
-        )
-        for ours_cache, theirs_cache in zip(ours_kv_cache, theirs_kv_cache):
-            torch.testing.assert_close(ours_cache, theirs_cache)
+        ours_model.build_kv_caches(token_sample, block_size, cos.size(-1))
+        theirs_block_out, (theirs_k, theirs_v) = theirs_block(theirs_embed, use_cache=True, position_ids=position_ids)
+        ours_k, ours_v = ours_block.attn.kv_cache
+        ours_block_out = ours_block(ours_embed, cos, sin, mask, torch.arange(block_size))
+        torch.testing.assert_close(ours_k, theirs_k)
+        torch.testing.assert_close(ours_v, theirs_v)
     else:
-        (theirs_block_out,) = theirs_model.gpt_neox.layers[0](theirs_embed, position_ids=position_ids)
-        ours_block_out, _ = ours_model.transformer.h[0](ours_embed, rope, block_size, mask)
+        (theirs_block_out,) = theirs_block(theirs_embed, position_ids=position_ids)
+        ours_block_out = ours_block(ours_embed, cos, sin, mask)
     torch.testing.assert_close(ours_block_out, theirs_block_out)
 
     theirs = theirs_model(token_sample)["logits"]
@@ -106,13 +102,52 @@ def test_against_original_falcon_40b():
 
     ours_config = Config.from_name("falcon-40b", n_layer=2, n_head=8, n_query_groups=4, n_embd=32)
     theirs_config = RWConfig(
-        hidden_size=32, n_head=8, n_head_kv=4, n_layer=2, parallel_attn=True, vocab_size=65024, bias=False
+        hidden_size=ours_config.n_embd,
+        n_head=ours_config.n_head,
+        n_head_kv=ours_config.n_query_groups,
+        n_layer=ours_config.n_layer,
+        parallel_attn=ours_config.parallel_residual,
+        vocab_size=ours_config.padded_vocab_size,
+        bias=ours_config.bias,
     )
 
     theirs_model = RWForCausalLM(theirs_config)
     theirs_state_dict = theirs_model.state_dict()
     state_dict = {}
-    copy_weights_falcon("40b", state_dict, theirs_state_dict)
+    copy_weights_falcon("falcon-40b", state_dict, theirs_state_dict)
+    ours_model = GPT(ours_config)
+    ours_model.load_state_dict(state_dict)
+
+    # test end to end
+    x = torch.tensor([[9856, 23, 491, 1536, 304]], dtype=torch.int32)
+    ours_y = ours_model(x)
+    theirs_y = theirs_model(x)["logits"]
+    torch.testing.assert_close(ours_y, theirs_y)
+
+
+@torch.inference_mode()
+def test_against_original_falcon_180b():
+    from transformers.models.falcon import FalconConfig, FalconForCausalLM
+
+    from lit_gpt import GPT, Config
+    from scripts.convert_hf_checkpoint import copy_weights_falcon
+
+    ours_config = Config.from_name("falcon-180B", n_layer=2, n_head=8, n_query_groups=4, n_embd=32)
+    theirs_config = FalconConfig(
+        hidden_size=ours_config.n_embd,
+        num_attention_heads=ours_config.n_head,
+        num_kv_heads=ours_config.n_query_groups,
+        num_hidden_layers=ours_config.n_layer,
+        parallel_attn=ours_config.parallel_residual,
+        vocab_size=ours_config.padded_vocab_size,
+        bias=ours_config.bias,
+        new_decoder_architecture=True,
+    )
+
+    theirs_model = FalconForCausalLM(theirs_config)
+    theirs_state_dict = theirs_model.state_dict()
+    state_dict = {}
+    copy_weights_falcon("falcon-180B", state_dict, theirs_state_dict)
     ours_model = GPT(ours_config)
     ours_model.load_state_dict(state_dict)
 
@@ -152,7 +187,7 @@ def test_against_original_open_llama_3b():
 
     # test rope
     x = torch.randn(2, T, ours_config.n_embd)  # B, T, n_embd
-    ours_cos, ours_sin = ours_model.build_rope_cache(x)
+    ours_cos, ours_sin = ours_model.rope_cache()
     ours_cos, ours_sin = ours_cos[:T], ours_sin[:T]  # this is done in our model forward
     theirs_cos, theirs_sin = theirs_model.model.layers[0].self_attn.rotary_emb(x, T)
     torch.testing.assert_close(ours_cos, theirs_cos.squeeze())
@@ -231,7 +266,6 @@ def test_model_compile():
 
     config = lit_gpt.Config(block_size=8, vocab_size=8, n_layer=2, n_head=2, n_embd=4)
     model = lit_gpt.GPT(config)
-    model.apply(model._init_weights)
 
     model = torch.compile(model)
 
@@ -241,16 +275,18 @@ def test_model_compile():
 
 
 @torch.inference_mode()
-@pytest.mark.parametrize("set_highest_max_seq_length", (False, True))
+@pytest.mark.parametrize(
+    "max_seq_length", (25, pytest.param(23, marks=pytest.mark.xfail(raises=IndexError, strict=True)))
+)
 @pytest.mark.flaky(reruns=5)
-def test_kv_cache(set_highest_max_seq_length):
+def test_kv_cache(max_seq_length):
     from lit_gpt import GPT, Config
 
     config = Config(block_size=25, padded_vocab_size=5, n_layer=2, n_head=2, n_embd=8)
     model = GPT(config)
     idx = torch.randint(0, model.config.padded_vocab_size, (1, 5))
     max_new_tokens = 20
-    max_seq_length = 25 if set_highest_max_seq_length else 10
+    model.max_seq_length = max_seq_length
 
     def generate(logits):
         logits = logits[:, -1:]
@@ -261,14 +297,14 @@ def test_kv_cache(set_highest_max_seq_length):
     x_cache = idx
     input_pos = torch.arange(0, 5)
     for _ in range(max_new_tokens):
-        logits_no_cache = model(x_no_cache, max_seq_length)
+        logits_no_cache = model(x_no_cache[:, -max_seq_length:])
         out_no_cache = generate(logits_no_cache)
 
-        logits_cache = model(x_cache, max_seq_length, input_pos)
+        logits_cache = model(x_cache, input_pos)
         out_cache = generate(logits_cache)
 
         torch.testing.assert_close(out_no_cache, out_cache, rtol=0, atol=0)
 
         x_no_cache = torch.cat((x_no_cache, out_no_cache), dim=1)
         x_cache = out_cache
-        input_pos = torch.tensor([input_pos[-1] + 1])
+        input_pos = input_pos[-1:] + 1

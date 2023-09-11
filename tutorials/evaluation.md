@@ -35,8 +35,6 @@ python eval/lm_eval_harness.py \
 
 A list of supported tasks can be found [here](https://github.com/EleutherAI/lm-evaluation-harness/blob/master/docs/task_table.md).
 
-
-
 ### Evaluating LoRA-finetuned LLMs
 
 The above command can be used to evaluate models that are saved via a single checkpoint file. This includes downloaded checkpoints and base models finetuned via the full and adapter finetuning scripts. For LoRA-finetuned models, use the `lm_eval_harness_lora.py` script instead:
@@ -56,6 +54,7 @@ python eval/lm_eval_harness_lora.py \
 * **How do I evaluate on MMLU?**
 
   MMLU is available as with lm-eval harness but the task name is not MMLU. You can use `hendrycksTest*` as regex to evaluate on MMLU.
+
   ```shell
   python eval/lm_eval_harness_lora.py \
           --lora_path "lit_model_lora_finetuned.pth" \
@@ -66,7 +65,6 @@ python eval/lm_eval_harness_lora.py \
           --num_fewshot 5 \
           --save_filepath "results.json"
   ```
-
 
 * **Is Truthful MC is not available in lm-eval?**
 
