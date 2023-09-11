@@ -56,13 +56,13 @@ For LoRA-finetuned models, you need to first merge the LoRA weights with the ori
   MMLU is available as with lm-eval harness but the task name is not MMLU. You can use `hendrycksTest*` as regex to evaluate on MMLU.
 
   ```shell
- python eval/lm_eval_harness.py \
-     --checkpoint_dir "checkpoints/Llama-2-7b-hf/" \
-     --precision "bf16-true" \
-     --eval_tasks "[hendrycksTest*]" \
-     --batch_size 4 \
-     --num_fewshot 5 \
-     --save_filepath "results.json"
+  python eval/lm_eval_harness.py \
+      --checkpoint_dir "checkpoints/Llama-2-7b-hf/" \
+      --precision "bf16-true" \
+      --eval_tasks "[hendrycksTest*]" \
+      --batch_size 4 \
+      --num_fewshot 5 \
+      --save_filepath "results.json"
   ```
 
 * **Is Truthful MC is not available in lm-eval?**
