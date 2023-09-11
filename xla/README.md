@@ -16,7 +16,7 @@ You can also choose a different TPU type. To do so, change the `version`, `accel
 
 <details>
 <summary>Multihost caveats</summary>
-  
+
 TPU v4-8 uses a single host. SSH'ing into the machine and running commands manually will only work when using a single host (1 slice in the TPU pod).
 In multi-host environments, such as larger TPU pod slices, it's necessary to launch all commands on all hosts simultaneously to avoid hangs.
 For local development, it is advisable to upload a zip file containing all your current changes and execute it inside the VM from your personal computer:
@@ -74,7 +74,7 @@ export ALLOW_MULTIPLE_LIBTPU_LOAD=1
 export PJRT_DEVICE=TPU
 ```
 
-> [!NOTE]\
+> [!NOTE]
 > An extensive guide on setup and available options can be found [here](https://cloud.google.com/tpu/docs/v4-users-guide).
 
 Since a new machine was created, you may need to download pretrained weights.
@@ -87,7 +87,6 @@ Persistent disks can still be useful in read-only mode to load pretrained weight
 In multihost settings, FSDP will save checkpoint shards per host and consolidate them into a single checkpoint.
 For safekeeping, it is recommended to upload the consolidated checkpoints to a Google Cloud bucket.
 Alternatively, you can use the `scp` command to transfer these checkpoints from the TPU VM periodically, although this is not implemented in our scripts.
-
 
 ## Inference
 
@@ -113,7 +112,7 @@ python3 xla/finetune/adapter.py --checkpoint_dir checkpoints/tiiuae/falcon-7b --
 
 <details>
 <summary>Multihost caveats</summary>
-  
+
 This script is configured to save "full" checkpoints, which isn't possible on multihost TPU VMs.
 Here's how you can consolidate them together into a single one after training with `state_dict_type="sharded"`:
 
