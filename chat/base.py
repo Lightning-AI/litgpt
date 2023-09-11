@@ -40,9 +40,9 @@ def generate(
     T = idx.size(0)
     assert max_returned_tokens > T
     if max_seq_length < max_returned_tokens - 1:
-        # this would require rolling the kv cache based on the `input_pos` value. However, that will introduce a data
-        # dependency on input_pos tensor and impact model compilation. since this is an uncommon setting, we don't
-        # support it to avoid impacting the general speed
+        # rolling the kv cache based on the `input_pos` value would be necessary. However, doing so would introduce a
+        # data dependency on the `input_pos` tensor and impact model compilation. Since this setting is uncommon, we do
+        # not support it to avoid negatively impacting the overall speed.
         raise NotImplementedError
 
     device = idx.device
