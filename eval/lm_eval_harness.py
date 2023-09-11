@@ -124,13 +124,7 @@ class EvalHarnessBase(BaseLM):
     def _model_generate(self, context, max_length, eos_token_id):
         assert context.shape[0] == 1
         out = generate(
-            model=self.model,
-            idx=context[0],
-            max_new_tokens=max_length,
-            max_seq_length=self.model.config.block_size,
-            temperature=self.temperature,
-            top_k=None,
-            eos_id=eos_token_id,
+            self.model, context[0], max_length, temperature=self.temperature, top_k=None, eos_id=eos_token_id
         )
 
         return self.tokenizer.decode(out)

@@ -76,8 +76,7 @@ class GPT(BaseModel):
                 ln_f=config.norm_class(config.n_embd, eps=config.norm_eps),
             )
         )
-
-        self.rope_cache: Optional[RoPECache] = None
+        self.max_seq_length = self.config.block_size
         self.mask_cache: Optional[torch.Tensor] = None
         self.kv_caches: List[KVCache] = []
         self.adapter_kv_caches: List[KVCache] = []
@@ -146,7 +145,6 @@ class CausalSelfAttention(BaseCausalSelfAttention):
         self,
         x: torch.Tensor,
         rope: RoPECache,
-        max_seq_length: int,
         mask: Optional[torch.Tensor] = None,
         input_pos: Optional[torch.Tensor] = None,
         kv_cache: Optional[KVCache] = None,
@@ -176,10 +174,10 @@ class CausalSelfAttention(BaseCausalSelfAttention):
         v = v.reshape(B, -1, T, self.config.head_size)  # (B, nh_v, T, hs)
 
         cos, sin = rope
-        q_roped = apply_rope(q[..., :self.config.rope_n_elem], cos, sin)
-        k_roped = apply_rope(k[..., :self.config.rope_n_elem], cos, sin)
-        q = torch.cat((q_roped, q[..., self.config.rope_n_elem:]), dim=-1)
-        k = torch.cat((k_roped, k[..., self.config.rope_n_elem:]), dim=-1)
+        q_roped = apply_rope(q[..., : self.config.rope_n_elem], cos, sin)
+        k_roped = apply_rope(k[..., : self.config.rope_n_elem], cos, sin)
+        q = torch.cat((q_roped, q[..., self.config.rope_n_elem :]), dim=-1)
+        k = torch.cat((k_roped, k[..., self.config.rope_n_elem :]), dim=-1)
 
         if kv_cache is not None:
             cache_k, cache_v = kv_cache
