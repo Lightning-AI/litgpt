@@ -246,6 +246,25 @@ for c in falcon:
         copy["name"] = c["name"].format(kind)
         configs.append(copy)
 
+# https://huggingface.co/tiiuae/falcon-180b/blob/main/config.json
+falcon180b = dict(
+    org="tiiuae",
+    name="falcon-180B{}",
+    block_size=2048,
+    padded_vocab_size=65024,
+    n_layer=80,
+    n_head=232,
+    n_embd=14848,
+    rotary_percentage=1.0,
+    n_query_groups=8,
+    bias=False,
+)
+
+for kind in ("", "-chat"):
+    copy = falcon180b.copy()
+    copy["name"] = falcon180b["name"].format(kind)
+    configs.append(copy)
+
 
 #############################
 # OpenLM Research Open LLaMA
@@ -940,6 +959,5 @@ stablecode = [
     dict(org="stabilityai", name="stablecode-instruct-alpha-3b", vocab_size=49152, n_layer=32, n_embd=2560),
 ]
 configs.extend(stablecode)
-
 
 name_to_config = {config["name"]: config for config in configs}
