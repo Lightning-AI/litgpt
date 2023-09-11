@@ -24,7 +24,7 @@ def test_prepare_csv(tmp_path, fake_checkpoint_dir):
         "Exponentiate,2^3,8\n"
         "Square root,√9,3\n"
     )
-    with open(csv_path, "w") as fp:
+    with open(csv_path, "w", encoding="utf-8") as fp:
         fp.write(mock_data)
 
     with mock.patch("torch.save") as save_mock:
