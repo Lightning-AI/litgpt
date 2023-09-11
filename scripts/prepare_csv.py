@@ -48,14 +48,7 @@ def prepare(
         max_seq_length = config["block_size"]
 
     destination_path.mkdir(parents=True, exist_ok=True)
-
-    # before the data file path, get the llm to be used
     logger.info("Loading data file ...")
-
-    # first load the csv using pandas and convert it to a json
-    # then fill all the nan with "", assuming all the records are in string
-    # then convert the dataframe into json
-
     df = pd.read_csv(csv_path).fillna("")
     df_json = json.loads(df.to_json(orient="records", indent=4))
 
