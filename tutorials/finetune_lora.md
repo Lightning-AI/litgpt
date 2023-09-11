@@ -160,11 +160,16 @@ Then, we can merge the LoRA weights with the checkpoint model using the `merge_l
 ```bash
 python scripts/merge_lora.py \
   --checkpoint_dir "checkpoints/stabilityai/stablelm-base-alpha-3b/" \
-  --lora_path "out/lora_stage_1/stablelm-base-alpha-3b/lit_model_lora_finetuned.pth" \
+  --lora_path "out/lora_weights/stablelm-base-alpha-3b/lit_model_lora_finetuned.pth" \
   --out_dir "out/lora_merged/stablelm-base-alpha-3b/"
 ```
 
-After merging, we can use the `base.py` file for inference using the new checkpoint file:
+After merging, we can use the `base.py` file for inference using the new checkpoint file. Note that if your new checkpoint directory is different from the original checkpoint directory, we also have to copy over the `*.json` files which are required for the configuration and tokenizer information:
+
+```bash
+scp checkpoints/stabilityai/stablelm-base-alpha-3b/*.json \
+out/lora_merged/stablelm-base-alpha-3b/
+```
 
 ```bash
 python generate/base.py \
