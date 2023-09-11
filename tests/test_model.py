@@ -261,12 +261,10 @@ def test_against_hf_llama2(ours_kwargs):
 @pytest.mark.skipif(sys.platform in ("win32", "darwin"), reason="torch.compile not supported on this platform")
 @torch.inference_mode()
 def test_model_compile():
-    from lit_gpt import GPT, Config
+    from lit_gpt import GPT
 
-    block_size = 16
-    config = Config(block_size=block_size, padded_vocab_size=8, n_layer=2, n_head=2, n_embd=4)
-    model = GPT(config)
-    x = torch.randint(model.config.vocab_size, size=(2, block_size), dtype=torch.int64)
+    model = GPT.from_name("pythia-70m", n_layer=3)
+    x = torch.randint(model.config.vocab_size, size=(2, model.config.block_size), dtype=torch.int64)
 
     from torch._dynamo.backends import debugging
 
@@ -275,9 +273,9 @@ def test_model_compile():
     assert explanation.graph_count == 1
     assert explanation.graph_break_count == 0
 
-    model = GPT(config)
+    model = GPT(model.config)
     model.set_kv_cache(2)
-    input_pos = torch.arange(block_size)
+    input_pos = torch.arange(model.config.block_size)
     explanation = torch._dynamo.explain(model, x, input_pos)
     assert isinstance(explanation, debugging.ExplainOutput)
     assert explanation.graph_count == 1
