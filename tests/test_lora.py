@@ -1,3 +1,4 @@
+import sys
 from contextlib import redirect_stdout
 from io import StringIO
 from itertools import product
@@ -494,3 +495,39 @@ def test_base_model_can_be_lora_loaded():
     assert not keys.unexpected_keys
     for k in keys.missing_keys:
         assert lora_filter(k, None)
+
+
+@pytest.mark.skipif(sys.platform in ("win32", "darwin"), reason="torch.compile not supported on this platform")
+@torch.inference_mode()
+def test_lora_compile():
+    from lit_gpt.lora import GPT
+
+    model = GPT.from_name(
+        "pythia-70m",
+        n_layer=3,
+        r=8,
+        alpha=8,
+        dropout=0.1,
+        to_query=True,
+        to_key=True,
+        to_value=True,
+        to_projection=True,
+        to_mlp=True,
+        to_head=True,
+    )
+    x = torch.randint(model.config.vocab_size, size=(2, model.config.block_size), dtype=torch.int64)
+
+    from torch._dynamo.backends import debugging
+
+    explanation = torch._dynamo.explain(model, x)
+    assert isinstance(explanation, debugging.ExplainOutput)
+    assert explanation.graph_count == 1
+    assert explanation.graph_break_count == 0
+
+    model = GPT(model.config)
+    model.set_kv_cache(2)
+    input_pos = torch.arange(model.config.block_size)
+    explanation = torch._dynamo.explain(model, x, input_pos)
+    assert isinstance(explanation, debugging.ExplainOutput)
+    assert explanation.graph_count == 1
+    assert explanation.graph_break_count == 0

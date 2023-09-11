@@ -13,7 +13,7 @@ from typing_extensions import Self
 
 from lit_gpt.config import Config
 
-FlashAttention2Available = RequirementCache("flash-attn>=2.0.0.post1")
+FlashAttention2Available = bool(RequirementCache("flash-attn>=2.0.0.post1"))
 
 
 class GPT(nn.Module):
