@@ -67,25 +67,21 @@ def test_against_hf_model(rotary_pct, batch_size, n_embd, parallel_residual, kv_
     ours_embed = ours_model.transformer.wte(token_sample)
     torch.testing.assert_close(ours_embed, theirs_embed)
 
-    rope = ours_model.rope_cache()
-    mask = ours_model.build_mask_cache(token_sample)
+    cos, sin = ours_model.cos, ours_model.sin
+    mask = ours_model.mask_cache
     position_ids = torch.arange(block_size).unsqueeze(0)
+    theirs_block = theirs_model.gpt_neox.layers[0]
+    ours_block = ours_model.transformer.h[0]
     if kv_cache:
-        (theirs_block_out, theirs_kv_cache) = theirs_model.gpt_neox.layers[0](
-            theirs_embed, use_cache=True, position_ids=position_ids
-        )
-        head_size = n_embd // n_head
-        k_cache_shape = (batch_size, n_head, block_size, rope[0].size(-1) + head_size - int(rotary_pct * head_size))
-        v_cache_shape = (batch_size, n_head, block_size, head_size)
-        ours_kv_cache = torch.zeros(k_cache_shape), torch.zeros(v_cache_shape)
-        (ours_block_out, ours_kv_cache) = ours_model.transformer.h[0](
-            ours_embed, *rope, mask, torch.arange(block_size), ours_kv_cache
-        )
-        for ours_cache, theirs_cache in zip(ours_kv_cache, theirs_kv_cache):
-            torch.testing.assert_close(ours_cache, theirs_cache)
+        ours_model.build_kv_caches(token_sample, block_size, cos.size(-1))
+        theirs_block_out, (theirs_k, theirs_v) = theirs_block(theirs_embed, use_cache=True, position_ids=position_ids)
+        ours_k, ours_v = ours_block.attn.kv_cache
+        ours_block_out = ours_block(ours_embed, cos, sin, mask, torch.arange(block_size))
+        torch.testing.assert_close(ours_k, theirs_k)
+        torch.testing.assert_close(ours_v, theirs_v)
     else:
-        (theirs_block_out,) = theirs_model.gpt_neox.layers[0](theirs_embed, position_ids=position_ids)
-        ours_block_out, _ = ours_model.transformer.h[0](ours_embed, *rope, mask)
+        (theirs_block_out,) = theirs_block(theirs_embed, position_ids=position_ids)
+        ours_block_out = ours_block(ours_embed, cos, sin, mask)
     torch.testing.assert_close(ours_block_out, theirs_block_out)
 
     theirs = theirs_model(token_sample)["logits"]

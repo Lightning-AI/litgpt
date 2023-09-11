@@ -465,7 +465,6 @@ class GPT(BaseModel):
             lora_alpha=config.alpha,
             lora_dropout=config.dropout,
         )
-
         self.transformer = nn.ModuleDict(
             dict(
                 wte=nn.Embedding(config.padded_vocab_size, config.n_embd),
@@ -475,17 +474,15 @@ class GPT(BaseModel):
         )
         self.max_seq_length = self.config.block_size
         self.mask_cache: Optional[torch.Tensor] = None
-        self.kv_caches: List[KVCache] = []
 
     def forward(
         self, idx: torch.Tensor, input_pos: Optional[torch.Tensor] = None, lm_head_chunk_size: int = 0
     ) -> Union[torch.Tensor, List[torch.Tensor]]:
         T = idx.size(1)
-        use_kv_cache = input_pos is not None
         block_size = self.config.block_size
         assert block_size >= T, f"Cannot forward sequence of length {T}, block size is only {block_size}"
 
-        if use_kv_cache:
+        if input_pos is not None:  # use the kv cache
             cos = self.cos.index_select(0, input_pos)
             sin = self.sin.index_select(0, input_pos)
             # passing `attn_mask` to SDPA downgrades it to use the inefficient implementation. since we only need the mask
@@ -495,24 +492,16 @@ class GPT(BaseModel):
                 self.mask_cache = self.build_mask_cache(idx)  # (1, 1, block_size, block_size)
             mask = self.mask_cache.index_select(2, input_pos)
             mask = mask[:, :, :, : self.max_seq_length]
+            self.build_kv_caches(idx, self.max_seq_length, cos.size(-1))
         else:
             cos = self.cos[:T]
             sin = self.sin[:T]
             mask = None
 
-        # forward the model itself
-        x = self.transformer.wte(idx)  # token embeddings of shape (B, T, n_embd)
-
-        if not use_kv_cache:
-            for block in self.transformer.h:
-                x, *_ = block(x, cos, sin)
-        else:
-            self.kv_caches = self.kv_caches or self.build_kv_caches(x, self.max_seq_length, cos.size(-1))
-            for i, block in enumerate(self.transformer.h):
-                x, self.kv_caches[i] = block(x, cos, sin, mask, input_pos, self.kv_caches[i])
-
+        x = self.transformer.wte(idx)  # token embeddings of shape (b, t, n_embd)
+        for block in self.transformer.h:
+            x = block(x, cos, sin, mask, input_pos)
         x = self.transformer.ln_f(x)
-
         if lm_head_chunk_size > 0:
             # chunk the lm head logits to reduce the peak memory used by autograd
             return [self.lm_head(x_i) for x_i in x.split(lm_head_chunk_size, dim=1)]
@@ -549,12 +538,6 @@ class Block(BaseBlock):
 
 class CausalSelfAttention(BaseCausalSelfAttention):
     def __init__(self, config: Config) -> None:
-        """Causal self-attention with calculating qkv matrices with a single matrix* and Low Ranking Adaptation for
-        parameter-efficient fine-tuning.
-
-        *Instead of creating multiple heads and concatenating the result (in addition to creating separate matrices for
-        query, key and value for each head) we can do this in a single pass with a single weight matrix.
-        """
         # Skip the parent class __init__ altogether and replace it to avoid
         # useless allocations
         nn.Module.__init__(self)
@@ -581,6 +564,8 @@ class CausalSelfAttention(BaseCausalSelfAttention):
             lora_alpha=config.alpha,
             lora_dropout=config.dropout,
         )
+        # disabled by default
+        self.kv_cache: Optional[KVCache] = None
 
         self.config = config
 

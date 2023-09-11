@@ -14,8 +14,8 @@ from typing_extensions import Self
 
 from lit_gpt.config import Config as BaseConfig
 from lit_gpt.model import GPT as BaseModel
+from lit_gpt.model import Block as BaseBlock
 from lit_gpt.model import CausalSelfAttention as BaseCausalSelfAttention
-from lit_gpt.model import KVCache, apply_rope
 
 
 @dataclass
@@ -43,22 +43,15 @@ class GPT(BaseModel):
         )
         self.max_seq_length = self.config.block_size
         self.mask_cache: Optional[torch.Tensor] = None
-        self.kv_caches: List[KVCache] = []
-        self.adapter_kv_caches: List[KVCache] = []
-
-    def reset_cache(self) -> None:
-        super().reset_cache()
-        self.adapter_kv_caches.clear()
 
     def forward(
         self, idx: torch.Tensor, input_pos: Optional[torch.Tensor] = None, lm_head_chunk_size: int = 0
     ) -> Union[torch.Tensor, List[torch.Tensor]]:
         T = idx.size(1)
-        use_kv_cache = input_pos is not None
         block_size = self.config.block_size
         assert block_size >= T, f"Cannot forward sequence of length {T}, block size is only {block_size}"
 
-        if use_kv_cache:
+        if input_pos is not None:  # use the kv cache
             cos = self.cos.index_select(0, input_pos)
             sin = self.sin.index_select(0, input_pos)
             # passing `attn_mask` to SDPA downgrades it to use the inefficient implementation. since we only need the mask
@@ -68,27 +61,16 @@ class GPT(BaseModel):
                 self.mask_cache = self.build_mask_cache(idx)  # (1, 1, block_size, block_size)
             mask = self.mask_cache.index_select(2, input_pos)
             mask = mask[:, :, :, : self.max_seq_length]
+            self.build_kv_caches(idx, self.max_seq_length, cos.size(-1))
         else:
             cos = self.cos[:T]
             sin = self.sin[:T]
             mask = None
 
-        # forward the model itself
         x = self.transformer.wte(idx)  # token embeddings of shape (b, t, n_embd)
-
-        if not use_kv_cache:
-            for block in self.transformer.h:
-                x, *_ = block(x, cos, sin)
-        else:
-            self.kv_caches = self.kv_caches or self.build_kv_caches(x, self.max_seq_length, cos.size(-1))
-            self.adapter_kv_caches = self.adapter_kv_caches or [None for _ in range(self.config.n_layer)]
-            for i, block in enumerate(self.transformer.h):
-                x, self.kv_caches[i], self.adapter_kv_caches[i] = block(
-                    x, cos, sin, mask, input_pos, self.kv_caches[i], self.adapter_kv_caches[i]
-                )
-
+        for block in self.transformer.h:
+            x = block(x, cos, sin, mask, input_pos)
         x = self.transformer.ln_f(x)
-
         if lm_head_chunk_size > 0:
             # chunk the lm head logits to reduce the peak memory used by autograd
             return [self.lm_head(x_i) for x_i in x.split(lm_head_chunk_size, dim=1)]
@@ -105,12 +87,13 @@ class GPT(BaseModel):
             module.reset_parameters()
 
 
-class Block(nn.Module):
+class Block(BaseBlock):
     """The implementation is identical to `lit_gpt.model.Block` with the exception that
     we replace the attention layer where adaption is implemented."""
 
     def __init__(self, config: Config, block_idx: int) -> None:
-        super().__init__()
+        # Skip the parent class __init__ altogether and replace it to avoid useless allocations
+        nn.Module.__init__(self)
         self.norm_1 = config.norm_class(config.n_embd, eps=config.norm_eps)
         self.attn = CausalSelfAttention(config, block_idx)
         if not config.shared_attention_norm:
@@ -118,31 +101,6 @@ class Block(nn.Module):
         self.mlp = config.mlp_class(config)
 
         self.config = config
-
-    def forward(
-        self,
-        x: torch.Tensor,
-        cos: torch.Tensor,
-        sin: torch.Tensor,
-        mask: Optional[torch.Tensor] = None,
-        input_pos: Optional[torch.Tensor] = None,
-        kv_cache: Optional[KVCache] = None,
-        adapter_kv_cache: Optional[KVCache] = None,
-    ) -> Tuple[torch.Tensor, Optional[KVCache], Optional[KVCache]]:
-        n_1 = self.norm_1(x)
-        h, new_kv_cache, new_adapter_kv_cache = self.attn(n_1, cos, sin, mask, input_pos, kv_cache, adapter_kv_cache)
-        if self.config.parallel_residual:
-            n_2 = n_1 if self.config.shared_attention_norm else self.norm_2(x)
-            x = x + h + self.mlp(n_2)
-        else:
-            if self.config.shared_attention_norm:
-                raise NotImplementedError(
-                    "No checkpoint amongst the ones we support uses this configuration"
-                    " (non-parallel residual and shared attention norm)."
-                )
-            x = x + h
-            x = x + self.mlp(self.norm_2(x))
-        return x, new_kv_cache, new_adapter_kv_cache
 
 
 class CausalSelfAttention(BaseCausalSelfAttention):
@@ -156,84 +114,41 @@ class CausalSelfAttention(BaseCausalSelfAttention):
             self.adapter_wte = nn.Embedding(config.adapter_prompt_length, config.n_embd)
             # gate for adaption
             self.gating_factor = torch.nn.Parameter(torch.zeros(1, 1, config.n_head, 1))
-            self.reset_parameters()
+            # kv cache for inference
+            self.adapter_kv_cache: Optional[Tuple[torch.Tensor, torch.Tensor]] = None
         self.block_idx = block_idx
 
-    def forward(
-        self,
-        x: torch.Tensor,
-        cos: torch.Tensor,
-        sin: torch.Tensor,
-        mask: Optional[torch.Tensor] = None,
-        input_pos: Optional[torch.Tensor] = None,
-        kv_cache: Optional[KVCache] = None,
-        adapter_kv_cache: Optional[KVCache] = None,
-    ) -> Tuple[torch.Tensor, Optional[KVCache], Optional[KVCache]]:
-        B, T, C = x.size()  # batch size, sequence length, embedding dimensionality (n_embd)
+    def scaled_dot_product_attention(
+        self, q: torch.Tensor, k: torch.Tensor, v: torch.Tensor, mask: Optional[torch.Tensor] = None
+    ):
+        y = super().scaled_dot_product_attention(q, k, v, mask)
+        if self.block_idx < self.config.adapter_start_layer:
+            return y
 
-        qkv = self.attn(x)
+        aT = self.config.adapter_prompt_length
+        if self.adapter_kv_cache is not None:
+            # since this uses the wte weights as the prefix and the kv cache is only used during inference, ak and av
+            # are the same every call
+            ak, av = self.adapter_kv_cache
+        else:
+            prefix = self.adapter_wte.weight.reshape(1, aT, self.config.n_embd)
+            aqkv = self.attn(prefix)
+            q_per_kv = self.config.n_head // self.config.n_query_groups
+            aqkv = aqkv.view(1, aT, self.config.n_query_groups, q_per_kv + 2, self.config.head_size)
+            aqkv = aqkv.permute(0, 2, 3, 1, 4)
+            _, ak, av = aqkv.split((q_per_kv, 1, 1), dim=2)
+            if self.config.n_query_groups != 1:
+                # for MHA this is a no-op
+                ak = ak.repeat_interleave(q_per_kv, dim=2)
+                av = av.repeat_interleave(q_per_kv, dim=2)
+            ak = ak.view(1, -1, aT, self.config.head_size)  # (1, nh_ak, aT, hs)
+            av = av.view(1, -1, aT, self.config.head_size)  # (1, nh_av, aT, hs)
+            self.adapter_kv_cache = (ak, av)
 
-        # assemble into a number of query groups to support MHA, MQA and GQA together (see `config.n_query_groups`)
-        q_per_kv = self.config.n_head // self.config.n_query_groups
-        total_qkv = q_per_kv + 2  # each group has 1+ queries, 1 key, and 1 value
-        qkv = qkv.view(B, T, self.config.n_query_groups, total_qkv, self.config.head_size)
-        qkv = qkv.permute(0, 2, 3, 1, 4)  # (B, n_query_groups, total_qkv, T, hs)
-
-        # split batched computation into three
-        q, k, v = qkv.split((q_per_kv, 1, 1), dim=2)
-
-        # repeat k and v if necessary
-        if self.config.n_query_groups != 1:  # doing this would require a full kv cache with MQA (inefficient!)
-            # for MHA this is a no-op
-            k = k.expand(B, self.config.n_query_groups, q_per_kv, T, self.config.head_size)
-            v = v.expand(B, self.config.n_query_groups, q_per_kv, T, self.config.head_size)
-
-        q = q.reshape(B, -1, T, self.config.head_size)  # (B, nh_q, T, hs)
-        k = k.reshape(B, -1, T, self.config.head_size)  # (B, nh_k, T, hs)
-        v = v.reshape(B, -1, T, self.config.head_size)  # (B, nh_v, T, hs)
-
-        q_roped = apply_rope(q[..., : self.config.rope_n_elem], cos, sin)
-        k_roped = apply_rope(k[..., : self.config.rope_n_elem], cos, sin)
-        q = torch.cat((q_roped, q[..., self.config.rope_n_elem :]), dim=-1)
-        k = torch.cat((k_roped, k[..., self.config.rope_n_elem :]), dim=-1)
-
-        if kv_cache is not None:
-            cache_k, cache_v = kv_cache
-            cache_k, cache_v = cache_k.to(dtype=k.dtype), cache_v.to(dtype=v.dtype)
-            k = cache_k.index_copy_(2, input_pos, k)
-            v = cache_v.index_copy_(2, input_pos, v)
-            kv_cache = k, v
-
-        y = self.scaled_dot_product_attention(q, k, v, mask=mask)
-
-        if self.block_idx >= self.config.adapter_start_layer:
-            aT = self.config.adapter_prompt_length
-            if adapter_kv_cache is not None:
-                ak, av = adapter_kv_cache
-            else:
-                prefix = self.adapter_wte.weight.reshape(1, aT, C)
-                aqkv = self.attn(prefix)
-                aqkv = aqkv.view(1, aT, self.config.n_query_groups, q_per_kv + 2, self.config.head_size)
-                aqkv = aqkv.permute(0, 2, 3, 1, 4)
-                _, ak, av = aqkv.split((q_per_kv, 1, 1), dim=2)
-                if self.config.n_query_groups != 1:
-                    # for MHA this is a no-op
-                    ak = ak.repeat_interleave(q_per_kv, dim=2)
-                    av = av.repeat_interleave(q_per_kv, dim=2)
-                ak = ak.view(1, -1, aT, self.config.head_size)  # (1, nh_ak, aT, hs)
-                av = av.view(1, -1, aT, self.config.head_size)  # (1, nh_av, aT, hs)
-                adapter_kv_cache = (ak, av)
-
-            amask = torch.ones(T, aT, dtype=torch.bool, device=x.device)
-            ay = self.scaled_dot_product_attention(q, ak, av, amask)
-            y = y + self.gating_factor * ay
-
-        y = y.reshape(B, T, C)  # re-assemble all head outputs side by side
-
-        # output projection
-        y = self.proj(y)
-
-        return y, kv_cache, adapter_kv_cache
+        T = q.size(2)
+        amask = torch.ones(T, aT, dtype=torch.bool, device=q.device)
+        ay = super().scaled_dot_product_attention(q, ak, av, amask)
+        return y + self.gating_factor * ay
 
     def reset_parameters(self) -> None:
         torch.nn.init.zeros_(self.gating_factor)
