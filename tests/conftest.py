@@ -3,6 +3,7 @@ import sys
 from pathlib import Path
 
 import pytest
+import torch
 
 wd = Path(__file__).parent.parent.absolute()
 
@@ -23,3 +24,13 @@ def fake_checkpoint_dir(tmp_path):
     (checkpoint_dir / "tokenizer.json").touch()
     (checkpoint_dir / "tokenizer_config.json").touch()
     return checkpoint_dir
+
+
+class TensorLike:
+    def __eq__(self, other):
+        return isinstance(other, torch.Tensor)
+
+
+@pytest.fixture()
+def tensor_like():
+    return TensorLike()
