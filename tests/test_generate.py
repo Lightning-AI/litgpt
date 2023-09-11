@@ -11,7 +11,9 @@ import pytest
 import torch
 
 
-@pytest.mark.parametrize("max_seq_length", (10, 20 + 5))
+@pytest.mark.parametrize(
+    "max_seq_length", (pytest.param(10, marks=pytest.mark.xfail(raises=NotImplementedError, strict=True)), 20 + 5)
+)
 def test_generate(max_seq_length):
     import generate.base as generate
     from lit_gpt import GPT, Config

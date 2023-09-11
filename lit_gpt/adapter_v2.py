@@ -186,12 +186,6 @@ class CausalSelfAttention(BaseCausalSelfAttention):
         if kv_cache is not None:
             cache_k, cache_v = kv_cache
             cache_k, cache_v = cache_k.to(dtype=k.dtype), cache_v.to(dtype=v.dtype)
-            # check if reached token limit
-            if input_pos[-1] >= max_seq_length:
-                input_pos = torch.tensor(max_seq_length - 1, device=input_pos.device)
-                # shift 1 position to the left
-                cache_k = torch.roll(cache_k, -1, dims=2)
-                cache_v = torch.roll(cache_v, -1, dims=2)
             k = cache_k.index_copy_(2, input_pos, k)
             v = cache_v.index_copy_(2, input_pos, v)
             kv_cache = k, v
