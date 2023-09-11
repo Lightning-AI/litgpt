@@ -473,33 +473,21 @@ class GPT(BaseModel):
                 ln_f=config.norm_class(config.n_embd, eps=config.norm_eps),
             )
         )
-
-        self.rope_cache: Optional[RoPECache] = None
+        self.max_seq_length = self.config.block_size
         self.mask_cache: Optional[torch.Tensor] = None
         self.kv_caches: List[KVCache] = []
 
     def forward(
         self,
         idx: torch.Tensor,
-        max_seq_length: Optional[int] = None,
         input_pos: Optional[torch.Tensor] = None,
         lm_head_chunk_size: int = 0,
     ) -> Union[torch.Tensor, List[torch.Tensor]]:
-        B, T = idx.size()
+        T = idx.size(1)
         use_kv_cache = input_pos is not None
-
         block_size = self.config.block_size
-        if max_seq_length is None:
-            max_seq_length = block_size
-        if use_kv_cache:  # not relevant otherwise
-            assert (
-                max_seq_length >= T
-            ), f"Cannot forward sequence of length {T}, max seq length is only {max_seq_length}"
-        assert max_seq_length <= block_size, f"Cannot attend to {max_seq_length}, block size is only {block_size}"
         assert block_size >= T, f"Cannot forward sequence of length {T}, block size is only {block_size}"
 
-        if self.rope_cache is None:
-            self.rope_cache = self.build_rope_cache(idx)  # 2 * (block_size, head_size * rotary_percentage)
         # passing `attn_mask` to SDPA downgrades it to use the inefficient implementation. since we only need the mask
         # for the kv-cache support (only during inference), we only create it in that situation
         # this will be resolved by https://github.com/pytorch/pytorch/issues/96099
@@ -511,7 +499,7 @@ class GPT(BaseModel):
             cos = cos.index_select(0, input_pos)
             sin = sin.index_select(0, input_pos)
             mask = self.mask_cache.index_select(2, input_pos)
-            mask = mask[:, :, :, :max_seq_length]
+            mask = mask[:, :, :, :self.max_seq_length]
         else:
             cos = cos[:T]
             sin = sin[:T]
@@ -522,11 +510,11 @@ class GPT(BaseModel):
 
         if not use_kv_cache:
             for block in self.transformer.h:
-                x, *_ = block(x, (cos, sin), max_seq_length)
+                x, *_ = block(x, (cos, sin))
         else:
-            self.kv_caches = self.kv_caches or self.build_kv_caches(x, max_seq_length, cos.size(-1))
+            self.kv_caches = self.kv_caches or self.build_kv_caches(x, self.max_seq_length, cos.size(-1))
             for i, block in enumerate(self.transformer.h):
-                x, self.kv_caches[i] = block(x, (cos, sin), max_seq_length, mask, input_pos, self.kv_caches[i])
+                x, self.kv_caches[i] = block(x, (cos, sin), mask, input_pos, self.kv_caches[i])
 
         x = self.transformer.ln_f(x)
 

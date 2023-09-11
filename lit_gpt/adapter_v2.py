@@ -76,8 +76,7 @@ class GPT(BaseModel):
                 ln_f=config.norm_class(config.n_embd, eps=config.norm_eps),
             )
         )
-
-        self.rope_cache: Optional[RoPECache] = None
+        self.max_seq_length = self.config.block_size
         self.mask_cache: Optional[torch.Tensor] = None
         self.kv_caches: List[KVCache] = []
         self.adapter_kv_caches: List[KVCache] = []
@@ -146,7 +145,6 @@ class CausalSelfAttention(BaseCausalSelfAttention):
         self,
         x: torch.Tensor,
         rope: RoPECache,
-        max_seq_length: int,
         mask: Optional[torch.Tensor] = None,
         input_pos: Optional[torch.Tensor] = None,
         kv_cache: Optional[KVCache] = None,
