@@ -295,10 +295,18 @@ class SavingProxyForStorage:
 class SavingProxyForTensor:
     def __init__(self, tensor, saver, protocol_version=5):
         self.protocol_version = protocol_version
-        self.reduce_ret_fn, (storage, *other_reduce_args) = tensor.__reduce_ex__(protocol_version)
-        assert isinstance(storage, torch.storage.TypedStorage), "Please check for updates"
-        storage_proxy = SavingProxyForStorage(storage, saver, protocol_version=protocol_version)
-        self.reduce_args = (storage_proxy, *other_reduce_args)
+        self.reduce_ret_fn, reduce_args = tensor.__reduce_ex__(protocol_version)
+        if reduce_args[0] == torch._utils._rebuild_tensor_v2:
+            # for Tensors with Python attributes
+            (a0, a1, (storage, *a2_other), *other_reduce_args) = reduce_args
+            assert isinstance(storage, torch.storage.TypedStorage), "Please check for updates"
+            storage_proxy = SavingProxyForStorage(storage, saver, protocol_version=protocol_version)
+            self.reduce_args = (a0, a1, (storage_proxy, *a2_other), *other_reduce_args)
+        else:
+            (storage, *other_reduce_args) = reduce_args
+            assert isinstance(storage, torch.storage.TypedStorage), "Please check for updates"
+            storage_proxy = SavingProxyForStorage(storage, saver, protocol_version=protocol_version)
+            self.reduce_args = (storage_proxy, *other_reduce_args)
 
     def __reduce_ex__(self, protocol_version):
         if protocol_version != self.protocol_version:
@@ -488,18 +496,17 @@ def map_old_state_dict_weights(state_dict: Dict, mapping: Mapping, prefix: str) 
     return state_dict
 
 
-def get_default_supported_precision(training: bool, tpu: bool = False) -> str:
-    """Return default precision that is supported by the hardware.
+def get_default_supported_precision(training: bool) -> str:
+    """Return default precision that is supported by the hardware: either `bf16` or `16`.
 
     Args:
         training: `-mixed` or `-true` version of the precision to use
-        tpu: whether TPU device is used
 
     Returns:
         default precision that is suitable for the task and is supported by the hardware
     """
-    if tpu:
-        return "32-true"
-    if not torch.cuda.is_available() or torch.cuda.is_bf16_supported():
-        return "bf16-mixed" if training else "bf16-true"
-    return "16-mixed" if training else "16-true"
+    from lightning.fabric.accelerators import MPSAccelerator
+
+    if MPSAccelerator.is_available() or (torch.cuda.is_available() and not torch.cuda.is_bf16_supported()):
+        return "16-mixed" if training else "16-true"
+    return "bf16-mixed" if training else "bf16-true"

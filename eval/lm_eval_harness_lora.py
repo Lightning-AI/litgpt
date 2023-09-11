@@ -2,7 +2,6 @@ import json
 import os
 import sys
 import time
-import warnings
 from pathlib import Path
 from typing import List, Literal, Optional
 
@@ -62,20 +61,18 @@ class EvalHarnessLoRA(EvalHarnessBase):
 
         check_valid_checkpoint_dir(checkpoint_dir)
 
-        with open(checkpoint_dir / "lit_config.json") as fp:
-            config_params = dict(
-                r=lora_r,
-                alpha=lora_alpha,
-                dropout=lora_dropout,
-                to_query=lora_query,
-                to_key=lora_key,
-                to_value=lora_value,
-                to_projection=lora_projection,
-                to_mlp=lora_mlp,
-                to_head=lora_head,
-            )
-            config_params.update(**json.load(fp))
-            config = Config(**config_params)
+        config = Config.from_json(
+            checkpoint_dir / "lit_config.json",
+            r=lora_r,
+            alpha=lora_alpha,
+            dropout=lora_dropout,
+            to_query=lora_query,
+            to_key=lora_key,
+            to_value=lora_value,
+            to_projection=lora_projection,
+            to_mlp=lora_mlp,
+            to_head=lora_head,
+        )
 
         if quantize is not None and devices > 1:
             raise NotImplementedError
@@ -160,10 +157,5 @@ if __name__ == "__main__":
     from jsonargparse import CLI
 
     torch.set_float32_matmul_precision("high")
-    warnings.filterwarnings(
-        # Triggered internally at ../aten/src/ATen/EmptyTensor.cpp:31
-        "ignore",
-        message="ComplexHalf support is experimental and many operators don't support it yet",
-    )
     result = CLI(run_eval_harness)
     print(result)

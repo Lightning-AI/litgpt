@@ -1,19 +1,22 @@
 import sys
 import time
 from pathlib import Path
-from typing import Literal, Optional
+from typing import Optional
 
 import lightning as L
 import torch
-from lightning.fabric.strategies import FSDPStrategy
+import torch_xla.core.xla_model as xm
+from lightning.fabric.accelerators import XLAAccelerator
+from lightning.fabric.strategies import XLAFSDPStrategy
 
 # support running without installing as a package
-wd = Path(__file__).parent.parent.resolve()
+wd = Path(__file__).parent.parent.parent.resolve()
 sys.path.append(str(wd))
 
 from lit_gpt import GPT, Config, Tokenizer
 from lit_gpt.model import Block
-from lit_gpt.utils import check_valid_checkpoint_dir, get_default_supported_precision, lazy_load, quantization
+from lit_gpt.utils import check_valid_checkpoint_dir, lazy_load
+from xla.utils import rank_print
 
 
 @torch.no_grad()
@@ -47,10 +50,13 @@ def generate(
     empty = torch.empty(max_returned_tokens, dtype=dtype, device=device)
     empty[:T] = idx
     idx = empty
-    input_pos = torch.arange(0, T, device=device)
+    # TODO: FSDP has an internal broadcasting issue, so we are forced to have this be of length 1 until it's fixed
+    input_pos = torch.tensor([0], device=device)
+
+    xm.mark_step()
 
     # generate up to a fixed number of tokens
-    for _ in range(max_returned_tokens - T):
+    for _ in range(max_returned_tokens):
         x = idx.index_select(0, input_pos).view(1, -1)
 
         # forward
@@ -68,6 +74,8 @@ def generate(
         # advance
         input_pos = input_pos[-1:] + 1
 
+        xm.mark_step()
+
         # concatenate the new generation
         idx = idx.index_copy(0, input_pos, idx_next)
 
@@ -78,19 +86,16 @@ def generate(
     return idx
 
 
-def main(
-    prompt: str = "Hello, my name is",
+def setup(
+    prompt: str = "What food do lamas eat?",
     *,
     num_samples: int = 1,
-    max_new_tokens: int = 50,
+    max_new_tokens: int = 100,
     top_k: int = 200,
     temperature: float = 0.8,
-    checkpoint_dir: Path = Path("checkpoints/stabilityai/stablelm-base-alpha-3b"),
-    quantize: Optional[Literal["bnb.nf4", "bnb.nf4-dq", "bnb.fp4", "bnb.fp4-dq", "bnb.int8", "gptq.int4"]] = None,
-    strategy: str = "auto",
-    devices: int = 1,
-    precision: Optional[str] = None,
-) -> None:
+    checkpoint_dir: Path = Path("checkpoints/tiiuae/falcon-7b"),
+    precision: str = "bf16-true",
+):
     """Generates text samples based on a pre-trained model and tokenizer.
 
     Args:
@@ -101,46 +106,39 @@ def main(
         temperature: A value controlling the randomness of the sampling process. Higher values result in more random
             samples.
         checkpoint_dir: The checkpoint directory to load.
-        quantize: Whether to quantize the model and using which method:
-            - bnb.nf4, bnb.nf4-dq, bnb.fp4, bnb.fp4-dq: 4-bit quantization from bitsandbytes
-            - bnb.int8: 8-bit quantization from bitsandbytes
-            - gptq.int4: 4-bit quantization from GPTQ
-            for more details, see https://github.com/Lightning-AI/lit-gpt/blob/main/tutorials/quantize.md
-        strategy: Indicates the Fabric strategy setting to use.
-        devices: How many devices to use.
         precision: Indicates the Fabric precision setting to use.
     """
-    precision = precision or get_default_supported_precision(training=False)
-
-    if strategy == "fsdp":
-        strategy = FSDPStrategy(auto_wrap_policy={Block}, cpu_offload=False)
+    devices = XLAAccelerator.auto_device_count()
+    strategy = XLAFSDPStrategy(auto_wrap_policy={Block}) if devices > 1 else "auto"
     fabric = L.Fabric(devices=devices, precision=precision, strategy=strategy)
-    fabric.launch()
+    fabric.launch(main, prompt, num_samples, max_new_tokens, top_k, temperature, checkpoint_dir)
 
+
+def main(
+    fabric: L.Fabric,
+    prompt: str,
+    num_samples: int,
+    max_new_tokens: int,
+    top_k: int,
+    temperature: float,
+    checkpoint_dir: Path,
+) -> None:
     check_valid_checkpoint_dir(checkpoint_dir)
 
     config = Config.from_json(checkpoint_dir / "lit_config.json")
 
-    if quantize is not None and devices > 1:
-        raise NotImplementedError
-    if quantize == "gptq.int4":
-        model_file = "lit_model_gptq.4bit.pth"
-        if not (checkpoint_dir / model_file).is_file():
-            raise ValueError("Please run `python quantize/gptq.py` first")
-    else:
-        model_file = "lit_model.pth"
-    checkpoint_path = checkpoint_dir / model_file
+    checkpoint_path = checkpoint_dir / "lit_model.pth"
 
-    fabric.print(f"Loading model {str(checkpoint_path)!r} with {config.__dict__}", file=sys.stderr)
+    rank_print(fabric, f"Loading model {str(checkpoint_path)!r} with {config.__dict__}", file=sys.stderr)
     t0 = time.perf_counter()
-    with fabric.init_module(empty_init=True), quantization(quantize):
+    with fabric.init_module(empty_init=True):
         model = GPT(config)
-    fabric.print(f"Time to instantiate model: {time.perf_counter() - t0:.02f} seconds.", file=sys.stderr)
+    rank_print(fabric, f"Time to instantiate model: {time.perf_counter() - t0:.02f} seconds.", file=sys.stderr)
 
     t0 = time.perf_counter()
     with lazy_load(checkpoint_path) as checkpoint:
-        model.load_state_dict(checkpoint.get("model", checkpoint), strict=quantize is None)
-    fabric.print(f"Time to load the model weights: {time.perf_counter() - t0:.02f} seconds.", file=sys.stderr)
+        model.load_state_dict(checkpoint.get("model", checkpoint))
+    rank_print(fabric, f"Time to load the model weights: {time.perf_counter() - t0:.02f} seconds.", file=sys.stderr)
 
     model.eval()
     model = fabric.setup_module(model)
@@ -170,15 +168,14 @@ def main(
         model.reset_cache()
         fabric.print(tokenizer.decode(y))
         tokens_generated = y.size(0) - prompt_length
-        fabric.print(
-            f"Time for inference {i + 1}: {t:.02f} sec total, {tokens_generated / t:.02f} tokens/sec", file=sys.stderr
+        rank_print(
+            fabric,
+            f"Time for inference {i + 1}: {t:.02f} sec total, {tokens_generated / t:.02f} tokens/sec",
+            file=sys.stderr,
         )
-    if fabric.device.type == "cuda":
-        fabric.print(f"Memory used: {torch.cuda.max_memory_allocated() / 1e9:.02f} GB", file=sys.stderr)
 
 
 if __name__ == "__main__":
     from jsonargparse import CLI
 
-    torch.set_float32_matmul_precision("high")
-    CLI(main)
+    CLI(setup)

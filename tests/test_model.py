@@ -1,9 +1,11 @@
+import operator
 import sys
 from pathlib import Path
 from urllib.request import urlretrieve
 
 import pytest
 import torch
+from lightning_utilities.core.imports import compare_version
 
 wd = Path(__file__).parent.parent.absolute()
 
@@ -169,31 +171,41 @@ def test_against_original_open_llama_3b():
 
 
 @torch.inference_mode()
-@pytest.mark.parametrize("size", ("7b", "70b"))
-def test_against_hf_llama2(size):
+@pytest.mark.parametrize(
+    "ours_kwargs",
+    [
+        {"name": "Llama-2-7b-hf"},
+        pytest.param(
+            {"name": "CodeLlama-7b-hf"},
+            marks=pytest.mark.skipif(
+                compare_version("transformers", operator.lt, "4.33.0", use_base_version=True),
+                reason="requires rope_theta",
+            ),
+        ),
+        {"name": "Llama-2-70b-chat-hf"},
+    ],
+)
+def test_against_hf_llama2(ours_kwargs):
     from transformers.models.llama.configuration_llama import LlamaConfig
     from transformers.models.llama.modeling_llama import LlamaForCausalLM
 
     from lit_gpt import GPT, Config
     from scripts.convert_hf_checkpoint import copy_weights_hf_llama
 
-    if size == "7b":
-        ours_kwargs = {"name": "Llama-2-7b-hf"}
-        theirs_kwargs = {}
-    else:
-        ours_kwargs = {"name": "Llama-2-70b-chat-hf", "n_query_groups": 2}
-        theirs_kwargs = {"num_key_value_heads": 2}
-
-    ours_config = Config.from_name(n_layer=2, n_head=8, n_embd=32, intermediate_size=86, **ours_kwargs)
+    ours_config = Config.from_name(
+        padded_vocab_size=10000, n_layer=2, n_head=8, n_embd=32, intermediate_size=86, **ours_kwargs
+    )
     T = 5
     theirs_config = LlamaConfig(
+        vocab_size=ours_config.padded_vocab_size,
         hidden_size=ours_config.n_embd,
         num_attention_heads=ours_config.n_head,
         num_hidden_layers=ours_config.n_layer,
         intermediate_size=ours_config.intermediate_size,
         max_position_embeddings=T,
         rms_norm_eps=1e-5,
-        **theirs_kwargs
+        num_query_value_heads=ours_config.n_query_groups,
+        rope_theta=ours_config.rope_base,
     )
     assert ours_config.intermediate_size == theirs_config.intermediate_size
 

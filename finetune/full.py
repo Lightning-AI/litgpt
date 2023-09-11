@@ -6,7 +6,7 @@ from typing import Dict, List, Optional, Tuple
 
 import lightning as L
 import torch
-from lightning.fabric.strategies import FSDPStrategy, XLAStrategy
+from lightning.fabric.strategies import FSDPStrategy
 
 # support running without installing as a package
 wd = Path(__file__).parent.parent.resolve()
@@ -55,24 +55,18 @@ def setup(
     checkpoint_dir: Path = Path("checkpoints/stabilityai/stablelm-base-alpha-3b"),
     out_dir: Path = Path("out/full/alpaca"),
     precision: Optional[str] = None,
-    tpu: bool = False,
 ):
-    precision = precision or get_default_supported_precision(training=True, tpu=tpu)
+    precision = precision or get_default_supported_precision(training=True)
 
     fabric_devices = devices
     if fabric_devices > 1:
-        if tpu:
-            # For multi-host TPU training, the device count for Fabric is limited to the count on a single host.
-            fabric_devices = "auto"
-            strategy = XLAStrategy(sync_module_states=False)
-        else:
-            strategy = FSDPStrategy(
-                auto_wrap_policy={Block},
-                activation_checkpointing_policy={Block},
-                state_dict_type="full",
-                limit_all_gathers=True,
-                cpu_offload=False,
-            )
+        strategy = FSDPStrategy(
+            auto_wrap_policy={Block},
+            activation_checkpointing_policy={Block},
+            state_dict_type="full",
+            limit_all_gathers=True,
+            cpu_offload=False,
+        )
     else:
         strategy = "auto"
 
@@ -154,10 +148,6 @@ def train(
     total_lengths = 0
     total_t0 = time.perf_counter()
 
-    if fabric.device.type == "xla":
-        import torch_xla.core.xla_model as xm
-
-        xm.mark_step()
     for iter_num in range(max_iters):
         if step_count <= warmup_steps:
             # linear warmup
@@ -182,8 +172,6 @@ def train(
             optimizer.step()
             optimizer.zero_grad()
             step_count += 1
-        elif fabric.device.type == "xla":
-            xm.mark_step()
 
         t1 = time.perf_counter()
         total_lengths += input_ids.size(1)
@@ -206,7 +194,7 @@ def train(
             val_loss = validate(fabric, model, val_data, tokenizer, longest_seq_length)
             t1 = time.perf_counter() - t0
             speed_monitor.eval_end(t1)
-            fabric.print(f"step {iter_num}: val loss {val_loss:.4f}, val time: {t1 * 1000:.2f}ms")
+            fabric.print(f"step {iter_num}: val loss {val_loss.item():.4f}, val time: {t1 * 1000:.2f}ms")
             fabric.barrier()
         if not is_accumulating and step_count % save_interval == 0:
             checkpoint_path = out_dir / f"iter-{iter_num:06d}-ckpt.pth"
@@ -223,8 +211,7 @@ def validate(
     for k in range(eval_iters):
         input_ids, targets = get_batch(fabric, val_data, longest_seq_length)
         logits = model(input_ids)
-        loss = chunked_cross_entropy(logits[..., :-1, :], targets[..., 1:], chunk_size=0)
-        losses[k] = loss.item()
+        losses[k] = chunked_cross_entropy(logits[..., :-1, :], targets[..., 1:], chunk_size=0)
     val_loss = losses.mean()
 
     # produce an example:
@@ -243,7 +230,7 @@ def validate(
     model.reset_cache()
 
     model.train()
-    return val_loss.item()
+    return val_loss
 
 
 def get_batch(
@@ -257,8 +244,8 @@ def get_batch(
     input_ids = [data[i]["input_ids"].type(torch.int64) for i in ix]
     labels = [data[i]["labels"].type(torch.int64) for i in ix]
 
-    # it's better to pad to a fixed seq length with XLA to avoid recompilation
-    max_len = max(len(s) for s in input_ids) if fabric.device.type != "xla" else longest_seq_length
+    # this could be `longest_seq_length` to have a fixed size for all batches
+    max_len = max(len(s) for s in input_ids)
 
     def pad_right(x, pad_id):
         # pad right based on the longest sequence

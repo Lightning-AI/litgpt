@@ -1,8 +1,6 @@
-import json
 import re
 import sys
 import time
-import warnings
 from pathlib import Path
 from typing import Iterator, List, Literal, Optional, Tuple
 
@@ -49,11 +47,6 @@ def generate(
     buffer_length = max((len(tokens) for tokens in stop_tokens), default=1)
     buffer = torch.full((buffer_length,), -999, device=device)  # fill with non-existing token
 
-    if idx.device.type == "xla":
-        import torch_xla.core.xla_model as xm
-
-        xm.mark_step()
-
     yield_i = -1
     # generate up to a fixed number of tokens
     for t in range(max_returned_tokens - T):
@@ -71,9 +64,6 @@ def generate(
 
         # advance
         input_pos = input_pos[-1:] + 1
-
-        if idx.device.type == "xla":
-            xm.mark_step()
 
         # concatenate the new generation
         buffer[min(t, buffer_length - 1)] = idx
@@ -143,8 +133,7 @@ def main(
 
     check_valid_checkpoint_dir(checkpoint_dir)
 
-    with open(checkpoint_dir / "lit_config.json") as fp:
-        config = Config(**json.load(fp))
+    config = Config.from_json(checkpoint_dir / "lit_config.json")
 
     fabric = L.Fabric(devices=1, precision=precision)
 
@@ -288,6 +277,30 @@ def prompt_config(checkpoint_dir: Path, tokenizer: Tokenizer) -> Tuple[str, Tupl
         stop_tokens = ([tokenizer.eos_id],)
         return system_prompt, stop_tokens
 
+    if re.search("Platypus", checkpoint_name):
+        system_prompt = "### Instruction:\n\n{prompt}\n\n### Response:\n"
+        # this checkpoint doesn't emit the eos token very consistently
+        stop_tokens = ([tokenizer.eos_id],)
+        return system_prompt, stop_tokens
+
+    if re.search("NousResearch", checkpoint_name):
+        system_prompt = "### Instruction:\n{prompt}\n\n### Response:\n"
+        stop_tokens = ([tokenizer.eos_id],)
+        return system_prompt, stop_tokens
+
+    if re.search("stablecode-instruct", checkpoint_name):
+        system_prompt = "###Instruction\n{prompt}###Response\n"
+        stop_tokens = ([tokenizer.eos_id],)
+        return system_prompt, stop_tokens
+
+    if re.search("CodeLlama", checkpoint_name):
+        # we don't set a default system prompt, but it is supported:
+        # https://huggingface.co/blog/codellama#conversational-instructions
+        b_inst, e_inst = "<s>[INST]", "[/INST]"
+        system_prompt = f"{b_inst} {{prompt}} {e_inst}"
+        stop_tokens = ([tokenizer.eos_id],)
+        return system_prompt, stop_tokens
+
     # default format
     return "{prompt}", ([tokenizer.eos_id],)
 
@@ -296,9 +309,4 @@ if __name__ == "__main__":
     from jsonargparse import CLI
 
     torch.set_float32_matmul_precision("high")
-    warnings.filterwarnings(
-        # Triggered internally at ../aten/src/ATen/EmptyTensor.cpp:31
-        "ignore",
-        message="ComplexHalf support is experimental and many operators don't support it yet",
-    )
     CLI(main)

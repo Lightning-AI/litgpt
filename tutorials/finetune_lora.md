@@ -18,11 +18,13 @@ The steps here only need to be done once:
 
 3. Download the data and generate the instruction tuning dataset:
 
-   ```bash
-   python scripts/prepare_alpaca.py
-   ```
+```bash
+python scripts/prepare_alpaca.py --checkpoint_dir checkpoints/stabilityai/stablelm-base-alpha-3b
+```
 
-(See [this blog article](https://lightning.ai/blog/how-to-finetune-gpt-like-large-language-models-on-a-custom-dataset) for how to prepare and use custom datasets.)
+or [prepare your own dataset](#tune-on-your-dataset).
+
+For more information about dataset preparation, also see the [prepare_dataset.md](./prepare_dataset.md) tutorial.
 
 ## Running the finetuning
 
@@ -34,7 +36,8 @@ The finetuning requires at least one GPU with ~24 GB memory (RTX 3090).
 
 This script will save checkpoints periodically to the folder `out/`.
 
-> [!NOTE]\: LoRA can be applied to not only `query`, `key` or `value` matrices, but also to `projection`, `mlp` and classification `head`.
+> [!NOTE]
+> LoRA can be applied to not only `query`, `key` or `value` matrices, but also to `projection`, `mlp` and classification `head`.
 > According to [QLoRA](https://arxiv.org/abs/2305.14314) paper (section 4): "LoRA on all linear transformer block layers are required to match full finetuning performance".
 > By default LoRA is applied only to the `query` and `value` matrices. In order to apply LoRA to other weight matrices - change the variables in `finetune/lora.py` accordingly.
 

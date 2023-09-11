@@ -5,6 +5,7 @@ from typing import Any, Callable, Deque, Dict, Optional
 
 import torch
 from lightning import Callback, Fabric, LightningModule, Trainer
+from lightning.fabric.accelerators.xla import _XLA_GREATER_EQUAL_2_1
 from lightning.fabric.utilities.rank_zero import rank_zero_only as fabric_rank_zero_only
 from lightning.pytorch.utilities.rank_zero import rank_zero_only as trainer_rank_zero_only
 from torch.utils.flop_counter import FlopCounterMode
@@ -68,6 +69,8 @@ TPU_AVAILABLE_FLOPS = {
     "v3": 123e12,
     # source: https://cloud.google.com/tpu/docs/system-architecture-tpu-vm#tpu_v4
     "v4": 275e12,
+    # source: https://cloud.google.com/tpu/docs/v5e-training
+    "v5litepod": 197e12,
 }
 
 
@@ -95,6 +98,8 @@ def get_flops_available(device: torch.device, precision: str) -> Optional[float]
 
         if device_name is not None:
             try:
+                if precision == "transformer-engine":
+                    precision = "8-mixed"
                 return int(GPU_AVAILABLE_FLOPS[device_name][precision])
             except KeyError:
                 raise KeyError(
@@ -102,7 +107,10 @@ def get_flops_available(device: torch.device, precision: str) -> Optional[float]
                     "MFU cannot be calculated and reported."
                 )
     elif device.type == "xla":
-        from torch_xla.experimental import tpu
+        if _XLA_GREATER_EQUAL_2_1:
+            from torch_xla._internal import tpu
+        else:
+            from torch_xla.experimental import tpu
 
         device_name = tpu.get_tpu_env()["TYPE"].lower()
         try:
