@@ -211,13 +211,11 @@ class CausalSelfAttention(BaseCausalSelfAttention):
         k = k.reshape(B, -1, T, self.config.head_size)  # (B, nh_k, T, hs)
         v = v.reshape(B, -1, T, self.config.head_size)  # (B, nh_v, T, hs)
 
-        n_elem = int(self.config.rotary_percentage * self.config.head_size)
-
         cos, sin = rope
-        q_roped = apply_rope(q[..., :n_elem], cos, sin)
-        k_roped = apply_rope(k[..., :n_elem], cos, sin)
-        q = torch.cat((q_roped, q[..., n_elem:]), dim=-1)
-        k = torch.cat((k_roped, k[..., n_elem:]), dim=-1)
+        q_roped = apply_rope(q[..., :self.config.rope_n_elem], cos, sin)
+        k_roped = apply_rope(k[..., :self.config.rope_n_elem], cos, sin)
+        q = torch.cat((q_roped, q[..., self.config.rope_n_elem:]), dim=-1)
+        k = torch.cat((k_roped, k[..., self.config.rope_n_elem:]), dim=-1)
 
         if kv_cache is not None:
             cache_k, cache_v = kv_cache
