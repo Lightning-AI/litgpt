@@ -55,7 +55,6 @@ from lit_gpt.config import Config as BaseConfig
 from lit_gpt.model import GPT as BaseModel
 from lit_gpt.model import Block as BaseBlock
 from lit_gpt.model import CausalSelfAttention as BaseCausalSelfAttention
-from lit_gpt.model import KVCache, RoPECache
 from lit_gpt.utils import map_old_state_dict_weights
 
 
@@ -465,7 +464,6 @@ class GPT(BaseModel):
             lora_alpha=config.alpha,
             lora_dropout=config.dropout,
         )
-
         self.transformer = nn.ModuleDict(
             dict(
                 wte=nn.Embedding(config.padded_vocab_size, config.n_embd),
@@ -473,63 +471,31 @@ class GPT(BaseModel):
                 ln_f=config.norm_class(config.n_embd, eps=config.norm_eps),
             )
         )
-
-        self.rope_cache: Optional[RoPECache] = None
+        self.max_seq_length = self.config.block_size
         self.mask_cache: Optional[torch.Tensor] = None
-        self.kv_caches: List[KVCache] = []
 
     def forward(
-        self,
-        idx: torch.Tensor,
-        max_seq_length: Optional[int] = None,
-        input_pos: Optional[torch.Tensor] = None,
-        lm_head_chunk_size: int = 0,
+        self, idx: torch.Tensor, input_pos: Optional[torch.Tensor] = None, lm_head_chunk_size: int = 0
     ) -> Union[torch.Tensor, List[torch.Tensor]]:
-        B, T = idx.size()
-        use_kv_cache = input_pos is not None
+        T = idx.size(1)
+        if self.max_seq_length < T:
+            raise ValueError(f"Cannot forward sequence of length {T}, max seq length is only {self.max_seq_length}.")
 
-        block_size = self.config.block_size
-        if max_seq_length is None:
-            max_seq_length = block_size
-        if use_kv_cache:  # not relevant otherwise
-            assert (
-                max_seq_length >= T
-            ), f"Cannot forward sequence of length {T}, max seq length is only {max_seq_length}"
-        assert max_seq_length <= block_size, f"Cannot attend to {max_seq_length}, block size is only {block_size}"
-        assert block_size >= T, f"Cannot forward sequence of length {T}, block size is only {block_size}"
-
-        if self.rope_cache is None:
-            self.rope_cache = self.build_rope_cache(idx)  # 2 * (block_size, head_size * rotary_percentage)
-        # passing `attn_mask` to SDPA downgrades it to use the inefficient implementation. since we only need the mask
-        # for the kv-cache support (only during inference), we only create it in that situation
-        # this will be resolved by https://github.com/pytorch/pytorch/issues/96099
-        if use_kv_cache and self.mask_cache is None:
-            self.mask_cache = self.build_mask_cache(idx)  # (1, 1, block_size, block_size)
-
-        cos, sin = self.rope_cache
-        if use_kv_cache:
-            cos = cos.index_select(0, input_pos)
-            sin = sin.index_select(0, input_pos)
+        if input_pos is not None:  # use the kv cache
+            cos = self.cos.index_select(0, input_pos)
+            sin = self.sin.index_select(0, input_pos)
+            if self.mask_cache is None:
+                raise TypeError("You need to call `gpt.set_kv_cache()`")
             mask = self.mask_cache.index_select(2, input_pos)
-            mask = mask[:, :, :, :max_seq_length]
         else:
-            cos = cos[:T]
-            sin = sin[:T]
+            cos = self.cos[:T]
+            sin = self.sin[:T]
             mask = None
 
-        # forward the model itself
-        x = self.transformer.wte(idx)  # token embeddings of shape (B, T, n_embd)
-
-        if not use_kv_cache:
-            for block in self.transformer.h:
-                x, *_ = block(x, (cos, sin), max_seq_length)
-        else:
-            self.kv_caches = self.kv_caches or self.build_kv_caches(x, max_seq_length, cos.size(-1))
-            for i, block in enumerate(self.transformer.h):
-                x, self.kv_caches[i] = block(x, (cos, sin), max_seq_length, mask, input_pos, self.kv_caches[i])
-
+        x = self.transformer.wte(idx)  # token embeddings of shape (b, t, n_embd)
+        for block in self.transformer.h:
+            x = block(x, cos, sin, mask, input_pos)
         x = self.transformer.ln_f(x)
-
         if lm_head_chunk_size > 0:
             # chunk the lm head logits to reduce the peak memory used by autograd
             return [self.lm_head(x_i) for x_i in x.split(lm_head_chunk_size, dim=1)]
@@ -566,12 +532,6 @@ class Block(BaseBlock):
 
 class CausalSelfAttention(BaseCausalSelfAttention):
     def __init__(self, config: Config) -> None:
-        """Causal self-attention with calculating qkv matrices with a single matrix* and Low Ranking Adaptation for
-        parameter-efficient fine-tuning.
-
-        *Instead of creating multiple heads and concatenating the result (in addition to creating separate matrices for
-        query, key and value for each head) we can do this in a single pass with a single weight matrix.
-        """
         # Skip the parent class __init__ altogether and replace it to avoid
         # useless allocations
         nn.Module.__init__(self)
@@ -598,6 +558,8 @@ class CausalSelfAttention(BaseCausalSelfAttention):
             lora_alpha=config.alpha,
             lora_dropout=config.dropout,
         )
+        # disabled by default
+        self.kv_cache = nn.Module()
 
         self.config = config
 

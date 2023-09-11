@@ -3,6 +3,8 @@
 [Low-rank adaption (LoRA)](https://arxiv.org/abs/2106.09685) is a technique to approximate the update to the linear layers in a LLM with a low-rank matrix factorization. This significantly reduces the number of trainable parameters and speeds up training with little impact on the final performance of the model.
 We demonstrate this method by instruction-finetuning Lit-GPT StableLM 3B on the [Alpaca](https://github.com/tatsu-lab/stanford_alpaca) dataset on a **single RTX 3090 (24GB) GPU**.
 
+&nbsp;
+
 ## Preparation
 
 The steps here only need to be done once:
@@ -26,7 +28,9 @@ or [prepare your own dataset](#tune-on-your-dataset).
 
 For more information about dataset preparation, also see the [prepare_dataset.md](./prepare_dataset.md) tutorial.
 
-## Running the finetuning
+&nbsp;
+
+## Running the Finetuning
 
 ```bash
 python finetune/lora.py
@@ -36,7 +40,8 @@ The finetuning requires at least one GPU with ~24 GB memory (RTX 3090).
 
 This script will save checkpoints periodically to the folder `out/`.
 
-> [!NOTE]\: LoRA can be applied to not only `query`, `key` or `value` matrices, but also to `projection`, `mlp` and classification `head`.
+> [!NOTE]
+> LoRA can be applied to not only `query`, `key` or `value` matrices, but also to `projection`, `mlp` and classification `head`.
 > According to [QLoRA](https://arxiv.org/abs/2305.14314) paper (section 4): "LoRA on all linear transformer block layers are required to match full finetuning performance".
 > By default LoRA is applied only to the `query` and `value` matrices. In order to apply LoRA to other weight matrices - change the variables in `finetune/lora.py` accordingly.
 
@@ -74,7 +79,9 @@ The advantages of QLoRA-style quantization are more pronounced in larger models,
 | --precision "bf16-true"  --quantize "bnb.nf4"       | 13.44 GB         | 1089.79s       | 1.0130 | 4.66 GB          |
 | --precision "bf16-true"  --quantize "bnb.nf4-dq"    | 13.15 GB         | 1135.86s       | 1.0124 | 4.34 GB          |
 
-## Test the model
+&nbsp;
+
+## Test the Model
 
 You can test the finetuned model with your own instructions by running:
 
@@ -90,7 +97,9 @@ I would recommend the movie The Martian (2015). It is a sci-fi movie starring Ma
 
 If your GPU supports `bfloat16`, you can additionally pass `--precision "bf16-true"` to bring the memory consumption down to ~7.6 GB for StableLM-3B (versus ~15.2  GB for `--precision "32-full"`). In addition, you may use quantization methods, for example `--precision "bf16-true" --quantize "bnb.nf4"` brings the memory consumption further down to ~4.4 GB for StableLM-3B.
 
-## Tune on your dataset
+&nbsp;
+
+## Tune on Your Dataset
 
 With only a few modifications, you can prepare and train on your own instruction dataset.
 
@@ -127,6 +136,42 @@ With only a few modifications, you can prepare and train on your own instruction
    ```bash
    python finetune/lora.py --data_dir data/mydata/ --out_dir out/myexperiment
    ```
+
+&nbsp;
+
+## Merging LoRA Weights
+
+By default, the LoRA weights are kept separate from the checkpoint file to save storage space.
+However, you can optionally merge the LoRA weights with the original model checkpoint to create
+a new file to optimize inference speeds. (This will improve inference performance
+because the weights don't have to be added during runtime.)
+
+Let's assume we finetuned a model using LoRA as follows:
+
+```bash
+python finetune/lora.py \
+  --checkpoint_dir "checkpoints/stabilityai/stablelm-base-alpha-3b/" \
+  --data_dir "data/alpaca" \
+  --out_dir "out/lora_weights/stablelm-base-alpha-3b/"
+```
+
+Then, we can merge the LoRA weights with the checkpoint model using the `merge_lora.py` script as shown below:
+
+```bash
+python scripts/merge_lora.py \
+  --checkpoint_dir "checkpoints/stabilityai/stablelm-base-alpha-3b/" \
+  --lora_path "out/lora_stage_1/stablelm-base-alpha-3b/lit_model_lora_finetuned.pth" \
+  --out_dir "out/lora_merged/stablelm-base-alpha-3b/"
+```
+
+After merging, we can use the `base.py` file for inference using the new checkpoint file:
+
+```bash
+python generate/base.py \
+  --checkpoint_dir "out/lora_merged/stablelm-base-alpha-3b/"
+```
+
+&nbsp;
 
 ## Troubleshooting
 
