@@ -150,7 +150,7 @@ The easiest way to prepare a new dataset is to copy and modify one of the existi
 
 These scripts may look intimidating at first glance since they include code for tokenizing the dataset for a specific LLM that is provided via a checkpoint directory. However, note that you only need to modify a small fraction of the code file, namely the portion that downloads and formats the training data.
 
-In [`scripts/prepare_lima.py`](https://github.com/Lightning-AI/lit-gpt/blob/main/scripts/prepare_lima.py), these are the [line 26](https://github.com/Lightning-AI/lit-gpt/blob/98fad263a62e5e57821de817bdd5e316abfb34d4/scripts/prepare_lima.py#L26) for the HF repo ID, and the lines [50-53](https://github.com/Lightning-AI/lit-gpt/blob/98fad263a62e5e57821de817bdd5e316abfb34d4/scripts/prepare_lima.py#L50-L53), which save the dataset as `train_data`. Here, `train_data` is a list that contains the instruction examples in the format mentioned above:
+In [`scripts/prepare_lima.py`](https://github.com/Lightning-AI/lit-gpt/blob/main/scripts/prepare_lima.py), the [line 26](https://github.com/Lightning-AI/lit-gpt/blob/98fad263a62e5e57821de817bdd5e316abfb34d4/scripts/prepare_lima.py#L26) references the HF repo ID, and the lines [50-53](https://github.com/Lightning-AI/lit-gpt/blob/98fad263a62e5e57821de817bdd5e316abfb34d4/scripts/prepare_lima.py#L50-L53) save the dataset as `train_data`. Here, `train_data` is a list that contains the instruction examples in the format mentioned above:
 
 ```
 [
