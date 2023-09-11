@@ -25,7 +25,7 @@ IGNORE_INDEX = -1
 TEST_SPLIT_FRACTION = 0.1
 CHECKPOINT_DIR = Path("checkpoints/EleutherAI/pythia-70m")
 DESTINATION_DIR = Path("data/mydata")
-
+COLUMNS = ("instruction", "input", "output")
 
 def prepare(
     csv_path: Path = None,
@@ -50,6 +50,7 @@ def prepare(
     destination_path.mkdir(parents=True, exist_ok=True)
     logger.info("Loading data file ...")
     df = pd.read_csv(csv_path).fillna("")
+    assert (df.columns.values == COLUMNS).all(), f"CSV columns must be {COLUMNS}"
     df_json = json.loads(df.to_json(orient="records", indent=4))
 
     logger.info("Loading tokenizer ...")
