@@ -17,7 +17,6 @@ from lit_gpt.adapter import GPT as BaseModel
 from lit_gpt.adapter import Block as BaseBlock
 from lit_gpt.adapter import CausalSelfAttention as BaseCausalSelfAttention
 from lit_gpt.adapter import Config as BaseConfig
-from lit_gpt.model import KVCache
 from lit_gpt.utils import map_old_state_dict_weights
 
 
@@ -122,7 +121,7 @@ class CausalSelfAttention(BaseCausalSelfAttention):
         # output projection
         self.proj = AdapterV2Linear(config.n_embd, config.n_embd, bias=config.bias)
         # disabled by default
-        self.kv_cache: Optional[KVCache] = None
+        self.kv_cache = nn.Module()
 
         if block_idx >= config.adapter_start_layer:
             # adapter embedding layer

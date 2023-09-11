@@ -13,8 +13,6 @@ from typing_extensions import Self
 
 from lit_gpt.config import Config
 
-KVCache = Tuple[torch.Tensor, torch.Tensor]
-
 FlashAttention2Available = RequirementCache("flash-attn>=2.0.0.post1")
 
 
@@ -56,6 +54,8 @@ class GPT(nn.Module):
         elif value != self.cos.size(0):
             # override
             self.cos, self.sin = self.rope_cache(device=self.cos.device)
+        # the mask and kv cache size will get updated on `set_kv_cache`. we cannot update it here because we don't know
+        # if the kv cache is expected
 
     def _init_weights(self, module: nn.Module) -> None:
         """Meant to be used with `gpt.apply(gpt._init_weights)`."""
@@ -66,13 +66,6 @@ class GPT(nn.Module):
         elif isinstance(module, nn.Embedding):
             torch.nn.init.normal_(module.weight, mean=0.0, std=0.02)
 
-    def reset_cache(self) -> None:
-        for block in self.transformer.h:
-            block.attn.kv_cache = None
-        if self.mask_cache is not None and self.mask_cache.device.type == "xla":
-            # https://github.com/Lightning-AI/lit-gpt/pull/83#issuecomment-1558150179
-            self.mask_cache = None
-
     def forward(self, idx: torch.Tensor, input_pos: Optional[torch.Tensor] = None) -> torch.Tensor:
         T = idx.size(1)
         if self.max_seq_length < T:
@@ -81,14 +74,9 @@ class GPT(nn.Module):
         if input_pos is not None:  # use the kv cache
             cos = self.cos.index_select(0, input_pos)
             sin = self.sin.index_select(0, input_pos)
-            # passing `attn_mask` to SDPA downgrades it to use the inefficient implementation. since we only need the mask
-            # for the kv-cache support (only during inference), we only create it in that situation
-            # this will be resolved by https://github.com/pytorch/pytorch/issues/96099
             if self.mask_cache is None:
-                self.mask_cache = self.build_mask_cache(idx)  # (1, 1, block_size, block_size)
+                raise TypeError("You need to call `gpt.set_kv_cache()`")
             mask = self.mask_cache.index_select(2, input_pos)
-            mask = mask[:, :, :, : self.max_seq_length]
-            self.build_kv_caches(idx, self.max_seq_length, cos.size(-1))
         else:
             cos = self.cos[:T]
             sin = self.sin[:T]
@@ -114,14 +102,34 @@ class GPT(nn.Module):
             base=self.config.rope_base,
         )
 
-    def build_mask_cache(self, idx: torch.Tensor) -> torch.Tensor:
-        ones = torch.ones((self.config.block_size, self.config.block_size), device=idx.device, dtype=torch.bool)
-        return torch.tril(ones).unsqueeze(0).unsqueeze(0)
+    def set_kv_cache(
+        self,
+        batch_size: int,
+        rope_cache_length: Optional[int] = None,
+        device: Optional[torch.device] = None,
+        dtype: Optional[torch.dtype] = None,
+    ) -> None:
+        if rope_cache_length is None:
+            rope_cache_length = self.cos.size(-1)
+        max_seq_length = self.max_seq_length
 
-    def build_kv_caches(self, idx: torch.Tensor, max_seq_length: int, rope_cache_length: int) -> None:
         # initialize the kv cache for all blocks
         for block in self.transformer.h:
-            block.attn.kv_cache = block.attn.build_kv_cache(idx.size(0), max_seq_length, rope_cache_length, idx.device)
+            block.attn.kv_cache = block.attn.build_kv_cache(
+                batch_size, max_seq_length, rope_cache_length, device, dtype
+            )
+
+        if self.mask_cache is None or self.mask_cache.size(3) != max_seq_length:
+            # passing `attn_mask` to SDPA downgrades it to use the inefficient implementation. since we only need the mask
+            # for the kv-cache support (only during inference), we only create it in that situation
+            # this will be resolved by https://github.com/pytorch/pytorch/issues/96099
+            ones = torch.ones((self.config.block_size, max_seq_length), device=device, dtype=torch.bool)
+            self.mask_cache = torch.tril(ones).unsqueeze(0).unsqueeze(0)
+
+    def clear_kv_cache(self) -> None:
+        self.mask_cache = None
+        for block in self.transformer.h:
+            block.attn.kv_cache = nn.Module()
 
 
 class Block(nn.Module):
@@ -129,8 +137,9 @@ class Block(nn.Module):
         super().__init__()
         self.norm_1 = config.norm_class(config.n_embd, eps=config.norm_eps)
         self.attn = CausalSelfAttention(config)
-        if not config.shared_attention_norm:
-            self.norm_2 = config.norm_class(config.n_embd, eps=config.norm_eps)
+        self.norm_2 = (
+            nn.Module() if config.shared_attention_norm else config.norm_class(config.n_embd, eps=config.norm_eps)
+        )
         self.mlp = config.mlp_class(config)
 
         self.config = config
@@ -168,7 +177,7 @@ class CausalSelfAttention(nn.Module):
         # output projection
         self.proj = nn.Linear(config.n_embd, config.n_embd, bias=config.bias)
         # disabled by default
-        self.kv_cache: Optional[KVCache] = None
+        self.kv_cache = nn.Module()
 
         self.config = config
 
@@ -209,10 +218,9 @@ class CausalSelfAttention(nn.Module):
         k = torch.cat((k_roped, k[..., self.config.rope_n_elem :]), dim=-1)
 
         if input_pos is not None:
-            cache_k, cache_v = self.kv_cache
-            cache_k, cache_v = cache_k.to(dtype=k.dtype), cache_v.to(dtype=v.dtype)
-            k = cache_k.index_copy_(2, input_pos, k)
-            v = cache_v.index_copy_(2, input_pos, v)
+            if not isinstance(self.kv_cache, KVCache):
+                raise TypeError("You need to call `gpt.set_kv_cache()`")
+            k, v = self.kv_cache(input_pos, k, v)
 
         y = self.scaled_dot_product_attention(q, k, v, mask)
 
@@ -249,7 +257,8 @@ class CausalSelfAttention(nn.Module):
         max_seq_length: int,
         rope_cache_length: Optional[int] = None,
         device: Optional[torch.device] = None,
-    ) -> KVCache:
+        dtype: Optional[torch.dtype] = None,
+    ) -> "KVCache":
         heads = 1 if self.config.n_query_groups == 1 else self.config.n_head
         v_shape = (batch_size, heads, max_seq_length, self.config.head_size)
         if rope_cache_length is None:
@@ -263,7 +272,7 @@ class CausalSelfAttention(nn.Module):
                 max_seq_length,
                 rope_cache_length + self.config.head_size - self.config.rope_n_elem,
             )
-        return torch.zeros(k_shape, device=device), torch.zeros(v_shape, device=device)
+        return KVCache(k_shape, v_shape, device=device, dtype=dtype)
 
 
 class GptNeoxMLP(nn.Module):
@@ -330,3 +339,22 @@ def apply_rope(x: torch.Tensor, cos: torch.Tensor, sin: torch.Tensor) -> torch.T
     rotated = torch.cat((-x2, x1), dim=-1)  # (B, nh, T, hs)
     roped = (x * cos) + (rotated * sin)
     return roped.type_as(x)
+
+
+class KVCache(nn.Module):
+    def __init__(
+        self,
+        k_shape: Tuple[int, int, int, int],
+        v_shape: Tuple[int, int, int, int],
+        device: Optional[torch.device] = None,
+        dtype: Optional[torch.dtype] = None,
+    ) -> None:
+        super().__init__()
+        self.register_buffer("k", torch.zeros(k_shape, device=device, dtype=dtype), persistent=False)
+        self.register_buffer("v", torch.zeros(v_shape, device=device, dtype=dtype), persistent=False)
+
+    def forward(self, input_pos: torch.Tensor, k: torch.Tensor, v: torch.Tensor) -> Tuple[torch.Tensor, torch.Tensor]:
+        # update the cache
+        k = self.k.index_copy_(2, input_pos, k)
+        v = self.v.index_copy_(2, input_pos, v)
+        return k, v

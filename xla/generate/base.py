@@ -158,11 +158,14 @@ def main(
 
     L.seed_everything(1234)
     for i in range(num_samples):
+        with fabric.init_tensor():
+            # enable the kv cache
+            model.set_kv_cache(batch_size=1)
+
         t0 = time.perf_counter()
         y = generate(model, encoded, max_returned_tokens, temperature=temperature, top_k=top_k)
         t = time.perf_counter() - t0
 
-        model.reset_cache()
         fabric.print(tokenizer.decode(y))
         tokens_generated = y.size(0) - prompt_length
         rank_print(
