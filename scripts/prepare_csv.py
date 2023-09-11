@@ -5,6 +5,7 @@ import warnings
 from pathlib import Path
 from typing import Optional
 
+
 import pandas as pd
 from tqdm import tqdm
 
@@ -24,12 +25,12 @@ SEED = 42
 MASK_INPUTS = False
 IGNORE_INDEX = -1
 TEST_SPLIT_FRACTION = 0.1
-CHECKPOINT_DIR = Path("checkpoints/pythia/pythia-1b")
+CHECKPOINT_DIR = Path("checkpoints/EleutherAI/pythia-70m")
 DESTINATION_DIR = Path("data/mydata")
 
 
 def prepare(
-    csv_path: Path,
+    csv_path: Path = None,
     destination_path: Path = DESTINATION_DIR,
     checkpoint_dir: Path = CHECKPOINT_DIR,
     datafile_name: Optional[str] = None,
@@ -59,14 +60,12 @@ def prepare(
     # then fill all the nan with "", assuming all the records are in string
     # then convert the dataframe into json
 
-    dataframe = pd.read_csv(csv_path, index_col=0).fillna("")
-    df_json = json.loads(dataframe.to_json(orient="records", indent=4))
+    df = pd.read_csv(csv_path).fillna("")
+    df_json = json.loads(df.to_json(orient="records", indent=4))
     data_file_path = destination_path / datafile_name
 
     with open(data_file_path, "w") as json_file:
         json.dump(df_json, json_file)
-
-        # REMOVE IT AFTER DONE
 
     logger.info("Loading tokenizer ...")
     tokenizer = Tokenizer(checkpoint_dir)
