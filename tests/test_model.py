@@ -67,25 +67,21 @@ def test_against_hf_model(rotary_pct, batch_size, n_embd, parallel_residual, kv_
     ours_embed = ours_model.transformer.wte(token_sample)
     torch.testing.assert_close(ours_embed, theirs_embed)
 
-    rope = ours_model.rope_cache()
-    mask = ours_model.build_mask_cache(token_sample)
+    cos, sin = ours_model.cos, ours_model.sin
+    mask = ours_model.mask_cache
     position_ids = torch.arange(block_size).unsqueeze(0)
+    theirs_block = theirs_model.gpt_neox.layers[0]
+    ours_block = ours_model.transformer.h[0]
     if kv_cache:
-        (theirs_block_out, theirs_kv_cache) = theirs_model.gpt_neox.layers[0](
-            theirs_embed, use_cache=True, position_ids=position_ids
-        )
-        head_size = n_embd // n_head
-        k_cache_shape = (batch_size, n_head, block_size, rope[0].size(-1) + head_size - int(rotary_pct * head_size))
-        v_cache_shape = (batch_size, n_head, block_size, head_size)
-        ours_kv_cache = torch.zeros(k_cache_shape), torch.zeros(v_cache_shape)
-        (ours_block_out, ours_kv_cache) = ours_model.transformer.h[0](
-            ours_embed, *rope, mask, torch.arange(block_size), ours_kv_cache
-        )
-        for ours_cache, theirs_cache in zip(ours_kv_cache, theirs_kv_cache):
-            torch.testing.assert_close(ours_cache, theirs_cache)
+        ours_model.build_kv_caches(token_sample, block_size, cos.size(-1))
+        theirs_block_out, (theirs_k, theirs_v) = theirs_block(theirs_embed, use_cache=True, position_ids=position_ids)
+        ours_k, ours_v = ours_block.attn.kv_cache
+        ours_block_out = ours_block(ours_embed, cos, sin, mask, torch.arange(block_size))
+        torch.testing.assert_close(ours_k, theirs_k)
+        torch.testing.assert_close(ours_v, theirs_v)
     else:
-        (theirs_block_out,) = theirs_model.gpt_neox.layers[0](theirs_embed, position_ids=position_ids)
-        ours_block_out, _ = ours_model.transformer.h[0](ours_embed, *rope, mask)
+        (theirs_block_out,) = theirs_block(theirs_embed, position_ids=position_ids)
+        ours_block_out = ours_block(ours_embed, cos, sin, mask)
     torch.testing.assert_close(ours_block_out, theirs_block_out)
 
     theirs = theirs_model(token_sample)["logits"]
@@ -106,13 +102,52 @@ def test_against_original_falcon_40b():
 
     ours_config = Config.from_name("falcon-40b", n_layer=2, n_head=8, n_query_groups=4, n_embd=32)
     theirs_config = RWConfig(
-        hidden_size=32, n_head=8, n_head_kv=4, n_layer=2, parallel_attn=True, vocab_size=65024, bias=False
+        hidden_size=ours_config.n_embd,
+        n_head=ours_config.n_head,
+        n_head_kv=ours_config.n_query_groups,
+        n_layer=ours_config.n_layer,
+        parallel_attn=ours_config.parallel_residual,
+        vocab_size=ours_config.padded_vocab_size,
+        bias=ours_config.bias,
     )
 
     theirs_model = RWForCausalLM(theirs_config)
     theirs_state_dict = theirs_model.state_dict()
     state_dict = {}
-    copy_weights_falcon("40b", state_dict, theirs_state_dict)
+    copy_weights_falcon("falcon-40b", state_dict, theirs_state_dict)
+    ours_model = GPT(ours_config)
+    ours_model.load_state_dict(state_dict)
+
+    # test end to end
+    x = torch.tensor([[9856, 23, 491, 1536, 304]], dtype=torch.int32)
+    ours_y = ours_model(x)
+    theirs_y = theirs_model(x)["logits"]
+    torch.testing.assert_close(ours_y, theirs_y)
+
+
+@torch.inference_mode()
+def test_against_original_falcon_180b():
+    from transformers.models.falcon import FalconConfig, FalconForCausalLM
+
+    from lit_gpt import GPT, Config
+    from scripts.convert_hf_checkpoint import copy_weights_falcon
+
+    ours_config = Config.from_name("falcon-180B", n_layer=2, n_head=8, n_query_groups=4, n_embd=32)
+    theirs_config = FalconConfig(
+        hidden_size=ours_config.n_embd,
+        num_attention_heads=ours_config.n_head,
+        num_kv_heads=ours_config.n_query_groups,
+        num_hidden_layers=ours_config.n_layer,
+        parallel_attn=ours_config.parallel_residual,
+        vocab_size=ours_config.padded_vocab_size,
+        bias=ours_config.bias,
+        new_decoder_architecture=True,
+    )
+
+    theirs_model = FalconForCausalLM(theirs_config)
+    theirs_state_dict = theirs_model.state_dict()
+    state_dict = {}
+    copy_weights_falcon("falcon-180B", state_dict, theirs_state_dict)
     ours_model = GPT(ours_config)
     ours_model.load_state_dict(state_dict)
 
