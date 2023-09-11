@@ -3,8 +3,6 @@ import logging
 import sys
 import warnings
 from pathlib import Path
-from typing import Optional
-
 
 import pandas as pd
 from tqdm import tqdm
@@ -50,7 +48,6 @@ def prepare(
         max_seq_length = config["block_size"]
 
     destination_path.mkdir(parents=True, exist_ok=True)
-    datafile_name = "dataset.json"
 
     # before the data file path, get the llm to be used
     logger.info("Loading data file ...")
