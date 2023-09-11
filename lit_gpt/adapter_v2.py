@@ -16,7 +16,7 @@ import lit_gpt
 from lit_gpt.adapter import GPT as BaseModel
 from lit_gpt.adapter import Block as BaseBlock
 from lit_gpt.adapter import Config as BaseConfig
-from lit_gpt.adapter import KVCache, RoPECache
+from lit_gpt.adapter import KVCache
 from lit_gpt.model import CausalSelfAttention as BaseCausalSelfAttention
 from lit_gpt.model import apply_rope
 from lit_gpt.utils import map_old_state_dict_weights
@@ -76,8 +76,7 @@ class GPT(BaseModel):
                 ln_f=config.norm_class(config.n_embd, eps=config.norm_eps),
             )
         )
-
-        self.rope_cache: Optional[RoPECache] = None
+        self.max_seq_length = self.config.block_size
         self.mask_cache: Optional[torch.Tensor] = None
         self.kv_caches: List[KVCache] = []
         self.adapter_kv_caches: List[KVCache] = []
@@ -145,8 +144,8 @@ class CausalSelfAttention(BaseCausalSelfAttention):
     def forward(
         self,
         x: torch.Tensor,
-        rope: RoPECache,
-        max_seq_length: int,
+        cos: torch.Tensor,
+        sin: torch.Tensor,
         mask: Optional[torch.Tensor] = None,
         input_pos: Optional[torch.Tensor] = None,
         kv_cache: Optional[KVCache] = None,
@@ -175,23 +174,14 @@ class CausalSelfAttention(BaseCausalSelfAttention):
         k = k.reshape(B, -1, T, self.config.head_size)  # (B, nh_k, T, hs)
         v = v.reshape(B, -1, T, self.config.head_size)  # (B, nh_v, T, hs)
 
-        n_elem = int(self.config.rotary_percentage * self.config.head_size)
-
-        cos, sin = rope
-        q_roped = apply_rope(q[..., :n_elem], cos, sin)
-        k_roped = apply_rope(k[..., :n_elem], cos, sin)
-        q = torch.cat((q_roped, q[..., n_elem:]), dim=-1)
-        k = torch.cat((k_roped, k[..., n_elem:]), dim=-1)
+        q_roped = apply_rope(q[..., : self.config.rope_n_elem], cos, sin)
+        k_roped = apply_rope(k[..., : self.config.rope_n_elem], cos, sin)
+        q = torch.cat((q_roped, q[..., self.config.rope_n_elem :]), dim=-1)
+        k = torch.cat((k_roped, k[..., self.config.rope_n_elem :]), dim=-1)
 
         if kv_cache is not None:
             cache_k, cache_v = kv_cache
             cache_k, cache_v = cache_k.to(dtype=k.dtype), cache_v.to(dtype=v.dtype)
-            # check if reached token limit
-            if input_pos[-1] >= max_seq_length:
-                input_pos = torch.tensor(max_seq_length - 1, device=input_pos.device)
-                # shift 1 position to the left
-                cache_k = torch.roll(cache_k, -1, dims=2)
-                cache_v = torch.roll(cache_v, -1, dims=2)
             k = cache_k.index_copy_(2, input_pos, k)
             v = cache_v.index_copy_(2, input_pos, v)
             kv_cache = k, v

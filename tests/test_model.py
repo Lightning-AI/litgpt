@@ -67,7 +67,7 @@ def test_against_hf_model(rotary_pct, batch_size, n_embd, parallel_residual, kv_
     ours_embed = ours_model.transformer.wte(token_sample)
     torch.testing.assert_close(ours_embed, theirs_embed)
 
-    rope = ours_model.build_rope_cache(token_sample)
+    rope = ours_model.rope_cache()
     mask = ours_model.build_mask_cache(token_sample)
     position_ids = torch.arange(block_size).unsqueeze(0)
     if kv_cache:
@@ -79,13 +79,13 @@ def test_against_hf_model(rotary_pct, batch_size, n_embd, parallel_residual, kv_
         v_cache_shape = (batch_size, n_head, block_size, head_size)
         ours_kv_cache = torch.zeros(k_cache_shape), torch.zeros(v_cache_shape)
         (ours_block_out, ours_kv_cache) = ours_model.transformer.h[0](
-            ours_embed, rope, block_size, mask, torch.arange(block_size), ours_kv_cache
+            ours_embed, *rope, mask, torch.arange(block_size), ours_kv_cache
         )
         for ours_cache, theirs_cache in zip(ours_kv_cache, theirs_kv_cache):
             torch.testing.assert_close(ours_cache, theirs_cache)
     else:
         (theirs_block_out,) = theirs_model.gpt_neox.layers[0](theirs_embed, position_ids=position_ids)
-        ours_block_out, _ = ours_model.transformer.h[0](ours_embed, rope, block_size, mask)
+        ours_block_out, _ = ours_model.transformer.h[0](ours_embed, *rope, mask)
     torch.testing.assert_close(ours_block_out, theirs_block_out)
 
     theirs = theirs_model(token_sample)["logits"]
@@ -191,7 +191,7 @@ def test_against_original_open_llama_3b():
 
     # test rope
     x = torch.randn(2, T, ours_config.n_embd)  # B, T, n_embd
-    ours_cos, ours_sin = ours_model.build_rope_cache(x)
+    ours_cos, ours_sin = ours_model.rope_cache()
     ours_cos, ours_sin = ours_cos[:T], ours_sin[:T]  # this is done in our model forward
     theirs_cos, theirs_sin = theirs_model.model.layers[0].self_attn.rotary_emb(x, T)
     torch.testing.assert_close(ours_cos, theirs_cos.squeeze())
@@ -270,7 +270,6 @@ def test_model_compile():
 
     config = lit_gpt.Config(block_size=8, vocab_size=8, n_layer=2, n_head=2, n_embd=4)
     model = lit_gpt.GPT(config)
-    model.apply(model._init_weights)
 
     model = torch.compile(model)
 
@@ -280,16 +279,18 @@ def test_model_compile():
 
 
 @torch.inference_mode()
-@pytest.mark.parametrize("set_highest_max_seq_length", (False, True))
+@pytest.mark.parametrize(
+    "max_seq_length", (25, pytest.param(23, marks=pytest.mark.xfail(raises=IndexError, strict=True)))
+)
 @pytest.mark.flaky(reruns=5)
-def test_kv_cache(set_highest_max_seq_length):
+def test_kv_cache(max_seq_length):
     from lit_gpt import GPT, Config
 
     config = Config(block_size=25, padded_vocab_size=5, n_layer=2, n_head=2, n_embd=8)
     model = GPT(config)
     idx = torch.randint(0, model.config.padded_vocab_size, (1, 5))
     max_new_tokens = 20
-    max_seq_length = 25 if set_highest_max_seq_length else 10
+    model.max_seq_length = max_seq_length
 
     def generate(logits):
         logits = logits[:, -1:]
@@ -300,14 +301,14 @@ def test_kv_cache(set_highest_max_seq_length):
     x_cache = idx
     input_pos = torch.arange(0, 5)
     for _ in range(max_new_tokens):
-        logits_no_cache = model(x_no_cache, max_seq_length)
+        logits_no_cache = model(x_no_cache[:, -max_seq_length:])
         out_no_cache = generate(logits_no_cache)
 
-        logits_cache = model(x_cache, max_seq_length, input_pos)
+        logits_cache = model(x_cache, input_pos)
         out_cache = generate(logits_cache)
 
         torch.testing.assert_close(out_no_cache, out_cache, rtol=0, atol=0)
 
         x_no_cache = torch.cat((x_no_cache, out_no_cache), dim=1)
         x_cache = out_cache
-        input_pos = torch.tensor([input_pos[-1] + 1])
+        input_pos = input_pos[-1:] + 1

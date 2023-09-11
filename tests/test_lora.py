@@ -145,6 +145,7 @@ def test_lora_script(tmp_path, fake_checkpoint_dir, monkeypatch):
     module.save_interval = 2
     module.eval_interval = 2
     module.eval_iters = 2
+    module.eval_max_new_tokens = 1
     module.max_iters = 6
 
     data = [
@@ -398,7 +399,8 @@ def test_lora_merge_with_quantize():
 
     # perform an update to the LoRA weights
     y = model(torch.randint(0, 8, size=(2, 4), dtype=torch.int64, device=fabric.device))
-    y.sum().backward()
+    loss = y.sum()
+    fabric.backward(loss)
     optimizer.step()
     optimizer.zero_grad()
     # the weight remains unchanged (only lora A and B change)

@@ -13,7 +13,6 @@ from typing_extensions import Self
 
 from lit_gpt.config import Config
 
-RoPECache = Tuple[torch.Tensor, torch.Tensor]
 KVCache = Tuple[torch.Tensor, torch.Tensor]
 
 FlashAttention2Available = RequirementCache("flash-attn>=2.0.0.post1")
@@ -33,9 +32,31 @@ class GPT(nn.Module):
                 ln_f=config.norm_class(config.n_embd, eps=config.norm_eps),
             )
         )
-        self.rope_cache: Optional[RoPECache] = None
+        self.max_seq_length = self.config.block_size
         self.mask_cache: Optional[torch.Tensor] = None
         self.kv_caches: List[KVCache] = []
+
+    @property
+    def max_seq_length(self) -> int:
+        return self._max_seq_length
+
+    @max_seq_length.setter
+    def max_seq_length(self, value: int) -> None:
+        """
+        When doing inference, the sequences used might be shorter than the model's context length.
+        This allows setting a smaller number to avoid allocating unused memory
+        """
+        if value > self.config.block_size:
+            raise ValueError(f"Cannot attend to {value}, block size is only {self.config.block_size}")
+        self._max_seq_length = value
+        if not hasattr(self, "cos"):
+            # first call
+            cos, sin = self.rope_cache()
+            self.register_buffer("cos", cos, persistent=False)
+            self.register_buffer("sin", sin, persistent=False)
+        elif value != self.cos.size(0):
+            # override
+            self.cos, self.sin = self.rope_cache(device=self.cos.device)
 
     def _init_weights(self, module: nn.Module) -> None:
         """Meant to be used with `gpt.apply(gpt._init_weights)`."""
@@ -50,42 +71,27 @@ class GPT(nn.Module):
         self.kv_caches.clear()
         if self.mask_cache is not None and self.mask_cache.device.type == "xla":
             # https://github.com/Lightning-AI/lit-gpt/pull/83#issuecomment-1558150179
-            self.rope_cache = None
             self.mask_cache = None
 
-    def forward(
-        self, idx: torch.Tensor, max_seq_length: Optional[int] = None, input_pos: Optional[torch.Tensor] = None
-    ) -> torch.Tensor:
-        B, T = idx.size()
+    def forward(self, idx: torch.Tensor, input_pos: Optional[torch.Tensor] = None) -> torch.Tensor:
+        T = idx.size(1)
         use_kv_cache = input_pos is not None
-
         block_size = self.config.block_size
-        if max_seq_length is None:
-            max_seq_length = block_size
-        if use_kv_cache:  # not relevant otherwise
-            assert (
-                max_seq_length >= T
-            ), f"Cannot forward sequence of length {T}, max seq length is only {max_seq_length}"
-        assert max_seq_length <= block_size, f"Cannot attend to {max_seq_length}, block size is only {block_size}"
         assert block_size >= T, f"Cannot forward sequence of length {T}, block size is only {block_size}"
 
-        if self.rope_cache is None:
-            self.rope_cache = self.build_rope_cache(idx)
-        # passing `attn_mask` to SDPA downgrades it to use the inefficient implementation. since we only need the mask
-        # for the kv-cache support (only during inference), we only create it in that situation
-        # this will be resolved by https://github.com/pytorch/pytorch/issues/96099
-        if use_kv_cache and self.mask_cache is None:
-            self.mask_cache = self.build_mask_cache(idx)
-
-        cos, sin = self.rope_cache
         if use_kv_cache:
-            cos = cos.index_select(0, input_pos)
-            sin = sin.index_select(0, input_pos)
+            cos = self.cos.index_select(0, input_pos)
+            sin = self.sin.index_select(0, input_pos)
+            # passing `attn_mask` to SDPA downgrades it to use the inefficient implementation. since we only need the mask
+            # for the kv-cache support (only during inference), we only create it in that situation
+            # this will be resolved by https://github.com/pytorch/pytorch/issues/96099
+            if self.mask_cache is None:
+                self.mask_cache = self.build_mask_cache(idx)  # (1, 1, block_size, block_size)
             mask = self.mask_cache.index_select(2, input_pos)
-            mask = mask[:, :, :, :max_seq_length]
+            mask = mask[:, :, :, : self.max_seq_length]
         else:
-            cos = cos[:T]
-            sin = sin[:T]
+            cos = self.cos[:T]
+            sin = self.sin[:T]
             mask = None
 
         # forward the model itself
@@ -93,11 +99,11 @@ class GPT(nn.Module):
 
         if not use_kv_cache:
             for block in self.transformer.h:
-                x, *_ = block(x, (cos, sin), max_seq_length)
+                x, *_ = block(x, cos, sin)
         else:
-            self.kv_caches = self.kv_caches or self.build_kv_caches(x, max_seq_length, cos.size(-1))
+            self.kv_caches = self.kv_caches or self.build_kv_caches(x, self.max_seq_length, cos.size(-1))
             for i, block in enumerate(self.transformer.h):
-                x, self.kv_caches[i] = block(x, (cos, sin), max_seq_length, mask, input_pos, self.kv_caches[i])
+                x, self.kv_caches[i] = block(x, cos, sin, mask, input_pos, self.kv_caches[i])
 
         x = self.transformer.ln_f(x)
 
@@ -107,12 +113,12 @@ class GPT(nn.Module):
     def from_name(cls, name: str, **kwargs: Any) -> Self:
         return cls(Config.from_name(name, **kwargs))
 
-    def build_rope_cache(self, idx: torch.Tensor) -> RoPECache:
+    def rope_cache(self, device: Optional[torch.device] = None) -> Tuple[torch.Tensor, torch.Tensor]:
         return build_rope_cache(
-            seq_len=self.config.block_size,
-            n_elem=int(self.config.rotary_percentage * self.config.head_size),
+            seq_len=self.max_seq_length,
+            n_elem=self.config.rope_n_elem,
             dtype=torch.get_default_dtype(),
-            device=idx.device,
+            device=device,
             condense_ratio=self.config.rope_condense_ratio,
             base=self.config.rope_base,
         )
@@ -152,14 +158,14 @@ class Block(nn.Module):
     def forward(
         self,
         x: torch.Tensor,
-        rope: RoPECache,
-        max_seq_length: int,
+        cos: torch.Tensor,
+        sin: torch.Tensor,
         mask: Optional[torch.Tensor] = None,
         input_pos: Optional[torch.Tensor] = None,
         kv_cache: Optional[KVCache] = None,
     ) -> Tuple[torch.Tensor, Optional[KVCache]]:
         n_1 = self.norm_1(x)
-        h, new_kv_cache = self.attn(n_1, rope, max_seq_length, mask, input_pos, kv_cache)
+        h, new_kv_cache = self.attn(n_1, cos, sin, mask, input_pos, kv_cache)
         if self.config.parallel_residual:
             n_2 = n_1 if self.config.shared_attention_norm else self.norm_2(x)
             x = x + h + self.mlp(n_2)
@@ -188,8 +194,8 @@ class CausalSelfAttention(nn.Module):
     def forward(
         self,
         x: torch.Tensor,
-        rope: RoPECache,
-        max_seq_length: int,
+        cos: torch.Tensor,
+        sin: torch.Tensor,
         mask: Optional[torch.Tensor] = None,
         input_pos: Optional[torch.Tensor] = None,
         kv_cache: Optional[KVCache] = None,
@@ -217,23 +223,14 @@ class CausalSelfAttention(nn.Module):
         k = k.reshape(B, -1, T, self.config.head_size)  # (B, nh_k, T, hs)
         v = v.reshape(B, -1, T, self.config.head_size)  # (B, nh_v, T, hs)
 
-        n_elem = int(self.config.rotary_percentage * self.config.head_size)
-
-        cos, sin = rope
-        q_roped = apply_rope(q[..., :n_elem], cos, sin)
-        k_roped = apply_rope(k[..., :n_elem], cos, sin)
-        q = torch.cat((q_roped, q[..., n_elem:]), dim=-1)
-        k = torch.cat((k_roped, k[..., n_elem:]), dim=-1)
+        q_roped = apply_rope(q[..., : self.config.rope_n_elem], cos, sin)
+        k_roped = apply_rope(k[..., : self.config.rope_n_elem], cos, sin)
+        q = torch.cat((q_roped, q[..., self.config.rope_n_elem :]), dim=-1)
+        k = torch.cat((k_roped, k[..., self.config.rope_n_elem :]), dim=-1)
 
         if kv_cache is not None:
             cache_k, cache_v = kv_cache
             cache_k, cache_v = cache_k.to(dtype=k.dtype), cache_v.to(dtype=v.dtype)
-            # check if reached token limit
-            if input_pos[-1] >= max_seq_length:
-                input_pos = torch.tensor(max_seq_length - 1, device=input_pos.device)
-                # shift 1 position to the left
-                cache_k = torch.roll(cache_k, -1, dims=2)
-                cache_v = torch.roll(cache_v, -1, dims=2)
             k = cache_k.index_copy_(2, input_pos, k)
             v = cache_v.index_copy_(2, input_pos, v)
             kv_cache = k, v
@@ -297,8 +294,13 @@ class LLaMAMLP(nn.Module):
 
 
 def build_rope_cache(
-    seq_len: int, n_elem: int, dtype: torch.dtype, device: torch.device, base: int = 10000, condense_ratio: int = 1
-) -> RoPECache:
+    seq_len: int,
+    n_elem: int,
+    dtype: torch.dtype,
+    device: Optional[torch.device] = None,
+    base: int = 10000,
+    condense_ratio: int = 1,
+) -> Tuple[torch.Tensor, torch.Tensor]:
     """Enhanced Transformer with Rotary Position Embedding.
 
     Derived from: https://github.com/labmlai/annotated_deep_learning_paper_implementations/blob/master/labml_nn/

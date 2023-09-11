@@ -1,7 +1,6 @@
 import json
 import sys
 import time
-import warnings
 from pathlib import Path
 from typing import List, Literal, Optional
 
@@ -125,13 +124,7 @@ class EvalHarnessBase(BaseLM):
     def _model_generate(self, context, max_length, eos_token_id):
         assert context.shape[0] == 1
         out = generate(
-            model=self.model,
-            idx=context[0],
-            max_new_tokens=max_length,
-            max_seq_length=self.model.config.block_size,
-            temperature=self.temperature,
-            top_k=None,
-            eos_id=eos_token_id,
+            self.model, context[0], max_length, temperature=self.temperature, top_k=None, eos_id=eos_token_id
         )
 
         return self.tokenizer.decode(out)
@@ -243,10 +236,5 @@ if __name__ == "__main__":
     from jsonargparse import CLI
 
     torch.set_float32_matmul_precision("high")
-    warnings.filterwarnings(
-        # Triggered internally at ../aten/src/ATen/EmptyTensor.cpp:31
-        "ignore",
-        message="ComplexHalf support is experimental and many operators don't support it yet",
-    )
     result = CLI(run_eval_harness)
     print(result)

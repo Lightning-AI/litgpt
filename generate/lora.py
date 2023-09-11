@@ -1,6 +1,5 @@
 import sys
 import time
-import warnings
 from pathlib import Path
 from typing import Literal, Optional
 
@@ -120,16 +119,12 @@ def main(
     prompt_length = encoded.size(0)
     max_returned_tokens = prompt_length + max_new_tokens
 
+    with fabric.init_tensor():
+        # set the max_seq_length to limit the memory usage to what we need
+        model.max_seq_length = max_returned_tokens
+
     t0 = time.perf_counter()
-    y = generate(
-        model,
-        encoded,
-        max_returned_tokens,
-        max_seq_length=max_returned_tokens,
-        temperature=temperature,
-        top_k=top_k,
-        eos_id=tokenizer.eos_id,
-    )
+    y = generate(model, encoded, max_returned_tokens, temperature=temperature, top_k=top_k, eos_id=tokenizer.eos_id)
     t = time.perf_counter() - t0
 
     model.reset_cache()
@@ -147,9 +142,4 @@ if __name__ == "__main__":
     from jsonargparse import CLI
 
     torch.set_float32_matmul_precision("high")
-    warnings.filterwarnings(
-        # Triggered internally at ../aten/src/ATen/EmptyTensor.cpp:31
-        "ignore",
-        message="ComplexHalf support is experimental and many operators don't support it yet",
-    )
     CLI(main)
