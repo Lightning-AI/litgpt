@@ -16,7 +16,7 @@ import lit_gpt
 from lit_gpt.adapter import GPT as BaseModel
 from lit_gpt.adapter import Block as BaseBlock
 from lit_gpt.adapter import Config as BaseConfig
-from lit_gpt.adapter import KVCache, RoPECache
+from lit_gpt.adapter import KVCache
 from lit_gpt.model import CausalSelfAttention as BaseCausalSelfAttention
 from lit_gpt.model import apply_rope
 from lit_gpt.utils import map_old_state_dict_weights
@@ -144,7 +144,8 @@ class CausalSelfAttention(BaseCausalSelfAttention):
     def forward(
         self,
         x: torch.Tensor,
-        rope: RoPECache,
+        cos: torch.Tensor,
+        sin: torch.Tensor,
         mask: Optional[torch.Tensor] = None,
         input_pos: Optional[torch.Tensor] = None,
         kv_cache: Optional[KVCache] = None,
@@ -173,7 +174,6 @@ class CausalSelfAttention(BaseCausalSelfAttention):
         k = k.reshape(B, -1, T, self.config.head_size)  # (B, nh_k, T, hs)
         v = v.reshape(B, -1, T, self.config.head_size)  # (B, nh_v, T, hs)
 
-        cos, sin = rope
         q_roped = apply_rope(q[..., : self.config.rope_n_elem], cos, sin)
         k_roped = apply_rope(k[..., : self.config.rope_n_elem], cos, sin)
         q = torch.cat((q_roped, q[..., self.config.rope_n_elem :]), dim=-1)

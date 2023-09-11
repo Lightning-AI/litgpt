@@ -485,21 +485,19 @@ class GPT(BaseModel):
         block_size = self.config.block_size
         assert block_size >= T, f"Cannot forward sequence of length {T}, block size is only {block_size}"
 
-        # passing `attn_mask` to SDPA downgrades it to use the inefficient implementation. since we only need the mask
-        # for the kv-cache support (only during inference), we only create it in that situation
-        # this will be resolved by https://github.com/pytorch/pytorch/issues/96099
-        if use_kv_cache and self.mask_cache is None:
-            self.mask_cache = self.build_mask_cache(idx)  # (1, 1, block_size, block_size)
-
-        cos, sin = self.rope_cache
         if use_kv_cache:
-            cos = cos.index_select(0, input_pos)
-            sin = sin.index_select(0, input_pos)
+            cos = self.cos.index_select(0, input_pos)
+            sin = self.sin.index_select(0, input_pos)
+            # passing `attn_mask` to SDPA downgrades it to use the inefficient implementation. since we only need the mask
+            # for the kv-cache support (only during inference), we only create it in that situation
+            # this will be resolved by https://github.com/pytorch/pytorch/issues/96099
+            if self.mask_cache is None:
+                self.mask_cache = self.build_mask_cache(idx)  # (1, 1, block_size, block_size)
             mask = self.mask_cache.index_select(2, input_pos)
             mask = mask[:, :, :, : self.max_seq_length]
         else:
-            cos = cos[:T]
-            sin = sin[:T]
+            cos = self.cos[:T]
+            sin = self.sin[:T]
             mask = None
 
         # forward the model itself
@@ -507,11 +505,11 @@ class GPT(BaseModel):
 
         if not use_kv_cache:
             for block in self.transformer.h:
-                x, *_ = block(x, (cos, sin))
+                x, *_ = block(x, cos, sin)
         else:
             self.kv_caches = self.kv_caches or self.build_kv_caches(x, self.max_seq_length, cos.size(-1))
             for i, block in enumerate(self.transformer.h):
-                x, self.kv_caches[i] = block(x, (cos, sin), mask, input_pos, self.kv_caches[i])
+                x, self.kv_caches[i] = block(x, cos, sin, mask, input_pos, self.kv_caches[i])
 
         x = self.transformer.ln_f(x)
 
