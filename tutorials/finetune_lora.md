@@ -167,7 +167,7 @@ python scripts/merge_lora.py \
 After merging, we can use the `base.py` file for inference using the new checkpoint file. Note that if your new checkpoint directory is different from the original checkpoint directory, we also have to copy over the `*.json` files which are required for the configuration and tokenizer information:
 
 ```bash
-scp checkpoints/stabilityai/stablelm-base-alpha-3b/*.json \
+cp checkpoints/stabilityai/stablelm-base-alpha-3b/*.json \
 out/lora_merged/stablelm-base-alpha-3b/
 ```
 

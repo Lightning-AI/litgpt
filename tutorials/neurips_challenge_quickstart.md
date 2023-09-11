@@ -204,7 +204,7 @@ python scripts/merge_lora.py \
 ```
 
 ```bash
-scp checkpoints/stabilityai/stablelm-base-alpha-3b/*.json \
+cp checkpoints/stabilityai/stablelm-base-alpha-3b/*.json \
 out/lora_merged/stablelm-base-alpha-3b/
 ```
 
