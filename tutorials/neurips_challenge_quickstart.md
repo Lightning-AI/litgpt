@@ -166,11 +166,11 @@ If you are using an RTX 4090, change `micro_batch_size=4` to `micro_batch_size=1
 
 ## Local Evaluation
 
-The official Lit-GPT competition will use HELM subtasks for model evaluation. 
+The official Lit-GPT competition will use a small subset of HELM tasks for model evaluation, which includes BigBench (general), MMLU (knowledge), TruthfulQA (knowledge and harm in a multiple choice format), CNN/DailyMail (news summarization), GSM8K (math), and BBQ (bias).
 
 HELM is currently also being integrated into Lit-GPT to evaluate LLMs before submission. 
 
-However, a tool with a more convenient interface is Eleuther AI's Evaluation Harness, which contains some tasks, for example, TruthfulQA and Gsm8k, that overlap with HELM. We can set up the Evaluation Harness as follows:
+However, a tool with a more convenient interface is Eleuther AI's [Evaluation Harness](https://github.com/EleutherAI/lm-evaluation-harness), which contains some tasks, for example, BigBench, TruthfulQA, and GSM8k, that overlap with HELM. We can set up the Evaluation Harness as follows:
 
 ```bash
 cd ..
@@ -194,6 +194,7 @@ python eval/lm_eval_harness.py \
 (You can find a full task list in the task table [here](https://github.com/EleutherAI/lm-evaluation-harness/blob/master/docs/task_table.md).)
 
 To evaluate a LoRA-finetuned model, use `eval/lm_eval_harness_lora.py` instead of `eval/lm_eval_harness.py`.
+
 
 
 &nbsp;
