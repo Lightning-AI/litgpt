@@ -48,7 +48,7 @@ def generate(
     if max_seq_length < max_returned_tokens - 1:
         # rolling the kv cache based on the `input_pos` value would be necessary. However, doing so would introduce a
         # data dependency on the `input_pos` tensor and impact model compilation. Since this setting is uncommon, we do
-        # not support it to avoid negatively impacting the overall speed.
+        # not support it to avoid negatively impacting the overall speed
         raise NotImplementedError
 
     device, dtype = idx.device, idx.dtype
