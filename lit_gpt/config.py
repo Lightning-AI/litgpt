@@ -56,22 +56,27 @@ class Config:
     def __post_init__(self):
         # error checking
         assert self.n_embd % self.n_head == 0
+
         # vocab size should be a power of 2 to be optimal on hardware. compute the closest value
         if self.padded_vocab_size is None:
             self.padded_vocab_size = find_multiple(self.vocab_size, self.padding_multiple)
         else:
             # vocab size shouldn't be larger than padded vocab size
             self.vocab_size = min(self.vocab_size, self.padded_vocab_size)
+
         # compute the number of query groups
         if self.n_query_groups is not None:
             assert self.n_head % self.n_query_groups == 0
         else:
             self.n_query_groups = self.n_head
+
         # compute the intermediate size for MLP if not set
         if self.intermediate_size is None:
             if self._mlp_class == "LLaMAMLP":
                 raise ValueError("The config needs to set the `intermediate_size`")
             self.intermediate_size = 4 * self.n_embd
+
+        self.rope_n_elem = int(self.rotary_percentage * self.head_size)
 
     @property
     def head_size(self) -> int:
