@@ -937,9 +937,9 @@ stablecode = [
 configs.extend(stablecode)
 
 
-##########################
-# Together LLaMA-2-7B-32K
-##########################
+##################################
+# togethercomputer LLaMA-2-7B-32K
+##################################
 together_llama2_32k = [
     # https://huggingface.co/togethercomputer/LLaMA-2-7B-32K/blob/main/config.json
     dict(
