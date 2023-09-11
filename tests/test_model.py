@@ -73,12 +73,12 @@ def test_against_hf_model(rotary_pct, batch_size, n_embd, parallel_residual, kv_
     theirs_block = theirs_model.gpt_neox.layers[0]
     ours_block = ours_model.transformer.h[0]
     if kv_cache:
-        ours_model.build_kv_caches(token_sample, block_size, cos.size(-1))
         theirs_block_out, (theirs_k, theirs_v) = theirs_block(theirs_embed, use_cache=True, position_ids=position_ids)
-        ours_k, ours_v = ours_block.attn.kv_cache
+        ours_model.set_kv_cache(batch_size)
+        ours_kv_cache = ours_block.attn.kv_cache
         ours_block_out = ours_block(ours_embed, cos, sin, mask, torch.arange(block_size))
-        torch.testing.assert_close(ours_k, theirs_k)
-        torch.testing.assert_close(ours_v, theirs_v)
+        torch.testing.assert_close(ours_kv_cache.k, theirs_k)
+        torch.testing.assert_close(ours_kv_cache.v, theirs_v)
     else:
         (theirs_block_out,) = theirs_block(theirs_embed, position_ids=position_ids)
         ours_block_out = ours_block(ours_embed, cos, sin, mask)
@@ -187,8 +187,7 @@ def test_against_original_open_llama_3b():
 
     # test rope
     x = torch.randn(2, T, ours_config.n_embd)  # B, T, n_embd
-    ours_cos, ours_sin = ours_model.rope_cache()
-    ours_cos, ours_sin = ours_cos[:T], ours_sin[:T]  # this is done in our model forward
+    ours_cos, ours_sin = ours_model.cos[:T], ours_model.sin[:T]  # this is done in our model forward
     theirs_cos, theirs_sin = theirs_model.model.layers[0].self_attn.rotary_emb(x, T)
     torch.testing.assert_close(ours_cos, theirs_cos.squeeze())
     torch.testing.assert_close(ours_sin, theirs_sin.squeeze())
@@ -287,6 +286,7 @@ def test_kv_cache(max_seq_length):
     idx = torch.randint(0, model.config.padded_vocab_size, (1, 5))
     max_new_tokens = 20
     model.max_seq_length = max_seq_length
+    model.set_kv_cache(1)
 
     def generate(logits):
         logits = logits[:, -1:]

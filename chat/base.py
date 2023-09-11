@@ -169,6 +169,11 @@ def main(
             break
         prompt = system_prompt.format(prompt=prompt)
         encoded_prompt = tokenizer.encode(prompt, device=fabric.device)
+
+        with fabric.init_tensor():
+            # enable the kv cache
+            model.set_kv_cache(batch_size=1)
+
         y = generate(
             model,
             encoded_prompt,
@@ -182,7 +187,6 @@ def main(
             t0 = time.perf_counter()
             tokens_generated = decode(fabric, tokenizer, y)
             t = time.perf_counter() - t0
-            model.reset_cache()
             fabric.print(
                 f"\nTime for inference: {t:.02f} sec total, {tokens_generated / t:.02f} tokens/sec", file=sys.stderr
             )

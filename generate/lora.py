@@ -122,12 +122,13 @@ def main(
     with fabric.init_tensor():
         # set the max_seq_length to limit the memory usage to what we need
         model.max_seq_length = max_returned_tokens
+        # enable the kv cache
+        model.set_kv_cache(batch_size=1)
 
     t0 = time.perf_counter()
     y = generate(model, encoded, max_returned_tokens, temperature=temperature, top_k=top_k, eos_id=tokenizer.eos_id)
     t = time.perf_counter() - t0
 
-    model.reset_cache()
     output = tokenizer.decode(y)
     output = output.split("### Response:")[1].strip()
     fabric.print(output)
