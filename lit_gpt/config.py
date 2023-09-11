@@ -960,4 +960,27 @@ stablecode = [
 ]
 configs.extend(stablecode)
 
+
+##################################
+# togethercomputer LLaMA-2-7B-32K
+##################################
+together_llama2_32k = [
+    # https://huggingface.co/togethercomputer/LLaMA-2-7B-32K/blob/main/config.json
+    dict(
+        org="togethercomputer",
+        name="LLaMA-2-7B-32K",
+        vocab_size=32000,
+        padding_multiple=64,
+        n_layer=32,
+        rotary_percentage=1.0,
+        parallel_residual=False,
+        bias=False,
+        _norm_class="RMSNorm",
+        _mlp_class="LLaMAMLP",
+        intermediate_size=11008,
+        rope_condense_ratio=8,
+    )
+]
+configs.extend(together_llama2_32k)
+
 name_to_config = {config["name"]: config for config in configs}
