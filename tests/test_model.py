@@ -241,16 +241,17 @@ def test_model_compile():
 
 
 @torch.inference_mode()
-@pytest.mark.parametrize("set_highest_max_seq_length", (False, True))
+@pytest.mark.parametrize(
+    "max_seq_length", (25, pytest.param(23, marks=pytest.mark.xfail(raises=IndexError, strict=True)))
+)
 @pytest.mark.flaky(reruns=5)
-def test_kv_cache(set_highest_max_seq_length):
+def test_kv_cache(max_seq_length):
     from lit_gpt import GPT, Config
 
     config = Config(block_size=25, padded_vocab_size=5, n_layer=2, n_head=2, n_embd=8)
     model = GPT(config)
     idx = torch.randint(0, model.config.padded_vocab_size, (1, 5))
     max_new_tokens = 20
-    max_seq_length = 25 if set_highest_max_seq_length else 10
 
     def generate(logits):
         logits = logits[:, -1:]

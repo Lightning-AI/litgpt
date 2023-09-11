@@ -45,6 +45,12 @@ def generate(
     """
     T = idx.size(0)
     assert max_returned_tokens > T
+    if max_seq_length < max_returned_tokens - 1:
+        # this would require rolling the kv cache based on the `input_pos` value. However, that will introduce a data
+        # dependency on input_pos tensor and impact model compilation. since this is an uncommon setting, we don't
+        # support it to avoid impacting the general speed
+        raise NotImplementedError
+
     device, dtype = idx.device, idx.dtype
     # create an empty tensor of the expected final shape and fill in the current tokens
     empty = torch.empty(max_returned_tokens, dtype=dtype, device=device)
