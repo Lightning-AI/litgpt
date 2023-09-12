@@ -149,7 +149,50 @@ from a CSV file.
 
 ### Preparing Custom Datasets From a CSV File
 
-TODO
+If you have a CSV file containing the following columns
+
+- `instruction`: Column which will describe the task
+- `input`: A string holding a special input value for the instruction. This applies to some samples, and in others, this is empty (empty string).
+- `output`: The expected response string
+
+If any of the columns is missing, then the script will fail to create the dataset. 
+
+Before starting to finetune, you need to read, tokenize, and write the data converted from the CSV in a binary format. The simplest way to prepare the dataset is by simply running:
+
+```bash
+python scripts/prepare_csv.py /path/to/the/.csv file
+```
+An example:
+
+```bash
+python scripts/prepare_csv.py /home/user/Downloads/data.csv
+```
+You can also customize the dataset generation by using these additional parameters
+
+- `destination_path`: The folder where the binary data will be saved. By default, it is saved inside `data/csv`
+
+- `checkpoint_dir`: The model checkpoint dir. It will use the model's tokenizer to load and convert the string to input ids. Defaults to `"checkpoints/stabilityai/stablelm-base-alpha-3b"`
+
+- `test_split_fraction`: The fraction of the data to split. Defaults to `0.1`
+
+- `seed`: The seed value to reproduce the same random splits for train and test data.
+
+- `mask_inputs`: Whether we require any masking or not.
+
+- `ignore_index`: Explicitely which index to ignore when preparing the dataset. 
+
+So you can simply modify the command and here is an example of how to run the `prepare_csv.py` scripts with these additional arguments
+
+```bash
+python scripts/prepare_csv.py test_data.csv \
+--destination_path data/csv \
+--checkpoint_dir checkpoints/stabilityai/stablelm-base-alpha-3b \
+--test_split_fraction 0.1 \
+--seed 42 \
+--mask_inputs false \
+--ignore_index -1
+```
+Replace `test_data.csv` with your CSV path and the other additional parameters accordingly. If everything stays default then you will have a `train.pt` and `test.pt` binary files inside `data/csv`. Now you can use this to finetune your model.
 
 &nbsp;
 
