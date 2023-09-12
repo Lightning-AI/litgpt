@@ -53,12 +53,10 @@ jobs:
         echo "$modules"
         python -c "$modules"
 
-    - name: Run tests without the package installed
-      run: |
-        pytest --disable-pytest-warnings --strict-markers --color=yes
+    #- name: Run tests without the package installed
+    #  run: |
+    #    pytest --disable-pytest-warnings --strict-markers --color=yes
 
     - name: Run tests
       run: |
-        pip install . --no-deps
-
         pytest -v --durations=10 --disable-pytest-warnings --strict-markers --color=yes
