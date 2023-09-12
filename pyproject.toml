@@ -1,0 +1,42 @@
+[build-system]
+requires = ["setuptools", "setuptools-scm"]
+build-backend = "setuptools.build_meta"
+
+[project]
+name = "lit-gpt"
+version = "0.1.0"
+description = "Open source large language model implementation"
+license = {text = "Apache-2.0"}
+authors = [
+    { name = "Lightning AI", email = "community@lightning.ai" }
+]
+readme = "README.md"
+requires-python = ">=3.8"
+dependencies = [
+    "lightning @ git+https://github.com/Lightning-AI/lightning@master",
+]
+classifiers = [
+    "Topic :: Text Processing"
+]
+
+[project.optional-dependencies]
+all = [
+    "torch>=2.1",  # note this have not been released yet
+    "jsonargparse[signatures]",  # CLI
+]
+dev = [
+    "pytest",
+    "pytest-rerunfailures",
+    "transformers",
+    "einops",
+    "bitsandbytes",
+    "scipy",
+    "tokenizers",
+    "zstandard"
+]
+
+[tool.setuptools.packages.find]
+where = ["."]  # list of folders that contain the packages (["."] by default)
+include = ["lit_gpt"]  # package names should match these glob patterns (["*"] by default)
+exclude = []  # exclude packages matching these glob patterns (empty by default)
+namespaces = false  # to disable scanning PEP 420 namespaces (true by default)

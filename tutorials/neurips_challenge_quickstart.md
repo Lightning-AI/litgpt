@@ -89,7 +89,7 @@ git clone https://github.com/Lightning-AI/lit-gpt.git
 
 ```bash
 cd lit-gpt
-pip install -r requirements.txt tokenizers sentencepiece
+pip install . tokenizers sentencepiece
 ```
 
 

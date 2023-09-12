@@ -50,7 +50,7 @@ Once inside the machine, clone the repository and install the dependencies:
 ```shell
 git clone https://github.com/Lightning-AI/lit-gpt
 cd lit-gpt
-pip install -r requirements.txt
+pip install .
 ```
 
 Install Optimized BLAS:

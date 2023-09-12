@@ -13,7 +13,7 @@ _LIGHTNING_AVAILABLE = RequirementCache("lightning>=2.1.0.dev0")
 if not bool(_LIGHTNING_AVAILABLE):
     raise ImportError(
         "Lit-GPT requires Lightning nightly (future lightning 2.1). Please run:\n"
-        f" pip uninstall -y lightning; pip install -r requirements.txt\n{str(_LIGHTNING_AVAILABLE)}"
+        f" pip uninstall -y lightning; pip install -r requirements.txt\n {str(_LIGHTNING_AVAILABLE)}"
     )
 
 

@@ -35,13 +35,13 @@ jobs:
         python-version: ${{ matrix.python-version }}
         cache: 'pip'
         cache-dependency-path: |
-          requirements.txt
+          pyproject.toml
           setup.py
 
     - name: Install minimal dependencies
       run: |
-        pip install --index-url https://download.pytorch.org/whl/nightly/cpu --pre torch>=2.1.0dev
-        pip install -r requirements.txt
+        pip install --index-url https://download.pytorch.org/whl/test/cpu --pre torch>=2.1.0dev
+        pip install -e ".[all,dev]"
         pip list
         # make sure all modules are importable
         modules=$(
@@ -55,9 +55,6 @@ jobs:
 
     - name: Run tests without the package installed
       run: |
-        pip install pytest pytest-rerunfailures transformers einops bitsandbytes scipy tokenizers zstandard
-        pip list
-
         pytest --disable-pytest-warnings --strict-markers --color=yes
 
     - name: Run tests

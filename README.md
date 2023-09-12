@@ -117,7 +117,7 @@ MAX_JOBS=4 pip install 'flash-attn>=2.0.0.post1' --no-build-isolation
 All good, now install the dependencies plus some optional ones:
 
 ```bash
-pip install -r requirements.txt tokenizers sentencepiece
+pip install . tokenizers sentencepiece
 ```
 
 You are all set! 🎉
