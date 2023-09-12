@@ -2,9 +2,10 @@ import contextlib
 import gc
 import json
 import sys
+from dataclasses import asdict
 from functools import partial
 from pathlib import Path
-from typing import Dict, List, Literal, Optional, Tuple, Union
+from typing import Dict, List, Optional, Tuple, Union
 
 import torch
 
@@ -60,7 +61,7 @@ def copy_weights_gpt_neox(
 
 
 def copy_weights_falcon(
-    size: Literal["7b", "40b"],
+    model_name: str,
     state_dict: Dict[str, torch.Tensor],
     hf_weights: Dict[str, Union[torch.Tensor, NotYetLoadedTensor]],
     saver: Optional[incremental_save] = None,
@@ -77,14 +78,14 @@ def copy_weights_falcon(
         "lm_head.weight": "lm_head.weight",
     }
     # the original model definition is different for each size
-    if size == "7b":
+    if "7b" in model_name:
         weight_map.update(
             {
                 "transformer.h.{}.input_layernorm.bias": "transformer.h.{}.norm_1.bias",
                 "transformer.h.{}.input_layernorm.weight": "transformer.h.{}.norm_1.weight",
             }
         )
-    elif size == "40b":
+    elif "40b" in model_name or "180B" in model_name:
         weight_map.update(
             {
                 "transformer.h.{}.ln_attn.bias": "transformer.h.{}.norm_1.bias",
@@ -202,12 +203,13 @@ def convert_hf_checkpoint(
         dtype = getattr(torch, dtype)
 
     config = Config.from_name(model_name)
-    print(f"Model config {config.__dict__}")
+    config_dict = asdict(config)
+    print(f"Model config {config_dict}")
     with open(checkpoint_dir / "lit_config.json", "w") as json_config:
-        json.dump(config.__dict__, json_config)
+        json.dump(config_dict, json_config)
 
     if "falcon" in model_name:
-        copy_fn = partial(copy_weights_falcon, "40b" if config.n_embd == 8192 else "7b")
+        copy_fn = partial(copy_weights_falcon, model_name)
     elif config._mlp_class == "LLaMAMLP":
         # holder to reconstitute the split q, k, v
         qkv_weights = {}

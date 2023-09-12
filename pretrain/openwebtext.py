@@ -186,7 +186,7 @@ def train(fabric, state, train_dataloader, val_dataloader, speed_monitor):
             fabric.save(checkpoint_path, state)
 
 
-@torch.no_grad()
+@torch.inference_mode()
 def validate(fabric: L.Fabric, model: torch.nn.Module, val_dataloader: DataLoader) -> torch.Tensor:
     fabric.print("Validating ...")
     model.eval()

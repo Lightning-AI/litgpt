@@ -1,8 +1,10 @@
+import sys
 from contextlib import redirect_stdout
 from dataclasses import asdict
 from io import StringIO
 from unittest.mock import Mock
 
+import pytest
 import torch
 from lightning import Fabric
 
@@ -49,6 +51,7 @@ def test_adapter_script(tmp_path, fake_checkpoint_dir, monkeypatch):
     module.save_interval = 2
     module.eval_interval = 2
     module.eval_iters = 2
+    module.eval_max_new_tokens = 1
     module.max_iters = 6
 
     data = [
@@ -104,3 +107,27 @@ def test_adapter_gpt_init_weights():
     assert (param != 0).any()
     model.apply(model._init_weights)
     assert (param == 0).all()
+
+
+@pytest.mark.skipif(sys.platform in ("win32", "darwin"), reason="torch.compile not supported on this platform")
+@torch.inference_mode()
+def test_adapter_compile():
+    from lit_gpt.adapter import GPT
+
+    model = GPT.from_name("pythia-70m", n_layer=3)
+    x = torch.randint(model.config.vocab_size, size=(2, model.config.block_size), dtype=torch.int64)
+
+    from torch._dynamo.backends import debugging
+
+    explanation = torch._dynamo.explain(model, x)
+    assert isinstance(explanation, debugging.ExplainOutput)
+    assert explanation.graph_count == 1
+    assert explanation.graph_break_count == 0
+
+    model = GPT(model.config)
+    model.set_kv_cache(2)
+    input_pos = torch.arange(model.config.block_size)
+    explanation = torch._dynamo.explain(model, x, input_pos)
+    assert isinstance(explanation, debugging.ExplainOutput)
+    assert explanation.graph_count == 1
+    assert explanation.graph_break_count == 0

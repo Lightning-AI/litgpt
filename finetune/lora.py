@@ -31,6 +31,7 @@ from scripts.prepare_alpaca import generate_prompt
 eval_interval = 100
 save_interval = 100
 eval_iters = 100
+eval_max_new_tokens = 100
 log_interval = 1
 devices = 1
 # change this value to force a maximum sequence length
@@ -163,6 +164,7 @@ def train(
 ) -> None:
     tokenizer = Tokenizer(checkpoint_dir)
     max_seq_length, longest_seq_length, longest_seq_ix = get_max_seq_length(train_data)
+    model.max_seq_length = max_seq_length
 
     validate(fabric, model, val_data, tokenizer, longest_seq_length)  # sanity check
 
@@ -200,7 +202,7 @@ def train(
 
         is_accumulating = (iter_num + 1) % gradient_accumulation_iters != 0
         with fabric.no_backward_sync(model, enabled=is_accumulating):
-            logits = model(input_ids, max_seq_length=max_seq_length, lm_head_chunk_size=128)
+            logits = model(input_ids, lm_head_chunk_size=128)
             # shift the targets such that output n predicts token n+1
             logits[-1] = logits[-1][..., :-1, :]
             loss = chunked_cross_entropy(logits, targets[..., 1:])
@@ -239,7 +241,7 @@ def train(
             save_lora_checkpoint(fabric, model, checkpoint_path)
 
 
-@torch.no_grad()
+@torch.inference_mode()
 def validate(
     fabric: L.Fabric, model: GPT, val_data: List[Dict], tokenizer: Tokenizer, longest_seq_length: int
 ) -> torch.Tensor:
@@ -258,14 +260,13 @@ def validate(
     sample = {"instruction": instruction, "input": ""}
     prompt = generate_prompt(sample)
     encoded = tokenizer.encode(prompt, device=fabric.device)
-    max_returned_tokens = len(encoded) + 100
-    output = generate(
-        model, idx=encoded, max_returned_tokens=max_returned_tokens, max_seq_length=max_returned_tokens, temperature=0.8
-    )
+    with fabric.init_tensor():
+        # do not set `max_seq_length=max_returned_token` because memory is not a concern here
+        model.set_kv_cache(batch_size=1)
+    output = generate(model, encoded, max_returned_tokens=len(encoded) + eval_max_new_tokens, temperature=0.8)
+    model.clear_kv_cache()
     output = tokenizer.decode(output)
     fabric.print(output)
-
-    model.reset_cache()
 
     model.train()
     return val_loss

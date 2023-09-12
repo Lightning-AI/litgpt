@@ -4,7 +4,7 @@
 
 The [NeurIPS 2023 Efficiency Challenge](https://llm-efficiency-challenge.github.io/) is a competition focused on training **1 LLM for 24 hours on 1 GPU** – the team with the best LLM gets to present their results at NeurIPS 2023.
 
-This quick start guide is a short starter guide illustrating the main steps to get started with Lit-GPT, which was selected as the competition's official starter kit. 
+This quick start guide is a short starter guide illustrating the main steps to get started with Lit-GPT, which was selected as the competition's official starter kit.
 
 
 
@@ -34,7 +34,7 @@ These don't include models that have been finetuned or otherwise aligned, as per
 | Models in Lit-GPT         | Reference                                                    |
 | ------------------------- | ------------------------------------------------------------ |
 | Meta AI Llama 2 Base      | [Touvron et al. 2023](https://arxiv.org/abs/2307.09288)      |
-| TII UAE Falcon Base       | [TII 2023](https://falconllm.tii.ae/)     
+| TII UAE Falcon Base       | [TII 2023](https://falconllm.tii.ae/)                        |
 | OpenLM Research OpenLLaMA | [Geng & Liu 2023](https://github.com/openlm-research/open_llama) |
 | EleutherAI Pythia         | [Biderman et al. 2023](https://arxiv.org/abs/2304.01373)     |
 | StabilityAI StableLM Base | [Stability AI 2023](https://github.com/Stability-AI/StableLM) |
@@ -51,12 +51,12 @@ Examples of permitted datasets are the following:
 - [OpenAssistant Conversations Dataset (oasst1)](https://huggingface.co/datasets/OpenAssistant/oasst1)
 - [The Flan Collection](https://github.com/google-research/FLAN/tree/main/flan/v2)
 
-You are allowed to create your own datasets if they are made 
+You are allowed to create your own datasets if they are made
 publicly accessible under an open-source license, and they are not generated from other LLMs (even open-source ones).
 
 Helpful competition rules relevant to the dataset choice:
 
-- The maximum prompt/completion length the models are expected to handle is 2048 tokens. 
+- The maximum prompt/completion length the models are expected to handle is 2048 tokens.
 - The evaluation will be on English texts only.
 
 &nbsp;
@@ -112,7 +112,7 @@ python scripts/convert_hf_checkpoint.py \
 
 While StableLM 3B Base is useful as a first starter model to set things up, you may want to use the more capable Falcon 7B or Llama 2 7B/13B models later. See the [`download_*`](https://github.com/Lightning-AI/lit-gpt/tree/main/tutorials) tutorials in Lit-GPT to download other model checkpoints.
 
-After downloading and converting the model checkpoint, you can test the model via the following command: 
+After downloading and converting the model checkpoint, you can test the model via the following command:
 
 ```bash
 python generate/base.py \
@@ -122,7 +122,7 @@ python generate/base.py \
 
 &nbsp;
 
-## Downloading and Preparing Datasets 
+## Downloading and Preparing Datasets
 
 The following command will download and preprocess the Dolly15k dataset for the StableLM 3B Base model:
 
@@ -139,7 +139,7 @@ python scripts/prepare_dolly.py \
 
 ## Finetuning
 
-[Low-rank Adaptation (LoRA)](https://lightning.ai/pages/community/tutorial/lora-llm/) is a good choice for a first finetuning run. The Dolly dataset has ~15k samples, and the finetuning might take half an hour. 
+[Low-rank Adaptation (LoRA)](https://lightning.ai/pages/community/tutorial/lora-llm/) is a good choice for a first finetuning run. The Dolly dataset has ~15k samples, and the finetuning might take half an hour.
 
 To accelerate this for testing purposes, edit the [./finetune/lora.py](https://github.com/Lightning-AI/lit-gpt/blob/main/finetune/lora.py) script and change `max_iters = 50000` to `max_iters = 500` at the top of the file.
 
@@ -151,8 +151,8 @@ The following command finetunes the model:
 ```bash
 CUDA_VISIBLE_DEVICES=2 python finetune/lora.py \
   --data_dir data/dolly-stablelm3b \
-  --checkpoint_dir checkpoints/stabilityai/stablelm-base-alpha-3b \
-  --out_dir out/stablelm3b/dolly/lora/experiment1 \
+  --checkpoint_dir "checkpoints/stabilityai/stablelm-base-alpha-3b" \
+  --out_dir "out/stablelm3b/dolly/lora/experiment1" \
   --precision "bf16-true"
 ```
 
@@ -166,11 +166,11 @@ If you are using an RTX 4090, change `micro_batch_size=4` to `micro_batch_size=1
 
 ## Local Evaluation
 
-The official Lit-GPT competition will use HELM subtasks for model evaluation. 
+The official Lit-GPT competition will use a small subset of HELM tasks for model evaluation, which includes BigBench (general), MMLU (knowledge), TruthfulQA (knowledge and harm in a multiple choice format), CNN/DailyMail (news summarization), GSM8K (math), and BBQ (bias).
 
-HELM is currently also being integrated into Lit-GPT to evaluate LLMs before submission. 
+HELM is currently also being integrated into Lit-GPT to evaluate LLMs before submission.
 
-However, a tool with a more convenient interface is Eleuther AI's Evaluation Harness, which contains some tasks, for example, TruthfulQA and Gsm8k, that overlap with HELM. We can set up the Evaluation Harness as follows:
+However, a tool with a more convenient interface is Eleuther AI's [Evaluation Harness](https://github.com/EleutherAI/lm-evaluation-harness), which contains some tasks, for example, BigBench, TruthfulQA, and GSM8k, that overlap with HELM. We can set up the Evaluation Harness as follows:
 
 ```bash
 cd ..
@@ -180,11 +180,11 @@ pip install -e .
 cd ../lit-gpt
 ```
 
-And then we can use it via the following command: 
+And then we can use it via the following command:
 
 ```bash
 python eval/lm_eval_harness.py \
-  --checkpoint_dir checkpoints/stabilityai/stablelm-base-alpha-3b \
+  --checkpoint_dir "checkpoints/stabilityai/stablelm-base-alpha-3b" \
   --precision "bf16-true" \
   --eval_tasks "[truthfulqa_mc,gsm8k]" \
   --batch_size 4 \
@@ -193,8 +193,36 @@ python eval/lm_eval_harness.py \
 
 (You can find a full task list in the task table [here](https://github.com/EleutherAI/lm-evaluation-harness/blob/master/docs/task_table.md).)
 
-To evaluate a LoRA-finetuned model, use `eval/lm_eval_harness_lora.py` instead of `eval/lm_eval_harness.py`.
+To evaluate a LoRA-finetuned model, you need to first merge the LoRA weights with the base model to create a new checkpoint file:
 
+
+```bash
+python scripts/merge_lora.py \
+  --checkpoint_dir "checkpoints/stabilityai/stablelm-base-alpha-3b/" \
+  --lora_path "out/stablelm3b/dolly/lora/experiment1/lit_model_lora_finetuned.pth" \
+  --out_dir "out/lora_merged/stablelm-base-alpha-3b/"
+```
+
+```bash
+cp checkpoints/stabilityai/stablelm-base-alpha-3b/*.json \
+out/lora_merged/stablelm-base-alpha-3b/
+```
+
+For more information on LoRA weight merging, please see the
+[Merging LoRA Weights](https://github.com/Lightning-AI/lit-gpt/blob/main/tutorials/finetune_lora.md#merging-lora-weights)
+section of the LoRA finetuning documentation.
+
+After merging the weights, we can use the `lm_eval_harness.py` similar to before with the only difference that we now use the new
+checkpoint folder containing the merged LoRA model:
+
+```bash
+python eval/lm_eval_harness.py \
+  --checkpoint_dir "out/lora_merged/stablelm-base-alpha-3b" \
+  --precision "bf16-true" \
+  --eval_tasks "[truthfulqa_mc,gsm8k]" \
+  --batch_size 4 \
+  --save_filepath "results-stablelm-3b.json"
+```
 
 &nbsp;
 
