@@ -121,19 +121,19 @@ Please read the [tutorials/finetune_*.md](../tutorials) documents for more infor
 The models in Lit-GPT expect datasets for instruction finetuning in the following format:
 
 ```
-[    
+[
     {
-        "instruction": "Write a limerick about a    
+        "instruction": "Write a limerick about a
                         pelican.”,
         "input": "",
         "output": "There once was a pelican so fine,
-                   \nHis beak was as colorful as 
-                   sunshine,\nHe would fish all day,\nIn 
-                   a very unique way,\nThis pelican was 
+                   \nHis beak was as colorful as
+                   sunshine,\nHe would fish all day,\nIn
+                   a very unique way,\nThis pelican was
                    truly divine!\n\n\n"
     },
     {
-        "instruction": "Identify the odd one out from 
+        "instruction": "Identify the odd one out from
                         the group.",
         "input": "Carrot, Apple, Banana, Grape",
         "output": "Carrot\n\n"
@@ -142,8 +142,20 @@ The models in Lit-GPT expect datasets for instruction finetuning in the followin
 ```
 (Note that epending on the task, the `"input"` text can be an empty string, as shown above.)
 
+Custom datasets can be prepared by either creating a new `scripts/prepare_dataset.py` script or reading the dataset
+from a CSV file.
 
-The easiest way to prepare a new dataset is to copy and modify one of the existing dataset preparation scripts:
+&nbsp;
+
+### Preparing Custom Datasets From a CSV File
+
+TODO
+
+&nbsp;
+
+### Preparing Custom Datasets Using a Dataset Prepration Script
+
+If you don't have a CSV file following the format described in the previous section, the easiest way to prepare a new dataset is to copy and modify one of the existing dataset preparation scripts:
 
 - [`scripts/prepare_alpaca.py`](https://github.com/Lightning-AI/lit-gpt/blob/main/scripts/prepare_alpaca.py) (if you plan to load a dataset from a JSON file);
 - [`scripts/prepare_lima.py`](https://github.com/Lightning-AI/lit-gpt/blob/main/scripts/prepare_lima.py) (if you plan to load a dataset using the `datasets` Python library).
