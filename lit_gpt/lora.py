@@ -55,7 +55,6 @@ from lit_gpt.config import Config as BaseConfig
 from lit_gpt.model import GPT as BaseModel
 from lit_gpt.model import Block as BaseBlock
 from lit_gpt.model import CausalSelfAttention as BaseCausalSelfAttention
-from lit_gpt.model import KVCache
 from lit_gpt.utils import map_old_state_dict_weights
 
 
@@ -485,14 +484,9 @@ class GPT(BaseModel):
         if input_pos is not None:  # use the kv cache
             cos = self.cos.index_select(0, input_pos)
             sin = self.sin.index_select(0, input_pos)
-            # passing `attn_mask` to SDPA downgrades it to use the inefficient implementation. since we only need the mask
-            # for the kv-cache support (only during inference), we only create it in that situation
-            # this will be resolved by https://github.com/pytorch/pytorch/issues/96099
             if self.mask_cache is None:
-                self.mask_cache = self.build_mask_cache(idx)  # (1, 1, block_size, block_size)
+                raise TypeError("You need to call `gpt.set_kv_cache()`")
             mask = self.mask_cache.index_select(2, input_pos)
-            mask = mask[:, :, :, : self.max_seq_length]
-            self.build_kv_caches(idx, self.max_seq_length, cos.size(-1))
         else:
             cos = self.cos[:T]
             sin = self.sin[:T]
@@ -565,7 +559,7 @@ class CausalSelfAttention(BaseCausalSelfAttention):
             lora_dropout=config.dropout,
         )
         # disabled by default
-        self.kv_cache: Optional[KVCache] = None
+        self.kv_cache = nn.Module()
 
         self.config = config
 

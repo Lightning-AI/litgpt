@@ -151,8 +151,8 @@ The following command finetunes the model:
 ```bash
 CUDA_VISIBLE_DEVICES=2 python finetune/lora.py \
   --data_dir data/dolly-stablelm3b \
-  --checkpoint_dir checkpoints/stabilityai/stablelm-base-alpha-3b \
-  --out_dir out/stablelm3b/dolly/lora/experiment1 \
+  --checkpoint_dir "checkpoints/stabilityai/stablelm-base-alpha-3b" \
+  --out_dir "out/stablelm3b/dolly/lora/experiment1" \
   --precision "bf16-true"
 ```
 
@@ -184,7 +184,7 @@ And then we can use it via the following command:
 
 ```bash
 python eval/lm_eval_harness.py \
-  --checkpoint_dir checkpoints/stabilityai/stablelm-base-alpha-3b \
+  --checkpoint_dir "checkpoints/stabilityai/stablelm-base-alpha-3b" \
   --precision "bf16-true" \
   --eval_tasks "[truthfulqa_mc,gsm8k]" \
   --batch_size 4 \
@@ -193,9 +193,36 @@ python eval/lm_eval_harness.py \
 
 (You can find a full task list in the task table [here](https://github.com/EleutherAI/lm-evaluation-harness/blob/master/docs/task_table.md).)
 
-To evaluate a LoRA-finetuned model, use `eval/lm_eval_harness_lora.py` instead of `eval/lm_eval_harness.py`.
+To evaluate a LoRA-finetuned model, you need to first merge the LoRA weights with the base model to create a new checkpoint file:
 
 
+```bash
+python scripts/merge_lora.py \
+  --checkpoint_dir "checkpoints/stabilityai/stablelm-base-alpha-3b/" \
+  --lora_path "out/stablelm3b/dolly/lora/experiment1/lit_model_lora_finetuned.pth" \
+  --out_dir "out/lora_merged/stablelm-base-alpha-3b/"
+```
+
+```bash
+cp checkpoints/stabilityai/stablelm-base-alpha-3b/*.json \
+out/lora_merged/stablelm-base-alpha-3b/
+```
+
+For more information on LoRA weight merging, please see the
+[Merging LoRA Weights](https://github.com/Lightning-AI/lit-gpt/blob/main/tutorials/finetune_lora.md#merging-lora-weights)
+section of the LoRA finetuning documentation.
+
+After merging the weights, we can use the `lm_eval_harness.py` similar to before with the only difference that we now use the new
+checkpoint folder containing the merged LoRA model:
+
+```bash
+python eval/lm_eval_harness.py \
+  --checkpoint_dir "out/lora_merged/stablelm-base-alpha-3b" \
+  --precision "bf16-true" \
+  --eval_tasks "[truthfulqa_mc,gsm8k]" \
+  --batch_size 4 \
+  --save_filepath "results-stablelm-3b.json"
+```
 
 &nbsp;
 

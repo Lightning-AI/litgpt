@@ -111,7 +111,7 @@ class EvalHarnessBase(BaseLM):
         t = torch.tensor(tokens)
         return self.tokenizer.decode(t)
 
-    @torch.no_grad()
+    @torch.inference_mode()
     def _model_call(self, inps):
         """
         inps: a torch tensor of shape [batch, sequence]
@@ -129,7 +129,7 @@ class EvalHarnessBase(BaseLM):
 
         return self.tokenizer.decode(out)
 
-    @torch.no_grad()
+    @torch.inference_mode()
     def run_eval(
         self,
         eval_tasks=None,

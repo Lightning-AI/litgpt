@@ -73,12 +73,12 @@ def test_against_hf_model(rotary_pct, batch_size, n_embd, parallel_residual, kv_
     theirs_block = theirs_model.gpt_neox.layers[0]
     ours_block = ours_model.transformer.h[0]
     if kv_cache:
-        ours_model.build_kv_caches(token_sample, block_size, cos.size(-1))
         theirs_block_out, (theirs_k, theirs_v) = theirs_block(theirs_embed, use_cache=True, position_ids=position_ids)
-        ours_k, ours_v = ours_block.attn.kv_cache
+        ours_model.set_kv_cache(batch_size)
+        ours_kv_cache = ours_block.attn.kv_cache
         ours_block_out = ours_block(ours_embed, cos, sin, mask, torch.arange(block_size))
-        torch.testing.assert_close(ours_k, theirs_k)
-        torch.testing.assert_close(ours_v, theirs_v)
+        torch.testing.assert_close(ours_kv_cache.k, theirs_k)
+        torch.testing.assert_close(ours_kv_cache.v, theirs_v)
     else:
         (theirs_block_out,) = theirs_block(theirs_embed, position_ids=position_ids)
         ours_block_out = ours_block(ours_embed, cos, sin, mask)
@@ -187,8 +187,7 @@ def test_against_original_open_llama_3b():
 
     # test rope
     x = torch.randn(2, T, ours_config.n_embd)  # B, T, n_embd
-    ours_cos, ours_sin = ours_model.rope_cache()
-    ours_cos, ours_sin = ours_cos[:T], ours_sin[:T]  # this is done in our model forward
+    ours_cos, ours_sin = ours_model.cos[:T], ours_model.sin[:T]  # this is done in our model forward
     theirs_cos, theirs_sin = theirs_model.model.layers[0].self_attn.rotary_emb(x, T)
     torch.testing.assert_close(ours_cos, theirs_cos.squeeze())
     torch.testing.assert_close(ours_sin, theirs_sin.squeeze())
@@ -262,16 +261,25 @@ def test_against_hf_llama2(ours_kwargs):
 @pytest.mark.skipif(sys.platform in ("win32", "darwin"), reason="torch.compile not supported on this platform")
 @torch.inference_mode()
 def test_model_compile():
-    import lit_gpt
+    from lit_gpt import GPT
 
-    config = lit_gpt.Config(block_size=8, vocab_size=8, n_layer=2, n_head=2, n_embd=4)
-    model = lit_gpt.GPT(config)
+    model = GPT.from_name("pythia-70m", n_layer=3)
+    x = torch.randint(model.config.vocab_size, size=(2, model.config.block_size), dtype=torch.int64)
 
-    model = torch.compile(model)
+    from torch._dynamo.backends import debugging
 
-    sample = torch.randint(model.config.vocab_size, size=(2, model.config.block_size), dtype=torch.int64)
-    for _ in range(3):
-        _ = model(sample)
+    explanation = torch._dynamo.explain(model, x)
+    assert isinstance(explanation, debugging.ExplainOutput)
+    assert explanation.graph_count == 1
+    assert explanation.graph_break_count == 0
+
+    model = GPT(model.config)
+    model.set_kv_cache(2)
+    input_pos = torch.arange(model.config.block_size)
+    explanation = torch._dynamo.explain(model, x, input_pos)
+    assert isinstance(explanation, debugging.ExplainOutput)
+    assert explanation.graph_count == 1
+    assert explanation.graph_break_count == 0
 
 
 @torch.inference_mode()
@@ -287,6 +295,7 @@ def test_kv_cache(max_seq_length):
     idx = torch.randint(0, model.config.padded_vocab_size, (1, 5))
     max_new_tokens = 20
     model.max_seq_length = max_seq_length
+    model.set_kv_cache(1)
 
     def generate(logits):
         logits = logits[:, -1:]

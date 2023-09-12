@@ -54,8 +54,8 @@ class Config:
     rope_base: int = 10000
 
     def __post_init__(self):
-        # error checking
         assert self.n_embd % self.n_head == 0
+        self.head_size = self.n_embd // self.n_head
 
         # vocab size should be a power of 2 to be optimal on hardware. compute the closest value
         if self.padded_vocab_size is None:
@@ -77,10 +77,6 @@ class Config:
             self.intermediate_size = 4 * self.n_embd
 
         self.rope_n_elem = int(self.rotary_percentage * self.head_size)
-
-    @property
-    def head_size(self) -> int:
-        return self.n_embd // self.n_head
 
     @classmethod
     def from_name(cls, name: str, **kwargs: Any) -> Self:
@@ -959,5 +955,28 @@ stablecode = [
     dict(org="stabilityai", name="stablecode-instruct-alpha-3b", vocab_size=49152, n_layer=32, n_embd=2560),
 ]
 configs.extend(stablecode)
+
+
+##################################
+# togethercomputer LLaMA-2-7B-32K
+##################################
+together_llama2_32k = [
+    # https://huggingface.co/togethercomputer/LLaMA-2-7B-32K/blob/main/config.json
+    dict(
+        org="togethercomputer",
+        name="LLaMA-2-7B-32K",
+        vocab_size=32000,
+        padding_multiple=64,
+        n_layer=32,
+        rotary_percentage=1.0,
+        parallel_residual=False,
+        bias=False,
+        _norm_class="RMSNorm",
+        _mlp_class="LLaMAMLP",
+        intermediate_size=11008,
+        rope_condense_ratio=8,
+    )
+]
+configs.extend(together_llama2_32k)
 
 name_to_config = {config["name"]: config for config in configs}

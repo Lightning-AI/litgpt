@@ -24,6 +24,7 @@ def test_generate(max_seq_length):
     config = Config(block_size=128, vocab_size=16, n_layer=1, n_head=4, n_embd=8)
     model = GPT(config)
     model.max_seq_length = max_seq_length
+    model.set_kv_cache(batch_size=1)
     max_new_tokens = 20
 
     multinomial_results = []
