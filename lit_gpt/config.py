@@ -54,8 +54,8 @@ class Config:
     rope_base: int = 10000
 
     def __post_init__(self):
-        # error checking
         assert self.n_embd % self.n_head == 0
+        self.head_size = self.n_embd // self.n_head
 
         # vocab size should be a power of 2 to be optimal on hardware. compute the closest value
         if self.padded_vocab_size is None:
@@ -76,8 +76,6 @@ class Config:
                 raise ValueError("The config needs to set the `intermediate_size`")
             self.intermediate_size = 4 * self.n_embd
 
-        # precomputed values
-        self.head_size = self.n_embd // self.n_head
         self.rope_n_elem = int(self.rotary_percentage * self.head_size)
 
     @classmethod
