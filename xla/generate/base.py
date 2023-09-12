@@ -19,7 +19,7 @@ from lit_gpt.utils import check_valid_checkpoint_dir, lazy_load
 from xla.utils import rank_print
 
 
-@torch.no_grad()
+@torch.inference_mode()
 def generate(
     model: GPT,
     idx: torch.Tensor,

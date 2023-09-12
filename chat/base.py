@@ -15,7 +15,7 @@ from lit_gpt import GPT, Config, Tokenizer
 from lit_gpt.utils import check_valid_checkpoint_dir, get_default_supported_precision, lazy_load, quantization
 
 
-@torch.no_grad()
+@torch.inference_mode()
 def generate(
     model: GPT,
     idx: torch.Tensor,
