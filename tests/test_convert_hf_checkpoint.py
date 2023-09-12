@@ -16,3 +16,9 @@ def test_convert_hf_checkpoint(tmp_path):
     load.assert_called_with(bin_file)
 
     assert {p.name for p in tmp_path.glob("*")} == {"foo.bin", "lit_config.json", "lit_model.pth"}
+
+    # ensure that the config dict can be loaded
+    from lit_gpt import Config
+
+    config = Config.from_json(tmp_path / "lit_config.json")
+    assert isinstance(config, Config)

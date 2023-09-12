@@ -76,11 +76,9 @@ class Config:
                 raise ValueError("The config needs to set the `intermediate_size`")
             self.intermediate_size = 4 * self.n_embd
 
+        # precomputed values
+        self.head_size = self.n_embd // self.n_head
         self.rope_n_elem = int(self.rotary_percentage * self.head_size)
-
-    @property
-    def head_size(self) -> int:
-        return self.n_embd // self.n_head
 
     @classmethod
     def from_name(cls, name: str, **kwargs: Any) -> Self:

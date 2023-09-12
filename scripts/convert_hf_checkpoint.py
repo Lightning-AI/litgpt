@@ -2,6 +2,7 @@ import contextlib
 import gc
 import json
 import sys
+from dataclasses import asdict
 from functools import partial
 from pathlib import Path
 from typing import Dict, List, Optional, Tuple, Union
@@ -202,9 +203,10 @@ def convert_hf_checkpoint(
         dtype = getattr(torch, dtype)
 
     config = Config.from_name(model_name)
-    print(f"Model config {config.__dict__}")
+    config_dict = asdict(config)
+    print(f"Model config {config_dict}")
     with open(checkpoint_dir / "lit_config.json", "w") as json_config:
-        json.dump(config.__dict__, json_config)
+        json.dump(config_dict, json_config)
 
     if "falcon" in model_name:
         copy_fn = partial(copy_weights_falcon, model_name)
