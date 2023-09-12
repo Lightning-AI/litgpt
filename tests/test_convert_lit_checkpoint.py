@@ -158,41 +158,6 @@ def test_against_original_llama2(size):
     torch.testing.assert_close(ours_y, theirs_y)
 
 
-def test_maybe_unwrap_state_dict(tmp_path):
-    from finetune.full import save_checkpoint
-    from lit_gpt import GPT, Config
-    from scripts.convert_lit_checkpoint import convert_lit_checkpoint
-
-    # fabric is needed for finetune.full::save_checkpoint
-    fabric = L.Fabric(devices=1)
-
-    ckpt_path: Path = tmp_path / "lit_model_finetune.pth"
-    ckpt_name = ckpt_path.name
-
-    model_name = "pythia-70m"
-    ours_config = Config.from_name(model_name, block_size=8, n_layer=2, n_embd=32, n_head=2, padding_multiple=128)
-    ours_model = GPT(ours_config)
-
-    # save checkpoint and check for model key
-    save_checkpoint(fabric, ours_model, ckpt_path)
-    statedict_with_model_key = torch.load(ckpt_path)
-    assert statedict_with_model_key.get("model")
-    assert len(statedict_with_model_key) == 1
-
-    # convert and check that model key does not exist
-    # and that a known key for pythia exists
-    convert_lit_checkpoint(checkpoint_name=ckpt_name, out_dir=tmp_path, model_name=model_name)
-    bin_file = ckpt_path.with_suffix(".bin")
-    ckpt_from_unwrapped = torch.load(bin_file)
-    assert ckpt_from_unwrapped.get("model") is None
-    assert ckpt_from_unwrapped.get("embed_out.weight") is not None
-
-    # assert maybe_unwrap_state_dict is called
-    with mock.patch("scripts.convert_lit_checkpoint.maybe_unwrap_state_dict") as maybe_unwrap:
-        convert_lit_checkpoint(checkpoint_name=ckpt_name, out_dir=tmp_path, model_name=model_name)
-    maybe_unwrap.assert_called()
-
-
 def test_check_conversion_supported_adapter():
     from scripts.convert_lit_checkpoint import check_conversion_supported
 
@@ -208,13 +173,4 @@ def test_check_conversion_supported_adapter_v2():
     lit_weights = {"some.key.name": "some.key.value", "error.key.adapter_bias": "some.key.value"}
 
     with pytest.raises(NotImplementedError, match="Converting models finetuned with adapter_v2"):
-        check_conversion_supported(lit_weights=lit_weights)
-
-
-def test_check_conversion_supported_lora():
-    from scripts.convert_lit_checkpoint import check_conversion_supported
-
-    lit_weights = {"some.key.name": "some.key.value", "error.key.lora": "some.key.value"}
-
-    with pytest.raises(ValueError, match=r"Model weights must be merged using"):
         check_conversion_supported(lit_weights=lit_weights)

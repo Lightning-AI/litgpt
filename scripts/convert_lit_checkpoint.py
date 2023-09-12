@@ -53,6 +53,11 @@ def copy_weights_falcon(
         raise NotImplementedError
 
     for name, param in lit_weights.items():
+        # account for LoRALinear Layers
+        if "lora_" in name:
+            continue
+        if ".linear." in name:
+            name = name.replace(".linear.", ".")
         if "transformer.h" in name:
             from_name, number = layer_template(name, 2)
             to_name = weight_map[from_name].format(number)
@@ -89,6 +94,11 @@ def copy_weights_gpt_neox(
     }
 
     for name, param in lit_weights.items():
+        # account for LoRALinear Layers
+        if "lora_" in name:
+            continue
+        if ".linear." in name:
+            name = name.replace(".linear.", ".")
         if "transformer.h" in name:
             from_name, number = layer_template(name, 2)
             to_name = weight_map[from_name].format(number)
@@ -119,6 +129,11 @@ def copy_weights_llama(
     }
 
     for name, param in lit_weights.items():
+        # account for LoRALinear Layers
+        if "lora_" in name:
+            continue
+        if ".linear." in name:
+            name = name.replace(".linear.", ".")
         if name.endswith(".attn.attn.weight"):
             from_name, number = layer_template(name, 2)
             q = "model.layers.{}.self_attn.q_proj.weight".format(number)
@@ -194,16 +209,8 @@ def tensor_split(
     return q, k, v
 
 
-def maybe_unwrap_state_dict(lit_weights: Dict[str, torch.Tensor]) -> Dict[str, torch.Tensor]:
-    return lit_weights.get("model", lit_weights)
-
-
 def check_conversion_supported(lit_weights: Dict[str, torch.Tensor]) -> None:
     weight_names = {wk.split(".")[-1] for wk in lit_weights}
-    # LoRA or QLoRA
-    if any("lora" in wn for wn in weight_names):
-        raise ValueError("Model weights must be merged using `lora.merge_lora_weights()` before conversion.")
-    # adapter v2. adapter_bias will only be in adapter_v2
     if "adapter_bias" in weight_names:
         raise NotImplementedError("Converting models finetuned with adapter_v2 not yet supported.")
     # adapter. gating_factor is in adapter and adapter_v2
@@ -233,7 +240,7 @@ def convert_lit_checkpoint(*, checkpoint_name: str, out_dir: Path, model_name: s
     with incremental_save(bin_file) as saver:
         with contextlib.ExitStack() as stack:
             lit_weights = stack.enter_context(lazy_load(pth_file))
-            lit_weights = maybe_unwrap_state_dict(lit_weights)
+            lit_weights = lit_weights.get("model", lit_weights)
             check_conversion_supported(lit_weights)
             copy_fn(sd, lit_weights, saver=saver)
             gc.collect()

@@ -1,6 +1,8 @@
 import os
 import sys
 import time
+import json
+from dataclasses import asdict
 from pathlib import Path
 from typing import Dict, List, Literal, Optional, Tuple
 
@@ -150,6 +152,8 @@ def main(fabric: L.Fabric, data_dir: Path, checkpoint_dir: Path, out_dir: Path, 
     # Save the final LoRA checkpoint at the end of training
     save_path = out_dir / "lit_model_lora_finetuned.pth"
     save_lora_checkpoint(fabric, model, save_path)
+    # Save the LoRA config at the end of training
+    save_lora_config(fabric, model, out_dir)
 
 
 def train(
@@ -317,6 +321,13 @@ def get_max_seq_length(data: List[Dict]) -> Tuple[int, int, int]:
 def save_lora_checkpoint(fabric, model, file_path: Path):
     fabric.print(f"Saving LoRA weights to {str(file_path)!r}")
     fabric.save(file_path, {"model": model}, filter={"model": lora_filter})
+
+
+def save_lora_config(fabric, model, out_dir: Path):
+    fabric.print(f"Saving LoRA config to {str(out_dir)!r}")
+    config_payload = {k: v for k, v in asdict(model.config).items() if k != "org"}
+    with open(out_dir / "lit_lora_config.json", "w") as config_path:
+        json.dump({"config": config_payload}, config_path, indent=4)
 
 
 if __name__ == "__main__":
