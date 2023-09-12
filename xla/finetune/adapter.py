@@ -214,7 +214,7 @@ def train(
             save_adapter_checkpoint(fabric, model, checkpoint_path)
 
 
-@torch.no_grad()
+@torch.inference_mode()
 def validate(
     fabric: L.Fabric, model: GPT, val_data: List[Dict], tokenizer: Tokenizer, longest_seq_length: int
 ) -> torch.Tensor:
