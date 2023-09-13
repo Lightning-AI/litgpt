@@ -151,9 +151,9 @@ from a CSV file.
 
 If you have a CSV file containing the following columns
 
-- `instruction`: Column which will describe the task
+- `instruction`: Column which will describe the task.
 - `input`: A string holding a special input value for the instruction. This applies to some samples, and in others, this is empty (empty string).
-- `output`: The expected response string
+- `output`: The expected response string.
 
 If any of the columns is missing, then the script will fail to create the dataset. 
 
@@ -181,7 +181,7 @@ You can also customize the dataset generation by using these additional paramete
 
 - `ignore_index`: Explicitely which index to ignore when preparing the dataset. 
 
-So you can simply modify the command and here is an example of how to run the `prepare_csv.py` scripts with these additional arguments
+To use the the settings described above, you can add the respective command line arguments when calling `prepare_csv.py` as shown in the example below:
 
 ```bash
 python scripts/prepare_csv.py test_data.csv \
@@ -192,7 +192,7 @@ python scripts/prepare_csv.py test_data.csv \
 --mask_inputs false \
 --ignore_index -1
 ```
-Replace `test_data.csv` with your CSV path and the other additional parameters accordingly. If everything stays default then you will have a `train.pt` and `test.pt` binary files inside `data/csv`. Now you can use this to finetune your model.
+Replace `test_data.csv` with your CSV path and the other additional parameters accordingly. Executing the command above will create two binary files, `train.pt` and `test.pt`, inside `data/csv`. Now you can use this to finetune your model.
 
 &nbsp;
 
