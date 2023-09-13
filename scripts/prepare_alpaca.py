@@ -2,6 +2,7 @@
 import json
 import sys
 from pathlib import Path
+from typing import Optional
 
 import requests
 import torch
@@ -24,15 +25,17 @@ def prepare(
     data_file_name: str = "alpaca_data_cleaned_archive.json",
     data_file_url: str = "https://raw.githubusercontent.com/tloen/alpaca-lora/main/alpaca_data_cleaned_archive.json",
     ignore_index: int = -1,
+    max_seq_length: Optional[int] = None,
 ) -> None:
     """Prepare the Alpaca dataset for instruction tuning.
 
     The output is a training and test dataset saved as `train.pt` and `test.pt`,
     which stores the preprocessed and tokenized prompts and labels.
     """
-    with open(checkpoint_dir / "lit_config.json", "r") as file:
-        config = json.load(file)
-        max_seq_length = config["block_size"]
+    if max_seq_length is None:
+        with open(checkpoint_dir / "lit_config.json", "r", encoding="utf-8") as file:
+            config = json.load(file)
+            max_seq_length = config["block_size"]
 
     destination_path.mkdir(parents=True, exist_ok=True)
     data_file_path = destination_path / data_file_name
