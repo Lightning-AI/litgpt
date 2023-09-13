@@ -112,7 +112,7 @@ Please read the [tutorials/finetune_*.md](../tutorials) documents for more infor
 
 > [!IMPORTANT]
 > By default, the maximum sequence length is obtained from the model configuration file. In case you run into out-of-memory errors, especially in the cases of LIMA and Dolly,
-> you can try to lower the context length by editing the  [`finetune/lora.py` file](https://github.com/Lightning-AI/lit-gpt/blob/main/finetune/lora.py#L37) and change `override_max_seq_length = None` to `override_max_seq_length = 2048`.
+> you can try to lower the context length by preparing the dataset with a fixed max length, for example, `python scripts/prepare_lima.py --max_seq_length 2048`. Alternatvively, you can edit the  [`finetune/lora.py` file](https://github.com/Lightning-AI/lit-gpt/blob/main/finetune/lora.py#L37) and change `override_max_seq_length = None` to `override_max_seq_length = 2048`.
 
 &nbsp;
 
