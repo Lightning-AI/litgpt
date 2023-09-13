@@ -319,12 +319,12 @@ def test_kv_cache(max_seq_length):
         input_pos = input_pos[-1:] + 1
 
 
+@torch.inference_mode()
 def test_model_kv_cache_amp():
-    from lit_gpt.model import Config, GPT
+    from lit_gpt.model import GPT, Config
 
     config = Config.from_name("pythia-70m", n_layer=2)
     model = GPT(config)
-    model.eval()
     encoded = torch.arange(45)
     model.set_kv_cache(batch_size=1)
     with torch.autocast("cpu", torch.bfloat16):
