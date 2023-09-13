@@ -317,3 +317,16 @@ def test_kv_cache(max_seq_length):
         x_no_cache = torch.cat((x_no_cache, out_no_cache), dim=1)
         x_cache = out_cache
         input_pos = input_pos[-1:] + 1
+
+
+def test_model_kv_cache_amp():
+    from lit_gpt.model import Config, GPT
+
+    config = Config.from_name("pythia-70m", n_layer=2)
+    model = GPT(config)
+    model.eval()
+    encoded = torch.arange(45)
+    model.set_kv_cache(batch_size=1)
+    with torch.autocast("cpu", torch.bfloat16):
+        output = model(encoded.unsqueeze(0), encoded)
+    assert output.dtype is torch.bfloat16
