@@ -160,7 +160,7 @@ If any of the columns is missing, then the script will fail to create the datase
 Before starting to finetune, you need to read, tokenize, and write the data converted from the CSV in a binary format. The simplest way to prepare the dataset is by simply running:
 
 ```bash
-python scripts/prepare_csv.py /path/to/the/.csv file
+python scripts/prepare_csv.py path/to/the/file.csv
 ```
 An example:
 
