@@ -6,7 +6,7 @@ import torch
 wd = Path(__file__).parent.parent.absolute()
 
 
-def test_convert_lora_checkpoint(tmp_path):
+def test_convert_lora_checkpoint(tmp_path, fake_checkpoint_dir):
     import json
     from dataclasses import asdict
 
@@ -20,10 +20,11 @@ def test_convert_lora_checkpoint(tmp_path):
 
     model_name = "Llama-2-7b-hf"
 
-    converted_checkpoint_path = tmp_path / "converted_merged_lora_model.bin"
-    lora_path = tmp_path / "lit_model_lora.pth"
-    lora_config_path = tmp_path / "lit_lora_config.json"
-    ours_ckpt_path = tmp_path / "lit_model.pth"
+    out_dir = tmp_path
+    lora_path = tmp_path / "lit_model.pth"
+    ours_config_path = fake_checkpoint_dir / "lit_config.json"
+    ours_ckpt_path = fake_checkpoint_dir / "lit_model.pth"
+    converted_checkpoint_path = fake_checkpoint_dir / "converted_merged_lora_model.bin"
 
     # llama checkpoint
     ours_config = Config.from_name(
@@ -38,6 +39,9 @@ def test_convert_lora_checkpoint(tmp_path):
     initial_weight = ours_model.transformer.h[0].attn.proj.weight.clone()
     torch.save(ours_model.state_dict(), ours_ckpt_path)
 
+    with open(ours_config_path, "w") as config_path:
+        json.dump(asdict(ours_model.config), config_path)
+
     # LoRA finetuned checkpoint
     lora_config = LoRAConfig.from_name(
         r=8,
@@ -51,21 +55,13 @@ def test_convert_lora_checkpoint(tmp_path):
     initial_lora_model = LoRAGPT(lora_config)
     initial_lora_model.load_state_dict(ours_model.state_dict(), strict=False)
 
-    # save LoRA config file for merge_lora_checkpoint
-    with open(lora_config_path, "w") as lora_config_path:
-        json.dump({"config": asdict(initial_lora_model.config)}, lora_config_path)
-
     # mimic that LoRA finetuning only saves lora_A and lora_B
     lora_weights = {k: v for k, v in initial_lora_model.state_dict().items() if "lora" in k}
     torch.save(lora_weights, lora_path)
 
     # merge and convert the model
     convert_lit_lora_checkpoint(
-        model_name=model_name,
-        checkpoint_path=ours_ckpt_path,
-        lora_path=lora_path,
-        merge_lora=True,
-        save_merge=True,
+        checkpoint_dir=fake_checkpoint_dir, out_dir=out_dir, lora_path=lora_path, merge=True, precision="32-true"
     )
 
     # check that the converted merged model matches when loaded to a HF model
