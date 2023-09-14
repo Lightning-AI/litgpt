@@ -174,7 +174,7 @@ You can also customize the dataset generation by using these additional paramete
 
 - `mask_inputs`: Whether we require any masking or not.
 
-- `ignore_index`: Explicitely which index to ignore when preparing the dataset. 
+- `ignore_index`: Mask out all the tokens after this index when preparing the dataset.
 
 To use the the settings described above, you can add the respective command line arguments when calling `prepare_csv.py` as shown in the example below:
 
