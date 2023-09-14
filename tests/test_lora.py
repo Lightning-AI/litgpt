@@ -366,7 +366,7 @@ def test_lora_merge_with_quantize():
         pytest.skip("BNB not available")
 
     from lit_gpt.lora import GPT, Config, mark_only_lora_as_trainable, merge_lora_weights
-    from lit_gpt.utils import quantization
+    from lit_gpt.utils import get_default_supported_precision, quantization
 
     config = Config(
         n_layer=1,
@@ -381,7 +381,7 @@ def test_lora_merge_with_quantize():
         to_value=True,
         to_projection=True,
     )
-    fabric = Fabric(devices=1, precision="bf16-mixed")
+    fabric = Fabric(devices=1, precision=get_default_supported_precision(training=True))
     with fabric.init_module(empty_init=False), quantization("bnb.nf4"):
         model = GPT(config)
         model.apply(model._init_weights)

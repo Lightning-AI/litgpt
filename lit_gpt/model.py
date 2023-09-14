@@ -129,7 +129,7 @@ class GPT(nn.Module):
     def clear_kv_cache(self) -> None:
         self.mask_cache = None
         for block in self.transformer.h:
-            block.attn.kv_cache = nn.Module()
+            block.attn.kv_cache = None
 
 
 class Block(nn.Module):
@@ -137,9 +137,7 @@ class Block(nn.Module):
         super().__init__()
         self.norm_1 = config.norm_class(config.n_embd, eps=config.norm_eps)
         self.attn = CausalSelfAttention(config)
-        self.norm_2 = (
-            nn.Module() if config.shared_attention_norm else config.norm_class(config.n_embd, eps=config.norm_eps)
-        )
+        self.norm_2 = None if config.shared_attention_norm else config.norm_class(config.n_embd, eps=config.norm_eps)
         self.mlp = config.mlp_class(config)
 
         self.config = config
@@ -177,7 +175,7 @@ class CausalSelfAttention(nn.Module):
         # output projection
         self.proj = nn.Linear(config.n_embd, config.n_embd, bias=config.bias)
         # disabled by default
-        self.kv_cache = nn.Module()
+        self.kv_cache: Optional[KVCache] = None
 
         self.config = config
 
@@ -354,6 +352,9 @@ class KVCache(nn.Module):
         self.register_buffer("v", torch.zeros(v_shape, device=device, dtype=dtype), persistent=False)
 
     def forward(self, input_pos: torch.Tensor, k: torch.Tensor, v: torch.Tensor) -> Tuple[torch.Tensor, torch.Tensor]:
+        # move the buffer to the activation dtype for when AMP is used
+        self.k = self.k.to(k.dtype)
+        self.v = self.v.to(v.dtype)
         # update the cache
         k = self.k.index_copy_(2, input_pos, k)
         v = self.v.index_copy_(2, input_pos, v)
