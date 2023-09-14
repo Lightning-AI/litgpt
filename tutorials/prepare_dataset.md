@@ -162,11 +162,6 @@ Before starting to finetune, you need to read, tokenize, and write the data conv
 ```bash
 python scripts/prepare_csv.py path/to/the/file.csv
 ```
-An example:
-
-```bash
-python scripts/prepare_csv.py /home/user/Downloads/data.csv
-```
 You can also customize the dataset generation by using these additional parameters
 
 - `destination_path`: The folder where the binary data will be saved. By default, it is saved inside `data/csv`
