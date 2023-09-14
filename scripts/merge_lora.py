@@ -65,7 +65,7 @@ def merge_lora(
     checkpoint_path = checkpoint_dir / "lit_model.pth"
     with lazy_load(checkpoint_path) as checkpoint, lazy_load(lora_path) as lora_checkpoint:
         checkpoint.update(lora_checkpoint.get("model", lora_checkpoint))
-        model.load_state_dict(checkpoint)
+        model.load_state_dict(checkpoint, strict=False)
 
     merge_lora_weights(model)
 
