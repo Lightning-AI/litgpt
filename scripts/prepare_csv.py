@@ -138,4 +138,4 @@ def generate_prompt(example):
 if __name__ == "__main__":
     from jsonargparse import CLI
 
-    CLI(prepare)
+    CLI(prepare, as_positional=False)
