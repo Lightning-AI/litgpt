@@ -160,7 +160,7 @@ If any of the columns is missing, then the script will fail to create the datase
 Before starting to finetune, you need to read, tokenize, and write the data converted from the CSV in a binary format. The simplest way to prepare the dataset is by simply running:
 
 ```bash
-python scripts/prepare_csv.py path/to/the/file.csv
+python scripts/prepare_csv.py --csv_path path/to/the/file.csv
 ```
 You can also customize the dataset generation by using these additional parameters
 
@@ -179,7 +179,7 @@ You can also customize the dataset generation by using these additional paramete
 To use the the settings described above, you can add the respective command line arguments when calling `prepare_csv.py` as shown in the example below:
 
 ```bash
-python scripts/prepare_csv.py test_data.csv \
+python scripts/prepare_csv.py --csv_path test_data.csv \
 --destination_path data/csv \
 --checkpoint_dir checkpoints/stabilityai/stablelm-base-alpha-3b \
 --test_split_fraction 0.1 \
