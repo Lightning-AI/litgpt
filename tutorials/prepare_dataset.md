@@ -121,19 +121,19 @@ Please read the [tutorials/finetune_*.md](../tutorials) documents for more infor
 The models in Lit-GPT expect datasets for instruction finetuning in the following format:
 
 ```
-[    
+[
     {
-        "instruction": "Write a limerick about a    
+        "instruction": "Write a limerick about a
                         pelican.”,
         "input": "",
         "output": "There once was a pelican so fine,
-                   \nHis beak was as colorful as 
-                   sunshine,\nHe would fish all day,\nIn 
-                   a very unique way,\nThis pelican was 
+                   \nHis beak was as colorful as
+                   sunshine,\nHe would fish all day,\nIn
+                   a very unique way,\nThis pelican was
                    truly divine!\n\n\n"
     },
     {
-        "instruction": "Identify the odd one out from 
+        "instruction": "Identify the odd one out from
                         the group.",
         "input": "Carrot, Apple, Banana, Grape",
         "output": "Carrot\n\n"
@@ -142,8 +142,58 @@ The models in Lit-GPT expect datasets for instruction finetuning in the followin
 ```
 (Note that epending on the task, the `"input"` text can be an empty string, as shown above.)
 
+Custom datasets can be prepared by either creating a new `scripts/prepare_dataset.py` script or reading the dataset
+from a CSV file.
 
-The easiest way to prepare a new dataset is to copy and modify one of the existing dataset preparation scripts:
+&nbsp;
+
+### Preparing Custom Datasets From a CSV File
+
+If you have a CSV file containing the following columns
+
+- `instruction`: Column which will describe the task.
+- `input`: A string holding a special input value for the instruction. This applies to some samples, and in others, this is empty (empty string).
+- `output`: The expected response string.
+
+If any of the columns is missing, then the script will fail to create the dataset. 
+
+Before starting to finetune, you need to read, tokenize, and write the data converted from the CSV in a binary format. The simplest way to prepare the dataset is by simply running:
+
+```bash
+python scripts/prepare_csv.py --csv_path path/to/the/file.csv
+```
+You can also customize the dataset generation by using these additional parameters
+
+- `destination_path`: The folder where the binary data will be saved. By default, it is saved inside `data/csv`
+
+- `checkpoint_dir`: The model checkpoint dir. It will use the model's tokenizer to load and convert the string to input ids. Defaults to `"checkpoints/stabilityai/stablelm-base-alpha-3b"`
+
+- `test_split_fraction`: The fraction of the data to split. Defaults to `0.1`
+
+- `seed`: The seed value to reproduce the same random splits for train and test data.
+
+- `mask_inputs`: Whether we require any masking or not.
+
+- `ignore_index`: Mask out all the tokens after this index when preparing the dataset.
+
+To use the the settings described above, you can add the respective command line arguments when calling `prepare_csv.py` as shown in the example below:
+
+```bash
+python scripts/prepare_csv.py --csv_path test_data.csv \
+--destination_path data/csv \
+--checkpoint_dir checkpoints/stabilityai/stablelm-base-alpha-3b \
+--test_split_fraction 0.1 \
+--seed 42 \
+--mask_inputs false \
+--ignore_index -1
+```
+Replace `test_data.csv` with your CSV path and the other additional parameters accordingly. Executing the command above will create two binary files, `train.pt` and `test.pt`, inside `data/csv`. Now you can use this to finetune your model.
+
+&nbsp;
+
+### Preparing Custom Datasets Using a Dataset Prepration Script
+
+If you don't have a CSV file following the format described in the previous section, the easiest way to prepare a new dataset is to copy and modify one of the existing dataset preparation scripts:
 
 - [`scripts/prepare_alpaca.py`](https://github.com/Lightning-AI/lit-gpt/blob/main/scripts/prepare_alpaca.py) (if you plan to load a dataset from a JSON file);
 - [`scripts/prepare_lima.py`](https://github.com/Lightning-AI/lit-gpt/blob/main/scripts/prepare_lima.py) (if you plan to load a dataset using the `datasets` Python library).
