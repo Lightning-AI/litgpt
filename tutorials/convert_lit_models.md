@@ -20,7 +20,7 @@ After full finetuning, your `out_dir` will contain a file named `lit_model_finet
 ```sh
 python scripts/convert_lit_checkpoint.py \
     --checkpoint_name lit_model_finetuned.pth  \
-    --out_dir out/full/alpaca/ \
+    --out_dir out/full/alpaca \
     --model_name Llama-2-7b-chat-hf
 ```
 
@@ -30,8 +30,8 @@ After finetuning with LoRA, your `out_dir` will contain a file named `lit_model_
 
 ```sh
 python scripts/convert_lit_lora_checkpoint.py \
-    --model_name Llama-2-7b-chat-hf \
-    --checkpoint_path checkpoints/meta-llama/Llama-2-7b-chat-hf/lit_model.pth \
+    --checkpoint_dir checkpoints/meta-llama/Llama-2-7b-chat-hf \
+    --out_dir out/full/alpaca \
     --lora_path out/lora/alpaca/lit_model_lora_finetuned.pth \
     --merge_lora True
 ```
@@ -40,9 +40,8 @@ If you have saved a checkpoint with merged LoRA weights, and only need to conver
 
 ```sh
 python scripts/convert_lit_lora_checkpoint.py \
-    --model_name Llama-2-7b-chat-hf \
-    --checkpoint_path checkpoints/meta-llama/Llama-2-7b-chat-hf/lit_model.pth \
-    --lora_config_path out/lora/alpaca/lit_lora_config.json
+    --checkpoint_dir checkpoints/meta-llama/Llama-2-7b-chat-hf \
+    --out_dir out/full/alpaca
 ```
 
 A
