@@ -55,6 +55,7 @@ from lit_gpt.config import Config as BaseConfig
 from lit_gpt.model import GPT as BaseModel
 from lit_gpt.model import Block as BaseBlock
 from lit_gpt.model import CausalSelfAttention as BaseCausalSelfAttention
+from lit_gpt.model import KVCache
 from lit_gpt.utils import map_old_state_dict_weights
 
 
@@ -559,7 +560,7 @@ class CausalSelfAttention(BaseCausalSelfAttention):
             lora_dropout=config.dropout,
         )
         # disabled by default
-        self.kv_cache = nn.Module()
+        self.kv_cache: Optional[KVCache] = None
 
         self.config = config
 

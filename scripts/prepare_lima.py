@@ -26,6 +26,7 @@ def prepare(
     data_repo_id: str = "GAIR/lima",
     ignore_index: int = -1,
     access_token: Optional[str] = os.getenv("HF_TOKEN"),
+    max_seq_length: Optional[int] = None,
 ) -> None:
     """Prepare the LIMA dataset for instruction tuning.
 
@@ -40,9 +41,10 @@ def prepare(
             " https://huggingface.co/settings/tokens"
         )
 
-    with open(checkpoint_dir / "lit_config.json", "r", encoding="utf-8") as file:
-        config = json.load(file)
-        max_seq_length = config["block_size"]
+    if max_seq_length is None:
+        with open(checkpoint_dir / "lit_config.json", "r", encoding="utf-8") as file:
+            config = json.load(file)
+            max_seq_length = config["block_size"]
 
     destination_path.mkdir(parents=True, exist_ok=True)
     print("Loading data file...")
