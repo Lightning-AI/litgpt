@@ -72,7 +72,7 @@ class Tokenizer:
             tokens = self.processor.encode(string)
         else:
             raise RuntimeError
-        if use_bos or self.bos:
+        if use_bos:
             bos_id = self.bos_id
             if bos_id is None:
                 raise NotImplementedError("This tokenizer does not defined a bos token")
