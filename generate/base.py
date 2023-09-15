@@ -150,7 +150,7 @@ def main(
     model = fabric.setup_module(model)
 
     tokenizer = Tokenizer(checkpoint_dir)
-    encoded = tokenizer.encode(prompt, device=fabric.device, use_bos=True)
+    encoded = tokenizer.encode(prompt, device=fabric.device)
     prompt_length = encoded.size(0)
     max_returned_tokens = prompt_length + max_new_tokens
 
