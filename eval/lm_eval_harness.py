@@ -105,7 +105,7 @@ class EvalHarnessBase(BaseLM):
         return self.fabric.device
 
     def tok_encode(self, string: str):
-        return self.tokenizer.encode(string, bos=False, eos=False).tolist()
+        return self.tokenizer.encode(string, eos=False).tolist()
 
     def tok_decode(self, tokens):
         t = torch.tensor(tokens)
