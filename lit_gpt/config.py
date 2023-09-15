@@ -24,6 +24,7 @@ class Config:
     rotary_percentage: float = 0.25
     parallel_residual: bool = True
     bias: bool = True
+    use_bos: bool = False
     # to use multi-head attention (MHA), set this to `n_head` (default)
     # to use multi-query attention (MQA), set this to 1
     # to use grouped-query attention (GQA), set this to a value in between
