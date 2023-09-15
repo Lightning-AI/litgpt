@@ -32,6 +32,7 @@ class Tokenizer:
                     config = json.load(fp)
                 bos_token = config.get("bos_token")
                 self.bos_id = self.token_to_id(bos_token) if bos_token is not None else None
+                self.use_bos = None # TODO: find out a proper way to check for this 
                 self.eos_id = self.token_to_id(config["eos_token"])
             else:
                 raise RuntimeError("Missing tokenizer config")
@@ -61,8 +62,8 @@ class Tokenizer:
         self,
         string: str,
         device: Optional[torch.device] = None,
-        bos: bool = False,
-        eos: bool = False,
+        use_bos: bool = False,
+        use_eos: bool = False,
         max_length: int = -1,
     ) -> torch.Tensor:
         if self.backend == "huggingface":
@@ -71,12 +72,12 @@ class Tokenizer:
             tokens = self.processor.encode(string)
         else:
             raise RuntimeError
-        if bos:
+        if use_bos or self.bos:
             bos_id = self.bos_id
             if bos_id is None:
                 raise NotImplementedError("This tokenizer does not defined a bos token")
             tokens = [bos_id] + tokens
-        if eos:
+        if use_eos:
             tokens = tokens + [self.eos_id]
         if max_length > 0:
             tokens = tokens[:max_length]
