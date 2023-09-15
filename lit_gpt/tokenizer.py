@@ -9,8 +9,9 @@ class Tokenizer:
     def __init__(self, checkpoint_dir: Path) -> None:
         # some checkpoints have both files, `.model` takes precedence
 
-        self.model_config = Config.from_json(checkpoint_dir / "lit_config.json")
-
+        model_config = Config.from_json(checkpoint_dir / "lit_config.json")
+        self.use_bos = model_config.use_bos
+        
         if (vocabulary_path := checkpoint_dir / "tokenizer.model").is_file():
             from sentencepiece import SentencePieceProcessor
 
@@ -35,7 +36,6 @@ class Tokenizer:
                     config = json.load(fp)
                 bos_token = config.get("bos_token")
                 self.bos_id = self.token_to_id(bos_token) if bos_token is not None else None
-                self.use_bos = None # TODO: find out a proper way to check for this 
                 self.eos_id = self.token_to_id(config["eos_token"])
             else:
                 raise RuntimeError("Missing tokenizer config")
@@ -65,17 +65,19 @@ class Tokenizer:
         self,
         string: str,
         device: Optional[torch.device] = None,
-        use_bos: bool = False,
+        override_bos: bool = False,
         use_eos: bool = False,
         max_length: int = -1,
     ) -> torch.Tensor:
+        if override_bos:
+            self.use_bos = not self.use_bos
         if self.backend == "huggingface":
             tokens = self.processor.encode(string).ids
         elif self.backend == "sentencepiece":
             tokens = self.processor.encode(string)
         else:
             raise RuntimeError
-        if use_bos:
+        if self.use_bos:
             bos_id = self.bos_id
             if bos_id is None:
                 raise NotImplementedError("This tokenizer does not defined a bos token")
