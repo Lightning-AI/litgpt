@@ -1,13 +1,16 @@
 import json
 from pathlib import Path
 from typing import Optional
-
+from lit_gpt import Config
 import torch
 
 
 class Tokenizer:
     def __init__(self, checkpoint_dir: Path) -> None:
         # some checkpoints have both files, `.model` takes precedence
+
+        self.model_config = Config.from_json(checkpoint_dir / "lit_config.json")
+
         if (vocabulary_path := checkpoint_dir / "tokenizer.model").is_file():
             from sentencepiece import SentencePieceProcessor
 
