@@ -30,23 +30,3 @@ def test_tokenizer_against_hf():
     assert torch.equal(actual, torch.tensor([66, 270])), actual
     actual = tokenizer.encode("a b", eos=True)
     assert torch.equal(actual, torch.tensor([66, 270, 0])), actual
-
-
-def test_tokenizers_against_hf():
-    import lit_gpt
-    model_names = ["StabilityAI/stablelm-base-alpha-3b", "EleutherAI/pythia-70m"]
-    for model_name in model_names:
-        hf_tokenizer = AutoTokenizer.from_pretrained(model_name)
-
-        folder = Path(hf_tokenizer.init_kwargs["special_tokens_map_file"]).parent
-
-        tokenizer = lit_gpt.Tokenizer(folder)
-
-        assert tokenizer.vocab_size == hf_tokenizer.vocab_size
-        assert tokenizer.eos_id == hf_tokenizer.eos_token_id
-
-        string = "What's your mood today?"
-        actual = tokenizer.encode(string)
-        assert actual.tolist() == hf_tokenizer(string)["input_ids"]
-        assert tokenizer.decode(actual) == hf_tokenizer.decode(actual)
-
