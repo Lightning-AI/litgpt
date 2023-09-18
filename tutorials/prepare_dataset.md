@@ -149,7 +149,7 @@ from a CSV file.
 
 ### Preparing Custom Datasets From a CSV File
 
-You can prepare your custom dataset in a CSV file with the following columns:
+You can prepare custom dataset using a CSV file with the following columns:
 
 - `instruction`: Column which will describe the task.
 - `input`: A string holding a special input value for the instruction. This applies to some samples, and in others, this is empty (empty string).
