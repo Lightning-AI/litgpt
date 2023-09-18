@@ -69,8 +69,8 @@ class Tokenizer:
                 config = json.load(fp)
             use_bos = any([config.get(check,False) for check in bos_token_checks])
             tokenizer_class = config.get("tokenizer_class")
-            if tokenizer_class == "LlamaTokenizer":
-                # for examples that also use the Llama tokenizer, but do not explicitly set the bos_token
+            if tokenizer_class == "LlamaTokenizer" and config.get("bos_token",False):
+                # for examples that also use the Llama tokenizer, but do not have or set add_bos_token to True.
                 # ex: https://huggingface.co/stabilityai/StableBeluga2/blob/main/tokenizer_config.json#L2
                 use_bos = True
 
