@@ -483,7 +483,7 @@ long_chat = [
         norm_eps=1e-6,
         _mlp_class="LLaMAMLP",
         intermediate_size=13824,
-        condense_ratio=8,
+        rope_condense_ratio=8,
     ),
 ]
 configs.extend(long_chat)
