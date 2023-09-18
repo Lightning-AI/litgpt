@@ -58,7 +58,7 @@ jobs:
 
     - name: Run tests without the package installed
       run: |
-        pip install pytest pytest-rerunfailures transformers einops bitsandbytes scipy tokenizers zstandard pandas sentencepiece
+        pip install pytest pytest-rerunfailures transformers einops bitsandbytes scipy tokenizers zstandard pandas sentencepiece protobuf
         pip list
 
         pytest --disable-pytest-warnings --strict-markers --color=yes
