@@ -14,7 +14,6 @@ import lit_gpt.config as config_module
 
 
 @pytest.mark.parametrize("config", config_module.configs, ids=[c["name"] for c in config_module.configs])
-@pytest.mark.xfail(raises=AssertionError, reason="To be fixed", strict=False)
 def test_tokenizer_against_hf(config):
     from lit_gpt.tokenizer import Tokenizer
 
