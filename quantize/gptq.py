@@ -521,8 +521,9 @@ def blockwise_quantization(model, sample_inputs, working_device, *, bits=4, grou
             gptq = GPTQQuantizer(module, bits=bits, groupsize=groupsize, actorder=(groupsize == -1))
             handle = module.register_forward_hook(gptq.collect_input_stats)
             for j in range(inps.size(0)):
+                # FIXME
                 outs[j : j + 1], _ = block(
-                    inps[j : j + 1], rope=rope_cache, mask=mask_cache, max_seq_length=model.config.block_size
+                    inps[j : j + 1], rope=rope_cache, mask=mask_cache, max_seq_length=model.max_seq_length
                 )
 
             handle.remove()
@@ -543,6 +544,7 @@ def blockwise_quantization(model, sample_inputs, working_device, *, bits=4, grou
             print(f"time {int(t1 - t0 + 0.5)}s quantization error {error:.1f}")
 
         for j in range(inps.size(0)):
+            # FIXME
             outs[j : j + 1], _ = block(
                 inps[j : j + 1], rope=rope_cache, mask=mask_cache, max_seq_length=model.config.block_size
             )

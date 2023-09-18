@@ -177,7 +177,7 @@ def main(
         y = generate(
             model,
             encoded_prompt,
-            model.config.block_size,
+            model.max_seq_length,
             temperature=temperature,
             top_k=top_k,
             stop_tokens=stop_tokens,

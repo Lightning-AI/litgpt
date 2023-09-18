@@ -90,7 +90,7 @@ class EvalHarnessBase(BaseLM):
     @property
     def max_length(self):
         # TODO: keep decoupled from block_size
-        return self.model.config.block_size
+        return self.model.max_seq_length
 
     @property
     def max_gen_toks(self):

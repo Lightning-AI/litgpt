@@ -362,12 +362,12 @@ class SpeedMonitorCallback(Callback):
         self.speed_monitor.eval_end(eval_elapsed)
 
 
-def flops_per_param(config: Config, n_params: int) -> int:
+def flops_per_param(max_seq_length: int, n_layer: int, n_embd: int, n_params: int) -> int:
     flops_per_token = 2 * n_params  # each parameter is used for a MAC (2 FLOPS) per network operation
     # this assumes that all samples have a fixed length equal to the block size
     # which is most likely false during finetuning
-    flops_per_seq = flops_per_token * config.block_size
-    attn_flops_per_seq = config.n_layer * 2 * 2 * (config.n_embd * (config.block_size**2))
+    flops_per_seq = flops_per_token * max_seq_length
+    attn_flops_per_seq = n_layer * 2 * 2 * (n_embd * (max_seq_length**2))
     return flops_per_seq + attn_flops_per_seq
 
 
@@ -383,11 +383,11 @@ def estimate_flops(model: GPT) -> int:
     # (~10%) compared to the measured FLOPs, making those lower but more realistic.
     # For a proper estimate, this needs a more fine-grained calculation as in Appendix A of the paper.
     n_trainable_params = num_parameters(model, requires_grad=True)
-    trainable_flops = flops_per_param(model.config, n_trainable_params)
+    trainable_flops = flops_per_param(model.max_seq_length, model.config.n_layer, model.config.n_embd, n_trainable_params)
     # forward + backward + gradients (assumes no gradient accumulation)
     ops_per_step = 3 if model.training else 1
     n_frozen_params = num_parameters(model, requires_grad=False)
-    frozen_flops = flops_per_param(model.config, n_frozen_params)
+    frozen_flops = flops_per_param(model.max_seq_length, model.config.n_layer, model.config.n_embd, n_frozen_params)
     # forward + backward
     frozen_ops_per_step = 2 if model.training else 1
     return ops_per_step * trainable_flops + frozen_ops_per_step * frozen_flops
