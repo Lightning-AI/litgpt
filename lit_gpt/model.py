@@ -123,7 +123,7 @@ class GPT(nn.Module):
             # passing `attn_mask` to SDPA downgrades it to use the inefficient implementation. since we only need the mask
             # for the kv-cache support (only during inference), we only create it in that situation
             # this will be resolved by https://github.com/pytorch/pytorch/issues/96099
-            ones = torch.ones((self.config.block_size, max_seq_length), device=device, dtype=torch.bool)
+            ones = torch.ones((max_seq_length, max_seq_length), device=device, dtype=torch.bool)
             self.mask_cache = torch.tril(ones).unsqueeze(0).unsqueeze(0)
 
     def clear_kv_cache(self) -> None:
