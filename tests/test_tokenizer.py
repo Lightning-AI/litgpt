@@ -44,14 +44,9 @@ def test_tokenizer_against_hf(config):
         for file, hf_file in file_to_cache.items():
             (checkpoint_dir / file).symlink_to(hf_file)
 
-    try:
-        theirs = AutoTokenizer.from_pretrained(
-            repo_id, cache_dir=cache_dir / "hf", local_files_only=True, token=access_token
-        )
-    except OSError as e:
-        assert "gated repo" in str(e)
-        pytest.xfail("Gated repo")
-        return
+    theirs = AutoTokenizer.from_pretrained(
+        repo_id, cache_dir=cache_dir / "hf", local_files_only=True, token=access_token
+    )
     ours = Tokenizer(checkpoint_dir)
 
     assert ours.vocab_size == theirs.vocab_size
