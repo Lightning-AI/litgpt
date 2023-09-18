@@ -5,10 +5,10 @@ import torch
 from transformers import AutoTokenizer
 
 
-def test_tokenizer_against_hf():
+def test_tokenizer_against_hf(model_name_or_path="StabilityAI/stablelm-base-alpha-3b"):
     import lit_gpt
-
-    hf_tokenizer = AutoTokenizer.from_pretrained("StabilityAI/stablelm-base-alpha-3b")
+    
+    hf_tokenizer = AutoTokenizer.from_pretrained(model_name_or_path)
     # hacky way to access the data loaded by the above
     folder = Path(hf_tokenizer.init_kwargs["special_tokens_map_file"]).parent
 
@@ -30,3 +30,13 @@ def test_tokenizer_against_hf():
     assert torch.equal(actual, torch.tensor([66, 270])), actual
     actual = tokenizer.encode("a b", eos=True)
     assert torch.equal(actual, torch.tensor([66, 270, 0])), actual
+
+def test_tokenizers_against_hf():
+    models = [ 
+        "StabilityAI/stablelm-base-alpha-3b",
+        "EleutherAI/pythia-70m",
+    ]
+    for model_name_or_path in models:
+        test_tokenizer_against_hf(model_name_or_path)
+    
+
