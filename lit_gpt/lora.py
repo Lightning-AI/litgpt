@@ -254,7 +254,7 @@ class LoRAQKVLinear(LoRALinear):
             self.reset_parameters()
 
     def zero_pad(self, x: torch.Tensor) -> torch.Tensor:
-        """Properly pad weight updates with zeros.
+        """Properly pad the last dimension of weight updates with zeros.
 
         If, based on `self.enable_lora`, we want to fine-tune queries and values, but not keys,
         then the weights update should be:
@@ -287,10 +287,9 @@ class LoRAQKVLinear(LoRALinear):
         # only for key updates (this is where self.lora_ind comes in handy)
         # Note: double transpose (in the beginning and in the end) is basically a guard for two-dimensional tensors
         # for example when we want to merge/unmerge LoRA weights and pretrained weights
-        x = x.transpose(0, 1)
         result = x.new_zeros(*x.shape[:-1], self.linear.out_features)  # (64, 64, 384)
         result.index_copy_(dim=-1, index=torch.tensor(self.lora_ind, device=result.device), source=x)  # (64, 64, 384)
-        return result.transpose(0, 1)  # (64, 64, 384)
+        return result  # (64, 64, 384)
 
     def conv1d(self, input: torch.Tensor, weight: torch.Tensor) -> torch.Tensor:
         """An extension of the `torch.nn.functional.conv1d` function with a logic specific to grouped queries.
@@ -342,7 +341,7 @@ class LoRAQKVLinear(LoRALinear):
                 0
             )  # (1, 4, 128) @ (256, 2, 1) -> (1, 256, 128) -> (256, 128)
             # W = W + delta_W (merge)
-            self.linear.weight.data += self.zero_pad(delta_w * self.scaling)  # (256, 128) after zero_pad (384, 128)
+            self.linear.weight.data += self.zero_pad(delta_w.T * self.scaling).T  # (256, 128) after zero_pad (384, 128)
             self.merged = True
 
     def forward(self, x: torch.Tensor) -> torch.Tensor:
