@@ -68,6 +68,11 @@ class Tokenizer:
             with open(tokenizer_config_path) as fp:
                 config = json.load(fp)
             use_bos = any([config.get(check,False) for check in bos_token_checks])
+            tokenizer_class = config.get("tokenizer_class")
+            if tokenizer_class == "LlamaTokenizer":
+                # for examples that also use the Llama tokenizer, but do not explicitly set the bos_token
+                # ex: https://huggingface.co/stabilityai/StableBeluga2/blob/main/tokenizer_config.json#L2
+                use_bos = True
 
         return use_bos
 
@@ -102,3 +107,4 @@ class Tokenizer:
     def decode(self, tensor: torch.Tensor) -> str:
         tokens = [tensor.item()] if tensor.ndim == 0 else tensor.tolist()
         return self.processor.decode(tokens)
+
