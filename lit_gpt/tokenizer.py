@@ -16,7 +16,6 @@ class Tokenizer:
             self.bos_id = self.processor.bos_id()
             self.use_bos = self.bos_id is not None                    
             self.eos_id = self.processor.eos_id()
-            self.use_bos = False
         elif (vocabulary_path := checkpoint_dir / "tokenizer.json").is_file():
             from tokenizers import Tokenizer as HFTokenizer
 
@@ -40,6 +39,7 @@ class Tokenizer:
                 self.eos_id = self.token_to_id(config["eos_token"])             
             else:
                 raise RuntimeError("Missing tokenizer config")     
+                    
         else:
             raise NotImplementedError
 
