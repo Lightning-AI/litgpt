@@ -288,12 +288,9 @@ class LoRAQKVLinear(LoRALinear):
         # Note: double transpose (in the beginning and in the end) is basically a guard for two-dimensional tensors
         # for example when we want to merge/unmerge LoRA weights and pretrained weights
         x = x.transpose(0, 1)
-        result = x.new_zeros((*x.shape[:-1], self.linear.out_features))  # (64, 64, 384)
-        result = result.view(-1, self.linear.out_features)  # (4096, 384)
-        result = result.index_copy(
-            1, torch.tensor(self.lora_ind, device=result.device), x.reshape(-1, sum(self.qkv_shapes))
-        )  # (4096, 256)
-        return result.view((*x.shape[:-1], self.linear.out_features)).transpose(0, 1)  # (64, 64, 384)
+        result = x.new_zeros(*x.shape[:-1], self.linear.out_features)  # (64, 64, 384)
+        result.index_copy_(dim=-1, index=torch.tensor(self.lora_ind, device=result.device), source=x)  # (64, 64, 384)
+        return result.transpose(0, 1)  # (64, 64, 384)
 
     def conv1d(self, input: torch.Tensor, weight: torch.Tensor) -> torch.Tensor:
         """An extension of the `torch.nn.functional.conv1d` function with a logic specific to grouped queries.
