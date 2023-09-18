@@ -157,7 +157,7 @@ You can prepare custom dataset using a CSV file with the following columns:
 
 > If any of the columns is missing, then the script will fail to create the dataset.
 
-Before starting to finetune, you need to prepare the dataset using the `prepare_csv.py` script:
+Before you finetune, prepare the dataset using the `prepare_csv.py` script:
 
 ```bash
 python scripts/prepare_csv.py --csv_path path/to/the/file.csv
