@@ -28,7 +28,7 @@ class Tokenizer:
                 with open(special_tokens_path) as fp:
                     config = json.load(fp)
                 self.bos_id = config.get("bos_token_id")
-                self.use_bos = self.bos_id  is not None
+                self.use_bos = self.check_if_bos_token_used(checkpoint_dir, bos_token_checks)
                 self.eos_id = config.get("eos_token_id")
 
             elif (special_tokens_path := checkpoint_dir / "tokenizer_config.json").is_file():
