@@ -14,6 +14,7 @@ class Tokenizer:
             self.processor = SentencePieceProcessor(model_file=str(vocabulary_path))
             self.backend = "sentencepiece"
             self.bos_id = self.processor.bos_id()
+            self.use_bos = self.bos_id is not None                    
             self.eos_id = self.processor.eos_id()
             self.use_bos = False
         elif (vocabulary_path := checkpoint_dir / "tokenizer.json").is_file():
@@ -26,7 +27,7 @@ class Tokenizer:
                 with open(special_tokens_path) as fp:
                     config = json.load(fp)
                 self.bos_id = config.get("bos_token_id")
-                self.use_bos = any([config.get(check) for check in ['add_bos_token', 'add_prefix_space']])
+                self.use_bos = self.bos_id  is not None
                 self.eos_id = config.get("eos_token_id")
 
             elif (special_tokens_path := checkpoint_dir / "tokenizer_config.json").is_file():
