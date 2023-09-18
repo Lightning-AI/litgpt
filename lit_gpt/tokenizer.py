@@ -7,7 +7,6 @@ import torch
 class Tokenizer:
     def __init__(self, checkpoint_dir: Path) -> None:
         # some checkpoints have both files, `.model` takes precedence
-
         
         if (vocabulary_path := checkpoint_dir / "tokenizer.model").is_file():
             from sentencepiece import SentencePieceProcessor
@@ -35,14 +34,9 @@ class Tokenizer:
                 self.bos_id = self.token_to_id(bos_token) if bos_token is not None else None
                 self.use_bos = any([config.get(check) for check in ['add_bos_token', 'add_prefix_space']])
 
-                self.eos_id = self.token_to_id(config["eos_token"])
-                
- 
+                self.eos_id = self.token_to_id(config["eos_token"])             
             else:
-                raise RuntimeError("Missing tokenizer config")
-
-     
-
+                raise RuntimeError("Missing tokenizer config")     
         else:
             raise NotImplementedError
 
@@ -74,7 +68,6 @@ class Tokenizer:
         max_length: int = -1,
     ) -> torch.Tensor:
         
-
         if self.backend == "huggingface":
             tokens = self.processor.encode(string).ids
         elif self.backend == "sentencepiece":
