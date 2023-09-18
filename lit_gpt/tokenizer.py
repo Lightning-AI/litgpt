@@ -32,11 +32,17 @@ class Tokenizer:
                     config = json.load(fp)
                 bos_token = config.get("bos_token")
                 self.bos_id = self.token_to_id(bos_token) if bos_token is not None else None
-                self.use_bos = any([config.get(check) for check in ['add_bos_token', 'add_prefix_space']])
-
                 self.eos_id = self.token_to_id(config["eos_token"])             
             else:
                 raise RuntimeError("Missing tokenizer config")     
+            
+            if (special_tokens_path := checkpoint_dir / "tokenizer_config.json").is_file():
+                with open(special_tokens_path) as fp:
+                    config = json.load(fp)                                
+                self.use_bos = any([config.get(check) for check in ['add_bos_token', 'add_prefix_space']])
+            else:
+                self.use_bos = False
+
         else:
             raise NotImplementedError
 
