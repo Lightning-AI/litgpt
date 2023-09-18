@@ -10,7 +10,7 @@ from lightning.fabric.utilities.rank_zero import rank_zero_only as fabric_rank_z
 from lightning.pytorch.utilities.rank_zero import rank_zero_only as trainer_rank_zero_only
 from torch.utils.flop_counter import FlopCounterMode
 
-from lit_gpt import GPT, Config
+from lit_gpt import GPT
 from lit_gpt.utils import num_parameters
 
 GPU_AVAILABLE_FLOPS = {
@@ -383,7 +383,9 @@ def estimate_flops(model: GPT) -> int:
     # (~10%) compared to the measured FLOPs, making those lower but more realistic.
     # For a proper estimate, this needs a more fine-grained calculation as in Appendix A of the paper.
     n_trainable_params = num_parameters(model, requires_grad=True)
-    trainable_flops = flops_per_param(model.max_seq_length, model.config.n_layer, model.config.n_embd, n_trainable_params)
+    trainable_flops = flops_per_param(
+        model.max_seq_length, model.config.n_layer, model.config.n_embd, n_trainable_params
+    )
     # forward + backward + gradients (assumes no gradient accumulation)
     ops_per_step = 3 if model.training else 1
     n_frozen_params = num_parameters(model, requires_grad=False)

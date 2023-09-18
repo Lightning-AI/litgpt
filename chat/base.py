@@ -175,12 +175,7 @@ def main(
             model.set_kv_cache(batch_size=1)
 
         y = generate(
-            model,
-            encoded_prompt,
-            model.max_seq_length,
-            temperature=temperature,
-            top_k=top_k,
-            stop_tokens=stop_tokens,
+            model, encoded_prompt, model.max_seq_length, temperature=temperature, top_k=top_k, stop_tokens=stop_tokens
         )
         fabric.print(">> Reply: ", end="")
         try:
