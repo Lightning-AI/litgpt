@@ -233,25 +233,46 @@ class LoRAQKVLinear(LoRALinear):
             # https://github.com/cloneofsimo/lora
             self.scaling = self.lora_alpha / self.r
 
-            # Compute the indices
-            # Indices are needed to properly pad weight updates with zeros. If we want to fine-tune queries and values,
-            # but not keys, then the weights update should be:
-            #
-            # [[ΔW,ΔW,ΔW, ..., 0,0,0, ..., ΔW,ΔW,ΔW,],
-            #  [....................................],
-            #  [ΔW,ΔW,ΔW, ..., 0,0,0, ..., ΔW,ΔW,ΔW,]]
-            #      ↑              ↑            ↑
-            # ________________________________________
-            # | query         | key       | value    |
-            # ----------------------------------------
-            self.lora_ind = []
-            if enable_q:
-                self.lora_ind.extend(range(0, self.linear.in_features))
-            if enable_k:
-                self.lora_ind.extend(range(self.linear.in_features, self.linear.in_features + self.kv_embd_size))
-            if enable_v:
-                self.lora_ind.extend(range(self.linear.in_features + self.kv_embd_size, self.linear.out_features))
             self.reset_parameters()
+
+    @property
+    def lora_ind(self) -> torch.Tensor:
+        # Compute the indices
+        # Indices are needed to properly pad weight updates with zeros. If we want to fine-tune queries and values,
+        # but not keys, then the weights update should be:
+        #
+        # [[ΔW,ΔW,ΔW, ..., 0,0,0, ..., ΔW,ΔW,ΔW,],
+        #  [....................................],
+        #  [ΔW,ΔW,ΔW, ..., 0,0,0, ..., ΔW,ΔW,ΔW,]]
+        #      ↑              ↑            ↑
+        # ________________________________________
+        # | query         | key       | value    |
+        # ----------------------------------------
+        if hasattr(self, "_lora_ind"):
+            return self._lora_ind
+
+        indices = []
+        enable_q, enable_k, enable_v = self.enable_lora
+        if enable_q:
+            indices.append(torch.arange(0, self.linear.in_features, device=self.linear.weight.device))
+        if enable_k:
+            indices.append(
+                torch.arange(
+                    self.linear.in_features,
+                    self.linear.in_features + self.kv_embd_size,
+                    device=self.linear.weight.device,
+                )
+            )
+        if enable_v:
+            indices.append(
+                torch.arange(
+                    self.linear.in_features + self.kv_embd_size,
+                    self.linear.out_features,
+                    device=self.linear.weight.device,
+                )
+            )
+        self.register_buffer("_lora_ind", torch.cat(indices), persistent=False)
+        return self._lora_ind
 
     def zero_pad(self, x: torch.Tensor) -> torch.Tensor:
         """Properly pad the last dimension of weight updates with zeros.
@@ -288,8 +309,7 @@ class LoRAQKVLinear(LoRALinear):
         # Note: double transpose (in the beginning and in the end) is basically a guard for two-dimensional tensors
         # for example when we want to merge/unmerge LoRA weights and pretrained weights
         result = x.new_zeros(*x.shape[:-1], self.linear.out_features)  # (64, 64, 384)
-        result.index_copy_(dim=-1, index=torch.tensor(self.lora_ind, device=result.device), source=x)  # (64, 64, 384)
-        return result  # (64, 64, 384)
+        return result.index_copy(dim=-1, index=self.lora_ind.clone(), source=x)  # (64, 64, 384)
 
     def conv1d(self, input: torch.Tensor, weight: torch.Tensor) -> torch.Tensor:
         """An extension of the `torch.nn.functional.conv1d` function with a logic specific to grouped queries.
