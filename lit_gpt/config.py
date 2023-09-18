@@ -24,7 +24,6 @@ class Config:
     rotary_percentage: float = 0.25
     parallel_residual: bool = True
     bias: bool = True
-    use_bos: bool = False
     # to use multi-head attention (MHA), set this to `n_head` (default)
     # to use multi-query attention (MQA), set this to 1
     # to use grouped-query attention (GQA), set this to a value in between
@@ -562,7 +561,6 @@ llama_2 = [
         _norm_class="RMSNorm",
         _mlp_class="LLaMAMLP",
         intermediate_size=11008,
-        use_bos=True,
     ),
     # https://huggingface.co/meta-llama/Llama-2-13b-hf/blob/main/config.json
     dict(
@@ -579,7 +577,6 @@ llama_2 = [
         _norm_class="RMSNorm",
         _mlp_class="LLaMAMLP",
         intermediate_size=13824,
-        use_bos=True,
     ),
     # https://huggingface.co/meta-llama/Llama-2-70b-hf/blob/main/config.json
     dict(
@@ -597,7 +594,6 @@ llama_2 = [
         _norm_class="RMSNorm",
         _mlp_class="LLaMAMLP",
         intermediate_size=28672,
-        use_bos=True,
     ),
 ]
 for c in llama_2:
@@ -652,7 +648,6 @@ code_llama = [
         _mlp_class="LLaMAMLP",
         intermediate_size=11008,
         rope_base=1000000,
-        use_bos=True,
     ),
     # https://huggingface.co/codellama/CodeLlama-13b-hf/blob/main/config.json
     dict(
@@ -672,7 +667,6 @@ code_llama = [
         _mlp_class="LLaMAMLP",
         intermediate_size=13824,
         rope_base=1000000,
-        use_bos=True,
     ),
     # https://huggingface.co/codellama/CodeLlama-34b-hf/blob/main/config.json
     dict(
@@ -693,7 +687,6 @@ code_llama = [
         _mlp_class="LLaMAMLP",
         intermediate_size=22016,
         rope_base=1000000,
-        use_bos=True,
     ),
     # https://huggingface.co/codellama/CodeLlama-7b-Python-hf/blob/main/config.json
     dict(
@@ -711,7 +704,6 @@ code_llama = [
         _mlp_class="LLaMAMLP",
         intermediate_size=11008,
         rope_base=1000000,
-        use_bos=True,
     ),
     # https://huggingface.co/codellama/CodeLlama-13b-Python-hf/blob/main/config.json
     dict(
@@ -731,7 +723,6 @@ code_llama = [
         _mlp_class="LLaMAMLP",
         intermediate_size=13824,
         rope_base=1000000,
-        use_bos=True,
     ),
     # https://huggingface.co/codellama/CodeLlama-34b-Python-hf/blob/main/config.json
     dict(
@@ -752,7 +743,6 @@ code_llama = [
         _mlp_class="LLaMAMLP",
         intermediate_size=22016,
         rope_base=1000000,
-        use_bos=True,
     ),
     # https://huggingface.co/codellama/CodeLlama-7b-Instruct-hf/tree/main/config.json
     dict(
@@ -770,7 +760,6 @@ code_llama = [
         _mlp_class="LLaMAMLP",
         intermediate_size=11008,
         rope_base=1000000,
-        use_bos=True,
     ),
     # https://huggingface.co/codellama/CodeLlama-13b-Instruct-hf/blob/main/config.json
     dict(
@@ -790,7 +779,6 @@ code_llama = [
         _mlp_class="LLaMAMLP",
         intermediate_size=13824,
         rope_base=1000000,
-        use_bos=True,
     ),
     # https://huggingface.co/codellama/CodeLlama-34b-Instruct-hf/blob/main/config.json
     dict(
@@ -811,7 +799,6 @@ code_llama = [
         _mlp_class="LLaMAMLP",
         intermediate_size=22016,
         rope_base=1000000,
-        use_bos=True,
     ),
 ]
 configs.extend(code_llama)
@@ -837,7 +824,6 @@ platypus = [
         norm_eps=1e-06,
         _mlp_class="LLaMAMLP",
         intermediate_size=17920,
-        use_bos=True,
     ),
     # https://huggingface.co/garage-bAInd/Platypus2-7B/blob/main/config.json
     dict(
@@ -852,7 +838,6 @@ platypus = [
         norm_eps=1e-05,
         _mlp_class="LLaMAMLP",
         intermediate_size=11008,
-        use_bos=True,
     ),
     # https://huggingface.co/garage-bAInd/Platypus2-13B/blob/main/config.json
     dict(
@@ -869,7 +854,6 @@ platypus = [
         norm_eps=1e-05,
         _mlp_class="LLaMAMLP",
         intermediate_size=13824,
-        use_bos=True,
     ),
     # https://huggingface.co/garage-bAInd/Platypus2-70B/blob/main/config.json
     dict(
@@ -885,7 +869,6 @@ platypus = [
         _norm_class="RMSNorm",
         _mlp_class="LLaMAMLP",
         intermediate_size=28672,
-        use_bos=True,
     ),
     # https://huggingface.co/garage-bAInd/Camel-Platypus2-13B/blob/main/config.json
     dict(
@@ -901,7 +884,6 @@ platypus = [
         _norm_class="RMSNorm",
         _mlp_class="LLaMAMLP",
         intermediate_size=13824,
-        use_bos=True,
     ),
     # https://huggingface.co/garage-bAInd/Camel-Platypus2-70B/blob/main/config.json
     dict(
@@ -918,7 +900,6 @@ platypus = [
         _norm_class="RMSNorm",
         _mlp_class="LLaMAMLP",
         intermediate_size=28672,
-        use_bos=True,
     ),
     # https://huggingface.co/garage-bAInd/Stable-Platypus2-13B/blob/main/config.json
     dict(
@@ -934,7 +915,6 @@ platypus = [
         _norm_class="RMSNorm",
         _mlp_class="LLaMAMLP",
         intermediate_size=13824,
-        use_bos=True,
     ),
     # https://huggingface.co/garage-bAInd/Platypus2-70B-instruct/blob/main/config.json
     dict(
@@ -951,7 +931,6 @@ platypus = [
         _norm_class="RMSNorm",
         _mlp_class="LLaMAMLP",
         intermediate_size=28672,
-        use_bos=True,
     ),
 ]
 configs.extend(platypus)

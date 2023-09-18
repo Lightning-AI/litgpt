@@ -1,7 +1,6 @@
 import json
 from pathlib import Path
 from typing import Optional
-from lit_gpt import Config
 import torch
 
 
@@ -34,17 +33,15 @@ class Tokenizer:
                     config = json.load(fp)
                 bos_token = config.get("bos_token")
                 self.bos_id = self.token_to_id(bos_token) if bos_token is not None else None
+                self.use_bos = any([config.get(check) for check in ['add_bos_token', 'add_prefix_space']])
+
                 self.eos_id = self.token_to_id(config["eos_token"])
                 
  
             else:
                 raise RuntimeError("Missing tokenizer config")
 
-            # Depending on the model type, the bos token is either used or not. 
-            # Based on this info from HuggingFace, we can determine whether to use the bos token or not.
-            # using the bos token when it was used during training leads to better results.
-            model_config = Config.from_json(checkpoint_dir / "lit_config.json")
-            self.use_bos = model_config.use_bos     
+     
 
         else:
             raise NotImplementedError
@@ -72,24 +69,26 @@ class Tokenizer:
         self,
         string: str,
         device: Optional[torch.device] = None,
-        override_bos: bool = False,
+        bos: Optional[bool] = None,
         eos: bool = False,
         max_length: int = -1,
     ) -> torch.Tensor:
         
-        # if override_bos is True, we do the opposite of the default behavior.
-        if override_bos:
-            self.use_bos = not self.use_bos
+
         if self.backend == "huggingface":
             tokens = self.processor.encode(string).ids
         elif self.backend == "sentencepiece":
             tokens = self.processor.encode(string)
         else:
             raise RuntimeError
+        
+        if bos is not None: 
+            self.use_bos = bos
+
         if self.use_bos:
             bos_id = self.bos_id
             if bos_id is None:
-                raise NotImplementedError("This tokenizer does not defined a bos token")
+                raise NotImplementedError("This tokenizer does not have a defined a bos token")
             tokens = [bos_id] + tokens
         if eos:
             tokens = tokens + [self.eos_id]
