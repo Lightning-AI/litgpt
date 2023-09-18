@@ -61,4 +61,4 @@ def test_tokenizer_against_hf(config):
     actual = ours.encode(prompt)
     expected = theirs.encode(prompt)
     assert actual.tolist() == expected
-    assert ours.decode(actual) == theirs.decode(actual).replace(theirs.bos_token, "") # TODO: another issue with the HF decoding, it doesn't strip the BOS token automatically.
+    assert ours.decode(actual) == theirs.decode(actual).replace(theirs.bos_token, "").strip() # TODO: another issue with the HF decoding, it doesn't strip the BOS token automatically.
