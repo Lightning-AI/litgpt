@@ -50,6 +50,7 @@ def test_tokenizer_against_hf(config):
     ours = Tokenizer(checkpoint_dir)
 
     assert ours.vocab_size == theirs.vocab_size
+    assert ours.vocab_size == config.vocab_size
     assert ours.bos_id == theirs.bos_token_id
     assert ours.eos_id == theirs.eos_token_id
 
@@ -57,5 +58,4 @@ def test_tokenizer_against_hf(config):
     actual = ours.encode(prompt)
     expected = theirs.encode(prompt)
     assert actual.tolist() == expected
-
     assert ours.decode(actual) == theirs.decode(actual)
