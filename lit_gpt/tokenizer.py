@@ -7,10 +7,11 @@ import torch
 
 class Tokenizer:
     def __init__(self, checkpoint_dir: Path) -> None:
-        # some checkpoints have both files, `.model` takes precedence
-        bos_token_checks = ["add_bos_token", "add_prefix_space"]
-        self.use_bos = self.check_if_bos_token_used(checkpoint_dir, bos_token_checks)
+        self.use_bos = self.check_if_bos_token_used(checkpoint_dir)
+        self.bos_id = None
+        self.eos_id = None
 
+        # some checkpoints have both files, `.model` takes precedence
         if (vocabulary_path := checkpoint_dir / "tokenizer.model").is_file():
             from sentencepiece import SentencePieceProcessor
 
@@ -25,22 +26,20 @@ class Tokenizer:
             self.processor = HFTokenizer.from_file(str(vocabulary_path))
             self.backend = "huggingface"
 
-            if (special_tokens_path := checkpoint_dir / "generation_config.json").is_file():
-                with open(special_tokens_path) as fp:
-                    config = json.load(fp)
-                self.bos_id = config.get("bos_token_id")
-
-                self.eos_id = config.get("eos_token_id")
-
-            elif (special_tokens_path := checkpoint_dir / "tokenizer_config.json").is_file():
+            if (special_tokens_path := checkpoint_dir / "tokenizer_config.json").is_file():
                 with open(special_tokens_path) as fp:
                     config = json.load(fp)
                 bos_token = config.get("bos_token")
                 self.bos_id = self.token_to_id(bos_token) if bos_token is not None else None
-                self.eos_id = self.token_to_id(config["eos_token"])
-            else:
-                raise RuntimeError("Missing tokenizer config")
-
+                eos_token = config.get("eos_token")
+                self.eos_id = self.token_to_id(eos_token) if eos_token is not None else None
+            if (special_tokens_path := checkpoint_dir / "generation_config.json").is_file():
+                with open(special_tokens_path) as fp:
+                    config = json.load(fp)
+                if self.bos_id is None:
+                    self.bos_id = config.get("bos_token_id")
+                if self.eos_id is None:
+                    self.eos_id = config.get("eos_token_id")
         else:
             raise NotImplementedError
 
@@ -63,19 +62,16 @@ class Tokenizer:
             raise ValueError(f"token {token!r} not found in the collection.")
         return id_
 
-    def check_if_bos_token_used(self, checkpoint_dir, bos_token_checks) -> bool:
-        use_bos = False
-        if (tokenizer_config_path := checkpoint_dir / "tokenizer_config.json").is_file():
-            with open(tokenizer_config_path) as fp:
-                config = json.load(fp)
-            use_bos = any(config.get(check, False) for check in bos_token_checks)
-            tokenizer_class = config.get("tokenizer_class")
-            if config.get("add_bos_token") is None and tokenizer_class == "LlamaTokenizer":
-                # for examples that also use the Llama tokenizer, but do not have or set add_bos_token to True.
-                # ex: https://huggingface.co/stabilityai/StableBeluga2/blob/main/tokenizer_config.json#L2
-                use_bos = True
-
-        return use_bos
+    def check_if_bos_token_used(self, checkpoint_dir) -> bool:
+        if not (tokenizer_config_path := checkpoint_dir / "tokenizer_config.json").is_file():
+            return False
+        with open(tokenizer_config_path) as fp:
+            config = json.load(fp)
+        if any(config.get(check, False) for check in ("add_bos_token", "add_prefix_space")):
+            return True
+        # for examples that also use the Llama tokenizer, but do not have or set add_bos_token to True.
+        # ex: https://huggingface.co/stabilityai/StableBeluga2/blob/main/tokenizer_config.json#L2
+        return config.get("add_bos_token") is None and config.get("tokenizer_class") == "LlamaTokenizer"
 
     def encode(
         self,

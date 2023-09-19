@@ -50,17 +50,23 @@ def test_tokenizer_against_hf(config):
 
     assert ours.vocab_size == theirs.vocab_size
     assert ours.vocab_size == config.vocab_size
-    if theirs.bos_token or ours.use_bos:
-        # TODO: may want to reconsider this test. I've found some cases where there isn't a BOS token in the config, HF automatically sets to None, but the exist flow,
-        # even if it's used, will have it default ours to 1. (see https://huggingface.co/tiiuae/falcon-7b/blob/main/generation_config.json#L3)
+
+    if config.name.startswith("falcon") or config.name.startswith("stablecode"):
+        # even though their config defines it, it's set as None in HF
+        assert isinstance(ours.bos_id, int)
+        assert theirs.bos_token_id is None
+    else:
         assert ours.bos_id == theirs.bos_token_id
 
-    assert ours.eos_id == theirs.eos_token_id
+    if config.name.startswith("stablecode"):
+        # even though their config defines it, it's set as None in HF
+        assert ours.eos_id == 0
+        assert theirs.eos_token_id is None
+    else:
+        assert ours.eos_id == theirs.eos_token_id
 
     prompt = "Hello, readers of this test!"
     actual = ours.encode(prompt)
     expected = theirs.encode(prompt)
     assert actual.tolist() == expected
-    assert (
-        ours.decode(actual) == theirs.decode(actual).replace(theirs.bos_token, "").strip()
-    )  # TODO: another issue with the HF decoding, it doesn't strip the BOS token automatically.
+    assert ours.decode(actual) == theirs.decode(expected, skip_special_tokens=True)
