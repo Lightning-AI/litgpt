@@ -24,7 +24,10 @@ The script will take about 15 min to run.
 
 
 ## Pretraining
-
+You might need to install huggingface datasets
+```bash
+pip install datasets
+```
 Running the pretraining script with its default settings requires at least 4 GPUs with 40GB+ each. (However, alternatively, you can train a smaller Pythia-70m on 1 GPU, more information about that further below).
 
 ```bash
