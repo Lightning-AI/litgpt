@@ -248,31 +248,38 @@ class LoRAQKVLinear(LoRALinear):
         # ________________________________________
         # | query         | key       | value    |
         # ----------------------------------------
-        if hasattr(self, "_lora_ind"):
-            return self._lora_ind
+        if not hasattr(self, "_lora_ind"):
+            indices = []
+            enable_q, enable_k, enable_v = self.enable_lora
+            if enable_q:
+                indices.append(
+                    torch.arange(
+                        0,
+                        self.linear.in_features,
+                        device=self.linear.weight.device,
+                    )
+                )
+            if enable_k:
+                indices.append(
+                    torch.arange(
+                        self.linear.in_features,
+                        self.linear.in_features + self.kv_embd_size,
+                        device=self.linear.weight.device,
+                    )
+                )
+            if enable_v:
+                indices.append(
+                    torch.arange(
+                        self.linear.in_features + self.kv_embd_size,
+                        self.linear.out_features,
+                        device=self.linear.weight.device,
+                    )
+                )
+            self.register_buffer("_lora_ind", torch.cat(indices), persistent=False)
 
-        indices = []
-        enable_q, enable_k, enable_v = self.enable_lora
-        if enable_q:
-            indices.append(torch.arange(0, self.linear.in_features, device=self.linear.weight.device))
-        if enable_k:
-            indices.append(
-                torch.arange(
-                    self.linear.in_features,
-                    self.linear.in_features + self.kv_embd_size,
-                    device=self.linear.weight.device,
-                )
-            )
-        if enable_v:
-            indices.append(
-                torch.arange(
-                    self.linear.in_features + self.kv_embd_size,
-                    self.linear.out_features,
-                    device=self.linear.weight.device,
-                )
-            )
-        self.register_buffer("_lora_ind", torch.cat(indices), persistent=False)
-        return self._lora_ind
+        # in case `lora_ind` was created in `inference_mode` and thus it's an inference tensor,
+        # that cannot be saved for backward and has to be cloned
+        return self._lora_ind.clone() if self._lora_ind.is_inference() else self._lora_ind
 
     def zero_pad(self, x: torch.Tensor) -> torch.Tensor:
         """Properly pad the last dimension of weight updates with zeros.
@@ -306,10 +313,8 @@ class LoRAQKVLinear(LoRALinear):
         # Then x has embeddings_size of 256 (2 * 128 as enable_lora only for query and value, not keys) and expected
         # embeddings_size is 384 (self.linear.out_features), so that means that we need to pad from 256 to 384 with zeros, but
         # only for key updates (this is where self.lora_ind comes in handy)
-        # Note: double transpose (in the beginning and in the end) is basically a guard for two-dimensional tensors
-        # for example when we want to merge/unmerge LoRA weights and pretrained weights
         result = x.new_zeros(*x.shape[:-1], self.linear.out_features)  # (64, 64, 384)
-        return result.index_copy(dim=-1, index=self.lora_ind.clone(), source=x)  # (64, 64, 384)
+        return result.index_copy_(dim=-1, index=self.lora_ind, source=x)  # (64, 64, 384)
 
     def conv1d(self, input: torch.Tensor, weight: torch.Tensor) -> torch.Tensor:
         """An extension of the `torch.nn.functional.conv1d` function with a logic specific to grouped queries.
