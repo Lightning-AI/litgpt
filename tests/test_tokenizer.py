@@ -14,7 +14,6 @@ import lit_gpt.config as config_module
 
 
 @pytest.mark.parametrize("config", config_module.configs, ids=[c["name"] for c in config_module.configs])
-@pytest.mark.xfail(raises=AssertionError, reason="To be fixed", strict=False)
 def test_tokenizer_against_hf(config):
     from lit_gpt.tokenizer import Tokenizer
 
@@ -51,11 +50,23 @@ def test_tokenizer_against_hf(config):
 
     assert ours.vocab_size == theirs.vocab_size
     assert ours.vocab_size == config.vocab_size
-    assert ours.bos_id == theirs.bos_token_id
-    assert ours.eos_id == theirs.eos_token_id
+
+    if config.name.startswith("falcon") or config.name.startswith("stablecode"):
+        # even though their config defines it, it's set as None in HF
+        assert isinstance(ours.bos_id, int)
+        assert theirs.bos_token_id is None
+    else:
+        assert ours.bos_id == theirs.bos_token_id
+
+    if config.name.startswith("stablecode"):
+        # even though their config defines it, it's set as None in HF
+        assert ours.eos_id == 0
+        assert theirs.eos_token_id is None
+    else:
+        assert ours.eos_id == theirs.eos_token_id
 
     prompt = "Hello, readers of this test!"
     actual = ours.encode(prompt)
     expected = theirs.encode(prompt)
     assert actual.tolist() == expected
-    assert ours.decode(actual) == theirs.decode(actual)
+    assert ours.decode(actual) == theirs.decode(expected, skip_special_tokens=True)

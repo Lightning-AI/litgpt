@@ -140,7 +140,7 @@ def main(fabric: L.Fabric, data_dir: Path, checkpoint_dir: Path, out_dir: Path, 
     else:
         optimizer = torch.optim.AdamW(trainable_params, lr=learning_rate, weight_decay=weight_decay)
     optimizer = fabric.setup_optimizers(optimizer)
-    
+
     if not quantize:
         # strict=False because missing keys due to LoRA weights not contained in state dict
         load_checkpoint(fabric, model, checkpoint_path, strict=False)
