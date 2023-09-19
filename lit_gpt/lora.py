@@ -460,7 +460,7 @@ class GPT(BaseModel):
         self.lm_head = LoRALinear(
             config.n_embd,
             config.padded_vocab_size,
-            bias=False,
+            bias=config.lm_head_bias,
             r=(config.r if config.to_head else 0),
             lora_alpha=config.alpha,
             lora_dropout=config.dropout,
