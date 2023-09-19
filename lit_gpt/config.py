@@ -24,6 +24,7 @@ class Config:
     rotary_percentage: float = 0.25
     parallel_residual: bool = True
     bias: bool = True
+    lm_head_bias: bool = False
     # to use multi-head attention (MHA), set this to `n_head` (default)
     # to use multi-query attention (MQA), set this to 1
     # to use grouped-query attention (GQA), set this to a value in between
@@ -983,5 +984,26 @@ together_llama2_32k = [
     )
 ]
 configs.extend(together_llama2_32k)
+
+
+################
+# Microsoft Phi
+################
+phi = [
+    # https://huggingface.co/microsoft/phi-1_5/blob/main/config.json
+    dict(
+        org="microsoft",
+        name="phi-1_5",
+        vocab_size=51200,
+        padding_multiple=64,
+        block_size=2048,
+        n_embd=2048,
+        n_layer=24,
+        rotary_percentage=1.0,
+        shared_attention_norm=True,
+        lm_head_bias=True,
+    )
+]
+configs.extend(phi)
 
 name_to_config = {config["name"]: config for config in configs}
