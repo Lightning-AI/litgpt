@@ -280,7 +280,9 @@ class LoRAQKVLinear(LoRALinear):
 
         # in case `lora_ind` was created in `inference_mode` and thus it's an inference tensor,
         # that cannot be saved for backward and has to be cloned
-        return self._lora_ind.clone() if self._lora_ind.is_inference() else self._lora_ind
+        if self._lora_ind.is_inference():
+            self._lora_ind = self._lora_ind.clone()
+        return self._lora_ind
 
     def zero_pad(self, x: torch.Tensor) -> torch.Tensor:
         """Properly pad the last dimension of weight updates with zeros.
