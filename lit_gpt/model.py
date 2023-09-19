@@ -57,6 +57,10 @@ class GPT(nn.Module):
         # the mask and kv cache size will get updated on `set_kv_cache`. we cannot update it here because we don't know
         # if the kv cache is expected
 
+    def reset_parameters(self) -> None:
+        # Trigger resetting the rope-cache
+        self.max_seq_length = self.config.block_size
+
     def _init_weights(self, module: nn.Module) -> None:
         """Meant to be used with `gpt.apply(gpt._init_weights)`."""
         if isinstance(module, nn.Linear):
