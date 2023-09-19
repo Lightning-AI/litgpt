@@ -237,6 +237,7 @@ class LoRAQKVLinear(LoRALinear):
 
     @property
     def lora_ind(self) -> torch.Tensor:
+        """Lazy creation of a buffer with LoRA indices to overcome limitation when FSDP and meta device is used."""
         # Compute the indices
         # Indices are needed to properly pad weight updates with zeros. If we want to fine-tune queries and values,
         # but not keys, then the weights update should be:
