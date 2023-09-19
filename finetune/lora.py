@@ -21,6 +21,7 @@ from lit_gpt.utils import (
     check_valid_checkpoint_dir,
     chunked_cross_entropy,
     get_default_supported_precision,
+    load_checkpoint,
     num_parameters,
     quantization,
     step_csv_logger,
@@ -127,7 +128,7 @@ def main(fabric: L.Fabric, data_dir: Path, checkpoint_dir: Path, out_dir: Path, 
 
     if quantize:
         # for quantization, need to load before moving to device
-        fabric.load_raw(checkpoint_path, model, strict=False)
+        load_checkpoint(fabric, model, checkpoint_path, strict=False)
 
     model = fabric.setup_module(model)
 
@@ -142,7 +143,7 @@ def main(fabric: L.Fabric, data_dir: Path, checkpoint_dir: Path, out_dir: Path, 
     
     if not quantize:
         # strict=False because missing keys due to LoRA weights not contained in state dict
-        fabric.load_raw(checkpoint_path, model, strict=False)
+        load_checkpoint(fabric, model, checkpoint_path, strict=False)
 
     fabric.seed_everything(1337 + fabric.global_rank)
 

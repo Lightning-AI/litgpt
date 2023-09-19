@@ -21,6 +21,7 @@ from lit_gpt.utils import (
     check_valid_checkpoint_dir,
     chunked_cross_entropy,
     get_default_supported_precision,
+    load_checkpoint,
     num_parameters,
     step_csv_logger,
 )
@@ -101,7 +102,7 @@ def main(fabric: L.Fabric, data_dir: Path, checkpoint_dir: Path, out_dir: Path):
     optimizer = torch.optim.AdamW(model.parameters(), lr=learning_rate, weight_decay=weight_decay)
     optimizer = fabric.setup_optimizers(optimizer)
 
-    fabric.load_raw(checkpoint_path, model)
+    load_checkpoint(fabric, model, checkpoint_path)
 
     fabric.seed_everything(1337 + fabric.global_rank)
 
