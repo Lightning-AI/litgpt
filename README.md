@@ -53,7 +53,7 @@ The Lit-GPT repository is the official starter kit for the [NeurIPS 2023 LLM Eff
 
 If you are interested in participating, you can learn more about the NeurIPS LLM Efficiency Challenge on the official website [here](https://llm-efficiency-challenge.github.io). Also see the [Lit-GPT NeurIPS Challenge Quickstart Guide](tutorials/neurips_challenge_quickstart.md) for helpful tips.
 
-**The submission deadline is Oct 15th, 2023.**
+**The submission deadline is Oct 25th, 2023.**
 
 ---
 
