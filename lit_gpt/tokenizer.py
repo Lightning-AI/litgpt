@@ -1,13 +1,14 @@
 import json
 from pathlib import Path
 from typing import Optional
+
 import torch
 
 
 class Tokenizer:
     def __init__(self, checkpoint_dir: Path) -> None:
         # some checkpoints have both files, `.model` takes precedence
-        bos_token_checks = ['add_bos_token', 'add_prefix_space'] 
+        bos_token_checks = ["add_bos_token", "add_prefix_space"]
         self.use_bos = self.check_if_bos_token_used(checkpoint_dir, bos_token_checks)
 
         if (vocabulary_path := checkpoint_dir / "tokenizer.model").is_file():
@@ -36,10 +37,10 @@ class Tokenizer:
                     config = json.load(fp)
                 bos_token = config.get("bos_token")
                 self.bos_id = self.token_to_id(bos_token) if bos_token is not None else None
-                self.eos_id = self.token_to_id(config["eos_token"])             
+                self.eos_id = self.token_to_id(config["eos_token"])
             else:
-                raise RuntimeError("Missing tokenizer config")     
-                    
+                raise RuntimeError("Missing tokenizer config")
+
         else:
             raise NotImplementedError
 
@@ -67,17 +68,14 @@ class Tokenizer:
         if (tokenizer_config_path := checkpoint_dir / "tokenizer_config.json").is_file():
             with open(tokenizer_config_path) as fp:
                 config = json.load(fp)
-            use_bos = any([config.get(check,False) for check in bos_token_checks])
+            use_bos = any(config.get(check, False) for check in bos_token_checks)
             tokenizer_class = config.get("tokenizer_class")
-            if config.get("add_bos_token") is None:
-                if tokenizer_class == "LlamaTokenizer":
-                    # for examples that also use the Llama tokenizer, but do not have or set add_bos_token to True.
-                    # ex: https://huggingface.co/stabilityai/StableBeluga2/blob/main/tokenizer_config.json#L2
-                    use_bos = True
+            if config.get("add_bos_token") is None and tokenizer_class == "LlamaTokenizer":
+                # for examples that also use the Llama tokenizer, but do not have or set add_bos_token to True.
+                # ex: https://huggingface.co/stabilityai/StableBeluga2/blob/main/tokenizer_config.json#L2
+                use_bos = True
 
         return use_bos
-
-
 
     def encode(
         self,
@@ -87,7 +85,6 @@ class Tokenizer:
         eos: bool = False,
         max_length: int = -1,
     ) -> torch.Tensor:
-        
         if self.backend == "huggingface":
             tokens = self.processor.encode(string).ids
         elif self.backend == "sentencepiece":
@@ -108,4 +105,3 @@ class Tokenizer:
     def decode(self, tensor: torch.Tensor) -> str:
         tokens = [tensor.item()] if tensor.ndim == 0 else tensor.tolist()
         return self.processor.decode(tokens)
-
