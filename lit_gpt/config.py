@@ -1000,7 +1000,7 @@ phi = [
         block_size=2048,
         n_embd=2048,
         n_layer=24,
-        rotary_percentage=1.0,
+        rotary_percentage=0.5,  # 32 / (n_embd / n_head) = 32 / 64
         shared_attention_norm=True,
         lm_head_bias=True,
         gelu_approximate="tanh",

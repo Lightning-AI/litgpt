@@ -257,14 +257,16 @@ def test_against_hf_phi():
     from scripts.convert_hf_checkpoint import copy_weights_phi
     from tests.original_phi_1_5 import MixFormerSequentialConfig, MixFormerSequentialForCausalLM
 
-    ours_config = Config.from_name("phi-1_5", padded_vocab_size=10000, n_layer=2, n_head=8, n_embd=32)
+    ours_config = Config.from_name(
+        "phi-1_5", padded_vocab_size=10000, n_layer=2, n_head=4, n_embd=256, rotary_percentage=0.5
+    )
     T = 5
     theirs_config = MixFormerSequentialConfig(
         n_positions=ours_config.block_size,
         n_embd=ours_config.n_embd,
         n_head=ours_config.n_head,
         n_layer=ours_config.n_layer,
-        rotary_dim=ours_config.n_head,
+        rotary_dim=ours_config.rope_n_elem,
         architecture={"block_cls": "parallel", "mixer": {}, "mlp": {"mlp_cls": "mlp"}},
     )
     theirs_config.vocab_size = ours_config.padded_vocab_size
