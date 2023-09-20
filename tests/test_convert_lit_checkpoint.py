@@ -1,66 +1,58 @@
+import json
+import operator
+import os
+from dataclasses import asdict
 from pathlib import Path
-from unittest import mock
-from urllib.request import urlretrieve
+from unittest.mock import ANY
 
-import lightning as L
 import pytest
 import torch
+from lightning_utilities import compare_version
 
 wd = Path(__file__).parent.parent.absolute()
 
 
+
 def test_convert_lit_checkpoint(tmp_path):
-    from scripts.convert_lit_checkpoint import convert_lit_checkpoint
-
-    ckpt_name = "lit_model.pth"
-
-    with pytest.raises(RuntimeError, match="open file failed because of errno 2 on fopen"):
-        convert_lit_checkpoint(checkpoint_name=ckpt_name, out_dir=tmp_path, model_name="falcon-7b")
-
-    ckpt_path = tmp_path / "lit_model.pth"
-    ckpt_path.touch()
-    with mock.patch("scripts.convert_lit_checkpoint.lazy_load") as load:
-        convert_lit_checkpoint(checkpoint_name=ckpt_name, out_dir=tmp_path, model_name="falcon-7b")
-    load.assert_called_with(ckpt_path)
-
-    assert {p.name for p in tmp_path.glob("*")} == {"lit_model.pth", "lit_model.bin"}
-
-
-def test_convert_lit_checkpoint_llama2(tmp_path):
-    from finetune.full import save_checkpoint
     from lit_gpt import GPT, Config
     from scripts.convert_lit_checkpoint import convert_lit_checkpoint
 
-    # fabric is needed for finetune.full::save_checkpoint
-    fabric = L.Fabric(devices=1)
-
-    ckpt_path: Path = tmp_path / "lit_model_finetune.pth"
-    ckpt_name = ckpt_path.name
-
-    model_name = "Llama-2-7b-hf"
-    ours_config = Config.from_name(model_name, block_size=8, n_layer=2, n_embd=32, n_head=2, padding_multiple=128)
+    ours_config = Config.from_name("Llama-2-7b-hf", block_size=8, n_layer=2, n_embd=32, n_head=2, padding_multiple=128)
     ours_model = GPT(ours_config)
+    checkpoint_path = tmp_path / "foo.ckpt"
+    config_path = tmp_path / "foo.json"
+    torch.save(ours_model.state_dict(), checkpoint_path)
+    with open(config_path, "w") as fp:
+        json.dump(asdict(ours_config), fp)
+    output_path = tmp_path / "generated.bin"
 
-    # save checkpoint to avoid RunTimeError for PytorchStreamReader
-    save_checkpoint(fabric, ours_model, ckpt_path)
-    # this should not cause a TypeError
-    convert_lit_checkpoint(checkpoint_name=ckpt_name, out_dir=tmp_path, model_name=model_name)
+    convert_lit_checkpoint(checkpoint_path, output_path, config_path)
+    assert set(os.listdir(tmp_path)) == {"foo.ckpt", "foo.json", "generated.bin"}
+
+    # check checkpoint is unwrapped
+    torch.save({"model": ours_model.state_dict()}, checkpoint_path)
+    convert_lit_checkpoint(checkpoint_path, output_path, config_path)
+    converted_sd = torch.load(output_path)
+    assert "model" not in converted_sd
 
 
 @torch.inference_mode()
-def test_against_original_falcon_40b():
-    file_path = wd / "tests" / "original_falcon_40b.py"
-    url = "https://gist.githubusercontent.com/carmocca/feed39b1bc65a29f73c1cecc58a01167/raw/a9a65f2b93716b3c09ec9f354d535ae5953de08f/original_falcon_40b.py"
-    if not file_path.is_file():
-        urlretrieve(url=url, filename=file_path)
-
+def test_against_falcon_40b():
     from lit_gpt import GPT, Config
     from scripts.convert_lit_checkpoint import copy_weights_falcon as copy_to_theirs
-    from tests.original_falcon_40b import RWConfig, RWForCausalLM
+    from transformers.models.falcon.configuration_falcon import FalconConfig
+    from transformers.models.falcon.modeling_falcon import FalconForCausalLM
 
     ours_config = Config.from_name("falcon-40b", n_layer=2, n_head=8, n_query_groups=4, n_embd=32)
-    theirs_config = RWConfig(
-        hidden_size=32, n_head=8, n_head_kv=4, n_layer=2, parallel_attn=True, vocab_size=65024, bias=False
+    theirs_config = FalconConfig(
+        vocab_size=ours_config.padded_vocab_size,
+        hidden_size=ours_config.n_embd,
+        num_hidden_layers=ours_config.n_layer,
+        num_attention_heads=ours_config.n_head,
+        num_kv_heads=ours_config.n_query_groups,
+        new_decoder_architecture=True,
+        parallel_attn=ours_config.parallel_residual,
+        bias=ours_config.bias,
     )
 
     ours_model = GPT(ours_config)
@@ -68,9 +60,9 @@ def test_against_original_falcon_40b():
     theirs_state_dict = {}
     copy_to_theirs("40b", theirs_state_dict, ours_state_dict)
 
-    theirs_model = RWForCausalLM(theirs_config)
+    theirs_model = FalconForCausalLM(theirs_config)
     # assign must be set to True for torch.testing.assert_close to pass
-    theirs_model.load_state_dict(theirs_state_dict, strict=False, assign=True)
+    theirs_model.load_state_dict(theirs_state_dict, assign=True)
 
     # test end to end
     x = torch.tensor([[9856, 23, 491, 1536, 304]], dtype=torch.int32)
@@ -86,25 +78,89 @@ def test_against_original_gpt_neox():
     from lit_gpt import GPT, Config
     from scripts.convert_lit_checkpoint import copy_weights_gpt_neox as copy_to_theirs
 
-    ours_config = Config.from_name("pythia-1b", block_size=2048, n_layer=2, n_embd=2048, n_head=8, padding_multiple=128)
+    ours_config = Config(
+        block_size=64,
+        vocab_size=100,
+        n_layer=4,
+        n_head=8,
+        n_embd=16
+    )
+    assert ours_config.padded_vocab_size == 512
     theirs_config = GPTNeoXConfig(
+        hidden_act="gelu",
         hidden_size=ours_config.n_embd,
-        intermediate_size=ours_config.intermediate_size,
-        num_hidden_layers=ours_config.n_layer,
         num_attention_heads=ours_config.n_head,
-        n_head_kv=ours_config.n_query_groups,
+        num_hidden_layers=ours_config.n_layer,
+        initializer_range=0.02,
+        intermediate_size=ours_config.intermediate_size,
+        layer_norm_eps=1e-05,
+        max_position_embeddings=ours_config.block_size,
+        rotary_emb_base=10000,
+        rotary_pct=ours_config.rotary_percentage,
         vocab_size=ours_config.padded_vocab_size,
-        bias=ours_config.bias,
+        use_parallel_residual=ours_config.parallel_residual,
     )
 
     ours_model = GPT(ours_config)
     ours_state_dict = ours_model.state_dict()
     theirs_state_dict = {}
     copy_to_theirs(theirs_state_dict, ours_state_dict)
-
     theirs_model = GPTNeoXForCausalLM(theirs_config)
-    # assign must be set to True for torch.testing.assert_close to pass
-    theirs_model.load_state_dict(theirs_state_dict, strict=False, assign=True)
+    # strict=False because we don't save the rotary embeddings inv frequency
+    theirs_model.load_state_dict(theirs_state_dict, strict=False)
+
+    # test end to end
+    x = torch.randint(0, ours_config.padded_vocab_size, size=(2, ours_config.block_size), dtype=torch.int64)
+    ours_y = ours_model(x)
+    theirs_y = theirs_model(x)["logits"]
+    torch.testing.assert_close(ours_y, theirs_y)
+
+
+@torch.inference_mode()
+@pytest.mark.parametrize(
+    "ours_kwargs",
+    [
+        {"name": "Llama-2-7b-hf"},
+        pytest.param(
+            {"name": "CodeLlama-7b-hf"},
+            marks=pytest.mark.skipif(
+                compare_version("transformers", operator.lt, "4.33.0", use_base_version=True),
+                reason="requires rope_theta",
+            ),
+        ),
+        {"name": "Llama-2-70b-chat-hf"},
+    ],
+)
+def test_against_hf_llama2(ours_kwargs):
+    from transformers.models.llama.configuration_llama import LlamaConfig
+    from transformers.models.llama.modeling_llama import LlamaForCausalLM
+
+    from lit_gpt import GPT, Config
+    from scripts.convert_lit_checkpoint import copy_weights_llama
+
+    ours_config = Config.from_name(
+        padded_vocab_size=10000, n_layer=2, n_head=8, n_embd=32, intermediate_size=86, **ours_kwargs
+    )
+    T = 5
+    theirs_config = LlamaConfig(
+        vocab_size=ours_config.padded_vocab_size,
+        hidden_size=ours_config.n_embd,
+        num_attention_heads=ours_config.n_head,
+        num_hidden_layers=ours_config.n_layer,
+        intermediate_size=ours_config.intermediate_size,
+        max_position_embeddings=T,
+        rms_norm_eps=1e-5,
+        num_query_value_heads=ours_config.n_query_groups,
+        rope_theta=ours_config.rope_base,
+    )
+    assert ours_config.intermediate_size == theirs_config.intermediate_size
+
+    ours_model = GPT(ours_config)
+    ours_state_dict = ours_model.state_dict()
+    theirs_state_dict = {}
+    copy_weights_llama(ours_config, theirs_state_dict, ours_state_dict)
+    theirs_model = LlamaForCausalLM(theirs_config)
+    theirs_model.load_state_dict(theirs_state_dict)
 
     # test end to end
     x = torch.tensor([[9856, 23, 491, 1536, 304]], dtype=torch.int32)
@@ -114,22 +170,14 @@ def test_against_original_gpt_neox():
 
 
 @torch.inference_mode()
-@pytest.mark.parametrize("size", ("7b", "70b"))
-def test_against_original_llama2(size):
+def test_against_original_open_llama_3b():
     from transformers.models.llama.configuration_llama import LlamaConfig
     from transformers.models.llama.modeling_llama import LlamaForCausalLM
 
     from lit_gpt import GPT, Config
-    from scripts.convert_lit_checkpoint import copy_weights_llama as copy_to_theirs
+    from scripts.convert_lit_checkpoint import copy_weights_llama
 
-    if size == "7b":
-        ours_kwargs = {"name": "Llama-2-7b-hf"}
-        theirs_kwargs = {}
-    else:
-        ours_kwargs = {"name": "Llama-2-70b-chat-hf", "n_query_groups": 2}
-        theirs_kwargs = {"num_key_value_heads": 2}
-
-    ours_config = Config.from_name(n_layer=2, n_head=8, n_embd=32, intermediate_size=86, **ours_kwargs)
+    ours_config = Config.from_name("open_llama_3b", n_layer=2, n_head=8, n_embd=32, intermediate_size=86)
     T = 5
     theirs_config = LlamaConfig(
         hidden_size=ours_config.n_embd,
@@ -137,86 +185,41 @@ def test_against_original_llama2(size):
         num_hidden_layers=ours_config.n_layer,
         intermediate_size=ours_config.intermediate_size,
         max_position_embeddings=T,
-        rms_norm_eps=1e-5,
-        **theirs_kwargs,
     )
     assert ours_config.intermediate_size == theirs_config.intermediate_size
 
     ours_model = GPT(ours_config)
     ours_state_dict = ours_model.state_dict()
     theirs_state_dict = {}
-    copy_to_theirs(ours_config, theirs_state_dict, ours_state_dict)
-
+    copy_weights_llama(ours_config, theirs_state_dict, ours_state_dict)
     theirs_model = LlamaForCausalLM(theirs_config)
-    # assign must be set to True for torch.testing.assert_close to pass
-    theirs_model.load_state_dict(theirs_state_dict, strict=False, assign=True)
+    theirs_model.load_state_dict(theirs_state_dict)
 
     # test end to end
     x = torch.tensor([[9856, 23, 491, 1536, 304]], dtype=torch.int32)
+    assert x.size(1) == T
     ours_y = ours_model(x)
     theirs_y = theirs_model(x)["logits"]
     torch.testing.assert_close(ours_y, theirs_y)
 
 
-def test_maybe_unwrap_state_dict(tmp_path):
-    from finetune.full import save_checkpoint
-    from lit_gpt import GPT, Config
-    from scripts.convert_lit_checkpoint import convert_lit_checkpoint
-
-    # fabric is needed for finetune.full::save_checkpoint
-    fabric = L.Fabric(devices=1)
-
-    ckpt_path: Path = tmp_path / "lit_model_finetune.pth"
-    ckpt_name = ckpt_path.name
-
-    model_name = "pythia-70m"
-    ours_config = Config.from_name(model_name, block_size=8, n_layer=2, n_embd=32, n_head=2, padding_multiple=128)
-    ours_model = GPT(ours_config)
-
-    # save checkpoint and check for model key
-    save_checkpoint(fabric, ours_model, ckpt_path)
-    statedict_with_model_key = torch.load(ckpt_path)
-    assert statedict_with_model_key.get("model")
-    assert len(statedict_with_model_key) == 1
-
-    # convert and check that model key does not exist
-    # and that a known key for pythia exists
-    convert_lit_checkpoint(checkpoint_name=ckpt_name, out_dir=tmp_path, model_name=model_name)
-    bin_file = ckpt_path.with_suffix(".bin")
-    ckpt_from_unwrapped = torch.load(bin_file)
-    assert ckpt_from_unwrapped.get("model") is None
-    assert ckpt_from_unwrapped.get("embed_out.weight") is not None
-
-    # assert maybe_unwrap_state_dict is called
-    with mock.patch("scripts.convert_lit_checkpoint.maybe_unwrap_state_dict") as maybe_unwrap:
-        convert_lit_checkpoint(checkpoint_name=ckpt_name, out_dir=tmp_path, model_name=model_name)
-    maybe_unwrap.assert_called()
-
-
 def test_check_conversion_supported_adapter():
     from scripts.convert_lit_checkpoint import check_conversion_supported
 
-    lit_weights = {"some.key.name": "some.key.value", "error.key.gating_factor": "some.key.value"}
-
-    with pytest.raises(NotImplementedError, match="Converting models finetuned with adapter *"):
+    lit_weights = {"some.key.name": ANY, "error.key.gating_factor": ANY}
+    with pytest.raises(NotImplementedError, match="Converting adapter"):
         check_conversion_supported(lit_weights=lit_weights)
 
-
-def test_check_conversion_supported_adapter_v2():
-    from scripts.convert_lit_checkpoint import check_conversion_supported
-
-    lit_weights = {"some.key.name": "some.key.value", "error.key.adapter_bias": "some.key.value"}
-
-    with pytest.raises(NotImplementedError, match="Converting models finetuned with adapter_v2"):
+    lit_weights = {"some.key.name": ANY, "error.key.adapter_bias": ANY}
+    with pytest.raises(NotImplementedError, match="Converting adapter"):
         check_conversion_supported(lit_weights=lit_weights)
 
 
 def test_check_conversion_supported_lora():
     from scripts.convert_lit_checkpoint import check_conversion_supported
 
-    lit_weights = {"some.key.name": "some.key.value", "error.key.lora": "some.key.value"}
-
-    with pytest.raises(ValueError, match=r"Model weights must be merged using"):
+    lit_weights = {"some.key.name": ANY, "error.key.lora": ANY}
+    with pytest.raises(ValueError, match=r"LoRA.*cannot be converted"):
         check_conversion_supported(lit_weights=lit_weights)
 
 
@@ -224,14 +227,8 @@ def test_tensor_split():
     from lit_gpt import Config
     from scripts.convert_lit_checkpoint import tensor_split
 
-    config = Config(n_embd=2, n_head=2)
-    qkv = torch.tensor([[0, 1], [2, 3], [4, 5], [6, 7], [8, 9], [10, 11]])
-    q, k, v = tensor_split(qkv, config)
-    torch.testing.assert_close(q, torch.tensor([[0, 1], [6, 7]]))
-    torch.testing.assert_close(k, torch.tensor([[2, 3], [8, 9]]))
-    torch.testing.assert_close(v, torch.tensor([[4, 5], [10, 11]]))
-
-    config = Config(n_embd=4, n_head=4, n_query_groups=2)
+    # MHA
+    config = Config(n_embd=4, n_head=4)
     qkv = torch.tensor(
         [
             [0, 1, 2, 3],
@@ -249,45 +246,35 @@ def test_tensor_split():
         ]
     )
     q, k, v = tensor_split(qkv, config)
-    torch.testing.assert_close(
-        q,
-        torch.tensor(
-            [
-                [0, 1, 2, 3],
-                [4, 5, 6, 7],
-                [8, 9, 10, 11],
-                [12, 13, 14, 15],
-                [24, 25, 26, 27],
-                [28, 29, 30, 31],
-                [32, 33, 34, 35],
-                [36, 37, 38, 39],
-            ]
-        ),
-    )
-    torch.testing.assert_close(k, torch.tensor([[16, 17, 18, 19], [40, 41, 42, 43]]))
-    torch.testing.assert_close(v, torch.tensor([[20, 21, 22, 23], [44, 45, 46, 47]]))
+    torch.testing.assert_close(q, torch.tensor([[0, 1, 2, 3], [12, 13, 14, 15], [24, 25, 26, 27], [36, 37, 38, 39]]))
+    torch.testing.assert_close(k, torch.tensor([[4, 5, 6, 7], [16, 17, 18, 19], [28, 29, 30, 31], [40, 41, 42, 43]]))
+    torch.testing.assert_close(v, torch.tensor([[8, 9, 10, 11], [20, 21, 22, 23], [32, 33, 34, 35], [44, 45, 46, 47]]))
 
-    config = Config(n_embd=4, n_head=4, n_query_groups=1)
-    q, k, v = tensor_split(qkv, config)
-    print(q)
-    print(k)
-    print(v)
-    torch.testing.assert_close(
-        q,
-        torch.tensor(
-            [
-                [0, 1, 2, 3],
-                [4, 5, 6, 7],
-                [8, 9, 10, 11],
-                [12, 13, 14, 15],
-                [16, 17, 18, 19],
-                [20, 21, 22, 23],
-                [24, 25, 26, 27],
-                [28, 29, 30, 31],
-                [32, 33, 34, 35],
-                [36, 37, 38, 39],
-            ]
-        ),
+    # GQA
+    config = Config(n_embd=4, n_head=4, n_query_groups=2)
+    qkv = torch.tensor(
+        [
+            [0, 1, 2, 3],
+            [4, 5, 6, 7],
+            [8, 9, 10, 11],
+            [12, 13, 14, 15],
+            [16, 17, 18, 19],
+            [20, 21, 22, 23],
+            [24, 25, 26, 27],
+            [28, 29, 30, 31],
+        ]
     )
-    torch.testing.assert_close(k, torch.tensor([[40, 41, 42, 43]]))
-    torch.testing.assert_close(v, torch.tensor([[44, 45, 46, 47]]))
+    q, k, v = tensor_split(qkv, config)
+    torch.testing.assert_close(q, torch.tensor([[0, 1, 2, 3], [4, 5, 6, 7], [16, 17, 18, 19], [20, 21, 22, 23]]))
+    torch.testing.assert_close(k, torch.tensor([[8, 9, 10, 11], [24, 25, 26, 27]]))
+    torch.testing.assert_close(v, torch.tensor([[12, 13, 14, 15], [28, 29, 30, 31]]))
+
+    # MQA
+    config = Config(n_embd=4, n_head=4, n_query_groups=1)
+    qkv = torch.tensor(
+        [[0, 1, 2, 3], [4, 5, 6, 7], [8, 9, 10, 11], [12, 13, 14, 15], [16, 17, 18, 19], [20, 21, 22, 23]]
+    )
+    q, k, v = tensor_split(qkv, config)
+    torch.testing.assert_close(q, torch.tensor([[0, 1, 2, 3], [4, 5, 6, 7], [8, 9, 10, 11], [12, 13, 14, 15]]))
+    torch.testing.assert_close(k, torch.tensor([[16, 17, 18, 19]]))
+    torch.testing.assert_close(v, torch.tensor([[20, 21, 22, 23]]))
