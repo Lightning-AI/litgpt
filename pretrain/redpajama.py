@@ -152,7 +152,7 @@ def train(fabric, state, train_dataloader, val_dataloader, speed_monitor):
         # consider passing `SpeedMonitor(flops_per_batch=estimated_flops)` instead
         estimated_flops = estimate_flops(meta_model) * micro_batch_size
         fabric.print(f"Estimated TFLOPs: {estimated_flops * fabric.world_size / 1e12:.2f}")
-        x = torch.randint(0, 1, (micro_batch_size, model.config.block_size))
+        x = torch.randint(0, 1, (micro_batch_size, model.max_seq_length))
         measured_flops = measure_flops(meta_model, x)
         fabric.print(f"Measured TFLOPs: {measured_flops * fabric.world_size / 1e12:.2f}")
         del meta_model, x
@@ -171,8 +171,8 @@ def train(fabric, state, train_dataloader, val_dataloader, speed_monitor):
 
         iter_t0 = time.perf_counter()
 
-        input_ids = train_data[:, 0 : model.config.block_size].contiguous()
-        targets = train_data[:, 1 : model.config.block_size + 1].contiguous()
+        input_ids = train_data[:, 0 : model.max_seq_length].contiguous()
+        targets = train_data[:, 1 : model.max_seq_length + 1].contiguous()
 
         is_accumulating = (state["iter_num"] + 1) % gradient_accumulation_steps != 0
         with fabric.no_backward_sync(model, enabled=is_accumulating):
@@ -222,8 +222,8 @@ def validate(fabric: L.Fabric, model: torch.nn.Module, val_dataloader: DataLoade
 
     losses = torch.zeros(eval_iters, device=fabric.device)
     for k, val_data in enumerate(val_dataloader):
-        input_ids = val_data[:, 0 : model.config.block_size].contiguous()
-        targets = val_data[:, 1 : model.config.block_size + 1].contiguous()
+        input_ids = val_data[:, 0 : model.max_seq_length].contiguous()
+        targets = val_data[:, 1 : model.max_seq_length + 1].contiguous()
         logits = model(input_ids)
         losses[k] = chunked_cross_entropy(logits, targets, chunk_size=0)
     out = losses.mean()

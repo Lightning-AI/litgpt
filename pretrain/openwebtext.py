@@ -92,7 +92,7 @@ def main(fabric, resume) -> None:
     )
     optimizer = fabric.setup_optimizers(optimizer)
 
-    train_data, val_data = load_datasets(data_dir, block_size=model.config.block_size)
+    train_data, val_data = load_datasets(data_dir, max_seq_length=model.max_seq_length)
     train_dataloader = DataLoader(train_data, batch_size=micro_batch_size, num_workers=2)
     val_dataloader = DataLoader(val_data, batch_size=micro_batch_size, num_workers=2)
     train_dataloader, val_dataloader = fabric.setup_dataloaders(train_dataloader, val_dataloader)
@@ -125,7 +125,7 @@ def train(fabric, state, train_dataloader, val_dataloader, speed_monitor):
         # consider passing `SpeedMonitor(flops_per_batch=estimated_flops)` instead
         estimated_flops = estimate_flops(meta_model) * micro_batch_size
         fabric.print(f"Estimated TFLOPs: {estimated_flops * fabric.world_size / 1e12:.2f}")
-        x = torch.randint(0, 1, (micro_batch_size, model.config.block_size))
+        x = torch.randint(0, 1, (micro_batch_size, model.max_seq_length))
         measured_flops = measure_flops(meta_model, x)
         fabric.print(f"Measured TFLOPs: {measured_flops * fabric.world_size / 1e12:.2f}")
         del meta_model, x
@@ -210,17 +210,17 @@ def load_datasets(data_dir: Path, block_size: int):
 
 
 class Dataset(IterableDataset):
-    def __init__(self, data_file: Path, block_size: int):
+    def __init__(self, data_file: Path, max_seq_length: int):
         super().__init__()
         self.data_file = data_file
-        self.block_size = block_size
+        self.max_seq_length = max_seq_length
 
     def __iter__(self):
         data = np.memmap(self.data_file, dtype=np.uint16, mode="r")
         while True:
-            i = torch.randint(len(data) - self.block_size, (1,)).item()
-            x = torch.from_numpy((data[i : i + self.block_size]).astype(np.int64))
-            y = torch.from_numpy((data[i + 1 : i + 1 + self.block_size]).astype(np.int64))
+            i = torch.randint(len(data) - self.max_seq_length, (1,)).item()
+            x = torch.from_numpy((data[i : i + self.max_seq_length]).astype(np.int64))
+            y = torch.from_numpy((data[i + 1 : i + 1 + self.max_seq_length]).astype(np.int64))
             yield x, y
 
 

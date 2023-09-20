@@ -1,5 +1,5 @@
 """Utility functions for training and inference."""
-
+import os
 import pickle
 import sys
 import warnings
@@ -217,8 +217,10 @@ class LazyLoadingUnpickler(pickle.Unpickler):
 
 
 class lazy_load:
-    def __init__(self, fn):
-        self.zf = torch._C.PyTorchFileReader(str(fn))
+    def __init__(self, path: Union[Path, str]) -> None:
+        if not os.path.isfile(path):
+            raise FileNotFoundError(f"Path {str(path)!r} does not exist or is not a file.")
+        self.zf = torch._C.PyTorchFileReader(str(path))
         with BytesIO(self.zf.get_record("data.pkl")) as pkl:
             mup = LazyLoadingUnpickler(pkl, self)
             self.sd = mup.load()
