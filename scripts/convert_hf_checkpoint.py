@@ -161,12 +161,11 @@ def copy_weights_hf_llama(
         q = load_param(q, f"layer {i} q", dtype)
         k = load_param(k, f"layer {i} k", dtype)
         v = load_param(v, f"layer {i} v", dtype)
+        qkv = torch.cat((q, k, v))
         q_per_kv = config.n_head // config.n_query_groups
-        qs = torch.split(q, config.head_size * q_per_kv)
-        ks = torch.split(k, config.head_size)
-        vs = torch.split(v, config.head_size)
-        cycled = [t for group in zip(qs, ks, vs) for t in group]
-        qkv = torch.cat(cycled)
+        total_qkv = q_per_kv + 2  # each group has 1+ queries, 1 key, and 1 value
+        qkv = qkv.view(total_qkv, config.n_query_groups, -1).transpose(0, 1)
+        qkv = qkv.reshape(config.n_embd * 3, -1)
         state_dict[f"transformer.h.{i}.attn.attn.weight"] = qkv
         del qkv_weights[i]
 
@@ -212,13 +211,13 @@ def copy_weights_phi(
         else:
             to_name = weight_map[name]
         param = load_param(param, name, dtype)
-        # FIXME
-        #if "Wqkv.weight" in name:
-        #    w_q, w_k, w_v = param.split(config.n_embd, 0)
-        #    w_q = w_q.reshape(config.head_size, -1)
-        #    w_k = w_k.reshape(config.head_size, -1)
-        #    w_v = w_v.reshape(config.head_size, -1)
-        #    param = torch.cat((w_q, w_k, w_v), dim=1).reshape(config.n_embd * 3, -1)
+        if "Wqkv" in name:
+            q_per_kv = config.n_head // config.n_query_groups
+            total_qkv = q_per_kv + 2  # each group has 1+ queries, 1 key, and 1 value
+            param = param.view(total_qkv, config.n_query_groups, -1).transpose(0, 1)
+            param = param.reshape(config.n_embd * 3, -1)
+            if "bias" in name:
+                param = param.squeeze()
         if saver is not None:
             param = saver.store_early(param)
         state_dict[to_name] = param
