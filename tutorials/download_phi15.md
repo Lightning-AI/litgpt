@@ -25,9 +25,6 @@ python scripts/download.py --repo_id microsoft/phi-1_5
 python scripts/convert_hf_checkpoint.py --checkpoint_dir checkpoints/microsoft/phi-1_5
 ```
 
-By default, the `convert_hf_checkpoint` step will use the data type of the HF checkpoint's parameters. In cases where RAM
-or disk size is constrained, it might be useful to pass `--dtype bfloat16` to convert all parameters into this smaller precision before continuing.
-
 You're done! To execute the model just run:
 
 ```bash
@@ -35,12 +32,3 @@ pip install tokenizers
 
 python generate/base.py --prompt "Hello, my name is" --checkpoint_dir checkpoints/microsoft/phi-1_5
 ```
-
-If you want to run this model on a Mac, you can use the following:
-
-```bash
-export PYTORCH_ENABLE_MPS_FALLBACK=1
-
-python generate/base.py --prompt "Hello, my name is" --checkpoint_dir checkpoints/microsoft/phi-1_5
-```
-
