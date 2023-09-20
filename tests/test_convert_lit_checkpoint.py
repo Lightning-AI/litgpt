@@ -4,6 +4,7 @@ import os
 from dataclasses import asdict
 from pathlib import Path
 from unittest.mock import ANY
+from urllib.request import urlretrieve
 
 import pytest
 import torch
@@ -101,7 +102,9 @@ def test_against_original_gpt_neox():
     copy_to_theirs(theirs_state_dict, ours_state_dict)
     theirs_model = GPTNeoXForCausalLM(theirs_config)
     # strict=False because we don't save the rotary embeddings inv frequency
-    theirs_model.load_state_dict(theirs_state_dict, strict=False)
+    keys = theirs_model.load_state_dict(theirs_state_dict, strict=False)
+    assert not keys.unexpected_keys
+    assert all("inv_freq" in k for k in keys.missing_keys)
 
     # test end to end
     x = torch.randint(0, ours_config.padded_vocab_size, size=(2, ours_config.block_size), dtype=torch.int64)
@@ -197,6 +200,49 @@ def test_against_original_open_llama_3b():
     torch.testing.assert_close(ours_y, theirs_y)
 
 
+@torch.inference_mode()
+def test_against_hf_phi():
+    file_path = wd / "tests" / "original_phi_1_5.py"
+    url = "https://gist.githubusercontent.com/carmocca/8ec003d9e0d2fdb09ea92941cd0985b4/raw/2ba35c28824d4f4d5dce14f9588a80067cb6ae7f/original_phi_1_5.py"
+    if not file_path.is_file():
+        urlretrieve(url=url, filename=file_path)
+
+    from lit_gpt import GPT, Config
+    from scripts.convert_lit_checkpoint import copy_weights_phi
+    from tests.original_phi_1_5 import MixFormerSequentialConfig, MixFormerSequentialForCausalLM
+
+    ours_config = Config.from_name(
+        "phi-1_5", padded_vocab_size=10000, n_layer=2, n_head=4, n_embd=256, rotary_percentage=0.5
+    )
+    T = 5
+    theirs_config = MixFormerSequentialConfig(
+        n_positions=ours_config.block_size,
+        n_embd=ours_config.n_embd,
+        n_head=ours_config.n_head,
+        n_layer=ours_config.n_layer,
+        rotary_dim=ours_config.rope_n_elem,
+        architecture={"block_cls": "parallel", "mixer": {}, "mlp": {"mlp_cls": "mlp"}},
+    )
+    theirs_config.vocab_size = ours_config.padded_vocab_size
+
+    ours_model = GPT(ours_config)
+    ours_state_dict = ours_model.state_dict()
+    theirs_state_dict = {}
+    copy_weights_phi(ours_config, theirs_state_dict, ours_state_dict)
+    theirs_model = MixFormerSequentialForCausalLM(theirs_config)
+    # strict=False because we don't save the rotary embeddings inv frequency
+    keys = theirs_model.load_state_dict(theirs_state_dict, strict=False)
+    assert not keys.unexpected_keys
+    assert all("inv_freq" in k for k in keys.missing_keys)
+
+    # test end to end
+    x = torch.tensor([[9856, 23, 491, 1536, 304]], dtype=torch.int32)
+    assert x.size(1) == T
+    ours_y = ours_model(x)
+    theirs_y = theirs_model(x)["logits"]
+    torch.testing.assert_close(ours_y, theirs_y)
+
+
 def test_check_conversion_supported_adapter():
     from scripts.convert_lit_checkpoint import check_conversion_supported
 
@@ -217,9 +263,9 @@ def test_check_conversion_supported_lora():
         check_conversion_supported(lit_weights=lit_weights)
 
 
-def test_tensor_split():
+def test_qkv_split():
     from lit_gpt import Config
-    from scripts.convert_lit_checkpoint import tensor_split
+    from scripts.convert_lit_checkpoint import qkv_split
 
     # MHA
     config = Config(n_embd=4, n_head=4)
@@ -239,7 +285,7 @@ def test_tensor_split():
             [44, 45, 46, 47],
         ]
     )
-    q, k, v = tensor_split(qkv, config)
+    q, k, v = qkv_split(qkv, config)
     torch.testing.assert_close(q, torch.tensor([[0, 1, 2, 3], [12, 13, 14, 15], [24, 25, 26, 27], [36, 37, 38, 39]]))
     torch.testing.assert_close(k, torch.tensor([[4, 5, 6, 7], [16, 17, 18, 19], [28, 29, 30, 31], [40, 41, 42, 43]]))
     torch.testing.assert_close(v, torch.tensor([[8, 9, 10, 11], [20, 21, 22, 23], [32, 33, 34, 35], [44, 45, 46, 47]]))
@@ -258,7 +304,7 @@ def test_tensor_split():
             [28, 29, 30, 31],
         ]
     )
-    q, k, v = tensor_split(qkv, config)
+    q, k, v = qkv_split(qkv, config)
     torch.testing.assert_close(q, torch.tensor([[0, 1, 2, 3], [4, 5, 6, 7], [16, 17, 18, 19], [20, 21, 22, 23]]))
     torch.testing.assert_close(k, torch.tensor([[8, 9, 10, 11], [24, 25, 26, 27]]))
     torch.testing.assert_close(v, torch.tensor([[12, 13, 14, 15], [28, 29, 30, 31]]))
@@ -268,7 +314,7 @@ def test_tensor_split():
     qkv = torch.tensor(
         [[0, 1, 2, 3], [4, 5, 6, 7], [8, 9, 10, 11], [12, 13, 14, 15], [16, 17, 18, 19], [20, 21, 22, 23]]
     )
-    q, k, v = tensor_split(qkv, config)
+    q, k, v = qkv_split(qkv, config)
     torch.testing.assert_close(q, torch.tensor([[0, 1, 2, 3], [4, 5, 6, 7], [8, 9, 10, 11], [12, 13, 14, 15]]))
     torch.testing.assert_close(k, torch.tensor([[16, 17, 18, 19]]))
     torch.testing.assert_close(v, torch.tensor([[20, 21, 22, 23]]))

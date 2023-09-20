@@ -10,6 +10,7 @@ def test_gptq_blockwise_quantization():
         pytest.skip(str(_TRITON_AVAILABLE))
 
     from lit_gpt import GPT
+
     fabric = L.Fabric(devices=1)
     with fabric.init_module(empty_init=False):
         model = GPT.from_name("pythia-70m", n_layer=2)

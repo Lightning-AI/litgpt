@@ -24,6 +24,7 @@ class Config:
     rotary_percentage: float = 0.25
     parallel_residual: bool = True
     bias: bool = True
+    lm_head_bias: bool = False
     # to use multi-head attention (MHA), set this to `n_head` (default)
     # to use multi-query attention (MQA), set this to 1
     # to use grouped-query attention (GQA), set this to a value in between
@@ -49,6 +50,7 @@ class Config:
     _norm_class: Literal["LayerNorm", "RMSNorm"] = "LayerNorm"
     norm_eps: float = 1e-5
     _mlp_class: Literal["GptNeoxMLP", "LLaMAMLP"] = "GptNeoxMLP"
+    gelu_approximate: str = "none"
     intermediate_size: Optional[int] = None
     rope_condense_ratio: int = 1
     rope_base: int = 10000
@@ -983,5 +985,27 @@ together_llama2_32k = [
     )
 ]
 configs.extend(together_llama2_32k)
+
+
+################
+# Microsoft Phi
+################
+phi = [
+    # https://huggingface.co/microsoft/phi-1_5/blob/main/config.json
+    dict(
+        org="microsoft",
+        name="phi-1_5",
+        vocab_size=50257,
+        padded_vocab_size=51200,
+        block_size=2048,
+        n_embd=2048,
+        n_layer=24,
+        rotary_percentage=0.5,  # 32 / (n_embd / n_head) = 32 / 64
+        shared_attention_norm=True,
+        lm_head_bias=True,
+        gelu_approximate="tanh",
+    )
+]
+configs.extend(phi)
 
 name_to_config = {config["name"]: config for config in configs}

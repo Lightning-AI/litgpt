@@ -66,7 +66,7 @@ class GPT(BaseModel):
         assert config.padded_vocab_size is not None
         self.config = config
 
-        self.lm_head = AdapterV2Linear(config.n_embd, config.padded_vocab_size, bias=False)
+        self.lm_head = AdapterV2Linear(config.n_embd, config.padded_vocab_size, bias=config.lm_head_bias)
         self.transformer = nn.ModuleDict(
             dict(
                 wte=nn.Embedding(config.padded_vocab_size, config.n_embd),
@@ -155,6 +155,8 @@ class GptNeoxMLP(lit_gpt.model.GptNeoxMLP):
         nn.Module.__init__(self)
         self.fc = AdapterV2Linear(config.n_embd, config.intermediate_size, bias=config.bias)
         self.proj = AdapterV2Linear(config.intermediate_size, config.n_embd, bias=config.bias)
+
+        self.config = config
 
     def _load_from_state_dict(self, state_dict: Dict, prefix: str, *args: Any, **kwargs: Any) -> None:
         """For compatibility with base checkpoints."""

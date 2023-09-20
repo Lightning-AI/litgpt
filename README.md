@@ -40,6 +40,7 @@ Supports the following popular model checkpoints:
 | Platypus                                                            | [Lee, Hunter, and Ruiz 2023](https://arxiv.org/abs/2308.07317)                                   |
 | NousResearch Nous-Hermes                                            | [Org page](https://huggingface.co/NousResearch)                                                  |
 | Meta AI [Code Llama](tutorials/download_code_llama.md)              | [Rozière et al. 2023](https://arxiv.org/abs/2308.12950)                                          |
+| Microsoft Research [phi-1.5](tutorials/download_phi15.md)           | [Li et al. 2023](https://arxiv.org/abs/2309.05463)                                               |
 
 This implementation extends on [Lit-LLaMA](https://github.com/lightning-AI/lit-llama) and [nanoGPT](https://github.com/karpathy/nanoGPT), and it's **powered by [Lightning Fabric](https://lightning.ai/docs/fabric/stable/) ⚡**.
 
