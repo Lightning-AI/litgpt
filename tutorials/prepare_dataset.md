@@ -149,15 +149,15 @@ from a CSV file.
 
 ### Preparing Custom Datasets From a CSV File
 
-If you have a CSV file containing the following columns
+You can prepare custom dataset using a CSV file with the following columns:
 
 - `instruction`: Column which will describe the task.
 - `input`: A string holding a special input value for the instruction. This applies to some samples, and in others, this is empty (empty string).
-- `output`: The expected response string.
+- `output`: The expected response
 
-If any of the columns is missing, then the script will fail to create the dataset. 
+> If any of the columns is missing, then the script will fail to create the dataset.
 
-Before starting to finetune, you need to read, tokenize, and write the data converted from the CSV in a binary format. The simplest way to prepare the dataset is by simply running:
+Before you finetune, prepare the dataset using the `prepare_csv.py` script:
 
 ```bash
 python scripts/prepare_csv.py --csv_path path/to/the/file.csv
@@ -187,7 +187,7 @@ python scripts/prepare_csv.py --csv_path test_data.csv \
 --mask_inputs false \
 --ignore_index -1
 ```
-Replace `test_data.csv` with your CSV path and the other additional parameters accordingly. Executing the command above will create two binary files, `train.pt` and `test.pt`, inside `data/csv`. Now you can use this to finetune your model.
+Replace `test_data.csv` with your CSV path and the other additional parameters accordingly. Executing the command above will save `train.pt` and `test.pt` on your disk at the `destination_path`. Now you can use the prepared data to [finetune your model](https://github.com/Lightning-AI/lit-gpt/blob/main/tutorials/finetune_lora.md#running-the-finetuning).
 
 &nbsp;
 
