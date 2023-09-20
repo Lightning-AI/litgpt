@@ -203,9 +203,9 @@ def validate(fabric: L.Fabric, model: torch.nn.Module, val_dataloader: DataLoade
     return out
 
 
-def load_datasets(data_dir: Path, block_size: int):
-    train_data = Dataset(str(data_dir / "train.bin"), block_size=block_size)
-    val_data = Dataset(str(data_dir / "val.bin"), block_size=block_size)
+def load_datasets(data_dir: Path, max_seq_length: int):
+    train_data = Dataset(data_dir / "train.bin", max_seq_length)
+    val_data = Dataset(data_dir / "val.bin", max_seq_length)
     return train_data, val_data
 
 
