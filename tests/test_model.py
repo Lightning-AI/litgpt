@@ -18,17 +18,11 @@ wd = Path(__file__).parent.parent.absolute()
 def test_against_gpt_neox_model(rotary_pct, batch_size, n_embd, parallel_residual, kv_cache) -> None:
     from transformers import GPTNeoXConfig, GPTNeoXForCausalLM
 
-    from lit_gpt import Config, GPT
+    from lit_gpt import GPT, Config
     from scripts.convert_hf_checkpoint import copy_weights_gpt_neox
 
     batch_size = 3
-    ours_config = Config(
-        block_size=64,
-        vocab_size=100,
-        n_layer=4,
-        n_head=8,
-        n_embd=n_embd,
-    )
+    ours_config = Config(block_size=64, vocab_size=100, n_layer=4, n_head=8, n_embd=n_embd)
     assert ours_config.padded_vocab_size == 512
     theirs_config = GPTNeoXConfig(
         hidden_act="gelu",
@@ -53,7 +47,9 @@ def test_against_gpt_neox_model(rotary_pct, batch_size, n_embd, parallel_residua
     ours_model = GPT(ours_config)
     ours_model.load_state_dict(state_dict)
 
-    token_sample = torch.randint(0, ours_config.padded_vocab_size, size=(batch_size, ours_config.block_size), dtype=torch.int64)
+    token_sample = torch.randint(
+        0, ours_config.padded_vocab_size, size=(batch_size, ours_config.block_size), dtype=torch.int64
+    )
 
     theirs_embed = theirs_model.gpt_neox.embed_in(token_sample)
     ours_embed = ours_model.transformer.wte(token_sample)

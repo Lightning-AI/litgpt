@@ -12,7 +12,6 @@ from lightning_utilities import compare_version
 wd = Path(__file__).parent.parent.absolute()
 
 
-
 def test_convert_lit_checkpoint(tmp_path):
     from lit_gpt import GPT, Config
     from scripts.convert_lit_checkpoint import convert_lit_checkpoint
@@ -38,10 +37,11 @@ def test_convert_lit_checkpoint(tmp_path):
 
 @torch.inference_mode()
 def test_against_falcon_40b():
-    from lit_gpt import GPT, Config
-    from scripts.convert_lit_checkpoint import copy_weights_falcon as copy_to_theirs
     from transformers.models.falcon.configuration_falcon import FalconConfig
     from transformers.models.falcon.modeling_falcon import FalconForCausalLM
+
+    from lit_gpt import GPT, Config
+    from scripts.convert_lit_checkpoint import copy_weights_falcon as copy_to_theirs
 
     ours_config = Config.from_name("falcon-40b", n_layer=2, n_head=8, n_query_groups=4, n_embd=32)
     theirs_config = FalconConfig(
@@ -78,13 +78,7 @@ def test_against_original_gpt_neox():
     from lit_gpt import GPT, Config
     from scripts.convert_lit_checkpoint import copy_weights_gpt_neox as copy_to_theirs
 
-    ours_config = Config(
-        block_size=64,
-        vocab_size=100,
-        n_layer=4,
-        n_head=8,
-        n_embd=16
-    )
+    ours_config = Config(block_size=64, vocab_size=100, n_layer=4, n_head=8, n_embd=16)
     assert ours_config.padded_vocab_size == 512
     theirs_config = GPTNeoXConfig(
         hidden_act="gelu",
