@@ -1,8 +1,10 @@
+import sys
 from contextlib import redirect_stdout
 from dataclasses import asdict
 from io import StringIO
 from unittest.mock import Mock
 
+import pytest
 import torch
 from lightning import Fabric
 
@@ -49,6 +51,7 @@ def test_adapter_script(tmp_path, fake_checkpoint_dir, monkeypatch):
     module.save_interval = 2
     module.eval_interval = 2
     module.eval_iters = 2
+    module.eval_max_new_tokens = 1
     module.max_iters = 6
 
     data = [
@@ -90,3 +93,41 @@ def test_adapter_script(tmp_path, fake_checkpoint_dir, monkeypatch):
     assert logs.count("optimizer.step") == module.max_iters
     assert logs.count("val loss") == module.max_iters // module.eval_interval
     assert "of trainable parameters: 168" in logs
+
+
+def test_adapter_gpt_init_weights():
+    from lit_gpt.adapter import GPT, Config
+
+    config = Config(n_layer=1, n_head=6, n_embd=12, block_size=1, vocab_size=1, adapter_start_layer=0)
+    model = GPT(config)
+    param = model.transformer.h[0].attn.gating_factor
+
+    assert (param == 0).all()
+    torch.nn.init.constant_(param, 1.23)
+    assert (param != 0).any()
+    model.apply(model._init_weights)
+    assert (param == 0).all()
+
+
+@pytest.mark.skipif(sys.platform in ("win32", "darwin"), reason="torch.compile not supported on this platform")
+@torch.inference_mode()
+def test_adapter_compile():
+    from lit_gpt.adapter import GPT
+
+    model = GPT.from_name("pythia-70m", n_layer=3)
+    x = torch.randint(model.config.vocab_size, size=(2, model.config.block_size), dtype=torch.int64)
+
+    from torch._dynamo.backends import debugging
+
+    explanation = torch._dynamo.explain(model, x)
+    assert isinstance(explanation, debugging.ExplainOutput)
+    assert explanation.graph_count == 1
+    assert explanation.graph_break_count == 0
+
+    model = GPT(model.config)
+    model.set_kv_cache(2)
+    input_pos = torch.arange(model.config.block_size)
+    explanation = torch._dynamo.explain(model, x, input_pos)
+    assert isinstance(explanation, debugging.ExplainOutput)
+    assert explanation.graph_count == 1
+    assert explanation.graph_break_count == 0

@@ -17,24 +17,51 @@
 
 </div>
 
+&nbsp;
+
 # ⚡ Lit-GPT
 
 Hackable [implementation](lit_gpt/model.py) of state-of-the-art open-source large language models released under the **Apache 2.0 license**.
 
-Supports popular public checkpoints such as:
+Supports the following popular model checkpoints:
 
-- Meta AI [Llama 2](tutorials/download_llama_2.md)
-- Stability AI [FreeWilly2](tutorials/download_freewilly_2.md)
-- TII UAE [Falcon](tutorials/download_falcon.md)
-- OpenLM Research [OpenLLaMA](tutorials/download_openllama.md)
-- LMSYS [Vicuna](tutorials/download_vicuna.md) and [LongChat](tutorials/download_longchat.md)
-- Together [RedPajama-INCITE](tutorials/download_redpajama_incite.md)
-- EleutherAI [Pythia](tutorials/download_pythia.md)
-- StabilityAI [StableLM](tutorials/download_stablelm.md)
+| Model and usage                                                     | Reference                                                                                        |
+|---------------------------------------------------------------------|--------------------------------------------------------------------------------------------------|
+| Meta AI [Llama 2](tutorials/download_llama_2.md)                    | [Touvron et al. 2023](https://arxiv.org/abs/2307.09288)                                          |
+| Stability AI [FreeWilly2](tutorials/download_freewilly_2.md)        | [Stability AI 2023](https://stability.ai/blog/stable-beluga-large-instruction-fine-tuned-models) |
+| Stability AI StableCode                                             | [Stability AI 2023](https://stability.ai/blog/stablecode-llm-generative-ai-coding)               |
+| TII UAE [Falcon](tutorials/download_falcon.md)                      | [TII 2023](https://falconllm.tii.ae)                                                             |
+| OpenLM Research [OpenLLaMA](tutorials/download_openllama.md)        | [Geng & Liu 2023](https://github.com/openlm-research/open_llama)                                 |
+| LMSYS [Vicuna](tutorials/download_vicuna.md)                        | [Li et al. 2023](https://lmsys.org/blog/2023-03-30-vicuna/)                                      |
+| LMSYS [LongChat](tutorials/download_longchat.md)                    | [LongChat Team 2023](https://lmsys.org/blog/2023-06-29-longchat/)                                |
+| Together [RedPajama-INCITE](tutorials/download_redpajama_incite.md) | [Together 2023](https://together.ai/blog/redpajama-models-v1)                                    |
+| EleutherAI [Pythia](tutorials/download_pythia.md)                   | [Biderman et al. 2023](https://arxiv.org/abs/2304.01373)                                         |
+| StabilityAI [StableLM](tutorials/download_stablelm.md)              | [Stability AI 2023](https://github.com/Stability-AI/StableLM)                                    |
+| Platypus                                                            | [Lee, Hunter, and Ruiz 2023](https://arxiv.org/abs/2308.07317)                                   |
+| NousResearch Nous-Hermes                                            | [Org page](https://huggingface.co/NousResearch)                                                  |
+| Meta AI [Code Llama](tutorials/download_code_llama.md)              | [Rozière et al. 2023](https://arxiv.org/abs/2308.12950)                                          |
 
 This implementation extends on [Lit-LLaMA](https://github.com/lightning-AI/lit-llama) and [nanoGPT](https://github.com/karpathy/nanoGPT), and it's **powered by [Lightning Fabric](https://lightning.ai/docs/fabric/stable/) ⚡**.
 
-## Design principles
+&nbsp;
+
+---
+
+**🏆 NeurIPS 2023 Large Language Model Efficiency Challenge: 1 LLM + 1 GPU + 1 Day**
+
+The Lit-GPT repository is the official starter kit for the [NeurIPS 2023 LLM Efficiency Challenge](https://llm-efficiency-challenge.github.io), which is a competition focused on finetuning an existing non-instruction tuned LLM for 24 hours on a single GPU. The competition has two tracks, one for the A100 and another for the 4090 GPUs.
+
+If you are interested in participating, you can learn more about the NeurIPS LLM Efficiency Challenge on the official website [here](https://llm-efficiency-challenge.github.io). Also see the [Lit-GPT NeurIPS Challenge Quickstart Guide](tutorials/neurips_challenge_quickstart.md) for helpful tips.
+
+**The submission deadline is Oct 25th, 2023.**
+
+---
+
+
+&nbsp;
+
+
+## Lit-GPT design principles
 
 This repository follows the main principle of **openness through clarity**.
 
@@ -46,6 +73,8 @@ This repository follows the main principle of **openness through clarity**.
 - **Open-source:** No strings attached.
 
 Avoiding code duplication is **not** a goal. **Readability** and **hackability** are.
+
+&nbsp;
 
 ## Get involved!
 
@@ -63,7 +92,9 @@ cd lit-gpt
 ```
 
 Lit-GPT currently relies on flash attention from PyTorch nightly. Until PyTorch 2.1 is released you'll need to install nightly manually.
-Luckily that is straightforward:
+Luckily this is straightforward, as shown below.
+
+&nbsp;
 
 **On CUDA**
 
@@ -83,10 +114,10 @@ pip install --index-url https://download.pytorch.org/whl/nightly/cpu --pre 'torc
 MAX_JOBS=4 pip install 'flash-attn>=2.0.0.post1' --no-build-isolation
 ```
 
-All good, now install the dependencies:
+All good, now install the dependencies plus some optional ones:
 
 ```bash
-pip install -r requirements.txt
+pip install -r requirements.txt tokenizers sentencepiece
 ```
 
 You are all set! 🎉
@@ -103,7 +134,7 @@ Run inference:
 python generate/base.py --prompt "Hello, my name is"
 ```
 
-This will run the 3B pre-trained model and require ~7 GB of GPU memory using the `bfloat16` datatype.
+This will run the 3B pretrained model and require ~7 GB of GPU memory using the `bfloat16` datatype.
 
 [Full guide for generating samples from the model](tutorials/inference.md).
 
@@ -113,9 +144,13 @@ You can also chat with the model interactively:
 python chat/base.py
 ```
 
+&nbsp;
+
 ### Run large models on smaller consumer devices
 
 We support 4-bit quantization (as in QLoRA), nf4, nf4-dq, fp4, fp4-dq, GPTQ.int4 and 8-bit quantization bnb.int8 inference by following [this guide](tutorials/quantize.md).
+
+&nbsp;
 
 ## Finetune the model
 
@@ -156,14 +191,18 @@ The finetuning requires at least one GPU with ~12 GB memory (RTX 3060).
 It is expected that you have downloaded the pretrained weights as described above.
 More details about each finetuning method and how you can apply it to your own data can be found in our technical how-to guides.
 
-### Finetuning How-To Guides
+&nbsp;
+
+### Finetuning how-to guides
 
 These technical tutorials illustrate how to run the finetuning code.
 
 - [Finetune with Adapters](tutorials/finetune_adapter.md)
-- [Finetune with LoRA](tutorials/finetune_lora.md)
+- [Finetune with LoRA or QLoRA](tutorials/finetune_lora.md)
 
-### Understanding Finetuning -- Conceptual Tutorials
+&nbsp;
+
+### Understanding finetuning -- conceptual tutorials
 
 Looking for conceptual tutorials and explanations? We have some additional articles below:
 
@@ -171,6 +210,39 @@ Looking for conceptual tutorials and explanations? We have some additional artic
 
 - [Parameter-Efficient LLM Finetuning With Low-Rank Adaptation (LoRA)](https://lightning.ai/pages/community/tutorial/lora-llm/)
 
+&nbsp;
+
+## Pretraining
+
+We provide simple training scripts based on Fabric if you want to venture into pretraining. Conversion scripts for our optimized streaming `PackedDataset` are included.
+
+Follow this guide to start pretraining on
+
+- [RedPajama, a reproduction of LLaMA's training set](tutorials/pretrain_redpajama.md)
+- [OpenWeb Text, a reproduction of GPT-2's dataset](tutorials/pretrain_openwebtext.md)
+
+
+
+&nbsp;
+
+
+## Supported datasets
+
+Lit-GPT includes a variety of dataset preparation scripts for finetuning and pretraining. Additional information about the datasets and dataset preparation is provided in the [Preparing Datasets](https://github.com/Lightning-AI/lit-gpt/blob/main/tutorials/prepare_dataset.md) tutorial.
+
+
+&nbsp;
+
+## XLA
+
+Lightning AI has partnered with Google to add first-class support for [Cloud TPUs](https://cloud.google.com/tpu) in [Lightning’s frameworks](https://github.com/Lightning-AI/lightning) and Lit-GPT,
+helping democratize AI for millions of developers and researchers worldwide.
+
+Using TPUs with Lightning is as straightforward as changing one line of code.
+
+We provide scripts fully optimized for TPUs in the [XLA directory](xla)
+
+&nbsp;
 
 ## Get involved!
 
@@ -180,25 +252,30 @@ We are on a quest towards fully open source AI.
 
 Join us and start contributing, especially on the following areas:
 
-- [ ] [Pre-training](https://github.com/Lightning-AI/lit-gpt/labels/pre-training)
+- [ ] [Pretraining](https://github.com/Lightning-AI/lit-gpt/labels/pre-training)
 - [ ] [Fine-tuning](https://github.com/Lightning-AI/lit-gpt/labels/fine-tuning)
 - [ ] [Quantization](https://github.com/Lightning-AI/lit-gpt/labels/quantization)
 - [ ] [Sparsification](https://github.com/Lightning-AI/lit-gpt/labels/sparsification)
 
 We welcome all individual contributors, regardless of their level of experience or hardware. Your contributions are valuable, and we are excited to see what you can accomplish in this collaborative and supportive environment.
 
-Unsure about contributing? Check out our [Contributing to Lit-LLaMA: A Hitchhiker’s Guide to the Quest for Fully Open-Source AI](https://lightning.ai/pages/community/tutorial/contributing-to-lit-llama-a-hitchhikers-guide-to-the-quest-for-fully-open-source-ai/) guide. The same guidelines apply to Lit-GPT.
+Unsure about contributing? Check out our [How to Contribute to Lit-GPT and Lit-LLaMA
+](https://lightning.ai/pages/community/tutorial/how-to-contribute-to-litgpt/) guide.
 
 Don't forget to [join our Discord](https://discord.gg/VptPCZkGNa)!
+
+&nbsp;
 
 ## Acknowledgements
 
 - [@karpathy](https://github.com/karpathy) for [nanoGPT](https://github.com/karpathy/nanoGPT)
-- [@EleutherAI](https://github.com/EleutherAI) for [GPT-NeoX](https://github.com/EleutherAI/gpt-neox)
+- [@EleutherAI](https://github.com/EleutherAI) for [GPT-NeoX](https://github.com/EleutherAI/gpt-neox) and the [Evaluation Harness](https://github.com/EleutherAI/lm-evaluation-harness)
 - [@TimDettmers](https://github.com/TimDettmers) for [bitsandbytes](https://github.com/TimDettmers/bitsandbytes)
 - [@IST-DASLab](https://github.com/IST-DASLab) for [GPTQ](https://github.com/IST-DASLab/gptq)
 - [@Microsoft](https://github.com/microsoft) for [LoRA](https://github.com/microsoft/LoRA)
 - [@tridao](https://github.com/tridao) for [Flash Attention 2](https://github.com/Dao-AILab/flash-attention)
+
+&nbsp;
 
 ## License
 

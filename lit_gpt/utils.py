@@ -1,18 +1,20 @@
 """Utility functions for training and inference."""
 
-from functools import partial
 import pickle
 import sys
 import warnings
 from contextlib import contextmanager
+from functools import partial
 from io import BytesIO
 from pathlib import Path
 from types import MethodType
-from typing import Optional, Any, Union, List, TypeVar, Type
+from typing import Any, Dict, List, Mapping, Optional, Type, TypeVar, Union
 
 import torch
+import torch.nn as nn
 import torch.utils._device
 from lightning.fabric.loggers import CSVLogger
+from lightning.fabric.utilities.load import _lazy_load
 from torch.serialization import normalize_storage_type
 
 
@@ -21,6 +23,10 @@ def find_multiple(n: int, k: int) -> int:
     if n % k == 0:
         return n
     return n + k - (n % k)
+
+
+def num_parameters(module: nn.Module, requires_grad: Optional[bool] = None) -> int:
+    return sum(p.numel() for p in module.parameters() if requires_grad is None or p.requires_grad == requires_grad)
 
 
 @contextmanager
@@ -290,10 +296,18 @@ class SavingProxyForStorage:
 class SavingProxyForTensor:
     def __init__(self, tensor, saver, protocol_version=5):
         self.protocol_version = protocol_version
-        self.reduce_ret_fn, (storage, *other_reduce_args) = tensor.__reduce_ex__(protocol_version)
-        assert isinstance(storage, torch.storage.TypedStorage), "Please check for updates"
-        storage_proxy = SavingProxyForStorage(storage, saver, protocol_version=protocol_version)
-        self.reduce_args = (storage_proxy, *other_reduce_args)
+        self.reduce_ret_fn, reduce_args = tensor.__reduce_ex__(protocol_version)
+        if reduce_args[0] == torch._utils._rebuild_tensor_v2:
+            # for Tensors with Python attributes
+            (a0, a1, (storage, *a2_other), *other_reduce_args) = reduce_args
+            assert isinstance(storage, torch.storage.TypedStorage), "Please check for updates"
+            storage_proxy = SavingProxyForStorage(storage, saver, protocol_version=protocol_version)
+            self.reduce_args = (a0, a1, (storage_proxy, *a2_other), *other_reduce_args)
+        else:
+            (storage, *other_reduce_args) = reduce_args
+            assert isinstance(storage, torch.storage.TypedStorage), "Please check for updates"
+            storage_proxy = SavingProxyForStorage(storage, saver, protocol_version=protocol_version)
+            self.reduce_args = (storage_proxy, *other_reduce_args)
 
     def __reduce_ex__(self, protocol_version):
         if protocol_version != self.protocol_version:
@@ -472,3 +486,36 @@ def chunked_cross_entropy(
         for logit_chunk, target_chunk in zip(logit_chunks, target_chunks)
     ]
     return torch.cat(loss_chunks).mean()
+
+
+def map_old_state_dict_weights(state_dict: Dict, mapping: Mapping, prefix: str) -> Dict:
+    for checkpoint_name, attribute_name in mapping.items():
+        full_checkpoint_name = prefix + checkpoint_name
+        if full_checkpoint_name in state_dict:
+            full_attribute_name = prefix + attribute_name
+            state_dict[full_attribute_name] = state_dict.pop(full_checkpoint_name)
+    return state_dict
+
+
+def get_default_supported_precision(training: bool) -> str:
+    """Return default precision that is supported by the hardware: either `bf16` or `16`.
+
+    Args:
+        training: `-mixed` or `-true` version of the precision to use
+
+    Returns:
+        default precision that is suitable for the task and is supported by the hardware
+    """
+    from lightning.fabric.accelerators import MPSAccelerator
+
+    if MPSAccelerator.is_available() or (torch.cuda.is_available() and not torch.cuda.is_bf16_supported()):
+        return "16-mixed" if training else "16-true"
+    return "bf16-mixed" if training else "bf16-true"
+
+
+def load_checkpoint(fabric, model, checkpoint_path: Path, strict: bool = True) -> None:
+    if fabric.world_size > 1:
+        fabric.load_raw(checkpoint_path, model, strict=strict)
+    else:
+        state_dict = _lazy_load(checkpoint_path)
+        model.load_state_dict(state_dict, strict=strict)

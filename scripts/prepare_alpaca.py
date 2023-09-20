@@ -2,6 +2,7 @@
 import json
 import sys
 from pathlib import Path
+from typing import Optional
 
 import requests
 import torch
@@ -14,34 +15,27 @@ sys.path.append(str(wd))
 
 from lit_gpt.tokenizer import Tokenizer
 
-DATA_FILE_URL = "https://raw.githubusercontent.com/tloen/alpaca-lora/main/alpaca_data_cleaned_archive.json"
-DATA_FILE_NAME = "alpaca_data_cleaned_archive.json"
-DESTINATION_PATH = Path("data/alpaca")
-CHECKPOINT_DIR = Path("checkpoints/stabilityai/stablelm-base-alpha-3b")
-TEST_SPLIT_FRACTION = 0.03865  # to get exactly 2000 test samples
-IGNORE_INDEX = -1
-MASK_INPUTS = False  # as in alpaca-lora
-SEED = 42
-
 
 def prepare(
-    destination_path: Path = DESTINATION_PATH,
-    checkpoint_dir: Path = CHECKPOINT_DIR,
-    test_split_fraction: float = TEST_SPLIT_FRACTION,
-    seed: int = SEED,
-    mask_inputs: bool = MASK_INPUTS,
-    data_file_name: str = DATA_FILE_NAME,
-    data_file_url: str = DATA_FILE_URL,
-    ignore_index: int = IGNORE_INDEX,
+    destination_path: Path = Path("data/alpaca"),
+    checkpoint_dir: Path = Path("checkpoints/stabilityai/stablelm-base-alpha-3b"),
+    test_split_fraction: float = 0.03865,  # to get exactly 2000 test samples,
+    seed: int = 42,
+    mask_inputs: bool = False,  # as in alpaca-lora
+    data_file_name: str = "alpaca_data_cleaned_archive.json",
+    data_file_url: str = "https://raw.githubusercontent.com/tloen/alpaca-lora/main/alpaca_data_cleaned_archive.json",
+    ignore_index: int = -1,
+    max_seq_length: Optional[int] = None,
 ) -> None:
     """Prepare the Alpaca dataset for instruction tuning.
 
     The output is a training and test dataset saved as `train.pt` and `test.pt`,
     which stores the preprocessed and tokenized prompts and labels.
     """
-    with open(checkpoint_dir / "lit_config.json", "r") as file:
-        config = json.load(file)
-        max_seq_length = config["block_size"]
+    if max_seq_length is None:
+        with open(checkpoint_dir / "lit_config.json", "r", encoding="utf-8") as file:
+            config = json.load(file)
+            max_seq_length = config["block_size"]
 
     destination_path.mkdir(parents=True, exist_ok=True)
     data_file_path = destination_path / data_file_name
@@ -91,19 +85,13 @@ def prepare(
 
 def download_if_missing(file_path: Path, file_url: str):
     """Downloads the raw json data file and saves it in the given destination."""
-    if file_path.exists():
+    if file_path.exists() and file_path.stat().st_size > 0:
         return
     with open(file_path, "w", encoding="utf-8") as f:
         f.write(requests.get(file_url).text)
 
 
-def prepare_sample(
-    example: dict,
-    tokenizer: Tokenizer,
-    max_length: int,
-    mask_inputs: bool = MASK_INPUTS,
-    ignore_index: int = IGNORE_INDEX,
-):
+def prepare_sample(example: dict, tokenizer: Tokenizer, max_length: int, mask_inputs: bool, ignore_index: int):
     """Processes a single sample.
 
     Each sample in the dataset consists of:

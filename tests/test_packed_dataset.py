@@ -1,7 +1,7 @@
 import os
 from unittest.mock import MagicMock
-import requests
 
+import requests
 from torch.utils.data import IterableDataset
 
 
@@ -28,7 +28,7 @@ def test_packed_dataset(tmp_path):
 
     texts = ["The moment of truth is upon us. " * 4, "Time to open the fridge. " * 4]
 
-    from lit_gpt.packed_dataset import PackedDatasetBuilder, PackedDataset, HDR_SIZE
+    from lit_gpt.packed_dataset import HDR_SIZE, PackedDataset, PackedDatasetBuilder
 
     block_size = 10
     n_blocks = 2

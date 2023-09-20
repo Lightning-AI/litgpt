@@ -1,38 +1,13 @@
-## Converting a Lit-GPT Formatted Model to its Original Format
+## Converting Lit-GPT weights to HuggingFace Transformers
 
-Several models retrieved from external sources must be reformatted with naming conventions for Lit-GPT weights before finetuning. We've provided a helpful script to convert models finetuned with Lit-GPT back to their original format.
-
-The way the script is used depends on the finetuning method. The commands for converting a model back to its original format after using one of the several finetuning methods supported by Lit-GPT are shown below.
-
-> [!NOTE]\
-> each example shown below uses Falcon-7B please be sure to update --checkpoint_dir accordingly
-
-### Full Finetuning
-
-After full finetuning, your checkpoint directory will contain a file named `lit_model_finetuned.pth`and converting the finetuned model back to its original weights naming convention can be done by setting the `--checkpoint_name` with:
+HuggingFace Transformer weights need to be converted to a format that Lit-GPT understands with a [conversion script](../scripts/convert_hf_checkpoint.py) before our scripts can run.
+We provide a helpful script to convert models Lit-GPT models back to their equivalent HuggingFace Transformers format:
 
 ```sh
 python scripts/convert_lit_checkpoint.py \
-    --checkpoint_name lit_model_finetuned.pth \
-    --checkpoint_dir checkpoints/tiiuae/falcon-7b
+    --checkpoint_path path/to/litgpt/model.pth \
+    --output_path where/to/save/the/converted.ckpt \
+    --config_path path/to/litgpt/config.json
 ```
 
-### Adapter and Adapter V2 Finetuning
-
-After finetuning with either Adapter technique, your checkpoint directory will contain a file named `lit_model_adapter_finetuned.pth` and converting the finetuned model back to its original weights naming convention can be done by setting the `--checkpoint_name` with:
-
-```sh
-python scripts/convert_lit_checkpoint.py \
-    --checkpoint_name lit_model_adapter_finetuned.pth \
-    --checkpoint_dir checkpoints/tiiuae/falcon-7b
-```
-
-### LoRA Finetuning
-
-After finetuning with LoRA, your checkpoint directory will contain a file named `lit_model_lora_finetuned.pth` and converting the finetuned model back to its original weights naming convention can be done by setting the `--checkpoint_name` with:
-
-```sh
-python scripts/convert_lit_checkpoint.py \
-    --checkpoint_name lit_model_lora_finetuned.pth \
-    --checkpoint_dir checkpoints/tiiuae/falcon-7b
-```
+These paths are just placeholders, you will need to customize them based on which finetuning or pretraining script you ran and it's configuration.

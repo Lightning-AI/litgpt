@@ -2,9 +2,10 @@ import contextlib
 import gc
 import json
 import sys
+from dataclasses import asdict
 from functools import partial
 from pathlib import Path
-from typing import Optional, Literal, Tuple, Dict, List, Union
+from typing import Dict, List, Optional, Tuple, Union
 
 import torch
 
@@ -13,13 +14,14 @@ wd = Path(__file__).parent.parent.resolve()
 sys.path.append(str(wd))
 
 from lit_gpt import Config
-from lit_gpt.utils import lazy_load, incremental_save, NotYetLoadedTensor
+from lit_gpt.utils import NotYetLoadedTensor, incremental_save, lazy_load
 
 
 def copy_weights_gpt_neox(
     state_dict: Dict[str, torch.Tensor],
     hf_weights: Dict[str, Union[torch.Tensor, NotYetLoadedTensor]],
     saver: Optional[incremental_save] = None,
+    dtype: Optional[torch.dtype] = None,
 ) -> None:
     weight_map = {
         "gpt_neox.embed_in.weight": "transformer.wte.weight",
@@ -52,17 +54,18 @@ def copy_weights_gpt_neox(
             to_name = to_name.format(number)
         else:
             to_name = weight_map[name]
-        param = load_param(param)
+        param = load_param(param, name, dtype)
         if saver is not None:
             param = saver.store_early(param)
         state_dict[to_name] = param
 
 
 def copy_weights_falcon(
-    size: Literal["7b", "40b"],
+    model_name: str,
     state_dict: Dict[str, torch.Tensor],
     hf_weights: Dict[str, Union[torch.Tensor, NotYetLoadedTensor]],
     saver: Optional[incremental_save] = None,
+    dtype: Optional[torch.dtype] = None,
 ) -> None:
     weight_map = {
         "transformer.word_embeddings.weight": "transformer.wte.weight",
@@ -75,14 +78,14 @@ def copy_weights_falcon(
         "lm_head.weight": "lm_head.weight",
     }
     # the original model definition is different for each size
-    if size == "7b":
+    if "7b" in model_name:
         weight_map.update(
             {
                 "transformer.h.{}.input_layernorm.bias": "transformer.h.{}.norm_1.bias",
                 "transformer.h.{}.input_layernorm.weight": "transformer.h.{}.norm_1.weight",
             }
         )
-    elif size == "40b":
+    elif "40b" in model_name or "180B" in model_name:
         weight_map.update(
             {
                 "transformer.h.{}.ln_attn.bias": "transformer.h.{}.norm_1.bias",
@@ -100,7 +103,7 @@ def copy_weights_falcon(
             to_name = weight_map[from_name].format(number)
         else:
             to_name = weight_map[name]
-        param = load_param(param)
+        param = load_param(param, name, dtype)
         if saver is not None:
             param = saver.store_early(param)
         state_dict[to_name] = param
@@ -112,6 +115,7 @@ def copy_weights_hf_llama(
     state_dict: Dict[str, torch.Tensor],
     hf_weights: Dict[str, Union[torch.Tensor, NotYetLoadedTensor]],
     saver: Optional[incremental_save] = None,
+    dtype: Optional[torch.dtype] = None,
 ) -> None:
     weight_map = {
         "model.embed_tokens.weight": "transformer.wte.weight",
@@ -145,7 +149,7 @@ def copy_weights_hf_llama(
             to_name = to_name.format(number)
         else:
             to_name = weight_map[name]
-        param = load_param(param)
+        param = load_param(param, name, dtype)
         if saver is not None:
             param = saver.store_early(param)
         state_dict[to_name] = param
@@ -154,9 +158,9 @@ def copy_weights_hf_llama(
         if q is None or k is None or v is None:
             # split across different .bin files
             continue
-        q = load_param(q)
-        k = load_param(k)
-        v = load_param(v)
+        q = load_param(q, f"layer {i} q", dtype)
+        k = load_param(k, f"layer {i} k", dtype)
+        v = load_param(v, f"layer {i} v", dtype)
         q_per_kv = config.n_head // config.n_query_groups
         qs = torch.split(q, config.head_size * q_per_kv)
         ks = torch.split(k, config.head_size)
@@ -175,26 +179,37 @@ def layer_template(layer_name: str, idx: int) -> Tuple[str, int]:
     return from_name, number
 
 
-def load_param(param: Union[torch.Tensor, NotYetLoadedTensor]) -> torch.Tensor:
+def load_param(param: Union[torch.Tensor, NotYetLoadedTensor], name: str, dtype: Optional[torch.dtype]) -> torch.Tensor:
     if hasattr(param, "_load_tensor"):
         # support tensors loaded via `lazy_load()`
-        return param._load_tensor()
+        print(f"Loading {name!r} into RAM")
+        param = param._load_tensor()
+    if dtype is not None and type(dtype) is not NotYetLoadedTensor and dtype != param.dtype:
+        print(f"Converting {name!r} from {param.dtype} to {dtype}")
+        param = param.to(dtype)
     return param
 
 
 @torch.inference_mode()
 def convert_hf_checkpoint(
-    *, checkpoint_dir: Path = Path("checkpoints/stabilityai/stablelm-base-alpha-3b"), model_name: Optional[str] = None
+    *,
+    checkpoint_dir: Path = Path("checkpoints/stabilityai/stablelm-base-alpha-3b"),
+    model_name: Optional[str] = None,
+    dtype: Optional[str] = None,
 ) -> None:
     if model_name is None:
         model_name = checkpoint_dir.name
+    if dtype is not None:
+        dtype = getattr(torch, dtype)
+
     config = Config.from_name(model_name)
-    print(f"Model config {config.__dict__}")
+    config_dict = asdict(config)
+    print(f"Model config {config_dict}")
     with open(checkpoint_dir / "lit_config.json", "w") as json_config:
-        json.dump(config.__dict__, json_config)
+        json.dump(config_dict, json_config)
 
     if "falcon" in model_name:
-        copy_fn = partial(copy_weights_falcon, "40b" if config.n_embd == 8192 else "7b")
+        copy_fn = partial(copy_weights_falcon, model_name)
     elif config._mlp_class == "LLaMAMLP":
         # holder to reconstitute the split q, k, v
         qkv_weights = {}
@@ -213,6 +228,8 @@ def convert_hf_checkpoint(
         bin_files = {checkpoint_dir / bin for bin in bin_index["weight_map"].values()}
     else:
         bin_files = set(checkpoint_dir.glob("*.bin"))
+        # some checkpoints serialize the training arguments
+        bin_files = {f for f in bin_files if f.name != "training_args.bin"}
     if not bin_files:
         raise ValueError(f"Expected {str(checkpoint_dir)!r} to contain .bin files")
 
@@ -223,8 +240,9 @@ def convert_hf_checkpoint(
             for bin_file in sorted(bin_files):
                 print("Processing", bin_file)
                 hf_weights = stack.enter_context(lazy_load(bin_file))
-                copy_fn(sd, hf_weights, saver=saver)
+                copy_fn(sd, hf_weights, saver=saver, dtype=dtype)
             gc.collect()
+        print("Saving converted checkpoint")
         saver.save(sd)
 
 

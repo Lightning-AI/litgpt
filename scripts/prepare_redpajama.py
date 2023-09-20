@@ -11,9 +11,8 @@ from tqdm import tqdm
 wd = Path(__file__).parent.parent.resolve()
 sys.path.append(str(wd))
 
-from lit_gpt import Tokenizer, Config
 import lit_gpt.packed_dataset as packed_dataset
-
+from lit_gpt import Config, Tokenizer
 
 filenames_sample = [
     "arxiv_sample.jsonl",
@@ -148,8 +147,7 @@ def prepare(
     match: str = "",
 ) -> None:
     """Prepare the "Red Pajama" dataset. We assume tokenizer has been trained."""
-    with open(checkpoint_dir / "lit_config.json") as fp:
-        config = Config(**json.load(fp))
+    config = Config.from_json(checkpoint_dir / "lit_config.json")
 
     prepare_fn = prepare_sample if sample else prepare_full
     prepare_fn(
