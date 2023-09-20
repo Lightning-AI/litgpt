@@ -596,6 +596,8 @@ class GptNeoxMLP(lit_gpt.model.GptNeoxMLP):
             lora_dropout=config.dropout,
         )
 
+        self.config = config
+
     def _load_from_state_dict(self, state_dict: Dict, prefix: str, *args: Any, **kwargs: Any) -> None:
         """For compatibility with base checkpoints."""
         mapping = {

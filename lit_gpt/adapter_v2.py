@@ -156,6 +156,8 @@ class GptNeoxMLP(lit_gpt.model.GptNeoxMLP):
         self.fc = AdapterV2Linear(config.n_embd, config.intermediate_size, bias=config.bias)
         self.proj = AdapterV2Linear(config.intermediate_size, config.n_embd, bias=config.bias)
 
+        self.config = config
+
     def _load_from_state_dict(self, state_dict: Dict, prefix: str, *args: Any, **kwargs: Any) -> None:
         """For compatibility with base checkpoints."""
         mapping = {

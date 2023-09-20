@@ -50,6 +50,7 @@ class Config:
     _norm_class: Literal["LayerNorm", "RMSNorm"] = "LayerNorm"
     norm_eps: float = 1e-5
     _mlp_class: Literal["GptNeoxMLP", "LLaMAMLP"] = "GptNeoxMLP"
+    gelu_approximate: str = "none"
     intermediate_size: Optional[int] = None
     rope_condense_ratio: int = 1
     rope_base: int = 10000
@@ -1002,6 +1003,7 @@ phi = [
         rotary_percentage=1.0,
         shared_attention_norm=True,
         lm_head_bias=True,
+        gelu_approximate="tanh",
     )
 ]
 configs.extend(phi)

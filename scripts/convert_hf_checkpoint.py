@@ -212,6 +212,13 @@ def copy_weights_phi(
         else:
             to_name = weight_map[name]
         param = load_param(param, name, dtype)
+        # FIXME
+        #if "Wqkv.weight" in name:
+        #    w_q, w_k, w_v = param.split(config.n_embd, 0)
+        #    w_q = w_q.reshape(config.head_size, -1)
+        #    w_k = w_k.reshape(config.head_size, -1)
+        #    w_v = w_v.reshape(config.head_size, -1)
+        #    param = torch.cat((w_q, w_k, w_v), dim=1).reshape(config.n_embd * 3, -1)
         if saver is not None:
             param = saver.store_early(param)
         state_dict[to_name] = param
