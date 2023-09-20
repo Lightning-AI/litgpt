@@ -1,5 +1,5 @@
 """Utility functions for training and inference."""
-
+import os
 import pickle
 import sys
 import warnings
@@ -14,6 +14,7 @@ import torch
 import torch.nn as nn
 import torch.utils._device
 from lightning.fabric.loggers import CSVLogger
+from lightning.fabric.utilities.load import _lazy_load
 from torch.serialization import normalize_storage_type
 
 
@@ -216,8 +217,10 @@ class LazyLoadingUnpickler(pickle.Unpickler):
 
 
 class lazy_load:
-    def __init__(self, fn):
-        self.zf = torch._C.PyTorchFileReader(str(fn))
+    def __init__(self, path: Union[Path, str]) -> None:
+        if not os.path.isfile(path):
+            raise FileNotFoundError(f"Path {str(path)!r} does not exist or is not a file.")
+        self.zf = torch._C.PyTorchFileReader(str(path))
         with BytesIO(self.zf.get_record("data.pkl")) as pkl:
             mup = LazyLoadingUnpickler(pkl, self)
             self.sd = mup.load()
@@ -510,3 +513,11 @@ def get_default_supported_precision(training: bool) -> str:
     if MPSAccelerator.is_available() or (torch.cuda.is_available() and not torch.cuda.is_bf16_supported()):
         return "16-mixed" if training else "16-true"
     return "bf16-mixed" if training else "bf16-true"
+
+
+def load_checkpoint(fabric, model, checkpoint_path: Path, strict: bool = True) -> None:
+    if fabric.world_size > 1:
+        fabric.load_raw(checkpoint_path, model, strict=strict)
+    else:
+        state_dict = _lazy_load(checkpoint_path)
+        model.load_state_dict(state_dict, strict=strict)

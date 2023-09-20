@@ -57,6 +57,10 @@ class GPT(nn.Module):
         # the mask and kv cache size will get updated on `set_kv_cache`. we cannot update it here because we don't know
         # if the kv cache is expected
 
+    def reset_parameters(self) -> None:
+        # Trigger resetting the rope-cache
+        self.max_seq_length = self.config.block_size
+
     def _init_weights(self, module: nn.Module) -> None:
         """Meant to be used with `gpt.apply(gpt._init_weights)`."""
         if isinstance(module, nn.Linear):
@@ -123,7 +127,7 @@ class GPT(nn.Module):
             # passing `attn_mask` to SDPA downgrades it to use the inefficient implementation. since we only need the mask
             # for the kv-cache support (only during inference), we only create it in that situation
             # this will be resolved by https://github.com/pytorch/pytorch/issues/96099
-            ones = torch.ones((self.config.block_size, max_seq_length), device=device, dtype=torch.bool)
+            ones = torch.ones((max_seq_length, max_seq_length), device=device, dtype=torch.bool)
             self.mask_cache = torch.tril(ones).unsqueeze(0).unsqueeze(0)
 
     def clear_kv_cache(self) -> None:

@@ -1,32 +1,72 @@
+import os
+import sys
 from pathlib import Path
 
 import pytest
-import torch
 from transformers import AutoTokenizer
+from transformers.utils import cached_file
+
+# support running without installing as a package
+wd = Path(__file__).parent.parent.resolve()
+sys.path.append(str(wd))
+
+import lit_gpt.config as config_module
 
 
-def test_tokenizer_against_hf():
-    import lit_gpt
+@pytest.mark.parametrize("config", config_module.configs, ids=[c["name"] for c in config_module.configs])
+def test_tokenizer_against_hf(config):
+    from lit_gpt.tokenizer import Tokenizer
 
-    hf_tokenizer = AutoTokenizer.from_pretrained("StabilityAI/stablelm-base-alpha-3b")
-    # hacky way to access the data loaded by the above
-    folder = Path(hf_tokenizer.init_kwargs["special_tokens_map_file"]).parent
+    access_token = os.getenv("HF_TOKEN")
 
-    tokenizer = lit_gpt.Tokenizer(folder)
+    config = config_module.Config(**config)
 
-    assert tokenizer.vocab_size == hf_tokenizer.vocab_size
-    assert tokenizer.eos_id == hf_tokenizer.eos_token_id
+    repo_id = f"{config.org}/{config.name}"
+    cache_dir = Path("/tmp/tokenizer_test_cache")
 
-    string = "What's your mood today?"
-    actual = tokenizer.encode(string)
-    assert actual.tolist() == hf_tokenizer(string)["input_ids"]
-    assert tokenizer.decode(actual) == hf_tokenizer.decode(actual)
-    assert tokenizer.decode(torch.tensor(0)) == ""
+    # create a checkpoint directory that points to the HF files
+    checkpoint_dir = cache_dir / "ligpt" / config.org / config.name
+    if not checkpoint_dir.exists():
+        file_to_cache = {}
+        for file in ("tokenizer.json", "generation_config.json", "tokenizer.model", "tokenizer_config.json"):
+            try:
+                # download the HF tokenizer config
+                hf_file = cached_file(repo_id, file, cache_dir=cache_dir / "hf", token=access_token)
+            except OSError as e:
+                if "gated repo" in str(e) and not access_token:
+                    pytest.xfail("Gated repo")
+                if "does not appear to have" in str(e):
+                    continue
+                raise e
+            file_to_cache[file] = str(hf_file)
+        checkpoint_dir.mkdir(parents=True)
+        for file, hf_file in file_to_cache.items():
+            (checkpoint_dir / file).symlink_to(hf_file)
 
-    with pytest.raises(ValueError, match="'foobarbaz' not found"):
-        tokenizer.token_to_id("foobarbaz")
+    theirs = AutoTokenizer.from_pretrained(
+        repo_id, cache_dir=cache_dir / "hf", local_files_only=True, token=access_token
+    )
+    ours = Tokenizer(checkpoint_dir)
 
-    actual = tokenizer.encode("a b")
-    assert torch.equal(actual, torch.tensor([66, 270])), actual
-    actual = tokenizer.encode("a b", eos=True)
-    assert torch.equal(actual, torch.tensor([66, 270, 0])), actual
+    assert ours.vocab_size == theirs.vocab_size
+    assert ours.vocab_size == config.vocab_size
+
+    if config.name.startswith("falcon") or config.name.startswith("stablecode"):
+        # even though their config defines it, it's set as None in HF
+        assert isinstance(ours.bos_id, int)
+        assert theirs.bos_token_id is None
+    else:
+        assert ours.bos_id == theirs.bos_token_id
+
+    if config.name.startswith("stablecode"):
+        # even though their config defines it, it's set as None in HF
+        assert ours.eos_id == 0
+        assert theirs.eos_token_id is None
+    else:
+        assert ours.eos_id == theirs.eos_token_id
+
+    prompt = "Hello, readers of this test!"
+    actual = ours.encode(prompt)
+    expected = theirs.encode(prompt)
+    assert actual.tolist() == expected
+    assert ours.decode(actual) == theirs.decode(expected, skip_special_tokens=True)
