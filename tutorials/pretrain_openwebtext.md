@@ -15,6 +15,8 @@ In order to start pretraining lit-gpt on it, you need to read, tokenize, and wri
 To prepare the dataset with the Llama 2 tokenizer, run
 
 ```bash
+pip install datasets
+
 python scripts/prepare_openwebtext.py \
   --checkpoint_dir checkpoints/meta-llama/Llama-2-7b-hf/ \
   --destination_path data/lit-openwebtext
