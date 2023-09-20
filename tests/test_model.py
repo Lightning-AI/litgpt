@@ -15,42 +15,28 @@ wd = Path(__file__).parent.parent.absolute()
 @pytest.mark.parametrize("n_embd", (16, 32))
 @pytest.mark.parametrize("parallel_residual", (False, True))
 @pytest.mark.parametrize("kv_cache", (False, True))
-def test_against_hf_model(rotary_pct, batch_size, n_embd, parallel_residual, kv_cache) -> None:
+def test_against_gpt_neox_model(rotary_pct, batch_size, n_embd, parallel_residual, kv_cache) -> None:
     from transformers import GPTNeoXConfig, GPTNeoXForCausalLM
 
-    import lit_gpt
+    from lit_gpt import GPT, Config
     from scripts.convert_hf_checkpoint import copy_weights_gpt_neox
 
-    block_size = 64
-    # https://huggingface.co/stabilityai/stablelm-base-alpha-3b/blob/main/config.json#L24
-    vocab_size = 100
-    n_layer = 4
-    n_head = 8
     batch_size = 3
-
-    ours_config = lit_gpt.Config(
-        block_size=block_size,
-        vocab_size=vocab_size,
-        n_layer=n_layer,
-        n_head=n_head,
-        n_embd=n_embd,
-        rotary_percentage=rotary_pct,
-        parallel_residual=parallel_residual,
-    )
+    ours_config = Config(block_size=64, vocab_size=100, n_layer=4, n_head=8, n_embd=n_embd)
     assert ours_config.padded_vocab_size == 512
     theirs_config = GPTNeoXConfig(
         hidden_act="gelu",
-        hidden_size=n_embd,
-        num_attention_heads=n_head,
-        num_hidden_layers=n_layer,
+        hidden_size=ours_config.n_embd,
+        num_attention_heads=ours_config.n_head,
+        num_hidden_layers=ours_config.n_layer,
         initializer_range=0.02,
-        intermediate_size=n_embd * 4,
+        intermediate_size=ours_config.intermediate_size,
         layer_norm_eps=1e-05,
-        max_position_embeddings=block_size,
+        max_position_embeddings=ours_config.block_size,
         rotary_emb_base=10000,
-        rotary_pct=rotary_pct,
+        rotary_pct=ours_config.rotary_percentage,
         vocab_size=ours_config.padded_vocab_size,
-        use_parallel_residual=parallel_residual,
+        use_parallel_residual=ours_config.parallel_residual,
         use_cache=kv_cache,
     )
 
@@ -58,10 +44,12 @@ def test_against_hf_model(rotary_pct, batch_size, n_embd, parallel_residual, kv_
     theirs_model = GPTNeoXForCausalLM(theirs_config)
     # load the hf initialization into our model
     copy_weights_gpt_neox(state_dict, theirs_model.state_dict())
-    ours_model = lit_gpt.GPT(ours_config)
+    ours_model = GPT(ours_config)
     ours_model.load_state_dict(state_dict)
 
-    token_sample = torch.randint(0, ours_config.padded_vocab_size, size=(batch_size, block_size), dtype=torch.int64)
+    token_sample = torch.randint(
+        0, ours_config.padded_vocab_size, size=(batch_size, ours_config.block_size), dtype=torch.int64
+    )
 
     theirs_embed = theirs_model.gpt_neox.embed_in(token_sample)
     ours_embed = ours_model.transformer.wte(token_sample)
@@ -69,14 +57,14 @@ def test_against_hf_model(rotary_pct, batch_size, n_embd, parallel_residual, kv_
 
     cos, sin = ours_model.cos, ours_model.sin
     mask = ours_model.mask_cache
-    position_ids = torch.arange(block_size).unsqueeze(0)
+    position_ids = torch.arange(ours_config.block_size).unsqueeze(0)
     theirs_block = theirs_model.gpt_neox.layers[0]
     ours_block = ours_model.transformer.h[0]
     if kv_cache:
         theirs_block_out, (theirs_k, theirs_v) = theirs_block(theirs_embed, use_cache=True, position_ids=position_ids)
         ours_model.set_kv_cache(batch_size)
         ours_kv_cache = ours_block.attn.kv_cache
-        ours_block_out = ours_block(ours_embed, cos, sin, mask, torch.arange(block_size))
+        ours_block_out = ours_block(ours_embed, cos, sin, mask, torch.arange(ours_config.block_size))
         torch.testing.assert_close(ours_kv_cache.k, theirs_k)
         torch.testing.assert_close(ours_kv_cache.v, theirs_v)
     else:
