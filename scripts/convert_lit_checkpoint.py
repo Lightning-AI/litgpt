@@ -124,31 +124,64 @@ def copy_weights_llama(
             k = "model.layers.{}.self_attn.k_proj.weight".format(number)
             v = "model.layers.{}.self_attn.v_proj.weight".format(number)
             qkv = load_param(param, name, None)
-            qp, kp, vp = tensor_split(qkv, config)
+            qp, kp, vp = qkv_split(qkv, config)
             for to_name, param in zip((q, k, v), (qp, kp, vp)):
                 if saver is not None:
                     param = saver.store_early(param)
                 state_dict[to_name] = param
-        elif "transformer.h" in name:
+        else:
+            if "transformer.h" in name:
+                from_name, number = layer_template(name, 2)
+                to_name = weight_map[from_name]
+                to_name = to_name.format(number)
+            else:
+                to_name = weight_map[name]
+            param = load_param(param, name, None)
+            if saver is not None:
+                param = saver.store_early(param)
+            state_dict[to_name] = param
+
+
+def copy_weights_phi(
+    config: Config,
+    state_dict: Dict[str, torch.Tensor],
+    lit_weights: Dict[str, Union[torch.Tensor, NotYetLoadedTensor]],
+    saver: Optional[incremental_save] = None,
+) -> None:
+    weight_map = {
+        "transformer.wte.weight": "layers.0.wte.weight",
+        "transformer.h.{}.norm_1.bias": "layers.{}.ln.bias",
+        "transformer.h.{}.norm_1.weight": "layers.{}.ln.weight",
+        "transformer.h.{}.attn.attn.bias": "layers.{}.mixer.Wqkv.bias",
+        "transformer.h.{}.attn.attn.weight": "layers.{}.mixer.Wqkv.weight",
+        "transformer.h.{}.attn.proj.bias": "layers.{}.mixer.out_proj.bias",
+        "transformer.h.{}.attn.proj.weight": "layers.{}.mixer.out_proj.weight",
+        "transformer.h.{}.mlp.fc.bias": "layers.{}.mlp.fc1.bias",
+        "transformer.h.{}.mlp.fc.weight": "layers.{}.mlp.fc1.weight",
+        "transformer.h.{}.mlp.proj.bias": "layers.{}.mlp.fc2.bias",
+        "transformer.h.{}.mlp.proj.weight": "layers.{}.mlp.fc2.weight",
+        "transformer.ln_f.bias": f"layers.{config.n_layer + 1}.ln.bias",
+        "transformer.ln_f.weight": f"layers.{config.n_layer + 1}.ln.weight",
+        "lm_head.weight": f"layers.{config.n_layer + 1}.linear.weight",
+        "lm_head.bias": f"layers.{config.n_layer + 1}.linear.bias",
+    }
+
+    for name, param in lit_weights.items():
+        if "transformer.h" in name:
             from_name, number = layer_template(name, 2)
             to_name = weight_map[from_name]
-            if to_name is None:
-                continue
-            to_name = to_name.format(number)
-            param = load_param(param, name, None)
-            if saver is not None:
-                param = saver.store_early(param)
-            state_dict[to_name] = param
-
+            to_name = to_name.format(number + 1)
         else:
             to_name = weight_map[name]
-            param = load_param(param, name, None)
-            if saver is not None:
-                param = saver.store_early(param)
-            state_dict[to_name] = param
+        param = load_param(param, name, None)
+        if "attn.attn." in name:
+            param = torch.cat(qkv_split(param, config))
+        if saver is not None:
+            param = saver.store_early(param)
+        state_dict[to_name] = param
 
 
-def tensor_split(
+def qkv_split(
     param: Union[torch.Tensor, NotYetLoadedTensor], config: Config
 ) -> Tuple[torch.Tensor, torch.Tensor, torch.Tensor]:
     q_per_kv = config.n_head // config.n_query_groups

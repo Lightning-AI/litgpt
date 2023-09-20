@@ -995,8 +995,8 @@ phi = [
     dict(
         org="microsoft",
         name="phi-1_5",
-        vocab_size=51200,
-        padding_multiple=64,
+        vocab_size=50257,
+        padded_vocab_size=51200,
         block_size=2048,
         n_embd=2048,
         n_layer=24,
