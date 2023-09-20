@@ -40,6 +40,7 @@ If you want to run this model on a Mac, you can use the following:
 
 ```bash
 export PYTORCH_ENABLE_MPS_FALLBACK=1
+
 python generate/base.py --prompt "Hello, my name is" --checkpoint_dir checkpoints/microsoft/phi-1_5
 ```
 
