@@ -161,11 +161,12 @@ def copy_weights_hf_llama(
         q = load_param(q, f"layer {i} q", dtype)
         k = load_param(k, f"layer {i} k", dtype)
         v = load_param(v, f"layer {i} v", dtype)
-        qkv = torch.cat((q, k, v))
         q_per_kv = config.n_head // config.n_query_groups
-        total_qkv = q_per_kv + 2  # each group has 1+ queries, 1 key, and 1 value
-        qkv = qkv.view(total_qkv, config.n_query_groups, -1).transpose(0, 1)
-        qkv = qkv.reshape(config.n_embd * 3, -1)
+        qs = torch.split(q, config.head_size * q_per_kv)
+        ks = torch.split(k, config.head_size)
+        vs = torch.split(v, config.head_size)
+        cycled = [t for group in zip(qs, ks, vs) for t in group]
+        qkv = torch.cat(cycled)
         state_dict[f"transformer.h.{i}.attn.attn.weight"] = qkv
         del qkv_weights[i]
 
