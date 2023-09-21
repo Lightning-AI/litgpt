@@ -33,8 +33,8 @@ def test_tokenizer_against_hf(config):
                 # download the HF tokenizer config
                 hf_file = cached_file(repo_id, file, cache_dir=cache_dir / "hf", token=access_token)
             except OSError as e:
-                if "gated repo" in str(e) and not access_token:
-                    pytest.xfail("Gated repo")
+                if "gated repo" in str(e):
+                    pytest.xfail("Invalid token" if access_token else "Gated repo")
                 if "does not appear to have" in str(e):
                     continue
                 raise e
