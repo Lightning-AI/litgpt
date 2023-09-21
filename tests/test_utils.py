@@ -179,7 +179,7 @@ def test_quantize_raises_when_bnb_unavailable(mode):
     import quantize.bnb as bnb
 
     if bnb._BITSANDBYTES_AVAILABLE:
-        pytest.skip("BNB not available")
+        pytest.skip("BNB needs to be unavailable")
 
     from lit_gpt.utils import quantization
 
