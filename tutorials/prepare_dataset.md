@@ -8,6 +8,7 @@ Below is a table of all datasets that are currently supported in Lit-GPT:
 | Alpaca       | Finetuning  | 51,759 samples      | [URL](https://github.com/tatsu-lab/stanford_alpaca)             | [URL](https://crfm.stanford.edu/2023/03/13/alpaca.html)                                                                   | Attribution-NonCommercial 4.0 International, [ URL](https://crfm.stanford.edu/2023/03/13/alpaca.html)                                                                                                            |
 | Alpaca Libre | Finetuning  | 55,370 samples      | [URL](https://github.com/mobarski/alpaca-libre)                 | -                                                                                                                         | CC0/MIT,  [URL](https://github.com/mobarski/alpaca-libre)                                                                                                                                                        |
 | Dolly        | Finetuning  | 15,011 samples      | [URL](https://github.com/databrickslabs/dolly/tree/master/data) | [URL](https://www.databricks.com/blog/2023/04/12/dolly-first-open-commercially-viable-instruction-tuned-llm)              | CC-BY-SA, [URL](https://github.com/databrickslabs/dolly#model-overview)                                                                                                                                          |
+| LongForm     | Finetuning  | 23,652 samples      | [URL](https://github.com/akoksal/LongForm)                      | [URL](https://arxiv.org/abs/2304.08460)                                                                                   | No information provided and subset-dependent, [URL](https://github.com/akoksal/LongForm) |
 | LIMA         | Finetuning  | 1,084 samples       | [URL](https://huggingface.co/datasets/GAIR/lima)                | [URL](https://arxiv.org/abs/2305.11206)                                                                                   | "If the source data of LIMA has a stricter license than CC BY-NC-SA, the LIMA dataset follows the same. Otherwise, it follows the CC BY-NC-SA license", [URL](https://huggingface.co/datasets/GAIR/lima#license) |
 | OpenWeb Text | Pretraining | 8,013,769 documents | [URL](https://github.com/jcpeterson/openwebtext)                | [URL](https://d4mucfpksywv.cloudfront.net/better-language-models/language_models_are_unsupervised_multitask_learners.pdf) | Unspecified                                                                                                                                                                                                      |
 | RedPajama    | Pretraining | 1.2 T tokens        | [URL](https://github.com/togethercomputer/RedPajama-Data)       | [URL](https://together.ai/blog/redpajama-models-v1)                                                                       | Subset-dependent, [URL](https://github.com/togethercomputer/RedPajama-Data#license)                                                                                                                              |                                                                     |   |
@@ -73,6 +74,36 @@ python scripts/prepare_dolly.py \
  --checkpoint_dir "checkpoints/tiiuae/falcon-7b" \
 ```
 
+
+&nbsp;
+
+### LongForm
+
+LongForm is a semi-synthetic dataset based on raw text corpora for which the instructions were generated via an LLM. For more details about the instruction-generation process, please refer to the [LongForm research paper](https://arxiv.org/abs/2304.08460) by Köksal et al. According to the research paper, a Llama 7B model trained on LongForm achieves substantially better performance than the same Llama model trained on the 2x larger Alpaca dataset.
+
+LongForm consists of 23,652 training samples, 2,042 validation samples, and 2,045 test samples. (In Lit-GPT, the validation samples are currently not used.)
+
+The more detailed dataset composition is as follows based on a table taken from the [dataset repository](https://github.com/akoksal/LongForm):
+
+| **Type**               | **Source**     | **Number of Examples** |
+|------------------------|----------------|------------------------|
+| **Corpora**            | C4             | 10,000                 |
+|                        | Wikipedia      | 5,000                  |
+| **Structured Corpora** | Stack Exchange | 4,380                  |
+|                        | WikiHow        | 2,500                  |
+| **Tasks**              | NIv2           | 3,684                  |
+|                        | Big Bench      | 600                    |
+|                        | BEA-GEC        | 1,203                  |
+|                        | Enron          | 372                    |
+| **Total**              |                | 27,739                 |
+|  |   |  |
+| **Train**              |                | 23,652                 |
+| **Validation**         |                | 2,042                  |
+| **Test**               |                | 2,045                  |
+
+License information is not provided but would depend on the individual subsets listed above.
+
+
 &nbsp;
 
 ### LIMA
@@ -94,7 +125,7 @@ and responses, set `--include_multiturn_conversations True`.
 
 &nbsp;
 
-**Finetuning After Data Preparation**
+### Finetuning After Data Preparation
 
 After preparing the dataset, you can finetune the model using the [`finetune/*.py`](../finetune/) scripts, for example,
 
