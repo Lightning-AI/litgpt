@@ -35,39 +35,34 @@ def quantization(mode: Optional[str] = None):
         yield
         return
 
+    if mode.startswith("bnb"):
+        import quantize.bnb as bnb
     if mode == "bnb.int8":
-        from quantize.bnb import InferenceLinear8bitLt
-
-        quantized_linear_cls = InferenceLinear8bitLt
+        quantized_linear_cls = bnb.InferenceLinear8bitLt
     elif mode == "bnb.fp4":
-        from quantize.bnb import Linear4bit
-
         # Use a class instead `functools.partial` to respect `isinstance` checks and attribute accesses
-        class QuantizedLinear(Linear4bit):
+        class QuantizedLinear(bnb.Linear4bit):
             def __init__(self, *args, **kwargs):
                 super().__init__(*args, quant_type="fp4", compress_statistics=False, **kwargs)
 
         quantized_linear_cls = QuantizedLinear
     elif mode == "bnb.fp4-dq":
-        from quantize.bnb import Linear4bit
 
-        class QuantizedLinear(Linear4bit):
+        class QuantizedLinear(bnb.Linear4bit):
             def __init__(self, *args, **kwargs):
                 super().__init__(*args, quant_type="fp4", compress_statistics=True, **kwargs)
 
         quantized_linear_cls = QuantizedLinear
     elif mode == "bnb.nf4":
-        from quantize.bnb import Linear4bit
 
-        class QuantizedLinear(Linear4bit):
+        class QuantizedLinear(bnb.Linear4bit):
             def __init__(self, *args, **kwargs):
                 super().__init__(*args, quant_type="nf4", compress_statistics=False, **kwargs)
 
         quantized_linear_cls = QuantizedLinear
     elif mode == "bnb.nf4-dq":
-        from quantize.bnb import Linear4bit
 
-        class QuantizedLinear(Linear4bit):
+        class QuantizedLinear(bnb.Linear4bit):
             def __init__(self, *args, **kwargs):
                 super().__init__(*args, quant_type="nf4", compress_statistics=True, **kwargs)
 
