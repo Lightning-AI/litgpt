@@ -252,30 +252,14 @@ class LoRAQKVLinear(LoRALinear):
         if not hasattr(self, "_lora_ind"):
             indices = []
             enable_q, enable_k, enable_v = self.enable_lora
+            in_features, out_features = self.linear.in_features, self.linear.out_features
+            device = self.linear.weight.device
             if enable_q:
-                indices.append(
-                    torch.arange(
-                        0,
-                        self.linear.in_features,
-                        device=self.linear.weight.device,
-                    )
-                )
+                indices.append(torch.arange(0, in_features, device=device))
             if enable_k:
-                indices.append(
-                    torch.arange(
-                        self.linear.in_features,
-                        self.linear.in_features + self.kv_embd_size,
-                        device=self.linear.weight.device,
-                    )
-                )
+                indices.append(torch.arange(in_features, in_features + self.kv_embd_size, device=device))
             if enable_v:
-                indices.append(
-                    torch.arange(
-                        self.linear.in_features + self.kv_embd_size,
-                        self.linear.out_features,
-                        device=self.linear.weight.device,
-                    )
-                )
+                indices.append(torch.arange(in_features + self.kv_embd_size, out_features, device=device))
             self.register_buffer("_lora_ind", torch.cat(indices), persistent=False)
 
         # in case `lora_ind` was created in `inference_mode` and thus it's an inference tensor,
