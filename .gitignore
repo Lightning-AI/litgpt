@@ -14,3 +14,4 @@ out
 wandb
 
 tests/original_falcon_40b.py
+tests/original_phi_1_5.py

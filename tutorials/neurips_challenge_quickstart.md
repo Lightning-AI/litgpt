@@ -63,7 +63,7 @@ Helpful competition rules relevant to the dataset choice:
 
 **Submission deadline**
 
-- October 15, 2023 ([Please check](https://llm-efficiency-challenge.github.io/dates) official website in case of updates.)
+- October 25, 2023 ([Please check](https://llm-efficiency-challenge.github.io/dates) official website in case of updates.)
 
 &nbsp;
 

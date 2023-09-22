@@ -55,6 +55,7 @@ from lit_gpt.config import Config as BaseConfig
 from lit_gpt.model import GPT as BaseModel
 from lit_gpt.model import Block as BaseBlock
 from lit_gpt.model import CausalSelfAttention as BaseCausalSelfAttention
+from lit_gpt.model import KVCache
 from lit_gpt.utils import map_old_state_dict_weights
 
 
@@ -459,7 +460,7 @@ class GPT(BaseModel):
         self.lm_head = LoRALinear(
             config.n_embd,
             config.padded_vocab_size,
-            bias=False,
+            bias=config.lm_head_bias,
             r=(config.r if config.to_head else 0),
             lora_alpha=config.alpha,
             lora_dropout=config.dropout,
@@ -559,7 +560,7 @@ class CausalSelfAttention(BaseCausalSelfAttention):
             lora_dropout=config.dropout,
         )
         # disabled by default
-        self.kv_cache = nn.Module()
+        self.kv_cache: Optional[KVCache] = None
 
         self.config = config
 
@@ -594,6 +595,8 @@ class GptNeoxMLP(lit_gpt.model.GptNeoxMLP):
             lora_alpha=config.alpha,
             lora_dropout=config.dropout,
         )
+
+        self.config = config
 
     def _load_from_state_dict(self, state_dict: Dict, prefix: str, *args: Any, **kwargs: Any) -> None:
         """For compatibility with base checkpoints."""

@@ -24,6 +24,7 @@ class Config:
     rotary_percentage: float = 0.25
     parallel_residual: bool = True
     bias: bool = True
+    lm_head_bias: bool = False
     # to use multi-head attention (MHA), set this to `n_head` (default)
     # to use multi-query attention (MQA), set this to 1
     # to use grouped-query attention (GQA), set this to a value in between
@@ -49,6 +50,7 @@ class Config:
     _norm_class: Literal["LayerNorm", "RMSNorm"] = "LayerNorm"
     norm_eps: float = 1e-5
     _mlp_class: Literal["GptNeoxMLP", "LLaMAMLP"] = "GptNeoxMLP"
+    gelu_approximate: str = "none"
     intermediate_size: Optional[int] = None
     rope_condense_ratio: int = 1
     rope_base: int = 10000
@@ -212,6 +214,7 @@ falcon = [
         org="tiiuae",
         name="falcon-7b{}",
         block_size=2048,
+        vocab_size=65024,
         padded_vocab_size=65024,
         n_layer=32,
         n_head=71,
@@ -227,6 +230,7 @@ falcon = [
         org="tiiuae",
         name="falcon-40b{}",
         block_size=2048,
+        vocab_size=65024,
         padded_vocab_size=65024,
         n_layer=60,
         n_head=128,
@@ -247,6 +251,7 @@ falcon180b = dict(
     org="tiiuae",
     name="falcon-180B{}",
     block_size=2048,
+    vocab_size=65024,
     padded_vocab_size=65024,
     n_layer=80,
     n_head=232,
@@ -483,7 +488,7 @@ long_chat = [
         norm_eps=1e-6,
         _mlp_class="LLaMAMLP",
         intermediate_size=13824,
-        condense_ratio=8,
+        rope_condense_ratio=8,
     ),
 ]
 configs.extend(long_chat)
@@ -512,6 +517,7 @@ nous_research = [
         org="NousResearch",
         name="Nous-Hermes-13b",
         block_size=2048,
+        vocab_size=32000,
         padded_vocab_size=32001,
         n_layer=40,
         n_head=40,
@@ -528,6 +534,7 @@ nous_research = [
     dict(
         org="NousResearch",
         name="Nous-Hermes-Llama2-13b",
+        vocab_size=32000,
         padded_vocab_size=32032,
         n_layer=40,
         n_head=40,
@@ -978,5 +985,27 @@ together_llama2_32k = [
     )
 ]
 configs.extend(together_llama2_32k)
+
+
+################
+# Microsoft Phi
+################
+phi = [
+    # https://huggingface.co/microsoft/phi-1_5/blob/main/config.json
+    dict(
+        org="microsoft",
+        name="phi-1_5",
+        vocab_size=50257,
+        padded_vocab_size=51200,
+        block_size=2048,
+        n_embd=2048,
+        n_layer=24,
+        rotary_percentage=0.5,  # 32 / (n_embd / n_head) = 32 / 64
+        shared_attention_norm=True,
+        lm_head_bias=True,
+        gelu_approximate="tanh",
+    )
+]
+configs.extend(phi)
 
 name_to_config = {config["name"]: config for config in configs}

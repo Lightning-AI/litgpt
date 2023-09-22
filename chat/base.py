@@ -41,7 +41,7 @@ def generate(
         # rolling the kv cache based on the `input_pos` value would be necessary. However, doing so would introduce a
         # data dependency on the `input_pos` tensor and impact model compilation. Since this setting is uncommon, we do
         # not support it to avoid negatively impacting the overall speed
-        raise NotImplementedError(f"max_seq_length {model.max_seq_length} needs to be < {max_returned_tokens - 1}")
+        raise NotImplementedError(f"max_seq_length {model.max_seq_length} needs to be >= {max_returned_tokens - 1}")
 
     device = idx.device
     stop_tokens = [torch.tensor(tokens, device=device) for tokens in stop_tokens]
@@ -175,12 +175,7 @@ def main(
             model.set_kv_cache(batch_size=1)
 
         y = generate(
-            model,
-            encoded_prompt,
-            model.config.block_size,
-            temperature=temperature,
-            top_k=top_k,
-            stop_tokens=stop_tokens,
+            model, encoded_prompt, model.max_seq_length, temperature=temperature, top_k=top_k, stop_tokens=stop_tokens
         )
         fabric.print(">> Reply: ", end="")
         try:
@@ -304,6 +299,11 @@ def prompt_config(checkpoint_dir: Path, tokenizer: Tokenizer) -> Tuple[str, Tupl
         # https://huggingface.co/blog/codellama#conversational-instructions
         b_inst, e_inst = "<s>[INST]", "[/INST]"
         system_prompt = f"{b_inst} {{prompt}} {e_inst}"
+        stop_tokens = ([tokenizer.eos_id],)
+        return system_prompt, stop_tokens
+
+    if re.search("phi", checkpoint_name):
+        system_prompt = "{prompt}\n\nAnswer:"
         stop_tokens = ([tokenizer.eos_id],)
         return system_prompt, stop_tokens
 

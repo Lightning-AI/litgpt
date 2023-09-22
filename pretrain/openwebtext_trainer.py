@@ -73,7 +73,7 @@ class LightningGPTModule(L.LightningModule):
             # consider setting `self.measured_flops = estimated_flops` instead
             estimated_flops = estimate_flops(meta_model) * micro_batch_size
             self.print(f"Estimated TFLOPs: {estimated_flops * trainer.world_size / 1e12:.2f}")
-            x = torch.randint(0, 1, (micro_batch_size, meta_model.config.block_size))
+            x = torch.randint(0, 1, (micro_batch_size, meta_model.max_seq_length))
             self.measured_flops = measure_flops(meta_model, x)
             self.print(f"Measured TFLOPs: {self.measured_flops * trainer.world_size / 1e12:.2f}")
 
