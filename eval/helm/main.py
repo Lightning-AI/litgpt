@@ -37,6 +37,7 @@ class ProcessRequest(BaseModel):
     top_k: int = 200
     temperature: float = 0.8
     seed: Optional[int] = None
+    echo_prompt: Optional[bool]
 
 
 class Token(BaseModel):
@@ -130,7 +131,10 @@ def main(
         t = time.perf_counter() - t0
 
         model.reset_cache()
-        output = tokenizer.decode(tokens[prompt_length:])
+        if input_data.echo_prompt is False:
+            output = tokenizer.decode(tokens[prompt_length:])
+        else:
+            output = tokenizer.decode(tokens)
         tokens_generated = tokens.size(0) - prompt_length
         logger.info(
             f"Time for inference: {t:.02f} sec total, {tokens_generated / t:.02f} tokens/sec"
