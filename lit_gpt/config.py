@@ -24,6 +24,7 @@ class Config:
     rotary_percentage: float = 0.25
     parallel_residual: bool = True
     bias: bool = True
+    lm_head_bias: bool = False
     # to use multi-head attention (MHA), set this to `n_head` (default)
     # to use multi-query attention (MQA), set this to 1
     # to use grouped-query attention (GQA), set this to a value in between
@@ -49,33 +50,35 @@ class Config:
     _norm_class: Literal["LayerNorm", "RMSNorm"] = "LayerNorm"
     norm_eps: float = 1e-5
     _mlp_class: Literal["GptNeoxMLP", "LLaMAMLP"] = "GptNeoxMLP"
+    gelu_approximate: str = "none"
     intermediate_size: Optional[int] = None
     rope_condense_ratio: int = 1
     rope_base: int = 10000
 
     def __post_init__(self):
-        # error checking
         assert self.n_embd % self.n_head == 0
+        self.head_size = self.n_embd // self.n_head
+
         # vocab size should be a power of 2 to be optimal on hardware. compute the closest value
         if self.padded_vocab_size is None:
             self.padded_vocab_size = find_multiple(self.vocab_size, self.padding_multiple)
         else:
             # vocab size shouldn't be larger than padded vocab size
             self.vocab_size = min(self.vocab_size, self.padded_vocab_size)
+
         # compute the number of query groups
         if self.n_query_groups is not None:
             assert self.n_head % self.n_query_groups == 0
         else:
             self.n_query_groups = self.n_head
+
         # compute the intermediate size for MLP if not set
         if self.intermediate_size is None:
             if self._mlp_class == "LLaMAMLP":
                 raise ValueError("The config needs to set the `intermediate_size`")
             self.intermediate_size = 4 * self.n_embd
 
-    @property
-    def head_size(self) -> int:
-        return self.n_embd // self.n_head
+        self.rope_n_elem = int(self.rotary_percentage * self.head_size)
 
     @classmethod
     def from_name(cls, name: str, **kwargs: Any) -> Self:
@@ -211,6 +214,7 @@ falcon = [
         org="tiiuae",
         name="falcon-7b{}",
         block_size=2048,
+        vocab_size=65024,
         padded_vocab_size=65024,
         n_layer=32,
         n_head=71,
@@ -226,6 +230,7 @@ falcon = [
         org="tiiuae",
         name="falcon-40b{}",
         block_size=2048,
+        vocab_size=65024,
         padded_vocab_size=65024,
         n_layer=60,
         n_head=128,
@@ -240,6 +245,26 @@ for c in falcon:
         copy = c.copy()
         copy["name"] = c["name"].format(kind)
         configs.append(copy)
+
+# https://huggingface.co/tiiuae/falcon-180b/blob/main/config.json
+falcon180b = dict(
+    org="tiiuae",
+    name="falcon-180B{}",
+    block_size=2048,
+    vocab_size=65024,
+    padded_vocab_size=65024,
+    n_layer=80,
+    n_head=232,
+    n_embd=14848,
+    rotary_percentage=1.0,
+    n_query_groups=8,
+    bias=False,
+)
+
+for kind in ("", "-chat"):
+    copy = falcon180b.copy()
+    copy["name"] = falcon180b["name"].format(kind)
+    configs.append(copy)
 
 
 #############################
@@ -463,7 +488,7 @@ long_chat = [
         norm_eps=1e-6,
         _mlp_class="LLaMAMLP",
         intermediate_size=13824,
-        condense_ratio=8,
+        rope_condense_ratio=8,
     ),
 ]
 configs.extend(long_chat)
@@ -492,6 +517,7 @@ nous_research = [
         org="NousResearch",
         name="Nous-Hermes-13b",
         block_size=2048,
+        vocab_size=32000,
         padded_vocab_size=32001,
         n_layer=40,
         n_head=40,
@@ -508,6 +534,7 @@ nous_research = [
     dict(
         org="NousResearch",
         name="Nous-Hermes-Llama2-13b",
+        vocab_size=32000,
         padded_vocab_size=32032,
         n_layer=40,
         n_head=40,
@@ -936,5 +963,49 @@ stablecode = [
 ]
 configs.extend(stablecode)
 
+
+##################################
+# togethercomputer LLaMA-2-7B-32K
+##################################
+together_llama2_32k = [
+    # https://huggingface.co/togethercomputer/LLaMA-2-7B-32K/blob/main/config.json
+    dict(
+        org="togethercomputer",
+        name="LLaMA-2-7B-32K",
+        vocab_size=32000,
+        padding_multiple=64,
+        n_layer=32,
+        rotary_percentage=1.0,
+        parallel_residual=False,
+        bias=False,
+        _norm_class="RMSNorm",
+        _mlp_class="LLaMAMLP",
+        intermediate_size=11008,
+        rope_condense_ratio=8,
+    )
+]
+configs.extend(together_llama2_32k)
+
+
+################
+# Microsoft Phi
+################
+phi = [
+    # https://huggingface.co/microsoft/phi-1_5/blob/main/config.json
+    dict(
+        org="microsoft",
+        name="phi-1_5",
+        vocab_size=50257,
+        padded_vocab_size=51200,
+        block_size=2048,
+        n_embd=2048,
+        n_layer=24,
+        rotary_percentage=0.5,  # 32 / (n_embd / n_head) = 32 / 64
+        shared_attention_norm=True,
+        lm_head_bias=True,
+        gelu_approximate="tanh",
+    )
+]
+configs.extend(phi)
 
 name_to_config = {config["name"]: config for config in configs}

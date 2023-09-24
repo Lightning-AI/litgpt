@@ -14,6 +14,9 @@ defaults:
   run:
     shell: bash
 
+env:
+  HF_TOKEN: ${{ secrets.HF_TOKEN }}
+
 jobs:
   cpu-tests:
     runs-on: ${{ matrix.os }}
@@ -55,13 +58,13 @@ jobs:
 
     - name: Run tests without the package installed
       run: |
-        pip install pytest pytest-rerunfailures transformers einops bitsandbytes scipy tokenizers zstandard
+        pip install pytest pytest-rerunfailures transformers einops bitsandbytes scipy tokenizers zstandard pandas sentencepiece protobuf
         pip list
 
-        pytest --disable-pytest-warnings --strict-markers --color=yes
+        pytest -v --disable-pytest-warnings --strict-markers --color=yes
 
     - name: Run tests
       run: |
         pip install . --no-deps
 
-        pytest -v --durations=10 --disable-pytest-warnings --strict-markers --color=yes
+        pytest -v --disable-pytest-warnings --strict-markers --color=yes

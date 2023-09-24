@@ -4,7 +4,6 @@
 Stability AI announced FreeWilly inspired by the methodology pioneered by Microsoft in its paper: "Orca: Progressive Learning from Complex Explanation Traces of GPT-4”.
 FreeWilly2 leverages the Llama 2 70B foundation model to reach a performance that compares favorably with GPT-3.5 for some tasks.
 
-
 ```bash
 pip install huggingface_hub
 

@@ -1,3 +1,4 @@
+import sys
 from contextlib import redirect_stdout
 from io import StringIO
 from itertools import product
@@ -145,6 +146,7 @@ def test_lora_script(tmp_path, fake_checkpoint_dir, monkeypatch):
     module.save_interval = 2
     module.eval_interval = 2
     module.eval_iters = 2
+    module.eval_max_new_tokens = 1
     module.max_iters = 6
 
     data = [
@@ -158,12 +160,7 @@ def test_lora_script(tmp_path, fake_checkpoint_dir, monkeypatch):
 
     model_config = dict(block_size=128, n_layer=2, n_embd=8, n_head=4, padded_vocab_size=8)
     monkeypatch.setitem(name_to_config, "tmp", model_config)
-
-    load_mock = Mock()
-    load_mock.return_value = load_mock
-    load_mock.__enter__ = Mock()
-    load_mock.__exit__ = Mock()
-    monkeypatch.setattr(module, "lazy_load", load_mock)
+    monkeypatch.setattr(module, "load_checkpoint", Mock())
 
     tokenizer_mock = Mock()
     tokenizer_mock.return_value = tokenizer_mock
@@ -364,7 +361,7 @@ def test_lora_merge_with_quantize():
         pytest.skip("BNB not available")
 
     from lit_gpt.lora import GPT, Config, mark_only_lora_as_trainable, merge_lora_weights
-    from lit_gpt.utils import quantization
+    from lit_gpt.utils import get_default_supported_precision, quantization
 
     config = Config(
         n_layer=1,
@@ -379,7 +376,7 @@ def test_lora_merge_with_quantize():
         to_value=True,
         to_projection=True,
     )
-    fabric = Fabric(devices=1, precision="bf16-mixed")
+    fabric = Fabric(devices=1, precision=get_default_supported_precision(training=True))
     with fabric.init_module(empty_init=False), quantization("bnb.nf4"):
         model = GPT(config)
         model.apply(model._init_weights)
@@ -398,7 +395,8 @@ def test_lora_merge_with_quantize():
 
     # perform an update to the LoRA weights
     y = model(torch.randint(0, 8, size=(2, 4), dtype=torch.int64, device=fabric.device))
-    y.sum().backward()
+    loss = y.sum()
+    fabric.backward(loss)
     optimizer.step()
     optimizer.zero_grad()
     # the weight remains unchanged (only lora A and B change)
@@ -492,3 +490,39 @@ def test_base_model_can_be_lora_loaded():
     assert not keys.unexpected_keys
     for k in keys.missing_keys:
         assert lora_filter(k, None)
+
+
+@pytest.mark.skipif(sys.platform in ("win32", "darwin"), reason="torch.compile not supported on this platform")
+@torch.inference_mode()
+def test_lora_compile():
+    from lit_gpt.lora import GPT
+
+    model = GPT.from_name(
+        "pythia-70m",
+        n_layer=3,
+        r=8,
+        alpha=8,
+        dropout=0.1,
+        to_query=True,
+        to_key=True,
+        to_value=True,
+        to_projection=True,
+        to_mlp=True,
+        to_head=True,
+    )
+    x = torch.randint(model.config.vocab_size, size=(2, model.config.block_size), dtype=torch.int64)
+
+    from torch._dynamo.backends import debugging
+
+    explanation = torch._dynamo.explain(model, x)
+    assert isinstance(explanation, debugging.ExplainOutput)
+    assert explanation.graph_count == 1
+    assert explanation.graph_break_count == 0
+
+    model = GPT(model.config)
+    model.set_kv_cache(2)
+    input_pos = torch.arange(model.config.block_size)
+    explanation = torch._dynamo.explain(model, x, input_pos)
+    assert isinstance(explanation, debugging.ExplainOutput)
+    assert explanation.graph_count == 1
+    assert explanation.graph_break_count == 0

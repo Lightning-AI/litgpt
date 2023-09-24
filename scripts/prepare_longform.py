@@ -17,53 +17,53 @@ from lit_gpt.tokenizer import Tokenizer
 
 
 def prepare(
-    destination_path: Path = Path("data/dolly"),
+    destination_path: Path = Path("data/longform"),
     checkpoint_dir: Path = Path("checkpoints/stabilityai/stablelm-base-alpha-3b"),
-    test_split_fraction: float = 0.1,
     seed: int = 42,
-    mask_inputs: bool = False,
-    data_file_name: str = "dolly_data_cleaned.json",
-    data_file_url: str = "https://huggingface.co/datasets/databricks/databricks-dolly-15k/resolve/main/databricks-dolly-15k.jsonl",
+    mask_inputs: bool = False,  # as in alpaca-lora
     ignore_index: int = -1,
     max_seq_length: Optional[int] = None,
 ) -> None:
-    """Prepare the Dolly 15k dataset for instruction tuning.
+    """Prepare the Alpaca dataset for instruction tuning.
 
     The output is a training and test dataset saved as `train.pt` and `test.pt`,
     which stores the preprocessed and tokenized prompts and labels.
     """
-
     if max_seq_length is None:
         with open(checkpoint_dir / "lit_config.json", "r", encoding="utf-8") as file:
             config = json.load(file)
             max_seq_length = config["block_size"]
 
     destination_path.mkdir(parents=True, exist_ok=True)
-    data_file_path = destination_path / data_file_name
-    print("Loading data file...")
-    download_if_missing(data_file_path, data_file_url)
 
-    with open(data_file_path, "r", encoding="utf-8") as file:
-        data = file.readlines()
-        data = [json.loads(line) for line in data]
-    for item in data:
-        item["input"] = item.pop("context")
-        item["output"] = item.pop("response")
+    train_file_name = "train.json"
+    # val_file_name = "val.json"
+    test_file_name = "test.json"
+
+    train_file_url = "https://raw.githubusercontent.com/akoksal/LongForm/main/dataset/train.json"
+    # val_file_url = "https://raw.githubusercontent.com/akoksal/LongForm/main/dataset/val.json"
+    test_file_url = "https://raw.githubusercontent.com/akoksal/LongForm/main/dataset/test.json"
+
+    train_file_path = destination_path / train_file_name
+    print("Loading train data file...")
+    download_if_missing(train_file_path, train_file_url)
+    with open(train_file_path, "r", encoding="utf-8") as file:
+        train_data = json.load(file)
+
+    test_file_path = destination_path / test_file_name
+    print("Loading test data file...")
+    download_if_missing(test_file_path, test_file_url)
+    with open(test_file_path, "r", encoding="utf-8") as file:
+        test_data = json.load(file)
 
     print("Loading tokenizer...")
     tokenizer = Tokenizer(checkpoint_dir)
 
-    # Partition the dataset into train and test
-    train_set, test_set = random_split(
-        data, [1.0 - test_split_fraction, test_split_fraction], generator=torch.Generator().manual_seed(seed)
-    )
-    train_set, test_set = list(train_set), list(test_set)
+    print(f"train has {len(train_data):,} samples")
+    print(f"test has {len(test_data):,} samples")
 
-    print(f"train has {len(train_set):,} samples")
-    print(f"test has {len(test_set):,} samples")
-
-    print("Processing train split ...")
-    train_set = [
+    print("Processing train set ...")
+    train_data = [
         prepare_sample(
             example=sample,
             tokenizer=tokenizer,
@@ -71,12 +71,12 @@ def prepare(
             mask_inputs=mask_inputs,
             ignore_index=ignore_index,
         )
-        for sample in tqdm(train_set)
+        for sample in tqdm(train_data)
     ]
-    torch.save(train_set, destination_path / "train.pt")
+    torch.save(train_data, destination_path / "train.pt")
 
-    print("Processing test split ...")
-    test_set = [
+    print("Processing test set ...")
+    test_data = [
         prepare_sample(
             example=sample,
             tokenizer=tokenizer,
@@ -84,14 +84,14 @@ def prepare(
             mask_inputs=mask_inputs,
             ignore_index=ignore_index,
         )
-        for sample in tqdm(test_set)
+        for sample in tqdm(test_data)
     ]
-    torch.save(test_set, destination_path / "test.pt")
+    torch.save(test_data, destination_path / "test.pt")
 
 
 def download_if_missing(file_path: Path, file_url: str):
     """Downloads the raw json data file and saves it in the given destination."""
-    if file_path.exists():
+    if file_path.exists() and file_path.stat().st_size > 0:
         return
     with open(file_path, "w", encoding="utf-8") as f:
         f.write(requests.get(file_url).text)
@@ -133,19 +133,13 @@ def prepare_sample(example: dict, tokenizer: Tokenizer, max_length: int, mask_in
 
 
 def generate_prompt(example):
-    """Generates a standardized message to prompt the model with an instruction, optional input and a
+    """Generates a standardized message to prompt the model with an instruction and a
     'response' field."""
 
-    if example["input"]:
-        return (
-            "Below is an instruction that describes a task, paired with an input that provides further context. "
-            "Write a response that appropriately completes the request.\n\n"
-            f"### Instruction:\n{example['instruction']}\n\n### Input:\n{example['input']}\n\n### Response:"
-        )
     return (
-        "Below is an instruction that describes a task. "
+        "Below is an instruction that describes a task, paired with an input that provides further context. "
         "Write a response that appropriately completes the request.\n\n"
-        f"### Instruction:\n{example['instruction']}\n\n### Response:"
+        f"### Instruction:\n{example['input']}\n\n### Response:"
     )
 
 

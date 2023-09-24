@@ -8,8 +8,7 @@ Code Llama models come in three sizes: 7B, 13B, and 34B parameter models. Furthe
 - Code Llama-Python: The Code Llama model pretrained on 500B tokens, further trained on 100B additional Python code tokens, and then finetuned on 20B tokens.
 - Code Llama-Instruct: The Code Llama model trained on 500B tokens, finetuned on 20B tokens, and instruction-finetuned on additional 5B tokens.
 
-All models were  trained on 16,000 token contexts and support generations with up to 100,000 tokens of context. 
-
+All models were  trained on 16,000 token contexts and support generations with up to 100,000 tokens of context.
 
 To see all the available checkpoints, run:
 

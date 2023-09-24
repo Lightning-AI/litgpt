@@ -1,54 +1,48 @@
-"""Implementation derived from https://github.com/tloen/alpaca-lora"""
 import json
+import logging
 import sys
 from pathlib import Path
-from typing import Optional
 
-import requests
 import torch
 from torch.utils.data import random_split
 from tqdm import tqdm
 
 # support running without installing as a package
 wd = Path(__file__).parent.parent.resolve()
+logger = logging.getLogger(__name__)
 sys.path.append(str(wd))
 
 from lit_gpt.tokenizer import Tokenizer
 
+COLUMNS = ("instruction", "input", "output")
+
 
 def prepare(
-    destination_path: Path = Path("data/dolly"),
+    csv_path: Path,
+    destination_path: Path = Path("data/csv"),
     checkpoint_dir: Path = Path("checkpoints/stabilityai/stablelm-base-alpha-3b"),
     test_split_fraction: float = 0.1,
     seed: int = 42,
     mask_inputs: bool = False,
-    data_file_name: str = "dolly_data_cleaned.json",
-    data_file_url: str = "https://huggingface.co/datasets/databricks/databricks-dolly-15k/resolve/main/databricks-dolly-15k.jsonl",
     ignore_index: int = -1,
-    max_seq_length: Optional[int] = None,
 ) -> None:
-    """Prepare the Dolly 15k dataset for instruction tuning.
+    """Prepare a CSV dataset for instruction tuning.
 
     The output is a training and test dataset saved as `train.pt` and `test.pt`,
     which stores the preprocessed and tokenized prompts and labels.
     """
-
-    if max_seq_length is None:
-        with open(checkpoint_dir / "lit_config.json", "r", encoding="utf-8") as file:
-            config = json.load(file)
-            max_seq_length = config["block_size"]
+    with open(checkpoint_dir / "lit_config.json", "r") as file:
+        config = json.load(file)
+        max_seq_length = config["block_size"]
 
     destination_path.mkdir(parents=True, exist_ok=True)
-    data_file_path = destination_path / data_file_name
-    print("Loading data file...")
-    download_if_missing(data_file_path, data_file_url)
+    logger.info("Loading data file ...")
+    import pandas as pd
 
-    with open(data_file_path, "r", encoding="utf-8") as file:
-        data = file.readlines()
-        data = [json.loads(line) for line in data]
-    for item in data:
-        item["input"] = item.pop("context")
-        item["output"] = item.pop("response")
+    df = pd.read_csv(csv_path, dtype=str).fillna("")
+    if not (df.columns.values == COLUMNS).all():
+        raise ValueError(f"CSV columns must be {COLUMNS}, found {df.columns.values}")
+    data = json.loads(df.to_json(orient="records", indent=4))
 
     print("Loading tokenizer...")
     tokenizer = Tokenizer(checkpoint_dir)
@@ -87,14 +81,6 @@ def prepare(
         for sample in tqdm(test_set)
     ]
     torch.save(test_set, destination_path / "test.pt")
-
-
-def download_if_missing(file_path: Path, file_url: str):
-    """Downloads the raw json data file and saves it in the given destination."""
-    if file_path.exists():
-        return
-    with open(file_path, "w", encoding="utf-8") as f:
-        f.write(requests.get(file_url).text)
 
 
 def prepare_sample(example: dict, tokenizer: Tokenizer, max_length: int, mask_inputs: bool, ignore_index: int):
@@ -152,4 +138,4 @@ def generate_prompt(example):
 if __name__ == "__main__":
     from jsonargparse import CLI
 
-    CLI(prepare)
+    CLI(prepare, as_positional=False)
