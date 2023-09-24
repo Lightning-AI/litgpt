@@ -8,7 +8,6 @@ def generate(
     model: torch.nn.Module,
     idx: torch.Tensor,
     max_returned_tokens: int,
-    max_seq_length: int,
     *,
     temperature: float = 1.0,
     top_k: Optional[int] = None,
@@ -22,7 +21,6 @@ def generate(
         model: The model to use.
         idx: Tensor of shape (T) with indices of the prompt sequence.
         max_returned_tokens: The maximum number of tokens to return (given plus generated).
-        max_seq_length: The maximum sequence length allowed. Should be less or equal than the block size.
         temperature: Scales the predicted logits by 1 / temperature.
         top_k: If specified, only sample among the tokens with the k highest probabilities.
         eos_id: If specified, stop generating any more token once the <eos> token is triggered.
@@ -48,7 +46,7 @@ def generate(
         x = idx.index_select(0, input_pos).view(1, -1)
 
         # forward
-        logits = model(x, max_seq_length, input_pos)
+        logits = model(x, input_pos)
         logits = logits[0, -1] / temperature
 
         # optionally crop the logits to only the top k options
