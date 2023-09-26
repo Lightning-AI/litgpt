@@ -7,13 +7,11 @@ from contextlib import contextmanager
 from functools import partial
 from io import BytesIO
 from pathlib import Path
-from types import MethodType
-from typing import Any, Dict, List, Mapping, Optional, Type, TypeVar, Union, Set
+from typing import Dict, List, Mapping, Optional, TypeVar, Union
 
 import torch
 import torch.nn as nn
 import torch.utils._device
-from lightning.fabric.loggers import CSVLogger
 from lightning.fabric.utilities.load import _lazy_load
 from torch.serialization import normalize_storage_type
 
