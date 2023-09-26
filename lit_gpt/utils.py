@@ -173,6 +173,7 @@ class NotYetLoadedTensor:
             "retains_grad",
             "shape",
             "volatile",
+            "is_meta",
         }:
             return getattr(self.metatensor, name)
         if name in {"size"}:
