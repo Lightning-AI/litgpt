@@ -304,7 +304,13 @@ def prompt_config(checkpoint_dir: Path, tokenizer: Tokenizer) -> Tuple[str, Tupl
 
     if re.search("phi", checkpoint_name):
         system_prompt = "{prompt}\n\nAnswer:"
-        stop_tokens = ([tokenizer.eos_id],)
+
+        stop_tokens = (
+            [tokenizer.eos_id],
+            [tokenizer.token_to_id("Answer"), tokenizer.token_to_id(":")],
+            # the model doesn't emit the EOS token often, uncommenting this could be useful for QA, but it breaks coding
+            # [198, 198],  # '\n', '\n'
+        )
         return system_prompt, stop_tokens
 
     # default format
