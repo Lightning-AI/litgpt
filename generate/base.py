@@ -142,12 +142,19 @@ def main(
     fabric.print(f"Time to instantiate model: {time.perf_counter() - t0:.02f} seconds.", file=sys.stderr)
 
     t0 = time.perf_counter()
-    with lazy_load(checkpoint_path) as checkpoint:
-        model.load_state_dict(checkpoint.get("model", checkpoint), strict=quantize is None)
-    fabric.print(f"Time to load the model weights: {time.perf_counter() - t0:.02f} seconds.", file=sys.stderr)
+
+    if quantize:
+        with lazy_load(checkpoint_path) as checkpoint:
+            # for quantization, need to load before moving to device
+            model.load_state_dict(checkpoint.get("model", checkpoint), strict=False)
 
     model.eval()
     model = fabric.setup_module(model)
+
+    if not quantize:
+        fabric.load_raw(checkpoint_path, model, strict=True)
+
+    fabric.print(f"Time to load the model weights: {time.perf_counter() - t0:.02f} seconds.", file=sys.stderr)
 
     tokenizer = Tokenizer(checkpoint_dir)
     encoded = tokenizer.encode(prompt, device=fabric.device)
