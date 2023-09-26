@@ -133,7 +133,7 @@ def train(
         f" {model.max_seq_length} and context length is {model.config.block_size}"
     )
 
-    validate(fabric, model, val_data, tokenizer, longest_seq_length)  # sanity check
+    validate(fabric, model, val_data, tokenizer)  # sanity check
 
     with torch.device("meta"):
         meta_model = GPT(model.config)
@@ -162,9 +162,7 @@ def train(
 
         iter_t0 = time.perf_counter()
 
-        input_ids, targets = get_batch(
-            fabric, train_data, longest_seq_length, longest_seq_ix if iter_num == 0 else None
-        )
+        input_ids, targets = get_batch(fabric, train_data, longest_seq_ix if iter_num == 0 else None)
 
         is_accumulating = (iter_num + 1) % gradient_accumulation_iters != 0
         with fabric.no_backward_sync(model, enabled=is_accumulating):
@@ -196,7 +194,7 @@ def train(
 
         if not is_accumulating and step_count % eval_interval == 0:
             t0 = time.perf_counter()
-            val_loss = validate(fabric, model, val_data, tokenizer, longest_seq_length)
+            val_loss = validate(fabric, model, val_data, tokenizer)
             t1 = time.perf_counter() - t0
             speed_monitor.eval_end(t1)
             fabric.print(f"step {iter_num}: val loss {val_loss.item():.4f}, val time: {t1 * 1000:.2f}ms")
@@ -207,14 +205,12 @@ def train(
 
 
 @torch.inference_mode()
-def validate(
-    fabric: L.Fabric, model: GPT, val_data: List[Dict], tokenizer: Tokenizer, longest_seq_length: int
-) -> torch.Tensor:
+def validate(fabric: L.Fabric, model: GPT, val_data: List[Dict], tokenizer: Tokenizer) -> torch.Tensor:
     fabric.print("Validating ...")
     model.eval()
     losses = torch.zeros(eval_iters)
     for k in range(eval_iters):
-        input_ids, targets = get_batch(fabric, val_data, longest_seq_length)
+        input_ids, targets = get_batch(fabric, val_data)
         logits = model(input_ids)
         losses[k] = chunked_cross_entropy(logits[..., :-1, :], targets[..., 1:], chunk_size=0)
     val_loss = losses.mean()
@@ -238,7 +234,7 @@ def validate(
 
 
 def get_batch(
-    fabric: L.Fabric, data: List[Dict], longest_seq_length: int, longest_seq_ix: Optional[int] = None
+    fabric: L.Fabric, data: List[Dict], longest_seq_ix: Optional[int] = None
 ) -> Tuple[torch.Tensor, torch.Tensor]:
     ix = torch.randint(len(data), (micro_batch_size,))
     if longest_seq_ix is not None:
