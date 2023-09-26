@@ -72,10 +72,10 @@ Helpful competition rules relevant to the dataset choice:
 Use the following steps to set up the Lit-GPT repository on your machine.
 
 
-1. Install PyTorch 2.1 (until 2.1 is officially released, you need to install the nightly release):
+1. Install PyTorch 2.1 (until 2.1 is officially released, you need to install the release candidate):
 
 ```bash
-pip install --index-url https://download.pytorch.org/whl/nightly/cu118 --pre 'torch>=2.1.0dev'
+pip install --index-url https://download.pytorch.org/whl/test/cu118 --pre 'torch==2.1.0'
 ```
 
 2. Clone the repository:
