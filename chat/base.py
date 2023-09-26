@@ -91,10 +91,14 @@ def generate(
 
 def decode(fabric: L.Fabric, tokenizer: Tokenizer, token_stream: Iterator[torch.Tensor]) -> int:
     tokens_generated = 0
+    kk = []
     if tokenizer.backend == "huggingface":
         for token in token_stream:
-            fabric.print(tokenizer.decode(token), end="", flush=True)
+            kk.append(token)
+            fabric.print(token, repr(tokenizer.decode(token)), end="\n", flush=True)
             tokens_generated += 1
+        for token in kk:
+            fabric.print(tokenizer.decode(token), end="", flush=True)
     elif tokenizer.backend == "sentencepiece":
         # sentencepiece does not support decoding token-by-token because it adds spaces based on the surrounding tokens
         # meaning that we need to decode everything each time
@@ -308,7 +312,9 @@ def prompt_config(checkpoint_dir: Path, tokenizer: Tokenizer) -> Tuple[str, Tupl
         stop_tokens = (
             [tokenizer.eos_id],
             [tokenizer.token_to_id("Answer"), tokenizer.token_to_id(":")],
-            # the model doesn't emit the EOS token often, uncommenting this could be useful for QA, but it breaks coding
+            [198, tokenizer.token_to_id("Answer"), tokenizer.token_to_id(":")],
+            # the model rarely emits the eos token and instead outputs newlines, but we cannot use them
+            # to stop or else things like code generation wouldn't work
             # [198, 198],  # '\n', '\n'
         )
         return system_prompt, stop_tokens
