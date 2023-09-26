@@ -92,7 +92,7 @@ git clone https://github.com/Lightning-AI/lit-gpt
 cd lit-gpt
 ```
 
-Lit-GPT currently relies on flash attention from PyTorch nightly. Until PyTorch 2.1 is released you'll need to install nightly manually.
+Lit-GPT uses some features only available in PyTorch 2.1. Until it is released, you'll need to install the release candidate.
 Luckily this is straightforward, as shown below.
 
 &nbsp;
@@ -100,13 +100,13 @@ Luckily this is straightforward, as shown below.
 **On CUDA**
 
 ```bash
-pip install --index-url https://download.pytorch.org/whl/nightly/cu118 --pre 'torch>=2.1.0dev'
+pip install --index-url https://download.pytorch.org/whl/test/cu118 --pre 'torch==2.1.0'
 ```
 
 **On CPU (incl Macs)**
 
 ```bash
-pip install --index-url https://download.pytorch.org/whl/nightly/cpu --pre 'torch>=2.1.0dev'
+pip install --index-url https://download.pytorch.org/whl/test/cpu --pre 'torch==2.1.0'
 ```
 
 **(Optional) install Flash Attention 2**
