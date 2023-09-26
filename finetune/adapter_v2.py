@@ -33,8 +33,6 @@ eval_iters = 100
 eval_max_new_tokens = 100
 log_interval = 1
 devices = 1
-# change this value to force a maximum sequence length
-override_max_seq_length = None
 
 # Hyperparameters
 learning_rate = 3e-3
@@ -132,8 +130,12 @@ def train(
     speed_monitor: SpeedMonitor,
 ) -> None:
     tokenizer = Tokenizer(checkpoint_dir)
-    max_seq_length, longest_seq_length, longest_seq_ix = get_max_seq_length(train_data)
-    model.max_seq_length = max_seq_length
+    longest_seq_length, longest_seq_ix = get_longest_seq_length(train_data)
+    model.max_seq_length = longest_seq_length
+    fabric.print(
+        f"The longest sequence length in the train data is {longest_seq_length}, the model's maximum sequence length is"
+        f" {model.max_seq_length} and context length is {model.config.block_size}"
+    )
 
     validate(fabric, model, val_data, tokenizer, longest_seq_length)  # sanity check
 
@@ -270,17 +272,12 @@ def get_batch(
     return x, y
 
 
-def get_max_seq_length(data: List[Dict]) -> Tuple[int, int, int]:
+def get_longest_seq_length(data: List[Dict]) -> Tuple[int, int]:
     # find out the minimum max_seq_length required during fine-tuning (saves memory!)
     lengths = [len(d["input_ids"]) for d in data]
-    max_seq_length = max(lengths)
-    longest_seq_ix = lengths.index(max_seq_length)
-    # support easy override at the top of the file
-    return (
-        override_max_seq_length if isinstance(override_max_seq_length, int) else max_seq_length,
-        max_seq_length,
-        longest_seq_ix,
-    )
+    longest_seq_length = max(lengths)
+    longest_seq_ix = lengths.index(longest_seq_length)
+    return longest_seq_length, longest_seq_ix
 
 
 def save_adapter_v2_checkpoint(fabric, model, file_path: Path):
