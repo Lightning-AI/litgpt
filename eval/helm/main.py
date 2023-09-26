@@ -181,4 +181,4 @@ if __name__ == "__main__":
         "ignore",
         message="ComplexHalf support is experimental and many operators don't support it yet",
     )
-    CLI(main)
+    CLI(main, as_positional=False)
