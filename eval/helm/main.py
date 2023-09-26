@@ -136,7 +136,6 @@ def main(
 
         t = time.perf_counter() - t0
 
-        model.clear_kv_cache()
         if input_data.echo_prompt is False:
             output = tokenizer.decode(tokens[prompt_length:])
         else:
