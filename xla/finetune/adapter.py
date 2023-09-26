@@ -8,6 +8,7 @@ import lightning as L
 import torch
 import torch_xla.core.xla_model as xm
 from lightning.fabric.accelerators import XLAAccelerator
+from lightning.fabric.loggers import CSVLogger
 from lightning.fabric.strategies import XLAFSDPStrategy
 
 # support running without installing as a package
@@ -18,7 +19,7 @@ from lit_gpt.adapter import GPT, Block, Config, adapter_filter, mark_only_adapte
 from lit_gpt.speed_monitor import SpeedMonitorFabric as SpeedMonitor
 from lit_gpt.speed_monitor import estimate_flops, measure_flops
 from lit_gpt.tokenizer import Tokenizer
-from lit_gpt.utils import check_valid_checkpoint_dir, chunked_cross_entropy, lazy_load, num_parameters, step_csv_logger
+from lit_gpt.utils import check_valid_checkpoint_dir, chunked_cross_entropy, lazy_load, num_parameters
 from scripts.prepare_alpaca import generate_prompt
 from xla.generate.base import generate
 from xla.utils import rank_print, sequential_load_and_fsdp_wrap
@@ -64,7 +65,7 @@ def setup(
         )
     else:
         strategy = "auto"
-    logger = step_csv_logger(out_dir.parent, out_dir.name, flush_logs_every_n_steps=log_interval)
+    logger = CSVLogger(out_dir.parent, out_dir.name, flush_logs_every_n_steps=log_interval)
     fabric = L.Fabric(devices=devices, strategy=strategy, precision=precision, loggers=logger)
     rank_print(fabric, hparams)
     fabric.launch(main, data_dir, checkpoint_dir, out_dir)
