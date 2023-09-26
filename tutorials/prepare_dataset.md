@@ -58,7 +58,7 @@ python scripts/prepare_alpaca.py \
  --max_seq_length 256
 ```
 
-For comparison, the Falcon 7B model requires xx GB of memory for the original Alpaca dataset and xx GB of memory for the truncated Alpaca dataset when finetuning with LoRA using a micro batchsize of 1 and bfloat-16 precision.
+For comparison, the Falcon 7B model requires 23.52 GB of memory for the original Alpaca dataset and 15.73 GB of memory for the truncated Alpaca dataset when finetuning with LoRA using a micro batchsize of 1 and bfloat-16 precision.
 
 &nbsp;
 
