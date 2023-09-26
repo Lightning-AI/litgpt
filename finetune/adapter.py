@@ -6,6 +6,7 @@ from typing import Dict, List, Optional, Tuple
 
 import lightning as L
 import torch
+from lightning.fabric.loggers import CSVLogger
 from lightning.fabric.strategies import FSDPStrategy
 
 # support running without installing as a package
@@ -23,7 +24,6 @@ from lit_gpt.utils import (
     get_default_supported_precision,
     lazy_load,
     num_parameters,
-    step_csv_logger,
 )
 from scripts.prepare_alpaca import generate_prompt
 
@@ -69,7 +69,7 @@ def setup(
     else:
         strategy = "auto"
 
-    logger = step_csv_logger(out_dir.parent, out_dir.name, flush_logs_every_n_steps=log_interval)
+    logger = CSVLogger(out_dir.parent, out_dir.name, flush_logs_every_n_steps=log_interval)
     fabric = L.Fabric(devices=fabric_devices, strategy=strategy, precision=precision, loggers=logger)
     fabric.print(hparams)
     fabric.launch(main, data_dir, checkpoint_dir, out_dir)
