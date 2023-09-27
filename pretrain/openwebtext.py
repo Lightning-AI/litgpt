@@ -7,6 +7,7 @@ from typing import Optional, Union
 import lightning as L
 import numpy as np
 import torch
+from lightning.fabric.loggers import CSVLogger
 from lightning.fabric.strategies import FSDPStrategy
 from torch.utils.data import DataLoader, IterableDataset
 
@@ -18,7 +19,7 @@ from lit_gpt import Config
 from lit_gpt.model import GPT, Block
 from lit_gpt.speed_monitor import SpeedMonitorFabric as SpeedMonitor
 from lit_gpt.speed_monitor import estimate_flops, measure_flops
-from lit_gpt.utils import chunked_cross_entropy, get_default_supported_precision, num_parameters, step_csv_logger
+from lit_gpt.utils import chunked_cross_entropy, get_default_supported_precision, num_parameters
 
 model_name = "pythia-70m"
 name = "openwebtext"
@@ -46,7 +47,7 @@ lr_decay_iters = max_iters
 min_lr = 6e-5
 
 hparams = {k: v for k, v in locals().items() if isinstance(v, (int, float, str)) and not k.startswith("_")}
-logger = step_csv_logger("out", name, flush_logs_every_n_steps=log_interval)
+logger = CSVLogger("out", name, flush_logs_every_n_steps=log_interval)
 
 
 def setup(devices: int = 1, precision: Optional[str] = None, resume: Union[bool, Path] = False) -> None:

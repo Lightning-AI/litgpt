@@ -599,7 +599,7 @@ def main(
     config = Config.from_json(checkpoint_dir / "lit_config.json")
 
     device = "cuda"
-    fabric = Fabric(accelerator="cuda", precision=precision)
+    fabric = Fabric(accelerator="cuda", devices=1, precision=precision)
 
     # we avoid loading the entire model on the GPU and do this block by block
     checkpoint_path = checkpoint_dir / "lit_model.pth"

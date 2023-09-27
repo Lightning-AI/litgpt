@@ -6,7 +6,6 @@ from typing import Optional
 
 import requests
 import torch
-from torch.utils.data import random_split
 from tqdm import tqdm
 
 # support running without installing as a package
