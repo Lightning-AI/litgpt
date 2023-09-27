@@ -113,10 +113,6 @@ def main(
         )
         prompt_length = encoded.size(0)
         max_returned_tokens = prompt_length + input_data.max_new_tokens
-        assert max_returned_tokens <= model.config.block_size, (
-            max_returned_tokens,
-            model.config.block_size,
-        )  # maximum rope cache length
 
         t0 = time.perf_counter()
         with fabric.init_tensor():
