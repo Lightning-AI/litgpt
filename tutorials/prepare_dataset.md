@@ -28,11 +28,10 @@ The steps here only need to be done once before preparing the finetuning dataset
 
 &nbsp;
 
-### Alpaca and Alpaca Libre
+### Alpaca
 
 &nbsp;
 
-**Alpaca**
 
 The Alpaca dataset consists of 52,000 instructions and demonstrations produced by OpenAI's text-davinci-003 engine. This data is used in instruction-tuning, helping improve the performance of language models to follow instructions.
 
@@ -45,9 +44,25 @@ python scripts/prepare_alpaca.py \
  --checkpoint_dir checkpoints/tiiuae/falcon-7b
 ```
 
+#### Truncating datasets
+
+By default, the finetuning script (for example [`finetuning/lora.py`](../finetuning/lora.py)) will determine the size of the longest tokenized sample in the dataset to determine the block size. However, if you are willing to truncate a few examples in the training set, you can reduce the computational resource requirements significantly. For instance you can set a sequence length threshold via `--max_seq_length`. We can determine an appropriate maximum sequence length by considering the distribution of the data sample lengths shown in the histogram below.
+
+<img src="images/prepare_dataset/alpaca.jpg" width=400px>
+
+In this case, a cut-off of 256 may be a reasonable choice:
+
+```bash
+python scripts/prepare_alpaca.py \
+ --checkpoint_dir checkpoints/tiiuae/falcon-7b \
+ --max_seq_length 256
+```
+
+For comparison, the Falcon 7B model requires 23.52 GB of memory for the original Alpaca dataset and 15.73 GB of memory for the truncated Alpaca dataset when finetuning with LoRA using a micro batchsize of 1 and bfloat-16 precision.
+
 &nbsp;
 
-**Alpaca Libre**
+### Alpaca Libre
 
 [Alpaca Libre](https://github.com/mobarski/alpaca-libre) is a reimplementation or alternative to Alpaca using the same formatting.
 
@@ -61,6 +76,23 @@ python scripts/prepare_alpaca.py \
  --destination_path "data/alpaca_libre"
 ```
 
+The Alpaca Libre dataset distribution is shown below.
+
+<img src="images/prepare_dataset/alpaca_libre.jpg" width=400px>
+
+You may want to consider truncating the dataset (see the *Truncating datasets* discussion in the Alpaca section for more information.) For this dataset, a cut-off of 256 may be a good choice:
+
+```bash
+python scripts/prepare_alpaca.py \
+ --checkpoint_dir "checkpoints/tiiuae/falcon-7b" \
+ --data_file_url "https://raw.githubusercontent.com/mobarski/alpaca-libre/main/data/output/alpaca_libre_ok_tasks_v4.json" \
+ --data_file_name "alpaca_libre_data_cleaned_archive.json" \
+ --destination_path "data/alpaca_libre" \
+ --max_seq_length 256
+```
+
+
+
 &nbsp;
 
 ### Dolly
@@ -71,9 +103,20 @@ The usage is similar to the Alpaca dataset described above. Using Falcon 7b as a
 
 ```bash
 python scripts/prepare_dolly.py \
- --checkpoint_dir "checkpoints/tiiuae/falcon-7b" \
+ --checkpoint_dir "checkpoints/tiiuae/falcon-7b"
 ```
 
+The Dolly dataset distribution is shown below.
+
+<img src="images/prepare_dataset/dolly.jpg" width=400px>
+
+You may want to consider truncating the dataset (see the *Truncating datasets* discussion in the Alpaca section for more information.) For this dataset, a cut-off of 512 may be a good choice:
+
+```bash
+python scripts/prepare_dolly.py \
+ --checkpoint_dir "checkpoints/tiiuae/falcon-7b" \
+ --max_seq_length 512
+```
 
 &nbsp;
 
@@ -103,6 +146,17 @@ The more detailed dataset composition is as follows based on a table taken from 
 
 License information is not provided but would depend on the individual subsets listed above.
 
+The LongForm dataset distribution is shown below.
+
+<img src="images/prepare_dataset/longform.jpg" width=400px>
+
+You may want to consider truncating the dataset (see the *Truncating datasets* discussion in the Alpaca section for more information.) For this dataset, a cut-off of 1500 may be a good choice:
+
+```bash
+python scripts/prepare_dolly.py \
+ --checkpoint_dir "checkpoints/tiiuae/falcon-7b" \
+ --max_seq_length 1500
+```
 
 &nbsp;
 
@@ -121,6 +175,18 @@ python scripts/prepare_lima.py \
 LIMA contains a handful of multiturn conversations. By default, only the first instruction-response pairs from
 each of these multiturn conversations are included. If you want to override this behavior and include the follow up instructions
 and responses, set `--include_multiturn_conversations True`.
+
+The Lima dataset distribution is shown below.
+
+<img src="images/prepare_dataset/lima.jpg" width=400px>
+
+You may want to consider truncating the dataset (see the *Truncating datasets* discussion in the Alpaca section for more information.) For this dataset, a cut-off of 512 may be a good choice:
+
+```bash
+python scripts/prepare_dolly.py \
+ --checkpoint_dir "checkpoints/tiiuae/falcon-7b" \
+ --max_seq_length 512
+```
 
 
 &nbsp;
@@ -143,7 +209,7 @@ Please read the [tutorials/finetune_*.md](../tutorials) documents for more infor
 
 > [!IMPORTANT]
 > By default, the maximum sequence length is obtained from the model configuration file. In case you run into out-of-memory errors, especially in the cases of LIMA and Dolly,
-> you can try to lower the context length by preparing the dataset with a fixed max length, for example, `python scripts/prepare_lima.py --max_seq_length 2048`.
+> you can try to lower the context length by preparing the dataset with a fixed max length, for example, `python scripts/prepare_lima.py --max_seq_length 2048`. For more information on truncating datasets, see the *Truncating datasets* section in the Alpaca section near the top of this article.
 
 &nbsp;
 
