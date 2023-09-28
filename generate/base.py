@@ -144,6 +144,7 @@ def main(
     t0 = time.perf_counter()
     
     if quantize:
+        # for quantization, need to load before moving to device
         load_checkpoint(fabric, model, checkpoint_path, strict=(quantize is None))
 
     model.eval()
