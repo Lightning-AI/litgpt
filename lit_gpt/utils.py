@@ -517,5 +517,5 @@ def load_checkpoint(fabric, model, checkpoint_path: Path, strict: bool = True) -
         fabric.load_raw(checkpoint_path, model, strict=strict)
     else:
         state_dict = _lazy_load(checkpoint_path)
-        state_dict.get("model", state_dict)
+        state_dict = state_dict.get("model", state_dict)
         model.load_state_dict(state_dict, strict=strict)
