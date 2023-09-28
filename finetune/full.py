@@ -32,7 +32,7 @@ save_interval = 1000
 eval_iters = 100
 eval_max_new_tokens = 100
 log_interval = 1
-devices = 2
+devices = 1
 # change this value to force a maximum sequence length
 override_max_seq_length = None
 

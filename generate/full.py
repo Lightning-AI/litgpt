@@ -14,7 +14,7 @@ sys.path.append(str(wd))
 from generate.base import generate
 from lit_gpt import GPT, Config, Tokenizer
 from lit_gpt.model import Block
-from lit_gpt.utils import check_valid_checkpoint_dir, get_default_supported_precision, lazy_load, quantization
+from lit_gpt.utils import check_valid_checkpoint_dir, get_default_supported_precision, load_checkpoint, quantization
 from scripts.prepare_alpaca import generate_prompt
 
 
@@ -77,12 +77,12 @@ def main(
     fabric.print(f"Time to instantiate model: {time.perf_counter() - t0:.02f} seconds.", file=sys.stderr)
 
     t0 = time.perf_counter()
-    with lazy_load(finetuned_path) as checkpoint:
-        model.load_state_dict(checkpoint.get("model", checkpoint), strict=quantize is None)
-    fabric.print(f"Time to load the model weights: {time.perf_counter() - t0:.02f} seconds.", file=sys.stderr)
 
     model.eval()
     model = fabric.setup(model)
+
+    load_checkpoint(fabric, model, checkpoint_path, strict=(quantize is None))
+    fabric.print(f"Time to load the model weights: {time.perf_counter() - t0:.02f} seconds.", file=sys.stderr)
 
     tokenizer = Tokenizer(checkpoint_dir)
     sample = {"instruction": prompt, "input": input}
