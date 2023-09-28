@@ -286,6 +286,55 @@ def test_against_hf_phi():
     torch.testing.assert_close(ours_y, theirs_y)
 
 
+@torch.inference_mode()
+@pytest.mark.skipif(
+    compare_version("transformers", operator.lt, "4.34.0", use_base_version=True), reason="requires mistral"
+)
+def test_against_hf_mistral():
+    from transformers.models.mistral.configuration_mistral import MistralConfig
+    from transformers.models.mistral.modeling_mistral import MistralForCausalLM
+
+    from lit_gpt import GPT, Config
+    from scripts.convert_hf_checkpoint import copy_weights_hf_llama
+
+    ours_config = Config.from_name(
+        "Mistral-7B-Instruct-v0.1",
+        padded_vocab_size=10000,
+        n_layer=2,
+        n_head=8,
+        n_embd=32,
+        intermediate_size=86,
+        n_query_groups=2,
+    )
+    T = 5
+    theirs_config = MistralConfig(
+        vocab_size=ours_config.padded_vocab_size,
+        hidden_size=ours_config.n_embd,
+        num_attention_heads=ours_config.n_head,
+        num_hidden_layers=ours_config.n_layer,
+        intermediate_size=ours_config.intermediate_size,
+        max_position_embeddings=T,
+        rms_norm_eps=1e-5,
+        num_query_value_heads=ours_config.n_query_groups,
+        rope_theta=ours_config.rope_base,
+    )
+    assert ours_config.intermediate_size == theirs_config.intermediate_size
+
+    theirs_model = MistralForCausalLM(theirs_config)
+    theirs_state_dict = theirs_model.state_dict()
+    state_dict = {}
+    copy_weights_hf_llama(ours_config, {}, state_dict, theirs_state_dict)
+    ours_model = GPT(ours_config)
+    ours_model.load_state_dict(state_dict)
+
+    # test end to end
+    x = torch.tensor([[9856, 23, 491, 1536, 304]], dtype=torch.int32)
+    assert x.size(1) == T
+    ours_y = ours_model(x)
+    theirs_y = theirs_model(x)["logits"]
+    torch.testing.assert_close(ours_y, theirs_y)
+
+
 @pytest.mark.skipif(sys.platform in ("win32", "darwin"), reason="torch.compile not supported on this platform")
 @torch.inference_mode()
 def test_model_compile():

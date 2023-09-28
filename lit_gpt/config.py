@@ -1028,7 +1028,7 @@ mistral = [
         norm_eps=1e-05,
         _mlp_class="LLaMAMLP",
         intermediate_size=14336,
-    ),
+    )
 ]
 for c in mistral:
     for kind in ("", "Instruct-"):
