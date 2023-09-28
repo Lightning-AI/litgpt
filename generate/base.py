@@ -143,16 +143,21 @@ def main(
 
     t0 = time.perf_counter()
 
-    if quantize:
-        with lazy_load(checkpoint_path) as checkpoint:
-            # for quantization, need to load before moving to device
-            model.load_state_dict(checkpoint.get("model", checkpoint), strict=False)
+    # if quantize:
+    #     with lazy_load(checkpoint_path) as checkpoint:
+    #         # for quantization, need to load before moving to device
+    #         model.load_state_dict(checkpoint.get("model", checkpoint), strict=False)
 
     model.eval()
     model = fabric.setup_module(model)
 
-    if not quantize:
-        fabric.load_raw(checkpoint_path, model, strict=True)
+    # if quantize:
+    with lazy_load(checkpoint_path) as checkpoint:
+        # for quantization, need to load before moving to device
+        model.load_state_dict(checkpoint.get("model", checkpoint), strict=False)
+
+    # if not quantize:
+    #     fabric.load_raw(checkpoint_path, model, strict=True)
 
     fabric.print(f"Time to load the model weights: {time.perf_counter() - t0:.02f} seconds.", file=sys.stderr)
 
