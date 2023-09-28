@@ -142,11 +142,15 @@ def main(
     fabric.print(f"Time to instantiate model: {time.perf_counter() - t0:.02f} seconds.", file=sys.stderr)
 
     t0 = time.perf_counter()
+    
+    if quantize:
+        load_checkpoint(fabric, model, checkpoint_path, strict=(not quantize))
 
     model.eval()
     model = fabric.setup_module(model)
 
-    load_checkpoint(fabric, model, checkpoint_path, strict=(not quantize))
+    if not quantize:
+        load_checkpoint(fabric, model, checkpoint_path, strict=(not quantize))
 
     fabric.print(f"Time to load the model weights: {time.perf_counter() - t0:.02f} seconds.", file=sys.stderr)
 
