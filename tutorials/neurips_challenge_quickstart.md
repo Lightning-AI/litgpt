@@ -72,10 +72,10 @@ Helpful competition rules relevant to the dataset choice:
 Use the following steps to set up the Lit-GPT repository on your machine.
 
 
-1. Install PyTorch 2.1 (until 2.1 is officially released, you need to install the nightly release):
+1. Install PyTorch 2.1 (until 2.1 is officially released, you need to install the release candidate):
 
 ```bash
-pip install --index-url https://download.pytorch.org/whl/nightly/cu118 --pre 'torch>=2.1.0dev'
+pip install --index-url https://download.pytorch.org/whl/test/cu118 --pre 'torch==2.1.0'
 ```
 
 2. Clone the repository:
@@ -144,7 +144,7 @@ python scripts/prepare_dolly.py \
 To accelerate this for testing purposes, edit the [./finetune/lora.py](https://github.com/Lightning-AI/lit-gpt/blob/main/finetune/lora.py) script and change `max_iters = 50000` to `max_iters = 500` at the top of the file.
 
 > [!NOTE]
-> The Dolly dataset has a relatively long context length, which could result in out-of-memory issues. The maximum context length that is used for the evaluation, [according to the official competition rules](https://llm-efficiency-challenge.github.io/question), is 2,048 tokens. Hence, it's highly recommended to prepare the daset with a fixed max length, for example, `python scripts/prepare_dolly.py --max_seq_length 2048`. Alternatively, you can edit the  [`finetune/lora.py` file](https://github.com/Lightning-AI/lit-gpt/blob/main/finetune/lora.py#L37) and change `override_max_seq_length = None` to `override_max_seq_length = 2048`.
+> The Dolly dataset has a relatively long context length, which could result in out-of-memory issues. The maximum context length that is used for the evaluation, [according to the official competition rules](https://llm-efficiency-challenge.github.io/question), is 2,048 tokens. Hence, it's highly recommended to prepare the dataset with a fixed max length, for example, `python scripts/prepare_dolly.py --max_seq_length 2048`.
 
 The following command finetunes the model:
 

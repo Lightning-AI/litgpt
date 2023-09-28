@@ -7,13 +7,11 @@ from contextlib import contextmanager
 from functools import partial
 from io import BytesIO
 from pathlib import Path
-from types import MethodType
-from typing import Any, Dict, List, Mapping, Optional, Type, TypeVar, Union
+from typing import Dict, List, Mapping, Optional, TypeVar, Union
 
 import torch
 import torch.nn as nn
 import torch.utils._device
-from lightning.fabric.loggers import CSVLogger
 from lightning.fabric.strategies import FSDPStrategy
 from lightning.fabric.utilities.load import _lazy_load
 from torch.serialization import normalize_storage_type
@@ -413,36 +411,6 @@ class incremental_save:
 
 
 T = TypeVar("T")
-
-
-def step_csv_logger(*args: Any, cls: Type[T] = CSVLogger, **kwargs: Any) -> T:
-    logger = cls(*args, **kwargs)
-
-    def merge_by(dicts, key):
-        from collections import defaultdict
-
-        out = defaultdict(dict)
-        for d in dicts:
-            if key in d:
-                out[d[key]].update(d)
-        return [v for _, v in sorted(out.items())]
-
-    def save(self) -> None:
-        """Overridden to merge CSV by the step number."""
-        import csv
-
-        if not self.metrics:
-            return
-        metrics = merge_by(self.metrics, "step")
-        keys = sorted({k for m in metrics for k in m})
-        with self._fs.open(self.metrics_file_path, "w", newline="") as f:
-            writer = csv.DictWriter(f, fieldnames=keys)
-            writer.writeheader()
-            writer.writerows(metrics)
-
-    logger.experiment.save = MethodType(save, logger.experiment)
-
-    return logger
 
 
 def chunked_cross_entropy(

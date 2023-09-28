@@ -19,7 +19,7 @@ sys.path.append(str(wd))
 from lit_gpt import Config
 from lit_gpt.model import GPT, Block
 from lit_gpt.speed_monitor import SpeedMonitorCallback, estimate_flops, measure_flops
-from lit_gpt.utils import chunked_cross_entropy, get_default_supported_precision, step_csv_logger
+from lit_gpt.utils import chunked_cross_entropy, get_default_supported_precision
 
 model_name = "pythia-70m"
 name = "openwebtext"
@@ -115,7 +115,7 @@ def main(devices: int = 1, precision: Optional[str] = None) -> None:
     else:
         strategy = "auto"
 
-    logger = step_csv_logger("out", name, cls=CSVLogger, flush_logs_every_n_steps=log_interval)
+    logger = CSVLogger("out", name, flush_logs_every_n_steps=log_interval)
     speed_monitor = SpeedMonitorCallback(
         length_fn=lambda batch: batch[0].size(1), batch_size=micro_batch_size, window_size=50, time_unit="seconds"
     )
