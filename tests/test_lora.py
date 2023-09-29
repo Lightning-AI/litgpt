@@ -355,13 +355,13 @@ def test_lora_qkv_linear_weights_merged_status(rank, enable_lora, expected_merge
 # platform dependent cuda issue: libbitsandbytes_cpu.so: undefined symbol: cquantize_blockwise_fp16_nf4
 @pytest.mark.xfail(raises=AttributeError, strict=False)
 def test_lora_merge_with_quantize():
-    import quantize.bnb as bnb
+    from lightning.fabric.plugins.precision.bitsandbytes import _BITSANDBYTES_AVAILABLE, BitsandbytesPrecision
 
-    if not bnb._BITSANDBYTES_AVAILABLE:
+    if not _BITSANDBYTES_AVAILABLE:
         pytest.skip("BNB not available")
 
     from lit_gpt.lora import GPT, Config, mark_only_lora_as_trainable, merge_lora_weights
-    from lit_gpt.utils import get_default_supported_precision, quantization
+    from lit_gpt.utils import get_default_supported_precision
 
     config = Config(
         n_layer=1,
@@ -376,8 +376,8 @@ def test_lora_merge_with_quantize():
         to_value=True,
         to_projection=True,
     )
-    fabric = Fabric(devices=1, precision=get_default_supported_precision(training=True))
-    with fabric.init_module(empty_init=False), quantization("bnb.nf4"):
+    fabric = Fabric(devices=1, precision=BitsandbytesPrecision("nf4", skips={"lm_head"}))
+    with fabric.init_module(empty_init=False):
         model = GPT(config)
         model.apply(model._init_weights)
 
@@ -392,6 +392,9 @@ def test_lora_merge_with_quantize():
 
     attn_proj = model.transformer.h[0].attn.proj
     initial_weight = attn_proj.linear.weight.clone()
+
+    assert attn_proj.weight.dtype is torch.uint8
+    assert model.lm_head.weight.dtype is torch.float32
 
     # perform an update to the LoRA weights
     y = model(torch.randint(0, 8, size=(2, 4), dtype=torch.int64, device=fabric.device))
@@ -413,44 +416,6 @@ def test_lora_merge_with_quantize():
     # check that `W_after = W_initial + (A x B)`
     delta_w = (attn_proj.lora_B @ attn_proj.lora_A) * attn_proj.scaling
     torch.testing.assert_close(weight_after, initial_weight + delta_w)
-
-
-@pytest.mark.parametrize(
-    ("mode", "expected"),
-    (
-        ("bnb.nf4", "Linear4bit"),
-        ("bnb.nf4-dq", "Linear4bit"),
-        ("bnb.fp4", "Linear4bit"),
-        ("bnb.fp4-dq", "Linear4bit"),
-        pytest.param(
-            "bnb.int8",
-            "Linear8bitLt",
-            marks=[
-                pytest.mark.skipif(not torch.cuda.is_available(), reason="8bit requires CUDA"),
-                # platform dependent cuda issue: libbitsandbytes_cpu.so: undefined symbol: cget_col_row_stats
-                pytest.mark.xfail(raises=AttributeError, strict=False),
-            ],
-        ),
-    ),
-)
-def test_bnb_replacement(mode, expected):
-    import quantize.bnb as bnb
-
-    if not bnb._BITSANDBYTES_AVAILABLE:
-        pytest.skip("BNB not available")
-
-    from lit_gpt.lora import LoRALinear, LoRAQKVLinear
-    from lit_gpt.utils import quantization
-
-    with quantization(mode):
-        linear = LoRALinear(1, 1)
-        qkv = LoRAQKVLinear(1, 1, 1, 1)
-
-    import bitsandbytes
-
-    expected = getattr(bitsandbytes.modules, expected)
-    assert isinstance(linear.linear, expected)
-    assert isinstance(qkv.linear, expected)
 
 
 def test_lora_gpt_init_weights():

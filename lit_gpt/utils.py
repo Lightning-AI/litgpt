@@ -29,56 +29,19 @@ def num_parameters(module: nn.Module, requires_grad: Optional[bool] = None) -> i
 
 
 @contextmanager
-def quantization(mode: Optional[str] = None):
-    if mode is None:
+def gptq_quantization(enabled: bool = False):
+    if not enabled:
         yield
         return
 
-    if mode.startswith("bnb"):
-        import quantize.bnb as bnb
-    if mode == "bnb.int8":
-        quantized_linear_cls = bnb.InferenceLinear8bitLt
-    elif mode == "bnb.fp4":
-        # Use a class instead `functools.partial` to respect `isinstance` checks and attribute accesses
-        class QuantizedLinear(bnb.Linear4bit):
-            def __init__(self, *args, **kwargs):
-                super().__init__(*args, quant_type="fp4", compress_statistics=False, **kwargs)
+    from quantize.gptq import ColBlockQuantizedLinear
 
-        quantized_linear_cls = QuantizedLinear
-    elif mode == "bnb.fp4-dq":
-
-        class QuantizedLinear(bnb.Linear4bit):
-            def __init__(self, *args, **kwargs):
-                super().__init__(*args, quant_type="fp4", compress_statistics=True, **kwargs)
-
-        quantized_linear_cls = QuantizedLinear
-    elif mode == "bnb.nf4":
-
-        class QuantizedLinear(bnb.Linear4bit):
-            def __init__(self, *args, **kwargs):
-                super().__init__(*args, quant_type="nf4", compress_statistics=False, **kwargs)
-
-        quantized_linear_cls = QuantizedLinear
-    elif mode == "bnb.nf4-dq":
-
-        class QuantizedLinear(bnb.Linear4bit):
-            def __init__(self, *args, **kwargs):
-                super().__init__(*args, quant_type="nf4", compress_statistics=True, **kwargs)
-
-        quantized_linear_cls = QuantizedLinear
-    elif mode == "gptq.int4":
-        from quantize.gptq import ColBlockQuantizedLinear
-
-        class QuantizedLinear(ColBlockQuantizedLinear):
-            def __init__(self, *args, **kwargs):
-                super().__init__(*args, bits=4, tile_cols=-1, **kwargs)
-
-        quantized_linear_cls = QuantizedLinear
-    else:
-        raise ValueError(f"Unknown quantization mode: {mode}")
+    class QuantizedLinear(ColBlockQuantizedLinear):
+        def __init__(self, *args, **kwargs):
+            super().__init__(*args, bits=4, tile_cols=-1, **kwargs)
 
     torch_linear_cls = torch.nn.Linear
-    torch.nn.Linear = quantized_linear_cls
+    torch.nn.Linear = QuantizedLinear
     yield
     torch.nn.Linear = torch_linear_cls
 

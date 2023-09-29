@@ -12,7 +12,7 @@ wd = Path(__file__).parent.parent.resolve()
 sys.path.append(str(wd))
 
 from lit_gpt import GPT, Config, Tokenizer
-from lit_gpt.utils import check_valid_checkpoint_dir, get_default_supported_precision, lazy_load, quantization
+from lit_gpt.utils import check_valid_checkpoint_dir, get_default_supported_precision, lazy_load, gptq_quantization
 
 
 @torch.inference_mode()
@@ -153,7 +153,7 @@ def main(
         model_file = "lit_model.pth"
     checkpoint_path = checkpoint_dir / model_file
     fabric.print(f"Loading model {str(checkpoint_path)!r} with {config.__dict__}", file=sys.stderr)
-    with fabric.init_module(empty_init=True), quantization(quantize):
+    with fabric.init_module(empty_init=True), gptq_quantization(quantize):
         model = GPT(config)
     with lazy_load(checkpoint_path) as checkpoint:
         model.load_state_dict(checkpoint.get("model", checkpoint), strict=quantize is None)

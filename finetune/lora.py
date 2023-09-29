@@ -7,6 +7,7 @@ from typing import Dict, List, Literal, Optional, Tuple
 import lightning as L
 import torch
 from lightning.fabric.loggers import CSVLogger
+from lightning.fabric.plugins import BitsandbytesPrecision
 from lightning.fabric.strategies import FSDPStrategy
 
 # support running without installing as a package
@@ -24,7 +25,6 @@ from lit_gpt.utils import (
     get_default_supported_precision,
     load_checkpoint,
     num_parameters,
-    quantization,
 )
 from scripts.prepare_alpaca import generate_prompt
 
@@ -64,14 +64,22 @@ def setup(
     precision: Optional[str] = None,
     quantize: Optional[Literal["bnb.nf4", "bnb.nf4-dq", "bnb.fp4", "bnb.fp4-dq"]] = None,
 ):
-    precision = precision or get_default_supported_precision(training=True)
+    if precision is None:
+        precision = get_default_supported_precision(training=False)
 
-    fabric_devices = devices
-    if fabric_devices > 1:
+    plugins = None
+    if quantize is not None and quantize.startswith("bnb."):
+        if "mixed" in precision:
+            raise ValueError("Quantization and mixed precision is not supported.")
+        dtype = {"16-true": torch.float16, "bf16-true": torch.bfloat16, "32-true": torch.float32}[precision]
+        plugins = BitsandbytesPrecision(quantize[4:], dtype, skips={"lm_head"})
+        precision = None
+
+    if devices > 1:
         if quantize:
             raise NotImplementedError(
-                "Quantization is currently not supported for multi-GPU training. "
-                "Please set devices=1 when using the --quantization flag."
+                "Quantization is currently not supported for multi-GPU training. Please set devices=1 when using the"
+                " --quantization flag."
             )
         strategy = FSDPStrategy(
             auto_wrap_policy={Block},
@@ -83,7 +91,7 @@ def setup(
         strategy = "auto"
 
     logger = CSVLogger(out_dir.parent, out_dir.name, flush_logs_every_n_steps=log_interval)
-    fabric = L.Fabric(devices=fabric_devices, strategy=strategy, precision=precision, loggers=logger)
+    fabric = L.Fabric(devices=devices, strategy=strategy, precision=precision, loggers=logger, plugins=plugins)
     fabric.print(hparams)
     fabric.launch(main, data_dir, checkpoint_dir, out_dir, quantize)
 
@@ -117,7 +125,7 @@ def main(fabric: L.Fabric, data_dir: Path, checkpoint_dir: Path, out_dir: Path, 
     )
     checkpoint_path = checkpoint_dir / "lit_model.pth"
     fabric.print(f"Loading model {str(checkpoint_path)!r} with {config.__dict__}")
-    with fabric.init_module(empty_init=(devices > 1)), quantization(quantize):
+    with fabric.init_module(empty_init=(devices > 1)):
         model = GPT(config)
     mark_only_lora_as_trainable(model)
 
@@ -131,7 +139,7 @@ def main(fabric: L.Fabric, data_dir: Path, checkpoint_dir: Path, out_dir: Path, 
     model = fabric.setup_module(model)
 
     trainable_params = [p for p in model.parameters() if p.requires_grad]
-    if quantize and quantize.startswith("bnb."):
+    if isinstance(fabric.strategy.precision, BitsandbytesPrecision):
         import bitsandbytes as bnb
 
         optimizer = bnb.optim.PagedAdamW(trainable_params, lr=learning_rate, weight_decay=weight_decay)

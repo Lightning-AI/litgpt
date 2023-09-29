@@ -174,14 +174,3 @@ def test_num_parameters():
     assert num_parameters(model, requires_grad=False) == 2
 
 
-@pytest.mark.parametrize("mode", ("bnb.nf4", "bnb.nf4-dq", "bnb.fp4", "bnb.fp4-dq", "bnb.int8"))
-def test_quantize_raises_when_bnb_unavailable(mode):
-    import quantize.bnb as bnb
-
-    if bnb._BITSANDBYTES_AVAILABLE:
-        pytest.skip("BNB needs to be unavailable")
-
-    from lit_gpt.utils import quantization
-
-    with pytest.raises(ModuleNotFoundError, match="bitsandbytes.*was not found"), quantization(mode):
-        pass

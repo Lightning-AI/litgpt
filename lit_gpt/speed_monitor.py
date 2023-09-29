@@ -295,7 +295,7 @@ class SpeedMonitorBase:
 
 class SpeedMonitorFabric(SpeedMonitorBase):
     def __init__(self, fabric: Fabric, *args: Any, **kwargs: Any) -> None:
-        # TODO: this will not work properly if a precision plugin is passed to Fabric
+        # FIXME: this will not work properly if a precision plugin is passed to Fabric
         flops_available = get_flops_available(fabric.device, fabric._connector._precision_input)
         super().__init__(flops_available, fabric.log_dict, *args, **kwargs)
 
@@ -318,7 +318,7 @@ class SpeedMonitorCallback(Callback):
     def setup(self, trainer: Trainer, pl_module: LightningModule, stage: str) -> None:
         if self.speed_monitor is not None:
             return  # already setup
-        # TODO: this will not work properly if a precision plugin is passed to Trainer
+        # FIXME: this will not work properly if a precision plugin is passed to Trainer
         flops_available = get_flops_available(
             trainer.strategy.root_device, trainer._accelerator_connector._precision_flag
         )
