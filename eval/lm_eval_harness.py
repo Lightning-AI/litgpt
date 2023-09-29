@@ -17,7 +17,7 @@ sys.path.append(str(wd))
 from generate.base import generate
 from lit_gpt import GPT, Config, Tokenizer
 from lit_gpt.model import Block
-from lit_gpt.utils import check_valid_checkpoint_dir, get_default_supported_precision, lazy_load, gptq_quantization
+from lit_gpt.utils import check_valid_checkpoint_dir, get_default_supported_precision, gptq_quantization, lazy_load
 
 
 class EvalHarnessBase(BaseLM):

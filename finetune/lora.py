@@ -132,10 +132,6 @@ def main(fabric: L.Fabric, data_dir: Path, checkpoint_dir: Path, out_dir: Path, 
     fabric.print(f"Number of trainable parameters: {num_parameters(model, requires_grad=True):,}")
     fabric.print(f"Number of non trainable parameters: {num_parameters(model, requires_grad=False):,}")
 
-    if quantize:
-        # for quantization, need to load before moving to device
-        load_checkpoint(fabric, model, checkpoint_path, strict=False)
-
     model = fabric.setup_module(model)
 
     trainable_params = [p for p in model.parameters() if p.requires_grad]
@@ -147,9 +143,8 @@ def main(fabric: L.Fabric, data_dir: Path, checkpoint_dir: Path, out_dir: Path, 
         optimizer = torch.optim.AdamW(trainable_params, lr=learning_rate, weight_decay=weight_decay)
     optimizer = fabric.setup_optimizers(optimizer)
 
-    if not quantize:
-        # strict=False because missing keys due to LoRA weights not contained in state dict
-        load_checkpoint(fabric, model, checkpoint_path, strict=False)
+    # strict=False because missing keys due to LoRA weights not contained in state dict
+    load_checkpoint(fabric, model, checkpoint_path, strict=False)
 
     fabric.seed_everything(1337 + fabric.global_rank)
 

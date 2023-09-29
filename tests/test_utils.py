@@ -172,5 +172,3 @@ def test_num_parameters():
     assert num_parameters(model) == 6
     assert num_parameters(model, requires_grad=True) == 4
     assert num_parameters(model, requires_grad=False) == 2
-
-

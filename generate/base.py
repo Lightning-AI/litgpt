@@ -14,8 +14,12 @@ sys.path.append(str(wd))
 
 from lit_gpt import GPT, Config, Tokenizer
 from lit_gpt.model import Block
-from lit_gpt.utils import check_valid_checkpoint_dir, get_default_supported_precision, gptq_quantization, \
-    load_checkpoint
+from lit_gpt.utils import (
+    check_valid_checkpoint_dir,
+    get_default_supported_precision,
+    gptq_quantization,
+    load_checkpoint,
+)
 
 
 @torch.inference_mode()
@@ -158,18 +162,11 @@ def main(
         model = GPT(config)
     fabric.print(f"Time to instantiate model: {time.perf_counter() - t0:.02f} seconds.", file=sys.stderr)
 
-    t0 = time.perf_counter()
-    
-    if quantize:
-        # for quantization, need to load before moving to device
-        load_checkpoint(fabric, model, checkpoint_path, strict=(quantize is None))
-
     model.eval()
     model = fabric.setup_module(model)
 
-    if not quantize:
-        load_checkpoint(fabric, model, checkpoint_path, strict=(quantize is None))
-
+    t0 = time.perf_counter()
+    load_checkpoint(fabric, model, checkpoint_path)
     fabric.print(f"Time to load the model weights: {time.perf_counter() - t0:.02f} seconds.", file=sys.stderr)
 
     tokenizer = Tokenizer(checkpoint_dir)

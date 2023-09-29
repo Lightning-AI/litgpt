@@ -3,11 +3,11 @@ import os
 import pickle
 import sys
 import warnings
-from contextlib import contextmanager
+from contextlib import nullcontext
 from functools import partial
 from io import BytesIO
 from pathlib import Path
-from typing import Dict, List, Mapping, Optional, TypeVar, Union
+from typing import ContextManager, Dict, List, Mapping, Optional, TypeVar, Union
 
 import torch
 import torch.nn as nn
@@ -28,11 +28,11 @@ def num_parameters(module: nn.Module, requires_grad: Optional[bool] = None) -> i
     return sum(p.numel() for p in module.parameters() if requires_grad is None or p.requires_grad == requires_grad)
 
 
-@contextmanager
-def gptq_quantization(enabled: bool = False):
+def gptq_quantization(enabled: bool = False) -> ContextManager:
     if not enabled:
-        yield
-        return
+        return nullcontext()
+
+    from lightning.fabric.plugins.precision.utils import _ClassReplacementContextManager
 
     from quantize.gptq import ColBlockQuantizedLinear
 
@@ -40,10 +40,7 @@ def gptq_quantization(enabled: bool = False):
         def __init__(self, *args, **kwargs):
             super().__init__(*args, bits=4, tile_cols=-1, **kwargs)
 
-    torch_linear_cls = torch.nn.Linear
-    torch.nn.Linear = QuantizedLinear
-    yield
-    torch.nn.Linear = torch_linear_cls
+    return _ClassReplacementContextManager({"torch.nn.Linear": QuantizedLinear})
 
 
 # this is taken from torchhacks https://github.com/lernapparat/torchhacks
