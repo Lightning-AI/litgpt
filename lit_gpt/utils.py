@@ -12,6 +12,7 @@ from typing import Dict, List, Mapping, Optional, TypeVar, Union
 import torch
 import torch.nn as nn
 import torch.utils._device
+from lightning.fabric.strategies import FSDPStrategy
 from lightning.fabric.utilities.load import _lazy_load
 from torch.serialization import normalize_storage_type
 
@@ -163,6 +164,7 @@ class NotYetLoadedTensor:
             "dtype",
             "grad",
             "grad_fn",
+            "is_meta",
             "layout",
             "names",
             "ndim",
@@ -479,8 +481,9 @@ def get_default_supported_precision(training: bool) -> str:
 
 
 def load_checkpoint(fabric, model, checkpoint_path: Path, strict: bool = True) -> None:
-    if fabric.world_size > 1:
+    if isinstance(fabric.strategy, FSDPStrategy):
         fabric.load_raw(checkpoint_path, model, strict=strict)
     else:
         state_dict = _lazy_load(checkpoint_path)
+        state_dict = state_dict.get("model", state_dict)
         model.load_state_dict(state_dict, strict=strict)
