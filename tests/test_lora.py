@@ -361,7 +361,6 @@ def test_lora_merge_with_quantize():
         pytest.skip("BNB not available")
 
     from lit_gpt.lora import GPT, Config, mark_only_lora_as_trainable, merge_lora_weights
-    from lit_gpt.utils import get_default_supported_precision
 
     config = Config(
         n_layer=1,
@@ -376,10 +375,14 @@ def test_lora_merge_with_quantize():
         to_value=True,
         to_projection=True,
     )
-    fabric = Fabric(devices=1, precision=BitsandbytesPrecision("nf4", skips={"lm_head"}))
+    fabric = Fabric(devices=1, plugins=BitsandbytesPrecision("nf4", dtype=torch.bfloat16, skips={"lm_head"}))
     with fabric.init_module(empty_init=False):
         model = GPT(config)
         model.apply(model._init_weights)
+
+    attn_proj = model.transformer.h[0].attn.proj
+    assert model.lm_head.linear.weight.dtype is torch.bfloat16
+    assert attn_proj.linear.weight.dtype is torch.bfloat16
 
     mark_only_lora_as_trainable(model)
 
@@ -390,11 +393,11 @@ def test_lora_merge_with_quantize():
 
     model.train()
 
-    attn_proj = model.transformer.h[0].attn.proj
     initial_weight = attn_proj.linear.weight.clone()
 
-    assert attn_proj.weight.dtype is torch.uint8
-    assert model.lm_head.weight.dtype is torch.float32
+    # this was skipped
+    assert model.lm_head.linear.weight.dtype is torch.bfloat16
+    assert attn_proj.linear.weight.dtype is torch.uint8
 
     # perform an update to the LoRA weights
     y = model(torch.randint(0, 8, size=(2, 4), dtype=torch.int64, device=fabric.device))
