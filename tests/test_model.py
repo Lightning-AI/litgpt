@@ -228,7 +228,7 @@ def test_against_hf_llama2(ours_kwargs):
         rms_norm_eps=1e-5,
         num_key_value_heads=ours_config.n_query_groups,
         rope_theta=ours_config.rope_base,
-        attention_bias=ours_config.bias
+        attention_bias=ours_config.bias,
     )
     assert ours_config.intermediate_size == theirs_config.intermediate_size
 
