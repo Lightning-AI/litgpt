@@ -29,10 +29,7 @@ def restore_default_dtype():
         pytest.param(
             torch.device("cuda"),
             torch.float16,
-            marks=[
-                pytest.mark.xfail(raises=AssertionError, strict=True),
-                pytest.mark.skipif(not torch.cuda.is_available(), reason="CUDA"),
-            ],
+            marks=pytest.mark.skipif(not torch.cuda.is_available(), reason="CUDA"),
         ),
     ],
 )
@@ -41,6 +38,8 @@ def test_against_gpt_neox_model(rotary_pct, batch_size, n_embd, parallel_residua
 
     from lit_gpt import GPT, Config
     from scripts.convert_hf_checkpoint import copy_weights_gpt_neox
+
+    torch.set_default_dtype(dtype)
 
     batch_size = 3
     ours_config = Config(block_size=64, vocab_size=100, n_layer=4, n_head=8, n_embd=n_embd)
@@ -59,14 +58,13 @@ def test_against_gpt_neox_model(rotary_pct, batch_size, n_embd, parallel_residua
         vocab_size=ours_config.padded_vocab_size,
         use_parallel_residual=ours_config.parallel_residual,
         use_cache=kv_cache,
-        torch_dtype=dtype,
     )
 
     state_dict = {}
     theirs_model = GPTNeoXForCausalLM(theirs_config).to(device)
     # load the hf initialization into our model
     copy_weights_gpt_neox(state_dict, theirs_model.state_dict())
-    ours_model = GPT(ours_config).to(device, dtype)
+    ours_model = GPT(ours_config).to(device)
     ours_model.load_state_dict(state_dict)
 
     token_sample = torch.randint(
@@ -74,7 +72,7 @@ def test_against_gpt_neox_model(rotary_pct, batch_size, n_embd, parallel_residua
     )
 
     theirs = theirs_model(token_sample)["logits"]
-    ours = ours_model(token_sample).float()  # HF converts logits to float
+    ours = ours_model(token_sample)
     torch.testing.assert_close(ours, theirs)
 
 
@@ -93,10 +91,7 @@ def test_against_gpt_neox_model(rotary_pct, batch_size, n_embd, parallel_residua
         pytest.param(
             torch.device("cuda"),
             torch.float16,
-            marks=[
-                pytest.mark.xfail(raises=AssertionError, strict=True),
-                pytest.mark.skipif(not torch.cuda.is_available(), reason="CUDA"),
-            ],
+            marks=pytest.mark.skipif(not torch.cuda.is_available(), reason="CUDA"),
         ),
     ],
 )
@@ -105,6 +100,8 @@ def test_against_original_falcon_180b(kwargs, device, dtype):
 
     from lit_gpt import GPT, Config
     from scripts.convert_hf_checkpoint import copy_weights_falcon
+
+    torch.set_default_dtype(dtype)
 
     ours_config = Config.from_name(**kwargs)
     theirs_config = FalconConfig(
@@ -116,19 +113,18 @@ def test_against_original_falcon_180b(kwargs, device, dtype):
         vocab_size=ours_config.padded_vocab_size,
         bias=ours_config.bias,
         new_decoder_architecture=True,
-        torch_dtype=dtype,
     )
 
     theirs_model = FalconForCausalLM(theirs_config).to(device)
     theirs_state_dict = theirs_model.state_dict()
     state_dict = {}
     copy_weights_falcon(kwargs["name"], state_dict, theirs_state_dict)
-    ours_model = GPT(ours_config).to(device, dtype)
+    ours_model = GPT(ours_config).to(device)
     ours_model.load_state_dict(state_dict)
 
     # test end to end
     x = torch.tensor([[9856, 23, 491, 1536, 304]], dtype=torch.int32, device=device)
-    ours_y = ours_model(x).float()  # HF converts logits to float
+    ours_y = ours_model(x)
     theirs_y = theirs_model(x)["logits"]
     torch.testing.assert_close(ours_y, theirs_y)
 
@@ -141,10 +137,7 @@ def test_against_original_falcon_180b(kwargs, device, dtype):
         pytest.param(
             torch.device("cuda"),
             torch.float16,
-            marks=[
-                pytest.mark.xfail(raises=AssertionError, strict=True),
-                pytest.mark.skipif(not torch.cuda.is_available(), reason="CUDA"),
-            ],
+            marks=pytest.mark.skipif(not torch.cuda.is_available(), reason="CUDA"),
         ),
     ],
 )
@@ -155,6 +148,8 @@ def test_against_original_open_llama_3b(device, dtype):
     from lit_gpt import GPT, Config
     from scripts.convert_hf_checkpoint import copy_weights_hf_llama
 
+    torch.set_default_dtype(dtype)
+
     ours_config = Config.from_name("open_llama_3b", n_layer=2, n_head=8, n_embd=32, intermediate_size=86)
     T = 5
     theirs_config = LlamaConfig(
@@ -163,7 +158,6 @@ def test_against_original_open_llama_3b(device, dtype):
         num_hidden_layers=ours_config.n_layer,
         intermediate_size=ours_config.intermediate_size,
         max_position_embeddings=T,
-        torch_dtype=dtype,
     )
     assert ours_config.intermediate_size == theirs_config.intermediate_size
 
@@ -171,7 +165,7 @@ def test_against_original_open_llama_3b(device, dtype):
     theirs_state_dict = theirs_model.state_dict()
     state_dict = {}
     copy_weights_hf_llama(ours_config, {}, state_dict, theirs_state_dict)
-    ours_model = GPT(ours_config).to(device, dtype)
+    ours_model = GPT(ours_config).to(device)
     ours_model.load_state_dict(state_dict)
 
     # test end to end
@@ -204,10 +198,7 @@ def test_against_original_open_llama_3b(device, dtype):
         pytest.param(
             torch.device("cuda"),
             torch.float16,
-            marks=[
-                pytest.mark.xfail(raises=AssertionError, strict=True),
-                pytest.mark.skipif(not torch.cuda.is_available(), reason="CUDA"),
-            ],
+            marks=pytest.mark.skipif(not torch.cuda.is_available(), reason="CUDA"),
         ),
     ],
 )
@@ -217,6 +208,8 @@ def test_against_hf_llama2(ours_kwargs, device, dtype):
 
     from lit_gpt import GPT, Config
     from scripts.convert_hf_checkpoint import copy_weights_hf_llama
+
+    torch.set_default_dtype(dtype)
 
     ours_config = Config.from_name(
         padded_vocab_size=10000, n_layer=2, n_head=8, n_embd=32, intermediate_size=86, **ours_kwargs
@@ -233,7 +226,6 @@ def test_against_hf_llama2(ours_kwargs, device, dtype):
         num_key_value_heads=ours_config.n_query_groups,
         rope_theta=ours_config.rope_base,
         attention_bias=ours_config.bias,
-        torch_dtype=dtype,
     )
     assert ours_config.intermediate_size == theirs_config.intermediate_size
 
@@ -241,7 +233,7 @@ def test_against_hf_llama2(ours_kwargs, device, dtype):
     theirs_state_dict = theirs_model.state_dict()
     state_dict = {}
     copy_weights_hf_llama(ours_config, {}, state_dict, theirs_state_dict)
-    ours_model = GPT(ours_config).to(device, dtype)
+    ours_model = GPT(ours_config).to(device)
     ours_model.load_state_dict(state_dict)
 
     # test end to end
@@ -260,10 +252,7 @@ def test_against_hf_llama2(ours_kwargs, device, dtype):
         pytest.param(
             torch.device("cuda"),
             torch.float16,
-            marks=[
-                pytest.mark.xfail(raises=AssertionError, strict=True),
-                pytest.mark.skipif(not torch.cuda.is_available(), reason="CUDA"),
-            ],
+            marks=pytest.mark.skipif(not torch.cuda.is_available(), reason="CUDA"),
         ),
     ],
 )
@@ -276,6 +265,8 @@ def test_against_hf_phi(device, dtype):
     from lit_gpt import GPT, Config
     from scripts.convert_hf_checkpoint import copy_weights_phi
     from tests.original_phi_1_5 import MixFormerSequentialConfig, MixFormerSequentialForCausalLM
+
+    torch.set_default_dtype(dtype)
 
     ours_config = Config.from_name(
         "phi-1_5", padded_vocab_size=10000, n_layer=2, n_head=4, n_embd=256, rotary_percentage=0.5
@@ -296,7 +287,7 @@ def test_against_hf_phi(device, dtype):
     theirs_state_dict = theirs_model.state_dict()
     state_dict = {}
     copy_weights_phi(ours_config, state_dict, theirs_state_dict)
-    ours_model = GPT(ours_config).to(device, dtype)
+    ours_model = GPT(ours_config).to(device)
     ours_model.load_state_dict(state_dict)
 
     # test end to end
@@ -318,10 +309,7 @@ def test_against_hf_phi(device, dtype):
         pytest.param(
             torch.device("cuda"),
             torch.float16,
-            marks=[
-                pytest.mark.xfail(raises=AssertionError, strict=True),
-                pytest.mark.skipif(not torch.cuda.is_available(), reason="CUDA"),
-            ],
+            marks=pytest.mark.skipif(not torch.cuda.is_available(), reason="CUDA"),
         ),
     ],
 )
@@ -331,6 +319,8 @@ def test_against_hf_mistral(device, dtype):
 
     from lit_gpt import GPT, Config
     from scripts.convert_hf_checkpoint import copy_weights_hf_llama
+
+    torch.set_default_dtype(dtype)
 
     ours_config = Config.from_name(
         "Mistral-7B-Instruct-v0.1",
@@ -352,7 +342,6 @@ def test_against_hf_mistral(device, dtype):
         rms_norm_eps=1e-5,
         num_key_value_heads=ours_config.n_query_groups,
         rope_theta=ours_config.rope_base,
-        torch_dtype=dtype,
     )
     assert ours_config.intermediate_size == theirs_config.intermediate_size
 
@@ -360,7 +349,7 @@ def test_against_hf_mistral(device, dtype):
     theirs_state_dict = theirs_model.state_dict()
     state_dict = {}
     copy_weights_hf_llama(ours_config, {}, state_dict, theirs_state_dict)
-    ours_model = GPT(ours_config).to(device, dtype)
+    ours_model = GPT(ours_config).to(device)
     ours_model.load_state_dict(state_dict)
 
     # test end to end
