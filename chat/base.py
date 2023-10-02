@@ -91,14 +91,10 @@ def generate(
 
 def decode(fabric: L.Fabric, tokenizer: Tokenizer, token_stream: Iterator[torch.Tensor]) -> int:
     tokens_generated = 0
-    kk = []
     if tokenizer.backend == "huggingface":
         for token in token_stream:
-            kk.append(token)
-            fabric.print(token, repr(tokenizer.decode(token)), end="\n", flush=True)
-            tokens_generated += 1
-        for token in kk:
             fabric.print(tokenizer.decode(token), end="", flush=True)
+            tokens_generated += 1
     elif tokenizer.backend == "sentencepiece":
         # sentencepiece does not support decoding token-by-token because it adds spaces based on the surrounding tokens
         # meaning that we need to decode everything each time
