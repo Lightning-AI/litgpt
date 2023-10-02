@@ -305,7 +305,15 @@ def prompt_config(checkpoint_dir: Path, tokenizer: Tokenizer) -> Tuple[str, Tupl
 
     if re.search("phi", checkpoint_name):
         system_prompt = "{prompt}\n\nAnswer:"
-        stop_tokens = ([tokenizer.eos_id],)
+
+        stop_tokens = (
+            [tokenizer.eos_id],
+            [tokenizer.token_to_id("Answer"), tokenizer.token_to_id(":")],
+            [198, tokenizer.token_to_id("Answer"), tokenizer.token_to_id(":")],
+            # the model rarely emits the eos token and instead outputs newlines, but we cannot use them
+            # to stop or else things like code generation wouldn't work
+            # [198, 198],  # '\n', '\n'
+        )
         return system_prompt, stop_tokens
 
     # default format
