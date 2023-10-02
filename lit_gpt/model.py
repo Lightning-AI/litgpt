@@ -100,7 +100,6 @@ class GPT(nn.Module):
         return build_rope_cache(
             seq_len=self.max_seq_length,
             n_elem=self.config.rope_n_elem,
-            dtype=torch.get_default_dtype(),
             device=device,
             condense_ratio=self.config.rope_condense_ratio,
             base=self.config.rope_base,
@@ -158,15 +157,15 @@ class Block(nn.Module):
         h = self.attn(n_1, cos, sin, mask, input_pos)
         if self.config.parallel_residual:
             n_2 = n_1 if self.config.shared_attention_norm else self.norm_2(x)
-            x = x + h + self.mlp(n_2)
+            x = self.mlp(n_2) + h + x
         else:
             if self.config.shared_attention_norm:
                 raise NotImplementedError(
                     "No checkpoint amongst the ones we support uses this configuration"
                     " (non-parallel residual and shared attention norm)."
                 )
-            x = x + h
-            x = x + self.mlp(self.norm_2(x))
+            x = h + x
+            x = self.mlp(self.norm_2(x)) + x
         return x
 
 
@@ -308,7 +307,6 @@ class LLaMAMLP(nn.Module):
 def build_rope_cache(
     seq_len: int,
     n_elem: int,
-    dtype: torch.dtype,
     device: Optional[torch.device] = None,
     base: int = 10000,
     condense_ratio: int = 1,
@@ -320,7 +318,7 @@ def build_rope_cache(
     https://github.com/labmlai/annotated_deep_learning_paper_implementations/blob/master/license.
     """
     # $\Theta = {\theta_i = 10000^{\frac{2(i-1)}{d}}, i \in [1, 2, ..., \frac{d}{2}]}$
-    theta = 1.0 / (base ** (torch.arange(0, n_elem, 2, device=device) / n_elem))
+    theta = 1.0 / (base ** (torch.arange(0, n_elem, 2, device=device).float() / n_elem))
 
     # Create position indexes `[0, 1, ..., seq_len - 1]`
     seq_idx = torch.arange(seq_len, device=device) / condense_ratio
@@ -328,12 +326,7 @@ def build_rope_cache(
     # Calculate the product of position index and $\theta_i$
     idx_theta = torch.outer(seq_idx, theta).repeat(1, 2)
 
-    cos, sin = torch.cos(idx_theta), torch.sin(idx_theta)
-
-    # this is to mimic the behaviour of complex32, else we will get different results
-    if dtype in (torch.float16, torch.bfloat16, torch.int8):
-        return cos.half(), sin.half()
-    return cos, sin
+    return torch.cos(idx_theta), torch.sin(idx_theta)
 
 
 def apply_rope(x: torch.Tensor, cos: torch.Tensor, sin: torch.Tensor) -> torch.Tensor:

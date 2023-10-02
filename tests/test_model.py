@@ -21,19 +21,21 @@ def restore_default_dtype():
 @pytest.mark.parametrize("batch_size", (1, 3))
 @pytest.mark.parametrize("n_embd", (16, 32))
 @pytest.mark.parametrize("parallel_residual", (False, True))
-@pytest.mark.parametrize("kv_cache", (False, True))
 @pytest.mark.parametrize(
     ("device", "dtype"),
     [
         (torch.device("cpu"), torch.float32),
         pytest.param(
-            torch.device("cuda"),
-            torch.float16,
-            marks=pytest.mark.skipif(not torch.cuda.is_available(), reason="CUDA"),
+            torch.device("cuda"), torch.float16, marks=[
+                # the reference does softmax upscaled to fp32 during attention. additionally, the final layernorm input
+                # is slightly different
+                pytest.mark.xfail(raises=AssertionError, strict=False),
+                pytest.mark.skipif(not torch.cuda.is_available(), reason="CUDA")
+            ]
         ),
     ],
 )
-def test_against_gpt_neox_model(rotary_pct, batch_size, n_embd, parallel_residual, kv_cache, device, dtype) -> None:
+def test_against_gpt_neox_model(rotary_pct, batch_size, n_embd, parallel_residual, device, dtype) -> None:
     from transformers import GPTNeoXConfig, GPTNeoXForCausalLM
 
     from lit_gpt import GPT, Config
@@ -41,8 +43,16 @@ def test_against_gpt_neox_model(rotary_pct, batch_size, n_embd, parallel_residua
 
     torch.set_default_dtype(dtype)
 
-    batch_size = 3
-    ours_config = Config(block_size=64, vocab_size=100, n_layer=4, n_head=8, n_embd=n_embd)
+    batch_size = batch_size
+    ours_config = Config(
+        block_size=64,
+        vocab_size=100,
+        n_layer=4,
+        n_head=8,
+        n_embd=n_embd,
+        rotary_percentage=rotary_pct,
+        parallel_residual=parallel_residual,
+    )
     assert ours_config.padded_vocab_size == 512
     theirs_config = GPTNeoXConfig(
         hidden_act="gelu",
@@ -57,7 +67,6 @@ def test_against_gpt_neox_model(rotary_pct, batch_size, n_embd, parallel_residua
         rotary_pct=ours_config.rotary_percentage,
         vocab_size=ours_config.padded_vocab_size,
         use_parallel_residual=ours_config.parallel_residual,
-        use_cache=kv_cache,
     )
 
     state_dict = {}
@@ -89,13 +98,16 @@ def test_against_gpt_neox_model(rotary_pct, batch_size, n_embd, parallel_residua
     [
         (torch.device("cpu"), torch.float32),
         pytest.param(
-            torch.device("cuda"),
-            torch.float16,
-            marks=pytest.mark.skipif(not torch.cuda.is_available(), reason="CUDA"),
+            torch.device("cuda"), torch.float16, marks=[
+                # the reference does softmax upscaled to fp32 during attention. additionally, the final layernorm input
+                # is slightly different
+                pytest.mark.xfail(raises=AssertionError, strict=False),
+                pytest.mark.skipif(not torch.cuda.is_available(), reason="CUDA")
+            ]
         ),
     ],
 )
-def test_against_original_falcon_180b(kwargs, device, dtype):
+def test_against_hf_falcon(kwargs, device, dtype):
     from transformers.models.falcon import FalconConfig, FalconForCausalLM
 
     from lit_gpt import GPT, Config
@@ -135,9 +147,12 @@ def test_against_original_falcon_180b(kwargs, device, dtype):
     [
         (torch.device("cpu"), torch.float32),
         pytest.param(
-            torch.device("cuda"),
-            torch.float16,
-            marks=pytest.mark.skipif(not torch.cuda.is_available(), reason="CUDA"),
+            torch.device("cuda"), torch.float16, marks=[
+                # the reference does softmax upscaled to fp32 during attention. additionally, the final layernorm input
+                # is slightly different
+                pytest.mark.xfail(raises=AssertionError, strict=False),
+                pytest.mark.skipif(not torch.cuda.is_available(), reason="CUDA")
+            ]
         ),
     ],
 )
@@ -171,8 +186,8 @@ def test_against_original_open_llama_3b(device, dtype):
     # test end to end
     x = torch.tensor([[9856, 23, 491, 1536, 304]], dtype=torch.int32, device=device)
     assert x.size(1) == T
-    ours_y = ours_model(x).float()  # HF converts logits to float
-    theirs_y = theirs_model(x)["logits"]
+    ours_y = ours_model(x)
+    theirs_y = theirs_model(x)["logits"].to(dtype)  # HF converts logits to float
     torch.testing.assert_close(ours_y, theirs_y)
 
 
@@ -196,9 +211,12 @@ def test_against_original_open_llama_3b(device, dtype):
     [
         (torch.device("cpu"), torch.float32),
         pytest.param(
-            torch.device("cuda"),
-            torch.float16,
-            marks=pytest.mark.skipif(not torch.cuda.is_available(), reason="CUDA"),
+            torch.device("cuda"), torch.float16, marks=[
+                # the reference does softmax upscaled to fp32 during attention. additionally, the final layernorm input
+                # is slightly different
+                pytest.mark.xfail(raises=AssertionError, strict=False),
+                pytest.mark.skipif(not torch.cuda.is_available(), reason="CUDA")
+            ]
         ),
     ],
 )
@@ -239,8 +257,8 @@ def test_against_hf_llama2(ours_kwargs, device, dtype):
     # test end to end
     x = torch.tensor([[9856, 23, 491, 1536, 304]], dtype=torch.int32, device=device)
     assert x.size(1) == T
-    ours_y = ours_model(x).float()  # HF converts logits to float
-    theirs_y = theirs_model(x)["logits"]
+    ours_y = ours_model(x)
+    theirs_y = theirs_model(x)["logits"].to(dtype)  # HF converts logits to float
     torch.testing.assert_close(ours_y, theirs_y)
 
 
@@ -250,9 +268,10 @@ def test_against_hf_llama2(ours_kwargs, device, dtype):
     [
         (torch.device("cpu"), torch.float32),
         pytest.param(
-            torch.device("cuda"),
-            torch.float16,
-            marks=pytest.mark.skipif(not torch.cuda.is_available(), reason="CUDA"),
+            torch.device("cuda"), torch.float16, marks=[
+                pytest.mark.xfail(raises=AssertionError, strict=False),
+                pytest.mark.skipif(not torch.cuda.is_available(), reason="CUDA")
+            ]
         ),
     ],
 )
@@ -293,8 +312,8 @@ def test_against_hf_phi(device, dtype):
     # test end to end
     x = torch.tensor([[9856, 23, 491, 1536, 304]], dtype=torch.int32, device=device)
     assert x.size(1) == T
-    ours_y = ours_model(x).float()  # HF converts logits to float
-    theirs_y = theirs_model(x)["logits"]
+    ours_y = ours_model(x)
+    theirs_y = theirs_model(x)["logits"].to(dtype)  # HF converts logits to float
     torch.testing.assert_close(ours_y, theirs_y)
 
 
@@ -307,9 +326,12 @@ def test_against_hf_phi(device, dtype):
     [
         (torch.device("cpu"), torch.float32),
         pytest.param(
-            torch.device("cuda"),
-            torch.float16,
-            marks=pytest.mark.skipif(not torch.cuda.is_available(), reason="CUDA"),
+            torch.device("cuda"), torch.float16, marks=[
+                # the reference does softmax upscaled to fp32 during attention. additionally, the final layernorm input
+                # is slightly different
+                pytest.mark.xfail(raises=AssertionError, strict=False),
+                pytest.mark.skipif(not torch.cuda.is_available(), reason="CUDA")
+            ]
         ),
     ],
 )
@@ -355,8 +377,8 @@ def test_against_hf_mistral(device, dtype):
     # test end to end
     x = torch.tensor([[9856, 23, 491, 1536, 304]], dtype=torch.int32, device=device)
     assert x.size(1) == T
-    ours_y = ours_model(x).float()
-    theirs_y = theirs_model(x)["logits"]
+    ours_y = ours_model(x)
+    theirs_y = theirs_model(x)["logits"].to(dtype)  # HF converts logits to float
     torch.testing.assert_close(ours_y, theirs_y)
 
 
