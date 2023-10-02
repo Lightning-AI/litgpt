@@ -1008,4 +1008,33 @@ phi = [
 ]
 configs.extend(phi)
 
+
+#############
+# Mistral AI
+#############
+mistral = [
+    # https://huggingface.co/mistralai/Mistral-7B-v0.1/blob/main/config.json
+    dict(
+        org="mistralai",
+        name="Mistral-7B-{}v0.1",
+        padded_vocab_size=32000,
+        block_size=4096,  # should be 32768 but sliding window attention is not implemented
+        n_layer=32,
+        n_query_groups=8,
+        rotary_percentage=1.0,
+        parallel_residual=False,
+        bias=False,
+        _norm_class="RMSNorm",
+        norm_eps=1e-05,
+        _mlp_class="LLaMAMLP",
+        intermediate_size=14336,
+    )
+]
+for c in mistral:
+    for kind in ("", "Instruct-"):
+        copy = c.copy()
+        copy["name"] = c["name"].format(kind)
+        configs.append(copy)
+
+
 name_to_config = {config["name"]: config for config in configs}

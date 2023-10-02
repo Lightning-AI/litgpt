@@ -142,7 +142,7 @@ def main(
     fabric.print(f"Time to instantiate model: {time.perf_counter() - t0:.02f} seconds.", file=sys.stderr)
 
     t0 = time.perf_counter()
-    
+
     if quantize:
         # for quantization, need to load before moving to device
         load_checkpoint(fabric, model, checkpoint_path, strict=(quantize is None))
