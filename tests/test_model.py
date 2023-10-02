@@ -204,7 +204,7 @@ def test_against_original_open_llama_3b():
                 reason="requires rope_theta",
             ),
         ),
-        {"name": "Llama-2-70b-chat-hf"},
+        {"name": "Llama-2-70b-chat-hf", "n_query_groups": 1},
     ],
 )
 def test_against_hf_llama2(ours_kwargs):
@@ -226,8 +226,9 @@ def test_against_hf_llama2(ours_kwargs):
         intermediate_size=ours_config.intermediate_size,
         max_position_embeddings=T,
         rms_norm_eps=1e-5,
-        num_query_value_heads=ours_config.n_query_groups,
+        num_key_value_heads=ours_config.n_query_groups,
         rope_theta=ours_config.rope_base,
+        attention_bias=ours_config.bias
     )
     assert ours_config.intermediate_size == theirs_config.intermediate_size
 
@@ -288,7 +289,7 @@ def test_against_hf_phi():
 
 @torch.inference_mode()
 @pytest.mark.skipif(
-    compare_version("transformers", operator.lt, "4.34.0", use_base_version=True), reason="requires mistral"
+    compare_version("transformers", operator.lt, "4.34.4", use_base_version=True), reason="requires mistral"
 )
 def test_against_hf_mistral():
     from transformers.models.mistral.configuration_mistral import MistralConfig
@@ -301,10 +302,10 @@ def test_against_hf_mistral():
         "Mistral-7B-Instruct-v0.1",
         padded_vocab_size=10000,
         n_layer=2,
-        n_head=8,
         n_embd=32,
-        intermediate_size=86,
+        n_head=8,
         n_query_groups=2,
+        intermediate_size=86,
     )
     T = 5
     theirs_config = MistralConfig(
@@ -315,7 +316,7 @@ def test_against_hf_mistral():
         intermediate_size=ours_config.intermediate_size,
         max_position_embeddings=T,
         rms_norm_eps=1e-5,
-        num_query_value_heads=ours_config.n_query_groups,
+        num_key_value_heads=ours_config.n_query_groups,
         rope_theta=ours_config.rope_base,
     )
     assert ours_config.intermediate_size == theirs_config.intermediate_size
