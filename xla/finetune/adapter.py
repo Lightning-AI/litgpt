@@ -217,7 +217,8 @@ def train(
             save_adapter_checkpoint(fabric, model, checkpoint_path)
 
 
-@torch.inference_mode()
+# xla does not support `inference_mode`: RuntimeError: Cannot set version_counter for inference tensor
+@torch.no_grad()
 def validate(
     fabric: L.Fabric, model: GPT, val_data: List[Dict], tokenizer: Tokenizer, longest_seq_length: int
 ) -> torch.Tensor:

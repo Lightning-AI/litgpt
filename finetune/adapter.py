@@ -210,7 +210,8 @@ def train(
             save_adapter_checkpoint(fabric, model, checkpoint_path)
 
 
-@torch.inference_mode()
+# the adapter "kv cache" cannot be initialized under `inference_mode`
+@torch.no_grad()
 def validate(fabric: L.Fabric, model: GPT, val_data: List[Dict], tokenizer: Tokenizer) -> torch.Tensor:
     fabric.print("Validating ...")
     model.eval()
