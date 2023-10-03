@@ -375,7 +375,7 @@ def test_lora_merge_with_quantize():
         to_value=True,
         to_projection=True,
     )
-    fabric = Fabric(devices=1, plugins=BitsandbytesPrecision("nf4", dtype=torch.bfloat16, skips={"lm_head"}))
+    fabric = Fabric(devices=1, plugins=BitsandbytesPrecision("nf4", dtype=torch.bfloat16, ignore_modules={"lm_head"}))
     with fabric.init_module(empty_init=False):
         model = GPT(config)
         model.apply(model._init_weights)

@@ -72,7 +72,7 @@ def setup(
         if "mixed" in precision:
             raise ValueError("Quantization and mixed precision is not supported.")
         dtype = {"16-true": torch.float16, "bf16-true": torch.bfloat16, "32-true": torch.float32}[precision]
-        plugins = BitsandbytesPrecision(quantize[4:], dtype, skips={"lm_head"})
+        plugins = BitsandbytesPrecision(quantize[4:], dtype, ignore_modules={"lm_head"})
         precision = None
 
     if devices > 1:
