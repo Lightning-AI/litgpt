@@ -63,21 +63,17 @@ The table below lists a comparison with different settings on a StableLM 3B mode
 |---------------------------------------------|-----------------|---------------|--------|------------------|
 | Default (bf16-mixed)                        | 38.01 GB        | 591.78s       | 0.9207 | 21.49 GB         |
 | --precision bf16-true                       | 19.40 GB        | 592.14s       | 0.9180 | 7.35 GB          |
-| --precision 32-true   --quantize bnb.nf4    | FIXME GB        | 944.93s       | 0.9417 | 4.16 GB          |
-| --precision 32-true   --quantize bnb.nf4-dq | FIXME GB        | 962.23s       | 0.9383 | 3.99 GB          |
-| --precision bf16-true --quantize bnb.nf4    | 14.81 GB        | 802.02s       | 0.9408 | 3.26 GB          |
-| --precision bf16-true --quantize bnb.nf4-dq | 14.65 GB        | 802.94s       | 0.9384 | 3.09 GB          |
+| --precision bf16-true --quantize bnb.nf4    | 19.13 GB        | 802.02s       | 0.9408 | 3.26 GB          |
+| --precision bf16-true --quantize bnb.nf4-dq | 18.97 GB        | 802.94s       | 0.9384 | 3.09 GB          |
 
 The advantages of QLoRA-style quantization are more pronounced in larger models, such as Llama 2 7B. The table below summarizes the results for Llama 2 7B on Alpaca for 5,000 iterations using a microbatch size of 4:
 
 | Settings                                    | Training Memory  | Training Time | Loss   | Inference Memory |
 |---------------------------------------------|------------------|---------------|--------|------------------|
 | Default (bf16-mixed)                        | OutOfMemoryError | N/A           | N/A    | 40.31 GB         |
-| --precision bf16-true                       | 20.60 GB         | 876.30s       | 0.8696 | 13.62 GB         |
-| --precision 32-true   --quantize bnb.nf4    | 19.62 GB         | 1320.63s      | 1.0178 | 5.34 GB          |
-| --precision 32-true   --quantize bnb.nf4-dq | 19.32 GB         | 1359.10s      | 1.0132 | 5.04 GB          |
-| --precision bf16-true --quantize bnb.nf4    | 13.44 GB         | 1089.79s      | 1.0130 | 4.68 GB          |
-| --precision bf16-true --quantize bnb.nf4-dq | 13.15 GB         | 1135.86s      | 1.0124 | 4.38 GB          |
+| --precision bf16-true                       | OutOfMemoryError | N/A           | 0.8696 | 13.62 GB         |
+| --precision bf16-true --quantize bnb.nf4    | OutOfMemoryError | 1089.79s      | 1.0130 | 4.68 GB          |
+| --precision bf16-true --quantize bnb.nf4-dq | OutOfMemoryError | 1135.86s      | 1.0124 | 4.38 GB          |
 
 &nbsp;
 
