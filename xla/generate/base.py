@@ -19,7 +19,8 @@ from lit_gpt.utils import check_valid_checkpoint_dir, lazy_load
 from xla.utils import rank_print
 
 
-@torch.inference_mode()
+# xla does not support `inference_mode`: RuntimeError: Cannot set version_counter for inference tensor
+@torch.no_grad()
 def generate(
     model: GPT,
     idx: torch.Tensor,
