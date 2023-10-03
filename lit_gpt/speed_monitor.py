@@ -8,8 +8,10 @@ from lightning import Callback, Fabric, LightningModule, Trainer
 from lightning.fabric.accelerators.xla import _XLA_GREATER_EQUAL_2_1
 from lightning.fabric.plugins import (
     BitsandbytesPrecision,
+    DoublePrecision,
     FSDPPrecision,
     HalfPrecision,
+    MixedPrecision,
     Precision,
     TransformerEnginePrecision,
     XLAPrecision,
@@ -23,7 +25,6 @@ from lightning.pytorch.plugins import (
     XLAPrecisionPlugin,
 )
 from lightning.pytorch.utilities.rank_zero import rank_zero_only as trainer_rank_zero_only
-from lightning_fabric.plugins import DoublePrecision, MixedPrecision
 from torch.utils.flop_counter import FlopCounterMode
 
 from lit_gpt import GPT

@@ -65,7 +65,7 @@ def setup(
     quantize: Optional[Literal["bnb.nf4", "bnb.nf4-dq", "bnb.fp4", "bnb.fp4-dq"]] = None,
 ):
     if precision is None:
-        precision = get_default_supported_precision(training=False)
+        precision = get_default_supported_precision(training=True)
 
     plugins = None
     if quantize is not None and quantize.startswith("bnb."):
