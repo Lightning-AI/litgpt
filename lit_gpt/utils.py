@@ -1,4 +1,5 @@
 """Utility functions for training and inference."""
+import math
 import os
 import pickle
 import sys
@@ -25,7 +26,15 @@ def find_multiple(n: int, k: int) -> int:
 
 
 def num_parameters(module: nn.Module, requires_grad: Optional[bool] = None) -> int:
-    return sum(p.numel() for p in module.parameters() if requires_grad is None or p.requires_grad == requires_grad)
+    total = 0
+    for p in module.parameters():
+        if requires_grad is None or p.requires_grad == requires_grad:
+            if hasattr(p, "quant_state"):
+                # bitsandbytes 4bit layer support
+                total += math.prod(p.quant_state[1])
+            else:
+                total += p.numel()
+    return total
 
 
 def gptq_quantization(enabled: bool = False) -> ContextManager:
