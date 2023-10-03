@@ -91,14 +91,10 @@ def generate(
 
 def decode(fabric: L.Fabric, tokenizer: Tokenizer, token_stream: Iterator[torch.Tensor]) -> int:
     tokens_generated = 0
-    kk = []
     if tokenizer.backend == "huggingface":
         for token in token_stream:
-            kk.append(token)
-            fabric.print(token, repr(tokenizer.decode(token)), end="\n", flush=True)
-            tokens_generated += 1
-        for token in kk:
             fabric.print(tokenizer.decode(token), end="", flush=True)
+            tokens_generated += 1
     elif tokenizer.backend == "sentencepiece":
         # sentencepiece does not support decoding token-by-token because it adds spaces based on the surrounding tokens
         # meaning that we need to decode everything each time
@@ -298,9 +294,10 @@ def prompt_config(checkpoint_dir: Path, tokenizer: Tokenizer) -> Tuple[str, Tupl
         stop_tokens = ([tokenizer.eos_id],)
         return system_prompt, stop_tokens
 
-    if re.search("CodeLlama", checkpoint_name):
-        # we don't set a default system prompt, but it is supported:
+    if re.search("CodeLlama|Mistral.*Instruct", checkpoint_name):
+        # for CodeLLama, we don't set a default system prompt, but it is supported:
         # https://huggingface.co/blog/codellama#conversational-instructions
+        # Mistral does not: https://huggingface.co/mistralai/Mistral-7B-Instruct-v0.1#instruction-format
         b_inst, e_inst = "<s>[INST]", "[/INST]"
         system_prompt = f"{b_inst} {{prompt}} {e_inst}"
         stop_tokens = ([tokenizer.eos_id],)

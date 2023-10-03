@@ -43,7 +43,7 @@ These don't include models that have been finetuned or otherwise aligned, as per
 
 **Permitted datasets**
 
-Any open-source dataset is allowed. However, [per competition rules](https://llm-efficiency-challenge.github.io/challenge), datasets that utilize "generated content" from other LLMs are not permitted.
+Any open-source dataset is allowed. Originally, [per competition rules](https://llm-efficiency-challenge.github.io/challenge), datasets that utilize "generated content" from other LLMs were not permitted. However, the rules were recently softened to also allow LLM-generated datasets if those datasets are made available and if it is not against the usage restrictions and guidelines of the LLM. If you plan to use a specific dataset that is not explicitely listed on the [challenge website](https://llm-efficiency-challenge.github.io/challenge) or want to use LLM-generated data, it is recommended to reach out to the organizers and confirm that this is in line with the competition rules.
 
 Examples of permitted datasets are the following:
 
