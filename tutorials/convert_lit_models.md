@@ -18,8 +18,7 @@ Please note that if you want to convert a model that has been fine-tuned using a
 
 ```sh
 python scripts/merge_lora.py \
-  --checkpoint_dir path/to/litgpt/model.pth \
-  --lora_path path/to/litgpt/lora_finetuned.pth" \
-  --out_dir where/to/save/the/merged.ckpt
+    --checkpoint_dir path/to/litgpt/model.pth \
+    --lora_path path/to/litgpt/lora_finetuned.pth \
+    --out_dir where/to/save/the/merged.ckpt
 ```
-
