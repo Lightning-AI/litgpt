@@ -5,6 +5,7 @@ from typing import Literal, Optional
 
 import lightning as L
 import torch
+from lightning.fabric.plugins import BitsandbytesPrecision
 from lightning.fabric.strategies import FSDPStrategy
 
 # support running without installing as a package
@@ -64,11 +65,27 @@ def main(
         devices: How many devices to use.
         precision: Indicates the Fabric precision setting to use.
     """
-    precision = precision or get_default_supported_precision(training=False)
+    if precision is None:
+        precision = get_default_supported_precision(training=False)
+
+    plugins = None
+    if quantize is not None:
+        if devices > 1:
+            raise NotImplementedError(
+                "Quantization is currently not supported for multi-GPU training. Please set devices=1 when using the"
+                " --quantization flag."
+            )
+        if quantize.startswith("bnb."):
+            if "mixed" in precision:
+                raise ValueError("Quantization and mixed precision is not supported.")
+            dtype = {"16-true": torch.float16, "bf16-true": torch.bfloat16, "32-true": torch.float32}[precision]
+            plugins = BitsandbytesPrecision(quantize[4:], dtype)
+            precision = None
 
     if strategy == "fsdp":
         strategy = FSDPStrategy(auto_wrap_policy={Block}, cpu_offload=False)
-    fabric = L.Fabric(devices=devices, precision=precision, strategy=strategy)
+
+    fabric = L.Fabric(devices=devices, precision=precision, strategy=strategy, plugins=plugins)
     fabric.launch()
 
     check_valid_checkpoint_dir(checkpoint_dir)
@@ -98,14 +115,14 @@ def main(
 
     fabric.print(f"Loading model {str(checkpoint_path)!r} with {config.__dict__}", file=sys.stderr)
     t0 = time.perf_counter()
-    with fabric.init_module(empty_init=True), gptq_quantization(quantize):
+    with fabric.init_module(empty_init=True), gptq_quantization(quantize == "gptq.int4"):
         model = GPT(config)
     fabric.print(f"Time to instantiate model: {time.perf_counter() - t0:.02f} seconds.", file=sys.stderr)
 
     t0 = time.perf_counter()
     with lazy_load(checkpoint_path) as checkpoint, lazy_load(lora_path) as lora_checkpoint:
         checkpoint.update(lora_checkpoint.get("model", lora_checkpoint))
-        model.load_state_dict(checkpoint, strict=quantize is None)
+        model.load_state_dict(checkpoint)
     fabric.print(f"Time to load the model weights: {time.perf_counter() - t0:.02f} seconds.", file=sys.stderr)
 
     model.eval()

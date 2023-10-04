@@ -120,7 +120,6 @@ def main(
         devices: How many devices to use.
         precision: Indicates the Fabric precision setting to use.
     """
-
     if precision is None:
         precision = get_default_supported_precision(training=False)
 
