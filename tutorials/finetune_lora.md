@@ -66,14 +66,14 @@ The table below lists a comparison with different settings on a StableLM 3B mode
 | --precision bf16-true --quantize bnb.nf4    | 15.28 GB        | 802.02s       | 0.9408 | 3.20 GB          |
 | --precision bf16-true --quantize bnb.nf4-dq | 15.12 GB        | 802.94s       | 0.9384 | 3.04 GB          |
 
-The advantages of QLoRA-style quantization are more pronounced in larger models, such as Llama 2 7B. The table below summarizes the results for Llama 2 7B on Alpaca for 5,000 iterations using a microbatch size of 4:
+The advantages of QLoRA-style quantization are more pronounced in larger models, such as Llama 2 7B. The table below summarizes the results for Llama 2 7B on Alpaca for 5,000 iterations using a microbatch size of 1:
 
 | Settings                                    | Training Memory  | Training Time | Loss   | Inference Memory |
 |---------------------------------------------|------------------|---------------|--------|------------------|
 | Default (bf16-mixed)                        | OutOfMemoryError | N/A           | N/A    | 40.21 GB         |
-| --precision bf16-true                       | OutOfMemoryError | 876.30s       | 0.8696 | 13.52 GB         |
-| --precision bf16-true --quantize bnb.nf4    | OutOfMemoryError | 1089.79s      | 1.0130 | 4.57 GB          |
-| --precision bf16-true --quantize bnb.nf4-dq | OutOfMemoryError | 1135.86s      | 1.0124 | 4.26 GB          |
+| --precision bf16-true                       | 21.30 GB         | 876.30s       | 0.8696 | 13.52 GB         |
+| --precision bf16-true --quantize bnb.nf4    | 14.14 GB         | 1089.79s      | 1.0130 | 4.57 GB          |
+| --precision bf16-true --quantize bnb.nf4-dq | 13.84 GB         | 1135.86s      | 1.0124 | 4.26 GB          |
 
 &nbsp;
 
