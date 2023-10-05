@@ -174,7 +174,7 @@ out/lora_merged/stablelm-base-alpha-3b/
 > [!Note]
 > Some models (for example, Llama 2) also come with a `tokenizer.model` file.
 > In this case, you also need to use an additional copy step:
-> cp checkpoints/origin/tokenizer.model out/lora_merged/target/
+> `cp checkpoints/origin/tokenizer.model out/lora_merged/target/`
 
 Then, we should be ready to use the model in inference:
 
