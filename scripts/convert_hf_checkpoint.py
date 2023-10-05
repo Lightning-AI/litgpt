@@ -13,8 +13,10 @@ import torch
 wd = Path(__file__).parent.parent.resolve()
 sys.path.append(str(wd))
 
+from lightning.fabric.utilities.load import _NotYetLoadedTensor as NotYetLoadedTensor
+
 from lit_gpt import Config
-from lit_gpt.utils import NotYetLoadedTensor, incremental_save, lazy_load
+from lit_gpt.utils import incremental_save, lazy_load
 
 
 def copy_weights_gpt_neox(
