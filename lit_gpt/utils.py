@@ -1,10 +1,11 @@
 """Utility functions for training and inference."""
+import math
 import pickle
 import sys
-from contextlib import contextmanager
+from contextlib import nullcontext
 from io import BytesIO
 from pathlib import Path
-from typing import Dict, List, Mapping, Optional, TypeVar, Union
+from typing import ContextManager, Dict, List, Mapping, Optional, TypeVar, Union
 
 import torch
 import torch.nn as nn
@@ -22,62 +23,30 @@ def find_multiple(n: int, k: int) -> int:
 
 
 def num_parameters(module: nn.Module, requires_grad: Optional[bool] = None) -> int:
-    return sum(p.numel() for p in module.parameters() if requires_grad is None or p.requires_grad == requires_grad)
+    total = 0
+    for p in module.parameters():
+        if requires_grad is None or p.requires_grad == requires_grad:
+            if hasattr(p, "quant_state"):
+                # bitsandbytes 4bit layer support
+                total += math.prod(p.quant_state[1])
+            else:
+                total += p.numel()
+    return total
 
 
-@contextmanager
-def quantization(mode: Optional[str] = None):
-    if mode is None:
-        yield
-        return
+def gptq_quantization(enabled: bool = False) -> ContextManager:
+    if not enabled:
+        return nullcontext()
 
-    if mode.startswith("bnb"):
-        import quantize.bnb as bnb
-    if mode == "bnb.int8":
-        quantized_linear_cls = bnb.InferenceLinear8bitLt
-    elif mode == "bnb.fp4":
-        # Use a class instead `functools.partial` to respect `isinstance` checks and attribute accesses
-        class QuantizedLinear(bnb.Linear4bit):
-            def __init__(self, *args, **kwargs):
-                super().__init__(*args, quant_type="fp4", compress_statistics=False, **kwargs)
+    from lightning.fabric.plugins.precision.utils import _ClassReplacementContextManager
 
-        quantized_linear_cls = QuantizedLinear
-    elif mode == "bnb.fp4-dq":
+    from quantize.gptq import ColBlockQuantizedLinear
 
-        class QuantizedLinear(bnb.Linear4bit):
-            def __init__(self, *args, **kwargs):
-                super().__init__(*args, quant_type="fp4", compress_statistics=True, **kwargs)
+    class QuantizedLinear(ColBlockQuantizedLinear):
+        def __init__(self, *args, **kwargs):
+            super().__init__(*args, bits=4, tile_cols=-1, **kwargs)
 
-        quantized_linear_cls = QuantizedLinear
-    elif mode == "bnb.nf4":
-
-        class QuantizedLinear(bnb.Linear4bit):
-            def __init__(self, *args, **kwargs):
-                super().__init__(*args, quant_type="nf4", compress_statistics=False, **kwargs)
-
-        quantized_linear_cls = QuantizedLinear
-    elif mode == "bnb.nf4-dq":
-
-        class QuantizedLinear(bnb.Linear4bit):
-            def __init__(self, *args, **kwargs):
-                super().__init__(*args, quant_type="nf4", compress_statistics=True, **kwargs)
-
-        quantized_linear_cls = QuantizedLinear
-    elif mode == "gptq.int4":
-        from quantize.gptq import ColBlockQuantizedLinear
-
-        class QuantizedLinear(ColBlockQuantizedLinear):
-            def __init__(self, *args, **kwargs):
-                super().__init__(*args, bits=4, tile_cols=-1, **kwargs)
-
-        quantized_linear_cls = QuantizedLinear
-    else:
-        raise ValueError(f"Unknown quantization mode: {mode}")
-
-    torch_linear_cls = torch.nn.Linear
-    torch.nn.Linear = quantized_linear_cls
-    yield
-    torch.nn.Linear = torch_linear_cls
+    return _ClassReplacementContextManager({"torch.nn.Linear": QuantizedLinear})
 
 
 def check_valid_checkpoint_dir(checkpoint_dir: Path) -> None:
