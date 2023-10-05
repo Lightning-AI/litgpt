@@ -141,8 +141,8 @@ def main(
     rank_print(fabric, f"Time to instantiate model: {time.perf_counter() - t0:.02f} seconds.", file=sys.stderr)
 
     t0 = time.perf_counter()
-    with lazy_load(checkpoint_path) as checkpoint:
-        model.load_state_dict(checkpoint.get("model", checkpoint))
+    checkpoint = lazy_load(checkpoint_path)
+    model.load_state_dict(checkpoint.get("model", checkpoint))
     rank_print(fabric, f"Time to load the model weights: {time.perf_counter() - t0:.02f} seconds.", file=sys.stderr)
 
     model.eval()

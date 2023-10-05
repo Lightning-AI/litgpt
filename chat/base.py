@@ -151,8 +151,8 @@ def main(
     fabric.print(f"Loading model {str(checkpoint_path)!r} with {config.__dict__}", file=sys.stderr)
     with fabric.init_module(empty_init=True), quantization(quantize):
         model = GPT(config)
-    with lazy_load(checkpoint_path) as checkpoint:
-        model.load_state_dict(checkpoint.get("model", checkpoint), strict=quantize is None)
+    checkpoint = lazy_load(checkpoint_path)
+    model.load_state_dict(checkpoint.get("model", checkpoint), strict=quantize is None)
 
     model.eval()
     model = fabric.setup_module(model)

@@ -21,11 +21,8 @@ def test_main(fake_checkpoint_dir, monkeypatch, version, tensor_like):
     config = {"block_size": 128, "vocab_size": 50, "n_layer": 2, "n_head": 4, "n_embd": 8, "rotary_percentage": 1}
     config_path.write_text(json.dumps(config))
 
-    load_mock = Mock()
-    load_mock.return_value = load_mock
-    load_mock.__enter__ = Mock()
-    load_mock.__exit__ = Mock()
-    monkeypatch.setattr(generate, "lazy_load", load_mock)
+    monkeypatch.setattr(generate, "lazy_load", Mock())
+    monkeypatch.setattr(generate.GPT, "load_state_dict", Mock())
     tokenizer_mock = Mock()
     tokenizer_mock.return_value.encode.return_value = torch.tensor([[1, 2, 3]])
     tokenizer_mock.return_value.decode.return_value = "### Response:foo bar baz"

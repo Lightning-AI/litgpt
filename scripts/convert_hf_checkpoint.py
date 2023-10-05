@@ -8,13 +8,14 @@ from pathlib import Path
 from typing import Dict, List, Optional, Tuple, Union
 
 import torch
+from lightning.fabric.utilities.load import _NotYetLoadedTensor as NotYetLoadedTensor
 
 # support running without installing as a package
 wd = Path(__file__).parent.parent.resolve()
 sys.path.append(str(wd))
 
 from lit_gpt import Config
-from lit_gpt.utils import NotYetLoadedTensor, incremental_save, lazy_load
+from lit_gpt.utils import incremental_save, lazy_load
 
 
 def copy_weights_gpt_neox(
