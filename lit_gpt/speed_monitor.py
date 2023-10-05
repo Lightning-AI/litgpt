@@ -25,6 +25,7 @@ from lightning.pytorch.plugins import (
     XLAPrecisionPlugin,
 )
 from lightning.pytorch.utilities.rank_zero import rank_zero_only as trainer_rank_zero_only
+from pytorch_lightning.plugins import PrecisionPlugin
 from torch.utils.flop_counter import FlopCounterMode
 
 from lit_gpt import GPT
@@ -309,6 +310,8 @@ def plugin_to_compute_dtype(plugin: Precision) -> torch.dtype:
         return torch.int8
     if isinstance(plugin, (FSDPPrecision, FSDPPrecisionPlugin)):
         return plugin.mixed_precision_config.reduce_dtype
+    if isinstance(plugin, Precision):
+        return torch.float32
     raise NotImplementedError(plugin)
 
 
