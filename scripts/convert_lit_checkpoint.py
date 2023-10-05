@@ -10,8 +10,10 @@ import torch
 wd = Path(__file__).parent.parent.resolve()
 sys.path.append(str(wd))
 
+from lightning.fabric.utilities.load import _NotYetLoadedTensor as NotYetLoadedTensor
+
 from lit_gpt import Config
-from lit_gpt.utils import NotYetLoadedTensor, incremental_save, lazy_load
+from lit_gpt.utils import incremental_save, lazy_load
 from scripts.convert_hf_checkpoint import layer_template, load_param
 
 
