@@ -93,33 +93,16 @@ git clone https://github.com/Lightning-AI/lit-gpt
 cd lit-gpt
 ```
 
-Lit-GPT uses some features only available in PyTorch 2.1. Until it is released, you'll need to install the release candidate.
-Luckily this is straightforward, as shown below.
-
-&nbsp;
-
-**On CUDA**
+Install the dependencies
 
 ```bash
-pip install --index-url https://download.pytorch.org/whl/test/cu118 --pre 'torch==2.1.0'
-```
-
-**On CPU (incl Macs)**
-
-```bash
-pip install --index-url https://download.pytorch.org/whl/test/cpu --pre 'torch==2.1.0'
+pip install -r requirements.txt tokenizers sentencepiece
 ```
 
 **(Optional) install Flash Attention 2**
 
 ```bash
 MAX_JOBS=4 pip install flash-attn --no-build-isolation
-```
-
-All good, now install the dependencies plus some optional ones:
-
-```bash
-pip install -r requirements.txt tokenizers sentencepiece
 ```
 
 You are all set! 🎉

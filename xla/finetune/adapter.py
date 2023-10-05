@@ -93,9 +93,9 @@ def main(fabric: L.Fabric, data_dir: Path, checkpoint_dir: Path, out_dir: Path):
     else:
         with fabric.init_module(empty_init=False):
             model = GPT(config)
-        with lazy_load(checkpoint_path) as checkpoint:
-            # strict=False because missing keys due to adapter weights not contained in state dict
-            model.load_state_dict(checkpoint, strict=False)
+        checkpoint = lazy_load(checkpoint_path)
+        # strict=False because missing keys due to adapter weights not contained in state dict
+        model.load_state_dict(checkpoint, strict=False)
 
     model = fabric.setup_module(model)
     # mark as trainable only after sharding due to https://github.com/pytorch/xla/pull/5484
