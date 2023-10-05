@@ -167,9 +167,14 @@ python scripts/merge_lora.py \
 After merging, we can use the `base.py` file for inference using the new checkpoint file. Note that if your new checkpoint directory is different from the original checkpoint directory, we also have to copy over the tokenizer and config files:
 
 ```bash
-cp checkpoints/stabilityai/stablelm-base-alpha-3b/{tokenizer*,lit_config.json} \
+cp checkpoints/stabilityai/stablelm-base-alpha-3b/{*.json} \
 out/lora_merged/stablelm-base-alpha-3b/
 ```
+
+> [!Note]
+> Some models (for example, Llama 2) also come with a `tokenizer.model` file.
+> In this case, you also need to use an additional copy step:
+> cp checkpoints/origin/tokenizer.model out/lora_merged/target/
 
 Then, we should be ready to use the model in inference:
 
