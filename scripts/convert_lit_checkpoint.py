@@ -220,11 +220,11 @@ def convert_lit_checkpoint(checkpoint_path: Path, output_path: Path, config_path
     # initialize a new empty state dict to hold our new weights
     sd = {}
     with incremental_save(output_path) as saver:
-        with lazy_load(checkpoint_path) as lit_weights:
-            lit_weights = lit_weights.get("model", lit_weights)
-            check_conversion_supported(lit_weights)
-            copy_fn(sd, lit_weights, saver=saver)
-            gc.collect()
+        lit_weights = lazy_load(checkpoint_path)
+        lit_weights = lit_weights.get("model", lit_weights)
+        check_conversion_supported(lit_weights)
+        copy_fn(sd, lit_weights, saver=saver)
+        gc.collect()
         saver.save(sd)
 
 

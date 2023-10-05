@@ -82,9 +82,10 @@ def main(
     fabric.print(f"Time to instantiate model: {time.perf_counter() - t0:.02f} seconds.", file=sys.stderr)
 
     t0 = time.perf_counter()
-    with lazy_load(checkpoint_path) as checkpoint, lazy_load(adapter_path) as adapter_checkpoint:
-        checkpoint.update(adapter_checkpoint.get("model", adapter_checkpoint))
-        model.load_state_dict(checkpoint, strict=quantize is None)
+    checkpoint = lazy_load(checkpoint_path)
+    adapter_checkpoint = lazy_load(adapter_path)
+    checkpoint.update(adapter_checkpoint.get("model", adapter_checkpoint))
+    model.load_state_dict(checkpoint, strict=quantize is None)
     fabric.print(f"Time to load the model weights: {time.perf_counter() - t0:.02f} seconds.", file=sys.stderr)
 
     model.eval()
