@@ -88,8 +88,6 @@ Avoiding code duplication is **not** a goal. **Readability** and **hackability**
 
 Clone the repo:
 
-
-
 ```bash
 git clone https://github.com/Lightning-AI/lit-gpt
 cd lit-gpt
