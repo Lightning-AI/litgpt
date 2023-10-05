@@ -14,7 +14,7 @@ It's useful to start with a baseline to have a reference point for memory saving
 ```bash
 python generate/base.py --checkpoint_dir checkpoints/tiiuae/falcon-7b --precision 32-true --max_new_tokens 256
 ...
-Time for inference 1: 10.69 sec total, 23.95 tokens/sec.
+Time for inference 1: 6.93 sec total, 36.96 tokens/sec.
 Memory used: 28.95 GB
 ```
 
@@ -26,14 +26,14 @@ However, this might not be enough for large models or when using GPUs with limit
 ```bash
 python generate/base.py --checkpoint_dir checkpoints/tiiuae/falcon-7b --precision bf16-true --max_new_tokens 256
 ...
-Time for inference 1: 9.76 sec total, 26.23 tokens/sec.
-Memory used: 14.51 GB
+Time for inference 1: 5.37 sec total, 47.66 tokens/sec.
+Memory used: 14.50 GB
 ```
 
 To reduce the memory requirements further, Lit-GPT supports several quantization techniques, which are shown below.
 
 > [!NOTE]
-> Most quantization examples below also use the `--precision bf16-true` setting explained above. If your GPU does not support the bfloat-format, you can change it to `--precision 16-true`.
+> Most quantization examples below also use the `--precision bf16-true` setting explained above. If your GPU does not support `bfloat16`, you can change it to `--precision 16-true`.
 
 ## `bnb.nf4`
 
@@ -50,7 +50,7 @@ pip install scipy bitsandbytes  # scipy is required until https://github.com/Tim
 
 python generate/base.py --quantize bnb.nf4 --checkpoint_dir checkpoints/tiiuae/falcon-7b --precision bf16-true --max_new_tokens 256
 ...
-Time for inference 1: 8.92 sec total, 28.69 tokens/sec
+Time for inference 1: 6.80 sec total, 37.62 tokens/sec
 Memory used: 5.72 GB
 ```
 
@@ -66,8 +66,8 @@ pip install scipy bitsandbytes  # scipy is required until https://github.com/Tim
 
 python generate/base.py --quantize bnb.nf4-dq --checkpoint_dir checkpoints/tiiuae/falcon-7b --precision bf16-true --max_new_tokens 256
 ...
-Time for inference 1: 12.06 sec total, 21.23 tokens/sec
-Memory used: 5.37 GB
+Time for inference 1: 8.09 sec total, 30.87 tokens/sec
+Memory used: 5.38 GB
 ```
 
 ## `bnb.fp4`
@@ -81,7 +81,7 @@ pip install scipy bitsandbytes  # scipy is required until https://github.com/Tim
 
 python generate/base.py --quantize bnb.fp4 --checkpoint_dir checkpoints/tiiuae/falcon-7b --precision bf16-true --max_new_tokens 256
 ...
-Time for inference 1: 9.20 sec total, 27.83 tokens/sec
+Time for inference 1: 6.92 sec total, 36.98 tokens/sec
 Memory used: 5.72 GB
 ```
 
@@ -97,8 +97,8 @@ pip install scipy bitsandbytes  # scipy is required until https://github.com/Tim
 
 python generate/base.py --quantize bnb.fp4-dq --checkpoint_dir checkpoints/tiiuae/falcon-7b --precision bf16-true --max_new_tokens 256
 ...
-Time for inference 1: 12.12 sec total, 21.13 tokens/sec
-Memory used: 5.37 GB
+Time for inference 1: 10.02 sec total, 25.54 tokens/sec
+Memory used: 5.38 GB
 ```
 
 ## `bnb.int8`
@@ -108,10 +108,10 @@ Enabled with [bitsandbytes](https://github.com/TimDettmers/bitsandbytes). Check 
 ```bash
 pip install scipy bitsandbytes  # scipy is required until https://github.com/TimDettmers/bitsandbytes/pull/525 is released
 
-python generate/base.py --quantize bnb.int8 --checkpoint_dir checkpoints/tiiuae/falcon-7b --precision bf16-true --max_new_tokens 256
+python generate/base.py --quantize bnb.int8 --checkpoint_dir checkpoints/tiiuae/falcon-7b --precision 16-true --max_new_tokens 256
 ...
-Time for inference 1: 24.17 sec total, 10.59 tokens/sec
-Memory used: 8.71 GB
+Time for inference 1: 20.22 sec total, 12.66 tokens/sec
+Memory used: 8.70 GB
 ```
 
 ## `gptq.int4`
@@ -136,6 +136,6 @@ generation then works as usual with `--quantize gptq.int4` which will load the n
 ```bash
 python generate/base.py --quantize gptq.int4 --checkpoint_dir checkpoints/tiiuae/falcon-7b --precision 32-true --max_new_tokens 256
 ...
-Time for inference 1: 39.50 sec total, 6.48 tokens/sec
+Time for inference 1: 34.35 sec total, 7.45 tokens/sec
 Memory used: 5.05 GB
 ```
