@@ -4,6 +4,7 @@ jsonargparse[signatures]  # CLI
 
 # other optional dependencies are
 # sentencepiece  # pythia, falcon, redpajama
+bitsandbytes # quantization
 # tokenizers  #  llama-based models
 # datasets  # quantize/gptq.py
 # zstandard  # scripts/prepare_redpajama.py

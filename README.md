@@ -86,17 +86,25 @@ Avoiding code duplication is **not** a goal. **Readability** and **hackability**
 
 ## Setup
 
-Clone the repo
+Clone the repo:
+
+
 
 ```bash
 git clone https://github.com/Lightning-AI/lit-gpt
 cd lit-gpt
 ```
 
-Install the dependencies
+Install the minimal dependencies:
 
 ```bash
-pip install -r requirements.txt tokenizers sentencepiece
+pip install -r requirements.txt
+```
+
+Install with all dependencies (including quantization, sentencepiece, tokenizers for Llama models, etc.):
+
+```bash
+pip install -r requirements.txt -r requirements-extra.txt
 ```
 
 **(Optional) install Flash Attention 2**
