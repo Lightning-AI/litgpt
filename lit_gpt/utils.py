@@ -140,14 +140,14 @@ class NotYetLoadedTensor:
             "output_nr",
             "requires_grad",
             "retains_grad",
+            "size"
             "shape",
             "volatile",
         }:
             return getattr(self.metatensor, name)
-        if name in {"size"}:
-            return getattr(self.metatensor, name)
-        # materializing with contiguous is needed for quantization
-        if name in {"contiguous"}:
+
+        # needed for quantization
+        if name in {"contiguous", "cuda"}:
             return getattr(self._load_tensor(), name)
 
         raise AttributeError(f"{type(self)} does not have {name}")
