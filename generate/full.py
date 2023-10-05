@@ -60,8 +60,7 @@ def main(
         devices: How many devices to use.
         precision: Indicates the Fabric precision setting to use.
     """
-    if precision is None:
-        precision = get_default_supported_precision(training=False)
+    precision = precision or get_default_supported_precision(training=False)
 
     plugins = None
     if quantize is not None:
