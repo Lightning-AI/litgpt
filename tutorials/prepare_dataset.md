@@ -191,7 +191,7 @@ python scripts/prepare_dolly.py \
 
 &nbsp;
 
-### Flan
+### FLAN
 
 FLAN is a collection of several datset subsets by Google. In particular, the provided script in Lit-GPT loads the subsets from
 [here](https://huggingface.co/datasets/Muennighoff/flan).
@@ -199,15 +199,15 @@ FLAN is a collection of several datset subsets by Google. In particular, the pro
 By default, all subsets (1,386,050 samples) and validations sets (367,190 subsets) are combined into a single dataset:
 
 ```bash
-python scripts/download_flan.py
-  --checkpoint_dir "checkpoints/tiiuae/falcon-7b" \
+python scripts/prepare_flan.py \
+  --checkpoint_dir "checkpoints/tiiuae/falcon-7b"
 ```
 
 However, you can also select individual subsets via comma-separated strings as follows:
 
 
 ```bash
-python scripts/download_flan.py \
+python scripts/prepare_flan.py \
   --checkpoint_dir "checkpoints/tiiuae/falcon-7b" \
   --subsets "aeslc_10templates,ag_news_subset_10templates,anli_r1_10templates"
 ```
