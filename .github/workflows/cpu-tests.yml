@@ -39,6 +39,7 @@ jobs:
         cache: 'pip'
         cache-dependency-path: |
           requirements.txt
+          requirements-all.txt
           setup.py
 
     - name: Install minimal dependencies
