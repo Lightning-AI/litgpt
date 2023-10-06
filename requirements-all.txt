@@ -1,3 +1,4 @@
+-r requirements.txt
 bitsandbytes   # quantization
 scipy          # required by bitsandbytes
 sentencepiece  # pythia, falcon, redpajama

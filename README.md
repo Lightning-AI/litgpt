@@ -102,7 +102,7 @@ pip install -r requirements.txt
 Install with all dependencies (including quantization, sentencepiece, tokenizers for Llama models, etc.):
 
 ```bash
-pip install -r requirements.txt -r requirements-extra.txt
+pip install -r requirements-all.txt
 ```
 
 **(Optional) install Flash Attention 2**
