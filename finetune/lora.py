@@ -53,7 +53,6 @@ lora_projection = False
 lora_mlp = False
 lora_head = False
 warmup_steps = 100
-use_scheduler = False
 
 hparams = {k: v for k, v in locals().items() if isinstance(v, (int, float, str)) and not k.startswith("_")}
 
@@ -143,10 +142,7 @@ def main(fabric: L.Fabric, data_dir: Path, checkpoint_dir: Path, out_dir: Path, 
     else:
         optimizer = torch.optim.AdamW(trainable_params, lr=learning_rate, weight_decay=weight_decay)
     optimizer = fabric.setup_optimizers(optimizer)
-    if use_scheduler:
-        scheduler = torch.optim.lr_scheduler.CosineAnnealingLR(optimizer, T_max=max_iters//batch_size)
-    else:
-        scheduler = None
+    scheduler = torch.optim.lr_scheduler.CosineAnnealingLR(optimizer, T_max=max_iters//batch_size)
 
     # strict=False because missing keys due to LoRA weights not contained in state dict
     load_checkpoint(fabric, model, checkpoint_path, strict=False)
@@ -226,9 +222,9 @@ def train(
         if not is_accumulating:
             optimizer.step()
             optimizer.zero_grad()
-            step_count += 1
-            if use_scheduler:
+            if step_count > warmup_steps:
                 scheduler.step()
+            step_count += 1
 
         t1 = time.perf_counter()
         total_lengths += input_ids.size(1)
