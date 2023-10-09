@@ -59,25 +59,21 @@ python finetune/lora.py --quantize "bnb.nf4-dq"
 
 The table below lists a comparison with different settings on a StableLM 3B model finetuned with LoRA on Alpaca for 5,000 iterations using a microbatch size of 4:
 
-| Settings                                                | Training Memory  | Training Time  | Loss      | Inference Memory |
-|---------------------------------------------------------|------------------|----------------|-----------|------------------|
-| Default (bfloat16-mixed)                                | 33.50 GB         | 591.78s        | 0.9207    | 7.61 GB          |
-| --precision "bf16-true"                                 | 15.86 GB         | 592.14s        | 0.9180    | 7.61 GB          |
-| --quantize "bnb.nf4"                                    | 22.34 GB         | 944.93s        | 0.9417    | 3.25 GB          |
-| --quantize "bnb.nf4-dq"                                 | 22.18 GB         | 962.23s        | 0.9383    | 3.08 GB          |
-| --precision "bf16-true"  --quantize "bnb.nf4"           | 14.81 GB         | 802.02s        | 0.9408    | 3.25 GB          |
-| --precision "bf16-true"  --quantize "bnb.nf4-dq"        | 14.65 GB         | 802.94s        | 0.9384    | 3.08 GB          |
+| Settings                                    | Training Memory | Training Time | Loss   | Inference Memory |
+|---------------------------------------------|-----------------|---------------|--------|------------------|
+| Default (bf16-mixed)                        | 34.57 GB        | 591.78s       | 0.9207 | 21.43 GB         |
+| --precision bf16-true                       | 16.93 GB        | 592.14s       | 0.9180 | 7.30 GB          |
+| --precision bf16-true --quantize bnb.nf4    | 15.28 GB        | 802.02s       | 0.9408 | 3.20 GB          |
+| --precision bf16-true --quantize bnb.nf4-dq | 15.12 GB        | 802.94s       | 0.9384 | 3.04 GB          |
 
-The advantages of QLoRA-style quantization are more pronounced in larger models, such as Llama 2 7B. The table below summarizes the results for Llama 2 7B on Alpaca for 5,000 iterations using a microbatch size of 4:
+The advantages of QLoRA-style quantization are more pronounced in larger models, such as Llama 2 7B. The table below summarizes the results for Llama 2 7B on Alpaca for 5,000 iterations using a microbatch size of 1:
 
-| Settings                                            | Training Memory  | Training Time  | Loss   | Inference Memory |
-|-----------------------------------------------------|------------------|----------------|--------|------------------|
-| Default (bfloat16-mixed)                            | OutOfMemoryError | N/A            | N/A    | N/A              |
-| --precision "bf16-true"                             | 20.60 GB         | 876.30s        | 0.8696 | 13.82 GB         |
-| --quantize "bnb.nf4"                                | 19.62 GB         | 1320.63s       | 1.0178 | 4.66 GB          |
-| --quantize "bnb.nf4-dq"                             | 19.32 GB         | 1359.10s       | 1.0132 | 4.34 GB          |
-| --precision "bf16-true"  --quantize "bnb.nf4"       | 13.44 GB         | 1089.79s       | 1.0130 | 4.66 GB          |
-| --precision "bf16-true"  --quantize "bnb.nf4-dq"    | 13.15 GB         | 1135.86s       | 1.0124 | 4.34 GB          |
+| Settings                                    | Training Memory  | Training Time | Loss   | Inference Memory |
+|---------------------------------------------|------------------|---------------|--------|------------------|
+| Default (bf16-mixed)                        | OutOfMemoryError | N/A           | N/A    | 40.21 GB         |
+| --precision bf16-true                       | 21.30 GB         | 876.30s       | 0.8696 | 13.52 GB         |
+| --precision bf16-true --quantize bnb.nf4    | 14.14 GB         | 1089.79s      | 1.0130 | 4.57 GB          |
+| --precision bf16-true --quantize bnb.nf4-dq | 13.84 GB         | 1135.86s      | 1.0124 | 4.26 GB          |
 
 &nbsp;
 
@@ -164,16 +160,33 @@ python scripts/merge_lora.py \
   --out_dir "out/lora_merged/stablelm-base-alpha-3b/"
 ```
 
-After merging, we can use the `base.py` file for inference using the new checkpoint file. Note that if your new checkpoint directory is different from the original checkpoint directory, we also have to copy over the `*.json` files which are required for the configuration and tokenizer information:
+After merging, we can use the `base.py` file for inference using the new checkpoint file. Note that if your new checkpoint directory is different from the original checkpoint directory, we also have to copy over the tokenizer and config files:
 
 ```bash
 cp checkpoints/stabilityai/stablelm-base-alpha-3b/*.json \
 out/lora_merged/stablelm-base-alpha-3b/
 ```
 
+> [!Note]
+> Some models (for example, Llama 2) also come with a `tokenizer.model` file.
+> In this case, you also need to use an additional copy step:
+> `cp checkpoints/origin/tokenizer.model out/lora_merged/target/`
+
+Then, we should be ready to use the model in inference:
+
 ```bash
 python generate/base.py \
   --checkpoint_dir "out/lora_merged/stablelm-base-alpha-3b/"
+```
+
+Similarly, you can evaluate the model using the `eval/lm_eval_harness.py` script (see the [evaluation](evaluation.md) tutorial for more information):
+
+```bash
+python eval/lm_eval_harness.py \
+    --checkpoint_dir "out/lora_merged/stablelm-base-alpha-3b/" \
+    --precision "bf16-true" \
+    --batch_size 4 \
+    --save_filepath "results.json"
 ```
 
 &nbsp;

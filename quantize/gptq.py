@@ -599,7 +599,7 @@ def main(
     config = Config.from_json(checkpoint_dir / "lit_config.json")
 
     device = "cuda"
-    fabric = Fabric(accelerator="cuda", precision=precision)
+    fabric = Fabric(accelerator="cuda", devices=1, precision=precision)
 
     # we avoid loading the entire model on the GPU and do this block by block
     checkpoint_path = checkpoint_dir / "lit_model.pth"
@@ -607,8 +607,8 @@ def main(
     t0 = time.perf_counter()
     with fabric.init_module(empty_init=True):
         model = GPT(config)
-    with lazy_load(checkpoint_path) as checkpoint:
-        model.load_state_dict(checkpoint)
+    checkpoint = lazy_load(checkpoint_path)
+    model.load_state_dict(checkpoint)
     print(f"Time to load model: {time.perf_counter() - t0:.02f} seconds.")
 
     model.eval()

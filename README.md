@@ -40,6 +40,8 @@ Supports the following popular model checkpoints:
 | Platypus                                                            | [Lee, Hunter, and Ruiz 2023](https://arxiv.org/abs/2308.07317)                                   |
 | NousResearch Nous-Hermes                                            | [Org page](https://huggingface.co/NousResearch)                                                  |
 | Meta AI [Code Llama](tutorials/download_code_llama.md)              | [Rozière et al. 2023](https://arxiv.org/abs/2308.12950)                                          |
+| Microsoft Research [phi-1.5](tutorials/download_phi15.md)           | [Li et al. 2023](https://arxiv.org/abs/2309.05463)                                               |
+| Mistral AI [Mistral](tutorials/download_mistral.md)                 | [Mistral  website](https://mistral.ai/)                                                          |
 
 This implementation extends on [Lit-LLaMA](https://github.com/lightning-AI/lit-llama) and [nanoGPT](https://github.com/karpathy/nanoGPT), and it's **powered by [Lightning Fabric](https://lightning.ai/docs/fabric/stable/) ⚡**.
 
@@ -84,40 +86,29 @@ Avoiding code duplication is **not** a goal. **Readability** and **hackability**
 
 ## Setup
 
-Clone the repo
+Clone the repo:
 
 ```bash
 git clone https://github.com/Lightning-AI/lit-gpt
 cd lit-gpt
 ```
 
-Lit-GPT currently relies on flash attention from PyTorch nightly. Until PyTorch 2.1 is released you'll need to install nightly manually.
-Luckily this is straightforward, as shown below.
-
-&nbsp;
-
-**On CUDA**
+Install the minimal dependencies:
 
 ```bash
-pip install --index-url https://download.pytorch.org/whl/nightly/cu118 --pre 'torch>=2.1.0dev'
+pip install -r requirements.txt
 ```
 
-**On CPU (incl Macs)**
+Install with all dependencies (including quantization, sentencepiece, tokenizers for Llama models, etc.):
 
 ```bash
-pip install --index-url https://download.pytorch.org/whl/nightly/cpu --pre 'torch>=2.1.0dev'
+pip install -r requirements-all.txt
 ```
 
 **(Optional) install Flash Attention 2**
 
 ```bash
-MAX_JOBS=4 pip install 'flash-attn>=2.0.0.post1' --no-build-isolation
-```
-
-All good, now install the dependencies plus some optional ones:
-
-```bash
-pip install -r requirements.txt tokenizers sentencepiece
+MAX_JOBS=4 pip install flash-attn --no-build-isolation
 ```
 
 You are all set! 🎉

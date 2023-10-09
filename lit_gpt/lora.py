@@ -120,8 +120,8 @@ class LoRALinear(LoRALayer):
 
         # Actual trainable parameters
         if r > 0:
-            self.lora_A = nn.Parameter(self.linear.weight.new_zeros((r, in_features)))
-            self.lora_B = nn.Parameter(self.linear.weight.new_zeros((out_features, r)))
+            self.lora_A = nn.Parameter(torch.zeros((r, in_features)))
+            self.lora_B = nn.Parameter(torch.zeros((out_features, r)))
             self.scaling = self.lora_alpha / self.r
             self.reset_parameters()
 
@@ -205,7 +205,7 @@ class LoRAQKVLinear(LoRALinear):
         # ⚬ r: 2
         # ⚬ enable_lora: [True, False, True]
         if r > 0 and any(enable_lora):
-            self.lora_A = nn.Parameter(self.linear.weight.new_zeros((r * sum(enable_lora), in_features)))  # (4, 128)
+            self.lora_A = nn.Parameter(torch.zeros((r * sum(enable_lora), in_features)))  # (4, 128)
             enable_q, enable_k, enable_v = enable_lora
             self.kv_embd_size = self.linear.in_features // (n_head // n_query_groups)
             # qkv_shapes will be used to split a tensor with weights correctly
@@ -215,7 +215,7 @@ class LoRAQKVLinear(LoRALinear):
                 self.kv_embd_size * enable_v,
             )
             self.qkv_shapes = [s for s in qkv_shapes if s]
-            self.lora_B = nn.Parameter(self.linear.weight.new_zeros(sum(self.qkv_shapes), r))  # (256, 2))
+            self.lora_B = nn.Parameter(torch.zeros(sum(self.qkv_shapes), r))  # (256, 2))
             # Notes about shapes above
             # - self.lora_A has shape (4, 128): 4 because rank is 2 and LoRA is applied only to two matrices;
             # 128 is the input size of the x (embedding size). (4, 128) and not (128, 4) because later on in
@@ -458,7 +458,7 @@ class GPT(BaseModel):
         self.lm_head = LoRALinear(
             config.n_embd,
             config.padded_vocab_size,
-            bias=False,
+            bias=config.lm_head_bias,
             r=(config.r if config.to_head else 0),
             lora_alpha=config.alpha,
             lora_dropout=config.dropout,
@@ -593,6 +593,8 @@ class GptNeoxMLP(lit_gpt.model.GptNeoxMLP):
             lora_alpha=config.alpha,
             lora_dropout=config.dropout,
         )
+
+        self.config = config
 
     def _load_from_state_dict(self, state_dict: Dict, prefix: str, *args: Any, **kwargs: Any) -> None:
         """For compatibility with base checkpoints."""

@@ -6,13 +6,19 @@ from typing import Iterator, List, Literal, Optional, Tuple
 
 import lightning as L
 import torch
+from lightning.fabric.plugins import BitsandbytesPrecision
 
 # support running without installing as a package
 wd = Path(__file__).parent.parent.resolve()
 sys.path.append(str(wd))
 
 from lit_gpt import GPT, Config, Tokenizer
-from lit_gpt.utils import check_valid_checkpoint_dir, get_default_supported_precision, lazy_load, quantization
+from lit_gpt.utils import (
+    check_valid_checkpoint_dir,
+    get_default_supported_precision,
+    gptq_quantization,
+    load_checkpoint,
+)
 
 
 @torch.inference_mode()
@@ -135,11 +141,19 @@ def main(
     """
     precision = precision or get_default_supported_precision(training=False)
 
+    plugins = None
+    if quantize is not None and quantize.startswith("bnb."):
+        if "mixed" in precision:
+            raise ValueError("Quantization and mixed precision is not supported.")
+        dtype = {"16-true": torch.float16, "bf16-true": torch.bfloat16, "32-true": torch.float32}[precision]
+        plugins = BitsandbytesPrecision(quantize[4:], dtype)
+        precision = None
+
+    fabric = L.Fabric(devices=1, precision=precision, plugins=plugins)
+
     check_valid_checkpoint_dir(checkpoint_dir)
 
     config = Config.from_json(checkpoint_dir / "lit_config.json")
-
-    fabric = L.Fabric(devices=1, precision=precision)
 
     if quantize == "gptq.int4":
         model_file = "lit_model_gptq.4bit.pth"
@@ -148,11 +162,11 @@ def main(
     else:
         model_file = "lit_model.pth"
     checkpoint_path = checkpoint_dir / model_file
+
     fabric.print(f"Loading model {str(checkpoint_path)!r} with {config.__dict__}", file=sys.stderr)
-    with fabric.init_module(empty_init=True), quantization(quantize):
+    with fabric.init_module(empty_init=True), gptq_quantization(quantize == "gptq.int4"):
         model = GPT(config)
-    with lazy_load(checkpoint_path) as checkpoint:
-        model.load_state_dict(checkpoint.get("model", checkpoint), strict=quantize is None)
+    load_checkpoint(fabric, model, checkpoint_path)
 
     model.eval()
     model = fabric.setup_module(model)
@@ -294,12 +308,26 @@ def prompt_config(checkpoint_dir: Path, tokenizer: Tokenizer) -> Tuple[str, Tupl
         stop_tokens = ([tokenizer.eos_id],)
         return system_prompt, stop_tokens
 
-    if re.search("CodeLlama", checkpoint_name):
-        # we don't set a default system prompt, but it is supported:
+    if re.search("CodeLlama|Mistral.*Instruct", checkpoint_name):
+        # for CodeLLama, we don't set a default system prompt, but it is supported:
         # https://huggingface.co/blog/codellama#conversational-instructions
+        # Mistral does not: https://huggingface.co/mistralai/Mistral-7B-Instruct-v0.1#instruction-format
         b_inst, e_inst = "<s>[INST]", "[/INST]"
         system_prompt = f"{b_inst} {{prompt}} {e_inst}"
         stop_tokens = ([tokenizer.eos_id],)
+        return system_prompt, stop_tokens
+
+    if re.search("phi", checkpoint_name):
+        system_prompt = "{prompt}\n\nAnswer:"
+
+        stop_tokens = (
+            [tokenizer.eos_id],
+            [tokenizer.token_to_id("Answer"), tokenizer.token_to_id(":")],
+            [198, tokenizer.token_to_id("Answer"), tokenizer.token_to_id(":")],
+            # the model rarely emits the eos token and instead outputs newlines, but we cannot use them
+            # to stop or else things like code generation wouldn't work
+            # [198, 198],  # '\n', '\n'
+        )
         return system_prompt, stop_tokens
 
     # default format

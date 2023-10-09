@@ -81,11 +81,8 @@ def test_adapter_v2_script(tmp_path, fake_checkpoint_dir, monkeypatch):
     model_config = dict(block_size=128, n_layer=2, n_embd=8, n_head=4, padded_vocab_size=8, adapter_start_layer=0)
     monkeypatch.setitem(name_to_config, "tmp", model_config)
 
-    load_mock = Mock()
-    load_mock.return_value = load_mock
-    load_mock.__enter__ = Mock()
-    load_mock.__exit__ = Mock()
-    monkeypatch.setattr(module, "lazy_load", load_mock)
+    monkeypatch.setattr(module, "lazy_load", Mock())
+    monkeypatch.setattr(module.GPT, "load_state_dict", Mock())
 
     tokenizer_mock = Mock()
     tokenizer_mock.return_value = tokenizer_mock

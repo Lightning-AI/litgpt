@@ -8,6 +8,7 @@ Below is a table of all datasets that are currently supported in Lit-GPT:
 | Alpaca       | Finetuning  | 51,759 samples      | [URL](https://github.com/tatsu-lab/stanford_alpaca)             | [URL](https://crfm.stanford.edu/2023/03/13/alpaca.html)                                                                   | Attribution-NonCommercial 4.0 International, [ URL](https://crfm.stanford.edu/2023/03/13/alpaca.html)                                                                                                            |
 | Alpaca Libre | Finetuning  | 55,370 samples      | [URL](https://github.com/mobarski/alpaca-libre)                 | -                                                                                                                         | CC0/MIT,  [URL](https://github.com/mobarski/alpaca-libre)                                                                                                                                                        |
 | Dolly        | Finetuning  | 15,011 samples      | [URL](https://github.com/databrickslabs/dolly/tree/master/data) | [URL](https://www.databricks.com/blog/2023/04/12/dolly-first-open-commercially-viable-instruction-tuned-llm)              | CC-BY-SA, [URL](https://github.com/databrickslabs/dolly#model-overview)                                                                                                                                          |
+| LongForm     | Finetuning  | 23,652 samples      | [URL](https://github.com/akoksal/LongForm)                      | [URL](https://arxiv.org/abs/2304.08460)                                                                                   | No information provided and subset-dependent, [URL](https://github.com/akoksal/LongForm) |
 | LIMA         | Finetuning  | 1,084 samples       | [URL](https://huggingface.co/datasets/GAIR/lima)                | [URL](https://arxiv.org/abs/2305.11206)                                                                                   | "If the source data of LIMA has a stricter license than CC BY-NC-SA, the LIMA dataset follows the same. Otherwise, it follows the CC BY-NC-SA license", [URL](https://huggingface.co/datasets/GAIR/lima#license) |
 | OpenWeb Text | Pretraining | 8,013,769 documents | [URL](https://github.com/jcpeterson/openwebtext)                | [URL](https://d4mucfpksywv.cloudfront.net/better-language-models/language_models_are_unsupervised_multitask_learners.pdf) | Unspecified                                                                                                                                                                                                      |
 | RedPajama    | Pretraining | 1.2 T tokens        | [URL](https://github.com/togethercomputer/RedPajama-Data)       | [URL](https://together.ai/blog/redpajama-models-v1)                                                                       | Subset-dependent, [URL](https://github.com/togethercomputer/RedPajama-Data#license)                                                                                                                              |                                                                     |   |
@@ -27,11 +28,10 @@ The steps here only need to be done once before preparing the finetuning dataset
 
 &nbsp;
 
-### Alpaca and Alpaca Libre
+### Alpaca
 
 &nbsp;
 
-**Alpaca**
 
 The Alpaca dataset consists of 52,000 instructions and demonstrations produced by OpenAI's text-davinci-003 engine. This data is used in instruction-tuning, helping improve the performance of language models to follow instructions.
 
@@ -44,9 +44,25 @@ python scripts/prepare_alpaca.py \
  --checkpoint_dir checkpoints/tiiuae/falcon-7b
 ```
 
+#### Truncating datasets
+
+By default, the finetuning script (for example [`finetuning/lora.py`](../finetuning/lora.py)) will determine the size of the longest tokenized sample in the dataset to determine the block size. However, if you are willing to truncate a few examples in the training set, you can reduce the computational resource requirements significantly. For instance you can set a sequence length threshold via `--max_seq_length`. We can determine an appropriate maximum sequence length by considering the distribution of the data sample lengths shown in the histogram below.
+
+<img src="images/prepare_dataset/alpaca.jpg" width=400px>
+
+In this case, a cut-off of 256 may be a reasonable choice:
+
+```bash
+python scripts/prepare_alpaca.py \
+ --checkpoint_dir checkpoints/tiiuae/falcon-7b \
+ --max_seq_length 256
+```
+
+For comparison, the Falcon 7B model requires 23.52 GB of memory for the original Alpaca dataset and 15.73 GB of memory for the truncated Alpaca dataset when finetuning with LoRA using a micro batchsize of 1 and bfloat-16 precision.
+
 &nbsp;
 
-**Alpaca Libre**
+### Alpaca Libre
 
 [Alpaca Libre](https://github.com/mobarski/alpaca-libre) is a reimplementation or alternative to Alpaca using the same formatting.
 
@@ -60,6 +76,23 @@ python scripts/prepare_alpaca.py \
  --destination_path "data/alpaca_libre"
 ```
 
+The Alpaca Libre dataset distribution is shown below.
+
+<img src="images/prepare_dataset/alpaca_libre.jpg" width=400px>
+
+You may want to consider truncating the dataset (see the *Truncating datasets* discussion in the Alpaca section for more information.) For this dataset, a cut-off of 256 may be a good choice:
+
+```bash
+python scripts/prepare_alpaca.py \
+ --checkpoint_dir "checkpoints/tiiuae/falcon-7b" \
+ --data_file_url "https://raw.githubusercontent.com/mobarski/alpaca-libre/main/data/output/alpaca_libre_ok_tasks_v4.json" \
+ --data_file_name "alpaca_libre_data_cleaned_archive.json" \
+ --destination_path "data/alpaca_libre" \
+ --max_seq_length 256
+```
+
+
+
 &nbsp;
 
 ### Dolly
@@ -70,7 +103,59 @@ The usage is similar to the Alpaca dataset described above. Using Falcon 7b as a
 
 ```bash
 python scripts/prepare_dolly.py \
+ --checkpoint_dir "checkpoints/tiiuae/falcon-7b"
+```
+
+The Dolly dataset distribution is shown below.
+
+<img src="images/prepare_dataset/dolly.jpg" width=400px>
+
+You may want to consider truncating the dataset (see the *Truncating datasets* discussion in the Alpaca section for more information.) For this dataset, a cut-off of 512 may be a good choice:
+
+```bash
+python scripts/prepare_dolly.py \
  --checkpoint_dir "checkpoints/tiiuae/falcon-7b" \
+ --max_seq_length 512
+```
+
+&nbsp;
+
+### LongForm
+
+LongForm is a semi-synthetic dataset based on raw text corpora for which the instructions were generated via an LLM. For more details about the instruction-generation process, please refer to the [LongForm research paper](https://arxiv.org/abs/2304.08460) by Köksal et al. According to the research paper, a Llama 7B model trained on LongForm achieves substantially better performance than the same Llama model trained on the 2x larger Alpaca dataset.
+
+LongForm consists of 23,652 training samples, 2,042 validation samples, and 2,045 test samples. (In Lit-GPT, the validation samples are currently not used.)
+
+The more detailed dataset composition is as follows based on a table taken from the [dataset repository](https://github.com/akoksal/LongForm):
+
+| **Type**               | **Source**     | **Number of Examples** |
+|------------------------|----------------|------------------------|
+| **Corpora**            | C4             | 10,000                 |
+|                        | Wikipedia      | 5,000                  |
+| **Structured Corpora** | Stack Exchange | 4,380                  |
+|                        | WikiHow        | 2,500                  |
+| **Tasks**              | NIv2           | 3,684                  |
+|                        | Big Bench      | 600                    |
+|                        | BEA-GEC        | 1,203                  |
+|                        | Enron          | 372                    |
+| **Total**              |                | 27,739                 |
+|  |   |  |
+| **Train**              |                | 23,652                 |
+| **Validation**         |                | 2,042                  |
+| **Test**               |                | 2,045                  |
+
+License information is not provided but would depend on the individual subsets listed above.
+
+The LongForm dataset distribution is shown below.
+
+<img src="images/prepare_dataset/longform.jpg" width=400px>
+
+You may want to consider truncating the dataset (see the *Truncating datasets* discussion in the Alpaca section for more information.) For this dataset, a cut-off of 1500 may be a good choice:
+
+```bash
+python scripts/prepare_dolly.py \
+ --checkpoint_dir "checkpoints/tiiuae/falcon-7b" \
+ --max_seq_length 1500
 ```
 
 &nbsp;
@@ -91,10 +176,22 @@ LIMA contains a handful of multiturn conversations. By default, only the first i
 each of these multiturn conversations are included. If you want to override this behavior and include the follow up instructions
 and responses, set `--include_multiturn_conversations True`.
 
+The Lima dataset distribution is shown below.
+
+<img src="images/prepare_dataset/lima.jpg" width=400px>
+
+You may want to consider truncating the dataset (see the *Truncating datasets* discussion in the Alpaca section for more information.) For this dataset, a cut-off of 512 may be a good choice:
+
+```bash
+python scripts/prepare_dolly.py \
+ --checkpoint_dir "checkpoints/tiiuae/falcon-7b" \
+ --max_seq_length 512
+```
+
 
 &nbsp;
 
-**Finetuning After Data Preparation**
+### Finetuning After Data Preparation
 
 After preparing the dataset, you can finetune the model using the [`finetune/*.py`](../finetune/) scripts, for example,
 
@@ -112,7 +209,7 @@ Please read the [tutorials/finetune_*.md](../tutorials) documents for more infor
 
 > [!IMPORTANT]
 > By default, the maximum sequence length is obtained from the model configuration file. In case you run into out-of-memory errors, especially in the cases of LIMA and Dolly,
-> you can try to lower the context length by preparing the dataset with a fixed max length, for example, `python scripts/prepare_lima.py --max_seq_length 2048`. Alternatvively, you can edit the  [`finetune/lora.py` file](https://github.com/Lightning-AI/lit-gpt/blob/main/finetune/lora.py#L37) and change `override_max_seq_length = None` to `override_max_seq_length = 2048`.
+> you can try to lower the context length by preparing the dataset with a fixed max length, for example, `python scripts/prepare_lima.py --max_seq_length 2048`. For more information on truncating datasets, see the *Truncating datasets* section in the Alpaca section near the top of this article.
 
 &nbsp;
 

@@ -1,12 +1,11 @@
 import json
 import sys
-import time
 from pathlib import Path
 from typing import List, Literal, Optional
 
 import lightning as L
 import torch
-from lightning.fabric.strategies import FSDPStrategy
+from lightning.fabric.plugins import BitsandbytesPrecision
 from lm_eval import base, evaluator, tasks
 from lm_eval.base import BaseLM
 
@@ -16,66 +15,24 @@ sys.path.append(str(wd))
 
 from generate.base import generate
 from lit_gpt import GPT, Config, Tokenizer
-from lit_gpt.model import Block
-from lit_gpt.utils import check_valid_checkpoint_dir, get_default_supported_precision, lazy_load, quantization
+from lit_gpt.utils import (
+    check_valid_checkpoint_dir,
+    get_default_supported_precision,
+    gptq_quantization,
+    load_checkpoint,
+)
 
 
 class EvalHarnessBase(BaseLM):
     # Credits:
     # https://github.com/EleutherAI/gpt-neox/blob/main/eval_tasks/eval_adapter.py
-    def __init__(
-        self,
-        checkpoint_dir: str = "",
-        precision: str = "bf16-true",
-        batch_size=1,
-        temperature=1.0,
-        device="auto",
-        devices: int = 1,
-        strategy: str = "auto",
-        quantize: Optional[Literal["bnb.nf4", "bnb.nf4-dq", "bnb.fp4", "bnb.fp4-dq", "bnb.int8", "gptq.int4"]] = None,
-    ):
+    def __init__(self, fabric: L.Fabric, model: GPT, tokenizer: Tokenizer, batch_size: int, temperature: float):
         super().__init__()
-        assert isinstance(device, str)
-        assert isinstance(batch_size, int)
-        assert isinstance(checkpoint_dir, str)
+        self.fabric = fabric
+        self.model = model
+        self.tokenizer = tokenizer
         self.batch_size_per_gpu = batch_size
         self.temperature = temperature
-
-        if strategy == "fsdp":
-            strategy = FSDPStrategy(auto_wrap_policy={Block}, cpu_offload=False)
-        self.fabric = fabric = L.Fabric(devices=devices, precision=precision, strategy=strategy)
-        fabric.launch()
-
-        checkpoint_dir = Path(checkpoint_dir)
-        check_valid_checkpoint_dir(checkpoint_dir)
-
-        config = Config.from_json(checkpoint_dir / "lit_config.json")
-
-        if quantize is not None and devices > 1:
-            raise NotImplementedError
-        if quantize == "gptq.int4":
-            model_file = "lit_model_gptq.4bit.pth"
-            if not (checkpoint_dir / model_file).is_file():
-                raise ValueError("Please run `python quantize/gptq.py` first")
-        else:
-            model_file = "lit_model.pth"
-        checkpoint_path = checkpoint_dir / model_file
-
-        fabric.print(f"Loading model {str(checkpoint_path)!r} with {config.__dict__}", file=sys.stderr)
-        t0 = time.perf_counter()
-        with fabric.init_module(empty_init=True), quantization(quantize):
-            model = GPT(config)
-        fabric.print(f"Time to instantiate model: {time.perf_counter() - t0:.02f} seconds.", file=sys.stderr)
-
-        t0 = time.perf_counter()
-        with lazy_load(checkpoint_path) as checkpoint:
-            model.load_state_dict(checkpoint.get("model", checkpoint), strict=quantize is None)
-        fabric.print(f"Time to load the model weights: {time.perf_counter() - t0:.02f} seconds.", file=sys.stderr)
-
-        model.eval()
-        self.model = fabric.setup_module(model)
-        self.tokenizer = Tokenizer(checkpoint_dir)
-        self.vocab_size = self.tokenizer.vocab_size
 
     @classmethod
     def create_from_arg_string(cls, arg_string, additional_config=None):
@@ -90,6 +47,10 @@ class EvalHarnessBase(BaseLM):
     @property
     def max_length(self):
         return self.model.max_seq_length
+
+    @property
+    def vocab_size(self):
+        return self.tokenizer.vocab_size
 
     @property
     def max_gen_toks(self):
@@ -193,47 +154,70 @@ class EvalHarnessBase(BaseLM):
         return results
 
 
+@torch.inference_mode()
 def run_eval_harness(
-    checkpoint_dir: str = "",
+    checkpoint_dir: Path,
     precision: Optional[str] = None,
     batch_size=1,
+    temperature=1.0,
+    quantize: Optional[Literal["bnb.nf4", "bnb.nf4-dq", "bnb.fp4", "bnb.fp4-dq", "bnb.int8", "gptq.int4"]] = None,
     eval_tasks: Optional[List[str]] = None,
     num_fewshot=0,
     bootstrap_iters=2,
-    temperature=1.0,
-    device="auto",
-    devices: int = 1,
-    strategy: str = "auto",
-    quantize: Optional[Literal["bnb.nf4", "bnb.nf4-dq", "bnb.fp4", "bnb.fp4-dq", "bnb.int8", "gptq.int4"]] = None,
-    save_filepath: Optional[str] = None,
+    save_filepath: Optional[Path] = None,
 ):
-    precision = precision or get_default_supported_precision(training=False)
+    if precision is None:
+        precision = get_default_supported_precision(training=False)
 
-    eval_harness = EvalHarnessBase(
-        checkpoint_dir=checkpoint_dir,
-        precision=precision,
-        batch_size=batch_size,
-        temperature=temperature,
-        device=device,
-        devices=devices,
-        strategy=strategy,
-        quantize=quantize,
-    )
-    eval_harness.fabric.print("Running evaluation harness...")
+    plugins = None
+    if quantize is not None and quantize.startswith("bnb."):
+        if "mixed" in precision:
+            raise ValueError("Quantization and mixed precision is not supported.")
+        dtype = {"16-true": torch.float16, "bf16-true": torch.bfloat16, "32-true": torch.float32}[precision]
+        plugins = BitsandbytesPrecision(quantize[4:], dtype)
+        precision = None
+
+    fabric = L.Fabric(devices=1, precision=precision, plugins=plugins)
+
+    checkpoint_dir = Path(checkpoint_dir)
+    check_valid_checkpoint_dir(checkpoint_dir)
+    tokenizer = Tokenizer(checkpoint_dir)
+
+    config = Config.from_json(checkpoint_dir / "lit_config.json")
+
+    if quantize == "gptq.int4":
+        model_file = "lit_model_gptq.4bit.pth"
+        if not (checkpoint_dir / model_file).is_file():
+            raise ValueError("Please run `python quantize/gptq.py` first")
+    else:
+        model_file = "lit_model.pth"
+    checkpoint_path = checkpoint_dir / model_file
+
+    print(f"Loading model {str(checkpoint_path)!r} with {config.__dict__}", file=sys.stderr)
+    with fabric.init_module(empty_init=True), gptq_quantization(quantize == "gptq.int4"):
+        model = GPT(config)
+
+    model.eval()
+    model = fabric.setup_module(model)
+
+    load_checkpoint(fabric, model, checkpoint_path)
+
+    eval_harness = EvalHarnessBase(fabric, model, tokenizer, batch_size, temperature)
+
     results = eval_harness.run_eval(
         eval_tasks=eval_tasks, num_fewshot=num_fewshot, bootstrap_iters=bootstrap_iters, use_cache=False
     )
-    if save_filepath:
+    if save_filepath is None:
+        print(results)
+    else:
+        print(f"Saving results to {str(save_filepath)!r}")
         data = json.dumps(results)
         with open(save_filepath, "w") as fw:
             fw.write(data)
-        print(f"Results saved at {save_filepath}")
-    return results
 
 
 if __name__ == "__main__":
     from jsonargparse import CLI
 
     torch.set_float32_matmul_precision("high")
-    result = CLI(run_eval_harness)
-    print(result)
+    CLI(run_eval_harness, as_positional=False)

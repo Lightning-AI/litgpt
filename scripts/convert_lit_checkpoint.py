@@ -5,13 +5,14 @@ from pathlib import Path
 from typing import Dict, Optional, Tuple, Union
 
 import torch
+from lightning.fabric.utilities.load import _NotYetLoadedTensor as NotYetLoadedTensor
 
 # support running without installing as a package
 wd = Path(__file__).parent.parent.resolve()
 sys.path.append(str(wd))
 
 from lit_gpt import Config
-from lit_gpt.utils import NotYetLoadedTensor, incremental_save, lazy_load
+from lit_gpt.utils import incremental_save, lazy_load
 from scripts.convert_hf_checkpoint import layer_template, load_param
 
 
@@ -124,31 +125,64 @@ def copy_weights_llama(
             k = "model.layers.{}.self_attn.k_proj.weight".format(number)
             v = "model.layers.{}.self_attn.v_proj.weight".format(number)
             qkv = load_param(param, name, None)
-            qp, kp, vp = tensor_split(qkv, config)
+            qp, kp, vp = qkv_split(qkv, config)
             for to_name, param in zip((q, k, v), (qp, kp, vp)):
                 if saver is not None:
                     param = saver.store_early(param)
                 state_dict[to_name] = param
-        elif "transformer.h" in name:
+        else:
+            if "transformer.h" in name:
+                from_name, number = layer_template(name, 2)
+                to_name = weight_map[from_name]
+                to_name = to_name.format(number)
+            else:
+                to_name = weight_map[name]
+            param = load_param(param, name, None)
+            if saver is not None:
+                param = saver.store_early(param)
+            state_dict[to_name] = param
+
+
+def copy_weights_phi(
+    config: Config,
+    state_dict: Dict[str, torch.Tensor],
+    lit_weights: Dict[str, Union[torch.Tensor, NotYetLoadedTensor]],
+    saver: Optional[incremental_save] = None,
+) -> None:
+    weight_map = {
+        "transformer.wte.weight": "layers.0.wte.weight",
+        "transformer.h.{}.norm_1.bias": "layers.{}.ln.bias",
+        "transformer.h.{}.norm_1.weight": "layers.{}.ln.weight",
+        "transformer.h.{}.attn.attn.bias": "layers.{}.mixer.Wqkv.bias",
+        "transformer.h.{}.attn.attn.weight": "layers.{}.mixer.Wqkv.weight",
+        "transformer.h.{}.attn.proj.bias": "layers.{}.mixer.out_proj.bias",
+        "transformer.h.{}.attn.proj.weight": "layers.{}.mixer.out_proj.weight",
+        "transformer.h.{}.mlp.fc.bias": "layers.{}.mlp.fc1.bias",
+        "transformer.h.{}.mlp.fc.weight": "layers.{}.mlp.fc1.weight",
+        "transformer.h.{}.mlp.proj.bias": "layers.{}.mlp.fc2.bias",
+        "transformer.h.{}.mlp.proj.weight": "layers.{}.mlp.fc2.weight",
+        "transformer.ln_f.bias": f"layers.{config.n_layer + 1}.ln.bias",
+        "transformer.ln_f.weight": f"layers.{config.n_layer + 1}.ln.weight",
+        "lm_head.weight": f"layers.{config.n_layer + 1}.linear.weight",
+        "lm_head.bias": f"layers.{config.n_layer + 1}.linear.bias",
+    }
+
+    for name, param in lit_weights.items():
+        if "transformer.h" in name:
             from_name, number = layer_template(name, 2)
             to_name = weight_map[from_name]
-            if to_name is None:
-                continue
-            to_name = to_name.format(number)
-            param = load_param(param, name, None)
-            if saver is not None:
-                param = saver.store_early(param)
-            state_dict[to_name] = param
-
+            to_name = to_name.format(number + 1)
         else:
             to_name = weight_map[name]
-            param = load_param(param, name, None)
-            if saver is not None:
-                param = saver.store_early(param)
-            state_dict[to_name] = param
+        param = load_param(param, name, None)
+        if "attn.attn." in name:
+            param = torch.cat(qkv_split(param, config))
+        if saver is not None:
+            param = saver.store_early(param)
+        state_dict[to_name] = param
 
 
-def tensor_split(
+def qkv_split(
     param: Union[torch.Tensor, NotYetLoadedTensor], config: Config
 ) -> Tuple[torch.Tensor, torch.Tensor, torch.Tensor]:
     q_per_kv = config.n_head // config.n_query_groups
@@ -187,11 +221,11 @@ def convert_lit_checkpoint(checkpoint_path: Path, output_path: Path, config_path
     # initialize a new empty state dict to hold our new weights
     sd = {}
     with incremental_save(output_path) as saver:
-        with lazy_load(checkpoint_path) as lit_weights:
-            lit_weights = lit_weights.get("model", lit_weights)
-            check_conversion_supported(lit_weights)
-            copy_fn(sd, lit_weights, saver=saver)
-            gc.collect()
+        lit_weights = lazy_load(checkpoint_path)
+        lit_weights = lit_weights.get("model", lit_weights)
+        check_conversion_supported(lit_weights)
+        copy_fn(sd, lit_weights, saver=saver)
+        gc.collect()
         saver.save(sd)
 
 
