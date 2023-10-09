@@ -2,7 +2,7 @@
 
 This document provides different strategies for quantizing the various models available in Lit-GPT to reduce GPU memory usage, which is useful for running larger models on certain GPU hardware.
 
-**All the examples below were run on an A100 40GB GPU with CUDA 11.8.**
+**All the examples below were run on an A100 40GB GPU with CUDA 12.1.**
 
 > [!NOTE]
 > Quantization also supports finetuning via [QLoRA](finetune_lora.md)
