@@ -252,10 +252,6 @@ class LoRAQKVLinear(LoRALinear):
                 indices.append(torch.arange(in_features + self.kv_embd_size, out_features, device=device))
             self.register_buffer("_lora_ind", torch.cat(indices), persistent=False)
 
-        # in case `lora_ind` was created in `inference_mode` and thus it's an inference tensor,
-        # that cannot be saved for backward and has to be cloned
-        if self._lora_ind.is_inference():
-            self._lora_ind = self._lora_ind.clone()
         return self._lora_ind
 
     def zero_pad(self, x: torch.Tensor) -> torch.Tensor:
