@@ -160,6 +160,12 @@ python scripts/merge_lora.py \
   --out_dir "out/lora_merged/stablelm-base-alpha-3b/"
 ```
 
+> [!Note]
+> If you changed the LoRA hyperparameters (`lora_r`, `lora_key`, etc.) in the
+> `finetune/lora.py` script, it is important to update the hyperparameter configuration
+> in the `scripts/merge_lora.py` script accordingly. Otherwise, you will encounter size
+> mismatch errors upon merging.
+
 After merging, we can use the `base.py` file for inference using the new checkpoint file. Note that if your new checkpoint directory is different from the original checkpoint directory, we also have to copy over the tokenizer and config files:
 
 ```bash
