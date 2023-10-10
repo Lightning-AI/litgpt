@@ -30,7 +30,7 @@ def generate(
     temperature: float = 1.0,
     top_k: Optional[int] = None,
     stop_tokens: Tuple[List[int], ...] = (),
-):
+) -> Iterator[torch.Tensor]:
     """Takes a conditioning sequence (prompt) as input and continues to generate as many tokens as possible.
 
     Args:
