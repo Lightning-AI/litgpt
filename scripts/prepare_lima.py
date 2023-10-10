@@ -3,9 +3,10 @@ import json
 import os
 import sys
 from pathlib import Path
-from typing import Optional
+from typing import Dict, List, Optional
 
 import torch
+from datasets import Dataset, load_dataset
 from torch.utils.data import random_split
 from tqdm import tqdm
 
@@ -48,8 +49,6 @@ def prepare(
 
     destination_path.mkdir(parents=True, exist_ok=True)
     print("Loading data file...")
-
-    from datasets import load_dataset
 
     dataset = load_dataset(data_repo_id, use_auth_token=access_token)
     train_data = format_dataset(dataset["train"], include_multiturn_conversations)
@@ -98,7 +97,7 @@ def prepare(
     torch.save(test_set, destination_path / "test.pt")
 
 
-def format_dataset(dataset_partition, include_multi_turn_conversations):
+def format_dataset(dataset_partition: Dataset, include_multi_turn_conversations: bool) -> List[Dict]:
     formatted_ds = []
 
     for entry in dataset_partition:
@@ -113,7 +112,7 @@ def format_dataset(dataset_partition, include_multi_turn_conversations):
     return formatted_ds
 
 
-def prepare_sample(example: dict, tokenizer: Tokenizer, max_length: int, mask_inputs: bool, ignore_index: int):
+def prepare_sample(example: dict, tokenizer: Tokenizer, max_length: int, mask_inputs: bool, ignore_index: int) -> dict:
     """Processes a single sample.
 
     Each sample in the dataset consists of:
@@ -148,7 +147,7 @@ def prepare_sample(example: dict, tokenizer: Tokenizer, max_length: int, mask_in
     }
 
 
-def generate_prompt(example):
+def generate_prompt(example: dict) -> str:
     """Generates a standardized message to prompt the model with an instruction, optional input and a
     'response' field."""
 
