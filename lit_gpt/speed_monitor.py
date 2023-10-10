@@ -231,7 +231,7 @@ class SpeedMonitorBase:
         world_size: int,
         flops_per_batch: Optional[int] = None,  # (per device)
         lengths: Optional[int] = None,  # total length of the samples seen (per device)
-    ):
+    ) -> None:
         self.step += 1
         step = self.step
         metrics = {}
@@ -291,7 +291,7 @@ class SpeedMonitorBase:
 
         self.log_dict(metrics, step)
 
-    def eval_end(self, eval_elapsed: float):
+    def eval_end(self, eval_elapsed: float) -> None:
         self.total_eval_wct += eval_elapsed  # seconds
 
 
@@ -322,7 +322,7 @@ class SpeedMonitorFabric(SpeedMonitorBase):
         super().__init__(flops_available, fabric.log_dict, *args, **kwargs)
 
     @fabric_rank_zero_only
-    def on_train_batch_end(self, *args: Any, **kwargs: Any):
+    def on_train_batch_end(self, *args: Any, **kwargs: Any) -> None:
         super().on_train_batch_end(*args, **kwargs)
 
 

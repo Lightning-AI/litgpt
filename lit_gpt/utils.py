@@ -7,6 +7,7 @@ from io import BytesIO
 from pathlib import Path
 from typing import ContextManager, Dict, List, Mapping, Optional, TypeVar, Union
 
+import lightning as L
 import torch
 import torch.nn as nn
 import torch.utils._device
@@ -53,9 +54,8 @@ def check_valid_checkpoint_dir(checkpoint_dir: Path) -> None:
     files = {
         "lit_model.pth": (checkpoint_dir / "lit_model.pth").is_file(),
         "lit_config.json": (checkpoint_dir / "lit_config.json").is_file(),
-        "tokenizer.json OR tokenizer.model": (checkpoint_dir / "tokenizer.json").is_file() or (
-            checkpoint_dir / "tokenizer.model"
-        ).is_file(),
+        "tokenizer.json OR tokenizer.model": (checkpoint_dir / "tokenizer.json").is_file()
+        or (checkpoint_dir / "tokenizer.model").is_file(),
         "tokenizer_config.json": (checkpoint_dir / "tokenizer_config.json").is_file(),
     }
     if checkpoint_dir.is_dir():
@@ -301,7 +301,7 @@ def get_default_supported_precision(training: bool) -> str:
     return "bf16-mixed" if training else "bf16-true"
 
 
-def load_checkpoint(fabric, model, checkpoint_path: Path, strict: bool = True) -> None:
+def load_checkpoint(fabric: L.Fabric, model: nn.Module, checkpoint_path: Path, strict: bool = True) -> None:
     if isinstance(fabric.strategy, FSDPStrategy):
         fabric.load_raw(checkpoint_path, model, strict=strict)
     else:
