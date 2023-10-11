@@ -105,7 +105,7 @@ def copy_weights_llama(
     state_dict: Dict[str, torch.Tensor],
     lit_weights: Dict[str, Union[torch.Tensor, NotYetLoadedTensor]],
     saver: Optional[incremental_save] = None,
-):
+) -> None:
     weight_map = {
         "transformer.wte.weight": "model.embed_tokens.weight",
         "transformer.h.{}.norm_1.weight": "model.layers.{}.input_layernorm.weight",

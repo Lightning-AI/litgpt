@@ -89,7 +89,7 @@ def prepare(
     torch.save(test_set, destination_path / "test.pt")
 
 
-def download_if_missing(file_path: Path, file_url: str):
+def download_if_missing(file_path: Path, file_url: str) -> None:
     """Downloads the raw json data file and saves it in the given destination."""
     if file_path.exists():
         return
@@ -97,7 +97,7 @@ def download_if_missing(file_path: Path, file_url: str):
         f.write(requests.get(file_url).text)
 
 
-def prepare_sample(example: dict, tokenizer: Tokenizer, max_length: int, mask_inputs: bool, ignore_index: int):
+def prepare_sample(example: dict, tokenizer: Tokenizer, max_length: int, mask_inputs: bool, ignore_index: int) -> None:
     """Processes a single sample.
 
     Each sample in the dataset consists of:
@@ -132,7 +132,7 @@ def prepare_sample(example: dict, tokenizer: Tokenizer, max_length: int, mask_in
     }
 
 
-def generate_prompt(example):
+def generate_prompt(example: dict) -> str:
     """Generates a standardized message to prompt the model with an instruction, optional input and a
     'response' field."""
 

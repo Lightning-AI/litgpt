@@ -54,7 +54,7 @@ def setup(
     checkpoint_dir: Path = Path("checkpoints/stabilityai/stablelm-base-alpha-3b"),
     out_dir: Path = Path("out/full/alpaca"),
     precision: Optional[str] = None,
-):
+) -> None:
     precision = precision or get_default_supported_precision(training=True)
 
     fabric_devices = devices
@@ -75,7 +75,7 @@ def setup(
     fabric.launch(main, data_dir, checkpoint_dir, out_dir)
 
 
-def main(fabric: L.Fabric, data_dir: Path, checkpoint_dir: Path, out_dir: Path):
+def main(fabric: L.Fabric, data_dir: Path, checkpoint_dir: Path, out_dir: Path) -> None:
     check_valid_checkpoint_dir(checkpoint_dir)
 
     speed_monitor = SpeedMonitor(fabric, window_size=50, time_unit="seconds")
@@ -270,7 +270,7 @@ def get_longest_seq_length(data: List[Dict]) -> Tuple[int, int]:
     return longest_seq_length, longest_seq_ix
 
 
-def save_checkpoint(fabric, model, file_path: Path):
+def save_checkpoint(fabric: L.Fabric, model: torch.nn.Module, file_path: Path) -> None:
     fabric.print(f"Saving weights to {str(file_path)!r}")
     fabric.save(file_path, {"model": model})
 
