@@ -3,7 +3,7 @@ import json
 import os
 import sys
 from pathlib import Path
-from typing import Dict, List, Optional
+from typing import List, Optional
 
 import torch
 from torch.utils.data import random_split
@@ -98,7 +98,7 @@ def prepare(
     torch.save(test_set, destination_path / "test.pt")
 
 
-def format_dataset(dataset_partition: dict, include_multi_turn_conversations: bool) -> List[Dict]:
+def format_dataset(dataset_partition: dict, include_multi_turn_conversations: bool) -> List[dict]:
     formatted_ds = []
 
     for entry in dataset_partition:
