@@ -28,7 +28,7 @@ def setup(
     top_k: int = 200,
     temperature: float = 0.8,
     precision: str = "bf16-true",
-):
+) -> None:
     """Generates a response based on a given instruction and an optional input.
     This script will only work with checkpoints from the instruction-tuned GPT-Adapter model.
     See `xla/finetune/adapter.py`.

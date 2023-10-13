@@ -17,8 +17,8 @@ sys.path.append(str(wd))
 
 from lit_gpt.model import GPT, Block, Config
 from lit_gpt.packed_dataset import CombinedDataset, PackedDataset
+from lit_gpt.speed_monitor import SpeedMonitorBase, estimate_flops, measure_flops
 from lit_gpt.speed_monitor import SpeedMonitorFabric as SpeedMonitor
-from lit_gpt.speed_monitor import estimate_flops, measure_flops
 from lit_gpt.utils import chunked_cross_entropy, get_default_supported_precision, num_parameters
 
 model_name = "Llama-2-7b-hf"
@@ -86,7 +86,7 @@ def setup(
     fabric.launch(main, train_data_dir, val_data_dir, resume)
 
 
-def main(fabric, train_data_dir, val_data_dir, resume):
+def main(fabric: L.Fabric, train_data_dir: Path, val_data_dir: Path, resume: bool) -> None:
     speed_monitor = SpeedMonitor(fabric, window_size=50, time_unit="seconds")
 
     if fabric.global_rank == 0:
@@ -139,7 +139,13 @@ def main(fabric, train_data_dir, val_data_dir, resume):
         fabric.print(f"Memory used: {torch.cuda.max_memory_allocated() / 1e9:.02f} GB")
 
 
-def train(fabric, state, train_dataloader, val_dataloader, speed_monitor):
+def train(
+    fabric: L.Fabric,
+    state: dict,
+    train_dataloader: DataLoader,
+    val_dataloader: DataLoader,
+    speed_monitor: SpeedMonitorBase,
+) -> None:
     model = state["model"]
     optimizer = state["optimizer"]
 
@@ -234,7 +240,7 @@ def validate(fabric: L.Fabric, model: torch.nn.Module, val_dataloader: DataLoade
 
 
 def create_dataloader(
-    batch_size: int, block_size: int, data_dir: Path, fabric, shuffle: bool = True, seed: int = 12345
+    batch_size: int, block_size: int, data_dir: Path, fabric: L.Fabric, shuffle: bool = True, seed: int = 12345
 ) -> DataLoader:
     datasets = []
     for prefix, _ in data_config:
@@ -267,7 +273,7 @@ def create_dataloader(
 def create_dataloaders(
     batch_size: int,
     block_size: int,
-    fabric,
+    fabric: L.Fabric,
     train_data_dir: Path = Path("data/redpajama_sample"),
     val_data_dir: Optional[Path] = None,
     seed: int = 12345,
@@ -298,7 +304,7 @@ def create_dataloaders(
 
 
 # learning rate decay scheduler (cosine with warmup)
-def get_lr(it):
+def get_lr(it: int) -> float:
     # 1) linear warmup for warmup_iters steps
     if it < warmup_iters:
         return learning_rate * it / warmup_iters

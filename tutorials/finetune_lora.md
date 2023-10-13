@@ -1,7 +1,7 @@
 # Finetuning with LoRA / QLoRA
 
 [Low-rank adaption (LoRA)](https://arxiv.org/abs/2106.09685) is a technique to approximate the update to the linear layers in a LLM with a low-rank matrix factorization. This significantly reduces the number of trainable parameters and speeds up training with little impact on the final performance of the model.
-We demonstrate this method by instruction-finetuning Lit-GPT StableLM 3B on the [Alpaca](https://github.com/tatsu-lab/stanford_alpaca) dataset on a **single RTX 3090 (24GB) GPU**.
+We demonstrate this method by instruction-finetuning Lit-GPT StableLM 3B on the [Alpaca](https://github.com/tatsu-lab/stanford_alpaca) dataset on a **single RTX 3090 (24GB) GPU** with CUDA 11.8.
 
 &nbsp;
 
@@ -159,6 +159,12 @@ python scripts/merge_lora.py \
   --lora_path "out/lora_weights/stablelm-base-alpha-3b/lit_model_lora_finetuned.pth" \
   --out_dir "out/lora_merged/stablelm-base-alpha-3b/"
 ```
+
+> [!Note]
+> If you changed the LoRA hyperparameters (`lora_r`, `lora_key`, etc.) in the
+> `finetune/lora.py` script, it is important to update the hyperparameter configuration
+> in the `scripts/merge_lora.py` script accordingly. Otherwise, you will encounter size
+> mismatch errors upon merging.
 
 After merging, we can use the `base.py` file for inference using the new checkpoint file. Note that if your new checkpoint directory is different from the original checkpoint directory, we also have to copy over the tokenizer and config files:
 

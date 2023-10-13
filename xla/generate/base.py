@@ -100,7 +100,7 @@ def setup(
     temperature: float = 0.8,
     checkpoint_dir: Path = Path("checkpoints/tiiuae/falcon-7b"),
     precision: str = "bf16-true",
-):
+) -> None:
     """Generates text samples based on a pre-trained model and tokenizer.
 
     Args:
