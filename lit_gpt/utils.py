@@ -7,6 +7,7 @@ from io import BytesIO
 from pathlib import Path
 from typing import ContextManager, Dict, List, Mapping, Optional, TypeVar, Union
 
+import lightning as L
 import torch
 import torch.nn as nn
 import torch.utils._device
@@ -301,7 +302,7 @@ def get_default_supported_precision(training: bool) -> str:
     return "bf16-mixed" if training else "bf16-true"
 
 
-def load_checkpoint(fabric, model, checkpoint_path: Path, strict: bool = True) -> None:
+def load_checkpoint(fabric: L.Fabric, model: nn.Module, checkpoint_path: Path, strict: bool = True) -> None:
     if isinstance(fabric.strategy, FSDPStrategy):
         fabric.load_raw(checkpoint_path, model, strict=strict)
     else:

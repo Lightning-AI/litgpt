@@ -20,5 +20,5 @@ class RMSNorm(torch.nn.Module):
         x_normed = x * torch.rsqrt(norm_x + self.eps)
         return self.weight * x_normed
 
-    def reset_parameters(self):
+    def reset_parameters(self) -> None:
         torch.nn.init.ones_(self.weight)

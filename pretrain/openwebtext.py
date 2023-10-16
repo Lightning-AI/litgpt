@@ -2,7 +2,7 @@ import math
 import sys
 import time
 from pathlib import Path
-from typing import Optional, Union
+from typing import Optional, Tuple, Union
 
 import lightning as L
 import numpy as np
@@ -17,8 +17,8 @@ sys.path.append(str(wd))
 
 from lit_gpt import Config
 from lit_gpt.model import GPT, Block
+from lit_gpt.speed_monitor import SpeedMonitorBase, estimate_flops, measure_flops
 from lit_gpt.speed_monitor import SpeedMonitorFabric as SpeedMonitor
-from lit_gpt.speed_monitor import estimate_flops, measure_flops
 from lit_gpt.utils import chunked_cross_entropy, get_default_supported_precision, num_parameters
 
 model_name = "pythia-70m"
@@ -69,7 +69,7 @@ def setup(devices: int = 1, precision: Optional[str] = None, resume: Union[bool,
     fabric.launch(main, resume=resume)
 
 
-def main(fabric, resume) -> None:
+def main(fabric: L.Fabric, resume: bool) -> None:
     speed_monitor = SpeedMonitor(fabric, window_size=50, time_unit="seconds")
 
     if fabric.global_rank == 0:
@@ -113,7 +113,13 @@ def main(fabric, resume) -> None:
         fabric.print(f"Memory used: {torch.cuda.max_memory_allocated() / 1e9:.02f} GB")
 
 
-def train(fabric, state, train_dataloader, val_dataloader, speed_monitor):
+def train(
+    fabric: L.Fabric,
+    state: dict,
+    train_dataloader: DataLoader,
+    val_dataloader: DataLoader,
+    speed_monitor: SpeedMonitorBase,
+) -> None:
     model = state["model"]
     optimizer = state["optimizer"]
 
@@ -204,7 +210,7 @@ def validate(fabric: L.Fabric, model: torch.nn.Module, val_dataloader: DataLoade
     return out
 
 
-def load_datasets(data_dir: Path, max_seq_length: int):
+def load_datasets(data_dir: Path, max_seq_length: int) -> Tuple["Dataset", "Dataset"]:
     train_data = Dataset(data_dir / "train.bin", max_seq_length)
     val_data = Dataset(data_dir / "val.bin", max_seq_length)
     return train_data, val_data
@@ -226,7 +232,7 @@ class Dataset(IterableDataset):
 
 
 # learning rate decay scheduler (cosine with warmup)
-def get_lr(it):
+def get_lr(it: int) -> float:
     # 1) linear warmup for warmup_iters steps
     if it < warmup_iters:
         return learning_rate * it / warmup_iters

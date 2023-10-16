@@ -115,7 +115,7 @@ class CausalSelfAttention(BaseCausalSelfAttention):
 
     def scaled_dot_product_attention(
         self, q: torch.Tensor, k: torch.Tensor, v: torch.Tensor, mask: Optional[torch.Tensor] = None
-    ):
+    ) -> torch.Tensor:
         y = super().scaled_dot_product_attention(q, k, v, mask)
         if self.block_idx < self.config.adapter_start_layer:
             return y
