@@ -45,6 +45,7 @@ import math
 from dataclasses import dataclass
 from typing import Any, Dict, List, Optional, Tuple, Type, Union
 
+import bitsandbytes as bnb
 import torch
 import torch.nn as nn
 from torch.nn import functional as F
@@ -136,8 +137,23 @@ class LoRALinear(LoRALayer):
     def merge(self) -> None:
         """Merges the LoRA weights into the full-rank weights (W = W + delta_W)."""
         if self.r > 0 and not self.merged:
-            # Merge the weights and mark it
-            self.linear.weight.data += (self.lora_B @ self.lora_A) * self.scaling
+            lora = (self.lora_B @ self.lora_A) * self.scaling
+            # if the pretrained weights are not quantized - simply sum them with LoRA weights
+            if self.linear.weight.data.dtype == lora.dtype:
+                self.linear.weight.data += lora
+            # otherwise dequantize the pretrained, sum with LoRA, quantize the result
+            else:
+                weight = self.linear.weight
+                # capture args like `compress_statistics`, `quant_type` and `quant_state`
+                weight_kwargs = weight.__dict__
+                # dequantize the pretrained weights and sum them with LoRA weights
+                weight_data = bnb.functional.dequantize4bit(weight.data, weight.quant_state) + lora
+                # weights are quantized when they are moved to CUDA device,
+                # so we have to first move them to CPU and after - to CUDA
+                self.linear.weight = bnb.nn.Params4bit(weight_data.to("cpu"), requires_grad=False, **weight_kwargs).to(
+                    weight.device
+                )
+
             self.merged = True
 
     def forward(self, x: torch.Tensor) -> torch.Tensor:
