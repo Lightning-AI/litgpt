@@ -137,17 +137,17 @@ class LoRALinear(LoRALayer):
     def merge(self) -> None:
         """Merges the LoRA weights into the full-rank weights (W = W + delta_W)."""
         if self.r > 0 and not self.merged:
-            lora = (self.lora_B @ self.lora_A) * self.scaling
+            lora_data = (self.lora_B @ self.lora_A) * self.scaling
             # if the pretrained weights are not quantized - simply sum them with LoRA weights
-            if self.linear.weight.data.dtype == lora.dtype:
-                self.linear.weight.data += lora
+            if self.linear.weight.data.dtype == lora_data.dtype:
+                self.linear.weight.data += lora_data
             # otherwise dequantize the pretrained, sum with LoRA, quantize the result
             else:
                 weight = self.linear.weight
                 # capture args like `compress_statistics`, `quant_type` and `quant_state`
                 weight_kwargs = weight.__dict__
                 # dequantize the pretrained weights and sum them with LoRA weights
-                weight_data = bnb.functional.dequantize4bit(weight.data, weight.quant_state) + lora
+                weight_data = bnb.functional.dequantize_4bit(weight.data, weight.quant_state) + lora_data
                 # weights are quantized when they are moved to CUDA device,
                 # so we have to first move them to CPU and after - to CUDA
                 self.linear.weight = bnb.nn.Params4bit(weight_data.to("cpu"), requires_grad=False, **weight_kwargs).to(
@@ -354,14 +354,29 @@ class LoRAQKVLinear(LoRALinear):
         # ⚬ self.lora_A.data: (4, 128)
         # ⚬ self.lora_B.data: (256, 2)
         if self.r > 0 and any(self.enable_lora) and not self.merged:
-            delta_w = self.conv1d(
+            lora_data = self.conv1d(
                 self.lora_A.data.unsqueeze(0),  # (4, 128) -> (1, 4, 128)
                 self.lora_B.data.unsqueeze(-1),  # (256, 2) -> (256, 2, 1)
             ).squeeze(
                 0
             )  # (1, 4, 128) @ (256, 2, 1) -> (1, 256, 128) -> (256, 128)
-            # W = W + delta_W (merge)
-            self.linear.weight.data += self.zero_pad(delta_w * self.scaling)  # (256, 128) after zero_pad (384, 128)
+            lora_data = self.zero_pad(lora_data * self.scaling)  # (256, 128) after zero_pad (384, 128)
+            # if the pretrained weights are not quantized - simply sum them with LoRA weights
+            if self.linear.weight.data.dtype == lora_data.dtype:
+                self.linear.weight.data += lora_data
+            # otherwise dequantize the pretrained, sum with LoRA, quantize the result
+            else:
+                weight = self.linear.weight
+                # capture args like `compress_statistics`, `quant_type` and `quant_state`
+                weight_kwargs = weight.__dict__
+                # dequantize the pretrained weights and sum them with LoRA weights
+                weight_data = bnb.functional.dequantize_4bit(weight.data, weight.quant_state) + lora_data
+                # weights are quantized when they are moved to CUDA device,
+                # so we have to first move them to CPU and after - to CUDA
+                self.linear.weight = bnb.nn.Params4bit(weight_data.to("cpu"), requires_grad=False, **weight_kwargs).to(
+                    weight.device
+                )
+
             self.merged = True
 
     def forward(self, x: torch.Tensor) -> torch.Tensor:
