@@ -25,7 +25,6 @@ from lightning.pytorch.plugins import (
     XLAPrecisionPlugin,
 )
 from lightning.pytorch.utilities.rank_zero import rank_zero_only as trainer_rank_zero_only
-from pytorch_lightning.plugins import PrecisionPlugin
 from torch.utils.flop_counter import FlopCounterMode
 
 from lit_gpt import GPT
