@@ -2,10 +2,11 @@
 
 import sys
 from pathlib import Path
-from typing import Optional
+from typing import Literal, Optional
 
 import lightning as L
 import torch
+from lightning.fabric.plugins import BitsandbytesPrecision
 
 # support running without installing as a package
 wd = Path(__file__).parent.parent.resolve()
@@ -30,6 +31,7 @@ def merge_lora(
     checkpoint_dir: Path = Path("checkpoints/stabilityai/stablelm-base-alpha-3b"),
     out_dir: Path = Path("out/lora/checkpoint"),
     precision: Optional[str] = None,
+    quantize: Optional[Literal["bnb.nf4", "bnb.nf4-dq", "bnb.fp4", "bnb.fp4-dq", "bnb.int8"]] = None,
 ) -> None:
     """Generates a response based on a given instruction and an optional input.
     This script will only work with checkpoints from the instruction-tuned GPT-LoRA model.
@@ -43,7 +45,16 @@ def merge_lora(
         precision: Indicates the Fabric precision setting to use.
     """
     precision = precision or get_default_supported_precision(training=False)
-    fabric = L.Fabric(devices=1, precision=precision)
+
+    plugins = None
+    if quantize is not None and quantize.startswith("bnb."):
+        if "mixed" in precision:
+            raise ValueError("Quantization and mixed precision is not supported.")
+        dtype = {"16-true": torch.float16, "bf16-true": torch.bfloat16, "32-true": torch.float32}[precision]
+        plugins = BitsandbytesPrecision(quantize[4:], dtype)
+        precision = None
+
+    fabric = L.Fabric(devices=1, precision=precision, plugins=plugins)
 
     check_valid_checkpoint_dir(checkpoint_dir)
 
