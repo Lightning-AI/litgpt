@@ -69,7 +69,7 @@ def setup(devices: int = 1, precision: Optional[str] = None, resume: Union[bool,
     fabric.launch(main, resume=resume)
 
 
-def main(fabric: L.Fabric, resume: bool) -> None:
+def main(fabric: L.Fabric, resume: Union[bool, Path]) -> None:
     speed_monitor = SpeedMonitor(fabric, window_size=50, time_unit="seconds")
 
     if fabric.global_rank == 0:

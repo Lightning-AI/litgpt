@@ -26,23 +26,23 @@ Hackable [implementation](lit_gpt/model.py) of state-of-the-art open-source larg
 
 Supports the following popular model checkpoints:
 
-| Model and usage                                                     | Reference                                                                                        |
-|---------------------------------------------------------------------|--------------------------------------------------------------------------------------------------|
-| Meta AI [Llama 2](tutorials/download_llama_2.md)                    | [Touvron et al. 2023](https://arxiv.org/abs/2307.09288)                                          |
-| Stability AI [FreeWilly2](tutorials/download_freewilly_2.md)        | [Stability AI 2023](https://stability.ai/blog/stable-beluga-large-instruction-fine-tuned-models) |
-| Stability AI StableCode                                             | [Stability AI 2023](https://stability.ai/blog/stablecode-llm-generative-ai-coding)               |
-| TII UAE [Falcon](tutorials/download_falcon.md)                      | [TII 2023](https://falconllm.tii.ae)                                                             |
-| OpenLM Research [OpenLLaMA](tutorials/download_openllama.md)        | [Geng & Liu 2023](https://github.com/openlm-research/open_llama)                                 |
-| LMSYS [Vicuna](tutorials/download_vicuna.md)                        | [Li et al. 2023](https://lmsys.org/blog/2023-03-30-vicuna/)                                      |
-| LMSYS [LongChat](tutorials/download_longchat.md)                    | [LongChat Team 2023](https://lmsys.org/blog/2023-06-29-longchat/)                                |
-| Together [RedPajama-INCITE](tutorials/download_redpajama_incite.md) | [Together 2023](https://together.ai/blog/redpajama-models-v1)                                    |
-| EleutherAI [Pythia](tutorials/download_pythia.md)                   | [Biderman et al. 2023](https://arxiv.org/abs/2304.01373)                                         |
-| StabilityAI [StableLM](tutorials/download_stablelm.md)              | [Stability AI 2023](https://github.com/Stability-AI/StableLM)                                    |
-| Platypus                                                            | [Lee, Hunter, and Ruiz 2023](https://arxiv.org/abs/2308.07317)                                   |
-| NousResearch Nous-Hermes                                            | [Org page](https://huggingface.co/NousResearch)                                                  |
-| Meta AI [Code Llama](tutorials/download_code_llama.md)              | [Rozière et al. 2023](https://arxiv.org/abs/2308.12950)                                          |
-| Microsoft Research [phi-1.5](tutorials/download_phi15.md)           | [Li et al. 2023](https://arxiv.org/abs/2309.05463)                                               |
-| Mistral AI [Mistral](tutorials/download_mistral.md)                 | [Mistral  website](https://mistral.ai/)                                                          |
+| Model and usage                                                                | Model size                         | Reference                                                                                        |
+|--------------------------------------------------------------------------------|------------------------------------|--------------------------------------------------------------------------------------------------|
+| Meta AI [Llama 2](tutorials/download_llama_2.md)                               | 7B, 13B, 70B                       | [Touvron et al. 2023](https://arxiv.org/abs/2307.09288)                                          |
+| Stability AI [FreeWilly2](tutorials/download_freewilly_2.md) (Stable Beluga 2) | 70B                                | [Stability AI 2023](https://stability.ai/blog/stable-beluga-large-instruction-fine-tuned-models) |
+| Stability AI StableCode                                                        | 3B                                 | [Stability AI 2023](https://stability.ai/blog/stablecode-llm-generative-ai-coding)               |
+| TII UAE [Falcon](tutorials/download_falcon.md)                                 | 7B, 40B, 180B                      | [TII 2023](https://falconllm.tii.ae)                                                             |
+| OpenLM Research [OpenLLaMA](tutorials/download_openllama.md)                   | 3B, 7B, 13B                        | [Geng & Liu 2023](https://github.com/openlm-research/open_llama)                                 |
+| LMSYS [Vicuna](tutorials/download_vicuna.md)                                   | 7B, 13B, 33B                       | [Li et al. 2023](https://lmsys.org/blog/2023-03-30-vicuna/)                                      |
+| LMSYS [LongChat](tutorials/download_longchat.md)                               | 7B, 13B                            | [LongChat Team 2023](https://lmsys.org/blog/2023-06-29-longchat/)                                |
+| Together [RedPajama-INCITE](tutorials/download_redpajama_incite.md)            | 3B, 7B                             | [Together 2023](https://together.ai/blog/redpajama-models-v1)                                    |
+| EleutherAI [Pythia](tutorials/download_pythia.md)                              | {70,160,410}M, {1,1.4,2.8,6.9,12}B | [Biderman et al. 2023](https://arxiv.org/abs/2304.01373)                                         |
+| StabilityAI [StableLM](tutorials/download_stablelm.md)                         | 3B, 7B                             | [Stability AI 2023](https://github.com/Stability-AI/StableLM)                                    |
+| Platypus                                                                       | 7B, 13B, 70B                       | [Lee, Hunter, and Ruiz 2023](https://arxiv.org/abs/2308.07317)                                   |
+| NousResearch Nous-Hermes                                                       | 7B, 13B, 70B                       | [Org page](https://huggingface.co/NousResearch)                                                  |
+| Meta AI [Code Llama](tutorials/download_code_llama.md)                         | 7B, 13B, 34B                       | [Rozière et al. 2023](https://arxiv.org/abs/2308.12950)                                          |
+| Microsoft Research [phi-1.5](tutorials/download_phi15.md)                      | 1.3B                               | [Li et al. 2023](https://arxiv.org/abs/2309.05463)                                               |
+| Mistral AI [Mistral](tutorials/download_mistral.md)                            | 7B                                 | [Mistral  website](https://mistral.ai/)                                                          |
 
 This implementation extends on [Lit-LLaMA](https://github.com/lightning-AI/lit-llama) and [nanoGPT](https://github.com/karpathy/nanoGPT), and it's **powered by [Lightning Fabric](https://lightning.ai/docs/fabric/stable/) ⚡**.
 
