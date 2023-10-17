@@ -1,6 +1,7 @@
 import json
 import os
 
+import pytest
 import torch
 
 
@@ -35,6 +36,9 @@ def test_merge_lora(tmp_path, fake_checkpoint_dir):
     assert not keys.unexpected_keys
 
 
+@pytest.mark.skipif(not torch.cuda.is_available(), reason="8bit requires CUDA")
+# platform dependent cuda issue: libbitsandbytes_cpu.so: undefined symbol: cquantize_blockwise_fp16_nf4
+@pytest.mark.xfail(raises=AttributeError, strict=False)
 def test_merge_lora_with_quantize(tmp_path, fake_checkpoint_dir):
     from lit_gpt.lora import GPT as LoRAGPT
     from lit_gpt.lora import lora_filter
