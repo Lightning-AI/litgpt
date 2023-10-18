@@ -105,11 +105,12 @@ def main(fabric: L.Fabric, data_dir: Path, checkpoint_dir: Path, out_dir: Path) 
 
     optimizer = torch.optim.AdamW(trainable_params, lr=learning_rate, weight_decay=weight_decay)
     model, optimizer = fabric.setup(model, optimizer)
+    scheduler = torch.optim.lr_scheduler.CosineAnnealingLR(optimizer, T_max=max_iters // batch_size)
 
     fabric.seed_everything(1337 + fabric.global_rank)
 
     train_time = time.perf_counter()
-    train(fabric, model, optimizer, train_data, val_data, checkpoint_dir, out_dir, speed_monitor)
+    train(fabric, model, optimizer, scheduler, train_data, val_data, checkpoint_dir, out_dir, speed_monitor)
     fabric.print(f"Training time: {(time.perf_counter()-train_time):.2f}s")
     if fabric.device.type == "cuda":
         fabric.print(f"Memory used: {torch.cuda.max_memory_allocated() / 1e9:.02f} GB")
@@ -123,6 +124,7 @@ def train(
     fabric: L.Fabric,
     model: GPT,
     optimizer: torch.optim.Optimizer,
+    scheduler: torch.optim.lr_scheduler,
     train_data: List[Dict],
     val_data: List[Dict],
     checkpoint_dir: Path,
@@ -180,6 +182,8 @@ def train(
         if not is_accumulating:
             optimizer.step()
             optimizer.zero_grad()
+            if step_count > warmup_steps:
+                scheduler.step()
             step_count += 1
 
         t1 = time.perf_counter()
