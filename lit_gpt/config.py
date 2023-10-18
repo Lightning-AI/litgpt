@@ -288,6 +288,23 @@ open_LLaMA = [
         _mlp_class="LLaMAMLP",
         intermediate_size=8640,
     ),
+    # https://huggingface.co/openlm-research/open_llama_3b_v2/blob/main/config.json
+    dict(
+        org="openlm-research",
+        name="open_llama_3b_v2",
+        block_size=2048,
+        vocab_size=32000,
+        padding_multiple=64,
+        n_layer=26,
+        n_embd=3200,
+        rotary_percentage=1.0,
+        parallel_residual=False,
+        bias=False,
+        _norm_class="RMSNorm",
+        norm_eps=1e-6,
+        _mlp_class="LLaMAMLP",
+        intermediate_size=8640,
+    ),
     # https://huggingface.co/openlm-research/open_llama_7b/blob/main/config.json
     dict(
         org="openlm-research",
