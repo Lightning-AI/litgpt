@@ -445,6 +445,7 @@ class Config(BaseConfig):
     to_projection: bool = False
     to_mlp: bool = False
     to_head: bool = False
+    neftune_alpha: float = None
 
     @property
     def mlp_class(self) -> Type:
