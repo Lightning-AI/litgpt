@@ -120,12 +120,12 @@ class LoRALinear(LoRALayer):
 
         # Actual trainable parameters
         if r > 0:
-            self.lora_A = nn.Parameter(self.linear.weight.new_zeros((r, in_features)))
-            self.lora_B = nn.Parameter(self.linear.weight.new_zeros((out_features, r)))
+            self.lora_A = nn.Parameter(torch.zeros((r, in_features)))
+            self.lora_B = nn.Parameter(torch.zeros((out_features, r)))
             self.scaling = self.lora_alpha / self.r
             self.reset_parameters()
 
-    def reset_parameters(self):
+    def reset_parameters(self) -> None:
         """Reset all the weights, even including pretrained ones."""
         if hasattr(self, "lora_A"):
             # initialize A the same way as the default for nn.Linear and B to zero
@@ -133,14 +133,14 @@ class LoRALinear(LoRALayer):
             nn.init.kaiming_uniform_(self.lora_A, a=math.sqrt(5))
             nn.init.zeros_(self.lora_B)
 
-    def merge(self):
+    def merge(self) -> None:
         """Merges the LoRA weights into the full-rank weights (W = W + delta_W)."""
         if self.r > 0 and not self.merged:
             # Merge the weights and mark it
             self.linear.weight.data += (self.lora_B @ self.lora_A) * self.scaling
             self.merged = True
 
-    def forward(self, x: torch.Tensor):
+    def forward(self, x: torch.Tensor) -> torch.Tensor:
         # if weights are merged or rank is less or equal to zero (LoRA is disabled) - it's only a regular nn.Linear forward pass;
         # otherwise in addition do the forward pass with LoRA weights and add it's output to the output from pretrained weights
         pretrained = self.linear(x)
@@ -205,7 +205,7 @@ class LoRAQKVLinear(LoRALinear):
         # ⚬ r: 2
         # ⚬ enable_lora: [True, False, True]
         if r > 0 and any(enable_lora):
-            self.lora_A = nn.Parameter(self.linear.weight.new_zeros((r * sum(enable_lora), in_features)))  # (4, 128)
+            self.lora_A = nn.Parameter(torch.zeros((r * sum(enable_lora), in_features)))  # (4, 128)
             enable_q, enable_k, enable_v = enable_lora
             self.kv_embd_size = self.linear.in_features // (n_head // n_query_groups)
             # qkv_shapes will be used to split a tensor with weights correctly
@@ -215,7 +215,7 @@ class LoRAQKVLinear(LoRALinear):
                 self.kv_embd_size * enable_v,
             )
             self.qkv_shapes = [s for s in qkv_shapes if s]
-            self.lora_B = nn.Parameter(self.linear.weight.new_zeros(sum(self.qkv_shapes), r))  # (256, 2))
+            self.lora_B = nn.Parameter(torch.zeros(sum(self.qkv_shapes), r))  # (256, 2))
             # Notes about shapes above
             # - self.lora_A has shape (4, 128): 4 because rank is 2 and LoRA is applied only to two matrices;
             # 128 is the input size of the x (embedding size). (4, 128) and not (128, 4) because later on in
@@ -330,7 +330,7 @@ class LoRAQKVLinear(LoRALinear):
             [F.conv1d(a, b) for a, b in zip(input_splitted, weight_splitted)], dim=1  # (B, C_output', T)
         )  # (B, C_output, T)
 
-    def merge(self):
+    def merge(self) -> None:
         """Merges the LoRA weights into the full-rank weights (W = W + delta_W)."""
 
         # Let's assume that:

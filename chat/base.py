@@ -6,13 +6,19 @@ from typing import Iterator, List, Literal, Optional, Tuple
 
 import lightning as L
 import torch
+from lightning.fabric.plugins import BitsandbytesPrecision
 
 # support running without installing as a package
 wd = Path(__file__).parent.parent.resolve()
 sys.path.append(str(wd))
 
 from lit_gpt import GPT, Config, Tokenizer
-from lit_gpt.utils import check_valid_checkpoint_dir, get_default_supported_precision, lazy_load, quantization
+from lit_gpt.utils import (
+    check_valid_checkpoint_dir,
+    get_default_supported_precision,
+    gptq_quantization,
+    load_checkpoint,
+)
 
 
 @torch.inference_mode()
@@ -24,7 +30,7 @@ def generate(
     temperature: float = 1.0,
     top_k: Optional[int] = None,
     stop_tokens: Tuple[List[int], ...] = (),
-):
+) -> Iterator[torch.Tensor]:
     """Takes a conditioning sequence (prompt) as input and continues to generate as many tokens as possible.
 
     Args:
@@ -135,11 +141,19 @@ def main(
     """
     precision = precision or get_default_supported_precision(training=False)
 
+    plugins = None
+    if quantize is not None and quantize.startswith("bnb."):
+        if "mixed" in precision:
+            raise ValueError("Quantization and mixed precision is not supported.")
+        dtype = {"16-true": torch.float16, "bf16-true": torch.bfloat16, "32-true": torch.float32}[precision]
+        plugins = BitsandbytesPrecision(quantize[4:], dtype)
+        precision = None
+
+    fabric = L.Fabric(devices=1, precision=precision, plugins=plugins)
+
     check_valid_checkpoint_dir(checkpoint_dir)
 
     config = Config.from_json(checkpoint_dir / "lit_config.json")
-
-    fabric = L.Fabric(devices=1, precision=precision)
 
     if quantize == "gptq.int4":
         model_file = "lit_model_gptq.4bit.pth"
@@ -148,11 +162,11 @@ def main(
     else:
         model_file = "lit_model.pth"
     checkpoint_path = checkpoint_dir / model_file
+
     fabric.print(f"Loading model {str(checkpoint_path)!r} with {config.__dict__}", file=sys.stderr)
-    with fabric.init_module(empty_init=True), quantization(quantize):
+    with fabric.init_module(empty_init=True), gptq_quantization(quantize == "gptq.int4"):
         model = GPT(config)
-    with lazy_load(checkpoint_path) as checkpoint:
-        model.load_state_dict(checkpoint.get("model", checkpoint), strict=quantize is None)
+    load_checkpoint(fabric, model, checkpoint_path)
 
     model.eval()
     model = fabric.setup_module(model)

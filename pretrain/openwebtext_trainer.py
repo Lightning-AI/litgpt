@@ -175,7 +175,7 @@ class Dataset(IterableDataset):
 
 
 # learning rate decay scheduler (cosine with warmup)
-def get_lr(it):
+def get_lr(it: int) -> float:
     # 1) linear warmup for warmup_iters steps
     if it < warmup_iters:
         return learning_rate * it / warmup_iters

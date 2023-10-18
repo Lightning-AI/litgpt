@@ -55,7 +55,7 @@ def setup(
     checkpoint_dir: Path = Path("checkpoints/tiiuae/falcon-7b"),
     out_dir: Path = Path("out/adapter/alpaca"),
     precision: str = "bf16-true",
-):
+) -> None:
     if devices > 1:
         strategy = XLAFSDPStrategy(
             auto_wrap_policy={Block},
@@ -71,7 +71,7 @@ def setup(
     fabric.launch(main, data_dir, checkpoint_dir, out_dir)
 
 
-def main(fabric: L.Fabric, data_dir: Path, checkpoint_dir: Path, out_dir: Path):
+def main(fabric: L.Fabric, data_dir: Path, checkpoint_dir: Path, out_dir: Path) -> None:
     check_valid_checkpoint_dir(checkpoint_dir)
 
     speed_monitor = SpeedMonitor(fabric, window_size=50, time_unit="seconds")
@@ -93,9 +93,9 @@ def main(fabric: L.Fabric, data_dir: Path, checkpoint_dir: Path, out_dir: Path):
     else:
         with fabric.init_module(empty_init=False):
             model = GPT(config)
-        with lazy_load(checkpoint_path) as checkpoint:
-            # strict=False because missing keys due to adapter weights not contained in state dict
-            model.load_state_dict(checkpoint, strict=False)
+        checkpoint = lazy_load(checkpoint_path)
+        # strict=False because missing keys due to adapter weights not contained in state dict
+        model.load_state_dict(checkpoint, strict=False)
 
     model = fabric.setup_module(model)
     # mark as trainable only after sharding due to https://github.com/pytorch/xla/pull/5484
@@ -274,7 +274,7 @@ def get_longest_seq_length(data: List[Dict]) -> int:
     return max(len(d["input_ids"]) for d in data)
 
 
-def save_adapter_checkpoint(fabric, model, file_path: Path):
+def save_adapter_checkpoint(fabric: L.Fabric, model: torch.nn.Module, file_path: Path) -> None:
     rank_print(fabric, f"Saving adapter weights to {str(file_path)!r}")
     fabric.save(file_path, {"model": model}, filter={"model": adapter_filter})
 
