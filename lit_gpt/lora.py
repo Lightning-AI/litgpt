@@ -45,7 +45,6 @@ import math
 from dataclasses import dataclass
 from typing import Any, Dict, List, Optional, Tuple, Type, Union
 
-import bitsandbytes as bnb
 import torch
 import torch.nn as nn
 from torch.nn import functional as F
@@ -143,6 +142,8 @@ class LoRALinear(LoRALayer):
                 self.linear.weight.data += lora_data
             # otherwise dequantize the pretrained, sum with LoRA, quantize the result
             else:
+                import bitsandbytes as bnb
+
                 weight = self.linear.weight
                 # capture args like `compress_statistics`, `quant_type` and `quant_state`
                 weight_kwargs = weight.__dict__
@@ -366,6 +367,8 @@ class LoRAQKVLinear(LoRALinear):
                 self.linear.weight.data += lora_data
             # otherwise dequantize the pretrained, sum with LoRA, quantize the result
             else:
+                import bitsandbytes as bnb
+
                 weight = self.linear.weight
                 # capture args like `compress_statistics`, `quant_type` and `quant_state`
                 weight_kwargs = weight.__dict__
