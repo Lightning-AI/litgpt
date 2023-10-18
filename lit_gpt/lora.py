@@ -474,9 +474,10 @@ class GPT(BaseModel):
         )
         self.max_seq_length = self.config.block_size
         self.mask_cache: Optional[torch.Tensor] = None
+        self.neftune_alpha = self.config.neftune_alpha
 
     def forward(
-        self, idx: torch.Tensor, input_pos: Optional[torch.Tensor] = None, lm_head_chunk_size: int = 0
+        self, idx: torch.Tensor, input_pos: Optional[torch.Tensor] = None, lm_head_chunk_size: int = 0, 
     ) -> Union[torch.Tensor, List[torch.Tensor]]:
         T = idx.size(1)
         if self.max_seq_length < T:
@@ -494,6 +495,13 @@ class GPT(BaseModel):
             mask = None
 
         x = self.transformer.wte(idx)  # token embeddings of shape (b, t, n_embd)
+
+        if isinstance(self.neftune_alpha,float) and self.training:
+            dims = torch.tensor(x.size(1) * x.size(2))
+            mag_norm = self.neptune_alpha / torch.sqrt(dims)
+            x = x + torch.zeros_like(x).uniform_(-mag_norm, mag_norm)
+
+            
         for block in self.transformer.h:
             x = block(x, cos, sin, mask, input_pos)
         x = self.transformer.ln_f(x)
