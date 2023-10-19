@@ -67,7 +67,7 @@ def main(
         if devices > 1:
             raise NotImplementedError(
                 "Quantization is currently not supported for multi-GPU training. Please set devices=1 when using the"
-                " --quantization flag."
+                " --quantize flag."
             )
         if quantize.startswith("bnb."):
             if "mixed" in precision:
