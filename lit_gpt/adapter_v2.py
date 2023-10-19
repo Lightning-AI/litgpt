@@ -28,7 +28,7 @@ class Config(BaseConfig):
         return getattr(lit_gpt.adapter_v2, self._mlp_class)
 
 
-def adapter_filter(key: str, value: Any) -> bool:  # noqa: ARG001
+def adapter_filter(key: str, value: Any) -> bool:
     adapter_substrings = (
         # regular adapter v1 parameters
         "adapter_wte",
