@@ -161,5 +161,5 @@ def mark_only_adapter_as_trainable(model: GPT) -> None:
         param.requires_grad = adapter_filter(name, param)
 
 
-def adapter_filter(key: str, value: Any) -> bool:
+def adapter_filter(key: str, value: Any) -> bool:  # noqa: ARG001
     return "adapter_wte" in key or "gating_factor" in key

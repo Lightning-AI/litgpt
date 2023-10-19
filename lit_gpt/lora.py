@@ -419,7 +419,7 @@ def mark_only_lora_as_trainable(model: nn.Module, bias: str = "none") -> None:
         raise NotImplementedError
 
 
-def lora_filter(key: str, value: Any) -> bool:
+def lora_filter(key: str, value: Any) -> bool:  # noqa: ARG001
     return "lora_" in key
 
 
