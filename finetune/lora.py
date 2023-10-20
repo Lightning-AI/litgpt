@@ -78,7 +78,7 @@ def setup(
         if quantize:
             raise NotImplementedError(
                 "Quantization is currently not supported for multi-GPU training. Please set devices=1 when using the"
-                " --quantization flag."
+                " --quantize flag."
             )
         strategy = FSDPStrategy(
             auto_wrap_policy={Block},
