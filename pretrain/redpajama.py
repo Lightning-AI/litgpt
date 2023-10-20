@@ -127,7 +127,7 @@ def main(fabric: L.Fabric, train_data_dir: Path, val_data_dir: Path, resume: Uni
     state = {"model": model, "optimizer": optimizer, "hparams": hparams, "iter_num": 0, "step_count": 0}
 
     if resume is True:
-        resume = sorted(out_dir.glob("*.pth"), key=lambda x: int(x.name.split("-")))[-1]
+        resume = sorted(out_dir.glob("*.pth"), key=lambda x: int(x.name.split("-")[1]))[-1]
     if resume:
         fabric.print(f"Resuming training from {resume}")
         fabric.load(resume, state)
