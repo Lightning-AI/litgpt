@@ -78,9 +78,9 @@ The following experiments were conducated on multiple A100 GPUs with a minibatch
 | 3 B   | StabeLM Alpha | None         | 2               | 2,097,152            | 2 x A100 | 12.94 GB    | 3.06 min           | 153.10 min                   |
 | 3 B   | StabeLM Alpha | None         | 4               | 2,097,152            | 2 x A100 | 13.45 GB    | 3.86 min           | 192.99 min                   |
 |       |               |              |                 |                      |          |             | -                  | -                            |
-| 7 B   | Llama 2       | None         | 1               | 2,097,152            | 2 x A100 | 22.18 GB    | 5.93 min           | 296.62 min                   |
-| 7 B   | Llama 2       | None         | 2               | 2,097,152            | 2 x A100 | 22.47 GB    | 6.48 min           | 324.03 min                   |
-| 7 B   | Llama 2       | None         | 4               | 2,097,152            | 2 x A100 | 23.39 GB    | 8.66 min           | 432.82 min                   |
+| 7 B   | Llama 2       | None         | 1               | 4,194,304            | 2 x A100 | 22.18 GB    | 5.93 min           | 296.62 min                   |
+| 7 B   | Llama 2       | None         | 2               | 4,194,304            | 2 x A100 | 22.47 GB    | 6.48 min           | 324.03 min                   |
+| 7 B   | Llama 2       | None         | 4               | 4,194,304            | 2 x A100 | 23.39 GB    | 8.66 min           | 432.82 min                   |
 |       |               |              |                 |                      |          |             |                    |                              |
 | 13 B  | Llama 2       | None         | 1               | 6,553,600            | 2 x A100 | OOM         | -                  | -                            |
 | 13 B  | Llama 2       | bnb.nf4      | 1               | 6,553,600            | 2 x A100 | N/A         | -                  | -                            |
