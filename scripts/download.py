@@ -14,7 +14,8 @@ _SAFETENSORS_AVAILABLE = RequirementCache("safetensors")
 
 
 def download_from_hub(
-    repo_id: Optional[str] = None, access_token: Optional[str] = os.getenv("HF_TOKEN"), from_safetensors: bool = False
+    repo_id: Optional[str] = None, access_token: Optional[str] = os.getenv("HF_TOKEN"), from_safetensors: bool = False,
+    checkpoint_dir = "checkpoints"
 ) -> None:
     if repo_id is None:
         from lit_gpt.config import configs
@@ -41,7 +42,7 @@ def download_from_hub(
     else:
         download_files.append("*.bin*")
 
-    directory = Path("checkpoints") / repo_id
+    directory = Path(checkpoint_dir) / repo_id
     snapshot_download(
         repo_id,
         local_dir=directory,
