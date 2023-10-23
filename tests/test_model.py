@@ -43,7 +43,15 @@ def test_against_gpt_neox_model(rotary_pct, batch_size, n_embd, parallel_residua
     from scripts.convert_hf_checkpoint import copy_weights_gpt_neox
 
     batch_size = 3
-    ours_config = Config(block_size=64, vocab_size=100, n_layer=4, n_head=8, n_embd=n_embd)
+    ours_config = Config(
+        block_size=64,
+        vocab_size=100,
+        n_layer=4,
+        n_head=8,
+        n_embd=n_embd,
+        rotary_percentage=rotary_pct,
+        parallel_residual=parallel_residual,
+    )
     assert ours_config.padded_vocab_size == 512
     theirs_config = GPTNeoXConfig(
         hidden_act="gelu",
