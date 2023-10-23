@@ -8,7 +8,6 @@ from pathlib import Path
 from typing import List
 
 import numpy as np
-import pandas as pd
 import torch
 import zstandard as zstd
 from lightning.data import DatasetOptimizer, StreamingDataset
@@ -22,32 +21,34 @@ sys.path.append(str(wd))
 from lit_gpt import Tokenizer
 
 
-class StarcoderDataProcessor:
-    def __init__(self, tokenizer: Tokenizer):
+class SlimPajamaDataProcessor:
+    def __init__(self, tokenizer):
         self.tokenizer = tokenizer
 
     def prepare_dataset_structure(self, root, filepaths):
-        # TODO: should no longer be necessary to filter:
-        return [p for p in filepaths if p.endswith(".parquet")]
+        return filepaths
 
     def prepare_item(self, item_metadata):
         filepath = item_metadata
-        contents = pd.read_parquet(filepath, engine='pyarrow')['content']
-        for text in contents:
-            text_ids = self.tokenizer.encode(text)
-            yield text_ids
+        with zstd.open(open(filepath, "rb"), "rt", encoding="utf-8") as f:
+            for row in f:
+                text = json.loads(row)["text"]
+                if json.loads(row)["meta"]["redpajama_set_name"] == "RedPajamaGithub":
+                    continue # we don't want to include the github data
+                text_ids = self.tokenizer.encode(text)
+                yield text_ids
 
 
 def prepare(
-    source_path: Path = Path("data/starcoderdata"),
+    source_path: Path = Path("data/SlimPajama-627B/train"),
     tokenizer_path: Path = Path("checkpoints/Llama-2-7b-hf/"),
-    name: str = "starcoder",
+    name: str = "slimpajama/train",
     chunk_size: int = 2049 * 10000,
     fast_dev_run: bool = False,
 ) -> None:
 
     tokenizer = Tokenizer(tokenizer_path)
-    optimizer = StarcoderDataProcessor(tokenizer=tokenizer)
+    optimizer = SlimPajamaDataProcessor(tokenizer=tokenizer)
     dataset_optimizer = DatasetOptimizer(
         name=name,
         src_dir=str(source_path),
