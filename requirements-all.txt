@@ -4,6 +4,7 @@ scipy          # required by bitsandbytes
 sentencepiece  # pythia, falcon, redpajama
 tokenizers     # llama-based models
 datasets       # quantize/gptq.py
-zstandard      # scripts/prepare_redpajama.py
+zstandard      # scripts/prepare_redpajama.py, prepare_starcoder.py
 git+https://github.com/EleutherAI/lm-evaluation-harness.git@master  # eval
-pandas         # prepare_csv.py
+pandas         # prepare_csv.py, prepare_starcoder.py
+pyarrow        # prepare_starcoder.py
