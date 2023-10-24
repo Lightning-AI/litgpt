@@ -8,7 +8,6 @@ from typing import Any, Optional, Tuple
 
 import torch
 import torch.nn as nn
-from lightning_utilities.core.imports import RequirementCache
 from typing_extensions import Self
 
 from lit_gpt.config import Config
