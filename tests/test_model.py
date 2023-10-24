@@ -1,11 +1,15 @@
 import operator
 import sys
+from functools import partial
 from pathlib import Path
 from urllib.request import urlretrieve
 
 import pytest
 import torch
+from lightning.fabric.utilities.imports import _IS_WINDOWS
 from lightning_utilities.core.imports import compare_version
+
+import lit_gpt.config as config_module
 
 wd = Path(__file__).parent.parent.absolute()
 
@@ -26,12 +30,14 @@ def restore_default_dtype():
     [
         (torch.device("cpu"), torch.float32),
         pytest.param(
-            torch.device("cuda"), torch.float16, marks=[
+            torch.device("cuda"),
+            torch.float16,
+            marks=[
                 # the reference does softmax upscaled to fp32 during attention. additionally, the final layernorm input
                 # is slightly different
                 pytest.mark.xfail(raises=AssertionError, strict=False),
-                pytest.mark.skipif(not torch.cuda.is_available(), reason="CUDA")
-            ]
+                pytest.mark.skipif(not torch.cuda.is_available(), reason="CUDA"),
+            ],
         ),
     ],
 )
@@ -97,12 +103,14 @@ def test_against_gpt_neox_model(rotary_pct, batch_size, n_embd, parallel_residua
     [
         (torch.device("cpu"), torch.float32),
         pytest.param(
-            torch.device("cuda"), torch.float16, marks=[
+            torch.device("cuda"),
+            torch.float16,
+            marks=[
                 # the reference does softmax upscaled to fp32 during attention. additionally, the final layernorm input
                 # is slightly different
                 pytest.mark.xfail(raises=AssertionError, strict=False),
-                pytest.mark.skipif(not torch.cuda.is_available(), reason="CUDA")
-            ]
+                pytest.mark.skipif(not torch.cuda.is_available(), reason="CUDA"),
+            ],
         ),
     ],
 )
@@ -146,12 +154,14 @@ def test_against_hf_falcon(kwargs, device, dtype):
     [
         (torch.device("cpu"), torch.float32),
         pytest.param(
-            torch.device("cuda"), torch.float16, marks=[
+            torch.device("cuda"),
+            torch.float16,
+            marks=[
                 # the reference does softmax upscaled to fp32 during attention. additionally, the final layernorm input
                 # is slightly different
                 pytest.mark.xfail(raises=AssertionError, strict=False),
-                pytest.mark.skipif(not torch.cuda.is_available(), reason="CUDA")
-            ]
+                pytest.mark.skipif(not torch.cuda.is_available(), reason="CUDA"),
+            ],
         ),
     ],
 )
@@ -210,12 +220,14 @@ def test_against_original_open_llama_3b(device, dtype):
     [
         (torch.device("cpu"), torch.float32),
         pytest.param(
-            torch.device("cuda"), torch.float16, marks=[
+            torch.device("cuda"),
+            torch.float16,
+            marks=[
                 # the reference does softmax upscaled to fp32 during attention. additionally, the final layernorm input
                 # is slightly different
                 pytest.mark.xfail(raises=AssertionError, strict=False),
-                pytest.mark.skipif(not torch.cuda.is_available(), reason="CUDA")
-            ]
+                pytest.mark.skipif(not torch.cuda.is_available(), reason="CUDA"),
+            ],
         ),
     ],
 )
@@ -267,10 +279,12 @@ def test_against_hf_llama2(ours_kwargs, device, dtype):
     [
         (torch.device("cpu"), torch.float32),
         pytest.param(
-            torch.device("cuda"), torch.float16, marks=[
+            torch.device("cuda"),
+            torch.float16,
+            marks=[
                 pytest.mark.xfail(raises=AssertionError, strict=False),
-                pytest.mark.skipif(not torch.cuda.is_available(), reason="CUDA")
-            ]
+                pytest.mark.skipif(not torch.cuda.is_available(), reason="CUDA"),
+            ],
         ),
     ],
 )
@@ -325,12 +339,14 @@ def test_against_hf_phi(device, dtype):
     [
         (torch.device("cpu"), torch.float32),
         pytest.param(
-            torch.device("cuda"), torch.float16, marks=[
+            torch.device("cuda"),
+            torch.float16,
+            marks=[
                 # the reference does softmax upscaled to fp32 during attention. additionally, the final layernorm input
                 # is slightly different
                 pytest.mark.xfail(raises=AssertionError, strict=False),
-                pytest.mark.skipif(not torch.cuda.is_available(), reason="CUDA")
-            ]
+                pytest.mark.skipif(not torch.cuda.is_available(), reason="CUDA"),
+            ],
         ),
     ],
 )
@@ -453,3 +469,46 @@ def test_model_kv_cache_amp():
     with torch.autocast("cpu", torch.bfloat16):
         output = model(encoded.unsqueeze(0), encoded)
     assert output.dtype is torch.bfloat16
+
+
+# https://github.com/pytorch/pytorch/blob/ad3572a5d/torch/testing/_internal/common_cuda.py#L31-L34
+SUPPORTS_FLASH_ATTENTION = (
+    torch.cuda.is_available() and torch.cuda.get_device_capability() >= (8, 0) and not _IS_WINDOWS
+)
+SUPPORTS_MEM_EFF_ATTENTION = torch.cuda.is_available()
+SUPPORTS_FUSED_ATTENTION = SUPPORTS_FLASH_ATTENTION or SUPPORTS_MEM_EFF_ATTENTION
+
+
+@pytest.mark.skipif(not SUPPORTS_FUSED_ATTENTION, reason="Unsupported")
+@pytest.mark.parametrize("config", config_module.configs, ids=[c["name"] for c in config_module.configs])
+@pytest.mark.xfail(raises=torch.cuda.OutOfMemoryError, strict=False)  # best effort, if the GPU can load it
+@torch.inference_mode()
+def test_sdpa_choice(config):
+    from torch.backends.cuda import SDPBackend
+
+    from lit_gpt import GPT
+
+    torch.set_default_dtype(torch.float16)
+
+    def assert_sdpa_uses_flash(original_fn, q, k, v, mask):
+        choice = torch._fused_sdp_choice(q, k, v, mask, is_causal=True)
+        assert choice == expected
+        return original_fn(q, k, v, mask)
+
+    config = config_module.Config(**config)
+    with torch.device("cuda"):
+        model = GPT(config)
+        x = torch.randint(0, 10, (2, 16), dtype=torch.int32)
+
+    for h in model.transformer.h:
+        h.attn.scaled_dot_product_attention = partial(assert_sdpa_uses_flash, h.attn.scaled_dot_product_attention)
+
+    if SUPPORTS_FLASH_ATTENTION:
+        expected = SDPBackend.FLASH_ATTENTION
+        with torch.backends.cuda.sdp_kernel(enable_flash=True, enable_math=False, enable_mem_efficient=False):
+            model(x)
+
+    if SUPPORTS_MEM_EFF_ATTENTION:
+        expected = SDPBackend.EFFICIENT_ATTENTION
+        with torch.backends.cuda.sdp_kernel(enable_flash=False, enable_math=False, enable_mem_efficient=True):
+            model(x)

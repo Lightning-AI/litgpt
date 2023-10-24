@@ -305,11 +305,7 @@ class LLaMAMLP(nn.Module):
 
 
 def build_rope_cache(
-    seq_len: int,
-    n_elem: int,
-    device: Optional[torch.device] = None,
-    base: int = 10000,
-    condense_ratio: int = 1,
+    seq_len: int, n_elem: int, device: Optional[torch.device] = None, base: int = 10000, condense_ratio: int = 1
 ) -> Tuple[torch.Tensor, torch.Tensor]:
     """Enhanced Transformer with Rotary Position Embedding.
 
