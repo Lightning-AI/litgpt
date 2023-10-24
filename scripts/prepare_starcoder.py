@@ -1,19 +1,10 @@
-import glob
-import json
-import os
 import sys
 import time
-from multiprocessing import Process, cpu_count
 from pathlib import Path
-from typing import List
 
-import numpy as np
-import pandas as pd
-import torch
-import zstandard as zstd
 from lightning.data import DatasetOptimizer, StreamingDataset
 from lightning.data.streaming.item_loader import TokensLoader
-from tqdm import tqdm
+import pyarrow.parquet as pq
 
 # support running without installing as a package
 wd = Path(__file__).parent.parent.resolve()
@@ -30,19 +21,22 @@ class StarcoderDataProcessor:
         # TODO: should no longer be necessary to filter:
         return [p for p in filepaths if p.endswith(".parquet")]
 
-    def prepare_item(self, item_metadata):
-        filepath = item_metadata
-        contents = pd.read_parquet(filepath, engine='pyarrow')['content']
-        for text in contents:
-            text_ids = self.tokenizer.encode(text)
-            yield text_ids
+    def prepare_item(self, filepath):
+        parquet_file = pq.ParquetFile(filepath)
+
+        # reduce RAM usage
+        for batch in parquet_file.iter_batches():
+            for text in batch.to_pandas()['content']:
+                yield self.tokenizer.encode(text)
+
+        parquet_file.close()
 
 
 def prepare(
     source_path: Path = Path("data/starcoderdata"),
     tokenizer_path: Path = Path("checkpoints/Llama-2-7b-hf/"),
     name: str = "starcoder",
-    chunk_size: int = 2049 * 10000,
+    chunk_size: int = 2049 * 8192,
     fast_dev_run: bool = False,
 ) -> None:
 
@@ -52,8 +46,9 @@ def prepare(
         name=name,
         src_dir=str(source_path),
         fast_dev_run=fast_dev_run,
-        num_workers=os.cpu_count(),
         chunk_size=chunk_size,
+        num_workers=48,
+        num_downloaders=1,
     )
 
     start_time = time.time()
