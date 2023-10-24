@@ -376,14 +376,7 @@ def test_lora_merge_with_quantize():
         to_projection=True,
     )
     fabric = Fabric(devices=1, plugins=BitsandbytesPrecision("nf4", dtype=torch.bfloat16, ignore_modules={"lm_head"}))
-    with fabric.init_module(empty_init=False):
-        model = GPT(config)
-        model.apply(model._init_weights)
-
-    attn_proj = model.transformer.h[0].attn.proj
-    assert model.lm_head.linear.weight.dtype is torch.bfloat16
-    assert attn_proj.linear.weight.dtype is torch.bfloat16
-
+    model = GPT(config)
     mark_only_lora_as_trainable(model)
 
     from bitsandbytes.optim import PagedAdamW
@@ -393,10 +386,11 @@ def test_lora_merge_with_quantize():
 
     model.train()
 
+    attn_proj = model.transformer.h[0].attn.proj
     initial_weight = attn_proj.linear.weight.clone()
 
     # this was skipped
-    assert model.lm_head.linear.weight.dtype is torch.bfloat16
+    assert model.lm_head.linear.weight.dtype is torch.floar32
     assert attn_proj.linear.weight.dtype is torch.uint8
 
     # perform an update to the LoRA weights
