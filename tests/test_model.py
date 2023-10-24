@@ -16,12 +16,6 @@ sys.path.append(str(wd))
 import lit_gpt.config as config_module
 
 
-@pytest.fixture(autouse=True)
-def restore_default_dtype():
-    # just in case
-    torch.set_default_dtype(torch.float32)
-
-
 @torch.inference_mode()
 @pytest.mark.parametrize("rotary_pct", (0.25, 1))
 @pytest.mark.parametrize("batch_size", (1, 3))
