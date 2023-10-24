@@ -9,9 +9,11 @@ import torch
 from lightning.fabric.utilities.imports import _IS_WINDOWS
 from lightning_utilities.core.imports import compare_version
 
-import lit_gpt.config as config_module
+# support running without installing as a package
+wd = Path(__file__).parent.parent.resolve()
+sys.path.append(str(wd))
 
-wd = Path(__file__).parent.parent.absolute()
+import lit_gpt.config as config_module
 
 
 @pytest.fixture(autouse=True)
