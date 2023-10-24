@@ -106,10 +106,11 @@ Install with all dependencies (including quantization, sentencepiece, tokenizers
 pip install -r requirements-all.txt
 ```
 
-**(Optional) install Flash Attention 2**
+**(Optional) Use Flash Attention 2 (only available in PyTorch 2.2)**
 
 ```bash
-MAX_JOBS=4 pip install flash-attn --no-build-isolation
+pip uninstall -y torch
+pip install --pre torch --index-url https://download.pytorch.org/whl/nightly/cu121
 ```
 
 You are all set! 🎉
