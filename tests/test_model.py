@@ -483,7 +483,6 @@ SUPPORTS_FUSED_ATTENTION = SUPPORTS_FLASH_ATTENTION or SUPPORTS_MEM_EFF_ATTENTIO
 
 @pytest.mark.skipif(not SUPPORTS_FUSED_ATTENTION, reason="Unsupported")
 @pytest.mark.parametrize("config", config_module.configs, ids=[c["name"] for c in config_module.configs])
-@pytest.mark.xfail(raises=torch.cuda.OutOfMemoryError, strict=False)  # best effort, if the GPU can load it
 @torch.inference_mode()
 def test_sdpa_choice(config):
     from torch.backends.cuda import SDPBackend
@@ -498,19 +497,26 @@ def test_sdpa_choice(config):
         return original_fn(q, k, v, mask)
 
     config = config_module.Config(**config)
-    with torch.device("cuda"):
-        model = GPT(config)
-        x = torch.randint(0, 10, (2, 16), dtype=torch.int32)
+
+    try:
+        with torch.device("cuda"):
+            model = GPT(config)
+            x = torch.randint(0, 10, (2, 16), dtype=torch.int32)
+    except torch.cuda.OutOfMemoryError:
+        # best effort, if the GPU can load it
+        pytest.xfail()
 
     for h in model.transformer.h:
         h.attn.scaled_dot_product_attention = partial(assert_sdpa_uses_flash, h.attn.scaled_dot_product_attention)
 
     if SUPPORTS_FLASH_ATTENTION:
-        expected = SDPBackend.FLASH_ATTENTION
-        with torch.backends.cuda.sdp_kernel(enable_flash=True, enable_math=False, enable_mem_efficient=False):
+        # flash attention requires q,k,v to have the same last dimension and to be a multiple of 8 and less than or
+        # equal to 128
+        expected = SDPBackend.FLASH_ATTENTION if model.config.head_size <= 128 else SDPBackend.MATH
+        with torch.backends.cuda.sdp_kernel(enable_mem_efficient=False):
             model(x)
 
     if SUPPORTS_MEM_EFF_ATTENTION:
         expected = SDPBackend.EFFICIENT_ATTENTION
-        with torch.backends.cuda.sdp_kernel(enable_flash=False, enable_math=False, enable_mem_efficient=True):
+        with torch.backends.cuda.sdp_kernel(enable_flash=False):
             model(x)
