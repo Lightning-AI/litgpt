@@ -512,11 +512,11 @@ def test_sdpa_choice(config):
     if SUPPORTS_FLASH_ATTENTION:
         # flash attention requires q,k,v to have the same last dimension and to be a multiple of 8 and less than or
         # equal to 128
-        expected = SDPBackend.FLASH_ATTENTION if model.config.head_size <= 128 else SDPBackend.MATH
+        expected = SDPBackend.FLASH_ATTENTION if config.head_size <= 128 and config.head_size % 8 == 0 else SDPBackend.MATH
         with torch.backends.cuda.sdp_kernel(enable_mem_efficient=False):
             model(x)
 
     if SUPPORTS_MEM_EFF_ATTENTION:
-        expected = SDPBackend.EFFICIENT_ATTENTION
+        expected = SDPBackend.EFFICIENT_ATTENTION if config.head_size % 8 == 0 else SDPBackend.MATH
         with torch.backends.cuda.sdp_kernel(enable_flash=False):
             model(x)

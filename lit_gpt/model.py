@@ -200,9 +200,9 @@ class CausalSelfAttention(nn.Module):
         # split batched computation into three
         q, k, v = qkv.split((q_per_kv, 1, 1), dim=2)
 
-        # repeat k and v if necessary
-        if self.config.n_query_groups != 1:  # doing this would require a full kv cache with MQA (inefficient!)
-            # for MHA this is a no-op
+        # repeat k and v if necessary during training. during MQA inference this would require a full kv cache
+        # so we avoid it to limit its memory usage. during training, flash attention requires this
+        if input_pos is None and self.config.n_query_groups not in (1, self.config.n_head) :
             k = k.expand(B, self.config.n_query_groups, q_per_kv, T, self.config.head_size)
             v = v.expand(B, self.config.n_query_groups, q_per_kv, T, self.config.head_size)
 
