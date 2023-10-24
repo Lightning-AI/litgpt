@@ -6,7 +6,7 @@ from urllib.request import urlretrieve
 
 import pytest
 import torch
-from lightning.fabric.utilities.imports import _IS_WINDOWS
+from lightning.fabric.utilities.imports import _IS_WINDOWS, _TORCH_GREATER_EQUAL_2_2
 from lightning_utilities.core.imports import compare_version
 
 # support running without installing as a package
@@ -505,10 +505,12 @@ def test_sdpa_choice(config):
         h.attn.scaled_dot_product_attention = partial(assert_sdpa_uses_flash, h.attn.scaled_dot_product_attention)
 
     if SUPPORTS_FLASH_ATTENTION:
-        # flash attention requires q,k,v to have the same last dimension and to be a multiple of 8 and less than or
+        # flash attention 1 requires q,k,v to have the same last dimension and to be a multiple of 8 and less than or
         # equal to 128
         expected = (
-            SDPBackend.FLASH_ATTENTION if config.head_size <= 128 and config.head_size % 8 == 0 else SDPBackend.MATH
+            SDPBackend.FLASH_ATTENTION
+            if _TORCH_GREATER_EQUAL_2_2 or (config.head_size <= 128 and config.head_size % 8 == 0)
+            else SDPBackend.MATH
         )
         with torch.backends.cuda.sdp_kernel(enable_mem_efficient=False):
             model(x)
