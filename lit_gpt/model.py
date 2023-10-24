@@ -200,9 +200,10 @@ class CausalSelfAttention(nn.Module):
         # split batched computation into three
         q, k, v = qkv.split((q_per_kv, 1, 1), dim=2)
 
-        # repeat k and v if necessary
-        if self.config.n_query_groups != 1:  # doing this would require a full kv cache with MQA (inefficient!)
-            # for MHA this is a no-op
+        # maybe repeat k and v if for the non multi-head attention cases
+        # training: flash attention requires it
+        # inference: multi-query would require a full kv cache so avoid it to limit its memory usage
+        if self.config.n_query_groups != self.config.n_head and (input_pos is None or self.config.n_query_groups != 1):
             k = k.expand(B, self.config.n_query_groups, q_per_kv, T, self.config.head_size)
             v = v.expand(B, self.config.n_query_groups, q_per_kv, T, self.config.head_size)
 
@@ -289,11 +290,7 @@ class LLaMAMLP(nn.Module):
 
 
 def build_rope_cache(
-    seq_len: int,
-    n_elem: int,
-    device: Optional[torch.device] = None,
-    base: int = 10000,
-    condense_ratio: int = 1,
+    seq_len: int, n_elem: int, device: Optional[torch.device] = None, base: int = 10000, condense_ratio: int = 1
 ) -> Tuple[torch.Tensor, torch.Tensor]:
     """Enhanced Transformer with Rotary Position Embedding.
 
