@@ -7,6 +7,7 @@ from typing import Dict, List, Literal, Optional, Tuple
 import lightning as L
 import torch
 from lightning.fabric.loggers import CSVLogger
+from lightning.fabric.plugins import BitsandbytesPrecision
 from lightning.fabric.strategies import FSDPStrategy
 
 # support running without installing as a package
@@ -24,7 +25,6 @@ from lit_gpt.utils import (
     get_default_supported_precision,
     load_checkpoint,
     num_parameters,
-    quantization,
 )
 from scripts.prepare_alpaca import generate_prompt
 
@@ -62,33 +62,41 @@ def setup(
     checkpoint_dir: Path = Path("checkpoints/stabilityai/stablelm-base-alpha-3b"),
     out_dir: Path = Path("out/lora/alpaca"),
     precision: Optional[str] = None,
-    quantize: Optional[Literal["bnb.nf4", "bnb.nf4-dq", "bnb.fp4", "bnb.fp4-dq"]] = None,
-):
+    quantize: Optional[Literal["bnb.nf4", "bnb.nf4-dq", "bnb.fp4", "bnb.fp4-dq", "bnb.int8-training"]] = None,
+) -> None:
     precision = precision or get_default_supported_precision(training=True)
 
-    fabric_devices = devices
-    if fabric_devices > 1:
+    plugins = None
+    if quantize is not None and quantize.startswith("bnb."):
+        if "mixed" in precision:
+            raise ValueError("Quantization and mixed precision is not supported.")
+        dtype = {"16-true": torch.float16, "bf16-true": torch.bfloat16, "32-true": torch.float32}[precision]
+        plugins = BitsandbytesPrecision(quantize[4:], dtype)
+        precision = None
+
+    if devices > 1:
         if quantize:
             raise NotImplementedError(
-                "Quantization is currently not supported for multi-GPU training. "
-                "Please set devices=1 when using the --quantization flag."
+                "Quantization is currently not supported for multi-GPU training. Please set devices=1 when using the"
+                " --quantize flag."
             )
         strategy = FSDPStrategy(
             auto_wrap_policy={Block},
             activation_checkpointing_policy={Block},
             state_dict_type="full",
             limit_all_gathers=True,
+            cpu_offload=False,
         )
     else:
         strategy = "auto"
 
     logger = CSVLogger(out_dir.parent, out_dir.name, flush_logs_every_n_steps=log_interval)
-    fabric = L.Fabric(devices=fabric_devices, strategy=strategy, precision=precision, loggers=logger)
+    fabric = L.Fabric(devices=devices, strategy=strategy, precision=precision, loggers=logger, plugins=plugins)
     fabric.print(hparams)
-    fabric.launch(main, data_dir, checkpoint_dir, out_dir, quantize)
+    fabric.launch(main, data_dir, checkpoint_dir, out_dir)
 
 
-def main(fabric: L.Fabric, data_dir: Path, checkpoint_dir: Path, out_dir: Path, quantize: Optional[str] = None):
+def main(fabric: L.Fabric, data_dir: Path, checkpoint_dir: Path, out_dir: Path) -> None:
     check_valid_checkpoint_dir(checkpoint_dir)
 
     speed_monitor = SpeedMonitor(fabric, window_size=50, time_unit="seconds")
@@ -117,36 +125,32 @@ def main(fabric: L.Fabric, data_dir: Path, checkpoint_dir: Path, out_dir: Path, 
     )
     checkpoint_path = checkpoint_dir / "lit_model.pth"
     fabric.print(f"Loading model {str(checkpoint_path)!r} with {config.__dict__}")
-    with fabric.init_module(empty_init=(devices > 1)), quantization(quantize):
+    with fabric.init_module(empty_init=(devices > 1)):
         model = GPT(config)
     mark_only_lora_as_trainable(model)
 
     fabric.print(f"Number of trainable parameters: {num_parameters(model, requires_grad=True):,}")
     fabric.print(f"Number of non trainable parameters: {num_parameters(model, requires_grad=False):,}")
 
-    if quantize:
-        # for quantization, need to load before moving to device
-        load_checkpoint(fabric, model, checkpoint_path, strict=False)
-
     model = fabric.setup_module(model)
 
     trainable_params = [p for p in model.parameters() if p.requires_grad]
-    if quantize and quantize.startswith("bnb."):
+    if isinstance(fabric.strategy.precision, BitsandbytesPrecision):
         import bitsandbytes as bnb
 
         optimizer = bnb.optim.PagedAdamW(trainable_params, lr=learning_rate, weight_decay=weight_decay)
     else:
         optimizer = torch.optim.AdamW(trainable_params, lr=learning_rate, weight_decay=weight_decay)
     optimizer = fabric.setup_optimizers(optimizer)
+    scheduler = torch.optim.lr_scheduler.CosineAnnealingLR(optimizer, T_max=max_iters // batch_size)
 
-    if not quantize:
-        # strict=False because missing keys due to LoRA weights not contained in state dict
-        load_checkpoint(fabric, model, checkpoint_path, strict=False)
+    # strict=False because missing keys due to LoRA weights not contained in state dict
+    load_checkpoint(fabric, model, checkpoint_path, strict=False)
 
     fabric.seed_everything(1337 + fabric.global_rank)
 
     train_time = time.perf_counter()
-    train(fabric, model, optimizer, train_data, val_data, checkpoint_dir, out_dir, speed_monitor)
+    train(fabric, model, optimizer, scheduler, train_data, val_data, checkpoint_dir, out_dir, speed_monitor)
     fabric.print(f"Training time: {(time.perf_counter()-train_time):.2f}s")
     if fabric.device.type == "cuda":
         fabric.print(f"Memory used: {torch.cuda.max_memory_allocated() / 1e9:.02f} GB")
@@ -160,6 +164,7 @@ def train(
     fabric: L.Fabric,
     model: GPT,
     optimizer: torch.optim.Optimizer,
+    scheduler: torch.optim.lr_scheduler,
     train_data: List[Dict],
     val_data: List[Dict],
     checkpoint_dir: Path,
@@ -217,6 +222,8 @@ def train(
         if not is_accumulating:
             optimizer.step()
             optimizer.zero_grad()
+            if step_count > warmup_steps:
+                scheduler.step()
             step_count += 1
 
         t1 = time.perf_counter()
@@ -313,7 +320,7 @@ def get_longest_seq_length(data: List[Dict]) -> Tuple[int, int]:
     return longest_seq_length, longest_seq_ix
 
 
-def save_lora_checkpoint(fabric, model, file_path: Path):
+def save_lora_checkpoint(fabric: L.Fabric, model: torch.nn.Module, file_path: Path) -> None:
     fabric.print(f"Saving LoRA weights to {str(file_path)!r}")
     fabric.save(file_path, {"model": model}, filter={"model": lora_filter})
 

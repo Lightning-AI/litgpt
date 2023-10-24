@@ -19,7 +19,8 @@ from lit_gpt.utils import check_valid_checkpoint_dir, lazy_load
 from xla.utils import rank_print
 
 
-@torch.inference_mode()
+# xla does not support `inference_mode`: RuntimeError: Cannot set version_counter for inference tensor
+@torch.no_grad()
 def generate(
     model: GPT,
     idx: torch.Tensor,
@@ -99,7 +100,7 @@ def setup(
     temperature: float = 0.8,
     checkpoint_dir: Path = Path("checkpoints/tiiuae/falcon-7b"),
     precision: str = "bf16-true",
-):
+) -> None:
     """Generates text samples based on a pre-trained model and tokenizer.
 
     Args:
@@ -140,8 +141,8 @@ def main(
     rank_print(fabric, f"Time to instantiate model: {time.perf_counter() - t0:.02f} seconds.", file=sys.stderr)
 
     t0 = time.perf_counter()
-    with lazy_load(checkpoint_path) as checkpoint:
-        model.load_state_dict(checkpoint.get("model", checkpoint))
+    checkpoint = lazy_load(checkpoint_path)
+    model.load_state_dict(checkpoint.get("model", checkpoint))
     rank_print(fabric, f"Time to load the model weights: {time.perf_counter() - t0:.02f} seconds.", file=sys.stderr)
 
     model.eval()

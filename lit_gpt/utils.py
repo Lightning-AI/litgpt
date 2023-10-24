@@ -1,19 +1,18 @@
 """Utility functions for training and inference."""
-import os
+import math
 import pickle
 import sys
-import warnings
-from contextlib import contextmanager
-from functools import partial
+from contextlib import nullcontext
 from io import BytesIO
 from pathlib import Path
-from typing import Dict, List, Mapping, Optional, TypeVar, Union
+from typing import ContextManager, Dict, List, Mapping, Optional, TypeVar, Union
 
+import lightning as L
 import torch
 import torch.nn as nn
 import torch.utils._device
 from lightning.fabric.strategies import FSDPStrategy
-from lightning.fabric.utilities.load import _lazy_load
+from lightning.fabric.utilities.load import _lazy_load as lazy_load
 from torch.serialization import normalize_storage_type
 
 
@@ -25,207 +24,30 @@ def find_multiple(n: int, k: int) -> int:
 
 
 def num_parameters(module: nn.Module, requires_grad: Optional[bool] = None) -> int:
-    return sum(p.numel() for p in module.parameters() if requires_grad is None or p.requires_grad == requires_grad)
+    total = 0
+    for p in module.parameters():
+        if requires_grad is None or p.requires_grad == requires_grad:
+            if hasattr(p, "quant_state"):
+                # bitsandbytes 4bit layer support
+                total += math.prod(p.quant_state[1])
+            else:
+                total += p.numel()
+    return total
 
 
-@contextmanager
-def quantization(mode: Optional[str] = None):
-    if mode is None:
-        yield
-        return
+def gptq_quantization(enabled: bool = False) -> ContextManager:
+    if not enabled:
+        return nullcontext()
 
-    if mode.startswith("bnb"):
-        import quantize.bnb as bnb
-    if mode == "bnb.int8":
-        quantized_linear_cls = bnb.InferenceLinear8bitLt
-    elif mode == "bnb.fp4":
-        # Use a class instead `functools.partial` to respect `isinstance` checks and attribute accesses
-        class QuantizedLinear(bnb.Linear4bit):
-            def __init__(self, *args, **kwargs):
-                super().__init__(*args, quant_type="fp4", compress_statistics=False, **kwargs)
+    from lightning.fabric.plugins.precision.utils import _ClassReplacementContextManager
 
-        quantized_linear_cls = QuantizedLinear
-    elif mode == "bnb.fp4-dq":
+    from quantize.gptq import ColBlockQuantizedLinear
 
-        class QuantizedLinear(bnb.Linear4bit):
-            def __init__(self, *args, **kwargs):
-                super().__init__(*args, quant_type="fp4", compress_statistics=True, **kwargs)
+    class QuantizedLinear(ColBlockQuantizedLinear):
+        def __init__(self, *args, **kwargs):
+            super().__init__(*args, bits=4, tile_cols=-1, **kwargs)
 
-        quantized_linear_cls = QuantizedLinear
-    elif mode == "bnb.nf4":
-
-        class QuantizedLinear(bnb.Linear4bit):
-            def __init__(self, *args, **kwargs):
-                super().__init__(*args, quant_type="nf4", compress_statistics=False, **kwargs)
-
-        quantized_linear_cls = QuantizedLinear
-    elif mode == "bnb.nf4-dq":
-
-        class QuantizedLinear(bnb.Linear4bit):
-            def __init__(self, *args, **kwargs):
-                super().__init__(*args, quant_type="nf4", compress_statistics=True, **kwargs)
-
-        quantized_linear_cls = QuantizedLinear
-    elif mode == "gptq.int4":
-        from quantize.gptq import ColBlockQuantizedLinear
-
-        class QuantizedLinear(ColBlockQuantizedLinear):
-            def __init__(self, *args, **kwargs):
-                super().__init__(*args, bits=4, tile_cols=-1, **kwargs)
-
-        quantized_linear_cls = QuantizedLinear
-    else:
-        raise ValueError(f"Unknown quantization mode: {mode}")
-
-    torch_linear_cls = torch.nn.Linear
-    torch.nn.Linear = quantized_linear_cls
-    yield
-    torch.nn.Linear = torch_linear_cls
-
-
-# this is taken from torchhacks https://github.com/lernapparat/torchhacks
-
-
-class NotYetLoadedTensor:
-    def __init__(self, metatensor, archiveinfo, storageinfo, rebuild_args):
-        self.metatensor = metatensor
-        self.archiveinfo = archiveinfo
-        self.storageinfo = storageinfo
-        self.rebuild_args = rebuild_args
-
-    @classmethod
-    def rebuild_from_type_v2(cls, func, new_type, args, state, *, archiveinfo=None):
-        ret = func(*args)
-        if isinstance(ret, NotYetLoadedTensor):
-            old_lt = ret._load_tensor
-
-            def _load_tensor():
-                t = old_lt()
-                return torch._tensor._rebuild_from_type_v2(lambda: t, new_type, (), state)
-
-            ret._load_tensor = _load_tensor
-            return ret
-        return torch._tensor._rebuild_from_type_v2(func, new_type, args, state)
-
-    @classmethod
-    def rebuild_parameter(cls, data, requires_grad, backward_hooks, *, archiveinfo=None):
-        if isinstance(data, NotYetLoadedTensor):
-            old_lt = data._load_tensor
-
-            def _load_tensor():
-                t = old_lt()
-                return torch._utils._rebuild_parameter(t, requires_grad, backward_hooks)
-
-            data._load_tensor = _load_tensor
-            return data
-        return torch._utils._rebuild_parameter(data, requires_grad, backward_hooks)
-
-    @classmethod
-    def rebuild_tensor_v2(
-        cls, storage, storage_offset, size, stride, requires_grad, backward_hooks, metadata=None, *, archiveinfo=None
-    ):
-        rebuild_args = (storage_offset, size, stride, requires_grad, backward_hooks, metadata)
-        metatensor = torch._utils._rebuild_tensor_v2(
-            storage, storage_offset, size, stride, requires_grad, backward_hooks, metadata
-        )
-        storageinfo = storage.archiveinfo
-        return NotYetLoadedTensor(metatensor, archiveinfo, storageinfo, rebuild_args)
-
-    def _load_tensor(self):
-        name, storage_cls, fn, device, size = self.storageinfo
-        dtype = self.metatensor.dtype
-
-        uts = (
-            self.archiveinfo.zipfile_context.zf.get_storage_from_record(
-                f"data/{fn}", size * torch._utils._element_size(dtype), torch.UntypedStorage
-            )
-            ._typed_storage()
-            ._untyped_storage
-        )
-        with warnings.catch_warnings():
-            warnings.simplefilter("ignore")
-            storage = torch.storage.TypedStorage(wrap_storage=uts, dtype=self.metatensor.dtype, _internal=True)
-        return torch._utils._rebuild_tensor_v2(storage, *self.rebuild_args)
-
-    @classmethod
-    def __torch_function__(cls, func, types, args=(), kwargs=None):
-        if kwargs is None:
-            kwargs = {}
-        loaded_args = [(a._load_tensor() if isinstance(a, NotYetLoadedTensor) else a) for a in args]
-        return func(*loaded_args, **kwargs)
-        # gc.collect would be costly here, maybe do it optionally
-
-    def __getattr__(self, name):
-        # properties
-        ## TODO: device, is_...??
-        ## TODO: mH, mT, H, T, data, imag, real
-        ## name ???
-        if name in {
-            "dtype",
-            "grad",
-            "grad_fn",
-            "is_meta",
-            "layout",
-            "names",
-            "ndim",
-            "output_nr",
-            "requires_grad",
-            "retains_grad",
-            "shape",
-            "volatile",
-        }:
-            return getattr(self.metatensor, name)
-        if name in {"size"}:
-            return getattr(self.metatensor, name)
-        # materializing with contiguous is needed for quantization
-        if name in {"contiguous"}:
-            return getattr(self._load_tensor(), name)
-
-        raise AttributeError(f"{type(self)} does not have {name}")
-
-    def __repr__(self):
-        return f"NotYetLoadedTensor({repr(self.metatensor)})"
-
-
-class LazyLoadingUnpickler(pickle.Unpickler):
-    def __init__(self, file, zipfile_context):
-        super().__init__(file)
-        self.zipfile_context = zipfile_context
-
-    def find_class(self, module, name):
-        res = super().find_class(module, name)
-        if module == "torch._utils" and name == "_rebuild_tensor_v2":
-            return partial(NotYetLoadedTensor.rebuild_tensor_v2, archiveinfo=self)
-        if module == "torch._tensor" and name == "_rebuild_from_type_v2":
-            return partial(NotYetLoadedTensor.rebuild_from_type_v2, archiveinfo=self)
-        if module == "torch._utils" and name == "_rebuild_parameter":
-            return partial(NotYetLoadedTensor.rebuild_parameter, archiveinfo=self)
-        return res
-
-    def persistent_load(self, pid):
-        name, cls, fn, device, size = pid
-        with warnings.catch_warnings():
-            warnings.simplefilter("ignore")
-            s = torch.storage.TypedStorage(dtype=cls().dtype, device="meta")
-        s.archiveinfo = pid
-        return s
-
-
-class lazy_load:
-    def __init__(self, path: Union[Path, str]) -> None:
-        if not os.path.isfile(path):
-            raise FileNotFoundError(f"Path {str(path)!r} does not exist or is not a file.")
-        self.zf = torch._C.PyTorchFileReader(str(path))
-        with BytesIO(self.zf.get_record("data.pkl")) as pkl:
-            mup = LazyLoadingUnpickler(pkl, self)
-            self.sd = mup.load()
-
-    def __enter__(self):
-        return self.sd
-
-    def __exit__(self, exc_type, exc_val, exc_tb):
-        del self.zf  # I don't think there is a way to force closing...
-        self.zf = None
+    return _ClassReplacementContextManager({"torch.nn.Linear": QuantizedLinear})
 
 
 def check_valid_checkpoint_dir(checkpoint_dir: Path) -> None:
@@ -480,10 +302,10 @@ def get_default_supported_precision(training: bool) -> str:
     return "bf16-mixed" if training else "bf16-true"
 
 
-def load_checkpoint(fabric, model, checkpoint_path: Path, strict: bool = True) -> None:
+def load_checkpoint(fabric: L.Fabric, model: nn.Module, checkpoint_path: Path, strict: bool = True) -> None:
     if isinstance(fabric.strategy, FSDPStrategy):
         fabric.load_raw(checkpoint_path, model, strict=strict)
     else:
-        state_dict = _lazy_load(checkpoint_path)
+        state_dict = lazy_load(checkpoint_path)
         state_dict = state_dict.get("model", state_dict)
         model.load_state_dict(state_dict, strict=strict)

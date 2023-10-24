@@ -43,7 +43,6 @@ def test_against_gpt_neox_model(rotary_pct, batch_size, n_embd, parallel_residua
 
     torch.set_default_dtype(dtype)
 
-    batch_size = batch_size
     ours_config = Config(
         block_size=64,
         vocab_size=100,

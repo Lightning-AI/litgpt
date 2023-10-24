@@ -2,6 +2,7 @@ import json
 import logging
 import sys
 from pathlib import Path
+from typing import Optional
 
 import torch
 from torch.utils.data import random_split
@@ -25,15 +26,17 @@ def prepare(
     seed: int = 42,
     mask_inputs: bool = False,
     ignore_index: int = -1,
+    max_seq_length: Optional[int] = None,
 ) -> None:
     """Prepare a CSV dataset for instruction tuning.
 
     The output is a training and test dataset saved as `train.pt` and `test.pt`,
     which stores the preprocessed and tokenized prompts and labels.
     """
-    with open(checkpoint_dir / "lit_config.json", "r") as file:
-        config = json.load(file)
-        max_seq_length = config["block_size"]
+    if max_seq_length is None:
+        with open(checkpoint_dir / "lit_config.json", "r") as file:
+            config = json.load(file)
+            max_seq_length = config["block_size"]
 
     destination_path.mkdir(parents=True, exist_ok=True)
     logger.info("Loading data file ...")
@@ -83,7 +86,7 @@ def prepare(
     torch.save(test_set, destination_path / "test.pt")
 
 
-def prepare_sample(example: dict, tokenizer: Tokenizer, max_length: int, mask_inputs: bool, ignore_index: int):
+def prepare_sample(example: dict, tokenizer: Tokenizer, max_length: int, mask_inputs: bool, ignore_index: int) -> dict:
     """Processes a single sample.
 
     Each sample in the dataset consists of:
@@ -118,7 +121,7 @@ def prepare_sample(example: dict, tokenizer: Tokenizer, max_length: int, mask_in
     }
 
 
-def generate_prompt(example):
+def generate_prompt(example: dict) -> str:
     """Generates a standardized message to prompt the model with an instruction, optional input and a
     'response' field."""
 

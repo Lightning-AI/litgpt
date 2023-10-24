@@ -1,4 +1,3 @@
-import contextlib
 import gc
 import json
 import sys
@@ -8,13 +7,14 @@ from pathlib import Path
 from typing import Dict, List, Optional, Tuple, Union
 
 import torch
+from lightning.fabric.utilities.load import _NotYetLoadedTensor as NotYetLoadedTensor
 
 # support running without installing as a package
 wd = Path(__file__).parent.parent.resolve()
 sys.path.append(str(wd))
 
 from lit_gpt import Config
-from lit_gpt.utils import NotYetLoadedTensor, incremental_save, lazy_load
+from lit_gpt.utils import incremental_save, lazy_load
 
 
 def copy_weights_gpt_neox(
@@ -291,12 +291,11 @@ def convert_hf_checkpoint(
     with incremental_save(checkpoint_dir / "lit_model.pth") as saver:
         # for checkpoints that split the QKV across several files, we need to keep all the bin files
         # open, so we use `ExitStack` to close them all together at the end
-        with contextlib.ExitStack() as stack:
-            for bin_file in sorted(bin_files):
-                print("Processing", bin_file)
-                hf_weights = stack.enter_context(lazy_load(bin_file))
-                copy_fn(sd, hf_weights, saver=saver, dtype=dtype)
-            gc.collect()
+        for bin_file in sorted(bin_files):
+            print("Processing", bin_file)
+            hf_weights = lazy_load(bin_file)
+            copy_fn(sd, hf_weights, saver=saver, dtype=dtype)
+        gc.collect()
         print("Saving converted checkpoint")
         saver.save(sd)
 

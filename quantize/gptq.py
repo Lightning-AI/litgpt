@@ -607,8 +607,8 @@ def main(
     t0 = time.perf_counter()
     with fabric.init_module(empty_init=True):
         model = GPT(config)
-    with lazy_load(checkpoint_path) as checkpoint:
-        model.load_state_dict(checkpoint)
+    checkpoint = lazy_load(checkpoint_path)
+    model.load_state_dict(checkpoint)
     print(f"Time to load model: {time.perf_counter() - t0:.02f} seconds.")
 
     model.eval()

@@ -8,44 +8,6 @@ import torch
 import torch.nn.functional as F
 
 
-class ATensor(torch.Tensor):
-    pass
-
-
-def test_lazy_load_basic(tmp_path):
-    import lit_gpt.utils
-
-    fn = str(tmp_path / "test.pt")
-    with pytest.raises(FileNotFoundError, match="test.pt' does not exist"), lit_gpt.utils.lazy_load(fn) as sd_lazy:
-        pass
-
-    m = torch.nn.Linear(5, 3)
-    torch.save(m.state_dict(), fn)
-    with lit_gpt.utils.lazy_load(fn) as sd_lazy:
-        assert "NotYetLoadedTensor" in str(next(iter(sd_lazy.values())))
-        m2 = torch.nn.Linear(5, 3)
-        m2.load_state_dict(sd_lazy)
-
-    x = torch.randn(2, 5)
-    actual = m2(x)
-    expected = m(x)
-    torch.testing.assert_close(actual, expected)
-
-
-def test_lazy_load_subclass(tmp_path):
-    import lit_gpt.utils
-
-    fn = str(tmp_path / "test.pt")
-    t = torch.randn(2, 3)[:, 1:]
-    sd = {1: t, 2: torch.nn.Parameter(t), 3: torch.Tensor._make_subclass(ATensor, t)}
-    torch.save(sd, fn)
-    with lit_gpt.utils.lazy_load(fn) as sd_lazy:
-        for k in sd:
-            actual = sd_lazy[k]
-            expected = sd[k]
-            torch.testing.assert_close(actual._load_tensor(), expected)
-
-
 def test_find_multiple():
     from lit_gpt.utils import find_multiple
 
@@ -172,16 +134,3 @@ def test_num_parameters():
     assert num_parameters(model) == 6
     assert num_parameters(model, requires_grad=True) == 4
     assert num_parameters(model, requires_grad=False) == 2
-
-
-@pytest.mark.parametrize("mode", ("bnb.nf4", "bnb.nf4-dq", "bnb.fp4", "bnb.fp4-dq", "bnb.int8"))
-def test_quantize_raises_when_bnb_unavailable(mode):
-    import quantize.bnb as bnb
-
-    if bnb._BITSANDBYTES_AVAILABLE:
-        pytest.skip("BNB needs to be unavailable")
-
-    from lit_gpt.utils import quantization
-
-    with pytest.raises(ModuleNotFoundError, match="bitsandbytes.*was not found"), quantization(mode):
-        pass
