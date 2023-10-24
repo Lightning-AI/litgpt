@@ -201,12 +201,11 @@ class CausalSelfAttention(nn.Module):
         q, k, v = qkv.split((q_per_kv, 1, 1), dim=2)
 
         # maybe repeat k and v if for the non multi-head attention cases
-        if self.config.n_query_groups != self.config.n_head:
-            # training: flash attention requires it
-            # inference: multi-query would require a full kv cache so avoid it to limit its memory usage
-            if input_pos is None or self.config.n_query_groups != 1:
-                k = k.expand(B, self.config.n_query_groups, q_per_kv, T, self.config.head_size)
-                v = v.expand(B, self.config.n_query_groups, q_per_kv, T, self.config.head_size)
+        # training: flash attention requires it
+        # inference: multi-query would require a full kv cache so avoid it to limit its memory usage
+        if self.config.n_query_groups != self.config.n_head and (input_pos is None or self.config.n_query_groups != 1):
+            k = k.expand(B, self.config.n_query_groups, q_per_kv, T, self.config.head_size)
+            v = v.expand(B, self.config.n_query_groups, q_per_kv, T, self.config.head_size)
 
         q = q.reshape(B, -1, T, self.config.head_size)  # (B, nh_q, T, hs)
         k = k.reshape(B, -1, T, self.config.head_size)  # (B, nh_k, T, hs)
