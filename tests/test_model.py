@@ -496,6 +496,7 @@ def test_sdpa_choice(config):
         assert choice == expected
         return original_fn(q, k, v, mask)
 
+    config["n_layer"] = 1
     config = config_module.Config(**config)
 
     try:
