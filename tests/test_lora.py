@@ -482,7 +482,7 @@ def test_lora_compile():
 
     from torch._dynamo.backends import debugging
 
-    explanation = torch._dynamo.explain(model, x)
+    explanation = torch._dynamo.explain(model)(x)
     assert isinstance(explanation, debugging.ExplainOutput)
     assert explanation.graph_count == 1
     assert explanation.graph_break_count == 0
@@ -490,7 +490,7 @@ def test_lora_compile():
     model = GPT(model.config)
     model.set_kv_cache(2)
     input_pos = torch.arange(model.config.block_size)
-    explanation = torch._dynamo.explain(model, x, input_pos)
+    explanation = torch._dynamo.explain(model)(x, input_pos)
     assert isinstance(explanation, debugging.ExplainOutput)
     assert explanation.graph_count == 1
     assert explanation.graph_break_count == 0
