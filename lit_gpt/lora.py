@@ -140,12 +140,13 @@ class LoRALinear(LoRALayer):
     def merge(self) -> None:
         """Merges the LoRA weights into the full-rank weights (W = W + delta_W)."""
         if self.r > 0 and not self.merged:
+            pretrained_dtype = self.linear.weight.data.dtype
             lora_data = self.get_lora_AB()
-            # if the pretrained weights are not quantized - simply sum them with LoRA weights
-            if self.linear.weight.data.dtype == lora_data.dtype:
+            # if the pretrained weights and LoRA weights are of the same dtype - simply sum them
+            if pretrained_dtype == lora_data.dtype:
                 self.linear.weight.data += lora_data
-            # otherwise dequantize the pretrained, sum with LoRA, quantize the result
-            else:
+            # if only the pretrained are in quantized form - dequantize, sum with LoRA and quantize the result
+            elif pretrained_dtype == torch.uint8:
                 import bitsandbytes as bnb
 
                 weight = self.linear.weight
@@ -157,6 +158,11 @@ class LoRALinear(LoRALayer):
                 # so we have to first move them to CPU and after - to CUDA
                 self.linear.weight = bnb.nn.Params4bit(weight_data.to("cpu"), requires_grad=False, **weight_kwargs).to(
                     weight.device
+                )
+            else:
+                raise NotImplementedError(
+                    f"Cannot merge the pretrained weights of type {pretrained_dtype}"
+                    f"and LoRA weights of type {lora_data.dtype}"
                 )
 
             self.merged = True
