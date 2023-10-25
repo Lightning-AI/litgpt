@@ -127,7 +127,7 @@ class SimpleDataset(IterableDataset):
         return iter(range(self._start, self._end))
 
 
-def test_combined_dataset(tmp_path):
+def test_combined_dataset():
     from lit_gpt.packed_dataset import CombinedDataset
 
     dataset1 = SimpleDataset(0, 10)

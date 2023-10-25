@@ -18,7 +18,6 @@ from lit_gpt.tokenizer import Tokenizer
 def prepare(
     destination_path: Path = Path("data/longform"),
     checkpoint_dir: Path = Path("checkpoints/stabilityai/stablelm-base-alpha-3b"),
-    seed: int = 42,
     mask_inputs: bool = False,  # as in alpaca-lora
     ignore_index: int = -1,
     max_seq_length: Optional[int] = None,
