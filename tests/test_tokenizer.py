@@ -13,7 +13,7 @@ sys.path.append(str(wd))
 import lit_gpt.config as config_module
 
 
-@pytest.mark.parametrize("config", config_module.configs, ids=[c["name"] for c in config_module.configs])
+@pytest.mark.parametrize("config", config_module.configs, ids=[c["hf_config"]["name"] for c in config_module.configs])
 def test_tokenizer_against_hf(config):
     from lit_gpt.tokenizer import Tokenizer
 

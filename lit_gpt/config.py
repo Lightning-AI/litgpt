@@ -347,7 +347,7 @@ falcon180b = dict(
 for kind in ("", "-chat"):
     copy = falcon180b.copy()
     copy["name"] = falcon180b["name"].format(kind)
-    copy["hf_config"]["name"] = c["hf_config"]["name"].format(kind)
+    copy["hf_config"]["name"] = falcon180b["hf_config"]["name"].format(kind)
     configs.append(copy)
 
 
@@ -541,7 +541,7 @@ long_chat = [
     # https://huggingface.co/lmsys/longchat-7b-16k/blob/main/config.json
     dict(
         name="longchat-7b-16k",
-        hf_config=dict(org="lmsys", name="longchat-7b-16"),
+        hf_config=dict(org="lmsys", name="longchat-7b-16k"),
         block_size=16384,
         vocab_size=32000,
         padding_multiple=64,
@@ -934,7 +934,7 @@ platypus = [
     # https://huggingface.co/garage-bAInd/Platypus2-13B/blob/main/config.json
     dict(
         name="Platypus2-13B",
-        hf_config=dict(org="garage-bAInd", name=""),
+        hf_config=dict(org="garage-bAInd", name="Platypus2-13B"),
         padded_vocab_size=32000,
         n_layer=40,
         n_head=40,
