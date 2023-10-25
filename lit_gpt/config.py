@@ -88,8 +88,9 @@ class Config:
             # search through all `config['hf_config']['name']`
             conf_dict = next(config for config in configs if name == config["hf_config"]["name"])
         else:
-            conf_dict = name_to_config[name].copy()
+            conf_dict = name_to_config[name]
 
+        conf_dict = conf_dict.copy()
         if "condense_ratio" in kwargs:  # legacy name
             kwargs["rope_condense_ratio"] = kwargs.pop("condense_ratio")
         conf_dict.update(kwargs)
