@@ -34,3 +34,13 @@ def test_legacy_args(tmp_path):
     config = Config.from_json(json_path, condense_ratio=2)
     assert not hasattr(config, "condense_ratio")
     assert config.rope_condense_ratio == 2
+
+
+def test_from_hf_name():
+    from lit_gpt import Config
+
+    # by short-hand name
+    config0 = Config.from_name("tiny-llama-1.1b")
+    # or by huggingface hub repo name
+    config1 = Config.from_name("TinyLlama-1.1B-intermediate-step-480k-1T")
+    assert config0 == config1
