@@ -43,6 +43,7 @@ Supports the following popular model checkpoints:
 | Meta AI [Code Llama](tutorials/download_code_llama.md)                         | 7B, 13B, 34B                       | [Rozière et al. 2023](https://arxiv.org/abs/2308.12950)                                          |
 | Microsoft Research [phi-1.5](tutorials/download_phi15.md)                      | 1.3B                               | [Li et al. 2023](https://arxiv.org/abs/2309.05463)                                               |
 | Mistral AI [Mistral](tutorials/download_mistral.md)                            | 7B                                 | [Mistral  website](https://mistral.ai/)                                                          |
+| StatNLP Research [TinyLlama](tutorials/download_mistral.md)                    | 1.1B                               | [Zhang et al. 2023](https://github.com/jzhang38/TinyLlama)
 
 This implementation extends on [Lit-LLaMA](https://github.com/lightning-AI/lit-llama) and [nanoGPT](https://github.com/karpathy/nanoGPT), and it's **powered by [Lightning Fabric](https://lightning.ai/docs/fabric/stable/) ⚡**.
 
