@@ -267,36 +267,9 @@ for kind in ("", "-chat"):
     configs.append(copy)
 
 
-##################
-# StatNLP Research
-##################
-
-tiny_LLaMA = [
-    dict(
-        org="StatNLP-research",
-        name="tiny-llama-1b",
-        block_size=2048,
-        vocab_size=32000,
-        padding_multiple=64,
-        n_layer=22,
-        n_head=32,
-        n_embd=2048,
-        rotary_percentage=1.0,
-        parallel_residual=False,
-        bias=False,
-        _norm_class="RMSNorm",  # original TinyLLama uses FusedRMSNorm
-        norm_eps=1e-5,  # Llama 2 uses 1e-5, Llama 1 uses 1e-6
-        _mlp_class="LLaMAMLP",
-        intermediate_size=5632,
-        n_query_groups=4,
-    ),
-]
-configs.extend(tiny_LLaMA)
-
-
-############################
+#############################
 # OpenLM Research Open LLaMA
-############################
+#############################
 open_LLaMA = [
     # https://huggingface.co/openlm-research/open_llama_3b/blob/main/config.json
     dict(
@@ -1065,3 +1038,31 @@ for c in mistral:
 
 
 name_to_config = {config["name"]: config for config in configs}
+
+
+##################
+# StatNLP Research
+##################
+
+tiny_LLaMA = [
+
+    dict(
+        org="StatNLP-research",
+        name="tiny_LLaMA_1b",
+        block_size=2048,
+        vocab_size=32000,
+        padding_multiple=64,
+        n_layer=22,
+        n_head=32,
+        n_embd=2048,
+        rotary_percentage=1.0,
+        parallel_residual=False,
+        bias=False,
+        _norm_class="RMSNorm",  # original TinyLLama uses FusedRMSNorm
+        norm_eps=1e-5,  # Llama 2 uses 1e-5, Llama 1 uses 1e-6
+        _mlp_class="LLaMAMLP",
+        intermediate_size=5632,
+        n_query_groups=4,
+    ),
+]
+configs.extend(tiny_LLaMA)
