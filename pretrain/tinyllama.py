@@ -5,10 +5,11 @@ https://github.com/jzhang38/TinyLlama/blob/main/pretrain/tinyllama.py
 
 TODO LIST:
 - [ ] check that seed is correctly set and each rank sees a partition of the data
-- [ ] implement init-weights
+- [x] implement init-weights
 - [ ] determine global batch size
 - [ ] add torch.compile
 - [ ] verify script can be resumed
+- [ ] do we need SwiGLU?
 - [ ] resolve TODOs in script below
 """
 import glob
@@ -20,6 +21,7 @@ from typing import Optional, Tuple, Union
 import math
 import lightning as L
 import torch
+import torch.nn as nn
 from lightning.fabric.strategies import FSDPStrategy
 from lightning.data import StreamingDataset, StreamingDataLoader
 from lightning.data.streaming.item_loader import TokensLoader
@@ -30,7 +32,7 @@ from functools import partial
 wd = Path(__file__).parent.parent.resolve()
 sys.path.append(str(wd))
 
-from lit_gpt.model import GPT, Block, Config, CausalSelfAttention
+from lit_gpt.model import GPT, Block, Config, CausalSelfAttention, LLaMAMLP
 from lit_gpt.packed_dataset import CombinedDataset, PackedDataset
 from lit_gpt.speed_monitor import SpeedMonitorFabric as SpeedMonitor
 from lit_gpt.speed_monitor import estimate_flops, measure_flops
@@ -122,9 +124,7 @@ def main(fabric, resume):
     t0 = time.perf_counter()
     with fabric.init_module(empty_init=False):
         model = GPT(config)
-        # TODO: implement this
-        # model.apply(partial(model._init_weights ,n_layer=config.n_layer))
-
+        model.apply(partial(init_weights, n_layer=config.n_layer))
 
     fabric.print(f"Time to instantiate model: {time.perf_counter() - t0:.02f} seconds.")
     fabric.print(f"Total parameters {num_parameters(model):,}")
@@ -256,7 +256,7 @@ def train(fabric, state, train_dataloader, val_dataloader, monitor, resume):
 
 
 @torch.no_grad()
-def validate(fabric: L.Fabric, model: torch.nn.Module, val_dataloader: DataLoader) -> torch.Tensor:
+def validate(fabric: L.Fabric, model: nn.Module, val_dataloader: DataLoader) -> torch.Tensor:
     fabric.print("Validating ...")
     model.eval()
 
@@ -333,6 +333,20 @@ def get_lr(it):
     assert 0 <= decay_ratio <= 1
     coeff = 0.5 * (1.0 + math.cos(math.pi * decay_ratio))  # coeff ranges 0..1
     return min_lr + coeff * (learning_rate - min_lr)
+
+
+def init_weights(module: nn.Module, n_layer: int):
+    # Follows GPT-NeoX: https://arxiv.org/abs/2204.06745
+    if isinstance(module, nn.Embedding):
+        nn.init.normal_(module.weight, mean=0.0, std=math.sqrt(2.0 / 5 / module.weight.size(1)))
+    elif isinstance(module, nn.Linear):
+        nn.init.normal_(module.weight, mean=0.0, std=math.sqrt(2.0 / 5 / module.weight.size(1)))
+        if module.bias is not None:
+            nn.init.zeros_(module.bias)
+    for name, param in module.named_parameters():
+        # TODO: Do we need SwiGLU?
+        if (name == "proj.weight" and isinstance(module, LLaMAMLP)): # or (name == "w3.weight" and isinstance(module, SwiGLU)):
+            nn.init.normal_(param, mean=0.0, std=(1 / math.sqrt(param.shape[-1]) / n_layer))
 
 
 # TODO: remove
