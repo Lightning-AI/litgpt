@@ -1101,4 +1101,30 @@ for c in mistral:
         configs.append(copy)
 
 
+############
+# TinyLlama
+############
+tiny_llama = [
+    dict(
+        org="PY007",  # TODO: update this to the real organization
+        name="TinyLlama-1.1B-intermediate-step-480k-1T",  # TODO: make this a short name: tiny-llama-1b
+        block_size=2048,
+        vocab_size=32000,
+        padding_multiple=64,
+        n_layer=22,
+        n_head=32,
+        n_embd=2048,
+        rotary_percentage=1.0,
+        parallel_residual=False,
+        bias=False,
+        _norm_class="RMSNorm",  # original TinyLlama uses FusedRMSNorm
+        norm_eps=1e-5,
+        _mlp_class="LLaMAMLP",
+        intermediate_size=5632,
+        n_query_groups=4,
+    ),
+]
+configs.extend(tiny_llama)
+
+
 name_to_config = {config["name"]: config for config in configs}

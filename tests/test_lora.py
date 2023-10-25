@@ -390,7 +390,7 @@ def test_lora_merge_with_quantize():
     initial_weight = attn_proj.linear.weight.clone()
 
     # this was skipped
-    assert model.lm_head.linear.weight.dtype is torch.floar32
+    assert model.lm_head.linear.weight.dtype is torch.float32
     assert attn_proj.linear.weight.dtype is torch.uint8
 
     # perform an update to the LoRA weights
