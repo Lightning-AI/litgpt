@@ -43,7 +43,7 @@ def prepare(
     source_path: Path = Path("data/SlimPajama-627B/train"),
     tokenizer_path: Path = Path("checkpoints/Llama-2-7b-hf/"),
     name: str = "slimpajama/train",
-    chunk_size: int = 2049 * 10000,
+    chunk_size: int = (2049 * 8192),
     fast_dev_run: bool = False,
 ) -> None:
 
@@ -53,8 +53,9 @@ def prepare(
         name=name,
         src_dir=str(source_path),
         fast_dev_run=fast_dev_run,
-        num_workers=os.cpu_count(),
         chunk_size=chunk_size,
+        num_workers=os.cpu_count(),
+        num_downloaders=1,
     )
 
     start_time = time.time()
