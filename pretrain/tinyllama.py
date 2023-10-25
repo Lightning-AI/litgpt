@@ -1,3 +1,11 @@
+"""
+TODO LIST:
+- [ ] check that seed is correctly set and each rank sees a partition of the data
+- [ ] implement init-weights
+- [ ] determine global batch size
+- [ ] add torch.compile
+- [ ] verify script can be resumed
+"""
 import glob
 import math
 import sys
@@ -19,9 +27,9 @@ from lit_gpt.model import GPT, Block, Config, CausalSelfAttention
 from lit_gpt.packed_dataset import CombinedDataset, PackedDataset
 from lit_gpt.speed_monitor import SpeedMonitorFabric as Monitor
 from lit_gpt.speed_monitor import estimate_flops, measure_flops
-from lit_gpt.utils import chunked_cross_entropy, get_default_supported_precision, num_parameters, step_csv_logger, lazy_load
+from lit_gpt.utils import chunked_cross_entropy, num_parameters
 from lightning.pytorch.loggers import WandbLogger
-from lit_gpt import FusedCrossEntropyLoss
+# from lit_gpt import FusedCrossEntropyLoss
 import random
 
 model_name = "tiny_LLaMA_1b"
@@ -29,17 +37,17 @@ name = "tinyllama_1b"
 out_dir = Path("out") / name
 
 # Hyperparameters
-num_of_devices = 8
-global_batch_size = 512
+devices = 4  # TODO: undo: 8 needed
+
+global_batch_size = 32  # TODO: should be 512?
 learning_rate = 4e-4
-micro_batch_size = 8
+micro_batch_size = 1  # TODO: should be 8
 max_step = 715256 * 2
 warmup_steps = 2000
 log_step_interval = 10
 eval_iters = 100
 save_step_interval = 5000
 eval_step_interval = 5000
-
 
 weight_decay = 1e-1
 beta1 = 0.9
@@ -48,13 +56,10 @@ grad_clip = 1.0
 decay_lr = True
 min_lr = 4e-5
 
-batch_size = global_batch_size // num_of_devices
+batch_size = global_batch_size // devices
 gradient_accumulation_steps = batch_size // micro_batch_size
 assert gradient_accumulation_steps > 0
 warmup_iters = warmup_steps * gradient_accumulation_steps
-
-
-
 
 max_iters = max_step * gradient_accumulation_steps
 lr_decay_iters = max_iters
@@ -73,11 +78,10 @@ val_data_config = [
 
 hparams = {k: v for k, v in locals().items() if isinstance(v, (int, float, str)) and not k.startswith("_")}
 # logger = step_csv_logger("out", name, flush_logs_every_n_steps=log_iter_interval)
-logger = WandbLogger()
+logger = WandbLogger(project="tinyllama")
 
 
 def setup(
-    devices: int = 8,
     train_data_dir: Path = Path("data/redpajama_sample"),
     val_data_dir: Optional[Path] = None,
     precision: str = "32-true",
@@ -96,13 +100,18 @@ def setup(
         strategy = "auto"
 
     fabric = L.Fabric(devices=devices, strategy=strategy, precision=precision, loggers=[logger])
+    
+    fabric.launch()
+
     fabric.print(hparams)
-    #fabric.launch(main, train_data_dir, val_data_dir, resume)
+    if fabric.global_rank == 0:
+        logger.experiment.config.update(hparams)
+    
     main(fabric, train_data_dir, val_data_dir, resume)
 
 
 def main(fabric, train_data_dir, val_data_dir, resume):
-    monitor = Monitor(fabric, window_size=2, time_unit="seconds", log_iter_interval=log_iter_interval)
+    # monitor = Monitor(fabric, window_size=2, time_unit="seconds", log_iter_interval=log_iter_interval)
 
     if fabric.global_rank == 0:
         out_dir.mkdir(parents=True, exist_ok=True)
@@ -128,12 +137,14 @@ def main(fabric, train_data_dir, val_data_dir, resume):
     t0 = time.perf_counter()
     with fabric.init_module(empty_init=True):
         model = GPT(config)
-        model.apply(partial(model._init_weights ,n_layer=config.n_layer))
+        # TODO: implement this
+        # model.apply(partial(model._init_weights ,n_layer=config.n_layer))
  
 
     fabric.print(f"Time to instantiate model: {time.perf_counter() - t0:.02f} seconds.")
     fabric.print(f"Total parameters {num_parameters(model):,}")
 
+    # model = torch.compile(model, fullgraph=False, mode="reduce-overhead")
     model = fabric.setup(model)
     optimizer = torch.optim.AdamW(
         model.parameters(), lr=learning_rate, weight_decay=weight_decay, betas=(beta1, beta2), foreach=False
@@ -150,7 +161,7 @@ def main(fabric, train_data_dir, val_data_dir, resume):
         fabric.load(resume, state)
 
     train_time = time.perf_counter()
-    train(fabric, state, train_dataloader, val_dataloader, monitor, resume)
+    train(fabric, state, train_dataloader, val_dataloader, None, resume)
     fabric.print(f"Training time: {(time.perf_counter()-train_time):.2f}s")
     if fabric.device.type == "cuda":
         fabric.print(f"Memory used: {torch.cuda.max_memory_allocated() / 1e9:.02f} GB")
@@ -180,9 +191,9 @@ def train(fabric, state, train_dataloader, val_dataloader, monitor, resume):
     total_t0 = time.perf_counter()
     initial_iter = state["iter_num"]
     curr_iter = 0
-            
-    loss_func = FusedCrossEntropyLoss()
-    for  train_data in train_dataloader:
+
+    loss_func = torch.nn.CrossEntropyLoss()
+    for train_data in train_dataloader:
         # resume loader state. This is not elegant but it works. Should rewrite it in the future.
         if resume:
             if curr_iter < initial_iter:
@@ -208,8 +219,8 @@ def train(fabric, state, train_dataloader, val_dataloader, monitor, resume):
         is_accumulating = (state["iter_num"] + 1) % gradient_accumulation_steps != 0
         with fabric.no_backward_sync(model, enabled=is_accumulating):
             logits = model(input_ids)
-            loss = loss_func(logits, targets)
-            # loss = chunked_cross_entropy(logits, targets, chunk_size=0)
+            # loss = loss_func(logits, targets)
+            loss = chunked_cross_entropy(logits, targets, chunk_size=0)
             fabric.backward(loss / gradient_accumulation_steps)
 
         if not is_accumulating:
@@ -230,15 +241,15 @@ def train(fabric, state, train_dataloader, val_dataloader, monitor, resume):
                 f" or {(t1 - total_t0) / (state['iter_num'] - initial_iter) * (max_iters - state['iter_num']) / 3600 / 24:.2f} days. "
             )
  
-        monitor.on_train_batch_end(
-            state["iter_num"] * micro_batch_size,
-            t1 - total_t0,
-            # this assumes that device FLOPs are the same and that all devices have the same batch size
-            fabric.world_size,
-            flops_per_batch=estimated_flops,
-            lengths=total_lengths,
-            train_loss = loss.item()
-        )
+        # monitor.on_train_batch_end(
+        #     state["iter_num"] * micro_batch_size,
+        #     t1 - total_t0,
+        #     # this assumes that device FLOPs are the same and that all devices have the same batch size
+        #     fabric.world_size,
+        #     flops_per_batch=estimated_flops,
+        #     lengths=total_lengths,
+        #     train_loss = loss.item()
+        # )
 
             
             
@@ -248,7 +259,7 @@ def train(fabric, state, train_dataloader, val_dataloader, monitor, resume):
             t0 = time.perf_counter()
             val_loss = validate(fabric, model, val_dataloader)
             t1 = time.perf_counter() - t0
-            monitor.eval_end(t1)
+            # monitor.eval_end(t1)
             fabric.print(f"step {state['iter_num']}: val loss {val_loss:.4f}, val time: {t1 * 1000:.2f}ms")
             fabric.log_dict({"metric/val_loss": val_loss.item(), "total_tokens":  model.config.block_size * (state["iter_num"] + 1) * micro_batch_size * fabric.world_size},state["step_count"])
             fabric.log_dict({"metric/val_ppl": math.exp(val_loss.item()), "total_tokens":  model.config.block_size * (state["iter_num"] + 1) * micro_batch_size * fabric.world_size},state["step_count"])
@@ -258,7 +269,7 @@ def train(fabric, state, train_dataloader, val_dataloader, monitor, resume):
             fabric.print(f"Saving checkpoint to {str(checkpoint_path)!r}")
             fabric.save(checkpoint_path, state)
 
-        
+
 @torch.no_grad()
 def validate(fabric: L.Fabric, model: torch.nn.Module, val_dataloader: DataLoader) -> torch.Tensor:
     fabric.print("Validating ...")
@@ -286,6 +297,10 @@ def validate(fabric: L.Fabric, model: torch.nn.Module, val_dataloader: DataLoade
 def create_dataloader(
     batch_size: int, block_size: int, data_dir: Path, fabric, shuffle: bool = True, seed: int = 12345, split="train"
 ) -> DataLoader:
+
+    if True:  # TODO: undo
+        return DataLoader(FakeDataset(), batch_size=batch_size, shuffle=False, pin_memory=True)
+
     datasets = []
     data_config = train_data_config if split == "train" else val_data_config
     for prefix, _ in data_config:
@@ -369,6 +384,13 @@ def get_lr(it):
     assert 0 <= decay_ratio <= 1
     coeff = 0.5 * (1.0 + math.cos(math.pi * decay_ratio))  # coeff ranges 0..1
     return min_lr + coeff * (learning_rate - min_lr)
+
+
+class FakeDataset(torch.utils.data.Dataset):
+    def __len__(self):
+        return 1000
+    def __getitem__(self, index):
+        return torch.randint(0, 10, size=(2049,))
 
 
 if __name__ == "__main__":
