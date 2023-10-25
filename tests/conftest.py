@@ -34,3 +34,9 @@ class TensorLike:
 @pytest.fixture()
 def tensor_like():
     return TensorLike()
+
+
+@pytest.fixture(autouse=True)
+def restore_default_dtype():
+    # just in case
+    torch.set_default_dtype(torch.float32)
