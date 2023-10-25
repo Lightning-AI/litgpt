@@ -9,6 +9,7 @@ TODO LIST:
 - [ ] determine global batch size
 - [ ] add torch.compile
 - [ ] verify script can be resumed
+- [ ] resolve TODOs in script below
 """
 import glob
 import math
@@ -20,6 +21,8 @@ import math
 import lightning as L
 import torch
 from lightning.fabric.strategies import FSDPStrategy
+from lightning.data import StreamingDataset, StreamingDataLoader
+from lightning.data.streaming.item_loader import TokensLoader
 from torch.utils.data import DataLoader
 from functools import partial
 
@@ -33,7 +36,6 @@ from lit_gpt.speed_monitor import SpeedMonitorFabric as Monitor
 from lit_gpt.speed_monitor import estimate_flops, measure_flops
 from lit_gpt.utils import chunked_cross_entropy, num_parameters
 from lightning.pytorch.loggers import WandbLogger
-# from lit_gpt import FusedCrossEntropyLoss
 import random
 
 model_name = "tiny_LLaMA_1b"
@@ -70,18 +72,7 @@ lr_decay_iters = max_iters
 log_iter_interval = log_step_interval * gradient_accumulation_steps
 
 
-# Treat all dataset equally by their size. If you want to use a different weight for a dataset, add it to the list with the weight.
-train_data_config = [
-    ("train_slim", 0.693584),
-    ("train_star", 0.306416),
-]
-
-val_data_config = [
-    ("validation", 1.0),
-]
-
 hparams = {k: v for k, v in locals().items() if isinstance(v, (int, float, str)) and not k.startswith("_")}
-# logger = step_csv_logger("out", name, flush_logs_every_n_steps=log_iter_interval)
 logger = WandbLogger(project="tinyllama")
 
 
@@ -104,7 +95,6 @@ def setup(
         strategy = "auto"
 
     fabric = L.Fabric(devices=devices, strategy=strategy, precision=precision, loggers=[logger])
-    
     fabric.launch()
 
     fabric.print(hparams)
@@ -126,9 +116,6 @@ def main(fabric, train_data_dir, val_data_dir, resume):
         batch_size=micro_batch_size,
         block_size=config.block_size,
         fabric=fabric,
-        train_data_dir=train_data_dir,
-        val_data_dir=val_data_dir,
-        seed=3407,
     )
     if val_dataloader is None:
         train_dataloader = fabric.setup_dataloaders(train_dataloader)
@@ -218,8 +205,9 @@ def train(fabric, state, train_dataloader, val_dataloader, monitor, resume):
 
         iter_t0 = time.perf_counter()
 
-        input_ids = train_data[:, 0 : model.config.block_size].contiguous()
-        targets = train_data[:, 1 : model.config.block_size + 1].contiguous()
+        input_ids = train_data[:, 0 : model.config.block_size].contiguous().long()
+        targets = train_data[:, 1 : model.config.block_size + 1].contiguous().long()
+
         is_accumulating = (state["iter_num"] + 1) % gradient_accumulation_steps != 0
         with fabric.no_backward_sync(model, enabled=is_accumulating):
             logits = model(input_ids)
@@ -283,8 +271,8 @@ def validate(fabric: L.Fabric, model: torch.nn.Module, val_dataloader: DataLoade
     for k, val_data in enumerate(val_dataloader):
         if k >= eval_iters:
             break
-        input_ids = val_data[:, 0 : model.config.block_size].contiguous()
-        targets = val_data[:, 1 : model.config.block_size + 1].contiguous()
+        input_ids = val_data[:, 0 : model.config.block_size].contiguous().long()
+        targets = val_data[:, 1 : model.config.block_size + 1].contiguous().long()
         logits = model(input_ids)
         loss = chunked_cross_entropy(logits, targets, chunk_size=0)
 
@@ -298,80 +286,48 @@ def validate(fabric: L.Fabric, model: torch.nn.Module, val_dataloader: DataLoade
     return out
 
 
-def create_dataloader(
-    batch_size: int, block_size: int, data_dir: Path, fabric, shuffle: bool = True, seed: int = 12345, split="train"
-) -> DataLoader:
-
-    if True:  # TODO: undo
-        return DataLoader(FakeDataset(), batch_size=batch_size, shuffle=False, pin_memory=True)
-
-    datasets = []
-    data_config = train_data_config if split == "train" else val_data_config
-    for prefix, _ in data_config:
-        filenames = sorted(glob.glob(str(data_dir / f"{prefix}*")))
-        random.seed(seed)
-        random.shuffle(filenames)
-
-        dataset = PackedDataset(
-            filenames,
-            # n_chunks control the buffer size. 
-            # Note that the buffer size also impacts the random shuffle
-            # (PackedDataset is an IterableDataset. So the shuffle is done by prefetch a buffer and shuffle the buffer)
-            n_chunks=8,
-            block_size=block_size,
-            shuffle=shuffle,
-            seed=seed+fabric.global_rank,
-            num_processes=fabric.world_size,
-            process_rank=fabric.global_rank,
-        )
-        datasets.append(dataset)
-
-    if not datasets:
-        raise RuntimeError(
-            f"No data found at {data_dir}. Make sure you ran prepare_redpajama.py to create the dataset."
-        )
-
-    weights = [weight for _, weight in data_config]
-    sum_weights = sum(weights)
-    weights = [el / sum_weights for el in weights]
-
-    combined_dataset = CombinedDataset(datasets=datasets, seed=seed, weights=weights)
-
-    return DataLoader(combined_dataset, batch_size=batch_size, shuffle=False, pin_memory=True)
-
-
 def create_dataloaders(
     batch_size: int,
     block_size: int,
     fabric,
-    train_data_dir: Path = Path("data/redpajama_sample"),
-    val_data_dir: Optional[Path] = None,
-    seed: int = 12345,
 ) -> Tuple[DataLoader, DataLoader]:
+    
+    # if True:  # TODO: undo
+    #     return DataLoader(FakeDataset(), batch_size=batch_size, shuffle=False, pin_memory=True)
+
     # Increase by one because we need the next word as well
     effective_block_size = block_size + 1
-    train_dataloader = create_dataloader(
-        batch_size=batch_size,
-        block_size=effective_block_size,
-        fabric=fabric,
-        data_dir=train_data_dir,
+
+    train_datasets = [
+        # TODO: change to slimpajama/train and starcoder
+        StreamingDataset(
+            name="slimpajama/val", 
+            version="latest", 
+            item_loader=TokensLoader(block_size=effective_block_size), 
+            shuffle=True,
+        ),
+        StreamingDataset(
+            name="slimpajama/test", 
+            version="latest", 
+            item_loader=TokensLoader(block_size=effective_block_size), 
+            shuffle=True,
+        ),
+    ]
+
+    # Mix SlimPajama data and Starcoder data with these proportions:
+    weights = (0.693584, 0.306416)
+    weights = [w / sum(weights) for w in weights]
+
+    combined_dataset = CombinedDataset(datasets=train_datasets, seed=seed, weights=weights)
+    train_dataloader = DataLoader(combined_dataset, batch_size=batch_size, pin_memory=True)
+    
+    val_dataset = StreamingDataset(
+        name="slimpajama/val", 
+        version="latest", 
+        item_loader=TokensLoader(block_size=effective_block_size), 
         shuffle=True,
-        seed=seed,
-        split="train"
     )
-    val_dataloader = (
-        create_dataloader(
-            batch_size=batch_size,
-            block_size=effective_block_size,
-            fabric=fabric,
-            data_dir=val_data_dir,
-            shuffle=False,
-            seed=seed,
-            split="validation"
-        )
-        if val_data_dir
-        else None
-    )
+    val_dataloader = DataLoader(val_dataset, batch_size=batch_size, pin_memory=True)
     return train_dataloader, val_dataloader
 
 
@@ -390,6 +346,7 @@ def get_lr(it):
     return min_lr + coeff * (learning_rate - min_lr)
 
 
+# TODO: remove
 class FakeDataset(torch.utils.data.Dataset):
     def __len__(self):
         return 1000
@@ -398,8 +355,6 @@ class FakeDataset(torch.utils.data.Dataset):
 
 
 if __name__ == "__main__":
-    # Uncomment this line if you see an error: "Expected is_sm80 to be true, but got false"
-    # torch.backends.cuda.enable_flash_sdp(False)
     torch.set_float32_matmul_precision("high")
 
     from jsonargparse import CLI
