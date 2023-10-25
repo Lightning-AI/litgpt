@@ -1038,7 +1038,7 @@ for c in mistral:
 
 
 ###################
-# StatNLP Research
+# TinyLlama
 ###################
 tiny_llama = [
     dict(
