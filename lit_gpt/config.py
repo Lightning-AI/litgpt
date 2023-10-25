@@ -631,9 +631,8 @@ configs.extend(nous_research)
 llama_2 = [
     # https://huggingface.co/meta-llama/Llama-2-7b-hf/blob/main/config.json
     dict(
-        org="meta-llama",
         name="Llama-2-7b{}-hf",
-        hf_config=dict(org="", name=""),
+        hf_config=dict(org="meta-llama", name="Llama-2-7b{}-hf"),
         vocab_size=32000,
         padding_multiple=64,
         n_layer=32,
@@ -646,9 +645,8 @@ llama_2 = [
     ),
     # https://huggingface.co/meta-llama/Llama-2-13b-hf/blob/main/config.json
     dict(
-        org="meta-llama",
         name="Llama-2-13b{}-hf",
-        hf_config=dict(org="", name=""),
+        hf_config=dict(org="meta-llama", name="Llama-2-13b{}-hf"),
         vocab_size=32000,
         padding_multiple=64,
         n_layer=40,
@@ -663,9 +661,8 @@ llama_2 = [
     ),
     # https://huggingface.co/meta-llama/Llama-2-70b-hf/blob/main/config.json
     dict(
-        org="meta-llama",
         name="Llama-2-70b{}-hf",
-        hf_config=dict(org="", name=""),
+        hf_config=dict(org="meta-llama", name="Llama-2-70b{}-hf"),
         vocab_size=32000,
         padding_multiple=64,
         n_layer=80,
@@ -693,9 +690,8 @@ for c in llama_2:
 freewilly_2 = [
     # https://huggingface.co/stabilityai/FreeWilly2/blob/main/config.json
     dict(
-        org="stabilityai",
         name="FreeWilly2",
-        hf_config=dict(org="", name=""),
+        hf_config=dict(org="stabilityai", name="FreeWilly2"),
         vocab_size=32000,
         padding_multiple=64,
         n_layer=80,
@@ -719,9 +715,8 @@ configs.extend(freewilly_2)
 code_llama = [
     # https://huggingface.co/codellama/CodeLlama-7b-hf/blob/main/config.json
     dict(
-        org="codellama",
         name="CodeLlama-7b-hf",
-        hf_config=dict(org="", name=""),
+        hf_config=dict(org="codellama", name="CodeLlama-7b-hf"),
         block_size=16384,
         vocab_size=32016,
         padding_multiple=16,
@@ -737,9 +732,8 @@ code_llama = [
     ),
     # https://huggingface.co/codellama/CodeLlama-13b-hf/blob/main/config.json
     dict(
-        org="codellama",
         name="CodeLlama-13b-hf",
-        hf_config=dict(org="", name=""),
+        hf_config=dict(org="codellama", name="CodeLlama-13b-hf"),
         block_size=16384,
         vocab_size=32016,
         padding_multiple=16,
@@ -757,9 +751,8 @@ code_llama = [
     ),
     # https://huggingface.co/codellama/CodeLlama-34b-hf/blob/main/config.json
     dict(
-        org="codellama",
         name="CodeLlama-34b-hf",
-        hf_config=dict(org="", name=""),
+        hf_config=dict(org="codellama", name="CodeLlama-34b-hf"),
         block_size=16384,
         vocab_size=32000,
         padding_multiple=64,
@@ -778,9 +771,8 @@ code_llama = [
     ),
     # https://huggingface.co/codellama/CodeLlama-7b-Python-hf/blob/main/config.json
     dict(
-        org="codellama",
         name="CodeLlama-7b-Python-hf",
-        hf_config=dict(org="", name=""),
+        hf_config=dict(org="codellama", name="CodeLlama-7b-Python-hf"),
         block_size=16384,
         vocab_size=32000,
         padding_multiple=64,
@@ -796,9 +788,8 @@ code_llama = [
     ),
     # https://huggingface.co/codellama/CodeLlama-13b-Python-hf/blob/main/config.json
     dict(
-        org="codellama",
         name="CodeLlama-13b-Python-hf",
-        hf_config=dict(org="", name=""),
+        hf_config=dict(org="codellama", name="CodeLlama-13b-Python-hf"),
         block_size=16384,
         vocab_size=32000,
         padding_multiple=64,
@@ -816,9 +807,8 @@ code_llama = [
     ),
     # https://huggingface.co/codellama/CodeLlama-34b-Python-hf/blob/main/config.json
     dict(
-        org="codellama",
         name="CodeLlama-34b-Python-hf",
-        hf_config=dict(org="", name=""),
+        hf_config=dict(org="codellama", name="CodeLlama-34b-Python-hf"),
         block_size=16384,
         vocab_size=32000,
         padding_multiple=64,
@@ -837,9 +827,8 @@ code_llama = [
     ),
     # https://huggingface.co/codellama/CodeLlama-7b-Instruct-hf/tree/main/config.json
     dict(
-        org="codellama",
         name="CodeLlama-7b-Instruct-hf",
-        hf_config=dict(org="", name=""),
+        hf_config=dict(org="codellama", name="CodeLlama-7b-Instruct-hf"),
         block_size=16384,
         vocab_size=32016,
         padding_multiple=16,
@@ -855,9 +844,8 @@ code_llama = [
     ),
     # https://huggingface.co/codellama/CodeLlama-13b-Instruct-hf/blob/main/config.json
     dict(
-        org="codellama",
         name="CodeLlama-13b-Instruct-hf",
-        hf_config=dict(org="", name=""),
+        hf_config=dict(org="codellama", name="CodeLlama-13b-Instruct-hf"),
         block_size=2048,
         vocab_size=32016,
         padding_multiple=16,
@@ -875,9 +863,8 @@ code_llama = [
     ),
     # https://huggingface.co/codellama/CodeLlama-34b-Instruct-hf/blob/main/config.json
     dict(
-        org="codellama",
         name="CodeLlama-34b-Instruct-hf",
-        hf_config=dict(org="", name=""),
+        hf_config=dict(org="codellama", name="CodeLlama-34b-Instruct-hf"),
         block_size=16384,
         vocab_size=32000,
         padding_multiple=64,
@@ -904,9 +891,8 @@ configs.extend(code_llama)
 platypus = [
     # https://huggingface.co/garage-bAInd/Platypus-30B/blob/main/config.json
     dict(
-        org="garage-bAInd",
         name="Platypus-30B",
-        hf_config=dict(org="", name=""),
+        hf_config=dict(org="garage-bAInd", name="Platypus-30B"),
         block_size=2048,
         padded_vocab_size=32000,
         n_layer=60,
@@ -922,9 +908,8 @@ platypus = [
     ),
     # https://huggingface.co/garage-bAInd/Platypus2-7B/blob/main/config.json
     dict(
-        org="garage-bAInd",
         name="Platypus2-7B",
-        hf_config=dict(org="", name=""),
+        hf_config=dict(org="garage-bAInd", name="Platypus2-7B"),
         padded_vocab_size=32000,
         n_layer=32,
         rotary_percentage=1.0,
@@ -937,9 +922,8 @@ platypus = [
     ),
     # https://huggingface.co/garage-bAInd/Platypus2-13B/blob/main/config.json
     dict(
-        org="garage-bAInd",
         name="Platypus2-13B",
-        hf_config=dict(org="", name=""),
+        hf_config=dict(org="garage-bAInd", name=""),
         padded_vocab_size=32000,
         n_layer=40,
         n_head=40,
@@ -954,9 +938,8 @@ platypus = [
     ),
     # https://huggingface.co/garage-bAInd/Platypus2-70B/blob/main/config.json
     dict(
-        org="garage-bAInd",
         name="Platypus2-70B",
-        hf_config=dict(org="", name=""),
+        hf_config=dict(org="garage-bAInd", name="Platypus2-70B"),
         padded_vocab_size=32000,
         n_layer=80,
         n_head=64,
@@ -970,9 +953,8 @@ platypus = [
     ),
     # https://huggingface.co/garage-bAInd/Camel-Platypus2-13B/blob/main/config.json
     dict(
-        org="garage-bAInd",
         name="Camel-Platypus2-13B",
-        hf_config=dict(org="", name=""),
+        hf_config=dict(org="garage-bAInd", name="Camel-Platypus2-13B"),
         padded_vocab_size=32000,
         n_layer=40,
         n_head=40,
@@ -986,9 +968,8 @@ platypus = [
     ),
     # https://huggingface.co/garage-bAInd/Camel-Platypus2-70B/blob/main/config.json
     dict(
-        org="garage-bAInd",
         name="Camel-Platypus2-70B",
-        hf_config=dict(org="", name=""),
+        hf_config=dict(org="garage-bAInd", name="Camel-Platypus2-70B"),
         padded_vocab_size=32000,
         n_layer=80,
         n_head=64,
@@ -1003,9 +984,8 @@ platypus = [
     ),
     # https://huggingface.co/garage-bAInd/Stable-Platypus2-13B/blob/main/config.json
     dict(
-        org="garage-bAInd",
         name="Stable-Platypus2-13B",
-        hf_config=dict(org="", name=""),
+        hf_config=dict(org="garage-bAInd", name="Stable-Platypus2-13B"),
         padded_vocab_size=32000,
         n_layer=40,
         n_head=40,
@@ -1019,9 +999,8 @@ platypus = [
     ),
     # https://huggingface.co/garage-bAInd/Platypus2-70B-instruct/blob/main/config.json
     dict(
-        org="garage-bAInd",
         name="Platypus2-70B-instruct",
-        hf_config=dict(org="", name=""),
+        hf_config=dict(org="garage-bAInd", name="Platypus2-70B-instruct"),
         padded_vocab_size=32000,
         n_layer=80,
         n_head=64,
@@ -1044,9 +1023,8 @@ configs.extend(platypus)
 stablecode = [
     # https://huggingface.co/stabilityai/stablecode-completion-alpha-3b/blob/main/config.json
     dict(
-        org="stabilityai",
         name="stablecode-completion-alpha-3b",
-        hf_config=dict(org="", name=""),
+        hf_config=dict(org="stabilityai", name="stablecode-completion-alpha-3b"),
         block_size=16384,
         vocab_size=49152,
         n_layer=32,
@@ -1054,18 +1032,16 @@ stablecode = [
     ),
     # https://huggingface.co/stabilityai/stablecode-completion-alpha-3b-4k/blob/main/config.json
     dict(
-        org="stabilityai",
         name="stablecode-completion-alpha-3b-4k",
-        hf_config=dict(org="", name=""),
+        hf_config=dict(org="stabilityai", name="stablecode-completion-alpha-3b-4k"),
         vocab_size=49152,
         n_layer=32,
         n_embd=2560,
     ),
     # https://huggingface.co/stabilityai/stablecode-instruct-alpha-3b/blob/main/config.json
     dict(
-        org="stabilityai",
         name="stablecode-instruct-alpha-3b",
-        hf_config=dict(org="", name=""),
+        hf_config=dict(org="stabilityai", name="stablecode-instruct-alpha-3b"),
         vocab_size=49152,
         n_layer=32,
         n_embd=2560,
@@ -1080,9 +1056,8 @@ configs.extend(stablecode)
 together_llama2_32k = [
     # https://huggingface.co/togethercomputer/LLaMA-2-7B-32K/blob/main/config.json
     dict(
-        org="togethercomputer",
         name="LLaMA-2-7B-32K",
-        hf_config=dict(org="", name=""),
+        hf_config=dict(org="togethercomputer", name="LLaMA-2-7B-32K"),
         vocab_size=32000,
         padding_multiple=64,
         n_layer=32,
@@ -1104,9 +1079,8 @@ configs.extend(together_llama2_32k)
 phi = [
     # https://huggingface.co/microsoft/phi-1_5/blob/main/config.json
     dict(
-        org="microsoft",
         name="phi-1_5",
-        hf_config=dict(org="", name=""),
+        hf_config=dict(org="microsoft", name="phi-1_5"),
         vocab_size=50257,
         padded_vocab_size=51200,
         block_size=2048,
@@ -1127,9 +1101,8 @@ configs.extend(phi)
 mistral = [
     # https://huggingface.co/mistralai/Mistral-7B-v0.1/blob/main/config.json
     dict(
-        org="mistralai",
         name="Mistral-7B-{}v0.1",
-        hf_config=dict(org="", name=""),
+        hf_config=dict(org="mistralai", name="Mistral-7B-{}v0.1"),
         padded_vocab_size=32000,
         block_size=4096,  # should be 32768 but sliding window attention is not implemented
         n_layer=32,
@@ -1155,9 +1128,8 @@ for c in mistral:
 ############
 tiny_llama = [
     dict(
-        org="PY007",  # TODO: update this to the real organization
-        name="TinyLlama-1.1B-intermediate-step-480k-1T",  # TODO: make this a short name: tiny-llama-1b
-        hf_config=dict(org="", name=""),
+        name="tiny-llama-1.1b",
+        hf_config=dict(org="PY007", name="TinyLlama-1.1B-intermediate-step-480k-1T"),
         block_size=2048,
         vocab_size=32000,
         padding_multiple=64,
