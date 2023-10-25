@@ -1042,8 +1042,8 @@ for c in mistral:
 ###################
 tiny_llama = [
     dict(
-        org="PY007",
-        name="tiny-llama-1b",
+        org="PY007",  # TOOD: update this to the real organization
+        name="TinyLlama-1.1B-intermediate-step-480k-1T",  # TOOD: make this a short name: tiny-llama-1b
         block_size=2048,
         vocab_size=32000,
         padding_multiple=64,
