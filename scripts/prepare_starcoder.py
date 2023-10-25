@@ -1,16 +1,7 @@
-import glob
-import json
-import os
 import sys
 import time
-from multiprocessing import Process, cpu_count
 from pathlib import Path
-from typing import List
 
-import numpy as np
-import pandas as pd
-import torch
-import zstandard as zstd
 from lightning.data import DatasetOptimizer, StreamingDataset
 from lightning.data.streaming.item_loader import TokensLoader
 from tqdm import tqdm
@@ -57,7 +48,7 @@ def prepare(
     source_path: Path = Path("data/starcoderdata"),
     tokenizer_path: Path = Path("checkpoints/Llama-2-7b-hf/"),
     name: str = "starcoder",
-    chunk_size: int = 2049 * 10000,
+    chunk_size: int = 2049 * 8192,
     fast_dev_run: bool = False,
 ) -> None:
 
@@ -67,8 +58,9 @@ def prepare(
         name=name,
         src_dir=str(source_path),
         fast_dev_run=fast_dev_run,
-        num_workers=os.cpu_count(),
         chunk_size=chunk_size,
+        num_workers=48,
+        num_downloaders=1,
     )
 
     start_time = time.time()
