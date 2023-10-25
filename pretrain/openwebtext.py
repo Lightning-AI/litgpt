@@ -69,7 +69,7 @@ def setup(devices: int = 1, precision: Optional[str] = None, resume: Union[bool,
     fabric.launch(main, resume=resume)
 
 
-def main(fabric: L.Fabric, resume: bool) -> None:
+def main(fabric: L.Fabric, resume: Union[bool, Path]) -> None:
     speed_monitor = SpeedMonitor(fabric, window_size=50, time_unit="seconds")
 
     if fabric.global_rank == 0:
@@ -247,8 +247,6 @@ def get_lr(it: int) -> float:
 
 
 if __name__ == "__main__":
-    # Uncomment this line if you see an error: "Expected is_sm80 to be true, but got false"
-    # torch.backends.cuda.enable_flash_sdp(False)
     torch.set_float32_matmul_precision("high")
 
     from jsonargparse import CLI
