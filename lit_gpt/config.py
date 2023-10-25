@@ -1037,18 +1037,14 @@ for c in mistral:
         configs.append(copy)
 
 
-name_to_config = {config["name"]: config for config in configs}
-
-
 ##################
 # StatNLP Research
 ##################
 
 tiny_LLaMA = [
-
     dict(
         org="StatNLP-research",
-        name="tiny_LLaMA_1b",
+        name="tiny-llama-1b",
         block_size=2048,
         vocab_size=32000,
         padding_multiple=64,
@@ -1066,3 +1062,6 @@ tiny_LLaMA = [
     ),
 ]
 configs.extend(tiny_LLaMA)
+
+
+name_to_config = {config["name"]: config for config in configs}
