@@ -14,6 +14,9 @@ import zstandard as zstd
 from lightning.data import DatasetOptimizer, StreamingDataset
 from lightning.data.streaming.item_loader import TokensLoader
 from tqdm import tqdm
+import time
+import pyarrow.parquet as pq
+import traceback
 
 # support running without installing as a package
 wd = Path(__file__).parent.parent.resolve()
@@ -32,10 +35,22 @@ class StarcoderDataProcessor:
 
     def prepare_item(self, item_metadata):
         filepath = item_metadata
-        contents = pd.read_parquet(filepath, engine='pyarrow')['content']
-        for text in contents:
-            text_ids = self.tokenizer.encode(text)
-            yield text_ids
+        start = time.time()
+
+        try:
+            parquet_file = pq.ParquetFile(filepath)
+            # reduce RAM usage
+            for batch in parquet_file.iter_batches(batch_size=8192, columns=["content"]):
+                for text in batch.to_pandas()['content']:
+                    yield self.tokenizer.encode(text)
+        except Exception:
+            print(traceback.format_exc())
+            print(f"Error reading {filepath}")
+            return
+
+        parquet_file.close()
+        end = time.time()
+        print(f"Took {end - start:.2f} seconds total", filepath)
 
 
 def prepare(
@@ -61,8 +76,10 @@ def prepare(
     elapsed_time = time.time() - start_time
     print(f"Time taken: {elapsed_time:.2f} seconds")
 
+    time.sleep(10)
+
     # Verify we can read the data
-    dataset = StreamingDataset(name=name, version="latest", item_loader=TokensLoader(block_size=2048))
+    dataset = StreamingDataset(name=name, version="latest", item_loader=TokensLoader(block_size=(2048 + 1)))
     print(f"Number of samples: {len(dataset)}")
     print(dataset[0])
     print(len(dataset[0]))
