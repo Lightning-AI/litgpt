@@ -1040,10 +1040,9 @@ for c in mistral:
 ###################
 # StatNLP Research
 ###################
-
-tiny_LLaMA = [
+tiny_llama = [
     dict(
-        org="StatNLP-research",
+        org="PY007",
         name="tiny-llama-1b",
         block_size=2048,
         vocab_size=32000,
@@ -1061,7 +1060,7 @@ tiny_LLaMA = [
         n_query_groups=4,
     ),
 ]
-configs.extend(tiny_LLaMA)
+configs.extend(tiny_llama)
 
 
 name_to_config = {config["name"]: config for config in configs}
