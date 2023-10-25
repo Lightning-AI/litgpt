@@ -84,7 +84,12 @@ class Config:
 
     @classmethod
     def from_name(cls, name: str, **kwargs: Any) -> Self:
-        conf_dict = name_to_config[name].copy()
+        if name not in name_to_config:
+            # search through all `config['hf_config']['name']`
+            conf_dict = next(config for config in configs if name == config["hf_config"]["name"])
+        else:
+            conf_dict = name_to_config[name].copy()
+
         if "condense_ratio" in kwargs:  # legacy name
             kwargs["rope_condense_ratio"] = kwargs.pop("condense_ratio")
         conf_dict.update(kwargs)
@@ -1156,4 +1161,3 @@ configs.extend(tiny_llama)
 
 
 name_to_config = {config["name"]: config for config in configs}
-# name_to_config.update({config["hf_config"]["name"]: config for config in configs})

@@ -21,11 +21,11 @@ def test_tokenizer_against_hf(config):
 
     config = config_module.Config(**config)
 
-    repo_id = f"{config.org}/{config.name}"
+    repo_id = f"{config.hf_config['org']}/{config.hf_config['name']}"
     cache_dir = Path("/tmp/tokenizer_test_cache")
 
     # create a checkpoint directory that points to the HF files
-    checkpoint_dir = cache_dir / "ligpt" / config.org / config.name
+    checkpoint_dir = cache_dir / "ligpt" / config.hf_config["org"] / config.hf_config["name"]
     if not checkpoint_dir.exists():
         file_to_cache = {}
         for file in ("tokenizer.json", "generation_config.json", "tokenizer.model", "tokenizer_config.json"):
