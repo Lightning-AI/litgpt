@@ -1,4 +1,8 @@
 """
+This script is adapted from TinyLlama:
+https://github.com/jzhang38/TinyLlama/blob/main/pretrain/tinyllama.py
+
+
 TODO LIST:
 - [ ] check that seed is correctly set and each rank sees a partition of the data
 - [ ] implement init-weights
