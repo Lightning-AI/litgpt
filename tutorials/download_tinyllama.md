@@ -13,8 +13,7 @@ pip install huggingface_hub
 python scripts/download.py --repo_id PY007/TinyLlama-1.1B-intermediate-step-480k-1T
 
 python scripts/convert_hf_checkpoint.py \
-    --checkpoint_dir checkpoints/PY007/TinyLlama-1.1B-intermediate-step-480k-1T \
-    --model_name tiny-llama-1b
+    --checkpoint_dir checkpoints/PY007/TinyLlama-1.1B-intermediate-step-480k-1T
 ```
 
 You're done! To execute the model just run:
