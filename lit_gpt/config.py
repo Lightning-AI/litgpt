@@ -1,5 +1,5 @@
 import json
-from dataclasses import dataclass
+from dataclasses import dataclass, field
 from pathlib import Path
 from typing import Any, Literal, Optional, Type, Union
 
@@ -12,8 +12,8 @@ from lit_gpt.utils import find_multiple
 
 @dataclass
 class Config:
-    name: str = "lit-GPT"
-    hf_config: Optional[dict] = None
+    name: str = ""
+    hf_config: dict = field(default_factory=dict)
     block_size: int = 4096
     vocab_size: int = 50254
     padding_multiple: int = 512
@@ -56,6 +56,9 @@ class Config:
     rope_base: int = 10000
 
     def __post_init__(self):
+        if not self.name:
+            self.name = self.hf_config.get("name", self.name)
+
         assert self.n_embd % self.n_head == 0
         self.head_size = self.n_embd // self.n_head
 

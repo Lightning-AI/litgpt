@@ -5,6 +5,7 @@ def test_config():
     from lit_gpt import Config
 
     config = Config()
+    assert config.name == ""
     assert config.block_size == 4096
 
     config = Config(block_size=2048)
@@ -15,6 +16,9 @@ def test_config():
 
     config = Config.from_name("pythia-70m", block_size=4096)
     assert config.block_size == 4096
+
+    config = Config(hf_config={"name": "pythia-70m"})
+    assert config.name == "pythia-70m"
 
 
 def test_legacy_args(tmp_path):
