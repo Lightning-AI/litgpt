@@ -107,6 +107,10 @@ class Config:
             json_kwargs["rope_condense_ratio"] = json_kwargs.pop("condense_ratio")
         if "condense_ratio" in kwargs:  # legacy name
             kwargs["rope_condense_ratio"] = kwargs.pop("condense_ratio")
+        if "org" in json_kwargs:  # legacy name
+            json_kwargs["hf_config"] = {"name": json_kwargs["name"], "org": json_kwargs.pop("org")}
+        if "org" in kwargs:  # legacy name
+            kwargs["hf_config"] = {"name": kwargs.get("name", json_kwargs["name"]), "org": kwargs.pop("org")}
         json_kwargs.update(kwargs)
         return cls(**json_kwargs)
 
