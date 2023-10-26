@@ -34,7 +34,7 @@ class StarcoderDataProcessor:
             # reduce RAM usage
             for batch in parquet_file.iter_batches(batch_size=8192, columns=["content"]):
                 for text in batch.to_pandas()['content']:
-                    yield self.tokenizer.encode(text)
+                    yield self.tokenizer.encode(text, bos=False, eos=True)
         except Exception:
             print(traceback.format_exc())
             print(f"Error reading {filepath}")

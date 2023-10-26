@@ -35,7 +35,7 @@ class SlimPajamaDataProcessor:
                 text = json.loads(row)["text"]
                 if json.loads(row)["meta"]["redpajama_set_name"] == "RedPajamaGithub":
                     continue # we don't want to include the github data
-                text_ids = self.tokenizer.encode(text)
+                text_ids = self.tokenizer.encode(text, bos=False, eos=True)
                 yield text_ids
 
 
