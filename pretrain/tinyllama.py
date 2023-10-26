@@ -314,7 +314,7 @@ def create_dataloaders(
         name="slimpajama/val", 
         version="latest", 
         item_loader=TokensLoader(block_size=effective_block_size), 
-        shuffle=True,
+        shuffle=False,
     )
     val_dataloader = DataLoader(val_dataset, batch_size=batch_size, pin_memory=True)
     return train_dataloader, val_dataloader
