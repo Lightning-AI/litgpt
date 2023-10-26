@@ -6,6 +6,8 @@ https://github.com/jzhang38/TinyLlama/blob/main/pretrain/tinyllama.py
 TODO LIST:
 - [ ] check that seed is correctly set and each rank sees a partition of the data
 - [x] implement init-weights
+- [ ] install torch nightly
+- [ ] use fake dataset to compare batches/sec numbers
 - [ ] determine global batch size
 - [ ] add torch.compile
 - [ ] verify script can be resumed
@@ -129,7 +131,7 @@ def main(fabric, resume):
     fabric.print(f"Time to instantiate model: {time.perf_counter() - t0:.02f} seconds.")
     fabric.print(f"Total parameters {num_parameters(model):,}")
 
-    # model = torch.compile(model, fullgraph=False, mode="reduce-overhead")
+    # model = torch.compile(model, fullgraph=True)
     model = fabric.setup(model)
     optimizer = torch.optim.AdamW(model.parameters(), lr=learning_rate, weight_decay=weight_decay, betas=(beta1, beta2))
     optimizer = fabric.setup_optimizers(optimizer)
@@ -153,8 +155,8 @@ def train(fabric, state, train_dataloader, val_dataloader, monitor, resume):
     model = state["model"]
     optimizer = state["optimizer"]
 
-    if val_dataloader is not None:
-        validate(fabric, model, val_dataloader)  # sanity check
+    # if val_dataloader is not None:
+    #     validate(fabric, model, val_dataloader)  # sanity check
 
     with torch.device("meta"):
         meta_model = GPT(model.config)
@@ -212,10 +214,11 @@ def train(fabric, state, train_dataloader, val_dataloader, monitor, resume):
         state["iter_num"] += 1
 
         total_lengths += input_ids.size(1)
+        loss = loss.item()
         t1 = time.perf_counter()
 
         metrics = {
-            "loss": loss.item(),
+            "loss": loss,
             "iter": state['iter_num'],
             "step": state['step_count'],
             "iter_time": (t1 - iter_t0),
