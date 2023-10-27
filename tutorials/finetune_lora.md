@@ -58,23 +58,23 @@ and optionally with double-quantization:
 python finetune/lora.py --quantize "bnb.nf4-dq"
 ```
 
-The table below lists a comparison with different settings on a StableLM 3B model finetuned with LoRA on Alpaca for 1,000 iterations using a microbatch size of 4:
+The table below lists a comparison with different settings on a StableLM 3B model finetuned with LoRA on Alpaca for 1,000 iterations using a microbatch size of 1:
 
-| Settings                                    | Training Memory | Training Time | Loss   | Inference Memory |
-|---------------------------------------------|-----------------|---------------|--------|------------------|
-| Default (bf16-mixed)                        | 34.57 GB        | 591.78s       | 0.9207 | 21.43 GB         |
-| --precision bf16-true                       | 16.93 GB        | 592.14s       | 0.9180 | 7.30 GB          |
-| --precision bf16-true --quantize bnb.nf4    | 15.28 GB        | 802.02s       | 0.9408 | 3.20 GB          |
-| --precision bf16-true --quantize bnb.nf4-dq | 15.12 GB        | 802.94s       | 0.9384 | 3.04 GB          |
+| Settings                                    | Training Memory | Training Time |  Inference Memory |
+|---------------------------------------------|-----------------|---------------|-------------------|
+| Default (bf16-mixed)                        | 26.92 GB        | 1.34 min      | 21.43 GB          |
+| --precision bf16-true                       | 9.69 GB         | 1.24 min      | 7.30 GB           |
+| --precision bf16-true --quantize bnb.nf4    | 6.35 GB         | 1.82 min      | 3.20 GB           |
+| --precision bf16-true --quantize bnb.nf4-dq | 6.19 GB         | 1.87 min      | 3.04 GB           |
 
 The advantages of QLoRA-style quantization are more pronounced in larger models, such as Llama 2 7B. The table below summarizes the results for Llama 2 7B on Alpaca for 1,000 iterations using a microbatch size of 1:
 
-| Settings                                    | Training Memory  | Training Time | Loss   | Inference Memory |
-|---------------------------------------------|------------------|---------------|--------|------------------|
-| Default (bf16-mixed)                        | OutOfMemoryError | N/A           | N/A    | 40.21 GB         |
-| --precision bf16-true                       | 21.30 GB         | 876.30s       | 0.8696 | 13.52 GB         |
-| --precision bf16-true --quantize bnb.nf4    | 14.14 GB         | 1089.79s      | 1.0130 | 4.57 GB          |
-| --precision bf16-true --quantize bnb.nf4-dq | 13.84 GB         | 1135.86s      | 1.0124 | 4.26 GB          |
+| Settings                                    | Training Memory  | Training Time | Inference Memory |
+|---------------------------------------------|------------------|---------------|------------------|
+| Default (bf16-mixed)                        | OutOfMemoryError | N/A           | 40.21 GB         |
+| --precision bf16-true                       | 21.30 GB         | 2.36 min      | 13.52 GB         |
+| --precision bf16-true --quantize bnb.nf4    | 14.14 GB         | 3.68 min      | 4.57 GB          |
+| --precision bf16-true --quantize bnb.nf4-dq | 13.84 GB         | 3.83 min      | 4.26 GB          |
 
 For additional benchmarks and resource requirements, please see the [Resource Tables](resource-tables.md).
 
