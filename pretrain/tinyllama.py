@@ -4,9 +4,9 @@ https://github.com/jzhang38/TinyLlama/blob/main/pretrain/tinyllama.py
 
 
 TODO LIST:
-- [ ] check that seed is correctly set and each rank sees a partition of the data
+- [x] check that seed is correctly set and each rank sees a partition of the data
 - [x] implement init-weights
-- [ ] install torch nightly
+- [x] install torch nightly
 - [ ] use fake dataset to compare batches/sec numbers
 - [ ] determine global batch size
 - [ ] add torch.compile
