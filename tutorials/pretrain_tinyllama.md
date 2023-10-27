@@ -64,7 +64,7 @@ python scripts/prepare_starcoder.py \
 python scripts/prepare_slimpajama.py \
   --source_path data/slimpajama/validation \
   --tokenizer_path checkpoints/Llama-2-7b-hf \
-  --name slimpajama/validation
+  --name slimpajama/val
 
 python scripts/prepare_slimpajama.py \
   --source_path data/slimpajama/test \

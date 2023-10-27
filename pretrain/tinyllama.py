@@ -292,13 +292,13 @@ def create_dataloaders(
     train_datasets = [
         # TODO: change to slimpajama/train and starcoder
         StreamingDataset(
-            name="slimpajama/val", 
+            name="slimpajama/val",
             version="latest", 
             item_loader=TokensLoader(block_size=effective_block_size), 
             shuffle="full",
         ),
         StreamingDataset(
-            name="slimpajama/test", 
+            name="slimpajama/test",
             version="latest", 
             item_loader=TokensLoader(block_size=effective_block_size), 
             shuffle="full",
@@ -313,7 +313,7 @@ def create_dataloaders(
     train_dataloader = DataLoader(combined_dataset, batch_size=batch_size, pin_memory=True)
     
     val_dataset = StreamingDataset(
-        name="slimpajama/val", 
+        name="slimpajama/val",
         version="latest", 
         item_loader=TokensLoader(block_size=effective_block_size), 
         # Consider setting to False, but we would lose some samples due to truncation when world size > 1
