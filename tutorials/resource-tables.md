@@ -35,7 +35,7 @@ Note that the number of tokens in the training set does not affect the supported
 
 &nbsp;
 
-## Finetinung with LoRA on 1 GPU
+## Finetuning with LoRA on 1 GPU
 
 The following experiments were conducated on 1xA100 with a minibatch size of 128 using the `finetune/lora.py` script.
 
@@ -71,7 +71,7 @@ The following experiments were conducated on 1xA100 with a minibatch size of 128
 
 &nbsp;
 
-## Finetinung with LoRA on Multiple GPUs
+## Finetuning with LoRA on Multiple GPUs
 
 The following experiments were conducated on multiple A100 GPUs with a minibatch size of 128 using the `finetune/lora.py` script.
 
