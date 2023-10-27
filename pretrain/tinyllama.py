@@ -347,8 +347,7 @@ def init_weights(module: nn.Module, n_layer: int):
         if module.bias is not None:
             nn.init.zeros_(module.bias)
     for name, param in module.named_parameters():
-        # TODO: Do we need SwiGLU?
-        if (name == "proj.weight" and isinstance(module, LLaMAMLP)): # or (name == "w3.weight" and isinstance(module, SwiGLU)):
+        if (name == "proj.weight" and isinstance(module, LLaMAMLP)):
             nn.init.normal_(param, mean=0.0, std=(1 / math.sqrt(param.shape[-1]) / n_layer))
 
 
