@@ -11,7 +11,6 @@ TODO LIST:
 - [ ] determine global batch size
 - [ ] add torch.compile
 - [ ] verify script can be resumed
-- [ ] do we need SwiGLU?
 - [ ] resolve TODOs in script below
 """
 import glob
