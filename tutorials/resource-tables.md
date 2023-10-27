@@ -47,11 +47,11 @@ The following experiments were conducated on 1xA100 with a minibatch size of 128
 | 1.3 B | phi-1.5       | None         | 2               | 1,572,864            | 6.76 GB     | 1.65 min           | 82.44 min                    |
 | 1.3 B | phi-1.5       | None         | 4               | 1,572,864            | 10.68 GB    | 1.70 min           | 84.79 min                    |
 |       |               |              |                 |                      |             |                    |                              |
-| 3 B   | StabeLM Alpha | None         | 1               | 2,097,152            | 9.69 GB     | 1.24 min           | 62.23 min                    |
-| 3 B   | StabeLM Alpha | bnb.nf4      | 1               | 2,097,152            | 6.35 GB     | 1.82 min           | 91.22 min                    |
-| 3 B   | StabeLM Alpha | bnb.nf4-dq   | 1               | 2,097,152            | 6.19 GB     | 1.87 min           | 93.58 min                    |
-| 3 B   | StabeLM Alpha | None         | 2               | 2,097,152            | 12.10 GB    | 1.33 min           | 66.68 min                    |
-| 3 B   | StabeLM Alpha | None         | 4               | 2,097,152            | 16.92 GB    | 1.50 min           | 74.89 min                    |
+| 3 B   | StableLM Alpha | None         | 1               | 2,097,152            | 9.69 GB     | 1.24 min           | 62.23 min                    |
+| 3 B   | StableLM Alpha | bnb.nf4      | 1               | 2,097,152            | 6.35 GB     | 1.82 min           | 91.22 min                    |
+| 3 B   | StableLM Alpha | bnb.nf4-dq   | 1               | 2,097,152            | 6.19 GB     | 1.87 min           | 93.58 min                    |
+| 3 B   | StableLM Alpha | None         | 2               | 2,097,152            | 12.10 GB    | 1.33 min           | 66.68 min                    |
+| 3 B   | StableLM Alpha | None         | 4               | 2,097,152            | 16.92 GB    | 1.50 min           | 74.89 min                    |
 |       |               |              |                 |                      |             |                    |                              |
 | 7 B   | Llama 2       | None         | 1               | 4,194,304            | 21.30 GB    | 2.36 min           | 118.03 min                   |
 | 7 B   | Llama 2       | bnb.nf4      | 1               | 4,194,304            | 14.14 GB    | 3.68 min           | 183.88 min                   |
@@ -83,9 +83,9 @@ The following experiments were conducated on multiple A100 GPUs with a minibatch
 | 1.3 B | phi-1.5       | None         | 2               | 1,572,864            | 2 x A100 | 5.05 GB     | 3.63 min           | 181.31 min                   |
 | 1.3 B | phi-1.5       | None         | 4               | 1,572,864            | 2 x A100 | 5.88 GB     | 3.64 min           | 181.76 min                   |
 |       |               |              |                 |                      |          |             |                    |                              |
-| 3 B   | StabeLM Alpha | None         | 1               | 2,097,152            | 2 x A100 | 12.75 GB    | 2.92 min           | 145.96 min                   |
-| 3 B   | StabeLM Alpha | None         | 2               | 2,097,152            | 2 x A100 | 12.94 GB    | 3.06 min           | 153.10 min                   |
-| 3 B   | StabeLM Alpha | None         | 4               | 2,097,152            | 2 x A100 | 13.45 GB    | 3.86 min           | 192.99 min                   |
+| 3 B   | StableLM Alpha | None         | 1               | 2,097,152            | 2 x A100 | 12.75 GB    | 2.92 min           | 145.96 min                   |
+| 3 B   | StableLM Alpha | None         | 2               | 2,097,152            | 2 x A100 | 12.94 GB    | 3.06 min           | 153.10 min                   |
+| 3 B   | StableLM Alpha | None         | 4               | 2,097,152            | 2 x A100 | 13.45 GB    | 3.86 min           | 192.99 min                   |
 |       |               |              |                 |                      |          |             | -                  | -                            |
 | 7 B   | Llama 2       | None         | 1               | 4,194,304            | 2 x A100 | 22.18 GB    | 5.93 min           | 296.62 min                   |
 | 7 B   | Llama 2       | None         | 2               | 4,194,304            | 2 x A100 | 22.47 GB    | 6.48 min           | 324.03 min                   |
@@ -98,19 +98,21 @@ The following experiments were conducated on multiple A100 GPUs with a minibatch
 | 13 B  | Llama 2       | None         | 1               | 6,553,600            | 4 x A100 | 35.57 GB    | 10.25 min          | 512.5 min                    |
 | 40 B  | Falcon        | None         | 1               | 12,042,240           | 4 x A100 | OOM         | -                  | -                            |
 
+&nbsp;
+
 ## Single-GPU Inference
 
-| Size  | Model         | Quantization | GPU      | Max GPU RAM                               | Token/sec |
-|-------|---------------|--------------|----------|-------------------------------------------|-----------|
-| 1.3 B | phi-1.5       | None         | 1 x A100 | 2.86 GB                                   | 42.56     |
-| 1.3 B | phi-1.5       | bnb.nf4      | 1 x A100 | 1.39 GB                                   | 22.89     |
-| 1.3 B | phi-1.5       | bnb.nf4-dq   | 1 x A100 | 1.33 GB                                   | 22.75     |
-| 1.3 B | phi-1.5       | gptq.int4    | 1 x A100 | 1.16 GB                                   | 6.51      |
-|       |               |              |          |                                           |           |
-| 3 B   | StabeLM Alpha | None         | 1 x A100 | 7.30 GB                                   | 49.01     |
-| 3 B   | StabeLM Alpha | bnb.nf4      | 1 x A100 | 3.20 GB                                   | 29.04     |
-| 3 B   | StabeLM Alpha | bnb.nf4-dq   | 1 x A100 | 3.04 GB                                   | 27.15     |
-| 3 B   | StabeLM Alpha | gptq.int4    | 1 x A100 | 2.43 GB                                   | 5.9       |
+| Size  | Model          | Quantization | GPU      | Max GPU RAM                                | Token/sec |
+|-------|----------------|--------------|----------|--------------------------------------------|-----------|
+| 1.3 B | phi-1.5        | None         | 1 x A100 | 2.86 GB                                   | 42.56     |
+| 1.3 B | phi-1.5        | bnb.nf4      | 1 x A100 | 1.39 GB                                   | 22.89     |
+| 1.3 B | phi-1.5        | bnb.nf4-dq   | 1 x A100 | 1.33 GB                                   | 22.75     |
+| 1.3 B | phi-1.5        | gptq.int4    | 1 x A100 | 1.16 GB                                   | 6.51      |
+|       |                |              |          |                                           |           |
+| 3 B   | StableLM Alpha | None         | 1 x A100 | 7.30 GB                                   | 49.01     |
+| 3 B   | StableLM Alpha | bnb.nf4      | 1 x A100 | 3.20 GB                                   | 29.04     |
+| 3 B   | StableLM Alpha | bnb.nf4-dq   | 1 x A100 | 3.04 GB                                   | 27.15     |
+| 3 B   | StableLM Alpha | gptq.int4    | 1 x A100 | 2.43 GB                                   | 5.9       |
 |       |               |              |          |                                           |           |
 | 7 B   | Llama 2       | None         | 1 x A100 | 13.52 GB                                  | 30.97     |
 | 7 B   | Llama 2       | bnb.nf4      | 1 x A100 | 4.57 GB                                   | 19.98     |
