@@ -1,4 +1,5 @@
 import json
+from copy import deepcopy
 from dataclasses import dataclass, field
 from pathlib import Path
 from typing import Any, Literal, Optional, Type, Union
@@ -235,7 +236,7 @@ pythia = [
 ]
 configs.extend(pythia)
 for c in pythia:
-    copy = c.copy()
+    copy = deepcopy(c)
     copy["name"] = f"{c['name']}-deduped"
     copy["hf_config"]["name"] = f"{c['hf_config']['name']}-deduped"
     configs.append(copy)
@@ -279,7 +280,7 @@ redpajama_incite = [
 ]
 for c in redpajama_incite:
     for kind in ("Base", "Chat", "Instruct"):
-        copy = c.copy()
+        copy = deepcopy(c)
         copy["name"] = c["name"].format(kind)
         copy["hf_config"]["name"] = c["hf_config"]["name"].format(kind)
         configs.append(copy)
@@ -322,7 +323,7 @@ falcon = [
 ]
 for c in falcon:
     for kind in ("", "-instruct"):
-        copy = c.copy()
+        copy = deepcopy(c)
         copy["name"] = c["name"].format(kind)
         copy["hf_config"]["name"] = c["hf_config"]["name"].format(kind)
         configs.append(copy)
@@ -343,7 +344,7 @@ falcon180b = dict(
 )
 
 for kind in ("", "-chat"):
-    copy = falcon180b.copy()
+    copy = deepcopy(falcon180b)
     copy["name"] = falcon180b["name"].format(kind)
     copy["hf_config"]["name"] = falcon180b["hf_config"]["name"].format(kind)
     configs.append(copy)
@@ -687,7 +688,7 @@ llama_2 = [
 ]
 for c in llama_2:
     for kind in ("", "-chat"):
-        copy = c.copy()
+        copy = deepcopy(c)
         copy["name"] = c["name"].format(kind)
         copy["hf_config"]["name"] = c["hf_config"]["name"].format(kind)
         configs.append(copy)
@@ -1127,7 +1128,7 @@ mistral = [
 ]
 for c in mistral:
     for kind in ("", "Instruct-"):
-        copy = c.copy()
+        copy = deepcopy(c)
         copy["name"] = c["name"].format(kind)
         copy["hf_config"]["name"] = c["hf_config"]["name"].format(kind)
         configs.append(copy)
