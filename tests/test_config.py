@@ -1,4 +1,14 @@
 import json
+import sys
+from pathlib import Path
+
+import pytest
+
+# support running without installing as a package
+wd = Path(__file__).parent.parent.resolve()
+sys.path.append(str(wd))
+
+import lit_gpt.config as config_module
 
 
 def test_config():
@@ -40,13 +50,14 @@ def test_legacy_args(tmp_path):
     assert config.rope_condense_ratio == 2
 
 
-def test_from_hf_name():
+@pytest.mark.parametrize("config", config_module.configs, ids=[c["name"] for c in config_module.configs])
+def test_from_hf_name(config):
     from lit_gpt import Config
 
     # by short-hand name
-    config0 = Config.from_name("tiny-llama-1.1b")
+    config0 = Config.from_name(config["name"])
     # or by huggingface hub repo name
-    config1 = Config.from_name("TinyLlama-1.1B-intermediate-step-480k-1T")
+    config1 = Config.from_name(config["hf_config"]["name"])
     assert config0 == config1
 
 
