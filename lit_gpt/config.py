@@ -64,9 +64,7 @@ class Config:
 
         # vocab size should be a power of 2 to be optimal on hardware. compute the closest value
         if self.padded_vocab_size is None:
-            self.padded_vocab_size = find_multiple(
-                self.vocab_size, self.padding_multiple
-            )
+            self.padded_vocab_size = find_multiple(self.vocab_size, self.padding_multiple)
         else:
             # vocab size shouldn't be larger than padded vocab size
             self.vocab_size = min(self.vocab_size, self.padded_vocab_size)
@@ -134,10 +132,7 @@ class Config:
 ########################
 configs = [
     # https://huggingface.co/stabilityai/stablelm-base-alpha-3b/blob/main/config.json
-    dict(
-        name="stablelm-base-alpha-3b",
-        hf_config=dict(org="stabilityai", name="stablelm-base-alpha-3b"),
-    ),
+    dict(name="stablelm-base-alpha-3b", hf_config=dict(org="stabilityai", name="stablelm-base-alpha-3b")),
     # https://huggingface.co/stabilityai/stablelm-base-alpha-7b/blob/main/config.json
     dict(
         name="stablelm-base-alpha-7b",
@@ -147,11 +142,7 @@ configs = [
         padding_multiple=256,
     ),
     # https://huggingface.co/stabilityai/stablelm-tuned-alpha-3b/blob/main/config.json
-    dict(
-        name="stablelm-tuned-alpha-3b",
-        hf_config=dict(org="stabilityai", name="stablelm-tuned-alpha-3b"),
-        n_head=32,
-    ),
+    dict(name="stablelm-tuned-alpha-3b", hf_config=dict(org="stabilityai", name="stablelm-tuned-alpha-3b"), n_head=32),
     # https://huggingface.co/stabilityai/stablelm-tuned-alpha-7b/blob/main/config.json
     dict(
         name="stablelm-tuned-alpha-7b",
@@ -1163,7 +1154,7 @@ tiny_llama = [
         _mlp_class="LLaMAMLP",
         intermediate_size=5632,
         n_query_groups=4,
-    ),
+    )
 ]
 configs.extend(tiny_llama)
 

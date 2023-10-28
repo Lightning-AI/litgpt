@@ -1,5 +1,4 @@
 import json
-from dataclasses import asdict
 
 
 def test_config():
@@ -55,10 +54,7 @@ def test_hf_config_from_json(tmp_path):
     """Test for backward compatibility with older configs that didn't have the `hf_config` field."""
     from lit_gpt import Config
 
-    legacy_config = {
-        "name": "falcon-40b",
-        "org": "tiiuae",
-    }
+    legacy_config = {"name": "falcon-40b", "org": "tiiuae"}
     with open(tmp_path / "config.json", "w") as file:
         json.dump(legacy_config, file)
     new_config = Config.from_json(tmp_path / "config.json")
