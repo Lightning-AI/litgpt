@@ -70,7 +70,7 @@ def test_hf_config_from_json(tmp_path):
         json.dump(legacy_config, file)
     new_config = Config.from_json(tmp_path / "config.json")
     assert new_config.name == "falcon-40b"
-    assert "org" not in new_config
+    assert not hasattr(new_config, "org")
     assert new_config.hf_config["org"] == "tiiuae"
     assert new_config.hf_config["name"] == "falcon-40b"
 
