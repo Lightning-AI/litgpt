@@ -1,14 +1,4 @@
 import json
-import sys
-from pathlib import Path
-
-import pytest
-
-# support running without installing as a package
-wd = Path(__file__).parent.parent.resolve()
-sys.path.append(str(wd))
-
-import lit_gpt.config as config_module
 
 
 def test_config():
