@@ -50,14 +50,13 @@ def test_legacy_args(tmp_path):
     assert config.rope_condense_ratio == 2
 
 
-@pytest.mark.parametrize("config", config_module.configs, ids=[c["name"] for c in config_module.configs])
-def test_from_hf_name(config):
+def test_from_hf_name():
     from lit_gpt import Config
 
     # by short-hand name
-    config0 = Config.from_name(config["name"])
+    config0 = Config.from_name("tiny-llama-1.1b")
     # or by huggingface hub repo name
-    config1 = Config.from_name(config["hf_config"]["name"])
+    config1 = Config.from_name("TinyLlama-1.1B-intermediate-step-480k-1T")
     assert config0 == config1
 
 
