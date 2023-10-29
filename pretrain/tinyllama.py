@@ -308,7 +308,7 @@ def create_dataloaders(
     weights = [w / sum(weights) for w in weights]
 
     combined_dataset = CombinedDataset(datasets=train_datasets, seed=42, weights=weights)
-    train_dataloader = DataLoader(combined_dataset, batch_size=batch_size, pin_memory=True)
+    train_dataloader = DataLoader(combined_dataset, batch_size=batch_size, pin_memory=True, num_workers=8)
     
     val_dataset = StreamingDataset(
         name="slimpajama/val",
@@ -318,7 +318,7 @@ def create_dataloaders(
         # Consider setting to False, but we would lose some samples due to truncation when world size > 1
         drop_last=True,
     )
-    val_dataloader = DataLoader(val_dataset, batch_size=batch_size, pin_memory=True)
+    val_dataloader = DataLoader(val_dataset, batch_size=batch_size, pin_memory=True, num_workers=8)
     return train_dataloader, val_dataloader
 
 
