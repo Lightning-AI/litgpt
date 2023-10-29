@@ -43,7 +43,7 @@ def prepare(
     source_path: Path = Path("data/SlimPajama-627B/train"),
     tokenizer_path: Path = Path("checkpoints/Llama-2-7b-hf/"),
     name: str = "slimpajama/train",
-    chunk_size: int = (2049 * 8192),
+    chunk_size: int = (2049 * 16384),
     fast_dev_run: bool = False,
 ) -> None:
 
@@ -62,15 +62,6 @@ def prepare(
     dataset_optimizer.run(optimizer)
     elapsed_time = time.time() - start_time
     print(f"Time taken: {elapsed_time:.2f} seconds")
-
-    time.sleep(10)
-
-    # Verify we can read the data
-    dataset = StreamingDataset(name=name, version="latest", item_loader=TokensLoader(block_size=(2048 + 1)))
-    print(f"Number of samples: {len(dataset)}")
-    print(dataset[0])
-    print(len(dataset[0]))
-    print(type(dataset[0]))
 
 
 if __name__ == "__main__":
