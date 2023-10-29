@@ -291,13 +291,15 @@ def create_dataloaders(
             name="slimpajama/val",
             version="latest", 
             item_loader=TokensLoader(block_size=effective_block_size), 
-            shuffle="full",
+            shuffle=True,
+            drop_last=True,
         ),
         StreamingDataset(
             name="slimpajama/test",
             version="latest", 
             item_loader=TokensLoader(block_size=effective_block_size), 
-            shuffle="full",
+            shuffle=True,
+            drop_last=True,
         ),
     ]
 
@@ -312,8 +314,9 @@ def create_dataloaders(
         name="slimpajama/val",
         version="latest", 
         item_loader=TokensLoader(block_size=effective_block_size), 
+        shuffle=False,
         # Consider setting to False, but we would lose some samples due to truncation when world size > 1
-        shuffle="full",
+        drop_last=True,
     )
     val_dataloader = DataLoader(val_dataset, batch_size=batch_size, pin_memory=True)
     return train_dataloader, val_dataloader
