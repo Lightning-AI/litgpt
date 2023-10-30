@@ -75,7 +75,8 @@ class LightningGPTModule(L.LightningModule):
             self.print(f"Estimated TFLOPs: {estimated_flops * trainer.world_size / 1e12:.2f}")
             x = torch.randint(0, 1, (micro_batch_size, meta_model.max_seq_length))
             forward_fn = lambda: meta_model(x)
-            self.flops_per_batch = measure_flops(meta_model, forward_fn, torch.Tensor.sum)
+            loss_fn = lambda y: chunked_cross_entropy(y, x, chunk_size=0)
+            self.flops_per_batch = measure_flops(meta_model, forward_fn, loss_fn)
             self.print(f"Measured TFLOPs: {self.flops_per_batch * trainer.world_size / 1e12:.2f}")
 
     def on_train_batch_start(self, batch: Any, batch_idx: int) -> None:
