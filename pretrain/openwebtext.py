@@ -9,6 +9,7 @@ import numpy as np
 import torch
 from lightning.fabric.loggers import CSVLogger
 from lightning.fabric.strategies import FSDPStrategy
+from lightning.fabric.utilities import ThroughputMonitor, measure_flops
 from torch.utils.data import DataLoader, IterableDataset
 
 # support running without installing as a package
@@ -17,9 +18,7 @@ sys.path.append(str(wd))
 
 from lit_gpt import Config
 from lit_gpt.model import GPT, Block
-from lit_gpt.speed_monitor import SpeedMonitorBase, estimate_flops, measure_flops
-from lit_gpt.speed_monitor import SpeedMonitorFabric as SpeedMonitor
-from lit_gpt.utils import chunked_cross_entropy, get_default_supported_precision, num_parameters
+from lit_gpt.utils import chunked_cross_entropy, estimate_flops, get_default_supported_precision, num_parameters
 
 model_name = "pythia-70m"
 name = "openwebtext"
@@ -70,8 +69,6 @@ def setup(devices: int = 1, precision: Optional[str] = None, resume: Union[bool,
 
 
 def main(fabric: L.Fabric, resume: Union[bool, Path]) -> None:
-    speed_monitor = SpeedMonitor(fabric, window_size=50, time_unit="seconds")
-
     if fabric.global_rank == 0:
         out_dir.mkdir(parents=True, exist_ok=True)
 
@@ -107,19 +104,13 @@ def main(fabric: L.Fabric, resume: Union[bool, Path]) -> None:
         fabric.load(resume, state)
 
     train_time = time.perf_counter()
-    train(fabric, state, train_dataloader, val_dataloader, speed_monitor)
+    train(fabric, state, train_dataloader, val_dataloader)
     fabric.print(f"Training time: {(time.perf_counter()-train_time):.2f}s")
     if fabric.device.type == "cuda":
         fabric.print(f"Memory used: {torch.cuda.max_memory_allocated() / 1e9:.02f} GB")
 
 
-def train(
-    fabric: L.Fabric,
-    state: dict,
-    train_dataloader: DataLoader,
-    val_dataloader: DataLoader,
-    speed_monitor: SpeedMonitorBase,
-) -> None:
+def train(fabric: L.Fabric, state: dict, train_dataloader: DataLoader, val_dataloader: DataLoader) -> None:
     model = state["model"]
     optimizer = state["optimizer"]
 
@@ -129,14 +120,17 @@ def train(
         meta_model = GPT(model.config)
         # "estimated" is not as precise as "measured". Estimated is optimistic but widely used in the wild.
         # When comparing MFU or FLOP numbers with other projects that use estimated FLOPs,
-        # consider passing `SpeedMonitor(flops_per_batch=estimated_flops)` instead
-        estimated_flops = estimate_flops(meta_model) * micro_batch_size
+        # consider passing `flops_per_batch=estimated_flops` instead
+        estimated_flops = estimate_flops(meta_model, training=True) * micro_batch_size
         fabric.print(f"Estimated TFLOPs: {estimated_flops * fabric.world_size / 1e12:.2f}")
         x = torch.randint(0, 1, (micro_batch_size, model.max_seq_length))
-        measured_flops = measure_flops(meta_model, x)
+        forward_fn = lambda: meta_model(x)
+        loss_fn = lambda y: chunked_cross_entropy(y, x, chunk_size=0)
+        measured_flops = measure_flops(meta_model, forward_fn, loss_fn)
         fabric.print(f"Measured TFLOPs: {measured_flops * fabric.world_size / 1e12:.2f}")
         del meta_model, x
 
+    throughput = ThroughputMonitor(fabric, window_size=50)
     total_lengths = 0
     total_t0 = time.perf_counter()
 
@@ -164,19 +158,19 @@ def train(
             optimizer.zero_grad()
             state["step_count"] += 1
 
-        t1 = time.perf_counter()
         total_lengths += input_ids.size(1)
-        speed_monitor.on_train_batch_end(
-            (state["iter_num"] + 1) * micro_batch_size,
-            t1 - total_t0,
-            # this assumes that device FLOPs are the same and that all devices have the same batch size
-            fabric.world_size,
-            flops_per_batch=measured_flops,
-            lengths=total_lengths,
-        )
         if state["iter_num"] % log_interval == 0:
+            loss_item = loss.item()  # expensive device-to-host synchronization
+            t1 = time.perf_counter()
+            throughput.update(
+                time=t1 - total_t0,
+                samples=(state["iter_num"] + 1) * micro_batch_size,
+                lengths=total_lengths,
+                flops_per_batch=measured_flops,
+            )
+            throughput.compute_and_log(step=state["iter_num"])
             fabric.print(
-                f"iter {state['iter_num']} step {state['step_count']}: loss {loss.item():.4f}, iter time:"
+                f"iter {state['iter_num']} step {state['step_count']}: loss {loss_item:.4f}, iter time:"
                 f" {(t1 - iter_t0) * 1000:.2f}ms{' (optimizer.step)' if not is_accumulating else ''}"
             )
 
@@ -184,7 +178,6 @@ def train(
             t0 = time.perf_counter()
             val_loss = validate(fabric, model, val_dataloader)
             t1 = time.perf_counter() - t0
-            speed_monitor.eval_end(t1)
             fabric.print(f"step {state['iter_num']}: val loss {val_loss.item():.4f}, val time: {t1 * 1000:.2f}ms")
             fabric.barrier()
         if not is_accumulating and state["step_count"] % save_interval == 0:
