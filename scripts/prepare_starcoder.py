@@ -69,15 +69,6 @@ def prepare(
     elapsed_time = time.time() - start_time
     print(f"Time taken: {elapsed_time:.2f} seconds")
 
-    time.sleep(10)
-
-    # Verify we can read the data
-    dataset = StreamingDataset(name=name, version="latest", item_loader=TokensLoader(block_size=(2048 + 1)))
-    print(f"Number of samples: {len(dataset)}")
-    print(dataset[0])
-    print(len(dataset[0]))
-    print(type(dataset[0]))
-
 
 if __name__ == "__main__":
     from jsonargparse import CLI
