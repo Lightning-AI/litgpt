@@ -140,7 +140,7 @@ def train(
         # "estimated" is not as precise as "measured". Estimated is optimistic but widely used in the wild.
         # When comparing MFU or FLOP numbers with other projects that use estimated FLOPs,
         # consider passing `flops_per_batch=estimated_flops` instead
-        estimated_flops = estimate_flops(meta_model) * micro_batch_size
+        estimated_flops = estimate_flops(meta_model, training=True) * micro_batch_size
         rank_print(fabric, f"Estimated TFLOPs: {estimated_flops * fabric.world_size / 1e12:.2f}")
         # this assumes that all samples have a fixed length equal to the longest sequence length
         # which is most likely false during finetuning

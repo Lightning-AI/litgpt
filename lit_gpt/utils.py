@@ -323,7 +323,7 @@ def flops_per_param(max_seq_length: int, n_layer: int, n_embd: int, n_params: in
     return flops_per_seq + attn_flops_per_seq
 
 
-def estimate_flops(model: "GPT") -> int:
+def estimate_flops(model: "GPT", training: bool) -> int:
     """Measures estimated FLOPs for MFU.
 
     Refs:
@@ -339,9 +339,9 @@ def estimate_flops(model: "GPT") -> int:
         model.max_seq_length, model.config.n_layer, model.config.n_embd, n_trainable_params
     )
     # forward + backward + gradients (assumes no gradient accumulation)
-    ops_per_step = 3 if model.training else 1
+    ops_per_step = 3 if training else 1
     n_frozen_params = num_parameters(model, requires_grad=False)
     frozen_flops = flops_per_param(model.max_seq_length, model.config.n_layer, model.config.n_embd, n_frozen_params)
     # forward + backward
-    frozen_ops_per_step = 2 if model.training else 1
+    frozen_ops_per_step = 2 if training else 1
     return ops_per_step * trainable_flops + frozen_ops_per_step * frozen_flops

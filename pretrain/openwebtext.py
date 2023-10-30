@@ -121,7 +121,7 @@ def train(fabric: L.Fabric, state: dict, train_dataloader: DataLoader, val_datal
         # "estimated" is not as precise as "measured". Estimated is optimistic but widely used in the wild.
         # When comparing MFU or FLOP numbers with other projects that use estimated FLOPs,
         # consider passing `flops_per_batch=estimated_flops` instead
-        estimated_flops = estimate_flops(meta_model) * micro_batch_size
+        estimated_flops = estimate_flops(meta_model, training=True) * micro_batch_size
         fabric.print(f"Estimated TFLOPs: {estimated_flops * fabric.world_size / 1e12:.2f}")
         x = torch.randint(0, 1, (micro_batch_size, model.max_seq_length))
         forward_fn = lambda: meta_model(x)
