@@ -197,6 +197,7 @@ def train(
             rank_print(
                 fabric,
                 f"iter {iter_num} step {step_count}:"
+                # uncomment to print the loss. this will considerably slow down the iteration times
                 # + f" loss {loss.item():.4f},"
                 + f" iter time: {(t1 - iter_t0) * 1000:.2f}ms" + (" (optimizer.step)" if not is_accumulating else ""),
             )
