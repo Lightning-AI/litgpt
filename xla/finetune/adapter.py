@@ -184,15 +184,15 @@ def train(
         else:
             xm.mark_step()
 
-        t1 = time.perf_counter()
         total_lengths += input_ids.size(1)
-        throughput.update(
-            time=t1 - total_t0,
-            samples=(iter_num + 1) * micro_batch_size,
-            lengths=total_lengths,
-            flops_per_batch=measured_flops,
-        )
         if iter_num % log_interval == 0:
+            t1 = time.perf_counter()
+            throughput.update(
+                time=t1 - total_t0,
+                samples=(iter_num + 1) * micro_batch_size,
+                lengths=total_lengths,
+                flops_per_batch=measured_flops,
+            )
             throughput.compute_and_log(step=iter_num)
             rank_print(
                 fabric,

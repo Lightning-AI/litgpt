@@ -157,16 +157,16 @@ def train(fabric: L.Fabric, state: dict, train_dataloader: DataLoader, val_datal
             optimizer.zero_grad()
             state["step_count"] += 1
 
-        t1 = time.perf_counter()
         total_lengths += input_ids.size(1)
-        throughput.update(
-            time=t1 - total_t0,
-            samples=(state["iter_num"] + 1) * micro_batch_size,
-            lengths=total_lengths,
-            flops_per_batch=measured_flops,
-        )
         if state["iter_num"] % log_interval == 0:
             loss_item = loss.item()  # expensive device-to-host synchronization
+            t1 = time.perf_counter()
+            throughput.update(
+                time=t1 - total_t0,
+                samples=(state["iter_num"] + 1) * micro_batch_size,
+                lengths=total_lengths,
+                flops_per_batch=measured_flops,
+            )
             throughput.compute_and_log(step=state["iter_num"])
             fabric.print(
                 f"iter {state['iter_num']} step {state['step_count']}: loss {loss_item:.4f}, iter time:"
