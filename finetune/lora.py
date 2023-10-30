@@ -9,6 +9,7 @@ import torch
 from lightning.fabric.loggers import CSVLogger
 from lightning.fabric.plugins import BitsandbytesPrecision
 from lightning.fabric.strategies import FSDPStrategy
+from lightning.fabric.utilities import ThroughputMonitor, measure_flops
 
 # support running without installing as a package
 wd = Path(__file__).parent.parent.resolve()
@@ -16,12 +17,11 @@ sys.path.append(str(wd))
 
 from generate.base import generate
 from lit_gpt.lora import GPT, Block, Config, lora_filter, mark_only_lora_as_trainable
-from lit_gpt.speed_monitor import SpeedMonitorFabric as SpeedMonitor
-from lit_gpt.speed_monitor import estimate_flops, measure_flops
 from lit_gpt.tokenizer import Tokenizer
 from lit_gpt.utils import (
     check_valid_checkpoint_dir,
     chunked_cross_entropy,
+    estimate_flops,
     get_default_supported_precision,
     load_checkpoint,
     num_parameters,
@@ -99,8 +99,6 @@ def setup(
 def main(fabric: L.Fabric, data_dir: Path, checkpoint_dir: Path, out_dir: Path) -> None:
     check_valid_checkpoint_dir(checkpoint_dir)
 
-    speed_monitor = SpeedMonitor(fabric, window_size=50, time_unit="seconds")
-
     fabric.seed_everything(1337)  # same seed for every process to init model (FSDP)
 
     if fabric.global_rank == 0:
@@ -150,7 +148,7 @@ def main(fabric: L.Fabric, data_dir: Path, checkpoint_dir: Path, out_dir: Path) 
     fabric.seed_everything(1337 + fabric.global_rank)
 
     train_time = time.perf_counter()
-    train(fabric, model, optimizer, scheduler, train_data, val_data, checkpoint_dir, out_dir, speed_monitor)
+    train(fabric, model, optimizer, scheduler, train_data, val_data, checkpoint_dir, out_dir)
     fabric.print(f"Training time: {(time.perf_counter()-train_time):.2f}s")
     if fabric.device.type == "cuda":
         fabric.print(f"Memory used: {torch.cuda.max_memory_allocated() / 1e9:.02f} GB")
@@ -169,7 +167,6 @@ def train(
     val_data: List[Dict],
     checkpoint_dir: Path,
     out_dir: Path,
-    speed_monitor: SpeedMonitor,
 ) -> None:
     tokenizer = Tokenizer(checkpoint_dir)
     longest_seq_length, longest_seq_ix = get_longest_seq_length(train_data)
@@ -192,10 +189,12 @@ def train(
         # this assumes that all samples have a fixed length equal to the longest sequence length
         # which is most likely false during finetuning
         x = torch.randint(0, 1, (micro_batch_size, longest_seq_length))
-        measured_flops = measure_flops(meta_model, x)
+        forward_fn = lambda: meta_model(x)
+        measured_flops = measure_flops(meta_model, forward_fn, torch.Tensor.sum)
         fabric.print(f"Measured TFLOPs: {measured_flops * fabric.world_size / 1e12:.2f}")
         del meta_model, x
 
+    throughput = ThroughputMonitor(fabric, window_size=50)
     step_count = 0
     total_lengths = 0
     total_t0 = time.perf_counter()
@@ -228,17 +227,17 @@ def train(
 
         t1 = time.perf_counter()
         total_lengths += input_ids.size(1)
-        speed_monitor.on_train_batch_end(
-            (iter_num + 1) * micro_batch_size,
-            t1 - total_t0,
-            # this assumes that device FLOPs are the same and that all devices have the same batch size
-            fabric.world_size,
-            flops_per_batch=measured_flops,
+        throughput.update(
+            time=t1 - total_t0,
+            samples=(iter_num + 1) * micro_batch_size,
             lengths=total_lengths,
+            flops_per_batch=measured_flops,
         )
         if iter_num % log_interval == 0:
+            loss_item = loss.item()  # expensive device-to-host synchronization
+            throughput.compute_and_log(step=iter_num)
             fabric.print(
-                f"iter {iter_num} step {step_count}: loss {loss.item():.4f}, iter time:"
+                f"iter {iter_num} step {step_count}: loss {loss_item:.4f}, iter time:"
                 f" {(t1 - iter_t0) * 1000:.2f}ms{' (optimizer.step)' if not is_accumulating else ''}"
             )
 
@@ -246,7 +245,6 @@ def train(
             t0 = time.perf_counter()
             val_loss = validate(fabric, model, val_data, tokenizer)
             t1 = time.perf_counter() - t0
-            speed_monitor.eval_end(t1)
             fabric.print(f"step {iter_num}: val loss {val_loss.item():.4f}, val time: {t1 * 1000:.2f}ms")
             fabric.barrier()
         if not is_accumulating and step_count % save_interval == 0:
