@@ -1,18 +1,11 @@
-import glob
 import json
 import os
 import sys
 import time
-from multiprocessing import Process, cpu_count
 from pathlib import Path
-from typing import List
 
-import numpy as np
-import torch
 import zstandard as zstd
-from lightning.data import DatasetOptimizer, StreamingDataset
-from lightning.data.streaming.item_loader import TokensLoader
-from tqdm import tqdm
+from lightning.data.streaming import DataProcessor, DataChunkRecipe
 
 # support running without installing as a package
 wd = Path(__file__).parent.parent.resolve()
@@ -21,15 +14,19 @@ sys.path.append(str(wd))
 from lit_gpt import Tokenizer
 
 
-class SlimPajamaDataProcessor:
-    def __init__(self, tokenizer):
+class SlimPajamaDataRecipe(DataChunkRecipe):
+    def __init__(self, tokenizer: Tokenizer, chunk_size: int):
+        super().__init__(chunk_size)
         self.tokenizer = tokenizer
 
-    def prepare_dataset_structure(self, root, filepaths):
+    def prepare_structure(self, input_dir):
+        filepaths = []
+        for directory, _, filenames in os.walk(input_dir):
+            filepaths.extend([
+                os.path.join(directory, filename) for filename in filenames])
         return filepaths
 
-    def prepare_item(self, item_metadata):
-        filepath = item_metadata
+    def prepare_item(self, filepath):
         with zstd.open(open(filepath, "rb"), "rt", encoding="utf-8") as f:
             for row in f:
                 text = json.loads(row)["text"]
@@ -40,34 +37,27 @@ class SlimPajamaDataProcessor:
 
 
 def prepare(
-    source_path: Path = Path("data/SlimPajama-627B/train"),
+    input_dir: Path = Path("data/SlimPajama-627B/train"),
     tokenizer_path: Path = Path("checkpoints/Llama-2-7b-hf/"),
     name: str = "slimpajama/train",
-    chunk_size: int = 2049 * 10000,
+    chunk_size: int = 2049 * 8192,
     fast_dev_run: bool = False,
 ) -> None:
 
     tokenizer = Tokenizer(tokenizer_path)
-    optimizer = SlimPajamaDataProcessor(tokenizer=tokenizer)
-    dataset_optimizer = DatasetOptimizer(
+    data_recipe = SlimPajamaDataRecipe(tokenizer=tokenizer, chunk_size=chunk_size)
+    data_processor = DataProcessor(
         name=name,
-        src_dir=str(source_path),
+        input_dir=str(input_dir),
         fast_dev_run=fast_dev_run,
-        num_workers=os.cpu_count(),
-        chunk_size=chunk_size,
+        num_workers=48,
+        num_downloaders=1,
     )
 
     start_time = time.time()
-    dataset_optimizer.run(optimizer)
+    data_processor.run(data_recipe)
     elapsed_time = time.time() - start_time
     print(f"Time taken: {elapsed_time:.2f} seconds")
-
-    # Verify we can read the data
-    dataset = StreamingDataset(name=name, version="latest", item_loader=TokensLoader(block_size=2048))
-    print(f"Number of samples: {len(dataset)}")
-    print(dataset[0])
-    print(len(dataset[0]))
-    print(type(dataset[0]))
 
 
 if __name__ == "__main__":
