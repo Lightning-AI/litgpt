@@ -25,7 +25,7 @@ import torch.nn as nn
 import lightning as L
 from lightning.fabric.strategies import FSDPStrategy
 from lightning.fabric.utilities.throughput import Throughput, get_available_flops, measure_flops
-from lightning.data import StreamingDataset, StreamingDataLoader
+from lightning.data import StreamingDataset
 from lightning.data.streaming.item_loader import TokensLoader
 from lightning.pytorch.loggers import WandbLogger
 from torch.utils.data import DataLoader
@@ -52,7 +52,7 @@ learning_rate = 4e-4
 micro_batch_size = 1  # TODO: should be 8
 max_step = 715256 * 2
 warmup_steps = 2000
-log_step_interval = 10
+log_step_interval = 2  # TODO: tune this
 eval_iters = 100
 save_step_interval = 5000
 eval_step_interval = 5000
@@ -127,7 +127,9 @@ def main(fabric, resume):
     fabric.print(f"Time to instantiate model: {time.perf_counter() - t0:.02f} seconds.")
     fabric.print(f"Total parameters {num_parameters(model):,}")
 
-    # model = torch.compile(model, fullgraph=True)
+    # model = torch.compile(model, fullgraph=True, mode="reduce-overhead")
+    # model = torch.compile(model)
+
     model = fabric.setup(model)
     optimizer = torch.optim.AdamW(model.parameters(), lr=learning_rate, weight_decay=weight_decay, betas=(beta1, beta2))
     optimizer = fabric.setup_optimizers(optimizer)
@@ -207,35 +209,36 @@ def train(fabric, state, train_dataloader, val_dataloader, resume):
             state["step_count"] += 1
 
         state["iter_num"] += 1
-
+        
         total_lengths += input_ids.size(1)
-        loss = loss.item()
-        t1 = time.perf_counter()
-
-        metrics = {
-            "loss": loss,
-            "iter": state['iter_num'],
-            "step": state['step_count'],
-            "iter_time": (t1 - iter_t0),
-            "remaining_time": (t1 - total_t0) / (state['iter_num'] - initial_iter) * (max_iters - state['iter_num']),
-        }
-
-        fabric.print(
-            f"iter {metrics['iter']} step {metrics['step']}: loss {metrics['loss']:.4f}, iter time:"
-            f" {metrics['iter_time'] * 1000:.2f}, ms{' (optimizer.step)' if not is_accumulating else ''}"
-            f" remaining time: {metrics['remaining_time'] / 3600 / 24:.2f} days"
-        )
-        if state["iter_num"] % log_iter_interval == 0:
-            fabric.log_dict(metrics)
- 
         throughput.update(
             time=(time.time() - total_t0), 
             samples=((state["iter_num"] + 1) * micro_batch_size), 
             flops_per_batch=measured_flops,
             lengths=total_lengths,
         )
-        if state["iter_num"] % 10 == 0:
-            print(state["iter_num"], throughput.compute())
+
+        if state["iter_num"] % log_iter_interval == 0:
+            loss = loss.item()
+            t1 = time.perf_counter()
+            metrics = {
+                "loss": loss,
+                "iter": state['iter_num'],
+                "step": state['step_count'],
+                "iter_time": (t1 - iter_t0),
+                "remaining_time": (t1 - total_t0) / (state['iter_num'] - initial_iter) * (max_iters - state['iter_num']),
+            }
+
+            fabric.print(
+                f"iter {metrics['iter']} step {metrics['step']}: loss {metrics['loss']:.4f}, iter time:"
+                f" {metrics['iter_time'] * 1000:.2f}, ms{' (optimizer.step)' if not is_accumulating else ''}"
+                f" remaining time: {metrics['remaining_time'] / 3600 / 24:.2f} days"
+            )
+
+            throughput_metrics = throughput.compute()
+            print(state["iter_num"], throughput_metrics)
+            metrics.update(throughput_metrics)
+            fabric.log_dict(metrics)
 
         if val_dataloader is not None and not is_accumulating and state["step_count"] % eval_step_interval == 0:
             t0 = time.perf_counter()
