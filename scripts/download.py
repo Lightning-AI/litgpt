@@ -19,7 +19,7 @@ def download_from_hub(
     if repo_id is None:
         from lit_gpt.config import configs
 
-        options = [f"{config['org']}/{config['name']}" for config in configs]
+        options = [f"{config['hf_config']['org']}/{config['hf_config']['name']}" for config in configs]
         print("Please specify --repo_id <repo_id>. Available values:")
         print("\n".join(options))
         return

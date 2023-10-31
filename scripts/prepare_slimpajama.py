@@ -32,7 +32,7 @@ class SlimPajamaDataRecipe(DataChunkRecipe):
                 text = json.loads(row)["text"]
                 if json.loads(row)["meta"]["redpajama_set_name"] == "RedPajamaGithub":
                     continue # we don't want to include the github data
-                text_ids = self.tokenizer.encode(text)
+                text_ids = self.tokenizer.encode(text, bos=False, eos=True)
                 yield text_ids
 
 
@@ -40,7 +40,7 @@ def prepare(
     input_dir: Path = Path("data/SlimPajama-627B/train"),
     tokenizer_path: Path = Path("checkpoints/Llama-2-7b-hf/"),
     name: str = "slimpajama/train",
-    chunk_size: int = 2049 * 8192,
+    chunk_size: int = (2049 * 16384),
     fast_dev_run: bool = False,
 ) -> None:
 
@@ -50,7 +50,7 @@ def prepare(
         name=name,
         input_dir=str(input_dir),
         fast_dev_run=fast_dev_run,
-        num_workers=48,
+        num_workers=os.cpu_count(),
         num_downloaders=1,
     )
 

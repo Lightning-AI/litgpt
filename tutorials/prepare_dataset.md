@@ -237,7 +237,7 @@ The models in Lit-GPT expect datasets for instruction finetuning in the followin
     },
 ]
 ```
-(Note that epending on the task, the `"input"` text can be an empty string, as shown above.)
+(Note that depending on the task, the `"input"` text can be an empty string, as shown above.)
 
 Custom datasets can be prepared by either creating a new `scripts/prepare_dataset.py` script or reading the dataset
 from a CSV file.

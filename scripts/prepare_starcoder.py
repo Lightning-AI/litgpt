@@ -5,6 +5,7 @@ from pathlib import Path
 import traceback
 from lightning.data import DataProcessor, DataChunkRecipe
 import pyarrow.parquet as pq
+import traceback
 
 # support running without installing as a package
 wd = Path(__file__).parent.parent.resolve()
@@ -25,26 +26,31 @@ class StarCoderDataRecipe(DataChunkRecipe):
                 os.path.join(directory, filename) for filename in filenames if p.endswith(".parquet")])
         return filepaths
 
-    def prepare_item(self, filepath):
+    def prepare_item(self, item_metadata):
+        filepath = item_metadata
+        start = time.time()
+
         try:
             parquet_file = pq.ParquetFile(filepath)
-
-            # reduce RAM usage
+            # reduce RAM usage
             for batch in parquet_file.iter_batches(batch_size=8192, columns=["content"]):
                 for text in batch.to_pandas()['content']:
-                    yield self.tokenizer.encode(text)
-
-            parquet_file.close()
+                    yield self.tokenizer.encode(text, bos=False, eos=True)
         except Exception:
             print(traceback.format_exc())
-            pass
+            print(f"Error reading {filepath}")
+            return
+
+        parquet_file.close()
+        end = time.time()
+        print(f"Took {end - start:.2f} seconds total", filepath)
 
 
 def prepare(
     input_dir: Path = Path("data/starcoderdata"),
     tokenizer_path: Path = Path("checkpoints/Llama-2-7b-hf/"),
     name: str = "starcoder",
-    chunk_size: int = 2049 * 8192,
+    chunk_size: int = (2049 * 8192),
     fast_dev_run: bool = False,
 ) -> None:
 
@@ -55,7 +61,7 @@ def prepare(
         input_dir=str(input_dir),
         fast_dev_run=fast_dev_run,
         chunk_size=chunk_size,
-        num_workers=48,
+        num_workers=os.cpu_count(),
         num_downloaders=1,
     )
 

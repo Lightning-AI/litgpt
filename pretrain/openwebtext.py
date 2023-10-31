@@ -101,7 +101,7 @@ def main(fabric: L.Fabric, resume: Union[bool, Path]) -> None:
     state = {"model": model, "optimizer": optimizer, "hparams": hparams, "iter_num": 0, "step_count": 0}
 
     if resume is True:
-        resume = sorted(out_dir.glob("*.pth"))[-1]
+        resume = max(out_dir.glob("*.pth"), key=lambda p: int(p.name.split("-")[1]))
     if resume:
         fabric.print(f"Resuming training from {resume}")
         fabric.load(resume, state)
@@ -247,8 +247,6 @@ def get_lr(it: int) -> float:
 
 
 if __name__ == "__main__":
-    # Uncomment this line if you see an error: "Expected is_sm80 to be true, but got false"
-    # torch.backends.cuda.enable_flash_sdp(False)
     torch.set_float32_matmul_precision("high")
 
     from jsonargparse import CLI
