@@ -7,10 +7,10 @@ TODO LIST:
 - [x] check that seed is correctly set and each rank sees a partition of the data
 - [x] implement init-weights
 - [x] install torch nightly
-- [ ] use fake dataset to compare batches/sec numbers
+- [x] use fake dataset to compare batches/sec numbers
 - [ ] determine global batch size
-- [ ] add torch.compile
-- [ ] verify script can be resumed
+- [x] add torch.compile
+- [x] verify script can be resumed
 - [ ] resolve TODOs in script below
 """
 import glob
@@ -128,7 +128,7 @@ def main(fabric, resume):
     fabric.print(f"Total parameters {num_parameters(model):,}")
 
     # model = torch.compile(model, fullgraph=True, mode="reduce-overhead")
-    # model = torch.compile(model)
+    model = torch.compile(model)
 
     model = fabric.setup(model)
     optimizer = torch.optim.AdamW(model.parameters(), lr=learning_rate, weight_decay=weight_decay, betas=(beta1, beta2))
@@ -138,7 +138,7 @@ def main(fabric, resume):
 
     if resume is True:
         resume = max(out_dir.glob("*.pth"), key=(lambda p: int(p.name.split("-")[1])))
-    if resume :
+    if resume:
         fabric.print(f"Resuming training from {resume}")
         fabric.load(resume, state)
 
