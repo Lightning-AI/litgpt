@@ -131,7 +131,6 @@ def train(fabric: L.Fabric, state: dict, train_dataloader: DataLoader, val_datal
         del meta_model, x
 
     throughput = ThroughputMonitor(fabric, window_size=50)
-    total_lengths = 0
     total_t0 = time.perf_counter()
 
     train_iter = iter(train_dataloader)
@@ -142,11 +141,12 @@ def train(fabric: L.Fabric, state: dict, train_dataloader: DataLoader, val_datal
         for param_group in optimizer.param_groups:
             param_group["lr"] = lr
 
+        iter_num = state["iter_num"] + 1
         iter_t0 = time.perf_counter()
 
         input_ids, targets = next(train_iter)
 
-        is_accumulating = (state["iter_num"] + 1) % gradient_accumulation_steps != 0
+        is_accumulating = iter_num % gradient_accumulation_steps != 0
         with fabric.no_backward_sync(model, enabled=is_accumulating):
             logits = model(input_ids)
             loss = chunked_cross_entropy(logits, targets, chunk_size=0)
@@ -158,19 +158,19 @@ def train(fabric: L.Fabric, state: dict, train_dataloader: DataLoader, val_datal
             optimizer.zero_grad()
             state["step_count"] += 1
 
-        total_lengths += input_ids.size(1)
-        if state["iter_num"] % log_interval == 0:
+        if iter_num % log_interval == 0:
             loss_item = loss.item()  # expensive device-to-host synchronization
             t1 = time.perf_counter()
             throughput.update(
                 time=t1 - total_t0,
-                samples=(state["iter_num"] + 1) * micro_batch_size,
-                lengths=total_lengths,
+                batches=iter_num,
+                samples=iter_num * micro_batch_size,
+                lengths=iter_num * micro_batch_size * model.max_seq_length,
                 flops_per_batch=measured_flops,
             )
-            throughput.compute_and_log(step=state["iter_num"])
+            throughput.compute_and_log(step=iter_num)
             fabric.print(
-                f"iter {state['iter_num']} step {state['step_count']}: loss {loss_item:.4f}, iter time:"
+                f"iter {iter_num} step {state['step_count']}: loss {loss_item:.4f}, iter time:"
                 f" {(t1 - iter_t0) * 1000:.2f}ms{' (optimizer.step)' if not is_accumulating else ''}"
             )
 
@@ -178,10 +178,10 @@ def train(fabric: L.Fabric, state: dict, train_dataloader: DataLoader, val_datal
             t0 = time.perf_counter()
             val_loss = validate(fabric, model, val_dataloader)
             t1 = time.perf_counter() - t0
-            fabric.print(f"step {state['iter_num']}: val loss {val_loss.item():.4f}, val time: {t1 * 1000:.2f}ms")
+            fabric.print(f"step {iter_num}: val loss {val_loss.item():.4f}, val time: {t1 * 1000:.2f}ms")
             fabric.barrier()
         if not is_accumulating and state["step_count"] % save_interval == 0:
-            checkpoint_path = out_dir / f"iter-{state['iter_num']:06d}-ckpt.pth"
+            checkpoint_path = out_dir / f"iter-{iter_num:06d}-ckpt.pth"
             fabric.print(f"Saving checkpoint to {str(checkpoint_path)!r}")
             fabric.save(checkpoint_path, state)
 

@@ -141,7 +141,7 @@ def train(
     total_lengths = 0
     total_t0 = time.perf_counter()
 
-    for iter_num in range(max_iters):
+    for iter_num in range(1, max_iters + 1):
         if step_count <= warmup_steps:
             # linear warmup
             lr = learning_rate * step_count / warmup_steps
@@ -150,9 +150,9 @@ def train(
 
         iter_t0 = time.perf_counter()
 
-        input_ids, targets = get_batch(fabric, train_data, longest_seq_ix if iter_num == 0 else None)
+        input_ids, targets = get_batch(fabric, train_data, longest_seq_ix if iter_num == 1 else None)
 
-        is_accumulating = (iter_num + 1) % gradient_accumulation_iters != 0
+        is_accumulating = iter_num % gradient_accumulation_iters != 0
         with fabric.no_backward_sync(model, enabled=is_accumulating):
             logits = model(input_ids, lm_head_chunk_size=128)
             # shift the targets such that output n predicts token n+1
@@ -165,13 +165,14 @@ def train(
             optimizer.zero_grad()
             step_count += 1
 
-        total_lengths += input_ids.size(1)
+        total_lengths += (input_ids.size(0) * input_ids.size(1))
         if iter_num % log_interval == 0:
             loss_item = loss.item()  # expensive device-to-host synchronization
             t1 = time.perf_counter()
             throughput.update(
                 time=t1 - total_t0,
-                samples=(iter_num + 1) * micro_batch_size,
+                batches=iter_num,
+                samples=iter_num * micro_batch_size,
                 lengths=total_lengths,
             )
             throughput.compute_and_log(step=iter_num)
