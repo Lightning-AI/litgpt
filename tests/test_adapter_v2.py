@@ -94,9 +94,9 @@ def test_adapter_v2_script(tmp_path, fake_checkpoint_dir, monkeypatch):
         module.setup(data_dir=tmp_path, checkpoint_dir=fake_checkpoint_dir, out_dir=tmp_path, precision="32-true")
 
     assert {p.name for p in tmp_path.glob("*.pth")} == {
-        "iter-000001-ckpt.pth",
-        "iter-000003-ckpt.pth",
-        "iter-000005-ckpt.pth",
+        "iter-000002-ckpt.pth",
+        "iter-000004-ckpt.pth",
+        "iter-000006-ckpt.pth",
         "lit_model_adapter_finetuned.pth",
     }
     assert (tmp_path / "version_0" / "metrics.csv").is_file()
