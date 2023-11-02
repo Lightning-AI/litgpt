@@ -69,6 +69,44 @@ python finetune/adapter.py --out_dir out/adapter/my-model-finetuned --precision 
 
 Note that `mps` as the accelerator will be picked up automatically by Fabric when running on a modern Mac.
 
+### Quantization
+
+Optionally, finetuning using quantization can be enabled via the `--quantize` flag, for example using the 4-bit NormalFloat data type:
+
+```bash
+python finetune/adapter.py --quantize "bnb.nf4"
+```
+
+or using adapter_v2 with double-quantization:
+
+```bash
+python finetune/adapter_v2.py --quantize "bnb.nf4-dq"
+```
+
+The table below lists a comparison with different settings on finetuned with Adapter on Alpaca for 1,000 iterations using a microbatch size of 1.
+The advantages of quantization are more pronounced in larger models, such as Llama 2 7B.
+
+| Model       | Adapter Version | Settings                                    | Training Memory  | Training Time | Inference Memory |
+|-------------|-----------------|---------------------------------------------|------------------|---------------|------------------|
+| StableLM 3B | v1              | Default (bf16-mixed)                        | 25.52 GB         | 0.83 min      | 7.34 GB          |
+| StableLM 3B | v1              | --precision bf16-true                       | 9.12 GB          | 0.68 min      | 7.34 GB          |
+| StableLM 3B | v1              | --precision bf16-true --quantize bnb.nf4    | 8.23 GB          | 1.61 min      | 8.23 GB          |
+| StableLM 3B | v1              | --precision bf16-true --quantize bnb.nf4-dq | 8.23 GB          | 1.63 min      | 8.23 GB          |
+| Llama 2 7B  | v1              | Default (bf16-mixed)                        | OutOfMemoryError | N/A           | 13.58 GB         |
+| Llama 2 7B  | v1              | --precision bf16-true                       | 21.30 GB         | 1.61 min      | 13.58 GB         |
+| Llama 2 7B  | v1              | --precision bf16-true --quantize bnb.nf4    | 14.08 GB         | 3.08 min      | 14.08 GB         |
+| Llama 2 7B  | v1              | --precision bf16-true --quantize bnb.nf4-dq | 14.08 GB         | 3.17 min      | 14.08 GB         |
+| StableLM 3B | v2              | Default (bf16-mixed)                        | 30.05 GB         | 1.00 min      | 7.34 GB          |
+| StableLM 3B | v2              | --precision bf16-true                       | 10.73 GB         | 0.81 min      | 7.34 GB          |
+| StableLM 3B | v2              | --precision bf16-true --quantize bnb.nf4    | 8.23 GB          | 1.7 min       | 8.23 GB          |
+| StableLM 3B | v2              | --precision bf16-true --quantize bnb.nf4-dq | 8.23 GB          | 1.74 min      | 8.23 GB          |
+| Llama 2 7B  | v2              | Default (bf16-mixed)                        | OutOfMemoryError | N/A           | 13.59 GB         |
+| Llama 2 7B  | v2              | --precision bf16-true                       | 26.91 GB         | 2.12 min      | 13.59 GB         |
+| Llama 2 7B  | v2              | --precision bf16-true --quantize bnb.nf4    | 19.72 GB         | 3.38 min      | 14.09 GB         |
+| Llama 2 7B  | v2              | --precision bf16-true --quantize bnb.nf4-dq | 19.39 GB         | 3.47 min      | 14.09 GB         |
+
+For additional benchmarks and resource requirements, please see the [Resource Tables](resource-tables.md).
+
 ## Test the model
 
 You can test the finetuned model with your own instructions by running:
