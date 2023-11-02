@@ -16,7 +16,8 @@ from lightning.data import StreamingDataset
 from lightning.data.streaming.item_loader import TokensLoader
 from lightning.fabric.strategies import FSDPStrategy
 from lightning.fabric.utilities.throughput import Throughput, get_available_flops, measure_flops
-from lightning.pytorch.loggers import CSVLogger, WandbLogger
+from lightning.fabric.loggers import CSVLogger
+from lightning.pytorch.loggers import WandbLogger
 from torch.utils.data import DataLoader
 
 # support running without installing as a package
@@ -66,7 +67,7 @@ log_iter_interval = log_step_interval * gradient_accumulation_steps
 hparams = {k: v for k, v in locals().items() if isinstance(v, (int, float, str)) and not k.startswith("_")}
 
 
-def setup(precision: str = "bf16-mixed", resume: Union[bool, Path] = False):
+def setup(resume: Union[bool, Path] = False):
     if use_wandb:
         logger = WandbLogger(project="tinyllama", offline=True)
     else:
@@ -83,11 +84,11 @@ def setup(precision: str = "bf16-mixed", resume: Union[bool, Path] = False):
     else:
         strategy = "auto"
 
-    fabric = L.Fabric(devices=devices, strategy=strategy, precision=precision, loggers=[logger])
+    fabric = L.Fabric(devices=devices, strategy=strategy, precision="bf16-mixed", loggers=[logger])
     fabric.launch()
 
     fabric.print(hparams)
-    if fabric.global_rank == 0:
+    if use_wandb:
         logger.experiment.config.update(hparams)
     
     main(fabric, resume)
@@ -144,7 +145,7 @@ def train(fabric, state, train_dataloader, val_dataloader, resume):
 
     # if val_dataloader is not None:
     #     validate(fabric, model, val_dataloader)  # sanity check
-    available_flops = get_available_flops(fabric.device, dtype=torch.get_default_dtype())  # what should dtype be?
+    available_flops = get_available_flops(fabric.device, dtype=torch.bfloat16)
     throughput = Throughput(available_flops=available_flops, world_size=fabric.world_size, window_size=5)
 
     with torch.device("meta"):
@@ -199,18 +200,16 @@ def train(fabric, state, train_dataloader, val_dataloader, resume):
 
         state["iter_num"] += 1
         
-        total_lengths += input_ids.numel()
-
-        loss = loss.item()
-        t1 = time.perf_counter()
-        throughput.update(
-            time=(t1 - total_t0), 
-            flops_per_batch=measured_flops,
-            samples=(state["iter_num"] * micro_batch_size),
-            lengths=total_lengths,
-        )
-
         if state["iter_num"] % log_iter_interval == 0:
+            loss = loss.item()
+            t1 = time.perf_counter()
+            throughput.update(
+                time=(t1 - total_t0), 
+                flops_per_batch=(measured_flops * log_iter_interval),
+                batches=state["iter_num"],
+                samples=(state["iter_num"] * micro_batch_size),
+                lengths=(state["iter_num"] * micro_batch_size * model.config.block_size),
+            )
             metrics = {
                 "loss": loss,
                 "iter": state['iter_num'],
@@ -272,6 +271,11 @@ def validate(fabric: L.Fabric, model: nn.Module, val_dataloader: DataLoader) -> 
 def create_dataloaders(fabric: L.Fabric, batch_size: int, block_size: int) -> Tuple[DataLoader, DataLoader]:
     # Increase by one because we need the next word as well
     effective_block_size = block_size + 1
+
+    # return (
+    #     DataLoader(FakeDataset(), batch_size=batch_size, pin_memory=True, num_workers=8),
+    #     DataLoader(FakeDataset(), batch_size=batch_size, pin_memory=True, num_workers=8)
+    # )
 
     train_datasets = [
         # TODO: change to slimpajama/train and starcoder
@@ -336,6 +340,12 @@ def init_weights(module: nn.Module, n_layer: int):
     for name, param in module.named_parameters():
         if (name == "proj.weight" and isinstance(module, LLaMAMLP)):
             nn.init.normal_(param, mean=0.0, std=(1 / math.sqrt(param.shape[-1]) / n_layer))
+
+# class FakeDataset(torch.utils.data.Dataset):
+#     def __getitem__(self, idx):
+#         return torch.randint(0, 10, size=(2049, ))
+#     def __len__(self):
+#         return 100000
 
 
 if __name__ == "__main__":
