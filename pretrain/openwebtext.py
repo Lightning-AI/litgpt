@@ -166,7 +166,7 @@ def train(fabric: L.Fabric, state: dict, train_dataloader: DataLoader, val_datal
                 batches=iter_num,
                 samples=iter_num * micro_batch_size,
                 lengths=iter_num * micro_batch_size * model.max_seq_length,
-                flops_per_batch=measured_flops,
+                flops=measured_flops * log_interval,
             )
             throughput.compute_and_log(step=iter_num)
             fabric.print(

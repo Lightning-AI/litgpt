@@ -191,7 +191,7 @@ def train(
                 batches=iter_num,
                 samples=iter_num * micro_batch_size,
                 lengths=iter_num * micro_batch_size * longest_seq_length,
-                flops_per_batch=measured_flops,
+                flops=measured_flops * log_interval,
             )
             throughput.compute_and_log(step=iter_num)
             rank_print(
