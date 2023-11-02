@@ -1,4 +1,5 @@
 import json
+from copy import deepcopy
 from dataclasses import dataclass, field
 from pathlib import Path
 from typing import Any, Literal, Optional, Type, Union
@@ -64,9 +65,7 @@ class Config:
 
         # vocab size should be a power of 2 to be optimal on hardware. compute the closest value
         if self.padded_vocab_size is None:
-            self.padded_vocab_size = find_multiple(
-                self.vocab_size, self.padding_multiple
-            )
+            self.padded_vocab_size = find_multiple(self.vocab_size, self.padding_multiple)
         else:
             # vocab size shouldn't be larger than padded vocab size
             self.vocab_size = min(self.vocab_size, self.padded_vocab_size)
@@ -134,10 +133,7 @@ class Config:
 ########################
 configs = [
     # https://huggingface.co/stabilityai/stablelm-base-alpha-3b/blob/main/config.json
-    dict(
-        name="stablelm-base-alpha-3b",
-        hf_config=dict(org="stabilityai", name="stablelm-base-alpha-3b"),
-    ),
+    dict(name="stablelm-base-alpha-3b", hf_config=dict(org="stabilityai", name="stablelm-base-alpha-3b")),
     # https://huggingface.co/stabilityai/stablelm-base-alpha-7b/blob/main/config.json
     dict(
         name="stablelm-base-alpha-7b",
@@ -147,11 +143,7 @@ configs = [
         padding_multiple=256,
     ),
     # https://huggingface.co/stabilityai/stablelm-tuned-alpha-3b/blob/main/config.json
-    dict(
-        name="stablelm-tuned-alpha-3b",
-        hf_config=dict(org="stabilityai", name="stablelm-tuned-alpha-3b"),
-        n_head=32,
-    ),
+    dict(name="stablelm-tuned-alpha-3b", hf_config=dict(org="stabilityai", name="stablelm-tuned-alpha-3b"), n_head=32),
     # https://huggingface.co/stabilityai/stablelm-tuned-alpha-7b/blob/main/config.json
     dict(
         name="stablelm-tuned-alpha-7b",
@@ -244,7 +236,7 @@ pythia = [
 ]
 configs.extend(pythia)
 for c in pythia:
-    copy = c.copy()
+    copy = deepcopy(c)
     copy["name"] = f"{c['name']}-deduped"
     copy["hf_config"]["name"] = f"{c['hf_config']['name']}-deduped"
     configs.append(copy)
@@ -288,7 +280,7 @@ redpajama_incite = [
 ]
 for c in redpajama_incite:
     for kind in ("Base", "Chat", "Instruct"):
-        copy = c.copy()
+        copy = deepcopy(c)
         copy["name"] = c["name"].format(kind)
         copy["hf_config"]["name"] = c["hf_config"]["name"].format(kind)
         configs.append(copy)
@@ -331,7 +323,7 @@ falcon = [
 ]
 for c in falcon:
     for kind in ("", "-instruct"):
-        copy = c.copy()
+        copy = deepcopy(c)
         copy["name"] = c["name"].format(kind)
         copy["hf_config"]["name"] = c["hf_config"]["name"].format(kind)
         configs.append(copy)
@@ -352,7 +344,7 @@ falcon180b = dict(
 )
 
 for kind in ("", "-chat"):
-    copy = falcon180b.copy()
+    copy = deepcopy(falcon180b)
     copy["name"] = falcon180b["name"].format(kind)
     copy["hf_config"]["name"] = falcon180b["hf_config"]["name"].format(kind)
     configs.append(copy)
@@ -696,7 +688,7 @@ llama_2 = [
 ]
 for c in llama_2:
     for kind in ("", "-chat"):
-        copy = c.copy()
+        copy = deepcopy(c)
         copy["name"] = c["name"].format(kind)
         copy["hf_config"]["name"] = c["hf_config"]["name"].format(kind)
         configs.append(copy)
@@ -1136,7 +1128,7 @@ mistral = [
 ]
 for c in mistral:
     for kind in ("", "Instruct-"):
-        copy = c.copy()
+        copy = deepcopy(c)
         copy["name"] = c["name"].format(kind)
         copy["hf_config"]["name"] = c["hf_config"]["name"].format(kind)
         configs.append(copy)
@@ -1163,7 +1155,7 @@ tiny_llama = [
         _mlp_class="LLaMAMLP",
         intermediate_size=5632,
         n_query_groups=4,
-    ),
+    )
 ]
 configs.extend(tiny_llama)
 
