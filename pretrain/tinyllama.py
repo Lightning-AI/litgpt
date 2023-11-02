@@ -127,9 +127,7 @@ def main(fabric, resume):
     fabric.print(f"Time to instantiate model: {time.perf_counter() - t0:.02f} seconds.")
     fabric.print(f"Total parameters {num_parameters(model):,}")
 
-    # model = torch.compile(model, fullgraph=True, mode="reduce-overhead")
     model = torch.compile(model)
-
     model = fabric.setup(model)
     optimizer = torch.optim.AdamW(model.parameters(), lr=learning_rate, weight_decay=weight_decay, betas=(beta1, beta2))
     optimizer = fabric.setup_optimizers(optimizer)
@@ -210,17 +208,18 @@ def train(fabric, state, train_dataloader, val_dataloader, resume):
 
         state["iter_num"] += 1
         
-        total_lengths += input_ids.size(1)
+        total_lengths += input_ids.numel()
+
+        loss = loss.item()
+        t1 = time.perf_counter()
         throughput.update(
-            time=(time.time() - total_t0), 
-            samples=((state["iter_num"] + 1) * micro_batch_size), 
+            time=(t1 - total_t0), 
             flops_per_batch=measured_flops,
+            samples=(state["iter_num"] * micro_batch_size),
             lengths=total_lengths,
         )
 
         if state["iter_num"] % log_iter_interval == 0:
-            loss = loss.item()
-            t1 = time.perf_counter()
             metrics = {
                 "loss": loss,
                 "iter": state['iter_num'],
