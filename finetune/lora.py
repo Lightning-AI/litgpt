@@ -209,7 +209,7 @@ def train(
                 scheduler.step()
             step_count += 1
 
-        total_lengths += (input_ids.size(0) * input_ids.size(1))
+        total_lengths += input_ids.numel()
         if iter_num % log_interval == 0:
             loss_item = loss.item()  # expensive device-to-host synchronization
             t1 = time.perf_counter()
