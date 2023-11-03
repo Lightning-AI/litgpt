@@ -3,9 +3,10 @@ import sys
 import time
 from pathlib import Path
 import traceback
-from lightning.data import DataProcessor, DataChunkRecipe
+from lightning.data.streaming import DataProcessor, DataChunkRecipe
 import pyarrow.parquet as pq
 import traceback
+
 
 # support running without installing as a package
 wd = Path(__file__).parent.parent.resolve()
@@ -14,17 +15,14 @@ sys.path.append(str(wd))
 from lit_gpt import Tokenizer
 
 
-class StarCoderDataRecipe(DataChunkRecipe):
+class StarcoderDataRecipe(DataChunkRecipe):
     def __init__(self, tokenizer: Tokenizer, chunk_size: int):
         super().__init__(chunk_size)
         self.tokenizer = tokenizer
 
     def prepare_structure(self, input_dir):
-        filepaths = []
-        for directory, _, filenames in os.walk(input_dir):
-            filepaths.extend([
-                os.path.join(directory, filename) for filename in filenames if p.endswith(".parquet")])
-        return filepaths
+        files = Path(input_dir).rglob("*.parquet")
+        return [str(file) for file in files]
 
     def prepare_item(self, item_metadata):
         filepath = item_metadata
@@ -36,6 +34,7 @@ class StarCoderDataRecipe(DataChunkRecipe):
             for batch in parquet_file.iter_batches(batch_size=8192, columns=["content"]):
                 for text in batch.to_pandas()['content']:
                     yield self.tokenizer.encode(text, bos=False, eos=True)
+
         except Exception:
             print(traceback.format_exc())
             print(f"Error reading {filepath}")
@@ -55,12 +54,11 @@ def prepare(
 ) -> None:
 
     tokenizer = Tokenizer(tokenizer_path)
-    data_recipe = StarCoderDataRecipe(tokenizer=tokenizer, chunk_size=chunk_size)
+    data_recipe = StarcoderDataRecipe(tokenizer=tokenizer, chunk_size=chunk_size)
     data_processor = DataProcessor(
         name=name,
         input_dir=str(input_dir),
         fast_dev_run=fast_dev_run,
-        chunk_size=chunk_size,
         num_workers=os.cpu_count(),
         num_downloaders=1,
     )

@@ -20,11 +20,8 @@ class SlimPajamaDataRecipe(DataChunkRecipe):
         self.tokenizer = tokenizer
 
     def prepare_structure(self, input_dir):
-        filepaths = []
-        for directory, _, filenames in os.walk(input_dir):
-            filepaths.extend([
-                os.path.join(directory, filename) for filename in filenames])
-        return filepaths
+        files = Path(input_dir).rglob("*.zst")
+        return [str(file) for file in files]
 
     def prepare_item(self, filepath):
         with zstd.open(open(filepath, "rb"), "rt", encoding="utf-8") as f:

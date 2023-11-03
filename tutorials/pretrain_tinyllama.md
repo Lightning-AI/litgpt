@@ -54,7 +54,7 @@ Then, run the preprocessing script for each dataset and split.
 **Starcoder:**
 ```bash
 python scripts/prepare_starcoder.py \
-  --source_path data/starcoderdata \
+  --input_dir data/starcoderdata \
   --tokenizer_path checkpoints/Llama-2-7b-hf \
   --name starcoder
 ```
@@ -62,17 +62,17 @@ python scripts/prepare_starcoder.py \
 **SlimPajama:**
 ```bash
 python scripts/prepare_slimpajama.py \
-  --source_path data/slimpajama/validation \
+  --input_dir data/slimpajama/validation \
   --tokenizer_path checkpoints/Llama-2-7b-hf \
   --name slimpajama/val
 
 python scripts/prepare_slimpajama.py \
-  --source_path data/slimpajama/test \
+  --input_dir data/slimpajama/test \
   --tokenizer_path checkpoints/Llama-2-7b-hf \
   --name slimpajama/test
 
 python scripts/prepare_slimpajama.py \
-  --source_path data/slimpajama/train \
+  --input_dir data/slimpajama/train \
   --tokenizer_path checkpoints/Llama-2-7b-hf \
   --name slimpajama/train
 ```
