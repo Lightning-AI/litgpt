@@ -1,48 +1,38 @@
 """
 This script is adapted from TinyLlama:
 https://github.com/jzhang38/TinyLlama/blob/main/pretrain/tinyllama.py
-
-
-TODO LIST:
-- [x] check that seed is correctly set and each rank sees a partition of the data
-- [x] implement init-weights
-- [x] install torch nightly
-- [x] use fake dataset to compare batches/sec numbers
-- [ ] determine global batch size
-- [x] add torch.compile
-- [x] verify script can be resumed
-- [ ] resolve TODOs in script below
 """
-import glob
 import math
 import sys
 import time
+from functools import partial
 from pathlib import Path
-from typing import Optional, Tuple, Union
-import math
+from typing import Tuple, Union
+
+import lightning as L
 import torch
 import torch.nn as nn
-import lightning as L
-from lightning.fabric.strategies import FSDPStrategy
-from lightning.fabric.utilities.throughput import Throughput, get_available_flops, measure_flops
 from lightning.data import StreamingDataset
 from lightning.data.streaming.item_loader import TokensLoader
+from lightning.fabric.strategies import FSDPStrategy
+from lightning.fabric.utilities.throughput import Throughput, get_available_flops, measure_flops
+from lightning.fabric.loggers import CSVLogger
 from lightning.pytorch.loggers import WandbLogger
 from torch.utils.data import DataLoader
-from functools import partial
 
 # support running without installing as a package
 wd = Path(__file__).parent.parent.resolve()
 sys.path.append(str(wd))
 
-from lit_gpt.model import GPT, Block, Config, CausalSelfAttention, LLaMAMLP
-from lit_gpt.packed_dataset import CombinedDataset, PackedDataset
+from lit_gpt.model import GPT, Block, Config, LLaMAMLP
+from lit_gpt.packed_dataset import CombinedDataset
 from lit_gpt.utils import chunked_cross_entropy, num_parameters
 
 # System settings
 model_name = "tiny-llama-1.1b"
 name = "lit-tiny-llama-1.1b"
 out_dir = Path("out") / name
+use_wandb = False
 
 # Hyperparameters
 devices = 4  # TODO: undo: 8 needed
@@ -75,10 +65,14 @@ log_iter_interval = log_step_interval * gradient_accumulation_steps
 
 
 hparams = {k: v for k, v in locals().items() if isinstance(v, (int, float, str)) and not k.startswith("_")}
-logger = WandbLogger(project="tinyllama", offline=True)
 
 
-def setup(precision: str = "bf16-mixed", resume: Union[bool, Path] = False):
+def setup(resume: Union[bool, Path] = False):
+    if use_wandb:
+        logger = WandbLogger(project="tinyllama", offline=True)
+    else:
+        logger = CSVLogger(root_dir="logs", name="tinyllama")
+
     if devices > 1:
         strategy = FSDPStrategy(
             auto_wrap_policy={Block},
@@ -90,11 +84,11 @@ def setup(precision: str = "bf16-mixed", resume: Union[bool, Path] = False):
     else:
         strategy = "auto"
 
-    fabric = L.Fabric(devices=devices, strategy=strategy, precision=precision, loggers=[logger])
+    fabric = L.Fabric(devices=devices, strategy=strategy, precision="bf16-mixed", loggers=[logger])
     fabric.launch()
 
     fabric.print(hparams)
-    if fabric.global_rank == 0:
+    if use_wandb:
         logger.experiment.config.update(hparams)
     
     main(fabric, resume)
@@ -107,9 +101,7 @@ def main(fabric, resume):
     config = Config.from_name(model_name)
 
     train_dataloader, val_dataloader = create_dataloaders(
-        batch_size=micro_batch_size,
-        block_size=config.block_size,
-        fabric=fabric,
+        fabric, batch_size=micro_batch_size, block_size=config.block_size
     )
     if val_dataloader is None:
         train_dataloader = fabric.setup_dataloaders(train_dataloader)
@@ -127,9 +119,7 @@ def main(fabric, resume):
     fabric.print(f"Time to instantiate model: {time.perf_counter() - t0:.02f} seconds.")
     fabric.print(f"Total parameters {num_parameters(model):,}")
 
-    # model = torch.compile(model, fullgraph=True, mode="reduce-overhead")
     model = torch.compile(model)
-
     model = fabric.setup(model)
     optimizer = torch.optim.AdamW(model.parameters(), lr=learning_rate, weight_decay=weight_decay, betas=(beta1, beta2))
     optimizer = fabric.setup_optimizers(optimizer)
@@ -155,7 +145,7 @@ def train(fabric, state, train_dataloader, val_dataloader, resume):
 
     # if val_dataloader is not None:
     #     validate(fabric, model, val_dataloader)  # sanity check
-    available_flops = get_available_flops(fabric.device, dtype=torch.get_default_dtype())  # what should dtype be?
+    available_flops = get_available_flops(fabric.device, dtype=torch.bfloat16)
     throughput = Throughput(available_flops=available_flops, world_size=fabric.world_size, window_size=5)
 
     with torch.device("meta"):
@@ -210,17 +200,16 @@ def train(fabric, state, train_dataloader, val_dataloader, resume):
 
         state["iter_num"] += 1
         
-        total_lengths += input_ids.size(1)
-        throughput.update(
-            time=(time.time() - total_t0), 
-            samples=((state["iter_num"] + 1) * micro_batch_size), 
-            flops_per_batch=measured_flops,
-            lengths=total_lengths,
-        )
-
         if state["iter_num"] % log_iter_interval == 0:
             loss = loss.item()
             t1 = time.perf_counter()
+            throughput.update(
+                time=(t1 - total_t0), 
+                flops_per_batch=(measured_flops * log_iter_interval),
+                batches=state["iter_num"],
+                samples=(state["iter_num"] * micro_batch_size),
+                lengths=(state["iter_num"] * micro_batch_size * model.config.block_size),
+            )
             metrics = {
                 "loss": loss,
                 "iter": state['iter_num'],
@@ -231,23 +220,27 @@ def train(fabric, state, train_dataloader, val_dataloader, resume):
 
             fabric.print(
                 f"iter {metrics['iter']} step {metrics['step']}: loss {metrics['loss']:.4f}, iter time:"
-                f" {metrics['iter_time'] * 1000:.2f}, ms{' (optimizer.step)' if not is_accumulating else ''}"
+                f" {metrics['iter_time'] * 1000:.2f} ms,{' (optimizer.step)' if not is_accumulating else ''}"
                 f" remaining time: {metrics['remaining_time'] / 3600 / 24:.2f} days"
             )
 
             throughput_metrics = throughput.compute()
-            print(state["iter_num"], throughput_metrics)
+            # print(state["iter_num"], throughput_metrics)  # TODO: remove debug print
             metrics.update(throughput_metrics)
-            fabric.log_dict(metrics)
+            fabric.log_dict(metrics, step=state["step_count"])
 
         if val_dataloader is not None and not is_accumulating and state["step_count"] % eval_step_interval == 0:
             t0 = time.perf_counter()
             val_loss = validate(fabric, model, val_dataloader)
-            t1 = time.perf_counter() - t0
+            td = time.perf_counter() - t0
 
-            fabric.print(f"step {state['iter_num']}: val loss {val_loss:.4f}, val time: {t1 * 1000:.2f}ms")
-            fabric.log_dict({"metric/val_loss": val_loss.item(), "total_tokens":  model.config.block_size * (state["iter_num"] + 1) * micro_batch_size * fabric.world_size},state["step_count"])
-            fabric.log_dict({"metric/val_ppl": math.exp(val_loss.item()), "total_tokens":  model.config.block_size * (state["iter_num"] + 1) * micro_batch_size * fabric.world_size},state["step_count"])
+            fabric.print(f"iter {state['iter_num']}: val loss {val_loss:.4f}, val time: {td * 1000:.2f} ms")
+            metrics = {
+                "val_loss": val_loss,
+                "total_tokens": model.config.block_size * state["iter_num"] * micro_batch_size * fabric.world_size,
+                "val_ppl": math.exp(val_loss),
+            }
+            fabric.log_dict(metrics, step=state["step_count"])
             fabric.barrier()
 
         if not is_accumulating and state["step_count"] % save_step_interval == 0:
@@ -257,7 +250,7 @@ def train(fabric, state, train_dataloader, val_dataloader, resume):
 
 
 @torch.no_grad()
-def validate(fabric: L.Fabric, model: nn.Module, val_dataloader: DataLoader) -> torch.Tensor:
+def validate(fabric: L.Fabric, model: nn.Module, val_dataloader: DataLoader) -> float:
     fabric.print("Validating ...")
     model.eval()
 
@@ -269,24 +262,20 @@ def validate(fabric: L.Fabric, model: nn.Module, val_dataloader: DataLoader) -> 
         targets = val_data[:, 1:(model.config.block_size + 1)].contiguous().long()
         logits = model(input_ids)
         loss = chunked_cross_entropy(logits, targets, chunk_size=0)
-        losses[k] = loss.item()
+        losses[k] = loss
 
-    out = losses.mean()
     model.train()
-    return out
+    return losses.mean().item()
 
 
-def create_dataloaders(
-    batch_size: int,
-    block_size: int,
-    fabric,
-) -> Tuple[DataLoader, DataLoader]:
-    
-    # if True:  # TODO: undo
-    #     return DataLoader(FakeDataset(), batch_size=batch_size, shuffle=False, pin_memory=True)
-
+def create_dataloaders(fabric: L.Fabric, batch_size: int, block_size: int) -> Tuple[DataLoader, DataLoader]:
     # Increase by one because we need the next word as well
     effective_block_size = block_size + 1
+
+    # return (
+    #     DataLoader(FakeDataset(), batch_size=batch_size, pin_memory=True, num_workers=8),
+    #     DataLoader(FakeDataset(), batch_size=batch_size, pin_memory=True, num_workers=8)
+    # )
 
     train_datasets = [
         # TODO: change to slimpajama/train and starcoder
@@ -298,8 +287,8 @@ def create_dataloaders(
             drop_last=True,
         ),
         StreamingDataset(
-            name="slimpajama/test",
-            version="latest", 
+            name="starcoder",
+            version=13, 
             item_loader=TokensLoader(block_size=effective_block_size), 
             shuffle=True,
             drop_last=True,
@@ -352,13 +341,11 @@ def init_weights(module: nn.Module, n_layer: int):
         if (name == "proj.weight" and isinstance(module, LLaMAMLP)):
             nn.init.normal_(param, mean=0.0, std=(1 / math.sqrt(param.shape[-1]) / n_layer))
 
-
-# TODO: remove
-class FakeDataset(torch.utils.data.Dataset):
-    def __len__(self):
-        return 1000
-    def __getitem__(self, index):
-        return torch.randint(0, 10, size=(2049,))
+# class FakeDataset(torch.utils.data.Dataset):
+#     def __getitem__(self, idx):
+#         return torch.randint(0, 10, size=(2049, ))
+#     def __len__(self):
+#         return 100000
 
 
 if __name__ == "__main__":

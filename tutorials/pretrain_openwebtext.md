@@ -19,7 +19,7 @@ pip install datasets
 
 python scripts/prepare_openwebtext.py \
   --checkpoint_dir checkpoints/meta-llama/Llama-2-7b-hf/ \
-  --destination_path data/lit-openwebtext
+  --destination_path data/openwebtext
 ```
 
 The script will take about 15 min to run.
@@ -31,8 +31,7 @@ Running the pretraining script with its default settings requires at least 4 GPU
 
 ```bash
 python pretrain/openwebtext.py \
-  --devices 4 \
-  --train_data_dir data/lit-openwebtext
+  --devices 4
 ```
 
 The script will save checkpoints periodically to the folder `out/`.
@@ -52,15 +51,7 @@ The currently supported model names are contained in the [config.py](https://git
 You can 
 
 1) either search this file for lines containing "name =",
-2) run `python scripts/download.py` without additional command line arguments,
-3) or obtain the list of all supported models programmatically, as follows:
-
-```python
-from lit_gpt.config import configs
-
-for conf in configs:
-    print(conf["name"])
-```
+2) or run `python scripts/download.py` without additional command line arguments,
 
 Keep in mind that the original LLaMA training for the 7B model required 83k A100 80GB
 hours (on a bigger dataset). However, for full pretraining on OpenWebText, you'll likely still need access to a cluster.
@@ -101,8 +92,7 @@ python scripts/prepare_openwebtext.py \
   --destination_path data/lit-openwebtext
 
 python pretrain/openwebtext.py \
-  --devices 4 \
-  --train_data_dir data/lit-openwebtext
+  --devices 4
 ```
 
 ## Using the PyTorch Lightning `Trainer`
@@ -113,6 +103,5 @@ The PyTorch Lightning Trainer, which shares the same accelerator code with Fabri
 
 ```bash
 python pretrain/openwebtext_trainer.py \
-  --devices 4 \
-  --train_data_dir data/lit-openwebtext
+  --devices 4
 ```
