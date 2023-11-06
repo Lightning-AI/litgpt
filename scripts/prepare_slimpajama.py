@@ -35,8 +35,8 @@ class SlimPajamaDataRecipe(DataChunkRecipe):
 
 def prepare(
     input_dir: Path = Path("data/SlimPajama-627B/train"),
+    output_dir: Path = Path("data/slimpajama/train"),
     tokenizer_path: Path = Path("checkpoints/Llama-2-7b-hf/"),
-    name: str = "slimpajama/train",
     chunk_size: int = (2049 * 16384),
     fast_dev_run: bool = False,
 ) -> None:
@@ -44,8 +44,8 @@ def prepare(
     tokenizer = Tokenizer(tokenizer_path)
     data_recipe = SlimPajamaDataRecipe(tokenizer=tokenizer, chunk_size=chunk_size)
     data_processor = DataProcessor(
-        name=name,
         input_dir=str(input_dir),
+        output_dir=str(output_dir),
         fast_dev_run=fast_dev_run,
         num_workers=os.cpu_count(),
         num_downloaders=1,

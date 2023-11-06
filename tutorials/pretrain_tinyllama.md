@@ -32,8 +32,8 @@ git lfs install
 ```
 
 ```bash
-git clone https://huggingface.co/datasets/cerebras/slimpajama-627b data/slimpajama
-git clone https://huggingface.co/datasets/bigcode/starcoderdata data/starcoderdata
+git clone https://huggingface.co/datasets/cerebras/slimpajama-627b data/slimpajama-raw
+git clone https://huggingface.co/datasets/bigcode/starcoderdata data/starcoderdata-raw
 ```
 
 
@@ -54,27 +54,27 @@ Then, run the preprocessing script for each dataset and split.
 **Starcoder:**
 ```bash
 python scripts/prepare_starcoder.py \
-  --input_dir data/starcoderdata \
+  --input_dir data/starcoderdata-raw \
+  --output_dir data/starcoder \
   --tokenizer_path checkpoints/Llama-2-7b-hf \
-  --name starcoder
 ```
 
 **SlimPajama:**
 ```bash
 python scripts/prepare_slimpajama.py \
-  --input_dir data/slimpajama/validation \
+  --input_dir data/slimpajama-raw/validation \
+  --output_dir data/slimpajama/val \
   --tokenizer_path checkpoints/Llama-2-7b-hf \
-  --name slimpajama/val
 
 python scripts/prepare_slimpajama.py \
-  --input_dir data/slimpajama/test \
+  --input_dir data/slimpajama-raw/test \
+  --output_dir data/slimpajama/test \
   --tokenizer_path checkpoints/Llama-2-7b-hf \
-  --name slimpajama/test
 
 python scripts/prepare_slimpajama.py \
-  --input_dir data/slimpajama/train \
+  --input_dir data/slimpajama-raw/train \
+  --output_dir data/slimpajama/train \
   --tokenizer_path checkpoints/Llama-2-7b-hf \
-  --name slimpajama/train
 ```
 
 If you want to run on a small slice of the datasets first, pass the flag `--fast_dev_run=true` to the commands above.

@@ -47,8 +47,8 @@ class StarcoderDataRecipe(DataChunkRecipe):
 
 def prepare(
     input_dir: Path = Path("data/starcoderdata"),
+    output_dir: Path = Path("data/starcoder"),
     tokenizer_path: Path = Path("checkpoints/Llama-2-7b-hf/"),
-    name: str = "starcoder",
     chunk_size: int = (2049 * 8192),
     fast_dev_run: bool = False,
 ) -> None:
@@ -56,8 +56,8 @@ def prepare(
     tokenizer = Tokenizer(tokenizer_path)
     data_recipe = StarcoderDataRecipe(tokenizer=tokenizer, chunk_size=chunk_size)
     data_processor = DataProcessor(
-        name=name,
         input_dir=str(input_dir),
+        output_dir=str(output_dir),
         fast_dev_run=fast_dev_run,
         num_workers=os.cpu_count(),
         num_downloaders=1,
