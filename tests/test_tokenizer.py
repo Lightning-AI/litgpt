@@ -70,3 +70,10 @@ def test_tokenizer_against_hf(config):
     expected = theirs.encode(prompt)
     assert actual.tolist() == expected
     assert ours.decode(actual) == theirs.decode(expected, skip_special_tokens=True)
+
+
+def test_tokenizer_input_validation():
+    from lit_gpt.tokenizer import Tokenizer
+
+    with pytest.raises(NotADirectoryError, match="The checkpoint directory does not exist"):
+        Tokenizer("cocofruit")
