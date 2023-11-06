@@ -278,17 +278,15 @@ def create_dataloaders(fabric: L.Fabric, batch_size: int, block_size: int) -> Tu
     # )
 
     train_datasets = [
-        # TODO: change to slimpajama/train and starcoder
         StreamingDataset(
-            name="slimpajama/val",
-            version="latest", 
+            input_dir="data/slimpajama/train",
             item_loader=TokensLoader(block_size=effective_block_size), 
             shuffle=True,
             drop_last=True,
         ),
+        # TODO: change to starcoder input dir
         StreamingDataset(
-            name="starcoder",
-            version=13, 
+            input_dir="data/slimpajama/val",
             item_loader=TokensLoader(block_size=effective_block_size), 
             shuffle=True,
             drop_last=True,
@@ -301,10 +299,9 @@ def create_dataloaders(fabric: L.Fabric, batch_size: int, block_size: int) -> Tu
 
     combined_dataset = CombinedDataset(datasets=train_datasets, seed=42, weights=weights)
     train_dataloader = DataLoader(combined_dataset, batch_size=batch_size, pin_memory=True, num_workers=8)
-    
+
     val_dataset = StreamingDataset(
-        name="slimpajama/val",
-        version="latest", 
+        input_dir="data/slimpajama/val",
         item_loader=TokensLoader(block_size=effective_block_size), 
         shuffle=False,
         # Consider setting to False, but we would lose some samples due to truncation when world size > 1
