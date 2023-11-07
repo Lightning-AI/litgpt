@@ -8,16 +8,17 @@ This tutorial will walk you through pretraining [TinyLlama](https://github.com/j
 
 Here is a quick fact sheet:
 
-|---------------------------------|----------------------------------------------------------------|
-| Parameters                      | 1.1B                                                           |
-| Model Size                      | Layers: 22, Heads: 32, Query Groups: 4, Embedding Size: 2048, Intermediate Size: 5632 |
-| Sequence Length                 | 2048                                                           |
-| Batch Size                      | 2 million tokens (2048 * 1024)                                 |
-| Learning Rate                   | 4e-4                                                           |
-| Learning Rate Schedule          | Cosine with 2000 warmup steps                                  |
-| Training Data                   | [SlimPajama](https://huggingface.co/datasets/cerebras/slimpajama-627b) (893 GB), [Starcoder](https://huggingface.co/datasets/bigcode/starcoderdata) (290 GB) |
-| Combined Dataset Size           | Around 950B tokens                                             |
-| Total Tokens During Training    | 3 trillion                                                     |
+| Name                         | Description                                                                                |
+|------------------------------|--------------------------------------------------------------------------------------------|
+| Parameters                   | 1.1B                                                                                       |
+| Model Size                   | Layers: 22, Heads: 32, Query Groups: 4, Embedding Size: 2048, Intermediate Size: 5632      |
+| Sequence Length              | 2048                                                                                       |
+| Batch Size                   | 2 million tokens (2048 * 1024)                                                             |
+| Learning Rate                | 4e-4                                                                                       |
+| Learning Rate Schedule       | Cosine with 2000 warmup steps                                                              |
+| Training Data                | [SlimPajama](https://huggingface.co/datasets/cerebras/slimpajama-627b) (893 GB), [Starcoder](https://huggingface.co/datasets/bigcode/starcoderdata) (290 GB) |
+| Combined Dataset Size        | Around 950B tokens                                                                         |
+| Total Tokens During Training | 3 trillion                                                                                 |
 
 (this table was sourced from the author's [README](https://github.com/jzhang38/TinyLlama/))
 
@@ -35,7 +36,7 @@ git lfs install
 git clone https://huggingface.co/datasets/cerebras/slimpajama-627b data/slimpajama-raw
 git clone https://huggingface.co/datasets/bigcode/starcoderdata data/starcoderdata-raw
 ```
-
+Around 1.3 TB of disk space is required to store both datasets.
 
 ## Prepare the datasets for training
 
@@ -50,7 +51,7 @@ python scripts/download.py \
 ```
 
 Then, run the preprocessing script for each dataset and split.
-You will require 1.1 TB of disk space for Starcoder and 2.5 TB of space for the SlimPajama dataset.
+You will require **1.1 TB** of disk space for Starcoder and **2.5** TB of space for the SlimPajama dataset.
 
 **Starcoder:**
 ```bash
