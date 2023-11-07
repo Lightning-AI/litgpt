@@ -88,7 +88,8 @@ def setup(resume: Union[bool, Path] = False):
     fabric.launch()
 
     fabric.print(hparams)
-    logger.log_hyperparams(hparams)
+    if use_wandb:
+        logger.log_hyperparams(hparams)
 
     main(fabric, resume)
 
