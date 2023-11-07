@@ -35,9 +35,9 @@ out_dir = Path("out") / name
 use_wandb = False
 
 # Hyperparameters
-devices = 4  # TODO: undo: 8 needed
+devices = 4  # TODO: set this to 8
 
-global_batch_size = 32  # TODO: should be 512?
+global_batch_size = 32  # TODO: should be 512
 learning_rate = 4e-4
 micro_batch_size = 1  # TODO: should be 8
 max_step = 715256 * 2
