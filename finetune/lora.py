@@ -236,7 +236,8 @@ def train(
             save_lora_checkpoint(fabric, model, checkpoint_path)
 
 
-@torch.inference_mode()
+# FSDP has issues with `inference_mode`
+@torch.no_grad()
 def validate(fabric: L.Fabric, model: GPT, val_data: List[Dict], tokenizer: Tokenizer) -> torch.Tensor:
     fabric.print("Validating ...")
     model.eval()
