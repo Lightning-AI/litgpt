@@ -186,7 +186,8 @@ def train(fabric: L.Fabric, state: dict, train_dataloader: DataLoader, val_datal
             fabric.save(checkpoint_path, state)
 
 
-@torch.inference_mode()
+# FSDP has issues with `inference_mode`
+@torch.no_grad()
 def validate(fabric: L.Fabric, model: torch.nn.Module, val_dataloader: DataLoader) -> torch.Tensor:
     fabric.print("Validating ...")
     model.eval()
