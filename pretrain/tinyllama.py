@@ -42,7 +42,7 @@ learning_rate = 4e-4
 micro_batch_size = 1  # TODO: should be 8
 max_step = 715256 * 2
 warmup_steps = 2000
-log_step_interval = 2  # TODO: tune this
+log_step_interval = 2
 eval_iters = 100
 save_step_interval = 5000
 eval_step_interval = 5000
@@ -279,13 +279,13 @@ def create_dataloaders(fabric: L.Fabric, batch_size: int, block_size: int) -> Tu
 
     train_datasets = [
         StreamingDataset(
-            input_dir="/teamspace/s3_connections/tiny-llama-template/slimpajama/train",
+            input_dir="data/slimpajama/train",
             item_loader=TokensLoader(block_size=effective_block_size), 
             shuffle=True,
             drop_last=True,
         ),
         StreamingDataset(
-            input_dir="/teamspace/s3_connections/tiny-llama-template/starcoder",
+            input_dir="data/starcoder",
             item_loader=TokensLoader(block_size=effective_block_size), 
             shuffle=True,
             drop_last=True,
@@ -300,7 +300,7 @@ def create_dataloaders(fabric: L.Fabric, batch_size: int, block_size: int) -> Tu
     train_dataloader = DataLoader(combined_dataset, batch_size=batch_size, pin_memory=True, num_workers=8)
 
     val_dataset = StreamingDataset(
-        input_dir="/teamspace/s3_connections/tiny-llama-template/slimpajama/val",
+        input_dir="data/slimpajama/val",
         item_loader=TokensLoader(block_size=effective_block_size), 
         shuffle=False,
         # Consider setting to False, but we would lose some samples due to truncation when world size > 1
