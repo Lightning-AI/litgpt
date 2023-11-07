@@ -17,7 +17,7 @@ Here is a quick fact sheet:
 | Learning Rate Schedule          | Cosine with 2000 warmup steps                                  |
 | Training Data                   | [SlimPajama](https://huggingface.co/datasets/cerebras/slimpajama-627b) (893 GB), [Starcoder](https://huggingface.co/datasets/bigcode/starcoderdata) (290 GB) |
 | Combined Dataset Size           | Around 950B tokens                                             |
-| Total Tokens During Training    | 3 trillion (slightly more than 3 epochs/1430k steps)           |
+| Total Tokens During Training    | 3 trillion                                                     |
 
 (this table was sourced from the author's [README](https://github.com/jzhang38/TinyLlama/))
 
@@ -39,7 +39,7 @@ git clone https://huggingface.co/datasets/bigcode/starcoderdata data/starcoderda
 
 ## Prepare the datasets for training
 
-In order to start pretraining lit-gpt on it, you need to read, tokenize, and write the data in binary chunks. This will leverage our `lightning.data` data optimization pipeline and streaming dataset that comes with Lightning. You will need to have the tokenizer config available:
+In order to start pretraining lit-gpt on it, you need to read, tokenize, and write the data in binary chunks. This will leverage our `lightning.data` optimization pipeline and streaming dataset that comes with Lightning. You will need to have the tokenizer config available:
 
 ```bash
 pip install huggingface_hub sentencepiece
@@ -50,6 +50,7 @@ python scripts/download.py \
 ```
 
 Then, run the preprocessing script for each dataset and split.
+You will require 1.1 TB of disk space for Starcoder and 2.5 TB of space for the SlimPajama dataset.
 
 **Starcoder:**
 ```bash
@@ -121,6 +122,5 @@ For instance, `micro_batch_size` should be adjusted so the process will use the 
 GPU memory. For more tips to avoid out-of-memory issues, please also see the more detailed
 [Dealing with out-of-memory (OOM) errors](oom.md) guide.
 
-Last, logging is kept minimal in the script. In order to use a particular logger
-please refer to <https://lightning.ai/docs/fabric/stable/api/loggers.html> or
-call a logging client library like `wandb` directly.
+Last, logging is kept minimal in the script, but for long running experiments we recommend switching to a proper experiment tracker.
+As an example, we included WandB (set `use_wandb=True`) to show how you can integrate any experiment tracking framework.
