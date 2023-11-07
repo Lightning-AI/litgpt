@@ -44,8 +44,8 @@ max_step = 715256 * 2
 warmup_steps = 2000
 log_step_interval = 2
 eval_iters = 100
-save_step_interval = 5000
-eval_step_interval = 5000
+save_step_interval = 1000
+eval_step_interval = 1000
 
 weight_decay = 1e-1
 beta1 = 0.9
@@ -69,7 +69,7 @@ hparams = {k: v for k, v in locals().items() if isinstance(v, (int, float, str))
 
 def setup(resume: Union[bool, Path] = False):
     if use_wandb:
-        logger = WandbLogger(project="tinyllama", offline=True)
+        logger = WandbLogger(project="tinyllama", name="training", resume=(resume is not False))
     else:
         logger = CSVLogger(root_dir="logs", name="tinyllama")
 
@@ -88,9 +88,8 @@ def setup(resume: Union[bool, Path] = False):
     fabric.launch()
 
     fabric.print(hparams)
-    if use_wandb:
-        logger.experiment.config.update(hparams)
-    
+    logger.log_hyperparams(hparams)
+
     main(fabric, resume)
 
 
@@ -143,8 +142,8 @@ def train(fabric, state, train_dataloader, val_dataloader, resume):
     model = state["model"]
     optimizer = state["optimizer"]
 
-    # if val_dataloader is not None:
-    #     validate(fabric, model, val_dataloader)  # sanity check
+    if val_dataloader is not None:
+        validate(fabric, model, val_dataloader)  # sanity check
     available_flops = get_available_flops(fabric.device, dtype=torch.bfloat16)
     throughput = Throughput(available_flops=available_flops, world_size=fabric.world_size, window_size=5)
 
@@ -225,7 +224,6 @@ def train(fabric, state, train_dataloader, val_dataloader, resume):
             )
 
             throughput_metrics = throughput.compute()
-            # print(state["iter_num"], throughput_metrics)  # TODO: remove debug print
             metrics.update(throughput_metrics)
             fabric.log_dict(metrics, step=state["step_count"])
 
@@ -271,11 +269,6 @@ def validate(fabric: L.Fabric, model: nn.Module, val_dataloader: DataLoader) -> 
 def create_dataloaders(fabric: L.Fabric, batch_size: int, block_size: int) -> Tuple[DataLoader, DataLoader]:
     # Increase by one because we need the next word as well
     effective_block_size = block_size + 1
-
-    # return (
-    #     DataLoader(FakeDataset(), batch_size=batch_size, pin_memory=True, num_workers=8),
-    #     DataLoader(FakeDataset(), batch_size=batch_size, pin_memory=True, num_workers=8)
-    # )
 
     train_datasets = [
         StreamingDataset(
@@ -336,12 +329,6 @@ def init_weights(module: nn.Module, n_layer: int):
     for name, param in module.named_parameters():
         if (name == "proj.weight" and isinstance(module, LLaMAMLP)):
             nn.init.normal_(param, mean=0.0, std=(1 / math.sqrt(param.shape[-1]) / n_layer))
-
-# class FakeDataset(torch.utils.data.Dataset):
-#     def __getitem__(self, idx):
-#         return torch.randint(0, 10, size=(2049, ))
-#     def __len__(self):
-#         return 100000
 
 
 if __name__ == "__main__":
