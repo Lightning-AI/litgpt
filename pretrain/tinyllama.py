@@ -205,7 +205,7 @@ def train(fabric, state, train_dataloader, val_dataloader, resume):
             t1 = time.perf_counter()
             throughput.update(
                 time=(t1 - total_t0), 
-                flops_per_batch=(measured_flops * log_iter_interval),
+                flops=(measured_flops * log_iter_interval),
                 batches=state["iter_num"],
                 samples=(state["iter_num"] * micro_batch_size),
                 lengths=(state["iter_num"] * micro_batch_size * model.config.block_size),
@@ -279,14 +279,13 @@ def create_dataloaders(fabric: L.Fabric, batch_size: int, block_size: int) -> Tu
 
     train_datasets = [
         StreamingDataset(
-            input_dir="data/slimpajama/train",
+            input_dir="/teamspace/s3_connections/tiny-llama-template/slimpajama/train",
             item_loader=TokensLoader(block_size=effective_block_size), 
             shuffle=True,
             drop_last=True,
         ),
-        # TODO: change to starcoder input dir
         StreamingDataset(
-            input_dir="data/slimpajama/val",
+            input_dir="/teamspace/s3_connections/tiny-llama-template/starcoder",
             item_loader=TokensLoader(block_size=effective_block_size), 
             shuffle=True,
             drop_last=True,
@@ -301,7 +300,7 @@ def create_dataloaders(fabric: L.Fabric, batch_size: int, block_size: int) -> Tu
     train_dataloader = DataLoader(combined_dataset, batch_size=batch_size, pin_memory=True, num_workers=8)
 
     val_dataset = StreamingDataset(
-        input_dir="data/slimpajama/val",
+        input_dir="/teamspace/s3_connections/tiny-llama-template/slimpajama/val",
         item_loader=TokensLoader(block_size=effective_block_size), 
         shuffle=False,
         # Consider setting to False, but we would lose some samples due to truncation when world size > 1
