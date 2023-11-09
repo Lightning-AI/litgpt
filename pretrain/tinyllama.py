@@ -157,7 +157,6 @@ def train(fabric, state, train_dataloader, val_dataloader, resume):
         fabric.print(f"Measured TFLOPs: {measured_flops * fabric.world_size / 1e12:.2f}")
         del meta_model, x
 
-    total_lengths = 0
     total_t0 = time.perf_counter()
     initial_iter = state["iter_num"]
     curr_iter = 0
@@ -175,7 +174,7 @@ def train(fabric, state, train_dataloader, val_dataloader, resume):
                 fabric.barrier()
                 fabric.print(
                     f"Resuming data loader finished."
-                    f"Took {time.perf_counter() - total_t0} seconds to reach iteration {initial_iter}."
+                    f"Took {time.perf_counter() - total_t0:.1f} seconds to reach iteration {initial_iter}."
                 )
     
         if state["iter_num"] >= max_iters:
@@ -220,6 +219,7 @@ def train(fabric, state, train_dataloader, val_dataloader, resume):
                 "step": state['step_count'],
                 "iter_time": (t1 - iter_t0),
                 "remaining_time": (t1 - total_t0) / (state['iter_num'] - initial_iter) * (max_iters - state['iter_num']),
+                "tokens": (state["iter_num"] * micro_batch_size * model.config.block_size),
             }
 
             fabric.print(
