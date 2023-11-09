@@ -181,12 +181,13 @@ def train(fabric, state, train_dataloader, val_dataloader, resume):
         for param_group in optimizer.param_groups:
             param_group["lr"] = lr
 
+        state["iter_num"] += 1
         iter_t0 = time.perf_counter()
 
         input_ids = train_data[:, 0:model.config.block_size].contiguous().long()
         targets = train_data[:, 1:(model.config.block_size + 1)].contiguous().long()
 
-        is_accumulating = (state["iter_num"] + 1) % gradient_accumulation_steps != 0
+        is_accumulating = state["iter_num"] % gradient_accumulation_steps != 0
         with fabric.no_backward_sync(model, enabled=is_accumulating):
             logits = model(input_ids)
             loss = chunked_cross_entropy(logits, targets, chunk_size=0)
@@ -197,8 +198,6 @@ def train(fabric, state, train_dataloader, val_dataloader, resume):
             optimizer.step()
             optimizer.zero_grad()
             state["step_count"] += 1
-
-        state["iter_num"] += 1
         
         if state["iter_num"] % log_iter_interval == 0:
             loss = loss.item()
