@@ -243,7 +243,7 @@ def train(fabric, state, train_dataloader, val_dataloader, resume):
             fabric.barrier()
 
         if not is_accumulating and state["step_count"] % save_step_interval == 0:
-            checkpoint_path = out_dir / f"iter-{state['iter_num']:06d}-ckpt.pth"
+            checkpoint_path = out_dir / f"step-{state['step_count']:08d}.pth"
             fabric.print(f"Saving checkpoint to {str(checkpoint_path)!r}")
             fabric.save(checkpoint_path, state)
 
@@ -328,7 +328,7 @@ def init_weights(module: nn.Module, n_layer: int):
         if module.bias is not None:
             nn.init.zeros_(module.bias)
     for name, param in module.named_parameters():
-        if (name == "proj.weight" and isinstance(module, LLaMAMLP)):
+        if name == "proj.weight" and isinstance(module, LLaMAMLP):
             nn.init.normal_(param, mean=0.0, std=(1 / math.sqrt(param.shape[-1]) / n_layer))
 
 
