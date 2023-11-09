@@ -1,5 +1,5 @@
 -r requirements.txt
-bitsandbytes   # quantization
+bitsandbytes==0.41.0   # quantization
 scipy          # required by bitsandbytes
 sentencepiece  # pythia, falcon, redpajama
 tokenizers     # llama-based models
