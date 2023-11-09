@@ -319,9 +319,9 @@ def get_lr(it):
 def init_weights(module: nn.Module, n_layer: int):
     # Follows GPT-NeoX: https://arxiv.org/abs/2204.06745
     if isinstance(module, nn.Embedding):
-        nn.init.normal_(module.weight, mean=0.0, std=math.sqrt(2.0 / 5 / module.weight.size(1)))
+        nn.init.normal_(module.weight, mean=0.0, std=math.sqrt(2.0 / 5 / module.weight.shape[1]))
     elif isinstance(module, nn.Linear):
-        nn.init.normal_(module.weight, mean=0.0, std=math.sqrt(2.0 / 5 / module.weight.size(1)))
+        nn.init.normal_(module.weight, mean=0.0, std=math.sqrt(2.0 / 5 / module.weight.shape[1]))
         if module.bias is not None:
             nn.init.zeros_(module.bias)
     for name, param in module.named_parameters():
