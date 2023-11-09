@@ -40,11 +40,17 @@ Around 1.2 TB of disk space is required to store both datasets.
 
 ## Prepare the datasets for training
 
-In order to start pretraining lit-gpt on it, you need to read, tokenize, and write the data in binary chunks. This will leverage our `lightning.data` optimization pipeline and streaming dataset that comes with Lightning. You will need to have the tokenizer config available:
+In order to start pretraining lit-gpt on it, you need to read, tokenize, and write the data in binary chunks. This will leverage our `lightning.data` optimization pipeline and streaming dataset that comes with Lightning. 
+
+First, install additional dependencies for preprocessing:
 
 ```bash
-pip install huggingface_hub sentencepiece
+pip install sentencepiece zstandard pandas pyarrow lightning[data] huggingface_hub
+```
 
+You will need to have the tokenizer config available:
+
+```bash
 python scripts/download.py \
    --repo_id meta-llama/Llama-2-7b-hf \
    --access_token your_hf_token
@@ -84,6 +90,11 @@ In the above we are assuming that you will be using the same tokenizer as used i
 
 
 ## Pretraining
+
+Currently, the pretraining with `torch.compile` requires PyTorch 2.2 "nightly". We recommend CUDA 12.1:
+```bash
+pip install -U --pre torch --index-url https://download.pytorch.org/whl/nightly/cu121
+```
 
 Running the pretraining script with its default settings requires at least 8 A100 GPUs.
 
