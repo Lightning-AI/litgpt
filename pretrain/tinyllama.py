@@ -230,7 +230,7 @@ def train(fabric, state, train_dataloader, val_dataloader, resume):
 
             throughput_metrics = throughput.compute()
             metrics.update(throughput_metrics)
-            fabric.log_dict(metrics, step=state["step_count"])
+            fabric.log_dict(metrics, step=state["iter_num"])
 
         if val_dataloader is not None and not is_accumulating and state["step_count"] % eval_step_interval == 0:
             t0 = time.perf_counter()
@@ -244,7 +244,7 @@ def train(fabric, state, train_dataloader, val_dataloader, resume):
                 "total_tokens": model.config.block_size * state["iter_num"] * micro_batch_size * fabric.world_size,
                 "val_ppl": math.exp(val_loss),
             }
-            fabric.log_dict(metrics, step=state["step_count"])
+            fabric.log_dict(metrics, step=state["iter_num"])
             fabric.barrier()
 
         if not is_accumulating and state["step_count"] % save_step_interval == 0:
