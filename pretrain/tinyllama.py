@@ -205,7 +205,7 @@ def train(fabric, state, train_dataloader, val_dataloader, resume):
             state["step_count"] += 1
         
         if state["iter_num"] % log_iter_interval == 0:
-            loss = loss.item()
+            loss = loss.item()  # expensive device-to-host synchronization
             t1 = time.perf_counter()
             throughput.update(
                 time=(t1 - total_t0), 
