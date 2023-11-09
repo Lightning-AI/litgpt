@@ -235,6 +235,7 @@ def train(fabric, state, train_dataloader, val_dataloader, resume):
         if val_dataloader is not None and not is_accumulating and state["step_count"] % eval_step_interval == 0:
             t0 = time.perf_counter()
             val_loss = validate(fabric, model, val_dataloader)
+            val_loss = val_loss.item()
             td = time.perf_counter() - t0
 
             fabric.print(f"iter {state['iter_num']}: val loss {val_loss:.4f}, val time: {td * 1000:.2f} ms")
@@ -268,7 +269,7 @@ def validate(fabric: L.Fabric, model: nn.Module, val_dataloader: DataLoader) -> 
         losses[k] = loss
 
     model.train()
-    return losses.mean().item()
+    return losses.mean()
 
 
 def create_dataloaders(fabric: L.Fabric, batch_size: int, block_size: int) -> Tuple[DataLoader, DataLoader]:
