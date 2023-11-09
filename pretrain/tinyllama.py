@@ -163,7 +163,8 @@ def train(fabric, state, train_dataloader, val_dataloader, resume):
     curr_iter = 0
 
     for train_data in train_dataloader:
-        # resume loader state. This is not elegant but it works. Should rewrite it in the future.
+        # resume data loader state by fast-forwarding through all seen batches
+        # drop this once streaming dataset supports proper resuming
         if resume:
             if curr_iter < initial_iter:
                 curr_iter += 1
@@ -172,7 +173,11 @@ def train(fabric, state, train_dataloader, val_dataloader, resume):
                 resume = False
                 curr_iter = -1
                 fabric.barrier()
-                fabric.print("resume finished, taken {} seconds".format(time.perf_counter() - total_t0))
+                fabric.print(
+                    f"Resuming data loader finished."
+                    f"Took {time.perf_counter() - total_t0} seconds to reach iteration {initial_iter}."
+                )
+    
         if state["iter_num"] >= max_iters:
             break
 
