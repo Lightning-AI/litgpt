@@ -287,8 +287,6 @@ def create_dataloaders(fabric: L.Fabric, batch_size: int, block_size: int) -> Tu
 
     # Mix SlimPajama data and Starcoder data with these proportions:
     weights = (0.693584, 0.306416)
-    weights = [w / sum(weights) for w in weights]
-
     combined_dataset = CombinedDataset(datasets=train_datasets, seed=42, weights=weights)
     train_dataloader = DataLoader(combined_dataset, batch_size=batch_size, pin_memory=True, num_workers=8)
 
