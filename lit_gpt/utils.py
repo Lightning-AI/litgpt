@@ -32,7 +32,7 @@ def num_parameters(module: nn.Module, requires_grad: Optional[bool] = None) -> i
         if requires_grad is None or p.requires_grad == requires_grad:
             if hasattr(p, "quant_state"):
                 # bitsandbytes 4bit layer support
-                total += math.prod(p.quant_state[1])
+                total += math.prod(p.quant_state.shape)
             else:
                 total += p.numel()
     return total
@@ -57,9 +57,8 @@ def check_valid_checkpoint_dir(checkpoint_dir: Path) -> None:
     files = {
         "lit_model.pth": (checkpoint_dir / "lit_model.pth").is_file(),
         "lit_config.json": (checkpoint_dir / "lit_config.json").is_file(),
-        "tokenizer.json OR tokenizer.model": (checkpoint_dir / "tokenizer.json").is_file() or (
-            checkpoint_dir / "tokenizer.model"
-        ).is_file(),
+        "tokenizer.json OR tokenizer.model": (checkpoint_dir / "tokenizer.json").is_file()
+        or (checkpoint_dir / "tokenizer.model").is_file(),
         "tokenizer_config.json": (checkpoint_dir / "tokenizer_config.json").is_file(),
     }
     if checkpoint_dir.is_dir():
