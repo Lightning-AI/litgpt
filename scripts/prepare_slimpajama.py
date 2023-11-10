@@ -28,7 +28,7 @@ class SlimPajamaDataRecipe(DataChunkRecipe):
             for row in f:
                 text = json.loads(row)["text"]
                 if json.loads(row)["meta"]["redpajama_set_name"] == "RedPajamaGithub":
-                    continue # we don't want to include the github data
+                    continue  # exclude the GitHub data since it overlaps with starcoder
                 text_ids = self.tokenizer.encode(text, bos=False, eos=True)
                 yield text_ids
 
@@ -40,7 +40,6 @@ def prepare(
     chunk_size: int = (2049 * 16384),
     fast_dev_run: bool = False,
 ) -> None:
-
     tokenizer = Tokenizer(tokenizer_path)
     data_recipe = SlimPajamaDataRecipe(tokenizer=tokenizer, chunk_size=chunk_size)
     data_processor = DataProcessor(
@@ -59,4 +58,5 @@ def prepare(
 
 if __name__ == "__main__":
     from jsonargparse import CLI
+
     CLI(prepare)
