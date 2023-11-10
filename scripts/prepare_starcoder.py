@@ -1,12 +1,11 @@
 import os
 import sys
 import time
+import traceback
 from pathlib import Path
-import traceback
-from lightning.data.streaming import DataProcessor, DataChunkRecipe
-import pyarrow.parquet as pq
-import traceback
 
+import pyarrow.parquet as pq
+from lightning.data.streaming import DataChunkRecipe, DataProcessor
 
 # support running without installing as a package
 wd = Path(__file__).parent.parent.resolve()

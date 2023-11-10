@@ -14,9 +14,9 @@ import torch
 import torch.nn as nn
 from lightning.data import StreamingDataset
 from lightning.data.streaming.item_loader import TokensLoader
+from lightning.fabric.loggers import CSVLogger
 from lightning.fabric.strategies import FSDPStrategy
 from lightning.fabric.utilities.throughput import Throughput, get_available_flops, measure_flops
-from lightning.fabric.loggers import CSVLogger
 from lightning.pytorch.loggers import WandbLogger
 from torch.utils.data import DataLoader
 
