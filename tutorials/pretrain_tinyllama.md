@@ -106,7 +106,8 @@ The script will save checkpoints periodically to the folder `out/`.
 By default, the `pretrain/tinyllama.py` script will pretrain the Llama 2 7B model with FSDP in
 `bfloat16` mixed precision and gradient accumulation.
 
-You can easily change the size of the model by passing a different string to the model name variable
+Note that the `pretrain/tinyllama.py` is not actually a model-specific training script, so feel free to change
+the configuration and size by passing a different string to the model name variable
 
 ```python
 model_name = "tiny-llama-1.1b"
