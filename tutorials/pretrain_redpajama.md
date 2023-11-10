@@ -48,7 +48,7 @@ git clone https://huggingface.co/datasets/togethercomputer/RedPajama-Data-1T-Sam
 
 The full dataset consists of 2084 `jsonl` files (the sample dataset contains 11). In order to start pretraining lit-gpt
 on it, you need to read, tokenize, and write the data in binary chunks. This will leverage the `PackedDataset`
-streaming dataset that comes with lit-gpt. You will need to have the tokenizer config available:
+streaming dataset that comes with lit-gpt. You will need to have the tokenizer config available (downloaded and converted to lit-gpt format):
 
 ```bash
 pip install huggingface_hub sentencepiece
@@ -56,6 +56,9 @@ pip install huggingface_hub sentencepiece
 python scripts/download.py \
    --repo_id meta-llama/Llama-2-7b-chat-hf \
    --access_token your_hf_token
+
+python scripts/convert_hf_checkpoint.py \
+    --checkpoint_dir checkpoints/meta-llama/Llama-2-7b-hf/
 ```
 
 Then, run
