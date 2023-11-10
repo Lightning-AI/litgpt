@@ -117,7 +117,7 @@ def main(fabric, resume):
         model.apply(partial(init_weights, n_layer=config.n_layer))
 
     fabric.print(f"Time to instantiate model: {time.perf_counter() - t0:.02f} seconds.")
-    fabric.print(f"Total parameters {num_parameters(model):,}")
+    fabric.print(f"Total parameters: {num_parameters(model):,}")
 
     model = torch.compile(model)
     model = fabric.setup(model)
