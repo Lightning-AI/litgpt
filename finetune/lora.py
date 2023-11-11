@@ -3,6 +3,8 @@ import sys
 import time
 from pathlib import Path
 from typing import Dict, List, Literal, Optional, Tuple
+import json
+parent_config=json.load(open('../parent-config.json','r'))
 
 import lightning as L
 import torch
@@ -33,7 +35,7 @@ save_interval = 100
 eval_iters = 100
 eval_max_new_tokens = 100
 log_interval = 1
-devices = 1
+devices = parent_config['devices']
 
 # Hyperparameters
 learning_rate = 3e-4
