@@ -19,26 +19,24 @@ import torch
         ([1, 2, 3, 0, 3, 2, 1, 0], ([4, 3, 2, 1], [2, 4]), [1, 2, 3, 0, 3, 2, 1, 0]),
     ],
 )
-def test_generate(generated, stop_tokens, expected):
+def test_generate(monkeypatch, generated, stop_tokens, expected):
     import chat.base as chat
+    import generate.base as generate
 
     input_idx = torch.tensor([5, 3])
     max_returned_tokens = len(input_idx) + 8
     model = MagicMock()
     model.config.block_size = 100
     model.max_seq_length = 100
-
-    original_multinomial = torch.multinomial
     it = iter(generated)
 
     def multinomial(*_, **__):
         out = next(it)
         return torch.tensor([out])
 
-    chat.torch.multinomial = multinomial
+    monkeypatch.setattr(generate, "multinomial_num_samples_1", multinomial)
     actual = chat.generate(model, input_idx, max_returned_tokens, stop_tokens=stop_tokens)
     actual = list(actual)
-    chat.torch.multinomial = original_multinomial
 
     assert len(actual) == len(expected)
     if not actual:

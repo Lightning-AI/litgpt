@@ -12,7 +12,7 @@ from lightning.fabric.plugins import BitsandbytesPrecision
 wd = Path(__file__).parent.parent.resolve()
 sys.path.append(str(wd))
 
-from generate.base import generate_one_token
+from generate.base import next_token
 from lit_gpt import GPT, Config, Tokenizer
 from lit_gpt.utils import (
     check_valid_checkpoint_dir,
@@ -57,7 +57,7 @@ def generate(
     tokens = []
     token = prompt
     for t in range(1, max_returned_tokens - T + 1):
-        token = generate_one_token(model, input_pos, token.view(1, -1), temperature=temperature, top_k=top_k)
+        token = next_token(model, input_pos, token.view(1, -1), temperature=temperature, top_k=top_k)
         tokens.append(token)
         # check the stop condition
         if any((l := len(st)) <= len(tokens) and all(a == b for a, b in zip(tokens[-l:], st)) for st in stop_tokens):
@@ -151,8 +151,8 @@ def main(
         torch._dynamo.config.automatic_dynamic_shapes = True
         torch._inductor.config.triton.unique_kernel_names = True
         torch._inductor.config.coordinate_descent_tuning = True
-        global generate_one_token
-        generate_one_token = torch.compile(generate_one_token, mode="reduce-overhead")
+        global next_token
+        next_token = torch.compile(next_token, mode="reduce-overhead")
 
     model = fabric.setup_module(model)
 

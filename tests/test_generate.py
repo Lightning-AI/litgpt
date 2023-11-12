@@ -28,14 +28,13 @@ def test_generate(max_seq_length):
     max_new_tokens = 20
 
     multinomial_results = []
-    original_multinomial = torch.multinomial
 
     def multinomial(*args, **kwargs):
-        out = original_multinomial(*args, **kwargs)
+        out = torch.multinomial(*args, **kwargs, num_samples=1)
         multinomial_results.append(out)
         return out
 
-    with mock.patch("torch.multinomial", multinomial):
+    with mock.patch("generate.base.multinomial_num_samples_1", multinomial):
         out = generate.generate(model, input_idx, T + max_new_tokens, top_k=4)
 
     assert out.size(0) == T + max_new_tokens

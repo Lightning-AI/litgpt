@@ -9,6 +9,7 @@ import torch._dynamo.config
 import torch._inductor.config
 from lightning.fabric.plugins import BitsandbytesPrecision
 from lightning.fabric.strategies import FSDPStrategy
+from lightning.fabric.utilities.imports import _TORCH_GREATER_EQUAL_2_2
 
 # support running without installing as a package
 wd = Path(__file__).parent.parent.resolve()
@@ -24,20 +25,39 @@ from lit_gpt.utils import (
 )
 
 
+def cudagraph_mark_step() -> None:
+    if not torch._dynamo.is_compiling():
+        return
+    if _TORCH_GREATER_EQUAL_2_2:
+        torch.compiler.cudagraph_mark_step_begin()
+    else:
+        torch._inductor.cudagraph_mark_step_begin()
+
+
+def multinomial_num_samples_1(probs: torch.Tensor) -> torch.Tensor:
+    """Faster version of ``torch.multinomial(probs, num_samples=1)`` that is also CUDAGraph friendly."""
+    distribution = torch.empty_like(probs).exponential_(1)
+    return torch.argmax(probs / distribution, dim=-1, keepdim=True)
+
+
 def sample(logits: torch.Tensor, temperature: float = 1.0, top_k: Optional[int] = None) -> torch.Tensor:
-    logits = logits[0, -1] / temperature
+    logits = logits[0, -1]
     # optionally crop the logits to only the top k options
     if top_k is not None:
+        # FIXME: could we reuse indices here?
         v, _ = torch.topk(logits, min(top_k, logits.size(-1)))
         logits = torch.where(logits < v[-1], -float("Inf"), logits)
-    probs = torch.nn.functional.softmax(logits, dim=-1)
-    return torch.multinomial(probs, num_samples=1)
+    # optionally scale the logits and sample from a probability distribution
+    if temperature > 0:
+        probs = torch.nn.functional.softmax(logits / temperature, dim=-1)
+        return multinomial_num_samples_1(probs)
+    return torch.argmax(logits, dim=-1)
 
 
-def generate_one_token(model: GPT, input_pos: torch.Tensor, x: torch.Tensor, **kwargs: Any) -> torch.Tensor:
+def next_token(model: GPT, input_pos: torch.Tensor, x: torch.Tensor, **kwargs: Any) -> torch.Tensor:
     logits = model(x, input_pos)
-    out = sample(logits, **kwargs)
-    return out.type_as(x)
+    next = sample(logits, **kwargs)
+    return next.type_as(x)
 
 
 @torch.inference_mode()
@@ -73,12 +93,13 @@ def generate(
     device = prompt.device
     tokens = [prompt]
     input_pos = torch.tensor([T], device=device)
-    token = generate_one_token(
+    cudagraph_mark_step()
+    token = next_token(
         model, torch.arange(0, T, device=device), prompt.view(1, -1), temperature=temperature, top_k=top_k
-    ).clone()
+    )
     tokens.append(token)
     for _ in range(2, max_returned_tokens - T + 1):
-        token = generate_one_token(model, input_pos, token.view(1, -1), temperature=temperature, top_k=top_k).clone()
+        token = next_token(model, input_pos, token.view(1, -1), temperature=temperature, top_k=top_k)
         tokens.append(token)
         if token == eos_id:
             break
@@ -174,8 +195,8 @@ def main(
         torch._dynamo.config.automatic_dynamic_shapes = True
         torch._inductor.config.triton.unique_kernel_names = True
         torch._inductor.config.coordinate_descent_tuning = True
-        global generate_one_token
-        generate_one_token = torch.compile(generate_one_token, mode="reduce-overhead")
+        global next_token
+        next_token = torch.compile(next_token, mode="reduce-overhead")
 
     model = fabric.setup_module(model)
 
