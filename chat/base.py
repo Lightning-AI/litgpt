@@ -12,6 +12,7 @@ from lightning.fabric.plugins import BitsandbytesPrecision
 wd = Path(__file__).parent.parent.resolve()
 sys.path.append(str(wd))
 
+from generate.base import generate_one_token
 from lit_gpt import GPT, Config, Tokenizer
 from lit_gpt.utils import (
     check_valid_checkpoint_dir,
@@ -24,7 +25,7 @@ from lit_gpt.utils import (
 @torch.inference_mode()
 def generate(
     model: GPT,
-    idx: torch.Tensor,
+    prompt: torch.Tensor,
     max_returned_tokens: int,
     *,
     temperature: float = 1.0,
@@ -35,13 +36,13 @@ def generate(
 
     Args:
         model: The model to use.
-        idx: Tensor of shape (T) with indices of the prompt sequence.
+        prompt: Tensor of shape (T) with indices of the prompt sequence.
         max_returned_tokens: The maximum number of tokens to return (given plus generated).
         temperature: Scales the predicted logits by 1 / temperature
         top_k: If specified, only sample among the tokens with the k highest probabilities
         stop_tokens: If specified, stop generating any more token once one of this list is generated.
     """
-    T = idx.size(0)
+    T = prompt.size(0)
     assert max_returned_tokens > T
     if model.max_seq_length < max_returned_tokens - 1:
         # rolling the kv cache based on the `input_pos` value would be necessary. However, doing so would introduce a
@@ -49,50 +50,24 @@ def generate(
         # not support it to avoid negatively impacting the overall speed
         raise NotImplementedError(f"max_seq_length {model.max_seq_length} needs to be >= {max_returned_tokens - 1}")
 
-    device = idx.device
-    stop_tokens = [torch.tensor(tokens, device=device) for tokens in stop_tokens]
-    input_pos = torch.arange(0, T, device=device)
-
-    # buffer holds the tokens that haven't been yield yet
+    device = prompt.device
     buffer_length = max((len(tokens) for tokens in stop_tokens), default=1)
-    buffer = torch.full((buffer_length,), -999, device=device)  # fill with non-existing token
-
-    yield_i = -1
-    # generate up to a fixed number of tokens
-    for t in range(max_returned_tokens - T):
-        # forward
-        logits = model(idx.view(1, -1), input_pos)
-        logits = logits[0, -1] / temperature
-
-        # optionally crop the logits to only the top k options
-        if top_k is not None:
-            v, _ = torch.topk(logits, min(top_k, logits.size(-1)))
-            logits = torch.where(logits < v[[-1]], -float("Inf"), logits)
-
-        probs = torch.nn.functional.softmax(logits, dim=-1)
-        idx = torch.multinomial(probs, num_samples=1)
-
-        # advance
-        input_pos = input_pos[-1:] + 1
-
-        # concatenate the new generation
-        buffer[min(t, buffer_length - 1)] = idx
-
+    yield_i = 0
+    input_pos = torch.arange(0, T, device=device)
+    tokens = []
+    token = prompt
+    for t in range(1, max_returned_tokens - T + 1):
+        token = generate_one_token(model, input_pos, token.view(1, -1), temperature=temperature, top_k=top_k)
+        tokens.append(token)
         # check the stop condition
-        for tokens in stop_tokens:
-            l = len(tokens)
-            if torch.equal(buffer[-l:], tokens):
-                # stop token hit, yield any leftovers that aren't part of it
-                if buffer_length > l:  # avoid an empty yield
-                    yield buffer[:-l]
-                return
+        if any((l := len(st)) <= len(tokens) and all(a == b for a, b in zip(tokens[-l:], st)) for st in stop_tokens):
+            return
         # if the buffer is full
         if t - yield_i >= buffer_length:
             # we know this idx is not part of stop tokens, safe to yield
-            yield buffer[0]
-            # roll once to the left, as next generation will be put at the end
-            buffer = torch.roll(buffer, -1, 0)
-            yield_i += 1
+            yield from tokens[yield_i:t]
+            yield_i = t
+        input_pos = input_pos[-1:].add_(1)
 
 
 def decode(fabric: L.Fabric, tokenizer: Tokenizer, token_stream: Iterator[torch.Tensor]) -> int:
@@ -124,6 +99,7 @@ def main(
     checkpoint_dir: Path = Path("checkpoints/stabilityai/stablelm-tuned-alpha-3b"),
     quantize: Optional[Literal["bnb.nf4", "bnb.nf4-dq", "bnb.fp4", "bnb.fp4-dq", "bnb.int8", "gptq.int4"]] = None,
     precision: Optional[str] = None,
+    compile: bool = False,
 ) -> None:
     """Starts a conversation with a tuned GPT model.
 
@@ -166,9 +142,18 @@ def main(
     fabric.print(f"Loading model {str(checkpoint_path)!r} with {config.__dict__}", file=sys.stderr)
     with fabric.init_module(empty_init=True), gptq_quantization(quantize == "gptq.int4"):
         model = GPT(config)
+        # enable the kv cache
+        model.set_kv_cache(batch_size=1)
     load_checkpoint(fabric, model, checkpoint_path)
-
     model.eval()
+
+    if compile:
+        torch._dynamo.config.automatic_dynamic_shapes = True
+        torch._inductor.config.triton.unique_kernel_names = True
+        torch._inductor.config.coordinate_descent_tuning = True
+        global generate_one_token
+        generate_one_token = torch.compile(generate_one_token, mode="reduce-overhead")
+
     model = fabric.setup_module(model)
 
     tokenizer = Tokenizer(checkpoint_dir)
@@ -183,11 +168,6 @@ def main(
             break
         prompt = system_prompt.format(prompt=prompt)
         encoded_prompt = tokenizer.encode(prompt, device=fabric.device)
-
-        with fabric.init_tensor():
-            # enable the kv cache
-            model.set_kv_cache(batch_size=1)
-
         y = generate(
             model, encoded_prompt, model.max_seq_length, temperature=temperature, top_k=top_k, stop_tokens=stop_tokens
         )
@@ -196,6 +176,8 @@ def main(
             t0 = time.perf_counter()
             tokens_generated = decode(fabric, tokenizer, y)
             t = time.perf_counter() - t0
+            for block in model.transformer.h:
+                block.attn.kv_cache.reset_parameters()
             fabric.print(
                 f"\nTime for inference: {t:.02f} sec total, {tokens_generated / t:.02f} tokens/sec", file=sys.stderr
             )

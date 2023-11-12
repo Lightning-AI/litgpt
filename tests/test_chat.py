@@ -14,7 +14,9 @@ import torch
         (repeat(1), (), [1] * 8),
         ([1, 2, 3, 0], ([0],), [1, 2, 3]),
         ([1, 2, 3, 0], ([9], [2, 4], [1, 2, 3, 0]), []),
-        ([1, 2, 3, 0, 0], ([0, 0, 0], [0, 0]), [1, 2, [3]]),
+        ([1, 2, 3, 0, 0], ([0, 0, 0], [0, 0]), [1, 2, 3]),
+        ([3, 1, 2], ([1, 2], [3]), []),
+        ([1, 2, 3, 0, 3, 2, 1, 0], ([4, 3, 2, 1], [2, 4]), [1, 2, 3, 0, 3, 2, 1, 0]),
     ],
 )
 def test_generate(generated, stop_tokens, expected):
@@ -38,9 +40,13 @@ def test_generate(generated, stop_tokens, expected):
     actual = list(actual)
     chat.torch.multinomial = original_multinomial
 
-    for t in actual:
-        assert t.dtype == torch.long
-    assert [t.tolist() for t in actual] == expected
+    assert len(actual) == len(expected)
+    if not actual:
+        assert actual == expected
+    else:
+        for t in actual:
+            assert t.dtype == torch.long
+        assert torch.cat(actual).tolist() == expected
 
 
 def test_cli():
