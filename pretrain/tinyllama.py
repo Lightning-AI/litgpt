@@ -249,7 +249,7 @@ def train(fabric, state, train_dataloader, val_dataloader, resume):
 
 
 @torch.no_grad()
-def validate(fabric: L.Fabric, model: nn.Module, val_dataloader: DataLoader) -> float:
+def validate(fabric: L.Fabric, model: nn.Module, val_dataloader: DataLoader) -> torch.Tensor:
     fabric.print("Validating ...")
     model.eval()
 
