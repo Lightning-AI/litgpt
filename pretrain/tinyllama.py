@@ -99,10 +99,7 @@ def main(fabric, resume):
     config = Config.from_name(model_name)
 
     train_dataloader, val_dataloader = create_dataloaders(batch_size=micro_batch_size, block_size=config.block_size)
-    if val_dataloader is None:
-        train_dataloader = fabric.setup_dataloaders(train_dataloader)
-    else:
-        train_dataloader, val_dataloader = fabric.setup_dataloaders(train_dataloader, val_dataloader)
+    train_dataloader, val_dataloader = fabric.setup_dataloaders(train_dataloader, val_dataloader)
 
     fabric.seed_everything(3407)  # same seed for every process to init model (FSDP)
 
