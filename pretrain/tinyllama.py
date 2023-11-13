@@ -35,7 +35,7 @@ use_wandb = False
 # Hyperparameters
 devices = 8
 
-global_batch_size = 523
+global_batch_size = 512
 learning_rate = 4e-4
 micro_batch_size = 8
 max_step = 715256 * 2
