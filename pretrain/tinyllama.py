@@ -14,7 +14,7 @@ import torch
 import torch.nn as nn
 from lightning.fabric.loggers import CSVLogger
 from lightning.fabric.strategies import FSDPStrategy
-from lightning.fabric.utilities.throughput import Throughput, get_available_flops, measure_flops
+from lightning.fabric.utilities.throughput import ThroughputMonitor, measure_flops
 from lightning.pytorch.loggers import WandbLogger
 from torch.utils.data import DataLoader
 
@@ -141,8 +141,7 @@ def train(fabric, state, train_dataloader, val_dataloader, resume):
 
     if val_dataloader is not None:
         validate(fabric, model, val_dataloader)  # sanity check
-    available_flops = get_available_flops(fabric.device, dtype=torch.bfloat16)
-    throughput = Throughput(available_flops=available_flops, world_size=fabric.world_size, window_size=5)
+    throughput = ThroughputMonitor(fabric, window_size=5)
 
     with torch.device("meta"):
         meta_model = GPT(model.config)
