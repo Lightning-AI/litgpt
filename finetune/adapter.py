@@ -8,6 +8,7 @@ import lightning as L
 import torch
 from lightning.fabric.loggers import CSVLogger
 from lightning.fabric.strategies import FSDPStrategy
+from lightning.fabric.utilities import ThroughputMonitor
 
 # support running without installing as a package
 wd = Path(__file__).parent.parent.resolve()
@@ -15,8 +16,6 @@ sys.path.append(str(wd))
 
 from generate.base import generate
 from lit_gpt.adapter import GPT, Block, Config, adapter_filter, mark_only_adapter_as_trainable
-from lit_gpt.speed_monitor import SpeedMonitorFabric as SpeedMonitor
-from lit_gpt.speed_monitor import estimate_flops, measure_flops
 from lit_gpt.tokenizer import Tokenizer
 from lit_gpt.utils import (
     check_valid_checkpoint_dir,
@@ -78,8 +77,6 @@ def setup(
 def main(fabric: L.Fabric, data_dir: Path, checkpoint_dir: Path, out_dir: Path) -> None:
     check_valid_checkpoint_dir(checkpoint_dir)
 
-    speed_monitor = SpeedMonitor(fabric, window_size=50, time_unit="seconds")
-
     fabric.seed_everything(1337)  # same seed for every process to init model (FSDP)
 
     if fabric.global_rank == 0:
@@ -109,7 +106,7 @@ def main(fabric: L.Fabric, data_dir: Path, checkpoint_dir: Path, out_dir: Path) 
     fabric.seed_everything(1337 + fabric.global_rank)
 
     train_time = time.perf_counter()
-    train(fabric, model, optimizer, train_data, val_data, checkpoint_dir, out_dir, speed_monitor)
+    train(fabric, model, optimizer, train_data, val_data, checkpoint_dir, out_dir)
     fabric.print(f"Training time: {(time.perf_counter()-train_time):.2f}s")
     if fabric.device.type == "cuda":
         fabric.print(f"Memory used: {torch.cuda.max_memory_allocated() / 1e9:.02f} GB")
@@ -127,7 +124,6 @@ def train(
     val_data: List[Dict],
     checkpoint_dir: Path,
     out_dir: Path,
-    speed_monitor: SpeedMonitor,
 ) -> None:
     tokenizer = Tokenizer(checkpoint_dir)
     longest_seq_length, longest_seq_ix = get_longest_seq_length(train_data)
@@ -139,26 +135,12 @@ def train(
 
     validate(fabric, model, val_data, tokenizer)  # sanity check
 
-    with torch.device("meta"):
-        meta_model = GPT(model.config)
-        mark_only_adapter_as_trainable(meta_model)
-        # "estimated" is not as precise as "measured". Estimated is optimistic but widely used in the wild.
-        # When comparing MFU or FLOP numbers with other projects that use estimated FLOPs,
-        # consider passing `SpeedMonitor(flops_per_batch=estimated_flops)` instead
-        estimated_flops = estimate_flops(meta_model) * micro_batch_size
-        fabric.print(f"Estimated TFLOPs: {estimated_flops * fabric.world_size / 1e12:.2f}")
-        # this assumes that all samples have a fixed length equal to the longest sequence length
-        # which is most likely false during finetuning
-        x = torch.randint(0, 1, (micro_batch_size, longest_seq_length))
-        measured_flops = measure_flops(meta_model, x)
-        fabric.print(f"Measured TFLOPs: {measured_flops * fabric.world_size / 1e12:.2f}")
-        del meta_model, x
-
+    throughput = ThroughputMonitor(fabric, window_size=50)
     step_count = 0
     total_lengths = 0
     total_t0 = time.perf_counter()
 
-    for iter_num in range(max_iters):
+    for iter_num in range(1, max_iters + 1):
         if step_count <= warmup_steps:
             # linear warmup
             lr = learning_rate * step_count / warmup_steps
@@ -167,9 +149,9 @@ def train(
 
         iter_t0 = time.perf_counter()
 
-        input_ids, targets = get_batch(fabric, train_data, longest_seq_ix if iter_num == 0 else None)
+        input_ids, targets = get_batch(fabric, train_data, longest_seq_ix if iter_num == 1 else None)
 
-        is_accumulating = (iter_num + 1) % gradient_accumulation_iters != 0
+        is_accumulating = iter_num % gradient_accumulation_iters != 0
         with fabric.no_backward_sync(model, enabled=is_accumulating):
             logits = model(input_ids, lm_head_chunk_size=128)
             # shift the targets such that output n predicts token n+1
@@ -182,19 +164,16 @@ def train(
             optimizer.zero_grad()
             step_count += 1
 
-        t1 = time.perf_counter()
-        total_lengths += input_ids.size(1)
-        speed_monitor.on_train_batch_end(
-            (iter_num + 1) * micro_batch_size,
-            t1 - total_t0,
-            # this assumes that device FLOPs are the same and that all devices have the same batch size
-            fabric.world_size,
-            flops_per_batch=measured_flops,
-            lengths=total_lengths,
-        )
+        total_lengths += input_ids.numel()
         if iter_num % log_interval == 0:
+            loss_item = loss.item()  # expensive device-to-host synchronization
+            t1 = time.perf_counter()
+            throughput.update(
+                time=t1 - total_t0, batches=iter_num, samples=iter_num * micro_batch_size, lengths=total_lengths
+            )
+            throughput.compute_and_log(step=iter_num)
             fabric.print(
-                f"iter {iter_num} step {step_count}: loss {loss.item():.4f}, iter time:"
+                f"iter {iter_num} step {step_count}: loss {loss_item:.4f}, iter time:"
                 f" {(t1 - iter_t0) * 1000:.2f}ms{' (optimizer.step)' if not is_accumulating else ''}"
             )
 
@@ -202,7 +181,6 @@ def train(
             t0 = time.perf_counter()
             val_loss = validate(fabric, model, val_data, tokenizer)
             t1 = time.perf_counter() - t0
-            speed_monitor.eval_end(t1)
             fabric.print(f"step {iter_num}: val loss {val_loss.item():.4f}, val time: {t1 * 1000:.2f}ms")
             fabric.barrier()
         if not is_accumulating and step_count % save_interval == 0:
