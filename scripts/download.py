@@ -14,7 +14,10 @@ _SAFETENSORS_AVAILABLE = RequirementCache("safetensors")
 
 
 def download_from_hub(
-    repo_id: Optional[str] = None, access_token: Optional[str] = os.getenv("HF_TOKEN"), from_safetensors: bool = False
+    repo_id: Optional[str] = None,
+    access_token: Optional[str] = os.getenv("HF_TOKEN"),
+    from_safetensors: bool = False,
+    tokenizer_only: bool = True,
 ) -> None:
     if repo_id is None:
         from lit_gpt.config import configs
@@ -34,12 +37,16 @@ def download_from_hub(
         )
 
     download_files = ["tokenizer*", "generation_config.json"]
-    if from_safetensors:
-        if not _SAFETENSORS_AVAILABLE:
-            raise ModuleNotFoundError(str(_SAFETENSORS_AVAILABLE))
-        download_files.append("*.safetensors")
-    else:
-        download_files.append("*.bin*")
+    if not tokenizer_only:
+        if from_safetensors:
+            if not _SAFETENSORS_AVAILABLE:
+                raise ModuleNotFoundError(str(_SAFETENSORS_AVAILABLE))
+            download_files.append("*.safetensors")
+        else:
+            # covers `.bin` files and `.bin.index.json`
+            download_files.append("*.bin*")
+    elif from_safetensors:
+        raise ValueError("`--from_safetensors=True` won't have an effect with `--tokenizer_only=True`")
 
     directory = Path("checkpoints") / repo_id
     snapshot_download(
