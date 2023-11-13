@@ -44,7 +44,7 @@ jobs:
 
     - name: Install minimal dependencies
       run: |
-        pip install -r requirements.txt
+        pip install -r requirements.txt lightning-cloud
         pip list
         # make sure all modules are importable
         modules=$(
@@ -58,7 +58,7 @@ jobs:
 
     - name: Run tests without the package installed
       run: |
-        pip install -r requirements-all.txt pytest pytest-rerunfailures transformers einops protobuf lightning-cloud
+        pip install -r requirements-all.txt pytest pytest-rerunfailures transformers einops protobuf
         pip list
 
         pytest -v --disable-pytest-warnings --strict-markers --color=yes
