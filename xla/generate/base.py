@@ -96,7 +96,7 @@ def setup(
     *,
     num_samples: int = 1,
     max_new_tokens: int = 100,
-    top_k: int = 200,
+    top_k: Optional[int] = 200,
     temperature: float = 0.8,
     checkpoint_dir: Path = Path("checkpoints/tiiuae/falcon-7b"),
     precision: str = "bf16-true",
@@ -124,7 +124,7 @@ def main(
     prompt: str,
     num_samples: int,
     max_new_tokens: int,
-    top_k: int,
+    top_k: Optional[int],
     temperature: float,
     checkpoint_dir: Path,
 ) -> None:
