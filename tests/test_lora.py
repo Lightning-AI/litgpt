@@ -172,9 +172,9 @@ def test_lora_script(tmp_path, fake_checkpoint_dir, monkeypatch):
         module.setup(data_dir=tmp_path, checkpoint_dir=fake_checkpoint_dir, out_dir=tmp_path, precision="32-true")
 
     assert {p.name for p in tmp_path.glob("*.pth")} == {
-        "iter-000001-ckpt.pth",
-        "iter-000003-ckpt.pth",
-        "iter-000005-ckpt.pth",
+        "iter-000002-ckpt.pth",
+        "iter-000004-ckpt.pth",
+        "iter-000006-ckpt.pth",
         "lit_model_lora_finetuned.pth",
     }
     assert (tmp_path / "version_0" / "metrics.csv").is_file()
@@ -392,7 +392,7 @@ def test_lora_merge_with_quantize():
     initial_weight_kwargs = attn_proj.linear.weight.__dict__
 
     # this was skipped
-    assert model.lm_head.linear.weight.dtype is torch.floar32
+    assert model.lm_head.linear.weight.dtype is torch.float32
     assert attn_proj.linear.weight.dtype is torch.uint8
 
     # perform an update to the LoRA weights
