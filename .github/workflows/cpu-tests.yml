@@ -58,7 +58,7 @@ jobs:
 
     - name: Run tests without the package installed
       run: |
-        pip install -r requirements-all.txt pytest pytest-rerunfailures transformers einops protobuf
+        pip install -r requirements-all.txt pytest pytest-rerunfailures transformers einops protobuf lightning-cloud
         pip list
 
         pytest -v --disable-pytest-warnings --strict-markers --color=yes
