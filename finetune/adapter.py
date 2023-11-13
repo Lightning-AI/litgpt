@@ -8,7 +8,7 @@ import lightning as L
 import torch
 from lightning.fabric.loggers import CSVLogger
 from lightning.fabric.strategies import FSDPStrategy
-from lightning.fabric.utilities import ThroughputMonitor, measure_flops
+from lightning.fabric.utilities import ThroughputMonitor
 
 # support running without installing as a package
 wd = Path(__file__).parent.parent.resolve()
@@ -20,7 +20,6 @@ from lit_gpt.tokenizer import Tokenizer
 from lit_gpt.utils import (
     check_valid_checkpoint_dir,
     chunked_cross_entropy,
-    estimate_flops,
     get_default_supported_precision,
     lazy_load,
     num_parameters,
@@ -170,10 +169,7 @@ def train(
             loss_item = loss.item()  # expensive device-to-host synchronization
             t1 = time.perf_counter()
             throughput.update(
-                time=t1 - total_t0,
-                batches=iter_num,
-                samples=iter_num * micro_batch_size,
-                lengths=total_lengths,
+                time=t1 - total_t0, batches=iter_num, samples=iter_num * micro_batch_size, lengths=total_lengths
             )
             throughput.compute_and_log(step=iter_num)
             fabric.print(
