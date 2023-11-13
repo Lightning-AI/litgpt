@@ -136,7 +136,7 @@ def train(fabric, state, train_dataloader, val_dataloader, resume):
     model = state["model"]
     optimizer = state["optimizer"]
 
-    validate(fabric, model, val_dataloader, iterations=2)  # sanity check
+    validate(fabric, model, val_dataloader, max_iters=2)  # sanity check
     throughput = ThroughputMonitor(fabric, window_size=5)
 
     with torch.device("meta"):
@@ -226,7 +226,7 @@ def train(fabric, state, train_dataloader, val_dataloader, resume):
 
         if val_dataloader is not None and not is_accumulating and state["step_count"] % eval_step_interval == 0:
             t0 = time.perf_counter()
-            val_loss = validate(fabric, model, val_dataloader, iterations=eval_iters)
+            val_loss = validate(fabric, model, val_dataloader, max_iters=eval_iters)
             val_loss = val_loss.item()
             td = time.perf_counter() - t0
 
@@ -245,13 +245,13 @@ def train(fabric, state, train_dataloader, val_dataloader, resume):
 
 
 @torch.no_grad()
-def validate(fabric: L.Fabric, model: nn.Module, val_dataloader: DataLoader, iterations: int) -> torch.Tensor:
+def validate(fabric: L.Fabric, model: nn.Module, val_dataloader: DataLoader, max_iters: int) -> torch.Tensor:
     fabric.print("Validating ...")
     model.eval()
 
-    losses = torch.zeros(iterations, device=fabric.device)
+    losses = torch.zeros(max_iters, device=fabric.device)
     for k, val_data in enumerate(val_dataloader):
-        if k >= iterations:
+        if k >= max_iters:
             break
         input_ids = val_data[:, 0:model.config.block_size].contiguous().long()
         targets = val_data[:, 1:(model.config.block_size + 1)].contiguous().long()
