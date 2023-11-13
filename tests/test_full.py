@@ -73,6 +73,10 @@ def test_pretrain_tiny_llama(tmp_path, fake_checkpoint_dir, monkeypatch):
     module.model_name = "tmp"
     module.out_dir = tmp_path
 
+    # Patch torch.compile, because need torch nightly, otherwise we get
+    # AssertionError: expected size 4==4, stride 2==4 at dim=1
+    monkeypatch.setattr(module.torch, "compile", lambda x: x)
+
     from lit_gpt.config import name_to_config
 
     model_config = dict(block_size=2, n_layer=2, n_embd=8, n_head=4, padded_vocab_size=8)
