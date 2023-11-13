@@ -12,8 +12,6 @@ from typing import Tuple, Union
 import lightning as L
 import torch
 import torch.nn as nn
-from lightning.data import StreamingDataset
-from lightning.data.streaming.item_loader import TokensLoader
 from lightning.fabric.loggers import CSVLogger
 from lightning.fabric.strategies import FSDPStrategy
 from lightning.fabric.utilities.throughput import Throughput, get_available_flops, measure_flops
@@ -100,9 +98,7 @@ def main(fabric, resume):
 
     config = Config.from_name(model_name)
 
-    train_dataloader, val_dataloader = create_dataloaders(
-        fabric, batch_size=micro_batch_size, block_size=config.block_size
-    )
+    train_dataloader, val_dataloader = create_dataloaders(batch_size=micro_batch_size, block_size=config.block_size)
     if val_dataloader is None:
         train_dataloader = fabric.setup_dataloaders(train_dataloader)
     else:
@@ -272,7 +268,10 @@ def validate(fabric: L.Fabric, model: nn.Module, val_dataloader: DataLoader) -> 
     return losses.mean()
 
 
-def create_dataloaders(fabric: L.Fabric, batch_size: int, block_size: int) -> Tuple[DataLoader, DataLoader]:
+def create_dataloaders(batch_size: int, block_size: int) -> Tuple[DataLoader, DataLoader]:
+    from lightning.data import StreamingDataset
+    from lightning.data.streaming.item_loader import TokensLoader
+
     # Increase by one because we need the next word as well
     effective_block_size = block_size + 1
 

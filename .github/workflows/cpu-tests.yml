@@ -44,7 +44,7 @@ jobs:
 
     - name: Install minimal dependencies
       run: |
-        pip install -r requirements.txt lightning-cloud
+        pip install -r requirements.txt
         pip list
         # make sure all modules are importable
         modules=$(
