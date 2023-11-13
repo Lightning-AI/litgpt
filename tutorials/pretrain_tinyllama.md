@@ -53,7 +53,8 @@ You will need to have the tokenizer config available:
 ```bash
 python scripts/download.py \
    --repo_id meta-llama/Llama-2-7b-hf \
-   --access_token your_hf_token
+   --access_token your_hf_token \
+   --tokenizer_only true
 ```
 
 Then, run the preprocessing script for each dataset and split.
