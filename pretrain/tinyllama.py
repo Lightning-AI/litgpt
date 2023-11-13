@@ -334,11 +334,9 @@ if __name__ == "__main__":
     torch.set_float32_matmul_precision("high")
 
     from jsonargparse import CLI
-    from lightning_utilities.core.imports import RequirementCache
+    from lightning.fabric.utilities.imports import _TORCH_GREATER_EQUAL_2_2
 
-    if not RequirementCache("torch>=2.2"):
-        raise ImportError(
-            "The tinyllama.py training script requires PyTorch 2.2 (nightly) or higher to run."
-        )
+    if not _TORCH_GREATER_EQUAL_2_2:
+        raise ImportError("The tinyllama.py training script requires PyTorch 2.2 (nightly) or higher to run.")
 
     CLI(setup)
