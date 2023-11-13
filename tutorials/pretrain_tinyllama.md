@@ -64,7 +64,7 @@ You will require **1.1 TB** of disk space for Starcoder and **2.5** TB of space 
 python scripts/prepare_starcoder.py \
   --input_dir data/starcoderdata-raw \
   --output_dir data/starcoder \
-  --tokenizer_path checkpoints/Llama-2-7b-hf \
+  --tokenizer_path checkpoints/Llama-2-7b-hf
 ```
 
 **SlimPajama:**
@@ -72,17 +72,17 @@ python scripts/prepare_starcoder.py \
 python scripts/prepare_slimpajama.py \
   --input_dir data/slimpajama-raw/validation \
   --output_dir data/slimpajama/val \
-  --tokenizer_path checkpoints/Llama-2-7b-hf \
+  --tokenizer_path checkpoints/Llama-2-7b-hf
 
 python scripts/prepare_slimpajama.py \
   --input_dir data/slimpajama-raw/test \
   --output_dir data/slimpajama/test \
-  --tokenizer_path checkpoints/Llama-2-7b-hf \
+  --tokenizer_path checkpoints/Llama-2-7b-hf
 
 python scripts/prepare_slimpajama.py \
   --input_dir data/slimpajama-raw/train \
   --output_dir data/slimpajama/train \
-  --tokenizer_path checkpoints/Llama-2-7b-hf \
+  --tokenizer_path checkpoints/Llama-2-7b-hf
 ```
 
 If you want to run on a small slice of the datasets first, pass the flag `--fast_dev_run=true` to the commands above.
