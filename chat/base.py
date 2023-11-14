@@ -12,6 +12,7 @@ from lightning.fabric.plugins import BitsandbytesPrecision
 wd = Path(__file__).parent.parent.resolve()
 sys.path.append(str(wd))
 
+from generate.base import sample
 from lit_gpt import GPT, Config, Tokenizer
 from lit_gpt.utils import (
     check_valid_checkpoint_dir,
@@ -62,16 +63,7 @@ def generate(
     for t in range(max_returned_tokens - T):
         # forward
         logits = model(idx.view(1, -1), input_pos)
-        logits = logits[0, -1] / temperature
-
-        # optionally crop the logits to only the top k options
-        if top_k is not None:
-            v, i = torch.topk(logits, min(top_k, logits.size(-1)))
-            # do not use `torch.where` as in nanogpt because it will repeat top-k collisions
-            logits = torch.full_like(logits, float("-inf")).scatter_(-1, i, v)
-
-        probs = torch.nn.functional.softmax(logits, dim=-1)
-        idx = torch.multinomial(probs, num_samples=1)
+        idx = sample(logits, temperature, top_k)
 
         # advance
         input_pos = input_pos[-1:] + 1
