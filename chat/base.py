@@ -66,8 +66,8 @@ def generate(
 
         # optionally crop the logits to only the top k options
         if top_k is not None:
-            v, _ = torch.topk(logits, min(top_k, logits.size(-1)))
-            logits = torch.where(logits < v[[-1]], -float("Inf"), logits)
+            v, i = torch.topk(logits, min(top_k, logits.size(-1)))
+            logits = torch.full_like(logits, float("-inf")).scatter_(-1, i, v)
 
         probs = torch.nn.functional.softmax(logits, dim=-1)
         idx = torch.multinomial(probs, num_samples=1)
