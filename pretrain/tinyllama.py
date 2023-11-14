@@ -38,7 +38,7 @@ devices = 8
 global_batch_size = 512
 learning_rate = 4e-4
 micro_batch_size = 8
-max_step = 715256 * 2
+max_steps = 715256 * 2
 warmup_steps = 2000
 log_step_interval = 2
 eval_iters = 100
@@ -57,7 +57,7 @@ gradient_accumulation_steps = batch_size // micro_batch_size
 assert gradient_accumulation_steps > 0
 warmup_iters = warmup_steps * gradient_accumulation_steps
 
-max_iters = max_step * gradient_accumulation_steps
+max_iters = max_steps * gradient_accumulation_steps
 lr_decay_iters = max_iters
 log_iter_interval = log_step_interval * gradient_accumulation_steps
 
