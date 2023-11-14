@@ -38,7 +38,7 @@ devices = 8
 global_batch_size = 512
 learning_rate = 4e-4
 micro_batch_size = 8
-max_step = 715256 * 2
+max_steps = 715256 * 2
 warmup_steps = 2000
 log_step_interval = 2
 eval_iters = 100
@@ -57,7 +57,7 @@ gradient_accumulation_steps = batch_size // micro_batch_size
 assert gradient_accumulation_steps > 0
 warmup_iters = warmup_steps * gradient_accumulation_steps
 
-max_iters = max_step * gradient_accumulation_steps
+max_iters = max_steps * gradient_accumulation_steps
 lr_decay_iters = max_iters
 log_iter_interval = log_step_interval * gradient_accumulation_steps
 
@@ -136,8 +136,7 @@ def train(fabric, state, train_dataloader, val_dataloader, resume):
     model = state["model"]
     optimizer = state["optimizer"]
 
-    if val_dataloader is not None:
-        validate(fabric, model, val_dataloader)  # sanity check
+    validate(fabric, model, val_dataloader, max_iters=2)  # sanity check
     throughput = ThroughputMonitor(fabric, window_size=5)
 
     with torch.device("meta"):
@@ -227,7 +226,7 @@ def train(fabric, state, train_dataloader, val_dataloader, resume):
 
         if val_dataloader is not None and not is_accumulating and state["step_count"] % eval_step_interval == 0:
             t0 = time.perf_counter()
-            val_loss = validate(fabric, model, val_dataloader)
+            val_loss = validate(fabric, model, val_dataloader, max_iters=eval_iters)
             val_loss = val_loss.item()
             td = time.perf_counter() - t0
 
@@ -246,13 +245,13 @@ def train(fabric, state, train_dataloader, val_dataloader, resume):
 
 
 @torch.no_grad()
-def validate(fabric: L.Fabric, model: nn.Module, val_dataloader: DataLoader) -> torch.Tensor:
+def validate(fabric: L.Fabric, model: nn.Module, val_dataloader: DataLoader, max_iters: int) -> torch.Tensor:
     fabric.print("Validating ...")
     model.eval()
 
-    losses = torch.zeros(eval_iters, device=fabric.device)
+    losses = torch.zeros(max_iters, device=fabric.device)
     for k, val_data in enumerate(val_dataloader):
-        if k >= eval_iters:
+        if k >= max_iters:
             break
         input_ids = val_data[:, 0:model.config.block_size].contiguous().long()
         targets = val_data[:, 1:(model.config.block_size + 1)].contiguous().long()
@@ -294,7 +293,7 @@ def create_dataloaders(batch_size: int, block_size: int) -> Tuple[DataLoader, Da
     val_dataset = StreamingDataset(
         input_dir="data/slimpajama/val",
         item_loader=TokensLoader(block_size=effective_block_size), 
-        shuffle=False,
+        shuffle=True,
         # Consider setting to False, but we would lose some samples due to truncation when world size > 1
         drop_last=True,
     )
