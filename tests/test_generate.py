@@ -84,3 +84,20 @@ def test_cli():
     output = subprocess.check_output([sys.executable, cli_path, "-h"])
     output = str(output.decode())
     assert "Generates text samples" in output
+
+
+@pytest.mark.parametrize("temperature", (0.0, 1.0, 0.5))
+def test_sample(temperature):
+    from generate.base import sample
+
+    # shape: 2x3x5
+    logits = torch.tensor(
+        [
+            [[24, 4, 98, 77, 47], [65, 70, 32, 67, 24], [92, 32, 88, 36, 62]],
+            [[85, 79, 57, 68, 50], [89, 46, 72, 45, 32], [68, 96, 68, 24, 36]],
+        ]
+    )
+    token = sample(logits, temperature=temperature)
+
+    assert token.shape == (2, 1)
+    assert token.squeeze().tolist() == [0, 1]
