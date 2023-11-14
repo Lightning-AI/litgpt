@@ -17,7 +17,7 @@ def download_from_hub(
     repo_id: Optional[str] = None,
     access_token: Optional[str] = os.getenv("HF_TOKEN"),
     from_safetensors: bool = False,
-    tokenizer_only: bool = True,
+    tokenizer_only: bool = False,
 ) -> None:
     if repo_id is None:
         from lit_gpt.config import configs
