@@ -35,7 +35,7 @@ def cudagraph_mark_step() -> None:
 
 
 def multinomial_num_samples_1(probs: torch.Tensor) -> torch.Tensor:
-    """Faster version of ``torch.multinomial(probs, num_samples=1)`` that is also CUDAGraph friendly."""
+    """Faster alternative to ``torch.multinomial(probs, num_samples=1)`` that is also CUDAGraph friendly."""
     distribution = torch.empty_like(probs).exponential_(1)
     return torch.argmax(probs / distribution, dim=-1, keepdim=True)
 
@@ -44,14 +44,14 @@ def sample(logits: torch.Tensor, temperature: float = 1.0, top_k: Optional[int] 
     logits = logits[0, -1]
     # optionally crop the logits to only the top k options
     if top_k is not None:
-        # FIXME: could we reuse indices here?
-        v, _ = torch.topk(logits, min(top_k, logits.size(-1)))
-        logits = torch.where(logits < v[-1], -float("Inf"), logits)
+        v, i = torch.topk(logits, min(top_k, logits.size(-1)))
+        # do not use `torch.where` as in nanogpt because it will repeat top-k collisions
+        logits = torch.full_like(logits, float("-inf")).scatter_(-1, i, v)
     # optionally scale the logits and sample from a probability distribution
-    if temperature > 0:
+    if temperature > 0.0:
         probs = torch.nn.functional.softmax(logits / temperature, dim=-1)
-        return multinomial_num_samples_1(probs)
-    return torch.argmax(logits, dim=-1)
+        return torch.multinomial(probs, num_samples=1)
+    return torch.argmax(logits, dim=-1, keepdim=True)
 
 
 def next_token(model: GPT, input_pos: torch.Tensor, x: torch.Tensor, **kwargs: Any) -> torch.Tensor:

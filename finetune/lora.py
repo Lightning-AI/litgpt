@@ -175,7 +175,7 @@ def train(
         f" {model.max_seq_length} and context length is {model.config.block_size}"
     )
 
-    validate(fabric, model, val_data, tokenizer)  # sanity check
+    validate(fabric, model, val_data, tokenizer, max_iters=2)  # sanity check
 
     throughput = ThroughputMonitor(fabric, window_size=50)
     step_count = 0
@@ -223,7 +223,7 @@ def train(
 
         if not is_accumulating and step_count % eval_interval == 0:
             t0 = time.perf_counter()
-            val_loss = validate(fabric, model, val_data, tokenizer)
+            val_loss = validate(fabric, model, val_data, tokenizer, max_iters=eval_iters)
             t1 = time.perf_counter() - t0
             fabric.print(f"step {iter_num}: val loss {val_loss.item():.4f}, val time: {t1 * 1000:.2f}ms")
             fabric.barrier()
@@ -234,11 +234,11 @@ def train(
 
 # FSDP has issues with `inference_mode`
 @torch.no_grad()
-def validate(fabric: L.Fabric, model: GPT, val_data: List[Dict], tokenizer: Tokenizer) -> torch.Tensor:
+def validate(fabric: L.Fabric, model: GPT, val_data: List[Dict], tokenizer: Tokenizer, max_iters: int) -> torch.Tensor:
     fabric.print("Validating ...")
     model.eval()
-    losses = torch.zeros(eval_iters)
-    for k in range(eval_iters):
+    losses = torch.zeros(max_iters)
+    for k in range(max_iters):
         input_ids, targets = get_batch(fabric, val_data)
         logits = model(input_ids)
         losses[k] = chunked_cross_entropy(logits[..., :-1, :], targets[..., 1:], chunk_size=0)
