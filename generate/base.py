@@ -70,6 +70,7 @@ def generate(
         # optionally crop the logits to only the top k options
         if top_k is not None:
             v, i = torch.topk(logits, min(top_k, logits.size(-1)))
+            # do not use `torch.where` as in nanogpt because it will repeat top-k collisions
             logits = torch.full_like(logits, float("-inf")).scatter_(-1, i, v)
 
         probs = torch.nn.functional.softmax(logits, dim=-1)
