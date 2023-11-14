@@ -9,7 +9,6 @@ import torch._dynamo.config
 import torch._inductor.config
 from lightning.fabric.plugins import BitsandbytesPrecision
 from lightning.fabric.strategies import FSDPStrategy
-from lightning.fabric.utilities.imports import _TORCH_GREATER_EQUAL_2_2
 
 # support running without installing as a package
 wd = Path(__file__).parent.parent.resolve()
@@ -19,19 +18,11 @@ from lit_gpt import GPT, Config, Tokenizer
 from lit_gpt.model import Block
 from lit_gpt.utils import (
     check_valid_checkpoint_dir,
+    cudagraph_mark_step,
     get_default_supported_precision,
     gptq_quantization,
     load_checkpoint,
 )
-
-
-def cudagraph_mark_step() -> None:
-    if not torch._dynamo.is_compiling():
-        return
-    if _TORCH_GREATER_EQUAL_2_2:
-        torch.compiler.cudagraph_mark_step_begin()
-    else:
-        torch._inductor.cudagraph_mark_step_begin()
 
 
 def multinomial_num_samples_1(probs: torch.Tensor) -> torch.Tensor:
