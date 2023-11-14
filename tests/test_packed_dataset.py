@@ -190,14 +190,17 @@ def test_sharded_packed_dataset(monkeypatch):
     assert dataset_iterator_mock.call_args[1]["filenames"] == ["2", "5", "8"]
 
 
-@pytest.mark.parametrize("weights, expected", [
-    ([1], [1]),
-    ([2], [1]),
-    ([2, 0.5], [0.8, 0.2]),
-    ([1, 1, 1], [1 / 3, 1 / 3, 1 / 3]),
-    ([0.3, 0, 0], [1.0, 0, 0]),
-    (None, [0.5, 0.5]),
-])
+@pytest.mark.parametrize(
+    ("weights", "expected"),
+    [
+        ([1], [1]),
+        ([2], [1]),
+        ([2, 0.5], [0.8, 0.2]),
+        ([1, 1, 1], [1 / 3, 1 / 3, 1 / 3]),
+        ([0.3, 0, 0], [1.0, 0, 0]),
+        (None, [0.5, 0.5]),
+    ],
+)
 def test_combined_dataset_normalizes_weights(weights, expected, monkeypatch):
     from lit_gpt.packed_dataset import CombinedDataset
 

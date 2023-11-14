@@ -90,11 +90,7 @@ def test_pretrain_tiny_llama(tmp_path, fake_checkpoint_dir, monkeypatch):
     with redirect_stdout(stdout):
         module.setup()
 
-    assert {p.name for p in tmp_path.glob("*.pth")} == {
-        "step-00000001.pth",
-        "step-00000002.pth",
-        "step-00000003.pth",
-    }
+    assert {p.name for p in tmp_path.glob("*.pth")} == {"step-00000001.pth", "step-00000002.pth", "step-00000003.pth"}
 
     logs = stdout.getvalue()
     assert logs.count("optimizer.step") == module.max_iters
