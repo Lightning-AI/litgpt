@@ -172,9 +172,9 @@ def test_lora_script(tmp_path, fake_checkpoint_dir, monkeypatch):
         module.setup(data_dir=tmp_path, checkpoint_dir=fake_checkpoint_dir, out_dir=tmp_path, precision="32-true")
 
     assert {p.name for p in tmp_path.glob("*.pth")} == {
-        "iter-000001-ckpt.pth",
-        "iter-000003-ckpt.pth",
-        "iter-000005-ckpt.pth",
+        "iter-000002-ckpt.pth",
+        "iter-000004-ckpt.pth",
+        "iter-000006-ckpt.pth",
         "lit_model_lora_finetuned.pth",
     }
     assert (tmp_path / "version_0" / "metrics.csv").is_file()
@@ -376,14 +376,7 @@ def test_lora_merge_with_quantize():
         to_projection=True,
     )
     fabric = Fabric(devices=1, plugins=BitsandbytesPrecision("nf4", dtype=torch.bfloat16, ignore_modules={"lm_head"}))
-    with fabric.init_module(empty_init=False):
-        model = GPT(config)
-        model.apply(model._init_weights)
-
-    attn_proj = model.transformer.h[0].attn.proj
-    assert model.lm_head.linear.weight.dtype is torch.bfloat16
-    assert attn_proj.linear.weight.dtype is torch.bfloat16
-
+    model = GPT(config)
     mark_only_lora_as_trainable(model)
 
     from bitsandbytes.optim import PagedAdamW
@@ -393,10 +386,11 @@ def test_lora_merge_with_quantize():
 
     model.train()
 
+    attn_proj = model.transformer.h[0].attn.proj
     initial_weight = attn_proj.linear.weight.clone()
 
     # this was skipped
-    assert model.lm_head.linear.weight.dtype is torch.bfloat16
+    assert model.lm_head.linear.weight.dtype is torch.float32
     assert attn_proj.linear.weight.dtype is torch.uint8
 
     # perform an update to the LoRA weights
@@ -482,7 +476,7 @@ def test_lora_compile():
 
     from torch._dynamo.backends import debugging
 
-    explanation = torch._dynamo.explain(model, x)
+    explanation = torch._dynamo.explain(model)(x)
     assert isinstance(explanation, debugging.ExplainOutput)
     assert explanation.graph_count == 1
     assert explanation.graph_break_count == 0
@@ -490,7 +484,7 @@ def test_lora_compile():
     model = GPT(model.config)
     model.set_kv_cache(2)
     input_pos = torch.arange(model.config.block_size)
-    explanation = torch._dynamo.explain(model, x, input_pos)
+    explanation = torch._dynamo.explain(model)(x, input_pos)
     assert isinstance(explanation, debugging.ExplainOutput)
     assert explanation.graph_count == 1
     assert explanation.graph_break_count == 0

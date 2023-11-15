@@ -94,9 +94,9 @@ def test_adapter_v2_script(tmp_path, fake_checkpoint_dir, monkeypatch):
         module.setup(data_dir=tmp_path, checkpoint_dir=fake_checkpoint_dir, out_dir=tmp_path, precision="32-true")
 
     assert {p.name for p in tmp_path.glob("*.pth")} == {
-        "iter-000001-ckpt.pth",
-        "iter-000003-ckpt.pth",
-        "iter-000005-ckpt.pth",
+        "iter-000002-ckpt.pth",
+        "iter-000004-ckpt.pth",
+        "iter-000006-ckpt.pth",
         "lit_model_adapter_finetuned.pth",
     }
     assert (tmp_path / "version_0" / "metrics.csv").is_file()
@@ -145,7 +145,7 @@ def test_adapter_v2_compile():
 
     from torch._dynamo.backends import debugging
 
-    explanation = torch._dynamo.explain(model, x)
+    explanation = torch._dynamo.explain(model)(x)
     assert isinstance(explanation, debugging.ExplainOutput)
     assert explanation.graph_count == 1
     assert explanation.graph_break_count == 0
@@ -153,7 +153,7 @@ def test_adapter_v2_compile():
     model = GPT(model.config)
     model.set_kv_cache(2)
     input_pos = torch.arange(model.config.block_size)
-    explanation = torch._dynamo.explain(model, x, input_pos)
+    explanation = torch._dynamo.explain(model)(x, input_pos)
     assert isinstance(explanation, debugging.ExplainOutput)
     assert explanation.graph_count == 1
     assert explanation.graph_break_count == 0

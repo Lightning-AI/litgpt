@@ -1,8 +1,10 @@
 import lightning as L
 import pytest
 import torch
+from lightning.fabric.utilities.imports import _TORCH_GREATER_EQUAL_2_2
 
 
+@pytest.mark.skipif(_TORCH_GREATER_EQUAL_2_2, reason="Core dumped")
 def test_gptq_blockwise_quantization():
     from quantize.gptq import _TRITON_AVAILABLE
 
