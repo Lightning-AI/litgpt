@@ -354,6 +354,8 @@ def test_lora_qkv_linear_weights_merged_status(rank, enable_lora, expected_merge
 @pytest.mark.skipif(not torch.cuda.is_available(), reason="8bit requires CUDA")
 # platform dependent cuda issue: libbitsandbytes_cpu.so: undefined symbol: cquantize_blockwise_fp16_nf4
 @pytest.mark.xfail(raises=AttributeError, strict=False)
+# https://github.com/Lightning-AI/lit-gpt/issues/513
+@pytest.mark.xfail(raises=RuntimeError, strict=True)
 def test_lora_merge_with_quantize():
     from lightning.fabric.plugins.precision.bitsandbytes import _BITSANDBYTES_AVAILABLE, BitsandbytesPrecision
 
