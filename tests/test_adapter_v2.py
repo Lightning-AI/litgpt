@@ -6,9 +6,8 @@ from unittest.mock import Mock
 
 import pytest
 import torch
-from lightning import Fabric
-
 from conftest import RunIf
+from lightning import Fabric
 
 # support running without installing as a package
 wd = Path(__file__).parent.parent.resolve()
