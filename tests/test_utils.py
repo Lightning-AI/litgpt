@@ -1,11 +1,11 @@
 import os
-import sys
 from contextlib import redirect_stderr
 from io import StringIO
 
 import pytest
 import torch
 import torch.nn.functional as F
+from conftest import RunIf
 
 
 def test_find_multiple():
@@ -20,7 +20,8 @@ def test_find_multiple():
     assert find_multiple(50254, 512) == 50688
 
 
-@pytest.mark.skipif(sys.platform == "win32", reason="match fails on windows. why did they have to use backslashes?")
+# match fails on windows. why did they have to use backslashes?
+@RunIf(skip_windows=True)
 def test_check_valid_checkpoint_dir(tmp_path):
     from lit_gpt.utils import check_valid_checkpoint_dir
 

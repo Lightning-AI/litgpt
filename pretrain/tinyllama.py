@@ -161,14 +161,13 @@ def train(fabric, state, train_dataloader, val_dataloader, resume):
             if curr_iter < initial_iter:
                 curr_iter += 1
                 continue
-            else:
-                resume = False
-                curr_iter = -1
-                fabric.barrier()
-                fabric.print(
-                    "Resuming data loader finished."
-                    f"Took {time.perf_counter() - total_t0:.1f} seconds to reach iteration {initial_iter}."
-                )
+            resume = False
+            curr_iter = -1
+            fabric.barrier()
+            fabric.print(
+                "Resuming data loader finished."
+                f"Took {time.perf_counter() - total_t0:.1f} seconds to reach iteration {initial_iter}."
+            )
 
         if state["iter_num"] >= max_iters:
             break

@@ -56,15 +56,17 @@ jobs:
         echo "$modules"
         python -c "$modules"
 
-    - name: Run tests without the package installed
+    - name: Install all dependencies
       run: |
-        pip install -r requirements-all.txt pytest pytest-rerunfailures transformers einops protobuf
+        pip install -r requirements-all.txt pytest pytest-rerunfailures pytest-timeout transformers einops protobuf
         pip list
 
-        pytest -v --disable-pytest-warnings --strict-markers --color=yes
+    - name: Run tests without the package installed
+      run: |
+        pytest -v --disable-pytest-warnings --strict-markers --color=yes --timeout 60
 
     - name: Run tests
       run: |
         pip install . --no-deps
 
-        pytest -v --disable-pytest-warnings --strict-markers --color=yes
+        pytest -v --disable-pytest-warnings --strict-markers --color=yes --timeout 60
