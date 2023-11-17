@@ -26,9 +26,11 @@ from lit_gpt.utils import (
 
 
 def multinomial_num_samples_1(probs: torch.Tensor) -> torch.Tensor:
-    """Faster alternative to ``torch.multinomial(probs, num_samples=1)`` that is also CUDAGraph friendly."""
-    distribution = torch.empty_like(probs).exponential_(1)
-    return torch.argmax(probs / distribution, dim=-1, keepdim=True)
+    if torch._dynamo.is_compiling():
+        # Faster alternative to `torch.multinomial(probs, num_samples=1)` that is also CUDAGraph friendly
+        distribution = torch.empty_like(probs).exponential_(1)
+        return torch.argmax(probs / distribution, dim=-1, keepdim=True)
+    return torch.multinomial(probs, num_samples=1)
 
 
 def sample(logits: torch.Tensor, temperature: float = 1.0, top_k: Optional[int] = None) -> torch.Tensor:
@@ -41,7 +43,7 @@ def sample(logits: torch.Tensor, temperature: float = 1.0, top_k: Optional[int] 
     # optionally scale the logits and sample from a probability distribution
     if temperature > 0.0:
         probs = torch.nn.functional.softmax(logits / temperature, dim=-1)
-        return torch.multinomial(probs, num_samples=1)
+        return multinomial_num_samples_1(probs)
     return torch.argmax(logits, dim=-1, keepdim=True)
 
 
