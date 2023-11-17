@@ -1,4 +1,3 @@
-import operator
 import sys
 from functools import partial
 from pathlib import Path
@@ -6,8 +5,8 @@ from urllib.request import urlretrieve
 
 import pytest
 import torch
+from conftest import RunIf
 from lightning.fabric.utilities.imports import _IS_WINDOWS, _TORCH_GREATER_EQUAL_2_2
-from lightning_utilities.core.imports import compare_version
 
 # support running without installing as a package
 wd = Path(__file__).parent.parent.resolve()
@@ -32,7 +31,7 @@ import lit_gpt.config as config_module
                 # the reference does softmax upscaled to fp32 during attention. additionally, the final layernorm input
                 # is slightly different
                 pytest.mark.xfail(raises=AssertionError, strict=False),
-                pytest.mark.skipif(not torch.cuda.is_available(), reason="CUDA"),
+                RunIf(min_cuda_gpus=1),
             ],
         ),
     ],
@@ -105,7 +104,7 @@ def test_against_gpt_neox_model(rotary_pct, batch_size, n_embd, parallel_residua
                 # the reference does softmax upscaled to fp32 during attention. additionally, the final layernorm input
                 # is slightly different
                 pytest.mark.xfail(raises=AssertionError, strict=False),
-                pytest.mark.skipif(not torch.cuda.is_available(), reason="CUDA"),
+                RunIf(min_cuda_gpus=1),
             ],
         ),
     ],
@@ -156,7 +155,7 @@ def test_against_hf_falcon(kwargs, device, dtype):
                 # the reference does softmax upscaled to fp32 during attention. additionally, the final layernorm input
                 # is slightly different
                 pytest.mark.xfail(raises=AssertionError, strict=False),
-                pytest.mark.skipif(not torch.cuda.is_available(), reason="CUDA"),
+                RunIf(min_cuda_gpus=1),
             ],
         ),
     ],
@@ -199,17 +198,7 @@ def test_against_original_open_llama_3b(device, dtype):
 @torch.inference_mode()
 @pytest.mark.parametrize(
     "ours_kwargs",
-    [
-        {"name": "Llama-2-7b-hf"},
-        pytest.param(
-            {"name": "CodeLlama-7b-hf"},
-            marks=pytest.mark.skipif(
-                compare_version("transformers", operator.lt, "4.33.0", use_base_version=True),
-                reason="requires rope_theta",
-            ),
-        ),
-        {"name": "Llama-2-70b-chat-hf", "n_query_groups": 1},
-    ],
+    [{"name": "Llama-2-7b-hf"}, {"name": "CodeLlama-7b-hf"}, {"name": "Llama-2-70b-chat-hf", "n_query_groups": 1}],
 )
 @pytest.mark.parametrize(
     ("device", "dtype"),
@@ -222,7 +211,7 @@ def test_against_original_open_llama_3b(device, dtype):
                 # the reference does softmax upscaled to fp32 during attention. additionally, the final layernorm input
                 # is slightly different
                 pytest.mark.xfail(raises=AssertionError, strict=False),
-                pytest.mark.skipif(not torch.cuda.is_available(), reason="CUDA"),
+                RunIf(min_cuda_gpus=1),
             ],
         ),
     ],
@@ -277,10 +266,7 @@ def test_against_hf_llama2(ours_kwargs, device, dtype):
         pytest.param(
             torch.device("cuda"),
             torch.float16,
-            marks=[
-                pytest.mark.xfail(raises=AssertionError, strict=False),
-                pytest.mark.skipif(not torch.cuda.is_available(), reason="CUDA"),
-            ],
+            marks=[pytest.mark.xfail(raises=AssertionError, strict=False), RunIf(min_cuda_gpus=1)],
         ),
     ],
 )
@@ -327,9 +313,6 @@ def test_against_hf_phi(device, dtype):
 
 
 @torch.inference_mode()
-@pytest.mark.skipif(
-    compare_version("transformers", operator.lt, "4.33.4", use_base_version=True), reason="requires mistral"
-)
 @pytest.mark.parametrize(
     ("device", "dtype"),
     [
@@ -341,7 +324,7 @@ def test_against_hf_phi(device, dtype):
                 # the reference does softmax upscaled to fp32 during attention. additionally, the final layernorm input
                 # is slightly different
                 pytest.mark.xfail(raises=AssertionError, strict=False),
-                pytest.mark.skipif(not torch.cuda.is_available(), reason="CUDA"),
+                RunIf(min_cuda_gpus=1),
             ],
         ),
     ],
@@ -393,7 +376,7 @@ def test_against_hf_mistral(device, dtype):
     torch.testing.assert_close(ours_y, theirs_y)
 
 
-@pytest.mark.skipif(sys.platform in ("win32", "darwin"), reason="torch.compile not supported on this platform")
+@RunIf(dynamo=True)
 @torch.inference_mode()
 def test_model_compile():
     from lit_gpt import GPT
@@ -471,11 +454,9 @@ def test_model_kv_cache_amp():
 SUPPORTS_FLASH_ATTENTION = (
     torch.cuda.is_available() and torch.cuda.get_device_capability() >= (8, 0) and not _IS_WINDOWS
 )
-SUPPORTS_MEM_EFF_ATTENTION = torch.cuda.is_available()
-SUPPORTS_FUSED_ATTENTION = SUPPORTS_FLASH_ATTENTION or SUPPORTS_MEM_EFF_ATTENTION
 
 
-@pytest.mark.skipif(not SUPPORTS_FUSED_ATTENTION, reason="Unsupported")
+@RunIf(min_cuda_gpus=1)
 @pytest.mark.parametrize("config", config_module.configs, ids=[c["name"] for c in config_module.configs])
 @torch.inference_mode()
 def test_sdpa_choice(config):
@@ -515,13 +496,12 @@ def test_sdpa_choice(config):
         with torch.backends.cuda.sdp_kernel(enable_mem_efficient=False):
             model(x)
 
-    if SUPPORTS_MEM_EFF_ATTENTION:
-        expected = SDPBackend.EFFICIENT_ATTENTION if config.head_size % 8 == 0 else SDPBackend.MATH
-        with torch.backends.cuda.sdp_kernel(enable_flash=False):
-            model(x)
+    expected = SDPBackend.EFFICIENT_ATTENTION if config.head_size % 8 == 0 else SDPBackend.MATH
+    with torch.backends.cuda.sdp_kernel(enable_flash=False):
+        model(x)
 
 
-@pytest.mark.skipif(not SUPPORTS_FUSED_ATTENTION, reason="Unsupported")
+@RunIf(min_cuda_gpus=1)
 @pytest.mark.parametrize("config", config_module.configs, ids=[c["name"] for c in config_module.configs])
 @torch.inference_mode()
 def test_sdpa_choice_kv_cache(config):
@@ -559,11 +539,8 @@ def test_sdpa_choice_kv_cache(config):
         with torch.backends.cuda.sdp_kernel(enable_mem_efficient=False):
             model(x, input_pos)
 
-    if SUPPORTS_MEM_EFF_ATTENTION:
-        expected = (
-            SDPBackend.EFFICIENT_ATTENTION
-            if config.head_size % 8 == 0 and config.n_query_groups != 1
-            else SDPBackend.MATH
-        )
-        with torch.backends.cuda.sdp_kernel(enable_flash=False):
-            model(x, input_pos)
+    expected = (
+        SDPBackend.EFFICIENT_ATTENTION if config.head_size % 8 == 0 and config.n_query_groups != 1 else SDPBackend.MATH
+    )
+    with torch.backends.cuda.sdp_kernel(enable_flash=False):
+        model(x, input_pos)
