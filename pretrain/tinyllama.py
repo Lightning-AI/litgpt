@@ -37,8 +37,7 @@ devices = 8
 
 global_batch_size = 512
 learning_rate = 4e-4
-micro_batch_size = 8
-max_steps = 715256 * 2
+max_tokens = int(3 * 1e12)
 warmup_steps = 2000
 log_step_interval = 2
 eval_iters = 100
@@ -67,9 +66,9 @@ hparams = {k: v for k, v in locals().items() if isinstance(v, (int, float, str))
 
 def setup(resume: Union[bool, Path] = False):
     if use_wandb:
-        logger = WandbLogger(project="tinyllama", name="training", resume=(resume is not False))
+        logger = WandbLogger(project="tinyllama", name=name, resume=(resume is not False))
     else:
-        logger = CSVLogger(root_dir="logs", name="tinyllama")
+        logger = CSVLogger(root_dir="logs", name=name)
 
     if devices > 1:
         strategy = FSDPStrategy(
@@ -78,6 +77,7 @@ def setup(resume: Union[bool, Path] = False):
             state_dict_type="full",
             limit_all_gathers=True,
             cpu_offload=False,
+            sharding_strategy="HYBRID_SHARD",
         )
     else:
         strategy = "auto"
@@ -155,6 +155,11 @@ def train(fabric, state, train_dataloader, val_dataloader, resume):
     curr_iter = 0
 
     for train_data in train_dataloader:
+
+        total_tokens = state["iter_num"] * micro_batch_size * model.config.block_size * fabric.world_size
+        if state["iter_num"] >= max_iters > 0 or total_tokens >= max_tokens > 0:
+            break
+
         # resume data loader state by fast-forwarding through all seen batches
         # drop this once streaming dataset supports proper resuming
         if resume:
@@ -169,9 +174,6 @@ def train(fabric, state, train_dataloader, val_dataloader, resume):
                     "Resuming data loader finished."
                     f"Took {time.perf_counter() - total_t0:.1f} seconds to reach iteration {initial_iter}."
                 )
-
-        if state["iter_num"] >= max_iters:
-            break
 
         # determine and set the learning rate for this iteration
         lr = get_lr(state["iter_num"]) if decay_lr else learning_rate
@@ -215,7 +217,7 @@ def train(fabric, state, train_dataloader, val_dataloader, resume):
                     (t1 - total_t0) / (state["iter_num"] - initial_iter) * (max_iters - state["iter_num"])
                 ),
                 "tokens": state["iter_num"] * micro_batch_size * model.config.block_size,
-                "total_tokens": state["iter_num"] * micro_batch_size * model.config.block_size * fabric.world_size,
+                "total_tokens": total_tokens,
             }
 
             fabric.print(
