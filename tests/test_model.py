@@ -452,7 +452,9 @@ def test_model_kv_cache_amp():
 
 
 # https://github.com/pytorch/pytorch/blob/ad3572a5d/torch/testing/_internal/common_cuda.py#L31-L34
-SUPPORTS_FLASH_ATTENTION = torch.cuda.get_device_capability() >= (8, 0) and not _IS_WINDOWS
+SUPPORTS_FLASH_ATTENTION = (
+    torch.cuda.is_available() and torch.cuda.get_device_capability() >= (8, 0) and not _IS_WINDOWS
+)
 
 
 @RunIf(min_cuda_gpus=1)
