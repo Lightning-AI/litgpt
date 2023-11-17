@@ -5,6 +5,8 @@ from io import StringIO
 import pytest
 import torch
 import torch.nn.functional as F
+from lightning import Fabric
+
 from conftest import RunIf
 
 
@@ -135,3 +137,23 @@ def test_num_parameters():
     assert num_parameters(model) == 6
     assert num_parameters(model, requires_grad=True) == 4
     assert num_parameters(model, requires_grad=False) == 2
+
+
+@RunIf(min_cuda_gpus=1)
+@pytest.mark.parametrize("mode", ["nf4", "nf4-dq", "fp4", "fp4-dq", "int8", "int8-training"])
+@pytest.mark.skip("To be fixed")
+def test_num_parameters_bitsandbytes(mode):
+    from lightning.fabric.plugins import BitsandbytesPrecision
+    from lit_gpt import GPT
+    from lit_gpt.utils import num_parameters
+
+    plugin = BitsandbytesPrecision(mode=mode)
+    fabric = Fabric(plugins=plugin, accelerator="cuda", devices=1)
+
+    model = torch.nn.Linear(10, 10)
+    model = fabric.setup(model)
+    assert num_parameters(model) == 110
+
+    with fabric.init_module(empty_init=True):
+        model = GPT.from_name("pythia-70m")
+    assert num_parameters(model) == 70426624

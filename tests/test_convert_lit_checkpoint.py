@@ -36,11 +36,10 @@ def test_convert_lit_checkpoint(tmp_path):
 
 @torch.inference_mode()
 def test_against_falcon_40b():
-    from transformers.models.falcon.configuration_falcon import FalconConfig
-    from transformers.models.falcon.modeling_falcon import FalconForCausalLM
-
     from lit_gpt import GPT, Config
     from scripts.convert_lit_checkpoint import copy_weights_falcon as copy_to_theirs
+    from transformers.models.falcon.configuration_falcon import FalconConfig
+    from transformers.models.falcon.modeling_falcon import FalconForCausalLM
 
     ours_config = Config.from_name("falcon-40b", n_layer=2, n_head=8, n_query_groups=4, n_embd=32)
     theirs_config = FalconConfig(
@@ -72,10 +71,9 @@ def test_against_falcon_40b():
 
 @torch.inference_mode()
 def test_against_original_gpt_neox():
-    from transformers import GPTNeoXConfig, GPTNeoXForCausalLM
-
     from lit_gpt import GPT, Config
     from scripts.convert_lit_checkpoint import copy_weights_gpt_neox as copy_to_theirs
+    from transformers import GPTNeoXConfig, GPTNeoXForCausalLM
 
     ours_config = Config(block_size=64, vocab_size=100, n_layer=4, n_head=8, n_embd=16)
     assert ours_config.padded_vocab_size == 512
@@ -116,11 +114,10 @@ def test_against_original_gpt_neox():
     "ours_kwargs", [{"name": "Llama-2-7b-hf"}, {"name": "CodeLlama-7b-hf"}, {"name": "Llama-2-70b-chat-hf"}]
 )
 def test_against_hf_llama2(ours_kwargs):
-    from transformers.models.llama.configuration_llama import LlamaConfig
-    from transformers.models.llama.modeling_llama import LlamaForCausalLM
-
     from lit_gpt import GPT, Config
     from scripts.convert_lit_checkpoint import copy_weights_llama
+    from transformers.models.llama.configuration_llama import LlamaConfig
+    from transformers.models.llama.modeling_llama import LlamaForCausalLM
 
     ours_config = Config.from_name(
         padded_vocab_size=10000, n_layer=2, n_head=8, n_embd=32, intermediate_size=86, **ours_kwargs
@@ -155,11 +152,10 @@ def test_against_hf_llama2(ours_kwargs):
 
 @torch.inference_mode()
 def test_against_original_open_llama_3b():
-    from transformers.models.llama.configuration_llama import LlamaConfig
-    from transformers.models.llama.modeling_llama import LlamaForCausalLM
-
     from lit_gpt import GPT, Config
     from scripts.convert_lit_checkpoint import copy_weights_llama
+    from transformers.models.llama.configuration_llama import LlamaConfig
+    from transformers.models.llama.modeling_llama import LlamaForCausalLM
 
     ours_config = Config.from_name("open_llama_3b", n_layer=2, n_head=8, n_embd=32, intermediate_size=86)
     T = 5
@@ -194,10 +190,10 @@ def test_against_hf_phi():
     if not file_path.is_file():
         urlretrieve(url=url, filename=file_path)
 
-    from original_phi_1_5 import MixFormerSequentialConfig, MixFormerSequentialForCausalLM
-
     from lit_gpt import GPT, Config
     from scripts.convert_lit_checkpoint import copy_weights_phi
+
+    from original_phi_1_5 import MixFormerSequentialConfig, MixFormerSequentialForCausalLM
 
     ours_config = Config.from_name(
         "phi-1_5", padded_vocab_size=10000, n_layer=2, n_head=4, n_embd=256, rotary_percentage=0.5
