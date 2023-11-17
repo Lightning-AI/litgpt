@@ -20,9 +20,9 @@ files=$(echo "$grep_output" | cut -f1 -d: | sort | uniq)
 # get the list of parametrizations. we need to call them separately. the last two lines are removed.
 # note: if there's a syntax error, this will fail with some garbled output
 if [[ "$OSTYPE" == "darwin"* ]]; then
-  parametrizations=$(python3 -m pytest $files --collect-only --quiet "$@" | tail -r | sed -e '1,3d' | tail -r)
+  parametrizations=$(python3 -m pytest $files --collect-only --quiet --disable-pytest-warnings "$@" | tail -r | sed -e '1,3d' | tail -r)
 else
-  parametrizations=$(python3 -m pytest $files --collect-only --quiet "$@" | head -n -2)
+  parametrizations=$(python3 -m pytest $files --collect-only --quiet --disable-pytest-warnings "$@" | head -n -2)
 fi
 # remove the "tests/" path suffix
 path_suffix=$(basename "$(pwd)")"/"  # https://stackoverflow.com/a/8223345
