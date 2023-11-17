@@ -1,4 +1,3 @@
-import operator
 import sys
 from functools import partial
 from pathlib import Path
@@ -7,7 +6,6 @@ from urllib.request import urlretrieve
 import pytest
 import torch
 from lightning.fabric.utilities.imports import _IS_WINDOWS, _TORCH_GREATER_EQUAL_2_2
-from lightning_utilities.core.imports import compare_version
 
 from tests.conftest import RunIf
 
@@ -34,7 +32,7 @@ import lit_gpt.config as config_module
                 # the reference does softmax upscaled to fp32 during attention. additionally, the final layernorm input
                 # is slightly different
                 pytest.mark.xfail(raises=AssertionError, strict=False),
-                pytest.mark.skipif(not torch.cuda.is_available(), reason="CUDA"),
+                RunIf(min_cuda_gpus=1),
             ],
         ),
     ],
@@ -107,7 +105,7 @@ def test_against_gpt_neox_model(rotary_pct, batch_size, n_embd, parallel_residua
                 # the reference does softmax upscaled to fp32 during attention. additionally, the final layernorm input
                 # is slightly different
                 pytest.mark.xfail(raises=AssertionError, strict=False),
-                pytest.mark.skipif(not torch.cuda.is_available(), reason="CUDA"),
+                RunIf(min_cuda_gpus=1),
             ],
         ),
     ],
@@ -158,7 +156,7 @@ def test_against_hf_falcon(kwargs, device, dtype):
                 # the reference does softmax upscaled to fp32 during attention. additionally, the final layernorm input
                 # is slightly different
                 pytest.mark.xfail(raises=AssertionError, strict=False),
-                pytest.mark.skipif(not torch.cuda.is_available(), reason="CUDA"),
+                RunIf(min_cuda_gpus=1),
             ],
         ),
     ],
@@ -201,17 +199,7 @@ def test_against_original_open_llama_3b(device, dtype):
 @torch.inference_mode()
 @pytest.mark.parametrize(
     "ours_kwargs",
-    [
-        {"name": "Llama-2-7b-hf"},
-        pytest.param(
-            {"name": "CodeLlama-7b-hf"},
-            marks=pytest.mark.skipif(
-                compare_version("transformers", operator.lt, "4.33.0", use_base_version=True),
-                reason="requires rope_theta",
-            ),
-        ),
-        {"name": "Llama-2-70b-chat-hf", "n_query_groups": 1},
-    ],
+    [{"name": "Llama-2-7b-hf"}, {"name": "CodeLlama-7b-hf"}, {"name": "Llama-2-70b-chat-hf", "n_query_groups": 1}],
 )
 @pytest.mark.parametrize(
     ("device", "dtype"),
@@ -224,7 +212,7 @@ def test_against_original_open_llama_3b(device, dtype):
                 # the reference does softmax upscaled to fp32 during attention. additionally, the final layernorm input
                 # is slightly different
                 pytest.mark.xfail(raises=AssertionError, strict=False),
-                pytest.mark.skipif(not torch.cuda.is_available(), reason="CUDA"),
+                RunIf(min_cuda_gpus=1),
             ],
         ),
     ],
@@ -279,10 +267,7 @@ def test_against_hf_llama2(ours_kwargs, device, dtype):
         pytest.param(
             torch.device("cuda"),
             torch.float16,
-            marks=[
-                pytest.mark.xfail(raises=AssertionError, strict=False),
-                pytest.mark.skipif(not torch.cuda.is_available(), reason="CUDA"),
-            ],
+            marks=[pytest.mark.xfail(raises=AssertionError, strict=False), RunIf(min_cuda_gpus=1)],
         ),
     ],
 )
@@ -329,9 +314,6 @@ def test_against_hf_phi(device, dtype):
 
 
 @torch.inference_mode()
-@pytest.mark.skipif(
-    compare_version("transformers", operator.lt, "4.33.4", use_base_version=True), reason="requires mistral"
-)
 @pytest.mark.parametrize(
     ("device", "dtype"),
     [

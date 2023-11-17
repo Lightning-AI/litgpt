@@ -1,5 +1,4 @@
 import json
-import operator
 import os
 from dataclasses import asdict
 from pathlib import Path
@@ -8,7 +7,6 @@ from urllib.request import urlretrieve
 
 import pytest
 import torch
-from lightning_utilities import compare_version
 
 wd = Path(__file__).parent.parent.absolute()
 
@@ -115,18 +113,7 @@ def test_against_original_gpt_neox():
 
 @torch.inference_mode()
 @pytest.mark.parametrize(
-    "ours_kwargs",
-    [
-        {"name": "Llama-2-7b-hf"},
-        pytest.param(
-            {"name": "CodeLlama-7b-hf"},
-            marks=pytest.mark.skipif(
-                compare_version("transformers", operator.lt, "4.33.0", use_base_version=True),
-                reason="requires rope_theta",
-            ),
-        ),
-        {"name": "Llama-2-70b-chat-hf"},
-    ],
+    "ours_kwargs", [{"name": "Llama-2-7b-hf"}, {"name": "CodeLlama-7b-hf"}, {"name": "Llama-2-70b-chat-hf"}]
 )
 def test_against_hf_llama2(ours_kwargs):
     from transformers.models.llama.configuration_llama import LlamaConfig
