@@ -1,8 +1,7 @@
 import lightning as L
 import pytest
 import torch
-
-from tests.conftest import RunIf
+from conftest import RunIf
 
 
 @RunIf(max_torch="2.2")  # TODO: core dumped

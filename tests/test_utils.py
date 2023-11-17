@@ -5,8 +5,7 @@ from io import StringIO
 import pytest
 import torch
 import torch.nn.functional as F
-
-from tests.conftest import RunIf
+from conftest import RunIf
 
 
 def test_find_multiple():

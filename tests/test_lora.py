@@ -5,9 +5,8 @@ from unittest.mock import Mock
 
 import pytest
 import torch
+from conftest import RunIf
 from lightning import Fabric
-
-from tests.conftest import RunIf
 
 
 def test_lora_layer_replacement():

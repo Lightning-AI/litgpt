@@ -194,9 +194,10 @@ def test_against_hf_phi():
     if not file_path.is_file():
         urlretrieve(url=url, filename=file_path)
 
+    from original_phi_1_5 import MixFormerSequentialConfig, MixFormerSequentialForCausalLM
+
     from lit_gpt import GPT, Config
     from scripts.convert_lit_checkpoint import copy_weights_phi
-    from tests.original_phi_1_5 import MixFormerSequentialConfig, MixFormerSequentialForCausalLM
 
     ours_config = Config.from_name(
         "phi-1_5", padded_vocab_size=10000, n_layer=2, n_head=4, n_embd=256, rotary_percentage=0.5

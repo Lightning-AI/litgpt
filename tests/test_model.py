@@ -5,9 +5,8 @@ from urllib.request import urlretrieve
 
 import pytest
 import torch
+from conftest import RunIf
 from lightning.fabric.utilities.imports import _IS_WINDOWS, _TORCH_GREATER_EQUAL_2_2
-
-from tests.conftest import RunIf
 
 # support running without installing as a package
 wd = Path(__file__).parent.parent.resolve()

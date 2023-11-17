@@ -1,5 +1,5 @@
 # this file is just to validate on the CI logs that these tests were run
-from tests.conftest import RunIf
+from conftest import RunIf
 
 
 @RunIf(min_cuda_gpus=1)
