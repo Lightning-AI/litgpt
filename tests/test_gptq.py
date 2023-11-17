@@ -1,7 +1,6 @@
 import lightning as L
 import pytest
 import torch
-
 from conftest import RunIf
 
 

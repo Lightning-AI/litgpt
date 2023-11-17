@@ -3,8 +3,9 @@ import torch
 
 @torch.inference_mode()
 def test_rope():
-    from lit_gpt.model import apply_rope, build_rope_cache
     from transformers.models.gpt_neox.modeling_gpt_neox import GPTNeoXRotaryEmbedding, apply_rotary_pos_emb
+
+    from lit_gpt.model import apply_rope, build_rope_cache
 
     bs, seq_len, n_head, n_embed = 1, 6, 2, 8
     head_size = n_embed // n_head
