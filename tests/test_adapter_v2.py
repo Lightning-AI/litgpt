@@ -1,11 +1,11 @@
-import sys
 from contextlib import redirect_stdout
 from io import StringIO
 from unittest.mock import Mock
 
-import pytest
 import torch
 from lightning import Fabric
+
+from tests.conftest import RunIf
 
 
 def test_config_identical():
@@ -135,7 +135,7 @@ def test_base_model_can_be_adapter_v2_loaded():
         assert adapter_filter(k, None)
 
 
-@pytest.mark.skipif(sys.platform in ("win32", "darwin"), reason="torch.compile not supported on this platform")
+@RunIf(dynamo=True)
 @torch.inference_mode()
 def test_adapter_v2_compile():
     from lit_gpt.adapter_v2 import GPT

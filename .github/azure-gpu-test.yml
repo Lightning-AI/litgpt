@@ -53,4 +53,14 @@ jobs:
       displayName: "Env details"
 
     - bash: pytest -v --disable-pytest-warnings --strict-markers --color=yes
-      displayName: 'Testing'
+      displayName: 'Ordinary tests'
+      env:
+        PL_RUN_CUDA_TESTS: "1"
+      timeoutInMinutes: "5"
+
+    - bash: bash run_standalone_tests.sh
+      workingDirectory: tests
+      env:
+        PL_RUN_CUDA_TESTS: "1"
+      displayName: "Standalone tests"
+      timeoutInMinutes: "5"

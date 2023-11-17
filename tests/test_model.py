@@ -9,6 +9,8 @@ import torch
 from lightning.fabric.utilities.imports import _IS_WINDOWS, _TORCH_GREATER_EQUAL_2_2
 from lightning_utilities.core.imports import compare_version
 
+from tests.conftest import RunIf
+
 # support running without installing as a package
 wd = Path(__file__).parent.parent.resolve()
 sys.path.append(str(wd))
@@ -341,7 +343,7 @@ def test_against_hf_phi(device, dtype):
                 # the reference does softmax upscaled to fp32 during attention. additionally, the final layernorm input
                 # is slightly different
                 pytest.mark.xfail(raises=AssertionError, strict=False),
-                pytest.mark.skipif(not torch.cuda.is_available(), reason="CUDA"),
+                RunIf(min_cuda_gpus=1),
             ],
         ),
     ],
@@ -393,7 +395,7 @@ def test_against_hf_mistral(device, dtype):
     torch.testing.assert_close(ours_y, theirs_y)
 
 
-@pytest.mark.skipif(sys.platform in ("win32", "darwin"), reason="torch.compile not supported on this platform")
+@RunIf(dynamo=True)
 @torch.inference_mode()
 def test_model_compile():
     from lit_gpt import GPT
@@ -468,14 +470,10 @@ def test_model_kv_cache_amp():
 
 
 # https://github.com/pytorch/pytorch/blob/ad3572a5d/torch/testing/_internal/common_cuda.py#L31-L34
-SUPPORTS_FLASH_ATTENTION = (
-    torch.cuda.is_available() and torch.cuda.get_device_capability() >= (8, 0) and not _IS_WINDOWS
-)
-SUPPORTS_MEM_EFF_ATTENTION = torch.cuda.is_available()
-SUPPORTS_FUSED_ATTENTION = SUPPORTS_FLASH_ATTENTION or SUPPORTS_MEM_EFF_ATTENTION
+SUPPORTS_FLASH_ATTENTION = torch.cuda.get_device_capability() >= (8, 0) and not _IS_WINDOWS
 
 
-@pytest.mark.skipif(not SUPPORTS_FUSED_ATTENTION, reason="Unsupported")
+@RunIf(min_cuda_gpus=1)
 @pytest.mark.parametrize("config", config_module.configs, ids=[c["name"] for c in config_module.configs])
 @torch.inference_mode()
 def test_sdpa_choice(config):
@@ -515,13 +513,12 @@ def test_sdpa_choice(config):
         with torch.backends.cuda.sdp_kernel(enable_mem_efficient=False):
             model(x)
 
-    if SUPPORTS_MEM_EFF_ATTENTION:
-        expected = SDPBackend.EFFICIENT_ATTENTION if config.head_size % 8 == 0 else SDPBackend.MATH
-        with torch.backends.cuda.sdp_kernel(enable_flash=False):
-            model(x)
+    expected = SDPBackend.EFFICIENT_ATTENTION if config.head_size % 8 == 0 else SDPBackend.MATH
+    with torch.backends.cuda.sdp_kernel(enable_flash=False):
+        model(x)
 
 
-@pytest.mark.skipif(not SUPPORTS_FUSED_ATTENTION, reason="Unsupported")
+@RunIf(min_cuda_gpus=1)
 @pytest.mark.parametrize("config", config_module.configs, ids=[c["name"] for c in config_module.configs])
 @torch.inference_mode()
 def test_sdpa_choice_kv_cache(config):
@@ -559,11 +556,8 @@ def test_sdpa_choice_kv_cache(config):
         with torch.backends.cuda.sdp_kernel(enable_mem_efficient=False):
             model(x, input_pos)
 
-    if SUPPORTS_MEM_EFF_ATTENTION:
-        expected = (
-            SDPBackend.EFFICIENT_ATTENTION
-            if config.head_size % 8 == 0 and config.n_query_groups != 1
-            else SDPBackend.MATH
-        )
-        with torch.backends.cuda.sdp_kernel(enable_flash=False):
-            model(x, input_pos)
+    expected = (
+        SDPBackend.EFFICIENT_ATTENTION if config.head_size % 8 == 0 and config.n_query_groups != 1 else SDPBackend.MATH
+    )
+    with torch.backends.cuda.sdp_kernel(enable_flash=False):
+        model(x, input_pos)

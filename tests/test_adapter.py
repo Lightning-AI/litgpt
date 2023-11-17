@@ -1,12 +1,12 @@
-import sys
 from contextlib import redirect_stdout
 from dataclasses import asdict
 from io import StringIO
 from unittest.mock import Mock
 
-import pytest
 import torch
 from lightning import Fabric
+
+from tests.conftest import RunIf
 
 
 def test_config_identical():
@@ -106,7 +106,7 @@ def test_adapter_gpt_init_weights():
     assert (param == 0).all()
 
 
-@pytest.mark.skipif(sys.platform in ("win32", "darwin"), reason="torch.compile not supported on this platform")
+@RunIf(dynamo=True)
 @torch.inference_mode()
 def test_adapter_compile():
     from lit_gpt.adapter import GPT
