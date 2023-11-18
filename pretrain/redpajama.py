@@ -239,7 +239,7 @@ def create_dataloader(
 ) -> DataLoader:
     datasets = []
     for prefix, _ in data_config:
-        filenames = list(data_dir.rglob(f"{prefix}*"))
+        filenames = list(data_dir.glob(f"{prefix}*"))
         if not filenames:
             raise FileNotFoundError(
                 f"No files found at {str(data_dir)} with prefix {prefix}."
