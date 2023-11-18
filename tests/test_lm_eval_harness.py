@@ -15,7 +15,7 @@ def test_run_eval(tmp_path, float_like):
     from lit_gpt.tokenizer import Tokenizer
     from scripts.download import download_from_hub
 
-    fabric = Fabric(devices=1, precision="16-true")
+    fabric = Fabric(devices=1)
     with fabric.init_module():
         model = GPT.from_name("pythia-70m")
     download_from_hub(repo_id="EleutherAI/pythia-70m", tokenizer_only=True, checkpoint_dir=tmp_path)
@@ -49,6 +49,7 @@ def test_run_eval(tmp_path, float_like):
     }
 
 
+@RunIf(min_python="3.9")
 def test_eval_script(tmp_path, fake_checkpoint_dir, monkeypatch):
     import eval.lm_eval_harness as module
 
