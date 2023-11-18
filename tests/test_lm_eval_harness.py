@@ -23,11 +23,7 @@ def test_run_eval(tmp_path, float_like):
 
     eval_harness = EvalHarnessBase(fabric, model, tokenizer, 1)
     results = eval_harness.run_eval(
-        eval_tasks=["truthfulqa_mc", "hellaswag", "hendrycksTest-machine_learning"],
-        limit=2,
-        bootstrap_iters=2,
-        num_fewshot=0,
-        no_cache=True,
+        eval_tasks=["truthfulqa_mc", "hellaswag", "coqa"], limit=2, bootstrap_iters=2, num_fewshot=0, no_cache=True
     )
     assert results == {
         "config": {
@@ -46,15 +42,10 @@ def test_run_eval(tmp_path, float_like):
                 "acc_norm_stderr": float_like,
                 "acc_stderr": float_like,
             },
-            "hendrycksTest-machine_learning": {
-                "acc": float_like,
-                "acc_norm": float_like,
-                "acc_norm_stderr": float_like,
-                "acc_stderr": float_like,
-            },
+            "coqa": {"f1": float_like, "f1_stderr": float_like, "em": float_like, "em_stderr": float_like},
             "truthfulqa_mc": {"mc1": float_like, "mc1_stderr": float_like, "mc2": float_like, "mc2_stderr": float_like},
         },
-        "versions": {"hellaswag": 0, "hendrycksTest-machine_learning": 1, "truthfulqa_mc": 1},
+        "versions": {"hellaswag": 0, "coqa": 1, "truthfulqa_mc": 1},
     }
 
 

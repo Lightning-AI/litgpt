@@ -32,6 +32,8 @@ class EvalHarnessBase(BaseLM):
         self.model = model
         self.tokenizer = tokenizer
         self.batch_size_per_gpu = batch_size
+        with fabric.init_tensor():
+            model.set_kv_cache(batch_size=batch_size)
 
     @classmethod
     def create_from_arg_string(cls, arg_string, additional_config=None):
@@ -174,7 +176,6 @@ def run_eval_harness(
     print(f"Loading model {str(checkpoint_path)!r} with {config.__dict__}", file=sys.stderr)
     with fabric.init_module(empty_init=True), gptq_quantization(quantize == "gptq.int4"):
         model = GPT(config)
-        model.set_kv_cache(batch_size=1)
 
     model.eval()
     model = fabric.setup_module(model)
