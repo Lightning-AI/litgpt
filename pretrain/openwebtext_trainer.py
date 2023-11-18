@@ -101,6 +101,11 @@ class LightningGPTModule(L.LightningModule):
         loss = chunked_cross_entropy(logits, targets, chunk_size=0)
         self.log("val_loss", loss, on_step=False, on_epoch=True, prog_bar=True)
 
+    def state_dict(self, *args, **kwargs):
+        state_dict = super().state_dict(*args, **kwargs)
+        # drop "module."
+        return {k[7:]: v for k, v in state_dict.items()}
+
 
 def main(devices: int = 1, precision: Optional[str] = None) -> None:
     precision = precision or get_default_supported_precision(training=True)

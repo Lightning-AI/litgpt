@@ -2,13 +2,12 @@ import json
 import subprocess
 import sys
 from pathlib import Path
-from unittest.mock import Mock, ANY
+from unittest.mock import ANY, Mock
 
 import datasets
 import pytest
-from lightning import Fabric
-
 from conftest import RunIf
+from lightning import Fabric
 
 
 @RunIf(min_python="3.9")
