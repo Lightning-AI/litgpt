@@ -53,7 +53,7 @@ class EvalHarnessBase(BaseLM):
 
     @property
     def max_gen_toks(self):
-        return self.model.max_seq_length
+        return 256
 
     @property
     def batch_size(self):
@@ -63,10 +63,10 @@ class EvalHarnessBase(BaseLM):
     def device(self):
         return self.fabric.device
 
-    def tok_encode(self, string: str):
+    def tok_encode(self, string: str) -> List[int]:
         return self.tokenizer.encode(string, bos=False, eos=False).tolist()
 
-    def tok_decode(self, tokens):
+    def tok_decode(self, tokens: List[int]) -> str:
         t = torch.tensor(tokens)
         return self.tokenizer.decode(t)
 
@@ -74,12 +74,13 @@ class EvalHarnessBase(BaseLM):
     def _model_call(self, inps):
         return self.model(inps)
 
-    def _model_generate(self, context, max_length, eos_token_id):
+    def _model_generate(self, context, max_length, eos_token_id) -> torch.Tensor:
+        # this only supports batch size 1
         assert context.shape[0] == 1
         out = generate(self.model, context[0], max_length, eos_id=eos_token_id)
         for block in self.model.transformer.h:
             block.attn.kv_cache.reset_parameters()
-        return self.tokenizer.decode(out)
+        return out.unsqueeze(0)
 
     @torch.inference_mode()
     def run_eval(

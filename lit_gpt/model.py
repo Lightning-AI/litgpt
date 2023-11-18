@@ -339,3 +339,7 @@ class KVCache(nn.Module):
         k = self.k.index_copy_(2, input_pos, k)
         v = self.v.index_copy_(2, input_pos, v)
         return k, v
+
+    def reset_parameters(self) -> None:
+        torch.nn.init.zeros_(self.k)
+        torch.nn.init.zeros_(self.v)
