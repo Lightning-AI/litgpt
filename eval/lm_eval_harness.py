@@ -76,7 +76,8 @@ class EvalHarnessBase(BaseLM):
     def _model_generate(self, context, max_length, eos_token_id):
         assert context.shape[0] == 1
         out = generate(self.model, context[0], max_length, eos_id=eos_token_id)
-
+        #for block in self.model.transformer.h:
+        #    block.attn.kv_cache.reset_parameters()
         return self.tokenizer.decode(out)
 
     @torch.inference_mode()
@@ -141,7 +142,7 @@ def run_eval_harness(
     limit: Optional[int] = None,
     bootstrap_iters: int = 100000,
     no_cache: bool = True,
-):
+) -> Dict:
     if precision is None:
         precision = get_default_supported_precision(training=False)
 
@@ -171,6 +172,7 @@ def run_eval_harness(
     print(f"Loading model {str(checkpoint_path)!r} with {config.__dict__}", file=sys.stderr)
     with fabric.init_module(empty_init=True), gptq_quantization(quantize == "gptq.int4"):
         model = GPT(config)
+        # model.set_kv_cache(batch_size=1)
 
     model.eval()
     model = fabric.setup_module(model)
@@ -188,9 +190,11 @@ def run_eval_harness(
         with open(save_filepath, "w") as fw:
             fw.write(data)
 
+    return results
+
 
 if __name__ == "__main__":
     from jsonargparse import CLI
 
     torch.set_float32_matmul_precision("high")
-    CLI(run_eval_harness, as_positional=False, fail_untyped=False)
+    CLI(run_eval_harness, as_positional=False)
