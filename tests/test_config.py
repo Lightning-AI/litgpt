@@ -86,3 +86,10 @@ def test_short_and_hf_names_are_equal_unless_on_purpose(config):
     # or by huggingface hub repo name
     config1 = Config.from_name(config["hf_config"]["name"])
     assert config0.name == config1.name
+
+
+def test_nonexisting_name():
+    from lit_gpt import Config
+
+    with pytest.raises(ValueError, match="not a supported"):
+        Config.from_name("foobar")

@@ -242,8 +242,7 @@ def create_dataloader(
         filenames = list(data_dir.glob(f"{prefix}*"))
         if not filenames:
             raise FileNotFoundError(
-                f"No files found at {str(data_dir)} with prefix {prefix}."
-                " Did you forget to run `prepare_redpajama.py`?"
+                f"No files found at {str(data_dir)} with prefix {prefix}. Did you forget to run `prepare_redpajama.py`?"
             )
         dataset = PackedDataset(
             filenames,
