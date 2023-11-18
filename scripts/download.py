@@ -18,7 +18,7 @@ def download_from_hub(
     access_token: Optional[str] = os.getenv("HF_TOKEN"),
     from_safetensors: bool = False,
     tokenizer_only: bool = False,
-    checkpoint_dir: Path = Path("checkpoints")
+    checkpoint_dir: Path = Path("checkpoints"),
 ) -> None:
     if repo_id is None:
         from lit_gpt.config import configs
