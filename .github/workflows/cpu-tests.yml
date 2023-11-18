@@ -28,6 +28,7 @@ jobs:
           - {os: "ubuntu-22.04", python-version: "3.11"}
           - {os: "ubuntu-22.04", python-version: "3.10"}
           - {os: "ubuntu-22.04", python-version: "3.9"}
+          - {os: "ubuntu-20.04", python-version: "3.8"}
           - {os: "windows-2022", python-version: "3.10"}
     timeout-minutes: 25
 
@@ -62,6 +63,12 @@ jobs:
       run: |
         pip install -r requirements-all.txt pytest pytest-rerunfailures pytest-timeout transformers einops protobuf
         pip list
+
+    - name: Dependency tree
+      run: |
+        pip install pipdeptree
+        pipdeptree
+      if: always()
 
     - name: Run tests without the package installed
       run: |
