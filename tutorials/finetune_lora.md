@@ -198,6 +198,5 @@ Similarly, you can evaluate the model using the `eval/lm_eval_harness.py` script
 python eval/lm_eval_harness.py \
   --checkpoint_dir "out/lora_merged/stablelm-base-alpha-3b/" \
   --precision "bf16-true" \
-  --batch_size 4 \
   --save_filepath "results.json"
 ```
