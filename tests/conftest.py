@@ -38,6 +38,16 @@ def tensor_like():
     return TensorLike()
 
 
+class FloatLike:
+    def __eq__(self, other):
+        return not isinstance(other, int) and isinstance(other, float)
+
+
+@pytest.fixture()
+def float_like():
+    return FloatLike()
+
+
 @pytest.fixture(autouse=True)
 def restore_default_dtype():
     # just in case
