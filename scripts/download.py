@@ -18,6 +18,7 @@ def download_from_hub(
     access_token: Optional[str] = os.getenv("HF_TOKEN"),
     from_safetensors: bool = False,
     tokenizer_only: bool = False,
+    checkpoint_dir: Path = Path("checkpoints"),
 ) -> None:
     if repo_id is None:
         from lit_gpt.config import configs
@@ -48,7 +49,7 @@ def download_from_hub(
     elif from_safetensors:
         raise ValueError("`--from_safetensors=True` won't have an effect with `--tokenizer_only=True`")
 
-    directory = Path("checkpoints") / repo_id
+    directory = checkpoint_dir / repo_id
     snapshot_download(
         repo_id,
         local_dir=directory,
