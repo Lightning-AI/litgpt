@@ -4,9 +4,8 @@ from io import StringIO
 from unittest.mock import Mock
 
 import torch
-from lightning import Fabric
-
 from conftest import RunIf
+from lightning import Fabric
 
 
 def test_config_identical():

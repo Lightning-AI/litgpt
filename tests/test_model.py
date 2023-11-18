@@ -5,9 +5,8 @@ from urllib.request import urlretrieve
 
 import pytest
 import torch
-from lightning.fabric.utilities.imports import _IS_WINDOWS, _TORCH_GREATER_EQUAL_2_2
-
 from conftest import RunIf
+from lightning.fabric.utilities.imports import _IS_WINDOWS, _TORCH_GREATER_EQUAL_2_2
 
 # support running without installing as a package
 wd = Path(__file__).parent.parent.resolve()
@@ -38,9 +37,10 @@ import lit_gpt.config as config_module
     ],
 )
 def test_against_gpt_neox_model(rotary_pct, batch_size, n_embd, parallel_residual, device, dtype) -> None:
+    from transformers import GPTNeoXConfig, GPTNeoXForCausalLM
+
     from lit_gpt import GPT, Config
     from scripts.convert_hf_checkpoint import copy_weights_gpt_neox
-    from transformers import GPTNeoXConfig, GPTNeoXForCausalLM
 
     torch.set_default_dtype(dtype)
 
@@ -110,9 +110,10 @@ def test_against_gpt_neox_model(rotary_pct, batch_size, n_embd, parallel_residua
     ],
 )
 def test_against_hf_falcon(kwargs, device, dtype):
+    from transformers.models.falcon import FalconConfig, FalconForCausalLM
+
     from lit_gpt import GPT, Config
     from scripts.convert_hf_checkpoint import copy_weights_falcon
-    from transformers.models.falcon import FalconConfig, FalconForCausalLM
 
     torch.set_default_dtype(dtype)
 
@@ -160,10 +161,11 @@ def test_against_hf_falcon(kwargs, device, dtype):
     ],
 )
 def test_against_original_open_llama_3b(device, dtype):
-    from lit_gpt import GPT, Config
-    from scripts.convert_hf_checkpoint import copy_weights_hf_llama
     from transformers.models.llama.configuration_llama import LlamaConfig
     from transformers.models.llama.modeling_llama import LlamaForCausalLM
+
+    from lit_gpt import GPT, Config
+    from scripts.convert_hf_checkpoint import copy_weights_hf_llama
 
     torch.set_default_dtype(dtype)
 
@@ -215,10 +217,11 @@ def test_against_original_open_llama_3b(device, dtype):
     ],
 )
 def test_against_hf_llama2(ours_kwargs, device, dtype):
-    from lit_gpt import GPT, Config
-    from scripts.convert_hf_checkpoint import copy_weights_hf_llama
     from transformers.models.llama.configuration_llama import LlamaConfig
     from transformers.models.llama.modeling_llama import LlamaForCausalLM
+
+    from lit_gpt import GPT, Config
+    from scripts.convert_hf_checkpoint import copy_weights_hf_llama
 
     torch.set_default_dtype(dtype)
 
@@ -327,10 +330,11 @@ def test_against_hf_phi(device, dtype):
     ],
 )
 def test_against_hf_mistral(device, dtype):
-    from lit_gpt import GPT, Config
-    from scripts.convert_hf_checkpoint import copy_weights_hf_llama
     from transformers.models.mistral.configuration_mistral import MistralConfig
     from transformers.models.mistral.modeling_mistral import MistralForCausalLM
+
+    from lit_gpt import GPT, Config
+    from scripts.convert_hf_checkpoint import copy_weights_hf_llama
 
     torch.set_default_dtype(dtype)
 
@@ -456,8 +460,9 @@ SUPPORTS_FLASH_ATTENTION = (
 @pytest.mark.parametrize("config", config_module.configs, ids=[c["name"] for c in config_module.configs])
 @torch.inference_mode()
 def test_sdpa_choice(config):
-    from lit_gpt import GPT
     from torch.backends.cuda import SDPBackend
+
+    from lit_gpt import GPT
 
     torch.set_default_dtype(torch.float16)
 
@@ -500,8 +505,9 @@ def test_sdpa_choice(config):
 @pytest.mark.parametrize("config", config_module.configs, ids=[c["name"] for c in config_module.configs])
 @torch.inference_mode()
 def test_sdpa_choice_kv_cache(config):
-    from lit_gpt import GPT
     from torch.backends.cuda import SDPBackend
+
+    from lit_gpt import GPT
 
     torch.set_default_dtype(torch.float16)
 

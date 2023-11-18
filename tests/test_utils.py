@@ -5,9 +5,8 @@ from io import StringIO
 import pytest
 import torch
 import torch.nn.functional as F
-from lightning import Fabric
-
 from conftest import RunIf
+from lightning import Fabric
 
 
 def test_find_multiple():
@@ -143,6 +142,7 @@ def test_num_parameters():
 @pytest.mark.parametrize("mode", ["nf4", "nf4-dq", "fp4", "fp4-dq", "int8", "int8-training"])
 def test_num_parameters_bitsandbytes(mode):
     from lightning.fabric.plugins import BitsandbytesPrecision
+
     from lit_gpt import GPT
     from lit_gpt.utils import num_parameters
 

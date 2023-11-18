@@ -1,13 +1,20 @@
+import sys
 from contextlib import redirect_stdout
 from io import StringIO
 from itertools import product
+from pathlib import Path
 from unittest.mock import Mock
 
 import pytest
 import torch
+from conftest import RunIf
 from lightning import Fabric
 
-from conftest import RunIf
+# support running without installing as a package
+wd = Path(__file__).parent.parent.resolve()
+sys.path.append(str(wd))
+
+import lit_gpt.config as config_module
 
 
 def test_lora_layer_replacement():
@@ -305,8 +312,9 @@ def test_lora_gpt_query_groups_merge_and_forward_no_exception(n_query_groups, ap
     ],
 )
 def test_lora_qkv_linear_compare_conv1d(n_head, enable_lora):
-    from lit_gpt.lora import LoRAQKVLinear
     from torch.nn import functional as F
+
+    from lit_gpt.lora import LoRAQKVLinear
 
     C = 12
     layer = LoRAQKVLinear(C, 3 * C, n_head=n_head, n_query_groups=n_head, r=2, enable_lora=enable_lora)
@@ -431,24 +439,17 @@ def test_lora_gpt_init_weights():
     assert (param == 0).all()
 
 
-def test_base_model_can_be_lora_loaded():
+@pytest.mark.parametrize("name", [c["name"] for c in config_module.configs])
+def test_base_model_can_be_lora_loaded(name):
     from lit_gpt.lora import GPT as LoRAGPT
     from lit_gpt.lora import lora_filter
     from lit_gpt.model import GPT as BaseGPT
 
-    base_model = BaseGPT.from_name("pythia-70m", bias=True, n_layer=2)
+    kwargs = {"n_layer": 2, "n_head": 8, "n_embd": 16, "padded_vocab_size": 32}
+    base_model = BaseGPT.from_name(name, **kwargs)
     base_model_state_dict = base_model.state_dict()
     lora_model = LoRAGPT.from_name(
-        "pythia-70m",
-        bias=True,
-        n_layer=2,
-        r=1,
-        to_query=True,
-        to_key=True,
-        to_value=True,
-        to_projection=True,
-        to_mlp=True,
-        to_head=True,
+        name, **kwargs, r=1, to_query=True, to_key=True, to_value=True, to_projection=True, to_mlp=True, to_head=True
     )
     keys = lora_model.load_state_dict(base_model_state_dict, strict=False)
     assert not keys.unexpected_keys
