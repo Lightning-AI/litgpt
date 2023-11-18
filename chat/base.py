@@ -12,6 +12,7 @@ from lightning.fabric.plugins import BitsandbytesPrecision
 wd = Path(__file__).parent.parent.resolve()
 sys.path.append(str(wd))
 
+from generate.base import sample
 from lit_gpt import GPT, Config, Tokenizer
 from lit_gpt.utils import (
     check_valid_checkpoint_dir,
@@ -62,15 +63,7 @@ def generate(
     for t in range(max_returned_tokens - T):
         # forward
         logits = model(idx.view(1, -1), input_pos)
-        logits = logits[0, -1] / temperature
-
-        # optionally crop the logits to only the top k options
-        if top_k is not None:
-            v, _ = torch.topk(logits, min(top_k, logits.size(-1)))
-            logits = torch.where(logits < v[[-1]], -float("Inf"), logits)
-
-        probs = torch.nn.functional.softmax(logits, dim=-1)
-        idx = torch.multinomial(probs, num_samples=1)
+        idx = sample(logits, temperature, top_k)
 
         # advance
         input_pos = input_pos[-1:] + 1
@@ -119,7 +112,7 @@ def decode(fabric: L.Fabric, tokenizer: Tokenizer, token_stream: Iterator[torch.
 
 def main(
     *,
-    top_k: int = 200,
+    top_k: Optional[int] = 200,
     temperature: float = 0.8,
     checkpoint_dir: Path = Path("checkpoints/stabilityai/stablelm-tuned-alpha-3b"),
     quantize: Optional[Literal["bnb.nf4", "bnb.nf4-dq", "bnb.fp4", "bnb.fp4-dq", "bnb.int8", "gptq.int4"]] = None,
