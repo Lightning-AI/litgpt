@@ -240,7 +240,12 @@ def create_dataloader(
 ) -> DataLoader:
     datasets = []
     for prefix, _ in data_config:
-        filenames = glob.glob(str(data_dir / f"{prefix}*"))
+        filenames = data_dir.rglob(f"{prefix}*")
+        if not filenames:
+            raise FileNotFoundError(
+                f"No files found at {str(data_dir)} with prefix {prefix}."
+                " Did you forget to run `prepare_redpajama.py`?"
+            )
         dataset = PackedDataset(
             filenames,
             n_chunks=4,
