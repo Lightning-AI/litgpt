@@ -2,7 +2,7 @@ import json
 import subprocess
 import sys
 from pathlib import Path
-from unittest.mock import Mock
+from unittest.mock import Mock, ANY
 
 import datasets
 import pytest
@@ -33,7 +33,7 @@ def test_run_eval(tmp_path, float_like):
         "config": {
             "batch_size": 1,
             "bootstrap_iters": 2,
-            "device": "cuda:0",
+            "device": ANY,
             "limit": 2,
             "model": "pythia-70m",
             "no_cache": True,
