@@ -1,4 +1,3 @@
-import glob
 import math
 import sys
 import time
