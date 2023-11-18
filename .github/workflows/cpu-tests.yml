@@ -64,12 +64,6 @@ jobs:
         pip install -r requirements-all.txt pytest pytest-rerunfailures pytest-timeout transformers einops protobuf
         pip list
 
-    - name: Dependency tree
-      run: |
-        pip install pipdeptree
-        pipdeptree
-      if: always()
-
     - name: Run tests without the package installed
       run: |
         pytest -v --disable-pytest-warnings --strict-markers --color=yes --timeout 60
