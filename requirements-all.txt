@@ -1,13 +1,13 @@
 -r requirements.txt
-bitsandbytes==0.41.0    # quantization
-scipy                   # required by bitsandbytes
-sentencepiece           # pythia, falcon, redpajama
-tokenizers              # llama-based models
-datasets                # quantize/gptq.py
-zstandard               # scripts/prepare_redpajama.py, scripts/prepare_starcoder.py
-pandas                  # scripts/prepare_csv.py, scripts/prepare_starcoder.py
-pyarrow                 # scripts/prepare_starcoder.py
+bitsandbytes==0.41.0 # quantization
+scipy                # required by bitsandbytes
+sentencepiece        # pythia, falcon, redpajama
+tokenizers           # llama-based models
+datasets             # quantize/gptq.py
+zstandard            # scripts/prepare_redpajama.py, scripts/prepare_starcoder.py
+pandas               # scripts/prepare_csv.py, scripts/prepare_starcoder.py
+pyarrow              # scripts/prepare_starcoder.py
 # eval
-git+https://github.com/EleutherAI/lm-evaluation-harness.git@master
+git+https://github.com/EleutherAI/lm-evaluation-harness.git@master; python_version > '3.8'
 # scripts/prepare_slimpajama.py, scripts/prepare_starcoder.py, pretrain/tinyllama.py
-lightning @ git+https://github.com/Lightning-AI/lightning@532c723c8584903dc719458d0ad52861d51bc395#egg=lightning[data]
+lightning[data] @ git+https://github.com/Lightning-AI/lightning@4e72dcc8db6a0cbe94042ddbc310340556e8fee7

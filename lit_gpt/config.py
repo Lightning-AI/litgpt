@@ -88,7 +88,10 @@ class Config:
     def from_name(cls, name: str, **kwargs: Any) -> Self:
         if name not in name_to_config:
             # search through all `config['hf_config']['name']`
-            conf_dict = next(config for config in configs if name == config["hf_config"]["name"])
+            try:
+                conf_dict = next(config for config in configs if name == config["hf_config"]["name"])
+            except StopIteration:
+                raise ValueError(f"{name!r} is not a supported config name")
         else:
             conf_dict = name_to_config[name]
 
