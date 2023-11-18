@@ -2,7 +2,7 @@ import math
 import sys
 import time
 from pathlib import Path
-from typing import Any, Optional
+from typing import Any, Optional, Dict
 
 import lightning as L
 import numpy as np
@@ -101,7 +101,7 @@ class LightningGPTModule(L.LightningModule):
         loss = chunked_cross_entropy(logits, targets, chunk_size=0)
         self.log("val_loss", loss, on_step=False, on_epoch=True, prog_bar=True)
 
-    def state_dict(self, *args, **kwargs):
+    def state_dict(self, *args: Any, **kwargs: Any) -> Dict[str, Any]:
         state_dict = super().state_dict(*args, **kwargs)
         # drop "module."
         return {k[7:]: v for k, v in state_dict.items()}
