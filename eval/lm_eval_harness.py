@@ -51,6 +51,7 @@ class EvalHarnessBase(BaseLM):
     def vocab_size(self):
         return self.tokenizer.vocab_size
 
+    @property
     def max_gen_toks(self):
         return self.model.max_seq_length
 

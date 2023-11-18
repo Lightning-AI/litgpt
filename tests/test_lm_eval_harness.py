@@ -1,6 +1,8 @@
+import json
 import subprocess
 import sys
 from pathlib import Path
+from unittest.mock import Mock
 
 from conftest import RunIf
 from lightning import Fabric
@@ -54,6 +56,31 @@ def test_run_eval(tmp_path, float_like):
         },
         "versions": {"hellaswag": 0, "hendrycksTest-machine_learning": 1, "truthfulqa_mc": 1},
     }
+
+
+def test_eval_script(tmp_path, fake_checkpoint_dir, monkeypatch):
+    import eval.lm_eval_harness as module
+
+    model_config = dict(block_size=128, n_layer=2, n_embd=8, n_head=4, padded_vocab_size=8)
+    with open(fake_checkpoint_dir / "lit_config.json", "w") as fp:
+        json.dump(model_config, fp)
+    monkeypatch.setattr(module, "load_checkpoint", Mock())
+
+    tokenizer_mock = Mock()
+    monkeypatch.setattr(module, "Tokenizer", tokenizer_mock)
+
+    run_eval_mock = Mock()
+    run_eval_mock.return_value = {"foo": "test"}
+    monkeypatch.setattr(module.EvalHarnessBase, "run_eval", run_eval_mock)
+
+    module.run_eval_harness(
+        checkpoint_dir=fake_checkpoint_dir, precision="32-true", save_filepath=tmp_path / "results.json"
+    )
+
+    run_eval_mock.assert_called_once_with(
+        ["arc_challenge", "piqa", "hellaswag", "hendrycksTest-*"], 0, None, 100000, True
+    )
+    assert (tmp_path / "results.json").read_text() == '{"foo": "test"}'
 
 
 @RunIf(min_python="3.9")
