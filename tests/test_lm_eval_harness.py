@@ -4,11 +4,15 @@ import sys
 from pathlib import Path
 from unittest.mock import Mock
 
-from conftest import RunIf
+import datasets
+import pytest
 from lightning import Fabric
+
+from conftest import RunIf
 
 
 @RunIf(min_python="3.9")
+@pytest.mark.xfail(raises=datasets.builder.DatasetGenerationError, strict=False)  # avoid flakes
 def test_run_eval(tmp_path, float_like):
     from eval.lm_eval_harness import EvalHarnessBase
     from lit_gpt.model import GPT
