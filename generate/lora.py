@@ -89,8 +89,8 @@ def main(
 
     check_valid_checkpoint_dir(checkpoint_dir)
 
-    config = Config.from_json(
-        checkpoint_dir / "lit_config.json",
+    config = Config.from_checkpoint(
+        checkpoint_dir,
         r=lora_r,
         alpha=lora_alpha,
         dropout=lora_dropout,
