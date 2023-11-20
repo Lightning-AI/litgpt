@@ -18,7 +18,6 @@ from lit_gpt import GPT, Config, Tokenizer
 from lit_gpt.model import Block
 from lit_gpt.utils import (
     check_valid_checkpoint_dir,
-    cudagraph_mark_step,
     get_default_supported_precision,
     gptq_quantization,
     load_checkpoint,
@@ -86,13 +85,12 @@ def generate(
     device = prompt.device
     tokens = [prompt]
     input_pos = torch.tensor([T], device=device)
-    cudagraph_mark_step()
     token = next_token(
         model, torch.arange(0, T, device=device), prompt.view(1, -1), temperature=temperature, top_k=top_k
-    )
+    ).clone()
     tokens.append(token)
     for _ in range(2, max_returned_tokens - T + 1):
-        token = next_token(model, input_pos, token.view(1, -1), temperature=temperature, top_k=top_k)
+        token = next_token(model, input_pos, token.view(1, -1), temperature=temperature, top_k=top_k).clone()
         tokens.append(token)
         if token == eos_id:
             break

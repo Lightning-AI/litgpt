@@ -346,12 +346,3 @@ def estimate_flops(model: "GPT", training: bool) -> int:
     # forward + backward
     frozen_ops_per_step = 2 if training else 1
     return ops_per_step * trainable_flops + frozen_ops_per_step * frozen_flops
-
-
-def cudagraph_mark_step() -> None:
-    if not torch._dynamo.is_compiling():
-        return
-    if _TORCH_GREATER_EQUAL_2_2:
-        torch.compiler.cudagraph_mark_step_begin()
-    else:
-        torch._inductor.cudagraph_mark_step_begin()
