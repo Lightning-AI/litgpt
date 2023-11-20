@@ -4,7 +4,8 @@ import time
 from pathlib import Path
 from typing import Dict, List, Optional, Tuple
 import json
-parent_config=json.load(open('../parent-config.json','r'))
+parent_config=json.load(open(\
+    f'{str(Path(os.getcwd()).parent.absolute())}/parent-config.json','r'))
 
 import lightning as L
 import torch
