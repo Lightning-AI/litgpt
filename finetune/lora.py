@@ -5,7 +5,7 @@ from pathlib import Path
 from typing import Dict, List, Literal, Optional, Tuple
 import json
 parent_config=json.load(open(\
-    f'{str(Path(os.getcwd()).parent.absolute())}/parent-config.json','r'))
+    f'{str(Path(os.getcwd()).parent.absolute())}/lit-gpt/parent-config.json','r'))
 
 import lightning as L
 import torch
