@@ -178,11 +178,11 @@ def main(
     prompt_length = encoded.size(0)
     max_returned_tokens = prompt_length + max_new_tokens
 
+    L.seed_everything(1234)
     with fabric.init_tensor():
         # set the max_seq_length to limit the memory usage to what we need
         model.max_seq_length = max_returned_tokens
 
-    L.seed_everything(1234)
     for i in range(num_samples):
         with fabric.init_tensor():
             # enable the kv cache
