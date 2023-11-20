@@ -23,7 +23,7 @@ from lit_gpt.utils import chunked_cross_entropy, estimate_flops, get_default_sup
 model_name = "pythia-70m"
 name = "openwebtext"
 out_dir = Path("out") / name
-data_dir = Path("data") / name
+data_dir = Path("/data/shared/datasets/openwebtext")
 save_interval = 10
 eval_interval = 1000
 eval_iters = 100
@@ -77,9 +77,9 @@ def main(fabric: L.Fabric, resume: Union[bool, Path]) -> None:
     config = Config.from_name(model_name)
     fabric.print(f"Loading model with {config.__dict__}")
     t0 = time.perf_counter()
-    with fabric.init_module(empty_init=True):
+    with fabric.init_module(empty_init=(fabric.world_size > 1)):
         model = GPT(config)
-        model.apply(model._init_weights)
+    model.apply(model._init_weights)
 
     fabric.print(f"Time to instantiate model: {time.perf_counter() - t0:.02f} seconds.")
     fabric.print(f"Total parameters {num_parameters(model):,}")
