@@ -90,10 +90,21 @@ def main(
         raise NotImplementedError
     checkpoint_path = finetuned_path
 
+    tokenizer = Tokenizer(checkpoint_dir)
+    sample = {"instruction": prompt, "input": input}
+    prompt = generate_prompt(sample)
+    encoded = tokenizer.encode(prompt, device=fabric.device)
+    prompt_length = encoded.size(0)
+    max_returned_tokens = prompt_length + max_new_tokens
+
     fabric.print(f"Loading model {str(checkpoint_path)!r} with {config.__dict__}", file=sys.stderr)
     t0 = time.perf_counter()
     with fabric.init_module(empty_init=True), gptq_quantization(quantize == "gptq.int4"):
         model = GPT(config)
+        # set the max_seq_length to limit the memory usage to what we need
+        model.max_seq_length = max_returned_tokens
+        # enable the kv cache
+        model.set_kv_cache(batch_size=1)
     fabric.print(f"Time to instantiate model: {time.perf_counter() - t0:.02f} seconds.", file=sys.stderr)
 
     model.eval()
@@ -103,20 +114,7 @@ def main(
     load_checkpoint(fabric, model, checkpoint_path)
     fabric.print(f"Time to load the model weights: {time.perf_counter() - t0:.02f} seconds.", file=sys.stderr)
 
-    tokenizer = Tokenizer(checkpoint_dir)
-    sample = {"instruction": prompt, "input": input}
-    prompt = generate_prompt(sample)
-    encoded = tokenizer.encode(prompt, device=fabric.device)
-    prompt_length = encoded.size(0)
-    max_returned_tokens = prompt_length + max_new_tokens
-
     L.seed_everything(1234)
-    with fabric.init_tensor():
-        # set the max_seq_length to limit the memory usage to what we need
-        model.max_seq_length = max_returned_tokens
-        # enable the kv cache
-        model.set_kv_cache(batch_size=1)
-
     t0 = time.perf_counter()
     y = generate(model, encoded, max_returned_tokens, temperature=temperature, top_k=top_k, eos_id=tokenizer.eos_id)
     t = time.perf_counter() - t0
