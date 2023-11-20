@@ -19,7 +19,7 @@ from lit_gpt.model import GPT, Block, Config
 from lit_gpt.packed_dataset import CombinedDataset, PackedDataset
 from lit_gpt.utils import chunked_cross_entropy, estimate_flops, get_default_supported_precision, num_parameters
 
-model_name = "pythia-70m"
+model_name = "Llama-2-7b-hf"
 name = "redpajama"
 out_dir = Path("out") / name
 save_interval = 1000
@@ -29,11 +29,11 @@ log_interval = 1
 
 # Hyperparameters
 learning_rate = 6e-4
-batch_size = 8
-micro_batch_size = 4
+batch_size = 125
+micro_batch_size = 6
 gradient_accumulation_steps = batch_size // micro_batch_size
 assert gradient_accumulation_steps > 0
-max_iters = 50000
+max_iters = 600000  # num_epochs * (epoch_size // micro_batch_size) // devices
 weight_decay = 1e-1
 beta1 = 0.9
 beta2 = 0.95
