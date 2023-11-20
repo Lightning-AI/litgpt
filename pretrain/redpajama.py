@@ -1,4 +1,3 @@
-import glob
 import math
 import sys
 import time
@@ -141,7 +140,7 @@ def train(fabric: L.Fabric, state: dict, train_dataloader: DataLoader, val_datal
     optimizer = state["optimizer"]
 
     if val_dataloader is not None:
-        validate(fabric, model, val_dataloader)  # sanity check
+        validate(fabric, model, val_dataloader, max_iters=2)  # sanity check
 
     with torch.device("meta"):
         meta_model = GPT(model.config)
@@ -205,7 +204,7 @@ def train(fabric: L.Fabric, state: dict, train_dataloader: DataLoader, val_datal
 
         if val_dataloader is not None and not is_accumulating and state["step_count"] % eval_interval == 0:
             t0 = time.perf_counter()
-            val_loss = validate(fabric, model, val_dataloader)
+            val_loss = validate(fabric, model, val_dataloader, max_iters=eval_iters)
             t1 = time.perf_counter() - t0
             fabric.print(f"step {iter_num}: val loss {val_loss.item():.4f}, val time: {t1 * 1000:.2f}ms")
             fabric.barrier()
@@ -217,12 +216,14 @@ def train(fabric: L.Fabric, state: dict, train_dataloader: DataLoader, val_datal
 
 # FSDP has issues with `inference_mode`
 @torch.no_grad()
-def validate(fabric: L.Fabric, model: torch.nn.Module, val_dataloader: DataLoader) -> torch.Tensor:
+def validate(fabric: L.Fabric, model: torch.nn.Module, val_dataloader: DataLoader, max_iters: int) -> torch.Tensor:
     fabric.print("Validating ...")
     model.eval()
 
-    losses = torch.zeros(eval_iters, device=fabric.device)
+    losses = torch.zeros(max_iters, device=fabric.device)
     for k, val_data in enumerate(val_dataloader):
+        if k >= max_iters:
+            break
         input_ids = val_data[:, 0 : model.max_seq_length].contiguous()
         targets = val_data[:, 1 : model.max_seq_length + 1].contiguous()
         logits = model(input_ids)
@@ -238,7 +239,11 @@ def create_dataloader(
 ) -> DataLoader:
     datasets = []
     for prefix, _ in data_config:
-        filenames = glob.glob(str(data_dir / f"{prefix}*"))
+        filenames = list(data_dir.glob(f"{prefix}*"))
+        if not filenames:
+            raise FileNotFoundError(
+                f"No files found at {str(data_dir)} with prefix {prefix}. Did you forget to run `prepare_redpajama.py`?"
+            )
         dataset = PackedDataset(
             filenames,
             n_chunks=4,

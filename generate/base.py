@@ -22,6 +22,20 @@ from lit_gpt.utils import (
 )
 
 
+def sample(logits: torch.Tensor, temperature: float = 1.0, top_k: Optional[int] = None) -> torch.Tensor:
+    logits = logits[0, -1]
+    # optionally crop the logits to only the top k options
+    if top_k is not None:
+        v, i = torch.topk(logits, min(top_k, logits.size(-1)))
+        # do not use `torch.where` as in nanogpt because it will repeat top-k collisions
+        logits = torch.full_like(logits, float("-inf")).scatter_(-1, i, v)
+    # optionally scale the logits and sample from a probability distribution
+    if temperature > 0.0:
+        probs = torch.nn.functional.softmax(logits / temperature, dim=-1)
+        return torch.multinomial(probs, num_samples=1)
+    return torch.argmax(logits, dim=-1, keepdim=True)
+
+
 @torch.inference_mode()
 def generate(
     model: GPT,
@@ -65,15 +79,7 @@ def generate(
 
         # forward
         logits = model(x, input_pos)
-        logits = logits[0, -1] / temperature
-
-        # optionally crop the logits to only the top k options
-        if top_k is not None:
-            v, _ = torch.topk(logits, min(top_k, logits.size(-1)))
-            logits = torch.where(logits < v[[-1]], -float("Inf"), logits)
-
-        probs = torch.nn.functional.softmax(logits, dim=-1)
-        idx_next = torch.multinomial(probs, num_samples=1).to(dtype=dtype)
+        idx_next = sample(logits, temperature, top_k).to(dtype=dtype)
 
         # advance
         input_pos = input_pos[-1:] + 1
