@@ -8,6 +8,6 @@ zstandard            # scripts/prepare_redpajama.py, scripts/prepare_starcoder.p
 pandas               # scripts/prepare_csv.py, scripts/prepare_starcoder.py
 pyarrow              # scripts/prepare_starcoder.py
 # eval
-git+https://github.com/EleutherAI/lm-evaluation-harness.git@master; python_version > '3.8'
+git+https://github.com/EleutherAI/lm-evaluation-harness.git@master
 # scripts/prepare_slimpajama.py, scripts/prepare_starcoder.py, pretrain/tinyllama.py
 lightning[data] @ git+https://github.com/Lightning-AI/lightning@4e72dcc8db6a0cbe94042ddbc310340556e8fee7
