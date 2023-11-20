@@ -4,7 +4,7 @@ import time
 import json
 from pathlib import Path
 from typing import Dict, List, Optional, Tuple
-finetune_config=json.load(open('finetune-config.json','r'))
+finetune_config=json.load(open('./finetune-config.json','r'))
 
 import lightning as L
 import torch
