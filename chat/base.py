@@ -73,20 +73,28 @@ def generate(
 def decode(fabric: L.Fabric, tokenizer: Tokenizer, token_stream: Iterator[torch.Tensor]) -> int:
     tokens_generated = 0
     if tokenizer.backend == "huggingface":
-        for token in token_stream:
-            fabric.print(tokenizer.decode(token), end="", flush=True)
-            tokens_generated += 1
+        try:
+            for token in token_stream:
+                fabric.print(tokenizer.decode(token), end="", flush=True)
+                tokens_generated += 1
+        except KeyboardInterrupt:
+            # support stopping generation
+            return tokens_generated
     elif tokenizer.backend == "sentencepiece":
         # sentencepiece does not support decoding token-by-token because it adds spaces based on the surrounding tokens
         # meaning that we need to decode everything each time
         so_far = torch.tensor([], dtype=torch.long, device=fabric.device)
         decoded_so_far = ""
-        for token in token_stream:
-            so_far = torch.cat((so_far, token.view(-1)))
-            decoded_new = tokenizer.decode(so_far)
-            fabric.print(decoded_new[len(decoded_so_far) :], end="", flush=True)
-            decoded_so_far = decoded_new
-            tokens_generated += 1
+        try:
+            for token in token_stream:
+                so_far = torch.cat((so_far, token.view(-1)))
+                decoded_new = tokenizer.decode(so_far)
+                fabric.print(decoded_new[len(decoded_so_far) :], end="", flush=True)
+                decoded_so_far = decoded_new
+                tokens_generated += 1
+        except KeyboardInterrupt:
+            # support stopping generation
+            return tokens_generated
     else:
         raise NotImplementedError(tokenizer.backend)
     return tokens_generated
@@ -173,18 +181,14 @@ def main(
             model, encoded_prompt, model.max_seq_length, temperature=temperature, top_k=top_k, stop_tokens=stop_tokens
         )
         fabric.print(">> Reply: ", end="")
-        try:
-            t0 = time.perf_counter()
-            tokens_generated = decode(fabric, tokenizer, y)
-            t = time.perf_counter() - t0
-            for block in model.transformer.h:
-                block.attn.kv_cache.reset_parameters()
-            fabric.print(
-                f"\nTime for inference: {t:.02f} sec total, {tokens_generated / t:.02f} tokens/sec", file=sys.stderr
-            )
-        except KeyboardInterrupt:
-            # support stopping generation
-            pass
+        t0 = time.perf_counter()
+        tokens_generated = decode(fabric, tokenizer, y)
+        t = time.perf_counter() - t0
+        for block in model.transformer.h:
+            block.attn.kv_cache.reset_parameters()
+        fabric.print(
+            f"\nTime for inference: {t:.02f} sec total, {tokens_generated / t:.02f} tokens/sec, {tokens_generated} tokens", file=sys.stderr
+        )
         fabric.print()
 
 
