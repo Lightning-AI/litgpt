@@ -4,7 +4,7 @@ import time
 from pathlib import Path
 from typing import Dict, List, Optional, Tuple
 import json
-parent_config=json.load(open('/home/runner/work/lit-gpt/lit-gpt/parent-config.json','r'))
+finetune_config=json.load(open('./finetune-config.json','r'))
 
 import lightning as L
 import torch
@@ -33,7 +33,7 @@ save_interval = 1000
 eval_iters = 100
 eval_max_new_tokens = 100
 log_interval = 1
-devices = parent_config['devices']
+devices = finetune_config['devices']
 
 # Hyperparameters
 learning_rate = 3e-3
