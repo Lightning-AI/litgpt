@@ -30,7 +30,7 @@ lora_head = False
 
 
 def main(
-    prompt: str = "What food do lamas eat?",
+    prompt: str = "What food do llamas eat?",
     input: str = "",
     lora_path: Path = Path("out/lora/alpaca/lit_model_lora_finetuned.pth"),
     checkpoint_dir: Path = Path("checkpoints/stabilityai/stablelm-base-alpha-3b"),

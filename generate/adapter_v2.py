@@ -20,7 +20,7 @@ from scripts.prepare_alpaca import generate_prompt
 
 
 def main(
-    prompt: str = "What food do lamas eat?",
+    prompt: str = "What food do llamas eat?",
     input: str = "",
     adapter_path: Path = Path("out/adapter_v2/alpaca/lit_model_adapter_finetuned.pth"),
     checkpoint_dir: Path = Path("checkpoints/stabilityai/stablelm-base-alpha-3b"),

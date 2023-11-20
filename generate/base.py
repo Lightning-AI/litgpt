@@ -99,7 +99,7 @@ def generate(
 
 
 def main(
-    prompt: str = "Hello, my name is",
+    prompt: str = "What food do llamas eat?",
     *,
     num_samples: int = 1,
     max_new_tokens: int = 50,
