@@ -146,7 +146,7 @@ def main(
 
     check_valid_checkpoint_dir(checkpoint_dir)
 
-    config = Config.from_checkpoint(checkpoint_dir)
+    config = Config.from_json(checkpoint_dir / "lit_config.json")
 
     if quantize == "gptq.int4":
         model_file = "lit_model_gptq.4bit.pth"
