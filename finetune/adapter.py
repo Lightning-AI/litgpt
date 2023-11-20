@@ -11,7 +11,7 @@ import lightning as L
 import torch
 from lightning.fabric.loggers import CSVLogger
 from lightning.fabric.strategies import FSDPStrategy
-from lightning.fabric.utilities import ThroughputMonitor, measure_flops
+from lightning.fabric.utilities import ThroughputMonitor
 
 # support running without installing as a package
 wd = Path(__file__).parent.parent.resolve()
@@ -23,7 +23,6 @@ from lit_gpt.tokenizer import Tokenizer
 from lit_gpt.utils import (
     check_valid_checkpoint_dir,
     chunked_cross_entropy,
-    estimate_flops,
     get_default_supported_precision,
     lazy_load,
     num_parameters,
@@ -137,7 +136,7 @@ def train(
         f" {model.max_seq_length} and context length is {model.config.block_size}"
     )
 
-    validate(fabric, model, val_data, tokenizer)  # sanity check
+    validate(fabric, model, val_data, tokenizer, max_iters=2)  # sanity check
 
     throughput = ThroughputMonitor(fabric, window_size=50)
     step_count = 0
@@ -173,10 +172,7 @@ def train(
             loss_item = loss.item()  # expensive device-to-host synchronization
             t1 = time.perf_counter()
             throughput.update(
-                time=t1 - total_t0,
-                batches=iter_num,
-                samples=iter_num * micro_batch_size,
-                lengths=total_lengths,
+                time=t1 - total_t0, batches=iter_num, samples=iter_num * micro_batch_size, lengths=total_lengths
             )
             throughput.compute_and_log(step=iter_num)
             fabric.print(
@@ -186,7 +182,7 @@ def train(
 
         if not is_accumulating and step_count % eval_interval == 0:
             t0 = time.perf_counter()
-            val_loss = validate(fabric, model, val_data, tokenizer)
+            val_loss = validate(fabric, model, val_data, tokenizer, max_iters=eval_iters)
             t1 = time.perf_counter() - t0
             fabric.print(f"step {iter_num}: val loss {val_loss.item():.4f}, val time: {t1 * 1000:.2f}ms")
             fabric.barrier()
@@ -197,11 +193,11 @@ def train(
 
 # the adapter "kv cache" cannot be initialized under `inference_mode`
 @torch.no_grad()
-def validate(fabric: L.Fabric, model: GPT, val_data: List[Dict], tokenizer: Tokenizer) -> torch.Tensor:
+def validate(fabric: L.Fabric, model: GPT, val_data: List[Dict], tokenizer: Tokenizer, max_iters: int) -> torch.Tensor:
     fabric.print("Validating ...")
     model.eval()
-    losses = torch.zeros(eval_iters)
-    for k in range(eval_iters):
+    losses = torch.zeros(max_iters)
+    for k in range(max_iters):
         input_ids, targets = get_batch(fabric, val_data)
         logits = model(input_ids)
         losses[k] = chunked_cross_entropy(logits[..., :-1, :], targets[..., 1:], chunk_size=0)
