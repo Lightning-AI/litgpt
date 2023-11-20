@@ -116,6 +116,15 @@ class Config:
         json_kwargs.update(kwargs)
         return cls(**json_kwargs)
 
+    @classmethod
+    def from_checkpoint(cls, path: Path, **kwargs: Any) -> Self:
+        """Automatically load `lit_config.json` and if it doesn't exist - a matching config from `lit_gpt/config.py`."""
+        if (config_path := path / "lit_config.json").is_file():
+            return cls.from_json(config_path, **kwargs)
+        if (model_name := path.name) in name_to_config:
+            return cls.from_name(model_name, **kwargs)
+        raise FileNotFoundError(f"For {str(path)!r} neither 'lit_config.json' nor matching config exists.")
+
     @property
     def mlp_class(self) -> Type:
         # `self._mlp_class` cannot be the type to keep the config json serializable

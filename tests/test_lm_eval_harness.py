@@ -10,7 +10,6 @@ from conftest import RunIf
 from lightning import Fabric
 
 
-@RunIf(min_python="3.9")
 @pytest.mark.xfail(raises=datasets.builder.DatasetGenerationError, strict=False)  # avoid flakes
 def test_run_eval(tmp_path, float_like):
     from eval.lm_eval_harness import EvalHarnessBase
@@ -52,7 +51,6 @@ def test_run_eval(tmp_path, float_like):
     }
 
 
-@RunIf(min_python="3.9")
 def test_eval_script(tmp_path, fake_checkpoint_dir, monkeypatch):
     import eval.lm_eval_harness as module
 
@@ -78,7 +76,6 @@ def test_eval_script(tmp_path, fake_checkpoint_dir, monkeypatch):
     assert (tmp_path / "results.json").read_text() == '{"foo": "test"}'
 
 
-@RunIf(min_python="3.9")
 def test_cli():
     cli_path = Path(__file__).parent.parent / "eval" / "lm_eval_harness.py"
     output = subprocess.check_output([sys.executable, cli_path, "-h"])
