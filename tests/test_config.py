@@ -93,3 +93,35 @@ def test_nonexisting_name():
 
     with pytest.raises(ValueError, match="not a supported"):
         Config.from_name("foobar")
+
+
+def test_from_checkpoint(tmp_path):
+    from lit_gpt import Config
+
+    # 1. Neither `lit_config.py` nor matching config exists.
+    with pytest.raises(FileNotFoundError, match="neither 'lit_config.json' nor matching config exists"):
+        Config.from_checkpoint(tmp_path / "non_existing_checkpoint")
+
+    # 2. If `lit_config.py` doesn't exists, but there is a matching config in `lit_gpt/config.py`.
+    config = Config.from_checkpoint(tmp_path / "pythia-70m")
+    assert config.name == "pythia-70m"
+    assert config.block_size == 2048
+    assert config.n_layer == 6
+
+    # 3. If only `lit_config.py` exists.
+    config_data = {"name": "pythia-70m", "block_size": 24, "n_layer": 2}
+    with open(tmp_path / "lit_config.json", "w") as file:
+        json.dump(config_data, file)
+    config = Config.from_checkpoint(tmp_path)
+    assert config.name == "pythia-70m"
+    assert config.block_size == 24
+    assert config.n_layer == 2
+
+    # 4. Both `lit_config.py` and a matching config exist, but `lit_config.py` supersedes matching config
+    (tmp_path / "pythia-70m").mkdir()
+    with open(tmp_path / "pythia-70m/lit_config.json", "w") as file:
+        json.dump(config_data, file)
+    config = Config.from_checkpoint(tmp_path / "pythia-70m")
+    assert config.name == "pythia-70m"
+    assert config.block_size == 24
+    assert config.n_layer == 2
