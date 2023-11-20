@@ -94,7 +94,8 @@ def test_incremental_write(tmp_path):
 
 
 @pytest.mark.parametrize("B", (1, 2))
-def test_chunked_cross_entropy(B):
+@pytest.mark.parametrize("with_ignore_index", (True, False))
+def test_chunked_cross_entropy(with_ignore_index, B):
     from lit_gpt.utils import chunked_cross_entropy
 
     V = 50
@@ -102,7 +103,14 @@ def test_chunked_cross_entropy(B):
     regular_logits = torch.randn(B, T, V)
     targets = torch.randint(0, V, (B, T))
 
-    baseline_loss = F.cross_entropy(regular_logits.reshape(-1, regular_logits.size(-1)), targets.reshape(-1))
+    if with_ignore_index:
+        targets[:, [1, 4, 10, 19]] = -1
+
+    baseline_loss = F.cross_entropy(
+        regular_logits.reshape(-1, regular_logits.size(-1)),
+        targets.reshape(-1),
+        ignore_index=(-1 if with_ignore_index else -100),
+    )
     regular_loss = chunked_cross_entropy(regular_logits, targets, chunk_size=0)
     assert torch.equal(baseline_loss, regular_loss)
     assert regular_loss.numel() == 1
