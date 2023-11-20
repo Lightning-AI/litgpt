@@ -160,7 +160,7 @@ def main(
         torch._inductor.config.triton.unique_kernel_names = True
         torch._inductor.config.coordinate_descent_tuning = True
         global next_token
-        next_token = torch.compile(next_token, mode="reduce-overhead")
+        next_token = torch.compile(next_token, mode="reduce-overhead", dynamic=True)
 
     model = fabric.setup_module(model)
 
