@@ -159,6 +159,7 @@ def main(
     tokenizer = Tokenizer(checkpoint_dir)
     system_prompt, stop_tokens = prompt_config(checkpoint_dir, tokenizer)
 
+    L.seed_everything(1234)
     while True:
         try:
             prompt = input(">> Prompt: ")
