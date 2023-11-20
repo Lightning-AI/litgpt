@@ -23,7 +23,7 @@ from lit_gpt.utils import chunked_cross_entropy, estimate_flops, get_default_sup
 model_name = "pythia-70m"
 name = "openwebtext"
 out_dir = Path("out") / name
-data_dir = Path("/data/shared/datasets/openwebtext")
+data_dir = Path("data") / name
 save_interval = 10
 eval_interval = 1000
 eval_iters = 100
