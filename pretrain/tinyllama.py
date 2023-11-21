@@ -158,8 +158,7 @@ def train(fabric, state, train_dataloader, val_dataloader, resume):
 
     for train_data in train_dataloader:
 
-        total_tokens = state["iter_num"] * micro_batch_size * model.config.block_size * fabric.world_size
-        if state["iter_num"] >= max_iters > 0 or total_tokens >= max_tokens > 0:
+        if state["iter_num"] >= max_iters > 0:
             break
 
         # resume data loader state by fast-forwarding through all seen batches
@@ -219,7 +218,7 @@ def train(fabric, state, train_dataloader, val_dataloader, resume):
                     (t1 - total_t0) / (state["iter_num"] - initial_iter) * (max_iters - state["iter_num"])
                 ),
                 "tokens": state["iter_num"] * micro_batch_size * model.config.block_size,
-                "total_tokens": total_tokens,
+                "total_tokens": state["iter_num"] * micro_batch_size * model.config.block_size * fabric.world_size,
             }
 
             fabric.print(
