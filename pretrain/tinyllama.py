@@ -148,9 +148,9 @@ def train(fabric, state, train_dataloader, val_dataloader, resume):
         fabric.print(f"Measured TFLOPs: {measured_flops * fabric.world_size / 1e12:.2f}")
         del meta_model, x
 
-    max_tokens_device = max_tokens // fabric.world_size
+    max_tokens_per_device = max_tokens // fabric.world_size
     tokens_per_iter = micro_batch_size * model.config.block_size
-    max_iters = max_tokens_device // tokens_per_iter
+    max_iters = max_tokens_per_device // tokens_per_iter
 
     total_t0 = time.perf_counter()
     initial_iter = state["iter_num"]
@@ -158,7 +158,7 @@ def train(fabric, state, train_dataloader, val_dataloader, resume):
 
     for train_data in train_dataloader:
 
-        if state["iter_num"] >= max_iters > 0:
+        if state["iter_num"] >= max_iters:
             break
 
         # resume data loader state by fast-forwarding through all seen batches
