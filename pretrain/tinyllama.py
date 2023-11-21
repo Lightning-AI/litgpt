@@ -37,6 +37,7 @@ devices = 8
 
 global_batch_size = 512
 learning_rate = 4e-4
+micro_batch_size = 2
 max_tokens = int(3 * 1e12)
 warmup_steps = 2000
 log_step_interval = 1
