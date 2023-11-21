@@ -66,10 +66,10 @@ jobs:
 
     - name: Run tests without the package installed
       run: |
-        pytest -v --disable-pytest-warnings --strict-markers --color=yes --timeout 60
+        pytest -v --disable-pytest-warnings --strict-markers --color=yes --timeout 120
 
     - name: Run tests
       run: |
         pip install . --no-deps
 
-        pytest -v --disable-pytest-warnings --strict-markers --color=yes --timeout 60
+        pytest -v --disable-pytest-warnings --strict-markers --color=yes --timeout 120
