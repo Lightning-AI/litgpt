@@ -329,7 +329,7 @@ def init_weights(module: nn.Module, n_layer: int, n_embd: int):
         if module.bias is not None:
             nn.init.zeros_(module.bias)
     for name, param in module.named_parameters():
-        if (name == "proj.weight" and isinstance(module, LLaMAMLP)) or (name == "proj.weight" and isinstance(module, CausalSelfAttention)):
+        if name == "proj.weight" and isinstance(module, (LLaMAMLP, CausalSelfAttention)):
             nn.init.normal_(param, mean=0.0, std=(1 / math.sqrt(n_embd) / n_layer))
 
 
