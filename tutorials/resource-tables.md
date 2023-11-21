@@ -37,7 +37,7 @@ Note that the number of tokens in the training set does not affect the supported
 
 ## Finetuning with LoRA on 1 GPU
 
-The following experiments were conducated on 1xA100 with a minibatch size of 128 using the `finetune/lora.py` script.
+The following experiments were conducted on 1xA100 with a minibatch size of 128 using the `finetune/lora.py` script.
 
 | Size  | Model          | Quantization | Microbatch size | Trainable parameters | Max GPU RAM | Time 1k iterations | Time 50k iter (extrapolated) |
 |-------|----------------|--------------|-----------------|----------------------|-------------|--------------------|------------------------------|
@@ -73,7 +73,7 @@ The following experiments were conducated on 1xA100 with a minibatch size of 128
 
 ## Finetuning with LoRA on Multiple GPUs
 
-The following experiments were conducated on multiple A100 GPUs with a minibatch size of 128 using the `finetune/lora.py` script.
+The following experiments were conducted on multiple A100 GPUs with a minibatch size of 128 using the `finetune/lora.py` script.
 
 | Size  | Model          | Quantization | Microbatch size | Trainable parameters | GPU      | Max GPU RAM | Time 1k iterations | Time 50k iter (extrapolated) |
 |-------|----------------|--------------|-----------------|----------------------|----------|-------------|--------------------|------------------------------|
