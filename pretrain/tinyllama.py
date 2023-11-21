@@ -22,7 +22,7 @@ from torch.utils.data import DataLoader
 wd = Path(__file__).parent.parent.resolve()
 sys.path.append(str(wd))
 
-from lit_gpt.model import GPT, Block, Config, LLaMAMLP
+from lit_gpt.model import GPT, Block, Config, LLaMAMLP, CausalSelfAttention
 from lit_gpt.packed_dataset import CombinedDataset
 from lit_gpt.utils import chunked_cross_entropy, num_parameters
 
@@ -39,7 +39,7 @@ global_batch_size = 512
 learning_rate = 4e-4
 max_tokens = int(3 * 1e12)
 warmup_steps = 2000
-log_step_interval = 2
+log_step_interval = 1
 eval_iters = 100
 save_step_interval = 1000
 eval_step_interval = 1000
@@ -55,9 +55,6 @@ batch_size = global_batch_size // devices
 gradient_accumulation_steps = batch_size // micro_batch_size
 assert gradient_accumulation_steps > 0
 warmup_iters = warmup_steps * gradient_accumulation_steps
-
-max_iters = max_steps * gradient_accumulation_steps
-lr_decay_iters = max_iters
 log_iter_interval = log_step_interval * gradient_accumulation_steps
 
 
@@ -107,7 +104,7 @@ def main(fabric, resume):
     t0 = time.perf_counter()
     with fabric.init_module(empty_init=False):
         model = GPT(config)
-        model.apply(partial(init_weights, n_layer=config.n_layer))
+        model.apply(partial(init_weights, n_layer=config.n_layer, n_embd=config.n_embd))
 
     fabric.print(f"Time to instantiate model: {time.perf_counter() - t0:.02f} seconds.")
     fabric.print(f"Total parameters: {num_parameters(model):,}")
@@ -150,6 +147,10 @@ def train(fabric, state, train_dataloader, val_dataloader, resume):
         fabric.print(f"Measured TFLOPs: {measured_flops * fabric.world_size / 1e12:.2f}")
         del meta_model, x
 
+    max_tokens_device = max_tokens // fabric.world_size
+    tokens_per_iter = micro_batch_size * model.config.block_size
+    max_iters = max_tokens_device // tokens_per_iter
+
     total_t0 = time.perf_counter()
     initial_iter = state["iter_num"]
     curr_iter = 0
@@ -176,7 +177,7 @@ def train(fabric, state, train_dataloader, val_dataloader, resume):
                 )
 
         # determine and set the learning rate for this iteration
-        lr = get_lr(state["iter_num"]) if decay_lr else learning_rate
+        lr = get_lr(state["iter_num"], max_iters) if decay_lr else learning_rate
         for param_group in optimizer.param_groups:
             param_group["lr"] = lr
 
@@ -305,7 +306,7 @@ def create_dataloaders(batch_size: int, block_size: int) -> Tuple[DataLoader, Da
 
 
 # learning rate decay scheduler (cosine with warmup)
-def get_lr(it):
+def get_lr(it: int, lr_decay_iters: int) -> int:
     # 1) linear warmup for warmup_iters steps
     if it < warmup_iters:
         return learning_rate * it / warmup_iters
@@ -319,17 +320,17 @@ def get_lr(it):
     return min_lr + coeff * (learning_rate - min_lr)
 
 
-def init_weights(module: nn.Module, n_layer: int):
+def init_weights(module: nn.Module, n_layer: int, n_embd: int):
     # Follows GPT-NeoX: https://arxiv.org/abs/2204.06745
     if isinstance(module, nn.Embedding):
-        nn.init.normal_(module.weight, mean=0.0, std=math.sqrt(2.0 / 5 / module.weight.shape[1]))
+        nn.init.normal_(module.weight, mean=0.0, std=math.sqrt(2.0 / 5 / n_embd))
     elif isinstance(module, nn.Linear):
-        nn.init.normal_(module.weight, mean=0.0, std=math.sqrt(2.0 / 5 / module.weight.shape[1]))
+        nn.init.normal_(module.weight, mean=0.0, std=math.sqrt(2.0 / 5 / n_embd))
         if module.bias is not None:
             nn.init.zeros_(module.bias)
     for name, param in module.named_parameters():
-        if name == "proj.weight" and isinstance(module, LLaMAMLP):
-            nn.init.normal_(param, mean=0.0, std=(1 / math.sqrt(param.shape[-1]) / n_layer))
+        if (name == "proj.weight" and isinstance(module, LLaMAMLP)) or (name == "proj.weight" and isinstance(module, CausalSelfAttention)):
+            nn.init.normal_(param, mean=0.0, std=(1 / math.sqrt(n_embd) / n_layer))
 
 
 if __name__ == "__main__":
