@@ -49,7 +49,7 @@ def download_from_hub(
     elif from_safetensors:
         raise ValueError("`--from_safetensors=True` won't have an effect with `--tokenizer_only=True`")
 
-    # contains revisions that are knows to work without issues
+    # contains revisions that are known to work without issues
     hf_model_revision_map = {"microsoft/phi-1_5": "92557d03bb12543040c8bb5f0475cbdd9968f05f"}
     directory = checkpoint_dir / repo_id
     snapshot_download(
