@@ -101,13 +101,14 @@ def main(
     t0 = time.perf_counter()
     with fabric.init_module(empty_init=True), gptq_quantization(quantize == "gptq.int4"):
         model = GPT(config)
+    fabric.print(f"Time to instantiate model: {time.perf_counter() - t0:.02f} seconds.", file=sys.stderr)
+    with fabric.init_tensor():
         # set the max_seq_length to limit the memory usage to what we need
         model.max_seq_length = max_returned_tokens
         # enable the kv cache
         model.set_kv_cache(batch_size=1)
-    fabric.print(f"Time to instantiate model: {time.perf_counter() - t0:.02f} seconds.", file=sys.stderr)
-
     model.eval()
+
     model = fabric.setup(model)
 
     t0 = time.perf_counter()
