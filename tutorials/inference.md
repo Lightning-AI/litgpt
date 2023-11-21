@@ -41,7 +41,7 @@ For instance, `falcon-40b` would require ~80 GB of GPU memory to run on a single
 python generate/base.py --checkpoint_dir checkpoints/tiiuae/falcon-40b --strategy fsdp --devices 4
 ```
 
-Which will take 32 GB of memory, and run at 0.37 tokens/sec.
+Which will take ~25 GB of memory, and run at 2.5 tokens/sec.
 
 Or to reduce the memory requirements even further, you can try using CPU offloading. For that, you will need to manually edit the `cpu_offload=False` parameter in the file and set it to `True`.
 
@@ -51,5 +51,5 @@ Now we can run it on just 2 devices.
 python generate/base.py --checkpoint_dir checkpoints/tiiuae/falcon-40b --strategy fsdp --devices 2
 ```
 
-taking 13 GB of memory but running at 0.12 tokens/sec on 2 A100 40GB GPUs.
+taking ~5 GB of memory but running at 0.23 tokens/sec on 2 A100 40GB GPUs.
 Smaller devices like 3090s (24 GB) can also fit it with this technique.
