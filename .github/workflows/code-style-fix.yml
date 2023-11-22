@@ -1,0 +1,43 @@
+name: Auto Code-Style Fix
+
+on: [pull_request, pull_request_target]
+
+jobs:
+  code_style_fix:
+    runs-on: ubuntu-22.04
+    steps:
+      - name: Checkout 🛒️
+        uses: actions/checkout@v4
+        with:
+          fetch-depth: 0
+          submodules: recursive
+          token: ${{ secrets.action_secret || secrets.github-token || github.token }}
+
+      - name: Black ◼️
+        uses: psf/black@stable
+        with:
+          options: >
+            --line-length=120
+            --skip-magic-trailing-comma
+            --target-version=py38
+            chat eval finetune generate lit_gpt notebooks pretrain quantize scripts tests xla
+          jupyter: true
+
+      - name: Ruff ®️
+        uses: chartboost/ruff-action@v1
+        with:
+          args: >
+            --select E,W,F,S
+            --extend-select C4,SIM,RET,PT,I001,ANN001,ANN201,ANN205,ANN206,ARG001
+            --ignore E501,E731,S108,S101,S113,S603,PT007,S310,E402,PT004,C408
+            --per-file-ignores "*/**/__init__.py":I001,"tests/*":ANN
+            --line-length 120
+            --target-version py38
+            --fix-only
+
+      - name: Fixing Pull Request 🛠️
+        uses: actions-js/push@v1.4
+        with:
+          branch: ${{ github.head_ref || github.ref_name }}
+          github_token: ${{ secrets.action_secret || secrets.github-token || github.token }}
+          message: "Automated code-style fix."
