@@ -1,8 +1,10 @@
 import lightning as L
 import pytest
 import torch
+from conftest import RunIf
 
 
+@RunIf(max_torch="2.2")  # TODO: core dumped
 def test_gptq_blockwise_quantization():
     from quantize.gptq import _TRITON_AVAILABLE
 

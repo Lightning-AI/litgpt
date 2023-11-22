@@ -1,12 +1,16 @@
 import json
 from pathlib import Path
-from typing import Optional
+from typing import Optional, Union
 
 import torch
 
 
 class Tokenizer:
-    def __init__(self, checkpoint_dir: Path) -> None:
+    def __init__(self, checkpoint_dir: Union[Path, str]) -> None:
+        checkpoint_dir = Path(checkpoint_dir)
+        if not checkpoint_dir.exists():
+            raise NotADirectoryError(f"The checkpoint directory does not exist: {str(checkpoint_dir)}")
+
         self.use_bos = self.check_if_bos_token_used(checkpoint_dir)
         self.bos_id = None
         self.eos_id = None
