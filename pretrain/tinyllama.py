@@ -12,7 +12,7 @@ from typing import Tuple, Union
 import lightning as L
 import torch
 import torch.nn as nn
-from lightning.fabric.loggers import TensorBoardLogger
+from lightning.fabric.loggers import CSVLogger, TensorBoardLogger
 from lightning.fabric.strategies import FSDPStrategy
 from lightning.fabric.utilities.throughput import ThroughputMonitor, measure_flops
 from lightning.pytorch.loggers import WandbLogger
@@ -64,11 +64,11 @@ hparams = {k: v for k, v in locals().items() if isinstance(v, (int, float, str))
 
 def setup(resume: Union[bool, Path] = False):
     if logger == "csv":
-        logger = CSVLogger(root_dir="logs", name=name)
+        _logger = CSVLogger(root_dir="logs", name=name)
     elif logger == "tensorboard":
-        logger = TensorBoardLogger(root_dir="logs", name=name)
+        _logger = TensorBoardLogger(root_dir="logs", name=name)
     elif logger == "wandb":
-        logger = WandbLogger(project="tinyllama", name=name, resume=(resume is not False))
+        _logger = WandbLogger(project="tinyllama", name=name, resume=(resume is not False))
     else:
         raise ValueError(f"`logger={logger} is not a valid option.")
 
@@ -84,12 +84,12 @@ def setup(resume: Union[bool, Path] = False):
     else:
         strategy = "auto"
 
-    fabric = L.Fabric(devices=devices, strategy=strategy, precision="bf16-mixed", loggers=[logger])
+    fabric = L.Fabric(devices=devices, strategy=strategy, precision="bf16-mixed", loggers=[_logger])
     fabric.launch()
 
     fabric.print(hparams)
     if logger in ("tensorboard", "wandb"):
-        logger.log_hyperparams(hparams)
+        _logger.log_hyperparams(hparams)
 
     main(fabric, resume)
 
