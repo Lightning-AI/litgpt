@@ -30,7 +30,7 @@ from lit_gpt.utils import chunked_cross_entropy, num_parameters
 model_name = "tiny-llama-1.1b"
 name = "lit-tiny-llama-1.1b"
 out_dir = Path("out") / name
-use_wandb = False
+logger = "tensorboard"
 
 # Hyperparameters
 devices = 8
@@ -63,10 +63,14 @@ hparams = {k: v for k, v in locals().items() if isinstance(v, (int, float, str))
 
 
 def setup(resume: Union[bool, Path] = False):
-    if use_wandb:
+    if logger == "csv":
+        logger = CSVLogger(root_dir="logs", name=name)
+    elif logger == "tensorboard":
+        logger = TensorBoardLogger(root_dir="logs", name=name)
+    elif logger == "wandb":
         logger = WandbLogger(project="tinyllama", name=name, resume=(resume is not False))
     else:
-        logger = TensorBoardLogger(root_dir="logs", name=name)
+        raise ValueError(f"`logger={logger} is not a valid option.")
 
     if devices > 1:
         strategy = FSDPStrategy(
@@ -84,7 +88,7 @@ def setup(resume: Union[bool, Path] = False):
     fabric.launch()
 
     fabric.print(hparams)
-    if use_wandb:
+    if logger in ("tensorboard", "wandb"):
         logger.log_hyperparams(hparams)
 
     main(fabric, resume)
