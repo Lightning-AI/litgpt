@@ -45,7 +45,7 @@ In order to start pretraining lit-gpt on it, you need to read, tokenize, and wri
 First, install additional dependencies for preprocessing:
 
 ```bash
-pip install sentencepiece zstandard pandas pyarrow lightning[data] huggingface_hub
+pip install lightning[data] tensorboard sentencepiece zstandard pandas pyarrow huggingface_hub
 ```
 
 You will need to have the tokenizer config available:

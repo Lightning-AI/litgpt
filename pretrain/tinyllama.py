@@ -12,7 +12,7 @@ from typing import Tuple, Union
 import lightning as L
 import torch
 import torch.nn as nn
-from lightning.fabric.loggers import CSVLogger
+from lightning.fabric.loggers import TensorBoardLogger
 from lightning.fabric.strategies import FSDPStrategy
 from lightning.fabric.utilities.throughput import ThroughputMonitor, measure_flops
 from lightning.pytorch.loggers import WandbLogger
@@ -66,7 +66,7 @@ def setup(resume: Union[bool, Path] = False):
     if use_wandb:
         logger = WandbLogger(project="tinyllama", name=name, resume=(resume is not False))
     else:
-        logger = CSVLogger(root_dir="logs", name=name)
+        logger = TensorBoardLogger(root_dir="logs", name=name)
 
     if devices > 1:
         strategy = FSDPStrategy(
