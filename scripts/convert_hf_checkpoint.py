@@ -198,6 +198,11 @@ def copy_weights_phi(
     }
 
     for name, param in hf_weights.items():
+        if name.startswith("layers."):
+            raise ValueError(
+                "You are using an outdated Phi1.5 checkpoint."
+                "Please reload it as described in 'tutorials/download_phi15.md"
+            )
         if name.startswith("transformer.h."):
             from_name, number = layer_template(name, 2)
             to_name = weight_map[from_name].format(number)
