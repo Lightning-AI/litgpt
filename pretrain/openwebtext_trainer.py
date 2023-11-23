@@ -2,12 +2,13 @@ import math
 import sys
 import time
 from pathlib import Path
-from typing import Any, Optional
+from typing import Any, Optional, Dict
 
 import lightning as L
 import numpy as np
 import torch
-from lightning.pytorch.callbacks import ModelCheckpoint
+from lightning.fabric.utilities import measure_flops
+from lightning.pytorch.callbacks import ModelCheckpoint, ThroughputMonitor
 from lightning.pytorch.loggers import CSVLogger
 from lightning.pytorch.strategies import FSDPStrategy
 from torch.utils.data import DataLoader, IterableDataset
@@ -18,8 +19,7 @@ sys.path.append(str(wd))
 
 from lit_gpt import Config
 from lit_gpt.model import GPT, Block
-from lit_gpt.speed_monitor import SpeedMonitorCallback, estimate_flops, measure_flops
-from lit_gpt.utils import chunked_cross_entropy, get_default_supported_precision
+from lit_gpt.utils import chunked_cross_entropy, estimate_flops, get_default_supported_precision
 
 model_name = "pythia-70m"
 name = "openwebtext"
@@ -53,7 +53,7 @@ class LightningGPTModule(L.LightningModule):
         super().__init__()
         self.config = config
         self.module: Optional[torch.nn.Module] = None
-        self.measured_flops: Optional[int] = None
+        self.flops_per_batch: Optional[int] = None
 
     def configure_model(self) -> None:
         self.module = GPT(self.config)
@@ -70,12 +70,14 @@ class LightningGPTModule(L.LightningModule):
             meta_model = GPT(self.module.config)
             # "estimated" is not as precise as "measured". Estimated is optimistic but widely used in the wild.
             # When comparing MFU or FLOP numbers with other projects that use estimated FLOPs,
-            # consider setting `self.measured_flops = estimated_flops` instead
-            estimated_flops = estimate_flops(meta_model) * micro_batch_size
+            # consider setting `self.flops_per_batch = estimated_flops` instead
+            estimated_flops = estimate_flops(meta_model, training=True) * micro_batch_size
             self.print(f"Estimated TFLOPs: {estimated_flops * trainer.world_size / 1e12:.2f}")
             x = torch.randint(0, 1, (micro_batch_size, meta_model.max_seq_length))
-            self.measured_flops = measure_flops(meta_model, x)
-            self.print(f"Measured TFLOPs: {self.measured_flops * trainer.world_size / 1e12:.2f}")
+            forward_fn = lambda: meta_model(x)
+            loss_fn = lambda y: chunked_cross_entropy(y, x, chunk_size=0)
+            self.flops_per_batch = measure_flops(meta_model, forward_fn, loss_fn)
+            self.print(f"Measured TFLOPs: {self.flops_per_batch * trainer.world_size / 1e12:.2f}")
 
     def on_train_batch_start(self, batch: Any, batch_idx: int) -> None:
         if not decay_lr:
@@ -99,6 +101,11 @@ class LightningGPTModule(L.LightningModule):
         loss = chunked_cross_entropy(logits, targets, chunk_size=0)
         self.log("val_loss", loss, on_step=False, on_epoch=True, prog_bar=True)
 
+    def state_dict(self, *args: Any, **kwargs: Any) -> Dict[str, Any]:
+        state_dict = super().state_dict(*args, **kwargs)
+        # drop "module."
+        return {k[7:]: v for k, v in state_dict.items()}
+
 
 def main(devices: int = 1, precision: Optional[str] = None) -> None:
     precision = precision or get_default_supported_precision(training=True)
@@ -116,8 +123,8 @@ def main(devices: int = 1, precision: Optional[str] = None) -> None:
         strategy = "auto"
 
     logger = CSVLogger("out", name, flush_logs_every_n_steps=log_interval)
-    speed_monitor = SpeedMonitorCallback(
-        length_fn=lambda batch: batch[0].size(1), batch_size=micro_batch_size, window_size=50, time_unit="seconds"
+    throughput = ThroughputMonitor(
+        length_fn=lambda batch: batch[0].size(1), batch_size_fn=lambda batch: micro_batch_size, window_size=50
     )
     model_checkpoint = ModelCheckpoint(dirpath=out_dir, every_n_train_steps=save_interval, save_last=True, verbose=True)
     trainer = L.Trainer(
@@ -125,7 +132,7 @@ def main(devices: int = 1, precision: Optional[str] = None) -> None:
         strategy=strategy,
         precision=precision,
         logger=logger,
-        callbacks=[speed_monitor, model_checkpoint],
+        callbacks=[throughput, model_checkpoint],
         max_steps=max_iters,
         max_epochs=1,
         limit_val_batches=eval_iters,
@@ -190,8 +197,6 @@ def get_lr(it: int) -> float:
 
 
 if __name__ == "__main__":
-    # Uncomment this line if you see an error: "Expected is_sm80 to be true, but got false"
-    # torch.backends.cuda.enable_flash_sdp(False)
     torch.set_float32_matmul_precision("high")
 
     from jsonargparse import CLI

@@ -135,8 +135,3 @@ With only a few modifications, you can prepare and train on your own instruction
         --checkpoint_dir checkpoints/stabilityai/stablelm-base-alpha-3b \
         --out_dir data/mydata-finetuned
     ```
-
-## Troubleshooting
-
-If you run into a CUDA error "Expected is_sm80 to be true, but got false", uncomment the line
-`torch.backends.cuda.enable_flash_sdp(False)` in the finetune script (see <https://github.com/Lightning-AI/lit-llama/issues/101>).

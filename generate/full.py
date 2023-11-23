@@ -25,13 +25,13 @@ from scripts.prepare_alpaca import generate_prompt
 
 
 def main(
-    prompt: str = "What food do lamas eat?",
+    prompt: str = "What food do llamas eat?",
     input: str = "",
     finetuned_path: Path = Path("out/full/alpaca/lit_model_finetuned.pth"),
     checkpoint_dir: Path = Path("checkpoints/stabilityai/stablelm-base-alpha-3b"),
     quantize: Optional[Literal["bnb.nf4", "bnb.nf4-dq", "bnb.fp4", "bnb.fp4-dq", "bnb.int8", "gptq.int4"]] = None,
     max_new_tokens: int = 100,
-    top_k: int = 200,
+    top_k: Optional[int] = 200,
     temperature: float = 0.8,
     strategy: str = "auto",
     devices: int = 1,
@@ -67,7 +67,7 @@ def main(
         if devices > 1:
             raise NotImplementedError(
                 "Quantization is currently not supported for multi-GPU training. Please set devices=1 when using the"
-                " --quantization flag."
+                " --quantize flag."
             )
         if quantize.startswith("bnb."):
             if "mixed" in precision:
@@ -90,19 +90,6 @@ def main(
         raise NotImplementedError
     checkpoint_path = finetuned_path
 
-    fabric.print(f"Loading model {str(checkpoint_path)!r} with {config.__dict__}", file=sys.stderr)
-    t0 = time.perf_counter()
-    with fabric.init_module(empty_init=True), gptq_quantization(quantize == "gptq.int4"):
-        model = GPT(config)
-    fabric.print(f"Time to instantiate model: {time.perf_counter() - t0:.02f} seconds.", file=sys.stderr)
-
-    model.eval()
-    model = fabric.setup(model)
-
-    t0 = time.perf_counter()
-    load_checkpoint(fabric, model, checkpoint_path)
-    fabric.print(f"Time to load the model weights: {time.perf_counter() - t0:.02f} seconds.", file=sys.stderr)
-
     tokenizer = Tokenizer(checkpoint_dir)
     sample = {"instruction": prompt, "input": input}
     prompt = generate_prompt(sample)
@@ -110,12 +97,25 @@ def main(
     prompt_length = encoded.size(0)
     max_returned_tokens = prompt_length + max_new_tokens
 
+    fabric.print(f"Loading model {str(checkpoint_path)!r} with {config.__dict__}", file=sys.stderr)
+    t0 = time.perf_counter()
+    with fabric.init_module(empty_init=True), gptq_quantization(quantize == "gptq.int4"):
+        model = GPT(config)
+    fabric.print(f"Time to instantiate model: {time.perf_counter() - t0:.02f} seconds.", file=sys.stderr)
     with fabric.init_tensor():
         # set the max_seq_length to limit the memory usage to what we need
         model.max_seq_length = max_returned_tokens
         # enable the kv cache
         model.set_kv_cache(batch_size=1)
+    model.eval()
 
+    model = fabric.setup(model)
+
+    t0 = time.perf_counter()
+    load_checkpoint(fabric, model, checkpoint_path)
+    fabric.print(f"Time to load the model weights: {time.perf_counter() - t0:.02f} seconds.", file=sys.stderr)
+
+    L.seed_everything(1234)
     t0 = time.perf_counter()
     y = generate(model, encoded, max_returned_tokens, temperature=temperature, top_k=top_k, eos_id=tokenizer.eos_id)
     t = time.perf_counter() - t0
