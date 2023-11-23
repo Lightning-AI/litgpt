@@ -1152,7 +1152,7 @@ for c in mistral:
 tiny_llama = [
     dict(
         name="tiny-llama-1.1b",
-        hf_config=dict(org="PY007", name="TinyLlama-1.1B-intermediate-step-480k-1T"),
+        hf_config=dict(org="TinyLlama", name="TinyLlama-1.1B-intermediate-step-955k-token-2T"),
         block_size=2048,
         vocab_size=32000,
         padding_multiple=64,
