@@ -30,7 +30,7 @@ from lit_gpt.utils import chunked_cross_entropy, num_parameters
 model_name = "tiny-llama-1.1b"
 name = "lit-tiny-llama-1.1b"
 out_dir = Path("out") / name
-logger = "tensorboard"
+logger_name = "tensorboard"
 
 # Hyperparameters
 devices = 8
@@ -63,14 +63,7 @@ hparams = {k: v for k, v in locals().items() if isinstance(v, (int, float, str))
 
 
 def setup(resume: Union[bool, Path] = False):
-    if logger == "csv":
-        _logger = CSVLogger(root_dir="logs", name=name)
-    elif logger == "tensorboard":
-        _logger = TensorBoardLogger(root_dir="logs", name=name)
-    elif logger == "wandb":
-        _logger = WandbLogger(project="tinyllama", name=name, resume=(resume is not False))
-    else:
-        raise ValueError(f"`logger={logger} is not a valid option.")
+    logger = choose_logger(logger_name, name=name, resume=resume)
 
     if devices > 1:
         strategy = FSDPStrategy(
@@ -84,12 +77,12 @@ def setup(resume: Union[bool, Path] = False):
     else:
         strategy = "auto"
 
-    fabric = L.Fabric(devices=devices, strategy=strategy, precision="bf16-mixed", loggers=[_logger])
+    fabric = L.Fabric(devices=devices, strategy=strategy, precision="bf16-mixed", loggers=[logger])
     fabric.launch()
 
     fabric.print(hparams)
-    if logger in ("tensorboard", "wandb"):
-        _logger.log_hyperparams(hparams)
+    if logger_name in ("tensorboard", "wandb"):
+        fabric.logger.log_hyperparams(hparams)
 
     main(fabric, resume)
 
@@ -334,6 +327,16 @@ def init_weights(module: nn.Module, n_layer: int, n_embd: int):
     for name, param in module.named_parameters():
         if name == "proj.weight" and isinstance(module, (LLaMAMLP, CausalSelfAttention)):
             nn.init.normal_(param, mean=0.0, std=(1 / math.sqrt(n_embd) / n_layer))
+
+
+def choose_logger(logger_name: str, name: str, resume: bool | str, *args, **kwargs):
+    if logger_name == "csv":
+        return CSVLogger(root_dir="logs", name=name, *args, **kwargs)
+    if logger_name == "tensorboard":
+        return TensorBoardLogger(root_dir="logs", name=name, *args, **kwargs)
+    if logger_name == "wandb":
+        return WandbLogger(project="tinyllama", name=name, resume=(resume is not False), *args, **kwargs)
+    raise ValueError(f"`logger={logger} is not a valid option.")
 
 
 if __name__ == "__main__":
