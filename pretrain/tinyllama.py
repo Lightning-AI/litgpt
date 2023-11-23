@@ -341,4 +341,11 @@ if __name__ == "__main__":
     if not _TORCH_GREATER_EQUAL_2_2:
         raise ImportError("The tinyllama.py training script requires PyTorch 2.2 (nightly) or higher to run.")
 
+    import re
+    import logging
+
+    # Suppress excessive warnings, see https://github.com/pytorch/pytorch/issues/111632
+    pattern = re.compile(".*Profiler function .* will be ignored")
+    logging.getLogger("torch._dynamo.variables.torch").addFilter(lambda record: not pattern.search(record.getMessage()))
+
     CLI(setup)
