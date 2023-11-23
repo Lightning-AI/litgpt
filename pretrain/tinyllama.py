@@ -329,7 +329,7 @@ def init_weights(module: nn.Module, n_layer: int, n_embd: int):
             nn.init.normal_(param, mean=0.0, std=(1 / math.sqrt(n_embd) / n_layer))
 
 
-def choose_logger(logger_name: str, name: str, resume: bool | str, *args, **kwargs):
+def choose_logger(logger_name: str, name: str, resume: Union[bool, Path], *args, **kwargs):
     if logger_name == "csv":
         return CSVLogger(root_dir="logs", name=name, *args, **kwargs)
     if logger_name == "tensorboard":
