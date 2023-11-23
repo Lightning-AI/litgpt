@@ -150,28 +150,27 @@ def copy_weights_phi(
     saver: Optional[incremental_save] = None,
 ) -> None:
     weight_map = {
-        "transformer.wte.weight": "layers.0.wte.weight",
-        "transformer.h.{}.norm_1.bias": "layers.{}.ln.bias",
-        "transformer.h.{}.norm_1.weight": "layers.{}.ln.weight",
-        "transformer.h.{}.attn.attn.bias": "layers.{}.mixer.Wqkv.bias",
-        "transformer.h.{}.attn.attn.weight": "layers.{}.mixer.Wqkv.weight",
-        "transformer.h.{}.attn.proj.bias": "layers.{}.mixer.out_proj.bias",
-        "transformer.h.{}.attn.proj.weight": "layers.{}.mixer.out_proj.weight",
-        "transformer.h.{}.mlp.fc.bias": "layers.{}.mlp.fc1.bias",
-        "transformer.h.{}.mlp.fc.weight": "layers.{}.mlp.fc1.weight",
-        "transformer.h.{}.mlp.proj.bias": "layers.{}.mlp.fc2.bias",
-        "transformer.h.{}.mlp.proj.weight": "layers.{}.mlp.fc2.weight",
-        "transformer.ln_f.bias": f"layers.{config.n_layer + 1}.ln.bias",
-        "transformer.ln_f.weight": f"layers.{config.n_layer + 1}.ln.weight",
-        "lm_head.weight": f"layers.{config.n_layer + 1}.linear.weight",
-        "lm_head.bias": f"layers.{config.n_layer + 1}.linear.bias",
+        "transformer.wte.weight": "transformer.embd.wte.weight",
+        "transformer.h.{}.norm_1.bias": "transformer.h.{}.ln.bias",
+        "transformer.h.{}.norm_1.weight": "transformer.h.{}.ln.weight",
+        "transformer.h.{}.attn.attn.bias": "transformer.h.{}.mixer.Wqkv.bias",
+        "transformer.h.{}.attn.attn.weight": "transformer.h.{}.mixer.Wqkv.weight",
+        "transformer.h.{}.attn.proj.bias": "transformer.h.{}.mixer.out_proj.bias",
+        "transformer.h.{}.attn.proj.weight": "transformer.h.{}.mixer.out_proj.weight",
+        "transformer.h.{}.mlp.fc.bias": "transformer.h.{}.mlp.fc1.bias",
+        "transformer.h.{}.mlp.fc.weight": "transformer.h.{}.mlp.fc1.weight",
+        "transformer.h.{}.mlp.proj.bias": "transformer.h.{}.mlp.fc2.bias",
+        "transformer.h.{}.mlp.proj.weight": "transformer.h.{}.mlp.fc2.weight",
+        "transformer.ln_f.weight": "lm_head.ln.weight",
+        "transformer.ln_f.bias": "lm_head.ln.bias",
+        "lm_head.weight": "lm_head.linear.weight",
+        "lm_head.bias": "lm_head.linear.bias",
     }
 
     for name, param in lit_weights.items():
-        if "transformer.h" in name:
+        if name.startswith("transformer.h."):
             from_name, number = layer_template(name, 2)
-            to_name = weight_map[from_name]
-            to_name = to_name.format(number + 1)
+            to_name = weight_map[from_name].format(number)
         else:
             to_name = weight_map[name]
         param = load_param(param, name, None)
