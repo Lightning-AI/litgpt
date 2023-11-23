@@ -10,8 +10,6 @@ jobs:
         uses: actions/checkout@v4
         with:
           fetch-depth: 0
-          submodules: recursive
-          token: ${{ secrets.action_secret || secrets.github-token || github.token }}
 
       - name: Black ◼️
         uses: psf/black@stable
@@ -39,5 +37,5 @@ jobs:
         uses: actions-js/push@v1.4
         with:
           branch: ${{ github.head_ref || github.ref_name }}
-          github_token: ${{ secrets.action_secret || secrets.github-token || github.token }}
+          github_token: ${{ secrets.PAT_GHOST }}
           message: "Automated code-style fix."
