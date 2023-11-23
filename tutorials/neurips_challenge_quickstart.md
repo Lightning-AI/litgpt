@@ -164,7 +164,6 @@ python eval/lm_eval_harness.py \
   --checkpoint_dir "checkpoints/stabilityai/stablelm-base-alpha-3b" \
   --precision "bf16-true" \
   --eval_tasks "[truthfulqa_mc,gsm8k]" \
-  --batch_size 4 \
   --save_filepath "results-stablelm-3b.json"
 ```
 
@@ -197,7 +196,6 @@ python eval/lm_eval_harness.py \
   --checkpoint_dir "out/lora_merged/stablelm-base-alpha-3b" \
   --precision "bf16-true" \
   --eval_tasks "[truthfulqa_mc,gsm8k]" \
-  --batch_size 4 \
   --save_filepath "results-stablelm-3b.json"
 ```
 

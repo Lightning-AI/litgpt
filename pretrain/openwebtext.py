@@ -77,9 +77,9 @@ def main(fabric: L.Fabric, resume: Union[bool, Path]) -> None:
     config = Config.from_name(model_name)
     fabric.print(f"Loading model with {config.__dict__}")
     t0 = time.perf_counter()
-    with fabric.init_module(empty_init=True):
+    with fabric.init_module(empty_init=(fabric.world_size > 1)):
         model = GPT(config)
-        model.apply(model._init_weights)
+    model.apply(model._init_weights)
 
     fabric.print(f"Time to instantiate model: {time.perf_counter() - t0:.02f} seconds.")
     fabric.print(f"Total parameters {num_parameters(model):,}")
@@ -114,7 +114,7 @@ def train(fabric: L.Fabric, state: dict, train_dataloader: DataLoader, val_datal
     model = state["model"]
     optimizer = state["optimizer"]
 
-    validate(fabric, model, val_dataloader)  # sanity check
+    validate(fabric, model, val_dataloader, max_iters=2)  # sanity check
 
     with torch.device("meta"):
         meta_model = GPT(model.config)
@@ -176,7 +176,7 @@ def train(fabric: L.Fabric, state: dict, train_dataloader: DataLoader, val_datal
 
         if not is_accumulating and state["step_count"] % eval_interval == 0:
             t0 = time.perf_counter()
-            val_loss = validate(fabric, model, val_dataloader)
+            val_loss = validate(fabric, model, val_dataloader, max_iters=eval_iters)
             t1 = time.perf_counter() - t0
             fabric.print(f"step {iter_num}: val loss {val_loss.item():.4f}, val time: {t1 * 1000:.2f}ms")
             fabric.barrier()
@@ -188,13 +188,13 @@ def train(fabric: L.Fabric, state: dict, train_dataloader: DataLoader, val_datal
 
 # FSDP has issues with `inference_mode`
 @torch.no_grad()
-def validate(fabric: L.Fabric, model: torch.nn.Module, val_dataloader: DataLoader) -> torch.Tensor:
+def validate(fabric: L.Fabric, model: torch.nn.Module, val_dataloader: DataLoader, max_iters: int) -> torch.Tensor:
     fabric.print("Validating ...")
     model.eval()
     val_iter = iter(val_dataloader)
 
-    losses = torch.zeros(eval_iters, device=fabric.device)
-    for k in range(eval_iters):
+    losses = torch.zeros(max_iters, device=fabric.device)
+    for k in range(max_iters):
         input_ids, targets = next(val_iter)
         logits = model(input_ids)
         losses[k] = chunked_cross_entropy(logits, targets, chunk_size=0)
