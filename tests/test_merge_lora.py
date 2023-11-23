@@ -3,6 +3,7 @@ import os
 
 import pytest
 import torch
+from conftest import RunIf
 
 
 def test_merge_lora(tmp_path, fake_checkpoint_dir):
@@ -36,7 +37,7 @@ def test_merge_lora(tmp_path, fake_checkpoint_dir):
     assert not keys.unexpected_keys
 
 
-@pytest.mark.skipif(not torch.cuda.is_available(), reason="8bit requires CUDA")
+@RunIf(min_cuda_gpus=1)
 # platform dependent cuda issue: libbitsandbytes_cpu.so: undefined symbol: cquantize_blockwise_fp16_nf4
 @pytest.mark.xfail(raises=AttributeError, strict=False)
 def test_merge_lora_with_quantize(tmp_path, fake_checkpoint_dir):
