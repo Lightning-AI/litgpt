@@ -271,14 +271,21 @@ def test_against_hf_llama2(ours_kwargs, device, dtype):
     ],
 )
 def test_against_hf_phi(device, dtype):
-    file_path = wd / "tests" / "original_phi_1_5.py"
-    url = "https://gist.githubusercontent.com/carmocca/8ec003d9e0d2fdb09ea92941cd0985b4/raw/2ba35c28824d4f4d5dce14f9588a80067cb6ae7f/original_phi_1_5.py"
-    if not file_path.is_file():
-        urlretrieve(url=url, filename=file_path)
+    workdir = wd / "tests" / "reference_models"
+    workdir.mkdir(parents=True, exist_ok=True)
+    file_paths = [workdir / "original_phi_1_5.py", workdir / "configuration_phi.py"]
+    urls = [
+        "https://huggingface.co/microsoft/phi-1_5/raw/main/modeling_phi.py",
+        "https://huggingface.co/microsoft/phi-1_5/raw/main/configuration_phi.py",
+    ]
+    for file_path, url in zip(file_paths, urls):
+        if not file_path.is_file():
+            urlretrieve(url=url, filename=file_path)
 
     from lit_gpt import GPT, Config
     from scripts.convert_hf_checkpoint import copy_weights_phi
-    from tests.original_phi_1_5 import MixFormerSequentialConfig, MixFormerSequentialForCausalLM
+    from tests.reference_models.configuration_phi import PhiConfig
+    from tests.reference_models.original_phi_1_5 import PhiForCausalLM
 
     torch.set_default_dtype(dtype)
 
@@ -286,7 +293,7 @@ def test_against_hf_phi(device, dtype):
         "phi-1_5", padded_vocab_size=10000, n_layer=2, n_head=4, n_embd=256, rotary_percentage=0.5
     )
     T = 5
-    theirs_config = MixFormerSequentialConfig(
+    theirs_config = PhiConfig(
         n_positions=ours_config.block_size,
         n_embd=ours_config.n_embd,
         n_head=ours_config.n_head,
@@ -297,7 +304,7 @@ def test_against_hf_phi(device, dtype):
     )
     theirs_config.vocab_size = ours_config.padded_vocab_size
 
-    theirs_model = MixFormerSequentialForCausalLM(theirs_config).to(device)
+    theirs_model = PhiForCausalLM(theirs_config).to(device)
     theirs_state_dict = theirs_model.state_dict()
     state_dict = {}
     copy_weights_phi(ours_config, state_dict, theirs_state_dict)
