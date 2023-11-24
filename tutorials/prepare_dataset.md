@@ -212,7 +212,7 @@ Please read the [tutorials/finetune_*.md](../tutorials) documents for more infor
 
 The models in Lit-GPT expect datasets for instruction finetuning in the following format:
 
-```jsonl
+```text
 [
     {
         "instruction": "Write a limerick about a
