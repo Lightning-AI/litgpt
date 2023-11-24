@@ -1,17 +1,12 @@
 # NeurIPS 2023 LLM Efficiency Challenge Quickstart Guide
 
-
-
 The [NeurIPS 2023 Efficiency Challenge](https://llm-efficiency-challenge.github.io/) is a competition focused on training **1 LLM for 24 hours on 1 GPU** – the team with the best LLM gets to present their results at NeurIPS 2023.
 
 This quick start guide is a short starter guide illustrating the main steps to get started with Lit-GPT, which was selected as the competition's official starter kit.
 
-
-
 &nbsp;
 
 ## Competition Facts
-
 
 &nbsp;
 
@@ -43,7 +38,7 @@ These don't include models that have been finetuned or otherwise aligned, as per
 
 **Permitted datasets**
 
-Any open-source dataset is allowed. Originally, [per competition rules](https://llm-efficiency-challenge.github.io/challenge), datasets that utilize "generated content" from other LLMs were not permitted. However, the rules were recently softened to also allow LLM-generated datasets if those datasets are made available and if it is not against the usage restrictions and guidelines of the LLM. If you plan to use a specific dataset that is not explicitely listed on the [challenge website](https://llm-efficiency-challenge.github.io/challenge) or want to use LLM-generated data, it is recommended to reach out to the organizers and confirm that this is in line with the competition rules.
+Any open-source dataset is allowed. Originally, [per competition rules](https://llm-efficiency-challenge.github.io/challenge), datasets that utilize "generated content" from other LLMs were not permitted. However, the rules were recently softened to also allow LLM-generated datasets if those datasets are made available and if it is not against the usage restrictions and guidelines of the LLM. If you plan to use a specific dataset that is not explicitly listed on the [challenge website](https://llm-efficiency-challenge.github.io/challenge) or want to use LLM-generated data, it is recommended to reach out to the organizers and confirm that this is in line with the competition rules.
 
 Examples of permitted datasets are the following:
 
@@ -171,7 +166,6 @@ python eval/lm_eval_harness.py \
 
 To evaluate a LoRA-finetuned model, you need to first merge the LoRA weights with the base model to create a new checkpoint file:
 
-
 ```bash
 python scripts/merge_lora.py \
   --checkpoint_dir "checkpoints/stabilityai/stablelm-base-alpha-3b/" \
@@ -204,7 +198,6 @@ python eval/lm_eval_harness.py \
 ## Submission
 
 You will be required to submit a Docker image for the submission itself. Fortunately, the organizers have a GitHub repository with the exact steps [here](https://github.com/llm-efficiency-challenge/neurips_llm_efficiency_challenge) and a toy-submission setup guide to test your model locally before submission.
-
 
 &nbsp;
 

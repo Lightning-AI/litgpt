@@ -2,10 +2,9 @@
 
 Below is a table of all datasets that are currently supported in Lit-GPT:
 
-
 | Name         | Task        | Size                | Reference Repo                                                  | Paper / Blog                                                                                                              | Data License                                                                                                                                                                                                     |
 |--------------|-------------|---------------------|-----------------------------------------------------------------|---------------------------------------------------------------------------------------------------------------------------|------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------|
-| Alpaca       | Finetuning  | 51,759 samples      | [URL](https://github.com/tatsu-lab/stanford_alpaca)             | [URL](https://crfm.stanford.edu/2023/03/13/alpaca.html)                                                                   | Attribution-NonCommercial 4.0 International, [ URL](https://crfm.stanford.edu/2023/03/13/alpaca.html)                                                                                                            |
+| Alpaca       | Finetuning  | 51,759 samples      | [URL](https://github.com/tatsu-lab/stanford_alpaca)             | [URL](https://crfm.stanford.edu/2023/03/13/alpaca.html)                                                                   | Attribution-NonCommercial 4.0 International, [URL](https://crfm.stanford.edu/2023/03/13/alpaca.html)                                                                                                            |
 | Alpaca Libre | Finetuning  | 55,370 samples      | [URL](https://github.com/mobarski/alpaca-libre)                 | -                                                                                                                         | CC0/MIT,  [URL](https://github.com/mobarski/alpaca-libre)                                                                                                                                                        |
 | Dolly        | Finetuning  | 15,011 samples      | [URL](https://github.com/databrickslabs/dolly/tree/master/data) | [URL](https://www.databricks.com/blog/2023/04/12/dolly-first-open-commercially-viable-instruction-tuned-llm)              | CC-BY-SA, [URL](https://github.com/databrickslabs/dolly#model-overview)                                                                                                                                          |
 | LongForm     | Finetuning  | 23,652 samples      | [URL](https://github.com/akoksal/LongForm)                      | [URL](https://arxiv.org/abs/2304.08460)                                                                                   | No information provided and subset-dependent, [URL](https://github.com/akoksal/LongForm)                                                                                                                         |
@@ -31,7 +30,6 @@ The steps here only need to be done once before preparing the finetuning dataset
 ### Alpaca
 
 &nbsp;
-
 
 The Alpaca dataset consists of 52,000 instructions and demonstrations produced by OpenAI's text-davinci-003 engine. This data is used in instruction-tuning, helping improve the performance of language models to follow instructions.
 
@@ -90,8 +88,6 @@ python scripts/prepare_alpaca.py \
  --destination_path "data/alpaca_libre" \
  --max_seq_length 256
 ```
-
-
 
 &nbsp;
 
@@ -188,7 +184,6 @@ python scripts/prepare_dolly.py \
  --max_seq_length 512
 ```
 
-
 &nbsp;
 
 ### Finetuning After Data Preparation
@@ -217,7 +212,7 @@ Please read the [tutorials/finetune_*.md](../tutorials) documents for more infor
 
 The models in Lit-GPT expect datasets for instruction finetuning in the following format:
 
-```
+```text
 [
     {
         "instruction": "Write a limerick about a
@@ -237,6 +232,7 @@ The models in Lit-GPT expect datasets for instruction finetuning in the followin
     },
 ]
 ```
+
 (Note that depending on the task, the `"input"` text can be an empty string, as shown above.)
 
 Custom datasets can be prepared by either creating a new `scripts/prepare_dataset.py` script or reading the dataset
@@ -259,6 +255,7 @@ Before you finetune, prepare the dataset using the `prepare_csv.py` script:
 ```bash
 python scripts/prepare_csv.py --csv_path path/to/the/file.csv
 ```
+
 You can also customize the dataset generation by using these additional parameters
 
 - `destination_path`: The folder where the binary data will be saved. By default, it is saved inside `data/csv`
@@ -284,11 +281,12 @@ python scripts/prepare_csv.py --csv_path test_data.csv \
 --mask_inputs false \
 --ignore_index -1
 ```
+
 Replace `test_data.csv` with your CSV path and the other additional parameters accordingly. Executing the command above will save `train.pt` and `test.pt` on your disk at the `destination_path`. Now you can use the prepared data to [finetune your model](https://github.com/Lightning-AI/lit-gpt/blob/main/tutorials/finetune_lora.md#running-the-finetuning).
 
 &nbsp;
 
-### Preparing Custom Datasets Using a Dataset Prepration Script
+### Preparing Custom Datasets Using a Dataset Preparation Script
 
 If you don't have a CSV file following the format described in the previous section, the easiest way to prepare a new dataset is to copy and modify one of the existing dataset preparation scripts:
 
@@ -299,10 +297,7 @@ These scripts may look intimidating at first glance since they include code for 
 
 In [`scripts/prepare_lima.py`](https://github.com/Lightning-AI/lit-gpt/blob/main/scripts/prepare_lima.py), the [line 26](https://github.com/Lightning-AI/lit-gpt/blob/98fad263a62e5e57821de817bdd5e316abfb34d4/scripts/prepare_lima.py#L26) references the HF repo ID, and the lines [50-53](https://github.com/Lightning-AI/lit-gpt/blob/98fad263a62e5e57821de817bdd5e316abfb34d4/scripts/prepare_lima.py#L50-L53) save the dataset as `train_data`. Here, `train_data` is a list that contains the instruction examples in the format mentioned above.
 
-
 In [`scripts/prepare_alpaca.py`](https://github.com/Lightning-AI/lit-gpt/blob/main/scripts/prepare_alpaca.py), you only need to modify [lines 24-25](https://github.com/Lightning-AI/lit-gpt/blob/98fad263a62e5e57821de817bdd5e316abfb34d4/scripts/prepare_alpaca.py#L24-L25) for the file name and URL, assuming the JSON file you are working with has the same format as the [Alpaca JSON file](https://raw.githubusercontent.com/tloen/alpaca-lora/main/alpaca_data_cleaned_archive.json).
-
-
 
 &nbsp;
 
