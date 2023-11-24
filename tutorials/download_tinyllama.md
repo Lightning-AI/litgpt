@@ -15,7 +15,7 @@ which will print
 
 ```text
 TinyLlama/TinyLlama-1.1B-intermediate-step-955k-token-2T
-TinyLlama/TinyLlama-1.1B-Chat-v0.6
+TinyLlama/TinyLlama-1.1B-Chat-v0.5
 ```
 
 In order to use a specific checkpoint, for instance [TinyLlama 1.1B base model](https://huggingface.co/TinyLlama/TinyLlama-1.1B-intermediate-step-955k-token-2T), which requires about 5 GB of disk space, download the weights and convert the checkpoint to the lit-gpt format:
