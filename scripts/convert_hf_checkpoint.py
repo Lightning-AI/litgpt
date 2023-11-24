@@ -178,6 +178,12 @@ def copy_weights_phi(
     saver: Optional[incremental_save] = None,
     dtype: Optional[torch.dtype] = None,
 ) -> None:
+    if any(layer_name.startswith("layers.") for layer_name in hf_weights):
+        raise ValueError(
+            "You are using an outdated Phi1.5 checkpoint. "
+            "Please reload it as described in 'tutorials/download_phi15.md'"
+        )
+
     weight_map = {
         "transformer.embd.wte.weight": "transformer.wte.weight",
         "transformer.h.{}.ln.bias": "transformer.h.{}.norm_1.bias",
@@ -198,11 +204,6 @@ def copy_weights_phi(
     }
 
     for name, param in hf_weights.items():
-        if name.startswith("layers."):
-            raise ValueError(
-                "You are using an outdated Phi1.5 checkpoint."
-                "Please reload it as described in 'tutorials/download_phi15.md'"
-            )
         if name.startswith("transformer.h."):
             from_name, number = layer_template(name, 2)
             to_name = weight_map[from_name].format(number)
