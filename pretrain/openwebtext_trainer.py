@@ -2,7 +2,7 @@ import math
 import sys
 import time
 from pathlib import Path
-from typing import Any, Optional, Dict
+from typing import Any, Dict, Optional
 
 import lightning as L
 import numpy as np
