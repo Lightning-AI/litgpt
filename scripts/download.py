@@ -53,6 +53,7 @@ def download_from_hub(
     snapshot_download(
         repo_id,
         local_dir=directory,
+        cache_dir=directory,
         local_dir_use_symlinks=False,
         resume_download=True,
         allow_patterns=download_files,
