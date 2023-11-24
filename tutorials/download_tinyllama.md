@@ -5,7 +5,7 @@ It is still in development and at the time of writing this, checkpoints for the 
 The target is to train it for ~3 epochs on 3T tokens total. For more details on the schedule and progress of the pretraining, see the official [README](https://github.com/jzhang38/TinyLlama/tree/main).
 
 There are two version of TinyLlama available: a base one and a fine-tuned "Chat" version.
-To see all available version, run:
+To see all available versions, run:
 
 ```bash
 python scripts/download.py | grep TinyLlama
