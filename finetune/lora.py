@@ -40,6 +40,7 @@ batch_size = 128
 micro_batch_size = 4
 gradient_accumulation_iters = batch_size // micro_batch_size
 assert gradient_accumulation_iters > 0
+max_seq_length = 100000  # set to lower to truncate
 max_iters = 50000  # train dataset size
 weight_decay = 0.01
 lora_r = 8
@@ -169,7 +170,7 @@ def train(
 ) -> None:
     tokenizer = Tokenizer(checkpoint_dir)
     longest_seq_length, longest_seq_ix = get_longest_seq_length(train_data)
-    model.max_seq_length = longest_seq_length
+    model.max_seq_length = min(longest_seq_length, max_seq_length)
     fabric.print(
         f"The longest sequence length in the train data is {longest_seq_length}, the model's maximum sequence length is"
         f" {model.max_seq_length} and context length is {model.config.block_size}"
@@ -192,6 +193,10 @@ def train(
         iter_t0 = time.perf_counter()
 
         input_ids, targets = get_batch(fabric, train_data, longest_seq_ix if iter_num == 1 else None)
+
+        # Truncate if needed
+        input_ids = input_ids[:, :model.max_seq_length]
+        targets = targets[:, :model.max_seq_length]
 
         is_accumulating = iter_num % gradient_accumulation_iters != 0
         with fabric.no_backward_sync(model, enabled=is_accumulating):
