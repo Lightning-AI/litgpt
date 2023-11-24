@@ -56,7 +56,7 @@ def test_from_hf_name():
     # by short-hand name
     config0 = Config.from_name("tiny-llama-1.1b")
     # or by huggingface hub repo name
-    config1 = Config.from_name("TinyLlama-1.1B-intermediate-step-480k-1T")
+    config1 = Config.from_name("TinyLlama-1.1B-intermediate-step-955k-token-2T")
     assert config0 == config1
 
 
