@@ -1173,6 +1173,7 @@ tiny_llama = [
         name="tiny-llama-1.1b-chat",
         hf_config=dict(org="TinyLlama", name="TinyLlama-1.1B-Chat-v0.5"),
         block_size=2048,
+        vocab_size=32000,
         padded_vocab_size=32003,
         padding_multiple=64,
         n_layer=22,
