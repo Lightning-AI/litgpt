@@ -6,7 +6,6 @@ from unittest.mock import ANY, Mock
 
 import datasets
 import pytest
-from conftest import RunIf
 from lightning import Fabric
 
 

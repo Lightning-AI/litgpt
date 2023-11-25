@@ -22,7 +22,7 @@ from torch.utils.data import DataLoader
 wd = Path(__file__).parent.parent.resolve()
 sys.path.append(str(wd))
 
-from lit_gpt.model import GPT, Block, Config, LLaMAMLP, CausalSelfAttention
+from lit_gpt.model import GPT, Block, CausalSelfAttention, Config, LLaMAMLP
 from lit_gpt.packed_dataset import CombinedDataset
 from lit_gpt.utils import chunked_cross_entropy, num_parameters
 
@@ -154,7 +154,6 @@ def train(fabric, state, train_dataloader, val_dataloader, resume):
     curr_iter = 0
 
     for train_data in train_dataloader:
-
         if state["iter_num"] >= max_iters:
             break
 
@@ -336,7 +335,7 @@ def choose_logger(logger_name: str, name: str, resume: Union[bool, Path], *args,
         return TensorBoardLogger(root_dir="logs", name=name, *args, **kwargs)
     if logger_name == "wandb":
         return WandbLogger(project="tinyllama", name=name, resume=(resume is not False), *args, **kwargs)
-    raise ValueError(f"`logger={logger} is not a valid option.")
+    raise ValueError(f"`logger={logger_name}` is not a valid option.")
 
 
 if __name__ == "__main__":

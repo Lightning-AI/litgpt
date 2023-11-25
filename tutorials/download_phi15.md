@@ -11,9 +11,7 @@ The model was trained the same data sources (7B tokens) as its [phi-1](https://a
 
 In addition, to create phi-1.5, the authors included additional textbook-quality synthetic text (roughly 20B tokens) in natural language, which was created using the [Textbooks Are All You Need](https://arxiv.org/abs/2306.11644) approach.
 
-
 The model weights are released under a [*Microsoft Research license*](https://huggingface.co/microsoft/phi-1_5/blob/main/README.md#license).
-
 
 In order to use the phi-1.5 model checkpoint, which requires about 3 Gb of disk space, download the weights and convert the checkpoint to the lit-gpt format:
 
