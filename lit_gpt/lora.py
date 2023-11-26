@@ -95,7 +95,7 @@ class LoRALinear(LoRALayer):
         r: int = 0,
         lora_alpha: int = 1,
         lora_dropout: float = 0.0,
-        **kwargs,
+        **kwargs: Any,
     ):
         """LoRA wrapper around linear class.
 
@@ -191,7 +191,7 @@ class LoRAQKVLinear(LoRALinear):
         lora_alpha: int = 1,
         lora_dropout: float = 0.0,
         enable_lora: Union[bool, Tuple[bool, bool, bool]] = False,
-        **kwargs,
+        **kwargs: Any,
     ):
         """LoRA wrapper around linear class that is used for calculation of q, k and v matrices.
 
