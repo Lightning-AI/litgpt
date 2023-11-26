@@ -687,8 +687,8 @@ def merge_lora_weights(model: GPT) -> None:
             module.merge()
 
 
-def dequantize_pretrained_weights(model: GPT) -> None:
-    """Dequantizes pretrained weights of the model to compute-dtype."""
+def dequantize_model(model: GPT) -> None:
+    """Dequantizes pretrained weights of the model."""
     import bitsandbytes as bnb
 
     for module in model.modules():

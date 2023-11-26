@@ -12,7 +12,7 @@ from lightning.fabric.plugins import BitsandbytesPrecision
 wd = Path(__file__).parent.parent.resolve()
 sys.path.append(str(wd))
 
-from lit_gpt.lora import GPT, Config, dequantize_pretrained_weights, lora_filter, merge_lora_weights
+from lit_gpt.lora import GPT, Config, dequantize_model, lora_filter, merge_lora_weights
 from lit_gpt.utils import check_valid_checkpoint_dir, get_default_supported_precision, lazy_load
 
 lora_r = 8
@@ -82,7 +82,7 @@ def merge_lora(
     merge_lora_weights(model)
 
     if quantize:
-        dequantize_pretrained_weights(model)
+        dequantize_model(model)
 
     save_path = out_dir / "lit_model.pth"
     fabric.print(f"Saving weights to {str(save_path)!r}")
