@@ -81,6 +81,11 @@ def merge_lora(
 
     merge_lora_weights(model)
 
+    if quantize:
+        # TODO: weights needs to be dequantized first before saving
+        # otherwise there will be a shape mismatch
+        raise NotImplementedError
+
     save_path = out_dir / "lit_model.pth"
     fabric.print(f"Saving weights to {str(save_path)!r}")
     # remove lora parameters and the lora linear substring
