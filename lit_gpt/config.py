@@ -170,6 +170,16 @@ configs = [
 # EleutherAI Pythia
 ####################
 pythia = [
+    # https://huggingface.co/EleutherAI/pythia-14m/blob/main/config.json
+    dict(
+        name="pythia-14m",
+        hf_config=dict(org="EleutherAI", name="pythia-14m"),
+        block_size=512,
+        n_layer=6,
+        n_embd=128,
+        n_head=4,
+        padding_multiple=128,
+    ),
     # https://huggingface.co/EleutherAI/pythia-70m/blob/main/config.json
     dict(
         name="pythia-70m",
@@ -248,6 +258,9 @@ pythia = [
 ]
 configs.extend(pythia)
 for c in pythia:
+    # "pythia-14m" doesn't have deduped version
+    if c["name"] == "pythia-14m":
+        continue
     copy = deepcopy(c)
     copy["name"] = f"{c['name']}-deduped"
     copy["hf_config"]["name"] = f"{c['hf_config']['name']}-deduped"
