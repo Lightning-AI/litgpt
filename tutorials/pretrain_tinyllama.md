@@ -22,7 +22,6 @@ Here is a quick fact sheet:
 
 (this table was sourced from the author's [README](https://github.com/jzhang38/TinyLlama/))
 
-
 ## Download datasets
 
 You can download the data using git lfs:
@@ -36,16 +35,17 @@ git lfs install
 git clone https://huggingface.co/datasets/cerebras/slimpajama-627b data/slimpajama-raw
 git clone https://huggingface.co/datasets/bigcode/starcoderdata data/starcoderdata-raw
 ```
+
 Around 1.2 TB of disk space is required to store both datasets.
 
 ## Prepare the datasets for training
 
-In order to start pretraining lit-gpt on it, you need to read, tokenize, and write the data in binary chunks. This will leverage our `lightning.data` optimization pipeline and streaming dataset that comes with Lightning. 
+In order to start pretraining lit-gpt on it, you need to read, tokenize, and write the data in binary chunks. This will leverage our `lightning.data` optimization pipeline and streaming dataset that comes with Lightning.
 
 First, install additional dependencies for preprocessing:
 
 ```bash
-pip install sentencepiece zstandard pandas pyarrow lightning[data] huggingface_hub
+pip install lightning[data] tensorboard sentencepiece zstandard pandas pyarrow huggingface_hub
 ```
 
 You will need to have the tokenizer config available:
@@ -61,6 +61,7 @@ Then, run the preprocessing script for each dataset and split.
 You will require **1.1 TB** of disk space for Starcoder and **2.5** TB of space for the SlimPajama dataset.
 
 **Starcoder:**
+
 ```bash
 python scripts/prepare_starcoder.py \
   --input_dir data/starcoderdata-raw \
@@ -69,6 +70,7 @@ python scripts/prepare_starcoder.py \
 ```
 
 **SlimPajama:**
+
 ```bash
 python scripts/prepare_slimpajama.py \
   --input_dir data/slimpajama-raw/validation \
@@ -89,10 +91,10 @@ python scripts/prepare_slimpajama.py \
 If you want to run on a small slice of the datasets first, pass the flag `--fast_dev_run=true` to the commands above.
 In the above we are assuming that you will be using the same tokenizer as used in LlaMA/TinyLlama, but any trained [SentencePiece](https://github.com/google/sentencepiece) tokenizer with a 32000 vocabulary size will do here.
 
-
 ## Pretraining
 
 Currently, the pretraining with `torch.compile` requires PyTorch 2.2 "nightly". We recommend CUDA 12.1:
+
 ```bash
 pip install -U --pre torch --index-url https://download.pytorch.org/whl/nightly/cu121
 ```

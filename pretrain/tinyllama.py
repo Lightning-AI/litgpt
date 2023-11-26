@@ -12,7 +12,7 @@ from typing import Tuple, Union
 import lightning as L
 import torch
 import torch.nn as nn
-from lightning.fabric.loggers import CSVLogger
+from lightning.fabric.loggers import CSVLogger, TensorBoardLogger
 from lightning.fabric.strategies import FSDPStrategy
 from lightning.fabric.utilities.throughput import ThroughputMonitor, measure_flops
 from lightning.pytorch.loggers import WandbLogger
@@ -22,7 +22,7 @@ from torch.utils.data import DataLoader
 wd = Path(__file__).parent.parent.resolve()
 sys.path.append(str(wd))
 
-from lit_gpt.model import GPT, Block, Config, LLaMAMLP, CausalSelfAttention
+from lit_gpt.model import GPT, Block, CausalSelfAttention, Config, LLaMAMLP
 from lit_gpt.packed_dataset import CombinedDataset
 from lit_gpt.utils import chunked_cross_entropy, num_parameters
 
@@ -30,7 +30,7 @@ from lit_gpt.utils import chunked_cross_entropy, num_parameters
 model_name = "tiny-llama-1.1b"
 name = "lit-tiny-llama-1.1b"
 out_dir = Path("out") / name
-use_wandb = False
+logger_name = "tensorboard"
 
 # Hyperparameters
 devices = 8
@@ -63,10 +63,7 @@ hparams = {k: v for k, v in locals().items() if isinstance(v, (int, float, str))
 
 
 def setup(resume: Union[bool, Path] = False):
-    if use_wandb:
-        logger = WandbLogger(project="tinyllama", name=name, resume=(resume is not False))
-    else:
-        logger = CSVLogger(root_dir="logs", name=name)
+    logger = choose_logger(logger_name, name=name, resume=resume)
 
     if devices > 1:
         strategy = FSDPStrategy(
@@ -84,8 +81,8 @@ def setup(resume: Union[bool, Path] = False):
     fabric.launch()
 
     fabric.print(hparams)
-    if use_wandb:
-        logger.log_hyperparams(hparams)
+    if logger_name in ("tensorboard", "wandb"):
+        fabric.logger.log_hyperparams(hparams)
 
     main(fabric, resume)
 
@@ -157,7 +154,6 @@ def train(fabric, state, train_dataloader, val_dataloader, resume):
     curr_iter = 0
 
     for train_data in train_dataloader:
-
         if state["iter_num"] >= max_iters:
             break
 
@@ -330,6 +326,16 @@ def init_weights(module: nn.Module, n_layer: int, n_embd: int):
     for name, param in module.named_parameters():
         if name == "proj.weight" and isinstance(module, (LLaMAMLP, CausalSelfAttention)):
             nn.init.normal_(param, mean=0.0, std=(1 / math.sqrt(n_embd) / n_layer))
+
+
+def choose_logger(logger_name: str, name: str, resume: Union[bool, Path], *args, **kwargs):
+    if logger_name == "csv":
+        return CSVLogger(root_dir="logs", name=name, *args, **kwargs)
+    if logger_name == "tensorboard":
+        return TensorBoardLogger(root_dir="logs", name=name, *args, **kwargs)
+    if logger_name == "wandb":
+        return WandbLogger(project="tinyllama", name=name, resume=(resume is not False), *args, **kwargs)
+    raise ValueError(f"`logger={logger_name}` is not a valid option.")
 
 
 if __name__ == "__main__":
