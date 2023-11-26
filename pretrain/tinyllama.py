@@ -100,15 +100,16 @@ def main(fabric, resume):
 
     fabric.print(f"Loading model with {config.__dict__}")
     t0 = time.perf_counter()
-    with fabric.init_module(empty_init=False):
+    with fabric.init_module(empty_init=True):
         model = GPT(config)
-        model.apply(partial(init_weights, n_layer=config.n_layer, n_embd=config.n_embd))
 
     fabric.print(f"Time to instantiate model: {time.perf_counter() - t0:.02f} seconds.")
     fabric.print(f"Total parameters: {num_parameters(model):,}")
 
     model = torch.compile(model)
     model = fabric.setup(model)
+    model.apply(partial(init_weights, n_layer=config.n_layer, n_embd=config.n_embd))
+
     optimizer = torch.optim.AdamW(
         model.parameters(), lr=learning_rate, weight_decay=weight_decay, betas=(beta1, beta2), foreach=False
     )
