@@ -1151,30 +1151,10 @@ for c in mistral:
 ############
 tiny_llama = [
     dict(
-        name="tiny-llama-1.1b",
-        hf_config=dict(org="TinyLlama", name="TinyLlama-1.1B-intermediate-step-955k-token-2T"),
+        name="tiny-llama-1.1b{}",
+        hf_config=dict(org="TinyLlama", name="TinyLlama-1.1B{}"),
         block_size=2048,
         vocab_size=32000,
-        padding_multiple=64,
-        n_layer=22,
-        n_head=32,
-        n_embd=2048,
-        rotary_percentage=1.0,
-        parallel_residual=False,
-        bias=False,
-        _norm_class="RMSNorm",  # original TinyLlama uses FusedRMSNorm
-        norm_eps=1e-5,
-        _mlp_class="LLaMAMLP",
-        intermediate_size=5632,
-        n_query_groups=4,
-    ),
-    # chat version has a slightly larger vocab size
-    dict(
-        name="tiny-llama-1.1b-chat",
-        hf_config=dict(org="TinyLlama", name="TinyLlama-1.1B-Chat-v0.5"),
-        block_size=2048,
-        vocab_size=32000,
-        padded_vocab_size=32003,
         padding_multiple=64,
         n_layer=22,
         n_head=32,
@@ -1189,7 +1169,14 @@ tiny_llama = [
         n_query_groups=4,
     ),
 ]
-configs.extend(tiny_llama)
+for c in tiny_llama:
+    for kind, hf_postfix in (("", "-intermediate-step-955k-token-2T"), ("chat", "-Chat-v0.5")):
+        copy = deepcopy(c)
+        copy["name"] = c["name"].format(kind)
+        copy["hf_config"]["name"] = c["hf_config"]["name"].format(hf_postfix)
+        if kind == "chat":
+            copy["padded_vocab_size"] = 32003  # chat version has a slightly larger vocab size
+        configs.append(copy)
 
 
 name_to_config = {config["name"]: config for config in configs}
