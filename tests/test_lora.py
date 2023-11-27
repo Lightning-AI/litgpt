@@ -131,7 +131,7 @@ def test_lora_filter(tmp_path):
     from lit_gpt.lora import GPT, lora_filter
 
     fabric = Fabric(devices=1)
-    model = GPT.from_name("pythia-70m", n_layer=3, r=1, to_query=True, to_value=True)
+    model = GPT.from_name("pythia-14m", n_layer=3, r=1, to_query=True, to_value=True)
     save_path = tmp_path / "model.pth"
     fabric.save(save_path, {"model": model}, filter={"model": lora_filter})
     saved = torch.load(save_path)["model"]
@@ -463,7 +463,7 @@ def test_lora_compile():
     from lit_gpt.lora import GPT
 
     model = GPT.from_name(
-        "pythia-70m",
+        "pythia-14m",
         n_layer=3,
         r=8,
         alpha=8,

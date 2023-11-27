@@ -21,20 +21,20 @@ def test_config():
     config = Config(block_size=2048)
     assert config.block_size == 2048
 
-    config = Config.from_name("pythia-70m")
-    assert config.block_size == 2048
+    config = Config.from_name("pythia-14m")
+    assert config.block_size == 512
 
-    config = Config.from_name("pythia-70m", block_size=4096)
+    config = Config.from_name("pythia-14m", block_size=4096)
     assert config.block_size == 4096
 
-    config = Config(hf_config={"name": "pythia-70m"})
-    assert config.name == "pythia-70m"
+    config = Config(hf_config={"name": "pythia-14m"})
+    assert config.name == "pythia-14m"
 
 
 def test_legacy_args(tmp_path):
     from lit_gpt import Config
 
-    config = Config.from_name("pythia-70m", condense_ratio=2)
+    config = Config.from_name("pythia-14m", condense_ratio=2)
     assert not hasattr(config, "condense_ratio")
     assert config.rope_condense_ratio == 2
 
@@ -103,25 +103,25 @@ def test_from_checkpoint(tmp_path):
         Config.from_checkpoint(tmp_path / "non_existing_checkpoint")
 
     # 2. If `lit_config.py` doesn't exists, but there is a matching config in `lit_gpt/config.py`.
-    config = Config.from_checkpoint(tmp_path / "pythia-70m")
-    assert config.name == "pythia-70m"
-    assert config.block_size == 2048
+    config = Config.from_checkpoint(tmp_path / "pythia-14m")
+    assert config.name == "pythia-14m"
+    assert config.block_size == 512
     assert config.n_layer == 6
 
     # 3. If only `lit_config.py` exists.
-    config_data = {"name": "pythia-70m", "block_size": 24, "n_layer": 2}
+    config_data = {"name": "pythia-14m", "block_size": 24, "n_layer": 2}
     with open(tmp_path / "lit_config.json", "w") as file:
         json.dump(config_data, file)
     config = Config.from_checkpoint(tmp_path)
-    assert config.name == "pythia-70m"
+    assert config.name == "pythia-14m"
     assert config.block_size == 24
     assert config.n_layer == 2
 
     # 4. Both `lit_config.py` and a matching config exist, but `lit_config.py` supersedes matching config
-    (tmp_path / "pythia-70m").mkdir()
-    with open(tmp_path / "pythia-70m/lit_config.json", "w") as file:
+    (tmp_path / "pythia-14m").mkdir()
+    with open(tmp_path / "pythia-14m/lit_config.json", "w") as file:
         json.dump(config_data, file)
-    config = Config.from_checkpoint(tmp_path / "pythia-70m")
-    assert config.name == "pythia-70m"
+    config = Config.from_checkpoint(tmp_path / "pythia-14m")
+    assert config.name == "pythia-14m"
     assert config.block_size == 24
     assert config.n_layer == 2
