@@ -164,4 +164,4 @@ def test_num_parameters_bitsandbytes(mode):
 
     with fabric.init_module(empty_init=True):
         model = GPT.from_name("pythia-14m")
-    assert num_parameters(model) == 70426624
+    assert num_parameters(model) == 14067712
