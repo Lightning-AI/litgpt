@@ -388,7 +388,7 @@ def test_against_hf_mistral(device, dtype):
 def test_model_compile():
     from lit_gpt import GPT
 
-    model = GPT.from_name("pythia-70m", n_layer=3)
+    model = GPT.from_name("pythia-14m", n_layer=3)
     x = torch.randint(model.config.vocab_size, size=(2, model.config.block_size), dtype=torch.int64)
 
     from torch._dynamo.backends import debugging
@@ -448,7 +448,7 @@ def test_kv_cache(max_seq_length):
 def test_model_kv_cache_amp():
     from lit_gpt.model import GPT, Config
 
-    config = Config.from_name("pythia-70m", n_layer=2)
+    config = Config.from_name("pythia-14m", n_layer=2)
     model = GPT(config)
     encoded = torch.arange(45)
     model.set_kv_cache(batch_size=1)

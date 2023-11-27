@@ -20,7 +20,7 @@ def test_config_identical():
     import lit_gpt.adapter_v2 as gpt_adapter
     import lit_gpt.model as gpt
 
-    name = "pythia-70m"
+    name = "pythia-14m"
     with Fabric(accelerator="cpu").init_module(empty_init=True):
         base_model = gpt.GPT.from_name(name)
         adapter_model = gpt_adapter.GPT.from_name(name)
@@ -35,7 +35,7 @@ def test_adapter_v2_filter(tmp_path):
     from lit_gpt.adapter_v2 import GPT, adapter_filter
 
     fabric = Fabric(devices=1)
-    model = GPT.from_name("pythia-70m", n_layer=3)
+    model = GPT.from_name("pythia-14m", n_layer=3)
     save_path = tmp_path / "model.pth"
     fabric.save(save_path, {"model": model}, filter={"model": adapter_filter})
     saved = torch.load(save_path)["model"]
@@ -150,7 +150,7 @@ def test_base_model_can_be_adapter_v2_loaded(name):
 def test_adapter_v2_compile():
     from lit_gpt.adapter_v2 import GPT
 
-    model = GPT.from_name("pythia-70m", n_layer=3)
+    model = GPT.from_name("pythia-14m", n_layer=3)
     x = torch.randint(model.config.vocab_size, size=(2, model.config.block_size), dtype=torch.int64)
 
     from torch._dynamo.backends import debugging

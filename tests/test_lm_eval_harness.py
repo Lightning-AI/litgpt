@@ -18,9 +18,9 @@ def test_run_eval(tmp_path, float_like):
 
     fabric = Fabric(devices=1)
     with fabric.init_module():
-        model = GPT.from_name("pythia-70m")
-    download_from_hub(repo_id="EleutherAI/pythia-70m", tokenizer_only=True, checkpoint_dir=tmp_path)
-    tokenizer = Tokenizer(tmp_path / "EleutherAI/pythia-70m")
+        model = GPT.from_name("pythia-14m")
+    download_from_hub(repo_id="EleutherAI/pythia-14m", tokenizer_only=True, checkpoint_dir=tmp_path)
+    tokenizer = Tokenizer(tmp_path / "EleutherAI/pythia-14m")
 
     eval_harness = EvalHarnessBase(fabric, model, tokenizer, 1)
     results = eval_harness.run_eval(
@@ -32,7 +32,7 @@ def test_run_eval(tmp_path, float_like):
             "bootstrap_iters": 2,
             "device": ANY,
             "limit": 2,
-            "model": "pythia-70m",
+            "model": "pythia-14m",
             "no_cache": True,
             "num_fewshot": 0,
         },

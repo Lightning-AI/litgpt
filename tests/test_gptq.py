@@ -15,7 +15,7 @@ def test_gptq_blockwise_quantization():
 
     fabric = L.Fabric(devices=1)
     with fabric.init_module(empty_init=False):
-        model = GPT.from_name("pythia-70m", n_layer=2)
+        model = GPT.from_name("pythia-14m", n_layer=2)
         x = torch.randint(0, 10, (2, model.config.block_size))
 
     from quantize.gptq import blockwise_quantization
