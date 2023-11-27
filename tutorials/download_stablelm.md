@@ -2,7 +2,7 @@
 
 StableLM is a family of generative language models trained by StabilityAI, trained on a dataset derived from [The Pile](https://pile.eleuther.ai/) but 3x larger, for a total of 1.5 trillion tokens. Weights are released under the [CC-BY-SA license](https://creativecommons.org/licenses/by-sa/4.0).
 
-For more info on the models, please see the [StableLM repository](https://github.com/EleutherAI/pythia). 3B and a 7B checkpoints have been released, both after pre-training and after instruction tuning, using a combination of Stanford's Alpaca, Nomic-AI's gpt4all, RyokoAI's ShareGPT52K datasets, Databricks labs' Dolly, and Anthropic's HH.
+For more info on the models, please see the [StableLM repository](https://github.com/Stability-AI/StableLM). 3B and a 7B checkpoints have been released, both after pre-training and after instruction tuning, using a combination of Stanford's Alpaca, Nomic-AI's gpt4all, RyokoAI's ShareGPT52K datasets, Databricks labs' Dolly, and Anthropic's HH.
 
 To see all the available checkpoints for StableLM, run:
 
