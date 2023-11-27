@@ -180,6 +180,16 @@ pythia = [
         n_head=4,
         padding_multiple=128,
     ),
+    # https://huggingface.co/EleutherAI/pythia-31m/blob/main/config.json
+    dict(
+        name="pythia-31m",
+        hf_config=dict(org="EleutherAI", name="pythia-31m"),
+        block_size=1024,
+        n_layer=6,
+        n_embd=256,
+        n_head=8,
+        padding_multiple=128,
+    ),
     # https://huggingface.co/EleutherAI/pythia-70m/blob/main/config.json
     dict(
         name="pythia-70m",
@@ -258,8 +268,8 @@ pythia = [
 ]
 configs.extend(pythia)
 for c in pythia:
-    # "pythia-14m" doesn't have deduped version
-    if c["name"] == "pythia-14m":
+    # "pythia-14m" and "pythia-31m" don't have deduped version
+    if c["name"] in ("pythia-14m", "pythia-31m"):
         continue
     copy = deepcopy(c)
     copy["name"] = f"{c['name']}-deduped"
