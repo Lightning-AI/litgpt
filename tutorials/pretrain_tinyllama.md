@@ -28,7 +28,7 @@ You can download the data using git lfs:
 
 ```bash
 # Make sure you have git-lfs installed (https://git-lfs.com):
-git lfs install
+sudo apt install git-lfs
 ```
 
 ```bash
