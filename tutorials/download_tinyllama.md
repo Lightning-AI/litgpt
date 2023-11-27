@@ -15,7 +15,7 @@ which will print
 
 ```text
 TinyLlama/TinyLlama-1.1B-intermediate-step-955k-token-2T
-TinyLlama/TinyLlama-1.1B-Chat-v0.5
+TinyLlama/TinyLlama-1.1B-Chat-v0.6
 ```
 
 In order to use a specific checkpoint, for instance [TinyLlama 1.1B base model](https://huggingface.co/TinyLlama/TinyLlama-1.1B-intermediate-step-955k-token-2T), which requires about 5 GB of disk space, download the weights and convert the checkpoint to the lit-gpt format:
@@ -26,13 +26,37 @@ pip install huggingface_hub
 python scripts/download.py --repo_id TinyLlama/TinyLlama-1.1B-intermediate-step-955k-token-2T
 
 python scripts/convert_hf_checkpoint.py \
-    --checkpoint_dir checkpoints/TinyLlama/TinyLlama-1.1B-intermediate-step-955k-token-2T/
+    --checkpoint_dir checkpoints/TinyLlama/TinyLlama-1.1B-intermediate-step-955k-token-2T
 ```
+
+-----
+
+With the `Chat` version of the model, the download and conversion procedures are slightly different.
+As this version of the model is stored in `safetensor` format, to download it an additional flag is required:
+
+```bash
+python scripts/download.py --repo_id TinyLlama/TinyLlama-1.1B-Chat-v0.6 --from_safetensors=True
+```
+
+The model is shipped in `bfloat16` format, so if your hardware doesn't support it, you can provide `dtype` argument during model conversion. For example we can convert the weights into `float32` format:
+
+```bash
+python scripts/convert_hf_checkpoint.py \
+    --checkpoint_dir checkpoints/TinyLlama/TinyLlama-1.1B-Chat-v0.6 --dtype=float32
+```
+
+-----
 
 You're done! To execute the model just run:
 
 ```bash
 pip install sentencepiece
 
-python chat/base.py --checkpoint_dir checkpoints/TinyLlama/TinyLlama-1.1B-intermediate-step-955k-token-2T/
+# base version
+python chat/base.py --checkpoint_dir checkpoints/TinyLlama/TinyLlama-1.1B-intermediate-step-955k-token-2T
+
+or
+
+# chat version
+python chat/base.py --checkpoint_dir checkpoints/TinyLlama/TinyLlama-1.1B-Chat-v0.6
 ```
