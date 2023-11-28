@@ -60,3 +60,9 @@ or
 # chat version
 python chat/base.py --checkpoint_dir checkpoints/TinyLlama/TinyLlama-1.1B-Chat-v0.6
 ```
+
+To improve the response from Chat version you can also provide these args (as in the [model card](https://huggingface.co/TinyLlama/TinyLlama-1.1B-Chat-v0.6)):
+
+```bash
+python chat/base.py --checkpoint_dir checkpoints/TinyLlama/TinyLlama-1.1B-Chat-v0.6 --top_k=50 --temperature=0.7
+```
