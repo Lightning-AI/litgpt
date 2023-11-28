@@ -1174,8 +1174,8 @@ for c in mistral:
 ############
 tiny_llama = [
     dict(
-        name="tiny-llama-1.1b",
-        hf_config=dict(org="TinyLlama", name="TinyLlama-1.1B-intermediate-step-955k-token-2T"),
+        name="tiny-llama-1.1b{}",
+        hf_config=dict(org="TinyLlama", name="TinyLlama-1.1B{}"),
         block_size=2048,
         vocab_size=32000,
         padding_multiple=64,
@@ -1190,9 +1190,14 @@ tiny_llama = [
         _mlp_class="LLaMAMLP",
         intermediate_size=5632,
         n_query_groups=4,
-    )
+    ),
 ]
-configs.extend(tiny_llama)
+for c in tiny_llama:
+    for kind, hf_postfix in (("", "-intermediate-step-955k-token-2T"), ("chat", "-Chat-v0.6")):
+        copy = deepcopy(c)
+        copy["name"] = c["name"].format(kind)
+        copy["hf_config"]["name"] = c["hf_config"]["name"].format(hf_postfix)
+        configs.append(copy)
 
 
 name_to_config = {config["name"]: config for config in configs}

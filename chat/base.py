@@ -317,6 +317,17 @@ def prompt_config(checkpoint_dir: Path, tokenizer: Tokenizer) -> Tuple[str, Tupl
         )
         return system_prompt, stop_tokens
 
+    if re.search(r"TinyLlama.*Chat", checkpoint_name):
+        system_prompt = (
+            "<|system|>\n"
+            "You are a friendly chatbot who always gives helpful, detailed, and polite answers.</s>\n"
+            "<|user|>\n"
+            "{prompt}</s>\n"
+            "<|assistant|>\n"
+        )
+        stop_tokens = ([tokenizer.eos_id],)
+        return system_prompt, stop_tokens
+
     # default format
     return "{prompt}", ([tokenizer.eos_id],)
 
