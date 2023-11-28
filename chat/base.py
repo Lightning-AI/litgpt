@@ -320,7 +320,12 @@ def prompt_config(checkpoint_dir: Path, tokenizer: Tokenizer) -> Tuple[str, Tupl
     if re.search(r"TinyLlama.*Chat", checkpoint_name):
         system_prompt = (
             "<|system|>\n"
-            "You are a friendly chatbot who always responds in the style of a pirate</s>\n"
+            "You are a helpful, respectful and honest assistant. Always answer as helpfully as"
+            " possible while being safe. Your answers should not include any harmful, unethical, racist, sexist,"
+            " toxic, dangerous, or illegal content. Please ensure that your responses are socially unbiased and"
+            " positive in nature. If a question does not make any sense or is not factually coherent, explain why"
+            " instead of answering something that is not correct. If you don't know the answer to a question,"
+            " please don't share false information.</s>\n"
             "<|user|>\n"
             "{prompt}</s>\n"
             "<|assistant|>\n"
