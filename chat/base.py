@@ -122,6 +122,7 @@ def main(
             - gptq.int4: 4-bit quantization from GPTQ
             for more details, see https://github.com/Lightning-AI/lit-gpt/blob/main/tutorials/quantize.md
         precision: Indicates the Fabric precision setting to use.
+        compile: Whether to use compilation to speed up token generation. Will increase startup time.
     """
     precision = precision or get_default_supported_precision(training=False)
 
