@@ -50,6 +50,37 @@ def test_generate(monkeypatch, generated, stop_tokens, expected):
         assert torch.cat(actual).tolist() == expected
 
 
+@pytest.mark.parametrize("tokenizer_backend", ["huggingface", "sentencepiece"])
+def test_decode(tokenizer_backend):
+    from lightning.fabric import Fabric
+
+    import chat.base as chat
+
+    class Tokenizer:
+        backend = tokenizer_backend
+        id2token = {
+            1: "foo ",
+            2: "bar ",
+            3: "baz ",
+        }
+
+        def decode(self, tensor: torch.Tensor):
+            tensor = [tensor] if tensor.ndim == 0 else tensor
+            return "".join(self.id2token[int(value)] for value in tensor)
+
+    tokenizer_mock = Tokenizer()
+
+    fabric = Fabric()
+    fabric.launch()
+
+    token_stream = torch.tensor([3, 2, 1])
+    out, err = StringIO(), StringIO()
+    with redirect_stdout(out), redirect_stderr(err):
+        chat.decode(fabric, tokenizer_mock, token_stream)
+
+    assert out.getvalue() == "baz bar foo "
+
+
 @patch("chat.base.input", create=True)
 @pytest.mark.parametrize("stop_iteration", [KeyboardInterrupt, ""])
 def test_main(mocked_input, stop_iteration, fake_checkpoint_dir, monkeypatch, tensor_like):
