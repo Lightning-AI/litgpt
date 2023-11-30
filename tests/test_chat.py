@@ -58,13 +58,9 @@ def test_decode(tokenizer_backend):
 
     class Tokenizer:
         backend = tokenizer_backend
-        id2token = {
-            1: "foo ",
-            2: "bar ",
-            3: "baz ",
-        }
+        id2token = {1: "foo ", 2: "bar ", 3: "baz "}
 
-        def decode(self, tensor: torch.Tensor):
+        def decode(self, tensor: torch.Tensor) -> str:
             tensor = [tensor] if tensor.ndim == 0 else tensor
             return "".join(self.id2token[int(value)] for value in tensor)
 
