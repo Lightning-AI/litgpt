@@ -214,6 +214,7 @@ def train(fabric, state, train_dataloader, val_dataloader, resume):
                 ),
                 "tokens": state["iter_num"] * micro_batch_size * model.config.block_size,
                 "total_tokens": state["iter_num"] * micro_batch_size * model.config.block_size * fabric.world_size,
+                "learning_rate": lr,
             }
 
             fabric.print(
