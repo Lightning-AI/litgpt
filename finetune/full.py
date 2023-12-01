@@ -27,7 +27,7 @@ from lit_gpt.utils import (
 from scripts.prepare_alpaca import generate_prompt
 
 eval_interval = 600
-full_checkpointing = True
+full_checkpointing = False
 save_interval = 50
 eval_iters = 100
 eval_max_new_tokens = 100
@@ -55,7 +55,7 @@ def setup(
     checkpoint_dir: Path = Path("checkpoints/stabilityai/stablelm-base-alpha-3b"),
     out_dir: Path = Path("out/full/alpaca"),
     precision: Optional[str] = None,
-    resume: Union[bool, Path] = True,
+    resume: Union[bool, Path] = False,
 ) -> None:
     precision = precision or get_default_supported_precision(training=True)
 
