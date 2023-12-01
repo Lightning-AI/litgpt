@@ -28,7 +28,7 @@ from scripts.prepare_alpaca import generate_prompt
 
 eval_interval = 600
 full_checkpointing = False
-save_interval = 50
+save_interval = 1000
 eval_iters = 100
 eval_max_new_tokens = 100
 log_interval = 1
