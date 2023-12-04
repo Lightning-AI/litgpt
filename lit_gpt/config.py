@@ -1199,5 +1199,30 @@ for c in tiny_llama:
         copy["hf_config"]["name"] = c["hf_config"]["name"].format(hf_postfix)
         configs.append(copy)
 
+###############
+# Trelis Function Calling LLaMA 2
+###############
+llama_2_function_calling = [
+    # https://huggingface.co/Trelis/Llama-2-7b-chat-hf-function-calling-v2/blob/main/config.json
+    dict(
+        name="Llama-2-7b-chat-hf-function-calling-v2",
+        hf_config=dict(org="Trelis", name="Llama-2-7b-chat-hf-function-calling-v2"),
+        padding_multiple=64,
+        n_layer=32,
+        rotary_percentage=1.0,
+        parallel_residual=False,
+        bias=False,
+        _norm_class="RMSNorm",
+        _mlp_class="LLaMAMLP",
+        intermediate_size=11008,
+        norm_eps=1e-6,
+        block_size = 4096,
+        vocab_size= 32000,
+        n_head = 32,
+        n_embd = 4096,
+        rope_base = 10000,
+    )]
+
+configs.extend(llama_2_function_calling)
 
 name_to_config = {config["name"]: config for config in configs}
