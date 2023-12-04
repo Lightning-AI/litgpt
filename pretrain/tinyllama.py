@@ -155,7 +155,7 @@ def train(fabric, state, train_dataloader, val_dataloader, resume):
     # drop this once streaming dataset supports proper resuming
     if resume:
         resume_t0 = time.perf_counter()
-        for resume_iter in range(initial_iter + 1):
+        for resume_iter in range(initial_iter):
             next(train_iterator)
             if resume_iter % 1000 == 0:
                 fabric.print(f"Resuming dataset: {resume_iter} / {initial_iter}")
