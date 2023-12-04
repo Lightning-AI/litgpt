@@ -66,8 +66,7 @@ def test_decode(tokenizer_backend):
 
     tokenizer_mock = Tokenizer()
 
-    fabric = Fabric()
-    fabric.launch()
+    fabric = Fabric(devices=1, accelerator="cpu")
 
     token_stream = torch.tensor([3, 2, 1])
     out, err = StringIO(), StringIO()
