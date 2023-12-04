@@ -185,7 +185,7 @@ def train(fabric, state, train_dataloader, val_dataloader, resume):
         is_accumulating = state["iter_num"] % gradient_accumulation_steps != 0
         with fabric.no_backward_sync(model, enabled=is_accumulating):
             logits = model(input_ids)
-            loss = chunked_cross_entropy(logits, targets, chunk_size=0)
+            loss = chunked_cross_entropy(logits, targets)
             fabric.backward(loss / gradient_accumulation_steps)
 
         if not is_accumulating:
@@ -214,6 +214,7 @@ def train(fabric, state, train_dataloader, val_dataloader, resume):
                 ),
                 "tokens": state["iter_num"] * micro_batch_size * model.config.block_size,
                 "total_tokens": state["iter_num"] * micro_batch_size * model.config.block_size * fabric.world_size,
+                "learning_rate": lr,
             }
 
             fabric.print(
@@ -255,7 +256,7 @@ def validate(fabric: L.Fabric, model: nn.Module, val_dataloader: DataLoader, max
         input_ids = val_data[:, 0 : model.config.block_size].contiguous().long()
         targets = val_data[:, 1 : (model.config.block_size + 1)].contiguous().long()
         logits = model(input_ids)
-        loss = chunked_cross_entropy(logits, targets, chunk_size=0)
+        loss = chunked_cross_entropy(logits, targets)
         losses[k] = loss
 
     model.train()
