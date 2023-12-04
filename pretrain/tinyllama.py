@@ -148,28 +148,28 @@ def train(fabric, state, train_dataloader, val_dataloader, resume):
     max_tokens_per_device = max_tokens // fabric.world_size
     tokens_per_iter = micro_batch_size * model.config.block_size
     max_iters = max_tokens_per_device // tokens_per_iter
+    initial_iter = state["iter_num"]
+    train_iterator = iter(train_dataloader)
+
+    # resume data loader state by fast-forwarding through all seen batches
+    # drop this once streaming dataset supports proper resuming
+    if resume:
+        resume_t0 = time.perf_counter()
+        for resume_iter in range(initial_iter + 1):
+            next(train_iterator)
+            if resume_iter % 1000 == 0:
+                fabric.print(f"Resuming dataset: {resume_iter} / {initial_iter}")
+        fabric.barrier()
+        fabric.print(
+            "Resuming data loader finished."
+            f"Took {time.perf_counter() - resume_t0:.1f} seconds to reach iteration {initial_iter}."
+        )
 
     total_t0 = time.perf_counter()
-    initial_iter = state["iter_num"]
-    curr_iter = 0
 
-    for train_data in train_dataloader:
+    for train_data in train_iterator:
         if state["iter_num"] >= max_iters:
             break
-
-        # resume data loader state by fast-forwarding through all seen batches
-        # drop this once streaming dataset supports proper resuming
-        if resume:
-            if curr_iter < initial_iter:
-                curr_iter += 1
-                continue
-            resume = False
-            curr_iter = -1
-            fabric.barrier()
-            fabric.print(
-                "Resuming data loader finished."
-                f"Took {time.perf_counter() - total_t0:.1f} seconds to reach iteration {initial_iter}."
-            )
 
         # determine and set the learning rate for this iteration
         lr = get_lr(state["iter_num"], max_iters) if decay_lr else learning_rate
