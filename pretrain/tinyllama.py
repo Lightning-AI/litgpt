@@ -162,7 +162,7 @@ def train(fabric, state, train_dataloader, val_dataloader, resume):
         fabric.barrier()
         fabric.print(
             "Resuming data loader finished."
-            f"Took {time.perf_counter() - resume_t0:.1f} seconds to reach iteration {initial_iter}."
+            f" Took {time.perf_counter() - resume_t0:.1f} seconds to reach iteration {initial_iter}."
         )
 
     total_t0 = time.perf_counter()
