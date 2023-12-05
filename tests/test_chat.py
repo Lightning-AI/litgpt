@@ -76,7 +76,7 @@ def test_decode(tokenizer_backend):
     assert out.getvalue() == "baz bar foo "
 
 
-@patch("chat.base.input", create=True)
+@patch("chat.base.input")
 @pytest.mark.parametrize("stop_iteration", [KeyboardInterrupt, ""])
 def test_main(mocked_input, stop_iteration, fake_checkpoint_dir, monkeypatch, tensor_like):
     import chat.base as chat
