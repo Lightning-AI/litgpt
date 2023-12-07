@@ -114,7 +114,14 @@ def main(fabric, resume):
     )
     optimizer = fabric.setup_optimizers(optimizer)
 
-    state = {"model": model, "optimizer": optimizer, "hparams": hparams, "iter_num": 0, "step_count": 0}
+    state = {
+        "model": model, 
+        "optimizer": optimizer, 
+        "train_dataset": train_dataloader.dataset,
+        "hparams": hparams, 
+        "iter_num": 0, 
+        "step_count": 0,
+    }
 
     if resume is True:
         resume = max(out_dir.glob("*.pth"), key=(lambda p: int(p.name.split("-")[1])))

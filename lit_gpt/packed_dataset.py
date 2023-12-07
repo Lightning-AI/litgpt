@@ -5,6 +5,7 @@
 import os
 import random
 import struct
+from typing import Dict, Any
 
 import numpy as np
 import torch
@@ -224,6 +225,21 @@ class CombinedDataset(IterableDataset):
 
     def __iter__(self):
         return CombinedDatasetIterator(self._datasets, self._seed, self._weights)
+
+    def state_dict(self) -> Dict[str, Any]:
+        return {str(i): dataset.state_dict() for i, dataset in enumerate(self._datasets) if callable(getattr(dataset, "state_dict", None))}
+
+    def load_state_dict(self, state_dict: Dict[str, Any]) -> None:
+        if len(state_dict) != len(self._datasets):
+            raise RuntimeError(
+                f"Number of datasets in `CombinedDataset` ({len(self._datasets)}) does not match number of datasets in"
+                f" state-dict ({len(state_dict)})."
+            )
+        for dataset_id, state_dict in state_dict.items():
+            dataset = self._datasets[int(dataset_id)]
+            if not callable(getattr(dataset, "load_state_dict", None)):
+                continue
+            dataset.load_state_dict(state_dict)
 
 
 class CombinedDatasetIterator:
