@@ -11,4 +11,4 @@ tensorboard             # pretrain/tinyllama.py
 # eval
 git+https://github.com/EleutherAI/lm-evaluation-harness.git@115206dc89dad67b8beaa90051fb52db77f0a529
 # scripts/prepare_slimpajama.py, scripts/prepare_starcoder.py, pretrain/tinyllama.py
-lightning[data] @ git+https://github.com/Lightning-AI/lightning@4af5ec0d34bf1bf4618e71d0f1a2cd28da8a4ab2
+lightning[data] @ git+https://github.com/Lightning-AI/lightning@7bd75778a69343d5a31276b564463d870fb9cb47
