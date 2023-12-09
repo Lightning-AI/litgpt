@@ -45,8 +45,8 @@ python generate/base.py --prompt "Hello, my name is" --checkpoint_dir checkpoint
 
 ### StableLM Zephyr 3B
 
-A new chat model representing the latest iteration in the series of lightweight LLMs, preference tuned for instruction following and Q&A-type tasks. This model is an extension of the pre-existing StableLM 3B-4e1t model and is inspired by the Zephyr 7B model from HuggingFace. With StableLM Zephyr's 3 billion parameters, this model efficiently caters to a wide range of text generation needs, from simple queries to complex instructional contexts on edge devices.
-More details can be found in the [anouncement](https://stability.ai/news/stablelm-zephyr-3b-stability-llm).
+Lightweight LLM, preference tuned for instruction following and Q&A-type tasks. This model is an extension of the pre-existing StableLM 3B-4e1t model and is inspired by the Zephyr 7B model from HuggingFace. With StableLM Zephyr's 3 billion parameters, this model efficiently caters to a wide range of text generation needs, from simple queries to complex instructional contexts on edge devices.
+More details can be found in the [announcement](https://stability.ai/news/stablelm-zephyr-3b-stability-llm).
 
 In order to use this model, download the weights and convert the checkpoint to the lit-gpt format. As this version of the model is in `safetensor` format, to download it an additional flag is required:
 
