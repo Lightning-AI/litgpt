@@ -45,12 +45,18 @@ def convert_checkpoint(
     output_folder.mkdir(parents=True)
     output_checkpoint_file = output_folder / "lit_model.pth"
     output_config_file = output_folder / "lit_config.json"
-    output_tokenizer_file = output_folder / tokenizer_path.name
 
     # Save the config to output folder
     config = Config.from_name(config_name)
     with open(output_config_file, "w") as json_config:
         json.dump(asdict(config), json_config)
+
+    # Export the tokenizer configuration to output folder
+    if tokenizer_path.is_file():
+        shutil.copyfile(tokenizer_path, output_folder / tokenizer_path.name)
+    if tokenizer_path.is_dir():
+        for tokenizer_file in tokenizer_path.glob("tokenizer*"):
+            shutil.copyfile(tokenizer_file, output_folder / tokenizer_file.name)
 
     # Extract the model state dict and save to output folder
     with incremental_save(output_checkpoint_file) as saver:
@@ -61,14 +67,11 @@ def convert_checkpoint(
         for param_name, param in loaded_state_dict.items():
             param = param._load_tensor()
             saver.store_early(param)
-            # remove prefix for saved compiled model (if any)
-            param_name.replace("_orig_mod.", "")
+            # remove prefix for compiled model (if any)
+            param_name = param_name.replace("_orig_mod.", "")
             converted_state_dict[param_name] = param
         print(f"Saving converted checkpoint to {str(output_checkpoint_file)}")
         saver.save(converted_state_dict)
-
-    # Export the tokenizer configuration to output folder
-    shutil.copyfile(tokenizer_path, output_tokenizer_file)
 
 
 if __name__ == "__main__":
