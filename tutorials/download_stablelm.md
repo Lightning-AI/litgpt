@@ -50,7 +50,6 @@ More details can be found in the [announcement](https://stability.ai/news/stable
 
 In order to use this model, download the weights and convert the checkpoint to the lit-gpt format. As this version of the model is in `safetensor` format, to download it an additional flag is required:
 
-
 ```bash
 pip install huggingface_hub
 
