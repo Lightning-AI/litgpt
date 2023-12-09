@@ -1,9 +1,10 @@
-import sys
-import torch
-from pathlib import Path
-from dataclasses import asdict
 import json
 import shutil
+import sys
+from dataclasses import asdict
+from pathlib import Path
+
+import torch
 
 # support running without installing as a package
 wd = Path(__file__).parent.parent.resolve()
@@ -70,7 +71,7 @@ def convert_checkpoint(
             # remove prefix for compiled model (if any)
             param_name = param_name.replace("_orig_mod.", "")
             converted_state_dict[param_name] = param
-        print(f"Saving converted checkpoint to {str(output_checkpoint_file)}")
+        print(f"Saving converted checkpoint to {str(output_checkpoint_file)}.")
         saver.save(converted_state_dict)
 
 
