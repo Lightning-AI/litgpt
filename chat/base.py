@@ -210,6 +210,12 @@ def prompt_config(checkpoint_dir: Path, tokenizer: Tokenizer) -> Tuple[str, Tupl
             [tokenizer.token_to_id("<|USER|>")],
         )
         return system_prompt, stop_tokens
+
+    if re.search(r"stabilityai/stablelm-zephyr-3b", checkpoint_name):
+        system_prompt = "<|user|>\n{prompt}<|endoftext|>\n<|assistant|>\n"
+        stop_tokens = ([tokenizer.eos_id],)
+        return system_prompt, stop_tokens
+
     if re.search(r"togethercomputer.*Chat", checkpoint_name):
         system_prompt = "<human>: {prompt}\n<bot>:"
         lt, gt = tokenizer.token_to_id("<"), tokenizer.token_to_id(">:")
