@@ -20,6 +20,7 @@ def convert_checkpoint(
     tokenizer_path: Path,
     config_name: str,
     output_folder: Path,
+    model_key: str = "model",
 ) -> None:
     """Convert a checkpoint after pretraining.
 
@@ -35,6 +36,7 @@ def convert_checkpoint(
             JSON file to the output folder.
         output_folder: The output folder where model state-dict file, the tokenizer config file, and the model config
             file will be saved.
+        model_key: The key in the checkpoint file under which the model state dict is saved.
     """
 
     if output_folder.is_dir() and output_folder.glob("*"):
@@ -63,7 +65,7 @@ def convert_checkpoint(
     with incremental_save(output_checkpoint_file) as saver:
         print("Processing", checkpoint_file)
         full_checkpoint = lazy_load(checkpoint_file)
-        loaded_state_dict = full_checkpoint["model"]
+        loaded_state_dict = full_checkpoint[model_key]
         converted_state_dict = {}
         for param_name, param in loaded_state_dict.items():
             param = param._load_tensor()
