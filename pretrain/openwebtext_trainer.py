@@ -19,7 +19,12 @@ sys.path.append(str(wd))
 
 from lit_gpt import Config
 from lit_gpt.model import GPT, Block
-from lit_gpt.utils import chunked_cross_entropy, estimate_flops, get_default_supported_precision
+from lit_gpt.utils import (
+    chunked_cross_entropy,
+    estimate_flops,
+    get_default_supported_precision,
+    map_old_state_dict_weights,
+)
 
 model_name = "pythia-70m"
 name = "openwebtext"
@@ -105,6 +110,11 @@ class LightningGPTModule(L.LightningModule):
         state_dict = super().state_dict(*args, **kwargs)
         # drop "module."
         return {k[7:]: v for k, v in state_dict.items()}
+
+    def _load_from_state_dict(self, state_dict: Dict, prefix: str, *args: Any, **kwargs: Any) -> None:
+        mapping = {k: f"module.{k}" for k in state_dict}
+        state_dict = map_old_state_dict_weights(state_dict, mapping, prefix)
+        super()._load_from_state_dict(state_dict, prefix, *args, **kwargs)
 
 
 def main(devices: int = 1, precision: Optional[str] = None) -> None:
