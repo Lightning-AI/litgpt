@@ -109,12 +109,15 @@ def copy_weights_llama(
     weight_map = {
         "transformer.wte.weight": "model.embed_tokens.weight",
         "transformer.h.{}.norm_1.weight": "model.layers.{}.input_layernorm.weight",
+        "transformer.h.{}.norm_1.bias": "model.layers.{}.input_layernorm.bias",
         "transformer.h.{}.attn.proj.weight": "model.layers.{}.self_attn.o_proj.weight",
         "transformer.h.{}.norm_2.weight": "model.layers.{}.post_attention_layernorm.weight",
+        "transformer.h.{}.norm_2.bias": "model.layers.{}.post_attention_layernorm.bias",
         "transformer.h.{}.mlp.fc_1.weight": "model.layers.{}.mlp.gate_proj.weight",
         "transformer.h.{}.mlp.fc_2.weight": "model.layers.{}.mlp.up_proj.weight",
         "transformer.h.{}.mlp.proj.weight": "model.layers.{}.mlp.down_proj.weight",
         "transformer.ln_f.weight": "model.norm.weight",
+        "transformer.ln_f.bias": "model.norm.bias",
         "lm_head.weight": "lm_head.weight",
     }
 

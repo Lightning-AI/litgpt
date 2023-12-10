@@ -120,16 +120,19 @@ def copy_weights_hf_llama(
     weight_map = {
         "model.embed_tokens.weight": "transformer.wte.weight",
         "model.layers.{}.input_layernorm.weight": "transformer.h.{}.norm_1.weight",
+        "model.layers.{}.input_layernorm.bias": "transformer.h.{}.norm_1.bias",
         "model.layers.{}.self_attn.q_proj.weight": None,
         "model.layers.{}.self_attn.k_proj.weight": None,
         "model.layers.{}.self_attn.v_proj.weight": None,
         "model.layers.{}.self_attn.o_proj.weight": "transformer.h.{}.attn.proj.weight",
         "model.layers.{}.self_attn.rotary_emb.inv_freq": None,
         "model.layers.{}.post_attention_layernorm.weight": "transformer.h.{}.norm_2.weight",
+        "model.layers.{}.post_attention_layernorm.bias": "transformer.h.{}.norm_2.bias",
         "model.layers.{}.mlp.gate_proj.weight": "transformer.h.{}.mlp.fc_1.weight",
         "model.layers.{}.mlp.up_proj.weight": "transformer.h.{}.mlp.fc_2.weight",
         "model.layers.{}.mlp.down_proj.weight": "transformer.h.{}.mlp.proj.weight",
         "model.norm.weight": "transformer.ln_f.weight",
+        "model.norm.bias": "transformer.ln_f.bias",
         "lm_head.weight": "lm_head.weight",
     }
 
