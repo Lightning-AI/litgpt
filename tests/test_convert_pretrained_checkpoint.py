@@ -3,8 +3,6 @@ from pathlib import Path
 
 import torch
 
-wd = Path(__file__).parent.parent.absolute()
-
 
 def test_convert_pretrained_checkpoint(tmp_path):
     from scripts.convert_pretrained_checkpoint import convert_checkpoint

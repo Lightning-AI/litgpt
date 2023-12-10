@@ -8,8 +8,6 @@ from urllib.request import urlretrieve
 import pytest
 import torch
 
-wd = Path(__file__).parent.parent.absolute()
-
 
 def test_convert_lit_checkpoint(tmp_path):
     from lit_gpt import GPT, Config
