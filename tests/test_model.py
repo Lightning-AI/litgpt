@@ -518,19 +518,36 @@ SUPPORTS_FLASH_ATTENTION = (
 )
 
 
-@RunIf(min_cuda_gpus=1)
+@RunIf(min_cuda_gpus=1, min_torch="2.2")
 @pytest.mark.parametrize("config", config_module.configs, ids=[c["name"] for c in config_module.configs])
 @torch.inference_mode()
 def test_sdpa_choice(config):
-    from torch.backends.cuda import SDPBackend
+    from torch.backends.cuda import (
+        SDPAParams,
+        SDPBackend,
+        can_use_efficient_attention,
+        can_use_flash_attention,
+        flash_sdp_enabled,
+        math_sdp_enabled,
+        mem_efficient_sdp_enabled,
+    )
 
     from lit_gpt import GPT
 
     torch.set_default_dtype(torch.float16)
 
-    def assert_sdpa_uses_flash(original_fn, q, k, v, mask):
-        choice = torch._fused_sdp_choice(q, k, v, mask, is_causal=True)
-        assert choice == expected
+    def assert_sdpa_backend(original_fn, q, k, v, mask):
+        params = SDPAParams(q, k, v, mask, 0.0, True)
+        if expected is SDPBackend.FLASH_ATTENTION:
+            assert flash_sdp_enabled()
+            assert can_use_flash_attention(params, True)
+        elif expected is SDPBackend.EFFICIENT_ATTENTION:
+            assert mem_efficient_sdp_enabled()
+            assert can_use_efficient_attention(params, True)
+        elif expected is SDPBackend.MATH:
+            assert math_sdp_enabled()
+        else:
+            raise NotImplementedError
         return original_fn(q, k, v, mask)
 
     config["n_layer"] = 1
@@ -545,7 +562,7 @@ def test_sdpa_choice(config):
         pytest.xfail()
 
     for h in model.transformer.h:
-        h.attn.scaled_dot_product_attention = partial(assert_sdpa_uses_flash, h.attn.scaled_dot_product_attention)
+        h.attn.scaled_dot_product_attention = partial(assert_sdpa_backend, h.attn.scaled_dot_product_attention)
 
     if SUPPORTS_FLASH_ATTENTION:
         # flash attention 1 requires q,k,v to have the same last dimension and to be a multiple of 8 and less than or
@@ -563,19 +580,36 @@ def test_sdpa_choice(config):
         model(x)
 
 
-@RunIf(min_cuda_gpus=1)
+@RunIf(min_cuda_gpus=1, min_torch="2.2")
 @pytest.mark.parametrize("config", config_module.configs, ids=[c["name"] for c in config_module.configs])
 @torch.inference_mode()
 def test_sdpa_choice_kv_cache(config):
-    from torch.backends.cuda import SDPBackend
+    from torch.backends.cuda import (
+        SDPAParams,
+        SDPBackend,
+        can_use_efficient_attention,
+        can_use_flash_attention,
+        flash_sdp_enabled,
+        math_sdp_enabled,
+        mem_efficient_sdp_enabled,
+    )
 
     from lit_gpt import GPT
 
     torch.set_default_dtype(torch.float16)
 
-    def assert_sdpa_uses_flash(original_fn, q, k, v, mask):
-        choice = torch._fused_sdp_choice(q, k, v, mask, is_causal=True)
-        assert choice == expected
+    def assert_sdpa_backend(original_fn, q, k, v, mask):
+        params = SDPAParams(q, k, v, mask, 0.0, True)
+        if expected is SDPBackend.FLASH_ATTENTION:
+            assert flash_sdp_enabled()
+            assert can_use_flash_attention(params, True)
+        elif expected is SDPBackend.EFFICIENT_ATTENTION:
+            assert mem_efficient_sdp_enabled()
+            assert can_use_efficient_attention(params, True)
+        elif expected is SDPBackend.MATH:
+            assert math_sdp_enabled()
+        else:
+            raise NotImplementedError
         return original_fn(q, k, v, mask)
 
     config["n_layer"] = 1
@@ -593,7 +627,7 @@ def test_sdpa_choice_kv_cache(config):
         pytest.xfail()
 
     for h in model.transformer.h:
-        h.attn.scaled_dot_product_attention = partial(assert_sdpa_uses_flash, h.attn.scaled_dot_product_attention)
+        h.attn.scaled_dot_product_attention = partial(assert_sdpa_backend, h.attn.scaled_dot_product_attention)
 
     if SUPPORTS_FLASH_ATTENTION:
         # flash attention does not support an attention mask
