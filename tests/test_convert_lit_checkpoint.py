@@ -237,6 +237,42 @@ def test_against_hf_phi():
     torch.testing.assert_close(ours_y, theirs_y)
 
 
+@torch.inference_mode()
+def test_against_original_stablelm_zephyr_3b():
+    from transformers import AutoConfig, AutoModelForCausalLM
+
+    from lit_gpt import GPT, Config
+    from scripts.convert_lit_checkpoint import copy_weights_llama
+
+    T = 5
+    ours_config = Config.from_name("stablelm-zephyr-3b", n_layer=2, n_head=16, n_embd=32, intermediate_size=86)
+    theirs_config = AutoConfig.from_pretrained(
+        "stabilityai/stablelm-zephyr-3b",
+        trust_remote_code=True,
+        num_hidden_layers=ours_config.n_layer,
+        num_attention_heads=ours_config.n_head,
+        num_key_value_heads=ours_config.n_head,
+        hidden_size=ours_config.n_embd,
+        intermediate_size=ours_config.intermediate_size,
+        max_position_embeddings=T,
+    )
+    assert ours_config.intermediate_size == theirs_config.intermediate_size
+
+    ours_model = GPT(ours_config)
+    ours_state_dict = ours_model.state_dict()
+    theirs_state_dict = {}
+    copy_weights_llama(ours_config, theirs_state_dict, ours_state_dict)
+    theirs_model = AutoModelForCausalLM.from_config(theirs_config, trust_remote_code=True)
+    theirs_model.load_state_dict(theirs_state_dict)
+
+    # test end to end
+    x = torch.tensor([[9856, 23, 491, 1536, 304]], dtype=torch.int32)
+    assert x.size(1) == T
+    ours_y = ours_model(x)
+    theirs_y = theirs_model(x)["logits"]
+    torch.testing.assert_close(ours_y, theirs_y)
+
+
 def test_check_conversion_supported_adapter():
     from scripts.convert_lit_checkpoint import check_conversion_supported
 
