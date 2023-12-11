@@ -45,7 +45,7 @@ Supports the following popular model checkpoints:
 | TII UAE [Falcon](tutorials/download_falcon.md)                                 | 7B, 40B, 180B                      | [TII 2023](https://falconllm.tii.ae)                                                             |
 | [TinyLlama](tutorials/download_tinyllama.md)                                   | 1.1B                               | [Zhang et al. 2023](https://github.com/jzhang38/TinyLlama)
 | Together [RedPajama-INCITE](tutorials/download_redpajama_incite.md)            | 3B, 7B                             | [Together 2023](https://together.ai/blog/redpajama-models-v1)                                    |
-| Trelis [Function Calling Llama 2](tutorials/function_calling_llama_2.md)                                     | 7B                               | [Trelis et al. 2023](https://huggingface.co/Trelis/Llama-2-7b-chat-hf-function-calling-v2)
+| Trelis [Function Calling Llama 2](tutorials/download_function_calling_llama_2.md)                                     | 7B                               | [Trelis et al. 2023](https://huggingface.co/Trelis/Llama-2-7b-chat-hf-function-calling-v2)
 
 This implementation extends on [Lit-LLaMA](https://github.com/lightning-AI/lit-llama) and [nanoGPT](https://github.com/karpathy/nanoGPT), and it's **powered by [Lightning Fabric](https://lightning.ai/docs/fabric/stable/) ⚡**.
 
