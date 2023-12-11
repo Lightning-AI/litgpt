@@ -1203,7 +1203,7 @@ tiny_llama = [
         _mlp_class="LLaMAMLP",
         intermediate_size=5632,
         n_query_groups=4,
-    ),
+    )
 ]
 for c in tiny_llama:
     for kind, hf_postfix in (("", "-intermediate-step-955k-token-2T"), ("chat", "-Chat-v0.6")):
@@ -1230,12 +1230,13 @@ llama_2_function_calling = [
         _mlp_class="LLaMAMLP",
         intermediate_size=11008,
         norm_eps=1e-6,
-        block_size = 4096,
-        vocab_size= 32000,
-        n_head = 32,
-        n_embd = 4096,
-        rope_base = 10000,
-    )]
+        block_size=4096,
+        vocab_size=32000,
+        n_head=32,
+        n_embd=4096,
+        rope_base=10000,
+    )
+]
 
 configs.extend(llama_2_function_calling)
 
