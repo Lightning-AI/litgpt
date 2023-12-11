@@ -1212,9 +1212,10 @@ for c in tiny_llama:
         copy["hf_config"]["name"] = c["hf_config"]["name"].format(hf_postfix)
         configs.append(copy)
 
-###############
-# Trelis Function Calling LLaMA 2
-###############
+
+##########################
+# Trelis Function Calling
+##########################
 llama_2_function_calling = [
     # https://huggingface.co/Trelis/Llama-2-7b-chat-hf-function-calling-v2/blob/main/config.json
     dict(
