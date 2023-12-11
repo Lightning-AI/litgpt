@@ -3,6 +3,7 @@ import sys
 import time
 from pathlib import Path
 from typing import Iterator, List, Literal, Optional, Tuple
+from json import dumps
 
 import lightning as L
 import torch
@@ -269,7 +270,6 @@ def prompt_config(checkpoint_dir: Path, tokenizer: Tokenizer) -> Tuple[str, Tupl
         b_inst, e_inst = "[INST]", "[/INST]"
         b_sys, e_sys = "<<SYS>>\n", "\n<</SYS>>\n\n"
         # This is an example for how to format functions for the model
-        from json import dumps
         function_metadata = {
                             "function": "search_bing",
                             "description": "Search the web for content on Bing. This allows users to search online/the internet/the web for content.",
@@ -286,7 +286,7 @@ def prompt_config(checkpoint_dir: Path, tokenizer: Tokenizer) -> Tuple[str, Tupl
             "You are a helpful, respectful and honest assistant. Always answer as helpfully as"
             "possible. Your only response should be JSON formatted functions"
         )
-        function_list = dumps(function_metadata, indent=4).replace('{', '{{').replace('}', '}}') # Have to replace the curly braces to double curly braces to escape them
+        function_list = dumps(function_metadata).replace('{', '{{').replace('}', '}}') # Have to replace the curly braces to double curly braces to escape them
         system_prompt = f"{b_func}{function_list.strip()}{e_func}{b_inst}{b_sys}{system_prompt.strip()}{e_sys}{'{prompt}'}{e_inst}\n\n"
         stop_tokens = ([tokenizer.eos_id],)
         return system_prompt, stop_tokens
