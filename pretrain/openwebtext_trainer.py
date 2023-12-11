@@ -2,7 +2,7 @@ import math
 import sys
 import time
 from pathlib import Path
-from typing import Any, Dict, Optional
+from typing import Any, Dict, Mapping, Optional
 
 import lightning as L
 import numpy as np
@@ -19,12 +19,7 @@ sys.path.append(str(wd))
 
 from lit_gpt import Config
 from lit_gpt.model import GPT, Block
-from lit_gpt.utils import (
-    chunked_cross_entropy,
-    estimate_flops,
-    get_default_supported_precision,
-    map_old_state_dict_weights,
-)
+from lit_gpt.utils import chunked_cross_entropy, estimate_flops, get_default_supported_precision
 
 model_name = "pythia-70m"
 name = "openwebtext"
@@ -65,11 +60,17 @@ class LightningGPTModule(L.LightningModule):
         self.module.apply(self.module._init_weights)
 
     def configure_optimizers(self) -> torch.optim.Optimizer:
+        if self.module is None:
+            raise RuntimeError("You forgot to call `model.configure_model()`")
+
         return torch.optim.AdamW(
             self.module.parameters(), lr=learning_rate, weight_decay=weight_decay, betas=(beta1, beta2), foreach=False
         )
 
     def on_fit_start(self) -> None:
+        if self.module is None:
+            raise RuntimeError("You forgot to call `model.configure_model()`")
+
         trainer = self.trainer
         with torch.device("meta"):
             meta_model = GPT(self.module.config)
@@ -107,14 +108,14 @@ class LightningGPTModule(L.LightningModule):
         self.log("val_loss", loss, on_step=False, on_epoch=True, prog_bar=True)
 
     def state_dict(self, *args: Any, **kwargs: Any) -> Dict[str, Any]:
-        state_dict = super().state_dict(*args, **kwargs)
-        # drop "module."
-        return {k[7:]: v for k, v in state_dict.items()}
+        if self.module is None:
+            raise RuntimeError("You forgot to call `model.configure_model()`")
+        return self.module.state_dict()
 
-    def _load_from_state_dict(self, state_dict: Dict, prefix: str, *args: Any, **kwargs: Any) -> None:
-        mapping = {k: f"module.{k}" for k in state_dict}
-        state_dict = map_old_state_dict_weights(state_dict, mapping, prefix)
-        super()._load_from_state_dict(state_dict, prefix, *args, **kwargs)
+    def load_state_dict(self, state_dict: Mapping[str, Any], *args, **kwargs):
+        if self.module is None:
+            raise RuntimeError("You forgot to call `model.configure_model()`")
+        return self.module.load_state_dict(state_dict, *args, **kwargs)
 
 
 def main(devices: int = 1, precision: Optional[str] = None) -> None:
