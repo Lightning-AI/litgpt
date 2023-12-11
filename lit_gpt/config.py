@@ -1203,7 +1203,7 @@ tiny_llama = [
         _mlp_class="LLaMAMLP",
         intermediate_size=5632,
         n_query_groups=4,
-    ),
+    )
 ]
 for c in tiny_llama:
     for kind, hf_postfix in (("", "-intermediate-step-955k-token-2T"), ("chat", "-Chat-v0.6")):
