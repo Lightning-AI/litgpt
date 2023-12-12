@@ -221,8 +221,6 @@ def find_forward_hooks(module):
 @pytest.mark.parametrize("local_rank", (0, 1))
 def test_model_communication_hooks(local_rank, monkeypatch):
     from generate.pipelined import get_model
-
-    generate.pipelined.DEBUG = True
     from lit_gpt.config import Config
 
     fabric = Fabric(accelerator="cuda", devices=1)

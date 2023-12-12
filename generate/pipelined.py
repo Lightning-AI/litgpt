@@ -1,5 +1,4 @@
 import itertools
-import os
 import sys
 import time
 from functools import partial
@@ -20,9 +19,6 @@ from generate.base import generate
 from lit_gpt import GPT, Config, Tokenizer
 from lit_gpt.model import Block, build_mask_cache
 from lit_gpt.utils import check_valid_checkpoint_dir, get_default_supported_precision
-
-# FIXME: remove this
-DEBUG = os.getenv("DEBUG", "0") == "1"
 
 
 @torch.inference_mode()
@@ -46,15 +42,11 @@ def get_model(fabric: L.Fabric, config: Config, max_seq_length: int):
     layers_per_rank = model.config.n_layer // world_size
     # dictates where each block should be instantiated
     mapping = layer_to_device(model, chunk_on=Block, chunk_size=layers_per_rank)
-    if DEBUG:
-        fabric.print(f"Layer mapping: {mapping}")
     # materialize each block on the appropriate rank (device)
     for layer_num, target_rank in mapping.items():
         path = f"transformer.h.{layer_num}"
         submodule = model.get_submodule(path)
         if local_rank == target_rank:
-            if DEBUG:
-                print(f"[{global_rank}] Materializing {path}")
             materialize_meta_tensors(submodule, device)
         # and build the kv cache
         submodule.attn.kv_cache = submodule.attn.build_kv_cache(
@@ -82,34 +74,22 @@ def get_model(fabric: L.Fabric, config: Config, max_seq_length: int):
         send_layers = [layers_per_rank * i - 1 for i in range(1, world_size + 1)]
         recv_layers = [layers_per_rank * i for i in range(1, world_size)]
         final_layer = max(send_layers)
-        if DEBUG:
-            fabric.print(f"{send_layers=}, {recv_layers=}, {final_layer=}")
         for layer_num, target_rank in mapping.items():
             path = f"transformer.h.{layer_num}"
             submodule = model.get_submodule(path)
             if local_rank == target_rank:
                 if layer_num in send_layers:
                     dst = (target_rank + 1) % world_size
-                    if DEBUG:
-                        print(f"[{global_rank}] {path}: registered send_output to {dst}")
                     submodule.register_forward_hook(partial(send_block_output, dst))
                 elif layer_num in recv_layers:
                     src = target_rank - 1
-                    if DEBUG:
-                        print(f"[{global_rank}] {path}: registered receive_input from {src}")
                     submodule.register_forward_pre_hook(partial(recv_block_input, src, device))
             if local_rank == 0 and layer_num == final_layer:
                 src = world_size - 1
-                if DEBUG:
-                    print(f"[{global_rank}] {path}: registered replace_output from {src}")
                 submodule.register_forward_hook(partial(recv_block_output, src, device))
 
         # setup final hook for the model output
         model.register_forward_hook(partial(broadcast_gpt_output, device))
-
-    if DEBUG:
-        path_to_device = {k: str(v.device) for k, v in itertools.chain(model.named_parameters(), model.named_buffers())}
-        print(f"[{global_rank}] {path_to_device}")
 
     return model
 
