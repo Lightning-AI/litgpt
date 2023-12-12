@@ -4,7 +4,7 @@ import sys
 import time
 from functools import partial
 from pathlib import Path
-from typing import Callable, Dict, Literal, Optional, Type
+from typing import Callable, Dict, Literal, Optional, Type, Union
 from warnings import filterwarnings
 
 import lightning as L
@@ -12,45 +12,59 @@ import torch
 from lightning.fabric.plugins import BitsandbytesPrecision
 from lightning.fabric.utilities.throughput import _plugin_to_compute_dtype
 
+# support running without installing as a package
+wd = Path(__file__).parent.parent.resolve()
+sys.path.append(str(wd))
+
 from generate.base import generate
 from lit_gpt import GPT, Config, Tokenizer
 from lit_gpt.model import Block, build_mask_cache
 from lit_gpt.utils import check_valid_checkpoint_dir, get_default_supported_precision
 
+# FIXME: remove this
 DEBUG = os.getenv("DEBUG", "0") == "1"
 
 
 @torch.inference_mode()
 def get_model(fabric: L.Fabric, config: Config, max_seq_length: int):
-    if fabric.local_rank != fabric.global_rank:
+    device = fabric.device
+    local_rank = fabric.local_rank
+    world_size = fabric.world_size
+    global_rank = fabric.global_rank
+
+    if local_rank != global_rank:
         raise NotImplementedError("Multinode is not supported")
 
     with torch.device("meta"):
         model = GPT(config)
 
-    assert model.config.n_layer % fabric.world_size == 0
-    layers_per_rank = model.config.n_layer // fabric.world_size
+    if model.config.n_layer % world_size:
+        raise NotImplementedError(
+            f"Only balanced partitioning is implemented: n_layer={model.config.n_layer}, world_size {world_size}"
+        )
+
+    layers_per_rank = model.config.n_layer // world_size
     # dictates where each block should be instantiated
-    mapping = layer_to_device(model, chunk_on=Block, chunks=layers_per_rank)
+    mapping = layer_to_device(model, chunk_on=Block, chunk_size=layers_per_rank)
     if DEBUG:
         fabric.print(f"Layer mapping: {mapping}")
     # materialize each block on the appropriate rank (device)
     for layer_num, target_rank in mapping.items():
         path = f"transformer.h.{layer_num}"
         submodule = model.get_submodule(path)
-        if fabric.local_rank == target_rank:
+        if local_rank == target_rank:
             if DEBUG:
-                print(f"[{fabric.global_rank}] Materializing {path}")
-            materialize_meta_tensors(submodule, fabric.device)
+                print(f"[{global_rank}] Materializing {path}")
+            materialize_meta_tensors(submodule, device)
         # and build the kv cache
         submodule.attn.kv_cache = submodule.attn.build_kv_cache(
-            1, max_seq_length, model.cos.size(-1), fabric.device if fabric.local_rank == target_rank else "meta"
+            1, max_seq_length, model.cos.size(-1), device if local_rank == target_rank else "meta"
         )
     # and everything that is not a block on rank 0
-    if fabric.local_rank == 0:
-        materialize_meta_tensors(model, fabric.device, skip_fn=lambda path: "transformer.h." in path)
+    if local_rank == 0:
+        materialize_meta_tensors(model, device, skip_fn=lambda path: "transformer.h." in path)
     # rebuild odd ends on all ranks
-    with fabric.device:
+    with device:
         # the rope cache which is on meta device
         model.max_seq_length = max_seq_length
         # the mask cache which cannot be created with `set_kv_cache` because that will set it for all layers
@@ -59,55 +73,55 @@ def get_model(fabric: L.Fabric, config: Config, max_seq_length: int):
     # quantize
     # FIXME
 
-    if fabric.world_size > 1:
+    if world_size > 1:
         # setup initial hook for the model input on non-zero ranks
-        if fabric.local_rank != 0:
+        if local_rank != 0:
             model.register_forward_pre_hook(meta_gpt_input)
 
         # setup communication hooks to pipeline layers
-        send_layers = [layers_per_rank * i - 1 for i in range(1, fabric.world_size + 1)]
-        recv_layers = [layers_per_rank * i for i in range(1, fabric.world_size)]
+        send_layers = [layers_per_rank * i - 1 for i in range(1, world_size + 1)]
+        recv_layers = [layers_per_rank * i for i in range(1, world_size)]
         final_layer = max(send_layers)
         if DEBUG:
             fabric.print(f"{send_layers=}, {recv_layers=}, {final_layer=}")
         for layer_num, target_rank in mapping.items():
             path = f"transformer.h.{layer_num}"
             submodule = model.get_submodule(path)
-            if fabric.local_rank == target_rank:
+            if local_rank == target_rank:
                 if layer_num in send_layers:
-                    dst = (target_rank + 1) % fabric.world_size
+                    dst = (target_rank + 1) % world_size
                     if DEBUG:
-                        print(f"[{fabric.global_rank}] {path}: registered send_output to {dst}")
+                        print(f"[{global_rank}] {path}: registered send_output to {dst}")
                     submodule.register_forward_hook(partial(send_block_output, dst))
                 elif layer_num in recv_layers:
                     src = target_rank - 1
                     if DEBUG:
-                        print(f"[{fabric.global_rank}] {path}: registered receive_input from {src}")
-                    submodule.register_forward_pre_hook(partial(recv_block_input, src))
-            if fabric.local_rank == 0 and layer_num == final_layer:
-                src = fabric.world_size - 1
+                        print(f"[{global_rank}] {path}: registered receive_input from {src}")
+                    submodule.register_forward_pre_hook(partial(recv_block_input, src, device))
+            if local_rank == 0 and layer_num == final_layer:
+                src = world_size - 1
                 if DEBUG:
-                    print(f"[{fabric.global_rank}] {path}: registered replace_output from {src}")
-                submodule.register_forward_hook(partial(recv_block_output, src))
+                    print(f"[{global_rank}] {path}: registered replace_output from {src}")
+                submodule.register_forward_hook(partial(recv_block_output, src, device))
 
         # setup final hook for the model output
-        model.register_forward_hook(broadcast_gpt_output)
+        model.register_forward_hook(partial(broadcast_gpt_output, device))
 
     if DEBUG:
         path_to_device = {k: str(v.device) for k, v in itertools.chain(model.named_parameters(), model.named_buffers())}
-        print(f"[{fabric.global_rank}] {path_to_device}")
+        print(f"[{global_rank}] {path_to_device}")
 
     return model
 
 
-def layer_to_device(module: torch.nn.Module, chunk_on: Type[torch.nn.Module], chunks: int) -> Dict[int, int]:
+def layer_to_device(module: torch.nn.Module, chunk_on: Type[torch.nn.Module], chunk_size: int) -> Dict[int, int]:
     """Create a mapping from layer (block) number to device (rank)."""
     mapping = {}
     for name, submodule in module.named_modules():
         if isinstance(submodule, chunk_on):
             split = name.split(".")
             number = int(split[2])
-            mapping[number] = number // chunks
+            mapping[number] = number // chunk_size
     return mapping
 
 
@@ -131,16 +145,16 @@ def materialize_meta_tensors(
 def meta_gpt_input(module: torch.nn.Module, ins) -> Optional[torch.Tensor]:
     """``forward_pre_hook`` to replace the original GPT input."""
     tensor = ins[0]
-    assert tensor.device.type == "cuda"
+    assert tensor.device.type != "meta"
     tensor = tensor.to(device="meta")
     return (tensor,) + ins[1:]
 
 
-def recv_block_input(src: int, module: torch.nn.Module, ins) -> Optional[torch.Tensor]:
+def recv_block_input(src: int, device: torch.device, module: torch.nn.Module, ins) -> Optional[torch.Tensor]:
     """``forward_pre_hook`` to receive a Block's input before forward."""
     tensor = ins[0]
     assert tensor.device.type == "meta"
-    tensor = torch.empty_like(tensor, device="cuda")
+    tensor = torch.empty_like(tensor, device=device)
     torch.distributed.recv(tensor, src)
     return (tensor,) + ins[1:]
 
@@ -152,18 +166,18 @@ def send_block_output(dst: int, module: torch.nn.Module, ins, outs) -> Optional[
     return torch.empty_like(outs, device="meta")
 
 
-def recv_block_output(src: int, module: torch.nn.Module, ins, outs) -> Optional[torch.Tensor]:
+def recv_block_output(src: int, device: torch.device, module: torch.nn.Module, ins, outs) -> Optional[torch.Tensor]:
     """``forward_hook`` to replace a Block's output after forward."""
     assert outs.device.type == "meta"
-    outs = torch.empty_like(outs, device="cuda")
+    outs = torch.empty_like(outs, device=device)
     torch.distributed.recv(outs, src)
     return outs
 
 
-def broadcast_gpt_output(module: torch.nn.Module, ins, out) -> Optional[torch.Tensor]:
+def broadcast_gpt_output(device: torch.device, module: torch.nn.Module, ins, out) -> Optional[torch.Tensor]:
     """``forward_hook`` to replace the final GPT result."""
     if out.device.type == "meta":
-        out = torch.empty_like(out, device="cuda")
+        out = torch.empty_like(out, device=device)
     torch.distributed.broadcast(out, 0)
     return out
 
@@ -178,7 +192,7 @@ def main(
     temperature: float = 0.8,
     checkpoint_dir: Path = Path("checkpoints/mistralai/Mistral-7B-Instruct-v0.1"),
     quantize: Optional[Literal["bnb.nf4", "bnb.nf4-dq", "bnb.fp4", "bnb.fp4-dq", "bnb.int8"]] = None,
-    devices: int = "auto",
+    devices: Union[int, str] = "auto",
     precision: Optional[str] = None,
     # FIXME: compile
 ) -> None:
@@ -219,21 +233,28 @@ def main(
     torch.set_default_dtype(dtype)
 
     check_valid_checkpoint_dir(checkpoint_dir)
+
+    config = Config.from_json(checkpoint_dir / "lit_config.json")
+
+    checkpoint_path = checkpoint_dir / "lit_model.pth"
+
     tokenizer = Tokenizer(checkpoint_dir)
     encoded = tokenizer.encode(prompt, device=fabric.device)
     prompt_length = encoded.size(0)
     max_returned_tokens = prompt_length + max_new_tokens
 
-    config = Config.from_json(checkpoint_dir / "lit_config.json")
-    checkpoint_path = checkpoint_dir / "lit_model.pth"
     fabric.print(f"Loading model {str(checkpoint_path)!r} with {config.__dict__}", file=sys.stderr)
+    t0 = time.perf_counter()
     model = get_model(fabric, config, max_returned_tokens)
+    fabric.print(f"Time to instantiate model: {time.perf_counter() - t0:.02f} seconds.", file=sys.stderr)
     model.eval()
 
     # for this script, this warning is a false-positive
     filterwarnings("ignore", ".*copying from a non-meta parameter.*", module="torch.nn.modules.module")
+    t0 = time.perf_counter()
     state_dict = torch.load(str(checkpoint_path), mmap=True)
     model.load_state_dict(state_dict)
+    fabric.print(f"Time to load the model weights: {time.perf_counter() - t0:.02f} seconds.", file=sys.stderr)
 
     L.seed_everything(1234)
     for i in range(num_samples):
