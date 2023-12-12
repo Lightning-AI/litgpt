@@ -49,7 +49,7 @@ def sample(logits: torch.Tensor, temperature: float = 1.0, top_k: Optional[int] 
 def next_token(model: GPT, input_pos: torch.Tensor, x: torch.Tensor, **kwargs: Any) -> torch.Tensor:
     logits = model(x, input_pos)
     next = sample(logits, **kwargs)
-    return next.type_as(x)
+    return next.to(dtype=x.dtype)
 
 
 @torch.inference_mode()
@@ -199,7 +199,7 @@ def main(
     L.seed_everything(1234)
     for i in range(num_samples):
         t0 = time.perf_counter()
-        y = generate(model, encoded, max_returned_tokens, temperature=temperature, top_k=top_k)
+        y = generate(model, encoded, max_returned_tokens, temperature=temperature, top_k=top_k, eos_id=tokenizer.eos_id)
         t = time.perf_counter() - t0
         for block in model.transformer.h:
             block.attn.kv_cache.reset_parameters()

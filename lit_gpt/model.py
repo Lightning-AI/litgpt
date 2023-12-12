@@ -48,11 +48,11 @@ class GPT(nn.Module):
             cos, sin = self.rope_cache()
             self.register_buffer("cos", cos, persistent=False)
             self.register_buffer("sin", sin, persistent=False)
-        elif value != self.cos.size(0):
-            # override
-            self.cos, self.sin = self.rope_cache(device=self.cos.device)
+        # overrides
         elif self.cos.device.type == "meta":
             self.cos, self.sin = self.rope_cache()
+        elif value != self.cos.size(0):
+            self.cos, self.sin = self.rope_cache(device=self.cos.device)
         # the mask and kv cache size will get updated on `set_kv_cache`. we cannot update it here because we don't know
         # if the kv cache is expected
 
@@ -122,11 +122,9 @@ class GPT(nn.Module):
             )
 
         if self.mask_cache is None or self.mask_cache.size(3) != max_seq_length:
-            # passing `attn_mask` to SDPA downgrades it to use the inefficient implementation. since we only need the mask
+            # passing `attn_mask` to SDPA disables the flash implementation. since we only need the mask
             # for the kv-cache support (only during inference), we only create it in that situation
-            # this will be resolved by https://github.com/pytorch/pytorch/issues/96099
-            ones = torch.ones((max_seq_length, max_seq_length), device=device, dtype=torch.bool)
-            self.mask_cache = torch.tril(ones).unsqueeze(0).unsqueeze(0)
+            self.mask_cache = build_mask_cache(max_seq_length, device)
 
     def clear_kv_cache(self) -> None:
         self.mask_cache = None
@@ -233,6 +231,9 @@ class CausalSelfAttention(nn.Module):
     def scaled_dot_product_attention(
         self, q: torch.Tensor, k: torch.Tensor, v: torch.Tensor, mask: Optional[torch.Tensor] = None
     ) -> torch.Tensor:
+        if mask is not None and q.device.type == "meta":
+            # the mask cache is shared across layers. For layers that are on meta-device, the mask needs to be moved
+            mask = mask.to("meta")
         scale = 1.0 / math.sqrt(self.config.head_size)
         y = torch.nn.functional.scaled_dot_product_attention(
             q, k, v, attn_mask=mask, dropout_p=0.0, scale=scale, is_causal=mask is None
@@ -313,12 +314,16 @@ def build_rope_cache(
 
 
 def apply_rope(x: torch.Tensor, cos: torch.Tensor, sin: torch.Tensor) -> torch.Tensor:
+    """T."""
+    if x.device.type == "meta":
+        # the RoPE cache is shared across layers. For the layers that are on meta-device, the cache needs to be moved
+        cos, sin = cos.to("meta"), sin.to("meta")
     head_size = x.size(-1)
     x1 = x[..., : head_size // 2]  # (B, nh, T, hs/2)
     x2 = x[..., head_size // 2 :]  # (B, nh, T, hs/2)
     rotated = torch.cat((-x2, x1), dim=-1)  # (B, nh, T, hs)
     roped = (x * cos) + (rotated * sin)
-    return roped.type_as(x)
+    return roped.to(dtype=x.dtype)
 
 
 class KVCache(nn.Module):
@@ -345,3 +350,8 @@ class KVCache(nn.Module):
     def reset_parameters(self) -> None:
         torch.nn.init.zeros_(self.k)
         torch.nn.init.zeros_(self.v)
+
+
+def build_mask_cache(max_seq_length: int, device: Optional[torch.device] = None) -> torch.Tensor:
+    ones = torch.ones((max_seq_length, max_seq_length), device=device, dtype=torch.bool)
+    return torch.tril(ones).unsqueeze(0).unsqueeze(0)
