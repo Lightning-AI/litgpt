@@ -1,4 +1,6 @@
 import itertools
+import logging
+import re
 import sys
 import time
 from functools import partial
@@ -16,7 +18,7 @@ from lightning.fabric.utilities.throughput import _plugin_to_compute_dtype
 wd = Path(__file__).parent.parent.resolve()
 sys.path.append(str(wd))
 
-from generate.base import generate
+import generate.base as generate_base
 from lit_gpt import GPT, Config, Tokenizer
 from lit_gpt.model import Block, build_mask_cache
 from lit_gpt.utils import check_valid_checkpoint_dir, get_default_supported_precision
@@ -121,7 +123,7 @@ def main(
     quantize: Optional[Literal["bnb.nf4", "bnb.nf4-dq", "bnb.fp4", "bnb.fp4-dq", "bnb.int8"]] = None,
     devices: Union[int, str] = "auto",
     precision: Optional[str] = None,
-    # FIXME: compile
+    compile: bool = False,
 ) -> None:
     """Generates text samples based on a pre-trained model and tokenizer.
 
@@ -140,6 +142,7 @@ def main(
             for more details, see https://github.com/Lightning-AI/lit-gpt/blob/main/tutorials/quantize.md
         devices: How many devices to use.
         precision: Indicates the Fabric precision setting to use.
+        compile: Whether to compile the model.
     """
     precision = precision or get_default_supported_precision(training=False)
 
@@ -186,10 +189,24 @@ def main(
     model.load_state_dict(state_dict)
     fabric.print(f"Time to load the model weights: {time.perf_counter() - t0:.02f} seconds.", file=sys.stderr)
 
+    if compile:
+        # silence developer warning on nightly builds
+        # https://github.com/pytorch/pytorch/blob/v2.2.0-rc5/torch/_inductor/ir.py#L4166
+        pattern = re.compile(".*DeviceCopy in input program.*")
+        logging.getLogger("torch._inductor.utils").addFilter(lambda record: not pattern.search(record.getMessage()))
+        torch._dynamo.config.automatic_dynamic_shapes = True
+        torch._inductor.config.triton.unique_kernel_names = True
+        torch._inductor.config.coordinate_descent_tuning = True
+        # cannot use cudagraphs because it doesn't support multiple device indices
+        # https://github.com/pytorch/pytorch/blob/v2.2.0-rc5/torch/_inductor/compile_fx.py#L371-L375
+        generate_base.next_token = torch.compile(generate_base.next_token)
+
     L.seed_everything(1234)
     for i in range(num_samples):
         t0 = time.perf_counter()
-        y = generate(model, encoded, max_returned_tokens, temperature=temperature, top_k=top_k, eos_id=tokenizer.eos_id)
+        y = generate_base.generate(
+            model, encoded, max_returned_tokens, temperature=temperature, top_k=top_k, eos_id=tokenizer.eos_id
+        )
         t = time.perf_counter() - t0
         for block in model.transformer.h:
             block.attn.kv_cache.reset_parameters()
