@@ -13,21 +13,21 @@ from lightning import Fabric
 
 
 @pytest.mark.parametrize(
-    ("n_layer", "world_size", "expected"),
+    ("n_layer", "devices", "expected"),
     [
         (6, 2, {0: 0, 1: 0, 2: 0, 3: 1, 4: 1, 5: 1}),
         (6, 3, {0: 0, 1: 0, 2: 1, 3: 1, 4: 2, 5: 2}),
         (6, 1, {0: 0, 1: 0, 2: 0, 3: 0, 4: 0, 5: 0}),
     ],
 )
-def test_layer_to_device(n_layer, world_size, expected):
+def test_layer_to_device(n_layer, devices, expected):
     from generate.pipelined import layer_to_device
     from lit_gpt.model import GPT, Block
 
     with torch.device("meta"):
         model = GPT.from_name("pythia-14m", n_layer=n_layer)
 
-    actual = layer_to_device(model, Block, chunk_size=n_layer // world_size)
+    actual = layer_to_device(model, Block, chunk_size=n_layer // devices)
     assert actual == expected
 
 
@@ -76,57 +76,23 @@ def test_materialize_meta_tensors():
         "transformer.wte.weight": "meta",
     }
 
-    materialize_meta_tensors(model, torch.device("cpu"), skip_fn=lambda p: p.startswith("transformer.h."))
+    materialize_meta_tensors(model, torch.device("cpu"))
     assert path_to_device(model) == {
         "cos": "cpu",
         "lm_head.weight": "cpu",
         "sin": "cpu",
-        "transformer.h.0.attn.attn.bias": "meta",
-        "transformer.h.0.attn.attn.weight": "meta",
-        "transformer.h.0.attn.proj.bias": "meta",
-        "transformer.h.0.attn.proj.weight": "meta",
-        "transformer.h.0.mlp.fc.bias": "meta",
-        "transformer.h.0.mlp.fc.weight": "meta",
-        "transformer.h.0.mlp.proj.bias": "meta",
-        "transformer.h.0.mlp.proj.weight": "meta",
-        "transformer.h.0.norm_1.bias": "meta",
-        "transformer.h.0.norm_1.weight": "meta",
-        "transformer.h.0.norm_2.bias": "meta",
-        "transformer.h.0.norm_2.weight": "meta",
-        "transformer.h.1.attn.attn.bias": "cpu",
-        "transformer.h.1.attn.attn.weight": "cpu",
-        "transformer.h.1.attn.proj.bias": "cpu",
-        "transformer.h.1.attn.proj.weight": "cpu",
-        "transformer.h.1.mlp.fc.bias": "cpu",
-        "transformer.h.1.mlp.fc.weight": "cpu",
-        "transformer.h.1.mlp.proj.bias": "cpu",
-        "transformer.h.1.mlp.proj.weight": "cpu",
-        "transformer.h.1.norm_1.bias": "cpu",
-        "transformer.h.1.norm_1.weight": "cpu",
-        "transformer.h.1.norm_2.bias": "cpu",
-        "transformer.h.1.norm_2.weight": "cpu",
-        "transformer.ln_f.bias": "cpu",
-        "transformer.ln_f.weight": "cpu",
-        "transformer.wte.weight": "cpu",
-    }
-
-    materialize_meta_tensors(model, torch.device("cpu"), skip_fn=lambda p: p.startswith("transformer.h."))
-    assert path_to_device(model) == {
-        "cos": "cpu",
-        "lm_head.weight": "cpu",
-        "sin": "cpu",
-        "transformer.h.0.attn.attn.bias": "meta",
-        "transformer.h.0.attn.attn.weight": "meta",
-        "transformer.h.0.attn.proj.bias": "meta",
-        "transformer.h.0.attn.proj.weight": "meta",
-        "transformer.h.0.mlp.fc.bias": "meta",
-        "transformer.h.0.mlp.fc.weight": "meta",
-        "transformer.h.0.mlp.proj.bias": "meta",
-        "transformer.h.0.mlp.proj.weight": "meta",
-        "transformer.h.0.norm_1.bias": "meta",
-        "transformer.h.0.norm_1.weight": "meta",
-        "transformer.h.0.norm_2.bias": "meta",
-        "transformer.h.0.norm_2.weight": "meta",
+        "transformer.h.0.attn.attn.bias": "cpu",
+        "transformer.h.0.attn.attn.weight": "cpu",
+        "transformer.h.0.attn.proj.bias": "cpu",
+        "transformer.h.0.attn.proj.weight": "cpu",
+        "transformer.h.0.mlp.fc.bias": "cpu",
+        "transformer.h.0.mlp.fc.weight": "cpu",
+        "transformer.h.0.mlp.proj.bias": "cpu",
+        "transformer.h.0.mlp.proj.weight": "cpu",
+        "transformer.h.0.norm_1.bias": "cpu",
+        "transformer.h.0.norm_1.weight": "cpu",
+        "transformer.h.0.norm_2.bias": "cpu",
+        "transformer.h.0.norm_2.weight": "cpu",
         "transformer.h.1.attn.attn.bias": "cpu",
         "transformer.h.1.attn.attn.weight": "cpu",
         "transformer.h.1.attn.proj.bias": "cpu",
@@ -151,7 +117,7 @@ def _test_model_1device(accelerator):
 
     fabric = Fabric(accelerator=accelerator, devices=1)
     config = Config.from_name("pythia-14m", n_layer=2)
-    model = get_model(fabric, config, 15)
+    model = get_model(fabric, config, 15, 1)
 
     device_str = str(fabric.device)
     assert path_to_device(model) == {
@@ -205,236 +171,126 @@ def test_model_1device_cpu():
 def find_forward_hooks(module):
     mapping = defaultdict(list)
     for name, submodule in module.named_modules():
+        for hook in submodule._forward_pre_hooks.values():
+            hook_data = ("forward_pre_hook", hook.func.__name__, hook.args, hook.keywords)
+            mapping[name].append(hook_data)
         for hook in submodule._forward_hooks.values():
             hook_data = ("forward_hook", hook.func.__name__, hook.args, hook.keywords)
-            mapping[name].append(hook_data)
-        for hook in submodule._forward_pre_hooks.values():
-            if hasattr(hook, "func"):  # functools.partial
-                hook_data = ("forward_pre_hook", hook.func.__name__, hook.args, hook.keywords)
-            else:
-                hook_data = ("forward_pre_hook", hook.__name__)
             mapping[name].append(hook_data)
     return dict(mapping)
 
 
 @RunIf(min_cuda_gpus=2)
-@pytest.mark.parametrize("local_rank", (0, 1))
-def test_model_communication_hooks(local_rank, monkeypatch):
+def test_model_forward_hooks(monkeypatch):
     from generate.pipelined import get_model
     from lit_gpt.config import Config
 
     fabric = Fabric(accelerator="cuda", devices=1)
-    # simulate 2 processes
-    monkeypatch.setattr(fabric._strategy, "world_size", 2)
-    monkeypatch.setattr(fabric._strategy, "local_rank", local_rank)
-    monkeypatch.setattr(fabric._strategy, "global_rank", local_rank)
-    monkeypatch.setattr(fabric._strategy, "_root_device", torch.device("cuda", local_rank))
-
     config = Config.from_name("pythia-14m")  # 6 layers
-    model = get_model(fabric, config, 15)
+    model = get_model(fabric, config, max_seq_length=15, devices=2)
 
     hooks = find_forward_hooks(model)
     actual = path_to_device(model)
-    assert len(actual) == 90
-    if local_rank == 0:
-        assert actual == {
-            "lm_head.weight": "cuda:0",
-            "transformer.wte.weight": "cuda:0",
-            "transformer.h.0.norm_1.weight": "cuda:0",
-            "transformer.h.0.norm_1.bias": "cuda:0",
-            "transformer.h.0.attn.attn.weight": "cuda:0",
-            "transformer.h.0.attn.attn.bias": "cuda:0",
-            "transformer.h.0.attn.proj.weight": "cuda:0",
-            "transformer.h.0.attn.proj.bias": "cuda:0",
-            "transformer.h.0.norm_2.weight": "cuda:0",
-            "transformer.h.0.norm_2.bias": "cuda:0",
-            "transformer.h.0.mlp.fc.weight": "cuda:0",
-            "transformer.h.0.mlp.fc.bias": "cuda:0",
-            "transformer.h.0.mlp.proj.weight": "cuda:0",
-            "transformer.h.0.mlp.proj.bias": "cuda:0",
-            "transformer.h.1.norm_1.weight": "cuda:0",
-            "transformer.h.1.norm_1.bias": "cuda:0",
-            "transformer.h.1.attn.attn.weight": "cuda:0",
-            "transformer.h.1.attn.attn.bias": "cuda:0",
-            "transformer.h.1.attn.proj.weight": "cuda:0",
-            "transformer.h.1.attn.proj.bias": "cuda:0",
-            "transformer.h.1.norm_2.weight": "cuda:0",
-            "transformer.h.1.norm_2.bias": "cuda:0",
-            "transformer.h.1.mlp.fc.weight": "cuda:0",
-            "transformer.h.1.mlp.fc.bias": "cuda:0",
-            "transformer.h.1.mlp.proj.weight": "cuda:0",
-            "transformer.h.1.mlp.proj.bias": "cuda:0",
-            "transformer.h.2.norm_1.weight": "cuda:0",
-            "transformer.h.2.norm_1.bias": "cuda:0",
-            "transformer.h.2.attn.attn.weight": "cuda:0",
-            "transformer.h.2.attn.attn.bias": "cuda:0",
-            "transformer.h.2.attn.proj.weight": "cuda:0",
-            "transformer.h.2.attn.proj.bias": "cuda:0",
-            "transformer.h.2.norm_2.weight": "cuda:0",
-            "transformer.h.2.norm_2.bias": "cuda:0",
-            "transformer.h.2.mlp.fc.weight": "cuda:0",
-            "transformer.h.2.mlp.fc.bias": "cuda:0",
-            "transformer.h.2.mlp.proj.weight": "cuda:0",
-            "transformer.h.2.mlp.proj.bias": "cuda:0",
-            "transformer.h.3.norm_1.weight": "meta",
-            "transformer.h.3.norm_1.bias": "meta",
-            "transformer.h.3.attn.attn.weight": "meta",
-            "transformer.h.3.attn.attn.bias": "meta",
-            "transformer.h.3.attn.proj.weight": "meta",
-            "transformer.h.3.attn.proj.bias": "meta",
-            "transformer.h.3.norm_2.weight": "meta",
-            "transformer.h.3.norm_2.bias": "meta",
-            "transformer.h.3.mlp.fc.weight": "meta",
-            "transformer.h.3.mlp.fc.bias": "meta",
-            "transformer.h.3.mlp.proj.weight": "meta",
-            "transformer.h.3.mlp.proj.bias": "meta",
-            "transformer.h.4.norm_1.weight": "meta",
-            "transformer.h.4.norm_1.bias": "meta",
-            "transformer.h.4.attn.attn.weight": "meta",
-            "transformer.h.4.attn.attn.bias": "meta",
-            "transformer.h.4.attn.proj.weight": "meta",
-            "transformer.h.4.attn.proj.bias": "meta",
-            "transformer.h.4.norm_2.weight": "meta",
-            "transformer.h.4.norm_2.bias": "meta",
-            "transformer.h.4.mlp.fc.weight": "meta",
-            "transformer.h.4.mlp.fc.bias": "meta",
-            "transformer.h.4.mlp.proj.weight": "meta",
-            "transformer.h.4.mlp.proj.bias": "meta",
-            "transformer.h.5.norm_1.weight": "meta",
-            "transformer.h.5.norm_1.bias": "meta",
-            "transformer.h.5.attn.attn.weight": "meta",
-            "transformer.h.5.attn.attn.bias": "meta",
-            "transformer.h.5.attn.proj.weight": "meta",
-            "transformer.h.5.attn.proj.bias": "meta",
-            "transformer.h.5.norm_2.weight": "meta",
-            "transformer.h.5.norm_2.bias": "meta",
-            "transformer.h.5.mlp.fc.weight": "meta",
-            "transformer.h.5.mlp.fc.bias": "meta",
-            "transformer.h.5.mlp.proj.weight": "meta",
-            "transformer.h.5.mlp.proj.bias": "meta",
-            "transformer.ln_f.weight": "cuda:0",
-            "transformer.ln_f.bias": "cuda:0",
-            "cos": "cuda:0",
-            "sin": "cuda:0",
-            "transformer.h.0.attn.kv_cache.k": "cuda:0",
-            "transformer.h.0.attn.kv_cache.v": "cuda:0",
-            "transformer.h.1.attn.kv_cache.k": "cuda:0",
-            "transformer.h.1.attn.kv_cache.v": "cuda:0",
-            "transformer.h.2.attn.kv_cache.k": "cuda:0",
-            "transformer.h.2.attn.kv_cache.v": "cuda:0",
-            "transformer.h.3.attn.kv_cache.k": "meta",
-            "transformer.h.3.attn.kv_cache.v": "meta",
-            "transformer.h.4.attn.kv_cache.k": "meta",
-            "transformer.h.4.attn.kv_cache.v": "meta",
-            "transformer.h.5.attn.kv_cache.k": "meta",
-            "transformer.h.5.attn.kv_cache.v": "meta",
-        }
-        assert hooks == {
-            "": [("forward_hook", "broadcast_gpt_output", (fabric.device,), {})],
-            "transformer.h.2": [("forward_hook", "send_block_output", (1,), {})],
-            "transformer.h.5": [("forward_hook", "recv_block_output", (1, fabric.device), {})],
-        }
-    else:
-        assert actual == {
-            "lm_head.weight": "meta",
-            "transformer.wte.weight": "meta",
-            "transformer.h.0.norm_1.weight": "meta",
-            "transformer.h.0.norm_1.bias": "meta",
-            "transformer.h.0.attn.attn.weight": "meta",
-            "transformer.h.0.attn.attn.bias": "meta",
-            "transformer.h.0.attn.proj.weight": "meta",
-            "transformer.h.0.attn.proj.bias": "meta",
-            "transformer.h.0.norm_2.weight": "meta",
-            "transformer.h.0.norm_2.bias": "meta",
-            "transformer.h.0.mlp.fc.weight": "meta",
-            "transformer.h.0.mlp.fc.bias": "meta",
-            "transformer.h.0.mlp.proj.weight": "meta",
-            "transformer.h.0.mlp.proj.bias": "meta",
-            "transformer.h.1.norm_1.weight": "meta",
-            "transformer.h.1.norm_1.bias": "meta",
-            "transformer.h.1.attn.attn.weight": "meta",
-            "transformer.h.1.attn.attn.bias": "meta",
-            "transformer.h.1.attn.proj.weight": "meta",
-            "transformer.h.1.attn.proj.bias": "meta",
-            "transformer.h.1.norm_2.weight": "meta",
-            "transformer.h.1.norm_2.bias": "meta",
-            "transformer.h.1.mlp.fc.weight": "meta",
-            "transformer.h.1.mlp.fc.bias": "meta",
-            "transformer.h.1.mlp.proj.weight": "meta",
-            "transformer.h.1.mlp.proj.bias": "meta",
-            "transformer.h.2.norm_1.weight": "meta",
-            "transformer.h.2.norm_1.bias": "meta",
-            "transformer.h.2.attn.attn.weight": "meta",
-            "transformer.h.2.attn.attn.bias": "meta",
-            "transformer.h.2.attn.proj.weight": "meta",
-            "transformer.h.2.attn.proj.bias": "meta",
-            "transformer.h.2.norm_2.weight": "meta",
-            "transformer.h.2.norm_2.bias": "meta",
-            "transformer.h.2.mlp.fc.weight": "meta",
-            "transformer.h.2.mlp.fc.bias": "meta",
-            "transformer.h.2.mlp.proj.weight": "meta",
-            "transformer.h.2.mlp.proj.bias": "meta",
-            "transformer.h.3.norm_1.weight": "cuda:1",
-            "transformer.h.3.norm_1.bias": "cuda:1",
-            "transformer.h.3.attn.attn.weight": "cuda:1",
-            "transformer.h.3.attn.attn.bias": "cuda:1",
-            "transformer.h.3.attn.proj.weight": "cuda:1",
-            "transformer.h.3.attn.proj.bias": "cuda:1",
-            "transformer.h.3.norm_2.weight": "cuda:1",
-            "transformer.h.3.norm_2.bias": "cuda:1",
-            "transformer.h.3.mlp.fc.weight": "cuda:1",
-            "transformer.h.3.mlp.fc.bias": "cuda:1",
-            "transformer.h.3.mlp.proj.weight": "cuda:1",
-            "transformer.h.3.mlp.proj.bias": "cuda:1",
-            "transformer.h.4.norm_1.weight": "cuda:1",
-            "transformer.h.4.norm_1.bias": "cuda:1",
-            "transformer.h.4.attn.attn.weight": "cuda:1",
-            "transformer.h.4.attn.attn.bias": "cuda:1",
-            "transformer.h.4.attn.proj.weight": "cuda:1",
-            "transformer.h.4.attn.proj.bias": "cuda:1",
-            "transformer.h.4.norm_2.weight": "cuda:1",
-            "transformer.h.4.norm_2.bias": "cuda:1",
-            "transformer.h.4.mlp.fc.weight": "cuda:1",
-            "transformer.h.4.mlp.fc.bias": "cuda:1",
-            "transformer.h.4.mlp.proj.weight": "cuda:1",
-            "transformer.h.4.mlp.proj.bias": "cuda:1",
-            "transformer.h.5.norm_1.weight": "cuda:1",
-            "transformer.h.5.norm_1.bias": "cuda:1",
-            "transformer.h.5.attn.attn.weight": "cuda:1",
-            "transformer.h.5.attn.attn.bias": "cuda:1",
-            "transformer.h.5.attn.proj.weight": "cuda:1",
-            "transformer.h.5.attn.proj.bias": "cuda:1",
-            "transformer.h.5.norm_2.weight": "cuda:1",
-            "transformer.h.5.norm_2.bias": "cuda:1",
-            "transformer.h.5.mlp.fc.weight": "cuda:1",
-            "transformer.h.5.mlp.fc.bias": "cuda:1",
-            "transformer.h.5.mlp.proj.weight": "cuda:1",
-            "transformer.h.5.mlp.proj.bias": "cuda:1",
-            "transformer.ln_f.weight": "meta",
-            "transformer.ln_f.bias": "meta",
-            "cos": "cuda:1",
-            "sin": "cuda:1",
-            "transformer.h.0.attn.kv_cache.k": "meta",
-            "transformer.h.0.attn.kv_cache.v": "meta",
-            "transformer.h.1.attn.kv_cache.k": "meta",
-            "transformer.h.1.attn.kv_cache.v": "meta",
-            "transformer.h.2.attn.kv_cache.k": "meta",
-            "transformer.h.2.attn.kv_cache.v": "meta",
-            "transformer.h.3.attn.kv_cache.k": "cuda:1",
-            "transformer.h.3.attn.kv_cache.v": "cuda:1",
-            "transformer.h.4.attn.kv_cache.k": "cuda:1",
-            "transformer.h.4.attn.kv_cache.v": "cuda:1",
-            "transformer.h.5.attn.kv_cache.k": "cuda:1",
-            "transformer.h.5.attn.kv_cache.v": "cuda:1",
-        }
-        assert hooks == {
-            "": [
-                ("forward_hook", "broadcast_gpt_output", (fabric.device,), {}),
-                ("forward_pre_hook", "meta_gpt_input"),
-            ],
-            "transformer.h.3": [("forward_pre_hook", "recv_block_input", (0, fabric.device), {})],
-            "transformer.h.5": [("forward_hook", "send_block_output", (0,), {})],
-        }
+    assert actual == {
+        "lm_head.weight": "cuda:0",
+        "transformer.wte.weight": "cuda:0",
+        "transformer.h.0.norm_1.weight": "cuda:0",
+        "transformer.h.0.norm_1.bias": "cuda:0",
+        "transformer.h.0.attn.attn.weight": "cuda:0",
+        "transformer.h.0.attn.attn.bias": "cuda:0",
+        "transformer.h.0.attn.proj.weight": "cuda:0",
+        "transformer.h.0.attn.proj.bias": "cuda:0",
+        "transformer.h.0.norm_2.weight": "cuda:0",
+        "transformer.h.0.norm_2.bias": "cuda:0",
+        "transformer.h.0.mlp.fc.weight": "cuda:0",
+        "transformer.h.0.mlp.fc.bias": "cuda:0",
+        "transformer.h.0.mlp.proj.weight": "cuda:0",
+        "transformer.h.0.mlp.proj.bias": "cuda:0",
+        "transformer.h.1.norm_1.weight": "cuda:0",
+        "transformer.h.1.norm_1.bias": "cuda:0",
+        "transformer.h.1.attn.attn.weight": "cuda:0",
+        "transformer.h.1.attn.attn.bias": "cuda:0",
+        "transformer.h.1.attn.proj.weight": "cuda:0",
+        "transformer.h.1.attn.proj.bias": "cuda:0",
+        "transformer.h.1.norm_2.weight": "cuda:0",
+        "transformer.h.1.norm_2.bias": "cuda:0",
+        "transformer.h.1.mlp.fc.weight": "cuda:0",
+        "transformer.h.1.mlp.fc.bias": "cuda:0",
+        "transformer.h.1.mlp.proj.weight": "cuda:0",
+        "transformer.h.1.mlp.proj.bias": "cuda:0",
+        "transformer.h.2.norm_1.weight": "cuda:0",
+        "transformer.h.2.norm_1.bias": "cuda:0",
+        "transformer.h.2.attn.attn.weight": "cuda:0",
+        "transformer.h.2.attn.attn.bias": "cuda:0",
+        "transformer.h.2.attn.proj.weight": "cuda:0",
+        "transformer.h.2.attn.proj.bias": "cuda:0",
+        "transformer.h.2.norm_2.weight": "cuda:0",
+        "transformer.h.2.norm_2.bias": "cuda:0",
+        "transformer.h.2.mlp.fc.weight": "cuda:0",
+        "transformer.h.2.mlp.fc.bias": "cuda:0",
+        "transformer.h.2.mlp.proj.weight": "cuda:0",
+        "transformer.h.2.mlp.proj.bias": "cuda:0",
+        "transformer.h.3.norm_1.weight": "cuda:1",
+        "transformer.h.3.norm_1.bias": "cuda:1",
+        "transformer.h.3.attn.attn.weight": "cuda:1",
+        "transformer.h.3.attn.attn.bias": "cuda:1",
+        "transformer.h.3.attn.proj.weight": "cuda:1",
+        "transformer.h.3.attn.proj.bias": "cuda:1",
+        "transformer.h.3.norm_2.weight": "cuda:1",
+        "transformer.h.3.norm_2.bias": "cuda:1",
+        "transformer.h.3.mlp.fc.weight": "cuda:1",
+        "transformer.h.3.mlp.fc.bias": "cuda:1",
+        "transformer.h.3.mlp.proj.weight": "cuda:1",
+        "transformer.h.3.mlp.proj.bias": "cuda:1",
+        "transformer.h.4.norm_1.weight": "cuda:1",
+        "transformer.h.4.norm_1.bias": "cuda:1",
+        "transformer.h.4.attn.attn.weight": "cuda:1",
+        "transformer.h.4.attn.attn.bias": "cuda:1",
+        "transformer.h.4.attn.proj.weight": "cuda:1",
+        "transformer.h.4.attn.proj.bias": "cuda:1",
+        "transformer.h.4.norm_2.weight": "cuda:1",
+        "transformer.h.4.norm_2.bias": "cuda:1",
+        "transformer.h.4.mlp.fc.weight": "cuda:1",
+        "transformer.h.4.mlp.fc.bias": "cuda:1",
+        "transformer.h.4.mlp.proj.weight": "cuda:1",
+        "transformer.h.4.mlp.proj.bias": "cuda:1",
+        "transformer.h.5.norm_1.weight": "cuda:1",
+        "transformer.h.5.norm_1.bias": "cuda:1",
+        "transformer.h.5.attn.attn.weight": "cuda:1",
+        "transformer.h.5.attn.attn.bias": "cuda:1",
+        "transformer.h.5.attn.proj.weight": "cuda:1",
+        "transformer.h.5.attn.proj.bias": "cuda:1",
+        "transformer.h.5.norm_2.weight": "cuda:1",
+        "transformer.h.5.norm_2.bias": "cuda:1",
+        "transformer.h.5.mlp.fc.weight": "cuda:1",
+        "transformer.h.5.mlp.fc.bias": "cuda:1",
+        "transformer.h.5.mlp.proj.weight": "cuda:1",
+        "transformer.h.5.mlp.proj.bias": "cuda:1",
+        "transformer.ln_f.weight": "cuda:0",
+        "transformer.ln_f.bias": "cuda:0",
+        "cos": "cuda:0",
+        "sin": "cuda:0",
+        "transformer.h.0.attn.kv_cache.k": "cuda:0",
+        "transformer.h.0.attn.kv_cache.v": "cuda:0",
+        "transformer.h.1.attn.kv_cache.k": "cuda:0",
+        "transformer.h.1.attn.kv_cache.v": "cuda:0",
+        "transformer.h.2.attn.kv_cache.k": "cuda:0",
+        "transformer.h.2.attn.kv_cache.v": "cuda:0",
+        "transformer.h.3.attn.kv_cache.k": "cuda:1",
+        "transformer.h.3.attn.kv_cache.v": "cuda:1",
+        "transformer.h.4.attn.kv_cache.k": "cuda:1",
+        "transformer.h.4.attn.kv_cache.v": "cuda:1",
+        "transformer.h.5.attn.kv_cache.k": "cuda:1",
+        "transformer.h.5.attn.kv_cache.v": "cuda:1",
+    }
+    assert hooks == {
+        "transformer.h.3": [("forward_pre_hook", "move_block_input", (torch.device(type="cuda", index=1),), {})],
+        "transformer.h.4": [("forward_pre_hook", "move_block_input", (torch.device(type="cuda", index=1),), {})],
+        "transformer.h.5": [
+            ("forward_pre_hook", "move_block_input", (torch.device(type="cuda", index=1),), {}),
+            ("forward_hook", "move_block_output", (torch.device(type="cuda", index=0),), {}),
+        ],
+    }
 
 
 @RunIf(min_cuda_gpus=2)

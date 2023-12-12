@@ -3,11 +3,12 @@ import sys
 import time
 from functools import partial
 from pathlib import Path
-from typing import Callable, Dict, Literal, Optional, Type, Union
+from typing import Dict, Literal, Optional, Type, Union
 from warnings import filterwarnings
 
 import lightning as L
 import torch
+from lightning.fabric.accelerators import CUDAAccelerator
 from lightning.fabric.plugins import BitsandbytesPrecision
 from lightning.fabric.utilities.throughput import _plugin_to_compute_dtype
 
@@ -22,80 +23,59 @@ from lit_gpt.utils import check_valid_checkpoint_dir, get_default_supported_prec
 
 
 @torch.inference_mode()
-def get_model(fabric: L.Fabric, config: Config, max_seq_length: int):
-    device = fabric.device
-    local_rank = fabric.local_rank
-    world_size = fabric.world_size
-    global_rank = fabric.global_rank
-
-    if local_rank != global_rank:
-        raise NotImplementedError("Multinode is not supported")
+def get_model(fabric: L.Fabric, config: Config, max_seq_length: int, devices: int):
+    root = fabric.device
 
     with torch.device("meta"):
         model = GPT(config)
 
-    if model.config.n_layer % world_size:
+    if model.config.n_layer % devices:
         raise NotImplementedError(
-            f"Only balanced partitioning is implemented: n_layer={model.config.n_layer}, world_size {world_size}"
+            f"Only balanced partitioning is implemented: n_layer={model.config.n_layer}, devices {devices}"
         )
-
-    layers_per_rank = model.config.n_layer // world_size
+    layers_per_rank = model.config.n_layer // devices
     # dictates where each block should be instantiated
     mapping = layer_to_device(model, chunk_on=Block, chunk_size=layers_per_rank)
-    # materialize each block on the appropriate rank (device)
-    for layer_num, target_rank in mapping.items():
+    # materialize each block on the appropriate device
+    for layer_num, target_index in mapping.items():
         path = f"transformer.h.{layer_num}"
         submodule = model.get_submodule(path)
-        if local_rank == target_rank:
-            materialize_meta_tensors(submodule, device)
+        target_device = torch.device(root.type, target_index)
+        materialize_meta_tensors(submodule, target_device)
         # and build the kv cache
-        submodule.attn.kv_cache = submodule.attn.build_kv_cache(
-            1, max_seq_length, model.cos.size(-1), device if local_rank == target_rank else "meta"
-        )
-    # and everything that is not a block on rank 0
-    if local_rank == 0:
-        materialize_meta_tensors(model, device, skip_fn=lambda path: "transformer.h." in path)
-    # rebuild odd ends on all ranks
-    with device:
+        submodule.attn.kv_cache = submodule.attn.build_kv_cache(1, max_seq_length, model.cos.size(-1), target_device)
+    # rebuild odd ends
+    with root:
         # the rope cache which is on meta device
         model.max_seq_length = max_seq_length
         # the mask cache which cannot be created with `set_kv_cache` because that will set it for all layers
         model.mask_cache = build_mask_cache(max_seq_length)
+    # and everything that is not a block in the root
+    materialize_meta_tensors(model, root)
 
     # quantize
     # FIXME
 
-    if world_size > 1:
-        # setup initial hook for the model input on non-zero ranks
-        if local_rank != 0:
-            model.register_forward_pre_hook(meta_gpt_input)
-
-        # setup communication hooks to pipeline layers
-        send_layers = [layers_per_rank * i - 1 for i in range(1, world_size + 1)]
-        recv_layers = [layers_per_rank * i for i in range(1, world_size)]
-        final_layer = max(send_layers)
-        for layer_num, target_rank in mapping.items():
+    if devices > 1:
+        # setup hooks to pipeline layers
+        for layer_num, target_index in mapping.items():
             path = f"transformer.h.{layer_num}"
             submodule = model.get_submodule(path)
-            if local_rank == target_rank:
-                if layer_num in send_layers:
-                    dst = (target_rank + 1) % world_size
-                    submodule.register_forward_hook(partial(send_block_output, dst))
-                elif layer_num in recv_layers:
-                    src = target_rank - 1
-                    submodule.register_forward_pre_hook(partial(recv_block_input, src, device))
-            if local_rank == 0 and layer_num == final_layer:
-                src = world_size - 1
-                submodule.register_forward_hook(partial(recv_block_output, src, device))
-
-        # setup final hook for the model output
-        model.register_forward_hook(partial(broadcast_gpt_output, device))
+            if layer_num >= layers_per_rank:
+                # we need to move the block input on the boundaries between devices
+                # and also on every non-root device because the RoPE and mask cache is shared
+                # TODO: the second case could be optimized and then we would only need this hook for
+                # `layer_num in [layers_per_rank * i - 1 for i in range(1, devices + 1)]`
+                target_device = torch.device(root.type, target_index)
+                submodule.register_forward_pre_hook(partial(move_block_input, target_device))
+            if layer_num == config.n_layer - 1:
+                submodule.register_forward_hook(partial(move_block_output, root))
 
     return model
 
 
 def layer_to_device(module: torch.nn.Module, chunk_on: Type[torch.nn.Module], chunk_size: int) -> Dict[int, int]:
-    """Create a mapping from layer (block) number to device (rank)."""
+    """Create a mapping from layer (block) number to device."""
     mapping = {}
     for name, submodule in module.named_modules():
         if isinstance(submodule, chunk_on):
@@ -111,55 +91,22 @@ def materialize(module: torch.nn.Module, device: torch.device) -> None:
     module.reset_parameters()
 
 
-def materialize_meta_tensors(
-    module: torch.nn.Module, device: torch.device, skip_fn: Optional[Callable[[str], bool]] = None
-) -> None:
+def materialize_meta_tensors(module: torch.nn.Module, device: torch.device) -> None:
     """Materialize all tensors in a given module."""
-    for path, module in module.named_modules():
-        if skip_fn is not None and skip_fn(path):
-            continue
+    for module in module.modules():
         if any(t.is_meta for t in itertools.chain(module.parameters(recurse=False), module.buffers(recurse=False))):
             materialize(module, device)
 
 
-def meta_gpt_input(module: torch.nn.Module, ins) -> Optional[torch.Tensor]:
-    """``forward_pre_hook`` to replace the original GPT input."""
-    tensor = ins[0]
-    assert tensor.device.type != "meta"
-    tensor = tensor.to(device="meta")
-    return (tensor,) + ins[1:]
+def move_block_input(device: torch.device, module: torch.nn.Module, ins):
+    """``forward_pre_hook`` to move a Block's input before forward."""
+    # during inference, none of the inputs are None: x, cos, sin, mask, input_pos
+    return tuple(t.to(device) for t in ins)
 
 
-def recv_block_input(src: int, device: torch.device, module: torch.nn.Module, ins) -> Optional[torch.Tensor]:
-    """``forward_pre_hook`` to receive a Block's input before forward."""
-    tensor = ins[0]
-    assert tensor.device.type == "meta"
-    tensor = torch.empty_like(tensor, device=device)
-    torch.distributed.recv(tensor, src)
-    return (tensor,) + ins[1:]
-
-
-def send_block_output(dst: int, module: torch.nn.Module, ins, outs) -> Optional[torch.Tensor]:
-    """``forward_hook`` to send a Block's output after forward."""
-    assert outs.device.type != "meta"
-    torch.distributed.send(outs, dst)
-    return torch.empty_like(outs, device="meta")
-
-
-def recv_block_output(src: int, device: torch.device, module: torch.nn.Module, ins, outs) -> Optional[torch.Tensor]:
-    """``forward_hook`` to replace a Block's output after forward."""
-    assert outs.device.type == "meta"
-    outs = torch.empty_like(outs, device=device)
-    torch.distributed.recv(outs, src)
-    return outs
-
-
-def broadcast_gpt_output(device: torch.device, module: torch.nn.Module, ins, out) -> Optional[torch.Tensor]:
-    """``forward_hook`` to replace the final GPT result."""
-    if out.device.type == "meta":
-        out = torch.empty_like(out, device=device)
-    torch.distributed.broadcast(out, 0)
-    return out
+def move_block_output(device: torch.device, module: torch.nn.Module, ins, outs) -> torch.Tensor:
+    """``forward_hook`` to move a Block's output after forward."""
+    return outs.to(device)
 
 
 @torch.inference_mode()
@@ -204,12 +151,15 @@ def main(
         plugins = BitsandbytesPrecision(quantize[4:], dtype)
         precision = None
 
-    fabric = L.Fabric(devices=devices, precision=precision, strategy="ddp", accelerator="cuda", plugins=plugins)
-    # using Fabric as a launcher: we don't want to actually use DDP
-    fabric.launch()
+    fabric = L.Fabric(devices=1, precision=precision, accelerator="cuda", plugins=plugins)
+
+    if devices == "auto":
+        total_devices = CUDAAccelerator.auto_device_count()
+    else:
+        total_devices = sum(CUDAAccelerator.parse_devices(devices))
 
     dtype = _plugin_to_compute_dtype(fabric.strategy.precision)
-    fabric.print(f"Using {dtype} as compute dtype", file=sys.stderr)
+    fabric.print(f"Using {total_devices} devices, {dtype} as compute dtype", file=sys.stderr)
     torch.set_default_dtype(dtype)
 
     check_valid_checkpoint_dir(checkpoint_dir)
@@ -225,7 +175,7 @@ def main(
 
     fabric.print(f"Loading model {str(checkpoint_path)!r} with {config.__dict__}", file=sys.stderr)
     t0 = time.perf_counter()
-    model = get_model(fabric, config, max_returned_tokens)
+    model = get_model(fabric, config, max_returned_tokens, total_devices)
     fabric.print(f"Time to instantiate model: {time.perf_counter() - t0:.02f} seconds.", file=sys.stderr)
     model.eval()
 
