@@ -162,7 +162,7 @@ class LoRALinear(LoRALayer):
             else:
                 raise NotImplementedError(
                     f"Cannot merge the pretrained weights of type {pretrained_dtype}"
-                    f"and LoRA weights of type {lora_data.dtype}"
+                    f" and LoRA weights of type {lora_data.dtype}"
                 )
 
             self.merged = True
