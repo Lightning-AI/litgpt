@@ -17,6 +17,7 @@ from lightning.fabric.strategies import FSDPStrategy
 from lightning.fabric.utilities.throughput import ThroughputMonitor, measure_flops
 from lightning.pytorch.loggers import WandbLogger
 from torch.utils.data import DataLoader
+from torchmetrics.aggregation import RunningMean
 
 # support running without installing as a package
 wd = Path(__file__).parent.parent.resolve()
@@ -148,28 +149,29 @@ def train(fabric, state, train_dataloader, val_dataloader, resume):
     max_tokens_per_device = max_tokens // fabric.world_size
     tokens_per_iter = micro_batch_size * model.config.block_size
     max_iters = max_tokens_per_device // tokens_per_iter
-
-    total_t0 = time.perf_counter()
     initial_iter = state["iter_num"]
-    curr_iter = 0
+    train_iterator = iter(train_dataloader)
 
-    for train_data in train_dataloader:
+    # resume data loader state by fast-forwarding through all seen batches
+    # drop this once streaming dataset supports proper resuming
+    if resume:
+        resume_t0 = time.perf_counter()
+        for resume_iter in range(initial_iter):
+            next(train_iterator)
+            if resume_iter % 1000 == 0:
+                fabric.print(f"Resuming dataset: {resume_iter} / {initial_iter}")
+        fabric.barrier()
+        fabric.print(
+            "Resuming data loader finished."
+            f" Took {time.perf_counter() - resume_t0:.1f} seconds to reach iteration {initial_iter}."
+        )
+
+    running_loss = RunningMean(window=gradient_accumulation_steps, sync_on_compute=False).to(fabric.device)
+    total_t0 = time.perf_counter()
+
+    for train_data in train_iterator:
         if state["iter_num"] >= max_iters:
             break
-
-        # resume data loader state by fast-forwarding through all seen batches
-        # drop this once streaming dataset supports proper resuming
-        if resume:
-            if curr_iter < initial_iter:
-                curr_iter += 1
-                continue
-            resume = False
-            curr_iter = -1
-            fabric.barrier()
-            fabric.print(
-                "Resuming data loader finished."
-                f"Took {time.perf_counter() - total_t0:.1f} seconds to reach iteration {initial_iter}."
-            )
 
         # determine and set the learning rate for this iteration
         lr = get_lr(state["iter_num"], max_iters) if decay_lr else learning_rate
@@ -185,8 +187,10 @@ def train(fabric, state, train_dataloader, val_dataloader, resume):
         is_accumulating = state["iter_num"] % gradient_accumulation_steps != 0
         with fabric.no_backward_sync(model, enabled=is_accumulating):
             logits = model(input_ids)
-            loss = chunked_cross_entropy(logits, targets, chunk_size=0)
+            loss = chunked_cross_entropy(logits, targets)
             fabric.backward(loss / gradient_accumulation_steps)
+
+        running_loss.update(loss.detach())
 
         if not is_accumulating:
             fabric.clip_gradients(model, optimizer, max_norm=grad_clip)
@@ -195,7 +199,7 @@ def train(fabric, state, train_dataloader, val_dataloader, resume):
             state["step_count"] += 1
 
         if state["iter_num"] % log_iter_interval == 0:
-            loss = loss.item()  # expensive device-to-host synchronization
+            loss = running_loss.compute().item()  # expensive device-to-host synchronization
             t1 = time.perf_counter()
             throughput.update(
                 time=(t1 - total_t0),
@@ -214,6 +218,7 @@ def train(fabric, state, train_dataloader, val_dataloader, resume):
                 ),
                 "tokens": state["iter_num"] * micro_batch_size * model.config.block_size,
                 "total_tokens": state["iter_num"] * micro_batch_size * model.config.block_size * fabric.world_size,
+                "learning_rate": lr,
             }
 
             fabric.print(
@@ -255,7 +260,7 @@ def validate(fabric: L.Fabric, model: nn.Module, val_dataloader: DataLoader, max
         input_ids = val_data[:, 0 : model.config.block_size].contiguous().long()
         targets = val_data[:, 1 : (model.config.block_size + 1)].contiguous().long()
         logits = model(input_ids)
-        loss = chunked_cross_entropy(logits, targets, chunk_size=0)
+        loss = chunked_cross_entropy(logits, targets)
         losses[k] = loss
 
     model.train()
@@ -287,7 +292,9 @@ def create_dataloaders(batch_size: int, block_size: int) -> Tuple[DataLoader, Da
     # Mix SlimPajama data and Starcoder data with these proportions:
     weights = (0.693584, 0.306416)
     combined_dataset = CombinedDataset(datasets=train_datasets, seed=42, weights=weights)
-    train_dataloader = DataLoader(combined_dataset, batch_size=batch_size, pin_memory=True, num_workers=8)
+    train_dataloader = DataLoader(
+        combined_dataset, batch_size=batch_size, pin_memory=True, num_workers=8, drop_last=True
+    )
 
     val_dataset = StreamingDataset(
         input_dir="data/slimpajama/val",
@@ -296,7 +303,7 @@ def create_dataloaders(batch_size: int, block_size: int) -> Tuple[DataLoader, Da
         # Consider setting to False, but we would lose some samples due to truncation when world size > 1
         drop_last=True,
     )
-    val_dataloader = DataLoader(val_dataset, batch_size=batch_size, pin_memory=True, num_workers=8)
+    val_dataloader = DataLoader(val_dataset, batch_size=batch_size, pin_memory=True, num_workers=8, drop_last=True)
     return train_dataloader, val_dataloader
 
 

@@ -383,6 +383,61 @@ def test_against_hf_mistral(device, dtype):
     torch.testing.assert_close(ours_y, theirs_y)
 
 
+@torch.inference_mode()
+@pytest.mark.parametrize(
+    ("device", "dtype"),
+    [
+        (torch.device("cpu"), torch.float32),
+        pytest.param(
+            torch.device("cuda"),
+            torch.float16,
+            marks=[
+                # the reference does softmax upscaled to fp32 during attention. additionally, the final layernorm input
+                # is slightly different
+                pytest.mark.xfail(raises=AssertionError, strict=False),
+                RunIf(min_cuda_gpus=1),
+            ],
+        ),
+    ],
+)
+def test_against_original_stablelm_zephyr_3b(device, dtype):
+    from transformers import AutoConfig, AutoModelForCausalLM
+
+    from lit_gpt import GPT, Config
+    from scripts.convert_hf_checkpoint import copy_weights_hf_llama
+
+    torch.set_default_dtype(dtype)
+
+    T = 5
+    ours_config = Config.from_name("stablelm-zephyr-3b", n_layer=2, n_head=16, n_embd=32, intermediate_size=86)
+    theirs_config = AutoConfig.from_pretrained(
+        "stabilityai/stablelm-zephyr-3b",
+        trust_remote_code=True,
+        num_hidden_layers=ours_config.n_layer,
+        num_attention_heads=ours_config.n_head,
+        num_key_value_heads=ours_config.n_head,
+        hidden_size=ours_config.n_embd,
+        intermediate_size=ours_config.intermediate_size,
+        max_position_embeddings=T,
+        torch_dtype=dtype,
+    )
+    assert ours_config.intermediate_size == theirs_config.intermediate_size
+
+    theirs_model = AutoModelForCausalLM.from_config(theirs_config, trust_remote_code=True).to(device)
+    theirs_state_dict = theirs_model.state_dict()
+    state_dict = {}
+    copy_weights_hf_llama(ours_config, {}, state_dict, theirs_state_dict)
+    ours_model = GPT(ours_config).to(device)
+    ours_model.load_state_dict(state_dict)
+
+    # test end to end
+    x = torch.tensor([[9856, 23, 491, 1536, 304]], dtype=torch.int32, device=device)
+    assert x.size(1) == T
+    ours_y = ours_model(x)
+    theirs_y = theirs_model(x)["logits"].to(dtype)  # HF converts logits to float
+    torch.testing.assert_close(ours_y, theirs_y)
+
+
 @RunIf(dynamo=True)
 @torch.inference_mode()
 def test_model_compile():
@@ -463,19 +518,36 @@ SUPPORTS_FLASH_ATTENTION = (
 )
 
 
-@RunIf(min_cuda_gpus=1)
+@RunIf(min_cuda_gpus=1, min_torch="2.2")
 @pytest.mark.parametrize("config", config_module.configs, ids=[c["name"] for c in config_module.configs])
 @torch.inference_mode()
 def test_sdpa_choice(config):
-    from torch.backends.cuda import SDPBackend
+    from torch.backends.cuda import (
+        SDPAParams,
+        SDPBackend,
+        can_use_efficient_attention,
+        can_use_flash_attention,
+        flash_sdp_enabled,
+        math_sdp_enabled,
+        mem_efficient_sdp_enabled,
+    )
 
     from lit_gpt import GPT
 
     torch.set_default_dtype(torch.float16)
 
-    def assert_sdpa_uses_flash(original_fn, q, k, v, mask):
-        choice = torch._fused_sdp_choice(q, k, v, mask, is_causal=True)
-        assert choice == expected
+    def assert_sdpa_backend(original_fn, q, k, v, mask):
+        params = SDPAParams(q, k, v, mask, 0.0, True)
+        if expected is SDPBackend.FLASH_ATTENTION:
+            assert flash_sdp_enabled()
+            assert can_use_flash_attention(params, True)
+        elif expected is SDPBackend.EFFICIENT_ATTENTION:
+            assert mem_efficient_sdp_enabled()
+            assert can_use_efficient_attention(params, True)
+        elif expected is SDPBackend.MATH:
+            assert math_sdp_enabled()
+        else:
+            raise NotImplementedError
         return original_fn(q, k, v, mask)
 
     config["n_layer"] = 1
@@ -490,7 +562,7 @@ def test_sdpa_choice(config):
         pytest.xfail()
 
     for h in model.transformer.h:
-        h.attn.scaled_dot_product_attention = partial(assert_sdpa_uses_flash, h.attn.scaled_dot_product_attention)
+        h.attn.scaled_dot_product_attention = partial(assert_sdpa_backend, h.attn.scaled_dot_product_attention)
 
     if SUPPORTS_FLASH_ATTENTION:
         # flash attention 1 requires q,k,v to have the same last dimension and to be a multiple of 8 and less than or
@@ -508,19 +580,36 @@ def test_sdpa_choice(config):
         model(x)
 
 
-@RunIf(min_cuda_gpus=1)
+@RunIf(min_cuda_gpus=1, min_torch="2.2")
 @pytest.mark.parametrize("config", config_module.configs, ids=[c["name"] for c in config_module.configs])
 @torch.inference_mode()
 def test_sdpa_choice_kv_cache(config):
-    from torch.backends.cuda import SDPBackend
+    from torch.backends.cuda import (
+        SDPAParams,
+        SDPBackend,
+        can_use_efficient_attention,
+        can_use_flash_attention,
+        flash_sdp_enabled,
+        math_sdp_enabled,
+        mem_efficient_sdp_enabled,
+    )
 
     from lit_gpt import GPT
 
     torch.set_default_dtype(torch.float16)
 
-    def assert_sdpa_uses_flash(original_fn, q, k, v, mask):
-        choice = torch._fused_sdp_choice(q, k, v, mask, is_causal=True)
-        assert choice == expected
+    def assert_sdpa_backend(original_fn, q, k, v, mask):
+        params = SDPAParams(q, k, v, mask, 0.0, True)
+        if expected is SDPBackend.FLASH_ATTENTION:
+            assert flash_sdp_enabled()
+            assert can_use_flash_attention(params, True)
+        elif expected is SDPBackend.EFFICIENT_ATTENTION:
+            assert mem_efficient_sdp_enabled()
+            assert can_use_efficient_attention(params, True)
+        elif expected is SDPBackend.MATH:
+            assert math_sdp_enabled()
+        else:
+            raise NotImplementedError
         return original_fn(q, k, v, mask)
 
     config["n_layer"] = 1
@@ -538,7 +627,7 @@ def test_sdpa_choice_kv_cache(config):
         pytest.xfail()
 
     for h in model.transformer.h:
-        h.attn.scaled_dot_product_attention = partial(assert_sdpa_uses_flash, h.attn.scaled_dot_product_attention)
+        h.attn.scaled_dot_product_attention = partial(assert_sdpa_backend, h.attn.scaled_dot_product_attention)
 
     if SUPPORTS_FLASH_ATTENTION:
         # flash attention does not support an attention mask

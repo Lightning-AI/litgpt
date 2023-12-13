@@ -164,6 +164,19 @@ configs = [
         n_embd=6144,
         padding_multiple=256,
     ),
+    # https://huggingface.co/stabilityai/stablelm-zephyr-3b/blob/main/config.json
+    dict(
+        name="stablelm-zephyr-3b",
+        hf_config=dict(org="stabilityai", name="stablelm-zephyr-3b"),
+        padded_vocab_size=50304,
+        n_layer=32,
+        n_head=32,
+        n_embd=2560,
+        parallel_residual=False,
+        bias=False,
+        _mlp_class="LLaMAMLP",
+        intermediate_size=6912,
+    ),
 ]
 
 ####################
@@ -1174,8 +1187,8 @@ for c in mistral:
 ############
 tiny_llama = [
     dict(
-        name="tiny-llama-1.1b",
-        hf_config=dict(org="TinyLlama", name="TinyLlama-1.1B-intermediate-step-955k-token-2T"),
+        name="tiny-llama-1.1b{}",
+        hf_config=dict(org="TinyLlama", name="TinyLlama-1.1B{}"),
         block_size=2048,
         vocab_size=32000,
         padding_multiple=64,
@@ -1192,7 +1205,39 @@ tiny_llama = [
         n_query_groups=4,
     )
 ]
-configs.extend(tiny_llama)
+for c in tiny_llama:
+    for kind, hf_postfix in (("", "-intermediate-step-955k-token-2T"), ("chat", "-Chat-v0.6")):
+        copy = deepcopy(c)
+        copy["name"] = c["name"].format(kind)
+        copy["hf_config"]["name"] = c["hf_config"]["name"].format(hf_postfix)
+        configs.append(copy)
 
+
+##########################
+# Trelis Function Calling
+##########################
+llama_2_function_calling = [
+    # https://huggingface.co/Trelis/Llama-2-7b-chat-hf-function-calling-v2/blob/main/config.json
+    dict(
+        name="Llama-2-7b-chat-hf-function-calling-v2",
+        hf_config=dict(org="Trelis", name="Llama-2-7b-chat-hf-function-calling-v2"),
+        padding_multiple=64,
+        n_layer=32,
+        rotary_percentage=1.0,
+        parallel_residual=False,
+        bias=False,
+        _norm_class="RMSNorm",
+        _mlp_class="LLaMAMLP",
+        intermediate_size=11008,
+        norm_eps=1e-6,
+        block_size=4096,
+        vocab_size=32000,
+        n_head=32,
+        n_embd=4096,
+        rope_base=10000,
+    )
+]
+
+configs.extend(llama_2_function_calling)
 
 name_to_config = {config["name"]: config for config in configs}
