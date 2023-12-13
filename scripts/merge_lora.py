@@ -2,17 +2,16 @@
 
 import sys
 from pathlib import Path
-from typing import Literal, Optional
+from typing import Optional
 
 import lightning as L
 import torch
-from lightning.fabric.plugins import BitsandbytesPrecision
 
 # support running without installing as a package
 wd = Path(__file__).parent.parent.resolve()
 sys.path.append(str(wd))
 
-from lit_gpt.lora import GPT, Config, dequantize_model, lora_filter, merge_lora_weights
+from lit_gpt.lora import GPT, Config, lora_filter, merge_lora_weights
 from lit_gpt.utils import check_valid_checkpoint_dir, get_default_supported_precision, lazy_load
 
 lora_r = 8
@@ -31,7 +30,6 @@ def merge_lora(
     checkpoint_dir: Path = Path("checkpoints/stabilityai/stablelm-base-alpha-3b"),
     out_dir: Path = Path("out/lora/checkpoint"),
     precision: Optional[str] = None,
-    quantize: Optional[Literal["bnb.nf4", "bnb.nf4-dq", "bnb.fp4", "bnb.fp4-dq", "bnb.int8"]] = None,
 ) -> None:
     """Generates a response based on a given instruction and an optional input.
     This script will only work with checkpoints from the instruction-tuned GPT-LoRA model.
@@ -45,16 +43,7 @@ def merge_lora(
         precision: Indicates the Fabric precision setting to use.
     """
     precision = precision or get_default_supported_precision(training=False)
-
-    plugins = None
-    if quantize is not None and quantize.startswith("bnb."):
-        if "mixed" in precision:
-            raise ValueError("Quantization and mixed precision is not supported.")
-        dtype = {"16-true": torch.float16, "bf16-true": torch.bfloat16, "32-true": torch.float32}[precision]
-        plugins = BitsandbytesPrecision(quantize[4:], dtype)
-        precision = None
-
-    fabric = L.Fabric(devices=1, precision=precision, plugins=plugins)
+    fabric = L.Fabric(devices=1, precision=precision)
 
     check_valid_checkpoint_dir(checkpoint_dir)
 
@@ -80,9 +69,6 @@ def merge_lora(
     model.load_state_dict(checkpoint)
 
     merge_lora_weights(model)
-
-    if quantize:
-        dequantize_model(model)
 
     save_path = out_dir / "lit_model.pth"
     fabric.print(f"Saving weights to {str(save_path)!r}")
