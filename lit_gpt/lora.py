@@ -95,7 +95,7 @@ class LoRALinear(LoRALayer):
         r: int = 0,
         lora_alpha: int = 1,
         lora_dropout: float = 0.0,
-        **kwargs,
+        **kwargs: Any,
     ):
         """LoRA wrapper around linear class.
 
@@ -133,11 +133,38 @@ class LoRALinear(LoRALayer):
             nn.init.kaiming_uniform_(self.lora_A, a=math.sqrt(5))
             nn.init.zeros_(self.lora_B)
 
+    def get_lora_AB(self) -> torch.Tensor:
+        """Return merged lora_A and lora_B matrices with the same shape as the pretrained weights."""
+        return (self.lora_B @ self.lora_A) * self.scaling
+
     def merge(self) -> None:
         """Merges the LoRA weights into the full-rank weights (W = W + delta_W)."""
         if self.r > 0 and not self.merged:
-            # Merge the weights and mark it
-            self.linear.weight.data += (self.lora_B @ self.lora_A) * self.scaling
+            pretrained_dtype = self.linear.weight.data.dtype
+            lora_data = self.get_lora_AB()
+            # if the pretrained weights and LoRA weights are of the same dtype - simply sum them
+            if pretrained_dtype == lora_data.dtype:
+                self.linear.weight.data += lora_data
+            # if only the pretrained are in quantized form - dequantize, sum with LoRA and quantize the result
+            elif pretrained_dtype == torch.uint8:
+                import bitsandbytes as bnb
+
+                weight = self.linear.weight
+                # capture args like `compress_statistics`, `quant_type` and `quant_state`
+                weight_kwargs = weight.__dict__
+                # dequantize the pretrained weights and sum them with LoRA weights
+                weight_data = bnb.functional.dequantize_4bit(weight.data, weight.quant_state) + lora_data
+                # weights are quantized when they are moved to CUDA device,
+                # so we have to first move them to CPU and after - to CUDA
+                self.linear.weight = bnb.nn.Params4bit(weight_data.to("cpu"), requires_grad=False, **weight_kwargs).to(
+                    weight.device
+                )
+            else:
+                raise NotImplementedError(
+                    f"Cannot merge the pretrained weights of type {pretrained_dtype}"
+                    f" and LoRA weights of type {lora_data.dtype}"
+                )
+
             self.merged = True
 
     def forward(self, x: torch.Tensor) -> torch.Tensor:
@@ -164,7 +191,7 @@ class LoRAQKVLinear(LoRALinear):
         lora_alpha: int = 1,
         lora_dropout: float = 0.0,
         enable_lora: Union[bool, Tuple[bool, bool, bool]] = False,
-        **kwargs,
+        **kwargs: Any,
     ):
         """LoRA wrapper around linear class that is used for calculation of q, k and v matrices.
 
@@ -330,23 +357,24 @@ class LoRAQKVLinear(LoRALinear):
             [F.conv1d(a, b) for a, b in zip(input_splitted, weight_splitted)], dim=1  # (B, C_output', T)
         )  # (B, C_output, T)
 
-    def merge(self) -> None:
-        """Merges the LoRA weights into the full-rank weights (W = W + delta_W)."""
-
+    def get_lora_AB(self) -> torch.Tensor:
+        """Return merged lora_A and lora_B matrices with the same shape as the pretrained weights."""
         # Let's assume that:
         # ⚬ self.linear.weight.data: (384, 128) or (3 * embedding_size, embedding_size)
         # ⚬ self.lora_A.data: (4, 128)
         # ⚬ self.lora_B.data: (256, 2)
+        lora = self.conv1d(
+            self.lora_A.data.unsqueeze(0),  # (4, 128) -> (1, 4, 128)
+            self.lora_B.data.unsqueeze(-1),  # (256, 2) -> (256, 2, 1)
+        ).squeeze(
+            0
+        )  # (1, 4, 128) @ (256, 2, 1) -> (1, 256, 128) -> (256, 128)
+        return self.zero_pad(lora * self.scaling)  # (256, 128) after zero_pad (384, 128)
+
+    def merge(self) -> None:
+        """Merges the LoRA weights into the full-rank weights (W = W + delta_W)."""
         if self.r > 0 and any(self.enable_lora) and not self.merged:
-            delta_w = self.conv1d(
-                self.lora_A.data.unsqueeze(0),  # (4, 128) -> (1, 4, 128)
-                self.lora_B.data.unsqueeze(-1),  # (256, 2) -> (256, 2, 1)
-            ).squeeze(
-                0
-            )  # (1, 4, 128) @ (256, 2, 1) -> (1, 256, 128) -> (256, 128)
-            # W = W + delta_W (merge)
-            self.linear.weight.data += self.zero_pad(delta_w * self.scaling)  # (256, 128) after zero_pad (384, 128)
-            self.merged = True
+            super().merge()
 
     def forward(self, x: torch.Tensor) -> torch.Tensor:
         """Do the forward pass.

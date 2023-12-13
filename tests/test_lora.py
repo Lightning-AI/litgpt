@@ -362,9 +362,8 @@ def test_lora_qkv_linear_weights_merged_status(rank, enable_lora, expected_merge
 @RunIf(min_cuda_gpus=1)
 # platform dependent cuda issue: libbitsandbytes_cpu.so: undefined symbol: cquantize_blockwise_fp16_nf4
 @pytest.mark.xfail(raises=AttributeError, strict=False)
-# https://github.com/Lightning-AI/lit-gpt/issues/513
-@pytest.mark.xfail(raises=RuntimeError, strict=True)
 def test_lora_merge_with_quantize():
+    import bitsandbytes as bnb
     from lightning.fabric.plugins.precision.bitsandbytes import _BITSANDBYTES_AVAILABLE, BitsandbytesPrecision
 
     if not _BITSANDBYTES_AVAILABLE:
@@ -398,6 +397,7 @@ def test_lora_merge_with_quantize():
 
     attn_proj = model.transformer.h[0].attn.proj
     initial_weight = attn_proj.linear.weight.clone()
+    initial_weight_kwargs = attn_proj.linear.weight.__dict__
 
     # this was skipped
     assert model.lm_head.linear.weight.dtype is torch.float32
@@ -422,7 +422,15 @@ def test_lora_merge_with_quantize():
 
     # check that `W_after = W_initial + (A x B)`
     delta_w = (attn_proj.lora_B @ attn_proj.lora_A) * attn_proj.scaling
-    torch.testing.assert_close(weight_after, initial_weight + delta_w)
+    # dequantize initial weight and sum with delta_w
+    initial_weight_data = (
+        bnb.functional.dequantize_4bit(initial_weight.data, initial_weight_kwargs["quant_state"]) + delta_w
+    )
+    # quantize again
+    initial_weight_data = bnb.nn.Params4bit(
+        initial_weight_data.to("cpu"), requires_grad=False, **initial_weight_kwargs
+    ).to(initial_weight.device)
+    torch.testing.assert_close(weight_after, initial_weight_data)
 
 
 def test_lora_gpt_init_weights():
