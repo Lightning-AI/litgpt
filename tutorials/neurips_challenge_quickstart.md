@@ -179,7 +179,7 @@ out/lora_merged/stablelm-base-alpha-3b/
 ```
 
 For more information on LoRA weight merging, please see the
-[Merging LoRA Weights](https://github.com/Lightning-AI/lit-gpt/blob/main/tutorials/finetune_lora.md#merging-lora-weights)
+[Merging LoRA Weights](finetune_lora.md#merging-lora-weights)
 section of the LoRA finetuning documentation.
 
 After merging the weights, we can use the `lm_eval_harness.py` similar to before with the only difference that we now use the new
@@ -207,5 +207,5 @@ You will be required to submit a Docker image for the submission itself. Fortuna
 - A more extensive guide, including environment setup tips: [The NeurIPS 2023 LLM Efficiency Challenge Starter Guide](https://lightning.ai/pages/community/tutorial/neurips2023-llm-efficiency-guide)
 - [Official competition Discord](https://discord.com/login?redirect_to=%2Fchannels%2F1077906959069626439%2F1134560480795570186) and [Lightning AI + Lit-GPT Discord](https://discord.com/invite/MWAEvnC5fU)
 - LoRA vs Adapter vs Adapter v2 comparison in Lit-GPT using Falcon 7B: [Finetuning Falcon LLMs More Efficiently With LoRA and Adapters](https://lightning.ai/pages/community/finetuning-falcon-efficiently/)
-- [Dealing with out-of-memory (OOM) errors in Lit-GPT](https://github.com/Lightning-AI/lit-gpt/blob/main/tutorials/oom.md)
+- [Dealing with out-of-memory (OOM) errors in Lit-GPT](oom.md)
 - Introduction to Fabric (an API to access more advanced PyTorch features used in Lit-GPT) and memory saving tips: [Optimizing Memory Usage for Training LLMs and Vision Transformers in PyTorch](https://lightning.ai/pages/community/tutorial/pytorch-memory-vit-llm/)
