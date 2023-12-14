@@ -111,6 +111,8 @@ pip install -r requirements-all.txt
 
 **(Optional) Use Flash Attention 2 (only available in PyTorch 2.2)**
 
+Flash Attention 2 will be used automatically if Pytorch 2.2 (or higher) is installed. 
+However, this is only available via the Pytorch nightly build, which you can get by running:
 ```bash
 pip uninstall -y torch
 pip install --pre torch --index-url https://download.pytorch.org/whl/nightly/cu121
