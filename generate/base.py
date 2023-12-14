@@ -47,7 +47,7 @@ def sample(logits: torch.Tensor, temperature: float = 1.0, top_k: Optional[int] 
 def next_token(model: GPT, input_pos: torch.Tensor, x: torch.Tensor, **kwargs: Any) -> torch.Tensor:
     logits = model(x, input_pos)
     next = sample(logits, **kwargs)
-    return next.to(dtype=x.dtype)
+    return next.type_as(x)
 
 
 @torch.inference_mode()
