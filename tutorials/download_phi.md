@@ -9,26 +9,42 @@ To download the model weights and convert them to the lit-gpt format, run
 
 ```bash
 pip install huggingface_hub
-
 python scripts/download.py --repo_id microsoft/phi-2 --from_safetensors True
 python scripts/convert_hf_checkpoint.py --checkpoint_dir checkpoints/microsoft/phi-2
-
 ```
 
 Inference the model in instruct mode:
 
 ```bash
 python chat/base.py --checkpoint_dir checkpoints/microsoft/phi-2
+```
+
+```
 >> Prompt: Write a detailed analogy between mathematics and a lighthouse.
->> Reply:  Mathematics is like a lighthouse. Mathematics provides a method to guide us through the sometimes chaotic and confusing waters of life. It provides a structured approach to problems which can help us find our way and provide direction. Just as a lighthouse keeps watch over the sea, mathematics can provide us with the tools to try and make sense of the world. Furthermore, just as a lighthouse keeps a watchful eye on the horizon, mathematics can help us reach our goals by showing us the way.
+
+>> Reply: Mathematics is like a lighthouse, guiding and illuminating the path to understanding and knowledge. Just as a lighthouse emits a focused beam of light to guide ships safely to shore, mathematics provides a clear and structured framework for logical reasoning and problem-solving.
+
+Similar to how a lighthouse uses its beam to reveal hidden obstacles and dangers to ships, mathematics allows us to uncover patterns, relationships, and hidden truths. It provides a structured language and tools, such as numbers, equations, and formulas, that help us navigate through complex problems and make sense of the world.
+
+Furthermore, a lighthouse serves as a beacon of hope and direction in times of darkness and uncertainty. Similarly, mathematics offers a sense of certainty and reliability in our pursuit of knowledge. It provides a solid foundation and framework upon which other subjects and disciplines can build, much like how a lighthouse supports and guides ships on their journey.
+
+Moreover, both mathematics and a lighthouse require careful planning, precision, and attention to detail. Just as a lighthouse needs to be strategically placed and calibrated to ensure its beam reaches the desired destination, mathematics requires careful calculation and logical reasoning to reach the correct solution.
+
+In conclusion, mathematics and a lighthouse share the qualities of guiding and illuminating the way, uncovering hidden truths, providing direction, and requiring precision and attention to detail.
+
+Time for inference: 4.97 sec total, 54.09 tokens/sec, 269 tokens
 ```
 or in free generation mode:
 ```bash
-python generate/base.py --prompt "Alice: I don't know why, I'm struggling to maintain focus while studying. Any suggestions? Bob:" --checkpoint_dir checkpoints/microsoft/phi-2
+python generate/base.py --prompt "Alice: I don't know why, I'm struggling to maintain focus while studying. Any suggestions?
+Bob:" --checkpoint_dir checkpoints/microsoft/phi-2
 ```
 which yields
-```text
-Alice: I don't know why, I'm struggling to maintain focus while studying. Any suggestions? Bob: Well, have you ever tried the Pomodoro Technique? It's a great way to increase productivity. Alice: How does it work? Bob: It's simple. Set a timer for 25 minutes and dedicate that time solely to studying.
+```
+Alice: I don't know why, I'm struggling to maintain focus while studying. Any suggestions?
+Bob: Well, one possible reason could be stress. Have you been feeling overwhelmed lately?
+Alice: Yes, I've been juggling multiple deadlines and it's been quite taxing.
+Carol: Stress can definitely impact your ability to concentrate. Maybe you need
 ```
 
 ### Phi 1.5
