@@ -133,18 +133,28 @@ def copy_weights_hf_llama(
         "lm_head.weight": "lm_head.weight",
     }
     if config._mlp_class == "LLaMAMoE":
-        weight_map.update({
-            "model.layers.{}.block_sparse_moe.gate.weight": "transformer.h.{l}.mlp.gate.weight",
-            "model.layers.{}.block_sparse_moe.experts.{}.w1.weight": "transformer.h.{l}.mlp.experts.{e}.fc_1.weight",
-            "model.layers.{}.block_sparse_moe.experts.{}.w3.weight": "transformer.h.{l}.mlp.experts.{e}.fc_2.weight",
-            "model.layers.{}.block_sparse_moe.experts.{}.w2.weight": "transformer.h.{l}.mlp.experts.{e}.proj.weight",
-        })
+        weight_map.update(
+            {
+                "model.layers.{}.block_sparse_moe.gate.weight": "transformer.h.{l}.mlp.gate.weight",
+                "model.layers.{}.block_sparse_moe.experts.{}.w1.weight": (
+                    "transformer.h.{l}.mlp.experts.{e}.fc_1.weight"
+                ),
+                "model.layers.{}.block_sparse_moe.experts.{}.w3.weight": (
+                    "transformer.h.{l}.mlp.experts.{e}.fc_2.weight"
+                ),
+                "model.layers.{}.block_sparse_moe.experts.{}.w2.weight": (
+                    "transformer.h.{l}.mlp.experts.{e}.proj.weight"
+                ),
+            }
+        )
     elif config._mlp_class == "LLaMAMLP":
-        weight_map.update({
-            "model.layers.{}.mlp.gate_proj.weight": "transformer.h.{l}.mlp.fc_1.weight",
-            "model.layers.{}.mlp.up_proj.weight": "transformer.h.{l}.mlp.fc_2.weight",
-            "model.layers.{}.mlp.down_proj.weight": "transformer.h.{l}.mlp.proj.weight",
-        })
+        weight_map.update(
+            {
+                "model.layers.{}.mlp.gate_proj.weight": "transformer.h.{l}.mlp.fc_1.weight",
+                "model.layers.{}.mlp.up_proj.weight": "transformer.h.{l}.mlp.fc_2.weight",
+                "model.layers.{}.mlp.down_proj.weight": "transformer.h.{l}.mlp.proj.weight",
+            }
+        )
     else:
         raise NotImplementedError
 

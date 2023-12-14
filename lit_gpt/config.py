@@ -55,8 +55,8 @@ class Config:
     intermediate_size: Optional[int] = None
     rope_condense_ratio: int = 1
     rope_base: int = 10000
-    n_expert: int = 0,
-    n_expert_per_token: int = 0,
+    n_expert: int = 0
+    n_expert_per_token: int = 0
 
     def __post_init__(self):
         if not self.name:
@@ -1193,7 +1193,7 @@ mistral = [
         rope_base=1000000,
         n_expert=8,
         n_expert_per_token=2,
-    )
+    ),
 ]
 for c in mistral:
     for kind in ("", "Instruct-"):
