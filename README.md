@@ -109,7 +109,10 @@ Install with all dependencies (including quantization, sentencepiece, tokenizers
 pip install -r requirements-all.txt
 ```
 
-**(Optional) Use Flash Attention 2 (only available in PyTorch 2.2)**
+**(Optional) Use Flash Attention 2**
+
+Flash Attention 2 will be used automatically if PyTorch 2.2 (or higher) is installed. 
+Currently, that requires installing PyTorch nightly, which you can get by running:
 
 ```bash
 pip uninstall -y torch
