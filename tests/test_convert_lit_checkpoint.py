@@ -133,7 +133,7 @@ def test_against_hf_llama2(ours_kwargs):
         num_hidden_layers=ours_config.n_layer,
         intermediate_size=ours_config.intermediate_size,
         max_position_embeddings=T,
-        rms_norm_eps=1e-5,
+        rms_norm_eps=ours_config.norm_eps,
         num_query_value_heads=ours_config.n_query_groups,
         rope_theta=ours_config.rope_base,
     )
@@ -148,6 +148,52 @@ def test_against_hf_llama2(ours_kwargs):
 
     # test end to end
     x = torch.tensor([[9856, 23, 491, 1536, 304]], dtype=torch.int32)
+    ours_y = ours_model(x)
+    theirs_y = theirs_model(x)["logits"]
+    torch.testing.assert_close(ours_y, theirs_y)
+
+
+@torch.inference_mode()
+def test_against_mixtral():
+    from transformers.models.mixtral import MixtralConfig, MixtralForCausalLM
+
+    from lit_gpt import GPT, Config
+    from scripts.convert_lit_checkpoint import copy_weights_llama
+
+    ours_config = Config.from_name(
+        "Mixtral-8x7B-Instruct-v0.1",
+        padded_vocab_size=10000,
+        n_layer=2,
+        n_embd=32,
+        n_head=8,
+        n_query_groups=2,
+        intermediate_size=86,
+        n_expert=4,
+    )
+    T = 5
+    theirs_config = MixtralConfig(
+        vocab_size=ours_config.padded_vocab_size,
+        hidden_size=ours_config.n_embd,
+        num_attention_heads=ours_config.n_head,
+        num_hidden_layers=ours_config.n_layer,
+        intermediate_size=ours_config.intermediate_size,
+        max_position_embeddings=T,
+        rms_norm_eps=ours_config.norm_eps,
+        num_key_value_heads=ours_config.n_query_groups,
+        rope_theta=ours_config.rope_base,
+        num_local_experts=ours_config.n_expert,
+    )
+    assert ours_config.intermediate_size == theirs_config.intermediate_size
+
+    ours_model = GPT(ours_config)
+    ours_state_dict = ours_model.state_dict()
+    theirs_state_dict = {}
+    copy_weights_llama(ours_config, theirs_state_dict, ours_state_dict)
+    theirs_model = MixtralForCausalLM(theirs_config)
+    theirs_model.load_state_dict(theirs_state_dict)
+
+    # test end to end
+    x = torch.tensor([[9856, 23, 491, 1536, 304], [23, 345, 65, 123, 321]], dtype=torch.int32)
     ours_y = ours_model(x)
     theirs_y = theirs_model(x)["logits"]
     torch.testing.assert_close(ours_y, theirs_y)

@@ -55,6 +55,8 @@ class Config:
     intermediate_size: Optional[int] = None
     rope_condense_ratio: int = 1
     rope_base: int = 10000
+    n_expert: int = 0
+    n_expert_per_token: int = 0
 
     def __post_init__(self):
         if not self.name:
@@ -1148,7 +1150,21 @@ phi = [
         shared_attention_norm=True,
         lm_head_bias=True,
         gelu_approximate="tanh",
-    )
+    ),
+    # https://huggingface.co/microsoft/phi-2/blob/main/config.json
+    dict(
+        name="phi-2",
+        hf_config=dict(org="microsoft", name="phi-2"),
+        vocab_size=50257,
+        padded_vocab_size=51200,
+        block_size=2048,
+        n_embd=2560,
+        n_layer=32,
+        rotary_percentage=0.4,  # 32 / (n_embd / n_head) = 32 / 80
+        shared_attention_norm=True,
+        lm_head_bias=True,
+        gelu_approximate="tanh",
+    ),
 ]
 configs.extend(phi)
 
@@ -1172,7 +1188,26 @@ mistral = [
         norm_eps=1e-05,
         _mlp_class="LLaMAMLP",
         intermediate_size=14336,
-    )
+    ),
+    # https://huggingface.co/mistralai/Mixtral-8x7B-v0.1/blob/main/config.json
+    dict(
+        name="Mixtral-8x7B-{}v0.1",
+        hf_config=dict(org="mistralai", name="Mixtral-8x7B-{}v0.1"),
+        padded_vocab_size=32000,
+        block_size=4096,  # should be 32768 but sliding window attention is not implemented
+        n_layer=32,
+        n_query_groups=8,
+        rotary_percentage=1.0,
+        parallel_residual=False,
+        bias=False,
+        _norm_class="RMSNorm",
+        norm_eps=1e-05,
+        _mlp_class="LLaMAMoE",
+        intermediate_size=14336,
+        rope_base=1000000,
+        n_expert=8,
+        n_expert_per_token=2,
+    ),
 ]
 for c in mistral:
     for kind in ("", "Instruct-"):

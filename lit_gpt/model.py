@@ -289,6 +289,35 @@ class LLaMAMLP(nn.Module):
         return self.proj(x)
 
 
+class LLaMAMoE(nn.Module):
+    def __init__(self, config: Config) -> None:
+        super().__init__()
+        self.gate = nn.Linear(config.n_embd, config.n_expert, bias=False)
+        self.experts = nn.ModuleList(LLaMAMLP(config) for _ in range(config.n_expert))
+
+        self.config = config
+
+    def forward(self, x: torch.Tensor) -> torch.Tensor:
+        """
+        Derived from: https://github.com/dzhulgakov/llama-mistral/blob/cecee4/llama/model.py#L351-L364.
+        See also figure 1 in https://arxiv.org/abs/2211.15841
+        """
+        B, T, C = x.size()  # batch size, sequence length, embedding dimensionality (n_embd)
+        x = x.view(-1, C)  # (B*T, C)
+        router = self.gate(x)  # (B*T, n_expert)
+        probs, indices = torch.topk(router, self.config.n_expert_per_token, dim=-1)
+        probs = probs.softmax(dim=-1)  # (B*T, n_expert_per_token)
+        indices = indices.flatten()  # (B*T*n_expert_per_token)
+        x = x.repeat_interleave(self.config.n_expert_per_token, dim=0)
+        y = torch.empty_like(x)  # (B*T*n_expert_per_token, C)
+        for i, expert in enumerate(self.experts):
+            mask = indices == i
+            y[mask] = expert(x[mask])
+        y = y.view(*probs.shape, -1) * probs.unsqueeze(-1)  # (B*T, n_expert_per_token, C)
+        y = y.sum(dim=1)  # (B*T, C)
+        return y.view(B, T, C)
+
+
 def build_rope_cache(
     seq_len: int, n_elem: int, device: Optional[torch.device] = None, base: int = 10000, condense_ratio: int = 1
 ) -> Tuple[torch.Tensor, torch.Tensor]:
