@@ -5,7 +5,7 @@ import sys
 from contextlib import nullcontext
 from io import BytesIO
 from pathlib import Path
-from typing import TYPE_CHECKING, ContextManager, Dict, List, Mapping, Optional, TypeVar, Union
+from typing import TYPE_CHECKING, ContextManager, Dict, List, Mapping, Optional, TypeVar, Union, Iterable, Any
 
 import lightning as L
 import torch
@@ -349,3 +349,20 @@ def estimate_flops(model: "GPT", training: bool) -> int:
     # forward + backward
     frozen_ops_per_step = 2 if training else 1
     return ops_per_step * trainable_flops + frozen_ops_per_step * frozen_flops
+
+
+class CycleIterator:
+    def __init__(self, iterable: Iterable) -> None:
+        self.iterable = iterable
+        self.epoch = 0
+        self._iterator = None
+
+    def __next__(self) -> Any:
+        if self._iterator is None:
+            self._iterator = iter(self.iterable)
+        try:
+            return next(self._iterator)
+        except StopIteration:
+            self._iterator = iter(self.iterable)
+            self.epoch += 1
+            return next(self._iterator)
