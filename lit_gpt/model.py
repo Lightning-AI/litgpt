@@ -298,18 +298,23 @@ class LLaMAMoE(nn.Module):
         self.config = config
 
     def forward(self, x: torch.Tensor) -> torch.Tensor:
-        """Credit: https://github.com/dzhulgakov/llama-mistral/blob/cecee4/llama/model.py#L351-L364"""
+        """
+        Derived from: https://github.com/dzhulgakov/llama-mistral/blob/cecee4/llama/model.py#L351-L364.
+        See also figure 1 in https://arxiv.org/abs/2211.15841
+        """
         B, T, C = x.size()  # batch size, sequence length, embedding dimensionality (n_embd)
-        x = x.view(-1, C)
-        scores = self.gate(x)
-        expert_weights, expert_indices = torch.topk(scores, self.config.n_expert_per_token, dim=-1)
-        expert_weights = expert_weights.softmax(dim=-1)
-        flat_expert_indices = expert_indices.view(-1)
+        x = x.view(-1, C)  # (B*T, C)
+        router = self.gate(x)  # (B*T, n_expert)
+        probs, indices = torch.topk(router, self.config.n_expert_per_token, dim=-1)
+        probs = probs.softmax(dim=-1)  # (B*T, n_expert_per_token)
+        indices = indices.flatten()  # (B*T*n_expert_per_token)
         x = x.repeat_interleave(self.config.n_expert_per_token, dim=0)
-        y = torch.empty_like(x)
+        y = torch.empty_like(x)  # (B*T*n_expert_per_token, C)
         for i, expert in enumerate(self.experts):
-            y[flat_expert_indices == i] = expert(x[flat_expert_indices == i])
-        y = (y.view(*expert_weights.shape, -1) * expert_weights.unsqueeze(-1)).sum(dim=1)
+            mask = indices == i
+            y[mask] = expert(x[mask])
+        y = y.view(*probs.shape, -1) * probs.unsqueeze(-1)  # (B*T, n_expert_per_token, C)
+        y = y.sum(dim=1)  # (B*T, C)
         return y.view(B, T, C)
 
 
