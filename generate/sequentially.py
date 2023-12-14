@@ -26,8 +26,9 @@ from lit_gpt.utils import check_valid_checkpoint_dir, get_default_supported_prec
 
 
 @torch.inference_mode()
-def pipeline(model: GPT, root: torch.device, max_seq_length: int, devices: int):
+def sequential(model: GPT, root: torch.device, max_seq_length: int, devices: int):
     if model.config.n_layer % devices:
+        # TODO: support smarter partitioning schemes
         raise NotImplementedError(
             f"Only balanced partitioning is implemented: n_layer={model.config.n_layer}, devices {devices}"
         )
@@ -56,7 +57,7 @@ def pipeline(model: GPT, root: torch.device, max_seq_length: int, devices: int):
     replace_device(model, replace=torch.device("cpu"), by=root)
 
     if devices > 1:
-        # setup hooks to pipeline layers
+        # install hooks to move layer inputs/output between devices
         for layer_num, (path, target_index) in enumerate(mapping.items()):
             submodule = model.get_submodule(path)
             if layer_num >= layers_per_rank:
@@ -182,13 +183,15 @@ def main(
     filterwarnings("ignore", ".*copying from a non-meta parameter.*", module="torch.nn.modules.module")
     t0 = time.perf_counter()
     state_dict = torch.load(str(checkpoint_path), mmap=True, map_location="cpu")
-    # if using quantization, the model will also be quantized on load
+    # TODO: this assumes that the model fits on CPU. Use lazy_load and make the materialization checkpoint aware
     model.load_state_dict(state_dict, assign=True)
     fabric.print(f"Time to load the model weights: {time.perf_counter() - t0:.02f} seconds.", file=sys.stderr)
 
     model = fabric.setup_module(model, move_to_device=False)
 
-    model = pipeline(model, fabric.device, max_returned_tokens, total_devices)
+    t0 = time.perf_counter()
+    model = sequential(model, fabric.device, max_returned_tokens, total_devices)
+    fabric.print(f"Time sequential-ize the model: {time.perf_counter() - t0:.02f} seconds.", file=sys.stderr)
 
     if compile:
         # TODO: raises an internal compile AssertionError caused by fabric.strategy.precision.forward_context

@@ -22,7 +22,7 @@ from lightning import Fabric
     ],
 )
 def test_layer_to_device(n_layer, devices, expected):
-    from generate.pipelined import layer_to_device
+    from generate.sequentially import layer_to_device
     from lit_gpt.model import GPT, Block
 
     with torch.device("meta"):
@@ -38,7 +38,7 @@ def path_to_device(model):
 
 
 def test_replace_device():
-    from generate.pipelined import replace_device
+    from generate.sequentially import replace_device
 
     class Submodule(torch.nn.Module):
         def __init__(self):
@@ -84,13 +84,13 @@ def test_replace_device():
 
 
 def _test_model_1device(accelerator):
-    from generate.pipelined import pipeline
+    from generate.sequentially import sequential
     from lit_gpt import GPT
 
     fabric = Fabric(accelerator=accelerator, devices=1)
     with torch.device("meta"):
         model = GPT.from_name("pythia-14m", n_layer=2)
-    model = pipeline(model, fabric.device, 15, 1)
+    model = sequential(model, fabric.device, 15, 1)
 
     device_str = str(fabric.device)
     print(fabric.device, accelerator)
@@ -156,13 +156,13 @@ def find_forward_hooks(module):
 
 @RunIf(min_cuda_gpus=2)
 def test_model_forward_hooks(monkeypatch):
-    from generate.pipelined import pipeline
+    from generate.sequentially import sequential
     from lit_gpt import GPT
 
     fabric = Fabric(accelerator="cuda", devices=1)
     with torch.device("meta"):
         model = GPT.from_name("pythia-14m")  # 6 layers
-    model = pipeline(model, fabric.device, max_seq_length=15, devices=2)
+    model = sequential(model, fabric.device, max_seq_length=15, devices=2)
 
     hooks = find_forward_hooks(model)
     actual = path_to_device(model)
@@ -269,7 +269,7 @@ def test_model_forward_hooks(monkeypatch):
 
 
 @RunIf(min_cuda_gpus=2)
-def test_base_with_pipelined(tmp_path):
+def test_base_with_sequentially(tmp_path):
     from lit_gpt import GPT, Config
     from scripts.download import download_from_hub
 
@@ -290,14 +290,14 @@ def test_base_with_pipelined(tmp_path):
         f"--checkpoint_dir={str(checkpoint_dir)}",
     ]
     base_stdout = subprocess.check_output([sys.executable, "generate/base.py", *args]).decode()
-    pipelined_stdout = subprocess.check_output([sys.executable, "generate/pipelined.py", "--devices=2", *args]).decode()
+    sequential_stdout = subprocess.check_output([sys.executable, "generate/sequentially.py", "--devices=2", *args]).decode()
 
     assert base_stdout.startswith("What food do llamas eat?")
-    assert base_stdout == pipelined_stdout
+    assert base_stdout == sequential_stdout
 
 
 def test_cli():
-    cli_path = Path(__file__).parent.parent / "generate" / "pipelined.py"
+    cli_path = Path(__file__).parent.parent / "generate" / "sequentially.py"
     output = subprocess.check_output([sys.executable, cli_path, "-h"])
     output = str(output.decode())
     assert "Generates text samples" in output
