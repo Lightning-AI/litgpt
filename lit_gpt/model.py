@@ -231,9 +231,6 @@ class CausalSelfAttention(nn.Module):
     def scaled_dot_product_attention(
         self, q: torch.Tensor, k: torch.Tensor, v: torch.Tensor, mask: Optional[torch.Tensor] = None
     ) -> torch.Tensor:
-        if mask is not None and q.device.type == "meta":
-            # the mask cache is shared across layers. For layers that are on meta-device, the mask needs to be moved
-            mask = mask.to("meta")
         scale = 1.0 / math.sqrt(self.config.head_size)
         y = torch.nn.functional.scaled_dot_product_attention(
             q, k, v, attn_mask=mask, dropout_p=0.0, scale=scale, is_causal=mask is None
@@ -314,10 +311,6 @@ def build_rope_cache(
 
 
 def apply_rope(x: torch.Tensor, cos: torch.Tensor, sin: torch.Tensor) -> torch.Tensor:
-    """T."""
-    if x.device.type == "meta":
-        # the RoPE cache is shared across layers. For the layers that are on meta-device, the cache needs to be moved
-        cos, sin = cos.to("meta"), sin.to("meta")
     head_size = x.size(-1)
     x1 = x[..., : head_size // 2]  # (B, nh, T, hs/2)
     x2 = x[..., head_size // 2 :]  # (B, nh, T, hs/2)
