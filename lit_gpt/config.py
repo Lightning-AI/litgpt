@@ -1149,7 +1149,8 @@ phi = [
         lm_head_bias=True,
         gelu_approximate="tanh",
     ),
-     dict(
+    # https://huggingface.co/microsoft/phi-2/blob/main/config.json
+    dict(
         name="phi-2",
         hf_config=dict(org="microsoft", name="phi-2"),
         vocab_size=50257,
