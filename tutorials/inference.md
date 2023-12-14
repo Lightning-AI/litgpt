@@ -33,4 +33,29 @@ Check out our [quantization tutorial](quantize.md).
 
 ## Run a large model on multiple smaller devices
 
-FIXME
+You can also use the `generate/sequentially.py` script to leverage multiple devices to perform inference.
+This will allow you to run models that wouldn't fit in a single card by partitioning the weights across all your devices and running the layers sequentially.
+
+For instance, `falcon-180b` would require ~360 GB of GPU memory to load on a single device, plus the memory from activations.
+We can instead run it on TODO A100 40GB GPUs instead of 10 GPUs:
+
+```shell
+CUDA_VISIBLE_DEVICES=TODO python generate/sequentially.py \
+  --checkpoint_dir checkpoints/tiiuae/falcon-180b \
+  --max_new_tokens TODO
+```
+
+Taking ~25 GB of memory, and run at 2.5 tokens/sec.
+
+The script also supports quantization, using 4-bit precision, we can use 4 GPUs
+
+```shell
+CUDA_VISIBLE_DEVICES=0,1,2,3 python generate/sequentially.py \
+  --checkpoint_dir checkpoints/tiiuae/falcon-180b \
+  --max_new_tokens TODO \
+  --quantize bnb.nf4
+```
+
+Which will take ~25 GB of memory, and run at 2.5 tokens/sec.
+
+Smaller devices like 3090s or A10Gs (24 GB) can also fit it with this technique.
