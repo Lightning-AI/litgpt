@@ -191,6 +191,21 @@ class LLaMAMLP(lit_gpt.model.LLaMAMLP):
         super()._load_from_state_dict(state_dict, prefix, *args, **kwargs)
 
 
+class LLaMAMoE(lit_gpt.model.LLaMAMLP):
+    def __init__(self, config: Config) -> None:
+        nn.Module.__init__(self)
+        self.gate = AdapterV2Linear(config.n_embd, config.n_expert, bias=False)
+        self.experts = nn.ModuleList(LLaMAMLP(config) for _ in range(config.n_expert))
+
+        self.config = config
+
+    def _load_from_state_dict(self, state_dict: Dict, prefix: str, *args: Any, **kwargs: Any) -> None:
+        """For compatibility with base checkpoints."""
+        mapping = {"gate.weight": "gate.linear.weight"}
+        state_dict = map_old_state_dict_weights(state_dict, mapping, prefix)
+        super()._load_from_state_dict(state_dict, prefix, *args, **kwargs)
+
+
 def mark_only_adapter_v2_as_trainable(model: GPT) -> None:
     """Sets requires_grad=False for all non-adapter weights"""
     for name, param in model.named_parameters():
