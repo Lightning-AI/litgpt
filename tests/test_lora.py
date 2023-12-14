@@ -82,9 +82,11 @@ def test_lora_merge():
 @pytest.mark.parametrize("quant_type", ["nf4", "fp4"])
 @pytest.mark.parametrize(
     "compute_dtype",
-    [torch.float16, torch.bfloat16]
-    if (torch.cuda.is_available() and torch.cuda.is_bf16_supported())
-    else [torch.float16],
+    (
+        [torch.float16, torch.bfloat16]
+        if (torch.cuda.is_available() and torch.cuda.is_bf16_supported())
+        else [torch.float16]
+    ),
 )
 def test_dequantize_model(quant_type, compute_dtype):
     from lightning.fabric.plugins.precision.bitsandbytes import _BITSANDBYTES_AVAILABLE, BitsandbytesPrecision
