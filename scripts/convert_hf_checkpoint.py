@@ -119,27 +119,42 @@ def copy_weights_hf_llama(
 ) -> None:
     weight_map = {
         "model.embed_tokens.weight": "transformer.wte.weight",
-        "model.layers.{}.input_layernorm.weight": "transformer.h.{}.norm_1.weight",
-        "model.layers.{}.input_layernorm.bias": "transformer.h.{}.norm_1.bias",
+        "model.layers.{}.input_layernorm.weight": "transformer.h.{l}.norm_1.weight",
+        "model.layers.{}.input_layernorm.bias": "transformer.h.{l}.norm_1.bias",
         "model.layers.{}.self_attn.q_proj.weight": None,
         "model.layers.{}.self_attn.k_proj.weight": None,
         "model.layers.{}.self_attn.v_proj.weight": None,
-        "model.layers.{}.self_attn.o_proj.weight": "transformer.h.{}.attn.proj.weight",
+        "model.layers.{}.self_attn.o_proj.weight": "transformer.h.{l}.attn.proj.weight",
         "model.layers.{}.self_attn.rotary_emb.inv_freq": None,
-        "model.layers.{}.post_attention_layernorm.weight": "transformer.h.{}.norm_2.weight",
-        "model.layers.{}.post_attention_layernorm.bias": "transformer.h.{}.norm_2.bias",
-        "model.layers.{}.mlp.gate_proj.weight": "transformer.h.{}.mlp.fc_1.weight",
-        "model.layers.{}.mlp.up_proj.weight": "transformer.h.{}.mlp.fc_2.weight",
-        "model.layers.{}.mlp.down_proj.weight": "transformer.h.{}.mlp.proj.weight",
+        "model.layers.{}.post_attention_layernorm.weight": "transformer.h.{l}.norm_2.weight",
+        "model.layers.{}.post_attention_layernorm.bias": "transformer.h.{l}.norm_2.bias",
         "model.norm.weight": "transformer.ln_f.weight",
         "model.norm.bias": "transformer.ln_f.bias",
         "lm_head.weight": "lm_head.weight",
     }
+    if config._mlp_class == "LLaMAMoE":
+        weight_map.update({
+            "model.layers.{}.block_sparse_moe.gate.weight": "transformer.h.{l}.mlp.gate.weight",
+            "model.layers.{}.block_sparse_moe.experts.{}.w1.weight": "transformer.h.{l}.mlp.experts.{e}.fc_1.weight",
+            "model.layers.{}.block_sparse_moe.experts.{}.w3.weight": "transformer.h.{l}.mlp.experts.{e}.fc_2.weight",
+            "model.layers.{}.block_sparse_moe.experts.{}.w2.weight": "transformer.h.{l}.mlp.experts.{e}.proj.weight",
+        })
+    elif config._mlp_class == "LLaMAMLP":
+        weight_map.update({
+            "model.layers.{}.mlp.gate_proj.weight": "transformer.h.{l}.mlp.fc_1.weight",
+            "model.layers.{}.mlp.up_proj.weight": "transformer.h.{l}.mlp.fc_2.weight",
+            "model.layers.{}.mlp.down_proj.weight": "transformer.h.{l}.mlp.proj.weight",
+        })
+    else:
+        raise NotImplementedError
 
     for name, param in hf_weights.items():
         if "model.layers" in name:
-            from_name, number = layer_template(name, 2)
-            qkv = qkv_weights.setdefault(number, [None, None, None])
+            from_name, l = layer_template(name, 2)
+            e = None
+            if "block_sparse_moe.experts" in name:
+                from_name, e = layer_template(from_name, 5)
+            qkv = qkv_weights.setdefault(l, [None, None, None])
             if "q_proj" in name:
                 qkv[0] = param
             elif "k_proj" in name:
@@ -149,7 +164,7 @@ def copy_weights_hf_llama(
             to_name = weight_map[from_name]
             if to_name is None:
                 continue
-            to_name = to_name.format(number)
+            to_name = to_name.format(l=l, e=e)
         else:
             to_name = weight_map[name]
         param = load_param(param, name, dtype)
@@ -264,7 +279,7 @@ def convert_hf_checkpoint(
 
     if "falcon" in model_name:
         copy_fn = partial(copy_weights_falcon, model_name)
-    elif config._mlp_class == "LLaMAMLP":
+    elif config._mlp_class in ("LLaMAMLP", "LLaMAMoE"):
         # holder to reconstitute the split q, k, v
         qkv_weights = {}
         copy_fn = partial(copy_weights_hf_llama, config, qkv_weights)

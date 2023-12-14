@@ -133,7 +133,7 @@ def test_against_hf_llama2(ours_kwargs):
         num_hidden_layers=ours_config.n_layer,
         intermediate_size=ours_config.intermediate_size,
         max_position_embeddings=T,
-        rms_norm_eps=1e-5,
+        rms_norm_eps=ours_config.norm_eps,
         num_query_value_heads=ours_config.n_query_groups,
         rope_theta=ours_config.rope_base,
     )

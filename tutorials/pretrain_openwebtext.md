@@ -78,7 +78,7 @@ To train a smaller Pythia 70M model on a single GPU, you can modify the `pretrai
 model_name = "pythia-70m"
 ```
 
-(Please see the the `download_*` scripts in the [../tutorials](../tutorials) for more information on downloading model checkpoints for different models.)
+(Please see the the `download_*` scripts in the [tutorials](.) for more information on downloading model checkpoints for different models.)
 
 Also, before you start training, note that you will need to prepare the dataset specifically for this model since it may use a different tokenizer:
 
