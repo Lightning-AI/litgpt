@@ -34,7 +34,7 @@ Supports the following popular model checkpoints:
 | Meta AI [Code Llama](tutorials/download_code_llama.md)                            | 7B, 13B, 34B                             | [Rozière et al. 2023](https://arxiv.org/abs/2308.12950)                                          |
 | Meta AI [Llama 2](tutorials/download_llama_2.md)                                  | 7B, 13B, 70B                             | [Touvron et al. 2023](https://arxiv.org/abs/2307.09288)                                          |
 | Mistral AI [Mistral](tutorials/download_mistral.md)                               | 7B                                       | [Mistral  website](https://mistral.ai/)                                                          |
-| Microsoft Research [phi-1.5](tutorials/download_phi15.md)                         | 1.3B                                     | [Li et al. 2023](https://arxiv.org/abs/2309.05463)                                               |
+| Microsoft Research [Phi](tutorials/download_phi.md)                         | 1.3B, 2.7B                                     | [Li et al. 2023](https://arxiv.org/abs/2309.05463)                                               |
 | NousResearch Nous-Hermes                                                          | 7B, 13B, 70B                             | [Org page](https://huggingface.co/NousResearch)                                                  |
 | OpenLM Research [OpenLLaMA](tutorials/download_openllama.md)                      | 3B, 7B, 13B                              | [Geng & Liu 2023](https://github.com/openlm-research/open_llama)                                 |
 | Platypus                                                                          | 7B, 13B, 70B                             | [Lee, Hunter, and Ruiz 2023](https://arxiv.org/abs/2308.07317)                                   |
@@ -111,7 +111,7 @@ pip install -r requirements-all.txt
 
 **(Optional) Use Flash Attention 2**
 
-Flash Attention 2 will be used automatically if PyTorch 2.2 (or higher) is installed. 
+Flash Attention 2 will be used automatically if PyTorch 2.2 (or higher) is installed.
 Currently, that requires installing PyTorch nightly, which you can get by running:
 
 ```bash
