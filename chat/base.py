@@ -342,7 +342,7 @@ def prompt_config(checkpoint_dir: Path, tokenizer: Tokenizer) -> Tuple[str, Tupl
         stop_tokens = ([tokenizer.eos_id],)
         return system_prompt, stop_tokens
 
-    if re.search("phi", checkpoint_name):
+    if re.search("phi-1", checkpoint_name):
         system_prompt = "{prompt}\n\nAnswer:"
 
         stop_tokens = (
@@ -353,6 +353,11 @@ def prompt_config(checkpoint_dir: Path, tokenizer: Tokenizer) -> Tuple[str, Tupl
             # to stop or else things like code generation wouldn't work
             # [198, 198],  # '\n', '\n'
         )
+        return system_prompt, stop_tokens
+
+    if re.search("phi-2", checkpoint_name):
+        system_prompt = "Instruct:{prompt}\nOutput:"
+        stop_tokens = ([tokenizer.eos_id],)
         return system_prompt, stop_tokens
 
     if re.search(r"TinyLlama.*Chat", checkpoint_name):
