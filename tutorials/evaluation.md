@@ -43,7 +43,7 @@ A list of supported tasks can be found [here](https://github.com/EleutherAI/lm-e
 
 The above command can be used to evaluate models that are saved via a single checkpoint file. This includes downloaded checkpoints and base models finetuned via the full and adapter finetuning scripts.
 
-For LoRA-finetuned models, you need to first merge the LoRA weights with the original checkpoint file as described in the [Merging LoRA Weights](https://github.com/Lightning-AI/lit-gpt/blob/main/tutorials/finetune_lora.md#merging-lora-weights) section of the LoRA finetuning documentation.
+For LoRA-finetuned models, you need to first merge the LoRA weights with the original checkpoint file as described in the [Merging LoRA Weights](finetune_lora.md#merging-lora-weights) section of the LoRA finetuning documentation.
 
 &nbsp;
 
