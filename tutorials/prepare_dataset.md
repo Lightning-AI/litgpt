@@ -197,7 +197,7 @@ python finetune/lora.py
  --out_dir "out/lora/alpaca"
 ```
 
-Please read the [tutorials/finetune_*.md](../tutorials) documents for more information about finetuning models.
+Please read the [tutorials/finetune_*.md](.) documents for more information about finetuning models.
 
 > [!IMPORTANT]
 > Make sure that the `prepare_*.py` and `finetune/*.py` scripts use the same model checkpoint specified via `--checkpoint_dir`.
@@ -282,7 +282,7 @@ python scripts/prepare_csv.py --csv_path test_data.csv \
 --ignore_index -1
 ```
 
-Replace `test_data.csv` with your CSV path and the other additional parameters accordingly. Executing the command above will save `train.pt` and `test.pt` on your disk at the `destination_path`. Now you can use the prepared data to [finetune your model](https://github.com/Lightning-AI/lit-gpt/blob/main/tutorials/finetune_lora.md#running-the-finetuning).
+Replace `test_data.csv` with your CSV path and the other additional parameters accordingly. Executing the command above will save `train.pt` and `test.pt` on your disk at the `destination_path`. Now you can use the prepared data to [finetune your model](finetune_lora.md#running-the-finetuning).
 
 &nbsp;
 
