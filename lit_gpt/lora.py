@@ -680,6 +680,28 @@ class LLaMAMLP(lit_gpt.model.LLaMAMLP):
         super()._load_from_state_dict(state_dict, prefix, *args, **kwargs)
 
 
+class LLaMAMoE(lit_gpt.model.LLaMAMLP):
+    def __init__(self, config: Config) -> None:
+        nn.Module.__init__(self)
+        self.gate = LoRALinear(
+            config.n_embd,
+            config.n_expert,
+            bias=False,
+            r=(config.r if config.to_mlp else 0),
+            lora_alpha=config.alpha,
+            lora_dropout=config.dropout,
+        )
+        self.experts = nn.ModuleList(LLaMAMLP(config) for _ in range(config.n_expert))
+
+        self.config = config
+
+    def _load_from_state_dict(self, state_dict: Dict, prefix: str, *args: Any, **kwargs: Any) -> None:
+        """For compatibility with base checkpoints."""
+        mapping = {"gate.weight": "gate.linear.weight"}
+        state_dict = map_old_state_dict_weights(state_dict, mapping, prefix)
+        super()._load_from_state_dict(state_dict, prefix, *args, **kwargs)
+
+
 def merge_lora_weights(model: GPT) -> None:
     """Merge LoRA weights into the full-rank weights to speed up inference."""
     for module in model.modules():

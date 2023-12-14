@@ -33,8 +33,8 @@ Supports the following popular model checkpoints:
 | LMSYS [Vicuna](tutorials/download_vicuna.md)                                      | 7B, 13B, 33B                             | [Li et al. 2023](https://lmsys.org/blog/2023-03-30-vicuna/)                                      |
 | Meta AI [Code Llama](tutorials/download_code_llama.md)                            | 7B, 13B, 34B                             | [Rozière et al. 2023](https://arxiv.org/abs/2308.12950)                                          |
 | Meta AI [Llama 2](tutorials/download_llama_2.md)                                  | 7B, 13B, 70B                             | [Touvron et al. 2023](https://arxiv.org/abs/2307.09288)                                          |
-| Mistral AI [Mistral](tutorials/download_mistral.md)                               | 7B                                       | [Mistral  website](https://mistral.ai/)                                                          |
-| Microsoft Research [Phi](tutorials/download_phi.md)                         | 1.3B, 2.7B                                     | [Li et al. 2023](https://arxiv.org/abs/2309.05463)                                               |
+| Mistral AI [Mistral and Mixtral](tutorials/download_mistral.md)                   | 7B                                       | [Mistral  website](https://mistral.ai/)                                                          |
+| Microsoft Research [Phi](tutorials/download_phi.md)                               | 1.3B, 2.7B                               | [Li et al. 2023](https://arxiv.org/abs/2309.05463)                                               |
 | NousResearch Nous-Hermes                                                          | 7B, 13B, 70B                             | [Org page](https://huggingface.co/NousResearch)                                                  |
 | OpenLM Research [OpenLLaMA](tutorials/download_openllama.md)                      | 3B, 7B, 13B                              | [Geng & Liu 2023](https://github.com/openlm-research/open_llama)                                 |
 | Platypus                                                                          | 7B, 13B, 70B                             | [Lee, Hunter, and Ruiz 2023](https://arxiv.org/abs/2308.07317)                                   |
@@ -227,7 +227,7 @@ Follow this guide to start pretraining on
 
 ## Supported datasets
 
-Lit-GPT includes a variety of dataset preparation scripts for finetuning and pretraining. Additional information about the datasets and dataset preparation is provided in the [Preparing Datasets](https://github.com/Lightning-AI/lit-gpt/blob/main/tutorials/prepare_dataset.md) tutorial.
+Lit-GPT includes a variety of dataset preparation scripts for finetuning and pretraining. Additional information about the datasets and dataset preparation is provided in the [Preparing Datasets](tutorials/prepare_dataset.md) tutorial.
 
 
 &nbsp;
