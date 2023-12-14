@@ -191,6 +191,8 @@ def main(
     model = pipeline(model, fabric.device, max_returned_tokens, total_devices)
 
     if compile:
+        # TODO: raises an internal compile AssertionError caused by fabric.strategy.precision.forward_context
+        raise NotImplementedError
         # silence developer warning on nightly builds
         # https://github.com/pytorch/pytorch/blob/v2.2.0-rc5/torch/_inductor/ir.py#L4166
         pattern = re.compile(".*DeviceCopy in input program.*")
