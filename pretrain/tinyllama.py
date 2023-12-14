@@ -3,7 +3,6 @@ This script is adapted from TinyLlama:
 https://github.com/jzhang38/TinyLlama/blob/main/pretrain/tinyllama.py
 """
 import math
-import os
 import sys
 import time
 from functools import partial
@@ -30,7 +29,7 @@ from lit_gpt.utils import chunked_cross_entropy, num_parameters
 # System settings
 model_name = "tiny-llama-1.1b"
 name = "lit-tiny-llama-1.1b"
-out_dir = Path(os.getenv("LIGHTNING_ARTIFACTS_DIR", "out")) / name
+out_dir = Path("out") / name
 logger_name = "tensorboard"
 
 # Hyperparameters
@@ -38,13 +37,13 @@ devices = 8
 
 global_batch_size = 512
 learning_rate = 4e-4
-micro_batch_size = 4
+micro_batch_size = 8
 max_tokens = int(3e12)  # 3 trillion
-warmup_steps = 2000 / 4
+warmup_steps = 2000
 log_step_interval = 1
 eval_iters = 100
-save_step_interval = 500
-eval_step_interval = 500
+save_step_interval = 1000
+eval_step_interval = 1000
 
 weight_decay = 1e-1
 beta1 = 0.9
@@ -64,8 +63,7 @@ hparams = {k: v for k, v in locals().items() if isinstance(v, (int, float, str))
 
 
 def setup(resume: Union[bool, Path] = False):
-    wandb_logger = choose_logger("wandb", name=name, resume=resume)
-    tensorboard_logger = choose_logger("tensorboard", name=name, resume=resume)
+    logger = choose_logger(logger_name, name=name, resume=resume)
 
     if devices > 1:
         strategy = FSDPStrategy(
@@ -74,16 +72,17 @@ def setup(resume: Union[bool, Path] = False):
             state_dict_type="full",
             limit_all_gathers=True,
             cpu_offload=False,
-            sharding_strategy="HYBRID_SHARD",  # set NCCL_CROSS_NIC=1
+            sharding_strategy="HYBRID_SHARD",
         )
     else:
         strategy = "auto"
 
-    fabric = L.Fabric(devices=devices, strategy=strategy, precision="bf16-true", loggers=[wandb_logger, tensorboard_logger])
+    fabric = L.Fabric(devices=devices, strategy=strategy, precision="bf16-mixed", loggers=[logger])
     fabric.launch()
 
     fabric.print(hparams)
-    fabric.logger.log_hyperparams(hparams)
+    if logger_name in ("tensorboard", "wandb"):
+        fabric.logger.log_hyperparams(hparams)
 
     main(fabric, resume)
 
@@ -121,7 +120,7 @@ def main(fabric, resume):
         resume = max(out_dir.glob("*.pth"), key=(lambda p: int(p.name.split("-")[1])))
     if resume:
         fabric.print(f"Resuming training from {resume}")
-        fabric.load(resume, state, strict=True)
+        fabric.load(resume, state)
 
     train_time = time.perf_counter()
     train(fabric, state, train_dataloader, val_dataloader, resume)
@@ -166,12 +165,7 @@ def train(fabric, state, train_dataloader, val_dataloader, resume):
             f" Took {time.perf_counter() - resume_t0:.1f} seconds to reach iteration {initial_iter}."
         )
 
-    fabric.barrier()
     total_t0 = time.perf_counter()
-
-    # state["train_dataset"] = train_dataloader.dataset.state_dict()
-    # checkpoint_path = out_dir / f"after-resume.pth"
-    # fabric.save(checkpoint_path, state)
 
     for train_data in train_iterator:
         if state["iter_num"] >= max_iters:
@@ -247,7 +241,6 @@ def train(fabric, state, train_dataloader, val_dataloader, resume):
         if not is_accumulating and state["step_count"] % save_step_interval == 0:
             checkpoint_path = out_dir / f"step-{state['step_count']:08d}.pth"
             fabric.print(f"Saving checkpoint to {str(checkpoint_path)!r}")
-            # state["train_dataset"] = train_dataloader.dataset.state_dict()
             fabric.save(checkpoint_path, state)
 
 
@@ -295,7 +288,7 @@ def create_dataloaders(batch_size: int, block_size: int) -> Tuple[DataLoader, Da
     # Mix SlimPajama data and Starcoder data with these proportions:
     weights = (0.693584, 0.306416)
     combined_dataset = CombinedDataset(datasets=train_datasets, seed=42, weights=weights)
-    train_dataloader = DataLoader(combined_dataset, batch_size=batch_size, pin_memory=True, num_workers=8, drop_last=True, prefetch_factor=10)
+    train_dataloader = DataLoader(combined_dataset, batch_size=batch_size, pin_memory=True, num_workers=8, drop_last=True)
 
     val_dataset = StreamingDataset(
         input_dir="data/slimpajama/val",
@@ -338,9 +331,9 @@ def init_weights(module: nn.Module, n_layer: int, n_embd: int):
 
 def choose_logger(logger_name: str, name: str, resume: Union[bool, Path], *args, **kwargs):
     if logger_name == "csv":
-        return CSVLogger(root_dir=(out_dir / "logs"), name="csv", *args, **kwargs)
+        return CSVLogger(root_dir="logs", name=name, *args, **kwargs)
     if logger_name == "tensorboard":
-        return TensorBoardLogger(root_dir=(out_dir / "logs"), name="tensorboard", *args, **kwargs)
+        return TensorBoardLogger(root_dir="logs", name=name, *args, **kwargs)
     if logger_name == "wandb":
         return WandbLogger(project="tinyllama", name=name, resume=(resume is not False), *args, **kwargs)
     raise ValueError(f"`logger={logger_name}` is not a valid option.")
