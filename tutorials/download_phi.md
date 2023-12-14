@@ -1,34 +1,38 @@
 ## Download [phi](https://arxiv.org/abs/2309.05463) weights
 
 ### Phi 2
-Microsoft Research [released](https://www.microsoft.com/en-us/research/blog/phi-2-the-surprising-power-of-small-language-models/) Phi 2, which is a 2.7 billion parameter model trained on "textbook-quality" data with knowledge distillation from Phi 1.5. The model achieves sota results among base LLMs with less than 13B parameters and matches or outperforms models up to 25x larger on complex benchmarks, e.g. it achieves better performance compared to 25x larger Llama-2-70B model on muti-step reasoning tasks, i.e., coding and math. Phi 2 was trained on 1.4T tokens and hast not undergone any RLHF alignment nor has it been instruct fine-tuned. Phi 2 shares the same architecture with Phi 1.5 and has context length of 2048 tokens.
 
+Microsoft Research [released](https://www.microsoft.com/en-us/research/blog/phi-2-the-surprising-power-of-small-language-models/) Phi 2, which is a 2.7 billion parameter model trained on "textbook-quality" data with knowledge distillation from Phi 1.5. The model achieves sota results among base LLMs with less than 13B parameters and matches or outperforms models up to 25x larger on complex benchmarks, e.g. it achieves better performance compared to 25x larger Llama-2-70B model on multi-step reasoning tasks, i.e., coding and math. Phi 2 was trained on 1.4T tokens and has not undergone any RLHF alignment nor has it been instruct fine-tuned. Phi 2 shares the same architecture with Phi 1.5 and has context length of 2048 tokens.
 The model weights are released under [*Microsoft Research license*](https://huggingface.co/microsoft/phi-2#license).
 
 To download the model weights and convert them to the lit-gpt format, run
+
 ```bash
 pip install huggingface_hub
+
 python scripts/download.py --repo_id microsoft/phi-2 --from_safetensors True
 python scripts/convert_hf_checkpoint.py --checkpoint_dir checkpoints/microsoft/phi-2
+
 ```
+
 Inference the model in instruct mode:
-```
+
+```bash
 python chat/base.py --checkpoint_dir checkpoints/microsoft/phi-2
-```
-```
 >> Prompt: Write a detailed analogy between mathematics and a lighthouse.
 >> Reply:  Mathematics is like a lighthouse. Mathematics provides a method to guide us through the sometimes chaotic and confusing waters of life. It provides a structured approach to problems which can help us find our way and provide direction. Just as a lighthouse keeps watch over the sea, mathematics can provide us with the tools to try and make sense of the world. Furthermore, just as a lighthouse keeps a watchful eye on the horizon, mathematics can help us reach our goals by showing us the way.
 ```
 or in free generation mode:
-```
+```bash
 python generate/base.py --prompt "Alice: I don't know why, I'm struggling to maintain focus while studying. Any suggestions? Bob:" --checkpoint_dir checkpoints/microsoft/phi-2
 ```
 which yields
-```
+```text
 Alice: I don't know why, I'm struggling to maintain focus while studying. Any suggestions? Bob: Well, have you ever tried the Pomodoro Technique? It's a great way to increase productivity. Alice: How does it work? Bob: It's simple. Set a timer for 25 minutes and dedicate that time solely to studying.
 ```
 
 ### Phi 1.5
+
 A team at Microsoft Research has made available Phi 1.5, which is a 1.3 billion parameter model optimized for common sense reasoning in natural language, showing performance on par with models 5x its size, especially in grade-school mathematics and basic coding. This model retains characteristics of larger LLMs, and significant improvement was noted in reducing toxic and biased generations by avoiding web data. It's also worth highlighting that while this model performs well on language understanding and common sense reasoning tasks, it is a base model that has not undergone any supervised instruction finetuning or finetuning with RLHF.
 
 The model was trained the same data sources (7B tokens) as its [phi-1](https://arxiv.org/abs/2306.11644) predecessor, which includes
