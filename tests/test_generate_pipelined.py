@@ -5,6 +5,7 @@ import sys
 from collections import defaultdict
 from dataclasses import asdict
 from pathlib import Path
+from re import escape
 
 import pytest
 import torch
@@ -28,6 +29,7 @@ def test_layer_to_device(n_layer, devices, expected):
         model = GPT.from_name("pythia-14m", n_layer=n_layer)
 
     actual = layer_to_device(model, Block, chunk_size=n_layer // devices)
+    expected = {f"transformer.h.{i}": v for i, v in expected.items()}
     assert actual == expected
 
 
@@ -35,91 +37,63 @@ def path_to_device(model):
     return {k: str(v.device) for k, v in itertools.chain(model.named_parameters(), model.named_buffers())}
 
 
-def test_materialize_meta_tensors():
-    from generate.pipelined import materialize_meta_tensors
-    from lit_gpt.model import GPT
+def test_replace_device():
+    from generate.pipelined import replace_device
 
-    with torch.device("meta"):
-        model = GPT.from_name("pythia-14m", n_layer=2)
+    class Submodule(torch.nn.Module):
+        def __init__(self):
+            super().__init__()
+            self.register_buffer("foo", torch.tensor(1, device="cpu"))
+            self.register_buffer("bar", torch.tensor(1, device="cpu"))
 
-    materialize_meta_tensors(model.transformer.h[1], torch.device("cpu"))
+    class MyModel(torch.nn.Module):
+        def __init__(self):
+            super().__init__()
+            self.modules = torch.nn.ModuleDict(
+                {
+                    "module1": torch.nn.Linear(1, 1, bias=True, device="meta"),
+                    "module2": torch.nn.Linear(1, 1, bias=False, device="cpu"),
+                }
+            )
+            self.submodule = Submodule()
+
+    model = MyModel()
     assert path_to_device(model) == {
-        "cos": "meta",
-        "lm_head.weight": "meta",
-        "sin": "meta",
-        "transformer.h.0.attn.attn.bias": "meta",
-        "transformer.h.0.attn.attn.weight": "meta",
-        "transformer.h.0.attn.proj.bias": "meta",
-        "transformer.h.0.attn.proj.weight": "meta",
-        "transformer.h.0.mlp.fc.bias": "meta",
-        "transformer.h.0.mlp.fc.weight": "meta",
-        "transformer.h.0.mlp.proj.bias": "meta",
-        "transformer.h.0.mlp.proj.weight": "meta",
-        "transformer.h.0.norm_1.bias": "meta",
-        "transformer.h.0.norm_1.weight": "meta",
-        "transformer.h.0.norm_2.bias": "meta",
-        "transformer.h.0.norm_2.weight": "meta",
-        "transformer.h.1.attn.attn.bias": "cpu",
-        "transformer.h.1.attn.attn.weight": "cpu",
-        "transformer.h.1.attn.proj.bias": "cpu",
-        "transformer.h.1.attn.proj.weight": "cpu",
-        "transformer.h.1.mlp.fc.bias": "cpu",
-        "transformer.h.1.mlp.fc.weight": "cpu",
-        "transformer.h.1.mlp.proj.bias": "cpu",
-        "transformer.h.1.mlp.proj.weight": "cpu",
-        "transformer.h.1.norm_1.bias": "cpu",
-        "transformer.h.1.norm_1.weight": "cpu",
-        "transformer.h.1.norm_2.bias": "cpu",
-        "transformer.h.1.norm_2.weight": "cpu",
-        "transformer.ln_f.bias": "meta",
-        "transformer.ln_f.weight": "meta",
-        "transformer.wte.weight": "meta",
+        "modules.module1.bias": "meta",
+        "modules.module1.weight": "meta",
+        "modules.module2.weight": "cpu",
+        "submodule.bar": "cpu",
+        "submodule.foo": "cpu",
+    }
+    model = replace_device(model, torch.device("cpu"), torch.device("meta"))
+    assert path_to_device(model) == {
+        "modules.module1.bias": "meta",
+        "modules.module1.weight": "meta",
+        "modules.module2.weight": "meta",
+        "submodule.bar": "meta",
+        "submodule.foo": "meta",
     }
 
-    materialize_meta_tensors(model, torch.device("cpu"))
-    assert path_to_device(model) == {
-        "cos": "cpu",
-        "lm_head.weight": "cpu",
-        "sin": "cpu",
-        "transformer.h.0.attn.attn.bias": "cpu",
-        "transformer.h.0.attn.attn.weight": "cpu",
-        "transformer.h.0.attn.proj.bias": "cpu",
-        "transformer.h.0.attn.proj.weight": "cpu",
-        "transformer.h.0.mlp.fc.bias": "cpu",
-        "transformer.h.0.mlp.fc.weight": "cpu",
-        "transformer.h.0.mlp.proj.bias": "cpu",
-        "transformer.h.0.mlp.proj.weight": "cpu",
-        "transformer.h.0.norm_1.bias": "cpu",
-        "transformer.h.0.norm_1.weight": "cpu",
-        "transformer.h.0.norm_2.bias": "cpu",
-        "transformer.h.0.norm_2.weight": "cpu",
-        "transformer.h.1.attn.attn.bias": "cpu",
-        "transformer.h.1.attn.attn.weight": "cpu",
-        "transformer.h.1.attn.proj.bias": "cpu",
-        "transformer.h.1.attn.proj.weight": "cpu",
-        "transformer.h.1.mlp.fc.bias": "cpu",
-        "transformer.h.1.mlp.fc.weight": "cpu",
-        "transformer.h.1.mlp.proj.bias": "cpu",
-        "transformer.h.1.mlp.proj.weight": "cpu",
-        "transformer.h.1.norm_1.bias": "cpu",
-        "transformer.h.1.norm_1.weight": "cpu",
-        "transformer.h.1.norm_2.bias": "cpu",
-        "transformer.h.1.norm_2.weight": "cpu",
-        "transformer.ln_f.bias": "cpu",
-        "transformer.ln_f.weight": "cpu",
-        "transformer.wte.weight": "cpu",
-    }
+    model = MyModel()
+    model.submodule.bar = model.submodule.bar.to("meta")
+    with pytest.raises(
+        ValueError,
+        match=escape("multiple devices: {'submodule.foo': device(type='cpu'), 'submodule.bar': device(type='meta')}"),
+    ):
+        replace_device(model, torch.device("cpu"), torch.device("meta"))
 
 
 def _test_model_1device(accelerator):
-    from generate.pipelined import get_model
-    from lit_gpt.config import Config
+    from generate.pipelined import pipeline
+    from lit_gpt import GPT
 
     fabric = Fabric(accelerator=accelerator, devices=1)
-    config = Config.from_name("pythia-14m", n_layer=2)
-    model = get_model(fabric, config, 15, 1)
+    with torch.device("meta"):
+        model = GPT.from_name("pythia-14m", n_layer=2)
+    model = pipeline(model, fabric.device, 15, 1)
 
     device_str = str(fabric.device)
+    print(fabric.device, accelerator)
     assert path_to_device(model) == {
         "cos": device_str,
         "sin": device_str,
@@ -182,12 +156,13 @@ def find_forward_hooks(module):
 
 @RunIf(min_cuda_gpus=2)
 def test_model_forward_hooks(monkeypatch):
-    from generate.pipelined import get_model
-    from lit_gpt.config import Config
+    from generate.pipelined import pipeline
+    from lit_gpt import GPT
 
     fabric = Fabric(accelerator="cuda", devices=1)
-    config = Config.from_name("pythia-14m")  # 6 layers
-    model = get_model(fabric, config, max_seq_length=15, devices=2)
+    with torch.device("meta"):
+        model = GPT.from_name("pythia-14m")  # 6 layers
+    model = pipeline(model, fabric.device, max_seq_length=15, devices=2)
 
     hooks = find_forward_hooks(model)
     actual = path_to_device(model)
