@@ -9,9 +9,10 @@ import pytest
 from lightning import Fabric
 
 
-@pytest.mark.xfail(raises=datasets.builder.DatasetGenerationError, strict=False)  # avoid flakes
 @pytest.mark.xfail(
-    raises=NotImplementedError, match="Loading a dataset cached in a LocalFileSystem is not supported", strict=False
+    raises=(datasets.builder.DatasetGenerationError, NotImplementedError),
+    strict=False,
+    match="Loading a dataset cached in a LocalFileSystem is not supported",
 )
 def test_run_eval(tmp_path, float_like):
     from eval.lm_eval_harness import EvalHarnessBase
