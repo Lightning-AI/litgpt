@@ -36,26 +36,42 @@ Check out our [quantization tutorial](quantize.md).
 You can also use the `generate/sequentially.py` script to leverage multiple devices to perform inference.
 This will allow you to run models that wouldn't fit in a single card by partitioning the weights across all your devices and running the layers sequentially.
 
-For instance, `falcon-180b` would require ~360 GB of GPU memory to load on a single device, plus the memory from activations.
-We can instead run it on TODO A100 40GB GPUs instead of 10 GPUs:
+For instance, `meta-llama/Llama-2-70b-chat-hf` would require ~140 GB of GPU memory to load on a single device, plus the memory for activations.
+With 80 transformer layers, we could partition them across 8, 5, 4, or 2 devices. 
 
 ```shell
-CUDA_VISIBLE_DEVICES=TODO python generate/sequentially.py \
-  --checkpoint_dir checkpoints/tiiuae/falcon-180b \
-  --max_new_tokens TODO
+python generate/sequentially.py \
+  --checkpoint_dir checkpoints/meta-llama/Llama-2-70b-chat-hf \
+  --max_new_tokens 256 \
+  --num_samples 2
 ```
 
-Taking ~25 GB of memory, and run at 2.5 tokens/sec.
+Using A100 40GB GPUs, we need to use at least 4. You can control the number of devices by setting the `CUDA_VISIBLE_DEVICES=` environment variable.
 
-The script also supports quantization, using 4-bit precision, we can use 4 GPUs
+| Devices | Max GPU RAM | Token/sec |
+|---------|-------------|-----------|
+| 2       | OOM         | -         |
+| 4       | 35.36 GB    | 7.48      |
+| 5       | 28.72 GB    | 7.45      |
+| 8       | 18.35 GB    | 7.42      |
+
+Note that the memory usage will also depend on the `max_new_tokens` value used.
+
+The script also supports quantization, using 4-bit precision, we can now use 2 GPUs
 
 ```shell
-CUDA_VISIBLE_DEVICES=0,1,2,3 python generate/sequentially.py \
-  --checkpoint_dir checkpoints/tiiuae/falcon-180b \
-  --max_new_tokens TODO \
-  --quantize bnb.nf4
+python generate/sequentially.py \
+  --checkpoint_dir checkpoints/meta-llama/Llama-2-70b-chat-hf \
+  --max_new_tokens 256 \
+  --num_samples 2 \
+  --quantize bnb.nf4-dq
 ```
 
-Which will take ~25 GB of memory, and run at 2.5 tokens/sec.
+| Devices | Max GPU RAM | Token/sec |
+|---------|-------------|-----------|
+| 2       | 19.99 GB    | 8.60      |
+| 4       | 10.80 GB    | 8.12      |
+| 5       | 8.96 GB     | 8.09      |
+| 8       | 6.23 GB     | 8.00      |
 
-Smaller devices like 3090s or A10Gs (24 GB) can also fit it with this technique.
+Smaller devices can also be used to run inference with this technique.
