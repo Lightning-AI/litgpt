@@ -299,22 +299,19 @@ class LLaMAMoE(nn.Module):
 
     def forward(self, x: torch.Tensor) -> torch.Tensor:
         """
-        Derived from: https://github.com/dzhulgakov/llama-mistral/blob/cecee4/llama/model.py#L351-L364.
+        Derived from: https://github.com/mistralai/mistral-src/blob/b46d6/moe_one_file_ref.py#L203-L219
         See also figure 1 in https://arxiv.org/abs/2211.15841
         """
         B, T, C = x.size()  # batch size, sequence length, embedding dimensionality (n_embd)
         x = x.view(-1, C)  # (B*T, C)
         router = self.gate(x)  # (B*T, n_expert)
-        probs, indices = torch.topk(router, self.config.n_expert_per_token, dim=-1)
-        probs = probs.softmax(dim=-1)  # (B*T, n_expert_per_token)
-        indices = indices.flatten()  # (B*T*n_expert_per_token)
-        x = x.repeat_interleave(self.config.n_expert_per_token, dim=0)
-        y = torch.empty_like(x)  # (B*T*n_expert_per_token, C)
+        probs, indices = torch.topk(router, self.config.n_expert_per_token)
+        probs = probs.softmax(dim=1, dtype=torch.float).to(dtype=x.dtype)  # (B*T, n_expert_per_token)
+        y = torch.zeros_like(x)  # (B*T, C)
         for i, expert in enumerate(self.experts):
             mask = indices == i
-            y[mask] = expert(x[mask])
-        y = y.view(*probs.shape, -1) * probs.unsqueeze(-1)  # (B*T, n_expert_per_token, C)
-        y = y.sum(dim=1)  # (B*T, C)
+            batch_idx, ith_expert = torch.where(mask)
+            y[batch_idx] += probs[batch_idx, ith_expert, None] * expert(x[batch_idx])
         return y.view(B, T, C)
 
 
