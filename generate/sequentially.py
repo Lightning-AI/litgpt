@@ -6,7 +6,7 @@ import time
 from collections import OrderedDict
 from functools import partial
 from pathlib import Path
-from typing import Literal, Optional, Type, Union
+from typing import Literal, Optional, Union
 from warnings import filterwarnings
 
 import lightning as L
@@ -14,6 +14,7 @@ import torch
 from lightning.fabric.accelerators import CUDAAccelerator
 from lightning.fabric.plugins import BitsandbytesPrecision
 from lightning.fabric.utilities.init import _materialize_meta_tensors
+from typing_extensions import Type
 
 # support running without installing as a package
 wd = Path(__file__).parent.parent.resolve()
