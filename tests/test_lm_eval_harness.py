@@ -10,6 +10,7 @@ from lightning import Fabric
 
 
 @pytest.mark.xfail(raises=datasets.builder.DatasetGenerationError, strict=False)  # avoid flakes
+@pytest.mark.xfail(raises=NotImplementedError, match="Loading a dataset cached in a LocalFileSystem is not supported")
 def test_run_eval(tmp_path, float_like):
     from eval.lm_eval_harness import EvalHarnessBase
     from lit_gpt.model import GPT

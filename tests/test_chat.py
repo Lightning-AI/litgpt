@@ -88,12 +88,12 @@ def test_main(mocked_input, stop_iteration, fake_checkpoint_dir, monkeypatch, te
     config = {"block_size": 128, "vocab_size": 50, "n_layer": 2, "n_head": 4, "n_embd": 8, "rotary_percentage": 1}
     config_path.write_text(json.dumps(config))
 
+    monkeypatch.setenv("CUDA_VISIBLE_DEVICES", "")
     load_mock = Mock()
     load_mock.return_value = load_mock
     monkeypatch.setattr(chat, "load_checkpoint", load_mock)
     tokenizer_mock = Mock()
     tokenizer_mock.return_value.backend = "sentencepiece"
-    tokenizer_mock.return_value.eos_id = 0
     tokenizer_mock.return_value.encode.return_value = torch.tensor([1, 2, 3])
     tokenizer_mock.return_value.decode.return_value = "foo bar baz"
     monkeypatch.setattr(chat, "Tokenizer", tokenizer_mock)
@@ -108,7 +108,9 @@ def test_main(mocked_input, stop_iteration, fake_checkpoint_dir, monkeypatch, te
     # decoding is done per each generated item
     assert len(tokenizer_mock.return_value.decode.mock_calls) == generate_mock.return_value.numel()
     assert torch.allclose(tokenizer_mock.return_value.decode.call_args[0][0], generate_mock.return_value)
-    assert generate_mock.mock_calls == [call(ANY, tensor_like, 128, temperature=2.0, top_k=2, stop_tokens=([0],))]
+    assert generate_mock.mock_calls == [
+        call(ANY, tensor_like, 128, temperature=2.0, top_k=2, stop_tokens=([tokenizer_mock.return_value.eos_id],))
+    ]
     # # only the generated result is printed to stdout
     assert out.getvalue() == ">> Reply: foo bar baz\n"
 
