@@ -74,7 +74,9 @@ def sequential(model: GPT, root: torch.device, max_seq_length: int, devices: int
     return model
 
 
-def layer_to_device(module: torch.nn.Module, chunk_on: Type[torch.nn.Module], chunk_size: int) -> OrderedDict[str, int]:
+def layer_to_device(
+    module: torch.nn.Module, chunk_on: Type[torch.nn.Module], chunk_size: int
+) -> "OrderedDict[str, int]":
     """Create a mapping from layer (block) to device."""
     # this assumes that the definition order is the same as the execution order
     hits = [name for name, submodule in module.named_modules() if isinstance(submodule, chunk_on)]
