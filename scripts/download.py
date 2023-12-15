@@ -46,8 +46,6 @@ def download_from_hub(
         else:
             # covers `.bin` files and `.bin.index.json`
             download_files.append("*.bin*")
-            # mistralai chose this suffix
-            download_files.append("*.pt")
     elif from_safetensors:
         raise ValueError("`--from_safetensors=True` won't have an effect with `--tokenizer_only=True`")
 
