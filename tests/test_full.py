@@ -56,7 +56,7 @@ def test_full_script(tmp_path, fake_checkpoint_dir, monkeypatch):
 
 
 @mock.patch.dict(os.environ, {"LT_ACCELERATOR": "cpu"})
-def test_pretrain_tiny_llama(tmp_path, fake_checkpoint_dir, monkeypatch):
+def test_pretrain_tiny_llama(tmp_path, monkeypatch):
     import pretrain.tinyllama as module
 
     module.save_step_interval = 1

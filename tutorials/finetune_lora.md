@@ -173,6 +173,11 @@ python scripts/merge_lora.py \
 > in the `scripts/merge_lora.py` script accordingly. Otherwise, you will encounter size
 > mismatch errors upon merging.
 
+> [!Note]
+> If the model was trained with quantized weights, it is possible to merge LoRA
+> and quantized pretrained weights by providing `--quantize` argument,
+> the same that was used for the finetuning stage.
+
 After merging, we can use the `base.py` file for inference using the new checkpoint file. Note that if your new checkpoint directory is different from the original checkpoint directory, we also have to copy over the tokenizer and config files:
 
 ```bash

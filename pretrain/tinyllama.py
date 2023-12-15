@@ -17,6 +17,7 @@ from lightning.fabric.strategies import FSDPStrategy
 from lightning.fabric.utilities.throughput import ThroughputMonitor, measure_flops
 from lightning.pytorch.loggers import WandbLogger
 from torch.utils.data import DataLoader
+from torchmetrics.aggregation import RunningMean
 
 # support running without installing as a package
 wd = Path(__file__).parent.parent.resolve()
@@ -165,6 +166,7 @@ def train(fabric, state, train_dataloader, val_dataloader, resume):
             f" Took {time.perf_counter() - resume_t0:.1f} seconds to reach iteration {initial_iter}, epoch {train_iterator.epoch}."
         )
 
+    running_loss = RunningMean(window=gradient_accumulation_steps, sync_on_compute=False).to(fabric.device)
     total_t0 = time.perf_counter()
 
     for train_data in train_iterator:
@@ -188,6 +190,8 @@ def train(fabric, state, train_dataloader, val_dataloader, resume):
             loss = chunked_cross_entropy(logits, targets)
             fabric.backward(loss / gradient_accumulation_steps)
 
+        running_loss.update(loss.detach())
+
         if not is_accumulating:
             fabric.clip_gradients(model, optimizer, max_norm=grad_clip)
             optimizer.step()
@@ -195,7 +199,7 @@ def train(fabric, state, train_dataloader, val_dataloader, resume):
             state["step_count"] += 1
 
         if state["iter_num"] % log_iter_interval == 0:
-            loss = loss.item()  # expensive device-to-host synchronization
+            loss = running_loss.compute().item()  # expensive device-to-host synchronization
             t1 = time.perf_counter()
             throughput.update(
                 time=(t1 - total_t0),
@@ -288,7 +292,9 @@ def create_dataloaders(batch_size: int, block_size: int) -> Tuple[DataLoader, Da
     # Mix SlimPajama data and Starcoder data with these proportions:
     weights = (0.693584, 0.306416)
     combined_dataset = CombinedDataset(datasets=train_datasets, seed=42, weights=weights)
-    train_dataloader = DataLoader(combined_dataset, batch_size=batch_size, pin_memory=True, num_workers=8, drop_last=True)
+    train_dataloader = DataLoader(
+        combined_dataset, batch_size=batch_size, pin_memory=True, num_workers=8, drop_last=True
+    )
 
     val_dataset = StreamingDataset(
         input_dir="data/slimpajama/val",

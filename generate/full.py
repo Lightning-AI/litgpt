@@ -6,7 +6,6 @@ from typing import Literal, Optional
 import lightning as L
 import torch
 from lightning.fabric.plugins import BitsandbytesPrecision
-from lightning.fabric.strategies import FSDPStrategy
 
 # support running without installing as a package
 wd = Path(__file__).parent.parent.resolve()
@@ -14,7 +13,6 @@ sys.path.append(str(wd))
 
 from generate.base import generate
 from lit_gpt import GPT, Config, Tokenizer
-from lit_gpt.model import Block
 from lit_gpt.utils import (
     check_valid_checkpoint_dir,
     get_default_supported_precision,
@@ -33,8 +31,6 @@ def main(
     max_new_tokens: int = 100,
     top_k: Optional[int] = 200,
     temperature: float = 0.8,
-    strategy: str = "auto",
-    devices: int = 1,
     precision: Optional[str] = None,
 ) -> None:
     """Generates a response based on a given instruction and an optional input.
@@ -56,38 +52,25 @@ def main(
         top_k: The number of top most probable tokens to consider in the sampling process.
         temperature: A value controlling the randomness of the sampling process. Higher values result in more random
             samples.
-        strategy: Indicates the Fabric strategy setting to use.
-        devices: How many devices to use.
         precision: Indicates the Fabric precision setting to use.
     """
     precision = precision or get_default_supported_precision(training=False)
 
     plugins = None
-    if quantize is not None:
-        if devices > 1:
-            raise NotImplementedError(
-                "Quantization is currently not supported for multi-GPU training. Please set devices=1 when using the"
-                " --quantize flag."
-            )
-        if quantize.startswith("bnb."):
-            if "mixed" in precision:
-                raise ValueError("Quantization and mixed precision is not supported.")
-            dtype = {"16-true": torch.float16, "bf16-true": torch.bfloat16, "32-true": torch.float32}[precision]
-            plugins = BitsandbytesPrecision(quantize[4:], dtype)
-            precision = None
+    if quantize is not None and quantize.startswith("bnb."):
+        if "mixed" in precision:
+            raise ValueError("Quantization and mixed precision is not supported.")
+        dtype = {"16-true": torch.float16, "bf16-true": torch.bfloat16, "32-true": torch.float32}[precision]
+        plugins = BitsandbytesPrecision(quantize[4:], dtype)
+        precision = None
 
-    if strategy == "fsdp":
-        strategy = FSDPStrategy(auto_wrap_policy={Block}, cpu_offload=False)
-
-    fabric = L.Fabric(devices=devices, precision=precision, strategy=strategy, plugins=plugins)
+    fabric = L.Fabric(devices=1, precision=precision, plugins=plugins)
     fabric.launch()
 
     check_valid_checkpoint_dir(checkpoint_dir)
 
     config = Config.from_json(checkpoint_dir / "lit_config.json")
 
-    if quantize is not None and devices > 1:
-        raise NotImplementedError
     checkpoint_path = finetuned_path
 
     tokenizer = Tokenizer(checkpoint_dir)
