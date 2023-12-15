@@ -22,7 +22,8 @@ python chat/base.py --checkpoint_dir checkpoints/microsoft/phi-2
 >> Prompt: Write a detailed analogy between mathematics and a lighthouse.
 >> Reply: Mathematics is like a lighthouse. Mathematics provides a method to guide us through the sometimes chaotic and confusing waters of life. It provides a structured approach to problems which can help us find our way and provide direction. Just as a lighthouse keeps watch over the sea, mathematics can provide us with the tools to try and make sense of the world. Furthermore, just as a lighthouse keeps a watchful eye on the horizon, mathematics can help us reach our goals by showing us the way.
 ```
->Note: in order to obtain appropriate answers, you may need to tweak [input prompt](https://github.com/Lightning-AI/lit-gpt/blob/74b8df0c3f07fc31d9d1a49e870a1f7955329ad8/chat/base.py#L359). E.g. we found out that if using `"Instruct:{prompt}\nOutput:\n"` instead of `"Instruct:{prompt}\nOutput:"` the model generates longer answers in some cases.
+> [!NOTE]
+> In order to obtain appropriate answers, you may need to tweak the [input prompt](https://github.com/Lightning-AI/lit-gpt/blob/74b8df0c3f07fc31d9d1a49e870a1f7955329ad8/chat/base.py#L359). E.g. we found out that if using `"Instruct:{prompt}\nOutput:\n"` instead of `"Instruct:{prompt}\nOutput:"` the model generates longer answers in some cases.
 
 Free generation mode:
 ```bash
