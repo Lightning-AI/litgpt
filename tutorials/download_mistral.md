@@ -43,7 +43,7 @@ In order to use the Mixtral 7B model checkpoint, which requires about 94 GB of d
 ```bash
 pip install huggingface_hub
 
-python scripts/download.py --repo_id mixtralai/Mixtral-8x7B-Instruct-v0.1
+python scripts/download.py --repo_id mistralai/Mixtral-8x7B-Instruct-v0.1
 
 python scripts/convert_hf_checkpoint.py --checkpoint_dir checkpoints/mistralai/Mixtral-8x7B-Instruct-v0.1
 ```
