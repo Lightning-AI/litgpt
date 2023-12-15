@@ -41,6 +41,7 @@ def sequential(model: GPT, root: torch.device, max_seq_length: int, devices: int
     for path, target_index in mapping.items():
         submodule = model.get_submodule(path)
         target_device = torch.device(root.type, target_index)
+        print(f"Moving {path!r} to {target_device}", file=sys.stderr)
         # submodules loaded by the checkpoint will be on CPU (if no quantization). move them
         replace_device(submodule, replace=torch.device("cpu"), by=target_device)
         # in case the checkpoint was partial, materialize leftover metas
@@ -160,7 +161,7 @@ def main(
         total_devices = CUDAAccelerator.auto_device_count()
     else:
         total_devices = sum(CUDAAccelerator.parse_devices(devices))
-    fabric.print(f"Using {total_devices} devices", file=sys.stderr)
+    print(f"Using {total_devices} devices", file=sys.stderr)
 
     check_valid_checkpoint_dir(checkpoint_dir)
 
@@ -173,14 +174,14 @@ def main(
     prompt_length = encoded.size(0)
     max_returned_tokens = prompt_length + max_new_tokens
 
-    fabric.print(f"Loading model {str(checkpoint_path)!r} with {config.__dict__}", file=sys.stderr)
+    print(f"Loading model {str(checkpoint_path)!r} with {config.__dict__}", file=sys.stderr)
     t0 = time.perf_counter()
     # cannot use `init_module` because if bitsandbytes is used, the Linear layers will be replaced
     # which means that the weights will get quantized on cuda:0 on checkpoint load. we need to load and then convert
     # still, use init_tensor for the precision
     with fabric.init_tensor(), torch.device("meta"):
         model = GPT(config)
-    fabric.print(f"Time to instantiate model: {time.perf_counter() - t0:.02f} seconds.", file=sys.stderr)
+    print(f"Time to instantiate model: {time.perf_counter() - t0:.02f} seconds.", file=sys.stderr)
 
     # for this script, this warning is a false-positive
     filterwarnings("ignore", ".*copying from a non-meta parameter.*", module="torch.nn.modules.module")
@@ -188,13 +189,13 @@ def main(
     state_dict = torch.load(str(checkpoint_path), mmap=True, map_location="cpu")
     # TODO: this assumes that the model fits on CPU. Use lazy_load and make the materialization checkpoint aware
     model.load_state_dict(state_dict, assign=True)
-    fabric.print(f"Time to load the model weights: {time.perf_counter() - t0:.02f} seconds.", file=sys.stderr)
+    print(f"Time to load the model weights: {time.perf_counter() - t0:.02f} seconds.", file=sys.stderr)
 
     model = fabric.setup_module(model, move_to_device=False)
 
     t0 = time.perf_counter()
     model = sequential(model, fabric.device, max_returned_tokens, total_devices)
-    fabric.print(f"Time sequential-ize the model: {time.perf_counter() - t0:.02f} seconds.", file=sys.stderr)
+    print(f"Time to sequential-ize the model: {time.perf_counter() - t0:.02f} seconds.", file=sys.stderr)
 
     if compile:
         # TODO: raises an internal compile AssertionError caused by fabric.strategy.precision.forward_context
@@ -219,16 +220,19 @@ def main(
         t = time.perf_counter() - t0
         for block in model.transformer.h:
             block.attn.kv_cache.reset_parameters()
-        fabric.print(tokenizer.decode(y))
+        print(tokenizer.decode(y))
         tokens_generated = y.size(0) - prompt_length
-        fabric.print(
+        print(
             f"Time for inference {i + 1}: {t:.02f} sec total, {tokens_generated / t:.02f} tokens/sec", file=sys.stderr
         )
-    fabric.print(f"Memory used: {torch.cuda.max_memory_allocated() / 1e9:.02f} GB", file=sys.stderr)
+    print(f"Memory used: {torch.cuda.max_memory_allocated() / 1e9:.02f} GB", file=sys.stderr)
 
 
 if __name__ == "__main__":
     from jsonargparse import CLI
 
     torch.set_float32_matmul_precision("high")
+
+    logging.getLogger("lightning.fabric.plugins.precision.bitsandbytes").setLevel(logging.DEBUG)
+
     CLI(main)
