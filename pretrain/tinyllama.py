@@ -24,7 +24,7 @@ sys.path.append(str(wd))
 
 from lit_gpt.model import GPT, Block, CausalSelfAttention, Config, LLaMAMLP
 from lit_gpt.packed_dataset import CombinedDataset
-from lit_gpt.utils import chunked_cross_entropy, num_parameters
+from lit_gpt.utils import CycleIterator, chunked_cross_entropy, num_parameters
 
 # System settings
 model_name = "tiny-llama-1.1b"
@@ -149,7 +149,7 @@ def train(fabric, state, train_dataloader, val_dataloader, resume):
     tokens_per_iter = micro_batch_size * model.config.block_size
     max_iters = max_tokens_per_device // tokens_per_iter
     initial_iter = state["iter_num"]
-    train_iterator = iter(train_dataloader)
+    train_iterator = CycleIterator(train_dataloader)
 
     # resume data loader state by fast-forwarding through all seen batches
     # drop this once streaming dataset supports proper resuming
@@ -162,7 +162,7 @@ def train(fabric, state, train_dataloader, val_dataloader, resume):
         fabric.barrier()
         fabric.print(
             "Resuming data loader finished."
-            f" Took {time.perf_counter() - resume_t0:.1f} seconds to reach iteration {initial_iter}."
+            f" Took {time.perf_counter() - resume_t0:.1f} seconds to reach iteration {initial_iter}, epoch {train_iterator.epoch}."
         )
 
     total_t0 = time.perf_counter()
@@ -218,7 +218,7 @@ def train(fabric, state, train_dataloader, val_dataloader, resume):
             }
 
             fabric.print(
-                f"iter {metrics['iter']} step {metrics['step']}: loss {metrics['loss']:.4f}, iter time:"
+                f"iter {metrics['iter']} | epoch {train_iterator.epoch} | step {metrics['step']}: loss {metrics['loss']:.4f}, iter time:"
                 f" {metrics['iter_time'] * 1000:.2f} ms,{' (optimizer.step)' if not is_accumulating else ''}"
                 f" remaining time: {metrics['remaining_time'] / 3600 / 24:.2f} days"
             )

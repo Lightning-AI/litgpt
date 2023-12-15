@@ -366,3 +366,6 @@ class CycleIterator:
             self._iterator = iter(self.iterable)
             self.epoch += 1
             return next(self._iterator)
+
+    def __iter__(self):
+        return self
