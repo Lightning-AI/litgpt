@@ -363,11 +363,11 @@ def test_lora_qkv_linear_weights_merged_status(rank, enable_lora, expected_merge
 # platform dependent cuda issue: libbitsandbytes_cpu.so: undefined symbol: cquantize_blockwise_fp16_nf4
 @pytest.mark.xfail(raises=AttributeError, strict=False)
 def test_lora_merge_with_quantize():
-    import bitsandbytes as bnb
     from lightning.fabric.plugins.precision.bitsandbytes import _BITSANDBYTES_AVAILABLE, BitsandbytesPrecision
 
     if not _BITSANDBYTES_AVAILABLE:
         pytest.skip("BNB not available")
+    import bitsandbytes as bnb
 
     from lit_gpt.lora import GPT, Config, mark_only_lora_as_trainable, merge_lora_weights
 
