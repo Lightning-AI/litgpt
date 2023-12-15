@@ -14,10 +14,10 @@ from typing import (
     List,
     Mapping,
     Optional,
-    Self,
     TypeVar,
     Union,
 )
+from typing_extensions import Self
 
 import lightning as L
 import torch
