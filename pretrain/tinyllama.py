@@ -212,6 +212,7 @@ def train(fabric, state, train_dataloader, val_dataloader, resume):
                 "loss": loss,
                 "iter": state["iter_num"],
                 "step": state["step_count"],
+                "epoch": train_iterator.epoch,
                 "iter_time": t1 - iter_t0,
                 "remaining_time": (
                     (t1 - total_t0) / (state["iter_num"] - initial_iter) * (max_iters - state["iter_num"])
@@ -222,7 +223,7 @@ def train(fabric, state, train_dataloader, val_dataloader, resume):
             }
 
             fabric.print(
-                f"iter {metrics['iter']} | epoch {train_iterator.epoch} | step {metrics['step']}: loss {metrics['loss']:.4f}, iter time:"
+                f"iter {metrics['iter']} | step {metrics['step']}: loss {metrics['loss']:.4f}, iter time:"
                 f" {metrics['iter_time'] * 1000:.2f} ms,{' (optimizer.step)' if not is_accumulating else ''}"
                 f" remaining time: {metrics['remaining_time'] / 3600 / 24:.2f} days"
             )
