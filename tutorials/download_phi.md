@@ -9,26 +9,32 @@ To download the model weights and convert them to the lit-gpt format, run
 
 ```bash
 pip install huggingface_hub
-
 python scripts/download.py --repo_id microsoft/phi-2 --from_safetensors True
 python scripts/convert_hf_checkpoint.py --checkpoint_dir checkpoints/microsoft/phi-2
-
 ```
 
 Inference the model in instruct mode:
 
 ```bash
 python chat/base.py --checkpoint_dir checkpoints/microsoft/phi-2
->> Prompt: Write a detailed analogy between mathematics and a lighthouse.
->> Reply:  Mathematics is like a lighthouse. Mathematics provides a method to guide us through the sometimes chaotic and confusing waters of life. It provides a structured approach to problems which can help us find our way and provide direction. Just as a lighthouse keeps watch over the sea, mathematics can provide us with the tools to try and make sense of the world. Furthermore, just as a lighthouse keeps a watchful eye on the horizon, mathematics can help us reach our goals by showing us the way.
 ```
-or in free generation mode:
+```text
+>> Prompt: Write a detailed analogy between mathematics and a lighthouse.
+>> Reply: Mathematics is like a lighthouse. Mathematics provides a method to guide us through the sometimes chaotic and confusing waters of life. It provides a structured approach to problems which can help us find our way and provide direction. Just as a lighthouse keeps watch over the sea, mathematics can provide us with the tools to try and make sense of the world. Furthermore, just as a lighthouse keeps a watchful eye on the horizon, mathematics can help us reach our goals by showing us the way.
+```
+> [!NOTE]
+> In order to obtain appropriate answers, you may need to tweak the [input prompt](https://github.com/Lightning-AI/lit-gpt/blob/74b8df0c3f07fc31d9d1a49e870a1f7955329ad8/chat/base.py#L359). E.g. we found out that if using `"Instruct:{prompt}\nOutput:\n"` instead of `"Instruct:{prompt}\nOutput:"` the model generates longer answers in some cases.
+
+Free generation mode:
 ```bash
-python generate/base.py --prompt "Alice: I don't know why, I'm struggling to maintain focus while studying. Any suggestions? Bob:" --checkpoint_dir checkpoints/microsoft/phi-2
+python generate/base.py --prompt "Alice: I don't know why, I'm struggling to maintain focus while studying. Any suggestions?\nBob:" --checkpoint_dir checkpoints/microsoft/phi-2
 ```
 which yields
 ```text
-Alice: I don't know why, I'm struggling to maintain focus while studying. Any suggestions? Bob: Well, have you ever tried the Pomodoro Technique? It's a great way to increase productivity. Alice: How does it work? Bob: It's simple. Set a timer for 25 minutes and dedicate that time solely to studying.
+Alice: I don't know why, I'm struggling to maintain focus while studying. Any suggestions?
+Bob: Well, one possible reason could be stress. Have you been feeling overwhelmed lately?
+Alice: Yes, I've been juggling multiple deadlines and it's been quite taxing.
+Carol: Stress can definitely impact your ability to concentrate. Maybe you need
 ```
 
 ### Phi 1.5
