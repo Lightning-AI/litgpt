@@ -27,8 +27,7 @@ python chat/base.py --checkpoint_dir checkpoints/microsoft/phi-2
 
 Free generation mode:
 ```bash
-python generate/base.py --prompt "Alice: I don't know why, I'm struggling to maintain focus while studying. Any suggestions?
-Bob:" --checkpoint_dir checkpoints/microsoft/phi-2
+python generate/base.py --prompt "Alice: I don't know why, I'm struggling to maintain focus while studying. Any suggestions?\nBob:" --checkpoint_dir checkpoints/microsoft/phi-2
 ```
 which yields
 ```text
