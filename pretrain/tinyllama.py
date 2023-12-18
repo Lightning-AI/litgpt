@@ -71,7 +71,7 @@ def setup(resume: Union[bool, Path] = False):
         strategy = FSDPStrategy(
             auto_wrap_policy={Block},
             state_dict_type="full",
-            sharding_strategy="HYBRID_SHARD",  # set NCCL_CROSS_NIC=1
+            sharding_strategy="HYBRID_SHARD",
         )
     else:
         strategy = "auto"
