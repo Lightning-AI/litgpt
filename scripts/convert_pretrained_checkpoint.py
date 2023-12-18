@@ -71,6 +71,8 @@ def convert_checkpoint(
         for param_name, param in loaded_state_dict.items():
             saver.store_early(param)
             # remove prefix for compiled model (if any)
+            # this step won't be required with torch 2.2
+            # https://github.com/pytorch/pytorch/pull/113423
             param_name = param_name.replace("_orig_mod.", "")
             converted_state_dict[param_name] = param
         print(f"Saving converted checkpoint to {str(output_checkpoint_file)}.")
