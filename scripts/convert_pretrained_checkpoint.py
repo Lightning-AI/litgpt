@@ -58,6 +58,10 @@ def convert_checkpoint(
     for tokenizer_file in tokenizer_dir.glob("tokenizer*"):
         shutil.copyfile(tokenizer_file, output_dir / tokenizer_file.name)
 
+    # Copy config for tokenization if found
+    if (tokenizer_dir / "generation_config.json").is_file():
+        shutil.copyfile(tokenizer_dir / "generation_config.json", output_dir / "generation_config.json")
+
     # Extract the model state dict and save to output folder
     with incremental_save(output_checkpoint_file) as saver:
         print("Processing", checkpoint_file)
