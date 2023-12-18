@@ -9,7 +9,7 @@ def test_convert_pretrained_checkpoint(tmp_path):
 
     # Pretend we made a checkpoint from pretraining
     pretrained_checkpoint = {
-        "the_model": {
+        "model": {
             "some.module.weight": torch.rand(2, 2),
             "_orig_mod.some.other.module.weight": torch.rand(2, 2),
         },
@@ -25,10 +25,9 @@ def test_convert_pretrained_checkpoint(tmp_path):
 
     convert_checkpoint(
         checkpoint_file=(tmp_path / "pretrained.pth"),
-        tokenizer_path=llama_checkpoint_folder,
+        tokenizer_dir=llama_checkpoint_folder,
         config_name="tiny-llama-1.1b",
-        output_folder=(tmp_path / "converted"),
-        model_key="the_model",
+        output_dir=(tmp_path / "converted"),
     )
 
     assert set(os.listdir(tmp_path / "converted")) == {

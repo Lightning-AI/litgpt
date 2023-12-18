@@ -17,10 +17,9 @@ from lit_gpt.utils import incremental_save, lazy_load
 @torch.inference_mode()
 def convert_checkpoint(
     checkpoint_file: Path,
-    tokenizer_path: Path,
+    tokenizer_dir: Path,
     config_name: str,
-    output_folder: Path,
-    model_key: str = "model",
+    output_dir: Path,
 ) -> None:
     """Convert a checkpoint after pretraining.
 
@@ -30,24 +29,25 @@ def convert_checkpoint(
 
     Args:
         checkpoint_file: Path to a checkpoint file scripts produced by the scripts in `lit-gpt/pretrain/`.
-        tokenizer_path: A path to the folder that holds the tokenizer configuration files that were used to train
+        tokenizer_dir: A path to the folder that holds the tokenizer configuration files that were used to train
             the model. All files with a name starting with 'tokenizer' will be copied to the output folder.
         config_name: The name of the model loaded with the ``lit_gpt.Config``. The configuration will be saved as a
             JSON file to the output folder.
-        output_folder: The output folder where model state-dict file, the tokenizer config file, and the model config
+        output_dir: The output folder where model state-dict file, the tokenizer config file, and the model config
             file will be saved.
-        model_key: The key in the checkpoint file under which the model state dict is saved.
     """
 
-    if output_folder.is_dir() and output_folder.glob("*"):
+    if output_dir.is_dir() and output_dir.glob("*"):
         raise FileExistsError(
-            f"The output folder exists and is not empty: {str(output_folder)}."
+            f"The output folder exists and is not empty: {str(output_dir)}."
             " Please delete it first or choose a different name."
         )
+    if not tokenizer_dir.is_dir():
+        raise FileNotFoundError(f"The tokenizer_dir must be a directory: {str(output_dir)}.")
 
-    output_folder.mkdir(parents=True)
-    output_checkpoint_file = output_folder / "lit_model.pth"
-    output_config_file = output_folder / "lit_config.json"
+    output_dir.mkdir(parents=True)
+    output_checkpoint_file = output_dir / "lit_model.pth"
+    output_config_file = output_dir / "lit_config.json"
 
     # Save the config to output folder
     config = Config.from_name(config_name)
@@ -55,20 +55,16 @@ def convert_checkpoint(
         json.dump(asdict(config), json_config)
 
     # Export the tokenizer configuration to output folder
-    if tokenizer_path.is_file():
-        shutil.copyfile(tokenizer_path, output_folder / tokenizer_path.name)
-    if tokenizer_path.is_dir():
-        for tokenizer_file in tokenizer_path.glob("tokenizer*"):
-            shutil.copyfile(tokenizer_file, output_folder / tokenizer_file.name)
+    for tokenizer_file in tokenizer_dir.glob("tokenizer*"):
+        shutil.copyfile(tokenizer_file, output_dir / tokenizer_file.name)
 
     # Extract the model state dict and save to output folder
     with incremental_save(output_checkpoint_file) as saver:
         print("Processing", checkpoint_file)
-        full_checkpoint = lazy_load(checkpoint_file)
-        loaded_state_dict = full_checkpoint[model_key]
+        full_checkpoint = torch.load(str(checkpoint_file), mmap=True)
+        loaded_state_dict = full_checkpoint["model"]
         converted_state_dict = {}
         for param_name, param in loaded_state_dict.items():
-            param = param._load_tensor()
             saver.store_early(param)
             # remove prefix for compiled model (if any)
             param_name = param_name.replace("_orig_mod.", "")
