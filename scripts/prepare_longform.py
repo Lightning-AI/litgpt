@@ -125,7 +125,6 @@ def prepare_sample(example: dict, tokenizer: Tokenizer, max_length: int, mask_in
     return {
         **example,
         "input_ids": encoded_full_prompt_and_response,
-        "input_ids_no_response": encoded_full_prompt,
         "labels": labels,
     }
 
