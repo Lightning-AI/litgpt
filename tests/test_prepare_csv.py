@@ -39,7 +39,6 @@ def test_prepare_csv(tmp_path, fake_checkpoint_dir):
                 "input": "2+2",
                 "output": "4",
                 "input_ids": ANY,
-                "input_ids_no_response": ANY,
                 "labels": ANY,
             },
             {
@@ -47,7 +46,6 @@ def test_prepare_csv(tmp_path, fake_checkpoint_dir):
                 "input": "10/2",
                 "output": "5",
                 "input_ids": ANY,
-                "input_ids_no_response": ANY,
                 "labels": ANY,
             },
             {
@@ -55,7 +53,6 @@ def test_prepare_csv(tmp_path, fake_checkpoint_dir):
                 "input": "6*4",
                 "output": "24",
                 "input_ids": ANY,
-                "input_ids_no_response": ANY,
                 "labels": ANY,
             },
         ],
@@ -68,7 +65,6 @@ def test_prepare_csv(tmp_path, fake_checkpoint_dir):
                 "input": "2^3",
                 "output": "8",
                 "input_ids": ANY,
-                "input_ids_no_response": ANY,
                 "labels": ANY,
             },
             {
@@ -76,7 +72,6 @@ def test_prepare_csv(tmp_path, fake_checkpoint_dir):
                 "input": "5-3",
                 "output": "2",
                 "input_ids": ANY,
-                "input_ids_no_response": ANY,
                 "labels": ANY,
             },
             {
@@ -84,7 +79,6 @@ def test_prepare_csv(tmp_path, fake_checkpoint_dir):
                 "input": "√9",
                 "output": "3",
                 "input_ids": ANY,
-                "input_ids_no_response": ANY,
                 "labels": ANY,
             },
         ],

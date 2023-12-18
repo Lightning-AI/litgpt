@@ -97,7 +97,7 @@ def download_if_missing(file_path: Path, file_url: str) -> None:
         f.write(requests.get(file_url).text)
 
 
-def prepare_sample(example: dict, tokenizer: Tokenizer, max_length: int, mask_inputs: bool, ignore_index: int) -> None:
+def prepare_sample(example: dict, tokenizer: Tokenizer, max_length: int, mask_inputs: bool, ignore_index: int) -> dict:
     """Processes a single sample.
 
     Each sample in the dataset consists of:
@@ -127,7 +127,6 @@ def prepare_sample(example: dict, tokenizer: Tokenizer, max_length: int, mask_in
     return {
         **example,
         "input_ids": encoded_full_prompt_and_response,
-        "input_ids_no_response": encoded_full_prompt,
         "labels": labels,
     }
 
