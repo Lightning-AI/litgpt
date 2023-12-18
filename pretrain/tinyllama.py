@@ -70,11 +70,8 @@ def setup(resume: Union[bool, Path] = False):
     if devices > 1:
         strategy = FSDPStrategy(
             auto_wrap_policy={Block},
-            activation_checkpointing_policy=None,
             state_dict_type="full",
-            limit_all_gathers=True,
-            cpu_offload=False,
-            sharding_strategy="HYBRID_SHARD",
+            sharding_strategy="HYBRID_SHARD",  # set NCCL_CROSS_NIC=1
         )
     else:
         strategy = "auto"
