@@ -158,9 +158,9 @@ After training is completed, you can convert the checkpoint to a format that can
 ```bash
 python scripts/convert_pretrained_checkpoint.py \
   --checkpoint_file out/tiny-llama-1.1b/step-00060500.pth \
-  --tokenizer_path checkpoints/meta-llama/Llama-2-7b-hf \
+  --tokenizer_dir checkpoints/meta-llama/Llama-2-7b-hf \
   --config_name tiny-llama-1.1b \
-  --output_folder checkpoints/lit-tiny-llama-1.1b
+  --output_dir checkpoints/lit-tiny-llama-1.1b
 ```
 
 After conversion, the output folder will contain these files:
