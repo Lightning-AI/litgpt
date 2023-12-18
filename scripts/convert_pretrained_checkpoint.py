@@ -28,7 +28,7 @@ def convert_checkpoint(
     with the tokenizer and model config, which then can be loaded by other scripts for inference, evaluation, etc.
 
     Args:
-        checkpoint_file: Path to a checkpoint file scripts produced by the scripts in `lit-gpt/pretrain/`.
+        checkpoint_file: Path to a checkpoint file scripts produced by the scripts in ``lit_gpt/pretrain/``.
         tokenizer_dir: A path to the folder that holds the tokenizer configuration files that were used to train
             the model. All files with a name starting with 'tokenizer' will be copied to the output folder.
         config_name: The name of the model loaded with the ``lit_gpt.Config``. The configuration will be saved as a
