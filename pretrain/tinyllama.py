@@ -3,6 +3,7 @@ This script is adapted from TinyLlama:
 https://github.com/jzhang38/TinyLlama/blob/main/pretrain/tinyllama.py
 """
 import math
+import os
 import sys
 import time
 from functools import partial
@@ -30,7 +31,7 @@ from lit_gpt.utils import CycleIterator, chunked_cross_entropy, num_parameters
 # System settings
 model_name = "tiny-llama-1.1b"
 name = "lit-tiny-llama-1.1b"
-out_dir = Path("out") / name
+out_dir = Path(os.getenv("LIGHTNING_ARTIFACTS_DIR", "out")) / name
 logger_name = "tensorboard"
 
 # Hyperparameters
@@ -38,7 +39,7 @@ devices = 8
 
 global_batch_size = 512
 learning_rate = 4e-4
-micro_batch_size = 8
+micro_batch_size = 4
 max_tokens = int(3e12)  # 3 trillion
 warmup_steps = 2000
 log_step_interval = 1
@@ -167,6 +168,7 @@ def train(fabric, state, train_dataloader, val_dataloader, resume):
         )
 
     running_loss = RunningMean(window=gradient_accumulation_steps, sync_on_compute=False).to(fabric.device)
+    fabric.barrier()
     total_t0 = time.perf_counter()
 
     for train_data in train_iterator:
@@ -224,7 +226,7 @@ def train(fabric, state, train_dataloader, val_dataloader, resume):
 
             fabric.print(
                 f"iter {metrics['iter']} | step {metrics['step']}: loss {metrics['loss']:.4f}, iter time:"
-                f" {metrics['iter_time'] * 1000:.2f} ms,{' (optimizer.step)' if not is_accumulating else ''}"
+                f" {metrics['iter_time'] * 1000:.2f} ms{' (optimizer.step),' if not is_accumulating else ','}"
                 f" remaining time: {metrics['remaining_time'] / 3600 / 24:.2f} days"
             )
 
@@ -338,9 +340,9 @@ def init_weights(module: nn.Module, n_layer: int, n_embd: int):
 
 def choose_logger(logger_name: str, name: str, resume: Union[bool, Path], *args, **kwargs):
     if logger_name == "csv":
-        return CSVLogger(root_dir="logs", name=name, *args, **kwargs)
+        return CSVLogger(root_dir=(out_dir / "logs"), name="csv", *args, **kwargs)
     if logger_name == "tensorboard":
-        return TensorBoardLogger(root_dir="logs", name=name, *args, **kwargs)
+        return TensorBoardLogger(root_dir=(out_dir / "logs"), name="tensorboard", *args, **kwargs)
     if logger_name == "wandb":
         return WandbLogger(project="tinyllama", name=name, resume=(resume is not False), *args, **kwargs)
     raise ValueError(f"`logger={logger_name}` is not a valid option.")
