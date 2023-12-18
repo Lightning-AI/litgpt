@@ -140,3 +140,37 @@ GPU memory. For more tips to avoid out-of-memory issues, please also see the mor
 
 Last, logging is kept minimal in the script, but for long running experiments we recommend switching to a proper experiment tracker.
 As an example, we included WandB (set `use_wandb=True`) to show how you can integrate any experiment tracking framework.
+
+
+## Resume training
+
+The checkpoints saved during pretraining contain all the information to resume if needed.
+Simply rerun the script with the `--resume` argument:
+
+```bash
+python pretrain/tinyllama.py --resume out/tiny-llama-1.1b/step-00060500.pth
+```
+
+## Export checkpoints
+
+After training is completed, you can convert the checkpoint to a format that can be loaded for evaluation, inference, finetuning etc.
+
+```bash
+python scripts/convert_pretrained_checkpoint.py \
+  --checkpoint_file out/tiny-llama-1.1b/step-00060500.pth \
+  --tokenizer_path checkpoints/meta-llama/Llama-2-7b-hf \
+  --config_name tiny-llama-1.1b \
+  --output_folder checkpoints/lit-tiny-llama-1.1b
+```
+
+After conversion, the output folder will contain these files:
+```
+checkpoints/lit-tiny-llama-1.1b
+├── lit_config.json
+├── lit_model.pth
+├── tokenizer_config.json
+├── tokenizer.json
+└── tokenizer.model
+```
+
+You can then use this checkpoint folder to run [evaluation](evaluation.md), [inference](inference.md), [finetuning](finetune_lora.md) or [process the checkpoint further](convert_lit_models.md).
