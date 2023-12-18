@@ -33,23 +33,4 @@ Check out our [quantization tutorial](quantize.md).
 
 ## Run a large model on multiple smaller devices
 
-You can also use the Fully-Sharded Data Parallel (FSDP) distributed strategy to leverage multiple devices to perform inference. This will allow you to run models that wouldn't fit in a single card by sharding them across several.
-
-For instance, `falcon-40b` would require ~80 GB of GPU memory to run on a single device. We can instead run it on 4 A100 40GB GPUs:
-
-```shell
-python generate/base.py --checkpoint_dir checkpoints/tiiuae/falcon-40b --strategy fsdp --devices 4
-```
-
-Which will take ~25 GB of memory, and run at 2.5 tokens/sec.
-
-Or to reduce the memory requirements even further, you can try using CPU offloading. For that, you will need to manually edit the `cpu_offload=False` parameter in the file and set it to `True`.
-
-Now we can run it on just 2 devices.
-
-```shell
-python generate/base.py --checkpoint_dir checkpoints/tiiuae/falcon-40b --strategy fsdp --devices 2
-```
-
-taking ~5 GB of memory but running at 0.23 tokens/sec on 2 A100 40GB GPUs.
-Smaller devices like 3090s (24 GB) can also fit it with this technique.
+Coming soon

@@ -56,7 +56,7 @@ def test_full_script(tmp_path, fake_checkpoint_dir, monkeypatch):
 
 
 @mock.patch.dict(os.environ, {"LT_ACCELERATOR": "cpu"})
-def test_pretrain_tiny_llama(tmp_path, fake_checkpoint_dir, monkeypatch):
+def test_pretrain_tiny_llama(tmp_path, monkeypatch):
     import pretrain.tinyllama as module
 
     module.save_step_interval = 1
@@ -64,7 +64,7 @@ def test_pretrain_tiny_llama(tmp_path, fake_checkpoint_dir, monkeypatch):
     module.log_step_interval = 1
     module.log_iter_interval = 1
     module.eval_iters = 2
-    module.max_iters = 3
+    module.max_tokens = 8
     module.devices = 1
     module.global_batch_size = 1
     module.micro_batch_size = 1
@@ -90,9 +90,11 @@ def test_pretrain_tiny_llama(tmp_path, fake_checkpoint_dir, monkeypatch):
     with redirect_stdout(stdout):
         module.setup()
 
-    assert {p.name for p in tmp_path.glob("*.pth")} == {"step-00000001.pth", "step-00000002.pth", "step-00000003.pth"}
+    assert {p.name for p in tmp_path.glob("*.pth")} == {
+        "step-00000001.pth", "step-00000002.pth", "step-00000003.pth", "step-00000004.pth"
+    }
 
     logs = stdout.getvalue()
-    assert logs.count("optimizer.step") == module.max_iters
-    assert logs.count("val loss") == module.max_iters
+    assert logs.count("optimizer.step") == 4
+    assert logs.count("val loss") == 4
     assert "Total parameters: 1,888" in logs

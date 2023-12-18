@@ -205,7 +205,9 @@ def validate(fabric: L.Fabric, model: GPT, val_data: List[Dict], tokenizer: Toke
     with fabric.init_tensor():
         # do not set `max_seq_length=max_returned_token` because memory is not a concern here
         model.set_kv_cache(batch_size=1)
-    output = generate(model, encoded, max_returned_tokens=len(encoded) + eval_max_new_tokens, temperature=0.8)
+    output = generate(
+        model, encoded, max_returned_tokens=len(encoded) + eval_max_new_tokens, temperature=0.8, eos_id=tokenizer.eos_id
+    )
     model.clear_kv_cache()
     output = tokenizer.decode(output)
     fabric.print(output)

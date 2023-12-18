@@ -5,7 +5,19 @@ import sys
 from contextlib import nullcontext
 from io import BytesIO
 from pathlib import Path
-from typing import TYPE_CHECKING, ContextManager, Dict, List, Mapping, Optional, TypeVar, Union
+from typing import (
+    TYPE_CHECKING,
+    Any,
+    ContextManager,
+    Dict,
+    Iterable,
+    List,
+    Mapping,
+    Optional,
+    TypeVar,
+    Union,
+)
+from typing_extensions import Self
 
 import lightning as L
 import torch
@@ -263,8 +275,7 @@ def chunked_cross_entropy(
             for logit_chunk, target_chunk in zip(logit_chunks, target_chunks)
         ]
         non_masked_elems = (targets != -1).sum()
-        mean_loss = torch.cat(loss_chunks).sum() / max(1, non_masked_elems)
-        return mean_loss
+        return torch.cat(loss_chunks).sum() / max(1, non_masked_elems)
 
     # no chunking at all
     logits = logits.reshape(-1, logits.size(-1))
@@ -280,8 +291,7 @@ def chunked_cross_entropy(
         for logit_chunk, target_chunk in zip(logit_chunks, target_chunks)
     ]
     non_masked_elems = (targets != -1).sum()
-    mean_loss = torch.cat(loss_chunks).sum() / max(1, non_masked_elems)
-    return mean_loss
+    return torch.cat(loss_chunks).sum() / max(1, non_masked_elems)
 
 
 def map_old_state_dict_weights(state_dict: Dict, mapping: Mapping, prefix: str) -> Dict:
@@ -349,3 +359,33 @@ def estimate_flops(model: "GPT", training: bool) -> int:
     # forward + backward
     frozen_ops_per_step = 2 if training else 1
     return ops_per_step * trainable_flops + frozen_ops_per_step * frozen_flops
+
+
+class CycleIterator:
+    """An iterator that cycles through an iterable indefinitely.
+
+    Example:
+        >>> iterator = CycleIterator([1, 2, 3])
+        >>> [next(iterator) for _ in range(5)]
+        [1, 2, 3, 1, 2]
+
+    Note:
+        Unlike ``itertools.cycle``, this iterator does not cache the values of the iterable.
+    """
+    def __init__(self, iterable: Iterable) -> None:
+        self.iterable = iterable
+        self.epoch = 0
+        self._iterator = None
+
+    def __next__(self) -> Any:
+        if self._iterator is None:
+            self._iterator = iter(self.iterable)
+        try:
+            return next(self._iterator)
+        except StopIteration:
+            self._iterator = iter(self.iterable)
+            self.epoch += 1
+            return next(self._iterator)
+
+    def __iter__(self) -> Self:
+        return self

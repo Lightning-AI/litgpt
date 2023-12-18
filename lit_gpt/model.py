@@ -48,8 +48,10 @@ class GPT(nn.Module):
             cos, sin = self.rope_cache()
             self.register_buffer("cos", cos, persistent=False)
             self.register_buffer("sin", sin, persistent=False)
+        # overrides
+        elif self.cos.device.type == "meta":
+            self.cos, self.sin = self.rope_cache()
         elif value != self.cos.size(0):
-            # override
             self.cos, self.sin = self.rope_cache(device=self.cos.device)
         # the mask and kv cache size will get updated on `set_kv_cache`. we cannot update it here because we don't know
         # if the kv cache is expected
@@ -120,11 +122,9 @@ class GPT(nn.Module):
             )
 
         if self.mask_cache is None or self.mask_cache.size(3) != max_seq_length:
-            # passing `attn_mask` to SDPA downgrades it to use the inefficient implementation. since we only need the mask
+            # passing `attn_mask` to SDPA disables the flash implementation. since we only need the mask
             # for the kv-cache support (only during inference), we only create it in that situation
-            # this will be resolved by https://github.com/pytorch/pytorch/issues/96099
-            ones = torch.ones((max_seq_length, max_seq_length), device=device, dtype=torch.bool)
-            self.mask_cache = torch.tril(ones).unsqueeze(0).unsqueeze(0)
+            self.mask_cache = build_mask_cache(max_seq_length, device)
 
     def clear_kv_cache(self) -> None:
         self.mask_cache = None
@@ -289,6 +289,32 @@ class LLaMAMLP(nn.Module):
         return self.proj(x)
 
 
+class LLaMAMoE(nn.Module):
+    def __init__(self, config: Config) -> None:
+        super().__init__()
+        self.gate = nn.Linear(config.n_embd, config.n_expert, bias=False)
+        self.experts = nn.ModuleList(LLaMAMLP(config) for _ in range(config.n_expert))
+
+        self.config = config
+
+    def forward(self, x: torch.Tensor) -> torch.Tensor:
+        """
+        Derived from: https://github.com/mistralai/mistral-src/blob/b46d6/moe_one_file_ref.py#L203-L219
+        See also figure 1 in https://arxiv.org/abs/2211.15841
+        """
+        B, T, C = x.size()  # batch size, sequence length, embedding dimensionality (n_embd)
+        x = x.view(-1, C)  # (B*T, C)
+        router = self.gate(x)  # (B*T, n_expert)
+        probs, indices = torch.topk(router, self.config.n_expert_per_token)
+        probs = probs.softmax(dim=1, dtype=torch.float).to(dtype=x.dtype)  # (B*T, n_expert_per_token)
+        y = torch.zeros_like(x)  # (B*T, C)
+        for i, expert in enumerate(self.experts):
+            mask = indices == i
+            batch_idx, ith_expert = torch.where(mask)
+            y[batch_idx] += probs[batch_idx, ith_expert, None] * expert(x[batch_idx])
+        return y.view(B, T, C)
+
+
 def build_rope_cache(
     seq_len: int, n_elem: int, device: Optional[torch.device] = None, base: int = 10000, condense_ratio: int = 1
 ) -> Tuple[torch.Tensor, torch.Tensor]:
@@ -316,7 +342,7 @@ def apply_rope(x: torch.Tensor, cos: torch.Tensor, sin: torch.Tensor) -> torch.T
     x2 = x[..., head_size // 2 :]  # (B, nh, T, hs/2)
     rotated = torch.cat((-x2, x1), dim=-1)  # (B, nh, T, hs)
     roped = (x * cos) + (rotated * sin)
-    return roped.type_as(x)
+    return roped.to(dtype=x.dtype)
 
 
 class KVCache(nn.Module):
@@ -343,3 +369,8 @@ class KVCache(nn.Module):
     def reset_parameters(self) -> None:
         torch.nn.init.zeros_(self.k)
         torch.nn.init.zeros_(self.v)
+
+
+def build_mask_cache(max_seq_length: int, device: Optional[torch.device] = None) -> torch.Tensor:
+    ones = torch.ones((max_seq_length, max_seq_length), device=device, dtype=torch.bool)
+    return torch.tril(ones).unsqueeze(0).unsqueeze(0)
