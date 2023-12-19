@@ -101,6 +101,7 @@ def decode(fabric: L.Fabric, tokenizer: Tokenizer, token_stream: Iterator[torch.
     return tokens_generated
 
 
+@torch.inference_mode()
 def main(
     *,
     top_k: Optional[int] = 200,
