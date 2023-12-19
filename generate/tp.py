@@ -1,71 +1,66 @@
+"""Tensor-parallel implementation adapted from https://github.com/pytorch-labs/gpt-fast/blob/14df27/tp.py"""
 import sys
 import time
 from pathlib import Path
-from typing import Optional, List
+from typing import Optional
 
 import lightning as L
 import torch
 import torch._dynamo.config
 import torch._inductor.config
-from torch.distributed import _functional_collectives as funcol
+from torch.distributed._functional_collectives import all_reduce
 
 # support running without installing as a package
 wd = Path(__file__).parent.parent.resolve()
 sys.path.append(str(wd))
 
-from lit_gpt import GPT, Config, Tokenizer
 import generate.base as generate_base
+from lit_gpt import GPT, Config, Tokenizer
 from lit_gpt.model import CausalSelfAttention, LLaMAMLP
-from lit_gpt.utils import (
-    check_valid_checkpoint_dir,
-    get_default_supported_precision,
-    load_checkpoint,
-)
+from lit_gpt.utils import check_valid_checkpoint_dir, get_default_supported_precision
 
 
-def _apply_tp_linear(fabric: L.Fabric, linear: torch.nn.Linear, style: str, weight_splits: List[int] = []) -> None:
+def tensor_parallel_linear(fabric: L.Fabric, linear: torch.nn.Linear, style: str) -> None:
     world_size = fabric.world_size
-
-    # (linear.out_features, linear.in_features)
-    dim_lookup = {
-        "colwise": (0, "out_features"),
-        "rowwise": (1, "in_features")
-    }
-    assert style in dim_lookup
-    shard_dim, size_attr = dim_lookup[style]
-
-    # ensure we can shard evenly
-    assert getattr(linear, size_attr) % world_size == 0
-    def shard(x, dim):
-        assert x.size(dim=dim) % world_size == 0
-        return torch.tensor_split(x, world_size, dim=dim)[fabric.global_rank]
-    
-    sharded_weight = shard(linear.weight, shard_dim)
-    linear.weight = torch.nn.Parameter(sharded_weight, requires_grad=False)
-    setattr(linear, size_attr, getattr(linear, size_attr) // world_size)
+    dim_lookup = {"colwise": (0, "out_features"), "rowwise": (1, "in_features")}
+    dim, attr = dim_lookup[style]
+    size = getattr(linear, attr)
+    if size % world_size != 0:
+        raise ValueError(
+            f"This linear's {attr} value ({size}) is not evenly divisible by the world size ({world_size})"
+        )
+    shard = torch.tensor_split(linear.weight, world_size, dim=dim)[fabric.global_rank]
+    linear.weight = torch.nn.Parameter(shard, requires_grad=linear.weight.requires_grad)
+    setattr(linear, attr, shard.size(dim))
 
 
-def _apply_tp_ffn(fabric: L.Fabric, mlp: LLaMAMLP) -> None:
-    _apply_tp_linear(fabric, mlp.fc_1, "colwise")
-    _apply_tp_linear(fabric, mlp.fc_2, "colwise")
-    _apply_tp_linear(fabric, mlp.proj, "rowwise")
-    mlp.register_forward_hook(lambda _module, _input, output: funcol.all_reduce(output, "sum", list(range(fabric.world_size))))
+def tensor_parallel_mlp(fabric: L.Fabric, mlp: LLaMAMLP) -> None:
+    tensor_parallel_linear(fabric, mlp.fc_1, "colwise")
+    tensor_parallel_linear(fabric, mlp.fc_2, "colwise")
+    tensor_parallel_linear(fabric, mlp.proj, "rowwise")
+    mlp.register_forward_hook(lambda module, input, output: all_reduce(output, "sum", list(range(fabric.world_size))))
 
 
-def _apply_tp_attn(fabric: L.Fabric, attn: CausalSelfAttention) -> None:
-    _apply_tp_linear(fabric, attn.attn, "colwise")
-    _apply_tp_linear(fabric, attn.proj, "rowwise")
-    attn.register_forward_hook(lambda _module, _input, output: funcol.all_reduce(output[0], "sum", list(range(fabric.world_size))))
+def tensor_parallel_attn(fabric: L.Fabric, attn: CausalSelfAttention) -> None:
+    tensor_parallel_linear(fabric, attn.attn, "colwise")
+    tensor_parallel_linear(fabric, attn.proj, "rowwise")
+    attn.register_forward_hook(
+        lambda module, input, output: all_reduce(output[0], "sum", list(range(fabric.world_size)))
+    )
 
 
 def tensor_parallel(fabric: L.Fabric, model: GPT) -> GPT:
     for block in model.transformer.h:
-        _apply_tp_ffn(fabric, block.mlp)
-        _apply_tp_attn(fabric, block.attn)
+        tensor_parallel_mlp(fabric, block.mlp)
+        tensor_parallel_attn(fabric, block.attn)
+
+    # update the config values to the shard sizes
+    # this is only relevant for `tensor_parallel_attn`, but it needs to run only once
     world_size = fabric.world_size
     model.config.n_head //= world_size
     model.config.n_embd //= world_size
     model.config.n_query_groups //= world_size
+
     return model
 
 
@@ -121,9 +116,9 @@ def main(
     state_dict = torch.load(str(checkpoint_path), mmap=True)
     model.load_state_dict(state_dict, assign=True)
     fabric.print(f"Time to load the model weights: {time.perf_counter() - t0:.02f} seconds.", file=sys.stderr)
-    
+
     model = tensor_parallel(fabric, model)
-    
+
     with fabric.init_tensor():
         # set the max_seq_length to limit the memory usage to what we need
         model.max_seq_length = max_returned_tokens
@@ -143,7 +138,9 @@ def main(
     L.seed_everything(1234)
     for i in range(num_samples):
         t0 = time.perf_counter()
-        y = generate_base.generate(model, encoded, max_returned_tokens, temperature=temperature, top_k=top_k, eos_id=tokenizer.eos_id)
+        y = generate_base.generate(
+            model, encoded, max_returned_tokens, temperature=temperature, top_k=top_k, eos_id=tokenizer.eos_id
+        )
         t = time.perf_counter() - t0
         for block in model.transformer.h:
             block.attn.kv_cache.reset_parameters()
