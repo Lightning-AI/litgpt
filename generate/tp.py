@@ -1,8 +1,10 @@
 """Tensor-parallel implementation adapted from https://github.com/pytorch-labs/gpt-fast/blob/14df27/tp.py"""
+
 import sys
 import time
+from functools import partial
 from pathlib import Path
-from typing import Optional
+from typing import Optional, Union
 
 import lightning as L
 import torch
@@ -16,37 +18,55 @@ sys.path.append(str(wd))
 
 import generate.base as generate_base
 from lit_gpt import GPT, Config, Tokenizer
-from lit_gpt.model import CausalSelfAttention, LLaMAMLP
+from lit_gpt.model import CausalSelfAttention, GptNeoxMLP, LLaMAMLP, LLaMAMoE
 from lit_gpt.utils import check_valid_checkpoint_dir, get_default_supported_precision
 
 
 def tensor_parallel_linear(fabric: L.Fabric, linear: torch.nn.Linear, style: str) -> None:
     world_size = fabric.world_size
-    dim_lookup = {"colwise": (0, "out_features"), "rowwise": (1, "in_features")}
-    dim, attr = dim_lookup[style]
+    dim, attr = {"colwise": (0, "out_features"), "rowwise": (1, "in_features")}[style]
     size = getattr(linear, attr)
     if size % world_size != 0:
         raise ValueError(
             f"This linear's {attr} value ({size}) is not evenly divisible by the world size ({world_size})"
         )
+
     shard = torch.tensor_split(linear.weight, world_size, dim=dim)[fabric.global_rank]
     linear.weight = torch.nn.Parameter(shard, requires_grad=linear.weight.requires_grad)
     setattr(linear, attr, shard.size(dim))
 
+    if linear.bias is not None and dim == 0:
+        shard = torch.tensor_split(linear.bias, world_size)[fabric.global_rank]
+        linear.bias = torch.nn.Parameter(shard, requires_grad=linear.bias.requires_grad)
 
-def tensor_parallel_mlp(fabric: L.Fabric, mlp: LLaMAMLP) -> None:
-    tensor_parallel_linear(fabric, mlp.fc_1, "colwise")
-    tensor_parallel_linear(fabric, mlp.fc_2, "colwise")
-    tensor_parallel_linear(fabric, mlp.proj, "rowwise")
-    mlp.register_forward_hook(lambda module, input, output: all_reduce(output, "sum", list(range(fabric.world_size))))
+
+def tensor_parallel_mlp(fabric: L.Fabric, mlp: Union[GptNeoxMLP, LLaMAMLP, LLaMAMoE]) -> None:
+    if isinstance(mlp, LLaMAMLP):
+        tensor_parallel_linear(fabric, mlp.fc_1, "colwise")
+        tensor_parallel_linear(fabric, mlp.fc_2, "colwise")
+        tensor_parallel_linear(fabric, mlp.proj, "rowwise")
+        mlp.register_forward_hook(partial(all_reduce_output, fabric.world_size))
+    elif isinstance(mlp, GptNeoxMLP):
+        tensor_parallel_linear(fabric, mlp.fc, "colwise")
+        tensor_parallel_linear(fabric, mlp.proj, "rowwise")
+        mlp.register_forward_hook(partial(all_reduce_output, fabric.world_size))
+    elif isinstance(mlp, LLaMAMoE):
+        # we use expert slicing across ranks, alternatively, we could create a expert parallelism group
+        # when the number of experts is a multiple of the world size
+        for expert in mlp.experts:
+            tensor_parallel_mlp(fabric, expert)
+    else:
+        raise NotImplementedError
 
 
 def tensor_parallel_attn(fabric: L.Fabric, attn: CausalSelfAttention) -> None:
     tensor_parallel_linear(fabric, attn.attn, "colwise")
     tensor_parallel_linear(fabric, attn.proj, "rowwise")
-    attn.register_forward_hook(
-        lambda module, input, output: all_reduce(output[0], "sum", list(range(fabric.world_size)))
-    )
+    attn.register_forward_hook(partial(all_reduce_output, fabric.world_size))
+
+
+def all_reduce_output(world_size: int, module: torch.nn.Module, ins, outs) -> torch.Tensor:
+    return all_reduce(outs, "sum", list(range(world_size)))
 
 
 def tensor_parallel(fabric: L.Fabric, model: GPT) -> GPT:
@@ -117,7 +137,9 @@ def main(
     model.load_state_dict(state_dict, assign=True)
     fabric.print(f"Time to load the model weights: {time.perf_counter() - t0:.02f} seconds.", file=sys.stderr)
 
+    t0 = time.perf_counter()
     model = tensor_parallel(fabric, model)
+    fabric.print(f"Time to tensor-parallelize the model: {time.perf_counter() - t0:.02f} seconds.", file=sys.stderr)
 
     with fabric.init_tensor():
         # set the max_seq_length to limit the memory usage to what we need
@@ -132,8 +154,7 @@ def main(
         torch._dynamo.config.automatic_dynamic_shapes = True
         torch._inductor.config.triton.unique_kernel_names = True
         torch._inductor.config.coordinate_descent_tuning = True
-        global next_token
-        next_token = torch.compile(next_token, mode="reduce-overhead")
+        generate_base.next_token = torch.compile(generate_base.next_token, mode="reduce-overhead")
 
     L.seed_everything(1234)
     for i in range(num_samples):
