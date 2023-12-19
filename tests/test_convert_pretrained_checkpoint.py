@@ -1,5 +1,4 @@
 import os
-from pathlib import Path
 
 import torch
 
@@ -9,10 +8,7 @@ def test_convert_pretrained_checkpoint(tmp_path):
 
     # Pretend we made a checkpoint from pretraining
     pretrained_checkpoint = {
-        "model": {
-            "some.module.weight": torch.rand(2, 2),
-            "_orig_mod.some.other.module.weight": torch.rand(2, 2),
-        },
+        "model": {"some.module.weight": torch.rand(2, 2), "_orig_mod.some.other.module.weight": torch.rand(2, 2)},
         "the_optimizer": "optimizer_state",
         "other": 1,
     }
@@ -30,13 +26,6 @@ def test_convert_pretrained_checkpoint(tmp_path):
         output_dir=(tmp_path / "converted"),
     )
 
-    assert set(os.listdir(tmp_path / "converted")) == {
-        "lit_model.pth",
-        "lit_config.json",
-        "tokenizer_config.json",
-    }
+    assert set(os.listdir(tmp_path / "converted")) == {"lit_model.pth", "lit_config.json", "tokenizer_config.json"}
     converted_checkpoint = torch.load(tmp_path / "converted" / "lit_model.pth")
-    assert list(converted_checkpoint.keys()) == [
-        "some.module.weight",
-        "some.other.module.weight",
-    ]
+    assert list(converted_checkpoint.keys()) == ["some.module.weight", "some.other.module.weight"]

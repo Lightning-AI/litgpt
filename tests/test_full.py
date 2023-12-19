@@ -91,7 +91,10 @@ def test_pretrain_tiny_llama(tmp_path, monkeypatch):
         module.setup()
 
     assert {p.name for p in tmp_path.glob("*.pth")} == {
-        "step-00000001.pth", "step-00000002.pth", "step-00000003.pth", "step-00000004.pth"
+        "step-00000001.pth",
+        "step-00000002.pth",
+        "step-00000003.pth",
+        "step-00000004.pth",
     }
 
     logs = stdout.getvalue()

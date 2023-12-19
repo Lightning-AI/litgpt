@@ -2,6 +2,7 @@
 This script is adapted from TinyLlama:
 https://github.com/jzhang38/TinyLlama/blob/main/pretrain/tinyllama.py
 """
+
 import math
 import os
 import sys
@@ -68,11 +69,7 @@ def setup(resume: Union[bool, Path] = False):
     logger = choose_logger(logger_name, name=name, resume=resume)
 
     if devices > 1:
-        strategy = FSDPStrategy(
-            auto_wrap_policy={Block},
-            state_dict_type="full",
-            sharding_strategy="HYBRID_SHARD",
-        )
+        strategy = FSDPStrategy(auto_wrap_policy={Block}, state_dict_type="full", sharding_strategy="HYBRID_SHARD")
     else:
         strategy = "auto"
 
@@ -160,8 +157,8 @@ def train(fabric, state, train_dataloader, val_dataloader, resume):
                 fabric.print(f"Resuming dataset: {resume_iter} / {initial_iter}")
         fabric.barrier()
         fabric.print(
-            "Resuming data loader finished."
-            f" Took {time.perf_counter() - resume_t0:.1f} seconds to reach iteration {initial_iter}, epoch {train_iterator.epoch}."
+            f"Resuming data loader finished. Took {time.perf_counter() - resume_t0:.1f} seconds to reach iteration"
+            f" {initial_iter}, epoch {train_iterator.epoch}."
         )
 
     running_loss = RunningMean(window=gradient_accumulation_steps, sync_on_compute=False).to(fabric.device)

@@ -169,7 +169,7 @@ def test_num_parameters_bitsandbytes(mode):
 
 def test_cycle_iterator():
     from lit_gpt.utils import CycleIterator
-    
+
     iterator = CycleIterator([])
     with pytest.raises(StopIteration):
         next(iterator)
