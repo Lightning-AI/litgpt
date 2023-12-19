@@ -3,6 +3,7 @@
 Based on the nanoGPT implementation: https://github.com/karpathy/nanoGPT and
 https://github.com/EleutherAI/gpt-neox/tree/main/megatron/model.
 """
+
 import math
 from typing import Any, Optional, Tuple
 

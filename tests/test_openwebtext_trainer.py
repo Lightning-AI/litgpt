@@ -1,7 +1,7 @@
 import pytest
 
 
-def test_lightningmodule_state_dict(tmp_path):
+def test_lightningmodule_state_dict():
     from lit_gpt.config import Config
     from lit_gpt.model import GPT
     from pretrain.openwebtext_trainer import LightningGPTModule

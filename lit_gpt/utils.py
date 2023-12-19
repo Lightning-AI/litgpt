@@ -1,23 +1,12 @@
 """Utility functions for training and inference."""
+
 import math
 import pickle
 import sys
 from contextlib import nullcontext
 from io import BytesIO
 from pathlib import Path
-from typing import (
-    TYPE_CHECKING,
-    Any,
-    ContextManager,
-    Dict,
-    Iterable,
-    List,
-    Mapping,
-    Optional,
-    TypeVar,
-    Union,
-)
-from typing_extensions import Self
+from typing import TYPE_CHECKING, Any, ContextManager, Dict, Iterable, List, Mapping, Optional, TypeVar, Union
 
 import lightning as L
 import torch
@@ -26,6 +15,7 @@ import torch.utils._device
 from lightning.fabric.strategies import FSDPStrategy
 from lightning.fabric.utilities.load import _lazy_load as lazy_load
 from torch.serialization import normalize_storage_type
+from typing_extensions import Self
 
 if TYPE_CHECKING:
     from lit_gpt import GPT
@@ -372,6 +362,7 @@ class CycleIterator:
     Note:
         Unlike ``itertools.cycle``, this iterator does not cache the values of the iterable.
     """
+
     def __init__(self, iterable: Iterable) -> None:
         self.iterable = iterable
         self.epoch = 0
