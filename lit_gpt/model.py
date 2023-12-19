@@ -224,7 +224,7 @@ class CausalSelfAttention(nn.Module):
 
         y = self.scaled_dot_product_attention(q, k, v, mask)
 
-        y = y.reshape(B, T, C)  # re-assemble all head outputs side by side
+        y = y.reshape(B, T, self.config.n_embd)  # re-assemble all head outputs side by side
 
         # output projection
         return self.proj(y)

@@ -26,7 +26,6 @@ from lit_gpt.utils import (
 def _apply_tp_linear(fabric: L.Fabric, linear: torch.nn.Linear, style: str, weight_splits: List[int] = []) -> None:
     world_size = fabric.world_size
 
-    # Linear's weight matrix is transposed, and is of shape
     # (linear.out_features, linear.in_features)
     dim_lookup = {
         "colwise": (0, "out_features"),
@@ -41,20 +40,7 @@ def _apply_tp_linear(fabric: L.Fabric, linear: torch.nn.Linear, style: str, weig
         assert x.size(dim=dim) % world_size == 0
         return torch.tensor_split(x, world_size, dim=dim)[fabric.global_rank]
     
-    def shard_qkv(qkv, dim, weight_splits):
-        q, k, v = qkv.split(weight_splits, dim=dim)
-        q = shard(q, dim)
-        k = shard(k, dim)
-        v = shard(v, dim)
-        return torch.cat((q,k,v), dim=dim)
-
-    # shard
-    if weight_splits:
-        assert len(weight_splits) == 3
-        sharded_weight = shard_qkv(linear.weight, shard_dim, weight_splits)
-    else:
-        sharded_weight = shard(linear.weight, shard_dim)
-
+    sharded_weight = shard(linear.weight, shard_dim)
     linear.weight = torch.nn.Parameter(sharded_weight, requires_grad=False)
     setattr(linear, size_attr, getattr(linear, size_attr) // world_size)
 
@@ -63,25 +49,23 @@ def _apply_tp_ffn(fabric: L.Fabric, mlp: LLaMAMLP) -> None:
     _apply_tp_linear(fabric, mlp.fc_1, "colwise")
     _apply_tp_linear(fabric, mlp.fc_2, "colwise")
     _apply_tp_linear(fabric, mlp.proj, "rowwise")
-
     mlp.register_forward_hook(lambda _module, _input, output: funcol.all_reduce(output, "sum", list(range(fabric.world_size))))
 
 
 def _apply_tp_attn(fabric: L.Fabric, attn: CausalSelfAttention) -> None:
-    kv_size = attn.config.n_query_groups * attn.config.head_size
-    _apply_tp_linear(fabric, attn.attn, "colwise", [attn.config.n_embd, kv_size, kv_size])
+    _apply_tp_linear(fabric, attn.attn, "colwise")
     _apply_tp_linear(fabric, attn.proj, "rowwise")
     attn.register_forward_hook(lambda _module, _input, output: funcol.all_reduce(output[0], "sum", list(range(fabric.world_size))))
 
 
 def tensor_parallel(fabric: L.Fabric, model: GPT) -> GPT:
-    world_size = fabric.world_size
-    #model.config.n_head //= world_size
-    #model.config.n_embd //= world_size
-    #model.config.n_query_groups //= world_size
     for block in model.transformer.h:
-        #_apply_tp_attn(fabric, block.attn)
         _apply_tp_ffn(fabric, block.mlp)
+        _apply_tp_attn(fabric, block.attn)
+    world_size = fabric.world_size
+    model.config.n_head //= world_size
+    model.config.n_embd //= world_size
+    model.config.n_query_groups //= world_size
     return model
 
 
