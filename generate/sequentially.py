@@ -7,7 +7,6 @@ from collections import OrderedDict
 from functools import partial
 from pathlib import Path
 from typing import Literal, Optional, Union
-from warnings import filterwarnings
 
 import lightning as L
 import torch
@@ -183,8 +182,6 @@ def main(
         model = GPT(config)
     print(f"Time to instantiate model: {time.perf_counter() - t0:.02f} seconds.", file=sys.stderr)
 
-    # for this script, this warning is a false-positive
-    filterwarnings("ignore", ".*copying from a non-meta parameter.*", module="torch.nn.modules.module")
     t0 = time.perf_counter()
     state_dict = torch.load(str(checkpoint_path), mmap=True, map_location="cpu")
     # TODO: this assumes that the model fits on CPU. Use lazy_load and make the materialization checkpoint aware
