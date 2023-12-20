@@ -150,17 +150,13 @@ class LoRALinear(LoRALayer):
                 import bitsandbytes as bnb
 
                 weight = self.linear.weight
-                # capture args like `compress_statistics`, `quant_type` and `quant_state`
-                weight_kwargs = weight.__dict__
-                # dequantize the pretrained weights and sum them with LoRA weights
-                weight_data = (
-                    bnb.functional.dequantize_4bit(weight.data, weight.quant_state).to(lora_data.dtype) + lora_data
-                )
-                # weights are quantized when they are moved to CUDA device,
-                # so we have to first move them to CPU and after - to CUDA
-                self.linear.weight = bnb.nn.Params4bit(weight_data.to("cpu"), requires_grad=False, **weight_kwargs).to(
-                    weight.device
-                )
+                # dequantize the pretrained weights
+                weight_data = bnb.functional.dequantize_4bit(weight.data, weight.quant_state).to(lora_data.dtype)
+                # add pretrained and LoRA weights
+                weight_data += lora_data
+                # assign updated weights and quantize by moving to CUDA device
+                self.linear.weight = bnb.nn.Params4bit(weight_data, requires_grad=False, **weight.__dict__)
+                self.linear.weight.cuda(weight.device)
             else:
                 raise NotImplementedError(
                     f"Cannot merge the pretrained weights of type {pretrained_dtype}"
