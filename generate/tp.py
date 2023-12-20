@@ -1,15 +1,18 @@
 """Tensor-parallel implementation adapted from https://github.com/pytorch-labs/gpt-fast/blob/14df27/tp.py"""
 
+import logging
 import sys
 import time
 from functools import partial
 from pathlib import Path
-from typing import Optional, Union
+from typing import Literal, Optional, Union
 
 import lightning as L
 import torch
 import torch._dynamo.config
 import torch._inductor.config
+from lightning.fabric.plugins import BitsandbytesPrecision
+from lightning.fabric.utilities import rank_zero_only
 from torch.distributed._functional_collectives import all_reduce
 
 # support running without installing as a package
@@ -32,7 +35,9 @@ def tensor_parallel_linear(fabric: L.Fabric, linear: torch.nn.Linear, style: str
         )
 
     shard = torch.tensor_split(linear.weight, world_size, dim=dim)[fabric.global_rank]
-    linear.weight = torch.nn.Parameter(shard, requires_grad=linear.weight.requires_grad)
+    # overwrite `.data` instead of recreating the parameter for quantization (bitsandbytes) support.
+    # the bitsandbytes linear classes use custom `torch.nn.Parameter` subclasses
+    linear.weight.data = shard
     setattr(linear, attr, shard.size(dim))
 
     if linear.bias is not None and dim == 0:
@@ -93,6 +98,7 @@ def main(
     top_k: Optional[int] = 200,
     temperature: float = 0.8,
     checkpoint_dir: Path = Path("checkpoints/stabilityai/stablelm-base-alpha-3b"),
+    quantize: Optional[Literal["bnb.nf4", "bnb.nf4-dq", "bnb.fp4", "bnb.fp4-dq"]] = None,
     precision: Optional[str] = None,
     compile: bool = False,
 ) -> None:
@@ -106,12 +112,26 @@ def main(
         temperature: A value controlling the randomness of the sampling process. Higher values result in more random
             samples.
         checkpoint_dir: The checkpoint directory to load.
+        quantize: Whether to quantize the model and using which method:
+            - bnb.nf4, bnb.nf4-dq, bnb.fp4, bnb.fp4-dq: 4-bit quantization from bitsandbytes
+            for more details, see https://github.com/Lightning-AI/lit-gpt/blob/main/tutorials/quantize.md
         precision: Indicates the Fabric precision setting to use.
         compile: Whether to compile the model.
     """
     precision = precision or get_default_supported_precision(training=False)
 
-    fabric = L.Fabric(devices="auto", strategy="ddp", precision=precision)
+    plugins = None
+    if quantize is not None:
+        if compile:
+            raise NotImplementedError  # untested
+        if "mixed" in precision:
+            raise ValueError("Quantization and mixed precision is not supported.")
+        dtype = {"16-true": torch.float16, "bf16-true": torch.bfloat16, "32-true": torch.float32}[precision]
+        plugins = BitsandbytesPrecision(quantize[4:], dtype)
+        precision = None
+
+    # set "ddp" as the strategy for the launching functionality, but there's no data-parallelism
+    fabric = L.Fabric(devices="auto", strategy="ddp", precision=precision, plugins=plugins)
     fabric.launch()
 
     check_valid_checkpoint_dir(checkpoint_dir)
@@ -128,27 +148,43 @@ def main(
 
     fabric.print(f"Loading model {str(checkpoint_path)!r} with {config.__dict__}", file=sys.stderr)
     t0 = time.perf_counter()
-    with fabric.init_module(empty_init=False), torch.device("meta"):
+    # cannot use `init_module` because if bitsandbytes is used, the Linear layers will be replaced
+    # which means that the weights will get quantized on cuda:0 on checkpoint load. we need to load and then convert
+    # still, use init_tensor for the precision
+    with fabric.init_tensor(), torch.device("meta"):
         model = GPT(config)
     fabric.print(f"Time to instantiate model: {time.perf_counter() - t0:.02f} seconds.", file=sys.stderr)
 
-    t0 = time.perf_counter()
-    state_dict = torch.load(str(checkpoint_path), mmap=True)
-    model.load_state_dict(state_dict, assign=True)
-    fabric.print(f"Time to load the model weights: {time.perf_counter() - t0:.02f} seconds.", file=sys.stderr)
+    # sequentially do: load the checkpoint on CPU -> quantize -> apply tp -> move to device
+    # so that the CPU RAM doesn't OOM with larger models
+    for rank in range(fabric.world_size):
+        if fabric.global_rank == rank:
+            t0 = time.perf_counter()
+            state_dict = torch.load(str(checkpoint_path), mmap=True, map_location="cpu")
+            model.load_state_dict(state_dict, assign=True)
+            print(f"[{rank}] Time to load the model weights: {time.perf_counter() - t0:.02f} seconds.", file=sys.stderr)
 
-    t0 = time.perf_counter()
-    model = tensor_parallel(fabric, model)
-    fabric.print(f"Time to tensor-parallelize the model: {time.perf_counter() - t0:.02f} seconds.", file=sys.stderr)
+            # cannot use `.setup_module` because it will wrap with DDP
+            model = fabric._precision.convert_module(model)
 
-    with fabric.init_tensor():
-        # set the max_seq_length to limit the memory usage to what we need
-        model.max_seq_length = max_returned_tokens
-        # enable the kv cache
-        model.set_kv_cache(batch_size=1)
-    model.eval()
+            t0 = time.perf_counter()
+            model = tensor_parallel(fabric, model)
+            print(
+                f"[{rank}] Time to tensor-parallelize the model: {time.perf_counter() - t0:.02f} seconds.",
+                file=sys.stderr,
+            )
 
-    model = fabric.to_device(model)
+            with fabric.init_tensor():
+                # set the max_seq_length to limit the memory usage to what we need
+                model.max_seq_length = max_returned_tokens
+                # enable the kv cache
+                model.set_kv_cache(batch_size=1)
+            model.eval()
+
+            t0 = time.perf_counter()
+            model = fabric.to_device(model)
+            print(f"[{rank}] Time to move the model: {time.perf_counter() - t0:.02f} seconds.", file=sys.stderr)
+        fabric.barrier()
 
     if compile:
         torch._dynamo.config.automatic_dynamic_shapes = True
@@ -178,4 +214,9 @@ if __name__ == "__main__":
     from jsonargparse import CLI
 
     torch.set_float32_matmul_precision("high")
+
+    bnb_logger = logging.getLogger("lightning.fabric.plugins.precision.bitsandbytes")
+    bnb_logger.setLevel(logging.DEBUG)
+    bnb_logger.debug = rank_zero_only(bnb_logger.debug)
+
     CLI(main)
