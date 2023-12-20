@@ -36,7 +36,7 @@ out_dir = Path(os.getenv("LIGHTNING_ARTIFACTS_DIR", "out")) / name
 logger_name = "tensorboard"
 
 # Hyperparameters
-devices = 8
+devices = torch.cuda.device_count()
 
 global_batch_size = 512
 learning_rate = 4e-4
@@ -68,12 +68,8 @@ hparams = {k: v for k, v in locals().items() if isinstance(v, (int, float, str))
 def setup(resume: Union[bool, Path] = False):
     logger = choose_logger(logger_name, name=name, resume=resume)
 
-    if devices > 1:
-        strategy = FSDPStrategy(auto_wrap_policy={Block}, state_dict_type="full", sharding_strategy="HYBRID_SHARD")
-    else:
-        strategy = "auto"
-
-    fabric = L.Fabric(devices=devices, strategy=strategy, precision="bf16-mixed", loggers=[logger])
+    strategy = FSDPStrategy(auto_wrap_policy={Block}, state_dict_type="full", sharding_strategy="HYBRID_SHARD")
+    fabric = L.Fabric(devices=devices, strategy=strategy, precision="bf16-true", loggers=[logger])
     fabric.launch()
 
     fabric.print(hparams)
