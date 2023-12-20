@@ -34,10 +34,9 @@ model_name = "tiny-llama-1.1b"
 name = "lit-tiny-llama-1.1b"
 out_dir = Path(os.getenv("LIGHTNING_ARTIFACTS_DIR", "out")) / name
 logger_name = "tensorboard"
-
-# Hyperparameters
 devices = torch.cuda.device_count()
 
+# Hyperparameters
 global_batch_size = 512
 learning_rate = 4e-4
 micro_batch_size = 4
