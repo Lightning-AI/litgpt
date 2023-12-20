@@ -32,14 +32,14 @@ Memory used: 14.50 GB
 
 To reduce the memory requirements further, Lit-GPT supports several quantization techniques, which are shown below.
 
-> [!NOTE]
+> [!TIP]
 > Most quantization examples below also use the `--precision bf16-true` setting explained above. If your GPU does not support `bfloat16`, you can change it to `--precision 16-true`.
 
 ## `bnb.nf4`
 
 Enabled with [bitsandbytes](https://github.com/TimDettmers/bitsandbytes). Check out the [paper](https://arxiv.org/abs/2305.14314v1) to learn more about how it works.
 
-> [!NOTE]
+> [!IMPORTANT]
 > `bitsandbytes` only supports `CUDA` devices and the `Linux` operating system.
 > Windows users should use [WSL2](https://learn.microsoft.com/en-us/windows/ai/directml/gpu-cuda-in-wsl).
 
