@@ -153,7 +153,9 @@ class LoRALinear(LoRALayer):
                 # capture args like `compress_statistics`, `quant_type` and `quant_state`
                 weight_kwargs = weight.__dict__
                 # dequantize the pretrained weights and sum them with LoRA weights
-                weight_data = bnb.functional.dequantize_4bit(weight.data, weight.quant_state) + lora_data
+                weight_data = (
+                    bnb.functional.dequantize_4bit(weight.data, weight.quant_state).to(lora_data.dtype) + lora_data
+                )
                 # weights are quantized when they are moved to CUDA device,
                 # so we have to first move them to CPU and after - to CUDA
                 self.linear.weight = bnb.nn.Params4bit(weight_data.to("cpu"), requires_grad=False, **weight_kwargs).to(
