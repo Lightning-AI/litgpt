@@ -94,16 +94,16 @@ def test_pretrain_tiny_llama(tmp_path, monkeypatch):
     with redirect_stdout(stdout):
         module.setup()
 
-    # tmp_path is not the same across all ranks, run assert only on rank 0
     if torch.distributed.get_rank() == 0:
+        # tmp_path is not the same across all ranks, run assert only on rank 0
         assert {p.name for p in tmp_path.glob("*.pth")} == {
             "step-00000001.pth",
             "step-00000002.pth",
             "step-00000003.pth",
             "step-00000004.pth",
         }
-
-    logs = stdout.getvalue()
-    assert logs.count("optimizer.step") == 4
-    assert logs.count("val loss") == 4
-    assert "Total parameters: 1,888" in logs
+        # logs only appear on rank 0
+        logs = stdout.getvalue()
+        assert logs.count("optimizer.step") == 4
+        assert logs.count("val loss") == 4
+        assert "Total parameters: 1,888" in logs
