@@ -55,7 +55,7 @@ Using A100 40GB GPUs, we need to use at least 4. You can control the number of d
 |---------|-------------|-----------|
 | 2       | OOM         | -         |
 | 4       | 35.64 GB    | 7.55      |
-| 5       | 28.72 GB    | 7.45      |
+| 5       | 28.72 GB    | 7.49      |
 | 8       | 18.35 GB    | 7.47      |
 
 Note that the memory usage will also depend on the `max_new_tokens` value used.
@@ -74,7 +74,7 @@ python generate/sequentially.py \
 |---------|-------------|-----------|
 | 2       | 20.00 GB    | 8.63      |
 | 4       | 10.80 GB    | 8.23      |
-| 5       | 8.96 GB     | 8.09      |
+| 5       | 8.96 GB     | 8.10      |
 | 8       | 6.23 GB     | 8.18      |
 
 Smaller devices can also be used to run inference with this technique.
