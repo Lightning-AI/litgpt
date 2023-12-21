@@ -5,9 +5,8 @@ from unittest import mock
 from unittest.mock import Mock
 
 import torch
-from torch.utils.data import DataLoader
-
 from conftest import RunIf
+from torch.utils.data import DataLoader
 
 
 @mock.patch.dict(os.environ, {"LT_ACCELERATOR": "cpu"})

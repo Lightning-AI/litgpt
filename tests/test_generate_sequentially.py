@@ -49,12 +49,10 @@ def test_replace_device():
     class MyModel(torch.nn.Module):
         def __init__(self):
             super().__init__()
-            self.modules = torch.nn.ModuleDict(
-                {
-                    "module1": torch.nn.Linear(1, 1, bias=True, device="meta"),
-                    "module2": torch.nn.Linear(1, 1, bias=False, device="cpu"),
-                }
-            )
+            self.modules = torch.nn.ModuleDict({
+                "module1": torch.nn.Linear(1, 1, bias=True, device="meta"),
+                "module2": torch.nn.Linear(1, 1, bias=False, device="cpu"),
+            })
             self.submodule = Submodule()
 
     model = MyModel()
@@ -155,7 +153,7 @@ def find_forward_hooks(module):
 
 
 @RunIf(min_cuda_gpus=2)
-def test_model_forward_hooks(monkeypatch):
+def test_model_forward_hooks():
     from generate.sequentially import sequential
     from lit_gpt import GPT
 
