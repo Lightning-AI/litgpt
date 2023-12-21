@@ -48,4 +48,13 @@ python scripts/download.py --repo_id mistralai/Mixtral-8x7B-Instruct-v0.1 --from
 python scripts/convert_hf_checkpoint.py --checkpoint_dir checkpoints/mistralai/Mixtral-8x7B-Instruct-v0.1
 ```
 
-Inference coming soon.
+Due to the size of the model, currently only the multi-device sequential generation script can handle it.
+
+```bash
+pip install sentencepiece
+
+python generate/sequentially.py --checkpoint_dir checkpoints/mistralai/Mixtral-8x7B-Instruct-v0.1
+```
+
+You will need enough devices (2, 4, or 8) where their combined memory is higher than 94 GB to fit the model in memory.
+Please check out [this section](inference.md#run-a-large-model-on-multiple-smaller-devices) for more information about this script.

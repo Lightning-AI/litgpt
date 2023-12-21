@@ -33,4 +33,45 @@ Check out our [quantization tutorial](quantize.md).
 
 ## Run a large model on multiple smaller devices
 
-Coming soon
+You can also use the `generate/sequentially.py` script to leverage multiple devices to perform inference.
+This will allow you to run models that wouldn't fit in a single card by partitioning the weights across all your devices and running the layers sequentially.
+
+For instance, `meta-llama/Llama-2-70b-chat-hf` would require ~140 GB of GPU memory to load on a single device, plus the memory for activations.
+With 80 transformer layers, we could partition them across 8, 5, 4, or 2 devices. 
+
+```shell
+python generate/sequentially.py \
+  --checkpoint_dir checkpoints/meta-llama/Llama-2-70b-chat-hf \
+  --max_new_tokens 256 \
+  --num_samples 2
+```
+
+Using A100 40GB GPUs, we need to use at least 4. You can control the number of devices by setting the `CUDA_VISIBLE_DEVICES=` environment variable.
+
+| Devices | Max GPU RAM | Token/sec |
+|---------|-------------|-----------|
+| 2       | OOM         | -         |
+| 4       | 35.36 GB    | 7.48      |
+| 5       | 28.72 GB    | 7.45      |
+| 8       | 18.35 GB    | 7.42      |
+
+Note that the memory usage will also depend on the `max_new_tokens` value used.
+
+The script also supports quantization, using 4-bit precision, we can now use 2 GPUs
+
+```shell
+python generate/sequentially.py \
+  --checkpoint_dir checkpoints/meta-llama/Llama-2-70b-chat-hf \
+  --max_new_tokens 256 \
+  --num_samples 2 \
+  --quantize bnb.nf4-dq
+```
+
+| Devices | Max GPU RAM | Token/sec |
+|---------|-------------|-----------|
+| 2       | 19.99 GB    | 8.60      |
+| 4       | 10.80 GB    | 8.12      |
+| 5       | 8.96 GB     | 8.09      |
+| 8       | 6.23 GB     | 8.00      |
+
+Smaller devices can also be used to run inference with this technique.
