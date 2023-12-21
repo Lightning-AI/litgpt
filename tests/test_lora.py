@@ -48,9 +48,10 @@ def test_lora_merge():
     )
     model = GPT(config)
     model.train()
+    attn_proj = model.transformer.h[0].attn.proj
 
-    initial_weight = model.transformer.h[0].attn.proj.linear.weight.clone()
-    assert torch.equal(model.transformer.h[0].attn.proj.linear.weight, initial_weight)
+    initial_weight = attn_proj.linear.weight.clone()
+    assert torch.equal(attn_proj.linear.weight, initial_weight)
 
     # perform an update to the LoRA weights
     mark_only_lora_as_trainable(model)
@@ -60,21 +61,18 @@ def test_lora_merge():
     optimizer.step()
     optimizer.zero_grad()
     # the weight remains unchanged (only lora A and B change)
-    assert torch.equal(model.transformer.h[0].attn.proj.linear.weight, initial_weight)
+    assert torch.equal(attn_proj.linear.weight, initial_weight)
 
     # calling merge() multiple times in a row should not merge multiple times
     merge_lora_weights(model)
-    assert model.transformer.h[0].attn.attn.merged
-    weight_after = model.transformer.h[0].attn.proj.linear.weight.clone()
+    assert attn_proj.merged
+    weight_after = attn_proj.linear.weight.clone()
     merge_lora_weights(model)
     merge_lora_weights(model)
-    assert torch.equal(model.transformer.h[0].attn.proj.linear.weight, weight_after)
+    assert torch.equal(attn_proj.linear.weight, weight_after)
 
     # check that `W_after = W_initial + (A x B)`
-    a = model.transformer.h[0].attn.proj.lora_A
-    b = model.transformer.h[0].attn.proj.lora_B
-    scaling = model.transformer.h[0].attn.proj.scaling
-    delta_w = (b @ a) * scaling
+    delta_w = attn_proj.get_lora_AB()
     torch.testing.assert_close(weight_after, initial_weight + delta_w)
 
 
@@ -421,7 +419,7 @@ def test_lora_merge_with_quantize():
     assert torch.equal(attn_proj.linear.weight, weight_after)
 
     # check that `W_after = W_initial + (A x B)`
-    delta_w = (attn_proj.lora_B @ attn_proj.lora_A) * attn_proj.scaling
+    delta_w = attn_proj.get_lora_AB()
     # dequantize initial weight and sum with delta_w
     initial_weight_data = (
         bnb.functional.dequantize_4bit(initial_weight.data, initial_weight_kwargs["quant_state"]) + delta_w
