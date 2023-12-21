@@ -15,7 +15,7 @@ setup(
     url="https://github.com/lightning-AI/lit-gpt",
     install_requires=[
         "torch>=2.1.0",
-        "lightning @ git+https://github.com/Lightning-AI/lightning@carmocca/bnb-metad",
+        "lightning @ git+https://github.com/Lightning-AI/lightning@6dfa5cca9de5c28548eef5582a53c483b0eda66a",
     ],
     packages=find_packages(),
     long_description=readme,
