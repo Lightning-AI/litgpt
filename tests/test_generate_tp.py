@@ -125,7 +125,7 @@ def test_base_with_tp(tmp_path):
         f"--checkpoint_dir={str(checkpoint_dir)}",
     ]
     base_stdout = subprocess.check_output([sys.executable, "generate/base.py", *args]).decode()
-    tp_stdout = subprocess.check_output([sys.executable, "generate/tp.py", "--devices=2", *args]).decode()
+    tp_stdout = subprocess.check_output([sys.executable, "generate/tp.py", *args]).decode()
 
     assert base_stdout.startswith("What food do llamas eat?")
     assert base_stdout == tp_stdout

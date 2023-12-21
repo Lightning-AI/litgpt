@@ -288,9 +288,7 @@ def test_base_with_sequentially(tmp_path):
         f"--checkpoint_dir={str(checkpoint_dir)}",
     ]
     base_stdout = subprocess.check_output([sys.executable, "generate/base.py", *args]).decode()
-    sequential_stdout = subprocess.check_output(
-        [sys.executable, "generate/sequentially.py", "--devices=2", *args]
-    ).decode()
+    sequential_stdout = subprocess.check_output([sys.executable, "generate/sequentially.py", *args]).decode()
 
     assert base_stdout.startswith("What food do llamas eat?")
     assert base_stdout == sequential_stdout
