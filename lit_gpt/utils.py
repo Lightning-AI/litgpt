@@ -1,11 +1,12 @@
 """Utility functions for training and inference."""
+
 import math
 import pickle
 import sys
 from contextlib import nullcontext
 from io import BytesIO
 from pathlib import Path
-from typing import TYPE_CHECKING, ContextManager, Dict, List, Mapping, Optional, TypeVar, Union
+from typing import TYPE_CHECKING, Any, ContextManager, Dict, Iterable, List, Mapping, Optional, TypeVar, Union
 
 import lightning as L
 import torch
@@ -14,6 +15,7 @@ import torch.utils._device
 from lightning.fabric.strategies import FSDPStrategy
 from lightning.fabric.utilities.load import _lazy_load as lazy_load
 from torch.serialization import normalize_storage_type
+from typing_extensions import Self
 
 if TYPE_CHECKING:
     from lit_gpt import GPT
@@ -347,3 +349,34 @@ def estimate_flops(model: "GPT", training: bool) -> int:
     # forward + backward
     frozen_ops_per_step = 2 if training else 1
     return ops_per_step * trainable_flops + frozen_ops_per_step * frozen_flops
+
+
+class CycleIterator:
+    """An iterator that cycles through an iterable indefinitely.
+
+    Example:
+        >>> iterator = CycleIterator([1, 2, 3])
+        >>> [next(iterator) for _ in range(5)]
+        [1, 2, 3, 1, 2]
+
+    Note:
+        Unlike ``itertools.cycle``, this iterator does not cache the values of the iterable.
+    """
+
+    def __init__(self, iterable: Iterable) -> None:
+        self.iterable = iterable
+        self.epoch = 0
+        self._iterator = None
+
+    def __next__(self) -> Any:
+        if self._iterator is None:
+            self._iterator = iter(self.iterable)
+        try:
+            return next(self._iterator)
+        except StopIteration:
+            self._iterator = iter(self.iterable)
+            self.epoch += 1
+            return next(self._iterator)
+
+    def __iter__(self) -> Self:
+        return self

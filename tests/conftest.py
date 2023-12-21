@@ -93,11 +93,9 @@ def pytest_collection_modifyitems(items: List[pytest.Function], config: pytest.C
     if config.option.verbose >= 0 and (filtered or skipped):
         writer = config.get_terminal_writer()
         writer.write(
-            (
-                f"\nThe number of tests has been filtered from {initial_size} to {initial_size - filtered} after the"
-                f" filters {conditions}.\n{skipped} tests are marked as unconditional skips.\nIn total,"
-                f" {len(items)} tests will run.\n"
-            ),
+            f"\nThe number of tests has been filtered from {initial_size} to {initial_size - filtered} after the"
+            f" filters {conditions}.\n{skipped} tests are marked as unconditional skips.\nIn total,"
+            f" {len(items)} tests will run.\n",
             flush=True,
             bold=True,
             purple=True,  # oh yeah, branded pytest messages

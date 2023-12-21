@@ -2,7 +2,9 @@
 This script is adapted from TinyLlama:
 https://github.com/jzhang38/TinyLlama/blob/main/pretrain/tinyllama.py
 """
+
 import math
+import os
 import sys
 import time
 from functools import partial
@@ -25,20 +27,19 @@ sys.path.append(str(wd))
 
 from lit_gpt.model import GPT, Block, CausalSelfAttention, Config, LLaMAMLP
 from lit_gpt.packed_dataset import CombinedDataset
-from lit_gpt.utils import chunked_cross_entropy, num_parameters
+from lit_gpt.utils import CycleIterator, chunked_cross_entropy, num_parameters
 
 # System settings
 model_name = "tiny-llama-1.1b"
 name = "lit-tiny-llama-1.1b"
-out_dir = Path("out") / name
+out_dir = Path(os.getenv("LIGHTNING_ARTIFACTS_DIR", "out")) / name
 logger_name = "tensorboard"
+devices = torch.cuda.device_count() or 1
 
 # Hyperparameters
-devices = 8
-
 global_batch_size = 512
 learning_rate = 4e-4
-micro_batch_size = 8
+micro_batch_size = 4
 max_tokens = int(3e12)  # 3 trillion
 warmup_steps = 2000
 log_step_interval = 1
@@ -66,19 +67,8 @@ hparams = {k: v for k, v in locals().items() if isinstance(v, (int, float, str))
 def setup(resume: Union[bool, Path] = False):
     logger = choose_logger(logger_name, name=name, resume=resume)
 
-    if devices > 1:
-        strategy = FSDPStrategy(
-            auto_wrap_policy={Block},
-            activation_checkpointing_policy=None,
-            state_dict_type="full",
-            limit_all_gathers=True,
-            cpu_offload=False,
-            sharding_strategy="HYBRID_SHARD",
-        )
-    else:
-        strategy = "auto"
-
-    fabric = L.Fabric(devices=devices, strategy=strategy, precision="bf16-mixed", loggers=[logger])
+    strategy = FSDPStrategy(auto_wrap_policy={Block}, state_dict_type="full", sharding_strategy="HYBRID_SHARD")
+    fabric = L.Fabric(devices=devices, strategy=strategy, precision="bf16-true", loggers=[logger])
     fabric.launch()
 
     fabric.print(hparams)
@@ -150,7 +140,7 @@ def train(fabric, state, train_dataloader, val_dataloader, resume):
     tokens_per_iter = micro_batch_size * model.config.block_size
     max_iters = max_tokens_per_device // tokens_per_iter
     initial_iter = state["iter_num"]
-    train_iterator = iter(train_dataloader)
+    train_iterator = CycleIterator(train_dataloader)
 
     # resume data loader state by fast-forwarding through all seen batches
     # drop this once streaming dataset supports proper resuming
@@ -162,11 +152,12 @@ def train(fabric, state, train_dataloader, val_dataloader, resume):
                 fabric.print(f"Resuming dataset: {resume_iter} / {initial_iter}")
         fabric.barrier()
         fabric.print(
-            "Resuming data loader finished."
-            f" Took {time.perf_counter() - resume_t0:.1f} seconds to reach iteration {initial_iter}."
+            f"Resuming data loader finished. Took {time.perf_counter() - resume_t0:.1f} seconds to reach iteration"
+            f" {initial_iter}, epoch {train_iterator.epoch}."
         )
 
     running_loss = RunningMean(window=gradient_accumulation_steps, sync_on_compute=False).to(fabric.device)
+    fabric.barrier()
     total_t0 = time.perf_counter()
 
     for train_data in train_iterator:
@@ -212,6 +203,7 @@ def train(fabric, state, train_dataloader, val_dataloader, resume):
                 "loss": loss,
                 "iter": state["iter_num"],
                 "step": state["step_count"],
+                "epoch": train_iterator.epoch,
                 "iter_time": t1 - iter_t0,
                 "remaining_time": (
                     (t1 - total_t0) / (state["iter_num"] - initial_iter) * (max_iters - state["iter_num"])
@@ -222,8 +214,8 @@ def train(fabric, state, train_dataloader, val_dataloader, resume):
             }
 
             fabric.print(
-                f"iter {metrics['iter']} step {metrics['step']}: loss {metrics['loss']:.4f}, iter time:"
-                f" {metrics['iter_time'] * 1000:.2f} ms,{' (optimizer.step)' if not is_accumulating else ''}"
+                f"iter {metrics['iter']} | step {metrics['step']}: loss {metrics['loss']:.4f}, iter time:"
+                f" {metrics['iter_time'] * 1000:.2f} ms{' (optimizer.step),' if not is_accumulating else ','}"
                 f" remaining time: {metrics['remaining_time'] / 3600 / 24:.2f} days"
             )
 
@@ -337,9 +329,9 @@ def init_weights(module: nn.Module, n_layer: int, n_embd: int):
 
 def choose_logger(logger_name: str, name: str, resume: Union[bool, Path], *args, **kwargs):
     if logger_name == "csv":
-        return CSVLogger(root_dir="logs", name=name, *args, **kwargs)
+        return CSVLogger(root_dir=(out_dir / "logs"), name="csv", *args, **kwargs)
     if logger_name == "tensorboard":
-        return TensorBoardLogger(root_dir="logs", name=name, *args, **kwargs)
+        return TensorBoardLogger(root_dir=(out_dir / "logs"), name="tensorboard", *args, **kwargs)
     if logger_name == "wandb":
         return WandbLogger(project="tinyllama", name=name, resume=(resume is not False), *args, **kwargs)
     raise ValueError(f"`logger={logger_name}` is not a valid option.")

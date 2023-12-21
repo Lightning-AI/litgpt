@@ -76,6 +76,7 @@ class EvalHarnessBase(BaseLM):
     def _model_call(self, inps):
         return self.model(inps)
 
+    @torch.inference_mode()
     def _model_generate(self, context, max_length, eos_token_id) -> torch.Tensor:
         # this only supports batch size 1
         assert context.shape[0] == 1

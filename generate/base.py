@@ -96,6 +96,7 @@ def generate(
     return torch.cat(tokens)
 
 
+@torch.inference_mode()
 def main(
     prompt: str = "What food do llamas eat?",
     *,

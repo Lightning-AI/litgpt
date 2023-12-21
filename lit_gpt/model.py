@@ -3,6 +3,7 @@
 Based on the nanoGPT implementation: https://github.com/karpathy/nanoGPT and
 https://github.com/EleutherAI/gpt-neox/tree/main/megatron/model.
 """
+
 import math
 from typing import Any, Optional, Tuple
 
@@ -305,13 +306,14 @@ class LLaMAMoE(nn.Module):
         B, T, C = x.size()  # batch size, sequence length, embedding dimensionality (n_embd)
         x = x.view(-1, C)  # (B*T, C)
         router = self.gate(x)  # (B*T, n_expert)
-        probs, indices = torch.topk(router, self.config.n_expert_per_token)
-        probs = probs.softmax(dim=1, dtype=torch.float).to(dtype=x.dtype)  # (B*T, n_expert_per_token)
+        probs, indices = torch.topk(router, self.config.n_expert_per_token)  # (B*T, n_expert_per_token)
+        probs = probs.softmax(dim=1, dtype=torch.float).to(dtype=x.dtype)
+        masks = indices.unsqueeze(-1) == torch.arange(self.config.n_expert, device=x.device)
+        masks = masks.permute(2, 0, 1)  # (n_expert, B*T, n_expert_per_token)
         y = torch.zeros_like(x)  # (B*T, C)
-        for i, expert in enumerate(self.experts):
-            mask = indices == i
-            batch_idx, ith_expert = torch.where(mask)
-            y[batch_idx] += probs[batch_idx, ith_expert, None] * expert(x[batch_idx])
+        for mask, expert in zip(masks, self.experts):
+            token_idx, expert_idx = torch.where(mask)
+            y[token_idx] += probs[token_idx, expert_idx, None] * expert(x[token_idx])
         return y.view(B, T, C)
 
 
