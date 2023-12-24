@@ -159,7 +159,7 @@ def main(
     if devices == "auto":
         total_devices = CUDAAccelerator.auto_device_count()
     else:
-        total_devices = sum(CUDAAccelerator.parse_devices(devices))
+        total_devices = len(CUDAAccelerator.parse_devices(devices))
     print(f"Using {total_devices} devices", file=sys.stderr)
 
     check_valid_checkpoint_dir(checkpoint_dir)
