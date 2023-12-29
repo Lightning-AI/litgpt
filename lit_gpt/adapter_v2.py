@@ -192,7 +192,7 @@ class LLaMAMLP(lit_gpt.model.LLaMAMLP):
         super()._load_from_state_dict(state_dict, prefix, *args, **kwargs)
 
 
-class LLaMAMoE(lit_gpt.model.LLaMAMLP):
+class LLaMAMoE(lit_gpt.model.LLaMAMoE):
     def __init__(self, config: Config) -> None:
         nn.Module.__init__(self)
         self.gate = AdapterV2Linear(config.n_embd, config.n_expert, bias=False)
