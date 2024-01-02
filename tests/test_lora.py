@@ -48,9 +48,10 @@ def test_lora_merge():
     )
     model = GPT(config)
     model.train()
+    attn_proj = model.transformer.h[0].attn.proj
 
-    initial_weight = model.transformer.h[0].attn.proj.linear.weight.clone()
-    assert torch.equal(model.transformer.h[0].attn.proj.linear.weight, initial_weight)
+    initial_weight = attn_proj.linear.weight.clone()
+    assert torch.equal(attn_proj.linear.weight, initial_weight)
 
     # perform an update to the LoRA weights
     mark_only_lora_as_trainable(model)
@@ -60,21 +61,18 @@ def test_lora_merge():
     optimizer.step()
     optimizer.zero_grad()
     # the weight remains unchanged (only lora A and B change)
-    assert torch.equal(model.transformer.h[0].attn.proj.linear.weight, initial_weight)
+    assert torch.equal(attn_proj.linear.weight, initial_weight)
 
     # calling merge() multiple times in a row should not merge multiple times
     merge_lora_weights(model)
-    assert model.transformer.h[0].attn.attn.merged
-    weight_after = model.transformer.h[0].attn.proj.linear.weight.clone()
+    assert attn_proj.merged
+    weight_after = attn_proj.linear.weight.clone()
     merge_lora_weights(model)
     merge_lora_weights(model)
-    assert torch.equal(model.transformer.h[0].attn.proj.linear.weight, weight_after)
+    assert torch.equal(attn_proj.linear.weight, weight_after)
 
     # check that `W_after = W_initial + (A x B)`
-    a = model.transformer.h[0].attn.proj.lora_A
-    b = model.transformer.h[0].attn.proj.lora_B
-    scaling = model.transformer.h[0].attn.proj.scaling
-    delta_w = (b @ a) * scaling
+    delta_w = attn_proj.get_lora_AB()
     torch.testing.assert_close(weight_after, initial_weight + delta_w)
 
 
@@ -421,7 +419,7 @@ def test_lora_merge_with_quantize():
     assert torch.equal(attn_proj.linear.weight, weight_after)
 
     # check that `W_after = W_initial + (A x B)`
-    delta_w = (attn_proj.lora_B @ attn_proj.lora_A) * attn_proj.scaling
+    delta_w = attn_proj.get_lora_AB()
     # dequantize initial weight and sum with delta_w
     initial_weight_data = (
         bnb.functional.dequantize_4bit(initial_weight.data, initial_weight_kwargs["quant_state"]) + delta_w
@@ -499,3 +497,52 @@ def test_lora_compile():
     assert isinstance(explanation, debugging.ExplainOutput)
     assert explanation.graph_count == 1
     assert explanation.graph_break_count == 0
+
+
+@torch.inference_mode()
+def test_against_hf_mixtral():
+    from transformers.models.mixtral import MixtralConfig, MixtralForCausalLM
+
+    from lit_gpt.lora import GPT, Config
+    from scripts.convert_hf_checkpoint import copy_weights_hf_llama
+
+    device = torch.device("cpu")
+    dtype = torch.float32
+    ours_config = Config.from_name(
+        "Mixtral-8x7B-Instruct-v0.1",
+        padded_vocab_size=10000,
+        n_layer=2,
+        n_embd=32,
+        n_head=8,
+        n_query_groups=2,
+        intermediate_size=86,
+        n_expert=4,
+    )
+    T = 5
+    theirs_config = MixtralConfig(
+        vocab_size=ours_config.padded_vocab_size,
+        hidden_size=ours_config.n_embd,
+        num_attention_heads=ours_config.n_head,
+        num_hidden_layers=ours_config.n_layer,
+        intermediate_size=ours_config.intermediate_size,
+        max_position_embeddings=T,
+        rms_norm_eps=ours_config.norm_eps,
+        num_key_value_heads=ours_config.n_query_groups,
+        rope_theta=ours_config.rope_base,
+        num_local_experts=ours_config.n_expert,
+    )
+    assert ours_config.intermediate_size == theirs_config.intermediate_size
+
+    theirs_model = MixtralForCausalLM(theirs_config).to(device)
+    theirs_state_dict = theirs_model.state_dict()
+    state_dict = {}
+    copy_weights_hf_llama(ours_config, {}, state_dict, theirs_state_dict)
+    ours_model = GPT(ours_config).to(device)
+    ours_model.load_state_dict(state_dict)
+
+    # test end to end
+    x = torch.tensor([[9856, 23, 491, 1536, 304], [23, 345, 65, 123, 321]], dtype=torch.int32, device=device)
+    assert x.size(1) == T
+    ours_y = ours_model(x)
+    theirs_y = theirs_model(x)["logits"].to(dtype)  # HF converts logits to float
+    torch.testing.assert_close(ours_y, theirs_y)
