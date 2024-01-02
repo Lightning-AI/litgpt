@@ -38,6 +38,8 @@ def download_from_hub(
         )
 
     download_files = ["tokenizer*", "generation_config.json"]
+    if "Qwen" in repo_id:
+        download_files.append("qwen.tiktoken")
     if not tokenizer_only:
         if from_safetensors:
             if not _SAFETENSORS_AVAILABLE:

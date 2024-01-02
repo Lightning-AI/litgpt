@@ -172,7 +172,7 @@ class CausalSelfAttention(nn.Module):
         super().__init__()
         shape = (config.n_head + 2 * config.n_query_groups) * config.head_size
         # key, query, value projections for all heads, but in a batch
-        self.attn = nn.Linear(config.n_embd, shape, bias=config.bias)
+        self.attn = nn.Linear(config.n_embd, shape, bias=config.bias or config.is_Qwen)
         # output projection
         self.proj = nn.Linear(config.n_embd, config.n_embd, bias=config.bias)
         # disabled by default

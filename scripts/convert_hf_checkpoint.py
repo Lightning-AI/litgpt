@@ -235,6 +235,45 @@ def copy_weights_phi(
             param = saver.store_early(param)
         state_dict[to_name] = param
 
+def copy_weights_Qwen(
+    config: Config,
+    state_dict: Dict[str, torch.Tensor],
+    hf_weights: Dict[str, Union[torch.Tensor, NotYetLoadedTensor]],
+    saver: Optional[incremental_save] = None,
+    dtype: Optional[torch.dtype] = None,
+) -> None:
+    weight_map = {
+        "transformer.wte.weight": "transformer.wte.weight",
+        "transformer.h.{}.ln_1.weight": "transformer.h.{}.norm_1.weight",
+        "transformer.h.{}.ln_2.weight": "transformer.h.{}.norm_2.weight",
+        "transformer.h.{}.attn.c_attn.bias": "transformer.h.{}.attn.attn.bias",
+        "transformer.h.{}.attn.c_attn.weight": "transformer.h.{}.attn.attn.weight",
+        "transformer.h.{}.attn.c_proj.weight": "transformer.h.{}.attn.proj.weight",
+        "transformer.h.{}.mixer.rotary_emb.inv_freq": None,
+        "transformer.h.{}.mlp.w1.weight": "transformer.h.{}.mlp.fc_2.weight",
+        "transformer.h.{}.mlp.w2.weight": "transformer.h.{}.mlp.fc_1.weight",
+        "transformer.h.{}.mlp.c_proj.weight": "transformer.h.{}.mlp.proj.weight",
+        "transformer.ln_f.weight": "transformer.ln_f.weight",
+        "lm_head.weight": "lm_head.weight",
+    }
+
+    for name, param in hf_weights.items():
+        if name.startswith("transformer.h."):
+            from_name, number = layer_template(name, 2)
+            to_name = weight_map[from_name].format(number)
+        else:
+            to_name = weight_map[name]
+        param = load_param(param, name, dtype)
+        if "c_attn" in name:
+            q_per_kv = config.n_head // config.n_query_groups
+            total_qkv = q_per_kv + 2  # each group has 1+ queries, 1 key, and 1 value
+            param = param.view(total_qkv, config.n_query_groups, -1).transpose(0, 1)
+            param = param.reshape(config.n_embd * 3, -1)
+            if "bias" in name:
+                param = param.squeeze()
+        if saver is not None:
+            param = saver.store_early(param)
+        state_dict[to_name] = param
 
 def layer_template(layer_name: str, idx: int) -> Tuple[str, int]:
     split = layer_name.split(".")
@@ -275,6 +314,8 @@ def convert_hf_checkpoint(
 
     if "falcon" in model_name:
         copy_fn = partial(copy_weights_falcon, model_name)
+    elif "Qwen" in model_name:
+        copy_fn = partial(copy_weights_Qwen, config)
     elif config._mlp_class in ("LLaMAMLP", "LLaMAMoE"):
         # holder to reconstitute the split q, k, v
         qkv_weights = {}

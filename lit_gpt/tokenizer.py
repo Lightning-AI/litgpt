@@ -44,6 +44,10 @@ class Tokenizer:
                     self.bos_id = config.get("bos_token_id")
                 if self.eos_id is None:
                     self.eos_id = config.get("eos_token_id")
+        elif (vocabulary_path := checkpoint_dir / "qwen.tiktoken").is_file():
+            from lit_gpt.tokenization_qwen import QWenTokenizer
+            self.processor = QWenTokenizer(vocabulary_path)
+            self.backend = "tiktoken"
         else:
             raise NotImplementedError
 
@@ -88,6 +92,8 @@ class Tokenizer:
         if self.backend == "huggingface":
             tokens = self.processor.encode(string).ids
         elif self.backend == "sentencepiece":
+            tokens = self.processor.encode(string)
+        elif self.backend == "tiktoken":
             tokens = self.processor.encode(string)
         else:
             raise RuntimeError

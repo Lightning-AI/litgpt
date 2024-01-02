@@ -25,6 +25,8 @@ class Config:
     rotary_percentage: float = 0.25
     parallel_residual: bool = True
     bias: bool = True
+    # just for Qwen
+    is_Qwen: Optional[bool] = None
     lm_head_bias: bool = False
     # to use multi-head attention (MHA), set this to `n_head` (default)
     # to use multi-query attention (MQA), set this to 1
@@ -1274,5 +1276,31 @@ llama_2_function_calling = [
 ]
 
 configs.extend(llama_2_function_calling)
+
+
+#############
+# Qwen
+#############
+Qwen = [
+    # https://huggingface.co/Qwen/Qwen-7B/blob/main/config.json
+    dict(
+        name="Qwen-7B",
+        hf_config=dict(org="Qwen", name="Qwen-7B"),
+        vocab_size=151936,
+        padded_vocab_size=151936,
+        block_size=4096,
+        n_layer=32,
+        rotary_percentage=1.0,
+        parallel_residual=False,
+        bias=False,
+        is_Qwen=True,
+        _norm_class="RMSNorm",
+        norm_eps=1e-06,
+        _mlp_class="LLaMAMLP",
+        intermediate_size=11008, # In config.json, its 22016, but in mlp_class, devided by 2
+    ),   
+]
+configs.extend(Qwen)
+
 
 name_to_config = {config["name"]: config for config in configs}
