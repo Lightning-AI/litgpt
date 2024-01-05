@@ -1,3 +1,5 @@
+# Copyright Lightning AI. Licensed under the Apache License 2.0, see LICENSE file.
+
 """
 This script is adapted from TinyLlama:
 https://github.com/jzhang38/TinyLlama/blob/main/pretrain/tinyllama.py
