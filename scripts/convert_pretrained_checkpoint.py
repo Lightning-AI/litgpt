@@ -11,16 +11,11 @@ wd = Path(__file__).parent.parent.resolve()
 sys.path.append(str(wd))
 
 from lit_gpt import Config
-from lit_gpt.utils import incremental_save, lazy_load
+from lit_gpt.utils import incremental_save
 
 
 @torch.inference_mode()
-def convert_checkpoint(
-    checkpoint_file: Path,
-    tokenizer_dir: Path,
-    config_name: str,
-    output_dir: Path,
-) -> None:
+def convert_checkpoint(checkpoint_file: Path, tokenizer_dir: Path, config_name: str, output_dir: Path) -> None:
     """Convert a checkpoint after pretraining.
 
     The pretrained checkpoint contains optimizer states and several other metadata that are not needed after training
