@@ -1,3 +1,5 @@
+# Copyright Lightning AI. Licensed under the Apache License 2.0, see LICENSE file.
+
 """Full definition of a GPT NeoX Language Model, all of it in this single file.
 
 Based on the nanoGPT implementation: https://github.com/karpathy/nanoGPT and

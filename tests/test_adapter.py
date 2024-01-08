@@ -1,3 +1,5 @@
+# Copyright Lightning AI. Licensed under the Apache License 2.0, see LICENSE file.
+
 from contextlib import redirect_stdout
 from dataclasses import asdict
 from io import StringIO

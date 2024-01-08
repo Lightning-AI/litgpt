@@ -1,3 +1,5 @@
+# Copyright Lightning AI. Licensed under the Apache License 2.0, see LICENSE file.
+
 import os
 from contextlib import redirect_stdout
 from io import StringIO
@@ -5,9 +7,8 @@ from unittest import mock
 from unittest.mock import Mock
 
 import torch
-from torch.utils.data import DataLoader
-
 from conftest import RunIf
+from torch.utils.data import DataLoader
 
 
 @mock.patch.dict(os.environ, {"LT_ACCELERATOR": "cpu"})

@@ -1,3 +1,5 @@
+# Copyright Lightning AI. Licensed under the Apache License 2.0, see LICENSE file.
+
 # Derived from https://github.com/microsoft/LoRA
 #  ------------------------------------------------------------------------------------------
 #  Copyright (c) Microsoft Corporation. All rights reserved.
@@ -678,7 +680,7 @@ class LLaMAMLP(lit_gpt.model.LLaMAMLP):
         super()._load_from_state_dict(state_dict, prefix, *args, **kwargs)
 
 
-class LLaMAMoE(lit_gpt.model.LLaMAMLP):
+class LLaMAMoE(lit_gpt.model.LLaMAMoE):
     def __init__(self, config: Config) -> None:
         nn.Module.__init__(self)
         self.gate = LoRALinear(
