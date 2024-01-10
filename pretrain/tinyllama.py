@@ -103,7 +103,7 @@ def main(fabric, resume):
     model = torch.compile(model)
     model = fabric.setup(model)
     optimizer = torch.optim.AdamW(
-        model.parameters(), lr=learning_rate, weight_decay=weight_decay, betas=(beta1, beta2), foreach=False
+        model.parameters(), lr=learning_rate, weight_decay=weight_decay, betas=(beta1, beta2), fused=True
     )
     optimizer = fabric.setup_optimizers(optimizer)
 
