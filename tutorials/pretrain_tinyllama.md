@@ -2,6 +2,9 @@
 
 This tutorial will walk you through pretraining [TinyLlama](https://github.com/jzhang38/TinyLlama/).
 
+> [!TIP]
+> To get started with zero setup, clone the [TinyLlama studio on Lightning AI](https://lightning.ai/lightning-ai/studios/llm-pretrain-tinyllama-1-1b).
+
 ## What's TinyLlama?
 
 [TinyLlama](https://github.com/jzhang38/TinyLlama/) is architecturally the same as Meta AI's LLama 2, but only has 1.1B parameters and is instead trained on multiple epochs on a mix of [SlimPajama](https://huggingface.co/datasets/cerebras/SlimPajama-627B) and [Starcoder](https://huggingface.co/datasets/bigcode/starcoderdata) datasets.
@@ -140,7 +143,7 @@ GPU memory. For more tips to avoid out-of-memory issues, please also see the mor
 
 Last, logging is kept minimal in the script, but for long running experiments we recommend switching to a proper experiment tracker.
 As an example, we included WandB (set `use_wandb=True`) to show how you can integrate any experiment tracking framework.
-
+For reference, [here are the loss curves for our reproduction](https://api.wandb.ai/links/awaelchli/y7pzdpwy).
 
 ## Resume training
 
