@@ -302,7 +302,7 @@ def create_dataloaders(batch_size: int, block_size: int) -> Tuple[DataLoader, Da
 
 
 # learning rate decay scheduler (cosine with linear warmup)
-def get_lr(it: int, warmup_iters: int, max_iters: int) -> int:
+def get_lr(it: int, warmup_iters: int, max_iters: int) -> float:
     # 1) linear warmup for warmup_iters steps
     if it < warmup_iters:
         return learning_rate * it / warmup_iters
