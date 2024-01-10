@@ -1,3 +1,5 @@
+# Copyright Lightning AI. Licensed under the Apache License 2.0, see LICENSE file.
+
 import os
 
 from setuptools import find_packages, setup
@@ -15,7 +17,7 @@ setup(
     url="https://github.com/lightning-AI/lit-gpt",
     install_requires=[
         "torch>=2.1.0",
-        "lightning @ git+https://github.com/Lightning-AI/lightning@6cbe9ceb560d798892bdae9186291acf9bf5d2e3",
+        "lightning @ git+https://github.com/Lightning-AI/lightning@6dfa5cca9de5c28548eef5582a53c483b0eda66a",
     ],
     packages=find_packages(),
     long_description=readme,

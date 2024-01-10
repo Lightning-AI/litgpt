@@ -276,6 +276,21 @@ Don't forget to [join our Discord](https://discord.gg/VptPCZkGNa)!
 
 &nbsp;
 
+## Citation
+
+If you use Lit-GPT in your research, please cite the following work:
+
+```bibtex
+@misc{lit-gpt-2023,
+  author       = {Lightning AI},
+  title        = {Lit-GPT},
+  howpublished = {\url{https://github.com/Lightning-AI/lit-gpt}},
+  year         = {2023},
+}
+```
+
+&nbsp;
+
 ## License
 
 Lit-GPT is released under the [Apache 2.0](https://github.com/Lightning-AI/lit-gpt/blob/main/LICENSE) license.
