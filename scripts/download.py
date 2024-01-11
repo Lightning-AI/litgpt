@@ -52,7 +52,6 @@ def download_from_hub(
         raise ValueError("`--from_safetensors=True` won't have an effect with `--tokenizer_only=True`")
 
     # contains revisions that are known to work without issues
-    hf_model_revision_map = {"microsoft/phi-1_5": "24f9ea14df973a49a0d87c16d04df88d90067468"}
     directory = checkpoint_dir / repo_id
     snapshot_download(
         repo_id,
@@ -61,7 +60,6 @@ def download_from_hub(
         resume_download=True,
         allow_patterns=download_files,
         token=access_token,
-        revision=hf_model_revision_map.get(repo_id),
     )
 
     # convert safetensors to PyTorch binaries

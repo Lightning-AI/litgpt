@@ -277,8 +277,8 @@ def test_against_hf_phi_1_5(device, dtype):
     workdir.mkdir(parents=True, exist_ok=True)
     file_paths = [workdir / "original_phi_1_5.py", workdir / "configuration_phi.py"]
     urls = [
-        "https://huggingface.co/microsoft/phi-1_5/raw/24f9ea14df973a49a0d87c16d04df88d90067468/modeling_phi.py",
-        "https://huggingface.co/microsoft/phi-1_5/raw/24f9ea14df973a49a0d87c16d04df88d90067468/configuration_phi.py",
+        "https://huggingface.co/microsoft/phi-1_5/raw/main/modeling_phi.py",
+        "https://huggingface.co/microsoft/phi-1_5/raw/main/configuration_phi.py",
     ]
     for file_path, url in zip(file_paths, urls):
         if not file_path.is_file():
