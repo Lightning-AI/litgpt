@@ -81,17 +81,21 @@ def copy_weights_falcon(
     }
     # the original model definition is different for each size
     if "7b" in model_name:
-        weight_map.update({
-            "transformer.h.{}.input_layernorm.bias": "transformer.h.{}.norm_1.bias",
-            "transformer.h.{}.input_layernorm.weight": "transformer.h.{}.norm_1.weight",
-        })
+        weight_map.update(
+            {
+                "transformer.h.{}.input_layernorm.bias": "transformer.h.{}.norm_1.bias",
+                "transformer.h.{}.input_layernorm.weight": "transformer.h.{}.norm_1.weight",
+            }
+        )
     elif "40b" in model_name or "180B" in model_name:
-        weight_map.update({
-            "transformer.h.{}.ln_attn.bias": "transformer.h.{}.norm_1.bias",
-            "transformer.h.{}.ln_attn.weight": "transformer.h.{}.norm_1.weight",
-            "transformer.h.{}.ln_mlp.bias": "transformer.h.{}.norm_2.bias",
-            "transformer.h.{}.ln_mlp.weight": "transformer.h.{}.norm_2.weight",
-        })
+        weight_map.update(
+            {
+                "transformer.h.{}.ln_attn.bias": "transformer.h.{}.norm_1.bias",
+                "transformer.h.{}.ln_attn.weight": "transformer.h.{}.norm_1.weight",
+                "transformer.h.{}.ln_mlp.bias": "transformer.h.{}.norm_2.bias",
+                "transformer.h.{}.ln_mlp.weight": "transformer.h.{}.norm_2.weight",
+            }
+        )
     else:
         raise NotImplementedError
 
@@ -131,18 +135,22 @@ def copy_weights_hf_llama(
         "lm_head.weight": "lm_head.weight",
     }
     if config._mlp_class == "LLaMAMoE":
-        weight_map.update({
-            "model.layers.{}.block_sparse_moe.gate.weight": "transformer.h.{l}.mlp.gate.weight",
-            "model.layers.{}.block_sparse_moe.experts.{}.w1.weight": "transformer.h.{l}.mlp.experts.{e}.fc_1.weight",
-            "model.layers.{}.block_sparse_moe.experts.{}.w3.weight": "transformer.h.{l}.mlp.experts.{e}.fc_2.weight",
-            "model.layers.{}.block_sparse_moe.experts.{}.w2.weight": "transformer.h.{l}.mlp.experts.{e}.proj.weight",
-        })
+        weight_map.update(
+            {
+                "model.layers.{}.block_sparse_moe.gate.weight": "transformer.h.{l}.mlp.gate.weight",
+                "model.layers.{}.block_sparse_moe.experts.{}.w1.weight": "transformer.h.{l}.mlp.experts.{e}.fc_1.weight",
+                "model.layers.{}.block_sparse_moe.experts.{}.w3.weight": "transformer.h.{l}.mlp.experts.{e}.fc_2.weight",
+                "model.layers.{}.block_sparse_moe.experts.{}.w2.weight": "transformer.h.{l}.mlp.experts.{e}.proj.weight",
+            }
+        )
     elif config._mlp_class == "LLaMAMLP":
-        weight_map.update({
-            "model.layers.{}.mlp.gate_proj.weight": "transformer.h.{l}.mlp.fc_1.weight",
-            "model.layers.{}.mlp.up_proj.weight": "transformer.h.{l}.mlp.fc_2.weight",
-            "model.layers.{}.mlp.down_proj.weight": "transformer.h.{l}.mlp.proj.weight",
-        })
+        weight_map.update(
+            {
+                "model.layers.{}.mlp.gate_proj.weight": "transformer.h.{l}.mlp.fc_1.weight",
+                "model.layers.{}.mlp.up_proj.weight": "transformer.h.{l}.mlp.fc_2.weight",
+                "model.layers.{}.mlp.down_proj.weight": "transformer.h.{l}.mlp.proj.weight",
+            }
+        )
     else:
         raise NotImplementedError
 
@@ -189,53 +197,106 @@ def copy_weights_hf_llama(
 
 def copy_weights_phi(
     config: Config,
+    qkv_weights: Dict[int, List[Optional[NotYetLoadedTensor]]],
+    qkv_biases: Dict[int, List[Optional[NotYetLoadedTensor]]],
     state_dict: Dict[str, torch.Tensor],
     hf_weights: Dict[str, Union[torch.Tensor, NotYetLoadedTensor]],
     saver: Optional[incremental_save] = None,
     dtype: Optional[torch.dtype] = None,
 ) -> None:
-    if any(layer_name.startswith("layers.") for layer_name in hf_weights):
+    if any(layer_name.startswith(("layers.", "transformer.")) for layer_name in hf_weights):
         raise ValueError(
-            "You are using an outdated Phi1.5 checkpoint. "
-            "Please reload it as described in 'tutorials/download_phi15.md'"
+            "You are using an outdated Phi1.5 checkpoint."
+            " Please reload it as described in 'tutorials/download_phi15.md'"
         )
 
     weight_map = {
-        "transformer.embd.wte.weight": "transformer.wte.weight",
-        "transformer.h.{}.ln.bias": "transformer.h.{}.norm_1.bias",
-        "transformer.h.{}.ln.weight": "transformer.h.{}.norm_1.weight",
-        "transformer.h.{}.mixer.Wqkv.bias": "transformer.h.{}.attn.attn.bias",
-        "transformer.h.{}.mixer.Wqkv.weight": "transformer.h.{}.attn.attn.weight",
-        "transformer.h.{}.mixer.out_proj.bias": "transformer.h.{}.attn.proj.bias",
-        "transformer.h.{}.mixer.out_proj.weight": "transformer.h.{}.attn.proj.weight",
-        "transformer.h.{}.mixer.rotary_emb.inv_freq": None,
-        "transformer.h.{}.mlp.fc1.bias": "transformer.h.{}.mlp.fc.bias",
-        "transformer.h.{}.mlp.fc1.weight": "transformer.h.{}.mlp.fc.weight",
-        "transformer.h.{}.mlp.fc2.bias": "transformer.h.{}.mlp.proj.bias",
-        "transformer.h.{}.mlp.fc2.weight": "transformer.h.{}.mlp.proj.weight",
-        "lm_head.ln.weight": "transformer.ln_f.weight",
-        "lm_head.ln.bias": "transformer.ln_f.bias",
-        "lm_head.linear.weight": "lm_head.weight",
-        "lm_head.linear.bias": "lm_head.bias",
+        "model.embed_tokens.weight": "transformer.wte.weight",
+        "model.layers.{}.input_layernorm.weight": "transformer.h.{}.norm_1.weight",
+        "model.layers.{}.input_layernorm.bias": "transformer.h.{}.norm_1.bias",
+        "model.layers.{}.self_attn.q_proj.weight": None,
+        "model.layers.{}.self_attn.q_proj.bias": None,
+        "model.layers.{}.self_attn.k_proj.weight": None,
+        "model.layers.{}.self_attn.k_proj.bias": None,
+        "model.layers.{}.self_attn.v_proj.weight": None,
+        "model.layers.{}.self_attn.v_proj.bias": None,
+        # "model.layers.{}.mixer.Wqkv.weight": "transformer.h.{}.attn.attn.weight",
+        # "model.layers.{}.mixer.Wqkv.bias": "transformer.h.{}.attn.attn.bias",
+        "model.layers.{}.self_attn.dense.weight": "transformer.h.{}.attn.proj.weight",
+        "model.layers.{}.self_attn.dense.bias": "transformer.h.{}.attn.proj.bias",
+        "model.layers.{}.mlp.fc1.weight": "transformer.h.{}.mlp.fc.weight",
+        "model.layers.{}.mlp.fc1.bias": "transformer.h.{}.mlp.fc.bias",
+        "model.layers.{}.mlp.fc2.weight": "transformer.h.{}.mlp.proj.weight",
+        "model.layers.{}.mlp.fc2.bias": "transformer.h.{}.mlp.proj.bias",
+        "model.final_layernorm.weight": "transformer.ln_f.weight",
+        "model.final_layernorm.bias": "transformer.ln_f.bias",
+        "lm_head.weight": "lm_head.weight",
+        "lm_head.bias": "lm_head.bias",
     }
 
     for name, param in hf_weights.items():
-        if name.startswith("transformer.h."):
+        if name.startswith("model.layers."):
+            # TODO: rename number to layer_num
             from_name, number = layer_template(name, 2)
-            to_name = weight_map[from_name].format(number)
+            qkv_weight = qkv_weights.setdefault(number, [None, None, None])
+            qkv_bias = qkv_biases.setdefault(number, [None, None, None])
+            if "q_proj" in name:
+                if name.endswith(".weight"):
+                    qkv_weight[0] = param
+                else:
+                    qkv_bias[0] = param
+            elif "k_proj" in name:
+                if name.endswith(".weight"):
+                    qkv_weight[1] = param
+                else:
+                    qkv_bias[1] = param
+            elif "v_proj" in name:
+                if name.endswith(".weight"):
+                    qkv_weight[2] = param
+                else:
+                    qkv_bias[2] = param
+            to_name = weight_map[from_name]
+            if to_name is None:
+                continue
+            to_name = to_name.format(number)
         else:
             to_name = weight_map[name]
         param = load_param(param, name, dtype)
-        if "Wqkv" in name:
-            q_per_kv = config.n_head // config.n_query_groups
-            total_qkv = q_per_kv + 2  # each group has 1+ queries, 1 key, and 1 value
-            param = param.view(total_qkv, config.n_query_groups, -1).transpose(0, 1)
-            param = param.reshape(config.n_embd * 3, -1)
-            if "bias" in name:
-                param = param.squeeze()
         if saver is not None:
             param = saver.store_early(param)
         state_dict[to_name] = param
+
+    for i, (q, k, v) in list(qkv_weights.items()):
+        if q is None or k is None or v is None:
+            # split across different .bin files
+            continue
+        q = load_param(q, f"layer {i} q", dtype)
+        k = load_param(k, f"layer {i} k", dtype)
+        v = load_param(v, f"layer {i} v", dtype)
+        q_per_kv = config.n_head // config.n_query_groups
+        qs = torch.split(q, config.head_size * q_per_kv)
+        ks = torch.split(k, config.head_size)
+        vs = torch.split(v, config.head_size)
+        cycled = [t for group in zip(qs, ks, vs) for t in group]
+        qkv = torch.cat(cycled)
+        state_dict[f"transformer.h.{i}.attn.attn.weight"] = qkv
+        del qkv_weights[i]
+
+    for i, (q, k, v) in list(qkv_biases.items()):
+        if q is None or k is None or v is None:
+            # split across different .bin files
+            continue
+        q = load_param(q, f"layer {i} q", dtype)
+        k = load_param(k, f"layer {i} k", dtype)
+        v = load_param(v, f"layer {i} v", dtype)
+        q_per_kv = config.n_head // config.n_query_groups
+        qs = torch.split(q, config.head_size * q_per_kv)
+        ks = torch.split(k, config.head_size)
+        vs = torch.split(v, config.head_size)
+        cycled = [t for group in zip(qs, ks, vs) for t in group]
+        qkv = torch.cat(cycled)
+        state_dict[f"transformer.h.{i}.attn.attn.bias"] = qkv
+        del qkv_biases[i]
 
 
 def layer_template(layer_name: str, idx: int) -> Tuple[str, int]:
@@ -282,7 +343,10 @@ def convert_hf_checkpoint(
         qkv_weights = {}
         copy_fn = partial(copy_weights_hf_llama, config, qkv_weights)
     elif "phi" in model_name:
-        copy_fn = partial(copy_weights_phi, config)
+        # holder to reconstitute the split q, k, v
+        qkv_weights = {}
+        qkv_biases = {}
+        copy_fn = partial(copy_weights_phi, config, qkv_weights, qkv_biases)
     else:
         copy_fn = copy_weights_gpt_neox
 
