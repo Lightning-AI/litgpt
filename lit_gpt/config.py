@@ -1196,7 +1196,7 @@ mistral = [
         name="Mixtral-8x7B-{}v0.1",
         hf_config=dict(org="mistralai", name="Mixtral-8x7B-{}v0.1"),
         padded_vocab_size=32000,
-        block_size=4096,  # should be 32768 but sliding window attention is not implemented
+        block_size=32768,
         n_layer=32,
         n_query_groups=8,
         rotary_percentage=1.0,
