@@ -191,7 +191,6 @@ def copy_weights_hf_llama(
 def copy_weights_phi(
     config: Config,
     qkv_weights: Dict[int, List[Optional[NotYetLoadedTensor]]],
-    qkv_biases: Dict[int, List[Optional[NotYetLoadedTensor]]],
     state_dict: Dict[str, torch.Tensor],
     hf_weights: Dict[str, Union[torch.Tensor, NotYetLoadedTensor]],
     saver: Optional[incremental_save] = None,

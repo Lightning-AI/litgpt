@@ -308,7 +308,7 @@ def test_against_hf_phi_1_5(device, dtype):
     theirs_model = PhiForCausalLM(theirs_config).to(device)
     theirs_state_dict = theirs_model.state_dict()
     state_dict = {}
-    copy_weights_phi(ours_config, {}, {}, state_dict, theirs_state_dict)
+    copy_weights_phi(ours_config, {}, state_dict, theirs_state_dict)
     ours_model = GPT(ours_config).to(device)
     ours_model.load_state_dict(state_dict)
 
@@ -368,7 +368,7 @@ def test_against_hf_phi_2(device, dtype):
     theirs_model = PhiForCausalLM(theirs_config).to(device)
     theirs_state_dict = theirs_model.state_dict()
     state_dict = {}
-    copy_weights_phi(ours_config, {}, {}, state_dict, theirs_state_dict)
+    copy_weights_phi(ours_config, {}, state_dict, theirs_state_dict)
     ours_model = GPT(ours_config).to(device)
     ours_model.load_state_dict(state_dict)
 
