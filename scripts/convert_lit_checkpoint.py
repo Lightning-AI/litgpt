@@ -182,22 +182,12 @@ def copy_weights_phi(
     }
 
     for name, param in lit_weights.items():
-        if name.endswith(".attn.attn.weight"):
+        if name.endswith((".attn.attn.weight", ".attn.attn.bias")):
             from_name, l = layer_template(name, 2)
-            q = "model.layers.{}.self_attn.q_proj.weight".format(l)
-            k = "model.layers.{}.self_attn.k_proj.weight".format(l)
-            v = "model.layers.{}.self_attn.v_proj.weight".format(l)
-            qkv = load_param(param, name, None)
-            qp, kp, vp = qkv_split(qkv, config)
-            for to_name, param in zip((q, k, v), (qp, kp, vp)):
-                if saver is not None:
-                    param = saver.store_early(param)
-                state_dict[to_name] = param
-        elif name.endswith(".attn.attn.bias"):
-            from_name, l = layer_template(name, 2)
-            q = "model.layers.{}.self_attn.q_proj.bias".format(l)
-            k = "model.layers.{}.self_attn.k_proj.bias".format(l)
-            v = "model.layers.{}.self_attn.v_proj.bias".format(l)
+            weight_type = name.split(".")[-1]  # weight or bias
+            q = f"model.layers.{l}.self_attn.q_proj.{weight_type}"
+            k = f"model.layers.{l}.self_attn.k_proj.{weight_type}"
+            v = f"model.layers.{l}.self_attn.v_proj.{weight_type}"
             qkv = load_param(param, name, None)
             qp, kp, vp = qkv_split(qkv, config)
             for to_name, param in zip((q, k, v), (qp, kp, vp)):
