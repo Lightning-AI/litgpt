@@ -3,6 +3,7 @@
 import gc
 import json
 import sys
+from collections import defaultdict
 from dataclasses import asdict
 from functools import partial
 from pathlib import Path
@@ -198,8 +199,7 @@ def copy_weights_phi(
 ) -> None:
     if any(layer_name.startswith(("layers.", "transformer.")) for layer_name in hf_weights):
         raise ValueError(
-            "You are using an outdated Phi1.5 checkpoint."
-            " Please reload it as described in 'tutorials/download_phi15.md'"
+            "You are using an outdated Phi1.5 checkpoint. Please reload it as described in 'tutorials/download_phi.md'"
         )
 
     weight_map = {
@@ -226,29 +226,15 @@ def copy_weights_phi(
 
     for name, param in hf_weights.items():
         if name.startswith("model.layers."):
-            # TODO: rename number to layer_num
-            from_name, number = layer_template(name, 2)
-            qkv_weight = qkv_weights.setdefault(number, [None, None, None])
-            qkv_bias = qkv_biases.setdefault(number, [None, None, None])
-            if "q_proj" in name:
-                if name.endswith(".weight"):
-                    qkv_weight[0] = param
-                else:
-                    qkv_bias[0] = param
-            elif "k_proj" in name:
-                if name.endswith(".weight"):
-                    qkv_weight[1] = param
-                else:
-                    qkv_bias[1] = param
-            elif "v_proj" in name:
-                if name.endswith(".weight"):
-                    qkv_weight[2] = param
-                else:
-                    qkv_bias[2] = param
+            from_name, l = layer_template(name, 2)
+            qkv = qkv_weights.setdefault(l, defaultdict(dict))
+            if any(w in from_name for w in ("q_proj", "k_proj", "v_proj")):
+                weight_name, weight_type = from_name.split(".")[-2:]
+                qkv[weight_type][weight_name] = param
             to_name = weight_map[from_name]
             if to_name is None:
                 continue
-            to_name = to_name.format(number)
+            to_name = to_name.format(l)
         else:
             to_name = weight_map[name]
         param = load_param(param, name, dtype)
@@ -256,37 +242,23 @@ def copy_weights_phi(
             param = saver.store_early(param)
         state_dict[to_name] = param
 
-    for i, (q, k, v) in list(qkv_weights.items()):
-        if q is None or k is None or v is None:
-            # split across different .bin files
-            continue
-        q = load_param(q, f"layer {i} q", dtype)
-        k = load_param(k, f"layer {i} k", dtype)
-        v = load_param(v, f"layer {i} v", dtype)
-        q_per_kv = config.n_head // config.n_query_groups
-        qs = torch.split(q, config.head_size * q_per_kv)
-        ks = torch.split(k, config.head_size)
-        vs = torch.split(v, config.head_size)
-        cycled = [t for group in zip(qs, ks, vs) for t in group]
-        qkv = torch.cat(cycled)
-        state_dict[f"transformer.h.{i}.attn.attn.weight"] = qkv
+    for i in list(qkv_weights):
+        for weight_type in qkv_weights[i]:
+            q, k, v = qkv_weights[i][weight_type].values()
+            if q is None or k is None or v is None:
+                # split across different .bin files
+                continue
+            q = load_param(q, f"layer {i} q", dtype)
+            k = load_param(k, f"layer {i} k", dtype)
+            v = load_param(v, f"layer {i} v", dtype)
+            q_per_kv = config.n_head // config.n_query_groups
+            qs = torch.split(q, config.head_size * q_per_kv)
+            ks = torch.split(k, config.head_size)
+            vs = torch.split(v, config.head_size)
+            cycled = [t for group in zip(qs, ks, vs) for t in group]
+            qkv = torch.cat(cycled)
+            state_dict[f"transformer.h.{i}.attn.attn.{weight_type}"] = qkv
         del qkv_weights[i]
-
-    for i, (q, k, v) in list(qkv_biases.items()):
-        if q is None or k is None or v is None:
-            # split across different .bin files
-            continue
-        q = load_param(q, f"layer {i} q", dtype)
-        k = load_param(k, f"layer {i} k", dtype)
-        v = load_param(v, f"layer {i} v", dtype)
-        q_per_kv = config.n_head // config.n_query_groups
-        qs = torch.split(q, config.head_size * q_per_kv)
-        ks = torch.split(k, config.head_size)
-        vs = torch.split(v, config.head_size)
-        cycled = [t for group in zip(qs, ks, vs) for t in group]
-        qkv = torch.cat(cycled)
-        state_dict[f"transformer.h.{i}.attn.attn.bias"] = qkv
-        del qkv_biases[i]
 
 
 def layer_template(layer_name: str, idx: int) -> Tuple[str, int]:
