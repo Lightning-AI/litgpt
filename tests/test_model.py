@@ -302,6 +302,7 @@ def test_against_hf_phi_1_5(device, dtype):
         intermediate_size=ours_config.intermediate_size,
         num_attention_heads=ours_config.n_head,
         num_hidden_layers=ours_config.n_layer,
+        partial_rotary_factor=ours_config.rotary_percentage,
         torch_dtype=dtype,
     )
 
@@ -362,6 +363,7 @@ def test_against_hf_phi_2(device, dtype):
         intermediate_size=ours_config.intermediate_size,
         num_attention_heads=ours_config.n_head,
         num_hidden_layers=ours_config.n_layer,
+        partial_rotary_factor=ours_config.rotary_percentage,
         torch_dtype=dtype,
     )
 
