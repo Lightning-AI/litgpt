@@ -338,8 +338,8 @@ def test_against_hf_phi_2(device, dtype):
     workdir.mkdir(parents=True, exist_ok=True)
     file_paths = [workdir / "original_phi_2.py", workdir / "configuration_phi.py"]
     urls = [
-        "https://huggingface.co/microsoft/phi-2/raw/main/modeling_phi.py",
-        "https://huggingface.co/microsoft/phi-2/raw/main/configuration_phi.py",
+        "https://huggingface.co/microsoft/phi-2/raw/834565c23f9b28b96ccbeabe614dd906b6db551a/modeling_phi.py",
+        "https://huggingface.co/microsoft/phi-2/raw/834565c23f9b28b96ccbeabe614dd906b6db551a/configuration_phi.py",
     ]
     for file_path, url in zip(file_paths, urls):
         if not file_path.is_file():
