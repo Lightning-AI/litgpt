@@ -198,7 +198,7 @@ def copy_weights_phi(
 ) -> None:
     if any(layer_name.startswith(("layers.", "transformer.")) for layer_name in hf_weights):
         raise ValueError(
-            "You are using an outdated Phi1.5 checkpoint. Please reload it as described in 'tutorials/download_phi.md'"
+            "You are using an outdated Phi checkpoint. Please reload it as described in 'tutorials/download_phi.md'"
         )
 
     weight_map = {
