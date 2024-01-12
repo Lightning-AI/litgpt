@@ -247,9 +247,9 @@ def copy_weights_phi(
             if q is None or k is None or v is None:
                 # split across different .bin files
                 continue
-            q = load_param(q, f"layer {i} q", dtype)
-            k = load_param(k, f"layer {i} k", dtype)
-            v = load_param(v, f"layer {i} v", dtype)
+            q = load_param(q, f"layer {i} q {weight_type}", dtype)
+            k = load_param(k, f"layer {i} k {weight_type}", dtype)
+            v = load_param(v, f"layer {i} v {weight_type}", dtype)
             q_per_kv = config.n_head // config.n_query_groups
             qs = torch.split(q, config.head_size * q_per_kv)
             ks = torch.split(k, config.head_size)
@@ -306,8 +306,7 @@ def convert_hf_checkpoint(
     elif "phi" in model_name:
         # holder to reconstitute the split q, k, v
         qkv_weights = {}
-        qkv_biases = {}
-        copy_fn = partial(copy_weights_phi, config, qkv_weights, qkv_biases)
+        copy_fn = partial(copy_weights_phi, config, qkv_weights)
     else:
         copy_fn = copy_weights_gpt_neox
 
