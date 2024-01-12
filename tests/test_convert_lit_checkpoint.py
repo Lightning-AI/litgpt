@@ -258,14 +258,13 @@ def test_against_hf_phi():
     )
     T = 5
     theirs_config = PhiConfig(
-        n_positions=ours_config.block_size,
-        n_embd=ours_config.n_embd,
-        n_head=ours_config.n_head,
-        n_layer=ours_config.n_layer,
-        rotary_dim=ours_config.rope_n_elem,
-        architecture={"block_cls": "parallel", "mixer": {}, "mlp": {"mlp_cls": "mlp"}},
+        vocab_size=ours_config.padded_vocab_size,
+        max_position_embeddings=ours_config.block_size,
+        hidden_size=ours_config.n_embd,
+        intermediate_size=ours_config.intermediate_size,
+        num_attention_heads=ours_config.n_head,
+        num_hidden_layers=ours_config.n_layer,
     )
-    theirs_config.vocab_size = ours_config.padded_vocab_size
 
     ours_model = GPT(ours_config)
     ours_state_dict = ours_model.state_dict()
