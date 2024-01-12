@@ -242,14 +242,14 @@ def copy_weights_phi(
         state_dict[to_name] = param
 
     for i in list(qkv_weights):
-        for weight_type in qkv_weights[i]:
-            q, k, v = qkv_weights[i][weight_type].values()
-            if q is None or k is None or v is None:
+        for weight_type in list(qkv_weights[i]):
+            qkv = qkv_weights[i][weight_type]
+            if len(qkv) != 3:
                 # split across different .bin files
                 continue
-            q = load_param(q, f"layer {i} q {weight_type}", dtype)
-            k = load_param(k, f"layer {i} k {weight_type}", dtype)
-            v = load_param(v, f"layer {i} v {weight_type}", dtype)
+            q = load_param(qkv["q_proj"], f"layer {i} q {weight_type}", dtype)
+            k = load_param(qkv["k_proj"], f"layer {i} k {weight_type}", dtype)
+            v = load_param(qkv["v_proj"], f"layer {i} v {weight_type}", dtype)
             q_per_kv = config.n_head // config.n_query_groups
             qs = torch.split(q, config.head_size * q_per_kv)
             ks = torch.split(k, config.head_size)
@@ -257,7 +257,7 @@ def copy_weights_phi(
             cycled = [t for group in zip(qs, ks, vs) for t in group]
             qkv = torch.cat(cycled)
             state_dict[f"transformer.h.{i}.attn.attn.{weight_type}"] = qkv
-        del qkv_weights[i]
+            del qkv_weights[i][weight_type]
 
 
 def layer_template(layer_name: str, idx: int) -> Tuple[str, int]:
