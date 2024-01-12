@@ -240,6 +240,8 @@ def convert_lit_checkpoint(checkpoint_path: Path, output_path: Path, config_path
         copy_fn = partial(copy_weights_falcon, config.name)
     elif config._mlp_class in ("LLaMAMLP", "LLaMAMoE"):
         copy_fn = partial(copy_weights_llama, config)
+    elif "phi" in config.name:
+        copy_fn = partial(copy_weights_phi, config)
     else:
         copy_fn = copy_weights_gpt_neox
 
