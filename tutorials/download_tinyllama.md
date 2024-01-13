@@ -15,7 +15,7 @@ which will print
 
 ```text
 TinyLlama/TinyLlama-1.1B-intermediate-step-1431k-3T
-TinyLlama/TinyLlama-1.1B-Chat-v1.0
+TinyLlama/TinyLlama-1.1B-chat-v1.0
 ```
 
 In order to use a specific checkpoint, for instance [TinyLlama 1.1B base model](https://huggingface.co/TinyLlama/TinyLlama-1.1B-intermediate-step-955k-token-2T), which requires about 5 GB of disk space, download the weights and convert the checkpoint to the lit-gpt format:
@@ -35,7 +35,7 @@ With the `Chat` version of the model, the download and conversion procedures are
 As this version of the model is stored in `safetensor` format, to download it an additional flag is required:
 
 ```bash
-python scripts/download.py --repo_id TinyLlama/TinyLlama-1.1B-Chat-v1.0 --from_safetensors=True
+python scripts/download.py --repo_id TinyLlama/TinyLlama-1.1B-chat-v1.0 --from_safetensors=True
 ```
 
 The model is shipped in `bfloat16` format, so if your hardware doesn't support it, you can provide `dtype` argument during model conversion. For example we can convert the weights into `float32` format:
@@ -58,11 +58,11 @@ python chat/base.py --checkpoint_dir checkpoints/TinyLlama/TinyLlama-1.1B-interm
 or
 
 # chat version
-python chat/base.py --checkpoint_dir checkpoints/TinyLlama/TinyLlama-1.1B-Chat-v1.0
+python chat/base.py --checkpoint_dir checkpoints/TinyLlama/TinyLlama-1.1B-chat-v1.0
 ```
 
 To improve the response from Chat version you can also provide these args (as in the [model card](https://huggingface.co/TinyLlama/TinyLlama-1.1B-Chat-v0.6)):
 
 ```bash
-python chat/base.py --checkpoint_dir checkpoints/TinyLlama/TinyLlama-1.1B-Chat-v1.0 --top_k=50 --temperature=0.7
+python chat/base.py --checkpoint_dir checkpoints/TinyLlama/TinyLlama-1.1B-chat-v1.0 --top_k=50 --temperature=0.7
 ```
