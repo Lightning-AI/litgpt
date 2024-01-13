@@ -22,7 +22,7 @@ class GPT(nn.Module):
         assert config.padded_vocab_size is not None
         self.config = config
 
-        self.lm_head = nn.Linear(config.n_embd, config.padded_vocab_size, bias=config.lm_head_bias)
+        self.lm_head = nn.Linear(config.n_embd, config.padded_vocab_size, bias=config.bias_map.lm_head)
         self.transformer = nn.ModuleDict(
             dict(
                 wte=nn.Embedding(config.padded_vocab_size, config.n_embd),
@@ -175,10 +175,14 @@ class CausalSelfAttention(nn.Module):
         super().__init__()
         shape = (config.n_head + 2 * config.n_query_groups) * config.head_size
         # key, query, value projections for all heads, but in a batch
-        self.attn = nn.Linear(config.n_embd, shape, bias=config.bias)
+        self.attn = nn.Linear(config.n_embd, shape, bias=config.bias_map.attention)
         # output projection
+<<<<<<< HEAD:litgpt/model.py
         # if `head_size` is explicitly specified in the config, `n_emd` might not be equal to `head_size * n_head`
         self.proj = nn.Linear(config.head_size * config.n_head, config.n_embd, bias=config.bias)
+=======
+        self.proj = nn.Linear(config.n_embd, config.n_embd, bias=config.bias_map.projection)
+>>>>>>> 5609d02 (model.py: apply bias_map):lit_gpt/model.py
         # disabled by default
         self.kv_cache: Optional[KVCache] = None
 
@@ -269,8 +273,8 @@ class CausalSelfAttention(nn.Module):
 class GptNeoxMLP(nn.Module):
     def __init__(self, config: Config) -> None:
         super().__init__()
-        self.fc = nn.Linear(config.n_embd, config.intermediate_size, bias=config.bias)
-        self.proj = nn.Linear(config.intermediate_size, config.n_embd, bias=config.bias)
+        self.fc = nn.Linear(config.n_embd, config.intermediate_size, bias=config.bias_map.mlp)
+        self.proj = nn.Linear(config.intermediate_size, config.n_embd, bias=config.bias_map.mlp)
 
         self.config = config
 
@@ -283,9 +287,9 @@ class GptNeoxMLP(nn.Module):
 class LLaMAMLP(nn.Module):
     def __init__(self, config: Config) -> None:
         super().__init__()
-        self.fc_1 = nn.Linear(config.n_embd, config.intermediate_size, bias=config.bias)
-        self.fc_2 = nn.Linear(config.n_embd, config.intermediate_size, bias=config.bias)
-        self.proj = nn.Linear(config.intermediate_size, config.n_embd, bias=config.bias)
+        self.fc_1 = nn.Linear(config.n_embd, config.intermediate_size, bias=config.bias_map.mlp)
+        self.fc_2 = nn.Linear(config.n_embd, config.intermediate_size, bias=config.bias_map.mlp)
+        self.proj = nn.Linear(config.intermediate_size, config.n_embd, bias=config.bias_map.mlp)
 
         self.config = config
 
