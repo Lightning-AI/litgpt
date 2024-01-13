@@ -19,7 +19,7 @@ class BiasMap:
     attention: Optional[bool] = None
     projection: Optional[bool] = None
     mlp: Optional[bool] = None
-    lm_head: bool = False
+    lm_head: Optional[bool] = False
 
     def __getattribute__(self, name: str) -> bool:
         if (bias := object.__getattribute__(self, name)) is not None:
