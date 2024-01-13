@@ -55,7 +55,7 @@ def test_against_falcon_40b():
         num_kv_heads=ours_config.n_query_groups,
         new_decoder_architecture=True,
         parallel_attn=ours_config.parallel_residual,
-        bias=ours_config.bias,
+        bias=ours_config.bias_map.main,
     )
 
     ours_model = GPT(ours_config)

@@ -130,7 +130,7 @@ def test_against_hf_falcon(kwargs, device, dtype):
         num_hidden_layers=ours_config.n_layer,
         parallel_attn=ours_config.parallel_residual,
         vocab_size=ours_config.padded_vocab_size,
-        bias=ours_config.bias,
+        bias=ours_config.bias_map.main,
         new_decoder_architecture=True,
     )
 
@@ -244,7 +244,7 @@ def test_against_hf_llama2(ours_kwargs, device, dtype):
         rms_norm_eps=ours_config.norm_eps,
         num_key_value_heads=ours_config.n_query_groups,
         rope_theta=ours_config.rope_base,
-        attention_bias=ours_config.bias,
+        attention_bias=ours_config.bias_map.main,
     )
     assert ours_config.intermediate_size == theirs_config.intermediate_size
 
