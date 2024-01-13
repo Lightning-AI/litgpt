@@ -14,6 +14,20 @@ from litgpt.utils import find_multiple
 
 
 @dataclass
+class BiasMap:
+    main: bool = True
+    attention: Optional[bool] = None
+    projection: Optional[bool] = None
+    mlp: Optional[bool] = None
+    lm_head: bool = False
+
+    def __getattribute__(self, name: str) -> bool:
+        if (bias := object.__getattribute__(self, name)) is not None:
+            return bias
+        return object.__getattribute__(self, "main")
+
+
+@dataclass
 class Config:
     name: str = ""
     hf_config: dict = field(default_factory=dict)
