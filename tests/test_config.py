@@ -100,3 +100,20 @@ def test_head_size(head_size):
     config = Config(head_size)
 
     assert config.head_size == head_size or config.n_embd // config.n_head
+
+
+@pytest.mark.parametrize("main", [True, False])
+@pytest.mark.parametrize("attention", [True, False, None])
+@pytest.mark.parametrize("projection", [True, False, None])
+@pytest.mark.parametrize("mlp", [True, False, None])
+@pytest.mark.parametrize("lm_head", [True, False])
+def test_bias_map(main, attention, projection, mlp, lm_head):
+    from lit_gpt.config import BiasMap
+
+    bias_map = BiasMap(main=main, attention=attention, projection=projection, mlp=mlp, lm_head=lm_head)
+
+    assert bias_map.main is main
+    assert bias_map.attention is (attention if attention is not None else main)
+    assert bias_map.projection is (projection if projection is not None else main)
+    assert bias_map.mlp is (mlp if mlp is not None else main)
+    assert bias_map.lm_head is lm_head
