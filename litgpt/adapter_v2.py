@@ -69,7 +69,7 @@ class GPT(BaseModel):
         assert config.padded_vocab_size is not None
         self.config = config
 
-        self.lm_head = AdapterV2Linear(config.n_embd, config.padded_vocab_size, bias=config.lm_head_bias)
+        self.lm_head = AdapterV2Linear(config.n_embd, config.padded_vocab_size, bias=config.bias_map.lm_head)
         self.transformer = nn.ModuleDict(
             dict(
                 wte=nn.Embedding(config.padded_vocab_size, config.n_embd),
@@ -121,10 +121,10 @@ class CausalSelfAttention(BaseCausalSelfAttention):
         nn.Module.__init__(self)
         shape = (config.n_head + 2 * config.n_query_groups) * config.head_size
         # key, query, value projections for all heads, but in a batch
-        self.attn = AdapterV2Linear(in_features=config.n_embd, out_features=shape, bias=config.bias)
+        self.attn = AdapterV2Linear(in_features=config.n_embd, out_features=shape, bias=config.bias_map.attention)
         # output projection
         # if `head_size` is explicitly specified in the config, `n_emd` might not be equal to `head_size * n_head`
-        self.proj = AdapterV2Linear(config.head_size * config.n_head, config.n_embd, bias=config.bias)
+        self.proj = AdapterV2Linear(config.head_size * config.n_head, config.n_embd, bias=config.bias_map.projection)
         # disabled by default
         self.kv_cache: Optional[KVCache] = None
 
@@ -157,8 +157,8 @@ class CausalSelfAttention(BaseCausalSelfAttention):
 class GptNeoxMLP(litgpt.model.GptNeoxMLP):
     def __init__(self, config: Config) -> None:
         nn.Module.__init__(self)
-        self.fc = AdapterV2Linear(config.n_embd, config.intermediate_size, bias=config.bias)
-        self.proj = AdapterV2Linear(config.intermediate_size, config.n_embd, bias=config.bias)
+        self.fc = AdapterV2Linear(config.n_embd, config.intermediate_size, bias=config.bias_map.mlp)
+        self.proj = AdapterV2Linear(config.intermediate_size, config.n_embd, bias=config.bias_map.mlp)
 
         self.config = config
 
@@ -177,9 +177,9 @@ class GptNeoxMLP(litgpt.model.GptNeoxMLP):
 class LLaMAMLP(litgpt.model.LLaMAMLP):
     def __init__(self, config: Config) -> None:
         nn.Module.__init__(self)
-        self.fc_1 = AdapterV2Linear(config.n_embd, config.intermediate_size, bias=config.bias)
-        self.fc_2 = AdapterV2Linear(config.n_embd, config.intermediate_size, bias=config.bias)
-        self.proj = AdapterV2Linear(config.intermediate_size, config.n_embd, bias=config.bias)
+        self.fc_1 = AdapterV2Linear(config.n_embd, config.intermediate_size, bias=config.bias_map.mlp)
+        self.fc_2 = AdapterV2Linear(config.n_embd, config.intermediate_size, bias=config.bias_map.mlp)
+        self.proj = AdapterV2Linear(config.intermediate_size, config.n_embd, bias=config.bias_map.mlp)
 
     def _load_from_state_dict(self, state_dict: Dict, prefix: str, *args: Any, **kwargs: Any) -> None:
         """For compatibility with base checkpoints."""
