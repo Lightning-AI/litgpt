@@ -1,5 +1,3 @@
-# Copyright Lightning AI. Licensed under the Apache License 2.0, see LICENSE file.
-
 """Implementation of the paper:
 
 LLaMA-Adapter V2: Parameter-Efficient Visual Instruction Model
@@ -194,7 +192,7 @@ class LLaMAMLP(lit_gpt.model.LLaMAMLP):
         super()._load_from_state_dict(state_dict, prefix, *args, **kwargs)
 
 
-class LLaMAMoE(lit_gpt.model.LLaMAMoE):
+class LLaMAMoE(lit_gpt.model.LLaMAMLP):
     def __init__(self, config: Config) -> None:
         nn.Module.__init__(self)
         self.gate = AdapterV2Linear(config.n_embd, config.n_expert, bias=False)

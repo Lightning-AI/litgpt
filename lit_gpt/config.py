@@ -1,5 +1,3 @@
-# Copyright Lightning AI. Licensed under the Apache License 2.0, see LICENSE file.
-
 import json
 from copy import deepcopy
 from dataclasses import dataclass, field
@@ -1196,7 +1194,7 @@ mistral = [
         name="Mixtral-8x7B-{}v0.1",
         hf_config=dict(org="mistralai", name="Mixtral-8x7B-{}v0.1"),
         padded_vocab_size=32000,
-        block_size=32768,
+        block_size=4096,  # should be 32768 but sliding window attention is not implemented
         n_layer=32,
         n_query_groups=8,
         rotary_percentage=1.0,
@@ -1276,5 +1274,39 @@ llama_2_function_calling = [
 ]
 
 configs.extend(llama_2_function_calling)
+
+##########################
+# AUGMXNT
+##########################
+
+# https://huggingface.co/augmxnt/shisa-base-7b-v1/blob/main/config.json 
+
+
+shisa_common_config = dict(
+        name="dummy",
+        hf_config=dict(org="augmxnt", name="augmxt/{}"),
+        padded_vocab_size=120074,
+        block_size=4096,
+        n_layer=32,
+        intermediate_size=14336,
+        norm_eps=1e-05,
+        n_query_groups=8,
+        rotary_percentage=1.0,
+        parallel_residual=False,
+        bias=False,
+        rope_base=10000.0,
+        _norm_class="RMSNorm",
+        _mlp_class="LLaMAMLP",  
+    )
+
+shisa_model_names = ["shisa-base-7b-v1", "shisa-7b-v1", "shisa-gamma-7b-v1"]
+
+for name in shisa_model_names:
+    _conf = deepcopy(shisa_common_config)
+    _conf["name"] = name
+    _conf["hf_config"]["name"] = _conf["hf_config"]["name"].format(name)
+
+    configs.append(_conf)
+
 
 name_to_config = {config["name"]: config for config in configs}
