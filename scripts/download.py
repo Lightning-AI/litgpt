@@ -51,7 +51,6 @@ def download_from_hub(
     elif from_safetensors:
         raise ValueError("`--from_safetensors=True` won't have an effect with `--tokenizer_only=True`")
 
-    # contains revisions that are known to work without issues
     directory = checkpoint_dir / repo_id
     snapshot_download(
         repo_id,
