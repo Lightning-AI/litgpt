@@ -53,7 +53,7 @@ You're done! To execute the model just run:
 pip install sentencepiece
 
 # base version
-python chat/base.py --checkpoint_dir checkpoints/TinyLlama/TinyLlama-1.1B-intermediate-step-955k-token-2T
+python chat/base.py --checkpoint_dir checkpoints/TinyLlama/TinyLlama-1.1B-intermediate-step-1431k-3T
 
 or
 
@@ -61,7 +61,7 @@ or
 python chat/base.py --checkpoint_dir checkpoints/TinyLlama/TinyLlama-1.1B-chat-v1.0
 ```
 
-To improve the response from Chat version you can also provide these args (as in the [model card](https://huggingface.co/TinyLlama/TinyLlama-1.1B-Chat-v0.6)):
+To improve the response from Chat version you can also provide these args (as in the [model card](https://huggingface.co/TinyLlama/TinyLlama-1.1B-chat-v1.0)):
 
 ```bash
 python chat/base.py --checkpoint_dir checkpoints/TinyLlama/TinyLlama-1.1B-chat-v1.0 --top_k=50 --temperature=0.7
