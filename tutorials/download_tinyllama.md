@@ -18,7 +18,7 @@ TinyLlama/TinyLlama-1.1B-intermediate-step-1431k-3T
 TinyLlama/TinyLlama-1.1B-chat-v1.0
 ```
 
-In order to use a specific checkpoint, for instance [TinyLlama 1.1B base model](https://huggingface.co/TinyLlama/TinyLlama-1.1B-intermediate-step-955k-token-2T), which requires about 5 GB of disk space, download the weights and convert the checkpoint to the lit-gpt format:
+In order to use a specific checkpoint, for instance [TinyLlama 1.1B base model](https://huggingface.co/TinyLlama/TinyLlama-1.1B-intermediate-step-1431k-3T), which requires about 5 GB of disk space, download the weights and convert the checkpoint to the lit-gpt format:
 
 ```bash
 pip install huggingface_hub
