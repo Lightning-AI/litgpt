@@ -11,17 +11,18 @@ This tutorial will walk you through pretraining [TinyLlama](https://github.com/j
 
 Here is a quick fact sheet:
 
-| Name                         | Description                                                                                                                                                  |
-|------------------------------|--------------------------------------------------------------------------------------------------------------------------------------------------------------|
-| Parameters                   | 1.1B                                                                                                                                                         |
-| Model Size                   | Layers: 22, Heads: 32, Query Groups: 4, Embedding Size: 2048, Intermediate Size: 5632                                                                        |
-| Sequence Length              | 2048                                                                                                                                                         |
-| Batch Size                   | 2 million tokens (2048 * 1024)                                                                                                                               |
-| Learning Rate                | 4e-4                                                                                                                                                         |
-| Learning Rate Schedule       | Cosine with 2000 warmup steps                                                                                                                                |
-| Training Data                | [SlimPajama](https://huggingface.co/datasets/cerebras/slimpajama-627b) (893 GB), [Starcoder](https://huggingface.co/datasets/bigcode/starcoderdata) (290 GB) |
-| Combined Dataset Size        | Around 950B tokens                                                                                                                                           |
-| Total Tokens During Training | 3 trillion                                                                                                                                                   |
+| Name                          | Description                                                                                                                                                  |
+|-------------------------------|--------------------------------------------------------------------------------------------------------------------------------------------------------------|
+| Parameters                    | 1.1B                                                                                                                                                         |
+| Model Size                    | Layers: 22, Heads: 32, Query Groups: 4, Embedding Size: 2048, Intermediate Size: 5632                                                                        |
+| Sequence Length               | 2048                                                                                                                                                         |
+| Learning Rate                 | 4e-4                                                                                                                                                         |
+| Learning Rate Schedule        | Cosine with 2000 warmup steps                                                                                                                                |
+| Training Data                 | [SlimPajama](https://huggingface.co/datasets/cerebras/slimpajama-627b) (893 GB), [Starcoder](https://huggingface.co/datasets/bigcode/starcoderdata) (290 GB) |
+| Combined Dataset Size         | Around 950B tokens                                                                                                                                           |
+| Total Tokens During Training  | 3 trillion (3 epochs)                                                                                                                                        |
+| Time to complete training     | ~ 4 weeks with 64 A100 GPUs                                                                                                                                  |
+| Model FLOPs Utilization (MFU) | 52%                                                                                                                                                          |
 
 (this table was sourced from the author's [README](https://github.com/jzhang38/TinyLlama/))
 
