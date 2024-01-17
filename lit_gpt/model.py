@@ -73,6 +73,7 @@ class GPT(nn.Module):
             torch.nn.init.normal_(module.weight, mean=0.0, std=0.02)
 
     def forward(self, idx: torch.Tensor, input_pos: Optional[torch.Tensor] = None) -> torch.Tensor:
+        B = idx.size(0)        
         T = idx.size(1)
         if self.max_seq_length < T:
             raise ValueError(f"Cannot forward sequence of length {T}, max seq length is only {self.max_seq_length}.")
@@ -87,7 +88,18 @@ class GPT(nn.Module):
             cos = self.cos[:T]
             sin = self.sin[:T]
             mask = None
+            
+        # Modifications for mixed sequence length batched inference with left padding
+        if B > 1 and not self.training:
 
+            mask = mask.repeat(B,1,1,1)
+            # here we're manually setting the mask to False for the left-padding tokens
+            for b_index in range(B):
+                for element in range(0, T): 
+                    if idx[b_index][element] == 0:
+                        mask[b_index][0][element][:element] = False
+                    elif idx[b_index][element] != 0:
+                        break
         x = self.transformer.wte(idx)  # token embeddings of shape (b, t, n_embd)
         for block in self.transformer.h:
             x = block(x, cos, sin, mask, input_pos)
@@ -341,7 +353,12 @@ def build_rope_cache(
 
 
 def apply_rope(x: torch.Tensor, cos: torch.Tensor, sin: torch.Tensor) -> torch.Tensor:
+    # modified for left padded batched inference; ropes are shared and therefore expanded
     head_size = x.size(-1)
+    B = x.size(0)
+    T = x.size(2)
+    cos = cos.expand(B, T, -1).unsqueeze(1) # Add a dimension for heads (B, 1, T, hs)
+    sin = sin.expand(B, T, -1).unsqueeze(1)  # Add a dimension for heads (B, 1, T, hs)
     x1 = x[..., : head_size // 2]  # (B, nh, T, hs/2)
     x2 = x[..., head_size // 2 :]  # (B, nh, T, hs/2)
     rotated = torch.cat((-x2, x1), dim=-1)  # (B, nh, T, hs)
