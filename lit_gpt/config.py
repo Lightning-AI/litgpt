@@ -294,6 +294,41 @@ for c in pythia:
     configs.append(copy)
 
 
+###################
+# databricks Dolly
+###################
+dolly = [
+    # https://huggingface.co/databricks/dolly-v2-3b/blob/main/config.json
+    dict(
+        name="dolly-v2-3b",
+        hf_config=dict(org="databricks", name="dolly-v2-3b"),
+        block_size=2048,
+        n_layer=32,
+        n_embd=2560,
+        padded_vocab_size=50280,
+    ),
+    # https://huggingface.co/databricks/dolly-v2-7b/blob/main/config.json
+    dict(
+        name="dolly-v2-7b",
+        hf_config=dict(org="databricks", name="dolly-v2-7b"),
+        block_size=2048,
+        n_layer=32,
+        padded_vocab_size=50280,
+    ),
+    # https://huggingface.co/databricks/dolly-v2-12b/blob/main/config.json
+    dict(
+        name="dolly-v2-12b",
+        hf_config=dict(org="databricks", name="dolly-v2-12b"),
+        block_size=2048,
+        n_layer=36,
+        n_embd=5120,
+        n_head=40,
+        padded_vocab_size=50280,
+    ),
+]
+configs.extend(dolly)
+
+
 ####################################
 # togethercomputer RedPajama INCITE
 ####################################
