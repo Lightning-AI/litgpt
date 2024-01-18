@@ -33,7 +33,7 @@ def multinomial_num_samples_1(probs: torch.Tensor) -> torch.Tensor:
 
 
 def sample(logits: torch.Tensor, temperature: float = 1.0, top_k: Optional[int] = None) -> torch.Tensor:
-    logits = logits[0, -1]
+    logits = logits[:, -1]
     # optionally crop the logits to only the top k options
     if top_k is not None:
         v, i = torch.topk(logits, min(top_k, logits.size(-1)))
@@ -92,9 +92,10 @@ def generate(
         raise NotImplementedError(f"max_seq_length {model.max_seq_length} needs to be >= {max_returned_tokens - 1}")
 
     device = prompts.device
-    
+    dtype = prompts.dtype
+
     # an outout tensor to fill with generated tokens
-    outputs_tensor = torch.zeros((B, max_returned_tokens), dtype=torch.int32, device=device)
+    outputs_tensor = torch.zeros((B, max_returned_tokens), dtype=dtype, device=device)
     outputs_tensor[:, :T] = prompts
 
     token = next_token(model, torch.arange(0, T, device=device), prompts, temperature=temperature, top_k=top_k).clone()
