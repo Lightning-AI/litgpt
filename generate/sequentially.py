@@ -51,8 +51,9 @@ def sequential(model: GPT, root: torch.device, max_seq_length: int, devices: int
         submodule.attn.kv_cache = submodule.attn.build_kv_cache(1, max_seq_length, model.cos.size(-1), target_device)
     # rebuild odd ends
     with root:
-        # the rope cache which is on meta device
         model.max_seq_length = max_seq_length
+        # the rope cache which is on meta device
+        model.cos, model.sin = model.rope_cache()
         # the mask cache which cannot be created with `set_kv_cache` because that will set it for all layers
         model.mask_cache = build_mask_cache(max_seq_length)
     # and everything that is not a block in the root

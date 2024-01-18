@@ -180,6 +180,8 @@ def main(
             with fabric.init_tensor():
                 # set the max_seq_length to limit the memory usage to what we need
                 model.max_seq_length = max_returned_tokens
+                # the rope cache which is on meta device
+                model.cos, model.sin = model.rope_cache()
                 # enable the kv cache
                 model.set_kv_cache(batch_size=1)
             model.eval()

@@ -8,6 +8,7 @@ from urllib.request import urlretrieve
 import pytest
 import torch
 from conftest import RunIf
+from lightning import Fabric
 from lightning.fabric.utilities.imports import _IS_WINDOWS, _TORCH_GREATER_EQUAL_2_2
 
 # support running without installing as a package
@@ -752,3 +753,24 @@ def test_sdpa_choice_kv_cache(config):
     )
     with torch.backends.cuda.sdp_kernel(enable_flash=False):
         model(x, input_pos)
+
+
+@RunIf(min_cuda_gpus=2, standalone=True)
+def test_rope_init_under_fsdp():
+    """Check that the rope cache is properly intialized"""
+    from lit_gpt import GPT
+
+    fabric = Fabric(devices=2, strategy="fsdp", accelerator="cuda")
+    fabric.launch()
+
+    with fabric.init_module(empty_init=True):
+        model = GPT.from_name("pythia-14m", n_layer=1)
+    assert model.cos.device.type == "meta"
+    assert model.sin.device.type == "meta"
+
+    model = fabric.setup(model)
+    assert model.cos.device.type == "cuda"
+    assert model.sin.device.type == "cuda"
+    cos, sin = model.rope_cache(device=fabric.device)
+    torch.testing.assert_close(model.cos, cos)
+    torch.testing.assert_close(model.sin, sin)
