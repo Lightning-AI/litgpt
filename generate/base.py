@@ -33,10 +33,9 @@ def multinomial_num_samples_1(probs: torch.Tensor) -> torch.Tensor:
 
 
 def sample(logits: torch.Tensor, temperature: float = 1.0, top_k: Optional[int] = None) -> torch.Tensor:
-    if logits.dim() == 1:
-        logits = logits[0, -1]
-    elif logits.dim() == 2:
-        logits = logits[:, -1]
+
+    logits = logits[:, -1]
+
     # optionally crop the logits to only the top k options
     if top_k is not None:
         v, i = torch.topk(logits, min(top_k, logits.size(-1)))
