@@ -117,7 +117,7 @@ def generate(
             print("breaking")
             break
     if B == 1:
-        outputs_tensor = outputs_tensor.squeeze(0)
+        outputs_tensor = outputs_tensor.unsqueeze(0)
     return outputs_tensor
 
 
