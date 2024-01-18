@@ -184,7 +184,6 @@ def main(
     checkpoint_path = checkpoint_dir / model_file
 
     tokenizer = Tokenizer(checkpoint_dir)
-    eos_token = torch.tensor([tokenizer.eos_id], device=fabric.device)
     if isinstance(prompts, str):
         prompts = [prompts]
 
