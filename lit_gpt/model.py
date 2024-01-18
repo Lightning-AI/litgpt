@@ -51,7 +51,7 @@ class GPT(nn.Module):
             cos, sin = self.rope_cache()
             self.register_buffer("cos", cos, persistent=False)
             self.register_buffer("sin", sin, persistent=False)
-        # overrides
+        # override
         elif value != self.cos.size(0):
             self.cos, self.sin = self.rope_cache(device=self.cos.device)
         # the mask and kv cache size will get updated on `set_kv_cache`. we cannot update it here because we don't know
