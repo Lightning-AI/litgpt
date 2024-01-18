@@ -185,7 +185,6 @@ python scripts/prepare_dolly.py \
  --max_seq_length 512
 ```
 
-<<<<<<< HEAD
 &nbsp;
 
 ### FLAN
@@ -211,8 +210,6 @@ python scripts/prepare_flan.py \
 
 You can find a list of all 66 supported subsets [here](https://huggingface.co/datasets/Muennighoff/flan).
 
-=======
->>>>>>> main
 &nbsp;
 
 ### Finetuning After Data Preparation
