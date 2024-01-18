@@ -106,6 +106,7 @@ def generate(
     input_position = torch.tensor(T, device=device)
     finished = torch.tensor([False] * B, device=device)
     max_generation_iters = max_returned_tokens - T + 1
+    eos_id = torch.tensor(eos_id, device=device)
     for _ in range(2, max_generation_iters):
 
         token = next_token(model, input_position, token, temperature=temperature, top_k=top_k).clone()
@@ -180,7 +181,7 @@ def main(
     checkpoint_path = checkpoint_dir / model_file
 
     tokenizer = Tokenizer(checkpoint_dir)
-    
+    eos_token = torch.tensor([tokenizer.eos_id], device=fabric.device)
     if isinstance(prompts, str):
         prompts = [prompts]
 
