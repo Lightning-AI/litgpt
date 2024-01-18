@@ -18,9 +18,9 @@ In order to use the Mistral 7B model checkpoint, which requires about 14 GB of d
 ```bash
 pip install huggingface_hub
 
-python scripts/download.py --repo_id mistralai/Mistral-7B-Instruct-v0.1
+python scripts/download.py --repo_id mistralai/Mistral-7B-Instruct-v0.2
 
-python scripts/convert_hf_checkpoint.py --checkpoint_dir checkpoints/mistralai/Mistral-7B-Instruct-v0.1
+python scripts/convert_hf_checkpoint.py --checkpoint_dir checkpoints/mistralai/Mistral-7B-Instruct-v0.2
 ```
 
 You're done! To execute the model just run:
@@ -28,7 +28,7 @@ You're done! To execute the model just run:
 ```bash
 pip install sentencepiece
 
-python chat/base.py --checkpoint_dir checkpoints/mistralai/Mistral-7B-Instruct-v0.1
+python chat/base.py --checkpoint_dir checkpoints/mistralai/Mistral-7B-Instruct-v0.2
 ```
 
 ### Mixtral
