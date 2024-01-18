@@ -116,7 +116,8 @@ def generate(
         if finished.all():
             print("breaking")
             break
-        
+    if B == 1:
+        outputs_tensor = outputs_tensor.squeeze(0)
     return outputs_tensor
 
 
@@ -227,6 +228,9 @@ def main(
         for block in model.transformer.h:
             block.attn.kv_cache.reset_parameters()
 
+        # printing the results
+        if y.dim() == 1:
+            y = y.unsqueeze(0)
         # a boolean mask to filter out our padding zeroes and the eos tokens as we print
         padding_mask = (y != 0) & (y != tokenizer.eos_id)
 
