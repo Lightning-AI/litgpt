@@ -52,8 +52,6 @@ class GPT(nn.Module):
             self.register_buffer("cos", cos, persistent=False)
             self.register_buffer("sin", sin, persistent=False)
         # overrides
-        elif self.cos.device.type == "meta":
-            self.cos, self.sin = self.rope_cache()
         elif value != self.cos.size(0):
             self.cos, self.sin = self.rope_cache(device=self.cos.device)
         # the mask and kv cache size will get updated on `set_kv_cache`. we cannot update it here because we don't know
@@ -61,7 +59,7 @@ class GPT(nn.Module):
 
     def reset_parameters(self) -> None:
         # Trigger resetting the rope-cache
-        self.max_seq_length = self.config.block_size
+        self.cos, self.sin = self.rope_cache()
 
     def _init_weights(self, module: nn.Module) -> None:
         """Meant to be used with `gpt.apply(gpt._init_weights)`."""
