@@ -353,12 +353,7 @@ def build_rope_cache(
 
 
 def apply_rope(x: torch.Tensor, cos: torch.Tensor, sin: torch.Tensor) -> torch.Tensor:
-    # modified for left padded batched inference; ropes are shared and therefore expanded
     head_size = x.size(-1)
-    B = x.size(0)
-    T = x.size(2)
-    cos = cos.expand(B, T, -1).unsqueeze(1) # Add a dimension for heads (B, 1, T, hs)
-    sin = sin.expand(B, T, -1).unsqueeze(1)  # Add a dimension for heads (B, 1, T, hs)
     x1 = x[..., : head_size // 2]  # (B, nh, T, hs/2)
     x2 = x[..., head_size // 2 :]  # (B, nh, T, hs/2)
     rotated = torch.cat((-x2, x1), dim=-1)  # (B, nh, T, hs)
