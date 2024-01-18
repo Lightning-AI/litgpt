@@ -113,8 +113,10 @@ def generate(
         outputs_tensor[:, input_position] = token.squeeze()
         input_position = input_position.add_(1)
         finished = (token == eos_id).view(-1) | finished
+        
         if isinstance(finished, bool):
             finished = torch.tensor([finished] * B, device=device)
+            
         if finished.all():
             print("breaking")
             break
