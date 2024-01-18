@@ -106,14 +106,15 @@ def generate(
     input_position = torch.tensor(T, device=device)
     finished = torch.tensor([False] * B, device=device)
     max_generation_iters = max_returned_tokens - T + 1
-    eos_id = torch.tensor(eos_id, dtype=dtype, device=device)
+
     for _ in range(2, max_generation_iters):
 
         token = next_token(model, input_position, token, temperature=temperature, top_k=top_k).clone()
         outputs_tensor[:, input_position] = token.squeeze()
         input_position = input_position.add_(1)
         finished = (token == eos_id).view(-1) | finished
-        
+        if isinstance(finished, bool):
+            finished = torch.tensor([finished] * B, device=device)
         if finished.all():
             print("breaking")
             break
@@ -125,13 +126,13 @@ def generate(
 
 @torch.inference_mode()
 def main(
-    prompts: Union[str, List] = "What food do llamas eat??",
+    prompts: Union[str, List] = ["What food do llamas eat??", ":yo"],
     *,
     num_samples: int = 1,
     max_new_tokens: int = 100,
     top_k: Optional[int] = 200,
     temperature: float = 0.8,
-    checkpoint_dir: Path = Path("checkpoints/stabilityai/stablelm-base-alpha-3b"),
+    checkpoint_dir: Path = Path("/home/chris/Documents/GitHub/training/mancer_main/checkpoints/mistralai/Mistral-7B-Instruct-v0.1"),
     quantize: Optional[Literal["bnb.nf4", "bnb.nf4-dq", "bnb.fp4", "bnb.fp4-dq", "bnb.int8", "gptq.int4"]] = None,
     precision: Optional[str] = None,
     compile: bool = False,
