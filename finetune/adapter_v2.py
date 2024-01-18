@@ -24,7 +24,7 @@ from lit_gpt.utils import (
     check_valid_checkpoint_dir,
     chunked_cross_entropy,
     get_default_supported_precision,
-    lazy_load,
+    load_checkpoint,
     num_parameters,
 )
 from scripts.prepare_alpaca import generate_prompt
@@ -69,8 +69,7 @@ def setup(
         plugins = BitsandbytesPrecision(quantize[4:], dtype)
         precision = None
 
-    fabric_devices = devices
-    if fabric_devices > 1:
+    if devices > 1:
         if quantize:
             raise NotImplementedError(
                 "Quantization is currently not supported for multi-GPU training. Please set devices=1 when using the"
@@ -87,12 +86,12 @@ def setup(
         strategy = "auto"
 
     logger = CSVLogger(out_dir.parent, out_dir.name, flush_logs_every_n_steps=log_interval)
-    fabric = L.Fabric(devices=fabric_devices, strategy=strategy, precision=precision, loggers=logger, plugins=plugins)
+    fabric = L.Fabric(devices=devices, strategy=strategy, precision=precision, loggers=logger, plugins=plugins)
     fabric.print(hparams)
-    fabric.launch(main, data_dir, checkpoint_dir, out_dir, quantize)
+    fabric.launch(main, data_dir, checkpoint_dir, out_dir)
 
 
-def main(fabric: L.Fabric, data_dir: Path, checkpoint_dir: Path, out_dir: Path, quantize: Optional[str] = None) -> None:
+def main(fabric: L.Fabric, data_dir: Path, checkpoint_dir: Path, out_dir: Path) -> None:
     check_valid_checkpoint_dir(checkpoint_dir)
 
     fabric.seed_everything(1337)  # same seed for every process to init model (FSDP)
@@ -108,14 +107,13 @@ def main(fabric: L.Fabric, data_dir: Path, checkpoint_dir: Path, out_dir: Path, 
     fabric.print(f"Loading model {str(checkpoint_path)!r} with {config.__dict__}")
     with fabric.init_module(empty_init=(devices > 1)):
         model = GPT(config)
-    checkpoint = lazy_load(checkpoint_path)
-    # strict=False because missing keys due to adapter weights not contained in state dict
-    model.load_state_dict(checkpoint, strict=False)
-
     mark_only_adapter_v2_as_trainable(model)
 
     fabric.print(f"Number of trainable parameters: {num_parameters(model, requires_grad=True):,}")
     fabric.print(f"Number of non trainable parameters: {num_parameters(model, requires_grad=False):,}")
+
+    model = fabric.setup_module(model)
+
     trainable_params = [p for p in model.parameters() if p.requires_grad]
     if isinstance(fabric.strategy.precision, BitsandbytesPrecision):
         import bitsandbytes as bnb
@@ -123,7 +121,10 @@ def main(fabric: L.Fabric, data_dir: Path, checkpoint_dir: Path, out_dir: Path, 
         optimizer = bnb.optim.PagedAdamW(trainable_params, lr=learning_rate, weight_decay=weight_decay)
     else:
         optimizer = torch.optim.AdamW(trainable_params, lr=learning_rate, weight_decay=weight_decay)
-    model, optimizer = fabric.setup(model, optimizer)
+    optimizer = fabric.setup_optimizers(optimizer)
+
+    # strict=False because missing keys due to Adapter weights not contained in state dict
+    load_checkpoint(fabric, model, checkpoint_path, strict=False)
 
     fabric.seed_everything(1337 + fabric.global_rank)
 
