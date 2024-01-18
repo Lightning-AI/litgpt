@@ -294,10 +294,10 @@ for c in pythia:
     configs.append(copy)
 
 
-####################################
+###################
 # databricks Dolly
-####################################
-dolly_v2 = [
+###################
+dolly = [
     # https://huggingface.co/databricks/dolly-v2-3b/blob/main/config.json
     dict(
         name="dolly-v2-3b",
@@ -325,6 +325,7 @@ dolly_v2 = [
         n_head=40,
     ),
 ]
+configs.extend(dolly)
 
 
 ####################################
