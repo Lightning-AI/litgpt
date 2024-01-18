@@ -103,6 +103,9 @@ def test_tensor_parallel_llama(name, expected):
     assert model.config.n_query_groups * 8 == config.n_query_groups
 
 
+root = Path(__file__).parent.parent.resolve()
+
+
 @RunIf(min_cuda_gpus=2)
 def test_tp(tmp_path):
     from lit_gpt import GPT, Config
@@ -124,14 +127,15 @@ def test_tp(tmp_path):
         "--temperature=0.0",
         f"--checkpoint_dir={str(checkpoint_dir)}",
     ]
-    tp_stdout = subprocess.check_output([sys.executable, "generate/tp.py", *args]).decode()
+    env = {"CUDA_VISIBLE_DEVICES": "0,1"}
+    tp_stdout = subprocess.check_output([sys.executable, root / "generate/tp.py", *args], env=env).decode()
 
     # there is some unaccounted randomness so cannot compare the output with that of `generate/base.py`
     assert tp_stdout.startswith("What food do llamas eat?")
 
 
 def test_cli():
-    cli_path = Path(__file__).parent.parent / "generate" / "tp.py"
+    cli_path = root / "generate" / "tp.py"
     output = subprocess.check_output([sys.executable, cli_path, "-h"])
     output = str(output.decode())
     assert "Generates text samples" in output
