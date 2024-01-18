@@ -121,7 +121,7 @@ def generate(
 
 @torch.inference_mode()
 def main(
-    prompts: Union[str, List] = "What do llamas eat??",
+    prompts: Union[str, List] = "What food do llamas eat??",
     *,
     num_samples: int = 1,
     max_new_tokens: int = 100,
