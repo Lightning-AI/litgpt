@@ -17,11 +17,7 @@ sys.path.append(str(wd))
 
 from generate.base import next_token
 from lit_gpt import GPT, Config, Tokenizer
-from lit_gpt.utils import (
-    check_valid_checkpoint_dir,
-    get_default_supported_precision,
-    load_checkpoint,
-)
+from lit_gpt.utils import check_valid_checkpoint_dir, get_default_supported_precision, load_checkpoint
 
 
 @torch.inference_mode()

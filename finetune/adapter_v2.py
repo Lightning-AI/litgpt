@@ -4,12 +4,12 @@ import os
 import sys
 import time
 from pathlib import Path
-from typing import Dict, Literal, List, Optional, Tuple
+from typing import Dict, List, Literal, Optional, Tuple
 
 import lightning as L
 import torch
-from lightning.fabric.plugins import BitsandbytesPrecision
 from lightning.fabric.loggers import CSVLogger
+from lightning.fabric.plugins import BitsandbytesPrecision
 from lightning.fabric.strategies import FSDPStrategy
 from lightning.fabric.utilities import ThroughputMonitor
 
@@ -57,9 +57,7 @@ def setup(
     checkpoint_dir: Path = Path("checkpoints/stabilityai/stablelm-base-alpha-3b"),
     out_dir: Path = Path("out/adapter_v2/alpaca"),
     precision: Optional[str] = None,
-    quantize: Optional[
-        Literal["bnb.nf4", "bnb.nf4-dq", "bnb.fp4", "bnb.fp4-dq", "bnb.int8-training"]
-    ] = None,
+    quantize: Optional[Literal["bnb.nf4", "bnb.nf4-dq", "bnb.fp4", "bnb.fp4-dq", "bnb.int8-training"]] = None,
 ) -> None:
     precision = precision or get_default_supported_precision(training=True)
 
@@ -67,14 +65,9 @@ def setup(
     if quantize is not None and quantize.startswith("bnb."):
         if "mixed" in precision:
             raise ValueError("Quantization and mixed precision is not supported.")
-        dtype = {
-            "16-true": torch.float16,
-            "bf16-true": torch.bfloat16,
-            "32-true": torch.float32,
-        }[precision]
+        dtype = {"16-true": torch.float16, "bf16-true": torch.bfloat16, "32-true": torch.float32}[precision]
         plugins = BitsandbytesPrecision(quantize[4:], dtype)
         precision = None
-
 
     fabric_devices = devices
     if fabric_devices > 1:
@@ -127,13 +120,9 @@ def main(fabric: L.Fabric, data_dir: Path, checkpoint_dir: Path, out_dir: Path, 
     if isinstance(fabric.strategy.precision, BitsandbytesPrecision):
         import bitsandbytes as bnb
 
-        optimizer = bnb.optim.PagedAdamW(
-            trainable_params, lr=learning_rate, weight_decay=weight_decay
-        )
+        optimizer = bnb.optim.PagedAdamW(trainable_params, lr=learning_rate, weight_decay=weight_decay)
     else:
-        optimizer = torch.optim.AdamW(
-            trainable_params, lr=learning_rate, weight_decay=weight_decay
-        )
+        optimizer = torch.optim.AdamW(trainable_params, lr=learning_rate, weight_decay=weight_decay)
     model, optimizer = fabric.setup(model, optimizer)
 
     fabric.seed_everything(1337 + fabric.global_rank)
