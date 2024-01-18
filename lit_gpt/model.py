@@ -1,19 +1,19 @@
+# Copyright Lightning AI. Licensed under the Apache License 2.0, see LICENSE file.
+
 """Full definition of a GPT NeoX Language Model, all of it in this single file.
 
 Based on the nanoGPT implementation: https://github.com/karpathy/nanoGPT and
 https://github.com/EleutherAI/gpt-neox/tree/main/megatron/model.
 """
+
 import math
 from typing import Any, Optional, Tuple
 
 import torch
 import torch.nn as nn
-from lightning_utilities.core.imports import RequirementCache
 from typing_extensions import Self
 
 from lit_gpt.config import Config
-
-FlashAttention2Available = bool(RequirementCache("flash-attn>=2.0.0.post1"))
 
 
 class GPT(nn.Module):
@@ -51,15 +51,15 @@ class GPT(nn.Module):
             cos, sin = self.rope_cache()
             self.register_buffer("cos", cos, persistent=False)
             self.register_buffer("sin", sin, persistent=False)
+        # override
         elif value != self.cos.size(0):
-            # override
             self.cos, self.sin = self.rope_cache(device=self.cos.device)
         # the mask and kv cache size will get updated on `set_kv_cache`. we cannot update it here because we don't know
         # if the kv cache is expected
 
     def reset_parameters(self) -> None:
         # Trigger resetting the rope-cache
-        self.max_seq_length = self.config.block_size
+        self.cos, self.sin = self.rope_cache()
 
     def _init_weights(self, module: nn.Module) -> None:
         """Meant to be used with `gpt.apply(gpt._init_weights)`."""
@@ -100,7 +100,6 @@ class GPT(nn.Module):
         return build_rope_cache(
             seq_len=self.max_seq_length,
             n_elem=self.config.rope_n_elem,
-            dtype=torch.get_default_dtype(),
             device=device,
             condense_ratio=self.config.rope_condense_ratio,
             base=self.config.rope_base,
@@ -124,11 +123,9 @@ class GPT(nn.Module):
             )
 
         if self.mask_cache is None or self.mask_cache.size(3) != max_seq_length:
-            # passing `attn_mask` to SDPA downgrades it to use the inefficient implementation. since we only need the mask
+            # passing `attn_mask` to SDPA disables the flash implementation. since we only need the mask
             # for the kv-cache support (only during inference), we only create it in that situation
-            # this will be resolved by https://github.com/pytorch/pytorch/issues/96099
-            ones = torch.ones((max_seq_length, max_seq_length), device=device, dtype=torch.bool)
-            self.mask_cache = torch.tril(ones).unsqueeze(0).unsqueeze(0)
+            self.mask_cache = build_mask_cache(max_seq_length, device)
 
     def clear_kv_cache(self) -> None:
         self.mask_cache = None
@@ -158,15 +155,15 @@ class Block(nn.Module):
         h = self.attn(n_1, cos, sin, mask, input_pos)
         if self.config.parallel_residual:
             n_2 = n_1 if self.config.shared_attention_norm else self.norm_2(x)
-            x = x + h + self.mlp(n_2)
+            x = self.mlp(n_2) + h + x
         else:
             if self.config.shared_attention_norm:
                 raise NotImplementedError(
                     "No checkpoint amongst the ones we support uses this configuration"
                     " (non-parallel residual and shared attention norm)."
                 )
-            x = x + h
-            x = x + self.mlp(self.norm_2(x))
+            x = h + x
+            x = self.mlp(self.norm_2(x)) + x
         return x
 
 
@@ -204,9 +201,10 @@ class CausalSelfAttention(nn.Module):
         # split batched computation into three
         q, k, v = qkv.split((q_per_kv, 1, 1), dim=2)
 
-        # repeat k and v if necessary
-        if self.config.n_query_groups != 1:  # doing this would require a full kv cache with MQA (inefficient!)
-            # for MHA this is a no-op
+        # maybe repeat k and v if for the non multi-head attention cases
+        # training: flash attention requires it
+        # inference: multi-query would require a full kv cache so avoid it to limit its memory usage
+        if self.config.n_query_groups != self.config.n_head and (input_pos is None or self.config.n_query_groups != 1):
             k = k.expand(B, self.config.n_query_groups, q_per_kv, T, self.config.head_size)
             v = v.expand(B, self.config.n_query_groups, q_per_kv, T, self.config.head_size)
 
@@ -226,7 +224,7 @@ class CausalSelfAttention(nn.Module):
 
         y = self.scaled_dot_product_attention(q, k, v, mask)
 
-        y = y.reshape(B, T, C)  # re-assemble all head outputs side by side
+        y = y.reshape(B, T, self.config.n_embd)  # re-assemble all head outputs side by side
 
         # output projection
         return self.proj(y)
@@ -235,19 +233,6 @@ class CausalSelfAttention(nn.Module):
         self, q: torch.Tensor, k: torch.Tensor, v: torch.Tensor, mask: Optional[torch.Tensor] = None
     ) -> torch.Tensor:
         scale = 1.0 / math.sqrt(self.config.head_size)
-        if (
-            FlashAttention2Available
-            and mask is None
-            and q.device.type == "cuda"
-            and q.dtype in (torch.float16, torch.bfloat16)
-        ):
-            from flash_attn import flash_attn_func
-
-            # flash-attn requires (B, T, nh, hs)
-            q = q.transpose(1, 2)
-            k = k.transpose(1, 2)
-            v = v.transpose(1, 2)
-            return flash_attn_func(q, k, v, dropout_p=0.0, softmax_scale=scale, causal=True)
         y = torch.nn.functional.scaled_dot_product_attention(
             q, k, v, attn_mask=mask, dropout_p=0.0, scale=scale, is_causal=mask is None
         )
@@ -305,13 +290,35 @@ class LLaMAMLP(nn.Module):
         return self.proj(x)
 
 
+class LLaMAMoE(nn.Module):
+    def __init__(self, config: Config) -> None:
+        super().__init__()
+        self.gate = nn.Linear(config.n_embd, config.n_expert, bias=False)
+        self.experts = nn.ModuleList(LLaMAMLP(config) for _ in range(config.n_expert))
+
+        self.config = config
+
+    def forward(self, x: torch.Tensor) -> torch.Tensor:
+        """
+        Derived from: https://github.com/mistralai/mistral-src/blob/b46d6/moe_one_file_ref.py#L203-L219
+        See also figure 1 in https://arxiv.org/abs/2211.15841
+        """
+        B, T, C = x.size()  # batch size, sequence length, embedding dimensionality (n_embd)
+        x = x.view(-1, C)  # (B*T, C)
+        router = self.gate(x)  # (B*T, n_expert)
+        probs, indices = torch.topk(router, self.config.n_expert_per_token)  # (B*T, n_expert_per_token)
+        probs = probs.softmax(dim=1, dtype=torch.float).to(dtype=x.dtype)
+        masks = indices.unsqueeze(-1) == torch.arange(self.config.n_expert, device=x.device)
+        masks = masks.permute(2, 0, 1)  # (n_expert, B*T, n_expert_per_token)
+        y = torch.zeros_like(x)  # (B*T, C)
+        for mask, expert in zip(masks, self.experts):
+            token_idx, expert_idx = torch.where(mask)
+            y[token_idx] += probs[token_idx, expert_idx, None] * expert(x[token_idx])
+        return y.view(B, T, C)
+
+
 def build_rope_cache(
-    seq_len: int,
-    n_elem: int,
-    dtype: torch.dtype,
-    device: Optional[torch.device] = None,
-    base: int = 10000,
-    condense_ratio: int = 1,
+    seq_len: int, n_elem: int, device: Optional[torch.device] = None, base: int = 10000, condense_ratio: int = 1
 ) -> Tuple[torch.Tensor, torch.Tensor]:
     """Enhanced Transformer with Rotary Position Embedding.
 
@@ -320,7 +327,7 @@ def build_rope_cache(
     https://github.com/labmlai/annotated_deep_learning_paper_implementations/blob/master/license.
     """
     # $\Theta = {\theta_i = 10000^{\frac{2(i-1)}{d}}, i \in [1, 2, ..., \frac{d}{2}]}$
-    theta = 1.0 / (base ** (torch.arange(0, n_elem, 2, device=device) / n_elem))
+    theta = 1.0 / (base ** (torch.arange(0, n_elem, 2, device=device).float() / n_elem))
 
     # Create position indexes `[0, 1, ..., seq_len - 1]`
     seq_idx = torch.arange(seq_len, device=device) / condense_ratio
@@ -328,12 +335,7 @@ def build_rope_cache(
     # Calculate the product of position index and $\theta_i$
     idx_theta = torch.outer(seq_idx, theta).repeat(1, 2)
 
-    cos, sin = torch.cos(idx_theta), torch.sin(idx_theta)
-
-    # this is to mimic the behaviour of complex32, else we will get different results
-    if dtype in (torch.float16, torch.bfloat16, torch.int8):
-        return cos.half(), sin.half()
-    return cos, sin
+    return torch.cos(idx_theta), torch.sin(idx_theta)
 
 
 def apply_rope(x: torch.Tensor, cos: torch.Tensor, sin: torch.Tensor) -> torch.Tensor:
@@ -342,7 +344,7 @@ def apply_rope(x: torch.Tensor, cos: torch.Tensor, sin: torch.Tensor) -> torch.T
     x2 = x[..., head_size // 2 :]  # (B, nh, T, hs/2)
     rotated = torch.cat((-x2, x1), dim=-1)  # (B, nh, T, hs)
     roped = (x * cos) + (rotated * sin)
-    return roped.type_as(x)
+    return roped.to(dtype=x.dtype)
 
 
 class KVCache(nn.Module):
@@ -365,3 +367,12 @@ class KVCache(nn.Module):
         k = self.k.index_copy_(2, input_pos, k)
         v = self.v.index_copy_(2, input_pos, v)
         return k, v
+
+    def reset_parameters(self) -> None:
+        torch.nn.init.zeros_(self.k)
+        torch.nn.init.zeros_(self.v)
+
+
+def build_mask_cache(max_seq_length: int, device: Optional[torch.device] = None) -> torch.Tensor:
+    ones = torch.ones((max_seq_length, max_seq_length), device=device, dtype=torch.bool)
+    return torch.tril(ones).unsqueeze(0).unsqueeze(0)

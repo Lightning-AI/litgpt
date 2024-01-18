@@ -1,4 +1,7 @@
+# Copyright Lightning AI. Licensed under the Apache License 2.0, see LICENSE file.
+
 """Implementation derived from https://github.com/tloen/alpaca-lora"""
+
 import json
 import sys
 from pathlib import Path
@@ -18,7 +21,6 @@ from lit_gpt.tokenizer import Tokenizer
 def prepare(
     destination_path: Path = Path("data/longform"),
     checkpoint_dir: Path = Path("checkpoints/stabilityai/stablelm-base-alpha-3b"),
-    seed: int = 42,
     mask_inputs: bool = False,  # as in alpaca-lora
     ignore_index: int = -1,
     max_seq_length: Optional[int] = None,
@@ -123,12 +125,7 @@ def prepare_sample(example: dict, tokenizer: Tokenizer, max_length: int, mask_in
     if mask_inputs:
         labels[: len(encoded_full_prompt)] = ignore_index
 
-    return {
-        **example,
-        "input_ids": encoded_full_prompt_and_response,
-        "input_ids_no_response": encoded_full_prompt,
-        "labels": labels,
-    }
+    return {**example, "input_ids": encoded_full_prompt_and_response, "labels": labels}
 
 
 def generate_prompt(example: dict) -> str:

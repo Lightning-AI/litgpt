@@ -1,6 +1,9 @@
+# Copyright Lightning AI. Licensed under the Apache License 2.0, see LICENSE file.
+
 import os
 from unittest.mock import MagicMock
 
+import pytest
 import requests
 from torch.utils.data import IterableDataset
 
@@ -127,7 +130,7 @@ class SimpleDataset(IterableDataset):
         return iter(range(self._start, self._end))
 
 
-def test_combined_dataset(tmp_path):
+def test_combined_dataset():
     from lit_gpt.packed_dataset import CombinedDataset
 
     dataset1 = SimpleDataset(0, 10)
@@ -187,3 +190,21 @@ def test_sharded_packed_dataset(monkeypatch):
     # world_size = 3, rank = 2 (dataset size not cleanly divisible by world size)
     iter(PackedDataset(filenames=filenames, n_chunks=2, block_size=2, num_processes=3, process_rank=2))
     assert dataset_iterator_mock.call_args[1]["filenames"] == ["2", "5", "8"]
+
+
+@pytest.mark.parametrize(
+    ("weights", "expected"),
+    [
+        ([1], [1]),
+        ([2], [1]),
+        ([2, 0.5], [0.8, 0.2]),
+        ([1, 1, 1], [1 / 3, 1 / 3, 1 / 3]),
+        ([0.3, 0, 0], [1.0, 0, 0]),
+        (None, [0.5, 0.5]),
+    ],
+)
+def test_combined_dataset_normalizes_weights(weights, expected):
+    from lit_gpt.packed_dataset import CombinedDataset
+
+    combined_dataset = CombinedDataset([[1], [2, 3]], weights=weights, seed=1)
+    assert combined_dataset._weights == expected

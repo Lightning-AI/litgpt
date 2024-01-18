@@ -1,3 +1,5 @@
+# Copyright Lightning AI. Licensed under the Apache License 2.0, see LICENSE file.
+
 import torch
 
 
@@ -15,10 +17,12 @@ class RMSNorm(torch.nn.Module):
         self.dim = dim
 
     def forward(self, x: torch.Tensor) -> torch.Tensor:
+        dtype = x.dtype
+        x = x.float()
         # NOTE: the original RMSNorm paper implementation is not equivalent
         norm_x = torch.mean(x * x, dim=self.dim, keepdim=True)
         x_normed = x * torch.rsqrt(norm_x + self.eps)
-        return self.weight * x_normed
+        return (self.weight * x_normed).to(dtype=dtype)
 
     def reset_parameters(self) -> None:
         torch.nn.init.ones_(self.weight)

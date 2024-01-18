@@ -1,7 +1,9 @@
+# Copyright Lightning AI. Licensed under the Apache License 2.0, see LICENSE file.
+
 import json
 import sys
 from pathlib import Path
-from typing import List, Literal, Optional
+from typing import Dict, List, Literal, Optional
 
 import lightning as L
 import torch
@@ -26,13 +28,14 @@ from lit_gpt.utils import (
 class EvalHarnessBase(BaseLM):
     # Credits:
     # https://github.com/EleutherAI/gpt-neox/blob/main/eval_tasks/eval_adapter.py
-    def __init__(self, fabric: L.Fabric, model: GPT, tokenizer: Tokenizer, batch_size: int, temperature: float):
+    def __init__(self, fabric: L.Fabric, model: GPT, tokenizer: Tokenizer, batch_size: int):
         super().__init__()
         self.fabric = fabric
         self.model = model
         self.tokenizer = tokenizer
         self.batch_size_per_gpu = batch_size
-        self.temperature = temperature
+        with fabric.init_tensor():
+            model.set_kv_cache(batch_size=batch_size)
 
     @classmethod
     def create_from_arg_string(cls, arg_string, additional_config=None):
@@ -64,45 +67,30 @@ class EvalHarnessBase(BaseLM):
     def device(self):
         return self.fabric.device
 
-    def tok_encode(self, string: str):
+    def tok_encode(self, string: str) -> List[int]:
         return self.tokenizer.encode(string, bos=False, eos=False).tolist()
 
-    def tok_decode(self, tokens):
+    def tok_decode(self, tokens: List[int]) -> str:
         t = torch.tensor(tokens)
         return self.tokenizer.decode(t)
 
     @torch.inference_mode()
     def _model_call(self, inps):
-        """
-        inps: a torch tensor of shape [batch, sequence]
-        the size of sequence may vary from call to call
-        returns: a torch tensor of shape [batch, sequence, vocab] with the
-        logits returned from the model
-        """
         return self.model(inps)
 
-    def _model_generate(self, context, max_length, eos_token_id):
+    @torch.inference_mode()
+    def _model_generate(self, context, max_length, eos_token_id) -> torch.Tensor:
+        # this only supports batch size 1
         assert context.shape[0] == 1
-        out = generate(
-            self.model, context[0], max_length, temperature=self.temperature, top_k=None, eos_id=eos_token_id
-        )
-
-        return self.tokenizer.decode(out)
+        out = generate(self.model, context[0], max_length, eos_id=eos_token_id)
+        for block in self.model.transformer.h:
+            block.attn.kv_cache.reset_parameters()
+        return out.unsqueeze(0)
 
     @torch.inference_mode()
     def run_eval(
-        self,
-        eval_tasks=None,
-        num_fewshot=0,
-        bootstrap_iters=2,
-        description_dict=None,
-        use_cache=True,
-        name="lit-gpt",
-        limit=None,
-    ):
-        if eval_tasks is None:
-            eval_tasks = ["arc_challenge", "piqa", "hellaswag", "hendrycksTest-*"]
-
+        self, eval_tasks: List[str], num_fewshot: int, limit: Optional[int], bootstrap_iters: int, no_cache: bool
+    ) -> Dict:
         # Returns a list containing all values of the task registry that
         # match at least one of the patterns
         import fnmatch
@@ -128,29 +116,25 @@ class EvalHarnessBase(BaseLM):
         tasks.get_task_dict(eval_tasks)
 
         lm = self
-        if use_cache:
-            lm = base.CachingLM(lm, "lm_cache/" + name + ".db")
+        if not no_cache:
+            lm = base.CachingLM(lm, "lm_cache/lit-gpt.db")
 
         results = evaluator.evaluate(
             lm=lm,
             task_dict=tasks.get_task_dict(eval_tasks),
-            description_dict=description_dict,
             num_fewshot=num_fewshot,
             limit=limit,
             bootstrap_iters=bootstrap_iters,
         )
-
-        results["config"] = {
-            "model": self.model.config.name,
-            "num_fewshot": num_fewshot,
-            "batch_size": self.batch_size,
-            "device": str(self.device),
-            "no_cache": not use_cache,
-            "limit": limit,
-            "bootstrap_iters": bootstrap_iters,
-            "description_dict": description_dict,
-        }
-
+        results["config"] = dict(
+            model=self.model.config.name,
+            batch_size=self.batch_size,
+            device=str(self.device),
+            num_fewshot=num_fewshot,
+            limit=limit,
+            bootstrap_iters=bootstrap_iters,
+            no_cache=no_cache,
+        )
         return results
 
 
@@ -158,13 +142,13 @@ class EvalHarnessBase(BaseLM):
 def run_eval_harness(
     checkpoint_dir: Path,
     precision: Optional[str] = None,
-    batch_size=1,
-    temperature=1.0,
     quantize: Optional[Literal["bnb.nf4", "bnb.nf4-dq", "bnb.fp4", "bnb.fp4-dq", "bnb.int8", "gptq.int4"]] = None,
-    eval_tasks: Optional[List[str]] = None,
-    num_fewshot=0,
-    bootstrap_iters=2,
+    eval_tasks: List[str] = ["arc_challenge", "piqa", "hellaswag", "hendrycksTest-*"],
     save_filepath: Optional[Path] = None,
+    num_fewshot: int = 0,
+    limit: Optional[int] = None,
+    bootstrap_iters: int = 100000,
+    no_cache: bool = True,
 ):
     if precision is None:
         precision = get_default_supported_precision(training=False)
@@ -179,7 +163,6 @@ def run_eval_harness(
 
     fabric = L.Fabric(devices=1, precision=precision, plugins=plugins)
 
-    checkpoint_dir = Path(checkpoint_dir)
     check_valid_checkpoint_dir(checkpoint_dir)
     tokenizer = Tokenizer(checkpoint_dir)
 
@@ -202,11 +185,9 @@ def run_eval_harness(
 
     load_checkpoint(fabric, model, checkpoint_path)
 
-    eval_harness = EvalHarnessBase(fabric, model, tokenizer, batch_size, temperature)
+    eval_harness = EvalHarnessBase(fabric, model, tokenizer, 1)
 
-    results = eval_harness.run_eval(
-        eval_tasks=eval_tasks, num_fewshot=num_fewshot, bootstrap_iters=bootstrap_iters, use_cache=False
-    )
+    results = eval_harness.run_eval(eval_tasks, num_fewshot, limit, bootstrap_iters, no_cache)
     if save_filepath is None:
         print(results)
     else:

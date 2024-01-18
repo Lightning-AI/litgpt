@@ -1,3 +1,5 @@
+# Copyright Lightning AI. Licensed under the Apache License 2.0, see LICENSE file.
+
 import json
 import os
 
@@ -14,11 +16,11 @@ def test_merge_lora(tmp_path, fake_checkpoint_dir):
     config = dict(block_size=128, padded_vocab_size=256, n_layer=3, n_head=8, n_embd=16)
     with open(fake_checkpoint_dir / "lit_config.json", "w") as fp:
         json.dump(config, fp)
-    base_model = GPT.from_name("pythia-70m", **config)
+    base_model = GPT.from_name("pythia-14m", **config)
     state_dict = base_model.state_dict()
     assert len(state_dict) == 40
     torch.save(state_dict, fake_checkpoint_dir / "lit_model.pth")
-    lora_model = LoRAGPT.from_name("pythia-70m", **config, r=8, alpha=16, dropout=0.05, to_query=True, to_value=True)
+    lora_model = LoRAGPT.from_name("pythia-14m", **config, r=8, alpha=16, dropout=0.05, to_query=True, to_value=True)
     state_dict = {k: v for k, v in lora_model.state_dict().items() if lora_filter(k, v)}
     assert len(state_dict) == 6
     lora_path = tmp_path / "lora"

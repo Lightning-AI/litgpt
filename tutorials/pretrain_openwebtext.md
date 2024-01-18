@@ -6,9 +6,7 @@ This tutorial will walk you through setting up the OpenWebText dataset and launc
 
 [OpenWebText](https://github.com/jcpeterson/openwebtext) is an open-source reproduction of OpenAI's unreleased WebText training dataset, which was originally used to train GPT-2. The version that is used here consists of 8M documents and is loaded via the `load_dataset("openwebtext", ...)` function from the [datasets](https://github.com/huggingface/datasets) Python package. [Please refer to the website hosting the dataset](https://huggingface.co/datasets/Skylion007/openwebtext) for the licensing information.
 
-
 ## Prepare OpenWebText for training
-
 
 In order to start pretraining lit-gpt on it, you need to read, tokenize, and write the data in binary format.
 
@@ -19,11 +17,10 @@ pip install datasets
 
 python scripts/prepare_openwebtext.py \
   --checkpoint_dir checkpoints/meta-llama/Llama-2-7b-hf/ \
-  --destination_path data/lit-openwebtext
+  --destination_path data/openwebtext
 ```
 
 The script will take about 15 min to run.
-
 
 ## Pretraining
 
@@ -31,8 +28,7 @@ Running the pretraining script with its default settings requires at least 4 GPU
 
 ```bash
 python pretrain/openwebtext.py \
-  --devices 4 \
-  --train_data_dir data/lit-openwebtext
+  --devices 4
 ```
 
 The script will save checkpoints periodically to the folder `out/`.
@@ -48,19 +44,11 @@ model_name = "Llama-2-7b-hf"
 
 at the top of this script.
 
-The currently supported model names are contained in the [config.py](https://github.com/Lightning-AI/lit-gpt/lit_gpt/config.py) file. 
-You can 
+The currently supported model names are contained in the [config.py](https://github.com/Lightning-AI/lit-gpt/lit_gpt/config.py) file.
+You can
 
 1) either search this file for lines containing "name =",
-2) run `python scripts/download.py` without additional command line arguments,
-3) or obtain the list of all supported models programmatically, as follows:
-
-```python
-from lit_gpt.config import configs
-
-for conf in configs:
-    print(conf["name"])
-```
+2) or run `python scripts/download.py` without additional command line arguments,
 
 Keep in mind that the original LLaMA training for the 7B model required 83k A100 80GB
 hours (on a bigger dataset). However, for full pretraining on OpenWebText, you'll likely still need access to a cluster.
@@ -86,12 +74,11 @@ call a logging client library like `wandb` directly.
 
 To train a smaller Pythia 70M model on a single GPU, you can modify the `pretrain/openwebtext.py` file to use the following settings:
 
-
 ```python
 model_name = "pythia-70m"
 ```
 
-(Please see the the `download_*` scripts in the [../tutorials](../tutorials) for more information on downloading model checkpoints for different models.)
+(Please see the the `download_*` scripts in the [tutorials](.) for more information on downloading model checkpoints for different models.)
 
 Also, before you start training, note that you will need to prepare the dataset specifically for this model since it may use a different tokenizer:
 
@@ -101,8 +88,7 @@ python scripts/prepare_openwebtext.py \
   --destination_path data/lit-openwebtext
 
 python pretrain/openwebtext.py \
-  --devices 4 \
-  --train_data_dir data/lit-openwebtext
+  --devices 4
 ```
 
 ## Using the PyTorch Lightning `Trainer`
@@ -113,6 +99,5 @@ The PyTorch Lightning Trainer, which shares the same accelerator code with Fabri
 
 ```bash
 python pretrain/openwebtext_trainer.py \
-  --devices 4 \
-  --train_data_dir data/lit-openwebtext
+  --devices 4
 ```

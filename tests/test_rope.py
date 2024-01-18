@@ -1,3 +1,5 @@
+# Copyright Lightning AI. Licensed under the Apache License 2.0, see LICENSE file.
+
 import torch
 
 
@@ -13,7 +15,7 @@ def test_rope():
     position_ids = torch.arange(seq_len).unsqueeze(0)
 
     theirs = GPTNeoXRotaryEmbedding(head_size, seq_len)
-    ours_cos_cached, ours_sin_cached = build_rope_cache(seq_len, head_size, device=x.device, dtype=x.dtype)
+    ours_cos_cached, ours_sin_cached = build_rope_cache(seq_len, head_size, device=x.device)
     # their rope cache has 2 added dimensions and the cos/sin is duplicated
     torch.testing.assert_close(ours_cos_cached, theirs.cos_cached.squeeze())
     torch.testing.assert_close(ours_sin_cached, theirs.sin_cached.squeeze())
