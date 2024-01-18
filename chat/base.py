@@ -15,6 +15,7 @@ from lightning.fabric.plugins import BitsandbytesPrecision
 wd = Path(__file__).parent.parent.resolve()
 sys.path.append(str(wd))
 
+from generate.base import next_token
 from lit_gpt import GPT, Config, Tokenizer
 from lit_gpt.utils import (
     check_valid_checkpoint_dir,
