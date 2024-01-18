@@ -1,6 +1,9 @@
+# Copyright Lightning AI. Licensed under the Apache License 2.0, see LICENSE file.
+
 import gc
 import json
 import sys
+from collections import defaultdict
 from dataclasses import asdict
 from functools import partial
 from pathlib import Path
@@ -187,53 +190,74 @@ def copy_weights_hf_llama(
 
 def copy_weights_phi(
     config: Config,
+    qkv_weights: dict,
     state_dict: Dict[str, torch.Tensor],
     hf_weights: Dict[str, Union[torch.Tensor, NotYetLoadedTensor]],
     saver: Optional[incremental_save] = None,
     dtype: Optional[torch.dtype] = None,
 ) -> None:
-    if any(layer_name.startswith("layers.") for layer_name in hf_weights):
+    if any(layer_name.startswith(("layers.", "transformer.")) for layer_name in hf_weights):
         raise ValueError(
-            "You are using an outdated Phi1.5 checkpoint. "
-            "Please reload it as described in 'tutorials/download_phi15.md'"
+            "You are using an outdated Phi checkpoint. Please reload it as described in 'tutorials/download_phi.md'"
         )
 
     weight_map = {
-        "transformer.embd.wte.weight": "transformer.wte.weight",
-        "transformer.h.{}.ln.bias": "transformer.h.{}.norm_1.bias",
-        "transformer.h.{}.ln.weight": "transformer.h.{}.norm_1.weight",
-        "transformer.h.{}.mixer.Wqkv.bias": "transformer.h.{}.attn.attn.bias",
-        "transformer.h.{}.mixer.Wqkv.weight": "transformer.h.{}.attn.attn.weight",
-        "transformer.h.{}.mixer.out_proj.bias": "transformer.h.{}.attn.proj.bias",
-        "transformer.h.{}.mixer.out_proj.weight": "transformer.h.{}.attn.proj.weight",
-        "transformer.h.{}.mixer.rotary_emb.inv_freq": None,
-        "transformer.h.{}.mlp.fc1.bias": "transformer.h.{}.mlp.fc.bias",
-        "transformer.h.{}.mlp.fc1.weight": "transformer.h.{}.mlp.fc.weight",
-        "transformer.h.{}.mlp.fc2.bias": "transformer.h.{}.mlp.proj.bias",
-        "transformer.h.{}.mlp.fc2.weight": "transformer.h.{}.mlp.proj.weight",
-        "lm_head.ln.weight": "transformer.ln_f.weight",
-        "lm_head.ln.bias": "transformer.ln_f.bias",
-        "lm_head.linear.weight": "lm_head.weight",
-        "lm_head.linear.bias": "lm_head.bias",
+        "model.embed_tokens.weight": "transformer.wte.weight",
+        "model.layers.{}.input_layernorm.weight": "transformer.h.{}.norm_1.weight",
+        "model.layers.{}.input_layernorm.bias": "transformer.h.{}.norm_1.bias",
+        "model.layers.{}.self_attn.q_proj.weight": None,
+        "model.layers.{}.self_attn.q_proj.bias": None,
+        "model.layers.{}.self_attn.k_proj.weight": None,
+        "model.layers.{}.self_attn.k_proj.bias": None,
+        "model.layers.{}.self_attn.v_proj.weight": None,
+        "model.layers.{}.self_attn.v_proj.bias": None,
+        "model.layers.{}.self_attn.dense.weight": "transformer.h.{}.attn.proj.weight",
+        "model.layers.{}.self_attn.dense.bias": "transformer.h.{}.attn.proj.bias",
+        "model.layers.{}.mlp.fc1.weight": "transformer.h.{}.mlp.fc.weight",
+        "model.layers.{}.mlp.fc1.bias": "transformer.h.{}.mlp.fc.bias",
+        "model.layers.{}.mlp.fc2.weight": "transformer.h.{}.mlp.proj.weight",
+        "model.layers.{}.mlp.fc2.bias": "transformer.h.{}.mlp.proj.bias",
+        "model.final_layernorm.weight": "transformer.ln_f.weight",
+        "model.final_layernorm.bias": "transformer.ln_f.bias",
+        "lm_head.weight": "lm_head.weight",
+        "lm_head.bias": "lm_head.bias",
     }
 
     for name, param in hf_weights.items():
-        if name.startswith("transformer.h."):
-            from_name, number = layer_template(name, 2)
-            to_name = weight_map[from_name].format(number)
+        if name.startswith("model.layers."):
+            from_name, l = layer_template(name, 2)
+            qkv = qkv_weights.setdefault(l, defaultdict(dict))
+            if any(w in from_name for w in ("q_proj", "k_proj", "v_proj")):
+                weight_name, weight_type = from_name.split(".")[-2:]
+                qkv[weight_type][weight_name] = param
+            to_name = weight_map[from_name]
+            if to_name is None:
+                continue
+            to_name = to_name.format(l)
         else:
             to_name = weight_map[name]
         param = load_param(param, name, dtype)
-        if "Wqkv" in name:
-            q_per_kv = config.n_head // config.n_query_groups
-            total_qkv = q_per_kv + 2  # each group has 1+ queries, 1 key, and 1 value
-            param = param.view(total_qkv, config.n_query_groups, -1).transpose(0, 1)
-            param = param.reshape(config.n_embd * 3, -1)
-            if "bias" in name:
-                param = param.squeeze()
         if saver is not None:
             param = saver.store_early(param)
         state_dict[to_name] = param
+
+    for i in list(qkv_weights):
+        for weight_type in list(qkv_weights[i]):
+            qkv = qkv_weights[i][weight_type]
+            if len(qkv) != 3:
+                # split across different .bin files
+                continue
+            q = load_param(qkv["q_proj"], f"layer {i} q {weight_type}", dtype)
+            k = load_param(qkv["k_proj"], f"layer {i} k {weight_type}", dtype)
+            v = load_param(qkv["v_proj"], f"layer {i} v {weight_type}", dtype)
+            q_per_kv = config.n_head // config.n_query_groups
+            qs = torch.split(q, config.head_size * q_per_kv)
+            ks = torch.split(k, config.head_size)
+            vs = torch.split(v, config.head_size)
+            cycled = [t for group in zip(qs, ks, vs) for t in group]
+            qkv = torch.cat(cycled)
+            state_dict[f"transformer.h.{i}.attn.attn.{weight_type}"] = qkv
+            del qkv_weights[i][weight_type]
 
 
 def layer_template(layer_name: str, idx: int) -> Tuple[str, int]:
@@ -280,7 +304,9 @@ def convert_hf_checkpoint(
         qkv_weights = {}
         copy_fn = partial(copy_weights_hf_llama, config, qkv_weights)
     elif "phi" in model_name:
-        copy_fn = partial(copy_weights_phi, config)
+        # holder to reconstitute the split q, k, v
+        qkv_weights = {}
+        copy_fn = partial(copy_weights_phi, config, qkv_weights)
     else:
         copy_fn = copy_weights_gpt_neox
 

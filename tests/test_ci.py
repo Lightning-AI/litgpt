@@ -1,3 +1,5 @@
+# Copyright Lightning AI. Licensed under the Apache License 2.0, see LICENSE file.
+
 # this file is just to validate on the CI logs that these tests were run
 from conftest import RunIf
 

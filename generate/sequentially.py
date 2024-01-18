@@ -1,3 +1,5 @@
+# Copyright Lightning AI. Licensed under the Apache License 2.0, see LICENSE file.
+
 import itertools
 import logging
 import re
@@ -6,7 +8,7 @@ import time
 from collections import OrderedDict
 from functools import partial
 from pathlib import Path
-from typing import Literal, Optional, Union
+from typing import Literal, Optional
 
 import lightning as L
 import torch
@@ -49,8 +51,9 @@ def sequential(model: GPT, root: torch.device, max_seq_length: int, devices: int
         submodule.attn.kv_cache = submodule.attn.build_kv_cache(1, max_seq_length, model.cos.size(-1), target_device)
     # rebuild odd ends
     with root:
-        # the rope cache which is on meta device
         model.max_seq_length = max_seq_length
+        # the rope cache which is on meta device
+        model.cos, model.sin = model.rope_cache()
         # the mask cache which cannot be created with `set_kv_cache` because that will set it for all layers
         model.mask_cache = build_mask_cache(max_seq_length)
     # and everything that is not a block in the root
@@ -121,7 +124,6 @@ def main(
     temperature: float = 0.8,
     checkpoint_dir: Path = Path("checkpoints/mistralai/Mistral-7B-Instruct-v0.1"),
     quantize: Optional[Literal["bnb.nf4", "bnb.nf4-dq", "bnb.fp4", "bnb.fp4-dq"]] = None,
-    devices: Union[int, str] = "auto",
     precision: Optional[str] = None,
     compile: bool = False,
 ) -> None:
@@ -138,7 +140,6 @@ def main(
         quantize: Whether to quantize the model and using which method:
             - bnb.nf4, bnb.nf4-dq, bnb.fp4, bnb.fp4-dq: 4-bit quantization from bitsandbytes
             for more details, see https://github.com/Lightning-AI/lit-gpt/blob/main/tutorials/quantize.md
-        devices: How many devices to use.
         precision: Indicates the Fabric precision setting to use.
         compile: Whether to compile the model.
     """
@@ -156,10 +157,7 @@ def main(
 
     fabric = L.Fabric(devices=1, precision=precision, accelerator="cuda", plugins=plugins)
 
-    if devices == "auto":
-        total_devices = CUDAAccelerator.auto_device_count()
-    else:
-        total_devices = len(CUDAAccelerator.parse_devices(devices))
+    total_devices = CUDAAccelerator.auto_device_count()
     print(f"Using {total_devices} devices", file=sys.stderr)
 
     check_valid_checkpoint_dir(checkpoint_dir)

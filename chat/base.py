@@ -1,3 +1,5 @@
+# Copyright Lightning AI. Licensed under the Apache License 2.0, see LICENSE file.
+
 import re
 import sys
 import time
@@ -88,6 +90,7 @@ def decode(fabric: L.Fabric, tokenizer: Tokenizer, token_stream: Iterator[torch.
         decoded_so_far = ""
         try:
             for token in token_stream:
+                so_far = so_far.to(device=token.device)
                 so_far = torch.cat((so_far, token.view(-1)))
                 decoded_new = tokenizer.decode(so_far)
                 fabric.print(decoded_new[len(decoded_so_far) :], end="", flush=True)

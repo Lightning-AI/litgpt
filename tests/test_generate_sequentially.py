@@ -1,3 +1,5 @@
+# Copyright Lightning AI. Licensed under the Apache License 2.0, see LICENSE file.
+
 import itertools
 import json
 import subprocess
@@ -49,12 +51,10 @@ def test_replace_device():
     class MyModel(torch.nn.Module):
         def __init__(self):
             super().__init__()
-            self.modules = torch.nn.ModuleDict(
-                {
-                    "module1": torch.nn.Linear(1, 1, bias=True, device="meta"),
-                    "module2": torch.nn.Linear(1, 1, bias=False, device="cpu"),
-                }
-            )
+            self.modules = torch.nn.ModuleDict({
+                "module1": torch.nn.Linear(1, 1, bias=True, device="meta"),
+                "module2": torch.nn.Linear(1, 1, bias=False, device="cpu"),
+            })
             self.submodule = Submodule()
 
     model = MyModel()
@@ -93,7 +93,6 @@ def _test_model_1device(accelerator):
     model = sequential(model, fabric.device, 15, 1)
 
     device_str = str(fabric.device)
-    print(fabric.device, accelerator)
     assert path_to_device(model) == {
         "cos": device_str,
         "sin": device_str,
@@ -155,7 +154,7 @@ def find_forward_hooks(module):
 
 
 @RunIf(min_cuda_gpus=2)
-def test_model_forward_hooks(monkeypatch):
+def test_model_forward_hooks():
     from generate.sequentially import sequential
     from lit_gpt import GPT
 
@@ -268,6 +267,9 @@ def test_model_forward_hooks(monkeypatch):
     }
 
 
+root = Path(__file__).parent.parent.resolve()
+
+
 @RunIf(min_cuda_gpus=2)
 def test_base_with_sequentially(tmp_path):
     from lit_gpt import GPT, Config
@@ -289,9 +291,10 @@ def test_base_with_sequentially(tmp_path):
         "--temperature=0.0",
         f"--checkpoint_dir={str(checkpoint_dir)}",
     ]
-    base_stdout = subprocess.check_output([sys.executable, "generate/base.py", *args]).decode()
+    env = {"CUDA_VISIBLE_DEVICES": "0,1"}
+    base_stdout = subprocess.check_output([sys.executable, root / "generate/base.py", *args], env=env).decode()
     sequential_stdout = subprocess.check_output(
-        [sys.executable, "generate/sequentially.py", "--devices=2", *args]
+        [sys.executable, root / "generate/sequentially.py", *args], env=env
     ).decode()
 
     assert base_stdout.startswith("What food do llamas eat?")
@@ -299,7 +302,7 @@ def test_base_with_sequentially(tmp_path):
 
 
 def test_cli():
-    cli_path = Path(__file__).parent.parent / "generate" / "sequentially.py"
+    cli_path = root / "generate" / "sequentially.py"
     output = subprocess.check_output([sys.executable, cli_path, "-h"])
     output = str(output.decode())
     assert "Generates text samples" in output

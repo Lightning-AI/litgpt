@@ -1,3 +1,5 @@
+# Copyright Lightning AI. Licensed under the Apache License 2.0, see LICENSE file.
+
 """Full definition of a GPT NeoX Language Model, all of it in this single file.
 
 Based on the nanoGPT implementation: https://github.com/karpathy/nanoGPT and
@@ -49,9 +51,7 @@ class GPT(nn.Module):
             cos, sin = self.rope_cache()
             self.register_buffer("cos", cos, persistent=False)
             self.register_buffer("sin", sin, persistent=False)
-        # overrides
-        elif self.cos.device.type == "meta":
-            self.cos, self.sin = self.rope_cache()
+        # override
         elif value != self.cos.size(0):
             self.cos, self.sin = self.rope_cache(device=self.cos.device)
         # the mask and kv cache size will get updated on `set_kv_cache`. we cannot update it here because we don't know
@@ -59,7 +59,7 @@ class GPT(nn.Module):
 
     def reset_parameters(self) -> None:
         # Trigger resetting the rope-cache
-        self.max_seq_length = self.config.block_size
+        self.cos, self.sin = self.rope_cache()
 
     def _init_weights(self, module: nn.Module) -> None:
         """Meant to be used with `gpt.apply(gpt._init_weights)`."""
@@ -224,7 +224,7 @@ class CausalSelfAttention(nn.Module):
 
         y = self.scaled_dot_product_attention(q, k, v, mask)
 
-        y = y.reshape(B, T, C)  # re-assemble all head outputs side by side
+        y = y.reshape(B, T, self.config.n_embd)  # re-assemble all head outputs side by side
 
         # output projection
         return self.proj(y)

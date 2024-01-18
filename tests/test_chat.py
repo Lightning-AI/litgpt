@@ -1,3 +1,5 @@
+# Copyright Lightning AI. Licensed under the Apache License 2.0, see LICENSE file.
+
 import json
 import subprocess
 import sys
@@ -88,7 +90,6 @@ def test_main(mocked_input, stop_iteration, fake_checkpoint_dir, monkeypatch, te
     config = {"block_size": 128, "vocab_size": 50, "n_layer": 2, "n_head": 4, "n_embd": 8, "rotary_percentage": 1}
     config_path.write_text(json.dumps(config))
 
-    monkeypatch.setenv("CUDA_VISIBLE_DEVICES", "")
     load_mock = Mock()
     load_mock.return_value = load_mock
     monkeypatch.setattr(chat, "load_checkpoint", load_mock)

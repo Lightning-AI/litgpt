@@ -1,3 +1,5 @@
+# Copyright Lightning AI. Licensed under the Apache License 2.0, see LICENSE file.
+
 import json
 import os
 from dataclasses import asdict
@@ -234,7 +236,7 @@ def test_against_original_open_llama_3b():
 
 
 @torch.inference_mode()
-def test_against_hf_phi():
+def test_against_hf_phi_1_5():
     workdir = wd / "tests" / "reference_models"
     workdir.mkdir(parents=True, exist_ok=True)
     file_paths = [workdir / "original_phi_1_5.py", workdir / "configuration_phi.py"]
@@ -256,14 +258,64 @@ def test_against_hf_phi():
     )
     T = 5
     theirs_config = PhiConfig(
-        n_positions=ours_config.block_size,
-        n_embd=ours_config.n_embd,
-        n_head=ours_config.n_head,
-        n_layer=ours_config.n_layer,
-        rotary_dim=ours_config.rope_n_elem,
-        architecture={"block_cls": "parallel", "mixer": {}, "mlp": {"mlp_cls": "mlp"}},
+        vocab_size=ours_config.padded_vocab_size,
+        max_position_embeddings=ours_config.block_size,
+        hidden_size=ours_config.n_embd,
+        intermediate_size=ours_config.intermediate_size,
+        num_attention_heads=ours_config.n_head,
+        num_hidden_layers=ours_config.n_layer,
+        partial_rotary_factor=ours_config.rotary_percentage,
     )
-    theirs_config.vocab_size = ours_config.padded_vocab_size
+
+    ours_model = GPT(ours_config)
+    ours_state_dict = ours_model.state_dict()
+    theirs_state_dict = {}
+    copy_weights_phi(ours_config, theirs_state_dict, ours_state_dict)
+    theirs_model = PhiForCausalLM(theirs_config)
+    # strict=False because we don't save the rotary embeddings inv frequency
+    keys = theirs_model.load_state_dict(theirs_state_dict, strict=False)
+    assert not keys.unexpected_keys
+    assert all("inv_freq" in k for k in keys.missing_keys)
+
+    # test end to end
+    x = torch.tensor([[9856, 23, 491, 1536, 304]], dtype=torch.int32)
+    assert x.size(1) == T
+    ours_y = ours_model(x)
+    theirs_y = theirs_model(x)["logits"]
+    torch.testing.assert_close(ours_y, theirs_y)
+
+
+@torch.inference_mode()
+def test_against_hf_phi_2():
+    workdir = wd / "tests" / "reference_models"
+    workdir.mkdir(parents=True, exist_ok=True)
+    file_paths = [workdir / "original_phi_2.py", workdir / "configuration_phi.py"]
+    urls = [
+        "https://huggingface.co/microsoft/phi-2/raw/main/modeling_phi.py",
+        "https://huggingface.co/microsoft/phi-2/raw/main/configuration_phi.py",
+    ]
+    for file_path, url in zip(file_paths, urls):
+        if not file_path.is_file():
+            urlretrieve(url=url, filename=file_path)
+
+    from lit_gpt import GPT, Config
+    from scripts.convert_lit_checkpoint import copy_weights_phi
+    from tests.reference_models.configuration_phi import PhiConfig
+    from tests.reference_models.original_phi_2 import PhiForCausalLM
+
+    ours_config = Config.from_name(
+        "phi-2", padded_vocab_size=10000, n_layer=2, n_head=4, n_embd=256, rotary_percentage=0.5
+    )
+    T = 5
+    theirs_config = PhiConfig(
+        vocab_size=ours_config.padded_vocab_size,
+        max_position_embeddings=ours_config.block_size,
+        hidden_size=ours_config.n_embd,
+        intermediate_size=ours_config.intermediate_size,
+        num_attention_heads=ours_config.n_head,
+        num_hidden_layers=ours_config.n_layer,
+        partial_rotary_factor=ours_config.rotary_percentage,
+    )
 
     ours_model = GPT(ours_config)
     ours_state_dict = ours_model.state_dict()

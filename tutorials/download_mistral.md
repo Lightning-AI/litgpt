@@ -13,14 +13,30 @@
 
 Details about the data used to train the model or training procedure have not been made public.
 
+To see all the available checkpoints, run:
+
+```bash
+python scripts/download.py | grep -E 'Mistral|Mixtral'
+```
+
+which will print
+
+```text
+mistralai/Mistral-7B-v0.1
+mistralai/Mistral-7B-Instruct-v0.1
+mistralai/Mixtral-8x7B-v0.1
+mistralai/Mixtral-8x7B-Instruct-v0.1
+mistralai/Mistral-7B-Instruct-v0.2
+```
+
 In order to use the Mistral 7B model checkpoint, which requires about 14 GB of disk space, download the weights and convert the checkpoint to the lit-gpt format:
 
 ```bash
 pip install huggingface_hub
 
-python scripts/download.py --repo_id mistralai/Mistral-7B-Instruct-v0.1
+python scripts/download.py --repo_id mistralai/Mistral-7B-Instruct-v0.2
 
-python scripts/convert_hf_checkpoint.py --checkpoint_dir checkpoints/mistralai/Mistral-7B-Instruct-v0.1
+python scripts/convert_hf_checkpoint.py --checkpoint_dir checkpoints/mistralai/Mistral-7B-Instruct-v0.2
 ```
 
 You're done! To execute the model just run:
@@ -28,7 +44,7 @@ You're done! To execute the model just run:
 ```bash
 pip install sentencepiece
 
-python chat/base.py --checkpoint_dir checkpoints/mistralai/Mistral-7B-Instruct-v0.1
+python chat/base.py --checkpoint_dir checkpoints/mistralai/Mistral-7B-Instruct-v0.2
 ```
 
 ### Mixtral

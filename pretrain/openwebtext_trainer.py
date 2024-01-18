@@ -1,3 +1,5 @@
+# Copyright Lightning AI. Licensed under the Apache License 2.0, see LICENSE file.
+
 import math
 import sys
 import time
@@ -89,7 +91,7 @@ class LightningGPTModule(L.LightningModule):
         if not decay_lr:
             return
         # determine and set the learning rate for this iteration
-        lr = get_lr(self.trainer.fit_loop.total_batch_idx)
+        lr = get_lr(self.trainer.fit_loop.total_batch_idx, warmup_iters, max_iters)
         for optimizer in self.trainer.strategy.optimizers:
             for param_group in optimizer.param_groups:
                 param_group["lr"] = lr
@@ -192,16 +194,16 @@ class Dataset(IterableDataset):
             yield x, y
 
 
-# learning rate decay scheduler (cosine with warmup)
-def get_lr(it: int) -> float:
+# learning rate decay scheduler (cosine with linear warmup)
+def get_lr(it: int, warmup_iters: int, max_iters: int) -> float:
     # 1) linear warmup for warmup_iters steps
     if it < warmup_iters:
         return learning_rate * it / warmup_iters
-    # 2) if it > lr_decay_iters, return min learning rate
-    if it > lr_decay_iters:
+    # 2) if it > max_iters, return min learning rate
+    if it > max_iters:
         return min_lr
     # 3) in between, use cosine decay down to min learning rate
-    decay_ratio = (it - warmup_iters) / (lr_decay_iters - warmup_iters)
+    decay_ratio = (it - warmup_iters) / (max_iters - warmup_iters)
     assert 0 <= decay_ratio <= 1
     coeff = 0.5 * (1.0 + math.cos(math.pi * decay_ratio))  # coeff ranges 0..1
     return min_lr + coeff * (learning_rate - min_lr)

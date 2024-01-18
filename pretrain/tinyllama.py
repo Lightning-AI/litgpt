@@ -1,3 +1,5 @@
+# Copyright Lightning AI. Licensed under the Apache License 2.0, see LICENSE file.
+
 """
 This script is adapted from TinyLlama:
 https://github.com/jzhang38/TinyLlama/blob/main/pretrain/tinyllama.py
@@ -68,7 +70,7 @@ def setup(resume: Union[bool, Path] = False):
     logger = choose_logger(logger_name, name=name, resume=resume)
 
     strategy = FSDPStrategy(auto_wrap_policy={Block}, state_dict_type="full", sharding_strategy="HYBRID_SHARD")
-    fabric = L.Fabric(devices=devices, strategy=strategy, precision="bf16-true", loggers=[logger])
+    fabric = L.Fabric(devices=devices, strategy=strategy, precision="bf16-mixed", loggers=[logger])
     fabric.launch()
 
     fabric.print(hparams)
@@ -101,7 +103,7 @@ def main(fabric, resume):
     model = torch.compile(model)
     model = fabric.setup(model)
     optimizer = torch.optim.AdamW(
-        model.parameters(), lr=learning_rate, weight_decay=weight_decay, betas=(beta1, beta2), foreach=False
+        model.parameters(), lr=learning_rate, weight_decay=weight_decay, betas=(beta1, beta2), fused=True
     )
     optimizer = fabric.setup_optimizers(optimizer)
 
@@ -165,7 +167,7 @@ def train(fabric, state, train_dataloader, val_dataloader, resume):
             break
 
         # determine and set the learning rate for this iteration
-        lr = get_lr(state["iter_num"], max_iters) if decay_lr else learning_rate
+        lr = get_lr(state["iter_num"], warmup_iters, max_iters) if decay_lr else learning_rate
         for param_group in optimizer.param_groups:
             param_group["lr"] = lr
 
@@ -299,16 +301,16 @@ def create_dataloaders(batch_size: int, block_size: int) -> Tuple[DataLoader, Da
     return train_dataloader, val_dataloader
 
 
-# learning rate decay scheduler (cosine with warmup)
-def get_lr(it: int, lr_decay_iters: int) -> int:
+# learning rate decay scheduler (cosine with linear warmup)
+def get_lr(it: int, warmup_iters: int, max_iters: int) -> float:
     # 1) linear warmup for warmup_iters steps
     if it < warmup_iters:
         return learning_rate * it / warmup_iters
-    # 2) if it > lr_decay_iters, return min learning rate
-    if it > lr_decay_iters:
+    # 2) if it > max_iters, return min learning rate
+    if it > max_iters:
         return min_lr
     # 3) in between, use cosine decay down to min learning rate
-    decay_ratio = (it - warmup_iters) / (lr_decay_iters - warmup_iters)
+    decay_ratio = (it - warmup_iters) / (max_iters - warmup_iters)
     assert 0 <= decay_ratio <= 1
     coeff = 0.5 * (1.0 + math.cos(math.pi * decay_ratio))  # coeff ranges 0..1
     return min_lr + coeff * (learning_rate - min_lr)
