@@ -89,17 +89,6 @@ class GPT(nn.Module):
             sin = self.sin[:T]
             mask = None
             
-        # Modifications for mixed sequence length batched inference with left padding
-        if B > 1 and not self.training:
-
-            mask = mask.repeat(B,1,1,1)
-            # here we're manually setting the mask to False for the left-padding tokens
-            for b_index in range(B):
-                for element in range(0, T): 
-                    if idx[b_index][element] == 0:
-                        mask[b_index][0][element][:element] = False
-                    elif idx[b_index][element] != 0:
-                        break
         x = self.transformer.wte(idx)  # token embeddings of shape (b, t, n_embd)
         for block in self.transformer.h:
             x = block(x, cos, sin, mask, input_pos)
