@@ -1,9 +1,9 @@
 -r requirements.txt
 bitsandbytes==0.41.0    # quantization
 scipy                   # required by bitsandbytes
-sentencepiece           # pythia, falcon, redpajama
-tokenizers              # llama-based models
-datasets                # quantize/gptq.py
+sentencepiece           # llama-based models
+tokenizers              # pythia, falcon, redpajama
+datasets                # eval
 zstandard               # scripts/prepare_redpajama.py, scripts/prepare_starcoder.py
 pandas                  # scripts/prepare_csv.py, scripts/prepare_starcoder.py
 pyarrow                 # scripts/prepare_starcoder.py

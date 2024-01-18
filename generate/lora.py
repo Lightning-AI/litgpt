@@ -16,7 +16,7 @@ sys.path.append(str(wd))
 from generate.base import generate
 from lit_gpt import Tokenizer
 from lit_gpt.lora import GPT, Config, merge_lora_weights
-from lit_gpt.utils import check_valid_checkpoint_dir, get_default_supported_precision, gptq_quantization, lazy_load
+from lit_gpt.utils import check_valid_checkpoint_dir, get_default_supported_precision, lazy_load
 from scripts.prepare_alpaca import generate_prompt
 
 lora_r = 8
@@ -35,7 +35,7 @@ def main(
     input: str = "",
     lora_path: Path = Path("out/lora/alpaca/lit_model_lora_finetuned.pth"),
     checkpoint_dir: Path = Path("checkpoints/stabilityai/stablelm-base-alpha-3b"),
-    quantize: Optional[Literal["bnb.nf4", "bnb.nf4-dq", "bnb.fp4", "bnb.fp4-dq", "bnb.int8", "gptq.int4"]] = None,
+    quantize: Optional[Literal["bnb.nf4", "bnb.nf4-dq", "bnb.fp4", "bnb.fp4-dq", "bnb.int8"]] = None,
     max_new_tokens: int = 100,
     top_k: Optional[int] = 200,
     temperature: float = 0.8,
@@ -54,7 +54,6 @@ def main(
         quantize: Whether to quantize the model and using which method:
             - bnb.nf4, bnb.nf4-dq, bnb.fp4, bnb.fp4-dq: 4-bit quantization from bitsandbytes
             - bnb.int8: 8-bit quantization from bitsandbytes
-            - gptq.int4: 4-bit quantization from GPTQ
             for more details, see https://github.com/Lightning-AI/lit-gpt/blob/main/tutorials/quantize.md
         max_new_tokens: The number of generation steps to take.
         top_k: The number of top most probable tokens to consider in the sampling process.
@@ -90,13 +89,7 @@ def main(
         to_head=lora_head,
     )
 
-    if quantize == "gptq.int4":
-        model_file = "lit_model_gptq.4bit.pth"
-        if not (checkpoint_dir / model_file).is_file():
-            raise ValueError("Please run `python quantize/gptq.py` first")
-    else:
-        model_file = "lit_model.pth"
-    checkpoint_path = checkpoint_dir / model_file
+    checkpoint_path = checkpoint_dir / "lit_model.pth"
 
     tokenizer = Tokenizer(checkpoint_dir)
     sample = {"instruction": prompt, "input": input}
@@ -107,7 +100,7 @@ def main(
 
     fabric.print(f"Loading model {str(checkpoint_path)!r} with {config.__dict__}", file=sys.stderr)
     t0 = time.perf_counter()
-    with fabric.init_module(empty_init=True), gptq_quantization(quantize == "gptq.int4"):
+    with fabric.init_module(empty_init=True):
         model = GPT(config)
     fabric.print(f"Time to instantiate model: {time.perf_counter() - t0:.02f} seconds.", file=sys.stderr)
     with fabric.init_tensor():

@@ -42,21 +42,6 @@ def num_parameters(module: nn.Module, requires_grad: Optional[bool] = None) -> i
     return total
 
 
-def gptq_quantization(enabled: bool = False) -> ContextManager:
-    if not enabled:
-        return nullcontext()
-
-    from lightning.fabric.plugins.precision.utils import _ClassReplacementContextManager
-
-    from quantize.gptq import ColBlockQuantizedLinear
-
-    class QuantizedLinear(ColBlockQuantizedLinear):
-        def __init__(self, *args, **kwargs):
-            super().__init__(*args, bits=4, tile_cols=-1, **kwargs)
-
-    return _ClassReplacementContextManager({"torch.nn.Linear": QuantizedLinear})
-
-
 def check_valid_checkpoint_dir(checkpoint_dir: Path) -> None:
     files = {
         "lit_model.pth": (checkpoint_dir / "lit_model.pth").is_file(),

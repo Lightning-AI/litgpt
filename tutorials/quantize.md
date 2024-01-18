@@ -113,29 +113,3 @@ python generate/base.py --quantize bnb.int8 --checkpoint_dir checkpoints/tiiuae/
 Time for inference 1: 20.22 sec total, 12.66 tokens/sec
 Memory used: 8.70 GB
 ```
-
-## `gptq.int4`
-
-Check out the [paper](https://arxiv.org/abs/2210.17323) to learn more about how it works.
-
-This technique needs a conversion of the weights first:
-
-```bash
-pip install datasets
-
-python quantize/gptq.py --precision bf16-true --checkpoint_dir checkpoints/tiiuae/falcon-7b
-...
-Time for quantization: 850.25 sec total
-Memory used: 23.68 GB
-```
-
-It is important to note that this conversion step required a considerable amount of memory (higher than regular inference) and may take a long time, depending on the size of the model.
-
-generation then works as usual with `--quantize gptq.int4` which will load the newly quantized checkpoint file:
-
-```bash
-python generate/base.py --quantize gptq.int4 --checkpoint_dir checkpoints/tiiuae/falcon-7b --precision 32-true --max_new_tokens 256
-...
-Time for inference 1: 34.35 sec total, 7.45 tokens/sec
-Memory used: 5.05 GB
-```
