@@ -1,3 +1,5 @@
+# Copyright Lightning AI. Licensed under the Apache License 2.0, see LICENSE file.
+
 import os
 import sys
 from pathlib import Path
@@ -25,7 +27,7 @@ def test_tokenizer_against_hf(config):
     cache_dir = Path("/tmp/tokenizer_test_cache")
 
     # create a checkpoint directory that points to the HF files
-    checkpoint_dir = cache_dir / "ligpt" / config.hf_config["org"] / config.hf_config["name"]
+    checkpoint_dir = cache_dir / "litgpt" / config.hf_config["org"] / config.hf_config["name"]
     if not checkpoint_dir.exists():
         file_to_cache = {}
         for file in ("tokenizer.json", "generation_config.json", "tokenizer.model", "tokenizer_config.json"):
@@ -70,3 +72,10 @@ def test_tokenizer_against_hf(config):
     expected = theirs.encode(prompt)
     assert actual.tolist() == expected
     assert ours.decode(actual) == theirs.decode(expected, skip_special_tokens=True)
+
+
+def test_tokenizer_input_validation():
+    from lit_gpt.tokenizer import Tokenizer
+
+    with pytest.raises(NotADirectoryError, match="The checkpoint directory does not exist"):
+        Tokenizer("cocofruit")

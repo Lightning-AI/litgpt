@@ -30,7 +30,7 @@ You can download the data using git lfs:
 
 ```bash
 # Make sure you have git-lfs installed (https://git-lfs.com):
-git lfs install
+sudo apt install git-lfs
 ```
 
 ```bash
@@ -55,7 +55,8 @@ pip install huggingface_hub sentencepiece
 
 python scripts/download.py \
    --repo_id meta-llama/Llama-2-7b-chat-hf \
-   --access_token your_hf_token
+   --access_token your_hf_token \
+   --tokenizer_only true
 ```
 
 Then, run

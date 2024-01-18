@@ -1,3 +1,5 @@
+# Copyright Lightning AI. Licensed under the Apache License 2.0, see LICENSE file.
+
 import math
 import sys
 import time
@@ -77,9 +79,9 @@ def main(fabric: L.Fabric, resume: Union[bool, Path]) -> None:
     config = Config.from_name(model_name)
     fabric.print(f"Loading model with {config.__dict__}")
     t0 = time.perf_counter()
-    with fabric.init_module(empty_init=True):
+    with fabric.init_module(empty_init=(fabric.world_size > 1)):
         model = GPT(config)
-        model.apply(model._init_weights)
+    model.apply(model._init_weights)
 
     fabric.print(f"Time to instantiate model: {time.perf_counter() - t0:.02f} seconds.")
     fabric.print(f"Total parameters {num_parameters(model):,}")
@@ -114,7 +116,7 @@ def train(fabric: L.Fabric, state: dict, train_dataloader: DataLoader, val_datal
     model = state["model"]
     optimizer = state["optimizer"]
 
-    validate(fabric, model, val_dataloader)  # sanity check
+    validate(fabric, model, val_dataloader, max_iters=2)  # sanity check
 
     with torch.device("meta"):
         meta_model = GPT(model.config)
@@ -131,22 +133,22 @@ def train(fabric: L.Fabric, state: dict, train_dataloader: DataLoader, val_datal
         del meta_model, x
 
     throughput = ThroughputMonitor(fabric, window_size=50)
-    total_lengths = 0
     total_t0 = time.perf_counter()
 
     train_iter = iter(train_dataloader)
 
     for state["iter_num"] in range(state["iter_num"], max_iters):
         # determine and set the learning rate for this iteration
-        lr = get_lr(state["iter_num"]) if decay_lr else learning_rate
+        lr = get_lr(state["iter_num"], warmup_iters, max_iters) if decay_lr else learning_rate
         for param_group in optimizer.param_groups:
             param_group["lr"] = lr
 
+        iter_num = state["iter_num"] + 1
         iter_t0 = time.perf_counter()
 
         input_ids, targets = next(train_iter)
 
-        is_accumulating = (state["iter_num"] + 1) % gradient_accumulation_steps != 0
+        is_accumulating = iter_num % gradient_accumulation_steps != 0
         with fabric.no_backward_sync(model, enabled=is_accumulating):
             logits = model(input_ids)
             loss = chunked_cross_entropy(logits, targets, chunk_size=0)
@@ -158,42 +160,43 @@ def train(fabric: L.Fabric, state: dict, train_dataloader: DataLoader, val_datal
             optimizer.zero_grad()
             state["step_count"] += 1
 
-        total_lengths += input_ids.size(1)
-        if state["iter_num"] % log_interval == 0:
+        if iter_num % log_interval == 0:
             loss_item = loss.item()  # expensive device-to-host synchronization
             t1 = time.perf_counter()
             throughput.update(
                 time=t1 - total_t0,
-                samples=(state["iter_num"] + 1) * micro_batch_size,
-                lengths=total_lengths,
-                flops_per_batch=measured_flops,
+                batches=iter_num,
+                samples=iter_num * micro_batch_size,
+                lengths=iter_num * micro_batch_size * model.max_seq_length,
+                flops=measured_flops * log_interval,
             )
-            throughput.compute_and_log(step=state["iter_num"])
+            throughput.compute_and_log(step=iter_num)
             fabric.print(
-                f"iter {state['iter_num']} step {state['step_count']}: loss {loss_item:.4f}, iter time:"
+                f"iter {iter_num} step {state['step_count']}: loss {loss_item:.4f}, iter time:"
                 f" {(t1 - iter_t0) * 1000:.2f}ms{' (optimizer.step)' if not is_accumulating else ''}"
             )
 
         if not is_accumulating and state["step_count"] % eval_interval == 0:
             t0 = time.perf_counter()
-            val_loss = validate(fabric, model, val_dataloader)
+            val_loss = validate(fabric, model, val_dataloader, max_iters=eval_iters)
             t1 = time.perf_counter() - t0
-            fabric.print(f"step {state['iter_num']}: val loss {val_loss.item():.4f}, val time: {t1 * 1000:.2f}ms")
+            fabric.print(f"step {iter_num}: val loss {val_loss.item():.4f}, val time: {t1 * 1000:.2f}ms")
             fabric.barrier()
         if not is_accumulating and state["step_count"] % save_interval == 0:
-            checkpoint_path = out_dir / f"iter-{state['iter_num']:06d}-ckpt.pth"
+            checkpoint_path = out_dir / f"iter-{iter_num:06d}-ckpt.pth"
             fabric.print(f"Saving checkpoint to {str(checkpoint_path)!r}")
             fabric.save(checkpoint_path, state)
 
 
-@torch.inference_mode()
-def validate(fabric: L.Fabric, model: torch.nn.Module, val_dataloader: DataLoader) -> torch.Tensor:
+# FSDP has issues with `inference_mode`
+@torch.no_grad()
+def validate(fabric: L.Fabric, model: torch.nn.Module, val_dataloader: DataLoader, max_iters: int) -> torch.Tensor:
     fabric.print("Validating ...")
     model.eval()
     val_iter = iter(val_dataloader)
 
-    losses = torch.zeros(eval_iters, device=fabric.device)
-    for k in range(eval_iters):
+    losses = torch.zeros(max_iters, device=fabric.device)
+    for k in range(max_iters):
         input_ids, targets = next(val_iter)
         logits = model(input_ids)
         losses[k] = chunked_cross_entropy(logits, targets, chunk_size=0)
@@ -224,16 +227,16 @@ class Dataset(IterableDataset):
             yield x, y
 
 
-# learning rate decay scheduler (cosine with warmup)
-def get_lr(it: int) -> float:
+# learning rate decay scheduler (cosine with linear warmup)
+def get_lr(it: int, warmup_iters: int, max_iters: int) -> float:
     # 1) linear warmup for warmup_iters steps
     if it < warmup_iters:
         return learning_rate * it / warmup_iters
-    # 2) if it > lr_decay_iters, return min learning rate
-    if it > lr_decay_iters:
+    # 2) if it > max_iters, return min learning rate
+    if it > max_iters:
         return min_lr
     # 3) in between, use cosine decay down to min learning rate
-    decay_ratio = (it - warmup_iters) / (lr_decay_iters - warmup_iters)
+    decay_ratio = (it - warmup_iters) / (max_iters - warmup_iters)
     assert 0 <= decay_ratio <= 1
     coeff = 0.5 * (1.0 + math.cos(math.pi * decay_ratio))  # coeff ranges 0..1
     return min_lr + coeff * (learning_rate - min_lr)

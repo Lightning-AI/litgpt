@@ -1,3 +1,3 @@
 torch>=2.1.0
-lightning @ git+https://github.com/Lightning-AI/lightning@800b87eb464bda8defa9425bb0b76651c5c5175b
+lightning @ git+https://github.com/Lightning-AI/lightning@6dfa5cca9de5c28548eef5582a53c483b0eda66a
 jsonargparse[signatures]  # CLI

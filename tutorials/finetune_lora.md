@@ -167,7 +167,7 @@ python scripts/merge_lora.py \
   --out_dir "out/lora_merged/stablelm-base-alpha-3b/"
 ```
 
-> [!Note]
+> [!IMPORTANT]
 > If you changed the LoRA hyperparameters (`lora_r`, `lora_key`, etc.) in the
 > `finetune/lora.py` script, it is important to update the hyperparameter configuration
 > in the `scripts/merge_lora.py` script accordingly. Otherwise, you will encounter size
@@ -198,6 +198,5 @@ Similarly, you can evaluate the model using the `eval/lm_eval_harness.py` script
 python eval/lm_eval_harness.py \
   --checkpoint_dir "out/lora_merged/stablelm-base-alpha-3b/" \
   --precision "bf16-true" \
-  --batch_size 4 \
   --save_filepath "results.json"
 ```

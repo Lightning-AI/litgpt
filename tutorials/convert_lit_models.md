@@ -13,8 +13,7 @@ python scripts/convert_lit_checkpoint.py \
 
 These paths are just placeholders, you will need to customize them based on which finetuning or pretraining script you ran and it's configuration.
 
-
-Please note that if you want to convert a model that has been fine-tuned using an adapter like LoRA, these weights should be [merged](../scripts/merge_lora.py) to the checkpoint prior to converting. 
+Please note that if you want to convert a model that has been fine-tuned using an adapter like LoRA, these weights should be [merged](../scripts/merge_lora.py) to the checkpoint prior to converting.
 
 ```sh
 python scripts/merge_lora.py \

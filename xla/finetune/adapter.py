@@ -1,3 +1,5 @@
+# Copyright Lightning AI. Licensed under the Apache License 2.0, see LICENSE file.
+
 import os
 import sys
 import time
@@ -153,11 +155,10 @@ def train(
 
     throughput = ThroughputMonitor(fabric, window_size=50)
     step_count = 0
-    total_lengths = 0
     total_t0 = time.perf_counter()
 
     xm.mark_step()
-    for iter_num in range(max_iters):
+    for iter_num in range(1, max_iters + 1):
         if step_count <= warmup_steps:
             # linear warmup
             lr = learning_rate * step_count / warmup_steps
@@ -168,7 +169,7 @@ def train(
 
         input_ids, targets = get_batch(fabric, train_data, longest_seq_length)
 
-        is_accumulating = (iter_num + 1) % gradient_accumulation_iters != 0
+        is_accumulating = iter_num % gradient_accumulation_iters != 0
         with fabric.no_backward_sync(model, enabled=is_accumulating):
             logits = model(input_ids, lm_head_chunk_size=128)
             xm.mark_step()
@@ -185,14 +186,14 @@ def train(
         else:
             xm.mark_step()
 
-        total_lengths += input_ids.size(1)
         if iter_num % log_interval == 0:
             t1 = time.perf_counter()
             throughput.update(
                 time=t1 - total_t0,
-                samples=(iter_num + 1) * micro_batch_size,
-                lengths=total_lengths,
-                flops_per_batch=measured_flops,
+                batches=iter_num,
+                samples=iter_num * micro_batch_size,
+                lengths=iter_num * micro_batch_size * longest_seq_length,
+                flops=measured_flops * log_interval,
             )
             throughput.compute_and_log(step=iter_num)
             rank_print(

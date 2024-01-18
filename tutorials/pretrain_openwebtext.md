@@ -6,9 +6,7 @@ This tutorial will walk you through setting up the OpenWebText dataset and launc
 
 [OpenWebText](https://github.com/jcpeterson/openwebtext) is an open-source reproduction of OpenAI's unreleased WebText training dataset, which was originally used to train GPT-2. The version that is used here consists of 8M documents and is loaded via the `load_dataset("openwebtext", ...)` function from the [datasets](https://github.com/huggingface/datasets) Python package. [Please refer to the website hosting the dataset](https://huggingface.co/datasets/Skylion007/openwebtext) for the licensing information.
 
-
 ## Prepare OpenWebText for training
-
 
 In order to start pretraining lit-gpt on it, you need to read, tokenize, and write the data in binary format.
 
@@ -23,7 +21,6 @@ python scripts/prepare_openwebtext.py \
 ```
 
 The script will take about 15 min to run.
-
 
 ## Pretraining
 
@@ -47,8 +44,8 @@ model_name = "Llama-2-7b-hf"
 
 at the top of this script.
 
-The currently supported model names are contained in the [config.py](https://github.com/Lightning-AI/lit-gpt/lit_gpt/config.py) file. 
-You can 
+The currently supported model names are contained in the [config.py](https://github.com/Lightning-AI/lit-gpt/lit_gpt/config.py) file.
+You can
 
 1) either search this file for lines containing "name =",
 2) or run `python scripts/download.py` without additional command line arguments,
@@ -77,12 +74,11 @@ call a logging client library like `wandb` directly.
 
 To train a smaller Pythia 70M model on a single GPU, you can modify the `pretrain/openwebtext.py` file to use the following settings:
 
-
 ```python
 model_name = "pythia-70m"
 ```
 
-(Please see the the `download_*` scripts in the [../tutorials](../tutorials) for more information on downloading model checkpoints for different models.)
+(Please see the the `download_*` scripts in the [tutorials](.) for more information on downloading model checkpoints for different models.)
 
 Also, before you start training, note that you will need to prepare the dataset specifically for this model since it may use a different tokenizer:
 
