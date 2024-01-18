@@ -1221,7 +1221,7 @@ configs.append(
     # https://huggingface.co/mistralai/Mistral-7B-Instruct-v0.2/blob/main/config.json
     dict(
         name="Mistral-7B-Instruct-v0.2",
-        hf_config=dict(org="mistralai", name="Mistral-7B-Instruct-{}v0.2"),
+        hf_config=dict(org="mistralai", name="Mistral-7B-Instruct-v0.2"),
         padded_vocab_size=32000,
         block_size=32768,
         n_layer=32,
