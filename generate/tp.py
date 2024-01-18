@@ -82,9 +82,12 @@ def tensor_parallel(fabric: L.Fabric, model: GPT) -> GPT:
     # update the config values to the shard sizes
     # this is only relevant for `tensor_parallel_attn`, but it needs to run only once
     world_size = fabric.world_size
-    model.config.n_head //= world_size
-    model.config.n_embd //= world_size
-    model.config.n_query_groups //= world_size
+    attrs = ["n_head", "n_embd", "n_query_groups"]
+    for attr in attrs:
+        size = getattr(model.config, attr)
+        if size % world_size != 0:
+            raise ValueError(f"This {attr} value ({size}) is not evenly divisible by the world size ({world_size})")
+        setattr(model.config, attr, size // world_size)
 
     return model
 
