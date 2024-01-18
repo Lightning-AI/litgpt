@@ -107,34 +107,27 @@ The following experiments were conducted on multiple A100 GPUs with a minibatch 
 | 1.3 B | phi-1.5        | None         | 1 x A100 | 2.86 GB                                   | 42.56     |
 | 1.3 B | phi-1.5        | bnb.nf4      | 1 x A100 | 1.39 GB                                   | 22.89     |
 | 1.3 B | phi-1.5        | bnb.nf4-dq   | 1 x A100 | 1.33 GB                                   | 22.75     |
-| 1.3 B | phi-1.5        | gptq.int4    | 1 x A100 | 1.16 GB                                   | 6.51      |
 |       |                |              |          |                                           |           |
 | 3 B   | StableLM Alpha | None         | 1 x A100 | 7.30 GB                                   | 49.01     |
 | 3 B   | StableLM Alpha | bnb.nf4      | 1 x A100 | 3.20 GB                                   | 29.04     |
 | 3 B   | StableLM Alpha | bnb.nf4-dq   | 1 x A100 | 3.04 GB                                   | 27.15     |
-| 3 B   | StableLM Alpha | gptq.int4    | 1 x A100 | 2.43 GB                                   | 5.9       |
 |       |                |              |          |                                           |           |
 | 7 B   | Llama 2        | None         | 1 x A100 | 13.52 GB                                  | 30.97     |
 | 7 B   | Llama 2        | bnb.nf4      | 1 x A100 | 4.57 GB                                   | 19.98     |
 | 7 B   | Llama 2        | bnb.nf4-dq   | 1 x A100 | 4.26 GB                                   | 17.3      |
-| 7 B   | Llama 2        | gptq.int4    | 1 x A100 | 3.93 GB                                   | 5.04      |
 |       |                |              |          |                                           |           |
 | 13 B  | Llama 2        | None         | 1 x A100 | 26.21 GB                                  | 24.82     |
 | 13 B  | Llama 2        | bnb.nf4      | 1 x A100 | 8.32 GB                                   | 16.73     |
 | 13 B  | Llama 2        | bnb.nf4-dq   | 1 x A100 | 7.72 GB                                   | 14.43     |
-| 13 B  | Llama 2        | gptq.int4    | 1 x A100 | 7.14 GB                                   | 4.17      |
 |       |                |              |          |                                           |           |
 | 34 B  | CodeLlama      | None         | 1 x A100 | OOM                                       | -         |
 | 34 B  | CodeLlama      | bnb.nf4      | 1 x A100 | 20.52 GB                                  | 14.32     |
 | 34 B  | CodeLlama      | bnb.nf4-dq   | 1 x A100 | 18.95 GB                                  | 12.37     |
-| 34 B  | CodeLlama      | gptq.int4    | 1 x A100 | OOM (quantize script)                     | -         |
 |       |                |              |          |                                           |           |
 | 40 B  | Falcon         | None         | 1 x A100 | OOM                                       | -         |
 | 40 B  | Falcon         | bnb.nf4      | 1 x A100 | 26.55 GB                                  | 13.25     |
 | 40 B  | Falcon         | bnb.nf4-dq   | 1 x A100 | 24.63 GB                                  | 11.64     |
-| 40 B  | Falcon         | gptq.int4    | 1 x A100 | OOM (quantize script)                     | -         |
 |       |                |              |          |                                           |           |
 | 70 B  | Llama 2        | None         | 1 x A100 | OOM                                       | -         |
 | 70 B  | Llama 2        | bnb.nf4      | 1 x A100 | CUDA error: CUBLAS_STATUS_NOT_INITIALIZED | -         |
 | 70 B  | Llama 2        | bnb.nf4-dq   | 1 x A100 | 37.21 GB                                  | 7.97      |
-| 70 B  | Llama 2        | gptq.int4    | 1 x A100 | OOM (quantize script)                     | -         |

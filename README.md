@@ -147,7 +147,7 @@ python chat/base.py
 
 ### Run large models on smaller consumer devices
 
-We support 4-bit quantization (as in QLoRA), (bnb.nf4, bnb.nf4-dq, bnb.fp4, bnb.fp4-dq, gptq.int4) and 8-bit quantization (bnb.int8) for inference by following [this guide](tutorials/quantize.md).
+We support 4-bit quantization (as in QLoRA), (bnb.nf4, bnb.nf4-dq, bnb.fp4, bnb.fp4-dq) and 8-bit quantization (bnb.int8) for inference by following [this guide](tutorials/quantize.md).
 
 &nbsp;
 
@@ -270,7 +270,6 @@ Don't forget to [join our Discord](https://discord.gg/VptPCZkGNa)!
 - [@karpathy](https://github.com/karpathy) for [nanoGPT](https://github.com/karpathy/nanoGPT)
 - [@EleutherAI](https://github.com/EleutherAI) for [GPT-NeoX](https://github.com/EleutherAI/gpt-neox) and the [Evaluation Harness](https://github.com/EleutherAI/lm-evaluation-harness)
 - [@TimDettmers](https://github.com/TimDettmers) for [bitsandbytes](https://github.com/TimDettmers/bitsandbytes)
-- [@IST-DASLab](https://github.com/IST-DASLab) for [GPTQ](https://github.com/IST-DASLab/gptq)
 - [@Microsoft](https://github.com/microsoft) for [LoRA](https://github.com/microsoft/LoRA)
 - [@tridao](https://github.com/tridao) for [Flash Attention 2](https://github.com/Dao-AILab/flash-attention)
 
