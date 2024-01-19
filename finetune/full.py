@@ -2,8 +2,7 @@ import os
 import sys
 import time
 from pathlib import Path
-from typing import Dict, List, Optional, Tuple
-from typing import Optional, Union
+from typing import Dict, List, Tuple, Optional, Union
 import lightning as L
 import torch
 from lightning.fabric.loggers import CSVLogger
@@ -27,7 +26,6 @@ from lit_gpt.utils import (
 from scripts.prepare_alpaca import generate_prompt
 
 eval_interval = 600
-full_checkpointing = False
 save_interval = 1000
 eval_iters = 100
 eval_max_new_tokens = 100
@@ -98,11 +96,12 @@ def main(fabric: L.Fabric, data_dir: Path, checkpoint_dir: Path, out_dir: Path, 
     model = fabric.setup_module(model)
     optimizer = torch.optim.AdamW(model.parameters(), lr=learning_rate, weight_decay=weight_decay)
     optimizer = fabric.setup_optimizers(optimizer)
-    state = {"model": model, "optimizer": optimizer, "hparams": hparams, "iter_num": 0, "step_count": 0,
-             "total_lengths": 0}
+    state = {
+        "model": model, "optimizer": optimizer, "hparams": hparams, "iter_num": 0, "step_count": 0, "total_lengths": 0
+    }
 
     if resume is True:
-        resume = sorted(out_dir.glob("*ckpt.pth"))[-1]
+        resume = max(out_dir.glob("*.pth"), key=(lambda p: int(p.name.split("-")[1])))
     if resume:
         fabric.print(f"Resuming training from {resume}")
         fabric.load(resume, state)
@@ -123,12 +122,12 @@ def main(fabric: L.Fabric, data_dir: Path, checkpoint_dir: Path, out_dir: Path, 
 
 
 def train(
-        fabric: L.Fabric,
-        state: Dict,
-        train_data: List[Dict],
-        val_data: List[Dict],
-        checkpoint_dir: Path,
-        out_dir: Path,
+    fabric: L.Fabric,
+    state: Dict,
+    train_data: List[Dict],
+    val_data: List[Dict],
+    checkpoint_dir: Path,
+    out_dir: Path,
 ) -> None:
     model = state["model"]
     optimizer = state["optimizer"]
@@ -191,10 +190,7 @@ def train(
             fabric.barrier()
         if not is_accumulating and state['step_count'] % save_interval == 0:
             checkpoint_path = out_dir / f"iter-{iter_num:06d}-ckpt.pth"
-            if full_checkpointing:
-                save_checkpoint(fabric, state, checkpoint_path)
-            else:
-                save_checkpoint(fabric, {"model": state["model"]}, checkpoint_path)
+            save_checkpoint(fabric, state, checkpoint_path)
 
 
 # FSDP has issues with `inference_mode`
