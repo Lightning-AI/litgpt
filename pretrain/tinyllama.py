@@ -28,7 +28,6 @@ wd = Path(__file__).parent.parent.resolve()
 sys.path.append(str(wd))
 
 from lit_gpt.model import GPT, Block, CausalSelfAttention, Config, LLaMAMLP
-from lit_gpt.packed_dataset import CombinedDataset
 from lit_gpt.utils import CycleIterator, chunked_cross_entropy, num_parameters
 
 # System settings
@@ -167,8 +166,8 @@ def train(fabric, state, train_dataloader, val_dataloader, resume):
         state["iter_num"] += 1
         iter_t0 = time.perf_counter()
 
-        input_ids = train_data[:, 0 : model.config.block_size].contiguous().long()
-        targets = train_data[:, 1 : (model.config.block_size + 1)].contiguous().long()
+        input_ids = train_data[:, 0: model.config.block_size].contiguous().long()
+        targets = train_data[:, 1: (model.config.block_size + 1)].contiguous().long()
 
         is_accumulating = state["iter_num"] % gradient_accumulation_steps != 0
         with fabric.no_backward_sync(model, enabled=is_accumulating):
@@ -255,7 +254,7 @@ def validate(fabric: L.Fabric, model: nn.Module, val_dataloader: DataLoader, max
 
 
 def create_dataloaders(batch_size: int, block_size: int) -> Tuple[DataLoader, DataLoader]:
-    from lightning.data import StreamingDataset
+    from lightning.data import StreamingDataset, CombinedStreamingDataset
     from lightning.data.streaming.item_loader import TokensLoader
 
     # Increase by one because we need the next word as well
@@ -278,7 +277,7 @@ def create_dataloaders(batch_size: int, block_size: int) -> Tuple[DataLoader, Da
 
     # Mix SlimPajama data and Starcoder data with these proportions:
     weights = (0.693584, 0.306416)
-    combined_dataset = CombinedDataset(datasets=train_datasets, seed=42, weights=weights)
+    combined_dataset = CombinedStreamingDataset(datasets=train_datasets, seed=42, weights=weights)
     train_dataloader = DataLoader(
         combined_dataset, batch_size=batch_size, pin_memory=True, num_workers=8, drop_last=True
     )
