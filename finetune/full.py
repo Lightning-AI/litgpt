@@ -40,7 +40,7 @@ devices = 1
 learning_rate = 3e-3
 batch_size = 64 / devices
 micro_batch_size = 1
-gradient_accumulation_iters = batch_size // micro_batch_size
+gradient_accumulation_iters = int(batch_size // micro_batch_size)
 assert gradient_accumulation_iters > 0
 max_seq_length = None  # assign value to truncate
 epoch_size = 50000  # train dataset size
