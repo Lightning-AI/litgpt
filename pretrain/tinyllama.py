@@ -109,7 +109,7 @@ def main(fabric, resume):
     state = {
         "model": model, 
         "optimizer": optimizer, 
-        "train_dataset": train_dataloader.dataset,
+        "train_dataloader": train_dataloader,
         "hparams": hparams, 
         "iter_num": 0, 
         "step_count": 0,
@@ -253,8 +253,8 @@ def validate(fabric: L.Fabric, model: nn.Module, val_dataloader: DataLoader, max
     return losses.mean()
 
 
-def create_dataloaders(batch_size: int, block_size: int) -> Tuple[DataLoader, DataLoader]:
-    from lightning.data import StreamingDataset, CombinedStreamingDataset
+def create_dataloaders(batch_size: int, block_size: int, num_workers: int = 8) -> Tuple[DataLoader, DataLoader]:
+    from lightning.data import StreamingDataset, CombinedStreamingDataset, StreamingDataLoader
     from lightning.data.streaming.item_loader import TokensLoader
 
     # Increase by one because we need the next word as well
@@ -278,8 +278,8 @@ def create_dataloaders(batch_size: int, block_size: int) -> Tuple[DataLoader, Da
     # Mix SlimPajama data and Starcoder data with these proportions:
     weights = (0.693584, 0.306416)
     combined_dataset = CombinedStreamingDataset(datasets=train_datasets, seed=42, weights=weights)
-    train_dataloader = DataLoader(
-        combined_dataset, batch_size=batch_size, pin_memory=True, num_workers=8, drop_last=True
+    train_dataloader = StreamingDataLoader(
+        combined_dataset, batch_size=batch_size, pin_memory=True, num_workers=num_workers, drop_last=True
     )
 
     val_dataset = StreamingDataset(
@@ -289,7 +289,7 @@ def create_dataloaders(batch_size: int, block_size: int) -> Tuple[DataLoader, Da
         # Consider setting to False, but we would lose some samples due to truncation when world size > 1
         drop_last=True,
     )
-    val_dataloader = DataLoader(val_dataset, batch_size=batch_size, pin_memory=True, num_workers=8, drop_last=True)
+    val_dataloader = DataLoader(val_dataset, batch_size=batch_size, pin_memory=True, num_workers=num_workers, drop_last=True)
     return train_dataloader, val_dataloader
 
 
