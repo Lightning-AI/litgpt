@@ -1,5 +1,6 @@
 # Copyright Lightning AI. Licensed under the Apache License 2.0, see LICENSE file.
 
+import math
 import os
 import sys
 import time
@@ -10,7 +11,7 @@ import lightning as L
 import torch
 from lightning.fabric.loggers import CSVLogger
 from lightning.fabric.strategies import FSDPStrategy
-from lightning.fabric.utilities import ThroughputMonitor
+from lightning.fabric.utilities import ThroughputMonitor, measure_flops
 
 # support running without installing as a package
 wd = Path(__file__).parent.parent.resolve()
@@ -23,16 +24,15 @@ from lit_gpt.utils import (
     check_valid_checkpoint_dir,
     chunked_cross_entropy,
     get_default_supported_precision,
-    load_checkpoint,
     num_parameters,
 )
 from scripts.prepare_alpaca import generate_prompt
 
-eval_interval = 600
-save_interval = 1000
+eval_step_interval = 600
+save_step_interval = 1000
 eval_iters = 100
 eval_max_new_tokens = 100
-log_interval = 1
+log_iter_interval = 1
 devices = 1
 
 # Hyperparameters
@@ -72,10 +72,12 @@ def setup(
     else:
         strategy = "auto"
 
-    logger = CSVLogger(out_dir.parent, out_dir.name, flush_logs_every_n_steps=log_interval)
+    logger = CSVLogger(out_dir.parent, out_dir.name, flush_logs_every_n_steps=log_iter_interval)
     fabric = L.Fabric(devices=fabric_devices, strategy=strategy, precision=precision, loggers=logger)
+    fabric.launch()
+
     fabric.print(hparams)
-    fabric.launch(main, data_dir, checkpoint_dir, out_dir, resume=resume)
+    main(fabric, data_dir, checkpoint_dir, out_dir, resume)
 
 
 def main(fabric: L.Fabric, data_dir: Path, checkpoint_dir: Path, out_dir: Path, resume: Union[bool, Path]) -> None:
@@ -99,17 +101,13 @@ def main(fabric: L.Fabric, data_dir: Path, checkpoint_dir: Path, out_dir: Path, 
     model = fabric.setup_module(model)
     optimizer = torch.optim.AdamW(model.parameters(), lr=learning_rate, weight_decay=weight_decay)
     optimizer = fabric.setup_optimizers(optimizer)
-    state = {
-        "model": model, "optimizer": optimizer, "hparams": hparams, "iter_num": 0, "step_count": 0, "total_lengths": 0
-    }
+    state = {"model": model, "optimizer": optimizer, "hparams": hparams, "iter_num": 0, "step_count": 0}
 
     if resume is True:
         resume = max(out_dir.glob("*.pth"), key=(lambda p: int(p.name.split("-")[1])))
     if resume:
         fabric.print(f"Resuming training from {resume}")
         fabric.load(resume, state)
-    else:
-        load_checkpoint(fabric, state["model"], checkpoint_path)
 
     fabric.seed_everything(1337 + fabric.global_rank)
 
@@ -120,8 +118,7 @@ def main(fabric: L.Fabric, data_dir: Path, checkpoint_dir: Path, out_dir: Path, 
         fabric.print(f"Memory used: {torch.cuda.max_memory_allocated() / 1e9:.02f} GB")
 
     # Save the final checkpoint at the end of training
-    save_path = out_dir / "lit_model_finetuned.pth"
-    save_checkpoint(fabric, {"model": state["model"]}, save_path)
+    fabric.save(out_dir / "lit_model_finetuned.pth", {"model": state["model"]})
 
 
 def train(
@@ -143,8 +140,18 @@ def train(
     )
 
     validate(fabric, model, val_data, tokenizer, max_iters=2)  # sanity check
+    throughput = ThroughputMonitor(fabric, window_size=5)
 
-    throughput = ThroughputMonitor(fabric, window_size=50)
+    with torch.device("meta"):
+        meta_model = GPT(model.config)
+        x = torch.randint(0, 1, (micro_batch_size, meta_model.config.block_size))
+        model_fwd = lambda: meta_model(x)
+        model_loss = lambda y: chunked_cross_entropy(y, x, chunk_size=0)
+        measured_flops = measure_flops(meta_model, model_fwd, model_loss)
+        fabric.print(f"Measured TFLOPs: {measured_flops * fabric.world_size / 1e12:.2f}")
+        del meta_model, x
+
+    # TODO: max iters
     total_t0 = time.perf_counter()
 
     for state["iter_num"] in range(state["iter_num"] + 1, max_iters + 1):
@@ -170,29 +177,49 @@ def train(
             optimizer.zero_grad()
             state["step_count"] += 1
 
-        state['total_lengths'] += input_ids.numel()
-        if state["iter_num"] % log_interval == 0:
-            loss_item = loss.item()  # expensive device-to-host synchronization
+        if state["iter_num"] % log_iter_interval == 0:
+            loss = loss.item()  # expensive device-to-host synchronization
             t1 = time.perf_counter()
             throughput.update(
-                time=t1 - total_t0, batches=state["iter_num"], samples=state["iter_num"] * micro_batch_size,
-                lengths=state['total_lengths']
+                time=(t1 - total_t0),
+                flops=(measured_flops * log_iter_interval),
+                batches=state["iter_num"],
+                samples=(state["iter_num"] * micro_batch_size),
+                lengths=(state["iter_num"] * micro_batch_size * model.config.block_size),
             )
-            throughput.compute_and_log(step=state["iter_num"])
+            metrics = {
+                "loss": loss,
+                "iter": state["iter_num"],
+                "step": state["step_count"],
+                "iter_time": t1 - iter_t0,
+                "tokens": state["iter_num"] * micro_batch_size * model.config.block_size,
+                "total_tokens": state["iter_num"] * micro_batch_size * model.config.block_size * fabric.world_size,
+            }
+
             fabric.print(
-                f"iter {state['iter_num']} step {state['step_count']}: loss {loss_item:.4f}, iter time:"
-                f" {(t1 - iter_t0) * 1000:.2f}ms{' (optimizer.step)' if not is_accumulating else ''}"
+                f"iter {metrics['iter']} step {metrics['step']}: loss {metrics['loss']:.4f}, iter time:"
+                f" {metrics['iter_time'] * 1000:.2f} ms,{' (optimizer.step)' if not is_accumulating else ''}"
             )
 
-        if not is_accumulating and state['step_count'] % eval_interval == 0:
+            throughput_metrics = throughput.compute()
+            metrics.update(throughput_metrics)
+            fabric.log_dict(metrics, step=state["iter_num"])
+
+        if not is_accumulating and state["step_count"] % eval_step_interval == 0:
             t0 = time.perf_counter()
             val_loss = validate(fabric, model, val_data, tokenizer, max_iters=eval_iters)
-            t1 = time.perf_counter() - t0
-            fabric.print(f"step {state['iter_num']}: val loss {val_loss.item():.4f}, val time: {t1 * 1000:.2f}ms")
+            val_loss = val_loss.item()
+            td = time.perf_counter() - t0
+
+            fabric.print(f"iter {state['iter_num']}: val loss {val_loss:.4f}, val time: {td * 1000:.2f} ms")
+            metrics = {"val_loss": val_loss, "val_ppl": math.exp(val_loss)}
+            fabric.log_dict(metrics, step=state["iter_num"])
             fabric.barrier()
-        if not is_accumulating and state['step_count'] % save_interval == 0:
-            checkpoint_path = out_dir / f"iter-{state['iter_num']:06d}-ckpt.pth"
-            save_checkpoint(fabric, state, checkpoint_path)
+
+        if not is_accumulating and state["step_count"] % save_step_interval == 0:
+            checkpoint_path = out_dir / f"step-{state['step_count']:06d}.pth"
+            fabric.print(f"Saving checkpoint to {str(checkpoint_path)!r}")
+            fabric.save(checkpoint_path, state)
 
 
 # FSDP has issues with `inference_mode`
@@ -267,11 +294,6 @@ def get_longest_seq_length(data: List[Dict]) -> Tuple[int, int]:
     longest_seq_length = max(lengths)
     longest_seq_ix = lengths.index(longest_seq_length)
     return longest_seq_length, longest_seq_ix
-
-
-def save_checkpoint(fabric, state, file_path: Path):
-    fabric.print(f"Saving weights to {str(file_path)!r}")
-    fabric.save(file_path, state)
 
 
 if __name__ == "__main__":

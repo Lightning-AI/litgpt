@@ -16,8 +16,8 @@ def test_full_script(tmp_path, fake_checkpoint_dir, monkeypatch):
     import finetune.full as module
 
     module.gradient_accumulation_iters = 1
-    module.save_interval = 2
-    module.eval_interval = 2
+    module.save_step_interval = 2
+    module.eval_step_interval = 2
     module.eval_iters = 2
     module.eval_max_new_tokens = 1
     module.max_iters = 6
@@ -54,7 +54,7 @@ def test_full_script(tmp_path, fake_checkpoint_dir, monkeypatch):
 
     logs = stdout.getvalue()
     assert logs.count("optimizer.step") == module.max_iters
-    assert logs.count("val loss") == module.max_iters // module.eval_interval
+    assert logs.count("val loss") == module.max_iters // module.eval_step_interval
     assert "of trainable parameters: 1,888" in logs
 
 
