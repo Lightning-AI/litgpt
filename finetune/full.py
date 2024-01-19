@@ -202,7 +202,7 @@ def train(
 
             fabric.print(
                 f"iter {metrics['iter']} | step {metrics['step']}: loss {metrics['loss']:.4f}, iter time:"
-                f" {metrics['iter_time'] * 1000:.2f} ms{' (optimizer.step),' if not is_accumulating else ','}"
+                f" {metrics['iter_time'] * 1000:.2f} ms{' (optimizer.step)' if not is_accumulating else ''}"
             )
             fabric.log_dict(metrics, step=state["iter_num"])
 
