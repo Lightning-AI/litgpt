@@ -6,10 +6,7 @@
 - OS: Ubuntu 22.04.3 LTS (x86_64)
 - Nvidia driver version: 525.125.06
 - Relevant libraries
-  - CMake 3.26.4
-  - Libc glibc-2.35
   - PyTorch 2.1.0+cu121
-  - Lightning 2.1.0.rc0
   - Bitsandbytes 0.41.1
 
 This document provides an overview and examples of hardware requirements when running models in Lit-GPT.
@@ -39,35 +36,63 @@ Note that the number of tokens in the training set does not affect the supported
 
 The following experiments were conducted on 1xA100 with a minibatch size of 128 using the `finetune/lora.py` script.
 
-| Size  | Model          | Quantization | Microbatch size | Trainable parameters | Max GPU RAM | Time 1k iterations | Time 50k iter (extrapolated) |
-|-------|----------------|--------------|-----------------|----------------------|-------------|--------------------|------------------------------|
-| 1.3 B | phi-1.5        | None         | 1               | 1,572,864            | 4.82 GB     | 1.62 min           | 80.91 min                    |
-| 1.3 B | phi-1.5        | bnb.nf4      | 1               | 1,572,864            | 3.78 GB     | 1.77 min           | 88.36 min                    |
-| 1.3 B | phi-1.5        | bnb.nf4-dq   | 1               | 1,572,864            | 3.72 GB     | 1.87 min           | 93.39 min                    |
-| 1.3 B | phi-1.5        | None         | 2               | 1,572,864            | 6.76 GB     | 1.65 min           | 82.44 min                    |
-| 1.3 B | phi-1.5        | None         | 4               | 1,572,864            | 10.68 GB    | 1.70 min           | 84.79 min                    |
-|       |                |              |                 |                      |             |                    |                              |
-| 3 B   | StableLM Alpha | None         | 1               | 2,097,152            | 9.69 GB     | 1.24 min           | 62.23 min                    |
-| 3 B   | StableLM Alpha | bnb.nf4      | 1               | 2,097,152            | 6.35 GB     | 1.82 min           | 91.22 min                    |
-| 3 B   | StableLM Alpha | bnb.nf4-dq   | 1               | 2,097,152            | 6.19 GB     | 1.87 min           | 93.58 min                    |
-| 3 B   | StableLM Alpha | None         | 2               | 2,097,152            | 12.10 GB    | 1.33 min           | 66.68 min                    |
-| 3 B   | StableLM Alpha | None         | 4               | 2,097,152            | 16.92 GB    | 1.50 min           | 74.89 min                    |
-|       |                |              |                 |                      |             |                    |                              |
-| 7 B   | Llama 2        | None         | 1               | 4,194,304            | 21.30 GB    | 2.36 min           | 118.03 min                   |
-| 7 B   | Llama 2        | bnb.nf4      | 1               | 4,194,304            | 14.14 GB    | 3.68 min           | 183.88 min                   |
-| 7 B   | Llama 2        | bnb.nf4-dq   | 1               | 4,194,304            | 13.84 GB    | 3.83 min           | 191.66 min                   |
-| 7 B   | Llama 2        | None         | 2               | 4,194,304            | 29.07 GB    | 2.52 min           | 125.97 min                   |
-| 7 B   | Llama 2        | None         | 4               | 4,194,304            | OOM         | -                  | -                            |
-|       |                |              |                 |                      |             |                    |                              |
-| 13 B  | Llama 2        | None         | 1               | 6,553,600            | 38.12 GB    | 3.19 min           | 159.43 min                   |
-| 13 B  | Llama 2        | bnb.nf4      | 1               | 6,553,600            | 23.14 GB    | 6.38 min           | 319.03 min                   |
-| 13 B  | Llama 2        | bnb.nf4-dq   | 1               | 6,553,600            | 22.55 GB    | 6.55 min           | 327.32 min                   |
-| 13 B  | Llama 2        | None         | 2               | 6,553,600            | OOM         | -                  | -                            |
-| 13 B  | Llama 2        | None         | 4               | 6,553,600            | OOM         | -                  | -                            |
-|       |                |              |                 |                      |             |                    |                              |
-| 40 B  | Falcon         | None         | 1               | 12,042,240           | OOM         | -                  | -                            |
-| 40 B  | Falcon         | bnb.nf4      | 1               | 12,042,240           | OOM         | -                  | -                            |
-| 40 B  | Falcon         | bnb.nf4-dq   | 1               | 12,042,240           | OOM         | -                  | -                            |
+| Size  | Model          | Quantization | Microbatch size | Trainable parameters | Max GPU RAM | Time 1k iterations |
+|-------|----------------|--------------|-----------------|----------------------|-------------|--------------------|
+| 1.3 B | phi-1.5        | None         | 1               | 1,572,864            | 4.82 GB     | 1.62 min           |
+| 1.3 B | phi-1.5        | bnb.nf4      | 1               | 1,572,864            | 3.78 GB     | 1.77 min           |
+| 1.3 B | phi-1.5        | bnb.nf4-dq   | 1               | 1,572,864            | 3.72 GB     | 1.87 min           |
+| 1.3 B | phi-1.5        | None         | 2               | 1,572,864            | 6.76 GB     | 1.65 min           |
+| 1.3 B | phi-1.5        | None         | 4               | 1,572,864            | 10.68 GB    | 1.70 min           |
+|       |                |              |                 |                      |             |                    |
+| 3 B   | StableLM Alpha | None         | 1               | 2,097,152            | 9.69 GB     | 1.24 min           |
+| 3 B   | StableLM Alpha | bnb.nf4      | 1               | 2,097,152            | 6.35 GB     | 1.82 min           |
+| 3 B   | StableLM Alpha | bnb.nf4-dq   | 1               | 2,097,152            | 6.19 GB     | 1.87 min           |
+| 3 B   | StableLM Alpha | None         | 2               | 2,097,152            | 12.10 GB    | 1.33 min           |
+| 3 B   | StableLM Alpha | None         | 4               | 2,097,152            | 16.92 GB    | 1.50 min           |
+|       |                |              |                 |                      |             |                    |
+| 7 B   | Llama 2        | None         | 1               | 4,194,304            | 21.30 GB    | 2.36 min           |
+| 7 B   | Llama 2        | bnb.nf4      | 1               | 4,194,304            | 14.14 GB    | 3.68 min           |
+| 7 B   | Llama 2        | bnb.nf4-dq   | 1               | 4,194,304            | 13.84 GB    | 3.83 min           |
+| 7 B   | Llama 2        | None         | 2               | 4,194,304            | 29.07 GB    | 2.52 min           |
+| 7 B   | Llama 2        | None         | 4               | 4,194,304            | OOM         | -                  |
+|       |                |              |                 |                      |             |                    |
+| 13 B  | Llama 2        | None         | 1               | 6,553,600            | 38.12 GB    | 3.19 min           |
+| 13 B  | Llama 2        | bnb.nf4      | 1               | 6,553,600            | 23.14 GB    | 6.38 min           |
+| 13 B  | Llama 2        | bnb.nf4-dq   | 1               | 6,553,600            | 22.55 GB    | 6.55 min           |
+| 13 B  | Llama 2        | None         | 2               | 6,553,600            | OOM         | -                  |
+| 13 B  | Llama 2        | None         | 4               | 6,553,600            | OOM         | -                  |
+|       |                |              |                 |                      |             |                    |
+| 40 B  | Falcon         | None         | 1               | 12,042,240           | OOM         | -                  |
+| 40 B  | Falcon         | bnb.nf4      | 1               | 12,042,240           | OOM         | -                  |
+| 40 B  | Falcon         | bnb.nf4-dq   | 1               | 12,042,240           | OOM         | -                  |
+
+&nbsp;
+
+## Finetuning with Adapter on 1 GPU
+
+The following experiments were conducted on 1xA100 with a minibatch size of 128 using the `finetune/adapter.py` script.
+
+| Size | Model          | Quantization | Microbatch size | Trainable parameters | Max GPU RAM | Time 1k iterations |
+|------|----------------|--------------|-----------------|----------------------|-------------|--------------------|
+| 3 B  | StableLM Alpha | None         | 1               | 573,888              | 9.10 GB     | 0.74 min           |
+| 3 B  | StableLM Alpha | bnb.nf4      | 1               | 573,888              | 5.65 GB     | 1.38 min           |
+| 3 B  | StableLM Alpha | bnb.nf4-dq   | 1               | 573,888              | 5.48 GB     | 1.46 min           |
+|      |                |              |                 |                      |             |                    |
+| 7 B  | Llama 2        | None         | 1               | 1,229,760            | 19.98 GB    | 1.50 min           |
+| 7 B  | Llama 2        | bnb.nf4      | 1               | 1,229,760            | 12.68 GB    | 2.93 min           |
+| 7 B  | Llama 2        | bnb.nf4-dq   | 1               | 1,229,760            | 12.38 GB    | 3.00 min           |
+
+The same config, but using the `finetune/adapter_v2.py` script.
+
+| Size | Model          | Quantization | Microbatch size | Trainable parameters | Max GPU RAM | Time 1k iterations |
+|------|----------------|--------------|-----------------|----------------------|-------------|--------------------|
+| 3 B  | StableLM Alpha | None         | 1               | 2,125,248            | 10.71 GB    | 0.87 min           |
+| 3 B  | StableLM Alpha | bnb.nf4      | 1               | 2,125,248            | 7.41 GB     | 1.59 min           |
+| 3 B  | StableLM Alpha | bnb.nf4-dq   | 1               | 2,125,248            | 7.25 GB     | 1.62 min           |
+|      |                |              |                 |                      |             |                    |
+| 7 B  | Llama 2        | None         | 1               | 4,279,744            | 25.51 GB    | 1.81 min           |
+| 7 B  | Llama 2        | bnb.nf4      | 1               | 4,279,744            | 18.30 GB    | 3.23 min           |
+| 7 B  | Llama 2        | bnb.nf4-dq   | 1               | 4,279,744            | 17.98 GB    | 3.32 min           |
 
 &nbsp;
 
@@ -75,28 +100,28 @@ The following experiments were conducted on 1xA100 with a minibatch size of 128 
 
 The following experiments were conducted on multiple A100 GPUs with a minibatch size of 128 using the `finetune/lora.py` script.
 
-| Size  | Model          | Quantization | Microbatch size | Trainable parameters | GPU      | Max GPU RAM | Time 1k iterations | Time 50k iter (extrapolated) |
-|-------|----------------|--------------|-----------------|----------------------|----------|-------------|--------------------|------------------------------|
-| 1.3 B | phi-1.5        | None         | 1               | 1,572,864            | 2 x A100 | 4.86 GB     | 3.81 min           | 190.47 min                   |
-| 1.3 B | phi-1.5        | bnb.nf4      | 1               | 1,572,864            | 2 x A100 | N/A         | -                  | -                            |
-| 1.3 B | phi-1.5        | bnb.nf4-dq   | 1               | 1,572,864            | 2 x A100 | N/A         | -                  | -                            |
-| 1.3 B | phi-1.5        | None         | 2               | 1,572,864            | 2 x A100 | 5.05 GB     | 3.63 min           | 181.31 min                   |
-| 1.3 B | phi-1.5        | None         | 4               | 1,572,864            | 2 x A100 | 5.88 GB     | 3.64 min           | 181.76 min                   |
-|       |                |              |                 |                      |          |             |                    |                              |
-| 3 B   | StableLM Alpha | None         | 1               | 2,097,152            | 2 x A100 | 12.75 GB    | 2.92 min           | 145.96 min                   |
-| 3 B   | StableLM Alpha | None         | 2               | 2,097,152            | 2 x A100 | 12.94 GB    | 3.06 min           | 153.10 min                   |
-| 3 B   | StableLM Alpha | None         | 4               | 2,097,152            | 2 x A100 | 13.45 GB    | 3.86 min           | 192.99 min                   |
-|       |                |              |                 |                      |          |             | -                  | -                            |
-| 7 B   | Llama 2        | None         | 1               | 4,194,304            | 2 x A100 | 22.18 GB    | 5.93 min           | 296.62 min                   |
-| 7 B   | Llama 2        | None         | 2               | 4,194,304            | 2 x A100 | 22.47 GB    | 6.48 min           | 324.03 min                   |
-| 7 B   | Llama 2        | None         | 4               | 4,194,304            | 2 x A100 | 23.39 GB    | 8.66 min           | 432.82 min                   |
-|       |                |              |                 |                      |          |             |                    |                              |
-| 13 B  | Llama 2        | None         | 1               | 6,553,600            | 2 x A100 | OOM         | -                  | -                            |
-| 13 B  | Llama 2        | bnb.nf4      | 1               | 6,553,600            | 2 x A100 | N/A         | -                  | -                            |
-| 13 B  | Llama 2        | bnb.nf4-dq   | 1               | 6,553,600            | 2 x A100 | N/A         | -                  | -                            |
-|       |                |              |                 |                      |          |             |                    |                              |
-| 13 B  | Llama 2        | None         | 1               | 6,553,600            | 4 x A100 | 35.57 GB    | 10.25 min          | 512.5 min                    |
-| 40 B  | Falcon         | None         | 1               | 12,042,240           | 4 x A100 | OOM         | -                  | -                            |
+| Size  | Model          | Quantization | Microbatch size | Trainable parameters | GPU      | Max GPU RAM | Time 1k iterations |
+|-------|----------------|--------------|-----------------|----------------------|----------|-------------|--------------------|
+| 1.3 B | phi-1.5        | None         | 1               | 1,572,864            | 2 x A100 | 4.86 GB     | 3.81 min           |
+| 1.3 B | phi-1.5        | bnb.nf4      | 1               | 1,572,864            | 2 x A100 | N/A         | -                  |
+| 1.3 B | phi-1.5        | bnb.nf4-dq   | 1               | 1,572,864            | 2 x A100 | N/A         | -                  |
+| 1.3 B | phi-1.5        | None         | 2               | 1,572,864            | 2 x A100 | 5.05 GB     | 3.63 min           |
+| 1.3 B | phi-1.5        | None         | 4               | 1,572,864            | 2 x A100 | 5.88 GB     | 3.64 min           |
+|       |                |              |                 |                      |          |             |                    |
+| 3 B   | StableLM Alpha | None         | 1               | 2,097,152            | 2 x A100 | 12.75 GB    | 2.92 min           |
+| 3 B   | StableLM Alpha | None         | 2               | 2,097,152            | 2 x A100 | 12.94 GB    | 3.06 min           |
+| 3 B   | StableLM Alpha | None         | 4               | 2,097,152            | 2 x A100 | 13.45 GB    | 3.86 min           |
+|       |                |              |                 |                      |          |             | -                  |
+| 7 B   | Llama 2        | None         | 1               | 4,194,304            | 2 x A100 | 22.18 GB    | 5.93 min           |
+| 7 B   | Llama 2        | None         | 2               | 4,194,304            | 2 x A100 | 22.47 GB    | 6.48 min           |
+| 7 B   | Llama 2        | None         | 4               | 4,194,304            | 2 x A100 | 23.39 GB    | 8.66 min           |
+|       |                |              |                 |                      |          |             |                    |
+| 13 B  | Llama 2        | None         | 1               | 6,553,600            | 2 x A100 | OOM         | -                  |
+| 13 B  | Llama 2        | bnb.nf4      | 1               | 6,553,600            | 2 x A100 | N/A         | -                  |
+| 13 B  | Llama 2        | bnb.nf4-dq   | 1               | 6,553,600            | 2 x A100 | N/A         | -                  |
+|       |                |              |                 |                      |          |             |                    |
+| 13 B  | Llama 2        | None         | 1               | 6,553,600            | 4 x A100 | 35.57 GB    | 10.25 min          |
+| 40 B  | Falcon         | None         | 1               | 12,042,240           | 4 x A100 | OOM         | -                  |
 
 &nbsp;
 

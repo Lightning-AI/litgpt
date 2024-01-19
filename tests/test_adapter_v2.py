@@ -10,6 +10,7 @@ import pytest
 import torch
 from conftest import RunIf
 from lightning import Fabric
+from lightning.fabric.wrappers import _FabricOptimizer
 
 # support running without installing as a package
 wd = Path(__file__).parent.parent.resolve()
@@ -91,8 +92,7 @@ def test_adapter_v2_script(tmp_path, fake_checkpoint_dir, monkeypatch):
     model_config = dict(block_size=128, n_layer=2, n_embd=8, n_head=4, padded_vocab_size=8, adapter_start_layer=0)
     monkeypatch.setitem(name_to_config, "tmp", model_config)
 
-    monkeypatch.setattr(module, "lazy_load", Mock())
-    monkeypatch.setattr(module.GPT, "load_state_dict", Mock())
+    monkeypatch.setattr(module, "load_checkpoint", Mock())
 
     tokenizer_mock = Mock()
     tokenizer_mock.return_value = tokenizer_mock
@@ -219,3 +219,156 @@ def test_against_hf_mixtral():
     ours_y = ours_model(x)
     theirs_y = theirs_model(x)["logits"].to(dtype)  # HF converts logits to float
     torch.testing.assert_close(ours_y, theirs_y)
+
+
+@RunIf(min_cuda_gpus=1)
+# platform dependent cuda issue: libbitsandbytes_cpu.so: undefined symbol: cquantize_blockwise_fp16_nf4
+@pytest.mark.xfail(raises=AttributeError, strict=False)
+def test_adapter_v2_bitsandbytes(monkeypatch, tmp_path, fake_checkpoint_dir):
+    from lightning.fabric.plugins.precision.bitsandbytes import _BITSANDBYTES_AVAILABLE, BitsandbytesPrecision
+
+    if not _BITSANDBYTES_AVAILABLE:
+        pytest.skip("BNB not available")
+
+    from bitsandbytes.optim import PagedAdamW
+
+    import finetune.adapter_v2 as module
+
+    data = []
+    torch.save(data, tmp_path / "train.pt")
+    torch.save(data, tmp_path / "test.pt")
+
+    from lit_gpt.config import name_to_config
+
+    model_config = dict(
+        block_size=128, n_layer=2, n_embd=8, n_head=4, padded_vocab_size=8, adapter_start_layer=0, bias=True
+    )
+    monkeypatch.setitem(name_to_config, "tmp", model_config)
+
+    monkeypatch.setattr(module, "load_checkpoint", Mock())
+    train_mock = Mock()
+    monkeypatch.setattr(module, "train", train_mock)
+
+    stdout = StringIO()
+    with redirect_stdout(stdout):
+        module.setup(
+            data_dir=tmp_path,
+            checkpoint_dir=fake_checkpoint_dir,
+            out_dir=tmp_path,
+            precision="16-true",
+            quantize="bnb.nf4-dq",
+        )
+
+    args, kwargs = train_mock.call_args
+    fabric, model, optimizer, *_ = args
+    assert isinstance(fabric.strategy.precision, BitsandbytesPrecision)
+    assert isinstance(optimizer, _FabricOptimizer)
+    assert isinstance(optimizer._optimizer, PagedAdamW)
+
+    dtype_to_name = {"torch.uint8": set(), "torch.float16": set()}
+    for name, layer in model.named_parameters():
+        name = name[len("_forward_module.") :]
+        dtype_to_name[str(layer.dtype)].add(name)
+    assert dtype_to_name == {
+        "torch.uint8": {
+            "transformer.h.0.mlp.fc.linear.weight",
+            "transformer.h.1.mlp.proj.linear.weight",
+            "transformer.h.1.attn.attn.linear.weight",
+            "transformer.h.0.attn.proj.linear.weight",
+            "lm_head.linear.weight",
+            "transformer.h.1.attn.proj.linear.weight",
+            "transformer.h.0.mlp.proj.linear.weight",
+            "transformer.h.0.attn.attn.linear.weight",
+            "transformer.h.1.mlp.fc.linear.weight",
+        },
+        "torch.float16": {
+            "transformer.h.1.attn.attn.adapter_bias",
+            "transformer.h.1.mlp.proj.adapter_bias",
+            "transformer.h.0.attn.attn.adapter_bias",
+            "transformer.h.0.norm_1.bias",
+            "transformer.h.0.attn.attn.linear.bias",
+            "transformer.h.1.attn.adapter_wte.weight",
+            "transformer.ln_f.weight",
+            "transformer.h.0.mlp.fc.linear.bias",
+            "transformer.h.0.mlp.proj.linear.bias",
+            "transformer.h.1.mlp.fc.linear.bias",
+            "transformer.h.0.attn.proj.adapter_scale",
+            "transformer.h.0.attn.attn.adapter_scale",
+            "transformer.h.1.norm_2.bias",
+            "transformer.h.1.attn.proj.adapter_scale",
+            "transformer.h.0.norm_2.bias",
+            "transformer.h.0.mlp.fc.adapter_scale",
+            "transformer.h.0.attn.proj.linear.bias",
+            "transformer.h.1.attn.proj.linear.bias",
+            "transformer.h.1.norm_1.bias",
+            "transformer.h.0.norm_1.weight",
+            "transformer.h.1.attn.proj.adapter_bias",
+            "transformer.h.0.mlp.proj.adapter_scale",
+            "transformer.h.0.mlp.proj.adapter_bias",
+            "transformer.h.1.mlp.fc.adapter_bias",
+            "transformer.h.1.mlp.proj.adapter_scale",
+            "transformer.h.1.attn.gating_factor",
+            "transformer.h.1.norm_1.weight",
+            "transformer.ln_f.bias",
+            "transformer.h.0.mlp.fc.adapter_bias",
+            "lm_head.adapter_scale",
+            "lm_head.adapter_bias",
+            "transformer.h.1.norm_2.weight",
+            "transformer.h.0.attn.adapter_wte.weight",
+            "transformer.h.1.attn.attn.adapter_scale",
+            "transformer.h.1.mlp.fc.adapter_scale",
+            "transformer.h.1.attn.attn.linear.bias",
+            "transformer.wte.weight",
+            "transformer.h.0.norm_2.weight",
+            "transformer.h.1.mlp.proj.linear.bias",
+            "transformer.h.0.attn.gating_factor",
+            "transformer.h.0.attn.proj.adapter_bias",
+        },
+    }
+
+    assert {p.name for p in tmp_path.glob("*.pth")} == {"lit_model_adapter_finetuned.pth"}
+    state_dict = torch.load(tmp_path / "lit_model_adapter_finetuned.pth")
+    assert len(state_dict) == 1
+    dtype_to_name = {"torch.float16": set()}
+    for name, layer in state_dict["model"].items():
+        dtype_to_name[str(layer.dtype)].add(name)
+    assert dtype_to_name == {
+        "torch.float16": {
+            "transformer.h.1.attn.adapter_wte.weight",
+            "transformer.h.1.attn.proj.adapter_bias",
+            "transformer.h.1.mlp.fc.adapter_scale",
+            "lm_head.adapter_bias",
+            "transformer.h.0.mlp.proj.adapter_scale",
+            "transformer.ln_f.bias",
+            "lm_head.adapter_scale",
+            "transformer.h.1.norm_2.weight",
+            "transformer.h.0.attn.attn.adapter_scale",
+            "transformer.h.0.mlp.proj.adapter_bias",
+            "transformer.h.0.attn.gating_factor",
+            "transformer.h.1.norm_1.bias",
+            "transformer.h.1.mlp.fc.adapter_bias",
+            "transformer.h.1.mlp.proj.adapter_scale",
+            "transformer.h.0.mlp.fc.adapter_scale",
+            "transformer.h.1.attn.attn.adapter_bias",
+            "transformer.h.0.norm_2.weight",
+            "transformer.h.1.norm_2.bias",
+            "transformer.h.0.norm_1.weight",
+            "transformer.h.0.attn.proj.adapter_scale",
+            "transformer.h.1.mlp.proj.adapter_bias",
+            "transformer.h.0.attn.attn.adapter_bias",
+            "transformer.h.0.attn.adapter_wte.weight",
+            "transformer.ln_f.weight",
+            "transformer.h.1.attn.gating_factor",
+            "transformer.h.0.mlp.fc.adapter_bias",
+            "transformer.h.1.attn.proj.adapter_scale",
+            "transformer.h.0.attn.proj.adapter_bias",
+            "transformer.h.0.norm_1.bias",
+            "transformer.h.0.norm_2.bias",
+            "transformer.h.1.norm_1.weight",
+            "transformer.h.1.attn.attn.adapter_scale",
+        }
+    }
+
+    logs = stdout.getvalue()
+    assert "of trainable parameters: 552" in logs
+    assert "of non trainable parameters: 1,808" in logs
