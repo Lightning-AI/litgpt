@@ -156,7 +156,6 @@ def train(
         fabric.print(f"Measured TFLOPs: {measured_flops * fabric.world_size / 1e12:.2f}")
         del meta_model, x
 
-    # TODO: max iters
     initial_iter = state["iter_num"]
 
     # resume data loader state by fast-forwarding through all seen batches
@@ -218,7 +217,7 @@ def train(
                 "iter_time": t1 - iter_t0,
                 "tokens": state["iter_num"] * micro_batch_size * model.config.block_size,
                 "total_tokens": state["iter_num"] * micro_batch_size * model.config.block_size * fabric.world_size,
-                # TODO: learning rate
+                # TODO: log learning rate
             }
 
             fabric.print(
