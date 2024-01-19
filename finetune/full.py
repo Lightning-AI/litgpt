@@ -2,7 +2,8 @@ import os
 import sys
 import time
 from pathlib import Path
-from typing import Dict, List, Tuple, Optional, Union
+from typing import Dict, List, Optional, Tuple, Union
+
 import lightning as L
 import torch
 from lightning.fabric.loggers import CSVLogger
