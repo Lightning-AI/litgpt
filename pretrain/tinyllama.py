@@ -166,8 +166,8 @@ def train(fabric, state, train_dataloader, val_dataloader, resume):
         state["iter_num"] += 1
         iter_t0 = time.perf_counter()
 
-        input_ids = train_data[:, 0: model.config.block_size].contiguous().long()
-        targets = train_data[:, 1: (model.config.block_size + 1)].contiguous().long()
+        input_ids = train_data[:, 0:model.config.block_size].contiguous().long()
+        targets = train_data[:, 1:(model.config.block_size + 1)].contiguous().long()
 
         is_accumulating = state["iter_num"] % gradient_accumulation_steps != 0
         with fabric.no_backward_sync(model, enabled=is_accumulating):
