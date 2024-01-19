@@ -2,23 +2,27 @@
 
 This tutorial will walk you through pretraining [TinyLlama](https://github.com/jzhang38/TinyLlama/).
 
+> [!TIP]
+> To get started with zero setup, clone the [TinyLlama studio on Lightning AI](https://lightning.ai/lightning-ai/studios/llm-pretrain-tinyllama-1-1b).
+
 ## What's TinyLlama?
 
 [TinyLlama](https://github.com/jzhang38/TinyLlama/) is architecturally the same as Meta AI's LLama 2, but only has 1.1B parameters and is instead trained on multiple epochs on a mix of [SlimPajama](https://huggingface.co/datasets/cerebras/SlimPajama-627B) and [Starcoder](https://huggingface.co/datasets/bigcode/starcoderdata) datasets.
 
 Here is a quick fact sheet:
 
-| Name                         | Description                                                                                                                                                  |
-|------------------------------|--------------------------------------------------------------------------------------------------------------------------------------------------------------|
-| Parameters                   | 1.1B                                                                                                                                                         |
-| Model Size                   | Layers: 22, Heads: 32, Query Groups: 4, Embedding Size: 2048, Intermediate Size: 5632                                                                        |
-| Sequence Length              | 2048                                                                                                                                                         |
-| Batch Size                   | 2 million tokens (2048 * 1024)                                                                                                                               |
-| Learning Rate                | 4e-4                                                                                                                                                         |
-| Learning Rate Schedule       | Cosine with 2000 warmup steps                                                                                                                                |
-| Training Data                | [SlimPajama](https://huggingface.co/datasets/cerebras/slimpajama-627b) (893 GB), [Starcoder](https://huggingface.co/datasets/bigcode/starcoderdata) (290 GB) |
-| Combined Dataset Size        | Around 950B tokens                                                                                                                                           |
-| Total Tokens During Training | 3 trillion                                                                                                                                                   |
+| Name                          | Description                                                                                                                                                  |
+|-------------------------------|--------------------------------------------------------------------------------------------------------------------------------------------------------------|
+| Parameters                    | 1.1B                                                                                                                                                         |
+| Model Size                    | Layers: 22, Heads: 32, Query Groups: 4, Embedding Size: 2048, Intermediate Size: 5632                                                                        |
+| Sequence Length               | 2048                                                                                                                                                         |
+| Learning Rate                 | 4e-4                                                                                                                                                         |
+| Learning Rate Schedule        | Cosine with 2000 warmup steps                                                                                                                                |
+| Training Data                 | [SlimPajama](https://huggingface.co/datasets/cerebras/slimpajama-627b) (893 GB), [Starcoder](https://huggingface.co/datasets/bigcode/starcoderdata) (290 GB) |
+| Combined Dataset Size         | Around 950B tokens                                                                                                                                           |
+| Total Tokens During Training  | 3 trillion (3 epochs)                                                                                                                                        |
+| Time to complete training     | ~ 4 weeks with 64 A100 GPUs                                                                                                                                  |
+| Model FLOPs Utilization (MFU) | 52%                                                                                                                                                          |
 
 (this table was sourced from the author's [README](https://github.com/jzhang38/TinyLlama/))
 
@@ -45,7 +49,7 @@ In order to start pretraining lit-gpt on it, you need to read, tokenize, and wri
 First, install additional dependencies for preprocessing:
 
 ```bash
-pip install lightning[data] tensorboard sentencepiece zstandard pandas pyarrow huggingface_hub
+pip install lightning[data] torchmetrics tensorboard sentencepiece zstandard pandas pyarrow huggingface_hub
 ```
 
 You will need to have the tokenizer config available:
@@ -140,3 +144,37 @@ GPU memory. For more tips to avoid out-of-memory issues, please also see the mor
 
 Last, logging is kept minimal in the script, but for long running experiments we recommend switching to a proper experiment tracker.
 As an example, we included WandB (set `use_wandb=True`) to show how you can integrate any experiment tracking framework.
+For reference, [here are the loss curves for our reproduction](https://api.wandb.ai/links/awaelchli/y7pzdpwy).
+
+## Resume training
+
+The checkpoints saved during pretraining contain all the information to resume if needed.
+Simply rerun the script with the `--resume` argument:
+
+```bash
+python pretrain/tinyllama.py --resume out/tiny-llama-1.1b/step-00060500.pth
+```
+
+## Export checkpoints
+
+After training is completed, you can convert the checkpoint to a format that can be loaded for evaluation, inference, finetuning etc.
+
+```bash
+python scripts/convert_pretrained_checkpoint.py \
+  --checkpoint_file out/tiny-llama-1.1b/step-00060500.pth \
+  --tokenizer_dir checkpoints/meta-llama/Llama-2-7b-hf \
+  --config_name tiny-llama-1.1b \
+  --output_dir checkpoints/lit-tiny-llama-1.1b
+```
+
+After conversion, the output folder will contain these files:
+```
+checkpoints/lit-tiny-llama-1.1b
+├── lit_config.json
+├── lit_model.pth
+├── tokenizer_config.json
+├── tokenizer.json
+└── tokenizer.model
+```
+
+You can then use this checkpoint folder to run [evaluation](evaluation.md), [inference](inference.md), [finetuning](finetune_lora.md) or [process the checkpoint further](convert_lit_models.md).

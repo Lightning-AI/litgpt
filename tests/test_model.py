@@ -1,3 +1,5 @@
+# Copyright Lightning AI. Licensed under the Apache License 2.0, see LICENSE file.
+
 import sys
 from functools import partial
 from pathlib import Path
@@ -6,6 +8,7 @@ from urllib.request import urlretrieve
 import pytest
 import torch
 from conftest import RunIf
+from lightning import Fabric
 from lightning.fabric.utilities.imports import _IS_WINDOWS, _TORCH_GREATER_EQUAL_2_2
 
 # support running without installing as a package
@@ -61,7 +64,7 @@ def test_against_gpt_neox_model(rotary_pct, batch_size, n_embd, parallel_residua
         num_hidden_layers=ours_config.n_layer,
         initializer_range=0.02,
         intermediate_size=ours_config.intermediate_size,
-        layer_norm_eps=1e-05,
+        layer_norm_eps=ours_config.norm_eps,
         max_position_embeddings=ours_config.block_size,
         rotary_emb_base=10000,
         rotary_pct=ours_config.rotary_percentage,
@@ -236,7 +239,7 @@ def test_against_hf_llama2(ours_kwargs, device, dtype):
         num_hidden_layers=ours_config.n_layer,
         intermediate_size=ours_config.intermediate_size,
         max_position_embeddings=T,
-        rms_norm_eps=1e-5,
+        rms_norm_eps=ours_config.norm_eps,
         num_key_value_heads=ours_config.n_query_groups,
         rope_theta=ours_config.rope_base,
         attention_bias=ours_config.bias,
@@ -270,7 +273,7 @@ def test_against_hf_llama2(ours_kwargs, device, dtype):
         ),
     ],
 )
-def test_against_hf_phi(device, dtype):
+def test_against_hf_phi_1_5(device, dtype):
     workdir = wd / "tests" / "reference_models"
     workdir.mkdir(parents=True, exist_ok=True)
     file_paths = [workdir / "original_phi_1_5.py", workdir / "configuration_phi.py"]
@@ -294,20 +297,81 @@ def test_against_hf_phi(device, dtype):
     )
     T = 5
     theirs_config = PhiConfig(
-        n_positions=ours_config.block_size,
-        n_embd=ours_config.n_embd,
-        n_head=ours_config.n_head,
-        n_layer=ours_config.n_layer,
-        rotary_dim=ours_config.rope_n_elem,
-        architecture={"block_cls": "parallel", "mixer": {}, "mlp": {"mlp_cls": "mlp"}},
+        vocab_size=ours_config.padded_vocab_size,
+        max_position_embeddings=ours_config.block_size,
+        hidden_size=ours_config.n_embd,
+        intermediate_size=ours_config.intermediate_size,
+        num_attention_heads=ours_config.n_head,
+        num_hidden_layers=ours_config.n_layer,
+        partial_rotary_factor=ours_config.rotary_percentage,
         torch_dtype=dtype,
     )
-    theirs_config.vocab_size = ours_config.padded_vocab_size
 
     theirs_model = PhiForCausalLM(theirs_config).to(device)
     theirs_state_dict = theirs_model.state_dict()
     state_dict = {}
-    copy_weights_phi(ours_config, state_dict, theirs_state_dict)
+    copy_weights_phi(ours_config, {}, state_dict, theirs_state_dict)
+    ours_model = GPT(ours_config).to(device)
+    ours_model.load_state_dict(state_dict)
+
+    # test end to end
+    x = torch.tensor([[9856, 23, 491, 1536, 304]], dtype=torch.int32, device=device)
+    assert x.size(1) == T
+    ours_y = ours_model(x)
+    theirs_y = theirs_model(x)["logits"].to(dtype)  # HF converts logits to float
+    torch.testing.assert_close(ours_y, theirs_y)
+
+
+@torch.inference_mode()
+@pytest.mark.parametrize(
+    ("device", "dtype"),
+    [
+        (torch.device("cpu"), torch.float32),
+        pytest.param(
+            torch.device("cuda"),
+            torch.float16,
+            marks=[pytest.mark.xfail(raises=AssertionError, strict=False), RunIf(min_cuda_gpus=1)],
+        ),
+    ],
+)
+def test_against_hf_phi_2(device, dtype):
+    workdir = wd / "tests" / "reference_models"
+    workdir.mkdir(parents=True, exist_ok=True)
+    file_paths = [workdir / "original_phi_2.py", workdir / "configuration_phi.py"]
+    urls = [
+        "https://huggingface.co/microsoft/phi-2/raw/main/modeling_phi.py",
+        "https://huggingface.co/microsoft/phi-2/raw/main/configuration_phi.py",
+    ]
+    for file_path, url in zip(file_paths, urls):
+        if not file_path.is_file():
+            urlretrieve(url=url, filename=file_path)
+
+    from lit_gpt import GPT, Config
+    from scripts.convert_hf_checkpoint import copy_weights_phi
+    from tests.reference_models.configuration_phi import PhiConfig
+    from tests.reference_models.original_phi_2 import PhiForCausalLM
+
+    torch.set_default_dtype(dtype)
+
+    ours_config = Config.from_name(
+        "phi-2", padded_vocab_size=10000, n_layer=2, n_head=4, n_embd=256, rotary_percentage=0.5
+    )
+    T = 5
+    theirs_config = PhiConfig(
+        vocab_size=ours_config.padded_vocab_size,
+        max_position_embeddings=ours_config.block_size,
+        hidden_size=ours_config.n_embd,
+        intermediate_size=ours_config.intermediate_size,
+        num_attention_heads=ours_config.n_head,
+        num_hidden_layers=ours_config.n_layer,
+        partial_rotary_factor=ours_config.rotary_percentage,
+        torch_dtype=dtype,
+    )
+
+    theirs_model = PhiForCausalLM(theirs_config).to(device)
+    theirs_state_dict = theirs_model.state_dict()
+    state_dict = {}
+    copy_weights_phi(ours_config, {}, state_dict, theirs_state_dict)
     ours_model = GPT(ours_config).to(device)
     ours_model.load_state_dict(state_dict)
 
@@ -362,13 +426,117 @@ def test_against_hf_mistral(device, dtype):
         num_hidden_layers=ours_config.n_layer,
         intermediate_size=ours_config.intermediate_size,
         max_position_embeddings=T,
-        rms_norm_eps=1e-5,
+        rms_norm_eps=ours_config.norm_eps,
         num_key_value_heads=ours_config.n_query_groups,
         rope_theta=ours_config.rope_base,
     )
     assert ours_config.intermediate_size == theirs_config.intermediate_size
 
     theirs_model = MistralForCausalLM(theirs_config).to(device)
+    theirs_state_dict = theirs_model.state_dict()
+    state_dict = {}
+    copy_weights_hf_llama(ours_config, {}, state_dict, theirs_state_dict)
+    ours_model = GPT(ours_config).to(device)
+    ours_model.load_state_dict(state_dict)
+
+    # test end to end
+    x = torch.tensor([[9856, 23, 491, 1536, 304]], dtype=torch.int32, device=device)
+    assert x.size(1) == T
+    ours_y = ours_model(x)
+    theirs_y = theirs_model(x)["logits"].to(dtype)  # HF converts logits to float
+    torch.testing.assert_close(ours_y, theirs_y)
+
+
+@torch.inference_mode()
+def test_against_hf_mixtral():
+    from transformers.models.mixtral import MixtralConfig, MixtralForCausalLM
+
+    from lit_gpt import GPT, Config
+    from scripts.convert_hf_checkpoint import copy_weights_hf_llama
+
+    device = torch.device("cpu")
+    dtype = torch.float32
+    ours_config = Config.from_name(
+        "Mixtral-8x7B-Instruct-v0.1",
+        padded_vocab_size=10000,
+        n_layer=2,
+        n_embd=32,
+        n_head=8,
+        n_query_groups=2,
+        intermediate_size=86,
+        n_expert=4,
+    )
+    T = 5
+    theirs_config = MixtralConfig(
+        vocab_size=ours_config.padded_vocab_size,
+        hidden_size=ours_config.n_embd,
+        num_attention_heads=ours_config.n_head,
+        num_hidden_layers=ours_config.n_layer,
+        intermediate_size=ours_config.intermediate_size,
+        max_position_embeddings=T,
+        rms_norm_eps=ours_config.norm_eps,
+        num_key_value_heads=ours_config.n_query_groups,
+        rope_theta=ours_config.rope_base,
+        num_local_experts=ours_config.n_expert,
+    )
+    assert ours_config.intermediate_size == theirs_config.intermediate_size
+
+    theirs_model = MixtralForCausalLM(theirs_config).to(device)
+    theirs_state_dict = theirs_model.state_dict()
+    state_dict = {}
+    copy_weights_hf_llama(ours_config, {}, state_dict, theirs_state_dict)
+    ours_model = GPT(ours_config).to(device)
+    ours_model.load_state_dict(state_dict)
+
+    # test end to end
+    x = torch.tensor([[9856, 23, 491, 1536, 304], [23, 345, 65, 123, 321]], dtype=torch.int32, device=device)
+    assert x.size(1) == T
+    ours_y = ours_model(x)
+    theirs_y = theirs_model(x)["logits"].to(dtype)  # HF converts logits to float
+    torch.testing.assert_close(ours_y, theirs_y)
+
+
+@torch.inference_mode()
+@pytest.mark.parametrize(
+    ("device", "dtype"),
+    [
+        (torch.device("cpu"), torch.float32),
+        pytest.param(
+            torch.device("cuda"),
+            torch.float16,
+            marks=[
+                # the reference does softmax upscaled to fp32 during attention. additionally, the final layernorm input
+                # is slightly different
+                pytest.mark.xfail(raises=AssertionError, strict=False),
+                RunIf(min_cuda_gpus=1),
+            ],
+        ),
+    ],
+)
+def test_against_original_stablelm_zephyr_3b(device, dtype):
+    from transformers import AutoConfig, AutoModelForCausalLM
+
+    from lit_gpt import GPT, Config
+    from scripts.convert_hf_checkpoint import copy_weights_hf_llama
+
+    torch.set_default_dtype(dtype)
+
+    T = 5
+    ours_config = Config.from_name("stablelm-zephyr-3b", n_layer=2, n_head=16, n_embd=32, intermediate_size=86)
+    theirs_config = AutoConfig.from_pretrained(
+        "stabilityai/stablelm-zephyr-3b",
+        trust_remote_code=True,
+        num_hidden_layers=ours_config.n_layer,
+        num_attention_heads=ours_config.n_head,
+        num_key_value_heads=ours_config.n_head,
+        hidden_size=ours_config.n_embd,
+        intermediate_size=ours_config.intermediate_size,
+        max_position_embeddings=T,
+        torch_dtype=dtype,
+    )
+    assert ours_config.intermediate_size == theirs_config.intermediate_size
+
+    theirs_model = AutoModelForCausalLM.from_config(theirs_config, trust_remote_code=True).to(device)
     theirs_state_dict = theirs_model.state_dict()
     state_dict = {}
     copy_weights_hf_llama(ours_config, {}, state_dict, theirs_state_dict)
@@ -463,19 +631,36 @@ SUPPORTS_FLASH_ATTENTION = (
 )
 
 
-@RunIf(min_cuda_gpus=1)
+@RunIf(min_cuda_gpus=1, min_torch="2.2")
 @pytest.mark.parametrize("config", config_module.configs, ids=[c["name"] for c in config_module.configs])
 @torch.inference_mode()
 def test_sdpa_choice(config):
-    from torch.backends.cuda import SDPBackend
+    from torch.backends.cuda import (
+        SDPAParams,
+        SDPBackend,
+        can_use_efficient_attention,
+        can_use_flash_attention,
+        flash_sdp_enabled,
+        math_sdp_enabled,
+        mem_efficient_sdp_enabled,
+    )
 
     from lit_gpt import GPT
 
     torch.set_default_dtype(torch.float16)
 
-    def assert_sdpa_uses_flash(original_fn, q, k, v, mask):
-        choice = torch._fused_sdp_choice(q, k, v, mask, is_causal=True)
-        assert choice == expected
+    def assert_sdpa_backend(original_fn, q, k, v, mask):
+        params = SDPAParams(q, k, v, mask, 0.0, True)
+        if expected is SDPBackend.FLASH_ATTENTION:
+            assert flash_sdp_enabled()
+            assert can_use_flash_attention(params, True)
+        elif expected is SDPBackend.EFFICIENT_ATTENTION:
+            assert mem_efficient_sdp_enabled()
+            assert can_use_efficient_attention(params, True)
+        elif expected is SDPBackend.MATH:
+            assert math_sdp_enabled()
+        else:
+            raise NotImplementedError
         return original_fn(q, k, v, mask)
 
     config["n_layer"] = 1
@@ -490,7 +675,7 @@ def test_sdpa_choice(config):
         pytest.xfail()
 
     for h in model.transformer.h:
-        h.attn.scaled_dot_product_attention = partial(assert_sdpa_uses_flash, h.attn.scaled_dot_product_attention)
+        h.attn.scaled_dot_product_attention = partial(assert_sdpa_backend, h.attn.scaled_dot_product_attention)
 
     if SUPPORTS_FLASH_ATTENTION:
         # flash attention 1 requires q,k,v to have the same last dimension and to be a multiple of 8 and less than or
@@ -508,19 +693,36 @@ def test_sdpa_choice(config):
         model(x)
 
 
-@RunIf(min_cuda_gpus=1)
+@RunIf(min_cuda_gpus=1, min_torch="2.2")
 @pytest.mark.parametrize("config", config_module.configs, ids=[c["name"] for c in config_module.configs])
 @torch.inference_mode()
 def test_sdpa_choice_kv_cache(config):
-    from torch.backends.cuda import SDPBackend
+    from torch.backends.cuda import (
+        SDPAParams,
+        SDPBackend,
+        can_use_efficient_attention,
+        can_use_flash_attention,
+        flash_sdp_enabled,
+        math_sdp_enabled,
+        mem_efficient_sdp_enabled,
+    )
 
     from lit_gpt import GPT
 
     torch.set_default_dtype(torch.float16)
 
-    def assert_sdpa_uses_flash(original_fn, q, k, v, mask):
-        choice = torch._fused_sdp_choice(q, k, v, mask, is_causal=True)
-        assert choice == expected
+    def assert_sdpa_backend(original_fn, q, k, v, mask):
+        params = SDPAParams(q, k, v, mask, 0.0, True)
+        if expected is SDPBackend.FLASH_ATTENTION:
+            assert flash_sdp_enabled()
+            assert can_use_flash_attention(params, True)
+        elif expected is SDPBackend.EFFICIENT_ATTENTION:
+            assert mem_efficient_sdp_enabled()
+            assert can_use_efficient_attention(params, True)
+        elif expected is SDPBackend.MATH:
+            assert math_sdp_enabled()
+        else:
+            raise NotImplementedError
         return original_fn(q, k, v, mask)
 
     config["n_layer"] = 1
@@ -538,7 +740,7 @@ def test_sdpa_choice_kv_cache(config):
         pytest.xfail()
 
     for h in model.transformer.h:
-        h.attn.scaled_dot_product_attention = partial(assert_sdpa_uses_flash, h.attn.scaled_dot_product_attention)
+        h.attn.scaled_dot_product_attention = partial(assert_sdpa_backend, h.attn.scaled_dot_product_attention)
 
     if SUPPORTS_FLASH_ATTENTION:
         # flash attention does not support an attention mask
@@ -551,3 +753,24 @@ def test_sdpa_choice_kv_cache(config):
     )
     with torch.backends.cuda.sdp_kernel(enable_flash=False):
         model(x, input_pos)
+
+
+@RunIf(min_cuda_gpus=2, standalone=True)
+def test_rope_init_under_fsdp():
+    """Check that the rope cache is properly intialized"""
+    from lit_gpt import GPT
+
+    fabric = Fabric(devices=2, strategy="fsdp", accelerator="cuda")
+    fabric.launch()
+
+    with fabric.init_module(empty_init=True):
+        model = GPT.from_name("pythia-14m", n_layer=1)
+    assert model.cos.device.type == "meta"
+    assert model.sin.device.type == "meta"
+
+    model = fabric.setup(model)
+    assert model.cos.device.type == "cuda"
+    assert model.sin.device.type == "cuda"
+    cos, sin = model.rope_cache(device=fabric.device)
+    torch.testing.assert_close(model.cos, cos)
+    torch.testing.assert_close(model.sin, sin)

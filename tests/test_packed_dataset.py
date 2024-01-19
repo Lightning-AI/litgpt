@@ -1,3 +1,5 @@
+# Copyright Lightning AI. Licensed under the Apache License 2.0, see LICENSE file.
+
 import os
 from unittest.mock import MagicMock
 
@@ -201,7 +203,7 @@ def test_sharded_packed_dataset(monkeypatch):
         (None, [0.5, 0.5]),
     ],
 )
-def test_combined_dataset_normalizes_weights(weights, expected, monkeypatch):
+def test_combined_dataset_normalizes_weights(weights, expected):
     from lit_gpt.packed_dataset import CombinedDataset
 
     combined_dataset = CombinedDataset([[1], [2, 3]], weights=weights, seed=1)

@@ -1,3 +1,5 @@
+# Copyright Lightning AI. Licensed under the Apache License 2.0, see LICENSE file.
+
 import json
 import sys
 from pathlib import Path
@@ -56,7 +58,7 @@ def test_from_hf_name():
     # by short-hand name
     config0 = Config.from_name("tiny-llama-1.1b")
     # or by huggingface hub repo name
-    config1 = Config.from_name("TinyLlama-1.1B-intermediate-step-955k-token-2T")
+    config1 = Config.from_name("TinyLlama-1.1B-intermediate-step-1431k-3T")
     assert config0 == config1
 
 

@@ -1,3 +1,5 @@
+# Copyright Lightning AI. Licensed under the Apache License 2.0, see LICENSE file.
+
 import sys
 from contextlib import redirect_stdout
 from io import StringIO
@@ -8,6 +10,7 @@ import pytest
 import torch
 from conftest import RunIf
 from lightning import Fabric
+from lightning.fabric.wrappers import _FabricOptimizer
 
 # support running without installing as a package
 wd = Path(__file__).parent.parent.resolve()
@@ -89,8 +92,7 @@ def test_adapter_v2_script(tmp_path, fake_checkpoint_dir, monkeypatch):
     model_config = dict(block_size=128, n_layer=2, n_embd=8, n_head=4, padded_vocab_size=8, adapter_start_layer=0)
     monkeypatch.setitem(name_to_config, "tmp", model_config)
 
-    monkeypatch.setattr(module, "lazy_load", Mock())
-    monkeypatch.setattr(module.GPT, "load_state_dict", Mock())
+    monkeypatch.setattr(module, "load_checkpoint", Mock())
 
     tokenizer_mock = Mock()
     tokenizer_mock.return_value = tokenizer_mock
@@ -167,3 +169,206 @@ def test_adapter_v2_compile():
     assert isinstance(explanation, debugging.ExplainOutput)
     assert explanation.graph_count == 1
     assert explanation.graph_break_count == 0
+
+
+@torch.inference_mode()
+def test_against_hf_mixtral():
+    from transformers.models.mixtral import MixtralConfig, MixtralForCausalLM
+
+    from lit_gpt.adapter_v2 import GPT, Config
+    from scripts.convert_hf_checkpoint import copy_weights_hf_llama
+
+    device = torch.device("cpu")
+    dtype = torch.float32
+    ours_config = Config.from_name(
+        "Mixtral-8x7B-Instruct-v0.1",
+        padded_vocab_size=10000,
+        n_layer=2,
+        n_embd=32,
+        n_head=8,
+        n_query_groups=2,
+        intermediate_size=86,
+        n_expert=4,
+    )
+    T = 5
+    theirs_config = MixtralConfig(
+        vocab_size=ours_config.padded_vocab_size,
+        hidden_size=ours_config.n_embd,
+        num_attention_heads=ours_config.n_head,
+        num_hidden_layers=ours_config.n_layer,
+        intermediate_size=ours_config.intermediate_size,
+        max_position_embeddings=T,
+        rms_norm_eps=ours_config.norm_eps,
+        num_key_value_heads=ours_config.n_query_groups,
+        rope_theta=ours_config.rope_base,
+        num_local_experts=ours_config.n_expert,
+    )
+    assert ours_config.intermediate_size == theirs_config.intermediate_size
+
+    theirs_model = MixtralForCausalLM(theirs_config).to(device)
+    theirs_state_dict = theirs_model.state_dict()
+    state_dict = {}
+    copy_weights_hf_llama(ours_config, {}, state_dict, theirs_state_dict)
+    ours_model = GPT(ours_config).to(device)
+    # strict=False because missing keys due to adapter weights not contained in state dict
+    ours_model.load_state_dict(state_dict, strict=False)
+
+    # test end to end
+    x = torch.tensor([[9856, 23, 491, 1536, 304], [23, 345, 65, 123, 321]], dtype=torch.int32, device=device)
+    assert x.size(1) == T
+    ours_y = ours_model(x)
+    theirs_y = theirs_model(x)["logits"].to(dtype)  # HF converts logits to float
+    torch.testing.assert_close(ours_y, theirs_y)
+
+
+@RunIf(min_cuda_gpus=1)
+# platform dependent cuda issue: libbitsandbytes_cpu.so: undefined symbol: cquantize_blockwise_fp16_nf4
+@pytest.mark.xfail(raises=AttributeError, strict=False)
+def test_adapter_v2_bitsandbytes(monkeypatch, tmp_path, fake_checkpoint_dir):
+    from lightning.fabric.plugins.precision.bitsandbytes import _BITSANDBYTES_AVAILABLE, BitsandbytesPrecision
+
+    if not _BITSANDBYTES_AVAILABLE:
+        pytest.skip("BNB not available")
+
+    from bitsandbytes.optim import PagedAdamW
+
+    import finetune.adapter_v2 as module
+
+    data = []
+    torch.save(data, tmp_path / "train.pt")
+    torch.save(data, tmp_path / "test.pt")
+
+    from lit_gpt.config import name_to_config
+
+    model_config = dict(
+        block_size=128, n_layer=2, n_embd=8, n_head=4, padded_vocab_size=8, adapter_start_layer=0, bias=True
+    )
+    monkeypatch.setitem(name_to_config, "tmp", model_config)
+
+    monkeypatch.setattr(module, "load_checkpoint", Mock())
+    train_mock = Mock()
+    monkeypatch.setattr(module, "train", train_mock)
+
+    stdout = StringIO()
+    with redirect_stdout(stdout):
+        module.setup(
+            data_dir=tmp_path,
+            checkpoint_dir=fake_checkpoint_dir,
+            out_dir=tmp_path,
+            precision="16-true",
+            quantize="bnb.nf4-dq",
+        )
+
+    args, kwargs = train_mock.call_args
+    fabric, model, optimizer, *_ = args
+    assert isinstance(fabric.strategy.precision, BitsandbytesPrecision)
+    assert isinstance(optimizer, _FabricOptimizer)
+    assert isinstance(optimizer._optimizer, PagedAdamW)
+
+    dtype_to_name = {"torch.uint8": set(), "torch.float16": set()}
+    for name, layer in model.named_parameters():
+        name = name[len("_forward_module.") :]
+        dtype_to_name[str(layer.dtype)].add(name)
+    assert dtype_to_name == {
+        "torch.uint8": {
+            "transformer.h.0.mlp.fc.linear.weight",
+            "transformer.h.1.mlp.proj.linear.weight",
+            "transformer.h.1.attn.attn.linear.weight",
+            "transformer.h.0.attn.proj.linear.weight",
+            "lm_head.linear.weight",
+            "transformer.h.1.attn.proj.linear.weight",
+            "transformer.h.0.mlp.proj.linear.weight",
+            "transformer.h.0.attn.attn.linear.weight",
+            "transformer.h.1.mlp.fc.linear.weight",
+        },
+        "torch.float16": {
+            "transformer.h.1.attn.attn.adapter_bias",
+            "transformer.h.1.mlp.proj.adapter_bias",
+            "transformer.h.0.attn.attn.adapter_bias",
+            "transformer.h.0.norm_1.bias",
+            "transformer.h.0.attn.attn.linear.bias",
+            "transformer.h.1.attn.adapter_wte.weight",
+            "transformer.ln_f.weight",
+            "transformer.h.0.mlp.fc.linear.bias",
+            "transformer.h.0.mlp.proj.linear.bias",
+            "transformer.h.1.mlp.fc.linear.bias",
+            "transformer.h.0.attn.proj.adapter_scale",
+            "transformer.h.0.attn.attn.adapter_scale",
+            "transformer.h.1.norm_2.bias",
+            "transformer.h.1.attn.proj.adapter_scale",
+            "transformer.h.0.norm_2.bias",
+            "transformer.h.0.mlp.fc.adapter_scale",
+            "transformer.h.0.attn.proj.linear.bias",
+            "transformer.h.1.attn.proj.linear.bias",
+            "transformer.h.1.norm_1.bias",
+            "transformer.h.0.norm_1.weight",
+            "transformer.h.1.attn.proj.adapter_bias",
+            "transformer.h.0.mlp.proj.adapter_scale",
+            "transformer.h.0.mlp.proj.adapter_bias",
+            "transformer.h.1.mlp.fc.adapter_bias",
+            "transformer.h.1.mlp.proj.adapter_scale",
+            "transformer.h.1.attn.gating_factor",
+            "transformer.h.1.norm_1.weight",
+            "transformer.ln_f.bias",
+            "transformer.h.0.mlp.fc.adapter_bias",
+            "lm_head.adapter_scale",
+            "lm_head.adapter_bias",
+            "transformer.h.1.norm_2.weight",
+            "transformer.h.0.attn.adapter_wte.weight",
+            "transformer.h.1.attn.attn.adapter_scale",
+            "transformer.h.1.mlp.fc.adapter_scale",
+            "transformer.h.1.attn.attn.linear.bias",
+            "transformer.wte.weight",
+            "transformer.h.0.norm_2.weight",
+            "transformer.h.1.mlp.proj.linear.bias",
+            "transformer.h.0.attn.gating_factor",
+            "transformer.h.0.attn.proj.adapter_bias",
+        },
+    }
+
+    assert {p.name for p in tmp_path.glob("*.pth")} == {"lit_model_adapter_finetuned.pth"}
+    state_dict = torch.load(tmp_path / "lit_model_adapter_finetuned.pth")
+    assert len(state_dict) == 1
+    dtype_to_name = {"torch.float16": set()}
+    for name, layer in state_dict["model"].items():
+        dtype_to_name[str(layer.dtype)].add(name)
+    assert dtype_to_name == {
+        "torch.float16": {
+            "transformer.h.1.attn.adapter_wte.weight",
+            "transformer.h.1.attn.proj.adapter_bias",
+            "transformer.h.1.mlp.fc.adapter_scale",
+            "lm_head.adapter_bias",
+            "transformer.h.0.mlp.proj.adapter_scale",
+            "transformer.ln_f.bias",
+            "lm_head.adapter_scale",
+            "transformer.h.1.norm_2.weight",
+            "transformer.h.0.attn.attn.adapter_scale",
+            "transformer.h.0.mlp.proj.adapter_bias",
+            "transformer.h.0.attn.gating_factor",
+            "transformer.h.1.norm_1.bias",
+            "transformer.h.1.mlp.fc.adapter_bias",
+            "transformer.h.1.mlp.proj.adapter_scale",
+            "transformer.h.0.mlp.fc.adapter_scale",
+            "transformer.h.1.attn.attn.adapter_bias",
+            "transformer.h.0.norm_2.weight",
+            "transformer.h.1.norm_2.bias",
+            "transformer.h.0.norm_1.weight",
+            "transformer.h.0.attn.proj.adapter_scale",
+            "transformer.h.1.mlp.proj.adapter_bias",
+            "transformer.h.0.attn.attn.adapter_bias",
+            "transformer.h.0.attn.adapter_wte.weight",
+            "transformer.ln_f.weight",
+            "transformer.h.1.attn.gating_factor",
+            "transformer.h.0.mlp.fc.adapter_bias",
+            "transformer.h.1.attn.proj.adapter_scale",
+            "transformer.h.0.attn.proj.adapter_bias",
+            "transformer.h.0.norm_1.bias",
+            "transformer.h.0.norm_2.bias",
+            "transformer.h.1.norm_1.weight",
+            "transformer.h.1.attn.attn.adapter_scale",
+        }
+    }
+
+    logs = stdout.getvalue()
+    assert "of trainable parameters: 552" in logs
+    assert "of non trainable parameters: 1,808" in logs

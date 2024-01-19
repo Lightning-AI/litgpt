@@ -1,3 +1,5 @@
+# Copyright Lightning AI. Licensed under the Apache License 2.0, see LICENSE file.
+
 import json
 import subprocess
 import sys
@@ -34,59 +36,17 @@ def test_prepare_csv(tmp_path, fake_checkpoint_dir):
     train_calls, test_calls = save_mock.mock_calls
     assert train_calls == call(
         [
-            {
-                "instruction": "Add",
-                "input": "2+2",
-                "output": "4",
-                "input_ids": ANY,
-                "input_ids_no_response": ANY,
-                "labels": ANY,
-            },
-            {
-                "instruction": "Divide",
-                "input": "10/2",
-                "output": "5",
-                "input_ids": ANY,
-                "input_ids_no_response": ANY,
-                "labels": ANY,
-            },
-            {
-                "instruction": "Multiply",
-                "input": "6*4",
-                "output": "24",
-                "input_ids": ANY,
-                "input_ids_no_response": ANY,
-                "labels": ANY,
-            },
+            {"instruction": "Add", "input": "2+2", "output": "4", "input_ids": ANY, "labels": ANY},
+            {"instruction": "Divide", "input": "10/2", "output": "5", "input_ids": ANY, "labels": ANY},
+            {"instruction": "Multiply", "input": "6*4", "output": "24", "input_ids": ANY, "labels": ANY},
         ],
         tmp_path / "train.pt",
     )
     assert test_calls == call(
         [
-            {
-                "instruction": "Exponentiate",
-                "input": "2^3",
-                "output": "8",
-                "input_ids": ANY,
-                "input_ids_no_response": ANY,
-                "labels": ANY,
-            },
-            {
-                "instruction": "Subtract",
-                "input": "5-3",
-                "output": "2",
-                "input_ids": ANY,
-                "input_ids_no_response": ANY,
-                "labels": ANY,
-            },
-            {
-                "instruction": "Square root",
-                "input": "√9",
-                "output": "3",
-                "input_ids": ANY,
-                "input_ids_no_response": ANY,
-                "labels": ANY,
-            },
+            {"instruction": "Exponentiate", "input": "2^3", "output": "8", "input_ids": ANY, "labels": ANY},
+            {"instruction": "Subtract", "input": "5-3", "output": "2", "input_ids": ANY, "labels": ANY},
+            {"instruction": "Square root", "input": "√9", "output": "3", "input_ids": ANY, "labels": ANY},
         ],
         tmp_path / "test.pt",
     )

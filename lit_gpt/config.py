@@ -1,3 +1,5 @@
+# Copyright Lightning AI. Licensed under the Apache License 2.0, see LICENSE file.
+
 import json
 from copy import deepcopy
 from dataclasses import dataclass, field
@@ -55,6 +57,8 @@ class Config:
     intermediate_size: Optional[int] = None
     rope_condense_ratio: int = 1
     rope_base: int = 10000
+    n_expert: int = 0
+    n_expert_per_token: int = 0
 
     def __post_init__(self):
         if not self.name:
@@ -163,6 +167,19 @@ configs = [
         n_head=48,
         n_embd=6144,
         padding_multiple=256,
+    ),
+    # https://huggingface.co/stabilityai/stablelm-zephyr-3b/blob/main/config.json
+    dict(
+        name="stablelm-zephyr-3b",
+        hf_config=dict(org="stabilityai", name="stablelm-zephyr-3b"),
+        padded_vocab_size=50304,
+        n_layer=32,
+        n_head=32,
+        n_embd=2560,
+        parallel_residual=False,
+        bias=False,
+        _mlp_class="LLaMAMLP",
+        intermediate_size=6912,
     ),
 ]
 
@@ -275,6 +292,41 @@ for c in pythia:
     copy["name"] = f"{c['name']}-deduped"
     copy["hf_config"]["name"] = f"{c['hf_config']['name']}-deduped"
     configs.append(copy)
+
+
+###################
+# databricks Dolly
+###################
+dolly = [
+    # https://huggingface.co/databricks/dolly-v2-3b/blob/main/config.json
+    dict(
+        name="dolly-v2-3b",
+        hf_config=dict(org="databricks", name="dolly-v2-3b"),
+        block_size=2048,
+        n_layer=32,
+        n_embd=2560,
+        padded_vocab_size=50280,
+    ),
+    # https://huggingface.co/databricks/dolly-v2-7b/blob/main/config.json
+    dict(
+        name="dolly-v2-7b",
+        hf_config=dict(org="databricks", name="dolly-v2-7b"),
+        block_size=2048,
+        n_layer=32,
+        padded_vocab_size=50280,
+    ),
+    # https://huggingface.co/databricks/dolly-v2-12b/blob/main/config.json
+    dict(
+        name="dolly-v2-12b",
+        hf_config=dict(org="databricks", name="dolly-v2-12b"),
+        block_size=2048,
+        n_layer=36,
+        n_embd=5120,
+        n_head=40,
+        padded_vocab_size=50280,
+    ),
+]
+configs.extend(dolly)
 
 
 ####################################
@@ -1135,7 +1187,21 @@ phi = [
         shared_attention_norm=True,
         lm_head_bias=True,
         gelu_approximate="tanh",
-    )
+    ),
+    # https://huggingface.co/microsoft/phi-2/blob/main/config.json
+    dict(
+        name="phi-2",
+        hf_config=dict(org="microsoft", name="phi-2"),
+        vocab_size=50257,
+        padded_vocab_size=51200,
+        block_size=2048,
+        n_embd=2560,
+        n_layer=32,
+        rotary_percentage=0.4,  # 32 / (n_embd / n_head) = 32 / 80
+        shared_attention_norm=True,
+        lm_head_bias=True,
+        gelu_approximate="tanh",
+    ),
 ]
 configs.extend(phi)
 
@@ -1159,7 +1225,26 @@ mistral = [
         norm_eps=1e-05,
         _mlp_class="LLaMAMLP",
         intermediate_size=14336,
-    )
+    ),
+    # https://huggingface.co/mistralai/Mixtral-8x7B-v0.1/blob/main/config.json
+    dict(
+        name="Mixtral-8x7B-{}v0.1",
+        hf_config=dict(org="mistralai", name="Mixtral-8x7B-{}v0.1"),
+        padded_vocab_size=32000,
+        block_size=32768,
+        n_layer=32,
+        n_query_groups=8,
+        rotary_percentage=1.0,
+        parallel_residual=False,
+        bias=False,
+        _norm_class="RMSNorm",
+        norm_eps=1e-05,
+        _mlp_class="LLaMAMoE",
+        intermediate_size=14336,
+        rope_base=1000000,
+        n_expert=8,
+        n_expert_per_token=2,
+    ),
 ]
 for c in mistral:
     for kind in ("", "Instruct-"):
@@ -1167,6 +1252,24 @@ for c in mistral:
         copy["name"] = c["name"].format(kind)
         copy["hf_config"]["name"] = c["hf_config"]["name"].format(kind)
         configs.append(copy)
+configs.append(
+    # https://huggingface.co/mistralai/Mistral-7B-Instruct-v0.2/blob/main/config.json
+    dict(
+        name="Mistral-7B-Instruct-v0.2",
+        hf_config=dict(org="mistralai", name="Mistral-7B-Instruct-v0.2"),
+        padded_vocab_size=32000,
+        block_size=32768,
+        n_layer=32,
+        n_query_groups=8,
+        rotary_percentage=1.0,
+        parallel_residual=False,
+        bias=False,
+        _norm_class="RMSNorm",
+        norm_eps=1e-05,
+        _mlp_class="LLaMAMLP",
+        intermediate_size=14336,
+    )
+)
 
 
 ############
@@ -1190,14 +1293,41 @@ tiny_llama = [
         _mlp_class="LLaMAMLP",
         intermediate_size=5632,
         n_query_groups=4,
-    ),
+    )
 ]
 for c in tiny_llama:
-    for kind, hf_postfix in (("", "-intermediate-step-955k-token-2T"), ("chat", "-Chat-v0.6")):
+    for kind, hf_postfix in (("", "-intermediate-step-1431k-3T"), ("-chat", "-Chat-v1.0")):
         copy = deepcopy(c)
         copy["name"] = c["name"].format(kind)
         copy["hf_config"]["name"] = c["hf_config"]["name"].format(hf_postfix)
         configs.append(copy)
 
+
+##########################
+# Trelis Function Calling
+##########################
+llama_2_function_calling = [
+    # https://huggingface.co/Trelis/Llama-2-7b-chat-hf-function-calling-v2/blob/main/config.json
+    dict(
+        name="Llama-2-7b-chat-hf-function-calling-v2",
+        hf_config=dict(org="Trelis", name="Llama-2-7b-chat-hf-function-calling-v2"),
+        padding_multiple=64,
+        n_layer=32,
+        rotary_percentage=1.0,
+        parallel_residual=False,
+        bias=False,
+        _norm_class="RMSNorm",
+        _mlp_class="LLaMAMLP",
+        intermediate_size=11008,
+        norm_eps=1e-6,
+        block_size=4096,
+        vocab_size=32000,
+        n_head=32,
+        n_embd=4096,
+        rope_base=10000,
+    )
+]
+
+configs.extend(llama_2_function_calling)
 
 name_to_config = {config["name"]: config for config in configs}
