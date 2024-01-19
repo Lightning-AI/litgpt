@@ -12,6 +12,7 @@ import torch
 from lightning.fabric.loggers import CSVLogger
 from lightning.fabric.strategies import FSDPStrategy
 from lightning.fabric.utilities import ThroughputMonitor, measure_flops
+from torchmetrics.aggregation import RunningMean
 
 # support running without installing as a package
 wd = Path(__file__).parent.parent.resolve()
@@ -98,7 +99,7 @@ def main(fabric: L.Fabric, data_dir: Path, checkpoint_dir: Path, out_dir: Path, 
 
     fabric.print(f"Number of trainable parameters: {num_parameters(model, requires_grad=True):,}")
 
-    model = fabric.setup_module(model)
+    model = fabric.setup(model)
     optimizer = torch.optim.AdamW(model.parameters(), lr=learning_rate, weight_decay=weight_decay)
     optimizer = fabric.setup_optimizers(optimizer)
     state = {"model": model, "optimizer": optimizer, "hparams": hparams, "iter_num": 0, "step_count": 0}
@@ -112,7 +113,7 @@ def main(fabric: L.Fabric, data_dir: Path, checkpoint_dir: Path, out_dir: Path, 
     fabric.seed_everything(1337 + fabric.global_rank)
 
     train_time = time.perf_counter()
-    train(fabric, state, train_data, val_data, checkpoint_dir, out_dir)
+    train(fabric, state, train_data, val_data, checkpoint_dir, out_dir, resume)
     fabric.print(f"Training time: {(time.perf_counter() - train_time):.2f}s")
     if fabric.device.type == "cuda":
         fabric.print(f"Memory used: {torch.cuda.max_memory_allocated() / 1e9:.02f} GB")
@@ -128,6 +129,7 @@ def train(
     val_data: List[Dict],
     checkpoint_dir: Path,
     out_dir: Path,
+    resume: Union[bool, Path],
 ) -> None:
     model = state["model"]
     optimizer = state["optimizer"]
@@ -152,6 +154,23 @@ def train(
         del meta_model, x
 
     # TODO: max iters
+    initial_iter = state["iter_num"]
+
+    # resume data loader state by fast-forwarding through all seen batches
+    if resume:
+        resume_t0 = time.perf_counter()
+        for resume_iter in range(initial_iter):
+            get_batch(fabric, train_data, None)
+            if resume_iter % 1000 == 0:
+                fabric.print(f"Resuming dataset: {resume_iter} / {initial_iter}")
+        fabric.barrier()
+        fabric.print(
+            f"Resuming data loader finished. Took {time.perf_counter() - resume_t0:.1f} seconds to reach iteration"
+            f" {initial_iter}."
+        )
+
+    running_loss = RunningMean(window=gradient_accumulation_iters, sync_on_compute=False).to(fabric.device)
+    fabric.barrier()
     total_t0 = time.perf_counter()
 
     for state["iter_num"] in range(state["iter_num"] + 1, max_iters + 1):
@@ -169,8 +188,10 @@ def train(
         with fabric.no_backward_sync(model, enabled=is_accumulating):
             logits = model(input_ids)
             # shift the targets such that output n predicts token n+1
-            loss = chunked_cross_entropy(logits[..., :-1, :], targets[..., 1:], chunk_size=0)
+            loss = chunked_cross_entropy(logits[..., :-1, :], targets[..., 1:])
             fabric.backward(loss / gradient_accumulation_iters)
+
+        running_loss.update(loss.detach())
 
         if not is_accumulating:
             optimizer.step()
@@ -178,7 +199,7 @@ def train(
             state["step_count"] += 1
 
         if state["iter_num"] % log_iter_interval == 0:
-            loss = loss.item()  # expensive device-to-host synchronization
+            loss = running_loss.compute().item()  # expensive device-to-host synchronization
             t1 = time.perf_counter()
             throughput.update(
                 time=(t1 - total_t0),
@@ -194,11 +215,12 @@ def train(
                 "iter_time": t1 - iter_t0,
                 "tokens": state["iter_num"] * micro_batch_size * model.config.block_size,
                 "total_tokens": state["iter_num"] * micro_batch_size * model.config.block_size * fabric.world_size,
+                # TODO: learning rate
             }
 
             fabric.print(
-                f"iter {metrics['iter']} step {metrics['step']}: loss {metrics['loss']:.4f}, iter time:"
-                f" {metrics['iter_time'] * 1000:.2f} ms,{' (optimizer.step)' if not is_accumulating else ''}"
+                f"iter {metrics['iter']} | step {metrics['step']}: loss {metrics['loss']:.4f}, iter time:"
+                f" {metrics['iter_time'] * 1000:.2f} ms{' (optimizer.step),' if not is_accumulating else ','}"
             )
 
             throughput_metrics = throughput.compute()

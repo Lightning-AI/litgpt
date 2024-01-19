@@ -74,7 +74,7 @@ def test_pretrain_tiny_llama(tmp_path, monkeypatch):
     module.global_batch_size = 1
     module.micro_batch_size = 1
     module.batch_size = 1
-    module.gradient_accumulation_steps = 1
+    module.gradient_accumulation_iters = 1
     module.model_name = "tmp"
     module.out_dir = tmp_path
 
