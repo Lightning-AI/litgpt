@@ -25,6 +25,7 @@ from lit_gpt.utils import (
     check_valid_checkpoint_dir,
     chunked_cross_entropy,
     get_default_supported_precision,
+    load_checkpoint,
     num_parameters,
 )
 from scripts.prepare_alpaca import generate_prompt
@@ -109,6 +110,8 @@ def main(fabric: L.Fabric, data_dir: Path, checkpoint_dir: Path, out_dir: Path, 
     if resume:
         fabric.print(f"Resuming training from {resume}")
         fabric.load(resume, state)
+    else:
+        load_checkpoint(fabric, state["model"], checkpoint_path)
 
     fabric.seed_everything(1337 + fabric.global_rank)
 
