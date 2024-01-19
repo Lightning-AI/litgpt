@@ -1,6 +1,9 @@
+# Copyright Lightning AI. Licensed under the Apache License 2.0, see LICENSE file.
+
 import re
 import sys
 import time
+from json import dumps
 from pathlib import Path
 from typing import Iterator, List, Literal, Optional, Tuple
 
@@ -14,12 +17,7 @@ sys.path.append(str(wd))
 
 from generate.base import next_token
 from lit_gpt import GPT, Config, Tokenizer
-from lit_gpt.utils import (
-    check_valid_checkpoint_dir,
-    get_default_supported_precision,
-    gptq_quantization,
-    load_checkpoint,
-)
+from lit_gpt.utils import check_valid_checkpoint_dir, get_default_supported_precision, load_checkpoint
 
 
 @torch.inference_mode()
@@ -87,6 +85,7 @@ def decode(fabric: L.Fabric, tokenizer: Tokenizer, token_stream: Iterator[torch.
         decoded_so_far = ""
         try:
             for token in token_stream:
+                so_far = so_far.to(device=token.device)
                 so_far = torch.cat((so_far, token.view(-1)))
                 decoded_new = tokenizer.decode(so_far)
                 fabric.print(decoded_new[len(decoded_so_far) :], end="", flush=True)
@@ -100,12 +99,13 @@ def decode(fabric: L.Fabric, tokenizer: Tokenizer, token_stream: Iterator[torch.
     return tokens_generated
 
 
+@torch.inference_mode()
 def main(
     *,
     top_k: Optional[int] = 200,
     temperature: float = 0.8,
     checkpoint_dir: Path = Path("checkpoints/stabilityai/stablelm-tuned-alpha-3b"),
-    quantize: Optional[Literal["bnb.nf4", "bnb.nf4-dq", "bnb.fp4", "bnb.fp4-dq", "bnb.int8", "gptq.int4"]] = None,
+    quantize: Optional[Literal["bnb.nf4", "bnb.nf4-dq", "bnb.fp4", "bnb.fp4-dq", "bnb.int8"]] = None,
     precision: Optional[str] = None,
     compile: bool = False,
 ) -> None:
@@ -119,9 +119,9 @@ def main(
         quantize: Whether to quantize the model and using which method:
             - bnb.nf4, bnb.nf4-dq, bnb.fp4, bnb.fp4-dq: 4-bit quantization from bitsandbytes
             - bnb.int8: 8-bit quantization from bitsandbytes
-            - gptq.int4: 4-bit quantization from GPTQ
             for more details, see https://github.com/Lightning-AI/lit-gpt/blob/main/tutorials/quantize.md
         precision: Indicates the Fabric precision setting to use.
+        compile: Whether to use compilation to speed up token generation. Will increase startup time.
     """
     precision = precision or get_default_supported_precision(training=False)
 
@@ -139,16 +139,10 @@ def main(
 
     config = Config.from_json(checkpoint_dir / "lit_config.json")
 
-    if quantize == "gptq.int4":
-        model_file = "lit_model_gptq.4bit.pth"
-        if not (checkpoint_dir / model_file).is_file():
-            raise ValueError("Please run `python quantize/gptq.py` first")
-    else:
-        model_file = "lit_model.pth"
-    checkpoint_path = checkpoint_dir / model_file
+    checkpoint_path = checkpoint_dir / "lit_model.pth"
 
     fabric.print(f"Loading model {str(checkpoint_path)!r} with {config.__dict__}", file=sys.stderr)
-    with fabric.init_module(empty_init=True), gptq_quantization(quantize == "gptq.int4"):
+    with fabric.init_module(empty_init=True):
         model = GPT(config)
         # enable the kv cache
         model.set_kv_cache(batch_size=1)
@@ -187,7 +181,9 @@ def main(
         for block in model.transformer.h:
             block.attn.kv_cache.reset_parameters()
         fabric.print(
-            f"\nTime for inference: {t:.02f} sec total, {tokens_generated / t:.02f} tokens/sec, {tokens_generated} tokens", file=sys.stderr
+            f"\nTime for inference: {t:.02f} sec total, {tokens_generated / t:.02f} tokens/sec,"
+            f" {tokens_generated} tokens",
+            file=sys.stderr,
         )
         fabric.print()
 
@@ -209,6 +205,12 @@ def prompt_config(checkpoint_dir: Path, tokenizer: Tokenizer) -> Tuple[str, Tupl
             [tokenizer.token_to_id("<|USER|>")],
         )
         return system_prompt, stop_tokens
+
+    if re.search(r"stabilityai/stablelm-zephyr-3b", checkpoint_name):
+        system_prompt = "<|user|>\n{prompt}<|endoftext|>\n<|assistant|>\n"
+        stop_tokens = ([tokenizer.eos_id],)
+        return system_prompt, stop_tokens
+
     if re.search(r"togethercomputer.*Chat", checkpoint_name):
         system_prompt = "<human>: {prompt}\n<bot>:"
         lt, gt = tokenizer.token_to_id("<"), tokenizer.token_to_id(">:")
@@ -255,6 +257,32 @@ def prompt_config(checkpoint_dir: Path, tokenizer: Tokenizer) -> Tuple[str, Tupl
         )
         stop_tokens = ([tokenizer.eos_id],)
         return system_prompt, stop_tokens
+
+    if re.search("Llama-2-7b-chat-hf-function-calling-v2", checkpoint_name):
+        # Has to be before the llama config
+        b_func, e_func = "<FUNCTIONS>", "</FUNCTIONS>\n\n"
+        b_inst, e_inst = "[INST]", "[/INST]"
+        b_sys, e_sys = "<<SYS>>\n", "\n<</SYS>>\n\n"
+        # This is an example for how to format functions for the model
+        function_metadata = {
+            "function": "search_bing",
+            "description": (
+                "Search the web for content on Bing. This allows users to search online/the internet/the web for"
+                " content."
+            ),
+            "arguments": [{"name": "query", "type": "string", "description": "The search query string"}],
+        }
+
+        system_prompt = (
+            "You are a helpful, respectful and honest assistant. Always answer as helpfully as"
+            "possible. Your only response should be JSON formatted functions"
+        )
+        # replace the curly braces with double curly braces to escape them
+        function_list = dumps(function_metadata).replace("{", "{{").replace("}", "}}")
+        system_prompt = f"{b_func}{function_list.strip()}{e_func}{b_inst}{b_sys}{system_prompt.strip()}{e_sys}{'{prompt}'}{e_inst}\n\n"
+        stop_tokens = ([tokenizer.eos_id],)
+        return system_prompt, stop_tokens
+
     if re.search("Llama-2.*-chat", checkpoint_name):
         b_inst, e_inst = "[INST]", "[/INST]"
         b_sys, e_sys = "<<SYS>>\n", "\n<</SYS>>\n\n"
@@ -304,7 +332,7 @@ def prompt_config(checkpoint_dir: Path, tokenizer: Tokenizer) -> Tuple[str, Tupl
         stop_tokens = ([tokenizer.eos_id],)
         return system_prompt, stop_tokens
 
-    if re.search("phi", checkpoint_name):
+    if re.search("phi-1", checkpoint_name):
         system_prompt = "{prompt}\n\nAnswer:"
 
         stop_tokens = (
@@ -315,6 +343,11 @@ def prompt_config(checkpoint_dir: Path, tokenizer: Tokenizer) -> Tuple[str, Tupl
             # to stop or else things like code generation wouldn't work
             # [198, 198],  # '\n', '\n'
         )
+        return system_prompt, stop_tokens
+
+    if re.search("phi-2", checkpoint_name):
+        system_prompt = "Instruct:{prompt}\nOutput:"
+        stop_tokens = ([tokenizer.eos_id],)
         return system_prompt, stop_tokens
 
     if re.search(r"TinyLlama.*Chat", checkpoint_name):

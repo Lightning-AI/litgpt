@@ -4,9 +4,10 @@ Below is a table of all datasets that are currently supported in Lit-GPT:
 
 | Name         | Task        | Size                | Reference Repo                                                  | Paper / Blog                                                                                                              | Data License                                                                                                                                                                                                     |
 |--------------|-------------|---------------------|-----------------------------------------------------------------|---------------------------------------------------------------------------------------------------------------------------|------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------|
-| Alpaca       | Finetuning  | 51,759 samples      | [URL](https://github.com/tatsu-lab/stanford_alpaca)             | [URL](https://crfm.stanford.edu/2023/03/13/alpaca.html)                                                                   | Attribution-NonCommercial 4.0 International, [URL](https://crfm.stanford.edu/2023/03/13/alpaca.html)                                                                                                            |
+| Alpaca       | Finetuning  | 51,759 samples      | [URL](https://github.com/tatsu-lab/stanford_alpaca)             | [URL](https://crfm.stanford.edu/2023/03/13/alpaca.html)                                                                   | Attribution-NonCommercial 4.0 International, [URL](https://crfm.stanford.edu/2023/03/13/alpaca.html)                                                                                                             |
 | Alpaca Libre | Finetuning  | 55,370 samples      | [URL](https://github.com/mobarski/alpaca-libre)                 | -                                                                                                                         | CC0/MIT,  [URL](https://github.com/mobarski/alpaca-libre)                                                                                                                                                        |
 | Dolly        | Finetuning  | 15,011 samples      | [URL](https://github.com/databrickslabs/dolly/tree/master/data) | [URL](https://www.databricks.com/blog/2023/04/12/dolly-first-open-commercially-viable-instruction-tuned-llm)              | CC-BY-SA, [URL](https://github.com/databrickslabs/dolly#model-overview)                                                                                                                                          |
+| FLAN         | Finetuning  | 1,753,240 samples   | [UR](https://huggingface.co/datasets/Muennighoff/flan)          | [URL](https://blog.research.google/2023/02/the-flan-collection-advancing-open.html)                                       | Subset dependent                                                                                                                                                                                                 |
 | LongForm     | Finetuning  | 23,652 samples      | [URL](https://github.com/akoksal/LongForm)                      | [URL](https://arxiv.org/abs/2304.08460)                                                                                   | No information provided and subset-dependent, [URL](https://github.com/akoksal/LongForm)                                                                                                                         |
 | LIMA         | Finetuning  | 1,084 samples       | [URL](https://huggingface.co/datasets/GAIR/lima)                | [URL](https://arxiv.org/abs/2305.11206)                                                                                   | "If the source data of LIMA has a stricter license than CC BY-NC-SA, the LIMA dataset follows the same. Otherwise, it follows the CC BY-NC-SA license", [URL](https://huggingface.co/datasets/GAIR/lima#license) |
 | OpenWeb Text | Pretraining | 8,013,769 documents | [URL](https://github.com/jcpeterson/openwebtext)                | [URL](https://d4mucfpksywv.cloudfront.net/better-language-models/language_models_are_unsupervised_multitask_learners.pdf) | Unspecified                                                                                                                                                                                                      |
@@ -186,6 +187,31 @@ python scripts/prepare_dolly.py \
 
 &nbsp;
 
+### FLAN
+
+FLAN is a collection of several datset subsets by Google. In particular, the provided script in Lit-GPT loads the subsets from
+[here](https://huggingface.co/datasets/Muennighoff/flan).
+
+By default, all subsets (1,386,050 samples) and validations sets (367,190 subsets) are combined into a single dataset:
+
+```bash
+python scripts/prepare_flan.py \
+  --checkpoint_dir "checkpoints/tiiuae/falcon-7b"
+```
+
+However, you can also select individual subsets via comma-separated strings as follows:
+
+
+```bash
+python scripts/prepare_flan.py \
+  --checkpoint_dir "checkpoints/tiiuae/falcon-7b" \
+  --subsets "aeslc_10templates,ag_news_subset_10templates,anli_r1_10templates"
+```
+
+You can find a list of all 66 supported subsets [here](https://huggingface.co/datasets/Muennighoff/flan).
+
+&nbsp;
+
 ### Finetuning After Data Preparation
 
 After preparing the dataset, you can finetune the model using the [`finetune/*.py`](../finetune/) scripts, for example,
@@ -197,7 +223,7 @@ python finetune/lora.py
  --out_dir "out/lora/alpaca"
 ```
 
-Please read the [tutorials/finetune_*.md](../tutorials) documents for more information about finetuning models.
+Please read the [tutorials/finetune_*.md](.) documents for more information about finetuning models.
 
 > [!IMPORTANT]
 > Make sure that the `prepare_*.py` and `finetune/*.py` scripts use the same model checkpoint specified via `--checkpoint_dir`.
@@ -282,7 +308,7 @@ python scripts/prepare_csv.py --csv_path test_data.csv \
 --ignore_index -1
 ```
 
-Replace `test_data.csv` with your CSV path and the other additional parameters accordingly. Executing the command above will save `train.pt` and `test.pt` on your disk at the `destination_path`. Now you can use the prepared data to [finetune your model](https://github.com/Lightning-AI/lit-gpt/blob/main/tutorials/finetune_lora.md#running-the-finetuning).
+Replace `test_data.csv` with your CSV path and the other additional parameters accordingly. Executing the command above will save `train.pt` and `test.pt` on your disk at the `destination_path`. Now you can use the prepared data to [finetune your model](finetune_lora.md#running-the-finetuning).
 
 &nbsp;
 

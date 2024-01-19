@@ -69,6 +69,22 @@ python finetune/adapter.py --out_dir out/adapter/my-model-finetuned --precision 
 
 Note that `mps` as the accelerator will be picked up automatically by Fabric when running on a modern Mac.
 
+### Quantization
+
+Optionally, finetuning using quantization can be enabled via the `--quantize` flag, for example using the 4-bit NormalFloat data type:
+
+```bash
+python finetune/adapter.py --quantize "bnb.nf4"
+```
+
+or using adapter_v2 with double-quantization:
+
+```bash
+python finetune/adapter_v2.py --quantize "bnb.nf4-dq"
+```
+
+For additional benchmarks and resource requirements, please see the [Resource Tables](resource-tables.md).
+
 ## Test the model
 
 You can test the finetuned model with your own instructions by running:

@@ -1,3 +1,5 @@
+# Copyright Lightning AI. Licensed under the Apache License 2.0, see LICENSE file.
+
 import os
 from contextlib import redirect_stderr
 from io import StringIO
@@ -165,3 +167,22 @@ def test_num_parameters_bitsandbytes(mode):
     with fabric.init_module(empty_init=True):
         model = GPT.from_name("pythia-14m")
     assert num_parameters(model) == 14067712
+
+
+def test_cycle_iterator():
+    from lit_gpt.utils import CycleIterator
+
+    iterator = CycleIterator([])
+    with pytest.raises(StopIteration):
+        next(iterator)
+
+    iterator = CycleIterator(range(3))
+    assert iterator.epoch == 0
+    assert next(iterator) == 0
+    assert iterator.epoch == 0
+    assert next(iterator) == 1
+    assert iterator.epoch == 0
+    assert next(iterator) == 2
+    assert iterator.epoch == 0
+    assert next(iterator) == 0
+    assert iterator.epoch == 1

@@ -1,8 +1,12 @@
+# Copyright Lightning AI. Licensed under the Apache License 2.0, see LICENSE file.
+
 """
 This script is adapted from TinyLlama:
 https://github.com/jzhang38/TinyLlama/blob/main/pretrain/tinyllama.py
 """
+
 import math
+import os
 import sys
 import time
 from functools import partial
@@ -17,6 +21,7 @@ from lightning.fabric.strategies import FSDPStrategy
 from lightning.fabric.utilities.throughput import ThroughputMonitor, measure_flops
 from lightning.pytorch.loggers import WandbLogger
 from torch.utils.data import DataLoader
+from torchmetrics.aggregation import RunningMean
 
 # support running without installing as a package
 wd = Path(__file__).parent.parent.resolve()
@@ -24,20 +29,19 @@ sys.path.append(str(wd))
 
 from lit_gpt.model import GPT, Block, CausalSelfAttention, Config, LLaMAMLP
 from lit_gpt.packed_dataset import CombinedDataset
-from lit_gpt.utils import chunked_cross_entropy, num_parameters
+from lit_gpt.utils import CycleIterator, chunked_cross_entropy, num_parameters
 
 # System settings
 model_name = "tiny-llama-1.1b"
 name = "lit-tiny-llama-1.1b"
-out_dir = Path("out") / name
+out_dir = Path(os.getenv("LIGHTNING_ARTIFACTS_DIR", "out")) / name
 logger_name = "tensorboard"
+devices = torch.cuda.device_count() or 1
 
 # Hyperparameters
-devices = 8
-
 global_batch_size = 512
 learning_rate = 4e-4
-micro_batch_size = 8
+micro_batch_size = 4
 max_tokens = int(3e12)  # 3 trillion
 warmup_steps = 2000
 log_step_interval = 1
@@ -65,18 +69,7 @@ hparams = {k: v for k, v in locals().items() if isinstance(v, (int, float, str))
 def setup(resume: Union[bool, Path] = False):
     logger = choose_logger(logger_name, name=name, resume=resume)
 
-    if devices > 1:
-        strategy = FSDPStrategy(
-            auto_wrap_policy={Block},
-            activation_checkpointing_policy=None,
-            state_dict_type="full",
-            limit_all_gathers=True,
-            cpu_offload=False,
-            sharding_strategy="HYBRID_SHARD",
-        )
-    else:
-        strategy = "auto"
-
+    strategy = FSDPStrategy(auto_wrap_policy={Block}, state_dict_type="full", sharding_strategy="HYBRID_SHARD")
     fabric = L.Fabric(devices=devices, strategy=strategy, precision="bf16-mixed", loggers=[logger])
     fabric.launch()
 
@@ -110,7 +103,7 @@ def main(fabric, resume):
     model = torch.compile(model)
     model = fabric.setup(model)
     optimizer = torch.optim.AdamW(
-        model.parameters(), lr=learning_rate, weight_decay=weight_decay, betas=(beta1, beta2), foreach=False
+        model.parameters(), lr=learning_rate, weight_decay=weight_decay, betas=(beta1, beta2), fused=True
     )
     optimizer = fabric.setup_optimizers(optimizer)
 
@@ -148,31 +141,33 @@ def train(fabric, state, train_dataloader, val_dataloader, resume):
     max_tokens_per_device = max_tokens // fabric.world_size
     tokens_per_iter = micro_batch_size * model.config.block_size
     max_iters = max_tokens_per_device // tokens_per_iter
-
-    total_t0 = time.perf_counter()
     initial_iter = state["iter_num"]
-    curr_iter = 0
+    train_iterator = CycleIterator(train_dataloader)
 
-    for train_data in train_dataloader:
+    # resume data loader state by fast-forwarding through all seen batches
+    # drop this once streaming dataset supports proper resuming
+    if resume:
+        resume_t0 = time.perf_counter()
+        for resume_iter in range(initial_iter):
+            next(train_iterator)
+            if resume_iter % 1000 == 0:
+                fabric.print(f"Resuming dataset: {resume_iter} / {initial_iter}")
+        fabric.barrier()
+        fabric.print(
+            f"Resuming data loader finished. Took {time.perf_counter() - resume_t0:.1f} seconds to reach iteration"
+            f" {initial_iter}, epoch {train_iterator.epoch}."
+        )
+
+    running_loss = RunningMean(window=gradient_accumulation_steps, sync_on_compute=False).to(fabric.device)
+    fabric.barrier()
+    total_t0 = time.perf_counter()
+
+    for train_data in train_iterator:
         if state["iter_num"] >= max_iters:
             break
 
-        # resume data loader state by fast-forwarding through all seen batches
-        # drop this once streaming dataset supports proper resuming
-        if resume:
-            if curr_iter < initial_iter:
-                curr_iter += 1
-                continue
-            resume = False
-            curr_iter = -1
-            fabric.barrier()
-            fabric.print(
-                "Resuming data loader finished."
-                f"Took {time.perf_counter() - total_t0:.1f} seconds to reach iteration {initial_iter}."
-            )
-
         # determine and set the learning rate for this iteration
-        lr = get_lr(state["iter_num"], max_iters) if decay_lr else learning_rate
+        lr = get_lr(state["iter_num"], warmup_iters, max_iters) if decay_lr else learning_rate
         for param_group in optimizer.param_groups:
             param_group["lr"] = lr
 
@@ -185,8 +180,10 @@ def train(fabric, state, train_dataloader, val_dataloader, resume):
         is_accumulating = state["iter_num"] % gradient_accumulation_steps != 0
         with fabric.no_backward_sync(model, enabled=is_accumulating):
             logits = model(input_ids)
-            loss = chunked_cross_entropy(logits, targets, chunk_size=0)
+            loss = chunked_cross_entropy(logits, targets)
             fabric.backward(loss / gradient_accumulation_steps)
+
+        running_loss.update(loss.detach())
 
         if not is_accumulating:
             fabric.clip_gradients(model, optimizer, max_norm=grad_clip)
@@ -195,7 +192,7 @@ def train(fabric, state, train_dataloader, val_dataloader, resume):
             state["step_count"] += 1
 
         if state["iter_num"] % log_iter_interval == 0:
-            loss = loss.item()  # expensive device-to-host synchronization
+            loss = running_loss.compute().item()  # expensive device-to-host synchronization
             t1 = time.perf_counter()
             throughput.update(
                 time=(t1 - total_t0),
@@ -208,17 +205,19 @@ def train(fabric, state, train_dataloader, val_dataloader, resume):
                 "loss": loss,
                 "iter": state["iter_num"],
                 "step": state["step_count"],
+                "epoch": train_iterator.epoch,
                 "iter_time": t1 - iter_t0,
                 "remaining_time": (
                     (t1 - total_t0) / (state["iter_num"] - initial_iter) * (max_iters - state["iter_num"])
                 ),
                 "tokens": state["iter_num"] * micro_batch_size * model.config.block_size,
                 "total_tokens": state["iter_num"] * micro_batch_size * model.config.block_size * fabric.world_size,
+                "learning_rate": lr,
             }
 
             fabric.print(
-                f"iter {metrics['iter']} step {metrics['step']}: loss {metrics['loss']:.4f}, iter time:"
-                f" {metrics['iter_time'] * 1000:.2f} ms,{' (optimizer.step)' if not is_accumulating else ''}"
+                f"iter {metrics['iter']} | step {metrics['step']}: loss {metrics['loss']:.4f}, iter time:"
+                f" {metrics['iter_time'] * 1000:.2f} ms{' (optimizer.step),' if not is_accumulating else ','}"
                 f" remaining time: {metrics['remaining_time'] / 3600 / 24:.2f} days"
             )
 
@@ -255,7 +254,7 @@ def validate(fabric: L.Fabric, model: nn.Module, val_dataloader: DataLoader, max
         input_ids = val_data[:, 0 : model.config.block_size].contiguous().long()
         targets = val_data[:, 1 : (model.config.block_size + 1)].contiguous().long()
         logits = model(input_ids)
-        loss = chunked_cross_entropy(logits, targets, chunk_size=0)
+        loss = chunked_cross_entropy(logits, targets)
         losses[k] = loss
 
     model.train()
@@ -287,7 +286,9 @@ def create_dataloaders(batch_size: int, block_size: int) -> Tuple[DataLoader, Da
     # Mix SlimPajama data and Starcoder data with these proportions:
     weights = (0.693584, 0.306416)
     combined_dataset = CombinedDataset(datasets=train_datasets, seed=42, weights=weights)
-    train_dataloader = DataLoader(combined_dataset, batch_size=batch_size, pin_memory=True, num_workers=8)
+    train_dataloader = DataLoader(
+        combined_dataset, batch_size=batch_size, pin_memory=True, num_workers=8, drop_last=True
+    )
 
     val_dataset = StreamingDataset(
         input_dir="data/slimpajama/val",
@@ -296,20 +297,20 @@ def create_dataloaders(batch_size: int, block_size: int) -> Tuple[DataLoader, Da
         # Consider setting to False, but we would lose some samples due to truncation when world size > 1
         drop_last=True,
     )
-    val_dataloader = DataLoader(val_dataset, batch_size=batch_size, pin_memory=True, num_workers=8)
+    val_dataloader = DataLoader(val_dataset, batch_size=batch_size, pin_memory=True, num_workers=8, drop_last=True)
     return train_dataloader, val_dataloader
 
 
-# learning rate decay scheduler (cosine with warmup)
-def get_lr(it: int, lr_decay_iters: int) -> int:
+# learning rate decay scheduler (cosine with linear warmup)
+def get_lr(it: int, warmup_iters: int, max_iters: int) -> float:
     # 1) linear warmup for warmup_iters steps
     if it < warmup_iters:
         return learning_rate * it / warmup_iters
-    # 2) if it > lr_decay_iters, return min learning rate
-    if it > lr_decay_iters:
+    # 2) if it > max_iters, return min learning rate
+    if it > max_iters:
         return min_lr
     # 3) in between, use cosine decay down to min learning rate
-    decay_ratio = (it - warmup_iters) / (lr_decay_iters - warmup_iters)
+    decay_ratio = (it - warmup_iters) / (max_iters - warmup_iters)
     assert 0 <= decay_ratio <= 1
     coeff = 0.5 * (1.0 + math.cos(math.pi * decay_ratio))  # coeff ranges 0..1
     return min_lr + coeff * (learning_rate - min_lr)
@@ -330,9 +331,9 @@ def init_weights(module: nn.Module, n_layer: int, n_embd: int):
 
 def choose_logger(logger_name: str, name: str, resume: Union[bool, Path], *args, **kwargs):
     if logger_name == "csv":
-        return CSVLogger(root_dir="logs", name=name, *args, **kwargs)
+        return CSVLogger(root_dir=(out_dir / "logs"), name="csv", *args, **kwargs)
     if logger_name == "tensorboard":
-        return TensorBoardLogger(root_dir="logs", name=name, *args, **kwargs)
+        return TensorBoardLogger(root_dir=(out_dir / "logs"), name="tensorboard", *args, **kwargs)
     if logger_name == "wandb":
         return WandbLogger(project="tinyllama", name=name, resume=(resume is not False), *args, **kwargs)
     raise ValueError(f"`logger={logger_name}` is not a valid option.")

@@ -32,14 +32,14 @@ Memory used: 14.50 GB
 
 To reduce the memory requirements further, Lit-GPT supports several quantization techniques, which are shown below.
 
-> [!NOTE]
+> [!TIP]
 > Most quantization examples below also use the `--precision bf16-true` setting explained above. If your GPU does not support `bfloat16`, you can change it to `--precision 16-true`.
 
 ## `bnb.nf4`
 
 Enabled with [bitsandbytes](https://github.com/TimDettmers/bitsandbytes). Check out the [paper](https://arxiv.org/abs/2305.14314v1) to learn more about how it works.
 
-> [!NOTE]
+> [!IMPORTANT]
 > `bitsandbytes` only supports `CUDA` devices and the `Linux` operating system.
 > Windows users should use [WSL2](https://learn.microsoft.com/en-us/windows/ai/directml/gpu-cuda-in-wsl).
 
@@ -112,30 +112,4 @@ python generate/base.py --quantize bnb.int8 --checkpoint_dir checkpoints/tiiuae/
 ...
 Time for inference 1: 20.22 sec total, 12.66 tokens/sec
 Memory used: 8.70 GB
-```
-
-## `gptq.int4`
-
-Check out the [paper](https://arxiv.org/abs/2210.17323) to learn more about how it works.
-
-This technique needs a conversion of the weights first:
-
-```bash
-pip install datasets
-
-python quantize/gptq.py --precision bf16-true --checkpoint_dir checkpoints/tiiuae/falcon-7b
-...
-Time for quantization: 850.25 sec total
-Memory used: 23.68 GB
-```
-
-It is important to note that this conversion step required a considerable amount of memory (higher than regular inference) and may take a long time, depending on the size of the model.
-
-generation then works as usual with `--quantize gptq.int4` which will load the newly quantized checkpoint file:
-
-```bash
-python generate/base.py --quantize gptq.int4 --checkpoint_dir checkpoints/tiiuae/falcon-7b --precision 32-true --max_new_tokens 256
-...
-Time for inference 1: 34.35 sec total, 7.45 tokens/sec
-Memory used: 5.05 GB
 ```

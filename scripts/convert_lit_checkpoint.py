@@ -1,3 +1,5 @@
+# Copyright Lightning AI. Licensed under the Apache License 2.0, see LICENSE file.
+
 import gc
 import sys
 from functools import partial
@@ -34,21 +36,17 @@ def copy_weights_falcon(
     }
     # the original model definition is different for each size
     if "7b" in model_name:
-        weight_map.update(
-            {
-                "transformer.h.{}.norm_1.bias": "transformer.h.{}.input_layernorm.bias",
-                "transformer.h.{}.norm_1.weight": "transformer.h.{}.input_layernorm.weight",
-            }
-        )
+        weight_map.update({
+            "transformer.h.{}.norm_1.bias": "transformer.h.{}.input_layernorm.bias",
+            "transformer.h.{}.norm_1.weight": "transformer.h.{}.input_layernorm.weight",
+        })
     elif "40b" in model_name or "180B" in model_name:
-        weight_map.update(
-            {
-                "transformer.h.{}.norm_1.bias": "transformer.h.{}.ln_attn.bias",
-                "transformer.h.{}.norm_1.weight": "transformer.h.{}.ln_attn.weight",
-                "transformer.h.{}.norm_2.bias": "transformer.h.{}.ln_mlp.bias",
-                "transformer.h.{}.norm_2.weight": "transformer.h.{}.ln_mlp.weight",
-            }
-        )
+        weight_map.update({
+            "transformer.h.{}.norm_1.bias": "transformer.h.{}.ln_attn.bias",
+            "transformer.h.{}.norm_1.weight": "transformer.h.{}.ln_attn.weight",
+            "transformer.h.{}.norm_2.bias": "transformer.h.{}.ln_mlp.bias",
+            "transformer.h.{}.norm_2.weight": "transformer.h.{}.ln_mlp.weight",
+        })
     else:
         raise NotImplementedError
 
@@ -108,22 +106,37 @@ def copy_weights_llama(
 ) -> None:
     weight_map = {
         "transformer.wte.weight": "model.embed_tokens.weight",
-        "transformer.h.{}.norm_1.weight": "model.layers.{}.input_layernorm.weight",
-        "transformer.h.{}.attn.proj.weight": "model.layers.{}.self_attn.o_proj.weight",
-        "transformer.h.{}.norm_2.weight": "model.layers.{}.post_attention_layernorm.weight",
-        "transformer.h.{}.mlp.fc_1.weight": "model.layers.{}.mlp.gate_proj.weight",
-        "transformer.h.{}.mlp.fc_2.weight": "model.layers.{}.mlp.up_proj.weight",
-        "transformer.h.{}.mlp.proj.weight": "model.layers.{}.mlp.down_proj.weight",
+        "transformer.h.{}.norm_1.weight": "model.layers.{l}.input_layernorm.weight",
+        "transformer.h.{}.norm_1.bias": "model.layers.{l}.input_layernorm.bias",
+        "transformer.h.{}.attn.proj.weight": "model.layers.{l}.self_attn.o_proj.weight",
+        "transformer.h.{}.norm_2.weight": "model.layers.{l}.post_attention_layernorm.weight",
+        "transformer.h.{}.norm_2.bias": "model.layers.{l}.post_attention_layernorm.bias",
         "transformer.ln_f.weight": "model.norm.weight",
+        "transformer.ln_f.bias": "model.norm.bias",
         "lm_head.weight": "lm_head.weight",
     }
+    if config._mlp_class == "LLaMAMoE":
+        weight_map.update({
+            "transformer.h.{}.mlp.gate.weight": "model.layers.{l}.block_sparse_moe.gate.weight",
+            "transformer.h.{}.mlp.experts.{}.fc_1.weight": "model.layers.{l}.block_sparse_moe.experts.{e}.w1.weight",
+            "transformer.h.{}.mlp.experts.{}.fc_2.weight": "model.layers.{l}.block_sparse_moe.experts.{e}.w3.weight",
+            "transformer.h.{}.mlp.experts.{}.proj.weight": "model.layers.{l}.block_sparse_moe.experts.{e}.w2.weight",
+        })
+    elif config._mlp_class == "LLaMAMLP":
+        weight_map.update({
+            "transformer.h.{}.mlp.fc_1.weight": "model.layers.{l}.mlp.gate_proj.weight",
+            "transformer.h.{}.mlp.fc_2.weight": "model.layers.{l}.mlp.up_proj.weight",
+            "transformer.h.{}.mlp.proj.weight": "model.layers.{l}.mlp.down_proj.weight",
+        })
+    else:
+        raise NotImplementedError
 
     for name, param in lit_weights.items():
         if name.endswith(".attn.attn.weight"):
-            from_name, number = layer_template(name, 2)
-            q = "model.layers.{}.self_attn.q_proj.weight".format(number)
-            k = "model.layers.{}.self_attn.k_proj.weight".format(number)
-            v = "model.layers.{}.self_attn.v_proj.weight".format(number)
+            from_name, l = layer_template(name, 2)
+            q = "model.layers.{}.self_attn.q_proj.weight".format(l)
+            k = "model.layers.{}.self_attn.k_proj.weight".format(l)
+            v = "model.layers.{}.self_attn.v_proj.weight".format(l)
             qkv = load_param(param, name, None)
             qp, kp, vp = qkv_split(qkv, config)
             for to_name, param in zip((q, k, v), (qp, kp, vp)):
@@ -132,9 +145,12 @@ def copy_weights_llama(
                 state_dict[to_name] = param
         else:
             if "transformer.h" in name:
-                from_name, number = layer_template(name, 2)
+                from_name, l = layer_template(name, 2)
+                e = None
+                if "mlp.experts" in name:
+                    from_name, e = layer_template(from_name, 5)
                 to_name = weight_map[from_name]
-                to_name = to_name.format(number)
+                to_name = to_name.format(l=l, e=e)
             else:
                 to_name = weight_map[name]
             param = load_param(param, name, None)
@@ -150,35 +166,45 @@ def copy_weights_phi(
     saver: Optional[incremental_save] = None,
 ) -> None:
     weight_map = {
-        "transformer.wte.weight": "transformer.embd.wte.weight",
-        "transformer.h.{}.norm_1.bias": "transformer.h.{}.ln.bias",
-        "transformer.h.{}.norm_1.weight": "transformer.h.{}.ln.weight",
-        "transformer.h.{}.attn.attn.bias": "transformer.h.{}.mixer.Wqkv.bias",
-        "transformer.h.{}.attn.attn.weight": "transformer.h.{}.mixer.Wqkv.weight",
-        "transformer.h.{}.attn.proj.bias": "transformer.h.{}.mixer.out_proj.bias",
-        "transformer.h.{}.attn.proj.weight": "transformer.h.{}.mixer.out_proj.weight",
-        "transformer.h.{}.mlp.fc.bias": "transformer.h.{}.mlp.fc1.bias",
-        "transformer.h.{}.mlp.fc.weight": "transformer.h.{}.mlp.fc1.weight",
-        "transformer.h.{}.mlp.proj.bias": "transformer.h.{}.mlp.fc2.bias",
-        "transformer.h.{}.mlp.proj.weight": "transformer.h.{}.mlp.fc2.weight",
-        "transformer.ln_f.weight": "lm_head.ln.weight",
-        "transformer.ln_f.bias": "lm_head.ln.bias",
-        "lm_head.weight": "lm_head.linear.weight",
-        "lm_head.bias": "lm_head.linear.bias",
+        "transformer.wte.weight": "model.embed_tokens.weight",
+        "transformer.h.{}.norm_1.weight": "model.layers.{}.input_layernorm.weight",
+        "transformer.h.{}.norm_1.bias": "model.layers.{}.input_layernorm.bias",
+        "transformer.h.{}.attn.proj.weight": "model.layers.{}.self_attn.dense.weight",
+        "transformer.h.{}.attn.proj.bias": "model.layers.{}.self_attn.dense.bias",
+        "transformer.h.{}.mlp.fc.weight": "model.layers.{}.mlp.fc1.weight",
+        "transformer.h.{}.mlp.fc.bias": "model.layers.{}.mlp.fc1.bias",
+        "transformer.h.{}.mlp.proj.weight": "model.layers.{}.mlp.fc2.weight",
+        "transformer.h.{}.mlp.proj.bias": "model.layers.{}.mlp.fc2.bias",
+        "transformer.ln_f.weight": "model.final_layernorm.weight",
+        "transformer.ln_f.bias": "model.final_layernorm.bias",
+        "lm_head.weight": "lm_head.weight",
+        "lm_head.bias": "lm_head.bias",
     }
 
     for name, param in lit_weights.items():
-        if name.startswith("transformer.h."):
-            from_name, number = layer_template(name, 2)
-            to_name = weight_map[from_name].format(number)
+        if name.endswith((".attn.attn.weight", ".attn.attn.bias")):
+            from_name, l = layer_template(name, 2)
+            weight_type = name.split(".")[-1]  # weight or bias
+            q = f"model.layers.{l}.self_attn.q_proj.{weight_type}"
+            k = f"model.layers.{l}.self_attn.k_proj.{weight_type}"
+            v = f"model.layers.{l}.self_attn.v_proj.{weight_type}"
+            qkv = load_param(param, name, None)
+            qp, kp, vp = qkv_split(qkv, config)
+            for to_name, param in zip((q, k, v), (qp, kp, vp)):
+                if saver is not None:
+                    param = saver.store_early(param)
+                state_dict[to_name] = param
         else:
-            to_name = weight_map[name]
-        param = load_param(param, name, None)
-        if "attn.attn." in name:
-            param = torch.cat(qkv_split(param, config))
-        if saver is not None:
-            param = saver.store_early(param)
-        state_dict[to_name] = param
+            if "transformer.h" in name:
+                from_name, l = layer_template(name, 2)
+                to_name = weight_map[from_name]
+                to_name = to_name.format(l)
+            else:
+                to_name = weight_map[name]
+            param = load_param(param, name, None)
+            if saver is not None:
+                param = saver.store_early(param)
+            state_dict[to_name] = param
 
 
 def qkv_split(
@@ -212,8 +238,10 @@ def convert_lit_checkpoint(checkpoint_path: Path, output_path: Path, config_path
 
     if "falcon" in config.name:
         copy_fn = partial(copy_weights_falcon, config.name)
-    elif config._mlp_class == "LLaMAMLP":
+    elif config._mlp_class in ("LLaMAMLP", "LLaMAMoE"):
         copy_fn = partial(copy_weights_llama, config)
+    elif "phi" in config.name:
+        copy_fn = partial(copy_weights_phi, config)
     else:
         copy_fn = copy_weights_gpt_neox
 

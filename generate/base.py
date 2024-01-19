@@ -1,3 +1,5 @@
+# Copyright Lightning AI. Licensed under the Apache License 2.0, see LICENSE file.
+
 import sys
 import time
 from pathlib import Path
@@ -8,20 +10,13 @@ import torch
 import torch._dynamo.config
 import torch._inductor.config
 from lightning.fabric.plugins import BitsandbytesPrecision
-from lightning.fabric.strategies import FSDPStrategy
 
 # support running without installing as a package
 wd = Path(__file__).parent.parent.resolve()
 sys.path.append(str(wd))
 
 from lit_gpt import GPT, Config, Tokenizer
-from lit_gpt.model import Block
-from lit_gpt.utils import (
-    check_valid_checkpoint_dir,
-    get_default_supported_precision,
-    gptq_quantization,
-    load_checkpoint,
-)
+from lit_gpt.utils import check_valid_checkpoint_dir, get_default_supported_precision, load_checkpoint
 
 
 def multinomial_num_samples_1(probs: torch.Tensor) -> torch.Tensor:
@@ -49,7 +44,7 @@ def sample(logits: torch.Tensor, temperature: float = 1.0, top_k: Optional[int] 
 def next_token(model: GPT, input_pos: torch.Tensor, x: torch.Tensor, **kwargs: Any) -> torch.Tensor:
     logits = model(x, input_pos)
     next = sample(logits, **kwargs)
-    return next.type_as(x)
+    return next.to(dtype=x.dtype)
 
 
 @torch.inference_mode()
@@ -98,6 +93,7 @@ def generate(
     return torch.cat(tokens)
 
 
+@torch.inference_mode()
 def main(
     prompt: str = "What food do llamas eat?",
     *,
@@ -106,9 +102,7 @@ def main(
     top_k: Optional[int] = 200,
     temperature: float = 0.8,
     checkpoint_dir: Path = Path("checkpoints/stabilityai/stablelm-base-alpha-3b"),
-    quantize: Optional[Literal["bnb.nf4", "bnb.nf4-dq", "bnb.fp4", "bnb.fp4-dq", "bnb.int8", "gptq.int4"]] = None,
-    strategy: str = "auto",
-    devices: int = 1,
+    quantize: Optional[Literal["bnb.nf4", "bnb.nf4-dq", "bnb.fp4", "bnb.fp4-dq", "bnb.int8"]] = None,
     precision: Optional[str] = None,
     compile: bool = False,
 ) -> None:
@@ -125,46 +119,27 @@ def main(
         quantize: Whether to quantize the model and using which method:
             - bnb.nf4, bnb.nf4-dq, bnb.fp4, bnb.fp4-dq: 4-bit quantization from bitsandbytes
             - bnb.int8: 8-bit quantization from bitsandbytes
-            - gptq.int4: 4-bit quantization from GPTQ
             for more details, see https://github.com/Lightning-AI/lit-gpt/blob/main/tutorials/quantize.md
-        strategy: Indicates the Fabric strategy setting to use.
-        devices: How many devices to use.
         precision: Indicates the Fabric precision setting to use.
         compile: Whether to compile the model.
     """
     precision = precision or get_default_supported_precision(training=False)
 
     plugins = None
-    if quantize is not None:
-        if devices > 1:
-            raise NotImplementedError(
-                "Quantization is currently not supported for multi-GPU training. Please set devices=1 when using the"
-                " --quantize flag."
-            )
-        if quantize.startswith("bnb."):
-            if "mixed" in precision:
-                raise ValueError("Quantization and mixed precision is not supported.")
-            dtype = {"16-true": torch.float16, "bf16-true": torch.bfloat16, "32-true": torch.float32}[precision]
-            plugins = BitsandbytesPrecision(quantize[4:], dtype)
-            precision = None
+    if quantize is not None and quantize.startswith("bnb."):
+        if "mixed" in precision:
+            raise ValueError("Quantization and mixed precision is not supported.")
+        dtype = {"16-true": torch.float16, "bf16-true": torch.bfloat16, "32-true": torch.float32}[precision]
+        plugins = BitsandbytesPrecision(quantize[4:], dtype)
+        precision = None
 
-    if strategy == "fsdp":
-        strategy = FSDPStrategy(auto_wrap_policy={Block}, cpu_offload=False)
-
-    fabric = L.Fabric(devices=devices, precision=precision, strategy=strategy, plugins=plugins)
-    fabric.launch()
+    fabric = L.Fabric(devices=1, precision=precision, plugins=plugins)
 
     check_valid_checkpoint_dir(checkpoint_dir)
 
     config = Config.from_json(checkpoint_dir / "lit_config.json")
 
-    if quantize == "gptq.int4":
-        model_file = "lit_model_gptq.4bit.pth"
-        if not (checkpoint_dir / model_file).is_file():
-            raise ValueError("Please run `python quantize/gptq.py` first")
-    else:
-        model_file = "lit_model.pth"
-    checkpoint_path = checkpoint_dir / model_file
+    checkpoint_path = checkpoint_dir / "lit_model.pth"
 
     tokenizer = Tokenizer(checkpoint_dir)
     encoded = tokenizer.encode(prompt, device=fabric.device)
@@ -173,7 +148,7 @@ def main(
 
     fabric.print(f"Loading model {str(checkpoint_path)!r} with {config.__dict__}", file=sys.stderr)
     t0 = time.perf_counter()
-    with fabric.init_module(empty_init=True), gptq_quantization(quantize == "gptq.int4"):
+    with fabric.init_module(empty_init=True):
         model = GPT(config)
     fabric.print(f"Time to instantiate model: {time.perf_counter() - t0:.02f} seconds.", file=sys.stderr)
     with fabric.init_tensor():
@@ -199,7 +174,7 @@ def main(
     L.seed_everything(1234)
     for i in range(num_samples):
         t0 = time.perf_counter()
-        y = generate(model, encoded, max_returned_tokens, temperature=temperature, top_k=top_k)
+        y = generate(model, encoded, max_returned_tokens, temperature=temperature, top_k=top_k, eos_id=tokenizer.eos_id)
         t = time.perf_counter() - t0
         for block in model.transformer.h:
             block.attn.kv_cache.reset_parameters()

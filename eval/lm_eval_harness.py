@@ -1,3 +1,5 @@
+# Copyright Lightning AI. Licensed under the Apache License 2.0, see LICENSE file.
+
 import json
 import sys
 from pathlib import Path
@@ -15,12 +17,7 @@ sys.path.append(str(wd))
 
 from generate.base import generate
 from lit_gpt import GPT, Config, Tokenizer
-from lit_gpt.utils import (
-    check_valid_checkpoint_dir,
-    get_default_supported_precision,
-    gptq_quantization,
-    load_checkpoint,
-)
+from lit_gpt.utils import check_valid_checkpoint_dir, get_default_supported_precision, load_checkpoint
 
 
 class EvalHarnessBase(BaseLM):
@@ -76,6 +73,7 @@ class EvalHarnessBase(BaseLM):
     def _model_call(self, inps):
         return self.model(inps)
 
+    @torch.inference_mode()
     def _model_generate(self, context, max_length, eos_token_id) -> torch.Tensor:
         # this only supports batch size 1
         assert context.shape[0] == 1
@@ -139,7 +137,7 @@ class EvalHarnessBase(BaseLM):
 def run_eval_harness(
     checkpoint_dir: Path,
     precision: Optional[str] = None,
-    quantize: Optional[Literal["bnb.nf4", "bnb.nf4-dq", "bnb.fp4", "bnb.fp4-dq", "bnb.int8", "gptq.int4"]] = None,
+    quantize: Optional[Literal["bnb.nf4", "bnb.nf4-dq", "bnb.fp4", "bnb.fp4-dq", "bnb.int8"]] = None,
     eval_tasks: List[str] = ["arc_challenge", "piqa", "hellaswag", "hendrycksTest-*"],
     save_filepath: Optional[Path] = None,
     num_fewshot: int = 0,
@@ -165,16 +163,10 @@ def run_eval_harness(
 
     config = Config.from_json(checkpoint_dir / "lit_config.json")
 
-    if quantize == "gptq.int4":
-        model_file = "lit_model_gptq.4bit.pth"
-        if not (checkpoint_dir / model_file).is_file():
-            raise ValueError("Please run `python quantize/gptq.py` first")
-    else:
-        model_file = "lit_model.pth"
-    checkpoint_path = checkpoint_dir / model_file
+    checkpoint_path = checkpoint_dir / "lit_model.pth"
 
     print(f"Loading model {str(checkpoint_path)!r} with {config.__dict__}", file=sys.stderr)
-    with fabric.init_module(empty_init=True), gptq_quantization(quantize == "gptq.int4"):
+    with fabric.init_module(empty_init=True):
         model = GPT(config)
 
     model.eval()
