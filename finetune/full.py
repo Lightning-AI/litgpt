@@ -11,7 +11,6 @@ import lightning as L
 import torch
 from lightning.fabric.loggers import CSVLogger
 from lightning.fabric.strategies import FSDPStrategy
-from lightning.fabric.utilities import ThroughputMonitor, measure_flops
 from torchmetrics.aggregation import RunningMean
 
 # support running without installing as a package
@@ -145,17 +144,6 @@ def train(
     )
 
     validate(fabric, model, val_data, tokenizer, max_iters=2)  # sanity check
-    throughput = ThroughputMonitor(fabric, window_size=5)
-
-    with torch.device("meta"):
-        meta_model = GPT(model.config)
-        x = torch.randint(0, 1, (micro_batch_size, meta_model.config.block_size))
-        model_fwd = lambda: meta_model(x)
-        model_loss = lambda y: chunked_cross_entropy(y, x, chunk_size=0)
-        measured_flops = measure_flops(meta_model, model_fwd, model_loss)
-        fabric.print(f"Measured TFLOPs: {measured_flops * fabric.world_size / 1e12:.2f}")
-        del meta_model, x
-
     initial_iter = state["iter_num"]
 
     # resume data loader state by fast-forwarding through all seen batches
@@ -173,7 +161,6 @@ def train(
 
     running_loss = RunningMean(window=gradient_accumulation_iters, sync_on_compute=False).to(fabric.device)
     fabric.barrier()
-    total_t0 = time.perf_counter()
 
     for state["iter_num"] in range(state["iter_num"] + 1, max_iters + 1):
         if state["step_count"] <= warmup_steps:
@@ -203,13 +190,6 @@ def train(
         if state["iter_num"] % log_iter_interval == 0:
             loss = running_loss.compute().item()  # expensive device-to-host synchronization
             t1 = time.perf_counter()
-            throughput.update(
-                time=(t1 - total_t0),
-                flops=(measured_flops * log_iter_interval),
-                batches=state["iter_num"],
-                samples=(state["iter_num"] * micro_batch_size),
-                lengths=(state["iter_num"] * micro_batch_size * model.config.block_size),
-            )
             metrics = {
                 "loss": loss,
                 "iter": state["iter_num"],
@@ -224,9 +204,6 @@ def train(
                 f"iter {metrics['iter']} | step {metrics['step']}: loss {metrics['loss']:.4f}, iter time:"
                 f" {metrics['iter_time'] * 1000:.2f} ms{' (optimizer.step),' if not is_accumulating else ','}"
             )
-
-            throughput_metrics = throughput.compute()
-            metrics.update(throughput_metrics)
             fabric.log_dict(metrics, step=state["iter_num"])
 
         if not is_accumulating and state["step_count"] % eval_step_interval == 0:
