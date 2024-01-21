@@ -16,8 +16,8 @@ def test_full_script(tmp_path, fake_checkpoint_dir, monkeypatch):
     import finetune.full as module
 
     module.gradient_accumulation_iters = 1
-    module.save_interval = 2
-    module.eval_interval = 2
+    module.save_step_interval = 2
+    module.eval_step_interval = 2
     module.eval_iters = 2
     module.eval_max_new_tokens = 1
     module.max_iters = 6
@@ -45,16 +45,16 @@ def test_full_script(tmp_path, fake_checkpoint_dir, monkeypatch):
         module.setup(data_dir=tmp_path, checkpoint_dir=fake_checkpoint_dir, out_dir=tmp_path, precision="32-true")
 
     assert {p.name for p in tmp_path.glob("*.pth")} == {
-        "iter-000002-ckpt.pth",
-        "iter-000004-ckpt.pth",
-        "iter-000006-ckpt.pth",
+        "step-000002.pth",
+        "step-000004.pth",
+        "step-000006.pth",
         "lit_model_finetuned.pth",
     }
     assert (tmp_path / "version_0" / "metrics.csv").is_file()
 
     logs = stdout.getvalue()
     assert logs.count("optimizer.step") == module.max_iters
-    assert logs.count("val loss") == module.max_iters // module.eval_interval
+    assert logs.count("val loss") == module.max_iters // module.eval_step_interval
     assert "of trainable parameters: 1,888" in logs
 
 
@@ -74,7 +74,7 @@ def test_pretrain_tiny_llama(tmp_path, monkeypatch):
     module.global_batch_size = 1
     module.micro_batch_size = 1
     module.batch_size = 1
-    module.gradient_accumulation_steps = 1
+    module.gradient_accumulation_iters = 1
     module.model_name = "tmp"
     module.out_dir = tmp_path
 
