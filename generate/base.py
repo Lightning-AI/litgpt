@@ -80,8 +80,10 @@ def generate(
         eos_id: If specified, stop generating any more token once the <eos> token is triggered.
     """
     
-    # make sure we have a batch dimension
+    # make sure we have a batch dimension, and remember to remove it later if there wasn't one
+    resqueeze = False
     if prompts.dim() == 1:
+        resqueeze = True
         prompts = prompts.unsqueeze(0)
         
     B = prompts.size(0)
@@ -97,7 +99,7 @@ def generate(
     device = prompts.device
     dtype = prompts.dtype
 
-    # an outout tensor to fill with generated tokens
+    # an output tensor to fill with generated tokens
     outputs_tensor = torch.zeros((B, max_returned_tokens), dtype=dtype, device=device)
     outputs_tensor[:, :T] = prompts
 
@@ -117,9 +119,10 @@ def generate(
           
         if finished.all():
             break
-        
-    if B == 1:
-        outputs_tensor = outputs_tensor.unsqueeze(0)
+    
+    # removing the artificial batch dimension if there is one for backward compatibility
+    if resqueeze:
+        outputs_tensor = outputs_tensor.squeeze(0)
     return outputs_tensor
 
 
@@ -209,9 +212,7 @@ def main(
         torch._dynamo.config.automatic_dynamic_shapes = True
         torch._inductor.config.triton.unique_kernel_names = True
         torch._inductor.config.coordinate_descent_tuning = True
-        global next_token        # # printing the results
-        # if y.dim() == 1:
-        #     y = y.unsqueeze(0)
+        global next_token
         next_token = torch.compile(next_token, mode="reduce-overhead")
 
     model = fabric.setup_module(model)
@@ -228,7 +229,7 @@ def main(
         for block in model.transformer.h:
             block.attn.kv_cache.reset_parameters()
 
-        padding_mask = (y != 0) & (y != tokenizer.eos_id)
+        padding_mask = (y != 0) & (y != tokenizer.eos_id) # filters 0 tokens and eos tokens for printing
 
         for b in range(B):
             fabric.print(f"\n\033[35mOutput # \033[37m{b + 1}:")
