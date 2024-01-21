@@ -110,7 +110,7 @@ def generate(
 
     for _ in range(2, max_generation_iters):
 
-        token = next_token(model, input_position, token, temperature=temperature, top_k=top_k)
+        token = next_token(model, input_position, token, temperature=temperature, top_k=top_k).clone()
         outputs_tensor[~finished, input_position] = token.view(-1)[~finished]
         input_position = input_position.add_(1)
         finished = (token == eos_id).view(-1) | finished
@@ -126,7 +126,7 @@ def generate(
 
 @torch.inference_mode()
 def main(
-    prompts: Union[str, List] = ["What food do llamas eat?", "write some haikus"],
+    prompts: Union[str, List] = "What food do llamas eat?",
     *,
     num_samples: int = 1,
     max_new_tokens: int = 512,
