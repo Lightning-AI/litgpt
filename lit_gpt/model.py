@@ -72,7 +72,7 @@ class GPT(nn.Module):
         elif isinstance(module, nn.Embedding):
             torch.nn.init.normal_(module.weight, mean=0.0, std=0.02)
 
-    def forward(self, idx: torch.Tensor, input_pos: Optional[torch.Tensor] = None) -> torch.Tensor:
+    def forward(self, idx: torch.Tensor, input_pos: Optional[torch.Tensor] = None, attention_mask: Optional[torch.Tensor] = None) -> torch.Tensor:
         T = idx.size(1)
         if self.max_seq_length < T:
             raise ValueError(f"Cannot forward sequence of length {T}, max seq length is only {self.max_seq_length}.")
@@ -80,13 +80,18 @@ class GPT(nn.Module):
         if input_pos is not None:  # use the kv cache
             cos = self.cos.index_select(0, input_pos)
             sin = self.sin.index_select(0, input_pos)
-            if self.mask_cache is None:
-                raise TypeError("You need to call `gpt.set_kv_cache()`")
-            mask = self.mask_cache.index_select(2, input_pos)
+            
+            if attention_mask is None:
+                if self.mask_cache is None:
+                    raise TypeError("You need to call `gpt.set_kv_cache() or manually pass an attention mask`")
+                mask = self.mask_cache.index_select(2, input_pos)
+            else:
+                mask = attention_mask       
+
         else:
             cos = self.cos[:T]
             sin = self.sin[:T]
-            mask = None
+            mask = attention_mask
 
         x = self.transformer.wte(idx)  # token embeddings of shape (b, t, n_embd)
         for block in self.transformer.h:
@@ -113,6 +118,7 @@ class GPT(nn.Module):
         rope_cache_length: Optional[int] = None,
         device: Optional[torch.device] = None,
         dtype: Optional[torch.dtype] = None,
+        padding_mask: Optional[torch.Tensor] = None,
     ) -> None:
         if rope_cache_length is None:
             rope_cache_length = self.cos.size(-1)
@@ -127,7 +133,7 @@ class GPT(nn.Module):
         if self.mask_cache is None or self.mask_cache.size(3) != max_seq_length:
             # passing `attn_mask` to SDPA disables the flash implementation. since we only need the mask
             # for the kv-cache support (only during inference), we only create it in that situation
-            self.mask_cache = build_mask_cache(max_seq_length, device)
+            self.mask_cache = build_mask_cache(max_seq_length, device, padding_mask)
 
     def clear_kv_cache(self) -> None:
         self.mask_cache = None
@@ -375,6 +381,10 @@ class KVCache(nn.Module):
         torch.nn.init.zeros_(self.v)
 
 
-def build_mask_cache(max_seq_length: int, device: Optional[torch.device] = None) -> torch.Tensor:
+def build_mask_cache(max_seq_length: int, device: Optional[torch.device] = None, padding_mask : Optional[torch.Tensor] = None) -> torch.Tensor:
     ones = torch.ones((max_seq_length, max_seq_length), device=device, dtype=torch.bool)
-    return torch.tril(ones).unsqueeze(0).unsqueeze(0)
+    mask = torch.tril(ones).unsqueeze(0).unsqueeze(0)
+    if padding_mask is not None:
+        mask = mask.repeat(len(padding_mask), 1, 1, 1)
+        mask[:, :, :, :padding_mask.size(1)] = padding_mask.unsqueeze(1).unsqueeze(1)            
+    return mask

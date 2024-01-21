@@ -21,6 +21,7 @@ from lit_gpt.utils import (
     get_default_supported_precision,
     gptq_quantization,
     load_checkpoint,
+    pad_batched_tokens
 )
 
 
@@ -103,35 +104,32 @@ def generate(
     token = next_token(model, torch.arange(0, T, device=device), prompts, temperature=temperature, top_k=top_k).clone()
     outputs_tensor[torch.arange(0, B, device=device) , T] = token.squeeze()
 
-    input_position = torch.tensor(T, device=device)
-    finished = torch.tensor([False] * B, device=device)
+    input_position = torch.tensor(T + 1, device=device)
+    finished = torch.tensor([False] * B, device=device).view(-1)
     max_generation_iters = max_returned_tokens - T + 1
 
     for _ in range(2, max_generation_iters):
 
-        token = next_token(model, input_position, token, temperature=temperature, top_k=top_k).clone()
-        outputs_tensor[:, input_position] = token.squeeze()
+        token = next_token(model, input_position, token, temperature=temperature, top_k=top_k)
+        outputs_tensor[~finished, input_position] = token.view(-1)[~finished]
         input_position = input_position.add_(1)
         finished = (token == eos_id).view(-1) | finished
-        
-        if isinstance(finished, bool):
-            finished = torch.tensor([finished] * B, device=device)
-            
+          
         if finished.all():
-            print("breaking")
             break
+        
     if B == 1:
-        outputs_tensor = outputs_tensor.squeeze(0)
+        outputs_tensor = outputs_tensor.unsqueeze(0)
     return outputs_tensor
 
 
 
 @torch.inference_mode()
 def main(
-    prompts: Union[str, List] = "What food do llamas eat??",
+    prompts: Union[str, List] = ["What food do llamas eat?", "write some haikus"],
     *,
     num_samples: int = 1,
-    max_new_tokens: int = 100,
+    max_new_tokens: int = 512,
     top_k: Optional[int] = 200,
     temperature: float = 0.8,
     checkpoint_dir: Path = Path("checkpoints/stabilityai/stablelm-base-alpha-3b"),
@@ -187,11 +185,8 @@ def main(
     if isinstance(prompts, str):
         prompts = [prompts]
 
-    # Encode the batched prompts with left padding, using 0 as the padding value
-    encoded = [tokenizer.encode(p, device=fabric.device) for p in prompts]
-    encoded_lengths = torch.tensor([p.size(0) for p in encoded], device=fabric.device)
-    longest_prompt = max(encoded_lengths)
-    encoded = torch.stack([torch.nn.functional.pad(p, (longest_prompt - encoded_lengths[i], 0), value=0) for i, p in enumerate(encoded)], dim=0)
+    tokenized_prompts = [tokenizer.encode(prompt, device=fabric.device) for prompt in prompts]
+    encoded, padding_mask = pad_batched_tokens(tokenized_prompts, pad_id=0)
     
     B = len(encoded)   
     T = encoded.size(1)
@@ -207,14 +202,16 @@ def main(
         # set the max_seq_length to limit the memory usage to what we need
         model.max_seq_length = max_returned_tokens
         # enable the kv cache
-        model.set_kv_cache(batch_size=B)
+        model.set_kv_cache(batch_size=B, padding_mask=padding_mask)
     model.eval()
 
     if compile:
         torch._dynamo.config.automatic_dynamic_shapes = True
         torch._inductor.config.triton.unique_kernel_names = True
         torch._inductor.config.coordinate_descent_tuning = True
-        global next_token
+        global next_token        # # printing the results
+        # if y.dim() == 1:
+        #     y = y.unsqueeze(0)
         next_token = torch.compile(next_token, mode="reduce-overhead")
 
     model = fabric.setup_module(model)
@@ -231,10 +228,6 @@ def main(
         for block in model.transformer.h:
             block.attn.kv_cache.reset_parameters()
 
-        # printing the results
-        if y.dim() == 1:
-            y = y.unsqueeze(0)
-        # a boolean mask to filter out our padding zeroes and the eos tokens as we print
         padding_mask = (y != 0) & (y != tokenizer.eos_id)
 
         for b in range(B):
@@ -242,7 +235,7 @@ def main(
             fabric.print(f"\033[32mTotal tokens: \033[37m{y[b][padding_mask[b]].count_nonzero()}\n")
             fabric.print(f"\033[37m{tokenizer.decode(y[b][padding_mask[b]])}\n")
 
-        tokens_generated = y[padding_mask].count_nonzero() - encoded_lengths.sum()
+        tokens_generated = y[padding_mask].count_nonzero() - T * B
         fabric.print(f"Time for inference {i + 1}: {t:.02f} sec total, {tokens_generated / t:.02f} tokens/sec", file=sys.stderr)
         
     if fabric.device.type == "cuda":

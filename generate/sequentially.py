@@ -8,7 +8,7 @@ import time
 from collections import OrderedDict
 from functools import partial
 from pathlib import Path
-from typing import Literal, Optional
+from typing import Literal, Optional, Union, List
 
 import lightning as L
 import torch
@@ -24,11 +24,11 @@ sys.path.append(str(wd))
 import generate.base as generate_base
 from lit_gpt import GPT, Config, Tokenizer
 from lit_gpt.model import Block, build_mask_cache
-from lit_gpt.utils import check_valid_checkpoint_dir, get_default_supported_precision
+from lit_gpt.utils import check_valid_checkpoint_dir, get_default_supported_precision, pad_batched_tokens
 
 
 @torch.inference_mode()
-def sequential(model: GPT, root: torch.device, max_seq_length: int, devices: int):
+def sequential(model: GPT, root: torch.device, max_seq_length: int, devices: int, padding_mask : Optional[torch.Tensor] = None, batch_size: int = 1) -> GPT:
     if model.config.n_layer % devices:
         # TODO: support smarter partitioning schemes
         raise NotImplementedError(
@@ -48,13 +48,13 @@ def sequential(model: GPT, root: torch.device, max_seq_length: int, devices: int
         # in case the checkpoint was partial, materialize leftover metas
         _materialize_meta_tensors(submodule, target_device)
         # and build the kv cache
-        submodule.attn.kv_cache = submodule.attn.build_kv_cache(1, max_seq_length, model.cos.size(-1), target_device)
+        submodule.attn.kv_cache = submodule.attn.build_kv_cache(batch_size, max_seq_length, model.cos.size(-1), target_device)
     # rebuild odd ends
     with root:
         # the rope cache which is on meta device
         model.max_seq_length = max_seq_length
         # the mask cache which cannot be created with `set_kv_cache` because that will set it for all layers
-        model.mask_cache = build_mask_cache(max_seq_length)
+        model.mask_cache = build_mask_cache(max_seq_length, padding_mask=padding_mask)
     # and everything that is not a block in the root
     _materialize_meta_tensors(model, root)
     replace_device(model, replace=torch.device("cpu"), by=root)
@@ -115,7 +115,7 @@ def replace_device(module: torch.nn.Module, replace: torch.device, by: torch.dev
 
 @torch.inference_mode()
 def main(
-    prompt: str = "What food do llamas eat?",
+    prompts: Union[List, str] = "what food do llamas eat?",
     *,
     num_samples: int = 1,
     max_new_tokens: int = 50,
@@ -166,9 +166,16 @@ def main(
     checkpoint_path = checkpoint_dir / "lit_model.pth"
 
     tokenizer = Tokenizer(checkpoint_dir)
-    encoded = tokenizer.encode(prompt, device=fabric.device)
-    prompt_length = encoded.size(0)
-    max_returned_tokens = prompt_length + max_new_tokens
+    
+    if isinstance(prompts, str):
+        prompts = [prompts]
+   
+    encoded = [tokenizer.encode(prompt, device=fabric.device) for prompt in prompts]
+    prompt_token_count = sum(len(e) for e in encoded)
+    encoded, padding_mask = pad_batched_tokens(encoded, pad_id=0)
+    B = encoded.size(0)  
+    T = encoded.size(1)
+    max_returned_tokens = T + max_new_tokens
 
     print(f"Loading model {str(checkpoint_path)!r} with {config.__dict__}", file=sys.stderr)
     t0 = time.perf_counter()
@@ -188,7 +195,7 @@ def main(
     model = fabric.setup_module(model, move_to_device=False)
 
     t0 = time.perf_counter()
-    model = sequential(model, fabric.device, max_returned_tokens, total_devices)
+    model = sequential(model, fabric.device, max_returned_tokens, total_devices, padding_mask=padding_mask, batch_size=B)
     print(f"Time to sequential-ize the model: {time.perf_counter() - t0:.02f} seconds.", file=sys.stderr)
 
     if compile:
@@ -214,12 +221,19 @@ def main(
         t = time.perf_counter() - t0
         for block in model.transformer.h:
             block.attn.kv_cache.reset_parameters()
-        print(tokenizer.decode(y))
-        tokens_generated = y.size(0) - prompt_length
-        print(
-            f"Time for inference {i + 1}: {t:.02f} sec total, {tokens_generated / t:.02f} tokens/sec", file=sys.stderr
-        )
-    print(f"Memory used: {torch.cuda.max_memory_allocated() / 1e9:.02f} GB", file=sys.stderr)
+        padding_mask = (y != 0) & (y != tokenizer.eos_id)
+
+        for b in range(B):
+            fabric.print(f"\n\033[35mOutput # \033[37m{b + 1}:")
+            fabric.print(f"\033[32mTotal tokens: \033[37m{y[b][padding_mask[b]].count_nonzero()}\n")
+            fabric.print(f"\033[37m{tokenizer.decode(y[b][padding_mask[b]])}\n")
+
+        tokens_generated = y[padding_mask].count_nonzero() - prompt_token_count
+        fabric.print(f"Time for inference {i + 1}: {t:.02f} sec total, {tokens_generated / t:.02f} tokens/sec", file=sys.stderr)
+        
+    if fabric.device.type == "cuda":
+        fabric.print(f"Memory used: {torch.cuda.max_memory_allocated() / 1e9:.02f} GB", file=sys.stderr)
+
 
 
 if __name__ == "__main__":
