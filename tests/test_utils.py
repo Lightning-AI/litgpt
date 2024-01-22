@@ -1,11 +1,14 @@
+# Copyright Lightning AI. Licensed under the Apache License 2.0, see LICENSE file.
+
 import os
-import sys
 from contextlib import redirect_stderr
 from io import StringIO
 
 import pytest
 import torch
 import torch.nn.functional as F
+from conftest import RunIf
+from lightning import Fabric
 
 
 def test_find_multiple():
@@ -20,7 +23,8 @@ def test_find_multiple():
     assert find_multiple(50254, 512) == 50688
 
 
-@pytest.mark.skipif(sys.platform == "win32", reason="match fails on windows. why did they have to use backslashes?")
+# match fails on windows. why did they have to use backslashes?
+@RunIf(skip_windows=True)
 def test_check_valid_checkpoint_dir(tmp_path):
     from lit_gpt.utils import check_valid_checkpoint_dir
 
@@ -92,7 +96,8 @@ def test_incremental_write(tmp_path):
 
 
 @pytest.mark.parametrize("B", (1, 2))
-def test_chunked_cross_entropy(B):
+@pytest.mark.parametrize("with_ignore_index", (True, False))
+def test_chunked_cross_entropy(with_ignore_index, B):
     from lit_gpt.utils import chunked_cross_entropy
 
     V = 50
@@ -100,7 +105,14 @@ def test_chunked_cross_entropy(B):
     regular_logits = torch.randn(B, T, V)
     targets = torch.randint(0, V, (B, T))
 
-    baseline_loss = F.cross_entropy(regular_logits.reshape(-1, regular_logits.size(-1)), targets.reshape(-1))
+    if with_ignore_index:
+        targets[:, [1, 4, 10, 19]] = -1
+
+    baseline_loss = F.cross_entropy(
+        regular_logits.reshape(-1, regular_logits.size(-1)),
+        targets.reshape(-1),
+        ignore_index=(-1 if with_ignore_index else -100),
+    )
     regular_loss = chunked_cross_entropy(regular_logits, targets, chunk_size=0)
     assert torch.equal(baseline_loss, regular_loss)
     assert regular_loss.numel() == 1
@@ -134,3 +146,43 @@ def test_num_parameters():
     assert num_parameters(model) == 6
     assert num_parameters(model, requires_grad=True) == 4
     assert num_parameters(model, requires_grad=False) == 2
+
+
+@RunIf(min_cuda_gpus=1)
+@pytest.mark.parametrize("mode", ["nf4", "nf4-dq", "fp4", "fp4-dq", "int8", "int8-training"])
+@pytest.mark.skip("To be fixed")
+def test_num_parameters_bitsandbytes(mode):
+    from lightning.fabric.plugins import BitsandbytesPrecision
+
+    from lit_gpt import GPT
+    from lit_gpt.utils import num_parameters
+
+    plugin = BitsandbytesPrecision(mode=mode)
+    fabric = Fabric(plugins=plugin, accelerator="cuda", devices=1)
+
+    model = torch.nn.Linear(10, 10)
+    model = fabric.setup(model)
+    assert num_parameters(model) == 110
+
+    with fabric.init_module(empty_init=True):
+        model = GPT.from_name("pythia-14m")
+    assert num_parameters(model) == 14067712
+
+
+def test_cycle_iterator():
+    from lit_gpt.utils import CycleIterator
+
+    iterator = CycleIterator([])
+    with pytest.raises(StopIteration):
+        next(iterator)
+
+    iterator = CycleIterator(range(3))
+    assert iterator.epoch == 0
+    assert next(iterator) == 0
+    assert iterator.epoch == 0
+    assert next(iterator) == 1
+    assert iterator.epoch == 0
+    assert next(iterator) == 2
+    assert iterator.epoch == 0
+    assert next(iterator) == 0
+    assert iterator.epoch == 1

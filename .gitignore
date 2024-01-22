@@ -12,5 +12,6 @@ datasets
 checkpoints
 out
 wandb
+events.out.tfevents*
 
-tests/original_phi_1_5.py
+tests/reference_models

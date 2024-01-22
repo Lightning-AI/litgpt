@@ -1,3 +1,5 @@
+# Copyright Lightning AI. Licensed under the Apache License 2.0, see LICENSE file.
+
 # Derived from https://github.com/microsoft/LoRA
 #  ------------------------------------------------------------------------------------------
 #  Copyright (c) Microsoft Corporation. All rights reserved.
@@ -95,7 +97,7 @@ class LoRALinear(LoRALayer):
         r: int = 0,
         lora_alpha: int = 1,
         lora_dropout: float = 0.0,
-        **kwargs,
+        **kwargs: Any,
     ):
         """LoRA wrapper around linear class.
 
@@ -133,11 +135,36 @@ class LoRALinear(LoRALayer):
             nn.init.kaiming_uniform_(self.lora_A, a=math.sqrt(5))
             nn.init.zeros_(self.lora_B)
 
+    def get_lora_AB(self) -> torch.Tensor:
+        """Return merged lora_A and lora_B matrices with the same shape as the pretrained weights."""
+        return (self.lora_B @ self.lora_A) * self.scaling
+
     def merge(self) -> None:
         """Merges the LoRA weights into the full-rank weights (W = W + delta_W)."""
         if self.r > 0 and not self.merged:
-            # Merge the weights and mark it
-            self.linear.weight.data += (self.lora_B @ self.lora_A) * self.scaling
+            pretrained_dtype = self.linear.weight.data.dtype
+            lora_data = self.get_lora_AB()
+            # if the pretrained weights and LoRA weights are of the same dtype - simply sum them
+            if pretrained_dtype == lora_data.dtype:
+                self.linear.weight.data += lora_data
+            # if only the pretrained are in quantized form - dequantize, sum with LoRA and quantize the result
+            elif pretrained_dtype == torch.uint8:
+                import bitsandbytes as bnb
+
+                weight = self.linear.weight
+                # dequantize the pretrained weights
+                weight_data = bnb.functional.dequantize_4bit(weight.data, weight.quant_state).to(lora_data.dtype)
+                # add pretrained and LoRA weights
+                weight_data += lora_data
+                # assign updated weights and quantize by moving to CUDA device
+                self.linear.weight = bnb.nn.Params4bit(weight_data, requires_grad=False, **weight.__dict__)
+                self.linear.weight.cuda(weight.device)
+            else:
+                raise NotImplementedError(
+                    f"Cannot merge the pretrained weights of type {pretrained_dtype}"
+                    f" and LoRA weights of type {lora_data.dtype}"
+                )
+
             self.merged = True
 
     def forward(self, x: torch.Tensor) -> torch.Tensor:
@@ -164,7 +191,7 @@ class LoRAQKVLinear(LoRALinear):
         lora_alpha: int = 1,
         lora_dropout: float = 0.0,
         enable_lora: Union[bool, Tuple[bool, bool, bool]] = False,
-        **kwargs,
+        **kwargs: Any,
     ):
         """LoRA wrapper around linear class that is used for calculation of q, k and v matrices.
 
@@ -330,23 +357,24 @@ class LoRAQKVLinear(LoRALinear):
             [F.conv1d(a, b) for a, b in zip(input_splitted, weight_splitted)], dim=1  # (B, C_output', T)
         )  # (B, C_output, T)
 
-    def merge(self) -> None:
-        """Merges the LoRA weights into the full-rank weights (W = W + delta_W)."""
-
+    def get_lora_AB(self) -> torch.Tensor:
+        """Return merged lora_A and lora_B matrices with the same shape as the pretrained weights."""
         # Let's assume that:
         # ⚬ self.linear.weight.data: (384, 128) or (3 * embedding_size, embedding_size)
         # ⚬ self.lora_A.data: (4, 128)
         # ⚬ self.lora_B.data: (256, 2)
+        lora = self.conv1d(
+            self.lora_A.data.unsqueeze(0),  # (4, 128) -> (1, 4, 128)
+            self.lora_B.data.unsqueeze(-1),  # (256, 2) -> (256, 2, 1)
+        ).squeeze(
+            0
+        )  # (1, 4, 128) @ (256, 2, 1) -> (1, 256, 128) -> (256, 128)
+        return self.zero_pad(lora * self.scaling)  # (256, 128) after zero_pad (384, 128)
+
+    def merge(self) -> None:
+        """Merges the LoRA weights into the full-rank weights (W = W + delta_W)."""
         if self.r > 0 and any(self.enable_lora) and not self.merged:
-            delta_w = self.conv1d(
-                self.lora_A.data.unsqueeze(0),  # (4, 128) -> (1, 4, 128)
-                self.lora_B.data.unsqueeze(-1),  # (256, 2) -> (256, 2, 1)
-            ).squeeze(
-                0
-            )  # (1, 4, 128) @ (256, 2, 1) -> (1, 256, 128) -> (256, 128)
-            # W = W + delta_W (merge)
-            self.linear.weight.data += self.zero_pad(delta_w * self.scaling)  # (256, 128) after zero_pad (384, 128)
-            self.merged = True
+            super().merge()
 
     def forward(self, x: torch.Tensor) -> torch.Tensor:
         """Do the forward pass.
@@ -514,7 +542,7 @@ class GPT(BaseModel):
 
     def _load_from_state_dict(self, state_dict: Dict, prefix: str, *args: Any, **kwargs: Any) -> None:
         """For compatibility with base checkpoints."""
-        mapping = {"lm_head.weight": "lm_head.linear.weight"}
+        mapping = {"lm_head.weight": "lm_head.linear.weight", "lm_head.bias": "lm_head.linear.bias"}
         state_dict = map_old_state_dict_weights(state_dict, mapping, prefix)
         super()._load_from_state_dict(state_dict, prefix, *args, **kwargs)
 
@@ -648,6 +676,28 @@ class LLaMAMLP(lit_gpt.model.LLaMAMLP):
             "proj.weight": "proj.linear.weight",
             "proj.bias": "proj.linear.bias",
         }
+        state_dict = map_old_state_dict_weights(state_dict, mapping, prefix)
+        super()._load_from_state_dict(state_dict, prefix, *args, **kwargs)
+
+
+class LLaMAMoE(lit_gpt.model.LLaMAMoE):
+    def __init__(self, config: Config) -> None:
+        nn.Module.__init__(self)
+        self.gate = LoRALinear(
+            config.n_embd,
+            config.n_expert,
+            bias=False,
+            r=(config.r if config.to_mlp else 0),
+            lora_alpha=config.alpha,
+            lora_dropout=config.dropout,
+        )
+        self.experts = nn.ModuleList(LLaMAMLP(config) for _ in range(config.n_expert))
+
+        self.config = config
+
+    def _load_from_state_dict(self, state_dict: Dict, prefix: str, *args: Any, **kwargs: Any) -> None:
+        """For compatibility with base checkpoints."""
+        mapping = {"gate.weight": "gate.linear.weight"}
         state_dict = map_old_state_dict_weights(state_dict, mapping, prefix)
         super()._load_from_state_dict(state_dict, prefix, *args, **kwargs)
 

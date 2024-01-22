@@ -1,6 +1,9 @@
+# Copyright Lightning AI. Licensed under the Apache License 2.0, see LICENSE file.
+
 import sys
 import time
 from pathlib import Path
+from typing import Optional
 
 import lightning as L
 from lightning.fabric.accelerators import XLAAccelerator
@@ -25,7 +28,7 @@ def setup(
     adapter_path: Path = Path("out/adapter/alpaca/lit_model_adapter_finetuned.pth"),
     checkpoint_dir: Path = Path("checkpoints/tiiuae/falcon-7b"),
     max_new_tokens: int = 100,
-    top_k: int = 200,
+    top_k: Optional[int] = 200,
     temperature: float = 0.8,
     precision: str = "bf16-true",
 ) -> None:
@@ -58,7 +61,7 @@ def main(
     adapter_path: Path,
     checkpoint_dir: Path,
     max_new_tokens: int,
-    top_k: int,
+    top_k: Optional[int],
     temperature: float,
 ) -> None:
     check_valid_checkpoint_dir(checkpoint_dir)

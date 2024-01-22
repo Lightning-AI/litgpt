@@ -30,7 +30,7 @@ You can download the data using git lfs:
 
 ```bash
 # Make sure you have git-lfs installed (https://git-lfs.com):
-git lfs install
+sudo apt install git-lfs
 ```
 
 ```bash
@@ -40,7 +40,8 @@ git clone https://huggingface.co/datasets/togethercomputer/RedPajama-Data-1T dat
 
 ```bash
 # The 1 billion token subset
-git clone https://huggingface.co/datasets/togethercomputer/RedPajama-Data-1T-Sample data/RedPajama-Data-1T-Sample
+git clone https://huggingface.co/datasets/togethercomputer/RedPajama-Data-1T-Sample \
+  data/RedPajama-Data-1T-Sample
 ```
 
 ## Prepare RedPajama for training
@@ -52,19 +53,29 @@ streaming dataset that comes with lit-gpt. You will need to have the tokenizer c
 ```bash
 pip install huggingface_hub sentencepiece
 
-python scripts/download.py --repo_id meta-llama/Llama-2-7b-chat-hf --access_token your_hf_token
+python scripts/download.py \
+   --repo_id meta-llama/Llama-2-7b-chat-hf \
+   --access_token your_hf_token \
+   --tokenizer_only true
 ```
 
 Then, run
 
 ```bash
-python scripts/prepare_redpajama.py --source_path data/RedPajama-Data-1T --checkpoint_dir checkpoints/meta-llama/Llama-2-7b-hf/ --destination_path data/lit-redpajama
+python scripts/prepare_redpajama.py \
+  --source_path data/RedPajama-Data-1T \
+  --checkpoint_dir checkpoints/meta-llama/Llama-2-7b-hf/ \
+  --destination_path data/lit-redpajama
 ```
 
 or
 
 ```bash
-python scripts/prepare_redpajama.py --source_path data/RedPajama-Data-1T-Sample --checkpoint_dir checkpoints/meta-llama/Llama-2-7b-hf/ --destination_path data/lit-redpajama-sample --sample True
+python scripts/prepare_redpajama.py \
+  --source_path data/RedPajama-Data-1T-Sample \
+  --checkpoint_dir checkpoints/meta-llama/Llama-2-7b-hf/ \
+  --destination_path data/lit-redpajama-sample \
+  --sample True
 ```
 
 for the sample dataset.
@@ -78,13 +89,17 @@ The script will take a while to run, so time for :tea: (The 1B sample script tak
 Running the pretraining script with its default settings requires at least 4 GPUs with 40GB+ each (A100).
 
 ```bash
-python pretrain/redpajama.py --devices 4 --train_data_dir data/lit-redpajama
+python pretrain/redpajama.py \
+  --devices 4 \
+  --train_data_dir data/lit-redpajama
 ```
 
 For running on the sample dataset:
 
 ```bash
-python pretrain/redpajama.py --devices 4 --train_data_dir data/lit-redpajama-sample
+python pretrain/redpajama.py \
+  --devices 4 \
+  --train_data_dir data/lit-redpajama-sample
 ```
 
 The script will save checkpoints periodically to the folder `out/`.

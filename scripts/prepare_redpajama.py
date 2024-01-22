@@ -1,3 +1,5 @@
+# Copyright Lightning AI. Licensed under the Apache License 2.0, see LICENSE file.
+
 import glob
 import json
 import os
@@ -147,7 +149,7 @@ def prepare(
     match: str = "",
 ) -> None:
     """Prepare the "Red Pajama" dataset. We assume tokenizer has been trained."""
-    config = Config.from_json(checkpoint_dir / "lit_config.json")
+    config = Config.from_checkpoint(checkpoint_dir)
 
     prepare_fn = prepare_sample if sample else prepare_full
     prepare_fn(

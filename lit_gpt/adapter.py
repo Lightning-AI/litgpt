@@ -1,3 +1,5 @@
+# Copyright Lightning AI. Licensed under the Apache License 2.0, see LICENSE file.
+
 """Implementation of the paper:
 
 LLaMA-Adapter: Efficient Fine-tuning of Language Models with Zero-init Attention
@@ -5,6 +7,7 @@ https://arxiv.org/abs/2303.16199
 
 Port for Lit-GPT
 """
+
 from dataclasses import dataclass
 from typing import Any, Dict, List, Optional, Tuple, Union
 

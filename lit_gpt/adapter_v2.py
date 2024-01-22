@@ -1,3 +1,5 @@
+# Copyright Lightning AI. Licensed under the Apache License 2.0, see LICENSE file.
+
 """Implementation of the paper:
 
 LLaMA-Adapter V2: Parameter-Efficient Visual Instruction Model
@@ -5,6 +7,7 @@ https://arxiv.org/abs/2304.15010
 
 Port for Lit-GPT
 """
+
 from dataclasses import dataclass
 from typing import Any, Dict, Optional, Tuple, Type
 
@@ -89,7 +92,7 @@ class GPT(BaseModel):
 
     def _load_from_state_dict(self, state_dict: Dict, prefix: str, *args: Any, **kwargs: Any) -> None:
         """For compatibility with base checkpoints."""
-        mapping = {"lm_head.weight": "lm_head.linear.weight"}
+        mapping = {"lm_head.weight": "lm_head.linear.weight", "lm_head.bias": "lm_head.linear.bias"}
         state_dict = map_old_state_dict_weights(state_dict, mapping, prefix)
         super()._load_from_state_dict(state_dict, prefix, *args, **kwargs)
 
@@ -187,6 +190,21 @@ class LLaMAMLP(lit_gpt.model.LLaMAMLP):
             "proj.weight": "proj.linear.weight",
             "proj.bias": "proj.linear.bias",
         }
+        state_dict = map_old_state_dict_weights(state_dict, mapping, prefix)
+        super()._load_from_state_dict(state_dict, prefix, *args, **kwargs)
+
+
+class LLaMAMoE(lit_gpt.model.LLaMAMoE):
+    def __init__(self, config: Config) -> None:
+        nn.Module.__init__(self)
+        self.gate = AdapterV2Linear(config.n_embd, config.n_expert, bias=False)
+        self.experts = nn.ModuleList(LLaMAMLP(config) for _ in range(config.n_expert))
+
+        self.config = config
+
+    def _load_from_state_dict(self, state_dict: Dict, prefix: str, *args: Any, **kwargs: Any) -> None:
+        """For compatibility with base checkpoints."""
+        mapping = {"gate.weight": "gate.linear.weight"}
         state_dict = map_old_state_dict_weights(state_dict, mapping, prefix)
         super()._load_from_state_dict(state_dict, prefix, *args, **kwargs)
 

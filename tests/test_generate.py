@@ -1,3 +1,5 @@
+# Copyright Lightning AI. Licensed under the Apache License 2.0, see LICENSE file.
+
 import json
 import subprocess
 import sys
@@ -28,14 +30,13 @@ def test_generate(max_seq_length):
     max_new_tokens = 20
 
     multinomial_results = []
-    original_multinomial = torch.multinomial
 
     def multinomial(*args, **kwargs):
-        out = original_multinomial(*args, **kwargs)
+        out = torch.multinomial(*args, **kwargs, num_samples=1)
         multinomial_results.append(out)
         return out
 
-    with mock.patch("torch.multinomial", multinomial):
+    with mock.patch("generate.base.multinomial_num_samples_1", multinomial):
         out = generate.generate(model, input_idx, T + max_new_tokens, top_k=4)
 
     assert out.size(0) == T + max_new_tokens
@@ -72,7 +73,11 @@ def test_main(fake_checkpoint_dir, monkeypatch, tensor_like):
 
     assert len(tokenizer_mock.return_value.decode.mock_calls) == num_samples
     assert torch.allclose(tokenizer_mock.return_value.decode.call_args[0][0], generate_mock.return_value)
-    assert generate_mock.mock_calls == [call(ANY, tensor_like, 53, temperature=2.0, top_k=2)] * num_samples
+    assert (
+        generate_mock.mock_calls
+        == [call(ANY, tensor_like, 53, temperature=2.0, top_k=2, eos_id=tokenizer_mock.return_value.eos_id)]
+        * num_samples
+    )
     # only the generated result is printed to stdout
     assert out.getvalue() == "foo bar baz\n" * num_samples
 
@@ -84,3 +89,19 @@ def test_cli():
     output = subprocess.check_output([sys.executable, cli_path, "-h"])
     output = str(output.decode())
     assert "Generates text samples" in output
+
+
+@pytest.mark.parametrize("temperature", (0.0, 1.0, 0.5))
+def test_sample(temperature):
+    from generate.base import sample
+
+    # shape: 2x3x5
+    logits = torch.tensor([
+        [[24, 4, 98, 77, 47], [65, 70, 32, 67, 24], [92, 32, 88, 36, 62]],
+        [[85, 79, 57, 68, 50], [89, 46, 72, 45, 32], [68, 96, 68, 24, 36]],
+    ])
+    token = sample(logits, temperature=temperature)
+
+    assert token.shape == (1,)
+    # sample is batch size 1 only for now - this should be [0, 1] once batched generation is supported
+    assert token.tolist() == [0]

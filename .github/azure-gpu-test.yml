@@ -1,0 +1,66 @@
+trigger:
+  branches:
+    include:
+      - "main"
+
+pr:
+  branches:
+    include:
+      - "main"
+
+jobs:
+  - job: testing
+    timeoutInMinutes: "20"
+    cancelTimeoutInMinutes: "2"
+    pool: "lit-rtx-3090"
+    variables:
+      DEVICES: $( python -c 'print("$(Agent.Name)".split("_")[-1])' )
+    container:
+      image: "pytorchlightning/pytorch_lightning:base-cuda-py3.10-torch2.1-cuda12.1.0"
+      options: "--gpus=all --shm-size=8gb"
+    workspace:
+      clean: all
+    steps:
+
+    - bash: |
+        echo "##vso[task.setvariable variable=CUDA_VISIBLE_DEVICES]$(DEVICES)"
+        cuda_ver=$(python -c "import torch ; print(''.join(map(str, torch.version.cuda.split('.')[:2])))")
+        echo "##vso[task.setvariable variable=CUDA_VERSION_MM]$cuda_ver"
+        echo "##vso[task.setvariable variable=TORCH_URL]https://download.pytorch.org/whl/cu${cuda_ver}/torch_stable.html"
+      displayName: 'set env. vars'
+
+    - bash: |
+        echo $(DEVICES)
+        echo $CUDA_VISIBLE_DEVICES
+        echo $CUDA_VERSION_MM
+        echo $TORCH_URL
+        whereis nvidia
+        nvidia-smi
+        which python && which pip
+        python --version
+        pip --version
+        pip list
+      displayName: "Image info & NVIDIA"
+
+    - script: |
+        pip install -r requirements-all.txt pytest pytest-rerunfailures transformers>=4.36.0 einops protobuf
+      displayName: 'Install dependencies'
+
+    - bash: |
+        set -e
+        pip list
+        python -c "import torch ; mgpu = torch.cuda.device_count() ; assert mgpu == 2, f'GPU: {mgpu}'"
+      displayName: "Env details"
+
+    - bash: pytest -v --disable-pytest-warnings --strict-markers --color=yes
+      displayName: 'Ordinary tests'
+      env:
+        PL_RUN_CUDA_TESTS: "1"
+      timeoutInMinutes: "5"
+
+    - bash: bash run_standalone_tests.sh
+      workingDirectory: tests
+      env:
+        PL_RUN_CUDA_TESTS: "1"
+      displayName: "Standalone tests"
+      timeoutInMinutes: "5"

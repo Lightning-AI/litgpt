@@ -1,3 +1,5 @@
+# Copyright Lightning AI. Licensed under the Apache License 2.0, see LICENSE file.
+
 """This script merges the LoRA weights with the base model"""
 
 import sys
@@ -42,10 +44,11 @@ def merge_lora(
         out_dir: The path to the merged model that is created by this script.
         precision: Indicates the Fabric precision setting to use.
     """
+    check_valid_checkpoint_dir(checkpoint_dir)
+    out_dir.mkdir(parents=True, exist_ok=True)
+
     precision = precision or get_default_supported_precision(training=False)
     fabric = L.Fabric(devices=1, precision=precision)
-
-    check_valid_checkpoint_dir(checkpoint_dir)
 
     config = Config.from_json(
         checkpoint_dir / "lit_config.json",

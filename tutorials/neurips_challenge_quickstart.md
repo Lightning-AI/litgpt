@@ -1,17 +1,12 @@
 # NeurIPS 2023 LLM Efficiency Challenge Quickstart Guide
 
-
-
 The [NeurIPS 2023 Efficiency Challenge](https://llm-efficiency-challenge.github.io/) is a competition focused on training **1 LLM for 24 hours on 1 GPU** – the team with the best LLM gets to present their results at NeurIPS 2023.
 
 This quick start guide is a short starter guide illustrating the main steps to get started with Lit-GPT, which was selected as the competition's official starter kit.
 
-
-
 &nbsp;
 
 ## Competition Facts
-
 
 &nbsp;
 
@@ -43,7 +38,7 @@ These don't include models that have been finetuned or otherwise aligned, as per
 
 **Permitted datasets**
 
-Any open-source dataset is allowed. Originally, [per competition rules](https://llm-efficiency-challenge.github.io/challenge), datasets that utilize "generated content" from other LLMs were not permitted. However, the rules were recently softened to also allow LLM-generated datasets if those datasets are made available and if it is not against the usage restrictions and guidelines of the LLM. If you plan to use a specific dataset that is not explicitely listed on the [challenge website](https://llm-efficiency-challenge.github.io/challenge) or want to use LLM-generated data, it is recommended to reach out to the organizers and confirm that this is in line with the competition rules.
+Any open-source dataset is allowed. Originally, [per competition rules](https://llm-efficiency-challenge.github.io/challenge), datasets that utilize "generated content" from other LLMs were not permitted. However, the rules were recently softened to also allow LLM-generated datasets if those datasets are made available and if it is not against the usage restrictions and guidelines of the LLM. If you plan to use a specific dataset that is not explicitly listed on the [challenge website](https://llm-efficiency-challenge.github.io/challenge) or want to use LLM-generated data, it is recommended to reach out to the organizers and confirm that this is in line with the competition rules.
 
 Examples of permitted datasets are the following:
 
@@ -164,14 +159,12 @@ python eval/lm_eval_harness.py \
   --checkpoint_dir "checkpoints/stabilityai/stablelm-base-alpha-3b" \
   --precision "bf16-true" \
   --eval_tasks "[truthfulqa_mc,gsm8k]" \
-  --batch_size 4 \
   --save_filepath "results-stablelm-3b.json"
 ```
 
 (You can find a full task list in the task table [here](https://github.com/EleutherAI/lm-evaluation-harness/blob/master/docs/task_table.md).)
 
 To evaluate a LoRA-finetuned model, you need to first merge the LoRA weights with the base model to create a new checkpoint file:
-
 
 ```bash
 python scripts/merge_lora.py \
@@ -186,7 +179,7 @@ out/lora_merged/stablelm-base-alpha-3b/
 ```
 
 For more information on LoRA weight merging, please see the
-[Merging LoRA Weights](https://github.com/Lightning-AI/lit-gpt/blob/main/tutorials/finetune_lora.md#merging-lora-weights)
+[Merging LoRA Weights](finetune_lora.md#merging-lora-weights)
 section of the LoRA finetuning documentation.
 
 After merging the weights, we can use the `lm_eval_harness.py` similar to before with the only difference that we now use the new
@@ -197,7 +190,6 @@ python eval/lm_eval_harness.py \
   --checkpoint_dir "out/lora_merged/stablelm-base-alpha-3b" \
   --precision "bf16-true" \
   --eval_tasks "[truthfulqa_mc,gsm8k]" \
-  --batch_size 4 \
   --save_filepath "results-stablelm-3b.json"
 ```
 
@@ -207,7 +199,6 @@ python eval/lm_eval_harness.py \
 
 You will be required to submit a Docker image for the submission itself. Fortunately, the organizers have a GitHub repository with the exact steps [here](https://github.com/llm-efficiency-challenge/neurips_llm_efficiency_challenge) and a toy-submission setup guide to test your model locally before submission.
 
-
 &nbsp;
 
 ## Additional Information & Resources
@@ -216,5 +207,5 @@ You will be required to submit a Docker image for the submission itself. Fortuna
 - A more extensive guide, including environment setup tips: [The NeurIPS 2023 LLM Efficiency Challenge Starter Guide](https://lightning.ai/pages/community/tutorial/neurips2023-llm-efficiency-guide)
 - [Official competition Discord](https://discord.com/login?redirect_to=%2Fchannels%2F1077906959069626439%2F1134560480795570186) and [Lightning AI + Lit-GPT Discord](https://discord.com/invite/MWAEvnC5fU)
 - LoRA vs Adapter vs Adapter v2 comparison in Lit-GPT using Falcon 7B: [Finetuning Falcon LLMs More Efficiently With LoRA and Adapters](https://lightning.ai/pages/community/finetuning-falcon-efficiently/)
-- [Dealing with out-of-memory (OOM) errors in Lit-GPT](https://github.com/Lightning-AI/lit-gpt/blob/main/tutorials/oom.md)
+- [Dealing with out-of-memory (OOM) errors in Lit-GPT](oom.md)
 - Introduction to Fabric (an API to access more advanced PyTorch features used in Lit-GPT) and memory saving tips: [Optimizing Memory Usage for Training LLMs and Vision Transformers in PyTorch](https://lightning.ai/pages/community/tutorial/pytorch-memory-vit-llm/)
