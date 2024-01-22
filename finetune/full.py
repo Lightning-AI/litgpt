@@ -38,16 +38,17 @@ devices = 1
 
 # Hyperparameters
 learning_rate = 3e-3
-batch_size = 64 / devices
+batch_size = 64 // devices
 micro_batch_size = 1
-gradient_accumulation_iters = int(batch_size // micro_batch_size)
+gradient_accumulation_iters = batch_size // micro_batch_size
 assert gradient_accumulation_iters > 0
 max_seq_length = None  # assign value to truncate
 epoch_size = 50000  # train dataset size
 num_epochs = 5
-max_iters = num_epochs * (epoch_size // micro_batch_size) // devices
+max_iters = num_epochs * epoch_size // devices // micro_batch_size
+max_steps = num_epochs * epoch_size // devices // batch_size
 weight_decay = 0.02
-warmup_steps = 2 * (epoch_size // micro_batch_size) // devices // gradient_accumulation_iters  # 2 epochs
+warmup_steps = 2 * (epoch_size // devices // batch_size)  # 2 epochs
 
 hparams = {k: v for k, v in locals().items() if isinstance(v, (int, float, str)) and not k.startswith("_")}
 
@@ -102,7 +103,15 @@ def main(fabric: L.Fabric, data_dir: Path, checkpoint_dir: Path, out_dir: Path, 
     model = fabric.setup(model)
     optimizer = torch.optim.AdamW(model.parameters(), lr=learning_rate, weight_decay=weight_decay)
     optimizer = fabric.setup_optimizers(optimizer)
-    state = {"model": model, "optimizer": optimizer, "hparams": hparams, "iter_num": 0, "step_count": 0}
+    scheduler = get_lr_scheduler(optimizer, warmup_steps=warmup_steps, max_steps=max_steps)
+    state = {
+        "model": model,
+        "optimizer": optimizer,
+        "scheduler": scheduler,
+        "hparams": hparams,
+        "iter_num": 0,
+        "step_count": 0,
+    }
 
     if resume is True:
         resume = max(out_dir.glob("*.pth"), key=(lambda p: int(p.name.split("-")[1])))
@@ -135,6 +144,7 @@ def train(
 ) -> None:
     model = state["model"]
     optimizer = state["optimizer"]
+    scheduler = state["scheduler"]
     tokenizer = Tokenizer(checkpoint_dir)
     longest_seq_length, longest_seq_ix = get_longest_seq_length(train_data)
     model.max_seq_length = min(longest_seq_length, max_seq_length or float("inf"))
@@ -163,12 +173,6 @@ def train(
     fabric.barrier()
 
     for state["iter_num"] in range(state["iter_num"] + 1, max_iters + 1):
-        if state["step_count"] <= warmup_steps:
-            # linear warmup
-            lr = learning_rate * state["step_count"] / warmup_steps
-            for param_group in optimizer.param_groups:
-                param_group["lr"] = lr
-
         iter_t0 = time.perf_counter()
 
         input_ids, targets = get_batch(fabric, train_data, longest_seq_ix if state["iter_num"] == 1 else None)
@@ -185,6 +189,7 @@ def train(
         if not is_accumulating:
             optimizer.step()
             optimizer.zero_grad()
+            scheduler.step()
             state["step_count"] += 1
 
         if state["iter_num"] % log_iter_interval == 0:
@@ -287,6 +292,13 @@ def get_batch(
     else:
         x, y = fabric.to_device((x, y))
     return x, y
+
+
+def get_lr_scheduler(optimizer, warmup_steps: int, max_steps: int):
+    # linear warmup followed by cosine annealing
+    scheduler1 = torch.optim.lr_scheduler.LambdaLR(optimizer, lambda step: step / warmup_steps)
+    scheduler2 = torch.optim.lr_scheduler.CosineAnnealingLR(optimizer, T_max=(max_steps - warmup_steps))
+    return torch.optim.lr_scheduler.SequentialLR(optimizer, [scheduler1, scheduler2], milestones=[warmup_steps])
 
 
 def get_longest_seq_length(data: List[Dict]) -> Tuple[int, int]:
