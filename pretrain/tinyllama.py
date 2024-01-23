@@ -28,7 +28,6 @@ wd = Path(__file__).parent.parent.resolve()
 sys.path.append(str(wd))
 
 from lit_gpt.model import GPT, Block, CausalSelfAttention, Config, LLaMAMLP
-from lit_gpt.packed_dataset import CombinedDataset
 from lit_gpt.utils import CycleIterator, chunked_cross_entropy, num_parameters
 
 # System settings
@@ -107,7 +106,14 @@ def main(fabric, resume):
     )
     optimizer = fabric.setup_optimizers(optimizer)
 
-    state = {"model": model, "optimizer": optimizer, "hparams": hparams, "iter_num": 0, "step_count": 0}
+    state = {
+        "model": model, 
+        "optimizer": optimizer, 
+        "train_dataloader": train_dataloader,
+        "hparams": hparams, 
+        "iter_num": 0, 
+        "step_count": 0,
+    }
 
     if resume is True:
         resume = max(out_dir.glob("*.pth"), key=(lambda p: int(p.name.split("-")[1])))
@@ -144,20 +150,6 @@ def train(fabric, state, train_dataloader, val_dataloader, resume):
     initial_iter = state["iter_num"]
     train_iterator = CycleIterator(train_dataloader)
 
-    # resume data loader state by fast-forwarding through all seen batches
-    # drop this once streaming dataset supports proper resuming
-    if resume:
-        resume_t0 = time.perf_counter()
-        for resume_iter in range(initial_iter):
-            next(train_iterator)
-            if resume_iter % 1000 == 0:
-                fabric.print(f"Resuming dataset: {resume_iter} / {initial_iter}")
-        fabric.barrier()
-        fabric.print(
-            f"Resuming data loader finished. Took {time.perf_counter() - resume_t0:.1f} seconds to reach iteration"
-            f" {initial_iter}, epoch {train_iterator.epoch}."
-        )
-
     running_loss = RunningMean(window=gradient_accumulation_iters, sync_on_compute=False).to(fabric.device)
     fabric.barrier()
     total_t0 = time.perf_counter()
@@ -174,8 +166,8 @@ def train(fabric, state, train_dataloader, val_dataloader, resume):
         state["iter_num"] += 1
         iter_t0 = time.perf_counter()
 
-        input_ids = train_data[:, 0 : model.config.block_size].contiguous().long()
-        targets = train_data[:, 1 : (model.config.block_size + 1)].contiguous().long()
+        input_ids = train_data[:, 0:model.config.block_size].contiguous().long()
+        targets = train_data[:, 1:(model.config.block_size + 1)].contiguous().long()
 
         is_accumulating = state["iter_num"] % gradient_accumulation_iters != 0
         with fabric.no_backward_sync(model, enabled=is_accumulating):
@@ -261,8 +253,8 @@ def validate(fabric: L.Fabric, model: nn.Module, val_dataloader: DataLoader, max
     return losses.mean()
 
 
-def create_dataloaders(batch_size: int, block_size: int) -> Tuple[DataLoader, DataLoader]:
-    from lightning.data import StreamingDataset
+def create_dataloaders(batch_size: int, block_size: int, num_workers: int = 8) -> Tuple[DataLoader, DataLoader]:
+    from lightning.data import StreamingDataset, CombinedStreamingDataset, StreamingDataLoader
     from lightning.data.streaming.item_loader import TokensLoader
 
     # Increase by one because we need the next word as well
@@ -285,9 +277,9 @@ def create_dataloaders(batch_size: int, block_size: int) -> Tuple[DataLoader, Da
 
     # Mix SlimPajama data and Starcoder data with these proportions:
     weights = (0.693584, 0.306416)
-    combined_dataset = CombinedDataset(datasets=train_datasets, seed=42, weights=weights)
-    train_dataloader = DataLoader(
-        combined_dataset, batch_size=batch_size, pin_memory=True, num_workers=8, drop_last=True
+    combined_dataset = CombinedStreamingDataset(datasets=train_datasets, seed=42, weights=weights)
+    train_dataloader = StreamingDataLoader(
+        combined_dataset, batch_size=batch_size, pin_memory=True, num_workers=num_workers, drop_last=True
     )
 
     val_dataset = StreamingDataset(
@@ -297,7 +289,7 @@ def create_dataloaders(batch_size: int, block_size: int) -> Tuple[DataLoader, Da
         # Consider setting to False, but we would lose some samples due to truncation when world size > 1
         drop_last=True,
     )
-    val_dataloader = DataLoader(val_dataset, batch_size=batch_size, pin_memory=True, num_workers=8, drop_last=True)
+    val_dataloader = DataLoader(val_dataset, batch_size=batch_size, pin_memory=True, num_workers=num_workers, drop_last=True)
     return train_dataloader, val_dataloader
 
 
