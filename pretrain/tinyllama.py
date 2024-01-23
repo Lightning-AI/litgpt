@@ -109,7 +109,7 @@ def main(fabric, resume):
     state = {
         "model": model, 
         "optimizer": optimizer, 
-        "train_dataloader": train_dataloader._dataloader,
+        "train_dataloader": train_dataloader,
         "hparams": hparams, 
         "iter_num": 0, 
         "step_count": 0,
