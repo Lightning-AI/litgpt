@@ -17,7 +17,7 @@ setup(
     url="https://github.com/lightning-AI/lit-gpt",
     install_requires=[
         "torch>=2.1.0",
-        "lightning @ git+https://github.com/Lightning-AI/lightning@e89f46a74e9541ba832c3ade1eb3f87ef072e844",
+        "lightning @ git+https://github.com/Lightning-AI/lightning@ed367ca675861cdf40dbad2e4d66f7eee2ec50af",
     ],
     packages=find_packages(),
     long_description=readme,
