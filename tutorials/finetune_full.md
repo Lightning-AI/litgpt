@@ -51,7 +51,8 @@ You can test the finetuned model with your own instructions by running:
 ```bash
 python generate/full.py \
     --prompt "Recommend a movie to watch on the weekend." \
-    --checkpoint_dir checkpoints/stabilityai/stablelm-base-alpha-3b
+    --checkpoint_dir checkpoints/tiiuae/falcon-7b \
+    --finetuned_path out/full/my-model-finetuned/lit_model_finetuned.pth
 ```
 
 Output:

@@ -56,10 +56,10 @@ decay_lr = True
 min_lr = 4e-5
 
 batch_size = global_batch_size // devices
-gradient_accumulation_steps = batch_size // micro_batch_size
-assert gradient_accumulation_steps > 0
-warmup_iters = warmup_steps * gradient_accumulation_steps
-log_iter_interval = log_step_interval * gradient_accumulation_steps
+gradient_accumulation_iters = batch_size // micro_batch_size
+assert gradient_accumulation_iters > 0
+warmup_iters = warmup_steps * gradient_accumulation_iters
+log_iter_interval = log_step_interval * gradient_accumulation_iters
 
 
 hparams = {k: v for k, v in locals().items() if isinstance(v, (int, float, str)) and not k.startswith("_")}
@@ -150,7 +150,7 @@ def train(fabric, state, train_dataloader, val_dataloader, resume):
     initial_iter = state["iter_num"]
     train_iterator = CycleIterator(train_dataloader)
 
-    running_loss = RunningMean(window=gradient_accumulation_steps, sync_on_compute=False).to(fabric.device)
+    running_loss = RunningMean(window=gradient_accumulation_iters, sync_on_compute=False).to(fabric.device)
     fabric.barrier()
     total_t0 = time.perf_counter()
 
@@ -169,11 +169,11 @@ def train(fabric, state, train_dataloader, val_dataloader, resume):
         input_ids = train_data[:, 0:model.config.block_size].contiguous().long()
         targets = train_data[:, 1:(model.config.block_size + 1)].contiguous().long()
 
-        is_accumulating = state["iter_num"] % gradient_accumulation_steps != 0
+        is_accumulating = state["iter_num"] % gradient_accumulation_iters != 0
         with fabric.no_backward_sync(model, enabled=is_accumulating):
             logits = model(input_ids)
             loss = chunked_cross_entropy(logits, targets)
-            fabric.backward(loss / gradient_accumulation_steps)
+            fabric.backward(loss / gradient_accumulation_iters)
 
         running_loss.update(loss.detach())
 
