@@ -46,7 +46,7 @@ def test_tokenizer_against_hf(config):
         for file, hf_file in file_to_cache.items():
             (checkpoint_dir / file).symlink_to(hf_file)
 
-    if re.search(r"yi-.*b-chat", repo_id.lower()):
+    if re.search(r"yi-.*b", repo_id.lower()):
         # AutoTokenizer will direct to LlamaTokenizerFast
         from transformers import LlamaTokenizer
         theirs = LlamaTokenizer.from_pretrained(

@@ -1335,14 +1335,15 @@ configs.extend(llama_2_function_calling)
 ###############
 
 # https://huggingface.co/01-ai/Yi-6B-Chat/blob/main/config.json
-yi_6b_chat = dict(
-        name="yi-6b-chat-hf",
-        hf_config=dict(org="01-ai", name="Yi-6B-Chat"),
+yi_6b = dict(
+        name="yi-6b{}-hf",
+        hf_config=dict(org="01-ai", name="Yi-6B{}"),
         vocab_size=64000,
         padding_multiple=64,
         n_layer=32,
         n_head=32,
         n_embd=4096,
+        block_size=4096,
         n_query_groups=4,
         rotary_percentage=1.0,
         parallel_residual=False,
@@ -1353,19 +1354,26 @@ yi_6b_chat = dict(
         rope_base=5000000,
         norm_eps=1e-5,
     )
-configs.append(yi_6b_chat)
 
 # https://huggingface.co/01-ai/Yi-34B-Chat/blob/main/config.json
-yi_34b_chat = deepcopy(yi_6b_chat)
-yi_34b_chat.update(dict(
-        name="yi-34b-chat-hf",
-        hf_config=dict(org="01-ai", name="Yi-34B-Chat"),
+yi_34b = deepcopy(yi_6b)
+yi_34b.update(dict(
+        name="yi-34b{}-hf",
+        hf_config=dict(org="01-ai", name="Yi-34B{}"),
         n_layer=60,
         n_head=56,
         n_embd=7168,
         n_query_groups=8,
         intermediate_size=20480,
     ))
-configs.append(yi_34b_chat)
+
+for c in [yi_6b, yi_34b]:
+    for posfix in ['', '-200K', '-Chat']:
+        copy = deepcopy(c)
+        if posfix == "-200K":
+            copy["block_size"] = 200000
+        copy["name"] = c["name"].format(posfix.lower())
+        copy["hf_config"]["name"] = c["hf_config"]["name"].format(posfix)
+        configs.append(copy)
 
 name_to_config = {config["name"]: config for config in configs}
