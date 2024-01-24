@@ -1330,4 +1330,42 @@ llama_2_function_calling = [
 
 configs.extend(llama_2_function_calling)
 
+###############
+# 01/Yi
+###############
+
+# https://huggingface.co/01-ai/Yi-6B-Chat/blob/main/config.json
+yi_6b_chat = dict(
+        name="yi-6b-chat-hf",
+        hf_config=dict(org="01-ai", name="Yi-6B-Chat"),
+        vocab_size=64000,
+        padding_multiple=64,
+        n_layer=32,
+        n_head=32,
+        n_embd=4096,
+        n_query_groups=4,
+        rotary_percentage=1.0,
+        parallel_residual=False,
+        bias=False,
+        _norm_class="RMSNorm",
+        _mlp_class="LLaMAMLP",
+        intermediate_size=11008,
+        rope_base=5000000,
+        norm_eps=1e-5,
+    )
+configs.append(yi_6b_chat)
+
+# https://huggingface.co/01-ai/Yi-34B-Chat/blob/main/config.json
+yi_34b_chat = deepcopy(yi_6b_chat)
+yi_34b_chat.update(dict(
+        name="yi-34b-chat-hf",
+        hf_config=dict(org="01-ai", name="Yi-34B-Chat"),
+        n_layer=60,
+        n_head=56,
+        n_embd=7168,
+        n_query_groups=8,
+        intermediate_size=20480,
+    ))
+configs.append(yi_34b_chat)
+
 name_to_config = {config["name"]: config for config in configs}

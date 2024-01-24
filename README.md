@@ -28,6 +28,7 @@ Supports the following popular model checkpoints:
 
 | Model and usage                                                                   | Model size                               | Reference                                                                                                                    |
 |-----------------------------------------------------------------------------------|------------------------------------------|------------------------------------------------------------------------------------------------------------------------------|
+| 01-ai [Yi](tutorials/download_yi.md)                                   | 6B, 34B                              | [01-ai 2023](https://github.com/01-ai/Yi) |
 | EleutherAI [Pythia](tutorials/download_pythia.md)                                 | {14,31,70,160,410}M, {1,1.4,2.8,6.9,12}B | [Biderman et al. 2023](https://arxiv.org/abs/2304.01373)                                                                     |
 | LMSYS [LongChat](tutorials/download_longchat.md)                                  | 7B, 13B                                  | [LongChat Team 2023](https://lmsys.org/blog/2023-06-29-longchat/)                                                            |
 | LMSYS [Vicuna](tutorials/download_vicuna.md)                                      | 7B, 13B, 33B                             | [Li et al. 2023](https://lmsys.org/blog/2023-03-30-vicuna/)                                                                  |

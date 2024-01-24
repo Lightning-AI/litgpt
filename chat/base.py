@@ -70,10 +70,13 @@ def generate(
 
 def decode(fabric: L.Fabric, tokenizer: Tokenizer, token_stream: Iterator[torch.Tensor]) -> int:
     tokens_generated = 0
+    resp = ""
     if tokenizer.backend == "huggingface":
         try:
             for token in token_stream:
-                fabric.print(tokenizer.decode(token), end="", flush=True)
+                _decode = tokenizer.decode(token)
+                fabric.print(_decode, end="", flush=True)
+                resp += _decode
                 tokens_generated += 1
         except KeyboardInterrupt:
             # support stopping generation
@@ -89,6 +92,7 @@ def decode(fabric: L.Fabric, tokenizer: Tokenizer, token_stream: Iterator[torch.
                 so_far = torch.cat((so_far, token.view(-1)))
                 decoded_new = tokenizer.decode(so_far)
                 fabric.print(decoded_new[len(decoded_so_far) :], end="", flush=True)
+                resp += decoded_new[len(decoded_so_far) :]
                 decoded_so_far = decoded_new
                 tokens_generated += 1
         except KeyboardInterrupt:
@@ -96,7 +100,7 @@ def decode(fabric: L.Fabric, tokenizer: Tokenizer, token_stream: Iterator[torch.
             return tokens_generated
     else:
         raise NotImplementedError(tokenizer.backend)
-    return tokens_generated
+    return tokens_generated, resp
 
 
 @torch.inference_mode()
@@ -108,6 +112,8 @@ def main(
     quantize: Optional[Literal["bnb.nf4", "bnb.nf4-dq", "bnb.fp4", "bnb.fp4-dq", "bnb.int8"]] = None,
     precision: Optional[str] = None,
     compile: bool = False,
+    max_seq_length: Optional[int] = None,
+    history_length: int = 10,
 ) -> None:
     """Starts a conversation with a tuned GPT model.
 
@@ -122,6 +128,8 @@ def main(
             for more details, see https://github.com/Lightning-AI/lit-gpt/blob/main/tutorials/quantize.md
         precision: Indicates the Fabric precision setting to use.
         compile: Whether to use compilation to speed up token generation. Will increase startup time.
+        max_seq_length: The maximum number of tokens to generate (includes prompt). If not specified, will use the model's default.
+        history_length: The number of previous messages to keep in history. Set to 0 to disable and -1 to keep all.
     """
     precision = precision or get_default_supported_precision(training=False)
 
@@ -144,8 +152,11 @@ def main(
     fabric.print(f"Loading model {str(checkpoint_path)!r} with {config.__dict__}", file=sys.stderr)
     with fabric.init_module(empty_init=True):
         model = GPT(config)
+        if max_seq_length is not None:
+            model.max_seq_length = max_seq_length
         # enable the kv cache
         model.set_kv_cache(batch_size=1)
+    fabric.print(f"Model's max_seq_length: {model.max_seq_length}", file=sys.stderr)
     load_checkpoint(fabric, model, checkpoint_path)
     model.eval()
 
@@ -159,37 +170,49 @@ def main(
     model = fabric.setup_module(model)
 
     tokenizer = Tokenizer(checkpoint_dir)
-    system_prompt, stop_tokens = prompt_config(checkpoint_dir, tokenizer)
 
     L.seed_everything(1234)
+    history = []
     while True:
+        system_prompt, stop_tokens = prompt_config(checkpoint_dir, tokenizer, history)
         try:
             prompt = input(">> Prompt: ")
         except KeyboardInterrupt:
             break
         if not prompt:
             break
-        prompt = system_prompt.format(prompt=prompt)
-        encoded_prompt = tokenizer.encode(prompt, device=fabric.device)
+        if prompt == "/reset":
+            history = []
+            continue
+        encoded_prompt = tokenizer.encode(system_prompt.format(prompt=prompt), 
+                                          device=fabric.device)
         y = generate(
             model, encoded_prompt, model.max_seq_length, temperature=temperature, top_k=top_k, stop_tokens=stop_tokens
         )
         fabric.print(">> Reply: ", end="")
         t0 = time.perf_counter()
-        tokens_generated = decode(fabric, tokenizer, y)
+        tokens_generated, reply = decode(fabric, tokenizer, y)
+        if not history_length:
+            history.append({"role": "user", "content": prompt})
+            history.append({"role": "assistant", "content": reply})
+            if history_length > 0:
+                history = history[-history_length:]
         t = time.perf_counter() - t0
         for block in model.transformer.h:
             block.attn.kv_cache.reset_parameters()
         fabric.print(
             f"\nTime for inference: {t:.02f} sec total, {tokens_generated / t:.02f} tokens/sec,"
-            f" {tokens_generated} tokens",
+            f" {tokens_generated} tokens, prompt length {len(encoded_prompt)}",
             file=sys.stderr,
         )
         fabric.print()
 
 
-def prompt_config(checkpoint_dir: Path, tokenizer: Tokenizer) -> Tuple[str, Tuple[List[int], ...]]:
+def prompt_config(checkpoint_dir: Path, tokenizer: Tokenizer,
+                  history: Optional[List] = None) -> Tuple[str, Tuple[List[int], ...]]:
     checkpoint_name = str(checkpoint_dir)
+    if history is None:
+        history = []
     if re.search(r"stabilityai.*tuned-alpha", checkpoint_name):
         system_prompt = (
             "<|SYSTEM|># StableLM Tuned (Alpha version)\n- StableLM is a helpful and harmless open-source AI language"
@@ -359,6 +382,28 @@ def prompt_config(checkpoint_dir: Path, tokenizer: Tokenizer) -> Tuple[str, Tupl
             "<|assistant|>\n"
         )
         stop_tokens = ([tokenizer.eos_id],)
+        return system_prompt, stop_tokens
+
+    if re.search(r"yi-.*b", checkpoint_name):
+        '''
+        <|im_start|>system
+        {system_message}<|im_end|>
+        <|im_start|>user
+        {prompt}<|im_end|>
+        <|im_start|>assistant
+        '''
+        system_prompt = ""
+        for item in history:
+            if item["role"] == "user":
+                system_prompt += f"<|im_start|>user\n{item['content']}<|im_end|>\n"
+            elif item["role"] == "assistant":
+                system_prompt += f"<|im_start|>assistant\n{item['content']}<|im_end|>\n"
+        system_prompt += (
+            "<|im_start|>user\n"
+            "{prompt}<|im_end|>\n"
+            "<|im_start|>assistant\n"
+        )
+        stop_tokens = ([tokenizer.token_to_id("<|im_end|>")],)
         return system_prompt, stop_tokens
 
     # default format
