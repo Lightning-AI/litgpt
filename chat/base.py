@@ -384,7 +384,7 @@ def prompt_config(checkpoint_dir: Path, tokenizer: Tokenizer,
         stop_tokens = ([tokenizer.eos_id],)
         return system_prompt, stop_tokens
 
-    if re.search(r"yi-.*b", checkpoint_name):
+    if re.search(r"yi-.*b", checkpoint_name.lower()):
         '''
         <|im_start|>system
         {system_message}<|im_end|>
