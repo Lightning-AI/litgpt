@@ -271,13 +271,42 @@ class LoRAQKVLinear(LoRALinear):
             # ________________________________________
             # | query         | key       | value    |
             # ----------------------------------------
+            # For Llama2's GQA support, Q, K, and V weights are interleaved, so that weights for grouped
+            # queries are adjacent to their associated key and value weights.
+            # For example, suppose we have n_head = 12 with 3 query groups.
+            # Then along the embedding dimension the interleaved weights would look like
+            #
+            # [Q, Q, Q, Q, K, V, Q, Q, Q, Q, K, V, Q, Q, Q, Q, K, V],
+            #
+            # where each Q, K, and V has size head_dim.
+            #
+            # In this case, the previously-described weight update applies separately to each
+            # individual block, so the update will take the form
+            #
+            # [[ΔW,ΔW,ΔW, ..., 0,0,0, ..., ΔW,ΔW,ΔW, ΔW,ΔW,ΔW, ..., 0,0,0, ..., ΔW,ΔW,ΔW, ...],
+            #  [.............................................................................],
+            #  [ΔW,ΔW,ΔW, ..., 0,0,0, ..., ΔW,ΔW,ΔW, ΔW,ΔW,ΔW, ..., 0,0,0, ..., ΔW,ΔW,ΔW, ...]]
+            #      ↑              ↑            ↑        ↑             ↑            ↑
+            # ________________________________________________________________________________
+            # | q block 1 | k block 1  | v block 1 | q block 2 |  k block 2 |  v block 2 | ...
+            # --------------------------------------------------------------------------------
+            # Note that in the above diagram, the size of each q block will equal q_per_kv
+            # times the size of each k and v block.
+
+            q_per_kv = self.n_head // self.n_query_groups
+            slice_size = q_per_kv + 2
+            head_dim = out_features // (num_kv_heads * slice_size)
+            ind = range(out_features)
             self.lora_ind = []
             if enable_q:
-                self.lora_ind.extend(range(0, self.linear.in_features))
+                q_ind = list(filter(lambda x: (x // head_dim) % slice_size < slice_size - 2, ind))
+                self.lora_ind.extend(q_ind)
             if enable_k:
-                self.lora_ind.extend(range(self.linear.in_features, self.linear.in_features + self.kv_embd_size))
+                k_ind = list(filter(lambda x: (x // head_dim) % slice_size == slice_size - 2, ind))
+                self.lora_ind.extend(k_ind)
             if enable_v:
-                self.lora_ind.extend(range(self.linear.in_features + self.kv_embd_size, self.linear.out_features))
+                v_ind = list(filter(lambda x: (x // head_dim) % slice_size == slice_size - 1, ind))
+                self.lora_ind.extend(v_ind)
             self.reset_parameters()
 
     def zero_pad(self, x: torch.Tensor) -> torch.Tensor:
