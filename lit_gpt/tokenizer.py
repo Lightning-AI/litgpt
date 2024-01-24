@@ -1,6 +1,7 @@
 # Copyright Lightning AI. Licensed under the Apache License 2.0, see LICENSE file.
 
 import json
+import re
 from pathlib import Path
 from typing import Optional, Union
 
@@ -48,6 +49,9 @@ class Tokenizer:
                     self.eos_id = config.get("eos_token_id")
         else:
             raise NotImplementedError
+
+        if re.search(r"yi-.*b", str(checkpoint_dir).lower()):
+            self.bos_id, self.eos_id = 64000, 64001
 
     @property
     def vocab_size(self) -> int:
