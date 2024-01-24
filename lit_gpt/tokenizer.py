@@ -50,9 +50,6 @@ class Tokenizer:
         else:
             raise NotImplementedError
 
-        if re.search(r"yi-.*b", str(checkpoint_dir).lower()):
-            self.bos_id, self.eos_id = 64000, 64001
-
     @property
     def vocab_size(self) -> int:
         if self.backend == "huggingface":

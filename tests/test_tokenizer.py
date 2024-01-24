@@ -1,6 +1,7 @@
 # Copyright Lightning AI. Licensed under the Apache License 2.0, see LICENSE file.
 
 import os
+import re
 import sys
 from pathlib import Path
 
@@ -45,9 +46,16 @@ def test_tokenizer_against_hf(config):
         for file, hf_file in file_to_cache.items():
             (checkpoint_dir / file).symlink_to(hf_file)
 
-    theirs = AutoTokenizer.from_pretrained(
-        repo_id, cache_dir=cache_dir / "hf", local_files_only=True, token=access_token
-    )
+    if re.search(r"yi-.*b-chat", repo_id.lower()):
+        # AutoTokenizer will direct to LlamaTokenizerFast
+        from transformers import LlamaTokenizer
+        theirs = LlamaTokenizer.from_pretrained(
+            repo_id, cache_dir=cache_dir / "hf", local_files_only=True, token=access_token
+        )
+    else:
+        theirs = AutoTokenizer.from_pretrained(
+            repo_id, cache_dir=cache_dir / "hf", local_files_only=True, token=access_token
+        )
     ours = Tokenizer(checkpoint_dir)
 
     assert ours.vocab_size == theirs.vocab_size
