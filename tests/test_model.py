@@ -201,7 +201,9 @@ def test_against_original_open_llama_3b(device, dtype):
 @torch.inference_mode()
 @pytest.mark.parametrize(
     "ours_kwargs",
-    [{"name": "Llama-2-7b-hf"}, {"name": "CodeLlama-7b-hf"}, {"name": "Llama-2-70b-chat-hf", "n_query_groups": 1}],
+    [{"name": "Llama-2-7b-hf"}, {"name": "CodeLlama-7b-hf"}, {"name": "Llama-2-70b-chat-hf", "n_query_groups": 1},
+     {"name": "yi-6b-chat-hf"}, {"name": "yi-6b-200k-hf"}, {"name": "yi-6b-hf"},
+     {"name": "yi-34b-chat-hf"}, {"name": "yi-34b-200k-hf"}, {"name": "yi-34b-hf"}],
 )
 @pytest.mark.parametrize(
     ("device", "dtype"),

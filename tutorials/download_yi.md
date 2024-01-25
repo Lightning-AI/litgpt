@@ -1,6 +1,8 @@
 ## Download Yi weights
 
-The Yi series models are the next generation of open-source large language models trained from scratch by 01.AI. For more details, see the official [README](https://github.com/01-ai/Yi).
+The Yi series models are the next generation of open-source large language models trained from scratch by 01.AI.
+Targeted as a bilingual language (English and Chinese) model and trained on 3T multilingual corpus, the Yi series models become one of the strongest LLM worldwide, showing promise in language understanding, commonsense reasoning, reading comprehension, and more.
+For more details, see the official [README](https://github.com/01-ai/Yi).
 
 To see all available versions, run:
 
@@ -11,7 +13,11 @@ python scripts/download.py | grep Yi
 which will print
 
 ```text
+01-ai/Yi-6B
+01-ai/Yi-6B-200K
 01-ai/Yi-6B-Chat
+01-ai/Yi-34B
+01-ai/Yi-34B-200K
 01-ai/Yi-34B-Chat
 ```
 
@@ -21,6 +27,9 @@ Download the weights and convert the checkpoint to the lit-gpt format (eg. 01-ai
 pip install huggingface_hub
 
 python scripts/download.py --repo_id 01-ai/Yi-6B-Chat --from_safetensors=True
+
+# for base version:
+python scripts/download.py --repo_id 01-ai/Yi-6B
 
 python scripts/convert_hf_checkpoint.py \
     --checkpoint_dir checkpoints/01-ai/Yi-6B-Chat
@@ -34,6 +43,9 @@ You're done! To execute the model just run:
 pip install sentencepiece
 
 python chat/base.py --checkpoint_dir ./checkpoints/01-ai/Yi-6B-Chat  --precision "bf16-true"
+
+# for base version:
+python generate/base.py --checkpoint_dir ./checkpoints/01-ai/Yi-6B  --precision "bf16-true"
 ```
 
 Chat example (with chat history):
