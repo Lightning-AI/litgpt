@@ -189,7 +189,7 @@ def main(
         prompts = [prompts]
 
     tokenized_prompts = [tokenizer.encode(prompt, device=fabric.device) for prompt in prompts]
-    encoded, padding_mask = pad_batched_tokens(tokenized_prompts, pad_id=0)
+    encoded, padding_mask = pad_batched_tokens(tokenized_prompts, pad_id=0, padding_direction="right")
     
     B = len(encoded)   
     T = encoded.size(1)

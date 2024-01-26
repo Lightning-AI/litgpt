@@ -380,18 +380,14 @@ class KVCache(nn.Module):
         torch.nn.init.zeros_(self.k)
         torch.nn.init.zeros_(self.v)
 
+
 def build_mask_cache(max_seq_length: int, device: Optional[torch.device] = None, padding_mask : Optional[torch.Tensor] = None) -> torch.Tensor:
-    
     ones = torch.ones((max_seq_length, max_seq_length), device=device, dtype=torch.bool)
-    
-    if(padding_mask != None):        
+    if padding_mask == None:        
         return torch.tril(ones).unsqueeze(0).unsqueeze(0)
     
     else:
         B, T = padding_mask.shape
         ones = ones.unsqueeze(0).repeat(B, 1, 1)
-        padding_mask = padding_mask.unsqueeze(-1).expand(B, T, max_seq_length)
-        ones = ones & padding_mask
-        
-        return torch.tril(ones).unsqueeze(0)
-        
+        ones[:, :, :T] = padding_mask.unsqueeze(1).repeat(1, max_seq_length, 1)
+        return torch.tril(ones).unsqueeze(1)
