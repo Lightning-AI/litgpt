@@ -294,18 +294,18 @@ class LoRAQKVLinear(LoRALinear):
             # times the size of each k and v block.
 
             q_per_kv = self.n_head // self.n_query_groups
-            slice_size = q_per_kv + 2
-            head_dim = out_features // (num_kv_heads * slice_size)
+            query_group_size = q_per_kv + 2
+            head_dim = out_features // (self.n_query_groups * query_group_size)
             ind = range(out_features)
             self.lora_ind = []
             if enable_q:
-                q_ind = list(filter(lambda x: (x // head_dim) % slice_size < slice_size - 2, ind))
+                q_ind = list(filter(lambda x: (x // head_dim) % query_group_size < query_group_size - 2, ind))
                 self.lora_ind.extend(q_ind)
             if enable_k:
-                k_ind = list(filter(lambda x: (x // head_dim) % slice_size == slice_size - 2, ind))
+                k_ind = list(filter(lambda x: (x // head_dim) % query_group_size == query_group_size - 2, ind))
                 self.lora_ind.extend(k_ind)
             if enable_v:
-                v_ind = list(filter(lambda x: (x // head_dim) % slice_size == slice_size - 1, ind))
+                v_ind = list(filter(lambda x: (x // head_dim) % query_group_size == query_group_size - 1, ind))
                 self.lora_ind.extend(v_ind)
             self.reset_parameters()
 

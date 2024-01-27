@@ -98,35 +98,64 @@ def test_lora_mqa_gqa():
     assert config.n_query_groups == config.n_head
     model = GPT(config)
     attn = model.transformer.h[0].attn.attn
+    for p in attn.linear.parameters():
+        torch.nn.init.zeros_(p)
+    torch.nn.init.ones_(attn.lora_B)
+    lora_ind = [0, 1, 6, 7, 12, 13, 18, 19, 4, 5, 10, 11, 16, 17, 22, 23]
     assert attn.linear.weight.shape == (24, 8)
     assert attn.lora_A.shape == (4, 8)
     assert attn.lora_B.shape == (16, 2)
-    assert attn.lora_ind == [0, 1, 2, 3, 4, 5, 6, 7, 16, 17, 18, 19, 20, 21, 22, 23]
+    assert attn.lora_ind == lora_ind
     x = torch.randint(0, 8, size=(3, 5, 16), dtype=torch.int64)
     assert attn.zero_pad(x).shape == (3, 5, 24)
+    bsz, ctx_len, in_dim = 2, 30, 8
+    x_in = torch.randn(bsz, ctx_len, in_dim)
+    out = attn(x_in)
+    non_lora_ind = list(set(range(24)).difference(lora_ind))
+    assert torch.count_nonzero(out[:, :, lora_ind]) == bsz * ctx_len * len(lora_ind)
+    assert torch.count_nonzero(out[:, :, non_lora_ind]) == 0
 
     # MQA
     config.n_query_groups = 1
     model = GPT(config)
     attn = model.transformer.h[0].attn.attn
+    for p in attn.linear.parameters():
+        torch.nn.init.zeros_(p)
+    torch.nn.init.ones_(attn.lora_B)
+    lora_ind = [0, 1, 2, 3, 4, 5, 6, 7, 10, 11]
     assert attn.linear.weight.shape == (12, 8)
     assert attn.lora_A.shape == (4, 8)
     assert attn.lora_B.shape == (10, 2)
-    assert attn.lora_ind == [0, 1, 2, 3, 4, 5, 6, 7, 10, 11]
+    assert attn.lora_ind == lora_ind
     x = torch.randint(0, 8, size=(3, 5, 10), dtype=torch.int64)
     assert attn.zero_pad(x).shape == (3, 5, 12)
+    bsz, ctx_len, in_dim = 2, 30, 8
+    x_in = torch.randn(bsz, ctx_len, in_dim)
+    out = attn(x_in)
+    non_lora_ind = list(set(range(12)).difference(lora_ind))
+    assert torch.count_nonzero(out[:, :, lora_ind]) == bsz * ctx_len * len(lora_ind)
+    assert torch.count_nonzero(out[:, :, non_lora_ind]) == 0
 
     # GQA
     config.n_query_groups = 2
     model = GPT(config)
     attn = model.transformer.h[0].attn.attn
+    for p in attn.linear.parameters():
+        torch.nn.init.zeros_(p)
+    torch.nn.init.ones_(attn.lora_B)
+    lora_ind = [0, 1, 2, 3, 8, 9, 10, 11, 6, 7, 14, 15]
     assert attn.linear.weight.shape == (16, 8)
     assert attn.lora_A.shape == (4, 8)
     assert attn.lora_B.shape == (12, 2)
-    assert attn.lora_ind == [0, 1, 2, 3, 4, 5, 6, 7, 12, 13, 14, 15]
+    assert attn.lora_ind == lora_ind
     x = torch.randint(0, 8, size=(3, 5, 12), dtype=torch.int64)
     assert attn.zero_pad(x).shape == (3, 5, 16)
-
+    bsz, ctx_len, in_dim = 2, 30, 8
+    x_in = torch.randn(bsz, ctx_len, in_dim)
+    out = attn(x_in)
+    non_lora_ind = list(set(range(16)).difference(lora_ind))
+    assert torch.count_nonzero(out[:, :, lora_ind]) == bsz * ctx_len * len(lora_ind)
+    assert torch.count_nonzero(out[:, :, non_lora_ind]) == 0
 
 def test_lora_filter(tmp_path):
     from lit_gpt.lora import GPT, lora_filter
