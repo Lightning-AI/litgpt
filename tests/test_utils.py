@@ -96,8 +96,8 @@ def test_incremental_write(tmp_path):
 
 
 @pytest.mark.parametrize("B", (1, 2))
-@pytest.mark.parametrize("with_ignore_index", (True, False))
-def test_chunked_cross_entropy(with_ignore_index, B):
+@pytest.mark.parametrize("ignore_index", (None, -1, -2, -100))
+def test_chunked_cross_entropy(ignore_index, B):
     from lit_gpt.utils import chunked_cross_entropy
 
     V = 50
@@ -105,30 +105,32 @@ def test_chunked_cross_entropy(with_ignore_index, B):
     regular_logits = torch.randn(B, T, V)
     targets = torch.randint(0, V, (B, T))
 
-    if with_ignore_index:
-        targets[:, [1, 4, 10, 19]] = -1
+    if ignore_index is not None:
+        targets[:, [1, 4, 10, 19]] = ignore_index
 
     baseline_loss = F.cross_entropy(
         regular_logits.reshape(-1, regular_logits.size(-1)),
         targets.reshape(-1),
-        ignore_index=(-1 if with_ignore_index else -100),
+        ignore_index=(ignore_index if ignore_index is not None else -100),
     )
-    regular_loss = chunked_cross_entropy(regular_logits, targets, chunk_size=0)
+
+    ignore_index = ignore_index if ignore_index is not None else -1
+    regular_loss = chunked_cross_entropy(regular_logits, targets, chunk_size=0, ignore_index=ignore_index)
     assert torch.equal(baseline_loss, regular_loss)
     assert regular_loss.numel() == 1
 
-    chunked_loss = chunked_cross_entropy(regular_logits, targets, chunk_size=10)
+    chunked_loss = chunked_cross_entropy(regular_logits, targets, chunk_size=10, ignore_index=ignore_index)
     torch.testing.assert_close(chunked_loss, regular_loss)
     torch.testing.assert_close(chunked_loss, baseline_loss)
 
     logit_chunk_size = 6
     assert T % logit_chunk_size != 0  # ensure leftover
     chunked_logits = list(regular_logits.split(logit_chunk_size, dim=1))
-    chunked_loss = chunked_cross_entropy(chunked_logits, targets, chunk_size=0)
+    chunked_loss = chunked_cross_entropy(chunked_logits, targets, chunk_size=0, ignore_index=ignore_index)
     torch.testing.assert_close(chunked_loss, regular_loss)
     torch.testing.assert_close(chunked_loss, baseline_loss)
 
-    chunked_loss = chunked_cross_entropy(chunked_logits, targets, chunk_size=10)
+    chunked_loss = chunked_cross_entropy(chunked_logits, targets, chunk_size=10, ignore_index=ignore_index)
     torch.testing.assert_close(chunked_loss, regular_loss)
     torch.testing.assert_close(chunked_loss, baseline_loss)
 
