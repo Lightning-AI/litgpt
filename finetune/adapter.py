@@ -29,29 +29,6 @@ from lit_gpt.utils import (
 )
 from scripts.prepare_alpaca import generate_prompt
 
-eval_interval = 600
-save_interval = 1000
-eval_iters = 100
-eval_max_new_tokens = 100
-log_interval = 1
-devices = 1
-
-# Hyperparameters
-learning_rate = 3e-3
-batch_size = 64 // devices
-micro_batch_size = 4
-gradient_accumulation_iters = batch_size // micro_batch_size
-assert gradient_accumulation_iters > 0
-max_seq_length = None  # assign value to truncate
-epoch_size = 50000  # train dataset size
-num_epochs = 5
-max_iters = num_epochs * epoch_size // devices // micro_batch_size
-max_steps = num_epochs * epoch_size // devices // batch_size
-weight_decay = 0.02
-warmup_steps = 2 * (epoch_size // devices // batch_size)  # 2 epochs
-
-hparams = {k: v for k, v in locals().items() if isinstance(v, (int, float, str)) and not k.startswith("_")}
-
 
 def setup(
     data_dir: Path = Path("data/alpaca"),
@@ -59,7 +36,21 @@ def setup(
     out_dir: Path = Path("out/adapter/alpaca"),
     precision: Optional[str] = None,
     quantize: Optional[Literal["bnb.nf4", "bnb.nf4-dq", "bnb.fp4", "bnb.fp4-dq", "bnb.int8-training"]] = None,
+    eval_interval: int = 600,
+    eval_max_new_tokens: int = 100,
+    save_interval: int = 1000,
+    eval_iters=100,
+    log_interval: int = 1,
+    devices: int = 1,
+    learning_rate=1e-3,
+    global_batch_size: int = 64,
+    micro_batch_size: int = 4,
+    max_seq_length: Optional[int] = None,  # set value to truncate
+    num_warmup_epochs: int = 2,
+    num_epochs: int = 5,
+    train_epoch_size: int = 50000,
 ) -> None:
+    print(locals())
     precision = precision or get_default_supported_precision(training=True)
 
     plugins = None
@@ -88,11 +79,53 @@ def setup(
 
     logger = CSVLogger(out_dir.parent, out_dir.name, flush_logs_every_n_steps=log_interval)
     fabric = L.Fabric(devices=devices, strategy=strategy, precision=precision, loggers=logger, plugins=plugins)
-    fabric.print(hparams)
-    fabric.launch(main, data_dir, checkpoint_dir, out_dir)
+    fabric.launch(
+        main,
+        data_dir,
+        checkpoint_dir,
+        out_dir,
+        eval_interval,
+        eval_max_new_tokens,
+        save_interval,
+        eval_iters,
+        log_interval,
+        devices,
+        learning_rate,
+        global_batch_size,
+        micro_batch_size,
+        max_seq_length,
+        num_warmup_epochs,
+        num_epochs,
+        train_epoch_size,
+    )
 
 
-def main(fabric: L.Fabric, data_dir: Path, checkpoint_dir: Path, out_dir: Path) -> None:
+def main(
+    fabric: L.Fabric,
+    data_dir: Path,
+    checkpoint_dir: Path,
+    out_dir: Path,
+    eval_interval: int,
+    eval_max_new_tokens: int,
+    save_interval: int,
+    eval_iters: int,
+    log_interval: int,
+    devices: int,
+    learning_rate: float,
+    global_batch_size: int,
+    micro_batch_size: int,
+    max_seq_length: Optional[int],
+    num_warmup_epochs: int,
+    num_epochs: int,
+    train_epoch_size: int,
+) -> None:
+    batch_size: int = global_batch_size // devices
+    gradient_accumulation_iters = batch_size // micro_batch_size
+    assert gradient_accumulation_iters > 0
+    max_iters = num_epochs * train_epoch_size // devices // micro_batch_size
+    max_steps = num_epochs * train_epoch_size // devices // batch_size
+    warmup_steps = num_warmup_epochs * (train_epoch_size // devices // batch_size)
+
     check_valid_checkpoint_dir(checkpoint_dir)
 
     fabric.seed_everything(1337)  # same seed for every process to init model (FSDP)
@@ -119,9 +152,9 @@ def main(fabric: L.Fabric, data_dir: Path, checkpoint_dir: Path, out_dir: Path) 
     if isinstance(fabric.strategy.precision, BitsandbytesPrecision):
         import bitsandbytes as bnb
 
-        optimizer = bnb.optim.PagedAdamW(trainable_params, lr=learning_rate, weight_decay=weight_decay)
+        optimizer = bnb.optim.PagedAdamW(trainable_params, lr=learning_rate, weight_decay=0.02)
     else:
-        optimizer = torch.optim.AdamW(trainable_params, lr=learning_rate, weight_decay=weight_decay)
+        optimizer = torch.optim.AdamW(trainable_params, lr=learning_rate, weight_decay=0.02)
     optimizer = fabric.setup_optimizers(optimizer)
     scheduler = get_lr_scheduler(optimizer, warmup_steps=warmup_steps, max_steps=max_steps)
 
@@ -131,7 +164,25 @@ def main(fabric: L.Fabric, data_dir: Path, checkpoint_dir: Path, out_dir: Path) 
     fabric.seed_everything(1337 + fabric.global_rank)
 
     train_time = time.perf_counter()
-    train(fabric, model, optimizer, scheduler, train_data, val_data, checkpoint_dir, out_dir)
+    train(
+        fabric,
+        model,
+        optimizer,
+        scheduler,
+        train_data,
+        val_data,
+        checkpoint_dir,
+        out_dir,
+        eval_interval,
+        eval_max_new_tokens,
+        save_interval,
+        eval_iters,
+        log_interval,
+        max_seq_length,
+        max_iters,
+        gradient_accumulation_iters,
+        micro_batch_size,
+    )
     fabric.print(f"Training time: {(time.perf_counter()-train_time):.2f}s")
     if fabric.device.type == "cuda":
         fabric.print(f"Memory used: {torch.cuda.max_memory_allocated() / 1e9:.02f} GB")
@@ -150,6 +201,15 @@ def train(
     val_data: List[Dict],
     checkpoint_dir: Path,
     out_dir: Path,
+    eval_interval: int,
+    eval_max_new_tokens: int,
+    save_interval: int,
+    eval_iters: int,
+    log_interval: int,
+    max_seq_length: Optional[int],
+    max_iters: int,
+    gradient_accumulation_iters: int,
+    micro_batch_size: int,
 ) -> None:
     tokenizer = Tokenizer(checkpoint_dir)
     longest_seq_length, longest_seq_ix = get_longest_seq_length(train_data)
@@ -159,7 +219,9 @@ def train(
         f" {model.max_seq_length} and context length is {model.config.block_size}"
     )
 
-    validate(fabric, model, val_data, tokenizer, max_iters=2)  # sanity check
+    validate(
+        fabric, model, val_data, tokenizer, max_iters, eval_max_new_tokens, micro_batch_size, max_seq_length
+    )  # sanity check
 
     throughput = ThroughputMonitor(fabric, window_size=50)
     step_count = 0
@@ -169,7 +231,9 @@ def train(
     for iter_num in range(1, max_iters + 1):
         iter_t0 = time.perf_counter()
 
-        input_ids, targets = get_batch(fabric, train_data, longest_seq_ix if iter_num == 1 else None)
+        input_ids, targets = get_batch(
+            fabric, train_data, micro_batch_size, max_seq_length, longest_seq_ix if iter_num == 1 else None
+        )
 
         is_accumulating = iter_num % gradient_accumulation_iters != 0
         with fabric.no_backward_sync(model, enabled=is_accumulating):
@@ -200,7 +264,9 @@ def train(
 
         if not is_accumulating and step_count % eval_interval == 0:
             t0 = time.perf_counter()
-            val_loss = validate(fabric, model, val_data, tokenizer, max_iters=eval_iters)
+            val_loss = validate(
+                fabric, model, val_data, tokenizer, eval_iters, eval_max_new_tokens, micro_batch_size, max_seq_length
+            )
             t1 = time.perf_counter() - t0
             fabric.print(f"step {iter_num}: val loss {val_loss.item():.4f}, val time: {t1 * 1000:.2f}ms")
             fabric.barrier()
@@ -211,12 +277,21 @@ def train(
 
 # the adapter "kv cache" cannot be initialized under `inference_mode`
 @torch.no_grad()
-def validate(fabric: L.Fabric, model: GPT, val_data: List[Dict], tokenizer: Tokenizer, max_iters: int) -> torch.Tensor:
+def validate(
+    fabric: L.Fabric,
+    model: GPT,
+    val_data: List[Dict],
+    tokenizer: Tokenizer,
+    max_iters: int,
+    max_new_tokens: int,
+    micro_batch_size: int,
+    max_seq_length: Optional[int],
+) -> torch.Tensor:
     fabric.print("Validating ...")
     model.eval()
     losses = torch.zeros(max_iters)
     for k in range(max_iters):
-        input_ids, targets = get_batch(fabric, val_data)
+        input_ids, targets = get_batch(fabric, val_data, micro_batch_size, max_seq_length)
         logits = model(input_ids)
         losses[k] = chunked_cross_entropy(logits[..., :-1, :], targets[..., 1:], chunk_size=0)
     val_loss = losses.mean()
@@ -231,7 +306,7 @@ def validate(fabric: L.Fabric, model: GPT, val_data: List[Dict], tokenizer: Toke
         # do not set `max_seq_length=max_returned_token` because memory is not a concern here
         model.set_kv_cache(batch_size=1)
     output = generate(
-        model, encoded, max_returned_tokens=len(encoded) + eval_max_new_tokens, temperature=0.8, eos_id=tokenizer.eos_id
+        model, encoded, max_returned_tokens=len(encoded) + max_new_tokens, temperature=0.8, eos_id=tokenizer.eos_id
     )
     model.clear_kv_cache()
     output = tokenizer.decode(output)
@@ -242,7 +317,11 @@ def validate(fabric: L.Fabric, model: GPT, val_data: List[Dict], tokenizer: Toke
 
 
 def get_batch(
-    fabric: L.Fabric, data: List[Dict], longest_seq_ix: Optional[int] = None
+    fabric: L.Fabric,
+    data: List[Dict],
+    micro_batch_size: int,
+    max_seq_length: Optional[int],
+    longest_seq_ix: Optional[int] = None,
 ) -> Tuple[torch.Tensor, torch.Tensor]:
     ix = torch.randint(len(data), (micro_batch_size,))
     if longest_seq_ix is not None:
