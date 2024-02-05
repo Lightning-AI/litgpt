@@ -97,12 +97,6 @@ In the above we are assuming that you will be using the same tokenizer as used i
 
 ## Pretraining
 
-Currently, the pretraining with `torch.compile` requires PyTorch 2.2 "nightly". We recommend CUDA 12.1:
-
-```bash
-pip install -U --pre torch --index-url https://download.pytorch.org/whl/nightly/cu121
-```
-
 Running the pretraining script with its default settings requires at least 8 A100 GPUs.
 
 ```bash

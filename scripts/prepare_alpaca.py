@@ -7,8 +7,8 @@ import sys
 from pathlib import Path
 from typing import Optional
 
-import requests
 import torch
+from lightning_utilities.core.imports import RequirementCache
 from torch.utils.data import random_split
 from tqdm import tqdm
 
@@ -90,6 +90,11 @@ def download_if_missing(file_path: Path, file_url: str) -> None:
     """Downloads the raw json data file and saves it in the given destination."""
     if file_path.exists() and file_path.stat().st_size > 0:
         return
+    requests_available = RequirementCache("requests")
+    if not requests_available:
+        raise ModuleNotFoundError(str(requests_available))
+    import requests
+
     with open(file_path, "w", encoding="utf-8") as f:
         f.write(requests.get(file_url).text)
 

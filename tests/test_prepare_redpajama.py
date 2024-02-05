@@ -7,21 +7,17 @@ import sys
 from pathlib import Path
 from unittest import mock
 
-import requests
-
-
-def maybe_get_file(url, file_path):
-    if not file_path.exists():
-        with open(file_path, "w", encoding="utf-8") as f:
-            f.write(requests.get(url).text)
+from scripts.prepare_alpaca import download_if_missing
 
 
 def test_prepare_sample(tmp_path):
     vocabulary_path = tmp_path / "tokenizer.json"
-    maybe_get_file("https://huggingface.co/stabilityai/stablelm-base-alpha-3b/raw/main/tokenizer.json", vocabulary_path)
+    download_if_missing(
+        vocabulary_path, "https://huggingface.co/stabilityai/stablelm-base-alpha-3b/raw/main/tokenizer.json"
+    )
     tokenizer_path = tmp_path / "tokenizer_config.json"
-    maybe_get_file(
-        "https://huggingface.co/stabilityai/stablelm-base-alpha-3b/raw/main/tokenizer_config.json", tokenizer_path
+    download_if_missing(
+        tokenizer_path, "https://huggingface.co/stabilityai/stablelm-base-alpha-3b/raw/main/tokenizer_config.json"
     )
     with open(tmp_path / "lit_config.json", "w") as f:
         json.dump({"block_size": 2048}, f)
@@ -66,10 +62,12 @@ def test_prepare_sample(tmp_path):
 
 def test_prepare_full(tmp_path):
     vocabulary_path = tmp_path / "tokenizer.json"
-    maybe_get_file("https://huggingface.co/stabilityai/stablelm-base-alpha-3b/raw/main/tokenizer.json", vocabulary_path)
+    download_if_missing(
+        vocabulary_path, "https://huggingface.co/stabilityai/stablelm-base-alpha-3b/raw/main/tokenizer.json"
+    )
     tokenizer_path = tmp_path / "tokenizer_config.json"
-    maybe_get_file(
-        "https://huggingface.co/stabilityai/stablelm-base-alpha-3b/raw/main/tokenizer_config.json", tokenizer_path
+    download_if_missing(
+        tokenizer_path, "https://huggingface.co/stabilityai/stablelm-base-alpha-3b/raw/main/tokenizer_config.json"
     )
     with open(tmp_path / "lit_config.json", "w") as f:
         json.dump({"block_size": 2048}, f)

@@ -31,7 +31,7 @@ Supports the following popular model checkpoints:
 | EleutherAI [Pythia](tutorials/download_pythia.md)                                 | {14,31,70,160,410}M, {1,1.4,2.8,6.9,12}B | [Biderman et al. 2023](https://arxiv.org/abs/2304.01373)                                                                     |
 | LMSYS [LongChat](tutorials/download_longchat.md)                                  | 7B, 13B                                  | [LongChat Team 2023](https://lmsys.org/blog/2023-06-29-longchat/)                                                            |
 | LMSYS [Vicuna](tutorials/download_vicuna.md)                                      | 7B, 13B, 33B                             | [Li et al. 2023](https://lmsys.org/blog/2023-03-30-vicuna/)                                                                  |
-| Meta AI [Code Llama](tutorials/download_code_llama.md)                            | 7B, 13B, 34B                             | [Rozière et al. 2023](https://arxiv.org/abs/2308.12950)                                                                      |
+| Meta AI [Code Llama](tutorials/download_code_llama.md)                            | 7B, 13B, 34B, 70B                        | [Rozière et al. 2023](https://arxiv.org/abs/2308.12950)                                                                      |
 | Meta AI [Llama 2](tutorials/download_llama_2.md)                                  | 7B, 13B, 70B                             | [Touvron et al. 2023](https://arxiv.org/abs/2307.09288)                                                                      |
 | Mistral AI [Mistral and Mixtral](tutorials/download_mistral.md)                   | 7B                                       | [Mistral  website](https://mistral.ai/)                                                                                      |
 | Microsoft Research [Phi](tutorials/download_phi.md)                               | 1.3B, 2.7B                               | [Li et al. 2023](https://arxiv.org/abs/2309.05463)                                                                           |
@@ -98,29 +98,11 @@ git clone https://github.com/Lightning-AI/lit-gpt
 cd lit-gpt
 ```
 
-Install the minimal dependencies:
-
-```bash
-pip install -r requirements.txt
-```
-
-Install with all dependencies (including quantization, sentencepiece, tokenizers for Llama models, etc.):
+Install with all dependencies (including CLI, quantization, tokenizers for all models, etc.):
 
 ```bash
 pip install -r requirements-all.txt
 ```
-
-**(Optional) Use Flash Attention 2**
-
-Flash Attention 2 will be used automatically if PyTorch 2.2 (or higher) is installed.
-Currently, that requires installing PyTorch nightly, which you can get by running:
-
-```bash
-pip uninstall -y torch torchvision torchaudio torchtext
-pip install --pre torch --index-url https://download.pytorch.org/whl/nightly/cu121
-```
-
-You are all set! 🎉
 
 &nbsp;
 

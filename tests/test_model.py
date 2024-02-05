@@ -9,7 +9,7 @@ import pytest
 import torch
 from conftest import RunIf
 from lightning import Fabric
-from lightning.fabric.utilities.imports import _IS_WINDOWS, _TORCH_GREATER_EQUAL_2_2
+from lightning.fabric.utilities.imports import _IS_WINDOWS
 
 # support running without installing as a package
 wd = Path(__file__).parent.parent.resolve()
@@ -631,7 +631,7 @@ SUPPORTS_FLASH_ATTENTION = (
 )
 
 
-@RunIf(min_cuda_gpus=1, min_torch="2.2")
+@RunIf(min_cuda_gpus=1)
 @pytest.mark.parametrize("config", config_module.configs, ids=[c["name"] for c in config_module.configs])
 @torch.inference_mode()
 def test_sdpa_choice(config):
@@ -678,13 +678,7 @@ def test_sdpa_choice(config):
         h.attn.scaled_dot_product_attention = partial(assert_sdpa_backend, h.attn.scaled_dot_product_attention)
 
     if SUPPORTS_FLASH_ATTENTION:
-        # flash attention 1 requires q,k,v to have the same last dimension and to be a multiple of 8 and less than or
-        # equal to 128
-        expected = (
-            SDPBackend.FLASH_ATTENTION
-            if _TORCH_GREATER_EQUAL_2_2 or (config.head_size <= 128 and config.head_size % 8 == 0)
-            else SDPBackend.MATH
-        )
+        expected = SDPBackend.FLASH_ATTENTION
         with torch.backends.cuda.sdp_kernel(enable_mem_efficient=False):
             model(x)
 
@@ -693,7 +687,7 @@ def test_sdpa_choice(config):
         model(x)
 
 
-@RunIf(min_cuda_gpus=1, min_torch="2.2")
+@RunIf(min_cuda_gpus=1)
 @pytest.mark.parametrize("config", config_module.configs, ids=[c["name"] for c in config_module.configs])
 @torch.inference_mode()
 def test_sdpa_choice_kv_cache(config):
