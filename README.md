@@ -98,7 +98,7 @@ git clone https://github.com/Lightning-AI/lit-gpt
 cd lit-gpt
 ```
 
-Install with all dependencies (including CLI, quantization, sentencepiece, tokenizers for Llama models, etc.):
+Install with all dependencies (including CLI, quantization, tokenizers for all models, etc.):
 
 ```bash
 pip install -r requirements-all.txt
