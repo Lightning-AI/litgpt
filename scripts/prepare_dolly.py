@@ -7,10 +7,11 @@ import sys
 from pathlib import Path
 from typing import Optional
 
-import requests
 import torch
 from torch.utils.data import random_split
 from tqdm import tqdm
+
+from scripts.prepare_alpaca import download_if_missing
 
 # support running without installing as a package
 wd = Path(__file__).parent.parent.resolve()
@@ -90,14 +91,6 @@ def prepare(
         for sample in tqdm(test_set)
     ]
     torch.save(test_set, destination_path / "test.pt")
-
-
-def download_if_missing(file_path: Path, file_url: str) -> None:
-    """Downloads the raw json data file and saves it in the given destination."""
-    if file_path.exists():
-        return
-    with open(file_path, "w", encoding="utf-8") as f:
-        f.write(requests.get(file_url).text)
 
 
 def prepare_sample(example: dict, tokenizer: Tokenizer, max_length: int, mask_inputs: bool, ignore_index: int) -> dict:
