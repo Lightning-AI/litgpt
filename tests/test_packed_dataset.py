@@ -4,25 +4,22 @@ import os
 from unittest.mock import MagicMock
 
 import pytest
-import requests
 from torch.utils.data import IterableDataset
 
-
-def maybe_get_file(url, file_path):
-    if not file_path.exists():
-        with open(file_path, "w", encoding="utf-8") as f:
-            f.write(requests.get(url).text)
+from scripts.prepare_alpaca import download_if_missing
 
 
 def test_packed_dataset(tmp_path):
     tmp_path.mkdir(parents=True, exist_ok=True)
 
     vocabulary_path = tmp_path / "tokenizer.json"
-    maybe_get_file("https://huggingface.co/stabilityai/stablelm-base-alpha-3b/raw/main/tokenizer.json", vocabulary_path)
+    download_if_missing(
+        vocabulary_path, "https://huggingface.co/stabilityai/stablelm-base-alpha-3b/raw/main/tokenizer.json"
+    )
 
     tokenizer_path = tmp_path / "tokenizer_config.json"
-    maybe_get_file(
-        "https://huggingface.co/stabilityai/stablelm-base-alpha-3b/raw/main/tokenizer_config.json", tokenizer_path
+    download_if_missing(
+        tokenizer_path, "https://huggingface.co/stabilityai/stablelm-base-alpha-3b/raw/main/tokenizer_config.json"
     )
 
     from lit_gpt import Tokenizer

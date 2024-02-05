@@ -6,23 +6,16 @@ import sys
 from pathlib import Path
 from typing import Optional
 
-import requests
 import torch
 from tqdm import tqdm
+
+from scripts.prepare_alpaca import download_if_missing
 
 # support running without installing as a package
 wd = Path(__file__).parent.parent.resolve()
 sys.path.append(str(wd))
 
 from lit_gpt.tokenizer import Tokenizer
-
-
-def download_if_missing(file_path: Path, file_url: str):
-    """Downloads the raw json data file and saves it in the given destination."""
-    if file_path.exists() and file_path.stat().st_size > 0:
-        return
-    with open(file_path, "w", encoding="utf-8") as f:
-        f.write(requests.get(file_url).text)
 
 
 def load_jsonl(filename):
