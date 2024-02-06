@@ -62,7 +62,6 @@ The Lit-GPT repository was the official starter kit for the [NeurIPS 2023 LLM Ef
 
 &nbsp;
 
-
 ## Lit-GPT design principles
 
 This repository follows the main principle of **openness through clarity**.
