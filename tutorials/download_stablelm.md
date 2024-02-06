@@ -23,7 +23,7 @@ stabilityai/stablelm-zephyr-3b
 In order to use a specific StableLM checkpoint, for instance [stablelm-base-alpha-3b](http://huggingface.co/stabilityai/stablelm-base-alpha-3b), download the weights and convert the checkpoint to the lit-gpt format:
 
 ```bash
-pip install huggingface_hub
+pip install 'huggingface_hub[hf_transfer] @ git+https://github.com/huggingface/huggingface_hub'
 
 python scripts/download.py --repo_id stabilityai/stablelm-base-alpha-3b
 
@@ -51,7 +51,7 @@ More details can be found in the [announcement](https://stability.ai/news/stable
 In order to use this model, download the weights and convert the checkpoint to the lit-gpt format. As this version of the model is in `safetensor` format, to download it an additional flag is required:
 
 ```bash
-pip install huggingface_hub
+pip install 'huggingface_hub[hf_transfer] @ git+https://github.com/huggingface/huggingface_hub'
 
 python scripts/download.py --repo_id stabilityai/stablelm-zephyr-3b --from_safetensors=True
 ```

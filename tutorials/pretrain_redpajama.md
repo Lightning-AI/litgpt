@@ -51,7 +51,7 @@ on it, you need to read, tokenize, and write the data in binary chunks. This wil
 streaming dataset that comes with lit-gpt. You will need to have the tokenizer config available:
 
 ```bash
-pip install huggingface_hub sentencepiece
+pip install 'huggingface_hub[hf_transfer] @ git+https://github.com/huggingface/huggingface_hub' sentencepiece
 
 python scripts/download.py \
    --repo_id meta-llama/Llama-2-7b-chat-hf \

@@ -33,7 +33,7 @@ This requires that you've been granted access to the weights on the HuggingFace 
 After access is granted, you can find your HF hub token in <https://huggingface.co/settings/tokens>.
 
 ```bash
-pip install huggingface_hub
+pip install 'huggingface_hub[hf_transfer] @ git+https://github.com/huggingface/huggingface_hub'
 
 python scripts/download.py --repo_id meta-llama/Llama-2-7b-chat-hf --access_token your_hf_token
 

@@ -23,7 +23,7 @@ lmsys/vicuna-13b-v1.5-16k
 In order to use a specific Vicuna checkpoint, for instance [vicuna-7b-v1.5](https://huggingface.co/lmsys/vicuna-7b-v1.5), download the weights and convert the checkpoint to the lit-gpt format:
 
 ```bash
-pip install huggingface_hub
+pip install 'huggingface_hub[hf_transfer] @ git+https://github.com/huggingface/huggingface_hub'
 
 python scripts/download.py --repo_id lmsys/vicuna-7b-v1.5
 

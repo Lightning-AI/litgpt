@@ -32,7 +32,7 @@ mistralai/Mistral-7B-Instruct-v0.2
 In order to use the Mistral 7B model checkpoint, which requires about 14 GB of disk space, download the weights and convert the checkpoint to the lit-gpt format:
 
 ```bash
-pip install huggingface_hub
+pip install 'huggingface_hub[hf_transfer] @ git+https://github.com/huggingface/huggingface_hub'
 
 python scripts/download.py --repo_id mistralai/Mistral-7B-Instruct-v0.2
 
@@ -57,7 +57,7 @@ Details about the data used to train the model or training procedure have not be
 In order to use the Mixtral 7B model checkpoint, which requires about 94 GB of disk space, download the weights and convert the checkpoint to the lit-gpt format:
 
 ```bash
-pip install huggingface_hub
+pip install 'huggingface_hub[hf_transfer] @ git+https://github.com/huggingface/huggingface_hub'
 
 python scripts/download.py --repo_id mistralai/Mixtral-8x7B-Instruct-v0.1 --from_safetensors true
 

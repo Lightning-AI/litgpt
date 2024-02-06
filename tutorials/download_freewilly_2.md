@@ -5,7 +5,7 @@ Stability AI announced FreeWilly inspired by the methodology pioneered by Micros
 FreeWilly2 leverages the Llama 2 70B foundation model to reach a performance that compares favorably with GPT-3.5 for some tasks.
 
 ```bash
-pip install huggingface_hub
+pip install 'huggingface_hub[hf_transfer] @ git+https://github.com/huggingface/huggingface_hub'
 
 python scripts/download.py --repo_id stabilityai/FreeWilly2
 

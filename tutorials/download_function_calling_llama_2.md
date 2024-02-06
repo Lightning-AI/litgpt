@@ -8,7 +8,7 @@ The model responds with a structured json argument with the function name and ar
 In order to use the checkpoint, download the weights and convert the checkpoint to the lit-gpt format.
 
 ```bash
-pip install huggingface_hub
+pip install 'huggingface_hub[hf_transfer] @ git+https://github.com/huggingface/huggingface_hub'
 
 python scripts/download.py --repo_id Trelis/Llama-2-7b-chat-hf-function-calling-v2 --from_safetensors true
 
