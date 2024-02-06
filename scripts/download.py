@@ -52,8 +52,9 @@ def download_from_hub(
     elif from_safetensors:
         raise ValueError("`--from_safetensors=True` won't have an effect with `--tokenizer_only=True`")
 
-    import huggingface_hub.constants as constants
     import huggingface_hub._snapshot_download as download
+    import huggingface_hub.constants as constants
+
     previous = constants.HF_HUB_ENABLE_HF_TRANSFER
     if _HF_TRANSFER_AVAILABLE and not previous:
         print("Setting HF_HUB_ENABLE_HF_TRANSFER=1")
