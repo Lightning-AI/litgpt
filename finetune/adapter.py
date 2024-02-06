@@ -282,7 +282,6 @@ def get_lr_scheduler(optimizer, warmup_steps: int, max_steps: int):
     return torch.optim.lr_scheduler.SequentialLR(optimizer, [scheduler1, scheduler2], milestones=[warmup_steps])
 
 
-
 def get_longest_seq_length(data: List[Dict]) -> Tuple[int, int]:
     # find out the minimum max_seq_length required during fine-tuning (saves memory!)
     lengths = [len(d["input_ids"]) for d in data]

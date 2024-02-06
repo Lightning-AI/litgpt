@@ -157,6 +157,7 @@ def test_lora_mqa_gqa():
     assert torch.count_nonzero(out[:, :, lora_ind]) == bsz * ctx_len * len(lora_ind)
     assert torch.count_nonzero(out[:, :, non_lora_ind]) == 0
 
+
 def test_lora_filter(tmp_path):
     from lit_gpt.lora import GPT, lora_filter
 
