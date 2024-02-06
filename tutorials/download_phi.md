@@ -8,8 +8,10 @@ The model weights are released under [*Microsoft Research license*](https://hugg
 To download the model weights and convert them to the lit-gpt format, run
 
 ```bash
-pip install huggingface_hub
+pip install 'huggingface_hub[hf_transfer] @ git+https://github.com/huggingface/huggingface_hub'
+
 python scripts/download.py --repo_id microsoft/phi-2 --from_safetensors True
+
 python scripts/convert_hf_checkpoint.py --checkpoint_dir checkpoints/microsoft/phi-2
 ```
 
@@ -59,7 +61,7 @@ The model weights are released under a [*Microsoft Research license*](https://hu
 In order to use the phi-1.5 model checkpoint, which requires about 3 Gb of disk space, download the weights and convert the checkpoint to the lit-gpt format:
 
 ```bash
-pip install huggingface_hub
+pip install 'huggingface_hub[hf_transfer] @ git+https://github.com/huggingface/huggingface_hub'
 
 python scripts/download.py --repo_id microsoft/phi-1_5
 

@@ -26,7 +26,7 @@ databricks/dolly-v2-12b
 In order to use a specific Dolly checkpoint, for instance [dolly-v2-3b](https://huggingface.co/databricks/dolly-v2-3b), download the weights and convert the checkpoint to the lit-gpt format:
 
 ```bash
-pip install huggingface_hub
+pip install 'huggingface_hub[hf_transfer] @ git+https://github.com/huggingface/huggingface_hub'
 
 python scripts/download.py --repo_id databricks/dolly-v2-3b
 

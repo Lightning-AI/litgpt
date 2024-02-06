@@ -37,7 +37,7 @@ EleutherAI/pythia-12b-deduped
 In order to use a specific Pythia checkpoint, for instance [pythia-1b](https://huggingface.co/EleutherAI/pythia-1b), download the weights and convert the checkpoint to the lit-gpt format:
 
 ```bash
-pip install huggingface_hub
+pip install 'huggingface_hub[hf_transfer] @ git+https://github.com/huggingface/huggingface_hub'
 
 python scripts/download.py --repo_id EleutherAI/pythia-1b
 

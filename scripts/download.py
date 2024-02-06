@@ -13,6 +13,7 @@ wd = Path(__file__).parent.parent.resolve()
 sys.path.append(str(wd))
 
 _SAFETENSORS_AVAILABLE = RequirementCache("safetensors")
+_HF_TRANSFER_AVAILABLE = RequirementCache("hf_transfer")
 
 
 def download_from_hub(
@@ -51,6 +52,14 @@ def download_from_hub(
     elif from_safetensors:
         raise ValueError("`--from_safetensors=True` won't have an effect with `--tokenizer_only=True`")
 
+    import huggingface_hub.constants as constants
+    import huggingface_hub._snapshot_download as download
+    previous = constants.HF_HUB_ENABLE_HF_TRANSFER
+    if _HF_TRANSFER_AVAILABLE and not previous:
+        print("Setting HF_HUB_ENABLE_HF_TRANSFER=1")
+        constants.HF_HUB_ENABLE_HF_TRANSFER = True
+        download.HF_HUB_ENABLE_HF_TRANSFER = True
+
     directory = checkpoint_dir / repo_id
     snapshot_download(
         repo_id,
@@ -60,6 +69,9 @@ def download_from_hub(
         allow_patterns=download_files,
         token=access_token,
     )
+
+    constants.HF_HUB_ENABLE_HF_TRANSFER = previous
+    download.HF_HUB_ENABLE_HF_TRANSFER = previous
 
     # convert safetensors to PyTorch binaries
     if from_safetensors:
