@@ -1,5 +1,6 @@
 -r requirements.txt
 jsonargparse[signatures]  # CLI
+auto-gptq                 # quantization
 bitsandbytes==0.41.0      # quantization
 scipy                     # required by bitsandbytes
 sentencepiece             # llama-based models
