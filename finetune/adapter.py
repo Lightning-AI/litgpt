@@ -110,7 +110,7 @@ def main(
     optimization_args: OptimizationArgs,
     data_args: DataArgs,
 ) -> None:
-    steps_per_epoch = train_args.train_epoch_size // devices // train_args.batch_size(devices)
+    steps_per_epoch = train_args.epoch_size // devices // train_args.batch_size(devices)
     lr_max_steps = train_args.epochs * steps_per_epoch
     lr_warmup_steps = train_args.lr_warmup_epochs * steps_per_epoch
 
@@ -260,8 +260,8 @@ def validate(
 ) -> torch.Tensor:
     fabric.print("Validating ...")
     model.eval()
-    losses = torch.zeros(eval_args.iters)
-    for k in range(eval_args.iters):
+    losses = torch.zeros(eval_args.max_iters)
+    for k in range(eval_args.max_iters):
         input_ids, targets = get_batch(fabric, val_data, train_args.micro_batch_size, data_args.max_seq_length)
         logits = model(input_ids)
         losses[k] = chunked_cross_entropy(logits[..., :-1, :], targets[..., 1:], chunk_size=0)
