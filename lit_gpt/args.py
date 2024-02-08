@@ -5,6 +5,8 @@ from typing import Optional
 
 @dataclass
 class TrainArgs:
+    """Training related arguments"""
+
     save_interval: int = 1000
     """Number of optimizer steps between checkpoints"""
     log_interval: int = 1
@@ -14,7 +16,9 @@ class TrainArgs:
     micro_batch_size: int = 4
     """Number of samples per data-parallel rank"""
     lr_warmup_epochs: int = 2
-    """Number of epochs with learning rate warmup active. In addition to epochs"""
+    """Number of epochs with learning rate warmup active"""
+    lr_warmup_steps: int = 100
+    """Number of optimizer steps with learning rate warmup active"""
     epochs: int = 5
     """Number of epochs to run"""
     epoch_size: int = 50000
@@ -41,6 +45,8 @@ class TrainArgs:
 
 @dataclass
 class EvalArgs:
+    """Evaluation related arguments"""
+
     interval: int = 600
     """Number of optimizer steps between evaluation calls"""
     max_new_tokens: int = 100
@@ -51,18 +57,24 @@ class EvalArgs:
 
 @dataclass
 class OptimizationArgs:
+    """Optimization related arguments"""
+
     learning_rate: float = 1e-3
     weight_decay: float = 0.02
 
 
 @dataclass
 class DataArgs:
+    """Data related arguments"""
+
     max_seq_length: Optional[int] = None
     """Limits the length of samples. Off by default"""
 
 
 @dataclass
 class IOArgs:
+    """Inputs and outputs related arguments"""
+
     data_dir: Path = Path("data/alpaca")
     """Where to read data from"""
     checkpoint_dir: Path = Path("checkpoints/stabilityai/stablelm-base-alpha-3b")

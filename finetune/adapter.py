@@ -13,14 +13,13 @@ from lightning.fabric.plugins import BitsandbytesPrecision
 from lightning.fabric.strategies import FSDPStrategy
 from lightning.fabric.utilities import ThroughputMonitor
 
-from lit_gpt.args import DataArgs, EvalArgs, IOArgs, OptimizationArgs, TrainArgs
-
 # support running without installing as a package
 wd = Path(__file__).parent.parent.resolve()
 sys.path.append(str(wd))
 
 from generate.base import generate
 from lit_gpt.adapter import GPT, Block, Config, adapter_filter, mark_only_adapter_as_trainable
+from lit_gpt.args import DataArgs, EvalArgs, IOArgs, OptimizationArgs, TrainArgs
 from lit_gpt.tokenizer import Tokenizer
 from lit_gpt.utils import (
     check_valid_checkpoint_dir,
@@ -85,6 +84,7 @@ def setup(
     fabric.launch(
         main,
         devices,
+        Config.from_name(name=checkpoint_dir.name),
         IOArgs(data_dir, checkpoint_dir, out_dir),
         TrainArgs(
             save_interval,
@@ -92,8 +92,8 @@ def setup(
             global_batch_size,
             micro_batch_size,
             num_warmup_epochs,
-            num_epochs,
-            train_epoch_size,
+            epochs=num_epochs,
+            epoch_size=train_epoch_size,
         ),
         EvalArgs(eval_interval, eval_max_new_tokens, eval_iters),
         OptimizationArgs(learning_rate),
@@ -104,6 +104,7 @@ def setup(
 def main(
     fabric: L.Fabric,
     devices: int,
+    config: Config,
     io_args: IOArgs,
     train_args: TrainArgs,
     eval_args: EvalArgs,
@@ -124,7 +125,6 @@ def main(
     train_data = torch.load(io_args.data_dir / "train.pt")
     val_data = torch.load(io_args.data_dir / "test.pt")
 
-    config = Config.from_name(name=io_args.checkpoint_dir.name)
     checkpoint_path = io_args.checkpoint_dir / "lit_model.pth"
     fabric.print(f"Loading model {str(checkpoint_path)!r} with {config.__dict__}")
     with fabric.init_module(empty_init=(devices > 1)):
@@ -187,7 +187,7 @@ def train(
     )
 
     validate(
-        fabric, model, val_data, tokenizer, dataclasses.replace(eval_args, iters=2), train_args, data_args
+        fabric, model, val_data, tokenizer, dataclasses.replace(eval_args, max_iters=2), train_args, data_args
     )  # sanity check
 
     throughput = ThroughputMonitor(fabric, window_size=50)
@@ -232,15 +232,15 @@ def train(
             )
             throughput.compute_and_log(step=iter_num)
             fabric.print(
-                f"iter {iter_num} step {step_count}: loss {loss_item:.4f}, iter time:"
-                f" {(t1 - iter_t0) * 1000:.2f}ms{' (optimizer.step)' if not is_accumulating else ''}"
+                f"iter {iter_num} | step {step_count}: loss {loss_item:.4f}, iter time:"
+                f" {(t1 - iter_t0) * 1000:.2f} ms{' (optimizer.step)' if not is_accumulating else ''}"
             )
 
         if not is_accumulating and step_count % eval_args.interval == 0:
             t0 = time.perf_counter()
             val_loss = validate(fabric, model, val_data, tokenizer, eval_args, train_args, data_args)
             t1 = time.perf_counter() - t0
-            fabric.print(f"step {iter_num}: val loss {val_loss.item():.4f}, val time: {t1 * 1000:.2f}ms")
+            fabric.print(f"iter {iter_num}: val loss {val_loss.item():.4f}, val time: {t1 * 1000:.2f} ms")
             fabric.barrier()
         if not is_accumulating and step_count % train_args.save_interval == 0:
             checkpoint_path = io_args.out_dir / f"iter-{iter_num:06d}-ckpt.pth"
