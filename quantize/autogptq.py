@@ -22,36 +22,24 @@ from lit_gpt.utils import (
 
 
 # `GPTForAutoGPTQ` and `BlockForAutoGPTQ` are only needed for quantization process.
-# These classes have slightly changed `forward` methods, so they can accept and provide such arguments as `attention_mask`,
-# so they "behave" like HuggingFace models and thus become compatible with AutoGPTQ.
+# These classes have changed `forward` methods, so they can accept and provide such arguments as `attention_mask`
+# to "behave" like HuggingFace models and thus become compatible with AutoGPTQ.
 class GPTForAutoGPTQ(GPT):
     # Changes to make it compatible with AutoGPTQ:
     # - "input_ids" instead of "idx"
     # - **kwargs store "attention_mask" (that we don't need), but AutoGPTQ provides
     def forward(self, input_ids: torch.Tensor, input_pos: Optional[torch.Tensor] = None, **kwargs: Any) -> torch.Tensor:
+        """For AutoGPTQ this forward pass is needed only to capture arguments (through a forward hook attached to the
+        first layer) that will be send to each layer (Transformer block). That means it will be called only once."""
+
         T = input_ids.size(1)
         if self.max_seq_length < T:
             raise ValueError(f"Cannot forward sequence of length {T}, max seq length is only {self.max_seq_length}.")
-
-        if input_pos is not None:  # use the kv cache
-            cos = self.cos.index_select(0, input_pos)
-            sin = self.sin.index_select(0, input_pos)
-            if self.mask_cache is None:
-                raise TypeError("You need to call `gpt.set_kv_cache()`")
-            mask = self.mask_cache.index_select(2, input_pos)
-        else:
-            cos = self.cos[:T]
-            sin = self.sin[:T]
-            mask = None
-
         x = self.transformer.wte(input_ids)  # token embeddings of shape (b, t, n_embd)
-        for block in self.transformer.h:
-            # Changes to make it compatible with AutoGPTQ:
-            # - LayerHijacker (inside the quantize method) doesn't expect all these arguments, but expects kwargs,
-            #   so we can provide them as keyword arguments
-            x = block(x, cos=cos, sin=sin, mask=mask, input_pos=input_pos, **kwargs)
-        x = self.transformer.ln_f(x)
-        return self.lm_head(x)  # (b, t, vocab_size)
+
+        # - LayerHijacker (inside the quantize method) doesn't expect all these arguments, but expects kwargs,
+        #   so we can provide them as keyword arguments
+        self.transformer.h[0](x, cos=self.cos[:T], sin=self.sin[:T], mask=None, input_pos=input_pos, **kwargs)
 
 
 class BlockForAutoGPTQ(Block):
@@ -157,7 +145,7 @@ def main(
     if output_path is None:
         output_path = checkpoint_dir / "lit_model_gptq.4bit.pth"
 
-    # --- Load and prepare a calibraion data ---
+    # --- Load and prepare a calibration data ---
     calibration_data = torch.load(data_dir / "test.pt")
     # AutoGPTQ expects a list of dicts with two keys in each: "input_ids" and "attention_mask".
     # Since Lit model doesn't need "attention_mask", we can "fake" it.
@@ -170,7 +158,7 @@ def main(
     config = Config.from_json(checkpoint_dir / "lit_config.json")
     # The model is loaded into a CPU RAM and each layer, that is about to be quantized,
     # is moved to a GPU by the AutoGPTQ itself.
-    # "torch.float16" precision is prefered during the inference, so it's better to
+    # "torch.float16" precision is preferred during the inference, so it's better to
     # have the model in this precision during the quantization.
     fabric = L.Fabric(accelerator="cpu", precision="16-true")
     with fabric.init_module(empty_init=True), _ClassReplacementContextManager(
