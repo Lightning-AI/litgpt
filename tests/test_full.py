@@ -15,13 +15,6 @@ from torch.utils.data import DataLoader
 def test_full_script(tmp_path, fake_checkpoint_dir, monkeypatch):
     import finetune.full as module
 
-    module.gradient_accumulation_iters = 1
-    module.save_step_interval = 2
-    module.eval_step_interval = 2
-    module.eval_iters = 2
-    module.eval_max_new_tokens = 1
-    module.max_iters = 6
-
     data = [
         {"input_ids": torch.tensor([0, 1, 2]), "labels": torch.tensor([1, 2, 3])},
         {"input_ids": torch.tensor([1, 2, 3]), "labels": torch.tensor([2, 3, 4])},
@@ -42,7 +35,20 @@ def test_full_script(tmp_path, fake_checkpoint_dir, monkeypatch):
 
     stdout = StringIO()
     with redirect_stdout(stdout):
-        module.setup(data_dir=tmp_path, checkpoint_dir=fake_checkpoint_dir, out_dir=tmp_path, precision="32-true")
+        module.setup(
+            data_dir=tmp_path,
+            checkpoint_dir=fake_checkpoint_dir,
+            out_dir=tmp_path,
+            precision="32-true",
+            global_batch_size=1,
+            save_interval=2,
+            eval_interval=2,
+            eval_iters=2,
+            eval_max_new_tokens=1,
+            num_epochs=1,
+            train_epoch_size=6,
+            micro_batch_size=1,
+        )
 
     assert {p.name for p in tmp_path.glob("*.pth")} == {
         "step-000002.pth",
@@ -53,8 +59,8 @@ def test_full_script(tmp_path, fake_checkpoint_dir, monkeypatch):
     assert (tmp_path / "version_0" / "metrics.csv").is_file()
 
     logs = stdout.getvalue()
-    assert logs.count("optimizer.step") == module.max_iters
-    assert logs.count("val loss") == module.max_iters // module.eval_step_interval
+    assert logs.count("optimizer.step") == 6
+    assert logs.count("val loss") == 3
     assert "of trainable parameters: 1,888" in logs
 
 
