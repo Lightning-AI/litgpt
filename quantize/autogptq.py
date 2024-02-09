@@ -145,7 +145,7 @@ def main(
     if output_path is None:
         output_path = checkpoint_dir / "lit_model_gptq.4bit.pth"
 
-    # --- Load and prepare a calibration data ---
+    # --- Load and prepare calibration data ---
     calibration_data = torch.load(data_dir / "test.pt")
     # AutoGPTQ expects a list of dicts with two keys in each: "input_ids" and "attention_mask".
     # Since Lit model doesn't need "attention_mask", we can "fake" it.
@@ -161,7 +161,7 @@ def main(
     # "torch.float16" precision is preferred during the inference, so it's better to
     # have the model in this precision during the quantization.
     fabric = L.Fabric(accelerator="cpu", precision="16-true")
-    with fabric.init_module(empty_init=True), _ClassReplacementContextManager(
+    with fabric.init_module(empty_init=False), _ClassReplacementContextManager(
         {"lit_gpt.model.Block": BlockForAutoGPTQ}
     ):
         model = GPTForAutoGPTQ(config)
@@ -191,7 +191,7 @@ def main(
     model.quantize(calibration_data, batch_size=batch_size)
     fabric.print(f"Quantization time: {(time.perf_counter()-quantize_time):.2f}s")
 
-    # Save model
+    # Save the model
     # TODO: AutoGPTQ creates bias weights even if they are not needed.
     # Trim them before saving (per config)
     torch.save(model.model.state_dict(), output_path)
