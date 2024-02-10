@@ -52,27 +52,6 @@ class BlockForAutoGPTQ(Block):
 
 
 class AutoGPTQ(BaseGPTQForCausalLM):
-    # TODO: rephrase it
-    # chained attribute name of transformer layer block
-    layers_block_name = "transformer.h"
-
-    # TODO: rephrase it
-    # chained attribute names of other nn modules that in the same level as the transformer layer block
-    # but are called before it
-    # (aren't quantized)
-    outside_layer_modules = ["transformer.wte"]
-
-    # TODO: rephrase it
-    # chained attribute names of linear layers in a transformer layer module
-    # normally, there are four sub lists, for each one the modules in it can be seen as one operation,
-    # and the order should be the order when they are truly executed, in this case (and usually in most cases),
-    # they are: attention q_k_v projection, attention output projection, MLP project input, MLP project output
-    inside_layer_modules = [
-        ["attn.attn"],
-        ["attn.proj"],
-    ]
-
-    lm_head_name = "lm_head"
 
     def __init__(
         self,
@@ -97,6 +76,26 @@ class AutoGPTQ(BaseGPTQForCausalLM):
         # NOTE: `is_triton_backend` is used only to tell that's it's possible to train only with triton
         # NOTE: `injected_...` are used for peft
 
+        # TODO: rephrase it
+        # chained attribute name of transformer layer block
+        self.layers_block_name = "transformer.h"
+
+        # TODO: rephrase it
+        # chained attribute names of other nn modules that in the same level as the transformer layer block
+        # but are called before it
+        # (aren't quantized)
+        self.outside_layer_modules = ["transformer.wte"]
+
+        # TODO: rephrase it
+        # chained attribute names of linear layers in a transformer layer module
+        # normally, there are four sub lists, for each one the modules in it can be seen as one operation,
+        # and the order should be the order when they are truly executed, in this case (and usually in most cases),
+        # they are: attention q_k_v projection, attention output projection, MLP project input, MLP project output
+        self.inside_layer_modules = [
+            ["attn.attn"],
+            ["attn.proj"],
+        ]
+
         mlp_class = self.model.config._mlp_class
         if mlp_class == "GptNeoxMLP":
             self.inside_layer_modules.extend(
@@ -108,14 +107,31 @@ class AutoGPTQ(BaseGPTQForCausalLM):
         elif mlp_class == "LLaMAMLP":
             self.inside_layer_modules.extend(
                 [
-                    ["mlp.fc_1", "mlp.fc_2"],  # gate, up
-                    ["mlp.proj"],  # down
+                    ["mlp.fc_1", "mlp.fc_2"],
+                    ["mlp.proj"],
                 ]
             )
         elif mlp_class == "LLaMAMoE":
-            raise NotImplementedError("LLaMAMoE is not yet supported")
+            # AutoGPTQ doesn't quantize "gate" layer
+
+            # [
+            #   [mlp.experts.0.fc_1, ..., mlp.experts.0.fc2, ...],
+            #   [mlp.experts.0.proj],
+            # ]
+            self.inside_layer_modules.extend(
+                [
+                    [
+                        f"mlp.experts.{expert_idx}.{attr}"
+                        for attr in ("fc_1", "fc_2")
+                        for expert_idx in range(self.model.config.n_expert)
+                    ],
+                    [f"mlp.experts.{expert_idx}.proj" for expert_idx in range(self.model.config.n_expert)],
+                ]
+            )
         else:
             raise ValueError(f"MLP class `{mlp_class}` is not yet supported by AutoGPTQ")
+
+        self.lm_head_name = "lm_head"
 
     # in AutoGPTQ method `to` only expects `device`
     def to(self, device: Union[str, torch.device], dtype: torch.dtype) -> "AutoGPTQ":

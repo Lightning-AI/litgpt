@@ -31,13 +31,15 @@ def test_autogptq_quantization_mlp_layers(tmp_path, fake_checkpoint_dir, monkeyp
 
     # Prepare model's config
     config = Config(
-        block_size=128,
-        vocab_size=50,
+        padded_vocab_size=10_000,
         n_layer=2,
-        n_head=4,
-        n_embd=8,
-        intermediate_size=32,
+        n_embd=32,
+        n_head=8,
+        n_query_groups=2,
+        intermediate_size=86,
         _mlp_class=mlp_class,
+        n_expert=4 if mlp_class == "LLaMAMoE" else 0,
+        n_expert_per_token=2 if mlp_class == "LLaMAMoE" else 0,
     )
     config_path = fake_checkpoint_dir / "lit_config.json"
     config_path.write_text(json.dumps(asdict(config)))
@@ -69,32 +71,32 @@ def test_autogptq_quantization_mlp_layers(tmp_path, fake_checkpoint_dir, monkeyp
     inside_layer_modules = autogptq.inside_layer_modules
     inside_layer_modules = sum(inside_layer_modules, [])
 
-    for layer_name, quant_tensor in quantized_state_dict.items():
+    for layer_name, weight in quantized_state_dict.items():
         reference_layer = reduce(getattr, layer_name.split(".")[:-1], reference_model)
         if not any(ilm in layer_name for ilm in inside_layer_modules):
             assert not layer_name.endswith((".qweight", ".qzeros", ".scales", "g_idx"))
-            assert quant_tensor.dtype != torch.int32
-            assert quant_tensor.shape == reference_layer.weight.shape
+            assert weight.dtype != torch.int32
+            assert weight.shape == reference_layer.weight.shape
         else:
             assert layer_name.endswith((".qweight", ".qzeros", ".scales", ".g_idx", ".bias"))
             if layer_name.endswith(".qweight"):
-                assert quant_tensor.dtype == torch.int32
-                assert quant_tensor.shape == (reference_layer.in_features // 32 * bits, reference_layer.out_features)
+                assert weight.dtype == torch.int32
+                assert weight.shape == (reference_layer.in_features // 32 * bits, reference_layer.out_features)
             elif layer_name.endswith(".qzeros"):
-                assert quant_tensor.dtype == torch.int32
-                assert quant_tensor.shape == (
+                assert weight.dtype == torch.int32
+                assert weight.shape == (
                     math.ceil(reference_layer.in_features / group_size),
                     reference_layer.out_features // 32 * bits,
                 )
             elif layer_name.endswith(".scales"):
-                assert quant_tensor.dtype == torch.float16
-                assert quant_tensor.shape == (
+                assert weight.dtype == torch.float16
+                assert weight.shape == (
                     math.ceil(reference_layer.in_features / group_size),
                     reference_layer.out_features,
                 )
             elif layer_name.endswith(".g_idx"):
-                assert quant_tensor.dtype == torch.int32
-                assert quant_tensor.shape == (reference_layer.in_features,)
+                assert weight.dtype == torch.int32
+                assert weight.shape == (reference_layer.in_features,)
             else:
                 # bias is not quantized and is created by AutoGPTQ despite the config
                 continue
