@@ -1,11 +1,14 @@
+import importlib
 import sys
 import time
+from functools import reduce
 from pathlib import Path
-from typing import Any, Optional, Union
+from typing import Any, Literal, Optional, Union
 
 import lightning as L
 import torch
 from auto_gptq.modeling._base import BaseGPTQForCausalLM, BaseQuantizeConfig
+from auto_gptq.modeling._utils import autogptq_post_init
 from lightning.fabric.plugins.precision.utils import _ClassReplacementContextManager
 
 # support running without installing as a package
@@ -113,7 +116,6 @@ class AutoGPTQ(BaseGPTQForCausalLM):
             )
         elif mlp_class == "LLaMAMoE":
             # AutoGPTQ doesn't quantize "gate" layer
-
             # [
             #   [mlp.experts.0.fc_1, ..., mlp.experts.0.fc2, ...],
             #   [mlp.experts.0.proj],
@@ -132,6 +134,52 @@ class AutoGPTQ(BaseGPTQForCausalLM):
             raise ValueError(f"MLP class `{mlp_class}` is not yet supported by AutoGPTQ")
 
         self.lm_head_name = "lm_head"
+
+    def convert_model_to_quantized(self, kernel: Literal["cuda", "exllama", "exllamav2", "triton"]) -> None:
+        # TODO: add docstring
+
+        # Kernel    Supported precisions
+        #           ┌───────────────┐
+        #           ┆ 2 ┆ 3 ┆ 4 ┆ 8 ┆
+        #           ├---------------┤
+        # cuda      ┆ ✔ ┆ ✔ ┆ ✔ ┆ ✔ ┆
+        # exllama   ┆   ┆   ┆ ✔ ┆   ┆
+        # exllamav2 ┆   ┆   ┆ ✔ ┆   ┆
+        # triton    ┆ ✔ ┆   ┆ ✔ ┆ ✔ ┆
+        #           └───────────────┘
+
+        if kernel not in ("cuda", "exllama", "exllamav2", "triton"):
+            raise ValueError(f"Kernel `{kernel}` is not supported.")
+
+        # Check if the kernel is compatible with the precision used for quantization
+        if (kernel == "triton" and self.quantize_config.bits == 3) or (
+            kernel in ("exllama", "exllamav2") and self.quantize_config.bits != 4
+        ):
+            raise ValueError(f"Kernel '{kernel}' doesn't support {self.quantize_config.bits}bit precision. ")
+
+        QuantLinear = importlib.import_module(f"auto_gptq.nn_modules.qlinear.qlinear_{kernel}").QuantLinear
+
+        inside_layer_modules = tuple(sum(self.inside_layer_modules, []))
+
+        for name, module in list(self.model.named_modules()):
+            if isinstance(module, torch.nn.Linear) and name.endswith(inside_layer_modules):
+                parent_module = reduce(getattr, name.split(".")[:-1], self.model)
+                attribute = name.split(".")[-1]
+                new_layer = QuantLinear(
+                    infeatures=module.in_features,
+                    outfeatures=module.out_features,
+                    bits=self.quantize_config.bits,
+                    group_size=self.quantize_config.group_size,
+                    bias=True,  # AutoGPTQ always creates bias during quantization
+                    weight_dtype=module.weight.dtype,
+                )
+                device = next(module.parameters()).device
+                new_layer = new_layer.to(device)
+                parent_module.__setattr__(attribute, new_layer)
+
+    def post_init(self, max_input_length: Union[None, int] = None) -> None:
+        # TODO: add docstring
+        autogptq_post_init(self.model, use_act_order=self.quantize_config.desc_act, max_input_length=max_input_length)
 
     # in AutoGPTQ method `to` only expects `device`
     def to(self, device: Union[str, torch.device], dtype: torch.dtype) -> "AutoGPTQ":
@@ -153,6 +201,7 @@ def main(
     true_sequential: bool = True,
     n_samples: int = 1024,
     batch_size: int = 32,
+    use_triton: bool = False,
 ) -> None:
     # TODO: add a docstring and/or add info into a README file
 
@@ -204,7 +253,7 @@ def main(
     model = AutoGPTQ(model, quantized=False, quantize_config=quantize_config)
 
     quantize_time = time.perf_counter()
-    model.quantize(calibration_data, batch_size=batch_size)
+    model.quantize(calibration_data, batch_size=batch_size, use_triton=use_triton)
     fabric.print(f"Quantization time: {(time.perf_counter()-quantize_time):.2f}s")
 
     # Save the model
