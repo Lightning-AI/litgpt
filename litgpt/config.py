@@ -893,7 +893,7 @@ olmo = [
     # https://huggingface.co/allenai/OLMo-1B/blob/main/config.json
     dict(
         name="OLMo-1b-hf",
-        hf_config=dict(org="allenai", name="OLMo-1b-hf"),
+        hf_config=dict(org="allenai", name="OLMo-1b"),
         vocab_size=50280,
         padding_multiple=64,  ## TODO: Not sure how to determine this
         n_layer=16,
@@ -908,7 +908,7 @@ olmo = [
     # https://huggingface.co/allenai/OLMo-7B/blob/main/config.json
     dict(
         name="OLMo-7b-hf",
-        hf_config=dict(org="allenai", name="OLMo-7b-hf"),
+        hf_config=dict(org="allenai", name="OLMo-7b"),
         vocab_size=50280,
         padding_multiple=64,  ## TODO: Not sure how to determine this
         n_layer=32,
@@ -919,7 +919,7 @@ olmo = [
         _norm_class="RMSNorm", ## TODO: Needs to be updated
         _mlp_class="LLaMAMLP",
         intermediate_size=11008,
-    ),
+    )
 ]
 
 configs.extend(olmo)
