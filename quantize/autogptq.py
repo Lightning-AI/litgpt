@@ -1,4 +1,5 @@
 import importlib
+import json
 import sys
 import time
 from functools import reduce
@@ -250,16 +251,23 @@ def main(
         sym=sym,
         true_sequential=true_sequential,
     )
-    model = AutoGPTQ(model, quantized=False, quantize_config=quantize_config)
+    autogptq = AutoGPTQ(model, quantized=False, quantize_config=quantize_config)
 
     quantize_time = time.perf_counter()
-    model.quantize(calibration_data, batch_size=batch_size, use_triton=use_triton)
+    autogptq.quantize(calibration_data, batch_size=batch_size, use_triton=use_triton)
     fabric.print(f"Quantization time: {(time.perf_counter()-quantize_time):.2f}s")
 
     # Save the model
     # TODO: AutoGPTQ creates bias weights even if they are not needed.
     # Trim them before saving (per config)
-    torch.save(model.model.state_dict(), output_path)
+    torch.save(autogptq.model.state_dict(), output_path)
+
+    # Save quantize config with the used kernel - will be reused during inference
+    quantize_config.kernel = next(
+        module.QUANT_TYPE for module in autogptq.model.modules() if hasattr(module, "QUANT_TYPE")
+    )
+    with open(output_path.with_name("autogptq_config.json"), "w") as fp:
+        json.dump(quantize_config.__dict__, fp)
 
 
 if __name__ == "__main__":

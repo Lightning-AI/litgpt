@@ -22,6 +22,7 @@ def test_autogptq_quantization_mlp_layers(
     from contextlib import redirect_stdout
     from dataclasses import asdict
     from io import StringIO
+    from pathlib import Path
     from unittest.mock import Mock
 
     from lit_gpt import GPT
@@ -69,7 +70,12 @@ def test_autogptq_quantization_mlp_layers(
     assert "Quantization time" in stdout.getvalue()
 
     # Assert that the quantized model weights are saved
-    assert "lit_model_gptq.4bit.pth" in [p.name for p in fake_checkpoint_dir.glob("*")]
+    files = [p.name for p in fake_checkpoint_dir.glob("*")]
+    assert "lit_model_gptq.4bit.pth" in files
+    # Assert that the quantize config is saved
+    assert "autogptq_config.json" in files
+    # Assert that the kernel type was saved
+    assert "kernel" in json.loads(Path(fake_checkpoint_dir / "autogptq_config.json").read_text())
 
     # --- Validate the saved quantized weights ---
     quantized_state_dict = torch.load(fake_checkpoint_dir / "lit_model_gptq.4bit.pth")
