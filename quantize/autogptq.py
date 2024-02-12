@@ -162,7 +162,7 @@ class AutoGPTQ(BaseGPTQForCausalLM):
 
         inside_layer_modules = tuple(sum(self.inside_layer_modules, []))
 
-        for name, module in list(self.model.named_modules()):
+        for name, module in self.model.named_modules():
             if isinstance(module, torch.nn.Linear) and name.endswith(inside_layer_modules):
                 parent_module = reduce(getattr, name.split(".")[:-1], self.model)
                 attribute = name.split(".")[-1]
@@ -209,7 +209,7 @@ def main(
     check_valid_checkpoint_dir(checkpoint_dir)
     checkpoint_path = checkpoint_dir / "lit_model.pth"
     if output_path is None:
-        output_path = checkpoint_dir / "lit_model_gptq.4bit.pth"
+        output_path = checkpoint_dir / f"lit_model_gptq.{bits}bit.pth"
 
     # --- Load and prepare calibration data ---
     calibration_data = torch.load(data_dir / "test.pt")
@@ -267,7 +267,7 @@ def main(
         module.QUANT_TYPE for module in autogptq.model.modules() if hasattr(module, "QUANT_TYPE")
     )
     with open(output_path.with_name("autogptq_config.json"), "w") as fp:
-        json.dump(quantize_config.__dict__, fp)
+        json.dump(quantize_config.__dict__, fp, indent=4)
 
 
 if __name__ == "__main__":

@@ -1,5 +1,6 @@
 # Copyright Lightning AI. Licensed under the Apache License 2.0, see LICENSE file.
 
+import json
 import sys
 import time
 from pathlib import Path
@@ -102,10 +103,12 @@ def main(
     top_k: Optional[int] = 200,
     temperature: float = 0.8,
     checkpoint_dir: Path = Path("checkpoints/stabilityai/stablelm-base-alpha-3b"),
-    quantize: Optional[Literal["bnb.nf4", "bnb.nf4-dq", "bnb.fp4", "bnb.fp4-dq", "bnb.int8"]] = None,
+    quantize: Optional[Literal["bnb.nf4", "bnb.nf4-dq", "bnb.fp4", "bnb.fp4-dq", "bnb.int8", "gptq"]] = None,
+    kernel: Optional[Literal["cuda", "exllama", "exllamav2", "triton"]] = None,
     precision: Optional[str] = None,
     compile: bool = False,
 ) -> None:
+    # TODO: update docstring
     """Generates text samples based on a pre-trained model and tokenizer.
 
     Args:
@@ -126,12 +129,16 @@ def main(
     precision = precision or get_default_supported_precision(training=False)
 
     plugins = None
+    use_gptq = False
     if quantize is not None and quantize.startswith("bnb."):
         if "mixed" in precision:
             raise ValueError("Quantization and mixed precision is not supported.")
         dtype = {"16-true": torch.float16, "bf16-true": torch.bfloat16, "32-true": torch.float32}[precision]
         plugins = BitsandbytesPrecision(quantize[4:], dtype)
         precision = None
+    elif quantize is not None and quantize == "gptq":
+        use_gptq = True
+        precision = "16-true"
 
     fabric = L.Fabric(devices=1, precision=precision, plugins=plugins)
 
@@ -139,7 +146,22 @@ def main(
 
     config = Config.from_json(checkpoint_dir / "lit_config.json")
 
-    checkpoint_path = checkpoint_dir / "lit_model.pth"
+    if use_gptq:
+        from auto_gptq.modeling._base import BaseQuantizeConfig
+
+        if not (quantize_config_path := checkpoint_dir / "autogptq_config.json").is_file():
+            raise ValueError("AutoGPTQ config is missing.")
+        autogptq_config = json.loads(quantize_config_path.read_text())
+        kernel_from_config = autogptq_config.pop("kernel")
+        kernel = kernel or kernel_from_config
+        quantize_config = BaseQuantizeConfig(**autogptq_config)
+        model_file = f"lit_model_gptq.{quantize_config.bits}bit.pth"
+        if not (checkpoint_dir / model_file).is_file():
+            raise ValueError(f"`{model_file}` is missing. Please run `python quantize/autogptq.py` first.")
+    else:
+        model_file = "lit_model.pth"
+
+    checkpoint_path = checkpoint_dir / model_file
 
     tokenizer = Tokenizer(checkpoint_dir)
     encoded = tokenizer.encode(prompt, device=fabric.device)
@@ -150,6 +172,17 @@ def main(
     t0 = time.perf_counter()
     with fabric.init_module(empty_init=True):
         model = GPT(config)
+
+    if quantize is not None and quantize == "gptq":
+        from quantize.autogptq import AutoGPTQ
+
+        model.config.model_type = None  # used in .from_pretrained and .from_quantized
+        model.config.pad_token_id = None  # _prepare_examples_for_quantization
+        model.config.eos_token_id = tokenizer.eos_id  # _prepare_examples_for_quantization
+        model.config.use_cache = False  # for quantization it's disabled anyway
+        autogptq = AutoGPTQ(model=model, quantized=True, quantize_config=quantize_config)
+        autogptq.convert_model_to_quantized(kernel)
+
     fabric.print(f"Time to instantiate model: {time.perf_counter() - t0:.02f} seconds.", file=sys.stderr)
     with fabric.init_tensor():
         # set the max_seq_length to limit the memory usage to what we need
@@ -166,10 +199,11 @@ def main(
         next_token = torch.compile(next_token, mode="reduce-overhead")
 
     model = fabric.setup_module(model)
-
-    t0 = time.perf_counter()
     load_checkpoint(fabric, model, checkpoint_path)
-    fabric.print(f"Time to load the model weights: {time.perf_counter() - t0:.02f} seconds.", file=sys.stderr)
+
+    if use_gptq:
+        # post_init is executed only on a CUDA device
+        autogptq.post_init()
 
     L.seed_everything(1234)
     for i in range(num_samples):
