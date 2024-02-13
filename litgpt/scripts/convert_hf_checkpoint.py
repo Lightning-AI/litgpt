@@ -142,8 +142,8 @@ def copy_weights_hf_olmo(
         state_dict[f"transformer.h.{l}.mlp.fc_1.weight"] = state_dict[f"transformer.h.{l}.mlp.fc_1.weight"][:config.n_embd]
         
         # Note that Olmo uses a non-parameteric LayerNorm meaning LayerNorm without shift and scale parameters
-        state_dict[f"transformer.h.{l}.norm_1.weight"] = torch.zeros(config.n_embd)
-        state_dict[f"transformer.h.{l}.norm_2.weight"] = torch.zeros(config.n_embd)
+        state_dict[f"transformer.h.{l}.norm_1.weight"] = torch.ones(config.n_embd)
+        state_dict[f"transformer.h.{l}.norm_2.weight"] = torch.ones(config.n_embd)
         state_dict[f"transformer.h.{l}.norm_1.bias"] = torch.zeros(config.n_embd)
         state_dict[f"transformer.h.{l}.norm_2.bias"] = torch.zeros(config.n_embd)
 
