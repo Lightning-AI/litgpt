@@ -115,12 +115,11 @@ def copy_weights_hf_olmo(
     dtype: Optional[torch.dtype] = None,
 ) -> None:
     weight_map = {
-        # Note that Olmo uses a non-parameteric LayerNorm meaning LayerNorm without shift and scale parameters
         "model.transformer.wte.weight": "transformer.wte.weight",
         "model.transformer.ff_out.weight": "lm_head.weight",
-        "model.transformer.blocks.{}.att_proj.weight": "transformer.h.{}.attn.attn.weight",
         "model.transformer.blocks.{}.attn_out.weight": "transformer.h.{}.attn.proj.weight",
-        "model.transformer.blocks.{}.ff_proj.weight": "transformer.h.{}.mlp.fc.weight",
+        "model.transformer.blocks.{}.ff_proj.weight": "transformer.h.{}.mlp.fc_1.weight", # split into fc1 and fc2
+        "model.transformer.blocks.{}.att_proj.weight": "transformer.h.{}.attn.attn.weight",
         "model.transformer.blocks.{}.ff_out.weight": "transformer.h.{}.mlp.proj.weight",
     }
 
@@ -137,6 +136,16 @@ def copy_weights_hf_olmo(
         if saver is not None:
             param = saver.store_early(param)
         state_dict[to_name] = param
+    
+    for l in range(config.n_layer):
+        state_dict[f"transformer.h.{l}.mlp.fc_2.weight"] = state_dict[f"transformer.h.{l}.mlp.fc_1.weight"][config.n_embd:]
+        state_dict[f"transformer.h.{l}.mlp.fc_1.weight"] = state_dict[f"transformer.h.{l}.mlp.fc_1.weight"][:config.n_embd]
+        
+        # Note that Olmo uses a non-parameteric LayerNorm meaning LayerNorm without shift and scale parameters
+        state_dict[f"transformer.h.{l}.norm_1.weight"] = torch.zeros(config.n_embd)
+        state_dict[f"transformer.h.{l}.norm_2.weight"] = torch.zeros(config.n_embd)
+        state_dict[f"transformer.h.{l}.norm_1.bias"] = torch.zeros(config.n_embd)
+        state_dict[f"transformer.h.{l}.norm_2.bias"] = torch.zeros(config.n_embd)
 
 
 def copy_weights_hf_llama(
