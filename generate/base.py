@@ -3,6 +3,7 @@
 import json
 import sys
 import time
+from contextlib import nullcontext
 from pathlib import Path
 from typing import Any, Literal, Optional
 
@@ -170,10 +171,10 @@ def main(
 
     fabric.print(f"Loading model {str(checkpoint_path)!r} with {config.__dict__}", file=sys.stderr)
     t0 = time.perf_counter()
-    with fabric.init_module(empty_init=True):
+    with fabric.init_module(empty_init=True), torch.device("meta") if use_gptq else nullcontext():
         model = GPT(config)
 
-    if quantize is not None and quantize == "gptq":
+    if use_gptq:
         from quantize.autogptq import AutoGPTQ
 
         model.config.model_type = None  # used in .from_pretrained and .from_quantized
@@ -198,8 +199,14 @@ def main(
         global next_token
         next_token = torch.compile(next_token, mode="reduce-overhead")
 
-    model = fabric.setup_module(model)
-    load_checkpoint(fabric, model, checkpoint_path)
+    if use_gptq:
+        state_dict = torch.load(str(checkpoint_path), mmap=True, map_location=fabric.device)
+        model.load_state_dict(state_dict, assign=True)
+        model.reset_parameters()
+        model = fabric.setup_module(model)
+    else:
+        model = fabric.setup_module(model)
+        load_checkpoint(fabric, model, checkpoint_path)
 
     if use_gptq:
         # post_init is executed only on a CUDA device
