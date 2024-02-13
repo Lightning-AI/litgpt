@@ -38,7 +38,7 @@ jobs:
       displayName: "Image info & NVIDIA"
 
     - script: |
-        pip install -r requirements-all.txt pytest pytest-rerunfailures transformers>=4.36.0 einops protobuf
+        pip install -r requirements-all.txt pytest pytest-rerunfailures transformers>=4.36.0 einops protobuf auto-gptq
       displayName: 'Install dependencies'
 
     - bash: |
