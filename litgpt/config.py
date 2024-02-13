@@ -895,7 +895,8 @@ olmo = [
         name="OLMo-1b-hf",
         hf_config=dict(org="allenai", name="OLMo-1b"),
         vocab_size=50280,
-        padding_multiple=64,  ## TODO: Not sure how to determine this
+        padding_multiple=64,
+        padded_vocab_size=50304,
         n_layer=16,
         n_head=16,
         rotary_percentage=1.0,
@@ -910,7 +911,8 @@ olmo = [
         name="OLMo-7b-hf",
         hf_config=dict(org="allenai", name="OLMo-7b"),
         vocab_size=50280,
-        padding_multiple=64,  ## TODO: Not sure how to determine this
+        padding_multiple=64,
+        padded_vocab_size=50304,
         n_layer=32,
         n_head=32,
         rotary_percentage=1.0,
