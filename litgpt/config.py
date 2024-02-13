@@ -897,14 +897,15 @@ olmo = [
         vocab_size=50280,
         padding_multiple=64,
         padded_vocab_size=50304,
+        n_embd=2048,
         n_layer=16,
         n_head=16,
         rotary_percentage=1.0,
         parallel_residual=False,
         bias=False,
-        _norm_class="RMSNorm", ## TODO: Needs to be updated
+        _norm_class="LayerNorm",
         _mlp_class="LLaMAMLP",
-        intermediate_size=11008,  ## TODO: Needs to be updated
+        intermediate_size=8192,
     ),
     # https://huggingface.co/allenai/OLMo-7B/blob/main/config.json
     dict(
@@ -918,9 +919,9 @@ olmo = [
         rotary_percentage=1.0,
         parallel_residual=False,
         bias=False,
-        _norm_class="RMSNorm", ## TODO: Needs to be updated
+        _norm_class="LayerNorm",
         _mlp_class="LLaMAMLP",
-        intermediate_size=11008,
+        intermediate_size=8192,
     )
 ]
 

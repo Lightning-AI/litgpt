@@ -115,14 +115,14 @@ def copy_weights_hf_olmo(
     dtype: Optional[torch.dtype] = None,
 ) -> None:
     weight_map = {
-        "model.transformer.wte.weight": "transformer.wte.weight", # ok
-        "model.transformer.ff_out.weight": "lm_head.weight", # ???
-        "model.transformer.blocks.{}.attn_out.weight": "transformer.h.{}.attn.attn.weight", # ???
-        "model.transformer.blocks.{}.att_proj.weight": "transformer.h.{}.attn.proj.weight", # ???
-        "model.transformer.blocks.{}.ff_out.weight": "transformer.h.{}.mlp.fc.weight", # ???
-        "model.transformer.blocks.{}.ff_proj.weight": "transformer.h.{}.mlp.proj.weight", # ???
+        # Note that Olmo uses a non-parameteric LayerNorm meaning LayerNorm without shift and scale parameters
+        "model.transformer.wte.weight": "transformer.wte.weight",
+        "model.transformer.ff_out.weight": "lm_head.weight",
+        "model.transformer.blocks.{}.att_proj.weight": "transformer.h.{}.attn.attn.weight",
+        "model.transformer.blocks.{}.attn_out.weight": "transformer.h.{}.attn.proj.weight",
+        "model.transformer.blocks.{}.ff_proj.weight": "transformer.h.{}.mlp.fc.weight",
+        "model.transformer.blocks.{}.ff_out.weight": "transformer.h.{}.mlp.proj.weight",
     }
-
 
     for name, param in hf_weights.items():
         if "model.transformer.blocks" in name:
@@ -137,7 +137,6 @@ def copy_weights_hf_olmo(
         if saver is not None:
             param = saver.store_early(param)
         state_dict[to_name] = param
-
 
 
 def copy_weights_hf_llama(
