@@ -71,14 +71,14 @@ def test_autogptq_quantization_mlp_layers(
 
     # Assert that the quantized model weights are saved
     files = [p.name for p in fake_checkpoint_dir.glob("*")]
-    assert "lit_model_gptq.4bit.pth" in files
+    assert f"lit_model_gptq.{bits}bit.pth" in files
     # Assert that the quantize config is saved
     assert "autogptq_config.json" in files
     # Assert that the kernel type was saved
     assert "kernel" in json.loads(Path(fake_checkpoint_dir / "autogptq_config.json").read_text())
 
     # --- Validate the saved quantized weights ---
-    quantized_state_dict = torch.load(fake_checkpoint_dir / "lit_model_gptq.4bit.pth")
+    quantized_state_dict = torch.load(fake_checkpoint_dir / f"lit_model_gptq.{bits}bit.pth")
 
     # Create a reference model to check that the saved quantized weights have a proper shape
     reference_model = GPT(config)
