@@ -117,6 +117,8 @@ def copy_weights_hf_olmo(
     weight_map = {
         "model.transformer.wte.weight": "transformer.wte.weight",
         "model.transformer.ff_out.weight": "lm_head.weight",
+        #"model.transformer.ln_f.weight": "transformer.ln_f.weight",
+        #"model.transformer.ln_f.bias": "transformer.ln_f.bias",
         "model.transformer.blocks.{}.attn_out.weight": "transformer.h.{}.attn.proj.weight",
         "model.transformer.blocks.{}.ff_proj.weight": "transformer.h.{}.mlp.ff_proj.weight",
         "model.transformer.blocks.{}.att_proj.weight": "transformer.h.{}.attn.attn.weight",
