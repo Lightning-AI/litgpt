@@ -118,10 +118,19 @@ def copy_weights_hf_olmo(
         "model.transformer.wte.weight": "transformer.wte.weight",
         "model.transformer.ff_out.weight": "lm_head.weight",
         "model.transformer.blocks.{}.attn_out.weight": "transformer.h.{}.attn.proj.weight",
-        "model.transformer.blocks.{}.ff_proj.weight": "transformer.h.{}.mlp.fc_1.weight", # split into fc1 and fc2
+        "model.transformer.blocks.{}.ff_proj.weight": "transformer.h.{}.mlp.ff_proj.weight",
         "model.transformer.blocks.{}.att_proj.weight": "transformer.h.{}.attn.attn.weight",
-        "model.transformer.blocks.{}.ff_out.weight": "transformer.h.{}.mlp.proj.weight",
+        "model.transformer.blocks.{}.ff_out.weight": "transformer.h.{}.mlp.ff_out.weight",
     }
+
+    for l in range(config.n_layer):
+        # Note that Olmo uses a non-parameteric LayerNorm meaning LayerNorm without shift and scale parameters
+        state_dict[f"transformer.h.{l}.norm_1.weight"] = torch.ones(config.n_embd)
+        state_dict[f"transformer.h.{l}.norm_2.weight"] = torch.ones(config.n_embd)
+        state_dict[f"transformer.ln_f.weight"] = torch.ones(config.n_embd)
+        state_dict[f"transformer.h.{l}.norm_1.bias"] = torch.zeros(config.n_embd)
+        state_dict[f"transformer.h.{l}.norm_2.bias"] = torch.zeros(config.n_embd)
+        state_dict[f"transformer.ln_f.bias"] = torch.zeros(config.n_embd)
 
     for name, param in hf_weights.items():
         if "model.transformer.blocks" in name:
@@ -135,17 +144,15 @@ def copy_weights_hf_olmo(
         param = load_param(param, name, dtype)
         if saver is not None:
             param = saver.store_early(param)
-        state_dict[to_name] = param
-    
-    for l in range(config.n_layer):
-        state_dict[f"transformer.h.{l}.mlp.fc_2.weight"] = state_dict[f"transformer.h.{l}.mlp.fc_1.weight"][config.n_embd:]
-        state_dict[f"transformer.h.{l}.mlp.fc_1.weight"] = state_dict[f"transformer.h.{l}.mlp.fc_1.weight"][:config.n_embd]
-        
-        # Note that Olmo uses a non-parameteric LayerNorm meaning LayerNorm without shift and scale parameters
-        state_dict[f"transformer.h.{l}.norm_1.weight"] = torch.ones(config.n_embd)
-        state_dict[f"transformer.h.{l}.norm_2.weight"] = torch.ones(config.n_embd)
-        state_dict[f"transformer.h.{l}.norm_1.bias"] = torch.zeros(config.n_embd)
-        state_dict[f"transformer.h.{l}.norm_2.bias"] = torch.zeros(config.n_embd)
+            state_dict[to_name] = param
+        else:
+            state_dict[to_name] = param
+
+    # weight tying for the 1B model. But it seems like the 7B model
+    # has an model.transformer.ff_out.weight that the 1B model doesn't have
+    # so only do weight tying for the 1B model if that key is not present:
+    if "lm_head.weight" not in state_dict.keys(): 
+        state_dict["lm_head.weight"] = state_dict["transformer.wte.weight"]
 
 
 def copy_weights_hf_llama(
