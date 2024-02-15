@@ -48,7 +48,7 @@ def setup(
     micro_batch_size: int = 4,
     max_seq_length: Optional[int] = None,  # set value to truncate
     lr_warmup_steps: int = 100,
-    num_epochs: int = 5,
+    epochs: int = 5,
     train_epoch_size: int = 50000,
     lora_r: int = 8,
     lora_alpha: int = 16,
@@ -107,19 +107,19 @@ def setup(
             to_mlp=lora_mlp,
             to_head=lora_head,
         ),
-        IOArgs(data_dir, checkpoint_dir, out_dir),
+        IOArgs(data_dir=data_dir, checkpoint_dir=checkpoint_dir, out_dir=out_dir),
         TrainArgs(
-            save_interval,
-            log_interval,
-            global_batch_size,
-            micro_batch_size,
+            save_interval=save_interval,
+            log_interval=log_interval,
+            global_batch_size=global_batch_size,
+            micro_batch_size=micro_batch_size,
             lr_warmup_steps=lr_warmup_steps,
-            epochs=num_epochs,
+            epochs=epochs,
             epoch_size=train_epoch_size,
         ),
-        EvalArgs(eval_interval, eval_max_new_tokens, eval_iters),
-        OptimizationArgs(learning_rate),
-        DataArgs(max_seq_length),
+        EvalArgs(interval=eval_interval, max_new_tokens=eval_max_new_tokens, max_iters=eval_iters),
+        OptimizationArgs(learning_rate=learning_rate),
+        DataArgs(max_seq_length=max_seq_length),
     )
 
 
@@ -165,7 +165,10 @@ def main(
     else:
         optimizer_cls = torch.optim.AdamW
     optimizer = optimizer_cls(
-        trainable_params, lr=optimization_args.learning_rate, weight_decay=optimization_args.weight_decay
+        trainable_params,
+        lr=optimization_args.learning_rate,
+        weight_decay=optimization_args.weight_decay,
+        betas=(optimization_args.beta1, optimization_args.beta2),
     )
     optimizer = fabric.setup_optimizers(optimizer)
     scheduler = get_lr_scheduler(optimizer, warmup_steps=train_args.lr_warmup_steps, max_steps=lr_max_steps)

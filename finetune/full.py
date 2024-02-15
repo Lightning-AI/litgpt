@@ -58,8 +58,8 @@ def setup(
     global_batch_size: int = 64,
     micro_batch_size: int = 1,
     max_seq_length: Optional[int] = None,  # set value to truncate
-    num_warmup_epochs: int = 2,
-    num_epochs: int = 5,
+    lr_warmup_epochs: int = 2,
+    epochs: int = 5,
     train_epoch_size: int = 50000,
     resume: Union[bool, Path] = False,
 ) -> None:
@@ -85,19 +85,19 @@ def setup(
         devices,
         resume,
         Config.from_name(name=checkpoint_dir.name),
-        IOArgs(data_dir, checkpoint_dir, out_dir),
+        IOArgs(data_dir=data_dir, checkpoint_dir=checkpoint_dir, out_dir=out_dir),
         TrainArgs(
-            save_interval,
-            log_interval,
-            global_batch_size,
-            micro_batch_size,
-            num_warmup_epochs,
-            epochs=num_epochs,
+            save_interval=save_interval,
+            log_interval=log_interval,
+            global_batch_size=global_batch_size,
+            micro_batch_size=micro_batch_size,
+            lr_warmup_epochs=lr_warmup_epochs,
+            epochs=epochs,
             epoch_size=train_epoch_size,
         ),
-        EvalArgs(eval_interval, eval_max_new_tokens, eval_iters),
-        OptimizationArgs(learning_rate),
-        DataArgs(max_seq_length),
+        EvalArgs(interval=eval_interval, max_new_tokens=eval_max_new_tokens, max_iters=eval_iters),
+        OptimizationArgs(learning_rate=learning_rate),
+        DataArgs(max_seq_length=max_seq_length),
     )
 
 
@@ -135,7 +135,10 @@ def main(
 
     model = fabric.setup(model)
     optimizer = torch.optim.AdamW(
-        model.parameters(), lr=optimization_args.learning_rate, weight_decay=optimization_args.weight_decay
+        model.parameters(),
+        lr=optimization_args.learning_rate,
+        weight_decay=optimization_args.weight_decay,
+        betas=(optimization_args.beta1, optimization_args.beta2),
     )
     optimizer = fabric.setup_optimizers(optimizer)
     scheduler = get_lr_scheduler(optimizer, warmup_steps=lr_warmup_steps, max_steps=lr_max_steps)

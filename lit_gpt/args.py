@@ -19,6 +19,8 @@ class TrainArgs:
     """Number of epochs with learning rate warmup active"""
     lr_warmup_steps: int = 100
     """Number of optimizer steps with learning rate warmup active"""
+    lr_warmup_iters: int = 2000
+    """Number of iterations with learning rate warmup active"""
     epochs: int = 5
     """Number of epochs to run"""
     epoch_size: int = 50000
@@ -61,6 +63,9 @@ class OptimizationArgs:
 
     learning_rate: float = 1e-3
     weight_decay: float = 0.02
+    beta1: float = 0.9
+    beta2: float = 0.95
+    max_norm: float = 1.0
 
 
 @dataclass
