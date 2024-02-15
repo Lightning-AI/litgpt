@@ -17,6 +17,7 @@ class TrainArgs:
     """Number of samples per data-parallel rank"""
     lr_warmup_epochs: int = 2
     """Number of epochs with learning rate warmup active"""
+    # TODO: some scripts use steps, other iters. Standardize?
     lr_warmup_steps: int = 100
     """Number of optimizer steps with learning rate warmup active"""
     lr_warmup_iters: int = 2000
@@ -61,11 +62,13 @@ class EvalArgs:
 class OptimizationArgs:
     """Optimization related arguments"""
 
+    # TODO: evaluate merging these into TrainArgs
     learning_rate: float = 1e-3
     weight_decay: float = 0.02
     beta1: float = 0.9
     beta2: float = 0.95
     max_norm: float = 1.0
+    min_lr: float = 6e-5
 
 
 @dataclass
@@ -82,6 +85,11 @@ class IOArgs:
 
     data_dir: Path = Path("data/alpaca")
     """Where to read data from"""
+    # TODO: some scripts use the data_dir, others train_data_dir+val_data_dir. Standardize?
+    train_data_dir: Path = Path("data/alpaca")
+    """Where to read training data from"""
+    val_data_dir: Optional[Path] = Path("data/alpaca")
+    """Where to read validation data from"""
     checkpoint_dir: Path = Path("checkpoints/stabilityai/stablelm-base-alpha-3b")
     """Where to read weights and tokenizer data from"""
     out_dir: Path = Path("out/adapter/alpaca")

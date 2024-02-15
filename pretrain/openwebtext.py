@@ -31,7 +31,7 @@ def setup(
     precision: Optional[str] = None,
     resume: Union[bool, Path] = False,
     eval_interval: int = 1000,
-    save_interval: int = 10,
+    save_interval: int = 1000,
     eval_iters: int = 100,
     log_interval: int = 1,
     devices: int = 1,
@@ -81,7 +81,12 @@ def setup(
         ),
         EvalArgs(eval_interval, max_iters=eval_iters),
         OptimizationArgs(
-            learning_rate=learning_rate, weight_decay=weight_decay, beta1=beta1, beta2=beta2, max_norm=max_norm
+            learning_rate=learning_rate,
+            weight_decay=weight_decay,
+            beta1=beta1,
+            beta2=beta2,
+            max_norm=max_norm,
+            min_lr=min_lr,
         ),
     )
 
@@ -182,7 +187,7 @@ def train(
             state["iter_num"],
             train_args.lr_warmup_iters,
             train_args.max_iters(devices),
-            min_lr=6e-5,
+            min_lr=optimization_args.min_lr,
         )
         for param_group in optimizer.param_groups:
             param_group["lr"] = lr
