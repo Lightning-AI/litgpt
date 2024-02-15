@@ -9,6 +9,7 @@ build
 # data
 data
 datasets
+!lit_gpt/datasets
 checkpoints
 out
 wandb
