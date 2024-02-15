@@ -1,7 +1,9 @@
+import datetime
 import importlib
 import json
 import sys
 import time
+from dataclasses import asdict, dataclass
 from functools import reduce
 from pathlib import Path
 from typing import Any, Literal, Optional, Union
@@ -23,6 +25,8 @@ from lit_gpt.utils import (
     check_valid_checkpoint_dir,
     load_checkpoint,
 )
+
+# flake8: noqa
 
 
 # `GPTForAutoGPTQ` and `BlockForAutoGPTQ` are only needed for quantization process.
@@ -55,8 +59,48 @@ class BlockForAutoGPTQ(Block):
         return (output,)
 
 
-class AutoGPTQ(BaseGPTQForCausalLM):
+@dataclass
+class QuantizeConfig(BaseQuantizeConfig):
+    kernel: Optional[str] = None
+    marlin_cached: bool = False
 
+    def __post_init__(self):
+        super().__post_init__()
+        self.validate_config()
+
+    def validate_config(self, kernel=None):
+
+        # Kernel    Supported precisions
+        #           ┌───────────────┐
+        #           ┆ 2 ┆ 3 ┆ 4 ┆ 8 ┆
+        #           ├---------------┤
+        # cuda      ┆ ✔ ┆ ✔ ┆ ✔ ┆ ✔ ┆
+        # exllama   ┆   ┆   ┆ ✔ ┆   ┆
+        # exllamav2 ┆   ┆   ┆ ✔ ┆   ┆
+        # triton    ┆ ✔ ┆   ┆ ✔ ┆ ✔ ┆
+        # marlin    ┆   ┆   ┆ ✔ ┆   ┆
+        #           └───────────────┘
+
+        kernel = kernel or self.kernel
+        if (kernel == "triton" and self.bits == 3) or (kernel in ("exllama", "exllamav2", "marlin") and self.bits != 4):
+            raise NotImplementedError(f"Kernel '{kernel}' doesn't support {self.bits}bit precision.")
+        if kernel == "marlin" and self.group_size not in (-1, 128):
+            raise NotImplementedError(f"Kernel Marlin doesn't support group_size of {self.group_size}, only -1 or 128.")
+
+    @classmethod
+    def load_config(cls, path: Path):
+        if not path.is_file():
+            # TODO: update the message
+            raise ValueError("AutoGPTQ config is missing.")
+
+        return cls(**json.loads(path.read_text()))
+
+    def save_config(self, path: Path):
+        with open(path, "w") as fp:
+            json.dump(asdict(self), fp, indent=4)
+
+
+class AutoGPTQ(BaseGPTQForCausalLM):
     def __init__(
         self,
         model: GPTForAutoGPTQ,
@@ -67,6 +111,8 @@ class AutoGPTQ(BaseGPTQForCausalLM):
         injected_fused_mlp: bool = False,
         trainable: bool = False,
     ):
+        model.config.model_type = None  # compatibility with AutoGPTQ
+
         super().__init__(
             model,
             quantized,
@@ -136,51 +182,79 @@ class AutoGPTQ(BaseGPTQForCausalLM):
 
         self.lm_head_name = "lm_head"
 
-    def convert_model_to_quantized(self, kernel: Literal["cuda", "exllama", "exllamav2", "triton"]) -> None:
+    def convert_to_quantized(
+        self,
+        kernel: Literal["cuda_old", "cuda", "exllama", "exllamav2", "triton", "marlin"],
+        device=None,
+    ) -> None:
         # TODO: add docstring
 
-        # Kernel    Supported precisions
-        #           ┌───────────────┐
-        #           ┆ 2 ┆ 3 ┆ 4 ┆ 8 ┆
-        #           ├---------------┤
-        # cuda      ┆ ✔ ┆ ✔ ┆ ✔ ┆ ✔ ┆
-        # exllama   ┆   ┆   ┆ ✔ ┆   ┆
-        # exllamav2 ┆   ┆   ┆ ✔ ┆   ┆
-        # triton    ┆ ✔ ┆   ┆ ✔ ┆ ✔ ┆
-        #           └───────────────┘
-
-        if kernel not in ("cuda", "exllama", "exllamav2", "triton"):
-            raise ValueError(f"Kernel `{kernel}` is not supported.")
-
         # Check if the kernel is compatible with the precision used for quantization
-        if (kernel == "triton" and self.quantize_config.bits == 3) or (
-            kernel in ("exllama", "exllamav2") and self.quantize_config.bits != 4
-        ):
-            raise ValueError(f"Kernel '{kernel}' doesn't support {self.quantize_config.bits}bit precision. ")
-
-        QuantLinear = importlib.import_module(f"auto_gptq.nn_modules.qlinear.qlinear_{kernel}").QuantLinear
+        self.quantize_config.validate_config(kernel)
 
         inside_layer_modules = tuple(sum(self.inside_layer_modules, []))
 
+        # if Marlin was cached - convert directly to Marlin
+        # if it wasn't - first convert to kernel from the config, conversion to Marlin will be done later
+        if kernel == "marlin":
+            kernel = "marlin" if self.quantize_config.marlin_cached else self.quantize_config.kernel
+
+        kernel = kernel.replace("-", "_")  # guard for `cuda-old`
+        QuantLinear = importlib.import_module(f"auto_gptq.nn_modules.qlinear.qlinear_{kernel}").QuantLinear
+
         for name, module in self.model.named_modules():
             if isinstance(module, torch.nn.Linear) and name.endswith(inside_layer_modules):
-                parent_module = reduce(getattr, name.split(".")[:-1], self.model)
+                parent_name, _, attribute = name.rpartition(".")
+                parent_module = self.model.get_submodule(parent_name)
                 attribute = name.split(".")[-1]
                 new_layer = QuantLinear(
                     infeatures=module.in_features,
                     outfeatures=module.out_features,
                     bits=self.quantize_config.bits,
                     group_size=self.quantize_config.group_size,
-                    bias=True,  # AutoGPTQ always creates bias during quantization
+                    bias=(module.bias is not None),
                     weight_dtype=module.weight.dtype,
                 )
-                device = next(module.parameters()).device
+                device = device or next(module.parameters()).device
                 new_layer = new_layer.to(device)
+                new_layer.device = device
                 parent_module.__setattr__(attribute, new_layer)
+
+    def convert_quantized_to_marlin(self, quantized_model_dir):
+        # if Marlin is cached, then it has been already loaded
+        if self.quantize_config.marlin_cached:
+            return
+
+        from auto_gptq.utils.marlin_utils import _validate_marlin_compatibility, convert_to_marlin
+
+        unsupported_reason = _validate_marlin_compatibility(self.quantize_config)
+        if unsupported_reason is not None:
+            raise ValueError(
+                "The model can not be converted to use the Marlin kernel for the following reason: "
+                f"{unsupported_reason}, which is not supported by Marlin kernel."
+            )
+        QuantLinear = importlib.import_module(
+            f"auto_gptq.nn_modules.qlinear.qlinear_{self.quantize_config.kernel}"
+        ).QuantLinear
+
+        self.model.config.quantization_config = {}  # required by AutoGPTQ
+        convert_to_marlin(self.model, QuantLinear, self.quantize_config, repack=True)
+
+        marlin_cache_path = quantized_model_dir / "marlin_cache.pth"
+        torch.save(self.model.state_dict(), marlin_cache_path)
+        self.quantize_config.marlin_cached = True
+        self.quantize_config.save_config(quantized_model_dir / "quantize_config.json")
 
     def post_init(self, max_input_length: Union[None, int] = None) -> None:
         # TODO: add docstring
         autogptq_post_init(self.model, use_act_order=self.quantize_config.desc_act, max_input_length=max_input_length)
+
+    def strip_bias(self):
+        """Run before saving model."""
+        if not self.model.config.bias:
+            for module in self.model.transformer.modules():
+                if hasattr(module, "QUANT_TYPE"):
+                    module.bias = None
 
     # in AutoGPTQ method `to` only expects `device`
     def to(self, device: Union[str, torch.device], dtype: torch.dtype) -> "AutoGPTQ":
@@ -209,7 +283,8 @@ def main(
     check_valid_checkpoint_dir(checkpoint_dir)
     checkpoint_path = checkpoint_dir / "lit_model.pth"
     if output_path is None:
-        output_path = checkpoint_dir / f"lit_model_gptq.{bits}bit.pth"
+        output_path = checkpoint_dir / f"autogptq/{bits}bit/lit_model_gptq.pth"
+        output_path.parent.mkdir(parents=True, exist_ok=True)
 
     # --- Load and prepare calibration data ---
     calibration_data = torch.load(data_dir / "test.pt")
@@ -235,14 +310,13 @@ def main(
     load_checkpoint(fabric, model, checkpoint_path)
 
     # --- Update model's config ---
-    # AutoGPTQ wants to retrieve these 4 parameters, but Lit's config doesn't have
-    model.config.model_type = None  # used in .from_pretrained and .from_quantized
+    # AutoGPTQ wants to retrieve these 3 parameters, but Lit's config doesn't have
     model.config.pad_token_id = None  # ._prepare_examples_for_quantization
     model.config.eos_token_id = Tokenizer(checkpoint_dir).eos_id  # _prepare_examples_for_quantization
     model.config.use_cache = False  # for quantization it's disabled anyway
 
     # --- Quantize the model ---
-    quantize_config = BaseQuantizeConfig(
+    quantize_config = QuantizeConfig(
         bits=bits,
         group_size=group_size,
         damp_percent=damp_percent,
@@ -250,24 +324,26 @@ def main(
         static_groups=static_groups,
         sym=sym,
         true_sequential=true_sequential,
+        kernel="triton" if use_triton else None,
     )
     autogptq = AutoGPTQ(model, quantized=False, quantize_config=quantize_config)
 
     quantize_time = time.perf_counter()
     autogptq.quantize(calibration_data, batch_size=batch_size, use_triton=use_triton)
-    fabric.print(f"Quantization time: {(time.perf_counter()-quantize_time):.2f}s")
+    quantize_time = int(time.perf_counter() - quantize_time)
+    fabric.print(f"Quantization time: {datetime.timedelta(seconds=quantize_time)}")
 
     # Save the model
     # TODO: AutoGPTQ creates bias weights even if they are not needed.
     # Trim them before saving (per config)
+    autogptq.strip_bias()
     torch.save(autogptq.model.state_dict(), output_path)
 
     # Save quantize config with the used kernel - will be reused during inference
     quantize_config.kernel = next(
         module.QUANT_TYPE for module in autogptq.model.modules() if hasattr(module, "QUANT_TYPE")
     )
-    with open(output_path.with_name("autogptq_config.json"), "w") as fp:
-        json.dump(quantize_config.__dict__, fp, indent=4)
+    quantize_config.save_config(output_path.with_name("quantize_config.json"))
 
 
 if __name__ == "__main__":
