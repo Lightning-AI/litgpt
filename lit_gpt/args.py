@@ -22,10 +22,13 @@ class TrainArgs:
     """Number of optimizer steps with learning rate warmup active"""
     lr_warmup_iters: int = 2000
     """Number of iterations with learning rate warmup active"""
+    # TODO: some scripts use epoch size, others epochs + epoch_size, others max_tokens. Standardize?
     epochs: int = 5
     """Number of epochs to run"""
     epoch_size: int = 50000
     """Size of the epoch"""
+    max_tokens: int = int(3e12)
+    """Total number of tokens to train on"""
 
     def max_iters(self, devices: int) -> int:
         """Number of iterations"""
