@@ -211,7 +211,7 @@ def test_lora_script(tmp_path, fake_checkpoint_dir, monkeypatch):
             eval_interval=2,
             eval_iters=2,
             eval_max_new_tokens=1,
-            num_epochs=1,
+            epochs=1,
             train_epoch_size=6,
             micro_batch_size=1,
         )
