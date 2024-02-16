@@ -28,7 +28,7 @@ from typing_extensions import Literal
 wd = Path(__file__).parent.parent.resolve()
 sys.path.append(str(wd))
 
-from lit_gpt.args import EvalArgs, IOArgs, OptimizationArgs, TrainArgs
+from lit_gpt.args import EvalArgs, IOArgs, TrainArgs
 from lit_gpt.model import GPT, Block, CausalSelfAttention, Config, LLaMAMLP
 from lit_gpt.utils import CycleIterator, chunked_cross_entropy, num_parameters
 
@@ -71,16 +71,13 @@ def setup(
         devices,
         resume,
         Config.from_name(name=model_name),
-        IOArgs(out_dir=out_dir),
+        IOArgs(out_dir=out_dir, train_data_dir=None),
         TrainArgs(
             save_interval=save_interval,
             log_interval=log_interval,
             global_batch_size=global_batch_size,
             micro_batch_size=micro_batch_size,
             max_tokens=max_tokens,
-        ),
-        EvalArgs(interval=eval_interval, max_iters=eval_iters),
-        OptimizationArgs(
             learning_rate=learning_rate,
             weight_decay=weight_decay,
             beta1=beta1,
@@ -88,6 +85,7 @@ def setup(
             max_norm=max_norm,
             min_lr=min_lr,
         ),
+        EvalArgs(interval=eval_interval, max_iters=eval_iters),
     )
 
 
@@ -99,8 +97,9 @@ def main(
     io_args: IOArgs,
     train_args: TrainArgs,
     eval_args: EvalArgs,
-    optimization_args: OptimizationArgs,
 ) -> None:
+    validate_args(io_args, train_args, eval_args)
+
     if fabric.global_rank == 0:
         io_args.out_dir.mkdir(parents=True, exist_ok=True)
 
@@ -124,9 +123,9 @@ def main(
     model = fabric.setup(model)
     optimizer = torch.optim.AdamW(
         model.parameters(),
-        lr=optimization_args.learning_rate,
-        weight_decay=optimization_args.weight_decay,
-        betas=(optimization_args.beta1, optimization_args.beta2),
+        lr=train_args.learning_rate,
+        weight_decay=train_args.weight_decay,
+        betas=(train_args.beta1, train_args.beta2),
         fused=True,
     )
     optimizer = fabric.setup_optimizers(optimizer)
@@ -146,7 +145,7 @@ def main(
         fabric.load(resume, state)
 
     train_time = time.perf_counter()
-    train(fabric, devices, state, train_dataloader, val_dataloader, io_args, train_args, eval_args, optimization_args)
+    train(fabric, devices, state, train_dataloader, val_dataloader, io_args, train_args, eval_args)
     fabric.print(f"Training time: {(time.perf_counter()-train_time):.2f}s")
     if fabric.device.type == "cuda":
         fabric.print(f"Memory used: {torch.cuda.max_memory_allocated() / 1e9:.02f} GB")
@@ -161,7 +160,6 @@ def train(
     io_args: IOArgs,
     train_args: TrainArgs,
     eval_args: EvalArgs,
-    optimization_args: OptimizationArgs,
 ) -> None:
     model = state["model"]
     optimizer = state["optimizer"]
@@ -197,9 +195,7 @@ def train(
             break
 
         # determine and set the learning rate for this iteration
-        lr = get_lr(
-            optimization_args.learning_rate, state["iter_num"], warmup_iters, max_iters, optimization_args.min_lr
-        )
+        lr = get_lr(train_args.learning_rate, state["iter_num"], warmup_iters, max_iters, train_args.min_lr)
         for param_group in optimizer.param_groups:
             param_group["lr"] = lr
 
@@ -218,7 +214,7 @@ def train(
         running_loss.update(loss.detach())
 
         if not is_accumulating:
-            fabric.clip_gradients(model, optimizer, max_norm=optimization_args.max_norm)
+            fabric.clip_gradients(model, optimizer, max_norm=train_args.max_norm)
             optimizer.step()
             optimizer.zero_grad()
             state["step_count"] += 1
@@ -373,6 +369,23 @@ def choose_logger(out_dir: Path, logger_name: str, name: str, resume: Union[bool
     if logger_name == "wandb":
         return WandbLogger(project="tinyllama", name=name, resume=(resume is not False), *args, **kwargs)
     raise ValueError(f"`logger={logger_name}` is not a valid option.")
+
+
+def validate_args(io_args: IOArgs, train_args: TrainArgs, eval_args: EvalArgs) -> None:
+    unsupported = [
+        (io_args, ["train_data_dir", "val_data_dir", "checkpoint_dir"]),
+        (train_args, ["epoch_size", "epochs"]),
+        (eval_args, ["max_new_tokens"]),
+    ]
+    for args, names in unsupported:
+        for name in names:
+            if getattr(args, name) is not None:
+                raise ValueError(f"{__file__} doesn't support the {name!r} argument. This is set in {args}")
+    required = [(train_args, ["max_tokens", "max_norm"])]
+    for args, names in required:
+        for name in names:
+            if getattr(args, name) is None:
+                raise ValueError(f"{__file__} requires the {name!r} argument. This is set in {args}")
 
 
 if __name__ == "__main__":
