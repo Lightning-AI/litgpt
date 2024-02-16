@@ -27,7 +27,7 @@ def prepare(
     mask_inputs: bool = False,
     ignore_index: int = -1,
     max_seq_length: Optional[int] = None,
-    columns: Tuple[str] = ("instruction", "input", "output"),
+    columns: Tuple[str, ...] = ("instruction", "input", "output"),
 ) -> None:
     """Prepare a CSV dataset for instruction tuning.
 

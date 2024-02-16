@@ -74,7 +74,7 @@ call a logging client library like `wandb` directly.
 
 To train a smaller Pythia 70M model on a single GPU, you can pass the `--model_name "pythia-70m"` argument.
 
-(Please see the the `download_*` scripts in the [tutorials](.) for more information on downloading model checkpoints for different models.)
+(Please see the `download_*` scripts in the [tutorials](.) for more information on downloading model checkpoints for different models.)
 
 Also, before you start training, note that you will need to prepare the dataset specifically for this model since it may use a different tokenizer:
 

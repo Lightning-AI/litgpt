@@ -367,7 +367,7 @@ def validate_args(io_args: IOArgs, train_args: TrainArgs, eval_args: EvalArgs) -
         for name in names:
             if getattr(args, name) is not None:
                 raise ValueError(f"{__file__} doesn't support the {name!r} argument. This is set in {args}")
-    required = [(io_args, ["checkpoint_dir"]), (train_args, ["epoch_size", "epochs"]), (eval_args, ["max_new_tokens"])]
+    required = [(io_args, ["checkpoint_dir", "train_data_dir", "val_data_dir"]), (train_args, ["epoch_size", "epochs"]), (eval_args, ["max_new_tokens"])]
     for args, names in required:
         for name in names:
             if getattr(args, name) is None:
