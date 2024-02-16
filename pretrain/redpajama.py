@@ -18,7 +18,7 @@ wd = Path(__file__).parent.parent.resolve()
 sys.path.append(str(wd))
 
 from lit_gpt import Config
-from lit_gpt.args import EvalArgs, IOArgs, OptimizationArgs, TrainArgs
+from lit_gpt.args import EvalArgs, IOArgs, TrainArgs
 from lit_gpt.model import GPT, Block
 from lit_gpt.packed_dataset import CombinedDataset, PackedDataset
 from lit_gpt.utils import chunked_cross_entropy, estimate_flops, get_default_supported_precision, num_parameters
@@ -51,7 +51,7 @@ def setup(
     weight_decay: float = 1e-1,
     beta1: float = 0.9,
     beta2: float = 0.95,
-    lr_warmup_iters: int = 2000,
+    lr_warmup_steps: int = 100,
     min_lr: float = 6e-5,
     global_batch_size: int = 125,
     micro_batch_size: int = 6,
@@ -87,12 +87,9 @@ def setup(
             log_interval=log_interval,
             global_batch_size=global_batch_size,
             micro_batch_size=micro_batch_size,
-            lr_warmup_iters=lr_warmup_iters,
+            lr_warmup_steps=lr_warmup_steps,
             epochs=epochs,
             epoch_size=train_epoch_size,
-        ),
-        EvalArgs(interval=eval_interval, max_iters=eval_iters),
-        OptimizationArgs(
             learning_rate=learning_rate,
             weight_decay=weight_decay,
             beta1=beta1,
@@ -100,6 +97,7 @@ def setup(
             max_norm=max_norm,
             min_lr=min_lr,
         ),
+        EvalArgs(interval=eval_interval, max_iters=eval_iters),
     )
 
 
@@ -111,8 +109,9 @@ def main(
     io_args: IOArgs,
     train_args: TrainArgs,
     eval_args: EvalArgs,
-    optimization_args: OptimizationArgs,
 ) -> None:
+    validate_args(io_args, train_args, eval_args)
+
     if fabric.global_rank == 0:
         io_args.out_dir.mkdir(parents=True, exist_ok=True)
 
@@ -143,9 +142,9 @@ def main(
     model = fabric.setup(model)
     optimizer = torch.optim.AdamW(
         model.parameters(),
-        lr=optimization_args.learning_rate,
-        weight_decay=optimization_args.weight_decay,
-        betas=(optimization_args.beta1, optimization_args.beta2),
+        lr=train_args.learning_rate,
+        weight_decay=train_args.weight_decay,
+        betas=(train_args.beta1, train_args.beta2),
         foreach=False,
     )
     optimizer = fabric.setup_optimizers(optimizer)
@@ -159,7 +158,7 @@ def main(
         fabric.load(resume, state)
 
     train_time = time.perf_counter()
-    train(fabric, devices, state, train_dataloader, val_dataloader, io_args, train_args, eval_args, optimization_args)
+    train(fabric, devices, state, train_dataloader, val_dataloader, io_args, train_args, eval_args)
     fabric.print(f"Training time: {(time.perf_counter()-train_time):.2f}s")
     if fabric.device.type == "cuda":
         fabric.print(f"Memory used: {torch.cuda.max_memory_allocated() / 1e9:.02f} GB")
@@ -174,7 +173,6 @@ def train(
     io_args: IOArgs,
     train_args: TrainArgs,
     eval_args: EvalArgs,
-    optimization_args: OptimizationArgs,
 ) -> None:
     model = state["model"]
     optimizer = state["optimizer"]
@@ -199,17 +197,18 @@ def train(
     throughput = ThroughputMonitor(fabric, window_size=50)
     total_t0 = time.perf_counter()
 
+    lr_warmup_iters = train_args.lr_warmup_steps * train_args.gradient_accumulation_iters(devices)
     for state["iter_num"], train_data in enumerate(train_dataloader, state["iter_num"]):
         if state["iter_num"] >= train_args.max_iters(devices):
             break
 
         # determine and set the learning rate for this iteration
         lr = get_lr(
-            optimization_args.learning_rate,
+            train_args.learning_rate,
             state["iter_num"],
-            train_args.lr_warmup_iters,
+            lr_warmup_iters,
             train_args.max_iters(devices),
-            min_lr=optimization_args.min_lr,
+            min_lr=train_args.min_lr,
         )
         for param_group in optimizer.param_groups:
             param_group["lr"] = lr
@@ -227,7 +226,7 @@ def train(
             fabric.backward(loss / train_args.gradient_accumulation_iters(devices))
 
         if not is_accumulating:
-            fabric.clip_gradients(model, optimizer, max_norm=optimization_args.max_norm)
+            fabric.clip_gradients(model, optimizer, max_norm=train_args.max_norm)
             optimizer.step()
             optimizer.zero_grad()
             state["step_count"] += 1
@@ -361,6 +360,19 @@ def get_lr(learning_rate: float, it: int, warmup_iters: int, max_iters: int, min
     assert 0 <= decay_ratio <= 1
     coeff = 0.5 * (1.0 + math.cos(math.pi * decay_ratio))  # coeff ranges 0..1
     return min_lr + coeff * (learning_rate - min_lr)
+
+
+def validate_args(io_args: IOArgs, train_args: TrainArgs, eval_args: EvalArgs) -> None:
+    unsupported = [(io_args, ["checkpoint_dir"]), (train_args, ["max_tokens"]), (eval_args, ["max_new_tokens"])]
+    for args, names in unsupported:
+        for name in names:
+            if getattr(args, name) is not None:
+                raise ValueError(f"{__file__} doesn't support the {name!r} argument. This is set in {args}")
+    required = [(io_args, ["train_data_dir"]), (train_args, ["epoch_size", "epochs", "max_norm"])]
+    for args, names in required:
+        for name in names:
+            if getattr(args, name) is None:
+                raise ValueError(f"{__file__} requires the {name!r} argument. This is set in {args}")
 
 
 if __name__ == "__main__":
