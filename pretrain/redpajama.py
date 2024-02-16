@@ -17,34 +17,11 @@ from torch.utils.data import DataLoader
 wd = Path(__file__).parent.parent.resolve()
 sys.path.append(str(wd))
 
-from lit_gpt.model import GPT, Block, Config
+from lit_gpt import Config
+from lit_gpt.args import EvalArgs, IOArgs, OptimizationArgs, TrainArgs
+from lit_gpt.model import GPT, Block
 from lit_gpt.packed_dataset import CombinedDataset, PackedDataset
 from lit_gpt.utils import chunked_cross_entropy, estimate_flops, get_default_supported_precision, num_parameters
-
-model_name = "Llama-2-7b-hf"
-name = "redpajama"
-out_dir = Path("out") / name
-save_interval = 1000
-eval_interval = 1000
-eval_iters = 100
-log_interval = 1
-
-# Hyperparameters
-learning_rate = 6e-4
-batch_size = 125
-micro_batch_size = 6
-gradient_accumulation_steps = batch_size // micro_batch_size
-assert gradient_accumulation_steps > 0
-max_iters = 600000  # num_epochs * (epoch_size // micro_batch_size) // devices
-weight_decay = 1e-1
-beta1 = 0.9
-beta2 = 0.95
-grad_clip = 1.0
-decay_lr = True
-warmup_iters = 2000
-lr_decay_iters = max_iters
-min_lr = 6e-5
-
 
 # Data proportions from https://arxiv.org/pdf/2302.13971.pdf Table 1
 data_config = [
@@ -57,17 +34,32 @@ data_config = [
     ("wikipedia", 4.5),
 ]
 
-hparams = {k: v for k, v in locals().items() if isinstance(v, (int, float, str)) and not k.startswith("_")}
-logger = CSVLogger("out", name, flush_logs_every_n_steps=log_interval)
-
 
 def setup(
-    devices: int = 4,
+    model_name: str = "Llama-2-7b-hf",
     train_data_dir: Path = Path("data/redpajama_sample"),
     val_data_dir: Optional[Path] = None,
+    out_dir: Path = Path("out/redpajama"),
     precision: Optional[str] = None,
     resume: Union[bool, Path] = False,
+    eval_interval: int = 1000,
+    save_interval: int = 1000,
+    eval_iters: int = 100,
+    log_interval: int = 1,
+    devices: int = 4,
+    learning_rate: float = 6e-4,
+    weight_decay: float = 1e-1,
+    beta1: float = 0.9,
+    beta2: float = 0.95,
+    lr_warmup_iters: int = 2000,
+    min_lr: float = 6e-5,
+    global_batch_size: int = 125,
+    micro_batch_size: int = 6,
+    max_norm: float = 1.0,
+    epochs: int = 1,
+    train_epoch_size: int = 600000,
 ) -> None:
+    print(locals())
     precision = precision or get_default_supported_precision(training=True)
 
     if devices > 1:
@@ -81,23 +73,55 @@ def setup(
     else:
         strategy = "auto"
 
+    logger = CSVLogger(out_dir.parent, out_dir.name, flush_logs_every_n_steps=log_interval)
     fabric = L.Fabric(devices=devices, strategy=strategy, precision=precision, loggers=logger)
-    fabric.print(hparams)
-    fabric.launch(main, train_data_dir, val_data_dir, resume)
+
+    fabric.launch(
+        main,
+        devices,
+        resume,
+        Config.from_name(name=model_name),
+        IOArgs(train_data_dir=train_data_dir, val_data_dir=val_data_dir, out_dir=out_dir),
+        TrainArgs(
+            save_interval=save_interval,
+            log_interval=log_interval,
+            global_batch_size=global_batch_size,
+            micro_batch_size=micro_batch_size,
+            lr_warmup_iters=lr_warmup_iters,
+            epochs=epochs,
+            epoch_size=train_epoch_size,
+        ),
+        EvalArgs(interval=eval_interval, max_iters=eval_iters),
+        OptimizationArgs(
+            learning_rate=learning_rate,
+            weight_decay=weight_decay,
+            beta1=beta1,
+            beta2=beta2,
+            max_norm=max_norm,
+            min_lr=min_lr,
+        ),
+    )
 
 
-def main(fabric: L.Fabric, train_data_dir: Path, val_data_dir: Path, resume: Union[bool, Path]) -> None:
+def main(
+    fabric: L.Fabric,
+    devices: int,
+    resume: Union[bool, Path],
+    config: Config,
+    io_args: IOArgs,
+    train_args: TrainArgs,
+    eval_args: EvalArgs,
+    optimization_args: OptimizationArgs,
+) -> None:
     if fabric.global_rank == 0:
-        out_dir.mkdir(parents=True, exist_ok=True)
-
-    config = Config.from_name(model_name)
+        io_args.out_dir.mkdir(parents=True, exist_ok=True)
 
     train_dataloader, val_dataloader = create_dataloaders(
-        batch_size=micro_batch_size,
+        batch_size=train_args.micro_batch_size,
         block_size=config.block_size,
         fabric=fabric,
-        train_data_dir=train_data_dir,
-        val_data_dir=val_data_dir,
+        train_data_dir=io_args.train_data_dir,
+        val_data_dir=io_args.val_data_dir,
         seed=(1337 + fabric.global_rank),
     )
     if val_dataloader is None:
@@ -118,26 +142,40 @@ def main(fabric: L.Fabric, train_data_dir: Path, val_data_dir: Path, resume: Uni
 
     model = fabric.setup(model)
     optimizer = torch.optim.AdamW(
-        model.parameters(), lr=learning_rate, weight_decay=weight_decay, betas=(beta1, beta2), foreach=False
+        model.parameters(),
+        lr=optimization_args.learning_rate,
+        weight_decay=optimization_args.weight_decay,
+        betas=(optimization_args.beta1, optimization_args.beta2),
+        foreach=False,
     )
     optimizer = fabric.setup_optimizers(optimizer)
 
-    state = {"model": model, "optimizer": optimizer, "hparams": hparams, "iter_num": 0, "step_count": 0}
+    state = {"model": model, "optimizer": optimizer, "iter_num": 0, "step_count": 0}
 
     if resume is True:
-        resume = max(out_dir.glob("*.pth"), key=lambda p: int(p.name.split("-")[1]))
+        resume = max(io_args.out_dir.glob("*.pth"), key=lambda p: int(p.name.split("-")[1]))
     if resume:
         fabric.print(f"Resuming training from {resume}")
         fabric.load(resume, state)
 
     train_time = time.perf_counter()
-    train(fabric, state, train_dataloader, val_dataloader)
+    train(fabric, devices, state, train_dataloader, val_dataloader, io_args, train_args, eval_args, optimization_args)
     fabric.print(f"Training time: {(time.perf_counter()-train_time):.2f}s")
     if fabric.device.type == "cuda":
         fabric.print(f"Memory used: {torch.cuda.max_memory_allocated() / 1e9:.02f} GB")
 
 
-def train(fabric: L.Fabric, state: dict, train_dataloader: DataLoader, val_dataloader: DataLoader) -> None:
+def train(
+    fabric: L.Fabric,
+    devices: int,
+    state: dict,
+    train_dataloader: DataLoader,
+    val_dataloader: Optional[DataLoader],
+    io_args: IOArgs,
+    train_args: TrainArgs,
+    eval_args: EvalArgs,
+    optimization_args: OptimizationArgs,
+) -> None:
     model = state["model"]
     optimizer = state["optimizer"]
 
@@ -149,9 +187,9 @@ def train(fabric: L.Fabric, state: dict, train_dataloader: DataLoader, val_datal
         # "estimated" is not as precise as "measured". Estimated is optimistic but widely used in the wild.
         # When comparing MFU or FLOP numbers with other projects that use estimated FLOPs,
         # consider passing `flops_per_batch=estimated_flops` instead
-        estimated_flops = estimate_flops(meta_model, training=True) * micro_batch_size
+        estimated_flops = estimate_flops(meta_model, training=True) * train_args.micro_batch_size
         fabric.print(f"Estimated TFLOPs: {estimated_flops * fabric.world_size / 1e12:.2f}")
-        x = torch.randint(0, 1, (micro_batch_size, model.max_seq_length))
+        x = torch.randint(0, 1, (train_args.micro_batch_size, model.max_seq_length))
         forward_fn = lambda: meta_model(x)
         loss_fn = lambda y: chunked_cross_entropy(y, x, chunk_size=0)
         measured_flops = measure_flops(meta_model, forward_fn, loss_fn)
@@ -162,11 +200,17 @@ def train(fabric: L.Fabric, state: dict, train_dataloader: DataLoader, val_datal
     total_t0 = time.perf_counter()
 
     for state["iter_num"], train_data in enumerate(train_dataloader, state["iter_num"]):
-        if state["iter_num"] >= max_iters:
+        if state["iter_num"] >= train_args.max_iters(devices):
             break
 
         # determine and set the learning rate for this iteration
-        lr = get_lr(state["iter_num"], warmup_iters, max_iters) if decay_lr else learning_rate
+        lr = get_lr(
+            optimization_args.learning_rate,
+            state["iter_num"],
+            train_args.lr_warmup_iters,
+            train_args.max_iters(devices),
+            min_lr=optimization_args.min_lr,
+        )
         for param_group in optimizer.param_groups:
             param_group["lr"] = lr
 
@@ -176,27 +220,27 @@ def train(fabric: L.Fabric, state: dict, train_dataloader: DataLoader, val_datal
         input_ids = train_data[:, 0 : model.max_seq_length].contiguous()
         targets = train_data[:, 1 : model.max_seq_length + 1].contiguous()
 
-        is_accumulating = iter_num % gradient_accumulation_steps != 0
+        is_accumulating = iter_num % train_args.gradient_accumulation_iters(devices) != 0
         with fabric.no_backward_sync(model, enabled=is_accumulating):
             logits = model(input_ids)
             loss = chunked_cross_entropy(logits, targets, chunk_size=0)
-            fabric.backward(loss / gradient_accumulation_steps)
+            fabric.backward(loss / train_args.gradient_accumulation_iters(devices))
 
         if not is_accumulating:
-            fabric.clip_gradients(model, optimizer, max_norm=grad_clip)
+            fabric.clip_gradients(model, optimizer, max_norm=optimization_args.max_norm)
             optimizer.step()
             optimizer.zero_grad()
             state["step_count"] += 1
 
-        if iter_num % log_interval == 0:
+        if iter_num % train_args.log_interval == 0:
             loss_item = loss.item()  # expensive device-to-host synchronization
             t1 = time.perf_counter()
             throughput.update(
                 time=t1 - total_t0,
                 batches=iter_num,
-                samples=iter_num * micro_batch_size,
-                lengths=iter_num * micro_batch_size * model.max_seq_length,
-                flops=measured_flops * log_interval,
+                samples=iter_num * train_args.micro_batch_size,
+                lengths=iter_num * train_args.micro_batch_size * model.max_seq_length,
+                flops=measured_flops * train_args.log_interval,
             )
             throughput.compute_and_log(step=iter_num)
             fabric.print(
@@ -204,14 +248,14 @@ def train(fabric: L.Fabric, state: dict, train_dataloader: DataLoader, val_datal
                 f" {(t1 - iter_t0) * 1000:.2f}ms{' (optimizer.step)' if not is_accumulating else ''}"
             )
 
-        if val_dataloader is not None and not is_accumulating and state["step_count"] % eval_interval == 0:
+        if val_dataloader is not None and not is_accumulating and state["step_count"] % eval_args.interval == 0:
             t0 = time.perf_counter()
-            val_loss = validate(fabric, model, val_dataloader, max_iters=eval_iters)
+            val_loss = validate(fabric, model, val_dataloader, max_iters=eval_args.max_iters)
             t1 = time.perf_counter() - t0
             fabric.print(f"step {iter_num}: val loss {val_loss.item():.4f}, val time: {t1 * 1000:.2f}ms")
             fabric.barrier()
-        if not is_accumulating and state["step_count"] % save_interval == 0:
-            checkpoint_path = out_dir / f"iter-{iter_num:06d}-ckpt.pth"
+        if not is_accumulating and state["step_count"] % train_args.save_interval == 0:
+            checkpoint_path = io_args.out_dir / f"iter-{iter_num:06d}-ckpt.pth"
             fabric.print(f"Saving checkpoint to {str(checkpoint_path)!r}")
             fabric.save(checkpoint_path, state)
 
@@ -278,7 +322,7 @@ def create_dataloaders(
     train_data_dir: Path = Path("data/redpajama_sample"),
     val_data_dir: Optional[Path] = None,
     seed: int = 12345,
-) -> Tuple[DataLoader, DataLoader]:
+) -> Tuple[DataLoader, Optional[DataLoader]]:
     # Increase by one because we need the next word as well
     effective_block_size = block_size + 1
     train_dataloader = create_dataloader(
@@ -305,7 +349,7 @@ def create_dataloaders(
 
 
 # learning rate decay scheduler (cosine with linear warmup)
-def get_lr(it: int, warmup_iters: int, max_iters: int) -> float:
+def get_lr(learning_rate: float, it: int, warmup_iters: int, max_iters: int, min_lr: float) -> float:
     # 1) linear warmup for warmup_iters steps
     if it < warmup_iters:
         return learning_rate * it / warmup_iters
