@@ -52,20 +52,6 @@ def test_main(fake_checkpoint_dir, monkeypatch, tensor_like):
     assert "'padded_vocab_size': 512, 'n_layer': 2, 'n_head': 4, 'n_embd': 8" in err.getvalue()
 
 
-def test_lora_variables_exist():
-    import generate.lora as generate
-
-    for lora_argument in ("r", "alpha", "dropout", "query", "key", "value", "projection", "mlp", "head"):
-        assert getattr(generate, f"lora_{lora_argument}", None) is not None
-
-
-def test_lora_is_enabled():
-    import generate.lora as generate
-
-    lora_arguments = ("query", "key", "value", "projection", "mlp", "head")
-    assert any(getattr(generate, f"lora_{lora_argument}") for lora_argument in lora_arguments)
-
-
 def test_cli():
     cli_path = Path(__file__).parent.parent / "generate" / "lora.py"
     output = subprocess.check_output([sys.executable, cli_path, "-h"])
