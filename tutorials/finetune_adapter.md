@@ -37,15 +37,14 @@ python finetune/adapter_v2.py --checkpoint_dir checkpoints/stabilityai/stablelm-
 ```
 
 The finetuning requires at least one GPU with ~12 GB memory.
-You can speed up training by setting the `devices` variable in the script to utilize more GPUs if available.
+You can speed up training by passing the `devices` argument to the script to utilize more GPUs if available.
 Depending on the available GPU memory, you can also tune the `micro_batch_size` parameter to utilize the GPU efficiently.
-To fit Adapter V2 to 12GB memory set micro_batch_size = 2.
+To fit Adapter V2 to 12GB memory set `--micro_batch_size 2`.
 
 For example, the following settings will let you finetune the model in under 1 hour:
 
-```python
-devices = 4
-micro_batch_size = 4
+```bash
+--devices 4 --micro_batch_size 4
 ```
 
 This script will save checkpoints periodically to the `out_dir` directory. If you are finetuning different models or on your own dataset, you can specify an output directory with your preferred name:

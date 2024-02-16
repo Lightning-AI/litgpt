@@ -14,7 +14,7 @@ Here's a few things you can try:
 
 ### Reduce the micro batch size
 
-Adjust the `micro_batch_size = ...` variable in the fine-tuning and pretraining scripts. This variable determines the number of samples loaded per iteration.
+Adjust the `--micro_batch_size` argument in the fine-tuning and pretraining scripts. This variable determines the number of samples loaded per iteration.
 
 A smaller value will simply load fewer samples simultaneously. The minimum value is 1.
 
@@ -25,7 +25,7 @@ Experiment with different micro batch sizes to find a balance between memory con
 The context length (`block_size` in the code) plays a significant role in running models with attention.
 
 * The pretraining scripts are configured to use the full context length of the model to train.
-* The finetuning scripts are configured to use the longest sample length of the training data to avoid allocating unnecessary memory (`max_seq_length` in the code).
+* The finetuning scripts are configured to use the longest sample length of the training data to avoid allocating unnecessary memory (`--max_seq_length` argument).
   If that's longer than the model's context length, an error is raised. If you try to run a batch that is longer than this, an error is raised.
 
 However, your hardware may not support such large context lengths. Here's what you can do:
@@ -50,7 +50,7 @@ Mixed precision training (`16-mixed`, `bf16-mixed`) provides better stability bu
 ### Do sharding across multiple GPUs
 
 For exceptionally large models, the aforementioned techniques might still not suffice. If you have multiple GPUs available,
-you can trade off memory for speed by changing the `devices = 1` argument in the scripts. Enabling this option enables a parallelism technique (FSDP), sharding the memory across different GPUs.
+you can trade off memory for speed by changing the `--devices 1` argument in the scripts. Enabling this option enables a parallelism technique (FSDP), sharding the memory across different GPUs.
 
 The default configuration already uses activation checkpointing, but you can enable CPU offloading by changing the `cpu_offload=False` argument in the scripts.
 
