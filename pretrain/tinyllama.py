@@ -152,7 +152,6 @@ def main(
         state,
         train_dataloader,
         val_dataloader,
-        resume,
         io_args,
         train_args,
         eval_args,

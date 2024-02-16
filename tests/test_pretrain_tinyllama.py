@@ -33,7 +33,7 @@ def test_pretrain_tiny_llama(tmp_path, monkeypatch):
             eval_iters=2,
             max_tokens=16,
             devices=2,
-            global_batch_size=1,
+            global_batch_size=2,
             micro_batch_size=1,
             model_name="tmp",
             out_dir=tmp_path,
