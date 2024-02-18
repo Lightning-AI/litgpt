@@ -1,4 +1,3 @@
-from contextlib import nullcontext
 from functools import reduce
 
 import pytest
@@ -81,9 +80,7 @@ def test_quantization(tmp_path, fake_checkpoint_dir, monkeypatch, bits, group_si
 
     # Create a reference model to check that the saved quantized weights have a proper shape
     reference_model = GPT(config)
-    reference_model.config.model_type = None
-    # Retrieve `inside_layer_modules` - they control what layers inside each Transformer Block
-    # are quantized
+    # Retrieve `inside_layer_modules` - they control what layers inside each Transformer Block are quantized
     autogptq = module.AutoGPTQ(reference_model, quantized=False, quantize_config=None)
     inside_layer_modules = autogptq.inside_layer_modules
     inside_layer_modules = sum(inside_layer_modules, [])
@@ -115,8 +112,9 @@ def test_quantization(tmp_path, fake_checkpoint_dir, monkeypatch, bits, group_si
                 assert weight.dtype == torch.int32
                 assert weight.shape == (reference_layer.in_features,)
             else:
-                # bias is not quantized and is created by AutoGPTQ despite the config
-                continue
+                # bias
+                assert weight.dtype == torch.float16
+                assert weight.shape == reference_layer.bias.shape
 
 
 @RunIf(min_cuda_gpus=1)
@@ -165,17 +163,16 @@ def test_layer_conversion(kernel, bits, group_size, mlp_class):
 
     # Some kernels support only specific set of precisions. The code has to tell about it.
     # We should check it.
-    skip_test = False
     if (
         (kernel == "triton" and bits == 3)
         or (kernel in ("exllama", "exllamav2", "marlin") and bits != 4)
         or (kernel == "marlin" and group_size not in (-1, 128))
     ):
-        skip_test = True
-    with pytest.raises(NotImplementedError, match="doesn't support") if skip_test else nullcontext() as e_info:
-        quantize_config = QuantizeConfig(bits=bits, group_size=group_size, kernel=kernel)
-    if skip_test:
+        with pytest.raises(NotImplementedError, match="doesn't support") as e_info:
+            quantize_config = QuantizeConfig(bits=bits, group_size=group_size, kernel=kernel)
         pytest.skip(str(e_info))
+
+    quantize_config = QuantizeConfig(bits=bits, group_size=group_size, kernel=kernel)
 
     # Wrap the model in AutoGPTQ as it allows to convert "nn.Linear" layers to "QuantLinear"
     autogptq_model = AutoGPTQ(model, quantized=True, quantize_config=quantize_config)
@@ -188,17 +185,17 @@ def test_layer_conversion(kernel, bits, group_size, mlp_class):
 
     QuantLinear = importlib.import_module(f"auto_gptq.nn_modules.qlinear.qlinear_{kernel}").QuantLinear
 
-    for layer_name in autogptq_model.model.state_dict():
+    for layer_name in model.state_dict():
         module = reduce(getattr, layer_name.split(".")[:-1], autogptq_model.model)
         if any(ilm in layer_name for ilm in inside_layer_modules):
+            assert isinstance(module, QuantLinear)
             if kernel == "marlin":
-                assert layer_name.endswith((".B", ".s", ".workspace", ".bias")), layer_name
+                assert layer_name.endswith((".B", ".s", ".workspace", ".bias"))
             else:
-                assert layer_name.endswith((".qweight", ".qzeros", ".scales", ".g_idx", ".bias")), layer_name
-            assert isinstance(module, QuantLinear), layer_name
+                assert layer_name.endswith((".qweight", ".qzeros", ".scales", ".g_idx", ".bias"))
         else:
-            assert layer_name.endswith((".weight", ".bias")), layer_name
-            assert not isinstance(module, QuantLinear), layer_name
+            assert not isinstance(module, QuantLinear)
+            assert layer_name.endswith((".weight", ".bias"))
 
     # Run a forward pass, it should not fail
     x = torch.tensor([[9856, 23, 491, 1536, 304], [23, 345, 65, 123, 321]], dtype=torch.int32, device=device)
@@ -247,17 +244,56 @@ def test_marlin_conversion(kernel, tmp_path):
     # Assert that all layers were converted
     inside_layer_modules = sum(autogptq_model.inside_layer_modules, [])
 
-    for layer_name in autogptq_model.model.state_dict():
+    for layer_name in model.state_dict():
         module = reduce(getattr, layer_name.split(".")[:-1], autogptq_model.model)
         if any(ilm in layer_name for ilm in inside_layer_modules):
-            assert layer_name.endswith((".B", ".s", ".workspace", ".bias")), layer_name
-            assert isinstance(module, QuantLinear), layer_name
+            assert layer_name.endswith((".B", ".s", ".workspace", ".bias"))
+            assert isinstance(module, QuantLinear)
         else:
-            assert layer_name.endswith((".weight", ".bias")), layer_name
-            assert not isinstance(module, QuantLinear), layer_name
+            assert layer_name.endswith((".weight", ".bias"))
+            assert not isinstance(module, QuantLinear)
 
     # Assert that the Marlin version of the model is cached
     assert "marlin_cache.pth" in [p.name for p in tmp_path.glob("*")]
 
     # Assert that the quantize config now knows that the Marlin was cached
     assert quantize_config.marlin_cached is True
+
+
+@RunIf(min_cuda_gpus=1)
+@pytest.mark.parametrize("bias", [True, False])
+@pytest.mark.parametrize("kernel", ("cuda_old", "cuda", "exllama", "exllamav2", "triton"))
+def test_strip_bias(bias, kernel):
+
+    from lit_gpt import GPT
+    from lit_gpt.config import Config
+    from quantize.autogptq import AutoGPTQ, QuantizeConfig
+
+    # Prepare model's config
+    config = Config(
+        padded_vocab_size=10_000,
+        n_layer=2,
+        n_embd=128,
+        n_head=8,
+        n_query_groups=4,
+        intermediate_size=256,
+        bias=bias,
+    )
+
+    # Create a model: it has to be on a GPU and with float16 precision
+    device = "cuda:0"
+    model = GPT(config).to(device=device, dtype=torch.float16)
+
+    # Wrap the model in AutoGPTQ as it allows to convert "nn.Linear" layers to "QuantLinear"
+    quantize_config = QuantizeConfig(bits=4, group_size=128, desc_act=False)
+    autogptq_model = AutoGPTQ(model, quantized=True, quantize_config=quantize_config)
+    autogptq_model.convert_to_quantized(kernel, device)
+
+    # Assert that bias is stripped if needed
+    inside_layer_modules = tuple(sum(autogptq_model.inside_layer_modules, []))
+    for name, module in model.named_modules():
+        if name.endswith(inside_layer_modules):
+            if bias:
+                assert module.bias is not None
+            else:
+                assert module.bias is None

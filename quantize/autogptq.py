@@ -4,7 +4,6 @@ import json
 import sys
 import time
 from dataclasses import asdict, dataclass
-from functools import reduce
 from pathlib import Path
 from typing import Any, Literal, Optional, Union
 
@@ -25,8 +24,6 @@ from lit_gpt.utils import (
     check_valid_checkpoint_dir,
     load_checkpoint,
 )
-
-# flake8: noqa
 
 
 # `GPTForAutoGPTQ` and `BlockForAutoGPTQ` are only needed for quantization process.
@@ -68,19 +65,23 @@ class QuantizeConfig(BaseQuantizeConfig):
         super().__post_init__()
         self.validate_config()
 
-    def validate_config(self, kernel=None):
+    def validate_config(self, kernel: Optional[str] = None) -> None:
+        """Check if the selected config is supported with the kernel.
 
-        # Kernel    Supported precisions
-        #           ┌───────────────┐
-        #           ┆ 2 ┆ 3 ┆ 4 ┆ 8 ┆
-        #           ├---------------┤
-        # cuda      ┆ ✔ ┆ ✔ ┆ ✔ ┆ ✔ ┆
-        # exllama   ┆   ┆   ┆ ✔ ┆   ┆
-        # exllamav2 ┆   ┆   ┆ ✔ ┆   ┆
-        # triton    ┆ ✔ ┆   ┆ ✔ ┆ ✔ ┆
-        # marlin    ┆   ┆   ┆ ✔ ┆   ┆
-        #           └───────────────┘
+         Kernel    Supported precisions
+                   ┌───────────────┐
+                   ┆ 2 ┆ 3 ┆ 4 ┆ 8 ┆
+                   ├---------------┤
+         cuda      ┆ ✔ ┆ ✔ ┆ ✔ ┆ ✔ ┆
+         exllama   ┆   ┆   ┆ ✔ ┆   ┆
+         exllamav2 ┆   ┆   ┆ ✔ ┆   ┆
+         triton    ┆ ✔ ┆   ┆ ✔ ┆ ✔ ┆
+         marlin    ┆   ┆   ┆ ✔ ┆   ┆
+                   └───────────────┘
 
+        Args:
+            kernel: override the kernel from the config.
+        """
         kernel = kernel or self.kernel
         if (kernel == "triton" and self.bits == 3) or (kernel in ("exllama", "exllamav2", "marlin") and self.bits != 4):
             raise NotImplementedError(f"Kernel '{kernel}' doesn't support {self.bits}bit precision.")
@@ -88,14 +89,13 @@ class QuantizeConfig(BaseQuantizeConfig):
             raise NotImplementedError(f"Kernel Marlin doesn't support group_size of {self.group_size}, only -1 or 128.")
 
     @classmethod
-    def load_config(cls, path: Path):
+    def load_config(cls, path: Path) -> "QuantizeConfig":
         if not path.is_file():
-            # TODO: update the message
-            raise ValueError("AutoGPTQ config is missing.")
+            raise ValueError(f"Quantize config is not in `{path.parent}`.")
 
         return cls(**json.loads(path.read_text()))
 
-    def save_config(self, path: Path):
+    def save_config(self, path: Path) -> None:
         with open(path, "w") as fp:
             json.dump(asdict(self), fp, indent=4)
 
@@ -107,40 +107,43 @@ class AutoGPTQ(BaseGPTQForCausalLM):
         quantized: bool,
         quantize_config: BaseQuantizeConfig,
         is_triton_backend: bool = False,
-        injected_fused_attention: bool = False,
-        injected_fused_mlp: bool = False,
-        trainable: bool = False,
+        **kwargs: Any,
     ):
-        model.config.model_type = None  # compatibility with AutoGPTQ
+        """A wrapper around Lit-GPT model to perform AutoGPTQ quantization.
 
+        Only layers inside a transformer block can be quantized.
+
+        Args:
+            model: model to quantize.
+            quantized: whether the model is already quantized.
+            quantize_config: config containing parameters for quantization.
+            is_triton_backend: if True - Triton kernel is used for "packing" weights.
+        """
+        model.config.model_type = None  # compatibility with AutoGPTQ
         super().__init__(
             model,
             quantized,
             quantize_config,
             is_triton_backend,
-            injected_fused_attention,
-            injected_fused_mlp,
-            trainable,
+            **kwargs,
         )
-        # TODO: add docstring
-        # NOTE: `is_triton_backend` is used only to tell that's it's possible to train only with triton
-        # NOTE: `injected_...` are used for peft
 
-        # TODO: rephrase it
-        # chained attribute name of transformer layer block
+        # name of a layer with transformer blocks
         self.layers_block_name = "transformer.h"
 
-        # TODO: rephrase it
-        # chained attribute names of other nn modules that in the same level as the transformer layer block
-        # but are called before it
-        # (aren't quantized)
+        # names of the layers that are executed before a transformer blocks
+        # (won't be quantized)
         self.outside_layer_modules = ["transformer.wte"]
 
-        # TODO: rephrase it
-        # chained attribute names of linear layers in a transformer layer module
-        # normally, there are four sub lists, for each one the modules in it can be seen as one operation,
-        # and the order should be the order when they are truly executed, in this case (and usually in most cases),
-        # they are: attention q_k_v projection, attention output projection, MLP project input, MLP project output
+        # Names of linear layers inside of a transformer block that will be quantized.
+        # There are four sub lists, the modules in each of them can be seen as one operation.
+        # The order should be the order they are truly executed.
+        # Usually they are:
+        # - attention QKV projection
+        # - attention output projection
+        # - MLP project input
+        # - MLP project output
+
         self.inside_layer_modules = [
             ["attn.attn"],
             ["attn.proj"],
@@ -185,28 +188,34 @@ class AutoGPTQ(BaseGPTQForCausalLM):
     def convert_to_quantized(
         self,
         kernel: Literal["cuda_old", "cuda", "exllama", "exllamav2", "triton", "marlin"],
-        device=None,
+        device: Optional[Union[str, torch.device]] = None,
     ) -> None:
-        # TODO: add docstring
+        """Replace linear layers with QuantLinear from the selected kernel.
 
-        # Check if the kernel is compatible with the precision used for quantization
+        Only layers inside a transformer block that are specified in `inside_layer_modules` will be replaced.
+
+        Args:
+            kernel: from which kernel use QuantLinear class for replacement.
+            device: if provided the QuantLinear class will be placed there.
+        """
+
+        # Check if the kernel is compatible with the config used for quantization
         self.quantize_config.validate_config(kernel)
 
-        inside_layer_modules = tuple(sum(self.inside_layer_modules, []))
-
-        # if Marlin was cached - convert directly to Marlin
+        # if Marlin is selected and was cached - convert directly to Marlin
         # if it wasn't - first convert to kernel from the config, conversion to Marlin will be done later
+        #   (in `convert_quantized_to_marlin` method)
         if kernel == "marlin":
             kernel = "marlin" if self.quantize_config.marlin_cached else self.quantize_config.kernel
 
         kernel = kernel.replace("-", "_")  # guard for `cuda-old`
         QuantLinear = importlib.import_module(f"auto_gptq.nn_modules.qlinear.qlinear_{kernel}").QuantLinear
 
+        inside_layer_modules = tuple(sum(self.inside_layer_modules, []))
         for name, module in self.model.named_modules():
             if isinstance(module, torch.nn.Linear) and name.endswith(inside_layer_modules):
                 parent_name, _, attribute = name.rpartition(".")
                 parent_module = self.model.get_submodule(parent_name)
-                attribute = name.split(".")[-1]
                 new_layer = QuantLinear(
                     infeatures=module.in_features,
                     outfeatures=module.out_features,
@@ -220,8 +229,20 @@ class AutoGPTQ(BaseGPTQForCausalLM):
                 new_layer.device = device
                 parent_module.__setattr__(attribute, new_layer)
 
-    def convert_quantized_to_marlin(self, quantized_model_dir):
-        # if Marlin is cached, then it has been already loaded
+    def convert_quantized_to_marlin(self, quantized_model_dir: Path) -> None:
+        """Convert model with QuantLinear layers to layers from Marlin kernel.
+
+        Marlin kernel has a different structure of weights, hence we need to convert
+        quantized weights into a supported format.
+
+        Since the process of conversion might take a while, this method saves (caches)
+        converted weights in the same folder with the quantized weights.
+
+        Args:
+            quantized_model_dir: Marlin cache will be put in the same folder with the quantized weights.
+        """
+
+        # if Marlin is cached, then the model has been already converted
         if self.quantize_config.marlin_cached:
             return
 
@@ -246,14 +267,21 @@ class AutoGPTQ(BaseGPTQForCausalLM):
         self.quantize_config.save_config(quantized_model_dir / "quantize_config.json")
 
     def post_init(self, max_input_length: Union[None, int] = None) -> None:
-        # TODO: add docstring
+        """Obligatory initialization of kernel's buffers."""
         autogptq_post_init(self.model, use_act_order=self.quantize_config.desc_act, max_input_length=max_input_length)
 
-    def strip_bias(self):
-        """Run before saving model."""
+    def strip_bias(self) -> None:
+        """Delete `bias` if it's not selected in the model's config.
+
+        AutoGPTQ always creates bias.
+        """
+
         if not self.model.config.bias:
+            QuantLinear = importlib.import_module(
+                f"auto_gptq.nn_modules.qlinear.qlinear_{self.quantize_config.kernel}"
+            ).QuantLinear
             for module in self.model.transformer.modules():
-                if hasattr(module, "QUANT_TYPE"):
+                if isinstance(module, QuantLinear):
                     module.bias = None
 
     # in AutoGPTQ method `to` only expects `device`
@@ -278,8 +306,6 @@ def main(
     batch_size: int = 32,
     use_triton: bool = False,
 ) -> None:
-    # TODO: add a docstring and/or add info into a README file
-
     check_valid_checkpoint_dir(checkpoint_dir)
     checkpoint_path = checkpoint_dir / "lit_model.pth"
     if output_path is None:
@@ -333,16 +359,14 @@ def main(
     quantize_time = int(time.perf_counter() - quantize_time)
     fabric.print(f"Quantization time: {datetime.timedelta(seconds=quantize_time)}")
 
-    # Save the model
-    # TODO: AutoGPTQ creates bias weights even if they are not needed.
+    # AutoGPTQ creates bias weights even if they are not needed.
     # Trim them before saving (per config)
     autogptq.strip_bias()
-    torch.save(autogptq.model.state_dict(), output_path)
+    # Save the model
+    torch.save(model.state_dict(), output_path)
 
     # Save quantize config with the used kernel - will be reused during inference
-    quantize_config.kernel = next(
-        module.QUANT_TYPE for module in autogptq.model.modules() if hasattr(module, "QUANT_TYPE")
-    )
+    quantize_config.kernel = next(module.QUANT_TYPE for module in model.modules() if hasattr(module, "QUANT_TYPE"))
     quantize_config.save_config(output_path.with_name("quantize_config.json"))
 
 

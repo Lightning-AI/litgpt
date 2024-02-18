@@ -1,9 +1,5 @@
 # Copyright Lightning AI. Licensed under the Apache License 2.0, see LICENSE file.
 
-# TODO: remove it
-# flake8: noqa
-import importlib
-import json
 import sys
 import time
 from contextlib import nullcontext
@@ -124,7 +120,6 @@ def main(
     precision: Optional[str] = None,
     compile: bool = False,
 ) -> None:
-    # TODO: update docstring
     """Generates text samples based on a pre-trained model and tokenizer.
 
     Args:
@@ -138,24 +133,25 @@ def main(
         quantize: Whether to quantize the model and using which method:
             - bnb.nf4, bnb.nf4-dq, bnb.fp4, bnb.fp4-dq: 4-bit quantization from bitsandbytes
             - bnb.int8: 8-bit quantization from bitsandbytes
+            - gptq.int[bits]: inference with AutoGPTQ. Select the same `bits` value as was used during quantization.
             for more details, see https://github.com/Lightning-AI/lit-gpt/blob/main/tutorials/quantize.md
+        kernel: Choose a kernel to apply with the quantized weights. If set to None, the same kernel used during
+            quantization will be selected.
         precision: Indicates the Fabric precision setting to use.
         compile: Whether to compile the model.
     """
     precision = precision or get_default_supported_precision(training=False)
 
-    # --------------------- Precision Plugin and Quantization flags ---------------------
-
     plugins = None
-    use_gptq = False
+    gptq_selected = False
     if quantize is not None and quantize.startswith("bnb."):
         if "mixed" in precision:
             raise ValueError("Quantization and mixed precision is not supported.")
         dtype = {"16-true": torch.float16, "bf16-true": torch.bfloat16, "32-true": torch.float32}[precision]
         plugins = BitsandbytesPrecision(quantize[4:], dtype)
         precision = None
-    elif quantize is not None and quantize.startswith("gptq"):
-        use_gptq = True
+    elif quantize is not None and quantize.startswith("gptq."):
+        gptq_selected = True
         bits = quantize[-1]
         if precision != "16-true":
             print(
@@ -165,12 +161,11 @@ def main(
 
     fabric = L.Fabric(devices=1, precision=precision, plugins=plugins)
 
-    # --------------------- Config ---------------------
-
+    # Config
     check_valid_checkpoint_dir(checkpoint_dir)
     config = Config.from_json(checkpoint_dir / "lit_config.json")
 
-    if use_gptq:
+    if gptq_selected:
         from quantize.autogptq import QuantizeConfig
 
         quantized_model_dir = checkpoint_dir / f"quantized/{bits}bit"
@@ -186,18 +181,15 @@ def main(
     else:
         checkpoint_path = checkpoint_dir / "lit_model.pth"
 
-    # --------------------- Tokenizer ---------------------
-
+    # Tokenizer and model
     tokenizer = Tokenizer(checkpoint_dir)
     encoded = tokenizer.encode(prompt, device=fabric.device)
     prompt_length = encoded.size(0)
     max_returned_tokens = prompt_length + max_new_tokens
 
-    # --------------------- Model ---------------------
-
     fabric.print(f"Loading model {str(checkpoint_path)!r} with {config.__dict__}", file=sys.stderr)
     t0 = time.perf_counter()
-    with fabric.init_module(empty_init=True), torch.device("meta") if use_gptq else nullcontext():
+    with fabric.init_module(empty_init=True), torch.device("meta") if gptq_selected else nullcontext():
         model = GPT(config)
 
     with fabric.init_tensor():
@@ -209,17 +201,16 @@ def main(
 
     fabric.print(f"Time to instantiate model: {time.perf_counter() - t0:.02f} seconds.", file=sys.stderr)
 
-    # --------------------- Conversion to AutoGPTQ ---------------------
-
-    if use_gptq:
+    # GPTQ model conversion
+    if gptq_selected:
         from quantize.autogptq import AutoGPTQ
 
         autogptq = AutoGPTQ(model=model, quantized=True, quantize_config=quantize_config)
         autogptq.convert_to_quantized(kernel, device=fabric.device)
 
-    # --------------------- Load State Dict ---------------------
-
-    if use_gptq:
+    # Loading weights
+    t0 = time.perf_counter()
+    if gptq_selected:
         state_dict = torch.load(str(checkpoint_path), mmap=True, map_location=fabric.device)
         model.load_state_dict(state_dict, assign=True)
         model.reset_parameters()
@@ -227,17 +218,14 @@ def main(
     else:
         model = fabric.setup_module(model)
         load_checkpoint(fabric, model, checkpoint_path)
+    fabric.print(f"Time to load the model weights: {time.perf_counter() - t0:.02f} seconds.", file=sys.stderr)
 
-    # --------------------- Convert to Marlin ---------------------
-
-    if use_gptq:
+    # Marlin conversion and post_init
+    if gptq_selected:
         if kernel == "marlin":
             autogptq.convert_quantized_to_marlin(quantized_model_dir)
-
-        # post_init is executed only on a CUDA device
+        # obligatory post init: initializes kernel's buffers
         autogptq.post_init()
-
-    # --------------------- Final preparations ---------------------
 
     if compile:
         torch._dynamo.config.automatic_dynamic_shapes = True
@@ -245,8 +233,6 @@ def main(
         torch._inductor.config.coordinate_descent_tuning = True
         global next_token
         next_token = torch.compile(next_token, mode="reduce-overhead")
-
-    # --------------------- Generation ---------------------
 
     L.seed_everything(1234)
     for i in range(num_samples):
