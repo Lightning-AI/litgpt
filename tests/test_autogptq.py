@@ -205,6 +205,7 @@ def test_layer_conversion(kernel, bits, group_size, mlp_class):
     autogptq_model(x)
 
 
+@RunIf(min_cuda_gpus=1)
 @pytest.mark.parametrize("kernel", ("cuda_old", "cuda", "exllama", "exllamav2", "triton"))
 def test_marlin_conversion(kernel, tmp_path):
     from functools import reduce
