@@ -306,7 +306,7 @@ def main(
     check_valid_checkpoint_dir(checkpoint_dir)
     checkpoint_path = checkpoint_dir / "lit_model.pth"
     if output_path is None:
-        output_path = checkpoint_dir / f"autogptq/{bits}bit/lit_model_gptq.pth"
+        output_path = checkpoint_dir / f"quantized/{bits}bit/lit_model_gptq.pth"
         output_path.parent.mkdir(parents=True, exist_ok=True)
 
     # --- Load and prepare calibration data ---
