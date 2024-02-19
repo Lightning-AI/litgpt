@@ -99,6 +99,20 @@ class QuantizeConfig(BaseQuantizeConfig):
         with open(path, "w") as fp:
             json.dump(asdict(self), fp, indent=4)
 
+    def __str__(self) -> str:
+        return str(
+            {
+                "bits": self.bits,
+                "group_size": self.group_size,
+                "damp_percent": self.damp_percent,
+                "desc_act": self.desc_act,
+                "static_groups": self.static_groups,
+                "sym": self.sym,
+                "true_sequential": self.true_sequential,
+                "kernel": self.kernel,
+            }
+        )
+
 
 class AutoGPTQ(BaseGPTQForCausalLM):
     def __init__(

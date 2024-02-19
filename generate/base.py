@@ -228,7 +228,7 @@ def main(
         autogptq.post_init()
         # the last step is to print quantize config with the selected kernel
         quantize_config.kernel = kernel
-        fabric.print(f"Running GPTQ model with {quantize_config.__dict__}", file=sys.stderr)
+        fabric.print(f"Running GPTQ model with {quantize_config}", file=sys.stderr)
 
     if compile:
         torch._dynamo.config.automatic_dynamic_shapes = True
