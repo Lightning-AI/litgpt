@@ -277,11 +277,8 @@ class AutoGPTQ(BaseGPTQForCausalLM):
         """
 
         if not self.model.config.bias:
-            QuantLinear = importlib.import_module(
-                f"auto_gptq.nn_modules.qlinear.qlinear_{self.quantize_config.kernel}"
-            ).QuantLinear
             for module in self.model.transformer.modules():
-                if isinstance(module, QuantLinear):
+                if hasattr(module, "QUANT_TYPE"):  # all QuantLinear have this attribute
                     module.bias = None
 
     # in AutoGPTQ method `to` only expects `device`
