@@ -199,7 +199,7 @@ def test_layer_conversion(kernel, bits, group_size, mlp_class):
 
     # Run a forward pass, it should not fail
     x = torch.tensor([[9856, 23, 491, 1536, 304], [23, 345, 65, 123, 321]], dtype=torch.int32, device=device)
-    autogptq_model(x)
+    model(x)
 
 
 @RunIf(min_cuda_gpus=1)
@@ -258,6 +258,10 @@ def test_marlin_conversion(kernel, tmp_path):
 
     # Assert that the quantize config now knows that the Marlin was cached
     assert quantize_config.marlin_cached is True
+
+    # Run a forward pass, it should not fail
+    x = torch.tensor([[9856, 23, 491, 1536, 304], [23, 345, 65, 123, 321]], dtype=torch.int32, device=device)
+    model(x)
 
 
 @RunIf(min_cuda_gpus=1)
