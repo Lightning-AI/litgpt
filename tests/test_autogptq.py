@@ -67,7 +67,7 @@ def test_quantization(tmp_path, fake_checkpoint_dir, monkeypatch, bits, group_si
     assert "Quantization time" in stdout.getvalue()
 
     # Assert that the quantized model weights are saved
-    quantized_model_dir = fake_checkpoint_dir / f"autogptq/{bits}bit"
+    quantized_model_dir = fake_checkpoint_dir / f"quantized/{bits}bit"
     files = [p.name for p in quantized_model_dir.glob("*")]
     assert "lit_model_gptq.pth" in files
     # Assert that the quantize config is saved
