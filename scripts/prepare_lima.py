@@ -54,7 +54,7 @@ def prepare(
 
     from datasets import load_dataset
 
-    dataset = load_dataset(data_repo_id, use_auth_token=access_token)
+    dataset = load_dataset(data_repo_id, token=access_token)
     train_data = format_dataset(dataset["train"], include_multiturn_conversations)
 
     # test set is present but doesn't have any solutions, so we cannot use it here
