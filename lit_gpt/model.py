@@ -291,18 +291,12 @@ class LLaMAMLP(nn.Module):
         return self.proj(x)
 
 
-class GemmaMLP(nn.Module):
-    def __init__(self, config: Config) -> None:
-        super().__init__()
-        self.fc_1 = nn.Linear(config.n_embd, config.intermediate_size, bias=config.bias)
-        self.fc_2 = nn.Linear(config.n_embd, config.intermediate_size , bias=config.bias)
-        self.proj = nn.Linear(config.intermediate_size, config.n_embd, bias=config.bias)
-        self.geglu = torch.nn.GELU(approximate="tanh")
-
+class GemmaMLP(LLaMAMLP):
     def forward(self, x: torch.Tensor) -> torch.Tensor:
+        # the intermediate size for fc_{1,2} is halved when compared to LLaMAMLP, thus implementing GeGLU
         x_fc_1 = self.fc_1(x)
         x_fc_2 = self.fc_2(x)
-        x = self.geglu(x_fc_1) * x_fc_2
+        x = torch.nn.functional.gelu(x_fc_1, approximate="tanh") * x_fc_2
         return self.proj(x)
 
 

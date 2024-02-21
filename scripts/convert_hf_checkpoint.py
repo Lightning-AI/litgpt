@@ -167,6 +167,14 @@ def copy_weights_hf_llama(
         else:
             to_name = weight_map[name]
         param = load_param(param, name, dtype)
+        
+        if config._mlp_class == "GemmaMLP":
+            # select only half the FC layers to match the Gemma GeGLU workaround in the original Keras implementation
+            if "mlp.gate_proj" in name or "mlp.up_proj.weight" in name:
+                param = param[:param.size(0) // 2]
+            elif "mlp.down_proj" in name:
+                param = param[:, :param.size(1) // 2]
+
         if saver is not None:
             param = saver.store_early(param)
         state_dict[to_name] = param
