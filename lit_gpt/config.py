@@ -799,7 +799,7 @@ gemma = [
         bias=False,
         _norm_class="RMSNorm",
         _mlp_class="GemmaMLP",
-        intermediate_size=24576 // 2,
+        intermediate_size=24576,
     ),
     # https://huggingface.co/google/gemma-2b/blob/main/config.json
     dict(
@@ -816,7 +816,7 @@ gemma = [
         bias=False,
         _norm_class="RMSNorm",
         _mlp_class="GemmaMLP",
-        intermediate_size=16384 // 2,
+        intermediate_size=16384,
     ),
 ]
 configs.extend(gemma)

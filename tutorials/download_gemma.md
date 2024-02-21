@@ -26,7 +26,7 @@ After access is granted, you can find your HF hub token in <https://huggingface.
 ```bash
 pip install 'huggingface_hub[hf_transfer] @ git+https://github.com/huggingface/huggingface_hub'
 
-python scripts/download.py --repo_id checkpoints/google/gemma-2b --access_token your_hf_token --use_safetensors true
+python scripts/download.py --repo_id google/gemma-2b --access_token your_hf_token --from_safetensors true
 
 python scripts/convert_hf_checkpoint.py --checkpoint_dir checkpoints/google/gemma-2b
 ```

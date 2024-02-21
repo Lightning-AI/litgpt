@@ -189,6 +189,7 @@ def copy_weights_hf_llama(
         del qkv_weights[i]
 
 
+# TODO: probably we can simply reuse Llama weights copy
 def copy_weights_hf_gemma(
     config: Config,
     qkv_weights: Dict[int, List[Optional[NotYetLoadedTensor]]],
@@ -234,13 +235,6 @@ def copy_weights_hf_gemma(
         else:
             to_name = weight_map[name]
         param = load_param(param, name, dtype)
-
-        # halve the mlp linears: they are double the size in the HF implementation compared to Keras
-        halving_name_2_dim = {"mlp.fc_1": 0, "mlp.fc_2": 0, "mlp.proj": 1}
-        for key, dim in halving_name_2_dim.items():
-            if key in to_name:
-                param, _ = torch.chunk(param, 2, dim=dim)
-
         if saver is not None:
             param = saver.store_early(param)
         state_dict[to_name] = param
