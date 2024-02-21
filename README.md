@@ -47,7 +47,7 @@ Supports the following popular model checkpoints:
 | [StableLM](tutorials/download_stablelm.md) by Stability AI                           | 3B, 7B                                   | [Stability AI 2023](https://github.com/Stability-AI/StableLM)                                                                |
 | [StableLM Zephyr](tutorials/download_stablelm.md) by Stability AI                    | 3B                                       | [Stability AI 2023](https://stability.ai/blog/stablecode-llm-generative-ai-coding)                                           |
 | [TinyLlama](tutorials/download_tinyllama.md) by Zhang et al.                         | 1.1B                                     | [Zhang et al. 2023](https://github.com/jzhang38/TinyLlama)                                                                   |
-| [Vicuna](tutorials/download_vicuna.md) by LMSYS                                      | 7B, 13B, 33B                             | [Li et al. 2023](https://lmsys.org/blog/2023-03-30-vicuna/)                                                                  |  
+| [Vicuna](tutorials/download_vicuna.md) by LMSYS                                      | 7B, 13B, 33B                             | [Li et al. 2023](https://lmsys.org/blog/2023-03-30-vicuna/)                                                                  |
 
 This implementation extends on [Lit-LLaMA](https://github.com/lightning-AI/lit-llama) and [nanoGPT](https://github.com/karpathy/nanoGPT), and it's **powered by [Lightning Fabric](https://lightning.ai/docs/fabric/stable/) ⚡**.
 

@@ -794,7 +794,6 @@ gemma = [
         n_embd=3072,
         n_layer=28,
         n_head=16,
-        n_query_groups=16,
         rotary_percentage=1.0,
         parallel_residual=False,
         bias=False,
@@ -821,7 +820,6 @@ gemma = [
     ),
 ]
 configs.extend(gemma)
-
 
 
 ##########################
