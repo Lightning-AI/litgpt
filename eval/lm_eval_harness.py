@@ -181,6 +181,7 @@ def run_eval_harness(
         print(results)
     else:
         print(f"Saving results to {str(save_filepath)!r}")
+        save_filepath.parent.mkdir(parents=True, exist_ok=True)
         data = json.dumps(results)
         with open(save_filepath, "w") as fw:
             fw.write(data)
