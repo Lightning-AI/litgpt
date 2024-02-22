@@ -6,9 +6,11 @@ from unittest.mock import Mock
 
 import pytest
 import torch
-from conftest import RunIf
 from lightning import Fabric
+from lightning.fabric.plugins.precision.bitsandbytes import _BITSANDBYTES_AVAILABLE, BitsandbytesPrecision
 from lightning.fabric.wrappers import _FabricOptimizer
+
+from conftest import RunIf
 
 
 def test_config_identical():
@@ -136,7 +138,7 @@ def test_adapter_compile():
 # platform dependent cuda issue: libbitsandbytes_cpu.so: undefined symbol: cquantize_blockwise_fp16_nf4
 @pytest.mark.xfail(raises=AttributeError, strict=False)
 def test_adapter_bitsandbytes(monkeypatch, tmp_path, fake_checkpoint_dir):
-    from lightning.fabric.plugins.precision.bitsandbytes import _BITSANDBYTES_AVAILABLE, BitsandbytesPrecision
+    from lit_gpt.args import IOArgs
 
     if not _BITSANDBYTES_AVAILABLE:
         pytest.skip("BNB not available")
@@ -163,11 +165,11 @@ def test_adapter_bitsandbytes(monkeypatch, tmp_path, fake_checkpoint_dir):
     stdout = StringIO()
     with redirect_stdout(stdout):
         module.setup(
-            data_dir=tmp_path,
-            checkpoint_dir=fake_checkpoint_dir,
-            out_dir=tmp_path,
             precision="16-true",
             quantize="bnb.nf4-dq",
+            io_args=IOArgs(
+                train_data_dir=tmp_path, val_data_dir=tmp_path, checkpoint_dir=fake_checkpoint_dir, out_dir=tmp_path
+            ),
         )
 
     args, kwargs = train_mock.call_args

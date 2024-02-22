@@ -9,9 +9,11 @@ from unittest.mock import Mock
 
 import pytest
 import torch
-from conftest import RunIf
 from lightning import Fabric
+from lightning.fabric.plugins.precision.bitsandbytes import _BITSANDBYTES_AVAILABLE, BitsandbytesPrecision
 from lightning.fabric.wrappers import _FabricOptimizer
+
+from conftest import RunIf
 
 # support running without installing as a package
 wd = Path(__file__).parent.parent.resolve()
@@ -586,7 +588,7 @@ def test_against_hf_mixtral():
 # platform dependent cuda issue: libbitsandbytes_cpu.so: undefined symbol: cquantize_blockwise_fp16_nf4
 @pytest.mark.xfail(raises=AttributeError, strict=False)
 def test_lora_bitsandbytes(monkeypatch, tmp_path, fake_checkpoint_dir):
-    from lightning.fabric.plugins.precision.bitsandbytes import _BITSANDBYTES_AVAILABLE, BitsandbytesPrecision
+    from lit_gpt.args import IOArgs
 
     if not _BITSANDBYTES_AVAILABLE:
         pytest.skip("BNB not available")
