@@ -4,7 +4,7 @@ import json
 import logging
 import sys
 from pathlib import Path
-from typing import Optional
+from typing import Optional, Tuple
 
 import torch
 from torch.utils.data import random_split
@@ -17,8 +17,6 @@ sys.path.append(str(wd))
 
 from lit_gpt.tokenizer import Tokenizer
 
-COLUMNS = ("instruction", "input", "output")
-
 
 def prepare(
     csv_path: Path,
@@ -29,6 +27,7 @@ def prepare(
     mask_inputs: bool = False,
     ignore_index: int = -1,
     max_seq_length: Optional[int] = None,
+    columns: Tuple[str, ...] = ("instruction", "input", "output"),
 ) -> None:
     """Prepare a CSV dataset for instruction tuning.
 
@@ -45,8 +44,8 @@ def prepare(
     import pandas as pd
 
     df = pd.read_csv(csv_path, dtype=str).fillna("")
-    if not (df.columns.values == COLUMNS).all():
-        raise ValueError(f"CSV columns must be {COLUMNS}, found {df.columns.values}")
+    if not (df.columns.values == columns).all():
+        raise ValueError(f"CSV columns must be {columns}, found {df.columns.values}")
     data = json.loads(df.to_json(orient="records", indent=4))
 
     print("Loading tokenizer...")

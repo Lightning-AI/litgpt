@@ -296,7 +296,7 @@ You can also customize the dataset generation by using these additional paramete
 
 - `ignore_index`: Mask out all the tokens after this index when preparing the dataset.
 
-To use the the settings described above, you can add the respective command line arguments when calling `prepare_csv.py` as shown in the example below:
+To use the settings described above, you can add the respective command line arguments when calling `prepare_csv.py` as shown in the example below:
 
 ```bash
 python scripts/prepare_csv.py --csv_path test_data.csv \
