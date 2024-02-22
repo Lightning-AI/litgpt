@@ -318,6 +318,7 @@ def convert_hf_checkpoint(
         tie_weights = "Gemma" in config.name
         copy_fn = partial(copy_weights_hf_llama, config, qkv_weights, tie_weights=tie_weights)
     elif "phi" in model_name:
+        # holder to reconstitute the split q, k, v
         qkv_weights = {}
         copy_fn = partial(copy_weights_phi, config, qkv_weights)
     else:
