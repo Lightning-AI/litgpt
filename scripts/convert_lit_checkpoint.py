@@ -36,17 +36,21 @@ def copy_weights_falcon(
     }
     # the original model definition is different for each size
     if "7b" in model_name:
-        weight_map.update({
-            "transformer.h.{}.norm_1.bias": "transformer.h.{}.input_layernorm.bias",
-            "transformer.h.{}.norm_1.weight": "transformer.h.{}.input_layernorm.weight",
-        })
+        weight_map.update(
+            {
+                "transformer.h.{}.norm_1.bias": "transformer.h.{}.input_layernorm.bias",
+                "transformer.h.{}.norm_1.weight": "transformer.h.{}.input_layernorm.weight",
+            }
+        )
     elif "40b" in model_name or "180B" in model_name:
-        weight_map.update({
-            "transformer.h.{}.norm_1.bias": "transformer.h.{}.ln_attn.bias",
-            "transformer.h.{}.norm_1.weight": "transformer.h.{}.ln_attn.weight",
-            "transformer.h.{}.norm_2.bias": "transformer.h.{}.ln_mlp.bias",
-            "transformer.h.{}.norm_2.weight": "transformer.h.{}.ln_mlp.weight",
-        })
+        weight_map.update(
+            {
+                "transformer.h.{}.norm_1.bias": "transformer.h.{}.ln_attn.bias",
+                "transformer.h.{}.norm_1.weight": "transformer.h.{}.ln_attn.weight",
+                "transformer.h.{}.norm_2.bias": "transformer.h.{}.ln_mlp.bias",
+                "transformer.h.{}.norm_2.weight": "transformer.h.{}.ln_mlp.weight",
+            }
+        )
     else:
         raise NotImplementedError
 
@@ -116,18 +120,22 @@ def copy_weights_llama(
         "lm_head.weight": "lm_head.weight",
     }
     if config._mlp_class == "LLaMAMoE":
-        weight_map.update({
-            "transformer.h.{}.mlp.gate.weight": "model.layers.{l}.block_sparse_moe.gate.weight",
-            "transformer.h.{}.mlp.experts.{}.fc_1.weight": "model.layers.{l}.block_sparse_moe.experts.{e}.w1.weight",
-            "transformer.h.{}.mlp.experts.{}.fc_2.weight": "model.layers.{l}.block_sparse_moe.experts.{e}.w3.weight",
-            "transformer.h.{}.mlp.experts.{}.proj.weight": "model.layers.{l}.block_sparse_moe.experts.{e}.w2.weight",
-        })
+        weight_map.update(
+            {
+                "transformer.h.{}.mlp.gate.weight": "model.layers.{l}.block_sparse_moe.gate.weight",
+                "transformer.h.{}.mlp.experts.{}.fc_1.weight": "model.layers.{l}.block_sparse_moe.experts.{e}.w1.weight",
+                "transformer.h.{}.mlp.experts.{}.fc_2.weight": "model.layers.{l}.block_sparse_moe.experts.{e}.w3.weight",
+                "transformer.h.{}.mlp.experts.{}.proj.weight": "model.layers.{l}.block_sparse_moe.experts.{e}.w2.weight",
+            }
+        )
     elif config._mlp_class == "LLaMAMLP":
-        weight_map.update({
-            "transformer.h.{}.mlp.fc_1.weight": "model.layers.{l}.mlp.gate_proj.weight",
-            "transformer.h.{}.mlp.fc_2.weight": "model.layers.{l}.mlp.up_proj.weight",
-            "transformer.h.{}.mlp.proj.weight": "model.layers.{l}.mlp.down_proj.weight",
-        })
+        weight_map.update(
+            {
+                "transformer.h.{}.mlp.fc_1.weight": "model.layers.{l}.mlp.gate_proj.weight",
+                "transformer.h.{}.mlp.fc_2.weight": "model.layers.{l}.mlp.up_proj.weight",
+                "transformer.h.{}.mlp.proj.weight": "model.layers.{l}.mlp.down_proj.weight",
+            }
+        )
     else:
         raise NotImplementedError
 
