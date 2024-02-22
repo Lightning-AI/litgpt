@@ -23,6 +23,7 @@ class Config:
     padded_vocab_size: Optional[int] = None
     n_layer: int = 16
     n_head: int = 32
+    head_size: Optional[int] = None
     n_embd: int = 4096
     rotary_percentage: float = 0.25
     parallel_residual: bool = True
@@ -64,8 +65,9 @@ class Config:
         if not self.name:
             self.name = self.hf_config.get("name", self.name)
 
-        assert self.n_embd % self.n_head == 0
-        self.head_size = self.n_embd // self.n_head
+        if self.head_size is None:
+            assert self.n_embd % self.n_head == 0
+            self.head_size = self.n_embd // self.n_head
 
         # vocab size should be a power of 2 to be optimal on hardware. compute the closest value
         if self.padded_vocab_size is None:
@@ -794,6 +796,7 @@ gemma = [
         n_embd=3072,
         n_layer=28,
         n_head=16,
+        head_size=256,
         rotary_percentage=1.0,
         parallel_residual=False,
         bias=False,

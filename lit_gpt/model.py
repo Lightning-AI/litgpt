@@ -177,7 +177,7 @@ class CausalSelfAttention(nn.Module):
         # key, query, value projections for all heads, but in a batch
         self.attn = nn.Linear(config.n_embd, shape, bias=config.bias)
         # output projection
-        self.proj = nn.Linear(config.n_embd, config.n_embd, bias=config.bias)
+        self.proj = nn.Linear(config.head_size * config.n_head, config.n_embd, bias=config.bias)
         # disabled by default
         self.kv_cache: Optional[KVCache] = None
 
@@ -227,7 +227,7 @@ class CausalSelfAttention(nn.Module):
 
         y = self.scaled_dot_product_attention(q, k, v, mask)
 
-        y = y.reshape(B, T, self.config.n_embd)  # re-assemble all head outputs side by side
+        y = y.reshape(B, T, self.config.head_size * self.config.n_head)  # re-assemble all head outputs side by side
 
         # output projection
         return self.proj(y)
