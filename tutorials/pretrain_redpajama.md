@@ -109,8 +109,8 @@ By default, the `pretrain/redpajama.py` script will pretrain the Llama 2 7B mode
 
 You can easily change the size of the model by passing a different string to the model name variable
 
-```python
-model_name = "Llama-2-7b-hf"
+```shell
+--model_name "Llama-2-7b-hf"
 ```
 
 at the top of this script.
@@ -131,7 +131,7 @@ to launch the script across machines:
 - [Barebones cluster](https://lightning.ai/docs/fabric/stable/guide/multi_node/barebones.html)
 - [MPI](https://lightning.ai/docs/fabric/stable/guide/multi_node/other.html)
 
-The [script contains several configurations and hyperparameters](https://github.com/Lightning-AI/lit-gpt/blob/main/pretrain/openwebtext.py#L23-L46) you can tweak.
+The exposes several hyperparameters you can tweak through the command line.
 
 For instance, `micro_batch_size` should be adjusted so the process will use the available
 GPU memory. For more tips to avoid out-of-memory issues, please also see the more detailed
