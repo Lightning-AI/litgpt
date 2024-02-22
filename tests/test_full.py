@@ -12,6 +12,7 @@ import torch
 @mock.patch.dict(os.environ, {"LT_ACCELERATOR": "cpu"})
 def test_full_script(tmp_path, fake_checkpoint_dir, monkeypatch):
     import finetune.full as module
+    from lit_gpt.args import EvalArgs, IOArgs, TrainArgs
 
     data = [
         {"input_ids": torch.tensor([0, 1, 2]), "labels": torch.tensor([1, 2, 3])},
@@ -34,18 +35,12 @@ def test_full_script(tmp_path, fake_checkpoint_dir, monkeypatch):
     stdout = StringIO()
     with redirect_stdout(stdout):
         module.setup(
-            data_dir=tmp_path,
-            checkpoint_dir=fake_checkpoint_dir,
-            out_dir=tmp_path,
+            io_args=IOArgs(
+                train_data_dir=tmp_path, val_data_dir=tmp_path, checkpoint_dir=fake_checkpoint_dir, out_dir=tmp_path
+            ),
             precision="32-true",
-            global_batch_size=1,
-            save_interval=2,
-            eval_interval=2,
-            eval_iters=2,
-            eval_max_new_tokens=1,
-            epochs=1,
-            train_epoch_size=6,
-            micro_batch_size=1,
+            train_args=TrainArgs(global_batch_size=1, save_interval=2, epochs=1, epoch_size=6, micro_batch_size=1),
+            eval_args=EvalArgs(interval=2, max_iters=2, max_new_tokens=1),
         )
 
     assert {p.name for p in tmp_path.glob("*.pth")} == {

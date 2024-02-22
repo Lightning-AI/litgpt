@@ -22,7 +22,7 @@ sys.path.append(str(wd))
 import generate.base as generate_base
 from lit_gpt import GPT, Config, Tokenizer
 from lit_gpt.model import CausalSelfAttention, GptNeoxMLP, LLaMAMLP, LLaMAMoE
-from lit_gpt.utils import check_valid_checkpoint_dir, get_default_supported_precision
+from lit_gpt.utils import CLI, check_valid_checkpoint_dir, get_default_supported_precision
 
 
 def tensor_parallel_linear(fabric: L.Fabric, linear: torch.nn.Linear, style: str) -> None:
@@ -216,8 +216,6 @@ def main(
 
 
 if __name__ == "__main__":
-    from jsonargparse import CLI
-
     torch.set_float32_matmul_precision("high")
 
     bnb_logger = logging.getLogger("lightning.fabric.plugins.precision.bitsandbytes")

@@ -30,33 +30,36 @@ sys.path.append(str(wd))
 
 from lit_gpt.args import EvalArgs, IOArgs, TrainArgs
 from lit_gpt.model import GPT, Block, CausalSelfAttention, Config, LLaMAMLP
-from lit_gpt.utils import CycleIterator, chunked_cross_entropy, num_parameters
+from lit_gpt.utils import CLI, CycleIterator, chunked_cross_entropy, num_parameters
 
 
 def setup(
     model_name: str = "tiny-llama-1.1b",
-    out_dir: Path = Path(os.getenv("LIGHTNING_ARTIFACTS_DIR", "out")) / "lit-tiny-llama-1.1b",
     name: str = "lit-tiny-llama-1.1b",
     logger_name: Literal["wandb", "tensorboard", "csv"] = "tensorboard",
     resume: Union[bool, Path] = False,
-    eval_interval: int = 1000,
-    save_interval: int = 1000,
-    eval_iters: int = 100,
-    log_interval: int = 1,
     devices: int = torch.cuda.device_count() or 1,
-    learning_rate: float = 4e-4,
-    weight_decay: float = 1e-1,
-    beta1: float = 0.9,
-    beta2: float = 0.95,
-    lr_warmup_steps: int = 2000,
-    min_lr: float = 4e-5,
-    global_batch_size: int = 512,
-    micro_batch_size: int = 4,
-    max_norm: float = 1.0,
-    max_tokens: int = int(3e12),  # 3 trillion
+    io_args: IOArgs = IOArgs(
+        out_dir=Path(os.getenv("LIGHTNING_ARTIFACTS_DIR", "out")) / "lit-tiny-llama-1.1b", train_data_dir=None
+    ),
+    train_args: TrainArgs = TrainArgs(
+        save_interval=1000,
+        log_interval=1,
+        global_batch_size=512,
+        micro_batch_size=4,
+        max_tokens=int(3e12),  # 3 trillion
+        learning_rate=1e-1,
+        weight_decay=4e-4,
+        beta1=0.9,
+        beta2=0.95,
+        max_norm=1.0,
+        min_lr=4e-5,
+        lr_warmup_steps=2000,
+    ),
+    eval_args: EvalArgs = EvalArgs(interval=1000, max_iters=100),
 ):
     hparams = locals()
-    logger = choose_logger(out_dir, logger_name, name=name, resume=resume)
+    logger = choose_logger(io_args.out_dir, logger_name, name=name, resume=resume)
 
     strategy = FSDPStrategy(auto_wrap_policy={Block}, state_dict_type="full", sharding_strategy="HYBRID_SHARD")
     fabric = L.Fabric(devices=devices, strategy=strategy, precision="bf16-mixed", loggers=[logger])
@@ -66,27 +69,7 @@ def setup(
     if logger_name in ("tensorboard", "wandb"):
         fabric.logger.log_hyperparams(hparams)
 
-    fabric.launch(
-        main,
-        devices,
-        resume,
-        Config.from_name(name=model_name),
-        IOArgs(out_dir=out_dir, train_data_dir=None),
-        TrainArgs(
-            save_interval=save_interval,
-            log_interval=log_interval,
-            global_batch_size=global_batch_size,
-            micro_batch_size=micro_batch_size,
-            max_tokens=max_tokens,
-            learning_rate=learning_rate,
-            weight_decay=weight_decay,
-            beta1=beta1,
-            beta2=beta2,
-            max_norm=max_norm,
-            min_lr=min_lr,
-        ),
-        EvalArgs(interval=eval_interval, max_iters=eval_iters),
-    )
+    fabric.launch(main, devices, resume, Config.from_name(name=model_name), io_args, train_args, eval_args)
 
 
 def main(
@@ -390,7 +373,5 @@ def validate_args(io_args: IOArgs, train_args: TrainArgs, eval_args: EvalArgs) -
 
 if __name__ == "__main__":
     torch.set_float32_matmul_precision("high")
-
-    from jsonargparse import CLI
 
     CLI(setup)

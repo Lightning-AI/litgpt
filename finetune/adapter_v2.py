@@ -22,6 +22,7 @@ from lit_gpt.adapter_v2 import GPT, Block, Config, adapter_filter, mark_only_ada
 from lit_gpt.args import EvalArgs, IOArgs, TrainArgs
 from lit_gpt.tokenizer import Tokenizer
 from lit_gpt.utils import (
+    CLI,
     check_valid_checkpoint_dir,
     chunked_cross_entropy,
     get_default_supported_precision,
@@ -32,24 +33,27 @@ from scripts.prepare_alpaca import generate_prompt
 
 
 def setup(
-    data_dir: Path = Path("data/alpaca"),
-    checkpoint_dir: Path = Path("checkpoints/stabilityai/stablelm-base-alpha-3b"),
-    out_dir: Path = Path("out/adapter_v2/alpaca"),
     precision: Optional[str] = None,
     quantize: Optional[Literal["bnb.nf4", "bnb.nf4-dq", "bnb.fp4", "bnb.fp4-dq", "bnb.int8-training"]] = None,
-    eval_interval: int = 600,
-    eval_max_new_tokens: int = 100,
-    save_interval: int = 1000,
-    eval_iters: int = 100,
-    log_interval: int = 1,
     devices: int = 1,
-    learning_rate: float = 1e-3,
-    global_batch_size: int = 128,
-    micro_batch_size: int = 2,  # set to 2 because this is fit into 12GB Vram
-    max_seq_length: Optional[int] = None,  # set value to truncate
-    lr_warmup_steps: int = 100,
-    epochs: int = 5,
-    train_epoch_size: int = 50000,
+    io_args: IOArgs = IOArgs(
+        train_data_dir=Path("data/alpaca"),
+        val_data_dir=Path("data/alpaca"),
+        checkpoint_dir=Path("checkpoints/stabilityai/stablelm-base-alpha-3b"),
+        out_dir=Path("out/adapter_v2/alpaca"),
+    ),
+    train_args: TrainArgs = TrainArgs(
+        save_interval=1000,
+        log_interval=1,
+        global_batch_size=128,
+        micro_batch_size=2,
+        lr_warmup_steps=100,
+        epochs=5,
+        epoch_size=50000,
+        learning_rate=1e-3,
+        max_seq_length=None,
+    ),
+    eval_args: EvalArgs = EvalArgs(interval=600, max_new_tokens=100, max_iters=100),
 ) -> None:
     print(locals())
     precision = precision or get_default_supported_precision(training=True)
@@ -78,27 +82,9 @@ def setup(
     else:
         strategy = "auto"
 
-    logger = CSVLogger(out_dir.parent, out_dir.name, flush_logs_every_n_steps=log_interval)
+    logger = CSVLogger(io_args.out_dir.parent, io_args.out_dir.name, flush_logs_every_n_steps=train_args.log_interval)
     fabric = L.Fabric(devices=devices, strategy=strategy, precision=precision, loggers=logger, plugins=plugins)
-
-    fabric.launch(
-        main,
-        devices,
-        Config.from_name(name=checkpoint_dir.name),
-        IOArgs(train_data_dir=data_dir, val_data_dir=data_dir, checkpoint_dir=checkpoint_dir, out_dir=out_dir),
-        TrainArgs(
-            save_interval=save_interval,
-            log_interval=log_interval,
-            global_batch_size=global_batch_size,
-            micro_batch_size=micro_batch_size,
-            lr_warmup_steps=lr_warmup_steps,
-            epochs=epochs,
-            epoch_size=train_epoch_size,
-            learning_rate=learning_rate,
-            max_seq_length=max_seq_length,
-        ),
-        EvalArgs(interval=eval_interval, max_new_tokens=eval_max_new_tokens, max_iters=eval_iters),
-    )
+    fabric.launch(main, devices, Config.from_name(name=io_args.checkpoint_dir.name), io_args, train_args, eval_args)
 
 
 def main(
@@ -358,7 +344,5 @@ def validate_args(io_args: IOArgs, train_args: TrainArgs, eval_args: EvalArgs) -
 
 if __name__ == "__main__":
     torch.set_float32_matmul_precision("high")
-
-    from jsonargparse import CLI
 
     CLI(setup)

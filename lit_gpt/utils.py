@@ -368,3 +368,12 @@ class CycleIterator:
 
     def __iter__(self) -> Self:
         return self
+
+
+def CLI(*args: Any, **kwargs: Any) -> Any:
+    from jsonargparse import CLI, set_docstring_parse_options
+
+    set_docstring_parse_options(attribute_docstrings=True)
+
+    kwargs.setdefault("as_positional", False)
+    return CLI(*args, **kwargs)

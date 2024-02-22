@@ -21,7 +21,7 @@ from lit_gpt import Config
 from lit_gpt.args import EvalArgs, IOArgs, TrainArgs
 from lit_gpt.model import GPT, Block
 from lit_gpt.packed_dataset import CombinedDataset, PackedDataset
-from lit_gpt.utils import chunked_cross_entropy, estimate_flops, get_default_supported_precision, num_parameters
+from lit_gpt.utils import CLI, chunked_cross_entropy, estimate_flops, get_default_supported_precision, num_parameters
 
 # Data proportions from https://arxiv.org/pdf/2302.13971.pdf Table 1
 data_config = [
@@ -37,27 +37,29 @@ data_config = [
 
 def setup(
     model_name: str = "Llama-2-7b-hf",
-    train_data_dir: Path = Path("data/redpajama_sample"),
     val_data_dir: Optional[Path] = None,
-    out_dir: Path = Path("out/redpajama"),
     precision: Optional[str] = None,
     resume: Union[bool, Path] = False,
-    eval_interval: int = 1000,
-    save_interval: int = 1000,
-    eval_iters: int = 100,
-    log_interval: int = 1,
     devices: int = 4,
-    learning_rate: float = 6e-4,
-    weight_decay: float = 1e-1,
-    beta1: float = 0.9,
-    beta2: float = 0.95,
-    lr_warmup_steps: int = 100,
-    min_lr: float = 6e-5,
-    global_batch_size: int = 125,
-    micro_batch_size: int = 6,
-    max_norm: float = 1.0,
-    epochs: int = 1,
-    train_epoch_size: int = 600000,
+    io_args: IOArgs = IOArgs(
+        train_data_dir=Path("data/redpajama_sample"), val_data_dir=None, out_dir=Path("out/redpajama")
+    ),
+    train_args: TrainArgs = TrainArgs(
+        save_interval=1000,
+        log_interval=1,
+        global_batch_size=125,
+        micro_batch_size=6,
+        lr_warmup_steps=100,
+        epochs=1,
+        epoch_size=600000,
+        learning_rate=6e-4,
+        weight_decay=1e-1,
+        beta1=0.9,
+        beta2=0.95,
+        max_norm=1.0,
+        min_lr=6e-5,
+    ),
+    eval_args: EvalArgs = EvalArgs(interval=1000, max_iters=100),
 ) -> None:
     print(locals())
     precision = precision or get_default_supported_precision(training=True)
@@ -73,32 +75,10 @@ def setup(
     else:
         strategy = "auto"
 
-    logger = CSVLogger(out_dir.parent, out_dir.name, flush_logs_every_n_steps=log_interval)
+    logger = CSVLogger(io_args.out_dir.parent, io_args.out_dir.name, flush_logs_every_n_steps=train_args.log_interval)
     fabric = L.Fabric(devices=devices, strategy=strategy, precision=precision, loggers=logger)
 
-    fabric.launch(
-        main,
-        devices,
-        resume,
-        Config.from_name(name=model_name),
-        IOArgs(train_data_dir=train_data_dir, val_data_dir=val_data_dir, out_dir=out_dir),
-        TrainArgs(
-            save_interval=save_interval,
-            log_interval=log_interval,
-            global_batch_size=global_batch_size,
-            micro_batch_size=micro_batch_size,
-            lr_warmup_steps=lr_warmup_steps,
-            epochs=epochs,
-            epoch_size=train_epoch_size,
-            learning_rate=learning_rate,
-            weight_decay=weight_decay,
-            beta1=beta1,
-            beta2=beta2,
-            max_norm=max_norm,
-            min_lr=min_lr,
-        ),
-        EvalArgs(interval=eval_interval, max_iters=eval_iters),
-    )
+    fabric.launch(main, devices, resume, Config.from_name(name=model_name), io_args, train_args, eval_args)
 
 
 def main(
@@ -377,7 +357,5 @@ def validate_args(io_args: IOArgs, train_args: TrainArgs, eval_args: EvalArgs) -
 
 if __name__ == "__main__":
     torch.set_float32_matmul_precision("high")
-
-    from jsonargparse import CLI
 
     CLI(setup)

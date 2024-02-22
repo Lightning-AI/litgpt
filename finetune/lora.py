@@ -22,6 +22,7 @@ from lit_gpt.args import EvalArgs, IOArgs, TrainArgs
 from lit_gpt.lora import GPT, Block, Config, lora_filter, mark_only_lora_as_trainable
 from lit_gpt.tokenizer import Tokenizer
 from lit_gpt.utils import (
+    CLI,
     check_valid_checkpoint_dir,
     chunked_cross_entropy,
     get_default_supported_precision,
@@ -32,24 +33,9 @@ from scripts.prepare_alpaca import generate_prompt
 
 
 def setup(
-    data_dir: Path = Path("data/alpaca"),
-    checkpoint_dir: Path = Path("checkpoints/stabilityai/stablelm-base-alpha-3b"),
-    out_dir: Path = Path("out/lora/alpaca"),
     precision: Optional[str] = None,
     quantize: Optional[Literal["bnb.nf4", "bnb.nf4-dq", "bnb.fp4", "bnb.fp4-dq", "bnb.int8-training"]] = None,
-    eval_interval: int = 100,
-    eval_max_new_tokens: int = 100,
-    save_interval: int = 100,
-    eval_iters: int = 100,
-    log_interval: int = 1,
     devices: int = 1,
-    learning_rate: float = 3e-4,
-    global_batch_size: int = 128,
-    micro_batch_size: int = 4,
-    max_seq_length: Optional[int] = None,  # set value to truncate
-    lr_warmup_steps: int = 100,
-    epochs: int = 5,
-    train_epoch_size: int = 50000,
     lora_r: int = 8,
     lora_alpha: int = 16,
     lora_dropout: float = 0.05,
@@ -59,6 +45,24 @@ def setup(
     lora_projection: bool = False,
     lora_mlp: bool = False,
     lora_head: bool = False,
+    io_args: IOArgs = IOArgs(
+        train_data_dir=Path("data/alpaca"),
+        val_data_dir=Path("data/alpaca"),
+        checkpoint_dir=Path("checkpoints/stabilityai/stablelm-base-alpha-3b"),
+        out_dir=Path("out/lora/alpaca"),
+    ),
+    train_args: TrainArgs = TrainArgs(
+        save_interval=1000,
+        log_interval=1,
+        global_batch_size=128,
+        micro_batch_size=4,
+        lr_warmup_steps=100,
+        epochs=5,
+        epoch_size=50000,
+        learning_rate=3e-4,
+        max_seq_length=None,
+    ),
+    eval_args: EvalArgs = EvalArgs(interval=100, max_new_tokens=100, max_iters=100),
 ) -> None:
     print(locals())
     precision = precision or get_default_supported_precision(training=True)
@@ -87,7 +91,7 @@ def setup(
     else:
         strategy = "auto"
 
-    logger = CSVLogger(out_dir.parent, out_dir.name, flush_logs_every_n_steps=log_interval)
+    logger = CSVLogger(io_args.out_dir.parent, io_args.out_dir.name, flush_logs_every_n_steps=train_args.log_interval)
     fabric = L.Fabric(devices=devices, strategy=strategy, precision=precision, loggers=logger, plugins=plugins)
 
     if not any((lora_query, lora_key, lora_value, lora_projection, lora_mlp, lora_head)):
@@ -96,7 +100,7 @@ def setup(
         main,
         devices,
         Config.from_name(
-            name=checkpoint_dir.name,
+            name=io_args.checkpoint_dir.name,
             r=lora_r,
             alpha=lora_alpha,
             dropout=lora_dropout,
@@ -107,19 +111,9 @@ def setup(
             to_mlp=lora_mlp,
             to_head=lora_head,
         ),
-        IOArgs(train_data_dir=data_dir, val_data_dir=data_dir, checkpoint_dir=checkpoint_dir, out_dir=out_dir),
-        TrainArgs(
-            save_interval=save_interval,
-            log_interval=log_interval,
-            global_batch_size=global_batch_size,
-            micro_batch_size=micro_batch_size,
-            lr_warmup_steps=lr_warmup_steps,
-            epochs=epochs,
-            epoch_size=train_epoch_size,
-            learning_rate=learning_rate,
-            max_seq_length=max_seq_length,
-        ),
-        EvalArgs(interval=eval_interval, max_new_tokens=eval_max_new_tokens, max_iters=eval_iters),
+        io_args,
+        train_args,
+        eval_args,
     )
 
 
@@ -380,7 +374,5 @@ def validate_args(io_args: IOArgs, train_args: TrainArgs, eval_args: EvalArgs) -
 
 if __name__ == "__main__":
     torch.set_float32_matmul_precision("high")
-
-    from jsonargparse import CLI
 
     CLI(setup)

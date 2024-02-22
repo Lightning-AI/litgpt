@@ -14,7 +14,7 @@ wd = Path(__file__).parent.parent.resolve()
 sys.path.append(str(wd))
 
 from lit_gpt import Config
-from lit_gpt.utils import incremental_save, lazy_load
+from lit_gpt.utils import CLI, incremental_save, lazy_load
 from scripts.convert_hf_checkpoint import layer_template, load_param
 
 
@@ -265,6 +265,4 @@ def convert_lit_checkpoint(checkpoint_path: Path, output_path: Path, config_path
 
 
 if __name__ == "__main__":
-    from jsonargparse import CLI
-
-    CLI(convert_lit_checkpoint, as_positional=False)
+    CLI(convert_lit_checkpoint)

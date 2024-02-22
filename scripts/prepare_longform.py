@@ -10,13 +10,13 @@ from typing import Optional
 import torch
 from tqdm import tqdm
 
-from scripts.prepare_alpaca import download_if_missing
-
 # support running without installing as a package
 wd = Path(__file__).parent.parent.resolve()
 sys.path.append(str(wd))
 
 from lit_gpt.tokenizer import Tokenizer
+from lit_gpt.utils import CLI
+from scripts.prepare_alpaca import download_if_missing
 
 
 def prepare(
@@ -133,6 +133,4 @@ def generate_prompt(example: dict) -> str:
 
 
 if __name__ == "__main__":
-    from jsonargparse import CLI
-
     CLI(prepare)
