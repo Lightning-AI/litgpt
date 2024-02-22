@@ -87,8 +87,8 @@ class GPT(nn.Module):
             mask = None
 
         x = self.transformer.wte(idx)  # token embeddings of shape (b, t, n_embd)
-        # NOTE: this is a secret sauce (Gemma)
-        x = x * (self.config.n_embd**0.5)
+        if self.config.scale_wte_output:
+            x = x * (self.config.n_embd**0.5)
 
         for block in self.transformer.h:
             x = block(x, cos, sin, mask, input_pos)
@@ -295,11 +295,8 @@ class LLaMAMLP(nn.Module):
 
 class GemmaMLP(LLaMAMLP):
     def forward(self, x: torch.Tensor) -> torch.Tensor:
-        # the intermediate size for fc_{1,2} is halved when compared to LLaMAMLP, thus implementing GeGLU
         x_fc_1 = self.fc_1(x)
         x_fc_2 = self.fc_2(x)
-        # x = torch.nn.functional.gelu(x_fc_1, approximate="tanh") * x_fc_2
-        # NOTE: in HF they don't use approximation
         x = torch.nn.functional.gelu(x_fc_1) * x_fc_2
         return self.proj(x)
 

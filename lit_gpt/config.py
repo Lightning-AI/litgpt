@@ -17,6 +17,7 @@ from lit_gpt.utils import find_multiple
 class Config:
     name: str = ""
     hf_config: dict = field(default_factory=dict)
+    scale_wte_output: bool = False
     block_size: int = 4096
     vocab_size: int = 50254
     padding_multiple: int = 512
@@ -54,7 +55,7 @@ class Config:
     _norm_class: Literal["LayerNorm", "RMSNorm"] = "LayerNorm"
     rmsnorm_add_unit_offset: bool = False
     norm_eps: float = 1e-5
-    _mlp_class: Literal["GptNeoxMLP", "LLaMAMLP"] = "GptNeoxMLP"
+    _mlp_class: Literal["GptNeoxMLP", "LLaMAMLP", "GemmaMLP", "LLaMAMoE"] = "GptNeoxMLP"
     gelu_approximate: str = "none"
     intermediate_size: Optional[int] = None
     rope_condense_ratio: int = 1
@@ -794,6 +795,7 @@ gemma = [
     dict(
         name="Gemma-2b",
         hf_config=dict(org="google", name="gemma-2b"),
+        scale_wte_output=True,
         vocab_size=256000,
         padding_multiple=64,
         n_embd=2048,
@@ -812,6 +814,7 @@ gemma = [
     dict(
         name="Gemma-7b",
         hf_config=dict(org="google", name="gemma-7b"),
+        scale_wte_output=True,
         vocab_size=256000,
         padding_multiple=64,
         n_embd=3072,
