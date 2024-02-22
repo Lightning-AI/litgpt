@@ -599,7 +599,7 @@ class CausalSelfAttention(BaseCausalSelfAttention):
         )
         # output projection
         self.proj = LoRALinear(
-            config.n_embd,
+            config.head_size * config.n_head,
             config.n_embd,
             bias=config.bias,
             r=(config.r if config.to_projection else 0),
