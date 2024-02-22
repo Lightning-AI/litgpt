@@ -10,17 +10,13 @@ class RMSNorm(torch.nn.Module):
     https://github.com/bzhangGo/rmsnorm/blob/master/LICENSE.
     """
 
-    # TODO: make `add_unit_offset` be dependent by a config
-    # def __init__(self, size: int, dim: int = -1, eps: float = 1e-5, add_unit_offset: bool = True) -> None:
-    def __init__(self, size: int, dim: int = -1, eps: float = 1e-6, add_unit_offset: bool = True) -> None:
+    def __init__(self, size: int, dim: int = -1, eps: float = 1e-6, add_unit_offset: bool = False) -> None:
         super().__init__()
         self.weight = torch.nn.Parameter(torch.ones(size))
         self.eps = eps
         self.dim = dim
         self.add_unit_offset = add_unit_offset
 
-    # NOTE: output now closer to the official gemma implementation
-    # https://github.com/google/gemma_pytorch/blob/ca890c7abaa41ce7ab0eeda9aa8a52c0796b3a16/gemma/model.py#L170-L179
     def forward(self, x: torch.Tensor) -> torch.Tensor:
         dtype = x.dtype
         x = x.float()

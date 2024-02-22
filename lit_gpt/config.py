@@ -52,6 +52,7 @@ class Config:
     n_query_groups: Optional[int] = None
     shared_attention_norm: bool = False
     _norm_class: Literal["LayerNorm", "RMSNorm"] = "LayerNorm"
+    rmsnorm_add_unit_offset: bool = False
     norm_eps: float = 1e-5
     _mlp_class: Literal["GptNeoxMLP", "LLaMAMLP"] = "GptNeoxMLP"
     gelu_approximate: str = "none"
@@ -140,9 +141,11 @@ class Config:
     def norm_class(self) -> Type:
         # `self._norm_class` cannot be the type to keep the config json serializable
         if self._norm_class == "RMSNorm":
+            from functools import partial
+
             from lit_gpt.rmsnorm import RMSNorm
 
-            return RMSNorm
+            return partial(RMSNorm, add_unit_offset=self.rmsnorm_add_unit_offset)
         return getattr(torch.nn, self._norm_class)
 
 
@@ -801,6 +804,7 @@ gemma = [
         parallel_residual=False,
         bias=False,
         _norm_class="RMSNorm",
+        rmsnorm_add_unit_offset=True,
         _mlp_class="GemmaMLP",
         intermediate_size=16384,
     ),
@@ -818,6 +822,7 @@ gemma = [
         parallel_residual=False,
         bias=False,
         _norm_class="RMSNorm",
+        rmsnorm_add_unit_offset=True,
         _mlp_class="GemmaMLP",
         intermediate_size=24576,
     ),
