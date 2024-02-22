@@ -14,9 +14,13 @@ python scripts/download.py | grep gemma
 which will print
 
 ```text
-google/gemma-2b
 google/gemma-7b
+google/gemma-2b
+google/gemma-7b-it
+google/gemma-2b-it
 ```
+
+In the list above, `gemma-2b` and `gemma-7b` are the pretrained models, and `gemma-2b-it` and `gemma-7b-it` are the instruction-finetuned models.
 
 In order to use a specific checkpoint, for instance [gemma-2b](https://huggingface.co/google/gemma-2b), download the weights and convert the checkpoint to the lit-gpt format.
 

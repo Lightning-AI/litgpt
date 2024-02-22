@@ -821,6 +821,40 @@ gemma = [
         _mlp_class="GemmaMLP",
         intermediate_size=16384,
     ),
+    # https://huggingface.co/google/gemma-7b-it/blob/main/config.json
+    dict(
+        name="Gemma-7b-it-hf",
+        hf_config=dict(org="google", name="gemma-7b-it"),
+        vocab_size=256000,
+        padding_multiple=64,
+        n_embd=3072,
+        n_layer=28,
+        n_head=16,
+        head_size=256,
+        rotary_percentage=1.0,
+        parallel_residual=False,
+        bias=False,
+        _norm_class="RMSNorm",
+        _mlp_class="GemmaMLP",
+        intermediate_size=24576,
+    ),
+    # https://huggingface.co/google/gemma-2b-it/blob/main/config.json
+    dict(
+        name="Gemma-2b-it-hf",
+        hf_config=dict(org="google", name="gemma-2b-it"),
+        vocab_size=256000,
+        padding_multiple=64,
+        n_embd=2048,
+        n_layer=18,
+        n_head=8,
+        n_query_groups=1,
+        rotary_percentage=1.0,
+        parallel_residual=False,
+        bias=False,
+        _norm_class="RMSNorm",
+        _mlp_class="GemmaMLP",
+        intermediate_size=16384,
+    ),
 ]
 configs.extend(gemma)
 
