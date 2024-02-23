@@ -285,10 +285,11 @@ def test_against_hf_phi_1_5(device, dtype):
         if not file_path.is_file():
             urlretrieve(url=url, filename=file_path)
 
+    from reference_models.configuration_phi import PhiConfig
+    from reference_models.original_phi_1_5 import PhiForCausalLM
+
     from lit_gpt import GPT, Config
     from scripts.convert_hf_checkpoint import copy_weights_phi
-    from tests.reference_models.configuration_phi import PhiConfig
-    from tests.reference_models.original_phi_1_5 import PhiForCausalLM
 
     torch.set_default_dtype(dtype)
 
@@ -346,10 +347,11 @@ def test_against_hf_phi_2(device, dtype):
         if not file_path.is_file():
             urlretrieve(url=url, filename=file_path)
 
+    from reference_models.configuration_phi import PhiConfig
+    from reference_models.original_phi_2 import PhiForCausalLM
+
     from lit_gpt import GPT, Config
     from scripts.convert_hf_checkpoint import copy_weights_phi
-    from tests.reference_models.configuration_phi import PhiConfig
-    from tests.reference_models.original_phi_2 import PhiForCausalLM
 
     torch.set_default_dtype(dtype)
 
