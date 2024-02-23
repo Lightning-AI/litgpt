@@ -17,7 +17,7 @@ from lit_gpt.utils import find_multiple
 class Config:
     name: str = ""
     hf_config: dict = field(default_factory=dict)
-    scale_wte_output: bool = False
+    scale_embeddings: bool = False
     block_size: int = 4096
     vocab_size: int = 50254
     padding_multiple: int = 512
@@ -795,7 +795,7 @@ gemma = [
     dict(
         name="Gemma-2b",
         hf_config=dict(org="google", name="gemma-2b"),
-        scale_wte_output=True,
+        scale_embeddings=True,
         vocab_size=256000,
         padding_multiple=64,
         n_embd=2048,
@@ -814,7 +814,7 @@ gemma = [
     dict(
         name="Gemma-7b",
         hf_config=dict(org="google", name="gemma-7b"),
-        scale_wte_output=True,
+        scale_embeddings=True,
         vocab_size=256000,
         padding_multiple=64,
         n_embd=3072,

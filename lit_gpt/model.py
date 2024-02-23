@@ -87,7 +87,7 @@ class GPT(nn.Module):
             mask = None
 
         x = self.transformer.wte(idx)  # token embeddings of shape (b, t, n_embd)
-        if self.config.scale_wte_output:
+        if self.config.scale_embeddings:
             x = x * (self.config.n_embd**0.5)
 
         for block in self.transformer.h:
