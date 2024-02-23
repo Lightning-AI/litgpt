@@ -1,5 +1,6 @@
 # Copyright Lightning AI. Licensed under the Apache License 2.0, see LICENSE file.
 import tempfile
+from functools import partial
 
 from torch import Tensor
 
@@ -25,7 +26,7 @@ class AlpacaDataset(Dataset):
         self,
         data: List[Dict[str, str]],
         tokenizer: Tokenizer,
-        max_seq_length: Optional[int] = None,
+        max_seq_length: int = -1,
         mask_prompt: bool = True,
         ignore_index: int = -1,
     ) -> None:
@@ -82,7 +83,7 @@ class Alpaca(LightningDataModule):
     def __init__(
         self,
         tokenizer_or_path: Union[str, Path, Tokenizer],
-        max_seq_length: Optional[int] = None,
+        max_seq_length: int = -1,
         mask_prompt: bool = True,
         test_split_fraction: float = 0.03865,  # to get exactly 2000 test samples,
         ignore_index: int = -1,
@@ -122,7 +123,7 @@ class Alpaca(LightningDataModule):
     def prepare_data(self) -> None:
         download_if_missing(self.data_file_path, self.data_file_url)
 
-    def setup(self, stage: str) -> None:
+    def setup(self, stage: str = None) -> None:
         with open(self.data_file_path, "r", encoding="utf-8") as file:
             data = json.load(file)
 
@@ -155,7 +156,7 @@ class Alpaca(LightningDataModule):
             batch_size=self.batch_size,
             shuffle=True,
             num_workers=self.num_workers,
-            collate_fn=get_collate_fn(max_seq_length=self.max_seq_length, ignore_index=self.ignore_index)
+            collate_fn=partial(collate_fn, max_seq_length=self.max_seq_length, ignore_index=self.ignore_index)
         )
 
     def val_dataloader(self) -> DataLoader:
@@ -164,7 +165,7 @@ class Alpaca(LightningDataModule):
             batch_size=self.batch_size,
             shuffle=False,
             num_workers=self.num_workers,
-            collate_fn=get_collate_fn(max_seq_length=self.max_seq_length, ignore_index=self.ignore_index)
+            collate_fn=partial(collate_fn, max_seq_length=self.max_seq_length, ignore_index=self.ignore_index)
         )
 
     def test_dataloader(self) -> DataLoader:
@@ -201,24 +202,30 @@ def generate_prompt(example: dict) -> str:
     )
 
 
-def get_collate_fn(max_seq_length: int = -1, pad_id: int = 0, ignore_index: int = -1) -> callable:
+def collate_fn(samples: List[Dict[str, Tensor]], max_seq_length: int = -1, pad_id: int = 0, ignore_index: int = -1) -> Dict[str, Tensor]:
+    longest = max(len(sample["input_ids"]) for sample in samples)
+    max_length = max_seq_length if max_seq_length > 0 else longest
 
-    def collate_fn(samples: List[Dict[str, Tensor]]) -> Dict[str, Tensor]:
-        longest = max(len(sample["input_ids"]) for sample in samples)
-        max_length = max_seq_length if max_seq_length > 0 else longest
-
-        batched = {}
-        for key in ("input_ids", "labels"):
-            pad_value = pad_id if key == "input_ids" else ignore_index
-            batched[key] = torch.stack([
-                torch.nn.functional.pad(sample[key], (0, longest - len(sample[key])), value=pad_value)
-                for sample in samples
-            ])
-            batched[key] = batched[key][:, :max_length]
-        return batched
-
-    return collate_fn
+    batched = {}
+    for key in ("input_ids", "labels"):
+        pad_value = pad_id if key == "input_ids" else ignore_index
+        batched[key] = torch.stack([
+            torch.nn.functional.pad(sample[key], (0, longest - len(sample[key])), value=pad_value)
+            for sample in samples
+        ])
+        batched[key] = batched[key][:, :max_length]
+    return batched
 
 
 if __name__ == "__main__":
-    pass
+    alpaca = Alpaca(tokenizer_or_path="checkpoints/TinyLlama/TinyLlama-1.1B-Chat-v1.0")
+    alpaca.prepare_data()
+    alpaca.setup()
+
+    train_dataloader = alpaca.train_dataloader()
+    for batch in train_dataloader:
+        print(batch)
+        break
+
+
+
