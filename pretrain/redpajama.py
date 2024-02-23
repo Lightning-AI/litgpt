@@ -41,9 +41,7 @@ def setup(
     precision: Optional[str] = None,
     resume: Union[bool, Path] = False,
     devices: int = 4,
-    io: IOArgs = IOArgs(
-        train_data_dir=Path("data/redpajama_sample"), val_data_dir=None, out_dir=Path("out/redpajama")
-    ),
+    io: IOArgs = IOArgs(train_data_dir=Path("data/redpajama_sample"), val_data_dir=None, out_dir=Path("out/redpajama")),
     train: TrainArgs = TrainArgs(
         save_interval=1000,
         log_interval=1,
@@ -184,11 +182,7 @@ def fit(
 
         # determine and set the learning rate for this iteration
         lr = get_lr(
-            train.learning_rate,
-            state["iter_num"],
-            lr_warmup_iters,
-            train.max_iters(devices),
-            min_lr=train.min_lr,
+            train.learning_rate, state["iter_num"], lr_warmup_iters, train.max_iters(devices), min_lr=train.min_lr
         )
         for param_group in optimizer.param_groups:
             param_group["lr"] = lr

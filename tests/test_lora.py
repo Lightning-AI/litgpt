@@ -9,11 +9,10 @@ from unittest.mock import Mock
 
 import pytest
 import torch
+from conftest import RunIf
 from lightning import Fabric
 from lightning.fabric.plugins.precision.bitsandbytes import _BITSANDBYTES_AVAILABLE, BitsandbytesPrecision
 from lightning.fabric.wrappers import _FabricOptimizer
-
-from conftest import RunIf
 
 # support running without installing as a package
 wd = Path(__file__).parent.parent.resolve()

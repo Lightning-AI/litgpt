@@ -117,9 +117,7 @@ def setup(
     )
 
 
-def main(
-    fabric: L.Fabric, devices: int, config: Config, io: IOArgs, train: TrainArgs, eval: EvalArgs
-) -> None:
+def main(fabric: L.Fabric, devices: int, config: Config, io: IOArgs, train: TrainArgs, eval: EvalArgs) -> None:
     validate_args(io, train, eval)
 
     steps_per_epoch = train.epoch_size // devices // train.batch_size(devices)
@@ -154,10 +152,7 @@ def main(
     else:
         optimizer_cls = torch.optim.AdamW
     optimizer = optimizer_cls(
-        trainable_params,
-        lr=train.learning_rate,
-        weight_decay=train.weight_decay,
-        betas=(train.beta1, train.beta2),
+        trainable_params, lr=train.learning_rate, weight_decay=train.weight_decay, betas=(train.beta1, train.beta2)
     )
     optimizer = fabric.setup_optimizers(optimizer)
     scheduler = get_lr_scheduler(optimizer, warmup_steps=train.lr_warmup_steps, max_steps=lr_max_steps)
@@ -198,9 +193,7 @@ def fit(
         f" {model.max_seq_length} and context length is {model.config.block_size}"
     )
 
-    validate(
-        fabric, model, val_data, tokenizer, dataclasses.replace(eval, max_iters=2), train
-    )  # sanity check
+    validate(fabric, model, val_data, tokenizer, dataclasses.replace(eval, max_iters=2), train)  # sanity check
 
     throughput = ThroughputMonitor(fabric, window_size=50)
     step_count = 0
@@ -211,11 +204,7 @@ def fit(
         iter_t0 = time.perf_counter()
 
         input_ids, targets = get_batch(
-            fabric,
-            train_data,
-            train.micro_batch_size,
-            train.max_seq_length,
-            longest_seq_ix if iter_num == 1 else None,
+            fabric, train_data, train.micro_batch_size, train.max_seq_length, longest_seq_ix if iter_num == 1 else None
         )
 
         is_accumulating = iter_num % train.gradient_accumulation_iters(devices) != 0
@@ -237,10 +226,7 @@ def fit(
             loss_item = loss.item()  # expensive device-to-host synchronization
             t1 = time.perf_counter()
             throughput.update(
-                time=t1 - total_t0,
-                batches=iter_num,
-                samples=iter_num * train.micro_batch_size,
-                lengths=total_lengths,
+                time=t1 - total_t0, batches=iter_num, samples=iter_num * train.micro_batch_size, lengths=total_lengths
             )
             throughput.compute_and_log(step=iter_num)
             fabric.print(
@@ -283,11 +269,7 @@ def validate(
         # do not set `max_seq_length=max_returned_token` because memory is not a concern here
         model.set_kv_cache(batch_size=1)
     output = generate(
-        model,
-        encoded,
-        max_returned_tokens=len(encoded) + eval.max_new_tokens,
-        temperature=0.8,
-        eos_id=tokenizer.eos_id,
+        model, encoded, max_returned_tokens=len(encoded) + eval.max_new_tokens, temperature=0.8, eos_id=tokenizer.eos_id
     )
     model.clear_kv_cache()
     output = tokenizer.decode(output)

@@ -1,10 +1,8 @@
 # Copyright Lightning AI. Licensed under the Apache License 2.0, see LICENSE file.
 
 import os
-import sys
 from contextlib import redirect_stdout
 from io import StringIO
-from pathlib import Path
 from unittest import mock
 from unittest.mock import Mock
 
@@ -13,15 +11,13 @@ from conftest import RunIf
 from torch.utils.data import DataLoader
 
 
-
 @RunIf(min_cuda_gpus=2, standalone=True)
 # Set CUDA_VISIBLE_DEVICES for FSDP hybrid-shard, if fewer GPUs are used than are available
 @mock.patch.dict(os.environ, {"CUDA_VISIBLE_DEVICES": "0,1"})
 def test_pretrain_tiny_llama(tmp_path, monkeypatch):
     import pretrain.tinyllama as module
-    from lit_gpt.config import name_to_config
     from lit_gpt.args import EvalArgs, IOArgs, TrainArgs
-
+    from lit_gpt.config import name_to_config
 
     model_config = dict(block_size=2, n_layer=2, n_embd=8, n_head=4, padded_vocab_size=8)
     monkeypatch.setitem(name_to_config, "tmp", model_config)
@@ -35,9 +31,9 @@ def test_pretrain_tiny_llama(tmp_path, monkeypatch):
         module.setup(
             devices=2,
             model_name="tmp",
-            io_args=IOArgs(out_dir=tmp_path),
-            train_args=TrainArgs(global_batch_size=2, max_tokens=16, save_interval=1, micro_batch_size=1),
-            eval_args=EvalArgs(interval=1, max_iters=1),
+            io=IOArgs(out_dir=tmp_path, train_data_dir=None),
+            train=TrainArgs(global_batch_size=2, max_tokens=16, save_interval=1, micro_batch_size=1),
+            eval=EvalArgs(interval=1, max_iters=1),
         )
 
     if torch.distributed.get_rank() == 0:

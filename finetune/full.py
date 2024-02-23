@@ -71,9 +71,7 @@ def setup(
 
     logger = CSVLogger(io.out_dir.parent, io.out_dir.name, flush_logs_every_n_steps=train.log_interval)
     fabric = L.Fabric(devices=devices, strategy=strategy, precision=precision, loggers=logger)
-    fabric.launch(
-        main, devices, resume, Config.from_name(name=io.checkpoint_dir.name), io, train, eval
-    )
+    fabric.launch(main, devices, resume, Config.from_name(name=io.checkpoint_dir.name), io, train, eval)
 
 
 def main(
@@ -109,10 +107,7 @@ def main(
 
     model = fabric.setup(model)
     optimizer = torch.optim.AdamW(
-        model.parameters(),
-        lr=train.learning_rate,
-        weight_decay=train.weight_decay,
-        betas=(train.beta1, train.beta2),
+        model.parameters(), lr=train.learning_rate, weight_decay=train.weight_decay, betas=(train.beta1, train.beta2)
     )
     optimizer = fabric.setup_optimizers(optimizer)
     scheduler = get_lr_scheduler(optimizer, warmup_steps=train.lr_warmup_steps, max_steps=lr_max_steps)
@@ -160,9 +155,7 @@ def fit(
         f" {model.max_seq_length} and context length is {model.config.block_size}"
     )
 
-    validate(
-        fabric, model, val_data, tokenizer, dataclasses.replace(eval, max_iters=2), train
-    )  # sanity check
+    validate(fabric, model, val_data, tokenizer, dataclasses.replace(eval, max_iters=2), train)  # sanity check
     initial_iter = state["iter_num"]
 
     # resume data loader state by fast-forwarding through all seen batches
@@ -267,11 +260,7 @@ def validate(
         # do not set `max_seq_length=max_returned_token` because memory is not a concern here
         model.set_kv_cache(batch_size=1)
     output = generate(
-        model,
-        encoded,
-        max_returned_tokens=len(encoded) + eval.max_new_tokens,
-        temperature=0.8,
-        eos_id=tokenizer.eos_id,
+        model, encoded, max_returned_tokens=len(encoded) + eval.max_new_tokens, temperature=0.8, eos_id=tokenizer.eos_id
     )
     model.clear_kv_cache()
     output = tokenizer.decode(output)
