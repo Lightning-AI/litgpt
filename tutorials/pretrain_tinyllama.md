@@ -132,7 +132,7 @@ to launch the script across machines:
 
 The exposes several hyperparameters you can tweak through the command line.
 
-For instance, `--train_args.micro_batch_size` should be adjusted so the process will use the available
+For instance, `--train.micro_batch_size` should be adjusted so the process will use the available
 GPU memory. For more tips to avoid out-of-memory issues, please also see the more detailed
 [Dealing with out-of-memory (OOM) errors](oom.md) guide.
 

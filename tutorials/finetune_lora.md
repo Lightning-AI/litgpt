@@ -136,7 +136,7 @@ With only a few modifications, you can prepare and train on your own instruction
 
    ```bash
    python finetune/lora.py  \
-     --io_args.train_data_dir data/mydata --io_args.val_data_dir data/mydata/ \
+     --io.train_data_dir data/mydata --io.val_data_dir data/mydata/ \
      --out_dir out/myexperiment
    ```
 
@@ -153,9 +153,9 @@ Let's assume we finetuned a model using LoRA as follows:
 
 ```bash
 python finetune/lora.py \
-  --io_args.checkpoint_dir "checkpoints/stabilityai/stablelm-base-alpha-3b/" \
-  --io_args.train_data_dir data/mydata --io_args.val_data_dir data/mydata/ \
-  --io_args.out_dir "out/lora_weights/stablelm-base-alpha-3b/"
+  --io.checkpoint_dir "checkpoints/stabilityai/stablelm-base-alpha-3b/" \
+  --io.train_data_dir data/mydata --io.val_data_dir data/mydata/ \
+  --io.out_dir "out/lora_weights/stablelm-base-alpha-3b/"
 ```
 
 Then, we can merge the LoRA weights with the checkpoint model using the `merge_lora.py` script as shown below:

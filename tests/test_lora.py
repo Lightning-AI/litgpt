@@ -205,12 +205,12 @@ def test_lora_script(tmp_path, fake_checkpoint_dir, monkeypatch):
     stdout = StringIO()
     with redirect_stdout(stdout):
         module.setup(
-            io_args=IOArgs(
+            io=IOArgs(
                 train_data_dir=tmp_path, val_data_dir=tmp_path, checkpoint_dir=fake_checkpoint_dir, out_dir=tmp_path
             ),
             precision="32-true",
-            train_args=TrainArgs(global_batch_size=1, save_interval=2, epochs=1, epoch_size=6, micro_batch_size=1),
-            eval_args=EvalArgs(interval=2, max_iters=2, max_new_tokens=1),
+            train=TrainArgs(global_batch_size=1, save_interval=2, epochs=1, epoch_size=6, micro_batch_size=1),
+            eval=EvalArgs(interval=2, max_iters=2, max_new_tokens=1),
         )
 
     assert {p.name for p in tmp_path.glob("*.pth")} == {
@@ -427,7 +427,7 @@ def test_lora_merge_with_bitsandbytes():
     optimizer = PagedAdamW(model.parameters(), lr=1.0)
     model, optimizer = fabric.setup(model, optimizer)
 
-    model.train()
+    model.fit()
 
     attn_proj = model.transformer.h[0].attn.proj
     initial_weight = attn_proj.linear.weight.clone()
@@ -626,7 +626,7 @@ def test_lora_bitsandbytes(monkeypatch, tmp_path, fake_checkpoint_dir):
     stdout = StringIO()
     with redirect_stdout(stdout):
         module.setup(
-            io_args=IOArgs(
+            io=IOArgs(
                 train_data_dir=tmp_path, val_data_dir=tmp_path, checkpoint_dir=fake_checkpoint_dir, out_dir=tmp_path
             ),
             precision="16-true",

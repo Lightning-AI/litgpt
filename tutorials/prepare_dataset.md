@@ -218,15 +218,15 @@ After preparing the dataset, you can finetune the model using the [`finetune/*.p
 
 ```bash
 python finetune/lora.py
- --io_args.checkpoint_dir "checkpoints/tiiuae/falcon-7b" \
- --io_args.train_data_dir "data/alpaca_libre" --io_args.val_data_dir "data/alpaca_libre" \
- --io_args.out_dir "out/lora/alpaca"
+ --io.checkpoint_dir "checkpoints/tiiuae/falcon-7b" \
+ --io.train_data_dir "data/alpaca_libre" --io.val_data_dir "data/alpaca_libre" \
+ --io.out_dir "out/lora/alpaca"
 ```
 
 Please read the [tutorials/finetune_*.md](.) documents for more information about finetuning models.
 
 > [!IMPORTANT]
-> Make sure that the `prepare_*.py` and `finetune/*.py` scripts use the same model checkpoint specified via `--io_args.checkpoint_dir`.
+> Make sure that the `prepare_*.py` and `finetune/*.py` scripts use the same model checkpoint specified via `checkpoint_dir`.
 
 > [!IMPORTANT]
 > By default, the maximum sequence length is obtained from the model configuration file. In case you run into out-of-memory errors, especially in the cases of LIMA and Dolly,

@@ -29,10 +29,10 @@ def setup(
     precision: Optional[str] = None,
     resume: Union[bool, Path] = False,
     devices: int = 1,
-    io_args: IOArgs = IOArgs(
+    io: IOArgs = IOArgs(
         train_data_dir=Path("data/openwebtext"), val_data_dir=None, out_dir=Path("out/openwebtext")
     ),
-    train_args: TrainArgs = TrainArgs(
+    train: TrainArgs = TrainArgs(
         save_interval=1000,
         log_interval=1,
         global_batch_size=125,
@@ -47,7 +47,7 @@ def setup(
         max_norm=1.0,
         min_lr=6e-5,
     ),
-    eval_args: EvalArgs = EvalArgs(interval=1000, max_iters=100),
+    eval: EvalArgs = EvalArgs(interval=1000, max_iters=100),
 ) -> None:
     print(locals())
     precision = precision or get_default_supported_precision(training=True)
@@ -63,10 +63,10 @@ def setup(
     else:
         strategy = "auto"
 
-    logger = CSVLogger(io_args.out_dir.parent, io_args.out_dir.name, flush_logs_every_n_steps=train_args.log_interval)
+    logger = CSVLogger(io.out_dir.parent, io.out_dir.name, flush_logs_every_n_steps=train.log_interval)
     fabric = L.Fabric(devices=devices, strategy=strategy, precision=precision, loggers=logger)
 
-    fabric.launch(main, devices, resume, Config.from_name(name=model_name), io_args, train_args, eval_args)
+    fabric.launch(main, devices, resume, Config.from_name(name=model_name), io, train, eval)
 
 
 def main(
@@ -74,14 +74,14 @@ def main(
     devices: int,
     resume: Union[bool, Path],
     config: Config,
-    io_args: IOArgs,
-    train_args: TrainArgs,
-    eval_args: EvalArgs,
+    io: IOArgs,
+    train: TrainArgs,
+    eval: EvalArgs,
 ) -> None:
-    validate_args(io_args, train_args, eval_args)
+    validate_args(io, train, eval)
 
     if fabric.global_rank == 0:
-        io_args.out_dir.mkdir(parents=True, exist_ok=True)
+        io.out_dir.mkdir(parents=True, exist_ok=True)
 
     fabric.seed_everything(1337, workers=True)  # same seed for every process to init model (FSDP)
 
@@ -97,42 +97,42 @@ def main(
     model = fabric.setup(model)
     optimizer = torch.optim.AdamW(
         model.parameters(),
-        lr=train_args.learning_rate,
-        weight_decay=train_args.weight_decay,
-        betas=(train_args.beta1, train_args.beta2),
+        lr=train.learning_rate,
+        weight_decay=train.weight_decay,
+        betas=(train.beta1, train.beta2),
         foreach=False,
     )
     optimizer = fabric.setup_optimizers(optimizer)
 
-    train_data, val_data = load_datasets(io_args, max_seq_length=model.max_seq_length)
-    train_dataloader = DataLoader(train_data, batch_size=train_args.micro_batch_size, num_workers=2)
-    val_dataloader = DataLoader(val_data, batch_size=train_args.micro_batch_size, num_workers=2)
+    train_data, val_data = load_datasets(io, max_seq_length=model.max_seq_length)
+    train_dataloader = DataLoader(train_data, batch_size=train.micro_batch_size, num_workers=2)
+    val_dataloader = DataLoader(val_data, batch_size=train.micro_batch_size, num_workers=2)
     train_dataloader, val_dataloader = fabric.setup_dataloaders(train_dataloader, val_dataloader)
 
     state = {"model": model, "optimizer": optimizer, "iter_num": 0, "step_count": 0}
 
     if resume is True:
-        resume = max(io_args.out_dir.glob("*.pth"), key=lambda p: int(p.name.split("-")[1]))
+        resume = max(io.out_dir.glob("*.pth"), key=lambda p: int(p.name.split("-")[1]))
     if resume:
         fabric.print(f"Resuming training from {resume}")
         fabric.load(resume, state)
 
     train_time = time.perf_counter()
-    train(fabric, devices, state, train_dataloader, val_dataloader, io_args, train_args, eval_args)
+    fit(fabric, devices, state, train_dataloader, val_dataloader, io, train, eval)
     fabric.print(f"Training time: {(time.perf_counter()-train_time):.2f}s")
     if fabric.device.type == "cuda":
         fabric.print(f"Memory used: {torch.cuda.max_memory_allocated() / 1e9:.02f} GB")
 
 
-def train(
+def fit(
     fabric: L.Fabric,
     devices: int,
     state: dict,
     train_dataloader: DataLoader,
     val_dataloader: DataLoader,
-    io_args: IOArgs,
-    train_args: TrainArgs,
-    eval_args: EvalArgs,
+    io: IOArgs,
+    train: TrainArgs,
+    eval: EvalArgs,
 ) -> None:
     model = state["model"]
     optimizer = state["optimizer"]
@@ -144,9 +144,9 @@ def train(
         # "estimated" is not as precise as "measured". Estimated is optimistic but widely used in the wild.
         # When comparing MFU or FLOP numbers with other projects that use estimated FLOPs,
         # consider passing `flops_per_batch=estimated_flops` instead
-        estimated_flops = estimate_flops(meta_model, training=True) * train_args.micro_batch_size
+        estimated_flops = estimate_flops(meta_model, training=True) * train.micro_batch_size
         fabric.print(f"Estimated TFLOPs: {estimated_flops * fabric.world_size / 1e12:.2f}")
-        x = torch.randint(0, 1, (train_args.micro_batch_size, model.max_seq_length))
+        x = torch.randint(0, 1, (train.micro_batch_size, model.max_seq_length))
         forward_fn = lambda: meta_model(x)
         loss_fn = lambda y: chunked_cross_entropy(y, x, chunk_size=0)
         measured_flops = measure_flops(meta_model, forward_fn, loss_fn)
@@ -158,15 +158,15 @@ def train(
 
     train_iter = iter(train_dataloader)
 
-    lr_warmup_iters = train_args.lr_warmup_steps * train_args.gradient_accumulation_iters(devices)
-    for state["iter_num"] in range(state["iter_num"], train_args.max_iters(devices)):
+    lr_warmup_iters = train.lr_warmup_steps * train.gradient_accumulation_iters(devices)
+    for state["iter_num"] in range(state["iter_num"], train.max_iters(devices)):
         # determine and set the learning rate for this iteration
         lr = get_lr(
-            train_args.learning_rate,
+            train.learning_rate,
             state["iter_num"],
             lr_warmup_iters,
-            train_args.max_iters(devices),
-            min_lr=train_args.min_lr,
+            train.max_iters(devices),
+            min_lr=train.min_lr,
         )
         for param_group in optimizer.param_groups:
             param_group["lr"] = lr
@@ -176,27 +176,27 @@ def train(
 
         input_ids, targets = next(train_iter)
 
-        is_accumulating = iter_num % train_args.gradient_accumulation_iters(devices) != 0
+        is_accumulating = iter_num % train.gradient_accumulation_iters(devices) != 0
         with fabric.no_backward_sync(model, enabled=is_accumulating):
             logits = model(input_ids)
             loss = chunked_cross_entropy(logits, targets, chunk_size=0)
-            fabric.backward(loss / train_args.gradient_accumulation_iters(devices))
+            fabric.backward(loss / train.gradient_accumulation_iters(devices))
 
         if not is_accumulating:
-            fabric.clip_gradients(model, optimizer, max_norm=train_args.max_norm)
+            fabric.clip_gradients(model, optimizer, max_norm=train.max_norm)
             optimizer.step()
             optimizer.zero_grad()
             state["step_count"] += 1
 
-        if iter_num % train_args.log_interval == 0:
+        if iter_num % train.log_interval == 0:
             loss_item = loss.item()  # expensive device-to-host synchronization
             t1 = time.perf_counter()
             throughput.update(
                 time=t1 - total_t0,
                 batches=iter_num,
-                samples=iter_num * train_args.micro_batch_size,
-                lengths=iter_num * train_args.micro_batch_size * model.max_seq_length,
-                flops=measured_flops * train_args.log_interval,
+                samples=iter_num * train.micro_batch_size,
+                lengths=iter_num * train.micro_batch_size * model.max_seq_length,
+                flops=measured_flops * train.log_interval,
             )
             throughput.compute_and_log(step=iter_num)
             fabric.print(
@@ -204,14 +204,14 @@ def train(
                 f" {(t1 - iter_t0) * 1000:.2f}ms{' (optimizer.step)' if not is_accumulating else ''}"
             )
 
-        if not is_accumulating and state["step_count"] % eval_args.interval == 0:
+        if not is_accumulating and state["step_count"] % eval.interval == 0:
             t0 = time.perf_counter()
-            val_loss = validate(fabric, model, val_dataloader, max_iters=eval_args.max_iters)
+            val_loss = validate(fabric, model, val_dataloader, max_iters=eval.max_iters)
             t1 = time.perf_counter() - t0
             fabric.print(f"step {iter_num}: val loss {val_loss.item():.4f}, val time: {t1 * 1000:.2f}ms")
             fabric.barrier()
-        if not is_accumulating and state["step_count"] % train_args.save_interval == 0:
-            checkpoint_path = io_args.out_dir / f"iter-{iter_num:06d}-ckpt.pth"
+        if not is_accumulating and state["step_count"] % train.save_interval == 0:
+            checkpoint_path = io.out_dir / f"iter-{iter_num:06d}-ckpt.pth"
             fabric.print(f"Saving checkpoint to {str(checkpoint_path)!r}")
             fabric.save(checkpoint_path, state)
 
@@ -234,9 +234,9 @@ def validate(fabric: L.Fabric, model: torch.nn.Module, val_dataloader: DataLoade
     return out
 
 
-def load_datasets(io_args: IOArgs, max_seq_length: int) -> Tuple["Dataset", "Dataset"]:
-    train_data = Dataset(io_args.train_data_dir / "train.bin", max_seq_length)
-    val_data = Dataset(io_args.val_data_dir / "val.bin", max_seq_length)
+def load_datasets(io: IOArgs, max_seq_length: int) -> Tuple["Dataset", "Dataset"]:
+    train_data = Dataset(io.train_data_dir / "train.bin", max_seq_length)
+    val_data = Dataset(io.val_data_dir / "val.bin", max_seq_length)
     return train_data, val_data
 
 
@@ -270,13 +270,13 @@ def get_lr(learning_rate: float, it: int, warmup_iters: int, max_iters: int, min
     return min_lr + coeff * (learning_rate - min_lr)
 
 
-def validate_args(io_args: IOArgs, train_args: TrainArgs, eval_args: EvalArgs) -> None:
-    unsupported = [(io_args, ["checkpoint_dir"]), (train_args, ["max_tokens"]), (eval_args, ["max_new_tokens"])]
+def validate_args(io: IOArgs, train: TrainArgs, eval: EvalArgs) -> None:
+    unsupported = [(io, ["checkpoint_dir"]), (train, ["max_tokens"]), (eval, ["max_new_tokens"])]
     for args, names in unsupported:
         for name in names:
             if getattr(args, name) is not None:
                 raise ValueError(f"{__file__} doesn't support the {name!r} argument. This is set in {args}")
-    required = [(io_args, ["train_data_dir", "val_data_dir"]), (train_args, ["epoch_size", "epochs", "max_norm"])]
+    required = [(io, ["train_data_dir", "val_data_dir"]), (train, ["epoch_size", "epochs", "max_norm"])]
     for args, names in required:
         for name in names:
             if getattr(args, name) is None:
