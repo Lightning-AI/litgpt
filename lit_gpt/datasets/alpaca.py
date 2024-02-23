@@ -1,4 +1,6 @@
 # Copyright Lightning AI. Licensed under the Apache License 2.0, see LICENSE file.
+"""Implementation derived from https://github.com/tloen/alpaca-lora"""
+
 import tempfile
 from functools import partial
 
@@ -21,7 +23,8 @@ sys.path.append(str(wd))
 from lit_gpt.tokenizer import Tokenizer
 
 
-class AlpacaDataset(Dataset):
+class SFTDataset(Dataset):
+    """A dataset for supervised finetuning with `input_ids` and `labels`."""
     def __init__(
         self,
         data: List[Dict[str, str]],
@@ -42,19 +45,10 @@ class AlpacaDataset(Dataset):
     def __getitem__(self, idx: int) -> Dict[str, Tensor]:
         """Processes a single sample.
 
-        Each sample in the dataset consists of:
-        - instruction: A string describing the task
-        - input: A string holding a special input value for the instruction.
-            This only applies to some samples, and in others this is empty.
-        - output: The response string
-
-        This function processes this data to produce a prompt text and a label for
-        supervised training. The prompt text is formed as a single message including both
-        the instruction and the input. The label/target is the same message but with the
-        response attached.
-
-        Finally, both the prompt and the label get tokenized. If desired, all tokens
-        in the label that correspond to the original input prompt get masked out (default).
+        Returns a dict with two keys:
+            input_ids: The encoded prompt + response
+            labels: Same as input_ids, unless ``mask_prompt=True`` in which case the 'prompt' part is replaced with
+                the ``ignore_index``.
         """
         example = self.data[idx]
         prompt = generate_prompt(example)
@@ -73,12 +67,10 @@ class AlpacaDataset(Dataset):
 
 
 class Alpaca(LightningDataModule):
-    """Implementation derived from https://github.com/tloen/alpaca-lora"""
-    """Prepare the Alpaca dataset for instruction tuning.
+    """Alpaca data module for supervised finetuning.
 
-        The output is a training and test dataset saved as `train.pt` and `test.pt`,
-        which stores the preprocessed and tokenized prompts and labels.
-        """
+    Provides train- and val-dataloaders. The batches return keys "input_ids" and "labels".
+    """
 
     def __init__(
         self,
@@ -117,8 +109,8 @@ class Alpaca(LightningDataModule):
         self.data_file_path = destination_path / data_file_name
         self.data_file_url = data_file_url
 
-        self.train_dataset: Optional[AlpacaDataset] = None
-        self.test_dataset: Optional[AlpacaDataset] = None
+        self.train_dataset: Optional[SFTDataset] = None
+        self.test_dataset: Optional[SFTDataset] = None
 
     def prepare_data(self) -> None:
         download_if_missing(self.data_file_path, self.data_file_url)
@@ -135,14 +127,14 @@ class Alpaca(LightningDataModule):
         )
         train_data, test_data = list(train_data), list(test_data)
 
-        self.train_dataset = AlpacaDataset(
+        self.train_dataset = SFTDataset(
             data=train_data,
             tokenizer=self.tokenizer,
             max_seq_length=self.max_seq_length,
             mask_prompt=self.mask_prompt,
             ignore_index=self.ignore_index,
         )
-        self.test_dataset = AlpacaDataset(
+        self.test_dataset = SFTDataset(
             data=test_data,
             tokenizer=self.tokenizer,
             max_seq_length=self.max_seq_length,
@@ -156,7 +148,7 @@ class Alpaca(LightningDataModule):
             batch_size=self.batch_size,
             shuffle=True,
             num_workers=self.num_workers,
-            collate_fn=partial(collate_fn, max_seq_length=self.max_seq_length, ignore_index=self.ignore_index)
+            collate_fn=partial(sft_collate_fn, max_seq_length=self.max_seq_length, ignore_index=self.ignore_index)
         )
 
     def val_dataloader(self) -> DataLoader:
@@ -165,7 +157,7 @@ class Alpaca(LightningDataModule):
             batch_size=self.batch_size,
             shuffle=False,
             num_workers=self.num_workers,
-            collate_fn=partial(collate_fn, max_seq_length=self.max_seq_length, ignore_index=self.ignore_index)
+            collate_fn=partial(sft_collate_fn, max_seq_length=self.max_seq_length, ignore_index=self.ignore_index)
         )
 
     def test_dataloader(self) -> DataLoader:
@@ -193,16 +185,16 @@ def generate_prompt(example: dict) -> str:
         return (
             "Below is an instruction that describes a task, paired with an input that provides further context. "
             "Write a response that appropriately completes the request.\n\n"
-            f"### Instruction:\n{example['instruction']}\n\n### Input:\n{example['input']}\n\n### Response:"
+            f"### Instruction:\n{example['instruction']}\n\n### Input:\n{example['input']}\n\n### Response:\n"
         )
     return (
         "Below is an instruction that describes a task. "
         "Write a response that appropriately completes the request.\n\n"
-        f"### Instruction:\n{example['instruction']}\n\n### Response:"
+        f"### Instruction:\n{example['instruction']}\n\n### Response:\n"
     )
 
 
-def collate_fn(samples: List[Dict[str, Tensor]], max_seq_length: int = -1, pad_id: int = 0, ignore_index: int = -1) -> Dict[str, Tensor]:
+def sft_collate_fn(samples: List[Dict[str, Tensor]], max_seq_length: int = -1, pad_id: int = 0, ignore_index: int = -1) -> Dict[str, Tensor]:
     longest = max(len(sample["input_ids"]) for sample in samples)
     max_length = max_seq_length if max_seq_length > 0 else longest
 
@@ -225,7 +217,3 @@ if __name__ == "__main__":
     train_dataloader = alpaca.train_dataloader()
     for batch in train_dataloader:
         print(batch)
-        break
-
-
-
