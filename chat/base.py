@@ -362,11 +362,7 @@ def prompt_config(checkpoint_dir: Path, tokenizer: Tokenizer) -> Tuple[str, Tupl
         return system_prompt, stop_tokens
 
     if re.search(r"gemma.*-it", checkpoint_name):
-        system_prompt = (
-            "<start_of_turn>user\n"
-            "{prompt}<end_of_turn>\n"
-            "<start_of_turn>model\n"
-        )
+        system_prompt = "<start_of_turn>user\n{prompt}<end_of_turn>\n<start_of_turn>model\n"
         stop_tokens = ([tokenizer.eos_id],)
         return system_prompt, stop_tokens
 
