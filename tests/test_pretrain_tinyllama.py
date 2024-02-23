@@ -16,6 +16,7 @@ from torch.utils.data import DataLoader
 @mock.patch.dict(os.environ, {"CUDA_VISIBLE_DEVICES": "0,1"})
 def test_pretrain_tiny_llama(tmp_path, monkeypatch):
     import pretrain.tinyllama as module
+    from lit_gpt.args import EvalArgs, IOArgs, TrainArgs
     from lit_gpt.config import name_to_config
 
     model_config = dict(block_size=2, n_layer=2, n_embd=8, n_head=4, padded_vocab_size=8)
@@ -28,15 +29,11 @@ def test_pretrain_tiny_llama(tmp_path, monkeypatch):
     stdout = StringIO()
     with redirect_stdout(stdout):
         module.setup(
-            save_interval=1,
-            eval_interval=1,
-            eval_iters=2,
-            max_tokens=16,
             devices=2,
-            global_batch_size=2,
-            micro_batch_size=1,
             model_name="tmp",
-            out_dir=tmp_path,
+            io=IOArgs(out_dir=tmp_path, train_data_dir=None),
+            train=TrainArgs(global_batch_size=2, max_tokens=16, save_interval=1, micro_batch_size=1, max_norm=1.0),
+            eval=EvalArgs(interval=1, max_iters=1),
         )
 
     if torch.distributed.get_rank() == 0:

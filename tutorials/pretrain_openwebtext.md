@@ -27,8 +27,7 @@ The script will take about 15 min to run.
 Running the pretraining script with its default settings requires at least 4 GPUs with 40GB+ each. (However, alternatively, you can train a smaller Pythia-70m on 1 GPU, more information about that further below).
 
 ```bash
-python pretrain/openwebtext.py \
-  --devices 4
+python pretrain/openwebtext.py --devices 4
 ```
 
 The script will save checkpoints periodically to the folder `out/`.
@@ -62,7 +61,7 @@ to launch the script across machines:
 
 The exposes several hyperparameters you can tweak through the command line.
 
-For instance, `micro_batch_size` should be adjusted so the process will use the available
+For instance, `--train.micro_batch_size` should be adjusted so the process will use the available
 GPU memory. For more tips to avoid out-of-memory issues, please also see the more detailed
 [Dealing with out-of-memory (OOM) errors](oom.md) guide.
 
@@ -83,6 +82,5 @@ python scripts/prepare_openwebtext.py \
   --checkpoint_dir checkpoints/EleutherAI/pythia-70m/ \
   --destination_path data/lit-openwebtext
 
-python pretrain/openwebtext.py \
-  --devices 4
+python pretrain/openwebtext.py --devices 4
 ```

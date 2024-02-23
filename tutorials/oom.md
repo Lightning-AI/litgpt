@@ -14,7 +14,7 @@ Here's a few things you can try:
 
 ### Reduce the micro batch size
 
-Adjust the `--micro_batch_size` argument in the fine-tuning and pretraining scripts. This variable determines the number of samples loaded per iteration.
+Adjust the `--train.micro_batch_size` argument in the fine-tuning and pretraining scripts. This variable determines the number of samples loaded per iteration.
 
 A smaller value will simply load fewer samples simultaneously. The minimum value is 1.
 
@@ -25,7 +25,7 @@ Experiment with different micro batch sizes to find a balance between memory con
 The context length (`block_size` in the code) plays a significant role in running models with attention.
 
 * The pretraining scripts are configured to use the full context length of the model to train.
-* The finetuning scripts are configured to use the longest sample length of the training data to avoid allocating unnecessary memory (`--max_seq_length` argument).
+* The finetuning scripts are configured to use the longest sample length of the training data to avoid allocating unnecessary memory (`--train.max_seq_length` argument).
   If that's longer than the model's context length, an error is raised. If you try to run a batch that is longer than this, an error is raised.
 
 However, your hardware may not support such large context lengths. Here's what you can do:

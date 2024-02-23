@@ -17,7 +17,7 @@ sys.path.append(str(wd))
 
 from generate.base import next_token
 from lit_gpt import GPT, Config, Tokenizer
-from lit_gpt.utils import check_valid_checkpoint_dir, get_default_supported_precision, load_checkpoint
+from lit_gpt.utils import CLI, check_valid_checkpoint_dir, get_default_supported_precision, load_checkpoint
 
 
 @torch.inference_mode()
@@ -371,7 +371,6 @@ def prompt_config(checkpoint_dir: Path, tokenizer: Tokenizer) -> Tuple[str, Tupl
 
 
 if __name__ == "__main__":
-    from jsonargparse import CLI
-
     torch.set_float32_matmul_precision("high")
+
     CLI(main)

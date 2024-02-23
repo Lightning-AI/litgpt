@@ -11,6 +11,7 @@ import pytest
 import torch
 from conftest import RunIf
 from lightning import Fabric
+from lightning.fabric.plugins.precision.bitsandbytes import _BITSANDBYTES_AVAILABLE, BitsandbytesPrecision
 from lightning.fabric.wrappers import _FabricOptimizer
 
 # support running without installing as a package
@@ -180,6 +181,7 @@ def test_lora_filter(tmp_path):
 
 def test_lora_script(tmp_path, fake_checkpoint_dir, monkeypatch):
     import finetune.lora as module
+    from lit_gpt.args import EvalArgs, IOArgs, TrainArgs
 
     data = [
         {"input_ids": torch.tensor([0, 1, 2]), "labels": torch.tensor([1, 2, 3])},
@@ -202,18 +204,12 @@ def test_lora_script(tmp_path, fake_checkpoint_dir, monkeypatch):
     stdout = StringIO()
     with redirect_stdout(stdout):
         module.setup(
-            data_dir=tmp_path,
-            checkpoint_dir=fake_checkpoint_dir,
-            out_dir=tmp_path,
+            io=IOArgs(
+                train_data_dir=tmp_path, val_data_dir=tmp_path, checkpoint_dir=fake_checkpoint_dir, out_dir=tmp_path
+            ),
             precision="32-true",
-            global_batch_size=1,
-            save_interval=2,
-            eval_interval=2,
-            eval_iters=2,
-            eval_max_new_tokens=1,
-            epochs=1,
-            train_epoch_size=6,
-            micro_batch_size=1,
+            train=TrainArgs(global_batch_size=1, save_interval=2, epochs=1, epoch_size=6, micro_batch_size=1),
+            eval=EvalArgs(interval=2, max_iters=2, max_new_tokens=1),
         )
 
     assert {p.name for p in tmp_path.glob("*.pth")} == {
@@ -397,8 +393,6 @@ def test_lora_qkv_linear_weights_merged_status(rank, enable_lora, expected_merge
 
 
 @RunIf(min_cuda_gpus=1)
-# platform dependent cuda issue: libbitsandbytes_cpu.so: undefined symbol: cquantize_blockwise_fp16_nf4
-@pytest.mark.xfail(raises=AttributeError, strict=False)
 def test_lora_merge_with_bitsandbytes():
     from lightning.fabric.plugins.precision.bitsandbytes import _BITSANDBYTES_AVAILABLE, BitsandbytesPrecision
 
@@ -588,10 +582,8 @@ def test_against_hf_mixtral():
 
 
 @RunIf(min_cuda_gpus=1)
-# platform dependent cuda issue: libbitsandbytes_cpu.so: undefined symbol: cquantize_blockwise_fp16_nf4
-@pytest.mark.xfail(raises=AttributeError, strict=False)
 def test_lora_bitsandbytes(monkeypatch, tmp_path, fake_checkpoint_dir):
-    from lightning.fabric.plugins.precision.bitsandbytes import _BITSANDBYTES_AVAILABLE, BitsandbytesPrecision
+    from lit_gpt.args import IOArgs
 
     if not _BITSANDBYTES_AVAILABLE:
         pytest.skip("BNB not available")
@@ -624,14 +616,14 @@ def test_lora_bitsandbytes(monkeypatch, tmp_path, fake_checkpoint_dir):
 
     monkeypatch.setattr(module, "load_checkpoint", Mock())
     train_mock = Mock()
-    monkeypatch.setattr(module, "train", train_mock)
+    monkeypatch.setattr(module, "fit", train_mock)
 
     stdout = StringIO()
     with redirect_stdout(stdout):
         module.setup(
-            data_dir=tmp_path,
-            checkpoint_dir=fake_checkpoint_dir,
-            out_dir=tmp_path,
+            io=IOArgs(
+                train_data_dir=tmp_path, val_data_dir=tmp_path, checkpoint_dir=fake_checkpoint_dir, out_dir=tmp_path
+            ),
             precision="16-true",
             quantize="bnb.nf4-dq",
         )

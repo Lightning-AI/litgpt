@@ -13,7 +13,7 @@ wd = Path(__file__).parent.parent.resolve()
 sys.path.append(str(wd))
 
 from lit_gpt import Config
-from lit_gpt.utils import incremental_save
+from lit_gpt.utils import CLI, incremental_save
 
 
 @torch.inference_mode()
@@ -75,6 +75,4 @@ def convert_checkpoint(checkpoint_file: Path, tokenizer_dir: Path, config_name: 
 
 
 if __name__ == "__main__":
-    from jsonargparse import CLI
-
-    CLI(convert_checkpoint, as_positional=False)
+    CLI(convert_checkpoint)

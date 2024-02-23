@@ -218,15 +218,15 @@ After preparing the dataset, you can finetune the model using the [`finetune/*.p
 
 ```bash
 python finetune/lora.py
- --checkpoint_dir "checkpoints/tiiuae/falcon-7b" \
- --data_dir "data/alpaca_libre" \
- --out_dir "out/lora/alpaca"
+ --io.checkpoint_dir "checkpoints/tiiuae/falcon-7b" \
+ --io.train_data_dir "data/alpaca_libre" --io.val_data_dir "data/alpaca_libre" \
+ --io.out_dir "out/lora/alpaca"
 ```
 
 Please read the [tutorials/finetune_*.md](.) documents for more information about finetuning models.
 
 > [!IMPORTANT]
-> Make sure that the `prepare_*.py` and `finetune/*.py` scripts use the same model checkpoint specified via `--checkpoint_dir`.
+> Make sure that the `prepare_*.py` and `finetune/*.py` scripts use the same model checkpoint specified via `checkpoint_dir`.
 
 > [!IMPORTANT]
 > By default, the maximum sequence length is obtained from the model configuration file. In case you run into out-of-memory errors, especially in the cases of LIMA and Dolly,
@@ -300,12 +300,12 @@ To use the settings described above, you can add the respective command line arg
 
 ```bash
 python scripts/prepare_csv.py --csv_path test_data.csv \
---destination_path data/csv \
---checkpoint_dir checkpoints/stabilityai/stablelm-base-alpha-3b \
---test_split_fraction 0.1 \
---seed 42 \
---mask_inputs false \
---ignore_index -1
+  --destination_path data/csv \
+  --checkpoint_dir checkpoints/stabilityai/stablelm-base-alpha-3b \
+  --test_split_fraction 0.1 \
+  --seed 42 \
+  --mask_inputs false \
+  --ignore_index -1
 ```
 
 Replace `test_data.csv` with your CSV path and the other additional parameters accordingly. Executing the command above will save `train.pt` and `test.pt` on your disk at the `destination_path`. Now you can use the prepared data to [finetune your model](finetune_lora.md#running-the-finetuning).
