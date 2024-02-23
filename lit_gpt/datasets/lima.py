@@ -1,18 +1,17 @@
 # Copyright Lightning AI. Licensed under the Apache License 2.0, see LICENSE file.
 """Implementation derived from https://github.com/tloen/alpaca-lora"""
-
-import tempfile
+import os
 from functools import partial
 
-import json
 import sys
 from pathlib import Path
-from typing import Optional, Union
+from typing import Optional, Union, List
 
 import torch
 from torch.utils.data import random_split, DataLoader
 from lightning_utilities.core.imports import RequirementCache
 from lightning import LightningDataModule
+from lit_gpt.datasets.alpaca import prompt_template
 from lit_gpt.datasets.base import SFTDataset, sft_collate_fn
 
 # support running without installing as a package
@@ -22,8 +21,8 @@ sys.path.append(str(wd))
 from lit_gpt.tokenizer import Tokenizer
 
 
-class Alpaca(LightningDataModule):
-    """Alpaca data module for supervised finetuning.
+class LIMA(LightningDataModule):
+    """LIMA data module for supervised finetuning.
 
     Provides train- and val-dataloaders. The batches return keys "input_ids" and "labels".
     """
@@ -33,15 +32,22 @@ class Alpaca(LightningDataModule):
         tokenizer_or_path: Union[str, Path, Tokenizer],
         max_seq_length: int = -1,
         mask_prompt: bool = True,
-        test_split_fraction: float = 0.03865,  # to get exactly 2000 test samples,
+        test_split_fraction: float = 0.1,
         ignore_index: int = -1,
         seed: int = 42,
-        data_file_name: str = "alpaca_data_cleaned_archive.json",
-        data_file_url: str = "https://raw.githubusercontent.com/tloen/alpaca-lora/main/alpaca_data_cleaned_archive.json",
+        include_multiturn_conversations: bool = False,
+        data_repo_id: str = "GAIR/lima",
+        access_token: Optional[str] = os.getenv("HF_TOKEN"),
         batch_size: int = 1,
         num_workers: int = 4,
     ) -> None:
         super().__init__()
+        if access_token is None:
+            raise ValueError(
+                "LIMA requires authentication, please set the `HF_TOKEN=your_token` environment"
+                " variable or pass --access_token=your_token. You can find your token by visiting"
+                " https://huggingface.co/settings/tokens"
+            )
 
         if isinstance(tokenizer_or_path, (str, Path)):
             self.tokenizer = Tokenizer(Path(tokenizer_or_path))
@@ -55,25 +61,29 @@ class Alpaca(LightningDataModule):
         self.seed = seed
         self.batch_size = batch_size
         self.num_workers = num_workers
+
+        self.access_token = access_token
+        self.data_repo_id = data_repo_id
+        self.include_multiturn_conversations = include_multiturn_conversations
+
         # if max_seq_length is None:
         #     with open(checkpoint_dir / "lit_config.json", "r", encoding="utf-8") as file:
         #         config = json.load(file)
         #         max_seq_length = config["block_size"]
 
-        destination_path = Path(tempfile.mkdtemp())
-        destination_path.mkdir(parents=True, exist_ok=True)
-        self.data_file_path = destination_path / data_file_name
-        self.data_file_url = data_file_url
-
         self.train_dataset: Optional[SFTDataset] = None
         self.test_dataset: Optional[SFTDataset] = None
 
     def prepare_data(self) -> None:
-        download_if_missing(self.data_file_path, self.data_file_url)
+        from datasets import load_dataset
+
+        load_dataset(self.data_repo_id, use_auth_token=self.access_token)
 
     def setup(self, stage: str = None) -> None:
-        with open(self.data_file_path, "r", encoding="utf-8") as file:
-            data = json.load(file)
+        from datasets import load_dataset
+
+        dataset = load_dataset(self.data_repo_id, use_auth_token=self.access_token)
+        data = format_dataset(dataset["train"], self.include_multiturn_conversations)
 
         # Partition the dataset into train and test
         train_data, test_data = random_split(
@@ -122,35 +132,22 @@ class Alpaca(LightningDataModule):
         return self.val_dataloader()
 
 
-def download_if_missing(file_path: Path, file_url: str) -> None:
-    """Downloads the raw json data file and saves it in the given destination."""
-    if file_path.exists() and file_path.stat().st_size > 0:
-        return
-    requests_available = RequirementCache("requests")
-    if not requests_available:
-        raise ModuleNotFoundError(str(requests_available))
-    import requests
+def format_dataset(dataset_partition: dict, include_multi_turn_conversations: bool) -> List[dict]:
+    formatted_ds = []
 
-    with open(file_path, "w", encoding="utf-8") as f:
-        f.write(requests.get(file_url).text)
+    for entry in dataset_partition:
+        convo = entry["conversations"]
+        if include_multi_turn_conversations:
+            for i in range(0, len(convo) - 1, 2):
+                formatted_ds.append({"instruction": convo[i], "input": "", "output": convo[i + 1]})
+        else:
+            formatted_ds.append({"instruction": convo[0], "input": "", "output": convo[1]})
 
-
-def prompt_template(instruction: str, input: Optional[str] = None) -> str:
-    if input:
-        return (
-            "Below is an instruction that describes a task, paired with an input that provides further context. "
-            "Write a response that appropriately completes the request.\n\n"
-            f"### Instruction:\n{instruction}\n\n### Input:\n{input}\n\n### Response:\n"
-        )
-    return (
-        "Below is an instruction that describes a task. "
-        "Write a response that appropriately completes the request.\n\n"
-        f"### Instruction:\n{instruction}\n\n### Response:\n"
-    )
+    return formatted_ds
 
 
 if __name__ == "__main__":
-    alpaca = Alpaca(
+    alpaca = LIMA(
         tokenizer_or_path="checkpoints/TinyLlama/TinyLlama-1.1B-Chat-v1.0",
         batch_size=4,
     )
