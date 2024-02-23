@@ -123,6 +123,7 @@ class CausalSelfAttention(BaseCausalSelfAttention):
         # key, query, value projections for all heads, but in a batch
         self.attn = AdapterV2Linear(in_features=config.n_embd, out_features=shape, bias=config.bias)
         # output projection
+        # if `head_size` is explicitly specified in the config, `n_emd` might not be equal to `head_size` * `n_head`
         self.proj = AdapterV2Linear(config.head_size * config.n_head, config.n_embd, bias=config.bias)
         # disabled by default
         self.kv_cache: Optional[KVCache] = None

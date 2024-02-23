@@ -598,6 +598,7 @@ class CausalSelfAttention(BaseCausalSelfAttention):
             n_query_groups=config.n_query_groups,
         )
         # output projection
+        # if `head_size` is explicitly specified in the config, `n_emd` might not be equal to `head_size` * `n_head`
         self.proj = LoRALinear(
             config.head_size * config.n_head,
             config.n_embd,
