@@ -265,16 +265,19 @@ def get_lr(learning_rate: float, it: int, warmup_iters: int, max_iters: int, min
 
 
 def validate_args(io: IOArgs, train: TrainArgs, eval: EvalArgs) -> None:
+    issues = []
     unsupported = [(io, ["checkpoint_dir"]), (train, ["max_tokens"]), (eval, ["max_new_tokens"])]
     for args, names in unsupported:
         for name in names:
             if getattr(args, name) is not None:
-                raise ValueError(f"{__file__} doesn't support the {name!r} argument. This is set in {args}")
+                issues.append(f"{__file__} doesn't support the {name!r} argument. This is set in {args}")
     required = [(io, ["train_data_dir", "val_data_dir"]), (train, ["epoch_size", "epochs", "max_norm"])]
     for args, names in required:
         for name in names:
             if getattr(args, name) is None:
-                raise ValueError(f"{__file__} requires the {name!r} argument. This is set in {args}")
+                issues.append(f"{__file__} requires the {name!r} argument. This is set in {args}")
+    if issues:
+        raise ValueError("\n".join(issues))
 
 
 if __name__ == "__main__":
