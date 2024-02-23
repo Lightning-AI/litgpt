@@ -4,66 +4,22 @@
 import tempfile
 from functools import partial
 
-from torch import Tensor
-
 import json
 import sys
 from pathlib import Path
-from typing import Optional, Dict, Union, List
+from typing import Optional, Union
 
 import torch
-from torch.utils.data import random_split, Dataset, DataLoader
+from torch.utils.data import random_split, DataLoader
 from lightning_utilities.core.imports import RequirementCache
 from lightning import LightningDataModule
+from lit_gpt.datasets.base import SFTDataset, sft_collate_fn
 
 # support running without installing as a package
 wd = Path(__file__).parent.parent.resolve()
 sys.path.append(str(wd))
 
 from lit_gpt.tokenizer import Tokenizer
-
-
-class SFTDataset(Dataset):
-    """A dataset for supervised finetuning with `input_ids` and `labels`."""
-    def __init__(
-        self,
-        data: List[Dict[str, str]],
-        tokenizer: Tokenizer,
-        max_seq_length: int = -1,
-        mask_prompt: bool = True,
-        ignore_index: int = -1,
-    ) -> None:
-        self.data = data
-        self.tokenizer = tokenizer
-        self.mask_prompt = mask_prompt
-        self.max_seq_length = max_seq_length
-        self.ignore_index = ignore_index
-
-    def __len__(self) -> int:
-        return len(self.data)
-
-    def __getitem__(self, idx: int) -> Dict[str, Tensor]:
-        """Processes a single sample.
-
-        Returns a dict with two keys:
-            input_ids: The encoded prompt + response
-            labels: Same as input_ids, unless ``mask_prompt=True`` in which case the 'prompt' part is replaced with
-                the ``ignore_index``.
-        """
-        example = self.data[idx]
-        prompt = generate_prompt(example)
-        prompt_and_response = prompt + example["output"]
-        encoded_prompt = self.tokenizer.encode(prompt, max_length=self.max_seq_length)
-        encoded_prompt_and_response = self.tokenizer.encode(
-            prompt_and_response, eos=True, max_length=self.max_seq_length
-        )
-
-        # The labels are the full prompt with response, but with the prompt masked out
-        labels = encoded_prompt_and_response.clone()
-        if self.mask_prompt:
-            labels[: len(encoded_prompt)] = self.ignore_index
-
-        return {"input_ids": encoded_prompt_and_response, "labels": labels}
 
 
 class Alpaca(LightningDataModule):
@@ -130,6 +86,7 @@ class Alpaca(LightningDataModule):
         self.train_dataset = SFTDataset(
             data=train_data,
             tokenizer=self.tokenizer,
+            prompt_template=prompt_template,
             max_seq_length=self.max_seq_length,
             mask_prompt=self.mask_prompt,
             ignore_index=self.ignore_index,
@@ -137,6 +94,7 @@ class Alpaca(LightningDataModule):
         self.test_dataset = SFTDataset(
             data=test_data,
             tokenizer=self.tokenizer,
+            prompt_template=prompt_template,
             max_seq_length=self.max_seq_length,
             mask_prompt=self.mask_prompt,
             ignore_index=self.ignore_index,
@@ -177,36 +135,18 @@ def download_if_missing(file_path: Path, file_url: str) -> None:
         f.write(requests.get(file_url).text)
 
 
-def generate_prompt(example: dict) -> str:
-    """Generates a standardized message to prompt the model with an instruction, optional input and a
-    'response' field."""
-
-    if example["input"]:
+def prompt_template(instruction: str, input: Optional[str] = None) -> str:
+    if input:
         return (
             "Below is an instruction that describes a task, paired with an input that provides further context. "
             "Write a response that appropriately completes the request.\n\n"
-            f"### Instruction:\n{example['instruction']}\n\n### Input:\n{example['input']}\n\n### Response:\n"
+            f"### Instruction:\n{instruction}\n\n### Input:\n{input}\n\n### Response:\n"
         )
     return (
         "Below is an instruction that describes a task. "
         "Write a response that appropriately completes the request.\n\n"
-        f"### Instruction:\n{example['instruction']}\n\n### Response:\n"
+        f"### Instruction:\n{instruction}\n\n### Response:\n"
     )
-
-
-def sft_collate_fn(samples: List[Dict[str, Tensor]], max_seq_length: int = -1, pad_id: int = 0, ignore_index: int = -1) -> Dict[str, Tensor]:
-    longest = max(len(sample["input_ids"]) for sample in samples)
-    max_length = max_seq_length if max_seq_length > 0 else longest
-
-    batched = {}
-    for key in ("input_ids", "labels"):
-        pad_value = pad_id if key == "input_ids" else ignore_index
-        batched[key] = torch.stack([
-            torch.nn.functional.pad(sample[key], (0, longest - len(sample[key])), value=pad_value)
-            for sample in samples
-        ])
-        batched[key] = batched[key][:, :max_length]
-    return batched
 
 
 if __name__ == "__main__":
