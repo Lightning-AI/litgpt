@@ -97,6 +97,7 @@ def test_llama2_70b_conversion():
         "transformer.h.5.attn.proj.weight": (8192, 8192),
         "transformer.h.5.mlp.fc_1.weight": (28672, 8192),
         "transformer.wte.weight": (32000, 8192),
+        "lm_head.weight": (32000, 8192),  # due to weight tying lm_head is in the converted weights
     }
 
 
