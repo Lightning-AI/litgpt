@@ -424,7 +424,7 @@ def test_lora_merge_with_bitsandbytes():
     optimizer = PagedAdamW(model.parameters(), lr=1.0)
     model, optimizer = fabric.setup(model, optimizer)
 
-    model.fit()
+    model.train()
 
     attn_proj = model.transformer.h[0].attn.proj
     initial_weight = attn_proj.linear.weight.clone()
