@@ -117,7 +117,6 @@ def copy_weights_hf_llama(
     qkv_weights: Dict[int, List[Optional[NotYetLoadedTensor]]],
     state_dict: Dict[str, torch.Tensor],
     hf_weights: Dict[str, Union[torch.Tensor, NotYetLoadedTensor]],
-    tie_weights: bool = False,
     saver: Optional[incremental_save] = None,
     dtype: Optional[torch.dtype] = None,
 ) -> None:
@@ -180,7 +179,7 @@ def copy_weights_hf_llama(
             param = saver.store_early(param)
         state_dict[to_name] = param
 
-    if tie_weights:
+    if "lm_head.weight" not in state_dict:
         state_dict["lm_head.weight"] = state_dict["transformer.wte.weight"]
 
     # convert separate q, k, v matrices into an interleaved qkv
@@ -315,8 +314,7 @@ def convert_hf_checkpoint(
     elif config._mlp_class in ("LLaMAMLP", "GemmaMLP", "LLaMAMoE"):
         # holder to reconstitute the split q, k, v
         qkv_weights = {}
-        tie_weights = "Gemma" in config.name
-        copy_fn = partial(copy_weights_hf_llama, config, qkv_weights, tie_weights=tie_weights)
+        copy_fn = partial(copy_weights_hf_llama, config, qkv_weights)
     elif "phi" in model_name:
         # holder to reconstitute the split q, k, v
         qkv_weights = {}
