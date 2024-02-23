@@ -616,7 +616,7 @@ def test_lora_bitsandbytes(monkeypatch, tmp_path, fake_checkpoint_dir):
 
     monkeypatch.setattr(module, "load_checkpoint", Mock())
     train_mock = Mock()
-    monkeypatch.setattr(module, "train", train_mock)
+    monkeypatch.setattr(module, "fit", train_mock)
 
     stdout = StringIO()
     with redirect_stdout(stdout):
