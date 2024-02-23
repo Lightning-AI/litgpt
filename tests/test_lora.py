@@ -397,8 +397,6 @@ def test_lora_qkv_linear_weights_merged_status(rank, enable_lora, expected_merge
 
 
 @RunIf(min_cuda_gpus=1)
-# platform dependent cuda issue: libbitsandbytes_cpu.so: undefined symbol: cquantize_blockwise_fp16_nf4
-@pytest.mark.xfail(raises=AttributeError, strict=False)
 def test_lora_merge_with_bitsandbytes():
     from lightning.fabric.plugins.precision.bitsandbytes import _BITSANDBYTES_AVAILABLE, BitsandbytesPrecision
 
@@ -588,8 +586,6 @@ def test_against_hf_mixtral():
 
 
 @RunIf(min_cuda_gpus=1)
-# platform dependent cuda issue: libbitsandbytes_cpu.so: undefined symbol: cquantize_blockwise_fp16_nf4
-@pytest.mark.xfail(raises=AttributeError, strict=False)
 def test_lora_bitsandbytes(monkeypatch, tmp_path, fake_checkpoint_dir):
     from lightning.fabric.plugins.precision.bitsandbytes import _BITSANDBYTES_AVAILABLE, BitsandbytesPrecision
 
