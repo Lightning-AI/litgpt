@@ -40,7 +40,7 @@ We offer two scripts to leverage multiple devices for inference.
 Allows you to run models that wouldn't fit in a single card by partitioning the transformer blocks across all your devices and running them sequentially.
 
 For instance, `meta-llama/Llama-2-70b-chat-hf` would require ~140 GB of GPU memory to load on a single device, plus the memory for activations.
-With 80 transformer layers, we could partition them across 8, 5, 4, or 2 devices. 
+With 80 transformer layers, we could partition them across 8, 5, 4, or 2 devices.
 
 ```shell
 python generate/sequentially.py \

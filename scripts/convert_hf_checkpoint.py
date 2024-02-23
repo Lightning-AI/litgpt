@@ -144,7 +144,7 @@ def copy_weights_hf_llama(
                 "model.layers.{}.block_sparse_moe.experts.{}.w2.weight": "transformer.h.{l}.mlp.experts.{e}.proj.weight",
             }
         )
-    elif config._mlp_class == "LLaMAMLP":
+    elif config._mlp_class in ("LLaMAMLP", "GemmaMLP"):
         weight_map.update(
             {
                 "model.layers.{}.mlp.gate_proj.weight": "transformer.h.{l}.mlp.fc_1.weight",
@@ -179,6 +179,10 @@ def copy_weights_hf_llama(
             param = saver.store_early(param)
         state_dict[to_name] = param
 
+    if "lm_head.weight" not in state_dict:
+        state_dict["lm_head.weight"] = state_dict["transformer.wte.weight"]
+
+    # convert separate q, k, v matrices into an interleaved qkv
     for i, (q, k, v) in list(qkv_weights.items()):
         if q is None or k is None or v is None:
             # split across different .bin files
@@ -307,7 +311,7 @@ def convert_hf_checkpoint(
 
     if "falcon" in model_name:
         copy_fn = partial(copy_weights_falcon, model_name)
-    elif config._mlp_class in ("LLaMAMLP", "LLaMAMoE"):
+    elif config._mlp_class in ("LLaMAMLP", "GemmaMLP", "LLaMAMoE"):
         # holder to reconstitute the split q, k, v
         qkv_weights = {}
         copy_fn = partial(copy_weights_hf_llama, config, qkv_weights)
