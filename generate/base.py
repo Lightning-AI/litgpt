@@ -16,7 +16,7 @@ wd = Path(__file__).parent.parent.resolve()
 sys.path.append(str(wd))
 
 from lit_gpt import GPT, Config, Tokenizer
-from lit_gpt.utils import check_valid_checkpoint_dir, get_default_supported_precision, load_checkpoint
+from lit_gpt.utils import CLI, check_valid_checkpoint_dir, get_default_supported_precision, load_checkpoint
 
 
 def multinomial_num_samples_1(probs: torch.Tensor) -> torch.Tensor:
@@ -188,7 +188,6 @@ def main(
 
 
 if __name__ == "__main__":
-    from jsonargparse import CLI
-
     torch.set_float32_matmul_precision("high")
+
     CLI(main)

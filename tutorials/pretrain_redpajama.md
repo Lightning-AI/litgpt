@@ -91,7 +91,7 @@ Running the pretraining script with its default settings requires at least 4 GPU
 ```bash
 python pretrain/redpajama.py \
   --devices 4 \
-  --train_data_dir data/lit-redpajama
+  --io.train_data_dir data/lit-redpajama
 ```
 
 For running on the sample dataset:
@@ -99,7 +99,7 @@ For running on the sample dataset:
 ```bash
 python pretrain/redpajama.py \
   --devices 4 \
-  --train_data_dir data/lit-redpajama-sample
+  --io.train_data_dir data/lit-redpajama-sample
 ```
 
 The script will save checkpoints periodically to the folder `out/`.
