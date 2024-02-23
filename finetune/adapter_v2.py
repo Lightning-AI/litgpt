@@ -308,11 +308,12 @@ def save_adapter_v2_checkpoint(fabric: L.Fabric, model: torch.nn.Module, file_pa
 
 
 def validate_args(io: IOArgs, train: TrainArgs, eval: EvalArgs) -> None:
+    issues = []
     unsupported = [(train, ["max_tokens", "max_norm"])]
     for args, names in unsupported:
         for name in names:
             if getattr(args, name) is not None:
-                raise ValueError(f"{__file__} doesn't support the {name!r} argument. This is set in {args}")
+                issues.append(f"{__file__} doesn't support the {name!r} argument. This is set in {args}")
     required = [
         (io, ["checkpoint_dir", "train_data_dir", "val_data_dir"]),
         (train, ["epoch_size", "epochs"]),
@@ -321,7 +322,9 @@ def validate_args(io: IOArgs, train: TrainArgs, eval: EvalArgs) -> None:
     for args, names in required:
         for name in names:
             if getattr(args, name) is None:
-                raise ValueError(f"{__file__} requires the {name!r} argument. This is set in {args}")
+                issues.append(f"{__file__} requires the {name!r} argument. This is set in {args}")
+    if issues:
+        raise ValueError("\n".join(issues))
 
 
 if __name__ == "__main__":
