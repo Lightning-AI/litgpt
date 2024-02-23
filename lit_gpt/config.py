@@ -53,7 +53,6 @@ class Config:
     n_query_groups: Optional[int] = None
     shared_attention_norm: bool = False
     _norm_class: Literal["LayerNorm", "RMSNorm"] = "LayerNorm"
-    rmsnorm_add_unit_offset: bool = False
     norm_eps: float = 1e-5
     _mlp_class: Literal["GptNeoxMLP", "LLaMAMLP", "GemmaMLP", "LLaMAMoE"] = "GptNeoxMLP"
     gelu_approximate: str = "none"
@@ -146,7 +145,7 @@ class Config:
 
             from lit_gpt.rmsnorm import RMSNorm
 
-            return partial(RMSNorm, add_unit_offset=self.rmsnorm_add_unit_offset)
+            return partial(RMSNorm, add_unit_offset="Gemma" in self.name)
         return getattr(torch.nn, self._norm_class)
 
 
@@ -806,7 +805,6 @@ gemma = [
         parallel_residual=False,
         bias=False,
         _norm_class="RMSNorm",
-        rmsnorm_add_unit_offset=True,
         _mlp_class="GemmaMLP",
         intermediate_size=16384,
     ),
@@ -825,7 +823,6 @@ gemma = [
         parallel_residual=False,
         bias=False,
         _norm_class="RMSNorm",
-        rmsnorm_add_unit_offset=True,
         _mlp_class="GemmaMLP",
         intermediate_size=24576,
     ),
