@@ -9,8 +9,11 @@ from conftest import RunIf
 @pytest.mark.parametrize("bits", [2, 3, 4, 8], ids=[f"{bit}bit" for bit in (2, 3, 4, 8)])
 @pytest.mark.parametrize("group_size", [32, 128], ids=[f"{gs}group_size" for gs in (32, 128)])
 @pytest.mark.parametrize("use_triton", (True, False), ids=["use_triton", "dont_use_triton"])
+@pytest.mark.parametrize("static_groups", (True, False), ids=["static_groups", ""])
 @pytest.mark.parametrize("mlp_class", ("GptNeoxMLP", "LLaMAMLP", "LLaMAMoE"))
-def test_quantization(tmp_path, fake_checkpoint_dir, monkeypatch, bits, group_size, use_triton, mlp_class):
+def test_quantization(
+    tmp_path, fake_checkpoint_dir, monkeypatch, bits, group_size, use_triton, static_groups, mlp_class
+):
     if use_triton and bits == 3:
         pytest.skip("Triton doesn't support 3bit precision.")
 
@@ -63,6 +66,7 @@ def test_quantization(tmp_path, fake_checkpoint_dir, monkeypatch, bits, group_si
             bits=bits,
             group_size=group_size,
             use_triton=use_triton,
+            static_groups=static_groups,
         )
     assert "Quantization time" in stdout.getvalue()
 
@@ -134,7 +138,6 @@ def test_quantization(tmp_path, fake_checkpoint_dir, monkeypatch, bits, group_si
 @pytest.mark.parametrize("group_size", [32, 128], ids=[f"{gs}group_size" for gs in (32, 128)])
 @pytest.mark.parametrize("mlp_class", ("GptNeoxMLP", "LLaMAMLP", "LLaMAMoE"))
 def test_layer_conversion(kernel, bits, group_size, mlp_class):
-
     import importlib
     from functools import reduce
 
@@ -268,7 +271,6 @@ def test_marlin_conversion(kernel, tmp_path):
 @pytest.mark.parametrize("bias", [True, False])
 @pytest.mark.parametrize("kernel", ("cuda_old", "cuda", "exllama", "exllamav2", "triton"))
 def test_strip_bias(bias, kernel):
-
     from lit_gpt import GPT
     from lit_gpt.config import Config
     from quantize.autogptq import AutoGPTQ, QuantizeConfig

@@ -304,16 +304,16 @@ class AutoGPTQ(BaseGPTQForCausalLM):
 def main(
     *,
     data_dir: Path = Path("data/alpaca"),
+    n_samples: int = 1024,
     checkpoint_dir: Path = Path("checkpoints/stabilityai/stablelm-base-alpha-3b"),
     output_path: Optional[Path] = None,
     bits: int = 4,
     group_size: int = 128,
     damp_percent: float = 0.01,
     desc_act: bool = True,
-    static_groups: bool = False,
+    static_groups: bool = True,
     sym: bool = True,
     true_sequential: bool = True,
-    n_samples: int = 1024,
     batch_size: int = 32,
     use_triton: bool = False,
 ) -> None:
@@ -382,7 +382,6 @@ def main(
 
 
 if __name__ == "__main__":
-
     import logging
 
     from jsonargparse import CLI
