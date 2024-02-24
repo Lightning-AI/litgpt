@@ -1,3 +1,5 @@
+# Copyright Lightning AI. Licensed under the Apache License 2.0, see LICENSE file.
+
 from typing import List, Dict, Union
 
 import torch
@@ -21,8 +23,8 @@ class SFTDataset(Dataset):
         self.data = data
         self.tokenizer = tokenizer
         self.prompt_template = prompt_template
-        self.mask_prompt = mask_prompt
         self.max_seq_length = max_seq_length
+        self.mask_prompt = mask_prompt
         self.ignore_index = ignore_index
 
     def __len__(self) -> int:
@@ -37,12 +39,7 @@ class SFTDataset(Dataset):
                 the ``ignore_index``.
         """
         example = self.data[idx]
-
-        if isinstance(self.prompt_template, str):
-            prompt = self.prompt_template.format(instruction=example["instruction"], input=example["input"])
-        else:
-            prompt = self.prompt_template(instruction=example["instruction"], input=example["input"])
-
+        prompt = apply_prompt_template(self.prompt_template, example)
         prompt_and_response = prompt + example["output"]
         encoded_prompt = self.tokenizer.encode(prompt, max_length=self.max_seq_length)
         encoded_prompt_and_response = self.tokenizer.encode(
@@ -54,7 +51,7 @@ class SFTDataset(Dataset):
         if self.mask_prompt:
             labels[: len(encoded_prompt)] = self.ignore_index
 
-        return {"input_ids": encoded_prompt_and_response, "labels": labels}
+        return {"input_ids": encoded_prompt_and_response.type(torch.int64), "labels": labels.type(torch.int64)}
 
 
 def sft_collate_fn(samples: List[Dict[str, Tensor]], max_seq_length: int = -1, pad_id: int = 0, ignore_index: int = -1) -> Dict[str, Tensor]:
@@ -64,9 +61,22 @@ def sft_collate_fn(samples: List[Dict[str, Tensor]], max_seq_length: int = -1, p
     batched = {}
     for key in ("input_ids", "labels"):
         pad_value = pad_id if key == "input_ids" else ignore_index
+
+        # Pad right based on the longest sequence
         batched[key] = torch.stack([
             torch.nn.functional.pad(sample[key], (0, longest - len(sample[key])), value=pad_value)
             for sample in samples
         ])
+
+        # Truncate if needed
         batched[key] = batched[key][:, :max_length]
+
     return batched
+
+
+def apply_prompt_template(template: Union[str, callable], example: Dict[str, str]) -> str:
+    if isinstance(template, str):
+        prompt = template.format(**example)
+    else:
+        prompt = template(example)
+    return prompt

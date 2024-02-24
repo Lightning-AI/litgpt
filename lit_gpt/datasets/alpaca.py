@@ -7,7 +7,7 @@ from functools import partial
 import json
 import sys
 from pathlib import Path
-from typing import Optional, Union
+from typing import Optional, Union, Dict
 
 import torch
 from torch.utils.data import random_split, DataLoader
@@ -55,10 +55,6 @@ class Alpaca(LightningDataModule):
         self.seed = seed
         self.batch_size = batch_size
         self.num_workers = num_workers
-        # if max_seq_length is None:
-        #     with open(checkpoint_dir / "lit_config.json", "r", encoding="utf-8") as file:
-        #         config = json.load(file)
-        #         max_seq_length = config["block_size"]
 
         destination_path = Path(tempfile.mkdtemp())
         destination_path.mkdir(parents=True, exist_ok=True)
@@ -135,17 +131,17 @@ def download_if_missing(file_path: Path, file_url: str) -> None:
         f.write(requests.get(file_url).text)
 
 
-def prompt_template(instruction: str, input: Optional[str] = None) -> str:
+def prompt_template(example: Dict[str, str]) -> str:
     if input:
         return (
             "Below is an instruction that describes a task, paired with an input that provides further context. "
             "Write a response that appropriately completes the request.\n\n"
-            f"### Instruction:\n{instruction}\n\n### Input:\n{input}\n\n### Response:\n"
+            f"### Instruction:\n{example['instruction']}\n\n### Input:\n{example['input']}\n\n### Response:\n"
         )
     return (
         "Below is an instruction that describes a task. "
         "Write a response that appropriately completes the request.\n\n"
-        f"### Instruction:\n{instruction}\n\n### Response:\n"
+        f"### Instruction:\n{example['instruction']}\n\n### Response:\n"
     )
 
 

@@ -9,7 +9,6 @@ from typing import Optional, Union, List
 
 import torch
 from torch.utils.data import random_split, DataLoader
-from lightning_utilities.core.imports import RequirementCache
 from lightning import LightningDataModule
 from lit_gpt.datasets.alpaca import prompt_template
 from lit_gpt.datasets.base import SFTDataset, sft_collate_fn
@@ -65,24 +64,18 @@ class LIMA(LightningDataModule):
         self.access_token = access_token
         self.data_repo_id = data_repo_id
         self.include_multiturn_conversations = include_multiturn_conversations
-
-        # if max_seq_length is None:
-        #     with open(checkpoint_dir / "lit_config.json", "r", encoding="utf-8") as file:
-        #         config = json.load(file)
-        #         max_seq_length = config["block_size"]
-
         self.train_dataset: Optional[SFTDataset] = None
         self.test_dataset: Optional[SFTDataset] = None
 
     def prepare_data(self) -> None:
         from datasets import load_dataset
 
-        load_dataset(self.data_repo_id, use_auth_token=self.access_token)
+        load_dataset(self.data_repo_id, token=self.access_token)
 
     def setup(self, stage: str = None) -> None:
         from datasets import load_dataset
 
-        dataset = load_dataset(self.data_repo_id, use_auth_token=self.access_token)
+        dataset = load_dataset(self.data_repo_id, token=self.access_token)
         data = format_dataset(dataset["train"], self.include_multiturn_conversations)
 
         # Partition the dataset into train and test
