@@ -17,6 +17,7 @@ wd = Path(__file__).parent.parent.resolve()
 sys.path.append(str(wd))
 
 from lit_gpt.tokenizer import Tokenizer
+from lit_gpt.utils import CLI
 
 
 def prepare(
@@ -54,7 +55,7 @@ def prepare(
 
     from datasets import load_dataset
 
-    dataset = load_dataset(data_repo_id, use_auth_token=access_token)
+    dataset = load_dataset(data_repo_id, token=access_token)
     train_data = format_dataset(dataset["train"], include_multiturn_conversations)
 
     # test set is present but doesn't have any solutions, so we cannot use it here
@@ -164,6 +165,4 @@ def generate_prompt(example: dict) -> str:
 
 
 if __name__ == "__main__":
-    from jsonargparse import CLI
-
     CLI(prepare)

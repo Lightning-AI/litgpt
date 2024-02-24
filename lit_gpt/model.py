@@ -87,6 +87,9 @@ class GPT(nn.Module):
             mask = None
 
         x = self.transformer.wte(idx)  # token embeddings of shape (b, t, n_embd)
+        if self.config.scale_embeddings:
+            x = x * (self.config.n_embd**0.5)
+
         for block in self.transformer.h:
             x = block(x, cos, sin, mask, input_pos)
         x = self.transformer.ln_f(x)
@@ -174,7 +177,8 @@ class CausalSelfAttention(nn.Module):
         # key, query, value projections for all heads, but in a batch
         self.attn = nn.Linear(config.n_embd, shape, bias=config.bias)
         # output projection
-        self.proj = nn.Linear(config.n_embd, config.n_embd, bias=config.bias)
+        # if `head_size` is explicitly specified in the config, `n_emd` might not be equal to `head_size * n_head`
+        self.proj = nn.Linear(config.head_size * config.n_head, config.n_embd, bias=config.bias)
         # disabled by default
         self.kv_cache: Optional[KVCache] = None
 
@@ -224,7 +228,7 @@ class CausalSelfAttention(nn.Module):
 
         y = self.scaled_dot_product_attention(q, k, v, mask)
 
-        y = y.reshape(B, T, self.config.n_embd)  # re-assemble all head outputs side by side
+        y = y.reshape(B, T, self.config.head_size * self.config.n_head)  # re-assemble all head outputs side by side
 
         # output projection
         return self.proj(y)
@@ -287,6 +291,14 @@ class LLaMAMLP(nn.Module):
         x_fc_1 = self.fc_1(x)
         x_fc_2 = self.fc_2(x)
         x = torch.nn.functional.silu(x_fc_1) * x_fc_2
+        return self.proj(x)
+
+
+class GemmaMLP(LLaMAMLP):
+    def forward(self, x: torch.Tensor) -> torch.Tensor:
+        x_fc_1 = self.fc_1(x)
+        x_fc_2 = self.fc_2(x)
+        x = torch.nn.functional.gelu(x_fc_1) * x_fc_2
         return self.proj(x)
 
 

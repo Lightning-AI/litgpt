@@ -127,3 +127,12 @@ def test_from_checkpoint(tmp_path):
     assert config.name == "pythia-14m"
     assert config.block_size == 24
     assert config.n_layer == 2
+
+
+@pytest.mark.parametrize("head_size", [None, 128])
+def test_head_size(head_size):
+    from lit_gpt import Config
+
+    config = Config(head_size)
+
+    assert config.head_size == head_size or config.n_embd // config.n_head

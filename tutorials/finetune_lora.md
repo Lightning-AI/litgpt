@@ -136,7 +136,7 @@ With only a few modifications, you can prepare and train on your own instruction
 
    ```bash
    python finetune/lora.py  \
-     --data_dir data/mydata/ \
+     --io.train_data_dir data/mydata --io.val_data_dir data/mydata/ \
      --out_dir out/myexperiment
    ```
 
@@ -153,9 +153,9 @@ Let's assume we finetuned a model using LoRA as follows:
 
 ```bash
 python finetune/lora.py \
-  --checkpoint_dir "checkpoints/stabilityai/stablelm-base-alpha-3b/" \
-  --data_dir "data/alpaca" \
-  --out_dir "out/lora_weights/stablelm-base-alpha-3b/"
+  --io.checkpoint_dir "checkpoints/stabilityai/stablelm-base-alpha-3b/" \
+  --io.train_data_dir data/mydata --io.val_data_dir data/mydata/ \
+  --io.out_dir "out/lora_weights/stablelm-base-alpha-3b/"
 ```
 
 Then, we can merge the LoRA weights with the checkpoint model using the `merge_lora.py` script as shown below:
@@ -169,8 +169,8 @@ python scripts/merge_lora.py \
 
 > [!IMPORTANT]
 > If you changed the LoRA hyperparameters (`lora_r`, `lora_key`, etc.) in the
-> `finetune/lora.py` script, it is important to update the hyperparameter configuration
-> in the `scripts/merge_lora.py` script accordingly. Otherwise, you will encounter size
+> `finetune/lora.py` script, it is important to pass the same hyperparameter configuration
+> to the `scripts/merge_lora.py` script accordingly. Otherwise, you will encounter size
 > mismatch errors upon merging.
 
 After merging, we can use the `base.py` file for inference using the new checkpoint file. Note that if your new checkpoint directory is different from the original checkpoint directory, we also have to copy over the tokenizer and config files:

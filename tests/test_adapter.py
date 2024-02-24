@@ -8,6 +8,7 @@ import pytest
 import torch
 from conftest import RunIf
 from lightning import Fabric
+from lightning.fabric.plugins.precision.bitsandbytes import _BITSANDBYTES_AVAILABLE, BitsandbytesPrecision
 from lightning.fabric.wrappers import _FabricOptimizer
 
 
@@ -48,13 +49,7 @@ def test_adapter_filter(tmp_path):
 
 def test_adapter_script(tmp_path, fake_checkpoint_dir, monkeypatch):
     import finetune.adapter as module
-
-    module.gradient_accumulation_iters = 1
-    module.save_interval = 2
-    module.eval_interval = 2
-    module.eval_iters = 2
-    module.eval_max_new_tokens = 1
-    module.max_iters = 6
+    from lit_gpt.args import EvalArgs, IOArgs, TrainArgs
 
     data = [
         {"input_ids": torch.tensor([0, 1, 2]), "labels": torch.tensor([1, 2, 3])},
@@ -77,7 +72,14 @@ def test_adapter_script(tmp_path, fake_checkpoint_dir, monkeypatch):
 
     stdout = StringIO()
     with redirect_stdout(stdout):
-        module.setup(data_dir=tmp_path, checkpoint_dir=fake_checkpoint_dir, out_dir=tmp_path, precision="32-true")
+        module.setup(
+            io=IOArgs(
+                train_data_dir=tmp_path, val_data_dir=tmp_path, checkpoint_dir=fake_checkpoint_dir, out_dir=tmp_path
+            ),
+            precision="32-true",
+            train=TrainArgs(global_batch_size=1, save_interval=2, epochs=1, epoch_size=6, micro_batch_size=1),
+            eval=EvalArgs(interval=2, max_iters=2, max_new_tokens=1),
+        )
 
     assert {p.name for p in tmp_path.glob("*.pth")} == {
         "iter-000002-ckpt.pth",
@@ -88,8 +90,8 @@ def test_adapter_script(tmp_path, fake_checkpoint_dir, monkeypatch):
     assert (tmp_path / "version_0" / "metrics.csv").is_file()
 
     logs = stdout.getvalue()
-    assert logs.count("optimizer.step") == module.max_iters
-    assert logs.count("val loss") == module.max_iters // module.eval_interval
+    assert logs.count("optimizer.step") == 6
+    assert logs.count("val loss") == 3
     assert "of trainable parameters: 168" in logs
 
 
@@ -132,10 +134,8 @@ def test_adapter_compile():
 
 
 @RunIf(min_cuda_gpus=1)
-# platform dependent cuda issue: libbitsandbytes_cpu.so: undefined symbol: cquantize_blockwise_fp16_nf4
-@pytest.mark.xfail(raises=AttributeError, strict=False)
 def test_adapter_bitsandbytes(monkeypatch, tmp_path, fake_checkpoint_dir):
-    from lightning.fabric.plugins.precision.bitsandbytes import _BITSANDBYTES_AVAILABLE, BitsandbytesPrecision
+    from lit_gpt.args import IOArgs
 
     if not _BITSANDBYTES_AVAILABLE:
         pytest.skip("BNB not available")
@@ -157,16 +157,16 @@ def test_adapter_bitsandbytes(monkeypatch, tmp_path, fake_checkpoint_dir):
 
     monkeypatch.setattr(module, "load_checkpoint", Mock())
     train_mock = Mock()
-    monkeypatch.setattr(module, "train", train_mock)
+    monkeypatch.setattr(module, "fit", train_mock)
 
     stdout = StringIO()
     with redirect_stdout(stdout):
         module.setup(
-            data_dir=tmp_path,
-            checkpoint_dir=fake_checkpoint_dir,
-            out_dir=tmp_path,
             precision="16-true",
             quantize="bnb.nf4-dq",
+            io=IOArgs(
+                train_data_dir=tmp_path, val_data_dir=tmp_path, checkpoint_dir=fake_checkpoint_dir, out_dir=tmp_path
+            ),
         )
 
     args, kwargs = train_mock.call_args
