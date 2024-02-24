@@ -5,7 +5,6 @@ import tempfile
 from functools import partial
 
 import json
-import sys
 from pathlib import Path
 from typing import Optional, Union, Dict
 
@@ -14,11 +13,6 @@ from torch.utils.data import random_split, DataLoader
 from lightning_utilities.core.imports import RequirementCache
 from lightning import LightningDataModule
 from lit_gpt.datasets.base import SFTDataset, sft_collate_fn
-
-# support running without installing as a package
-wd = Path(__file__).parent.parent.resolve()
-sys.path.append(str(wd))
-
 from lit_gpt.tokenizer import Tokenizer
 
 

@@ -24,6 +24,8 @@ from torch.utils.data import DataLoader
 from torchmetrics.aggregation import RunningMean
 from typing_extensions import Literal
 
+from lit_gpt.datasets.tinyllama import TinyLlama
+
 # support running without installing as a package
 wd = Path(__file__).parent.parent.resolve()
 sys.path.append(str(wd))
@@ -86,10 +88,9 @@ def main(
     if fabric.global_rank == 0:
         io.out_dir.mkdir(parents=True, exist_ok=True)
 
-    train_dataloader, val_dataloader = create_dataloaders(
-        batch_size=train.micro_batch_size, block_size=config.block_size
-    )
-    train_dataloader, val_dataloader = fabric.setup_dataloaders(train_dataloader, val_dataloader)
+    datamodule = TinyLlama()  # TODO
+    train_dataloader, val_dataloader = create_dataloaders(fabric, datamodule)
+    # TODO: batch_size = train.micro_batch_size, block_size = config.block_size
 
     fabric.seed_everything(3407)  # same seed for every process to init model (FSDP)
 
@@ -274,46 +275,15 @@ def validate(fabric: L.Fabric, model: nn.Module, val_dataloader: DataLoader, max
     return losses.mean()
 
 
-def create_dataloaders(batch_size: int, block_size: int, num_workers: int = 8) -> Tuple[DataLoader, DataLoader]:
-    from lightning.data import CombinedStreamingDataset, StreamingDataLoader, StreamingDataset
-    from lightning.data.streaming.item_loader import TokensLoader
-
-    # Increase by one because we need the next word as well
-    effective_block_size = block_size + 1
-
-    train_datasets = [
-        StreamingDataset(
-            input_dir="data/slimpajama/train",
-            item_loader=TokensLoader(block_size=effective_block_size),
-            shuffle=True,
-            drop_last=True,
-        ),
-        StreamingDataset(
-            input_dir="data/starcoder",
-            item_loader=TokensLoader(block_size=effective_block_size),
-            shuffle=True,
-            drop_last=True,
-        ),
-    ]
-
-    # Mix SlimPajama data and Starcoder data with these proportions:
-    weights = (0.693584, 0.306416)
-    combined_dataset = CombinedStreamingDataset(datasets=train_datasets, seed=42, weights=weights)
-    train_dataloader = StreamingDataLoader(
-        combined_dataset, batch_size=batch_size, pin_memory=True, num_workers=num_workers, drop_last=True
-    )
-
-    val_dataset = StreamingDataset(
-        input_dir="data/slimpajama/val",
-        item_loader=TokensLoader(block_size=effective_block_size),
-        shuffle=True,
-        # Consider setting to False, but we would lose some samples due to truncation when world size > 1
-        drop_last=True,
-    )
-    val_dataloader = DataLoader(
-        val_dataset, batch_size=batch_size, pin_memory=True, num_workers=num_workers, drop_last=True
-    )
-    return train_dataloader, val_dataloader
+def create_dataloaders(fabric: L.Fabric, datamodule: L.LightningDataModule) -> Tuple[DataLoader, DataLoader]:
+    if fabric.global_rank == 0:
+        datamodule.prepare_data()
+    fabric.barrier()
+    datamodule.setup()
+    train_datalaoder = datamodule.train_dataloader()
+    val_dataloader = datamodule.val_dataloader()
+    train_datalaoder, val_dataloader = fabric.setup_dataloaders(train_datalaoder, val_dataloader)
+    return train_datalaoder, val_dataloader
 
 
 # learning rate decay scheduler (cosine with linear warmup)

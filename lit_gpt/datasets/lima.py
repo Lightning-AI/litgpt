@@ -3,7 +3,6 @@
 import os
 from functools import partial
 
-import sys
 from pathlib import Path
 from typing import Optional, Union, List
 
@@ -12,11 +11,6 @@ from torch.utils.data import random_split, DataLoader
 from lightning import LightningDataModule
 from lit_gpt.datasets.alpaca import prompt_template
 from lit_gpt.datasets.base import SFTDataset, sft_collate_fn
-
-# support running without installing as a package
-wd = Path(__file__).parent.parent.resolve()
-sys.path.append(str(wd))
-
 from lit_gpt.tokenizer import Tokenizer
 
 
