@@ -3,3 +3,4 @@
 from lit_gpt.datasets.base import SFTDataset, apply_prompt_template, sft_collate_fn
 from lit_gpt.datasets.alpaca import Alpaca
 from lit_gpt.datasets.lima import LIMA
+from lit_gpt.datasets.tinyllama import TinyLlama
