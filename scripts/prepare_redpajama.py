@@ -15,7 +15,6 @@ sys.path.append(str(wd))
 
 import lit_gpt.packed_dataset as packed_dataset
 from lit_gpt import Config, Tokenizer
-from lit_gpt.utils import CLI
 
 filenames_sample = [
     "arxiv_sample.jsonl",
@@ -163,4 +162,6 @@ def prepare(
 
 
 if __name__ == "__main__":
+    from jsonargparse import CLI
+
     CLI(prepare)

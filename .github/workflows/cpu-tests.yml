@@ -61,7 +61,7 @@ jobs:
 
     - name: Install all dependencies
       run: |
-        pip install -r requirements-all.txt pytest pytest-rerunfailures pytest-timeout transformers>=4.38.0 einops protobuf
+        pip install -r requirements-all.txt pytest pytest-rerunfailures pytest-timeout transformers>=4.36.0 einops protobuf
         pip list
 
     - name: Run tests without the package installed

@@ -14,6 +14,362 @@ import torch.nn as nn
 from typing_extensions import Self
 
 from lit_gpt.config import Config
+import copy
+
+
+# class IntentionGPT(nn.Module):
+#     def __init__(self, config: Config) -> None:
+#         super().__init__()
+#         assert config.padded_vocab_size is not None
+#         self.config = config
+
+#         self.lm_head = nn.Linear(config.n_embd, config.padded_vocab_size, bias=config.lm_head_bias)
+
+#         encoder_layer_num = 1
+#         self.encoder_layer_num = encoder_layer_num
+#         n_action_embd = config.n_embd
+#         self.sentence_action = True
+#         self.finetune = False
+#         self.state_encoder = nn.ModuleDict(
+#             dict(
+#                 wte=nn.Embedding(config.padded_vocab_size, config.n_embd),
+#                 h=nn.ModuleList(Block(config) for _ in range(encoder_layer_num)),
+#                 ln_f=config.norm_class(config.n_embd, eps=config.norm_eps),
+#             )
+#         )
+#         self.action_encoder = nn.ModuleDict(
+#             dict(
+#                 wte=nn.Embedding(config.padded_vocab_size, config.n_embd),
+#                 h=nn.ModuleList(Block(config) for _ in range(encoder_layer_num)),
+#                 ln_f=config.norm_class(config.n_embd, eps=config.norm_eps),
+#             )
+#         )
+#         self.mean_layer = nn.Linear(config.n_embd, n_action_embd)
+#         self.logvar_layer = nn.Linear(config.n_embd, n_action_embd)
+#         concat_block_config = copy.deepcopy(config)
+#         concat_block_config.input_n_embd = concat_block_config.n_embd + n_action_embd
+#         self.concat_block = Block(concat_block_config)
+#         decoder_layer_num = config.n_layer - encoder_layer_num
+#         self.decoder = nn.ModuleDict(
+#             dict(
+#                 h=nn.ModuleList(Block(config) for _ in range(decoder_layer_num)),
+#                 ln_f=config.norm_class(config.n_embd, eps=config.norm_eps),
+#             )
+#         )
+#         self.max_seq_length = self.config.block_size
+#         self.mask_cache: Optional[torch.Tensor] = None
+        
+#         if self.finetune:
+#             self.decoder.eval()
+#             self.state_encoder.eval()
+
+#     @property
+#     def max_seq_length(self) -> int:
+#         return self._max_seq_length
+
+#     @max_seq_length.setter
+#     def max_seq_length(self, value: int) -> None:
+#         """
+#         When doing inference, the sequences used might be shorter than the model's context length.
+#         This allows setting a smaller number to avoid allocating unused memory
+#         """
+#         if value > self.config.block_size:
+#             raise ValueError(f"Cannot attend to {value}, block size is only {self.config.block_size}")
+#         self._max_seq_length = value
+#         if not hasattr(self, "cos"):
+#             # first call
+#             cos, sin = self.rope_cache()
+#             self.register_buffer("cos", cos, persistent=False)
+#             self.register_buffer("sin", sin, persistent=False)
+#         # override
+#         elif value != self.cos.size(0):
+#             self.cos, self.sin = self.rope_cache(device=self.cos.device)
+#         # the mask and kv cache size will get updated on `set_kv_cache`. we cannot update it here because we don't know
+#         # if the kv cache is expected
+
+#     def reset_parameters(self) -> None:
+#         # Trigger resetting the rope-cache
+#         self.cos, self.sin = self.rope_cache()
+
+#     def _init_weights(self, module: nn.Module) -> None:
+#         """Meant to be used with `gpt.apply(gpt._init_weights)`."""
+#         if isinstance(module, nn.Linear):
+#             torch.nn.init.normal_(module.weight, mean=0.0, std=0.02)
+#             if module.bias is not None:
+#                 torch.nn.init.zeros_(module.bias)
+#         elif isinstance(module, nn.Embedding):
+#             torch.nn.init.normal_(module.weight, mean=0.0, std=0.02)
+
+#     def reparameterization(self, mean, var):
+#         epsilon = torch.randn_like(var)
+#         z = mean + var*epsilon
+#         return z
+    
+#     def forward(self, idx: torch.Tensor, input_pos: Optional[torch.Tensor] = None, train_mode=False) -> torch.Tensor:
+#         T = idx.size(1)
+#         if self.max_seq_length < T:
+#             raise ValueError(f"Cannot forward sequence of length {T}, max seq length is only {self.max_seq_length}.")
+
+#         if input_pos is not None:  # use the kv cache
+#             cos = self.cos.index_select(0, input_pos)
+#             sin = self.sin.index_select(0, input_pos)
+#             if self.mask_cache is None:
+#                 raise TypeError("You need to call `gpt.set_kv_cache()`")
+#             mask = self.mask_cache.index_select(2, input_pos)
+#         else:
+#             cos = self.cos[:T]
+#             sin = self.sin[:T]
+#             mask = None
+
+#         x = self.state_encoder.wte(idx)  # token embeddings of shape (b, t, n_embd)
+#         action_x = self.action_encoder.wte(idx)
+#         for block_state, block_action in zip(self.state_encoder.h, self.action_encoder.h):
+#             x = block_state(x, cos, sin, mask, input_pos)
+#             aciton_x = block_action(action_x, cos, sin, mask, input_pos)
+            
+#         if self.sentence_action:
+#             action_x = action_x[:, -1:, :].repeat(1, T, 1)
+#         else:
+#             action_x[:, :-1] = action_x[:, 1:]
+
+#         mean, logvar = self.mean_layer(aciton_x), self.logvar_layer(aciton_x)
+#         z = self.reparameterization(mean, logvar)
+
+#         x = torch.cat([x, z], dim=-1)
+#         for block in enumerate(self.decoder.h):
+#             x = block(x, cos, sin, mask, input_pos)
+#         x = self.decoder.ln_f(x)
+#         # TODO need to return action
+#         if not train_mode:
+#             return self.lm_head(x)
+        
+#         return self.lm_head(x), {"mean": mean, "logvar": logvar, "z": z}  # (b, t, vocab_size)
+    
+#     def load_from_gpt(self, gpt_model):
+#         self.state_encoder.wte.load_state_dict(gpt_model.transformer.wte.state_dict())
+#         for idx, block in enumerate(self.state_encoder.h):
+#             block.load_state_dict(gpt_model.transformer.h[idx].state_dict())
+            
+#         for idx, block in enumerate(self.decoder.h):
+#             block.load_state_dict(gpt_model.transformer.h[idx + self.encoder_layer_num].state_dict())
+#         self.decoder.ln_f.load_state_dict(gpt_model.transformer.ln_f.state_dict())
+#         self.lm_head.load_state_dict(gpt_model.lm_head.state_dict()) 
+
+#     @classmethod
+#     def from_name(cls, name: str, **kwargs: Any) -> Self:
+#         return cls(Config.from_name(name, **kwargs))
+
+#     def rope_cache(self, device: Optional[torch.device] = None) -> Tuple[torch.Tensor, torch.Tensor]:
+#         return build_rope_cache(
+#             seq_len=self.max_seq_length,
+#             n_elem=self.config.rope_n_elem,
+#             device=device,
+#             condense_ratio=self.config.rope_condense_ratio,
+#             base=self.config.rope_base,
+#         )
+
+#     def set_kv_cache(
+#         self,
+#         batch_size: int,
+#         rope_cache_length: Optional[int] = None,
+#         device: Optional[torch.device] = None,
+#         dtype: Optional[torch.dtype] = None,
+#     ) -> None:
+#         if rope_cache_length is None:
+#             rope_cache_length = self.cos.size(-1)
+#         max_seq_length = self.max_seq_length
+
+#         # initialize the kv cache for all blocks
+#         for block in self.transformer.h:
+#             block.attn.kv_cache = block.attn.build_kv_cache(
+#                 batch_size, max_seq_length, rope_cache_length, device, dtype
+#             )
+
+#         if self.mask_cache is None or self.mask_cache.size(3) != max_seq_length:
+#             # passing `attn_mask` to SDPA disables the flash implementation. since we only need the mask
+#             # for the kv-cache support (only during inference), we only create it in that situation
+#             self.mask_cache = build_mask_cache(max_seq_length, device)
+
+#     def clear_kv_cache(self) -> None:
+#         self.mask_cache = None
+#         for block in self.transformer.h:
+#             block.attn.kv_cache = None
+
+
+class IntentionGPT(nn.Module):
+    def __init__(self, config: Config) -> None:
+        super().__init__()
+        assert config.padded_vocab_size is not None
+        self.config = config
+
+        self.lm_head = nn.Linear(config.n_embd, config.padded_vocab_size, bias=config.lm_head_bias)
+        
+        self.enc_layer_num = 1
+        self.dyna_layer_num = 1
+        self.transformer_enc = nn.ModuleDict(
+            dict(
+                wte=nn.Embedding(config.padded_vocab_size, config.n_embd),
+                h=nn.ModuleList(Block(config) for _ in range(self.enc_layer_num)),
+            )
+        )
+        self.transformer_act = nn.ModuleDict(
+            dict(
+                wte=nn.Embedding(config.padded_vocab_size, config.n_embd),
+                h=nn.ModuleList(Block(config) for _ in range(self.enc_layer_num)),
+            )
+        )
+        self.mean_layer = nn.Linear(config.n_embd, config.n_embd)
+        self.logvar_layer = nn.Linear(config.n_embd, config.n_embd)
+        self.concat_layer = nn.Linear(config.n_embd + config.n_embd, config.n_embd)
+        
+        self.transformer_dyna = nn.ModuleDict(
+            dict(
+                h=nn.ModuleList(Block(config) for _ in range(self.dyna_layer_num)),
+            )
+        )
+        self.transformer_dec = nn.ModuleDict(
+            dict(
+                h=nn.ModuleList(Block(config) for _ in range(config.n_layer - self.enc_layer_num - self.dyna_layer_num)),
+                ln_f=config.norm_class(config.n_embd, eps=config.norm_eps),
+            )
+        )
+        
+        self.max_seq_length = self.config.block_size
+        self.mask_cache: Optional[torch.Tensor] = None
+
+    @property
+    def max_seq_length(self) -> int:
+        return self._max_seq_length
+
+    @max_seq_length.setter
+    def max_seq_length(self, value: int) -> None:
+        """
+        When doing inference, the sequences used might be shorter than the model's context length.
+        This allows setting a smaller number to avoid allocating unused memory
+        """
+        if value > self.config.block_size:
+            raise ValueError(f"Cannot attend to {value}, block size is only {self.config.block_size}")
+        self._max_seq_length = value
+        if not hasattr(self, "cos"):
+            # first call
+            cos, sin = self.rope_cache()
+            self.register_buffer("cos", cos, persistent=False)
+            self.register_buffer("sin", sin, persistent=False)
+        # override
+        elif value != self.cos.size(0):
+            self.cos, self.sin = self.rope_cache(device=self.cos.device)
+        # the mask and kv cache size will get updated on `set_kv_cache`. we cannot update it here because we don't know
+        # if the kv cache is expected
+
+    def reset_parameters(self) -> None:
+        # Trigger resetting the rope-cache
+        self.cos, self.sin = self.rope_cache()
+
+    def _init_weights(self, module: nn.Module) -> None:
+        """Meant to be used with `gpt.apply(gpt._init_weights)`."""
+        if isinstance(module, nn.Linear):
+            torch.nn.init.normal_(module.weight, mean=0.0, std=0.02)
+            if module.bias is not None:
+                torch.nn.init.zeros_(module.bias)
+        elif isinstance(module, nn.Embedding):
+            torch.nn.init.normal_(module.weight, mean=0.0, std=0.02)
+    
+    def reparameterization(self, mean, var):
+        epsilon = torch.randn_like(var)
+        z = mean + var*epsilon
+        return z
+
+    def forward(self, idx: torch.Tensor, input_pos: Optional[torch.Tensor] = None, train_mode=False) -> torch.Tensor:
+        T = idx.size(1)
+        if self.max_seq_length < T:
+            raise ValueError(f"Cannot forward sequence of length {T}, max seq length is only {self.max_seq_length}.")
+
+        if input_pos is not None:  # use the kv cache
+            cos = self.cos.index_select(0, input_pos)
+            sin = self.sin.index_select(0, input_pos)
+            if self.mask_cache is None:
+                raise TypeError("You need to call `gpt.set_kv_cache()`")
+            mask = self.mask_cache.index_select(2, input_pos)
+        else:
+            cos = self.cos[:T]
+            sin = self.sin[:T]
+            mask = None
+
+        x = self.transformer_enc.wte(idx)  # token embeddings of shape (b, t, n_embd)
+        x_act = self.transformer_act.wte(idx)  # token embeddings of shape (b, t, n_embd)
+        for block, block_a in zip(self.transformer_enc.h, self.transformer_act.h):
+            x = block(x, cos, sin, mask, input_pos)
+            x_act = block_a(x_act, cos, sin, mask, input_pos)
+            
+        # x_act = x_act[:, -1:, :]
+        # mean, logvar = self.mean_layer(x_act), self.logvar_layer(x_act)
+        # z = self.reparameterization(mean, torch.exp(logvar))
+        # x = torch.cat([z, x], dim=1)
+        # cos_ = torch.cat([torch.zeros_like(cos[:1]), cos], dim=0)
+        # sin_ = torch.cat([torch.zeros_like(sin[:1]), sin], dim=0)
+        # mask_ = torch.cat([torch.ones_like(mask[:1]), mask], dim=0) if mask is not None else None
+        # input_pos_ = torch.cat([torch.ones_like(input_pos[:1]), input_pos], dim=0) if input_pos is not None else None
+        # for block in self.transformer_dyna.h:
+        #     x = block(x, cos_, sin_, mask_, input_pos_)
+        # x = x[:, 1:]
+        
+        mean, logvar = self.mean_layer(x_act), self.logvar_layer(x_act)
+        z = self.reparameterization(mean, torch.exp(logvar))
+        
+        x = torch.cat([x, z], dim=-1)
+        x = self.concat_layer(x)
+        for block in self.transformer_dec.h:
+            x = block(x, cos, sin, mask, input_pos)
+        
+        for block in self.transformer_dec.h:
+            x = block(x, cos, sin, mask, input_pos)
+            
+        x = self.transformer_dec.ln_f(x)
+        if not train_mode:
+            return self.lm_head(x)
+        
+        return self.lm_head(x), {"mean": mean, "logvar": logvar, "z": z}  # (b, t, vocab_size)
+
+    @classmethod
+    def from_name(cls, name: str, **kwargs: Any) -> Self:
+        return cls(Config.from_name(name, **kwargs))
+
+    def rope_cache(self, device: Optional[torch.device] = None) -> Tuple[torch.Tensor, torch.Tensor]:
+        return build_rope_cache(
+            seq_len=self.max_seq_length,
+            n_elem=self.config.rope_n_elem,
+            device=device,
+            condense_ratio=self.config.rope_condense_ratio,
+            base=self.config.rope_base,
+        )
+
+    def set_kv_cache(
+        self,
+        batch_size: int,
+        rope_cache_length: Optional[int] = None,
+        device: Optional[torch.device] = None,
+        dtype: Optional[torch.dtype] = None,
+    ) -> None:
+        if rope_cache_length is None:
+            rope_cache_length = self.cos.size(-1)
+        max_seq_length = self.max_seq_length
+
+        # initialize the kv cache for all blocks
+        for block in self.transformer.h:
+            block.attn.kv_cache = block.attn.build_kv_cache(
+                batch_size, max_seq_length, rope_cache_length, device, dtype
+            )
+
+        if self.mask_cache is None or self.mask_cache.size(3) != max_seq_length:
+            # passing `attn_mask` to SDPA disables the flash implementation. since we only need the mask
+            # for the kv-cache support (only during inference), we only create it in that situation
+            self.mask_cache = build_mask_cache(max_seq_length, device)
+
+    def clear_kv_cache(self) -> None:
+        self.mask_cache = None
+        for block in self.transformer.h:
+            block.attn.kv_cache = None
+
 
 
 class GPT(nn.Module):
@@ -87,9 +443,6 @@ class GPT(nn.Module):
             mask = None
 
         x = self.transformer.wte(idx)  # token embeddings of shape (b, t, n_embd)
-        if self.config.scale_embeddings:
-            x = x * (self.config.n_embd**0.5)
-
         for block in self.transformer.h:
             x = block(x, cos, sin, mask, input_pos)
         x = self.transformer.ln_f(x)
@@ -177,8 +530,7 @@ class CausalSelfAttention(nn.Module):
         # key, query, value projections for all heads, but in a batch
         self.attn = nn.Linear(config.n_embd, shape, bias=config.bias)
         # output projection
-        # if `head_size` is explicitly specified in the config, `n_emd` might not be equal to `head_size * n_head`
-        self.proj = nn.Linear(config.head_size * config.n_head, config.n_embd, bias=config.bias)
+        self.proj = nn.Linear(config.n_embd, config.n_embd, bias=config.bias)
         # disabled by default
         self.kv_cache: Optional[KVCache] = None
 
@@ -228,7 +580,7 @@ class CausalSelfAttention(nn.Module):
 
         y = self.scaled_dot_product_attention(q, k, v, mask)
 
-        y = y.reshape(B, T, self.config.head_size * self.config.n_head)  # re-assemble all head outputs side by side
+        y = y.reshape(B, T, self.config.n_embd)  # re-assemble all head outputs side by side
 
         # output projection
         return self.proj(y)
@@ -291,14 +643,6 @@ class LLaMAMLP(nn.Module):
         x_fc_1 = self.fc_1(x)
         x_fc_2 = self.fc_2(x)
         x = torch.nn.functional.silu(x_fc_1) * x_fc_2
-        return self.proj(x)
-
-
-class GemmaMLP(LLaMAMLP):
-    def forward(self, x: torch.Tensor) -> torch.Tensor:
-        x_fc_1 = self.fc_1(x)
-        x_fc_2 = self.fc_2(x)
-        x = torch.nn.functional.gelu(x_fc_1) * x_fc_2
         return self.proj(x)
 
 

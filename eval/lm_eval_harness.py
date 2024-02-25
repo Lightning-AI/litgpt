@@ -17,7 +17,7 @@ sys.path.append(str(wd))
 
 from generate.base import generate
 from lit_gpt import GPT, Config, Tokenizer
-from lit_gpt.utils import CLI, check_valid_checkpoint_dir, get_default_supported_precision, load_checkpoint
+from lit_gpt.utils import check_valid_checkpoint_dir, get_default_supported_precision, load_checkpoint
 
 
 class EvalHarnessBase(BaseLM):
@@ -188,6 +188,7 @@ def run_eval_harness(
 
 
 if __name__ == "__main__":
-    torch.set_float32_matmul_precision("high")
+    from jsonargparse import CLI
 
-    CLI(run_eval_harness)
+    torch.set_float32_matmul_precision("high")
+    CLI(run_eval_harness, as_positional=False)

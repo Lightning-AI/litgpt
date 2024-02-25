@@ -17,7 +17,6 @@ wd = Path(__file__).parent.parent.resolve()
 sys.path.append(str(wd))
 
 from lit_gpt.tokenizer import Tokenizer
-from lit_gpt.utils import CLI
 
 
 def prepare(
@@ -165,4 +164,6 @@ def generate_prompt(example: dict) -> str:
 
 
 if __name__ == "__main__":
+    from jsonargparse import CLI
+
     CLI(prepare)

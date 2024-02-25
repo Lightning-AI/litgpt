@@ -14,7 +14,7 @@ Here's a few things you can try:
 
 ### Reduce the micro batch size
 
-Adjust the `--train.micro_batch_size` argument in the fine-tuning and pretraining scripts. This variable determines the number of samples loaded per iteration.
+Adjust the `micro_batch_size = ...` variable in the fine-tuning and pretraining scripts. This variable determines the number of samples loaded per iteration.
 
 A smaller value will simply load fewer samples simultaneously. The minimum value is 1.
 
@@ -25,7 +25,7 @@ Experiment with different micro batch sizes to find a balance between memory con
 The context length (`block_size` in the code) plays a significant role in running models with attention.
 
 * The pretraining scripts are configured to use the full context length of the model to train.
-* The finetuning scripts are configured to use the longest sample length of the training data to avoid allocating unnecessary memory (`--train.max_seq_length` argument).
+* The finetuning scripts are configured to use the longest sample length of the training data to avoid allocating unnecessary memory (`max_seq_length` in the code).
   If that's longer than the model's context length, an error is raised. If you try to run a batch that is longer than this, an error is raised.
 
 However, your hardware may not support such large context lengths. Here's what you can do:
@@ -34,7 +34,7 @@ However, your hardware may not support such large context lengths. Here's what y
 * For the finetuning scripts, you can trim the length of the samples in your dataset.
   Most of the `scripts/prepare_*.py` scripts expose a `--max_seq_length=...` argument. This might also be useful in cases where
   sample lengths are highly unbalanced, as the presence of a single very long sample would incur a larger memory usage for all other
-  shorter samples. For example, the median length of the samples in Alpaca is 110 tokens. Truncating the Alpaca dataset to 256 max tokens reduces the memory requirements of a Falcon 7B model from 23.52 GB to 15.73 GB. For more information about the dataset truncation, please see the *Truncating datasets* section in the [prepare_datasets.md](prepare_datasets.md) tutorial.
+  shorter samples. For example, the median length of the samples in Alpaca is 110 tokens. Truncating the Alpaca dataset to 256 max tokens reduces the memory requirements of a Falcon 7B model from 23.52 GB to 15.73 GB. For more information about the dataset truncation, please see the *Truncating datasets* section in the the [prepare_datasets.md](prepare_datasets.md) tutorial.
 
 Keep in mind that reducing the context length will affect the modelling performance on text sequences longer than the limit.
 
@@ -50,7 +50,7 @@ Mixed precision training (`16-mixed`, `bf16-mixed`) provides better stability bu
 ### Do sharding across multiple GPUs
 
 For exceptionally large models, the aforementioned techniques might still not suffice. If you have multiple GPUs available,
-you can trade off memory for speed by changing the `--devices 1` argument in the scripts. Enabling this option enables a parallelism technique (FSDP), sharding the memory across different GPUs.
+you can trade off memory for speed by changing the `devices = 1` argument in the scripts. Enabling this option enables a parallelism technique (FSDP), sharding the memory across different GPUs.
 
 The default configuration already uses activation checkpointing, but you can enable CPU offloading by changing the `cpu_offload=False` argument in the scripts.
 

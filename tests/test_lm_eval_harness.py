@@ -75,7 +75,7 @@ def test_eval_script(tmp_path, fake_checkpoint_dir, monkeypatch):
     assert not output_folder.exists()
 
     module.run_eval_harness(
-        checkpoint_dir=fake_checkpoint_dir, precision="32-true", save_filepath=(output_folder / "results.json")
+        checkpoint_dir=fake_checkpoint_dir, precision="32-true", save_filepath=(output_folder / "results.json"),
     )
 
     run_eval_mock.assert_called_once_with(

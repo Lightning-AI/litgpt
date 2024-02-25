@@ -24,7 +24,7 @@ sys.path.append(str(wd))
 import generate.base as generate_base
 from lit_gpt import GPT, Config, Tokenizer
 from lit_gpt.model import Block, build_mask_cache
-from lit_gpt.utils import CLI, check_valid_checkpoint_dir, get_default_supported_precision
+from lit_gpt.utils import check_valid_checkpoint_dir, get_default_supported_precision
 
 
 @torch.inference_mode()
@@ -224,6 +224,8 @@ def main(
 
 
 if __name__ == "__main__":
+    from jsonargparse import CLI
+
     torch.set_float32_matmul_precision("high")
 
     logging.getLogger("lightning.fabric.plugins.precision.bitsandbytes").setLevel(logging.DEBUG)

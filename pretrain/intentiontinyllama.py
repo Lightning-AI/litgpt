@@ -27,9 +27,10 @@ from torchmetrics.aggregation import RunningMean
 wd = Path(__file__).parent.parent.resolve()
 sys.path.append(str(wd))
 
-from lit_gpt.model import GPT, Block, CausalSelfAttention, Config, LLaMAMLP
-from lit_gpt.utils import CycleIterator, chunked_cross_entropy, num_parameters
+from lit_gpt.model import IntentionGPT, GPT, Block, CausalSelfAttention, Config, LLaMAMLP
+from lit_gpt.utils import CycleIterator, chunked_cross_entropy, chunked_kld, num_parameters
 
+beta = 2.0
 # System settings
 model_name = "tiny-llama-1.1b"
 name = "lit-tiny-llama-1.1b"
@@ -93,7 +94,7 @@ def main(fabric, resume):
     fabric.print(f"Loading model with {config.__dict__}")
     t0 = time.perf_counter()
     with fabric.init_module(empty_init=False):
-        model = GPT(config)
+        model = IntentionGPT(config)
         model.apply(partial(init_weights, n_layer=config.n_layer, n_embd=config.n_embd))
 
     fabric.print(f"Time to instantiate model: {time.perf_counter() - t0:.02f} seconds.")
@@ -136,7 +137,7 @@ def train(fabric, state, train_dataloader, val_dataloader, resume):
     throughput = ThroughputMonitor(fabric, window_size=5)
 
     with torch.device("meta"):
-        meta_model = GPT(model.config)
+        meta_model = IntentionGPT(model.config)
         x = torch.randint(0, 1, (micro_batch_size, meta_model.config.block_size))
         model_fwd = lambda: meta_model(x)
         model_loss = lambda y: chunked_cross_entropy(y, x, chunk_size=0)
@@ -151,6 +152,8 @@ def train(fabric, state, train_dataloader, val_dataloader, resume):
     train_iterator = CycleIterator(train_dataloader)
 
     running_loss = RunningMean(window=gradient_accumulation_iters, sync_on_compute=False).to(fabric.device)
+    running_loss_enc = RunningMean(window=gradient_accumulation_iters, sync_on_compute=False).to(fabric.device)
+    running_loss_dec = RunningMean(window=gradient_accumulation_iters, sync_on_compute=False).to(fabric.device)
     fabric.barrier()
     total_t0 = time.perf_counter()
 
@@ -172,14 +175,18 @@ def train(fabric, state, train_dataloader, val_dataloader, resume):
         try:
             is_accumulating = state["iter_num"] % gradient_accumulation_iters != 0
             with fabric.no_backward_sync(model, enabled=is_accumulating):
-                logits = model(input_ids)
-                loss = chunked_cross_entropy(logits, targets)
+                logits, info = model(input_ids, train_mode=True)
+                enc_loss = chunked_kld(info['mean'], info['logvar'])
+                dec_loss = chunked_cross_entropy(logits, targets)
+                loss = enc_loss + beta * dec_loss 
                 fabric.backward(loss / gradient_accumulation_iters)
         except:
             print(input_ids.shape)
             assert 0
 
         running_loss.update(loss.detach())
+        running_loss_enc.update(enc_loss.detach())
+        running_loss_dec.update(dec_loss.detach())
 
         if not is_accumulating:
             fabric.clip_gradients(model, optimizer, max_norm=grad_clip)
@@ -189,6 +196,8 @@ def train(fabric, state, train_dataloader, val_dataloader, resume):
 
         if state["iter_num"] % log_iter_interval == 0:
             loss = running_loss.compute().item()  # expensive device-to-host synchronization
+            enc_loss = running_loss_enc.compute().item()  # expensive device-to-host synchronization
+            dec_loss = running_loss_dec.compute().item()  # expensive device-to-host synchronization
             t1 = time.perf_counter()
             throughput.update(
                 time=(t1 - total_t0),
@@ -199,6 +208,8 @@ def train(fabric, state, train_dataloader, val_dataloader, resume):
             )
             metrics = {
                 "loss": loss,
+                "loss": enc_loss,
+                "loss": dec_loss,
                 "iter": state["iter_num"],
                 "step": state["step_count"],
                 "epoch": train_iterator.epoch,

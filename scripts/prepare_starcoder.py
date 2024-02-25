@@ -14,7 +14,6 @@ wd = Path(__file__).parent.parent.resolve()
 sys.path.append(str(wd))
 
 from lit_gpt import Tokenizer
-from lit_gpt.utils import CLI
 
 
 class StarcoderDataRecipe(DataChunkRecipe):
@@ -48,9 +47,9 @@ class StarcoderDataRecipe(DataChunkRecipe):
 
 
 def prepare(
-    input_dir: Path = Path("data/starcoderdata"),
+    input_dir: Path = Path("data/starcoderdata_raw"),
     output_dir: Path = Path("data/starcoder"),
-    tokenizer_path: Path = Path("checkpoints/Llama-2-7b-hf/"),
+    tokenizer_path: Path = Path("checkpoints/meta-llama/Llama-2-7b-hf/"),
     chunk_size: int = (2049 * 8192),
     fast_dev_run: bool = False,
 ) -> None:
@@ -71,4 +70,6 @@ def prepare(
 
 
 if __name__ == "__main__":
+    from jsonargparse import CLI
+
     CLI(prepare)

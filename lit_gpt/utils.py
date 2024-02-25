@@ -20,8 +20,55 @@ from typing_extensions import Self
 
 if TYPE_CHECKING:
     from lit_gpt import GPT
+    
+ 
+def chunked_kld(
+    mean: Union[torch.Tensor, List[torch.Tensor]],
+    logvar: Union[torch.Tensor, List[torch.Tensor]],
+    chunk_size: int = 0,
+    ignore_index: int = -1,
+) -> torch.Tensor:
+    # with large max_sequence_lengths, the beginning of `backward` allocates a large memory chunk which can dominate
+    # the memory usage in fine-tuning settings with low number of parameters.
+    # as a workaround hack, the cross entropy computation is chunked to force it to deallocate on the go, reducing
+    # the memory spike's magnitude
 
+    # lm_head was chunked (we are fine-tuning)
+    if isinstance(mean, list):
+        # don't want to chunk cross entropy
+        if chunk_size == 0:
+            mean = torch.cat(mean, dim=1)
+            mean = mean.reshape(-1, mean.size(-1))
+            
+            logvar = torch.cat(logvar, dim=1)
+            logvar = logvar.reshape(-1, logvar.size(-1))
+            
+            return 0.5 * torch.mean(torch.exp(logvar) + torch.pow(mean, 2) - 1. - logvar)
 
+        # chunk cross entropy
+        mean_chunks = [mean_chunk.reshape(-1, mean_chunk.size(-1)) for mean_chunk in mean]
+        logvar_chunks = [logvar_chunk.reshape(-1, logvar_chunk.size(-1)) for logvar_chunk in logvar]
+        
+        loss_chunks = [
+            0.5 * torch.mean(torch.exp(logvar_chunk) + torch.pow(mean_chunk, 2) - 1. - logvar) for mean_chunk, logvar_chunk in zip(mean_chunks, logvar_chunks)
+        ]
+
+        return torch.cat(loss_chunks).mean()
+
+    # no chunking at all
+    mean = mean.reshape(-1, mean.size(-1))
+    logvar = logvar.reshape(-1, logvar.size(-1))
+    if chunk_size == 0:
+        return 0.5 * torch.mean(torch.exp(logvar) + torch.pow(mean, 2) - 1. - logvar)
+
+    # lm_head wasn't chunked, chunk cross entropy
+    mean_chunks = mean.split(chunk_size)
+    logvar_chunks = logvar.split(chunk_size)
+    loss_chunks = [
+        0.5 * torch.mean(torch.exp(logvar_chunk) + torch.pow(mean_chunk, 2) - 1. - logvar) for mean_chunk, logvar_chunk in zip(mean_chunks, logvar_chunks)
+    ]
+    return torch.cat(loss_chunks).mean()
+ 
 def find_multiple(n: int, k: int) -> int:
     assert k > 0
     if n % k == 0:
@@ -45,8 +92,9 @@ def check_valid_checkpoint_dir(checkpoint_dir: Path) -> None:
     files = {
         "lit_model.pth": (checkpoint_dir / "lit_model.pth").is_file(),
         "lit_config.json": (checkpoint_dir / "lit_config.json").is_file(),
-        "tokenizer.json OR tokenizer.model": (checkpoint_dir / "tokenizer.json").is_file()
-        or (checkpoint_dir / "tokenizer.model").is_file(),
+        "tokenizer.json OR tokenizer.model": (checkpoint_dir / "tokenizer.json").is_file() or (
+            checkpoint_dir / "tokenizer.model"
+        ).is_file(),
         "tokenizer_config.json": (checkpoint_dir / "tokenizer_config.json").is_file(),
     }
     if checkpoint_dir.is_dir():
@@ -368,12 +416,3 @@ class CycleIterator:
 
     def __iter__(self) -> Self:
         return self
-
-
-def CLI(*args: Any, **kwargs: Any) -> Any:
-    from jsonargparse import CLI, set_docstring_parse_options
-
-    set_docstring_parse_options(attribute_docstrings=True)
-
-    kwargs.setdefault("as_positional", False)
-    return CLI(*args, **kwargs)

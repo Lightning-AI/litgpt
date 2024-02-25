@@ -55,7 +55,7 @@ pip install sentencepiece
 # base version
 python chat/base.py --checkpoint_dir checkpoints/TinyLlama/TinyLlama-1.1B-intermediate-step-1431k-3T
 
-# or
+or
 
 # chat version
 python chat/base.py --checkpoint_dir checkpoints/TinyLlama/TinyLlama-1.1B-Chat-v1.0
