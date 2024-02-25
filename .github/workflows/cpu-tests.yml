@@ -47,10 +47,10 @@ jobs:
 
     - name:  Install uv
       run: |
+        pip install uv
         # Set the VIRTUAL_ENV variable for uv to work
         # https://github.com/astral-sh/uv/issues/1526
         echo "VIRTUAL_ENV=${Python_ROOT_DIR}" >> $GITHUB_ENV
-        curl -LsSf https://astral.sh/uv/install.sh | sh
 
     - name: Install minimal dependencies
       run: |
