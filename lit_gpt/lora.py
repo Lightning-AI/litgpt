@@ -598,8 +598,9 @@ class CausalSelfAttention(BaseCausalSelfAttention):
             n_query_groups=config.n_query_groups,
         )
         # output projection
+        # if `head_size` is explicitly specified in the config, `n_emd` might not be equal to `head_size * n_head`
         self.proj = LoRALinear(
-            config.n_embd,
+            config.head_size * config.n_head,
             config.n_embd,
             bias=config.bias,
             r=(config.r if config.to_projection else 0),
@@ -697,6 +698,14 @@ class LLaMAMLP(lit_gpt.model.LLaMAMLP):
         }
         state_dict = map_old_state_dict_weights(state_dict, mapping, prefix)
         super()._load_from_state_dict(state_dict, prefix, *args, **kwargs)
+
+
+class GemmaMLP(LLaMAMLP):
+    def forward(self, x: torch.Tensor) -> torch.Tensor:
+        x_fc_1 = self.fc_1(x)
+        x_fc_2 = self.fc_2(x)
+        x = torch.nn.functional.gelu(x_fc_1) * x_fc_2
+        return self.proj(x)
 
 
 class LLaMAMoE(lit_gpt.model.LLaMAMoE):

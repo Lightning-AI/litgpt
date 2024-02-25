@@ -106,6 +106,7 @@ def copy_weights_llama(
     config: Config,
     state_dict: Dict[str, torch.Tensor],
     lit_weights: Dict[str, Union[torch.Tensor, NotYetLoadedTensor]],
+    untie_weights: bool = False,
     saver: Optional[incremental_save] = None,
 ) -> None:
     weight_map = {
@@ -128,7 +129,7 @@ def copy_weights_llama(
                 "transformer.h.{}.mlp.experts.{}.proj.weight": "model.layers.{l}.block_sparse_moe.experts.{e}.w2.weight",
             }
         )
-    elif config._mlp_class == "LLaMAMLP":
+    elif config._mlp_class in ("LLaMAMLP", "GemmaMLP"):
         weight_map.update(
             {
                 "transformer.h.{}.mlp.fc_1.weight": "model.layers.{l}.mlp.gate_proj.weight",
@@ -140,6 +141,8 @@ def copy_weights_llama(
         raise NotImplementedError
 
     for name, param in lit_weights.items():
+        if name == "lm_head.weight" and untie_weights:
+            continue
         if name.endswith(".attn.attn.weight"):
             from_name, l = layer_template(name, 2)
             q = "model.layers.{}.self_attn.q_proj.weight".format(l)
@@ -246,8 +249,9 @@ def convert_lit_checkpoint(checkpoint_path: Path, output_path: Path, config_path
 
     if "falcon" in config.name:
         copy_fn = partial(copy_weights_falcon, config.name)
-    elif config._mlp_class in ("LLaMAMLP", "LLaMAMoE"):
-        copy_fn = partial(copy_weights_llama, config)
+    elif config._mlp_class in ("LLaMAMLP", "GemmaMLP", "LLaMAMoE"):
+        untie_weights = "Gemma" in config.name
+        copy_fn = partial(copy_weights_llama, config, untie_weights=untie_weights)
     elif "phi" in config.name:
         copy_fn = partial(copy_weights_phi, config)
     else:
