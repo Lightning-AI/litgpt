@@ -45,10 +45,17 @@ jobs:
           requirements-all.txt
           setup.py
 
+    - name:  Install uv
+      run: |
+        # Set the VIRTUAL_ENV variable for uv to work
+        # https://github.com/astral-sh/uv/issues/1526
+        echo "VIRTUAL_ENV=${Python_ROOT_DIR}" >> $GITHUB_ENV
+        curl -LsSf https://astral.sh/uv/install.sh | sh
+
     - name: Install minimal dependencies
       run: |
-        pip install -r requirements.txt
-        pip list
+        uv pip install -r requirements.txt
+        uv pip list
         # make sure all modules are importable
         modules=$(
           find * -type f -name "*.py" | \
@@ -61,8 +68,8 @@ jobs:
 
     - name: Install all dependencies
       run: |
-        pip install -r requirements-all.txt pytest pytest-rerunfailures pytest-timeout transformers>=4.36.0 einops protobuf
-        pip list
+        uv pip install -r requirements-all.txt pytest pytest-rerunfailures pytest-timeout transformers>=4.36.0 einops protobuf
+        uv pip list
 
     - name: Run tests without the package installed
       run: |
@@ -70,6 +77,6 @@ jobs:
 
     - name: Run tests
       run: |
-        pip install . --no-deps
+        uv pip install . --no-deps
 
         pytest -v --disable-pytest-warnings --strict-markers --color=yes --timeout 120
