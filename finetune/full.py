@@ -277,10 +277,10 @@ def get_dataloaders(fabric: L.Fabric, datamodule: L.LightningDataModule) -> Tupl
         datamodule.prepare_data()
     fabric.barrier()
     datamodule.setup()
-    train_datalaoder = datamodule.train_dataloader()
+    train_dataloader = datamodule.train_dataloader()
     val_dataloader = datamodule.val_dataloader()
-    train_datalaoder, val_dataloader = fabric.setup_dataloaders(train_datalaoder, val_dataloader)
-    return train_datalaoder, val_dataloader
+    train_dataloader, val_dataloader = fabric.setup_dataloaders(train_dataloader, val_dataloader)
+    return train_dataloader, val_dataloader
 
 
 def get_longest_seq_length(data: List[Dict]) -> Tuple[int, int]:
