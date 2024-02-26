@@ -3,18 +3,16 @@
 import os
 from functools import partial
 
-from pathlib import Path
-from typing import Optional, Union, List
+from typing import Optional, List
 
 import torch
 from torch.utils.data import random_split, DataLoader
-from lightning import LightningDataModule
+from lit_gpt.datasets import LitDataModule, SFTDataset, sft_collate_fn
 from lit_gpt.datasets.alpaca import prompt_template
-from lit_gpt.datasets.base import SFTDataset, sft_collate_fn
 from lit_gpt.tokenizer import Tokenizer
 
 
-class LIMA(LightningDataModule):
+class LIMA(LitDataModule):
     """LIMA data module for supervised finetuning.
 
     Provides train- and val-dataloaders. The batches return keys "input_ids" and "labels".
@@ -22,7 +20,6 @@ class LIMA(LightningDataModule):
 
     def __init__(
         self,
-        tokenizer_or_path: Union[str, Path, Tokenizer],
         max_seq_length: int = -1,
         mask_prompt: bool = True,
         test_split_fraction: float = 0.1,
@@ -31,7 +28,6 @@ class LIMA(LightningDataModule):
         include_multiturn_conversations: bool = False,
         data_repo_id: str = "GAIR/lima",
         access_token: Optional[str] = os.getenv("HF_TOKEN"),
-        batch_size: int = 1,
         num_workers: int = 4,
     ) -> None:
         super().__init__()
@@ -41,32 +37,32 @@ class LIMA(LightningDataModule):
                 " variable or pass --access_token=your_token. You can find your token by visiting"
                 " https://huggingface.co/settings/tokens"
             )
-
-        if isinstance(tokenizer_or_path, (str, Path)):
-            self.tokenizer = Tokenizer(Path(tokenizer_or_path))
-        else:
-            self.tokenizer = tokenizer_or_path
-
         self.max_seq_length = max_seq_length
         self.mask_prompt = mask_prompt
         self.test_split_fraction = test_split_fraction
         self.ignore_index = ignore_index
         self.seed = seed
-        self.batch_size = batch_size
         self.num_workers = num_workers
+        self.batch_size = 1
 
         self.access_token = access_token
         self.data_repo_id = data_repo_id
         self.include_multiturn_conversations = include_multiturn_conversations
+
+        self.tokenizer: Optional[Tokenizer] = None
         self.train_dataset: Optional[SFTDataset] = None
         self.test_dataset: Optional[SFTDataset] = None
+
+    def connect(self, tokenizer: Tokenizer, batch_size: int = 1) -> None:
+        self.tokenizer = tokenizer
+        self.batch_size = batch_size
 
     def prepare_data(self) -> None:
         from datasets import load_dataset
 
         load_dataset(self.data_repo_id, token=self.access_token)
 
-    def setup(self, stage: str = None) -> None:
+    def setup(self, stage: str = "") -> None:
         from datasets import load_dataset
 
         dataset = load_dataset(self.data_repo_id, token=self.access_token)
@@ -134,13 +130,11 @@ def format_dataset(dataset_partition: dict, include_multi_turn_conversations: bo
 
 
 if __name__ == "__main__":
-    alpaca = LIMA(
-        tokenizer_or_path="checkpoints/TinyLlama/TinyLlama-1.1B-Chat-v1.0",
-        batch_size=4,
-    )
-    alpaca.prepare_data()
-    alpaca.setup()
+    lima = LIMA()
+    lima.connect(Tokenizer("checkpoints/TinyLlama/TinyLlama-1.1B-Chat-v1.0"), batch_size=4)
+    lima.prepare_data()
+    lima.setup()
 
-    train_dataloader = alpaca.train_dataloader()
+    train_dataloader = lima.train_dataloader()
     for batch in train_dataloader:
         print(batch)

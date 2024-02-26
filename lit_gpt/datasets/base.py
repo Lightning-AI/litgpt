@@ -1,12 +1,22 @@
 # Copyright Lightning AI. Licensed under the Apache License 2.0, see LICENSE file.
-
 from typing import List, Dict, Union
 
 import torch
 from torch import Tensor
 from torch.utils.data import Dataset
 
+from lightning import LightningDataModule
 from lit_gpt import Tokenizer
+
+
+class LitDataModule(LightningDataModule):
+    """Base class for all data modules in Lit-GPT."""
+
+    def connect(self, tokenizer: Tokenizer, batch_size: int = 1) -> None:
+        pass
+
+    def setup(self, stage: str = "") -> None:
+        pass
 
 
 class SFTDataset(Dataset):

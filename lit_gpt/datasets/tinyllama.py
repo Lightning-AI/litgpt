@@ -1,16 +1,14 @@
 # Copyright Lightning AI. Licensed under the Apache License 2.0, see LICENSE file.
 
 from pathlib import Path
-from typing import Optional, Union
+from typing import Union
 
 from torch.utils.data import DataLoader
-from lightning import LightningDataModule
-from lightning.data import CombinedStreamingDataset, StreamingDataLoader, StreamingDataset
-from lightning.data.streaming.item_loader import TokensLoader
-from lit_gpt.datasets.base import SFTDataset
+
+from lit_gpt.datasets import LitDataModule
 
 
-class TinyLlama(LightningDataModule):
+class TinyLlama(LitDataModule):
     """The TinyLlama data module is composed of a mix of SlimPajama and Starcoder data.
 
     Provides train- and val-dataloaders which return directly the token tensors.
@@ -40,6 +38,8 @@ class TinyLlama(LightningDataModule):
         pass
 
     def train_dataloader(self) -> DataLoader:
+        from lightning.data.streaming import CombinedStreamingDataset, StreamingDataLoader, StreamingDataset, TokensLoader
+
         train_datasets = [
             StreamingDataset(
                 input_dir="data/slimpajama/train",
@@ -64,6 +64,8 @@ class TinyLlama(LightningDataModule):
         return train_dataloader
 
     def val_dataloader(self) -> DataLoader:
+        from lightning.data.streaming import StreamingDataset, TokensLoader
+
         val_dataset = StreamingDataset(
             input_dir="data/slimpajama/val",
             item_loader=TokensLoader(block_size=self.seq_length),
