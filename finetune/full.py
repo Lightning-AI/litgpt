@@ -23,7 +23,7 @@ from generate.base import generate
 from lit_gpt.args import EvalArgs, IOArgs, TrainArgs
 from lit_gpt.model import GPT, Block, Config
 from lit_gpt.tokenizer import Tokenizer
-from lit_gpt.datasets import Alpaca, apply_prompt_template
+from lit_gpt.datasets import Alpaca, LitDataModule, apply_prompt_template
 from lit_gpt.utils import (
     CLI,
     check_valid_checkpoint_dir,
@@ -39,6 +39,8 @@ def setup(
     precision: Optional[str] = None,
     devices: int = 1,
     resume: Union[bool, Path] = False,
+    data: LitDataModule = Alpaca,
+    # TODO: Remove IOArgs
     io: IOArgs = IOArgs(
         checkpoint_dir=Path("checkpoints/stabilityai/stablelm-base-alpha-3b"),
         out_dir=Path("out/full/alpaca"),
@@ -71,7 +73,7 @@ def setup(
 
     logger = CSVLogger(io.out_dir.parent, io.out_dir.name, flush_logs_every_n_steps=train.log_interval)
     fabric = L.Fabric(devices=devices, strategy=strategy, precision=precision, loggers=logger)
-    fabric.launch(main, devices, resume, Config.from_name(name=io.checkpoint_dir.name), io, train, eval)
+    fabric.launch(main, devices, resume, Config.from_name(name=io.checkpoint_dir.name), data, io, train, eval)
 
 
 def main(
@@ -79,19 +81,18 @@ def main(
     devices: int,
     resume: Union[bool, Path],
     config: Config,
+    data: LitDataModule,
     io: IOArgs,
     train: TrainArgs,
     eval: EvalArgs,
 ) -> None:
     validate_args(io, train, eval)
-
-    datamodule = Alpaca(io.checkpoint_dir)
-    train_dataloader, val_dataloader = get_dataloaders(fabric, datamodule)
-
-    steps_per_epoch = len(train_dataloader) // train.gradient_accumulation_iters(devices)
-    lr_max_steps = train.epochs * steps_per_epoch
-
     check_valid_checkpoint_dir(io.checkpoint_dir)
+
+    tokenizer = Tokenizer(io.checkpoint_dir)
+    train_dataloader, val_dataloader = get_dataloaders(fabric, data, tokenizer, train.micro_batch_size)
+    steps_per_epoch = len(train_dataloader) // train.gradient_accumulation_iters(devices)
+    lr_max_steps = min(train.epochs * steps_per_epoch, train.max_steps)
 
     fabric.seed_everything(1337)  # same seed for every process to init model (FSDP)
 
@@ -146,14 +147,14 @@ def fit(
     optimizer = state["optimizer"]
     scheduler = state["scheduler"]
     tokenizer = Tokenizer(io.checkpoint_dir)
-    longest_seq_length, longest_seq_ix = get_longest_seq_length(train_data)
+    longest_seq_length, longest_seq_ix = get_longest_seq_length(train_dataloader.dataset)
     model.max_seq_length = min(longest_seq_length, train.max_seq_length or float("inf"))
     fabric.print(
         f"The longest sequence length in the train data is {longest_seq_length}, the model's maximum sequence length is"
         f" {model.max_seq_length} and context length is {model.config.block_size}"
     )
 
-    validate(fabric, model, val_dataloader, tokenizer, dataclasses.replace(eval, max_iters=2), train)  # sanity check
+    validate(fabric, model, val_dataloader, tokenizer, dataclasses.replace(eval, max_iters=2))  # sanity check
     initial_iter = state["iter_num"]
     train_iterator = CycleIterator(train_dataloader)
 
@@ -175,7 +176,7 @@ def fit(
     )
     fabric.barrier()
 
-    while state["iter_num"] <= train.max_iters(devices) and train_iterator.epoch < train.epochs:
+    while state["step_count"] <= train.max_steps and train_iterator.epoch < train.epochs:
         state["iter_num"] += 1
         iter_t0 = time.perf_counter()
         batch = next(train_iterator)
@@ -218,7 +219,7 @@ def fit(
 
         if not is_accumulating and state["step_count"] % eval.interval == 0:
             t0 = time.perf_counter()
-            val_loss = validate(fabric, model, val_dataloader, tokenizer, eval, train)
+            val_loss = validate(fabric, model, val_dataloader, tokenizer, eval)
             t1 = time.perf_counter() - t0
             fabric.print(f"iter {state['iter_num']}: val loss {val_loss.item():.4f}, val time: {t1 * 1000:.2f} ms")
             metrics = {"val_loss": val_loss, "val_ppl": math.exp(val_loss)}
@@ -233,7 +234,7 @@ def fit(
 # FSDP has issues with `inference_mode`
 @torch.no_grad()
 def validate(
-    fabric: L.Fabric, model: GPT, val_dataloader: DataLoader, tokenizer: Tokenizer, eval: EvalArgs, train: TrainArgs
+    fabric: L.Fabric, model: GPT, val_dataloader: DataLoader, tokenizer: Tokenizer, eval: EvalArgs
 ) -> torch.Tensor:
     fabric.print("Validating ...")
     model.eval()
@@ -272,7 +273,8 @@ def get_lr_scheduler(optimizer, warmup_steps: int, max_steps: int):
     return torch.optim.lr_scheduler.SequentialLR(optimizer, [scheduler1, scheduler2], milestones=[warmup_steps])
 
 
-def get_dataloaders(fabric: L.Fabric, datamodule: L.LightningDataModule) -> Tuple[DataLoader, DataLoader]:
+def get_dataloaders(fabric: L.Fabric, datamodule: LitDataModule, tokenizer: Tokenizer, batch_size: int) -> Tuple[DataLoader, DataLoader]:
+    datamodule.connect(tokenizer=tokenizer, batch_size=batch_size)
     if fabric.global_rank == 0:
         datamodule.prepare_data()
     fabric.barrier()
@@ -299,8 +301,8 @@ def validate_args(io: IOArgs, train: TrainArgs, eval: EvalArgs) -> None:
             if getattr(args, name) is not None:
                 issues.append(f"{__file__} doesn't support the {name!r} argument. This is set in {args}")
     required = [
-        (io, ["checkpoint_dir", "train_data_dir", "val_data_dir"]),
-        (train, ["epoch_size", "epochs"]),
+        (io, ["checkpoint_dir"]),
+        (train, ["epochs"]),
         (eval, ["max_new_tokens"]),
     ]
     for args, names in required:

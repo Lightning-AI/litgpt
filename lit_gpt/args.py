@@ -19,11 +19,11 @@ class TrainArgs:
     """Number of iterations with learning rate warmup active"""
     epochs: Optional[int] = None
     """Number of epochs to run"""
-    epoch_size: Optional[int] = None
-    """Size of the epoch"""
     # TODO: pretrain/tinyllama is the only script using `max_tokens` explicitly. replace it with epoch_size*epochs?
     max_tokens: Optional[int] = None
     """Total number of tokens to train on"""
+    max_steps: Optional[int] = None
+    """Limits the number of iterations/optimizer steps to run."""
     max_seq_length: Optional[int] = None
     """Limits the length of samples. Off by default"""
 
@@ -34,12 +34,6 @@ class TrainArgs:
     beta2: float = 0.95
     max_norm: Optional[float] = None
     min_lr: float = 6e-5
-
-    def max_iters(self, devices: int) -> int:
-        """Number of iterations"""
-        max_iters = self.epochs * self.epoch_size // devices // self.micro_batch_size
-        assert max_iters > 0
-        return max_iters
 
     def gradient_accumulation_iters(self, devices: int) -> int:
         """Number of iterations between gradient synchronizations"""
