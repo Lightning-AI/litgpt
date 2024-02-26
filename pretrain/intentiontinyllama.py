@@ -42,7 +42,7 @@ devices = torch.cuda.device_count() or 1
 global_batch_size = 512
 learning_rate = 4e-4
 micro_batch_size = 2
-max_tokens = int(3e12)  # 3 trillion
+max_tokens = int(2e10)  # 3 trillion  # 20 Billion
 warmup_steps = 2000
 log_step_interval = 1
 eval_iters = 100
@@ -178,7 +178,7 @@ def train(fabric, state, train_dataloader, val_dataloader, resume):
                 logits, info = model(input_ids, train_mode=True)
                 enc_loss = chunked_kld(info['mean'], info['logvar'])
                 dec_loss = chunked_cross_entropy(logits, targets)
-                loss = enc_loss + beta * dec_loss 
+                loss = beta * enc_loss + dec_loss 
                 fabric.backward(loss / gradient_accumulation_iters)
         except:
             print(input_ids.shape)
@@ -208,8 +208,21 @@ def train(fabric, state, train_dataloader, val_dataloader, resume):
             )
             metrics = {
                 "loss": loss,
-                "loss": enc_loss,
-                "loss": dec_loss,
+                "loss_enc": enc_loss,
+                "loss_dec": dec_loss,
+                "value/ent_mean": info['entropy_mean'].item(),
+                "value/ent_std": info['entropy_std'].item(),
+                "value/ent_max": info['entropy_max'].item(),
+                "value/ent_min": info['entropy_min'].item(),
+                "value/mu_mean": info['mean_mean'].item(),
+                "value/mu_std": info['mean_std'].item(),
+                "value/mu_max": info['mean_max'].item(),
+                "value/mu_min": info['mean_min'].item(),
+                "value/std_mean": info['std_mean'].item(),
+                "value/std_std": info['std_std'].item(),
+                "value/std_max": info['std_max'].item(),
+                "value/std_min": info['std_min'].item(),
+                
                 "iter": state["iter_num"],
                 "step": state["step_count"],
                 "epoch": train_iterator.epoch,
@@ -223,7 +236,7 @@ def train(fabric, state, train_dataloader, val_dataloader, resume):
             }
 
             fabric.print(
-                f"iter {metrics['iter']} | step {metrics['step']}: loss {metrics['loss']:.4f}, iter time:"
+                f"iter {metrics['iter']} | step {metrics['step']}: loss {metrics['loss']:.4f}, loss_dec {metrics['loss_dec']:.4f}, mu {metrics['value/mu_mean']:4f}, std {metrics['value/std_mean']:4f}, iter time:"
                 f" {metrics['iter_time'] * 1000:.2f} ms{' (optimizer.step),' if not is_accumulating else ','}"
                 f" remaining time: {metrics['remaining_time'] / 3600 / 24:.2f} days"
             )
@@ -304,7 +317,7 @@ def create_dataloaders(batch_size: int, block_size: int, num_workers: int = 8) -
     )
 
     val_dataset = StreamingDataset(
-        input_dir="data/starcoder",
+        input_dir="data/starcoder_eval",
         item_loader=TokensLoader(block_size=effective_block_size),
         shuffle=True,
         # Consider setting to False, but we would lose some samples due to truncation when world size > 1

@@ -59,7 +59,9 @@ def chunked_kld(
     mean = mean.reshape(-1, mean.size(-1))
     logvar = logvar.reshape(-1, logvar.size(-1))
     if chunk_size == 0:
-        return 0.5 * torch.mean(torch.exp(logvar) + torch.pow(mean, 2) - 1. - logvar)
+        return 0.5 * torch.mean(torch.sum(torch.exp(logvar) + torch.pow(mean, 2) - 1. - logvar, dim=-1))
+    
+    # torch.mean(-0.5 * torch.sum(1 + log_var - mu ** 2 - log_var.exp(), dim = 1), dim = 0)
 
     # lm_head wasn't chunked, chunk cross entropy
     mean_chunks = mean.split(chunk_size)

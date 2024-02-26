@@ -195,6 +195,49 @@ import copy
 #         for block in self.transformer.h:
 #             block.attn.kv_cache = None
 
+import einops
+from einops.layers.torch import Rearrange
+from einops import rearrange
+
+class CrossAttention(nn.Module):
+    def __init__(self, heads=4, embd_dim=64, dropout=0.):
+        super().__init__()
+        self.heads = heads
+
+        self.to_q = nn.Linear(embd_dim, embd_dim, bias=False)
+        self.to_k = nn.Linear(embd_dim, embd_dim, bias=False)
+        self.to_v = nn.Linear(embd_dim, embd_dim, bias=False)
+
+        self.attention = nn.MultiheadAttention(embd_dim, batch_first=True, num_heads=heads)
+
+    def forward(self, x, context=None, mask=None):
+        assert x.shape[1] == context.shape[1]
+        q = self.to_q(x)
+        k = self.to_k(torch.cat([x, context], dim=1))
+        v = self.to_v(torch.cat([x, context], dim=1))
+        
+        attn_mask_x = (torch.triu(torch.ones(q.shape[1], q.shape[1])) == 1).transpose(0, 1).to(q.device)
+        attn_mask_c = (torch.eye(q.shape[1]) == 1).to(q.device)
+        attn_mask = torch.cat([attn_mask_x, attn_mask_c], dim=-1)
+        
+        attn_mask = attn_mask.float().masked_fill(attn_mask == 0, float('-inf')).masked_fill(attn_mask == 1, float(0.0))
+        out, _ = self.attention(q, k, v, attn_mask=attn_mask)
+        
+        return out
+
+        # if exists(mask):
+        #     mask = rearrange(mask, 'b ... -> b (...)')
+        #     max_neg_value = -torch.finfo(sim.dtype).max
+        #     mask = repeat(mask, 'b j -> (b h) () j', h=h)
+        #     sim.masked_fill_(~mask, max_neg_value)
+
+        # # attention, what we cannot get enough of
+        # attn = sim.softmax(dim=-1)
+
+        # out = einsum('b i j, b j d -> b i d', attn, v)
+        # out = rearrange(out, '(b h) n d -> b n (h d)', h=h)
+        # return self.to_out(out)
+
 
 class IntentionGPT(nn.Module):
     def __init__(self, config: Config) -> None:
@@ -205,7 +248,8 @@ class IntentionGPT(nn.Module):
         self.lm_head = nn.Linear(config.n_embd, config.padded_vocab_size, bias=config.lm_head_bias)
         
         self.enc_layer_num = 1
-        self.dyna_layer_num = 1
+        self.dyna_layer_num = 0
+        self.dec_layer_num = config.n_layer - self.enc_layer_num - self.dyna_layer_num
         self.transformer_enc = nn.ModuleDict(
             dict(
                 wte=nn.Embedding(config.padded_vocab_size, config.n_embd),
@@ -220,16 +264,17 @@ class IntentionGPT(nn.Module):
         )
         self.mean_layer = nn.Linear(config.n_embd, config.n_embd)
         self.logvar_layer = nn.Linear(config.n_embd, config.n_embd)
-        self.concat_layer = nn.Linear(config.n_embd + config.n_embd, config.n_embd)
+        self.cross_attention_layer = CrossAttention(heads=4 if config.n_embd % 4 == 0 else 1, embd_dim=config.n_embd)
         
-        self.transformer_dyna = nn.ModuleDict(
-            dict(
-                h=nn.ModuleList(Block(config) for _ in range(self.dyna_layer_num)),
-            )
-        )
+        # self.transformer_dyna = nn.ModuleDict(
+        #     dict(
+        #         h=nn.ModuleList(Block(config) for _ in range(self.dyna_layer_num)),
+        #     )
+        # )
+        
         self.transformer_dec = nn.ModuleDict(
             dict(
-                h=nn.ModuleList(Block(config) for _ in range(config.n_layer - self.enc_layer_num - self.dyna_layer_num)),
+                h=nn.ModuleList(Block(config) for _ in range(self.dec_layer_num)),
                 ln_f=config.norm_class(config.n_embd, eps=config.norm_eps),
             )
         )
@@ -274,9 +319,10 @@ class IntentionGPT(nn.Module):
         elif isinstance(module, nn.Embedding):
             torch.nn.init.normal_(module.weight, mean=0.0, std=0.02)
     
-    def reparameterization(self, mean, var):
-        epsilon = torch.randn_like(var)
-        z = mean + var*epsilon
+    def reparameterization(self, mean, logvar):
+        std = torch.exp(0.5 * logvar)
+        epsilon = torch.randn_like(std)
+        z = mean + std*epsilon
         return z
 
     def forward(self, idx: torch.Tensor, input_pos: Optional[torch.Tensor] = None, train_mode=False) -> torch.Tensor:
@@ -300,7 +346,9 @@ class IntentionGPT(nn.Module):
         for block, block_a in zip(self.transformer_enc.h, self.transformer_act.h):
             x = block(x, cos, sin, mask, input_pos)
             x_act = block_a(x_act, cos, sin, mask, input_pos)
+        x_act[:, :-1] = x_act[:, 1:]
             
+        # version 1
         # x_act = x_act[:, -1:, :]
         # mean, logvar = self.mean_layer(x_act), self.logvar_layer(x_act)
         # z = self.reparameterization(mean, torch.exp(logvar))
@@ -313,13 +361,19 @@ class IntentionGPT(nn.Module):
         #     x = block(x, cos_, sin_, mask_, input_pos_)
         # x = x[:, 1:]
         
-        mean, logvar = self.mean_layer(x_act), self.logvar_layer(x_act)
-        z = self.reparameterization(mean, torch.exp(logvar))
+        # version 2
+        # mean, logvar = self.mean_layer(x_act), self.logvar_layer(x_act)
+        # z = self.reparameterization(mean, torch.exp(logvar))
+        # x = torch.cat([x, z], dim=-1)
+        # x = self.concat_layer(x)
+        # for block in self.transformer_dec.h:
+        #     x = block(x, cos, sin, mask, input_pos)
         
-        x = torch.cat([x, z], dim=-1)
-        x = self.concat_layer(x)
-        for block in self.transformer_dec.h:
-            x = block(x, cos, sin, mask, input_pos)
+        # version 3
+        mean, logvar = self.mean_layer(x_act), self.logvar_layer(x_act)
+        z = self.reparameterization(mean, logvar)
+        
+        x = self.cross_attention_layer(x, z)
         
         for block in self.transformer_dec.h:
             x = block(x, cos, sin, mask, input_pos)
@@ -328,7 +382,23 @@ class IntentionGPT(nn.Module):
         if not train_mode:
             return self.lm_head(x)
         
-        return self.lm_head(x), {"mean": mean, "logvar": logvar, "z": z}  # (b, t, vocab_size)
+        ent = 0.5 * torch.log(2 * torch.pi * torch.e * torch.exp(logvar))
+        
+        return self.lm_head(x), {"mean": mean, 
+                                 "logvar": logvar, 
+                                 "z": z, 
+                                 "entropy_mean": ent.mean(), 
+                                 "entropy_std": ent.std(), 
+                                 "entropy_max": ent.max(dim=-1)[0].mean(), 
+                                 "entropy_min": ent.min(dim=-1)[0].mean(),
+                                 "mean_mean": mean.mean(), 
+                                 "mean_std": mean.std(), 
+                                 "mean_max": mean.max(dim=-1)[0].mean(), 
+                                 "mean_min": mean.min(dim=-1)[0].mean(),
+                                 "std_mean": torch.exp(0.5 * logvar).mean(), 
+                                 "std_std": torch.exp(0.5 * logvar).std(), 
+                                 "std_max": torch.exp(0.5 * logvar).max(dim=-1)[0].mean(), 
+                                 "std_min": torch.exp(0.5 * logvar).min(dim=-1)[0].mean(),}  # (b, t, vocab_size)
 
     @classmethod
     def from_name(cls, name: str, **kwargs: Any) -> Self:
