@@ -104,17 +104,15 @@ python pretrain/tinyllama.py
 ```
 
 The script will save checkpoints periodically to the folder `out/`.
-By default, the `pretrain/tinyllama.py` script will pretrain the Llama 2 7B model with FSDP in
+By default, the `pretrain/tinyllama.py` script will pretrain the model with FSDP in
 `bfloat16` mixed precision and gradient accumulation.
 
 Note that the `pretrain/tinyllama.py` is not actually a model-specific training script, so feel free to change
-the configuration and size by passing a different string to the model name variable
+the configuration and size by passing a different string to the model name argument, for example:
 
 ```shell
---model_name "tiny-llama-1.1b"
+python pretrained/tinyllama.py --model.name Gemma-2b
 ```
-
-at the top of this script.
 
 The currently supported model names are contained in the [config.py](https://github.com/Lightning-AI/lit-gpt/lit_gpt/config.py) file.
 You can
@@ -126,17 +124,18 @@ Keep in mind that training with a single machine will take weeks. To speed up th
 Once you're in a cluster, you can follow [these instructions](https://lightning.ai/docs/fabric/stable/fundamentals/launch.html#launch-on-a-cluster)
 to launch the script across machines:
 
+- [Lightning AI](https://lightning.ai/docs/fabric/stable/guide/multi_node/cloud.html)
 - [SLURM cluster](https://lightning.ai/docs/fabric/stable/guide/multi_node/slurm.html)
 - [Barebones cluster](https://lightning.ai/docs/fabric/stable/guide/multi_node/barebones.html)
 - [MPI](https://lightning.ai/docs/fabric/stable/guide/multi_node/other.html)
 
-The exposes several hyperparameters you can tweak through the command line.
+The script exposes several hyperparameters you can tweak through the command line.
 
 For instance, `--train.micro_batch_size` should be adjusted so the process will use the available
 GPU memory. For more tips to avoid out-of-memory issues, please also see the more detailed
 [Dealing with out-of-memory (OOM) errors](oom.md) guide.
 
-Last, logging is kept minimal in the script, but for long running experiments we recommend switching to a proper experiment tracker.
+Last, logging is kept minimal in the script, but for long-running experiments we recommend switching to a proper experiment tracker.
 As an example, we included WandB (set `use_wandb=True`) to show how you can integrate any experiment tracking framework.
 For reference, [here are the loss curves for our reproduction](https://api.wandb.ai/links/awaelchli/y7pzdpwy).
 
