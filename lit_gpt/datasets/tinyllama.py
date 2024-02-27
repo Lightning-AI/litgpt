@@ -97,6 +97,3 @@ class TinyLlama(LitDataModule):
             val_dataset, batch_size=self.batch_size, pin_memory=True, num_workers=self.num_workers, drop_last=True
         )
         return val_dataloader
-
-    def test_dataloader(self) -> DataLoader:
-        return self.val_dataloader()
