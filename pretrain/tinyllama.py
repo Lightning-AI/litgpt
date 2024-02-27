@@ -282,7 +282,7 @@ def get_dataloaders(fabric: L.Fabric, data: LitDataModule, train: TrainArgs, blo
     data.setup()
     train_dataloader = data.train_dataloader()
     val_dataloader = data.val_dataloader()
-    # Note: Not calling `fabric.setup_dataloaders()` because Lightning Data already does the distributed sampling
+    train_dataloader, val_dataloader = fabric.setup_dataloaders(train_dataloader, val_dataloader)
     return train_dataloader, val_dataloader
 
 
