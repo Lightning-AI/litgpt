@@ -11,7 +11,7 @@ from conftest import RunIf
 from torch.utils.data import DataLoader
 
 
-# @RunIf(min_cuda_gpus=2, standalone=True)
+@RunIf(min_cuda_gpus=2, standalone=True)
 # Set CUDA_VISIBLE_DEVICES for FSDP hybrid-shard, if fewer GPUs are used than are available
 @mock.patch.dict(os.environ, {"CUDA_VISIBLE_DEVICES": "0,1"})
 def test_pretrain_tiny_llama(tmp_path, monkeypatch):
