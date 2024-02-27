@@ -36,7 +36,7 @@ from lit_gpt.datasets import TinyLlama, LitDataModule
 
 
 def setup(
-    model_name: str = "tiny-llama-1.1b",
+    model: Config = Config(name="tiny-llama-1.1b"),
     name: str = "lit-tiny-llama-1.1b",
     logger_name: Literal["wandb", "tensorboard", "csv"] = "tensorboard",
     resume: Union[bool, Path] = False,
@@ -72,7 +72,7 @@ def setup(
     if logger_name in ("tensorboard", "wandb"):
         fabric.logger.log_hyperparams(hparams)
 
-    fabric.launch(main, devices, resume, Config.from_name(name=model_name), data, io, train, eval)
+    fabric.launch(main, devices, resume, model, data, io, train, eval)
 
 
 def main(
