@@ -6,7 +6,7 @@ from typing import Union, Optional
 from torch.utils.data import DataLoader
 
 from lit_gpt import Tokenizer
-from lit_gpt.datasets import LitDataModule
+from lit_gpt.data import LitDataModule
 
 
 class TinyLlama(LitDataModule):
@@ -18,7 +18,7 @@ class TinyLlama(LitDataModule):
         data_path: The path to the data directory, containing two folders 'slimpajama' and 'starcoder'
             which are the output of the preprocessing step done in advance. See the `tutorial/pretrain_tinyllama.md`
             for instructions. The path can also be a remote path (e.g., s3://).
-        seed: The seed to use for shuffling the training datasets.
+        seed: The seed to use for shuffling the training data.
         num_workers: The number of workers to use for the dataloaders.
     """
 

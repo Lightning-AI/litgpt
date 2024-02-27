@@ -5,7 +5,7 @@ from torch.utils.data import DataLoader
 
 
 def test_tinyllama(tmp_path, monkeypatch):
-    from lit_gpt.datasets import TinyLlama
+    from lit_gpt.data import TinyLlama
     from lightning.data.streaming import StreamingDataLoader, StreamingDataset, CombinedStreamingDataset
 
     data = TinyLlama(data_path=(tmp_path / "data"))

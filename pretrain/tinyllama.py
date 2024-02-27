@@ -32,7 +32,7 @@ sys.path.append(str(wd))
 from lit_gpt.args import EvalArgs, IOArgs, TrainArgs
 from lit_gpt.model import GPT, Block, CausalSelfAttention, Config, LLaMAMLP
 from lit_gpt.utils import CLI, CycleIterator, chunked_cross_entropy, num_parameters
-from lit_gpt.datasets import TinyLlama, LitDataModule
+from lit_gpt.data import TinyLlama, LitDataModule
 
 
 def setup(
