@@ -17,14 +17,12 @@ class TinyLlama(LitDataModule):
 
     def __init__(
         self,
-        slimpajama_path: Union[str, Path] = Path("data/slimpajama"),
-        starcoder_path: Union[str, Path] = Path("data/starcoder"),
+        data_path: Union[str, Path] = Path("data/"),
         seed: int = 42,
         num_workers: int = 8,
     ) -> None:
         super().__init__()
-        self.slimpajama_path = slimpajama_path
-        self.starcoder_path = starcoder_path
+        self.data_path = data_path
         self.seed = seed
         self.num_workers = num_workers
 
@@ -47,7 +45,8 @@ class TinyLlama(LitDataModule):
         from lightning.data.streaming import CombinedStreamingDataset, StreamingDataLoader, StreamingDataset, TokensLoader
 
         # Could be a remote path (s3://) or a local path
-        slimpajama_train = str(self.slimpajama_path).rstrip("/") + "/train"
+        slimpajama_train = str(self.data_path).rstrip("/") + "/slimpajama/train"
+        starcoder_train = str(self.data_path).rstrip("/") + "/starcoder"
 
         train_datasets = [
             StreamingDataset(
@@ -57,7 +56,7 @@ class TinyLlama(LitDataModule):
                 drop_last=True,
             ),
             StreamingDataset(
-                input_dir=str(self.starcoder_path),
+                input_dir=starcoder_train,
                 item_loader=TokensLoader(block_size=self.seq_length),
                 shuffle=True,
                 drop_last=True,
@@ -75,7 +74,7 @@ class TinyLlama(LitDataModule):
     def val_dataloader(self) -> DataLoader:
         from lightning.data.streaming import StreamingDataset, TokensLoader
 
-        slimpajama_val = str(self.slimpajama_path).rstrip("/") + "/val"
+        slimpajama_val = str(self.data_path).rstrip("/") + "/slimpajama/val"
 
         val_dataset = StreamingDataset(
             input_dir=slimpajama_val,
