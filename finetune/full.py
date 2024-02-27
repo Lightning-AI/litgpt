@@ -90,7 +90,7 @@ def main(
     check_valid_checkpoint_dir(io.checkpoint_dir)
 
     tokenizer = Tokenizer(io.checkpoint_dir)
-    train_dataloader, val_dataloader = get_dataloaders(fabric, data, tokenizer, train.micro_batch_size)
+    train_dataloader, val_dataloader = get_dataloaders(fabric, data, tokenizer, train)
     steps_per_epoch = len(train_dataloader) // train.gradient_accumulation_iters(devices)
     lr_max_steps = min(train.epochs * steps_per_epoch, train.max_steps)
 
@@ -273,14 +273,14 @@ def get_lr_scheduler(optimizer, warmup_steps: int, max_steps: int):
     return torch.optim.lr_scheduler.SequentialLR(optimizer, [scheduler1, scheduler2], milestones=[warmup_steps])
 
 
-def get_dataloaders(fabric: L.Fabric, datamodule: LitDataModule, tokenizer: Tokenizer, batch_size: int) -> Tuple[DataLoader, DataLoader]:
-    datamodule.connect(tokenizer=tokenizer, batch_size=batch_size)
+def get_dataloaders(fabric: L.Fabric, data: LitDataModule, tokenizer: Tokenizer, train: TrainArgs) -> Tuple[DataLoader, DataLoader]:
+    data.connect(tokenizer=tokenizer, batch_size=train.micro_batch_size, max_seq_length=train.max_seq_length)
     if fabric.global_rank == 0:
-        datamodule.prepare_data()
+        data.prepare_data()
     fabric.barrier()
-    datamodule.setup()
-    train_dataloader = datamodule.train_dataloader()
-    val_dataloader = datamodule.val_dataloader()
+    data.setup()
+    train_dataloader = data.train_dataloader()
+    val_dataloader = data.val_dataloader()
     train_dataloader, val_dataloader = fabric.setup_dataloaders(train_dataloader, val_dataloader)
     return train_dataloader, val_dataloader
 

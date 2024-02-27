@@ -1,5 +1,5 @@
 # Copyright Lightning AI. Licensed under the Apache License 2.0, see LICENSE file.
-from typing import List, Dict, Union
+from typing import List, Dict, Union, Optional
 
 import torch
 from torch import Tensor
@@ -12,7 +12,7 @@ from lit_gpt import Tokenizer
 class LitDataModule(LightningDataModule):
     """Base class for all data modules in Lit-GPT."""
 
-    def connect(self, tokenizer: Tokenizer, batch_size: int = 1) -> None:
+    def connect(self, tokenizer: Tokenizer, batch_size: int = 1, max_seq_length: Optional[int] = None) -> None:
         pass
 
     def setup(self, stage: str = "") -> None:

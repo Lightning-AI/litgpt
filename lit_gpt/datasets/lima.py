@@ -20,8 +20,7 @@ class LIMA(LitDataModule):
 
     def __init__(
         self,
-        max_seq_length: int = -1,
-        mask_prompt: bool = True,
+        mask_prompt: bool = False,
         test_split_fraction: float = 0.1,
         ignore_index: int = -1,
         seed: int = 42,
@@ -37,25 +36,26 @@ class LIMA(LitDataModule):
                 " variable or pass --access_token=your_token. You can find your token by visiting"
                 " https://huggingface.co/settings/tokens"
             )
-        self.max_seq_length = max_seq_length
         self.mask_prompt = mask_prompt
         self.test_split_fraction = test_split_fraction
         self.ignore_index = ignore_index
         self.seed = seed
         self.num_workers = num_workers
-        self.batch_size = 1
 
         self.access_token = access_token
         self.data_repo_id = data_repo_id
         self.include_multiturn_conversations = include_multiturn_conversations
 
         self.tokenizer: Optional[Tokenizer] = None
+        self.batch_size = 1
+        self.max_seq_length = -1
         self.train_dataset: Optional[SFTDataset] = None
         self.test_dataset: Optional[SFTDataset] = None
 
-    def connect(self, tokenizer: Tokenizer, batch_size: int = 1) -> None:
+    def connect(self, tokenizer: Tokenizer, batch_size: int = 1, max_seq_length: Optional[int] = None) -> None:
         self.tokenizer = tokenizer
         self.batch_size = batch_size
+        self.max_seq_length = -1 if max_seq_length is None else max_seq_length
 
     def prepare_data(self) -> None:
         from datasets import load_dataset

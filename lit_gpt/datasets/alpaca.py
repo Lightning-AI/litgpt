@@ -23,8 +23,7 @@ class Alpaca(LitDataModule):
 
     def __init__(
         self,
-        max_seq_length: int = -1,
-        mask_prompt: bool = True,
+        mask_prompt: bool = False,
         test_split_fraction: float = 0.03865,  # to get exactly 2000 test samples,
         ignore_index: int = -1,
         seed: int = 42,
@@ -33,13 +32,11 @@ class Alpaca(LitDataModule):
         num_workers: int = 4,
     ) -> None:
         super().__init__()
-        self.max_seq_length = max_seq_length
         self.mask_prompt = mask_prompt
         self.test_split_fraction = test_split_fraction
         self.ignore_index = ignore_index
         self.seed = seed
         self.num_workers = num_workers
-        self.batch_size = 1
 
         destination_path = Path(tempfile.mkdtemp())
         destination_path.mkdir(parents=True, exist_ok=True)
@@ -47,12 +44,15 @@ class Alpaca(LitDataModule):
         self.data_file_url = data_file_url
 
         self.tokenizer: Optional[Tokenizer] = None
+        self.batch_size: int = 1
+        self.max_seq_length: int = -1
         self.train_dataset: Optional[SFTDataset] = None
         self.test_dataset: Optional[SFTDataset] = None
 
-    def connect(self, tokenizer: Tokenizer, batch_size: int = 1) -> None:
+    def connect(self, tokenizer: Tokenizer, batch_size: int = 1, max_seq_length: Optional[int] = None) -> None:
         self.tokenizer = tokenizer
         self.batch_size = batch_size
+        self.max_seq_length = -1 if max_seq_length is None else max_seq_length
 
     def prepare_data(self) -> None:
         download_if_missing(self.data_file_path, self.data_file_url)
