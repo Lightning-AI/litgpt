@@ -17,20 +17,19 @@ from torch.utils.data import DataLoader
 def test_pretrain_tiny_llama(tmp_path, monkeypatch):
     import pretrain.tinyllama as module
     from lit_gpt.args import EvalArgs, IOArgs, TrainArgs
-    from lit_gpt.config import name_to_config
+    from lit_gpt.config import Config
 
-    model_config = dict(block_size=2, n_layer=2, n_embd=8, n_head=4, padded_vocab_size=8)
-    monkeypatch.setitem(name_to_config, "tmp", model_config)
+    model_config = Config(block_size=2, n_layer=2, n_embd=8, n_head=4, padded_vocab_size=8)
 
     dataset = torch.tensor([[0, 1, 2], [3, 4, 5], [0, 1, 2]])
     dataloader = DataLoader(dataset)
-    module.create_dataloaders = Mock(return_value=(dataloader, dataloader))
+    module.get_dataloaders = Mock(return_value=(dataloader, dataloader))
 
     stdout = StringIO()
     with redirect_stdout(stdout):
         module.setup(
             devices=2,
-            model_name="tmp",
+            model=model_config,
             io=IOArgs(out_dir=tmp_path, train_data_dir=None),
             train=TrainArgs(global_batch_size=2, max_tokens=16, save_interval=1, micro_batch_size=1, max_norm=1.0),
             eval=EvalArgs(interval=1, max_iters=1),

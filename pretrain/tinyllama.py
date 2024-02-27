@@ -32,12 +32,11 @@ sys.path.append(str(wd))
 from lit_gpt.args import EvalArgs, IOArgs, TrainArgs
 from lit_gpt.model import GPT, Block, CausalSelfAttention, Config, LLaMAMLP
 from lit_gpt.utils import CLI, CycleIterator, chunked_cross_entropy, num_parameters
-from lit_gpt.datasets import TinyLlama, LitDataModule
+from lit_gpt.data import TinyLlama, LitDataModule
 
 
 def setup(
     model: Config = Config(name="tiny-llama-1.1b"),
-    name: str = "lit-tiny-llama-1.1b",
     logger_name: Literal["wandb", "tensorboard", "csv"] = "tensorboard",
     resume: Union[bool, Path] = False,
     devices: int = torch.cuda.device_count() or 1,
@@ -62,7 +61,7 @@ def setup(
     eval: EvalArgs = EvalArgs(interval=1000, max_iters=100),
 ):
     hparams = locals()
-    logger = choose_logger(io.out_dir, logger_name, name=name, resume=resume)
+    logger = choose_logger(io.out_dir, logger_name, name=f"pretrain-{model.name}", resume=resume)
 
     strategy = FSDPStrategy(auto_wrap_policy={Block}, state_dict_type="full", sharding_strategy="HYBRID_SHARD")
     fabric = L.Fabric(devices=devices, strategy=strategy, precision="bf16-mixed", loggers=[logger])
@@ -91,6 +90,7 @@ def main(
         io.out_dir.mkdir(parents=True, exist_ok=True)
 
     train_dataloader, val_dataloader = get_dataloaders(fabric, data, train, config.block_size)
+    train_dataloader, val_dataloader = fabric.setup_dataloaders(train_dataloader, val_dataloader)
 
     fabric.seed_everything(3407)  # same seed for every process to init model (FSDP)
 
@@ -282,7 +282,6 @@ def get_dataloaders(fabric: L.Fabric, data: LitDataModule, train: TrainArgs, blo
     data.setup()
     train_dataloader = data.train_dataloader()
     val_dataloader = data.val_dataloader()
-    train_dataloader, val_dataloader = fabric.setup_dataloaders(train_dataloader, val_dataloader)
     return train_dataloader, val_dataloader
 
 
