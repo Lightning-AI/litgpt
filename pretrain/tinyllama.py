@@ -32,7 +32,7 @@ sys.path.append(str(wd))
 from lit_gpt.args import EvalArgs, IOArgs, TrainArgs
 from lit_gpt.model import GPT, Block, CausalSelfAttention, Config, LLaMAMLP
 from lit_gpt.utils import CLI, CycleIterator, chunked_cross_entropy, num_parameters
-from lit_gpt.datasets import TinyLlama
+from lit_gpt.datasets import TinyLlama, LitDataModule
 
 
 def setup(
@@ -41,6 +41,7 @@ def setup(
     logger_name: Literal["wandb", "tensorboard", "csv"] = "tensorboard",
     resume: Union[bool, Path] = False,
     devices: int = torch.cuda.device_count() or 1,
+    data: LitDataModule = TinyLlama(),
     io: IOArgs = IOArgs(
         out_dir=Path(os.getenv("LIGHTNING_ARTIFACTS_DIR", "out")) / "lit-tiny-llama-1.1b", train_data_dir=None
     ),
@@ -71,7 +72,7 @@ def setup(
     if logger_name in ("tensorboard", "wandb"):
         fabric.logger.log_hyperparams(hparams)
 
-    fabric.launch(main, devices, resume, Config.from_name(name=model_name), io, train, eval)
+    fabric.launch(main, devices, resume, Config.from_name(name=model_name), data, io, train, eval)
 
 
 def main(
@@ -79,6 +80,7 @@ def main(
     devices: int,
     resume: Union[bool, Path],
     config: Config,
+    data: LitDataModule,
     io: IOArgs,
     train: TrainArgs,
     eval: EvalArgs,
@@ -88,9 +90,7 @@ def main(
     if fabric.global_rank == 0:
         io.out_dir.mkdir(parents=True, exist_ok=True)
 
-    datamodule = TinyLlama()  # TODO
-    train_dataloader, val_dataloader = create_dataloaders(fabric, datamodule)
-    # TODO: batch_size = train.micro_batch_size, block_size = config.block_size
+    train_dataloader, val_dataloader = get_dataloaders(fabric, data, train, config.block_size)
 
     fabric.seed_everything(3407)  # same seed for every process to init model (FSDP)
 
@@ -275,15 +275,15 @@ def validate(fabric: L.Fabric, model: nn.Module, val_dataloader: DataLoader, max
     return losses.mean()
 
 
-def create_dataloaders(fabric: L.Fabric, datamodule: L.LightningDataModule) -> Tuple[DataLoader, DataLoader]:
-    if fabric.global_rank == 0:
-        datamodule.prepare_data()
-    fabric.barrier()
-    datamodule.setup()
-    train_datalaoder = datamodule.train_dataloader()
-    val_dataloader = datamodule.val_dataloader()
-    train_datalaoder, val_dataloader = fabric.setup_dataloaders(train_datalaoder, val_dataloader)
-    return train_datalaoder, val_dataloader
+def get_dataloaders(fabric: L.Fabric, data: LitDataModule, train: TrainArgs, block_size: int) -> Tuple[DataLoader, DataLoader]:
+    data.connect(batch_size=train.micro_batch_size, max_seq_length=block_size)
+    with fabric.rank_zero_first():
+        data.prepare_data()
+    data.setup()
+    train_dataloader = data.train_dataloader()
+    val_dataloader = data.val_dataloader()
+    # Note: Not calling `fabric.setup_dataloaders()` because Lightning Data already does the distributed sampling
+    return train_dataloader, val_dataloader
 
 
 # learning rate decay scheduler (cosine with linear warmup)

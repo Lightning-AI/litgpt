@@ -52,7 +52,12 @@ class LIMA(LitDataModule):
         self.train_dataset: Optional[SFTDataset] = None
         self.test_dataset: Optional[SFTDataset] = None
 
-    def connect(self, tokenizer: Tokenizer, batch_size: int = 1, max_seq_length: Optional[int] = None) -> None:
+    def connect(
+        self,
+        tokenizer: Optional[Tokenizer] = None,
+        batch_size: int = 1,
+        max_seq_length: Optional[int] = None
+    ) -> None:
         self.tokenizer = tokenizer
         self.batch_size = batch_size
         self.max_seq_length = -1 if max_seq_length is None else max_seq_length

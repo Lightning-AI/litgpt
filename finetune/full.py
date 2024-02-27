@@ -275,9 +275,8 @@ def get_lr_scheduler(optimizer, warmup_steps: int, max_steps: int):
 
 def get_dataloaders(fabric: L.Fabric, data: LitDataModule, tokenizer: Tokenizer, train: TrainArgs) -> Tuple[DataLoader, DataLoader]:
     data.connect(tokenizer=tokenizer, batch_size=train.micro_batch_size, max_seq_length=train.max_seq_length)
-    if fabric.global_rank == 0:
+    with fabric.rank_zero_first():
         data.prepare_data()
-    fabric.barrier()
     data.setup()
     train_dataloader = data.train_dataloader()
     val_dataloader = data.val_dataloader()
