@@ -39,7 +39,7 @@ def setup(
     precision: Optional[str] = None,
     devices: int = 1,
     resume: Union[bool, Path] = False,
-    data: LitDataModule = Alpaca,
+    data: LitDataModule = Alpaca(),
     # TODO: Remove IOArgs
     io: IOArgs = IOArgs(
         checkpoint_dir=Path("checkpoints/stabilityai/stablelm-base-alpha-3b"),
