@@ -92,7 +92,7 @@ def main(
     tokenizer = Tokenizer(io.checkpoint_dir)
     train_dataloader, val_dataloader = get_dataloaders(fabric, data, tokenizer, train)
     steps_per_epoch = len(train_dataloader) // train.gradient_accumulation_iters(devices)
-    lr_max_steps = min(train.epochs * steps_per_epoch, train.max_steps)
+    lr_max_steps = min(train.epochs * steps_per_epoch, (train.max_steps or float("inf")))
 
     fabric.seed_everything(1337)  # same seed for every process to init model (FSDP)
 
@@ -176,7 +176,7 @@ def fit(
     )
     fabric.barrier()
 
-    while state["step_count"] <= train.max_steps and train_iterator.epoch < train.epochs:
+    while state["step_count"] <= (train.max_steps or float("inf")) and train_iterator.epoch < train.epochs:
         state["iter_num"] += 1
         iter_t0 = time.perf_counter()
         batch = next(train_iterator)
