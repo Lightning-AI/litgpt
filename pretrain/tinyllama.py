@@ -328,7 +328,7 @@ def validate_args(io: IOArgs, train: TrainArgs, eval: EvalArgs) -> None:
     issues = []
     unsupported = [
         (io, ["train_data_dir", "val_data_dir", "checkpoint_dir"]),
-        (train, ["epoch_size", "epochs"]),
+        (train, ["epochs"]),
         (eval, ["max_new_tokens"]),
     ]
     for args, names in unsupported:
