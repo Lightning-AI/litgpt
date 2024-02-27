@@ -12,7 +12,14 @@ from lit_gpt.datasets import LitDataModule
 class TinyLlama(LitDataModule):
     """The TinyLlama data module is composed of a mix of SlimPajama and Starcoder data.
 
-    Provides train- and val-dataloaders which return directly the token tensors.
+    Provides training and validation streaming dataloaders that return batches of tokens.
+
+    Args:
+        data_path: The path to the data directory, containing two folders 'slimpajama' and 'starcoder'
+            which are the output of the preprocessing step done in advance. See the `tutorial/pretrain_tinyllama.md`
+            for instructions. The path can also be a remote path (e.g., s3://).
+        seed: The seed to use for shuffling the training datasets.
+        num_workers: The number of workers to use for the dataloaders.
     """
 
     def __init__(
