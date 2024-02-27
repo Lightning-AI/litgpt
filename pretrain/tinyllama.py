@@ -24,6 +24,7 @@ from torch.utils.data import DataLoader
 from torchmetrics.aggregation import RunningMean
 from typing_extensions import Literal
 
+
 # support running without installing as a package
 wd = Path(__file__).parent.parent.resolve()
 sys.path.append(str(wd))
@@ -31,14 +32,16 @@ sys.path.append(str(wd))
 from lit_gpt.args import EvalArgs, IOArgs, TrainArgs
 from lit_gpt.model import GPT, Block, CausalSelfAttention, Config, LLaMAMLP
 from lit_gpt.utils import CLI, CycleIterator, chunked_cross_entropy, num_parameters
+from lit_gpt.datasets import TinyLlama, LitDataModule
 
 
 def setup(
-    model_name: str = "tiny-llama-1.1b",
+    model: Config = Config(name="tiny-llama-1.1b"),
     name: str = "lit-tiny-llama-1.1b",
     logger_name: Literal["wandb", "tensorboard", "csv"] = "tensorboard",
     resume: Union[bool, Path] = False,
     devices: int = torch.cuda.device_count() or 1,
+    data: LitDataModule = TinyLlama(),
     io: IOArgs = IOArgs(
         out_dir=Path(os.getenv("LIGHTNING_ARTIFACTS_DIR", "out")) / "lit-tiny-llama-1.1b", train_data_dir=None
     ),
@@ -69,7 +72,7 @@ def setup(
     if logger_name in ("tensorboard", "wandb"):
         fabric.logger.log_hyperparams(hparams)
 
-    fabric.launch(main, devices, resume, Config.from_name(name=model_name), io, train, eval)
+    fabric.launch(main, devices, resume, model, data, io, train, eval)
 
 
 def main(
@@ -77,6 +80,7 @@ def main(
     devices: int,
     resume: Union[bool, Path],
     config: Config,
+    data: LitDataModule,
     io: IOArgs,
     train: TrainArgs,
     eval: EvalArgs,
@@ -86,10 +90,7 @@ def main(
     if fabric.global_rank == 0:
         io.out_dir.mkdir(parents=True, exist_ok=True)
 
-    train_dataloader, val_dataloader = create_dataloaders(
-        batch_size=train.micro_batch_size, block_size=config.block_size
-    )
-    train_dataloader, val_dataloader = fabric.setup_dataloaders(train_dataloader, val_dataloader)
+    train_dataloader, val_dataloader = get_dataloaders(fabric, data, train, config.block_size)
 
     fabric.seed_everything(3407)  # same seed for every process to init model (FSDP)
 
@@ -274,45 +275,14 @@ def validate(fabric: L.Fabric, model: nn.Module, val_dataloader: DataLoader, max
     return losses.mean()
 
 
-def create_dataloaders(batch_size: int, block_size: int, num_workers: int = 8) -> Tuple[DataLoader, DataLoader]:
-    from lightning.data import CombinedStreamingDataset, StreamingDataLoader, StreamingDataset
-    from lightning.data.streaming.item_loader import TokensLoader
-
-    # Increase by one because we need the next word as well
-    effective_block_size = block_size + 1
-
-    train_datasets = [
-        StreamingDataset(
-            input_dir="data/slimpajama/train",
-            item_loader=TokensLoader(block_size=effective_block_size),
-            shuffle=True,
-            drop_last=True,
-        ),
-        StreamingDataset(
-            input_dir="data/starcoder",
-            item_loader=TokensLoader(block_size=effective_block_size),
-            shuffle=True,
-            drop_last=True,
-        ),
-    ]
-
-    # Mix SlimPajama data and Starcoder data with these proportions:
-    weights = (0.693584, 0.306416)
-    combined_dataset = CombinedStreamingDataset(datasets=train_datasets, seed=42, weights=weights)
-    train_dataloader = StreamingDataLoader(
-        combined_dataset, batch_size=batch_size, pin_memory=True, num_workers=num_workers, drop_last=True
-    )
-
-    val_dataset = StreamingDataset(
-        input_dir="data/slimpajama/val",
-        item_loader=TokensLoader(block_size=effective_block_size),
-        shuffle=True,
-        # Consider setting to False, but we would lose some samples due to truncation when world size > 1
-        drop_last=True,
-    )
-    val_dataloader = DataLoader(
-        val_dataset, batch_size=batch_size, pin_memory=True, num_workers=num_workers, drop_last=True
-    )
+def get_dataloaders(fabric: L.Fabric, data: LitDataModule, train: TrainArgs, block_size: int) -> Tuple[DataLoader, DataLoader]:
+    data.connect(batch_size=train.micro_batch_size, max_seq_length=block_size)
+    with fabric.rank_zero_first():
+        data.prepare_data()
+    data.setup()
+    train_dataloader = data.train_dataloader()
+    val_dataloader = data.val_dataloader()
+    train_dataloader, val_dataloader = fabric.setup_dataloaders(train_dataloader, val_dataloader)
     return train_dataloader, val_dataloader
 
 
@@ -358,7 +328,7 @@ def validate_args(io: IOArgs, train: TrainArgs, eval: EvalArgs) -> None:
     issues = []
     unsupported = [
         (io, ["train_data_dir", "val_data_dir", "checkpoint_dir"]),
-        (train, ["epoch_size", "epochs"]),
+        (train, ["epochs"]),
         (eval, ["max_new_tokens"]),
     ]
     for args, names in unsupported:
