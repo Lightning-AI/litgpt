@@ -71,14 +71,17 @@ def test_eval_script(tmp_path, fake_checkpoint_dir, monkeypatch):
     run_eval_mock.return_value = {"foo": "test"}
     monkeypatch.setattr(module.EvalHarnessBase, "run_eval", run_eval_mock)
 
+    output_folder = tmp_path / "output"
+    assert not output_folder.exists()
+
     module.run_eval_harness(
-        checkpoint_dir=fake_checkpoint_dir, precision="32-true", save_filepath=tmp_path / "results.json"
+        checkpoint_dir=fake_checkpoint_dir, precision="32-true", save_filepath=(output_folder / "results.json")
     )
 
     run_eval_mock.assert_called_once_with(
         ["arc_challenge", "piqa", "hellaswag", "hendrycksTest-*"], 0, None, 100000, True
     )
-    assert (tmp_path / "results.json").read_text() == '{"foo": "test"}'
+    assert (output_folder / "results.json").read_text() == '{"foo": "test"}'
 
 
 def test_cli():

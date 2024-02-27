@@ -16,18 +16,8 @@ sys.path.append(str(wd))
 from generate.base import generate
 from lit_gpt import Tokenizer
 from lit_gpt.lora import GPT, Config, merge_lora_weights
-from lit_gpt.utils import check_valid_checkpoint_dir, get_default_supported_precision, lazy_load
+from lit_gpt.utils import CLI, check_valid_checkpoint_dir, get_default_supported_precision, lazy_load
 from scripts.prepare_alpaca import generate_prompt
-
-lora_r = 8
-lora_alpha = 16
-lora_dropout = 0.05
-lora_query = True
-lora_key = False
-lora_value = True
-lora_projection = False
-lora_mlp = False
-lora_head = False
 
 
 def main(
@@ -40,6 +30,15 @@ def main(
     top_k: Optional[int] = 200,
     temperature: float = 0.8,
     precision: Optional[str] = None,
+    lora_r: int = 8,
+    lora_alpha: int = 16,
+    lora_dropout: float = 0.05,
+    lora_query: bool = True,
+    lora_key: bool = False,
+    lora_value: bool = True,
+    lora_projection: bool = False,
+    lora_mlp: bool = False,
+    lora_head: bool = False,
 ) -> None:
     """Generates a response based on a given instruction and an optional input.
     This script will only work with checkpoints from the instruction-tuned GPT-LoRA model.
@@ -136,7 +135,6 @@ def main(
 
 
 if __name__ == "__main__":
-    from jsonargparse import CLI
-
     torch.set_float32_matmul_precision("high")
+
     CLI(main)

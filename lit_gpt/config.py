@@ -17,12 +17,14 @@ from lit_gpt.utils import find_multiple
 class Config:
     name: str = ""
     hf_config: dict = field(default_factory=dict)
+    scale_embeddings: bool = False
     block_size: int = 4096
     vocab_size: int = 50254
     padding_multiple: int = 512
     padded_vocab_size: Optional[int] = None
     n_layer: int = 16
     n_head: int = 32
+    head_size: Optional[int] = None
     n_embd: int = 4096
     rotary_percentage: float = 0.25
     parallel_residual: bool = True
@@ -52,7 +54,7 @@ class Config:
     shared_attention_norm: bool = False
     _norm_class: Literal["LayerNorm", "RMSNorm"] = "LayerNorm"
     norm_eps: float = 1e-5
-    _mlp_class: Literal["GptNeoxMLP", "LLaMAMLP", "LLaMAMoE"] = "GptNeoxMLP"
+    _mlp_class: Literal["GptNeoxMLP", "LLaMAMLP", "GemmaMLP", "LLaMAMoE"] = "GptNeoxMLP"
     gelu_approximate: str = "none"
     intermediate_size: Optional[int] = None
     rope_condense_ratio: int = 1
@@ -64,8 +66,9 @@ class Config:
         if not self.name:
             self.name = self.hf_config.get("name", self.name)
 
-        assert self.n_embd % self.n_head == 0
-        self.head_size = self.n_embd // self.n_head
+        if self.head_size is None:
+            assert self.n_embd % self.n_head == 0
+            self.head_size = self.n_embd // self.n_head
 
         # vocab size should be a power of 2 to be optimal on hardware. compute the closest value
         if self.padded_vocab_size is None:
@@ -138,9 +141,11 @@ class Config:
     def norm_class(self) -> Type:
         # `self._norm_class` cannot be the type to keep the config json serializable
         if self._norm_class == "RMSNorm":
+            from functools import partial
+
             from lit_gpt.rmsnorm import RMSNorm
 
-            return RMSNorm
+            return partial(RMSNorm, add_unit_offset="Gemma" in self.name)
         return getattr(torch.nn, self._norm_class)
 
 
@@ -779,6 +784,55 @@ for c in llama_2:
         copy["name"] = c["name"].format(kind)
         copy["hf_config"]["name"] = c["hf_config"]["name"].format(kind)
         configs.append(copy)
+
+
+###############
+# Google Gemma
+###############
+gemma = [
+    # https://huggingface.co/google/gemma-2b/blob/main/config.json
+    dict(
+        name="Gemma-2b",
+        hf_config=dict(org="google", name="gemma-2b"),
+        scale_embeddings=True,
+        vocab_size=256000,
+        padding_multiple=64,
+        n_embd=2048,
+        n_layer=18,
+        n_head=8,
+        n_query_groups=1,
+        rotary_percentage=1.0,
+        parallel_residual=False,
+        bias=False,
+        _norm_class="RMSNorm",
+        _mlp_class="GemmaMLP",
+        intermediate_size=16384,
+    ),
+    # https://huggingface.co/google/gemma-7b/blob/main/config.json
+    dict(
+        name="Gemma-7b",
+        hf_config=dict(org="google", name="gemma-7b"),
+        scale_embeddings=True,
+        vocab_size=256000,
+        padding_multiple=64,
+        n_embd=3072,
+        n_layer=28,
+        n_head=16,
+        head_size=256,
+        rotary_percentage=1.0,
+        parallel_residual=False,
+        bias=False,
+        _norm_class="RMSNorm",
+        _mlp_class="GemmaMLP",
+        intermediate_size=24576,
+    ),
+]
+configs.extend(gemma)
+for c in gemma:
+    copy = deepcopy(c)
+    copy["name"] = f"{c['name']}-it"
+    copy["hf_config"]["name"] = f"{c['hf_config']['name']}-it"
+    configs.append(copy)
 
 
 ##########################

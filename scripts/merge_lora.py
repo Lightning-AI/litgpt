@@ -14,17 +14,7 @@ wd = Path(__file__).parent.parent.resolve()
 sys.path.append(str(wd))
 
 from lit_gpt.lora import GPT, Config, lora_filter, merge_lora_weights
-from lit_gpt.utils import check_valid_checkpoint_dir, get_default_supported_precision, lazy_load
-
-lora_r = 8
-lora_alpha = 16
-lora_dropout = 0.05
-lora_query = True
-lora_key = False
-lora_value = True
-lora_projection = False
-lora_mlp = False
-lora_head = False
+from lit_gpt.utils import CLI, check_valid_checkpoint_dir, get_default_supported_precision, lazy_load
 
 
 def merge_lora(
@@ -32,6 +22,15 @@ def merge_lora(
     checkpoint_dir: Path = Path("checkpoints/stabilityai/stablelm-base-alpha-3b"),
     out_dir: Path = Path("out/lora/checkpoint"),
     precision: Optional[str] = None,
+    lora_r: int = 8,
+    lora_alpha: int = 16,
+    lora_dropout: float = 0.05,
+    lora_query: bool = True,
+    lora_key: bool = False,
+    lora_value: bool = True,
+    lora_projection: bool = False,
+    lora_mlp: bool = False,
+    lora_head: bool = False,
 ) -> None:
     """Generates a response based on a given instruction and an optional input.
     This script will only work with checkpoints from the instruction-tuned GPT-LoRA model.
@@ -81,6 +80,4 @@ def merge_lora(
 
 
 if __name__ == "__main__":
-    from jsonargparse import CLI
-
     CLI(merge_lora)
