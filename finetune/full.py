@@ -23,7 +23,7 @@ from generate.base import generate
 from lit_gpt.args import EvalArgs, IOArgs, TrainArgs
 from lit_gpt.model import GPT, Block, Config
 from lit_gpt.tokenizer import Tokenizer
-from lit_gpt.datasets import Alpaca, LitDataModule, apply_prompt_template
+from lit_gpt.data import Alpaca, LitDataModule, apply_prompt_template
 from lit_gpt.utils import (
     CLI,
     check_valid_checkpoint_dir,
