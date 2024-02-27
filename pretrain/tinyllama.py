@@ -37,7 +37,6 @@ from lit_gpt.datasets import TinyLlama, LitDataModule
 
 def setup(
     model: Config = Config(name="tiny-llama-1.1b"),
-    name: str = "lit-tiny-llama-1.1b",
     logger_name: Literal["wandb", "tensorboard", "csv"] = "tensorboard",
     resume: Union[bool, Path] = False,
     devices: int = torch.cuda.device_count() or 1,
@@ -62,7 +61,7 @@ def setup(
     eval: EvalArgs = EvalArgs(interval=1000, max_iters=100),
 ):
     hparams = locals()
-    logger = choose_logger(io.out_dir, logger_name, name=name, resume=resume)
+    logger = choose_logger(io.out_dir, logger_name, name=f"pretrain-{model.name}", resume=resume)
 
     strategy = FSDPStrategy(auto_wrap_policy={Block}, state_dict_type="full", sharding_strategy="HYBRID_SHARD")
     fabric = L.Fabric(devices=devices, strategy=strategy, precision="bf16-mixed", loggers=[logger])
