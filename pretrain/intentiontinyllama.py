@@ -203,6 +203,7 @@ def train(fabric, state, train_dataloader, val_dataloader, resume):
             loss = running_loss.compute().item()  # expensive device-to-host synchronization
             enc_loss = running_loss_enc.compute().item()  # expensive device-to-host synchronization
             dec_loss = running_loss_dec.compute().item()  # expensive device-to-host synchronization
+            bc_loss = running_loss_bc.compute().item()  # expensive device-to-host synchronization
             t1 = time.perf_counter()
             throughput.update(
                 time=(t1 - total_t0),
