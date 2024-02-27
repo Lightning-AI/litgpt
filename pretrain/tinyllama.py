@@ -65,7 +65,7 @@ def setup(
     logger = choose_logger(io.out_dir, logger_name, name=name, resume=resume)
 
     strategy = FSDPStrategy(auto_wrap_policy={Block}, state_dict_type="full", sharding_strategy="HYBRID_SHARD")
-    fabric = L.Fabric(devices=devices, strategy=strategy, precision="bf16-true", loggers=[logger])
+    fabric = L.Fabric(devices=devices, strategy=strategy, precision="bf16-mixed", loggers=[logger])
     fabric.launch()
 
     fabric.print(hparams)
