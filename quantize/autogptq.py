@@ -20,10 +20,7 @@ sys.path.append(str(wd))
 from lit_gpt import GPT, Config
 from lit_gpt.model import Block
 from lit_gpt.tokenizer import Tokenizer
-from lit_gpt.utils import (
-    check_valid_checkpoint_dir,
-    load_checkpoint,
-)
+from lit_gpt.utils import check_valid_checkpoint_dir, load_checkpoint
 
 
 # `GPTForAutoGPTQ` and `BlockForAutoGPTQ` are only needed for quantization process.
@@ -134,13 +131,7 @@ class AutoGPTQ(BaseGPTQForCausalLM):
             is_triton_backend: if True - Triton kernel is used for "packing" weights.
         """
         model.config.model_type = None  # compatibility with AutoGPTQ
-        super().__init__(
-            model,
-            quantized,
-            quantize_config,
-            is_triton_backend,
-            **kwargs,
-        )
+        super().__init__(model, quantized, quantize_config, is_triton_backend, **kwargs)
 
         # name of a layer with transformer blocks
         self.layers_block_name = "transformer.h"
@@ -158,26 +149,13 @@ class AutoGPTQ(BaseGPTQForCausalLM):
         # - MLP project input
         # - MLP project output
 
-        self.inside_layer_modules = [
-            ["attn.attn"],
-            ["attn.proj"],
-        ]
+        self.inside_layer_modules = [["attn.attn"], ["attn.proj"]]
 
         mlp_class = self.model.config._mlp_class
         if mlp_class == "GptNeoxMLP":
-            self.inside_layer_modules.extend(
-                [
-                    ["mlp.fc"],
-                    ["mlp.proj"],
-                ]
-            )
+            self.inside_layer_modules.extend([["mlp.fc"], ["mlp.proj"]])
         elif mlp_class == "LLaMAMLP":
-            self.inside_layer_modules.extend(
-                [
-                    ["mlp.fc_1", "mlp.fc_2"],
-                    ["mlp.proj"],
-                ]
-            )
+            self.inside_layer_modules.extend([["mlp.fc_1", "mlp.fc_2"], ["mlp.proj"]])
         elif mlp_class == "LLaMAMoE":
             # AutoGPTQ doesn't quantize "gate" layer
             # [

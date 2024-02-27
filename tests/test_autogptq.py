@@ -219,14 +219,7 @@ def test_marlin_conversion(kernel, tmp_path):
     # Prepare model's config
     # NOTE: carefully select `n_query_groups` so the dimension of a layer fits
     # Marlin requirements: in_features divisible by 128 and out_features - by 256
-    config = Config(
-        padded_vocab_size=10_000,
-        n_layer=2,
-        n_embd=128,
-        n_head=8,
-        n_query_groups=4,
-        intermediate_size=256,
-    )
+    config = Config(padded_vocab_size=10_000, n_layer=2, n_embd=128, n_head=8, n_query_groups=4, intermediate_size=256)
 
     # Create a model: it has to be on a GPU and with float16 precision
     device = "cuda:0"
@@ -277,13 +270,7 @@ def test_strip_bias(bias, kernel):
 
     # Prepare model's config
     config = Config(
-        padded_vocab_size=10_000,
-        n_layer=2,
-        n_embd=128,
-        n_head=8,
-        n_query_groups=4,
-        intermediate_size=256,
-        bias=bias,
+        padded_vocab_size=10_000, n_layer=2, n_embd=128, n_head=8, n_query_groups=4, intermediate_size=256, bias=bias
     )
 
     # Create a model: it has to be on a GPU and with float16 precision
