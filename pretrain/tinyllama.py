@@ -28,7 +28,7 @@ wd = Path(__file__).parent.parent.resolve()
 sys.path.append(str(wd))
 
 from lit_gpt.model import GPT, Block, CausalSelfAttention, Config, LLaMAMLP
-from lit_gpt.utils import CycleIterator, chunked_cross_entropy, num_parameters
+from lit_gpt.utils import CycleIterator, chunked_cross_entropy, compute_entropy, num_parameters
 
 # System settings
 model_name = "tiny-llama-1.1b"
@@ -175,6 +175,8 @@ def train(fabric, state, train_dataloader, val_dataloader, resume):
                 logits = model(input_ids)
                 loss = chunked_cross_entropy(logits, targets)
                 fabric.backward(loss / gradient_accumulation_iters)
+                
+                entropy = compute_entropy(logits.detach())
         except:
             print(input_ids.shape)
             assert 0
@@ -201,6 +203,7 @@ def train(fabric, state, train_dataloader, val_dataloader, resume):
                 "loss": loss,
                 "iter": state["iter_num"],
                 "step": state["step_count"],
+                "value/output_entropy": entropy.item(),
                 "epoch": train_iterator.epoch,
                 "iter_time": t1 - iter_t0,
                 "remaining_time": (

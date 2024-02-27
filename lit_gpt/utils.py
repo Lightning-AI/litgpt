@@ -12,6 +12,7 @@ from typing import TYPE_CHECKING, Any, Dict, Iterable, List, Mapping, Optional, 
 import lightning as L
 import torch
 import torch.nn as nn
+import torch.nn.functional as F
 import torch.utils._device
 from lightning.fabric.strategies import FSDPStrategy
 from lightning.fabric.utilities.load import _lazy_load as lazy_load
@@ -21,6 +22,20 @@ from typing_extensions import Self
 if TYPE_CHECKING:
     from lit_gpt import GPT
     
+    
+def compute_entropy(logits):
+    prob = F.softmax(logits, dim=-1)
+    entropy = - (prob * torch.log(prob)).sum(dim=-1).mean()
+    return entropy
+
+def chunked_bc(
+    mean: Union[torch.Tensor, List[torch.Tensor]],
+    logvar: Union[torch.Tensor, List[torch.Tensor]],
+    mean_bc: Union[torch.Tensor, List[torch.Tensor]],
+    logvar_bc: Union[torch.Tensor, List[torch.Tensor]],
+) -> torch.Tensor:
+    
+    return F.mse_loss(mean.detach(), mean_bc) + F.mse_loss(logvar.detach(), logvar_bc)
  
 def chunked_kld(
     mean: Union[torch.Tensor, List[torch.Tensor]],
@@ -59,7 +74,7 @@ def chunked_kld(
     mean = mean.reshape(-1, mean.size(-1))
     logvar = logvar.reshape(-1, logvar.size(-1))
     if chunk_size == 0:
-        return 0.5 * torch.mean(torch.sum(torch.exp(logvar) + torch.pow(mean, 2) - 1. - logvar, dim=-1))
+        return 0.5 * torch.mean(torch.mean(torch.exp(logvar) + torch.pow(mean, 2) - 1. - logvar, dim=-1))
     
     # torch.mean(-0.5 * torch.sum(1 + log_var - mu ** 2 - log_var.exp(), dim = 1), dim = 0)
 

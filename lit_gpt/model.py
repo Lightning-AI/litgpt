@@ -244,12 +244,16 @@ class IntentionGPT(nn.Module):
         super().__init__()
         assert config.padded_vocab_size is not None
         self.config = config
+        
+        self.mask_ratio = 0.2
 
         self.lm_head = nn.Linear(config.n_embd, config.padded_vocab_size, bias=config.lm_head_bias)
         
         self.enc_layer_num = 1
         self.dyna_layer_num = 0
         self.dec_layer_num = config.n_layer - self.enc_layer_num - self.dyna_layer_num
+        
+        # self.dec_layer_num = 1
         self.transformer_enc = nn.ModuleDict(
             dict(
                 wte=nn.Embedding(config.padded_vocab_size, config.n_embd),
@@ -257,6 +261,12 @@ class IntentionGPT(nn.Module):
             )
         )
         self.transformer_act = nn.ModuleDict(
+            dict(
+                wte=nn.Embedding(config.padded_vocab_size, config.n_embd),
+                h=nn.ModuleList(Block(config) for _ in range(self.enc_layer_num)),
+            )
+        )
+        self.transformer_bc = nn.ModuleDict(
             dict(
                 wte=nn.Embedding(config.padded_vocab_size, config.n_embd),
                 h=nn.ModuleList(Block(config) for _ in range(self.enc_layer_num)),
@@ -343,9 +353,11 @@ class IntentionGPT(nn.Module):
 
         x = self.transformer_enc.wte(idx)  # token embeddings of shape (b, t, n_embd)
         x_act = self.transformer_act.wte(idx)  # token embeddings of shape (b, t, n_embd)
-        for block, block_a in zip(self.transformer_enc.h, self.transformer_act.h):
+        x_bc = self.transformer_bc.wte(idx)  # token embeddings of shape (b, t, n_embd)
+        for block, block_a, block_b in zip(self.transformer_enc.h, self.transformer_act.h, self.transformer_bc.h):
             x = block(x, cos, sin, mask, input_pos)
             x_act = block_a(x_act, cos, sin, mask, input_pos)
+            x_bc = block_b(x_bc, cos, sin, mask, input_pos)
         x_act[:, :-1] = x_act[:, 1:]
             
         # version 1
@@ -371,7 +383,11 @@ class IntentionGPT(nn.Module):
         
         # version 3
         mean, logvar = self.mean_layer(x_act), self.logvar_layer(x_act)
+        mean_bc, logvar_bc = self.mean_layer(x_bc), self.logvar_layer(x_bc)
         z = self.reparameterization(mean, logvar)
+        
+        random_hidden_mask = torch.rand(z.shape[0], z.shape[1])
+        z[random_hidden_mask < self.mask_ratio] = 0
         
         x = self.cross_attention_layer(x, z)
         
@@ -386,6 +402,8 @@ class IntentionGPT(nn.Module):
         
         return self.lm_head(x), {"mean": mean, 
                                  "logvar": logvar, 
+                                 "mean_bc": mean_bc, 
+                                 "logvar_bc": logvar_bc, 
                                  "z": z, 
                                  "entropy_mean": ent.mean(), 
                                  "entropy_std": ent.std(), 

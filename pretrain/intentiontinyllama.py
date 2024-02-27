@@ -28,9 +28,9 @@ wd = Path(__file__).parent.parent.resolve()
 sys.path.append(str(wd))
 
 from lit_gpt.model import IntentionGPT, GPT, Block, CausalSelfAttention, Config, LLaMAMLP
-from lit_gpt.utils import CycleIterator, chunked_cross_entropy, chunked_kld, num_parameters
+from lit_gpt.utils import CycleIterator, chunked_cross_entropy, chunked_kld, chunked_bc, compute_entropy, num_parameters
 
-beta = 2.0
+beta = 20.0
 # System settings
 model_name = "tiny-llama-1.1b"
 name = "lit-tiny-llama-1.1b"
@@ -42,11 +42,11 @@ devices = torch.cuda.device_count() or 1
 global_batch_size = 512
 learning_rate = 4e-4
 micro_batch_size = 2
-max_tokens = int(2e10)  # 3 trillion  # 20 Billion
+max_tokens = int(3e9)  # 3 trillion  # 20 Billion
 warmup_steps = 2000
 log_step_interval = 1
 eval_iters = 100
-save_step_interval = 1000
+save_step_interval = 80000
 eval_step_interval = 1000
 
 weight_decay = 1e-1
@@ -154,6 +154,7 @@ def train(fabric, state, train_dataloader, val_dataloader, resume):
     running_loss = RunningMean(window=gradient_accumulation_iters, sync_on_compute=False).to(fabric.device)
     running_loss_enc = RunningMean(window=gradient_accumulation_iters, sync_on_compute=False).to(fabric.device)
     running_loss_dec = RunningMean(window=gradient_accumulation_iters, sync_on_compute=False).to(fabric.device)
+    running_loss_bc = RunningMean(window=gradient_accumulation_iters, sync_on_compute=False).to(fabric.device)
     fabric.barrier()
     total_t0 = time.perf_counter()
 
@@ -178,8 +179,11 @@ def train(fabric, state, train_dataloader, val_dataloader, resume):
                 logits, info = model(input_ids, train_mode=True)
                 enc_loss = chunked_kld(info['mean'], info['logvar'])
                 dec_loss = chunked_cross_entropy(logits, targets)
-                loss = beta * enc_loss + dec_loss 
+                bc_loss = chunked_bc(info['mean'], info['logvar'], info['mean_bc'], info['logvar_bc'])
+                loss = beta * enc_loss + dec_loss + bc_loss
                 fabric.backward(loss / gradient_accumulation_iters)
+                
+                entropy = compute_entropy(logits.detach())
         except:
             print(input_ids.shape)
             assert 0
@@ -187,6 +191,7 @@ def train(fabric, state, train_dataloader, val_dataloader, resume):
         running_loss.update(loss.detach())
         running_loss_enc.update(enc_loss.detach())
         running_loss_dec.update(dec_loss.detach())
+        running_loss_bc.update(bc_loss.detach())
 
         if not is_accumulating:
             fabric.clip_gradients(model, optimizer, max_norm=grad_clip)
@@ -210,6 +215,8 @@ def train(fabric, state, train_dataloader, val_dataloader, resume):
                 "loss": loss,
                 "loss_enc": enc_loss,
                 "loss_dec": dec_loss,
+                "loss_bc": bc_loss,
+                "value/output_entropy": entropy.item(),
                 "value/ent_mean": info['entropy_mean'].item(),
                 "value/ent_std": info['entropy_std'].item(),
                 "value/ent_max": info['entropy_max'].item(),
