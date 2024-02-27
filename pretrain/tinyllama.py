@@ -40,6 +40,7 @@ def setup(
     logger_name: Literal["wandb", "tensorboard", "csv"] = "tensorboard",
     resume: Union[bool, Path] = False,
     devices: int = torch.cuda.device_count() or 1,
+    seed: int = 1337,
     data: LitDataModule = TinyLlama(),
     io: IOArgs = IOArgs(
         out_dir=Path(os.getenv("LIGHTNING_ARTIFACTS_DIR", "out")) / "lit-tiny-llama-1.1b", train_data_dir=None
@@ -71,12 +72,13 @@ def setup(
     if logger_name in ("tensorboard", "wandb"):
         fabric.logger.log_hyperparams(hparams)
 
-    fabric.launch(main, devices, resume, model, data, io, train, eval)
+    fabric.launch(main, devices, seed, resume, model, data, io, train, eval)
 
 
 def main(
     fabric: L.Fabric,
     devices: int,
+    seed: int,
     resume: Union[bool, Path],
     config: Config,
     data: LitDataModule,
@@ -92,7 +94,7 @@ def main(
     train_dataloader, val_dataloader = get_dataloaders(fabric, data, train, config.block_size)
     train_dataloader, val_dataloader = fabric.setup_dataloaders(train_dataloader, val_dataloader)
 
-    fabric.seed_everything(3407)  # same seed for every process to init model (FSDP)
+    fabric.seed_everything(seed)  # same seed for every process to init model (FSDP)
 
     fabric.print(f"Loading model with {config.__dict__}")
     t0 = time.perf_counter()
