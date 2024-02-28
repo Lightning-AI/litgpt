@@ -1,8 +1,6 @@
 # Copyright Lightning AI. Licensed under the Apache License 2.0, see LICENSE file.
 """Implementation derived from https://github.com/tloen/alpaca-lora"""
 
-import tempfile
-
 import json
 from pathlib import Path
 from typing import Optional, Dict
@@ -28,9 +26,8 @@ class Alpaca(LitDataModule):
         test_split_fraction: float = 0.03865,  # to get exactly 2000 test samples,
         ignore_index: int = -1,
         seed: int = 42,
-        data_file_name: str = "alpaca_data_cleaned_archive.json",
-        data_file_url: str = _URL,
         num_workers: int = 4,
+        download_dir: Path = Path("./data/alpaca"),
     ) -> None:
         super().__init__()
         self.mask_prompt = mask_prompt
@@ -38,11 +35,7 @@ class Alpaca(LitDataModule):
         self.ignore_index = ignore_index
         self.seed = seed
         self.num_workers = num_workers
-
-        destination_path = Path(tempfile.mkdtemp())
-        destination_path.mkdir(parents=True, exist_ok=True)
-        self.data_file_path = destination_path / data_file_name
-        self.data_file_url = data_file_url
+        self.download_dir = download_dir
 
         self.tokenizer: Optional[Tokenizer] = None
         self.batch_size: int = 1
@@ -61,10 +54,11 @@ class Alpaca(LitDataModule):
         self.max_seq_length = -1 if max_seq_length is None else max_seq_length
 
     def prepare_data(self) -> None:
-        download_if_missing(self.data_file_path, self.data_file_url)
+        self.download_dir.mkdir(parents=True, exist_ok=True)
+        download_if_missing(self.download_dir / "alpaca_data_cleaned_archive.json", _URL)
 
     def setup(self, stage: str = "") -> None:
-        with open(self.data_file_path, "r", encoding="utf-8") as file:
+        with open(self.download_dir / "alpaca_data_cleaned_archive.json", "r", encoding="utf-8") as file:
             data = json.load(file)
 
         # Partition the dataset into train and test
@@ -138,4 +132,3 @@ def prompt_template(example: Dict[str, str]) -> str:
         "Write a response that appropriately completes the request.\n\n"
         f"### Instruction:\n{example['instruction']}\n\n### Response:\n"
     )
-
