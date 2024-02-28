@@ -76,9 +76,6 @@ class FLAN(LitDataModule):
         return self._dataloader("train")
 
     def val_dataloader(self):
-        return self._dataloader("val")
-
-    def test_dataloader(self):
         return self._dataloader("test")
 
     def _dataloader(self, split: str) -> DataLoader:
