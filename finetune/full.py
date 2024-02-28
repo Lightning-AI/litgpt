@@ -41,10 +41,9 @@ def setup(
     resume: Union[bool, Path] = False,
     seed: int = 1337,
     data: Optional[LitDataModule] = None,
-    # TODO: Remove IOArgs
     io: IOArgs = IOArgs(
         checkpoint_dir=Path("checkpoints/stabilityai/stablelm-base-alpha-3b"),
-        out_dir=Path("out/full/alpaca"),
+        out_dir=Path("out/full"),
     ),
     train: TrainArgs = TrainArgs(
         save_interval=1000,
@@ -183,7 +182,7 @@ def fit(
     )
     fabric.barrier()
 
-    while state["step_count"] <= (train.max_steps or float("inf")) and train_iterator.epoch < train.epochs:
+    while state["step_count"] < (train.max_steps or float("inf")) and train_iterator.epoch < train.epochs:
         state["iter_num"] += 1
         iter_t0 = time.perf_counter()
         batch = next(train_iterator)
