@@ -5,20 +5,10 @@ import pytest
 import torch
 
 
-class MockTokenizer:
-    """A dummy tokenizer that encodes each character as its ASCII code."""
-    def encode(self, text, eos=False, max_length=-1):
-        output = [ord(c) for c in text]
-        if eos:
-            output.append(1)
-        output = output[:max_length] if max_length > 0 else output
-        return torch.tensor(output)
-
-
 @pytest.mark.parametrize("mask_prompt", [True, False])
 @pytest.mark.parametrize("ignore_index", [-1, -100])
 @pytest.mark.parametrize("max_seq_length", [1000, 5])
-def test_sft_dataset(max_seq_length, ignore_index, mask_prompt):
+def test_sft_dataset(max_seq_length, ignore_index, mask_prompt, mock_tockenizer):
     from lit_gpt.data import SFTDataset
 
     i = ignore_index
@@ -30,7 +20,7 @@ def test_sft_dataset(max_seq_length, ignore_index, mask_prompt):
 
     dataset = SFTDataset(
         data=data,
-        tokenizer=MockTokenizer(),
+        tokenizer=mock_tockenizer,
         prompt_template=prompt_template,
         mask_prompt=mask_prompt,
         ignore_index=ignore_index,
