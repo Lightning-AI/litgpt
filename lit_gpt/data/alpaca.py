@@ -2,7 +2,6 @@
 """Implementation derived from https://github.com/tloen/alpaca-lora"""
 
 import tempfile
-from functools import partial
 
 import json
 from pathlib import Path
@@ -11,7 +10,7 @@ from typing import Optional, Dict
 import torch
 from torch.utils.data import random_split, DataLoader
 from lightning_utilities.core.imports import RequirementCache
-from lit_gpt.data import SFTDataset, sft_collate_fn, LitDataModule
+from lit_gpt.data import SFTDataset, get_sft_collate_fn, LitDataModule
 from lit_gpt.tokenizer import Tokenizer
 
 
@@ -97,7 +96,7 @@ class Alpaca(LitDataModule):
             batch_size=self.batch_size,
             shuffle=True,
             num_workers=self.num_workers,
-            collate_fn=partial(sft_collate_fn, max_seq_length=self.max_seq_length, ignore_index=self.ignore_index)
+            collate_fn=get_sft_collate_fn(max_seq_length=self.max_seq_length, ignore_index=self.ignore_index)
         )
 
     def val_dataloader(self) -> DataLoader:
@@ -106,11 +105,8 @@ class Alpaca(LitDataModule):
             batch_size=self.batch_size,
             shuffle=False,
             num_workers=self.num_workers,
-            collate_fn=partial(sft_collate_fn, max_seq_length=self.max_seq_length, ignore_index=self.ignore_index)
+            collate_fn=get_sft_collate_fn(max_seq_length=self.max_seq_length, ignore_index=self.ignore_index)
         )
-
-    def test_dataloader(self) -> DataLoader:
-        return self.val_dataloader()
 
 
 def download_if_missing(file_path: Path, file_url: str) -> None:

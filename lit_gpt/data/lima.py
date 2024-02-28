@@ -1,13 +1,12 @@
 # Copyright Lightning AI. Licensed under the Apache License 2.0, see LICENSE file.
 """Implementation derived from https://github.com/tloen/alpaca-lora"""
 import os
-from functools import partial
 
 from typing import Optional, List
 
 import torch
 from torch.utils.data import random_split, DataLoader
-from lit_gpt.data import LitDataModule, SFTDataset, sft_collate_fn
+from lit_gpt.data import LitDataModule, SFTDataset, get_sft_collate_fn
 from lit_gpt.data.alpaca import prompt_template
 from lit_gpt.tokenizer import Tokenizer
 
@@ -104,7 +103,7 @@ class LIMA(LitDataModule):
             batch_size=self.batch_size,
             shuffle=True,
             num_workers=self.num_workers,
-            collate_fn=partial(sft_collate_fn, max_seq_length=self.max_seq_length, ignore_index=self.ignore_index)
+            collate_fn=get_sft_collate_fn(max_seq_length=self.max_seq_length, ignore_index=self.ignore_index)
         )
 
     def val_dataloader(self) -> DataLoader:
@@ -113,11 +112,8 @@ class LIMA(LitDataModule):
             batch_size=self.batch_size,
             shuffle=False,
             num_workers=self.num_workers,
-            collate_fn=partial(sft_collate_fn, max_seq_length=self.max_seq_length, ignore_index=self.ignore_index)
+            collate_fn=get_sft_collate_fn(max_seq_length=self.max_seq_length, ignore_index=self.ignore_index)
         )
-
-    def test_dataloader(self) -> DataLoader:
-        return self.val_dataloader()
 
 
 def format_dataset(dataset_partition: dict, include_multi_turn_conversations: bool) -> List[dict]:
