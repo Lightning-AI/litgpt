@@ -121,8 +121,8 @@ class AutoGPTQ(BaseGPTQForCausalLM):
     def __init__(
         self,
         model: GPTForAutoGPTQ,
-        quantized: bool,
         quantize_config: BaseQuantizeConfig,
+        quantized: bool = False,
         is_triton_backend: bool = False,
         **kwargs: Any,
     ):
@@ -344,7 +344,7 @@ def main(
         true_sequential=true_sequential,
         kernel="triton" if use_triton else None,
     )
-    autogptq = AutoGPTQ(model, quantized=False, quantize_config=quantize_config)
+    autogptq = AutoGPTQ(model, quantize_config=quantize_config)
 
     quantize_time = time.perf_counter()
     autogptq.quantize(calibration_data, batch_size=batch_size, use_triton=use_triton)
