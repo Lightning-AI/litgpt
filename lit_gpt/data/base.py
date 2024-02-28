@@ -37,9 +37,9 @@ class SFTDataset(Dataset):
         data: A list of samples (dicts). The target/label must be stored under the key 'output' and the instruction
             or other data can be stored under any key as long as it is compatible with the given prompt template.
         tokenizer: The tokenizer to use. Should match the one that was used to pretrain the model.
-        prompt_template: A prompt template (format string or callable)
+        prompt_template: A prompt template (format string or callable).
         max_seq_length: Truncate sequences that are longer than this value. By default, no truncation is applied.
-        mask_prompt: Whether to mask the prompt section from the label (with ``ignore_index``)
+        mask_prompt: Whether to mask the prompt section from the label (with ``ignore_index``).
         ignore_index: The index to use for elements to be ignored in the label.
 
     Returns a dict with two keys:
