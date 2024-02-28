@@ -1,5 +1,4 @@
 # Copyright Lightning AI. Licensed under the Apache License 2.0, see LICENSE file.
-"""Implementation derived from https://github.com/tloen/alpaca-lora"""
 
 import json
 from pathlib import Path

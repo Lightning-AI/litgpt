@@ -13,6 +13,8 @@ from lightning_utilities.core.imports import RequirementCache
 from lit_gpt.data import SFTDataset, get_sft_collate_fn, LitDataModule
 from lit_gpt.tokenizer import Tokenizer
 
+_URL = "https://raw.githubusercontent.com/tloen/alpaca-lora/main/alpaca_data_cleaned_archive.json"
+
 
 class Alpaca(LitDataModule):
     """Alpaca data module for supervised finetuning.
@@ -27,7 +29,7 @@ class Alpaca(LitDataModule):
         ignore_index: int = -1,
         seed: int = 42,
         data_file_name: str = "alpaca_data_cleaned_archive.json",
-        data_file_url: str = "https://raw.githubusercontent.com/tloen/alpaca-lora/main/alpaca_data_cleaned_archive.json",
+        data_file_url: str = _URL,
         num_workers: int = 4,
     ) -> None:
         super().__init__()
