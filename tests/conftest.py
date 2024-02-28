@@ -56,6 +56,24 @@ def restore_default_dtype():
     torch.set_default_dtype(torch.float32)
 
 
+class MockTokenizer:
+    """A dummy tokenizer that encodes each character as its ASCII code."""
+    def encode(self, text: str, eos: bool = False, max_length: int = -1) -> torch.Tensor:
+        output = [ord(c) for c in text]
+        if eos:
+            output.append(1)
+        output = output[:max_length] if max_length > 0 else output
+        return torch.tensor(output)
+
+    def decode(self, tokens: torch.Tensor) -> str:
+        return "".join(chr(int(t)) for t in tokens.tolist())
+
+
+@pytest.fixture()
+def mock_tockenizer():
+    return MockTokenizer()
+
+
 def RunIf(**kwargs):
     reasons, marker_kwargs = _runif_reasons(**kwargs)
     return pytest.mark.skipif(condition=len(reasons) > 0, reason=f"Requires: [{' + '.join(reasons)}]", **marker_kwargs)

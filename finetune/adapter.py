@@ -36,6 +36,7 @@ def setup(
     precision: Optional[str] = None,
     quantize: Optional[Literal["bnb.nf4", "bnb.nf4-dq", "bnb.fp4", "bnb.fp4-dq", "bnb.int8-training"]] = None,
     devices: int = 1,
+    seed: int = 1337,
     io: IOArgs = IOArgs(
         train_data_dir=Path("data/alpaca"),
         val_data_dir=Path("data/alpaca"),
@@ -84,10 +85,10 @@ def setup(
 
     logger = CSVLogger(io.out_dir.parent, io.out_dir.name, flush_logs_every_n_steps=train.log_interval)
     fabric = L.Fabric(devices=devices, strategy=strategy, precision=precision, loggers=logger, plugins=plugins)
-    fabric.launch(main, devices, Config.from_name(name=io.checkpoint_dir.name), io, train, eval)
+    fabric.launch(main, devices, seed, Config.from_name(name=io.checkpoint_dir.name), io, train, eval)
 
 
-def main(fabric: L.Fabric, devices: int, config: Config, io: IOArgs, train: TrainArgs, eval: EvalArgs) -> None:
+def main(fabric: L.Fabric, devices: int, seed: int, config: Config, io: IOArgs, train: TrainArgs, eval: EvalArgs) -> None:
     validate_args(io, train, eval)
 
     steps_per_epoch = train.epoch_size // devices // train.batch_size(devices)
@@ -95,7 +96,7 @@ def main(fabric: L.Fabric, devices: int, config: Config, io: IOArgs, train: Trai
 
     check_valid_checkpoint_dir(io.checkpoint_dir)
 
-    fabric.seed_everything(1337)  # same seed for every process to init model (FSDP)
+    fabric.seed_everything(seed)  # same seed for every process to init model (FSDP)
 
     if fabric.global_rank == 0:
         os.makedirs(io.out_dir, exist_ok=True)
