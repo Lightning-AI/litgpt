@@ -23,7 +23,7 @@ class TrainArgs:
     max_tokens: Optional[int] = None
     """Total number of tokens to train on"""
     max_steps: Optional[int] = None
-    """Limits the number of iterations/optimizer steps to run."""
+    """Limits the number of optimizer steps to run."""
     max_seq_length: Optional[int] = None
     """Limits the length of samples. Off by default"""
 
@@ -64,11 +64,6 @@ class EvalArgs:
 class IOArgs:
     """Inputs and outputs related arguments"""
 
-    # Optional because pretrain/tinyllama hardcodes the path
-    train_data_dir: Optional[Path] = Path("data/alpaca")
-    """Where to read training data from"""
-    val_data_dir: Optional[Path] = None
-    """Where to read validation data from"""
     checkpoint_dir: Optional[Path] = None
     """Where to read weights and tokenizer data from"""
     out_dir: Path = Path("out/adapter/alpaca")

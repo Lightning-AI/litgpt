@@ -328,8 +328,8 @@ def choose_logger(out_dir: Path, logger_name: str, name: str, resume: Union[bool
 def validate_args(io: IOArgs, train: TrainArgs, eval: EvalArgs) -> None:
     issues = []
     unsupported = [
-        (io, ["train_data_dir", "val_data_dir", "checkpoint_dir"]),
-        (train, ["epochs"]),
+        (io, ["checkpoint_dir"]),
+        (train, ["max_steps", "epochs"]),
         (eval, ["max_new_tokens"]),
     ]
     for args, names in unsupported:
