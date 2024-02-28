@@ -361,15 +361,7 @@ def main(
 
 
 if __name__ == "__main__":
-    import logging
-
     from jsonargparse import CLI
-
-    # AutoGPTQ's quantization logs
-    logging.basicConfig(
-        format="%(asctime)s ｜ %(levelname)s ｜ %(name)-27s ｜ %(message)s", datefmt="%Y-%m-%d ｜ %H:%M:%S"
-    )
-    logging.getLogger("auto_gptq").setLevel(logging.INFO)
 
     torch.set_float32_matmul_precision("high")
 
