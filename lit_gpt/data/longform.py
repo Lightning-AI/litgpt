@@ -72,7 +72,7 @@ class LongForm(LitDataModule):
         with open(self.download_dir / f"{split}.json", "r", encoding="utf-8") as file:
             data = json.load(file)
 
-        train_dataset = SFTDataset(
+        dataset = SFTDataset(
             data=data,
             tokenizer=self.tokenizer,
             prompt_template=prompt_template,
@@ -81,7 +81,7 @@ class LongForm(LitDataModule):
             ignore_index=self.ignore_index,
         )
         return DataLoader(
-            train_dataset,
+            dataset=dataset,
             batch_size=self.batch_size,
             shuffle=(split == "train"),
             generator=torch.Generator().manual_seed(self.seed),

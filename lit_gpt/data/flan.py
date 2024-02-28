@@ -1,5 +1,4 @@
 # Copyright Lightning AI. Licensed under the Apache License 2.0, see LICENSE file.
-"""Implementation derived from https://github.com/tloen/alpaca-lora"""
 
 import json
 from pathlib import Path
@@ -91,7 +90,7 @@ class FLAN(LitDataModule):
         for item in data:
             item["output"] = item.pop("targets")
 
-        train_dataset = SFTDataset(
+        dataset = SFTDataset(
             data=data,
             tokenizer=self.tokenizer,
             prompt_template=prompt_template,
@@ -100,7 +99,7 @@ class FLAN(LitDataModule):
             ignore_index=self.ignore_index,
         )
         return DataLoader(
-            train_dataset,
+            dataset=dataset,
             batch_size=self.batch_size,
             shuffle=(split == "train"),
             generator=torch.Generator().manual_seed(self.seed),
