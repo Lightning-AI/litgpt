@@ -28,7 +28,7 @@ class FLAN(LitDataModule):
         seed: int = 42,
         num_workers: int = 4,
         data_url: str = _URL,
-        download_dir: Path = Path("./data/alpaca"),
+        download_dir: Path = Path("./data/flan"),
         subsets: Optional[str] = None,
     ) -> None:
         super().__init__()
