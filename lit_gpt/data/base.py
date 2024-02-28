@@ -107,20 +107,17 @@ def _sft_collate_fn(
     samples: List[Dict[str, Tensor]], max_seq_length: int = -1, pad_id: int = 0, ignore_index: int = -1
 ) -> Dict[str, Tensor]:
 
-    longest = max(len(sample["input_ids"]) for sample in samples)
-    max_length = max_seq_length if max_seq_length > 0 else longest
-
     batched = {}
     for key in ("input_ids", "labels"):
         pad_value = pad_id if key == "input_ids" else ignore_index
 
         # Pad right based on the longest sequence
-        batched[key] = torch.stack([
-            torch.nn.functional.pad(sample[key], (0, longest - len(sample[key])), value=pad_value)
-            for sample in samples
-        ])
+        batched[key] = torch.nn.utils.rnn.pad_sequence(
+            [sample[key] for sample in samples], batch_first=True, padding_value=pad_value
+        )
 
         # Truncate if needed
-        batched[key] = batched[key][:, :max_length]
+        if max_seq_length > 0:
+            batched[key] = batched[key][:, :max_seq_length]
 
     return batched
