@@ -20,8 +20,7 @@ If you want to load the converted checkpoints into a `transformers` model, pleas
 For example,
 
 ```bash
-wget https://huggingface.co/repo_id/raw/main/config.json
-mv config.json where/to/save/the/
+wget https://huggingface.co/repo_id/raw/main/config.json -O out/config.json
 ```
 
 Then, you can load the checkpoint file in a Python session as follows:
@@ -53,58 +52,86 @@ Please note that if you want to convert a model that has been fine-tuned using a
 python scripts/merge_lora.py \
     --checkpoint_dir path/to/litgpt_checkpoint/ \
     --lora_path path/to/litgpt/lora_finetuned.pth \
-    --out_dir where/to/save/the/merged.ckpt
+    --out_dir out/merged.ckpt
 ```
 
 <br>
 <br>
 
-# A finetunig and conversion tutorial
+# A finetuning and conversion tutorial
 
 This section contains a reproducible example for finetuning a Lit-GPT model and converting it back into a HF `transformer` model.
 
-1) Download a model of interest:
+1. Download a model of interest:
+
+For convenience, we first specify an environment variable (optional) to avoid copy and pasting the whole path:
 
 ```bash
-python scripts/download.py \
-    --repo_id TinyLlama/TinyLlama-1.1B-intermediate-step-1431k-3T
+export repo_id=TinyLlama/TinyLlama-1.1B-intermediate-step-1431k-3T
+```
+
+Instead of using TinyLlama, you can replace the `repo_id` target with any other model repository 
+specifier that is currently supported by Lit-GPT. You can get a list of supported repository specifier
+by running `scripts/download.py` without any additional arguments.
+
+Then, we download the model we specified via `$repo_id` above:
+
+```bash
+python scripts/download.py --repo_id $repo_id
 ```
 
 2. Convert the model into the Lit-GPT format:
 
 ```bash
-python scripts/convert_hf_checkpoint.py \
-    --checkpoint_dir checkpoints/TinyLlama/TinyLlama-1.1B-intermediate-step-1431k-3T
+python scripts/convert_hf_checkpoint.py --checkpoint_dir checkpoints/$repo_id
 ```
 
 3. Prepare a dataset for finetuning:
 
-```
+```bash
 python scripts/prepare_alpaca.py \
-    --checkpoint_dir checkpoints/TinyLlama/TinyLlama-1.1B-intermediate-step-1431k-3T \
+    --checkpoint_dir checkpoints/$repo_id \
     --destination_path data/alpaca
 ```
 
 4. Finetune the model:
 
-```
-python finetune/full.py \
-   --io.checkpoint_dir checkpoints/TinyLlama/TinyLlama-1.1B-intermediate-step-1431k-3T/ \
+
+```bash
+export finetuned_dir=out/lit-finetuned-model
+
+python finetune/lora.py \
+   --io.checkpoint_dir checkpoints/$repo_id \
    --io.train_data_dir data/alpaca \
    --io.val_data_dir data/alpaca \
-   --train.epoch_size 50 \
    --train.epochs 1 \
-   --io.out_dir out/lit-tinyllama
+   --io.out_dir $finetuned_dir
 ```
+
+5. Merge LoRA weights:
+
+Note that this step only applies if the model was finetuned with `lora.py` above and not when `full.py` was used for finetuning.
+
+```bash
+python scripts/merge_lora.py \
+    --checkpoint_dir checkpoints/$repo_id \
+    --lora_path $finetuned_dir/lit_model_lora_finetuned.pth \
+    --out_dir $finetuned_dir/merged/
+```
+
 
 5. Convert the finetuning model back into a HF format:
 
 ```bash
 python scripts/convert_lit_checkpoint.py \
-   --checkpoint_path out/lit-tinyllama/lit_model_finetuned.pth \
+   --checkpoint_path $finetuned_dir/merged/lit_model.pth \
    --output_path out/hf-tinyllama/converted_model.pth \
-   --config_path checkpoints/TinyLlama/TinyLlama-1.1B-intermediate-step-1431k-3T/lit_config.json 
+   --config_path checkpoints/$repo_id/lit_config.json 
 ```
+
+(If you used `full.py` instead of `lora.py` to finetune your model, 
+replace `$finetuned_dir/merged/lit_model.pth` with `$finetuned_dir/lit_model_finetuned.pth`.)
+
 
 6. Load the model into a `transformers` model:
 
@@ -112,7 +139,6 @@ python scripts/convert_lit_checkpoint.py \
 import torch
 from transformers import AutoModel
 
-state_dict = torch.load('./lit-gpt/out/hf-tinyllama/converted_model.pth')
+state_dict = torch.load('out/hf-tinyllama/converted_model.pth')
 model = AutoModel.from_pretrained("TinyLlama/TinyLlama-1.1B-intermediate-step-1431k-3T", state_dict=state_dict)
 ```
-
