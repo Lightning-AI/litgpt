@@ -122,18 +122,8 @@ def test_quantization(
 
 
 @RunIf(min_cuda_gpus=1)
-@pytest.mark.parametrize(
-    "kernel",
-    (
-        "cuda_old",
-        "cuda",
-        "exllama",
-        "exllamav2",
-        # due to randomly initialized "quantized" values the triton kernel might throw an error
-        pytest.param("triton", marks=pytest.mark.xfail(raises=ValueError, match="math domain error")),
-        "marlin",
-    ),
-)
+@pytest.mark.flaky(reruns=3)
+@pytest.mark.parametrize("kernel", ("cuda_old", "cuda", "exllama", "exllamav2", "triton", "marlin"))
 @pytest.mark.parametrize("bits", [2, 3, 4, 8], ids=[f"{bit}bit" for bit in (2, 3, 4, 8)])
 @pytest.mark.parametrize("group_size", [32, 128], ids=[f"{gs}group_size" for gs in (32, 128)])
 @pytest.mark.parametrize("mlp_class", ("GptNeoxMLP", "LLaMAMLP", "LLaMAMoE"))
