@@ -128,8 +128,10 @@ def test_quantization(
 @pytest.mark.parametrize("kernel", ("cuda_old", "cuda", "exllama", "exllamav2", "triton", "marlin"))
 @pytest.mark.parametrize("bits", [2, 3, 4, 8], ids=[f"{bit}bit" for bit in (2, 3, 4, 8)])
 @pytest.mark.parametrize("group_size", [32, 128], ids=[f"{gs}group_size" for gs in (32, 128)])
+@pytest.mark.parametrize("desc_act", (True, False), ids=["desc_act", ""])
+@pytest.mark.parametrize("sym", (True, False), ids=["sym", ""])
 @pytest.mark.parametrize("mlp_class", ("GptNeoxMLP", "LLaMAMLP", "LLaMAMoE"))
-def test_layer_conversion(kernel, bits, group_size, mlp_class):
+def test_layer_conversion(kernel, bits, group_size, desc_act, sym, mlp_class):
     import importlib
     from functools import reduce
 
@@ -156,18 +158,18 @@ def test_layer_conversion(kernel, bits, group_size, mlp_class):
     device = "cuda:0"
     model = GPT(config).to(device=device, dtype=torch.float16)
 
-    # Some kernels support only specific set of precisions. The code has to tell about it.
+    # Some kernels have specific requirements (e.g., precision). The code has to tell about it.
     # We should check it.
     if (
         (kernel == "triton" and bits == 3)
         or (kernel in ("exllama", "exllamav2", "marlin") and bits != 4)
-        or (kernel == "marlin" and group_size not in (-1, 128))
+        or (kernel == "marlin" and (group_size not in (-1, 128) or desc_act or not sym))
     ):
         with pytest.raises(ValueError, match="doesn't support") as e_info:
             quantize_config = QuantizeConfig(bits=bits, group_size=group_size, kernel=kernel)
         pytest.skip(str(e_info))
 
-    quantize_config = QuantizeConfig(bits=bits, group_size=group_size, kernel=kernel)
+    quantize_config = QuantizeConfig(bits=bits, group_size=group_size, kernel=kernel, desc_act=desc_act, sym=sym)
 
     # Wrap the model in AutoGPTQ as it allows to convert "nn.Linear" layers to "QuantLinear"
     autogptq_model = AutoGPTQ(model, quantized=True, quantize_config=quantize_config)
