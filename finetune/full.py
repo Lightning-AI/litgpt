@@ -39,6 +39,7 @@ def setup(
     precision: Optional[str] = None,
     devices: int = 1,
     resume: Union[bool, Path] = False,
+    seed: int = 1337,
     data: Optional[LitDataModule] = None,
     # TODO: Remove IOArgs
     io: IOArgs = IOArgs(
@@ -78,13 +79,14 @@ def setup(
 
     logger = CSVLogger(io.out_dir.parent, io.out_dir.name, flush_logs_every_n_steps=train.log_interval)
     fabric = L.Fabric(devices=devices, strategy=strategy, precision=precision, loggers=logger)
-    fabric.launch(main, devices, resume, Config.from_name(name=io.checkpoint_dir.name), data, io, train, eval)
+    fabric.launch(main, devices, resume, seed, Config.from_name(name=io.checkpoint_dir.name), data, io, train, eval)
 
 
 def main(
     fabric: L.Fabric,
     devices: int,
     resume: Union[bool, Path],
+    seed: int,
     config: Config,
     data: LitDataModule,
     io: IOArgs,
@@ -99,7 +101,7 @@ def main(
     steps_per_epoch = len(train_dataloader) // train.gradient_accumulation_iters(devices)
     lr_max_steps = min(train.epochs * steps_per_epoch, (train.max_steps or float("inf")))
 
-    fabric.seed_everything(1337)  # same seed for every process to init model (FSDP)
+    fabric.seed_everything(seed)  # same seed for every process to init model (FSDP)
 
     if fabric.global_rank == 0:
         os.makedirs(io.out_dir, exist_ok=True)

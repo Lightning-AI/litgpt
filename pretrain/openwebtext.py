@@ -28,6 +28,7 @@ def setup(
     model_name: str = "pythia-70m",
     precision: Optional[str] = None,
     resume: Union[bool, Path] = False,
+    seed: int = 1337,
     devices: int = 1,
     io: IOArgs = IOArgs(train_data_dir=Path("data/openwebtext"), val_data_dir=None, out_dir=Path("out/openwebtext")),
     train: TrainArgs = TrainArgs(
@@ -64,13 +65,14 @@ def setup(
     logger = CSVLogger(io.out_dir.parent, io.out_dir.name, flush_logs_every_n_steps=train.log_interval)
     fabric = L.Fabric(devices=devices, strategy=strategy, precision=precision, loggers=logger)
 
-    fabric.launch(main, devices, resume, Config.from_name(name=model_name), io, train, eval)
+    fabric.launch(main, devices, resume, seed, Config.from_name(name=model_name), io, train, eval)
 
 
 def main(
     fabric: L.Fabric,
     devices: int,
     resume: Union[bool, Path],
+    seed: int,
     config: Config,
     io: IOArgs,
     train: TrainArgs,
@@ -81,7 +83,7 @@ def main(
     if fabric.global_rank == 0:
         io.out_dir.mkdir(parents=True, exist_ok=True)
 
-    fabric.seed_everything(1337, workers=True)  # same seed for every process to init model (FSDP)
+    fabric.seed_everything(seed, workers=True)  # same seed for every process to init model (FSDP)
 
     fabric.print(f"Loading model with {config.__dict__}")
     t0 = time.perf_counter()
