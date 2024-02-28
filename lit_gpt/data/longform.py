@@ -14,8 +14,8 @@ from lit_gpt.tokenizer import Tokenizer
 _URL = "https://raw.githubusercontent.com/akoksal/LongForm/main/dataset"
 
 
-class Longform(LitDataModule):
-    """Longform data module for supervised finetuning.
+class LongForm(LitDataModule):
+    """LongForm data module for supervised finetuning.
 
     Provides train- and val-dataloaders. The batches return keys "input_ids" and "labels".
     """
