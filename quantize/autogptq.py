@@ -148,6 +148,7 @@ class AutoGPTQ(BaseGPTQForCausalLM):
         # - attention output projection
         # - MLP project input
         # - MLP project output
+        # Each layer undergoes quantization using inputs that have passed through the previously quantized layers.
 
         self.inside_layer_modules = [["attn.attn"], ["attn.proj"]]
 

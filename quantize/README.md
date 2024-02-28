@@ -93,7 +93,7 @@ Additionally, `Marlin` kernel adds these requirements:
 - `Sym` should be True.
 - For each weight matrix that will be quantized, the number of `input features` should be divisible by `128` and the number of `output features` - by `256`.
 
-Out of all kernels Marlin kernels is the newest and the fastest, but supports only compute capability >= 8.0 (Ampere generation and newer). On this [Wiki](https://en.wikipedia.org/wiki/CUDA#GPUs_supported) page one can find a table with graphics cards and their compute capabilities.
+Out of all kernels Marlin is the newest and the fastest, but supports only compute capability >= 8.0 (Ampere generation and newer). On this [Wiki](https://en.wikipedia.org/wiki/CUDA#GPUs_supported) page one can find a table with graphics cards and their compute capabilities.
 
 Benchmarks with kernels can be found [here](https://github.com/huggingface/optimum/tree/main/tests/benchmark#gptq-benchmark).
 
@@ -112,3 +112,6 @@ python generate/base.py --checkpoint_dir ... --quantize gptq.int4 --kernel ...
 | *kernel*         | You can override the kernel that was used during quantization (in most cases it's `exllama`).            |
 
 If kernel is `Marlin`, then the quantized weights will be repacked. Since the process might take a while we utilize caching, which will speed up subsequent script executions.
+
+> [!NOTE]
+> GPTQ inference doesn't support model compilation.
