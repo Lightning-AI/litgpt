@@ -23,7 +23,6 @@ class LongForm(LitDataModule):
     def __init__(
         self,
         mask_prompt: bool = False,
-        test_split_fraction: float = 0.03865,  # to get exactly 2000 test samples,
         ignore_index: int = -1,
         seed: int = 42,
         num_workers: int = 4,
@@ -31,7 +30,6 @@ class LongForm(LitDataModule):
     ) -> None:
         super().__init__()
         self.mask_prompt = mask_prompt
-        self.test_split_fraction = test_split_fraction
         self.ignore_index = ignore_index
         self.seed = seed
         self.num_workers = num_workers
@@ -57,16 +55,12 @@ class LongForm(LitDataModule):
         self.download_dir.mkdir(parents=True, exist_ok=True)
         download_if_missing(self.download_dir / "train.json", f"{_URL}/train.json")
         download_if_missing(self.download_dir / "val.json", f"{_URL}/val.json")
-        download_if_missing(self.download_dir / "test.json", f"{_URL}/test.json")
 
     def train_dataloader(self):
         return self._dataloader("train")
 
     def val_dataloader(self):
         return self._dataloader("val")
-
-    def test_dataloader(self):
-        return self._dataloader("test")
 
     def _dataloader(self, split: str) -> DataLoader:
         with open(self.download_dir / f"{split}.json", "r", encoding="utf-8") as file:
