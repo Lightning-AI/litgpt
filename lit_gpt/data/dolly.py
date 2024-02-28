@@ -1,6 +1,8 @@
 # Copyright Lightning AI. Licensed under the Apache License 2.0, see LICENSE file.
 
 import json
+from pathlib import Path
+
 import torch
 from torch.utils.data import random_split
 from lit_gpt.data import SFTDataset, Alpaca
@@ -21,22 +23,24 @@ class Dolly(Alpaca):
         test_split_fraction: float = 0.1,
         ignore_index: int = -1,
         seed: int = 42,
-        data_file_name: str = "dolly_data_cleaned.json",
-        data_file_url: str = _URL,
         num_workers: int = 4,
+        data_file_url: str = _URL,
+        data_file_name: str = "dolly_data_cleaned.json",
+        download_dir: Path = Path("./data/dolly"),
     ) -> None:
         super().__init__(
             mask_prompt=mask_prompt,
             test_split_fraction=test_split_fraction,
             ignore_index=ignore_index,
             seed=seed,
-            data_file_name=data_file_name,
-            data_file_url=data_file_url,
             num_workers=num_workers,
+            data_file_url=data_file_url,
+            data_file_name=data_file_name,
+            download_dir=download_dir,
         )
 
     def setup(self, stage: str = "") -> None:
-        with open(self.data_file_path, "r", encoding="utf-8") as file:
+        with open(self.download_dir / self.data_file_name, "r", encoding="utf-8") as file:
             data = file.readlines()
             data = [json.loads(line) for line in data]
         for item in data:

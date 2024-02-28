@@ -27,6 +27,8 @@ class Alpaca(LitDataModule):
         ignore_index: int = -1,
         seed: int = 42,
         num_workers: int = 4,
+        data_file_url: str = _URL,
+        data_file_name: str = "alpaca_data_cleaned_archive.json",
         download_dir: Path = Path("./data/alpaca"),
     ) -> None:
         super().__init__()
@@ -35,6 +37,8 @@ class Alpaca(LitDataModule):
         self.ignore_index = ignore_index
         self.seed = seed
         self.num_workers = num_workers
+        self.data_file_url = data_file_url
+        self.data_file_name = data_file_name
         self.download_dir = download_dir
 
         self.tokenizer: Optional[Tokenizer] = None
@@ -55,10 +59,10 @@ class Alpaca(LitDataModule):
 
     def prepare_data(self) -> None:
         self.download_dir.mkdir(parents=True, exist_ok=True)
-        download_if_missing(self.download_dir / "alpaca_data_cleaned_archive.json", _URL)
+        download_if_missing(self.download_dir / self.data_file_name, self.data_file_url)
 
     def setup(self, stage: str = "") -> None:
-        with open(self.download_dir / "alpaca_data_cleaned_archive.json", "r", encoding="utf-8") as file:
+        with open(self.download_dir / self.data_file_name, "r", encoding="utf-8") as file:
             data = json.load(file)
 
         # Partition the dataset into train and test
