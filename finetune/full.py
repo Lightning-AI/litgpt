@@ -253,6 +253,7 @@ def validate(
     val_loss = losses.mean()
 
     # produce an example:
+    # TODO: Use a sample from the dataset to avoid mismatching keys for prompt templates
     instruction = "Recommend a movie for me to watch during the weekend and explain the reason."
     fabric.print(instruction)
     prompt = apply_prompt_template(val_dataloader.dataset.prompt_template, {"instruction": instruction})

@@ -13,6 +13,8 @@ from lit_gpt.tokenizer import Tokenizer
 _URL = "https://huggingface.co/datasets/Muennighoff/flan/resolve/main"
 
 
+# TODO: Including all subsets, FLAN is too large to be loaded in memory. Switch the implementation to cache
+#   on disk or use Lightning Data
 class FLAN(LitDataModule):
     """FLAN data module for supervised finetuning.
 
