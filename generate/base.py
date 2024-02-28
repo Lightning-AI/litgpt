@@ -191,6 +191,7 @@ def main(
     t0 = time.perf_counter()
     with fabric.init_module(empty_init=True), torch.device("meta") if gptq_selected else nullcontext():
         model = GPT(config)
+    fabric.print(f"Time to instantiate model: {time.perf_counter() - t0:.02f} seconds.", file=sys.stderr)
 
     with fabric.init_tensor():
         # set the max_seq_length to limit the memory usage to what we need
@@ -199,14 +200,17 @@ def main(
         model.set_kv_cache(batch_size=1)
     model.eval()
 
-    fabric.print(f"Time to instantiate model: {time.perf_counter() - t0:.02f} seconds.", file=sys.stderr)
-
     # GPTQ model conversion
     if gptq_selected:
         from quantize.autogptq import AutoGPTQ
 
         autogptq = AutoGPTQ(model=model, quantized=True, quantize_config=quantize_config)
-        autogptq.convert_to_quantized(kernel, device=fabric.device)
+        # If Marlin is selected and was cached - convert directly to Marlin (that allows to load cached weights)
+        # If it wasn't cached - first convert to kernel from the config, load weights (in the code down below) and
+        # the conversion to Marlin will be done later (in `convert_quantized_to_marlin` method)
+        if (_kernel := kernel) == "marlin" and not quantize_config.marlin_cached:
+            _kernel = quantize_config.kernel
+        autogptq.convert_to_quantized(_kernel, device=fabric.device)
 
     # Loading weights
     t0 = time.perf_counter()
@@ -222,6 +226,7 @@ def main(
 
     # Marlin conversion and post_init
     if gptq_selected:
+        # Marlin conversion happens after the model is quantized to one of the other kernels
         if kernel == "marlin":
             autogptq.convert_quantized_to_marlin(quantized_model_dir)
         # obligatory post init: initializes kernel's buffers
@@ -231,6 +236,8 @@ def main(
         fabric.print(f"Running GPTQ model with {quantize_config}", file=sys.stderr)
 
     if compile:
+        if gptq_selected:
+            raise ValueError("GPTQ quantization and model compilation aren't supported.")
         torch._dynamo.config.automatic_dynamic_shapes = True
         torch._inductor.config.triton.unique_kernel_names = True
         torch._inductor.config.coordinate_descent_tuning = True

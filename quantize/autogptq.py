@@ -32,7 +32,7 @@ class GPTForAutoGPTQ(GPT):
     # - **kwargs store "attention_mask" (that we don't need), but AutoGPTQ provides
     def forward(self, input_ids: torch.Tensor, input_pos: Optional[torch.Tensor] = None, **kwargs: Any) -> torch.Tensor:
         """For AutoGPTQ this forward pass is needed only to capture arguments (through a forward hook attached to the
-        first layer) that will be send to each layer (Transformer block). That means it will be called only once."""
+        first layer) that will be send to the first Transformer block. That means it will be called only once."""
 
         T = input_ids.size(1)
         if self.max_seq_length < T:
@@ -69,6 +69,7 @@ class QuantizeConfig(BaseQuantizeConfig):
                    ┌───────────────┐
                    ┆ 2 ┆ 3 ┆ 4 ┆ 8 ┆
                    ├---------------┤
+         cuda_old  ┆ ✔ ┆ ✔ ┆ ✔ ┆ ✔ ┆
          cuda      ┆ ✔ ┆ ✔ ┆ ✔ ┆ ✔ ┆
          exllama   ┆   ┆   ┆ ✔ ┆   ┆
          exllamav2 ┆   ┆   ┆ ✔ ┆   ┆
@@ -81,9 +82,14 @@ class QuantizeConfig(BaseQuantizeConfig):
         """
         kernel = kernel or self.kernel
         if (kernel == "triton" and self.bits == 3) or (kernel in ("exllama", "exllamav2", "marlin") and self.bits != 4):
-            raise NotImplementedError(f"Kernel '{kernel}' doesn't support {self.bits}bit precision.")
-        if kernel == "marlin" and self.group_size not in (-1, 128):
-            raise NotImplementedError(f"Kernel Marlin doesn't support group_size of {self.group_size}, only -1 or 128.")
+            raise ValueError(f"Kernel '{kernel}' doesn't support {self.bits}bit precision.")
+        if kernel == "marlin":
+            if self.group_size not in (-1, 128):
+                raise ValueError(f"Kernel Marlin doesn't support group_size of {self.group_size}, only -1 or 128.")
+            if self.desc_act:
+                raise ValueError("Kernel Marlin doesn't support enabled desc_act.")
+            if not self.sym:
+                raise ValueError("Kernel Marlin doesn't support disable `sym` (symmetric quantization).")
 
     @classmethod
     def load_config(cls, path: Path) -> "QuantizeConfig":
@@ -144,8 +150,8 @@ class AutoGPTQ(BaseGPTQForCausalLM):
         # There are four sub lists, the modules in each of them can be seen as one operation.
         # The order should be the order they are truly executed.
         # Usually they are:
-        # - attention QKV projection
-        # - attention output projection
+        # - Attention QKV projection
+        # - Attention output projection
         # - MLP project input
         # - MLP project output
         # Each layer undergoes quantization using inputs that have passed through the previously quantized layers.
@@ -195,13 +201,6 @@ class AutoGPTQ(BaseGPTQForCausalLM):
         # Check if the kernel is compatible with the config used for quantization
         self.quantize_config.validate_config(kernel)
 
-        # if Marlin is selected and was cached - convert directly to Marlin
-        # if it wasn't - first convert to kernel from the config, conversion to Marlin will be done later
-        #   (in `convert_quantized_to_marlin` method)
-        if kernel == "marlin":
-            kernel = "marlin" if self.quantize_config.marlin_cached else self.quantize_config.kernel
-
-        kernel = kernel.replace("-", "_")  # guard for `cuda-old`
         QuantLinear = importlib.import_module(f"auto_gptq.nn_modules.qlinear.qlinear_{kernel}").QuantLinear
 
         inside_layer_modules = tuple(sum(self.inside_layer_modules, []))
@@ -235,8 +234,14 @@ class AutoGPTQ(BaseGPTQForCausalLM):
             quantized_model_dir: Marlin cache will be put in the same folder with the quantized weights.
         """
 
-        # if Marlin is cached, then the model has been already converted
-        if self.quantize_config.marlin_cached:
+        # select QuantLinear that was used during quantization
+        QuantLinear = importlib.import_module(
+            f"auto_gptq.nn_modules.qlinear.qlinear_{self.quantize_config.kernel}"
+        ).QuantLinear
+
+        # if there are no modules with QuantLinear that was used during quantization, then
+        # most likely the model has already been converted
+        if not any(isinstance(module, QuantLinear) for module in self.model.modules()):
             return
 
         from auto_gptq.utils.marlin_utils import _validate_marlin_compatibility, convert_to_marlin
@@ -247,9 +252,6 @@ class AutoGPTQ(BaseGPTQForCausalLM):
                 "The model can not be converted to use the Marlin kernel for the following reason: "
                 f"{unsupported_reason}, which is not supported by Marlin kernel."
             )
-        QuantLinear = importlib.import_module(
-            f"auto_gptq.nn_modules.qlinear.qlinear_{self.quantize_config.kernel}"
-        ).QuantLinear
 
         self.model.config.quantization_config = {}  # required by AutoGPTQ
         convert_to_marlin(self.model, QuantLinear, self.quantize_config, repack=True)
@@ -264,7 +266,7 @@ class AutoGPTQ(BaseGPTQForCausalLM):
         autogptq_post_init(self.model, use_act_order=self.quantize_config.desc_act, max_input_length=max_input_length)
 
     def strip_bias(self) -> None:
-        """Delete `bias` if it's not selected in the model's config.
+        """Drop `bias` if it's not selected in the model's config.
 
         AutoGPTQ always creates bias.
         """
@@ -357,6 +359,8 @@ def main(
 
     # Save quantize config with the used kernel - will be reused during inference
     quantize_config.kernel = next(module.QUANT_TYPE for module in model.modules() if hasattr(module, "QUANT_TYPE"))
+    # guard for "cuda-old"
+    quantize_config.kernel = quantize_config.kernel.replace("-", "_")
     quantize_config.save_config(output_path.with_name("quantize_config.json"))
 
 

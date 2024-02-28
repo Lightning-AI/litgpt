@@ -8,11 +8,12 @@ from conftest import RunIf
 @RunIf(min_cuda_gpus=1)
 @pytest.mark.parametrize("bits", [2, 3, 4, 8], ids=[f"{bit}bit" for bit in (2, 3, 4, 8)])
 @pytest.mark.parametrize("group_size", [32, 128], ids=[f"{gs}group_size" for gs in (32, 128)])
-@pytest.mark.parametrize("use_triton", (True, False), ids=["use_triton", "dont_use_triton"])
+@pytest.mark.parametrize("use_triton", (True, False), ids=["use_triton", ""])
 @pytest.mark.parametrize("static_groups", (True, False), ids=["static_groups", ""])
+@pytest.mark.parametrize("desc_act", (True, False), ids=["desc_act", ""])
 @pytest.mark.parametrize("mlp_class", ("GptNeoxMLP", "LLaMAMLP", "LLaMAMoE"))
 def test_quantization(
-    tmp_path, fake_checkpoint_dir, monkeypatch, bits, group_size, use_triton, static_groups, mlp_class
+    tmp_path, fake_checkpoint_dir, monkeypatch, bits, group_size, use_triton, static_groups, desc_act, mlp_class
 ):
     if use_triton and bits == 3:
         pytest.skip("Triton doesn't support 3bit precision.")
@@ -66,6 +67,7 @@ def test_quantization(
             bits=bits,
             group_size=group_size,
             use_triton=use_triton,
+            desc_act=desc_act,
             static_groups=static_groups,
         )
     assert "Quantization time" in stdout.getvalue()
@@ -161,7 +163,7 @@ def test_layer_conversion(kernel, bits, group_size, mlp_class):
         or (kernel in ("exllama", "exllamav2", "marlin") and bits != 4)
         or (kernel == "marlin" and group_size not in (-1, 128))
     ):
-        with pytest.raises(NotImplementedError, match="doesn't support") as e_info:
+        with pytest.raises(ValueError, match="doesn't support") as e_info:
             quantize_config = QuantizeConfig(bits=bits, group_size=group_size, kernel=kernel)
         pytest.skip(str(e_info))
 
