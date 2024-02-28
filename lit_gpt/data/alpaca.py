@@ -95,6 +95,7 @@ class Alpaca(LitDataModule):
             self.train_dataset,
             batch_size=self.batch_size,
             shuffle=True,
+            generator=torch.Generator().manual_seed(self.seed),
             num_workers=self.num_workers,
             collate_fn=get_sft_collate_fn(max_seq_length=self.max_seq_length, ignore_index=self.ignore_index)
         )
@@ -123,6 +124,7 @@ def download_if_missing(file_path: Path, file_url: str) -> None:
 
 
 def prompt_template(example: Dict[str, str]) -> str:
+    """The Alpaca prompt template."""
     if example.get("input"):
         return (
             "Below is an instruction that describes a task, paired with an input that provides further context. "
@@ -135,13 +137,3 @@ def prompt_template(example: Dict[str, str]) -> str:
         f"### Instruction:\n{example['instruction']}\n\n### Response:\n"
     )
 
-
-if __name__ == "__main__":
-    alpaca = Alpaca()
-    alpaca.connect(tokenizer=Tokenizer("checkpoints/"), batch_size=2)
-    alpaca.prepare_data()
-    alpaca.setup()
-
-    train_dataloader = alpaca.train_dataloader()
-    for batch in train_dataloader:
-        print(batch)
