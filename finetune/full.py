@@ -39,7 +39,7 @@ def setup(
     precision: Optional[str] = None,
     devices: int = 1,
     resume: Union[bool, Path] = False,
-    data: LitDataModule = Alpaca(),
+    data: Optional[LitDataModule] = None,
     # TODO: Remove IOArgs
     io: IOArgs = IOArgs(
         checkpoint_dir=Path("checkpoints/stabilityai/stablelm-base-alpha-3b"),
@@ -57,7 +57,12 @@ def setup(
     ),
     eval: EvalArgs = EvalArgs(interval=600, max_new_tokens=100, max_iters=100),
 ) -> None:
+
     print(locals())
+    
+    if data is None:
+        data = Alpaca()
+
     precision = precision or get_default_supported_precision(training=True)
 
     if devices > 1:
