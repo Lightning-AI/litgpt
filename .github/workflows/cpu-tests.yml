@@ -2,9 +2,9 @@ name: CPU tests
 
 on:
   push:
-    branches: [main]
+    branches: [main, wip]
   pull_request:
-    branches: [main, "carmocca/*"]
+    branches: [main, "carmocca/*", wip]
 
 concurrency:
   group: ${{ github.workflow }}-${{ github.ref }}-${{ github.head_ref }}
