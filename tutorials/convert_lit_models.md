@@ -86,7 +86,15 @@ python scripts/download.py --repo_id $repo_id
 python scripts/convert_hf_checkpoint.py --checkpoint_dir checkpoints/$repo_id
 ```
 
-3. Finetune the model:
+3. Prepare a dataset for finetuning:
+
+```bash
+python scripts/prepare_alpaca.py \
+    --checkpoint_dir checkpoints/$repo_id \
+    --destination_path data/alpaca
+```
+
+4. Finetune the model:
 
 
 ```bash
@@ -94,12 +102,13 @@ export finetuned_dir=out/lit-finetuned-model
 
 python finetune/lora.py \
    --io.checkpoint_dir checkpoints/$repo_id \
-   --io.out_dir $finetuned_dir \
+   --io.train_data_dir data/alpaca \
+   --io.val_data_dir data/alpaca \
    --train.epochs 1 \
-   --data Alpaca
+   --io.out_dir $finetuned_dir
 ```
 
-4. Merge LoRA weights:
+5. Merge LoRA weights:
 
 Note that this step only applies if the model was finetuned with `lora.py` above and not when `full.py` was used for finetuning.
 
