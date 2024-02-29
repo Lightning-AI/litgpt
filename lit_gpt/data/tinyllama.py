@@ -1,5 +1,5 @@
 # Copyright Lightning AI. Licensed under the Apache License 2.0, see LICENSE file.
-
+from dataclasses import dataclass
 from pathlib import Path
 from typing import Union, Optional
 
@@ -9,6 +9,7 @@ from lit_gpt import Tokenizer
 from lit_gpt.data import LitDataModule
 
 
+@dataclass
 class TinyLlama(LitDataModule):
     """The TinyLlama data module is composed of a mix of SlimPajama and Starcoder data.
 
@@ -22,24 +23,18 @@ class TinyLlama(LitDataModule):
         num_workers: The number of workers to use for the dataloaders.
     """
 
-    def __init__(
-        self,
-        data_path: Union[str, Path] = Path("data/"),
-        seed: int = 42,
-        num_workers: int = 8,
-    ) -> None:
-        super().__init__()
-        self.data_path = data_path
-        self.seed = seed
-        self.num_workers = num_workers
+    data_path: Union[str, Path] = Path("data/")
+    seed: int = 42
+    num_workers: int = 8
 
+    def __post_init__(self):
         self.batch_size = 1
         self.seq_length = 2048
 
         # Could be a remote path (s3://) or a local path
-        self.slimpajama_train = str(data_path).rstrip("/") + "/slimpajama/train"
-        self.slimpajama_val = str(data_path).rstrip("/") + "/slimpajama/val"
-        self.starcoder_train = str(data_path).rstrip("/") + "/starcoder"
+        self.slimpajama_train = str(self.data_path).rstrip("/") + "/slimpajama/train"
+        self.slimpajama_val = str(self.data_path).rstrip("/") + "/slimpajama/val"
+        self.starcoder_train = str(self.data_path).rstrip("/") + "/starcoder"
 
     def connect(
         self,
@@ -98,12 +93,3 @@ class TinyLlama(LitDataModule):
             val_dataset, batch_size=self.batch_size, pin_memory=True, num_workers=self.num_workers, drop_last=True
         )
         return val_dataloader
-
-    def __repr__(self) -> str:
-        return (
-            f"{self.__class__.__name__}("
-            f"data_path={str(self.data_path)}, "
-            f"seed={self.seed}, "
-            f"num_workers={self.num_workers}"
-            ")"
-        )

@@ -1,6 +1,7 @@
 # Copyright Lightning AI. Licensed under the Apache License 2.0, see LICENSE file.
 
 import json
+from dataclasses import dataclass
 from pathlib import Path
 from typing import Optional, Dict, List, Set
 
@@ -15,46 +16,37 @@ _URL = "https://huggingface.co/datasets/Muennighoff/flan/resolve/main"
 
 # TODO: Including all subsets, FLAN is too large to be loaded in memory. Switch the implementation to cache
 #   on disk or use Lightning Data
+@dataclass
 class FLAN(LitDataModule):
     """FLAN data module for supervised finetuning.
 
     Provides train- and val-dataloaders. The batches return keys "input_ids" and "labels".
     """
 
-    def __init__(
-        self,
-        mask_prompt: bool = False,
-        test_split_fraction: float = 0.03865,  # to get exactly 2000 test samples,
-        ignore_index: int = -1,
-        seed: int = 42,
-        num_workers: int = 4,
-        data_url: str = _URL,
-        download_dir: Path = Path("./data/flan"),
-        subsets: Optional[str] = None,
-    ) -> None:
-        super().__init__()
-        self.mask_prompt = mask_prompt
-        self.test_split_fraction = test_split_fraction
-        self.ignore_index = ignore_index
-        self.seed = seed
-        self.num_workers = num_workers
-        self.data_url = data_url
-        self.download_dir = download_dir
+    mask_prompt: bool = False
+    test_split_fraction: float = 0.03865  # to get exactly 2000 test samples,
+    ignore_index: int = -1
+    seed: int = 42
+    num_workers: int = 4
+    data_url: str = _URL
+    download_dir: Path = Path("./data/flan")
+    subsets: Optional[str] = None
 
-        supported_subsets = _supported_subsets()
-        if subsets is not None:
-            self.subsets = subsets.split(",")
-            for subset in self.subsets:
-                if subset not in supported_subsets:
-                    raise ValueError(f"{subset} not in {supported_subsets}")
-        else:
-            self.subsets = list(supported_subsets)
-
+    def __post_init__(self):
         self.tokenizer: Optional[Tokenizer] = None
         self.batch_size: int = 1
         self.max_seq_length: int = -1
         self.train_dataset: Optional[SFTDataset] = None
         self.test_dataset: Optional[SFTDataset] = None
+
+        supported_subsets = _supported_subsets()
+        if self.subsets is not None:
+            self.subsets = self.subsets.split(",")
+            for subset in self.subsets:
+                if subset not in supported_subsets:
+                    raise ValueError(f"{subset} not in {supported_subsets}")
+        else:
+            self.subsets = list(supported_subsets)
 
     def connect(
         self,
@@ -104,16 +96,6 @@ class FLAN(LitDataModule):
             generator=torch.Generator().manual_seed(self.seed),
             num_workers=self.num_workers,
             collate_fn=get_sft_collate_fn(max_seq_length=self.max_seq_length, ignore_index=self.ignore_index)
-        )
-
-    def __repr__(self) -> str:
-        return (
-            f"{self.__class__.__name__}("
-            f"mask_prompt={self.mask_prompt}, "
-            f"test_split_fraction={self.test_split_fraction}, "
-            f"seed={self.seed}, "
-            f"num_workers={self.num_workers}, "
-            "...)"
         )
 
 

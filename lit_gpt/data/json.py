@@ -1,6 +1,7 @@
 # Copyright Lightning AI. Licensed under the Apache License 2.0, see LICENSE file.
 
 import json
+from dataclasses import dataclass
 from pathlib import Path
 from typing import Optional
 
@@ -11,6 +12,7 @@ from lit_gpt.data.alpaca import prompt_template
 from lit_gpt.tokenizer import Tokenizer
 
 
+@dataclass
 class JSON(LitDataModule):
     """Loads JSON data for supervised finetuning.
 
@@ -28,23 +30,14 @@ class JSON(LitDataModule):
         num_workers: How many DataLoader processes to use for loading.
     """
 
-    def __init__(
-        self,
-        json_path: Path,
-        mask_prompt: bool = False,
-        test_split_fraction: float = 0.1,
-        ignore_index: int = -1,
-        seed: int = 42,
-        num_workers: int = 4,
-    ) -> None:
-        super().__init__()
-        self.json_path = json_path
-        self.mask_prompt = mask_prompt
-        self.test_split_fraction = test_split_fraction
-        self.ignore_index = ignore_index
-        self.seed = seed
-        self.num_workers = num_workers
+    json_path: Path
+    mask_prompt: bool = False
+    test_split_fraction: float = 0.1
+    ignore_index: int = -1
+    seed: int = 42
+    num_workers: int = 4
 
+    def __post_init__(self):
         self.tokenizer: Optional[Tokenizer] = None
         self.batch_size: int = 1
         self.max_seq_length: int = -1
@@ -91,17 +84,6 @@ class JSON(LitDataModule):
             max_seq_length=self.max_seq_length,
             mask_prompt=self.mask_prompt,
             ignore_index=self.ignore_index,
-        )
-
-    def __repr__(self) -> str:
-        return (
-            f"{self.__class__.__name__}("
-            f"json_path={self.json_path},"
-            f"mask_prompt={self.mask_prompt}, "
-            f"test_split_fraction={self.test_split_fraction}, "
-            f"seed={self.seed}, "
-            f"num_workers={self.num_workers}, "
-            "...)"
         )
 
     def train_dataloader(self) -> DataLoader:

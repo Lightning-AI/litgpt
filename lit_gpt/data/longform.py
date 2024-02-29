@@ -1,6 +1,7 @@
 # Copyright Lightning AI. Licensed under the Apache License 2.0, see LICENSE file.
 
 import json
+from dataclasses import dataclass
 from pathlib import Path
 from typing import Optional
 
@@ -14,27 +15,20 @@ from lit_gpt.tokenizer import Tokenizer
 _URL = "https://raw.githubusercontent.com/akoksal/LongForm/main/dataset"
 
 
+@dataclass
 class LongForm(LitDataModule):
     """LongForm data module for supervised finetuning.
 
     Provides train- and val-dataloaders. The batches return keys "input_ids" and "labels".
     """
 
-    def __init__(
-        self,
-        mask_prompt: bool = False,
-        ignore_index: int = -1,
-        seed: int = 42,
-        num_workers: int = 4,
-        download_dir: Path = Path("./data/longform"),
-    ) -> None:
-        super().__init__()
-        self.mask_prompt = mask_prompt
-        self.ignore_index = ignore_index
-        self.seed = seed
-        self.num_workers = num_workers
-        self.download_dir = download_dir
+    mask_prompt: bool = False
+    ignore_index: int = -1
+    seed: int = 42
+    num_workers: int = 4
+    download_dir: Path = Path("./data/longform")
 
+    def __post_init__(self):
         self.tokenizer: Optional[Tokenizer] = None
         self.batch_size: int = 1
         self.max_seq_length: int = -1
@@ -81,15 +75,6 @@ class LongForm(LitDataModule):
             generator=torch.Generator().manual_seed(self.seed),
             num_workers=self.num_workers,
             collate_fn=get_sft_collate_fn(max_seq_length=self.max_seq_length, ignore_index=self.ignore_index)
-        )
-
-    def __repr__(self) -> str:
-        return (
-            f"{self.__class__.__name__}("
-            f"mask_prompt={self.mask_prompt}, "
-            f"seed={self.seed}, "
-            f"num_workers={self.num_workers}, "
-            "...)"
         )
 
 

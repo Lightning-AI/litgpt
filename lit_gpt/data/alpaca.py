@@ -2,6 +2,7 @@
 """Implementation derived from https://github.com/tloen/alpaca-lora"""
 
 import json
+from dataclasses import dataclass
 from pathlib import Path
 from typing import Optional, Dict
 
@@ -14,38 +15,26 @@ from lit_gpt.tokenizer import Tokenizer
 _URL = "https://raw.githubusercontent.com/tloen/alpaca-lora/main/alpaca_data_cleaned_archive.json"
 
 
+@dataclass
 class Alpaca(LitDataModule):
     """Alpaca data module for supervised finetuning.
 
     Provides train- and val-dataloaders. The batches return keys "input_ids" and "labels".
     """
+    mask_prompt: bool = False
+    test_split_fraction: float = 0.03865  # to get exactly 2000 test samples,
+    ignore_index: int = -1
+    seed: int = 42
+    num_workers: int = 4
+    data_file_url: str = _URL
+    data_file_name: str = "alpaca_data_cleaned_archive.json"
+    download_dir: Path = Path("./data/alpaca")
 
-    def __init__(
-        self,
-        mask_prompt: bool = False,
-        test_split_fraction: float = 0.03865,  # to get exactly 2000 test samples,
-        ignore_index: int = -1,
-        seed: int = 42,
-        num_workers: int = 4,
-        data_file_url: str = _URL,
-        data_file_name: str = "alpaca_data_cleaned_archive.json",
-        download_dir: Path = Path("./data/alpaca"),
-    ) -> None:
-        super().__init__()
-        self.mask_prompt = mask_prompt
-        self.test_split_fraction = test_split_fraction
-        self.ignore_index = ignore_index
-        self.seed = seed
-        self.num_workers = num_workers
-        self.data_file_url = data_file_url
-        self.data_file_name = data_file_name
-        self.download_dir = download_dir
-
-        self.tokenizer: Optional[Tokenizer] = None
-        self.batch_size: int = 1
-        self.max_seq_length: int = -1
-        self.train_dataset: Optional[SFTDataset] = None
-        self.test_dataset: Optional[SFTDataset] = None
+    tokenizer: Optional[Tokenizer] = None
+    batch_size: int = 1
+    max_seq_length: int = -1
+    train_dataset: Optional[SFTDataset] = None
+    test_dataset: Optional[SFTDataset] = None
 
     def connect(
         self,
@@ -107,16 +96,6 @@ class Alpaca(LitDataModule):
             shuffle=False,
             num_workers=self.num_workers,
             collate_fn=get_sft_collate_fn(max_seq_length=self.max_seq_length, ignore_index=self.ignore_index)
-        )
-
-    def __repr__(self) -> str:
-        return (
-            f"{self.__class__.__name__}("
-            f"mask_prompt={self.mask_prompt}, "
-            f"test_split_fraction={self.test_split_fraction}, "
-            f"seed={self.seed}, "
-            f"num_workers={self.num_workers}, "
-            "...)"
         )
 
 
