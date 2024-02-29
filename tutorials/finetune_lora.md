@@ -18,15 +18,8 @@ The steps here only need to be done once:
 - [Redpajama-INCITE](download_redpajama_incite.md)
 - [Falcon](download_falcon.md)
 
-3. Download the data and generate the instruction tuning dataset:
-
-```bash
-python scripts/prepare_alpaca.py \
-  --checkpoint_dir checkpoints/stabilityai/stablelm-base-alpha-3b
-```
-
-or [prepare your own dataset](#tune-on-your-dataset).
-
+Lit-GPT provides common datasets for finetuning, such as Alpaca, LIMA, Dolly, and more.
+You can optionally [prepare your own dataset](#tune-on-your-dataset).
 For more information about dataset preparation, also see the [prepare_dataset.md](./prepare_dataset.md) tutorial.
 
 &nbsp;
@@ -34,7 +27,7 @@ For more information about dataset preparation, also see the [prepare_dataset.md
 ## Running the Finetuning
 
 ```bash
-python finetune/lora.py
+python finetune/lora.py --data Alpaca
 ```
 
 The finetuning requires at least one GPU with ~24 GB memory (RTX 3090).

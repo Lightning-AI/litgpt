@@ -21,7 +21,7 @@ python finetune/full.py --data Alpaca --io.checkpoint_dir checkpoints/tiiuae/fal
 
 Finetuning the falcon-7b model requires at least 8 GPUs with ~40 GB memory each.
 
-You can speed up training by setting the `devices` variable in the script to utilize more GPUs if available.
+You can speed up training by passing the `devices` argument to the script to utilize more GPUs if available.
 Depending on the available GPU memory, you can also tune the `micro_batch_size` parameter to utilize the GPU efficiently.
 
 This script will save checkpoints periodically to the `out_dir` directory. If you are finetuning different models or on your own dataset, you can specify an output directory with your preferred name:

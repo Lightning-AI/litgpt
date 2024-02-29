@@ -14,32 +14,27 @@ The steps here only need to be done once:
 
 1. Follow the instructions in the [README](../README.md) to install the dependencies.
 2. Download and convert the weights following our [guide](download_stablelm.md).
-3. Download the data and generate the Alpaca instruction tuning dataset:
 
-```bash
-python scripts/prepare_alpaca.py --checkpoint_dir checkpoints/stabilityai/stablelm-base-alpha-3b
-```
-
-or [prepare your own dataset](#tune-on-your-dataset).
-
+Lit-GPT provides common datasets for finetuning, such as Alpaca, LIMA, Dolly, and more.
+You can optionally [prepare your own dataset](#tune-on-your-dataset).
 For more information about dataset preparation, also see the [prepare_dataset.md](./prepare_dataset.md) tutorial.
 
 ## Running the finetuning
 
 ```bash
-python finetune/adapter.py --io.checkpoint_dir checkpoints/stabilityai/stablelm-base-alpha-3b
+python finetune/adapter.py --data Alpaca --io.checkpoint_dir checkpoints/stabilityai/stablelm-base-alpha-3b
 ```
 
 or for Adapter V2
 
 ```bash
-python finetune/adapter_v2.py --io.checkpoint_dir checkpoints/stabilityai/stablelm-base-alpha-3b
+python finetune/adapter_v2.py --data Alpaca --io.checkpoint_dir checkpoints/stabilityai/stablelm-base-alpha-3b
 ```
 
 The finetuning requires at least one GPU with ~12 GB memory.
 You can speed up training by passing the `devices` argument to the script to utilize more GPUs if available.
 Depending on the available GPU memory, you can also tune the `micro_batch_size` parameter to utilize the GPU efficiently.
-To fit Adapter V2 to 12GB memory set `--micro_batch_size 2`.
+To fit Adapter V2 to 12GB memory set `--train.micro_batch_size 2`.
 
 For example, the following settings will let you finetune the model in under 1 hour:
 
@@ -50,20 +45,20 @@ For example, the following settings will let you finetune the model in under 1 h
 This script will save checkpoints periodically to the `out_dir` directory. If you are finetuning different models or on your own dataset, you can specify an output directory with your preferred name:
 
 ```bash
-python finetune/adapter.py --io.out_dir out/adapter/my-model-finetuned
+python finetune/adapter.py --data Alpaca --io.out_dir out/adapter/my-model-finetuned
 ```
 
 or for Adapter V2
 
 ```bash
-python finetune/adapter_v2.py --io.out_dir out/adapter_v2/my-model-finetuned
+python finetune/adapter_v2.py --data Alpaca --io.out_dir out/adapter_v2/my-model-finetuned
 ```
 
 If your GPU does not support `bfloat16`, you can pass the `--precision 32-true` argument.
 For instance, to fine-tune on MPS (the GPU on modern Macs), you can run
 
 ```bash
-python finetune/adapter.py --io.out_dir out/adapter/my-model-finetuned --precision 32-true
+python finetune/adapter.py --data Alpaca --io.out_dir out/adapter/my-model-finetuned --precision 32-true
 ```
 
 Note that `mps` as the accelerator will be picked up automatically by Fabric when running on a modern Mac.
