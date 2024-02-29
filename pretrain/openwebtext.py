@@ -30,7 +30,7 @@ def setup(
     resume: Union[bool, Path] = False,
     seed: int = 1337,
     devices: int = 1,
-    io: IOArgs = IOArgs(train_data_dir=Path("data/openwebtext"), val_data_dir=None, out_dir=Path("out/openwebtext")),
+    io: IOArgs = IOArgs(out_dir=Path("out/openwebtext")),
     train: TrainArgs = TrainArgs(
         save_interval=1000,
         log_interval=1,
@@ -38,7 +38,6 @@ def setup(
         micro_batch_size=5,
         lr_warmup_steps=100,
         epochs=1,
-        epoch_size=600000,
         learning_rate=6e-4,
         weight_decay=1e-1,
         beta1=0.9,
