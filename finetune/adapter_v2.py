@@ -89,7 +89,7 @@ def setup(
 
     logger = CSVLogger(io.out_dir.parent, io.out_dir.name, flush_logs_every_n_steps=train.log_interval)
     fabric = L.Fabric(devices=devices, strategy=strategy, precision=precision, loggers=logger, plugins=plugins)
-    fabric.launch(main, devices, seed, Config.from_name(name=io.checkpoint_dir.name), data, io, train)
+    fabric.launch(main, devices, seed, Config.from_name(name=io.checkpoint_dir.name), data, io, train, eval)
 
 
 def main(fabric: L.Fabric, devices: int, seed: int, config: Config, data: LitDataModule, io: IOArgs, train: TrainArgs, eval: EvalArgs) -> None:
