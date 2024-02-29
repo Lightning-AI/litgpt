@@ -581,21 +581,16 @@ def test_against_hf_mixtral():
 
 
 @RunIf(min_cuda_gpus=1)
-def test_lora_bitsandbytes(monkeypatch, tmp_path, fake_checkpoint_dir):
+def test_lora_bitsandbytes(monkeypatch, tmp_path, fake_checkpoint_dir, alpaca_path):
     from lit_gpt.args import IOArgs
+    from lit_gpt.config import name_to_config
+    from lit_gpt.data import Alpaca
+    import finetune.lora as module
 
     if not _BITSANDBYTES_AVAILABLE:
         pytest.skip("BNB not available")
 
     from bitsandbytes.optim import PagedAdamW
-
-    import finetune.lora as module
-
-    data = []
-    torch.save(data, tmp_path / "train.pt")
-    torch.save(data, tmp_path / "test.pt")
-
-    from lit_gpt.config import name_to_config
 
     model_config = dict(
         block_size=128,
@@ -620,9 +615,13 @@ def test_lora_bitsandbytes(monkeypatch, tmp_path, fake_checkpoint_dir):
     stdout = StringIO()
     with redirect_stdout(stdout):
         module.setup(
-            io=IOArgs(
-                train_data_dir=tmp_path, val_data_dir=tmp_path, checkpoint_dir=fake_checkpoint_dir, out_dir=tmp_path
+            data=Alpaca(
+                download_dir=alpaca_path.parent,
+                data_file_name=alpaca_path.name,
+                test_split_fraction=0.5,
+                num_workers=0,
             ),
+            io=IOArgs(checkpoint_dir=fake_checkpoint_dir, out_dir=tmp_path),
             precision="16-true",
             quantize="bnb.nf4-dq",
         )

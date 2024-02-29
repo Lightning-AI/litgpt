@@ -134,21 +134,16 @@ def test_adapter_compile():
 
 
 @RunIf(min_cuda_gpus=1)
-def test_adapter_bitsandbytes(monkeypatch, tmp_path, fake_checkpoint_dir):
+def test_adapter_bitsandbytes(monkeypatch, tmp_path, fake_checkpoint_dir, alpaca_path):
     from lit_gpt.args import IOArgs
+    from lit_gpt.config import name_to_config
+    from lit_gpt.data import Alpaca
+    import finetune.adapter as module
 
     if not _BITSANDBYTES_AVAILABLE:
         pytest.skip("BNB not available")
 
     from bitsandbytes.optim import PagedAdamW
-
-    import finetune.adapter as module
-
-    data = []
-    torch.save(data, tmp_path / "train.pt")
-    torch.save(data, tmp_path / "test.pt")
-
-    from lit_gpt.config import name_to_config
 
     model_config = dict(
         block_size=128, n_layer=2, n_embd=8, n_head=4, padded_vocab_size=8, adapter_start_layer=0, bias=True
@@ -162,11 +157,15 @@ def test_adapter_bitsandbytes(monkeypatch, tmp_path, fake_checkpoint_dir):
     stdout = StringIO()
     with redirect_stdout(stdout):
         module.setup(
+            data=Alpaca(
+                download_dir=alpaca_path.parent,
+                data_file_name=alpaca_path.name,
+                test_split_fraction=0.5,
+                num_workers=0,
+            ),
             precision="16-true",
             quantize="bnb.nf4-dq",
-            io=IOArgs(
-                train_data_dir=tmp_path, val_data_dir=tmp_path, checkpoint_dir=fake_checkpoint_dir, out_dir=tmp_path
-            ),
+            io=IOArgs(checkpoint_dir=fake_checkpoint_dir, out_dir=tmp_path),
         )
 
     args, kwargs = train_mock.call_args
