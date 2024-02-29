@@ -2,11 +2,13 @@ trigger:
   branches:
     include:
       - "main"
+      - "wip"
 
 pr:
   branches:
     include:
       - "main"
+      - "wip"
       - "carmocca/*"
 
 jobs:
