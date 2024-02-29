@@ -162,6 +162,7 @@ def fit(
 
     validate(fabric, model, val_dataloader, tokenizer, dataclasses.replace(eval, max_iters=2))  # sanity check
     initial_iter = state["iter_num"]
+    max_steps = train.max_steps or float("inf")
     train_iterator = CycleIterator(train_dataloader)
 
     # resume data loader state by fast-forwarding through all seen batches
@@ -182,7 +183,7 @@ def fit(
     )
     fabric.barrier()
 
-    while state["step_count"] < (train.max_steps or float("inf")) and train_iterator.epoch < train.epochs:
+    while state["step_count"] < max_steps and train_iterator.epoch < train.epochs:
         state["iter_num"] += 1
         iter_t0 = time.perf_counter()
         batch = next(train_iterator)

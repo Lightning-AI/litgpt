@@ -200,12 +200,13 @@ def fit(
 
     train_iterator = CycleIterator(train_dataloader)
     throughput = ThroughputMonitor(fabric, window_size=50)
+    max_steps = train.max_steps or float("inf")
     step_count = 0
     iter_num = 0
     total_lengths = 0
     total_t0 = time.perf_counter()
 
-    while step_count < (train.max_steps or float("inf")) and train_iterator.epoch < train.epochs:
+    while step_count < max_steps and train_iterator.epoch < train.epochs:
         iter_num += 1
         iter_t0 = time.perf_counter()
 
