@@ -34,7 +34,7 @@ class Dolly(Alpaca):
     """The name of the dataset file to download."""
 
     def setup(self, stage: str = "") -> None:
-        with open(self.download_dir / self.data_file_name, "r", encoding="utf-8") as file:
+        with open(self.download_dir / self.file_name, "r", encoding="utf-8") as file:
             data = file.readlines()
             data = [json.loads(line) for line in data]
         for item in data:
