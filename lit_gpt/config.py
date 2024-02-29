@@ -181,6 +181,53 @@ configs = [
     ),
 ]
 
+
+##########################
+# Stability AI StableCode
+##########################
+stablecode = [
+    # https://huggingface.co/stabilityai/stablecode-completion-alpha-3b/blob/main/config.json
+    dict(
+        name="stablecode-completion-alpha-3b",
+        hf_config=dict(org="stabilityai", name="stablecode-completion-alpha-3b"),
+        block_size=16384,
+        vocab_size=49152,
+        n_layer=32,
+        n_embd=2560,
+    ),
+    # https://huggingface.co/stabilityai/stablecode-completion-alpha-3b-4k/blob/main/config.json
+    dict(
+        name="stablecode-completion-alpha-3b-4k",
+        hf_config=dict(org="stabilityai", name="stablecode-completion-alpha-3b-4k"),
+        vocab_size=49152,
+        n_layer=32,
+        n_embd=2560,
+    ),
+    # https://huggingface.co/stabilityai/stablecode-instruct-alpha-3b/blob/main/config.json
+    dict(
+        name="stablecode-instruct-alpha-3b",
+        hf_config=dict(org="stabilityai", name="stablecode-instruct-alpha-3b"),
+        vocab_size=49152,
+        n_layer=32,
+        n_embd=2560,
+    ),
+    # https://huggingface.co/stabilityai/stable-code-3b/blob/main/config.json
+    dict(
+        name="stable-code-3b",
+        hf_config=dict(org="stabilityai", name="stable-code-3b"),
+        padded_vocab_size=50304,
+        n_layer=32,
+        n_embd=2560,
+        block_size=16384,
+        parallel_residual=False,
+        bias=False,
+        _mlp_class="LLaMAMLP",
+        intermediate_size=6912,
+    ),
+]
+configs.extend(stablecode)
+
+
 ####################
 # EleutherAI Pythia
 ####################
@@ -1219,39 +1266,6 @@ platypus = [
     ),
 ]
 configs.extend(platypus)
-
-
-##########################
-# Stability AI StableCode
-##########################
-stablecode = [
-    # https://huggingface.co/stabilityai/stablecode-completion-alpha-3b/blob/main/config.json
-    dict(
-        name="stablecode-completion-alpha-3b",
-        hf_config=dict(org="stabilityai", name="stablecode-completion-alpha-3b"),
-        block_size=16384,
-        vocab_size=49152,
-        n_layer=32,
-        n_embd=2560,
-    ),
-    # https://huggingface.co/stabilityai/stablecode-completion-alpha-3b-4k/blob/main/config.json
-    dict(
-        name="stablecode-completion-alpha-3b-4k",
-        hf_config=dict(org="stabilityai", name="stablecode-completion-alpha-3b-4k"),
-        vocab_size=49152,
-        n_layer=32,
-        n_embd=2560,
-    ),
-    # https://huggingface.co/stabilityai/stablecode-instruct-alpha-3b/blob/main/config.json
-    dict(
-        name="stablecode-instruct-alpha-3b",
-        hf_config=dict(org="stabilityai", name="stablecode-instruct-alpha-3b"),
-        vocab_size=49152,
-        n_layer=32,
-        n_embd=2560,
-    ),
-]
-configs.extend(stablecode)
 
 
 ##################################
