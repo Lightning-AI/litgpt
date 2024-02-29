@@ -2,6 +2,8 @@
 import json
 from unittest import mock
 
+import pytest
+
 
 @mock.patch("lit_gpt.data.json.prompt_template", "X: {instruction} {input} Y:")
 def test_json(tmp_path, mock_tockenizer):
@@ -19,6 +21,9 @@ def test_json(tmp_path, mock_tockenizer):
 
     with open(json_path, "w", encoding="utf-8") as fp:
         json.dump(mock_data, fp)
+
+    with pytest.raises(FileNotFoundError):
+        JSON(tmp_path / "not exist")
 
     # TODO: Make prompt template an argumenet
     data = JSON(json_path, test_split_fraction=0.5, num_workers=0)
