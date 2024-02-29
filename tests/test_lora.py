@@ -201,7 +201,7 @@ def test_lora_script(tmp_path, fake_checkpoint_dir, monkeypatch, alpaca_path):
         module.setup(
             data=Alpaca(
                 download_dir=alpaca_path.parent,
-                data_file_name=alpaca_path.name,
+                file_name=alpaca_path.name,
                 test_split_fraction=0.5,
                 num_workers=0
             ),
@@ -622,7 +622,7 @@ def test_lora_bitsandbytes(monkeypatch, tmp_path, fake_checkpoint_dir, alpaca_pa
         module.setup(
             data=Alpaca(
                 download_dir=alpaca_path.parent,
-                data_file_name=alpaca_path.name,
+                file_name=alpaca_path.name,
                 test_split_fraction=0.5,
                 num_workers=0,
             ),

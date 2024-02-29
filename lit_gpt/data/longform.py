@@ -17,16 +17,18 @@ _URL = "https://raw.githubusercontent.com/akoksal/LongForm/main/dataset"
 
 @dataclass
 class LongForm(LitDataModule):
-    """LongForm data module for supervised finetuning.
-
-    Provides train- and val-dataloaders. The batches return keys "input_ids" and "labels".
-    """
+    """LongForm data module for supervised finetuning."""
 
     mask_prompt: bool = False
+    """Whether to mask the prompt section from the label (with ``ignore_index``)."""
     ignore_index: int = -1
+    """The index to use for elements to be ignored in the label."""
     seed: int = 42
+    """The random seed for shuffling the dataset."""
     num_workers: int = 4
+    """How many DataLoader processes to use for loading."""
     download_dir: Path = Path("./data/longform")
+    """The directory in which the downloaded dataset gets saved."""
 
     tokenizer: Optional[Tokenizer] = field(default=None, init=False, repr=False)
     batch_size: int = field(default=1, init=False, repr=False)

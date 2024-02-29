@@ -14,18 +14,25 @@ from lit_gpt.tokenizer import Tokenizer
 
 @dataclass
 class LIMA(LitDataModule):
-    """LIMA data module for supervised finetuning.
+    """LIMA data module for supervised finetuning."""
 
-    Provides train- and val-dataloaders. The batches return keys "input_ids" and "labels".
-    """
-    mask_prompt: bool = False,
-    test_split_fraction: float = 0.1,
-    ignore_index: int = -1,
-    seed: int = 42,
-    num_workers: int = 4,
-    include_multiturn_conversations: bool = False,
-    data_repo_id: str = "GAIR/lima",
-    access_token: Optional[str] = field(repr=False, default=os.getenv("HF_TOKEN")),
+    mask_prompt: bool = False
+    """Whether to mask the prompt section from the label (with ``ignore_index``)."""
+    test_split_fraction: float = 0.1
+    """The fraction of the dataset to use for the test/validation dataset. The rest is used for training."""
+    ignore_index: int = -1
+    """The index to use for elements to be ignored in the label."""
+    seed: int = 42
+    """The random seed for creating the train/val splits and shuffling the dataset."""
+    num_workers: int = 4
+    """How many DataLoader processes to use for loading."""
+    include_multiturn_conversations: bool = False
+    """Whether to include multi-turn conversations in the dataset."""
+    repo_id: str = "GAIR/lima"
+    """The Hugging Face dataset repository ID from where to download the data."""
+    access_token: Optional[str] = field(repr=False, default=os.getenv("HF_TOKEN"))
+    """The Hugging Face API token to use for authentication. Can also be set through the
+    `HF_TOKEN` environment variable."""
 
     tokenizer: Optional[Tokenizer] = field(default=None, init=False, repr=False)
     batch_size: int = field(default=1, init=False, repr=False)
@@ -54,12 +61,12 @@ class LIMA(LitDataModule):
     def prepare_data(self) -> None:
         from datasets import load_dataset
 
-        load_dataset(self.data_repo_id, token=self.access_token)
+        load_dataset(self.repo_id, token=self.access_token)
 
     def setup(self, stage: str = "") -> None:
         from datasets import load_dataset
 
-        dataset = load_dataset(self.data_repo_id, token=self.access_token)
+        dataset = load_dataset(self.repo_id, token=self.access_token)
         data = format_dataset(dataset["train"], self.include_multiturn_conversations)
 
         # Partition the dataset into train and test

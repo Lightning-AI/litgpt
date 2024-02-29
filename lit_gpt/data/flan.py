@@ -18,19 +18,22 @@ _URL = "https://huggingface.co/datasets/Muennighoff/flan/resolve/main"
 #   on disk or use Lightning Data
 @dataclass
 class FLAN(LitDataModule):
-    """FLAN data module for supervised finetuning.
-
-    Provides train- and val-dataloaders. The batches return keys "input_ids" and "labels".
-    """
+    """FLAN data module for supervised finetuning."""
 
     mask_prompt: bool = False
-    test_split_fraction: float = 0.03865  # to get exactly 2000 test samples,
+    """Whether to mask the prompt section from the label (with ``ignore_index``)."""
     ignore_index: int = -1
+    """The index to use for elements to be ignored in the label."""
     seed: int = 42
+    """The random seed for shuffling the dataset."""
     num_workers: int = 4
-    data_url: str = _URL
+    """How many DataLoader processes to use for loading."""
     download_dir: Path = Path("./data/flan")
+    """The directory in which the downloaded dataset gets saved."""
+    url: str = _URL
+    """The URL from where to download the dataset."""
     subsets: Optional[str] = None
+    """A comma separated list of subsets to use. If None, all subsets are used."""
 
     tokenizer: Optional[Tokenizer] = field(default=None, init=False, repr=False)
     batch_size: int = field(default=1, init=False, repr=False)
@@ -63,7 +66,7 @@ class FLAN(LitDataModule):
         for subset in self.subsets:
             for split in ("train", "test"):
                 data_file_path = self.download_dir / f"{subset}_{split}.jsonl"
-                data_file_url = f"{self.data_url}/{split}/{subset}_{split}.jsonl"
+                data_file_url = f"{self.url}/{split}/{subset}_{split}.jsonl"
                 download_if_missing(data_file_path, data_file_url)
 
     def train_dataloader(self):
