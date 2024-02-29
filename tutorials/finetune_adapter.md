@@ -22,7 +22,9 @@ For more information about dataset preparation, also see the [prepare_dataset.md
 ## Running the finetuning
 
 ```bash
-python finetune/adapter.py --data Alpaca --io.checkpoint_dir checkpoints/stabilityai/stablelm-base-alpha-3b
+python finetune/adapter.py \
+  --data Alpaca \
+  --io.checkpoint_dir checkpoints/stabilityai/stablelm-base-alpha-3b
 ```
 
 or for Adapter V2
