@@ -302,6 +302,8 @@ def validate_args(io: IOArgs, train: TrainArgs, eval: EvalArgs) -> None:
         for name in names:
             if getattr(args, name) is None:
                 issues.append(f"{__file__} requires the {name!r} argument. This is set in {args}")
+    if not train.epochs and not train.max_steps:
+        issues.append(f"{__file__} requires either epochs or max_steps to be set. This is set in {train}")
     if issues:
         raise ValueError("\n".join(issues))
 
