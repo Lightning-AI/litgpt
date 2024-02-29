@@ -28,7 +28,9 @@ python finetune/adapter.py --data Alpaca --io.checkpoint_dir checkpoints/stabili
 or for Adapter V2
 
 ```bash
-python finetune/adapter_v2.py --data Alpaca --io.checkpoint_dir checkpoints/stabilityai/stablelm-base-alpha-3b
+python finetune/adapter_v2.py \
+  --data Alpaca \
+  --io.checkpoint_dir checkpoints/stabilityai/stablelm-base-alpha-3b
 ```
 
 The finetuning requires at least one GPU with ~12 GB memory.
@@ -45,20 +47,27 @@ For example, the following settings will let you finetune the model in under 1 h
 This script will save checkpoints periodically to the `out_dir` directory. If you are finetuning different models or on your own dataset, you can specify an output directory with your preferred name:
 
 ```bash
-python finetune/adapter.py --data Alpaca --io.out_dir out/adapter/my-model-finetuned
+python finetune/adapter.py \
+  --data Alpaca \
+  --io.out_dir out/adapter/my-model-finetuned
 ```
 
 or for Adapter V2
 
 ```bash
-python finetune/adapter_v2.py --data Alpaca --io.out_dir out/adapter_v2/my-model-finetuned
+python finetune/adapter_v2.py \
+  --data Alpaca \
+  --io.out_dir out/adapter_v2/my-model-finetuned
 ```
 
 If your GPU does not support `bfloat16`, you can pass the `--precision 32-true` argument.
 For instance, to fine-tune on MPS (the GPU on modern Macs), you can run
 
 ```bash
-python finetune/adapter.py --data Alpaca --io.out_dir out/adapter/my-model-finetuned --precision 32-true
+python finetune/adapter.py \
+  --data Alpaca \
+  --io.out_dir out/adapter/my-model-finetuned \
+  --precision 32-true
 ```
 
 Note that `mps` as the accelerator will be picked up automatically by Fabric when running on a modern Mac.
