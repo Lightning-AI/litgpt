@@ -1,7 +1,7 @@
 # Copyright Lightning AI. Licensed under the Apache License 2.0, see LICENSE file.
 
 import json
-from dataclasses import dataclass
+from dataclasses import dataclass, field
 from pathlib import Path
 from typing import Optional
 
@@ -28,12 +28,11 @@ class LongForm(LitDataModule):
     num_workers: int = 4
     download_dir: Path = Path("./data/longform")
 
-    def __post_init__(self):
-        self.tokenizer: Optional[Tokenizer] = None
-        self.batch_size: int = 1
-        self.max_seq_length: int = -1
-        self.train_dataset: Optional[SFTDataset] = None
-        self.test_dataset: Optional[SFTDataset] = None
+    tokenizer: Optional[Tokenizer] = field(default=None, init=False, repr=False)
+    batch_size: int = field(default=1, init=False, repr=False)
+    max_seq_length: int = field(default=-1, init=False, repr=False)
+    train_dataset: Optional[SFTDataset] = field(default=None, init=False, repr=False)
+    test_dataset: Optional[SFTDataset] = field(default=None, init=False, repr=False)
 
     def connect(
         self,

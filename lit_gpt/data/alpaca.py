@@ -2,7 +2,7 @@
 """Implementation derived from https://github.com/tloen/alpaca-lora"""
 
 import json
-from dataclasses import dataclass
+from dataclasses import dataclass, field
 from pathlib import Path
 from typing import Optional, Dict
 
@@ -26,15 +26,15 @@ class Alpaca(LitDataModule):
     ignore_index: int = -1
     seed: int = 42
     num_workers: int = 4
-    data_file_url: str = _URL
-    data_file_name: str = "alpaca_data_cleaned_archive.json"
     download_dir: Path = Path("./data/alpaca")
+    data_file_url: str = field(repr=False, default=_URL)
+    data_file_name: str = field(repr=False, default="alpaca_data_cleaned_archive.json")
 
-    tokenizer: Optional[Tokenizer] = None
-    batch_size: int = 1
-    max_seq_length: int = -1
-    train_dataset: Optional[SFTDataset] = None
-    test_dataset: Optional[SFTDataset] = None
+    tokenizer: Optional[Tokenizer] = field(default=None, init=False, repr=False)
+    batch_size: int = field(default=1, init=False, repr=False)
+    max_seq_length: int = field(default=-1, init=False, repr=False)
+    train_dataset: Optional[SFTDataset] = field(default=None, init=False, repr=False)
+    test_dataset: Optional[SFTDataset] = field(default=None, init=False, repr=False)
 
     def connect(
         self,

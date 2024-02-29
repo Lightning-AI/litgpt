@@ -1,7 +1,7 @@
 # Copyright Lightning AI. Licensed under the Apache License 2.0, see LICENSE file.
 
 import json
-from dataclasses import dataclass
+from dataclasses import dataclass, field
 from pathlib import Path
 
 import torch
@@ -24,9 +24,9 @@ class Dolly(Alpaca):
     ignore_index: int = -1
     seed: int = 42
     num_workers: int = 4
-    data_file_url: str = _URL
-    data_file_name: str = "dolly_data_cleaned.json"
     download_dir: Path = Path("./data/dolly")
+    data_file_url: str = field(repr=False, default=_URL)
+    data_file_name: str = field(repr=False, default="dolly_data_cleaned.json")
 
     def setup(self, stage: str = "") -> None:
         with open(self.download_dir / self.data_file_name, "r", encoding="utf-8") as file:

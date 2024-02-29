@@ -1,5 +1,5 @@
 # Copyright Lightning AI. Licensed under the Apache License 2.0, see LICENSE file.
-from dataclasses import dataclass
+from dataclasses import dataclass, field
 from pathlib import Path
 from typing import Union, Optional
 
@@ -27,10 +27,10 @@ class TinyLlama(LitDataModule):
     seed: int = 42
     num_workers: int = 8
 
-    def __post_init__(self):
-        self.batch_size = 1
-        self.seq_length = 2048
+    batch_size: int = field(init=False, repr=False, default=1)
+    seq_length: int = field(init=False, repr=False, default=2048)
 
+    def __post_init__(self):
         # Could be a remote path (s3://) or a local path
         self.slimpajama_train = str(self.data_path).rstrip("/") + "/slimpajama/train"
         self.slimpajama_val = str(self.data_path).rstrip("/") + "/slimpajama/val"

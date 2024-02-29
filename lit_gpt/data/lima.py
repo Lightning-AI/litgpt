@@ -1,7 +1,7 @@
 # Copyright Lightning AI. Licensed under the Apache License 2.0, see LICENSE file.
 """Implementation derived from https://github.com/tloen/alpaca-lora"""
 import os
-from dataclasses import dataclass
+from dataclasses import dataclass, field
 
 from typing import Optional, List
 
@@ -22,10 +22,16 @@ class LIMA(LitDataModule):
     test_split_fraction: float = 0.1,
     ignore_index: int = -1,
     seed: int = 42,
+    num_workers: int = 4,
     include_multiturn_conversations: bool = False,
     data_repo_id: str = "GAIR/lima",
-    access_token: Optional[str] = os.getenv("HF_TOKEN"),
-    num_workers: int = 4,
+    access_token: Optional[str] = field(repr=False, default=os.getenv("HF_TOKEN")),
+
+    tokenizer: Optional[Tokenizer] = field(default=None, init=False, repr=False)
+    batch_size: int = field(default=1, init=False, repr=False)
+    max_seq_length: int = field(default=-1, init=False, repr=False)
+    train_dataset: Optional[SFTDataset] = field(default=None, init=False, repr=False)
+    test_dataset: Optional[SFTDataset] = field(default=None, init=False, repr=False)
 
     def __post_init__(self):
         if self.access_token is None:
@@ -34,12 +40,6 @@ class LIMA(LitDataModule):
                 " variable or pass --access_token=your_token. You can find your token by visiting"
                 " https://huggingface.co/settings/tokens"
             )
-
-        self.tokenizer: Optional[Tokenizer] = None
-        self.batch_size = 1
-        self.max_seq_length = -1
-        self.train_dataset: Optional[SFTDataset] = None
-        self.test_dataset: Optional[SFTDataset] = None
 
     def connect(
         self,
