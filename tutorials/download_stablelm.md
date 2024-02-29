@@ -29,7 +29,7 @@ More details can be found in the [announcement](https://stability.ai/news/stable
 
 ### Usage
 
-In order to use a specific StableLM checkpoint, for instance [StableLM Zephyr 3B](https://huggingface.co/stabilityai/stablelm-zephyr-3b), download the weights and convert the checkpoint to the lit-gpt format:
+In order to use a specific StableLM checkpoint, for instance [StableLM Zephyr 3B](https://huggingface.co/stabilityai/stablelm-zephyr-3b), download the weights and convert the checkpoint to the Lit-GPT format:
 
 ```bash
 pip install 'huggingface_hub[hf_transfer] @ git+https://github.com/huggingface/huggingface_hub'
@@ -47,7 +47,7 @@ You're done! To execute the model just run:
 ```bash
 pip install tokenizers
 
-python generate/base.py --prompt "Hello, my name is" --checkpoint_dir checkpoints/stabilityai/stablelm-base-alpha-3b
+python generate/base.py --prompt "Hello, my name is" --checkpoint_dir checkpoints/$repo_id
 ```
 
 Or you can run the model in an interactive mode:
