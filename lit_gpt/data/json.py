@@ -15,6 +15,17 @@ class JSON(LitDataModule):
     """Loads JSON data for supervised finetuning.
 
     Provides train- and val-dataloaders. The batches return keys "input_ids" and "labels".
+    
+    Args:
+        json_path: A path to a JSON file containing the data. The file should contain a list of samples (dicts).
+            Each dict must have the keys 'instruction' and 'output', and can optionally have a key 'input'
+            (see Alpaca).
+        mask_prompt: Whether to mask the prompt section from the label (with ``ignore_index``).
+        test_split_fraction: A number in the range [0, 1] that determines the fraction of the dataset
+            to use for testing.
+        ignore_index: The index to use for elements to be ignored in the label.
+        seed: The random seed for creating the train/val splits and shuffling the dataset.
+        num_workers: How many DataLoader processes to use for loading.
     """
 
     def __init__(
