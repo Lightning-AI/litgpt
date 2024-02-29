@@ -16,7 +16,9 @@ sys.path.append(str(wd))
 from lit_gpt import Tokenizer
 from lit_gpt.adapter import GPT, Block, Config
 from lit_gpt.utils import check_valid_checkpoint_dir, lazy_load
-from scripts.prepare_alpaca import generate_prompt
+from lit_gpt.data import apply_prompt_template
+from lit_gpt.data.alpaca import prompt_template
+
 from xla.generate.base import generate
 from xla.utils import rank_print
 
@@ -88,7 +90,7 @@ def main(
 
     tokenizer = Tokenizer(checkpoint_dir)
     sample = {"instruction": prompt, "input": input}
-    prompt = generate_prompt(sample)
+    prompt = apply_prompt_template(prompt_template, sample)
     encoded = tokenizer.encode(prompt, device=fabric.device)
     prompt_length = encoded.size(0)
     max_returned_tokens = prompt_length + max_new_tokens
