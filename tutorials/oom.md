@@ -32,7 +32,7 @@ However, your hardware may not support such large context lengths. Here's what y
 
 * For the pretraining scripts, you can simply reduce the `Config(block_size=...)` value.
 * For the finetuning scripts, you can trim the length of the samples in your dataset.
-  Most of the `scripts/prepare_*.py` scripts expose a `--max_seq_length=...` argument. This might also be useful in cases where
+  All the finetuning scripts expose a `--data.max_seq_length=...` argument. This might also be useful in cases where
   sample lengths are highly unbalanced, as the presence of a single very long sample would incur a larger memory usage for all other
   shorter samples. For example, the median length of the samples in Alpaca is 110 tokens. Truncating the Alpaca dataset to 256 max tokens reduces the memory requirements of a Falcon 7B model from 23.52 GB to 15.73 GB. For more information about the dataset truncation, please see the *Truncating datasets* section in the [prepare_datasets.md](prepare_datasets.md) tutorial.
 
