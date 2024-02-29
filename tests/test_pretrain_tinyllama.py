@@ -30,7 +30,7 @@ def test_pretrain_tiny_llama(tmp_path, monkeypatch):
         module.setup(
             devices=2,
             model=model_config,
-            io=IOArgs(out_dir=tmp_path, train_data_dir=None),
+            io=IOArgs(out_dir=tmp_path),
             train=TrainArgs(global_batch_size=2, max_tokens=16, save_interval=1, micro_batch_size=1, max_norm=1.0),
             eval=EvalArgs(interval=1, max_iters=1),
         )

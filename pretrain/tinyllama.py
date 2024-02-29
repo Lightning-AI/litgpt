@@ -43,7 +43,7 @@ def setup(
     seed: int = 1337,
     data: LitDataModule = TinyLlama(),
     io: IOArgs = IOArgs(
-        out_dir=Path(os.getenv("LIGHTNING_ARTIFACTS_DIR", "out")) / "lit-tiny-llama-1.1b", train_data_dir=None
+        out_dir=Path(os.getenv("LIGHTNING_ARTIFACTS_DIR", "out")) / "lit-tiny-llama-1.1b",
     ),
     train: TrainArgs = TrainArgs(
         save_interval=1000,
@@ -328,8 +328,8 @@ def choose_logger(out_dir: Path, logger_name: str, name: str, resume: Union[bool
 def validate_args(io: IOArgs, train: TrainArgs, eval: EvalArgs) -> None:
     issues = []
     unsupported = [
-        (io, ["train_data_dir", "val_data_dir", "checkpoint_dir"]),
-        (train, ["epoch_size", "epochs"]),
+        (io, ["checkpoint_dir"]),
+        (train, ["max_steps", "epochs"]),
         (eval, ["max_new_tokens"]),
     ]
     for args, names in unsupported:
