@@ -15,7 +15,7 @@ class JSON(LitDataModule):
     """Loads JSON data for supervised finetuning.
 
     Provides train- and val-dataloaders. The batches return keys "input_ids" and "labels".
-    
+
     Args:
         json_path: A path to a JSON file containing the data. The file should contain a list of samples (dicts).
             Each dict must have the keys 'instruction' and 'output', and can optionally have a key 'input'
