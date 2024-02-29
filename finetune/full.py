@@ -254,10 +254,10 @@ def validate(
     val_loss = losses.mean()
 
     # produce an example:
-    # TODO: Use a sample from the dataset to avoid mismatching keys for prompt templates
     instruction = "Recommend a movie for me to watch during the weekend and explain the reason."
     fabric.print(instruction)
-    prompt = apply_prompt_template(val_dataloader.dataset.prompt_template, {"instruction": instruction})
+    sample = {"instruction": instruction, "input": ""}
+    prompt = apply_prompt_template(val_dataloader.dataset.prompt_template, sample)
     encoded = tokenizer.encode(prompt, device=fabric.device)
     with fabric.init_tensor():
         # do not set `max_seq_length=max_returned_token` because memory is not a concern here

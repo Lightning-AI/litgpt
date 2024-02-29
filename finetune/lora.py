@@ -8,6 +8,7 @@ from typing import Dict, List, Literal, Optional, Tuple
 
 import lightning as L
 import torch
+from torch.utils.data import DataLoader
 from lightning.fabric.loggers import CSVLogger
 from lightning.fabric.plugins import BitsandbytesPrecision
 from lightning.fabric.strategies import FSDPStrategy
@@ -19,6 +20,7 @@ sys.path.append(str(wd))
 
 from generate.base import generate
 from lit_gpt.args import EvalArgs, IOArgs, TrainArgs
+from lit_gpt.data import LitDataModule, Alpaca, apply_prompt_template
 from lit_gpt.lora import GPT, Block, Config, lora_filter, mark_only_lora_as_trainable
 from lit_gpt.tokenizer import Tokenizer
 from lit_gpt.utils import (
@@ -27,9 +29,8 @@ from lit_gpt.utils import (
     chunked_cross_entropy,
     get_default_supported_precision,
     load_checkpoint,
-    num_parameters,
+    num_parameters, CycleIterator,
 )
-from scripts.prepare_alpaca import generate_prompt
 
 
 def setup(
@@ -46,11 +47,10 @@ def setup(
     lora_projection: bool = False,
     lora_mlp: bool = False,
     lora_head: bool = False,
+    data: Optional[LitDataModule] = None,
     io: IOArgs = IOArgs(
-        train_data_dir=Path("data/alpaca"),
-        val_data_dir=Path("data/alpaca"),
         checkpoint_dir=Path("checkpoints/stabilityai/stablelm-base-alpha-3b"),
-        out_dir=Path("out/lora/alpaca"),
+        out_dir=Path("out/lora"),
     ),
     train: TrainArgs = TrainArgs(
         save_interval=1000,
@@ -59,13 +59,16 @@ def setup(
         micro_batch_size=4,
         lr_warmup_steps=100,
         epochs=5,
-        epoch_size=50000,
         learning_rate=3e-4,
         max_seq_length=None,
     ),
     eval: EvalArgs = EvalArgs(interval=100, max_new_tokens=100, max_iters=100),
 ) -> None:
+
     print(locals())
+    if  data is None:
+        data = Alpaca()
+
     precision = precision or get_default_supported_precision(training=True)
 
     plugins = None
@@ -113,27 +116,27 @@ def setup(
             to_mlp=lora_mlp,
             to_head=lora_head,
         ),
+        data,
         io,
         train,
         eval,
     )
 
 
-def main(fabric: L.Fabric, devices: int, seed: int, config: Config, io: IOArgs, train: TrainArgs, eval: EvalArgs) -> None:
+def main(fabric: L.Fabric, devices: int, seed: int, config: Config, data: LitDataModule, io: IOArgs, train: TrainArgs, eval: EvalArgs) -> None:
     validate_args(io, train, eval)
 
-    steps_per_epoch = train.epoch_size // devices // train.batch_size(devices)
-    lr_max_steps = train.epochs * steps_per_epoch
-
     check_valid_checkpoint_dir(io.checkpoint_dir)
+
+    tokenizer = Tokenizer(io.checkpoint_dir)
+    train_dataloader, val_dataloader = get_dataloaders(fabric, data, tokenizer, train)
+    steps_per_epoch = len(train_dataloader) // train.gradient_accumulation_iters(devices)
+    lr_max_steps = min(train.epochs * steps_per_epoch, (train.max_steps or float("inf")))
 
     fabric.seed_everything(seed)  # same seed for every process to init model (FSDP)
 
     if fabric.global_rank == 0:
         os.makedirs(io.out_dir, exist_ok=True)
-
-    train_data = torch.load(io.train_data_dir / "train.pt")
-    val_data = torch.load(io.val_data_dir / "test.pt")
 
     checkpoint_path = io.checkpoint_dir / "lit_model.pth"
     fabric.print(f"Loading model {str(checkpoint_path)!r} with {config.__dict__}")
@@ -162,10 +165,8 @@ def main(fabric: L.Fabric, devices: int, seed: int, config: Config, io: IOArgs, 
     # strict=False because missing keys due to LoRA weights not contained in state dict
     load_checkpoint(fabric, model, checkpoint_path, strict=False)
 
-    fabric.seed_everything(1337 + fabric.global_rank)
-
     train_time = time.perf_counter()
-    fit(fabric, model, optimizer, scheduler, train_data, val_data, devices, io, train, eval)
+    fit(fabric, model, optimizer, scheduler, train_dataloader, val_dataloader, devices, io, train, eval)
     fabric.print(f"Training time: {(time.perf_counter()-train_time):.2f}s")
     if fabric.device.type == "cuda":
         fabric.print(f"Memory used: {torch.cuda.max_memory_allocated() / 1e9:.02f} GB")
@@ -180,34 +181,36 @@ def fit(
     model: GPT,
     optimizer: torch.optim.Optimizer,
     scheduler: torch.optim.lr_scheduler,
-    train_data: List[Dict],
-    val_data: List[Dict],
+    train_dataloader: DataLoader,
+    val_dataloader: DataLoader,
     devices: int,
     io: IOArgs,
     train: TrainArgs,
     eval: EvalArgs,
 ) -> None:
     tokenizer = Tokenizer(io.checkpoint_dir)
-    longest_seq_length, longest_seq_ix = get_longest_seq_length(train_data)
+    longest_seq_length, longest_seq_ix = get_longest_seq_length(train_dataloader.dataset)
     model.max_seq_length = min(longest_seq_length, train.max_seq_length or float("inf"))
     fabric.print(
         f"The longest sequence length in the train data is {longest_seq_length}, the model's maximum sequence length is"
         f" {model.max_seq_length} and context length is {model.config.block_size}"
     )
 
-    validate(fabric, model, val_data, tokenizer, dataclasses.replace(eval, max_iters=2), train)  # sanity check
+    validate(fabric, model, val_dataloader, tokenizer, dataclasses.replace(eval, max_iters=2))  # sanity check
 
+    train_iterator = CycleIterator(train_dataloader)
     throughput = ThroughputMonitor(fabric, window_size=50)
     step_count = 0
+    iter_num = 0
     total_lengths = 0
     total_t0 = time.perf_counter()
 
-    for iter_num in range(1, train.max_iters(devices) + 1):
+    while step_count < (train.max_steps or float("inf")) and train_iterator.epoch < train.epochs:
+        iter_num += 1
         iter_t0 = time.perf_counter()
 
-        input_ids, targets = get_batch(
-            fabric, train_data, train.micro_batch_size, train.max_seq_length, longest_seq_ix if iter_num == 1 else None
-        )
+        batch = next(train_iterator)
+        input_ids, targets = batch["input_ids"], batch["labels"]
 
         is_accumulating = iter_num % train.gradient_accumulation_iters(devices) != 0
         with fabric.no_backward_sync(model, enabled=is_accumulating):
@@ -238,7 +241,7 @@ def fit(
 
         if not is_accumulating and step_count % eval.interval == 0:
             t0 = time.perf_counter()
-            val_loss = validate(fabric, model, val_data, tokenizer, eval, train)
+            val_loss = validate(fabric, model, val_dataloader, tokenizer, eval)
             t1 = time.perf_counter() - t0
             fabric.print(f"iter {iter_num}: val loss {val_loss.item():.4f}, val time: {t1 * 1000:.2f} ms")
             fabric.barrier()
@@ -250,13 +253,15 @@ def fit(
 # FSDP has issues with `inference_mode`
 @torch.no_grad()
 def validate(
-    fabric: L.Fabric, model: GPT, val_data: List[Dict], tokenizer: Tokenizer, eval: EvalArgs, train: TrainArgs
+    fabric: L.Fabric, model: GPT, val_dataloader: DataLoader, tokenizer: Tokenizer, eval: EvalArgs,
 ) -> torch.Tensor:
     fabric.print("Validating ...")
     model.eval()
     losses = torch.zeros(eval.max_iters)
+    val_iterator = iter(val_dataloader)
     for k in range(eval.max_iters):
-        input_ids, targets = get_batch(fabric, val_data, train.micro_batch_size, train.max_seq_length)
+        batch = next(val_iterator)
+        input_ids, targets = batch["input_ids"], batch["labels"]
         logits = model(input_ids)
         losses[k] = chunked_cross_entropy(logits[..., :-1, :], targets[..., 1:], chunk_size=0)
     val_loss = losses.mean()
@@ -265,7 +270,7 @@ def validate(
     instruction = "Recommend a movie for me to watch during the weekend and explain the reason."
     fabric.print(instruction)
     sample = {"instruction": instruction, "input": ""}
-    prompt = generate_prompt(sample)
+    prompt = apply_prompt_template(val_dataloader.dataset.prompt_template, sample)
     encoded = tokenizer.encode(prompt, device=fabric.device)
     with fabric.init_tensor():
         # do not set `max_seq_length=max_returned_token` because memory is not a concern here
@@ -281,49 +286,22 @@ def validate(
     return val_loss
 
 
-def get_batch(
-    fabric: L.Fabric,
-    data: List[Dict],
-    micro_batch_size: int,
-    max_seq_length: Optional[int],
-    longest_seq_ix: Optional[int] = None,
-) -> Tuple[torch.Tensor, torch.Tensor]:
-    ix = torch.randint(len(data), (micro_batch_size,))
-    if longest_seq_ix is not None:
-        # force the longest sample at the beginning so potential OOMs happen right away
-        ix[0] = longest_seq_ix
-
-    input_ids = [data[i]["input_ids"].type(torch.int64) for i in ix]
-    labels = [data[i]["labels"].type(torch.int64) for i in ix]
-
-    # this could be `longest_seq_length` to have a fixed size for all batches
-    max_len = max(len(s) for s in input_ids)
-
-    def pad_right(x, pad_id):
-        # pad right based on the longest sequence
-        n = max_len - len(x)
-        return torch.cat((x, torch.full((n,), pad_id, dtype=x.dtype)))
-
-    x = torch.stack([pad_right(x, pad_id=0) for x in input_ids])
-    y = torch.stack([pad_right(x, pad_id=-1) for x in labels])
-
-    # Truncate if needed
-    if max_seq_length:
-        x = x[:, :max_seq_length]
-        y = y[:, :max_seq_length]
-
-    if fabric.device.type == "cuda" and x.device.type == "cpu":
-        x, y = fabric.to_device((x.pin_memory(), y.pin_memory()))
-    else:
-        x, y = fabric.to_device((x, y))
-    return x, y
-
-
 def get_lr_scheduler(optimizer, warmup_steps: int, max_steps: int):
     # linear warmup followed by cosine annealing
     scheduler1 = torch.optim.lr_scheduler.LambdaLR(optimizer, lambda step: step / warmup_steps)
     scheduler2 = torch.optim.lr_scheduler.CosineAnnealingLR(optimizer, T_max=(max_steps - warmup_steps))
     return torch.optim.lr_scheduler.SequentialLR(optimizer, [scheduler1, scheduler2], milestones=[warmup_steps])
+
+
+def get_dataloaders(fabric: L.Fabric, data: LitDataModule, tokenizer: Tokenizer, train: TrainArgs) -> Tuple[DataLoader, DataLoader]:
+    data.connect(tokenizer=tokenizer, batch_size=train.micro_batch_size, max_seq_length=train.max_seq_length)
+    with fabric.rank_zero_first():
+        data.prepare_data()
+    data.setup()
+    train_dataloader = data.train_dataloader()
+    val_dataloader = data.val_dataloader()
+    train_dataloader, val_dataloader = fabric.setup_dataloaders(train_dataloader, val_dataloader)
+    return train_dataloader, val_dataloader
 
 
 def get_longest_seq_length(data: List[Dict]) -> Tuple[int, int]:
@@ -347,8 +325,8 @@ def validate_args(io: IOArgs, train: TrainArgs, eval: EvalArgs) -> None:
             if getattr(args, name) is not None:
                 issues.append(f"{__file__} doesn't support the {name!r} argument. This is set in {args}")
     required = [
-        (io, ["checkpoint_dir", "train_data_dir", "val_data_dir"]),
-        (train, ["epoch_size", "epochs"]),
+        (io, ["checkpoint_dir"]),
+        (train, ["epochs"]),
         (eval, ["max_new_tokens"]),
     ]
     for args, names in required:
