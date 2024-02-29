@@ -111,7 +111,7 @@ Note that the `pretrain/tinyllama.py` is not actually a model-specific training 
 the configuration and size by passing a different string to the model name argument, for example:
 
 ```shell
-python pretrained/tinyllama.py --model.name Gemma-2b
+python pretrain/tinyllama.py --model.name Gemma-2b
 ```
 
 The currently supported model names are contained in the [config.py](https://github.com/Lightning-AI/lit-gpt/lit_gpt/config.py) file.
