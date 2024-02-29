@@ -42,7 +42,7 @@ def download_from_hub(
             " https://huggingface.co/settings/tokens"
         )
 
-    download_files = ["tokenizer*", "*config.json"]
+    download_files = ["tokenizer*", "generation_config.json", "config.json"]
     if not tokenizer_only:
         if from_safetensors:
             if not _SAFETENSORS_AVAILABLE:
