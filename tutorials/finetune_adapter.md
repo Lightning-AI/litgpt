@@ -14,32 +14,31 @@ The steps here only need to be done once:
 
 1. Follow the instructions in the [README](../README.md) to install the dependencies.
 2. Download and convert the weights following our [guide](download_stablelm.md).
-3. Download the data and generate the Alpaca instruction tuning dataset:
 
-```bash
-python scripts/prepare_alpaca.py --checkpoint_dir checkpoints/stabilityai/stablelm-base-alpha-3b
-```
-
-or [prepare your own dataset](#tune-on-your-dataset).
-
+Lit-GPT provides common datasets for finetuning, such as Alpaca, LIMA, Dolly, and more.
+You can optionally [prepare your own dataset](#tune-on-your-dataset).
 For more information about dataset preparation, also see the [prepare_dataset.md](./prepare_dataset.md) tutorial.
 
 ## Running the finetuning
 
 ```bash
-python finetune/adapter.py --io.checkpoint_dir checkpoints/stabilityai/stablelm-base-alpha-3b
+python finetune/adapter.py \
+  --data Alpaca \
+  --io.checkpoint_dir checkpoints/stabilityai/stablelm-base-alpha-3b
 ```
 
 or for Adapter V2
 
 ```bash
-python finetune/adapter_v2.py --io.checkpoint_dir checkpoints/stabilityai/stablelm-base-alpha-3b
+python finetune/adapter_v2.py \
+  --data Alpaca \
+  --io.checkpoint_dir checkpoints/stabilityai/stablelm-base-alpha-3b
 ```
 
 The finetuning requires at least one GPU with ~12 GB memory.
 You can speed up training by passing the `devices` argument to the script to utilize more GPUs if available.
 Depending on the available GPU memory, you can also tune the `micro_batch_size` parameter to utilize the GPU efficiently.
-To fit Adapter V2 to 12GB memory set `--micro_batch_size 2`.
+To fit Adapter V2 to 12GB memory set `--train.micro_batch_size 2`.
 
 For example, the following settings will let you finetune the model in under 1 hour:
 
@@ -50,20 +49,27 @@ For example, the following settings will let you finetune the model in under 1 h
 This script will save checkpoints periodically to the `out_dir` directory. If you are finetuning different models or on your own dataset, you can specify an output directory with your preferred name:
 
 ```bash
-python finetune/adapter.py --io.out_dir out/adapter/my-model-finetuned
+python finetune/adapter.py \
+  --data Alpaca \
+  --io.out_dir out/adapter/my-model-finetuned
 ```
 
 or for Adapter V2
 
 ```bash
-python finetune/adapter_v2.py --io.out_dir out/adapter_v2/my-model-finetuned
+python finetune/adapter_v2.py \
+  --data Alpaca \
+  --io.out_dir out/adapter_v2/my-model-finetuned
 ```
 
 If your GPU does not support `bfloat16`, you can pass the `--precision 32-true` argument.
 For instance, to fine-tune on MPS (the GPU on modern Macs), you can run
 
 ```bash
-python finetune/adapter.py --io.out_dir out/adapter/my-model-finetuned --precision 32-true
+python finetune/adapter.py \
+  --data Alpaca \
+  --io.out_dir out/adapter/my-model-finetuned \
+  --precision 32-true
 ```
 
 Note that `mps` as the accelerator will be picked up automatically by Fabric when running on a modern Mac.
@@ -112,10 +118,10 @@ If your GPU supports `bfloat16`, the script will automatically use it.
 
 ## Tune on your dataset
 
-With only a few modifications, you can prepare and train on your own instruction dataset.
+You can easily train on your own instruction dataset saved in JSON format.
 
-1. Create a json file in which each row holds one instruction-response pair.
-   A row has an entry for 'instruction', 'input', and 'output', where 'input' is optional an can be
+1. Create a JSON file in which each row holds one instruction-response pair.
+   A row has an entry for 'instruction', 'input', and 'output', where 'input' is optional and can be
    the empty string if the instruction doesn't require a context. Below is an example json file:
 
     ```text
@@ -129,24 +135,12 @@ With only a few modifications, you can prepare and train on your own instruction
     ]
     ```
 
-2. Make a copy of `scripts/prepare_alpaca.py` and name it what you want:
-
-    ```bash
-    cp scripts/prepare_alpaca.py scripts/prepare_mydata.py
-    ```
-
-3. Modify `scripts/prepare_mydata.py` to read the json data file.
-4. Run the script to generate the preprocessed, tokenized train-val split:
-
-    ```bash
-    python scripts/prepare_mydata.py --destination_path data/mydata/
-    ```
-
-5. Run `finetune/adapter.py` by passing in the location of your data (and optionally other parameters):
+2. Run `finetune/adapter.py` or `finetune/adapter_v2.py` by passing in the location of your data (and optionally other parameters):
 
     ```bash
     python finetune/adapter.py \
-        --io.train_data_dir data/mydata --io.val_data_dir data/mydata/ \
-        --io.checkpoint_dir checkpoints/stabilityai/stablelm-base-alpha-3b \
+        --data JSON \
+        --data.json_path data/mydata.json \
+        --io.checkpoint_dir checkpoints/tiiuae/falcon-7b \
         --io.out_dir data/mydata-finetuned
     ```

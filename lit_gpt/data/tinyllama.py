@@ -29,6 +29,7 @@ class TinyLlama(LitDataModule):
         num_workers: int = 8,
     ) -> None:
         super().__init__()
+        self.data_path = data_path
         self.seed = seed
         self.num_workers = num_workers
 
@@ -97,3 +98,12 @@ class TinyLlama(LitDataModule):
             val_dataset, batch_size=self.batch_size, pin_memory=True, num_workers=self.num_workers, drop_last=True
         )
         return val_dataloader
+
+    def __repr__(self) -> str:
+        return (
+            f"{self.__class__.__name__}("
+            f"data_path={str(self.data_path)}, "
+            f"seed={self.seed}, "
+            f"num_workers={self.num_workers}"
+            ")"
+        )

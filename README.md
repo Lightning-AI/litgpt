@@ -132,15 +132,6 @@ We support 4-bit quantization (as in QLoRA), (bnb.nf4, bnb.nf4-dq, bnb.fp4, bnb.
 ## Finetune the model
 
 We provide a simple training scripts (`finetune/adapter.py`, `finetune/adapter_v2.py`, and `finetune/lora.py`) that instruction-tunes a pretrained model on the [Alpaca](https://github.com/tatsu-lab/stanford_alpaca) dataset.
-
-1. Download the data and generate an instruction tuning dataset:
-
-```bash
-python scripts/prepare_alpaca.py
-```
-
-2. Run the finetuning script
-
 For example, you can either use
 
 Adapter ([Zhang et al. 2023](https://arxiv.org/abs/2303.16199)):

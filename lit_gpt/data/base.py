@@ -29,6 +29,9 @@ class LitDataModule(LightningDataModule):
         # Stub is to redefine the default signature, because the concept of 'stage' does not exist in Lit-GPT
         pass
 
+    def __repr__(self) -> str:
+        return f"{self.__class__.__name__}()"
+
 
 class SFTDataset(Dataset):
     """An in-memory dataset for supervised finetuning with `input_ids` and `labels`.

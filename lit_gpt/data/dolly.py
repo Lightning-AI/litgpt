@@ -71,3 +71,13 @@ class Dolly(Alpaca):
             mask_prompt=self.mask_prompt,
             ignore_index=self.ignore_index,
         )
+
+    def __repr__(self) -> str:
+        return (
+            f"{self.__class__.__name__}("
+            f"mask_prompt={self.mask_prompt}, "
+            f"test_split_fraction={self.test_split_fraction}, "
+            f"seed={self.seed}, "
+            f"num_workers={self.num_workers}, "
+            "...)"
+        )
