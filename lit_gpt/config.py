@@ -153,25 +153,18 @@ class Config:
 # Stability AI StableLM
 ########################
 configs = [
-    # https://huggingface.co/stabilityai/stablelm-base-alpha-3b/blob/main/config.json
-    dict(name="stablelm-base-alpha-3b", hf_config=dict(org="stabilityai", name="stablelm-base-alpha-3b")),
-    # https://huggingface.co/stabilityai/stablelm-base-alpha-7b/blob/main/config.json
+    # https://huggingface.co/stabilityai/stablelm-3b-4e1t/blob/main/config.json
     dict(
-        name="stablelm-base-alpha-7b",
-        hf_config=dict(org="stabilityai", name="stablelm-base-alpha-7b"),
-        n_head=48,
-        n_embd=6144,
-        padding_multiple=256,
-    ),
-    # https://huggingface.co/stabilityai/stablelm-tuned-alpha-3b/blob/main/config.json
-    dict(name="stablelm-tuned-alpha-3b", hf_config=dict(org="stabilityai", name="stablelm-tuned-alpha-3b"), n_head=32),
-    # https://huggingface.co/stabilityai/stablelm-tuned-alpha-7b/blob/main/config.json
-    dict(
-        name="stablelm-tuned-alpha-7b",
-        hf_config=dict(org="stabilityai", name="stablelm-tuned-alpha-7b"),
-        n_head=48,
-        n_embd=6144,
-        padding_multiple=256,
+        name="stablelm-3b-4e1t",
+        hf_config=dict(org="stabilityai", name="stablelm-3b-4e1t"),
+        padded_vocab_size=50304,
+        n_layer=32,
+        n_head=32,
+        n_embd=2560,
+        parallel_residual=False,
+        bias=False,
+        _mlp_class="LLaMAMLP",
+        intermediate_size=6912,
     ),
     # https://huggingface.co/stabilityai/stablelm-zephyr-3b/blob/main/config.json
     dict(
