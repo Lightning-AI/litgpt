@@ -93,6 +93,17 @@ class JSON(LitDataModule):
             ignore_index=self.ignore_index,
         )
 
+    def __repr__(self) -> str:
+        return (
+            f"{self.__class__.__name__}("
+            f"json_path={self.json_path},"
+            f"mask_prompt={self.mask_prompt}, "
+            f"test_split_fraction={self.test_split_fraction}, "
+            f"seed={self.seed}, "
+            f"num_workers={self.num_workers}, "
+            "...)"
+        )
+
     def train_dataloader(self) -> DataLoader:
         return DataLoader(
             self.train_dataset,
