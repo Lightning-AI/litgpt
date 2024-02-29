@@ -94,44 +94,33 @@ If your GPU supports `bfloat16`, you can additionally pass `--precision "bf16-tr
 
 ## Tune on Your Dataset
 
-With only a few modifications, you can prepare and train on your own instruction dataset.
+You can easily train on your own instruction dataset saved in JSON format.
 
-1. Create a json file in which each row holds one instruction-response pair.
-   A row has an entry for 'instruction', 'input', and 'output', where 'input' is optional an can be
+1. Create a JSON file in which each row holds one instruction-response pair.
+   A row has an entry for 'instruction', 'input', and 'output', where 'input' is optional and can be
    the empty string if the instruction doesn't require a context. Below is an example json file:
 
-   ```text
-   [
-       {
-           "instruction": "Arrange the given numbers in ascending order.",
-           "input": "2, 4, 0, 8, 3",
-           "output": "0, 2, 3, 4, 8"
-       },
-       ...
-   ]
-   ```
+    ```text
+    [
+        {
+            "instruction": "Arrange the given numbers in ascending order.",
+            "input": "2, 4, 0, 8, 3",
+            "output": "0, 2, 3, 4, 8"
+        },
+        ...
+    ]
+    ```
 
-2. Make a copy of `scripts/prepare_alpaca.py` and name it what you want:
+2. Run `finetune/lora.py` by passing in the location of your data (and optionally other parameters):
 
-   ```bash
-   cp scripts/prepare_alpaca.py scripts/prepare_mydata.py
-   ```
+    ```bash
+    python finetune/lora.py \
+        --data JSON \
+        --data.json_path data/mydata.json \
+        --io.checkpoint_dir checkpoints/tiiuae/falcon-7b \
+        --io.out_dir data/mydata-finetuned
+    ```
 
-3. Modify `scripts/prepare_mydata.py` to read the json data file.
-4. Run the script to generate the preprocessed, tokenized train-val split:
-
-   ```bash
-   python scripts/prepare_mydata.py \
-     --destination_path data/mydata/
-   ```
-
-5. Run `finetune/lora.py` by passing in the location of your data (and optionally other parameters):
-
-   ```bash
-   python finetune/lora.py  \
-     --io.train_data_dir data/mydata --io.val_data_dir data/mydata/ \
-     --out_dir out/myexperiment
-   ```
 
 &nbsp;
 
