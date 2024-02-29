@@ -80,13 +80,8 @@ Then, we download the model we specified via `$repo_id` above:
 python scripts/download.py --repo_id $repo_id
 ```
 
-2. Convert the model into the Lit-GPT format:
 
-```bash
-python scripts/convert_hf_checkpoint.py --checkpoint_dir checkpoints/$repo_id
-```
-
-3. Prepare a dataset for finetuning:
+2. Prepare a dataset for finetuning:
 
 ```bash
 python scripts/prepare_alpaca.py \
@@ -94,7 +89,7 @@ python scripts/prepare_alpaca.py \
     --destination_path data/alpaca
 ```
 
-4. Finetune the model:
+3. Finetune the model:
 
 
 ```bash
@@ -108,7 +103,7 @@ python finetune/lora.py \
    --io.out_dir $finetuned_dir
 ```
 
-5. Merge LoRA weights:
+4. Merge LoRA weights:
 
 Note that this step only applies if the model was finetuned with `lora.py` above and not when `full.py` was used for finetuning.
 

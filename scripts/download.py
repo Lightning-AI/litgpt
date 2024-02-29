@@ -13,6 +13,7 @@ wd = Path(__file__).parent.parent.resolve()
 sys.path.append(str(wd))
 
 from lit_gpt.utils import CLI
+from scripts.convert_hf_checkpoint import convert_hf_checkpoint
 
 _SAFETENSORS_AVAILABLE = RequirementCache("safetensors")
 _HF_TRANSFER_AVAILABLE = RequirementCache("hf_transfer")
@@ -23,6 +24,8 @@ def download_from_hub(
     access_token: Optional[str] = os.getenv("HF_TOKEN"),
     from_safetensors: bool = False,
     tokenizer_only: bool = False,
+    convert_checkpoint: bool = True,
+    dtype: Optional[str] = None,
     checkpoint_dir: Path = Path("checkpoints"),
 ) -> None:
     if repo_id is None:
@@ -91,6 +94,10 @@ def download_from_hub(
             print(f"{safetensor_path} --> {bin_path}")
             torch.save(result, bin_path)
             os.remove(safetensor_path)
+
+    if convert_checkpoint:
+        print("Converting checkpoint files to Lit-GPT format.")
+        convert_hf_checkpoint(checkpoint_dir=directory, dtype=dtype)
 
 
 if __name__ == "__main__":
