@@ -239,6 +239,11 @@ def test_adapter_v2_bitsandbytes(monkeypatch, tmp_path, fake_checkpoint_dir, alp
     )
     monkeypatch.setitem(name_to_config, "tmp", model_config)
 
+    tokenizer_mock = Mock()
+    tokenizer_mock.return_value = tokenizer_mock
+    tokenizer_mock.encode = lambda *_, **__: torch.tensor([3, 2, 1])
+    monkeypatch.setattr(module, "Tokenizer", tokenizer_mock)
+
     monkeypatch.setattr(module, "load_checkpoint", Mock())
     train_mock = Mock()
     monkeypatch.setattr(module, "fit", train_mock)
