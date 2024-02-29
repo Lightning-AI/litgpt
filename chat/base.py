@@ -190,24 +190,14 @@ def main(
 
 def prompt_config(checkpoint_dir: Path, tokenizer: Tokenizer) -> Tuple[str, Tuple[List[int], ...]]:
     checkpoint_name = str(checkpoint_dir)
-    if re.search(r"stabilityai.*tuned-alpha", checkpoint_name):
-        system_prompt = (
-            "<|SYSTEM|># StableLM Tuned (Alpha version)\n- StableLM is a helpful and harmless open-source AI language"
-            " model developed by StabilityAI.\n- StableLM is excited to be able to help the user, but will refuse to do"
-            " anything that could be considered harmful to the user.\n- StableLM is more than just an information"
-            " source, StableLM is also able to write poetry, short stories, and make jokes.\n- StableLM will refuse to"
-            " participate in anything that could harm a human.<|USER|>{prompt}<|ASSISTANT|>"
-        )
-        stop_tokens = (
-            [tokenizer.eos_id],
-            [tokenizer.token_to_id("<|SYSTEM|>")],
-            [tokenizer.token_to_id("<|ASSISTANT|>")],
-            [tokenizer.token_to_id("<|USER|>")],
-        )
-        return system_prompt, stop_tokens
 
     if re.search(r"stabilityai/stablelm-zephyr-3b", checkpoint_name):
         system_prompt = "<|user|>\n{prompt}<|endoftext|>\n<|assistant|>\n"
+        stop_tokens = ([tokenizer.eos_id],)
+        return system_prompt, stop_tokens
+
+    if re.search("stablecode-instruct", checkpoint_name):
+        system_prompt = "###Instruction\n{prompt}###Response\n"
         stop_tokens = ([tokenizer.eos_id],)
         return system_prompt, stop_tokens
 
@@ -221,6 +211,7 @@ def prompt_config(checkpoint_dir: Path, tokenizer: Tokenizer) -> Tuple[str, Tupl
             [lt, tokenizer.token_to_id("bot"), gt],
         )
         return system_prompt, stop_tokens
+
     if re.search(r"togethercomputer.*Instruct", checkpoint_name):
         system_prompt = "Q: {prompt}\nA:"
         colon = tokenizer.token_to_id(":")
@@ -236,6 +227,7 @@ def prompt_config(checkpoint_dir: Path, tokenizer: Tokenizer) -> Tuple[str, Tupl
             [2756],  # '\n\n\n'
         )
         return system_prompt, stop_tokens
+
     if re.search(r"falcon.*-instruct", checkpoint_name):
         # First line could be modified. AFAIK Falcon doesn't impose a specific system prompt
         # The instruction to not prefix its replies doesn't work always, but better than nothing
@@ -249,6 +241,7 @@ def prompt_config(checkpoint_dir: Path, tokenizer: Tokenizer) -> Tuple[str, Tupl
             [193, tokenizer.token_to_id("User")],  # 193: '\n'
         )
         return system_prompt, stop_tokens
+
     if re.search(r"vicuna|longchat", checkpoint_name):
         # https://github.com/lm-sys/FastChat/blob/main/docs/vicuna_weights_version.md#prompt-template
         system_prompt = (
@@ -315,11 +308,6 @@ def prompt_config(checkpoint_dir: Path, tokenizer: Tokenizer) -> Tuple[str, Tupl
 
     if re.search("NousResearch", checkpoint_name):
         system_prompt = "### Instruction:\n{prompt}\n\n### Response:\n"
-        stop_tokens = ([tokenizer.eos_id],)
-        return system_prompt, stop_tokens
-
-    if re.search("stablecode-instruct", checkpoint_name):
-        system_prompt = "###Instruction\n{prompt}###Response\n"
         stop_tokens = ([tokenizer.eos_id],)
         return system_prompt, stop_tokens
 
