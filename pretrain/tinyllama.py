@@ -43,7 +43,7 @@ def setup(
     seed: int = 1337,
     data: LitDataModule = TinyLlama(),
     io: IOArgs = IOArgs(
-        out_dir=Path(os.getenv("LIGHTNING_ARTIFACTS_DIR", "out")) / "lit-tiny-llama-1.1b", train_data_dir=None
+        out_dir=Path(os.getenv("LIGHTNING_ARTIFACTS_DIR", "out")) / "lit-tiny-llama-1.1b",
     ),
     train: TrainArgs = TrainArgs(
         save_interval=1000,

@@ -66,5 +66,5 @@ class IOArgs:
 
     checkpoint_dir: Optional[Path] = None
     """Where to read weights and tokenizer data from"""
-    out_dir: Path = Path("out/adapter/alpaca")
+    out_dir: Path = Path("out")
     """Where to save artifacts"""
