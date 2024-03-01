@@ -49,6 +49,7 @@ class TinyLlama(LitDataModule):
                 raise FileNotFoundError(
                     "The data path for TinyLlama is expected to be the directory containing these subdirectories:"
                     f" `slimpajama/train`, `slimpajama/val`, `starcoder`. The directory {path} does not exist."
+                    " Set it via `--data.data_path=...`"
                 )
 
     def train_dataloader(self) -> DataLoader:
