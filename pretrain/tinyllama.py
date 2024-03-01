@@ -66,7 +66,13 @@ def setup(
     data = TinyLlama() if data is None else data
     model = Config.from_name("tiny-llama-1.1b") if model is None else model
 
-    logger = choose_logger(io.out_dir, logger_name, name=f"pretrain-{model.name}", resume=resume)
+    logger = choose_logger(
+        io.out_dir,
+        logger_name,
+        name=f"pretrain-{model.name}",
+        resume=resume,
+        flush_logs_every_n_steps=train.log_interval
+    )
 
     if devices > 1:
         strategy = FSDPStrategy(auto_wrap_policy={Block}, state_dict_type="full", sharding_strategy="HYBRID_SHARD")
@@ -251,7 +257,7 @@ def fit(
 
             throughput_metrics = throughput.compute()
             metrics.update(throughput_metrics)
-            fabric.log_dict(metrics, step=state["iter_num"])
+            fabric.log_dict(metrics, step=state["iter_num"] - 1)
 
         if val_dataloader is not None and not is_accumulating and state["step_count"] % eval.interval == 0:
             t0 = time.perf_counter()
