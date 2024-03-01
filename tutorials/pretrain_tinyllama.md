@@ -100,7 +100,7 @@ In the above we are assuming that you will be using the same tokenizer as used i
 Running the pretraining script with its default settings requires at least 8 A100 GPUs.
 
 ```bash
-python pretrain/tinyllama.py
+python pretrain/pretrain.py
 ```
 
 The script will save checkpoints periodically to the folder `out/`.
@@ -111,7 +111,7 @@ Note that the `pretrain/tinyllama.py` is not actually a model-specific training 
 the configuration and size by passing a different string to the model name argument, for example:
 
 ```shell
-python pretrain/tinyllama.py --model.name Gemma-2b
+python pretrain/pretrain.py --model.name Gemma-2b
 ```
 
 The currently supported model names are contained in the [config.py](https://github.com/Lightning-AI/lit-gpt/lit_gpt/config.py) file.
@@ -145,7 +145,7 @@ The checkpoints saved during pretraining contain all the information to resume i
 Simply rerun the script with the `--resume` argument:
 
 ```bash
-python pretrain/tinyllama.py --resume out/tiny-llama-1.1b/step-00060500.pth
+python pretrain/pretrain.py --resume out/tiny-llama-1.1b/step-00060500.pth
 ```
 
 ## Export checkpoints
