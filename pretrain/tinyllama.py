@@ -63,7 +63,7 @@ def setup(
 ):
     hparams = locals()
     data = TinyLlama() if data is None else data
-    config = Config(name="tiny-llama-1.1b") if model is None else model
+    config = Config.from_name("tiny-llama-1.1b") if model is None else model
 
     logger = choose_logger(io.out_dir, logger_name, name=f"pretrain-{config.name}", resume=resume)
 
