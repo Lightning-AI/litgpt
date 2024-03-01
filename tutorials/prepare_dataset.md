@@ -76,8 +76,8 @@ To use Alpaca Libre instead of the original Alpaca dataset, use the following co
 ```bash
 python finetune/lora.py \
   --data Alpaca \
-  --data.data_file_url "https://raw.githubusercontent.com/mobarski/alpaca-libre/main/data/output/alpaca_libre_ok_tasks_v4.json" \
-  --data.data_file_name "alpaca_libre_data_cleaned_archive.json" \
+  --data.file_url "https://raw.githubusercontent.com/mobarski/alpaca-libre/main/data/output/alpaca_libre_ok_tasks_v4.json" \
+  --data.file_name "alpaca_libre_data_cleaned_archive.json" \
   --io.checkpoint_dir "checkpoints/tiiuae/falcon-7b"
 ```
 
@@ -90,8 +90,8 @@ You may want to consider truncating the dataset (see the *Truncating datasets* d
 ```bash
 python finetune/lora.py \
   --data Alpaca \
-  --data.data_file_url "https://raw.githubusercontent.com/mobarski/alpaca-libre/main/data/output/alpaca_libre_ok_tasks_v4.json" \
-  --data.data_file_name "alpaca_libre_data_cleaned_archive.json" \
+  --data.file_url "https://raw.githubusercontent.com/mobarski/alpaca-libre/main/data/output/alpaca_libre_ok_tasks_v4.json" \
+  --data.file_name "alpaca_libre_data_cleaned_archive.json" \
   --io.checkpoint_dir "checkpoints/tiiuae/falcon-7b" \
   --train.max_seq_length 256
 ```
