@@ -8,3 +8,4 @@ from lit_gpt.data.flan import FLAN
 from lit_gpt.data.lima import LIMA
 from lit_gpt.data.longform import LongForm
 from lit_gpt.data.tinyllama import TinyLlama
+from lit_gpt.data.openwebtext import OpenWebText
