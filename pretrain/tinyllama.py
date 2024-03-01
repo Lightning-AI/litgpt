@@ -36,7 +36,7 @@ from lit_gpt.data import TinyLlama, LitDataModule
 
 
 def setup(
-    model: Config = Config(name="pythia-70m"),
+    model: Optional[Config] = None,
     logger_name: Literal["wandb", "tensorboard", "csv"] = "tensorboard",
     resume: Union[bool, Path] = False,
     devices: int = torch.cuda.device_count() or 1,
