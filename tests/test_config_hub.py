@@ -13,11 +13,10 @@ import pytest
 ])
 def test_config_help(script_file, config_file, monkeypatch, tmp_path):
     """Test that configs validate against the signature in the scripts."""
-    import lit_gpt
     from lit_gpt.utils import CLI
 
-    script_file = Path(lit_gpt.__file__).parent.parent / script_file
-    config_file = Path(lit_gpt.__file__).parent.parent / "config_hub" / config_file
+    script_file = Path(__file__).parent.parent / script_file
+    config_file = Path(__file__).parent.parent / "config_hub" / config_file
 
     assert script_file.is_file()
     assert config_file.is_file()
