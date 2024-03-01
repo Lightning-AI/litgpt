@@ -39,8 +39,8 @@ train:
   global_batch_size: 125
   micro_batch_size: 5
   lr_warmup_steps: 100
-  epochs: 1
-  max_tokens: null
+  epochs: null
+  max_tokens: 100000000
   max_steps: null
   max_seq_length: null
   learning_rate: 6e-4
