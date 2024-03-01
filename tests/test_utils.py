@@ -3,6 +3,7 @@
 import os
 from contextlib import redirect_stderr
 from io import StringIO
+from unittest import mock
 
 import pytest
 import torch
@@ -188,3 +189,23 @@ def test_cycle_iterator():
     assert iterator.epoch == 0
     assert next(iterator) == 0
     assert iterator.epoch == 1
+
+
+def test_parse_devices():
+    from lit_gpt.utils import parse_devices
+
+    with pytest.raises(ValueError, match="must be 'auto' or a positive integer"):
+        assert parse_devices(0)
+    with pytest.raises(ValueError, match="must be 'auto' or a positive integer"):
+        assert parse_devices(-2)
+
+    with mock.patch("lit_gpt.utils.torch.cuda.device_count", return_value=0):
+        assert parse_devices("auto") == 1  # CPU
+        assert parse_devices(10) == 10  # leave validation up to Fabric later on
+    with mock.patch("lit_gpt.utils.torch.cuda.device_count", return_value=1):
+        assert parse_devices("auto") == 1  # CUDA
+    with mock.patch("lit_gpt.utils.torch.cuda.device_count", return_value=3):
+        assert parse_devices("auto") == 3
+        assert parse_devices(-1) == 3
+
+    assert parse_devices(5) == 5

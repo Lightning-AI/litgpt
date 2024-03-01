@@ -32,12 +32,13 @@ from lit_gpt.utils import (
     load_checkpoint,
     num_parameters,
     CycleIterator,
+    parse_devices,
 )
 
 
 def setup(
     precision: Optional[str] = None,
-    devices: int = 1,
+    devices: Union[int, str] = 1,
     resume: Union[bool, Path] = False,
     seed: int = 1337,
     data: Optional[LitDataModule] = None,
@@ -59,9 +60,8 @@ def setup(
 ) -> None:
 
     print(locals())
-    
-    if data is None:
-        data = Alpaca()
+    data = Alpaca() if data is None else data
+    devices = parse_devices(devices)
 
     precision = precision or get_default_supported_precision(training=True)
 

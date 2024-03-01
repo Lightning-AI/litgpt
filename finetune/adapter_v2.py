@@ -4,7 +4,7 @@ import os
 import sys
 import time
 from pathlib import Path
-from typing import Dict, List, Literal, Optional, Tuple
+from typing import Dict, List, Literal, Optional, Tuple, Union
 
 import lightning as L
 import torch
@@ -31,13 +31,14 @@ from lit_gpt.utils import (
     load_checkpoint,
     num_parameters,
     CycleIterator,
+    parse_devices
 )
 
 
 def setup(
     precision: Optional[str] = None,
     quantize: Optional[Literal["bnb.nf4", "bnb.nf4-dq", "bnb.fp4", "bnb.fp4-dq", "bnb.int8-training"]] = None,
-    devices: int = 1,
+    devices: Union[int, str] = 1,
     seed: int = 1337,
     data: Optional[LitDataModule] = None,
     io: IOArgs = IOArgs(
@@ -58,8 +59,8 @@ def setup(
 ) -> None:
 
     print(locals())
-    if data is None:
-        data = Alpaca()
+    data = Alpaca() if data is None else data
+    devices = parse_devices(devices)
 
     precision = precision or get_default_supported_precision(training=True)
 

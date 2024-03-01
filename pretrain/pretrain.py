@@ -33,15 +33,20 @@ from lit_gpt import Tokenizer
 from lit_gpt.args import EvalArgs, IOArgs, TrainArgs
 from lit_gpt.data import LitDataModule, TinyLlama
 from lit_gpt.model import GPT, Block, CausalSelfAttention, Config, LLaMAMLP
+<<<<<<< HEAD:pretrain/tinyllama.py
 from lit_gpt.utils import CLI, CycleIterator, chunked_cross_entropy, num_parameters
+=======
+from lit_gpt.utils import CLI, CycleIterator, chunked_cross_entropy, num_parameters, parse_devices
+from lit_gpt.data import TinyLlama, LitDataModule
+>>>>>>> wip:pretrain/pretrain.py
 
 
 def setup(
     model: Optional[Config] = None,
     logger_name: Literal["wandb", "tensorboard", "csv"] = "tensorboard",
     resume: Union[bool, Path] = False,
-    devices: int = torch.cuda.device_count() or 1,
-    seed: int = 1337,
+    devices: Union[int, str] = "auto",
+    seed: int = 42,
     data: Optional[LitDataModule] = None,
     io: IOArgs = IOArgs(
         out_dir=Path(os.getenv("LIGHTNING_ARTIFACTS_DIR", "out")) / "lit-tiny-llama-1.1b",
@@ -52,8 +57,8 @@ def setup(
         global_batch_size=512,
         micro_batch_size=4,
         max_tokens=int(3e12),  # 3 trillion
-        learning_rate=1e-1,
-        weight_decay=4e-4,
+        learning_rate=4e-4,
+        weight_decay=1e-1,
         beta1=0.9,
         beta2=0.95,
         max_norm=1.0,
@@ -74,6 +79,7 @@ def setup(
         flush_logs_every_n_steps=train.log_interval
     )
 
+    devices = parse_devices(devices)
     if devices > 1:
         strategy = FSDPStrategy(auto_wrap_policy={Block}, state_dict_type="full", sharding_strategy="HYBRID_SHARD")
     else:
@@ -85,7 +91,7 @@ def setup(
     if logger_name in ("tensorboard", "wandb"):
         fabric.logger.log_hyperparams(hparams)
 
-    fabric.launch(main, devices, seed, resume, model, data, io, train, eval)
+    fabric.launch(main, devices, seed, resume, config, data, io, train, eval)
 
 
 def main(
@@ -341,7 +347,7 @@ def choose_logger(out_dir: Path, logger_name: str, name: str, resume: Union[bool
     if logger_name == "tensorboard":
         return TensorBoardLogger(root_dir=(out_dir / "logs"), name="tensorboard", *args, **kwargs)
     if logger_name == "wandb":
-        return WandbLogger(project="tinyllama", name=name, resume=(resume is not False), *args, **kwargs)
+        return WandbLogger(project="pretrain", name=name, resume=(resume is not False), *args, **kwargs)
     raise ValueError(f"`logger={logger_name}` is not a valid option.")
 
 
