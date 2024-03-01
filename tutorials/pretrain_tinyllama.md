@@ -104,10 +104,10 @@ python pretrain/pretrain.py
 ```
 
 The script will save checkpoints periodically to the folder `out/`.
-By default, the `pretrain/tinyllama.py` script will pretrain the model with FSDP in
+By default, the `pretrain/pretrain.py` script will pretrain the model with FSDP in
 `bfloat16` mixed precision and gradient accumulation.
 
-Note that the `pretrain/tinyllama.py` is not actually a model-specific training script, so feel free to change
+Note that the `pretrain/pretrain.py` is not actually a model-specific training script, so feel free to change
 the configuration and size by passing a different string to the model name argument, for example:
 
 ```shell
