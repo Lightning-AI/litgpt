@@ -11,7 +11,7 @@ import sys
 import time
 from functools import partial
 from pathlib import Path
-from typing import Tuple, Union, Optional
+from typing import Optional, Tuple, Union
 
 import lightning as L
 import torch
@@ -24,19 +24,19 @@ from torch.utils.data import DataLoader
 from torchmetrics.aggregation import RunningMean
 from typing_extensions import Literal
 
-
 # support running without installing as a package
 wd = Path(__file__).parent.parent.resolve()
 sys.path.append(str(wd))
 
+from lit_gpt import Tokenizer
 from lit_gpt.args import EvalArgs, IOArgs, TrainArgs
+from lit_gpt.data import LitDataModule, TinyLlama
 from lit_gpt.model import GPT, Block, CausalSelfAttention, Config, LLaMAMLP
 from lit_gpt.utils import CLI, CycleIterator, chunked_cross_entropy, num_parameters
-from lit_gpt.data import TinyLlama, LitDataModule
 
 
 def setup(
-    model: Config = Config(name="tiny-llama-1.1b"),
+    model: Config = Config.from_name("tiny-llama-1.1b"),
     logger_name: Literal["wandb", "tensorboard", "csv"] = "tensorboard",
     resume: Union[bool, Path] = False,
     devices: int = torch.cuda.device_count() or 1,
@@ -67,7 +67,10 @@ def setup(
 
     logger = choose_logger(io.out_dir, logger_name, name=f"pretrain-{model.name}", resume=resume)
 
-    strategy = FSDPStrategy(auto_wrap_policy={Block}, state_dict_type="full", sharding_strategy="HYBRID_SHARD")
+    if devices > 1:
+        strategy = FSDPStrategy(auto_wrap_policy={Block}, state_dict_type="full", sharding_strategy="HYBRID_SHARD")
+    else:
+        strategy = "auto"
     fabric = L.Fabric(devices=devices, strategy=strategy, precision="bf16-mixed", loggers=[logger])
     fabric.launch()
 
@@ -94,7 +97,10 @@ def main(
     if fabric.global_rank == 0:
         io.out_dir.mkdir(parents=True, exist_ok=True)
 
-    train_dataloader, val_dataloader = get_dataloaders(fabric, data, train, config.block_size)
+    # in case the dataset requires the Tokenizer
+    tokenizer = Tokenizer(io.checkpoint_dir) if io.checkpoint_dir is not None else None
+
+    train_dataloader, val_dataloader = get_dataloaders(fabric, data, tokenizer, train, config.block_size)
     train_dataloader, val_dataloader = fabric.setup_dataloaders(train_dataloader, val_dataloader)
 
     fabric.seed_everything(seed)  # same seed for every process to init model (FSDP)
@@ -280,8 +286,10 @@ def validate(fabric: L.Fabric, model: nn.Module, val_dataloader: DataLoader, max
     return losses.mean()
 
 
-def get_dataloaders(fabric: L.Fabric, data: LitDataModule, train: TrainArgs, block_size: int) -> Tuple[DataLoader, DataLoader]:
-    data.connect(batch_size=train.micro_batch_size, max_seq_length=block_size)
+def get_dataloaders(
+    fabric: L.Fabric, data: LitDataModule, tokenizer: Tokenizer, train: TrainArgs, block_size: int
+) -> Tuple[DataLoader, DataLoader]:
+    data.connect(tokenizer=tokenizer, batch_size=train.micro_batch_size, max_seq_length=block_size)
     with fabric.rank_zero_first():
         data.prepare_data()
     data.setup()
@@ -331,7 +339,6 @@ def choose_logger(out_dir: Path, logger_name: str, name: str, resume: Union[bool
 def validate_args(io: IOArgs, train: TrainArgs, eval: EvalArgs) -> None:
     issues = []
     unsupported = [
-        (io, ["checkpoint_dir"]),
         (train, ["max_steps", "epochs"]),
         (eval, ["max_new_tokens"]),
     ]
