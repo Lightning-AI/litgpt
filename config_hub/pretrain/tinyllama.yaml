@@ -1,0 +1,53 @@
+model:
+  name: tiny-llama-1.1b
+  hf_config: {}
+  scale_embeddings: false
+  block_size: 4096
+  vocab_size: 50254
+  padding_multiple: 512
+  padded_vocab_size: 50688
+  n_layer: 16
+  n_head: 32
+  head_size: 128
+  n_embd: 4096
+  rotary_percentage: 0.25
+  parallel_residual: true
+  bias: true
+  lm_head_bias: false
+  n_query_groups: 32
+  shared_attention_norm: false
+  norm_eps: 1.0e-05
+  gelu_approximate: none
+  intermediate_size: 16384
+  rope_condense_ratio: 1
+  rope_base: 10000
+  n_expert: 0
+  n_expert_per_token: 0
+logger_name: tensorboard
+resume: false
+devices: auto
+seed: 42
+data: TinyLlama
+io:
+  checkpoint_dir: null
+  out_dir: out/lit-tiny-llama-1.1b
+train:
+  save_interval: 1000
+  log_interval: 1
+  global_batch_size: 512
+  micro_batch_size: 4
+  lr_warmup_steps: 2000
+  epochs: null
+  max_tokens: 3000000000000
+  max_steps: null
+  max_seq_length: null
+  learning_rate: 4e-4
+  weight_decay: 1e-1
+  beta1: 0.9
+  beta2: 0.95
+  max_norm: 1.0
+  min_lr: 4.0e-05
+eval:
+  interval: 1000
+  max_new_tokens: null
+  max_iters: 100
