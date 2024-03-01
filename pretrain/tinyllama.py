@@ -36,7 +36,7 @@ from lit_gpt.data import TinyLlama, LitDataModule
 
 
 def setup(
-    model: Optional[Config] = None,
+    model: Config = Config.from_name("tiny-llama-1.1b"),
     logger_name: Literal["wandb", "tensorboard", "csv"] = "tensorboard",
     resume: Union[bool, Path] = False,
     devices: Union[int, str] = "auto",

@@ -1,24 +1,26 @@
 model:
   name: pythia-70m
-  hf_config: {}
+  hf_config:
+    org: EleutherAI
+    name: pythia-70m
   scale_embeddings: false
-  block_size: 4096
+  block_size: 2048
   vocab_size: 50254
-  padding_multiple: 512
-  padded_vocab_size: 50688
-  n_layer: 16
-  n_head: 32
-  head_size: 128
-  n_embd: 4096
+  padding_multiple: 128
+  padded_vocab_size: 50304
+  n_layer: 6
+  n_head: 8
+  head_size: 64
+  n_embd: 512
   rotary_percentage: 0.25
   parallel_residual: true
   bias: true
   lm_head_bias: false
-  n_query_groups: 32
+  n_query_groups: 8
   shared_attention_norm: false
   norm_eps: 1.0e-05
   gelu_approximate: none
-  intermediate_size: 16384
+  intermediate_size: 2048
   rope_condense_ratio: 1
   rope_base: 10000
   n_expert: 0
