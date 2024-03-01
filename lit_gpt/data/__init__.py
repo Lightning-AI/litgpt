@@ -2,6 +2,7 @@
 
 from lit_gpt.data.base import LitDataModule, SFTDataset, apply_prompt_template, get_sft_collate_fn
 from lit_gpt.data.alpaca import Alpaca
+from lit_gpt.data.alpaca_gpt4 import AlpacaGPT4
 from lit_gpt.data.json import JSON
 from lit_gpt.data.dolly import Dolly
 from lit_gpt.data.flan import FLAN
