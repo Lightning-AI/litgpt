@@ -20,10 +20,10 @@ def fake_bin(tmp_path, data, name):
 @pytest.mark.parametrize(
     ("max_seq_len", "expected"),
     [
-        (2, [([0, 23], [23, 15]), ([15, 63], [63, 0]), ([0, 73], [73, 5]), ([5, 0], [0, 1]), ([1, 1999], [1999, 0])]),
-        (5, [([0, 23, 15, 63, 0], [23, 15, 63, 0, 73]), ([73, 5, 0, 1, 1999], [5, 0, 1, 1999, 0])]),
-        (6, [([0, 23, 15, 63, 0, 73], [23, 15, 63, 0, 73, 5])]),
-        (7, [([0, 23, 15, 63, 0, 73, 5], [23, 15, 63, 0, 73, 5, 0])]),
+        (2, [[0, 23, 15], [15, 63, 0], [0, 73, 5], [5, 0, 1], [1, 1999, 0]]),
+        (5, [[0, 23, 15, 63, 0, 73], [73, 5, 0, 1, 1999, 0]]),
+        (6, [[0, 23, 15, 63, 0, 73, 5]]),
+        (7, [[0, 23, 15, 63, 0, 73, 5, 0]]),
     ],
 )
 def test_pretok_dataset(tmp_path, max_seq_len, expected):
@@ -53,8 +53,7 @@ def test_process_shard(tmp_path):
         def encode(self, text, bos, eos):
             assert bos
             assert not eos
-            out = [self.bos_id] + [ord(c) for c in text]
-            return out
+            return [self.bos_id] + [ord(c) for c in text]
 
     out = StringIO()
     with redirect_stdout(out):
@@ -91,10 +90,4 @@ def test_tinystories_datamodule(tmp_path):
     tr_dataloader = datamodule.train_dataloader()
     torch.manual_seed(0)
     actual = tree_map(torch.Tensor.tolist, list(tr_dataloader))
-    assert actual == [
-        [[[0, 1]], [[1, 1999]]],
-        [[[15, 63]], [[63, 0]]],
-        [[[1999, 0]], [[0, 13]]],
-        [[[0, 23]], [[23, 15]]],
-        [[[73, 5]], [[5, 0]]],
-    ]
+    assert actual == [[[0, 1, 1999]], [[15, 63, 0]], [[1999, 0, 13]], [[0, 23, 15]], [[73, 5, 0]]]

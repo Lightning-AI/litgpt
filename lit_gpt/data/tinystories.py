@@ -78,13 +78,15 @@ class TinyStories(LitDataModule):
         )
 
 
+_URL = "https://huggingface.co/datasets/roneneldan/TinyStories/resolve/main/TinyStories_all_data.tar.gz"
+
+
 def download(data_dir: Path):
     data_dir.mkdir(exist_ok=True)
 
     # download the TinyStories dataset, unless it's already downloaded
-    data_url = "https://huggingface.co/datasets/roneneldan/TinyStories/resolve/main/TinyStories_all_data.tar.gz"
     data_filename = data_dir / "TinyStories_all_data.tar.gz"
-    download_if_missing(data_filename, data_url, stream=True, mode="wb")
+    download_if_missing(data_filename, _URL, stream=True, mode="wb")
     print("Download done.")
 
     # unpack the tar.gz file into all the data shards (json files)
