@@ -33,12 +33,7 @@ from lit_gpt import Tokenizer
 from lit_gpt.args import EvalArgs, IOArgs, TrainArgs
 from lit_gpt.data import LitDataModule, TinyLlama
 from lit_gpt.model import GPT, Block, CausalSelfAttention, Config, LLaMAMLP
-<<<<<<< HEAD:pretrain/tinyllama.py
 from lit_gpt.utils import CLI, CycleIterator, chunked_cross_entropy, num_parameters
-=======
-from lit_gpt.utils import CLI, CycleIterator, chunked_cross_entropy, num_parameters, parse_devices
-from lit_gpt.data import TinyLlama, LitDataModule
->>>>>>> wip:pretrain/pretrain.py
 
 
 def setup(
@@ -69,17 +64,17 @@ def setup(
 ):
     hparams = locals()
     data = TinyLlama() if data is None else data
-    model = Config.from_name("tiny-llama-1.1b") if model is None else model
+    config = Config.from_name("tiny-llama-1.1b") if model is None else model
+    devices = parse_devices(devices)
 
     logger = choose_logger(
         io.out_dir,
         logger_name,
-        name=f"pretrain-{model.name}",
+        name=f"pretrain-{config.name}",
         resume=resume,
         flush_logs_every_n_steps=train.log_interval
     )
 
-    devices = parse_devices(devices)
     if devices > 1:
         strategy = FSDPStrategy(auto_wrap_policy={Block}, state_dict_type="full", sharding_strategy="HYBRID_SHARD")
     else:
