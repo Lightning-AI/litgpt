@@ -37,7 +37,7 @@ from lit_gpt.utils import CLI, CycleIterator, chunked_cross_entropy, num_paramet
 
 
 def setup(
-    model: Config = Config.from_name("tiny-llama-1.1b"),
+    model: Optional[Config] = None,
     logger_name: Literal["wandb", "tensorboard", "csv"] = "tensorboard",
     resume: Union[bool, Path] = False,
     devices: int = torch.cuda.device_count() or 1,
@@ -63,8 +63,8 @@ def setup(
     eval: EvalArgs = EvalArgs(interval=1000, max_iters=100),
 ):
     hparams = locals()
-    if data is None:
-        data = TinyLlama()
+    data = TinyLlama() if data is None else data
+    model = Config.from_name("tiny-llama-1.1b") if model is None else model
 
     logger = choose_logger(io.out_dir, logger_name, name=f"pretrain-{model.name}", resume=resume)
 
@@ -110,6 +110,9 @@ def main(
     with fabric.init_module(empty_init=False):
         model = GPT(config)
         model.apply(partial(init_weights, n_layer=config.n_layer, n_embd=config.n_embd))
+
+    # FIXME
+    model.transformer.wte.weight = model.lm_head.weight
 
     fabric.print(f"Time to instantiate model: {time.perf_counter() - t0:.02f} seconds.")
     fabric.print(f"Total parameters: {num_parameters(model):,}")

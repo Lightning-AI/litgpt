@@ -8,6 +8,7 @@ model:
   n_head: 6
   n_query_groups: 6
   n_embd: 288
+  head_size: 48
   rotary_percentage: 1.0
   parallel_residual: false
   bias: false
@@ -34,7 +35,8 @@ train:
   global_batch_size: 512
   micro_batch_size: 128
   lr_warmup_steps: 1000
-  max_tokens: 3000000000
+  # original did 298,000 iters
+  max_tokens: 9700000000
   max_seq_length: ${model.block_size}
   learning_rate: 0.0005
   weight_decay: 0.1
