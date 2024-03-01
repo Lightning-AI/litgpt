@@ -25,7 +25,7 @@ model:
   n_expert_per_token: 0
 logger_name: tensorboard
 resume: false
-devices: 1
+devices: auto
 seed: 42
 data: TinyLlama
 io:
