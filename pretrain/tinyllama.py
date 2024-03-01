@@ -36,11 +36,11 @@ from lit_gpt.data import TinyLlama, LitDataModule
 
 
 def setup(
-    model: Config = Config(name="tiny-llama-1.1b"),
+    model: Config = Config(name="pythia-70m"),
     logger_name: Literal["wandb", "tensorboard", "csv"] = "tensorboard",
     resume: Union[bool, Path] = False,
     devices: int = torch.cuda.device_count() or 1,
-    seed: int = 1337,
+    seed: int = 42,
     data: Optional[LitDataModule] = None,
     io: IOArgs = IOArgs(
         out_dir=Path(os.getenv("LIGHTNING_ARTIFACTS_DIR", "out")) / "lit-tiny-llama-1.1b",
@@ -51,8 +51,8 @@ def setup(
         global_batch_size=512,
         micro_batch_size=4,
         max_tokens=int(3e12),  # 3 trillion
-        learning_rate=1e-1,
-        weight_decay=4e-4,
+        learning_rate=4e-4,
+        weight_decay=1e-1,
         beta1=0.9,
         beta2=0.95,
         max_norm=1.0,
@@ -62,10 +62,10 @@ def setup(
     eval: EvalArgs = EvalArgs(interval=1000, max_iters=100),
 ):
     hparams = locals()
-    if data is None:
-        data = TinyLlama()
+    data = TinyLlama() if data is None else data
+    config = Config(name="tiny-llama-1.1b") if model is None else model
 
-    logger = choose_logger(io.out_dir, logger_name, name=f"pretrain-{model.name}", resume=resume)
+    logger = choose_logger(io.out_dir, logger_name, name=f"pretrain-{config.name}", resume=resume)
 
     strategy = FSDPStrategy(auto_wrap_policy={Block}, state_dict_type="full", sharding_strategy="HYBRID_SHARD")
     fabric = L.Fabric(devices=devices, strategy=strategy, precision="bf16-mixed", loggers=[logger])
@@ -75,7 +75,7 @@ def setup(
     if logger_name in ("tensorboard", "wandb"):
         fabric.logger.log_hyperparams(hparams)
 
-    fabric.launch(main, devices, seed, resume, model, data, io, train, eval)
+    fabric.launch(main, devices, seed, resume, config, data, io, train, eval)
 
 
 def main(
