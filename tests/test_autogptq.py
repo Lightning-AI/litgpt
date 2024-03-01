@@ -7,13 +7,9 @@ from conftest import RunIf
 
 @RunIf(min_cuda_gpus=1)
 @pytest.mark.parametrize("bits", [2, 3, 4, 8], ids=[f"{bit}bit" for bit in (2, 3, 4, 8)])
+@pytest.mark.parametrize("group_size", [32, 128], ids=[f"{gs}gs" for gs in (32, 128)])
 @pytest.mark.parametrize("mlp_class", ("GptNeoxMLP", "LLaMAMLP", "LLaMAMoE"))
-def test_quantization(
-    tmp_path, fake_checkpoint_dir, monkeypatch, bits, group_size, use_triton, static_groups, desc_act, mlp_class
-):
-    if use_triton and bits == 3:
-        pytest.skip("Triton doesn't support 3bit precision.")
-
+def test_quantization(tmp_path, fake_checkpoint_dir, monkeypatch, bits, group_size, mlp_class):
     import json
     import math
     from contextlib import redirect_stdout
@@ -37,10 +33,10 @@ def test_quantization(
     config = Config(
         padded_vocab_size=10_000,
         n_layer=2,
-        n_embd=2 * group_size,
+        n_embd=128,
         n_head=8,
         n_query_groups=2,
-        intermediate_size=group_size,
+        intermediate_size=256,
         _mlp_class=mlp_class,
         n_expert=4 if mlp_class == "LLaMAMoE" else 0,
         n_expert_per_token=2 if mlp_class == "LLaMAMoE" else 0,
@@ -62,9 +58,6 @@ def test_quantization(
             checkpoint_dir=fake_checkpoint_dir,
             bits=bits,
             group_size=group_size,
-            use_triton=use_triton,
-            desc_act=desc_act,
-            static_groups=static_groups,
         )
     assert "Quantization time" in stdout.getvalue()
 
@@ -123,7 +116,7 @@ def test_quantization(
 @pytest.mark.flaky(reruns=3)
 @pytest.mark.parametrize("kernel", ("cuda_old", "cuda", "exllama", "exllamav2", "triton", "marlin"))
 @pytest.mark.parametrize("bits", [2, 3, 4, 8], ids=[f"{bit}bit" for bit in (2, 3, 4, 8)])
-@pytest.mark.parametrize("group_size", [32, 128], ids=[f"{gs}group_size" for gs in (32, 128)])
+@pytest.mark.parametrize("group_size", [32, 128], ids=[f"{gs}gs" for gs in (32, 128)])
 @pytest.mark.parametrize("desc_act", (True, False), ids=["desc_act", ""])
 @pytest.mark.parametrize("sym", (True, False), ids=["sym", ""])
 @pytest.mark.parametrize("mlp_class", ("GptNeoxMLP", "LLaMAMLP", "LLaMAMoE"))
@@ -136,12 +129,12 @@ def test_layer_conversion(kernel, bits, group_size, desc_act, sym, mlp_class):
     from quantize.autogptq import AutoGPTQ, QuantizeConfig
 
     # Prepare model's config
-    # NOTE: carefully select `n_query_groups` so the dimension of a layer fits
-    # Marlin requirements: in_features divisible by 128 and out_features - by 256
+    # NOTE: Marlin layer requires `in_features` to be divisible by 128
+    # and `out_features` - by 126. Specify config accordingly
     config = Config(
         padded_vocab_size=10_000,
         n_layer=2,
-        n_embd=128,
+        n_embd=256,
         n_head=8,
         n_query_groups=4,
         intermediate_size=256,
@@ -163,7 +156,7 @@ def test_layer_conversion(kernel, bits, group_size, desc_act, sym, mlp_class):
     ):
         with pytest.raises(ValueError, match="doesn't support") as e_info:
             quantize_config = QuantizeConfig(bits=bits, group_size=group_size, kernel=kernel)
-        pytest.skip(str(e_info))
+        pytest.skip(str(e_info.value))
 
     quantize_config = QuantizeConfig(bits=bits, group_size=group_size, kernel=kernel, desc_act=desc_act, sym=sym)
 
@@ -207,9 +200,9 @@ def test_marlin_conversion(kernel, tmp_path):
     from quantize.autogptq import AutoGPTQ, QuantizeConfig
 
     # Prepare model's config
-    # NOTE: carefully select `n_query_groups` so the dimension of a layer fits
-    # Marlin requirements: in_features divisible by 128 and out_features - by 256
-    config = Config(padded_vocab_size=10_000, n_layer=2, n_embd=128, n_head=8, n_query_groups=4, intermediate_size=256)
+    # NOTE: Marlin layer requires `in_features` to be divisible by 128
+    # and `out_features` - by 126. Specify config accordingly
+    config = Config(padded_vocab_size=10_000, n_layer=2, n_embd=256, n_head=8, n_query_groups=4, intermediate_size=256)
 
     # Create a model: it has to be on a GPU and with float16 precision
     device = "cuda:0"

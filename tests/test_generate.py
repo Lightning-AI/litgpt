@@ -119,13 +119,15 @@ def test_main_with_gptq(tmp_path, fake_checkpoint_dir, monkeypatch, tensor_like,
     torch.save(data, tmp_path / "test.pt")
 
     # Prepare model's config
+    # NOTE: Marlin layer requires `in_features` to be divisible by 128
+    # and `out_features` - by 126. Specify config accordingly
     config = Config(
         padded_vocab_size=10_000,
         n_layer=2,
         n_embd=256,
         n_head=8,
-        n_query_groups=2,
-        intermediate_size=128,
+        n_query_groups=4,
+        intermediate_size=256,
     )
     config_path = fake_checkpoint_dir / "lit_config.json"
     config_path.write_text(json.dumps(asdict(config)))
