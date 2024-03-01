@@ -109,7 +109,7 @@ python generate/base.py --checkpoint_dir ... --quantize gptq.int4 --kernel ...
 |------------------|----------------------------------------------------------------------------------------------------------|
 | *checkpoint_dir* | Directory where the quantized weight are located.                                                        |
 | *quantize*       | `gptq.intX`, where X - number of bits. Select the same number of bits that was used during quantization. |
-| *kernel*         | You can override the kernel that was used during quantization (in most cases it's `exllama`).            |
+| *gptq_kernel*    | You can override the kernel that was used during quantization (in most cases it's `exllama`).            |
 
 If kernel is `Marlin`, then the quantized weights will be repacked. Since the process might take a while we utilize caching, which will speed up subsequent script executions.
 

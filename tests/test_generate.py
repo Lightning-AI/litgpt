@@ -179,7 +179,7 @@ def test_main_with_gptq(tmp_path, fake_checkpoint_dir, monkeypatch, tensor_like,
             num_samples=num_samples,
             checkpoint_dir=fake_checkpoint_dir,
             quantize=f"gptq.int{bits}",
-            kernel=kernel,
+            gptq_kernel=kernel,
         )
     assert len(tokenizer_mock.return_value.decode.mock_calls) == num_samples
     assert torch.allclose(tokenizer_mock.return_value.decode.call_args[0][0], generate_mock.return_value)
