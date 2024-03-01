@@ -6,7 +6,7 @@ def test_dolly(mock_tockenizer, dolly_path):
     alpaca = Dolly(
         test_split_fraction=0.5,
         download_dir=dolly_path.parent,
-        data_file_name=dolly_path.name,
+        file_name=dolly_path.name,
         num_workers=0,
     )
     alpaca.connect(mock_tockenizer, batch_size=2, max_seq_length=10)
