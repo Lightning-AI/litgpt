@@ -84,7 +84,6 @@ def main(
 
     fabric.seed_everything(seed, workers=True)  # same seed for every process to init model (FSDP)
 
-    fabric.print(f"Loading model with {config.__dict__}")
     t0 = time.perf_counter()
     with fabric.init_module(empty_init=(fabric.world_size > 1)):
         model = GPT(config)

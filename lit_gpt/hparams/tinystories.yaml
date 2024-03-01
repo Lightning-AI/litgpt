@@ -34,8 +34,7 @@ train:
   global_batch_size: 512
   micro_batch_size: 128
   lr_warmup_steps: 1000
-  # update this if # of devices changes
-  max_tokens: 50000
+  max_tokens: 3000000000
   max_seq_length: ${model.block_size}
   learning_rate: 0.0005
   weight_decay: 0.1

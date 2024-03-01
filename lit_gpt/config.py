@@ -52,9 +52,10 @@ class Config:
     # credit https://arxiv.org/pdf/2305.13245.pdf
     n_query_groups: Optional[int] = None
     shared_attention_norm: bool = False
-    _norm_class: Literal["LayerNorm", "RMSNorm"] = "LayerNorm"
+    # FIXME: https://github.com/Lightning-AI/lit-gpt/issues/979
+    _norm_class: Literal["LayerNorm", "RMSNorm"] = "RMSNorm"
     norm_eps: float = 1e-5
-    _mlp_class: Literal["GptNeoxMLP", "LLaMAMLP", "GemmaMLP", "LLaMAMoE"] = "GptNeoxMLP"
+    _mlp_class: Literal["GptNeoxMLP", "LLaMAMLP", "GemmaMLP", "LLaMAMoE"] = "LLaMAMLP"
     gelu_approximate: str = "none"
     intermediate_size: Optional[int] = None
     rope_condense_ratio: int = 1
@@ -86,7 +87,7 @@ class Config:
         # compute the intermediate size for MLP if not set
         if self.intermediate_size is None:
             if self._mlp_class == "LLaMAMLP":
-                raise ValueError("The config needs to set the `intermediate_size`")
+                raise ValueError(f"The config {self.name!r}, needs to set the `intermediate_size`")
             self.intermediate_size = 4 * self.n_embd
 
         self.rope_n_elem = int(self.rotary_percentage * self.head_size)

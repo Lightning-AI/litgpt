@@ -92,18 +92,19 @@ def download(data_dir: Path):
     # unpack the tar.gz file into all the data shards (json files)
     data_dir = data_dir / "TinyStories_all_data"
     shard_filenames = sorted(glob.glob(str(data_dir / "*.json")))
-    if data_dir.exists() and shard_filenames:
+    if shard_filenames:
         print(f"{data_dir} already exists, skipping unpacking...")
     else:
         data_dir.mkdir(exist_ok=True)
         print(f"Unpacking {data_filename}...")
         os.system(f"tar -xzf {data_filename} -C {data_dir}")
+        shard_filenames = sorted(glob.glob(str(data_dir / "*.json")))
 
-    # print a single example just for debugging and such
-    with open(shard_filenames[0], "r") as f:
-        data = json.load(f)
     print(f"Number of shards: {len(shard_filenames)}")
-    print(f"Example story:\n{data[0]}")
+    # print a single example just for debugging and such
+    # with open(shard_filenames[0], "r") as f:
+    #     data = json.load(f)
+    # print(f"Example story:\n{data[0]}")
 
 
 def process_shard(args, tokenizer):

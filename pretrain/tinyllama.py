@@ -10,6 +10,7 @@ import os
 import sys
 import time
 from functools import partial
+from datetime import timedelta
 from pathlib import Path
 from typing import Optional, Tuple, Union
 
@@ -105,7 +106,6 @@ def main(
 
     fabric.seed_everything(seed)  # same seed for every process to init model (FSDP)
 
-    fabric.print(f"Loading model with {config.__dict__}")
     t0 = time.perf_counter()
     with fabric.init_module(empty_init=False):
         model = GPT(config)
@@ -243,7 +243,7 @@ def fit(
             fabric.print(
                 f"iter {metrics['iter']} | step {metrics['step']}: loss {metrics['loss']:.4f}, iter time:"
                 f" {metrics['iter_time'] * 1000:.2f} ms{' (optimizer.step),' if not is_accumulating else ','}"
-                f" remaining time: {metrics['remaining_time'] / 3600 / 24:.2f} days"
+                f" remaining time: {timedelta(seconds=int(metrics['remaining_time']))!s}"
             )
 
             throughput_metrics = throughput.compute()

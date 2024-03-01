@@ -106,7 +106,6 @@ def main(
         os.makedirs(io.out_dir, exist_ok=True)
 
     checkpoint_path = io.checkpoint_dir / "lit_model.pth"
-    fabric.print(f"Loading model {str(checkpoint_path)!r} with {config.__dict__}")
     with fabric.init_module(empty_init=(devices > 1)):
         model = GPT(config)
 
