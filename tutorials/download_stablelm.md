@@ -8,12 +8,19 @@ To see all the available checkpoints for StableLM, run:
 python scripts/download.py | grep stablelm
 ```
 
-which will print
+which will print:
 
 ```text
+stabilityai/stablelm-base-alpha-3b
+stabilityai/stablelm-base-alpha-7b
+stabilityai/stablelm-tuned-alpha-3b
+stabilityai/stablelm-tuned-alpha-7b
 stabilityai/stablelm-3b-4e1t
 stabilityai/stablelm-zephyr-3b
 ```
+
+> [!Important]
+> `stablelm-base-alpha-(3,7)b` and `stablelm-tuned-alpha-(3,7)b` are deprecated and are no longer in the StableLM collection. Last time these models were updated in April 2023. Consider using `stablelm-3b-4e1t` (base model) or `stablelm-zephyr-3b` (instruct fine-tuned).
 
 ### StableLM-3B-4E1T
 
