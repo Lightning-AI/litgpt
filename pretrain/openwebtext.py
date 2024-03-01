@@ -21,7 +21,14 @@ sys.path.append(str(wd))
 from lit_gpt import Config
 from lit_gpt.args import EvalArgs, IOArgs, TrainArgs
 from lit_gpt.model import GPT, Block
-from lit_gpt.utils import CLI, chunked_cross_entropy, estimate_flops, get_default_supported_precision, num_parameters
+from lit_gpt.utils import (
+    CLI,
+    chunked_cross_entropy,
+    estimate_flops,
+    get_default_supported_precision,
+    num_parameters,
+    copy_config_files,
+)
 
 
 def setup(
@@ -210,6 +217,9 @@ def fit(
             checkpoint_path = io.out_dir / f"iter-{iter_num:06d}-ckpt.pth"
             fabric.print(f"Saving checkpoint to {str(checkpoint_path)!r}")
             fabric.save(checkpoint_path, state)
+
+    # Copy checkpoint files from original checkpoint dir
+    copy_config_files(io.checkpoint_dir, io.out_dir)
 
 
 # FSDP has issues with `inference_mode`

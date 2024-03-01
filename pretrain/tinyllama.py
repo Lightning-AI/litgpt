@@ -31,8 +31,14 @@ sys.path.append(str(wd))
 
 from lit_gpt.args import EvalArgs, IOArgs, TrainArgs
 from lit_gpt.model import GPT, Block, CausalSelfAttention, Config, LLaMAMLP
-from lit_gpt.utils import CLI, CycleIterator, chunked_cross_entropy, num_parameters
 from lit_gpt.data import TinyLlama, LitDataModule
+from lit_gpt.utils import (
+    CLI,
+    CycleIterator,
+    chunked_cross_entropy,
+    num_parameters,
+    copy_config_files,
+)
 
 
 def setup(
@@ -256,6 +262,9 @@ def fit(
             checkpoint_path = io.out_dir / f"step-{state['step_count']:08d}.pth"
             fabric.print(f"Saving checkpoint to {str(checkpoint_path)!r}")
             fabric.save(checkpoint_path, state)
+
+    # Copy checkpoint files from original checkpoint dir
+    copy_config_files(io.checkpoint_dir, io.out_dir)
 
 
 @torch.no_grad()

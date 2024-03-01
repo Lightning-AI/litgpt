@@ -28,6 +28,7 @@ from lit_gpt.utils import (
     get_default_supported_precision,
     load_checkpoint,
     num_parameters,
+    copy_config_files,
 )
 from scripts.prepare_alpaca import generate_prompt
 
@@ -132,7 +133,9 @@ def main(
         fabric.print(f"Memory used: {torch.cuda.max_memory_allocated() / 1e9:.02f} GB")
 
     # Save the final checkpoint at the end of training
-    fabric.save(io.out_dir / "lit_model_finetuned.pth", {"model": state["model"]})
+    fabric.save(io.out_dir / "lit_model.pth", {"model": state["model"]})
+    # Copy checkpoint files from original checkpoint dir
+    copy_config_files(io.checkpoint_dir, io.out_dir)
 
 
 def fit(
