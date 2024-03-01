@@ -15,7 +15,7 @@ from torch.utils.data import DataLoader
 # Set CUDA_VISIBLE_DEVICES for FSDP hybrid-shard, if fewer GPUs are used than are available
 @mock.patch.dict(os.environ, {"CUDA_VISIBLE_DEVICES": "0,1"})
 def test_pretrain_tiny_llama(tmp_path, monkeypatch):
-    import pretrain.tinyllama as module
+    import pretrain.pretrain as module
     from lit_gpt.args import EvalArgs, IOArgs, TrainArgs
     from lit_gpt.config import Config
 

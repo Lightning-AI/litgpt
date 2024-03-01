@@ -329,7 +329,7 @@ def choose_logger(out_dir: Path, logger_name: str, name: str, resume: Union[bool
     if logger_name == "tensorboard":
         return TensorBoardLogger(root_dir=(out_dir / "logs"), name="tensorboard", *args, **kwargs)
     if logger_name == "wandb":
-        return WandbLogger(project="tinyllama", name=name, resume=(resume is not False), *args, **kwargs)
+        return WandbLogger(project="pretrain", name=name, resume=(resume is not False), *args, **kwargs)
     raise ValueError(f"`logger={logger_name}` is not a valid option.")
 
 
