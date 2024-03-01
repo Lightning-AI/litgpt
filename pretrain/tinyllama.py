@@ -31,7 +31,7 @@ sys.path.append(str(wd))
 
 from lit_gpt.args import EvalArgs, IOArgs, TrainArgs
 from lit_gpt.model import GPT, Block, CausalSelfAttention, Config, LLaMAMLP
-from lit_gpt.utils import CLI, CycleIterator, chunked_cross_entropy, num_parameters
+from lit_gpt.utils import CLI, CycleIterator, chunked_cross_entropy, num_parameters, parse_devices
 from lit_gpt.data import TinyLlama, LitDataModule
 
 
@@ -39,7 +39,7 @@ def setup(
     model: Optional[Config] = None,
     logger_name: Literal["wandb", "tensorboard", "csv"] = "tensorboard",
     resume: Union[bool, Path] = False,
-    devices: int = torch.cuda.device_count() or 1,
+    devices: Union[int, str] = "auto",
     seed: int = 42,
     data: Optional[LitDataModule] = None,
     io: IOArgs = IOArgs(
@@ -64,10 +64,15 @@ def setup(
     hparams = locals()
     data = TinyLlama() if data is None else data
     config = Config.from_name("tiny-llama-1.1b") if model is None else model
+    devices = parse_devices(devices)
 
     logger = choose_logger(io.out_dir, logger_name, name=f"pretrain-{config.name}", resume=resume)
 
-    strategy = FSDPStrategy(auto_wrap_policy={Block}, state_dict_type="full", sharding_strategy="HYBRID_SHARD")
+    if devices > 1:
+        strategy = FSDPStrategy(auto_wrap_policy={Block}, state_dict_type="full", sharding_strategy="HYBRID_SHARD")
+    else:
+        strategy = "auto"
+
     fabric = L.Fabric(devices=devices, strategy=strategy, precision="bf16-mixed", loggers=[logger])
     fabric.launch()
 
