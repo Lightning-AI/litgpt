@@ -6,7 +6,7 @@ def test_alpaca(mock_tockenizer, alpaca_path):
     alpaca = Alpaca(
         test_split_fraction=0.5,
         download_dir=alpaca_path.parent,
-        data_file_name=alpaca_path.name,
+        file_name=alpaca_path.name,
         num_workers=0,
     )
     alpaca.connect(mock_tockenizer, batch_size=2, max_seq_length=10)
