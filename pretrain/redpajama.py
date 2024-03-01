@@ -40,6 +40,7 @@ def setup(
     val_data_dir: Optional[Path] = None,
     precision: Optional[str] = None,
     resume: Union[bool, Path] = False,
+    seed: int = 1337,
     devices: int = 4,
     io: IOArgs = IOArgs(train_data_dir=Path("data/redpajama_sample"), val_data_dir=None, out_dir=Path("out/redpajama")),
     train: TrainArgs = TrainArgs(
@@ -76,13 +77,14 @@ def setup(
     logger = CSVLogger(io.out_dir.parent, io.out_dir.name, flush_logs_every_n_steps=train.log_interval)
     fabric = L.Fabric(devices=devices, strategy=strategy, precision=precision, loggers=logger)
 
-    fabric.launch(main, devices, resume, Config.from_name(name=model_name), io, train, eval)
+    fabric.launch(main, devices, resume, seed, Config.from_name(name=model_name), io, train, eval)
 
 
 def main(
     fabric: L.Fabric,
     devices: int,
     resume: Union[bool, Path],
+    seed: int,
     config: Config,
     io: IOArgs,
     train: TrainArgs,
@@ -99,14 +101,14 @@ def main(
         fabric=fabric,
         train_data_dir=io.train_data_dir,
         val_data_dir=io.val_data_dir,
-        seed=(1337 + fabric.global_rank),
+        seed=(seed + fabric.global_rank),
     )
     if val_dataloader is None:
         train_dataloader = fabric.setup_dataloaders(train_dataloader)
     else:
         train_dataloader, val_dataloader = fabric.setup_dataloaders(train_dataloader, val_dataloader)
 
-    fabric.seed_everything(1337)  # same seed for every process to init model (FSDP)
+    fabric.seed_everything(seed)  # same seed for every process to init model (FSDP)
 
     fabric.print(f"Loading model with {config.__dict__}")
     t0 = time.perf_counter()
