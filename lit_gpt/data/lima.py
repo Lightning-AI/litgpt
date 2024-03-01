@@ -1,6 +1,7 @@
 # Copyright Lightning AI. Licensed under the Apache License 2.0, see LICENSE file.
 """Implementation derived from https://github.com/tloen/alpaca-lora"""
 import os
+from dataclasses import dataclass, field
 
 from typing import Optional, List
 
@@ -11,45 +12,41 @@ from lit_gpt.data.alpaca import prompt_template
 from lit_gpt.tokenizer import Tokenizer
 
 
+@dataclass
 class LIMA(LitDataModule):
-    """LIMA data module for supervised finetuning.
+    """LIMA data module for supervised finetuning."""
 
-    Provides train- and val-dataloaders. The batches return keys "input_ids" and "labels".
-    """
+    mask_prompt: bool = False
+    """Whether to mask the prompt section from the label (with ``ignore_index``)."""
+    test_split_fraction: float = 0.1
+    """The fraction of the dataset to use for the test/validation dataset. The rest is used for training."""
+    ignore_index: int = -1
+    """The index to use for elements to be ignored in the label."""
+    seed: int = 42
+    """The random seed for creating the train/val splits and shuffling the dataset."""
+    num_workers: int = 4
+    """How many DataLoader processes to use for loading."""
+    include_multiturn_conversations: bool = False
+    """Whether to include multi-turn conversations in the dataset."""
+    repo_id: str = "GAIR/lima"
+    """The Hugging Face dataset repository ID from where to download the data."""
+    access_token: Optional[str] = field(repr=False, default=os.getenv("HF_TOKEN"))
+    """The Hugging Face API token to use for authentication. Can also be set through the
+    `HF_TOKEN` environment variable."""
 
-    def __init__(
-        self,
-        mask_prompt: bool = False,
-        test_split_fraction: float = 0.1,
-        ignore_index: int = -1,
-        seed: int = 42,
-        include_multiturn_conversations: bool = False,
-        data_repo_id: str = "GAIR/lima",
-        access_token: Optional[str] = os.getenv("HF_TOKEN"),
-        num_workers: int = 4,
-    ) -> None:
-        super().__init__()
-        if access_token is None:
+    tokenizer: Optional[Tokenizer] = field(default=None, init=False, repr=False)
+    batch_size: int = field(default=1, init=False, repr=False)
+    max_seq_length: int = field(default=-1, init=False, repr=False)
+    train_dataset: Optional[SFTDataset] = field(default=None, init=False, repr=False)
+    test_dataset: Optional[SFTDataset] = field(default=None, init=False, repr=False)
+
+    def __post_init__(self):
+        if self.access_token is None:
             raise ValueError(
                 "LIMA requires authentication, please set the `HF_TOKEN=your_token` environment"
                 " variable or pass --access_token=your_token. You can find your token by visiting"
                 " https://huggingface.co/settings/tokens"
             )
-        self.mask_prompt = mask_prompt
-        self.test_split_fraction = test_split_fraction
-        self.ignore_index = ignore_index
-        self.seed = seed
-        self.num_workers = num_workers
-
-        self.access_token = access_token
-        self.data_repo_id = data_repo_id
-        self.include_multiturn_conversations = include_multiturn_conversations
-
-        self.tokenizer: Optional[Tokenizer] = None
-        self.batch_size = 1
-        self.max_seq_length = -1
-        self.train_dataset: Optional[SFTDataset] = None
-        self.test_dataset: Optional[SFTDataset] = None
 
     def connect(
         self,
@@ -64,12 +61,12 @@ class LIMA(LitDataModule):
     def prepare_data(self) -> None:
         from datasets import load_dataset
 
-        load_dataset(self.data_repo_id, token=self.access_token)
+        load_dataset(self.repo_id, token=self.access_token)
 
     def setup(self, stage: str = "") -> None:
         from datasets import load_dataset
 
-        dataset = load_dataset(self.data_repo_id, token=self.access_token)
+        dataset = load_dataset(self.repo_id, token=self.access_token)
         data = format_dataset(dataset["train"], self.include_multiturn_conversations)
 
         # Partition the dataset into train and test
@@ -114,17 +111,6 @@ class LIMA(LitDataModule):
             shuffle=False,
             num_workers=self.num_workers,
             collate_fn=get_sft_collate_fn(max_seq_length=self.max_seq_length, ignore_index=self.ignore_index)
-        )
-
-    def __repr__(self) -> str:
-        return (
-            f"{self.__class__.__name__}("
-            f"mask_prompt={self.mask_prompt}, "
-            f"test_split_fraction={self.test_split_fraction}, "
-            f"seed={self.seed}, "
-            f"num_workers={self.num_workers}, "
-            f"include_multiturn_conversations={self.include_multiturn_conversations}, "
-            "...)"
         )
 
 

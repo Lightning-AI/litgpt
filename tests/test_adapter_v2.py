@@ -94,7 +94,7 @@ def test_adapter_v2_script(tmp_path, fake_checkpoint_dir, monkeypatch, alpaca_pa
         module.setup(
             data=Alpaca(
                 download_dir=alpaca_path.parent,
-                data_file_name=alpaca_path.name,
+                file_name=alpaca_path.name,
                 test_split_fraction=0.5,
                 num_workers=0
             ),
@@ -253,7 +253,7 @@ def test_adapter_v2_bitsandbytes(monkeypatch, tmp_path, fake_checkpoint_dir, alp
         module.setup(
             data=Alpaca(
                 download_dir=alpaca_path.parent,
-                data_file_name=alpaca_path.name,
+                file_name=alpaca_path.name,
                 test_split_fraction=0.5,
                 num_workers=0
             ),
