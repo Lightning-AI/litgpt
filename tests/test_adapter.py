@@ -170,7 +170,8 @@ def test_adapter_bitsandbytes(monkeypatch, tmp_path, fake_checkpoint_dir, alpaca
             ),
             precision="16-true",
             quantize="bnb.nf4-dq",
-            io=IOArgs(checkpoint_dir=fake_checkpoint_dir, out_dir=tmp_path),
+            checkpoint_dir=fake_checkpoint_dir,
+            out_dir=tmp_path,
         )
 
     args, kwargs = train_mock.call_args
