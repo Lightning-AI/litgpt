@@ -136,7 +136,6 @@ def test_adapter_compile():
 
 @RunIf(min_cuda_gpus=1)
 def test_adapter_bitsandbytes(monkeypatch, tmp_path, fake_checkpoint_dir, alpaca_path):
-    from lit_gpt.args import IOArgs
     from lit_gpt.config import name_to_config
     from lit_gpt.data import Alpaca
     import finetune.adapter as module
