@@ -19,7 +19,7 @@ wd = Path(__file__).parent.parent.resolve()
 sys.path.append(str(wd))
 
 from generate.base import generate
-from lit_gpt.args import EvalArgs, IOArgs, TrainArgs
+from lit_gpt.args import EvalArgs, TrainArgs, LoraArgs
 from lit_gpt.data import LitDataModule, Alpaca, apply_prompt_template
 from lit_gpt.lora import GPT, Block, Config, lora_filter, mark_only_lora_as_trainable
 from lit_gpt.tokenizer import Tokenizer
@@ -40,20 +40,20 @@ def setup(
     quantize: Optional[Literal["bnb.nf4", "bnb.nf4-dq", "bnb.fp4", "bnb.fp4-dq", "bnb.int8-training"]] = None,
     devices: Union[int, str] = 1,
     seed: int = 1337,
-    lora_r: int = 8,
-    lora_alpha: int = 16,
-    lora_dropout: float = 0.05,
-    lora_query: bool = True,
-    lora_key: bool = False,
-    lora_value: bool = True,
-    lora_projection: bool = False,
-    lora_mlp: bool = False,
-    lora_head: bool = False,
-    data: Optional[LitDataModule] = None,
-    io: IOArgs = IOArgs(
-        checkpoint_dir=Path("checkpoints/stabilityai/stablelm-base-alpha-3b"),
-        out_dir=Path("out/lora"),
+    lora: LoraArgs = LoraArgs(
+        r=8,
+        alpha=16,
+        dropout=0.05,
+        to_query=True,
+        to_key=False,
+        to_value=True,
+        to_projection=False,
+        to_mlp=False,
+        to_head=False,
     ),
+    data: Optional[LitDataModule] = None,
+    checkpoint_dir: Path = Path("checkpoints/stabilityai/stablelm-base-alpha-3b"),
+    out_dir: Path = Path("out/lora"),
     train: TrainArgs = TrainArgs(
         save_interval=1000,
         log_interval=1,
@@ -97,40 +97,28 @@ def setup(
     else:
         strategy = "auto"
 
-    logger = CSVLogger(io.out_dir.parent, io.out_dir.name, flush_logs_every_n_steps=train.log_interval)
+    logger = CSVLogger(out_dir.parent, out_dir.name, flush_logs_every_n_steps=train.log_interval)
     fabric = L.Fabric(devices=devices, strategy=strategy, precision=precision, loggers=logger, plugins=plugins)
 
-    if not any((lora_query, lora_key, lora_value, lora_projection, lora_mlp, lora_head)):
-        fabric.print("Warning: all LoRA layers are disabled!")
     fabric.launch(
         main,
         devices,
         seed,
-        Config.from_name(
-            name=io.checkpoint_dir.name,
-            r=lora_r,
-            alpha=lora_alpha,
-            dropout=lora_dropout,
-            to_query=lora_query,
-            to_key=lora_key,
-            to_value=lora_value,
-            to_projection=lora_projection,
-            to_mlp=lora_mlp,
-            to_head=lora_head,
-        ),
+        Config.from_name(name=checkpoint_dir.name, **dataclasses.asdict(lora)),
         data,
-        io,
+        checkpoint_dir,
+        out_dir,
         train,
         eval,
     )
 
 
-def main(fabric: L.Fabric, devices: int, seed: int, config: Config, data: LitDataModule, io: IOArgs, train: TrainArgs, eval: EvalArgs) -> None:
-    validate_args(io, train, eval)
+def main(fabric: L.Fabric, devices: int, seed: int, config: Config, data: LitDataModule, checkpoint_dir: Path, out_dir: Path, train: TrainArgs, eval: EvalArgs) -> None:
+    validate_args(train, eval)
 
-    check_valid_checkpoint_dir(io.checkpoint_dir)
+    check_valid_checkpoint_dir(checkpoint_dir)
 
-    tokenizer = Tokenizer(io.checkpoint_dir)
+    tokenizer = Tokenizer(checkpoint_dir)
     train_dataloader, val_dataloader = get_dataloaders(fabric, data, tokenizer, train)
     steps_per_epoch = len(train_dataloader) // train.gradient_accumulation_iters(devices)
     lr_max_steps = min(train.epochs * steps_per_epoch, (train.max_steps or float("inf")))
@@ -138,9 +126,9 @@ def main(fabric: L.Fabric, devices: int, seed: int, config: Config, data: LitDat
     fabric.seed_everything(seed)  # same seed for every process to init model (FSDP)
 
     if fabric.global_rank == 0:
-        os.makedirs(io.out_dir, exist_ok=True)
+        os.makedirs(out_dir, exist_ok=True)
 
-    checkpoint_path = io.checkpoint_dir / "lit_model.pth"
+    checkpoint_path = checkpoint_dir / "lit_model.pth"
     fabric.print(f"Loading model {str(checkpoint_path)!r} with {config.__dict__}")
     with fabric.init_module(empty_init=(devices > 1)):
         model = GPT(config)
@@ -168,13 +156,13 @@ def main(fabric: L.Fabric, devices: int, seed: int, config: Config, data: LitDat
     load_checkpoint(fabric, model, checkpoint_path, strict=False)
 
     train_time = time.perf_counter()
-    fit(fabric, model, optimizer, scheduler, train_dataloader, val_dataloader, devices, io, train, eval)
+    fit(fabric, model, optimizer, scheduler, train_dataloader, val_dataloader, devices, checkpoint_dir, out_dir, train, eval)
     fabric.print(f"Training time: {(time.perf_counter()-train_time):.2f}s")
     if fabric.device.type == "cuda":
         fabric.print(f"Memory used: {torch.cuda.max_memory_allocated() / 1e9:.02f} GB")
 
     # Save the final LoRA checkpoint at the end of training
-    save_path = io.out_dir / "lit_model_lora_finetuned.pth"
+    save_path = out_dir / "lit_model_lora_finetuned.pth"
     save_lora_checkpoint(fabric, model, save_path)
 
 
@@ -186,11 +174,12 @@ def fit(
     train_dataloader: DataLoader,
     val_dataloader: DataLoader,
     devices: int,
-    io: IOArgs,
+    checkpoint_dir: Path,
+    out_dir: Path,
     train: TrainArgs,
     eval: EvalArgs,
 ) -> None:
-    tokenizer = Tokenizer(io.checkpoint_dir)
+    tokenizer = Tokenizer(checkpoint_dir)
     longest_seq_length, longest_seq_ix = get_longest_seq_length(train_dataloader.dataset)
     model.max_seq_length = min(longest_seq_length, train.max_seq_length or float("inf"))
     fabric.print(
@@ -249,7 +238,7 @@ def fit(
             fabric.print(f"iter {iter_num}: val loss {val_loss.item():.4f}, val time: {t1 * 1000:.2f} ms")
             fabric.barrier()
         if not is_accumulating and step_count % train.save_interval == 0:
-            checkpoint_path = io.out_dir / f"iter-{iter_num:06d}-ckpt.pth"
+            checkpoint_path = out_dir / f"iter-{iter_num:06d}-ckpt.pth"
             save_lora_checkpoint(fabric, model, checkpoint_path)
 
 
@@ -320,7 +309,7 @@ def save_lora_checkpoint(fabric: L.Fabric, model: torch.nn.Module, file_path: Pa
     fabric.save(file_path, {"model": model}, filter={"model": lora_filter})
 
 
-def validate_args(io: IOArgs, train: TrainArgs, eval: EvalArgs) -> None:
+def validate_args(train: TrainArgs, eval: EvalArgs) -> None:
     issues = []
     unsupported = [(train, ["max_tokens", "max_norm"])]
     for args, names in unsupported:
@@ -328,7 +317,6 @@ def validate_args(io: IOArgs, train: TrainArgs, eval: EvalArgs) -> None:
             if getattr(args, name) is not None:
                 issues.append(f"{__file__} doesn't support the {name!r} argument. This is set in {args}")
     required = [
-        (io, ["checkpoint_dir"]),
         (train, ["epochs"]),
         (eval, ["max_new_tokens"]),
     ]

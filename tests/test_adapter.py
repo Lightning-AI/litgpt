@@ -53,7 +53,7 @@ def test_adapter_filter(tmp_path):
 def test_adapter_script(tmp_path, fake_checkpoint_dir, monkeypatch, alpaca_path):
     import finetune.adapter as module
     from lit_gpt.data import Alpaca
-    from lit_gpt.args import EvalArgs, IOArgs, TrainArgs
+    from lit_gpt.args import EvalArgs, TrainArgs
     from lit_gpt.config import name_to_config
 
     model_config = dict(block_size=128, n_layer=2, n_embd=8, n_head=4, padded_vocab_size=8, adapter_start_layer=0)
@@ -75,7 +75,8 @@ def test_adapter_script(tmp_path, fake_checkpoint_dir, monkeypatch, alpaca_path)
                 test_split_fraction=0.5,
                 num_workers=0
             ),
-            io=IOArgs(checkpoint_dir=fake_checkpoint_dir, out_dir=tmp_path),
+            checkpoint_dir=fake_checkpoint_dir,
+            out_dir=tmp_path,
             precision="32-true",
             train=TrainArgs(global_batch_size=1, save_interval=2, epochs=1, max_steps=6, micro_batch_size=1),
             eval=EvalArgs(interval=2, max_iters=2, max_new_tokens=1),
