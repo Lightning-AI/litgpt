@@ -60,7 +60,7 @@ def test_against_falcon_40b():
     ours_model = GPT(ours_config)
     ours_state_dict = ours_model.state_dict()
     theirs_state_dict = {}
-    copy_to_theirs("40b", theirs_state_dict, ours_state_dict)
+    copy_to_theirs(ours_config, theirs_state_dict, ours_state_dict)
 
     theirs_model = FalconForCausalLM(theirs_config)
     # assign must be set to True for torch.testing.assert_close to pass
@@ -100,7 +100,7 @@ def test_against_original_gpt_neox():
     ours_model = GPT(ours_config)
     ours_state_dict = ours_model.state_dict()
     theirs_state_dict = {}
-    copy_to_theirs(theirs_state_dict, ours_state_dict)
+    copy_to_theirs(ours_config, theirs_state_dict, ours_state_dict)
     theirs_model = GPTNeoXForCausalLM(theirs_config)
     # strict=False because we don't save the rotary embeddings inv frequency
     keys = theirs_model.load_state_dict(theirs_state_dict, strict=False)
@@ -455,6 +455,8 @@ def test_check_conversion_supported_lora():
 
 
 def test_qkv_split():
+    from torch import tensor
+
     from lit_gpt import Config
     from scripts.convert_lit_checkpoint import qkv_split
 
@@ -477,9 +479,27 @@ def test_qkv_split():
         ]
     )
     q, k, v = qkv_split(qkv, config)
-    torch.testing.assert_close(q, torch.tensor([[0, 1, 2, 3], [12, 13, 14, 15], [24, 25, 26, 27], [36, 37, 38, 39]]))
-    torch.testing.assert_close(k, torch.tensor([[4, 5, 6, 7], [16, 17, 18, 19], [28, 29, 30, 31], [40, 41, 42, 43]]))
-    torch.testing.assert_close(v, torch.tensor([[8, 9, 10, 11], [20, 21, 22, 23], [32, 33, 34, 35], [44, 45, 46, 47]]))
+    torch.testing.assert_close(
+        q, (tensor([[0, 1, 2, 3]]), tensor([[4, 5, 6, 7]]), tensor([[8, 9, 10, 11]]), tensor([[12, 13, 14, 15]]))
+    )
+    torch.testing.assert_close(
+        k,
+        (
+            tensor([[16, 17, 18, 19]]),
+            tensor([[20, 21, 22, 23]]),
+            tensor([[24, 25, 26, 27]]),
+            tensor([[28, 29, 30, 31]]),
+        ),
+    )
+    torch.testing.assert_close(
+        v,
+        (
+            tensor([[32, 33, 34, 35]]),
+            tensor([[36, 37, 38, 39]]),
+            tensor([[40, 41, 42, 43]]),
+            tensor([[44, 45, 46, 47]]),
+        ),
+    )
 
     # GQA
     config = Config(n_embd=4, n_head=4, n_query_groups=2)
@@ -496,9 +516,9 @@ def test_qkv_split():
         ]
     )
     q, k, v = qkv_split(qkv, config)
-    torch.testing.assert_close(q, torch.tensor([[0, 1, 2, 3], [4, 5, 6, 7], [16, 17, 18, 19], [20, 21, 22, 23]]))
-    torch.testing.assert_close(k, torch.tensor([[8, 9, 10, 11], [24, 25, 26, 27]]))
-    torch.testing.assert_close(v, torch.tensor([[12, 13, 14, 15], [28, 29, 30, 31]]))
+    torch.testing.assert_close(q, (tensor([[0, 1, 2, 3], [4, 5, 6, 7]]), tensor([[8, 9, 10, 11], [12, 13, 14, 15]])))
+    torch.testing.assert_close(k, (tensor([[16, 17, 18, 19]]), tensor([[20, 21, 22, 23]])))
+    torch.testing.assert_close(v, (tensor([[24, 25, 26, 27]]), tensor([[28, 29, 30, 31]])))
 
     # MQA
     config = Config(n_embd=4, n_head=4, n_query_groups=1)
@@ -506,6 +526,6 @@ def test_qkv_split():
         [[0, 1, 2, 3], [4, 5, 6, 7], [8, 9, 10, 11], [12, 13, 14, 15], [16, 17, 18, 19], [20, 21, 22, 23]]
     )
     q, k, v = qkv_split(qkv, config)
-    torch.testing.assert_close(q, torch.tensor([[0, 1, 2, 3], [4, 5, 6, 7], [8, 9, 10, 11], [12, 13, 14, 15]]))
-    torch.testing.assert_close(k, torch.tensor([[16, 17, 18, 19]]))
-    torch.testing.assert_close(v, torch.tensor([[20, 21, 22, 23]]))
+    torch.testing.assert_close(q, (tensor([[0, 1, 2, 3], [4, 5, 6, 7], [8, 9, 10, 11], [12, 13, 14, 15]]),))
+    torch.testing.assert_close(k, (tensor([[16, 17, 18, 19]]),))
+    torch.testing.assert_close(v, (tensor([[20, 21, 22, 23]]),))

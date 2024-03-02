@@ -75,7 +75,7 @@ def test_against_gpt_neox_model(rotary_pct, batch_size, n_embd, parallel_residua
     state_dict = {}
     theirs_model = GPTNeoXForCausalLM(theirs_config).to(device)
     # load the hf initialization into our model
-    copy_weights_gpt_neox(state_dict, theirs_model.state_dict())
+    copy_weights_gpt_neox(ours_config, state_dict, theirs_model.state_dict())
     ours_model = GPT(ours_config).to(device)
     ours_model.load_state_dict(state_dict)
 
@@ -135,7 +135,7 @@ def test_against_hf_falcon(kwargs, device, dtype):
     theirs_model = FalconForCausalLM(theirs_config).to(device)
     theirs_state_dict = theirs_model.state_dict()
     state_dict = {}
-    copy_weights_falcon(kwargs["name"], state_dict, theirs_state_dict)
+    copy_weights_falcon(ours_config, state_dict, theirs_state_dict)
     ours_model = GPT(ours_config).to(device)
     ours_model.load_state_dict(state_dict)
 
@@ -311,7 +311,7 @@ def test_against_hf_phi_1_5(device, dtype):
     theirs_model = PhiForCausalLM(theirs_config).to(device)
     theirs_state_dict = theirs_model.state_dict()
     state_dict = {}
-    copy_weights_phi(ours_config, {}, state_dict, theirs_state_dict)
+    copy_weights_phi({}, state_dict, theirs_state_dict)
     ours_model = GPT(ours_config).to(device)
     ours_model.load_state_dict(state_dict)
 
@@ -373,7 +373,7 @@ def test_against_hf_phi_2(device, dtype):
     theirs_model = PhiForCausalLM(theirs_config).to(device)
     theirs_state_dict = theirs_model.state_dict()
     state_dict = {}
-    copy_weights_phi(ours_config, {}, state_dict, theirs_state_dict)
+    copy_weights_phi({}, state_dict, theirs_state_dict)
     ours_model = GPT(ours_config).to(device)
     ours_model.load_state_dict(state_dict)
 

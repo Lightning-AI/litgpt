@@ -120,3 +120,60 @@ def test_convert_hf_checkpoint(tmp_path):
 
     config = Config.from_json(tmp_path / "lit_config.json")
     assert isinstance(config, Config)
+
+
+def test_qkv_split():
+    from lit_gpt import Config
+    from scripts.convert_hf_checkpoint import qkv_split
+
+    # MHA
+    config = Config(n_embd=4, n_head=4)
+    qkv = torch.tensor(
+        [
+            [0, 1, 2, 3],
+            [4, 5, 6, 7],
+            [8, 9, 10, 11],
+            [12, 13, 14, 15],
+            [16, 17, 18, 19],
+            [20, 21, 22, 23],
+            [24, 25, 26, 27],
+            [28, 29, 30, 31],
+            [32, 33, 34, 35],
+            [36, 37, 38, 39],
+            [40, 41, 42, 43],
+            [44, 45, 46, 47],
+        ]
+    )
+    q, k, v = qkv_split(qkv, config)
+    torch.testing.assert_close(q, torch.tensor([[0, 1, 2, 3], [12, 13, 14, 15], [24, 25, 26, 27], [36, 37, 38, 39]]))
+    torch.testing.assert_close(k, torch.tensor([[4, 5, 6, 7], [16, 17, 18, 19], [28, 29, 30, 31], [40, 41, 42, 43]]))
+    torch.testing.assert_close(v, torch.tensor([[8, 9, 10, 11], [20, 21, 22, 23], [32, 33, 34, 35], [44, 45, 46, 47]]))
+
+    # GQA
+    config = Config(n_embd=4, n_head=4, n_query_groups=2)
+    qkv = torch.tensor(
+        [
+            [0, 1, 2, 3],
+            [4, 5, 6, 7],
+            [8, 9, 10, 11],
+            [12, 13, 14, 15],
+            [16, 17, 18, 19],
+            [20, 21, 22, 23],
+            [24, 25, 26, 27],
+            [28, 29, 30, 31],
+        ]
+    )
+    q, k, v = qkv_split(qkv, config)
+    torch.testing.assert_close(q, torch.tensor([[0, 1, 2, 3], [4, 5, 6, 7], [16, 17, 18, 19], [20, 21, 22, 23]]))
+    torch.testing.assert_close(k, torch.tensor([[8, 9, 10, 11], [24, 25, 26, 27]]))
+    torch.testing.assert_close(v, torch.tensor([[12, 13, 14, 15], [28, 29, 30, 31]]))
+
+    # MQA
+    config = Config(n_embd=4, n_head=4, n_query_groups=1)
+    qkv = torch.tensor(
+        [[0, 1, 2, 3], [4, 5, 6, 7], [8, 9, 10, 11], [12, 13, 14, 15], [16, 17, 18, 19], [20, 21, 22, 23]]
+    )
+    q, k, v = qkv_split(qkv, config)
+    torch.testing.assert_close(q, torch.tensor([[0, 1, 2, 3], [4, 5, 6, 7], [8, 9, 10, 11], [12, 13, 14, 15]]))
+    torch.testing.assert_close(k, torch.tensor([[16, 17, 18, 19]]))
+    torch.testing.assert_close(v, torch.tensor([[20, 21, 22, 23]]))

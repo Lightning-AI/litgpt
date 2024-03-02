@@ -102,7 +102,7 @@ def test_lora_mqa_gqa():
     for p in attn.linear.parameters():
         torch.nn.init.zeros_(p)
     torch.nn.init.ones_(attn.lora_B)
-    lora_ind = [0, 1, 6, 7, 12, 13, 18, 19, 4, 5, 10, 11, 16, 17, 22, 23]
+    lora_ind = [0, 1, 2, 3, 4, 5, 6, 7, 16, 17, 18, 19, 20, 21, 22, 23]
     assert attn.linear.weight.shape == (24, 8)
     assert attn.lora_A.shape == (4, 8)
     assert attn.lora_B.shape == (16, 2)
@@ -144,7 +144,7 @@ def test_lora_mqa_gqa():
     for p in attn.linear.parameters():
         torch.nn.init.zeros_(p)
     torch.nn.init.ones_(attn.lora_B)
-    lora_ind = [0, 1, 2, 3, 8, 9, 10, 11, 6, 7, 14, 15]
+    lora_ind = [0, 1, 2, 3, 4, 5, 6, 7, 12, 13, 14, 15]
     assert attn.linear.weight.shape == (16, 8)
     assert attn.lora_A.shape == (4, 8)
     assert attn.lora_B.shape == (12, 2)
