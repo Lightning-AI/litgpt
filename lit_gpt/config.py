@@ -173,7 +173,7 @@ configs = [
         n_embd=2560,
         parallel_residual=False,
         bias=False,
-        _mlp_class="LLaMAMLP",
+        mlp_class_name="LLaMAMLP",
         intermediate_size=6912,
     ),
     # https://huggingface.co/stabilityai/stablelm-zephyr-3b/blob/main/config.json
@@ -231,7 +231,7 @@ stablecode = [
         block_size=16384,
         parallel_residual=False,
         bias=False,
-        _mlp_class="LLaMAMLP",
+        mlp_class_name="LLaMAMLP",
         intermediate_size=6912,
     ),
 ]
