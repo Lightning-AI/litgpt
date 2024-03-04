@@ -117,8 +117,8 @@ You can easily train on your own instruction dataset saved in JSON format.
     python finetune/lora.py \
         --data JSON \
         --data.json_path data/mydata.json \
-        --io.checkpoint_dir checkpoints/tiiuae/falcon-7b \
-        --io.out_dir data/mydata-finetuned
+        --checkpoint_dir checkpoints/tiiuae/falcon-7b \
+        --out_dir data/mydata-finetuned
     ```
 
 
@@ -135,9 +135,9 @@ Let's assume we finetuned a model using LoRA as follows:
 
 ```bash
 python finetune/lora.py \
-  --io.checkpoint_dir "checkpoints/stabilityai/stablelm-base-alpha-3b/" \
-  --io.train_data_dir data/mydata --io.val_data_dir data/mydata/ \
-  --io.out_dir "out/lora_weights/stablelm-base-alpha-3b/"
+  --checkpoint_dir "checkpoints/stabilityai/stablelm-base-alpha-3b/" \
+  --train_data_dir data/mydata --val_data_dir data/mydata/ \
+  --out_dir "out/lora_weights/stablelm-base-alpha-3b/"
 ```
 
 Then, we can merge the LoRA weights with the checkpoint model using the `merge_lora.py` script as shown below:
