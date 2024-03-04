@@ -15,6 +15,7 @@ import torch.nn as nn
 import torch.utils._device
 from lightning.fabric.strategies import FSDPStrategy
 from lightning.fabric.utilities.load import _lazy_load as lazy_load
+from lightning_utilities.core.imports import RequirementCache
 from torch.serialization import normalize_storage_type
 from typing_extensions import Self
 
@@ -376,6 +377,7 @@ def CLI(*args: Any, **kwargs: Any) -> Any:
     set_docstring_parse_options(attribute_docstrings=True)
 
     kwargs.setdefault("as_positional", False)
+
     return CLI(*args, **kwargs)
 
 

@@ -35,8 +35,6 @@ In order to use the Mistral 7B model checkpoint, which requires about 14 GB of d
 pip install 'huggingface_hub[hf_transfer] @ git+https://github.com/huggingface/huggingface_hub'
 
 python scripts/download.py --repo_id mistralai/Mistral-7B-Instruct-v0.2
-
-python scripts/convert_hf_checkpoint.py --checkpoint_dir checkpoints/mistralai/Mistral-7B-Instruct-v0.2
 ```
 
 You're done! To execute the model just run:
@@ -60,8 +58,6 @@ In order to use the Mixtral 7B model checkpoint, which requires about 94 GB of d
 pip install 'huggingface_hub[hf_transfer] @ git+https://github.com/huggingface/huggingface_hub'
 
 python scripts/download.py --repo_id mistralai/Mixtral-8x7B-Instruct-v0.1 --from_safetensors true
-
-python scripts/convert_hf_checkpoint.py --checkpoint_dir checkpoints/mistralai/Mixtral-8x7B-Instruct-v0.1
 ```
 
 Due to the size of the model, currently only the multi-device sequential generation script can handle it.

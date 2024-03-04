@@ -105,7 +105,6 @@ def main(
         os.makedirs(out_dir, exist_ok=True)
 
     checkpoint_path = checkpoint_dir / "lit_model.pth"
-    fabric.print(f"Loading model {str(checkpoint_path)!r} with {config.__dict__}")
     with fabric.init_module(empty_init=(devices > 1)):
         model = GPT(config)
 
@@ -302,7 +301,7 @@ def get_longest_seq_length(data: List[Dict]) -> Tuple[int, int]:
 
 def validate_args(train: TrainArgs, eval: EvalArgs) -> None:
     issues = []
-    unsupported = [(train, ["max_tokens", "max_norm"])]
+    unsupported = [(train, ["max_tokens", "max_norm", "tie_embeddings"])]
     for args, names in unsupported:
         for name in names:
             if getattr(args, name) is not None:

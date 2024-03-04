@@ -107,7 +107,6 @@ def main(fabric: L.Fabric, devices: int, seed: int, config: Config, data: LitDat
         os.makedirs(out_dir, exist_ok=True)
 
     checkpoint_path = checkpoint_dir / "lit_model.pth"
-    fabric.print(f"Loading model {str(checkpoint_path)!r} with {config.__dict__}")
     with fabric.init_module(empty_init=(devices > 1)):
         model = GPT(config)
     mark_only_adapter_v2_as_trainable(model)
@@ -289,7 +288,7 @@ def save_adapter_v2_checkpoint(fabric: L.Fabric, model: torch.nn.Module, file_pa
 
 def validate_args(train: TrainArgs, eval: EvalArgs) -> None:
     issues = []
-    unsupported = [(train, ["max_tokens", "max_norm"])]
+    unsupported = [(train, ["max_tokens", "max_norm", "tie_embeddings"])]
     for args, names in unsupported:
         for name in names:
             if getattr(args, name) is not None:

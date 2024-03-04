@@ -19,6 +19,20 @@ stabilityai/stablelm-3b-4e1t
 stabilityai/stablelm-zephyr-3b
 ```
 
+In order to use a specific StableLM checkpoint, for instance [stablelm-base-alpha-3b](http://huggingface.co/stabilityai/stablelm-base-alpha-3b), download the weights and convert the checkpoint to the lit-gpt format:
+
+```bash
+pip install 'huggingface_hub[hf_transfer] @ git+https://github.com/huggingface/huggingface_hub'
+
+python scripts/download.py --repo_id stabilityai/stablelm-base-alpha-3b
+```
+
+By default, the checkpoint conversion step will use the data type of the HF checkpoint's parameters. In cases where RAM
+or disk size is constrained, it might be useful to pass `--dtype bfloat16` to convert all parameters into this smaller precision before continuing.
+
+You're done! To execute the model just run:
+
+
 > [!Important]
 > `stablelm-base-alpha-(3,7)b` and `stablelm-tuned-alpha-(3,7)b` are deprecated and are no longer in the StableLM collection. Last time these models were updated in April 2023. Consider using `stablelm-3b-4e1t` (base model) or `stablelm-zephyr-3b` (instruct fine-tuned).
 
