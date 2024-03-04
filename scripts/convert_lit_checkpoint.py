@@ -247,7 +247,7 @@ def check_conversion_supported(lit_weights: Dict[str, torch.Tensor]) -> None:
 def convert_lit_checkpoint(checkpoint_path: Path, output_path: Path, config_path: Path) -> None:
     config = Config.from_json(config_path)
 
-    os.makedirs(os.path.dirname(output_path), exist_ok=True)
+    output_path.parent.mkdir(parents=True, exist_ok=True)
 
     if "falcon" in config.name:
         copy_fn = partial(copy_weights_falcon, config.name)
