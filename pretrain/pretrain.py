@@ -44,7 +44,7 @@ def setup(
     seed: int = 42,
     data: Optional[LitDataModule] = None,
     out_dir: Optional[Path] = None,
-    checkpoint_dir: Optional[Path] = None,
+    tokenizer_dir: Optional[Path] = None,
     train: TrainArgs = TrainArgs(
         save_interval=1000,
         log_interval=1,
@@ -68,7 +68,7 @@ def setup(
     devices = parse_devices(devices)
     out_dir = Path(os.getenv("LIGHTNING_ARTIFACTS_DIR", "out")) / "pretrain" if out_dir is None else out_dir
     # in case the dataset requires the Tokenizer
-    tokenizer = Tokenizer(checkpoint_dir) if checkpoint_dir is not None else None
+    tokenizer = Tokenizer(tokenizer_dir) if tokenizer_dir is not None else None
 
     logger = choose_logger(
         out_dir,
