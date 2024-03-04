@@ -52,10 +52,9 @@ class Config:
     # credit https://arxiv.org/pdf/2305.13245.pdf
     n_query_groups: Optional[int] = None
     shared_attention_norm: bool = False
-    # FIXME: https://github.com/Lightning-AI/lit-gpt/issues/979
-    _norm_class: Literal["LayerNorm", "RMSNorm"] = "RMSNorm"
+    norm_class_name: Literal["LayerNorm", "RMSNorm"] = "LayerNorm"
     norm_eps: float = 1e-5
-    _mlp_class: Literal["GptNeoxMLP", "LLaMAMLP", "GemmaMLP", "LLaMAMoE"] = "LLaMAMLP"
+    mlp_class_name: Literal["GptNeoxMLP", "LLaMAMLP", "GemmaMLP", "LLaMAMoE"] = "GptNeoxMLP"
     gelu_approximate: str = "none"
     intermediate_size: Optional[int] = None
     rope_condense_ratio: int = 1
@@ -86,7 +85,7 @@ class Config:
 
         # compute the intermediate size for MLP if not set
         if self.intermediate_size is None:
-            if self._mlp_class == "LLaMAMLP":
+            if self.mlp_class_name == "LLaMAMLP":
                 raise ValueError(f"The config {self.name!r}, needs to set the `intermediate_size`")
             self.intermediate_size = 4 * self.n_embd
 
@@ -104,8 +103,6 @@ class Config:
             conf_dict = name_to_config[name]
 
         conf_dict = conf_dict.copy()
-        if "condense_ratio" in kwargs:  # legacy name
-            kwargs["rope_condense_ratio"] = kwargs.pop("condense_ratio")
         conf_dict.update(kwargs)
         return cls(**conf_dict)
 
@@ -113,14 +110,6 @@ class Config:
     def from_json(cls, path: Union[str, Path], **kwargs: Any) -> Self:
         with open(path, encoding="utf-8") as fp:
             json_kwargs = json.load(fp)
-        if "condense_ratio" in json_kwargs:  # legacy name
-            json_kwargs["rope_condense_ratio"] = json_kwargs.pop("condense_ratio")
-        if "condense_ratio" in kwargs:  # legacy name
-            kwargs["rope_condense_ratio"] = kwargs.pop("condense_ratio")
-        if "org" in json_kwargs:  # legacy name
-            json_kwargs["hf_config"] = {"name": json_kwargs["name"], "org": json_kwargs.pop("org")}
-        if "org" in kwargs:  # legacy name
-            kwargs["hf_config"] = {"name": kwargs.get("name", json_kwargs["name"]), "org": kwargs.pop("org")}
         json_kwargs.update(kwargs)
         return cls(**json_kwargs)
 
@@ -135,19 +124,19 @@ class Config:
 
     @property
     def mlp_class(self) -> Type:
-        # `self._mlp_class` cannot be the type to keep the config json serializable
-        return getattr(lit_gpt.model, self._mlp_class)
+        # `self.mlp_class_name` cannot be the type to keep the config json serializable
+        return getattr(lit_gpt.model, self.mlp_class_name)
 
     @property
     def norm_class(self) -> Type:
-        # `self._norm_class` cannot be the type to keep the config json serializable
-        if self._norm_class == "RMSNorm":
+        # `self.norm_class_name` cannot be the type to keep the config json serializable
+        if self.norm_class_name == "RMSNorm":
             from functools import partial
 
             from lit_gpt.rmsnorm import RMSNorm
 
             return partial(RMSNorm, add_unit_offset="Gemma" in self.name)
-        return getattr(torch.nn, self._norm_class)
+        return getattr(torch.nn, self.norm_class_name)
 
 
 ########################
@@ -184,7 +173,7 @@ configs = [
         n_embd=2560,
         parallel_residual=False,
         bias=False,
-        _mlp_class="LLaMAMLP",
+        mlp_class_name="LLaMAMLP",
         intermediate_size=6912,
     ),
 ]
@@ -459,9 +448,9 @@ open_LLaMA = [
         rotary_percentage=1.0,
         parallel_residual=False,
         bias=False,
-        _norm_class="RMSNorm",
+        norm_class_name="RMSNorm",
         norm_eps=1e-6,
-        _mlp_class="LLaMAMLP",
+        mlp_class_name="LLaMAMLP",
         intermediate_size=8640,
     ),
     # https://huggingface.co/openlm-research/open_llama_7b/blob/main/config.json
@@ -475,9 +464,9 @@ open_LLaMA = [
         rotary_percentage=1.0,
         parallel_residual=False,
         bias=False,
-        _norm_class="RMSNorm",
+        norm_class_name="RMSNorm",
         norm_eps=1e-6,
-        _mlp_class="LLaMAMLP",
+        mlp_class_name="LLaMAMLP",
         intermediate_size=11008,
     ),
     # https://huggingface.co/openlm-research/open_llama_13b/blob/main/config.json
@@ -493,9 +482,9 @@ open_LLaMA = [
         rotary_percentage=1.0,
         parallel_residual=False,
         bias=False,
-        _norm_class="RMSNorm",
+        norm_class_name="RMSNorm",
         norm_eps=1e-6,
-        _mlp_class="LLaMAMLP",
+        mlp_class_name="LLaMAMLP",
         intermediate_size=13824,
     ),
 ]
@@ -517,9 +506,9 @@ vicuna = [
         rotary_percentage=1.0,
         parallel_residual=False,
         bias=False,
-        _norm_class="RMSNorm",
+        norm_class_name="RMSNorm",
         norm_eps=1e-6,
-        _mlp_class="LLaMAMLP",
+        mlp_class_name="LLaMAMLP",
         intermediate_size=11008,
     ),
     # https://huggingface.co/lmsys/vicuna-13b-v1.3/blob/main/config.json
@@ -535,9 +524,9 @@ vicuna = [
         rotary_percentage=1.0,
         parallel_residual=False,
         bias=False,
-        _norm_class="RMSNorm",
+        norm_class_name="RMSNorm",
         norm_eps=1e-6,
-        _mlp_class="LLaMAMLP",
+        mlp_class_name="LLaMAMLP",
         intermediate_size=13824,
     ),
     # https://huggingface.co/lmsys/vicuna-33b-v1.3/blob/main/config.json
@@ -553,9 +542,9 @@ vicuna = [
         rotary_percentage=1.0,
         parallel_residual=False,
         bias=False,
-        _norm_class="RMSNorm",
+        norm_class_name="RMSNorm",
         norm_eps=1e-6,
-        _mlp_class="LLaMAMLP",
+        mlp_class_name="LLaMAMLP",
         intermediate_size=17920,
     ),
     # https://huggingface.co/lmsys/vicuna-7b-v1.5/blob/main/config.json
@@ -568,8 +557,8 @@ vicuna = [
         rotary_percentage=1.0,
         parallel_residual=False,
         bias=False,
-        _norm_class="RMSNorm",
-        _mlp_class="LLaMAMLP",
+        norm_class_name="RMSNorm",
+        mlp_class_name="LLaMAMLP",
         intermediate_size=11008,
     ),
     # https://huggingface.co/lmsys/vicuna-7b-v1.5-16k/blob/main/config.json
@@ -583,8 +572,8 @@ vicuna = [
         rotary_percentage=1.0,
         parallel_residual=False,
         bias=False,
-        _norm_class="RMSNorm",
-        _mlp_class="LLaMAMLP",
+        norm_class_name="RMSNorm",
+        mlp_class_name="LLaMAMLP",
         intermediate_size=11008,
         rope_condense_ratio=4,
     ),
@@ -600,8 +589,8 @@ vicuna = [
         rotary_percentage=1.0,
         parallel_residual=False,
         bias=False,
-        _norm_class="RMSNorm",
-        _mlp_class="LLaMAMLP",
+        norm_class_name="RMSNorm",
+        mlp_class_name="LLaMAMLP",
         intermediate_size=13824,
     ),
     # https://huggingface.co/lmsys/vicuna-13b-v1.5-16k/blob/main/config.json
@@ -617,8 +606,8 @@ vicuna = [
         rotary_percentage=1.0,
         parallel_residual=False,
         bias=False,
-        _norm_class="RMSNorm",
-        _mlp_class="LLaMAMLP",
+        norm_class_name="RMSNorm",
+        mlp_class_name="LLaMAMLP",
         intermediate_size=13824,
         rope_condense_ratio=4,
     ),
@@ -641,9 +630,9 @@ long_chat = [
         rotary_percentage=1.0,
         parallel_residual=False,
         bias=False,
-        _norm_class="RMSNorm",
+        norm_class_name="RMSNorm",
         norm_eps=1e-6,
-        _mlp_class="LLaMAMLP",
+        mlp_class_name="LLaMAMLP",
         intermediate_size=11008,
         rope_condense_ratio=8,
     ),
@@ -660,9 +649,9 @@ long_chat = [
         rotary_percentage=1.0,
         parallel_residual=False,
         bias=False,
-        _norm_class="RMSNorm",
+        norm_class_name="RMSNorm",
         norm_eps=1e-6,
-        _mlp_class="LLaMAMLP",
+        mlp_class_name="LLaMAMLP",
         intermediate_size=13824,
         rope_condense_ratio=8,
     ),
@@ -683,9 +672,9 @@ nous_research = [
         rotary_percentage=1.0,
         parallel_residual=False,
         bias=False,
-        _norm_class="RMSNorm",
+        norm_class_name="RMSNorm",
         norm_eps=1e-05,
-        _mlp_class="LLaMAMLP",
+        mlp_class_name="LLaMAMLP",
         intermediate_size=11008,
     ),
     # https://huggingface.co/NousResearch/Nous-Hermes-13B/blob/main/config.json
@@ -701,9 +690,9 @@ nous_research = [
         rotary_percentage=1.0,
         parallel_residual=False,
         bias=False,
-        _norm_class="RMSNorm",
+        norm_class_name="RMSNorm",
         norm_eps=1e-6,
-        _mlp_class="LLaMAMLP",
+        mlp_class_name="LLaMAMLP",
         intermediate_size=13824,
     ),
     # https://huggingface.co/NousResearch/Nous-Hermes-Llama2-13b
@@ -718,9 +707,9 @@ nous_research = [
         rotary_percentage=1.0,
         parallel_residual=False,
         bias=False,
-        _norm_class="RMSNorm",
+        norm_class_name="RMSNorm",
         norm_eps=1e-05,
-        _mlp_class="LLaMAMLP",
+        mlp_class_name="LLaMAMLP",
         intermediate_size=13824,
     ),
 ]
@@ -741,8 +730,8 @@ llama_2 = [
         rotary_percentage=1.0,
         parallel_residual=False,
         bias=False,
-        _norm_class="RMSNorm",
-        _mlp_class="LLaMAMLP",
+        norm_class_name="RMSNorm",
+        mlp_class_name="LLaMAMLP",
         intermediate_size=11008,
     ),
     # https://huggingface.co/meta-llama/Llama-2-13b-hf/blob/main/config.json
@@ -757,8 +746,8 @@ llama_2 = [
         rotary_percentage=1.0,
         parallel_residual=False,
         bias=False,
-        _norm_class="RMSNorm",
-        _mlp_class="LLaMAMLP",
+        norm_class_name="RMSNorm",
+        mlp_class_name="LLaMAMLP",
         intermediate_size=13824,
     ),
     # https://huggingface.co/meta-llama/Llama-2-70b-hf/blob/main/config.json
@@ -774,8 +763,8 @@ llama_2 = [
         rotary_percentage=1.0,
         parallel_residual=False,
         bias=False,
-        _norm_class="RMSNorm",
-        _mlp_class="LLaMAMLP",
+        norm_class_name="RMSNorm",
+        mlp_class_name="LLaMAMLP",
         intermediate_size=28672,
     ),
 ]
@@ -805,8 +794,8 @@ gemma = [
         rotary_percentage=1.0,
         parallel_residual=False,
         bias=False,
-        _norm_class="RMSNorm",
-        _mlp_class="GemmaMLP",
+        norm_class_name="RMSNorm",
+        mlp_class_name="GemmaMLP",
         intermediate_size=16384,
     ),
     # https://huggingface.co/google/gemma-7b/blob/main/config.json
@@ -823,8 +812,8 @@ gemma = [
         rotary_percentage=1.0,
         parallel_residual=False,
         bias=False,
-        _norm_class="RMSNorm",
-        _mlp_class="GemmaMLP",
+        norm_class_name="RMSNorm",
+        mlp_class_name="GemmaMLP",
         intermediate_size=24576,
     ),
 ]
@@ -853,8 +842,8 @@ freewilly_2 = [
         rotary_percentage=1.0,
         parallel_residual=False,
         bias=False,
-        _norm_class="RMSNorm",
-        _mlp_class="LLaMAMLP",
+        norm_class_name="RMSNorm",
+        mlp_class_name="LLaMAMLP",
         intermediate_size=28672,
     )
 ]
@@ -876,9 +865,9 @@ code_llama = [
         rotary_percentage=1.0,
         parallel_residual=False,
         bias=False,
-        _norm_class="RMSNorm",
+        norm_class_name="RMSNorm",
         norm_eps=1e-05,
-        _mlp_class="LLaMAMLP",
+        mlp_class_name="LLaMAMLP",
         intermediate_size=11008,
         rope_base=1000000,
     ),
@@ -895,9 +884,9 @@ code_llama = [
         rotary_percentage=1.0,
         parallel_residual=False,
         bias=False,
-        _norm_class="RMSNorm",
+        norm_class_name="RMSNorm",
         norm_eps=1e-05,
-        _mlp_class="LLaMAMLP",
+        mlp_class_name="LLaMAMLP",
         intermediate_size=13824,
         rope_base=1000000,
     ),
@@ -915,9 +904,9 @@ code_llama = [
         rotary_percentage=1.0,
         parallel_residual=False,
         bias=False,
-        _norm_class="RMSNorm",
+        norm_class_name="RMSNorm",
         norm_eps=1e-05,
-        _mlp_class="LLaMAMLP",
+        mlp_class_name="LLaMAMLP",
         intermediate_size=22016,
         rope_base=1000000,
     ),
@@ -935,9 +924,9 @@ code_llama = [
         rotary_percentage=1.0,
         parallel_residual=False,
         bias=False,
-        _norm_class="RMSNorm",
+        norm_class_name="RMSNorm",
         norm_eps=1e-05,
-        _mlp_class="LLaMAMLP",
+        mlp_class_name="LLaMAMLP",
         intermediate_size=28672,
         rope_base=1000000,
     ),
@@ -952,9 +941,9 @@ code_llama = [
         rotary_percentage=1.0,
         parallel_residual=False,
         bias=False,
-        _norm_class="RMSNorm",
+        norm_class_name="RMSNorm",
         norm_eps=1e-05,
-        _mlp_class="LLaMAMLP",
+        mlp_class_name="LLaMAMLP",
         intermediate_size=11008,
         rope_base=1000000,
     ),
@@ -971,9 +960,9 @@ code_llama = [
         rotary_percentage=1.0,
         parallel_residual=False,
         bias=False,
-        _norm_class="RMSNorm",
+        norm_class_name="RMSNorm",
         norm_eps=1e-05,
-        _mlp_class="LLaMAMLP",
+        mlp_class_name="LLaMAMLP",
         intermediate_size=13824,
         rope_base=1000000,
     ),
@@ -991,9 +980,9 @@ code_llama = [
         rotary_percentage=1.0,
         parallel_residual=False,
         bias=False,
-        _norm_class="RMSNorm",
+        norm_class_name="RMSNorm",
         norm_eps=1e-05,
-        _mlp_class="LLaMAMLP",
+        mlp_class_name="LLaMAMLP",
         intermediate_size=22016,
         rope_base=1000000,
     ),
@@ -1011,9 +1000,9 @@ code_llama = [
         rotary_percentage=1.0,
         parallel_residual=False,
         bias=False,
-        _norm_class="RMSNorm",
+        norm_class_name="RMSNorm",
         norm_eps=1e-05,
-        _mlp_class="LLaMAMLP",
+        mlp_class_name="LLaMAMLP",
         intermediate_size=28672,
         rope_base=1000000,
     ),
@@ -1028,9 +1017,9 @@ code_llama = [
         rotary_percentage=1.0,
         parallel_residual=False,
         bias=False,
-        _norm_class="RMSNorm",
+        norm_class_name="RMSNorm",
         norm_eps=1e-05,
-        _mlp_class="LLaMAMLP",
+        mlp_class_name="LLaMAMLP",
         intermediate_size=11008,
         rope_base=1000000,
     ),
@@ -1047,9 +1036,9 @@ code_llama = [
         rotary_percentage=1.0,
         parallel_residual=False,
         bias=False,
-        _norm_class="RMSNorm",
+        norm_class_name="RMSNorm",
         norm_eps=1e-05,
-        _mlp_class="LLaMAMLP",
+        mlp_class_name="LLaMAMLP",
         intermediate_size=13824,
         rope_base=1000000,
     ),
@@ -1067,9 +1056,9 @@ code_llama = [
         rotary_percentage=1.0,
         parallel_residual=False,
         bias=False,
-        _norm_class="RMSNorm",
+        norm_class_name="RMSNorm",
         norm_eps=1e-05,
-        _mlp_class="LLaMAMLP",
+        mlp_class_name="LLaMAMLP",
         intermediate_size=22016,
         rope_base=1000000,
     ),
@@ -1087,9 +1076,9 @@ code_llama = [
         rotary_percentage=1.0,
         parallel_residual=False,
         bias=False,
-        _norm_class="RMSNorm",
+        norm_class_name="RMSNorm",
         norm_eps=1e-05,
-        _mlp_class="LLaMAMLP",
+        mlp_class_name="LLaMAMLP",
         intermediate_size=28672,
         rope_base=1000000,
     ),
@@ -1113,9 +1102,9 @@ platypus = [
         rotary_percentage=1.0,
         parallel_residual=False,
         bias=False,
-        _norm_class="RMSNorm",
+        norm_class_name="RMSNorm",
         norm_eps=1e-06,
-        _mlp_class="LLaMAMLP",
+        mlp_class_name="LLaMAMLP",
         intermediate_size=17920,
     ),
     # https://huggingface.co/garage-bAInd/Platypus2-7B/blob/main/config.json
@@ -1127,9 +1116,9 @@ platypus = [
         rotary_percentage=1.0,
         parallel_residual=False,
         bias=False,
-        _norm_class="RMSNorm",
+        norm_class_name="RMSNorm",
         norm_eps=1e-05,
-        _mlp_class="LLaMAMLP",
+        mlp_class_name="LLaMAMLP",
         intermediate_size=11008,
     ),
     # https://huggingface.co/garage-bAInd/Platypus2-13B/blob/main/config.json
@@ -1143,9 +1132,9 @@ platypus = [
         rotary_percentage=1.0,
         parallel_residual=False,
         bias=False,
-        _norm_class="RMSNorm",
+        norm_class_name="RMSNorm",
         norm_eps=1e-05,
-        _mlp_class="LLaMAMLP",
+        mlp_class_name="LLaMAMLP",
         intermediate_size=13824,
     ),
     # https://huggingface.co/garage-bAInd/Platypus2-70B/blob/main/config.json
@@ -1159,8 +1148,8 @@ platypus = [
         rotary_percentage=1.0,
         parallel_residual=False,
         bias=False,
-        _norm_class="RMSNorm",
-        _mlp_class="LLaMAMLP",
+        norm_class_name="RMSNorm",
+        mlp_class_name="LLaMAMLP",
         intermediate_size=28672,
     ),
     # https://huggingface.co/garage-bAInd/Camel-Platypus2-13B/blob/main/config.json
@@ -1174,8 +1163,8 @@ platypus = [
         rotary_percentage=1.0,
         parallel_residual=False,
         bias=False,
-        _norm_class="RMSNorm",
-        _mlp_class="LLaMAMLP",
+        norm_class_name="RMSNorm",
+        mlp_class_name="LLaMAMLP",
         intermediate_size=13824,
     ),
     # https://huggingface.co/garage-bAInd/Camel-Platypus2-70B/blob/main/config.json
@@ -1190,8 +1179,8 @@ platypus = [
         rotary_percentage=1.0,
         parallel_residual=False,
         bias=False,
-        _norm_class="RMSNorm",
-        _mlp_class="LLaMAMLP",
+        norm_class_name="RMSNorm",
+        mlp_class_name="LLaMAMLP",
         intermediate_size=28672,
     ),
     # https://huggingface.co/garage-bAInd/Stable-Platypus2-13B/blob/main/config.json
@@ -1205,8 +1194,8 @@ platypus = [
         rotary_percentage=1.0,
         parallel_residual=False,
         bias=False,
-        _norm_class="RMSNorm",
-        _mlp_class="LLaMAMLP",
+        norm_class_name="RMSNorm",
+        mlp_class_name="LLaMAMLP",
         intermediate_size=13824,
     ),
     # https://huggingface.co/garage-bAInd/Platypus2-70B-instruct/blob/main/config.json
@@ -1221,8 +1210,8 @@ platypus = [
         rotary_percentage=1.0,
         parallel_residual=False,
         bias=False,
-        _norm_class="RMSNorm",
-        _mlp_class="LLaMAMLP",
+        norm_class_name="RMSNorm",
+        mlp_class_name="LLaMAMLP",
         intermediate_size=28672,
     ),
 ]
@@ -1276,8 +1265,8 @@ together_llama2_32k = [
         rotary_percentage=1.0,
         parallel_residual=False,
         bias=False,
-        _norm_class="RMSNorm",
-        _mlp_class="LLaMAMLP",
+        norm_class_name="RMSNorm",
+        mlp_class_name="LLaMAMLP",
         intermediate_size=11008,
         rope_condense_ratio=8,
     )
@@ -1336,9 +1325,9 @@ mistral = [
         rotary_percentage=1.0,
         parallel_residual=False,
         bias=False,
-        _norm_class="RMSNorm",
+        norm_class_name="RMSNorm",
         norm_eps=1e-05,
-        _mlp_class="LLaMAMLP",
+        mlp_class_name="LLaMAMLP",
         intermediate_size=14336,
     ),
     # https://huggingface.co/mistralai/Mixtral-8x7B-v0.1/blob/main/config.json
@@ -1352,9 +1341,9 @@ mistral = [
         rotary_percentage=1.0,
         parallel_residual=False,
         bias=False,
-        _norm_class="RMSNorm",
+        norm_class_name="RMSNorm",
         norm_eps=1e-05,
-        _mlp_class="LLaMAMoE",
+        mlp_class_name="LLaMAMoE",
         intermediate_size=14336,
         rope_base=1000000,
         n_expert=8,
@@ -1379,9 +1368,9 @@ configs.append(
         rotary_percentage=1.0,
         parallel_residual=False,
         bias=False,
-        _norm_class="RMSNorm",
+        norm_class_name="RMSNorm",
         norm_eps=1e-05,
-        _mlp_class="LLaMAMLP",
+        mlp_class_name="LLaMAMLP",
         intermediate_size=14336,
     )
 )
@@ -1403,9 +1392,9 @@ tiny_llama = [
         rotary_percentage=1.0,
         parallel_residual=False,
         bias=False,
-        _norm_class="RMSNorm",  # original TinyLlama uses FusedRMSNorm
+        norm_class_name="RMSNorm",  # original TinyLlama uses FusedRMSNorm
         norm_eps=1e-5,
-        _mlp_class="LLaMAMLP",
+        mlp_class_name="LLaMAMLP",
         intermediate_size=5632,
         n_query_groups=4,
     )
@@ -1431,8 +1420,8 @@ llama_2_function_calling = [
         rotary_percentage=1.0,
         parallel_residual=False,
         bias=False,
-        _norm_class="RMSNorm",
-        _mlp_class="LLaMAMLP",
+        norm_class_name="RMSNorm",
+        mlp_class_name="LLaMAMLP",
         intermediate_size=11008,
         norm_eps=1e-6,
         block_size=4096,
