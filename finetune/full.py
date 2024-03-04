@@ -20,7 +20,7 @@ wd = Path(__file__).parent.parent.resolve()
 sys.path.append(str(wd))
 
 from generate.base import generate
-from lit_gpt.args import EvalArgs, IOArgs, TrainArgs
+from lit_gpt.args import EvalArgs, TrainArgs
 from lit_gpt.model import GPT, Block, Config
 from lit_gpt.tokenizer import Tokenizer
 from lit_gpt.data import Alpaca, LitDataModule, apply_prompt_template
@@ -42,10 +42,8 @@ def setup(
     resume: Union[bool, Path] = False,
     seed: int = 1337,
     data: Optional[LitDataModule] = None,
-    io: IOArgs = IOArgs(
-        checkpoint_dir=Path("checkpoints/stabilityai/stablelm-base-alpha-3b"),
-        out_dir=Path("out/full"),
-    ),
+    checkpoint_dir: Path = Path("checkpoints/stabilityai/stablelm-base-alpha-3b"),
+    out_dir: Path = Path("out/finetune/full"),
     train: TrainArgs = TrainArgs(
         save_interval=1000,
         log_interval=1,
@@ -76,9 +74,9 @@ def setup(
     else:
         strategy = "auto"
 
-    logger = CSVLogger(io.out_dir.parent, io.out_dir.name, flush_logs_every_n_steps=train.log_interval)
+    logger = CSVLogger(out_dir.parent, out_dir.name, flush_logs_every_n_steps=train.log_interval)
     fabric = L.Fabric(devices=devices, strategy=strategy, precision=precision, loggers=logger)
-    fabric.launch(main, devices, resume, seed, Config.from_name(name=io.checkpoint_dir.name), data, io, train, eval)
+    fabric.launch(main, devices, resume, seed, Config.from_name(name=checkpoint_dir.name), data, checkpoint_dir, out_dir, train, eval)
 
 
 def main(
@@ -88,14 +86,15 @@ def main(
     seed: int,
     config: Config,
     data: LitDataModule,
-    io: IOArgs,
+    checkpoint_dir: Path,
+    out_dir: Path,
     train: TrainArgs,
     eval: EvalArgs,
 ) -> None:
-    validate_args(io, train, eval)
-    check_valid_checkpoint_dir(io.checkpoint_dir)
+    validate_args(train, eval)
+    check_valid_checkpoint_dir(checkpoint_dir)
 
-    tokenizer = Tokenizer(io.checkpoint_dir)
+    tokenizer = Tokenizer(checkpoint_dir)
     train_dataloader, val_dataloader = get_dataloaders(fabric, data, tokenizer, train)
     steps_per_epoch = len(train_dataloader) // train.gradient_accumulation_iters(devices)
     lr_max_steps = min(train.epochs * steps_per_epoch, (train.max_steps or float("inf")))
@@ -103,9 +102,9 @@ def main(
     fabric.seed_everything(seed)  # same seed for every process to init model (FSDP)
 
     if fabric.global_rank == 0:
-        os.makedirs(io.out_dir, exist_ok=True)
+        os.makedirs(out_dir, exist_ok=True)
 
-    checkpoint_path = io.checkpoint_dir / "lit_model.pth"
+    checkpoint_path = checkpoint_dir / "lit_model.pth"
     fabric.print(f"Loading model {str(checkpoint_path)!r} with {config.__dict__}")
     with fabric.init_module(empty_init=(devices > 1)):
         model = GPT(config)
@@ -121,7 +120,7 @@ def main(
     state = {"model": model, "optimizer": optimizer, "scheduler": scheduler, "iter_num": 0, "step_count": 0}
 
     if resume is True:
-        resume = max(io.out_dir.glob("*.pth"), key=(lambda p: int(p.name.split("-")[1])))
+        resume = max(out_dir.glob("*.pth"), key=(lambda p: int(p.name.split("-")[1])))
     if resume:
         fabric.print(f"Resuming training from {resume}")
         fabric.load(resume, state)
@@ -129,13 +128,13 @@ def main(
         load_checkpoint(fabric, state["model"], checkpoint_path)
 
     train_time = time.perf_counter()
-    fit(fabric, state, train_dataloader, val_dataloader, devices, resume, io, train, eval)
+    fit(fabric, state, train_dataloader, val_dataloader, devices, resume, checkpoint_dir, out_dir, train, eval)
     fabric.print(f"Training time: {(time.perf_counter()-train_time):.2f}s")
     if fabric.device.type == "cuda":
         fabric.print(f"Memory used: {torch.cuda.max_memory_allocated() / 1e9:.02f} GB")
 
     # Save the final checkpoint at the end of training
-    fabric.save(io.out_dir / "lit_model_finetuned.pth", {"model": state["model"]})
+    fabric.save(out_dir / "lit_model_finetuned.pth", {"model": state["model"]})
 
 
 def fit(
@@ -145,14 +144,15 @@ def fit(
     val_dataloader: DataLoader,
     devices: int,
     resume: Union[bool, Path],
-    io: IOArgs,
+    checkpoint_dir: Path,
+    out_dir: Path,
     train: TrainArgs,
     eval: EvalArgs,
 ) -> None:
     model = state["model"]
     optimizer = state["optimizer"]
     scheduler = state["scheduler"]
-    tokenizer = Tokenizer(io.checkpoint_dir)
+    tokenizer = Tokenizer(checkpoint_dir)
     longest_seq_length, longest_seq_ix = get_longest_seq_length(train_dataloader.dataset)
     model.max_seq_length = min(longest_seq_length, train.max_seq_length or float("inf"))
     fabric.print(
@@ -233,7 +233,7 @@ def fit(
             fabric.log_dict(metrics, step=state["iter_num"])
             fabric.barrier()
         if not is_accumulating and state["step_count"] % train.save_interval == 0:
-            checkpoint_path = io.out_dir / f"step-{state['step_count']:06d}.pth"
+            checkpoint_path = out_dir / f"step-{state['step_count']:06d}.pth"
             fabric.print(f"Saving checkpoint to {str(checkpoint_path)!r}")
             fabric.save(checkpoint_path, state)
 
@@ -300,7 +300,7 @@ def get_longest_seq_length(data: List[Dict]) -> Tuple[int, int]:
     return longest_seq_length, longest_seq_ix
 
 
-def validate_args(io: IOArgs, train: TrainArgs, eval: EvalArgs) -> None:
+def validate_args(train: TrainArgs, eval: EvalArgs) -> None:
     issues = []
     unsupported = [(train, ["max_tokens", "max_norm"])]
     for args, names in unsupported:
@@ -308,7 +308,6 @@ def validate_args(io: IOArgs, train: TrainArgs, eval: EvalArgs) -> None:
             if getattr(args, name) is not None:
                 issues.append(f"{__file__} doesn't support the {name!r} argument. This is set in {args}")
     required = [
-        (io, ["checkpoint_dir"]),
         (train, ["epochs"]),
         (eval, ["max_new_tokens"]),
     ]

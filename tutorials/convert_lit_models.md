@@ -93,8 +93,8 @@ python scripts/convert_hf_checkpoint.py --checkpoint_dir checkpoints/$repo_id
 export finetuned_dir=out/lit-finetuned-model
 
 python finetune/lora.py \
-   --io.checkpoint_dir checkpoints/$repo_id \
-   --io.out_dir $finetuned_dir \
+   --checkpoint_dir checkpoints/$repo_id \
+   --out_dir $finetuned_dir \
    --train.epochs 1 \
    --data Alpaca
 ```
