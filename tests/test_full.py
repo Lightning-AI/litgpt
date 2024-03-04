@@ -12,7 +12,7 @@ import torch
 @mock.patch.dict(os.environ, {"LT_ACCELERATOR": "cpu"})
 def test_full_script(tmp_path, fake_checkpoint_dir, monkeypatch, alpaca_path):
     import finetune.full as module
-    from lit_gpt.args import EvalArgs, IOArgs, TrainArgs
+    from lit_gpt.args import EvalArgs, TrainArgs
     from lit_gpt.data import Alpaca
     from lit_gpt.config import name_to_config
 
@@ -34,7 +34,8 @@ def test_full_script(tmp_path, fake_checkpoint_dir, monkeypatch, alpaca_path):
                 test_split_fraction=0.5,
                 num_workers=0
             ),
-            io=IOArgs(checkpoint_dir=fake_checkpoint_dir, out_dir=tmp_path),
+            checkpoint_dir=fake_checkpoint_dir,
+            out_dir=tmp_path,
             precision="32-true",
             train=TrainArgs(global_batch_size=1, save_interval=2, epochs=1, max_steps=6, micro_batch_size=1),
             eval=EvalArgs(interval=2, max_iters=2, max_new_tokens=1),

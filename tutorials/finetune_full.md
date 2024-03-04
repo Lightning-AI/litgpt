@@ -18,7 +18,7 @@ For more information about dataset preparation, also see the [prepare_dataset.md
 ```bash
 python finetune/full.py \
   --data Alpaca \
-  --io.checkpoint_dir checkpoints/tiiuae/falcon-7b
+  --checkpoint_dir checkpoints/tiiuae/falcon-7b
 ```
 
 Finetuning the falcon-7b model requires at least 8 GPUs with ~40 GB memory each.
@@ -31,7 +31,7 @@ This script will save checkpoints periodically to the `out_dir` directory. If yo
 ```bash
 python finetune/full.py \
   --data Alpaca \
-  --io.out_dir out/full/my-model-finetuned
+  --out_dir out/full/my-model-finetuned
 ```
 
 If your GPU does not support `bfloat16`, you can pass the `--precision 32-true` argument.
@@ -40,7 +40,7 @@ For instance, to fine-tune on MPS (the GPU on modern Macs), you can run
 ```bash
 python finetune/full.py \
   --data Alpaca \
-  --io.out_dir out/full/my-model-finetuned \
+  --out_dir out/full/my-model-finetuned \
   --precision 32-true
 ```
 
@@ -90,6 +90,6 @@ You can easily train on your own instruction dataset saved in JSON format.
     python finetune/full.py \
         --data JSON \
         --data.json_path data/mydata.json \
-        --io.checkpoint_dir checkpoints/tiiuae/falcon-7b \
-        --io.out_dir data/mydata-finetuned
+        --checkpoint_dir checkpoints/tiiuae/falcon-7b \
+        --out_dir data/mydata-finetuned
     ```
