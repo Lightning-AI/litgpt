@@ -35,7 +35,7 @@ def test_pretrain_tiny_llama(fake_checkpoint_dir, tmp_path, monkeypatch):
             devices=2,
             model=model_config,
             out_dir=out_dir,
-            checkpoint_dir=fake_checkpoint_dir,
+            tokenizer_dir=fake_checkpoint_dir,
             train=TrainArgs(global_batch_size=2, max_tokens=16, save_interval=1, micro_batch_size=1, max_norm=1.0),
             eval=EvalArgs(interval=1, max_iters=1),
         )

@@ -89,7 +89,7 @@ def setup(
     if logger_name in ("tensorboard", "wandb"):
         fabric.logger.log_hyperparams(hparams)
 
-    fabric.launch(main, devices, seed, resume, config, data, out_dir, checkpoint_dir, tokenizer, train, eval)
+    fabric.launch(main, devices, seed, resume, config, data, out_dir, tokenizer_dir, tokenizer, train, eval)
 
 
 def main(
@@ -100,7 +100,7 @@ def main(
     config: Config,
     data: LitDataModule,
     out_dir: Path,
-    checkpoint_dir: Optional[Path],
+    tokenizer_dir: Optional[Path],
     tokenizer: Optional[Tokenizer],
     train: TrainArgs,
     eval: EvalArgs,
@@ -152,7 +152,7 @@ def main(
         fabric.load(resume, state)
 
     train_time = time.perf_counter()
-    fit(fabric, devices, state, train_dataloader, val_dataloader, out_dir, checkpoint_dir, train, eval)
+    fit(fabric, devices, state, train_dataloader, val_dataloader, out_dir, tokenizer_dir, train, eval)
     fabric.print(f"Training time: {(time.perf_counter()-train_time):.2f}s")
     if fabric.device.type == "cuda":
         fabric.print(f"Memory used: {torch.cuda.max_memory_allocated() / 1e9:.02f} GB")
@@ -165,7 +165,7 @@ def fit(
     train_dataloader: DataLoader,
     val_dataloader: DataLoader,
     out_dir: Path,
-    checkpoint_dir: Optional[Path],
+    tokenizer_dir: Optional[Path],
     train: TrainArgs,
     eval: EvalArgs,
 ) -> None:
@@ -279,8 +279,8 @@ def fit(
             checkpoint_file.parent.mkdir(parents=True, exist_ok=True)
             fabric.print(f"Saving checkpoint to {str(checkpoint_file)!r}")
             fabric.save(checkpoint_file, state)
-            if checkpoint_dir is not None:
-                copy_config_files(checkpoint_dir, checkpoint_file.parent)
+            if tokenizer_dir is not None:
+                copy_config_files(tokenizer_dir, checkpoint_file.parent)
 
 
 @torch.no_grad()
