@@ -59,7 +59,7 @@ class GPT(nn.Module):
 
     def reset_parameters(self) -> None:
         # Trigger resetting the rope-cache
-        self.cos, self.sin = self.rope_cache()
+        self.cos, self.sin = self.rope_cache(device=self.cos.device)
 
     def _init_weights(self, module: nn.Module) -> None:
         """Meant to be used with `gpt.apply(gpt._init_weights)`."""
