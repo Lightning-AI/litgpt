@@ -46,7 +46,7 @@ Enabled with [bitsandbytes](https://github.com/TimDettmers/bitsandbytes). Check 
 Uses the normalized float 4 (nf4) data type. This is recommended over "fp4" based on the paper's experimental results and theoretical analysis.
 
 ```bash
-pip install scipy bitsandbytes  # scipy is required until https://github.com/TimDettmers/bitsandbytes/pull/525 is released
+pip install bitsandbytes
 
 litgpt generate base --quantize bnb.nf4 --checkpoint_dir checkpoints/tiiuae/falcon-7b --precision bf16-true --max_new_tokens 256
 ...
@@ -62,7 +62,7 @@ Enabled with [bitsandbytes](https://github.com/TimDettmers/bitsandbytes). Check 
 In average, this amounts to about 0.37 bits per parameter (approximately 3 GB for a 65B model).
 
 ```bash
-pip install scipy bitsandbytes  # scipy is required until https://github.com/TimDettmers/bitsandbytes/pull/525 is released
+pip install bitsandbytes
 
 litgpt generate base --quantize bnb.nf4-dq --checkpoint_dir checkpoints/tiiuae/falcon-7b --precision bf16-true --max_new_tokens 256
 ...
@@ -77,7 +77,7 @@ Enabled with [bitsandbytes](https://github.com/TimDettmers/bitsandbytes). Check 
 Uses pure FP4 quantization.
 
 ```bash
-pip install scipy bitsandbytes  # scipy is required until https://github.com/TimDettmers/bitsandbytes/pull/525 is released
+pip install bitsandbytes
 
 litgpt generate base --quantize bnb.fp4 --checkpoint_dir checkpoints/tiiuae/falcon-7b --precision bf16-true --max_new_tokens 256
 ...
@@ -93,7 +93,7 @@ Enabled with [bitsandbytes](https://github.com/TimDettmers/bitsandbytes). Check 
 In average, this amounts to about 0.37 bits per parameter (approximately 3 GB for a 65B model).
 
 ```bash
-pip install scipy bitsandbytes  # scipy is required until https://github.com/TimDettmers/bitsandbytes/pull/525 is released
+pip install bitsandbytes
 
 litgpt generate base --quantize bnb.fp4-dq --checkpoint_dir checkpoints/tiiuae/falcon-7b --precision bf16-true --max_new_tokens 256
 ...
@@ -106,7 +106,7 @@ Memory used: 5.38 GB
 Enabled with [bitsandbytes](https://github.com/TimDettmers/bitsandbytes). Check out the [paper](https://arxiv.org/abs/2110.02861) to learn more about how it works.
 
 ```bash
-pip install scipy bitsandbytes  # scipy is required until https://github.com/TimDettmers/bitsandbytes/pull/525 is released
+pip install bitsandbytes
 
 litgpt generate base --quantize bnb.int8 --checkpoint_dir checkpoints/tiiuae/falcon-7b --precision 16-true --max_new_tokens 256
 ...
