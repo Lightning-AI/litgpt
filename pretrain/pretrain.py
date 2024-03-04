@@ -269,7 +269,7 @@ def fit(
 
             fabric.print(f"iter {state['iter_num']}: val loss {val_loss:.4f}, val time: {td * 1000:.2f} ms")
             metrics = {"val_loss": val_loss, "val_ppl": math.exp(val_loss)}
-            fabric.log_dict(metrics, step=state["iter_num"])
+            fabric.log_dict(metrics, step=state["iter_num"] - 1)
             fabric.barrier()
 
         if not is_accumulating and state["step_count"] % train.save_interval == 0:
