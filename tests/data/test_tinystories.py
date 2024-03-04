@@ -59,7 +59,8 @@ def test_process_shard(tmp_path):
     with redirect_stdout(out):
         process_shard((0, str(shard_path)), Tokenizer())
 
-    assert out.getvalue().endswith("/data.bin, tokens: 12, bos: 2, average seqlen: 6.00\n")
+    text = out.getvalue()
+    assert text.endswith("/data.bin, tokens: 12, bos: 2, average seqlen: 6.00\n")
     assert shard_path.with_suffix(".bin").exists()
 
 
