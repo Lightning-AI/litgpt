@@ -1,5 +1,4 @@
 from dataclasses import dataclass
-from pathlib import Path
 from typing import Optional
 
 
@@ -58,13 +57,3 @@ class EvalArgs:
     """Number of tokens to generate"""
     max_iters: int = 100
     """Number of iterations"""
-
-
-@dataclass
-class IOArgs:
-    """Inputs and outputs related arguments"""
-
-    checkpoint_dir: Optional[Path] = None
-    """Where to read weights and tokenizer data from"""
-    out_dir: Path = Path("out")
-    """Where to save artifacts"""

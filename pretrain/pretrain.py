@@ -30,7 +30,7 @@ wd = Path(__file__).parent.parent.resolve()
 sys.path.append(str(wd))
 
 from lit_gpt import Tokenizer
-from lit_gpt.args import EvalArgs, IOArgs, TrainArgs
+from lit_gpt.args import EvalArgs, TrainArgs
 from lit_gpt.data import LitDataModule, TinyLlama
 from lit_gpt.model import GPT, Block, CausalSelfAttention, Config, LLaMAMLP
 from lit_gpt.utils import CLI, CycleIterator, chunked_cross_entropy, num_parameters
@@ -43,9 +43,7 @@ def setup(
     devices: Union[int, str] = "auto",
     seed: int = 42,
     data: Optional[LitDataModule] = None,
-    io: IOArgs = IOArgs(
-        out_dir=Path(os.getenv("LIGHTNING_ARTIFACTS_DIR", "out")) / "lit-tiny-llama-1.1b",
-    ),
+    out_dir: Optional[Path] = None,
     train: TrainArgs = TrainArgs(
         save_interval=1000,
         log_interval=1,
@@ -66,9 +64,10 @@ def setup(
     data = TinyLlama() if data is None else data
     config = Config.from_name("tiny-llama-1.1b") if model is None else model
     devices = parse_devices(devices)
+    out_dir = Path(os.getenv("LIGHTNING_ARTIFACTS_DIR", "out")) / "pretrain" if out_dir is None else out_dir
 
     logger = choose_logger(
-        io.out_dir,
+        out_dir,
         logger_name,
         name=f"pretrain-{config.name}",
         resume=resume,
@@ -86,7 +85,7 @@ def setup(
     if logger_name in ("tensorboard", "wandb"):
         fabric.logger.log_hyperparams(hparams)
 
-    fabric.launch(main, devices, seed, resume, config, data, io, train, eval)
+    fabric.launch(main, devices, seed, resume, config, data, out_dir, train, eval)
 
 
 def main(
@@ -96,14 +95,14 @@ def main(
     resume: Union[bool, Path],
     config: Config,
     data: LitDataModule,
-    io: IOArgs,
+    out_dir: Path,
     train: TrainArgs,
     eval: EvalArgs,
 ) -> None:
-    validate_args(io, train, eval)
+    validate_args(train, eval)
 
     if fabric.global_rank == 0:
-        io.out_dir.mkdir(parents=True, exist_ok=True)
+        out_dir.mkdir(parents=True, exist_ok=True)
 
     # in case the dataset requires the Tokenizer
     tokenizer = Tokenizer(io.checkpoint_dir) if io.checkpoint_dir is not None else None
@@ -144,13 +143,13 @@ def main(
     }
 
     if resume is True:
-        resume = max(io.out_dir.glob("*.pth"), key=(lambda p: int(p.name.split("-")[1])))
+        resume = max(out_dir.glob("*.pth"), key=(lambda p: int(p.name.split("-")[1])))
     if resume:
         fabric.print(f"Resuming training from {resume}")
         fabric.load(resume, state)
 
     train_time = time.perf_counter()
-    fit(fabric, devices, state, train_dataloader, val_dataloader, io, train, eval)
+    fit(fabric, devices, state, train_dataloader, val_dataloader, out_dir, train, eval)
     fabric.print(f"Training time: {(time.perf_counter()-train_time):.2f}s")
     if fabric.device.type == "cuda":
         fabric.print(f"Memory used: {torch.cuda.max_memory_allocated() / 1e9:.02f} GB")
@@ -162,7 +161,7 @@ def fit(
     state: dict,
     train_dataloader: DataLoader,
     val_dataloader: DataLoader,
-    io: IOArgs,
+    out_dir: Path,
     train: TrainArgs,
     eval: EvalArgs,
 ) -> None:
@@ -272,7 +271,7 @@ def fit(
             fabric.barrier()
 
         if not is_accumulating and state["step_count"] % train.save_interval == 0:
-            checkpoint_path = io.out_dir / f"step-{state['step_count']:08d}.pth"
+            checkpoint_path = out_dir / f"step-{state['step_count']:08d}.pth"
             fabric.print(f"Saving checkpoint to {str(checkpoint_path)!r}")
             fabric.save(checkpoint_path, state)
 
@@ -346,7 +345,7 @@ def choose_logger(out_dir: Path, logger_name: str, name: str, resume: Union[bool
     raise ValueError(f"`logger={logger_name}` is not a valid option.")
 
 
-def validate_args(io: IOArgs, train: TrainArgs, eval: EvalArgs) -> None:
+def validate_args(train: TrainArgs, eval: EvalArgs) -> None:
     issues = []
     unsupported = [
         (train, ["max_steps", "epochs"]),
