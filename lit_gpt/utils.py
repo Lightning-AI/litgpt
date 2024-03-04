@@ -373,21 +373,15 @@ class CycleIterator:
         return self
 
 
-def copy_config_files(source_dir: str, out_dir: str):
-    """
-    Copies the specified configuration and tokenizer files into the output directory.
-    """
+def copy_config_files(source_dir: Path, out_dir: Path) -> None:
+    """Copies the specified configuration and tokenizer files into the output directory."""
+
+    # TODO: All the config files need to be present, should we raise an error if one is missing?
     config_files = ["generation_config.json", "lit_config.json", "tokenizer_config.json"]
+    # TODO: Only one of the files need to be present here, do we want to add a special check?
     tokenizer_files = ["tokenizer.json", "tokenizer.model"]
 
-    # All the config files need to be present, should we raise an error if one is missing?
-    for file_name in config_files:
-        src_path = source_dir / file_name
-        if src_path.exists():
-            shutil.copy(src_path, out_dir)
-
-    # Only one of the files need to be present here, do we want to add a special check?
-    for file_name in tokenizer_files:
+    for file_name in config_files + tokenizer_files:
         src_path = source_dir / file_name
         if src_path.exists():
             shutil.copy(src_path, out_dir)

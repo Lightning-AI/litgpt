@@ -134,9 +134,10 @@ def main(
         fabric.print(f"Memory used: {torch.cuda.max_memory_allocated() / 1e9:.02f} GB")
 
     # Save the final checkpoint at the end of training
-    fabric.save(io.out_dir / "lit_model.pth", {"model": state["model"]})
+    save_path = out_dir / "final" / "lit_model.pth"
+    fabric.save(save_path, {"model": state["model"]})
     # Copy checkpoint files from original checkpoint dir
-    copy_config_files(io.checkpoint_dir, io.out_dir)
+    copy_config_files(checkpoint_dir, save_path.parent)
 
 
 def fit(
@@ -235,9 +236,11 @@ def fit(
             fabric.log_dict(metrics, step=state["iter_num"])
             fabric.barrier()
         if not is_accumulating and state["step_count"] % train.save_interval == 0:
-            checkpoint_path = out_dir / f"step-{state['step_count']:06d}.pth"
+            checkpoint_path = out_dir / f"step-{state['step_count']:06d}" / "lit_model.pth"
             fabric.print(f"Saving checkpoint to {str(checkpoint_path)!r}")
             fabric.save(checkpoint_path, state)
+            # Copy checkpoint files from original checkpoint dir
+            copy_config_files(checkpoint_dir, checkpoint_path.parent)
 
 
 # FSDP has issues with `inference_mode`
