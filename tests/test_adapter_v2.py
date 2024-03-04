@@ -336,8 +336,8 @@ def test_adapter_v2_bitsandbytes(monkeypatch, tmp_path, fake_checkpoint_dir, alp
         },
     }
 
-    assert {p.name for p in tmp_path.glob("*.pth")} == {"lit_model_adapter_finetuned.pth"}
-    state_dict = torch.load(tmp_path / "lit_model_adapter_finetuned.pth")
+    assert {p.name for p in tmp_path.rglob("*.pth")} == {"lit_model.pth"}
+    state_dict = torch.load(tmp_path / "final" / "lit_model.pth")
     assert len(state_dict) == 1
     dtype_to_name = {"torch.float16": set()}
     for name, layer in state_dict["model"].items():
