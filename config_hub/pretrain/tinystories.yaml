@@ -25,7 +25,7 @@ data:
     path: data
     num_workers: 8
     seed: 1337
-checkpoint_dir: checkpoints/meta-llama/Llama-2-7b-hf
+tokenizer_dir: checkpoints/meta-llama/Llama-2-7b-hf
 out_dir: out/stories15M
 train:
   save_interval: 1000
