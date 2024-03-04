@@ -265,7 +265,7 @@ def test_lora_linear_utilization(apply_to, target_layer_names, mlp_class_name):
         r=2,
         alpha=8,
         dropout=0.1,
-        _mlp_class=mlp_class_name,
+        mlp_class_name=mlp_class_name,
         intermediate_size=8 * 3,
         **{apply_to: True},
     )
