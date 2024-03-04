@@ -18,7 +18,7 @@ class TrainArgs:
     """Number of iterations with learning rate warmup active"""
     epochs: Optional[int] = None
     """Number of epochs to run"""
-    # TODO: pretrain/pretrain is the only script using `max_tokens` explicitly. replace it with epoch_size*epochs?
+    # TODO: `pretrain` is the only script using `max_tokens` explicitly. replace it with epoch_size*epochs?
     max_tokens: Optional[int] = None
     """Total number of tokens to train on"""
     max_steps: Optional[int] = None
