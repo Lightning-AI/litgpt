@@ -29,7 +29,7 @@ devices: auto
 seed: 42
 data: TinyLlama
 out_dir: out/pretrain/tiny-llama
-checkpoint_dir: null
+tokenizer_dir: checkpoints/meta-llama/Llama-2-7b-hf
 train:
   save_interval: 1000
   log_interval: 1
