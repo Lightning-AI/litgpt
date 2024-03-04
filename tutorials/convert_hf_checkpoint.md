@@ -3,8 +3,7 @@
 By default, the `scripts/download.py` script converts the downloaded HF checkpoint files into a Lit-GPT compatible format after downloading. For example,
 
 ```bash
-python scripts/download.py \
-  --repo_id EleutherAI/pythia-14m
+python scripts/download.py --repo_id EleutherAI/pythia-14m
 ```
 
 creates the following files:
@@ -47,7 +46,7 @@ ls checkpoints/EleutherAI/pythia-14m
         └── tokenizer_config.json
 ```
 
-The required files `lit_config.json` and `lit_model.pth` files can then  be manually generated via the `scripts/convert_hf_checkpoint.py` script:
+The required files `lit_config.json` and `lit_model.pth` files can then be manually generated via the `scripts/convert_hf_checkpoint.py` script:
 
 ```bash
 python scripts/convert_hf_checkpoint.py \

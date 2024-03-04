@@ -95,7 +95,7 @@ def download_from_hub(
             torch.save(result, bin_path)
             os.remove(safetensor_path)
 
-    if convert_checkpoint:
+    if convert_checkpoint and not tokenizer_only:
         print("Converting checkpoint files to Lit-GPT format.")
         convert_hf_checkpoint(checkpoint_dir=directory, dtype=dtype)
 
