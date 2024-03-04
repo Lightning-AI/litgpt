@@ -1,5 +1,4 @@
 from dataclasses import dataclass
-from pathlib import Path
 from typing import Optional
 
 
@@ -19,13 +18,15 @@ class TrainArgs:
     """Number of iterations with learning rate warmup active"""
     epochs: Optional[int] = None
     """Number of epochs to run"""
-    epoch_size: Optional[int] = None
-    """Size of the epoch"""
-    # TODO: pretrain/tinyllama is the only script using `max_tokens` explicitly. replace it with epoch_size*epochs?
+    # TODO: pretrain/pretrain is the only script using `max_tokens` explicitly. replace it with epoch_size*epochs?
     max_tokens: Optional[int] = None
     """Total number of tokens to train on"""
+    max_steps: Optional[int] = None
+    """Limits the number of optimizer steps to run."""
     max_seq_length: Optional[int] = None
     """Limits the length of samples. Off by default"""
+    tie_embeddings: Optional[bool] = None
+    """Whether to tie the embedding weights with the language modelling head weights."""
 
     # Optimization args
     learning_rate: float = 1e-3
@@ -34,12 +35,6 @@ class TrainArgs:
     beta2: float = 0.95
     max_norm: Optional[float] = None
     min_lr: float = 6e-5
-
-    def max_iters(self, devices: int) -> int:
-        """Number of iterations"""
-        max_iters = self.epochs * self.epoch_size // devices // self.micro_batch_size
-        assert max_iters > 0
-        return max_iters
 
     def gradient_accumulation_iters(self, devices: int) -> int:
         """Number of iterations between gradient synchronizations"""
@@ -64,18 +59,3 @@ class EvalArgs:
     """Number of tokens to generate"""
     max_iters: int = 100
     """Number of iterations"""
-
-
-@dataclass
-class IOArgs:
-    """Inputs and outputs related arguments"""
-
-    # Optional because pretrain/tinyllama hardcodes the path
-    train_data_dir: Optional[Path] = Path("data/alpaca")
-    """Where to read training data from"""
-    val_data_dir: Optional[Path] = None
-    """Where to read validation data from"""
-    checkpoint_dir: Optional[Path] = None
-    """Where to read weights and tokenizer data from"""
-    out_dir: Path = Path("out/adapter/alpaca")
-    """Where to save artifacts"""

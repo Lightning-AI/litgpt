@@ -30,13 +30,12 @@ pip install 'huggingface_hub[hf_transfer] @ git+https://github.com/huggingface/h
 
 export repo_id=stabilityai/stable-code-3b
 python scripts/download.py --repo_id $repo_id --from_safetensors=True
-python scripts/convert_hf_checkpoint.py --checkpoint_dir checkpoints/$repo_id
 ```
 
 > [!NOTE]
 > `stablecode-completion-alpha-3b` is shipped in PyTorch .bin format, thus set `--from_safetensors=False`.
 
-By default, the `convert_hf_checkpoint` step will use the data type of the HF checkpoint's parameters. In cases where RAM
+By default, the checkpoint conversion step will use the data type of the HF checkpoint's parameters. In cases where RAM
 or disk size is constrained, it might be useful to pass `--dtype bfloat16` to convert all parameters into this smaller precision before continuing.
 
 You're done! To execute the model just run:

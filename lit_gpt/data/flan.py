@@ -1,6 +1,7 @@
 # Copyright Lightning AI. Licensed under the Apache License 2.0, see LICENSE file.
 
 import json
+from dataclasses import dataclass, field
 from pathlib import Path
 from typing import Optional, Dict, List, Set
 
@@ -15,46 +16,40 @@ _URL = "https://huggingface.co/datasets/Muennighoff/flan/resolve/main"
 
 # TODO: Including all subsets, FLAN is too large to be loaded in memory. Switch the implementation to cache
 #   on disk or use Lightning Data
+@dataclass
 class FLAN(LitDataModule):
-    """FLAN data module for supervised finetuning.
+    """FLAN data module for supervised finetuning."""
 
-    Provides train- and val-dataloaders. The batches return keys "input_ids" and "labels".
-    """
+    mask_prompt: bool = False
+    """Whether to mask the prompt section from the label (with ``ignore_index``)."""
+    ignore_index: int = -1
+    """The index to use for elements to be ignored in the label."""
+    seed: int = 42
+    """The random seed for shuffling the dataset."""
+    num_workers: int = 4
+    """How many DataLoader processes to use for loading."""
+    download_dir: Path = Path("./data/flan")
+    """The directory in which the downloaded dataset gets saved."""
+    url: str = _URL
+    """The URL from where to download the dataset."""
+    subsets: Optional[str] = None
+    """A comma separated list of subsets to use. If None, all subsets are used."""
 
-    def __init__(
-        self,
-        mask_prompt: bool = False,
-        test_split_fraction: float = 0.03865,  # to get exactly 2000 test samples,
-        ignore_index: int = -1,
-        seed: int = 42,
-        num_workers: int = 4,
-        data_url: str = _URL,
-        download_dir: Path = Path("./data/flan"),
-        subsets: Optional[str] = None,
-    ) -> None:
-        super().__init__()
-        self.mask_prompt = mask_prompt
-        self.test_split_fraction = test_split_fraction
-        self.ignore_index = ignore_index
-        self.seed = seed
-        self.num_workers = num_workers
-        self.data_url = data_url
-        self.download_dir = download_dir
+    tokenizer: Optional[Tokenizer] = field(default=None, init=False, repr=False)
+    batch_size: int = field(default=1, init=False, repr=False)
+    max_seq_length: int = field(default=-1, init=False, repr=False)
+    train_dataset: Optional[SFTDataset] = field(default=None, init=False, repr=False)
+    test_dataset: Optional[SFTDataset] = field(default=None, init=False, repr=False)
 
+    def __post_init__(self):
         supported_subsets = _supported_subsets()
-        if subsets is not None:
-            self.subsets = subsets.split(",")
+        if self.subsets is not None:
+            self.subsets = self.subsets.split(",")
             for subset in self.subsets:
                 if subset not in supported_subsets:
                     raise ValueError(f"{subset} not in {supported_subsets}")
         else:
             self.subsets = list(supported_subsets)
-
-        self.tokenizer: Optional[Tokenizer] = None
-        self.batch_size: int = 1
-        self.max_seq_length: int = -1
-        self.train_dataset: Optional[SFTDataset] = None
-        self.test_dataset: Optional[SFTDataset] = None
 
     def connect(
         self,
@@ -71,7 +66,7 @@ class FLAN(LitDataModule):
         for subset in self.subsets:
             for split in ("train", "test"):
                 data_file_path = self.download_dir / f"{subset}_{split}.jsonl"
-                data_file_url = f"{self.data_url}/{split}/{subset}_{split}.jsonl"
+                data_file_url = f"{self.url}/{split}/{subset}_{split}.jsonl"
                 download_if_missing(data_file_path, data_file_url)
 
     def train_dataloader(self):
