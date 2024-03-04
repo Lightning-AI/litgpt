@@ -276,9 +276,11 @@ def fit(
 
         if not is_accumulating and state["step_count"] % train.save_interval == 0:
             checkpoint_file = out_dir / f"step-{state['step_count']:08d}" / "lit_model.pth"
+            checkpoint_file.parent.mkdir(parents=True, exist_ok=True)
             fabric.print(f"Saving checkpoint to {str(checkpoint_file)!r}")
             fabric.save(checkpoint_file, state)
-            copy_config_files(checkpoint_dir, checkpoint_file.parent)
+            if checkpoint_dir is not None:
+                copy_config_files(checkpoint_dir, checkpoint_file.parent)
 
 
 @torch.no_grad()
