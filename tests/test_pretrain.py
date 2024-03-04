@@ -25,24 +25,31 @@ def test_pretrain_tiny_llama(tmp_path, monkeypatch):
     dataloader = DataLoader(dataset)
     module.get_dataloaders = Mock(return_value=(dataloader, dataloader))
 
+    out_dir = tmp_path / "out"
     stdout = StringIO()
     with redirect_stdout(stdout):
         module.setup(
             devices=2,
             model=model_config,
-            out_dir=tmp_path,
+            out_dir=out_dir,
             train=TrainArgs(global_batch_size=2, max_tokens=16, save_interval=1, micro_batch_size=1, max_norm=1.0),
             eval=EvalArgs(interval=1, max_iters=1),
         )
 
     if torch.distributed.get_rank() == 0:
         # tmp_path is not the same across all ranks, run assert only on rank 0
-        assert {p.name for p in tmp_path.glob("*.pth")} == {
-            "step-00000001.pth",
-            "step-00000002.pth",
-            "step-00000003.pth",
-            "step-00000004.pth",
-        }
+        out_dir_contents = {p.name for p in out_dir.iterdir()}
+        checkpoint_dirs = {"step-00000001", "step-00000002", "step-00000003", "step-00000004"}
+        assert checkpoint_dirs.issubset(out_dir_contents)
+        assert all((out_dir / p).is_dir() for p in checkpoint_dirs)
+        for checkpoint_dir in checkpoint_dirs:
+            assert {p.name for p in (out_dir / checkpoint_dir).iterdir()} == {
+                "lit_model.pth",
+                "lit_config.json",
+                "tokenizer_config.json",
+                "tokenizer.json",
+            }
+
         # logs only appear on rank 0
         logs = stdout.getvalue()
         assert logs.count("optimizer.step") == 4

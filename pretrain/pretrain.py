@@ -89,7 +89,7 @@ def setup(
     if logger_name in ("tensorboard", "wandb"):
         fabric.logger.log_hyperparams(hparams)
 
-    fabric.launch(main, devices, seed, resume, config, data, out_dir, tokenizer, train, eval)
+    fabric.launch(main, devices, seed, resume, config, data, out_dir, checkpoint_dir, tokenizer, train, eval)
 
 
 def main(
@@ -100,6 +100,7 @@ def main(
     config: Config,
     data: LitDataModule,
     out_dir: Path,
+    checkpoint_dir: Optional[Path],
     tokenizer: Optional[Tokenizer],
     train: TrainArgs,
     eval: EvalArgs,
@@ -145,13 +146,13 @@ def main(
     }
 
     if resume is True:
-        resume = max(out_dir.glob("*.pth"), key=(lambda p: int(p.name.split("-")[1])))
+        resume = max(out_dir.rglob("step-*/*.pth"), key=(lambda p: int(p.parent.name.split("-")[1])))
     if resume:
         fabric.print(f"Resuming training from {resume}")
         fabric.load(resume, state)
 
     train_time = time.perf_counter()
-    fit(fabric, devices, state, train_dataloader, val_dataloader, out_dir, train, eval)
+    fit(fabric, devices, state, train_dataloader, val_dataloader, out_dir, checkpoint_dir, train, eval)
     fabric.print(f"Training time: {(time.perf_counter()-train_time):.2f}s")
     if fabric.device.type == "cuda":
         fabric.print(f"Memory used: {torch.cuda.max_memory_allocated() / 1e9:.02f} GB")
@@ -164,6 +165,7 @@ def fit(
     train_dataloader: DataLoader,
     val_dataloader: DataLoader,
     out_dir: Path,
+    checkpoint_dir: Optional[Path],
     train: TrainArgs,
     eval: EvalArgs,
 ) -> None:
@@ -273,12 +275,10 @@ def fit(
             fabric.barrier()
 
         if not is_accumulating and state["step_count"] % train.save_interval == 0:
-            checkpoint_path = out_dir / f"step-{state['step_count']:08d}.pth"
-            fabric.print(f"Saving checkpoint to {str(checkpoint_path)!r}")
-            fabric.save(checkpoint_path, state)
-
-    # Copy checkpoint files from original checkpoint dir
-    copy_config_files(io.checkpoint_dir, io.out_dir)
+            checkpoint_file = out_dir / f"step-{state['step_count']:08d}" / "lit_model.pth"
+            fabric.print(f"Saving checkpoint to {str(checkpoint_file)!r}")
+            fabric.save(checkpoint_file, state)
+            copy_config_files(checkpoint_dir, checkpoint_file.parent)
 
 
 @torch.no_grad()
