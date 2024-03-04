@@ -45,7 +45,7 @@ The original [Alpaca](https://crfm.stanford.edu/2023/03/13/alpaca.html) dataset 
 ```bash
 python finetune/lora.py \
   --data Alpaca \
-  --io.checkpoint_dir "checkpoints/tiiuae/falcon-7b"
+  --checkpoint_dir "checkpoints/tiiuae/falcon-7b"
 ```
 
 #### Truncating datasets
@@ -59,7 +59,7 @@ In this case, a cut-off of 256 may be a reasonable choice:
 ```bash
 python finetune/lora.py \
   --data Alpaca \
-  --io.checkpoint_dir "checkpoints/tiiuae/falcon-7b" \
+  --checkpoint_dir "checkpoints/tiiuae/falcon-7b" \
   --train.max_seq_length 256
 ```
 
@@ -78,7 +78,7 @@ python finetune/lora.py \
   --data Alpaca \
   --data.file_url "https://raw.githubusercontent.com/mobarski/alpaca-libre/main/data/output/alpaca_libre_ok_tasks_v4.json" \
   --data.file_name "alpaca_libre_data_cleaned_archive.json" \
-  --io.checkpoint_dir "checkpoints/tiiuae/falcon-7b"
+  --checkpoint_dir "checkpoints/tiiuae/falcon-7b"
 ```
 
 The Alpaca Libre dataset distribution is shown below.
@@ -92,7 +92,7 @@ python finetune/lora.py \
   --data Alpaca \
   --data.file_url "https://raw.githubusercontent.com/mobarski/alpaca-libre/main/data/output/alpaca_libre_ok_tasks_v4.json" \
   --data.file_name "alpaca_libre_data_cleaned_archive.json" \
-  --io.checkpoint_dir "checkpoints/tiiuae/falcon-7b" \
+  --checkpoint_dir "checkpoints/tiiuae/falcon-7b" \
   --train.max_seq_length 256
 ```
 
@@ -107,7 +107,7 @@ The usage is similar to the Alpaca dataset described above. Using Falcon 7b as a
 ```bash
 python finetune/lora.py \
   --data Dolly \
-  --io.checkpoint_dir "checkpoints/tiiuae/falcon-7b" \
+  --checkpoint_dir "checkpoints/tiiuae/falcon-7b" \
 ```
 
 The Dolly dataset distribution is shown below.
@@ -119,7 +119,7 @@ You may want to consider truncating the dataset (see the *Truncating datasets* d
 ```bash
 python finetune/lora.py \
   --data Dolly \
-  --io.checkpoint_dir "checkpoints/tiiuae/falcon-7b" \
+  --checkpoint_dir "checkpoints/tiiuae/falcon-7b" \
   --train.max_seq_length 256
 ```
 
@@ -160,7 +160,7 @@ You may want to consider truncating the dataset (see the *Truncating datasets* d
 ```bash
 python finetune/lora.py \
   --data LongForm \
-  --io.checkpoint_dir "checkpoints/tiiuae/falcon-7b" \
+  --checkpoint_dir "checkpoints/tiiuae/falcon-7b" \
   --train.max_seq_length 1500
 ```
 
@@ -177,7 +177,7 @@ export HF_TOKEN="insert_your_huggingface_token_here"
 
 python finetune/lora.py \
   --data LIMA \
-  --io.checkpoint_dir "checkpoints/tiiuae/falcon-7b"
+  --checkpoint_dir "checkpoints/tiiuae/falcon-7b"
 ```
 
 LIMA contains a handful of multiturn conversations. By default, only the first instruction-response pairs from
@@ -193,7 +193,7 @@ You may want to consider truncating the dataset (see the *Truncating datasets* d
 ```bash
 python finetune/lora.py \
   --data LIMA \
-  --io.checkpoint_dir "checkpoints/tiiuae/falcon-7b" \
+  --checkpoint_dir "checkpoints/tiiuae/falcon-7b" \
   --train.max_seq_length 512
 ```
 
@@ -209,7 +209,7 @@ By default, all subsets (1,386,050 samples) and validations sets (367,190 subset
 ```bash
 python finetune/lora.py \
   --data FLAN \
-  --io.checkpoint_dir "checkpoints/tiiuae/falcon-7b"
+  --checkpoint_dir "checkpoints/tiiuae/falcon-7b"
 ```
 
 However, you can also select individual subsets via comma-separated strings as follows:
@@ -219,7 +219,7 @@ However, you can also select individual subsets via comma-separated strings as f
 python finetune/lora.py \
   --data FLAN \
   --data.subsets "aeslc_10templates,ag_news_subset_10templates,anli_r1_10templates" \
-  --io.checkpoint_dir "checkpoints/tiiuae/falcon-7b"
+  --checkpoint_dir "checkpoints/tiiuae/falcon-7b"
 ```
 
 You can find a list of all 66 supported subsets [here](https://huggingface.co/datasets/Muennighoff/flan).
@@ -273,7 +273,7 @@ Then simply run any of the finetuning scripts with this input:
 python finetune/lora.py \
   --data JSON \
   --data.json_path path/to/your/data.json \
-  --io.checkpoint_dir "checkpoints/tiiuae/falcon-7b"
+  --checkpoint_dir "checkpoints/tiiuae/falcon-7b"
 ```
 
 You can also customize how the dataset is read by using these additional parameters
@@ -296,7 +296,7 @@ python finetune/lora.py \
   --data.seed 42 \
   --data.mask_inputs False \
   --data.ignore_index -1 \
-  --io.checkpoint_dir "checkpoints/tiiuae/falcon-7b"
+  --checkpoint_dir "checkpoints/tiiuae/falcon-7b"
 ```
 
 &nbsp;
