@@ -1,0 +1,53 @@
+model:
+  name: pythia-14m
+  hf_config:
+    org: EleutherAI
+    name: pythia-14m
+  scale_embeddings: false
+  block_size: 512
+  vocab_size: 50254
+  padding_multiple: 128
+  padded_vocab_size: 50304
+  n_layer: 6
+  n_head: 4
+  head_size: 32
+  n_embd: 128
+  rotary_percentage: 0.25
+  parallel_residual: true
+  bias: true
+  lm_head_bias: false
+  n_query_groups: 4
+  shared_attention_norm: false
+  norm_eps: 1.0e-05
+  gelu_approximate: none
+  intermediate_size: 512
+  rope_condense_ratio: 1
+  rope_base: 10000
+  n_expert: 0
+  n_expert_per_token: 0
+logger_name: tensorboard
+resume: false
+devices: auto
+seed: 42
+data: OpenWebText
+out_dir: out/pretrain/debug
+train:
+  save_interval: 1000
+  log_interval: 1
+  global_batch_size: 125
+  micro_batch_size: 5
+  lr_warmup_steps: 100
+  epochs: null
+  max_tokens: 100000000
+  max_steps: null
+  max_seq_length: null
+  learning_rate: 6e-4
+  weight_decay: 1e-1
+  beta1: 0.9
+  beta2: 0.95
+  max_norm: 1.0
+  min_lr: 6e-5
+eval:
+  interval: 1000
+  max_new_tokens: null
+  max_iters: 100

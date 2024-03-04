@@ -2,6 +2,7 @@
 """Implementation derived from https://github.com/tloen/alpaca-lora"""
 
 import json
+from dataclasses import dataclass, field
 from pathlib import Path
 from typing import Optional, Dict
 
@@ -14,38 +15,32 @@ from lit_gpt.tokenizer import Tokenizer
 _URL = "https://raw.githubusercontent.com/tloen/alpaca-lora/main/alpaca_data_cleaned_archive.json"
 
 
+@dataclass
 class Alpaca(LitDataModule):
-    """Alpaca data module for supervised finetuning.
+    """Alpaca data module for supervised finetuning."""
 
-    Provides train- and val-dataloaders. The batches return keys "input_ids" and "labels".
-    """
+    mask_prompt: bool = False
+    """Whether to mask the prompt section from the label (with ``ignore_index``)."""
+    test_split_fraction: float = 0.03865  # to get exactly 2000 test samples,
+    """The fraction of the dataset to use for the test/validation dataset. The rest is used for training."""
+    ignore_index: int = -1
+    """The index to use for elements to be ignored in the label."""
+    seed: int = 42
+    """The random seed for creating the train/val splits and shuffling the dataset."""
+    num_workers: int = 4
+    """How many DataLoader processes to use for loading."""
+    download_dir: Path = Path("./data/alpaca")
+    """The directory in which the downloaded dataset gets saved."""
+    file_url: str = field(repr=False, default=_URL)
+    """The URL from where to download the dataset."""
+    file_name: str = field(repr=False, default="alpaca_data_cleaned_archive.json")
+    """The name of the dataset file to download."""
 
-    def __init__(
-        self,
-        mask_prompt: bool = False,
-        test_split_fraction: float = 0.03865,  # to get exactly 2000 test samples,
-        ignore_index: int = -1,
-        seed: int = 42,
-        num_workers: int = 4,
-        data_file_url: str = _URL,
-        data_file_name: str = "alpaca_data_cleaned_archive.json",
-        download_dir: Path = Path("./data/alpaca"),
-    ) -> None:
-        super().__init__()
-        self.mask_prompt = mask_prompt
-        self.test_split_fraction = test_split_fraction
-        self.ignore_index = ignore_index
-        self.seed = seed
-        self.num_workers = num_workers
-        self.data_file_url = data_file_url
-        self.data_file_name = data_file_name
-        self.download_dir = download_dir
-
-        self.tokenizer: Optional[Tokenizer] = None
-        self.batch_size: int = 1
-        self.max_seq_length: int = -1
-        self.train_dataset: Optional[SFTDataset] = None
-        self.test_dataset: Optional[SFTDataset] = None
+    tokenizer: Optional[Tokenizer] = field(default=None, init=False, repr=False)
+    batch_size: int = field(default=1, init=False, repr=False)
+    max_seq_length: int = field(default=-1, init=False, repr=False)
+    train_dataset: Optional[SFTDataset] = field(default=None, init=False, repr=False)
+    test_dataset: Optional[SFTDataset] = field(default=None, init=False, repr=False)
 
     def connect(
         self,
@@ -59,10 +54,10 @@ class Alpaca(LitDataModule):
 
     def prepare_data(self) -> None:
         self.download_dir.mkdir(parents=True, exist_ok=True)
-        download_if_missing(self.download_dir / self.data_file_name, self.data_file_url)
+        download_if_missing(self.download_dir / self.file_name, self.file_url)
 
     def setup(self, stage: str = "") -> None:
-        with open(self.download_dir / self.data_file_name, "r", encoding="utf-8") as file:
+        with open(self.download_dir / self.file_name, "r", encoding="utf-8") as file:
             data = json.load(file)
 
         # Partition the dataset into train and test

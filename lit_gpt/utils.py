@@ -377,3 +377,11 @@ def CLI(*args: Any, **kwargs: Any) -> Any:
 
     kwargs.setdefault("as_positional", False)
     return CLI(*args, **kwargs)
+
+
+def parse_devices(devices: Union[str, int]) -> int:
+    if devices in (-1, "auto"):
+        return torch.cuda.device_count() or 1
+    if isinstance(devices, int) and devices > 0:
+        return devices
+    raise ValueError(f"Devices must be 'auto' or a positive integer, got: {devices!r}")

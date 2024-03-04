@@ -1,6 +1,7 @@
 # Copyright Lightning AI. Licensed under the Apache License 2.0, see LICENSE file.
 
 import json
+from dataclasses import dataclass, field
 from pathlib import Path
 from typing import Optional
 
@@ -11,46 +12,32 @@ from lit_gpt.data.alpaca import prompt_template
 from lit_gpt.tokenizer import Tokenizer
 
 
+@dataclass
 class JSON(LitDataModule):
-    """Loads JSON data for supervised finetuning.
+    """Loads JSON data for supervised finetuning."""
 
-    Provides train- and val-dataloaders. The batches return keys "input_ids" and "labels".
+    json_path: Path
+    """A path to a JSON file containing the data. The file should contain a list of samples (dicts).
+    Each dict must have the keys 'instruction' and 'output', and can optionally have a key 'input'
+    (see Alpaca)."""
+    mask_prompt: bool = False
+    """Whether to mask the prompt section from the label (with ``ignore_index``)."""
+    test_split_fraction: float = 0.1
+    """The fraction of the dataset to use for the test/validation dataset. The rest is used for training."""
+    ignore_index: int = -1
+    """The index to use for elements to be ignored in the label."""
+    seed: int = 42
+    """The random seed for creating the train/val splits and shuffling the dataset."""
+    num_workers: int = 4
+    """How many DataLoader processes to use for loading."""
 
-    Args:
-        json_path: A path to a JSON file containing the data. The file should contain a list of samples (dicts).
-            Each dict must have the keys 'instruction' and 'output', and can optionally have a key 'input'
-            (see Alpaca).
-        mask_prompt: Whether to mask the prompt section from the label (with ``ignore_index``).
-        test_split_fraction: A number in the range [0, 1] that determines the fraction of the dataset
-            to use for testing.
-        ignore_index: The index to use for elements to be ignored in the label.
-        seed: The random seed for creating the train/val splits and shuffling the dataset.
-        num_workers: How many DataLoader processes to use for loading.
-    """
+    tokenizer: Optional[Tokenizer] = field(default=None, init=False, repr=False)
+    batch_size: int = field(default=1, init=False, repr=False)
+    max_seq_length: int = field(default=-1, init=False, repr=False)
+    train_dataset: Optional[SFTDataset] = field(default=None, init=False, repr=False)
+    test_dataset: Optional[SFTDataset] = field(default=None, init=False, repr=False)
 
-    def __init__(
-        self,
-        json_path: Path,
-        mask_prompt: bool = False,
-        test_split_fraction: float = 0.1,
-        ignore_index: int = -1,
-        seed: int = 42,
-        num_workers: int = 4,
-    ) -> None:
-        super().__init__()
-        self.json_path = json_path
-        self.mask_prompt = mask_prompt
-        self.test_split_fraction = test_split_fraction
-        self.ignore_index = ignore_index
-        self.seed = seed
-        self.num_workers = num_workers
-
-        self.tokenizer: Optional[Tokenizer] = None
-        self.batch_size: int = 1
-        self.max_seq_length: int = -1
-        self.train_dataset: Optional[SFTDataset] = None
-        self.test_dataset: Optional[SFTDataset] = None
-
+    def __post_init__(self):
         if not self.json_path.is_file():
             raise FileNotFoundError(f"The file {self.json_path} does not exist.")
 

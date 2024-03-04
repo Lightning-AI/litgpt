@@ -11,7 +11,7 @@ import sys
 import time
 from functools import partial
 from pathlib import Path
-from typing import Tuple, Union
+from typing import Tuple, Union, Optional
 
 import lightning as L
 import torch
@@ -29,30 +29,28 @@ from typing_extensions import Literal
 wd = Path(__file__).parent.parent.resolve()
 sys.path.append(str(wd))
 
-from lit_gpt.args import EvalArgs, IOArgs, TrainArgs
+from lit_gpt.args import EvalArgs, TrainArgs
 from lit_gpt.model import GPT, Block, CausalSelfAttention, Config, LLaMAMLP
-from lit_gpt.utils import CLI, CycleIterator, chunked_cross_entropy, num_parameters
+from lit_gpt.utils import CLI, CycleIterator, chunked_cross_entropy, num_parameters, parse_devices
 from lit_gpt.data import TinyLlama, LitDataModule
 
 
 def setup(
-    model: Config = Config(name="tiny-llama-1.1b"),
+    model: Optional[Config] = None,
     logger_name: Literal["wandb", "tensorboard", "csv"] = "tensorboard",
     resume: Union[bool, Path] = False,
-    devices: int = torch.cuda.device_count() or 1,
-    seed: int = 1337,
-    data: LitDataModule = TinyLlama(),
-    io: IOArgs = IOArgs(
-        out_dir=Path(os.getenv("LIGHTNING_ARTIFACTS_DIR", "out")) / "lit-tiny-llama-1.1b", train_data_dir=None
-    ),
+    devices: Union[int, str] = "auto",
+    seed: int = 42,
+    data: Optional[LitDataModule] = None,
+    out_dir: Optional[Path] = None,
     train: TrainArgs = TrainArgs(
         save_interval=1000,
         log_interval=1,
         global_batch_size=512,
         micro_batch_size=4,
         max_tokens=int(3e12),  # 3 trillion
-        learning_rate=1e-1,
-        weight_decay=4e-4,
+        learning_rate=4e-4,
+        weight_decay=1e-1,
         beta1=0.9,
         beta2=0.95,
         max_norm=1.0,
@@ -62,9 +60,18 @@ def setup(
     eval: EvalArgs = EvalArgs(interval=1000, max_iters=100),
 ):
     hparams = locals()
-    logger = choose_logger(io.out_dir, logger_name, name=f"pretrain-{model.name}", resume=resume)
+    data = TinyLlama() if data is None else data
+    config = Config.from_name("tiny-llama-1.1b") if model is None else model
+    devices = parse_devices(devices)
+    out_dir = Path(os.getenv("LIGHTNING_ARTIFACTS_DIR", "out")) / "pretrain" if out_dir is None else out_dir
 
-    strategy = FSDPStrategy(auto_wrap_policy={Block}, state_dict_type="full", sharding_strategy="HYBRID_SHARD")
+    logger = choose_logger(out_dir, logger_name, name=f"pretrain-{config.name}", resume=resume)
+
+    if devices > 1:
+        strategy = FSDPStrategy(auto_wrap_policy={Block}, state_dict_type="full", sharding_strategy="HYBRID_SHARD")
+    else:
+        strategy = "auto"
+
     fabric = L.Fabric(devices=devices, strategy=strategy, precision="bf16-mixed", loggers=[logger])
     fabric.launch()
 
@@ -72,7 +79,7 @@ def setup(
     if logger_name in ("tensorboard", "wandb"):
         fabric.logger.log_hyperparams(hparams)
 
-    fabric.launch(main, devices, seed, resume, model, data, io, train, eval)
+    fabric.launch(main, devices, seed, resume, config, data, out_dir, train, eval)
 
 
 def main(
@@ -82,14 +89,14 @@ def main(
     resume: Union[bool, Path],
     config: Config,
     data: LitDataModule,
-    io: IOArgs,
+    out_dir: Path,
     train: TrainArgs,
     eval: EvalArgs,
 ) -> None:
-    validate_args(io, train, eval)
+    validate_args(train, eval)
 
     if fabric.global_rank == 0:
-        io.out_dir.mkdir(parents=True, exist_ok=True)
+        out_dir.mkdir(parents=True, exist_ok=True)
 
     train_dataloader, val_dataloader = get_dataloaders(fabric, data, train, config.block_size)
     train_dataloader, val_dataloader = fabric.setup_dataloaders(train_dataloader, val_dataloader)
@@ -125,13 +132,13 @@ def main(
     }
 
     if resume is True:
-        resume = max(io.out_dir.glob("*.pth"), key=(lambda p: int(p.name.split("-")[1])))
+        resume = max(out_dir.glob("*.pth"), key=(lambda p: int(p.name.split("-")[1])))
     if resume:
         fabric.print(f"Resuming training from {resume}")
         fabric.load(resume, state)
 
     train_time = time.perf_counter()
-    fit(fabric, devices, state, train_dataloader, val_dataloader, io, train, eval)
+    fit(fabric, devices, state, train_dataloader, val_dataloader, out_dir, train, eval)
     fabric.print(f"Training time: {(time.perf_counter()-train_time):.2f}s")
     if fabric.device.type == "cuda":
         fabric.print(f"Memory used: {torch.cuda.max_memory_allocated() / 1e9:.02f} GB")
@@ -143,7 +150,7 @@ def fit(
     state: dict,
     train_dataloader: DataLoader,
     val_dataloader: DataLoader,
-    io: IOArgs,
+    out_dir: Path,
     train: TrainArgs,
     eval: EvalArgs,
 ) -> None:
@@ -253,7 +260,7 @@ def fit(
             fabric.barrier()
 
         if not is_accumulating and state["step_count"] % train.save_interval == 0:
-            checkpoint_path = io.out_dir / f"step-{state['step_count']:08d}.pth"
+            checkpoint_path = out_dir / f"step-{state['step_count']:08d}.pth"
             fabric.print(f"Saving checkpoint to {str(checkpoint_path)!r}")
             fabric.save(checkpoint_path, state)
 
@@ -321,15 +328,14 @@ def choose_logger(out_dir: Path, logger_name: str, name: str, resume: Union[bool
     if logger_name == "tensorboard":
         return TensorBoardLogger(root_dir=(out_dir / "logs"), name="tensorboard", *args, **kwargs)
     if logger_name == "wandb":
-        return WandbLogger(project="tinyllama", name=name, resume=(resume is not False), *args, **kwargs)
+        return WandbLogger(project="pretrain", name=name, resume=(resume is not False), *args, **kwargs)
     raise ValueError(f"`logger={logger_name}` is not a valid option.")
 
 
-def validate_args(io: IOArgs, train: TrainArgs, eval: EvalArgs) -> None:
+def validate_args(train: TrainArgs, eval: EvalArgs) -> None:
     issues = []
     unsupported = [
-        (io, ["train_data_dir", "val_data_dir", "checkpoint_dir"]),
-        (train, ["epoch_size", "epochs"]),
+        (train, ["max_steps", "epochs"]),
         (eval, ["max_new_tokens"]),
     ]
     for args, names in unsupported:

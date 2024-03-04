@@ -96,11 +96,10 @@ python scripts/prepare_alpaca.py \
 export finetuned_dir=out/lit-finetuned-model
 
 python finetune/lora.py \
-   --io.checkpoint_dir checkpoints/$repo_id \
-   --io.train_data_dir data/alpaca \
-   --io.val_data_dir data/alpaca \
+   --checkpoint_dir checkpoints/$repo_id \
+   --out_dir $finetuned_dir \
    --train.epochs 1 \
-   --io.out_dir $finetuned_dir
+   --data Alpaca
 ```
 
 4. Merge LoRA weights:
