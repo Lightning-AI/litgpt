@@ -6,21 +6,21 @@ We provide a helpful script to convert models Lit-GPT models back to their equiv
 
 ```sh
 python scripts/convert_lit_checkpoint.py \
-    --checkpoint_path path/to/litgpt/model.pth \
-    --output_path out/converted.ckpt \
-    --config_path path/to/litgpt/config.json
+    --checkpoint_path checkpoints/repo_id/lit_model.pth \
+    --output_path output_path/converted.pth \
+    --config_path checkpoints/repo_id/config.json
 ```
 
 These paths are just placeholders, you will need to customize them based on which finetuning or pretraining script you ran and it's configuration.
 
 ### Loading converted Lit-GPT checkpoints into transformers
 
-If you want to load the converted checkpoints into a `transformers` model, please make sure you copied the original `config.json` file into the folder that contains the `converted.ckpt` file saved via `--output_path` above.
+If you want to load the converted checkpoints into a `transformers` model, please make sure you copied the original `config.json` file into the folder that contains the `converted.pth` file saved via `--output_path` above.
 
 For example,
 
 ```bash
-wget https://huggingface.co/repo_id/raw/main/config.json -O out/config.json
+cp checkpoints/repo_id/config.json output_path/config.json
 ```
 
 Then, you can load the checkpoint file in a Python session as follows:
@@ -30,9 +30,9 @@ import torch
 from transformers import AutoModel
 
 
-state_dict = torch.load("out/converted.ckpt")
+state_dict = torch.load("output_path/converted.pth")
 model = AutoModel.from_pretrained(
-    "out/", local_files_only=True, state_dict=state_dict
+    "output_path/", local_files_only=True, state_dict=state_dict
 )
 ```
 
@@ -50,9 +50,9 @@ Please note that if you want to convert a model that has been fine-tuned using a
 
 ```sh
 python scripts/merge_lora.py \
-    --checkpoint_dir path/to/litgpt_checkpoint/ \
+    --checkpoint_dir checkpoints/repo_id \
     --lora_path path/to/litgpt/lora_finetuned.pth \
-    --out_dir out/merged.ckpt
+    --out_dir output_path/merged.ckpt
 ```
 
 <br>
@@ -80,10 +80,13 @@ Then, we download the model we specified via `$repo_id` above:
 python scripts/download.py --repo_id $repo_id
 ```
 
-2. Convert the model into the Lit-GPT format:
+
+2. Prepare a dataset for finetuning:
 
 ```bash
-python scripts/convert_hf_checkpoint.py --checkpoint_dir checkpoints/$repo_id
+python scripts/prepare_alpaca.py \
+    --checkpoint_dir checkpoints/$repo_id \
+    --destination_path data/alpaca
 ```
 
 3. Finetune the model:
