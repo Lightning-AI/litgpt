@@ -135,6 +135,7 @@ def main(
 
     # Save the final checkpoint at the end of training
     save_path = out_dir / "final" / "lit_model.pth"
+    save_path.parent.mkdir(parents=True, exist_ok=True)
     fabric.save(save_path, {"model": state["model"]})
     # Copy checkpoint files from original checkpoint dir
     copy_config_files(checkpoint_dir, save_path.parent)
@@ -237,6 +238,7 @@ def fit(
             fabric.barrier()
         if not is_accumulating and state["step_count"] % train.save_interval == 0:
             checkpoint_file = out_dir / f"step-{state['step_count']:06d}" / "lit_model.pth"
+            checkpoint_file.parent.mkdir(parents=True, exist_ok=True)
             fabric.print(f"Saving checkpoint to {str(checkpoint_file.parent)!r}")
             fabric.save(checkpoint_file, state)
             copy_config_files(checkpoint_dir, checkpoint_file.parent)

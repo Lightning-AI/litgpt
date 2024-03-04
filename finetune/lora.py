@@ -172,6 +172,7 @@ def main(fabric: L.Fabric, devices: int, seed: int, config: Config, data: LitDat
 
     # Save the final LoRA checkpoint at the end of training
     save_path = out_dir / "final" / "lit_model.pth"
+    save_path.parent.mkdir(parents=True, exist_ok=True)
     save_lora_checkpoint(fabric, model, save_path)
     # Copy checkpoint files from original checkpoint dir
     copy_config_files(checkpoint_dir, save_path.parent)
@@ -250,6 +251,7 @@ def fit(
             fabric.barrier()
         if not is_accumulating and step_count % train.save_interval == 0:
             checkpoint_file = out_dir / f"iter-{iter_num:06d}" / "lit_model.pth"
+            checkpoint_file.parent.mkdir(parents=True, exist_ok=True)
             save_lora_checkpoint(fabric, model, checkpoint_file)
             copy_config_files(checkpoint_dir, checkpoint_file.parent)
 
