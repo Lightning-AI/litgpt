@@ -86,7 +86,7 @@ class Config:
         # compute the intermediate size for MLP if not set
         if self.intermediate_size is None:
             if self.mlp_class_name == "LLaMAMLP":
-                raise ValueError("The config needs to set the `intermediate_size`")
+                raise ValueError(f"The config {self.name!r}, needs to set the `intermediate_size`")
             self.intermediate_size = 4 * self.n_embd
 
         self.rope_n_elem = int(self.rotary_percentage * self.head_size)
