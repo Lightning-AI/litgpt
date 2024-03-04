@@ -495,7 +495,7 @@ class Config(BaseConfig):
 
     @property
     def mlp_class(self) -> Type:
-        return getattr(lit_gpt.lora, self._mlp_class)
+        return getattr(lit_gpt.lora, self.mlp_class_str)
 
 
 class GPT(BaseModel):

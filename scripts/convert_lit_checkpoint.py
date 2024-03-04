@@ -120,7 +120,7 @@ def copy_weights_llama(
         "transformer.ln_f.bias": "model.norm.bias",
         "lm_head.weight": "lm_head.weight",
     }
-    if config._mlp_class == "LLaMAMoE":
+    if config.mlp_class_str == "LLaMAMoE":
         weight_map.update(
             {
                 "transformer.h.{}.mlp.gate.weight": "model.layers.{l}.block_sparse_moe.gate.weight",
@@ -129,7 +129,7 @@ def copy_weights_llama(
                 "transformer.h.{}.mlp.experts.{}.proj.weight": "model.layers.{l}.block_sparse_moe.experts.{e}.w2.weight",
             }
         )
-    elif config._mlp_class in ("LLaMAMLP", "GemmaMLP"):
+    elif config.mlp_class_str in ("LLaMAMLP", "GemmaMLP"):
         weight_map.update(
             {
                 "transformer.h.{}.mlp.fc_1.weight": "model.layers.{l}.mlp.gate_proj.weight",
@@ -249,7 +249,7 @@ def convert_lit_checkpoint(checkpoint_path: Path, output_path: Path, config_path
 
     if "falcon" in config.name:
         copy_fn = partial(copy_weights_falcon, config.name)
-    elif config._mlp_class in ("LLaMAMLP", "GemmaMLP", "LLaMAMoE"):
+    elif config.mlp_class_str in ("LLaMAMLP", "GemmaMLP", "LLaMAMoE"):
         untie_weights = "Gemma" in config.name
         copy_fn = partial(copy_weights_llama, config, untie_weights=untie_weights)
     elif "phi" in config.name:

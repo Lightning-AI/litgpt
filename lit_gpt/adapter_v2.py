@@ -28,7 +28,7 @@ from lit_gpt.utils import map_old_state_dict_weights
 class Config(BaseConfig):
     @property
     def mlp_class(self) -> Type:
-        return getattr(lit_gpt.adapter_v2, self._mlp_class)
+        return getattr(lit_gpt.adapter_v2, self.mlp_class_str)
 
 
 def adapter_filter(key: str, value: Any) -> bool:

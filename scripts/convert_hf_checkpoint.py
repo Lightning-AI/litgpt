@@ -135,7 +135,7 @@ def copy_weights_hf_llama(
         "model.norm.bias": "transformer.ln_f.bias",
         "lm_head.weight": "lm_head.weight",
     }
-    if config._mlp_class == "LLaMAMoE":
+    if config.mlp_class_str == "LLaMAMoE":
         weight_map.update(
             {
                 "model.layers.{}.block_sparse_moe.gate.weight": "transformer.h.{l}.mlp.gate.weight",
@@ -144,7 +144,7 @@ def copy_weights_hf_llama(
                 "model.layers.{}.block_sparse_moe.experts.{}.w2.weight": "transformer.h.{l}.mlp.experts.{e}.proj.weight",
             }
         )
-    elif config._mlp_class in ("LLaMAMLP", "GemmaMLP"):
+    elif config.mlp_class_str in ("LLaMAMLP", "GemmaMLP"):
         weight_map.update(
             {
                 "model.layers.{}.mlp.gate_proj.weight": "transformer.h.{l}.mlp.fc_1.weight",
@@ -311,7 +311,7 @@ def convert_hf_checkpoint(
 
     if "falcon" in model_name:
         copy_fn = partial(copy_weights_falcon, model_name)
-    elif config._mlp_class in ("LLaMAMLP", "GemmaMLP", "LLaMAMoE"):
+    elif config.mlp_class_str in ("LLaMAMLP", "GemmaMLP", "LLaMAMoE"):
         # holder to reconstitute the split q, k, v
         qkv_weights = {}
         copy_fn = partial(copy_weights_hf_llama, config, qkv_weights)
