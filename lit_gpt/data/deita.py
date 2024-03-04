@@ -1,6 +1,7 @@
 # Copyright Lightning AI. Licensed under the Apache License 2.0, see LICENSE file.
 """Implementation derived from https://github.com/tloen/alpaca-lora"""
 import os
+from pathlib import Path
 from dataclasses import dataclass, field
 
 from typing import Optional, List
@@ -26,7 +27,10 @@ class Deita(LitDataModule):
     """How many DataLoader processes to use for loading."""
     include_multiturn_conversations: bool = False
     """Whether to include multi-turn conversations in the dataset."""
+    download_dir: Path = Path("./data/deita")
+    """The directory in which the downloaded dataset gets saved."""
     repo_id: str = "HuggingFaceH4/deita-10k-v0-sft"
+    """The repo from where the data is downloaded"""
 
     tokenizer: Optional[Tokenizer] = field(default=None, init=False, repr=False)
     batch_size: int = field(default=1, init=False, repr=False)
@@ -47,7 +51,7 @@ class Deita(LitDataModule):
     def prepare_data(self) -> None:
         from datasets import load_dataset
 
-        load_dataset(self.repo_id, split=["train_sft", "test_sft"])
+        load_dataset(self.repo_id, split=["train_sft", "test_sft"], cache_dir=self.download_dir)
 
     def setup(self, stage: str = "") -> None:
         from datasets import load_dataset
