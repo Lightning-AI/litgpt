@@ -1,4 +1,4 @@
-**## Converting Hugging Face Transformers to Lit-GPT weights**
+# Converting Hugging Face Transformers to Lit-GPT weights
 
 By default, the `scripts/download.py` script converts the downloaded HF checkpoint files into a Lit-GPT compatible format after downloading. For example,
 
