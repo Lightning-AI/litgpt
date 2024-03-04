@@ -75,7 +75,7 @@ def setup(
         logger_name,
         name=f"pretrain-{config.name}",
         resume=resume,
-        flush_logs_every_n_steps=train.log_interval
+        log_interval=train.log_interval
     )
 
     if devices > 1:
@@ -337,9 +337,9 @@ def init_weights(module: nn.Module, n_layer: int, n_embd: int):
             nn.init.normal_(param, mean=0.0, std=(1 / math.sqrt(n_embd) / n_layer))
 
 
-def choose_logger(out_dir: Path, logger_name: str, name: str, resume: Union[bool, Path], *args, **kwargs):
+def choose_logger(out_dir: Path, logger_name: str, name: str, resume: Union[bool, Path], log_interval: int, *args, **kwargs):
     if logger_name == "csv":
-        return CSVLogger(root_dir=(out_dir / "logs"), name="csv", *args, **kwargs)
+        return CSVLogger(root_dir=(out_dir / "logs"), name="csv", flush_logs_every_n_steps=log_interval, *args, **kwargs)
     if logger_name == "tensorboard":
         return TensorBoardLogger(root_dir=(out_dir / "logs"), name="tensorboard", *args, **kwargs)
     if logger_name == "wandb":
