@@ -14,8 +14,8 @@ from torch.utils.data import DataLoader
 @RunIf(min_cuda_gpus=2, standalone=True)
 # Set CUDA_VISIBLE_DEVICES for FSDP hybrid-shard, if fewer GPUs are used than are available
 @mock.patch.dict(os.environ, {"CUDA_VISIBLE_DEVICES": "0,1"})
-def test_pretrain_tiny_llama(tmp_path, monkeypatch):
-    import pretrain.pretrain as module
+def test_pretrain(tmp_path, monkeypatch):
+    from lit_gpt import pretrain
     from lit_gpt.args import EvalArgs, TrainArgs
     from lit_gpt.config import Config
 
@@ -23,11 +23,11 @@ def test_pretrain_tiny_llama(tmp_path, monkeypatch):
 
     dataset = torch.tensor([[0, 1, 2], [3, 4, 5], [0, 1, 2]])
     dataloader = DataLoader(dataset)
-    module.get_dataloaders = Mock(return_value=(dataloader, dataloader))
+    pretrain.get_dataloaders = Mock(return_value=(dataloader, dataloader))
 
     stdout = StringIO()
     with redirect_stdout(stdout):
-        module.setup(
+        pretrain.setup(
             devices=2,
             model=model_config,
             out_dir=tmp_path,

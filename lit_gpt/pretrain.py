@@ -1,13 +1,7 @@
 # Copyright Lightning AI. Licensed under the Apache License 2.0, see LICENSE file.
 
-"""
-This script is adapted from TinyLlama:
-https://github.com/jzhang38/TinyLlama/blob/main/pretrain/tinyllama.py
-"""
-
 import math
 import os
-import sys
 import time
 from functools import partial
 from pathlib import Path
@@ -24,15 +18,10 @@ from torch.utils.data import DataLoader
 from torchmetrics.aggregation import RunningMean
 from typing_extensions import Literal
 
-
-# support running without installing as a package
-wd = Path(__file__).parent.parent.resolve()
-sys.path.append(str(wd))
-
 from lit_gpt.args import EvalArgs, TrainArgs
+from lit_gpt.data import TinyLlama, LitDataModule
 from lit_gpt.model import GPT, Block, CausalSelfAttention, Config, LLaMAMLP
 from lit_gpt.utils import CLI, CycleIterator, chunked_cross_entropy, num_parameters, parse_devices
-from lit_gpt.data import TinyLlama, LitDataModule
 
 
 def setup(
