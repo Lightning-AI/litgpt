@@ -9,9 +9,10 @@ import math
 import os
 import sys
 import time
+from datetime import timedelta
 from functools import partial
 from pathlib import Path
-from typing import Tuple, Union, Optional
+from typing import Optional, Tuple, Union
 
 import lightning as L
 import torch
@@ -24,15 +25,15 @@ from torch.utils.data import DataLoader
 from torchmetrics.aggregation import RunningMean
 from typing_extensions import Literal
 
-
 # support running without installing as a package
 wd = Path(__file__).parent.parent.resolve()
 sys.path.append(str(wd))
 
+from lit_gpt import Tokenizer
 from lit_gpt.args import EvalArgs, TrainArgs
+from lit_gpt.data import LitDataModule, TinyLlama
 from lit_gpt.model import GPT, Block, CausalSelfAttention, Config, LLaMAMLP
 from lit_gpt.utils import CLI, CycleIterator, chunked_cross_entropy, num_parameters, parse_devices
-from lit_gpt.data import TinyLlama, LitDataModule
 
 
 def setup(
@@ -43,6 +44,7 @@ def setup(
     seed: int = 42,
     data: Optional[LitDataModule] = None,
     out_dir: Optional[Path] = None,
+    checkpoint_dir: Optional[Path] = None,
     train: TrainArgs = TrainArgs(
         save_interval=1000,
         log_interval=1,
@@ -56,6 +58,7 @@ def setup(
         max_norm=1.0,
         min_lr=4e-5,
         lr_warmup_steps=2000,
+        tie_embeddings=False,
     ),
     eval: EvalArgs = EvalArgs(interval=1000, max_iters=100),
 ):
@@ -64,14 +67,21 @@ def setup(
     config = Config.from_name("tiny-llama-1.1b") if model is None else model
     devices = parse_devices(devices)
     out_dir = Path(os.getenv("LIGHTNING_ARTIFACTS_DIR", "out")) / "pretrain" if out_dir is None else out_dir
+    # in case the dataset requires the Tokenizer
+    tokenizer = Tokenizer(checkpoint_dir) if checkpoint_dir is not None else None
 
-    logger = choose_logger(out_dir, logger_name, name=f"pretrain-{config.name}", resume=resume)
+    logger = choose_logger(
+        out_dir,
+        logger_name,
+        name=f"pretrain-{config.name}",
+        resume=resume,
+        log_interval=train.log_interval
+    )
 
     if devices > 1:
         strategy = FSDPStrategy(auto_wrap_policy={Block}, state_dict_type="full", sharding_strategy="HYBRID_SHARD")
     else:
         strategy = "auto"
-
     fabric = L.Fabric(devices=devices, strategy=strategy, precision="bf16-mixed", loggers=[logger])
     fabric.launch()
 
@@ -79,7 +89,7 @@ def setup(
     if logger_name in ("tensorboard", "wandb"):
         fabric.logger.log_hyperparams(hparams)
 
-    fabric.launch(main, devices, seed, resume, config, data, out_dir, train, eval)
+    fabric.launch(main, devices, seed, resume, config, data, out_dir, tokenizer, train, eval)
 
 
 def main(
@@ -90,6 +100,7 @@ def main(
     config: Config,
     data: LitDataModule,
     out_dir: Path,
+    tokenizer: Optional[Tokenizer],
     train: TrainArgs,
     eval: EvalArgs,
 ) -> None:
@@ -98,16 +109,18 @@ def main(
     if fabric.global_rank == 0:
         out_dir.mkdir(parents=True, exist_ok=True)
 
-    train_dataloader, val_dataloader = get_dataloaders(fabric, data, train, config.block_size)
+    train_dataloader, val_dataloader = get_dataloaders(fabric, data, tokenizer, train, config.block_size)
     train_dataloader, val_dataloader = fabric.setup_dataloaders(train_dataloader, val_dataloader)
 
     fabric.seed_everything(seed)  # same seed for every process to init model (FSDP)
 
-    fabric.print(f"Loading model with {config.__dict__}")
     t0 = time.perf_counter()
     with fabric.init_module(empty_init=False):
         model = GPT(config)
         model.apply(partial(init_weights, n_layer=config.n_layer, n_embd=config.n_embd))
+
+    if train.tie_embeddings:
+        model.transformer.wte.weight = model.lm_head.weight
 
     fabric.print(f"Time to instantiate model: {time.perf_counter() - t0:.02f} seconds.")
     fabric.print(f"Total parameters: {num_parameters(model):,}")
@@ -241,12 +254,12 @@ def fit(
             fabric.print(
                 f"iter {metrics['iter']} | step {metrics['step']}: loss {metrics['loss']:.4f}, iter time:"
                 f" {metrics['iter_time'] * 1000:.2f} ms{' (optimizer.step),' if not is_accumulating else ','}"
-                f" remaining time: {metrics['remaining_time'] / 3600 / 24:.2f} days"
+                f" remaining time: {timedelta(seconds=int(metrics['remaining_time']))!s}"
             )
 
             throughput_metrics = throughput.compute()
             metrics.update(throughput_metrics)
-            fabric.log_dict(metrics, step=state["iter_num"])
+            fabric.log_dict(metrics, step=state["iter_num"] - 1)
 
         if val_dataloader is not None and not is_accumulating and state["step_count"] % eval.interval == 0:
             t0 = time.perf_counter()
@@ -256,7 +269,7 @@ def fit(
 
             fabric.print(f"iter {state['iter_num']}: val loss {val_loss:.4f}, val time: {td * 1000:.2f} ms")
             metrics = {"val_loss": val_loss, "val_ppl": math.exp(val_loss)}
-            fabric.log_dict(metrics, step=state["iter_num"])
+            fabric.log_dict(metrics, step=state["iter_num"] - 1)
             fabric.barrier()
 
         if not is_accumulating and state["step_count"] % train.save_interval == 0:
@@ -284,8 +297,10 @@ def validate(fabric: L.Fabric, model: nn.Module, val_dataloader: DataLoader, max
     return losses.mean()
 
 
-def get_dataloaders(fabric: L.Fabric, data: LitDataModule, train: TrainArgs, block_size: int) -> Tuple[DataLoader, DataLoader]:
-    data.connect(batch_size=train.micro_batch_size, max_seq_length=block_size)
+def get_dataloaders(
+    fabric: L.Fabric, data: LitDataModule, tokenizer: Tokenizer, train: TrainArgs, block_size: int
+) -> Tuple[DataLoader, DataLoader]:
+    data.connect(tokenizer=tokenizer, batch_size=train.micro_batch_size, max_seq_length=block_size)
     with fabric.rank_zero_first():
         data.prepare_data()
     data.setup()
@@ -322,9 +337,9 @@ def init_weights(module: nn.Module, n_layer: int, n_embd: int):
             nn.init.normal_(param, mean=0.0, std=(1 / math.sqrt(n_embd) / n_layer))
 
 
-def choose_logger(out_dir: Path, logger_name: str, name: str, resume: Union[bool, Path], *args, **kwargs):
+def choose_logger(out_dir: Path, logger_name: str, name: str, resume: Union[bool, Path], log_interval: int, *args, **kwargs):
     if logger_name == "csv":
-        return CSVLogger(root_dir=(out_dir / "logs"), name="csv", *args, **kwargs)
+        return CSVLogger(root_dir=(out_dir / "logs"), name="csv", flush_logs_every_n_steps=log_interval, *args, **kwargs)
     if logger_name == "tensorboard":
         return TensorBoardLogger(root_dir=(out_dir / "logs"), name="tensorboard", *args, **kwargs)
     if logger_name == "wandb":
