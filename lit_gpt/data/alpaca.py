@@ -4,12 +4,13 @@
 import json
 from dataclasses import dataclass, field
 from pathlib import Path
-from typing import Optional, Dict
+from typing import Optional, Dict, Union
 
 import torch
 from torch.utils.data import random_split, DataLoader
 from lightning_utilities.core.imports import RequirementCache
 from lit_gpt.data import SFTDataset, get_sft_collate_fn, LitDataModule
+from lit_gpt.prompts import PromptStyle
 from lit_gpt.tokenizer import Tokenizer
 
 _URL = "https://raw.githubusercontent.com/tloen/alpaca-lora/main/alpaca_data_cleaned_archive.json"
@@ -35,6 +36,8 @@ class Alpaca(LitDataModule):
     """The URL from where to download the dataset."""
     file_name: str = field(repr=False, default="alpaca_data_cleaned_archive.json")
     """The name of the dataset file to download."""
+    prompt_style: Union[str, PromptStyle] = "alpaca"
+    """The prompt style to apply to the instructions."""
 
     tokenizer: Optional[Tokenizer] = field(default=None, init=False, repr=False)
     batch_size: int = field(default=1, init=False, repr=False)
@@ -71,7 +74,7 @@ class Alpaca(LitDataModule):
         self.train_dataset = SFTDataset(
             data=train_data,
             tokenizer=self.tokenizer,
-            prompt_template=prompt_template,
+            prompt_template=self.prompt_style,
             max_seq_length=self.max_seq_length,
             mask_prompt=self.mask_prompt,
             ignore_index=self.ignore_index,
@@ -79,7 +82,7 @@ class Alpaca(LitDataModule):
         self.test_dataset = SFTDataset(
             data=test_data,
             tokenizer=self.tokenizer,
-            prompt_template=prompt_template,
+            prompt_template=self.prompt_style,
             max_seq_length=self.max_seq_length,
             mask_prompt=self.mask_prompt,
             ignore_index=self.ignore_index,
@@ -116,18 +119,3 @@ def download_if_missing(file_path: Path, file_url: str) -> None:
 
     with open(file_path, "w", encoding="utf-8") as f:
         f.write(requests.get(file_url).text)
-
-
-def prompt_template(example: Dict[str, str]) -> str:
-    """The Alpaca prompt template."""
-    if example.get("input"):
-        return (
-            "Below is an instruction that describes a task, paired with an input that provides further context. "
-            "Write a response that appropriately completes the request.\n\n"
-            f"### Instruction:\n{example['instruction']}\n\n### Input:\n{example['input']}\n\n### Response:\n"
-        )
-    return (
-        "Below is an instruction that describes a task. "
-        "Write a response that appropriately completes the request.\n\n"
-        f"### Instruction:\n{example['instruction']}\n\n### Response:\n"
-    )

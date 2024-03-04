@@ -7,7 +7,6 @@ from pathlib import Path
 import torch
 from torch.utils.data import random_split
 from lit_gpt.data import SFTDataset, Alpaca
-from lit_gpt.data.alpaca import prompt_template
 
 _URL: str = "https://huggingface.co/datasets/databricks/databricks-dolly-15k/resolve/main/databricks-dolly-15k.jsonl"
 

@@ -109,6 +109,8 @@ def main(
     with fabric.init_module(empty_init=(devices > 1)):
         model = GPT(config)
 
+    config.promt_style = data.prompt_style
+
     fabric.print(f"Number of trainable parameters: {num_parameters(model, requires_grad=True):,}")
 
     model = fabric.setup(model)

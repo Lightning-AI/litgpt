@@ -189,7 +189,7 @@ def main(
 
 
 def prompt_config(checkpoint_dir: Path, tokenizer: Tokenizer) -> Tuple[str, Tuple[List[int], ...]]:
-    checkpoint_name = str(checkpoint_dir)
+    checkpoint_name = str(checkpoint_dir)  # lit_config.json
     if re.search(r"stabilityai.*tuned-alpha", checkpoint_name):
         system_prompt = (
             "<|SYSTEM|># StableLM Tuned (Alpha version)\n- StableLM is a helpful and harmless open-source AI language"
