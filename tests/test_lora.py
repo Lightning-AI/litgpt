@@ -183,7 +183,7 @@ def test_lora_filter(tmp_path):
 @mock.patch.dict(os.environ, {"LT_ACCELERATOR": "cpu"})
 def test_lora_script(tmp_path, fake_checkpoint_dir, monkeypatch, alpaca_path):
     import finetune.lora as module
-    from lit_gpt.args import EvalArgs, IOArgs, TrainArgs
+    from lit_gpt.args import EvalArgs, TrainArgs
     from lit_gpt.data import Alpaca
     from lit_gpt.config import name_to_config
 
@@ -205,7 +205,8 @@ def test_lora_script(tmp_path, fake_checkpoint_dir, monkeypatch, alpaca_path):
                 test_split_fraction=0.5,
                 num_workers=0
             ),
-            io=IOArgs(checkpoint_dir=fake_checkpoint_dir, out_dir=tmp_path),
+            checkpoint_dir=fake_checkpoint_dir,
+            out_dir=tmp_path,
             precision="32-true",
             train=TrainArgs(global_batch_size=1, save_interval=2, epochs=1, max_steps=6, micro_batch_size=1),
             eval=EvalArgs(interval=2, max_iters=2, max_new_tokens=1),
@@ -582,7 +583,6 @@ def test_against_hf_mixtral():
 
 @RunIf(min_cuda_gpus=1)
 def test_lora_bitsandbytes(monkeypatch, tmp_path, fake_checkpoint_dir, alpaca_path):
-    from lit_gpt.args import IOArgs
     from lit_gpt.config import name_to_config
     from lit_gpt.data import Alpaca
     import finetune.lora as module
@@ -626,7 +626,8 @@ def test_lora_bitsandbytes(monkeypatch, tmp_path, fake_checkpoint_dir, alpaca_pa
                 test_split_fraction=0.5,
                 num_workers=0,
             ),
-            io=IOArgs(checkpoint_dir=fake_checkpoint_dir, out_dir=tmp_path),
+            checkpoint_dir=fake_checkpoint_dir,
+            out_dir=tmp_path,
             precision="16-true",
             quantize="bnb.nf4-dq",
         )

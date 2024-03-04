@@ -28,9 +28,7 @@ resume: false
 devices: auto
 seed: 42
 data: TinyLlama
-io:
-  checkpoint_dir: null
-  out_dir: out/lit-tiny-llama-1.1b
+out_dir: out/pretrain/tiny-llama
 train:
   save_interval: 1000
   log_interval: 1
