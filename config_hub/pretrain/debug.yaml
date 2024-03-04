@@ -30,9 +30,7 @@ resume: false
 devices: auto
 seed: 42
 data: OpenWebText
-io:
-  checkpoint_dir: null
-  out_dir: out/debug
+out_dir: out/pretrain/debug
 train:
   save_interval: 1000
   log_interval: 1
