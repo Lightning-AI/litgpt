@@ -1,6 +1,7 @@
 # Copyright Lightning AI. Licensed under the Apache License 2.0, see LICENSE file.
 
 import gc
+import os
 import sys
 from functools import partial
 from pathlib import Path
@@ -246,6 +247,8 @@ def check_conversion_supported(lit_weights: Dict[str, torch.Tensor]) -> None:
 @torch.inference_mode()
 def convert_lit_checkpoint(checkpoint_path: Path, output_path: Path, config_path: Path) -> None:
     config = Config.from_json(config_path)
+
+    os.makedirs(os.path.dirname(output_path), exist_ok=True)
 
     if "falcon" in config.name:
         copy_fn = partial(copy_weights_falcon, config.name)

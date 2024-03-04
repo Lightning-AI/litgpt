@@ -123,8 +123,6 @@ python scripts/merge_lora.py \
 5. Convert the finetuning model back into a HF format:
 
 ```bash
-mkdir out/hf-tinyllama
-
 python scripts/convert_lit_checkpoint.py \
    --checkpoint_path $finetuned_dir/merged/lit_model.pth \
    --output_path out/hf-tinyllama/converted_model.pth \
