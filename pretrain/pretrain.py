@@ -58,7 +58,7 @@ def setup(
         max_norm=1.0,
         min_lr=4e-5,
         lr_warmup_steps=2000,
-        tie_embeddings=True,
+        tie_embeddings=False,
     ),
     eval: EvalArgs = EvalArgs(interval=1000, max_iters=100),
 ):
