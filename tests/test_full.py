@@ -25,8 +25,8 @@ def test_full_script(tmp_path, fake_checkpoint_dir, monkeypatch, alpaca_path):
     tokenizer_mock.encode = lambda *_, **__: torch.tensor([3, 2, 1])
     monkeypatch.setattr(module, "Tokenizer", tokenizer_mock)
 
+    out_dir = tmp_path / "out"
     stdout = StringIO()
-    out_dir = (tmp_path / "out")
     with redirect_stdout(stdout):
         module.setup(
             data=Alpaca(

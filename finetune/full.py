@@ -236,11 +236,10 @@ def fit(
             fabric.log_dict(metrics, step=state["iter_num"])
             fabric.barrier()
         if not is_accumulating and state["step_count"] % train.save_interval == 0:
-            checkpoint_path = out_dir / f"step-{state['step_count']:06d}" / "lit_model.pth"
-            fabric.print(f"Saving checkpoint to {str(checkpoint_path)!r}")
-            fabric.save(checkpoint_path, state)
-            # Copy checkpoint files from original checkpoint dir
-            copy_config_files(checkpoint_dir, checkpoint_path.parent)
+            checkpoint_file = out_dir / f"step-{state['step_count']:06d}" / "lit_model.pth"
+            fabric.print(f"Saving checkpoint to {str(checkpoint_file.parent)!r}")
+            fabric.save(checkpoint_file, state)
+            copy_config_files(checkpoint_dir, checkpoint_file.parent)
 
 
 # FSDP has issues with `inference_mode`
