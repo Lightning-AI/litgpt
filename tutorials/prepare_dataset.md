@@ -108,7 +108,7 @@ Using Falcon 7b as an example, we can use the dataset as follows:
 ```bash
 python finetune/lora.py \
   --data Deita \
-  --io.checkpoint_dir "checkpoints/tiiuae/falcon-7b"
+  --checkpoint_dir "checkpoints/tiiuae/falcon-7b"
 ```
 
 Deita contains multiturn conversations. By default, only the first instruction-response pairs from
@@ -129,7 +129,7 @@ You may want to consider truncating the dataset (see the *Truncating datasets* d
 ```bash
 python finetune/lora.py \
   --data Deita \
-  --io.checkpoint_dir "checkpoints/tiiuae/falcon-7b" \
+  --checkpoint_dir "checkpoints/tiiuae/falcon-7b" \
   --train.max_seq_length 512
 ```
 
