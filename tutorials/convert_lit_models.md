@@ -80,10 +80,13 @@ Then, we download the model we specified via `$repo_id` above:
 python scripts/download.py --repo_id $repo_id
 ```
 
-2. Convert the model into the Lit-GPT format:
+
+2. Prepare a dataset for finetuning:
 
 ```bash
-python scripts/convert_hf_checkpoint.py --checkpoint_dir checkpoints/$repo_id
+python scripts/prepare_alpaca.py \
+    --checkpoint_dir checkpoints/$repo_id \
+    --destination_path data/alpaca
 ```
 
 3. Finetune the model:
