@@ -9,8 +9,8 @@ import math
 import os
 import sys
 import time
-from functools import partial
 from datetime import timedelta
+from functools import partial
 from pathlib import Path
 from typing import Optional, Tuple, Union
 
@@ -33,7 +33,7 @@ from lit_gpt import Tokenizer
 from lit_gpt.args import EvalArgs, TrainArgs
 from lit_gpt.data import LitDataModule, TinyLlama
 from lit_gpt.model import GPT, Block, CausalSelfAttention, Config, LLaMAMLP
-from lit_gpt.utils import CLI, CycleIterator, chunked_cross_entropy, num_parameters
+from lit_gpt.utils import CLI, CycleIterator, chunked_cross_entropy, num_parameters, parse_devices
 
 
 def setup(
@@ -44,6 +44,7 @@ def setup(
     seed: int = 42,
     data: Optional[LitDataModule] = None,
     out_dir: Optional[Path] = None,
+    checkpoint_dir: Optional[Path] = None,
     train: TrainArgs = TrainArgs(
         save_interval=1000,
         log_interval=1,
@@ -57,6 +58,7 @@ def setup(
         max_norm=1.0,
         min_lr=4e-5,
         lr_warmup_steps=2000,
+        tie_embeddings=True,
     ),
     eval: EvalArgs = EvalArgs(interval=1000, max_iters=100),
 ):
@@ -65,6 +67,8 @@ def setup(
     config = Config.from_name("tiny-llama-1.1b") if model is None else model
     devices = parse_devices(devices)
     out_dir = Path(os.getenv("LIGHTNING_ARTIFACTS_DIR", "out")) / "pretrain" if out_dir is None else out_dir
+    # in case the dataset requires the Tokenizer
+    tokenizer = Tokenizer(checkpoint_dir) if checkpoint_dir is not None else None
 
     logger = choose_logger(
         out_dir,
@@ -85,7 +89,7 @@ def setup(
     if logger_name in ("tensorboard", "wandb"):
         fabric.logger.log_hyperparams(hparams)
 
-    fabric.launch(main, devices, seed, resume, config, data, out_dir, train, eval)
+    fabric.launch(main, devices, seed, resume, config, data, out_dir, tokenizer, train, eval)
 
 
 def main(
@@ -96,6 +100,7 @@ def main(
     config: Config,
     data: LitDataModule,
     out_dir: Path,
+    tokenizer: Optional[Tokenizer],
     train: TrainArgs,
     eval: EvalArgs,
 ) -> None:
@@ -103,9 +108,6 @@ def main(
 
     if fabric.global_rank == 0:
         out_dir.mkdir(parents=True, exist_ok=True)
-
-    # in case the dataset requires the Tokenizer
-    tokenizer = Tokenizer(io.checkpoint_dir) if io.checkpoint_dir is not None else None
 
     train_dataloader, val_dataloader = get_dataloaders(fabric, data, tokenizer, train, config.block_size)
     train_dataloader, val_dataloader = fabric.setup_dataloaders(train_dataloader, val_dataloader)
@@ -117,8 +119,8 @@ def main(
         model = GPT(config)
         model.apply(partial(init_weights, n_layer=config.n_layer, n_embd=config.n_embd))
 
-    # FIXME
-    model.transformer.wte.weight = model.lm_head.weight
+    if train.tie_embeddings:
+        model.transformer.wte.weight = model.lm_head.weight
 
     fabric.print(f"Time to instantiate model: {time.perf_counter() - t0:.02f} seconds.")
     fabric.print(f"Total parameters: {num_parameters(model):,}")

@@ -25,6 +25,8 @@ class TrainArgs:
     """Limits the number of optimizer steps to run."""
     max_seq_length: Optional[int] = None
     """Limits the length of samples. Off by default"""
+    tie_embeddings: bool = False
+    """Whether to tie the embedding weights with the language modelling head weights."""
 
     # Optimization args
     learning_rate: float = 1e-3
