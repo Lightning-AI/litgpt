@@ -79,7 +79,7 @@ The original [Alpaca-GPT4](https://github.com/Instruction-Tuning-with-GPT-4/GPT-
 ```bash
 python finetune/lora.py \
   --data AlpacaGPT4 \
-  --io.checkpoint_dir "checkpoints/tiiuae/falcon-7b"
+  --checkpoint_dir "checkpoints/tiiuae/falcon-7b"
 ```
 
 The Alpaca-GPT4 dataset distribution is shown below.
