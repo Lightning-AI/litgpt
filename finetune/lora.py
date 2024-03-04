@@ -19,7 +19,7 @@ wd = Path(__file__).parent.parent.resolve()
 sys.path.append(str(wd))
 
 from generate.base import generate
-from lit_gpt.args import EvalArgs, TrainArgs, LoraArgs
+from lit_gpt.args import EvalArgs, TrainArgs
 from lit_gpt.data import LitDataModule, Alpaca, apply_prompt_template
 from lit_gpt.lora import GPT, Block, Config, lora_filter, mark_only_lora_as_trainable
 from lit_gpt.tokenizer import Tokenizer
@@ -40,17 +40,15 @@ def setup(
     quantize: Optional[Literal["bnb.nf4", "bnb.nf4-dq", "bnb.fp4", "bnb.fp4-dq", "bnb.int8-training"]] = None,
     devices: Union[int, str] = 1,
     seed: int = 1337,
-    lora: LoraArgs = LoraArgs(
-        r=8,
-        alpha=16,
-        dropout=0.05,
-        to_query=True,
-        to_key=False,
-        to_value=True,
-        to_projection=False,
-        to_mlp=False,
-        to_head=False,
-    ),
+    lora_r: int = 8,
+    lora_alpha: int = 16,
+    lora_dropout: float = 0.05,
+    lora_query: bool = True,
+    lora_key: bool = False,
+    lora_value: bool = True,
+    lora_projection: bool = False,
+    lora_mlp: bool = False,
+    lora_head: bool = False,
     data: Optional[LitDataModule] = None,
     checkpoint_dir: Path = Path("checkpoints/stabilityai/stablelm-base-alpha-3b"),
     out_dir: Path = Path("out/lora"),
@@ -104,7 +102,18 @@ def setup(
         main,
         devices,
         seed,
-        Config.from_name(name=checkpoint_dir.name, **dataclasses.asdict(lora)),
+        Config.from_name(
+            name=checkpoint_dir.name,
+            r=lora_r,
+            alpha=lora_alpha,
+            dropout=lora_dropout,
+            to_query=lora_query,
+            to_key=lora_key,
+            to_value=lora_value,
+            to_projection=lora_projection,
+            to_mlp=lora_mlp,
+            to_head=lora_head,
+        ),
         data,
         checkpoint_dir,
         out_dir,

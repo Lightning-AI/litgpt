@@ -57,30 +57,3 @@ class EvalArgs:
     """Number of tokens to generate"""
     max_iters: int = 100
     """Number of iterations"""
-
-
-@dataclass
-class LoraArgs:
-    """LoRA arguments"""
-    r: int = 8
-    """LoRA rank"""
-    alpha: int = 16
-    """LoRA alpha"""
-    dropout: float = 0.05
-    """Droptout probability applied to the LoRA update"""
-    to_query: bool = True
-    """Whether to apply LoRA to the attention query matrix"""
-    to_key: bool = False
-    """Whether to apply LoRA to the attention key matrix"""
-    to_value: bool = True
-    """Whether to apply LoRA to the attention value matrix"""
-    to_projection: bool = False
-    """Whether to apply LoRA to the projection layer"""
-    to_mlp: bool = False
-    """Whether to apply LoRA to the MLPs"""
-    to_head: bool = False
-    """Whether to apply LoRA to classification head"""
-
-    def __post_init__(self) -> None:
-        if not any((self.to_query, self.to_key, self.to_value, self.to_projection, self.to_mlp, self.to_head)):
-            print("Warning: all LoRA layers are disabled!")
