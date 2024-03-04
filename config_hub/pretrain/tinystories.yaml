@@ -24,9 +24,9 @@ data:
   init_args:
     path: data
     num_workers: 8
-    seed: ${seed}
+    seed: 1337
 checkpoint_dir: checkpoints/meta-llama/Llama-2-7b-hf
-out_dir: out/${model.name}
+out_dir: out/stories15M
 train:
   save_interval: 1000
   log_interval: 1
@@ -35,7 +35,7 @@ train:
   lr_warmup_steps: 1000
   # original did 298,000 iters
   max_tokens: 9700000000
-  max_seq_length: ${model.block_size}
+  max_seq_length: 256
   tie_embeddings: true
   learning_rate: 0.0005
   weight_decay: 0.1

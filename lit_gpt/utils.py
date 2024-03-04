@@ -378,8 +378,6 @@ def CLI(*args: Any, **kwargs: Any) -> Any:
 
     kwargs.setdefault("as_positional", False)
 
-    if RequirementCache("omegaconf"):
-        kwargs.setdefault("parser_mode", "omegaconf")
     return CLI(*args, **kwargs)
 
 
