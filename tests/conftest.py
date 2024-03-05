@@ -59,10 +59,12 @@ def restore_default_dtype():
 
 class MockTokenizer:
     """A dummy tokenizer that encodes each character as its ASCII code."""
+    eos_id = 1
+
     def encode(self, text: str, eos: bool = False, max_length: int = -1) -> torch.Tensor:
         output = [ord(c) for c in text]
         if eos:
-            output.append(1)
+            output.append(self.eos_id)
         output = output[:max_length] if max_length > 0 else output
         return torch.tensor(output)
 
@@ -71,7 +73,7 @@ class MockTokenizer:
 
 
 @pytest.fixture()
-def mock_tockenizer():
+def mock_tokenizer():
     return MockTokenizer()
 
 

@@ -5,6 +5,7 @@ import logging
 
 from lit_gpt.model import GPT
 from lit_gpt.config import Config
+from lit_gpt.prompts import PromptStyle
 from lit_gpt.tokenizer import Tokenizer
 
 from lightning_utilities.core.imports import RequirementCache
@@ -24,4 +25,4 @@ logging.getLogger("torch._dynamo.variables.torch").addFilter(lambda record: not 
 logging.getLogger("torch.distributed.fsdp._optim_utils").disabled = True
 logging.getLogger("torch.distributed.fsdp._debug_utils").disabled = True
 
-__all__ = ["GPT", "Config", "Tokenizer"]
+__all__ = ["GPT", "Config", "PromptStyle", "Tokenizer"]
