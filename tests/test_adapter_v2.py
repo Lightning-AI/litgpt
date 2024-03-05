@@ -106,7 +106,7 @@ def test_adapter_v2_script(tmp_path, fake_checkpoint_dir, monkeypatch, alpaca_pa
             eval=EvalArgs(interval=2, max_iters=2, max_new_tokens=1),
         )
 
-    out_dir_contents = {p.name for p in out_dir.iterdir()}
+    out_dir_contents = set(os.listdir(out_dir))
     checkpoint_dirs = {"iter-000002", "iter-000004", "iter-000006", "final"}
     assert checkpoint_dirs.issubset(out_dir_contents)
     assert all((out_dir / p).is_dir() for p in checkpoint_dirs)

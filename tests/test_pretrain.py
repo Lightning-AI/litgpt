@@ -38,7 +38,7 @@ def test_pretrain_tiny_llama(tmp_path, monkeypatch):
 
     if torch.distributed.get_rank() == 0:
         # tmp_path is not the same across all ranks, run assert only on rank 0
-        out_dir_contents = {p.name for p in out_dir.iterdir()}
+        out_dir_contents = set(os.listdir(out_dir))
         checkpoint_dirs = {"step-00000001", "step-00000002", "step-00000003", "step-00000004"}
         assert checkpoint_dirs.issubset(out_dir_contents)
         assert all((out_dir / p).is_dir() for p in checkpoint_dirs)
