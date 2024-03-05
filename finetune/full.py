@@ -140,7 +140,7 @@ def main(
     fabric.save(save_path, {"model": state["model"]})
     # Copy checkpoint files from original checkpoint dir
     copy_config_files(checkpoint_dir, save_path.parent)
-    save_hyperparameters(setup, checkpoint_dir)
+    save_hyperparameters(setup, save_path.parent)
 
 
 def fit(
@@ -245,7 +245,7 @@ def fit(
             fabric.print(f"Saving checkpoint to {str(checkpoint_file.parent)!r}")
             fabric.save(checkpoint_file, state)
             copy_config_files(checkpoint_dir, checkpoint_file.parent)
-            save_hyperparameters(setup, checkpoint_dir)
+            save_hyperparameters(setup, checkpoint_file.parent)
 
 
 # FSDP has issues with `inference_mode`

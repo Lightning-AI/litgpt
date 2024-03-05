@@ -40,7 +40,7 @@ def test_full_script(tmp_path, fake_checkpoint_dir, monkeypatch, alpaca_path):
         eval=EvalArgs(interval=2, max_iters=2, max_new_tokens=1),
     )
     stdout = StringIO()
-    with redirect_stdout(stdout):
+    with redirect_stdout(stdout), mock.patch("sys.argv", ["full.py"]):
         module.setup(**setup_kwargs)
 
     out_dir_contents = set(os.listdir(out_dir))
@@ -48,7 +48,7 @@ def test_full_script(tmp_path, fake_checkpoint_dir, monkeypatch, alpaca_path):
     assert checkpoint_dirs.issubset(out_dir_contents)
     assert all((out_dir / p).is_dir() for p in checkpoint_dirs)
     for checkpoint_dir in checkpoint_dirs:
-        assert {os.listdir(out_dir / checkpoint_dir)} == {
+        assert set(os.listdir(out_dir / checkpoint_dir)) == {
             "lit_model.pth",
             "lit_config.json",
             "tokenizer_config.json",
@@ -66,7 +66,7 @@ def test_full_script(tmp_path, fake_checkpoint_dir, monkeypatch, alpaca_path):
     setup_kwargs["train"].max_steps = 8
     setup_kwargs["resume"] = True
     stdout = StringIO()
-    with redirect_stdout(stdout):
+    with redirect_stdout(stdout), mock.patch("sys.argv", ["full.py"]):
         module.setup(**setup_kwargs)
     logs = stdout.getvalue()
     assert f"Resuming training from {out_dir / 'step-000006' / 'lit_model.pth'}" in logs
