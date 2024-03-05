@@ -89,7 +89,7 @@ def setup(
     if logger_name in ("tensorboard", "wandb"):
         fabric.logger.log_hyperparams(hparams)
 
-    fabric.launch(main, devices, seed, resume, config, data, out_dir, tokenizer, train, eval)
+    main(fabric, devices, seed, resume, config, data, out_dir, tokenizer, train, eval)
 
 
 def main(
