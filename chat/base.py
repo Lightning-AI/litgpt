@@ -1,7 +1,9 @@
 # Copyright Lightning AI. Licensed under the Apache License 2.0, see LICENSE file.
 
+import re
 import sys
 import time
+from json import dumps
 from pathlib import Path
 from typing import Iterator, List, Literal, Optional, Tuple
 
@@ -14,7 +16,7 @@ wd = Path(__file__).parent.parent.resolve()
 sys.path.append(str(wd))
 
 from generate.base import next_token
-from lit_gpt import GPT, Config, PromptStyle, Tokenizer
+from lit_gpt import GPT, Config, Tokenizer
 from lit_gpt.utils import CLI, check_valid_checkpoint_dir, get_default_supported_precision, load_checkpoint
 
 
@@ -157,8 +159,7 @@ def main(
     model = fabric.setup_module(model)
 
     tokenizer = Tokenizer(checkpoint_dir)
-    prompt_style = PromptStyle.from_config(config)
-    stop_tokens = prompt_style.stop_tokens(tokenizer)
+    system_prompt, stop_tokens = prompt_config(checkpoint_dir, tokenizer)
 
     L.seed_everything(1234)
     while True:
@@ -168,7 +169,7 @@ def main(
             break
         if not prompt:
             break
-        prompt = prompt_style.apply(prompt=prompt)
+        prompt = system_prompt.format(prompt=prompt)
         encoded_prompt = tokenizer.encode(prompt, device=fabric.device)
         y = generate(
             model, encoded_prompt, model.max_seq_length, temperature=temperature, top_k=top_k, stop_tokens=stop_tokens
