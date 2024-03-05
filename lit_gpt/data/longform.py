@@ -3,10 +3,12 @@
 import json
 from dataclasses import dataclass, field
 from pathlib import Path
-from typing import Optional
+from typing import Optional, Union
 
 import torch
 from torch.utils.data import DataLoader
+
+from lit_gpt import PromptStyle
 from lit_gpt.data import SFTDataset, get_sft_collate_fn, LitDataModule
 from lit_gpt.data.alpaca import download_if_missing
 from lit_gpt.tokenizer import Tokenizer
@@ -21,6 +23,8 @@ class LongForm(LitDataModule):
 
     mask_prompt: bool = False
     """Whether to mask the prompt section from the label (with ``ignore_index``)."""
+    prompt_style: Union[str, PromptStyle] = "longform"
+    """The style to apply to instruction prompts. See `lit_gpt.prompts` for a list of available styles."""
     ignore_index: int = -1
     """The index to use for elements to be ignored in the label."""
     seed: int = 42
@@ -64,10 +68,11 @@ class LongForm(LitDataModule):
         dataset = SFTDataset(
             data=data,
             tokenizer=self.tokenizer,
-            prompt_template=prompt_template,
+            prompt_style=self.prompt_style,
             max_seq_length=self.max_seq_length,
             mask_prompt=self.mask_prompt,
             ignore_index=self.ignore_index,
+            transform=_transform,
         )
         return DataLoader(
             dataset=dataset,
@@ -79,10 +84,6 @@ class LongForm(LitDataModule):
         )
 
 
-def prompt_template(example: dict) -> str:
-    """A modified Alpaca prompt template without the 'input'."""
-    return (
-        "Below is an instruction that describes a task, paired with an input that provides further context. "
-        "Write a response that appropriately completes the request.\n\n"
-        f"### Instruction:\n{example['input']}\n\n### Response:\n"
-    )
+def _transform(item: dict) -> dict:
+    item["instruction"] = item.pop("input")
+    return item

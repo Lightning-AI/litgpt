@@ -23,7 +23,7 @@ from generate.base import generate
 from lit_gpt.args import EvalArgs, TrainArgs
 from lit_gpt.model import GPT, Block, Config
 from lit_gpt.tokenizer import Tokenizer
-from lit_gpt.data import Alpaca, LitDataModule, apply_prompt_template
+from lit_gpt.data import Alpaca, LitDataModule
 from lit_gpt.utils import (
     CLI,
     check_valid_checkpoint_dir,
@@ -130,7 +130,7 @@ def main(
         load_checkpoint(fabric, state["model"], checkpoint_path)
 
     train_time = time.perf_counter()
-    fit(fabric, state, train_dataloader, val_dataloader, devices, resume, checkpoint_dir, out_dir, train, eval)
+    fit(fabric, state, train_dataloader, val_dataloader, devices, resume, checkpoint_dir, out_dir, train, eval, data)
     fabric.print(f"Training time: {(time.perf_counter()-train_time):.2f}s")
     if fabric.device.type == "cuda":
         fabric.print(f"Memory used: {torch.cuda.max_memory_allocated() / 1e9:.02f} GB")
@@ -150,6 +150,7 @@ def fit(
     out_dir: Path,
     train: TrainArgs,
     eval: EvalArgs,
+    data: LitDataModule,
 ) -> None:
     model = state["model"]
     optimizer = state["optimizer"]
@@ -162,7 +163,7 @@ def fit(
         f" {model.max_seq_length} and context length is {model.config.block_size}"
     )
 
-    validate(fabric, model, val_dataloader, tokenizer, dataclasses.replace(eval, max_iters=2))  # sanity check
+    validate(fabric, model, val_dataloader, tokenizer, dataclasses.replace(eval, max_iters=2), data)  # sanity check
     initial_iter = state["iter_num"]
     max_steps = train.max_steps or float("inf")
     train_iterator = CycleIterator(train_dataloader)
@@ -228,7 +229,7 @@ def fit(
 
         if not is_accumulating and state["step_count"] % eval.interval == 0:
             t0 = time.perf_counter()
-            val_loss = validate(fabric, model, val_dataloader, tokenizer, eval)
+            val_loss = validate(fabric, model, val_dataloader, tokenizer, eval, data)
             t1 = time.perf_counter() - t0
             fabric.print(f"iter {state['iter_num']}: val loss {val_loss.item():.4f}, val time: {t1 * 1000:.2f} ms")
             metrics = {"val_loss": val_loss, "val_ppl": math.exp(val_loss)}
@@ -243,7 +244,7 @@ def fit(
 # FSDP has issues with `inference_mode`
 @torch.no_grad()
 def validate(
-    fabric: L.Fabric, model: GPT, val_dataloader: DataLoader, tokenizer: Tokenizer, eval: EvalArgs
+    fabric: L.Fabric, model: GPT, val_dataloader: DataLoader, tokenizer: Tokenizer, eval: EvalArgs, data: LitDataModule,
 ) -> torch.Tensor:
     fabric.print("Validating ...")
     model.eval()
@@ -259,8 +260,7 @@ def validate(
     # produce an example:
     instruction = "Recommend a movie for me to watch during the weekend and explain the reason."
     fabric.print(instruction)
-    sample = {"instruction": instruction, "input": ""}
-    prompt = apply_prompt_template(val_dataloader.dataset.prompt_template, sample)
+    prompt = data.train_dataset.prompt_style.apply(instruction)
     encoded = tokenizer.encode(prompt, device=fabric.device)
     with fabric.init_tensor():
         # do not set `max_seq_length=max_returned_token` because memory is not a concern here

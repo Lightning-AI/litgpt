@@ -2,6 +2,7 @@
 
 def test_alpaca(mock_tockenizer, alpaca_path):
     from lit_gpt.data import Alpaca
+    from lit_gpt.prompts import Alpaca as AlpacaPromptStyle
 
     alpaca = Alpaca(
         test_split_fraction=0.5,
@@ -25,3 +26,6 @@ def test_alpaca(mock_tockenizer, alpaca_path):
     assert train_batch.keys() == val_batch.keys() == {"input_ids", "labels"}
     assert all(seq.shape == (2, 10) for seq in train_batch.values())
     assert all(seq.shape == (2, 10) for seq in val_batch.values())
+
+    assert isinstance(train_dataloader.dataset.prompt_style, AlpacaPromptStyle)
+    assert isinstance(val_dataloader.dataset.prompt_style, AlpacaPromptStyle)

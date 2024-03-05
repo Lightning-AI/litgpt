@@ -8,6 +8,7 @@ from typing import Literal, Optional
 import lightning as L
 import torch
 from lightning.fabric.plugins import BitsandbytesPrecision
+from lit_gpt.prompts import Alpaca
 
 # support running without installing as a package
 wd = Path(__file__).parent.parent.resolve()
@@ -17,8 +18,6 @@ from generate.base import generate
 from lit_gpt import Tokenizer
 from lit_gpt.adapter_v2 import GPT, Config
 from lit_gpt.utils import CLI, check_valid_checkpoint_dir, get_default_supported_precision, lazy_load
-from lit_gpt.data import apply_prompt_template
-from lit_gpt.data.alpaca import prompt_template
 
 
 def main(
@@ -72,8 +71,9 @@ def main(
     checkpoint_path = checkpoint_dir / "lit_model.pth"
 
     tokenizer = Tokenizer(checkpoint_dir)
-    sample = {"instruction": prompt, "input": input}
-    prompt = apply_prompt_template(prompt_template, sample)
+    # TODO: Load prompt style from checkpoint and apply it here
+    prompt_style = Alpaca()
+    prompt = prompt_style.apply(prompt, input=input)
     encoded = tokenizer.encode(prompt, device=fabric.device)
     prompt_length = encoded.size(0)
     max_returned_tokens = prompt_length + max_new_tokens

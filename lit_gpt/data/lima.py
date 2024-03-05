@@ -3,12 +3,13 @@
 import os
 from dataclasses import dataclass, field
 
-from typing import Optional, List
+from typing import Optional, List, Union
 
 import torch
 from torch.utils.data import random_split, DataLoader
+
+from lit_gpt import PromptStyle
 from lit_gpt.data import LitDataModule, SFTDataset, get_sft_collate_fn
-from lit_gpt.data.alpaca import prompt_template
 from lit_gpt.tokenizer import Tokenizer
 
 
@@ -20,6 +21,8 @@ class LIMA(LitDataModule):
     """Whether to mask the prompt section from the label (with ``ignore_index``)."""
     test_split_fraction: float = 0.1
     """The fraction of the dataset to use for the test/validation dataset. The rest is used for training."""
+    prompt_style: Union[str, PromptStyle] = "alpaca"
+    """The style to apply to instruction prompts. See `lit_gpt.prompts` for a list of available styles."""
     ignore_index: int = -1
     """The index to use for elements to be ignored in the label."""
     seed: int = 42
@@ -80,7 +83,7 @@ class LIMA(LitDataModule):
         self.train_dataset = SFTDataset(
             data=train_data,
             tokenizer=self.tokenizer,
-            prompt_template=prompt_template,
+            prompt_style=self.prompt_style,
             max_seq_length=self.max_seq_length,
             mask_prompt=self.mask_prompt,
             ignore_index=self.ignore_index,
@@ -88,7 +91,7 @@ class LIMA(LitDataModule):
         self.test_dataset = SFTDataset(
             data=test_data,
             tokenizer=self.tokenizer,
-            prompt_template=prompt_template,
+            prompt_style=self.prompt_style,
             max_seq_length=self.max_seq_length,
             mask_prompt=self.mask_prompt,
             ignore_index=self.ignore_index,

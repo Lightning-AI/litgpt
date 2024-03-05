@@ -10,9 +10,13 @@ import torch
 @pytest.mark.parametrize("max_seq_length", [1000, 5])
 def test_sft_dataset(max_seq_length, ignore_index, mask_prompt, mock_tockenizer):
     from lit_gpt.data import SFTDataset
+    from lit_gpt.prompts import PromptStyle
+
+    class Style(PromptStyle):
+        def apply(self, prompt, **kwargs):
+            return f"In: {prompt} Out:"
 
     i = ignore_index
-    prompt_template = "In: {instruction} Out:"
     data = [
         {"instruction": "Foo", "output": "Bar"},
         {"instruction": "Boo", "output": "Ahh"},
@@ -21,7 +25,7 @@ def test_sft_dataset(max_seq_length, ignore_index, mask_prompt, mock_tockenizer)
     dataset = SFTDataset(
         data=data,
         tokenizer=mock_tockenizer,
-        prompt_template=prompt_template,
+        prompt_style=Style(),
         mask_prompt=mask_prompt,
         ignore_index=ignore_index,
         max_seq_length=max_seq_length,
@@ -68,19 +72,3 @@ def test_sft_collate_fn_truncation():
     }
     batch = collate(samples)
     assert all(torch.equal(batch[k], expected[k]) for k in ("input_ids", "labels"))
-
-
-def test_apply_prompt_template():
-    from lit_gpt.data import apply_prompt_template
-
-    # As a format-string
-    template = "Human: {instruction} {smile} Assistant:"
-    example = {"instruction": "Is a coconut a nut?", "smile": ":)"}
-    expected = "Human: Is a coconut a nut? :) Assistant:"
-    assert apply_prompt_template(template, example) == expected
-
-    # As a callable
-    template = lambda x: f"Human: {x['instruction']} {x.get('smile', '')}Assistant:"
-    example = {"instruction": "Is a coconut a nut?"}
-    expected = "Human: Is a coconut a nut? Assistant:"
-    assert apply_prompt_template(template, example) == expected
