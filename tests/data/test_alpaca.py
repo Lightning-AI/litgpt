@@ -10,6 +10,7 @@ def test_alpaca(mock_tokenizer, alpaca_path):
         file_name=alpaca_path.name,
         num_workers=0,
     )
+    assert isinstance(alpaca.prompt_style, AlpacaPromptStyle)
     alpaca.connect(mock_tokenizer, batch_size=2, max_seq_length=10)
     alpaca.prepare_data()
     alpaca.setup()

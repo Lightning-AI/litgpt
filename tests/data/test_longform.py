@@ -5,6 +5,7 @@ def test_longform(mock_tokenizer, longform_path):
     from lit_gpt.prompts import Longform as LongFormPromptStyle
 
     alpaca = LongForm(download_dir=longform_path, num_workers=0)
+    assert isinstance(alpaca.prompt_style, LongFormPromptStyle)
     alpaca.connect(mock_tokenizer, batch_size=2, max_seq_length=10)
     alpaca.prepare_data()
     alpaca.setup()

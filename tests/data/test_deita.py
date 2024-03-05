@@ -56,6 +56,7 @@ def test_deita(_, format_dataset_mock, mock_tokenizer, tmp_path):
         num_workers=0,
         download_dir=tmp_path,
     )
+    assert isinstance(deita.prompt_style, AlpacaPromptStyle)
     deita.connect(mock_tokenizer, batch_size=2, max_seq_length=10)
     deita.prepare_data()
     deita.setup()
