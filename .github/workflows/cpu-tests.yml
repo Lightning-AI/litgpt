@@ -49,11 +49,11 @@ jobs:
       run: |
         pip install uv
 
-    - uses: actions/cache@v4
-        id: cache-uv
-        with:
-          path: ~/.cache/uv
-          key: ${{ runner.os }}-python-${{ matrix.python-version }}-uv
+    - name: UV cache
+      uses: actions/cache@v4
+      with:
+        path: ~/.cache/uv
+        key: ${{ runner.os }}-python-${{ matrix.python-version }}-uv
 
     - name: Install minimal dependencies
       run: |
