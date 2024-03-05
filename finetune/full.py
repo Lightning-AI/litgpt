@@ -215,12 +215,13 @@ def fit(
                 "loss": loss,
                 "iter": state["iter_num"],
                 "step": state["step_count"],
+                "epoch": train_iterator.epoch,
                 "iter_time": t1 - iter_t0,
                 "tokens": state["iter_num"] * train.micro_batch_size * model.config.block_size,
                 "total_tokens": (
                     state["iter_num"] * train.micro_batch_size * model.config.block_size * fabric.world_size
                 ),
-                # TODO: log learning rate
+                "learning_rate": scheduler.get_last_lr(),
             }
             fabric.print(
                 f"iter {metrics['iter']} | step {metrics['step']}: loss {metrics['loss']:.4f}, iter time:"
@@ -252,12 +253,14 @@ def validate(
     fabric.print("Validating ...")
     model.eval()
     losses = torch.zeros(eval.max_iters)
-    val_iterator = iter(val_dataloader)
-    for k in range(eval.max_iters):
-        batch = next(val_iterator)
+    for k, batch in enumerate(val_dataloader):
+        if k >= eval.max_iters:
+            break
         input_ids, targets = batch["input_ids"], batch["labels"]
         logits = model(input_ids)
         losses[k] = chunked_cross_entropy(logits[..., :-1, :], targets[..., 1:], chunk_size=0)
+
+    losses = losses[:k]
     val_loss = losses.mean()
 
     # produce an example:
