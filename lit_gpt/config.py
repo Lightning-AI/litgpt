@@ -172,7 +172,6 @@ configs = [
         n_head=48,
         n_embd=6144,
         padding_multiple=256,
-        prompt_style="stability",
     ),
     # https://huggingface.co/stabilityai/stablelm-zephyr-3b/blob/main/config.json
     dict(
