@@ -3,6 +3,7 @@ from abc import abstractmethod
 from json import dumps
 from typing import Dict, List, Type, Tuple, Union
 
+import lit_gpt.config
 from lit_gpt import Tokenizer
 
 
@@ -249,9 +250,12 @@ class Gemma(PromptStyle):
         return f"<start_of_turn>user\n{prompt}<end_of_turn>\n<start_of_turn>model\n"
 
 
+# Maps prompt style names to PromptStyle classes
 prompt_styles: Dict[str, Type[PromptStyle]] = {
     # Dataset-specific prompt styles
     "alpaca": Alpaca,
+    "flan": FLAN,
+    "longform": Longform,
     # Model-specific prompt styles
     "stablelm-alpha": StableLMAlpha,
     "stablelm-zephyr": StableLMZephyr,
@@ -272,22 +276,49 @@ prompt_styles: Dict[str, Type[PromptStyle]] = {
     "gemma": Gemma,
 }
 
+# Maps HF model names to prompt style names
 model_name_to_prompt_style = {
-    "stabilityai.*tuned-alpha": "stablelm-alpha",
-    "stabilityai/stablelm-zephyr-3b": "stablelm-zephyr",
-    "togethercomputer.*Chat": "togethercomputer-chat",
-    "togethercomputer.*Instruct": "togethercomputer-instruct",
-    "falcon.*-instruct": "falcon",
-    "vicuna|longchat": "vicuna",
-    "Llama-2-7b-chat-hf-function-calling-v2": "llama2-function-calling",
-    "Llama-2.*-chat": "llama2",
+    "stablelm-tuned-alpha-3b": "stablelm-alpha",
+    "stablelm-tuned-alpha-7b": "stablelm-alpha",
+    "stablelm-zephyr-3b": "stablelm-zephyr",
+    "falcon-7b-instruct": "falcon",
+    "falcon-40b-instruct": "falcon",
+    "vicuna-7b-v1.3": "vicuna",
+    "vicuna-13b-v1.3": "vicuna",
+    "vicuna-33b-v1.3": "vicuna",
+    "vicuna-7b-v1.5": "vicuna",
+    "vicuna-7b-v1.5-16k": "vicuna",
+    "vicuna-13b-v1.5": "vicuna",
+    "vicuna-13b-v1.5-16k": "vicuna",
+    "longchat-7b-16k": "vicuna",
+    "longchat-13b-16k": "vicuna",
+    "Nous-Hermes-llama-2-7b": "nous-research",
+    "Nous-Hermes-13b": "nous-research",
+    "Nous-Hermes-Llama2-13b": "nous-research",
+    "Llama-2-7b-chat-hf": "llama2",
+    "Llama-2-13b-chat-hf": "llama2",
+    "Llama-2-70b-chat-hf": "llama2",
+    "gemma-2b-it": "gemma",
+    "gemma-7b-it": "gemma",
     "FreeWilly2": "freewilly2",
-    "Platypus": "platypus",
-    "NousResearch": "nous-research",
-    "stablecode-instruct": "stablecode",
-    "CodeLlama|Mistral.*Instruct": "codellama",
-    "phi-1": "phi-1",
+    "CodeLlama-7b-Instruct-hf": "codellama",
+    "CodeLlama-13b-Instruct-hf": "codellama",
+    "CodeLlama-34b-Instruct-hf": "codellama",
+    "CodeLlama-70b-Instruct-hf": "codellama",
+    "stablecode-instruct-alpha-3b": "stablecode",
+    "phi-1_5": "phi-1",
     "phi-2": "phi-2",
-    "TinyLlama.*Chat": "tinyllama",
-    "gemma.*-it": "gemma",
+    "Mistral-7B-Instruct-v0.1": "codellama",
+    "Mistral-7B-Instruct-v0.2": "codellama",
+    "Mixtral-8x7B-Instruct-v0.1": "codellama",
+    "TinyLlama-1.1B-chat": "tinyllama",
+    "TinyLlama-1.1B-Chat-v1.0": "tinyllama",
+    "Llama-2-7b-chat-hf-function-calling-v2": "llama2-function-calling",
 }
+
+for template in ("RedPajama-INCITE-{}-3B-v1", "RedPajama-INCITE-7B-{}", "RedPajama-INCITE-{}-7B-v0.1"):
+    model_name_to_prompt_style[template.format("Chat")] = "togethercomputer-chat"
+    model_name_to_prompt_style[template.format("Instruct")] = "togethercomputer-instruct"
+
+for c in lit_gpt.config.platypus:
+    model_name_to_prompt_style[c.name] = "platypus"
