@@ -8,7 +8,6 @@ from typing import Literal, Optional
 import lightning as L
 import torch
 from lightning.fabric.plugins import BitsandbytesPrecision
-from lit_gpt.prompts import Alpaca
 
 # support running without installing as a package
 wd = Path(__file__).parent.parent.resolve()
@@ -17,6 +16,7 @@ sys.path.append(str(wd))
 from generate.base import generate
 from lit_gpt import Tokenizer
 from lit_gpt.adapter_v2 import GPT, Config
+from lit_gpt.prompts import Alpaca
 from lit_gpt.utils import CLI, check_valid_checkpoint_dir, get_default_supported_precision, lazy_load
 
 
