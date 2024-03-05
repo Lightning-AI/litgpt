@@ -51,6 +51,8 @@ jobs:
 
     - name: Install minimal dependencies
       run: |
+        # Use `--system` flag to allow global installs in CI
+        # https://github.com/astral-sh/uv/issues/1526
         uv pip install --system -r requirements.txt
         uv pip list
         # make sure all modules are importable
