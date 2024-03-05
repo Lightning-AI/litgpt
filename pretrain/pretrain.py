@@ -33,7 +33,7 @@ from lit_gpt import Tokenizer
 from lit_gpt.args import EvalArgs, TrainArgs
 from lit_gpt.data import LitDataModule, TinyLlama
 from lit_gpt.model import GPT, Block, CausalSelfAttention, Config, LLaMAMLP
-from lit_gpt.utils import CLI, CycleIterator, chunked_cross_entropy, num_parameters, parse_devices
+from lit_gpt.utils import CLI, CycleIterator, chunked_cross_entropy, num_parameters, parse_devices, copy_config_files
 
 
 def setup(
@@ -89,7 +89,7 @@ def setup(
     if logger_name in ("tensorboard", "wandb"):
         fabric.logger.log_hyperparams(hparams)
 
-    fabric.launch(main, devices, seed, resume, config, data, out_dir, tokenizer, train, eval)
+    fabric.launch(main, devices, seed, resume, config, data, out_dir, tokenizer_dir, tokenizer, train, eval)
 
 
 def main(
@@ -100,6 +100,7 @@ def main(
     config: Config,
     data: LitDataModule,
     out_dir: Path,
+    tokenizer_dir: Optional[Path],
     tokenizer: Optional[Tokenizer],
     train: TrainArgs,
     eval: EvalArgs,
@@ -145,13 +146,13 @@ def main(
     }
 
     if resume is True:
-        resume = max(out_dir.glob("*.pth"), key=(lambda p: int(p.name.split("-")[1])))
+        resume = max(out_dir.rglob("step-*/*.pth"), key=(lambda p: int(p.parent.name.split("-")[1])))
     if resume:
         fabric.print(f"Resuming training from {resume}")
         fabric.load(resume, state)
 
     train_time = time.perf_counter()
-    fit(fabric, devices, state, train_dataloader, val_dataloader, out_dir, train, eval)
+    fit(fabric, devices, state, train_dataloader, val_dataloader, out_dir, tokenizer_dir, train, eval)
     fabric.print(f"Training time: {(time.perf_counter()-train_time):.2f}s")
     if fabric.device.type == "cuda":
         fabric.print(f"Memory used: {torch.cuda.max_memory_allocated() / 1e9:.02f} GB")
@@ -164,6 +165,7 @@ def fit(
     train_dataloader: DataLoader,
     val_dataloader: DataLoader,
     out_dir: Path,
+    tokenizer_dir: Optional[Path],
     train: TrainArgs,
     eval: EvalArgs,
 ) -> None:
@@ -273,9 +275,12 @@ def fit(
             fabric.barrier()
 
         if not is_accumulating and state["step_count"] % train.save_interval == 0:
-            checkpoint_path = out_dir / f"step-{state['step_count']:08d}.pth"
-            fabric.print(f"Saving checkpoint to {str(checkpoint_path)!r}")
-            fabric.save(checkpoint_path, state)
+            checkpoint_file = out_dir / f"step-{state['step_count']:08d}" / "lit_model.pth"
+            checkpoint_file.parent.mkdir(parents=True, exist_ok=True)
+            fabric.print(f"Saving checkpoint to {str(checkpoint_file)!r}")
+            fabric.save(checkpoint_file, state)
+            if tokenizer_dir is not None:
+                copy_config_files(tokenizer_dir, checkpoint_file.parent)
 
 
 @torch.no_grad()
