@@ -221,7 +221,7 @@ def fit(
                 "total_tokens": (
                     state["iter_num"] * train.micro_batch_size * model.config.block_size * fabric.world_size
                 ),
-                "learning_rate": scheduler.get_last_lr(),
+                "learning_rate": scheduler.get_last_lr()[0],
             }
             fabric.print(
                 f"iter {metrics['iter']} | step {metrics['step']}: loss {metrics['loss']:.4f}, iter time:"
