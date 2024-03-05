@@ -29,6 +29,7 @@ devices: auto
 seed: 42
 data: TinyLlama
 out_dir: out/pretrain/tiny-llama
+tokenizer_dir: checkpoints/meta-llama/Llama-2-7b-hf
 train:
   save_interval: 1000
   log_interval: 1
@@ -39,6 +40,7 @@ train:
   max_tokens: 3000000000000
   max_steps: null
   max_seq_length: null
+  tie_embeddings: null
   learning_rate: 4e-4
   weight_decay: 1e-1
   beta1: 0.9

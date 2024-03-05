@@ -31,6 +31,7 @@ devices: auto
 seed: 42
 data: OpenWebText
 out_dir: out/pretrain/debug
+tokenizer_dir: checkpoints/EleutherAI/pythia-14m
 train:
   save_interval: 1000
   log_interval: 1
@@ -41,6 +42,7 @@ train:
   max_tokens: 100000000
   max_steps: null
   max_seq_length: null
+  tie_embeddings: null
   learning_rate: 6e-4
   weight_decay: 1e-1
   beta1: 0.9

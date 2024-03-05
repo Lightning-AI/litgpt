@@ -10,6 +10,7 @@ import torch
 from conftest import RunIf
 from lightning import Fabric
 from lightning.fabric.utilities.imports import _IS_WINDOWS
+from lightning.fabric.utilities.init import _materialize_meta_tensors
 
 # support running without installing as a package
 wd = Path(__file__).parent.parent.resolve()
@@ -832,3 +833,14 @@ def test_rope_init_under_fsdp():
     cos, sin = model.rope_cache(device=fabric.device)
     torch.testing.assert_close(model.cos, cos)
     torch.testing.assert_close(model.sin, sin)
+
+
+@RunIf(min_cuda_gpus=1)
+def test_reset_parameters_device():
+    from lit_gpt import GPT
+
+    with torch.device("meta"):
+        model = GPT.from_name("pythia-14m", n_layer=1)
+    _materialize_meta_tensors(model, torch.device("cuda"))
+    model.reset_parameters()
+    assert model.cos.device.type == "cuda"
