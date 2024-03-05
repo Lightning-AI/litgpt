@@ -14,7 +14,7 @@ from torch.utils.data import DataLoader
 @RunIf(min_cuda_gpus=2, standalone=True)
 # Set CUDA_VISIBLE_DEVICES for FSDP hybrid-shard, if fewer GPUs are used than are available
 @mock.patch.dict(os.environ, {"CUDA_VISIBLE_DEVICES": "0,1"})
-def test_pretrain_tiny_llama(fake_checkpoint_dir, tmp_path, monkeypatch):
+def test_pretrain_tiny_llama(tmp_path, monkeypatch):
     import pretrain.pretrain as module
     from lit_gpt.args import EvalArgs, TrainArgs
     from lit_gpt.config import Config
@@ -25,9 +25,6 @@ def test_pretrain_tiny_llama(fake_checkpoint_dir, tmp_path, monkeypatch):
     dataloader = DataLoader(dataset)
     module.get_dataloaders = Mock(return_value=(dataloader, dataloader))
 
-    tokenizer_mock = Mock()
-    monkeypatch.setattr(module, "Tokenizer", tokenizer_mock)
-
     out_dir = tmp_path / "out"
     stdout = StringIO()
     with redirect_stdout(stdout):
@@ -35,7 +32,6 @@ def test_pretrain_tiny_llama(fake_checkpoint_dir, tmp_path, monkeypatch):
             devices=2,
             model=model_config,
             out_dir=out_dir,
-            tokenizer_dir=fake_checkpoint_dir,
             train=TrainArgs(global_batch_size=2, max_tokens=16, save_interval=1, micro_batch_size=1, max_norm=1.0),
             eval=EvalArgs(interval=1, max_iters=1),
         )
@@ -47,12 +43,8 @@ def test_pretrain_tiny_llama(fake_checkpoint_dir, tmp_path, monkeypatch):
         assert checkpoint_dirs.issubset(out_dir_contents)
         assert all((out_dir / p).is_dir() for p in checkpoint_dirs)
         for checkpoint_dir in checkpoint_dirs:
-            assert {p.name for p in (out_dir / checkpoint_dir).iterdir()} == {
-                "lit_model.pth",
-                "lit_config.json",
-                "tokenizer_config.json",
-                "tokenizer.json",
-            }
+            # the `tokenizer_dir` is None by default, so only 'lit_model.pth' shows here
+            assert {p.name for p in (out_dir / checkpoint_dir).iterdir()} == {"lit_model.pth"}
 
         # logs only appear on rank 0
         logs = stdout.getvalue()
