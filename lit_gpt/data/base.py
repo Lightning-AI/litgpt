@@ -1,7 +1,7 @@
 # Copyright Lightning AI. Licensed under the Apache License 2.0, see LICENSE file.
 from abc import abstractmethod
 from functools import partial
-from typing import List, Dict, Union, Optional
+from typing import List, Dict, Union, Optional, Callable, Any
 
 import torch
 from torch import Tensor
@@ -41,7 +41,7 @@ class SFTDataset(Dataset):
         data: A list of samples (dicts). The target/label must be stored under the key 'output' and the instruction
             or other data can be stored under any key as long as it is compatible with the given prompt template.
         tokenizer: The tokenizer to use. Should match the one that was used to pretrain the model.
-        prompt_template: A prompt template (format string or callable).
+        prompt_style: The style to apply to prompts. See `lit_gpt.prompts` for a list of available styles.
         max_seq_length: Truncate sequences that are longer than this value. By default, no truncation is applied.
         mask_prompt: Whether to mask the prompt section from the label (with ``ignore_index``).
         ignore_index: The index to use for elements to be ignored in the label.
@@ -55,24 +55,30 @@ class SFTDataset(Dataset):
         self,
         data: List[Dict[str, str]],
         tokenizer: Tokenizer,
-        prompt_template: Union[str, PromptStyle],
+        prompt_style: Union[str, PromptStyle],
         max_seq_length: int = -1,
         mask_prompt: bool = True,
         ignore_index: int = -1,
+        transform: Optional[Callable[[Any], Any]] = None
     ) -> None:
         self.data = data
         self.tokenizer = tokenizer
-        self.prompt_template: PromptStyle = prompt_template if isinstance(prompt_template, PromptStyle) else PromptStyle.from_name(prompt_template)
+        self.prompt_style = (
+            prompt_style if isinstance(prompt_style, PromptStyle) else PromptStyle.from_name(prompt_style)
+        )
         self.max_seq_length = max_seq_length
         self.mask_prompt = mask_prompt
         self.ignore_index = ignore_index
+        self.transform = transform
 
     def __len__(self) -> int:
         return len(self.data)
 
     def __getitem__(self, idx: int) -> Dict[str, Tensor]:
         example = self.data[idx]
-        prompt = self.prompt_template.apply(prompt=example["instruction"], **example)
+        if self.transform is not None:
+            example = self.transform(example)
+        prompt = self.prompt_style.apply(prompt=example["instruction"], **example)
         prompt_and_response = prompt + example["output"]
         encoded_prompt = self.tokenizer.encode(prompt, max_length=self.max_seq_length)
         encoded_prompt_and_response = self.tokenizer.encode(

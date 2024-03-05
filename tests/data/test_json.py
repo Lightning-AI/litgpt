@@ -1,13 +1,15 @@
 # Copyright Lightning AI. Licensed under the Apache License 2.0, see LICENSE file.
 import json
-from unittest import mock
-
 import pytest
 
 
-@mock.patch("lit_gpt.data.json.prompt_template", "X: {instruction} {input} Y:")
 def test_json(tmp_path, mock_tockenizer):
     from lit_gpt.data import JSON
+    from lit_gpt.prompts import PromptStyle
+
+    class Style(PromptStyle):
+        def apply(self, prompt, **kwargs):
+            return f"X: {prompt} {kwargs['input']} Y:"
 
     json_path = tmp_path / "data.json"
     mock_data = [
@@ -26,7 +28,7 @@ def test_json(tmp_path, mock_tockenizer):
         JSON(tmp_path / "not exist")
 
     # TODO: Make prompt template an argumenet
-    data = JSON(json_path, test_split_fraction=0.5, num_workers=0)
+    data = JSON(json_path, test_split_fraction=0.5, prompt_style=Style(), num_workers=0)
     data.connect(tokenizer=mock_tockenizer, batch_size=2)
     data.prepare_data()  # does nothing
     data.setup()
@@ -52,3 +54,7 @@ def test_json(tmp_path, mock_tockenizer):
     assert mock_tockenizer.decode(val_data[0]["input_ids"][0]).startswith("X: Exponentiate 2^3 Y:8")
     assert mock_tockenizer.decode(val_data[0]["input_ids"][1]).startswith("X: Subtract 5-3 Y:2")
     assert mock_tockenizer.decode(val_data[1]["input_ids"][0]).startswith("X: Square root √9 Y:3")
+
+    assert isinstance(train_dataloader.dataset.prompt_style, Style)
+    assert isinstance(val_dataloader.dataset.prompt_style, Style)
+
