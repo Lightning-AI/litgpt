@@ -42,8 +42,9 @@ def test_format_dataset():
 
 @mock.patch("lit_gpt.data.deita.format_dataset")
 @mock.patch("datasets.load_dataset")
-def test_deita(_, format_dataset_mock, mock_tockenizer, tmp_path):
+def test_deita(_, format_dataset_mock, mock_tokenizer, tmp_path):
     from lit_gpt.data import Deita, SFTDataset
+    from lit_gpt.prompts import Alpaca as AlpacaPromptStyle
 
     format_dataset_mock.return_value = [
         {"instruction": "inst1", "output": "out1"},
@@ -55,7 +56,7 @@ def test_deita(_, format_dataset_mock, mock_tockenizer, tmp_path):
         num_workers=0,
         download_dir=tmp_path,
     )
-    deita.connect(mock_tockenizer, batch_size=2, max_seq_length=10)
+    deita.connect(mock_tokenizer, batch_size=2, max_seq_length=10)
     deita.prepare_data()
     deita.setup()
 
@@ -66,3 +67,6 @@ def test_deita(_, format_dataset_mock, mock_tockenizer, tmp_path):
     val_dataloader = deita.val_dataloader()
     assert isinstance(val_dataloader.dataset, SFTDataset)
     assert len(val_dataloader) == 2
+
+    assert isinstance(train_dataloader.dataset.prompt_style, AlpacaPromptStyle)
+    assert isinstance(val_dataloader.dataset.prompt_style, AlpacaPromptStyle)
