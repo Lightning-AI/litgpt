@@ -294,12 +294,12 @@ prompt_styles: Dict[str, Type[PromptStyle]] = {
     "gemma": Gemma,
 }
 
-# TODO: Double check the names are all Config.name and not Config.hf_config.name
 # Maps HF model names to prompt style names
 model_name_to_prompt_style = {
     "stablelm-tuned-alpha-3b": "stablelm-alpha",
     "stablelm-tuned-alpha-7b": "stablelm-alpha",
     "stablelm-zephyr-3b": "stablelm-zephyr",
+    "stablecode-instruct-alpha-3b": "stablecode",
     "falcon-7b-instruct": "falcon",
     "falcon-40b-instruct": "falcon",
     "vicuna-7b-v1.3": "vicuna",
@@ -317,21 +317,19 @@ model_name_to_prompt_style = {
     "Llama-2-7b-chat-hf": "llama2",
     "Llama-2-13b-chat-hf": "llama2",
     "Llama-2-70b-chat-hf": "llama2",
-    "gemma-2b-it": "gemma",
-    "gemma-7b-it": "gemma",
+    "Gemma-2b-it": "gemma",
+    "Gemma-7b-it": "gemma",
     "FreeWilly2": "freewilly2",
     "CodeLlama-7b-Instruct-hf": "codellama",
     "CodeLlama-13b-Instruct-hf": "codellama",
     "CodeLlama-34b-Instruct-hf": "codellama",
     "CodeLlama-70b-Instruct-hf": "codellama",
-    "stablecode-instruct-alpha-3b": "stablecode",
     "phi-1_5": "phi-1",
     "phi-2": "phi-2",
     "Mistral-7B-Instruct-v0.1": "codellama",
     "Mistral-7B-Instruct-v0.2": "codellama",
     "Mixtral-8x7B-Instruct-v0.1": "codellama",
-    "TinyLlama-1.1B-chat": "tinyllama",
-    "TinyLlama-1.1B-Chat-v1.0": "tinyllama",
+    "tiny-llama-1.1b-chat": "tinyllama",
     "Llama-2-7b-chat-hf-function-calling-v2": "llama2-function-calling",
 }
 
