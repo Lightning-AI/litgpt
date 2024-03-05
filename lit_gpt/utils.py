@@ -395,15 +395,6 @@ def CLI(*args: Any, **kwargs: Any) -> Any:
     return CLI(*args, **kwargs)
 
 
-def save_hyperparameters(function: callable, checkpoint_dir: Path) -> None:
-    """Captures the CLI parameters passed to `function` without running `function` and saves them to the checkpoint."""
-    from jsonargparse import capture_parser
-
-    parser = capture_parser(lambda: CLI(function))
-    config = parser.parse_args()
-    parser.save(config, checkpoint_dir / "hyperparameters.yaml", overwrite=True)
-
-
 def parse_devices(devices: Union[str, int]) -> int:
     if devices in (-1, "auto"):
         return torch.cuda.device_count() or 1
