@@ -43,6 +43,8 @@ class JSON(LitDataModule):
     def __post_init__(self):
         if not self.json_path.is_file():
             raise FileNotFoundError(f"The file {self.json_path} does not exist.")
+        if isinstance(self.prompt_style, str):
+            self.prompt_style = PromptStyle.from_name(self.prompt_style)
 
     def connect(
         self,

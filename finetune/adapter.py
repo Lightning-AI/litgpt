@@ -245,7 +245,7 @@ def validate(
     # produce an example:
     instruction = "Recommend a movie for me to watch during the weekend and explain the reason."
     fabric.print(instruction)
-    prompt = data.val_dataset.prompt_style.apply(instruction)
+    prompt = data.prompt_style.apply(instruction)
     encoded = tokenizer.encode(prompt, device=fabric.device)
     with fabric.init_tensor():
         # do not set `max_seq_length=max_returned_token` because memory is not a concern here

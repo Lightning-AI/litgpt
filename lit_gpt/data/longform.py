@@ -40,6 +40,10 @@ class LongForm(LitDataModule):
     train_dataset: Optional[SFTDataset] = field(default=None, init=False, repr=False)
     test_dataset: Optional[SFTDataset] = field(default=None, init=False, repr=False)
 
+    def __post_init__(self) -> None:
+        if isinstance(self.prompt_style, str):
+            self.prompt_style = PromptStyle.from_name(self.prompt_style)
+
     def connect(
         self,
         tokenizer: Optional[Tokenizer] = None,

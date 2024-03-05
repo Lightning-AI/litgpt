@@ -37,6 +37,10 @@ class Dolly(Alpaca):
     file_name: str = field(repr=False, default="dolly_data_cleaned.json")
     """The name of the dataset file to download."""
 
+    def __post_init__(self) -> None:
+        if isinstance(self.prompt_style, str):
+            self.prompt_style = PromptStyle.from_name(self.prompt_style)
+
     def setup(self, stage: str = "") -> None:
         with open(self.download_dir / self.file_name, "r", encoding="utf-8") as file:
             data = file.readlines()
