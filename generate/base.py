@@ -142,6 +142,7 @@ def main(
     checkpoint_path = checkpoint_dir / "lit_model.pth"
 
     tokenizer = Tokenizer(checkpoint_dir)
+    # TODO: Load prompt style from checkpoint and apply it here
     encoded = tokenizer.encode(prompt, device=fabric.device)
     prompt_length = encoded.size(0)
     max_returned_tokens = prompt_length + max_new_tokens

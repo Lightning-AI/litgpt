@@ -4,12 +4,13 @@
 import json
 from dataclasses import dataclass, field
 from pathlib import Path
-from typing import Optional, Dict
+from typing import Optional, Union
 
 import torch
 from torch.utils.data import random_split, DataLoader
 from lightning_utilities.core.imports import RequirementCache
 from lit_gpt.data import SFTDataset, get_sft_collate_fn, LitDataModule
+from lit_gpt.prompts import PromptStyle
 from lit_gpt.tokenizer import Tokenizer
 
 _URL = "https://raw.githubusercontent.com/tloen/alpaca-lora/main/alpaca_data_cleaned_archive.json"
@@ -23,6 +24,8 @@ class Alpaca(LitDataModule):
     """Whether to mask the prompt section from the label (with ``ignore_index``)."""
     test_split_fraction: float = 0.03865  # to get exactly 2000 test samples,
     """The fraction of the dataset to use for the test/validation dataset. The rest is used for training."""
+    prompt_style: Union[str, PromptStyle] = "alpaca"
+    """The style to apply to instruction prompts. See `lit_gpt.prompts` for a list of available styles."""
     ignore_index: int = -1
     """The index to use for elements to be ignored in the label."""
     seed: int = 42
@@ -41,6 +44,10 @@ class Alpaca(LitDataModule):
     max_seq_length: int = field(default=-1, init=False, repr=False)
     train_dataset: Optional[SFTDataset] = field(default=None, init=False, repr=False)
     test_dataset: Optional[SFTDataset] = field(default=None, init=False, repr=False)
+
+    def __post_init__(self) -> None:
+        if isinstance(self.prompt_style, str):
+            self.prompt_style = PromptStyle.from_name(self.prompt_style)
 
     def connect(
         self,
@@ -71,7 +78,7 @@ class Alpaca(LitDataModule):
         self.train_dataset = SFTDataset(
             data=train_data,
             tokenizer=self.tokenizer,
-            prompt_template=prompt_template,
+            prompt_style=self.prompt_style,
             max_seq_length=self.max_seq_length,
             mask_prompt=self.mask_prompt,
             ignore_index=self.ignore_index,
@@ -79,7 +86,7 @@ class Alpaca(LitDataModule):
         self.test_dataset = SFTDataset(
             data=test_data,
             tokenizer=self.tokenizer,
-            prompt_template=prompt_template,
+            prompt_style=self.prompt_style,
             max_seq_length=self.max_seq_length,
             mask_prompt=self.mask_prompt,
             ignore_index=self.ignore_index,
@@ -133,18 +140,3 @@ def download_if_missing(file_path: Path, file_url: str, mode: str = "w", stream:
             pbar.close()
         else:
             f.write(response.text)
-
-
-def prompt_template(example: Dict[str, str]) -> str:
-    """The Alpaca prompt template."""
-    if example.get("input"):
-        return (
-            "Below is an instruction that describes a task, paired with an input that provides further context. "
-            "Write a response that appropriately completes the request.\n\n"
-            f"### Instruction:\n{example['instruction']}\n\n### Input:\n{example['input']}\n\n### Response:\n"
-        )
-    return (
-        "Below is an instruction that describes a task. "
-        "Write a response that appropriately completes the request.\n\n"
-        f"### Instruction:\n{example['instruction']}\n\n### Response:\n"
-    )

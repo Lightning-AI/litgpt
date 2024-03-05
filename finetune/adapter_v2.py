@@ -21,7 +21,7 @@ sys.path.append(str(wd))
 from generate.base import generate
 from lit_gpt.adapter_v2 import GPT, Block, Config, adapter_filter, mark_only_adapter_v2_as_trainable
 from lit_gpt.args import EvalArgs, TrainArgs
-from lit_gpt.data import Alpaca, LitDataModule, apply_prompt_template
+from lit_gpt.data import Alpaca, LitDataModule
 from lit_gpt.tokenizer import Tokenizer
 from lit_gpt.utils import (
     CLI,
@@ -134,7 +134,7 @@ def main(fabric: L.Fabric, devices: int, seed: int, config: Config, data: LitDat
     load_checkpoint(fabric, model, checkpoint_path, strict=False)
 
     train_time = time.perf_counter()
-    fit(fabric, model, optimizer, scheduler, train_dataloader, val_dataloader, devices, checkpoint_dir, out_dir, train, eval)
+    fit(fabric, model, optimizer, scheduler, train_dataloader, val_dataloader, devices, checkpoint_dir, out_dir, train, eval, data)
     fabric.print(f"Training time: {(time.perf_counter()-train_time):.2f}s")
     if fabric.device.type == "cuda":
         fabric.print(f"Memory used: {torch.cuda.max_memory_allocated() / 1e9:.02f} GB")
@@ -159,6 +159,7 @@ def fit(
     out_dir: Path,
     train: TrainArgs,
     eval: EvalArgs,
+    data: LitDataModule,
 ) -> None:
     tokenizer = Tokenizer(checkpoint_dir)
     longest_seq_length, longest_seq_ix = get_longest_seq_length(train_dataloader.dataset)
@@ -168,7 +169,7 @@ def fit(
         f" {model.max_seq_length} and context length is {model.config.block_size}"
     )
 
-    validate(fabric, model, val_dataloader, tokenizer, dataclasses.replace(eval, max_iters=2))  # sanity check
+    validate(fabric, model, val_dataloader, tokenizer, dataclasses.replace(eval, max_iters=2), data)  # sanity check
 
     train_iterator = CycleIterator(train_dataloader)
     throughput = ThroughputMonitor(fabric, window_size=50)
@@ -214,7 +215,7 @@ def fit(
 
         if not is_accumulating and step_count % eval.interval == 0:
             t0 = time.perf_counter()
-            val_loss = validate(fabric, model, val_dataloader, tokenizer, eval)
+            val_loss = validate(fabric, model, val_dataloader, tokenizer, eval, data)
             t1 = time.perf_counter() - t0
             fabric.print(f"iter {iter_num}: val loss {val_loss.item():.4f}, val time: {t1 * 1000:.2f} ms")
             fabric.barrier()
@@ -228,7 +229,7 @@ def fit(
 # the adapter "kv cache" cannot be initialized under `inference_mode`
 @torch.no_grad()
 def validate(
-    fabric: L.Fabric, model: GPT, val_dataloader: DataLoader, tokenizer: Tokenizer, eval: EvalArgs,
+    fabric: L.Fabric, model: GPT, val_dataloader: DataLoader, tokenizer: Tokenizer, eval: EvalArgs, data: LitDataModule,
 ) -> torch.Tensor:
     fabric.print("Validating ...")
     model.eval()
@@ -244,8 +245,7 @@ def validate(
     # produce an example:
     instruction = "Recommend a movie for me to watch during the weekend and explain the reason."
     fabric.print(instruction)
-    sample = {"instruction": instruction, "input": ""}
-    prompt = apply_prompt_template(val_dataloader.dataset.prompt_template, sample)
+    prompt = data.prompt_style.apply(instruction)
     encoded = tokenizer.encode(prompt, device=fabric.device)
     with fabric.init_tensor():
         # do not set `max_seq_length=max_returned_token` because memory is not a concern here
