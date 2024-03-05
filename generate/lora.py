@@ -8,7 +8,6 @@ from typing import Literal, Optional
 import lightning as L
 import torch
 from lightning.fabric.plugins import BitsandbytesPrecision
-from lit_gpt.prompts import Alpaca
 
 # support running without installing as a package
 wd = Path(__file__).parent.parent.resolve()
