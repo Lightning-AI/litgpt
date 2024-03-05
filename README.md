@@ -110,8 +110,8 @@ or choose your own parameters
 litgpt finetune lora \
   --checkpoint_dir checkpoints/google/gemma-2b-it \
   --dataset Deita \
-  --batch_size 8 \
-  --max_epochs 3
+  --batch_size 32 \
+  --max_epochs 2
 ```
 The finetuning requires at least one GPU with ~12 GB memory (RTX 3060). As soon as it finishes, you can use the checkpoint:
 
