@@ -83,14 +83,6 @@ def alpaca_path(tmp_path):
 
 
 @pytest.fixture()
-def deita_path(tmp_path):
-    source_dir = Path(__file__).parent / "data" / "fixtures" / "deita"
-    destination_dir = tmp_path / "deita"
-    shutil.copytree(source_dir, destination_dir)
-    return destination_dir
-
-
-@pytest.fixture()
 def dolly_path(tmp_path):
     file = Path(__file__).parent / "data" / "fixtures" / "dolly.json"
     shutil.copyfile(file, tmp_path / "dolly.json")
