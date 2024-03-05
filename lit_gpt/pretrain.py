@@ -1,13 +1,7 @@
 # Copyright Lightning AI. Licensed under the Apache License 2.0, see LICENSE file.
 
-"""
-This script is adapted from TinyLlama:
-https://github.com/jzhang38/TinyLlama/blob/main/pretrain/tinyllama.py
-"""
-
 import math
 import os
-import sys
 import time
 from datetime import timedelta
 from functools import partial
@@ -24,10 +18,6 @@ from lightning.pytorch.loggers import WandbLogger
 from torch.utils.data import DataLoader
 from torchmetrics.aggregation import RunningMean
 from typing_extensions import Literal
-
-# support running without installing as a package
-wd = Path(__file__).parent.parent.resolve()
-sys.path.append(str(wd))
 
 from lit_gpt import Tokenizer
 from lit_gpt.args import EvalArgs, TrainArgs
@@ -330,7 +320,7 @@ def get_lr(learning_rate: float, it: int, warmup_iters: int, max_iters: int, min
 
 
 def init_weights(module: nn.Module, n_layer: int, n_embd: int):
-    # Follows GPT-NeoX: https://arxiv.org/abs/2204.06745
+    # Copied from https://github.com/jzhang38/TinyLlama/blob/bf12224/lit_gpt/model.py#L40-L54
     if isinstance(module, nn.Embedding):
         nn.init.normal_(module.weight, mean=0.0, std=math.sqrt(2.0 / 5 / n_embd))
     elif isinstance(module, nn.Linear):
