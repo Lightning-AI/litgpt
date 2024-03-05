@@ -61,8 +61,6 @@ This repository follows the main principle of **openness through clarity**.
 
 ## Installation
 
-Clone the repo:
-
 ```bash
 pip install litgpt
 ```
