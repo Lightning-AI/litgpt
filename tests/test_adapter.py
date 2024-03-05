@@ -68,7 +68,7 @@ def test_adapter_script(tmp_path, fake_checkpoint_dir, monkeypatch, alpaca_path)
 
     out_dir = tmp_path / "out"
     stdout = StringIO()
-    with redirect_stdout(stdout):
+    with redirect_stdout(stdout), mock.patch("sys.argv", ["adapter.py"]):
         module.setup(
             data=Alpaca(
                 download_dir=alpaca_path.parent,
@@ -93,6 +93,7 @@ def test_adapter_script(tmp_path, fake_checkpoint_dir, monkeypatch, alpaca_path)
             "lit_config.json",
             "tokenizer_config.json",
             "tokenizer.json",
+            "hyperparameters.yaml",
         }
     assert (out_dir / "version_0" / "metrics.csv").is_file()
 

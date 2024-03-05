@@ -27,7 +27,7 @@ def test_pretrain(tmp_path, monkeypatch):
 
     out_dir = tmp_path / "out"
     stdout = StringIO()
-    with redirect_stdout(stdout):
+    with redirect_stdout(stdout), mock.patch("sys.argv", ["pretrain.py"]):
         pretrain.setup(
             devices=2,
             model=model_config,
@@ -44,7 +44,7 @@ def test_pretrain(tmp_path, monkeypatch):
         assert all((out_dir / p).is_dir() for p in checkpoint_dirs)
         for checkpoint_dir in checkpoint_dirs:
             # the `tokenizer_dir` is None by default, so only 'lit_model.pth' shows here
-            assert {p.name for p in (out_dir / checkpoint_dir).iterdir()} == {"lit_model.pth"}
+            assert set(os.listdir(out_dir / checkpoint_dir)) == {"lit_model.pth", "hyperparameters.yaml"}
 
         # logs only appear on rank 0
         logs = stdout.getvalue()
