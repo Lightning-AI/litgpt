@@ -1,11 +1,13 @@
 # Copyright Lightning AI. Licensed under the Apache License 2.0, see LICENSE file.
 from abc import abstractmethod
 from json import dumps
-from typing import Dict, List, Type, Tuple, Union
+from typing import TYPE_CHECKING, Dict, List, Type, Tuple, Union
 
 import lit_gpt.config
 from lit_gpt.config import Config
-from lit_gpt import Tokenizer
+
+if TYPE_CHECKING:
+    from lit_gpt import Tokenizer
 
 
 class PromptStyle:
@@ -14,8 +16,8 @@ class PromptStyle:
     def apply(self, prompt: str, **kwargs: str) -> str:
         return prompt
 
-    def stop_tokens(self, tokenizer: Tokenizer) -> Union[List[int], Tuple[List[int], ...]]:
-        return [tokenizer.eos_id]
+    def stop_tokens(self, tokenizer: "Tokenizer") -> Tuple[List[int], ...]:
+        return ([tokenizer.eos_id], )
 
     @classmethod
     def from_name(cls, name: str) -> "PromptStyle":
@@ -26,8 +28,16 @@ class PromptStyle:
         return prompt_styles[model_name_to_prompt_style[config.name]]()
 
 
+class Default(PromptStyle):
+    def apply(self, prompt: str, **kwargs: str) -> str:
+        return prompt
+
+    def stop_tokens(self, tokenizer: "Tokenizer") -> Tuple[List[int], ...]:
+        return ([tokenizer.eos_id], )
+
+
 class Alpaca(PromptStyle):
-    def apply(self, prompt: str, **kwargs: str):
+    def apply(self, prompt: str, **kwargs: str) -> str:
         if kwargs.get("input"):
             return (
                 "Below is an instruction that describes a task, paired with an input that provides further context. "
@@ -60,7 +70,7 @@ class Longform(PromptStyle):
 
 
 class StableLMAlpha(PromptStyle):
-    def apply(self, prompt: str, **kwargs: str):
+    def apply(self, prompt: str, **kwargs: str) -> str:
         return (
             "<|SYSTEM|># StableLM Tuned (Alpha version)\n- StableLM is a helpful and harmless open-source AI language"
             " model developed by StabilityAI.\n- StableLM is excited to be able to help the user, but will refuse to do"
@@ -69,7 +79,7 @@ class StableLMAlpha(PromptStyle):
             f" participate in anything that could harm a human.<|USER|>{prompt}<|ASSISTANT|>"
         )
 
-    def stop_tokens(self, tokenizer: Tokenizer) -> Tuple[List[int], ...]:
+    def stop_tokens(self, tokenizer: "Tokenizer") -> Tuple[List[int], ...]:
         return (
             [tokenizer.eos_id],
             [tokenizer.token_to_id("<|SYSTEM|>")],
@@ -79,15 +89,15 @@ class StableLMAlpha(PromptStyle):
 
 
 class StableLMZephyr(PromptStyle):
-    def apply(self, prompt: str, **kwargs: str):
+    def apply(self, prompt: str, **kwargs: str) -> str:
         return f"<|user|>\n{prompt}<|endoftext|>\n<|assistant|>\n"
 
 
 class TogetherComputerChat(PromptStyle):
-    def apply(self, prompt: str, **kwargs: str):
+    def apply(self, prompt: str, **kwargs: str) -> str:
         return f"<human>: {prompt}\n<bot>:"
 
-    def stop_tokens(self, tokenizer: Tokenizer) -> Tuple[List[int], ...]:
+    def stop_tokens(self, tokenizer: "Tokenizer") -> Tuple[List[int], ...]:
         lt, gt = tokenizer.token_to_id("<"), tokenizer.token_to_id(">:")
         return (
             [tokenizer.eos_id],
@@ -98,10 +108,10 @@ class TogetherComputerChat(PromptStyle):
 
 
 class TogetherComputerInstruct(PromptStyle):
-    def apply(self, prompt: str, **kwargs: str):
+    def apply(self, prompt: str, **kwargs: str) -> str:
         return f"Q: {prompt}\nA:"
 
-    def stop_tokens(self, tokenizer: Tokenizer) -> Tuple[List[int], ...]:
+    def stop_tokens(self, tokenizer: "Tokenizer") -> Tuple[List[int], ...]:
         colon = tokenizer.token_to_id(":")
         return (
             [tokenizer.eos_id],
@@ -117,13 +127,13 @@ class TogetherComputerInstruct(PromptStyle):
 
 
 class Falcon(PromptStyle):
-    def apply(self, prompt: str, **kwargs: str):
+    def apply(self, prompt: str, **kwargs: str) -> str:
         # First line could be modified. AFAIK Falcon doesn't impose a specific system prompt
         # The instruction to not prefix its replies doesn't work always, but better than nothing
         # I've also tried just "{prompt}\n" but the model seems to ramble more often
         return f"Do not prefix your replies with 'Bot: '\nUser: {prompt}\n"
 
-    def stop_tokens(self, tokenizer: Tokenizer) -> Tuple[List[int], ...]:
+    def stop_tokens(self, tokenizer: "Tokenizer") -> Tuple[List[int], ...]:
         return (
             [tokenizer.eos_id],
             # the model rarely emits the eos token and instead outputs newlines, but we cannot use them
@@ -134,7 +144,7 @@ class Falcon(PromptStyle):
 
 
 class Vicuna(PromptStyle):
-    def apply(self, prompt: str, **kwargs: str):
+    def apply(self, prompt: str, **kwargs: str) -> str:
         # https://github.com/lm-sys/FastChat/blob/main/docs/vicuna_weights_version.md#prompt-template
         return (
             "A chat between a curious user and an artificial intelligence assistant. The assistant gives helpful, "
@@ -143,7 +153,7 @@ class Vicuna(PromptStyle):
 
 
 class Llama2FunctionCalling(PromptStyle):
-    def apply(self, prompt: str, **kwargs: str):
+    def apply(self, prompt: str, **kwargs: str) -> str:
         # Has to be before the llama config
         b_func, e_func = "<FUNCTIONS>", "</FUNCTIONS>\n\n"
         b_inst, e_inst = "[INST]", "[/INST]"
@@ -172,7 +182,7 @@ class Llama2FunctionCalling(PromptStyle):
 
 
 class Llama2(PromptStyle):
-    def apply(self, prompt: str, **kwargs: str):
+    def apply(self, prompt: str, **kwargs: str) -> str:
         b_inst, e_inst = "[INST]", "[/INST]"
         b_sys, e_sys = "<<SYS>>\n", "\n<</SYS>>\n\n"
         return (
@@ -186,7 +196,7 @@ class Llama2(PromptStyle):
 
 
 class FreeWilly2(PromptStyle):
-    def apply(self, prompt: str, **kwargs: str):
+    def apply(self, prompt: str, **kwargs: str) -> str:
         return (
             "### System:\nThis is a system prompt, please behave and help the user.\n\n"
             "### User:\n"
@@ -196,7 +206,7 @@ class FreeWilly2(PromptStyle):
 
 
 class Platypus(PromptStyle):
-    def apply(self, prompt: str, **kwargs: str):
+    def apply(self, prompt: str, **kwargs: str) -> str:
         return f"### Instruction:\n\n{prompt}\n\n### Response:\n"
 
 
@@ -223,7 +233,7 @@ class Phi1(PromptStyle):
     def apply(self, prompt: str, **kwargs: str) -> str:
         return f"{prompt}\n\nAnswer:"
 
-    def stop_tokens(self, tokenizer: Tokenizer) -> Tuple[List[int], ...]:
+    def stop_tokens(self, tokenizer: "Tokenizer") -> Tuple[List[int], ...]:
         return (
             [tokenizer.eos_id],
             [tokenizer.token_to_id("Answer"), tokenizer.token_to_id(":")],
@@ -327,4 +337,4 @@ for template in ("RedPajama-INCITE-{}-3B-v1", "RedPajama-INCITE-7B-{}", "RedPaja
     model_name_to_prompt_style[template.format("Instruct")] = "togethercomputer-instruct"
 
 for c in lit_gpt.config.platypus:
-    model_name_to_prompt_style[c.name] = "platypus"
+    model_name_to_prompt_style[c["name"]] = "platypus"
