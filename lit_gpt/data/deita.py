@@ -98,15 +98,15 @@ class Deita(LitDataModule):
         )
 
 
-def format_dataset(dataset_partition: dict, include_multi_turn_conversations: bool) -> List[dict]:
-    formatted_ds = []
+def format_dataset(dataset: List[dict], include_multi_turn_conversations: bool) -> List[dict]:
+    formatted = []
 
-    for entry in dataset_partition:
+    for entry in dataset:
         convo = entry["messages"]
         if include_multi_turn_conversations:
             for i in range(0, len(convo) - 1, 2):
-                formatted_ds.append({"instruction": convo[i]["content"], "input": "", "output": convo[i + 1]["content"]})
+                formatted.append({"instruction": convo[i]["content"], "input": "", "output": convo[i + 1]["content"]})
         else:
-            formatted_ds.append({"instruction": convo[0]["content"], "input": "", "output": convo[1]["content"]})
+            formatted.append({"instruction": convo[0]["content"], "input": "", "output": convo[1]["content"]})
 
-    return formatted_ds
+    return formatted
