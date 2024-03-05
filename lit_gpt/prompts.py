@@ -25,6 +25,9 @@ class PromptStyle:
 
     @classmethod
     def from_config(cls, config: Config) -> "PromptStyle":
+        if config.name not in model_name_to_prompt_style:
+            # TODO: Warning here? Error?
+            return Default()
         return prompt_styles[model_name_to_prompt_style[config.name]]()
 
 
