@@ -16,6 +16,8 @@ from lit_gpt.data.openwebtext import OpenWebText
 
 __all__ = [
     "Alpaca",
+    "AlpacaGPT4",
+    "Deita",
     "Dolly",
     "FLAN",
     "JSON",
