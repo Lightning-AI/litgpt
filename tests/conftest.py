@@ -73,7 +73,7 @@ class MockTokenizer:
 
 
 @pytest.fixture()
-def mock_tockenizer():
+def mock_tokenizer():
     return MockTokenizer()
 
 

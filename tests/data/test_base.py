@@ -8,7 +8,7 @@ import torch
 @pytest.mark.parametrize("mask_prompt", [True, False])
 @pytest.mark.parametrize("ignore_index", [-1, -100])
 @pytest.mark.parametrize("max_seq_length", [1000, 5])
-def test_sft_dataset(max_seq_length, ignore_index, mask_prompt, mock_tockenizer):
+def test_sft_dataset(max_seq_length, ignore_index, mask_prompt, mock_tokenizer):
     from lit_gpt.data import SFTDataset
     from lit_gpt.prompts import PromptStyle
 
@@ -24,7 +24,7 @@ def test_sft_dataset(max_seq_length, ignore_index, mask_prompt, mock_tockenizer)
 
     dataset = SFTDataset(
         data=data,
-        tokenizer=mock_tockenizer,
+        tokenizer=mock_tokenizer,
         prompt_style=Style(),
         mask_prompt=mask_prompt,
         ignore_index=ignore_index,

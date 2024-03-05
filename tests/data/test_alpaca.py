@@ -1,6 +1,6 @@
 # Copyright Lightning AI. Licensed under the Apache License 2.0, see LICENSE file.
 
-def test_alpaca(mock_tockenizer, alpaca_path):
+def test_alpaca(mock_tokenizer, alpaca_path):
     from lit_gpt.data import Alpaca
     from lit_gpt.prompts import Alpaca as AlpacaPromptStyle
 
@@ -10,7 +10,7 @@ def test_alpaca(mock_tockenizer, alpaca_path):
         file_name=alpaca_path.name,
         num_workers=0,
     )
-    alpaca.connect(mock_tockenizer, batch_size=2, max_seq_length=10)
+    alpaca.connect(mock_tokenizer, batch_size=2, max_seq_length=10)
     alpaca.prepare_data()
     alpaca.setup()
 
