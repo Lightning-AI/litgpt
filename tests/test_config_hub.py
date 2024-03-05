@@ -8,9 +8,9 @@ import pytest
 
 
 @pytest.mark.parametrize(["script_file", "config_file"], [
-    ("pretrain/pretrain.py", "pretrain/debug.yaml"),
-    ("pretrain/pretrain.py", "pretrain/tinyllama.yaml"),
-    ("pretrain/pretrain.py", "pretrain/tinystories.yaml"),
+    ("lit_gpt/pretrain.py", "pretrain/debug.yaml"),
+    ("lit_gpt/pretrain.py", "pretrain/tinyllama.yaml"),
+    ("lit_gpt/pretrain.py", "pretrain/tinystories.yaml"),
 ])
 def test_config_help(script_file, config_file, monkeypatch, tmp_path):
     """Test that configs validate against the signature in the scripts."""
