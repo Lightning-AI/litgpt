@@ -103,10 +103,23 @@ For example, you can either use a predefined configuration
 ```bash
 litgpt finetune lora --config finetune/alpaca/gemma-2b.yaml
 ```
-The finetuning requires at least one GPU with ~12 GB memory (RTX 3060).
 
-It is expected that you have downloaded the pretrained weights as described above.
-More details about each finetuning method and how you can apply it to your own data can be found in our technical how-to guides.
+or choose your own parameters
+
+```bash
+litgpt finetune lora \
+  --checkpoint_dir checkpoints/google/gemma-2b-it \
+  --dataset Deita \
+  --batch_size 8 \
+  --max_epochs 3
+```
+The finetuning requires at least one GPU with ~12 GB memory (RTX 3060). As soon as it finishes, you can use the checkpoint:
+
+```bash
+litpgt chat out/lora/final
+````
+
+More details about each finetuning method and how you can apply it to **your own data** can be found in our technical how-to guides.
 
 &nbsp;
 
