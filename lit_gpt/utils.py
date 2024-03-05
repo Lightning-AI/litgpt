@@ -376,9 +376,7 @@ class CycleIterator:
 def copy_config_files(source_dir: Path, out_dir: Path) -> None:
     """Copies the specified configuration and tokenizer files into the output directory."""
 
-    # TODO: All the config files need to be present, should we raise an error if one is missing?
     config_files = ["generation_config.json", "lit_config.json", "tokenizer_config.json"]
-    # TODO: Only one of the files need to be present here, do we want to add a special check?
     tokenizer_files = ["tokenizer.json", "tokenizer.model"]
 
     for file_name in config_files + tokenizer_files:
