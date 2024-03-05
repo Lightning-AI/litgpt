@@ -842,7 +842,7 @@ for c in llama_2:
 gemma = [
     # https://huggingface.co/google/gemma-2b/blob/main/config.json
     dict(
-        name="gemma-2b",
+        name="Gemma-2b",
         hf_config=dict(org="google", name="gemma-2b"),
         scale_embeddings=True,
         vocab_size=256000,
@@ -860,7 +860,7 @@ gemma = [
     ),
     # https://huggingface.co/google/gemma-7b/blob/main/config.json
     dict(
-        name="gemma-7b",
+        name="Gemma-7b",
         hf_config=dict(org="google", name="gemma-7b"),
         scale_embeddings=True,
         vocab_size=256000,
@@ -1383,7 +1383,6 @@ for c in mistral:
         copy["name"] = c["name"].format(kind)
         copy["hf_config"]["name"] = c["hf_config"]["name"].format(kind)
         configs.append(copy)
-
 configs.append(
     # https://huggingface.co/mistralai/Mistral-7B-Instruct-v0.2/blob/main/config.json
     dict(
