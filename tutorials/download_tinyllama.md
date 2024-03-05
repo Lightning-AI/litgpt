@@ -24,9 +24,6 @@ In order to use a specific checkpoint, for instance [TinyLlama 1.1B base model](
 pip install 'huggingface_hub[hf_transfer] @ git+https://github.com/huggingface/huggingface_hub'
 
 python scripts/download.py --repo_id TinyLlama/TinyLlama-1.1B-intermediate-step-1431k-3T
-
-python scripts/convert_hf_checkpoint.py \
-    --checkpoint_dir checkpoints/TinyLlama/TinyLlama-1.1B-intermediate-step-1431k-3T
 ```
 
 -----
@@ -38,11 +35,11 @@ As this version of the model is stored in `safetensor` format, to download it an
 python scripts/download.py --repo_id TinyLlama/TinyLlama-1.1B-Chat-v1.0 --from_safetensors=True
 ```
 
-The model is shipped in `bfloat16` format, so if your hardware doesn't support it, you can provide `dtype` argument during model conversion. For example we can convert the weights into `float32` format:
+The model is shipped in `bfloat16` format, so if your hardware doesn't support it, you can provide `--dtype` argument during model conversion. For example we can convert the weights into `float32` format:
 
 ```bash
-python scripts/convert_hf_checkpoint.py \
-    --checkpoint_dir checkpoints/TinyLlama/TinyLlama-1.1B-Chat-v1.0 --dtype=float32
+python scripts/download.py \
+    --repo_id checkpoints/TinyLlama/TinyLlama-1.1B-Chat-v1.0 --dtype=float32
 ```
 
 -----

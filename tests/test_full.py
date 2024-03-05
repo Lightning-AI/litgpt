@@ -25,31 +25,49 @@ def test_full_script(tmp_path, fake_checkpoint_dir, monkeypatch, alpaca_path):
     tokenizer_mock.encode = lambda *_, **__: torch.tensor([3, 2, 1])
     monkeypatch.setattr(module, "Tokenizer", tokenizer_mock)
 
+    out_dir = tmp_path / "out"
+    setup_kwargs = dict(
+        data=Alpaca(
+            download_dir=alpaca_path.parent,
+            file_name=alpaca_path.name,
+            test_split_fraction=0.5,
+            num_workers=0
+        ),
+        checkpoint_dir=fake_checkpoint_dir,
+        out_dir=out_dir,
+        precision="32-true",
+        train=TrainArgs(global_batch_size=1, save_interval=2, epochs=1, max_steps=6, micro_batch_size=1),
+        eval=EvalArgs(interval=2, max_iters=2, max_new_tokens=1),
+    )
     stdout = StringIO()
     with redirect_stdout(stdout):
-        module.setup(
-            data=Alpaca(
-                download_dir=alpaca_path.parent,
-                file_name=alpaca_path.name,
-                test_split_fraction=0.5,
-                num_workers=0
-            ),
-            checkpoint_dir=fake_checkpoint_dir,
-            out_dir=tmp_path,
-            precision="32-true",
-            train=TrainArgs(global_batch_size=1, save_interval=2, epochs=1, max_steps=6, micro_batch_size=1),
-            eval=EvalArgs(interval=2, max_iters=2, max_new_tokens=1),
-        )
+        module.setup(**setup_kwargs)
 
-    assert {p.name for p in tmp_path.glob("*.pth")} == {
-        "step-000002.pth",
-        "step-000004.pth",
-        "step-000006.pth",
-        "lit_model_finetuned.pth",
-    }
-    assert (tmp_path / "version_0" / "metrics.csv").is_file()
+    out_dir_contents = set(os.listdir(out_dir))
+    checkpoint_dirs = {"step-000002", "step-000004", "step-000006", "final"}
+    assert checkpoint_dirs.issubset(out_dir_contents)
+    assert all((out_dir / p).is_dir() for p in checkpoint_dirs)
+    for checkpoint_dir in checkpoint_dirs:
+        assert {p.name for p in (out_dir / checkpoint_dir).iterdir()} == {
+            "lit_model.pth",
+            "lit_config.json",
+            "tokenizer_config.json",
+            "tokenizer.json",
+        }
+    assert (out_dir / "version_0" / "metrics.csv").is_file()
 
     logs = stdout.getvalue()
     assert logs.count("optimizer.step") == 6
     assert logs.count("val loss") == 3
     assert "of trainable parameters: 1,888" in logs
+
+    # Resume training and do 2 steps more
+    setup_kwargs["train"].max_steps = 8
+    setup_kwargs["resume"] = True
+    stdout = StringIO()
+    with redirect_stdout(stdout):
+        module.setup(**setup_kwargs)
+    logs = stdout.getvalue()
+    assert f"Resuming training from {out_dir / 'step-000006' / 'lit_model.pth'}" in logs
+    assert logs.count("optimizer.step") == 2
+    assert out_dir / "step-000008" in set(out_dir.iterdir())

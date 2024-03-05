@@ -10,7 +10,7 @@ from torch.utils.data import DataLoader
 @pytest.mark.skipif(sys.platform == "win32", reason="Not in the mood to add Windows support right now.")
 @mock.patch("lightning.data.optimize")
 @mock.patch("datasets.load_dataset")
-def test_openwebtext(_, optimize_mock, tmp_path, monkeypatch, mock_tockenizer):
+def test_openwebtext(_, optimize_mock, tmp_path, monkeypatch, mock_tokenizer):
     from lit_gpt.data import OpenWebText
     from lightning.data.streaming import StreamingDataLoader, StreamingDataset
 
@@ -18,7 +18,7 @@ def test_openwebtext(_, optimize_mock, tmp_path, monkeypatch, mock_tockenizer):
     assert data.seq_length == 2048
     assert data.batch_size == 1
 
-    data.connect(tokenizer=mock_tockenizer, batch_size=2, max_seq_length=1024)
+    data.connect(tokenizer=mock_tokenizer, batch_size=2, max_seq_length=1024)
     assert data.seq_length == 1025
     assert data.batch_size == 2
 

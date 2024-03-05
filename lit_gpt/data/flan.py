@@ -46,6 +46,9 @@ class FLAN(LitDataModule):
     test_dataset: Optional[SFTDataset] = field(default=None, init=False, repr=False)
 
     def __post_init__(self):
+        if isinstance(self.prompt_style, str):
+            self.prompt_style = PromptStyle.from_name(self.prompt_style)
+
         supported_subsets = _supported_subsets()
         if self.subsets is not None:
             self.subsets = self.subsets.split(",")

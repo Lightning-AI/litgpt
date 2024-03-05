@@ -50,6 +50,8 @@ class LIMA(LitDataModule):
                 " variable or pass --access_token=your_token. You can find your token by visiting"
                 " https://huggingface.co/settings/tokens"
             )
+        if isinstance(self.prompt_style, str):
+            self.prompt_style = PromptStyle.from_name(self.prompt_style)
 
     def connect(
         self,

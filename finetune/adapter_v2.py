@@ -31,7 +31,8 @@ from lit_gpt.utils import (
     load_checkpoint,
     num_parameters,
     CycleIterator,
-    parse_devices
+    parse_devices,
+    copy_config_files,
 )
 
 
@@ -107,7 +108,6 @@ def main(fabric: L.Fabric, devices: int, seed: int, config: Config, data: LitDat
         os.makedirs(out_dir, exist_ok=True)
 
     checkpoint_path = checkpoint_dir / "lit_model.pth"
-    fabric.print(f"Loading model {str(checkpoint_path)!r} with {config.__dict__}")
     with fabric.init_module(empty_init=(devices > 1)):
         model = GPT(config)
     mark_only_adapter_v2_as_trainable(model)
@@ -140,8 +140,11 @@ def main(fabric: L.Fabric, devices: int, seed: int, config: Config, data: LitDat
         fabric.print(f"Memory used: {torch.cuda.max_memory_allocated() / 1e9:.02f} GB")
 
     # Save the final checkpoint at the end of training
-    save_path = out_dir / "lit_model_adapter_finetuned.pth"
+    save_path = out_dir / "final" / "lit_model.pth"
+    save_path.parent.mkdir(parents=True, exist_ok=True)
     save_adapter_v2_checkpoint(fabric, model, save_path)
+    # Copy checkpoint files from original checkpoint dir
+    copy_config_files(checkpoint_dir, save_path.parent)
 
 
 def fit(
@@ -217,8 +220,10 @@ def fit(
             fabric.print(f"iter {iter_num}: val loss {val_loss.item():.4f}, val time: {t1 * 1000:.2f} ms")
             fabric.barrier()
         if not is_accumulating and step_count % train.save_interval == 0:
-            checkpoint_path = out_dir / f"iter-{iter_num:06d}-ckpt.pth"
-            save_adapter_v2_checkpoint(fabric, model, checkpoint_path)
+            checkpoint_file = out_dir / f"iter-{iter_num:06d}" / "lit_model.pth"
+            checkpoint_file.parent.mkdir(parents=True, exist_ok=True)
+            save_adapter_v2_checkpoint(fabric, model, checkpoint_file)
+            copy_config_files(checkpoint_dir, checkpoint_file.parent)
 
 
 # the adapter "kv cache" cannot be initialized under `inference_mode`
@@ -240,7 +245,7 @@ def validate(
     # produce an example:
     instruction = "Recommend a movie for me to watch during the weekend and explain the reason."
     fabric.print(instruction)
-    prompt = data.train_dataset.prompt_style.apply(instruction)
+    prompt = data.prompt_style.apply(instruction)
     encoded = tokenizer.encode(prompt, device=fabric.device)
     with fabric.init_tensor():
         # do not set `max_seq_length=max_returned_token` because memory is not a concern here
@@ -289,7 +294,7 @@ def save_adapter_v2_checkpoint(fabric: L.Fabric, model: torch.nn.Module, file_pa
 
 def validate_args(train: TrainArgs, eval: EvalArgs) -> None:
     issues = []
-    unsupported = [(train, ["max_tokens", "max_norm"])]
+    unsupported = [(train, ["max_tokens", "max_norm", "tie_embeddings"])]
     for args, names in unsupported:
         for name in names:
             if getattr(args, name) is not None:

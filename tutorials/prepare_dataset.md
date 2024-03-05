@@ -2,16 +2,19 @@
 
 Below is a table of all datasets that are currently supported in Lit-GPT:
 
-| Name         | Task        | Size                 | Reference Repo                                                  | Paper / Blog                                                                                                              | Data License                                                                                                                                                                                                     |
-|--------------|-------------|----------------------|-----------------------------------------------------------------|---------------------------------------------------------------------------------------------------------------------------|------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------|
-| Alpaca       | Finetuning  | 51,759 samples       | [URL](https://github.com/tatsu-lab/stanford_alpaca)             | [URL](https://crfm.stanford.edu/2023/03/13/alpaca.html)                                                                   | Attribution-NonCommercial 4.0 International, [URL](https://crfm.stanford.edu/2023/03/13/alpaca.html)                                                                                                             |
-| Alpaca Libre | Finetuning  | 55,370 samples       | [URL](https://github.com/mobarski/alpaca-libre)                 | -                                                                                                                         | CC0/MIT,  [URL](https://github.com/mobarski/alpaca-libre)                                                                                                                                                        |
-| Dolly        | Finetuning  | 15,011 samples       | [URL](https://github.com/databrickslabs/dolly/tree/master/data) | [URL](https://www.databricks.com/blog/2023/04/12/dolly-first-open-commercially-viable-instruction-tuned-llm)              | CC-BY-SA, [URL](https://github.com/databrickslabs/dolly#model-overview)                                                                                                                                          |
-| FLAN         | Finetuning  | 1,753,240 samples    | [UR](https://huggingface.co/datasets/Muennighoff/flan)          | [URL](https://blog.research.google/2023/02/the-flan-collection-advancing-open.html)                                       | Subset dependent                                                                                                                                                                                                 |
-| LongForm     | Finetuning  | 23,652 samples       | [URL](https://github.com/akoksal/LongForm)                      | [URL](https://arxiv.org/abs/2304.08460)                                                                                   | No information provided and subset-dependent, [URL](https://github.com/akoksal/LongForm)                                                                                                                         |
-| LIMA         | Finetuning  | 1,084 samples        | [URL](https://huggingface.co/datasets/GAIR/lima)                | [URL](https://arxiv.org/abs/2305.11206)                                                                                   | "If the source data of LIMA has a stricter license than CC BY-NC-SA, the LIMA dataset follows the same. Otherwise, it follows the CC BY-NC-SA license", [URL](https://huggingface.co/datasets/GAIR/lima#license) |
-| OpenWeb Text | Pretraining | 8,013,769 documents  | [URL](https://github.com/jcpeterson/openwebtext)                | [URL](https://d4mucfpksywv.cloudfront.net/better-language-models/language_models_are_unsupervised_multitask_learners.pdf) | Unspecified                                                                                                                                                                                                      |
-| TinyLlama    | Pretraining | 1 T tokens           | [URL](https://github.com/jzhang38/TinyLlama)                    | [URL](https://arxiv.org/abs/2401.02385)                                                                                   |                                                                                                                                                                                                                  |
+| Name         | Task        | Size                 | Reference Repo                                                    | Paper / Blog                                                                                                              | Data License                                                                                                                                                                                                     |
+|--------------|-------------|----------------------|-------------------------------------------------------------------|---------------------------------------------------------------------------------------------------------------------------|------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------|
+| Alpaca       | Finetuning  | 51,759 samples       | [URL](https://github.com/tatsu-lab/stanford_alpaca)               | [URL](https://crfm.stanford.edu/2023/03/13/alpaca.html)                                                                   | Attribution-NonCommercial 4.0 International, [URL](https://crfm.stanford.edu/2023/03/13/alpaca.html)                                                                                                             |
+| Alpaca-GPT4  | Finetuning  | 52,002 samples       | [URL](https://github.com/Instruction-Tuning-with-GPT-4/GPT-4-LLM) | [URL](https://arxiv.org/abs/2304.03277)                                                                                   | Attribution-NonCommercial 4.0 International, [URL](https://github.com/Instruction-Tuning-with-GPT-4/GPT-4-LLM/blob/main/DATA_LICENSEl)                                                                           |
+| Alpaca Libre | Finetuning  | 55,370 samples       | [URL](https://github.com/mobarski/alpaca-libre)                   | -                                                                                                                         | CC0/MIT,  [URL](https://github.com/mobarski/alpaca-libre)                                                                                                                                                        |
+| Deita        | Finetuning  | 9,500 samples         | [URL](https://huggingface.co/datasets/HuggingFaceH4/deita-10k-v0-sft/tree/main/data)        | [URL](https://arxiv.org/abs/2312.15685)                                                                                   | MIT [URL](https://huggingface.co/datasets/hkust-nlp/deita-10k-v0/blob/main/README.md)
+| Dolly        | Finetuning  | 15,011 samples       | [URL](https://github.com/databrickslabs/dolly/tree/master/data)   | [URL](https://www.databricks.com/blog/2023/04/12/dolly-first-open-commercially-viable-instruction-tuned-llm)              | CC-BY-SA, [URL](https://github.com/databrickslabs/dolly#model-overview)                                                                                                                                          |
+| FLAN         | Finetuning  | 1,753,240 samples    | [UR](https://huggingface.co/datasets/Muennighoff/flan)            | [URL](https://blog.research.google/2023/02/the-flan-collection-advancing-open.html)                                       | Subset dependent                                                                                                                                                                                                 |
+| LongForm     | Finetuning  | 23,652 samples       | [URL](https://github.com/akoksal/LongForm)                        | [URL](https://arxiv.org/abs/2304.08460)                                                                                   | No information provided and subset-dependent, [URL](https://github.com/akoksal/LongForm)                                                                                                                         |
+| LIMA         | Finetuning  | 1,084 samples        | [URL](https://huggingface.co/datasets/GAIR/lima)                  | [URL](https://arxiv.org/abs/2305.11206)                                                                                   | "If the source data of LIMA has a stricter license than CC BY-NC-SA, the LIMA dataset follows the same. Otherwise, it follows the CC BY-NC-SA license", [URL](https://huggingface.co/datasets/GAIR/lima#license) |
+| OpenWeb Text | Pretraining | 8,013,769 documents  | [URL](https://github.com/jcpeterson/openwebtext)                  | [URL](https://d4mucfpksywv.cloudfront.net/better-language-models/language_models_are_unsupervised_multitask_learners.pdf) | Unspecified                                                                                                                                                                                                      |
+| TinyLlama    | Pretraining | 1 T tokens           | [URL](https://github.com/jzhang38/TinyLlama)                      | [URL](https://arxiv.org/abs/2401.02385)                                                                                   |                                                                                                                                                                                                                  |
+| TinyStories  | Pretraining | 4,967,871 stories    | [URL](https://huggingface.co/datasets/roneneldan/TinyStories)     | [URL](https://arxiv.org/abs/2305.07759)                                                                                   | CDLA-Sharing-1.0                                                                                                                                                                                                 |
 
 &nbsp;
 
@@ -67,6 +70,26 @@ For comparison, the Falcon 7B model requires 23.52 GB of memory for the original
 
 &nbsp;
 
+### Alpaca-GPT4
+
+
+The Alpaca-GPT4 was built by using the prompts of the original Alpaca dataset and generate the responses via GPT 4. The 
+dataset consists of 52,000 instructions and responses.
+
+The original [Alpaca-GPT4](https://github.com/Instruction-Tuning-with-GPT-4/GPT-4-LLM) dataset can be used as follows:
+
+```bash
+python finetune/lora.py \
+  --data AlpacaGPT4 \
+  --checkpoint_dir "checkpoints/tiiuae/falcon-7b"
+```
+
+The Alpaca-GPT4 dataset distribution is shown below.
+
+<img src="images/prepare_dataset/alpacagpt4.jpg" width=400px>
+
+&nbsp;
+
 ### Alpaca Libre
 
 [Alpaca Libre](https://github.com/mobarski/alpaca-libre) is a reimplementation or alternative to Alpaca using the same formatting.
@@ -95,6 +118,43 @@ python finetune/lora.py \
   --checkpoint_dir "checkpoints/tiiuae/falcon-7b" \
   --train.max_seq_length 256
 ```
+
+
+&nbsp;
+
+### Deita
+
+The Deita dataset (short for Data-Efficient Instruction Tuning for Alignment) is a collection of 9500 prompts and responses, as described in the [What Makes Good Data for Alignment? A Comprehensive Study of Automatic Data Selection in Instruction Tuning](https://arxiv.org/abs/2312.15685) paper. 
+Using Falcon 7b as an example, we can use the dataset as follows:
+
+```bash
+python finetune/lora.py \
+  --data Deita \
+  --checkpoint_dir "checkpoints/tiiuae/falcon-7b"
+```
+
+Deita contains multiturn conversations. By default, only the first instruction-response pairs from
+each of these multiturn conversations are included. If you want to override this behavior and include the follow-up instructions
+and responses, set `--data.include_multiturn_conversations True`, which will include all multiturn conversations as regular
+prompt-response pairs. Considering the multiturn-answers, the dataset consists of 209,272 prompt-response pairs.
+
+The Deita dataset distribution without including multit-turn conversations is shown below.
+
+<img src="images/prepare_dataset/deita.jpg" width=400px>
+
+The Deita dataset distribution including multit-turn conversations is depicted in the following histogram.
+
+<img src="images/prepare_dataset/deita-multiturn.jpg" width=400px>
+
+You may want to consider truncating the dataset (see the *Truncating datasets* discussion in the Alpaca section for more information.) For this dataset, a cut-off of 512 may be a good choice:
+
+```bash
+python finetune/lora.py \
+  --data Deita \
+  --checkpoint_dir "checkpoints/tiiuae/falcon-7b" \
+  --train.max_seq_length 512
+```
+
 
 &nbsp;
 

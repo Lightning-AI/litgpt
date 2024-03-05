@@ -45,6 +45,10 @@ class Alpaca(LitDataModule):
     train_dataset: Optional[SFTDataset] = field(default=None, init=False, repr=False)
     test_dataset: Optional[SFTDataset] = field(default=None, init=False, repr=False)
 
+    def __post_init__(self) -> None:
+        if isinstance(self.prompt_style, str):
+            self.prompt_style = PromptStyle.from_name(self.prompt_style)
+
     def connect(
         self,
         tokenizer: Optional[Tokenizer] = None,
@@ -108,7 +112,7 @@ class Alpaca(LitDataModule):
         )
 
 
-def download_if_missing(file_path: Path, file_url: str) -> None:
+def download_if_missing(file_path: Path, file_url: str, mode: str = "w", stream: bool = False) -> None:
     """Downloads the raw json data file and saves it in the given destination."""
     if file_path.exists() and file_path.stat().st_size > 0:
         return
@@ -117,5 +121,22 @@ def download_if_missing(file_path: Path, file_url: str) -> None:
         raise ModuleNotFoundError(str(requests_available))
     import requests
 
-    with open(file_path, "w", encoding="utf-8") as f:
-        f.write(requests.get(file_url).text)
+    response = requests.get(file_url, stream=stream)
+    with open(file_path, mode, encoding=None if mode == "wb" else "utf-8") as f:
+        if stream:
+            # credit: https://github.com/karpathy/llama2.c/blob/b3c4b6/tinystories.py#L25-L38
+            from tqdm import tqdm
+
+            pbar = tqdm(
+                desc=str(file_path),
+                total=int(response.headers.get("content-length", 0)),
+                unit="iB",
+                unit_scale=True,
+                unit_divisor=1024,
+            )
+            for data in response.iter_content(chunk_size=1024):
+                size = f.write(data)
+                pbar.update(size)
+            pbar.close()
+        else:
+            f.write(response.text)

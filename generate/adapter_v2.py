@@ -17,6 +17,7 @@ sys.path.append(str(wd))
 from generate.base import generate
 from lit_gpt import Tokenizer
 from lit_gpt.adapter_v2 import GPT, Config
+from lit_gpt.prompts import Alpaca
 from lit_gpt.utils import CLI, check_valid_checkpoint_dir, get_default_supported_precision, lazy_load
 
 

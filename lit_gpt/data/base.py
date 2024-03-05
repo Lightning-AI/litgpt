@@ -45,6 +45,8 @@ class SFTDataset(Dataset):
         max_seq_length: Truncate sequences that are longer than this value. By default, no truncation is applied.
         mask_prompt: Whether to mask the prompt section from the label (with ``ignore_index``).
         ignore_index: The index to use for elements to be ignored in the label.
+        transform: An optional transform to apply to the sample before it gets tokenized. Use this to rename the
+            keys in the dataset to the expected 'instruction' and 'output' keys.
 
     Returns a dict with two keys:
         input_ids: The encoded prompt + response

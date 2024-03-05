@@ -3,7 +3,7 @@ import json
 import pytest
 
 
-def test_json(tmp_path, mock_tockenizer):
+def test_json(tmp_path, mock_tokenizer):
     from lit_gpt.data import JSON
     from lit_gpt.prompts import PromptStyle
 
@@ -29,7 +29,7 @@ def test_json(tmp_path, mock_tockenizer):
 
     # TODO: Make prompt template an argumenet
     data = JSON(json_path, test_split_fraction=0.5, prompt_style=Style(), num_workers=0)
-    data.connect(tokenizer=mock_tockenizer, batch_size=2)
+    data.connect(tokenizer=mock_tokenizer, batch_size=2)
     data.prepare_data()  # does nothing
     data.setup()
 
@@ -47,13 +47,13 @@ def test_json(tmp_path, mock_tockenizer):
     assert val_data[0]["input_ids"].size(0) == 2
     assert val_data[1]["input_ids"].size(0) == 1
 
-    assert mock_tockenizer.decode(train_data[0]["input_ids"][0]).startswith("X: Divide 10/2 Y:5")
-    assert mock_tockenizer.decode(train_data[0]["input_ids"][1]).startswith("X: Add 2+2 Y:4")
-    assert mock_tockenizer.decode(train_data[1]["input_ids"][0]).startswith("X: Multiply 6*4 Y:24")
+    assert mock_tokenizer.decode(train_data[0]["input_ids"][0]).startswith("X: Divide 10/2 Y:5")
+    assert mock_tokenizer.decode(train_data[0]["input_ids"][1]).startswith("X: Add 2+2 Y:4")
+    assert mock_tokenizer.decode(train_data[1]["input_ids"][0]).startswith("X: Multiply 6*4 Y:24")
 
-    assert mock_tockenizer.decode(val_data[0]["input_ids"][0]).startswith("X: Exponentiate 2^3 Y:8")
-    assert mock_tockenizer.decode(val_data[0]["input_ids"][1]).startswith("X: Subtract 5-3 Y:2")
-    assert mock_tockenizer.decode(val_data[1]["input_ids"][0]).startswith("X: Square root √9 Y:3")
+    assert mock_tokenizer.decode(val_data[0]["input_ids"][0]).startswith("X: Exponentiate 2^3 Y:8")
+    assert mock_tokenizer.decode(val_data[0]["input_ids"][1]).startswith("X: Subtract 5-3 Y:2")
+    assert mock_tokenizer.decode(val_data[1]["input_ids"][0]).startswith("X: Square root √9 Y:3")
 
     assert isinstance(train_dataloader.dataset.prompt_style, Style)
     assert isinstance(val_dataloader.dataset.prompt_style, Style)

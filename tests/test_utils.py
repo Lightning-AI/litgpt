@@ -209,3 +209,16 @@ def test_parse_devices():
         assert parse_devices(-1) == 3
 
     assert parse_devices(5) == 5
+
+
+def test_copy_config_files(fake_checkpoint_dir, tmp_path):
+    from lit_gpt.utils import copy_config_files
+
+    copy_config_files(fake_checkpoint_dir, tmp_path)
+    expected = {
+        "lit_config.json",
+        "tokenizer_config.json",
+        "tokenizer.json",
+    }
+    contents = set(os.listdir(tmp_path))
+    assert expected.issubset(contents)

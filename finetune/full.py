@@ -33,6 +33,7 @@ from lit_gpt.utils import (
     num_parameters,
     CycleIterator,
     parse_devices,
+    copy_config_files,
 )
 
 
@@ -105,7 +106,6 @@ def main(
         os.makedirs(out_dir, exist_ok=True)
 
     checkpoint_path = checkpoint_dir / "lit_model.pth"
-    fabric.print(f"Loading model {str(checkpoint_path)!r} with {config.__dict__}")
     with fabric.init_module(empty_init=(devices > 1)):
         model = GPT(config)
 
@@ -122,7 +122,7 @@ def main(
     state = {"model": model, "optimizer": optimizer, "scheduler": scheduler, "iter_num": 0, "step_count": 0}
 
     if resume is True:
-        resume = max(out_dir.glob("*.pth"), key=(lambda p: int(p.name.split("-")[1])))
+        resume = max(out_dir.rglob("step-*/*.pth"), key=(lambda p: int(p.parent.name.split("-")[1])))
     if resume:
         fabric.print(f"Resuming training from {resume}")
         fabric.load(resume, state)
@@ -136,7 +136,11 @@ def main(
         fabric.print(f"Memory used: {torch.cuda.max_memory_allocated() / 1e9:.02f} GB")
 
     # Save the final checkpoint at the end of training
-    fabric.save(out_dir / "lit_model_finetuned.pth", {"model": state["model"]})
+    save_path = out_dir / "final" / "lit_model.pth"
+    save_path.parent.mkdir(parents=True, exist_ok=True)
+    fabric.save(save_path, {"model": state["model"]})
+    # Copy checkpoint files from original checkpoint dir
+    copy_config_files(checkpoint_dir, save_path.parent)
 
 
 def fit(
@@ -236,9 +240,11 @@ def fit(
             fabric.log_dict(metrics, step=state["iter_num"])
             fabric.barrier()
         if not is_accumulating and state["step_count"] % train.save_interval == 0:
-            checkpoint_path = out_dir / f"step-{state['step_count']:06d}.pth"
-            fabric.print(f"Saving checkpoint to {str(checkpoint_path)!r}")
-            fabric.save(checkpoint_path, state)
+            checkpoint_file = out_dir / f"step-{state['step_count']:06d}" / "lit_model.pth"
+            checkpoint_file.parent.mkdir(parents=True, exist_ok=True)
+            fabric.print(f"Saving checkpoint to {str(checkpoint_file.parent)!r}")
+            fabric.save(checkpoint_file, state)
+            copy_config_files(checkpoint_dir, checkpoint_file.parent)
 
 
 # FSDP has issues with `inference_mode`
@@ -260,7 +266,7 @@ def validate(
     # produce an example:
     instruction = "Recommend a movie for me to watch during the weekend and explain the reason."
     fabric.print(instruction)
-    prompt = data.train_dataset.prompt_style.apply(instruction)
+    prompt = data.prompt_style.apply(instruction)
     encoded = tokenizer.encode(prompt, device=fabric.device)
     with fabric.init_tensor():
         # do not set `max_seq_length=max_returned_token` because memory is not a concern here
@@ -304,7 +310,7 @@ def get_longest_seq_length(data: List[Dict]) -> Tuple[int, int]:
 
 def validate_args(train: TrainArgs, eval: EvalArgs) -> None:
     issues = []
-    unsupported = [(train, ["max_tokens", "max_norm"])]
+    unsupported = [(train, ["max_tokens", "max_norm", "tie_embeddings"])]
     for args, names in unsupported:
         for name in names:
             if getattr(args, name) is not None:
