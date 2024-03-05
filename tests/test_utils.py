@@ -3,13 +3,17 @@
 import os
 from contextlib import redirect_stderr
 from io import StringIO
+from pathlib import Path
 from unittest import mock
 
 import pytest
 import torch
 import torch.nn.functional as F
+import yaml
+
 from conftest import RunIf
 from lightning import Fabric
+from lit_gpt.utils import save_hyperparameters, CLI
 
 
 def test_find_multiple():
@@ -222,3 +226,19 @@ def test_copy_config_files(fake_checkpoint_dir, tmp_path):
     }
     contents = set(os.listdir(tmp_path))
     assert expected.issubset(contents)
+
+
+def _test_function(out_dir: Path, foo: bool = False, bar: int = 1):
+    save_hyperparameters(_test_function, out_dir)
+
+
+def test_save_hyperparameters(tmp_path):
+    with mock.patch("sys.argv", ["any.py", "--out_dir", str(tmp_path), "--foo", "True"]):
+        CLI(_test_function)
+
+    with open(tmp_path / "hyperparameters.yaml", "r") as file:
+        hparams = yaml.full_load(file)
+
+    assert hparams["out_dir"] == str(tmp_path)
+    assert hparams["foo"] is True
+    assert hparams["bar"] == 1
