@@ -4,6 +4,7 @@ from json import dumps
 from typing import Dict, List, Type, Tuple, Union
 
 import lit_gpt.config
+from lit_gpt.config import Config
 from lit_gpt import Tokenizer
 
 
@@ -19,6 +20,10 @@ class PromptStyle:
     @classmethod
     def from_name(cls, name: str) -> "PromptStyle":
         return prompt_styles[name]()
+
+    @classmethod
+    def from_config(cls, config: Config) -> "PromptStyle":
+        return prompt_styles[model_name_to_prompt_style[config.name]]()
 
 
 class Alpaca(PromptStyle):
@@ -276,6 +281,7 @@ prompt_styles: Dict[str, Type[PromptStyle]] = {
     "gemma": Gemma,
 }
 
+# TODO: Double check the names are all Config.name and not Config.hf_config.name
 # Maps HF model names to prompt style names
 model_name_to_prompt_style = {
     "stablelm-tuned-alpha-3b": "stablelm-alpha",
