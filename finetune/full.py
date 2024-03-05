@@ -33,6 +33,7 @@ from lit_gpt.utils import (
     num_parameters,
     CycleIterator,
     parse_devices,
+    copy_config_files,
 )
 
 
@@ -119,7 +120,7 @@ def main(
     state = {"model": model, "optimizer": optimizer, "scheduler": scheduler, "iter_num": 0, "step_count": 0}
 
     if resume is True:
-        resume = max(out_dir.glob("*.pth"), key=(lambda p: int(p.name.split("-")[1])))
+        resume = max(out_dir.rglob("step-*/*.pth"), key=(lambda p: int(p.parent.name.split("-")[1])))
     if resume:
         fabric.print(f"Resuming training from {resume}")
         fabric.load(resume, state)
@@ -133,7 +134,11 @@ def main(
         fabric.print(f"Memory used: {torch.cuda.max_memory_allocated() / 1e9:.02f} GB")
 
     # Save the final checkpoint at the end of training
-    fabric.save(out_dir / "lit_model_finetuned.pth", {"model": state["model"]})
+    save_path = out_dir / "final" / "lit_model.pth"
+    save_path.parent.mkdir(parents=True, exist_ok=True)
+    fabric.save(save_path, {"model": state["model"]})
+    # Copy checkpoint files from original checkpoint dir
+    copy_config_files(checkpoint_dir, save_path.parent)
 
 
 def fit(
@@ -232,9 +237,11 @@ def fit(
             fabric.log_dict(metrics, step=state["iter_num"])
             fabric.barrier()
         if not is_accumulating and state["step_count"] % train.save_interval == 0:
-            checkpoint_path = out_dir / f"step-{state['step_count']:06d}.pth"
-            fabric.print(f"Saving checkpoint to {str(checkpoint_path)!r}")
-            fabric.save(checkpoint_path, state)
+            checkpoint_file = out_dir / f"step-{state['step_count']:06d}" / "lit_model.pth"
+            checkpoint_file.parent.mkdir(parents=True, exist_ok=True)
+            fabric.print(f"Saving checkpoint to {str(checkpoint_file.parent)!r}")
+            fabric.save(checkpoint_file, state)
+            copy_config_files(checkpoint_dir, checkpoint_file.parent)
 
 
 # FSDP has issues with `inference_mode`
