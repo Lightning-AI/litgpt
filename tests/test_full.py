@@ -48,11 +48,12 @@ def test_full_script(tmp_path, fake_checkpoint_dir, monkeypatch, alpaca_path):
     assert checkpoint_dirs.issubset(out_dir_contents)
     assert all((out_dir / p).is_dir() for p in checkpoint_dirs)
     for checkpoint_dir in checkpoint_dirs:
-        assert {p.name for p in (out_dir / checkpoint_dir).iterdir()} == {
+        assert {os.listdir(out_dir / checkpoint_dir)} == {
             "lit_model.pth",
             "lit_config.json",
             "tokenizer_config.json",
             "tokenizer.json",
+            "hyperparameters.yaml",
         }
     assert (out_dir / "version_0" / "metrics.csv").is_file()
 
