@@ -18,9 +18,9 @@ def test_llama2_70b_conversion():
         "model.layers.0.mlp.up_proj.weight": (28672, 8192),
         "model.layers.0.post_attention_layernorm.weight": (8192,),
         "model.layers.0.self_attn.k_proj.weight": (1024, 8192),
-        "model.layers.0.self_attn.o_proj.weight": (8192, 8192),
         "model.layers.0.self_attn.q_proj.weight": (8192, 8192),
         "model.layers.0.self_attn.v_proj.weight": (1024, 8192),
+        "model.layers.0.self_attn.o_proj.weight": (8192, 8192),
         "model.layers.1.input_layernorm.weight": (8192,),
         "model.layers.1.mlp.down_proj.weight": (8192, 28672),
         "model.layers.1.mlp.gate_proj.weight": (28672, 8192),
@@ -56,9 +56,9 @@ def test_llama2_70b_conversion():
         weight_map = {k: torch.empty(s) for k, s in shapes.items()}
     copy_weights_hf_llama(config, qkv_weights, holder, weight_map)
 
-    # we are only testing 5 layers
-    assert len(qkv_weights) == 5
-    # there are no loaded qkv weights
+    # NOTE: there are 5 layers, but only in the first layer we have `q`, `k` and `v`
+    assert len(qkv_weights) == 1
+    # # there are no loaded qkv weights
     assert all(v is None for qkv in qkv_weights.values() for v in qkv)
     # the shapes are correct
     holder = {k: tuple(t.shape) for k, t in holder.items()}
