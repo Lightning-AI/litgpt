@@ -66,6 +66,7 @@ def test_adapter_script(tmp_path, fake_checkpoint_dir, monkeypatch, alpaca_path)
     tokenizer_mock.encode = lambda *_, **__: torch.tensor([3, 2, 1])
     monkeypatch.setattr(module, "Tokenizer", tokenizer_mock)
 
+    out_dir = tmp_path / "out"
     stdout = StringIO()
     with redirect_stdout(stdout):
         module.setup(
@@ -76,19 +77,24 @@ def test_adapter_script(tmp_path, fake_checkpoint_dir, monkeypatch, alpaca_path)
                 num_workers=0
             ),
             checkpoint_dir=fake_checkpoint_dir,
-            out_dir=tmp_path,
+            out_dir=out_dir,
             precision="32-true",
             train=TrainArgs(global_batch_size=1, save_interval=2, epochs=1, max_steps=6, micro_batch_size=1),
             eval=EvalArgs(interval=2, max_iters=2, max_new_tokens=1),
         )
 
-    assert {p.name for p in tmp_path.glob("*.pth")} == {
-        "iter-000002-ckpt.pth",
-        "iter-000004-ckpt.pth",
-        "iter-000006-ckpt.pth",
-        "lit_model_adapter_finetuned.pth",
-    }
-    assert (tmp_path / "version_0" / "metrics.csv").is_file()
+    out_dir_contents = set(os.listdir(out_dir))
+    checkpoint_dirs = {"iter-000002", "iter-000004", "iter-000006", "final"}
+    assert checkpoint_dirs.issubset(out_dir_contents)
+    assert all((out_dir / p).is_dir() for p in checkpoint_dirs)
+    for checkpoint_dir in checkpoint_dirs:
+        assert {p.name for p in (out_dir / checkpoint_dir).iterdir()} == {
+            "lit_model.pth",
+            "lit_config.json",
+            "tokenizer_config.json",
+            "tokenizer.json",
+        }
+    assert (out_dir / "version_0" / "metrics.csv").is_file()
 
     logs = stdout.getvalue()
     assert logs.count("optimizer.step") == 6
@@ -223,8 +229,8 @@ def test_adapter_bitsandbytes(monkeypatch, tmp_path, fake_checkpoint_dir, alpaca
         },
     }
 
-    assert {p.name for p in tmp_path.glob("*.pth")} == {"lit_model_adapter_finetuned.pth"}
-    state_dict = torch.load(tmp_path / "lit_model_adapter_finetuned.pth")
+    assert {p.name for p in tmp_path.rglob("*.pth")} == {"lit_model.pth"}
+    state_dict = torch.load(tmp_path / "final" / "lit_model.pth")
     assert len(state_dict) == 1
     dtype_to_name = {"torch.float16": set()}
     for name, layer in state_dict["model"].items():
