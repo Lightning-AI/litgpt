@@ -34,7 +34,6 @@ from lit_gpt.utils import (
     CycleIterator,
     parse_devices,
     copy_config_files,
-    save_hyperparameters,
 )
 
 
@@ -140,7 +139,6 @@ def main(
     fabric.save(save_path, {"model": state["model"]})
     # Copy checkpoint files from original checkpoint dir
     copy_config_files(checkpoint_dir, save_path.parent)
-    save_hyperparameters(setup, checkpoint_dir)
 
 
 def fit(
@@ -245,7 +243,6 @@ def fit(
             fabric.print(f"Saving checkpoint to {str(checkpoint_file.parent)!r}")
             fabric.save(checkpoint_file, state)
             copy_config_files(checkpoint_dir, checkpoint_file.parent)
-            save_hyperparameters(setup, checkpoint_dir)
 
 
 # FSDP has issues with `inference_mode`
