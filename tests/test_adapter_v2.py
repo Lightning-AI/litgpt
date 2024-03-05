@@ -256,7 +256,7 @@ def test_adapter_v2_bitsandbytes(monkeypatch, tmp_path, fake_checkpoint_dir, alp
     monkeypatch.setattr(module, "fit", train_mock)
 
     stdout = StringIO()
-    with redirect_stdout(stdout):
+    with redirect_stdout(stdout), mock.patch("sys.argv", ["adapter_v2.py"]):
         module.setup(
             data=Alpaca(
                 download_dir=alpaca_path.parent,
