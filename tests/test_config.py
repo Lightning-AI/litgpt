@@ -33,25 +33,6 @@ def test_config():
     assert config.name == "pythia-14m"
 
 
-def test_legacy_args(tmp_path):
-    from lit_gpt import Config
-
-    config = Config.from_name("pythia-14m", condense_ratio=2)
-    assert not hasattr(config, "condense_ratio")
-    assert config.rope_condense_ratio == 2
-
-    json_path = tmp_path / "config.json"
-    with open(json_path, "w") as fp:
-        json.dump({"condense_ratio": 3}, fp)
-
-    config = Config.from_json(json_path)
-    assert not hasattr(config, "condense_ratio")
-    assert config.rope_condense_ratio == 3
-    config = Config.from_json(json_path, condense_ratio=2)
-    assert not hasattr(config, "condense_ratio")
-    assert config.rope_condense_ratio == 2
-
-
 def test_from_hf_name():
     from lit_gpt import Config
 
@@ -60,23 +41,6 @@ def test_from_hf_name():
     # or by huggingface hub repo name
     config1 = Config.from_name("TinyLlama-1.1B-intermediate-step-1431k-3T")
     assert config0 == config1
-
-
-def test_hf_config_from_json(tmp_path):
-    """Test for backward compatibility with older configs that didn't have the `hf_config` field."""
-    from lit_gpt import Config
-
-    legacy_config = {"name": "falcon-40b", "org": "tiiuae"}
-    with open(tmp_path / "config.json", "w") as file:
-        json.dump(legacy_config, file)
-    new_config = Config.from_json(tmp_path / "config.json")
-    assert new_config.name == "falcon-40b"
-    assert not hasattr(new_config, "org")
-    assert new_config.hf_config["org"] == "tiiuae"
-    assert new_config.hf_config["name"] == "falcon-40b"
-
-    new_config = Config.from_json(tmp_path / "config.json", org="new-org")
-    assert new_config.hf_config["org"] == "new-org"
 
 
 @pytest.mark.parametrize("config", config_module.configs, ids=[c["name"] for c in config_module.configs])

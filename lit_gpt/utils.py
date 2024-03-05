@@ -4,6 +4,7 @@
 
 import math
 import pickle
+import shutil
 import sys
 from io import BytesIO
 from pathlib import Path
@@ -15,8 +16,10 @@ import torch.nn as nn
 import torch.utils._device
 from lightning.fabric.strategies import FSDPStrategy
 from lightning.fabric.utilities.load import _lazy_load as lazy_load
+from lightning_utilities.core.imports import RequirementCache
 from torch.serialization import normalize_storage_type
 from typing_extensions import Self
+
 
 if TYPE_CHECKING:
     from lit_gpt import GPT
@@ -370,12 +373,25 @@ class CycleIterator:
         return self
 
 
+def copy_config_files(source_dir: Path, out_dir: Path) -> None:
+    """Copies the specified configuration and tokenizer files into the output directory."""
+
+    config_files = ["generation_config.json", "lit_config.json"]
+    tokenizer_files = ["tokenizer.json", "tokenizer.model",  "tokenizer_config.json"]
+
+    for file_name in config_files + tokenizer_files:
+        src_path = source_dir / file_name
+        if src_path.exists():
+            shutil.copy(src_path, out_dir)
+
+
 def CLI(*args: Any, **kwargs: Any) -> Any:
     from jsonargparse import CLI, set_docstring_parse_options
 
     set_docstring_parse_options(attribute_docstrings=True)
 
     kwargs.setdefault("as_positional", False)
+
     return CLI(*args, **kwargs)
 
 
