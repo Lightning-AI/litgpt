@@ -32,7 +32,7 @@ def test_config_help(script_file, config_file, monkeypatch, tmp_path):
     module.main = Mock()
     module.Tokenizer = Mock()
 
-    with mock.patch("sys.argv", [script_file.name, "--config", str(config_file)]):
+    with mock.patch("sys.argv", [script_file.name, "--config", str(config_file), "--devices", "1"]):
         CLI(module.setup)
 
     module.main.assert_called_once()
