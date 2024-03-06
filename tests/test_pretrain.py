@@ -14,7 +14,11 @@ from torch.utils.data import DataLoader
 @RunIf(min_cuda_gpus=2, standalone=True)
 # Set CUDA_VISIBLE_DEVICES for FSDP hybrid-shard, if fewer GPUs are used than are available
 @mock.patch.dict(os.environ, {"CUDA_VISIBLE_DEVICES": "0,1"})
-def test_pretrain(tmp_path, monkeypatch):
+# If we were to use `save_hyperparameters()`, we would have to patch `sys.argv` or otherwise
+# the CLI would capture pytest args, but unfortunately patching would mess with subprocess
+# launching, so we need to mock `save_hyperparameters()`
+@mock.patch("lit_gpt.pretrain.save_hyperparameters")
+def test_pretrain(_, tmp_path):
     from lit_gpt import pretrain
     from lit_gpt.args import EvalArgs, TrainArgs
     from lit_gpt.config import Config
@@ -27,7 +31,7 @@ def test_pretrain(tmp_path, monkeypatch):
 
     out_dir = tmp_path / "out"
     stdout = StringIO()
-    with redirect_stdout(stdout), mock.patch("sys.argv", ["pretrain.py"]):
+    with redirect_stdout(stdout):
         pretrain.setup(
             devices=2,
             model=model_config,
@@ -44,7 +48,7 @@ def test_pretrain(tmp_path, monkeypatch):
         assert all((out_dir / p).is_dir() for p in checkpoint_dirs)
         for checkpoint_dir in checkpoint_dirs:
             # the `tokenizer_dir` is None by default, so only 'lit_model.pth' shows here
-            assert set(os.listdir(out_dir / checkpoint_dir)) == {"lit_model.pth", "hyperparameters.yaml"}
+            assert set(os.listdir(out_dir / checkpoint_dir)) == {"lit_model.pth"}
 
         # logs only appear on rank 0
         logs = stdout.getvalue()
