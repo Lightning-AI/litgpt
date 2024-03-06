@@ -26,7 +26,7 @@ def test_lora_layer_replacement():
     from lit_gpt.lora import GPT, Config, LoRALinear
     from lit_gpt.lora import CausalSelfAttention as LoRACausalSelfAttention
 
-    config = Config(n_layer=2, n_head=4, n_embd=8, block_size=8, vocab_size=8, r=8, alpha=8, dropout=0.1)
+    config = Config(n_layer=2, n_head=4, n_embd=8, block_size=8, vocab_size=8, lora_r=8, lora_alpha=8, lora_dropout=0.1)
     model = GPT(config)
 
     assert isinstance(model.transformer.h[0].attn, LoRACausalSelfAttention)
@@ -44,12 +44,12 @@ def test_lora_merge():
         n_embd=8,
         block_size=8,
         vocab_size=8,
-        r=8,
-        alpha=8,
-        dropout=0.1,
-        to_query=True,
-        to_value=True,
-        to_projection=True,
+        lora_r=8,
+        lora_alpha=8,
+        lora_dropout=0.1,
+        lora_query=True,
+        lora_value=True,
+        lora_projection=True,
     )
     model = GPT(config)
     model.train()
@@ -91,11 +91,11 @@ def test_lora_mqa_gqa():
         n_embd=8,
         block_size=1,
         vocab_size=1,
-        r=2,
-        alpha=8,
-        dropout=0.1,
-        to_query=True,
-        to_value=True,
+        lora_r=2,
+        lora_alpha=8,
+        lora_dropout=0.1,
+        lora_query=True,
+        lora_value=True,
     )
     assert config.n_query_groups == config.n_head
     model = GPT(config)
@@ -251,12 +251,12 @@ def test_lora_init_when_linear_overridden():
 @pytest.mark.parametrize(
     ("apply_to", "target_layer_names", "mlp_class_name"),
     (
-        ("to_projection", "transformer.h.0.attn.proj", "GptNeoxMLP"),
-        ("to_mlp", {"transformer.h.0.mlp.fc", "transformer.h.0.mlp.proj"}, "GptNeoxMLP"),
-        ("to_head", "lm_head", "GptNeoxMLP"),
-        ("to_projection", "transformer.h.0.attn.proj", "LLaMAMLP"),
-        ("to_mlp", {"transformer.h.0.mlp.fc_1", "transformer.h.0.mlp.fc_2", "transformer.h.0.mlp.proj"}, "LLaMAMLP"),
-        ("to_head", "lm_head", "LLaMAMLP"),
+        ("lora_projection", "transformer.h.0.attn.proj", "GptNeoxMLP"),
+        ("lora_mlp", {"transformer.h.0.mlp.fc", "transformer.h.0.mlp.proj"}, "GptNeoxMLP"),
+        ("lora_head", "lm_head", "GptNeoxMLP"),
+        ("lora_projection", "transformer.h.0.attn.proj", "LLaMAMLP"),
+        ("lora_mlp", {"transformer.h.0.mlp.fc_1", "transformer.h.0.mlp.fc_2", "transformer.h.0.mlp.proj"}, "LLaMAMLP"),
+        ("lora_head", "lm_head", "LLaMAMLP"),
     ),
 )
 def test_lora_linear_utilization(apply_to, target_layer_names, mlp_class_name):
@@ -268,9 +268,9 @@ def test_lora_linear_utilization(apply_to, target_layer_names, mlp_class_name):
         n_embd=8,
         block_size=1,
         vocab_size=1,
-        r=2,
-        alpha=8,
-        dropout=0.1,
+        lora_r=2,
+        lora_alpha=8,
+        lora_dropout=0.1,
         mlp_class_name=mlp_class_name,
         intermediate_size=8 * 3,
         **{apply_to: True},
@@ -294,11 +294,11 @@ def test_lora_linear_utilization(apply_to, target_layer_names, mlp_class_name):
 
 
 @torch.inference_mode()
-@pytest.mark.parametrize("apply_to", (None, "to_query", "to_key", "to_value", "to_projection", "to_mlp", "to_head"))
+@pytest.mark.parametrize("apply_to", (None, "lora_query", "lora_key", "lora_value", "lora_projection", "lora_mlp", "lora_head"))
 def test_lora_gpt_apply_lora_forward_no_exception(apply_to):
     from lit_gpt.lora import GPT, Config
 
-    config = Config(n_layer=1, n_head=4, n_embd=8, block_size=1, vocab_size=1, r=2, alpha=8, dropout=0.1)
+    config = Config(n_layer=1, n_head=4, n_embd=8, block_size=1, vocab_size=1, lora_r=2, lora_alpha=8, lora_dropout=0.1)
     if apply_to:
         setattr(config, apply_to, True)
     input_ids = torch.tensor([[1]])
@@ -314,7 +314,7 @@ def test_lora_gpt_apply_lora_forward_no_exception(apply_to):
 def test_lora_gpt_query_groups_merge_and_forward_no_exception(n_query_groups, apply_to):
     from lit_gpt.lora import GPT, Config, merge_lora_weights
 
-    keys = ("to_query", "to_key", "to_value")
+    keys = ("lora_query", "lora_key", "lora_value")
     values = apply_to
     apply_to = dict(zip(keys, values))
 
@@ -324,9 +324,9 @@ def test_lora_gpt_query_groups_merge_and_forward_no_exception(n_query_groups, ap
         n_embd=12,
         block_size=1,
         vocab_size=1,
-        r=2,
-        alpha=8,
-        dropout=0.1,
+        lora_r=2,
+        lora_alpha=8,
+        lora_dropout=0.1,
         n_query_groups=n_query_groups,
         **apply_to,
     )
@@ -414,12 +414,12 @@ def test_lora_merge_with_bitsandbytes():
         n_embd=8,
         block_size=8,
         vocab_size=8,
-        r=8,
-        alpha=8,
-        dropout=0.1,
-        to_query=True,
-        to_value=True,
-        to_projection=True,
+        lora_r=8,
+        lora_alpha=8,
+        lora_dropout=0.1,
+        lora_query=True,
+        lora_value=True,
+        lora_projection=True,
     )
     fabric = Fabric(devices=1, plugins=BitsandbytesPrecision("nf4", dtype=torch.bfloat16, ignore_modules={"lm_head"}))
     model = GPT(config)
@@ -473,7 +473,7 @@ def test_lora_merge_with_bitsandbytes():
 def test_lora_gpt_init_weights():
     from lit_gpt.lora import GPT, Config
 
-    config = Config(n_layer=1, n_head=6, n_embd=12, block_size=1, vocab_size=1, r=2, alpha=8, to_head=True)
+    config = Config(n_layer=1, n_head=6, n_embd=12, block_size=1, vocab_size=1, lora_r=2, lora_alpha=8, lora_head=True)
     model = GPT(config)
     param = model.lm_head.lora_B.data
 

@@ -22,9 +22,9 @@ def test_main(fake_checkpoint_dir, monkeypatch, tensor_like):
         "n_head": 4,
         "n_embd": 8,
         "rotary_percentage": 1,
-        "to_query": False,
-        "to_value": False,
-        "to_projection": True,
+        "lora_query": False,
+        "lora_value": False,
+        "lora_projection": True,
     }
     config_path.write_text(json.dumps(config))
 
