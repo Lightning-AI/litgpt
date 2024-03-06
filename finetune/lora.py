@@ -30,6 +30,7 @@ from lit_gpt.utils import (
     num_parameters,
 )
 from scripts.prepare_alpaca import generate_prompt
+from lit_gpt.cloud.studio_service import replace_out_dir, write_progress_status, write_success_status
 
 
 def setup(
@@ -91,6 +92,8 @@ def setup(
         )
     else:
         strategy = "auto"
+
+    io.out_dir = replace_out_dir(io.out_dir)
 
     logger = CSVLogger(io.out_dir.parent, io.out_dir.name, flush_logs_every_n_steps=train.log_interval)
     fabric = L.Fabric(devices=devices, strategy=strategy, precision=precision, loggers=logger, plugins=plugins)
@@ -174,6 +177,9 @@ def main(fabric: L.Fabric, devices: int, seed: int, config: Config, io: IOArgs, 
     save_path = io.out_dir / "lit_model_lora_finetuned.pth"
     save_lora_checkpoint(fabric, model, save_path)
 
+    if fabric.is_global_zero:
+        write_success_status({"filepaths": [str(f) for f in io.out_dir.rglob("*") if f.is_file()]})
+
 
 def fit(
     fabric: L.Fabric,
@@ -235,6 +241,8 @@ def fit(
                 f"iter {iter_num} | step {step_count}: loss {loss_item:.4f}, iter time:"
                 f" {(t1 - iter_t0) * 1000:.2f} ms{' (optimizer.step)' if not is_accumulating else ''}"
             )
+            if fabric.is_global_zero:
+                write_progress_status({"iter": iter_num, "step": step_count, "loss": loss_item, "iter time": f" {(t1 - iter_t0) * 1000:.2f} ms"})
 
         if not is_accumulating and step_count % eval.interval == 0:
             t0 = time.perf_counter()
