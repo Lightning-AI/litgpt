@@ -1,4 +1,5 @@
 # Copyright Lightning AI. Licensed under the Apache License 2.0, see LICENSE file.
+import re
 from abc import abstractmethod
 from json import dumps
 from typing import TYPE_CHECKING, Dict, List, Type, Tuple, Union
@@ -25,10 +26,7 @@ class PromptStyle:
 
     @classmethod
     def from_config(cls, config: Config) -> "PromptStyle":
-        if config.name not in model_name_to_prompt_style:
-            # TODO: Warning here? Error?
-            return Default()
-        return prompt_styles[model_name_to_prompt_style[config.name]]()
+        return model_name_to_prompt_style(config.name)
 
 
 class Default(PromptStyle):
@@ -294,48 +292,40 @@ prompt_styles: Dict[str, Type[PromptStyle]] = {
     "gemma": Gemma,
 }
 
-# Maps HF model names to prompt style names
-model_name_to_prompt_style = {
-    "stablelm-tuned-alpha-3b": "stablelm-alpha",
-    "stablelm-tuned-alpha-7b": "stablelm-alpha",
-    "stablelm-zephyr-3b": "stablelm-zephyr",
-    "stablecode-instruct-alpha-3b": "stablecode",
-    "falcon-7b-instruct": "falcon",
-    "falcon-40b-instruct": "falcon",
-    "vicuna-7b-v1.3": "vicuna",
-    "vicuna-13b-v1.3": "vicuna",
-    "vicuna-33b-v1.3": "vicuna",
-    "vicuna-7b-v1.5": "vicuna",
-    "vicuna-7b-v1.5-16k": "vicuna",
-    "vicuna-13b-v1.5": "vicuna",
-    "vicuna-13b-v1.5-16k": "vicuna",
-    "longchat-7b-16k": "vicuna",
-    "longchat-13b-16k": "vicuna",
-    "Nous-Hermes-llama-2-7b": "nous-research",
-    "Nous-Hermes-13b": "nous-research",
-    "Nous-Hermes-Llama2-13b": "nous-research",
-    "Llama-2-7b-chat-hf": "llama2",
-    "Llama-2-13b-chat-hf": "llama2",
-    "Llama-2-70b-chat-hf": "llama2",
-    "Gemma-2b-it": "gemma",
-    "Gemma-7b-it": "gemma",
-    "FreeWilly2": "freewilly2",
-    "CodeLlama-7b-Instruct-hf": "codellama",
-    "CodeLlama-13b-Instruct-hf": "codellama",
-    "CodeLlama-34b-Instruct-hf": "codellama",
-    "CodeLlama-70b-Instruct-hf": "codellama",
-    "phi-1_5": "phi-1",
-    "phi-2": "phi-2",
-    "Mistral-7B-Instruct-v0.1": "codellama",
-    "Mistral-7B-Instruct-v0.2": "codellama",
-    "Mixtral-8x7B-Instruct-v0.1": "codellama",
-    "tiny-llama-1.1b-chat": "tinyllama",
-    "Llama-2-7b-chat-hf-function-calling-v2": "llama2-function-calling",
-}
 
-for template in ("RedPajama-INCITE-{}-3B-v1", "RedPajama-INCITE-7B-{}", "RedPajama-INCITE-{}-7B-v0.1"):
-    model_name_to_prompt_style[template.format("Chat")] = "togethercomputer-chat"
-    model_name_to_prompt_style[template.format("Instruct")] = "togethercomputer-instruct"
-
-for c in lit_gpt.config.platypus:
-    model_name_to_prompt_style[c["name"]] = "platypus"
+def model_name_to_prompt_style(model_name: str) -> PromptStyle:
+    if re.search(r"stabilityai.*tuned-alpha", model_name):
+        return StableLMAlpha()
+    if re.search(r"stabilityai/stablelm-zephyr-3b", model_name):
+        return StableLMZephyr()
+    if re.search("stablecode-instruct", model_name):
+        return StableCode()
+    if re.search(r"togethercomputer.*Chat", model_name):
+        return TogetherComputerChat()
+    if re.search(r"togethercomputer.*Instruct", model_name):
+        return TogetherComputerInstruct()
+    if re.search(r"falcon.*-instruct", model_name):
+        return Falcon()
+    if re.search(r"vicuna|longchat", model_name):
+        return Vicuna()
+    if re.search("Llama-2-7b-chat-hf-function-calling-v2", model_name):
+        return Llama2FunctionCalling()
+    if re.search("Llama-2.*-chat", model_name):
+        return Llama2()
+    if re.search("FreeWilly2", model_name):
+        return FreeWilly2()
+    if re.search("Platypus", model_name):
+        return Platypus()
+    if re.search("NousResearch", model_name):
+        return NousResearch()
+    if re.search("CodeLlama|Mistral.*Instruct", model_name):
+        return CodeLlama()
+    if re.search("phi-1", model_name):
+        return Phi1()
+    if re.search("phi-2", model_name):
+        return Phi2()
+    if re.search(r"TinyLlama.*Chat", model_name):
+        return TinyLlama()
+    if re.search(r"gemma.*-it", model_name):
+        return Gemma()
+    return Default()
