@@ -15,6 +15,7 @@ sys.path.append(str(wd))
 
 from generate.base import next_token
 from lit_gpt import GPT, Config, PromptStyle, Tokenizer
+from lit_gpt.prompts import load_prompt_style, has_prompt_style
 from lit_gpt.utils import CLI, check_valid_checkpoint_dir, get_default_supported_precision, load_checkpoint
 
 
@@ -157,7 +158,7 @@ def main(
     model = fabric.setup_module(model)
 
     tokenizer = Tokenizer(checkpoint_dir)
-    prompt_style = PromptStyle.from_config(config)
+    prompt_style = load_prompt_style(checkpoint_dir) if has_prompt_style(checkpoint_dir) else PromptStyle.from_config(config)
     stop_tokens = prompt_style.stop_tokens(tokenizer)
 
     L.seed_everything(1234)
