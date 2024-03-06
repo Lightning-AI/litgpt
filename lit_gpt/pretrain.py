@@ -269,9 +269,10 @@ def fit(
             checkpoint_file.parent.mkdir(parents=True, exist_ok=True)
             fabric.print(f"Saving checkpoint to {str(checkpoint_file)!r}")
             fabric.save(checkpoint_file, state)
-            save_hyperparameters(setup, checkpoint_file.parent)
-            if tokenizer_dir is not None:
-                copy_config_files(tokenizer_dir, checkpoint_file.parent)
+            if fabric.global_rank == 0:
+                save_hyperparameters(setup, checkpoint_file.parent)
+                if tokenizer_dir is not None:
+                    copy_config_files(tokenizer_dir, checkpoint_file.parent)
 
 
 @torch.no_grad()
