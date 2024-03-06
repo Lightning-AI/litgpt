@@ -294,15 +294,15 @@ prompt_styles: Dict[str, Type[PromptStyle]] = {
 
 
 def model_name_to_prompt_style(model_name: str) -> PromptStyle:
-    if re.search(r"stabilityai.*tuned-alpha", model_name):
+    if re.search(r"stablelm-tuned-alpha", model_name):
         return StableLMAlpha()
-    if re.search(r"stabilityai/stablelm-zephyr-3b", model_name):
+    if re.search(r"stablelm-zephyr-3b", model_name):
         return StableLMZephyr()
     if re.search("stablecode-instruct", model_name):
         return StableCode()
-    if re.search(r"togethercomputer.*Chat", model_name):
+    if re.search(r"RedPajama-INCITE-Chat", model_name):
         return TogetherComputerChat()
-    if re.search(r"togethercomputer.*Instruct", model_name):
+    if re.search(r"RedPajama-INCITE-Instruct", model_name):
         return TogetherComputerInstruct()
     if re.search(r"falcon.*-instruct", model_name):
         return Falcon()
@@ -316,7 +316,7 @@ def model_name_to_prompt_style(model_name: str) -> PromptStyle:
         return FreeWilly2()
     if re.search("Platypus", model_name):
         return Platypus()
-    if re.search("NousResearch", model_name):
+    if re.search("Nous-Hermes", model_name):
         return NousResearch()
     if re.search("CodeLlama|Mistral.*Instruct", model_name):
         return CodeLlama()
@@ -324,8 +324,8 @@ def model_name_to_prompt_style(model_name: str) -> PromptStyle:
         return Phi1()
     if re.search("phi-2", model_name):
         return Phi2()
-    if re.search(r"TinyLlama.*Chat", model_name):
+    if re.search(r"tiny-llama.*chat", model_name):
         return TinyLlama()
-    if re.search(r"gemma.*-it", model_name):
+    if re.search(r"Gemma.*-it", model_name):
         return Gemma()
     return Default()
