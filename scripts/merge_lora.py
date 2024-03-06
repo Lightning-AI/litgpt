@@ -20,7 +20,7 @@ from lit_gpt.utils import CLI, check_valid_checkpoint_dir, get_default_supported
 
 
 def merge_lora(
-    checkpoint_dir: Path = Path("out/finetune/lora/final"),
+    checkpoint_dir: Path,
     pretrained_checkpoint_dir: Optional[Path] = None,
     precision: Optional[str] = None,
 ) -> None:
