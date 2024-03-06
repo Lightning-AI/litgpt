@@ -2,9 +2,8 @@
 import re
 from abc import abstractmethod
 from json import dumps
-from typing import TYPE_CHECKING, Dict, List, Type, Tuple, Union
+from typing import TYPE_CHECKING, Dict, List, Type, Tuple
 
-import lit_gpt.config
 from lit_gpt.config import Config
 
 if TYPE_CHECKING:
