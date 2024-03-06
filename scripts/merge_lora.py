@@ -35,16 +35,17 @@ def merge_lora(
             corresponding to the LoRA checkpoint. By default, this will automatically be inferred from the metadata
             in the given `checkpoint_dir` directory. Only set this if the base model checkpoint directory
             has moved or was renamed.
-        precision: Indicates the Fabric precision setting to use.
+        precision: Optional precision setting to instantiate the model weights in. By default, this will
+            automatically be inferred from the metadata in the given `checkpoint_dir` directory.
     """
     check_valid_checkpoint_dir(checkpoint_dir)
     if pretrained_checkpoint_dir is not None:
         check_valid_checkpoint_dir(pretrained_checkpoint_dir)
 
-    precision = precision or get_default_supported_precision(training=False)
-    fabric = L.Fabric(devices=1, precision=precision)
+    lora_params, pretrained_checkpoint_dir, lora_precision = load_lora_metadata(checkpoint_dir)
+    precision = precision if precision is not None else lora_precision
 
-    lora_params, pretrained_checkpoint_dir = load_lora_metadata(checkpoint_dir)
+    fabric = L.Fabric(devices=1, precision=precision)
     config = Config.from_json(checkpoint_dir / "lit_config.json", **lora_params)
 
     with fabric.init_module(empty_init=True):
@@ -73,7 +74,7 @@ def merge_lora(
     fabric.print(f"A backup of the old LoRA weights is in {str(checkpoint_dir / 'lit_model.pth.lora')!r}")
 
 
-def load_lora_metadata(checkpoint_dir: Path) -> Tuple[Dict[str, Any], Path]:
+def load_lora_metadata(checkpoint_dir: Path) -> Tuple[Dict[str, Any], Path, str]:
     hparams_file = checkpoint_dir / "hyperparameters.yaml"
     if not hparams_file.is_file():
         raise FileNotFoundError()  # TODO
@@ -83,7 +84,8 @@ def load_lora_metadata(checkpoint_dir: Path) -> Tuple[Dict[str, Any], Path]:
 
     lora_params = {k: v for k, v in hparams.items() if k.startswith("lora_")}
     pretrained_checkpoint_dir = Path(hparams["checkpoint_dir"])
-    return lora_params, pretrained_checkpoint_dir
+    precision = hparams.get("precision")
+    return lora_params, pretrained_checkpoint_dir, precision
 
 
 if __name__ == "__main__":
