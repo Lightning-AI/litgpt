@@ -274,7 +274,7 @@ def validate(
 ) -> torch.Tensor:
     fabric.print("Validating ...")
     model.eval()
-    losses = torch.zeros(eval.max_iters)
+    losses = torch.zeros(min(len(val_dataloader), eval.max_iters))
     for k, batch in enumerate(val_dataloader):
         if k >= eval.max_iters:
             break
@@ -282,7 +282,6 @@ def validate(
         logits = model(input_ids)
         losses[k] = chunked_cross_entropy(logits[..., :-1, :], targets[..., 1:], chunk_size=0)
 
-    losses = losses[:k]
     val_loss = losses.mean()
 
     # produce an example:
