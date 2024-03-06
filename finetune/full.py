@@ -24,6 +24,7 @@ from lit_gpt.args import EvalArgs, TrainArgs
 from lit_gpt.model import GPT, Block, Config
 from lit_gpt.tokenizer import Tokenizer
 from lit_gpt.data import Alpaca, LitDataModule
+from lit_gpt.prompts import save_prompt_style
 from lit_gpt.utils import (
     CLI,
     check_valid_checkpoint_dir,
@@ -155,6 +156,7 @@ def main(
         # Copy checkpoint files from original checkpoint dir
         copy_config_files(checkpoint_dir, save_path.parent)
         save_hyperparameters(setup, save_path.parent)
+        save_prompt_style(data.prompt_style, save_path.parent)
 
 
 def fit(
@@ -262,6 +264,7 @@ def fit(
             if fabric.global_rank == 0:
                 copy_config_files(checkpoint_dir, checkpoint_file.parent)
                 save_hyperparameters(setup, checkpoint_file.parent)
+                save_prompt_style(data.prompt_style, checkpoint_file.parent)
 
 
 # FSDP has issues with `inference_mode`
