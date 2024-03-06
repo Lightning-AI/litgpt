@@ -13,7 +13,6 @@ import yaml
 
 from conftest import RunIf
 from lightning import Fabric
-from lit_gpt.utils import save_hyperparameters, CLI
 
 
 def test_find_multiple():
@@ -229,10 +228,14 @@ def test_copy_config_files(fake_checkpoint_dir, tmp_path):
 
 
 def _test_function(out_dir: Path, foo: bool = False, bar: int = 1):
+    from lit_gpt.utils import save_hyperparameters
+
     save_hyperparameters(_test_function, out_dir)
 
 
 def test_save_hyperparameters(tmp_path):
+    from lit_gpt.utils import CLI
+
     with mock.patch("sys.argv", ["any.py", "--out_dir", str(tmp_path), "--foo", "True"]):
         CLI(_test_function)
 
