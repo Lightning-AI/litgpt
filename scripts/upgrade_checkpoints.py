@@ -31,8 +31,11 @@ def upgrade(root_dir: Path = Path("."), write: bool = False) -> False:
             updated_config["rope_condense_ratio"] = updated_config.pop("condense_ratio")
 
         if write:
-            with open(filepath, "w") as file:
-                json.dump(updated_config, file)
+            try:
+                with open(filepath, "w") as file:
+                    json.dump(updated_config, file)
+            except PermissionError:
+                print(f"Skipping file, no write permission: {filepath}")
         elif updated_config != config:
             files_to_update.append(filepath)
 
