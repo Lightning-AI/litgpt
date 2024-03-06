@@ -496,7 +496,7 @@ def test_base_model_can_be_lora_loaded(name):
     base_model = BaseGPT.from_name(name, **kwargs)
     base_model_state_dict = base_model.state_dict()
     lora_model = LoRAGPT.from_name(
-        name, **kwargs, r=1, lora_query=True, lora_key=True, lora_value=True, lora_projection=True, lora_mlp=True, lora_head=True
+        name, **kwargs, lora_r=1, lora_query=True, lora_key=True, lora_value=True, lora_projection=True, lora_mlp=True, lora_head=True
     )
     keys = lora_model.load_state_dict(base_model_state_dict, strict=False)
     assert not keys.unexpected_keys
