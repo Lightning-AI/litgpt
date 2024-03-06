@@ -56,7 +56,7 @@ In order to use a specific StableLM checkpoint, for instance [StableLM Zephyr 3B
 pip install 'huggingface_hub[hf_transfer] @ git+https://github.com/huggingface/huggingface_hub'
 
 export repo_id=stabilityai/stablelm-zephyr-3b
-python scripts/download.py --repo_id $repo_id --from_safetensors=True
+python scripts/download.py --repo_id $repo_id
 python scripts/convert_hf_checkpoint.py --checkpoint_dir checkpoints/$repo_id
 ```
 

@@ -1,16 +1,7 @@
 precision: bf16-true
-quantize: null
-devices: 1
+devices: 4
+resume: false
 seed: 1337
-lora_r: 32
-lora_alpha: 16
-lora_dropout: 0.05
-lora_query: true
-lora_key: false
-lora_value: true
-lora_projection: false
-lora_mlp: false
-lora_head: false
 data:
   class_path: lit_gpt.data.AlpacaGPT4
   init_args:
@@ -23,20 +14,20 @@ data:
     file_url: https://raw.githubusercontent.com/Instruction-Tuning-with-GPT-4/GPT-4-LLM/main/data/alpaca_gpt4_data.json
     file_name: alpacagpt4_data_cleaned_archive.json
 checkpoint_dir: checkpoints/meta-llama/Llama-2-7b-hf
-out_dir: out/finetune/lora-llama2-7b
+out_dir: out/finetune/full-llama2-7b
 train:
   save_interval: 200
   log_interval: 1
-  global_batch_size: 8
-  micro_batch_size: 2
-  lr_warmup_steps: 10
+  global_batch_size: 64
+  micro_batch_size: 4
+  lr_warmup_steps: 25
   epochs: 1
   max_tokens: null
   max_steps: null
   max_seq_length: 512
   tie_embeddings: null
   learning_rate: 0.0002
-  weight_decay: 0.0
+  weight_decay: 0.1
   beta1: 0.9
   beta2: 0.95
   max_norm: null

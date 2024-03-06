@@ -3,10 +3,12 @@
 import json
 from dataclasses import dataclass, field
 from pathlib import Path
-from typing import Optional, Dict, List, Set
+from typing import Optional, Dict, List, Set, Union
 
 import torch
 from torch.utils.data import DataLoader
+
+from lit_gpt import PromptStyle
 from lit_gpt.data import SFTDataset, get_sft_collate_fn, LitDataModule
 from lit_gpt.data.alpaca import download_if_missing
 from lit_gpt.tokenizer import Tokenizer
@@ -22,6 +24,8 @@ class FLAN(LitDataModule):
 
     mask_prompt: bool = False
     """Whether to mask the prompt section from the label (with ``ignore_index``)."""
+    prompt_style: Union[str, PromptStyle] = "flan"
+    """The style to apply to instruction prompts. See `lit_gpt.prompts` for a list of available styles."""
     ignore_index: int = -1
     """The index to use for elements to be ignored in the label."""
     seed: int = 42
@@ -42,6 +46,9 @@ class FLAN(LitDataModule):
     test_dataset: Optional[SFTDataset] = field(default=None, init=False, repr=False)
 
     def __post_init__(self):
+        if isinstance(self.prompt_style, str):
+            self.prompt_style = PromptStyle.from_name(self.prompt_style)
+
         supported_subsets = _supported_subsets()
         if self.subsets is not None:
             self.subsets = self.subsets.split(",")
@@ -81,16 +88,14 @@ class FLAN(LitDataModule):
             data_file_path = self.download_dir / f"{subset}_{split}.jsonl"
             data.extend(load_jsonl(data_file_path))
 
-        for item in data:
-            item["output"] = item.pop("targets")
-
         dataset = SFTDataset(
             data=data,
             tokenizer=self.tokenizer,
-            prompt_template=prompt_template,
+            prompt_style=self.prompt_style,
             max_seq_length=self.max_seq_length,
             mask_prompt=self.mask_prompt,
             ignore_index=self.ignore_index,
+            transform=_transform,
         )
         return DataLoader(
             dataset=dataset,
@@ -110,12 +115,10 @@ def load_jsonl(filename: Path) -> List[Dict[str, str]]:
     return data
 
 
-def prompt_template(example: dict) -> str:
-    return (
-        "Below is an instruction that describes a task. "
-        "Write a response that appropriately completes the request.\n\n"
-        f"### Instruction:\n{example['inputs']}\n\n### Response:\n"
-    )
+def _transform(item: dict) -> dict:
+    item["instruction"] = item.pop("inputs")
+    item["output"] = item.pop("targets")
+    return item
 
 
 def _supported_subsets() -> Set[str]:

@@ -1,13 +1,7 @@
 # Copyright Lightning AI. Licensed under the Apache License 2.0, see LICENSE file.
 
-"""
-This script is adapted from TinyLlama:
-https://github.com/jzhang38/TinyLlama/blob/main/pretrain/tinyllama.py
-"""
-
 import math
 import os
-import sys
 import time
 from datetime import timedelta
 from functools import partial
@@ -25,19 +19,16 @@ from torch.utils.data import DataLoader
 from torchmetrics.aggregation import RunningMean
 from typing_extensions import Literal
 
-# support running without installing as a package
-wd = Path(__file__).parent.parent.resolve()
-sys.path.append(str(wd))
-
 from lit_gpt import Tokenizer
 from lit_gpt.args import EvalArgs, TrainArgs
 from lit_gpt.data import LitDataModule, TinyLlama
 from lit_gpt.model import GPT, Block, CausalSelfAttention, Config, LLaMAMLP
-from lit_gpt.utils import CLI, CycleIterator, chunked_cross_entropy, num_parameters, parse_devices, copy_config_files
+from lit_gpt.utils import CLI, CycleIterator, chunked_cross_entropy, num_parameters, parse_devices, copy_config_files, save_hyperparameters
 
 
 def setup(
-    model: Optional[Config] = None,
+    model_name: Optional[str] = None,
+    model_config: Optional[Config] = None,
     logger_name: Literal["wandb", "tensorboard", "csv"] = "tensorboard",
     resume: Union[bool, Path] = False,
     devices: Union[int, str] = "auto",
@@ -64,7 +55,11 @@ def setup(
 ):
     hparams = locals()
     data = TinyLlama() if data is None else data
-    config = Config.from_name("tiny-llama-1.1b") if model is None else model
+    if model_config is not None and model_name is not None:
+        raise ValueError("Only one of `model_name` or `model_config` can be set.")
+    elif model_config is None and model_name is None:
+        model_name = "tiny-llama-1.1b"
+    config = Config.from_name(model_name) if model_config is None else model_config
     devices = parse_devices(devices)
     out_dir = Path(os.getenv("LIGHTNING_ARTIFACTS_DIR", "out")) / "pretrain" if out_dir is None else out_dir
     # in case the dataset requires the Tokenizer
@@ -279,8 +274,10 @@ def fit(
             checkpoint_file.parent.mkdir(parents=True, exist_ok=True)
             fabric.print(f"Saving checkpoint to {str(checkpoint_file)!r}")
             fabric.save(checkpoint_file, state)
-            if tokenizer_dir is not None:
-                copy_config_files(tokenizer_dir, checkpoint_file.parent)
+            if fabric.global_rank == 0:
+                save_hyperparameters(setup, checkpoint_file.parent)
+                if tokenizer_dir is not None:
+                    copy_config_files(tokenizer_dir, checkpoint_file.parent)
 
 
 @torch.no_grad()
@@ -330,7 +327,7 @@ def get_lr(learning_rate: float, it: int, warmup_iters: int, max_iters: int, min
 
 
 def init_weights(module: nn.Module, n_layer: int, n_embd: int):
-    # Follows GPT-NeoX: https://arxiv.org/abs/2204.06745
+    # Copied from https://github.com/jzhang38/TinyLlama/blob/bf12224/lit_gpt/model.py#L40-L54
     if isinstance(module, nn.Embedding):
         nn.init.normal_(module.weight, mean=0.0, std=math.sqrt(2.0 / 5 / n_embd))
     elif isinstance(module, nn.Linear):

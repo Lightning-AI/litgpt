@@ -32,7 +32,7 @@ With the `Chat` version of the model, the download and conversion procedures are
 As this version of the model is stored in `safetensor` format, to download it an additional flag is required:
 
 ```bash
-python scripts/download.py --repo_id TinyLlama/TinyLlama-1.1B-Chat-v1.0 --from_safetensors=True
+python scripts/download.py --repo_id TinyLlama/TinyLlama-1.1B-Chat-v1.0
 ```
 
 The model is shipped in `bfloat16` format, so if your hardware doesn't support it, you can provide `--dtype` argument during model conversion. For example we can convert the weights into `float32` format:

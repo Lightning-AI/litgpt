@@ -3,11 +3,13 @@
 import json
 from dataclasses import dataclass, field
 from pathlib import Path
+from typing import Union
 
 import torch
 from torch.utils.data import random_split
+
+from lit_gpt import PromptStyle
 from lit_gpt.data import SFTDataset, Alpaca
-from lit_gpt.data.alpaca import prompt_template
 
 _URL: str = "https://huggingface.co/datasets/databricks/databricks-dolly-15k/resolve/main/databricks-dolly-15k.jsonl"
 
@@ -20,6 +22,8 @@ class Dolly(Alpaca):
     """Whether to mask the prompt section from the label (with ``ignore_index``)."""
     test_split_fraction: float = 0.1
     """The fraction of the dataset to use for the test/validation dataset. The rest is used for training."""
+    prompt_style: Union[str, PromptStyle] = "alpaca"
+    """The style to apply to instruction prompts. See `lit_gpt.prompts` for a list of available styles."""
     ignore_index: int = -1
     """The index to use for elements to be ignored in the label."""
     seed: int = 42
@@ -33,13 +37,14 @@ class Dolly(Alpaca):
     file_name: str = field(repr=False, default="dolly_data_cleaned.json")
     """The name of the dataset file to download."""
 
+    def __post_init__(self) -> None:
+        if isinstance(self.prompt_style, str):
+            self.prompt_style = PromptStyle.from_name(self.prompt_style)
+
     def setup(self, stage: str = "") -> None:
         with open(self.download_dir / self.file_name, "r", encoding="utf-8") as file:
             data = file.readlines()
             data = [json.loads(line) for line in data]
-        for item in data:
-            item["input"] = item.pop("context")
-            item["output"] = item.pop("response")
 
         # Partition the dataset into train and test
         train_data, test_data = random_split(
@@ -52,16 +57,24 @@ class Dolly(Alpaca):
         self.train_dataset = SFTDataset(
             data=train_data,
             tokenizer=self.tokenizer,
-            prompt_template=prompt_template,
+            prompt_style=self.prompt_style,
             max_seq_length=self.max_seq_length,
             mask_prompt=self.mask_prompt,
             ignore_index=self.ignore_index,
+            transform=_transform,
         )
         self.test_dataset = SFTDataset(
             data=test_data,
             tokenizer=self.tokenizer,
-            prompt_template=prompt_template,
+            prompt_style=self.prompt_style,
             max_seq_length=self.max_seq_length,
             mask_prompt=self.mask_prompt,
             ignore_index=self.ignore_index,
+            transform=_transform,
         )
+
+
+def _transform(item: dict) -> dict:
+    item["input"] = item.pop("context")
+    item["output"] = item.pop("response")
+    return item

@@ -1,4 +1,5 @@
-model:
+model_name: null
+model_config:
   name: stories15M
   hf_config: {}
   scale_embeddings: false
