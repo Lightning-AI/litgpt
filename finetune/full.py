@@ -62,6 +62,18 @@ def setup(
     data = Alpaca() if data is None else data
     devices = parse_devices(devices)
 
+    from lightning.pytorch.loggers import WandbLogger
+    config = locals()
+    for key in config:
+        if isinstance(config[key], Path):
+            config[key] = str(config[key])
+        if isinstance(config[key], (TrainArgs, EvalArgs, LitDataModule)):
+            from dataclasses import asdict
+            config[key] = asdict(config[key])
+        
+    logger = WandbLogger(project="finetune-gemma")
+    logger.log_hyperparams(config)
+
     precision = precision or get_default_supported_precision(training=True)
 
     if devices > 1:
@@ -75,7 +87,8 @@ def setup(
     else:
         strategy = "auto"
 
-    logger = CSVLogger(out_dir.parent, out_dir.name, flush_logs_every_n_steps=train.log_interval)
+    # logger = CSVLogger(out_dir.parent, out_dir.name, flush_logs_every_n_steps=train.log_interval)
+    
     fabric = L.Fabric(devices=devices, strategy=strategy, precision=precision, loggers=logger)
     fabric.launch(main, devices, resume, seed, Config.from_name(name=checkpoint_dir.name), data, checkpoint_dir, out_dir, train, eval)
 
