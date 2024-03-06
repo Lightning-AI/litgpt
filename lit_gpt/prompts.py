@@ -350,3 +350,7 @@ def load_prompt_style(checkpoint_dir: Path) -> PromptStyle:
     module = importlib.import_module(full_module_path)
     cls = getattr(module, cls_name)
     return cls()
+
+
+def has_prompt_style(checkpoint_dir: Path) -> bool:
+    return (checkpoint_dir / "prompt_style.json").is_file()

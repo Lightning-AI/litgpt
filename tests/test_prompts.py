@@ -90,12 +90,14 @@ class CustomPromptStyle(PromptStyle):
 
 
 def test_save_load_prompt_style(tmp_path):
-    from lit_gpt.prompts import Alpaca, save_prompt_style, load_prompt_style
+    from lit_gpt.prompts import Alpaca, save_prompt_style, load_prompt_style, has_prompt_style
 
     # Save and load a built-in style
     checkpoint_dir = tmp_path / "checkpoint"
     checkpoint_dir.mkdir()
+    assert not has_prompt_style(checkpoint_dir)
     save_prompt_style("alpaca", checkpoint_dir)
+    assert has_prompt_style(checkpoint_dir)
     with open(checkpoint_dir / "prompt_style.json", "r") as file:
         contents = json.load(file)
     assert contents == {"class_path": "lit_gpt.prompts.Alpaca"}
