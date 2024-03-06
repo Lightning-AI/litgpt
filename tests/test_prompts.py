@@ -69,7 +69,7 @@ def test_prompt_style_from_config():
         assert not isinstance(PromptStyle.from_config(Config.from_name(model_name)), Default)
 
 
-def test_apply_promts():
+def test_apply_prompts():
     from lit_gpt.prompts import prompt_styles, Alpaca
 
     prompt = "Is a coconut a nut or a fruit?"
