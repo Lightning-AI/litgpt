@@ -19,7 +19,6 @@ from lit_gpt.prompts import load_prompt_style, has_prompt_style
 from lit_gpt.utils import CLI, check_valid_checkpoint_dir, get_default_supported_precision, load_checkpoint
 
 
-
 def main(
     prompt: str = "What food do llamas eat?",
     input: str = "",

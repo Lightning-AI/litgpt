@@ -225,7 +225,7 @@ def fit(
             fabric.print(f"iter {iter_num}: val loss {val_loss.item():.4f}, val time: {t1 * 1000:.2f} ms")
             fabric.barrier()
         if not is_accumulating and step_count % train.save_interval == 0:
-            checkpoint_file = out_dir / f"iter-{iter_num:06d}" / "lit_model.pth"
+            checkpoint_file = out_dir / f"step-{step_count:06d}" / "lit_model.pth"
             checkpoint_file.parent.mkdir(parents=True, exist_ok=True)
             save_adapter_v2_checkpoint(fabric, model, checkpoint_file)
             if fabric.global_rank == 0:
@@ -241,10 +241,10 @@ def validate(
 ) -> torch.Tensor:
     fabric.print("Validating ...")
     model.eval()
-    losses = torch.zeros(eval.max_iters)
-    val_iterator = iter(val_dataloader)
-    for k in range(eval.max_iters):
-        batch = next(val_iterator)
+    losses = torch.zeros(min(len(val_dataloader), eval.max_iters))
+    for k, batch in enumerate(val_dataloader):
+        if k >= eval.max_iters:
+            break
         input_ids, targets = batch["input_ids"], batch["labels"]
         logits = model(input_ids)
         losses[k] = chunked_cross_entropy(logits[..., :-1, :], targets[..., 1:], chunk_size=0)

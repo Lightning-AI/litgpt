@@ -16,6 +16,7 @@ data:
   init_args:
     mask_prompt: false
     test_split_fraction: 0.03847
+    prompt_style: "alpaca"
     ignore_index: -1
     seed: 42
     num_workers: 4
