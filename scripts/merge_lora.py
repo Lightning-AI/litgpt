@@ -1,7 +1,7 @@
 # Copyright Lightning AI. Licensed under the Apache License 2.0, see LICENSE file.
 
 """This script merges the LoRA weights with the base model"""
-
+import shutil
 import sys
 from pathlib import Path
 from typing import Optional, Tuple, Dict, Any
@@ -49,17 +49,26 @@ def merge_lora(
 
     with fabric.init_module(empty_init=True):
         model = GPT(config)
-    checkpoint_path = checkpoint_dir / "lit_model.pth"
-    checkpoint = lazy_load(checkpoint_path)
-    lora_checkpoint = lazy_load(lora_path)
-    checkpoint.update(lora_checkpoint.get("model", lora_checkpoint))
-    model.load_state_dict(checkpoint)
 
+    # Make a backup of the LoRA weights (they are only a few MBs)
+    # TODO: Validate it not already exists
+    # TODO: The merging below could fail for some reason
+    lora_path = checkpoint_dir / "lit_model.pth.lora"
+    shutil.move(checkpoint_dir / "lit_model.pth", lora_path)
+
+    pretrained_checkpoint = lazy_load(pretrained_checkpoint_dir / "lit_model.pth")
+    lora_checkpoint = lazy_load(lora_path)
+
+    # Merge LoRA weights into the base model
+    pretrained_checkpoint.update(lora_checkpoint.get("model", lora_checkpoint))
+    model.load_state_dict(pretrained_checkpoint)
     merge_lora_weights(model)
 
-    save_path = out_dir / "lit_model.pth"
-    fabric.print(f"Saving weights to {str(save_path)!r}")
-    # remove lora parameters and the lora linear substring
+    save_path = checkpoint_dir / "lit_model.pth"
+    fabric.print(f"Saving merged weights to {str(save_path)!r}")
+    fabric.print(f"A backup of the old LoRA weights is in {str(lora_path)!r}")
+
+    # Remove lora parameters and the lora linear substring
     state_dict = {k.replace("linear.", ""): v for k, v in model.state_dict().items() if not lora_filter(k, v)}
     torch.save(state_dict, save_path)
 
