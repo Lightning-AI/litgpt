@@ -11,6 +11,9 @@ import pytest
     ("lit_gpt/pretrain.py", "pretrain/debug.yaml"),
     ("lit_gpt/pretrain.py", "pretrain/tinyllama.yaml"),
     ("lit_gpt/pretrain.py", "pretrain/tinystories.yaml"),
+    ("finetune/full.py", "finetune/llama-2-7b/full.yaml"),
+    ("finetune/lora.py", "finetune/llama-2-7b/lora.yaml"),
+    ("finetune/lora.py", "finetune/tiny-llama/lora.yaml"),
 ])
 def test_config_help(script_file, config_file, monkeypatch, tmp_path):
     """Test that configs validate against the signature in the scripts."""
