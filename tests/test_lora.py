@@ -164,7 +164,7 @@ def test_lora_filter(tmp_path):
     from lit_gpt.lora import GPT, lora_filter
 
     fabric = Fabric(devices=1)
-    model = GPT.from_name("pythia-14m", n_layer=3, r=1, to_query=True, to_value=True)
+    model = GPT.from_name("pythia-14m", n_layer=3, lora_r=1, lora_query=True, lora_value=True)
     save_path = tmp_path / "model.pth"
     fabric.save(save_path, {"model": model}, filter={"model": lora_filter})
     saved = torch.load(save_path)["model"]
@@ -496,7 +496,7 @@ def test_base_model_can_be_lora_loaded(name):
     base_model = BaseGPT.from_name(name, **kwargs)
     base_model_state_dict = base_model.state_dict()
     lora_model = LoRAGPT.from_name(
-        name, **kwargs, r=1, to_query=True, to_key=True, to_value=True, to_projection=True, to_mlp=True, to_head=True
+        name, **kwargs, r=1, lora_query=True, lora_key=True, lora_value=True, lora_projection=True, lora_mlp=True, lora_head=True
     )
     keys = lora_model.load_state_dict(base_model_state_dict, strict=False)
     assert not keys.unexpected_keys
@@ -512,15 +512,15 @@ def test_lora_compile():
     model = GPT.from_name(
         "pythia-14m",
         n_layer=3,
-        r=8,
-        alpha=8,
-        dropout=0.1,
-        to_query=True,
-        to_key=True,
-        to_value=True,
-        to_projection=True,
-        to_mlp=True,
-        to_head=True,
+        lora_r=8,
+        lora_alpha=8,
+        lora_dropout=0.1,
+        lora_query=True,
+        lora_key=True,
+        lora_value=True,
+        lora_projection=True,
+        lora_mlp=True,
+        lora_head=True,
     )
     x = torch.randint(model.config.vocab_size, size=(2, model.config.block_size), dtype=torch.int64)
 
@@ -607,12 +607,12 @@ def test_lora_bitsandbytes(monkeypatch, tmp_path, fake_checkpoint_dir, alpaca_pa
         n_head=4,
         padded_vocab_size=8,
         bias=True,
-        r=8,
-        alpha=8,
-        dropout=0.1,
-        to_query=True,
-        to_value=True,
-        to_projection=True,
+        lora_r=8,
+        lora_alpha=8,
+        lora_dropout=0.1,
+        lora_query=True,
+        lora_value=True,
+        lora_projection=True,
     )
     monkeypatch.setitem(name_to_config, "tmp", model_config)
 
