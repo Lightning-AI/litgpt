@@ -33,6 +33,7 @@ from lit_gpt.utils import (
     CycleIterator,
     parse_devices,
     copy_config_files,
+    save_hyperparameters,
 )
 
 
@@ -143,8 +144,10 @@ def main(fabric: L.Fabric, devices: int, seed: int, config: Config, data: LitDat
     save_path = out_dir / "final" / "lit_model.pth"
     save_path.parent.mkdir(parents=True, exist_ok=True)
     save_adapter_v2_checkpoint(fabric, model, save_path)
-    # Copy checkpoint files from original checkpoint dir
-    copy_config_files(checkpoint_dir, save_path.parent)
+    if fabric.global_rank == 0:
+        # Copy checkpoint files from original checkpoint dir
+        copy_config_files(checkpoint_dir, save_path.parent)
+        save_hyperparameters(setup, save_path.parent)
 
 
 def fit(
@@ -223,7 +226,9 @@ def fit(
             checkpoint_file = out_dir / f"iter-{iter_num:06d}" / "lit_model.pth"
             checkpoint_file.parent.mkdir(parents=True, exist_ok=True)
             save_adapter_v2_checkpoint(fabric, model, checkpoint_file)
-            copy_config_files(checkpoint_dir, checkpoint_file.parent)
+            if fabric.global_rank == 0:
+                copy_config_files(checkpoint_dir, checkpoint_file.parent)
+                save_hyperparameters(setup, checkpoint_file.parent)
 
 
 # the adapter "kv cache" cannot be initialized under `inference_mode`

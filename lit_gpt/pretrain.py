@@ -23,7 +23,7 @@ from lit_gpt import Tokenizer
 from lit_gpt.args import EvalArgs, TrainArgs
 from lit_gpt.data import LitDataModule, TinyLlama
 from lit_gpt.model import GPT, Block, CausalSelfAttention, Config, LLaMAMLP
-from lit_gpt.utils import CLI, CycleIterator, chunked_cross_entropy, num_parameters, parse_devices, copy_config_files
+from lit_gpt.utils import CLI, CycleIterator, chunked_cross_entropy, num_parameters, parse_devices, copy_config_files, save_hyperparameters
 
 
 def setup(
@@ -269,8 +269,10 @@ def fit(
             checkpoint_file.parent.mkdir(parents=True, exist_ok=True)
             fabric.print(f"Saving checkpoint to {str(checkpoint_file)!r}")
             fabric.save(checkpoint_file, state)
-            if tokenizer_dir is not None:
-                copy_config_files(tokenizer_dir, checkpoint_file.parent)
+            if fabric.global_rank == 0:
+                save_hyperparameters(setup, checkpoint_file.parent)
+                if tokenizer_dir is not None:
+                    copy_config_files(tokenizer_dir, checkpoint_file.parent)
 
 
 @torch.no_grad()
