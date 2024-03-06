@@ -1,8 +1,11 @@
 # Copyright Lightning AI. Licensed under the Apache License 2.0, see LICENSE file.
+import importlib
+import json
 import re
 from abc import abstractmethod
 from json import dumps
-from typing import TYPE_CHECKING, Dict, List, Type, Tuple
+from pathlib import Path
+from typing import TYPE_CHECKING, Dict, List, Type, Tuple, Union
 
 from lit_gpt.config import Config
 
@@ -328,3 +331,22 @@ def model_name_to_prompt_style(model_name: str) -> PromptStyle:
     if re.search(r"Gemma.*-it", model_name):
         return Gemma()
     return Default()
+
+
+def save_prompt_style(style: Union[str, PromptStyle], checkpoint_dir: Path) -> None:
+    style = PromptStyle.from_name(style) if isinstance(style, str) else style
+    cls = type(style)
+    # Allow saving the full module path for user-defined prompt classes
+    config = {"class_path": f"{cls.__module__}.{cls.__name__}"}
+    with open(checkpoint_dir / "prompt_style.json", "w") as file:
+        json.dump(config, file)
+
+
+def load_prompt_style(checkpoint_dir: Path) -> PromptStyle:
+    with open(checkpoint_dir / "prompt_style.json", "r") as file:
+        config = json.load(file)
+    # Support loading the full module path for user-defined prompt classes
+    full_module_path, cls_name = config["class_path"].rsplit(".", 1)
+    module = importlib.import_module(full_module_path)
+    cls = getattr(module, cls_name)
+    return cls()

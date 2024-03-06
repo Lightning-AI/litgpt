@@ -1,4 +1,6 @@
 # Copyright Lightning AI. Licensed under the Apache License 2.0, see LICENSE file.
+import json
+from lit_gpt.prompts import PromptStyle
 
 
 def test_default_prompt_style(mock_tokenizer):
@@ -80,3 +82,32 @@ def test_apply_prompts():
         assert prompt in output
         if isinstance(style, Alpaca):
             assert inp in output
+
+
+class CustomPromptStyle(PromptStyle):
+    def apply(self, prompt, **kwargs):
+        return prompt
+
+
+def test_save_load_prompt_style(tmp_path):
+    from lit_gpt.prompts import Alpaca, save_prompt_style, load_prompt_style
+
+    # Save and load a built-in style
+    checkpoint_dir = tmp_path / "checkpoint"
+    checkpoint_dir.mkdir()
+    save_prompt_style("alpaca", checkpoint_dir)
+    with open(checkpoint_dir / "prompt_style.json", "r") as file:
+        contents = json.load(file)
+    assert contents == {"class_path": "lit_gpt.prompts.Alpaca"}
+    loaded = load_prompt_style(checkpoint_dir)
+    assert isinstance(loaded, Alpaca)
+
+    # Save a custom style
+    checkpoint_dir = tmp_path / "custom"
+    checkpoint_dir.mkdir()
+    save_prompt_style(CustomPromptStyle(), checkpoint_dir)
+    with open(checkpoint_dir / "prompt_style.json", "r") as file:
+        contents = json.load(file)
+    assert contents == {"class_path": "test_prompts.CustomPromptStyle"}
+    loaded = load_prompt_style(checkpoint_dir)
+    assert isinstance(loaded, CustomPromptStyle)
