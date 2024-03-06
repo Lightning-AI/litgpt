@@ -4,7 +4,9 @@
 
 import sys
 from pathlib import Path
-from typing import Optional
+from typing import Optional, Tuple, Dict, Any
+
+import yaml
 
 import lightning as L
 import torch
@@ -18,49 +20,32 @@ from lit_gpt.utils import CLI, check_valid_checkpoint_dir, get_default_supported
 
 
 def merge_lora(
-    lora_path: Path = Path("out/lora/alpaca/lit_model_lora_finetuned.pth"),
-    checkpoint_dir: Path = Path("checkpoints/stabilityai/stablelm-base-alpha-3b"),
-    out_dir: Path = Path("out/lora/checkpoint"),
+    checkpoint_dir: Path = Path("out/finetune/lora/final"),
+    pretrained_checkpoint_dir: Optional[Path] = None,
     precision: Optional[str] = None,
-    lora_r: int = 8,
-    lora_alpha: int = 16,
-    lora_dropout: float = 0.05,
-    lora_query: bool = True,
-    lora_key: bool = False,
-    lora_value: bool = True,
-    lora_projection: bool = False,
-    lora_mlp: bool = False,
-    lora_head: bool = False,
 ) -> None:
-    """Generates a response based on a given instruction and an optional input.
-    This script will only work with checkpoints from the instruction-tuned GPT-LoRA model.
-    See `finetune/lora.py`.
+    """Merges the LoRA weights with the base model. See `finetune/lora.py`.
+
+    Merging happens in-place in the checkpoint directory that is given as input.
 
     Args:
-        lora_path: Path to the checkpoint with trained adapter weights, which are the output of
+        checkpoint_dir: Path to the checkpoint directory with trained LoRA weights, which is the output of
             `finetune/lora.py`.
-        checkpoint_dir: The path to the checkpoint folder with pretrained GPT weights.
-        out_dir: The path to the merged model that is created by this script.
+        pretrained_checkpoint_dir: Optional path to the checkpoint directory with the weights of the base model
+            corresponding to the LoRA checkpoint. By default, this will automatically be inferred from the metadata
+            in the given `checkpoint_dir` directory. Only set this if the base model checkpoint directory
+            has moved or was renamed.
         precision: Indicates the Fabric precision setting to use.
     """
     check_valid_checkpoint_dir(checkpoint_dir)
-    out_dir.mkdir(parents=True, exist_ok=True)
+    if pretrained_checkpoint_dir is not None:
+        check_valid_checkpoint_dir(pretrained_checkpoint_dir)
 
     precision = precision or get_default_supported_precision(training=False)
     fabric = L.Fabric(devices=1, precision=precision)
 
-    config = Config.from_json(
-        checkpoint_dir / "lit_config.json",
-        r=lora_r,
-        alpha=lora_alpha,
-        dropout=lora_dropout,
-        to_query=lora_query,
-        to_key=lora_key,
-        to_value=lora_value,
-        to_projection=lora_projection,
-        to_mlp=lora_mlp,
-        to_head=lora_head,
-    )
+    lora_params, pretrained_checkpoint_dir = load_lora_metadata(checkpoint_dir)
+    config = Config.from_json(checkpoint_dir / "lit_config.json", **lora_params)
 
     with fabric.init_module(empty_init=True):
         model = GPT(config)
@@ -77,6 +62,19 @@ def merge_lora(
     # remove lora parameters and the lora linear substring
     state_dict = {k.replace("linear.", ""): v for k, v in model.state_dict().items() if not lora_filter(k, v)}
     torch.save(state_dict, save_path)
+
+
+def load_lora_metadata(checkpoint_dir: Path) -> Tuple[Dict[str, Any], Path]:
+    hparams_file = checkpoint_dir / "hyperparameters.yaml"
+    if not hparams_file.is_file():
+        raise FileNotFoundError()  # TODO
+
+    with open(hparams_file, "r") as file:
+        hparams = yaml.safe_load(file)
+
+    lora_params = {k: v for k, v in hparams.items() if k.startswith("lora_")}
+    pretrained_checkpoint_dir = Path(hparams["checkpoint_dir"])
+    return lora_params, pretrained_checkpoint_dir
 
 
 if __name__ == "__main__":
