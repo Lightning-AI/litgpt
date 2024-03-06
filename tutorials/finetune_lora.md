@@ -137,48 +137,29 @@ Let's assume we finetuned a model using LoRA as follows:
 python finetune/lora.py \
   --checkpoint_dir "checkpoints/stabilityai/stablelm-base-alpha-3b/" \
   --train_data_dir data/mydata --val_data_dir data/mydata/ \
-  --out_dir "out/lora_weights/stablelm-base-alpha-3b/"
+  --out_dir "out/lora/stablelm-base-alpha-3b/"
 ```
 
-Then, we can merge the LoRA weights with the checkpoint model using the `merge_lora.py` script as shown below:
+Then, we can merge the LoRA weights with the checkpoint model using the `merge_lora.py` script as shown below.
+Simply pass in the checkpoint directory which is the result of the finetuning script:
 
 ```bash
 python scripts/merge_lora.py \
-  --checkpoint_dir "checkpoints/stabilityai/stablelm-base-alpha-3b/" \
-  --lora_path "out/lora_weights/stablelm-base-alpha-3b/lit_model_lora_finetuned.pth" \
-  --out_dir "out/lora_merged/stablelm-base-alpha-3b/"
+  --checkpoint_dir "out/lora/stablelm-base-alpha-3b/final"
 ```
 
-> [!IMPORTANT]
-> If you changed the LoRA hyperparameters (`lora_r`, `lora_key`, etc.) in the
-> `finetune/lora.py` script, it is important to pass the same hyperparameter configuration
-> to the `scripts/merge_lora.py` script accordingly. Otherwise, you will encounter size
-> mismatch errors upon merging.
-
-After merging, we can use the `base.py` file for inference using the new checkpoint file. Note that if your new checkpoint directory is different from the original checkpoint directory, we also have to copy over the tokenizer and config files:
-
-```bash
-cp checkpoints/stabilityai/stablelm-base-alpha-3b/*.json \
-out/lora_merged/stablelm-base-alpha-3b/
-```
-
-> [!Note]
-> Some models (for example, Llama 2) also come with a `tokenizer.model` file.
-> In this case, you also need to use an additional copy step:
-> `cp checkpoints/origin/tokenizer.model out/lora_merged/target/`
-
-Then, we should be ready to use the model in inference:
+After merging, we can use the `generate/base.py` or `chat/base.py` file for inference using the new checkpoint file. 
 
 ```bash
 python generate/base.py \
-  --checkpoint_dir "out/lora_merged/stablelm-base-alpha-3b/"
+  --checkpoint_dir "out/lora/stablelm-base-alpha-3b/final"
 ```
 
 Similarly, you can evaluate the model using the `eval/lm_eval_harness.py` script (see the [evaluation](evaluation.md) tutorial for more information):
 
 ```bash
 python eval/lm_eval_harness.py \
-  --checkpoint_dir "out/lora_merged/stablelm-base-alpha-3b/" \
+  --checkpoint_dir "out/lora/stablelm-base-alpha-3b/final" \
   --precision "bf16-true" \
   --save_filepath "results.json"
 ```
