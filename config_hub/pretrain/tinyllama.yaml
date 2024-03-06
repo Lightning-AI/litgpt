@@ -1,28 +1,4 @@
-model:
-  name: tiny-llama-1.1b
-  hf_config: {}
-  scale_embeddings: false
-  block_size: 4096
-  vocab_size: 50254
-  padding_multiple: 512
-  padded_vocab_size: 50688
-  n_layer: 16
-  n_head: 32
-  head_size: 128
-  n_embd: 4096
-  rotary_percentage: 0.25
-  parallel_residual: true
-  bias: true
-  lm_head_bias: false
-  n_query_groups: 32
-  shared_attention_norm: false
-  norm_eps: 1.0e-05
-  gelu_approximate: none
-  intermediate_size: 16384
-  rope_condense_ratio: 1
-  rope_base: 10000
-  n_expert: 0
-  n_expert_per_token: 0
+model_name: tiny-llama-1.1b
 logger_name: tensorboard
 resume: false
 devices: auto

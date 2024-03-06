@@ -27,7 +27,8 @@ from lit_gpt.utils import CLI, CycleIterator, chunked_cross_entropy, num_paramet
 
 
 def setup(
-    model: Optional[Config] = None,
+    model_name: Optional[str] = None,
+    model_config: Optional[Config] = None,
     logger_name: Literal["wandb", "tensorboard", "csv"] = "tensorboard",
     resume: Union[bool, Path] = False,
     devices: Union[int, str] = "auto",
@@ -54,7 +55,11 @@ def setup(
 ):
     hparams = locals()
     data = TinyLlama() if data is None else data
-    config = Config.from_name("tiny-llama-1.1b") if model is None else model
+    if model_config is not None and model_name is not None:
+        raise ValueError("Only one of `model_name` or `model_config` can be set.")
+    elif model_config is None and model_name is None:
+        model_name = "tiny-llama-1.1b"
+    config = Config.from_name(model_name) if model_config is None else model_config
     devices = parse_devices(devices)
     out_dir = Path(os.getenv("LIGHTNING_ARTIFACTS_DIR", "out")) / "pretrain" if out_dir is None else out_dir
     # in case the dataset requires the Tokenizer
