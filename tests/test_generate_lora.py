@@ -1,16 +1,19 @@
 # Copyright Lightning AI. Licensed under the Apache License 2.0, see LICENSE file.
 
 import json
+import os
 import subprocess
 import sys
 from contextlib import redirect_stderr, redirect_stdout
 from io import StringIO
 from pathlib import Path
+from unittest import mock
 from unittest.mock import ANY, Mock, call
 
 import torch
 
 
+@mock.patch.dict(os.environ, {"LT_ACCELERATOR": "cpu"})
 def test_main(fake_checkpoint_dir, monkeypatch, tensor_like):
     import generate.lora as generate
 
