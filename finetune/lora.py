@@ -1,5 +1,6 @@
 # Copyright Lightning AI. Licensed under the Apache License 2.0, see LICENSE file.
 import dataclasses
+import math
 import os
 import sys
 import time
@@ -13,6 +14,7 @@ from lightning.fabric.loggers import CSVLogger
 from lightning.fabric.plugins import BitsandbytesPrecision
 from lightning.fabric.strategies import FSDPStrategy
 from lightning.fabric.utilities import ThroughputMonitor
+from torchmetrics import RunningMean
 
 # support running without installing as a package
 wd = Path(__file__).parent.parent.resolve()
@@ -127,7 +129,6 @@ def setup(
 
 def main(fabric: L.Fabric, devices: int, seed: int, config: Config, data: LitDataModule, checkpoint_dir: Path, out_dir: Path, train: TrainArgs, eval: EvalArgs) -> None:
     validate_args(train, eval)
-
     check_valid_checkpoint_dir(checkpoint_dir)
 
     tokenizer = Tokenizer(checkpoint_dir)
@@ -209,6 +210,9 @@ def fit(
 
     train_iterator = CycleIterator(train_dataloader)
     throughput = ThroughputMonitor(fabric, window_size=50)
+    running_loss = RunningMean(window=train.gradient_accumulation_iters(devices), sync_on_compute=False).to(
+        fabric.device
+    )
     max_steps = train.max_steps or float("inf")
     step_count = 0
     iter_num = 0
@@ -218,7 +222,6 @@ def fit(
     while step_count < max_steps and train_iterator.epoch < train.epochs:
         iter_num += 1
         iter_t0 = time.perf_counter()
-
         batch = next(train_iterator)
         input_ids, targets = batch["input_ids"], batch["labels"]
 
@@ -230,6 +233,8 @@ def fit(
             loss = chunked_cross_entropy(logits, targets[..., 1:])
             fabric.backward(loss / train.gradient_accumulation_iters(devices))
 
+        running_loss.update(loss.detach())
+
         if not is_accumulating:
             optimizer.step()
             optimizer.zero_grad()
@@ -238,25 +243,40 @@ def fit(
 
         total_lengths += input_ids.numel()
         if iter_num % train.log_interval == 0:
-            loss_item = loss.item()  # expensive device-to-host synchronization
+            loss = running_loss.compute().item()  # expensive device-to-host synchronization
             t1 = time.perf_counter()
             throughput.update(
                 time=t1 - total_t0, batches=iter_num, samples=iter_num * train.micro_batch_size, lengths=total_lengths
             )
             throughput.compute_and_log(step=iter_num)
+            metrics = {
+                "loss": loss,
+                "iter": iter_num,
+                "step": step_count,
+                "epoch": train_iterator.epoch,
+                "iter_time": t1 - iter_t0,
+                "tokens": iter_num * train.micro_batch_size * model.config.block_size,
+                "total_tokens": (
+                    iter_num * train.micro_batch_size * model.config.block_size * fabric.world_size
+                ),
+                "learning_rate": scheduler.get_last_lr()[0],
+            }
             fabric.print(
-                f"iter {iter_num} | step {step_count}: loss {loss_item:.4f}, iter time:"
-                f" {(t1 - iter_t0) * 1000:.2f} ms{' (optimizer.step)' if not is_accumulating else ''}"
+                f"iter {metrics['iter']} | step {metrics['step']}: loss {metrics['loss']:.4f}, iter time:"
+                f" {metrics['iter_time'] * 1000:.2f} ms{' (optimizer.step)' if not is_accumulating else ''}"
             )
+            fabric.log_dict(metrics, step=iter_num)
 
         if not is_accumulating and step_count % eval.interval == 0:
             t0 = time.perf_counter()
             val_loss = validate(fabric, model, val_dataloader, tokenizer, eval, data)
             t1 = time.perf_counter() - t0
             fabric.print(f"iter {iter_num}: val loss {val_loss.item():.4f}, val time: {t1 * 1000:.2f} ms")
+            metrics = {"val_loss": val_loss, "val_ppl": math.exp(val_loss)}
+            fabric.log_dict(metrics, step=iter_num)
             fabric.barrier()
         if not is_accumulating and step_count % train.save_interval == 0:
-            checkpoint_file = out_dir / f"iter-{iter_num:06d}" / "lit_model.pth"
+            checkpoint_file = out_dir / f"step-{step_count:06d}" / "lit_model.pth"
             checkpoint_file.parent.mkdir(parents=True, exist_ok=True)
             save_lora_checkpoint(fabric, model, checkpoint_file)
             if fabric.global_rank == 0:
@@ -279,6 +299,7 @@ def validate(
         input_ids, targets = batch["input_ids"], batch["labels"]
         logits = model(input_ids)
         losses[k] = chunked_cross_entropy(logits[..., :-1, :], targets[..., 1:], chunk_size=0)
+
     val_loss = losses.mean()
 
     # produce an example:
