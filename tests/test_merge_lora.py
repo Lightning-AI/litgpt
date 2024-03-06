@@ -5,6 +5,7 @@ import os
 import shutil
 from contextlib import redirect_stdout
 from io import StringIO
+from pathlib import Path
 from unittest import mock
 
 import torch
@@ -67,3 +68,21 @@ def test_merge_lora(tmp_path, fake_checkpoint_dir):
     with redirect_stdout(stdout):
         merge_lora(lora_checkpoint_dir)
     assert "LoRA weights have already been merged" in stdout.getvalue()
+
+
+def test_load_lora_metadata(fake_checkpoint_dir):
+    from scripts.merge_lora import load_lora_metadata
+
+    hparams = dict(
+        precision="bf16-mixed",
+        checkpoint_dir="checkpoints/meta-llama/Llama-2-7b",
+        lora_r=8,
+        lora_alpha=16,
+    )
+    with open(fake_checkpoint_dir / "hyperparameters.yaml", "w") as file:
+        yaml.dump(hparams, file)
+
+    lora_args, pretrained_dir, precision = load_lora_metadata(fake_checkpoint_dir)
+    assert lora_args == dict(lora_r=8, lora_alpha=16)
+    assert pretrained_dir == Path("checkpoints/meta-llama/Llama-2-7b")
+    assert precision == "bf16-mixed"
