@@ -24,6 +24,7 @@ from lit_gpt.args import EvalArgs, TrainArgs
 from lit_gpt.model import GPT, Block, Config
 from lit_gpt.tokenizer import Tokenizer
 from lit_gpt.data import Alpaca, LitDataModule
+from lit_gpt.prompts import save_prompt_style
 from lit_gpt.utils import (
     CLI,
     check_valid_checkpoint_dir,
@@ -34,6 +35,7 @@ from lit_gpt.utils import (
     CycleIterator,
     parse_devices,
     copy_config_files,
+    save_hyperparameters,
 )
 
 
@@ -137,8 +139,11 @@ def main(
     save_path = out_dir / "final" / "lit_model.pth"
     save_path.parent.mkdir(parents=True, exist_ok=True)
     fabric.save(save_path, {"model": state["model"]})
-    # Copy checkpoint files from original checkpoint dir
-    copy_config_files(checkpoint_dir, save_path.parent)
+    if fabric.global_rank == 0:
+        # Copy checkpoint files from original checkpoint dir
+        copy_config_files(checkpoint_dir, save_path.parent)
+        save_hyperparameters(setup, save_path.parent)
+        save_prompt_style(data.prompt_style, save_path.parent)
 
 
 def fit(
@@ -216,12 +221,13 @@ def fit(
                 "loss": loss,
                 "iter": state["iter_num"],
                 "step": state["step_count"],
+                "epoch": train_iterator.epoch,
                 "iter_time": t1 - iter_t0,
                 "tokens": state["iter_num"] * train.micro_batch_size * model.config.block_size,
                 "total_tokens": (
                     state["iter_num"] * train.micro_batch_size * model.config.block_size * fabric.world_size
                 ),
-                # TODO: log learning rate
+                "learning_rate": scheduler.get_last_lr()[0],
             }
             fabric.print(
                 f"iter {metrics['iter']} | step {metrics['step']}: loss {metrics['loss']:.4f}, iter time:"
@@ -242,7 +248,10 @@ def fit(
             checkpoint_file.parent.mkdir(parents=True, exist_ok=True)
             fabric.print(f"Saving checkpoint to {str(checkpoint_file.parent)!r}")
             fabric.save(checkpoint_file, state)
-            copy_config_files(checkpoint_dir, checkpoint_file.parent)
+            if fabric.global_rank == 0:
+                copy_config_files(checkpoint_dir, checkpoint_file.parent)
+                save_hyperparameters(setup, checkpoint_file.parent)
+                save_prompt_style(data.prompt_style, checkpoint_file.parent)
 
 
 # FSDP has issues with `inference_mode`
@@ -252,13 +261,14 @@ def validate(
 ) -> torch.Tensor:
     fabric.print("Validating ...")
     model.eval()
-    losses = torch.zeros(eval.max_iters)
-    val_iterator = iter(val_dataloader)
-    for k in range(eval.max_iters):
-        batch = next(val_iterator)
+    losses = torch.zeros(min(len(val_dataloader), eval.max_iters))
+    for k, batch in enumerate(val_dataloader):
+        if k >= eval.max_iters:
+            break
         input_ids, targets = batch["input_ids"], batch["labels"]
         logits = model(input_ids)
         losses[k] = chunked_cross_entropy(logits[..., :-1, :], targets[..., 1:], chunk_size=0)
+
     val_loss = losses.mean()
 
     # produce an example:

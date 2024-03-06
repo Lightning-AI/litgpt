@@ -23,11 +23,12 @@ from lit_gpt import Tokenizer
 from lit_gpt.args import EvalArgs, TrainArgs
 from lit_gpt.data import LitDataModule, TinyLlama
 from lit_gpt.model import GPT, Block, CausalSelfAttention, Config, LLaMAMLP
-from lit_gpt.utils import CLI, CycleIterator, chunked_cross_entropy, num_parameters, parse_devices, copy_config_files
+from lit_gpt.utils import CLI, CycleIterator, chunked_cross_entropy, num_parameters, parse_devices, copy_config_files, save_hyperparameters
 
 
 def setup(
-    model: Optional[Config] = None,
+    model_name: Optional[str] = None,
+    model_config: Optional[Config] = None,
     logger_name: Literal["wandb", "tensorboard", "csv"] = "tensorboard",
     resume: Union[bool, Path] = False,
     devices: Union[int, str] = "auto",
@@ -54,7 +55,11 @@ def setup(
 ):
     hparams = locals()
     data = TinyLlama() if data is None else data
-    config = Config.from_name("tiny-llama-1.1b") if model is None else model
+    if model_config is not None and model_name is not None:
+        raise ValueError("Only one of `model_name` or `model_config` can be set.")
+    elif model_config is None and model_name is None:
+        model_name = "tiny-llama-1.1b"
+    config = Config.from_name(model_name) if model_config is None else model_config
     devices = parse_devices(devices)
     out_dir = Path(os.getenv("LIGHTNING_ARTIFACTS_DIR", "out")) / "pretrain" if out_dir is None else out_dir
     # in case the dataset requires the Tokenizer
@@ -269,8 +274,10 @@ def fit(
             checkpoint_file.parent.mkdir(parents=True, exist_ok=True)
             fabric.print(f"Saving checkpoint to {str(checkpoint_file)!r}")
             fabric.save(checkpoint_file, state)
-            if tokenizer_dir is not None:
-                copy_config_files(tokenizer_dir, checkpoint_file.parent)
+            if fabric.global_rank == 0:
+                save_hyperparameters(setup, checkpoint_file.parent)
+                if tokenizer_dir is not None:
+                    copy_config_files(tokenizer_dir, checkpoint_file.parent)
 
 
 @torch.no_grad()
@@ -278,12 +285,12 @@ def validate(fabric: L.Fabric, model: nn.Module, val_dataloader: DataLoader, max
     fabric.print("Validating ...")
     model.eval()
 
-    losses = torch.zeros(max_iters, device=fabric.device)
-    for k, val_data in enumerate(val_dataloader):
+    losses = torch.zeros(min(len(val_dataloader), max_iters))
+    for k, batch in enumerate(val_dataloader):
         if k >= max_iters:
             break
-        input_ids = val_data[:, 0 : model.config.block_size].contiguous().long()
-        targets = val_data[:, 1 : (model.config.block_size + 1)].contiguous().long()
+        input_ids = batch[:, 0 : model.config.block_size].contiguous().long()
+        targets = batch[:, 1 : (model.config.block_size + 1)].contiguous().long()
         logits = model(input_ids)
         loss = chunked_cross_entropy(logits, targets)
         losses[k] = loss

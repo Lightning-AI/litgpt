@@ -10,7 +10,7 @@ To download the model weights and convert them to the lit-gpt format, run
 ```bash
 pip install 'huggingface_hub[hf_transfer] @ git+https://github.com/huggingface/huggingface_hub'
 
-python scripts/download.py --repo_id microsoft/phi-2 --from_safetensors True
+python scripts/download.py --repo_id microsoft/phi-2
 ```
 
 > [!WARNING]

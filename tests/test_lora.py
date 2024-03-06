@@ -198,7 +198,7 @@ def test_lora_script(tmp_path, fake_checkpoint_dir, monkeypatch, alpaca_path):
 
     out_dir = tmp_path / "out"
     stdout = StringIO()
-    with redirect_stdout(stdout):
+    with redirect_stdout(stdout), mock.patch("sys.argv", ["lora.py"]):
         module.setup(
             data=Alpaca(
                 download_dir=alpaca_path.parent,
@@ -214,7 +214,7 @@ def test_lora_script(tmp_path, fake_checkpoint_dir, monkeypatch, alpaca_path):
         )
 
     out_dir_contents = set(os.listdir(out_dir))
-    checkpoint_dirs = {"iter-000002", "iter-000004", "iter-000006", "final"}
+    checkpoint_dirs = {"step-000002", "step-000004", "step-000006", "final"}
     assert checkpoint_dirs.issubset(out_dir_contents)
     assert all((out_dir / p).is_dir() for p in checkpoint_dirs)
     for checkpoint_dir in checkpoint_dirs:
@@ -223,6 +223,8 @@ def test_lora_script(tmp_path, fake_checkpoint_dir, monkeypatch, alpaca_path):
             "lit_config.json",
             "tokenizer_config.json",
             "tokenizer.json",
+            "hyperparameters.yaml",
+            "prompt_style.json",
         }
     assert (out_dir / "version_0" / "metrics.csv").is_file()
 
@@ -624,7 +626,7 @@ def test_lora_bitsandbytes(monkeypatch, tmp_path, fake_checkpoint_dir, alpaca_pa
     monkeypatch.setattr(module, "fit", train_mock)
 
     stdout = StringIO()
-    with redirect_stdout(stdout):
+    with redirect_stdout(stdout), mock.patch("sys.argv", ["full.py"]):
         module.setup(
             data=Alpaca(
                 download_dir=alpaca_path.parent,

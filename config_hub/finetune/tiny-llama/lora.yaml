@@ -1,0 +1,48 @@
+precision: bf16-true
+quantize: null
+devices: 1
+seed: 1337
+lora_r: 32
+lora_alpha: 16
+lora_dropout: 0.05
+lora_query: true
+lora_key: false
+lora_value: true
+lora_projection: false
+lora_mlp: false
+lora_head: false
+data:
+  class_path: lit_gpt.data.AlpacaGPT4
+  init_args:
+    mask_prompt: false
+    test_split_fraction: 0.03847
+    prompt_style: "alpaca"
+    ignore_index: -1
+    seed: 42
+    num_workers: 4
+    download_dir: data/alpacagpt4
+    file_url: https://raw.githubusercontent.com/Instruction-Tuning-with-GPT-4/GPT-4-LLM/main/data/alpaca_gpt4_data.json
+    file_name: alpacagpt4_data_cleaned_archive.json
+checkpoint_dir: checkpoints/TinyLlama/TinyLlama-1.1B-intermediate-step-1431k-3T
+out_dir: out/finetune/lora-tiny-llama-1.1b
+train:
+  save_interval: 800
+  log_interval: 1
+  global_batch_size: 8
+  micro_batch_size: 8
+  lr_warmup_steps: 10
+  epochs: 1
+  max_tokens: null
+  max_steps: null
+  max_seq_length: 512
+  tie_embeddings: null
+  learning_rate: 0.0002
+  weight_decay: 0.0
+  beta1: 0.9
+  beta2: 0.95
+  max_norm: null
+  min_lr: 6.0e-05
+eval:
+  interval: 400
+  max_new_tokens: 100
+  max_iters: 100
