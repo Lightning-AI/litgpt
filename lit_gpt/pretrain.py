@@ -285,12 +285,12 @@ def validate(fabric: L.Fabric, model: nn.Module, val_dataloader: DataLoader, max
     fabric.print("Validating ...")
     model.eval()
 
-    losses = torch.zeros(max_iters, device=fabric.device)
-    for k, val_data in enumerate(val_dataloader):
+    losses = torch.zeros(min(len(val_dataloader), max_iters))
+    for k, batch in enumerate(val_dataloader):
         if k >= max_iters:
             break
-        input_ids = val_data[:, 0 : model.config.block_size].contiguous().long()
-        targets = val_data[:, 1 : (model.config.block_size + 1)].contiguous().long()
+        input_ids = batch[:, 0 : model.config.block_size].contiguous().long()
+        targets = batch[:, 1 : (model.config.block_size + 1)].contiguous().long()
         logits = model(input_ids)
         loss = chunked_cross_entropy(logits, targets)
         losses[k] = loss
