@@ -18,47 +18,54 @@ def test_prompt_style_from_name():
 
 
 def test_prompt_style_from_config():
+    import lit_gpt.config
     from lit_gpt import Config
     from lit_gpt.prompts import PromptStyle, Default
 
-    model_names = {
-        "stablelm-tuned-alpha-3b": "stablelm-alpha",
-        "stablelm-tuned-alpha-7b": "stablelm-alpha",
-        "stablelm-zephyr-3b": "stablelm-zephyr",
-        "stablecode-instruct-alpha-3b": "stablecode",
-        "falcon-7b-instruct": "falcon",
-        "falcon-40b-instruct": "falcon",
-        "vicuna-7b-v1.3": "vicuna",
-        "vicuna-13b-v1.3": "vicuna",
-        "vicuna-33b-v1.3": "vicuna",
-        "vicuna-7b-v1.5": "vicuna",
-        "vicuna-7b-v1.5-16k": "vicuna",
-        "vicuna-13b-v1.5": "vicuna",
-        "vicuna-13b-v1.5-16k": "vicuna",
-        "longchat-7b-16k": "vicuna",
-        "longchat-13b-16k": "vicuna",
-        "Nous-Hermes-llama-2-7b": "nous-research",
-        "Nous-Hermes-13b": "nous-research",
-        "Nous-Hermes-Llama2-13b": "nous-research",
-        "Llama-2-7b-chat-hf": "llama2",
-        "Llama-2-13b-chat-hf": "llama2",
-        "Llama-2-70b-chat-hf": "llama2",
-        "Gemma-2b-it": "gemma",
-        "Gemma-7b-it": "gemma",
-        "FreeWilly2": "freewilly2",
-        "CodeLlama-7b-Instruct-hf": "codellama",
-        "CodeLlama-13b-Instruct-hf": "codellama",
-        "CodeLlama-34b-Instruct-hf": "codellama",
-        "CodeLlama-70b-Instruct-hf": "codellama",
-        "phi-1_5": "phi-1",
-        "phi-2": "phi-2",
-        "Mistral-7B-Instruct-v0.1": "codellama",
-        "Mistral-7B-Instruct-v0.2": "codellama",
-        "tiny-llama-1.1b-chat": "tinyllama",
-        "Llama-2-7b-chat-hf-function-calling-v2": "llama2-function-calling",
-    }
+    model_names = [
+        "stablelm-tuned-alpha-3b",
+        "stablelm-tuned-alpha-7b",
+        "stablelm-zephyr-3b",
+        "stablecode-instruct-alpha-3b",
+        "falcon-7b-instruct",
+        "falcon-40b-instruct",
+        "vicuna-7b-v1.3",
+        "vicuna-13b-v1.3",
+        "vicuna-33b-v1.3",
+        "vicuna-7b-v1.5",
+        "vicuna-7b-v1.5-16k",
+        "vicuna-13b-v1.5",
+        "vicuna-13b-v1.5-16k",
+        "longchat-7b-16k",
+        "longchat-13b-16k",
+        "Nous-Hermes-llama-2-7b",
+        "Nous-Hermes-13b",
+        "Nous-Hermes-Llama2-13b",
+        "Llama-2-7b-chat-hf",
+        "Llama-2-13b-chat-hf",
+        "Llama-2-70b-chat-hf",
+        "Gemma-2b-it",
+        "Gemma-7b-it",
+        "FreeWilly2",
+        "CodeLlama-7b-Instruct-hf",
+        "CodeLlama-13b-Instruct-hf",
+        "CodeLlama-34b-Instruct-hf",
+        "CodeLlama-70b-Instruct-hf",
+        "phi-1_5",
+        "phi-2",
+        "Mistral-7B-Instruct-v0.1",
+        "Mistral-7B-Instruct-v0.2",
+        "tiny-llama-1.1b-chat",
+        "Llama-2-7b-chat-hf-function-calling-v2",
+    ]
+    for template in ("RedPajama-INCITE-{}-3B-v1", "RedPajama-INCITE-7B-{}", "RedPajama-INCITE-{}-7B-v0.1"):
+        model_names.append(template.format("Chat"))
+        model_names.append(template.format("Instruct"))
+    for c in lit_gpt.config.platypus:
+        model_names.append(c["name"])
 
     for model_name in model_names:
+        # by asserting the returned style is not the Default, we show that at least one of the regex patterns matched
         assert not isinstance(PromptStyle.from_config(Config.from_name(model_name)), Default)
 
 

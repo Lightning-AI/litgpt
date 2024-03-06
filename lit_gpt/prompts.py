@@ -300,9 +300,9 @@ def model_name_to_prompt_style(model_name: str) -> PromptStyle:
         return StableLMZephyr()
     if re.search("stablecode-instruct", model_name):
         return StableCode()
-    if re.search(r"RedPajama-INCITE-Chat", model_name):
+    if re.search(r"RedPajama-INCITE.*-Chat", model_name):
         return TogetherComputerChat()
-    if re.search(r"RedPajama-INCITE-Instruct", model_name):
+    if re.search(r"RedPajama-INCITE.*-Instruct", model_name):
         return TogetherComputerInstruct()
     if re.search(r"falcon.*-instruct", model_name):
         return Falcon()
