@@ -3,6 +3,8 @@
 import json
 import os
 import shutil
+from contextlib import redirect_stdout
+from io import StringIO
 from unittest import mock
 
 import torch
@@ -59,3 +61,9 @@ def test_merge_lora(tmp_path, fake_checkpoint_dir):
     keys = base_model.load_state_dict(merged, strict=True)
     assert not keys.missing_keys
     assert not keys.unexpected_keys
+
+    # Attempt to merge again
+    stdout = StringIO()
+    with redirect_stdout(stdout):
+        merge_lora(lora_checkpoint_dir)
+    assert "LoRA weights have already been merged" in stdout.getvalue()

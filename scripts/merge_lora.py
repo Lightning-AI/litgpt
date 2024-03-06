@@ -41,6 +41,9 @@ def merge_lora(
     check_valid_checkpoint_dir(checkpoint_dir)
     if pretrained_checkpoint_dir is not None:
         check_valid_checkpoint_dir(pretrained_checkpoint_dir)
+    if (checkpoint_dir / "lit_model.pth.lora").is_file():
+        print("LoRA weights have already been merged in this checkpoint.")
+        return
 
     lora_params, pretrained_checkpoint_dir, lora_precision = load_lora_metadata(checkpoint_dir)
     precision = precision if precision is not None else lora_precision
@@ -66,7 +69,6 @@ def merge_lora(
     torch.save(state_dict, save_path)
 
     # Make a backup of the LoRA weights (they are only a few MBs)
-    # TODO: Validate it not already exists
     shutil.move(checkpoint_dir / "lit_model.pth", checkpoint_dir / "lit_model.pth.lora")
     shutil.move(checkpoint_dir / "lit_model.pth.merged", checkpoint_dir / "lit_model.pth")
 
