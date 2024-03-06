@@ -214,7 +214,7 @@ def test_lora_script(tmp_path, fake_checkpoint_dir, monkeypatch, alpaca_path):
         )
 
     out_dir_contents = set(os.listdir(out_dir))
-    checkpoint_dirs = {"iter-000002", "iter-000004", "iter-000006", "final"}
+    checkpoint_dirs = {"step-000002", "step-000004", "step-000006", "final"}
     assert checkpoint_dirs.issubset(out_dir_contents)
     assert all((out_dir / p).is_dir() for p in checkpoint_dirs)
     for checkpoint_dir in checkpoint_dirs:
