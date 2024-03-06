@@ -50,12 +50,7 @@ def merge_lora(
     with fabric.init_module(empty_init=True):
         model = GPT(config)
 
-    # Make a backup of the LoRA weights (they are only a few MBs)
-    # TODO: Validate it not already exists
-    # TODO: The merging below could fail for some reason
-    lora_path = checkpoint_dir / "lit_model.pth.lora"
-    shutil.move(checkpoint_dir / "lit_model.pth", lora_path)
-
+    lora_path = checkpoint_dir / "lit_model.pth"
     pretrained_checkpoint = lazy_load(pretrained_checkpoint_dir / "lit_model.pth")
     lora_checkpoint = lazy_load(lora_path)
 
@@ -64,13 +59,18 @@ def merge_lora(
     model.load_state_dict(pretrained_checkpoint)
     merge_lora_weights(model)
 
-    save_path = checkpoint_dir / "lit_model.pth"
-    fabric.print(f"Saving merged weights to {str(save_path)!r}")
-    fabric.print(f"A backup of the old LoRA weights is in {str(lora_path)!r}")
-
-    # Remove lora parameters and the lora linear substring
+    # Remove LoRA parameters and the LoRA linear substring
     state_dict = {k.replace("linear.", ""): v for k, v in model.state_dict().items() if not lora_filter(k, v)}
+    save_path = checkpoint_dir / "lit_model.pth.merged"
     torch.save(state_dict, save_path)
+
+    # Make a backup of the LoRA weights (they are only a few MBs)
+    # TODO: Validate it not already exists
+    shutil.move(checkpoint_dir / "lit_model.pth", checkpoint_dir / "lit_model.pth.lora")
+    shutil.move(checkpoint_dir / "lit_model.pth.merged", checkpoint_dir / "lit_model.pth")
+
+    fabric.print(f"Saved merged weights to {str(checkpoint_dir / 'lit_model.pth')!r}")
+    fabric.print(f"A backup of the old LoRA weights is in {str(checkpoint_dir / 'lit_model.pth.lora')!r}")
 
 
 def load_lora_metadata(checkpoint_dir: Path) -> Tuple[Dict[str, Any], Path]:
