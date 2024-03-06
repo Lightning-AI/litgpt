@@ -225,7 +225,7 @@ def fit(
             fabric.print(f"iter {iter_num}: val loss {val_loss.item():.4f}, val time: {t1 * 1000:.2f} ms")
             fabric.barrier()
         if not is_accumulating and step_count % train.save_interval == 0:
-            checkpoint_file = out_dir / f"iter-{iter_num:06d}" / "lit_model.pth"
+            checkpoint_file = out_dir / f"step-{step_count:06d}" / "lit_model.pth"
             checkpoint_file.parent.mkdir(parents=True, exist_ok=True)
             save_adapter_v2_checkpoint(fabric, model, checkpoint_file)
             if fabric.global_rank == 0:
