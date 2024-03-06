@@ -6,6 +6,7 @@ from io import StringIO
 from unittest import mock
 from unittest.mock import Mock
 
+import pytest
 import torch
 from conftest import RunIf
 from torch.utils.data import DataLoader
@@ -14,7 +15,11 @@ from torch.utils.data import DataLoader
 @RunIf(min_cuda_gpus=2, standalone=True)
 # Set CUDA_VISIBLE_DEVICES for FSDP hybrid-shard, if fewer GPUs are used than are available
 @mock.patch.dict(os.environ, {"CUDA_VISIBLE_DEVICES": "0,1"})
-def test_pretrain(tmp_path, monkeypatch):
+# If we were to use `save_hyperparameters()`, we would have to patch `sys.argv` or otherwise
+# the CLI would capture pytest args, but unfortunately patching would mess with subprocess
+# launching, so we need to mock `save_hyperparameters()`
+@mock.patch("lit_gpt.pretrain.save_hyperparameters")
+def test_pretrain(_, tmp_path):
     from lit_gpt import pretrain
     from lit_gpt.args import EvalArgs, TrainArgs
     from lit_gpt.config import Config
@@ -30,7 +35,7 @@ def test_pretrain(tmp_path, monkeypatch):
     with redirect_stdout(stdout):
         pretrain.setup(
             devices=2,
-            model=model_config,
+            model_config=model_config,
             out_dir=out_dir,
             train=TrainArgs(global_batch_size=2, max_tokens=16, save_interval=1, micro_batch_size=1, max_norm=1.0),
             eval=EvalArgs(interval=1, max_iters=1),
@@ -44,7 +49,7 @@ def test_pretrain(tmp_path, monkeypatch):
         assert all((out_dir / p).is_dir() for p in checkpoint_dirs)
         for checkpoint_dir in checkpoint_dirs:
             # the `tokenizer_dir` is None by default, so only 'lit_model.pth' shows here
-            assert {p.name for p in (out_dir / checkpoint_dir).iterdir()} == {"lit_model.pth"}
+            assert set(os.listdir(out_dir / checkpoint_dir)) == {"lit_model.pth"}
 
         # logs only appear on rank 0
         logs = stdout.getvalue()
@@ -53,3 +58,11 @@ def test_pretrain(tmp_path, monkeypatch):
         assert "Total parameters: 1,888" in logs
 
     torch.distributed.barrier()
+
+
+def test_pretrain_model_name_and_config():
+    from lit_gpt import pretrain
+    from lit_gpt.config import Config
+
+    with pytest.raises(ValueError, match="Only one of `model_name` or `model_config`"):
+        pretrain.setup(model_name="tiny-llama-1.1b", model_config=Config(name="tiny-llama-1.1b"))
