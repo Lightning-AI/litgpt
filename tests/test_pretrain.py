@@ -6,6 +6,7 @@ from io import StringIO
 from unittest import mock
 from unittest.mock import Mock
 
+import pytest
 import torch
 from conftest import RunIf
 from torch.utils.data import DataLoader
@@ -34,7 +35,7 @@ def test_pretrain(_, tmp_path):
     with redirect_stdout(stdout):
         pretrain.setup(
             devices=2,
-            model=model_config,
+            model_config=model_config,
             out_dir=out_dir,
             train=TrainArgs(global_batch_size=2, max_tokens=16, save_interval=1, micro_batch_size=1, max_norm=1.0),
             eval=EvalArgs(interval=1, max_iters=1),
@@ -57,3 +58,11 @@ def test_pretrain(_, tmp_path):
         assert "Total parameters: 1,888" in logs
 
     torch.distributed.barrier()
+
+
+def test_pretrain_model_name_and_config():
+    from lit_gpt import pretrain
+    from lit_gpt.config import Config
+
+    with pytest.raises(ValueError, match="Only one of `model_name` or `model_config`"):
+        pretrain.setup(model_name="tiny-llama-1.1b", model_config=Config(name="tiny-llama-1.1b"))
