@@ -22,6 +22,7 @@ from generate.base import generate
 from lit_gpt.adapter_v2 import GPT, Block, Config, adapter_filter, mark_only_adapter_v2_as_trainable
 from lit_gpt.args import EvalArgs, TrainArgs
 from lit_gpt.data import Alpaca, LitDataModule
+from lit_gpt.prompts import save_prompt_style
 from lit_gpt.tokenizer import Tokenizer
 from lit_gpt.utils import (
     CLI,
@@ -148,6 +149,7 @@ def main(fabric: L.Fabric, devices: int, seed: int, config: Config, data: LitDat
         # Copy checkpoint files from original checkpoint dir
         copy_config_files(checkpoint_dir, save_path.parent)
         save_hyperparameters(setup, save_path.parent)
+        save_prompt_style(data.prompt_style, save_path.parent)
 
 
 def fit(
@@ -229,6 +231,7 @@ def fit(
             if fabric.global_rank == 0:
                 copy_config_files(checkpoint_dir, checkpoint_file.parent)
                 save_hyperparameters(setup, checkpoint_file.parent)
+                save_prompt_style(data.prompt_style, checkpoint_file.parent)
 
 
 # the adapter "kv cache" cannot be initialized under `inference_mode`
