@@ -34,7 +34,7 @@ Note that the number of tokens in the training set does not affect the supported
 
 ## Finetuning with LoRA on 1 GPU
 
-The following experiments were conducted on 1xA100 with a minibatch size of 128 using the `finetune/lora.py` script.
+The following experiments were conducted on 1xA100 with a minibatch size of 128 using the `litgpt/finetune/lora.py` script.
 
 | Size  | Model          | Quantization | Microbatch size | Trainable parameters | Max GPU RAM | Time 1k iterations |
 |-------|----------------|--------------|-----------------|----------------------|-------------|--------------------|
@@ -70,7 +70,7 @@ The following experiments were conducted on 1xA100 with a minibatch size of 128 
 
 ## Finetuning with Adapter on 1 GPU
 
-The following experiments were conducted on 1xA100 with a minibatch size of 128 using the `finetune/adapter.py` script.
+The following experiments were conducted on 1xA100 with a minibatch size of 128 using the `litgpt/finetune/adapter.py` script.
 
 | Size | Model          | Quantization | Microbatch size | Trainable parameters | Max GPU RAM | Time 1k iterations |
 |------|----------------|--------------|-----------------|----------------------|-------------|--------------------|
@@ -82,7 +82,7 @@ The following experiments were conducted on 1xA100 with a minibatch size of 128 
 | 7 B  | Llama 2        | bnb.nf4      | 1               | 1,229,760            | 12.68 GB    | 2.93 min           |
 | 7 B  | Llama 2        | bnb.nf4-dq   | 1               | 1,229,760            | 12.38 GB    | 3.00 min           |
 
-The same config, but using the `finetune/adapter_v2.py` script.
+The same config, but using the `litgpt/finetune/adapter_v2.py` script.
 
 | Size | Model          | Quantization | Microbatch size | Trainable parameters | Max GPU RAM | Time 1k iterations |
 |------|----------------|--------------|-----------------|----------------------|-------------|--------------------|
@@ -98,7 +98,7 @@ The same config, but using the `finetune/adapter_v2.py` script.
 
 ## Finetuning with LoRA on Multiple GPUs
 
-The following experiments were conducted on multiple A100 GPUs with a minibatch size of 128 using the `finetune/lora.py` script.
+The following experiments were conducted on multiple A100 GPUs with a minibatch size of 128 using the `litgpt/finetune/lora.py` script.
 
 | Size  | Model          | Quantization | Microbatch size | Trainable parameters | GPU      | Max GPU RAM | Time 1k iterations |
 |-------|----------------|--------------|-----------------|----------------------|----------|-------------|--------------------|

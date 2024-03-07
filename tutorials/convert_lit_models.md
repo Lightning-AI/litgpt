@@ -93,7 +93,7 @@ python scripts/prepare_alpaca.py \
 ```bash
 export finetuned_dir=out/lit-finetuned-model
 
-python finetune/lora.py \
+python litgpt/finetune/lora.py \
    --checkpoint_dir checkpoints/$repo_id \
    --out_dir $finetuned_dir \
    --train.epochs 1 \

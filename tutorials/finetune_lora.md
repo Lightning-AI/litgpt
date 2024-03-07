@@ -27,7 +27,7 @@ For more information about dataset preparation, also see the [prepare_dataset.md
 ## Running the Finetuning
 
 ```bash
-python finetune/lora.py --data Alpaca
+python litgpt/finetune/lora.py --data Alpaca
 ```
 
 The finetuning requires at least one GPU with ~24 GB memory (RTX 3090).
@@ -37,18 +37,18 @@ This script will save checkpoints periodically to the folder `out/`.
 > [!NOTE]
 > LoRA can be applied to not only `query`, `key` or `value` matrices, but also to `projection`, `mlp` and classification `head`.
 > According to [QLoRA](https://arxiv.org/abs/2305.14314) paper (section 4): "LoRA on all linear transformer block layers are required to match full finetuning performance".
-> By default LoRA is applied only to the `query` and `value` matrices. In order to apply LoRA to other weight matrices - change the variables in `finetune/lora.py` accordingly.
+> By default LoRA is applied only to the `query` and `value` matrices. In order to apply LoRA to other weight matrices - change the arguments to `litgpt/finetune/lora.py` accordingly.
 
 Optionally, finetuning using 4-bit quantization (as in QLoRA) can be enabled via the `--quantize` flag, for example using the 4-bit NormalFloat data type:
 
 ```bash
-python finetune/lora.py --quantize "bnb.nf4"
+python litgpt/finetune/lora.py --quantize "bnb.nf4"
 ```
 
 and optionally with double-quantization:
 
 ```bash
-python finetune/lora.py --quantize "bnb.nf4-dq"
+python litgpt/finetune/lora.py --quantize "bnb.nf4-dq"
 ```
 
 The table below lists a comparison with different settings on a StableLM 3B model finetuned with LoRA on Alpaca for 1,000 iterations using a microbatch size of 1:
@@ -111,10 +111,10 @@ You can easily train on your own instruction dataset saved in JSON format.
     ]
     ```
 
-2. Run `finetune/lora.py` by passing in the location of your data (and optionally other parameters):
+2. Run `litgpt/finetune/lora.py` by passing in the location of your data (and optionally other parameters):
 
     ```bash
-    python finetune/lora.py \
+    python litgpt/finetune/lora.py \
         --data JSON \
         --data.json_path data/mydata.json \
         --checkpoint_dir checkpoints/tiiuae/falcon-7b \
@@ -134,7 +134,7 @@ because the weights don't have to be added during runtime.)
 Let's assume we finetuned a model using LoRA as follows:
 
 ```bash
-python finetune/lora.py \
+python litgpt/finetune/lora.py \
   --checkpoint_dir "checkpoints/stabilityai/stablelm-base-alpha-3b/" \
   --train_data_dir data/mydata --val_data_dir data/mydata/ \
   --out_dir "out/lora/stablelm-base-alpha-3b/"
