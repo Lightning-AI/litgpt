@@ -5,7 +5,6 @@ import time
 import traceback
 from pathlib import Path
 
-import pyarrow.parquet as pq
 from lightning.data.streaming import DataChunkRecipe, DataProcessor
 
 from litgpt import Tokenizer
@@ -22,6 +21,8 @@ class StarcoderDataRecipe(DataChunkRecipe):
         return [str(file) for file in files]
 
     def prepare_item(self, item_metadata):
+        import pyarrow.parquet as pq
+
         filepath = item_metadata
         start = time.time()
 

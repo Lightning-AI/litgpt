@@ -5,7 +5,6 @@ import os
 import time
 from pathlib import Path
 
-import zstandard as zstd
 from lightning.data.streaming import DataChunkRecipe, DataProcessor
 
 from litgpt import Tokenizer
@@ -22,6 +21,8 @@ class SlimPajamaDataRecipe(DataChunkRecipe):
         return [str(file) for file in files]
 
     def prepare_item(self, filepath):
+        import zstandard as zstd
+
         with zstd.open(open(filepath, "rb"), "rt", encoding="utf-8") as f:
             for row in f:
                 text = json.loads(row)["text"]
