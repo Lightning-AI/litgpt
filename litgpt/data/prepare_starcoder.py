@@ -5,10 +5,17 @@ import time
 import traceback
 from pathlib import Path
 
-from lightning.data.streaming import DataChunkRecipe, DataProcessor
+from lightning_utilities.core.imports import RequirementCache
 
 from litgpt import Tokenizer
 from litgpt.utils import CLI
+
+_LITDATA_AVAILABLE = RequirementCache("litdata")
+if _LITDATA_AVAILABLE:
+    from lightning.data.streaming import DataChunkRecipe
+else:
+    DataChunkRecipe = object
+
 
 
 class StarcoderDataRecipe(DataChunkRecipe):
@@ -50,6 +57,8 @@ def prepare(
     chunk_size: int = (2049 * 8192),
     fast_dev_run: bool = False,
 ) -> None:
+    from lightning.data.streaming import DataProcessor
+
     tokenizer = Tokenizer(tokenizer_path)
     data_recipe = StarcoderDataRecipe(tokenizer=tokenizer, chunk_size=chunk_size)
     data_processor = DataProcessor(
