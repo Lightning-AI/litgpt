@@ -2,6 +2,7 @@
 import dataclasses
 import math
 import os
+import pprint
 import sys
 import time
 from pathlib import Path
@@ -60,7 +61,7 @@ def setup(
     eval: EvalArgs = EvalArgs(interval=600, max_new_tokens=100, max_iters=100),
 ) -> None:
 
-    print(locals())
+    print(pprint.pformat(locals()))
     data = Alpaca() if data is None else data
     devices = parse_devices(devices)
 
