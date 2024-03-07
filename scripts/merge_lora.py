@@ -26,7 +26,8 @@ def merge_lora(
 ) -> None:
     """Merges the LoRA weights with the base model. See `finetune/lora.py`.
 
-    Merging happens in-place in the checkpoint directory that is given as input.
+    Merging happens in-place in the checkpoint directory that is given as input. It also saves
+    a backup file `lit_model.pth.lora` of the trained LoRA weights in case you still need it later.
 
     Args:
         checkpoint_dir: Path to the checkpoint directory with trained LoRA weights, which is the output of
