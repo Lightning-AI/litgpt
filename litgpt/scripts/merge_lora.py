@@ -20,7 +20,7 @@ def merge_lora(
 ) -> None:
     """Merges the LoRA weights with the base model. See `litgpt/finetune/lora.py`.
 
-    Merging generates a new `lit_model.pth` file by merging the LoRA weights (`lit_model.pth.lora`)
+    Creates a new `lit_model.pth` file by merging the LoRA weights (`lit_model.pth.lora`)
     with the original checkpoint weights.
 
     Args:
