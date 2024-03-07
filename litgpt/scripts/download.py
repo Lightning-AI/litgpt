@@ -1,7 +1,6 @@
 # Copyright Lightning AI. Licensed under the Apache License 2.0, see LICENSE file.
 
 import os
-import sys
 from contextlib import contextmanager
 from pathlib import Path
 from typing import Optional, List, Tuple
@@ -9,12 +8,8 @@ from typing import Optional, List, Tuple
 import torch
 from lightning_utilities.core.imports import RequirementCache
 
-# support running without installing as a package
-wd = Path(__file__).parent.parent.resolve()
-sys.path.append(str(wd))
-
+from litgpt.scripts.convert_hf_checkpoint import convert_hf_checkpoint
 from litgpt.utils import CLI
-from scripts.convert_hf_checkpoint import convert_hf_checkpoint
 
 _SAFETENSORS_AVAILABLE = RequirementCache("safetensors")
 _HF_TRANSFER_AVAILABLE = RequirementCache("hf_transfer")

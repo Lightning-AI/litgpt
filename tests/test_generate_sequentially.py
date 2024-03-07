@@ -275,7 +275,7 @@ root = Path(__file__).parent.parent.resolve()
 @RunIf(min_cuda_gpus=2)
 def test_base_with_sequentially(tmp_path):
     from litgpt import GPT, Config
-    from scripts.download import download_from_hub
+    from litgpt.scripts.download import download_from_hub
 
     # download the tokenizer
     download_from_hub(repo_id="EleutherAI/pythia-14m", tokenizer_only=True, checkpoint_dir=tmp_path)

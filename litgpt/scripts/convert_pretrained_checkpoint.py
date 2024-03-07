@@ -1,16 +1,8 @@
 # Copyright Lightning AI. Licensed under the Apache License 2.0, see LICENSE file.
 
-import json
-import shutil
-import sys
-from dataclasses import asdict
 from pathlib import Path
 
 import torch
-
-# support running without installing as a package
-wd = Path(__file__).parent.parent.resolve()
-sys.path.append(str(wd))
 
 from litgpt.utils import CLI, incremental_save, copy_config_files
 

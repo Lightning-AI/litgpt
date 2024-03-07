@@ -1,11 +1,11 @@
 ## Converting LitGPT weights to Hugging Face Transformers
 
-LitGPT weights need to be converted to a format that Hugging Face understands with a [conversion script](../scripts/convert_lit_checkpoint.py) before our scripts can run.
+LitGPT weights need to be converted to a format that Hugging Face understands with a [conversion script](../litgpt/scripts/convert_lit_checkpoint.py) before our scripts can run.
 
 We provide a helpful script to convert models LitGPT models back to their equivalent Hugging Face Transformers format:
 
 ```sh
-python scripts/convert_lit_checkpoint.py \
+python litgpt/scripts/convert_lit_checkpoint.py \
     --checkpoint_path checkpoints/repo_id/lit_model.pth \
     --output_path output_path/converted.pth \
     --config_path checkpoints/repo_id/config.json
@@ -46,7 +46,7 @@ model = AutoModel.from_pretrained("online_repo_id", state_dict=state_dict)
 
 ### Merging LoRA weights
 
-Please note that if you want to convert a model that has been fine-tuned using an adapter like LoRA, these weights should be [merged](../scripts/merge_lora.py) to the checkpoint prior to converting.
+Please note that if you want to convert a model that has been fine-tuned using an adapter like LoRA, these weights should be [merged](../litgpt/scripts/merge_lora.py) to the checkpoint prior to converting.
 
 ```sh
 python scripts/merge_lora.py \
@@ -70,12 +70,12 @@ export repo_id=TinyLlama/TinyLlama-1.1B-intermediate-step-1431k-3T
 
 Instead of using TinyLlama, you can replace the `repo_id` target with any other model repository 
 specifier that is currently supported by LitGPT. You can get a list of supported repository specifier
-by running `scripts/download.py` without any additional arguments.
+by running `litgpt/scripts/download.py` without any additional arguments.
 
 Then, we download the model we specified via `$repo_id` above:
 
 ```bash
-python scripts/download.py --repo_id $repo_id
+python litgpt/scripts/download.py --repo_id $repo_id
 ```
 
 2. Finetune the model:
@@ -104,7 +104,7 @@ python scripts/merge_lora.py \
 4. Convert the finetuning model back into a HF format:
 
 ```bash
-python scripts/convert_lit_checkpoint.py \
+python litgpt/scripts/convert_lit_checkpoint.py \
    --checkpoint_path $finetuned_dir/final/lit_model.pth \
    --output_path out/hf-tinyllama/converted_model.pth \
    --config_path checkpoints/$repo_id/lit_config.json 

@@ -2,19 +2,13 @@
 
 import gc
 import json
-import sys
 from collections import defaultdict
-from dataclasses import asdict
 from functools import partial
 from pathlib import Path
 from typing import Dict, List, Optional, Tuple, Union
 
 import torch
 from lightning.fabric.utilities.load import _NotYetLoadedTensor as NotYetLoadedTensor
-
-# support running without installing as a package
-wd = Path(__file__).parent.parent.resolve()
-sys.path.append(str(wd))
 
 from litgpt import Config
 from litgpt.utils import incremental_save, lazy_load, save_config

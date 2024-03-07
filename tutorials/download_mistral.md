@@ -16,7 +16,7 @@ Details about the data used to train the model or training procedure have not be
 To see all the available checkpoints, run:
 
 ```bash
-python scripts/download.py | grep -E 'Mistral|Mixtral'
+python litgpt/scripts/download.py | grep -E 'Mistral|Mixtral'
 ```
 
 which will print
@@ -34,7 +34,7 @@ In order to use the Mistral 7B model checkpoint, which requires about 14 GB of d
 ```bash
 pip install 'huggingface_hub[hf_transfer] @ git+https://github.com/huggingface/huggingface_hub'
 
-python scripts/download.py --repo_id mistralai/Mistral-7B-Instruct-v0.2
+python litgpt/scripts/download.py --repo_id mistralai/Mistral-7B-Instruct-v0.2
 ```
 
 You're done! To execute the model just run:
@@ -57,7 +57,7 @@ In order to use the Mixtral 7B model checkpoint, which requires about 94 GB of d
 ```bash
 pip install 'huggingface_hub[hf_transfer] @ git+https://github.com/huggingface/huggingface_hub'
 
-python scripts/download.py --repo_id mistralai/Mixtral-8x7B-Instruct-v0.1
+python litgpt/scripts/download.py --repo_id mistralai/Mixtral-8x7B-Instruct-v0.1
 ```
 
 Due to the size of the model, currently only the multi-device sequential generation script can handle it.

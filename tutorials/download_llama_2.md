@@ -13,7 +13,7 @@ Llama 2 comes in a range of parameter sizes — 7B, 13B, and 70B — as well as 
 To see all the available checkpoints, run:
 
 ```bash
-python scripts/download.py | grep Llama-2
+python litgpt/scripts/download.py | grep Llama-2
 ```
 
 which will print
@@ -35,7 +35,7 @@ After access is granted, you can find your HF hub token in <https://huggingface.
 ```bash
 pip install 'huggingface_hub[hf_transfer] @ git+https://github.com/huggingface/huggingface_hub'
 
-python scripts/download.py --repo_id meta-llama/Llama-2-7b-chat-hf --access_token your_hf_token
+python litgpt/scripts/download.py --repo_id meta-llama/Llama-2-7b-chat-hf --access_token your_hf_token
 ```
 
 By default, the checkpoint conversion step will use the data type of the HF checkpoint's parameters. In cases where RAM

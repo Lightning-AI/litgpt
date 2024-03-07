@@ -12,7 +12,7 @@ For detailed info on the models, their training, and their behavior, please see 
 To see all the available checkpoints for Dolly, run:
 
 ```bash
-python scripts/download.py | grep dolly
+python litgpt/scripts/download.py | grep dolly
 ```
 
 which will print
@@ -28,7 +28,7 @@ In order to use a specific Dolly checkpoint, for instance [dolly-v2-3b](https://
 ```bash
 pip install 'huggingface_hub[hf_transfer] @ git+https://github.com/huggingface/huggingface_hub'
 
-python scripts/download.py --repo_id databricks/dolly-v2-3b
+python litgpt/scripts/download.py --repo_id databricks/dolly-v2-3b
 ```
 
 By default, the checkpoint conversion step will use the data type of the HF checkpoint's parameters. In cases where RAM

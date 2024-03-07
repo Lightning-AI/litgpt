@@ -8,7 +8,7 @@ It includes a suite of 8 checkpoints (weights) on 2 different datasets: [The Pil
 To see all the available checkpoints for Pythia, run:
 
 ```bash
-python scripts/download.py | grep pythia
+python litgpt/scripts/download.py | grep pythia
 ```
 
 which will print
@@ -39,7 +39,7 @@ In order to use a specific Pythia checkpoint, for instance [pythia-1b](https://h
 ```bash
 pip install 'huggingface_hub[hf_transfer] @ git+https://github.com/huggingface/huggingface_hub'
 
-python scripts/download.py --repo_id EleutherAI/pythia-1b
+python litgpt/scripts/download.py --repo_id EleutherAI/pythia-1b
 ```
 
 By default, the checkpoint conversion step will use the data type of the HF checkpoint's parameters. In cases where RAM
