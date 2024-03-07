@@ -44,12 +44,12 @@ Around 1.2 TB of disk space is required to store both datasets.
 
 ## Prepare the datasets for training
 
-In order to start pretraining litgpt on it, you need to read, tokenize, and write the data in binary chunks. This will leverage our `lightning.data` optimization pipeline and streaming dataset that comes with Lightning.
+In order to start pretraining litgpt on it, you need to read, tokenize, and write the data in binary chunks. This will leverage the `litdata` optimization pipeline and streaming dataset.
 
 First, install additional dependencies for preprocessing:
 
 ```bash
-pip install 'lightning[data]' torchmetrics tensorboard sentencepiece zstandard pandas pyarrow 'huggingface_hub[hf_transfer] @ git+https://github.com/huggingface/huggingface_hub'
+pip install -r requirements-all.txt
 ```
 
 You will need to have the tokenizer config available:

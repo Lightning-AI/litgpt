@@ -53,7 +53,7 @@ class TinyLlama(LitDataModule):
                 )
 
     def train_dataloader(self) -> DataLoader:
-        from lightning.data.streaming import CombinedStreamingDataset, StreamingDataLoader, StreamingDataset, TokensLoader
+        from litdata.streaming import CombinedStreamingDataset, StreamingDataLoader, StreamingDataset, TokensLoader
 
         train_datasets = [
             StreamingDataset(
@@ -79,7 +79,7 @@ class TinyLlama(LitDataModule):
         return train_dataloader
 
     def val_dataloader(self) -> DataLoader:
-        from lightning.data.streaming import StreamingDataset, TokensLoader
+        from litdata.streaming import StreamingDataset, TokensLoader
 
         val_dataset = StreamingDataset(
             input_dir=self.slimpajama_val,
