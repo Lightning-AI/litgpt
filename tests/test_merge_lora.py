@@ -7,13 +7,14 @@ from contextlib import redirect_stdout
 from io import StringIO
 from pathlib import Path
 from unittest import mock
+from conftest import RunIf
 
 import pytest
 import torch
 import yaml
 
 
-@pytest.mark.skip(reason="Debug")
+@RunIf(skip_windows=True)  # PermissionError in os.rename on Windows
 @mock.patch.dict(os.environ, {"LT_ACCELERATOR": "cpu"})
 def test_merge_lora(tmp_path, fake_checkpoint_dir):
     from lit_gpt.lora import GPT as LoRAGPT
