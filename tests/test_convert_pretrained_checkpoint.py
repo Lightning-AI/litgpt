@@ -5,7 +5,7 @@ import os
 import torch
 
 
-def test_convert_pretrained_checkpoint(tmp_path):
+def test_convert_pretrained_checkpoint(tmp_path, fake_checkpoint_dir):
     from scripts.convert_pretrained_checkpoint import convert_checkpoint
 
     # Pretend we made a checkpoint from pretraining
@@ -14,20 +14,12 @@ def test_convert_pretrained_checkpoint(tmp_path):
         "the_optimizer": "optimizer_state",
         "other": 1,
     }
-    torch.save(pretrained_checkpoint, tmp_path / "pretrained.pth")
+    torch.save(pretrained_checkpoint, fake_checkpoint_dir / "lit_model.pth")
 
-    # Make a fake tokenizer config file
-    llama_checkpoint_folder = tmp_path / "checkpoints" / "meta-llama" / "Llama-2-7b-hf"
-    llama_checkpoint_folder.mkdir(parents=True)
-    (llama_checkpoint_folder / "tokenizer_config.json").touch()
+    convert_checkpoint(checkpoint_dir=fake_checkpoint_dir, output_dir=(tmp_path / "converted"))
 
-    convert_checkpoint(
-        checkpoint_file=(tmp_path / "pretrained.pth"),
-        tokenizer_dir=llama_checkpoint_folder,
-        config_name="tiny-llama-1.1b",
-        output_dir=(tmp_path / "converted"),
-    )
-
-    assert set(os.listdir(tmp_path / "converted")) == {"lit_model.pth", "lit_config.json", "tokenizer_config.json"}
+    assert set(os.listdir(tmp_path / "converted")) == {
+        "lit_model.pth", "lit_config.json", "tokenizer_config.json", "tokenizer.json"
+    }
     converted_checkpoint = torch.load(tmp_path / "converted" / "lit_model.pth")
     assert list(converted_checkpoint.keys()) == ["some.module.weight", "some.other.module.weight"]

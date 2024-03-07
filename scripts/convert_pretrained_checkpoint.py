@@ -12,7 +12,7 @@ import torch
 wd = Path(__file__).parent.parent.resolve()
 sys.path.append(str(wd))
 
-from lit_gpt.utils import CLI, incremental_save
+from lit_gpt.utils import CLI, incremental_save, copy_config_files
 
 
 @torch.inference_mode()
@@ -38,6 +38,7 @@ def convert_checkpoint(checkpoint_dir: Path, output_dir: Path) -> None:
     checkpoint_file = checkpoint_dir / "lit_model.pth"
     output_checkpoint_file = output_dir / "lit_model.pth"
 
+    # TODO: Consolidate sharded checkpoint if applicable
     # Extract the model state dict and save to output folder
     with incremental_save(output_checkpoint_file) as saver:
         print("Processing", checkpoint_file)
@@ -51,6 +52,8 @@ def convert_checkpoint(checkpoint_dir: Path, output_dir: Path) -> None:
             converted_state_dict[param_name] = param
         print(f"Saving converted checkpoint to {str(output_checkpoint_file)}.")
         saver.save(converted_state_dict)
+
+    copy_config_files(checkpoint_dir, output_dir)
 
 
 if __name__ == "__main__":
