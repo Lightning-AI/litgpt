@@ -76,10 +76,14 @@ def merge_lora(
     fabric.print(f"A backup of the old LoRA weights is in {str(checkpoint_dir / 'lit_model.pth.lora')!r}")
 
 
-def load_lora_metadata(checkpoint_dir: Path) -> Tuple[Dict[str, Any], Path, str]:
+def load_lora_metadata(checkpoint_dir: Path) -> Tuple[Dict[str, Any], Path, Optional[str]]:
     hparams_file = checkpoint_dir / "hyperparameters.yaml"
     if not hparams_file.is_file():
-        raise FileNotFoundError()  # TODO
+        raise FileNotFoundError(
+            f"The path {str(hparams_file)!r} is not a valid checkpoint directory. It is missing a"
+            f" `hyperparameters.yaml` file. Please point to the checkpoint directory that was produced by"
+            f" the `finetune/lora.py` script."
+        )
 
     with open(hparams_file, "r") as file:
         hparams = yaml.safe_load(file)

@@ -8,6 +8,7 @@ from io import StringIO
 from pathlib import Path
 from unittest import mock
 
+import pytest
 import torch
 import yaml
 
@@ -72,6 +73,10 @@ def test_merge_lora(tmp_path, fake_checkpoint_dir):
 
 def test_load_lora_metadata(fake_checkpoint_dir):
     from scripts.merge_lora import load_lora_metadata
+
+    assert not (fake_checkpoint_dir / "hyperparameters.yaml").is_file()
+    with pytest.raises(FileNotFoundError, match="missing a `hyperparameters.yaml` file"):
+        load_lora_metadata(fake_checkpoint_dir)
 
     hparams = dict(
         precision="bf16-mixed",
