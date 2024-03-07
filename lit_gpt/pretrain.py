@@ -43,7 +43,7 @@ def setup(
     devices: Union[int, str] = "auto",
     seed: int = 42,
     data: Optional[LitDataModule] = None,
-    out_dir: Optional[Path] = None,
+    out_dir: Path = Path("out/pretrain"),
     tokenizer_dir: Optional[Path] = None,
     train: TrainArgs = TrainArgs(
         save_interval=1000,
@@ -70,7 +70,7 @@ def setup(
         model_name = "tiny-llama-1.1b"
     config = Config.from_name(model_name) if model_config is None else model_config
     devices = parse_devices(devices)
-    out_dir = Path(os.getenv("LIGHTNING_ARTIFACTS_DIR", "out")) / "pretrain" if out_dir is None else out_dir
+    out_dir = init_out_dir(out_dir)
     # in case the dataset requires the Tokenizer
     tokenizer = Tokenizer(tokenizer_dir) if tokenizer_dir is not None else None
 
@@ -359,6 +359,12 @@ def choose_logger(out_dir: Path, logger_name: str, name: str, resume: Union[bool
     if logger_name == "wandb":
         return WandbLogger(project="pretrain", name=name, resume=(resume is not False), *args, **kwargs)
     raise ValueError(f"`logger={logger_name}` is not a valid option.")
+
+
+def init_out_dir(out_dir: Path) -> Path:
+    if not out_dir.is_absolute() and "LIGHTNING_ARTIFACTS_DIR" in os.environ:
+        return Path(os.getenv("LIGHTNING_ARTIFACTS_DIR")) / out_dir
+    return out_dir
 
 
 def validate_args(train: TrainArgs, eval: EvalArgs) -> None:
