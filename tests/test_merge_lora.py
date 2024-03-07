@@ -14,7 +14,6 @@ import torch
 import yaml
 
 
-@RunIf(skip_windows=True)  # PermissionError in os.rename on Windows
 @mock.patch.dict(os.environ, {"LT_ACCELERATOR": "cpu"})
 def test_merge_lora(tmp_path, fake_checkpoint_dir):
     from litgpt.lora import GPT as LoRAGPT
@@ -42,7 +41,7 @@ def test_merge_lora(tmp_path, fake_checkpoint_dir):
     lora_model = LoRAGPT.from_name("pythia-14m", **config, **lora_kwargs)
     state_dict = {k: v for k, v in lora_model.state_dict().items() if lora_filter(k, v)}
     assert len(state_dict) == 6
-    torch.save(state_dict, lora_checkpoint_dir / "lit_model.pth")
+    torch.save(state_dict, lora_checkpoint_dir / "lit_model.pth.lora")
     hparams = dict(checkpoint_dir=str(pretrained_checkpoint_dir), **lora_kwargs)
     with open(lora_checkpoint_dir / "hyperparameters.yaml", "w") as file:
         yaml.dump(hparams, file)
