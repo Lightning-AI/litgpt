@@ -1,7 +1,7 @@
 # Copyright Lightning AI. Licensed under the Apache License 2.0, see LICENSE file.
 
 """This script merges the LoRA weights with the base model"""
-import shutil
+import os
 import sys
 from pathlib import Path
 from typing import Optional, Tuple, Dict, Any
@@ -70,8 +70,8 @@ def merge_lora(
     torch.save(state_dict, save_path)
 
     # Make a backup of the LoRA weights (they are only a few MBs)
-    shutil.move(checkpoint_dir / "lit_model.pth", checkpoint_dir / "lit_model.pth.lora")
-    shutil.move(checkpoint_dir / "lit_model.pth.merged", checkpoint_dir / "lit_model.pth")
+    os.rename(checkpoint_dir / "lit_model.pth", checkpoint_dir / "lit_model.pth.lora")
+    os.rename(checkpoint_dir / "lit_model.pth.merged", checkpoint_dir / "lit_model.pth")
 
     fabric.print(f"Saved merged weights to {str(checkpoint_dir / 'lit_model.pth')!r}")
     fabric.print(f"A backup of the old LoRA weights is in {str(checkpoint_dir / 'lit_model.pth.lora')!r}")
