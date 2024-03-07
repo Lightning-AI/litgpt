@@ -2,6 +2,7 @@
 
 from lit_gpt.data.base import LitDataModule, SFTDataset, get_sft_collate_fn
 from lit_gpt.data.alpaca import Alpaca
+from lit_gpt.data.alpaca_2k import Alpaca2k
 from lit_gpt.data.alpaca_gpt4 import AlpacaGPT4
 from lit_gpt.data.json import JSON
 from lit_gpt.data.deita import Deita
@@ -16,6 +17,7 @@ from lit_gpt.data.openwebtext import OpenWebText
 
 __all__ = [
     "Alpaca",
+    "Alpaca2k"
     "AlpacaGPT4",
     "Deita",
     "Dolly",
