@@ -8,8 +8,8 @@ This project utilizes [`Fabric`](https://lightning.ai/docs/fabric/stable), which
 To set up a Google Cloud instance with a TPU v4 VM, run the following commands:
 
 ```shell
-gcloud compute tpus tpu-vm create lit-gpt --version=tpu-vm-v4-base --accelerator-type=v4-8 --zone=us-central2-b
-gcloud compute tpus tpu-vm ssh lit-gpt --zone=us-central2-b
+gcloud compute tpus tpu-vm create litgpt --version=tpu-vm-v4-base --accelerator-type=v4-8 --zone=us-central2-b
+gcloud compute tpus tpu-vm ssh litgpt --zone=us-central2-b
 ```
 
 You can also choose a different TPU type. To do so, change the `version`, `accelerator-type`, and `zone` arguments. Find all regions and zones [here](https://cloud.google.com/tpu/docs/regions-zones).
@@ -25,9 +25,9 @@ For local development, it is advisable to upload a zip file containing all your 
 # Zip the local directory, excluding large directories from the zip. You may want to keep them.
 zip -r local_changes.zip . -x  ".git/*" "checkpoints/*" "data/*" "out/*"
 # Copy the .zip file to the TPU VM
-gcloud compute tpus tpu-vm scp --worker=all local_changes.zip "lit-gpt:~"
+gcloud compute tpus tpu-vm scp --worker=all local_changes.zip "litgpt:~"
 # Unzip on each host
-gcloud compute tpus tpu-vm ssh lit-gpt --worker=all --command="cd ~; unzip -q -o local_changes.zip"
+gcloud compute tpus tpu-vm ssh litgpt --worker=all --command="cd ~; unzip -q -o local_changes.zip"
 
 # Example of a typical workflow
 gcloud compute tpus tpu-vm ssh tmp --worker=all --command="cd ~; bash install_dependencies.sh"
@@ -48,8 +48,8 @@ For the rest of this tutorial, it will be assumed that it is being run on a sing
 Once inside the machine, clone the repository and install the dependencies:
 
 ```shell
-git clone https://github.com/Lightning-AI/lit-gpt
-cd lit-gpt
+git clone https://github.com/Lightning-AI/litgpt
+cd litgpt
 pip install -r requirements.txt
 ```
 
@@ -60,7 +60,7 @@ sudo apt update
 sudo apt install libopenblas-dev
 ```
 
-Since Lit-GPT requires a torch version newer than torch 2.0.0, manually install nightly builds of torch and torch_xla:
+Since LitGPT requires a torch version newer than torch 2.0.0, manually install nightly builds of torch and torch_xla:
 
 ```shell
 pip install https://storage.googleapis.com/tpu-pytorch/wheels/tpuvm/torch-nightly-cp38-cp38-linux_x86_64.whl
@@ -122,10 +122,10 @@ mkdir -p $path_to_shards
 workers=4  # 4 hosts
 for ((i = 0; i < workers; i++)); do
   # aggregate all shards locally
-  gcloud compute tpus tpu-vm scp --worker=$i "lit-gpt:${path_to_shards}/*" "${path_to_shards}/" --zone us-central2-b
+  gcloud compute tpus tpu-vm scp --worker=$i "litgpt:${path_to_shards}/*" "${path_to_shards}/" --zone us-central2-b
 done
 # copy all shards to all workers
-gcloud compute tpus tpu-vm scp --worker=all ${path_to_shards}/* "lit-gpt:${path_to_shards}/" --zone us-central2-b
+gcloud compute tpus tpu-vm scp --worker=all ${path_to_shards}/* "litgpt:${path_to_shards}/" --zone us-central2-b
 # consolidate the shards in each worker
 gcloud compute tpus tpu-vm ssh tmp --worker=all --command="python -m torch_xla.distributed.fsdp.consolidate_sharded_ckpts --ckpt_prefix ${path_to_shards}/checkpoint --ckpt_suffix '_rank-*-of-*.pth' --save_path ${path_to_shards}.pth" --zone us-central2-b
 ```
@@ -145,7 +145,7 @@ python3 xla/generate/adapter.py --checkpoint_dir checkpoints/tiiuae/falcon-7b --
 > Remember to delete your instance when you are done.
 >
 > ```shell
-> gcloud compute tpus tpu-vm delete lit-gpt --zone=us-central2-b
+> gcloud compute tpus tpu-vm delete litgpt --zone=us-central2-b
 > ```
 
 ## Computational Performance

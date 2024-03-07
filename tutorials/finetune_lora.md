@@ -1,7 +1,7 @@
 # Finetuning with LoRA / QLoRA
 
 [Low-rank adaption (LoRA)](https://arxiv.org/abs/2106.09685) is a technique to approximate the update to the linear layers in a LLM with a low-rank matrix factorization. This significantly reduces the number of trainable parameters and speeds up training with little impact on the final performance of the model.
-We demonstrate this method by instruction-finetuning Lit-GPT StableLM 3B on the [Alpaca](https://github.com/tatsu-lab/stanford_alpaca) dataset on a **single RTX 3090 (24GB) GPU** with CUDA 11.8.
+We demonstrate this method by instruction-finetuning LitGPT StableLM 3B on the [Alpaca](https://github.com/tatsu-lab/stanford_alpaca) dataset on a **single RTX 3090 (24GB) GPU** with CUDA 11.8.
 
 &nbsp;
 
@@ -18,7 +18,7 @@ The steps here only need to be done once:
 - [Redpajama-INCITE](download_redpajama_incite.md)
 - [Falcon](download_falcon.md)
 
-Lit-GPT provides common datasets for finetuning, such as Alpaca, LIMA, Dolly, and more.
+LitGPT provides common datasets for finetuning, such as Alpaca, LIMA, Dolly, and more.
 You can optionally [prepare your own dataset](#tune-on-your-dataset).
 For more information about dataset preparation, also see the [prepare_dataset.md](./prepare_dataset.md) tutorial.
 

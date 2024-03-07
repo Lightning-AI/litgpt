@@ -7,7 +7,7 @@ import torch
 
 
 def test_llama2_70b_conversion():
-    from lit_gpt import Config
+    from litgpt import Config
     from scripts.convert_hf_checkpoint import copy_weights_hf_llama
 
     shapes = {
@@ -116,7 +116,7 @@ def test_convert_hf_checkpoint(tmp_path):
     assert {p.name for p in tmp_path.glob("*")} == {"foo.bin", "lit_config.json", "lit_model.pth"}
 
     # ensure that the config dict can be loaded
-    from lit_gpt import Config
+    from litgpt import Config
 
     config = Config.from_json(tmp_path / "lit_config.json")
     assert isinstance(config, Config)

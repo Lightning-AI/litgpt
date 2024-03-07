@@ -9,8 +9,8 @@ from typing import Any, Literal, Optional, Type, Union
 import torch
 from typing_extensions import Self
 
-import lit_gpt.model
-from lit_gpt.utils import find_multiple
+import litgpt.model
+from litgpt.utils import find_multiple
 
 
 @dataclass
@@ -115,7 +115,7 @@ class Config:
 
     @classmethod
     def from_checkpoint(cls, path: Path, **kwargs: Any) -> Self:
-        """Automatically load `lit_config.json` and if it doesn't exist - a matching config from `lit_gpt/config.py`."""
+        """Automatically load `lit_config.json` and if it doesn't exist - a matching config from `litgpt/config.py`."""
         if (config_path := path / "lit_config.json").is_file():
             return cls.from_json(config_path, **kwargs)
         if (model_name := path.name) in name_to_config:
@@ -125,7 +125,7 @@ class Config:
     @property
     def mlp_class(self) -> Type:
         # `self.mlp_class_name` cannot be the type to keep the config json serializable
-        return getattr(lit_gpt.model, self.mlp_class_name)
+        return getattr(litgpt.model, self.mlp_class_name)
 
     @property
     def norm_class(self) -> Type:
@@ -133,7 +133,7 @@ class Config:
         if self.norm_class_name == "RMSNorm":
             from functools import partial
 
-            from lit_gpt.rmsnorm import RMSNorm
+            from litgpt.rmsnorm import RMSNorm
 
             return partial(RMSNorm, add_unit_offset="Gemma" in self.name)
         return getattr(torch.nn, self.norm_class_name)

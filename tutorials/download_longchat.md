@@ -16,7 +16,7 @@ lmsys/longchat-7b-16k
 lmsys/longchat-13b-16k
 ```
 
-In order to use a specific checkpoint, for instance [longchat-7b-16k](https://huggingface.co/lmsys/longchat-7b-16k), download the weights and convert the checkpoint to the lit-gpt format:
+In order to use a specific checkpoint, for instance [longchat-7b-16k](https://huggingface.co/lmsys/longchat-7b-16k), download the weights and convert the checkpoint to the litgpt format:
 
 ```bash
 pip install 'huggingface_hub[hf_transfer] @ git+https://github.com/huggingface/huggingface_hub'

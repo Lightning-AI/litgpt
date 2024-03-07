@@ -23,7 +23,7 @@ stabilityai/stablecode-instruct-alpha-3b
 stabilityai/stable-code-3b
 ```
 
-In order to use a specific StableCode checkpoint, for instance [stable-code-3b](https://huggingface.co/stabilityai/stable-code-3b), download the weights and convert the checkpoint to the Lit-GPT format:
+In order to use a specific StableCode checkpoint, for instance [stable-code-3b](https://huggingface.co/stabilityai/stable-code-3b), download the weights and convert the checkpoint to the LitGPT format:
 
 ```bash
 pip install 'huggingface_hub[hf_transfer] @ git+https://github.com/huggingface/huggingface_hub'

@@ -15,7 +15,7 @@ wd = Path(__file__).parent.parent.absolute()
 
 
 def test_convert_lit_checkpoint(tmp_path):
-    from lit_gpt import GPT, Config
+    from litgpt import GPT, Config
     from scripts.convert_lit_checkpoint import convert_lit_checkpoint
 
     ours_config = Config.from_name("Llama-2-7b-hf", block_size=8, n_layer=2, n_embd=32, n_head=2, padding_multiple=128)
@@ -42,7 +42,7 @@ def test_against_falcon_40b():
     from transformers.models.falcon.configuration_falcon import FalconConfig
     from transformers.models.falcon.modeling_falcon import FalconForCausalLM
 
-    from lit_gpt import GPT, Config
+    from litgpt import GPT, Config
     from scripts.convert_lit_checkpoint import copy_weights_falcon as copy_to_theirs
 
     ours_config = Config.from_name("falcon-40b", n_layer=2, n_head=8, n_query_groups=4, n_embd=32)
@@ -77,7 +77,7 @@ def test_against_falcon_40b():
 def test_against_original_gpt_neox():
     from transformers import GPTNeoXConfig, GPTNeoXForCausalLM
 
-    from lit_gpt import GPT, Config
+    from litgpt import GPT, Config
     from scripts.convert_lit_checkpoint import copy_weights_gpt_neox as copy_to_theirs
 
     ours_config = Config(block_size=64, vocab_size=100, n_layer=4, n_head=8, n_embd=16)
@@ -122,7 +122,7 @@ def test_against_hf_llama2(ours_kwargs):
     from transformers.models.llama.configuration_llama import LlamaConfig
     from transformers.models.llama.modeling_llama import LlamaForCausalLM
 
-    from lit_gpt import GPT, Config
+    from litgpt import GPT, Config
     from scripts.convert_lit_checkpoint import copy_weights_llama
 
     ours_config = Config.from_name(
@@ -160,7 +160,7 @@ def test_against_hf_llama2(ours_kwargs):
 def test_against_mixtral():
     from transformers.models.mixtral import MixtralConfig, MixtralForCausalLM
 
-    from lit_gpt import GPT, Config
+    from litgpt import GPT, Config
     from scripts.convert_lit_checkpoint import copy_weights_llama
 
     ours_config = Config.from_name(
@@ -207,7 +207,7 @@ def test_against_original_open_llama_3b():
     from transformers.models.llama.configuration_llama import LlamaConfig
     from transformers.models.llama.modeling_llama import LlamaForCausalLM
 
-    from lit_gpt import GPT, Config
+    from litgpt import GPT, Config
     from scripts.convert_lit_checkpoint import copy_weights_llama
 
     ours_config = Config.from_name("open_llama_3b", n_layer=2, n_head=8, n_embd=32, intermediate_size=86)
@@ -249,7 +249,7 @@ def test_against_hf_phi_1_5():
         if not file_path.is_file():
             urlretrieve(url=url, filename=file_path)
 
-    from lit_gpt import GPT, Config
+    from litgpt import GPT, Config
     from scripts.convert_lit_checkpoint import copy_weights_phi
     from tests.reference_models.configuration_phi import PhiConfig
     from tests.reference_models.original_phi_1_5 import PhiForCausalLM
@@ -299,10 +299,10 @@ def test_against_hf_phi_2():
         if not file_path.is_file():
             urlretrieve(url=url, filename=file_path)
 
-    from lit_gpt import GPT, Config
+    from litgpt import GPT, Config
     from scripts.convert_lit_checkpoint import copy_weights_phi
-    from tests.reference_models.configuration_phi import PhiConfig
-    from tests.reference_models.original_phi_2 import PhiForCausalLM
+    from reference_models.configuration_phi import PhiConfig
+    from reference_models.original_phi_2 import PhiForCausalLM
 
     ours_config = Config.from_name(
         "phi-2", padded_vocab_size=10000, n_layer=2, n_head=4, n_embd=256, rotary_percentage=0.5
@@ -340,7 +340,7 @@ def test_against_hf_phi_2():
 def test_against_original_stablelm_zephyr_3b():
     from transformers import AutoConfig, AutoModelForCausalLM
 
-    from lit_gpt import GPT, Config
+    from litgpt import GPT, Config
     from scripts.convert_lit_checkpoint import copy_weights_llama
 
     T = 5
@@ -394,7 +394,7 @@ def test_against_original_gemma(model_name, device, dtype):
     from transformers.models.gemma.configuration_gemma import GemmaConfig
     from transformers.models.gemma.modeling_gemma import GemmaForCausalLM
 
-    from lit_gpt import GPT, Config
+    from litgpt import GPT, Config
     from scripts.convert_lit_checkpoint import copy_weights_llama
 
     torch.set_default_dtype(dtype)
@@ -455,7 +455,7 @@ def test_check_conversion_supported_lora():
 
 
 def test_qkv_split():
-    from lit_gpt import Config
+    from litgpt import Config
     from scripts.convert_lit_checkpoint import qkv_split
 
     # MHA

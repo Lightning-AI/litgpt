@@ -1,7 +1,7 @@
 <div align="center">
-<img src="https://pl-public-data.s3.amazonaws.com/assets_lightning/LitStableLM_Badge.png" alt="Lit-GPT" width="128"/>
+<img src="https://pl-public-data.s3.amazonaws.com/assets_lightning/LitStableLM_Badge.png" alt="LitGPT" width="128"/>
 
-# ⚡ Lit-GPT
+# ⚡ LitGPT
 
 <!--
 <p align="center">
@@ -14,15 +14,15 @@
 ![PyPI - Python Version](https://img.shields.io/pypi/pyversions/pytorch-lightning)
 ![cpu-tests](https://github.com/lightning-AI/lit-stablelm/actions/workflows/cpu-tests.yml/badge.svg) [![license](https://img.shields.io/badge/License-Apache%202.0-blue.svg)](https://github.com/Lightning-AI/lit-stablelm/blob/master/LICENSE) [![Discord](https://img.shields.io/discord/1077906959069626439?style=plastic)](https://discord.gg/VptPCZkGNa)
 
-<img src="https://pl-public-data.s3.amazonaws.com/assets_lightning/LitStableLM.gif" alt="Lit-GPT and pineapple pizza" width="500px"/>
+<img src="https://pl-public-data.s3.amazonaws.com/assets_lightning/LitStableLM.gif" alt="LitGPT and pineapple pizza" width="500px"/>
 
 </div>
 
 &nbsp;
 
-# ⚡ Lit-GPT
+# ⚡ LitGPT
 
-Hackable [implementation](lit_gpt/model.py) of state-of-the-art open-source large language models released under the **Apache 2.0 license**.
+Hackable [implementation](litgpt/model.py) of state-of-the-art open-source large language models released under the **Apache 2.0 license**.
 
 Supports the following popular model checkpoints:
 
@@ -57,17 +57,17 @@ This implementation extends on [Lit-LLaMA](https://github.com/lightning-AI/lit-l
 
 **🏆 NeurIPS 2023 Large Language Model Efficiency Challenge: 1 LLM + 1 GPU + 1 Day**
 
-The Lit-GPT repository was the official starter kit for the [NeurIPS 2023 LLM Efficiency Challenge](https://llm-efficiency-challenge.github.io), which is a competition focused on finetuning an existing non-instruction tuned LLM for 24 hours on a single GPU.
+The LitGPT repository was the official starter kit for the [NeurIPS 2023 LLM Efficiency Challenge](https://llm-efficiency-challenge.github.io), which is a competition focused on finetuning an existing non-instruction tuned LLM for 24 hours on a single GPU.
 
 ---
 
 &nbsp;
 
-## Lit-GPT design principles
+## LitGPT design principles
 
 This repository follows the main principle of **openness through clarity**.
 
-**Lit-GPT** is:
+**LitGPT** is:
 
 - **Simple:** Single-file implementation without boilerplate.
 - **Correct:** Numerically equivalent to the original model.
@@ -89,8 +89,8 @@ Avoiding code duplication is **not** a goal. **Readability** and **hackability**
 Clone the repo:
 
 ```bash
-git clone https://github.com/Lightning-AI/lit-gpt
-cd lit-gpt
+git clone https://github.com/Lightning-AI/litgpt
+cd litgpt
 ```
 
 Install with all dependencies (including CLI, quantization, tokenizers for all models, etc.):
@@ -196,14 +196,14 @@ Follow this guide to start pretraining on
 
 ## Supported datasets
 
-Lit-GPT includes a variety of dataset preparation scripts for finetuning and pretraining. Additional information about the datasets and dataset preparation is provided in the [Preparing Datasets](tutorials/prepare_dataset.md) tutorial.
+LitGPT includes a variety of dataset preparation scripts for finetuning and pretraining. Additional information about the datasets and dataset preparation is provided in the [Preparing Datasets](tutorials/prepare_dataset.md) tutorial.
 
 
 &nbsp;
 
 ## XLA
 
-Lightning AI has partnered with Google to add first-class support for [Cloud TPUs](https://cloud.google.com/tpu) in [Lightning’s frameworks](https://github.com/Lightning-AI/lightning) and Lit-GPT,
+Lightning AI has partnered with Google to add first-class support for [Cloud TPUs](https://cloud.google.com/tpu) in [Lightning’s frameworks](https://github.com/Lightning-AI/lightning) and LitGPT,
 helping democratize AI for millions of developers and researchers worldwide.
 
 Using TPUs with Lightning is as straightforward as changing one line of code.
@@ -216,19 +216,18 @@ We provide scripts fully optimized for TPUs in the [XLA directory](xla)
 
 We are on a quest towards fully open source AI.
 
-<img align="right" src="https://pl-public-data.s3.amazonaws.com/assets_lightning/LitStableLM_Illustration.png" alt="Lit-GPT" width="128"/>
+<img align="right" src="https://pl-public-data.s3.amazonaws.com/assets_lightning/LitStableLM_Illustration.png" alt="LitGPT" width="128"/>
 
 Join us and start contributing, especially on the following areas:
 
-- [ ] [Pretraining](https://github.com/Lightning-AI/lit-gpt/labels/pre-training)
-- [ ] [Fine-tuning](https://github.com/Lightning-AI/lit-gpt/labels/fine-tuning)
-- [ ] [Quantization](https://github.com/Lightning-AI/lit-gpt/labels/quantization)
-- [ ] [Sparsification](https://github.com/Lightning-AI/lit-gpt/labels/sparsification)
+- [ ] [Pretraining](https://github.com/Lightning-AI/litgpt/labels/pre-training)
+- [ ] [Fine-tuning](https://github.com/Lightning-AI/litgpt/labels/fine-tuning)
+- [ ] [Quantization](https://github.com/Lightning-AI/litgpt/labels/quantization)
+- [ ] [Sparsification](https://github.com/Lightning-AI/litgpt/labels/sparsification)
 
 We welcome all individual contributors, regardless of their level of experience or hardware. Your contributions are valuable, and we are excited to see what you can accomplish in this collaborative and supportive environment.
 
-Unsure about contributing? Check out our [How to Contribute to Lit-GPT and Lit-LLaMA
-](https://lightning.ai/pages/community/tutorial/how-to-contribute-to-litgpt/) guide.
+Unsure about contributing? Check out our [How to Contribute to LitGPT](https://lightning.ai/pages/community/tutorial/how-to-contribute-to-litgpt/) guide.
 
 Don't forget to [join our Discord](https://discord.gg/VptPCZkGNa)!
 
@@ -246,13 +245,13 @@ Don't forget to [join our Discord](https://discord.gg/VptPCZkGNa)!
 
 ## Citation
 
-If you use Lit-GPT in your research, please cite the following work:
+If you use LitGPT in your research, please cite the following work:
 
 ```bibtex
-@misc{lit-gpt-2023,
+@misc{litgpt-2023,
   author       = {Lightning AI},
-  title        = {Lit-GPT},
-  howpublished = {\url{https://github.com/Lightning-AI/lit-gpt}},
+  title        = {LitGPT},
+  howpublished = {\url{https://github.com/Lightning-AI/litgpt}},
   year         = {2023},
 }
 ```
@@ -261,4 +260,4 @@ If you use Lit-GPT in your research, please cite the following work:
 
 ## License
 
-Lit-GPT is released under the [Apache 2.0](https://github.com/Lightning-AI/lit-gpt/blob/main/LICENSE) license.
+LitGPT is released under the [Apache 2.0](https://github.com/Lightning-AI/litgpt/blob/main/LICENSE) license.

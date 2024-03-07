@@ -8,8 +8,8 @@ from typing import Union
 import torch
 from torch.utils.data import random_split
 
-from lit_gpt import PromptStyle
-from lit_gpt.data import SFTDataset, Alpaca
+from litgpt import PromptStyle
+from litgpt.data import SFTDataset, Alpaca
 
 _URL: str = "https://huggingface.co/datasets/databricks/databricks-dolly-15k/resolve/main/databricks-dolly-15k.jsonl"
 
@@ -23,7 +23,7 @@ class Dolly(Alpaca):
     test_split_fraction: float = 0.1
     """The fraction of the dataset to use for the test/validation dataset. The rest is used for training."""
     prompt_style: Union[str, PromptStyle] = "alpaca"
-    """The style to apply to instruction prompts. See `lit_gpt.prompts` for a list of available styles."""
+    """The style to apply to instruction prompts. See `litgpt.prompts` for a list of available styles."""
     ignore_index: int = -1
     """The index to use for elements to be ignored in the label."""
     seed: int = 42

@@ -1,8 +1,8 @@
-## Converting Lit-GPT weights to Hugging Face Transformers
+## Converting LitGPT weights to Hugging Face Transformers
 
-Lit-GPT weights need to be converted to a format that Hugging Face understands with a [conversion script](../scripts/convert_lit_checkpoint.py) before our scripts can run.
+LitGPT weights need to be converted to a format that Hugging Face understands with a [conversion script](../scripts/convert_lit_checkpoint.py) before our scripts can run.
 
-We provide a helpful script to convert models Lit-GPT models back to their equivalent Hugging Face Transformers format:
+We provide a helpful script to convert models LitGPT models back to their equivalent Hugging Face Transformers format:
 
 ```sh
 python scripts/convert_lit_checkpoint.py \
@@ -13,7 +13,7 @@ python scripts/convert_lit_checkpoint.py \
 
 These paths are just placeholders, you will need to customize them based on which finetuning or pretraining script you ran and it's configuration.
 
-### Loading converted Lit-GPT checkpoints into transformers
+### Loading converted LitGPT checkpoints into transformers
 
 If you want to load the converted checkpoints into a `transformers` model, please make sure you copied the original `config.json` file into the folder that contains the `converted.pth` file saved via `--output_path` above.
 
@@ -58,7 +58,7 @@ python scripts/merge_lora.py \
 
 # A finetuning and conversion tutorial
 
-This section contains a reproducible example for finetuning a Lit-GPT model and converting it back into a HF `transformer` model.
+This section contains a reproducible example for finetuning a LitGPT model and converting it back into a HF `transformer` model.
 
 1. Download a model of interest:
 
@@ -69,7 +69,7 @@ export repo_id=TinyLlama/TinyLlama-1.1B-intermediate-step-1431k-3T
 ```
 
 Instead of using TinyLlama, you can replace the `repo_id` target with any other model repository 
-specifier that is currently supported by Lit-GPT. You can get a list of supported repository specifier
+specifier that is currently supported by LitGPT. You can get a list of supported repository specifier
 by running `scripts/download.py` without any additional arguments.
 
 Then, we download the model we specified via `$repo_id` above:

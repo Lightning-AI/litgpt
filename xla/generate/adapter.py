@@ -8,15 +8,15 @@ from typing import Optional
 import lightning as L
 from lightning.fabric.accelerators import XLAAccelerator
 from lightning.fabric.strategies import XLAFSDPStrategy
-from lit_gpt.prompts import Alpaca
+from litgpt.prompts import Alpaca
 
 # support running without installing as a package
 wd = Path(__file__).parent.parent.parent.resolve()
 sys.path.append(str(wd))
 
-from lit_gpt import Tokenizer
-from lit_gpt.adapter import GPT, Block, Config
-from lit_gpt.utils import check_valid_checkpoint_dir, lazy_load
+from litgpt import Tokenizer
+from litgpt.adapter import GPT, Block, Config
+from litgpt.utils import check_valid_checkpoint_dir, lazy_load
 
 from xla.generate.base import generate
 from xla.utils import rank_print

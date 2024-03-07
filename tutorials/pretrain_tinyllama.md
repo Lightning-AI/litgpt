@@ -44,7 +44,7 @@ Around 1.2 TB of disk space is required to store both datasets.
 
 ## Prepare the datasets for training
 
-In order to start pretraining lit-gpt on it, you need to read, tokenize, and write the data in binary chunks. This will leverage our `lightning.data` optimization pipeline and streaming dataset that comes with Lightning.
+In order to start pretraining litgpt on it, you need to read, tokenize, and write the data in binary chunks. This will leverage our `lightning.data` optimization pipeline and streaming dataset that comes with Lightning.
 
 First, install additional dependencies for preprocessing:
 
@@ -100,7 +100,7 @@ In the above we are assuming that you will be using the same tokenizer as used i
 Running the pretraining script with its default settings requires at least 8 A100 GPUs.
 
 ```bash
-python lit_gpt/pretrain.py --config config_hub/pretrain/tinyllama.yaml
+python litgpt/pretrain.py --config config_hub/pretrain/tinyllama.yaml
 ```
 
 The script will save checkpoints periodically to the folder `out/`.
@@ -111,10 +111,10 @@ Note that `pretrain` is not actually a model-specific training script, so feel f
 or change the model type and size by passing a different string to the model name argument, for example:
 
 ```shell
-python lit_gpt/pretrain.py --model_name Gemma-2b
+python litgpt/pretrain.py --model_name Gemma-2b
 ```
 
-The currently supported model names are contained in the [config.py](https://github.com/Lightning-AI/lit-gpt/lit_gpt/config.py) file.
+The currently supported model names are contained in the [config.py](https://github.com/Lightning-AI/litgpt/litgpt/config.py) file.
 You can
 
 1) either search this file for lines containing "name =",
@@ -145,7 +145,7 @@ The checkpoints saved during pretraining contain all the information to resume i
 Simply rerun the script with the `--resume` argument added:
 
 ```bash
-python lit_gpt/pretrain.py \
+python litgpt/pretrain.py \
   --config config_hub/pretrain/tinyllama.yaml \
   --resume out/pretrain/tiny-llama/step-00060500
 ```

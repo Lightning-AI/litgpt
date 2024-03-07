@@ -13,7 +13,7 @@ from lightning_utilities.core.imports import RequirementCache
 wd = Path(__file__).parent.parent.resolve()
 sys.path.append(str(wd))
 
-from lit_gpt.utils import CLI
+from litgpt.utils import CLI
 from scripts.convert_hf_checkpoint import convert_hf_checkpoint
 
 _SAFETENSORS_AVAILABLE = RequirementCache("safetensors")
@@ -29,7 +29,7 @@ def download_from_hub(
     checkpoint_dir: Path = Path("checkpoints"),
 ) -> None:
     if repo_id is None:
-        from lit_gpt.config import configs
+        from litgpt.config import configs
 
         options = [f"{config['hf_config']['org']}/{config['hf_config']['name']}" for config in configs]
         print("Please specify --repo_id <repo_id>. Available values:")
@@ -93,7 +93,7 @@ def download_from_hub(
             os.remove(safetensor_path)
 
     if convert_checkpoint and not tokenizer_only:
-        print("Converting checkpoint files to Lit-GPT format.")
+        print("Converting checkpoint files to LitGPT format.")
         convert_hf_checkpoint(checkpoint_dir=directory, dtype=dtype)
 
 

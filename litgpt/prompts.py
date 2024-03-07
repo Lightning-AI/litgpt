@@ -7,10 +7,10 @@ from json import dumps
 from pathlib import Path
 from typing import TYPE_CHECKING, Dict, List, Type, Tuple, Union
 
-from lit_gpt.config import Config
+from litgpt.config import Config
 
 if TYPE_CHECKING:
-    from lit_gpt import Tokenizer
+    from litgpt import Tokenizer
 
 
 class PromptStyle:

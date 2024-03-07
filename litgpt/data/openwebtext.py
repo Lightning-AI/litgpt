@@ -7,8 +7,8 @@ from typing import Union, Optional
 
 from torch.utils.data import DataLoader
 
-from lit_gpt import Tokenizer
-from lit_gpt.data import LitDataModule
+from litgpt import Tokenizer
+from litgpt.data import LitDataModule
 
 
 @dataclass

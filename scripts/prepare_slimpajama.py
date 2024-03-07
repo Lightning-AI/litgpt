@@ -13,8 +13,8 @@ from lightning.data.streaming import DataChunkRecipe, DataProcessor
 wd = Path(__file__).parent.parent.resolve()
 sys.path.append(str(wd))
 
-from lit_gpt import Tokenizer
-from lit_gpt.utils import CLI
+from litgpt import Tokenizer
+from litgpt.utils import CLI
 
 
 class SlimPajamaDataRecipe(DataChunkRecipe):

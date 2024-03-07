@@ -11,7 +11,7 @@ from torch.utils.data import DataLoader
 @mock.patch("lightning.data.optimize")
 @mock.patch("datasets.load_dataset")
 def test_openwebtext(_, optimize_mock, tmp_path, monkeypatch, mock_tokenizer):
-    from lit_gpt.data import OpenWebText
+    from litgpt.data import OpenWebText
     from lightning.data.streaming import StreamingDataLoader, StreamingDataset
 
     data = OpenWebText(data_path=(tmp_path / "openwebtext"))

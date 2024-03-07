@@ -3,7 +3,7 @@ devices: 4
 resume: false
 seed: 1337
 data:
-  class_path: lit_gpt.data.AlpacaGPT4
+  class_path: litgpt.data.AlpacaGPT4
   init_args:
     mask_prompt: false
     test_split_fraction: 0.03847

@@ -19,11 +19,11 @@ from torch.utils.data import DataLoader
 # If we were to use `save_hyperparameters()`, we would have to patch `sys.argv` or otherwise
 # the CLI would capture pytest args, but unfortunately patching would mess with subprocess
 # launching, so we need to mock `save_hyperparameters()`
-@mock.patch("lit_gpt.pretrain.save_hyperparameters")
+@mock.patch("litgpt.pretrain.save_hyperparameters")
 def test_pretrain(_, tmp_path):
-    from lit_gpt import pretrain
-    from lit_gpt.args import EvalArgs, TrainArgs
-    from lit_gpt.config import Config
+    from litgpt import pretrain
+    from litgpt.args import EvalArgs, TrainArgs
+    from litgpt.config import Config
 
     model_config = Config(block_size=2, n_layer=2, n_embd=8, n_head=4, padded_vocab_size=8)
 
@@ -62,15 +62,15 @@ def test_pretrain(_, tmp_path):
 
 
 def test_pretrain_model_name_and_config():
-    from lit_gpt import pretrain
-    from lit_gpt.config import Config
+    from litgpt import pretrain
+    from litgpt.config import Config
 
     with pytest.raises(ValueError, match="Only one of `model_name` or `model_config`"):
         pretrain.setup(model_name="tiny-llama-1.1b", model_config=Config(name="tiny-llama-1.1b"))
 
 
 def test_init_out_dir(tmp_path):
-    from lit_gpt.pretrain import init_out_dir
+    from litgpt.pretrain import init_out_dir
 
     relative_path = Path("./out")
     absolute_path = tmp_path / "out"
