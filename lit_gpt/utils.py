@@ -1,11 +1,12 @@
 # Copyright Lightning AI. Licensed under the Apache License 2.0, see LICENSE file.
 
 """Utility functions for training and inference."""
-
+import json
 import math
 import pickle
 import shutil
 import sys
+from dataclasses import asdict
 from io import BytesIO
 from pathlib import Path
 from typing import TYPE_CHECKING, Any, Dict, Iterable, List, Mapping, Optional, TypeVar, Union
@@ -16,13 +17,13 @@ import torch.nn as nn
 import torch.utils._device
 from lightning.fabric.strategies import FSDPStrategy
 from lightning.fabric.utilities.load import _lazy_load as lazy_load
-from lightning_utilities.core.imports import RequirementCache
 from torch.serialization import normalize_storage_type
 from typing_extensions import Self
 
 
 if TYPE_CHECKING:
     from lit_gpt import GPT
+    from lit_gpt import Config
 
 
 def find_multiple(n: int, k: int) -> int:
@@ -402,6 +403,12 @@ def save_hyperparameters(function: callable, checkpoint_dir: Path) -> None:
     parser = capture_parser(lambda: CLI(function))
     config = parser.parse_args()
     parser.save(config, checkpoint_dir / "hyperparameters.yaml", overwrite=True)
+
+
+def save_config(config: "Config", checkpoint_dir: Path) -> None:
+    config_dict = asdict(config)
+    with open(checkpoint_dir / "lit_config.json", "w") as json_config:
+        json.dump(config_dict, json_config)
 
 
 def parse_devices(devices: Union[str, int]) -> int:
