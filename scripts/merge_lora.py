@@ -1,10 +1,12 @@
 # Copyright Lightning AI. Licensed under the Apache License 2.0, see LICENSE file.
 
 """This script merges the LoRA weights with the base model"""
-
+import os
 import sys
 from pathlib import Path
-from typing import Optional
+from typing import Optional, Tuple, Dict, Any
+
+import yaml
 
 import lightning as L
 import torch
@@ -18,65 +20,79 @@ from lit_gpt.utils import CLI, check_valid_checkpoint_dir, get_default_supported
 
 
 def merge_lora(
-    lora_path: Path = Path("out/lora/alpaca/lit_model_lora_finetuned.pth"),
-    checkpoint_dir: Path = Path("checkpoints/stabilityai/stablelm-base-alpha-3b"),
-    out_dir: Path = Path("out/lora/checkpoint"),
+    checkpoint_dir: Path,
+    pretrained_checkpoint_dir: Optional[Path] = None,
     precision: Optional[str] = None,
-    lora_r: int = 8,
-    lora_alpha: int = 16,
-    lora_dropout: float = 0.05,
-    lora_query: bool = True,
-    lora_key: bool = False,
-    lora_value: bool = True,
-    lora_projection: bool = False,
-    lora_mlp: bool = False,
-    lora_head: bool = False,
 ) -> None:
-    """Generates a response based on a given instruction and an optional input.
-    This script will only work with checkpoints from the instruction-tuned GPT-LoRA model.
-    See `finetune/lora.py`.
+    """Merges the LoRA weights with the base model. See `finetune/lora.py`.
+
+    Merging happens in-place in the checkpoint directory that is given as input. It also saves
+    a backup file `lit_model.pth.lora` of the trained LoRA weights in case you still need it later.
 
     Args:
-        lora_path: Path to the checkpoint with trained adapter weights, which are the output of
+        checkpoint_dir: Path to the checkpoint directory with trained LoRA weights, which is the output of
             `finetune/lora.py`.
-        checkpoint_dir: The path to the checkpoint folder with pretrained GPT weights.
-        out_dir: The path to the merged model that is created by this script.
-        precision: Indicates the Fabric precision setting to use.
+        pretrained_checkpoint_dir: Optional path to the checkpoint directory with the weights of the base model
+            corresponding to the LoRA checkpoint. By default, this will automatically be inferred from the metadata
+            in the given `checkpoint_dir` directory. Only set this if the base model checkpoint directory
+            has moved or was renamed.
+        precision: Optional precision setting to instantiate the model weights in. By default, this will
+            automatically be inferred from the metadata in the given `checkpoint_dir` directory.
     """
     check_valid_checkpoint_dir(checkpoint_dir)
-    out_dir.mkdir(parents=True, exist_ok=True)
+    if pretrained_checkpoint_dir is not None:
+        check_valid_checkpoint_dir(pretrained_checkpoint_dir)
+    if (checkpoint_dir / "lit_model.pth.lora").is_file():
+        print("LoRA weights have already been merged in this checkpoint.")
+        return
 
-    precision = precision or get_default_supported_precision(training=False)
+    lora_params, pretrained_checkpoint_dir, lora_precision = load_lora_metadata(checkpoint_dir)
+    precision = precision if precision is not None else lora_precision
+
     fabric = L.Fabric(devices=1, precision=precision)
-
-    config = Config.from_json(
-        checkpoint_dir / "lit_config.json",
-        r=lora_r,
-        alpha=lora_alpha,
-        dropout=lora_dropout,
-        to_query=lora_query,
-        to_key=lora_key,
-        to_value=lora_value,
-        to_projection=lora_projection,
-        to_mlp=lora_mlp,
-        to_head=lora_head,
-    )
+    config = Config.from_json(checkpoint_dir / "lit_config.json", **lora_params)
 
     with fabric.init_module(empty_init=True):
         model = GPT(config)
-    checkpoint_path = checkpoint_dir / "lit_model.pth"
-    checkpoint = lazy_load(checkpoint_path)
-    lora_checkpoint = lazy_load(lora_path)
-    checkpoint.update(lora_checkpoint.get("model", lora_checkpoint))
-    model.load_state_dict(checkpoint)
 
+    lora_path = checkpoint_dir / "lit_model.pth"
+    pretrained_checkpoint = lazy_load(pretrained_checkpoint_dir / "lit_model.pth")
+    lora_checkpoint = lazy_load(lora_path)
+
+    # Merge LoRA weights into the base model
+    pretrained_checkpoint.update(lora_checkpoint.get("model", lora_checkpoint))
+    model.load_state_dict(pretrained_checkpoint)
     merge_lora_weights(model)
 
-    save_path = out_dir / "lit_model.pth"
-    fabric.print(f"Saving weights to {str(save_path)!r}")
-    # remove lora parameters and the lora linear substring
+    # Remove LoRA parameters and the LoRA linear substring
     state_dict = {k.replace("linear.", ""): v for k, v in model.state_dict().items() if not lora_filter(k, v)}
+    save_path = checkpoint_dir / "lit_model.pth.merged"
     torch.save(state_dict, save_path)
+
+    # Make a backup of the LoRA weights (they are only a few MBs)
+    os.rename(checkpoint_dir / "lit_model.pth", checkpoint_dir / "lit_model.pth.lora")
+    os.rename(checkpoint_dir / "lit_model.pth.merged", checkpoint_dir / "lit_model.pth")
+
+    fabric.print(f"Saved merged weights to {str(checkpoint_dir / 'lit_model.pth')!r}")
+    fabric.print(f"A backup of the old LoRA weights is in {str(checkpoint_dir / 'lit_model.pth.lora')!r}")
+
+
+def load_lora_metadata(checkpoint_dir: Path) -> Tuple[Dict[str, Any], Path, Optional[str]]:
+    hparams_file = checkpoint_dir / "hyperparameters.yaml"
+    if not hparams_file.is_file():
+        raise FileNotFoundError(
+            f"The path {str(hparams_file)!r} is not a valid checkpoint directory. It is missing a"
+            f" `hyperparameters.yaml` file. Please point to the checkpoint directory that was produced by"
+            f" the `finetune/lora.py` script."
+        )
+
+    with open(hparams_file, "r") as file:
+        hparams = yaml.safe_load(file)
+
+    lora_params = {k: v for k, v in hparams.items() if k.startswith("lora_")}
+    pretrained_checkpoint_dir = Path(hparams["checkpoint_dir"])
+    precision = hparams.get("precision")
+    return lora_params, pretrained_checkpoint_dir, precision
 
 
 if __name__ == "__main__":

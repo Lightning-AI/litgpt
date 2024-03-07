@@ -474,24 +474,24 @@ def lora_filter(key: str, value: Any) -> bool:
 class Config(BaseConfig):
     """
     Args:
-        r: rank of the weight update matrices. To make sense of using LoRA the rank should be smaller than the rank of
+        lora_r: rank of the weight update matrices. To make sense of using LoRA the rank should be smaller than the rank of
             the weights of the model. The rank can be as low as 1: https://arxiv.org/pdf/2106.09685.pdf (section 7.2)
-        alpha: alpha is needed for scaling updates as alpha/r
+        lora_alpha: alpha is needed for scaling updates as alpha/r
             "This scaling helps to reduce the need to retune hyperparameters when we vary r"
             https://arxiv.org/pdf/2106.09685.pdf (section 4.1)
-        dropout: dropout that is applied on the input in the LoRA branch (before multiplying by matrix A)
-        to_*: either apply LoRA to the specified weights or not
+        lora_dropout: dropout that is applied on the input in the LoRA branch (before multiplying by matrix A)
+        lora_*: whether to apply LoRA to the specified weights or not
     """
 
-    r: int = 0
-    alpha: int = 1
-    dropout: float = 0.0
-    to_query: bool = False
-    to_key: bool = False
-    to_value: bool = False
-    to_projection: bool = False
-    to_mlp: bool = False
-    to_head: bool = False
+    lora_r: int = 0
+    lora_alpha: int = 1
+    lora_dropout: float = 0.0
+    lora_query: bool = False
+    lora_key: bool = False
+    lora_value: bool = False
+    lora_projection: bool = False
+    lora_mlp: bool = False
+    lora_head: bool = False
 
     @property
     def mlp_class(self) -> Type:
@@ -508,9 +508,9 @@ class GPT(BaseModel):
             config.n_embd,
             config.padded_vocab_size,
             bias=config.lm_head_bias,
-            r=(config.r if config.to_head else 0),
-            lora_alpha=config.alpha,
-            lora_dropout=config.dropout,
+            r=(config.lora_r if config.lora_head else 0),
+            lora_alpha=config.lora_alpha,
+            lora_dropout=config.lora_dropout,
         )
         self.transformer = nn.ModuleDict(
             dict(
@@ -588,10 +588,10 @@ class CausalSelfAttention(BaseCausalSelfAttention):
         self.attn = LoRAQKVLinear(
             in_features=config.n_embd,
             out_features=shape,
-            r=config.r,
-            lora_alpha=config.alpha,
-            lora_dropout=config.dropout,
-            enable_lora=(config.to_query, config.to_key, config.to_value),
+            r=config.lora_r,
+            lora_alpha=config.lora_alpha,
+            lora_dropout=config.lora_dropout,
+            enable_lora=(config.lora_query, config.lora_key, config.lora_value),
             bias=config.bias,
             # for MQA/GQA support
             n_head=config.n_head,
@@ -603,9 +603,9 @@ class CausalSelfAttention(BaseCausalSelfAttention):
             config.head_size * config.n_head,
             config.n_embd,
             bias=config.bias,
-            r=(config.r if config.to_projection else 0),
-            lora_alpha=config.alpha,
-            lora_dropout=config.dropout,
+            r=(config.lora_r if config.lora_projection else 0),
+            lora_alpha=config.lora_alpha,
+            lora_dropout=config.lora_dropout,
         )
         # disabled by default
         self.kv_cache: Optional[KVCache] = None
@@ -631,17 +631,17 @@ class GptNeoxMLP(lit_gpt.model.GptNeoxMLP):
             config.n_embd,
             config.intermediate_size,
             bias=config.bias,
-            r=(config.r if config.to_mlp else 0),
-            lora_alpha=config.alpha,
-            lora_dropout=config.dropout,
+            r=(config.lora_r if config.lora_mlp else 0),
+            lora_alpha=config.lora_alpha,
+            lora_dropout=config.lora_dropout,
         )
         self.proj = LoRALinear(
             config.intermediate_size,
             config.n_embd,
             bias=config.bias,
-            r=(config.r if config.to_mlp else 0),
-            lora_alpha=config.alpha,
-            lora_dropout=config.dropout,
+            r=(config.lora_r if config.lora_mlp else 0),
+            lora_alpha=config.lora_alpha,
+            lora_dropout=config.lora_dropout,
         )
 
         self.config = config
@@ -665,25 +665,25 @@ class LLaMAMLP(lit_gpt.model.LLaMAMLP):
             config.n_embd,
             config.intermediate_size,
             bias=config.bias,
-            r=(config.r if config.to_mlp else 0),
-            lora_alpha=config.alpha,
-            lora_dropout=config.dropout,
+            r=(config.lora_r if config.lora_mlp else 0),
+            lora_alpha=config.lora_alpha,
+            lora_dropout=config.lora_dropout,
         )
         self.fc_2 = LoRALinear(
             config.n_embd,
             config.intermediate_size,
             bias=config.bias,
-            r=(config.r if config.to_mlp else 0),
-            lora_alpha=config.alpha,
-            lora_dropout=config.dropout,
+            r=(config.lora_r if config.lora_mlp else 0),
+            lora_alpha=config.lora_alpha,
+            lora_dropout=config.lora_dropout,
         )
         self.proj = LoRALinear(
             config.intermediate_size,
             config.n_embd,
             bias=config.bias,
-            r=(config.r if config.to_mlp else 0),
-            lora_alpha=config.alpha,
-            lora_dropout=config.dropout,
+            r=(config.lora_r if config.lora_mlp else 0),
+            lora_alpha=config.lora_alpha,
+            lora_dropout=config.lora_dropout,
         )
 
     def _load_from_state_dict(self, state_dict: Dict, prefix: str, *args: Any, **kwargs: Any) -> None:
@@ -715,9 +715,9 @@ class LLaMAMoE(lit_gpt.model.LLaMAMoE):
             config.n_embd,
             config.n_expert,
             bias=False,
-            r=(config.r if config.to_mlp else 0),
-            lora_alpha=config.alpha,
-            lora_dropout=config.dropout,
+            r=(config.lora_r if config.lora_mlp else 0),
+            lora_alpha=config.lora_alpha,
+            lora_dropout=config.lora_dropout,
         )
         self.experts = nn.ModuleList(LLaMAMLP(config) for _ in range(config.n_expert))
 
