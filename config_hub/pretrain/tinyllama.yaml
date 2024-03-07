@@ -15,7 +15,7 @@ train:
   epochs: null
   max_tokens: 3000000000000
   max_steps: null
-  max_seq_length: null
+  max_seq_length: 2048
   tie_embeddings: null
   learning_rate: 4e-4
   weight_decay: 1e-1

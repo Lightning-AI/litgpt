@@ -17,7 +17,7 @@ wd = Path(__file__).parent.parent.resolve()
 sys.path.append(str(wd))
 
 from lit_gpt import Config
-from lit_gpt.utils import incremental_save, lazy_load
+from lit_gpt.utils import incremental_save, lazy_load, save_config
 
 
 def copy_weights_gpt_neox(
@@ -303,10 +303,7 @@ def convert_hf_checkpoint(
         dtype = getattr(torch, dtype)
 
     config = Config.from_name(model_name)
-    config_dict = asdict(config)
-    print(f"Model config {config_dict}")
-    with open(checkpoint_dir / "lit_config.json", "w") as json_config:
-        json.dump(config_dict, json_config)
+    save_config(config, checkpoint_dir)
 
     if "falcon" in model_name:
         copy_fn = partial(copy_weights_falcon, model_name)

@@ -12,26 +12,20 @@ import torch
 wd = Path(__file__).parent.parent.resolve()
 sys.path.append(str(wd))
 
-from lit_gpt import Config
-from lit_gpt.utils import CLI, incremental_save
+from lit_gpt.utils import CLI, incremental_save, copy_config_files
 
 
 @torch.inference_mode()
-def convert_checkpoint(checkpoint_file: Path, tokenizer_dir: Path, config_name: str, output_dir: Path) -> None:
+def convert_checkpoint(checkpoint_dir: Path, output_dir: Path) -> None:
     """Convert a checkpoint after pretraining.
 
     The pretrained checkpoint contains optimizer states and several other metadata that are not needed after training
-    is finished. This script will export the state-dict of the model and place it in the chosen output folder together
-    with the tokenizer and model config, which then can be loaded by other scripts for inference, evaluation, etc.
+    is finished. This script will export the state-dict of the model and place it in the chosen output folder,
+    which then can be loaded by other scripts for inference, evaluation, etc.
 
     Args:
-        checkpoint_file: Path to a checkpoint file scripts produced by ``lit_gpt.pretrain``.
-        tokenizer_dir: A path to the folder that holds the tokenizer configuration files that were used to train
-            the model. All files with a name starting with 'tokenizer' will be copied to the output folder.
-        config_name: The name of the model loaded with the ``lit_gpt.Config``. The configuration will be saved as a
-            JSON file to the output folder.
-        output_dir: The output folder where model state-dict file, the tokenizer config file, and the model config
-            file will be saved.
+        checkpoint_dir: Path to a checkpoint directory produced by ``lit_gpt.pretrain``.
+        output_dir: The output folder where the converted state-dict file and config files will be saved to.
     """
 
     if output_dir.is_dir() and output_dir.glob("*"):
@@ -39,26 +33,12 @@ def convert_checkpoint(checkpoint_file: Path, tokenizer_dir: Path, config_name: 
             f"The output folder exists and is not empty: {str(output_dir)}."
             " Please delete it first or choose a different name."
         )
-    if not tokenizer_dir.is_dir():
-        raise FileNotFoundError(f"The tokenizer_dir must be a directory: {str(output_dir)}.")
 
     output_dir.mkdir(parents=True)
+    checkpoint_file = checkpoint_dir / "lit_model.pth"
     output_checkpoint_file = output_dir / "lit_model.pth"
-    output_config_file = output_dir / "lit_config.json"
 
-    # Save the config to output folder
-    config = Config.from_name(config_name)
-    with open(output_config_file, "w") as json_config:
-        json.dump(asdict(config), json_config)
-
-    # Export the tokenizer configuration to output folder
-    for tokenizer_file in tokenizer_dir.glob("tokenizer*"):
-        shutil.copyfile(tokenizer_file, output_dir / tokenizer_file.name)
-
-    # Copy config for tokenization if found
-    if (tokenizer_dir / "generation_config.json").is_file():
-        shutil.copyfile(tokenizer_dir / "generation_config.json", output_dir / "generation_config.json")
-
+    # TODO: Consolidate sharded checkpoint if applicable
     # Extract the model state dict and save to output folder
     with incremental_save(output_checkpoint_file) as saver:
         print("Processing", checkpoint_file)
@@ -72,6 +52,8 @@ def convert_checkpoint(checkpoint_file: Path, tokenizer_dir: Path, config_name: 
             converted_state_dict[param_name] = param
         print(f"Saving converted checkpoint to {str(output_checkpoint_file)}.")
         saver.save(converted_state_dict)
+
+    copy_config_files(checkpoint_dir, output_dir)
 
 
 if __name__ == "__main__":
