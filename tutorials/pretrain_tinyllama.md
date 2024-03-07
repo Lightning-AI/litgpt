@@ -100,7 +100,7 @@ In the above we are assuming that you will be using the same tokenizer as used i
 Running the pretraining script with its default settings requires at least 8 A100 GPUs.
 
 ```bash
-python lit_gpt/pretrain.py
+python lit_gpt/pretrain.py --config config_hub/pretrain/tinyllama.yaml
 ```
 
 The script will save checkpoints periodically to the folder `out/`.
@@ -111,7 +111,7 @@ Note that `pretrain` is not actually a model-specific training script, so feel f
 the configuration and size by passing a different string to the model name argument, for example:
 
 ```shell
-python lit_gpt/pretrain.py --model.name Gemma-2b
+python lit_gpt/pretrain.py --model_name Gemma-2b
 ```
 
 The currently supported model names are contained in the [config.py](https://github.com/Lightning-AI/lit-gpt/lit_gpt/config.py) file.
@@ -142,11 +142,14 @@ For reference, [here are the loss curves for our reproduction](https://api.wandb
 ## Resume training
 
 The checkpoints saved during pretraining contain all the information to resume if needed.
-Simply rerun the script with the `--resume` argument:
+Simply rerun the script with the `--resume` argument added:
 
 ```bash
-python lit_gpt/pretrain.py --resume out/tiny-llama-1.1b/step-00060500.pth
+python lit_gpt/pretrain.py \
+  --config config_hub/pretrain/tinyllama.yaml \
+  --resume out/pretrain/tiny-llama/step-00060500
 ```
+**Important:** Each checkpoint is a directory. Point to the directory, not the 'lit_model.pth' file inside of it.
 
 ## Export checkpoints
 
@@ -154,15 +157,13 @@ After training is completed, you can convert the checkpoint to a format that can
 
 ```bash
 python scripts/convert_pretrained_checkpoint.py \
-  --checkpoint_file out/tiny-llama-1.1b/step-00060500.pth \
-  --tokenizer_dir checkpoints/meta-llama/Llama-2-7b-hf \
-  --config_name tiny-llama-1.1b \
-  --output_dir checkpoints/lit-tiny-llama-1.1b
+  --checkpoint_dir out/pretrain/tiny-llama/step-00060500 \
+  --output_dir checkpoints/tiny-llama/final
 ```
 
 After conversion, the output folder will contain these files:
 ```
-checkpoints/lit-tiny-llama-1.1b
+checkpoints/tiny-llama/final
 ├── lit_config.json
 ├── lit_model.pth
 ├── tokenizer_config.json
