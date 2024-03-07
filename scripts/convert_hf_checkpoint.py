@@ -16,8 +16,8 @@ from lightning.fabric.utilities.load import _NotYetLoadedTensor as NotYetLoadedT
 wd = Path(__file__).parent.parent.resolve()
 sys.path.append(str(wd))
 
-from lit_gpt import Config
-from lit_gpt.utils import incremental_save, lazy_load, save_config
+from litgpt import Config
+from litgpt.utils import incremental_save, lazy_load, save_config
 
 
 def copy_weights_gpt_neox(

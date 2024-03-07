@@ -52,13 +52,13 @@ import torch.nn as nn
 from torch.nn import functional as F
 from typing_extensions import Self
 
-import lit_gpt
-from lit_gpt.config import Config as BaseConfig
-from lit_gpt.model import GPT as BaseModel
-from lit_gpt.model import Block as BaseBlock
-from lit_gpt.model import CausalSelfAttention as BaseCausalSelfAttention
-from lit_gpt.model import KVCache
-from lit_gpt.utils import map_old_state_dict_weights
+import litgpt
+from litgpt.config import Config as BaseConfig
+from litgpt.model import GPT as BaseModel
+from litgpt.model import Block as BaseBlock
+from litgpt.model import CausalSelfAttention as BaseCausalSelfAttention
+from litgpt.model import KVCache
+from litgpt.utils import map_old_state_dict_weights
 
 
 class LoRALayer(nn.Module):
@@ -205,7 +205,7 @@ class LoRAQKVLinear(LoRALinear):
             in_features: number of input features of the pretrained weights
             out_features: number of output features of the pretrained weights
             n_head: number of attention heads
-            n_query_groups: number of query groups (see diagram in `lit_gpt/config.py`)
+            n_query_groups: number of query groups (see diagram in `litgpt/config.py`)
             r: rank of the weight update matrices. To make sense of using LoRA the rank should be smaller than the rank of
                 the weights of the model. The rank can be as low as 1: https://arxiv.org/pdf/2106.09685.pdf (section 7.2)
             lora_alpha: alpha is needed for scaling updates as alpha/r
@@ -345,7 +345,7 @@ class LoRAQKVLinear(LoRALinear):
         """An extension of the `torch.nn.functional.conv1d` function with a logic specific to grouped queries.
 
         If the number of heads is equal to the number of query groups - grouped queries are disabled
-        (see scheme in `lit_gpt/config.py:Config`). In this case the combined QKV matrix consists of equally sized
+        (see scheme in `litgpt/config.py:Config`). In this case the combined QKV matrix consists of equally sized
         query, key and value parts, which means we can utilize `groups` argument from `conv1d`: with this argument the
         input and weight matrices will be splitted in equally sized parts and applied separately (like having multiple
         conv layers side by side).
@@ -495,7 +495,7 @@ class Config(BaseConfig):
 
     @property
     def mlp_class(self) -> Type:
-        return getattr(lit_gpt.lora, self.mlp_class_name)
+        return getattr(litgpt.lora, self.mlp_class_name)
 
 
 class GPT(BaseModel):
@@ -624,7 +624,7 @@ class CausalSelfAttention(BaseCausalSelfAttention):
         super()._load_from_state_dict(state_dict, prefix, *args, **kwargs)
 
 
-class GptNeoxMLP(lit_gpt.model.GptNeoxMLP):
+class GptNeoxMLP(litgpt.model.GptNeoxMLP):
     def __init__(self, config: Config) -> None:
         nn.Module.__init__(self)
         self.fc = LoRALinear(
@@ -658,7 +658,7 @@ class GptNeoxMLP(lit_gpt.model.GptNeoxMLP):
         super()._load_from_state_dict(state_dict, prefix, *args, **kwargs)
 
 
-class LLaMAMLP(lit_gpt.model.LLaMAMLP):
+class LLaMAMLP(litgpt.model.LLaMAMLP):
     def __init__(self, config: Config) -> None:
         nn.Module.__init__(self)
         self.fc_1 = LoRALinear(
@@ -708,7 +708,7 @@ class GemmaMLP(LLaMAMLP):
         return self.proj(x)
 
 
-class LLaMAMoE(lit_gpt.model.LLaMAMoE):
+class LLaMAMoE(litgpt.model.LLaMAMoE):
     def __init__(self, config: Config) -> None:
         nn.Module.__init__(self)
         self.gate = LoRALinear(

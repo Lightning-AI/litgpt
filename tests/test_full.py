@@ -12,9 +12,9 @@ import torch
 @mock.patch.dict(os.environ, {"LT_ACCELERATOR": "cpu"})
 def test_full_script(tmp_path, fake_checkpoint_dir, monkeypatch, alpaca_path):
     import finetune.full as module
-    from lit_gpt.args import EvalArgs, TrainArgs
-    from lit_gpt.data import Alpaca
-    from lit_gpt.config import name_to_config
+    from litgpt.args import EvalArgs, TrainArgs
+    from litgpt.data import Alpaca
+    from litgpt.config import name_to_config
 
     model_config = dict(block_size=128, n_layer=2, n_embd=8, n_head=4, padded_vocab_size=8)
     monkeypatch.setitem(name_to_config, "tmp", model_config)

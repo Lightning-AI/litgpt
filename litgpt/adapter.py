@@ -5,7 +5,7 @@
 LLaMA-Adapter: Efficient Fine-tuning of Language Models with Zero-init Attention
 https://arxiv.org/abs/2303.16199
 
-Port for Lit-GPT
+Port for LitGPT
 """
 
 from dataclasses import dataclass
@@ -15,10 +15,10 @@ import torch
 import torch.nn as nn
 from typing_extensions import Self
 
-from lit_gpt.config import Config as BaseConfig
-from lit_gpt.model import GPT as BaseModel
-from lit_gpt.model import Block as BaseBlock
-from lit_gpt.model import CausalSelfAttention as BaseCausalSelfAttention
+from litgpt.config import Config as BaseConfig
+from litgpt.model import GPT as BaseModel
+from litgpt.model import Block as BaseBlock
+from litgpt.model import CausalSelfAttention as BaseCausalSelfAttention
 
 
 @dataclass
@@ -28,7 +28,7 @@ class Config(BaseConfig):
 
 
 class GPT(BaseModel):
-    """The implementation is identical to `lit_gpt.model.GPT` with the exception that
+    """The implementation is identical to `litgpt.model.GPT` with the exception that
     the `Block` saves the layer index and passes it down to the attention layer."""
 
     def __init__(self, config: Config) -> None:
@@ -86,7 +86,7 @@ class GPT(BaseModel):
 
 
 class Block(BaseBlock):
-    """The implementation is identical to `lit_gpt.model.Block` with the exception that
+    """The implementation is identical to `litgpt.model.Block` with the exception that
     we replace the attention layer where adaption is implemented."""
 
     def __init__(self, config: Config, block_idx: int) -> None:
@@ -102,7 +102,7 @@ class Block(BaseBlock):
 
 
 class CausalSelfAttention(BaseCausalSelfAttention):
-    """A modification of `lit_gpt.model.CausalSelfAttention` that adds the attention
+    """A modification of `litgpt.model.CausalSelfAttention` that adds the attention
     over the adaption prompt."""
 
     def __init__(self, config: Config, block_idx: int) -> None:

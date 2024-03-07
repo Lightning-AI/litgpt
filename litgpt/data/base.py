@@ -8,12 +8,12 @@ from torch import Tensor
 from torch.utils.data import Dataset
 
 from lightning import LightningDataModule
-from lit_gpt import Tokenizer
-from lit_gpt.prompts import PromptStyle
+from litgpt import Tokenizer
+from litgpt.prompts import PromptStyle
 
 
 class LitDataModule(LightningDataModule):
-    """Base class for all data modules in Lit-GPT."""
+    """Base class for all data modules in LitGPT."""
 
     @abstractmethod
     def connect(
@@ -27,7 +27,7 @@ class LitDataModule(LightningDataModule):
         """
 
     def setup(self, stage: str = "") -> None:
-        # Stub is to redefine the default signature, because the concept of 'stage' does not exist in Lit-GPT
+        # Stub is to redefine the default signature, because the concept of 'stage' does not exist in LitGPT
         pass
 
     def __repr__(self) -> str:
@@ -41,7 +41,7 @@ class SFTDataset(Dataset):
         data: A list of samples (dicts). The target/label must be stored under the key 'output' and the instruction
             or other data can be stored under any key as long as it is compatible with the given prompt template.
         tokenizer: The tokenizer to use. Should match the one that was used to pretrain the model.
-        prompt_style: The style to apply to prompts. See `lit_gpt.prompts` for a list of available styles.
+        prompt_style: The style to apply to prompts. See `litgpt.prompts` for a list of available styles.
         max_seq_length: Truncate sequences that are longer than this value. By default, no truncation is applied.
         mask_prompt: Whether to mask the prompt section from the label (with ``ignore_index``).
         ignore_index: The index to use for elements to be ignored in the label.

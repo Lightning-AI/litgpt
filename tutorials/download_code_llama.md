@@ -33,7 +33,7 @@ codellama/CodeLlama-34b-Instruct-hf
 codellama/CodeLlama-70b-Instruct-hf
 ```
 
-In order to use a specific checkpoint, for instance [CodeLlama-7b-Python-hf](https://huggingface.co/codellama/CodeLlama-7b-Python-hf), download the weights and convert the checkpoint to the lit-gpt format.
+In order to use a specific checkpoint, for instance [CodeLlama-7b-Python-hf](https://huggingface.co/codellama/CodeLlama-7b-Python-hf), download the weights and convert the checkpoint to the litgpt format.
 
 ```bash
 pip install 'huggingface_hub[hf_transfer] @ git+https://github.com/huggingface/huggingface_hub'

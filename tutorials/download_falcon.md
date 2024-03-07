@@ -23,7 +23,7 @@ tiiuae/falcon-180B
 tiiuae/falcon-180B-chat
 ```
 
-In order to use a specific Falcon checkpoint, for instance [falcon-7b](https://huggingface.co/tiiuae/falcon-7b), download the weights and convert the checkpoint to the lit-gpt format:
+In order to use a specific Falcon checkpoint, for instance [falcon-7b](https://huggingface.co/tiiuae/falcon-7b), download the weights and convert the checkpoint to the litgpt format:
 
 ```bash
 pip install 'huggingface_hub[hf_transfer] @ git+https://github.com/huggingface/huggingface_hub'
@@ -42,4 +42,4 @@ pip install tokenizers
 python generate/base.py --prompt "Hello, my name is" --checkpoint_dir checkpoints/tiiuae/falcon-7b
 ```
 
-or [![Open In Colab](https://colab.research.google.com/assets/colab-badge.svg)](https://colab.research.google.com/github/Lightning-AI/lit-gpt/blob/main/notebooks/falcon-inference.ipynb)
+or [![Open In Colab](https://colab.research.google.com/assets/colab-badge.svg)](https://colab.research.google.com/github/Lightning-AI/litgpt/blob/main/notebooks/falcon-inference.ipynb)

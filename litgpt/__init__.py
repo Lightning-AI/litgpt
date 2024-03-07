@@ -3,17 +3,17 @@
 import re
 import logging
 
-from lit_gpt.model import GPT
-from lit_gpt.config import Config
-from lit_gpt.prompts import PromptStyle
-from lit_gpt.tokenizer import Tokenizer
+from litgpt.model import GPT
+from litgpt.config import Config
+from litgpt.prompts import PromptStyle
+from litgpt.tokenizer import Tokenizer
 
 from lightning_utilities.core.imports import RequirementCache
 
 _LIGHTNING_AVAILABLE = RequirementCache("lightning>=2.2.0.dev0")
 if not bool(_LIGHTNING_AVAILABLE):
     raise ImportError(
-        "Lit-GPT requires lightning nightly. Please run:\n"
+        "LitGPT requires lightning nightly. Please run:\n"
         f" pip uninstall -y lightning; pip install -r requirements.txt\n{str(_LIGHTNING_AVAILABLE)}"
     )
 

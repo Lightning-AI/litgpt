@@ -4,7 +4,7 @@
 
 ## Using lm-evaluation-harness
 
-You can evaluate Lit-GPT using [EleutherAI's lm-eval](https://github.com/EleutherAI/lm-evaluation-harness/tree/master) framework with a large number of different evaluation tasks.
+You can evaluate LitGPT using [EleutherAI's lm-eval](https://github.com/EleutherAI/lm-evaluation-harness/tree/master) framework with a large number of different evaluation tasks.
 
 You need to install the `lm-eval` framework first:
 
@@ -14,9 +14,9 @@ pip install https://github.com/EleutherAI/lm-evaluation-harness/archive/refs/hea
 
 &nbsp;
 
-### Evaluating Lit-GPT base models
+### Evaluating LitGPT base models
 
-Use the following command to evaluate Lit-GPT models on all tasks in Eleuther AI's Evaluation Harness.
+Use the following command to evaluate LitGPT models on all tasks in Eleuther AI's Evaluation Harness.
 
 ```bash
 python eval/lm_eval_harness.py \

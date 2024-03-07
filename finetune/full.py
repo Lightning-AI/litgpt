@@ -21,12 +21,12 @@ wd = Path(__file__).parent.parent.resolve()
 sys.path.append(str(wd))
 
 from generate.base import generate
-from lit_gpt.args import EvalArgs, TrainArgs
-from lit_gpt.model import GPT, Block, Config
-from lit_gpt.tokenizer import Tokenizer
-from lit_gpt.data import Alpaca, LitDataModule
-from lit_gpt.prompts import save_prompt_style
-from lit_gpt.utils import (
+from litgpt.args import EvalArgs, TrainArgs
+from litgpt.model import GPT, Block, Config
+from litgpt.tokenizer import Tokenizer
+from litgpt.data import Alpaca, LitDataModule
+from litgpt.prompts import save_prompt_style
+from litgpt.utils import (
     CLI,
     check_valid_checkpoint_dir,
     chunked_cross_entropy,

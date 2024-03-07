@@ -3,8 +3,8 @@
 
 from dataclasses import dataclass, field
 from pathlib import Path
-from lit_gpt.data.alpaca import Alpaca
-from lit_gpt.data import SFTDataset
+from litgpt.data.alpaca import Alpaca
+from litgpt.data import SFTDataset
 
 
 @dataclass

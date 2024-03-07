@@ -17,9 +17,9 @@ import yaml
 @RunIf(skip_windows=True)  # PermissionError in os.rename on Windows
 @mock.patch.dict(os.environ, {"LT_ACCELERATOR": "cpu"})
 def test_merge_lora(tmp_path, fake_checkpoint_dir):
-    from lit_gpt.lora import GPT as LoRAGPT
-    from lit_gpt.lora import lora_filter
-    from lit_gpt.model import GPT
+    from litgpt.lora import GPT as LoRAGPT
+    from litgpt.lora import lora_filter
+    from litgpt.model import GPT
     from scripts.merge_lora import merge_lora
 
     pretrained_checkpoint_dir = tmp_path / "pretrained"

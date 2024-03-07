@@ -1,10 +1,10 @@
 # Copyright Lightning AI. Licensed under the Apache License 2.0, see LICENSE file.
 import json
-from lit_gpt.prompts import PromptStyle
+from litgpt.prompts import PromptStyle
 
 
 def test_default_prompt_style(mock_tokenizer):
-    from lit_gpt.prompts import Default
+    from litgpt.prompts import Default
 
     prompt_style = Default()
     prompt = "This is a test prompt."
@@ -13,16 +13,16 @@ def test_default_prompt_style(mock_tokenizer):
 
 
 def test_prompt_style_from_name():
-    from lit_gpt.prompts import PromptStyle, prompt_styles
+    from litgpt.prompts import PromptStyle, prompt_styles
 
     for style_name in prompt_styles:
         assert isinstance(PromptStyle.from_name(style_name), prompt_styles[style_name])
 
 
 def test_prompt_style_from_config():
-    import lit_gpt.config
-    from lit_gpt import Config
-    from lit_gpt.prompts import PromptStyle, Default
+    import litgpt.config
+    from litgpt import Config
+    from litgpt.prompts import PromptStyle, Default
 
     model_names = [
         "stablelm-tuned-alpha-3b",
@@ -63,7 +63,7 @@ def test_prompt_style_from_config():
     for template in ("RedPajama-INCITE-{}-3B-v1", "RedPajama-INCITE-7B-{}", "RedPajama-INCITE-{}-7B-v0.1"):
         model_names.append(template.format("Chat"))
         model_names.append(template.format("Instruct"))
-    for c in lit_gpt.config.platypus:
+    for c in litgpt.config.platypus:
         model_names.append(c["name"])
 
     for model_name in model_names:
@@ -72,7 +72,7 @@ def test_prompt_style_from_config():
 
 
 def test_apply_prompts():
-    from lit_gpt.prompts import prompt_styles, Alpaca
+    from litgpt.prompts import prompt_styles, Alpaca
 
     prompt = "Is a coconut a nut or a fruit?"
     inp = "Optional input"
@@ -90,7 +90,7 @@ class CustomPromptStyle(PromptStyle):
 
 
 def test_save_load_prompt_style(tmp_path):
-    from lit_gpt.prompts import Alpaca, save_prompt_style, load_prompt_style, has_prompt_style
+    from litgpt.prompts import Alpaca, save_prompt_style, load_prompt_style, has_prompt_style
 
     # Save and load a built-in style
     checkpoint_dir = tmp_path / "checkpoint"
@@ -100,7 +100,7 @@ def test_save_load_prompt_style(tmp_path):
     assert has_prompt_style(checkpoint_dir)
     with open(checkpoint_dir / "prompt_style.json", "r") as file:
         contents = json.load(file)
-    assert contents == {"class_path": "lit_gpt.prompts.Alpaca"}
+    assert contents == {"class_path": "litgpt.prompts.Alpaca"}
     loaded = load_prompt_style(checkpoint_dir)
     assert isinstance(loaded, Alpaca)
 

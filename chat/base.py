@@ -14,9 +14,9 @@ wd = Path(__file__).parent.parent.resolve()
 sys.path.append(str(wd))
 
 from generate.base import next_token
-from lit_gpt import GPT, Config, PromptStyle, Tokenizer
-from lit_gpt.prompts import load_prompt_style, has_prompt_style
-from lit_gpt.utils import CLI, check_valid_checkpoint_dir, get_default_supported_precision, load_checkpoint
+from litgpt import GPT, Config, PromptStyle, Tokenizer
+from litgpt.prompts import load_prompt_style, has_prompt_style
+from litgpt.utils import CLI, check_valid_checkpoint_dir, get_default_supported_precision, load_checkpoint
 
 
 @torch.inference_mode()
@@ -118,7 +118,7 @@ def main(
         quantize: Whether to quantize the model and using which method:
             - bnb.nf4, bnb.nf4-dq, bnb.fp4, bnb.fp4-dq: 4-bit quantization from bitsandbytes
             - bnb.int8: 8-bit quantization from bitsandbytes
-            for more details, see https://github.com/Lightning-AI/lit-gpt/blob/main/tutorials/quantize.md
+            for more details, see https://github.com/Lightning-AI/litgpt/blob/main/tutorials/quantize.md
         precision: Indicates the Fabric precision setting to use.
         compile: Whether to use compilation to speed up token generation. Will increase startup time.
     """

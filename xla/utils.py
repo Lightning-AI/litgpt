@@ -10,7 +10,7 @@ import torch
 from lightning.fabric.strategies.xla_fsdp import XLAFSDPStrategy, _activation_checkpointing_auto_wrapper
 from lightning_utilities.core.rank_zero import rank_prefixed_message
 
-from lit_gpt import GPT
+from litgpt import GPT
 
 
 def rank_print(fabric: L.Fabric, message: object, *, flush: bool = True, **kwargs: Any) -> None:

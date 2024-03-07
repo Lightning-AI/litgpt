@@ -10,11 +10,11 @@ import pytest
 wd = Path(__file__).parent.parent.resolve()
 sys.path.append(str(wd))
 
-import lit_gpt.config as config_module
+import litgpt.config as config_module
 
 
 def test_config():
-    from lit_gpt import Config
+    from litgpt import Config
 
     config = Config()
     assert config.name == ""
@@ -34,7 +34,7 @@ def test_config():
 
 
 def test_from_hf_name():
-    from lit_gpt import Config
+    from litgpt import Config
 
     # by short-hand name
     config0 = Config.from_name("tiny-llama-1.1b")
@@ -45,7 +45,7 @@ def test_from_hf_name():
 
 @pytest.mark.parametrize("config", config_module.configs, ids=[c["name"] for c in config_module.configs])
 def test_short_and_hf_names_are_equal_unless_on_purpose(config):
-    from lit_gpt import Config
+    from litgpt import Config
 
     # by short-hand name
     config0 = Config.from_name(config["name"])
@@ -55,20 +55,20 @@ def test_short_and_hf_names_are_equal_unless_on_purpose(config):
 
 
 def test_nonexisting_name():
-    from lit_gpt import Config
+    from litgpt import Config
 
     with pytest.raises(ValueError, match="not a supported"):
         Config.from_name("foobar")
 
 
 def test_from_checkpoint(tmp_path):
-    from lit_gpt import Config
+    from litgpt import Config
 
     # 1. Neither `lit_config.py` nor matching config exists.
     with pytest.raises(FileNotFoundError, match="neither 'lit_config.json' nor matching config exists"):
         Config.from_checkpoint(tmp_path / "non_existing_checkpoint")
 
-    # 2. If `lit_config.py` doesn't exists, but there is a matching config in `lit_gpt/config.py`.
+    # 2. If `lit_config.py` doesn't exists, but there is a matching config in `litgpt/config.py`.
     config = Config.from_checkpoint(tmp_path / "pythia-14m")
     assert config.name == "pythia-14m"
     assert config.block_size == 512
@@ -95,7 +95,7 @@ def test_from_checkpoint(tmp_path):
 
 @pytest.mark.parametrize("head_size", [None, 128])
 def test_head_size(head_size):
-    from lit_gpt import Config
+    from litgpt import Config
 
     config = Config(head_size)
 

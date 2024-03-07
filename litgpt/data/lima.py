@@ -8,9 +8,9 @@ from typing import Optional, List, Union
 import torch
 from torch.utils.data import random_split, DataLoader
 
-from lit_gpt import PromptStyle
-from lit_gpt.data import LitDataModule, SFTDataset, get_sft_collate_fn
-from lit_gpt.tokenizer import Tokenizer
+from litgpt import PromptStyle
+from litgpt.data import LitDataModule, SFTDataset, get_sft_collate_fn
+from litgpt.tokenizer import Tokenizer
 
 
 @dataclass
@@ -22,7 +22,7 @@ class LIMA(LitDataModule):
     test_split_fraction: float = 0.1
     """The fraction of the dataset to use for the test/validation dataset. The rest is used for training."""
     prompt_style: Union[str, PromptStyle] = "alpaca"
-    """The style to apply to instruction prompts. See `lit_gpt.prompts` for a list of available styles."""
+    """The style to apply to instruction prompts. See `litgpt.prompts` for a list of available styles."""
     ignore_index: int = -1
     """The index to use for elements to be ignored in the label."""
     seed: int = 42
