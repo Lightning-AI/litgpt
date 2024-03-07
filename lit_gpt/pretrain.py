@@ -105,9 +105,6 @@ def main(
     if fabric.global_rank == 0:
         out_dir.mkdir(parents=True, exist_ok=True)
 
-    train_dataloader, val_dataloader = get_dataloaders(fabric, data, tokenizer, train, config.block_size)
-    train_dataloader, val_dataloader = fabric.setup_dataloaders(train_dataloader, val_dataloader)
-
     fabric.seed_everything(seed)  # same seed for every process to init model (FSDP)
 
     t0 = time.perf_counter()
@@ -117,6 +114,8 @@ def main(
 
     if train.tie_embeddings:
         model.transformer.wte.weight = model.lm_head.weight
+    if train.max_seq_length:
+        model.max_seq_length = train.max_seq_length
 
     fabric.print(f"Time to instantiate model: {time.perf_counter() - t0:.02f} seconds.")
     fabric.print(f"Total parameters: {num_parameters(model):,}")
@@ -131,6 +130,9 @@ def main(
         fused=True,
     )
     optimizer = fabric.setup_optimizers(optimizer)
+
+    train_dataloader, val_dataloader = get_dataloaders(fabric, data, tokenizer, train, model.max_seq_length)
+    train_dataloader, val_dataloader = fabric.setup_dataloaders(train_dataloader, val_dataloader)
 
     state = {
         "model": model,
@@ -172,7 +174,7 @@ def fit(
 
     with torch.device("meta"):
         meta_model = GPT(model.config)
-        x = torch.randint(0, 1, (train.micro_batch_size, meta_model.config.block_size))
+        x = torch.randint(0, 1, (train.micro_batch_size, meta_model.max_seq_length))
         model_fwd = lambda: meta_model(x)
         model_loss = lambda y: chunked_cross_entropy(y, x, chunk_size=0)
         measured_flops = measure_flops(meta_model, model_fwd, model_loss)
@@ -180,7 +182,7 @@ def fit(
         del meta_model, x
 
     max_tokens_per_device = train.max_tokens // fabric.world_size
-    tokens_per_iter = train.micro_batch_size * model.config.block_size
+    tokens_per_iter = train.micro_batch_size * model.max_seq_length
     max_iters = max_tokens_per_device // tokens_per_iter
     log_iter_interval = train.log_interval * train.gradient_accumulation_iters(devices)
     initial_iter = state["iter_num"]
@@ -205,8 +207,8 @@ def fit(
         state["iter_num"] += 1
         iter_t0 = time.perf_counter()
 
-        input_ids = train_data[:, 0 : model.config.block_size].contiguous().long()
-        targets = train_data[:, 1 : (model.config.block_size + 1)].contiguous().long()
+        input_ids = train_data[:, 0 : model.max_seq_length].contiguous().long()
+        targets = train_data[:, 1 : (model.max_seq_length + 1)].contiguous().long()
 
         is_accumulating = state["iter_num"] % train.gradient_accumulation_iters(devices) != 0
         with fabric.no_backward_sync(model, enabled=is_accumulating):
@@ -230,7 +232,7 @@ def fit(
                 flops=(measured_flops * log_iter_interval),
                 batches=state["iter_num"],
                 samples=(state["iter_num"] * train.micro_batch_size),
-                lengths=(state["iter_num"] * train.micro_batch_size * model.config.block_size),
+                lengths=(state["iter_num"] * train.micro_batch_size * model.max_seq_length),
             )
             metrics = {
                 "loss": loss,
@@ -241,9 +243,9 @@ def fit(
                 "remaining_time": (
                     (t1 - total_t0) / (state["iter_num"] - initial_iter) * (max_iters - state["iter_num"])
                 ),
-                "tokens": state["iter_num"] * train.micro_batch_size * model.config.block_size,
+                "tokens": state["iter_num"] * train.micro_batch_size * model.max_seq_length,
                 "total_tokens": (
-                    state["iter_num"] * train.micro_batch_size * model.config.block_size * fabric.world_size
+                    state["iter_num"] * train.micro_batch_size * model.max_seq_length * fabric.world_size
                 ),
                 "learning_rate": lr,
             }
@@ -289,8 +291,8 @@ def validate(fabric: L.Fabric, model: nn.Module, val_dataloader: DataLoader, max
     for k, batch in enumerate(val_dataloader):
         if k >= max_iters:
             break
-        input_ids = batch[:, 0 : model.config.block_size].contiguous().long()
-        targets = batch[:, 1 : (model.config.block_size + 1)].contiguous().long()
+        input_ids = batch[:, 0 : model.max_seq_length].contiguous().long()
+        targets = batch[:, 1 : (model.max_seq_length + 1)].contiguous().long()
         logits = model(input_ids)
         loss = chunked_cross_entropy(logits, targets)
         losses[k] = loss
