@@ -241,8 +241,9 @@ class CausalSelfAttention(nn.Module):
             k, v = self.kv_cache(input_pos, k, v)
 
         # Grouped queries: balance the number of heads across all three matrices.
+        # NOTE: flash attention requires it in training mode.
         # Multi-query: this step can be skipped since there is only 1 head, allowing us to use broadcasting.
-        if self.config.n_query_groups != self.config.n_head and self.config.n_query_groups != 1:
+        if self.config.n_query_groups != self.config.n_head and (input_pos is None or self.config.n_query_groups != 1):
             q_per_kv = self.config.n_head // self.config.n_query_groups
             k = k.repeat_interleave(q_per_kv, dim=1)  # (B, nh_q, T, hs)
             v = v.repeat_interleave(q_per_kv, dim=1)  # (B, nh_q, T, hs)
