@@ -5,6 +5,7 @@ import os
 import sys
 import time
 from pathlib import Path
+from pprint import pprint
 from typing import Dict, List, Literal, Optional, Tuple, Union
 
 import lightning as L
@@ -70,7 +71,7 @@ def setup(
     eval: EvalArgs = EvalArgs(interval=100, max_new_tokens=100, max_iters=100),
 ) -> None:
 
-    print(locals())
+    pprint(locals())
     data = Alpaca() if data is None else data
     devices = parse_devices(devices)
 
