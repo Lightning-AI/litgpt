@@ -20,11 +20,11 @@ from torch.utils.data import DataLoader
 from torchmetrics.aggregation import RunningMean
 from typing_extensions import Literal
 
-from lit_gpt import Tokenizer
-from lit_gpt.args import EvalArgs, TrainArgs
-from lit_gpt.data import LitDataModule, TinyLlama
-from lit_gpt.model import GPT, Block, CausalSelfAttention, Config, LLaMAMLP
-from lit_gpt.utils import (
+from litgpt import Tokenizer
+from litgpt.args import EvalArgs, TrainArgs
+from litgpt.data import LitDataModule, TinyLlama
+from litgpt.model import GPT, Block, CausalSelfAttention, Config, LLaMAMLP
+from litgpt.utils import (
     CLI,
     CycleIterator,
     chunked_cross_entropy,

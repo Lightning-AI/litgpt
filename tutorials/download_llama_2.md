@@ -27,7 +27,7 @@ meta-llama/Llama-2-70b-hf
 meta-llama/Llama-2-70b-chat-hf
 ```
 
-In order to use a specific checkpoint, for instance [Llama-2-7b-chat-hf](https://huggingface.co/meta-llama/Llama-2-7b-chat-hf), download the weights and convert the checkpoint to the lit-gpt format.
+In order to use a specific checkpoint, for instance [Llama-2-7b-chat-hf](https://huggingface.co/meta-llama/Llama-2-7b-chat-hf), download the weights and convert the checkpoint to the litgpt format.
 
 This requires that you've been granted access to the weights on the HuggingFace hub. You can do so by following the steps at <https://huggingface.co/meta-llama/Llama-2-7b>.
 After access is granted, you can find your HF hub token in <https://huggingface.co/settings/tokens>.

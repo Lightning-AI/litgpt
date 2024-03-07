@@ -1,8 +1,8 @@
 # Copyright Lightning AI. Licensed under the Apache License 2.0, see LICENSE file.
 
 def test_alpaca(mock_tokenizer, alpaca_path):
-    from lit_gpt.data import Alpaca
-    from lit_gpt.prompts import Alpaca as AlpacaPromptStyle
+    from litgpt.data import Alpaca
+    from litgpt.prompts import Alpaca as AlpacaPromptStyle
 
     alpaca = Alpaca(
         test_split_fraction=0.5,

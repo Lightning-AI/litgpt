@@ -18,7 +18,7 @@ import torch
 )
 def test_generate(max_seq_length):
     import generate.base as generate
-    from lit_gpt import GPT, Config
+    from litgpt import GPT, Config
 
     T = 5
     input_idx = torch.randint(10, size=(T,))

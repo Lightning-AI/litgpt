@@ -18,7 +18,7 @@ openlm-research/open_llama_7b
 openlm-research/open_llama_13b
 ```
 
-In order to use a specific OpenLLaMA checkpoint, for instance [open_llama_3b](https://huggingface.co/openlm-research/open_llama_3b), download the weights and convert the checkpoint to the lit-gpt format:
+In order to use a specific OpenLLaMA checkpoint, for instance [open_llama_3b](https://huggingface.co/openlm-research/open_llama_3b), download the weights and convert the checkpoint to the litgpt format:
 
 ```bash
 pip install 'huggingface_hub[hf_transfer] @ git+https://github.com/huggingface/huggingface_hub'

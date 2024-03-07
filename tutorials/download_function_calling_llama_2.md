@@ -5,7 +5,7 @@ Llama-7B with function calling is licensed according to the Meta Community licen
 Function calling Llama extends the hugging face Llama 2 models with function calling capabilities.
 The model responds with a structured json argument with the function name and arguments.
 
-In order to use the checkpoint, download the weights and convert the checkpoint to the lit-gpt format.
+In order to use the checkpoint, download the weights and convert the checkpoint to the litgpt format.
 
 ```bash
 pip install 'huggingface_hub[hf_transfer] @ git+https://github.com/huggingface/huggingface_hub'

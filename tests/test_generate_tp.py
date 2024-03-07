@@ -83,7 +83,7 @@ def test_tensor_parallel_linear():
 )
 def test_tensor_parallel_llama(name, expected):
     from generate.tp import tensor_parallel
-    from lit_gpt import GPT
+    from litgpt import GPT
 
     fabric = Mock()
     fabric.world_size = 8
@@ -108,7 +108,7 @@ root = Path(__file__).parent.parent.resolve()
 
 @RunIf(min_cuda_gpus=2)
 def test_tp(tmp_path):
-    from lit_gpt import GPT, Config
+    from litgpt import GPT, Config
     from scripts.download import download_from_hub
 
     # download the tokenizer

@@ -4,8 +4,8 @@ import pytest
 
 
 def test_json(tmp_path, mock_tokenizer):
-    from lit_gpt.data import JSON
-    from lit_gpt.prompts import PromptStyle
+    from litgpt.data import JSON
+    from litgpt.prompts import PromptStyle
 
     class Style(PromptStyle):
         def apply(self, prompt, **kwargs):
