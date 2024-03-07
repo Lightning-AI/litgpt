@@ -38,7 +38,7 @@ def prepare(
     chunk_size: int = (2049 * 16384),
     fast_dev_run: bool = False,
 ) -> None:
-    from lightning.data.streaming import DataProcessor
+    from litdata.streaming import DataProcessor
 
     tokenizer = Tokenizer(tokenizer_path)
     data_recipe = SlimPajamaDataRecipe(tokenizer=tokenizer, chunk_size=chunk_size)
