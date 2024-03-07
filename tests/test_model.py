@@ -44,7 +44,7 @@ def test_against_gpt_neox_model(rotary_pct, batch_size, n_embd, parallel_residua
     from transformers import GPTNeoXConfig, GPTNeoXForCausalLM
 
     from litgpt import GPT, Config
-    from scripts.convert_hf_checkpoint import copy_weights_gpt_neox
+    from litgpt.scripts.convert_hf_checkpoint import copy_weights_gpt_neox
 
     torch.set_default_dtype(dtype)
 
@@ -117,7 +117,7 @@ def test_against_hf_falcon(kwargs, device, dtype):
     from transformers.models.falcon import FalconConfig, FalconForCausalLM
 
     from litgpt import GPT, Config
-    from scripts.convert_hf_checkpoint import copy_weights_falcon
+    from litgpt.scripts.convert_hf_checkpoint import copy_weights_falcon
 
     torch.set_default_dtype(dtype)
 
@@ -169,7 +169,7 @@ def test_against_original_open_llama_3b(device, dtype):
     from transformers.models.llama.modeling_llama import LlamaForCausalLM
 
     from litgpt import GPT, Config
-    from scripts.convert_hf_checkpoint import copy_weights_hf_llama
+    from litgpt.scripts.convert_hf_checkpoint import copy_weights_hf_llama
 
     torch.set_default_dtype(dtype)
 
@@ -225,7 +225,7 @@ def test_against_hf_llama2(ours_kwargs, device, dtype):
     from transformers.models.llama.modeling_llama import LlamaForCausalLM
 
     from litgpt import GPT, Config
-    from scripts.convert_hf_checkpoint import copy_weights_hf_llama
+    from litgpt.scripts.convert_hf_checkpoint import copy_weights_hf_llama
 
     torch.set_default_dtype(dtype)
 
@@ -290,7 +290,7 @@ def test_against_hf_phi_1_5(device, dtype):
     from reference_models.original_phi_1_5 import PhiForCausalLM
 
     from litgpt import GPT, Config
-    from scripts.convert_hf_checkpoint import copy_weights_phi
+    from litgpt.scripts.convert_hf_checkpoint import copy_weights_phi
 
     torch.set_default_dtype(dtype)
 
@@ -352,7 +352,7 @@ def test_against_hf_phi_2(device, dtype):
     from reference_models.original_phi_2 import PhiForCausalLM
 
     from litgpt import GPT, Config
-    from scripts.convert_hf_checkpoint import copy_weights_phi
+    from litgpt.scripts.convert_hf_checkpoint import copy_weights_phi
 
     torch.set_default_dtype(dtype)
 
@@ -408,7 +408,7 @@ def test_against_hf_mistral(device, dtype):
     from transformers.models.mistral.modeling_mistral import MistralForCausalLM
 
     from litgpt import GPT, Config
-    from scripts.convert_hf_checkpoint import copy_weights_hf_llama
+    from litgpt.scripts.convert_hf_checkpoint import copy_weights_hf_llama
 
     torch.set_default_dtype(dtype)
 
@@ -455,7 +455,7 @@ def test_against_hf_mixtral():
     from transformers.models.mixtral import MixtralConfig, MixtralForCausalLM
 
     from litgpt import GPT, Config
-    from scripts.convert_hf_checkpoint import copy_weights_hf_llama
+    from litgpt.scripts.convert_hf_checkpoint import copy_weights_hf_llama
 
     device = torch.device("cpu")
     dtype = torch.float32
@@ -520,7 +520,7 @@ def test_against_original_stablelm_zephyr_3b(device, dtype):
     from transformers import AutoConfig, AutoModelForCausalLM
 
     from litgpt import GPT, Config
-    from scripts.convert_hf_checkpoint import copy_weights_hf_llama
+    from litgpt.scripts.convert_hf_checkpoint import copy_weights_hf_llama
 
     torch.set_default_dtype(dtype)
 
@@ -577,7 +577,7 @@ def test_against_original_gemma(model_name, device, dtype):
     from transformers.models.gemma.modeling_gemma import GemmaForCausalLM
 
     from litgpt import GPT, Config
-    from scripts.convert_hf_checkpoint import copy_weights_hf_llama
+    from litgpt.scripts.convert_hf_checkpoint import copy_weights_hf_llama
 
     torch.set_default_dtype(dtype)
 

@@ -2,21 +2,15 @@
 
 """This script merges the LoRA weights with the base model"""
 import os
-import sys
 from pathlib import Path
 from typing import Optional, Tuple, Dict, Any
 
-import yaml
-
 import lightning as L
 import torch
-
-# support running without installing as a package
-wd = Path(__file__).parent.parent.resolve()
-sys.path.append(str(wd))
+import yaml
 
 from litgpt.lora import GPT, Config, lora_filter, merge_lora_weights
-from litgpt.utils import CLI, check_valid_checkpoint_dir, get_default_supported_precision, lazy_load
+from litgpt.utils import CLI, check_valid_checkpoint_dir, lazy_load
 
 
 def merge_lora(

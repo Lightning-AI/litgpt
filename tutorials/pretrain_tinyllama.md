@@ -55,7 +55,7 @@ pip install 'lightning[data]' torchmetrics tensorboard sentencepiece zstandard p
 You will need to have the tokenizer config available:
 
 ```bash
-python scripts/download.py \
+python litgpt/scripts/download.py \
    --repo_id meta-llama/Llama-2-7b-hf \
    --access_token your_hf_token \
    --tokenizer_only true
@@ -118,7 +118,7 @@ The currently supported model names are contained in the [config.py](https://git
 You can
 
 1) either search this file for lines containing "name =",
-2) or run `python scripts/download.py` without additional command line arguments
+2) or run `python litgpt/scripts/download.py` without additional command line arguments
 
 Keep in mind that training with a single machine will take weeks. To speed up the process, you'll need access to a cluster.
 Once you're in a cluster, you can follow [these instructions](https://lightning.ai/docs/fabric/stable/fundamentals/launch.html#launch-on-a-cluster)
@@ -156,7 +156,7 @@ python litgpt/pretrain.py \
 After training is completed, you can convert the checkpoint to a format that can be loaded for evaluation, inference, finetuning etc.
 
 ```bash
-python scripts/convert_pretrained_checkpoint.py \
+python litgpt/scripts/convert_pretrained_checkpoint.py \
   --checkpoint_dir out/pretrain/tiny-llama/step-00060500 \
   --output_dir checkpoints/tiny-llama/final
 ```

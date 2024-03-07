@@ -43,7 +43,7 @@ def test_check_valid_checkpoint_dir(tmp_path):
 Find download instructions at https://github.com/Lightning-AI/litgpt/blob/main/tutorials
 
 See all download options by running:
- python scripts/download.py
+ python litgpt/scripts/download.py
     """.strip()
     assert out == expected
 
@@ -57,7 +57,7 @@ See all download options by running:
 Find download instructions at https://github.com/Lightning-AI/litgpt/blob/main/tutorials
 
 See all download options by running:
- python scripts/download.py
+ python litgpt/scripts/download.py
     """.strip()
     assert out == expected
 
@@ -75,7 +75,7 @@ You have downloaded locally:
  --checkpoint_dir '{str(checkpoint_dir.absolute())}'
 
 See all download options by running:
- python scripts/download.py
+ python litgpt/scripts/download.py
     """.strip()
     assert out == expected
 

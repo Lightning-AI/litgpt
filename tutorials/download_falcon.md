@@ -9,7 +9,7 @@ The first Falcon release includes a base model and an instruction tuned model of
 To see all the available checkpoints for Falcon, run:
 
 ```bash
-python scripts/download.py | grep falcon
+python litgpt/scripts/download.py | grep falcon
 ```
 
 which will print
@@ -28,7 +28,7 @@ In order to use a specific Falcon checkpoint, for instance [falcon-7b](https://h
 ```bash
 pip install 'huggingface_hub[hf_transfer] @ git+https://github.com/huggingface/huggingface_hub'
 
-python scripts/download.py --repo_id tiiuae/falcon-7b
+python litgpt/scripts/download.py --repo_id tiiuae/falcon-7b
 ```
 
 By default, the checkpoint conversion step will use the data type of the HF checkpoint's parameters. In cases where RAM

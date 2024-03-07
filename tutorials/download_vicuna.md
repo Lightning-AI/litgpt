@@ -5,7 +5,7 @@ Vicuna is an open-source family of chatbots trained by fine-tuning LLaMA on user
 To see all the available checkpoints for Vicuna, run:
 
 ```bash
-python scripts/download.py | grep vicuna
+python litgpt/scripts/download.py | grep vicuna
 ```
 
 which will print
@@ -25,7 +25,7 @@ In order to use a specific Vicuna checkpoint, for instance [vicuna-7b-v1.5](http
 ```bash
 pip install 'huggingface_hub[hf_transfer] @ git+https://github.com/huggingface/huggingface_hub'
 
-python scripts/download.py --repo_id lmsys/vicuna-7b-v1.5
+python litgpt/scripts/download.py --repo_id lmsys/vicuna-7b-v1.5
 ```
 
 By default, the checkpoint conversion step will use the data type of the HF checkpoint's parameters. In cases where RAM

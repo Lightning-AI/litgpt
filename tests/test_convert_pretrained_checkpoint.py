@@ -6,7 +6,7 @@ import torch
 
 
 def test_convert_pretrained_checkpoint(tmp_path, fake_checkpoint_dir):
-    from scripts.convert_pretrained_checkpoint import convert_checkpoint
+    from litgpt.scripts.convert_pretrained_checkpoint import convert_checkpoint
 
     # Pretend we made a checkpoint from pretraining
     pretrained_checkpoint = {
