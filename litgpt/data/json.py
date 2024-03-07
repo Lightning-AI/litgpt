@@ -3,7 +3,7 @@
 import json
 from dataclasses import dataclass, field
 from pathlib import Path
-from typing import Optional, Union
+from typing import Optional, Union, Tuple, Any
 
 import torch
 from torch.utils.data import random_split, DataLoader
@@ -23,7 +23,7 @@ class JSON(LitDataModule):
     (see Alpaca)."""
     mask_prompt: bool = False
     """Whether to mask the prompt section from the label (with ``ignore_index``)."""
-    test_split_fraction: float = 0.1
+    test_split_fraction: Optional[float] = None
     """The fraction of the dataset to use for the test/validation dataset. The rest is used for training."""
     prompt_style: Union[str, PromptStyle] = "alpaca"
     """The style to apply to instruction prompts. See `litgpt.prompts` for a list of available styles."""
@@ -41,8 +41,16 @@ class JSON(LitDataModule):
     test_dataset: Optional[SFTDataset] = field(default=None, init=False, repr=False)
 
     def __post_init__(self):
-        if not self.json_path.is_file():
-            raise FileNotFoundError(f"The file {self.json_path} does not exist.")
+        if self.json_path.is_dir() and self.test_split_fraction is not None:
+            raise ValueError(
+                "If `json_path` is a directory, it must contain 'train.json' and 'val.json' files and"
+                f" hence `test_split_fraction` should not be set. Got `{self.test_split_fraction=}`."
+            )
+        if not self.json_path.exists():
+            raise FileNotFoundError(
+                "The `json_path` must be a file or a directory containing 'train.json' and 'val.json' files,"
+                f" but '{self.json_path!s}' does not exist."
+            )
         if isinstance(self.prompt_style, str):
             self.prompt_style = PromptStyle.from_name(self.prompt_style)
 
@@ -57,16 +65,7 @@ class JSON(LitDataModule):
         self.max_seq_length = -1 if max_seq_length is None else max_seq_length
 
     def setup(self, stage: str = "") -> None:
-        with open(self.json_path, "r", encoding="utf-8") as file:
-            data = json.load(file)
-
-        # Partition the dataset into train and test
-        train_data, test_data = random_split(
-            data,
-            [1.0 - self.test_split_fraction, self.test_split_fraction],
-            generator=torch.Generator().manual_seed(self.seed)
-        )
-        train_data, test_data = list(train_data), list(test_data)
+        train_data, test_data = self.get_splits()
 
         self.train_dataset = SFTDataset(
             data=train_data,
@@ -103,3 +102,34 @@ class JSON(LitDataModule):
             num_workers=self.num_workers,
             collate_fn=get_sft_collate_fn(max_seq_length=self.max_seq_length, ignore_index=self.ignore_index)
         )
+
+    def get_splits(self) -> Tuple:
+        # A single file (gets split into train and test)
+        if self.json_path.is_file():
+            data = load_split(self.json_path)
+
+            # Partition the dataset into train and test
+            train_data, test_data = random_split(
+                data,
+                [1.0 - self.test_split_fraction, self.test_split_fraction],
+                generator=torch.Generator().manual_seed(self.seed)
+            )
+            return train_data, test_data
+
+        # A directory containing train.json and val.json (or test.json)
+        if (self.json_path / "train.json").is_file():
+            for eval_split in ("val", "test"):
+                eval_file = (self.json_path / f"{eval_split}.json")
+                if eval_file.is_file():
+                    train_data = load_split(self.json_path / "train.json")
+                    test_data = load_split(eval_file)
+                    return train_data, test_data
+
+        raise FileNotFoundError(
+            "The `json_path` must be a file or a directory containing 'train.json' and 'val.json' files."
+        )
+
+
+def load_split(json_path: Path) -> Any:
+    with open(json_path, "r", encoding="utf-8") as file:
+        return json.load(file)
