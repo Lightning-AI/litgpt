@@ -46,7 +46,7 @@ class OpenWebText(LitDataModule):
 
     def prepare_data(self) -> None:
         from datasets import Dataset, load_dataset
-        from lightning.data import optimize
+        from litdata import optimize
 
         if str(self.data_path).startswith("s3://"):
             print(f"The OpenWebText data path points to an S3 location: {self.data_path}. Skipping preprocessing.")
@@ -81,7 +81,7 @@ class OpenWebText(LitDataModule):
         )
 
     def train_dataloader(self) -> DataLoader:
-        from lightning.data.streaming import StreamingDataLoader, StreamingDataset, TokensLoader
+        from litdata.streaming import StreamingDataLoader, StreamingDataset, TokensLoader
 
         train_dataset = StreamingDataset(
             input_dir=self.data_path_train,
@@ -95,7 +95,7 @@ class OpenWebText(LitDataModule):
         return train_dataloader
 
     def val_dataloader(self) -> DataLoader:
-        from lightning.data.streaming import StreamingDataset, TokensLoader
+        from litdata.streaming import StreamingDataset, TokensLoader
 
         val_dataset = StreamingDataset(
             input_dir=self.data_path_val,
