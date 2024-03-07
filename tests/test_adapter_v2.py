@@ -74,7 +74,7 @@ def test_adapter_v2_filter(tmp_path):
 
 @mock.patch.dict(os.environ, {"LT_ACCELERATOR": "cpu"})
 def test_adapter_v2_script(tmp_path, fake_checkpoint_dir, monkeypatch, alpaca_path):
-    import finetune.adapter_v2 as module
+    import litgpt.finetune.adapter_v2 as module
     from litgpt.args import EvalArgs, TrainArgs
     from litgpt.data import Alpaca
     from litgpt.config import name_to_config
@@ -235,7 +235,7 @@ def test_against_hf_mixtral():
 def test_adapter_v2_bitsandbytes(monkeypatch, tmp_path, fake_checkpoint_dir, alpaca_path):
     from litgpt.config import name_to_config
     from litgpt.data import Alpaca
-    import finetune.adapter_v2 as module
+    import litgpt.finetune.adapter_v2 as module
 
     if not _BITSANDBYTES_AVAILABLE:
         pytest.skip("BNB not available")

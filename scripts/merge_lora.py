@@ -24,14 +24,14 @@ def merge_lora(
     pretrained_checkpoint_dir: Optional[Path] = None,
     precision: Optional[str] = None,
 ) -> None:
-    """Merges the LoRA weights with the base model. See `finetune/lora.py`.
+    """Merges the LoRA weights with the base model. See `litgpt/finetune/lora.py`.
 
     Merging happens in-place in the checkpoint directory that is given as input. It also saves
     a backup file `lit_model.pth.lora` of the trained LoRA weights in case you still need it later.
 
     Args:
         checkpoint_dir: Path to the checkpoint directory with trained LoRA weights, which is the output of
-            `finetune/lora.py`.
+            `litgpt/finetune/lora.py`.
         pretrained_checkpoint_dir: Optional path to the checkpoint directory with the weights of the base model
             corresponding to the LoRA checkpoint. By default, this will automatically be inferred from the metadata
             in the given `checkpoint_dir` directory. Only set this if the base model checkpoint directory
@@ -83,7 +83,7 @@ def load_lora_metadata(checkpoint_dir: Path) -> Tuple[Dict[str, Any], Path, Opti
         raise FileNotFoundError(
             f"The path {str(hparams_file)!r} is not a valid checkpoint directory. It is missing a"
             f" `hyperparameters.yaml` file. Please point to the checkpoint directory that was produced by"
-            f" the `finetune/lora.py` script."
+            f" the `litgpt/finetune/lora.py` script."
         )
 
     with open(hparams_file, "r") as file:
