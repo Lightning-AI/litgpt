@@ -3,6 +3,7 @@
 import os
 from contextlib import redirect_stdout
 from io import StringIO
+from pathlib import Path
 from unittest import mock
 from unittest.mock import Mock
 
@@ -66,3 +67,16 @@ def test_pretrain_model_name_and_config():
 
     with pytest.raises(ValueError, match="Only one of `model_name` or `model_config`"):
         pretrain.setup(model_name="tiny-llama-1.1b", model_config=Config(name="tiny-llama-1.1b"))
+
+
+def test_init_out_dir(tmp_path):
+    from lit_gpt.pretrain import init_out_dir
+
+    relative_path = Path("./out")
+    absolute_path = tmp_path / "out"
+    assert init_out_dir(relative_path) == relative_path
+    assert init_out_dir(absolute_path) == absolute_path
+
+    with mock.patch.dict(os.environ, {"LIGHTNING_ARTIFACTS_DIR": "prefix"}):
+        assert init_out_dir(relative_path) == Path("prefix") / relative_path
+        assert init_out_dir(absolute_path) == absolute_path
