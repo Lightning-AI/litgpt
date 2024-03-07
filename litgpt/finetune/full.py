@@ -8,24 +8,18 @@ from pathlib import Path
 from pprint import pprint
 from typing import Dict, List, Optional, Tuple, Union
 
-import torch
-from torch.utils.data import DataLoader
-
 import lightning as L
+import torch
 from lightning.fabric.loggers import CSVLogger
 from lightning.fabric.strategies import FSDPStrategy
+from torch.utils.data import DataLoader
 from torchmetrics import RunningMean
 
-# support running without installing as a package
-wd = Path(__file__).parent.parent.resolve()
-sys.path.append(str(wd))
-
-from generate.base import generate
 from litgpt.args import EvalArgs, TrainArgs
-from litgpt.model import GPT, Block, Config
-from litgpt.tokenizer import Tokenizer
 from litgpt.data import Alpaca, LitDataModule
+from litgpt.model import GPT, Block, Config
 from litgpt.prompts import save_prompt_style
+from litgpt.tokenizer import Tokenizer
 from litgpt.utils import (
     CLI,
     check_valid_checkpoint_dir,
@@ -38,6 +32,12 @@ from litgpt.utils import (
     copy_config_files,
     save_hyperparameters,
 )
+
+# support running without installing as a package
+wd = Path(__file__).parent.parent.resolve()
+sys.path.append(str(wd))
+
+from generate.base import generate
 
 
 def setup(

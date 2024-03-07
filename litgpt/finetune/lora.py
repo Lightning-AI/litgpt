@@ -10,18 +10,13 @@ from typing import Dict, List, Literal, Optional, Tuple, Union
 
 import lightning as L
 import torch
-from torch.utils.data import DataLoader
 from lightning.fabric.loggers import CSVLogger
 from lightning.fabric.plugins import BitsandbytesPrecision
 from lightning.fabric.strategies import FSDPStrategy
 from lightning.fabric.utilities import ThroughputMonitor
+from torch.utils.data import DataLoader
 from torchmetrics import RunningMean
 
-# support running without installing as a package
-wd = Path(__file__).parent.parent.resolve()
-sys.path.append(str(wd))
-
-from generate.base import generate
 from litgpt.args import EvalArgs, TrainArgs
 from litgpt.data import LitDataModule, Alpaca
 from litgpt.lora import GPT, Block, Config, lora_filter, mark_only_lora_as_trainable
@@ -39,6 +34,12 @@ from litgpt.utils import (
     copy_config_files,
     save_hyperparameters,
 )
+
+# support running without installing as a package
+wd = Path(__file__).parent.parent.resolve()
+sys.path.append(str(wd))
+
+from generate.base import generate
 
 
 def setup(
