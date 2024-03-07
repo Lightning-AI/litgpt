@@ -1,6 +1,6 @@
 ## Converting LitGPT weights to Hugging Face Transformers
 
-LitGPT weights need to be converted to a format that Hugging Face understands with a [conversion script](../scripts/convert_lit_checkpoint.py) before our scripts can run.
+LitGPT weights need to be converted to a format that Hugging Face understands with a [conversion script](../litgpt/scripts/convert_lit_checkpoint.py) before our scripts can run.
 
 We provide a helpful script to convert models LitGPT models back to their equivalent Hugging Face Transformers format:
 
@@ -46,7 +46,7 @@ model = AutoModel.from_pretrained("online_repo_id", state_dict=state_dict)
 
 ### Merging LoRA weights
 
-Please note that if you want to convert a model that has been fine-tuned using an adapter like LoRA, these weights should be [merged](../scripts/merge_lora.py) to the checkpoint prior to converting.
+Please note that if you want to convert a model that has been fine-tuned using an adapter like LoRA, these weights should be [merged](../litgpt/scripts/merge_lora.py) to the checkpoint prior to converting.
 
 ```sh
 python scripts/merge_lora.py \

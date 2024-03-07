@@ -20,7 +20,7 @@ def test_run_eval(tmp_path, float_like):
     from eval.lm_eval_harness import EvalHarnessBase
     from litgpt.model import GPT
     from litgpt.tokenizer import Tokenizer
-    from scripts.download import download_from_hub
+    from litgpt.scripts.download import download_from_hub
 
     fabric = Fabric(devices=1)
     with fabric.init_module():

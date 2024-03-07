@@ -1,7 +1,6 @@
 # Copyright Lightning AI. Licensed under the Apache License 2.0, see LICENSE file.
 
 import gc
-import sys
 from functools import partial
 from pathlib import Path
 from typing import Dict, Optional, Tuple, Union
@@ -9,13 +8,9 @@ from typing import Dict, Optional, Tuple, Union
 import torch
 from lightning.fabric.utilities.load import _NotYetLoadedTensor as NotYetLoadedTensor
 
-# support running without installing as a package
-wd = Path(__file__).parent.parent.resolve()
-sys.path.append(str(wd))
-
 from litgpt import Config
+from litgpt.scripts.convert_hf_checkpoint import layer_template, load_param
 from litgpt.utils import CLI, incremental_save, lazy_load
-from scripts.convert_hf_checkpoint import layer_template, load_param
 
 
 def copy_weights_falcon(
