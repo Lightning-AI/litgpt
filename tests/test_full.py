@@ -11,7 +11,7 @@ import torch
 
 @mock.patch.dict(os.environ, {"LT_ACCELERATOR": "cpu"})
 def test_full_script(tmp_path, fake_checkpoint_dir, monkeypatch, alpaca_path):
-    import finetune.full as module
+    import litgpt.finetune.full as module
     from litgpt.args import EvalArgs, TrainArgs
     from litgpt.data import Alpaca
     from litgpt.config import name_to_config

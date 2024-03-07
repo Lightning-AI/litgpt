@@ -22,7 +22,7 @@ For more information about dataset preparation, also see the [prepare_dataset.md
 ## Running the finetuning
 
 ```bash
-python finetune/adapter.py \
+python litgpt/finetune/adapter.py \
   --data Alpaca \
   --checkpoint_dir checkpoints/stabilityai/stablelm-base-alpha-3b
 ```
@@ -30,7 +30,7 @@ python finetune/adapter.py \
 or for Adapter V2
 
 ```bash
-python finetune/adapter_v2.py \
+python litgpt/finetune/adapter_v2.py \
   --data Alpaca \
   --checkpoint_dir checkpoints/stabilityai/stablelm-base-alpha-3b
 ```
@@ -49,7 +49,7 @@ For example, the following settings will let you finetune the model in under 1 h
 This script will save checkpoints periodically to the `out_dir` directory. If you are finetuning different models or on your own dataset, you can specify an output directory with your preferred name:
 
 ```bash
-python finetune/adapter.py \
+python litgpt/finetune/adapter.py \
   --data Alpaca \
   --out_dir out/adapter/my-model-finetuned
 ```
@@ -57,7 +57,7 @@ python finetune/adapter.py \
 or for Adapter V2
 
 ```bash
-python finetune/adapter_v2.py \
+python litgpt/finetune/adapter_v2.py \
   --data Alpaca \
   --out_dir out/adapter_v2/my-model-finetuned
 ```
@@ -66,7 +66,7 @@ If your GPU does not support `bfloat16`, you can pass the `--precision 32-true` 
 For instance, to fine-tune on MPS (the GPU on modern Macs), you can run
 
 ```bash
-python finetune/adapter.py \
+python litgpt/finetune/adapter.py \
   --data Alpaca \
   --out_dir out/adapter/my-model-finetuned \
   --precision 32-true
@@ -79,13 +79,13 @@ Note that `mps` as the accelerator will be picked up automatically by Fabric whe
 Optionally, finetuning using quantization can be enabled via the `--quantize` flag, for example using the 4-bit NormalFloat data type:
 
 ```bash
-python finetune/adapter.py --quantize "bnb.nf4"
+python litgpt/finetune/adapter.py --quantize "bnb.nf4"
 ```
 
 or using adapter_v2 with double-quantization:
 
 ```bash
-python finetune/adapter_v2.py --quantize "bnb.nf4-dq"
+python litgpt/finetune/adapter_v2.py --quantize "bnb.nf4-dq"
 ```
 
 For additional benchmarks and resource requirements, please see the [Resource Tables](resource-tables.md).
@@ -135,10 +135,10 @@ You can easily train on your own instruction dataset saved in JSON format.
     ]
     ```
 
-2. Run `finetune/adapter.py` or `finetune/adapter_v2.py` by passing in the location of your data (and optionally other parameters):
+2. Run `litgpt/finetune/adapter.py` or `litgpt/finetune/adapter_v2.py` by passing in the location of your data (and optionally other parameters):
 
     ```bash
-    python finetune/adapter.py \
+    python litgpt/finetune/adapter.py \
         --data JSON \
         --data.json_path data/mydata.json \
         --checkpoint_dir checkpoints/tiiuae/falcon-7b \
