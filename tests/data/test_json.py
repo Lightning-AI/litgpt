@@ -1,16 +1,15 @@
 # Copyright Lightning AI. Licensed under the Apache License 2.0, see LICENSE file.
 import json
 import pytest
-from litgpt.prompts import PromptStyle
-
-
-class Style(PromptStyle):
-    def apply(self, prompt, **kwargs):
-        return f"X: {prompt} {kwargs['input']} Y:"
 
 
 def test_json(tmp_path, mock_tokenizer):
     from litgpt.data import JSON
+    from litgpt.prompts import PromptStyle
+
+    class Style(PromptStyle):
+        def apply(self, prompt, **kwargs):
+            return f"X: {prompt} {kwargs['input']} Y:"
 
     json_path = tmp_path / "data.json"
     mock_data = [
@@ -96,7 +95,7 @@ def test_json_with_splits(split_name, tmp_path, mock_tokenizer):
     with open(tmp_path / f"{split_name}.json", "w", encoding="utf-8") as fp:
         json.dump(mock_test_data, fp)
 
-    data = JSON(tmp_path, prompt_style=Style(), num_workers=0)
+    data = JSON(tmp_path, num_workers=0)
     data.connect(tokenizer=mock_tokenizer, batch_size=2)
     data.prepare_data()  # does nothing
     data.setup()
