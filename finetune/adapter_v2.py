@@ -1,10 +1,10 @@
 # Copyright Lightning AI. Licensed under the Apache License 2.0, see LICENSE file.
 import dataclasses
 import os
-import pprint
 import sys
 import time
 from pathlib import Path
+from pprint import pprint
 from typing import Dict, List, Literal, Optional, Tuple, Union
 
 import lightning as L
@@ -60,7 +60,7 @@ def setup(
     eval: EvalArgs = EvalArgs(interval=600, max_new_tokens=100, max_iters=100),
 ) -> None:
 
-    print(pprint.pformat(locals()))
+    pprint(locals())
     data = Alpaca() if data is None else data
     devices = parse_devices(devices)
 
