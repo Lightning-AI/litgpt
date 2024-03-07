@@ -244,15 +244,14 @@ def fit(
                 samples=(state["iter_num"] * train.micro_batch_size),
                 lengths=(state["iter_num"] * train.micro_batch_size * model.max_seq_length),
             )
+            remaining_days = (t1 - total_t0) / (state["iter_num"] - initial_iter) * (max_iters - state["iter_num"]) / 1440
             metrics = {
                 "loss": loss,
                 "iter": state["iter_num"],
                 "step": state["step_count"],
                 "epoch": train_iterator.epoch,
                 "iter_time": t1 - iter_t0,
-                "remaining_time": (
-                    (t1 - total_t0) / (state["iter_num"] - initial_iter) * (max_iters - state["iter_num"])
-                ),
+                "remaining_days": remaining_days,
                 "tokens": state["iter_num"] * train.micro_batch_size * model.max_seq_length,
                 "total_tokens": (
                     state["iter_num"] * train.micro_batch_size * model.max_seq_length * fabric.world_size
@@ -263,7 +262,7 @@ def fit(
             fabric.print(
                 f"iter {metrics['iter']} | step {metrics['step']}: loss {metrics['loss']:.4f}, iter time:"
                 f" {metrics['iter_time'] * 1000:.2f} ms{' (optimizer.step),' if not is_accumulating else ','}"
-                f" remaining time: {timedelta(seconds=int(metrics['remaining_time']))!s}"
+                f" remaining days: {remaining_days:.1f} days"
             )
 
             throughput_metrics = throughput.compute()
