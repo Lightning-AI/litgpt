@@ -3,6 +3,7 @@
 import math
 import os
 import time
+import pprint
 from datetime import timedelta
 from functools import partial
 from pathlib import Path
@@ -89,7 +90,7 @@ def setup(
     fabric = L.Fabric(devices=devices, strategy=strategy, precision="bf16-mixed", loggers=[logger])
     fabric.launch()
 
-    fabric.print(hparams)
+    fabric.print(pprint.pformat(hparams))
     if logger_name in ("tensorboard", "wandb"):
         fabric.logger.log_hyperparams(hparams)
 
