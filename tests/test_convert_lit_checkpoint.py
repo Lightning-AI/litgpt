@@ -251,8 +251,8 @@ def test_against_hf_phi_1_5():
 
     from litgpt import GPT, Config
     from scripts.convert_lit_checkpoint import copy_weights_phi
-    from tests.reference_models.configuration_phi import PhiConfig
-    from tests.reference_models.original_phi_1_5 import PhiForCausalLM
+    from reference_models.configuration_phi import PhiConfig
+    from reference_models.original_phi_1_5 import PhiForCausalLM
 
     ours_config = Config.from_name(
         "phi-1_5", padded_vocab_size=10000, n_layer=2, n_head=4, n_embd=256, rotary_percentage=0.5
