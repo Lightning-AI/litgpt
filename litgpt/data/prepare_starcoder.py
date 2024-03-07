@@ -1,20 +1,21 @@
 # Copyright Lightning AI. Licensed under the Apache License 2.0, see LICENSE file.
 
 import os
-import sys
 import time
 import traceback
 from pathlib import Path
 
-import pyarrow.parquet as pq
-from lightning.data.streaming import DataChunkRecipe, DataProcessor
-
-# support running without installing as a package
-wd = Path(__file__).parent.parent.resolve()
-sys.path.append(str(wd))
+from lightning_utilities.core.imports import RequirementCache
 
 from litgpt import Tokenizer
 from litgpt.utils import CLI
+
+_LITDATA_AVAILABLE = RequirementCache("litdata")
+if _LITDATA_AVAILABLE:
+    from lightning.data.streaming import DataChunkRecipe
+else:
+    DataChunkRecipe = object
+
 
 
 class StarcoderDataRecipe(DataChunkRecipe):
@@ -27,6 +28,8 @@ class StarcoderDataRecipe(DataChunkRecipe):
         return [str(file) for file in files]
 
     def prepare_item(self, item_metadata):
+        import pyarrow.parquet as pq
+
         filepath = item_metadata
         start = time.time()
 
@@ -54,6 +57,8 @@ def prepare(
     chunk_size: int = (2049 * 8192),
     fast_dev_run: bool = False,
 ) -> None:
+    from lightning.data.streaming import DataProcessor
+
     tokenizer = Tokenizer(tokenizer_path)
     data_recipe = StarcoderDataRecipe(tokenizer=tokenizer, chunk_size=chunk_size)
     data_processor = DataProcessor(
