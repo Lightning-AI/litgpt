@@ -41,7 +41,7 @@ def setup(
         prompt: The prompt/instruction (Alpaca style).
         input: Optional input (Alpaca style).
         adapter_path: Path to the checkpoint with trained adapter weights, which are the output of
-            `finetune/adapter.py`.
+            `xla/finetune/adapter.py`.
         checkpoint_dir: The path to the checkpoint folder with pretrained GPT weights.
         max_new_tokens: The number of generation steps to take.
         top_k: The number of top most probable tokens to consider in the sampling process.

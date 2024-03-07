@@ -51,7 +51,7 @@ def test_adapter_filter(tmp_path):
 
 @mock.patch.dict(os.environ, {"LT_ACCELERATOR": "cpu"})
 def test_adapter_script(tmp_path, fake_checkpoint_dir, monkeypatch, alpaca_path):
-    import finetune.adapter as module
+    import litgpt.finetune.adapter as module
     from litgpt.data import Alpaca
     from litgpt.args import EvalArgs, TrainArgs
     from litgpt.config import name_to_config
@@ -146,7 +146,7 @@ def test_adapter_compile():
 def test_adapter_bitsandbytes(monkeypatch, tmp_path, fake_checkpoint_dir, alpaca_path):
     from litgpt.config import name_to_config
     from litgpt.data import Alpaca
-    import finetune.adapter as module
+    import litgpt.finetune.adapter as module
 
     if not _BITSANDBYTES_AVAILABLE:
         pytest.skip("BNB not available")

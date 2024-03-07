@@ -131,25 +131,25 @@ We support 4-bit quantization (as in QLoRA), (bnb.nf4, bnb.nf4-dq, bnb.fp4, bnb.
 
 ## Finetune the model
 
-We provide a simple training scripts (`finetune/adapter.py`, `finetune/adapter_v2.py`, and `finetune/lora.py`) that instruction-tunes a pretrained model on the [Alpaca](https://github.com/tatsu-lab/stanford_alpaca) dataset.
+We provide a simple training scripts (`litgpt/finetune/*.py`) that instruction-tunes a pretrained model on the [Alpaca](https://github.com/tatsu-lab/stanford_alpaca) dataset.
 For example, you can either use
 
 Adapter ([Zhang et al. 2023](https://arxiv.org/abs/2303.16199)):
 
 ```bash
-python finetune/adapter.py
+python litgpt/finetune/adapter.py
 ```
 
 or Adapter v2 ([Gao et al. 2023](https://arxiv.org/abs/2304.15010)):
 
 ```bash
-python finetune/adapter_v2.py
+python litgpt/finetune/adapter_v2.py
 ```
 
 or LoRA ([Hu et al. 2021](https://arxiv.org/abs/2106.09685)):
 
 ```bash
-python finetune/lora.py
+python litgpt/finetune/lora.py
 ```
 
 (Please see the [tutorials/finetune_adapter](tutorials/finetune_adapter.md) for details on the differences between the two adapter methods.)
