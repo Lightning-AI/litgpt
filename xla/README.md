@@ -105,7 +105,7 @@ Subsequent generations will take around 2 seconds.
 To get started fine-tuning Falcon 7B with adapter, run the following command:
 
 ```shell
-python3 scripts/prepare_alpaca.py --checkpoint_dir checkpoints/tiiuae/falcon-7b
+python3 xla/scripts/prepare_alpaca.py --checkpoint_dir checkpoints/tiiuae/falcon-7b
 
 python3 xla/finetune/adapter.py --checkpoint_dir checkpoints/tiiuae/falcon-7b --precision bf16-true
 ```
