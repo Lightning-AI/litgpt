@@ -13,6 +13,7 @@ from lightning.fabric.plugins import BitsandbytesPrecision
 wd = Path(__file__).parent.parent.resolve()
 sys.path.append(str(wd))
 
+from litgpt.generate.base import next_token
 from litgpt import GPT, Config, PromptStyle, Tokenizer
 from litgpt.prompts import load_prompt_style, has_prompt_style
 from litgpt.utils import CLI, check_valid_checkpoint_dir, get_default_supported_precision, load_checkpoint

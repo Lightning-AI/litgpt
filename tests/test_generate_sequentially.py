@@ -304,7 +304,7 @@ def test_base_with_sequentially(tmp_path):
 
 
 def test_cli():
-    cli_path = root / "generate" / "sequentially.py"
+    cli_path = root / "litgpt/generate/sequentially.py"
     output = subprocess.check_output([sys.executable, cli_path, "-h"])
     output = str(output.decode())
     assert "Generates text samples" in output

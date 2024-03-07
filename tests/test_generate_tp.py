@@ -135,7 +135,7 @@ def test_tp(tmp_path):
 
 
 def test_cli():
-    cli_path = root / "generate" / "tp.py"
+    cli_path = root / "litgpt/generate/tp.py"
     output = subprocess.check_output([sys.executable, cli_path, "-h"])
     output = str(output.decode())
     assert "Generates text samples" in output

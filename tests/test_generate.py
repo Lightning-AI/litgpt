@@ -36,7 +36,7 @@ def test_generate(max_seq_length):
         multinomial_results.append(out)
         return out
 
-    with mock.patch("generate.base.multinomial_num_samples_1", multinomial):
+    with mock.patch("litgpt.generate.base.multinomial_num_samples_1", multinomial):
         out = generate.generate(model, input_idx, T + max_new_tokens, top_k=4)
 
     assert out.size(0) == T + max_new_tokens
@@ -85,7 +85,7 @@ def test_main(fake_checkpoint_dir, monkeypatch, tensor_like):
 
 
 def test_cli():
-    cli_path = Path(__file__).parent.parent / "generate" / "base.py"
+    cli_path = Path(__file__).parent.parent / "litgpt/generate/base.py"
     output = subprocess.check_output([sys.executable, cli_path, "-h"])
     output = str(output.decode())
     assert "Generates text samples" in output

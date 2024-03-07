@@ -56,7 +56,7 @@ def test_main(fake_checkpoint_dir, monkeypatch, tensor_like):
 
 
 def test_cli():
-    cli_path = Path(__file__).parent.parent / "generate" / "lora.py"
+    cli_path = Path(__file__).parent.parent / "litgpt/generate/lora.py"
     output = subprocess.check_output([sys.executable, cli_path, "-h"])
     output = str(output.decode())
     assert "Generates a response" in output

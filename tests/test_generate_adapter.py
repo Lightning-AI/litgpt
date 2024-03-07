@@ -49,7 +49,7 @@ def test_main(fake_checkpoint_dir, monkeypatch, version, tensor_like):
 
 @pytest.mark.parametrize("version", ("", "_v2"))
 def test_cli(version):
-    cli_path = Path(__file__).parent.parent / "generate" / f"adapter{version}.py"
+    cli_path = Path(__file__).parent.parent / f"litgpt/generate/adapter{version}.py"
     output = subprocess.check_output([sys.executable, cli_path, "-h"])
     output = str(output.decode())
     assert "Generates a response" in output
