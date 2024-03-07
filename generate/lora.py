@@ -77,15 +77,15 @@ def main(
 
     config = Config.from_json(
         checkpoint_dir / "lit_config.json",
-        r=lora_r,
-        alpha=lora_alpha,
-        dropout=lora_dropout,
-        to_query=lora_query,
-        to_key=lora_key,
-        to_value=lora_value,
-        to_projection=lora_projection,
-        to_mlp=lora_mlp,
-        to_head=lora_head,
+        lora_r=lora_r,
+        lora_alpha=lora_alpha,
+        lora_dropout=lora_dropout,
+        lora_query=lora_query,
+        lora_key=lora_key,
+        lora_value=lora_value,
+        lora_projection=lora_projection,
+        lora_mlp=lora_mlp,
+        lora_head=lora_head,
     )
 
     checkpoint_path = checkpoint_dir / "lit_model.pth"
