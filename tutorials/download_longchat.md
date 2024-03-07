@@ -6,7 +6,7 @@ The technique used to extend the context length is described in [this blogpost](
 To see all the available checkpoints, run:
 
 ```bash
-python scripts/download.py | grep longchat
+python litgpt/scripts/download.py | grep longchat
 ```
 
 which will print
@@ -21,7 +21,7 @@ In order to use a specific checkpoint, for instance [longchat-7b-16k](https://hu
 ```bash
 pip install 'huggingface_hub[hf_transfer] @ git+https://github.com/huggingface/huggingface_hub'
 
-python scripts/download.py --repo_id lmsys/longchat-7b-16k
+python litgpt/scripts/download.py --repo_id lmsys/longchat-7b-16k
 ```
 
 By default, the checkpoint conversion step will use the data type of the HF checkpoint's parameters. In cases where RAM

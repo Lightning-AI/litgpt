@@ -186,7 +186,7 @@ def test_against_hf_mixtral():
     from transformers.models.mixtral import MixtralConfig, MixtralForCausalLM
 
     from litgpt.adapter_v2 import GPT, Config
-    from scripts.convert_hf_checkpoint import copy_weights_hf_llama
+    from litgpt.scripts.convert_hf_checkpoint import copy_weights_hf_llama
 
     device = torch.device("cpu")
     dtype = torch.float32
