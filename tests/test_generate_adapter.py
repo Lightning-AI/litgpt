@@ -15,9 +15,9 @@ import torch
 @pytest.mark.parametrize("version", ("v1", "v2"))
 def test_main(fake_checkpoint_dir, monkeypatch, version, tensor_like):
     if version == "v1":
-        import generate.adapter as generate
+        import litgpt.generate.adapter as generate
     else:
-        import generate.adapter_v2 as generate
+        import litgpt.generate.adapter_v2 as generate
 
     config_path = fake_checkpoint_dir / "lit_config.json"
     config = {"block_size": 128, "vocab_size": 50, "n_layer": 2, "n_head": 4, "n_embd": 8, "rotary_percentage": 1}

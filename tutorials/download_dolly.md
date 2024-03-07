@@ -39,5 +39,5 @@ You're done! To execute the model just run:
 ```bash
 pip install tokenizers
 
-python generate/base.py --prompt "Hello, my name is" --checkpoint_dir checkpoints/databricks/dolly-v2-3b
+python litgpt/generate/base.py --prompt "Hello, my name is" --checkpoint_dir checkpoints/databricks/dolly-v2-3b
 ```
