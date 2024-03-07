@@ -262,7 +262,7 @@ def fit(
             fabric.print(
                 f"iter {metrics['iter']} | step {metrics['step']}: loss {metrics['loss']:.4f}, iter time:"
                 f" {metrics['iter_time'] * 1000:.2f} ms{' (optimizer.step),' if not is_accumulating else ','}"
-                f" remaining days: {remaining_days:.1f} days"
+                f" remaining time: {remaining_days:.1f} days"
             )
 
             throughput_metrics = throughput.compute()
