@@ -243,7 +243,7 @@ def fit(
                 samples=(state["iter_num"] * train.micro_batch_size),
                 lengths=(state["iter_num"] * train.micro_batch_size * model.max_seq_length),
             )
-            remaining_days = (t1 - total_t0) / (state["iter_num"] - initial_iter) * (max_iters - state["iter_num"]) / 1440
+            remaining_days = (t1 - total_t0) / (state["iter_num"] - initial_iter) * (max_iters - state["iter_num"]) / 86400
             metrics = {
                 "loss": loss,
                 "iter": state["iter_num"],
