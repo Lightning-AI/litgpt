@@ -133,7 +133,7 @@ class Config:
         if self.norm_class_name == "RMSNorm":
             from functools import partial
 
-            from litgpt.rmsnorm import RMSNorm
+            from litgpt.model import RMSNorm
 
             return partial(RMSNorm, add_unit_offset="Gemma" in self.name)
         return getattr(torch.nn, self.norm_class_name)
