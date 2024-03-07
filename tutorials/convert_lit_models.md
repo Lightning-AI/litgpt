@@ -50,9 +50,7 @@ Please note that if you want to convert a model that has been fine-tuned using a
 
 ```sh
 python scripts/merge_lora.py \
-    --checkpoint_dir checkpoints/repo_id \
-    --lora_path path/to/litgpt/lora_finetuned.pth \
-    --out_dir output_path/merged.ckpt
+    --checkpoint_dir path/to/lora/checkpoint_dir
 ```
 
 <br>
@@ -108,9 +106,7 @@ Note that this step only applies if the model was finetuned with `lora.py` above
 
 ```bash
 python scripts/merge_lora.py \
-    --checkpoint_dir checkpoints/$repo_id \
-    --lora_path $finetuned_dir/lit_model_lora_finetuned.pth \
-    --out_dir $finetuned_dir/merged/
+    --checkpoint_dir $finetuned_dir/final
 ```
 
 
@@ -118,13 +114,10 @@ python scripts/merge_lora.py \
 
 ```bash
 python scripts/convert_lit_checkpoint.py \
-   --checkpoint_path $finetuned_dir/merged/lit_model.pth \
+   --checkpoint_path $finetuned_dir/final/lit_model.pth \
    --output_path out/hf-tinyllama/converted_model.pth \
    --config_path checkpoints/$repo_id/lit_config.json 
 ```
-
-(If you used `full.py` instead of `lora.py` to finetune your model, 
-replace `$finetuned_dir/merged/lit_model.pth` with `$finetuned_dir/lit_model_finetuned.pth`.)
 
 
 6. Load the model into a `transformers` model:
