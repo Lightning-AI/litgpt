@@ -220,6 +220,7 @@ def fit(
     iter_num = 0
     total_lengths = 0
     total_t0 = time.perf_counter()
+    val_loss = None
 
     while step_count < max_steps and train_iterator.epoch < train.epochs:
         iter_num += 1
@@ -262,10 +263,15 @@ def fit(
                     iter_num * train.micro_batch_size * model.config.block_size * fabric.world_size
                 ),
                 "learning_rate": scheduler.get_last_lr()[0],
+                "val_loss": val_loss,
             }
+            val_loss_str = 'None' if metrics['val_loss'] is None else f"{metrics['val_loss']:.3f}"
             fabric.print(
-                f"iter {metrics['iter']} | step {metrics['step']}: loss {metrics['loss']:.4f}, iter time:"
-                f" {metrics['iter_time'] * 1000:.2f} ms{' (optimizer.step)' if not is_accumulating else ''}"
+                f"Ep {metrics['epoch']+1} | iter {metrics['iter']} | step {metrics['step']}:"
+                f" loss train (curr): {metrics['loss']:.3f},"
+                f" val (prev val iter): {val_loss_str} |"
+                f" iter time: {metrics['iter_time'] * 1000:.2f} ms"
+                f"{' (opt.step)' if not is_accumulating else ''}"
             )
             fabric.log_dict(metrics, step=iter_num)
 
