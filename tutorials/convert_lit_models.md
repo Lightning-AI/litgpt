@@ -78,16 +78,7 @@ Then, we download the model we specified via `$repo_id` above:
 python scripts/download.py --repo_id $repo_id
 ```
 
-
-2. Prepare a dataset for finetuning:
-
-```bash
-python scripts/prepare_alpaca.py \
-    --checkpoint_dir checkpoints/$repo_id \
-    --destination_path data/alpaca
-```
-
-3. Finetune the model:
+2. Finetune the model:
 
 
 ```bash
@@ -100,7 +91,7 @@ python litgpt/finetune/lora.py \
    --data Alpaca
 ```
 
-4. Merge LoRA weights:
+3. Merge LoRA weights:
 
 Note that this step only applies if the model was finetuned with `lora.py` above and not when `full.py` was used for finetuning.
 
@@ -110,7 +101,7 @@ python scripts/merge_lora.py \
 ```
 
 
-5. Convert the finetuning model back into a HF format:
+4. Convert the finetuning model back into a HF format:
 
 ```bash
 python scripts/convert_lit_checkpoint.py \
@@ -120,7 +111,7 @@ python scripts/convert_lit_checkpoint.py \
 ```
 
 
-6. Load the model into a `transformers` model:
+5. Load the model into a `transformers` model:
 
 ```python
 import torch
