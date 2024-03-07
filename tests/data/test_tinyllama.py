@@ -6,7 +6,7 @@ from torch.utils.data import DataLoader
 
 def test_tinyllama(tmp_path, monkeypatch):
     from litgpt.data import TinyLlama
-    from lightning.data.streaming import StreamingDataLoader, StreamingDataset, CombinedStreamingDataset
+    from litdata.streaming import StreamingDataLoader, StreamingDataset, CombinedStreamingDataset
 
     data = TinyLlama(data_path=(tmp_path / "data"))
     assert data.seq_length == 2048

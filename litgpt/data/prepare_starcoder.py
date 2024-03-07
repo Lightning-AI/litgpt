@@ -12,7 +12,7 @@ from litgpt.utils import CLI
 
 _LITDATA_AVAILABLE = RequirementCache("litdata")
 if _LITDATA_AVAILABLE:
-    from lightning.data.streaming import DataChunkRecipe
+    from litdata.processing.data_processor import DataChunkRecipe
 else:
     DataChunkRecipe = object
 
@@ -57,7 +57,7 @@ def prepare(
     chunk_size: int = (2049 * 8192),
     fast_dev_run: bool = False,
 ) -> None:
-    from lightning.data.streaming import DataProcessor
+    from litdata.processing.data_processor import DataProcessor
 
     tokenizer = Tokenizer(tokenizer_path)
     data_recipe = StarcoderDataRecipe(tokenizer=tokenizer, chunk_size=chunk_size)
