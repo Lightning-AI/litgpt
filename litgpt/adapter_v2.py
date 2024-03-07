@@ -5,7 +5,7 @@
 LLaMA-Adapter V2: Parameter-Efficient Visual Instruction Model
 https://arxiv.org/abs/2304.15010
 
-Port for Lit-GPT
+Port for LitGPT
 """
 
 from dataclasses import dataclass
@@ -15,20 +15,20 @@ import torch
 import torch.nn as nn
 from typing_extensions import Self
 
-import lit_gpt
-from lit_gpt.adapter import GPT as BaseModel
-from lit_gpt.adapter import Block as BaseBlock
-from lit_gpt.adapter import CausalSelfAttention as BaseCausalSelfAttention
-from lit_gpt.adapter import Config as BaseConfig
-from lit_gpt.model import KVCache
-from lit_gpt.utils import map_old_state_dict_weights
+import litgpt
+from litgpt.adapter import GPT as BaseModel
+from litgpt.adapter import Block as BaseBlock
+from litgpt.adapter import CausalSelfAttention as BaseCausalSelfAttention
+from litgpt.adapter import Config as BaseConfig
+from litgpt.model import KVCache
+from litgpt.utils import map_old_state_dict_weights
 
 
 @dataclass
 class Config(BaseConfig):
     @property
     def mlp_class(self) -> Type:
-        return getattr(lit_gpt.adapter_v2, self.mlp_class_name)
+        return getattr(litgpt.adapter_v2, self.mlp_class_name)
 
 
 def adapter_filter(key: str, value: Any) -> bool:
@@ -98,7 +98,7 @@ class GPT(BaseModel):
 
 
 class Block(BaseBlock):
-    """The implementation is identical to `lit_gpt.model.Block` with the exception that
+    """The implementation is identical to `litgpt.model.Block` with the exception that
     we replace the attention layer where adaption is implemented."""
 
     def __init__(self, config: Config, block_idx: int) -> None:
@@ -114,7 +114,7 @@ class Block(BaseBlock):
 
 
 class CausalSelfAttention(BaseCausalSelfAttention):
-    """A modification of `lit_gpt.adapter.CausalSelfAttention` that uses the Adapter V2 Linear class"""
+    """A modification of `litgpt.adapter.CausalSelfAttention` that uses the Adapter V2 Linear class"""
 
     def __init__(self, config: Config, block_idx: int) -> None:
         # Skip the parent class __init__ altogether and replace it to avoid useless allocations
@@ -154,7 +154,7 @@ class CausalSelfAttention(BaseCausalSelfAttention):
         super()._load_from_state_dict(state_dict, prefix, *args, **kwargs)
 
 
-class GptNeoxMLP(lit_gpt.model.GptNeoxMLP):
+class GptNeoxMLP(litgpt.model.GptNeoxMLP):
     def __init__(self, config: Config) -> None:
         nn.Module.__init__(self)
         self.fc = AdapterV2Linear(config.n_embd, config.intermediate_size, bias=config.bias)
@@ -174,7 +174,7 @@ class GptNeoxMLP(lit_gpt.model.GptNeoxMLP):
         super()._load_from_state_dict(state_dict, prefix, *args, **kwargs)
 
 
-class LLaMAMLP(lit_gpt.model.LLaMAMLP):
+class LLaMAMLP(litgpt.model.LLaMAMLP):
     def __init__(self, config: Config) -> None:
         nn.Module.__init__(self)
         self.fc_1 = AdapterV2Linear(config.n_embd, config.intermediate_size, bias=config.bias)
@@ -203,7 +203,7 @@ class GemmaMLP(LLaMAMLP):
         return self.proj(x)
 
 
-class LLaMAMoE(lit_gpt.model.LLaMAMoE):
+class LLaMAMoE(litgpt.model.LLaMAMoE):
     def __init__(self, config: Config) -> None:
         nn.Module.__init__(self)
         self.gate = AdapterV2Linear(config.n_embd, config.n_expert, bias=False)

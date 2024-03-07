@@ -2,7 +2,7 @@
 
 Adapter, first introduced for the LLaMA model as [LLaMA-Adapter](https://arxiv.org/abs/2303.16199), is a form of prefix-tuning that prepends a learnable adaption-prompt to the inputs of the attention blocks in an LLM. In total, there are only ~500k parameters to update during finetuning in StableLM 3B, which significantly reduces the memory footprint and speeds up training.
 
-We are able to demonstrate instruction-finetuning Lit-GPT StableLM 3B on the [Alpaca](https://github.com/tatsu-lab/stanford_alpaca) dataset on a **single RTX 3060 GPU**. If using 8 GPUs, finetuning can be completed in under 1 hour.
+We are able to demonstrate instruction-finetuning LitGPT StableLM 3B on the [Alpaca](https://github.com/tatsu-lab/stanford_alpaca) dataset on a **single RTX 3060 GPU**. If using 8 GPUs, finetuning can be completed in under 1 hour.
 
 If you are new to Adapter and are interested to learn more about how it works before proceeding with the finetuning guide below, you might find our article [Understanding Parameter-Efficient Finetuning of Large Language Models: From Prefix Tuning to LLaMA-Adapters](https://lightning.ai/pages/community/article/understanding-llama-adapters/) helpful.
 
@@ -15,7 +15,7 @@ The steps here only need to be done once:
 1. Follow the instructions in the [README](../README.md) to install the dependencies.
 2. Download and convert the weights following our [guide](download_stablelm.md).
 
-Lit-GPT provides common datasets for finetuning, such as Alpaca, LIMA, Dolly, and more.
+LitGPT provides common datasets for finetuning, such as Alpaca, LIMA, Dolly, and more.
 You can optionally [prepare your own dataset](#tune-on-your-dataset).
 For more information about dataset preparation, also see the [prepare_dataset.md](./prepare_dataset.md) tutorial.
 

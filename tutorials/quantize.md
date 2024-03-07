@@ -1,6 +1,6 @@
 # Quantize the model
 
-This document provides different strategies for quantizing the various models available in Lit-GPT to reduce GPU memory usage, which is useful for running larger models on certain GPU hardware.
+This document provides different strategies for quantizing the various models available in LitGPT to reduce GPU memory usage, which is useful for running larger models on certain GPU hardware.
 
 **All the examples below were run on an A100 40GB GPU with CUDA 12.1.**
 
@@ -30,7 +30,7 @@ Time for inference 1: 5.37 sec total, 47.66 tokens/sec.
 Memory used: 14.50 GB
 ```
 
-To reduce the memory requirements further, Lit-GPT supports several quantization techniques, which are shown below.
+To reduce the memory requirements further, LitGPT supports several quantization techniques, which are shown below.
 
 > [!TIP]
 > Most quantization examples below also use the `--precision bf16-true` setting explained above. If your GPU does not support `bfloat16`, you can change it to `--precision 16-true`.

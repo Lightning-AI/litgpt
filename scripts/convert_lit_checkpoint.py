@@ -13,8 +13,8 @@ from lightning.fabric.utilities.load import _NotYetLoadedTensor as NotYetLoadedT
 wd = Path(__file__).parent.parent.resolve()
 sys.path.append(str(wd))
 
-from lit_gpt import Config
-from lit_gpt.utils import CLI, incremental_save, lazy_load
+from litgpt import Config
+from litgpt.utils import CLI, incremental_save, lazy_load
 from scripts.convert_hf_checkpoint import layer_template, load_param
 
 

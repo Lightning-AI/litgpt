@@ -25,7 +25,7 @@ from lightning import Fabric
 )
 def test_layer_to_device(n_layer, devices, expected):
     from generate.sequentially import layer_to_device
-    from lit_gpt.model import GPT, Block
+    from litgpt.model import GPT, Block
 
     with torch.device("meta"):
         model = GPT.from_name("pythia-14m", n_layer=n_layer)
@@ -87,7 +87,7 @@ def test_replace_device():
 
 def _test_model_1device(accelerator):
     from generate.sequentially import sequential
-    from lit_gpt import GPT
+    from litgpt import GPT
 
     fabric = Fabric(accelerator=accelerator, devices=1)
     with torch.device("meta"):
@@ -158,7 +158,7 @@ def find_forward_hooks(module):
 @RunIf(min_cuda_gpus=2)
 def test_model_forward_hooks():
     from generate.sequentially import sequential
-    from lit_gpt import GPT
+    from litgpt import GPT
 
     fabric = Fabric(accelerator="cuda", devices=1)
     with torch.device("meta"):
@@ -274,7 +274,7 @@ root = Path(__file__).parent.parent.resolve()
 
 @RunIf(min_cuda_gpus=2)
 def test_base_with_sequentially(tmp_path):
-    from lit_gpt import GPT, Config
+    from litgpt import GPT, Config
     from scripts.download import download_from_hub
 
     # download the tokenizer

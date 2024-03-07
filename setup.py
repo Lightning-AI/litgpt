@@ -10,11 +10,11 @@ with open(os.path.join(_PATH_ROOT, "README.md"), encoding="utf-8") as fo:
     readme = fo.read()
 
 setup(
-    name="lit-gpt",
+    name="litgpt",
     version="0.1.0",
     description="Open source large language model implementation",
     author="Lightning AI",
-    url="https://github.com/lightning-AI/lit-gpt",
+    url="https://github.com/lightning-AI/litgpt",
     install_requires=[
         "torch>=2.2.0",
         "lightning @ git+https://github.com/Lightning-AI/lightning@f23b3b1e7fdab1d325f79f69a28706d33144f27e",

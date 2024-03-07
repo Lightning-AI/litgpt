@@ -22,7 +22,7 @@ google/gemma-2b-it
 
 In the list above, `gemma-2b` and `gemma-7b` are the pretrained models, and `gemma-2b-it` and `gemma-7b-it` are the instruction-finetuned models.
 
-In order to use a specific checkpoint, for instance [gemma-2b](https://huggingface.co/google/gemma-2b), download the weights and convert the checkpoint to the lit-gpt format.
+In order to use a specific checkpoint, for instance [gemma-2b](https://huggingface.co/google/gemma-2b), download the weights and convert the checkpoint to the litgpt format.
 
 This requires that you've been granted access to the weights on the HuggingFace hub. You can do so by following the steps at <https://huggingface.co/google/gemma-2b>.
 After access is granted, you can find your HF hub token in <https://huggingface.co/settings/tokens>.

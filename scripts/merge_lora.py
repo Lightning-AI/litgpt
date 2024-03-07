@@ -15,8 +15,8 @@ import torch
 wd = Path(__file__).parent.parent.resolve()
 sys.path.append(str(wd))
 
-from lit_gpt.lora import GPT, Config, lora_filter, merge_lora_weights
-from lit_gpt.utils import CLI, check_valid_checkpoint_dir, get_default_supported_precision, lazy_load
+from litgpt.lora import GPT, Config, lora_filter, merge_lora_weights
+from litgpt.utils import CLI, check_valid_checkpoint_dir, get_default_supported_precision, lazy_load
 
 
 def merge_lora(

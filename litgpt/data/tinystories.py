@@ -15,9 +15,9 @@ import torch
 from torch.utils.data import ConcatDataset, DataLoader
 from tqdm import tqdm
 
-from lit_gpt.data.alpaca import download_if_missing
-from lit_gpt.data.base import LitDataModule
-from lit_gpt.tokenizer import Tokenizer
+from litgpt.data.alpaca import download_if_missing
+from litgpt.data.base import LitDataModule
+from litgpt.tokenizer import Tokenizer
 
 
 @dataclass

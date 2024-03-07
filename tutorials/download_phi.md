@@ -5,7 +5,7 @@
 Microsoft Research [released](https://www.microsoft.com/en-us/research/blog/phi-2-the-surprising-power-of-small-language-models/) Phi 2, which is a 2.7 billion parameter model trained on "textbook-quality" data with knowledge distillation from Phi 1.5. The model achieves sota results among base LLMs with less than 13B parameters and matches or outperforms models up to 25x larger on complex benchmarks, e.g. it achieves better performance compared to 25x larger Llama-2-70B model on multi-step reasoning tasks, i.e., coding and math. Phi 2 was trained on 1.4T tokens and has not undergone any RLHF alignment nor has it been instruct fine-tuned. Phi 2 shares the same architecture with Phi 1.5 and has context length of 2048 tokens.
 The model weights are released under [*Microsoft Research license*](https://huggingface.co/microsoft/phi-2#license).
 
-To download the model weights and convert them to the lit-gpt format, run
+To download the model weights and convert them to the litgpt format, run
 
 ```bash
 pip install 'huggingface_hub[hf_transfer] @ git+https://github.com/huggingface/huggingface_hub'
@@ -27,7 +27,7 @@ python chat/base.py --checkpoint_dir checkpoints/microsoft/phi-2
 ```
 
 > [!NOTE]
-> In order to obtain appropriate answers, you may need to tweak the [input prompt](https://github.com/Lightning-AI/lit-gpt/blob/74b8df0c3f07fc31d9d1a49e870a1f7955329ad8/chat/base.py#L359). E.g. we found out that if using `"Instruct:{prompt}\nOutput:\n"` instead of `"Instruct:{prompt}\nOutput:"` the model generates longer answers in some cases.
+> In order to obtain appropriate answers, you may need to tweak the [input prompt](https://github.com/Lightning-AI/litgpt/blob/74b8df0c3f07fc31d9d1a49e870a1f7955329ad8/chat/base.py#L359). E.g. we found out that if using `"Instruct:{prompt}\nOutput:\n"` instead of `"Instruct:{prompt}\nOutput:"` the model generates longer answers in some cases.
 
 Free generation mode:
 ```bash
@@ -56,7 +56,7 @@ In addition, to create phi-1.5, the authors included additional textbook-quality
 
 The model weights are released under a [*Microsoft Research license*](https://huggingface.co/microsoft/phi-1_5/blob/main/README.md#license).
 
-In order to use the phi-1.5 model checkpoint, which requires about 3 Gb of disk space, download the weights and convert the checkpoint to the lit-gpt format:
+In order to use the phi-1.5 model checkpoint, which requires about 3 Gb of disk space, download the weights and convert the checkpoint to the litgpt format:
 
 ```bash
 pip install 'huggingface_hub[hf_transfer] @ git+https://github.com/huggingface/huggingface_hub'

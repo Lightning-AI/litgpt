@@ -15,9 +15,9 @@ from lightning.fabric.strategies import XLAFSDPStrategy
 wd = Path(__file__).parent.parent.parent.resolve()
 sys.path.append(str(wd))
 
-from lit_gpt import GPT, Config, Tokenizer
-from lit_gpt.model import Block
-from lit_gpt.utils import check_valid_checkpoint_dir, lazy_load
+from litgpt import GPT, Config, Tokenizer
+from litgpt.model import Block
+from litgpt.utils import check_valid_checkpoint_dir, lazy_load
 from xla.utils import rank_print
 
 

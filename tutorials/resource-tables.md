@@ -1,7 +1,7 @@
 # Resource Tables
 
 - Last updated: 10/20/2023
-- Lit-GPT version: commit 8641822
+- LitGPT version: commit 8641822
 - Hardware: NVIDIA A100-SXM4-40GB
 - OS: Ubuntu 22.04.3 LTS (x86_64)
 - Nvidia driver version: 525.125.06
@@ -9,7 +9,7 @@
   - PyTorch 2.1.0+cu121
   - Bitsandbytes 0.41.1
 
-This document provides an overview and examples of hardware requirements when running models in Lit-GPT.
+This document provides an overview and examples of hardware requirements when running models in LitGPT.
 
 For additional tips on lowering the GPU memory footprint, please also see the [Dealing with out-of-memory (OOM) errors](oom.md) document.
 

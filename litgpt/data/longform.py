@@ -8,10 +8,10 @@ from typing import Optional, Union
 import torch
 from torch.utils.data import DataLoader
 
-from lit_gpt import PromptStyle
-from lit_gpt.data import SFTDataset, get_sft_collate_fn, LitDataModule
-from lit_gpt.data.alpaca import download_if_missing
-from lit_gpt.tokenizer import Tokenizer
+from litgpt import PromptStyle
+from litgpt.data import SFTDataset, get_sft_collate_fn, LitDataModule
+from litgpt.data.alpaca import download_if_missing
+from litgpt.tokenizer import Tokenizer
 
 
 _URL = "https://raw.githubusercontent.com/akoksal/LongForm/main/dataset"
@@ -24,7 +24,7 @@ class LongForm(LitDataModule):
     mask_prompt: bool = False
     """Whether to mask the prompt section from the label (with ``ignore_index``)."""
     prompt_style: Union[str, PromptStyle] = "longform"
-    """The style to apply to instruction prompts. See `lit_gpt.prompts` for a list of available styles."""
+    """The style to apply to instruction prompts. See `litgpt.prompts` for a list of available styles."""
     ignore_index: int = -1
     """The index to use for elements to be ignored in the label."""
     seed: int = 42

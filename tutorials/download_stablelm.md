@@ -19,7 +19,7 @@ stabilityai/stablelm-3b-4e1t
 stabilityai/stablelm-zephyr-3b
 ```
 
-In order to use a specific StableLM checkpoint, for instance [stablelm-base-alpha-3b](http://huggingface.co/stabilityai/stablelm-base-alpha-3b), download the weights and convert the checkpoint to the lit-gpt format:
+In order to use a specific StableLM checkpoint, for instance [stablelm-base-alpha-3b](http://huggingface.co/stabilityai/stablelm-base-alpha-3b), download the weights and convert the checkpoint to the litgpt format:
 
 ```bash
 pip install 'huggingface_hub[hf_transfer] @ git+https://github.com/huggingface/huggingface_hub'
@@ -50,7 +50,7 @@ More details can be found in the [announcement](https://stability.ai/news/stable
 
 ### Usage
 
-In order to use a specific StableLM checkpoint, for instance [StableLM Zephyr 3B](https://huggingface.co/stabilityai/stablelm-zephyr-3b), download the weights and convert the checkpoint to the Lit-GPT format:
+In order to use a specific StableLM checkpoint, for instance [StableLM Zephyr 3B](https://huggingface.co/stabilityai/stablelm-zephyr-3b), download the weights and convert the checkpoint to the LitGPT format:
 
 ```bash
 pip install 'huggingface_hub[hf_transfer] @ git+https://github.com/huggingface/huggingface_hub'

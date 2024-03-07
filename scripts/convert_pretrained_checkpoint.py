@@ -12,7 +12,7 @@ import torch
 wd = Path(__file__).parent.parent.resolve()
 sys.path.append(str(wd))
 
-from lit_gpt.utils import CLI, incremental_save, copy_config_files
+from litgpt.utils import CLI, incremental_save, copy_config_files
 
 
 @torch.inference_mode()
@@ -24,7 +24,7 @@ def convert_checkpoint(checkpoint_dir: Path, output_dir: Path) -> None:
     which then can be loaded by other scripts for inference, evaluation, etc.
 
     Args:
-        checkpoint_dir: Path to a checkpoint directory produced by ``lit_gpt.pretrain``.
+        checkpoint_dir: Path to a checkpoint directory produced by ``litgpt.pretrain``.
         output_dir: The output folder where the converted state-dict file and config files will be saved to.
     """
 
