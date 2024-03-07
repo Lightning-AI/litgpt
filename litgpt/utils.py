@@ -45,9 +45,10 @@ def num_parameters(module: nn.Module, requires_grad: Optional[bool] = None) -> i
     return total
 
 
-def check_valid_checkpoint_dir(checkpoint_dir: Path) -> None:
+def check_valid_checkpoint_dir(checkpoint_dir: Path, lora: bool = False) -> None:
+    model_filename = "lit_model.pth.lora" if lora else "lit_model.pth"
     files = {
-        "lit_model.pth": (checkpoint_dir / "lit_model.pth").is_file(),
+        model_filename: (checkpoint_dir / model_filename).is_file(),
         "lit_config.json": (checkpoint_dir / "lit_config.json").is_file(),
         "tokenizer.json OR tokenizer.model": (checkpoint_dir / "tokenizer.json").is_file()
         or (checkpoint_dir / "tokenizer.model").is_file(),

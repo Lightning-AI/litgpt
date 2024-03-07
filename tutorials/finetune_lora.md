@@ -126,12 +126,9 @@ You can easily train on your own instruction dataset saved in JSON format.
 
 ## Merging LoRA Weights
 
-By default, the LoRA weights are kept separate from the checkpoint file to save storage space.
-However, you can optionally merge the LoRA weights with the original model checkpoint to create
-a new file to optimize inference speeds. (This will improve inference performance
-because the weights don't have to be added during runtime.)
+Finetuning a model with LoRA generates a `lit_model.pth.lora` file. This file exclusively contains the LoRA weights, which has is much smaller than the original model checkpoint to conserve storage space. If desired, there is the option to merge these LoRA weights directly into the original model's checkpoint, which creates a full `lit_model.pth` checkpoint. The advantage of this merging process is to streamline inference operations, as it eliminates the need to dynamically incorporate the LoRA weights during runtime, which can improve inference speed.
 
-Let's assume we finetuned a model using LoRA as follows:
+For example, after finetuning a model using LoRA with the following command:
 
 ```bash
 python litgpt/finetune/lora.py \
@@ -140,15 +137,14 @@ python litgpt/finetune/lora.py \
   --out_dir "out/lora/stablelm-base-alpha-3b/"
 ```
 
-Then, we can merge the LoRA weights with the checkpoint model using the `merge_lora.py` script as shown below.
-Simply pass in the checkpoint directory which is the result of the finetuning script:
+This code will produce a `lit_model.pth.lora` file in the specified output directory, containing only the LoRA weights. To merge these LoRA weights with the original model checkpoint, you can use the `merge_lora.py` script as follows:
 
 ```bash
 python scripts/merge_lora.py \
   --checkpoint_dir "out/lora/stablelm-base-alpha-3b/final"
 ```
 
-After merging, we can use the `generate/base.py` or `chat/base.py` file for inference using the new checkpoint file. 
+Executing this script results in the creation of a full `lit_model.pth` checkpoint that can be used with the `generate/base.py` or `chat/base.py` scripts for inference:
 
 ```bash
 python generate/base.py \
