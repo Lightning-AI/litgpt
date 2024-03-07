@@ -5,7 +5,7 @@ StableLM is a family of generative language models trained by StabilityAI.
 To see all the available checkpoints for StableLM, run:
 
 ```bash
-python scripts/download.py | grep stablelm
+python litgpt/scripts/download.py | grep stablelm
 ```
 
 which will print:
@@ -24,7 +24,7 @@ In order to use a specific StableLM checkpoint, for instance [stablelm-base-alph
 ```bash
 pip install 'huggingface_hub[hf_transfer] @ git+https://github.com/huggingface/huggingface_hub'
 
-python scripts/download.py --repo_id stabilityai/stablelm-base-alpha-3b
+python litgpt/scripts/download.py --repo_id stabilityai/stablelm-base-alpha-3b
 ```
 
 By default, the checkpoint conversion step will use the data type of the HF checkpoint's parameters. In cases where RAM
@@ -56,8 +56,7 @@ In order to use a specific StableLM checkpoint, for instance [StableLM Zephyr 3B
 pip install 'huggingface_hub[hf_transfer] @ git+https://github.com/huggingface/huggingface_hub'
 
 export repo_id=stabilityai/stablelm-zephyr-3b
-python scripts/download.py --repo_id $repo_id
-python scripts/convert_hf_checkpoint.py --checkpoint_dir checkpoints/$repo_id
+python litgpt/scripts/download.py --repo_id $repo_id
 ```
 
 By default, the `convert_hf_checkpoint` step will use the data type of the HF checkpoint's parameters. In cases where RAM

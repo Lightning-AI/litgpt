@@ -5,7 +5,7 @@ LitGPT weights need to be converted to a format that Hugging Face understands wi
 We provide a helpful script to convert models LitGPT models back to their equivalent Hugging Face Transformers format:
 
 ```sh
-python scripts/convert_lit_checkpoint.py \
+python litgpt/scripts/convert_lit_checkpoint.py \
     --checkpoint_path checkpoints/repo_id/lit_model.pth \
     --output_path output_path/converted.pth \
     --config_path checkpoints/repo_id/config.json
@@ -70,12 +70,12 @@ export repo_id=TinyLlama/TinyLlama-1.1B-intermediate-step-1431k-3T
 
 Instead of using TinyLlama, you can replace the `repo_id` target with any other model repository 
 specifier that is currently supported by LitGPT. You can get a list of supported repository specifier
-by running `scripts/download.py` without any additional arguments.
+by running `litgpt/scripts/download.py` without any additional arguments.
 
 Then, we download the model we specified via `$repo_id` above:
 
 ```bash
-python scripts/download.py --repo_id $repo_id
+python litgpt/scripts/download.py --repo_id $repo_id
 ```
 
 
@@ -113,7 +113,7 @@ python scripts/merge_lora.py \
 5. Convert the finetuning model back into a HF format:
 
 ```bash
-python scripts/convert_lit_checkpoint.py \
+python litgpt/scripts/convert_lit_checkpoint.py \
    --checkpoint_path $finetuned_dir/final/lit_model.pth \
    --output_path out/hf-tinyllama/converted_model.pth \
    --config_path checkpoints/$repo_id/lit_config.json 

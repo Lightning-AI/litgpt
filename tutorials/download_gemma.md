@@ -8,7 +8,7 @@ For more information, please see the [technical report](https://storage.googleap
 To see all the available checkpoints, run:
 
 ```bash
-python scripts/download.py | grep gemma
+python litgpt/scripts/download.py | grep gemma
 ```
 
 which will print
@@ -30,7 +30,7 @@ After access is granted, you can find your HF hub token in <https://huggingface.
 ```bash
 pip install 'huggingface_hub[hf_transfer] @ git+https://github.com/huggingface/huggingface_hub'
 
-python scripts/download.py --repo_id google/gemma-2b --access_token your_hf_token
+python litgpt/scripts/download.py --repo_id google/gemma-2b --access_token your_hf_token
 ```
 
 By default, the checkpoint conversion step will use the data type of the HF checkpoint's parameters. In cases where RAM

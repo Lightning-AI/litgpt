@@ -11,7 +11,7 @@ For more info on the models, please visit the [StableCode repository](https://hu
 To see all the available checkpoints for StableCode, run:
 
 ```bash
-python scripts/download.py | grep -E "stable-?code"
+python litgpt/scripts/download.py | grep -E "stable-?code"
 ```
 
 which will print:
@@ -29,7 +29,7 @@ In order to use a specific StableCode checkpoint, for instance [stable-code-3b](
 pip install 'huggingface_hub[hf_transfer] @ git+https://github.com/huggingface/huggingface_hub'
 
 export repo_id=stabilityai/stable-code-3b
-python scripts/download.py --repo_id $repo_id
+python litgpt/scripts/download.py --repo_id $repo_id
 ```
 
 By default, the checkpoint conversion step will use the data type of the HF checkpoint's parameters. In cases where RAM

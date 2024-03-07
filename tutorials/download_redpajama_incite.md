@@ -7,7 +7,7 @@ The release includes a base model, a chat fine-tuned model, and an instruction t
 To see all the available checkpoints for RedPajama-INCITE, run:
 
 ```bash
-python scripts/download.py | grep RedPajama
+python litgpt/scripts/download.py | grep RedPajama
 ```
 
 which will print
@@ -29,7 +29,7 @@ In order to use a specific RedPajama-INCITE checkpoint, for instance [RedPajama-
 ```bash
 pip install 'huggingface_hub[hf_transfer] @ git+https://github.com/huggingface/huggingface_hub'
 
-python scripts/download.py --repo_id togethercomputer/RedPajama-INCITE-Base-3B-v1
+python litgpt/scripts/download.py --repo_id togethercomputer/RedPajama-INCITE-Base-3B-v1
 ```
 
 By default, the checkpoint conversion step will use the data type of the HF checkpoint's parameters. In cases where RAM

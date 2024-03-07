@@ -7,7 +7,7 @@ The weights can serve as the drop in replacement of LLaMA in existing implementa
 To see all the available checkpoints for Open LLaMA, run:
 
 ```bash
-python scripts/download.py | grep open_llama
+python litgpt/scripts/download.py | grep open_llama
 ```
 
 which will print
@@ -23,9 +23,7 @@ In order to use a specific OpenLLaMA checkpoint, for instance [open_llama_3b](ht
 ```bash
 pip install 'huggingface_hub[hf_transfer] @ git+https://github.com/huggingface/huggingface_hub'
 
-python scripts/download.py --repo_id openlm-research/open_llama_3b
-
-python scripts/convert_hf_checkpoint.py --checkpoint_dir checkpoints/openlm-research/open_llama_3b
+python litgpt/scripts/download.py --repo_id openlm-research/open_llama_3b
 ```
 
 By default, the convert_hf_checkpoint step will use the data type of the HF checkpoint's parameters. In cases where RAM

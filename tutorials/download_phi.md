@@ -10,7 +10,7 @@ To download the model weights and convert them to the litgpt format, run
 ```bash
 pip install 'huggingface_hub[hf_transfer] @ git+https://github.com/huggingface/huggingface_hub'
 
-python scripts/download.py --repo_id microsoft/phi-2
+python litgpt/scripts/download.py --repo_id microsoft/phi-2
 ```
 
 > [!WARNING]
@@ -61,7 +61,7 @@ In order to use the phi-1.5 model checkpoint, which requires about 3 Gb of disk 
 ```bash
 pip install 'huggingface_hub[hf_transfer] @ git+https://github.com/huggingface/huggingface_hub'
 
-python scripts/download.py --repo_id microsoft/phi-1_5
+python litgpt/scripts/download.py --repo_id microsoft/phi-1_5
 ```
 
 You're done! To execute the model just run:
