@@ -2,16 +2,11 @@
 
 import json
 import os
-import sys
 import time
 from pathlib import Path
 
 import zstandard as zstd
 from lightning.data.streaming import DataChunkRecipe, DataProcessor
-
-# support running without installing as a package
-wd = Path(__file__).parent.parent.resolve()
-sys.path.append(str(wd))
 
 from litgpt import Tokenizer
 from litgpt.utils import CLI

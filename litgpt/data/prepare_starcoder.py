@@ -1,17 +1,12 @@
 # Copyright Lightning AI. Licensed under the Apache License 2.0, see LICENSE file.
 
 import os
-import sys
 import time
 import traceback
 from pathlib import Path
 
 import pyarrow.parquet as pq
 from lightning.data.streaming import DataChunkRecipe, DataProcessor
-
-# support running without installing as a package
-wd = Path(__file__).parent.parent.resolve()
-sys.path.append(str(wd))
 
 from litgpt import Tokenizer
 from litgpt.utils import CLI
