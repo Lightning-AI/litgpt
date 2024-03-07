@@ -2,19 +2,12 @@
 
 import json
 import os
-import sys
 import time
 from pathlib import Path
 
-import zstandard as zstd
-from lightning.data.streaming import DataChunkRecipe, DataProcessor
-
-# support running without installing as a package
-wd = Path(__file__).parent.parent.resolve()
-sys.path.append(str(wd))
-
 from litgpt import Tokenizer
 from litgpt.utils import CLI
+from litgpt.data.prepare_starcoder import DataChunkRecipe
 
 
 class SlimPajamaDataRecipe(DataChunkRecipe):
@@ -27,6 +20,8 @@ class SlimPajamaDataRecipe(DataChunkRecipe):
         return [str(file) for file in files]
 
     def prepare_item(self, filepath):
+        import zstandard as zstd
+
         with zstd.open(open(filepath, "rb"), "rt", encoding="utf-8") as f:
             for row in f:
                 text = json.loads(row)["text"]
@@ -43,6 +38,8 @@ def prepare(
     chunk_size: int = (2049 * 16384),
     fast_dev_run: bool = False,
 ) -> None:
+    from lightning.data.streaming import DataProcessor
+
     tokenizer = Tokenizer(tokenizer_path)
     data_recipe = SlimPajamaDataRecipe(tokenizer=tokenizer, chunk_size=chunk_size)
     data_processor = DataProcessor(
