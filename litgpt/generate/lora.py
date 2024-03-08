@@ -9,6 +9,10 @@ import lightning as L
 import torch
 from lightning.fabric.plugins import BitsandbytesPrecision
 
+# support running without installing as a package
+wd = Path(__file__).parent.parent.resolve()
+sys.path.append(str(wd))
+
 from litgpt import Tokenizer, PromptStyle
 from litgpt.generate.base import generate
 from litgpt.lora import GPT, Config, merge_lora_weights
