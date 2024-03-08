@@ -25,6 +25,7 @@ def test_merge_lora(tmp_path, fake_checkpoint_dir):
     lora_checkpoint_dir = tmp_path / "lora"
     shutil.copytree(fake_checkpoint_dir, pretrained_checkpoint_dir)
     shutil.copytree(fake_checkpoint_dir, lora_checkpoint_dir)
+    (lora_checkpoint_dir / "lit_model.pth").unlink()  # should not already exist
     shutil.rmtree(tmp_path / "checkpoints")
 
     # Create a fake pretrained checkpoint
