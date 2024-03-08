@@ -5,7 +5,7 @@ from pathlib import Path
 from setuptools import find_packages, setup
 
 root = Path(__file__).parent
-readme = (root / "README").read_text()
+readme = (root / "README.md").read_text()
 requirements = (root / "requirements.txt").read_text().split("\n")
 requirements_all = (root / "requirements-all.txt").read_text().split("\n")
 requirements_all = [r for r in requirements_all if r and not r.strip().startswith("-r")]
