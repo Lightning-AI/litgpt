@@ -41,7 +41,23 @@ jobs:
         python-version: ${{ matrix.python-version }}
         cache: 'pip'
         cache-dependency-path: |
+          requirements.txt
+          requirements-all.txt
           setup.py
+
+    - name: Install minimal dependencies
+      run: |
+        pip install -r requirements.txt
+        pip list
+        # make sure all modules are importable
+        modules=$(
+          find * -type f -name "*.py" | \
+          grep -v tests | grep "/" | grep -v lm_eval | grep -v xla | \
+          sed 's/\.py$//' | sed 's/\//./g' | \
+          sed 's/.__init__//g' | xargs -I {} echo "import {};"
+        )
+        echo "$modules"
+        python -c "$modules"
 
     - name: Install dependencies
       run: |
