@@ -366,6 +366,8 @@ python litgpt/finetune/lora.py \
   --checkpoint_dir "checkpoints/tiiuae/falcon-7b"
 ```
 
+You can also pass a directory containing a `train.json` and `val.json` to `--data.json_path` to define a fixed train/val split.
+
 &nbsp;
 
 ### Preparing Custom Datasets Using LitDataModule
