@@ -16,6 +16,8 @@ from lightning.pytorch.loggers import WandbLogger
 from conftest import RunIf
 from lightning import Fabric
 
+from lightning_utilities.core.imports import RequirementCache
+
 
 def test_find_multiple():
     from litgpt.utils import find_multiple
@@ -253,8 +255,10 @@ def test_choose_logger(tmp_path):
     from litgpt.utils import choose_logger
 
     assert isinstance(choose_logger("csv", out_dir=tmp_path, name="csv"), CSVLogger)
-    assert isinstance(choose_logger("tensorboard", out_dir=tmp_path, name="tb"), TensorBoardLogger)
-    assert isinstance(choose_logger("wandb", out_dir=tmp_path, name="wandb"), WandbLogger)
+    if RequirementCache("tensorboard"):
+        assert isinstance(choose_logger("tensorboard", out_dir=tmp_path, name="tb"), TensorBoardLogger)
+    if RequirementCache("wandb"):
+        assert isinstance(choose_logger("wandb", out_dir=tmp_path, name="wandb"), WandbLogger)
 
     with pytest.raises(ValueError, match="`--logger_name=foo` is not a valid option."):
         choose_logger("foo", out_dir=tmp_path, name="foo")
