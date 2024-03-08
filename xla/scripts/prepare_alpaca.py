@@ -23,7 +23,7 @@ from lit_gpt.utils import CLI
 def prepare(
     destination_path: Path = Path("data/alpaca"),
     checkpoint_dir: Path = Path("checkpoints/stabilityai/stablelm-base-alpha-3b"),
-    test_split_fraction: float = 0.03865,  # to get exactly 2000 test samples,
+    val_split_fraction: float = 0.03865,  # to get exactly 2000 validation samples,
     seed: int = 42,
     mask_inputs: bool = False,  # as in alpaca-lora
     data_file_name: str = "alpaca_data_cleaned_archive.json",
@@ -53,7 +53,7 @@ def prepare(
 
     # Partition the dataset into train and test
     train_set, test_set = random_split(
-        data, [1.0 - test_split_fraction, test_split_fraction], generator=torch.Generator().manual_seed(seed)
+        data, [1.0 - val_split_fraction, val_split_fraction], generator=torch.Generator().manual_seed(seed)
     )
     train_set, test_set = list(train_set), list(test_set)
 

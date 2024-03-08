@@ -23,7 +23,7 @@ class JSON(LitDataModule):
     and can optionally have a key 'input' (see Alpaca)."""
     mask_prompt: bool = False
     """Whether to mask the prompt section from the label (with ``ignore_index``)."""
-    test_split_fraction: Optional[float] = None
+    val_split_fraction: Optional[float] = None
     """The fraction of the dataset to use for the validation dataset. The rest is used for training.
     Only applies if you passed in a single file to `json_path`."""
     prompt_style: Union[str, PromptStyle] = "alpaca"
@@ -39,13 +39,13 @@ class JSON(LitDataModule):
     batch_size: int = field(default=1, init=False, repr=False)
     max_seq_length: int = field(default=-1, init=False, repr=False)
     train_dataset: Optional[SFTDataset] = field(default=None, init=False, repr=False)
-    test_dataset: Optional[SFTDataset] = field(default=None, init=False, repr=False)
+    val_dataset: Optional[SFTDataset] = field(default=None, init=False, repr=False)
 
     def __post_init__(self):
-        if self.json_path.is_dir() and self.test_split_fraction is not None:
+        if self.json_path.is_dir() and self.val_split_fraction is not None:
             raise ValueError(
                 "If `json_path` is a directory, it must contain 'train.json' and 'val.json' files and"
-                f" hence `test_split_fraction` should not be set. Got `{self.test_split_fraction=}`."
+                f" hence `val_split_fraction` should not be set. Got `{self.val_split_fraction=}`."
             )
         if not self.json_path.exists():
             raise FileNotFoundError(
@@ -112,7 +112,7 @@ class JSON(LitDataModule):
             # Partition the dataset into train and test
             train_data, test_data = random_split(
                 data,
-                [1.0 - self.test_split_fraction, self.test_split_fraction],
+                [1.0 - self.val_split_fraction, self.val_split_fraction],
                 generator=torch.Generator().manual_seed(self.seed)
             )
             return train_data, test_data
