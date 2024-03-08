@@ -161,7 +161,7 @@ def main(fabric: L.Fabric, devices: int, seed: int, config: Config, data: LitDat
         fabric.print(f"Memory used: {torch.cuda.max_memory_allocated() / 1e9:.02f} GB")
 
     # Save the final LoRA checkpoint at the end of training
-    save_path = out_dir / "final" / "lit_model.pth"
+    save_path = out_dir / "final" / "lit_model.pth.lora"
     save_path.parent.mkdir(parents=True, exist_ok=True)
     save_lora_checkpoint(fabric, model, save_path)
     if fabric.global_rank == 0:
@@ -262,8 +262,9 @@ def fit(
             metrics = {"val_loss": val_loss, "val_ppl": math.exp(val_loss)}
             fabric.log_dict(metrics, step=iter_num)
             fabric.barrier()
+
         if train.save_interval is not None and not is_accumulating and step_count % train.save_interval == 0:
-            checkpoint_file = out_dir / f"step-{step_count:06d}" / "lit_model.pth"
+            checkpoint_file = out_dir / f"step-{step_count:06d}" / "lit_model.pth.lora"
             checkpoint_file.parent.mkdir(parents=True, exist_ok=True)
             save_lora_checkpoint(fabric, model, checkpoint_file)
             if fabric.global_rank == 0:
