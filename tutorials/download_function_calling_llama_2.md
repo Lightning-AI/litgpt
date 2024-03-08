@@ -21,7 +21,7 @@ You're done! To execute the model just run:
 ```bash
 pip install sentencepiece
 
-python chat/base.py --checkpoint_dir Trelis/Llama-2-7b-chat-hf-function-calling-v2
+python litgpt/chat/base.py --checkpoint_dir Trelis/Llama-2-7b-chat-hf-function-calling-v2
 ```
 Is strongly recommended to visit the model [repository](https://huggingface.co/Trelis/Llama-2-7b-chat-hf-function-calling-v2) to know how to format the prompt.
 

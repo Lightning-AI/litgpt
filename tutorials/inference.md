@@ -21,7 +21,7 @@ This will run the 3B pre-trained model and require ~7 GB of GPU memory using the
 You can also chat with the model interactively:
 
 ```bash
-python chat/base.py --checkpoint_dir checkpoints/stabilityai/stablelm-tuned-alpha-3b
+python litgpt/chat/base.py --checkpoint_dir checkpoints/stabilityai/stablelm-tuned-alpha-3b
 ```
 
 This script can work with any checkpoint. For the best chat-like experience, we recommend using it with a checkpoints

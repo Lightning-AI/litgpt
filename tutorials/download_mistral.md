@@ -42,7 +42,7 @@ You're done! To execute the model just run:
 ```bash
 pip install sentencepiece
 
-python chat/base.py --checkpoint_dir checkpoints/mistralai/Mistral-7B-Instruct-v0.2
+python litgpt/chat/base.py --checkpoint_dir checkpoints/mistralai/Mistral-7B-Instruct-v0.2
 ```
 
 ### Mixtral

@@ -49,5 +49,5 @@ You're done! To execute the model just run:
 ```bash
 pip install sentencepiece
 
-python chat/base.py --checkpoint_dir checkpoints/codellama/CodeLlama-7b-Python-hf/
+python litgpt/chat/base.py --checkpoint_dir checkpoints/codellama/CodeLlama-7b-Python-hf/
 ```
