@@ -15,10 +15,6 @@ from lightning.fabric.plugins import BitsandbytesPrecision
 from lightning.fabric.utilities import rank_zero_only
 from torch.distributed._functional_collectives import all_reduce
 
-# support running without installing as a package
-wd = Path(__file__).parents[2].resolve()
-sys.path.append(str(wd))
-
 import litgpt.generate.base as generate_base
 from litgpt import GPT, Config, Tokenizer
 from litgpt.model import CausalSelfAttention, GptNeoxMLP, LLaMAMLP, LLaMAMoE
