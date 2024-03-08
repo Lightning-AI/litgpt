@@ -77,8 +77,7 @@ def test_json_input_validation(tmp_path):
         data.setup()
 
 
-@pytest.mark.parametrize("split_name", ("test", "val"))
-def test_json_with_splits(split_name, tmp_path, mock_tokenizer):
+def test_json_with_splits(tmp_path, mock_tokenizer):
     from litgpt.data import JSON
 
     mock_train_data = [
@@ -92,7 +91,7 @@ def test_json_with_splits(split_name, tmp_path, mock_tokenizer):
     ]
     with open(tmp_path / "train.json", "w", encoding="utf-8") as fp:
         json.dump(mock_train_data, fp)
-    with open(tmp_path / f"{split_name}.json", "w", encoding="utf-8") as fp:
+    with open(tmp_path / "val.json", "w", encoding="utf-8") as fp:
         json.dump(mock_test_data, fp)
 
     data = JSON(tmp_path, num_workers=0)

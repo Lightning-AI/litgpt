@@ -18,13 +18,14 @@ class JSON(LitDataModule):
     """Loads JSON data for supervised finetuning."""
 
     json_path: Path
-    """A path to a JSON file containing the data. The file should contain a list of samples (dicts).
-    Each dict must have the keys 'instruction' and 'output', and can optionally have a key 'input'
-    (see Alpaca)."""
+    """A path to a JSON file or a directory with `train.json` and `val.json` containing the data. 
+    The file(s) should contain a list of samples (dicts). Each dict must have the keys 'instruction' and 'output', 
+    and can optionally have a key 'input' (see Alpaca)."""
     mask_prompt: bool = False
     """Whether to mask the prompt section from the label (with ``ignore_index``)."""
     test_split_fraction: Optional[float] = None
-    """The fraction of the dataset to use for the test/validation dataset. The rest is used for training."""
+    """The fraction of the dataset to use for the validation dataset. The rest is used for training.
+    Only applies if you passed in a single file to `json_path`."""
     prompt_style: Union[str, PromptStyle] = "alpaca"
     """The style to apply to instruction prompts. See `litgpt.prompts` for a list of available styles."""
     ignore_index: int = -1
@@ -116,14 +117,11 @@ class JSON(LitDataModule):
             )
             return train_data, test_data
 
-        # A directory containing train.json and val.json (or test.json)
-        if (self.json_path / "train.json").is_file():
-            for eval_split in ("val", "test"):
-                eval_file = (self.json_path / f"{eval_split}.json")
-                if eval_file.is_file():
-                    train_data = load_split(self.json_path / "train.json")
-                    test_data = load_split(eval_file)
-                    return train_data, test_data
+        # A directory containing train.json and val.json
+        if (self.json_path / "train.json").is_file() and (self.json_path / f"val.json").is_file():
+            train_data = load_split(self.json_path / "train.json")
+            test_data = load_split(self.json_path / f"val.json")
+            return train_data, test_data
 
         raise FileNotFoundError(
             "The `json_path` must be a file or a directory containing 'train.json' and 'val.json' files."
