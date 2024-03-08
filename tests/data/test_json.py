@@ -24,7 +24,7 @@ def test_json(tmp_path, mock_tokenizer):
     with open(json_path, "w", encoding="utf-8") as fp:
         json.dump(mock_data, fp)
 
-    data = JSON(json_path, test_split_fraction=0.5, prompt_style=Style(), num_workers=0)
+    data = JSON(json_path, val_split_fraction=0.5, prompt_style=Style(), num_workers=0)
     data.connect(tokenizer=mock_tokenizer, batch_size=2)
     data.prepare_data()  # does nothing
     data.setup()
@@ -61,8 +61,8 @@ def test_json_input_validation(tmp_path):
     with pytest.raises(FileNotFoundError, match="The `json_path` must be a file or a directory"):
         JSON(tmp_path / "not exist")
 
-    with pytest.raises(ValueError, match="`test_split_fraction` should not be set"):
-        JSON(tmp_path, test_split_fraction=0.5)
+    with pytest.raises(ValueError, match="`val_split_fraction` should not be set"):
+        JSON(tmp_path, val_split_fraction=0.5)
 
     data = JSON(tmp_path)
     data.prepare_data()  # does nothing
