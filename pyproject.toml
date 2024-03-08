@@ -15,14 +15,6 @@ file = "LICENSE"
 homepage = "https://github.com/lightning-AI/litgpt"
 
 [project.optional-dependencies]
-test = [
-    "pytest",
-    "pytest-rerunfailures",
-    "pytest-timeout",
-    "transformers>=4.38.0",g
-    "einops",
-    "protobuf",
-]
 all = [
     "jsonargparse[signatures]",
     "bitsandbytes==0.41.0",
