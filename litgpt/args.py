@@ -8,7 +8,7 @@ from typing import Optional
 class TrainArgs:
     """Training related arguments"""
 
-    save_interval: int = 1000
+    save_interval: Optional[int] = 1000
     """Number of optimizer steps between checkpoints"""
     log_interval: int = 1
     """Number of iterations between logging calls"""
