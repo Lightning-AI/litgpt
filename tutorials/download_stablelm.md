@@ -67,7 +67,7 @@ You're done! To execute the model just run:
 ```bash
 pip install tokenizers
 
-python generate/base.py --prompt "Hello, my name is" --checkpoint_dir checkpoints/$repo_id
+python litgpt/generate/base.py --prompt "Hello, my name is" --checkpoint_dir checkpoints/$repo_id
 ```
 
 Or you can run the model in an interactive mode:

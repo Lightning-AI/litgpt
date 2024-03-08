@@ -2,7 +2,6 @@
 import dataclasses
 import math
 import os
-import sys
 import time
 from pathlib import Path
 from pprint import pprint
@@ -16,6 +15,7 @@ from torchmetrics import RunningMean
 
 from litgpt.args import EvalArgs, TrainArgs
 from litgpt.data import Alpaca, LitDataModule
+from litgpt.generate.base import generate
 from litgpt.model import GPT, Block, Config
 from litgpt.prompts import save_prompt_style
 from litgpt.tokenizer import Tokenizer
@@ -32,12 +32,6 @@ from litgpt.utils import (
     save_hyperparameters,
     choose_logger,
 )
-
-# support running without installing as a package
-wd = Path(__file__).parent.parent.resolve()
-sys.path.append(str(wd))
-
-from generate.base import generate
 
 
 def setup(
