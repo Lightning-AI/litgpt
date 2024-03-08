@@ -68,14 +68,7 @@ def setup(
     config = Config.from_name(name=checkpoint_dir.name)
 
     precision = precision or get_default_supported_precision(training=True)
-
-    logger = choose_logger(
-        logger_name,
-        out_dir,
-        name=f"finetune-{config.name}",
-        resume=resume,
-        log_interval=train.log_interval
-    )
+    logger = choose_logger(logger_name, out_dir, name=f"finetune-{config.name}", resume=resume, log_interval=train.log_interval)
 
     if devices > 1:
         strategy = FSDPStrategy(

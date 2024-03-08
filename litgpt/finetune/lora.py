@@ -10,7 +10,6 @@ from typing import Dict, List, Literal, Optional, Tuple, Union
 
 import lightning as L
 import torch
-from lightning.fabric.loggers import CSVLogger
 from lightning.fabric.plugins import BitsandbytesPrecision
 from lightning.fabric.strategies import FSDPStrategy
 from lightning.fabric.utilities import ThroughputMonitor
@@ -33,6 +32,7 @@ from litgpt.utils import (
     parse_devices,
     copy_config_files,
     save_hyperparameters,
+    choose_logger,
 )
 
 # support running without installing as a package
@@ -59,6 +59,7 @@ def setup(
     data: Optional[LitDataModule] = None,
     checkpoint_dir: Path = Path("checkpoints/stabilityai/stablelm-base-alpha-3b"),
     out_dir: Path = Path("out/lora"),
+    logger_name: Literal["wandb", "tensorboard", "csv"] = "csv",
     train: TrainArgs = TrainArgs(
         save_interval=1000,
         log_interval=1,
@@ -75,8 +76,21 @@ def setup(
     pprint(locals())
     data = Alpaca() if data is None else data
     devices = parse_devices(devices)
+    config = Config.from_name(
+        name=checkpoint_dir.name,
+        lora_r=lora_r,
+        lora_alpha=lora_alpha,
+        lora_dropout=lora_dropout,
+        lora_query=lora_query,
+        lora_key=lora_key,
+        lora_value=lora_value,
+        lora_projection=lora_projection,
+        lora_mlp=lora_mlp,
+        lora_head=lora_head,
+    )
 
     precision = precision or get_default_supported_precision(training=True)
+    logger = choose_logger(logger_name, out_dir, name=f"finetune-{config.name}", log_interval=train.log_interval)
 
     plugins = None
     if quantize is not None and quantize.startswith("bnb."):
@@ -102,31 +116,8 @@ def setup(
     else:
         strategy = "auto"
 
-    logger = CSVLogger(out_dir.parent, out_dir.name, flush_logs_every_n_steps=train.log_interval)
     fabric = L.Fabric(devices=devices, strategy=strategy, precision=precision, loggers=logger, plugins=plugins)
-
-    fabric.launch(
-        main,
-        devices,
-        seed,
-        Config.from_name(
-            name=checkpoint_dir.name,
-            lora_r=lora_r,
-            lora_alpha=lora_alpha,
-            lora_dropout=lora_dropout,
-            lora_query=lora_query,
-            lora_key=lora_key,
-            lora_value=lora_value,
-            lora_projection=lora_projection,
-            lora_mlp=lora_mlp,
-            lora_head=lora_head,
-        ),
-        data,
-        checkpoint_dir,
-        out_dir,
-        train,
-        eval,
-    )
+    fabric.launch(main, devices, seed, config, data, checkpoint_dir, out_dir, train, eval)
 
 
 def main(fabric: L.Fabric, devices: int, seed: int, config: Config, data: LitDataModule, checkpoint_dir: Path, out_dir: Path, train: TrainArgs, eval: EvalArgs) -> None:

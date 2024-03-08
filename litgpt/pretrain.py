@@ -38,13 +38,13 @@ from litgpt.utils import (
 def setup(
     model_name: Optional[str] = None,
     model_config: Optional[Config] = None,
-    logger_name: Literal["wandb", "tensorboard", "csv"] = "tensorboard",
     resume: Union[bool, Path] = False,
     devices: Union[int, str] = "auto",
     seed: int = 42,
     data: Optional[LitDataModule] = None,
     out_dir: Path = Path("out/pretrain"),
     tokenizer_dir: Optional[Path] = None,
+    logger_name: Literal["wandb", "tensorboard", "csv"] = "tensorboard",
     train: TrainArgs = TrainArgs(
         save_interval=1000,
         log_interval=1,
@@ -74,13 +74,7 @@ def setup(
     # in case the dataset requires the Tokenizer
     tokenizer = Tokenizer(tokenizer_dir) if tokenizer_dir is not None else None
 
-    logger = choose_logger(
-        logger_name,
-        out_dir,
-        name=f"pretrain-{config.name}",
-        resume=resume,
-        log_interval=train.log_interval
-    )
+    logger = choose_logger(logger_name, out_dir, name=f"pretrain-{config.name}", resume=resume, log_interval=train.log_interval)
 
     if devices > 1:
         strategy = FSDPStrategy(auto_wrap_policy={Block}, state_dict_type="full", sharding_strategy="HYBRID_SHARD")
