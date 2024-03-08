@@ -262,7 +262,7 @@ def fit(
             metrics = {"val_loss": val_loss, "val_ppl": math.exp(val_loss)}
             fabric.log_dict(metrics, step=iter_num)
             fabric.barrier()
-        if not is_accumulating and step_count % train.save_interval == 0:
+        if train.save_interval is not None and not is_accumulating and step_count % train.save_interval == 0:
             checkpoint_file = out_dir / f"step-{step_count:06d}" / "lit_model.pth"
             checkpoint_file.parent.mkdir(parents=True, exist_ok=True)
             save_lora_checkpoint(fabric, model, checkpoint_file)
