@@ -35,7 +35,7 @@ setup(
             "tensorboard",  # litgpt.pretrain
             "torchmetrics",  # litgpt.pretrain
             # eval
-            "git+https://github.com/EleutherAI/lm-evaluation-harness.git@115206dc89dad67b8beaa90051fb52db77f0a529",
+            "lm_eval @ git+https://github.com/EleutherAI/lm-evaluation-harness.git@115206dc89dad67b8b",
         ],
         "test": ["pytest", "pytest-rerunfailures", "pytest-timeout", "transformers>=4.38.0", "einops", "protobuf"],
     },
