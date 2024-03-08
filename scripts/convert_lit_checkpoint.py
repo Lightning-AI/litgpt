@@ -60,9 +60,9 @@ def copy_weights_falcon(
         param = load_param(param, from_name, None)
         if from_name.endswith((".attn.attn.weight", ".attn.attn.bias")):
             # Reassemble [q, q, ..., k, k, ..., v, v, ...] --> [q, k, v, q, k, v, ...]
-            qs, ks, vs = qkv_split(param, config)
-            cycled = [t for group in zip(qs, ks, vs) for t in group]
-            param = torch.cat(cycled)
+            qs, ks, vs = qkv_split(param, config, split_into_heads=True)
+            interleaved = [t for group in zip(qs, ks, vs) for t in group]
+            param = torch.cat(interleaved)
         if saver is not None:
             param = saver.store_early(param)
         state_dict[to_name] = param
@@ -99,9 +99,9 @@ def copy_weights_gpt_neox(
         param = load_param(param, from_name, None)
         if from_name.endswith((".attn.attn.weight", ".attn.attn.bias")):
             # Reassemble [q, q, ..., k, k, ..., v, v, ...] --> [q, k, v, q, k, v, ...]
-            qs, ks, vs = qkv_split(param, config)
-            cycled = [t for group in zip(qs, ks, vs) for t in group]
-            param = torch.cat(cycled)
+            qs, ks, vs = qkv_split(param, config, split_into_heads=True)
+            interleaved = [t for group in zip(qs, ks, vs) for t in group]
+            param = torch.cat(interleaved)
         if saver is not None:
             param = saver.store_early(param)
         state_dict[to_name] = param
@@ -156,7 +156,7 @@ def copy_weights_llama(
                 "model.layers.{}.self_attn.k_proj.weight".format(*ids),
                 "model.layers.{}.self_attn.v_proj.weight".format(*ids),
             )
-            params = [torch.cat(w) for w in qkv_split(param, config)]
+            params = qkv_split(param, config)
         else:
             to_names = (weight_map[name_template].format(*ids),)
             params = (param,)
@@ -198,7 +198,7 @@ def copy_weights_phi(
                 f"model.layers.{{}}.self_attn.k_proj.{weight_type}".format(layer_idx),
                 f"model.layers.{{}}.self_attn.v_proj.{weight_type}".format(layer_idx),
             )
-            params = [torch.cat(w) for w in qkv_split(param, config)]
+            params = qkv_split(param, config)
         else:
             to_names = (weight_map[name_template].format(layer_idx),)
             params = (param,)
@@ -210,8 +210,10 @@ def copy_weights_phi(
 
 
 def qkv_split(
-    param: Union[torch.Tensor, NotYetLoadedTensor], config: Config
-) -> Tuple[Tuple[torch.Tensor], Tuple[torch.Tensor], Tuple[torch.Tensor]]:
+    param: Union[torch.Tensor, NotYetLoadedTensor],
+    config: Config,
+    split_into_heads: bool = False,
+) -> Union[torch.Tensor, Tuple[Tuple[torch.Tensor], Tuple[torch.Tensor], Tuple[torch.Tensor]]]:
     q, k, v = param.split(
         (
             config.n_head * config.head_size,
@@ -219,6 +221,8 @@ def qkv_split(
             config.n_query_groups * config.head_size,
         )
     )
+    if not split_into_heads:
+        return q, k, v
     qs = q.split(config.n_head // config.n_query_groups * config.head_size)
     ks = k.split(config.head_size)
     vs = v.split(config.head_size)

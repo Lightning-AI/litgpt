@@ -58,7 +58,7 @@ def copy_weights_gpt_neox(
         param = load_param(param, from_name, dtype)
         if from_name.endswith((".query_key_value.weight", ".query_key_value.bias")):
             # Reassemble [q, k, v, q, k, v, ...] --> [q, q, ..., k, k, ..., v, v, ...]
-            param = torch.cat(qkv_split(param, config))
+            param = reassemble_qkv(param, config)
         if saver is not None:
             param = saver.store_early(param)
         state_dict[to_name] = param
@@ -107,7 +107,7 @@ def copy_weights_falcon(
         param = load_param(param, from_name, dtype)
         if from_name.endswith((".query_key_value.weight", ".query_key_value.bias")):
             # Reassemble [q, k, v, q, k, v, ...] --> [q, q, ..., k, k, ..., v, v, ...]
-            param = torch.cat(qkv_split(param, config))
+            param = reassemble_qkv(param, config)
         if saver is not None:
             param = saver.store_early(param)
         state_dict[to_name] = param
@@ -270,7 +270,7 @@ def load_param(param: Union[torch.Tensor, NotYetLoadedTensor], name: str, dtype:
     return param
 
 
-def qkv_split(
+def reassemble_qkv(
     param: Union[torch.Tensor, NotYetLoadedTensor], config: Config
 ) -> Tuple[torch.Tensor, torch.Tensor, torch.Tensor]:
     q_per_kv = config.n_head // config.n_query_groups
@@ -285,7 +285,7 @@ def qkv_split(
     q = torch.cat(qs)
     k = torch.cat(ks)
     v = torch.cat(vs)
-    return q, k, v
+    return torch.cat((q, k, v))
 
 
 @torch.inference_mode()

@@ -129,58 +129,103 @@ def test_convert_hf_checkpoint(tmp_path, model_name):
     assert isinstance(config, Config)
 
 
-def test_qkv_split():
+def test_reassemble_qkv():
     from lit_gpt import Config
-    from scripts.convert_hf_checkpoint import qkv_split
+    from scripts.convert_hf_checkpoint import reassemble_qkv
 
     # MHA
     config = Config(n_embd=4, n_head=4)
-    qkv = torch.tensor(
+    qkv_interleaved = torch.tensor(
         [
-            [0, 1, 2, 3],
-            [4, 5, 6, 7],
-            [8, 9, 10, 11],
-            [12, 13, 14, 15],
-            [16, 17, 18, 19],
-            [20, 21, 22, 23],
-            [24, 25, 26, 27],
-            [28, 29, 30, 31],
-            [32, 33, 34, 35],
-            [36, 37, 38, 39],
-            [40, 41, 42, 43],
-            [44, 45, 46, 47],
+            [0, 1, 2, 3],  # query
+            [16, 17, 18, 19],  # key
+            [32, 33, 34, 35],  # value
+            [4, 5, 6, 7],  # query
+            [20, 21, 22, 23],  # key
+            [36, 37, 38, 39],  # value
+            [8, 9, 10, 11],  # query
+            [24, 25, 26, 27],  # key
+            [40, 41, 42, 43],  # value
+            [12, 13, 14, 15],  # query
+            [28, 29, 30, 31],  # key
+            [44, 45, 46, 47],  # value
         ]
     )
-    q, k, v = qkv_split(qkv, config)
-    torch.testing.assert_close(q, torch.tensor([[0, 1, 2, 3], [12, 13, 14, 15], [24, 25, 26, 27], [36, 37, 38, 39]]))
-    torch.testing.assert_close(k, torch.tensor([[4, 5, 6, 7], [16, 17, 18, 19], [28, 29, 30, 31], [40, 41, 42, 43]]))
-    torch.testing.assert_close(v, torch.tensor([[8, 9, 10, 11], [20, 21, 22, 23], [32, 33, 34, 35], [44, 45, 46, 47]]))
+    qkv = reassemble_qkv(qkv_interleaved, config)
+    torch.testing.assert_close(
+        qkv,
+        torch.tensor(
+            [
+                [0, 1, 2, 3],  # query
+                [4, 5, 6, 7],  # query
+                [8, 9, 10, 11],  # query
+                [12, 13, 14, 15],  # query
+                [16, 17, 18, 19],  # key
+                [20, 21, 22, 23],  # key
+                [24, 25, 26, 27],  # key
+                [28, 29, 30, 31],  # key
+                [32, 33, 34, 35],  # value
+                [36, 37, 38, 39],  # value
+                [40, 41, 42, 43],  # value
+                [44, 45, 46, 47],  # value
+            ]
+        ),
+    )
 
     # GQA
     config = Config(n_embd=4, n_head=4, n_query_groups=2)
-    qkv = torch.tensor(
+    qkv_interleaved = torch.tensor(
         [
-            [0, 1, 2, 3],
-            [4, 5, 6, 7],
-            [8, 9, 10, 11],
-            [12, 13, 14, 15],
-            [16, 17, 18, 19],
-            [20, 21, 22, 23],
-            [24, 25, 26, 27],
-            [28, 29, 30, 31],
+            [0, 1, 2, 3],  # query
+            [4, 5, 6, 7],  # query
+            [16, 17, 18, 19],  # key
+            [24, 25, 26, 27],  # value
+            [8, 9, 10, 11],  # query
+            [12, 13, 14, 15],  # query
+            [20, 21, 22, 23],  # key
+            [28, 29, 30, 31],  # value
         ]
     )
-    q, k, v = qkv_split(qkv, config)
-    torch.testing.assert_close(q, torch.tensor([[0, 1, 2, 3], [4, 5, 6, 7], [16, 17, 18, 19], [20, 21, 22, 23]]))
-    torch.testing.assert_close(k, torch.tensor([[8, 9, 10, 11], [24, 25, 26, 27]]))
-    torch.testing.assert_close(v, torch.tensor([[12, 13, 14, 15], [28, 29, 30, 31]]))
-
-    # MQA
-    config = Config(n_embd=4, n_head=4, n_query_groups=1)
-    qkv = torch.tensor(
-        [[0, 1, 2, 3], [4, 5, 6, 7], [8, 9, 10, 11], [12, 13, 14, 15], [16, 17, 18, 19], [20, 21, 22, 23]]
+    qkv = reassemble_qkv(qkv_interleaved, config)
+    torch.testing.assert_close(
+        qkv,
+        torch.tensor(
+            [
+                [0, 1, 2, 3],  # query
+                [4, 5, 6, 7],  # query
+                [8, 9, 10, 11],  # query
+                [12, 13, 14, 15],  # query
+                [16, 17, 18, 19],  # key
+                [20, 21, 22, 23],  # key
+                [24, 25, 26, 27],  # value
+                [28, 29, 30, 31],  # value
+            ]
+        ),
     )
-    q, k, v = qkv_split(qkv, config)
-    torch.testing.assert_close(q, torch.tensor([[0, 1, 2, 3], [4, 5, 6, 7], [8, 9, 10, 11], [12, 13, 14, 15]]))
-    torch.testing.assert_close(k, torch.tensor([[16, 17, 18, 19]]))
-    torch.testing.assert_close(v, torch.tensor([[20, 21, 22, 23]]))
+
+    # # MQA
+    config = Config(n_embd=4, n_head=4, n_query_groups=1)
+    qkv_interleaved = torch.tensor(
+        [
+            [0, 1, 2, 3],  # query
+            [4, 5, 6, 7],  # query
+            [8, 9, 10, 11],  # query
+            [12, 13, 14, 15],  # query
+            [16, 17, 18, 19],  # key
+            [20, 21, 22, 23],  # value
+        ],
+    )
+    qkv = reassemble_qkv(qkv_interleaved, config)
+    torch.testing.assert_close(
+        qkv,
+        torch.tensor(
+            [
+                [0, 1, 2, 3],  # query
+                [4, 5, 6, 7],  # query
+                [8, 9, 10, 11],  # query
+                [12, 13, 14, 15],  # query
+                [16, 17, 18, 19],  # key
+                [20, 21, 22, 23],  # value
+            ]
+        ),
+    )
