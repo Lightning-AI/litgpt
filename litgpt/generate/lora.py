@@ -10,35 +10,45 @@ import torch
 from lightning.fabric.plugins import BitsandbytesPrecision
 
 # support running without installing as a package
-wd = Path(__file__).parent.parent.resolve()
+wd = Path(__file__).parents[2].resolve()
 sys.path.append(str(wd))
 
-from generate.base import generate
-from litgpt import GPT, Config, Tokenizer, PromptStyle
+from litgpt import Tokenizer, PromptStyle
+from litgpt.generate.base import generate
+from litgpt.lora import GPT, Config, merge_lora_weights
 from litgpt.prompts import load_prompt_style, has_prompt_style
-from litgpt.utils import CLI, check_valid_checkpoint_dir, get_default_supported_precision, load_checkpoint
+from litgpt.utils import CLI, check_valid_checkpoint_dir, get_default_supported_precision, lazy_load
 
 
 def main(
     prompt: str = "What food do llamas eat?",
     input: str = "",
-    finetuned_path: Path = Path("out/full/alpaca/lit_model_finetuned.pth"),
+    lora_path: Path = Path("out/lora/alpaca/lit_model_lora_finetuned.pth"),
     checkpoint_dir: Path = Path("checkpoints/stabilityai/stablelm-base-alpha-3b"),
     quantize: Optional[Literal["bnb.nf4", "bnb.nf4-dq", "bnb.fp4", "bnb.fp4-dq", "bnb.int8"]] = None,
     max_new_tokens: int = 100,
     top_k: Optional[int] = 200,
     temperature: float = 0.8,
     precision: Optional[str] = None,
+    lora_r: int = 8,
+    lora_alpha: int = 16,
+    lora_dropout: float = 0.05,
+    lora_query: bool = True,
+    lora_key: bool = False,
+    lora_value: bool = True,
+    lora_projection: bool = False,
+    lora_mlp: bool = False,
+    lora_head: bool = False,
 ) -> None:
     """Generates a response based on a given instruction and an optional input.
-    This script will only work with checkpoints from the instruction-tuned GPT model.
-    See `litgpt/finetune/full.py`.
+    This script will only work with checkpoints from the instruction-tuned GPT-LoRA model.
+    See `litgpt/finetune/lora.py`.
 
     Args:
         prompt: The prompt/instruction (Alpaca style).
         input: Optional input (Alpaca style).
-        finetuned_path: Path to the checkpoint with trained weights, which are the output of
-            `litgpt/finetune/full.py`.
+        lora_path: Path to the checkpoint with trained adapter weights, which are the output of
+            `litgpt/finetune/lora.py`.
         checkpoint_dir: The path to the checkpoint folder with pretrained GPT weights.
         quantize: Whether to quantize the model and using which method:
             - bnb.nf4, bnb.nf4-dq, bnb.fp4, bnb.fp4-dq: 4-bit quantization from bitsandbytes
@@ -65,9 +75,20 @@ def main(
 
     check_valid_checkpoint_dir(checkpoint_dir)
 
-    config = Config.from_json(checkpoint_dir / "lit_config.json")
+    config = Config.from_json(
+        checkpoint_dir / "lit_config.json",
+        lora_r=lora_r,
+        lora_alpha=lora_alpha,
+        lora_dropout=lora_dropout,
+        lora_query=lora_query,
+        lora_key=lora_key,
+        lora_value=lora_value,
+        lora_projection=lora_projection,
+        lora_mlp=lora_mlp,
+        lora_head=lora_head,
+    )
 
-    checkpoint_path = finetuned_path
+    checkpoint_path = checkpoint_dir / "lit_model.pth"
 
     tokenizer = Tokenizer(checkpoint_dir)
     prompt_style = load_prompt_style(checkpoint_dir) if has_prompt_style(checkpoint_dir) else PromptStyle.from_config(config)
@@ -89,11 +110,15 @@ def main(
         model.set_kv_cache(batch_size=1)
     model.eval()
 
-    model = fabric.setup(model)
-
     t0 = time.perf_counter()
-    load_checkpoint(fabric, model, checkpoint_path)
+    checkpoint = lazy_load(checkpoint_path)
+    lora_checkpoint = lazy_load(lora_path)
+    checkpoint.update(lora_checkpoint.get("model", lora_checkpoint))
+    model.load_state_dict(checkpoint)
     fabric.print(f"Time to load the model weights: {time.perf_counter() - t0:.02f} seconds.", file=sys.stderr)
+
+    merge_lora_weights(model)
+    model = fabric.setup(model)
 
     L.seed_everything(1234)
     t0 = time.perf_counter()
