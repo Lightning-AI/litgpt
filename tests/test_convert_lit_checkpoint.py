@@ -415,6 +415,7 @@ def test_against_original_gemma(model_name, device, dtype):
         rope_theta=ours_config.rope_base,
         attention_bias=ours_config.bias,
         tie_word_embeddings=True,
+        hidden_act="gelu_pytorch_tanh",
     )
     assert ours_config.intermediate_size == theirs_config.intermediate_size
 
