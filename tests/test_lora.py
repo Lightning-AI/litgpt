@@ -219,7 +219,7 @@ def test_lora_script(tmp_path, fake_checkpoint_dir, monkeypatch, alpaca_path):
     assert all((out_dir / p).is_dir() for p in checkpoint_dirs)
     for checkpoint_dir in checkpoint_dirs:
         assert {p.name for p in (out_dir / checkpoint_dir).iterdir()} == {
-            "lit_model.pth",
+            "lit_model.pth.lora",
             "lit_config.json",
             "tokenizer_config.json",
             "tokenizer.json",
