@@ -3,27 +3,21 @@
 """Implementation derived from https://github.com/tloen/alpaca-lora"""
 
 import json
-import sys
 from pathlib import Path
 from typing import Optional
 
 import torch
 from lightning_utilities.core.imports import RequirementCache
-from torch.utils.data import random_split
-from tqdm import tqdm
-
-# support running without installing as a package
-wd = Path(__file__).parent.parent.resolve()
-sys.path.append(str(wd))
-
 from lit_gpt.tokenizer import Tokenizer
 from lit_gpt.utils import CLI
+from torch.utils.data import random_split
+from tqdm import tqdm
 
 
 def prepare(
     destination_path: Path = Path("data/alpaca"),
     checkpoint_dir: Path = Path("checkpoints/stabilityai/stablelm-base-alpha-3b"),
-    test_split_fraction: float = 0.03865,  # to get exactly 2000 test samples,
+    val_split_fraction: float = 0.03865,  # to get exactly 2000 validation samples,
     seed: int = 42,
     mask_inputs: bool = False,  # as in alpaca-lora
     data_file_name: str = "alpaca_data_cleaned_archive.json",
@@ -53,7 +47,7 @@ def prepare(
 
     # Partition the dataset into train and test
     train_set, test_set = random_split(
-        data, [1.0 - test_split_fraction, test_split_fraction], generator=torch.Generator().manual_seed(seed)
+        data, [1.0 - val_split_fraction, val_split_fraction], generator=torch.Generator().manual_seed(seed)
     )
     train_set, test_set = list(train_set), list(test_set)
 

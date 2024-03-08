@@ -30,7 +30,7 @@ def test_full_script(tmp_path, fake_checkpoint_dir, monkeypatch, alpaca_path):
         data=Alpaca(
             download_dir=alpaca_path.parent,
             file_name=alpaca_path.name,
-            test_split_fraction=0.5,
+            val_split_fraction=0.5,
             num_workers=0
         ),
         checkpoint_dir=fake_checkpoint_dir,
@@ -56,7 +56,7 @@ def test_full_script(tmp_path, fake_checkpoint_dir, monkeypatch, alpaca_path):
             "hyperparameters.yaml",
             "prompt_style.json",
         }
-    assert (out_dir / "version_0" / "metrics.csv").is_file()
+    assert (out_dir / "logs" / "csv" / "version_0" / "metrics.csv").is_file()
 
     logs = stdout.getvalue()
     assert logs.count("optimizer.step") == 6

@@ -9,22 +9,16 @@ import lightning as L
 import torch
 from lightning.fabric.plugins import BitsandbytesPrecision
 
-# support running without installing as a package
-wd = Path(__file__).parent.parent.resolve()
-sys.path.append(str(wd))
-
-from generate.base import generate
-from litgpt import Tokenizer, PromptStyle
-from litgpt.adapter import GPT, Config
+from litgpt import GPT, Config, Tokenizer, PromptStyle
+from litgpt.generate.base import generate
 from litgpt.prompts import load_prompt_style, has_prompt_style
-from litgpt.utils import CLI, check_valid_checkpoint_dir, get_default_supported_precision, lazy_load
-
+from litgpt.utils import CLI, check_valid_checkpoint_dir, get_default_supported_precision, load_checkpoint
 
 
 def main(
     prompt: str = "What food do llamas eat?",
     input: str = "",
-    adapter_path: Path = Path("out/adapter/alpaca/lit_model_adapter_finetuned.pth"),
+    finetuned_path: Path = Path("out/full/alpaca/lit_model_finetuned.pth"),
     checkpoint_dir: Path = Path("checkpoints/stabilityai/stablelm-base-alpha-3b"),
     quantize: Optional[Literal["bnb.nf4", "bnb.nf4-dq", "bnb.fp4", "bnb.fp4-dq", "bnb.int8"]] = None,
     max_new_tokens: int = 100,
@@ -33,14 +27,14 @@ def main(
     precision: Optional[str] = None,
 ) -> None:
     """Generates a response based on a given instruction and an optional input.
-    This script will only work with checkpoints from the instruction-tuned GPT-Adapter model.
-    See `litgpt/finetune/adapter.py`.
+    This script will only work with checkpoints from the instruction-tuned GPT model.
+    See `litgpt/finetune/full.py`.
 
     Args:
         prompt: The prompt/instruction (Alpaca style).
         input: Optional input (Alpaca style).
-        adapter_path: Path to the checkpoint with trained adapter weights, which are the output of
-            `litgpt/finetune/adapter.py`.
+        finetuned_path: Path to the checkpoint with trained weights, which are the output of
+            `litgpt/finetune/full.py`.
         checkpoint_dir: The path to the checkpoint folder with pretrained GPT weights.
         quantize: Whether to quantize the model and using which method:
             - bnb.nf4, bnb.nf4-dq, bnb.fp4, bnb.fp4-dq: 4-bit quantization from bitsandbytes
@@ -69,7 +63,7 @@ def main(
 
     config = Config.from_json(checkpoint_dir / "lit_config.json")
 
-    checkpoint_path = checkpoint_dir / "lit_model.pth"
+    checkpoint_path = finetuned_path
 
     tokenizer = Tokenizer(checkpoint_dir)
     prompt_style = load_prompt_style(checkpoint_dir) if has_prompt_style(checkpoint_dir) else PromptStyle.from_config(config)
@@ -91,14 +85,11 @@ def main(
         model.set_kv_cache(batch_size=1)
     model.eval()
 
-    t0 = time.perf_counter()
-    checkpoint = lazy_load(checkpoint_path)
-    adapter_checkpoint = lazy_load(adapter_path)
-    checkpoint.update(adapter_checkpoint.get("model", adapter_checkpoint))
-    model.load_state_dict(checkpoint)
-    fabric.print(f"Time to load the model weights: {time.perf_counter() - t0:.02f} seconds.", file=sys.stderr)
-
     model = fabric.setup(model)
+
+    t0 = time.perf_counter()
+    load_checkpoint(fabric, model, checkpoint_path)
+    fabric.print(f"Time to load the model weights: {time.perf_counter() - t0:.02f} seconds.", file=sys.stderr)
 
     L.seed_everything(1234)
     t0 = time.perf_counter()

@@ -12,10 +12,8 @@ from typing import Optional, Tuple, Union
 import lightning as L
 import torch
 import torch.nn as nn
-from lightning.fabric.loggers import CSVLogger, TensorBoardLogger
 from lightning.fabric.strategies import FSDPStrategy
 from lightning.fabric.utilities.throughput import ThroughputMonitor, measure_flops
-from lightning.pytorch.loggers import WandbLogger
 from torch.utils.data import DataLoader
 from torchmetrics.aggregation import RunningMean
 from typing_extensions import Literal
@@ -33,19 +31,20 @@ from litgpt.utils import (
     copy_config_files,
     save_hyperparameters,
     save_config,
+    choose_logger,
 )
 
 
 def setup(
     model_name: Optional[str] = None,
     model_config: Optional[Config] = None,
-    logger_name: Literal["wandb", "tensorboard", "csv"] = "tensorboard",
     resume: Union[bool, Path] = False,
     devices: Union[int, str] = "auto",
     seed: int = 42,
     data: Optional[LitDataModule] = None,
     out_dir: Path = Path("out/pretrain"),
     tokenizer_dir: Optional[Path] = None,
+    logger_name: Literal["wandb", "tensorboard", "csv"] = "tensorboard",
     train: TrainArgs = TrainArgs(
         save_interval=1000,
         log_interval=1,
@@ -75,13 +74,7 @@ def setup(
     # in case the dataset requires the Tokenizer
     tokenizer = Tokenizer(tokenizer_dir) if tokenizer_dir is not None else None
 
-    logger = choose_logger(
-        out_dir,
-        logger_name,
-        name=f"pretrain-{config.name}",
-        resume=resume,
-        log_interval=train.log_interval
-    )
+    logger = choose_logger(logger_name, out_dir, name=f"pretrain-{config.name}", resume=resume, log_interval=train.log_interval)
 
     if devices > 1:
         strategy = FSDPStrategy(auto_wrap_policy={Block}, state_dict_type="full", sharding_strategy="HYBRID_SHARD")
@@ -281,7 +274,7 @@ def fit(
             fabric.log_dict(metrics, step=state["iter_num"] - 1)
             fabric.barrier()
 
-        if not is_accumulating and state["step_count"] % train.save_interval == 0:
+        if train.save_interval is not None and not is_accumulating and state["step_count"] % train.save_interval == 0:
             checkpoint_file = out_dir / f"step-{state['step_count']:08d}" / "lit_model.pth"
             checkpoint_file.parent.mkdir(parents=True, exist_ok=True)
             fabric.print(f"Saving checkpoint to {str(checkpoint_file)!r}")
@@ -350,16 +343,6 @@ def init_weights(module: nn.Module, n_layer: int, n_embd: int):
     for name, param in module.named_parameters():
         if name == "proj.weight" and isinstance(module, (LLaMAMLP, CausalSelfAttention)):
             nn.init.normal_(param, mean=0.0, std=(1 / math.sqrt(n_embd) / n_layer))
-
-
-def choose_logger(out_dir: Path, logger_name: str, name: str, resume: Union[bool, Path], log_interval: int, *args, **kwargs):
-    if logger_name == "csv":
-        return CSVLogger(root_dir=(out_dir / "logs"), name="csv", flush_logs_every_n_steps=log_interval, *args, **kwargs)
-    if logger_name == "tensorboard":
-        return TensorBoardLogger(root_dir=(out_dir / "logs"), name="tensorboard", *args, **kwargs)
-    if logger_name == "wandb":
-        return WandbLogger(project="pretrain", name=name, resume=(resume is not False), *args, **kwargs)
-    raise ValueError(f"`logger={logger_name}` is not a valid option.")
 
 
 def init_out_dir(out_dir: Path) -> Path:

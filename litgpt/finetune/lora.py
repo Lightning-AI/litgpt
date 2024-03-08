@@ -2,7 +2,6 @@
 import dataclasses
 import math
 import os
-import sys
 import time
 from pathlib import Path
 from pprint import pprint
@@ -10,7 +9,6 @@ from typing import Dict, List, Literal, Optional, Tuple, Union
 
 import lightning as L
 import torch
-from lightning.fabric.loggers import CSVLogger
 from lightning.fabric.plugins import BitsandbytesPrecision
 from lightning.fabric.strategies import FSDPStrategy
 from lightning.fabric.utilities import ThroughputMonitor
@@ -19,6 +17,7 @@ from torchmetrics import RunningMean
 
 from litgpt.args import EvalArgs, TrainArgs
 from litgpt.data import LitDataModule, Alpaca
+from litgpt.generate.base import generate
 from litgpt.lora import GPT, Block, Config, lora_filter, mark_only_lora_as_trainable
 from litgpt.prompts import save_prompt_style
 from litgpt.tokenizer import Tokenizer
@@ -33,13 +32,8 @@ from litgpt.utils import (
     parse_devices,
     copy_config_files,
     save_hyperparameters,
+    choose_logger,
 )
-
-# support running without installing as a package
-wd = Path(__file__).parent.parent.resolve()
-sys.path.append(str(wd))
-
-from generate.base import generate
 
 
 def setup(
@@ -59,6 +53,7 @@ def setup(
     data: Optional[LitDataModule] = None,
     checkpoint_dir: Path = Path("checkpoints/stabilityai/stablelm-base-alpha-3b"),
     out_dir: Path = Path("out/lora"),
+    logger_name: Literal["wandb", "tensorboard", "csv"] = "csv",
     train: TrainArgs = TrainArgs(
         save_interval=1000,
         log_interval=1,
@@ -75,8 +70,21 @@ def setup(
     pprint(locals())
     data = Alpaca() if data is None else data
     devices = parse_devices(devices)
+    config = Config.from_name(
+        name=checkpoint_dir.name,
+        lora_r=lora_r,
+        lora_alpha=lora_alpha,
+        lora_dropout=lora_dropout,
+        lora_query=lora_query,
+        lora_key=lora_key,
+        lora_value=lora_value,
+        lora_projection=lora_projection,
+        lora_mlp=lora_mlp,
+        lora_head=lora_head,
+    )
 
     precision = precision or get_default_supported_precision(training=True)
+    logger = choose_logger(logger_name, out_dir, name=f"finetune-{config.name}", log_interval=train.log_interval)
 
     plugins = None
     if quantize is not None and quantize.startswith("bnb."):
@@ -102,31 +110,8 @@ def setup(
     else:
         strategy = "auto"
 
-    logger = CSVLogger(out_dir.parent, out_dir.name, flush_logs_every_n_steps=train.log_interval)
     fabric = L.Fabric(devices=devices, strategy=strategy, precision=precision, loggers=logger, plugins=plugins)
-
-    fabric.launch(
-        main,
-        devices,
-        seed,
-        Config.from_name(
-            name=checkpoint_dir.name,
-            lora_r=lora_r,
-            lora_alpha=lora_alpha,
-            lora_dropout=lora_dropout,
-            lora_query=lora_query,
-            lora_key=lora_key,
-            lora_value=lora_value,
-            lora_projection=lora_projection,
-            lora_mlp=lora_mlp,
-            lora_head=lora_head,
-        ),
-        data,
-        checkpoint_dir,
-        out_dir,
-        train,
-        eval,
-    )
+    fabric.launch(main, devices, seed, config, data, checkpoint_dir, out_dir, train, eval)
 
 
 def main(fabric: L.Fabric, devices: int, seed: int, config: Config, data: LitDataModule, checkpoint_dir: Path, out_dir: Path, train: TrainArgs, eval: EvalArgs) -> None:
@@ -176,7 +161,7 @@ def main(fabric: L.Fabric, devices: int, seed: int, config: Config, data: LitDat
         fabric.print(f"Memory used: {torch.cuda.max_memory_allocated() / 1e9:.02f} GB")
 
     # Save the final LoRA checkpoint at the end of training
-    save_path = out_dir / "final" / "lit_model.pth"
+    save_path = out_dir / "final" / "lit_model.pth.lora"
     save_path.parent.mkdir(parents=True, exist_ok=True)
     save_lora_checkpoint(fabric, model, save_path)
     if fabric.global_rank == 0:
@@ -283,8 +268,9 @@ def fit(
             metrics = {"val_loss": val_loss, "val_ppl": math.exp(val_loss)}
             fabric.log_dict(metrics, step=iter_num)
             fabric.barrier()
-        if not is_accumulating and step_count % train.save_interval == 0:
-            checkpoint_file = out_dir / f"step-{step_count:06d}" / "lit_model.pth"
+
+        if train.save_interval is not None and not is_accumulating and step_count % train.save_interval == 0:
+            checkpoint_file = out_dir / f"step-{step_count:06d}" / "lit_model.pth.lora"
             checkpoint_file.parent.mkdir(parents=True, exist_ok=True)
             save_lora_checkpoint(fabric, model, checkpoint_file)
             if fabric.global_rank == 0:

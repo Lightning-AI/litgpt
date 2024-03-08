@@ -17,7 +17,7 @@ import torch
     "max_seq_length", (pytest.param(10, marks=pytest.mark.xfail(raises=NotImplementedError, strict=True)), 20 + 5)
 )
 def test_generate(max_seq_length):
-    import generate.base as generate
+    import litgpt.generate.base as generate
     from litgpt import GPT, Config
 
     T = 5
@@ -36,7 +36,7 @@ def test_generate(max_seq_length):
         multinomial_results.append(out)
         return out
 
-    with mock.patch("generate.base.multinomial_num_samples_1", multinomial):
+    with mock.patch("litgpt.generate.base.multinomial_num_samples_1", multinomial):
         out = generate.generate(model, input_idx, T + max_new_tokens, top_k=4)
 
     assert out.size(0) == T + max_new_tokens
@@ -47,7 +47,7 @@ def test_generate(max_seq_length):
 
 
 def test_main(fake_checkpoint_dir, monkeypatch, tensor_like):
-    import generate.base as generate
+    import litgpt.generate.base as generate
 
     config_path = fake_checkpoint_dir / "lit_config.json"
     config = {"block_size": 128, "vocab_size": 50, "n_layer": 2, "n_head": 4, "n_embd": 8, "rotary_percentage": 1}
@@ -85,7 +85,7 @@ def test_main(fake_checkpoint_dir, monkeypatch, tensor_like):
 
 
 def test_cli():
-    cli_path = Path(__file__).parent.parent / "generate" / "base.py"
+    cli_path = Path(__file__).parent.parent / "litgpt/generate/base.py"
     output = subprocess.check_output([sys.executable, cli_path, "-h"])
     output = str(output.decode())
     assert "Generates text samples" in output
@@ -93,7 +93,7 @@ def test_cli():
 
 @pytest.mark.parametrize("temperature", (0.0, 1.0, 0.5))
 def test_sample(temperature):
-    from generate.base import sample
+    from litgpt.generate.base import sample
 
     # shape: 2x3x5
     logits = torch.tensor(

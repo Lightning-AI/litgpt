@@ -49,7 +49,7 @@ In order to start pretraining litgpt on it, you need to read, tokenize, and writ
 First, install additional dependencies for preprocessing:
 
 ```bash
-pip install -r requirements-all.txt
+pip install '.[all]'
 ```
 
 You will need to have the tokenizer config available:
@@ -136,7 +136,7 @@ GPU memory. For more tips to avoid out-of-memory issues, please also see the mor
 [Dealing with out-of-memory (OOM) errors](oom.md) guide.
 
 Last, logging is kept minimal in the script, but for long-running experiments we recommend switching to a proper experiment tracker.
-As an example, we included WandB (set `use_wandb=True`) to show how you can integrate any experiment tracking framework.
+As an example, we included WandB (set `--logger_name=wandb`) to show how you can integrate any experiment tracking framework.
 For reference, [here are the loss curves for our reproduction](https://api.wandb.ai/links/awaelchli/y7pzdpwy).
 
 ## Resume training

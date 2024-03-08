@@ -9,14 +9,16 @@ import sys
 from dataclasses import asdict
 from io import BytesIO
 from pathlib import Path
-from typing import TYPE_CHECKING, Any, Dict, Iterable, List, Mapping, Optional, TypeVar, Union
+from typing import TYPE_CHECKING, Any, Dict, Iterable, List, Mapping, Optional, TypeVar, Union, Literal
 
 import lightning as L
 import torch
 import torch.nn as nn
 import torch.utils._device
+from lightning.fabric.loggers import CSVLogger, TensorBoardLogger
 from lightning.fabric.strategies import FSDPStrategy
 from lightning.fabric.utilities.load import _lazy_load as lazy_load
+from lightning.pytorch.loggers import WandbLogger
 from torch.serialization import normalize_storage_type
 from typing_extensions import Self
 
@@ -45,9 +47,10 @@ def num_parameters(module: nn.Module, requires_grad: Optional[bool] = None) -> i
     return total
 
 
-def check_valid_checkpoint_dir(checkpoint_dir: Path) -> None:
+def check_valid_checkpoint_dir(checkpoint_dir: Path, lora: bool = False) -> None:
+    model_filename = "lit_model.pth.lora" if lora else "lit_model.pth"
     files = {
-        "lit_model.pth": (checkpoint_dir / "lit_model.pth").is_file(),
+        model_filename: (checkpoint_dir / model_filename).is_file(),
         "lit_config.json": (checkpoint_dir / "lit_config.json").is_file(),
         "tokenizer.json OR tokenizer.model": (checkpoint_dir / "tokenizer.json").is_file()
         or (checkpoint_dir / "tokenizer.model").is_file(),
@@ -417,3 +420,20 @@ def parse_devices(devices: Union[str, int]) -> int:
     if isinstance(devices, int) and devices > 0:
         return devices
     raise ValueError(f"Devices must be 'auto' or a positive integer, got: {devices!r}")
+
+
+def choose_logger(
+    logger_name: Literal["csv", "tensorboard", "wandb"],
+    out_dir: Path,
+    name: str,
+    log_interval: int = 1,
+    resume: Optional[bool] = None,
+    **kwargs: Any,
+):
+    if logger_name == "csv":
+        return CSVLogger(root_dir=(out_dir / "logs"), name="csv", flush_logs_every_n_steps=log_interval, **kwargs)
+    if logger_name == "tensorboard":
+        return TensorBoardLogger(root_dir=(out_dir / "logs"), name="tensorboard", **kwargs)
+    if logger_name == "wandb":
+        return WandbLogger(project=name, resume=resume, **kwargs)
+    raise ValueError(f"`--logger_name={logger_name}` is not a valid option. Choose from 'csv', 'tensorboard', 'wandb'.")
