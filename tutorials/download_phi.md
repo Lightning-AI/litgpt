@@ -31,7 +31,7 @@ python chat/base.py --checkpoint_dir checkpoints/microsoft/phi-2
 
 Free generation mode:
 ```bash
-python generate/base.py --prompt "Alice: I don't know why, I'm struggling to maintain focus while studying. Any suggestions?\nBob:" --checkpoint_dir checkpoints/microsoft/phi-2
+python litgpt/generate/base.py --prompt "Alice: I don't know why, I'm struggling to maintain focus while studying. Any suggestions?\nBob:" --checkpoint_dir checkpoints/microsoft/phi-2
 ```
 which yields
 ```text
@@ -69,5 +69,5 @@ You're done! To execute the model just run:
 ```bash
 pip install tokenizers
 
-python generate/base.py --prompt "Hello, my name is" --checkpoint_dir checkpoints/microsoft/phi-1_5
+python litgpt/generate/base.py --prompt "Hello, my name is" --checkpoint_dir checkpoints/microsoft/phi-1_5
 ```

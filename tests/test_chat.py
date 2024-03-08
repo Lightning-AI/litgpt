@@ -26,7 +26,7 @@ import torch
 )
 def test_generate(monkeypatch, generated, stop_tokens, expected):
     import chat.base as chat
-    import generate.base as generate
+    import litgpt.generate.base as generate
 
     input_idx = torch.tensor([5, 3])
     max_returned_tokens = len(input_idx) + 8

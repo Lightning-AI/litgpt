@@ -17,7 +17,7 @@ from litgpt.data.openwebtext import OpenWebText
 
 __all__ = [
     "Alpaca",
-    "Alpaca2k"
+    "Alpaca2k",
     "AlpacaGPT4",
     "Deita",
     "Dolly",
@@ -30,6 +30,5 @@ __all__ = [
     "SFTDataset",
     "TinyLlama",
     "TinyStories",
-    "apply_prompt_template",
     "get_sft_collate_fn",
 ]
