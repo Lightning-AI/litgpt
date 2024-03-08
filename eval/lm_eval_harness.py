@@ -15,7 +15,7 @@ from lm_eval.base import BaseLM
 wd = Path(__file__).parent.parent.resolve()
 sys.path.append(str(wd))
 
-from generate.base import generate
+from litgpt.generate.base import generate
 from litgpt import GPT, Config, Tokenizer
 from litgpt.utils import CLI, check_valid_checkpoint_dir, get_default_supported_precision, load_checkpoint
 

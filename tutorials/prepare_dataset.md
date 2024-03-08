@@ -345,7 +345,7 @@ python litgpt/finetune/lora.py \
 
 You can also customize how the dataset is read by using these additional parameters
 
-- `test_split_fraction`: The fraction of the data to split. Defaults to `0.1`
+- `val_split_fraction`: The fraction of the data to split. Defaults to `0.1`
 
 - `seed`: The seed value to reproduce the same random splits for train and test data.
 
@@ -359,12 +359,14 @@ To use the settings described above, you can add the respective command line arg
 python litgpt/finetune/lora.py \
   --data JSON \
   --data.json_path path/to/your/data.json \
-  --data.test_split_fraction 0.1 \
+  --data.val_split_fraction 0.1 \
   --data.seed 42 \
   --data.mask_inputs False \
   --data.ignore_index -1 \
   --checkpoint_dir "checkpoints/tiiuae/falcon-7b"
 ```
+
+You can also pass a directory containing a `train.json` and `val.json` to `--data.json_path` to define a fixed train/val split.
 
 &nbsp;
 

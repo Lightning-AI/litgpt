@@ -78,7 +78,7 @@ For additional benchmarks and resource requirements, please see the [Resource Ta
 You can test the finetuned model with your own instructions by running:
 
 ```bash
-python generate/lora.py \
+python litgpt/generate/lora.py \
   --prompt "Recommend a movie to watch on the weekend."
 ```
 
@@ -147,7 +147,7 @@ python scripts/merge_lora.py \
 Executing this script results in the creation of a full `lit_model.pth` checkpoint that can be used with the `generate/base.py` or `chat/base.py` scripts for inference:
 
 ```bash
-python generate/base.py \
+python litgpt/generate/base.py \
   --checkpoint_dir "out/lora/stablelm-base-alpha-3b/final"
 ```
 

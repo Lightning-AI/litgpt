@@ -2,21 +2,20 @@
 import dataclasses
 import math
 import os
-import sys
 import time
 from pathlib import Path
 from pprint import pprint
-from typing import Dict, List, Optional, Tuple, Union
+from typing import Dict, List, Optional, Tuple, Union, Literal
 
 import lightning as L
 import torch
-from lightning.fabric.loggers import CSVLogger
 from lightning.fabric.strategies import FSDPStrategy
 from torch.utils.data import DataLoader
 from torchmetrics import RunningMean
 
 from litgpt.args import EvalArgs, TrainArgs
 from litgpt.data import Alpaca, LitDataModule
+from litgpt.generate.base import generate
 from litgpt.model import GPT, Block, Config
 from litgpt.prompts import save_prompt_style
 from litgpt.tokenizer import Tokenizer
@@ -31,13 +30,8 @@ from litgpt.utils import (
     parse_devices,
     copy_config_files,
     save_hyperparameters,
+    choose_logger,
 )
-
-# support running without installing as a package
-wd = Path(__file__).parent.parent.resolve()
-sys.path.append(str(wd))
-
-from generate.base import generate
 
 
 def setup(
@@ -48,6 +42,7 @@ def setup(
     data: Optional[LitDataModule] = None,
     checkpoint_dir: Path = Path("checkpoints/stabilityai/stablelm-base-alpha-3b"),
     out_dir: Path = Path("out/finetune/full"),
+    logger_name: Literal["wandb", "tensorboard", "csv"] = "csv",
     train: TrainArgs = TrainArgs(
         save_interval=1000,
         log_interval=1,
@@ -64,8 +59,10 @@ def setup(
     pprint(locals())
     data = Alpaca() if data is None else data
     devices = parse_devices(devices)
+    config = Config.from_name(name=checkpoint_dir.name)
 
     precision = precision or get_default_supported_precision(training=True)
+    logger = choose_logger(logger_name, out_dir, name=f"finetune-{config.name}", resume=resume, log_interval=train.log_interval)
 
     if devices > 1:
         strategy = FSDPStrategy(
@@ -78,9 +75,8 @@ def setup(
     else:
         strategy = "auto"
 
-    logger = CSVLogger(out_dir.parent, out_dir.name, flush_logs_every_n_steps=train.log_interval)
     fabric = L.Fabric(devices=devices, strategy=strategy, precision=precision, loggers=logger)
-    fabric.launch(main, devices, resume, seed, Config.from_name(name=checkpoint_dir.name), data, checkpoint_dir, out_dir, train, eval)
+    fabric.launch(main, devices, resume, seed, config, data, checkpoint_dir, out_dir, train, eval)
 
 
 def main(

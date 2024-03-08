@@ -95,7 +95,7 @@ For additional benchmarks and resource requirements, please see the [Resource Ta
 You can test the finetuned model with your own instructions by running:
 
 ```bash
-python generate/adapter.py \
+python litgpt/generate/adapter.py \
     --prompt "Recommend a movie to watch on the weekend." \
     --checkpoint_dir checkpoints/stabilityai/stablelm-base-alpha-3b
 ```
@@ -103,7 +103,7 @@ python generate/adapter.py \
 or for Adapter V2
 
 ```bash
-python generate/adapter_v2.py \
+python litgpt/generate/adapter_v2.py \
     --prompt "Recommend a movie to watch on the weekend." \
     --checkpoint_dir checkpoints/stabilityai/stablelm-base-alpha-3b
 ```
