@@ -265,13 +265,13 @@ def fit(
                 "learning_rate": scheduler.get_last_lr()[0],
                 "val_loss": val_loss,
             }
-            val_loss_str = 'None' if metrics['val_loss'] is None else f"{metrics['val_loss']:.3f}"
+            val_loss_str = 'n/a' if metrics['val_loss'] is None else f"{metrics['val_loss']:.3f}"
             fabric.print(
-                f"Ep {metrics['epoch']+1} | iter {metrics['iter']} | step {metrics['step']}:"
-                f" loss train (curr): {metrics['loss']:.3f},"
-                f" val (prev val iter): {val_loss_str} |"
+                f"Epoch {metrics['epoch']+1} | iter {metrics['iter']} | step {metrics['step']}:"
+                f" loss train: {metrics['loss']:.3f},"
+                f" val: {val_loss_str} |"
                 f" iter time: {metrics['iter_time'] * 1000:.2f} ms"
-                f"{' (opt.step)' if not is_accumulating else ''}"
+                f"{' (step)' if not is_accumulating else ''}"
             )
             fabric.log_dict(metrics, step=iter_num)
 
