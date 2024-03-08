@@ -1,0 +1,70 @@
+[project]
+name = "litgpt"
+version = "0.1.0"
+description = "Open source large language model implementation"
+authors = [
+    { name = "Lightning AI", email = "contact@lightning.ai" },
+]
+
+readme = "README.md"
+
+[project.license]
+file = "LICENSE"
+
+[project.urls]
+homepage = "https://github.com/lightning-AI/litgpt"
+
+[project.optional-dependencies]
+test = [
+    "pytest",
+    "pytest-rerunfailures",
+    "pytest-timeout",
+    "transformers>=4.38.0",g
+    "einops",
+    "protobuf",
+]
+all = [
+    "jsonargparse[signatures]",
+    "bitsandbytes==0.41.0",
+    "scipy",
+    "sentencepiece",
+    "tokenizers",
+    "datasets",
+    "requests",
+    "litdata",
+    "zstandard",
+    "pandas",
+    "pyarrow",
+    "tensorboard",
+    "torchmetrics",
+    "lm_eval @ git+https://github.com/EleutherAI/lm-evaluation-harness.git@115206dc89dad67b8b",
+]
+
+[build-system]
+requires = [
+    "setuptools",
+    "wheel",
+]
+build-backend = "setuptools.build_meta"
+
+dynamic = [
+    "dependencies",
+]
+
+[tool.setuptools.dynamic.dependencies]
+file = "requirements.txt"
+
+[tool.setuptools.packages.find]
+include = [
+    "litgpt",
+    "litgpt.*",
+]
+exclude = []
+
+[tool.setuptools.package-data]
+litgpt = [
+    "LICENSE",
+    "README.md",
+    "requirements.txt",
+    "requirements-all.txt",
+]
