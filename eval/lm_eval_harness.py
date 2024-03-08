@@ -11,12 +11,8 @@ from lightning.fabric.plugins import BitsandbytesPrecision
 from lm_eval import base, evaluator, tasks
 from lm_eval.base import BaseLM
 
-# support running without installing as a package
-wd = Path(__file__).parent.parent.resolve()
-sys.path.append(str(wd))
-
-from litgpt.generate.base import generate
 from litgpt import GPT, Config, Tokenizer
+from litgpt.generate.base import generate
 from litgpt.utils import CLI, check_valid_checkpoint_dir, get_default_supported_precision, load_checkpoint
 
 
