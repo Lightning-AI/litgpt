@@ -46,5 +46,5 @@ python litgpt/generate/base.py --prompt "Write in Python a softmax function. Be 
 Or you can run the model in an interactive mode:
 
 ```bash
-python chat/base.py --checkpoint_dir checkpoints/$repo_id
+python litgpt/chat/base.py --checkpoint_dir checkpoints/$repo_id
 ```

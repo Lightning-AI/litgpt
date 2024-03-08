@@ -19,7 +19,7 @@ python litgpt/scripts/download.py --repo_id microsoft/phi-2
 Inference the model in instruct mode:
 
 ```bash
-python chat/base.py --checkpoint_dir checkpoints/microsoft/phi-2
+python litgpt/chat/base.py --checkpoint_dir checkpoints/microsoft/phi-2
 ```
 ```text
 >> Prompt: Write a detailed analogy between mathematics and a lighthouse.
@@ -27,7 +27,7 @@ python chat/base.py --checkpoint_dir checkpoints/microsoft/phi-2
 ```
 
 > [!NOTE]
-> In order to obtain appropriate answers, you may need to tweak the [input prompt](https://github.com/Lightning-AI/litgpt/blob/74b8df0c3f07fc31d9d1a49e870a1f7955329ad8/chat/base.py#L359). E.g. we found out that if using `"Instruct:{prompt}\nOutput:\n"` instead of `"Instruct:{prompt}\nOutput:"` the model generates longer answers in some cases.
+> In order to obtain appropriate answers, you may need to tweak the [input prompt](https://github.com/Lightning-AI/litgpt/blob/wip/litgpt/prompts.py#L252). E.g. we found out that if using `"Instruct:{prompt}\nOutput:\n"` instead of `"Instruct:{prompt}\nOutput:"` the model generates longer answers in some cases.
 
 Free generation mode:
 ```bash
