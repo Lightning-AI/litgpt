@@ -12,10 +12,8 @@ from typing import Optional, Tuple, Union
 import lightning as L
 import torch
 import torch.nn as nn
-from lightning.fabric.loggers import CSVLogger, TensorBoardLogger
 from lightning.fabric.strategies import FSDPStrategy
 from lightning.fabric.utilities.throughput import ThroughputMonitor, measure_flops
-from lightning.pytorch.loggers import WandbLogger
 from torch.utils.data import DataLoader
 from torchmetrics.aggregation import RunningMean
 from typing_extensions import Literal
@@ -33,6 +31,7 @@ from litgpt.utils import (
     copy_config_files,
     save_hyperparameters,
     save_config,
+    choose_logger,
 )
 
 
@@ -76,8 +75,8 @@ def setup(
     tokenizer = Tokenizer(tokenizer_dir) if tokenizer_dir is not None else None
 
     logger = choose_logger(
-        out_dir,
         logger_name,
+        out_dir,
         name=f"pretrain-{config.name}",
         resume=resume,
         log_interval=train.log_interval
@@ -350,16 +349,6 @@ def init_weights(module: nn.Module, n_layer: int, n_embd: int):
     for name, param in module.named_parameters():
         if name == "proj.weight" and isinstance(module, (LLaMAMLP, CausalSelfAttention)):
             nn.init.normal_(param, mean=0.0, std=(1 / math.sqrt(n_embd) / n_layer))
-
-
-def choose_logger(out_dir: Path, logger_name: str, name: str, resume: Union[bool, Path], log_interval: int, *args, **kwargs):
-    if logger_name == "csv":
-        return CSVLogger(root_dir=(out_dir / "logs"), name="csv", flush_logs_every_n_steps=log_interval, *args, **kwargs)
-    if logger_name == "tensorboard":
-        return TensorBoardLogger(root_dir=(out_dir / "logs"), name="tensorboard", *args, **kwargs)
-    if logger_name == "wandb":
-        return WandbLogger(project="pretrain", name=name, resume=(resume is not False), *args, **kwargs)
-    raise ValueError(f"`logger={logger_name}` is not a valid option.")
 
 
 def init_out_dir(out_dir: Path) -> Path:
