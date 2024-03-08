@@ -9,10 +9,6 @@ import lightning as L
 import torch
 from lightning.fabric.plugins import BitsandbytesPrecision
 
-# support running without installing as a package
-wd = Path(__file__).parents[2].resolve()
-sys.path.append(str(wd))
-
 from litgpt.generate.base import next_token
 from litgpt import GPT, Config, PromptStyle, Tokenizer
 from litgpt.prompts import load_prompt_style, has_prompt_style

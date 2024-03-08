@@ -86,17 +86,10 @@ Avoiding code duplication is **not** a goal. **Readability** and **hackability**
 
 ## Setup
 
-Clone the repo:
-
-```bash
-git clone https://github.com/Lightning-AI/litgpt
-cd litgpt
-```
-
 Install with all dependencies (including CLI, quantization, tokenizers for all models, etc.):
 
 ```bash
-pip install -r requirements-all.txt
+pip install 'litgpt[all]'
 ```
 
 &nbsp;

@@ -9,10 +9,7 @@ import lightning as L
 import torch
 import torch._dynamo.config
 import torch._inductor.config
-
-# support running without installing as a package
-wd = Path(__file__).parents[2].resolve()
-sys.path.append(str(wd))
+from lightning.fabric.plugins import BitsandbytesPrecision
 
 from litgpt import GPT, Config, Tokenizer, PromptStyle
 from litgpt.prompts import load_prompt_style, has_prompt_style
