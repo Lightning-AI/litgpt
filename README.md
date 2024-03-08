@@ -108,7 +108,7 @@ To generate text predictions, you need to download the model weights. **If you d
 Run inference:
 
 ```bash
-python generate/base.py --prompt "Hello, my name is"
+python litgpt/generate/base.py --prompt "Hello, my name is"
 ```
 
 This will run the 3B pretrained model and require ~7 GB of GPU memory using the `bfloat16` datatype.
@@ -118,7 +118,7 @@ This will run the 3B pretrained model and require ~7 GB of GPU memory using the 
 You can also chat with the model interactively:
 
 ```bash
-python chat/base.py
+python litgpt/chat/base.py
 ```
 
 &nbsp;

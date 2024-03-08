@@ -42,7 +42,7 @@ You're done! To execute the model just run:
 ```bash
 pip install sentencepiece
 
-python chat/base.py --checkpoint_dir checkpoints/mistralai/Mistral-7B-Instruct-v0.2
+python litgpt/chat/base.py --checkpoint_dir checkpoints/mistralai/Mistral-7B-Instruct-v0.2
 ```
 
 ### Mixtral
@@ -65,7 +65,7 @@ Due to the size of the model, currently only the multi-device sequential generat
 ```bash
 pip install sentencepiece
 
-python generate/sequentially.py --checkpoint_dir checkpoints/mistralai/Mixtral-8x7B-Instruct-v0.1
+python litgpt/generate/sequentially.py --checkpoint_dir checkpoints/mistralai/Mixtral-8x7B-Instruct-v0.1
 ```
 
 You will need enough devices (2, 4, or 8) where their combined memory is higher than 94 GB to fit the model in memory.
