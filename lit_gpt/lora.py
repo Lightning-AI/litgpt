@@ -345,8 +345,7 @@ class LoRAQKVLinear(LoRALinear):
         input_splitted = input.chunk(sum(self.enable_lora), dim=1)  # N * (B, C // N, T)
         weight_splitted = weight.split(self.qkv_shapes)  # N * (C_output', r, 1)
         return torch.cat(
-            [F.conv1d(a, b) for a, b in zip(input_splitted, weight_splitted)],
-            dim=1,  # (B, C_output', T)
+            [F.conv1d(a, b) for a, b in zip(input_splitted, weight_splitted)], dim=1  # (B, C_output', T)
         )  # (B, C_output, T)
 
     def get_lora_AB(self) -> torch.Tensor:
@@ -358,7 +357,9 @@ class LoRAQKVLinear(LoRALinear):
         lora = self.conv1d(
             self.lora_A.data.unsqueeze(0),  # (4, 128) -> (1, 4, 128)
             self.lora_B.data.unsqueeze(-1),  # (256, 2) -> (256, 2, 1)
-        ).squeeze(0)  # (1, 4, 128) @ (256, 2, 1) -> (1, 256, 128) -> (256, 128)
+        ).squeeze(
+            0
+        )  # (1, 4, 128) @ (256, 2, 1) -> (1, 256, 128) -> (256, 128)
         return self.zero_pad(lora * self.scaling)  # (256, 128) after zero_pad (384, 128)
 
     def merge(self) -> None:
@@ -397,7 +398,9 @@ class LoRAQKVLinear(LoRALinear):
         after_B = self.conv1d(
             after_A.transpose(-2, -1),  # (64, 64, 4) -> (64, 4, 64)
             self.lora_B.unsqueeze(-1),  # (256, 2) -> (256, 2, 1)
-        ).transpose(-2, -1)  # (64, 4, 64) @ (256, 2, 1) -> (64, 256, 64) -> (64, 64, 256)
+        ).transpose(
+            -2, -1
+        )  # (64, 4, 64) @ (256, 2, 1) -> (64, 256, 64) -> (64, 64, 256)
         lora = self.zero_pad(after_B) * self.scaling  # (64, 64, 256) after zero_pad (64, 64, 384)
         return pretrained + lora
 

@@ -17,8 +17,8 @@ def test_llama2_70b_conversion():
         "model.layers.0.mlp.gate_proj.weight": (28672, 8192),
         "model.layers.0.mlp.up_proj.weight": (28672, 8192),
         "model.layers.0.post_attention_layernorm.weight": (8192,),
-        "model.layers.0.self_attn.k_proj.weight": (1024, 8192),
         "model.layers.0.self_attn.q_proj.weight": (8192, 8192),
+        "model.layers.0.self_attn.k_proj.weight": (1024, 8192),
         "model.layers.0.self_attn.v_proj.weight": (1024, 8192),
         "model.layers.0.self_attn.o_proj.weight": (8192, 8192),
         "model.layers.1.input_layernorm.weight": (8192,),
@@ -58,7 +58,7 @@ def test_llama2_70b_conversion():
 
     # NOTE: there are 5 layers, but only in the first layer we have `q`, `k` and `v`
     assert len(qkv_weights) == 1
-    # # there are no loaded qkv weights
+    # there are no loaded qkv weights
     assert all(v is None for qkv in qkv_weights.values() for v in qkv)
     # the shapes are correct
     holder = {k: tuple(t.shape) for k, t in holder.items()}
@@ -117,7 +117,6 @@ def test_convert_hf_checkpoint(tmp_path, model_name):
         if model_name == "Llama-2-7b-hf":
             load.return_value = {"model.embed_tokens.weight": torch.rand((10, 10))}
         convert_hf_checkpoint(checkpoint_dir=tmp_path, model_name=model_name)
-    # convert_hf_checkpoint(checkpoint_dir=tmp_path, model_name=model_name)
     load.assert_called_with(bin_file)
 
     assert {p.name for p in tmp_path.glob("*")} == {"foo.bin", "lit_config.json", "lit_model.pth"}
@@ -129,9 +128,9 @@ def test_convert_hf_checkpoint(tmp_path, model_name):
     assert isinstance(config, Config)
 
 
-def test_reassemble_qkv():
+def test_qkv_reassemble():
     from lit_gpt import Config
-    from scripts.convert_hf_checkpoint import reassemble_qkv
+    from scripts.convert_hf_checkpoint import qkv_reassemble
 
     # MHA
     config = Config(n_embd=4, n_head=4)
@@ -151,7 +150,7 @@ def test_reassemble_qkv():
             [44, 45, 46, 47],  # value
         ]
     )
-    qkv = reassemble_qkv(qkv_interleaved, config)
+    qkv = qkv_reassemble(qkv_interleaved, config)
     torch.testing.assert_close(
         qkv,
         torch.tensor(
@@ -186,7 +185,7 @@ def test_reassemble_qkv():
             [28, 29, 30, 31],  # value
         ]
     )
-    qkv = reassemble_qkv(qkv_interleaved, config)
+    qkv = qkv_reassemble(qkv_interleaved, config)
     torch.testing.assert_close(
         qkv,
         torch.tensor(
@@ -203,7 +202,7 @@ def test_reassemble_qkv():
         ),
     )
 
-    # # MQA
+    # MQA
     config = Config(n_embd=4, n_head=4, n_query_groups=1)
     qkv_interleaved = torch.tensor(
         [
@@ -213,9 +212,9 @@ def test_reassemble_qkv():
             [12, 13, 14, 15],  # query
             [16, 17, 18, 19],  # key
             [20, 21, 22, 23],  # value
-        ],
+        ]
     )
-    qkv = reassemble_qkv(qkv_interleaved, config)
+    qkv = qkv_reassemble(qkv_interleaved, config)
     torch.testing.assert_close(
         qkv,
         torch.tensor(

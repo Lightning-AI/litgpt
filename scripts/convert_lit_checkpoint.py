@@ -4,7 +4,7 @@ import gc
 import sys
 from functools import partial
 from pathlib import Path
-from typing import Dict, Optional, Tuple, Union
+from typing import Dict, Optional, Union
 
 import torch
 from lightning.fabric.utilities.load import _NotYetLoadedTensor as NotYetLoadedTensor
@@ -60,9 +60,7 @@ def copy_weights_falcon(
         param = load_param(param, from_name, None)
         if from_name.endswith((".attn.attn.weight", ".attn.attn.bias")):
             # Reassemble [q, q, ..., k, k, ..., v, v, ...] --> [q, k, v, q, k, v, ...]
-            qs, ks, vs = qkv_split(param, config, split_into_heads=True)
-            interleaved = [t for group in zip(qs, ks, vs) for t in group]
-            param = torch.cat(interleaved)
+            param = qkv_reassemble(param, config)
         if saver is not None:
             param = saver.store_early(param)
         state_dict[to_name] = param
@@ -99,9 +97,7 @@ def copy_weights_gpt_neox(
         param = load_param(param, from_name, None)
         if from_name.endswith((".attn.attn.weight", ".attn.attn.bias")):
             # Reassemble [q, q, ..., k, k, ..., v, v, ...] --> [q, k, v, q, k, v, ...]
-            qs, ks, vs = qkv_split(param, config, split_into_heads=True)
-            interleaved = [t for group in zip(qs, ks, vs) for t in group]
-            param = torch.cat(interleaved)
+            param = qkv_reassemble(param, config)
         if saver is not None:
             param = saver.store_early(param)
         state_dict[to_name] = param
@@ -156,7 +152,13 @@ def copy_weights_llama(
                 "model.layers.{}.self_attn.k_proj.weight".format(*ids),
                 "model.layers.{}.self_attn.v_proj.weight".format(*ids),
             )
-            params = qkv_split(param, config)
+            params = param.split(
+                (
+                    config.n_head * config.head_size,
+                    config.n_query_groups * config.head_size,
+                    config.n_query_groups * config.head_size,
+                )
+            )
         else:
             to_names = (weight_map[name_template].format(*ids),)
             params = (param,)
@@ -198,7 +200,13 @@ def copy_weights_phi(
                 f"model.layers.{{}}.self_attn.k_proj.{weight_type}".format(layer_idx),
                 f"model.layers.{{}}.self_attn.v_proj.{weight_type}".format(layer_idx),
             )
-            params = qkv_split(param, config)
+            params = param.split(
+                (
+                    config.n_head * config.head_size,
+                    config.n_query_groups * config.head_size,
+                    config.n_query_groups * config.head_size,
+                )
+            )
         else:
             to_names = (weight_map[name_template].format(layer_idx),)
             params = (param,)
@@ -209,11 +217,7 @@ def copy_weights_phi(
             state_dict[to_name] = param
 
 
-def qkv_split(
-    param: Union[torch.Tensor, NotYetLoadedTensor],
-    config: Config,
-    split_into_heads: bool = False,
-) -> Union[torch.Tensor, Tuple[Tuple[torch.Tensor], Tuple[torch.Tensor], Tuple[torch.Tensor]]]:
+def qkv_reassemble(param: Union[torch.Tensor, NotYetLoadedTensor], config: Config) -> torch.Tensor:
     q, k, v = param.split(
         (
             config.n_head * config.head_size,
@@ -221,12 +225,11 @@ def qkv_split(
             config.n_query_groups * config.head_size,
         )
     )
-    if not split_into_heads:
-        return q, k, v
     qs = q.split(config.n_head // config.n_query_groups * config.head_size)
     ks = k.split(config.head_size)
     vs = v.split(config.head_size)
-    return qs, ks, vs
+    interleaved = [t for group in zip(qs, ks, vs) for t in group]
+    return torch.cat(interleaved)
 
 
 def check_conversion_supported(lit_weights: Dict[str, torch.Tensor]) -> None:

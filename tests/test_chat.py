@@ -112,7 +112,7 @@ def test_main(mocked_input, stop_iteration, fake_checkpoint_dir, monkeypatch, te
     assert generate_mock.mock_calls == [
         call(ANY, tensor_like, 128, temperature=2.0, top_k=2, stop_tokens=([tokenizer_mock.return_value.eos_id],))
     ]
-    # # only the generated result is printed to stdout
+    # only the generated result is printed to stdout
     assert out.getvalue() == ">> Reply: foo bar baz\n"
 
     assert "'padded_vocab_size': 512, 'n_layer': 2, 'n_head': 4" in err.getvalue()
