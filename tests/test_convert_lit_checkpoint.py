@@ -14,11 +14,12 @@ from conftest import RunIf
 wd = Path(__file__).parent.parent.absolute()
 
 
-def test_convert_lit_checkpoint(tmp_path):
+@pytest.mark.parametrize("model_name", ("pythia-14m", "falcon-7b", "Llama-2-7b-hf", "phi-2"))
+def test_convert_lit_checkpoint(tmp_path, model_name):
     from lit_gpt import GPT, Config
     from scripts.convert_lit_checkpoint import convert_lit_checkpoint
 
-    ours_config = Config.from_name("Llama-2-7b-hf", block_size=8, n_layer=2, n_embd=32, n_head=2, padding_multiple=128)
+    ours_config = Config.from_name(model_name, block_size=8, n_layer=2, n_embd=32, n_head=2, padding_multiple=128)
     ours_model = GPT(ours_config)
     checkpoint_path = tmp_path / "foo.ckpt"
     config_path = tmp_path / "foo.json"
