@@ -3,7 +3,6 @@
 """This script merges the LoRA weights with the base model"""
 import os
 from pathlib import Path
-import shutil
 from typing import Optional, Tuple, Dict, Any
 
 import lightning as L
