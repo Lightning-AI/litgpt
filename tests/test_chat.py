@@ -78,7 +78,7 @@ def test_decode(tokenizer_backend):
     assert out.getvalue() == "baz bar foo "
 
 
-@patch("chat.base.input")
+@patch("litgpt.chat.base.input")
 @pytest.mark.parametrize("stop_iteration", [KeyboardInterrupt, ""])
 def test_main(mocked_input, stop_iteration, fake_checkpoint_dir, monkeypatch, tensor_like):
     import litgpt.chat.base as chat
@@ -119,7 +119,7 @@ def test_main(mocked_input, stop_iteration, fake_checkpoint_dir, monkeypatch, te
 
 
 def test_cli():
-    cli_path = Path(__file__).parent.parent / "chat" / "base.py"
+    cli_path = Path(__file__).parent.parent / "litgpt/chat/base.py"
     output = subprocess.check_output([sys.executable, cli_path, "-h"])
     output = str(output.decode())
     assert "Starts a conversation" in output
