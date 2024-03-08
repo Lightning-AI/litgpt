@@ -49,17 +49,16 @@ jobs:
       run: |
         pip install -r requirements.txt
         pip list
-        # make sure all modules are importable
+        # make sure all modules are still importable with only the minimal dependencies available
         modules=$(
-          find * -type f -name "*.py" | \
-          grep -v tests | grep "/" | grep -v lm_eval | grep -v xla | \
+          find litgpt -type f -name "*.py" | \
           sed 's/\.py$//' | sed 's/\//./g' | \
           sed 's/.__init__//g' | xargs -I {} echo "import {};"
         )
         echo "$modules"
         python -c "$modules"
 
-    - name: Install dependencies
+    - name: Install all dependencies
       run: |
         pip install '.[all,test]'
         pip list
