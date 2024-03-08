@@ -3,21 +3,15 @@
 """Implementation derived from https://github.com/tloen/alpaca-lora"""
 
 import json
-import sys
 from pathlib import Path
 from typing import Optional
 
 import torch
 from lightning_utilities.core.imports import RequirementCache
-from torch.utils.data import random_split
-from tqdm import tqdm
-
-# support running without installing as a package
-wd = Path(__file__).parent.parent.resolve()
-sys.path.append(str(wd))
-
 from lit_gpt.tokenizer import Tokenizer
 from lit_gpt.utils import CLI
+from torch.utils.data import random_split
+from tqdm import tqdm
 
 
 def prepare(
