@@ -10,6 +10,8 @@ import pytest
 import torch
 import torch.nn.functional as F
 import yaml
+from lightning.fabric.loggers import CSVLogger, TensorBoardLogger
+from lightning.pytorch.loggers import WandbLogger
 
 from conftest import RunIf
 from lightning import Fabric
@@ -245,3 +247,14 @@ def test_save_hyperparameters(tmp_path):
     assert hparams["out_dir"] == str(tmp_path)
     assert hparams["foo"] is True
     assert hparams["bar"] == 1
+
+
+def test_choose_logger(tmp_path):
+    from litgpt.utils import choose_logger
+
+    assert isinstance(choose_logger("csv", out_dir=tmp_path, name="csv"), CSVLogger)
+    assert isinstance(choose_logger("tensorboard", out_dir=tmp_path, name="tb"), TensorBoardLogger)
+    assert isinstance(choose_logger("wandb", out_dir=tmp_path, name="wandb"), WandbLogger)
+
+    with pytest.raises(ValueError, match="`--logger_name=foo` is not a valid option."):
+        choose_logger("foo", out_dir=tmp_path, name="foo")
