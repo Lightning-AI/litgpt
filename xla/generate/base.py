@@ -11,13 +11,14 @@ import torch_xla.core.xla_model as xm
 from lightning.fabric.accelerators import XLAAccelerator
 from lightning.fabric.strategies import XLAFSDPStrategy
 
+from litgpt import GPT, Config, Tokenizer
+from litgpt.model import Block
+from litgpt.utils import check_valid_checkpoint_dir, lazy_load
+
 # support running without installing as a package
 wd = Path(__file__).parent.parent.parent.resolve()
 sys.path.append(str(wd))
 
-from litgpt import GPT, Config, Tokenizer
-from litgpt.model import Block
-from litgpt.utils import check_valid_checkpoint_dir, lazy_load
 from xla.utils import rank_print
 
 
