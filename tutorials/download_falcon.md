@@ -41,5 +41,3 @@ pip install tokenizers
 
 python litgpt/generate/base.py --prompt "Hello, my name is" --checkpoint_dir checkpoints/tiiuae/falcon-7b
 ```
-
-or [![Open In Colab](https://colab.research.google.com/assets/colab-badge.svg)](https://colab.research.google.com/github/Lightning-AI/litgpt/blob/main/notebooks/falcon-inference.ipynb)
