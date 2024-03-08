@@ -426,6 +426,7 @@ def choose_logger(
     out_dir: Path,
     name: str,
     log_interval: int = 1,
+    resume: Optional[bool] = None,
     **kwargs: Any,
 ):
     if logger_name == "csv":
@@ -433,5 +434,5 @@ def choose_logger(
     if logger_name == "tensorboard":
         return TensorBoardLogger(root_dir=(out_dir / "logs"), name="tensorboard", **kwargs)
     if logger_name == "wandb":
-        return WandbLogger(project=name, **kwargs)
+        return WandbLogger(project=name, resume=resume, **kwargs)
     raise ValueError(f"`logger={logger_name}` is not a valid option.")
