@@ -50,5 +50,5 @@ You're done! To execute the model just run:
 ```bash
 pip install tokenizers
 
-python generate/base.py --prompt "Hello, my name is" --checkpoint_dir checkpoints/EleutherAI/pythia-1b
+python litgpt/generate/base.py --prompt "Hello, my name is" --checkpoint_dir checkpoints/EleutherAI/pythia-1b
 ```

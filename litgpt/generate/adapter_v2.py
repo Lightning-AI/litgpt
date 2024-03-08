@@ -10,21 +10,20 @@ import torch
 from lightning.fabric.plugins import BitsandbytesPrecision
 
 # support running without installing as a package
-wd = Path(__file__).parent.parent.resolve()
+wd = Path(__file__).parents[2].resolve()
 sys.path.append(str(wd))
 
-from generate.base import generate
 from litgpt import Tokenizer, PromptStyle
-from litgpt.adapter import GPT, Config
+from litgpt.adapter_v2 import GPT, Config
+from litgpt.generate.base import generate
 from litgpt.prompts import load_prompt_style, has_prompt_style
 from litgpt.utils import CLI, check_valid_checkpoint_dir, get_default_supported_precision, lazy_load
-
 
 
 def main(
     prompt: str = "What food do llamas eat?",
     input: str = "",
-    adapter_path: Path = Path("out/adapter/alpaca/lit_model_adapter_finetuned.pth"),
+    adapter_path: Path = Path("out/adapter_v2/alpaca/lit_model_adapter_finetuned.pth"),
     checkpoint_dir: Path = Path("checkpoints/stabilityai/stablelm-base-alpha-3b"),
     quantize: Optional[Literal["bnb.nf4", "bnb.nf4-dq", "bnb.fp4", "bnb.fp4-dq", "bnb.int8"]] = None,
     max_new_tokens: int = 100,
@@ -33,14 +32,14 @@ def main(
     precision: Optional[str] = None,
 ) -> None:
     """Generates a response based on a given instruction and an optional input.
-    This script will only work with checkpoints from the instruction-tuned GPT-Adapter model.
-    See `litgpt/finetune/adapter.py`.
+    This script will only work with checkpoints from the instruction-tuned GPT-AdapterV2 model.
+    See `litgpt/finetune/adapter_v2.py`.
 
     Args:
         prompt: The prompt/instruction (Alpaca style).
         input: Optional input (Alpaca style).
         adapter_path: Path to the checkpoint with trained adapter weights, which are the output of
-            `litgpt/finetune/adapter.py`.
+            `litgpt/finetune/adapter_v2.py`.
         checkpoint_dir: The path to the checkpoint folder with pretrained GPT weights.
         quantize: Whether to quantize the model and using which method:
             - bnb.nf4, bnb.nf4-dq, bnb.fp4, bnb.fp4-dq: 4-bit quantization from bitsandbytes

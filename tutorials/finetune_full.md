@@ -51,7 +51,7 @@ Note that `mps` as the accelerator will be picked up automatically by Fabric whe
 You can test the finetuned model with your own instructions by running:
 
 ```bash
-python generate/full.py \
+python litgpt/generate/full.py \
     --prompt "Recommend a movie to watch on the weekend." \
     --checkpoint_dir checkpoints/tiiuae/falcon-7b \
     --finetuned_path out/full/my-model-finetuned/lit_model_finetuned.pth
