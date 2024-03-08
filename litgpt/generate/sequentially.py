@@ -18,7 +18,7 @@ from lightning.fabric.utilities.init import _materialize_meta_tensors
 from typing_extensions import Type
 
 # support running without installing as a package
-wd = Path(__file__).parent.parent.resolve()
+wd = Path(__file__).parents[2].resolve()
 sys.path.append(str(wd))
 
 import litgpt.generate.base as generate_base

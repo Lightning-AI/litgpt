@@ -16,7 +16,7 @@ from lightning.fabric.utilities import rank_zero_only
 from torch.distributed._functional_collectives import all_reduce
 
 # support running without installing as a package
-wd = Path(__file__).parent.parent.resolve()
+wd = Path(__file__).parents[2].resolve()
 sys.path.append(str(wd))
 
 import litgpt.generate.base as generate_base
