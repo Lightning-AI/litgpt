@@ -6,21 +6,19 @@ We provide a helpful script to convert models LitGPT models back to their equiva
 
 ```sh
 python litgpt/scripts/convert_lit_checkpoint.py \
-    --checkpoint_path checkpoints/repo_id/lit_model.pth \
-    --output_path output_path/converted.pth \
-    --config_path checkpoints/repo_id/config.json
+    --checkpoint_dir checkpoint_dir \
+    --output_dir converted_dir
 ```
 
-These paths are just placeholders, you will need to customize them based on which finetuning or pretraining script you ran and it's configuration.
+These paths are just placeholders, you will need to customize them based on which finetuning or pretraining script you ran and its configuration.
 
 ### Loading converted LitGPT checkpoints into transformers
 
-If you want to load the converted checkpoints into a `transformers` model, please make sure you copied the original `config.json` file into the folder that contains the `converted.pth` file saved via `--output_path` above.
 
 For example,
 
 ```bash
-cp checkpoints/repo_id/config.json output_path/config.json
+cp checkpoints/repo_id/config.json converted/config.json
 ```
 
 Then, you can load the checkpoint file in a Python session as follows:
@@ -30,9 +28,9 @@ import torch
 from transformers import AutoModel
 
 
-state_dict = torch.load("output_path/converted.pth")
+state_dict = torch.load("output_dir/model.pth")
 model = AutoModel.from_pretrained(
-    "output_path/", local_files_only=True, state_dict=state_dict
+    "output_dir/", local_files_only=True, state_dict=state_dict
 )
 ```
 
@@ -105,9 +103,8 @@ python scripts/merge_lora.py \
 
 ```bash
 python litgpt/scripts/convert_lit_checkpoint.py \
-   --checkpoint_path $finetuned_dir/final/lit_model.pth \
-   --output_path out/hf-tinyllama/converted_model.pth \
-   --config_path checkpoints/$repo_id/lit_config.json 
+   --checkpoint_dir $finetuned_dir/final/ \
+   --output_dir out/hf-tinyllama/converted \
 ```
 
 
@@ -117,6 +114,6 @@ python litgpt/scripts/convert_lit_checkpoint.py \
 import torch
 from transformers import AutoModel
 
-state_dict = torch.load('out/hf-tinyllama/converted_model.pth')
+state_dict = torch.load('out/hf-tinyllama/converted/model.pth')
 model = AutoModel.from_pretrained("TinyLlama/TinyLlama-1.1B-intermediate-step-1431k-3T", state_dict=state_dict)
 ```
