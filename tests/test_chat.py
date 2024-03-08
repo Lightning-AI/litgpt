@@ -25,7 +25,7 @@ import torch
     ],
 )
 def test_generate(monkeypatch, generated, stop_tokens, expected):
-    import chat.base as chat
+    import litgpt.chat.base as chat
     import litgpt.generate.base as generate
 
     input_idx = torch.tensor([5, 3])
@@ -56,7 +56,7 @@ def test_generate(monkeypatch, generated, stop_tokens, expected):
 def test_decode(tokenizer_backend):
     from lightning.fabric import Fabric
 
-    import chat.base as chat
+    import litgpt.chat.base as chat
 
     class Tokenizer:
         backend = tokenizer_backend
@@ -81,7 +81,7 @@ def test_decode(tokenizer_backend):
 @patch("chat.base.input")
 @pytest.mark.parametrize("stop_iteration", [KeyboardInterrupt, ""])
 def test_main(mocked_input, stop_iteration, fake_checkpoint_dir, monkeypatch, tensor_like):
-    import chat.base as chat
+    import litgpt.chat.base as chat
 
     # these values will be iteratively provided for each `input()` call
     mocked_input.side_effect = ["Hello", stop_iteration]

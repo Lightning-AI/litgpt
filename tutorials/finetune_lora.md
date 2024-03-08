@@ -148,7 +148,7 @@ python scripts/merge_lora.py \
   --checkpoint_dir "out/lora/stablelm-base-alpha-3b/final"
 ```
 
-After merging, we can use the `litgpt/generate/base.py` or `chat/base.py` file for inference using the new checkpoint file. 
+After merging, we can use the `litgpt/generate/base.py` or `litgpt/chat/base.py` file for inference using the new checkpoint file. 
 
 ```bash
 python litgpt/generate/base.py \

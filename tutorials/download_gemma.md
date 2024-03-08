@@ -39,5 +39,5 @@ or disk size is constrained, it might be useful to pass `--dtype bfloat16` to co
 You're done! To execute the model just run:
 
 ```bash
-python chat/base.py --checkpoint_dir checkpoints/google/gemma-2b
+python litgpt/chat/base.py --checkpoint_dir checkpoints/google/gemma-2b
 ```
