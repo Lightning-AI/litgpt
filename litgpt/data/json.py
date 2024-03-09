@@ -28,7 +28,7 @@ class JSON(LitDataModule):
     Only applies if you passed in a single file to `json_path`."""
     prompt_style: Union[str, PromptStyle] = "alpaca"
     """The style to apply to instruction prompts. See `litgpt.prompts` for a list of available styles."""
-    ignore_index: int = -1
+    ignore_index: int = -100
     """The index to use for elements to be ignored in the label."""
     seed: int = 42
     """The random seed for creating the train/val splits and shuffling the dataset."""

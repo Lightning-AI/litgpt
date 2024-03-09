@@ -236,7 +236,7 @@ def chunked_cross_entropy(
     logits: Union[torch.Tensor, List[torch.Tensor]],
     targets: torch.Tensor,
     chunk_size: int = 128,
-    ignore_index: int = -1,
+    ignore_index: int = -100,
 ) -> torch.Tensor:
     # with large max_sequence_lengths, the beginning of `backward` allocates a large memory chunk which can dominate
     # the memory usage in fine-tuning settings with low number of parameters.
