@@ -13,6 +13,8 @@ from lightning.fabric.plugins import BitsandbytesPrecision
 from lightning.fabric.strategies import FSDPStrategy
 from lightning.fabric.utilities import ThroughputMonitor
 
+import pdb
+
 # support running without installing as a package
 wd = Path(__file__).parent.parent.resolve()
 sys.path.append(str(wd))
@@ -66,7 +68,9 @@ def setup(
     eval: EvalArgs = EvalArgs(interval=100, max_new_tokens=100, max_iters=100),
 ) -> None:
     print(locals())
-    precision = precision or get_default_supported_precision(training=True)
+    # precision = precision or get_default_supported_precision(training=True)
+    precision = "bf16-true"
+    # pdb.set_trace()
 
     plugins = None
     if quantize is not None and quantize.startswith("bnb."):
