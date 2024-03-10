@@ -39,9 +39,9 @@ from string import ascii_lowercase as characters
 from string import digits
 
 def generate_dataset(size, save_path, split):
-  df = pd.DataFrame(columns=["Accession Number", "Report", "Prompt", "Response", "Question", "Input"])
+  df = pd.DataFrame(columns=["Accession Number", "input", "instruction", "output", "Question", "Input"])
   for i in range(size):
-    df_current = pd.DataFrame(columns=["Accession Number", "Report", "Prompt", "Response", "Question", "Input"])
+    df_current = pd.DataFrame(columns=["Accession Number", "input", "instruction", "output", "Question", "Input"])
     count = randint(500, 1000)
     report = ''.join(choice(characters) for _ in range(count))
     report = f"""
@@ -72,10 +72,11 @@ def generate_dataset(size, save_path, split):
     df = pd.concat([df, df_current])
       
   print(f'\nTotal dimension of formatted dataset: {df.shape}\n')
+  df = df[["instruction", "input", "output"]]
+#   df.rename(columns={"Prompt": "instruction", "Report": "input", "Response": "output"})
   df.to_csv(save_path)
   return df
 
-df_tr = generate_dataset(100,"./my_data/dummy-tr.csv", "train")
-df_val = generate_dataset(30,"./my_data/dummy-val.csv", "val")
-df_te = generate_dataset(30,"./my_data/dummy-te.csv", "test")
+df = generate_dataset(200,"./my_data/dummy.csv", "train")
+
 
