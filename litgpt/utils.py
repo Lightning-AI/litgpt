@@ -19,6 +19,7 @@ from lightning.fabric.loggers import CSVLogger, TensorBoardLogger
 from lightning.fabric.strategies import FSDPStrategy
 from lightning.fabric.utilities.load import _lazy_load as lazy_load
 from lightning.pytorch.loggers import WandbLogger
+from lightning_utilities.core.imports import RequirementCache
 from torch.serialization import normalize_storage_type
 from typing_extensions import Self
 
@@ -389,6 +390,10 @@ def copy_config_files(source_dir: Path, out_dir: Path) -> None:
 
 
 def CLI(*args: Any, **kwargs: Any) -> Any:
+    jsonargparse_available = RequirementCache("jsonargparse[signatures]")
+    if not jsonargparse_available:
+        raise ModuleNotFoundError(str(jsonargparse_available))
+
     from jsonargparse import CLI, set_docstring_parse_options
 
     set_docstring_parse_options(attribute_docstrings=True)
