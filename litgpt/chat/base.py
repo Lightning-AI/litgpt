@@ -12,6 +12,7 @@ from lightning.fabric.plugins import BitsandbytesPrecision
 from litgpt.generate.base import next_token
 from litgpt import GPT, Config, PromptStyle, Tokenizer
 from litgpt.prompts import load_prompt_style, has_prompt_style
+from litgpt.scripts.merge_lora import merge_lora
 from litgpt.utils import CLI, check_valid_checkpoint_dir, get_default_supported_precision, load_checkpoint
 
 
@@ -135,6 +136,11 @@ def main(
     config = Config.from_json(checkpoint_dir / "lit_config.json")
 
     checkpoint_path = checkpoint_dir / "lit_model.pth"
+
+    # Merge if this is a raw LoRA checkpoint
+    if (checkpoint_path / "lit_model.pth.lora").is_file() and not checkpoint_path.is_file():
+        print("Merging LoRA weights with the base model. This won't take long.")
+        merge_lora(checkpoint_path)
 
     fabric.print(f"Loading model {str(checkpoint_path)!r} with {config.__dict__}", file=sys.stderr)
     with fabric.init_module(empty_init=True):
