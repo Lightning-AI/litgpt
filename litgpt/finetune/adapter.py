@@ -212,7 +212,7 @@ def fit(
             throughput.compute_and_log(step=iter_num)
             val_loss_str = 'n/a' if val_loss is None else f"{val_loss:.3f}"
             fabric.print(
-                f"Epoch {train_iterator.epoch+1} | iter {iter_num} | step {step_count}:"
+                f"Epoch {train_iterator.epoch+1} | iter {iter_num} step {step_count} |"
                 f" loss train: {loss_item:.3f},"
                 f" val: {val_loss_str} |"
                 f" iter time: {(t1 - iter_t0) * 1000:.2f} ms"

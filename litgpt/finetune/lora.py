@@ -252,7 +252,7 @@ def fit(
             }
             val_loss_str = 'n/a' if metrics['val_loss'] is None else f"{metrics['val_loss']:.3f}"
             fabric.print(
-                f"Epoch {metrics['epoch']+1} | iter {metrics['iter']} | step {metrics['step']}:"
+                f"Epoch {metrics['epoch']+1} | iter {metrics['iter']} step {metrics['step']} |"
                 f" loss train: {metrics['loss']:.3f},"
                 f" val: {val_loss_str} |"
                 f" iter time: {metrics['iter_time'] * 1000:.2f} ms"

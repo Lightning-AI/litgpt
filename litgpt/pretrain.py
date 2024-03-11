@@ -196,6 +196,7 @@ def fit(
     )
     fabric.barrier()
     total_t0 = time.perf_counter()
+    val_loss = None
 
     warmup_iters = train.lr_warmup_steps * train.gradient_accumulation_iters(devices)
     for train_data in train_iterator:
@@ -251,11 +252,15 @@ def fit(
                     state["iter_num"] * train.micro_batch_size * model.max_seq_length * fabric.world_size
                 ),
                 "learning_rate": lr,
+                "val_loss": val_loss,
             }
 
             fabric.print(
-                f"iter {metrics['iter']} | step {metrics['step']}: loss {metrics['loss']:.4f}, iter time:"
-                f" {metrics['iter_time'] * 1000:.2f} ms{' (optimizer.step),' if not is_accumulating else ','}"
+                f"Epoch {metrics['epoch']+1} | iter {metrics['iter']} step {metrics['step']} |"
+                f" loss train: {metrics['loss']:.3f},"
+                f" val: {val_loss_str} |"
+                f" iter time: {metrics['iter_time'] * 1000:.2f} ms"
+                f"{' (step)' if not is_accumulating else ''}"
                 f" remaining time: {timedelta(seconds=int(metrics['remaining_time']))!s}"
             )
 
