@@ -405,7 +405,7 @@ def CLI(*args: Any, **kwargs: Any) -> Any:
 
 def save_hyperparameters(function: callable, checkpoint_dir: Path) -> None:
     """Captures the CLI parameters passed to `function` without running `function` and saves them to the checkpoint."""
-    from jsonargparse import capture_parser, CLI
+    from jsonargparse import capture_parser
 
     parser = capture_parser(lambda: CLI(function))
     config = parser.parse_args()
