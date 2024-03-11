@@ -351,7 +351,7 @@ You can also customize how the dataset is read by using these additional paramet
 
 - `mask_inputs`: Whether to mask the prompt section from the label (with `ignore_index`).
 
-- `ignore_index`: The index to use for labels that should be ignored. Defaults to `-1` (used when `mask_inputs` is `True`).
+- `ignore_index`: The index to use for labels that should be ignored. Defaults to `-100` (used when `mask_inputs` is `True`).
 
 To use the settings described above, you can add the respective command line arguments when calling the finetuning scripts as shown in the example below:
 
@@ -362,7 +362,7 @@ python litgpt/finetune/lora.py \
   --data.val_split_fraction 0.1 \
   --data.seed 42 \
   --data.mask_inputs False \
-  --data.ignore_index -1 \
+  --data.ignore_index -100 \
   --checkpoint_dir "checkpoints/tiiuae/falcon-7b"
 ```
 
