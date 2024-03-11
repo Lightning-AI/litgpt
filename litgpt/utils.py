@@ -47,9 +47,10 @@ def num_parameters(module: nn.Module, requires_grad: Optional[bool] = None) -> i
     return total
 
 
-def check_valid_checkpoint_dir(checkpoint_dir: Path) -> None:
+def check_valid_checkpoint_dir(checkpoint_dir: Path, lora: bool = False) -> None:
+    model_filename = "lit_model.pth.lora" if lora else "lit_model.pth"
     files = {
-        "lit_model.pth": (checkpoint_dir / "lit_model.pth").is_file(),
+        model_filename: (checkpoint_dir / model_filename).is_file(),
         "lit_config.json": (checkpoint_dir / "lit_config.json").is_file(),
         "tokenizer.json OR tokenizer.model": (checkpoint_dir / "tokenizer.json").is_file()
         or (checkpoint_dir / "tokenizer.model").is_file(),
@@ -235,7 +236,7 @@ def chunked_cross_entropy(
     logits: Union[torch.Tensor, List[torch.Tensor]],
     targets: torch.Tensor,
     chunk_size: int = 128,
-    ignore_index: int = -1,
+    ignore_index: int = -100,
 ) -> torch.Tensor:
     # with large max_sequence_lengths, the beginning of `backward` allocates a large memory chunk which can dominate
     # the memory usage in fine-tuning settings with low number of parameters.
