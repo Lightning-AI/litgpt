@@ -11,7 +11,7 @@ LitGPT supports a variety of LLM architectures with publicly available weights. 
 To see all supported models, run the following command without arguments:
 
 ```bash
-python scripts/download.py
+python litgpt/scripts/download.py
 ```
 
 The output is shown below:
@@ -128,7 +128,7 @@ Trelis/Llama-2-7b-chat-hf-function-calling-v2
 To download the weights for a specific model, use the `--repo_id` argument. Replace `<repo_id>` with the model's repository ID. For example:
 
 ```bash
-python scripts/download.py --repo_id <repo_id>
+python litgpt/scripts/download.py --repo_id <repo_id>
 ```
 This command downloads the model checkpoint into the `checkpoints/` directory.
 
@@ -139,7 +139,7 @@ This command downloads the model checkpoint into the `checkpoints/` directory.
 For more options, add the `--help` flag when running the script:
 
 ```bash
-python scripts/download.py --help
+python litgpt/scripts/download.py --help
 ```
 
 &nbsp;
@@ -159,7 +159,7 @@ This section shows a typical end-to-end example for downloading and using TinyLl
 1. List available TinyLlama checkpoints:
 
 ```bash
-python scripts/download.py | grep Tiny
+python litgpt/scripts/download.py | grep Tiny
 ```
 
 ```
@@ -171,7 +171,7 @@ TinyLlama/TinyLlama-1.1B-Chat-v1.0
 
 ```bash
 export repo_id=TinyLlama/TinyLlama-1.1B-intermediate-step-1431k-3T
-python scripts/download.py --repo_id $repo_id
+python litgpt/scripts/download.py --repo_id $repo_id
 ```
 
 3. Use the TinyLlama model:
@@ -204,7 +204,7 @@ The `download.py` script will automatically convert the downloaded model checkpo
 
 
 ```bash
-python scripts/download.py \
+python litgpt/scripts/download.py \
   --repo_id <repo_id>
   --dtype bfloat16
 ```
@@ -217,7 +217,7 @@ For development purposes, for example, when adding or experimenting with new mod
 You can do this by passing the `--convert_checkpoint false` option to the download script:
 
 ```bash
-python scripts/download.py \
+python litgpt/scripts/download.py \
   --repo_id <repo_id> \
   --convert_checkpoint false
 ```
@@ -225,6 +225,6 @@ python scripts/download.py \
 and then calling the `convert_hf_checkpoint.py` script:
 
 ```bash
-python scripts/convert_hf_checkpoint.py \
+python litgpt/scripts/convert_hf_checkpoint.py \
   --checkpoint_dir checkpoint_dir/<repo_id>
 ```

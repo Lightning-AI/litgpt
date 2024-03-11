@@ -47,7 +47,7 @@ model = AutoModel.from_pretrained("online_repo_id", state_dict=state_dict)
 Please note that if you want to convert a model that has been fine-tuned using an adapter like LoRA, these weights should be [merged](../litgpt/scripts/merge_lora.py) to the checkpoint prior to converting.
 
 ```sh
-python scripts/merge_lora.py \
+python litgpt/scripts/merge_lora.py \
     --checkpoint_dir path/to/lora/checkpoint_dir
 ```
 
@@ -94,7 +94,7 @@ python litgpt/finetune/lora.py \
 Note that this step only applies if the model was finetuned with `lora.py` above and not when `full.py` was used for finetuning.
 
 ```bash
-python scripts/merge_lora.py \
+python litgpt/scripts/merge_lora.py \
     --checkpoint_dir $finetuned_dir/final
 ```
 

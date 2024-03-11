@@ -139,7 +139,7 @@ Then, we can merge the LoRA weights with the checkpoint model using the `merge_l
 Simply pass in the checkpoint directory which is the result of the finetuning script:
 
 ```bash
-python scripts/merge_lora.py \
+python litgpt/scripts/merge_lora.py \
   --checkpoint_dir "out/lora/stablelm-base-alpha-3b/final"
 ```
 
