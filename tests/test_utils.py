@@ -122,7 +122,7 @@ def test_chunked_cross_entropy(ignore_index, B):
         ignore_index=(ignore_index if ignore_index is not None else -100),
     )
 
-    ignore_index = ignore_index if ignore_index is not None else -1
+    ignore_index = ignore_index if ignore_index is not None else -100
     regular_loss = chunked_cross_entropy(regular_logits, targets, chunk_size=0, ignore_index=ignore_index)
     assert torch.equal(baseline_loss, regular_loss)
     assert regular_loss.numel() == 1
