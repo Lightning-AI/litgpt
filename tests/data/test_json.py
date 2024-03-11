@@ -77,7 +77,8 @@ def test_json_input_validation(tmp_path):
         data.setup()
 
 
-def test_json_with_splits(tmp_path, mock_tokenizer):
+@pytest.mark.parametrize("as_jsonl", [False, True])
+def test_json_with_splits(as_jsonl, tmp_path, mock_tokenizer):
     from litgpt.data import JSON
 
     mock_train_data = [
@@ -89,10 +90,24 @@ def test_json_with_splits(tmp_path, mock_tokenizer):
         {"instruction": "Multiply", "input": "6*4", "output": "24"},
         {"instruction": "Divide", "input": "10/2", "output": "5"},
     ]
-    with open(tmp_path / "train.json", "w", encoding="utf-8") as fp:
-        json.dump(mock_train_data, fp)
-    with open(tmp_path / "val.json", "w", encoding="utf-8") as fp:
-        json.dump(mock_test_data, fp)
+
+    train_file = tmp_path / ("train.jsonl" if as_jsonl else "train.json")
+    val_file = tmp_path / ("val.jsonl" if as_jsonl else "val.json")
+
+    with open(train_file, "w", encoding="utf-8") as fp:
+        if as_jsonl:
+            for line in mock_train_data:
+                json.dump(line, fp)
+                fp.write("\n")
+        else:
+            json.dump(mock_train_data, fp)
+    with open(val_file, "w", encoding="utf-8") as fp:
+        if as_jsonl:
+            for line in mock_test_data:
+                json.dump(line, fp)
+                fp.write("\n")
+        else:
+            json.dump(mock_test_data, fp)
 
     data = JSON(tmp_path, num_workers=0)
     data.connect(tokenizer=mock_tokenizer, batch_size=2)
