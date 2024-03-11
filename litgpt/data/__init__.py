@@ -13,7 +13,7 @@ from litgpt.data.longform import LongForm
 from litgpt.data.tinyllama import TinyLlama
 from litgpt.data.tinystories import TinyStories
 from litgpt.data.openwebtext import OpenWebText
-from litgpt.data.tokens import Tokens
+from litgpt.data.tokens import LitData
 
 
 __all__ = [
@@ -31,6 +31,6 @@ __all__ = [
     "SFTDataset",
     "TinyLlama",
     "TinyStories",
-    "Tokens",
+    "LitData",
     "get_sft_collate_fn",
 ]

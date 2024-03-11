@@ -10,7 +10,7 @@ from litgpt.data import LitDataModule
 
 
 @dataclass
-class Tokens(LitDataModule):
+class LitData(LitDataModule):
     """Loads data using LitData's StreamingDataset given a path to a folder of preprocessed data (chunks)."""
 
     data_path: Union[str, Path] = Path("data/")
