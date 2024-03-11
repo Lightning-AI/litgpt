@@ -26,9 +26,8 @@ def main(
     temperature: float = 0.8,
     precision: Optional[str] = None,
 ) -> None:
-    """Generates a response based on a given instruction and an optional input.
-    This script will only work with checkpoints from the instruction-tuned GPT model.
-    See `litgpt/finetune/full.py`.
+    """Generates a response based on a given instruction and an optional input. This script will only work with
+    checkpoints from the instruction-tuned GPT model. See ``litgpt finetune --method full``.
 
     Args:
         prompt: The prompt/instruction (Alpaca style).

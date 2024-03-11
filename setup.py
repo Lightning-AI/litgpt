@@ -13,7 +13,7 @@ requirements_all = [r for r in requirements_all if r and not r.strip().startswit
 setup(
     name="litgpt",
     version="0.1.0",
-    description="Open source large language model implementation",
+    description="Hackable implementation of state-of-the-art open-source LLMs",
     author="Lightning AI",
     url="https://github.com/lightning-AI/litgpt",
     install_requires=requirements,
@@ -21,6 +21,7 @@ setup(
         "all": requirements_all,
         "test": ["pytest", "pytest-rerunfailures", "pytest-timeout", "transformers>=4.38.0", "einops", "protobuf"],
     },
+    entry_points={"console_scripts": ["litgpt=litgpt.__main__:main"]},
     packages=find_packages(),
     long_description=readme,
     long_description_content_type="text/markdown",

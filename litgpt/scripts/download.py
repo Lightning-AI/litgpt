@@ -15,7 +15,7 @@ _SAFETENSORS_AVAILABLE = RequirementCache("safetensors")
 _HF_TRANSFER_AVAILABLE = RequirementCache("hf_transfer")
 
 
-def download_from_hub(
+def download(
     repo_id: Optional[str] = None,
     access_token: Optional[str] = os.getenv("HF_TOKEN"),
     tokenizer_only: bool = False,
@@ -23,6 +23,7 @@ def download_from_hub(
     dtype: Optional[str] = None,
     checkpoint_dir: Path = Path("checkpoints"),
 ) -> None:
+    """Download weights or tokenizer data from the Hugging Face Hub."""
     if repo_id is None:
         from litgpt.config import configs
 
@@ -119,4 +120,4 @@ def gated_repo_catcher(repo_id: str):
 
 
 if __name__ == "__main__":
-    CLI(download_from_hub)
+    CLI(download)

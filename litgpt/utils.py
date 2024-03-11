@@ -22,7 +22,6 @@ from lightning.pytorch.loggers import WandbLogger
 from torch.serialization import normalize_storage_type
 from typing_extensions import Self
 
-
 if TYPE_CHECKING:
     from litgpt import GPT
     from litgpt import Config
@@ -401,7 +400,7 @@ def CLI(*args: Any, **kwargs: Any) -> Any:
 
 def save_hyperparameters(function: callable, checkpoint_dir: Path) -> None:
     """Captures the CLI parameters passed to `function` without running `function` and saves them to the checkpoint."""
-    from jsonargparse import capture_parser
+    from jsonargparse import capture_parser, CLI
 
     parser = capture_parser(lambda: CLI(function))
     config = parser.parse_args()
