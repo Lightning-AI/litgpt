@@ -5,14 +5,17 @@ description = "Open source large language model implementation"
 authors = [
     { name = "Lightning AI", email = "contact@lightning.ai" },
 ]
-
 readme = "README.md"
+license = { file = "LICENSE" }
 
-[project.license]
-file = "LICENSE"
+dependencies = [
+    "torch>=2.2.0",
+    "lightning @ git+https://github.com/Lightning-AI/lightning@f23b3b1e7fdab1d325f79f69a28706d33144f27e",
+]
 
 [project.urls]
 homepage = "https://github.com/lightning-AI/litgpt"
+documentation = "https://github.com/lightning-AI/litgpt/tutorials"
 
 [project.optional-dependencies]
 test = [
@@ -47,13 +50,6 @@ requires = [
 ]
 build-backend = "setuptools.build_meta"
 
-dynamic = [
-    "dependencies",
-]
-
-[tool.setuptools.dynamic.dependencies]
-file = "requirements.txt"
-
 [tool.setuptools.packages.find]
 include = [
     "litgpt",
@@ -65,6 +61,4 @@ exclude = []
 litgpt = [
     "LICENSE",
     "README.md",
-    "requirements.txt",
-    "requirements-all.txt",
 ]
