@@ -15,7 +15,7 @@ from litgpt.tokenizer import Tokenizer
 
 @dataclass
 class JSON(LitDataModule):
-    """Loads JSON data for supervised finetuning."""
+    """Loads JSON or JSONL data for supervised finetuning."""
 
     json_path: Path
     """A path to a JSON file or a directory with `train.json` and `val.json` containing the data. 
@@ -118,16 +118,28 @@ class JSON(LitDataModule):
             return train_data, test_data
 
         # A directory containing train.json and val.json
-        if (self.json_path / "train.json").is_file() and (self.json_path / f"val.json").is_file():
-            train_data = load_split(self.json_path / "train.json")
-            test_data = load_split(self.json_path / f"val.json")
+        if (train_file := self.find_split("train")) and (val_file := self.find_split("val")):
+            train_data = load_split(train_file)
+            test_data = load_split(val_file)
             return train_data, test_data
 
         raise FileNotFoundError(
             "The `json_path` must be a file or a directory containing 'train.json' and 'val.json' files."
         )
 
+    def find_split(self, split_name: str) -> Optional[Path]:
+        for suffix in (".json", ".jsonl"):
+            if (file := self.json_path / f"{split_name}{suffix}").is_file():
+                return file
+        return None
+
 
 def load_split(json_path: Path) -> Any:
-    with open(json_path, "r", encoding="utf-8") as file:
-        return json.load(file)
+    if json_path.suffix == ".json":
+        with open(json_path, "r", encoding="utf-8") as file:
+            return json.load(file)
+    if json_path.suffix == ".jsonl":
+        with open(json_path, "r", encoding="utf-8") as file:
+            return [json.loads(line) for line in file]
+    else:
+        raise ValueError(f"Unsupported file format: {json_path.suffix}. Expected `.json` or `.jsonl`.")
