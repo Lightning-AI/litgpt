@@ -69,6 +69,8 @@ def setup(
     elif model_config is None and model_name is None:
         model_name = "tiny-llama-1.1b"
     config = Config.from_name(model_name) if model_config is None else model_config
+    if tokenizer_dir is None:
+        raise ValueError(f"Provide a valid --tokenizer_dir. Got '{tokenizer_dir}'.")
     devices = parse_devices(devices)
     out_dir = init_out_dir(out_dir)
     # in case the dataset requires the Tokenizer
