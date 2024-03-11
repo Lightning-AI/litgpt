@@ -41,13 +41,11 @@ jobs:
         python-version: ${{ matrix.python-version }}
         cache: 'pip'
         cache-dependency-path: |
-          requirements.txt
-          requirements-all.txt
-          setup.py
+          pyproject.toml
 
     - name: Install minimal dependencies
       run: |
-        pip install -r requirements.txt
+        pip install .
         pip list
         # make sure all modules are still importable with only the minimal dependencies available
         modules=$(
