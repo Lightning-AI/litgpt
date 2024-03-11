@@ -252,7 +252,6 @@ def fit(
                     state["iter_num"] * train.micro_batch_size * model.max_seq_length * fabric.world_size
                 ),
                 "learning_rate": lr,
-                "val_loss": val_loss,
             }
 
             val_loss_str = 'n/a' if val_loss is None else f"{val_loss:.3f}"
