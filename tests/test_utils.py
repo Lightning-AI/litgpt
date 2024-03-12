@@ -43,7 +43,7 @@ def test_check_valid_checkpoint_dir(tmp_path):
         check_valid_checkpoint_dir(tmp_path)
     out = out.getvalue().strip()
     expected = f"""
---checkpoint_dir '{str(tmp_path.absolute())}' is missing the files: ['lit_model.pth', 'lit_config.json', 'tokenizer.json OR tokenizer.model', 'tokenizer_config.json'].
+--checkpoint_dir '{str(tmp_path.absolute())}' is missing the files: ['lit_model.pth', 'model_config.yaml', 'tokenizer.json OR tokenizer.model', 'tokenizer_config.json'].
 Find download instructions at https://github.com/Lightning-AI/litgpt/blob/main/tutorials
 
 See all download options by running:
@@ -223,7 +223,7 @@ def test_copy_config_files(fake_checkpoint_dir, tmp_path):
 
     copy_config_files(fake_checkpoint_dir, tmp_path)
     expected = {
-        "lit_config.json",
+        "model_config.yaml",
         "tokenizer_config.json",
         "tokenizer.json",
     }
