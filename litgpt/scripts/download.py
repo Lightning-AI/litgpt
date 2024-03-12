@@ -26,7 +26,7 @@ def download_from_hub(
     """Download weights or tokenizer data from the Hugging Face Hub.
 
     Arguments:
-        repo_id: The repository ID in the format `org/name` or `user/name` as shown in Hugging Face.
+        repo_id: The repository ID in the format ``org/name`` or ``user/name`` as shown in Hugging Face.
         access_token: Optional API token to access models with restrictions.
         tokenizer_only: Whether to download only the tokenizer files.
         convert_checkpoint: Whether to convert the checkpoint files to the LitGPT format after downloading.
