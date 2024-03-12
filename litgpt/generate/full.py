@@ -27,13 +27,13 @@ def main(
     precision: Optional[str] = None,
 ) -> None:
     """Generates a response based on a given instruction and an optional input. This script will only work with
-    checkpoints from the instruction-tuned GPT model. See ``litgpt finetune --method full``.
+    checkpoints from the instruction-tuned GPT model. See ``litgpt.finetune.full``.
 
     Args:
         prompt: The prompt/instruction (Alpaca style).
         input: Optional input (Alpaca style).
         finetuned_path: Path to the checkpoint with trained weights, which are the output of
-            `litgpt/finetune/full.py`.
+            ``litgpt.finetune.full``.
         checkpoint_dir: The path to the checkpoint folder with pretrained GPT weights.
         quantize: Whether to quantize the model and using which method:
             - bnb.nf4, bnb.nf4-dq, bnb.fp4, bnb.fp4-dq: 4-bit quantization from bitsandbytes

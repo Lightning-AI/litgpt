@@ -17,7 +17,7 @@ def merge_lora(
     pretrained_checkpoint_dir: Optional[Path] = None,
     precision: Optional[str] = None,
 ) -> None:
-    """Merges the LoRA weights with the base model. See ``litgpt finetune --method lora``.
+    """Merges the LoRA weights with the base model. See ``litgpt finetune lora``.
 
     Creates a new ``lit_model.pth`` file by merging the LoRA weights (``lit_model.pth.lora``)
     with the original checkpoint weights.

@@ -66,7 +66,6 @@ def setup(
     ),
     eval: EvalArgs = EvalArgs(interval=100, max_new_tokens=100, max_iters=100),
 ) -> None:
-
     pprint(locals())
     data = Alpaca() if data is None else data
     devices = parse_devices(devices)
