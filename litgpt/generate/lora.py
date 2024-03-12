@@ -70,8 +70,8 @@ def main(
 
     check_valid_checkpoint_dir(checkpoint_dir)
 
-    config = Config.from_json(
-        checkpoint_dir / "lit_config.json",
+    config = Config.from_file(
+        checkpoint_dir / "model_config.yaml",
         lora_r=lora_r,
         lora_alpha=lora_alpha,
         lora_dropout=lora_dropout,

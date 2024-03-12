@@ -7,6 +7,7 @@ from pathlib import Path
 from typing import Optional
 
 import torch
+import yaml
 from lightning_utilities.core.imports import RequirementCache
 from lit_gpt.tokenizer import Tokenizer
 from lit_gpt.utils import CLI
@@ -31,8 +32,8 @@ def prepare(
     which stores the preprocessed and tokenized prompts and labels.
     """
     if max_seq_length is None:
-        with open(checkpoint_dir / "lit_config.json", "r", encoding="utf-8") as file:
-            config = json.load(file)
+        with open(checkpoint_dir / "model_config.yaml", "r", encoding="utf-8") as file:
+            config = yaml.load(file)
             max_seq_length = config["block_size"]
 
     destination_path.mkdir(parents=True, exist_ok=True)

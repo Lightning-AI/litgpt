@@ -50,7 +50,7 @@ def test_full_script(tmp_path, fake_checkpoint_dir, monkeypatch, alpaca_path):
     for checkpoint_dir in checkpoint_dirs:
         assert set(os.listdir(out_dir / checkpoint_dir)) == {
             "lit_model.pth",
-            "lit_config.json",
+            "model_config.yaml",
             "tokenizer_config.json",
             "tokenizer.json",
             "hyperparameters.yaml",

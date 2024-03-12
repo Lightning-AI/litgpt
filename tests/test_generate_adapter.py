@@ -19,7 +19,7 @@ def test_main(fake_checkpoint_dir, monkeypatch, version, tensor_like):
     else:
         import litgpt.generate.adapter_v2 as generate
 
-    config_path = fake_checkpoint_dir / "lit_config.json"
+    config_path = fake_checkpoint_dir / "model_config.yaml"
     config = {"block_size": 128, "vocab_size": 50, "n_layer": 2, "n_head": 4, "n_embd": 8, "rotary_percentage": 1}
     config_path.write_text(json.dumps(config))
 

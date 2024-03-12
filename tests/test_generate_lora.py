@@ -18,7 +18,7 @@ import torch
 def test_main(fake_checkpoint_dir, monkeypatch, tensor_like):
     import litgpt.generate.lora as generate
 
-    config_path = fake_checkpoint_dir / "lit_config.json"
+    config_path = fake_checkpoint_dir / "model_config.yaml"
     config = {
         "block_size": 128,
         "vocab_size": 50,
