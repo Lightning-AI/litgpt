@@ -134,8 +134,13 @@ def test_tp(tmp_path):
     assert tp_stdout.startswith("What food do llamas eat?")
 
 
-def test_cli():
-    cli_path = root / "litgpt/generate/tp.py"
-    output = subprocess.check_output([sys.executable, cli_path, "-h"])
+@pytest.mark.parametrize("mode", ["file", "entrypoint"])
+def test_cli(mode):
+    if mode == "file":
+        cli_path = Path(__file__).parent.parent / "litgpt/generate/tp.py"
+        args = [sys.executable, cli_path, "-h"]
+    else:
+        args = ["litgpt", "generate", "tp", "-h"]
+    output = subprocess.check_output(args)
     output = str(output.decode())
     assert "Generates text samples" in output
