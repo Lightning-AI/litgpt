@@ -118,8 +118,13 @@ def test_main(mocked_input, stop_iteration, fake_checkpoint_dir, monkeypatch, te
     assert "'padded_vocab_size': 512, 'n_layer': 2, 'n_head': 4" in err.getvalue()
 
 
-def test_cli():
-    cli_path = Path(__file__).parent.parent / "litgpt/chat/base.py"
-    output = subprocess.check_output([sys.executable, cli_path, "-h"])
+@pytest.mark.parametrize("mode", ["file", "entrypoint"])
+def test_cli(mode):
+    if mode == "file":
+        cli_path = Path(__file__).parent.parent / "litgpt/chat/base.py"
+        args = [sys.executable, cli_path, "-h"]
+    else:
+        args = ["litgpt", "chat", "-h"]
+    output = subprocess.check_output(args)
     output = str(output.decode())
     assert "Starts a conversation" in output
