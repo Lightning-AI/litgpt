@@ -24,11 +24,11 @@ class TrainArgs:
     max_tokens: Optional[int] = None
     """Total number of tokens to train on"""
     max_steps: Optional[int] = None
-    """Limits the number of optimizer steps to run."""
+    """Limits the number of optimizer steps to run"""
     max_seq_length: Optional[int] = None
-    """Limits the length of samples. Off by default"""
+    """Limits the length of samples"""
     tie_embeddings: Optional[bool] = None
-    """Whether to tie the embedding weights with the language modeling head weights."""
+    """Whether to tie the embedding weights with the language modeling head weights"""
 
     # Optimization args
     learning_rate: float = 1e-3
