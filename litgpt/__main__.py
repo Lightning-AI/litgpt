@@ -84,6 +84,11 @@ def main() -> None:
         "merge_lora": {"help": "Merges the LoRA weights with the base model.", "fn": merge_lora_fn},
     }
 
+    from jsonargparse import set_docstring_parse_options, set_config_read_mode
+
+    set_docstring_parse_options(attribute_docstrings=True)
+    set_config_read_mode(urls_enabled=True)
+
     root_parser = _new_parser(prog="litgpt")
 
     # register level 1 subcommands and level 2 subsubcommands. If there are more levels in the future we would want to
