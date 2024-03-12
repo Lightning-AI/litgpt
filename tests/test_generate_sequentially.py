@@ -303,8 +303,13 @@ def test_base_with_sequentially(tmp_path):
     assert base_stdout == sequential_stdout
 
 
-def test_cli():
-    cli_path = root / "litgpt/generate/sequentially.py"
-    output = subprocess.check_output([sys.executable, cli_path, "-h"])
+@pytest.mark.parametrize("mode", ["file", "entrypoint"])
+def test_cli(mode):
+    if mode == "file":
+        cli_path = Path(__file__).parent.parent / "litgpt/generate/sequentially.py"
+        args = [sys.executable, cli_path, "-h"]
+    else:
+        args = ["litgpt", "generate", "sequentially", "-h"]
+    output = subprocess.check_output(args)
     output = str(output.decode())
     assert "Generates text samples" in output

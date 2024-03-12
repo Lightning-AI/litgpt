@@ -84,9 +84,14 @@ def test_main(fake_checkpoint_dir, monkeypatch, tensor_like):
     assert "'padded_vocab_size': 512, 'n_layer': 2, 'n_head': 4" in err.getvalue()
 
 
-def test_cli():
-    cli_path = Path(__file__).parent.parent / "litgpt/generate/base.py"
-    output = subprocess.check_output([sys.executable, cli_path, "-h"])
+@pytest.mark.parametrize("mode", ["file", "entrypoint"])
+def test_cli(mode):
+    if mode == "file":
+        cli_path = Path(__file__).parent.parent / "litgpt/generate/base.py"
+        args = [sys.executable, cli_path, "-h"]
+    else:
+        args = ["litgpt", "generate", "base", "-h"]
+    output = subprocess.check_output(args)
     output = str(output.decode())
     assert "Generates text samples" in output
 
