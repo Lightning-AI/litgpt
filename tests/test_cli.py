@@ -13,10 +13,11 @@ def test_cli(tmp_path):
         main()
     out = out.getvalue()
     assert "usage: litgpt" in out
-    assert "{pretrain,finetune,generate,chat,convert,download,merge_lora}" in out
+    assert "{download,chat,finetune,pretrain,generate,convert,merge_lora}" in out
     assert """Available subcommands:
-    pretrain            Pretrain a model.
-    finetune            Finetune a model with one of our existing methods.""" in out
+    download            Download weights or tokenizer data from the Hugging
+                        Face Hub.
+    chat                Chat with a model.""" in out
 
     out = StringIO()
     with pytest.raises(SystemExit), redirect_stdout(out), mock.patch("sys.argv", ["litgpt", "finetune", "-h"]):

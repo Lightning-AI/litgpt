@@ -4,6 +4,27 @@ from typing import TYPE_CHECKING, Any
 
 import torch
 
+from litgpt.chat.base import main as chat_fn
+from litgpt.finetune.adapter import setup as finetune_adapter_fn
+from litgpt.finetune.adapter_v2 import setup as finetune_adapter_v2_fn
+from litgpt.finetune.full import setup as finetune_full_fn
+from litgpt.finetune.lora import setup as finetune_lora_fn
+from litgpt.generate.adapter import main as generate_adapter_fn
+from litgpt.generate.adapter_v2 import main as generate_adapter_v2_fn
+from litgpt.generate.base import main as generate_base_fn
+from litgpt.generate.full import main as generate_full_fn
+from litgpt.generate.lora import main as generate_lora_fn
+from litgpt.generate.sequentially import main as generate_sequentially_fn
+from litgpt.generate.tp import main as generate_tp_fn
+from litgpt.pretrain import setup as pretrain_fn
+from litgpt.scripts.convert_hf_checkpoint import convert_hf_checkpoint as convert_hf_checkpoint_fn
+from litgpt.scripts.convert_lit_checkpoint import convert_lit_checkpoint as convert_lit_checkpoint_fn
+from litgpt.scripts.convert_pretrained_checkpoint import (
+    convert_pretrained_checkpoint as convert_pretrained_checkpoint_fn,
+)
+from litgpt.scripts.download import download_from_hub as download_fn
+from litgpt.scripts.merge_lora import merge_lora as merge_lora_fn
+
 if TYPE_CHECKING:
     from jsonargparse import ArgumentParser
 
@@ -20,29 +41,9 @@ def _new_parser(**kwargs: Any) -> "ArgumentParser":
 
 
 def main() -> None:
-    from litgpt.pretrain import setup as pretrain_fn
-    from litgpt.chat.base import main as chat_fn
-    from litgpt.scripts.download import download_from_hub as download_fn
-    from litgpt.scripts.merge_lora import merge_lora as merge_lora_fn
-    from litgpt.finetune.lora import setup as finetune_lora_fn
-    from litgpt.finetune.full import setup as finetune_full_fn
-    from litgpt.finetune.adapter import setup as finetune_adapter_fn
-    from litgpt.finetune.adapter_v2 import setup as finetune_adapter_v2_fn
-    from litgpt.generate.base import main as generate_base_fn
-    from litgpt.generate.full import main as generate_full_fn
-    from litgpt.generate.lora import main as generate_lora_fn
-    from litgpt.generate.adapter import main as generate_adapter_fn
-    from litgpt.generate.adapter_v2 import main as generate_adapter_v2_fn
-    from litgpt.generate.sequentially import main as generate_sequentially_fn
-    from litgpt.generate.tp import main as generate_tp_fn
-    from litgpt.scripts.convert_pretrained_checkpoint import (
-        convert_pretrained_checkpoint as convert_pretrained_checkpoint_fn,
-    )
-    from litgpt.scripts.convert_hf_checkpoint import convert_hf_checkpoint as convert_hf_checkpoint_fn
-    from litgpt.scripts.convert_lit_checkpoint import convert_lit_checkpoint as convert_lit_checkpoint_fn
-
     parser_data = {
-        "pretrain": {"help": "Pretrain a model.", "fn": pretrain_fn},
+        "download": {"help": "Download weights or tokenizer data from the Hugging Face Hub.", "fn": download_fn},
+        "chat": {"help": "Chat with a model.", "fn": chat_fn},
         "finetune": {
             "help": "Finetune a model with one of our existing methods.",
             "lora": {"help": "Finetune a model with LoRA.", "fn": finetune_lora_fn},
@@ -50,6 +51,7 @@ def main() -> None:
             "adapter": {"help": "Finetune a model with Adapter.", "fn": finetune_adapter_fn},
             "adapter_v2": {"help": "Finetune a model with Adapter v2.", "fn": finetune_adapter_v2_fn},
         },
+        "pretrain": {"help": "Pretrain a model.", "fn": pretrain_fn},
         "generate": {
             "help": "Generate text samples based on a model and tokenizer.",
             "base": {"fn": generate_base_fn, "help": "Default generation option."},
@@ -69,7 +71,6 @@ def main() -> None:
                 "help": "Generation script that uses tensor parallelism to run across devices.",
             },
         },
-        "chat": {"help": "Chat with a model.", "fn": chat_fn},
         "convert": {
             "help": "Utilities to convert from and to LitGPT.",
             "to_litgpt": {"fn": convert_hf_checkpoint_fn, "help": "Convert Hugging Face weights to LitGPT weights."},
@@ -79,8 +80,6 @@ def main() -> None:
                 "help": "Convert a checkpoint after pretraining.",
             },
         },
-        "download": {"help": "Download weights or tokenizer data from the Hugging Face Hub.", "fn": download_fn},
-        # TODO: should this be at the first level?
         "merge_lora": {"help": "Merges the LoRA weights with the base model.", "fn": merge_lora_fn},
     }
 
