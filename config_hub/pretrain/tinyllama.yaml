@@ -18,7 +18,7 @@ resume: false
 # Data related arguments. If not provided, the default is ``litgpt.data.TinyLlama``.
 data: TinyLlama
 
-# raining related arguments. See ``litgpt.args.TrainArgs`` for details
+# Training related arguments. See ``litgpt.args.TrainArgs`` for details
 train:
 
   # Number of optimizer steps between checkpoints (type: Optional[int], default: 1000)
@@ -49,7 +49,7 @@ train:
   max_seq_length: 2048
 
   # Whether to tie the embedding weights with the language modelling head weights. (type: Optional[bool], default: False)
-  tie_embeddings: false
+  tie_embeddings:
 
   #   (type: float, default: 0.0004)
   learning_rate: 4e-4

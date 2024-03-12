@@ -49,7 +49,7 @@ train:
   max_seq_length:
 
   # Whether to tie the embedding weights with the language modelling head weights. (type: Optional[bool], default: False)
-  tie_embeddings: false
+  tie_embeddings:
 
   #   (type: float, default: 0.0004)
   learning_rate: 6e-4
