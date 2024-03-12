@@ -179,7 +179,7 @@ def fit(
     iter_num = 0
     total_lengths = 0
     total_t0 = time.perf_counter()
-    val_loss = None
+    val_loss = "n/a"
 
     while step_count < max_steps and train_iterator.epoch < train.epochs:
         iter_num += 1
@@ -210,11 +210,12 @@ def fit(
                 time=t1 - total_t0, batches=iter_num, samples=iter_num * train.micro_batch_size, lengths=total_lengths
             )
             throughput.compute_and_log(step=iter_num)
-            val_loss_str = 'n/a' if val_loss is None else f"{val_loss:.3f}"
+            if isinstance(val_loss, torch.Tensor):
+                val_loss = f"{val_loss:.3f}"
             fabric.print(
                 f"Epoch {train_iterator.epoch+1} | iter {iter_num} step {step_count} |"
                 f" loss train: {loss_item:.3f},"
-                f" val: {val_loss_str} |"
+                f" val: {val_loss} |"
                 f" iter time: {(t1 - iter_t0) * 1000:.2f} ms"
                 f"{' (step)' if not is_accumulating else ''}"
             )
