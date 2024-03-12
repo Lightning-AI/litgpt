@@ -64,7 +64,7 @@ def setup(
 ):
     """Pretrain a model.
 
-    Args:
+    Arguments:
         model_name: The name of the model to pretrain. Choose from names in `litgpt.config`. Mutually exclusive with
             `model_config`.
         model_config: A `litgpt.Config` object to define the model architecture. Mutually exclusive with

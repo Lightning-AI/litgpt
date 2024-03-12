@@ -57,10 +57,10 @@ def setup(
 ) -> None:
     """Finetune a model.
 
-    Args:
+    Arguments:
         checkpoint_dir: The path to the base model checkpoint directory to load for finetuning.
         out_dir: Where to save checkpoints and logs.
-        precision: The precision to use for finetuning. Possible choices: "bf16-true", "bf16-mixed", "32-true"
+        precision: The precision to use for finetuning. Possible choices: "bf16-true", "bf16-mixed", "32-true".
         devices: How many devices/GPUs to use
         resume: Path to a checkpoint directory to resume from in case training got interrupted. Or `True` to resume
             from the latest checkpoint in `out_dir`.

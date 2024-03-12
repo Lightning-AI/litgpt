@@ -37,10 +37,11 @@ from litgpt.utils import (
 
 
 def setup(
+    checkpoint_dir: Path = Path("checkpoints/stabilityai/stablelm-base-alpha-3b"),
+    out_dir: Path = Path("out/lora"),
     precision: Optional[str] = None,
     quantize: Optional[Literal["bnb.nf4", "bnb.nf4-dq", "bnb.fp4", "bnb.fp4-dq", "bnb.int8-training"]] = None,
     devices: Union[int, str] = 1,
-    seed: int = 1337,
     lora_r: int = 8,
     lora_alpha: int = 16,
     lora_dropout: float = 0.05,
@@ -51,9 +52,6 @@ def setup(
     lora_mlp: bool = False,
     lora_head: bool = False,
     data: Optional[LitDataModule] = None,
-    checkpoint_dir: Path = Path("checkpoints/stabilityai/stablelm-base-alpha-3b"),
-    out_dir: Path = Path("out/lora"),
-    logger_name: Literal["wandb", "tensorboard", "csv"] = "csv",
     train: TrainArgs = TrainArgs(
         save_interval=1000,
         log_interval=1,
@@ -65,7 +63,32 @@ def setup(
         max_seq_length=None,
     ),
     eval: EvalArgs = EvalArgs(interval=100, max_new_tokens=100, max_iters=100),
+    logger_name: Literal["wandb", "tensorboard", "csv"] = "csv",
+    seed: int = 1337,
 ) -> None:
+    """Finetune a model using the LoRA method.
+
+    Arguments:
+        checkpoint_dir: The path to the base model checkpoint directory to load for finetuning.
+        out_dir: Where to save checkpoints and logs.
+        precision: The precision to use for finetuning. Possible choices: "bf16-true", "bf16-mixed", "32-true".
+        quantize: If set, quantize the model with this algorithm. See `tutorials/quantize.md` for more information.
+        devices: How many devices/GPUs to use.
+        lora_r: The LoRA rank.
+        lora_alpha: The LoRA alpha.
+        lora_dropout: The LoRA dropout value.
+        lora_query: Whether to apply LoRA to the query weights in attention.
+        lora_key: Whether to apply LoRA to the key weights in attention.
+        lora_value: Whether to apply LoRA to the value weights in attention.
+        lora_projection: Whether to apply LoRA to the output projection in the attention block.
+        lora_mlp: Whether to apply LoRA to the weights of the MLP in the attention block.
+        lora_head: Whether to apply LoRA to output head in GPT.
+        data: Data related arguments. If not provided, the default is `litgpt.data.Alpaca`.
+        train: Training related arguments. See `litgpt.args.TrainArgs` for details.
+        eval: Evaluation related arguments. See `litgpt.args.EvalArgs` for details.
+        logger_name: The name of the logger to send metrics to.
+        seed: The random seed to use for reproducibility.
+    """
 
     pprint(locals())
     data = Alpaca() if data is None else data
