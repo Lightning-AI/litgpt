@@ -36,7 +36,7 @@ def main(
     lora_mlp: bool = False,
     lora_head: bool = False,
 ) -> None:
-    """enerates a response based on a given instruction and an optional input. This script will only work with
+    """Generates a response based on a given instruction and an optional input. This script will only work with
     checkpoints from the instruction-tuned LoRA model. See ``litgpt.finetune.lora``.
 
     Args:

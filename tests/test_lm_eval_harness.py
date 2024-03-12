@@ -20,12 +20,12 @@ def test_run_eval(tmp_path, float_like):
     from eval.lm_eval_harness import EvalHarnessBase
     from litgpt.model import GPT
     from litgpt.tokenizer import Tokenizer
-    from litgpt.scripts.download import download
+    from litgpt.scripts.download import download_from_hub
 
     fabric = Fabric(devices=1)
     with fabric.init_module():
         model = GPT.from_name("pythia-14m")
-    download(repo_id="EleutherAI/pythia-14m", tokenizer_only=True, checkpoint_dir=tmp_path)
+    download_from_hub(repo_id="EleutherAI/pythia-14m", tokenizer_only=True, checkpoint_dir=tmp_path)
     tokenizer = Tokenizer(tmp_path / "EleutherAI/pythia-14m")
 
     eval_harness = EvalHarnessBase(fabric, model, tokenizer, 1)

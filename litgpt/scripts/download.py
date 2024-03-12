@@ -15,7 +15,7 @@ _SAFETENSORS_AVAILABLE = RequirementCache("safetensors")
 _HF_TRANSFER_AVAILABLE = RequirementCache("hf_transfer")
 
 
-def download(
+def download_from_hub(
     repo_id: Optional[str] = None,
     access_token: Optional[str] = os.getenv("HF_TOKEN"),
     tokenizer_only: bool = False,
@@ -120,4 +120,4 @@ def gated_repo_catcher(repo_id: str):
 
 
 if __name__ == "__main__":
-    CLI(download)
+    CLI(download_from_hub)

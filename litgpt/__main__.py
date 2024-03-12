@@ -8,7 +8,7 @@ def main():
 
     from litgpt.pretrain import setup as pretrain_fn
     from litgpt.chat.base import main as chat_fn
-    from litgpt.scripts.download import download as download_fn
+    from litgpt.scripts.download import download_from_hub as download_fn
     from litgpt.scripts.merge_lora import merge_lora as merge_lora_fn
     from litgpt.finetune.lora import setup as finetune_lora_fn
     from litgpt.finetune.full import setup as finetune_full_fn
