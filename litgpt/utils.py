@@ -22,7 +22,6 @@ from lightning.pytorch.loggers import WandbLogger
 from torch.serialization import normalize_storage_type
 from typing_extensions import Self
 
-
 if TYPE_CHECKING:
     from litgpt import GPT
     from litgpt import Config
