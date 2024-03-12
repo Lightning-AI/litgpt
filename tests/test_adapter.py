@@ -99,7 +99,7 @@ def test_adapter_script(tmp_path, fake_checkpoint_dir, monkeypatch, alpaca_path)
     assert (out_dir / "version_0" / "metrics.csv").is_file()
 
     logs = stdout.getvalue()
-    assert logs.count("optimizer.step") == 6
+    assert logs.count("(step)") == 6
     assert logs.count("val loss") == 3
     assert "of trainable parameters: 168" in logs
 
