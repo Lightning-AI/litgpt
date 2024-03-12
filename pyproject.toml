@@ -1,7 +1,7 @@
 [project]
 name = "litgpt"
 version = "0.1.0"
-description = "Open source large language model implementation"
+description = "Hackable implementation of state-of-the-art open-source LLMs"
 authors = [
     { name = "Lightning AI", email = "contact@lightning.ai" },
 ]
@@ -11,11 +11,16 @@ license = { file = "LICENSE" }
 dependencies = [
     "torch>=2.2.0",
     "lightning @ git+https://github.com/Lightning-AI/lightning@f23b3b1e7fdab1d325f79f69a28706d33144f27e",
+    # TODO: install from PyPI when https://github.com/omni-us/jsonargparse/pull/466 is released
+    "jsonargparse[signatures] @ git+https://github.com/omni-us/jsonargparse",
 ]
 
 [project.urls]
 homepage = "https://github.com/lightning-AI/litgpt"
 documentation = "https://github.com/lightning-AI/litgpt/tutorials"
+
+[project.scripts]
+litgpt = "litgpt.__main__:main"
 
 [project.optional-dependencies]
 test = [
@@ -27,7 +32,6 @@ test = [
     "protobuf",
 ]
 all = [
-    "jsonargparse[signatures]",  # CLI
     "bitsandbytes==0.41.0",      # quantization
     "scipy",                     # required by bitsandbytes
     "sentencepiece",             # llama-based models

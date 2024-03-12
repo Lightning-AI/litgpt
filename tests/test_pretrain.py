@@ -56,7 +56,7 @@ def test_pretrain(_, tmp_path):
 
         # logs only appear on rank 0
         logs = stdout.getvalue()
-        assert logs.count("optimizer.step") == 4
+        assert logs.count("(step)") == 4
         assert logs.count("val loss") == 4
         assert "Total parameters: 1,888" in logs
 
