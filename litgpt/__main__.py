@@ -1,8 +1,8 @@
 # Copyright Lightning AI. Licensed under the Apache License 2.0, see LICENSE file.
 
-import torch
-
 from typing import TYPE_CHECKING, Any
+
+import torch
 
 if TYPE_CHECKING:
     from jsonargparse import ArgumentParser
@@ -106,7 +106,8 @@ def main() -> None:
             subsubcommand_parser.add_function_arguments(v["fn"])
             subcommands.add_subcommand(k, subsubcommand_parser, help=v["help"])
 
-    args = root_parser.instantiate_classes(root_parser.parse_args())
+    args = root_parser.parse_args()
+    args = root_parser.instantiate_classes(args)
 
     subcommand = args.get("subcommand")
     subargs = args.get(subcommand)
@@ -120,6 +121,7 @@ def main() -> None:
     else:
         fn = level_1[subsubcommand]["fn"]
         kwargs = subsubargs
+    kwargs.pop("config")
 
     torch.set_float32_matmul_precision("high")
 
