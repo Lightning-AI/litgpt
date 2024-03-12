@@ -1,8 +1,10 @@
+import sys
 from contextlib import redirect_stdout
 from io import StringIO
 from unittest import mock
 
 import pytest
+from packaging.version import Version
 
 
 def test_cli(tmp_path):
@@ -33,6 +35,10 @@ def test_cli(tmp_path):
     out = out.getvalue()
     assert """--lora_alpha LORA_ALPHA
                         The LoRA alpha. (type: int, default: 16)""" in out
+
+    if Version(f"{sys.version_info.major}.{sys.version_info.minor}") < Version("3.9"):
+        # python 3.8 prints `Union[int, null]` instead of `Optional[int]`
+        return
 
     out = StringIO()
     with pytest.raises(SystemExit), redirect_stdout(out), mock.patch("sys.argv", ["litgpt", "pretrain", "-h"]):

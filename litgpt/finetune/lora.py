@@ -271,7 +271,6 @@ def fit(
                     iter_num * train.micro_batch_size * model.config.block_size * fabric.world_size
                 ),
                 "learning_rate": scheduler.get_last_lr()[0],
-                "val_loss": val_loss,
             }
             if isinstance(val_loss, torch.Tensor):
                 val_loss = f"{val_loss:.3f}"
