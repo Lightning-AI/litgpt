@@ -33,7 +33,7 @@ def prepare(
     """
     if max_seq_length is None:
         with open(checkpoint_dir / "model_config.yaml", "r", encoding="utf-8") as file:
-            config = yaml.load(file)
+            config = yaml.safe_load(file)
             max_seq_length = config["block_size"]
 
     destination_path.mkdir(parents=True, exist_ok=True)
