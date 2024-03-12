@@ -241,7 +241,7 @@ def check_conversion_supported(lit_weights: Dict[str, torch.Tensor]) -> None:
 @torch.inference_mode()
 def convert_lit_checkpoint(checkpoint_dir: Path, output_dir: Path) -> None:
     """Convert a LitGPT trained checkpoint into a Hugging Face Transformers checkpoint."""
-    config = Config.from_json(checkpoint_dir / "lit_config.json")
+    config = Config.from_file(checkpoint_dir / "model_config.yaml")
 
     output_dir.mkdir(parents=True, exist_ok=True)
     output_path = output_dir / "model.pth"
