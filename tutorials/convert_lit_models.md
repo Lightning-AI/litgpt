@@ -5,7 +5,7 @@ LitGPT weights need to be converted to a format that Hugging Face understands wi
 We provide a helpful script to convert models LitGPT models back to their equivalent Hugging Face Transformers format:
 
 ```sh
-python litgpt/scripts/convert_lit_checkpoint.py \
+litgpt convert from_litgpt \
     --checkpoint_dir checkpoint_dir \
     --output_dir converted_dir
 ```
@@ -47,7 +47,7 @@ model = AutoModel.from_pretrained("online_repo_id", state_dict=state_dict)
 Please note that if you want to convert a model that has been fine-tuned using an adapter like LoRA, these weights should be [merged](../litgpt/scripts/merge_lora.py) to the checkpoint prior to converting.
 
 ```sh
-python litgpt/scripts/merge_lora.py \
+litgpt merge_lora \
     --checkpoint_dir path/to/lora/checkpoint_dir
 ```
 
@@ -73,7 +73,7 @@ by running `litgpt/scripts/download.py` without any additional arguments.
 Then, we download the model we specified via `$repo_id` above:
 
 ```bash
-python litgpt/scripts/download.py --repo_id $repo_id
+litgpt download --repo_id $repo_id
 ```
 
 2. Finetune the model:
@@ -82,7 +82,7 @@ python litgpt/scripts/download.py --repo_id $repo_id
 ```bash
 export finetuned_dir=out/lit-finetuned-model
 
-python litgpt/finetune/lora.py \
+litgpt finetune lora \
    --checkpoint_dir checkpoints/$repo_id \
    --out_dir $finetuned_dir \
    --train.epochs 1 \
@@ -94,7 +94,7 @@ python litgpt/finetune/lora.py \
 Note that this step only applies if the model was finetuned with `lora.py` above and not when `full.py` was used for finetuning.
 
 ```bash
-python litgpt/scripts/merge_lora.py \
+litgpt merge_lora \
     --checkpoint_dir $finetuned_dir/final
 ```
 
@@ -102,7 +102,7 @@ python litgpt/scripts/merge_lora.py \
 4. Convert the finetuning model back into a HF format:
 
 ```bash
-python litgpt/scripts/convert_lit_checkpoint.py \
+litgpt convert from_litgpt \
    --checkpoint_dir $finetuned_dir/final/ \
    --output_dir out/hf-tinyllama/converted \
 ```

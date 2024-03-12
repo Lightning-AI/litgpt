@@ -74,7 +74,7 @@ def check_valid_checkpoint_dir(checkpoint_dir: Path, lora: bool = False) -> None
     error_message = (
         f"--checkpoint_dir {str(checkpoint_dir.absolute())!r}{problem}."
         "\nFind download instructions at https://github.com/Lightning-AI/litgpt/blob/main/tutorials\n"
-        f"{extra}\nSee all download options by running:\n python litgpt/scripts/download.py"
+        f"{extra}\nSee all download options by running:\n litgpt download"
     )
     print(error_message, file=sys.stderr)
     raise SystemExit(1)

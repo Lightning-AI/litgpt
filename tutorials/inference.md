@@ -3,7 +3,7 @@
 We demonstrate how to run inference (next token prediction) with the GPT base model in the [`generate.py`](generate.py) script:
 
 ```bash
-python litgpt/generate/base.py --prompt "Hello, my name is" --checkpoint_dir checkpoints/stabilityai/stablelm-base-alpha-3b
+litgpt generate base --prompt "Hello, my name is" --checkpoint_dir checkpoints/stabilityai/stablelm-base-alpha-3b
 ```
 
 Output:
@@ -21,7 +21,7 @@ This will run the 3B pre-trained model and require ~7 GB of GPU memory using the
 You can also chat with the model interactively:
 
 ```bash
-python litgpt/chat/base.py --checkpoint_dir checkpoints/stabilityai/stablelm-tuned-alpha-3b
+litgpt chat --checkpoint_dir checkpoints/stabilityai/stablelm-tuned-alpha-3b
 ```
 
 This script can work with any checkpoint. For the best chat-like experience, we recommend using it with a checkpoints
@@ -43,7 +43,7 @@ For instance, `meta-llama/Llama-2-70b-chat-hf` would require ~140 GB of GPU memo
 With 80 transformer layers, we could partition them across 8, 5, 4, or 2 devices.
 
 ```shell
-python litgpt/generate/sequentially.py \
+litgpt generate sequentially \
   --checkpoint_dir checkpoints/meta-llama/Llama-2-70b-chat-hf \
   --max_new_tokens 256 \
   --num_samples 2
@@ -63,7 +63,7 @@ Note that the memory usage will also depend on the `max_new_tokens` value used.
 The script also supports quantization, using 4-bit precision, we can now use 2 GPUs
 
 ```shell
-python litgpt/generate/sequentially.py \
+litgpt generate sequentially \
   --checkpoint_dir checkpoints/meta-llama/Llama-2-70b-chat-hf \
   --max_new_tokens 256 \
   --num_samples 2 \
@@ -89,7 +89,7 @@ With an intermediate size of 28672, we can use 2, 4, 7, or 8 devices. With a QKV
 Since the script is configured to shard both, the intersection is used: we can only use 2, 4, or 8 devices.
 
 ```shell
-python litgpt/generate/tp.py \
+litgpt generate tp \
   --checkpoint_dir checkpoints/meta-llama/Llama-2-70b-chat-hf \
   --max_new_tokens 256 \
   --num_samples 2
@@ -108,7 +108,7 @@ Note that the memory usage will also depend on the `max_new_tokens` value used.
 The script also supports quantization, using 4-bit precision, we can now use 2 GPUs
 
 ```shell
-python litgpt/generate/tp.py \
+litgpt generate tp \
   --checkpoint_dir checkpoints/meta-llama/Llama-2-70b-chat-hf \
   --max_new_tokens 256 \
   --num_samples 2 \
