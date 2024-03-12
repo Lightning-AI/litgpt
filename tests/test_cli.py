@@ -34,7 +34,7 @@ def test_cli(tmp_path):
         main()
     out = out.getvalue()
     assert """--lora_alpha LORA_ALPHA
-                        (type: int, default: 16)""" in out
+                        The LoRA alpha. (type: int, default: 16)""" in out
 
     if Version(f"{sys.version_info.major}.{sys.version_info.minor}") < Version("3.9"):
         # python 3.8 prints `Union[int, null]` instead of `Optional[int]`
