@@ -2,10 +2,24 @@
 
 import torch
 
+from typing import TYPE_CHECKING, Any
 
-def main():
+if TYPE_CHECKING:
     from jsonargparse import ArgumentParser
 
+
+def _new_parser(**kwargs: Any) -> "ArgumentParser":
+    from jsonargparse import ArgumentParser, ActionConfigFile
+
+    kwargs.setdefault("default_env", True)
+    parser = ArgumentParser(**kwargs)
+    parser.add_argument(
+        "-c", "--config", action=ActionConfigFile, help="Path to a configuration file in json or yaml format."
+    )
+    return parser
+
+
+def main() -> None:
     from litgpt.pretrain import setup as pretrain_fn
     from litgpt.chat.base import main as chat_fn
     from litgpt.scripts.download import download_from_hub as download_fn
@@ -70,14 +84,14 @@ def main():
         "merge_lora": {"help": "Merges the LoRA weights with the base model.", "fn": merge_lora_fn},
     }
 
-    root_parser = ArgumentParser(prog="litgpt")
+    root_parser = _new_parser(prog="litgpt")
 
     # register level 1 subcommands and level 2 subsubcommands. If there are more levels in the future we would want to
     # refactor this to do BFS traversal for registration
     subcommands = root_parser.add_subcommands()
     subcommand_to_parser = {}
     for k, v in parser_data.items():
-        subcommand_parser = ArgumentParser()
+        subcommand_parser = _new_parser()
         if "fn" in v:
             subcommand_parser.add_function_arguments(v["fn"])
         else:
@@ -88,7 +102,7 @@ def main():
         for k, v in parser_data[subcommand].items():
             if k == "help":
                 continue
-            subsubcommand_parser = ArgumentParser()
+            subsubcommand_parser = _new_parser()
             subsubcommand_parser.add_function_arguments(v["fn"])
             subcommands.add_subcommand(k, subsubcommand_parser, help=v["help"])
 
