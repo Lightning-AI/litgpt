@@ -126,6 +126,9 @@ def main(
         if "mixed" in precision:
             raise ValueError("Quantization and mixed precision is not supported.")
         dtype = {"16-true": torch.float16, "bf16-true": torch.bfloat16, "32-true": torch.float32}[precision]
+        bnb_logger = logging.getLogger("lightning.fabric.plugins.precision.bitsandbytes")
+        bnb_logger.setLevel(logging.DEBUG)
+        bnb_logger.debug = rank_zero_only(bnb_logger.debug)
         plugins = BitsandbytesPrecision(quantize[4:], dtype)
         precision = None
 
@@ -213,9 +216,5 @@ def main(
 
 if __name__ == "__main__":
     torch.set_float32_matmul_precision("high")
-
-    bnb_logger = logging.getLogger("lightning.fabric.plugins.precision.bitsandbytes")
-    bnb_logger.setLevel(logging.DEBUG)
-    bnb_logger.debug = rank_zero_only(bnb_logger.debug)
 
     CLI(main)

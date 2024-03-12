@@ -23,6 +23,7 @@ def download_from_hub(
     dtype: Optional[str] = None,
     checkpoint_dir: Path = Path("checkpoints"),
 ) -> None:
+    """Download weights or tokenizer data from the Hugging Face Hub."""
     if repo_id is None:
         from litgpt.config import configs
 
