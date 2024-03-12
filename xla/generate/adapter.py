@@ -8,15 +8,15 @@ from typing import Optional
 import lightning as L
 from lightning.fabric.accelerators import XLAAccelerator
 from lightning.fabric.strategies import XLAFSDPStrategy
-from lit_gpt.prompts import Alpaca
+
+from litgpt import Tokenizer
+from litgpt.adapter import GPT, Block, Config
+from litgpt.prompts import Alpaca
+from litgpt.utils import check_valid_checkpoint_dir, lazy_load
 
 # support running without installing as a package
 wd = Path(__file__).parent.parent.parent.resolve()
 sys.path.append(str(wd))
-
-from lit_gpt import Tokenizer
-from lit_gpt.adapter import GPT, Block, Config
-from lit_gpt.utils import check_valid_checkpoint_dir, lazy_load
 
 from xla.generate.base import generate
 from xla.utils import rank_print
@@ -41,7 +41,7 @@ def setup(
         prompt: The prompt/instruction (Alpaca style).
         input: Optional input (Alpaca style).
         adapter_path: Path to the checkpoint with trained adapter weights, which are the output of
-            `finetune/adapter.py`.
+            `xla/finetune/adapter.py`.
         checkpoint_dir: The path to the checkpoint folder with pretrained GPT weights.
         max_new_tokens: The number of generation steps to take.
         top_k: The number of top most probable tokens to consider in the sampling process.
@@ -67,7 +67,7 @@ def main(
 ) -> None:
     check_valid_checkpoint_dir(checkpoint_dir)
 
-    config = Config.from_json(checkpoint_dir / "lit_config.json", adapter_start_layer=0)
+    config = Config.from_file(checkpoint_dir / "model_config.yaml", adapter_start_layer=0)
 
     checkpoint_path = checkpoint_dir / "lit_model.pth"
 

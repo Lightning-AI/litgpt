@@ -11,10 +11,10 @@ import torch
 
 @mock.patch.dict(os.environ, {"LT_ACCELERATOR": "cpu"})
 def test_full_script(tmp_path, fake_checkpoint_dir, monkeypatch, alpaca_path):
-    import finetune.full as module
-    from lit_gpt.args import EvalArgs, TrainArgs
-    from lit_gpt.data import Alpaca
-    from lit_gpt.config import name_to_config
+    import litgpt.finetune.full as module
+    from litgpt.args import EvalArgs, TrainArgs
+    from litgpt.data import Alpaca
+    from litgpt.config import name_to_config
 
     model_config = dict(block_size=128, n_layer=2, n_embd=8, n_head=4, padded_vocab_size=8)
     monkeypatch.setitem(name_to_config, "tmp", model_config)
@@ -30,7 +30,7 @@ def test_full_script(tmp_path, fake_checkpoint_dir, monkeypatch, alpaca_path):
         data=Alpaca(
             download_dir=alpaca_path.parent,
             file_name=alpaca_path.name,
-            test_split_fraction=0.5,
+            val_split_fraction=0.5,
             num_workers=0
         ),
         checkpoint_dir=fake_checkpoint_dir,
@@ -40,7 +40,7 @@ def test_full_script(tmp_path, fake_checkpoint_dir, monkeypatch, alpaca_path):
         eval=EvalArgs(interval=2, max_iters=2, max_new_tokens=1),
     )
     stdout = StringIO()
-    with redirect_stdout(stdout):
+    with redirect_stdout(stdout), mock.patch("sys.argv", ["full.py"]):
         module.setup(**setup_kwargs)
 
     out_dir_contents = set(os.listdir(out_dir))
@@ -48,16 +48,18 @@ def test_full_script(tmp_path, fake_checkpoint_dir, monkeypatch, alpaca_path):
     assert checkpoint_dirs.issubset(out_dir_contents)
     assert all((out_dir / p).is_dir() for p in checkpoint_dirs)
     for checkpoint_dir in checkpoint_dirs:
-        assert {p.name for p in (out_dir / checkpoint_dir).iterdir()} == {
+        assert set(os.listdir(out_dir / checkpoint_dir)) == {
             "lit_model.pth",
-            "lit_config.json",
+            "model_config.yaml",
             "tokenizer_config.json",
             "tokenizer.json",
+            "hyperparameters.yaml",
+            "prompt_style.yaml",
         }
-    assert (out_dir / "version_0" / "metrics.csv").is_file()
+    assert (out_dir / "logs" / "csv" / "version_0" / "metrics.csv").is_file()
 
     logs = stdout.getvalue()
-    assert logs.count("optimizer.step") == 6
+    assert logs.count("(step)") == 6
     assert logs.count("val loss") == 3
     assert "of trainable parameters: 1,888" in logs
 
@@ -65,9 +67,9 @@ def test_full_script(tmp_path, fake_checkpoint_dir, monkeypatch, alpaca_path):
     setup_kwargs["train"].max_steps = 8
     setup_kwargs["resume"] = True
     stdout = StringIO()
-    with redirect_stdout(stdout):
+    with redirect_stdout(stdout), mock.patch("sys.argv", ["full.py"]):
         module.setup(**setup_kwargs)
     logs = stdout.getvalue()
     assert f"Resuming training from {out_dir / 'step-000006' / 'lit_model.pth'}" in logs
-    assert logs.count("optimizer.step") == 2
+    assert logs.count("(step)") == 2
     assert out_dir / "step-000008" in set(out_dir.iterdir())

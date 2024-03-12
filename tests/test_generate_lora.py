@@ -1,20 +1,24 @@
 # Copyright Lightning AI. Licensed under the Apache License 2.0, see LICENSE file.
 
-import json
+import os
 import subprocess
 import sys
 from contextlib import redirect_stderr, redirect_stdout
 from io import StringIO
 from pathlib import Path
+from unittest import mock
 from unittest.mock import ANY, Mock, call
 
+import pytest
 import torch
+import yaml
 
 
+@mock.patch.dict(os.environ, {"LT_ACCELERATOR": "cpu"})
 def test_main(fake_checkpoint_dir, monkeypatch, tensor_like):
-    import generate.lora as generate
+    import litgpt.generate.lora as generate
 
-    config_path = fake_checkpoint_dir / "lit_config.json"
+    config_path = fake_checkpoint_dir / "model_config.yaml"
     config = {
         "block_size": 128,
         "vocab_size": 50,
@@ -22,11 +26,11 @@ def test_main(fake_checkpoint_dir, monkeypatch, tensor_like):
         "n_head": 4,
         "n_embd": 8,
         "rotary_percentage": 1,
-        "to_query": False,
-        "to_value": False,
-        "to_projection": True,
+        "lora_query": False,
+        "lora_value": False,
+        "lora_projection": True,
     }
-    config_path.write_text(json.dumps(config))
+    config_path.write_text(yaml.dump(config))
 
     monkeypatch.setattr(generate, "lazy_load", Mock())
     monkeypatch.setattr(generate.GPT, "load_state_dict", Mock())
@@ -52,8 +56,13 @@ def test_main(fake_checkpoint_dir, monkeypatch, tensor_like):
     assert "'padded_vocab_size': 512, 'n_layer': 2, 'n_head': 4, 'head_size': 2, 'n_embd': 8" in err.getvalue()
 
 
-def test_cli():
-    cli_path = Path(__file__).parent.parent / "generate" / "lora.py"
-    output = subprocess.check_output([sys.executable, cli_path, "-h"])
+@pytest.mark.parametrize("mode", ["file", "entrypoint"])
+def test_cli(mode):
+    if mode == "file":
+        cli_path = Path(__file__).parent.parent / "litgpt/generate/lora.py"
+        args = [sys.executable, cli_path, "-h"]
+    else:
+        args = ["litgpt", "generate", "lora", "-h"]
+    output = subprocess.check_output(args)
     output = str(output.decode())
     assert "Generates a response" in output

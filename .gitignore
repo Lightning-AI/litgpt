@@ -9,7 +9,7 @@ build
 # data
 data
 datasets
-!lit_gpt/data
+!litgpt/data
 !tests/data
 checkpoints
 out

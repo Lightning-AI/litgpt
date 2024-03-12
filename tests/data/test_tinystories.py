@@ -27,7 +27,7 @@ def fake_bin(tmp_path, data, name):
     ],
 )
 def test_pretok_dataset(tmp_path, max_seq_len, expected):
-    from lit_gpt.data.tinystories import PretokDataset
+    from litgpt.data.tinystories import PretokDataset
 
     fake_data = [0, 23, 15, 63, 0, 73, 5, 0, 1, 1999, 0, 13]
     assert len(fake_data) == 12
@@ -39,7 +39,7 @@ def test_pretok_dataset(tmp_path, max_seq_len, expected):
 
 
 def test_process_shard(tmp_path):
-    from lit_gpt.data.tinystories import process_shard
+    from litgpt.data.tinystories import process_shard
 
     story1, story2 = "foo bar", "    fun    "
     data = [{"story": story1}, {"story": story2}]
@@ -65,7 +65,7 @@ def test_process_shard(tmp_path):
 
 
 def test_tinystories_datamodule(tmp_path):
-    from lit_gpt.data.tinystories import PretokDataset, TinyStories
+    from litgpt.data.tinystories import PretokDataset, TinyStories
 
     datamodule = TinyStories(tmp_path, seed=42)
     datamodule.connect(max_seq_length=2)

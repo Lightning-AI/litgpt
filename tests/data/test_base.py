@@ -9,8 +9,8 @@ import torch
 @pytest.mark.parametrize("ignore_index", [-1, -100])
 @pytest.mark.parametrize("max_seq_length", [1000, 5])
 def test_sft_dataset(max_seq_length, ignore_index, mask_prompt, mock_tokenizer):
-    from lit_gpt.data import SFTDataset
-    from lit_gpt.prompts import PromptStyle
+    from litgpt.data import SFTDataset
+    from litgpt.prompts import PromptStyle
 
     class Style(PromptStyle):
         def apply(self, prompt, **kwargs):
@@ -43,7 +43,7 @@ def test_sft_dataset(max_seq_length, ignore_index, mask_prompt, mock_tokenizer):
 @pytest.mark.parametrize("ignore_index", [-1, -100])
 @pytest.mark.parametrize("pad_id", [0, 100])
 def test_sft_collate_fn_padding(pad_id, ignore_index):
-    from lit_gpt.data import get_sft_collate_fn
+    from litgpt.data import get_sft_collate_fn
 
     collate = get_sft_collate_fn(pad_id=pad_id, ignore_index=ignore_index)
     samples = [
@@ -59,7 +59,7 @@ def test_sft_collate_fn_padding(pad_id, ignore_index):
 
 
 def test_sft_collate_fn_truncation():
-    from lit_gpt.data import get_sft_collate_fn
+    from litgpt.data import get_sft_collate_fn
 
     collate = get_sft_collate_fn(max_seq_length=2)
     samples = [

@@ -3,17 +3,24 @@
 import os
 from contextlib import redirect_stderr
 from io import StringIO
+from pathlib import Path
 from unittest import mock
 
 import pytest
 import torch
 import torch.nn.functional as F
+import yaml
+from lightning.fabric.loggers import CSVLogger, TensorBoardLogger
+from lightning.pytorch.loggers import WandbLogger
+
 from conftest import RunIf
 from lightning import Fabric
 
+from lightning_utilities.core.imports import RequirementCache
+
 
 def test_find_multiple():
-    from lit_gpt.utils import find_multiple
+    from litgpt.utils import find_multiple
 
     assert find_multiple(17, 5) == 20
     assert find_multiple(30, 7) == 35
@@ -27,7 +34,7 @@ def test_find_multiple():
 # match fails on windows. why did they have to use backslashes?
 @RunIf(skip_windows=True)
 def test_check_valid_checkpoint_dir(tmp_path):
-    from lit_gpt.utils import check_valid_checkpoint_dir
+    from litgpt.utils import check_valid_checkpoint_dir
 
     os.chdir(tmp_path)
 
@@ -36,11 +43,11 @@ def test_check_valid_checkpoint_dir(tmp_path):
         check_valid_checkpoint_dir(tmp_path)
     out = out.getvalue().strip()
     expected = f"""
---checkpoint_dir '{str(tmp_path.absolute())}' is missing the files: ['lit_model.pth', 'lit_config.json', 'tokenizer.json OR tokenizer.model', 'tokenizer_config.json'].
-Find download instructions at https://github.com/Lightning-AI/lit-gpt/blob/main/tutorials
+--checkpoint_dir '{str(tmp_path.absolute())}' is missing the files: ['lit_model.pth', 'model_config.yaml', 'tokenizer.json OR tokenizer.model', 'tokenizer_config.json'].
+Find download instructions at https://github.com/Lightning-AI/litgpt/blob/main/tutorials
 
 See all download options by running:
- python scripts/download.py
+ litgpt download
     """.strip()
     assert out == expected
 
@@ -51,10 +58,10 @@ See all download options by running:
     out = out.getvalue().strip()
     expected = f"""
 --checkpoint_dir '{str(checkpoint_dir.absolute())}' is not a checkpoint directory.
-Find download instructions at https://github.com/Lightning-AI/lit-gpt/blob/main/tutorials
+Find download instructions at https://github.com/Lightning-AI/litgpt/blob/main/tutorials
 
 See all download options by running:
- python scripts/download.py
+ litgpt download
     """.strip()
     assert out == expected
 
@@ -66,19 +73,19 @@ See all download options by running:
     out = out.getvalue().strip()
     expected = f"""
 --checkpoint_dir '{str(foo_checkpoint_dir.absolute())}' is not a checkpoint directory.
-Find download instructions at https://github.com/Lightning-AI/lit-gpt/blob/main/tutorials
+Find download instructions at https://github.com/Lightning-AI/litgpt/blob/main/tutorials
 
 You have downloaded locally:
  --checkpoint_dir '{str(checkpoint_dir.absolute())}'
 
 See all download options by running:
- python scripts/download.py
+ litgpt download
     """.strip()
     assert out == expected
 
 
 def test_incremental_write(tmp_path):
-    from lit_gpt.utils import incremental_save
+    from litgpt.utils import incremental_save
 
     sd = {str(k): torch.randn(5, 10) for k in range(3)}
     sd["0"].someattr = 1
@@ -99,7 +106,7 @@ def test_incremental_write(tmp_path):
 @pytest.mark.parametrize("B", (1, 2))
 @pytest.mark.parametrize("ignore_index", (None, -1, -2, -100))
 def test_chunked_cross_entropy(ignore_index, B):
-    from lit_gpt.utils import chunked_cross_entropy
+    from litgpt.utils import chunked_cross_entropy
 
     V = 50
     T = 25
@@ -115,7 +122,7 @@ def test_chunked_cross_entropy(ignore_index, B):
         ignore_index=(ignore_index if ignore_index is not None else -100),
     )
 
-    ignore_index = ignore_index if ignore_index is not None else -1
+    ignore_index = ignore_index if ignore_index is not None else -100
     regular_loss = chunked_cross_entropy(regular_logits, targets, chunk_size=0, ignore_index=ignore_index)
     assert torch.equal(baseline_loss, regular_loss)
     assert regular_loss.numel() == 1
@@ -137,7 +144,7 @@ def test_chunked_cross_entropy(ignore_index, B):
 
 
 def test_num_parameters():
-    from lit_gpt.utils import num_parameters
+    from litgpt.utils import num_parameters
 
     model = torch.nn.Linear(2, 2)
     assert num_parameters(model) == 6
@@ -157,8 +164,8 @@ def test_num_parameters():
 def test_num_parameters_bitsandbytes(mode):
     from lightning.fabric.plugins import BitsandbytesPrecision
 
-    from lit_gpt import GPT
-    from lit_gpt.utils import num_parameters
+    from litgpt import GPT
+    from litgpt.utils import num_parameters
 
     plugin = BitsandbytesPrecision(mode=mode)
     fabric = Fabric(plugins=plugin, accelerator="cuda", devices=1)
@@ -173,7 +180,7 @@ def test_num_parameters_bitsandbytes(mode):
 
 
 def test_cycle_iterator():
-    from lit_gpt.utils import CycleIterator
+    from litgpt.utils import CycleIterator
 
     iterator = CycleIterator([])
     with pytest.raises(StopIteration):
@@ -192,19 +199,19 @@ def test_cycle_iterator():
 
 
 def test_parse_devices():
-    from lit_gpt.utils import parse_devices
+    from litgpt.utils import parse_devices
 
     with pytest.raises(ValueError, match="must be 'auto' or a positive integer"):
         assert parse_devices(0)
     with pytest.raises(ValueError, match="must be 'auto' or a positive integer"):
         assert parse_devices(-2)
 
-    with mock.patch("lit_gpt.utils.torch.cuda.device_count", return_value=0):
+    with mock.patch("litgpt.utils.torch.cuda.device_count", return_value=0):
         assert parse_devices("auto") == 1  # CPU
         assert parse_devices(10) == 10  # leave validation up to Fabric later on
-    with mock.patch("lit_gpt.utils.torch.cuda.device_count", return_value=1):
+    with mock.patch("litgpt.utils.torch.cuda.device_count", return_value=1):
         assert parse_devices("auto") == 1  # CUDA
-    with mock.patch("lit_gpt.utils.torch.cuda.device_count", return_value=3):
+    with mock.patch("litgpt.utils.torch.cuda.device_count", return_value=3):
         assert parse_devices("auto") == 3
         assert parse_devices(-1) == 3
 
@@ -212,13 +219,46 @@ def test_parse_devices():
 
 
 def test_copy_config_files(fake_checkpoint_dir, tmp_path):
-    from lit_gpt.utils import copy_config_files
+    from litgpt.utils import copy_config_files
 
     copy_config_files(fake_checkpoint_dir, tmp_path)
     expected = {
-        "lit_config.json",
+        "model_config.yaml",
         "tokenizer_config.json",
         "tokenizer.json",
     }
     contents = set(os.listdir(tmp_path))
     assert expected.issubset(contents)
+
+
+def _test_function(out_dir: Path, foo: bool = False, bar: int = 1):
+    from litgpt.utils import save_hyperparameters
+
+    save_hyperparameters(_test_function, out_dir)
+
+
+def test_save_hyperparameters(tmp_path):
+    from litgpt.utils import CLI
+
+    with mock.patch("sys.argv", ["any.py", "--out_dir", str(tmp_path), "--foo", "True"]):
+        CLI(_test_function)
+
+    with open(tmp_path / "hyperparameters.yaml", "r") as file:
+        hparams = yaml.full_load(file)
+
+    assert hparams["out_dir"] == str(tmp_path)
+    assert hparams["foo"] is True
+    assert hparams["bar"] == 1
+
+
+def test_choose_logger(tmp_path):
+    from litgpt.utils import choose_logger
+
+    assert isinstance(choose_logger("csv", out_dir=tmp_path, name="csv"), CSVLogger)
+    if RequirementCache("tensorboard"):
+        assert isinstance(choose_logger("tensorboard", out_dir=tmp_path, name="tb"), TensorBoardLogger)
+    if RequirementCache("wandb"):
+        assert isinstance(choose_logger("wandb", out_dir=tmp_path, name="wandb"), WandbLogger)
+
+    with pytest.raises(ValueError, match="`--logger_name=foo` is not a valid option."):
+        choose_logger("foo", out_dir=tmp_path, name="foo")

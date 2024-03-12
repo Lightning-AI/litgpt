@@ -1,4 +1,5 @@
-model:
+model_name: null
+model_config:
   name: stories15M
   hf_config: {}
   scale_embeddings: false
@@ -20,7 +21,7 @@ resume: false
 devices: 1
 seed: 1337
 data:
-  class_path: lit_gpt.data.TinyStories
+  class_path: litgpt.data.TinyStories
   init_args:
     path: data
     num_workers: 8

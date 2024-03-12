@@ -1,11 +1,11 @@
 # Copyright Lightning AI. Licensed under the Apache License 2.0, see LICENSE file.
 
 def test_dolly(mock_tokenizer, dolly_path):
-    from lit_gpt.data import Dolly
-    from lit_gpt.prompts import Alpaca as AlpacaPromptStyle
+    from litgpt.data import Dolly
+    from litgpt.prompts import Alpaca as AlpacaPromptStyle
 
     alpaca = Dolly(
-        test_split_fraction=0.5,
+        val_split_fraction=0.5,
         download_dir=dolly_path.parent,
         file_name=dolly_path.name,
         num_workers=0,

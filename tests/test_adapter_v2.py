@@ -18,12 +18,12 @@ from lightning.fabric.wrappers import _FabricOptimizer
 wd = Path(__file__).parent.parent.resolve()
 sys.path.append(str(wd))
 
-import lit_gpt.config as config_module
+import litgpt.config as config_module
 
 
 def test_config_identical():
-    import lit_gpt.adapter_v2 as gpt_adapter
-    import lit_gpt.model as gpt
+    import litgpt.adapter_v2 as gpt_adapter
+    import litgpt.model as gpt
 
     name = "pythia-14m"
     with Fabric(accelerator="cpu").init_module(empty_init=True):
@@ -37,7 +37,7 @@ def test_config_identical():
 
 
 def test_adapter_v2_filter(tmp_path):
-    from lit_gpt.adapter_v2 import GPT, adapter_filter
+    from litgpt.adapter_v2 import GPT, adapter_filter
 
     fabric = Fabric(devices=1)
     model = GPT.from_name("pythia-14m", n_layer=3)
@@ -74,10 +74,10 @@ def test_adapter_v2_filter(tmp_path):
 
 @mock.patch.dict(os.environ, {"LT_ACCELERATOR": "cpu"})
 def test_adapter_v2_script(tmp_path, fake_checkpoint_dir, monkeypatch, alpaca_path):
-    import finetune.adapter_v2 as module
-    from lit_gpt.args import EvalArgs, TrainArgs
-    from lit_gpt.data import Alpaca
-    from lit_gpt.config import name_to_config
+    import litgpt.finetune.adapter_v2 as module
+    from litgpt.args import EvalArgs, TrainArgs
+    from litgpt.data import Alpaca
+    from litgpt.config import name_to_config
 
     model_config = dict(block_size=128, n_layer=2, n_embd=8, n_head=4, padded_vocab_size=8, adapter_start_layer=0)
     monkeypatch.setitem(name_to_config, "tmp", model_config)
@@ -91,12 +91,12 @@ def test_adapter_v2_script(tmp_path, fake_checkpoint_dir, monkeypatch, alpaca_pa
 
     out_dir = tmp_path / "out"
     stdout = StringIO()
-    with redirect_stdout(stdout):
+    with redirect_stdout(stdout), mock.patch("sys.argv", ["adapter_v2.py"]):
         module.setup(
             data=Alpaca(
                 download_dir=alpaca_path.parent,
                 file_name=alpaca_path.name,
-                test_split_fraction=0.5,
+                val_split_fraction=0.5,
                 num_workers=0
             ),
             checkpoint_dir=fake_checkpoint_dir,
@@ -107,26 +107,28 @@ def test_adapter_v2_script(tmp_path, fake_checkpoint_dir, monkeypatch, alpaca_pa
         )
 
     out_dir_contents = set(os.listdir(out_dir))
-    checkpoint_dirs = {"iter-000002", "iter-000004", "iter-000006", "final"}
+    checkpoint_dirs = {"step-000002", "step-000004", "step-000006", "final"}
     assert checkpoint_dirs.issubset(out_dir_contents)
     assert all((out_dir / p).is_dir() for p in checkpoint_dirs)
     for checkpoint_dir in checkpoint_dirs:
         assert {p.name for p in (out_dir / checkpoint_dir).iterdir()} == {
             "lit_model.pth",
-            "lit_config.json",
+            "model_config.yaml",
             "tokenizer_config.json",
             "tokenizer.json",
+            "hyperparameters.yaml",
+            "prompt_style.yaml",
         }
     assert (out_dir / "version_0" / "metrics.csv").is_file()
 
     logs = stdout.getvalue()
-    assert logs.count("optimizer.step") == 6
+    assert logs.count("(step)") == 6
     assert logs.count("val loss") == 3
     assert "of trainable parameters: 552" in logs
 
 
 def test_adapter_v2_gpt_init_weights():
-    from lit_gpt.adapter_v2 import GPT, Config
+    from litgpt.adapter_v2 import GPT, Config
 
     config = Config(n_layer=1, n_head=6, n_embd=12, block_size=1, vocab_size=1, adapter_start_layer=0)
     model = GPT(config)
@@ -141,9 +143,9 @@ def test_adapter_v2_gpt_init_weights():
 
 @pytest.mark.parametrize("name", [c["name"] for c in config_module.configs])
 def test_base_model_can_be_adapter_v2_loaded(name):
-    from lit_gpt.adapter_v2 import GPT as AdapterV2GPT
-    from lit_gpt.adapter_v2 import adapter_filter
-    from lit_gpt.model import GPT as BaseGPT
+    from litgpt.adapter_v2 import GPT as AdapterV2GPT
+    from litgpt.adapter_v2 import adapter_filter
+    from litgpt.model import GPT as BaseGPT
 
     kwargs = {"n_layer": 2, "n_head": 8, "n_embd": 16, "padded_vocab_size": 32}
     base_model = BaseGPT.from_name(name, **kwargs)
@@ -158,7 +160,7 @@ def test_base_model_can_be_adapter_v2_loaded(name):
 @RunIf(dynamo=True)
 @torch.inference_mode()
 def test_adapter_v2_compile():
-    from lit_gpt.adapter_v2 import GPT
+    from litgpt.adapter_v2 import GPT
 
     model = GPT.from_name("pythia-14m", n_layer=3)
     x = torch.randint(model.config.vocab_size, size=(2, model.config.block_size), dtype=torch.int64)
@@ -183,8 +185,8 @@ def test_adapter_v2_compile():
 def test_against_hf_mixtral():
     from transformers.models.mixtral import MixtralConfig, MixtralForCausalLM
 
-    from lit_gpt.adapter_v2 import GPT, Config
-    from scripts.convert_hf_checkpoint import copy_weights_hf_llama
+    from litgpt.adapter_v2 import GPT, Config
+    from litgpt.scripts.convert_hf_checkpoint import copy_weights_hf_llama
 
     device = torch.device("cpu")
     dtype = torch.float32
@@ -231,9 +233,9 @@ def test_against_hf_mixtral():
 
 @RunIf(min_cuda_gpus=1)
 def test_adapter_v2_bitsandbytes(monkeypatch, tmp_path, fake_checkpoint_dir, alpaca_path):
-    from lit_gpt.config import name_to_config
-    from lit_gpt.data import Alpaca
-    import finetune.adapter_v2 as module
+    from litgpt.config import name_to_config
+    from litgpt.data import Alpaca
+    import litgpt.finetune.adapter_v2 as module
 
     if not _BITSANDBYTES_AVAILABLE:
         pytest.skip("BNB not available")
@@ -255,12 +257,12 @@ def test_adapter_v2_bitsandbytes(monkeypatch, tmp_path, fake_checkpoint_dir, alp
     monkeypatch.setattr(module, "fit", train_mock)
 
     stdout = StringIO()
-    with redirect_stdout(stdout):
+    with redirect_stdout(stdout), mock.patch("sys.argv", ["adapter_v2.py"]):
         module.setup(
             data=Alpaca(
                 download_dir=alpaca_path.parent,
                 file_name=alpaca_path.name,
-                test_split_fraction=0.5,
+                val_split_fraction=0.5,
                 num_workers=0
             ),
             precision="16-true",

@@ -27,6 +27,7 @@ LitGPT supports a variety of LLM architectures with publicly available weights. 
 | Vicuna by LMSYS                                                                    | 7B, 13B, 33B                             | [Li et al. 2023](https://lmsys.org/blog/2023-03-30-vicuna/)                                                                  |
 
 
+
 &nbsp;
 ## General Instructions
 
