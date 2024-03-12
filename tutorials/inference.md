@@ -12,7 +12,7 @@ Output:
 Hello, my name is Levi Durrer, I'm an Austrian journalist - Chairman of the Press Blair Party, with 37 years in the Press Blair International, and two years in the Spectre of Austerity for the other. I'm crossing my fingers that you will feel
 ```
 
-The script assumes you have downloaded and converted the weights as described [here](download_stablelm.md).
+The script assumes you have downloaded and converted the weights as described [here](download_model_weights.md).
 
 This will run the 3B pre-trained model and require ~7 GB of GPU memory using the `bfloat16` datatype.
 
