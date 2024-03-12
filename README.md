@@ -37,7 +37,7 @@ This implementation extends on [Lit-LLaMA](https://github.com/lightning-AI/lit-l
 
 &nbsp;
 
-## Getting Started in 3 Steps
+## Getting started in 3 steps
 
 Below is a minimal example to get started with the LitGPT command line interface (CLI), illustrating how to download a model, optionally finetune it using low-rank adaptation (LoRA), and start chatting with it:
 
@@ -68,7 +68,7 @@ For more information, refer to the [download](tutorials/download_model_weights.m
 
 &nbsp;
 
-## Configuration Files for Enhanced Performance
+## Configuration files for enhanced performance
 
 LitGPT also allows users to use configuration files in YAML format instead of specifying settings via the command line interface and comes with a set of model-specific defaults for good out-of-the-box performance:
 
