@@ -224,7 +224,7 @@ def test_lora_script(tmp_path, fake_checkpoint_dir, monkeypatch, alpaca_path):
             "tokenizer_config.json",
             "tokenizer.json",
             "hyperparameters.yaml",
-            "prompt_style.json",
+            "prompt_style.yaml",
         }
     assert (out_dir / "logs" / "csv" / "version_0" / "metrics.csv").is_file()
 
