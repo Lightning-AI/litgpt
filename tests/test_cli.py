@@ -31,13 +31,14 @@ def test_cli(tmp_path):
     with pytest.raises(SystemExit), redirect_stdout(out), mock.patch("sys.argv", ["litgpt", "finetune", "lora", "-h"]):
         main()
     out = out.getvalue()
-    assert """ARG:   --lora_alpha LORA_ALPHA
-  ENV:   LITGPT_FINETUNE__LORA__LORA_ALPHA
+    assert """--lora_alpha LORA_ALPHA
                         (type: int, default: 16)""" in out
 
     out = StringIO()
     with pytest.raises(SystemExit), redirect_stdout(out), mock.patch("sys.argv", ["litgpt", "pretrain", "-h"]):
         main()
     out = out.getvalue()
-    assert """ARG:   --train.max_tokens MAX_TOKENS
-  ENV:   LITGPT_PRETRAIN__TRAIN__MAX_TOKENS""" in out
+    print(out)
+    assert """--train.max_tokens MAX_TOKENS
+                        Total number of tokens to train on (type:
+                        Optional[int], default: 3000000000000)""" in out

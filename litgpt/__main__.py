@@ -32,7 +32,6 @@ if TYPE_CHECKING:
 def _new_parser(**kwargs: Any) -> "ArgumentParser":
     from jsonargparse import ArgumentParser, ActionConfigFile
 
-    kwargs.setdefault("default_env", True)
     parser = ArgumentParser(**kwargs)
     parser.add_argument(
         "-c", "--config", action=ActionConfigFile, help="Path to a configuration file in json or yaml format."
