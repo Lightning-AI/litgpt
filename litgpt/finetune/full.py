@@ -58,15 +58,15 @@ def setup(
     """Finetune a model.
 
     Arguments:
-        checkpoint_dir: The path to the base model checkpoint directory to load for finetuning.
-        out_dir: Where to save checkpoints and logs.
+        checkpoint_dir: The path to the base model's checkpoint directory to load for finetuning.
+        out_dir: Directory in which to save checkpoints and logs.
         precision: The precision to use for finetuning. Possible choices: "bf16-true", "bf16-mixed", "32-true".
         devices: How many devices/GPUs to use
-        resume: Path to a checkpoint directory to resume from in case training got interrupted. Or ``True`` to resume
+        resume: Path to a checkpoint directory to resume from in case training was interrupted, or ``True`` to resume
             from the latest checkpoint in ``out_dir``.
-        data: Data related arguments. If not provided, the default is ``litgpt.data.Alpaca``.
-        train: Training related arguments. See ``litgpt.args.TrainArgs`` for details.
-        eval: Evaluation related arguments. See ``litgpt.args.EvalArgs`` for details.
+        data: Data-related arguments. If not provided, the default is ``litgpt.data.Alpaca``.
+        train: Training-related arguments. See ``litgpt.args.TrainArgs`` for details.
+        eval: Evaluation-related arguments. See ``litgpt.args.EvalArgs`` for details.
         logger_name: The name of the logger to send metrics to.
         seed: The random seed to use for reproducibility.
     """

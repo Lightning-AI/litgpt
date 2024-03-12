@@ -69,8 +69,8 @@ def setup(
     """Finetune a model using the LoRA method.
 
     Arguments:
-        checkpoint_dir: The path to the base model checkpoint directory to load for finetuning.
-        out_dir: Where to save checkpoints and logs.
+        checkpoint_dir: The path to the base model's checkpoint directory to load for finetuning.
+        out_dir: Directory in which to save checkpoints and logs.
         precision: The precision to use for finetuning. Possible choices: "bf16-true", "bf16-mixed", "32-true".
         quantize: If set, quantize the model with this algorithm. See ``tutorials/quantize.md`` for more information.
         devices: How many devices/GPUs to use.
@@ -83,9 +83,9 @@ def setup(
         lora_projection: Whether to apply LoRA to the output projection in the attention block.
         lora_mlp: Whether to apply LoRA to the weights of the MLP in the attention block.
         lora_head: Whether to apply LoRA to output head in GPT.
-        data: Data related arguments. If not provided, the default is ``litgpt.data.Alpaca``.
-        train: Training related arguments. See ``litgpt.args.TrainArgs`` for details.
-        eval: Evaluation related arguments. See ``litgpt.args.EvalArgs`` for details.
+        data: Data-related arguments. If not provided, the default is ``litgpt.data.Alpaca``.
+        train: Training-related arguments. See ``litgpt.args.TrainArgs`` for details.
+        eval: Evaluation-related arguments. See ``litgpt.args.EvalArgs`` for details.
         logger_name: The name of the logger to send metrics to.
         seed: The random seed to use for reproducibility.
     """

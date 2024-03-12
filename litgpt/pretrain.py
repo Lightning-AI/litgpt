@@ -69,13 +69,13 @@ def setup(
             ``model_config``.
         model_config: A ``litgpt.Config`` object to define the model architecture. Mutually exclusive with
             ``model_config``.
-        out_dir: Where to save checkpoints and logs. If running in a Lightning Studio Job, look for it in
+        out_dir: Directory in which to save checkpoints and logs. If running in a Lightning Studio Job, look for it in
             /teamspace/jobs/<job-name>/share.
-        resume: Path to a checkpoint directory to resume from in case training got interrupted. Or ``True`` to resume
+        resume: Path to a checkpoint directory to resume from in case training was interrupted, or ``True`` to resume
             from the latest checkpoint in ``out_dir``.
-        data: Data related arguments. If not provided, the default is ``litgpt.data.TinyLlama``.
-        train: Training related arguments. See ``litgpt.args.TrainArgs`` for details.
-        eval: Evaluation related arguments. See ``litgpt.args.EvalArgs`` for details.
+        data: Data-related arguments. If not provided, the default is ``litgpt.data.TinyLlama``.
+        train: Training-related arguments. See ``litgpt.args.TrainArgs`` for details.
+        eval: Evaluation-related arguments. See ``litgpt.args.EvalArgs`` for details.
         devices: How many devices/GPUs to use. Uses all GPUs by default.
         tokenizer_dir: Optional path to the tokenizer dir that was used for preprocessing the dataset. Only some data
             module require this.
