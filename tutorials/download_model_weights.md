@@ -148,7 +148,7 @@ python litgpt/scripts/download.py --help
 After conversion, run the model with the `--checkpoint_dir` flag, adjusting `repo_id` accordingly:
 
 ```bash
-python litgpt/chat/base.py --checkpoint_dir checkpoints/repo_id
+python litgpt/chat/base.py --checkpoint_dir checkpoints/<repo_id>
 ```
 
 &nbsp;
