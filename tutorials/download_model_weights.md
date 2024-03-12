@@ -148,7 +148,7 @@ python litgpt/scripts/download.py --help
 After conversion, run the model with the `--checkpoint_dir` flag, adjusting `repo_id` accordingly:
 
 ```bash
-python chat/base.py --checkpoint_dir checkpoints/repo_id
+python litgpt/chat/base.py --checkpoint_dir checkpoints/repo_id
 ```
 
 &nbsp;
@@ -177,7 +177,7 @@ python litgpt/scripts/download.py --repo_id $repo_id
 3. Use the TinyLlama model:
 
 ```bash
-python chat/base.py --checkpoint_dir checkpoints/$repo_id
+python litgpt/chat/base.py --checkpoint_dir checkpoints/$repo_id
 ```
 
 &nbsp;
@@ -187,27 +187,28 @@ Note that certain models require that you've been granted access to the weights 
 
 For example, to get access to the Gemma 2B model, you can do so by following the steps at https://huggingface.co/google/gemma-2b. After access is granted, you can find your HF hub token in https://huggingface.co/settings/tokens.
 
-Once you've been granted access and obtained the access token you need to pass the additional `--access_token`. Some models like Gemma also only support the safetensors format, which you can specify via the `--from_safetensors true` flag:
+Once you've been granted access and obtained the access token you need to pass the additional `--access_token`:
 
 ```bash
 python litgpt/scripts/download.py \
   --repo_id google/gemma-2b \
-  --access_token your_hf_token \
-  --from_safetensors true
+  --access_token your_hf_token
 ```
 
 
 &nbsp;
 ## Tips for GPU Memory Limitations
 
-The `download.py` script will automatically convert the downloaded model checkpoint into a LitGPT-compatible format. In case this conversion fails due to GPU memory constraints, you can reduce the memory requirements by passing the  `--dtype bfloat16` flag to convert all parameters into this smaller precision:
+The `download.py` script will automatically convert the downloaded model checkpoint into a LitGPT-compatible format. In case this conversion fails due to GPU memory constraints, you can try to reduce the memory requirements by passing the  `--dtype bf16-true` flag to convert all parameters into this smaller precision (however, note that most model weights are already in a bfloat16 format, so it may not have any effect):
 
 
 ```bash
 python litgpt/scripts/download.py \
   --repo_id <repo_id>
-  --dtype bfloat16
+  --dtype bf16-true
 ```
+
+(If your GPU does not support the bfloat16 format, you can also try a regular 16-bit float format via `--dtype 16-true`.)
 
 &nbsp;
 ## Converting Checkpoints Manually
@@ -227,4 +228,24 @@ and then calling the `convert_hf_checkpoint.py` script:
 ```bash
 python litgpt/scripts/convert_hf_checkpoint.py \
   --checkpoint_dir checkpoint_dir/<repo_id>
+```
+
+&nbsp;
+## Downloading Tokenizers Only
+
+In some cases we don't need the model weight, for example, when we are pretraining a model from scratch instead of finetuning it. For cases like this, you can use the `--tokenizer_only` flag to only download a model's tokenizer, which can then be used in the pretraining scripts:
+
+```bash
+python litgpt/scripts/download.py \
+  --repo_id TinyLlama/TinyLlama-1.1B-intermediate-step-1431k-3T \
+  --tokenizer_only true
+```
+
+and
+
+```bash
+python litgpt/pretrain.py \
+  --data ... \
+  --model_name tiny-llama-1.1b \
+  --tokenizer_dir checkpoints/TinyLlama/TinyLlama-1.1B-intermediate-step-1431k-3T/
 ```
