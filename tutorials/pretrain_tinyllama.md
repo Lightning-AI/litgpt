@@ -164,7 +164,7 @@ litgpt convert pretrained_checkpoint \
 After conversion, the output folder will contain these files:
 ```
 checkpoints/tiny-llama/final
-├── lit_config.json
+├── model_config.yaml
 ├── lit_model.pth
 ├── tokenizer_config.json
 ├── tokenizer.json

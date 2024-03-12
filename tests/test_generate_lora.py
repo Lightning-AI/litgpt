@@ -1,6 +1,5 @@
 # Copyright Lightning AI. Licensed under the Apache License 2.0, see LICENSE file.
 
-import json
 import os
 import subprocess
 import sys
@@ -12,13 +11,14 @@ from unittest.mock import ANY, Mock, call
 
 import pytest
 import torch
+import yaml
 
 
 @mock.patch.dict(os.environ, {"LT_ACCELERATOR": "cpu"})
 def test_main(fake_checkpoint_dir, monkeypatch, tensor_like):
     import litgpt.generate.lora as generate
 
-    config_path = fake_checkpoint_dir / "lit_config.json"
+    config_path = fake_checkpoint_dir / "model_config.yaml"
     config = {
         "block_size": 128,
         "vocab_size": 50,
@@ -30,7 +30,7 @@ def test_main(fake_checkpoint_dir, monkeypatch, tensor_like):
         "lora_value": False,
         "lora_projection": True,
     }
-    config_path.write_text(json.dumps(config))
+    config_path.write_text(yaml.dump(config))
 
     monkeypatch.setattr(generate, "lazy_load", Mock())
     monkeypatch.setattr(generate.GPT, "load_state_dict", Mock())

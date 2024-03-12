@@ -1,4 +1,3 @@
-import json
 import subprocess
 import sys
 from dataclasses import asdict, replace
@@ -7,6 +6,8 @@ from unittest.mock import Mock
 
 import pytest
 import torch
+import yaml
+
 from conftest import RunIf
 from test_generate_sequentially import find_forward_hooks
 
@@ -116,7 +117,7 @@ def test_tp(tmp_path):
     checkpoint_dir = tmp_path / "EleutherAI/pythia-14m"
     # save the config
     config = Config.from_name("pythia-14m")
-    (checkpoint_dir / "lit_config.json").write_text(json.dumps(asdict(config)))
+    (checkpoint_dir / "model_config.yaml").write_text(yaml.dump(asdict(config)))
     # create a state dict to load from
     torch.save(GPT(config).state_dict(), checkpoint_dir / "lit_model.pth")
 

@@ -1,7 +1,6 @@
 # Copyright Lightning AI. Licensed under the Apache License 2.0, see LICENSE file.
 
 """Utility functions for training and inference."""
-import json
 import math
 import pickle
 import shutil
@@ -15,6 +14,7 @@ import lightning as L
 import torch
 import torch.nn as nn
 import torch.utils._device
+import yaml
 from lightning.fabric.loggers import CSVLogger, TensorBoardLogger
 from lightning.fabric.strategies import FSDPStrategy
 from lightning.fabric.utilities.load import _lazy_load as lazy_load
@@ -50,7 +50,7 @@ def check_valid_checkpoint_dir(checkpoint_dir: Path, lora: bool = False) -> None
     model_filename = "lit_model.pth.lora" if lora else "lit_model.pth"
     files = {
         model_filename: (checkpoint_dir / model_filename).is_file(),
-        "lit_config.json": (checkpoint_dir / "lit_config.json").is_file(),
+        "model_config.yaml": (checkpoint_dir / "model_config.yaml").is_file(),
         "tokenizer.json OR tokenizer.model": (checkpoint_dir / "tokenizer.json").is_file()
         or (checkpoint_dir / "tokenizer.model").is_file(),
         "tokenizer_config.json": (checkpoint_dir / "tokenizer_config.json").is_file(),
@@ -379,7 +379,7 @@ class CycleIterator:
 def copy_config_files(source_dir: Path, out_dir: Path) -> None:
     """Copies the specified configuration and tokenizer files into the output directory."""
 
-    config_files = ["generation_config.json", "lit_config.json"]
+    config_files = ["generation_config.json", "model_config.yaml"]
     tokenizer_files = ["tokenizer.json", "tokenizer.model",  "tokenizer_config.json"]
 
     for file_name in config_files + tokenizer_files:
@@ -410,8 +410,8 @@ def save_hyperparameters(function: callable, checkpoint_dir: Path) -> None:
 
 def save_config(config: "Config", checkpoint_dir: Path) -> None:
     config_dict = asdict(config)
-    with open(checkpoint_dir / "lit_config.json", "w") as json_config:
-        json.dump(config_dict, json_config)
+    with open(checkpoint_dir / "model_config.yaml", "w") as fp:
+        yaml.dump(config_dict, fp)
 
 
 def parse_devices(devices: Union[str, int]) -> int:
