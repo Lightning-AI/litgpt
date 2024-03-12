@@ -74,7 +74,7 @@ def setup(
         resume: Path to a checkpoint directory to resume from in case training got interrupted. Or ``True`` to resume
             from the latest checkpoint in ``out_dir``.
         data: Data related arguments. If not provided, the default is ``litgpt.data.TinyLlama``.
-        train: raining related arguments. See ``litgpt.args.TrainArgs`` for details.
+        train: Training related arguments. See ``litgpt.args.TrainArgs`` for details.
         eval: Evaluation related arguments. See ``litgpt.args.EvalArgs`` for details.
         devices: How many devices/GPUs to use. Uses all GPUs by default.
         tokenizer_dir: Optional path to the tokenizer dir that was used for preprocessing the dataset. Only some data

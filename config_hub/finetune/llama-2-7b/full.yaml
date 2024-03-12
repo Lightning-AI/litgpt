@@ -15,7 +15,7 @@ devices: 4
 # from the latest checkpoint in ``out_dir``. (type: Union[bool, Path], default: False)
 resume: false
 
-# Data related arguments. If not provided, the default is ``litgpt.data.Alpaca``. (type: Optional[LitDataModule], default: null, known subclasses: litgpt.data.LitDataModule, litgpt.data.Alpaca, litgpt.data.Alpaca2k, litgpt.data.AlpacaGPT4, litgpt.data.Dolly, litgpt.data.JSON, litgpt.data.Deita, litgpt.data.FLAN, litgpt.data.LIMA, litgpt.data.LongForm, litgpt.data.TinyLlama, litgpt.data.TinyStories, litgpt.data.OpenWebText)
+# Data related arguments. If not provided, the default is ``litgpt.data.Alpaca``.
 data:
   class_path: litgpt.data.AlpacaGPT4
   init_args:
