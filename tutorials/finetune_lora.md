@@ -11,12 +11,7 @@ The steps here only need to be done once:
 
 1. Follow the instructions in the [README](../README.md) to install the dependencies.
 2. Download and convert the weights and save them in the `./checkpoints` folder.
-   Weights can be downloaded following these instructions:
-
-- [StableLM](download_stablelm.md)
-- [Pythia](download_pythia.md)
-- [Redpajama-INCITE](download_redpajama_incite.md)
-- [Falcon](download_falcon.md)
+   Weights can be downloaded following the instructions in the [download_model_weights](download_model_weights.md) documentation:
 
 LitGPT provides common datasets for finetuning, such as Alpaca, LIMA, Dolly, and more.
 You can optionally [prepare your own dataset](#tune-on-your-dataset).
@@ -140,7 +135,7 @@ python litgpt/finetune/lora.py \
 This code will produce a `lit_model.pth.lora` file in the specified output directory, containing only the LoRA weights. To merge these LoRA weights with the original model checkpoint, you can use the `merge_lora.py` script as follows:
 
 ```bash
-python scripts/merge_lora.py \
+python litgpt/scripts/merge_lora.py \
   --checkpoint_dir "out/lora/stablelm-base-alpha-3b/final"
 ```
 
