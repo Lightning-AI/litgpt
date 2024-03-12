@@ -5,6 +5,7 @@ import sys
 from pathlib import Path
 
 import pytest
+import yaml
 
 # support running without installing as a package
 wd = Path(__file__).parent.parent.resolve()
@@ -77,7 +78,7 @@ def test_from_checkpoint(tmp_path):
     # 3. If only `lit_config.py` exists.
     config_data = {"name": "pythia-14m", "block_size": 24, "n_layer": 2}
     with open(tmp_path / "model_config.yaml", "w") as file:
-        json.dump(config_data, file)
+        yaml.dump(config_data, file)
     config = Config.from_checkpoint(tmp_path)
     assert config.name == "pythia-14m"
     assert config.block_size == 24
@@ -86,7 +87,7 @@ def test_from_checkpoint(tmp_path):
     # 4. Both `lit_config.py` and a matching config exist, but `lit_config.py` supersedes matching config
     (tmp_path / "pythia-14m").mkdir()
     with open(tmp_path / "pythia-14m/model_config.yaml", "w") as file:
-        json.dump(config_data, file)
+        yaml.dump(config_data, file)
     config = Config.from_checkpoint(tmp_path / "pythia-14m")
     assert config.name == "pythia-14m"
     assert config.block_size == 24

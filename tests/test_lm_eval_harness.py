@@ -61,7 +61,7 @@ def test_eval_script(tmp_path, fake_checkpoint_dir, monkeypatch):
 
     model_config = dict(block_size=128, n_layer=2, n_embd=8, n_head=4, padded_vocab_size=8)
     with open(fake_checkpoint_dir / "model_config.yaml", "w") as fp:
-        json.dump(model_config, fp)
+        yaml.dump(model_config, fp)
     monkeypatch.setattr(module, "load_checkpoint", Mock())
 
     tokenizer_mock = Mock()

@@ -30,7 +30,7 @@ def test_main(fake_checkpoint_dir, monkeypatch, tensor_like):
         "lora_value": False,
         "lora_projection": True,
     }
-    config_path.write_text(json.dumps(config))
+    config_path.write_text(yaml.dump(config))
 
     monkeypatch.setattr(generate, "lazy_load", Mock())
     monkeypatch.setattr(generate.GPT, "load_state_dict", Mock())

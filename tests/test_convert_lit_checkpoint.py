@@ -9,6 +9,8 @@ from urllib.request import urlretrieve
 
 import pytest
 import torch
+import yaml
+
 from conftest import RunIf
 
 wd = Path(__file__).parent.parent.absolute()
@@ -24,7 +26,7 @@ def test_convert_lit_checkpoint(tmp_path):
     config_path = tmp_path / "model_config.yaml"
     torch.save(ours_model.state_dict(), checkpoint_path)
     with open(config_path, "w") as fp:
-        json.dump(asdict(ours_config), fp)
+        yaml.dump(asdict(ours_config), fp)
     output_dir = tmp_path / "out_dir"
 
     convert_lit_checkpoint(checkpoint_path.parent, output_dir)

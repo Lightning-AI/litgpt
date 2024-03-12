@@ -1,7 +1,6 @@
 # Copyright Lightning AI. Licensed under the Apache License 2.0, see LICENSE file.
 
 import itertools
-import json
 import subprocess
 import sys
 from collections import defaultdict
@@ -11,8 +10,10 @@ from re import escape
 
 import pytest
 import torch
-from conftest import RunIf
+import yaml
 from lightning import Fabric
+
+from conftest import RunIf
 
 
 @pytest.mark.parametrize(
@@ -282,7 +283,7 @@ def test_base_with_sequentially(tmp_path):
     checkpoint_dir = tmp_path / "EleutherAI/pythia-14m"
     # save the config
     config = Config.from_name("pythia-14m")
-    (checkpoint_dir / "model_config.yaml").write_text(json.dumps(asdict(config)))
+    (checkpoint_dir / "model_config.yaml").write_text(yaml.dump(asdict(config)))
     # create a state dict to load from
     torch.save(GPT(config).state_dict(), checkpoint_dir / "lit_model.pth")
 
