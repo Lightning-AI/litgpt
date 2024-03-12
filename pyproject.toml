@@ -41,6 +41,7 @@ all = [
     "tensorboard",               # litgpt.pretrain
     "torchmetrics",              # litgpt.pretrain
     "lm_eval @ git+https://github.com/EleutherAI/lm-evaluation-harness.git@115206dc89dad67b8b",
+    "huggingface_hub[hf_transfer]>=0.21.0"  # download
 ]
 
 [build-system]
