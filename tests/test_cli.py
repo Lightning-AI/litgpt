@@ -32,7 +32,7 @@ def test_cli(tmp_path):
         main()
     out = out.getvalue()
     assert """--lora_alpha LORA_ALPHA
-                        (type: int, default: 16)""" in out
+                        The LoRA alpha. (type: int, default: 16)""" in out
 
     out = StringIO()
     with pytest.raises(SystemExit), redirect_stdout(out), mock.patch("sys.argv", ["litgpt", "pretrain", "-h"]):
