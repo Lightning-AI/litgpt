@@ -10,6 +10,7 @@ from pathlib import Path
 from unittest import mock
 from unittest.mock import ANY, Mock, call
 
+import pytest
 import torch
 
 
@@ -55,8 +56,13 @@ def test_main(fake_checkpoint_dir, monkeypatch, tensor_like):
     assert "'padded_vocab_size': 512, 'n_layer': 2, 'n_head': 4, 'head_size': 2, 'n_embd': 8" in err.getvalue()
 
 
-def test_cli():
-    cli_path = Path(__file__).parent.parent / "litgpt/generate/lora.py"
-    output = subprocess.check_output([sys.executable, cli_path, "-h"])
+@pytest.mark.parametrize("mode", ["file", "entrypoint"])
+def test_cli(mode):
+    if mode == "file":
+        cli_path = Path(__file__).parent.parent / "litgpt/generate/lora.py"
+        args = [sys.executable, cli_path, "-h"]
+    else:
+        args = ["litgpt", "generate", "lora", "-h"]
+    output = subprocess.check_output(args)
     output = str(output.decode())
     assert "Generates a response" in output

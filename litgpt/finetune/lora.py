@@ -66,7 +66,6 @@ def setup(
     ),
     eval: EvalArgs = EvalArgs(interval=100, max_new_tokens=100, max_iters=100),
 ) -> None:
-
     pprint(locals())
     data = Alpaca() if data is None else data
     devices = parse_devices(devices)
@@ -205,6 +204,7 @@ def fit(
     iter_num = 0
     total_lengths = 0
     total_t0 = time.perf_counter()
+    val_loss = "n/a"
 
     while step_count < max_steps and train_iterator.epoch < train.epochs:
         iter_num += 1
@@ -247,10 +247,16 @@ def fit(
                     iter_num * train.micro_batch_size * model.config.block_size * fabric.world_size
                 ),
                 "learning_rate": scheduler.get_last_lr()[0],
+                "val_loss": val_loss,
             }
+            if isinstance(val_loss, torch.Tensor):
+                val_loss = f"{val_loss:.3f}"
             fabric.print(
-                f"iter {metrics['iter']} | step {metrics['step']}: loss {metrics['loss']:.4f}, iter time:"
-                f" {metrics['iter_time'] * 1000:.2f} ms{' (optimizer.step)' if not is_accumulating else ''}"
+                f"Epoch {metrics['epoch']+1} | iter {metrics['iter']} step {metrics['step']} |"
+                f" loss train: {metrics['loss']:.3f},"
+                f" val: {val_loss} |"
+                f" iter time: {metrics['iter_time'] * 1000:.2f} ms"
+                f"{' (step)' if not is_accumulating else ''}"
             )
             fabric.log_dict(metrics, step=iter_num)
 
