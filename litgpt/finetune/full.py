@@ -52,8 +52,8 @@ def setup(
         max_seq_length=None,
     ),
     eval: EvalArgs = EvalArgs(interval=600, max_new_tokens=100, max_iters=100),
-    seed: int = 1337,
     logger_name: Literal["wandb", "tensorboard", "csv"] = "csv",
+    seed: int = 1337,
 ) -> None:
     """Finetune a model.
 
@@ -67,8 +67,8 @@ def setup(
         data: Data related arguments. If not provided, the default is `litgpt.data.Alpaca`.
         train: Training related arguments. See `litgpt.args.TrainArgs` for details.
         eval: Evaluation related arguments. See `litgpt.args.EvalArgs` for details.
-        seed: The random seed to use for reproducibility.
         logger_name: The name of the logger to send metrics to.
+        seed: The random seed to use for reproducibility.
     """
 
     pprint(locals())

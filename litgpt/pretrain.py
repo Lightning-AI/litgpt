@@ -38,13 +38,9 @@ from litgpt.utils import (
 def setup(
     model_name: Optional[str] = None,
     model_config: Optional[Config] = None,
-    resume: Union[bool, Path] = False,
-    devices: Union[int, str] = "auto",
-    seed: int = 42,
-    data: Optional[LitDataModule] = None,
     out_dir: Path = Path("out/pretrain"),
-    tokenizer_dir: Optional[Path] = None,
-    logger_name: Literal["wandb", "tensorboard", "csv"] = "tensorboard",
+    resume: Union[bool, Path] = False,
+    data: Optional[LitDataModule] = None,
     train: TrainArgs = TrainArgs(
         save_interval=1000,
         log_interval=1,
@@ -61,7 +57,31 @@ def setup(
         tie_embeddings=False,
     ),
     eval: EvalArgs = EvalArgs(interval=1000, max_iters=100),
+    devices: Union[int, str] = "auto",
+    tokenizer_dir: Optional[Path] = None,
+    logger_name: Literal["wandb", "tensorboard", "csv"] = "tensorboard",
+    seed: int = 42,
 ):
+    """Pretrain a model.
+
+    Args:
+        model_name: The name of the model to pretrain. Choose from names in `litgpt.config`. Mutually exclusive with
+            `model_config`.
+        model_config: A `litgpt.Config` object to define the model architecture. Mutually exclusive with
+            `model_config`.
+        out_dir: Where to save checkpoints and logs. If running in a Lightning Studio Job, look for it in
+            /teamspace/jobs/<job-name>/share.
+        resume: Path to a checkpoint directory to resume from in case training got interrupted. Or `True` to resume
+            from the latest checkpoint in `out_dir`.
+        data: Data related arguments. If not provided, the default is `litgpt.data.TinyLlama`.
+        train: raining related arguments. See `litgpt.args.TrainArgs` for details.
+        eval: Evaluation related arguments. See `litgpt.args.EvalArgs` for details.
+        devices: How many devices/GPUs to use. Uses all GPUs by default.
+        tokenizer_dir: Optional path to the tokenizer dir that was used for preprocessing the dataset. Only some data
+            module require this.
+        logger_name: The name of the logger to send metrics to.
+        seed: The random seed to use for reproducibility.
+    """
     hparams = locals()
     data = TinyLlama() if data is None else data
     if model_config is not None and model_name is not None:
