@@ -390,9 +390,10 @@ def copy_config_files(source_dir: Path, out_dir: Path) -> None:
 
 
 def CLI(*args: Any, **kwargs: Any) -> Any:
-    from jsonargparse import CLI, set_docstring_parse_options
+    from jsonargparse import CLI, set_docstring_parse_options, set_config_read_mode
 
     set_docstring_parse_options(attribute_docstrings=True)
+    set_config_read_mode(urls_enabled=True)
 
     kwargs.setdefault("as_positional", False)
 
