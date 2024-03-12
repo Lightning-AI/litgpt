@@ -22,7 +22,7 @@ For more information about dataset preparation, also see the [prepare_dataset.md
 ## Running the Finetuning
 
 ```bash
-python litgpt/finetune/lora.py --data Alpaca
+litgpt finetune lora --data Alpaca
 ```
 
 The finetuning requires at least one GPU with ~24 GB memory (RTX 3090).
@@ -37,13 +37,13 @@ This script will save checkpoints periodically to the folder `out/`.
 Optionally, finetuning using 4-bit quantization (as in QLoRA) can be enabled via the `--quantize` flag, for example using the 4-bit NormalFloat data type:
 
 ```bash
-python litgpt/finetune/lora.py --quantize "bnb.nf4"
+litgpt finetune lora --quantize "bnb.nf4"
 ```
 
 and optionally with double-quantization:
 
 ```bash
-python litgpt/finetune/lora.py --quantize "bnb.nf4-dq"
+litgpt finetune lora --quantize "bnb.nf4-dq"
 ```
 
 The table below lists a comparison with different settings on a StableLM 3B model finetuned with LoRA on Alpaca for 1,000 iterations using a microbatch size of 1:
@@ -73,7 +73,7 @@ For additional benchmarks and resource requirements, please see the [Resource Ta
 You can test the finetuned model with your own instructions by running:
 
 ```bash
-python litgpt/generate/lora.py \
+litgpt generate lora \
   --prompt "Recommend a movie to watch on the weekend."
 ```
 
@@ -109,7 +109,7 @@ You can easily train on your own instruction dataset saved in JSON format.
 2. Run `litgpt/finetune/lora.py` by passing in the location of your data (and optionally other parameters):
 
     ```bash
-    python litgpt/finetune/lora.py \
+    litgpt finetune lora \
         --data JSON \
         --data.json_path data/mydata.json \
         --checkpoint_dir checkpoints/tiiuae/falcon-7b \
@@ -126,7 +126,7 @@ Finetuning a model with LoRA generates a `lit_model.pth.lora` file. This file ex
 For example, after finetuning a model using LoRA with the following command:
 
 ```bash
-python litgpt/finetune/lora.py \
+litgpt finetune lora \
   --checkpoint_dir "checkpoints/stabilityai/stablelm-base-alpha-3b/" \
   --train_data_dir data/mydata --val_data_dir data/mydata/ \
   --out_dir "out/lora/stablelm-base-alpha-3b/"
@@ -135,14 +135,14 @@ python litgpt/finetune/lora.py \
 This code will produce a `lit_model.pth.lora` file in the specified output directory, containing only the LoRA weights. To merge these LoRA weights with the original model checkpoint, you can use the `merge_lora.py` script as follows:
 
 ```bash
-python litgpt/scripts/merge_lora.py \
+litgpt merge_lora \
   --checkpoint_dir "out/lora/stablelm-base-alpha-3b/final"
 ```
 
 Executing this script results in the creation of a full `lit_model.pth` checkpoint that can be used with the `generate/base.py` or `chat/base.py` scripts for inference:
 
 ```bash
-python litgpt/generate/base.py \
+litgpt generate base \
   --checkpoint_dir "out/lora/stablelm-base-alpha-3b/final"
 ```
 
