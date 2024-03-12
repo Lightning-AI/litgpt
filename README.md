@@ -102,7 +102,7 @@ To generate text predictions, you need to download the model weights. **If you d
 Run inference:
 
 ```bash
-python litgpt/generate/base.py --prompt "Hello, my name is"
+litgpt generate base --prompt "Hello, my name is"
 ```
 
 This will run the 3B pretrained model and require ~7 GB of GPU memory using the `bfloat16` datatype.
@@ -112,7 +112,7 @@ This will run the 3B pretrained model and require ~7 GB of GPU memory using the 
 You can also chat with the model interactively:
 
 ```bash
-python litgpt/chat/base.py
+litgpt chat
 ```
 
 &nbsp;
@@ -131,19 +131,19 @@ For example, you can either use
 Adapter ([Zhang et al. 2023](https://arxiv.org/abs/2303.16199)):
 
 ```bash
-python litgpt/finetune/adapter.py
+litgpt finetune adapter
 ```
 
 or Adapter v2 ([Gao et al. 2023](https://arxiv.org/abs/2304.15010)):
 
 ```bash
-python litgpt/finetune/adapter_v2.py
+litgpt finetune adapter_v2
 ```
 
 or LoRA ([Hu et al. 2021](https://arxiv.org/abs/2106.09685)):
 
 ```bash
-python litgpt/finetune/lora.py
+litgpt finetune lora
 ```
 
 (Please see the [tutorials/finetune_adapter](tutorials/finetune_adapter.md) for details on the differences between the two adapter methods.)
