@@ -35,14 +35,12 @@ from litgpt.utils import (
 
 
 def setup(
+    checkpoint_dir: Path = Path("checkpoints/stabilityai/stablelm-base-alpha-3b"),
+    out_dir: Path = Path("out/finetune/full"),
     precision: Optional[str] = None,
     devices: Union[int, str] = 1,
     resume: Union[bool, Path] = False,
-    seed: int = 1337,
     data: Optional[LitDataModule] = None,
-    checkpoint_dir: Path = Path("checkpoints/stabilityai/stablelm-base-alpha-3b"),
-    out_dir: Path = Path("out/finetune/full"),
-    logger_name: Literal["wandb", "tensorboard", "csv"] = "csv",
     train: TrainArgs = TrainArgs(
         save_interval=1000,
         log_interval=1,
@@ -54,7 +52,24 @@ def setup(
         max_seq_length=None,
     ),
     eval: EvalArgs = EvalArgs(interval=600, max_new_tokens=100, max_iters=100),
+    logger_name: Literal["wandb", "tensorboard", "csv"] = "csv",
+    seed: int = 1337,
 ) -> None:
+    """Finetune a model.
+
+    Arguments:
+        checkpoint_dir: The path to the base model's checkpoint directory to load for finetuning.
+        out_dir: Directory in which to save checkpoints and logs.
+        precision: The precision to use for finetuning. Possible choices: "bf16-true", "bf16-mixed", "32-true".
+        devices: How many devices/GPUs to use
+        resume: Path to a checkpoint directory to resume from in case training was interrupted, or ``True`` to resume
+            from the latest checkpoint in ``out_dir``.
+        data: Data-related arguments. If not provided, the default is ``litgpt.data.Alpaca``.
+        train: Training-related arguments. See ``litgpt.args.TrainArgs`` for details.
+        eval: Evaluation-related arguments. See ``litgpt.args.EvalArgs`` for details.
+        logger_name: The name of the logger to send metrics to.
+        seed: The random seed to use for reproducibility.
+    """
 
     pprint(locals())
     data = Alpaca() if data is None else data
