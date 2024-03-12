@@ -67,7 +67,7 @@ def main(
 ) -> None:
     check_valid_checkpoint_dir(checkpoint_dir)
 
-    config = Config.from_json(checkpoint_dir / "lit_config.json", adapter_start_layer=0)
+    config = Config.from_file(checkpoint_dir / "model_config.yaml", adapter_start_layer=0)
 
     checkpoint_path = checkpoint_dir / "lit_model.pth"
 

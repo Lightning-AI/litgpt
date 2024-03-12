@@ -43,7 +43,7 @@ def merge_lora(
     precision = precision if precision is not None else lora_precision
 
     fabric = L.Fabric(devices=1, precision=precision)
-    config = Config.from_json(checkpoint_dir / "lit_config.json", **lora_params)
+    config = Config.from_file(checkpoint_dir / "model_config.yaml", **lora_params)
 
     with fabric.init_module(empty_init=True):
         model = GPT(config)
