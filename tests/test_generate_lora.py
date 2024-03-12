@@ -1,6 +1,5 @@
 # Copyright Lightning AI. Licensed under the Apache License 2.0, see LICENSE file.
 
-import json
 import os
 import subprocess
 import sys
@@ -12,6 +11,7 @@ from unittest.mock import ANY, Mock, call
 
 import pytest
 import torch
+import yaml
 
 
 @mock.patch.dict(os.environ, {"LT_ACCELERATOR": "cpu"})

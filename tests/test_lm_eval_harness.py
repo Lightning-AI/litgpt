@@ -1,6 +1,5 @@
 # Copyright Lightning AI. Licensed under the Apache License 2.0, see LICENSE file.
 
-import json
 import subprocess
 import sys
 from pathlib import Path
@@ -8,6 +7,7 @@ from unittest.mock import ANY, Mock
 
 import datasets
 import pytest
+import yaml
 from lightning import Fabric
 
 
