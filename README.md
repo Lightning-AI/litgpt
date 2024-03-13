@@ -21,20 +21,27 @@
 ⚡ LitGPT is a hackable [implementation](litgpt/model.py) of state-of-the-art open-source large language models released under the **Apache 2.0 license**. It supports a large number of pretrained models. The three most recently added models are shown below:
 
 &nbsp;
+## LitGPT supports
 
-| Model                                                                                | Model size                               | Reference                                                                                                                    |
-|--------------------------------------------------------------------------------------|------------------------------------------|------------------------------------------------------------------------------------------------------------------------------|
-| [Gemma](tutorials/download_gemma.md) by Google                                       | 2B, 7B                                   | [Google Team, Google Deepmind](https://storage.googleapis.com/deepmind-media/gemma/gemma-report.pdf)                         |
-| [Mistral and Mixtral](tutorials/download_mistral.md) by Mistral AI                   | 7B                                       | [Mistral website](https://mistral.ai/)                                                                                       |
-| [Phi](tutorials/download_phi.md) by Microsoft Research                               | 1.3B, 2.7B                               | [Li et al. 2023](https://arxiv.org/abs/2309.05463)                                                                           |
+✅ &nbsp;[The latest model weights](tutorials/download_model_weights.md): Gemma, Mistral, Mixtral, Phi 2, Llama 2, Falcon, CodeLlama, and [many more](tutorials/download_model_weights.md).
 
+✅ &nbsp;Optimized and efficient code: Flash Attention v1 and Flash Attention v2, multi-GPU support via fully-sharded data parallelism, [optional CPU offloading](tutorials/oom.md#do-sharding-across-multiple-gpus), and [TPU and XLA support](./xla).
 
+✅ &nbsp;[Pretraining](tutorials/pretraining.md), [finetuning](tutorials/finetuning.md), and [inference](tutorials/inference.md) in various precision settings: FP32, FP16, BF16, and FP16/FP32 mixed.
 
-> [!NOTE] 
-> For a complete list of all supported models, please refer to the [Download Model Weights with LitGPT](tutorials/download_model_weights.md) tutorial.
+✅ &nbsp;[Configuration files](config_hub) for great out-of-the-box performance.
+
+✅ &nbsp;Efficient finetuning: [LoRA](tutorials/finetune_lora.md), [QLoRA](tutorials/finetune_lora.md), [Adapter](tutorials/finetune_adapter.md), and [Adapter v2](tutorials/finetune_adapter.md).
+
+✅ &nbsp;[Quantization](tutorials/quantize.md): 4-bit floats, 8-bit integers, and double quantization.
+
+✅ &nbsp;[Exporting](https://github.com/Lightning-AI/litgpt/blob/wip/tutorials/convert_lit_models.md) to other popular model weight formats.
+
+✅ &nbsp;Readable and easy-to-modify code to experiment with the latest research ideas.
+
 
 &nbsp;
-
+<br>
 &nbsp;
 
 ## Getting started in 3 steps
