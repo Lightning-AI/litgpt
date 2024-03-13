@@ -160,7 +160,6 @@ def test_num_parameters():
 
 @RunIf(min_cuda_gpus=1)
 @pytest.mark.parametrize("mode", ["nf4", "nf4-dq", "fp4", "fp4-dq", "int8", "int8-training"])
-@pytest.mark.skip("To be fixed")
 def test_num_parameters_bitsandbytes(mode):
     from lightning.fabric.plugins import BitsandbytesPrecision
 
