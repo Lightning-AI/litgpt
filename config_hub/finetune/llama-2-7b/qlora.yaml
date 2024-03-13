@@ -41,7 +41,7 @@ lora_mlp: false
 # Whether to apply LoRA to output head in GPT. (type: bool, default: False)
 lora_head: false
 
-# Data-related arguments. If not provided, the default is ``litgpt.data.Alpaca``. (type: Optional[LitDataModule], default: null, known subclasses: litgpt.data.LitDataModule, litgpt.data.Alpaca, litgpt.data.Alpaca2k, litgpt.data.AlpacaGPT4, litgpt.data.Dolly, litgpt.data.JSON, litgpt.data.Deita, litgpt.data.FLAN, litgpt.data.LIMA, litgpt.data.LongForm, litgpt.data.TinyLlama, litgpt.data.TinyStories, litgpt.data.OpenWebText)
+# Data-related arguments. If not provided, the default is ``litgpt.data.Alpaca``.
 data:
   class_path: litgpt.data.Alpaca2k
   init_args:
