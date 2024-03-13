@@ -18,7 +18,7 @@
 
 &nbsp;
 
-⚡ LitGPT is a hackable [implementation](litgpt/model.py) of state-of-the-art open-source large language models released under the **Apache 2.0 license**. It supports a large number of pretrained models. The three most recently added models are shown below:
+⚡ LitGPT is a hackable [implementation](litgpt/model.py) of state-of-the-art open-source large language models released under the **Apache 2.0 license**. 
 
 &nbsp;
 ## LitGPT supports
