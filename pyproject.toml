@@ -32,8 +32,7 @@ test = [
     "protobuf",
 ]
 all = [
-    "bitsandbytes==0.41.0",      # quantization
-    "scipy",                     # required by bitsandbytes
+    "bitsandbytes==0.42.0",      # quantization
     "sentencepiece",             # llama-based models
     "tokenizers",                # pythia, falcon, redpajama
     "datasets",                  # eval
