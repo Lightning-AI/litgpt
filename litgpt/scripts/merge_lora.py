@@ -42,7 +42,7 @@ def merge_lora(
     lora_params, pretrained_checkpoint_dir, lora_precision = load_lora_metadata(checkpoint_dir)
     precision = precision if precision is not None else lora_precision
 
-    fabric = L.Fabric(devices=1, precision=precision)
+    fabric = L.Fabric(devices=1, precision=precision, accelerator="cpu")
     config = Config.from_json(checkpoint_dir / "lit_config.json", **lora_params)
 
     with fabric.init_module(empty_init=True):
