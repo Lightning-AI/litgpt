@@ -3,13 +3,13 @@
 checkpoint_dir: checkpoints/meta-llama/Llama-2-7b-hf
 
 # Directory in which to save checkpoints and logs. (type: <class 'Path'>, default: out/lora)
-out_dir: out/finetune/lora-llama2-7b
+out_dir: out/finetune/qlora-llama2-7b
 
 # The precision to use for finetuning. Possible choices: "bf16-true", "bf16-mixed", "32-true". (type: Optional[str], default: null)
 precision: bf16-true
 
 # If set, quantize the model with this algorithm. See ``tutorials/quantize.md`` for more information. (type: Optional[Literal['nf4', 'nf4-dq', 'fp4', 'fp4-dq', 'int8-training']], default: null)
-quantize:
+quantize: bnb.nf4
 
 # How many devices/GPUs to use. (type: Union[int, str], default: 1)
 devices: 1
@@ -46,10 +46,12 @@ data:
   class_path: litgpt.data.Alpaca2k
   init_args:
     mask_prompt: false
+    val_split_fraction: 0.05
     prompt_style: alpaca
     ignore_index: -100
     seed: 42
     num_workers: 4
+    download_dir: data/alpaca2k
 
 # Training-related arguments. See ``litgpt.args.TrainArgs`` for details
 train:
@@ -75,13 +77,13 @@ train:
   # Total number of tokens to train on (type: Optional[int], default: null)
   max_tokens:
 
-  # Limits the number of optimizer steps to run. (type: Optional[int], default: null)
+  # Limits the number of optimizer steps to run (type: Optional[int], default: null)
   max_steps:
 
-  # Limits the length of samples. Off by default (type: Optional[int], default: null)
+  # Limits the length of samples (type: Optional[int], default: null)
   max_seq_length: 512
 
-  # Whether to tie the embedding weights with the language modeling head weights. (type: Optional[bool], default: null)
+  # Whether to tie the embedding weights with the language modeling head weights (type: Optional[bool], default: null)
   tie_embeddings:
 
   #   (type: float, default: 0.0003)
