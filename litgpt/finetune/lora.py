@@ -20,6 +20,7 @@ from litgpt.data import LitDataModule, Alpaca
 from litgpt.generate.base import generate
 from litgpt.lora import GPT, Block, Config, lora_filter, mark_only_lora_as_trainable
 from litgpt.prompts import save_prompt_style
+from litgpt.scripts.merge_lora import merge_lora
 from litgpt.tokenizer import Tokenizer
 from litgpt.utils import (
     CLI,
@@ -192,6 +193,7 @@ def main(fabric: L.Fabric, devices: int, seed: int, config: Config, data: LitDat
         copy_config_files(checkpoint_dir, save_path.parent)
         save_hyperparameters(setup, save_path.parent)
         save_prompt_style(data.prompt_style, save_path.parent)
+        merge_lora(checkpoint_dir=save_path.parent)
 
 
 def fit(
