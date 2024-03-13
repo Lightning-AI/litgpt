@@ -17,10 +17,9 @@ resume: false
 
 # Data-related arguments. If not provided, the default is ``litgpt.data.Alpaca``.
 data:
-  class_path: litgpt.data.AlpacaGPT4
+  class_path: litgpt.data.Alpaca2k
   init_args:
     mask_prompt: false
-    val_split_fraction: 0.03847
     prompt_style: alpaca
     ignore_index: -100
     seed: 42
@@ -45,7 +44,7 @@ train:
   lr_warmup_steps: 25
 
   # Number of epochs to train on (type: Optional[int], default: 5)
-  epochs: 1
+  epochs: 4
 
   # Total number of tokens to train on (type: Optional[int], default: null)
   max_tokens:
