@@ -148,6 +148,7 @@ def main(
         if "mixed" in precision:
             raise ValueError("Quantization and mixed precision is not supported.")
         dtype = {"16-true": torch.float16, "bf16-true": torch.bfloat16, "32-true": torch.float32}[precision]
+        logging.getLogger("lightning.fabric.plugins.precision.bitsandbytes").setLevel(logging.DEBUG)
         plugins = BitsandbytesPrecision(quantize[4:], dtype)
         precision = None
 
@@ -158,7 +159,7 @@ def main(
 
     check_valid_checkpoint_dir(checkpoint_dir)
 
-    config = Config.from_json(checkpoint_dir / "lit_config.json")
+    config = Config.from_file(checkpoint_dir / "model_config.yaml")
 
     checkpoint_path = checkpoint_dir / "lit_model.pth"
 
@@ -221,7 +222,5 @@ def main(
 
 if __name__ == "__main__":
     torch.set_float32_matmul_precision("high")
-
-    logging.getLogger("lightning.fabric.plugins.precision.bitsandbytes").setLevel(logging.DEBUG)
 
     CLI(main)

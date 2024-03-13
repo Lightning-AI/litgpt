@@ -38,13 +38,9 @@ from litgpt.utils import (
 def setup(
     model_name: Optional[str] = None,
     model_config: Optional[Config] = None,
-    resume: Union[bool, Path] = False,
-    devices: Union[int, str] = "auto",
-    seed: int = 42,
-    data: Optional[LitDataModule] = None,
     out_dir: Path = Path("out/pretrain"),
-    tokenizer_dir: Optional[Path] = None,
-    logger_name: Literal["wandb", "tensorboard", "csv"] = "tensorboard",
+    resume: Union[bool, Path] = False,
+    data: Optional[LitDataModule] = None,
     train: TrainArgs = TrainArgs(
         save_interval=1000,
         log_interval=1,
@@ -61,7 +57,31 @@ def setup(
         tie_embeddings=False,
     ),
     eval: EvalArgs = EvalArgs(interval=1000, max_iters=100),
+    devices: Union[int, str] = "auto",
+    tokenizer_dir: Optional[Path] = None,
+    logger_name: Literal["wandb", "tensorboard", "csv"] = "tensorboard",
+    seed: int = 42,
 ):
+    """Pretrain a model.
+
+    Arguments:
+        model_name: The name of the model to pretrain. Choose from names in ``litgpt.config``. Mutually exclusive with
+            ``model_config``.
+        model_config: A ``litgpt.Config`` object to define the model architecture. Mutually exclusive with
+            ``model_config``.
+        out_dir: Directory in which to save checkpoints and logs. If running in a Lightning Studio Job, look for it in
+            /teamspace/jobs/<job-name>/share.
+        resume: Path to a checkpoint directory to resume from in case training was interrupted, or ``True`` to resume
+            from the latest checkpoint in ``out_dir``.
+        data: Data-related arguments. If not provided, the default is ``litgpt.data.TinyLlama``.
+        train: Training-related arguments. See ``litgpt.args.TrainArgs`` for details.
+        eval: Evaluation-related arguments. See ``litgpt.args.EvalArgs`` for details.
+        devices: How many devices/GPUs to use. Uses all GPUs by default.
+        tokenizer_dir: Optional path to the tokenizer dir that was used for preprocessing the dataset. Only some data
+            module require this.
+        logger_name: The name of the logger to send metrics to.
+        seed: The random seed to use for reproducibility.
+    """
     hparams = locals()
     data = TinyLlama() if data is None else data
     if model_config is not None and model_name is not None:
@@ -196,6 +216,7 @@ def fit(
     )
     fabric.barrier()
     total_t0 = time.perf_counter()
+    val_loss = "n/a"
 
     warmup_iters = train.lr_warmup_steps * train.gradient_accumulation_iters(devices)
     for train_data in train_iterator:
@@ -252,10 +273,14 @@ def fit(
                 ),
                 "learning_rate": lr,
             }
-
+            if isinstance(val_loss, float):
+                val_loss = f"{val_loss:.3f}"
             fabric.print(
-                f"iter {metrics['iter']} | step {metrics['step']}: loss {metrics['loss']:.4f}, iter time:"
-                f" {metrics['iter_time'] * 1000:.2f} ms{' (optimizer.step),' if not is_accumulating else ','}"
+                f"Epoch {metrics['epoch']+1} | iter {metrics['iter']} step {metrics['step']} |"
+                f" loss train: {metrics['loss']:.3f},"
+                f" val: {val_loss} |"
+                f" iter time: {metrics['iter_time'] * 1000:.2f} ms"
+                f"{' (step)' if not is_accumulating else ''}"
                 f" remaining time: {timedelta(seconds=int(metrics['remaining_time']))!s}"
             )
 

@@ -36,15 +36,14 @@ def main(
     lora_mlp: bool = False,
     lora_head: bool = False,
 ) -> None:
-    """Generates a response based on a given instruction and an optional input.
-    This script will only work with checkpoints from the instruction-tuned GPT-LoRA model.
-    See `litgpt/finetune/lora.py`.
+    """Generates a response based on a given instruction and an optional input. This script will only work with
+    checkpoints from the instruction-tuned LoRA model. See ``litgpt.finetune.lora``.
 
     Args:
         prompt: The prompt/instruction (Alpaca style).
         input: Optional input (Alpaca style).
         lora_path: Path to the checkpoint with trained adapter weights, which are the output of
-            `litgpt/finetune/lora.py`.
+            ``litgpt.finetune.lora``.
         checkpoint_dir: The path to the checkpoint folder with pretrained GPT weights.
         quantize: Whether to quantize the model and using which method:
             - bnb.nf4, bnb.nf4-dq, bnb.fp4, bnb.fp4-dq: 4-bit quantization from bitsandbytes
@@ -71,8 +70,8 @@ def main(
 
     check_valid_checkpoint_dir(checkpoint_dir)
 
-    config = Config.from_json(
-        checkpoint_dir / "lit_config.json",
+    config = Config.from_file(
+        checkpoint_dir / "model_config.yaml",
         lora_r=lora_r,
         lora_alpha=lora_alpha,
         lora_dropout=lora_dropout,

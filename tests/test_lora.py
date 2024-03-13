@@ -220,16 +220,16 @@ def test_lora_script(tmp_path, fake_checkpoint_dir, monkeypatch, alpaca_path):
     for checkpoint_dir in checkpoint_dirs:
         assert {p.name for p in (out_dir / checkpoint_dir).iterdir()} == {
             "lit_model.pth.lora",
-            "lit_config.json",
+            "model_config.yaml",
             "tokenizer_config.json",
             "tokenizer.json",
             "hyperparameters.yaml",
-            "prompt_style.json",
+            "prompt_style.yaml",
         }
     assert (out_dir / "logs" / "csv" / "version_0" / "metrics.csv").is_file()
 
     logs = stdout.getvalue()
-    assert logs.count("optimizer.step") == 6
+    assert logs.count("(step)") == 6
     assert logs.count("val loss") == 3
     assert "of trainable parameters: 512" in logs
 
@@ -689,8 +689,8 @@ def test_lora_bitsandbytes(monkeypatch, tmp_path, fake_checkpoint_dir, alpaca_pa
         },
     }
 
-    assert {p.name for p in tmp_path.rglob("*.pth")} == {"lit_model.pth"}
-    state_dict = torch.load(tmp_path / "final" / "lit_model.pth")
+    assert {p.name for p in tmp_path.rglob("*.lora")} == {"lit_model.pth.lora"}
+    state_dict = torch.load(tmp_path / "final" / "lit_model.pth.lora")
     assert len(state_dict) == 1
     dtype_to_name = {"torch.float16": set()}
     for name, layer in state_dict["model"].items():

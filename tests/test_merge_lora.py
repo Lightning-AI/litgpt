@@ -30,8 +30,8 @@ def test_merge_lora(tmp_path, fake_checkpoint_dir):
 
     # Create a fake pretrained checkpoint
     config = dict(block_size=128, padded_vocab_size=256, n_layer=3, n_head=8, n_embd=16)
-    with open(pretrained_checkpoint_dir / "lit_config.json", "w") as fp:
-        json.dump(config, fp)
+    with open(pretrained_checkpoint_dir / "model_config.yaml", "w") as fp:
+        yaml.dump(config, fp)
     base_model = GPT.from_name("pythia-14m", **config)
     state_dict = base_model.state_dict()
     assert len(state_dict) == 40
@@ -46,13 +46,13 @@ def test_merge_lora(tmp_path, fake_checkpoint_dir):
     hparams = dict(checkpoint_dir=str(pretrained_checkpoint_dir), **lora_kwargs)
     with open(lora_checkpoint_dir / "hyperparameters.yaml", "w") as file:
         yaml.dump(hparams, file)
-    shutil.copyfile(pretrained_checkpoint_dir / "lit_config.json", lora_checkpoint_dir / "lit_config.json")
+    shutil.copyfile(pretrained_checkpoint_dir / "model_config.yaml", lora_checkpoint_dir / "model_config.yaml")
 
     assert set(os.listdir(tmp_path)) == {"lora", "pretrained"}
     merge_lora(lora_checkpoint_dir)
     assert set(os.listdir(tmp_path)) == {"lora", "pretrained"}
     assert set(os.listdir(lora_checkpoint_dir)) == {
-        "lit_config.json",
+        "model_config.yaml",
         "lit_model.pth",
         "lit_model.pth.lora",
         "tokenizer.json",

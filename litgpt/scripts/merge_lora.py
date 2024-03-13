@@ -17,20 +17,20 @@ def merge_lora(
     pretrained_checkpoint_dir: Optional[Path] = None,
     precision: Optional[str] = None,
 ) -> None:
-    """Merges the LoRA weights with the base model. See `litgpt/finetune/lora.py`.
+    """Merges the LoRA weights with the base model. See ``litgpt finetune lora``.
 
-    Creates a new `lit_model.pth` file by merging the LoRA weights (`lit_model.pth.lora`)
+    Creates a new ``lit_model.pth`` file by merging the LoRA weights (``lit_model.pth.lora``)
     with the original checkpoint weights.
 
     Args:
         checkpoint_dir: Path to the checkpoint directory with trained LoRA weights, which is the output of
-            `litgpt/finetune/lora.py`.
+            ``litgpt finetune --method lora``.
         pretrained_checkpoint_dir: Optional path to the checkpoint directory with the weights of the base model
             corresponding to the LoRA checkpoint. By default, this will automatically be inferred from the metadata
-            in the given `checkpoint_dir` directory. Only set this if the base model checkpoint directory
+            in the given `checkpoint_dir` directory. Only set this if the base model's checkpoint directory
             has moved or was renamed.
         precision: Optional precision setting to instantiate the model weights in. By default, this will
-            automatically be inferred from the metadata in the given `checkpoint_dir` directory.
+            automatically be inferred from the metadata in the given ``checkpoint_dir`` directory.
     """
     check_valid_checkpoint_dir(checkpoint_dir, lora=True)
     if pretrained_checkpoint_dir is not None:
@@ -43,7 +43,7 @@ def merge_lora(
     precision = precision if precision is not None else lora_precision
 
     fabric = L.Fabric(devices=1, precision=precision, accelerator="cpu")
-    config = Config.from_json(checkpoint_dir / "lit_config.json", **lora_params)
+    config = Config.from_file(checkpoint_dir / "model_config.yaml", **lora_params)
 
     with fabric.init_module(empty_init=True):
         model = GPT(config)

@@ -1,6 +1,5 @@
 # Copyright Lightning AI. Licensed under the Apache License 2.0, see LICENSE file.
 
-import json
 import subprocess
 import sys
 from contextlib import redirect_stderr, redirect_stdout
@@ -11,6 +10,7 @@ from unittest.mock import ANY, MagicMock, Mock, call, patch
 
 import pytest
 import torch
+import yaml
 
 
 @pytest.mark.parametrize(
@@ -86,9 +86,9 @@ def test_main(mocked_input, stop_iteration, fake_checkpoint_dir, monkeypatch, te
     # these values will be iteratively provided for each `input()` call
     mocked_input.side_effect = ["Hello", stop_iteration]
 
-    config_path = fake_checkpoint_dir / "lit_config.json"
+    config_path = fake_checkpoint_dir / "model_config.yaml"
     config = {"block_size": 128, "vocab_size": 50, "n_layer": 2, "n_head": 4, "n_embd": 8, "rotary_percentage": 1}
-    config_path.write_text(json.dumps(config))
+    config_path.write_text(yaml.dump(config))
 
     load_mock = Mock()
     load_mock.return_value = load_mock
@@ -118,8 +118,13 @@ def test_main(mocked_input, stop_iteration, fake_checkpoint_dir, monkeypatch, te
     assert "'padded_vocab_size': 512, 'n_layer': 2, 'n_head': 4" in err.getvalue()
 
 
-def test_cli():
-    cli_path = Path(__file__).parent.parent / "litgpt/chat/base.py"
-    output = subprocess.check_output([sys.executable, cli_path, "-h"])
+@pytest.mark.parametrize("mode", ["file", "entrypoint"])
+def test_cli(mode):
+    if mode == "file":
+        cli_path = Path(__file__).parent.parent / "litgpt/chat/base.py"
+        args = [sys.executable, cli_path, "-h"]
+    else:
+        args = ["litgpt", "chat", "-h"]
+    output = subprocess.check_output(args)
     output = str(output.decode())
     assert "Starts a conversation" in output

@@ -90,16 +90,16 @@ def test_adapter_script(tmp_path, fake_checkpoint_dir, monkeypatch, alpaca_path)
     for checkpoint_dir in checkpoint_dirs:
         assert {p.name for p in (out_dir / checkpoint_dir).iterdir()} == {
             "lit_model.pth",
-            "lit_config.json",
+            "model_config.yaml",
             "tokenizer_config.json",
             "tokenizer.json",
             "hyperparameters.yaml",
-            "prompt_style.json",
+            "prompt_style.yaml",
         }
     assert (out_dir / "version_0" / "metrics.csv").is_file()
 
     logs = stdout.getvalue()
-    assert logs.count("optimizer.step") == 6
+    assert logs.count("(step)") == 6
     assert logs.count("val loss") == 3
     assert "of trainable parameters: 168" in logs
 

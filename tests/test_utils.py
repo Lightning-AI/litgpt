@@ -43,11 +43,11 @@ def test_check_valid_checkpoint_dir(tmp_path):
         check_valid_checkpoint_dir(tmp_path)
     out = out.getvalue().strip()
     expected = f"""
---checkpoint_dir '{str(tmp_path.absolute())}' is missing the files: ['lit_model.pth', 'lit_config.json', 'tokenizer.json OR tokenizer.model', 'tokenizer_config.json'].
+--checkpoint_dir '{str(tmp_path.absolute())}' is missing the files: ['lit_model.pth', 'model_config.yaml', 'tokenizer.json OR tokenizer.model', 'tokenizer_config.json'].
 Find download instructions at https://github.com/Lightning-AI/litgpt/blob/main/tutorials
 
 See all download options by running:
- python litgpt/scripts/download.py
+ litgpt download
     """.strip()
     assert out == expected
 
@@ -61,7 +61,7 @@ See all download options by running:
 Find download instructions at https://github.com/Lightning-AI/litgpt/blob/main/tutorials
 
 See all download options by running:
- python litgpt/scripts/download.py
+ litgpt download
     """.strip()
     assert out == expected
 
@@ -79,7 +79,7 @@ You have downloaded locally:
  --checkpoint_dir '{str(checkpoint_dir.absolute())}'
 
 See all download options by running:
- python litgpt/scripts/download.py
+ litgpt download
     """.strip()
     assert out == expected
 
@@ -223,7 +223,7 @@ def test_copy_config_files(fake_checkpoint_dir, tmp_path):
 
     copy_config_files(fake_checkpoint_dir, tmp_path)
     expected = {
-        "lit_config.json",
+        "model_config.yaml",
         "tokenizer_config.json",
         "tokenizer.json",
     }
@@ -242,6 +242,32 @@ def test_save_hyperparameters(tmp_path):
 
     with mock.patch("sys.argv", ["any.py", "--out_dir", str(tmp_path), "--foo", "True"]):
         CLI(_test_function)
+
+    with open(tmp_path / "hyperparameters.yaml", "r") as file:
+        hparams = yaml.full_load(file)
+
+    assert hparams["out_dir"] == str(tmp_path)
+    assert hparams["foo"] is True
+    assert hparams["bar"] == 1
+
+
+def _test_function2(out_dir: Path, foo: bool = False, bar: int = 1):
+    assert False, "I only exist as a signature, but I should not run."
+
+
+@pytest.mark.parametrize("command", [
+    "any.py",
+    "litgpt finetune full",
+    "litgpt finetune lora",
+    "litgpt finetune adapter",
+    "litgpt finetune adapter_v2",
+    "litgpt pretrain",
+])
+def test_save_hyperparameters_known_commands(command, tmp_path):
+    from litgpt.utils import save_hyperparameters
+
+    with mock.patch("sys.argv", [*command.split(" "), "--out_dir", str(tmp_path), "--foo", "True"]):
+        save_hyperparameters(_test_function2, tmp_path)
 
     with open(tmp_path / "hyperparameters.yaml", "r") as file:
         hparams = yaml.full_load(file)
