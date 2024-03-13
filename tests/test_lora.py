@@ -190,6 +190,7 @@ def test_lora_script(tmp_path, fake_checkpoint_dir, monkeypatch, alpaca_path):
     model_config = dict(block_size=128, n_layer=2, n_embd=8, n_head=4, padded_vocab_size=8)
     monkeypatch.setitem(name_to_config, "tmp", model_config)
     monkeypatch.setattr(module, "load_checkpoint", Mock())
+    monkeypatch.setattr(module, "merge_lora", Mock())
 
     tokenizer_mock = Mock()
     tokenizer_mock.return_value = tokenizer_mock
