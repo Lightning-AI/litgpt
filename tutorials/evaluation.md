@@ -4,12 +4,12 @@
 
 ## Using lm-evaluation-harness
 
-You can evaluate LitGPT using [EleutherAI's lm-eval](https://github.com/EleutherAI/lm-evaluation-harness/tree/master) framework with a large number of different evaluation tasks.
+You can evaluate LitGPT using [EleutherAI's lm-eval](https://github.com/EleutherAI/lm-evaluation-harness) framework with a large number of different evaluation tasks.
 
 You need to install the `lm-eval` framework first:
 
 ```bash
-pip install https://github.com/EleutherAI/lm-evaluation-harness/archive/refs/heads/master.zip -U
+pip install 'lm_eval @ git+https://github.com/EleutherAI/lm-evaluation-harness.git@115206dc89dad67b8b'
 ```
 
 &nbsp;
