@@ -194,7 +194,6 @@ def main(fabric: L.Fabric, devices: int, seed: int, config: Config, data: LitDat
         save_hyperparameters(setup, save_path.parent)
         save_prompt_style(data.prompt_style, save_path.parent)
         merge_lora(checkpoint_dir=save_path.parent)
-    fabric.barrier()
 
 
 def fit(
