@@ -139,7 +139,7 @@ def main(
 
     # Merge if this is a raw LoRA checkpoint
     if (checkpoint_path / "lit_model.pth.lora").is_file() and not checkpoint_path.is_file():
-        print("Merging LoRA weights with the base model. This won't take long.")
+        print("Merging LoRA weights with the base model. This won't take long and is a one-time-only thing.")
         merge_lora(checkpoint_path)
 
     fabric.print(f"Loading model {str(checkpoint_path)!r} with {config.__dict__}", file=sys.stderr)
