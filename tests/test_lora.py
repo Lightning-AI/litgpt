@@ -623,6 +623,7 @@ def test_lora_bitsandbytes(monkeypatch, tmp_path, fake_checkpoint_dir, alpaca_pa
     monkeypatch.setattr(module, "Tokenizer", tokenizer_mock)
 
     monkeypatch.setattr(module, "load_checkpoint", Mock())
+    monkeypatch.setattr(module, "merge_lora", Mock())
     train_mock = Mock()
     monkeypatch.setattr(module, "fit", train_mock)
 
