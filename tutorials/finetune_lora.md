@@ -124,12 +124,13 @@ You can easily train on your own instruction dataset saved in JSON format.
 
 Finetuning a model with LoRA generates a `lit_model.pth.lora` file.
 This file exclusively contains the LoRA weights, which are much smaller than the original model checkpoint to conserve storage space.
-If desired, there is the option to merge these LoRA weights manually into the original model's checkpoint, which creates a full `lit_model.pth` checkpoint.
-The advantage of this merging process is to streamline inference operations, as it eliminates the need to dynamically incorporate the LoRA weights during runtime, which can improve inference speed.
 
 > [!NOTE]
 > LitGPT will automatically merge the checkpoint for you if you use it in any of the inference commands, such as `litgpt generate` or `litgpt chat`.
 > Manual merging is only necessary if you want to use the checkpoint outside LitGPT.
+
+If desired, there is the option to merge these LoRA weights manually into the original model's checkpoint, which creates a full `lit_model.pth` checkpoint.
+The advantage of this merging process is to streamline inference operations, as it eliminates the need to dynamically incorporate the LoRA weights during runtime, which can improve inference speed.
 
 For example, after finetuning produced a checkpoint folder `out/lora/step-002000`, merge it as follows:
 
