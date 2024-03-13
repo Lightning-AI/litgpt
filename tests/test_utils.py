@@ -251,6 +251,10 @@ def test_save_hyperparameters(tmp_path):
     assert hparams["bar"] == 1
 
 
+def _test_function2(out_dir: Path, foo: bool = False, bar: int = 1):
+    assert False, "I only exist as a signature, but I should not run."
+
+
 @pytest.mark.parametrize("command", [
     "any.py",
     "litgpt finetune full",
@@ -263,7 +267,7 @@ def test_save_hyperparameters_known_commands(command, tmp_path):
     from litgpt.utils import save_hyperparameters
 
     with mock.patch("sys.argv", [*command.split(" "), "--out_dir", str(tmp_path), "--foo", "True"]):
-        save_hyperparameters(_test_function, tmp_path)
+        save_hyperparameters(_test_function2, tmp_path)
 
     with open(tmp_path / "hyperparameters.yaml", "r") as file:
         hparams = yaml.full_load(file)
