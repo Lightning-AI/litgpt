@@ -37,7 +37,24 @@
 
 ✅ &nbsp;[Exporting](https://github.com/Lightning-AI/litgpt/blob/wip/tutorials/convert_lit_models.md) to other popular model weight formats.
 
+✅ &nbsp;Many popular datasets for [pretraining](tutorials/pretrain_tinyllama.md) and [finetuning](tutorials/prepare_dataset.md), and [support for custom datasets](tutorials/prepare_dataset.md#preparing-custom-datasets-for-instruction-finetuning).
+
 ✅ &nbsp;Readable and easy-to-modify code to experiment with the latest research ideas.
+
+
+&nbsp;
+<br>
+&nbsp;
+
+## Project templates
+
+The following [Lightning Studio](https://lightning.ai/lightning-ai/studios) templates provide LitGPT tutorials and projects in reproducible environments with multi-GPU and multi-node support:
+
+| [Continued Pretraining with TinyLlama 1.1B](https://lightning.ai/lightning-ai/studios/continued-pretraining-with-tinyllama-1-1b) <br> [<img src="https://grid-cloud-litng-ai-03.s3.amazonaws.com/projects/01h5rahq6gbhw5m4bzyws0at5h/cloudspaces/01hq0v57k4zeswpcx1nwaj9ck9/thumbnails/image.jpeg?X-Amz-Algorithm=AWS4-HMAC-SHA256&X-Amz-Credential=ASIA24LZGPJHU3I6BDPF%2F20240313%2Fus-east-1%2Fs3%2Faws4_request&X-Amz-Date=20240313T141203Z&X-Amz-Expires=3600&X-Amz-Security-Token=FwoGZXIvYXdzEGgaDEkXJ7sroCiJUMpjHCLDATYRVfka8dfeXYhLHqWcO89RaRT4l1oAXcG2QOOhFQepPb80CWILvo2L52hgr1rnG0gwWb9PB9aPcUHZVLxwwoybMTo5dN0qv7ukYpViYqKLOuthMf8KAE1xDnyHgCFprcLwGHexExH3zA1YPi8zzTonB7xkYf0MUqNqi44C9xAmRLGdofZFkR0Rg5l40lvIgU6fHCt7Gg8xWEQEQqnSoLjsDe5GfjpVatNdHFN2aNXWDO5Vcl7LF7FjSokaRI4hJXOwgCiz6MavBjIthd0ZFxiDIGHrwRN6KldDSlW5jPjdZ8QNAXrnfBxfH7iinDDP6RKhfUcu38uc&X-Amz-SignedHeaders=host&X-Amz-Signature=12a28a4a2c58de74682e91b41a5c76cb6760a6a67917f6133848948ab58d0784" width="300">](https://lightning.ai/lightning-ai/studios/continued-pretraining-with-tinyllama-1-1b) | [Instruction finetuning - TinyLlama 1.1B LLM](https://lightning.ai/lightning-ai/studios/instruction-finetuning-tinyllama-1-1b-llm) <br> [<img src="https://grid-cloud-litng-ai-03.s3.amazonaws.com/projects/01h5rahq6gbhw5m4bzyws0at5h/cloudspaces/01hn2ym8r666m28me70cwmfkg1/thumbnails/image.jpeg?X-Amz-Algorithm=AWS4-HMAC-SHA256&X-Amz-Credential=ASIA24LZGPJHU3I6BDPF%2F20240313%2Fus-east-1%2Fs3%2Faws4_request&X-Amz-Date=20240313T141221Z&X-Amz-Expires=3600&X-Amz-Security-Token=FwoGZXIvYXdzEGgaDEkXJ7sroCiJUMpjHCLDATYRVfka8dfeXYhLHqWcO89RaRT4l1oAXcG2QOOhFQepPb80CWILvo2L52hgr1rnG0gwWb9PB9aPcUHZVLxwwoybMTo5dN0qv7ukYpViYqKLOuthMf8KAE1xDnyHgCFprcLwGHexExH3zA1YPi8zzTonB7xkYf0MUqNqi44C9xAmRLGdofZFkR0Rg5l40lvIgU6fHCt7Gg8xWEQEQqnSoLjsDe5GfjpVatNdHFN2aNXWDO5Vcl7LF7FjSokaRI4hJXOwgCiz6MavBjIthd0ZFxiDIGHrwRN6KldDSlW5jPjdZ8QNAXrnfBxfH7iinDDP6RKhfUcu38uc&X-Amz-SignedHeaders=host&X-Amz-Signature=7eec37bb522a47a1f55e8e99cbd05087ba351fc2b6fd8c014b049ef7c5d9b9dd" width="300">](https://lightning.ai/lightning-ai/studios/instruction-finetuning-tinyllama-1-1b-llm) |
+| ------------------------------------------------------------ | ------------------------------------------------------------ |
+| [Prepare the TinyLlama 1T token dataset](https://lightning.ai/lightning-ai/studios/prepare-the-tinyllama-1t-token-dataset) <br> [<img src="https://grid-cloud-litng-ai-03.s3.amazonaws.com/projects/01hg0zg8fyybp7p1sma6g9dkzm/cloudspaces/01hme55ecwaa960f1taz10swyf/thumbnails/image.png?X-Amz-Algorithm=AWS4-HMAC-SHA256&X-Amz-Credential=ASIA24LZGPJH3IOB3MP2%2F20240313%2Fus-east-1%2Fs3%2Faws4_request&X-Amz-Date=20240313T141228Z&X-Amz-Expires=3600&X-Amz-Security-Token=FwoGZXIvYXdzEGgaDKbEYqVo4gIjFcagHCLDAcW0y5rBD5EWYZ0Agb9R%2B04LO4aJEphNPCvEnwDcudEA3H%2FhKY47s1tkq0M1JeZEv6vBu2PrzHRt8fyZMcGOcP0HKfekjlI90HmJXwbNryILmA%2BrXIw0LC%2FJ6iE4Xa1um1Lm1ULxiS0MZnIyW8%2FN4mhRqXEBaq%2BjJFdE%2BV1v83XhztVr%2BGsZsjvjlAmid39KOuzZdEFbDuoi0cg5MK4NsBaA3wWJnsoZpFZc3EJHuPDowLGX1rXOj01Astu5P7vII41Hpii66MavBjItxSxO8rTjiPjg4%2FM4Q3mUZarMZZA8PMzIPX3xEO2qDu3GYabFrdG3loEeWwqT&X-Amz-SignedHeaders=host&X-Amz-Signature=90102f3cc85158c72e90092430822dbd0c73496b849dabf7a18206ca49edb7a1" width="300">](https://lightning.ai/lightning-ai/studios/prepare-the-tinyllama-1t-token-dataset) | [Pretrain LLMs - TinyLlama 1.1B](https://lightning.ai/lightning-ai/studios/pretrain-llms-tinyllama-1-1b) <br> [<img src="https://grid-cloud-litng-ai-03.s3.amazonaws.com/projects/01h6ra4cyxjj75f2g2wwkx19gv/cloudspaces/01hkmc5x1zy6pdn1jde5vc4g1c/thumbnails/image.jpeg?X-Amz-Algorithm=AWS4-HMAC-SHA256&X-Amz-Credential=ASIA24LZGPJH3X7JZNH7%2F20240313%2Fus-east-1%2Fs3%2Faws4_request&X-Amz-Date=20240313T141231Z&X-Amz-Expires=3600&X-Amz-Security-Token=FwoGZXIvYXdzEGgaDOO7wp1vKOj5j8WlQiLDAasfBtpnkKf1ewczzKbHlFBOUuL9EdpRK35HHAGXHxJr49Dn%2FQSFamQSFe8TfFf1qI66vv6gzAYz2zQyp%2F7JtXsnVhaA0I38RTv7RbOnlEd84EYZLgLjhhLT1QAgtnlj5GyK4MJpRbI2po%2F4ikPcBLOK3Fo7%2Bp2j7sShg%2FPW%2FzwW0guLcSULwZX2DqcED0nEEAbglXNCFzyJflDO%2FOJ6MYxotKP4UjYVjPuoXcY33%2FD%2BFTE7ZdIB%2FShgFqbHN8MHXCuQIiim6MavBjItouSoiQXrr%2FK%2BvP19AtWpahjmYc872rikZULCPSieTgPRtzwmf1DmQ0bFdKh1&X-Amz-SignedHeaders=host&X-Amz-Signature=ce69f7c68d41cd28bb270a7d06d7e3581d08da5e3e6228f439a45eb61e66d35b" width="300">](https://lightning.ai/lightning-ai/studios/pretrain-llms-tinyllama-1-1b) |
+
+
 
 
 &nbsp;
@@ -105,6 +122,137 @@ You can browse the available configuration files [here](https://github.com/Light
 
 &nbsp;
 <br>
+&nbsp;
+
+## Customization
+
+LitGPT supports rich and customizeable [config files](config_hub) to tailor the LLM training to your dataset and hardware needs. Shown below is a configuration file for LoRA finetuning:
+
+```yaml
+# The path to the base model's checkpoint directory to load for finetuning. (type: <class 'Path'>, default: checkpoints/stabilityai/stablelm-base-alpha-3b)
+checkpoint_dir: checkpoints/meta-llama/Llama-2-7b-hf
+
+# Directory in which to save checkpoints and logs. (type: <class 'Path'>, default: out/lora)
+out_dir: out/finetune/qlora-llama2-7b
+
+# The precision to use for finetuning. Possible choices: "bf16-true", "bf16-mixed", "32-true". (type: Optional[str], default: null)
+precision: bf16-true
+
+# If set, quantize the model with this algorithm. See ``tutorials/quantize.md`` for more information. (type: Optional[Literal['nf4', 'nf4-dq', 'fp4', 'fp4-dq', 'int8-training']], default: null)
+quantize: bnb.nf4
+
+# How many devices/GPUs to use. (type: Union[int, str], default: 1)
+devices: 1
+
+# The LoRA rank. (type: int, default: 8)
+lora_r: 32
+
+# The LoRA alpha. (type: int, default: 16)
+lora_alpha: 16
+
+# The LoRA dropout value. (type: float, default: 0.05)
+lora_dropout: 0.05
+
+# Whether to apply LoRA to the query weights in attention. (type: bool, default: True)
+lora_query: true
+
+# Whether to apply LoRA to the key weights in attention. (type: bool, default: False)
+lora_key: false
+
+# Whether to apply LoRA to the value weights in attention. (type: bool, default: True)
+lora_value: true
+
+# Whether to apply LoRA to the output projection in the attention block. (type: bool, default: False)
+lora_projection: false
+
+# Whether to apply LoRA to the weights of the MLP in the attention block. (type: bool, default: False)
+lora_mlp: false
+
+# Whether to apply LoRA to output head in GPT. (type: bool, default: False)
+lora_head: false
+
+# Data-related arguments. If not provided, the default is ``litgpt.data.Alpaca``.
+data:
+  class_path: litgpt.data.Alpaca2k
+  init_args:
+    mask_prompt: false
+    val_split_fraction: 0.05
+    prompt_style: alpaca
+    ignore_index: -100
+    seed: 42
+    num_workers: 4
+    download_dir: data/alpaca2k
+
+# Training-related arguments. See ``litgpt.args.TrainArgs`` for details
+train:
+
+  # Number of optimizer steps between saving checkpoints (type: Optional[int], default: 1000)
+  save_interval: 200
+
+  # Number of iterations between logging calls (type: int, default: 1)
+  log_interval: 1
+
+  # Number of samples between optimizer steps across data-parallel ranks (type: int, default: 128)
+  global_batch_size: 8
+
+  # Number of samples per data-parallel rank (type: int, default: 4)
+  micro_batch_size: 2
+
+  # Number of iterations with learning rate warmup active (type: int, default: 100)
+  lr_warmup_steps: 10
+
+  # Number of epochs to train on (type: Optional[int], default: 5)
+  epochs: 4
+
+  # Total number of tokens to train on (type: Optional[int], default: null)
+  max_tokens:
+
+  # Limits the number of optimizer steps to run (type: Optional[int], default: null)
+  max_steps:
+
+  # Limits the length of samples (type: Optional[int], default: null)
+  max_seq_length: 512
+
+  # Whether to tie the embedding weights with the language modeling head weights (type: Optional[bool], default: null)
+  tie_embeddings:
+
+  #   (type: float, default: 0.0003)
+  learning_rate: 0.0002
+
+  #   (type: float, default: 0.02)
+  weight_decay: 0.0
+
+  #   (type: float, default: 0.9)
+  beta1: 0.9
+
+  #   (type: float, default: 0.95)
+  beta2: 0.95
+
+  #   (type: Optional[float], default: null)
+  max_norm:
+
+  #   (type: float, default: 6e-05)
+  min_lr: 6.0e-05
+
+# Evaluation-related arguments. See ``litgpt.args.EvalArgs`` for details
+eval:
+
+  # Number of optimizer steps between evaluation calls (type: int, default: 100)
+  interval: 100
+
+  # Number of tokens to generate (type: Optional[int], default: 100)
+  max_new_tokens: 100
+
+  # Number of iterations (type: int, default: 100)
+  max_iters: 100
+
+# The name of the logger to send metrics to. (type: Literal['wandb', 'tensorboard', 'csv'], default: csv)
+logger_name: csv
+
+# The random seed to use for reproducibility. (type: int, default: 1337)
+seed: 1337
+```
+
 &nbsp;
 
 ## Installing LitGPT
@@ -197,20 +345,10 @@ This implementation extends on [Lit-LLaMA](https://github.com/lightning-AI/lit-l
 
 &nbsp;
 
-## LitGPT Studios
 
-The following [Lightning Studio](https://lightning.ai/lightning-ai/studios) templates provide LitGPT tutorials and projects in reproducible environments with multi-GPU and multi-node support:
+## Community showcase
 
-| [Continued Pretraining with TinyLlama 1.1B](https://lightning.ai/lightning-ai/studios/continued-pretraining-with-tinyllama-1-1b) <br> [<img src="https://grid-cloud-litng-ai-03.s3.amazonaws.com/projects/01h5rahq6gbhw5m4bzyws0at5h/cloudspaces/01hq0v57k4zeswpcx1nwaj9ck9/thumbnails/image.jpeg?X-Amz-Algorithm=AWS4-HMAC-SHA256&X-Amz-Credential=ASIA24LZGPJHU3I6BDPF%2F20240313%2Fus-east-1%2Fs3%2Faws4_request&X-Amz-Date=20240313T141203Z&X-Amz-Expires=3600&X-Amz-Security-Token=FwoGZXIvYXdzEGgaDEkXJ7sroCiJUMpjHCLDATYRVfka8dfeXYhLHqWcO89RaRT4l1oAXcG2QOOhFQepPb80CWILvo2L52hgr1rnG0gwWb9PB9aPcUHZVLxwwoybMTo5dN0qv7ukYpViYqKLOuthMf8KAE1xDnyHgCFprcLwGHexExH3zA1YPi8zzTonB7xkYf0MUqNqi44C9xAmRLGdofZFkR0Rg5l40lvIgU6fHCt7Gg8xWEQEQqnSoLjsDe5GfjpVatNdHFN2aNXWDO5Vcl7LF7FjSokaRI4hJXOwgCiz6MavBjIthd0ZFxiDIGHrwRN6KldDSlW5jPjdZ8QNAXrnfBxfH7iinDDP6RKhfUcu38uc&X-Amz-SignedHeaders=host&X-Amz-Signature=12a28a4a2c58de74682e91b41a5c76cb6760a6a67917f6133848948ab58d0784" width="300">](https://lightning.ai/lightning-ai/studios/continued-pretraining-with-tinyllama-1-1b) | [Instruction finetuning - TinyLlama 1.1B LLM](https://lightning.ai/lightning-ai/studios/instruction-finetuning-tinyllama-1-1b-llm) <br> [<img src="https://grid-cloud-litng-ai-03.s3.amazonaws.com/projects/01h5rahq6gbhw5m4bzyws0at5h/cloudspaces/01hn2ym8r666m28me70cwmfkg1/thumbnails/image.jpeg?X-Amz-Algorithm=AWS4-HMAC-SHA256&X-Amz-Credential=ASIA24LZGPJHU3I6BDPF%2F20240313%2Fus-east-1%2Fs3%2Faws4_request&X-Amz-Date=20240313T141221Z&X-Amz-Expires=3600&X-Amz-Security-Token=FwoGZXIvYXdzEGgaDEkXJ7sroCiJUMpjHCLDATYRVfka8dfeXYhLHqWcO89RaRT4l1oAXcG2QOOhFQepPb80CWILvo2L52hgr1rnG0gwWb9PB9aPcUHZVLxwwoybMTo5dN0qv7ukYpViYqKLOuthMf8KAE1xDnyHgCFprcLwGHexExH3zA1YPi8zzTonB7xkYf0MUqNqi44C9xAmRLGdofZFkR0Rg5l40lvIgU6fHCt7Gg8xWEQEQqnSoLjsDe5GfjpVatNdHFN2aNXWDO5Vcl7LF7FjSokaRI4hJXOwgCiz6MavBjIthd0ZFxiDIGHrwRN6KldDSlW5jPjdZ8QNAXrnfBxfH7iinDDP6RKhfUcu38uc&X-Amz-SignedHeaders=host&X-Amz-Signature=7eec37bb522a47a1f55e8e99cbd05087ba351fc2b6fd8c014b049ef7c5d9b9dd" width="300">](https://lightning.ai/lightning-ai/studios/instruction-finetuning-tinyllama-1-1b-llm) |
-| ------------------------------------------------------------ | ------------------------------------------------------------ |
-| [Prepare the TinyLlama 1T token dataset](https://lightning.ai/lightning-ai/studios/prepare-the-tinyllama-1t-token-dataset) <br> [<img src="https://grid-cloud-litng-ai-03.s3.amazonaws.com/projects/01hg0zg8fyybp7p1sma6g9dkzm/cloudspaces/01hme55ecwaa960f1taz10swyf/thumbnails/image.png?X-Amz-Algorithm=AWS4-HMAC-SHA256&X-Amz-Credential=ASIA24LZGPJH3IOB3MP2%2F20240313%2Fus-east-1%2Fs3%2Faws4_request&X-Amz-Date=20240313T141228Z&X-Amz-Expires=3600&X-Amz-Security-Token=FwoGZXIvYXdzEGgaDKbEYqVo4gIjFcagHCLDAcW0y5rBD5EWYZ0Agb9R%2B04LO4aJEphNPCvEnwDcudEA3H%2FhKY47s1tkq0M1JeZEv6vBu2PrzHRt8fyZMcGOcP0HKfekjlI90HmJXwbNryILmA%2BrXIw0LC%2FJ6iE4Xa1um1Lm1ULxiS0MZnIyW8%2FN4mhRqXEBaq%2BjJFdE%2BV1v83XhztVr%2BGsZsjvjlAmid39KOuzZdEFbDuoi0cg5MK4NsBaA3wWJnsoZpFZc3EJHuPDowLGX1rXOj01Astu5P7vII41Hpii66MavBjItxSxO8rTjiPjg4%2FM4Q3mUZarMZZA8PMzIPX3xEO2qDu3GYabFrdG3loEeWwqT&X-Amz-SignedHeaders=host&X-Amz-Signature=90102f3cc85158c72e90092430822dbd0c73496b849dabf7a18206ca49edb7a1" width="300">](https://lightning.ai/lightning-ai/studios/prepare-the-tinyllama-1t-token-dataset) | [Pretrain LLMs - TinyLlama 1.1B](https://lightning.ai/lightning-ai/studios/pretrain-llms-tinyllama-1-1b) <br> [<img src="https://grid-cloud-litng-ai-03.s3.amazonaws.com/projects/01h6ra4cyxjj75f2g2wwkx19gv/cloudspaces/01hkmc5x1zy6pdn1jde5vc4g1c/thumbnails/image.jpeg?X-Amz-Algorithm=AWS4-HMAC-SHA256&X-Amz-Credential=ASIA24LZGPJH3X7JZNH7%2F20240313%2Fus-east-1%2Fs3%2Faws4_request&X-Amz-Date=20240313T141231Z&X-Amz-Expires=3600&X-Amz-Security-Token=FwoGZXIvYXdzEGgaDOO7wp1vKOj5j8WlQiLDAasfBtpnkKf1ewczzKbHlFBOUuL9EdpRK35HHAGXHxJr49Dn%2FQSFamQSFe8TfFf1qI66vv6gzAYz2zQyp%2F7JtXsnVhaA0I38RTv7RbOnlEd84EYZLgLjhhLT1QAgtnlj5GyK4MJpRbI2po%2F4ikPcBLOK3Fo7%2Bp2j7sShg%2FPW%2FzwW0guLcSULwZX2DqcED0nEEAbglXNCFzyJflDO%2FOJ6MYxotKP4UjYVjPuoXcY33%2FD%2BFTE7ZdIB%2FShgFqbHN8MHXCuQIiim6MavBjItouSoiQXrr%2FK%2BvP19AtWpahjmYc872rikZULCPSieTgPRtzwmf1DmQ0bFdKh1&X-Amz-SignedHeaders=host&X-Amz-Signature=ce69f7c68d41cd28bb270a7d06d7e3581d08da5e3e6228f439a45eb61e66d35b" width="300">](https://lightning.ai/lightning-ai/studios/pretrain-llms-tinyllama-1-1b) |
-
-
-&nbsp;
-<br>
-&nbsp;
-
-## Other Projects using LitGPT
+Checkout the projects below using and building on LitGPT. If you have a project you'd like to add to our this section, please don't hestiate to open a pull request.
 
 
 **🏆 NeurIPS 2023 Large Language Model Efficiency Challenge: 1 LLM + 1 GPU + 1 Day**
