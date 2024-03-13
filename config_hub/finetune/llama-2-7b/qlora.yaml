@@ -3,7 +3,7 @@
 checkpoint_dir: checkpoints/meta-llama/Llama-2-7b-hf
 
 # Directory in which to save checkpoints and logs. (type: <class 'Path'>, default: out/lora)
-out_dir: out/finetune/lora-llama2-7b
+out_dir: out/finetune/qlora-llama2-7b
 
 # The precision to use for finetuning. Possible choices: "bf16-true", "bf16-mixed", "32-true". (type: Optional[str], default: null)
 precision: bf16-true
