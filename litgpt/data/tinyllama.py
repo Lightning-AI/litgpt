@@ -35,9 +35,9 @@ class TinyLlama(DataModule):
 
     def __post_init__(self):
         # Could be a remote path (s3://) or a local path
-        self.slimpajama_train = str(self.data_path).rstrip("/") + "/slimpajama/train"
-        self.slimpajama_val = str(self.data_path).rstrip("/") + "/slimpajama/val"
-        self.starcoder_train = str(self.data_path).rstrip("/") + "/starcoder"
+        self.slimpajama_train = os.path.join(str(self.data_path), "slimpajama", "train")
+        self.slimpajama_val = os.path.join(str(self.data_path), "slimpajama", "val")
+        self.starcoder_train = os.path.join(str(self.data_path), "starcoder")
 
     def connect(
         self, tokenizer: Optional[Tokenizer] = None, batch_size: int = 1, max_seq_length: Optional[int] = None
@@ -57,17 +57,17 @@ class TinyLlama(DataModule):
         #         )
 
         prepare_slimpajama(
-            input_dir=os.path.join(self.data_path, "SlimPajama-627B/train"),
+            input_dir=os.path.join(self.data_path, "slimpajama-raw/train"),
             output_dir=self.slimpajama_train,
             tokenizer=self.tokenizer,
         )
         prepare_slimpajama(
-            input_dir=os.path.join(self.data_path, "SlimPajama-627B/validation"),
+            input_dir=os.path.join(self.data_path, "slimpajama-raw/validation"),
             output_dir=self.slimpajama_val,
             tokenizer=self.tokenizer,
         )
         prepare_starcoder(
-            input_dir=os.path.join(self.data_path, "starcoderdata"),
+            input_dir=os.path.join(self.data_path, "starcoderdata-raw"),
             output_dir=self.starcoder_train,
             tokenizer=self.tokenizer,
         )
