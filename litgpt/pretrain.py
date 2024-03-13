@@ -127,7 +127,7 @@ def main(
     train: TrainArgs,
     eval: EvalArgs,
 ) -> None:
-    validate_args(train, eval)
+    validate_args(train, eval, initial_checkpoint_dir, resume)
 
     if fabric.global_rank == 0:
         out_dir.mkdir(parents=True, exist_ok=True)
