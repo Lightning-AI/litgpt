@@ -9,12 +9,12 @@ import torch
 from torch.utils.data import random_split, DataLoader
 
 from litgpt import PromptStyle
-from litgpt.data import SFTDataset, get_sft_collate_fn, LitDataModule
+from litgpt.data import SFTDataset, get_sft_collate_fn, DataModule
 from litgpt.tokenizer import Tokenizer
 
 
 @dataclass
-class JSON(LitDataModule):
+class JSON(DataModule):
     """Loads JSON or JSONL data for supervised finetuning."""
 
     json_path: Path

@@ -3,43 +3,13 @@
 checkpoint_dir: checkpoints/TinyLlama/TinyLlama-1.1B-intermediate-step-1431k-3T
 
 # Directory in which to save checkpoints and logs. (type: <class 'Path'>, default: out/lora)
-out_dir: out/finetune/lora-tiny-llama-1.1b
+out_dir: out/finetune/full-tiny-llama-1.1b
 
 # The precision to use for finetuning. Possible choices: "bf16-true", "bf16-mixed", "32-true". (type: Optional[str], default: null)
 precision: bf16-true
 
-# If set, quantize the model with this algorithm. See ``tutorials/quantize.md`` for more information. (type: Optional[Literal['nf4', 'nf4-dq', 'fp4', 'fp4-dq', 'int8-training']], default: null)
-quantize:
-
 # How many devices/GPUs to use. (type: Union[int, str], default: 1)
 devices: 1
-
-# The LoRA rank. (type: int, default: 8)
-lora_r: 32
-
-# The LoRA alpha. (type: int, default: 16)
-lora_alpha: 16
-
-# The LoRA dropout value. (type: float, default: 0.05)
-lora_dropout: 0.05
-
-# Whether to apply LoRA to the query weights in attention. (type: bool, default: True)
-lora_query: true
-
-# Whether to apply LoRA to the key weights in attention. (type: bool, default: False)
-lora_key: true
-
-# Whether to apply LoRA to the value weights in attention. (type: bool, default: True)
-lora_value: true
-
-# Whether to apply LoRA to the output projection in the attention block. (type: bool, default: False)
-lora_projection: true
-
-# Whether to apply LoRA to the weights of the MLP in the attention block. (type: bool, default: False)
-lora_mlp: true
-
-# Whether to apply LoRA to output head in GPT. (type: bool, default: False)
-lora_head: true
 
 # Data-related arguments. If not provided, the default is ``litgpt.data.Alpaca``.
 data:
@@ -62,16 +32,16 @@ train:
   log_interval: 1
 
   # Number of samples between optimizer steps across data-parallel ranks (type: int, default: 128)
-  global_batch_size: 8
+  global_batch_size: 32
 
   # Number of samples per data-parallel rank (type: int, default: 4)
-  micro_batch_size: 8
+  micro_batch_size: 4
 
   # Number of iterations with learning rate warmup active (type: int, default: 100)
-  lr_warmup_steps: 10
+  lr_warmup_steps: 1000
 
   # Number of epochs to train on (type: Optional[int], default: 5)
-  epochs: 3
+  epochs: 1
 
   # Total number of tokens to train on (type: Optional[int], default: null)
   max_tokens:
@@ -107,7 +77,7 @@ train:
 eval:
 
   # Number of optimizer steps between evaluation calls (type: int, default: 100)
-  interval: 100
+  interval: 25
 
   # Number of tokens to generate (type: Optional[int], default: 100)
   max_new_tokens: 100

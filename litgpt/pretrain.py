@@ -20,7 +20,7 @@ from typing_extensions import Literal
 
 from litgpt import Tokenizer
 from litgpt.args import EvalArgs, TrainArgs
-from litgpt.data import LitDataModule, TinyLlama
+from litgpt.data import DataModule, TinyLlama
 from litgpt.model import GPT, Block, CausalSelfAttention, Config, LLaMAMLP
 from litgpt.utils import (
     CLI,
@@ -39,8 +39,9 @@ def setup(
     model_name: Optional[str] = None,
     model_config: Optional[Config] = None,
     out_dir: Path = Path("out/pretrain"),
+    initial_checkpoint_dir: Optional[Path] = None,
     resume: Union[bool, Path] = False,
-    data: Optional[LitDataModule] = None,
+    data: Optional[DataModule] = None,
     train: TrainArgs = TrainArgs(
         save_interval=1000,
         log_interval=1,
@@ -71,6 +72,8 @@ def setup(
             ``model_config``.
         out_dir: Directory in which to save checkpoints and logs. If running in a Lightning Studio Job, look for it in
             /teamspace/jobs/<job-name>/share.
+        initial_checkpoint_dir: Optional path to a checkpoint directory to initialize the model from.
+            Useful for continued pretraining. Mutually exclusive with ``resume``.
         resume: Path to a checkpoint directory to resume from in case training was interrupted, or ``True`` to resume
             from the latest checkpoint in ``out_dir``.
         data: Data-related arguments. If not provided, the default is ``litgpt.data.TinyLlama``.
@@ -107,23 +110,24 @@ def setup(
     if logger_name in ("tensorboard", "wandb"):
         fabric.logger.log_hyperparams(hparams)
 
-    main(fabric, devices, seed, resume, config, data, out_dir, tokenizer_dir, tokenizer, train, eval)
+    main(fabric, devices, seed, initial_checkpoint_dir, resume, config, data, out_dir, tokenizer_dir, tokenizer, train, eval)
 
 
 def main(
     fabric: L.Fabric,
     devices: int,
     seed: int,
+    initial_checkpoint_dir: Optional[Path],
     resume: Union[bool, Path],
     config: Config,
-    data: LitDataModule,
+    data: DataModule,
     out_dir: Path,
     tokenizer_dir: Optional[Path],
     tokenizer: Optional[Tokenizer],
     train: TrainArgs,
     eval: EvalArgs,
 ) -> None:
-    validate_args(train, eval)
+    validate_args(train, eval, initial_checkpoint_dir, resume)
 
     if fabric.global_rank == 0:
         out_dir.mkdir(parents=True, exist_ok=True)
@@ -156,6 +160,9 @@ def main(
 
     train_dataloader, val_dataloader = get_dataloaders(fabric, data, tokenizer, train, model.max_seq_length)
     train_dataloader, val_dataloader = fabric.setup_dataloaders(train_dataloader, val_dataloader)
+
+    if initial_checkpoint_dir:
+        fabric.load_raw(initial_checkpoint_dir / "lit_model.pth", model)
 
     state = {
         "model": model,
@@ -331,7 +338,7 @@ def validate(fabric: L.Fabric, model: nn.Module, val_dataloader: DataLoader, max
 
 
 def get_dataloaders(
-    fabric: L.Fabric, data: LitDataModule, tokenizer: Tokenizer, train: TrainArgs, block_size: int
+    fabric: L.Fabric, data: DataModule, tokenizer: Tokenizer, train: TrainArgs, block_size: int
 ) -> Tuple[DataLoader, DataLoader]:
     data.connect(tokenizer=tokenizer, batch_size=train.micro_batch_size, max_seq_length=block_size)
     with fabric.rank_zero_first():
@@ -376,7 +383,7 @@ def init_out_dir(out_dir: Path) -> Path:
     return out_dir
 
 
-def validate_args(train: TrainArgs, eval: EvalArgs) -> None:
+def validate_args(train: TrainArgs, eval: EvalArgs, initial_checkpoint_dir, resume) -> None:
     issues = []
     unsupported = [
         (train, ["max_steps", "epochs"]),
@@ -391,6 +398,8 @@ def validate_args(train: TrainArgs, eval: EvalArgs) -> None:
         for name in names:
             if getattr(args, name) is None:
                 issues.append(f"{__file__} requires the {name!r} argument. This is set in {args}")
+    if initial_checkpoint_dir and resume:
+        issues.append("Can't provide both `--resume` and `--initial_checkpoint_dir`. Choose one.")
     if issues:
         raise ValueError("\n".join(issues))
 

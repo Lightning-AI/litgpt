@@ -9,7 +9,7 @@ import torch
 from torch.utils.data import DataLoader
 
 from litgpt import PromptStyle
-from litgpt.data import SFTDataset, get_sft_collate_fn, LitDataModule
+from litgpt.data import SFTDataset, get_sft_collate_fn, DataModule
 from litgpt.data.alpaca import download_if_missing
 from litgpt.tokenizer import Tokenizer
 
@@ -19,7 +19,7 @@ _URL = "https://huggingface.co/datasets/Muennighoff/flan/resolve/main"
 # TODO: Including all subsets, FLAN is too large to be loaded in memory. Switch the implementation to cache
 #   on disk or use Lightning Data
 @dataclass
-class FLAN(LitDataModule):
+class FLAN(DataModule):
     """FLAN data module for supervised finetuning."""
 
     mask_prompt: bool = False

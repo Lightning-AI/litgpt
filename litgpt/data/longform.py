@@ -9,7 +9,7 @@ import torch
 from torch.utils.data import DataLoader
 
 from litgpt import PromptStyle
-from litgpt.data import SFTDataset, get_sft_collate_fn, LitDataModule
+from litgpt.data import SFTDataset, get_sft_collate_fn, DataModule
 from litgpt.data.alpaca import download_if_missing
 from litgpt.tokenizer import Tokenizer
 
@@ -18,7 +18,7 @@ _URL = "https://raw.githubusercontent.com/akoksal/LongForm/main/dataset"
 
 
 @dataclass
-class LongForm(LitDataModule):
+class LongForm(DataModule):
     """LongForm data module for supervised finetuning."""
 
     mask_prompt: bool = False
