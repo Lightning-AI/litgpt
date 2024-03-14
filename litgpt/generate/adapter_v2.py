@@ -19,7 +19,7 @@ from litgpt.utils import CLI, check_valid_checkpoint_dir, get_default_supported_
 def main(
     prompt: str = "What food do llamas eat?",
     input: str = "",
-    adapter_path: Path = Path("out/adapter_v2/alpaca/lit_model_adapter_finetuned.pth"),
+    adapter_path: Path = Path("out/finetune/adapter-v2/final/lit_model.pth.adapter2"),
     checkpoint_dir: Path = Path("checkpoints/stabilityai/stablelm-base-alpha-3b"),
     quantize: Optional[Literal["bnb.nf4", "bnb.nf4-dq", "bnb.fp4", "bnb.fp4-dq", "bnb.int8"]] = None,
     max_new_tokens: int = 100,
