@@ -53,8 +53,8 @@ The following [Lightning Studio](https://lightning.ai/lightning-ai/studios) temp
 
 |  |  |
 | ------------------------------------------------------------ | ------------------------------------------------------------ |
-| <p align="center">[Prepare the TinyLlama 1T token dataset](https://lightning.ai/lightning-ai/studios/prepare-the-tinyllama-1t-token-dataset) <br> [<img src="./images/3.webp" width="300"></p>](https://lightning.ai/lightning-ai/studios/prepare-the-tinyllama-1t-token-dataset) | [Pretrain LLMs - TinyLlama 1.1B](https://lightning.ai/lightning-ai/studios/pretrain-llms-tinyllama-1-1b) <br> <p align="center">[<img src="./images/4.webp" width="300"></p>](https://lightning.ai/lightning-ai/studios/pretrain-llms-tinyllama-1-1b) |
-| [Continued Pretraining with TinyLlama 1.1B](https://lightning.ai/lightning-ai/studios/continued-pretraining-with-tinyllama-1-1b) <br> <p align="center">[<img src="./images/1.webp" width="300"></p>](https://lightning.ai/lightning-ai/studios/continued-pretraining-with-tinyllama-1-1b) | [Instruction finetuning - TinyLlama 1.1B LLM](https://lightning.ai/lightning-ai/studios/instruction-finetuning-tinyllama-1-1b-llm) <br> <p align="center">[<img src="./images/2.webp" width="300"></p>](https://lightning.ai/lightning-ai/studios/instruction-finetuning-tinyllama-1-1b-llm) |
+| <p align="left">[Prepare the TinyLlama 1T token dataset](https://lightning.ai/lightning-ai/studios/prepare-the-tinyllama-1t-token-dataset) <br> [<img src="./images/3.webp" width="300"></p>](https://lightning.ai/lightning-ai/studios/prepare-the-tinyllama-1t-token-dataset) | [Pretrain LLMs - TinyLlama 1.1B](https://lightning.ai/lightning-ai/studios/pretrain-llms-tinyllama-1-1b) <br> <p align="left">[<img src="./images/4.webp" width="300"></p>](https://lightning.ai/lightning-ai/studios/pretrain-llms-tinyllama-1-1b) |
+| [Continued Pretraining with TinyLlama 1.1B](https://lightning.ai/lightning-ai/studios/continued-pretraining-with-tinyllama-1-1b) <br> <p align="left">[<img src="./images/1.webp" width="300"></p>](https://lightning.ai/lightning-ai/studios/continued-pretraining-with-tinyllama-1-1b) | [Instruction finetuning - TinyLlama 1.1B LLM](https://lightning.ai/lightning-ai/studios/instruction-finetuning-tinyllama-1-1b-llm) <br> <p align="left">[<img src="./images/2.webp" width="300"></p>](https://lightning.ai/lightning-ai/studios/instruction-finetuning-tinyllama-1-1b-llm) |
 |  |  |
 
 
@@ -78,45 +78,55 @@ pip install 'litgpt[all]'
 Alternatively, can install litgpt from a cloned GitHub repository:
 
 ```bash
-git clone https://github.com/Lightning-AI/litgpt/blob/wip/config_hub/finetune/llama-2-7b/full.yaml
+git clone https://github.com/Lightning-AI/litgpt
 cd litgpt
-pip install ".[all]"
+pip install '.[all]'
 ```
 
 
 &nbsp;
 
-## Getting started in 3 steps
+## Using LitGPT
 
-Below is a minimal example to get started with the LitGPT command line interface (CLI), illustrating how to download a model, optionally finetune it using low-rank adaptation (LoRA), and start chatting with it:
+
+Below is a minimal example to get started with the LitGPT command line interface (CLI), illustrating how to download and use a model:
 
 
 ```bash
 # 1) Download a pretrained model
-litgpt download --repo_id mistralai/Mistral-7B-v0.1
+litgpt download --repo_id mistralai/Mistral-7B-Instruct-v0.2
 
-# 2) Optionally finetune the model
-litgpt finetune lora \
-  --checkpoint_dir checkpoints/mistralai/Mistral-7B-v0.1 \
-  --train.micro_batch_size 2 \
-  --lora_r 4 \
-  --precision bf16-true \
-  --data Alpaca2k \
-  --out_dir out/my-finetuned-model
-
-# 3) Chat with the model
+# 2) Chat with the model
 litgpt chat \
-  --checkpoint_dir checkpoints/mistralai/Mistral-7B-v0.1 \
-  --data Alpaca2k
+  --checkpoint_dir checkpoints/mistralai/Mistral-7B-Instruct-v0.2
 
 >> Prompt: What do Llamas eat?
 ```
 
-For more information, refer to the [download](tutorials/download_model_weights.md), [pretraining](tutorials/pretrain_tinyllama.md), [finetuning](tutorials/finetune_lora.md), and [inference](tutorials/inference.md) tutorials.
+For more information, refer to the [download](tutorials/download_model_weights.md) and [inference](tutorials/inference.md) tutorials.
 
 
 &nbsp;
+## Finetuning and pretraining
 
+LitGPT supports [pretraining](tutorials/pretrain_tinyllama.md) and [finetuning](tutorials/finetune.md) to optimize models on excisting or custom datasets. Below is an example showing how to finetune a model with LoRA:
+
+```bash
+# 1) Download a pretrained model
+litgpt download --repo_id microsoft/phi-2
+
+# 2) Finetune the model
+litgpt finetune lora \
+  --data Alpaca2k \
+  --out_dir out/phi-2-lora \
+  --checkpoint_dir checkpoints/microsoft/phi-2
+
+# 3) Chat with the model
+litgpt chat \
+  --checkpoint_dir out/phi-2-lora/final
+```
+
+&nbsp;
 ## Configuration files for enhanced performance
 
 LitGPT also allows users to use configuration files in YAML format instead of specifying settings via the command line interface and comes with a set of model-specific defaults for good out-of-the-box performance:
@@ -312,14 +322,14 @@ If you have general questions about building with LitGPT, please [join our Disco
 
 &nbsp;
 
-## Tutorials and how-to guides
+## Tutorials, how-to guides, and docs
 
-- [Finetuning (incl. LoRA, QLoRA, and Adapters)](tutorials/finetune.md)
-- [Pretraining](tutorials/pretrain_tinyllama.md)
-- [Model evaluation](tutorials/evaluation.md)
-- [Supported and custom datasets](tutorials/prepare_dataset.md)
-- [Quantization](tutorials/quantize.md)
-- [Tips for dealing with out-of-memory (OOM) errors](tutorials/oom.md)
+-  Finetuning, incl. LoRA, QLoRA, and Adapters ([tutorials/finetune.md](tutorials/finetune.md))
+-  Pretraining ([tutorials/pretrain_tinyllama.md](tutorials/pretrain_tinyllama.md))
+-  Model evaluation ([tutorials/evaluation.md](tutorials/evaluation.md))
+-  Supported and custom datasets ([tutorials/prepare_dataset.md](tutorials/prepare_dataset.md))
+-  Quantization ([tutorials/quantize.md](tutorials/quantize.md))
+-  Tips for dealing with out-of-memory (OOM) errors ([tutorials/oom.md](tutorials/oom.md))
 
 
 

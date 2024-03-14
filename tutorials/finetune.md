@@ -3,7 +3,13 @@
 We provide a simple training scripts (`litgpt/finetune/*.py`) that instruction-tunes a pretrained model on the [Alpaca](https://github.com/tatsu-lab/stanford_alpaca) dataset.
 For example, you can either use
 
-Adapter ([Zhang et al. 2023](https://arxiv.org/abs/2303.16199)):
+LoRA ([Hu et al. 2021](https://arxiv.org/abs/2106.09685)):
+
+```bash
+litgpt finetune lora
+```
+
+or Adapter ([Zhang et al. 2023](https://arxiv.org/abs/2303.16199)):
 
 ```bash
 litgpt finetune adapter
@@ -13,12 +19,6 @@ or Adapter v2 ([Gao et al. 2023](https://arxiv.org/abs/2304.15010)):
 
 ```bash
 litgpt finetune adapter_v2
-```
-
-or LoRA ([Hu et al. 2021](https://arxiv.org/abs/2106.09685)):
-
-```bash
-litgpt finetune lora
 ```
 
 
