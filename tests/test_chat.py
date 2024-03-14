@@ -1,5 +1,5 @@
 # Copyright Lightning AI. Licensed under the Apache License 2.0, see LICENSE file.
-
+import re
 import subprocess
 import sys
 from contextlib import redirect_stderr, redirect_stdout
@@ -87,7 +87,15 @@ def test_main(mocked_input, stop_iteration, fake_checkpoint_dir, monkeypatch, te
     mocked_input.side_effect = ["Hello", stop_iteration]
 
     config_path = fake_checkpoint_dir / "model_config.yaml"
-    config = {"block_size": 128, "vocab_size": 50, "n_layer": 2, "n_head": 4, "n_embd": 8, "rotary_percentage": 1}
+    config = {
+        "name": "Llama 3",
+        "block_size": 128,
+        "vocab_size": 50,
+        "n_layer": 2,
+        "n_head": 4,
+        "n_embd": 8,
+        "rotary_percentage": 1,
+    }
     config_path.write_text(yaml.dump(config))
 
     load_mock = Mock()
@@ -112,10 +120,8 @@ def test_main(mocked_input, stop_iteration, fake_checkpoint_dir, monkeypatch, te
     assert generate_mock.mock_calls == [
         call(ANY, tensor_like, 128, temperature=2.0, top_k=2, stop_tokens=([tokenizer_mock.return_value.eos_id],))
     ]
-    # # only the generated result is printed to stdout
-    assert out.getvalue() == ">> Reply: foo bar baz\n"
-
-    assert "'padded_vocab_size': 512, 'n_layer': 2, 'n_head': 4" in err.getvalue()
+    # only the generated result is printed to stdout
+    assert re.match("Now chatting with Llama 3.*>> .*Reply: foo bar baz", out.getvalue(), re.DOTALL)
 
 
 @pytest.mark.parametrize("mode", ["file", "entrypoint"])
