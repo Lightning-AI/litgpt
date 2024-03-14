@@ -112,14 +112,14 @@ def test_adapter_v2_script(tmp_path, fake_checkpoint_dir, monkeypatch, alpaca_pa
     assert all((out_dir / p).is_dir() for p in checkpoint_dirs)
     for checkpoint_dir in checkpoint_dirs:
         assert {p.name for p in (out_dir / checkpoint_dir).iterdir()} == {
-            "lit_model.pth",
+            "lit_model.pth.adapter_v2",
             "model_config.yaml",
             "tokenizer_config.json",
             "tokenizer.json",
             "hyperparameters.yaml",
             "prompt_style.yaml",
         }
-    assert (out_dir / "version_0" / "metrics.csv").is_file()
+    assert (out_dir / "logs" / "csv" / "version_0" / "metrics.csv").is_file()
 
     logs = stdout.getvalue()
     assert logs.count("(step)") == 6
@@ -338,8 +338,8 @@ def test_adapter_v2_bitsandbytes(monkeypatch, tmp_path, fake_checkpoint_dir, alp
         },
     }
 
-    assert {p.name for p in tmp_path.rglob("*.pth")} == {"lit_model.pth"}
-    state_dict = torch.load(tmp_path / "final" / "lit_model.pth")
+    assert {p.name for p in tmp_path.rglob("*.pth.adapter_v2")} == {"lit_model.pth.adapter_v2"}
+    state_dict = torch.load(tmp_path / "final" / "lit_model.pth.adapter_v2")
     assert len(state_dict) == 1
     dtype_to_name = {"torch.float16": set()}
     for name, layer in state_dict["model"].items():
