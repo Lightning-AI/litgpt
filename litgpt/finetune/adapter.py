@@ -50,7 +50,7 @@ def setup(
         micro_batch_size=4,
         lr_warmup_steps=100,
         epochs=5,
-        learning_rate=3e-4,
+        learning_rate=1e-3,
         max_seq_length=None,
     ),
     eval: EvalArgs = EvalArgs(interval=100, max_new_tokens=100, max_iters=100),
@@ -149,8 +149,7 @@ def main(fabric: L.Fabric, devices: int, seed: int, config: Config, data: DataMo
     load_checkpoint(fabric, model, checkpoint_path, strict=False)
 
     train_time = time.perf_counter()
-    fit(fabric, model, optimizer, scheduler, train_dataloader, val_dataloader, devices, checkpoint_dir, out_dir, train,
-        eval, data)
+    fit(fabric, model, optimizer, scheduler, train_dataloader, val_dataloader, devices, checkpoint_dir, out_dir, train, eval, data)
     fabric.print(f"Training time: {(time.perf_counter() - train_time):.2f}s")
     if fabric.device.type == "cuda":
         fabric.print(f"Memory used: {torch.cuda.max_memory_allocated() / 1e9:.02f} GB")
@@ -274,7 +273,7 @@ def fit(
                 save_prompt_style(data.prompt_style, checkpoint_file.parent)
 
 
-# FSDP has issues with `inference_mode`
+# the adapter "kv cache" cannot be initialized under `inference_mode`
 @torch.no_grad()
 def validate(
     fabric: L.Fabric, model: GPT, val_dataloader: DataLoader, tokenizer: Tokenizer, eval: EvalArgs, data: DataModule,
