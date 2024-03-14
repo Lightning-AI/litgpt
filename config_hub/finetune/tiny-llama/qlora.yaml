@@ -3,13 +3,13 @@
 checkpoint_dir: checkpoints/TinyLlama/TinyLlama-1.1B-intermediate-step-1431k-3T
 
 # Directory in which to save checkpoints and logs. (type: <class 'Path'>, default: out/lora)
-out_dir: out/finetune/lora-tiny-llama-1.1b
+out_dir: out/finetune/qlora-tiny-llama-1.1b
 
 # The precision to use for finetuning. Possible choices: "bf16-true", "bf16-mixed", "32-true". (type: Optional[str], default: null)
 precision: bf16-true
 
 # If set, quantize the model with this algorithm. See ``tutorials/quantize.md`` for more information. (type: Optional[Literal['nf4', 'nf4-dq', 'fp4', 'fp4-dq', 'int8-training']], default: null)
-quantize:
+quantize: bnb.nf4
 
 # How many devices/GPUs to use. (type: Union[int, str], default: 1)
 devices: 1
