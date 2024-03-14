@@ -231,7 +231,7 @@ def test_adapter_bitsandbytes(monkeypatch, tmp_path, fake_checkpoint_dir, alpaca
         },
     }
 
-    assert {p.name for p in tmp_path.rglob("*.pth")} == {"lit_model.pth"}
+    assert {p.name for p in tmp_path.rglob("*.pth.adapter")} == {"lit_model.pth.adapter"}
     state_dict = torch.load(tmp_path / "final" / "lit_model.pth.adapter")
     assert len(state_dict) == 1
     dtype_to_name = {"torch.float16": set()}
