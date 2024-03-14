@@ -7,4 +7,4 @@ The table below lists the performances you can expect from the provided config f
 | tiny-llama/lora.yaml  | 1.1B | Alpaca 2k | 1      | 1.053    | 10.54 GB    | 512            | 8                | bfloat16  | 9.24 min (A10G)  |
 | tiny-llama/qlora.yaml | 1.1B | Alpaca 2k | 4      | 1.074    | 13.32 GB    | 512            | 8                | bfloat16  | 9.89 min (A10G)  |
 | tiny-llama/full.yaml  | 1.1B | Alpaca 2k | 4      | 1.105    | 14.10 GB    | 512            | 4                | bfloat16  | 2.59 min (A10G)  |
-| llama-2-7b/qlora.yaml | 7B   | Alpaca 2k | 4      | 0.814    | 3.68 GB     | 512            | 2                | bfloat16  | 45.68 min (A10G) |
+| llama-2-7b/qlora.yaml | 7B   | Alpaca 2k | 4      | 0.814    | 13.68 GB     | 512            | 2                | bfloat16  | 45.68 min (A10G) |
