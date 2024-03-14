@@ -27,6 +27,10 @@ model_config:
 # /teamspace/jobs/<job-name>/share. (type: <class 'Path'>, default: out/pretrain)
 out_dir: out/pretrain/stories15M
 
+# Optional path to a checkpoint directory to initialize the model from.
+# Useful for continued pretraining. Mutually exclusive with ``resume``. (type: Optional[Path], default: null)
+initial_checkpoint_dir:
+
 # Path to a checkpoint directory to resume from in case training was interrupted, or ``True`` to resume
 # from the latest checkpoint in ``out_dir``. (type: Union[bool, Path], default: False)
 resume: false
