@@ -162,7 +162,7 @@ def main(
     prompt_style = load_prompt_style(checkpoint_dir) if has_prompt_style(checkpoint_dir) else PromptStyle.from_config(config)
     stop_tokens = prompt_style.stop_tokens(tokenizer)
 
-    print(f"Now chatting with {config.name}.\nType 'exit' into the prompt to exit program.\n")
+    print(f"Now chatting with {config.name}.\nTo exit, press 'Enter' on an empty prompt.\n")
     L.seed_everything(1234)
     while True:
         try:
