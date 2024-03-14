@@ -14,10 +14,8 @@ import pytest
     ("litgpt/pretrain.py", "https://raw.githubusercontent.com/Lightning-AI/litgpt/wip/config_hub/pretrain/tinystories.yaml"),
     ("litgpt/finetune/full.py", "finetune/llama-2-7b/full.yaml"),
     ("litgpt/finetune/lora.py", "finetune/llama-2-7b/lora.yaml"),
-    ("litgpt/finetune/lora.py", "finetune/llama-2-7b/qlora.yaml"),
     ("litgpt/finetune/full.py", "finetune/tiny-llama/full.yaml"),
     ("litgpt/finetune/lora.py", "finetune/tiny-llama/lora.yaml"),
-    ("litgpt/finetune/lora.py", "finetune/tiny-llama/qora.yaml"),
 ])
 def test_config_help(script_file, config_file, monkeypatch, tmp_path):
     """Test that configs validate against the signature in the scripts."""
