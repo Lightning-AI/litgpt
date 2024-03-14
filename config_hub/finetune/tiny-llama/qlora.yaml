@@ -27,19 +27,19 @@ lora_dropout: 0.05
 lora_query: true
 
 # Whether to apply LoRA to the key weights in attention. (type: bool, default: False)
-lora_key: false
+lora_key: true
 
 # Whether to apply LoRA to the value weights in attention. (type: bool, default: True)
 lora_value: true
 
 # Whether to apply LoRA to the output projection in the attention block. (type: bool, default: False)
-lora_projection: false
+lora_projection: true
 
 # Whether to apply LoRA to the weights of the MLP in the attention block. (type: bool, default: False)
-lora_mlp: false
+lora_mlp: true
 
 # Whether to apply LoRA to output head in GPT. (type: bool, default: False)
-lora_head: false
+lora_head: true
 
 # Data-related arguments. If not provided, the default is ``litgpt.data.Alpaca``.
 data:
@@ -71,7 +71,7 @@ train:
   lr_warmup_steps: 10
 
   # Number of epochs to train on (type: Optional[int], default: 5)
-  epochs: 4
+  epochs: 3
 
   # Total number of tokens to train on (type: Optional[int], default: null)
   max_tokens:
