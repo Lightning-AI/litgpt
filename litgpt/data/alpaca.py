@@ -9,7 +9,7 @@ from typing import Optional, Union
 import torch
 from torch.utils.data import random_split, DataLoader
 from lightning_utilities.core.imports import RequirementCache
-from litgpt.data import SFTDataset, get_sft_collate_fn, LitDataModule
+from litgpt.data import SFTDataset, get_sft_collate_fn, DataModule
 from litgpt.prompts import PromptStyle
 from litgpt.tokenizer import Tokenizer
 
@@ -17,7 +17,7 @@ _URL = "https://raw.githubusercontent.com/tloen/alpaca-lora/main/alpaca_data_cle
 
 
 @dataclass
-class Alpaca(LitDataModule):
+class Alpaca(DataModule):
     """Alpaca data module for supervised finetuning."""
 
     mask_prompt: bool = False
