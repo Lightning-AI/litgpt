@@ -155,7 +155,7 @@ def main(fabric: L.Fabric, devices: int, seed: int, config: Config, data: DataMo
         fabric.print(f"Memory used: {torch.cuda.max_memory_allocated() / 1e9:.02f} GB")
 
     # Save the final Adapter checkpoint at the end of training
-    save_path = out_dir / "final" / "lit_model.pth.adapter2"
+    save_path = out_dir / "final" / "lit_model.pth.adapter_v2"
     save_path.parent.mkdir(parents=True, exist_ok=True)
     save_adapter_v2_checkpoint(fabric, model, save_path)
     if fabric.global_rank == 0:
@@ -264,7 +264,7 @@ def fit(
             fabric.barrier()
 
         if train.save_interval is not None and not is_accumulating and step_count % train.save_interval == 0:
-            checkpoint_file = out_dir / f"step-{step_count:06d}" / "lit_model.pth.adapter2"
+            checkpoint_file = out_dir / f"step-{step_count:06d}" / "lit_model.pth.adapter_v2"
             checkpoint_file.parent.mkdir(parents=True, exist_ok=True)
             save_adapter_v2_checkpoint(fabric, model, checkpoint_file)
             if fabric.global_rank == 0:

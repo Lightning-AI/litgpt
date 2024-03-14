@@ -112,7 +112,7 @@ def test_adapter_v2_script(tmp_path, fake_checkpoint_dir, monkeypatch, alpaca_pa
     assert all((out_dir / p).is_dir() for p in checkpoint_dirs)
     for checkpoint_dir in checkpoint_dirs:
         assert {p.name for p in (out_dir / checkpoint_dir).iterdir()} == {
-            "lit_model.pth.adapter2",
+            "lit_model.pth.adapter_v2",
             "model_config.yaml",
             "tokenizer_config.json",
             "tokenizer.json",
@@ -338,8 +338,8 @@ def test_adapter_v2_bitsandbytes(monkeypatch, tmp_path, fake_checkpoint_dir, alp
         },
     }
 
-    assert {p.name for p in tmp_path.rglob("*.pth.adapter2")} == {"lit_model.pth.adapter2"}
-    state_dict = torch.load(tmp_path / "final" / "lit_model.pth.adapter2")
+    assert {p.name for p in tmp_path.rglob("*.pth.adapter_v2")} == {"lit_model.pth.adapter_v2"}
+    state_dict = torch.load(tmp_path / "final" / "lit_model.pth.adapter_v2")
     assert len(state_dict) == 1
     dtype_to_name = {"torch.float16": set()}
     for name, layer in state_dict["model"].items():
