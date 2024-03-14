@@ -29,6 +29,12 @@ class LitData(DataModule):
     batch_size: int = field(init=False, repr=False, default=1)
     seq_length: int = field(init=False, repr=False, default=2048)
 
+    def __post_init__(self) -> None:
+        if self.split_names is not None and len(self.split_names) != 2:
+            raise ValueError(
+                "If provided `split_names` must be a tuple of two strings, for example: ('train', 'val')."
+            )
+
     def connect(
         self,
         tokenizer: Optional[Tokenizer] = None,
@@ -39,11 +45,11 @@ class LitData(DataModule):
         self.seq_length = max_seq_length + 1  # Increase by one because we need the next token as well
 
     def train_dataloader(self) -> DataLoader:
-        input_dir = os.path.join(self.data_path / self.split_names[0]) if self.split_names else str(self.data_path)
+        input_dir = os.path.join(self.data_path, self.split_names[0]) if self.split_names else str(self.data_path)
         return self._dataloader(input_dir=input_dir, train=True)
 
     def val_dataloader(self) -> DataLoader:
-        input_dir = os.path.join(self.data_path / self.split_names[1]) if self.split_names else str(self.data_path)
+        input_dir = os.path.join(self.data_path, self.split_names[1]) if self.split_names else str(self.data_path)
         return self._dataloader(input_dir=input_dir, train=False)
 
     def _dataloader(self, input_dir: str, train: bool):
