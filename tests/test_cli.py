@@ -27,6 +27,7 @@ def test_cli(tmp_path):
     out = out.getvalue()
     assert """Available subcommands:
     lora                Finetune a model with LoRA.
+    qlora               Finetune a model with QLoRA.
     full                Finetune a model.""" in out
 
     out = StringIO()

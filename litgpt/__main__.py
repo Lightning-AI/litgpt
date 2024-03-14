@@ -46,6 +46,7 @@ def main() -> None:
         "finetune": {
             "help": "Finetune a model with one of our existing methods.",
             "lora": {"help": "Finetune a model with LoRA.", "fn": finetune_lora_fn},
+            "qlora": {"help": "Finetune a model with QLoRA.", "fn": finetune_lora_fn},
             "full": {"help": "Finetune a model.", "fn": finetune_full_fn},
             "adapter": {"help": "Finetune a model with Adapter.", "fn": finetune_adapter_fn},
             "adapter_v2": {"help": "Finetune a model with Adapter v2.", "fn": finetune_adapter_v2_fn},
@@ -108,6 +109,9 @@ def main() -> None:
             subsubcommand_parser = _new_parser()
             subsubcommand_parser.add_function_arguments(v["fn"])
             subcommands.add_subcommand(k, subsubcommand_parser, help=v["help"])
+
+    # CLI specific defaults
+    root_parser.set_defaults({"finetune.qlora.quantize": "bnb.nf4-dq", "finetune.qlora.precision": "bf16-true"})
 
     args = root_parser.parse_args()
     args = root_parser.instantiate_classes(args)
