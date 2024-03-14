@@ -1,4 +1,5 @@
 # Copyright Lightning AI. Licensed under the Apache License 2.0, see LICENSE file.
+import os
 from dataclasses import dataclass, field
 from pathlib import Path
 from typing import Union, Optional
@@ -16,6 +17,10 @@ class LitData(DataModule):
     data_path: Union[str, Path] = Path("data/")
     """The path to the data directory containing the preprocessed chunks for the streaming dataset
     The path can also be a remote path (e.g., s3://)."""
+    split_names: Optional[tuple[str, str]] = None
+    """Optional tuple for names of subfolders for training and validation under ``data_path``. If not provided,
+    all data under data_path will be used for training, and the validation dataloader will be identical to the
+    train dataloader."""
     seed: int = 42
     """The random seed for shuffling the dataset."""
     num_workers: int = 8
@@ -34,19 +39,23 @@ class LitData(DataModule):
         self.seq_length = max_seq_length + 1  # Increase by one because we need the next token as well
 
     def train_dataloader(self) -> DataLoader:
+        input_dir = os.path.join(self.data_path / self.split_names[0]) if self.split_names else str(self.data_path)
+        return self._dataloader(input_dir=input_dir, train=True)
+
+    def val_dataloader(self) -> DataLoader:
+        input_dir = os.path.join(self.data_path / self.split_names[1]) if self.split_names else str(self.data_path)
+        return self._dataloader(input_dir=input_dir, train=False)
+
+    def _dataloader(self, input_dir: str, train: bool):
         from litdata.streaming import StreamingDataset, TokensLoader
 
         dataset = StreamingDataset(
-            input_dir=str(self.data_path),
+            input_dir=input_dir,
             item_loader=TokensLoader(block_size=self.seq_length),
-            shuffle=True,
+            shuffle=train,
             drop_last=True,
         )
-
-        train_dataloader = DataLoader(
-            dataset, batch_size=self.batch_size, pin_memory=True, num_workers=self.num_workers, drop_last=True)
-        return train_dataloader
-
-    def val_dataloader(self) -> DataLoader:
-        # TODO: Return a validation loader
-        return self.train_dataloader()
+        dataloader = DataLoader(
+            dataset, batch_size=self.batch_size, pin_memory=True, num_workers=self.num_workers, drop_last=True
+        )
+        return dataloader
