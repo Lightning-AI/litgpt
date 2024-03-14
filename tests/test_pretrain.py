@@ -5,7 +5,7 @@ from contextlib import redirect_stdout
 from io import StringIO
 from pathlib import Path
 from unittest import mock
-from unittest.mock import Mock
+from unittest.mock import Mock, ANY
 
 import pytest
 import torch
@@ -61,6 +61,35 @@ def test_pretrain(_, tmp_path):
         assert "Total parameters: 1,888" in logs
 
     torch.distributed.barrier()
+
+
+
+@RunIf(min_cuda_gpus=2, standalone=True)
+# Set CUDA_VISIBLE_DEVICES for FSDP hybrid-shard, if fewer GPUs are used than are available
+@mock.patch.dict(os.environ, {"CUDA_VISIBLE_DEVICES": "0,1"})
+@mock.patch("litgpt.pretrain.L.Fabric.load_raw")
+def test_initial_checkpoint_dir(load_mock, fake_checkpoint_dir, tmp_path):
+    from litgpt import pretrain
+    from litgpt.args import EvalArgs, TrainArgs
+    from litgpt.config import Config
+
+    model_config = Config(block_size=2, n_layer=2, n_embd=8, n_head=4, padded_vocab_size=8)
+
+    dataset = torch.tensor([[0, 1, 2], [3, 4, 5], [0, 1, 2]])
+    dataloader = DataLoader(dataset)
+    pretrain.get_dataloaders = Mock(return_value=(dataloader, dataloader))
+    pretrain.fit = Mock()
+
+    pretrain.setup(
+        initial_checkpoint_dir=fake_checkpoint_dir,
+        devices=2,
+        model_config=model_config,
+        out_dir=tmp_path,
+        train=TrainArgs(global_batch_size=2, max_tokens=16, save_interval=1, micro_batch_size=1, max_norm=1.0),
+        eval=EvalArgs(interval=1, max_iters=1),
+    )
+
+    load_mock.assert_called_once_with(fake_checkpoint_dir / "lit_model.pth", ANY)
 
 
 def test_pretrain_model_name_and_config():
