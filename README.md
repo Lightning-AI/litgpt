@@ -93,10 +93,10 @@ Below is a minimal example to get started with the LitGPT command line interface
 
 ```bash
 # 1) Download a pretrained model
-python litgpt download --repo_id mistralai/Mistral-7B-v0.1
+litgpt download --repo_id mistralai/Mistral-7B-v0.1
 
 # 2) Optionally finetune the model
-python litgpt finetune lora \
+litgpt finetune lora \
   --checkpoint_dir checkpoints/mistralai/Mistral-7B-v0.1 \
   --train.micro_batch_size 2 \
   --lora_r 4 \
@@ -105,11 +105,11 @@ python litgpt finetune lora \
   --out_dir out/my-finetuned-model
 
 # 3) Chat with the model
-python finetune chat \
+litgpt finetune chat \
   --checkpoint_dir checkpoints/mistralai/Mistral-7B-v0.1 \
   --data Alpaca2k
 
->> Prompt:
+>> Prompt: What do Llamas eat?
 ```
 
 For more information, refer to the [download](tutorials/download_model_weights.md), [pretraining](tutorials/pretrain_tinyllama.md), [finetuning](tutorials/finetune_lora.md), and [inference](tutorials/inference.md) tutorials.
@@ -123,7 +123,7 @@ LitGPT also allows users to use configuration files in YAML format instead of sp
 
 
 ```bash
-python litgpt finetune lora \
+litgpt finetune lora \
   --config https://github.com/Lightning-AI/litgpt/blob/wip/config_hub/finetune/llama-2-7b/lora.yaml
 ```
 
