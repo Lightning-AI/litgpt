@@ -16,7 +16,8 @@ class LitData(DataModule):
 
     data_path: Union[str, Path] = Path("data/")
     """The path to the data directory containing the preprocessed chunks for the streaming dataset
-    The path can also be a remote path (e.g., s3://)."""
+    The path can also be a remote path (e.g., s3://). See also ``split_names`` if this path contains subfolders
+    for training- and validation splits."""
     split_names: Optional[Tuple[str, str]] = None
     """Optional tuple for names of subfolders for training and validation under ``data_path``. If not provided,
     all data under data_path will be used for training, and the validation dataloader will be identical to the
