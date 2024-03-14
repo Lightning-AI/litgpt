@@ -4,8 +4,10 @@ from unittest import mock
 import pytest
 
 from litgpt.data import LitData
+from conftest import RunIf
 
 
+@RunIf(skip_windows=True)  # TODO: Find smarter way to join URL/path to be platform agnostic
 @mock.patch("litgpt.data.lit_data.LitData._dataloader")
 def test_input_dir_and_splits(dl_mock, tmp_path):
 
