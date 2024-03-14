@@ -1,6 +1,6 @@
 ## Config files
 
-The table below lists the performances you can expect from the provided config files. Note that you can achieve lower memory consumption by lowering the micro batch size as needed. See the [Dealing with out-of-memory (OOM) errors](../../litgpt/tutorials/oom.md) on lowering the memory requirements.
+The table below lists the performances you can expect from the provided config files. Note that you can achieve lower memory consumption by lowering the micro batch size as needed. See the [Dealing with out-of-memory (OOM) errors](../../tutorials/oom.md) on lowering the memory requirements.
 
 |                       | Size | Dataset   | Epochs | Val loss | Peak memory | Max seq length | Micro batch size | Precision | Training runtime |
 | --------------------- | ---- | --------- | ------ | -------- | ----------- | -------------- | ---------------- | --------- | ---------------- |
