@@ -14,7 +14,7 @@ from torch.utils.data import DataLoader
 from torchmetrics import RunningMean
 
 from litgpt.args import EvalArgs, TrainArgs
-from litgpt.data import Alpaca, LitDataModule
+from litgpt.data import Alpaca, DataModule
 from litgpt.generate.base import generate
 from litgpt.model import GPT, Block, Config
 from litgpt.prompts import save_prompt_style
@@ -40,7 +40,7 @@ def setup(
     precision: Optional[str] = None,
     devices: Union[int, str] = 1,
     resume: Union[bool, Path] = False,
-    data: Optional[LitDataModule] = None,
+    data: Optional[DataModule] = None,
     train: TrainArgs = TrainArgs(
         save_interval=1000,
         log_interval=1,
@@ -100,7 +100,7 @@ def main(
     resume: Union[bool, Path],
     seed: int,
     config: Config,
-    data: LitDataModule,
+    data: DataModule,
     checkpoint_dir: Path,
     out_dir: Path,
     train: TrainArgs,
@@ -169,7 +169,7 @@ def fit(
     out_dir: Path,
     train: TrainArgs,
     eval: EvalArgs,
-    data: LitDataModule,
+    data: DataModule,
 ) -> None:
     model = state["model"]
     optimizer = state["optimizer"]
@@ -275,7 +275,7 @@ def fit(
 # FSDP has issues with `inference_mode`
 @torch.no_grad()
 def validate(
-    fabric: L.Fabric, model: GPT, val_dataloader: DataLoader, tokenizer: Tokenizer, eval: EvalArgs, data: LitDataModule,
+    fabric: L.Fabric, model: GPT, val_dataloader: DataLoader, tokenizer: Tokenizer, eval: EvalArgs, data: DataModule,
 ) -> torch.Tensor:
     fabric.print("Validating ...")
     model.eval()
@@ -315,7 +315,7 @@ def get_lr_scheduler(optimizer, warmup_steps: int, max_steps: int):
     return torch.optim.lr_scheduler.SequentialLR(optimizer, [scheduler1, scheduler2], milestones=[warmup_steps])
 
 
-def get_dataloaders(fabric: L.Fabric, data: LitDataModule, tokenizer: Tokenizer, train: TrainArgs) -> Tuple[DataLoader, DataLoader]:
+def get_dataloaders(fabric: L.Fabric, data: DataModule, tokenizer: Tokenizer, train: TrainArgs) -> Tuple[DataLoader, DataLoader]:
     data.connect(tokenizer=tokenizer, batch_size=train.micro_batch_size, max_seq_length=train.max_seq_length)
     with fabric.rank_zero_first():
         data.prepare_data()

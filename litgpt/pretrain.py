@@ -20,7 +20,7 @@ from typing_extensions import Literal
 
 from litgpt import Tokenizer
 from litgpt.args import EvalArgs, TrainArgs
-from litgpt.data import LitDataModule, TinyLlama
+from litgpt.data import DataModule, TinyLlama
 from litgpt.model import GPT, Block, CausalSelfAttention, Config, LLaMAMLP
 from litgpt.utils import (
     CLI,
@@ -41,7 +41,7 @@ def setup(
     out_dir: Path = Path("out/pretrain"),
     initial_checkpoint_dir: Optional[Path] = None,
     resume: Union[bool, Path] = False,
-    data: Optional[LitDataModule] = None,
+    data: Optional[DataModule] = None,
     train: TrainArgs = TrainArgs(
         save_interval=1000,
         log_interval=1,
@@ -120,7 +120,7 @@ def main(
     initial_checkpoint_dir: Optional[Path],
     resume: Union[bool, Path],
     config: Config,
-    data: LitDataModule,
+    data: DataModule,
     out_dir: Path,
     tokenizer_dir: Optional[Path],
     tokenizer: Optional[Tokenizer],
@@ -338,7 +338,7 @@ def validate(fabric: L.Fabric, model: nn.Module, val_dataloader: DataLoader, max
 
 
 def get_dataloaders(
-    fabric: L.Fabric, data: LitDataModule, tokenizer: Tokenizer, train: TrainArgs, block_size: int
+    fabric: L.Fabric, data: DataModule, tokenizer: Tokenizer, train: TrainArgs, block_size: int
 ) -> Tuple[DataLoader, DataLoader]:
     data.connect(tokenizer=tokenizer, batch_size=train.micro_batch_size, max_seq_length=block_size)
     with fabric.rank_zero_first():
