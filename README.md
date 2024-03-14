@@ -72,7 +72,7 @@ The following [Lightning Studio](https://lightning.ai/lightning-ai/studios) temp
 You can install LitGPT with all dependencies (including CLI, quantization, tokenizers for all models, etc.) using the following pip command:
 
 ```bash
-pip install "litgpt[all]"
+pip install 'litgpt[all]'
 ```
 
 Alternatively, can install litgpt from a cloned GitHub repository:
