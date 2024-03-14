@@ -131,7 +131,7 @@ For added convenience, you can also manually override config file setting via th
 
 
 ```bash
-python litgpt finetune lora 
+litgpt finetune lora 
   --config https://github.com/Lightning-AI/litgpt/blob/wip/config_hub/finetune/llama-2-7b/lora.yaml \
   --lora_r 4
 ```
