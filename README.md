@@ -105,7 +105,7 @@ litgpt finetune lora \
   --out_dir out/my-finetuned-model
 
 # 3) Chat with the model
-litgpt finetune chat \
+litgpt chat \
   --checkpoint_dir checkpoints/mistralai/Mistral-7B-v0.1 \
   --data Alpaca2k
 
