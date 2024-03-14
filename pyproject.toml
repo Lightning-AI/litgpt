@@ -10,7 +10,7 @@ license = { file = "LICENSE" }
 
 dependencies = [
     "torch>=2.2.0",
-    "lightning @ git+https://github.com/Lightning-AI/lightning@f23b3b1e7fdab1d325f79f69a28706d33144f27e",
+    "lightning @ git+https://github.com/Lightning-AI/lightning@b19c3a961c79028d7c39a4f1ff1c2df991406d1d",
     # TODO: install from PyPI when https://github.com/omni-us/jsonargparse/pull/466 is released
     "jsonargparse[signatures] @ git+https://github.com/omni-us/jsonargparse",
 ]

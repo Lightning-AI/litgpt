@@ -27,7 +27,7 @@ def merge_lora(
             ``litgpt finetune --method lora``.
         pretrained_checkpoint_dir: Optional path to the checkpoint directory with the weights of the base model
             corresponding to the LoRA checkpoint. By default, this will automatically be inferred from the metadata
-            in the given `checkpoint_dir` directory. Only set this if the base model checkpoint directory
+            in the given `checkpoint_dir` directory. Only set this if the base model's checkpoint directory
             has moved or was renamed.
         precision: Optional precision setting to instantiate the model weights in. By default, this will
             automatically be inferred from the metadata in the given ``checkpoint_dir`` directory.
@@ -42,7 +42,7 @@ def merge_lora(
     lora_params, pretrained_checkpoint_dir, lora_precision = load_lora_metadata(checkpoint_dir)
     precision = precision if precision is not None else lora_precision
 
-    fabric = L.Fabric(devices=1, precision=precision)
+    fabric = L.Fabric(devices=1, precision=precision, accelerator="cpu")
     config = Config.from_file(checkpoint_dir / "model_config.yaml", **lora_params)
 
     with fabric.init_module(empty_init=True):

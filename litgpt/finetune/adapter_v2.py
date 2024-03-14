@@ -1,5 +1,6 @@
 # Copyright Lightning AI. Licensed under the Apache License 2.0, see LICENSE file.
 import dataclasses
+import math
 import os
 import time
 from pathlib import Path
@@ -8,16 +9,16 @@ from typing import Dict, List, Literal, Optional, Tuple, Union
 
 import lightning as L
 import torch
-from lightning.fabric.loggers import CSVLogger
 from lightning.fabric.plugins import BitsandbytesPrecision
 from lightning.fabric.strategies import FSDPStrategy
 from lightning.fabric.utilities import ThroughputMonitor
 from torch.utils.data import DataLoader
+from torchmetrics import RunningMean
 
-from litgpt.adapter_v2 import GPT, Block, Config, adapter_filter, mark_only_adapter_v2_as_trainable
 from litgpt.args import EvalArgs, TrainArgs
-from litgpt.data import Alpaca, LitDataModule
+from litgpt.data import DataModule, Alpaca
 from litgpt.generate.base import generate
+from litgpt.adapter_v2 import GPT, Block, Config, adapter_filter, mark_only_adapter_v2_as_trainable
 from litgpt.prompts import save_prompt_style
 from litgpt.tokenizer import Tokenizer
 from litgpt.utils import (
@@ -31,35 +32,53 @@ from litgpt.utils import (
     parse_devices,
     copy_config_files,
     save_hyperparameters,
+    choose_logger,
 )
 
 
 def setup(
+    checkpoint_dir: Path = Path("checkpoints/stabilityai/stablelm-base-alpha-3b"),
+    out_dir: Path = Path("out/finetune/adapter-v2"),
     precision: Optional[str] = None,
     quantize: Optional[Literal["bnb.nf4", "bnb.nf4-dq", "bnb.fp4", "bnb.fp4-dq", "bnb.int8-training"]] = None,
     devices: Union[int, str] = 1,
-    seed: int = 1337,
-    data: Optional[LitDataModule] = None,
-    checkpoint_dir: Path = Path("checkpoints/stabilityai/stablelm-base-alpha-3b"),
-    out_dir: Path = Path("out/adapter_v2"),
+    data: Optional[DataModule] = None,
     train: TrainArgs = TrainArgs(
         save_interval=1000,
         log_interval=1,
         global_batch_size=128,
-        micro_batch_size=2,
+        micro_batch_size=4,
         lr_warmup_steps=100,
         epochs=5,
         learning_rate=1e-3,
         max_seq_length=None,
     ),
-    eval: EvalArgs = EvalArgs(interval=600, max_new_tokens=100, max_iters=100),
+    eval: EvalArgs = EvalArgs(interval=100, max_new_tokens=100, max_iters=100),
+    logger_name: Literal["wandb", "tensorboard", "csv"] = "csv",
+    seed: int = 1337,
 ) -> None:
+    """Finetune a model using the Adapter V2 method.
+
+    Arguments:
+        checkpoint_dir: The path to the base model's checkpoint directory to load for finetuning.
+        out_dir: Directory in which to save checkpoints and logs.
+        precision: The precision to use for finetuning. Possible choices: "bf16-true", "bf16-mixed", "32-true".
+        quantize: If set, quantize the model with this algorithm. See ``tutorials/quantize.md`` for more information.
+        devices: How many devices/GPUs to use.
+        data: Data-related arguments. If not provided, the default is ``litgpt.data.Alpaca``.
+        train: Training-related arguments. See ``litgpt.args.TrainArgs`` for details.
+        eval: Evaluation-related arguments. See ``litgpt.args.EvalArgs`` for details.
+        logger_name: The name of the logger to send metrics to.
+        seed: The random seed to use for reproducibility.
+    """
 
     pprint(locals())
     data = Alpaca() if data is None else data
     devices = parse_devices(devices)
+    config = Config.from_name(name=checkpoint_dir.name)
 
     precision = precision or get_default_supported_precision(training=True)
+    logger = choose_logger(logger_name, out_dir, name=f"finetune-{config.name}", log_interval=train.log_interval)
 
     plugins = None
     if quantize is not None and quantize.startswith("bnb."):
@@ -85,14 +104,12 @@ def setup(
     else:
         strategy = "auto"
 
-    logger = CSVLogger(out_dir.parent, out_dir.name, flush_logs_every_n_steps=train.log_interval)
     fabric = L.Fabric(devices=devices, strategy=strategy, precision=precision, loggers=logger, plugins=plugins)
-    fabric.launch(main, devices, seed, Config.from_name(name=checkpoint_dir.name), data, checkpoint_dir, out_dir, train, eval)
+    fabric.launch(main, devices, seed, config, data, checkpoint_dir, out_dir, train, eval)
 
 
-def main(fabric: L.Fabric, devices: int, seed: int, config: Config, data: LitDataModule, checkpoint_dir: Path, out_dir: Path, train: TrainArgs, eval: EvalArgs) -> None:
+def main(fabric: L.Fabric, devices: int, seed: int, config: Config, data: DataModule, checkpoint_dir: Path, out_dir: Path, train: TrainArgs, eval: EvalArgs) -> None:
     validate_args(train, eval)
-
     check_valid_checkpoint_dir(checkpoint_dir)
 
     tokenizer = Tokenizer(checkpoint_dir)
@@ -133,12 +150,12 @@ def main(fabric: L.Fabric, devices: int, seed: int, config: Config, data: LitDat
 
     train_time = time.perf_counter()
     fit(fabric, model, optimizer, scheduler, train_dataloader, val_dataloader, devices, checkpoint_dir, out_dir, train, eval, data)
-    fabric.print(f"Training time: {(time.perf_counter()-train_time):.2f}s")
+    fabric.print(f"Training time: {(time.perf_counter() - train_time):.2f}s")
     if fabric.device.type == "cuda":
         fabric.print(f"Memory used: {torch.cuda.max_memory_allocated() / 1e9:.02f} GB")
 
-    # Save the final checkpoint at the end of training
-    save_path = out_dir / "final" / "lit_model.pth"
+    # Save the final Adapter checkpoint at the end of training
+    save_path = out_dir / "final" / "lit_model.pth.adapter_v2"
     save_path.parent.mkdir(parents=True, exist_ok=True)
     save_adapter_v2_checkpoint(fabric, model, save_path)
     if fabric.global_rank == 0:
@@ -160,7 +177,7 @@ def fit(
     out_dir: Path,
     train: TrainArgs,
     eval: EvalArgs,
-    data: LitDataModule,
+    data: DataModule,
 ) -> None:
     tokenizer = Tokenizer(checkpoint_dir)
     longest_seq_length, longest_seq_ix = get_longest_seq_length(train_dataloader.dataset)
@@ -174,6 +191,9 @@ def fit(
 
     train_iterator = CycleIterator(train_dataloader)
     throughput = ThroughputMonitor(fabric, window_size=50)
+    running_loss = RunningMean(window=train.gradient_accumulation_iters(devices), sync_on_compute=False).to(
+        fabric.device
+    )
     max_steps = train.max_steps or float("inf")
     step_count = 0
     iter_num = 0
@@ -184,7 +204,6 @@ def fit(
     while step_count < max_steps and train_iterator.epoch < train.epochs:
         iter_num += 1
         iter_t0 = time.perf_counter()
-
         batch = next(train_iterator)
         input_ids, targets = batch["input_ids"], batch["labels"]
 
@@ -196,6 +215,8 @@ def fit(
             loss = chunked_cross_entropy(logits, targets[..., 1:])
             fabric.backward(loss / train.gradient_accumulation_iters(devices))
 
+        running_loss.update(loss.detach())
+
         if not is_accumulating:
             optimizer.step()
             optimizer.zero_grad()
@@ -204,30 +225,46 @@ def fit(
 
         total_lengths += input_ids.numel()
         if iter_num % train.log_interval == 0:
-            loss_item = loss.item()  # expensive device-to-host synchronization
+            loss = running_loss.compute().item()  # expensive device-to-host synchronization
             t1 = time.perf_counter()
             throughput.update(
                 time=t1 - total_t0, batches=iter_num, samples=iter_num * train.micro_batch_size, lengths=total_lengths
             )
             throughput.compute_and_log(step=iter_num)
+            metrics = {
+                "loss": loss,
+                "iter": iter_num,
+                "step": step_count,
+                "epoch": train_iterator.epoch,
+                "iter_time": t1 - iter_t0,
+                "tokens": iter_num * train.micro_batch_size * model.config.block_size,
+                "total_tokens": (
+                        iter_num * train.micro_batch_size * model.config.block_size * fabric.world_size
+                ),
+                "learning_rate": scheduler.get_last_lr()[0],
+            }
             if isinstance(val_loss, torch.Tensor):
                 val_loss = f"{val_loss:.3f}"
             fabric.print(
-                f"Epoch {train_iterator.epoch+1} | iter {iter_num} step {step_count} |"
-                f" loss train: {loss_item:.3f},"
+                f"Epoch {metrics['epoch'] + 1} | iter {metrics['iter']} step {metrics['step']} |"
+                f" loss train: {metrics['loss']:.3f},"
                 f" val: {val_loss} |"
-                f" iter time: {(t1 - iter_t0) * 1000:.2f} ms"
+                f" iter time: {metrics['iter_time'] * 1000:.2f} ms"
                 f"{' (step)' if not is_accumulating else ''}"
             )
+            fabric.log_dict(metrics, step=iter_num)
 
         if not is_accumulating and step_count % eval.interval == 0:
             t0 = time.perf_counter()
             val_loss = validate(fabric, model, val_dataloader, tokenizer, eval, data)
             t1 = time.perf_counter() - t0
             fabric.print(f"iter {iter_num}: val loss {val_loss.item():.4f}, val time: {t1 * 1000:.2f} ms")
+            metrics = {"val_loss": val_loss, "val_ppl": math.exp(val_loss)}
+            fabric.log_dict(metrics, step=iter_num)
             fabric.barrier()
+
         if train.save_interval is not None and not is_accumulating and step_count % train.save_interval == 0:
-            checkpoint_file = out_dir / f"step-{step_count:06d}" / "lit_model.pth"
+            checkpoint_file = out_dir / f"step-{step_count:06d}" / "lit_model.pth.adapter_v2"
             checkpoint_file.parent.mkdir(parents=True, exist_ok=True)
             save_adapter_v2_checkpoint(fabric, model, checkpoint_file)
             if fabric.global_rank == 0:
@@ -239,7 +276,7 @@ def fit(
 # the adapter "kv cache" cannot be initialized under `inference_mode`
 @torch.no_grad()
 def validate(
-    fabric: L.Fabric, model: GPT, val_dataloader: DataLoader, tokenizer: Tokenizer, eval: EvalArgs, data: LitDataModule,
+    fabric: L.Fabric, model: GPT, val_dataloader: DataLoader, tokenizer: Tokenizer, eval: EvalArgs, data: DataModule,
 ) -> torch.Tensor:
     fabric.print("Validating ...")
     model.eval()
@@ -250,6 +287,7 @@ def validate(
         input_ids, targets = batch["input_ids"], batch["labels"]
         logits = model(input_ids)
         losses[k] = chunked_cross_entropy(logits[..., :-1, :], targets[..., 1:], chunk_size=0)
+
     val_loss = losses.mean()
 
     # produce an example:
@@ -278,7 +316,7 @@ def get_lr_scheduler(optimizer, warmup_steps: int, max_steps: int):
     return torch.optim.lr_scheduler.SequentialLR(optimizer, [scheduler1, scheduler2], milestones=[warmup_steps])
 
 
-def get_dataloaders(fabric: L.Fabric, data: LitDataModule, tokenizer: Tokenizer, train: TrainArgs) -> Tuple[DataLoader, DataLoader]:
+def get_dataloaders(fabric: L.Fabric, data: DataModule, tokenizer: Tokenizer, train: TrainArgs) -> Tuple[DataLoader, DataLoader]:
     data.connect(tokenizer=tokenizer, batch_size=train.micro_batch_size, max_seq_length=train.max_seq_length)
     with fabric.rank_zero_first():
         data.prepare_data()
