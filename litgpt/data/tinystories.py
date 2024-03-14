@@ -16,12 +16,12 @@ from torch.utils.data import ConcatDataset, DataLoader
 from tqdm import tqdm
 
 from litgpt.data.alpaca import download_if_missing
-from litgpt.data.base import LitDataModule
+from litgpt.data.base import DataModule
 from litgpt.tokenizer import Tokenizer
 
 
 @dataclass
-class TinyStories(LitDataModule):
+class TinyStories(DataModule):
     """The TinyStories data module: https://huggingface.co/datasets/roneneldan/TinyStories
 
     Provides training and validation dataloaders that return batches of tokens. Every sample is set to a fixed length.

@@ -16,7 +16,7 @@ from torch.utils.data import DataLoader
 from torchmetrics import RunningMean
 
 from litgpt.args import EvalArgs, TrainArgs
-from litgpt.data import LitDataModule, Alpaca
+from litgpt.data import DataModule, Alpaca
 from litgpt.generate.base import generate
 from litgpt.lora import GPT, Block, Config, lora_filter, mark_only_lora_as_trainable
 from litgpt.prompts import save_prompt_style
@@ -52,7 +52,7 @@ def setup(
     lora_projection: bool = False,
     lora_mlp: bool = False,
     lora_head: bool = False,
-    data: Optional[LitDataModule] = None,
+    data: Optional[DataModule] = None,
     train: TrainArgs = TrainArgs(
         save_interval=1000,
         log_interval=1,
@@ -138,7 +138,7 @@ def setup(
     fabric.launch(main, devices, seed, config, data, checkpoint_dir, out_dir, train, eval)
 
 
-def main(fabric: L.Fabric, devices: int, seed: int, config: Config, data: LitDataModule, checkpoint_dir: Path, out_dir: Path, train: TrainArgs, eval: EvalArgs) -> None:
+def main(fabric: L.Fabric, devices: int, seed: int, config: Config, data: DataModule, checkpoint_dir: Path, out_dir: Path, train: TrainArgs, eval: EvalArgs) -> None:
     validate_args(train, eval)
     check_valid_checkpoint_dir(checkpoint_dir)
 
@@ -208,7 +208,7 @@ def fit(
     out_dir: Path,
     train: TrainArgs,
     eval: EvalArgs,
-    data: LitDataModule,
+    data: DataModule,
 ) -> None:
     tokenizer = Tokenizer(checkpoint_dir)
     longest_seq_length, longest_seq_ix = get_longest_seq_length(train_dataloader.dataset)
@@ -307,7 +307,7 @@ def fit(
 # FSDP has issues with `inference_mode`
 @torch.no_grad()
 def validate(
-    fabric: L.Fabric, model: GPT, val_dataloader: DataLoader, tokenizer: Tokenizer, eval: EvalArgs, data: LitDataModule,
+    fabric: L.Fabric, model: GPT, val_dataloader: DataLoader, tokenizer: Tokenizer, eval: EvalArgs, data: DataModule,
 ) -> torch.Tensor:
     fabric.print("Validating ...")
     model.eval()
@@ -347,7 +347,7 @@ def get_lr_scheduler(optimizer, warmup_steps: int, max_steps: int):
     return torch.optim.lr_scheduler.SequentialLR(optimizer, [scheduler1, scheduler2], milestones=[warmup_steps])
 
 
-def get_dataloaders(fabric: L.Fabric, data: LitDataModule, tokenizer: Tokenizer, train: TrainArgs) -> Tuple[DataLoader, DataLoader]:
+def get_dataloaders(fabric: L.Fabric, data: DataModule, tokenizer: Tokenizer, train: TrainArgs) -> Tuple[DataLoader, DataLoader]:
     data.connect(tokenizer=tokenizer, batch_size=train.micro_batch_size, max_seq_length=train.max_seq_length)
     with fabric.rank_zero_first():
         data.prepare_data()

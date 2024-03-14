@@ -16,7 +16,7 @@ from torch.utils.data import DataLoader
 
 from litgpt.adapter_v2 import GPT, Block, Config, adapter_filter, mark_only_adapter_v2_as_trainable
 from litgpt.args import EvalArgs, TrainArgs
-from litgpt.data import Alpaca, LitDataModule
+from litgpt.data import Alpaca, DataModule
 from litgpt.generate.base import generate
 from litgpt.prompts import save_prompt_style
 from litgpt.tokenizer import Tokenizer
@@ -39,7 +39,7 @@ def setup(
     quantize: Optional[Literal["bnb.nf4", "bnb.nf4-dq", "bnb.fp4", "bnb.fp4-dq", "bnb.int8-training"]] = None,
     devices: Union[int, str] = 1,
     seed: int = 1337,
-    data: Optional[LitDataModule] = None,
+    data: Optional[DataModule] = None,
     checkpoint_dir: Path = Path("checkpoints/stabilityai/stablelm-base-alpha-3b"),
     out_dir: Path = Path("out/adapter_v2"),
     train: TrainArgs = TrainArgs(
@@ -90,7 +90,7 @@ def setup(
     fabric.launch(main, devices, seed, Config.from_name(name=checkpoint_dir.name), data, checkpoint_dir, out_dir, train, eval)
 
 
-def main(fabric: L.Fabric, devices: int, seed: int, config: Config, data: LitDataModule, checkpoint_dir: Path, out_dir: Path, train: TrainArgs, eval: EvalArgs) -> None:
+def main(fabric: L.Fabric, devices: int, seed: int, config: Config, data: DataModule, checkpoint_dir: Path, out_dir: Path, train: TrainArgs, eval: EvalArgs) -> None:
     validate_args(train, eval)
 
     check_valid_checkpoint_dir(checkpoint_dir)
@@ -160,7 +160,7 @@ def fit(
     out_dir: Path,
     train: TrainArgs,
     eval: EvalArgs,
-    data: LitDataModule,
+    data: DataModule,
 ) -> None:
     tokenizer = Tokenizer(checkpoint_dir)
     longest_seq_length, longest_seq_ix = get_longest_seq_length(train_dataloader.dataset)
@@ -239,7 +239,7 @@ def fit(
 # the adapter "kv cache" cannot be initialized under `inference_mode`
 @torch.no_grad()
 def validate(
-    fabric: L.Fabric, model: GPT, val_dataloader: DataLoader, tokenizer: Tokenizer, eval: EvalArgs, data: LitDataModule,
+    fabric: L.Fabric, model: GPT, val_dataloader: DataLoader, tokenizer: Tokenizer, eval: EvalArgs, data: DataModule,
 ) -> torch.Tensor:
     fabric.print("Validating ...")
     model.eval()
@@ -278,7 +278,7 @@ def get_lr_scheduler(optimizer, warmup_steps: int, max_steps: int):
     return torch.optim.lr_scheduler.SequentialLR(optimizer, [scheduler1, scheduler2], milestones=[warmup_steps])
 
 
-def get_dataloaders(fabric: L.Fabric, data: LitDataModule, tokenizer: Tokenizer, train: TrainArgs) -> Tuple[DataLoader, DataLoader]:
+def get_dataloaders(fabric: L.Fabric, data: DataModule, tokenizer: Tokenizer, train: TrainArgs) -> Tuple[DataLoader, DataLoader]:
     data.connect(tokenizer=tokenizer, batch_size=train.micro_batch_size, max_seq_length=train.max_seq_length)
     with fabric.rank_zero_first():
         data.prepare_data()

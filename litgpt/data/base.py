@@ -12,7 +12,7 @@ from litgpt import Tokenizer
 from litgpt.prompts import PromptStyle
 
 
-class LitDataModule(LightningDataModule):
+class DataModule(LightningDataModule):
     """Base class for all data modules in LitGPT."""
 
     @abstractmethod

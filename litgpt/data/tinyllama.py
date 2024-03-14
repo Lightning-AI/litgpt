@@ -6,11 +6,11 @@ from typing import Union, Optional
 from torch.utils.data import DataLoader
 
 from litgpt import Tokenizer
-from litgpt.data import LitDataModule
+from litgpt.data import DataModule
 
 
 @dataclass
-class TinyLlama(LitDataModule):
+class TinyLlama(DataModule):
     """The TinyLlama data module is composed of a mix of SlimPajama and Starcoder data.
 
     Provides training and validation streaming dataloaders that return batches of tokens.
