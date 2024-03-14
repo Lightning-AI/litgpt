@@ -142,7 +142,6 @@ def main(
         print("Merging LoRA weights with the base model. This won't take long and is a one-time-only thing.")
         merge_lora(checkpoint_path)
 
-    fabric.print(f"Loading model {str(checkpoint_path)!r} with {config.__dict__}", file=sys.stderr)
     with fabric.init_module(empty_init=True):
         model = GPT(config)
         # enable the kv cache
@@ -163,13 +162,14 @@ def main(
     prompt_style = load_prompt_style(checkpoint_dir) if has_prompt_style(checkpoint_dir) else PromptStyle.from_config(config)
     stop_tokens = prompt_style.stop_tokens(tokenizer)
 
+    print(f"Now chatting with {config.name}.\nType 'exit' into the prompt to exit program.\n")
     L.seed_everything(1234)
     while True:
         try:
             prompt = input(">> Prompt: ")
         except KeyboardInterrupt:
             break
-        if not prompt:
+        if prompt.lower().strip() in ("", "quit", "exit"):
             break
         prompt = prompt_style.apply(prompt=prompt)
         encoded_prompt = tokenizer.encode(prompt, device=fabric.device)
