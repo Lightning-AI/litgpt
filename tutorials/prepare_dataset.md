@@ -320,7 +320,7 @@ The models in LitGPT expect datasets for instruction finetuning in the following
 
 (Note that depending on the task, the `"input"` text can be an empty string, as shown above.)
 
-You can use your own data in LitGPT by either reading in a JSON file in the format shown above or by implementing a custom `LitDataModule`.
+You can use your own data in LitGPT by either reading in a JSON file in the format shown above or by implementing a custom `DataModule`.
 
 &nbsp;
 
@@ -370,7 +370,7 @@ You can also pass a directory containing a `train.json` and `val.json` to `--dat
 
 &nbsp;
 
-### Preparing Custom Datasets Using LitDataModule
+### Preparing Custom Datasets Using DataModule
 
 If you don't have a JSON file following the format described in the previous section, the easiest way to prepare a new dataset is to copy and modify one of the existing data modules in LitGPT:
 

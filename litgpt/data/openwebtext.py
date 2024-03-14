@@ -8,11 +8,11 @@ from typing import Union, Optional
 from torch.utils.data import DataLoader
 
 from litgpt import Tokenizer
-from litgpt.data import LitDataModule
+from litgpt.data import DataModule
 
 
 @dataclass
-class OpenWebText(LitDataModule):
+class OpenWebText(DataModule):
     """The OpenWebText data module for pretraining."""
 
     data_path: Union[str, Path] = Path("data/openwebtext")
