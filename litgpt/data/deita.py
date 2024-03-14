@@ -9,12 +9,12 @@ import torch
 from torch.utils.data import DataLoader
 
 from litgpt import PromptStyle
-from litgpt.data import LitDataModule, SFTDataset, get_sft_collate_fn
+from litgpt.data import DataModule, SFTDataset, get_sft_collate_fn
 from litgpt.tokenizer import Tokenizer
 
 
 @dataclass
-class Deita(LitDataModule):
+class Deita(DataModule):
     """Deita data module for supervised finetuning."""
 
     mask_prompt: bool = False
