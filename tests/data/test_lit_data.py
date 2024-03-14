@@ -1,13 +1,13 @@
 # Copyright Lightning AI. Licensed under the Apache License 2.0, see LICENSE file.
+import sys
 from unittest import mock
 
 import pytest
 
 from litgpt.data import LitData
-from conftest import RunIf
 
 
-@RunIf(skip_windows=True)  # TODO: Find smarter way to join URL/path to be platform agnostic
+@pytest.mark.skipif(sys.platform == "win32", reason="Needs to implement platform agnostic path/url joining")
 @mock.patch("litgpt.data.lit_data.LitData._dataloader")
 def test_input_dir_and_splits(dl_mock, tmp_path):
 
