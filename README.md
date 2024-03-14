@@ -117,9 +117,9 @@ litgpt download --repo_id microsoft/phi-2
 
 # 2) Finetune the model
 litgpt finetune lora \
+  --checkpoint_dir checkpoints/microsoft/phi-2 \
   --data Alpaca2k \
-  --out_dir out/phi-2-lora \
-  --checkpoint_dir checkpoints/microsoft/phi-2
+  --out_dir out/phi-2-lora
 
 # 3) Chat with the model
 litgpt chat \
