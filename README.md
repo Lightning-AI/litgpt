@@ -141,7 +141,7 @@ You can browse the available configuration files [here](https://github.com/Light
 &nbsp;
 
 > [!TIP] 
-> **Run large models on smaller consumer devices**
+> **Run large models on smaller consumer devices:**
 > We support 4-bit quantization (as in QLoRA), (bnb.nf4, bnb.nf4-dq, bnb.fp4, bnb.fp4-dq) and 8-bit quantization (bnb.int8) for inference by following [this guide](tutorials/quantize.md).
 
 
