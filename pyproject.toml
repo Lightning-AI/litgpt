@@ -10,7 +10,7 @@ license = { file = "LICENSE" }
 
 dependencies = [
     "torch>=2.2.0",
-    "lightning @ git+https://github.com/Lightning-AI/lightning@b19c3a961c79028d7c39a4f1ff1c2df991406d1d",
+    "lightning @ git+https://github.com/Lightning-AI/lightning@75553845c6bbcc305fbae38a46ef4e532e4ac85a",
     # TODO: install from PyPI when https://github.com/omni-us/jsonargparse/pull/466 is released
     "jsonargparse[signatures] @ git+https://github.com/omni-us/jsonargparse",
 ]
@@ -32,8 +32,7 @@ test = [
     "protobuf",
 ]
 all = [
-    "bitsandbytes==0.41.0",      # quantization
-    "scipy",                     # required by bitsandbytes
+    "bitsandbytes==0.42.0",      # quantization
     "sentencepiece",             # llama-based models
     "tokenizers",                # pythia, falcon, redpajama
     "datasets",                  # eval
