@@ -43,6 +43,12 @@ jobs:
     - name: Install uv
       run: pip install uv
 
+    - name: Cache for uv
+      uses: actions/cache@v4
+      with:
+        path: ~/.cache/uv
+        key: ${{ runner.os }}-python-${{ matrix.python-version }}-uv
+
     - name: Install minimal dependencies
       run: |
         # uv pip install . is not yet supported, only `-e .`
