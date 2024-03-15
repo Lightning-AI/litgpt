@@ -152,7 +152,7 @@ def main(
     t0 = time.perf_counter()
     with fabric.init_module(empty_init=False):
         model = GPT(config)
-        model.apply(partial(init_weights, n_layer=config.n_layer, n_embd=config.n_embd))
+        patch_reset_parameters(model, n_layer=config.n_layer, n_embd=config.n_embd)
 
     if train.tie_embeddings:
         model.transformer.wte.weight = model.lm_head.weight
