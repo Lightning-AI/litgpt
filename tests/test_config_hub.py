@@ -9,7 +9,7 @@ from lightning.fabric.plugins import Precision
 
 
 @pytest.mark.parametrize(
-    ["script_file", "config_file"],
+    ("script_file", "config_file"),
     [
         ("litgpt/pretrain.py", "pretrain/debug.yaml"),
         ("litgpt/pretrain.py", "pretrain/tinyllama.yaml"),
@@ -26,7 +26,7 @@ from lightning.fabric.plugins import Precision
         ("litgpt/finetune/lora.py", "finetune/tiny-llama/qlora.yaml"),
     ],
 )
-def test_config_help(script_file, config_file, monkeypatch, tmp_path):
+def test_config_help(script_file, config_file):
     """Test that configs validate against the signature in the scripts."""
     from litgpt.utils import CLI
 

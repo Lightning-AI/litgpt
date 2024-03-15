@@ -7,7 +7,7 @@ import pytest
 from packaging.version import Version
 
 
-def test_cli(tmp_path):
+def test_cli():
     from litgpt.__main__ import main
 
     out = StringIO()
