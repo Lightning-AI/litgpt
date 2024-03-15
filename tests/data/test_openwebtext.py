@@ -24,10 +24,24 @@ def test_openwebtext(_, optimize_mock, tmp_path, monkeypatch, mock_tokenizer):
 
     # Data does not exist, preprocess it
     data.prepare_data()
-    optimize_mock.assert_has_calls([
-        call(fn=ANY, num_workers=ANY, inputs=[], output_dir=str(tmp_path / "openwebtext" / "train"), chunk_bytes="200MB"),
-        call(fn=ANY, num_workers=ANY, inputs=[], output_dir=str(tmp_path / "openwebtext" / "val"), chunk_bytes="200MB"),
-    ])
+    optimize_mock.assert_has_calls(
+        [
+            call(
+                fn=ANY,
+                num_workers=ANY,
+                inputs=[],
+                output_dir=str(tmp_path / "openwebtext" / "train"),
+                chunk_bytes="200MB",
+            ),
+            call(
+                fn=ANY,
+                num_workers=ANY,
+                inputs=[],
+                output_dir=str(tmp_path / "openwebtext" / "val"),
+                chunk_bytes="200MB",
+            ),
+        ]
+    )
     optimize_mock.reset_mock()
 
     # Data exists, already preprocessed

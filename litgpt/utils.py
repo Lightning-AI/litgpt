@@ -8,7 +8,7 @@ import sys
 from dataclasses import asdict
 from io import BytesIO
 from pathlib import Path
-from typing import TYPE_CHECKING, Any, Dict, Iterable, List, Mapping, Optional, TypeVar, Union, Literal
+from typing import TYPE_CHECKING, Any, Dict, Iterable, List, Literal, Mapping, Optional, TypeVar, Union
 
 import lightning as L
 import torch
@@ -23,8 +23,7 @@ from torch.serialization import normalize_storage_type
 from typing_extensions import Self
 
 if TYPE_CHECKING:
-    from litgpt import GPT
-    from litgpt import Config
+    from litgpt import GPT, Config
 
 
 def find_multiple(n: int, k: int) -> int:
@@ -380,7 +379,7 @@ def copy_config_files(source_dir: Path, out_dir: Path) -> None:
     """Copies the specified configuration and tokenizer files into the output directory."""
 
     config_files = ["generation_config.json", "model_config.yaml"]
-    tokenizer_files = ["tokenizer.json", "tokenizer.model",  "tokenizer_config.json"]
+    tokenizer_files = ["tokenizer.json", "tokenizer.model", "tokenizer_config.json"]
 
     for file_name in config_files + tokenizer_files:
         src_path = source_dir / file_name
@@ -389,7 +388,7 @@ def copy_config_files(source_dir: Path, out_dir: Path) -> None:
 
 
 def CLI(*args: Any, **kwargs: Any) -> Any:
-    from jsonargparse import CLI, set_docstring_parse_options, set_config_read_mode
+    from jsonargparse import CLI, set_config_read_mode, set_docstring_parse_options
 
     set_docstring_parse_options(attribute_docstrings=True)
     set_config_read_mode(urls_enabled=True)

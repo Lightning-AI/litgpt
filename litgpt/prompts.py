@@ -4,7 +4,7 @@ import re
 from abc import abstractmethod
 from json import dumps
 from pathlib import Path
-from typing import TYPE_CHECKING, Dict, List, Type, Tuple, Union
+from typing import TYPE_CHECKING, Dict, List, Tuple, Type, Union
 
 import yaml
 
@@ -16,12 +16,13 @@ if TYPE_CHECKING:
 
 class PromptStyle:
     """Base interface for prompt styles."""
+
     @abstractmethod
     def apply(self, prompt: str, **kwargs: str) -> str:
         return prompt
 
     def stop_tokens(self, tokenizer: "Tokenizer") -> Tuple[List[int], ...]:
-        return ([tokenizer.eos_id], )
+        return ([tokenizer.eos_id],)
 
     @classmethod
     def from_name(cls, name: str) -> "PromptStyle":
@@ -37,7 +38,7 @@ class Default(PromptStyle):
         return prompt
 
     def stop_tokens(self, tokenizer: "Tokenizer") -> Tuple[List[int], ...]:
-        return ([tokenizer.eos_id], )
+        return ([tokenizer.eos_id],)
 
 
 class Alpaca(PromptStyle):

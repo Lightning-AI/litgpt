@@ -19,7 +19,10 @@ def test_convert_pretrained_checkpoint(tmp_path, fake_checkpoint_dir):
     convert_pretrained_checkpoint(checkpoint_dir=fake_checkpoint_dir, output_dir=(tmp_path / "converted"))
 
     assert set(os.listdir(tmp_path / "converted")) == {
-        "lit_model.pth", "model_config.yaml", "tokenizer_config.json", "tokenizer.json"
+        "lit_model.pth",
+        "model_config.yaml",
+        "tokenizer_config.json",
+        "tokenizer.json",
     }
     converted_checkpoint = torch.load(tmp_path / "converted" / "lit_model.pth")
     assert list(converted_checkpoint.keys()) == ["some.module.weight", "some.other.module.weight"]

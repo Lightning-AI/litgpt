@@ -1,6 +1,5 @@
 # Copyright Lightning AI. Licensed under the Apache License 2.0, see LICENSE file.
 
-import json
 import subprocess
 import sys
 from contextlib import redirect_stderr, redirect_stdout

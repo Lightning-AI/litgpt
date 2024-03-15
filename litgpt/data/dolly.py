@@ -50,7 +50,7 @@ class Dolly(Alpaca):
         train_data, test_data = random_split(
             data,
             [1.0 - self.val_split_fraction, self.val_split_fraction],
-            generator=torch.Generator().manual_seed(self.seed)
+            generator=torch.Generator().manual_seed(self.seed),
         )
         train_data, test_data = list(train_data), list(test_data)
 

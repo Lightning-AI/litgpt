@@ -1,5 +1,6 @@
 # Copyright Lightning AI. Licensed under the Apache License 2.0, see LICENSE file.
 
+
 def test_longform(mock_tokenizer, longform_path):
     from litgpt.data import LongForm
     from litgpt.prompts import Longform as LongFormPromptStyle

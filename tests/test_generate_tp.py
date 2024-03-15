@@ -7,7 +7,6 @@ from unittest.mock import Mock
 import pytest
 import torch
 import yaml
-
 from conftest import RunIf
 from test_generate_sequentially import find_forward_hooks
 
@@ -83,8 +82,8 @@ def test_tensor_parallel_linear():
     ],
 )
 def test_tensor_parallel_llama(name, expected):
-    from litgpt.generate.tp import tensor_parallel
     from litgpt import GPT
+    from litgpt.generate.tp import tensor_parallel
 
     fabric = Mock()
     fabric.world_size = 8

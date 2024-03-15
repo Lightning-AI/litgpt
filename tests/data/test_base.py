@@ -17,10 +17,7 @@ def test_sft_dataset(max_seq_length, ignore_index, mask_prompt, mock_tokenizer):
             return f"In: {prompt} Out:"
 
     i = ignore_index
-    data = [
-        {"instruction": "Foo", "output": "Bar"},
-        {"instruction": "Boo", "output": "Ahh"},
-    ]
+    data = [{"instruction": "Foo", "output": "Bar"}, {"instruction": "Boo", "output": "Ahh"}]
 
     dataset = SFTDataset(
         data=data,
@@ -34,7 +31,9 @@ def test_sft_dataset(max_seq_length, ignore_index, mask_prompt, mock_tokenizer):
 
     expected_input_ids = torch.tensor([73, 110, 58, 32, 70, 111, 111, 32, 79, 117, 116, 58, 66, 97, 114, 1])
     # If prompt is not masked, labels == input_ids
-    expected_labels = torch.tensor([i, i, i, i, i, i, i, i, i, i, i, i, 66, 97, 114, 1]) if mask_prompt else expected_input_ids
+    expected_labels = (
+        torch.tensor([i, i, i, i, i, i, i, i, i, i, i, i, 66, 97, 114, 1]) if mask_prompt else expected_input_ids
+    )
 
     assert torch.equal(dataset[0]["input_ids"], expected_input_ids[:max_seq_length])
     assert torch.equal(dataset[0]["labels"], expected_labels[:max_seq_length])
@@ -52,7 +51,7 @@ def test_sft_collate_fn_padding(pad_id, ignore_index):
     ]
     expected = {
         "input_ids": torch.tensor([[1, 2, 3, pad_id, pad_id], [4, 5, 6, 7, 8]]),
-        "labels": torch.tensor([[10, 20, 30, ignore_index, ignore_index], [40, 50, 60, 70, 80]])
+        "labels": torch.tensor([[10, 20, 30, ignore_index, ignore_index], [40, 50, 60, 70, 80]]),
     }
     batch = collate(samples)
     assert all(torch.equal(batch[k], expected[k]) for k in ("input_ids", "labels"))
@@ -66,9 +65,6 @@ def test_sft_collate_fn_truncation():
         {"input_ids": torch.tensor([1, 2, 3]), "labels": torch.tensor([10, 20, 30])},
         {"input_ids": torch.tensor([4, 5, 6, 7, 8]), "labels": torch.tensor([40, 50, 60, 70, 80])},
     ]
-    expected = {
-        "input_ids": torch.tensor([[1, 2], [4, 5]]),
-        "labels": torch.tensor([[10, 20], [40, 50]])
-    }
+    expected = {"input_ids": torch.tensor([[1, 2], [4, 5]]), "labels": torch.tensor([[10, 20], [40, 50]])}
     batch = collate(samples)
     assert all(torch.equal(batch[k], expected[k]) for k in ("input_ids", "labels"))

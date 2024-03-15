@@ -8,18 +8,24 @@ import pytest
 from lightning.fabric.plugins import Precision
 
 
-@pytest.mark.parametrize(["script_file", "config_file"], [
-    ("litgpt/pretrain.py", "pretrain/debug.yaml"),
-    ("litgpt/pretrain.py", "pretrain/tinyllama.yaml"),
-    ("litgpt/pretrain.py", "pretrain/tinystories.yaml"),
-    ("litgpt/pretrain.py", "https://raw.githubusercontent.com/Lightning-AI/litgpt/wip/config_hub/pretrain/tinystories.yaml"),
-    ("litgpt/finetune/full.py", "finetune/llama-2-7b/full.yaml"),
-    ("litgpt/finetune/lora.py", "finetune/llama-2-7b/lora.yaml"),
-    ("litgpt/finetune/lora.py", "finetune/llama-2-7b/qlora.yaml"),
-    ("litgpt/finetune/full.py", "finetune/tiny-llama/full.yaml"),
-    ("litgpt/finetune/lora.py", "finetune/tiny-llama/lora.yaml"),
-    ("litgpt/finetune/lora.py", "finetune/tiny-llama/qlora.yaml"),
-])
+@pytest.mark.parametrize(
+    ["script_file", "config_file"],
+    [
+        ("litgpt/pretrain.py", "pretrain/debug.yaml"),
+        ("litgpt/pretrain.py", "pretrain/tinyllama.yaml"),
+        ("litgpt/pretrain.py", "pretrain/tinystories.yaml"),
+        (
+            "litgpt/pretrain.py",
+            "https://raw.githubusercontent.com/Lightning-AI/litgpt/wip/config_hub/pretrain/tinystories.yaml",
+        ),
+        ("litgpt/finetune/full.py", "finetune/llama-2-7b/full.yaml"),
+        ("litgpt/finetune/lora.py", "finetune/llama-2-7b/lora.yaml"),
+        ("litgpt/finetune/lora.py", "finetune/llama-2-7b/qlora.yaml"),
+        ("litgpt/finetune/full.py", "finetune/tiny-llama/full.yaml"),
+        ("litgpt/finetune/lora.py", "finetune/tiny-llama/lora.yaml"),
+        ("litgpt/finetune/lora.py", "finetune/tiny-llama/qlora.yaml"),
+    ],
+)
 def test_config_help(script_file, config_file, monkeypatch, tmp_path):
     """Test that configs validate against the signature in the scripts."""
     from litgpt.utils import CLI
