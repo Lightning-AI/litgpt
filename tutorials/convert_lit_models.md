@@ -115,7 +115,7 @@ import torch
 from transformers import AutoModel
 
 state_dict = torch.load('out/hf-tinyllama/converted/model.pth')
-model = AutoModel.from_pretrained("checkpoints/TinyLlama/TinyLlama-1.1B-intermediate-step-1431k-3T", state_dict=state_dict)
+model = AutoModel.from_pretrained("TinyLlama/TinyLlama-1.1B-intermediate-step-1431k-3T", state_dict=state_dict)
 ```
 
 &nbsp;
