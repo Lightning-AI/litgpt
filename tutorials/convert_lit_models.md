@@ -136,7 +136,7 @@ model.save_pretrained("out/hf-tinyllama/converted/")
 3. Copy the tokenizer files into the model-containing directory:
 
 ```bash
-!cp checkpoints/$repo_id/tokenizer* out/hf-tinyllama/converted
+cp checkpoints/$repo_id/tokenizer* out/hf-tinyllama/converted
 ```
 
 4. Run the evaluation harness, for example:
