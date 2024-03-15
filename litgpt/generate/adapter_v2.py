@@ -9,17 +9,17 @@ import lightning as L
 import torch
 from lightning.fabric.plugins import BitsandbytesPrecision
 
-from litgpt import Tokenizer, PromptStyle
+from litgpt import PromptStyle, Tokenizer
 from litgpt.adapter_v2 import GPT, Config
 from litgpt.generate.base import generate
-from litgpt.prompts import load_prompt_style, has_prompt_style
+from litgpt.prompts import has_prompt_style, load_prompt_style
 from litgpt.utils import CLI, check_valid_checkpoint_dir, get_default_supported_precision, lazy_load
 
 
 def main(
     prompt: str = "What food do llamas eat?",
     input: str = "",
-    adapter_path: Path = Path("out/adapter_v2/alpaca/lit_model_adapter_finetuned.pth"),
+    adapter_path: Path = Path("out/finetune/adapter-v2/final/lit_model.pth.adapter_v2"),
     checkpoint_dir: Path = Path("checkpoints/stabilityai/stablelm-base-alpha-3b"),
     quantize: Optional[Literal["bnb.nf4", "bnb.nf4-dq", "bnb.fp4", "bnb.fp4-dq", "bnb.int8"]] = None,
     max_new_tokens: int = 100,
@@ -66,7 +66,9 @@ def main(
     checkpoint_path = checkpoint_dir / "lit_model.pth"
 
     tokenizer = Tokenizer(checkpoint_dir)
-    prompt_style = load_prompt_style(checkpoint_dir) if has_prompt_style(checkpoint_dir) else PromptStyle.from_config(config)
+    prompt_style = (
+        load_prompt_style(checkpoint_dir) if has_prompt_style(checkpoint_dir) else PromptStyle.from_config(config)
+    )
 
     prompt = prompt_style.apply(prompt, input=input)
     encoded = tokenizer.encode(prompt, device=fabric.device)

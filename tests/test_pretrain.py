@@ -5,7 +5,7 @@ from contextlib import redirect_stdout
 from io import StringIO
 from pathlib import Path
 from unittest import mock
-from unittest.mock import Mock, ANY
+from unittest.mock import ANY, Mock
 
 import pytest
 import torch
@@ -63,7 +63,6 @@ def test_pretrain(_, tmp_path):
     torch.distributed.barrier()
 
 
-
 @RunIf(min_cuda_gpus=2, standalone=True)
 # Set CUDA_VISIBLE_DEVICES for FSDP hybrid-shard, if fewer GPUs are used than are available
 @mock.patch.dict(os.environ, {"CUDA_VISIBLE_DEVICES": "0,1"})
@@ -79,12 +78,7 @@ def test_initial_checkpoint_dir(load_mock, tmp_path):
     pretrain.get_dataloaders = Mock(return_value=(dataloader, dataloader))
     pretrain.fit = Mock()
 
-    pretrain.setup(
-        initial_checkpoint_dir=tmp_path,
-        devices=2,
-        model_config=model_config,
-        out_dir=tmp_path,
-    )
+    pretrain.setup(initial_checkpoint_dir=tmp_path, devices=2, model_config=model_config, out_dir=tmp_path)
 
     load_mock.assert_called_once_with(tmp_path / "lit_model.pth", ANY)
 

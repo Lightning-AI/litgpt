@@ -2,8 +2,8 @@
 
 import math
 import os
-import time
 import pprint
+import time
 from datetime import timedelta
 from functools import partial
 from pathlib import Path
@@ -25,13 +25,13 @@ from litgpt.model import GPT, Block, CausalSelfAttention, Config, LLaMAMLP
 from litgpt.utils import (
     CLI,
     CycleIterator,
+    choose_logger,
     chunked_cross_entropy,
+    copy_config_files,
     num_parameters,
     parse_devices,
-    copy_config_files,
-    save_hyperparameters,
     save_config,
-    choose_logger,
+    save_hyperparameters,
 )
 
 
@@ -97,7 +97,9 @@ def setup(
     # in case the dataset requires the Tokenizer
     tokenizer = Tokenizer(tokenizer_dir) if tokenizer_dir is not None else None
 
-    logger = choose_logger(logger_name, out_dir, name=f"pretrain-{config.name}", resume=resume, log_interval=train.log_interval)
+    logger = choose_logger(
+        logger_name, out_dir, name=f"pretrain-{config.name}", resume=resume, log_interval=train.log_interval
+    )
 
     if devices > 1:
         strategy = FSDPStrategy(auto_wrap_policy={Block}, state_dict_type="full", sharding_strategy="HYBRID_SHARD")
@@ -110,7 +112,20 @@ def setup(
     if logger_name in ("tensorboard", "wandb"):
         fabric.logger.log_hyperparams(hparams)
 
-    main(fabric, devices, seed, initial_checkpoint_dir, resume, config, data, out_dir, tokenizer_dir, tokenizer, train, eval)
+    main(
+        fabric,
+        devices,
+        seed,
+        initial_checkpoint_dir,
+        resume,
+        config,
+        data,
+        out_dir,
+        tokenizer_dir,
+        tokenizer,
+        train,
+        eval,
+    )
 
 
 def main(
@@ -275,9 +290,7 @@ def fit(
                     (t1 - total_t0) / (state["iter_num"] - initial_iter) * (max_iters - state["iter_num"])
                 ),
                 "tokens": state["iter_num"] * train.micro_batch_size * model.max_seq_length,
-                "total_tokens": (
-                    state["iter_num"] * train.micro_batch_size * model.max_seq_length * fabric.world_size
-                ),
+                "total_tokens": (state["iter_num"] * train.micro_batch_size * model.max_seq_length * fabric.world_size),
                 "learning_rate": lr,
             }
             if isinstance(val_loss, float):
@@ -385,10 +398,7 @@ def init_out_dir(out_dir: Path) -> Path:
 
 def validate_args(train: TrainArgs, eval: EvalArgs, initial_checkpoint_dir, resume) -> None:
     issues = []
-    unsupported = [
-        (train, ["max_steps", "epochs"]),
-        (eval, ["max_new_tokens"]),
-    ]
+    unsupported = [(train, ["max_steps", "epochs"]), (eval, ["max_new_tokens"])]
     for args, names in unsupported:
         for name in names:
             if getattr(args, name) is not None:

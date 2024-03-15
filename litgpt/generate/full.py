@@ -9,9 +9,9 @@ import lightning as L
 import torch
 from lightning.fabric.plugins import BitsandbytesPrecision
 
-from litgpt import GPT, Config, Tokenizer, PromptStyle
+from litgpt import GPT, Config, PromptStyle, Tokenizer
 from litgpt.generate.base import generate
-from litgpt.prompts import load_prompt_style, has_prompt_style
+from litgpt.prompts import has_prompt_style, load_prompt_style
 from litgpt.utils import CLI, check_valid_checkpoint_dir, get_default_supported_precision, load_checkpoint
 
 
@@ -65,7 +65,9 @@ def main(
     checkpoint_path = finetuned_path
 
     tokenizer = Tokenizer(checkpoint_dir)
-    prompt_style = load_prompt_style(checkpoint_dir) if has_prompt_style(checkpoint_dir) else PromptStyle.from_config(config)
+    prompt_style = (
+        load_prompt_style(checkpoint_dir) if has_prompt_style(checkpoint_dir) else PromptStyle.from_config(config)
+    )
 
     prompt = prompt_style.apply(prompt, input=input)
     encoded = tokenizer.encode(prompt, device=fabric.device)

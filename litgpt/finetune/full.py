@@ -5,7 +5,7 @@ import os
 import time
 from pathlib import Path
 from pprint import pprint
-from typing import Dict, List, Optional, Tuple, Union, Literal
+from typing import Dict, List, Literal, Optional, Tuple, Union
 
 import lightning as L
 import torch
@@ -21,16 +21,16 @@ from litgpt.prompts import save_prompt_style
 from litgpt.tokenizer import Tokenizer
 from litgpt.utils import (
     CLI,
+    CycleIterator,
     check_valid_checkpoint_dir,
+    choose_logger,
     chunked_cross_entropy,
+    copy_config_files,
     get_default_supported_precision,
     load_checkpoint,
     num_parameters,
-    CycleIterator,
     parse_devices,
-    copy_config_files,
     save_hyperparameters,
-    choose_logger,
 )
 
 
@@ -77,7 +77,9 @@ def setup(
     config = Config.from_name(name=checkpoint_dir.name)
 
     precision = precision or get_default_supported_precision(training=True)
-    logger = choose_logger(logger_name, out_dir, name=f"finetune-{config.name}", resume=resume, log_interval=train.log_interval)
+    logger = choose_logger(
+        logger_name, out_dir, name=f"finetune-{config.name}", resume=resume, log_interval=train.log_interval
+    )
 
     if devices > 1:
         strategy = FSDPStrategy(
@@ -275,7 +277,7 @@ def fit(
 # FSDP has issues with `inference_mode`
 @torch.no_grad()
 def validate(
-    fabric: L.Fabric, model: GPT, val_dataloader: DataLoader, tokenizer: Tokenizer, eval: EvalArgs, data: DataModule,
+    fabric: L.Fabric, model: GPT, val_dataloader: DataLoader, tokenizer: Tokenizer, eval: EvalArgs, data: DataModule
 ) -> torch.Tensor:
     fabric.print("Validating ...")
     model.eval()
@@ -315,7 +317,9 @@ def get_lr_scheduler(optimizer, warmup_steps: int, max_steps: int):
     return torch.optim.lr_scheduler.SequentialLR(optimizer, [scheduler1, scheduler2], milestones=[warmup_steps])
 
 
-def get_dataloaders(fabric: L.Fabric, data: DataModule, tokenizer: Tokenizer, train: TrainArgs) -> Tuple[DataLoader, DataLoader]:
+def get_dataloaders(
+    fabric: L.Fabric, data: DataModule, tokenizer: Tokenizer, train: TrainArgs
+) -> Tuple[DataLoader, DataLoader]:
     data.connect(tokenizer=tokenizer, batch_size=train.micro_batch_size, max_seq_length=train.max_seq_length)
     with fabric.rank_zero_first():
         data.prepare_data()
@@ -341,10 +345,7 @@ def validate_args(train: TrainArgs, eval: EvalArgs) -> None:
         for name in names:
             if getattr(args, name) is not None:
                 issues.append(f"{__file__} doesn't support the {name!r} argument. This is set in {args}")
-    required = [
-        (train, ["epochs"]),
-        (eval, ["max_new_tokens"]),
-    ]
+    required = [(train, ["epochs"]), (eval, ["max_new_tokens"])]
     for args, names in required:
         for name in names:
             if getattr(args, name) is None:

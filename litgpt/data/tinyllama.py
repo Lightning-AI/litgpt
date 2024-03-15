@@ -35,10 +35,7 @@ class TinyLlama(DataModule):
         self.starcoder_train = str(self.data_path).rstrip("/") + "/starcoder"
 
     def connect(
-        self,
-        tokenizer: Optional[Tokenizer] = None,
-        batch_size: int = 1,
-        max_seq_length: Optional[int] = None
+        self, tokenizer: Optional[Tokenizer] = None, batch_size: int = 1, max_seq_length: Optional[int] = None
     ) -> None:
         self.batch_size = batch_size
         self.seq_length = max_seq_length + 1  # Increase by one because we need the next token as well

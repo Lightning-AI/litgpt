@@ -76,8 +76,8 @@ def test_adapter_v2_filter(tmp_path):
 def test_adapter_v2_script(tmp_path, fake_checkpoint_dir, monkeypatch, alpaca_path):
     import litgpt.finetune.adapter_v2 as module
     from litgpt.args import EvalArgs, TrainArgs
-    from litgpt.data import Alpaca
     from litgpt.config import name_to_config
+    from litgpt.data import Alpaca
 
     model_config = dict(block_size=128, n_layer=2, n_embd=8, n_head=4, padded_vocab_size=8, adapter_start_layer=0)
     monkeypatch.setitem(name_to_config, "tmp", model_config)
@@ -94,10 +94,7 @@ def test_adapter_v2_script(tmp_path, fake_checkpoint_dir, monkeypatch, alpaca_pa
     with redirect_stdout(stdout), mock.patch("sys.argv", ["adapter_v2.py"]):
         module.setup(
             data=Alpaca(
-                download_dir=alpaca_path.parent,
-                file_name=alpaca_path.name,
-                val_split_fraction=0.5,
-                num_workers=0
+                download_dir=alpaca_path.parent, file_name=alpaca_path.name, val_split_fraction=0.5, num_workers=0
             ),
             checkpoint_dir=fake_checkpoint_dir,
             out_dir=out_dir,
@@ -112,14 +109,14 @@ def test_adapter_v2_script(tmp_path, fake_checkpoint_dir, monkeypatch, alpaca_pa
     assert all((out_dir / p).is_dir() for p in checkpoint_dirs)
     for checkpoint_dir in checkpoint_dirs:
         assert {p.name for p in (out_dir / checkpoint_dir).iterdir()} == {
-            "lit_model.pth",
+            "lit_model.pth.adapter_v2",
             "model_config.yaml",
             "tokenizer_config.json",
             "tokenizer.json",
             "hyperparameters.yaml",
             "prompt_style.yaml",
         }
-    assert (out_dir / "version_0" / "metrics.csv").is_file()
+    assert (out_dir / "logs" / "csv" / "version_0" / "metrics.csv").is_file()
 
     logs = stdout.getvalue()
     assert logs.count("(step)") == 6
@@ -233,9 +230,9 @@ def test_against_hf_mixtral():
 
 @RunIf(min_cuda_gpus=1)
 def test_adapter_v2_bitsandbytes(monkeypatch, tmp_path, fake_checkpoint_dir, alpaca_path):
+    import litgpt.finetune.adapter_v2 as module
     from litgpt.config import name_to_config
     from litgpt.data import Alpaca
-    import litgpt.finetune.adapter_v2 as module
 
     if not _BITSANDBYTES_AVAILABLE:
         pytest.skip("BNB not available")
@@ -260,10 +257,7 @@ def test_adapter_v2_bitsandbytes(monkeypatch, tmp_path, fake_checkpoint_dir, alp
     with redirect_stdout(stdout), mock.patch("sys.argv", ["adapter_v2.py"]):
         module.setup(
             data=Alpaca(
-                download_dir=alpaca_path.parent,
-                file_name=alpaca_path.name,
-                val_split_fraction=0.5,
-                num_workers=0
+                download_dir=alpaca_path.parent, file_name=alpaca_path.name, val_split_fraction=0.5, num_workers=0
             ),
             precision="16-true",
             quantize="bnb.nf4-dq",
@@ -338,8 +332,8 @@ def test_adapter_v2_bitsandbytes(monkeypatch, tmp_path, fake_checkpoint_dir, alp
         },
     }
 
-    assert {p.name for p in tmp_path.rglob("*.pth")} == {"lit_model.pth"}
-    state_dict = torch.load(tmp_path / "final" / "lit_model.pth")
+    assert {p.name for p in tmp_path.rglob("*.pth.adapter_v2")} == {"lit_model.pth.adapter_v2"}
+    state_dict = torch.load(tmp_path / "final" / "lit_model.pth.adapter_v2")
     assert len(state_dict) == 1
     dtype_to_name = {"torch.float16": set()}
     for name, layer in state_dict["model"].items():

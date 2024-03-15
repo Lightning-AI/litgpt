@@ -13,7 +13,6 @@ from litgpt.generate.adapter import main as generate_adapter_fn
 from litgpt.generate.adapter_v2 import main as generate_adapter_v2_fn
 from litgpt.generate.base import main as generate_base_fn
 from litgpt.generate.full import main as generate_full_fn
-from litgpt.generate.lora import main as generate_lora_fn
 from litgpt.generate.sequentially import main as generate_sequentially_fn
 from litgpt.generate.tp import main as generate_tp_fn
 from litgpt.pretrain import setup as pretrain_fn
@@ -30,7 +29,7 @@ if TYPE_CHECKING:
 
 
 def _new_parser(**kwargs: Any) -> "ArgumentParser":
-    from jsonargparse import ArgumentParser, ActionConfigFile
+    from jsonargparse import ActionConfigFile, ArgumentParser
 
     parser = ArgumentParser(**kwargs)
     parser.add_argument(
@@ -56,7 +55,6 @@ def main() -> None:
             "help": "Generate text samples based on a model and tokenizer.",
             "base": {"fn": generate_base_fn, "help": "Default generation option."},
             "full": {"fn": generate_full_fn, "help": "For models finetuned with `litgpt finetune full`."},
-            "lora": {"fn": generate_lora_fn, "help": "For models finetuned with `litgpt finetune lora`."},
             "adapter": {"fn": generate_adapter_fn, "help": "For models finetuned with `litgpt finetune adapter`."},
             "adapter_v2": {
                 "fn": generate_adapter_v2_fn,
@@ -83,7 +81,7 @@ def main() -> None:
         "merge_lora": {"help": "Merges the LoRA weights with the base model.", "fn": merge_lora_fn},
     }
 
-    from jsonargparse import set_docstring_parse_options, set_config_read_mode
+    from jsonargparse import set_config_read_mode, set_docstring_parse_options
 
     set_docstring_parse_options(attribute_docstrings=True)
     set_config_read_mode(urls_enabled=True)

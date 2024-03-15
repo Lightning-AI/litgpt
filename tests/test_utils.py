@@ -10,12 +10,10 @@ import pytest
 import torch
 import torch.nn.functional as F
 import yaml
-from lightning.fabric.loggers import CSVLogger, TensorBoardLogger
-from lightning.pytorch.loggers import WandbLogger
-
 from conftest import RunIf
 from lightning import Fabric
-
+from lightning.fabric.loggers import CSVLogger, TensorBoardLogger
+from lightning.pytorch.loggers import WandbLogger
 from lightning_utilities.core.imports import RequirementCache
 
 
@@ -222,11 +220,7 @@ def test_copy_config_files(fake_checkpoint_dir, tmp_path):
     from litgpt.utils import copy_config_files
 
     copy_config_files(fake_checkpoint_dir, tmp_path)
-    expected = {
-        "model_config.yaml",
-        "tokenizer_config.json",
-        "tokenizer.json",
-    }
+    expected = {"model_config.yaml", "tokenizer_config.json", "tokenizer.json"}
     contents = set(os.listdir(tmp_path))
     assert expected.issubset(contents)
 
@@ -255,14 +249,17 @@ def _test_function2(out_dir: Path, foo: bool = False, bar: int = 1):
     assert False, "I only exist as a signature, but I should not run."
 
 
-@pytest.mark.parametrize("command", [
-    "any.py",
-    "litgpt finetune full",
-    "litgpt finetune lora",
-    "litgpt finetune adapter",
-    "litgpt finetune adapter_v2",
-    "litgpt pretrain",
-])
+@pytest.mark.parametrize(
+    "command",
+    [
+        "any.py",
+        "litgpt finetune full",
+        "litgpt finetune lora",
+        "litgpt finetune adapter",
+        "litgpt finetune adapter_v2",
+        "litgpt pretrain",
+    ],
+)
 def test_save_hyperparameters_known_commands(command, tmp_path):
     from litgpt.utils import save_hyperparameters
 

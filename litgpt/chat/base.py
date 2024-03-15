@@ -9,9 +9,9 @@ import lightning as L
 import torch
 from lightning.fabric.plugins import BitsandbytesPrecision
 
-from litgpt.generate.base import next_token
 from litgpt import GPT, Config, PromptStyle, Tokenizer
-from litgpt.prompts import load_prompt_style, has_prompt_style
+from litgpt.generate.base import next_token
+from litgpt.prompts import has_prompt_style, load_prompt_style
 from litgpt.scripts.merge_lora import merge_lora
 from litgpt.utils import CLI, check_valid_checkpoint_dir, get_default_supported_precision, load_checkpoint
 
@@ -142,7 +142,6 @@ def main(
         print("Merging LoRA weights with the base model. This won't take long and is a one-time-only thing.")
         merge_lora(checkpoint_path)
 
-    fabric.print(f"Loading model {str(checkpoint_path)!r} with {config.__dict__}", file=sys.stderr)
     with fabric.init_module(empty_init=True):
         model = GPT(config)
         # enable the kv cache
@@ -160,16 +159,19 @@ def main(
     model = fabric.setup_module(model)
 
     tokenizer = Tokenizer(checkpoint_dir)
-    prompt_style = load_prompt_style(checkpoint_dir) if has_prompt_style(checkpoint_dir) else PromptStyle.from_config(config)
+    prompt_style = (
+        load_prompt_style(checkpoint_dir) if has_prompt_style(checkpoint_dir) else PromptStyle.from_config(config)
+    )
     stop_tokens = prompt_style.stop_tokens(tokenizer)
 
+    print(f"Now chatting with {config.name}.\nTo exit, press 'Enter' on an empty prompt.\n")
     L.seed_everything(1234)
     while True:
         try:
             prompt = input(">> Prompt: ")
         except KeyboardInterrupt:
             break
-        if not prompt:
+        if prompt.lower().strip() in ("", "quit", "exit"):
             break
         prompt = prompt_style.apply(prompt=prompt)
         encoded_prompt = tokenizer.encode(prompt, device=fabric.device)

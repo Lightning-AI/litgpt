@@ -4,7 +4,7 @@ from pathlib import Path
 
 import torch
 
-from litgpt.utils import CLI, incremental_save, copy_config_files
+from litgpt.utils import CLI, copy_config_files, incremental_save
 
 
 @torch.inference_mode()

@@ -7,7 +7,7 @@ import pytest
 from packaging.version import Version
 
 
-def test_cli(tmp_path):
+def test_cli():
     from litgpt.__main__ import main
 
     out = StringIO()
@@ -16,16 +16,20 @@ def test_cli(tmp_path):
     out = out.getvalue()
     assert "usage: litgpt" in out
     assert "{download,chat,finetune,pretrain,generate,convert,merge_lora}" in out
-    assert """Available subcommands:
+    assert (
+        """Available subcommands:
     download            Download weights or tokenizer data from the Hugging
                         Face Hub.
-    chat                Chat with a model.""" in out
+    chat                Chat with a model."""
+        in out
+    )
 
     out = StringIO()
     with pytest.raises(SystemExit), redirect_stdout(out), mock.patch("sys.argv", ["litgpt", "finetune", "-h"]):
         main()
     out = out.getvalue()
-    assert """Available subcommands:
+    assert (
+        """Available subcommands:
     lora                Finetune a model with LoRA.
     qlora               Finetune a model with QLoRA.
     full                Finetune a model.""" in out
@@ -48,6 +52,9 @@ def test_cli(tmp_path):
         main()
     out = out.getvalue()
     print(out)
-    assert """--train.max_tokens MAX_TOKENS
+    assert (
+        """--train.max_tokens MAX_TOKENS
                         Total number of tokens to train on (type:
-                        Optional[int], default: 3000000000000)""" in out
+                        Optional[int], default: 3000000000000)"""
+        in out
+    )
