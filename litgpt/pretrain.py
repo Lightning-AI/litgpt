@@ -337,7 +337,7 @@ def validate(fabric: L.Fabric, model: nn.Module, val_dataloader: DataLoader, max
     fabric.print("Validating ...")
     model.eval()
 
-    losses = torch.zeros(min(len(val_dataloader), max_iters))
+    losses = []
     for k, batch in enumerate(val_dataloader):
         if k >= max_iters:
             break
@@ -345,11 +345,12 @@ def validate(fabric: L.Fabric, model: nn.Module, val_dataloader: DataLoader, max
         targets = batch[:, 1 : (model.max_seq_length + 1)].contiguous().long()
         logits = model(input_ids)
         loss = chunked_cross_entropy(logits, targets)
-        losses[k] = loss
+        losses.append(loss)
 
+    val_loss = torch.stack(losses).mean()
     model.train()
     fabric.barrier()
-    return losses.mean()
+    return val_loss
 
 
 def get_dataloaders(
