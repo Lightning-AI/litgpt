@@ -80,7 +80,7 @@ Alternatively, can install litgpt from a cloned GitHub repository:
 ```bash
 git clone https://github.com/Lightning-AI/litgpt
 cd litgpt
-pip install '.[all]'
+pip install -e '.[all]'
 ```
 
 
