@@ -8,23 +8,28 @@ import pytest
 from lightning.fabric.plugins import Precision
 
 
+fixed_pairs = [
+    ("litgpt/pretrain.py", "pretrain/debug.yaml"),
+    ("litgpt/pretrain.py", "pretrain/tinyllama.yaml"),
+    ("litgpt/pretrain.py", "pretrain/tinystories.yaml"),
+    ("litgpt/pretrain.py", "https://raw.githubusercontent.com/Lightning-AI/litgpt/wip/config_hub/pretrain/tinystories.yaml"),
+]
+
+model_pairs = []
+models = ["gemma-2b", "llama-2-7b", "tiny-llama"]
+configs = ["full", "lora", "qlora"]
+for model in models:
+    for config in configs:
+        python_file = "litgpt/finetune/full.py" if config == "full" else "litgpt/finetune/lora.py"
+        yaml_file = f"finetune/{model}/{config}.yaml"
+        model_pairs.append((python_file, yaml_file))
+
+all_pairs = fixed_pairs + model_pairs
+
+
 @pytest.mark.parametrize(
     ("script_file", "config_file"),
-    [
-        ("litgpt/pretrain.py", "pretrain/debug.yaml"),
-        ("litgpt/pretrain.py", "pretrain/tinyllama.yaml"),
-        ("litgpt/pretrain.py", "pretrain/tinystories.yaml"),
-        (
-            "litgpt/pretrain.py",
-            "https://raw.githubusercontent.com/Lightning-AI/litgpt/wip/config_hub/pretrain/tinystories.yaml",
-        ),
-        ("litgpt/finetune/full.py", "finetune/llama-2-7b/full.yaml"),
-        ("litgpt/finetune/lora.py", "finetune/llama-2-7b/lora.yaml"),
-        ("litgpt/finetune/lora.py", "finetune/llama-2-7b/qlora.yaml"),
-        ("litgpt/finetune/full.py", "finetune/tiny-llama/full.yaml"),
-        ("litgpt/finetune/lora.py", "finetune/tiny-llama/lora.yaml"),
-        ("litgpt/finetune/lora.py", "finetune/tiny-llama/qlora.yaml"),
-    ],
+    all_pairs
 )
 def test_config_help(script_file, config_file):
     """Test that configs validate against the signature in the scripts."""
