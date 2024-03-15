@@ -43,22 +43,6 @@ jobs:
     - name: Install uv
       run: pip install uv
 
-    - name: Define cache folder for Linux
-      if: startsWith(runner.os, 'Linux')
-      run: echo "cache_dir=~/.cache/uv" >> "$GITHUB_ENV"
-    - name: Define cache folder for MacOs
-      if: startsWith(runner.os, 'MacOS')
-      run: echo "cache_dir=~/Library/Caches/uv" >> "$GITHUB_ENV"
-    - name: Define cache folder for Windows
-      if: startsWith(runner.os, 'Windows')
-      run: echo "cache_dir=~\AppData\Local\cache\Cache" >> "$GITHUB_ENV"
-
-    - name: Cache for uv
-      uses: actions/cache@v4
-      with:
-        path: env.cache_dir
-        key: ${{ runner.os }}-python-${{ matrix.python-version }}-uv
-
     - name: Install minimal dependencies
       run: |
         # uv pip install . is not yet supported, only `-e .`
