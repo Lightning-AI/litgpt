@@ -17,7 +17,6 @@ else:
     DataChunkRecipe = object
 
 
-
 class StarcoderDataRecipe(DataChunkRecipe):
     def __init__(self, tokenizer: Tokenizer, chunk_size: int):
         super().__init__(chunk_size)

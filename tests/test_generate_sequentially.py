@@ -11,9 +11,8 @@ from re import escape
 import pytest
 import torch
 import yaml
-from lightning import Fabric
-
 from conftest import RunIf
+from lightning import Fabric
 
 
 @pytest.mark.parametrize(
@@ -87,8 +86,8 @@ def test_replace_device():
 
 
 def _test_model_1device(accelerator):
-    from litgpt.generate.sequentially import sequential
     from litgpt import GPT
+    from litgpt.generate.sequentially import sequential
 
     fabric = Fabric(accelerator=accelerator, devices=1)
     with torch.device("meta"):
@@ -158,8 +157,8 @@ def find_forward_hooks(module):
 
 @RunIf(min_cuda_gpus=2)
 def test_model_forward_hooks():
-    from litgpt.generate.sequentially import sequential
     from litgpt import GPT
+    from litgpt.generate.sequentially import sequential
 
     fabric = Fabric(accelerator="cuda", devices=1)
     with torch.device("meta"):

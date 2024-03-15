@@ -15,24 +15,24 @@ from lightning.fabric.utilities import ThroughputMonitor
 from torch.utils.data import DataLoader
 from torchmetrics import RunningMean
 
-from litgpt.args import EvalArgs, TrainArgs
-from litgpt.data import DataModule, Alpaca
-from litgpt.generate.base import generate
 from litgpt.adapter_v2 import GPT, Block, Config, adapter_filter, mark_only_adapter_v2_as_trainable
+from litgpt.args import EvalArgs, TrainArgs
+from litgpt.data import Alpaca, DataModule
+from litgpt.generate.base import generate
 from litgpt.prompts import save_prompt_style
 from litgpt.tokenizer import Tokenizer
 from litgpt.utils import (
     CLI,
+    CycleIterator,
     check_valid_checkpoint_dir,
+    choose_logger,
     chunked_cross_entropy,
+    copy_config_files,
     get_default_supported_precision,
     load_checkpoint,
     num_parameters,
-    CycleIterator,
     parse_devices,
-    copy_config_files,
     save_hyperparameters,
-    choose_logger,
 )
 
 
@@ -108,7 +108,17 @@ def setup(
     fabric.launch(main, devices, seed, config, data, checkpoint_dir, out_dir, train, eval)
 
 
-def main(fabric: L.Fabric, devices: int, seed: int, config: Config, data: DataModule, checkpoint_dir: Path, out_dir: Path, train: TrainArgs, eval: EvalArgs) -> None:
+def main(
+    fabric: L.Fabric,
+    devices: int,
+    seed: int,
+    config: Config,
+    data: DataModule,
+    checkpoint_dir: Path,
+    out_dir: Path,
+    train: TrainArgs,
+    eval: EvalArgs,
+) -> None:
     validate_args(train, eval)
     check_valid_checkpoint_dir(checkpoint_dir)
 
@@ -149,7 +159,20 @@ def main(fabric: L.Fabric, devices: int, seed: int, config: Config, data: DataMo
     load_checkpoint(fabric, model, checkpoint_path, strict=False)
 
     train_time = time.perf_counter()
-    fit(fabric, model, optimizer, scheduler, train_dataloader, val_dataloader, devices, checkpoint_dir, out_dir, train, eval, data)
+    fit(
+        fabric,
+        model,
+        optimizer,
+        scheduler,
+        train_dataloader,
+        val_dataloader,
+        devices,
+        checkpoint_dir,
+        out_dir,
+        train,
+        eval,
+        data,
+    )
     fabric.print(f"Training time: {(time.perf_counter() - train_time):.2f}s")
     if fabric.device.type == "cuda":
         fabric.print(f"Memory used: {torch.cuda.max_memory_allocated() / 1e9:.02f} GB")
@@ -238,9 +261,7 @@ def fit(
                 "epoch": train_iterator.epoch,
                 "iter_time": t1 - iter_t0,
                 "tokens": iter_num * train.micro_batch_size * model.config.block_size,
-                "total_tokens": (
-                        iter_num * train.micro_batch_size * model.config.block_size * fabric.world_size
-                ),
+                "total_tokens": (iter_num * train.micro_batch_size * model.config.block_size * fabric.world_size),
                 "learning_rate": scheduler.get_last_lr()[0],
             }
             if isinstance(val_loss, torch.Tensor):
@@ -276,7 +297,7 @@ def fit(
 # the adapter "kv cache" cannot be initialized under `inference_mode`
 @torch.no_grad()
 def validate(
-    fabric: L.Fabric, model: GPT, val_dataloader: DataLoader, tokenizer: Tokenizer, eval: EvalArgs, data: DataModule,
+    fabric: L.Fabric, model: GPT, val_dataloader: DataLoader, tokenizer: Tokenizer, eval: EvalArgs, data: DataModule
 ) -> torch.Tensor:
     fabric.print("Validating ...")
     model.eval()
@@ -316,7 +337,9 @@ def get_lr_scheduler(optimizer, warmup_steps: int, max_steps: int):
     return torch.optim.lr_scheduler.SequentialLR(optimizer, [scheduler1, scheduler2], milestones=[warmup_steps])
 
 
-def get_dataloaders(fabric: L.Fabric, data: DataModule, tokenizer: Tokenizer, train: TrainArgs) -> Tuple[DataLoader, DataLoader]:
+def get_dataloaders(
+    fabric: L.Fabric, data: DataModule, tokenizer: Tokenizer, train: TrainArgs
+) -> Tuple[DataLoader, DataLoader]:
     data.connect(tokenizer=tokenizer, batch_size=train.micro_batch_size, max_seq_length=train.max_seq_length)
     with fabric.rank_zero_first():
         data.prepare_data()
@@ -347,10 +370,7 @@ def validate_args(train: TrainArgs, eval: EvalArgs) -> None:
         for name in names:
             if getattr(args, name) is not None:
                 issues.append(f"{__file__} doesn't support the {name!r} argument. This is set in {args}")
-    required = [
-        (train, ["epochs"]),
-        (eval, ["max_new_tokens"]),
-    ]
+    required = [(train, ["epochs"]), (eval, ["max_new_tokens"])]
     for args, names in required:
         for name in names:
             if getattr(args, name) is None:

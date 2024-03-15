@@ -32,15 +32,10 @@ class LitData(DataModule):
 
     def __post_init__(self) -> None:
         if self.split_names is not None and len(self.split_names) != 2:
-            raise ValueError(
-                "If provided `split_names` must be a tuple of two strings, for example: ('train', 'val')."
-            )
+            raise ValueError("If provided `split_names` must be a tuple of two strings, for example: ('train', 'val').")
 
     def connect(
-        self,
-        tokenizer: Optional[Tokenizer] = None,
-        batch_size: int = 1,
-        max_seq_length: Optional[int] = None
+        self, tokenizer: Optional[Tokenizer] = None, batch_size: int = 1, max_seq_length: Optional[int] = None
     ) -> None:
         self.batch_size = batch_size
         self.seq_length = max_seq_length + 1  # Increase by one because we need the next token as well
@@ -57,10 +52,7 @@ class LitData(DataModule):
         from litdata.streaming import StreamingDataset, TokensLoader
 
         dataset = StreamingDataset(
-            input_dir=input_dir,
-            item_loader=TokensLoader(block_size=self.seq_length),
-            shuffle=train,
-            drop_last=True,
+            input_dir=input_dir, item_loader=TokensLoader(block_size=self.seq_length), shuffle=train, drop_last=True
         )
         dataloader = DataLoader(
             dataset, batch_size=self.batch_size, pin_memory=True, num_workers=self.num_workers, drop_last=True
