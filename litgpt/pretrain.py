@@ -333,6 +333,7 @@ def fit(
 
 @torch.no_grad()
 def validate(fabric: L.Fabric, model: nn.Module, val_dataloader: DataLoader, max_iters: int) -> torch.Tensor:
+    fabric.barrier()
     fabric.print("Validating ...")
     model.eval()
 
@@ -347,6 +348,7 @@ def validate(fabric: L.Fabric, model: nn.Module, val_dataloader: DataLoader, max
         losses[k] = loss
 
     model.train()
+    fabric.barrier()
     return losses.mean()
 
 
