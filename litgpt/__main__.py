@@ -109,16 +109,18 @@ def main() -> None:
             subcommands.add_subcommand(k, subsubcommand_parser, help=v["help"])
 
     # CLI specific defaults
-    root_parser.set_defaults({
-        "finetune.qlora.quantize": "bnb.nf4-dq",
-        "finetune.qlora.precision": "bf16-true",
-        "finetune.qlora.lora_query": True,
-        "finetune.qlora.lora_key": True,
-        "finetune.qlora.lora_value": True,
-        "finetune.qlora.lora_projection": True,
-        "finetune.qlora.lora_mlp": True,
-        "finetune.qlora.lora_head": True,
-    })
+    root_parser.set_defaults(
+        {
+            "finetune.qlora.quantize": "bnb.nf4-dq",
+            "finetune.qlora.precision": "bf16-true",
+            "finetune.qlora.lora_query": True,
+            "finetune.qlora.lora_key": True,
+            "finetune.qlora.lora_value": True,
+            "finetune.qlora.lora_projection": True,
+            "finetune.qlora.lora_mlp": True,
+            "finetune.qlora.lora_head": True,
+        }
+    )
 
     args = root_parser.parse_args()
     args = root_parser.instantiate_classes(args)

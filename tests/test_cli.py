@@ -32,14 +32,19 @@ def test_cli():
         """Available subcommands:
     lora                Finetune a model with LoRA.
     qlora               Finetune a model with QLoRA.
-    full                Finetune a model.""" in out
+    full                Finetune a model."""
+        in out
+    )
 
     out = StringIO()
     with pytest.raises(SystemExit), redirect_stdout(out), mock.patch("sys.argv", ["litgpt", "finetune", "qlora", "-h"]):
         main()
     out = out.getvalue()
-    assert """--lora_alpha LORA_ALPHA
-                        The LoRA alpha. (type: int, default: 16)""" in out
+    assert (
+        """--lora_alpha LORA_ALPHA
+                        The LoRA alpha. (type: int, default: 16)"""
+        in out
+    )
     assert """default: bnb.nf4-dq)""" in out
     assert """default: bf16-true)""" in out
 
