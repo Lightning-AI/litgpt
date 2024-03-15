@@ -389,14 +389,19 @@ def patch_reset_parameters(n_layer: int, n_embd: int) -> None:
         if module.bias is not None:
             nn.init.zeros_(module.bias)
 
+    def init_proj_linear(module):
+        nn.init.normal_(module.weight, mean=0.0, std=(1 / math.sqrt(n_embd) / n_layer))
+
     nn.Embedding.reset_parameters = init_embedding
     nn.Linear.reset_parameters = init_linear
 
+    def new_init(self, config):
+        super(GPT, self).__init__(config)
+        for module in self.modules():
+            if isinstance(module, (LLaMAMLP, CausalSelfAttention)):
+                module.proj.reset_parameters = init_proj_linear
 
-def init_weights(module: nn.Module, n_layer: int, n_embd: int):
-    for name, param in module.named_parameters():
-        if name == "proj.weight" and isinstance(module, (LLaMAMLP, CausalSelfAttention)):
-            nn.init.normal_(param, mean=0.0, std=(1 / math.sqrt(n_embd) / n_layer))
+    GPT.__init__ = new_init
 
 
 def init_out_dir(out_dir: Path) -> Path:
