@@ -142,7 +142,7 @@ model.save_pretrained("out/hf-tinyllama/converted/")
 4. Run the evaluation harness, for example:
 
 ```bash
-!lm_eval --model hf \
+lm_eval --model hf \
     --model_args pretrained=out/hf-tinyllama/converted \
     --tasks "hellaswag,gsm8k,truthfulqa_mc2,mmlu,winogrande,arc_challenge" \
     --device "cuda:0" \
