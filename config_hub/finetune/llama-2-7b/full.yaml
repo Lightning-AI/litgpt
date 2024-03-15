@@ -44,7 +44,7 @@ train:
   lr_warmup_steps: 25
 
   # Number of epochs to train on (type: Optional[int], default: 5)
-  epochs: 4
+  epochs: 1
 
   # Total number of tokens to train on (type: Optional[int], default: null)
   max_tokens:
@@ -80,7 +80,7 @@ train:
 eval:
 
   # Number of optimizer steps between evaluation calls (type: int, default: 600)
-  interval: 100
+  interval: 25
 
   # Number of tokens to generate (type: Optional[int], default: 100)
   max_new_tokens: 100
