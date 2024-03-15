@@ -11,7 +11,9 @@ For more information, see the [Dealing with out-of-memory (OOM) errors](../../tu
 | gemma-2b/qlora.yaml   | 2B   | Alpaca 2k | 3      | 1.626    | 11.51 GB    | 512            | 2                | bfloat16  | 25.29 min (1xA10G) |
 | gemma-2b/full.yaml    | 2B   | Alpaca 2k | 0.35   | 1.046    | 18.47 GB    | 512            | 2                | bfloat16  | 16.79 min (2xA10G) |
 |                       |      |           |        |          |             |                |                  |           |                    |
-| llama-2-7b/qlora.yaml | 7B   | Alpaca 2k | 4      | 0.814    | 13.68 GB    | 512            | 2                | bfloat16  | 45.68 min (1xA10G) |
+| llama-2-7b/lora.yaml  | 7B   | Alpaca 2k | 4      | 0.802    | 19.77 GB    | 512            | 2                | bfloat16  | 32.75 min (A10G)   |
+| llama-2-7b/qlora.yaml | 7B   | Alpaca 2k | 4      | 0.814    | 13.68 GB    | 512            | 2                | bfloat16  | 45.68 min (A10G)   |
+| llama-2-7b/full.yaml  | 7B   | Alpaca 2k | 1      | 0.941    | 26.81 GB    | 512            | 4                | bfloat16  | 1.78 min (4xA100)  |
 |                       |      |           |        |          |             |                |                  |           |                    |
 | tiny-llama/lora.yaml  | 1.1B | Alpaca 2k | 3      | 1.038    | 13.50 GB    | 512            | 8                | bfloat16  | 8.06 min (1xA10G)  |
 | tiny-llama/qlora.yaml | 1.1B | Alpaca 2k | 3      | 1.056    | 16.24 GB    | 512            | 8                | bfloat16  | 8.74 min (1xA10G)  |
