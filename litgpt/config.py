@@ -1,12 +1,12 @@
 # Copyright Lightning AI. Licensed under the Apache License 2.0, see LICENSE file.
 
-import yaml
 from copy import deepcopy
 from dataclasses import dataclass, field
 from pathlib import Path
 from typing import Any, Literal, Optional, Type, Union
 
 import torch
+import yaml
 from typing_extensions import Self
 
 import litgpt.model
@@ -856,6 +856,7 @@ gemma = [
         bias=False,
         norm_class_name="RMSNorm",
         mlp_class_name="GemmaMLP",
+        gelu_approximate="tanh",
         intermediate_size=16384,
     ),
     # https://huggingface.co/google/gemma-7b/blob/main/config.json
@@ -874,6 +875,7 @@ gemma = [
         bias=False,
         norm_class_name="RMSNorm",
         mlp_class_name="GemmaMLP",
+        gelu_approximate="tanh",
         intermediate_size=24576,
     ),
 ]

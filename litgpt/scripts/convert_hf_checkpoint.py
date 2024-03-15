@@ -193,6 +193,7 @@ def copy_weights_hf_llama(
         state_dict[f"transformer.h.{i}.attn.attn.weight"] = qkv
         del qkv_weights[i]
 
+
 def copy_weights_phi(
     config: Config,
     qkv_weights: dict,

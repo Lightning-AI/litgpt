@@ -1,5 +1,4 @@
 # Copyright Lightning AI. Licensed under the Apache License 2.0, see LICENSE file.
-import json
 
 import yaml
 
@@ -12,7 +11,7 @@ def test_default_prompt_style(mock_tokenizer):
     prompt_style = Default()
     prompt = "This is a test prompt."
     assert prompt_style.apply(prompt) == prompt
-    assert prompt_style.stop_tokens(mock_tokenizer) == ([mock_tokenizer.eos_id], )
+    assert prompt_style.stop_tokens(mock_tokenizer) == ([mock_tokenizer.eos_id],)
 
 
 def test_prompt_style_from_name():
@@ -25,7 +24,7 @@ def test_prompt_style_from_name():
 def test_prompt_style_from_config():
     import litgpt.config
     from litgpt import Config
-    from litgpt.prompts import PromptStyle, Default
+    from litgpt.prompts import Default, PromptStyle
 
     model_names = [
         "stablelm-tuned-alpha-3b",
@@ -75,7 +74,7 @@ def test_prompt_style_from_config():
 
 
 def test_apply_prompts():
-    from litgpt.prompts import prompt_styles, Alpaca
+    from litgpt.prompts import Alpaca, prompt_styles
 
     prompt = "Is a coconut a nut or a fruit?"
     inp = "Optional input"
@@ -93,7 +92,7 @@ class CustomPromptStyle(PromptStyle):
 
 
 def test_save_load_prompt_style(tmp_path):
-    from litgpt.prompts import Alpaca, save_prompt_style, load_prompt_style, has_prompt_style
+    from litgpt.prompts import Alpaca, has_prompt_style, load_prompt_style, save_prompt_style
 
     # Save and load a built-in style
     checkpoint_dir = tmp_path / "checkpoint"

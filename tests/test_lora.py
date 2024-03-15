@@ -184,8 +184,8 @@ def test_lora_filter(tmp_path):
 def test_lora_script(tmp_path, fake_checkpoint_dir, monkeypatch, alpaca_path):
     import litgpt.finetune.lora as module
     from litgpt.args import EvalArgs, TrainArgs
-    from litgpt.data import Alpaca
     from litgpt.config import name_to_config
+    from litgpt.data import Alpaca
 
     model_config = dict(block_size=128, n_layer=2, n_embd=8, n_head=4, padded_vocab_size=8)
     monkeypatch.setitem(name_to_config, "tmp", model_config)
@@ -202,10 +202,7 @@ def test_lora_script(tmp_path, fake_checkpoint_dir, monkeypatch, alpaca_path):
     with redirect_stdout(stdout), mock.patch("sys.argv", ["lora.py"]):
         module.setup(
             data=Alpaca(
-                download_dir=alpaca_path.parent,
-                file_name=alpaca_path.name,
-                val_split_fraction=0.5,
-                num_workers=0
+                download_dir=alpaca_path.parent, file_name=alpaca_path.name, val_split_fraction=0.5, num_workers=0
             ),
             checkpoint_dir=fake_checkpoint_dir,
             out_dir=out_dir,
@@ -297,7 +294,9 @@ def test_lora_linear_utilization(apply_to, target_layer_names, mlp_class_name):
 
 
 @torch.inference_mode()
-@pytest.mark.parametrize("apply_to", (None, "lora_query", "lora_key", "lora_value", "lora_projection", "lora_mlp", "lora_head"))
+@pytest.mark.parametrize(
+    "apply_to", (None, "lora_query", "lora_key", "lora_value", "lora_projection", "lora_mlp", "lora_head")
+)
 def test_lora_gpt_apply_lora_forward_no_exception(apply_to):
     from litgpt.lora import GPT, Config
 
@@ -497,7 +496,15 @@ def test_base_model_can_be_lora_loaded(name):
     base_model = BaseGPT.from_name(name, **kwargs)
     base_model_state_dict = base_model.state_dict()
     lora_model = LoRAGPT.from_name(
-        name, **kwargs, lora_r=1, lora_query=True, lora_key=True, lora_value=True, lora_projection=True, lora_mlp=True, lora_head=True
+        name,
+        **kwargs,
+        lora_r=1,
+        lora_query=True,
+        lora_key=True,
+        lora_value=True,
+        lora_projection=True,
+        lora_mlp=True,
+        lora_head=True,
     )
     keys = lora_model.load_state_dict(base_model_state_dict, strict=False)
     assert not keys.unexpected_keys
@@ -592,9 +599,9 @@ def test_against_hf_mixtral():
 
 @RunIf(min_cuda_gpus=1)
 def test_lora_bitsandbytes(monkeypatch, tmp_path, fake_checkpoint_dir, alpaca_path):
+    import litgpt.finetune.lora as module
     from litgpt.config import name_to_config
     from litgpt.data import Alpaca
-    import litgpt.finetune.lora as module
 
     if not _BITSANDBYTES_AVAILABLE:
         pytest.skip("BNB not available")
@@ -631,10 +638,7 @@ def test_lora_bitsandbytes(monkeypatch, tmp_path, fake_checkpoint_dir, alpaca_pa
     with redirect_stdout(stdout), mock.patch("sys.argv", ["full.py"]):
         module.setup(
             data=Alpaca(
-                download_dir=alpaca_path.parent,
-                file_name=alpaca_path.name,
-                val_split_fraction=0.5,
-                num_workers=0,
+                download_dir=alpaca_path.parent, file_name=alpaca_path.name, val_split_fraction=0.5, num_workers=0
             ),
             checkpoint_dir=fake_checkpoint_dir,
             out_dir=tmp_path,

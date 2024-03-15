@@ -3,7 +3,7 @@
 import os
 from contextlib import contextmanager
 from pathlib import Path
-from typing import Optional, List, Tuple
+from typing import List, Optional, Tuple
 
 import torch
 from lightning_utilities.core.imports import RequirementCache

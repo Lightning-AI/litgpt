@@ -1,6 +1,5 @@
 # Copyright Lightning AI. Licensed under the Apache License 2.0, see LICENSE file.
 
-import json
 import os
 from dataclasses import asdict
 from pathlib import Path
@@ -10,7 +9,6 @@ from urllib.request import urlretrieve
 import pytest
 import torch
 import yaml
-
 from conftest import RunIf
 
 wd = Path(__file__).parent.parent.absolute()
@@ -252,10 +250,11 @@ def test_against_hf_phi_1_5():
         if not file_path.is_file():
             urlretrieve(url=url, filename=file_path)
 
-    from litgpt import GPT, Config
-    from litgpt.scripts.convert_lit_checkpoint import copy_weights_phi
     from reference_models.configuration_phi import PhiConfig
     from reference_models.original_phi_1_5 import PhiForCausalLM
+
+    from litgpt import GPT, Config
+    from litgpt.scripts.convert_lit_checkpoint import copy_weights_phi
 
     ours_config = Config.from_name(
         "phi-1_5", padded_vocab_size=10000, n_layer=2, n_head=4, n_embd=256, rotary_percentage=0.5
@@ -302,10 +301,11 @@ def test_against_hf_phi_2():
         if not file_path.is_file():
             urlretrieve(url=url, filename=file_path)
 
-    from litgpt import GPT, Config
-    from litgpt.scripts.convert_lit_checkpoint import copy_weights_phi
     from reference_models.configuration_phi import PhiConfig
     from reference_models.original_phi_2 import PhiForCausalLM
+
+    from litgpt import GPT, Config
+    from litgpt.scripts.convert_lit_checkpoint import copy_weights_phi
 
     ours_config = Config.from_name(
         "phi-2", padded_vocab_size=10000, n_layer=2, n_head=4, n_embd=256, rotary_percentage=0.5
@@ -417,6 +417,7 @@ def test_against_original_gemma(model_name, device, dtype):
         rope_theta=ours_config.rope_base,
         attention_bias=ours_config.bias,
         tie_word_embeddings=True,
+        hidden_act="gelu_pytorch_tanh",
     )
     assert ours_config.intermediate_size == theirs_config.intermediate_size
 

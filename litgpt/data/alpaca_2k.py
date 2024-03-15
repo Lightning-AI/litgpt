@@ -50,4 +50,3 @@ class Alpaca2k(Alpaca):
             mask_prompt=self.mask_prompt,
             ignore_index=self.ignore_index,
         )
-

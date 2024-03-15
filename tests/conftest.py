@@ -59,6 +59,7 @@ def restore_default_dtype():
 
 class MockTokenizer:
     """A dummy tokenizer that encodes each character as its ASCII code."""
+
     eos_id = 1
 
     def encode(self, text: str, eos: bool = False, max_length: int = -1) -> torch.Tensor:
