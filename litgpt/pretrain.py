@@ -150,7 +150,7 @@ def main(
     fabric.seed_everything(seed)  # same seed for every process to init model (FSDP)
 
     t0 = time.perf_counter()
-    with fabric.init_module():
+    with fabric.init_module(empty_init=True):
         model = GPT(config)
     
     prepare_weight_initialization(model, n_layer=config.n_layer, n_embd=config.n_embd)
