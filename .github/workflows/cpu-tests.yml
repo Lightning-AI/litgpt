@@ -16,6 +16,7 @@ defaults:
 
 env:
   HF_TOKEN: ${{ secrets.HF_TOKEN }}
+  UV_HTTP_TIMEOUT: 500
 
 jobs:
   cpu-tests:
