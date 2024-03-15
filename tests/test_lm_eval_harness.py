@@ -19,8 +19,8 @@ from lightning import Fabric
 def test_run_eval(tmp_path, float_like):
     from eval.lm_eval_harness import EvalHarnessBase
     from litgpt.model import GPT
-    from litgpt.tokenizer import Tokenizer
     from litgpt.scripts.download import download_from_hub
+    from litgpt.tokenizer import Tokenizer
 
     fabric = Fabric(devices=1)
     with fabric.init_module():

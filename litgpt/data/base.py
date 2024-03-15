@@ -17,10 +17,7 @@ class DataModule(LightningDataModule):
 
     @abstractmethod
     def connect(
-        self,
-        tokenizer: Optional[Tokenizer] = None,
-        batch_size: int = 1,
-        max_seq_length: Optional[int] = None
+        self, tokenizer: Optional[Tokenizer] = None, batch_size: int = 1, max_seq_length: Optional[int] = None
     ) -> None:
         """All settings that can't be determined at the time of instantiation need to be passed through here
         before any dataloaders can be accessed.
@@ -53,6 +50,7 @@ class SFTDataset(Dataset):
         labels: Same as input_ids, unless ``mask_prompt=True`` in which case the 'prompt' part is replaced with
             the ``ignore_index``.
     """
+
     def __init__(
         self,
         data: List[Dict[str, str]],
@@ -61,7 +59,7 @@ class SFTDataset(Dataset):
         max_seq_length: int = -1,
         mask_prompt: bool = True,
         ignore_index: int = -100,
-        transform: Optional[Callable[[Any], Any]] = None
+        transform: Optional[Callable[[Any], Any]] = None,
     ) -> None:
         self.data = data
         self.tokenizer = tokenizer
@@ -84,9 +82,7 @@ class SFTDataset(Dataset):
         prompt_and_response = prompt + example["output"]
         encoded_prompt = self.tokenizer.encode(prompt, max_length=self.max_seq_length)
         encoded_prompt_and_response = self.tokenizer.encode(
-            prompt_and_response,
-            eos=True,
-            max_length=self.max_seq_length,
+            prompt_and_response, eos=True, max_length=self.max_seq_length
         )
 
         # The labels are the full prompt with response, but with the prompt masked out

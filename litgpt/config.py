@@ -1,12 +1,12 @@
 # Copyright Lightning AI. Licensed under the Apache License 2.0, see LICENSE file.
 
-import yaml
 from copy import deepcopy
 from dataclasses import dataclass, field
 from pathlib import Path
 from typing import Any, Literal, Optional, Type, Union
 
 import torch
+import yaml
 from typing_extensions import Self
 
 import litgpt.model
