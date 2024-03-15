@@ -150,9 +150,10 @@ def main(
     fabric.seed_everything(seed)  # same seed for every process to init model (FSDP)
 
     t0 = time.perf_counter()
-    with fabric.init_module(empty_init=True):
+    with fabric.init_module():
         model = GPT(config)
-        patch_reset_parameters(model, n_layer=config.n_layer, n_embd=config.n_embd)
+    
+    prepare_weight_initialization(model, n_layer=config.n_layer, n_embd=config.n_embd)
 
     if train.tie_embeddings:
         model.transformer.wte.weight = model.lm_head.weight
@@ -380,7 +381,7 @@ def get_lr(learning_rate: float, it: int, warmup_iters: int, max_iters: int, min
     return min_lr + coeff * (learning_rate - min_lr)
 
 
-def patch_reset_parameters(model: GPT, n_layer: int, n_embd: int) -> None:
+def prepare_weight_initialization(model: GPT, n_layer: int, n_embd: int) -> None:
     """We are not allowed to use FSDP's `param_init_fn`."""
     # Adapted from https://github.com/jzhang38/TinyLlama/blob/bf12224/lit_gpt/model.py#L40-L54
 
@@ -395,9 +396,13 @@ def patch_reset_parameters(model: GPT, n_layer: int, n_embd: int) -> None:
     def init_proj_linear(module):
         nn.init.normal_(module.weight, mean=0.0, std=(1 / math.sqrt(n_embd) / n_layer))
 
-    nn.Embedding.reset_parameters = init_embedding
-    nn.Linear.reset_parameters = init_linear
+    for mod in model.modules():
+        if isinstance(mod, nn.Embedding):
+            mod.reset_parameters = partial(init_embedding, mod)
+        elif isinstance(mod, nn.Linear):
+            mod.reset_parameters = partial(init_linear, mod)
 
+    # need a separate loop because `mod.proj` below is a `nn.Linear` too
     for mod in model.modules():
         if isinstance(mod, (LLaMAMLP, CausalSelfAttention)):
             mod.proj.reset_parameters = partial(init_proj_linear, mod.proj)
