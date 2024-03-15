@@ -7,8 +7,8 @@ import torch
 
 
 def test_llama2_70b_conversion():
-    from lit_gpt import Config
-    from scripts.convert_hf_checkpoint import copy_weights_hf_llama
+    from litgpt import Config
+    from litgpt.scripts.convert_hf_checkpoint import copy_weights_hf_llama
 
     shapes = {
         "model.embed_tokens.weight": (32000, 8192),
@@ -105,32 +105,32 @@ def test_llama2_70b_conversion():
 def test_convert_hf_checkpoint(tmp_path, model_name):
     import torch
 
-    from scripts.convert_hf_checkpoint import convert_hf_checkpoint
+    from litgpt.scripts.convert_hf_checkpoint import convert_hf_checkpoint
 
     with pytest.raises(ValueError, match="to contain .bin"):
         convert_hf_checkpoint(checkpoint_dir=tmp_path, model_name=model_name)
 
     bin_file = tmp_path / "foo.bin"
     bin_file.touch()
-    with mock.patch("scripts.convert_hf_checkpoint.lazy_load") as load:
+    with mock.patch("litgpt.scripts.convert_hf_checkpoint.lazy_load") as load:
         # bypass if-statement for weight tying
         if model_name == "Llama-2-7b-hf":
             load.return_value = {"model.embed_tokens.weight": torch.rand((10, 10))}
         convert_hf_checkpoint(checkpoint_dir=tmp_path, model_name=model_name)
     load.assert_called_with(bin_file)
 
-    assert {p.name for p in tmp_path.glob("*")} == {"foo.bin", "lit_config.json", "lit_model.pth"}
+    assert {p.name for p in tmp_path.glob("*")} == {"foo.bin", "model_config.yaml", "lit_model.pth"}
 
     # ensure that the config dict can be loaded
-    from lit_gpt import Config
+    from litgpt import Config
 
-    config = Config.from_json(tmp_path / "lit_config.json")
+    config = Config.from_file(tmp_path / "model_config.yaml")
     assert isinstance(config, Config)
 
 
 def test_qkv_reassemble():
-    from lit_gpt import Config
-    from scripts.convert_hf_checkpoint import qkv_reassemble
+    from litgpt import Config
+    from litgpt.scripts.convert_hf_checkpoint import qkv_reassemble
 
     # MHA
     config = Config(n_embd=4, n_head=4)

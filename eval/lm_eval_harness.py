@@ -11,13 +11,9 @@ from lightning.fabric.plugins import BitsandbytesPrecision
 from lm_eval import base, evaluator, tasks
 from lm_eval.base import BaseLM
 
-# support running without installing as a package
-wd = Path(__file__).parent.parent.resolve()
-sys.path.append(str(wd))
-
-from generate.base import generate
-from lit_gpt import GPT, Config, Tokenizer
-from lit_gpt.utils import CLI, check_valid_checkpoint_dir, get_default_supported_precision, load_checkpoint
+from litgpt import GPT, Config, Tokenizer
+from litgpt.generate.base import generate
+from litgpt.utils import CLI, check_valid_checkpoint_dir, get_default_supported_precision, load_checkpoint
 
 
 class EvalHarnessBase(BaseLM):
@@ -112,7 +108,7 @@ class EvalHarnessBase(BaseLM):
 
         lm = self
         if not no_cache:
-            lm = base.CachingLM(lm, "lm_cache/lit-gpt.db")
+            lm = base.CachingLM(lm, "lm_cache/litgpt.db")
 
         results = evaluator.evaluate(
             lm=lm,
@@ -161,7 +157,7 @@ def run_eval_harness(
     check_valid_checkpoint_dir(checkpoint_dir)
     tokenizer = Tokenizer(checkpoint_dir)
 
-    config = Config.from_json(checkpoint_dir / "lit_config.json")
+    config = Config.from_file(checkpoint_dir / "model_config.yaml")
 
     checkpoint_path = checkpoint_dir / "lit_model.pth"
 

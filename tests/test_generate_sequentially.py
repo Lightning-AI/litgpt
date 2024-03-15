@@ -1,7 +1,6 @@
 # Copyright Lightning AI. Licensed under the Apache License 2.0, see LICENSE file.
 
 import itertools
-import json
 import subprocess
 import sys
 from collections import defaultdict
@@ -11,6 +10,7 @@ from re import escape
 
 import pytest
 import torch
+import yaml
 from conftest import RunIf
 from lightning import Fabric
 
@@ -24,8 +24,8 @@ from lightning import Fabric
     ],
 )
 def test_layer_to_device(n_layer, devices, expected):
-    from generate.sequentially import layer_to_device
-    from lit_gpt.model import GPT, Block
+    from litgpt.generate.sequentially import layer_to_device
+    from litgpt.model import GPT, Block
 
     with torch.device("meta"):
         model = GPT.from_name("pythia-14m", n_layer=n_layer)
@@ -40,7 +40,7 @@ def path_to_device(model):
 
 
 def test_replace_device():
-    from generate.sequentially import replace_device
+    from litgpt.generate.sequentially import replace_device
 
     class Submodule(torch.nn.Module):
         def __init__(self):
@@ -86,8 +86,8 @@ def test_replace_device():
 
 
 def _test_model_1device(accelerator):
-    from generate.sequentially import sequential
-    from lit_gpt import GPT
+    from litgpt import GPT
+    from litgpt.generate.sequentially import sequential
 
     fabric = Fabric(accelerator=accelerator, devices=1)
     with torch.device("meta"):
@@ -157,8 +157,8 @@ def find_forward_hooks(module):
 
 @RunIf(min_cuda_gpus=2)
 def test_model_forward_hooks():
-    from generate.sequentially import sequential
-    from lit_gpt import GPT
+    from litgpt import GPT
+    from litgpt.generate.sequentially import sequential
 
     fabric = Fabric(accelerator="cuda", devices=1)
     with torch.device("meta"):
@@ -274,15 +274,15 @@ root = Path(__file__).parent.parent.resolve()
 
 @RunIf(min_cuda_gpus=2)
 def test_base_with_sequentially(tmp_path):
-    from lit_gpt import GPT, Config
-    from scripts.download import download_from_hub
+    from litgpt import GPT, Config
+    from litgpt.scripts.download import download_from_hub
 
     # download the tokenizer
     download_from_hub(repo_id="EleutherAI/pythia-14m", tokenizer_only=True, checkpoint_dir=tmp_path)
     checkpoint_dir = tmp_path / "EleutherAI/pythia-14m"
     # save the config
     config = Config.from_name("pythia-14m")
-    (checkpoint_dir / "lit_config.json").write_text(json.dumps(asdict(config)))
+    (checkpoint_dir / "model_config.yaml").write_text(yaml.dump(asdict(config)))
     # create a state dict to load from
     torch.save(GPT(config).state_dict(), checkpoint_dir / "lit_model.pth")
 
@@ -294,17 +294,22 @@ def test_base_with_sequentially(tmp_path):
         f"--checkpoint_dir={str(checkpoint_dir)}",
     ]
     env = {"CUDA_VISIBLE_DEVICES": "0,1"}
-    base_stdout = subprocess.check_output([sys.executable, root / "generate/base.py", *args], env=env).decode()
+    base_stdout = subprocess.check_output([sys.executable, root / "litgpt/generate/base.py", *args], env=env).decode()
     sequential_stdout = subprocess.check_output(
-        [sys.executable, root / "generate/sequentially.py", *args], env=env
+        [sys.executable, root / "litgpt/generate/sequentially.py", *args], env=env
     ).decode()
 
     assert base_stdout.startswith("What food do llamas eat?")
     assert base_stdout == sequential_stdout
 
 
-def test_cli():
-    cli_path = root / "generate" / "sequentially.py"
-    output = subprocess.check_output([sys.executable, cli_path, "-h"])
+@pytest.mark.parametrize("mode", ["file", "entrypoint"])
+def test_cli(mode):
+    if mode == "file":
+        cli_path = Path(__file__).parent.parent / "litgpt/generate/sequentially.py"
+        args = [sys.executable, cli_path, "-h"]
+    else:
+        args = ["litgpt", "generate", "sequentially", "-h"]
+    output = subprocess.check_output(args)
     output = str(output.decode())
     assert "Generates text samples" in output

@@ -1,15 +1,13 @@
 # Copyright Lightning AI. Licensed under the Apache License 2.0, see LICENSE file.
 
-def test_alpaca(mock_tockenizer, alpaca_path):
-    from lit_gpt.data import Alpaca
 
-    alpaca = Alpaca(
-        test_split_fraction=0.5,
-        download_dir=alpaca_path.parent,
-        data_file_name=alpaca_path.name,
-        num_workers=0,
-    )
-    alpaca.connect(mock_tockenizer, batch_size=2, max_seq_length=10)
+def test_alpaca(mock_tokenizer, alpaca_path):
+    from litgpt.data import Alpaca
+    from litgpt.prompts import Alpaca as AlpacaPromptStyle
+
+    alpaca = Alpaca(val_split_fraction=0.5, download_dir=alpaca_path.parent, file_name=alpaca_path.name, num_workers=0)
+    assert isinstance(alpaca.prompt_style, AlpacaPromptStyle)
+    alpaca.connect(mock_tokenizer, batch_size=2, max_seq_length=10)
     alpaca.prepare_data()
     alpaca.setup()
 
@@ -25,3 +23,6 @@ def test_alpaca(mock_tockenizer, alpaca_path):
     assert train_batch.keys() == val_batch.keys() == {"input_ids", "labels"}
     assert all(seq.shape == (2, 10) for seq in train_batch.values())
     assert all(seq.shape == (2, 10) for seq in val_batch.values())
+
+    assert isinstance(train_dataloader.dataset.prompt_style, AlpacaPromptStyle)
+    assert isinstance(val_dataloader.dataset.prompt_style, AlpacaPromptStyle)
