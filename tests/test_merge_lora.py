@@ -1,13 +1,11 @@
 # Copyright Lightning AI. Licensed under the Apache License 2.0, see LICENSE file.
 
-import json
 import os
 import shutil
 from contextlib import redirect_stdout
 from io import StringIO
 from pathlib import Path
 from unittest import mock
-from conftest import RunIf
 
 import pytest
 import torch
@@ -80,12 +78,7 @@ def test_load_lora_metadata(fake_checkpoint_dir):
     with pytest.raises(FileNotFoundError, match="missing a `hyperparameters.yaml` file"):
         load_lora_metadata(fake_checkpoint_dir)
 
-    hparams = dict(
-        precision="bf16-mixed",
-        checkpoint_dir="checkpoints/meta-llama/Llama-2-7b",
-        lora_r=8,
-        lora_alpha=16,
-    )
+    hparams = dict(precision="bf16-mixed", checkpoint_dir="checkpoints/meta-llama/Llama-2-7b", lora_r=8, lora_alpha=16)
     with open(fake_checkpoint_dir / "hyperparameters.yaml", "w") as file:
         yaml.dump(hparams, file)
 

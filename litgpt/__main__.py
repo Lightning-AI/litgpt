@@ -29,7 +29,7 @@ if TYPE_CHECKING:
 
 
 def _new_parser(**kwargs: Any) -> "ArgumentParser":
-    from jsonargparse import ArgumentParser, ActionConfigFile
+    from jsonargparse import ActionConfigFile, ArgumentParser
 
     parser = ArgumentParser(**kwargs)
     parser.add_argument(
@@ -80,7 +80,7 @@ def main() -> None:
         "merge_lora": {"help": "Merges the LoRA weights with the base model.", "fn": merge_lora_fn},
     }
 
-    from jsonargparse import set_docstring_parse_options, set_config_read_mode
+    from jsonargparse import set_config_read_mode, set_docstring_parse_options
 
     set_docstring_parse_options(attribute_docstrings=True)
     set_config_read_mode(urls_enabled=True)

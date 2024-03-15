@@ -35,10 +35,7 @@ class OpenWebText(DataModule):
         self.data_path_val = str(self.data_path).rstrip("/") + "/val"
 
     def connect(
-        self,
-        tokenizer: Optional[Tokenizer] = None,
-        batch_size: int = 1,
-        max_seq_length: Optional[int] = 2048
+        self, tokenizer: Optional[Tokenizer] = None, batch_size: int = 1, max_seq_length: Optional[int] = 2048
     ) -> None:
         self.tokenizer = tokenizer
         self.batch_size = batch_size
@@ -59,7 +56,9 @@ class OpenWebText(DataModule):
         dataset = load_dataset("openwebtext", num_proc=(os.cpu_count() // 2), trust_remote_code=True)
 
         # Split the data in training and validation
-        split_dataset = dataset["train"].train_test_split(test_size=self.val_split_fraction, seed=self.seed, shuffle=True)
+        split_dataset = dataset["train"].train_test_split(
+            test_size=self.val_split_fraction, seed=self.seed, shuffle=True
+        )
         split_dataset["val"] = split_dataset.pop("test")  # rename the test split to val
 
         def tokenize(data: Dataset, index: int):

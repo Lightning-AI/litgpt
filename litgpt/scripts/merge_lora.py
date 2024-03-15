@@ -2,7 +2,7 @@
 
 """This script merges the LoRA weights with the base model"""
 from pathlib import Path
-from typing import Optional, Tuple, Dict, Any
+from typing import Any, Dict, Optional, Tuple
 
 import lightning as L
 import torch
@@ -13,9 +13,7 @@ from litgpt.utils import CLI, check_valid_checkpoint_dir, lazy_load
 
 
 def merge_lora(
-    checkpoint_dir: Path,
-    pretrained_checkpoint_dir: Optional[Path] = None,
-    precision: Optional[str] = None,
+    checkpoint_dir: Path, pretrained_checkpoint_dir: Optional[Path] = None, precision: Optional[str] = None
 ) -> None:
     """Merges the LoRA weights with the base model. See ``litgpt finetune lora``.
 

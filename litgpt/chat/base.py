@@ -9,9 +9,9 @@ import lightning as L
 import torch
 from lightning.fabric.plugins import BitsandbytesPrecision
 
-from litgpt.generate.base import next_token
 from litgpt import GPT, Config, PromptStyle, Tokenizer
-from litgpt.prompts import load_prompt_style, has_prompt_style
+from litgpt.generate.base import next_token
+from litgpt.prompts import has_prompt_style, load_prompt_style
 from litgpt.scripts.merge_lora import merge_lora
 from litgpt.utils import CLI, check_valid_checkpoint_dir, get_default_supported_precision, load_checkpoint
 
@@ -159,7 +159,9 @@ def main(
     model = fabric.setup_module(model)
 
     tokenizer = Tokenizer(checkpoint_dir)
-    prompt_style = load_prompt_style(checkpoint_dir) if has_prompt_style(checkpoint_dir) else PromptStyle.from_config(config)
+    prompt_style = (
+        load_prompt_style(checkpoint_dir) if has_prompt_style(checkpoint_dir) else PromptStyle.from_config(config)
+    )
     stop_tokens = prompt_style.stop_tokens(tokenizer)
 
     print(f"Now chatting with {config.name}.\nTo exit, press 'Enter' on an empty prompt.\n")

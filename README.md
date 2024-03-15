@@ -18,7 +18,7 @@
 
 &nbsp;
 
-⚡ LitGPT is a hackable [implementation](litgpt/model.py) of state-of-the-art open-source large language models released under the **Apache 2.0 license**. 
+⚡ LitGPT is a hackable [implementation](litgpt/model.py) of state-of-the-art open-source large language models released under the **Apache 2.0 license**.
 
 &nbsp;
 ## LitGPT supports
@@ -141,7 +141,7 @@ For added convenience, you can also manually override config file setting via th
 
 
 ```bash
-litgpt finetune lora 
+litgpt finetune lora
   --config https://raw.githubusercontent.com/Lightning-AI/litgpt/main/config_hub/finetune/llama-2-7b/lora.yaml \
   --lora_r 4
 ```
@@ -150,7 +150,7 @@ You can browse the available configuration files [here](https://github.com/Light
 
 &nbsp;
 
-> [!TIP] 
+> [!TIP]
 > **Run large models on smaller consumer devices:**
 > We support 4-bit quantization (as in QLoRA), (bnb.nf4, bnb.nf4-dq, bnb.fp4, bnb.fp4-dq) and 8-bit quantization (bnb.int8) for inference by following [this guide](tutorials/quantize.md).
 
@@ -314,7 +314,7 @@ We welcome all individual contributors, regardless of their level of experience 
 
 &nbsp;
 
-> [!TIP] 
+> [!TIP]
 > Unsure about contributing? Check out our [How to Contribute to LitGPT](https://lightning.ai/pages/community/tutorial/how-to-contribute-to-litgpt/) guide.
 
 If you have general questions about building with LitGPT, please [join our Discord](https://discord.gg/VptPCZkGNa).

@@ -13,8 +13,8 @@ import torch
 def test_full_script(tmp_path, fake_checkpoint_dir, monkeypatch, alpaca_path):
     import litgpt.finetune.full as module
     from litgpt.args import EvalArgs, TrainArgs
-    from litgpt.data import Alpaca
     from litgpt.config import name_to_config
+    from litgpt.data import Alpaca
 
     model_config = dict(block_size=128, n_layer=2, n_embd=8, n_head=4, padded_vocab_size=8)
     monkeypatch.setitem(name_to_config, "tmp", model_config)
@@ -27,12 +27,7 @@ def test_full_script(tmp_path, fake_checkpoint_dir, monkeypatch, alpaca_path):
 
     out_dir = tmp_path / "out"
     setup_kwargs = dict(
-        data=Alpaca(
-            download_dir=alpaca_path.parent,
-            file_name=alpaca_path.name,
-            val_split_fraction=0.5,
-            num_workers=0
-        ),
+        data=Alpaca(download_dir=alpaca_path.parent, file_name=alpaca_path.name, val_split_fraction=0.5, num_workers=0),
         checkpoint_dir=fake_checkpoint_dir,
         out_dir=out_dir,
         precision="32-true",
