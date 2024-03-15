@@ -45,7 +45,9 @@ jobs:
 
     - name: Install minimal dependencies
       run: |
-        uv pip install --system .
+        # uv pip install . is not yet supported, only `-e .`
+        # https://github.com/astral-sh/uv/issues/1896
+        uv pip install --system -e .
         uv pip list
         # make sure all modules are still importable with only the minimal dependencies available
         modules=$(
@@ -58,7 +60,7 @@ jobs:
 
     - name: Install all dependencies
       run: |
-        uv pip install --system '.[all,test]'
+        uv pip install --system -e '.[all,test]'
         uv pip list
 
     - name: Run tests
