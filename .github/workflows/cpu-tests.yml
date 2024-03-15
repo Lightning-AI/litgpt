@@ -43,10 +43,18 @@ jobs:
     - name: Install uv
       run: pip install uv
 
+    - name: Define cache folder location per OS
+      if: startsWith(runner.os, 'Linux')
+        run: echo "cache_dir=~/.cache/uv" >> "$GITHUB_ENV"
+      if: startsWith(runner.os, 'MacOS')
+        run: echo "cache_dir=~/Library/Caches/uv" >> "$GITHUB_ENV"
+      if: startsWith(runner.os, 'Windows')
+        run: echo "cache_dir=~\AppData\Local\cache\Cache" >> "$GITHUB_ENV"
+
     - name: Cache for uv
       uses: actions/cache@v4
       with:
-        path: ~/.cache/uv
+        path: env.cache_dir
         key: ${{ runner.os }}-python-${{ matrix.python-version }}-uv
 
     - name: Install minimal dependencies
