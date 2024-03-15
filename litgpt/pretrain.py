@@ -400,7 +400,7 @@ def patch_reset_parameters(model: GPT, n_layer: int, n_embd: int) -> None:
 
     for mod in model.modules():
         if isinstance(mod, (LLaMAMLP, CausalSelfAttention)):
-            mod.proj.reset_parameters = partial(init_proj_linear, mod)
+            mod.proj.reset_parameters = partial(init_proj_linear, mod.proj)
 
 
 def init_out_dir(out_dir: Path) -> Path:
