@@ -377,14 +377,23 @@ def get_lr(learning_rate: float, it: int, warmup_iters: int, max_iters: int, min
     return min_lr + coeff * (learning_rate - min_lr)
 
 
-def init_weights(module: nn.Module, n_layer: int, n_embd: int):
-    # Copied from https://github.com/jzhang38/TinyLlama/blob/bf12224/lit_gpt/model.py#L40-L54
-    if isinstance(module, nn.Embedding):
+def patch_reset_parameters(n_layer: int, n_embd: int) -> None:
+    """We are not allowed to use FSDP's `param_init_fn`."""
+    # Adapted from https://github.com/jzhang38/TinyLlama/blob/bf12224/lit_gpt/model.py#L40-L54
+
+    def init_embedding(module):
         nn.init.normal_(module.weight, mean=0.0, std=math.sqrt(2.0 / 5 / n_embd))
-    elif isinstance(module, nn.Linear):
+
+    def init_linear(module):
         nn.init.normal_(module.weight, mean=0.0, std=math.sqrt(2.0 / 5 / n_embd))
         if module.bias is not None:
             nn.init.zeros_(module.bias)
+
+    nn.Embedding.reset_parameters = init_embedding
+    nn.Linear.reset_parameters = init_linear
+
+
+def init_weights(module: nn.Module, n_layer: int, n_embd: int):
     for name, param in module.named_parameters():
         if name == "proj.weight" and isinstance(module, (LLaMAMLP, CausalSelfAttention)):
             nn.init.normal_(param, mean=0.0, std=(1 / math.sqrt(n_embd) / n_layer))
