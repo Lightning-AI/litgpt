@@ -2,9 +2,9 @@ name: CPU tests
 
 on:
   push:
-    branches: [main]
+    branches: [main, wip]
   pull_request:
-    branches: [main, "carmocca/*"]
+    branches: [main, "carmocca/*", wip]
 
 concurrency:
   group: ${{ github.workflow }}-${{ github.ref }}-${{ github.head_ref }}
@@ -39,27 +39,17 @@ jobs:
       uses: actions/setup-python@v4
       with:
         python-version: ${{ matrix.python-version }}
-
-    - name:  Install uv
-      run: |
-        pip install uv
-
-    - name: UV cache
-      uses: actions/cache@v4
-      with:
-        path: ~/.cache/uv
-        key: ${{ runner.os }}-python-${{ matrix.python-version }}-uv
+        cache: 'pip'
+        cache-dependency-path: |
+          pyproject.toml
 
     - name: Install minimal dependencies
       run: |
-        # Use `--system` flag to allow global installs in CI
-        # https://github.com/astral-sh/uv/issues/1526
-        uv pip install --system -r requirements.txt
-        uv pip list
-        # make sure all modules are importable
+        pip install .
+        pip list
+        # make sure all modules are still importable with only the minimal dependencies available
         modules=$(
-          find * -type f -name "*.py" | \
-          grep -v tests | grep "/" | grep -v lm_eval | grep -v xla | grep -v prepare_slimpajama | grep -v prepare_starcoder | \
+          find litgpt -type f -name "*.py" | \
           sed 's/\.py$//' | sed 's/\//./g' | \
           sed 's/.__init__//g' | xargs -I {} echo "import {};"
         )
@@ -68,15 +58,9 @@ jobs:
 
     - name: Install all dependencies
       run: |
-        uv pip install --system -r requirements-all.txt pytest pytest-rerunfailures pytest-timeout transformers>=4.38.0 einops protobuf
-        uv pip list
-
-    - name: Run tests without the package installed
-      run: |
-        pytest -v --disable-pytest-warnings --strict-markers --color=yes --timeout 120
+        pip install '.[all,test]'
+        pip list
 
     - name: Run tests
       run: |
-        uv pip install --system . --no-deps
-
         pytest -v --disable-pytest-warnings --strict-markers --color=yes --timeout 120

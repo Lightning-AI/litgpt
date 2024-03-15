@@ -1,7 +1,7 @@
 # Resource Tables
 
 - Last updated: 10/20/2023
-- Lit-GPT version: commit 8641822
+- LitGPT version: commit 8641822
 - Hardware: NVIDIA A100-SXM4-40GB
 - OS: Ubuntu 22.04.3 LTS (x86_64)
 - Nvidia driver version: 525.125.06
@@ -9,7 +9,7 @@
   - PyTorch 2.1.0+cu121
   - Bitsandbytes 0.41.1
 
-This document provides an overview and examples of hardware requirements when running models in Lit-GPT.
+This document provides an overview and examples of hardware requirements when running models in LitGPT.
 
 For additional tips on lowering the GPU memory footprint, please also see the [Dealing with out-of-memory (OOM) errors](oom.md) document.
 
@@ -34,7 +34,7 @@ Note that the number of tokens in the training set does not affect the supported
 
 ## Finetuning with LoRA on 1 GPU
 
-The following experiments were conducted on 1xA100 with a minibatch size of 128 using the `finetune/lora.py` script.
+The following experiments were conducted on 1xA100 with a minibatch size of 128 using the `litgpt/finetune/lora.py` script.
 
 | Size  | Model          | Quantization | Microbatch size | Trainable parameters | Max GPU RAM | Time 1k iterations |
 |-------|----------------|--------------|-----------------|----------------------|-------------|--------------------|
@@ -70,7 +70,7 @@ The following experiments were conducted on 1xA100 with a minibatch size of 128 
 
 ## Finetuning with Adapter on 1 GPU
 
-The following experiments were conducted on 1xA100 with a minibatch size of 128 using the `finetune/adapter.py` script.
+The following experiments were conducted on 1xA100 with a minibatch size of 128 using the `litgpt/finetune/adapter.py` script.
 
 | Size | Model          | Quantization | Microbatch size | Trainable parameters | Max GPU RAM | Time 1k iterations |
 |------|----------------|--------------|-----------------|----------------------|-------------|--------------------|
@@ -82,7 +82,7 @@ The following experiments were conducted on 1xA100 with a minibatch size of 128 
 | 7 B  | Llama 2        | bnb.nf4      | 1               | 1,229,760            | 12.68 GB    | 2.93 min           |
 | 7 B  | Llama 2        | bnb.nf4-dq   | 1               | 1,229,760            | 12.38 GB    | 3.00 min           |
 
-The same config, but using the `finetune/adapter_v2.py` script.
+The same config, but using the `litgpt/finetune/adapter_v2.py` script.
 
 | Size | Model          | Quantization | Microbatch size | Trainable parameters | Max GPU RAM | Time 1k iterations |
 |------|----------------|--------------|-----------------|----------------------|-------------|--------------------|
@@ -98,7 +98,7 @@ The same config, but using the `finetune/adapter_v2.py` script.
 
 ## Finetuning with LoRA on Multiple GPUs
 
-The following experiments were conducted on multiple A100 GPUs with a minibatch size of 128 using the `finetune/lora.py` script.
+The following experiments were conducted on multiple A100 GPUs with a minibatch size of 128 using the `litgpt/finetune/lora.py` script.
 
 | Size  | Model          | Quantization | Microbatch size | Trainable parameters | GPU      | Max GPU RAM | Time 1k iterations |
 |-------|----------------|--------------|-----------------|----------------------|----------|-------------|--------------------|
