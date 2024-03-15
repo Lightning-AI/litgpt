@@ -15,13 +15,13 @@ fixed_pairs = [
     ("litgpt/pretrain.py", "https://raw.githubusercontent.com/Lightning-AI/litgpt/main/config_hub/pretrain/tinystories.yaml"),
 ]
 
-config_hub_path = Path('config_hub/finetune')
+config_hub_path = Path(__file__).parent.parent / "config_hub" / "finetune"
 model_pairs = []
 
 for model_dir in config_hub_path.iterdir():
     if model_dir.is_dir():
         model_name = model_dir.name
-        for yaml_file in model_dir.glob('*.yaml'):
+        for yaml_file in model_dir.glob("*.yaml"):
             config_name = yaml_file.stem
             python_file = "litgpt/finetune/full.py" if config_name == "full" else "litgpt/finetune/lora.py"
             relative_yaml_path = yaml_file.relative_to(config_hub_path.parent)
@@ -30,10 +30,7 @@ for model_dir in config_hub_path.iterdir():
 all_pairs = fixed_pairs + model_pairs
 
 
-@pytest.mark.parametrize(
-    ("script_file", "config_file"),
-    all_pairs
-)
+@pytest.mark.parametrize(("script_file", "config_file"), all_pairs)
 def test_config_help(script_file, config_file):
     """Test that configs validate against the signature in the scripts."""
     from litgpt.utils import CLI
