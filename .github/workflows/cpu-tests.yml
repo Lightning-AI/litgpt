@@ -16,6 +16,7 @@ defaults:
 
 env:
   HF_TOKEN: ${{ secrets.HF_TOKEN }}
+  UV_HTTP_TIMEOUT: 500
 
 jobs:
   cpu-tests:
@@ -33,20 +34,22 @@ jobs:
     timeout-minutes: 25
 
     steps:
-    - uses: actions/checkout@v3
+    - uses: actions/checkout@v4
 
     - name: Set up Python ${{ matrix.python-version }}
       uses: actions/setup-python@v4
       with:
         python-version: ${{ matrix.python-version }}
-        cache: 'pip'
-        cache-dependency-path: |
-          pyproject.toml
+
+    - name: Install uv
+      run: pip install uv
 
     - name: Install minimal dependencies
       run: |
-        pip install .
-        pip list
+        # uv pip install . is not yet supported, only `-e .`
+        # https://github.com/astral-sh/uv/issues/1896
+        uv pip install --system -e .
+        uv pip list
         # make sure all modules are still importable with only the minimal dependencies available
         modules=$(
           find litgpt -type f -name "*.py" | \
@@ -58,8 +61,8 @@ jobs:
 
     - name: Install all dependencies
       run: |
-        pip install '.[all,test]'
-        pip list
+        uv pip install --system -e '.[all,test]'
+        uv pip list
 
     - name: Run tests
       run: |
