@@ -377,7 +377,7 @@ def get_lr(learning_rate: float, it: int, warmup_iters: int, max_iters: int, min
     return min_lr + coeff * (learning_rate - min_lr)
 
 
-def patch_reset_parameters(n_layer: int, n_embd: int) -> None:
+def patch_reset_parameters(model: GPT, n_layer: int, n_embd: int) -> None:
     """We are not allowed to use FSDP's `param_init_fn`."""
     # Adapted from https://github.com/jzhang38/TinyLlama/blob/bf12224/lit_gpt/model.py#L40-L54
 
@@ -395,13 +395,9 @@ def patch_reset_parameters(n_layer: int, n_embd: int) -> None:
     nn.Embedding.reset_parameters = init_embedding
     nn.Linear.reset_parameters = init_linear
 
-    def new_init(self, config):
-        super(GPT, self).__init__(config)
-        for module in self.modules():
-            if isinstance(module, (LLaMAMLP, CausalSelfAttention)):
-                module.proj.reset_parameters = init_proj_linear
-
-    GPT.__init__ = new_init
+    for mod in model.modules():
+        if isinstance(mod, (LLaMAMLP, CausalSelfAttention)):
+            mod.proj.reset_parameters = partial(init_proj_linear, mod)
 
 
 def init_out_dir(out_dir: Path) -> Path:
