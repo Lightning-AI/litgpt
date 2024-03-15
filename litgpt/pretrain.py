@@ -90,7 +90,11 @@ def setup(
     if model_config is not None and model_name is not None:
         raise ValueError("Only one of `model_name` or `model_config` can be set.")
     elif model_config is None and model_name is None:
-        model_name = "tiny-llama-1.1b"
+        from litgpt.config import configs
+        options = [f"{config['name']}" for config in configs]
+        print("Please specify --model_name <model_name>. Available values:")
+        print("\n".join(options))
+        quit()
     config = Config.from_name(model_name) if model_config is None else model_config
     devices = parse_devices(devices)
     out_dir = init_out_dir(out_dir)
