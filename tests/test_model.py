@@ -1,6 +1,7 @@
 # Copyright Lightning AI. Licensed under the Apache License 2.0, see LICENSE file.
 
 import sys
+from copy import deepcopy
 from functools import partial
 from pathlib import Path
 from urllib.request import urlretrieve
@@ -698,7 +699,7 @@ SUPPORTS_FLASH_ATTENTION = (
 
 
 @RunIf(min_cuda_gpus=1)
-@pytest.mark.parametrize("config", config_module.configs, ids=[c["name"] for c in config_module.configs])
+@pytest.mark.parametrize("config", deepcopy(config_module.configs), ids=[c["name"] for c in config_module.configs])
 @torch.inference_mode()
 def test_sdpa_choice(config):
     from torch.backends.cuda import (
@@ -754,7 +755,7 @@ def test_sdpa_choice(config):
 
 
 @RunIf(min_cuda_gpus=1)
-@pytest.mark.parametrize("config", config_module.configs, ids=[c["name"] for c in config_module.configs])
+@pytest.mark.parametrize("config", deepcopy(config_module.configs), ids=[c["name"] for c in config_module.configs])
 @torch.inference_mode()
 def test_sdpa_choice_kv_cache(config):
     from torch.backends.cuda import (
