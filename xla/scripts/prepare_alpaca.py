@@ -9,10 +9,11 @@ from typing import Optional
 import torch
 import yaml
 from lightning_utilities.core.imports import RequirementCache
-from lit_gpt.tokenizer import Tokenizer
-from lit_gpt.utils import CLI
 from torch.utils.data import random_split
 from tqdm import tqdm
+
+from litgpt.tokenizer import Tokenizer
+from litgpt.utils import CLI
 
 
 def prepare(
