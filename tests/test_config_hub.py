@@ -15,14 +15,17 @@ fixed_pairs = [
     ("litgpt/pretrain.py", "https://raw.githubusercontent.com/Lightning-AI/litgpt/wip/config_hub/pretrain/tinystories.yaml"),
 ]
 
+config_hub_path = Path('config_hub/finetune')
 model_pairs = []
-models = ["gemma-2b", "llama-2-7b", "tiny-llama"]
-configs = ["full", "lora", "qlora"]
-for model in models:
-    for config in configs:
-        python_file = "litgpt/finetune/full.py" if config == "full" else "litgpt/finetune/lora.py"
-        yaml_file = f"finetune/{model}/{config}.yaml"
-        model_pairs.append((python_file, yaml_file))
+
+for model_dir in config_hub_path.iterdir():
+    if model_dir.is_dir():
+        model_name = model_dir.name
+        for yaml_file in model_dir.glob('*.yaml'):
+            config_name = yaml_file.stem
+            python_file = "litgpt/finetune/full.py" if config_name == "full" else "litgpt/finetune/lora.py"
+            relative_yaml_path = yaml_file.relative_to(config_hub_path.parent)
+            model_pairs.append((python_file, str(relative_yaml_path)))
 
 all_pairs = fixed_pairs + model_pairs
 
