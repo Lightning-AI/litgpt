@@ -12,7 +12,7 @@ fixed_pairs = [
     ("litgpt/pretrain.py", "pretrain/debug.yaml"),
     ("litgpt/pretrain.py", "pretrain/tinyllama.yaml"),
     ("litgpt/pretrain.py", "pretrain/tinystories.yaml"),
-    ("litgpt/pretrain.py", "https://raw.githubusercontent.com/Lightning-AI/litgpt/wip/config_hub/pretrain/tinystories.yaml"),
+    ("litgpt/pretrain.py", "https://raw.githubusercontent.com/Lightning-AI/litgpt/main/config_hub/pretrain/tinystories.yaml"),
 ]
 
 config_hub_path = Path('config_hub/finetune')
