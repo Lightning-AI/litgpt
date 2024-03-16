@@ -391,15 +391,13 @@ def prepare_weight_initialization(model: GPT, n_layer: int, n_embd: int) -> None
             nn.init.zeros_(module.bias)
 
     for mod in model.modules():
-        if isinstance(mod, nn.Embedding):
-            mod.reset_parameters = partial(init_weights, mod, math.sqrt(2.0 / 5 / n_embd))
-        elif isinstance(mod, nn.Linear):
-            mod.reset_parameters = partial(init_weights, mod, math.sqrt(2.0 / 5 / n_embd))
+        if isinstance(mod, (nn.Embedding, nn.Linear)):
+            mod.reset_parameters = partial(init_weights, mod, std=math.sqrt(2.0 / 5 / n_embd))
 
     # need a separate loop because `mod.proj` below is a `nn.Linear` too
     for mod in model.modules():
         if isinstance(mod, (LLaMAMLP, CausalSelfAttention)):
-            mod.proj.reset_parameters = partial(init_weights, mod.proj, (1 / math.sqrt(n_embd) / n_layer))
+            mod.proj.reset_parameters = partial(init_weights, mod.proj, std=(1 / math.sqrt(n_embd) / n_layer))
 
 
 def init_out_dir(out_dir: Path) -> Path:
