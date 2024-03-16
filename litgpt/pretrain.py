@@ -382,7 +382,7 @@ def get_lr(learning_rate: float, it: int, warmup_iters: int, max_iters: int, min
 
 
 def prepare_weight_initialization(model: GPT, n_layer: int, n_embd: int) -> None:
-    """We are not allowed to use FSDP's `param_init_fn`."""
+    """GPT-Neox weight initialization (https://arxiv.org/abs/2204.06745)."""
     # Adapted from https://github.com/jzhang38/TinyLlama/blob/bf12224/lit_gpt/model.py#L40-L54
 
     def init_embedding(module):
