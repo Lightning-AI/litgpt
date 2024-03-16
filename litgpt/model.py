@@ -139,6 +139,12 @@ class GPT(nn.Module):
 class Block(nn.Module):
     def __init__(self, config: Config) -> None:
         super().__init__()
+        if not config.parallel_residual and config.shared_attention_norm:
+            raise NotImplementedError(
+                "No checkpoint amongst the ones we support uses this configuration"
+                " (non-parallel residual and shared attention norm)."
+            )
+
         self.norm_1 = config.norm_class(config.n_embd, eps=config.norm_eps)
         self.attn = CausalSelfAttention(config)
         self.norm_2 = None if config.shared_attention_norm else config.norm_class(config.n_embd, eps=config.norm_eps)
@@ -169,11 +175,6 @@ class Block(nn.Module):
         │     ↓
         └───► +
         """
-        if not self.config.parallel_residual and self.config.shared_attention_norm:
-            raise NotImplementedError(
-                "No checkpoint amongst the ones we support uses this configuration"
-                " (non-parallel residual and shared attention norm)."
-            )
 
         n_1 = self.norm_1(x)
         h = self.attn(n_1, cos, sin, mask, input_pos)
