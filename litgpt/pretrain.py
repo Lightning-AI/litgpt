@@ -387,7 +387,7 @@ def prepare_weight_initialization(model: GPT, n_layer: int, n_embd: int) -> None
 
     def init_weights(module, std):
         nn.init.normal_(module.weight, mean=0.0, std=std)
-        if getattr(module, "bias") is not None:
+        if getattr(module, "bias", None) is not None:
             nn.init.zeros_(module.bias)
 
     for mod in model.modules():
