@@ -388,24 +388,21 @@ def prepare_weight_initialization(model: GPT, n_layer: int, n_embd: int) -> None
     def init_embedding(module):
         nn.init.normal_(module.weight, mean=0.0, std=math.sqrt(2.0 / 5 / n_embd))
 
-    def init_linear(module):
-        nn.init.normal_(module.weight, mean=0.0, std=math.sqrt(2.0 / 5 / n_embd))
+    def init_linear(module, std):
+        nn.init.normal_(module.weight, mean=0.0, std=std)
         if module.bias is not None:
             nn.init.zeros_(module.bias)
-
-    def init_proj_linear(module):
-        nn.init.normal_(module.weight, mean=0.0, std=(1 / math.sqrt(n_embd) / n_layer))
 
     for mod in model.modules():
         if isinstance(mod, nn.Embedding):
             mod.reset_parameters = partial(init_embedding, mod)
         elif isinstance(mod, nn.Linear):
-            mod.reset_parameters = partial(init_linear, mod)
+            mod.reset_parameters = partial(init_linear, mod, math.sqrt(2.0 / 5 / n_embd))
 
     # need a separate loop because `mod.proj` below is a `nn.Linear` too
     for mod in model.modules():
         if isinstance(mod, (LLaMAMLP, CausalSelfAttention)):
-            mod.proj.reset_parameters = partial(init_proj_linear, mod.proj)
+            mod.proj.reset_parameters = partial(init_linear, mod.proj, (1 / math.sqrt(n_embd) / n_layer))
 
 
 def init_out_dir(out_dir: Path) -> Path:
