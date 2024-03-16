@@ -385,24 +385,21 @@ def prepare_weight_initialization(model: GPT, n_layer: int, n_embd: int) -> None
     """GPT-NeoX weight initialization (https://arxiv.org/abs/2204.06745)."""
     # Adapted from https://github.com/jzhang38/TinyLlama
 
-    def init_embedding(module):
-        nn.init.normal_(module.weight, mean=0.0, std=math.sqrt(2.0 / 5 / n_embd))
-
-    def init_linear(module, std):
+    def init_weights(module, std):
         nn.init.normal_(module.weight, mean=0.0, std=std)
-        if module.bias is not None:
+        if getattr(module, "bias") is not None:
             nn.init.zeros_(module.bias)
 
     for mod in model.modules():
         if isinstance(mod, nn.Embedding):
-            mod.reset_parameters = partial(init_embedding, mod)
+            mod.reset_parameters = partial(init_weights, mod, math.sqrt(2.0 / 5 / n_embd))
         elif isinstance(mod, nn.Linear):
-            mod.reset_parameters = partial(init_linear, mod, math.sqrt(2.0 / 5 / n_embd))
+            mod.reset_parameters = partial(init_weights, mod, math.sqrt(2.0 / 5 / n_embd))
 
     # need a separate loop because `mod.proj` below is a `nn.Linear` too
     for mod in model.modules():
         if isinstance(mod, (LLaMAMLP, CausalSelfAttention)):
-            mod.proj.reset_parameters = partial(init_linear, mod.proj, (1 / math.sqrt(n_embd) / n_layer))
+            mod.proj.reset_parameters = partial(init_weights, mod.proj, (1 / math.sqrt(n_embd) / n_layer))
 
 
 def init_out_dir(out_dir: Path) -> Path:
