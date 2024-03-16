@@ -382,8 +382,8 @@ def get_lr(learning_rate: float, it: int, warmup_iters: int, max_iters: int, min
 
 
 def prepare_weight_initialization(model: GPT, n_layer: int, n_embd: int) -> None:
-    """GPT-Neox weight initialization (https://arxiv.org/abs/2204.06745)."""
-    # Adapted from https://github.com/jzhang38/TinyLlama/blob/bf12224/lit_gpt/model.py#L40-L54
+    """GPT-NeoX weight initialization (https://arxiv.org/abs/2204.06745)."""
+    # Adapted from https://github.com/jzhang38/TinyLlama
 
     def init_embedding(module):
         nn.init.normal_(module.weight, mean=0.0, std=math.sqrt(2.0 / 5 / n_embd))
