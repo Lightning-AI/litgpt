@@ -209,7 +209,7 @@ litgpt chat --checkpoint_dir checkpoints/$repo_id
 &nbsp;
 ## Specific Models
 
-Note that certain models require that you've been granted access to the weights on the HuggingFace Hub. 
+Note that certain models require that you've been granted access to the weights on the Hugging Face Hub. 
 
 For example, to get access to the Gemma 2B model, you can do so by following the steps at https://huggingface.co/google/gemma-2b. After access is granted, you can find your HF hub token in https://huggingface.co/settings/tokens.
 
