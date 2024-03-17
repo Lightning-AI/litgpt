@@ -344,7 +344,7 @@ helping democratize AI for millions of developers and researchers worldwide.
 
 Using TPUs with Lightning is as straightforward as changing one line of code.
 
-We provide scripts fully optimized for TPUs in the [XLA directory](xla)
+We provide scripts fully optimized for TPUs in the [XLA directory](xla).
 
 
 
@@ -366,8 +366,9 @@ This implementation extends on [Lit-LLaMA](https://github.com/lightning-AI/lit-l
 
 ## Community showcase
 
-Checkout the projects below using and building on LitGPT. If you have a project you'd like to add to our this section, please don't hestiate to open a pull request.
+Check out the projects below using and building on LitGPT. If you have a project you'd like to add to this section, please don't hestiate to open a pull request.
 
+&nbsp;
 
 **🏆 NeurIPS 2023 Large Language Model Efficiency Challenge: 1 LLM + 1 GPU + 1 Day**
 
@@ -375,7 +376,7 @@ The LitGPT repository was the official starter kit for the [NeurIPS 2023 LLM Eff
 
 &nbsp;
 
-**TinyLlama: An Open-Source Small Language Model**
+**🦙 TinyLlama: An Open-Source Small Language Model**
 
 LitGPT powered the [TinyLlama project](https://github.com/jzhang38/TinyLlama) and [TinyLlama: An Open-Source Small Language Model](https://arxiv.org/abs/2401.02385) research paper.
 
