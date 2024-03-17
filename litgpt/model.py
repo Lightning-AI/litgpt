@@ -392,7 +392,7 @@ def build_mask_cache(max_seq_length: int, device: Optional[torch.device] = None)
     return torch.tril(ones).unsqueeze(0).unsqueeze(0)
 
 
-def rms_norm(x: torch.Tensor, weight, *, dim: int, eps: float, add_unit_offset: bool) -> torch.Tensor:
+def rms_norm(x: torch.Tensor, weight: torch.Tensor, *, dim: int, eps: float, add_unit_offset: bool) -> torch.Tensor:
     """Root Mean Square Layer Normalization.
 
     Derived from https://github.com/bzhangGo/rmsnorm/blob/master/rmsnorm_torch.py. BSD 3-Clause License:
