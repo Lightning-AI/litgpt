@@ -10,9 +10,8 @@ license = { file = "LICENSE" }
 
 dependencies = [
     "torch>=2.2.0",
-    "lightning @ git+https://github.com/Lightning-AI/lightning@75553845c6bbcc305fbae38a46ef4e532e4ac85a",
-    # TODO: install from PyPI when https://github.com/omni-us/jsonargparse/pull/466 is released
-    "jsonargparse[signatures] @ git+https://github.com/omni-us/jsonargparse",
+    "lightning==2.3.0.dev2024031",
+    "jsonargparse[signatures]>=4.27.6",
 ]
 
 [project.urls]
@@ -43,7 +42,6 @@ all = [
     "pyarrow",                   # litgpt.data.prepare_starcoder.py
     "tensorboard",               # litgpt.pretrain
     "torchmetrics",              # litgpt.pretrain
-    "lm_eval @ git+https://github.com/EleutherAI/lm-evaluation-harness.git@115206dc89dad67b8b",
     "huggingface_hub[hf_transfer]>=0.21.0"  # download
 ]
 
