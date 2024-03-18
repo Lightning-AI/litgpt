@@ -22,6 +22,7 @@ def download_from_hub(
     convert_checkpoint: bool = True,
     dtype: Optional[str] = None,
     checkpoint_dir: Path = Path("checkpoints"),
+    model_name: Optional[str] = None,
 ) -> None:
     """Download weights or tokenizer data from the Hugging Face Hub.
 
@@ -33,6 +34,8 @@ def download_from_hub(
         dtype: The data type to convert the checkpoint files to. If not specified, the weights will remain in the
             dtype they are downloaded in.
         checkpoint_dir: Where to save the downloaded files.
+        model_name: The existing config name to use for this repo_id. This is useful to download alternative weights of
+            existing architectures.
     """
 
     if repo_id is None:
@@ -101,7 +104,7 @@ def download_from_hub(
 
     if convert_checkpoint and not tokenizer_only:
         print("Converting checkpoint files to LitGPT format.")
-        convert_hf_checkpoint(checkpoint_dir=directory, dtype=dtype)
+        convert_hf_checkpoint(checkpoint_dir=directory, dtype=dtype, model_name=like)
 
 
 def find_weight_files(repo_id: str, access_token: Optional[str]) -> Tuple[List[str], List[str]]:
