@@ -221,6 +221,16 @@ litgpt download \
   --access_token your_hf_token
 ```
 
+&nbsp;
+## Finetunes and other model variants
+
+Sometimes you want to download the weights of a finetune of one of the models listed above. To do this, you need to manually specifiy the `model_name` associated to the config to use. For example:
+
+```bash
+litgpt download \
+  --repo_id NousResearch/Hermes-2-Pro-Mistral-7B \
+  --model_name Mistral-7B-v0.1
+```
 
 &nbsp;
 ## Tips for GPU Memory Limitations

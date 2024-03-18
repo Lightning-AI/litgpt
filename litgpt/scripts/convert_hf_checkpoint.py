@@ -292,7 +292,16 @@ def convert_hf_checkpoint(
     model_name: Optional[str] = None,
     dtype: Optional[str] = None,
 ) -> None:
-    """Convert a Hugging Face Transformers checkpoint into a LitGPT compatible checkpoint."""
+    """
+    Convert a Hugging Face Transformers checkpoint into a LitGPT compatible checkpoint.
+
+    Arguments:
+        checkpoint_dir: Where to save the downloaded files.
+        model_name: The existing config name to load. This is useful to download alternative weights of existing
+            architectures.
+        dtype: The data type to convert the checkpoint files to. If not specified, the weights will remain in the
+            dtype they are downloaded in.
+    """
     if model_name is None:
         model_name = checkpoint_dir.name
     if dtype is not None:

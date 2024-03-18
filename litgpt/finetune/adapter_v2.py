@@ -75,7 +75,7 @@ def setup(
     pprint(locals())
     data = Alpaca() if data is None else data
     devices = parse_devices(devices)
-    config = Config.from_name(name=checkpoint_dir.name)
+    config = Config.from_file(checkpoint_dir / "model_config.yaml")
 
     precision = precision or get_default_supported_precision(training=True)
     logger = choose_logger(logger_name, out_dir, name=f"finetune-{config.name}", log_interval=train.log_interval)

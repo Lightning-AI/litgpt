@@ -10,10 +10,12 @@ from unittest.mock import Mock
 
 import pytest
 import torch
-from conftest import RunIf
+import yaml
 from lightning import Fabric
 from lightning.fabric.plugins.precision.bitsandbytes import _BITSANDBYTES_AVAILABLE, BitsandbytesPrecision
 from lightning.fabric.wrappers import _FabricOptimizer
+
+from conftest import RunIf
 
 # support running without installing as a package
 wd = Path(__file__).parent.parent.resolve()
@@ -184,11 +186,10 @@ def test_lora_filter(tmp_path):
 def test_lora_script(tmp_path, fake_checkpoint_dir, monkeypatch, alpaca_path):
     import litgpt.finetune.lora as module
     from litgpt.args import EvalArgs, TrainArgs
-    from litgpt.config import name_to_config
     from litgpt.data import Alpaca
 
     model_config = dict(block_size=128, n_layer=2, n_embd=8, n_head=4, padded_vocab_size=8)
-    monkeypatch.setitem(name_to_config, "tmp", model_config)
+    (fake_checkpoint_dir / "model_config.yaml").write_text(yaml.dump(model_config))
     monkeypatch.setattr(module, "load_checkpoint", Mock())
     monkeypatch.setattr(module, "merge_lora", Mock())
 
@@ -600,7 +601,6 @@ def test_against_hf_mixtral():
 @RunIf(min_cuda_gpus=1)
 def test_lora_bitsandbytes(monkeypatch, tmp_path, fake_checkpoint_dir, alpaca_path):
     import litgpt.finetune.lora as module
-    from litgpt.config import name_to_config
     from litgpt.data import Alpaca
 
     if not _BITSANDBYTES_AVAILABLE:
@@ -622,7 +622,7 @@ def test_lora_bitsandbytes(monkeypatch, tmp_path, fake_checkpoint_dir, alpaca_pa
         lora_value=True,
         lora_projection=True,
     )
-    monkeypatch.setitem(name_to_config, "tmp", model_config)
+    (fake_checkpoint_dir / "model_config.yaml").write_text(yaml.dump(model_config))
 
     tokenizer_mock = Mock()
     tokenizer_mock.return_value = tokenizer_mock
