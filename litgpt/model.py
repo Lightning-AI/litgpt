@@ -177,12 +177,8 @@ class CausalSelfAttention(nn.Module):
         # key, query, value projections for all heads, but in a batch
         self.attn = nn.Linear(config.n_embd, shape, bias=config.bias_map.attention)
         # output projection
-<<<<<<< HEAD:litgpt/model.py
         # if `head_size` is explicitly specified in the config, `n_emd` might not be equal to `head_size * n_head`
-        self.proj = nn.Linear(config.head_size * config.n_head, config.n_embd, bias=config.bias)
-=======
-        self.proj = nn.Linear(config.n_embd, config.n_embd, bias=config.bias_map.projection)
->>>>>>> 5609d02 (model.py: apply bias_map):lit_gpt/model.py
+        self.proj = nn.Linear(config.head_size * config.n_head, config.n_embd, bias=config.bias_map.projection)
         # disabled by default
         self.kv_cache: Optional[KVCache] = None
 
