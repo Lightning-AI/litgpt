@@ -123,8 +123,8 @@ def gated_repo_catcher(repo_id: str):
     except OSError as e:
         if "gated repo" in str(e):
             raise ValueError(
-                f"{repo_id} requires authentication, please set the `HF_TOKEN=your_token` environment"
-                " variable or pass --access_token=your_token. You can find your token by visiting"
+                f"https://huggingface.co/{repo_id} requires authentication, please set the `HF_TOKEN=your_token`"
+                " environment variable or pass --access_token=your_token. You can find your token by visiting"
                 " https://huggingface.co/settings/tokens"
             )
         raise e
