@@ -866,7 +866,7 @@ gemma = [
         n_query_groups=1,
         rotary_percentage=1.0,
         parallel_residual=False,
-        bias_map=BiasMap(False),
+        bias_map=BiasMap(attention=True),
         norm_class_name="RMSNorm",
         mlp_class_name="GemmaMLP",
         gelu_approximate="tanh",

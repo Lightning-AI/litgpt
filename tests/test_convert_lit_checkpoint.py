@@ -415,7 +415,7 @@ def test_against_original_gemma(model_name, device, dtype):
         rms_norm_eps=ours_config.norm_eps,
         num_key_value_heads=ours_config.n_query_groups,
         rope_theta=ours_config.rope_base,
-        attention_bias=ours_config.bias,
+        attention_bias=ours_config.bias_map.attention,
         tie_word_embeddings=True,
         hidden_act="gelu_pytorch_tanh",
     )
