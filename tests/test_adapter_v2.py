@@ -9,6 +9,8 @@ from unittest.mock import Mock
 
 import pytest
 import torch
+import yaml
+
 from conftest import RunIf
 from lightning import Fabric
 from lightning.fabric.plugins.precision.bitsandbytes import _BITSANDBYTES_AVAILABLE, BitsandbytesPrecision
@@ -76,11 +78,10 @@ def test_adapter_v2_filter(tmp_path):
 def test_adapter_v2_script(tmp_path, fake_checkpoint_dir, monkeypatch, alpaca_path):
     import litgpt.finetune.adapter_v2 as module
     from litgpt.args import EvalArgs, TrainArgs
-    from litgpt.config import name_to_config
     from litgpt.data import Alpaca
 
     model_config = dict(block_size=128, n_layer=2, n_embd=8, n_head=4, padded_vocab_size=8, adapter_start_layer=0)
-    monkeypatch.setitem(name_to_config, "tmp", model_config)
+    (fake_checkpoint_dir / "model_config.yaml").write_text(yaml.dump(model_config))
 
     monkeypatch.setattr(module, "load_checkpoint", Mock())
 
@@ -231,7 +232,6 @@ def test_against_hf_mixtral():
 @RunIf(min_cuda_gpus=1)
 def test_adapter_v2_bitsandbytes(monkeypatch, tmp_path, fake_checkpoint_dir, alpaca_path):
     import litgpt.finetune.adapter_v2 as module
-    from litgpt.config import name_to_config
     from litgpt.data import Alpaca
 
     if not _BITSANDBYTES_AVAILABLE:
@@ -242,7 +242,7 @@ def test_adapter_v2_bitsandbytes(monkeypatch, tmp_path, fake_checkpoint_dir, alp
     model_config = dict(
         block_size=128, n_layer=2, n_embd=8, n_head=4, padded_vocab_size=8, adapter_start_layer=0, bias=True
     )
-    monkeypatch.setitem(name_to_config, "tmp", model_config)
+    (fake_checkpoint_dir / "model_config.yaml").write_text(yaml.dump(model_config))
 
     tokenizer_mock = Mock()
     tokenizer_mock.return_value = tokenizer_mock
