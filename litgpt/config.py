@@ -21,10 +21,10 @@ class BiasMap:
     mlp: Optional[bool] = None
     lm_head: Optional[bool] = False
 
-    def __getattribute__(self, name: str) -> bool:
-        if (bias := object.__getattribute__(self, name)) is not None:
-            return bias
-        return object.__getattribute__(self, "main")
+    def __post_init__(self):
+        for attr in ("attention", "projection", "mlp"):
+            if getattr(self, attr) is None:
+                setattr(self, attr, self.main)
 
 
 @dataclass
