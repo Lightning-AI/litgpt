@@ -142,9 +142,7 @@ def unsloth_rms_norm_preallocate(X: torch.Tensor, n_rows: int, n_cols: int):
     return Y, r
 
 
-# FIXME revisit formatting
 def _rms_layernorm_forward_impl(X, W, eps, gemma):
-    breakpoint()
     shape = X.shape
     n_rows, n_cols, BLOCK_SIZE, num_warps = unsloth_rms_norm_calculate_settings(X)
     Y, r = unsloth_rms_norm_preallocate(X, n_rows, n_cols)
@@ -154,30 +152,27 @@ def _rms_layernorm_forward_impl(X, W, eps, gemma):
         X, X.stride(0),
         W, W.stride(0),
         r, r.stride(0),
-        n_cols,
-        eps,
-        BLOCK_SIZE=BLOCK_SIZE,
-        num_warps=num_warps,
+        n_cols, eps,
+        BLOCK_SIZE = BLOCK_SIZE,
+        num_warps  = num_warps,
     )
     return Y.view(*shape), r
 
 
 def _rms_layernorm_backward_impl(X, W, r, eps, gemma, dY):
-    shape = X.shape
+    shape = dY.shape
     n_rows, n_cols, BLOCK_SIZE, num_warps = unsloth_rms_norm_calculate_settings(X)
+    dY = dY.view(n_rows, n_cols)
 
     _rms_layernorm_backward[(n_rows,)](
-        dY,
-        dY.stride(0),
-        X,
-        X.stride(0),
-        W,
-        W.stride(0),
-        r,
-        r.stride(0),
-        n_cols,
-        eps,
+        dY, dY.stride(0),
+        X, X.stride(0),
+        W, W.stride(0),
+        r, r.stride(0),
+        n_cols, eps,
         GEMMA=gemma,
         BLOCK_SIZE=BLOCK_SIZE,
+        num_warps=num_warps,
     )
-    return dY.view(*shape)  # dX
+    dX = dY.view(*shape)
+    return dX

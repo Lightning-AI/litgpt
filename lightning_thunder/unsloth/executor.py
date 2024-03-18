@@ -168,10 +168,6 @@ from litgpt.model import RMSNorm as OriginalRMSNorm
 
 class ThunderRMSNorm(OriginalRMSNorm):
     def forward(self, x: Tensor) -> Tensor:
-        #if thunder.core.interpreter.is_jitting():
-        #    return unsloth_rms_norm_forward(x, self.weight, self.eps, self.add_unit_offset)
-        #return rms_norm_forward(x, self.weight, self.dim, self.eps, self.add_unit_offset)
-        # FIXME
         fn = litgpt_rms_norm if thunder.core.interpreter.is_jitting() else rms_norm_forward
         return fn(x, self.weight, self.dim, self.eps, self.add_unit_offset)
 
@@ -223,7 +219,7 @@ def unsloth_rms_norm_grad(
 
     dY = get_grad(Y)
 
-    dY_grad = unsloth_rms_norm_backward(x, weight, dim, r, eps, add_unit_offset, dY)
+    dY_grad = unsloth_rms_norm_backward(x, weight, r, eps, add_unit_offset, dY)
     # the kernel puts dX in dY
     put_grads((x,), (dY_grad,))
 

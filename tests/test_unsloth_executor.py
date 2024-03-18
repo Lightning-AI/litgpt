@@ -76,7 +76,8 @@ def test_unsloth_gpt():
     loss = cfn(model, input_ids, targets)
     assert isinstance(loss, torch.Tensor)
 
-    fwd, bwd = thunder.last_traces(cfn)
+    fwd = thunder.last_traces(cfn)
+    bwd = thunder.last_backward_traces(cfn)
     fwd_str, bwd_str = fwd[-1].python(), bwd[-1].python()
     print(fwd_str)
     print(bwd_str)
@@ -108,7 +109,8 @@ def test_unsloth_rms_norm():
     if True:
         crmsnorm = thunder.jit(rmsnorm, executors=[unsloth_ex])
         actual = crmsnorm(x)
-        fwd, bwd = thunder.last_traces(crmsnorm)
+        fwd = thunder.last_traces(crmsnorm)
+        bwd = thunder.last_backward_traces(crmsnorm)
         fwd_str, bwd_str = fwd[-1].python(), bwd[-1].python()
         print(fwd_str)
         print(bwd_str)
