@@ -108,7 +108,7 @@ def test_head_size(head_size):
 @pytest.mark.parametrize("mlp", [True, False, None])
 @pytest.mark.parametrize("lm_head", [True, False])
 def test_bias_map(main, attention, projection, mlp, lm_head):
-    from lit_gpt.config import BiasMap
+    from litgpt.config import BiasMap
 
     bias_map = BiasMap(main=main, attention=attention, projection=projection, mlp=mlp, lm_head=lm_head)
 
