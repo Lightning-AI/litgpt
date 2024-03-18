@@ -591,7 +591,7 @@ class CausalSelfAttention(BaseCausalSelfAttention):
             r=config.lora_r,
             lora_alpha=config.lora_alpha,
             lora_dropout=config.lora_dropout,
-            enable_lora=(config.to_query, config.to_key, config.to_value),
+            enable_lora=(config.lora_query, config.lora_key, config.lora_value),
             bias=config.bias_map.attention,
             # for MQA/GQA support
             n_head=config.n_head,
@@ -603,7 +603,7 @@ class CausalSelfAttention(BaseCausalSelfAttention):
             config.head_size * config.n_head,
             config.n_embd,
             bias=config.bias_map.projection,
-            r=(config.lora_r if config.to_projection else 0),
+            r=(config.lora_r if config.lora_projection else 0),
             lora_alpha=config.lora_alpha,
             lora_dropout=config.lora_dropout,
         )
@@ -673,7 +673,7 @@ class LLaMAMLP(litgpt.model.LLaMAMLP):
             config.n_embd,
             config.intermediate_size,
             bias=config.bias_map.mlp,
-            r=(config.lora_r if config.to_mlp else 0),
+            r=(config.lora_r if config.lora_mlp else 0),
             lora_alpha=config.lora_alpha,
             lora_dropout=config.lora_dropout,
         )
