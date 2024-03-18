@@ -104,7 +104,7 @@ def download_from_hub(
 
     if convert_checkpoint and not tokenizer_only:
         print("Converting checkpoint files to LitGPT format.")
-        convert_hf_checkpoint(checkpoint_dir=directory, dtype=dtype, model_name=like)
+        convert_hf_checkpoint(checkpoint_dir=directory, dtype=dtype, model_name=model_name)
 
 
 def find_weight_files(repo_id: str, access_token: Optional[str]) -> Tuple[List[str], List[str]]:
