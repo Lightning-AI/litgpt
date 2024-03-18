@@ -150,9 +150,10 @@ def main(
     fabric.seed_everything(seed)  # same seed for every process to init model (FSDP)
 
     t0 = time.perf_counter()
-    with fabric.init_module(empty_init=False):
+    with fabric.init_module(empty_init=True):
         model = GPT(config)
-        model.apply(partial(init_weights, n_layer=config.n_layer, n_embd=config.n_embd))
+    
+    prepare_weight_initialization(model, n_layer=config.n_layer, n_embd=config.n_embd)
 
     if train.tie_embeddings:
         model.transformer.wte.weight = model.lm_head.weight
@@ -333,10 +334,11 @@ def fit(
 
 @torch.no_grad()
 def validate(fabric: L.Fabric, model: nn.Module, val_dataloader: DataLoader, max_iters: int) -> torch.Tensor:
+    fabric.barrier()
     fabric.print("Validating ...")
     model.eval()
 
-    losses = torch.zeros(min(len(val_dataloader), max_iters))
+    losses = []
     for k, batch in enumerate(val_dataloader):
         if k >= max_iters:
             break
@@ -344,10 +346,12 @@ def validate(fabric: L.Fabric, model: nn.Module, val_dataloader: DataLoader, max
         targets = batch[:, 1 : (model.max_seq_length + 1)].contiguous().long()
         logits = model(input_ids)
         loss = chunked_cross_entropy(logits, targets)
-        losses[k] = loss
+        losses.append(loss)
 
+    val_loss = torch.stack(losses).mean()
     model.train()
-    return losses.mean()
+    fabric.barrier()
+    return val_loss
 
 
 def get_dataloaders(
@@ -377,17 +381,23 @@ def get_lr(learning_rate: float, it: int, warmup_iters: int, max_iters: int, min
     return min_lr + coeff * (learning_rate - min_lr)
 
 
-def init_weights(module: nn.Module, n_layer: int, n_embd: int):
-    # Copied from https://github.com/jzhang38/TinyLlama/blob/bf12224/lit_gpt/model.py#L40-L54
-    if isinstance(module, nn.Embedding):
-        nn.init.normal_(module.weight, mean=0.0, std=math.sqrt(2.0 / 5 / n_embd))
-    elif isinstance(module, nn.Linear):
-        nn.init.normal_(module.weight, mean=0.0, std=math.sqrt(2.0 / 5 / n_embd))
-        if module.bias is not None:
+def prepare_weight_initialization(model: GPT, n_layer: int, n_embd: int) -> None:
+    """GPT-NeoX weight initialization (https://arxiv.org/abs/2204.06745)."""
+    # Adapted from https://github.com/jzhang38/TinyLlama
+
+    def init_weights(module, std):
+        nn.init.normal_(module.weight, mean=0.0, std=std)
+        if getattr(module, "bias", None) is not None:
             nn.init.zeros_(module.bias)
-    for name, param in module.named_parameters():
-        if name == "proj.weight" and isinstance(module, (LLaMAMLP, CausalSelfAttention)):
-            nn.init.normal_(param, mean=0.0, std=(1 / math.sqrt(n_embd) / n_layer))
+
+    for mod in model.modules():
+        if isinstance(mod, (nn.Embedding, nn.Linear)):
+            mod.reset_parameters = partial(init_weights, mod, std=math.sqrt(2.0 / 5 / n_embd))
+
+    # need a separate loop because `mod.proj` below is a `nn.Linear` too
+    for mod in model.modules():
+        if isinstance(mod, (LLaMAMLP, CausalSelfAttention)):
+            mod.proj.reset_parameters = partial(init_weights, mod.proj, std=(1 / math.sqrt(n_embd) / n_layer))
 
 
 def init_out_dir(out_dir: Path) -> Path:

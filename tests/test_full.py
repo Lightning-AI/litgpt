@@ -7,17 +7,17 @@ from unittest import mock
 from unittest.mock import Mock
 
 import torch
+import yaml
 
 
 @mock.patch.dict(os.environ, {"LT_ACCELERATOR": "cpu"})
 def test_full_script(tmp_path, fake_checkpoint_dir, monkeypatch, alpaca_path):
     import litgpt.finetune.full as module
     from litgpt.args import EvalArgs, TrainArgs
-    from litgpt.config import name_to_config
     from litgpt.data import Alpaca
 
     model_config = dict(block_size=128, n_layer=2, n_embd=8, n_head=4, padded_vocab_size=8)
-    monkeypatch.setitem(name_to_config, "tmp", model_config)
+    (fake_checkpoint_dir / "model_config.yaml").write_text(yaml.dump(model_config))
     monkeypatch.setattr(module, "load_checkpoint", Mock())
 
     tokenizer_mock = Mock()

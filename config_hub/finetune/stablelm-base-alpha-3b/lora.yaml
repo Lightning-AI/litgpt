@@ -1,19 +1,45 @@
 
 # The path to the base model's checkpoint directory to load for finetuning. (type: <class 'Path'>, default: checkpoints/stabilityai/stablelm-base-alpha-3b)
-checkpoint_dir: checkpoints/meta-llama/Llama-2-7b-hf
+checkpoint_dir: checkpoints/stabilityai/stablelm-base-alpha-3b
 
-# Directory in which to save checkpoints and logs. (type: <class 'Path'>, default: out/finetune/full)
-out_dir: out/finetune/full-llama2-7b
+# Directory in which to save checkpoints and logs. (type: <class 'Path'>, default: out/lora)
+out_dir: out/finetune/lora-stablelm-base-alpha-3b
 
 # The precision to use for finetuning. Possible choices: "bf16-true", "bf16-mixed", "32-true". (type: Optional[str], default: null)
 precision: bf16-true
 
-# How many devices/GPUs to use (type: Union[int, str], default: 1)
-devices: 4
+# If set, quantize the model with this algorithm. See ``tutorials/quantize.md`` for more information. (type: Optional[Literal['nf4', 'nf4-dq', 'fp4', 'fp4-dq', 'int8-training']], default: null)
+quantize:
 
-# Path to a checkpoint directory to resume from in case training was interrupted, or ``True`` to resume
-# from the latest checkpoint in ``out_dir``. (type: Union[bool, Path], default: False)
-resume: false
+# How many devices/GPUs to use. (type: Union[int, str], default: 1)
+devices: 1
+
+# The LoRA rank. (type: int, default: 8)
+lora_r: 32
+
+# The LoRA alpha. (type: int, default: 16)
+lora_alpha: 16
+
+# The LoRA dropout value. (type: float, default: 0.05)
+lora_dropout: 0.05
+
+# Whether to apply LoRA to the query weights in attention. (type: bool, default: True)
+lora_query: true
+
+# Whether to apply LoRA to the key weights in attention. (type: bool, default: False)
+lora_key: false
+
+# Whether to apply LoRA to the value weights in attention. (type: bool, default: True)
+lora_value: true
+
+# Whether to apply LoRA to the output projection in the attention block. (type: bool, default: False)
+lora_projection: false
+
+# Whether to apply LoRA to the weights of the MLP in the attention block. (type: bool, default: False)
+lora_mlp: false
+
+# Whether to apply LoRA to output head in GPT. (type: bool, default: False)
+lora_head: false
 
 # Data-related arguments. If not provided, the default is ``litgpt.data.Alpaca``.
 data:
@@ -34,17 +60,17 @@ train:
   # Number of iterations between logging calls (type: int, default: 1)
   log_interval: 1
 
-  # Number of samples between optimizer steps across data-parallel ranks (type: int, default: 64)
-  global_batch_size: 64
+  # Number of samples between optimizer steps across data-parallel ranks (type: int, default: 128)
+  global_batch_size: 8
 
-  # Number of samples per data-parallel rank (type: int, default: 1)
-  micro_batch_size: 4
+  # Number of samples per data-parallel rank (type: int, default: 4)
+  micro_batch_size: 1
 
   # Number of iterations with learning rate warmup active (type: int, default: 100)
-  lr_warmup_steps: 25
+  lr_warmup_steps: 10
 
   # Number of epochs to train on (type: Optional[int], default: 5)
-  epochs: 1
+  epochs: 4
 
   # Total number of tokens to train on (type: Optional[int], default: null)
   max_tokens:
@@ -58,11 +84,11 @@ train:
   # Whether to tie the embedding weights with the language modeling head weights. (type: Optional[bool], default: null)
   tie_embeddings:
 
-  #   (type: float, default: 0.003)
+  #   (type: float, default: 0.0003)
   learning_rate: 0.0002
 
   #   (type: float, default: 0.02)
-  weight_decay: 0.1
+  weight_decay: 0.0
 
   #   (type: float, default: 0.9)
   beta1: 0.9
@@ -79,8 +105,8 @@ train:
 # Evaluation-related arguments. See ``litgpt.args.EvalArgs`` for details
 eval:
 
-  # Number of optimizer steps between evaluation calls (type: int, default: 600)
-  interval: 25
+  # Number of optimizer steps between evaluation calls (type: int, default: 100)
+  interval: 100
 
   # Number of tokens to generate (type: Optional[int], default: 100)
   max_new_tokens: 100

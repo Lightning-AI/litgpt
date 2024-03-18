@@ -94,8 +94,8 @@ def setup(
     pprint(locals())
     data = Alpaca() if data is None else data
     devices = parse_devices(devices)
-    config = Config.from_name(
-        name=checkpoint_dir.name,
+    config = Config.from_file(
+        checkpoint_dir / "model_config.yaml",
         lora_r=lora_r,
         lora_alpha=lora_alpha,
         lora_dropout=lora_dropout,
