@@ -508,8 +508,8 @@ class GPT(BaseModel):
             config.n_embd,
             config.padded_vocab_size,
             bias=config.bias_map.lm_head,
-            r=(config.r if config.lora_head else 0),
-            lora_alpha=config.alpha,
+            r=(config.lora_r if config.lora_head else 0),
+            lora_alpha=config.lora_alpha,
             lora_dropout=config.dropout,
         )
         self.transformer = nn.ModuleDict(
@@ -588,8 +588,8 @@ class CausalSelfAttention(BaseCausalSelfAttention):
         self.attn = LoRAQKVLinear(
             in_features=config.n_embd,
             out_features=shape,
-            r=config.r,
-            lora_alpha=config.alpha,
+            r=config.lora_r,
+            lora_alpha=config.lora_alpha,
             lora_dropout=config.dropout,
             enable_lora=(config.to_query, config.to_key, config.to_value),
             bias=config.bias_map.attention,
@@ -603,8 +603,8 @@ class CausalSelfAttention(BaseCausalSelfAttention):
             config.head_size * config.n_head,
             config.n_embd,
             bias=config.bias_map.projection,
-            r=(config.r if config.to_projection else 0),
-            lora_alpha=config.alpha,
+            r=(config.lora_r if config.to_projection else 0),
+            lora_alpha=config.lora_alpha,
             lora_dropout=config.dropout,
         )
         # disabled by default
@@ -631,16 +631,16 @@ class GptNeoxMLP(litgpt.model.GptNeoxMLP):
             config.n_embd,
             config.intermediate_size,
             bias=config.bias_map.mlp,
-            r=(config.r if config.lora_mlp else 0),
-            lora_alpha=config.alpha,
+            r=(config.lora_r if config.lora_mlp else 0),
+            lora_alpha=config.lora_alpha,
             lora_dropout=config.dropout,
         )
         self.proj = LoRALinear(
             config.intermediate_size,
             config.n_embd,
             bias=config.bias_map.mlp,
-            r=(config.r if config.lora_mlp else 0),
-            lora_alpha=config.alpha,
+            r=(config.lora_r if config.lora_mlp else 0),
+            lora_alpha=config.lora_alpha,
             lora_dropout=config.dropout,
         )
 
@@ -665,24 +665,24 @@ class LLaMAMLP(litgpt.model.LLaMAMLP):
             config.n_embd,
             config.intermediate_size,
             bias=config.bias_map.mlp,
-            r=(config.r if config.lora_mlp else 0),
-            lora_alpha=config.alpha,
+            r=(config.lora_r if config.lora_mlp else 0),
+            lora_alpha=config.lora_alpha,
             lora_dropout=config.dropout,
         )
         self.fc_2 = LoRALinear(
             config.n_embd,
             config.intermediate_size,
             bias=config.bias_map.mlp,
-            r=(config.r if config.to_mlp else 0),
-            lora_alpha=config.alpha,
+            r=(config.lora_r if config.to_mlp else 0),
+            lora_alpha=config.lora_alpha,
             lora_dropout=config.dropout,
         )
         self.proj = LoRALinear(
             config.intermediate_size,
             config.n_embd,
             bias=config.bias_map.mlp,
-            r=(config.r if config.lora_mlp else 0),
-            lora_alpha=config.alpha,
+            r=(config.lora_r if config.lora_mlp else 0),
+            lora_alpha=config.lora_alpha,
             lora_dropout=config.dropout,
         )
 
