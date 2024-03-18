@@ -92,7 +92,7 @@ def test_unsloth_gpt():
 
 
 @RunIf(min_cuda_gpus=1, thunder=True)
-def test_unsloth_rmsnorm():
+def test_unsloth_rms_norm():
     import thunder
     from thunder.core.transforms import grad
 
@@ -105,7 +105,7 @@ def test_unsloth_rmsnorm():
     # monkeypatching was successful
     assert isinstance(rmsnorm, ThunderRMSNorm)
 
-    if False:
+    if True:
         crmsnorm = thunder.jit(rmsnorm, executors=[unsloth_ex])
         actual = crmsnorm(x)
         fwd, bwd = thunder.last_traces(crmsnorm)

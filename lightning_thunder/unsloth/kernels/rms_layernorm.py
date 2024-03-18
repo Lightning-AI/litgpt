@@ -61,7 +61,6 @@ def _rms_layernorm_backward(
     X,   X_row_stride,
     W,   W_row_stride,
     r,   r_row_stride,
-    dW, dW_row_stride,
     n_cols, eps,
     GEMMA      : tl.constexpr,
     BLOCK_SIZE : tl.constexpr,
@@ -129,65 +128,56 @@ def _gemma_rms_layernorm_forward(
 pass
 
 
-class Fast_RMS_Layernorm(torch.autograd.Function):
-    @staticmethod
-    def forward(ctx, X, W, eps, gemma = False):
-        shape = X.shape
-        dim = shape[-1]
-        X = X.view(-1, dim)
-        n_rows, n_cols = X.shape
-        BLOCK_SIZE, num_warps = calculate_settings(n_cols)
-
-        Y = torch.empty((n_rows, n_cols), dtype = X.dtype, device = "cuda")
-        r = torch.empty(n_rows, dtype = torch.float32, device = "cuda")
-
-        fx = _gemma_rms_layernorm_forward if gemma else _rms_layernorm_forward
-        fx[(n_rows,)](
-            Y, Y.stride(0),
-            X, X.stride(0),
-            W, W.stride(0),
-            r, r.stride(0),
-            n_cols, eps,
-            BLOCK_SIZE = BLOCK_SIZE,
-            num_warps  = num_warps,
-        )
-        ctx.eps = eps
-        ctx.BLOCK_SIZE = BLOCK_SIZE
-        ctx.num_warps  = num_warps
-        ctx.GEMMA = gemma
-        ctx.save_for_backward(X, W, r)
-        return Y.view(*shape)
-    pass
-
-    @staticmethod
-    def backward(ctx, dY):
-        shape = dY.shape
-        dim = shape[-1]
-        dY = dY.view(-1, dim)
-        X, W, r = ctx.saved_tensors
-        n_rows, n_cols = dY.shape
-        dW = X
-
-        _rms_layernorm_backward[(n_rows,)](
-            dY, dY.stride(0),
-            X,  X .stride(0),
-            W,  W .stride(0),
-            r,  r .stride(0),
-            dW, dW.stride(0),
-            n_cols, ctx.eps,
-            GEMMA      = ctx.GEMMA,
-            BLOCK_SIZE = ctx.BLOCK_SIZE,
-            num_warps  = ctx.num_warps,
-        )
-        dX = dY.view(*shape)
-        return dX, None, None, None
-    pass
-pass
+def unsloth_rms_norm_calculate_settings(X: torch.Tensor):
+    dim = X.shape[-1]
+    X = X.view(-1, dim)
+    n_rows, n_cols = X.shape
+    BLOCK_SIZE, num_warps = calculate_settings(n_cols)
+    return n_rows, n_cols, BLOCK_SIZE, num_warps
 
 
-def fast_rms_layernorm(layernorm, X, gemma = False):
-    W   = layernorm.weight
-    eps = layernorm.variance_epsilon
-    out = Fast_RMS_Layernorm.apply(X, W, eps, gemma)
-    return out
-pass
+def unsloth_rms_norm_preallocate(X: torch.Tensor, n_rows: int, n_cols: int):
+    Y = torch.empty((n_rows, n_cols), dtype=X.dtype, device="cuda")
+    r = torch.empty(n_rows, dtype=torch.float32, device="cuda")
+    return Y, r
+
+
+# FIXME revisit formatting
+def _rms_layernorm_forward_impl(X, W, eps, gemma):
+    breakpoint()
+    shape = X.shape
+    n_rows, n_cols, BLOCK_SIZE, num_warps = unsloth_rms_norm_calculate_settings(X)
+    Y, r = unsloth_rms_norm_preallocate(X, n_rows, n_cols)
+    fx = _gemma_rms_layernorm_forward if gemma else _rms_layernorm_forward
+    fx[(n_rows,)](
+        Y, Y.stride(0),
+        X, X.stride(0),
+        W, W.stride(0),
+        r, r.stride(0),
+        n_cols,
+        eps,
+        BLOCK_SIZE=BLOCK_SIZE,
+        num_warps=num_warps,
+    )
+    return Y.view(*shape), r
+
+
+def _rms_layernorm_backward_impl(X, W, r, eps, gemma, dY):
+    shape = X.shape
+    n_rows, n_cols, BLOCK_SIZE, num_warps = unsloth_rms_norm_calculate_settings(X)
+
+    _rms_layernorm_backward[(n_rows,)](
+        dY,
+        dY.stride(0),
+        X,
+        X.stride(0),
+        W,
+        W.stride(0),
+        r,
+        r.stride(0),
+        n_cols,
+        eps,
+        GEMMA=gemma,
+        BLOCK_SIZE=BLOCK_SIZE,
+    )
+    return dY.view(*shape)  # dX
