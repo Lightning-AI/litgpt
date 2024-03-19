@@ -154,7 +154,7 @@ def main(
     with fabric.init_module(empty_init=True):
         model = GPT(config)
     
-    init_weights(fabric, model, n_layer=config.n_layer, n_embd=config.n_embd)
+    initialize_weights(fabric, model, n_layer=config.n_layer, n_embd=config.n_embd)
 
     if train.tie_embeddings:
         model.transformer.wte.weight = model.lm_head.weight
@@ -382,7 +382,7 @@ def get_lr(learning_rate: float, it: int, warmup_iters: int, max_iters: int, min
     return min_lr + coeff * (learning_rate - min_lr)
 
 
-def init_weights(fabric: L.Fabric, model: GPT, n_layer: int, n_embd: int) -> None:
+def initialize_weights(fabric: L.Fabric, model: GPT, n_layer: int, n_embd: int) -> None:
     """GPT-NeoX weight initialization (https://arxiv.org/abs/2204.06745)."""
     # Adapted from https://github.com/jzhang38/TinyLlama
 
