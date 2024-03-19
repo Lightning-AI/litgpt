@@ -91,7 +91,10 @@ def setup(
         raise ValueError("Only one of `model_name` or `model_config` can be set.")
     elif model_config is None and model_name is None:
         from litgpt.config import configs
-        options = [f"{config['name']}" for config in configs]
+        options = [
+            f"{config['name']}" for config in configs
+            if not any(substring in config["name"].lower() for substring in ["chat", "-it", "instruct"])
+        ]
         print("Please specify --model_name <model_name>. Available values:")
         print("\n".join(options))
         quit()
