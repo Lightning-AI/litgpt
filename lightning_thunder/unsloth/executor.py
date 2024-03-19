@@ -138,100 +138,11 @@ unsloth_ex.register_implementation(
 =========
  RMSNorm
 =========
+
+The RMSNorm kernel is not integrated because it's not numerically correct and it doesn't compute the gradient for the
+weight, just for the input.
 """
 
-
-def rms_norm_meta(x: TensorProxy, weight: TensorProxy, dim: int, eps: float, add_unit_offset: bool) -> TensorProxy:
-    return TensorProxy(like=x)
-
-
-# There's no `register_operator` for Modules and rms_norm is not a torch symbol that we can register to. For now some
-# duplication and monkey patching is required
-def rms_norm_forward(x: Tensor, weight: Tensor, dim: int, eps: float, add_unit_offset: bool) -> Tensor:
-    dtype = x.dtype
-    x = x.float()
-    # NOTE: the original rms_norm paper implementation is not equivalent
-    norm_x = (x * x).mean(dim=dim, keepdim=True)
-    x_normed = x * (norm_x + eps).rsqrt()
-    x_normed = x_normed.to(dtype=dtype)
-    if add_unit_offset:
-        # Gemma model requires a unit offset
-        # https://github.com/google/gemma_pytorch/blob/main/gemma/model.py#L176
-        return x_normed * (1 + weight)
-    return x_normed * weight
-
-
-litgpt_rms_norm = unsloth_ex.register_operator("litgpt_rms_norm", meta=rms_norm_meta, fn=rms_norm_forward)
-
-from litgpt.model import RMSNorm as OriginalRMSNorm
-
-
-class ThunderRMSNorm(OriginalRMSNorm):
-    def forward(self, x: Tensor) -> Tensor:
-        fn = litgpt_rms_norm if thunder.core.interpreter.is_jitting() else rms_norm_forward
-        return fn(x, self.weight, self.dim, self.eps, self.add_unit_offset)
-
-
-litgpt.model.RMSNorm = ThunderRMSNorm
-
-
-def unsloth_rms_norm_forward_meta(
-    X: TensorProxy, W: TensorProxy, eps: float, gemma: bool
-) -> Tuple[TensorProxy, TensorProxy]:
-    Y = TensorProxy(like=X)
-    # cannot use `.view` so reduce the dimension manually
-    # n_rows = X.view(-1, X.shape[-1]).shape[0]
-    n_rows = reduce(int.__mul__, X.shape[:-1])
-    r = TensorProxy(shape=(n_rows,), dtype=thunder.dtypes.float32, device=X.device, requires_grad=False)
-    return Y, r
-
-
-def unsloth_rms_norm_backward_meta(X, W, r, eps, gemma, dY):
-    return TensorProxy(like=dY)
-
-
-unsloth_rms_norm_forward = unsloth_ex.register_operator(
-    "unsloth_rms_norm_forward",
-    meta=unsloth_rms_norm_forward_meta,
-    fn=lambda *args: kernels._rms_layernorm_forward_impl(*args),
-)
-unsloth_rms_norm_backward = unsloth_ex.register_operator(
-    "unsloth_rms_norm_backward", meta=unsloth_rms_norm_backward_meta, fn=kernels._rms_layernorm_backward_impl
-)
-
-
-def rms_norm_to_unsloth(
-    x: TensorProxy, weight: TensorProxy, dim: int, eps: float, add_unit_offset: bool
-) -> Tuple[TensorProxy, TensorProxy]:
-    return unsloth_rms_norm_forward(x, weight, eps, add_unit_offset)
-
-
-def rms_norm_to_unsloth_checker(
-    x: TensorProxy, weight: TensorProxy, dim: int, eps: float, add_unit_offset: bool
-) -> bool:
-    return dim == -1 and x.device.type == "cuda" and weight.device.type == "cuda"
-
-
-def unsloth_rms_norm_grad(
-    x: TensorProxy, weight: TensorProxy, dim: int, eps: float, add_unit_offset: bool
-) -> TensorProxy:
-    Y, r = rms_norm_to_unsloth(**locals())
-
-    dY = get_grad(Y)
-
-    dY_grad = unsloth_rms_norm_backward(x, weight, r, eps, add_unit_offset, dY)
-    # the kernel puts dX in dY
-    put_grads((x,), (dY_grad,))
-
-    return Y
-
-
-unsloth_ex.register_implementation(
-   litgpt_rms_norm,
-   checker=rms_norm_to_unsloth_checker,
-   execution_transform=lambda *args: rms_norm_to_unsloth(*args)[0] ,
-   grad_transform=unsloth_rms_norm_grad,
-)
 
 
 """
