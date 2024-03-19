@@ -43,7 +43,7 @@ def download_from_hub(
 
         options = [f"{config['hf_config']['org']}/{config['hf_config']['name']}" for config in configs]
         print("Please specify --repo_id <repo_id>. Available values:")
-        print("\n".join(sorted(options)))
+        print("\n".join(sorted(options, key=lambda x: x.lower())))
         return
 
     from huggingface_hub import snapshot_download

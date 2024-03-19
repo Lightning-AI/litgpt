@@ -43,6 +43,21 @@ litgpt download
 The output is shown below:
 
 ```
+codellama/CodeLlama-13b-hf
+codellama/CodeLlama-13b-Instruct-hf
+codellama/CodeLlama-13b-Python-hf
+codellama/CodeLlama-34b-hf
+codellama/CodeLlama-34b-Instruct-hf
+codellama/CodeLlama-34b-Python-hf
+codellama/CodeLlama-70b-hf
+codellama/CodeLlama-70b-Instruct-hf
+codellama/CodeLlama-70b-Python-hf
+codellama/CodeLlama-7b-hf
+codellama/CodeLlama-7b-Instruct-hf
+codellama/CodeLlama-7b-Python-hf
+databricks/dolly-v2-12b
+databricks/dolly-v2-3b
+databricks/dolly-v2-7b
 EleutherAI/pythia-1.4b
 EleutherAI/pythia-1.4b-deduped
 EleutherAI/pythia-12b
@@ -61,27 +76,6 @@ EleutherAI/pythia-6.9b
 EleutherAI/pythia-6.9b-deduped
 EleutherAI/pythia-70m
 EleutherAI/pythia-70m-deduped
-NousResearch/Nous-Hermes-13b
-NousResearch/Nous-Hermes-Llama2-13b
-NousResearch/Nous-Hermes-llama-2-7b
-TinyLlama/TinyLlama-1.1B-Chat-v1.0
-TinyLlama/TinyLlama-1.1B-intermediate-step-1431k-3T
-Trelis/Llama-2-7b-chat-hf-function-calling-v2
-codellama/CodeLlama-13b-Instruct-hf
-codellama/CodeLlama-13b-Python-hf
-codellama/CodeLlama-13b-hf
-codellama/CodeLlama-34b-Instruct-hf
-codellama/CodeLlama-34b-Python-hf
-codellama/CodeLlama-34b-hf
-codellama/CodeLlama-70b-Instruct-hf
-codellama/CodeLlama-70b-Python-hf
-codellama/CodeLlama-70b-hf
-codellama/CodeLlama-7b-Instruct-hf
-codellama/CodeLlama-7b-Python-hf
-codellama/CodeLlama-7b-hf
-databricks/dolly-v2-12b
-databricks/dolly-v2-3b
-databricks/dolly-v2-7b
 garage-bAInd/Camel-Platypus2-13B
 garage-bAInd/Camel-Platypus2-70B
 garage-bAInd/Platypus-30B
@@ -116,6 +110,9 @@ mistralai/Mistral-7B-Instruct-v0.2
 mistralai/Mistral-7B-v0.1
 mistralai/Mixtral-8x7B-Instruct-v0.1
 mistralai/Mixtral-8x7B-v0.1
+NousResearch/Nous-Hermes-13b
+NousResearch/Nous-Hermes-llama-2-7b
+NousResearch/Nous-Hermes-Llama2-13b
 openlm-research/open_llama_13b
 openlm-research/open_llama_3b
 openlm-research/open_llama_7b
@@ -136,6 +133,8 @@ tiiuae/falcon-40b
 tiiuae/falcon-40b-instruct
 tiiuae/falcon-7b
 tiiuae/falcon-7b-instruct
+TinyLlama/TinyLlama-1.1B-Chat-v1.0
+TinyLlama/TinyLlama-1.1B-intermediate-step-1431k-3T
 togethercomputer/LLaMA-2-7B-32K
 togethercomputer/RedPajama-INCITE-7B-Base
 togethercomputer/RedPajama-INCITE-7B-Chat
@@ -146,6 +145,7 @@ togethercomputer/RedPajama-INCITE-Chat-3B-v1
 togethercomputer/RedPajama-INCITE-Chat-7B-v0.1
 togethercomputer/RedPajama-INCITE-Instruct-3B-v1
 togethercomputer/RedPajama-INCITE-Instruct-7B-v0.1
+Trelis/Llama-2-7b-chat-hf-function-calling-v2
 ```
 
 &nbsp;
