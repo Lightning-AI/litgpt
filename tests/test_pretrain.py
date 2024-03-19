@@ -11,6 +11,7 @@ import pytest
 import torch
 from conftest import RunIf
 from torch.utils.data import DataLoader
+from lightning.fabric.strategies import SingleDeviceStrategy, FSDPStrategy
 
 
 @RunIf(min_cuda_gpus=2, standalone=True)
@@ -102,3 +103,20 @@ def test_init_out_dir(tmp_path):
     with mock.patch.dict(os.environ, {"LIGHTNING_ARTIFACTS_DIR": "prefix"}):
         assert init_out_dir(relative_path) == Path("prefix") / relative_path
         assert init_out_dir(absolute_path) == absolute_path
+
+
+@pytest.mark.parametrize(("strategy", "expected"), [(SingleDeviceStrategy, True), (FSDPStrategy, False)])
+def test_initialize_weights(strategy, expected):
+    from litgpt.pretrain import initialize_weights
+
+    fabric_mock = Mock()
+    fabric_mock.strategy = Mock(spec=strategy)
+
+    class Model(torch.nn.Module):
+        pass
+
+    model = Model()
+    model.reset_parameters = Mock()
+
+    initialize_weights(fabric_mock, model, n_layer=2, n_embd=8)
+    model.reset_parameters.call_count == int(expected)
