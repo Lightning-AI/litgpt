@@ -32,7 +32,7 @@ More details about each finetuning method and how you can apply it to your own d
 
 These technical tutorials illustrate how to run the finetuning code.
 
-- [Full-parameter finetuning](funetuning.md)
+- [Full-parameter finetuning](finetune_full.md)
 - [Finetune with Adapters](finetune_adapter.md)
 - [Finetune with LoRA or QLoRA](finetune_lora.md)
 
