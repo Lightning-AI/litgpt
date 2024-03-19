@@ -249,8 +249,9 @@ Alternatively, you can provide an URL:
 ```bash
 litgpt finetune lora \
   --config https://raw.githubusercontent.com/Lightning-AI/litgpt/main/config_hub/finetune/phi-2/lora.yaml \
-    --train.max_steps 5
+  --train.max_steps 5
 ```
+
 
 &nbsp;
 
@@ -259,29 +260,136 @@ litgpt finetune lora \
 > Note that the config file above will finetune the model on the `Alpaca2k` dataset on 1 GPU and save the resulting files in an `out/finetune/lora-phi-2` directory. All of these settings can be changed via a respective command line argument or by changing the config file. 
 > To see more options, execute `litgpt finetune lora --help`.
 
+&nbsp;
+
+Running the previous finetuning command will initiate the finetuning process, which should only take about a minute on a GPU due to the `--train.max_steps 5` setting.
+
+```
+{'checkpoint_dir': PosixPath('checkpoints/microsoft/phi-2'),
+ 'data': Alpaca2k(mask_prompt=False,
+                  val_split_fraction=0.03847,
+                  prompt_style=<litgpt.prompts.Alpaca object at 0x7f5fa2867e80>,
+                  ignore_index=-100,
+                  seed=42,
+                  num_workers=4,
+                  download_dir=PosixPath('data/alpaca2k')),
+ 'devices': 1,
+ 'eval': EvalArgs(interval=100, max_new_tokens=100, max_iters=100),
+ 'logger_name': 'csv',
+ 'lora_alpha': 16,
+ 'lora_dropout': 0.05,
+ 'lora_head': True,
+ 'lora_key': True,
+ 'lora_mlp': True,
+ 'lora_projection': True,
+ 'lora_query': True,
+ 'lora_r': 8,
+ 'lora_value': True,
+ 'out_dir': PosixPath('out/finetune/lora-phi-2'),
+ 'precision': 'bf16-true',
+ 'quantize': None,
+ 'seed': 1337,
+ 'train': TrainArgs(save_interval=800,
+                    log_interval=1,
+                    global_batch_size=8,
+                    micro_batch_size=4,
+                    lr_warmup_steps=10,
+                    epochs=1,
+                    max_tokens=None,
+                    max_steps=5,
+                    max_seq_length=512,
+                    tie_embeddings=None,
+                    learning_rate=0.0002,
+                    weight_decay=0.0,
+                    beta1=0.9,
+                    beta2=0.95,
+                    max_norm=None,
+                    min_lr=6e-05)}
+Seed set to 1337
+Number of trainable parameters: 12,226,560
+Number of non trainable parameters: 2,779,683,840
+The longest sequence length in the train data is 512, the model's maximum sequence length is 512 and context length is 2048
+Validating ...
+Recommend a movie for me to watch during the weekend and explain the reason.
+Below is an instruction that describes a task. Write a response that appropriately completes the request.
+
+### Instruction:
+Recommend a movie for me to watch during the weekend and explain the reason.
+
+### Response:
+I recommend you watch "Parasite" because it's a critically acclaimed movie that won multiple awards, including the Academy Award for Best Picture. It's a thought-provoking and suspenseful film that will keep you on the edge of your seat. The movie also tackles social and economic inequalities, making it a must-watch for anyone interested in meaningful storytelling.
+
+/home/zeus/miniconda3/envs/cloudspace/lib/python3.10/site-packages/torchmetrics/utilities/prints.py:43: UserWarning: The ``compute`` method of metric MeanMetric was called before the ``update`` method which may lead to errors, as metric states have not yet been updated.
+  warnings.warn(*args, **kwargs)  # noqa: B028
+Missing logger folder: out/finetune/lora-phi-2/logs/csv
+Epoch 1 | iter 1 step 0 | loss train: 1.646, val: n/a | iter time: 820.31 ms
+Epoch 1 | iter 2 step 1 | loss train: 1.660, val: n/a | iter time: 548.72 ms (step)
+Epoch 1 | iter 3 step 1 | loss train: 1.687, val: n/a | iter time: 300.07 ms
+Epoch 1 | iter 4 step 2 | loss train: 1.597, val: n/a | iter time: 595.27 ms (step)
+Epoch 1 | iter 5 step 2 | loss train: 1.640, val: n/a | iter time: 260.75 ms
+Epoch 1 | iter 6 step 3 | loss train: 1.703, val: n/a | iter time: 568.22 ms (step)
+Epoch 1 | iter 7 step 3 | loss train: 1.678, val: n/a | iter time: 511.70 ms
+Epoch 1 | iter 8 step 4 | loss train: 1.741, val: n/a | iter time: 514.14 ms (step)
+Epoch 1 | iter 9 step 4 | loss train: 1.689, val: n/a | iter time: 423.59 ms
+Epoch 1 | iter 10 step 5 | loss train: 1.524, val: n/a | iter time: 603.03 ms (step)
+Training time: 11.20s
+Memory used: 13.90 GB
+Saving LoRA weights to 'out/finetune/lora-phi-2/final/lit_model.pth.lora'
+Saved merged weights to 'out/finetune/lora-phi-2/final/lit_model.pth'
+```
+
+Notice that the LoRA script saves both the LoRA weights (`'out/finetune/lora-phi-2/final/lit_model.pth.lora'`) and the LoRA weight merged back into the original model (`'out/finetune/lora-phi-2/final/lit_model.pth'`) for convenience. This allows us to use the finetuned model via the `chat` function directly:
+
+```bash
+litgpt chat --checkpoint_dir checkpoints/microsoft/phi-2
+```
+
+```
+Now chatting with phi-2.
+To exit, press 'Enter' on an empty prompt.
+
+Seed set to 1234
+>> Prompt: Why are LLMs so useful?   
+>> Reply: LLMs are useful because they can be trained to perform various natural language tasks, such as language translation, text generation, and question answering. They are also able to understand the context of the input data, which makes them particularly useful for tasks such as sentiment analysis and text summarization. Additionally, because LLMs can learn from large amounts of data, they are able to generalize well and perform well on new data.
+
+Time for inference: 2.15 sec total, 39.57 tokens/sec, 85 tokens
+
+>> Prompt: 
+```
+
 
 
 &nbsp;
 
 **More information and additional resources**
 
-- [tutorials/prepare_dataset](prepare_dataset)
-- [tutorials/finetune](finetune.md)
-- [tutorials/finetune_full](finetune_full.md)
-- [tutorials/finetune_lora](finetune_lora.md)
-- [tutorials/finetune_adapter](finetune_adapter.md)
-- [tutorials/oom](oom.md)
-- [tutorials/quantize](quantize.md)
+- [tutorials/prepare_dataset](prepare_dataset): A summary of all out-of-the-box supported datasets in LitGPT and utilities for preparing custom datasets
+- [tutorials/finetune](finetune.md): An overview of the different finetuning methods supported in LitGPT
+- [tutorials/finetune_full](finetune_full.md): A tutorial on full-parameter finetuning
+- [tutorials/finetune_lora](finetune_lora.md): Options for parameter-efficient finetuning with LoRA and QLoRA
+- [tutorials/finetune_adapter](finetune_adapter.md): A description of the parameter-efficient Llama-Adapter methods supported in LitGPT 
+- [tutorials/oom](oom.md): Tips for dealing with out-of-memory (OOM) errors
 
 TODO: Mention config file resources
 
 &nbsp;
 ## Inference (/chat)
 
+To use a downloaded or finetuned model for chat, you only need to provide the corresponding checkpoint directory containing the model and tokenizer files. For example, to chat with the phi-2 model from Microsoft, download it as follows:
+
+```bash
+litgpt download --repo_id microsoft/phi-2
+```
+
+As described in the "Download pretrained model section", this f
+
+
+
 &nbsp;
 **More information and additional resources**
 
 - [tutorials/inference](inference.md)
+- [tutorials/quantize](quantize.md): 
 
 
 ## Evaluation
