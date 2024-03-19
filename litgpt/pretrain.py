@@ -96,7 +96,7 @@ def setup(
             if not any(substring in config["name"].lower() for substring in ["chat", "-it", "instruct"])
         ]
         print("Please specify --model_name <model_name>. Available values:")
-        print("\n".join(options))
+        print("\n".join(sorted(options)))
         quit()
     config = Config.from_name(model_name) if model_config is None else model_config
     devices = parse_devices(devices)
