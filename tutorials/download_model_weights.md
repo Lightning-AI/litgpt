@@ -209,7 +209,7 @@ litgpt chat --checkpoint_dir checkpoints/$repo_id
 &nbsp;
 ## Specific Models
 
-Note that certain models require that you've been granted access to the weights on the HuggingFace Hub. 
+Note that certain models require that you've been granted access to the weights on the Hugging Face Hub. 
 
 For example, to get access to the Gemma 2B model, you can do so by following the steps at https://huggingface.co/google/gemma-2b. After access is granted, you can find your HF hub token in https://huggingface.co/settings/tokens.
 
@@ -221,6 +221,16 @@ litgpt download \
   --access_token your_hf_token
 ```
 
+&nbsp;
+## Finetunes and other model variants
+
+Sometimes you want to download the weights of a finetune of one of the models listed above. To do this, you need to manually specifiy the `model_name` associated to the config to use. For example:
+
+```bash
+litgpt download \
+  --repo_id NousResearch/Hermes-2-Pro-Mistral-7B \
+  --model_name Mistral-7B-v0.1
+```
 
 &nbsp;
 ## Tips for GPU Memory Limitations
