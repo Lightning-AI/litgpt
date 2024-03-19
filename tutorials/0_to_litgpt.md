@@ -195,11 +195,28 @@ Time for inference: 1.26 sec total, 27.81 tokens/sec, 35 tokens
 ```
 
 
+&nbsp;
+**More information and additional resources**
 
-**More information**
+- [tutorials/download_model_weights](download_model_weights.md): A more comprehensive download tutorial, tips for GPU memory limitations, and more
+
 
 &nbsp;
 ## Finetune LLMs
+
+LitGPT supports several methods supervised instruction finetuning, which allows you to finetune models to follow instructions. 
+
+Datasets for Instruction-finetuning are usually formatted in the following way: 
+
+&nbsp;
+
+<img src="images/0_to_litgpt/instruction-1.png" width=400>
+
+&nbsp;
+
+Alternatively, datasets for instruction finetuning can also contain an `'input'` field:
+
+In an instruction-finetuning context, "full" finetuning means that all model parameters are updated. Adapter and LoRA (short for low-rank adaptation) are methods for parameter-efficient finetuning that only require updating a small fraction of the model weights. 
 
 &nbsp;
 
@@ -207,13 +224,79 @@ Time for inference: 1.26 sec total, 27.81 tokens/sec, 35 tokens
 
 &nbsp;
 
-- multiple GPUs
-- Config files
-- mix and match
+Parameter-efficient finetuning is much more resource-efficient and cheaper than full finetuning, and it often results in the same good performance on downstream tasks. 
 
-**More information**
+In the following example, we will use LoRA for finetuning, which is one of the most popular LLM finetuning method. (For more information on how LoRA works, please see [Code LoRA from Scratch](https://lightning.ai/lightning-ai/studios/code-lora-from-scratch).)
+
+Before we start, we have to download a model as explained in the previous "Download pretrained model" section above:
+
+```bash
+litgpt download --repo_id microsoft/phi-2
+```
+
+The LitGPT interface can be used with via command line arguments and configuration files. We recommend starting out with the configuration files from the [config_hub](../config_hub) and either modifying them directly or overrriding certain settings via the command line. For example, we can use the following setting to train the downloaded 2.7B parameter `microsoft/phi-2` model, where we set `--max_steps 5` for a quick test run.
+
+If you have downloaded or cloned the LitGPT repository, you can provide the `config` file via a relative path:
+
+```bash
+litgpt finetune lora \
+  --config config_hub/finetune/phi-2/lora.yaml \
+  --train.max_steps 5
+```
+
+Alternatively, you can provide an URL:
+
+```bash
+litgpt finetune lora \
+  --config https://raw.githubusercontent.com/Lightning-AI/litgpt/main/config_hub/finetune/phi-2/lora.yaml \
+    --train.max_steps 5
+```
+
+&nbsp;
+
+
+> [!TIP]
+> Note that the config file above will finetune the model on the `Alpaca2k` dataset on 1 GPU and save the resulting files in an `out/finetune/lora-phi-2` directory. All of these settings can be changed via a respective command line argument or by changing the config file. 
+> To see more options, execute `litgpt finetune lora --help`.
+
+
+
+&nbsp;
+
+**More information and additional resources**
+
+- [tutorials/prepare_dataset](prepare_dataset)
+- [tutorials/finetune](finetune.md)
+- [tutorials/finetune_full](finetune_full.md)
+- [tutorials/finetune_lora](finetune_lora.md)
+- [tutorials/finetune_adapter](finetune_adapter.md)
+- [tutorials/oom](oom.md)
+- [tutorials/quantize](quantize.md)
+
+TODO: Mention config file resources
 
 &nbsp;
 ## Inference (/chat)
 
-**More information**
+&nbsp;
+**More information and additional resources**
+
+- [tutorials/inference](inference.md)
+
+
+## Evaluation
+
+&nbsp;
+**More information and additional resources**
+
+- [tutorials/evaluation](evaluation.md)
+- [tutorials/convert_lit_models](convert_lit_models.md)
+
+
+---
+
+TODOS:
+
+- [ ] Proofread
+- [ ] Compress images to webp
+- [ ] Link in Readme
