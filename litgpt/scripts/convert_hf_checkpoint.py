@@ -347,7 +347,7 @@ def convert_hf_checkpoint(
             hf_weights = lazy_load(bin_file)
             copy_fn(sd, hf_weights, saver=saver, dtype=dtype)
         gc.collect()
-        print("Saving converted checkpoint")
+        print(f"Saving converted checkpoint to {checkpoint_dir}")
         saver.save(sd)
 
 
