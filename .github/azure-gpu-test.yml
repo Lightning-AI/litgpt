@@ -45,6 +45,7 @@ jobs:
       displayName: 'Install dependencies'
 
     - script: |
+        pip uninstall -y torchvision torchaudio
         pip install --pre 'nvfuser-cu121[torch]' --extra-index-url https://pypi.nvidia.com
       displayName: 'Install PyTorch nightly'
 
