@@ -671,6 +671,8 @@ Gradient accumulation is disabled in the FSDP setting because Thunder does not s
 
 The CUDA devices are all NVIDIA A100-SXM4-40GB.
 
+The Unsloth example does not support distributed yet.
+
 ```text
 Python version: 3.10.12 (main, Nov 20 2023, 15:14:05) [GCC 11.4.0] (64-bit runtime)
 Is debug build: False
