@@ -40,18 +40,14 @@ def unsloth_cross_entropy_meta(logits: TensorProxy, labels: TensorProxy) -> Tupl
 
 
 unsloth_cross_entropy = unsloth_ex.register_operator(
-    "unsloth_cross_entropy",
-    meta=unsloth_cross_entropy_meta,
-    fn=kernels.cross_entropy_loss._cross_entropy_forward_impl,
+    "unsloth_cross_entropy", meta=unsloth_cross_entropy_meta, fn=kernels.cross_entropy_loss._cross_entropy_forward_impl
 )
 
 
 def unsloth_cross_entropy_backward_impl(dlosses: Tensor, logits: Tensor, labels: Tensor, logsumexp: Tensor) -> Tensor:
     # clone() because the kernel writes the grads in the logits.
     # If it works, we can remove this it, but it's not a thing we generally anticipate and support right now.
-    return kernels.cross_entropy_loss._cross_entropy_backward_impl(
-        dlosses, logits.clone(), logsumexp, labels
-    )
+    return kernels.cross_entropy_loss._cross_entropy_backward_impl(dlosses, logits.clone(), logsumexp, labels)
 
 
 def unsloth_cross_entropy_backward_meta(

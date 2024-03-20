@@ -21,7 +21,7 @@ from typing_extensions import Literal
 from litgpt import Tokenizer
 from litgpt.args import EvalArgs, TrainArgs
 from litgpt.data import DataModule, TinyLlama
-from litgpt.model import GPT, CausalSelfAttention, Config, LLaMAMLP
+from litgpt.model import GPT, Block, CausalSelfAttention, Config, LLaMAMLP
 from litgpt.utils import (
     CLI,
     CycleIterator,
@@ -63,6 +63,8 @@ def setup(
     tokenizer_dir: Optional[Path] = None,
     logger_name: Literal["wandb", "tensorboard", "csv"] = "tensorboard",
     seed: int = 42,
+    compiler: Optional[Literal["thunder", "torch"]] = "thunder",
+    strategy: Literal["auto", "ddp", "fsdp"] = "fsdp",
 ):
     """Pretrain a model.
 
@@ -85,6 +87,8 @@ def setup(
             module require this.
         logger_name: The name of the logger to send metrics to.
         seed: The random seed to use for reproducibility.
+        compiler: If desired, the compiler/JIT to use.
+        strategy: If desired, the strategy to use.
     """
     hparams = locals()
     data = TinyLlama() if data is None else data
@@ -103,16 +107,25 @@ def setup(
     )
 
     if devices > 1:
-        from extensions.thunder.strategies import ThunderFSDPStrategy
+        if compiler == "thunder":
+            executors = ("sdpa", "torchcompile", "nvfuser", "torch")
+            global jit
+            jit = lambda model: model  # the strategy will call `jit`
+            if strategy == "fsdp":
+                from extensions.thunder.strategies import ThunderFSDPStrategy
 
-        strategy = ThunderFSDPStrategy(
-            sharding_strategy="ZERO3",
-            bucketing_strategy="BLOCK",
-            executors=("sdpa", "torchcompile", "nvfuser", "torch"),
-            state_dict_type="full",
-        )
-        global jit
-        jit = lambda model: model
+                strategy = ThunderFSDPStrategy(
+                    sharding_strategy="ZERO3", bucketing_strategy="BLOCK", executors=executors, state_dict_type="full"
+                )
+            elif strategy == "ddp":
+                from extensions.thunder.strategies import ThunderDDPStrategy
+
+                strategy = ThunderDDPStrategy()
+        else:
+            if strategy == "fsdp":
+                strategy = FSDPStrategy(
+                    auto_wrap_policy={Block}, state_dict_type="full", sharding_strategy="FULL_SHARD"
+                )
     else:
         strategy = "auto"
     fabric = L.Fabric(devices=devices, strategy=strategy, precision="bf16-true", loggers=[logger])
@@ -135,6 +148,7 @@ def setup(
         tokenizer,
         train,
         eval,
+        compiler,
     )
 
 
@@ -151,6 +165,7 @@ def main(
     tokenizer: Optional[Tokenizer],
     train: TrainArgs,
     eval: EvalArgs,
+    compiler: Optional[Literal["thunder", "torch"]],
 ) -> None:
     validate_args(train, eval, initial_checkpoint_dir, resume)
 
@@ -173,7 +188,8 @@ def main(
     fabric.print(f"Time to instantiate model: {time.perf_counter() - t0:.02f} seconds.")
     fabric.print(f"Total parameters: {num_parameters(model):,}")
 
-    model = jit(model)
+    if compiler is not None:
+        model = jit(model) if compiler == "thunder" else torch.compile(model)
     model = fabric.setup(model)
     optimizer = torch.optim.AdamW(
         model.parameters(),

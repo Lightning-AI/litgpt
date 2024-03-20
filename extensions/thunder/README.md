@@ -582,9 +582,77 @@ Notice how `torch.compile` is a valid executor. This executor registers a few op
 
 ### Custom executors
 
-FIXME: finish unsloth
-
+Coming soon.
 
 ## Examples and benchmarks:
 
-FIXME
+> [!WARNING]
+> Lightning Thunder is alpha and not ready for production runs. Feel free to try it out, expect a few bumps along the way.
+> We expect speed and memory usage to improve as we continue to develop it.
+
+We provide a version of the main pre-training script [that integrates Thunder](pretrain.py) that uses TinyLlama, a 1.1B parameter LLM.
+
+| Data parallel | Compiler/JIT | Devices | ms/iter @ step 10 | Memory (GB) |
+|---------------|--------------|---------|-------------------|-------------|
+| FSDP Zero 3   | Eager        | 8       | 460.88            | 22.13       |
+| FSDP Zero 3   | Inductor     | 8       | 318.71            | 17.08       |
+| FSDP Zero 3   | Thunder      | 8       | TODO              | TODO        |
+|               |              |         |                   |             |
+| Replicated    | Eager        | 8       | 535.28            | 32.05       |
+| Replicated    | Inductor     | 8       | 348.19            | 27.01       |
+| Replicated    | Thunder      | 8       | TODO              |             |
+|               |              |         |                   |             |
+| -             | Eager        | 1       | TODO              |             |
+| -             | Inductor     | 1       | TODO              |             |
+| -             | Thunder      | 1       | TODO              |             |
+
+<details>
+<summary>Details</summary>
+
+Config:
+
+```yaml
+out_dir: out/pretrain-thunder
+data:
+  class_path: litgpt.data.TinyStories
+  init_args:
+    path: data
+    num_workers: 0
+    seed: 42
+tokenizer_dir: checkpoints/meta-llama/Llama-2-7b-hf
+logger_name: csv
+```
+
+Commands:
+
+```bash
+python extensions/thunder/pretrain.py --config config.yaml --compiler null --train.global_batch_size 32
+python extensions/thunder/pretrain.py --config config.yaml --compiler torch --train.global_batch_size 32
+python extensions/thunder/pretrain.py --config config.yaml --train.global_batch_size 32
+
+python extensions/thunder/pretrain.py --config config.yaml --compiler null --strategy ddp
+python extensions/thunder/pretrain.py --config config.yaml --compiler torch --strategy ddp
+python extensions/thunder/pretrain.py --config config.yaml --strategy ddp
+
+python extensions/thunder/pretrain.py --config config.yaml --compiler null --devices 1
+python extensions/thunder/pretrain.py --config config.yaml --compiler torch --devices 1
+python extensions/thunder/pretrain.py --config config.yaml --devices 1
+```
+
+Gradient accumulation is disabled in the FSDP setting because Thunder does not support skipping the backward synchronization yet.
+
+The CUDA devices are all NVIDIA A100-SXM4-40GB.
+
+```text
+Python version: 3.10.12 (main, Nov 20 2023, 15:14:05) [GCC 11.4.0] (64-bit runtime)
+Is debug build: False
+CUDA used to build PyTorch: 12.1
+CUDA runtime version: 12.3.107
+Nvidia driver version: 545.23.08
+pytorch-triton==3.0.0+989adb9a29
+torch==2.3.0.dev20240314+cu121
+lightning-thunder==0.1.0
+nvfuser_cu121==0.1.7.dev20240315
+```
+
+</details>
