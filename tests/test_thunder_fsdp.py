@@ -94,7 +94,7 @@ class MyModel(torch.nn.Module):
         self.buf = torch.empty_like(self.buf)
 
 
-@RunIf(min_cuda_gpus=2, thunder=True)
+@RunIf(min_cuda_gpus=2, thunder=True, standalone=True)
 def test_materialize_meta_tensors():
     strategy = ThunderFSDPStrategy()
     fabric = Fabric(accelerator="cuda", devices=2, strategy=strategy)
