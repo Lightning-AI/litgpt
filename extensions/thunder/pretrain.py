@@ -21,7 +21,7 @@ from typing_extensions import Literal
 from litgpt import Tokenizer
 from litgpt.args import EvalArgs, TrainArgs
 from litgpt.data import DataModule, TinyLlama
-from litgpt.model import GPT, Block, CausalSelfAttention, Config, LLaMAMLP
+from litgpt.model import GPT, CausalSelfAttention, Config, LLaMAMLP
 from litgpt.utils import (
     CLI,
     CycleIterator,
@@ -37,7 +37,6 @@ from litgpt.utils import (
 
 
 def setup(
-    compiler: Optional[Literal["thunder", "torch"]] = "thunder",
     model_name: Optional[str] = None,
     model_config: Optional[Config] = None,
     out_dir: Path = Path("out/pretrain"),
@@ -104,29 +103,20 @@ def setup(
     )
 
     if devices > 1:
-        raise NotImplementedError  # FIXME: the strategy only supports compiling the model
+        from extensions.thunder.strategies.thunder_fsdp import ThunderFSDPStrategy
 
-        if compiler == "thunder":
-            from extensions.thunder.strategies.thunder_fsdp import ThunderFSDPStrategy
-
-            strategy = ThunderFSDPStrategy(
-                sharding_strategy="ZERO3",
-                bucketing_strategy="BLOCK",
-                executors=("sdpa", "torchcompile", "nvfuser", "torch"),
-                state_dict_type="full",
-            )
-            global maybe_compile
-            maybe_compile = lambda model, compiler: model
-        else:
-            strategy = FSDPStrategy(auto_wrap_policy={Block}, state_dict_type="full", sharding_strategy="HYBRID_SHARD")
+        strategy = ThunderFSDPStrategy(
+            sharding_strategy="ZERO3",
+            bucketing_strategy="BLOCK",
+            executors=("sdpa", "torchcompile", "nvfuser", "torch"),
+            state_dict_type="full",
+        )
+        global jit
+        jit = lambda model: model
     else:
         strategy = "auto"
-    # FIXME bf16-true
-    fabric = L.Fabric(devices=devices, strategy=strategy, precision="16-true", loggers=[logger])
+    fabric = L.Fabric(devices=devices, strategy=strategy, precision="bf16-true", loggers=[logger])
     fabric.launch()
-
-    global forward_and_loss
-    forward_and_loss = maybe_compile(forward_and_loss, compiler)
 
     fabric.print(pprint.pformat(hparams))
     if logger_name in ("tensorboard", "wandb"):
@@ -183,6 +173,7 @@ def main(
     fabric.print(f"Time to instantiate model: {time.perf_counter() - t0:.02f} seconds.")
     fabric.print(f"Total parameters: {num_parameters(model):,}")
 
+    model = jit(model)
     model = fabric.setup(model)
     optimizer = torch.optim.AdamW(
         model.parameters(),
@@ -278,7 +269,8 @@ def fit(
 
         is_accumulating = state["iter_num"] % train.gradient_accumulation_iters(devices) != 0
         with fabric.no_backward_sync(model, enabled=is_accumulating):
-            loss = forward_and_loss(model, input_ids, targets)
+            logits = model(input_ids)
+            loss = chunked_cross_entropy(logits, targets)
             fabric.backward(loss / train.gradient_accumulation_iters(devices))
 
         running_loss.update(loss.detach())
@@ -351,13 +343,6 @@ def fit(
                 save_config(model.config, checkpoint_file.parent)
 
 
-def forward_and_loss(model: nn.Module, input_ids: torch.Tensor, targets: torch.Tensor) -> torch.Tensor:
-    logits = model(input_ids)
-    # disable chunk_size to enable the unsloth cross entropy kernel
-    loss = chunked_cross_entropy(logits, targets, chunk_size=0)
-    return loss
-
-
 @torch.no_grad()
 def validate(fabric: L.Fabric, model: nn.Module, val_dataloader: DataLoader, max_iters: int) -> torch.Tensor:
     fabric.barrier()
@@ -370,7 +355,8 @@ def validate(fabric: L.Fabric, model: nn.Module, val_dataloader: DataLoader, max
             break
         input_ids = batch[:, 0 : model.max_seq_length].contiguous().long()
         targets = batch[:, 1 : (model.max_seq_length + 1)].contiguous().long()
-        loss = forward_and_loss(model, input_ids, targets)
+        logits = model(input_ids)
+        loss = chunked_cross_entropy(logits, targets)
         losses.append(loss)
 
     val_loss = torch.stack(losses).mean()
@@ -452,11 +438,7 @@ def validate_args(train: TrainArgs, eval: EvalArgs, initial_checkpoint_dir, resu
         raise ValueError("\n".join(issues))
 
 
-def maybe_compile(fn: Callable, compiler: Optional[Literal["thunder", "torch"]]) -> Any:
-    if compiler is None:
-        return fn
-    if compiler == "torch":
-        return torch.compile(fn)
+def jit(fn: Callable) -> Any:
     import thunder
     from thunder.executors.sdpaex import sdpa_ex
     from thunder.executors.torch_compile import torch_compile_executor

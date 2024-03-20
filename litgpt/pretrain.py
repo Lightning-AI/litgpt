@@ -203,7 +203,7 @@ def main(
 
 
 def fit(
-    fabric,
+    fabric: L.Fabric,
     devices: int,
     state: dict,
     train_dataloader: DataLoader,
