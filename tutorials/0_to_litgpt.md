@@ -157,6 +157,26 @@ To download the model weights, simply provide one of the model strings above as 
 litgpt download --repo_id microsoft/phi-2
 ```
 
+```
+model-00001-of-00002.safetensors: 100%|████████████████████████████████| 5.00G/5.00G [00:40<00:00, 124MB/s]
+model-00002-of-00002.safetensors: 100%|████████████████████████████████| 564M/564M [00:01<00:00, 330MB/s]
+tokenizer.json: 100%|██████████████████████████████████████████████████| 2.11M/2.11M [00:00<00:00, 54.0MB/s]
+...
+Converting checkpoint files to LitGPT format.
+Processing checkpoints/microsoft/phi-2/model-00001-of-00002.bin
+...
+Saving converted checkpoint to checkpoints/microsoft/phi-2
+```
+
+
+&nbsp;
+
+> [!TIP]
+> Note that some models, such as Llama 2, require that you accept Meta AI's terms of service for this model, and you need to use a special access token via the `litgpt download ... --access_token ...` option. For more information, go to the respective Model Hub website, e.g., [meta-llama/Llama-2-7b-hf](https://huggingface.co/meta-llama/Llama-2-7b-hf). The access token can be created under your Model Hub in the Profile > Access Tokens menu.
+
+&nbsp;
+
+
 By default, the weights are going to be stored in a `./checkpoints` subdirectory:
 
 ```bash
@@ -341,7 +361,7 @@ Saved merged weights to 'out/finetune/lora-phi-2/final/lit_model.pth'
 Notice that the LoRA script saves both the LoRA weights (`'out/finetune/lora-phi-2/final/lit_model.pth.lora'`) and the LoRA weight merged back into the original model (`'out/finetune/lora-phi-2/final/lit_model.pth'`) for convenience. This allows us to use the finetuned model via the `chat` function directly:
 
 ```bash
-litgpt chat --checkpoint_dir checkpoints/microsoft/phi-2
+litgpt chat --checkpoint_dir out/finetune/lora-phi-2/final/
 ```
 
 ```
@@ -375,24 +395,61 @@ TODO: Mention config file resources
 &nbsp;
 ## Inference (/chat)
 
-To use a downloaded or finetuned model for chat, you only need to provide the corresponding checkpoint directory containing the model and tokenizer files. For example, to chat with the phi-2 model from Microsoft, download it as follows:
+To use a downloaded or finetuned model for chat, you only need to provide the corresponding checkpoint directory containing the model and tokenizer files. For example, to chat with the phi-2 model from Microsoft, download it as follows, as described in the "Download pretrained model" section:
 
 ```bash
 litgpt download --repo_id microsoft/phi-2
 ```
 
-As described in the "Download pretrained model section", this f
+```
+model-00001-of-00002.safetensors: 100%|████████████████████████████████| 5.00G/5.00G [00:40<00:00, 124MB/s]
+model-00002-of-00002.safetensors: 100%|████████████████████████████████| 564M/564M [00:01<00:00, 330MB/s]
+tokenizer.json: 100%|██████████████████████████████████████████████████| 2.11M/2.11M [00:00<00:00, 54.0MB/s]
+...
+Converting checkpoint files to LitGPT format.
+Processing checkpoints/microsoft/phi-2/model-00001-of-00002.bin
+...
+Saving converted checkpoint to checkpoints/microsoft/phi-2
+```
 
+
+
+
+
+Then, chat with the model using 
+
+```bash
+litgpt chat --checkpoint_dir 
+```
+
+```
+Now chatting with phi-2.
+To exit, press 'Enter' on an empty prompt.
+
+Seed set to 1234
+>> Prompt: What is the main difference between a large language model and a traditional search engine?
+>> Reply:  A large language model uses deep learning algorithms to analyze and generate natural language, while a traditional search engine uses algorithms to retrieve information from webpages.
+
+Time for inference: 1.14 sec total, 26.26 tokens/sec, 30 tokens
+```
+
+> [!TIP]
+> Most model weights are already represented in an efficient bfloat16 format. However, if the model currently exceeds your GPU memory, you can try to pass the `--precision bf16-true` option. In addition, you can check the quantization documentation for further optimization linked below.
 
 
 &nbsp;
 **More information and additional resources**
 
-- [tutorials/inference](inference.md)
-- [tutorials/quantize](quantize.md): 
+- [tutorials/inference](inference.md): Chat and inference tutorial
+- [tutorials/quantize](quantize.md): Quantizing models to reduce GPU memory requirements
 
 
 ## Evaluation
+
+When you are deciding which model to use or evaluating finetuning results, it may be useful to find out how well a model is performing. For this purpose, you can use the integrated evaluation utility based on the [LM Evaluation Harness](https://github.com/EleutherAI/lm-evaluation-harness).
+
+> [!TIP]
+> Use the `litgpt eval --help`  command to see additional options.
 
 &nbsp;
 **More information and additional resources**
