@@ -16,10 +16,10 @@ from litgpt.model import Block
 from litgpt.utils import check_valid_checkpoint_dir, lazy_load
 
 # support running without installing as a package
-wd = Path(__file__).parent.parent.parent.resolve()
+wd = Path(__file__).parents[3].resolve()
 sys.path.append(str(wd))
 
-from xla.utils import rank_print
+from extensions.xla.utils import rank_print
 
 
 # xla does not support `inference_mode`: RuntimeError: Cannot set version_counter for inference tensor
