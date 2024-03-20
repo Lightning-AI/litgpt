@@ -2,12 +2,20 @@
 
 import yaml
 
-from litgpt.prompts import PromptStyle
+import litgpt.config
+from litgpt import Config
+from litgpt.prompts import (
+    Alpaca,
+    Default,
+    PromptStyle,
+    has_prompt_style,
+    load_prompt_style,
+    prompt_styles,
+    save_prompt_style,
+)
 
 
 def test_default_prompt_style(mock_tokenizer):
-    from litgpt.prompts import Default
-
     prompt_style = Default()
     prompt = "This is a test prompt."
     assert prompt_style.apply(prompt) == prompt
@@ -15,17 +23,11 @@ def test_default_prompt_style(mock_tokenizer):
 
 
 def test_prompt_style_from_name():
-    from litgpt.prompts import PromptStyle, prompt_styles
-
     for style_name in prompt_styles:
         assert isinstance(PromptStyle.from_name(style_name), prompt_styles[style_name])
 
 
 def test_prompt_style_from_config():
-    import litgpt.config
-    from litgpt import Config
-    from litgpt.prompts import Default, PromptStyle
-
     model_names = [
         "stablelm-tuned-alpha-3b",
         "stablelm-tuned-alpha-7b",
@@ -74,8 +76,6 @@ def test_prompt_style_from_config():
 
 
 def test_apply_prompts():
-    from litgpt.prompts import Alpaca, prompt_styles
-
     prompt = "Is a coconut a nut or a fruit?"
     inp = "Optional input"
 
@@ -92,8 +92,6 @@ class CustomPromptStyle(PromptStyle):
 
 
 def test_save_load_prompt_style(tmp_path):
-    from litgpt.prompts import Alpaca, has_prompt_style, load_prompt_style, save_prompt_style
-
     # Save and load a built-in style
     checkpoint_dir = tmp_path / "checkpoint"
     checkpoint_dir.mkdir()

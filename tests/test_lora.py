@@ -1,35 +1,36 @@
 # Copyright Lightning AI. Licensed under the Apache License 2.0, see LICENSE file.
 import os
-import sys
 from contextlib import redirect_stdout
 from io import StringIO
 from itertools import product
-from pathlib import Path
 from unittest import mock
 from unittest.mock import Mock
 
 import pytest
 import torch
 import yaml
+from conftest import RunIf
 from lightning import Fabric
 from lightning.fabric.plugins.precision.bitsandbytes import _BITSANDBYTES_AVAILABLE, BitsandbytesPrecision
 from lightning.fabric.wrappers import _FabricOptimizer
-
-from conftest import RunIf
-
-# support running without installing as a package
-wd = Path(__file__).parent.parent.resolve()
-sys.path.append(str(wd))
+from torch._dynamo.backends import debugging
+from torch.nn import functional as F
+from transformers.models.mixtral import MixtralConfig, MixtralForCausalLM
 
 import litgpt.config as config_module
+import litgpt.finetune.lora as module
+from litgpt.args import EvalArgs, TrainArgs
+from litgpt.data import Alpaca
+from litgpt.lora import GPT as LoRAGPT
+from litgpt.lora import CausalSelfAttention as LoRACausalSelfAttention
+from litgpt.lora import Config, LoRALinear, LoRAQKVLinear, lora_filter, mark_only_lora_as_trainable, merge_lora_weights
+from litgpt.model import GPT as BaseGPT
+from litgpt.scripts.convert_hf_checkpoint import copy_weights_hf_llama
 
 
 def test_lora_layer_replacement():
-    from litgpt.lora import GPT, Config, LoRALinear
-    from litgpt.lora import CausalSelfAttention as LoRACausalSelfAttention
-
     config = Config(n_layer=2, n_head=4, n_embd=8, block_size=8, vocab_size=8, lora_r=8, lora_alpha=8, lora_dropout=0.1)
-    model = GPT(config)
+    model = LoRAGPT(config)
 
     assert isinstance(model.transformer.h[0].attn, LoRACausalSelfAttention)
     assert isinstance(model.transformer.h[1].attn, LoRACausalSelfAttention)
@@ -38,8 +39,6 @@ def test_lora_layer_replacement():
 
 
 def test_lora_merge():
-    from litgpt.lora import GPT, Config, mark_only_lora_as_trainable, merge_lora_weights
-
     config = Config(
         n_layer=1,
         n_head=2,
@@ -53,7 +52,7 @@ def test_lora_merge():
         lora_value=True,
         lora_projection=True,
     )
-    model = GPT(config)
+    model = LoRAGPT(config)
     model.train()
     attn_proj = model.transformer.h[0].attn.proj
 
@@ -84,8 +83,6 @@ def test_lora_merge():
 
 
 def test_lora_mqa_gqa():
-    from litgpt.lora import GPT, Config
-
     # MHA
     config = Config(
         n_layer=1,
@@ -100,7 +97,7 @@ def test_lora_mqa_gqa():
         lora_value=True,
     )
     assert config.n_query_groups == config.n_head
-    model = GPT(config)
+    model = LoRAGPT(config)
     attn = model.transformer.h[0].attn.attn
     for p in attn.linear.parameters():
         torch.nn.init.zeros_(p)
@@ -121,7 +118,7 @@ def test_lora_mqa_gqa():
 
     # MQA
     config.n_query_groups = 1
-    model = GPT(config)
+    model = LoRAGPT(config)
     attn = model.transformer.h[0].attn.attn
     for p in attn.linear.parameters():
         torch.nn.init.zeros_(p)
@@ -142,7 +139,7 @@ def test_lora_mqa_gqa():
 
     # GQA
     config.n_query_groups = 2
-    model = GPT(config)
+    model = LoRAGPT(config)
     attn = model.transformer.h[0].attn.attn
     for p in attn.linear.parameters():
         torch.nn.init.zeros_(p)
@@ -163,10 +160,8 @@ def test_lora_mqa_gqa():
 
 
 def test_lora_filter(tmp_path):
-    from litgpt.lora import GPT, lora_filter
-
     fabric = Fabric(devices=1)
-    model = GPT.from_name("pythia-14m", n_layer=3, lora_r=1, lora_query=True, lora_value=True)
+    model = LoRAGPT.from_name("pythia-14m", n_layer=3, lora_r=1, lora_query=True, lora_value=True)
     save_path = tmp_path / "model.pth"
     fabric.save(save_path, {"model": model}, filter={"model": lora_filter})
     saved = torch.load(save_path)["model"]
@@ -184,10 +179,6 @@ def test_lora_filter(tmp_path):
 
 @mock.patch.dict(os.environ, {"LT_ACCELERATOR": "cpu"})
 def test_lora_script(tmp_path, fake_checkpoint_dir, monkeypatch, alpaca_path):
-    import litgpt.finetune.lora as module
-    from litgpt.args import EvalArgs, TrainArgs
-    from litgpt.data import Alpaca
-
     model_config = dict(block_size=128, n_layer=2, n_embd=8, n_head=4, padded_vocab_size=8)
     (fake_checkpoint_dir / "model_config.yaml").write_text(yaml.dump(model_config))
     monkeypatch.setattr(module, "load_checkpoint", Mock())
@@ -234,8 +225,6 @@ def test_lora_script(tmp_path, fake_checkpoint_dir, monkeypatch, alpaca_path):
 
 
 def test_lora_init_when_linear_overridden():
-    from litgpt.lora import LoRAQKVLinear
-
     class MyLinear(torch.nn.Linear):
         def __init__(self, *args, **kwargs):
             # this needs to be implemented to demonstrate the failure
@@ -261,8 +250,6 @@ def test_lora_init_when_linear_overridden():
     ),
 )
 def test_lora_linear_utilization(apply_to, target_layer_names, mlp_class_name):
-    from litgpt.lora import GPT, Config
-
     config = Config(
         n_layer=1,
         n_head=4,
@@ -276,7 +263,7 @@ def test_lora_linear_utilization(apply_to, target_layer_names, mlp_class_name):
         intermediate_size=8 * 3,
         **{apply_to: True},
     )
-    model = GPT(config)
+    model = LoRAGPT(config)
     state_dict = model.state_dict()
 
     if isinstance(target_layer_names, str):
@@ -299,13 +286,11 @@ def test_lora_linear_utilization(apply_to, target_layer_names, mlp_class_name):
     "apply_to", (None, "lora_query", "lora_key", "lora_value", "lora_projection", "lora_mlp", "lora_head")
 )
 def test_lora_gpt_apply_lora_forward_no_exception(apply_to):
-    from litgpt.lora import GPT, Config
-
     config = Config(n_layer=1, n_head=4, n_embd=8, block_size=1, vocab_size=1, lora_r=2, lora_alpha=8, lora_dropout=0.1)
     if apply_to:
         setattr(config, apply_to, True)
     input_ids = torch.tensor([[1]])
-    model = GPT(config)
+    model = LoRAGPT(config)
     model.eval()
 
     model(input_ids)
@@ -315,8 +300,6 @@ def test_lora_gpt_apply_lora_forward_no_exception(apply_to):
 @pytest.mark.parametrize("n_query_groups", (1, 2, 3, 6))
 @pytest.mark.parametrize("apply_to", product((False, True), repeat=3))
 def test_lora_gpt_query_groups_merge_and_forward_no_exception(n_query_groups, apply_to):
-    from litgpt.lora import GPT, Config, merge_lora_weights
-
     keys = ("lora_query", "lora_key", "lora_value")
     values = apply_to
     apply_to = dict(zip(keys, values))
@@ -333,7 +316,7 @@ def test_lora_gpt_query_groups_merge_and_forward_no_exception(n_query_groups, ap
         n_query_groups=n_query_groups,
         **apply_to,
     )
-    model = GPT(config)
+    model = LoRAGPT(config)
     merge_lora_weights(model)
     input_ids = torch.tensor([[1]])
     model(input_ids)
@@ -354,10 +337,6 @@ def test_lora_gpt_query_groups_merge_and_forward_no_exception(n_query_groups, ap
     ],
 )
 def test_lora_qkv_linear_compare_conv1d(n_head, enable_lora):
-    from torch.nn import functional as F
-
-    from litgpt.lora import LoRAQKVLinear
-
     C = 12
     layer = LoRAQKVLinear(C, 3 * C, n_head=n_head, n_query_groups=n_head, r=2, enable_lora=enable_lora)
     x = torch.randn((1, 1, C))
@@ -380,8 +359,6 @@ def test_lora_qkv_linear_compare_conv1d(n_head, enable_lora):
 
 @pytest.mark.parametrize(("rank", "expected_merged"), ((0, False), (1, True)))
 def test_lora_linear_weights_merged_status(rank, expected_merged):
-    from litgpt.lora import LoRALinear
-
     layer = LoRALinear(10, 10, r=rank)
     assert not layer.merged
     layer.merge()
@@ -393,8 +370,6 @@ def test_lora_linear_weights_merged_status(rank, expected_merged):
     ((0, True, False), (1, True, True), (0, False, False), (1, False, False)),
 )
 def test_lora_qkv_linear_weights_merged_status(rank, enable_lora, expected_merged):
-    from litgpt.lora import LoRAQKVLinear
-
     layer = LoRAQKVLinear(10, 3 * 10, n_head=2, n_query_groups=2, r=rank, enable_lora=enable_lora)
     assert not layer.merged
     layer.merge()
@@ -403,13 +378,9 @@ def test_lora_qkv_linear_weights_merged_status(rank, enable_lora, expected_merge
 
 @RunIf(min_cuda_gpus=1)
 def test_lora_merge_with_bitsandbytes():
-    from lightning.fabric.plugins.precision.bitsandbytes import _BITSANDBYTES_AVAILABLE, BitsandbytesPrecision
-
     if not _BITSANDBYTES_AVAILABLE:
         pytest.skip("BNB not available")
     import bitsandbytes as bnb
-
-    from litgpt.lora import GPT, Config, mark_only_lora_as_trainable, merge_lora_weights
 
     config = Config(
         n_layer=1,
@@ -425,7 +396,7 @@ def test_lora_merge_with_bitsandbytes():
         lora_projection=True,
     )
     fabric = Fabric(devices=1, plugins=BitsandbytesPrecision("nf4", dtype=torch.bfloat16, ignore_modules={"lm_head"}))
-    model = GPT(config)
+    model = LoRAGPT(config)
     mark_only_lora_as_trainable(model)
 
     from bitsandbytes.optim import PagedAdamW
@@ -474,10 +445,8 @@ def test_lora_merge_with_bitsandbytes():
 
 
 def test_lora_gpt_init_weights():
-    from litgpt.lora import GPT, Config
-
     config = Config(n_layer=1, n_head=6, n_embd=12, block_size=1, vocab_size=1, lora_r=2, lora_alpha=8, lora_head=True)
-    model = GPT(config)
+    model = LoRAGPT(config)
     param = model.lm_head.lora_B.data
 
     assert (param == 0).all()
@@ -489,10 +458,6 @@ def test_lora_gpt_init_weights():
 
 @pytest.mark.parametrize("name", [c["name"] for c in config_module.configs])
 def test_base_model_can_be_lora_loaded(name):
-    from litgpt.lora import GPT as LoRAGPT
-    from litgpt.lora import lora_filter
-    from litgpt.model import GPT as BaseGPT
-
     kwargs = {"n_layer": 2, "n_head": 8, "n_embd": 16, "padded_vocab_size": 32}
     base_model = BaseGPT.from_name(name, **kwargs)
     base_model_state_dict = base_model.state_dict()
@@ -516,9 +481,7 @@ def test_base_model_can_be_lora_loaded(name):
 @RunIf(dynamo=True)
 @torch.inference_mode()
 def test_lora_compile():
-    from litgpt.lora import GPT
-
-    model = GPT.from_name(
+    model = LoRAGPT.from_name(
         "pythia-14m",
         n_layer=3,
         lora_r=8,
@@ -533,14 +496,12 @@ def test_lora_compile():
     )
     x = torch.randint(model.config.vocab_size, size=(2, model.config.block_size), dtype=torch.int64)
 
-    from torch._dynamo.backends import debugging
-
     explanation = torch._dynamo.explain(model)(x)
     assert isinstance(explanation, debugging.ExplainOutput)
     assert explanation.graph_count == 1
     assert explanation.graph_break_count == 0
 
-    model = GPT(model.config)
+    model = LoRAGPT(model.config)
     model.set_kv_cache(2)
     input_pos = torch.arange(model.config.block_size)
     explanation = torch._dynamo.explain(model)(x, input_pos)
@@ -551,11 +512,6 @@ def test_lora_compile():
 
 @torch.inference_mode()
 def test_against_hf_mixtral():
-    from transformers.models.mixtral import MixtralConfig, MixtralForCausalLM
-
-    from litgpt.lora import GPT, Config
-    from litgpt.scripts.convert_hf_checkpoint import copy_weights_hf_llama
-
     device = torch.device("cpu")
     dtype = torch.float32
     ours_config = Config.from_name(
@@ -587,7 +543,7 @@ def test_against_hf_mixtral():
     theirs_state_dict = theirs_model.state_dict()
     state_dict = {}
     copy_weights_hf_llama(ours_config, {}, state_dict, theirs_state_dict)
-    ours_model = GPT(ours_config).to(device)
+    ours_model = LoRAGPT(ours_config).to(device)
     ours_model.load_state_dict(state_dict)
 
     # test end to end
@@ -600,9 +556,6 @@ def test_against_hf_mixtral():
 
 @RunIf(min_cuda_gpus=1)
 def test_lora_bitsandbytes(monkeypatch, tmp_path, fake_checkpoint_dir, alpaca_path):
-    import litgpt.finetune.lora as module
-    from litgpt.data import Alpaca
-
     if not _BITSANDBYTES_AVAILABLE:
         pytest.skip("BNB not available")
 

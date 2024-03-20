@@ -13,13 +13,27 @@ import yaml
 from conftest import RunIf
 from lightning import Fabric
 from lightning.fabric.loggers import CSVLogger, TensorBoardLogger
+from lightning.fabric.plugins import BitsandbytesPrecision
 from lightning.pytorch.loggers import WandbLogger
 from lightning_utilities.core.imports import RequirementCache
 
+from litgpt import GPT
+from litgpt.utils import (
+    CLI,
+    CycleIterator,
+    check_valid_checkpoint_dir,
+    choose_logger,
+    chunked_cross_entropy,
+    copy_config_files,
+    find_multiple,
+    incremental_save,
+    num_parameters,
+    parse_devices,
+    save_hyperparameters,
+)
+
 
 def test_find_multiple():
-    from litgpt.utils import find_multiple
-
     assert find_multiple(17, 5) == 20
     assert find_multiple(30, 7) == 35
     assert find_multiple(10, 2) == 10
@@ -32,8 +46,6 @@ def test_find_multiple():
 # match fails on windows. why did they have to use backslashes?
 @RunIf(skip_windows=True)
 def test_check_valid_checkpoint_dir(tmp_path):
-    from litgpt.utils import check_valid_checkpoint_dir
-
     os.chdir(tmp_path)
 
     out = StringIO()
@@ -83,8 +95,6 @@ See all download options by running:
 
 
 def test_incremental_write(tmp_path):
-    from litgpt.utils import incremental_save
-
     sd = {str(k): torch.randn(5, 10) for k in range(3)}
     sd["0"].someattr = 1
     sd_expected = {k: v.clone() for k, v in sd.items()}
@@ -104,8 +114,6 @@ def test_incremental_write(tmp_path):
 @pytest.mark.parametrize("B", (1, 2))
 @pytest.mark.parametrize("ignore_index", (None, -1, -2, -100))
 def test_chunked_cross_entropy(ignore_index, B):
-    from litgpt.utils import chunked_cross_entropy
-
     V = 50
     T = 25
     regular_logits = torch.randn(B, T, V)
@@ -142,8 +150,6 @@ def test_chunked_cross_entropy(ignore_index, B):
 
 
 def test_num_parameters():
-    from litgpt.utils import num_parameters
-
     model = torch.nn.Linear(2, 2)
     assert num_parameters(model) == 6
     assert num_parameters(model, requires_grad=True) == 6
@@ -159,11 +165,6 @@ def test_num_parameters():
 @RunIf(min_cuda_gpus=1)
 @pytest.mark.parametrize("mode", ["nf4", "nf4-dq", "fp4", "fp4-dq", "int8", "int8-training"])
 def test_num_parameters_bitsandbytes(mode):
-    from lightning.fabric.plugins import BitsandbytesPrecision
-
-    from litgpt import GPT
-    from litgpt.utils import num_parameters
-
     plugin = BitsandbytesPrecision(mode=mode)
     fabric = Fabric(plugins=plugin, accelerator="cuda", devices=1)
 
@@ -177,8 +178,6 @@ def test_num_parameters_bitsandbytes(mode):
 
 
 def test_cycle_iterator():
-    from litgpt.utils import CycleIterator
-
     iterator = CycleIterator([])
     with pytest.raises(StopIteration):
         next(iterator)
@@ -196,8 +195,6 @@ def test_cycle_iterator():
 
 
 def test_parse_devices():
-    from litgpt.utils import parse_devices
-
     with pytest.raises(ValueError, match="must be 'auto' or a positive integer"):
         assert parse_devices(0)
     with pytest.raises(ValueError, match="must be 'auto' or a positive integer"):
@@ -216,8 +213,6 @@ def test_parse_devices():
 
 
 def test_copy_config_files(fake_checkpoint_dir, tmp_path):
-    from litgpt.utils import copy_config_files
-
     copy_config_files(fake_checkpoint_dir, tmp_path)
     expected = {"model_config.yaml", "tokenizer_config.json", "tokenizer.json"}
     contents = set(os.listdir(tmp_path))
@@ -225,14 +220,10 @@ def test_copy_config_files(fake_checkpoint_dir, tmp_path):
 
 
 def _test_function(out_dir: Path, foo: bool = False, bar: int = 1):
-    from litgpt.utils import save_hyperparameters
-
     save_hyperparameters(_test_function, out_dir)
 
 
 def test_save_hyperparameters(tmp_path):
-    from litgpt.utils import CLI
-
     with mock.patch("sys.argv", ["any.py", "--out_dir", str(tmp_path), "--foo", "True"]):
         CLI(_test_function)
 
@@ -260,8 +251,6 @@ def _test_function2(out_dir: Path, foo: bool = False, bar: int = 1):
     ],
 )
 def test_save_hyperparameters_known_commands(command, tmp_path):
-    from litgpt.utils import save_hyperparameters
-
     with mock.patch("sys.argv", [*command.split(" "), "--out_dir", str(tmp_path), "--foo", "True"]):
         save_hyperparameters(_test_function2, tmp_path)
 
@@ -274,8 +263,6 @@ def test_save_hyperparameters_known_commands(command, tmp_path):
 
 
 def test_choose_logger(tmp_path):
-    from litgpt.utils import choose_logger
-
     assert isinstance(choose_logger("csv", out_dir=tmp_path, name="csv"), CSVLogger)
     if RequirementCache("tensorboard"):
         assert isinstance(choose_logger("tensorboard", out_dir=tmp_path, name="tb"), TensorBoardLogger)
