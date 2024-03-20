@@ -352,4 +352,4 @@ def test_adapter_v2_bitsandbytes(monkeypatch, tmp_path, fake_checkpoint_dir, alp
 
     logs = stdout.getvalue()
     assert "of trainable parameters: 552" in logs
-    assert "of non trainable parameters: 1,808" in logs
+    assert "of non-trainable parameters: 1,808" in logs
