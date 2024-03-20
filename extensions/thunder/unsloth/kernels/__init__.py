@@ -1,2 +1,1 @@
 from .cross_entropy_loss import _cross_entropy_forward_impl, _cross_entropy_backward_impl
-from .rms_layernorm import _rms_layernorm_forward_impl, _rms_layernorm_backward_impl
