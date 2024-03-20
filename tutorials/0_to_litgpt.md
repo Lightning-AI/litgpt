@@ -2,17 +2,17 @@
 
 
 
-This tutorial walks you through the main features and usage patterns for the LitGPT, a library for pretraining, finetuning, and using LLMs that focuses on an efficient user experience while being developer friendly.
+This tutorial walks you through the main features and usage patterns for ⚡️LitGPT, a library for pretraining, finetuning, and using LLMs that focuses on an efficient user experience while being developer-friendly.
 
-The topics, following the installation of LitGPT, are in chronological order reflecting the steps in an LLM lifecyle: Pretraining → Finetuning → Inference.
-
-&nbsp;
-
-<img src="images/0_to_litgpt/usage.png" width=500>
+The topics, following the installation of LitGPT, are in chronological order, reflecting the steps in an LLM lifecycle: Pretraining → Finetuning → Inference.
 
 &nbsp;
 
-<img src="images/0_to_litgpt/4-commands.png" width=300>
+<img src="images/0_to_litgpt/usage.webp" width=500>
+
+&nbsp;
+
+<img src="images/0_to_litgpt/4-commands.webp" width=300>
 
 &nbsp;
 
@@ -43,9 +43,9 @@ pip install -e '.[all]'
 &nbsp;
 ## Pretrain LLMs
 
-Finetuning LLMs requires substantial compute resources and time commitment. For that reason, most researchers and practitioners prefer to skip step and prefer to skip this step, downloading a pretrained LLM instead. 
+Finetuning LLMs requires substantial compute resources and time commitment. For that reason, most researchers and practitioners prefer to skip this step and continue with the Download pretrained model weights section instead. 
 
-However, if you are feeling adventerous and want to pretrain your own LLM, here's how.
+However, if you feel adventurous and want to pretrain your own LLM, here's how.
 
 First, we have to decide which type of model architecture we want to use. We list the available architectures by using the `pretrain` command without any additional arguments:
 
@@ -70,7 +70,11 @@ vicuna-7b-v1.5
 vicuna-7b-v1.5-16k
 ```
 
-Suppose we are interested in pretraining 1.1B parameter small `tiny-llama-1.1b` model. Before we can start finetuning, we also need to choose an download a tokenizer. We can do this via the `download` command. Note that running `litgpt download` without any additional arguments will also print a list of all available models and tokenizers to download. To filter for specific models, e.g., TinyLlama, we can use the `grep` command in our terminal:
+Suppose we want to pretraining the 1.1B parameter small `tiny-llama-1.1b` model. Before starting finetuning, we must also choose and download a tokenizer. 
+
+We can download a tokenizer via the `download` command. Note that running `litgpt download` without any additional arguments will also print a list of all available models and tokenizers to download. 
+
+To filter for specific models, e.g., TinyLlama, we can use the `grep` command in our terminal:
 
 ```bash
 litgpt download | grep  TinyLlama
@@ -83,7 +87,7 @@ TinyLlama/TinyLlama-1.1B-intermediate-step-1431k-3T
 TinyLlama/TinyLlama-1.1B-Chat-v1.0
 ```
 
-Let's now download the tokenizer corresponding to `TinyLlama/TinyLlama-1.1B-intermediate-step-1431k-3T` that we can then use to pretrain the TinyLlama model, which save the download tokenizer to a `checkpoints/` folder by default:
+Let's now download the tokenizer corresponding to `TinyLlama/TinyLlama-1.1B-intermediate-step-1431k-3T` that we can then use to pretrain the TinyLlama model, which saves the download tokenizer to a `checkpoints/` folder by default:
 
 ```
 litgpt download \
@@ -93,11 +97,11 @@ litgpt download \
 
 &nbsp;
 
-<img src="images/0_to_litgpt/pretrain.png" width=400>
+<img src="images/0_to_litgpt/pretrain.webp" width=400>
 
 &nbsp;
 
-Next, we can pretrain the model on the OpenWebText dataset with default setting as follows:
+Next, we can pretrain the model on the OpenWebText dataset with the default setting as follows:
 
 ```bash
 litgpt pretrain \
@@ -115,13 +119,13 @@ litgpt pretrain --help
 &nbsp;
 
 > [!TIP]
-> Above, we only covered the most basic commands for pretraining a model using LitGPT. If you are interested in pretraining a model, we highly recommend checking the resources below.
+> Above, we only covered the most basic commands for pretraining a model using LitGPT. We highly recommend checking the resources below if you are interested in pretraining a model.
 
 &nbsp;
 
 **More information and additional resources**
 
-- [tutorials/pretrain_tinyllama](./pretrain_tinyllama.md): A tutorials for finetuning a 1.1B TinyLlama model on 3 trillion tokens
+- [tutorials/pretrain_tinyllama](./pretrain_tinyllama.md): A tutorial for finetuning a 1.1B TinyLlama model on 3 trillion tokens
 - Project templates in reproducible environments with multi-GPU and multi-node support:
   - [Prepare the TinyLlama 1T token dataset](https://lightning.ai/lightning-ai/studios/prepare-the-tinyllama-1t-token-dataset)
   - [Pretrain LLMs - TinyLlama 1.1B](https://lightning.ai/lightning-ai/studios/pretrain-llms-tinyllama-1-1b)
@@ -131,7 +135,7 @@ litgpt pretrain --help
 &nbsp;
 ## Download pretrained model weights
 
-Most practical usecases, like inference (/chat) or finetuning with LLMs, involve pretrained model weights. LitGPT supports a large number of model weights, which can be listed by executing the `download` command without any additional arguments:
+Most practical use cases, like LLM inference (/chat) or finetuning, involve using pretrained model weights. LitGPT supports a large number of model weights, which can be listed by executing the `download` command without any additional arguments:
 
 ```bash
 litgpt download
@@ -151,7 +155,7 @@ mistralai/Mixtral-8x7B-Instruct-v0.1
 ...
 ```
 
-To download the model weights, simply provide one of the model strings above as a `--repo_id` argument:
+To download the model weights, provide one of the model strings above as a `--repo_id` argument:
 
 ```bash
 litgpt download --repo_id microsoft/phi-2
@@ -172,7 +176,7 @@ Saving converted checkpoint to checkpoints/microsoft/phi-2
 &nbsp;
 
 > [!TIP]
-> Note that some models, such as Llama 2, require that you accept Meta AI's terms of service for this model, and you need to use a special access token via the `litgpt download ... --access_token ...` option. For more information, go to the respective Model Hub website, e.g., [meta-llama/Llama-2-7b-hf](https://huggingface.co/meta-llama/Llama-2-7b-hf). The access token can be created under your Model Hub in the Profile > Access Tokens menu.
+> Note that some models, such as Llama 2, require that you accept Meta AI's terms of service for this model, and you need to use a special access token via the `litgpt download ... --access_token ...` option. For more information, visit the respective Model Hub website, e.g., [meta-llama/Llama-2-7b-hf](https://huggingface.co/meta-llama/Llama-2-7b-hf). The access token can be created under your Model Hub in the `Profile > Access Tokens` menu.
 
 &nbsp;
 
@@ -224,29 +228,29 @@ Time for inference: 1.26 sec total, 27.81 tokens/sec, 35 tokens
 &nbsp;
 ## Finetune LLMs
 
-LitGPT supports several methods supervised instruction finetuning, which allows you to finetune models to follow instructions. 
+LitGPT supports several methods of supervised instruction finetuning, which allows you to finetune models to follow instructions. 
 
 Datasets for Instruction-finetuning are usually formatted in the following way: 
 
 &nbsp;
 
-<img src="images/0_to_litgpt/instruction-1.png" width=400>
+<img src="images/0_to_litgpt/instruction-1.webp" width=400>
 
 &nbsp;
 
 Alternatively, datasets for instruction finetuning can also contain an `'input'` field:
 
-In an instruction-finetuning context, "full" finetuning means that all model parameters are updated. Adapter and LoRA (short for low-rank adaptation) are methods for parameter-efficient finetuning that only require updating a small fraction of the model weights. 
+In an instruction-finetuning context, "full" finetuning means updating all model parameters as opposed to only a subset. Adapter and LoRA (short for low-rank adaptation) are methods for parameter-efficient finetuning that only require updating a small fraction of the model weights. 
 
 &nbsp;
 
-<img src="images/0_to_litgpt/finetune.png" width=400>
+<img src="images/0_to_litgpt/finetune.webp" width=400>
 
 &nbsp;
 
 Parameter-efficient finetuning is much more resource-efficient and cheaper than full finetuning, and it often results in the same good performance on downstream tasks. 
 
-In the following example, we will use LoRA for finetuning, which is one of the most popular LLM finetuning method. (For more information on how LoRA works, please see [Code LoRA from Scratch](https://lightning.ai/lightning-ai/studios/code-lora-from-scratch).)
+In the following example, we will use LoRA for finetuning, which is one of the most popular LLM finetuning methods. (For more information on how LoRA works, please see [Code LoRA from Scratch](https://lightning.ai/lightning-ai/studios/code-lora-from-scratch).)
 
 Before we start, we have to download a model as explained in the previous "Download pretrained model" section above:
 
@@ -254,7 +258,7 @@ Before we start, we have to download a model as explained in the previous "Downl
 litgpt download --repo_id microsoft/phi-2
 ```
 
-The LitGPT interface can be used with via command line arguments and configuration files. We recommend starting out with the configuration files from the [config_hub](../config_hub) and either modifying them directly or overrriding certain settings via the command line. For example, we can use the following setting to train the downloaded 2.7B parameter `microsoft/phi-2` model, where we set `--max_steps 5` for a quick test run.
+The LitGPT interface can be used via command line arguments and configuration files. We recommend starting with the configuration files from the [config_hub](../config_hub) and either modifying them directly or overriding specific settings via the command line. For example, we can use the following setting to train the downloaded 2.7B parameter `microsoft/phi-2` model, where we set `--max_steps 5` for a quick test run.
 
 If you have downloaded or cloned the LitGPT repository, you can provide the `config` file via a relative path:
 
@@ -264,7 +268,7 @@ litgpt finetune lora \
   --train.max_steps 5
 ```
 
-Alternatively, you can provide an URL:
+Alternatively, you can provide a URL:
 
 ```bash
 litgpt finetune lora \
@@ -327,7 +331,7 @@ Running the previous finetuning command will initiate the finetuning process, wh
                     min_lr=6e-05)}
 Seed set to 1337
 Number of trainable parameters: 12,226,560
-Number of non trainable parameters: 2,779,683,840
+Number of non-trainable parameters: 2,779,683,840
 The longest sequence length in the train data is 512, the model's maximum sequence length is 512 and context length is 2048
 Validating ...
 Recommend a movie for me to watch during the weekend and explain the reason.
@@ -370,7 +374,7 @@ To exit, press 'Enter' on an empty prompt.
 
 Seed set to 1234
 >> Prompt: Why are LLMs so useful?   
->> Reply: LLMs are useful because they can be trained to perform various natural language tasks, such as language translation, text generation, and question answering. They are also able to understand the context of the input data, which makes them particularly useful for tasks such as sentiment analysis and text summarization. Additionally, because LLMs can learn from large amounts of data, they are able to generalize well and perform well on new data.
+>> Reply: LLMs are useful because they can be trained to perform various natural language tasks, such as language translation, text generation, and question-answering. They are also able to understand the context of the input data, which makes them particularly useful for tasks such as sentiment analysis and text summarization. Additionally, because LLMs can learn from large amounts of data, they are able to generalize well and perform well on new data.
 
 Time for inference: 2.15 sec total, 39.57 tokens/sec, 85 tokens
 
@@ -416,10 +420,10 @@ Saving converted checkpoint to checkpoints/microsoft/phi-2
 
 
 
-Then, chat with the model using 
+Then, chat with the model using the following command:
 
 ```bash
-litgpt chat --checkpoint_dir 
+litgpt chat --checkpoint_dir checkpoints/microsoft/phi-2
 ```
 
 ```
@@ -428,13 +432,13 @@ To exit, press 'Enter' on an empty prompt.
 
 Seed set to 1234
 >> Prompt: What is the main difference between a large language model and a traditional search engine?
->> Reply:  A large language model uses deep learning algorithms to analyze and generate natural language, while a traditional search engine uses algorithms to retrieve information from webpages.
+>> Reply:  A large language model uses deep learning algorithms to analyze and generate natural language, while a traditional search engine uses algorithms to retrieve information from web pages.
 
 Time for inference: 1.14 sec total, 26.26 tokens/sec, 30 tokens
 ```
 
 > [!TIP]
-> Most model weights are already represented in an efficient bfloat16 format. However, if the model currently exceeds your GPU memory, you can try to pass the `--precision bf16-true` option. In addition, you can check the quantization documentation for further optimization linked below.
+> Most model weights are already represented in an efficient bfloat16 format. However, if the model currently exceeds your GPU memory, you can try to pass the `--precision bf16-true` option. In addition, you can check the quantization documentation for further optimization, which is linked below.
 
 
 &nbsp;
@@ -444,24 +448,102 @@ Time for inference: 1.14 sec total, 26.26 tokens/sec, 30 tokens
 - [tutorials/quantize](quantize.md): Quantizing models to reduce GPU memory requirements
 
 
-## Evaluation
 
-When you are deciding which model to use or evaluating finetuning results, it may be useful to find out how well a model is performing. For this purpose, you can use the integrated evaluation utility based on the [LM Evaluation Harness](https://github.com/EleutherAI/lm-evaluation-harness).
+
+&nbsp;
+## Converting LitGPT model weights to `safetensors` format
+
+Sometimes, it can be useful to convert LitGPT model weights for third-party and external tools. For example, we can convert a LitGPT model to the Hugging Face format and save it via `.safetensors` files.
+
+The `--checkpoint_dir` argument provided below points to a directory corresponding to a downloaded or finetuned model (see the *Download pretrained model* or *Finetune LLMs* sections above for more information):
+
+
+```bash
+litgpt convert from_litgpt \
+    --checkpoint_dir checkpoints/microsoft/phi-2 \
+    --output_dir out/converted_model/
+```
+
+Certain tools like the `.from_pretrained` method in Hugging Face `transformers` also require the original `config.json` file that originally came with the downloaded model:
+
+```bash
+cp checkpoints/microsoft/phi-2/config.json out/converted_model/config.json
+```
+
+You can now load the model into a Hugging Face transformers model and safe it in a `.safetensors` format as follows:
+
+```bash
+import torch
+from transformers import AutoModel
+
+# Load model
+state_dict = torch.load('out/converted_model/model.pth')
+model = AutoModel.from_pretrained(
+    "microsoft/phi-2", state_dict=state_dict
+)
+
+# Save .safetensors files
+model.save_pretrained("out/converted_model/")
+```
+
+```
+⚡ ~/litgpt ls -lh out/converted_model
+total 16G
+-rwxr--r-- 1 sebastian sebastian  891 Mar 20 17:08 config.json
+-rw-r--r-- 1 sebastian sebastian 4.7G Mar 20 17:08 model-00001-of-00003.safetensors
+-rw-r--r-- 1 sebastian sebastian 4.7G Mar 20 17:09 model-00002-of-00003.safetensors
+-rw-r--r-- 1 sebastian sebastian 601M Mar 20 17:09 model-00003-of-00003.safetensors
+-rw-r--r-- 1 sebastian sebastian 5.2G Mar 20 16:30 model.pth
+-rw-r--r-- 1 sebastian sebastian  33K Mar 20 17:09 model.safetensors.index.json
+```
+
+You can then use the model with external tools, for example, Eleuther AI's [LM Evaluation Harness](https://github.com/EleutherAI/lm-evaluation-harness) (see the `lm_eval` installation instructions [here](https://github.com/EleutherAI/lm-evaluation-harness?tab=readme-ov-file#install)).
+
+The LM Evaluation Harness requires a tokenizer to be present in the model checkpoint folder, which we can copy from the original download checkpoint:
+
+```bash
+# Copy the tokenizer needed by the Eval Harness
+cp checkpoints/microsoft/phi-2/tokenizer*
+out/converted_model
+```
+
+Then, we can run the Evaluation Harness as follows:
+
+```bash
+lm_eval --model hf \
+    --model_args pretrained="out/converted_model" \
+    --tasks "hellaswag,gsm8k,truthfulqa_mc2,mmlu,winogrande,arc_challenge" \
+    --device "cuda:0" \
+    --batch_size 4
+```
+
+&nbsp;
 
 > [!TIP]
-> Use the `litgpt eval --help`  command to see additional options.
+> The Evaluation Harness tasks above are those used in Open LLM Leaderboard. You can find a list all supported tasks [here](https://github.com/EleutherAI/lm-evaluation-harness/blob/master/docs/task_table.md).
+
+
 
 &nbsp;
 **More information and additional resources**
 
-- [tutorials/evaluation](evaluation.md)
-- [tutorials/convert_lit_models](convert_lit_models.md)
+- [tutorials/convert_lit_models]: Tutorial on converting LitGPT weights
 
 
----
 
-TODOS:
+&nbsp;
 
-- [ ] Proofread
-- [ ] Compress images to webp
-- [ ] Link in Readme
+## Get involved!
+
+We appreciate your feedback and contributions. If you have feature requests, questions, or want to contribute code or config files, please don't hesitate to use the [GitHub Issue](https://github.com/Lightning-AI/litgpt/issues) tracker.
+
+We welcome all individual contributors, regardless of their level of experience or hardware. Your contributions are valuable, and we are excited to see what you can accomplish in this collaborative and supportive environment.
+
+&nbsp;
+
+> [!TIP]
+> Unsure about contributing? Check out our [How to Contribute to LitGPT](https://lightning.ai/pages/community/tutorial/how-to-contribute-to-litgpt/) guide.
+
+&nbsp;
+
+If you have general questions about building with LitGPT, please [join our Discord](https://discord.gg/VptPCZkGNa).
