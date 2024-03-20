@@ -32,6 +32,7 @@ from litgpt.utils import (
     parse_devices,
     save_config,
     save_hyperparameters,
+    reset_parameters,
 )
 
 
@@ -153,7 +154,7 @@ def main(
     with fabric.init_module(empty_init=True):
         model = GPT(config)
     
-    prepare_weight_initialization(model, n_layer=config.n_layer, n_embd=config.n_embd)
+    initialize_weights(fabric, model, n_layer=config.n_layer, n_embd=config.n_embd)
 
     if train.tie_embeddings:
         model.transformer.wte.weight = model.lm_head.weight
@@ -381,7 +382,7 @@ def get_lr(learning_rate: float, it: int, warmup_iters: int, max_iters: int, min
     return min_lr + coeff * (learning_rate - min_lr)
 
 
-def prepare_weight_initialization(model: GPT, n_layer: int, n_embd: int) -> None:
+def initialize_weights(fabric: L.Fabric, model: GPT, n_layer: int, n_embd: int) -> None:
     """GPT-NeoX weight initialization (https://arxiv.org/abs/2204.06745)."""
     # Adapted from https://github.com/jzhang38/TinyLlama
 
@@ -398,6 +399,9 @@ def prepare_weight_initialization(model: GPT, n_layer: int, n_embd: int) -> None
     for mod in model.modules():
         if isinstance(mod, (LLaMAMLP, CausalSelfAttention)):
             mod.proj.reset_parameters = partial(init_weights, mod.proj, std=(1 / math.sqrt(n_embd) / n_layer))
+
+    if not isinstance(fabric.strategy, FSDPStrategy):
+        reset_parameters(model)
 
 
 def init_out_dir(out_dir: Path) -> Path:
