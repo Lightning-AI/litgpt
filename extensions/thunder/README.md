@@ -580,10 +580,6 @@ model = thunder.jit(model, executors=[sdpa_ex, torch_compile_executor, thunder.n
 
 Notice how `torch.compile` is a valid executor. This executor registers a few operators with improved performance so that you can utilize the fastest set of operator implementations possible.
 
-### Custom executors
-
-Coming soon.
-
 ## Examples and benchmarks:
 
 > [!WARNING]
