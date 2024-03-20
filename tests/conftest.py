@@ -2,12 +2,14 @@
 
 import os
 import shutil
+import warnings
 from pathlib import Path
-from typing import List
+from typing import List, Optional
 
 import pytest
 import torch
 from lightning.fabric.utilities.testing import _runif_reasons
+from lightning_utilities.core.imports import RequirementCache
 
 
 @pytest.fixture()
@@ -93,8 +95,16 @@ def longform_path(tmp_path):
     return path
 
 
-def RunIf(**kwargs):
+def RunIf(thunder: Optional[bool] = None, **kwargs):
     reasons, marker_kwargs = _runif_reasons(**kwargs)
+
+    if thunder is not None:
+        thunder_available = bool(RequirementCache("lightning-thunder", "thunder"))
+        if thunder and not thunder_available:
+            reasons.append("Thunder")
+        elif not thunder and thunder_available:
+            reasons.append("not Thunder")
+
     return pytest.mark.skipif(condition=len(reasons) > 0, reason=f"Requires: [{' + '.join(reasons)}]", **marker_kwargs)
 
 
@@ -139,3 +149,7 @@ def pytest_collection_modifyitems(items: List[pytest.Function], config: pytest.C
             bold=True,
             purple=True,  # oh yeah, branded pytest messages
         )
+
+
+# Ignore cleanup warnings from pytest (rarely happens due to a race condition when executing pytest in parallel)
+warnings.filterwarnings("ignore", category=pytest.PytestWarning, message=r".*\(rm_rf\) error removing.*")
