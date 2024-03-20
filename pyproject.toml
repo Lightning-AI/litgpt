@@ -30,7 +30,6 @@ test = [
     "einops",
     "protobuf",
     "lightning-thunder; python_version >= '3.10'",
-    "nvfuser-cu121; python_version >= '3.10'",
 ]
 all = [
     "bitsandbytes==0.42.0",      # quantization
