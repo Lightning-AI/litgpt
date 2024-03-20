@@ -171,6 +171,8 @@ def main(
     fabric.print(f"Total parameters: {num_parameters(model):,}")
 
     model = fabric.setup(model)
+    # `torch.Tensor.register_hook` is not supported by Thunder
+    model._register_backward_hook = lambda t: t
     optimizer = torch.optim.AdamW(
         model.parameters(),
         lr=train.learning_rate,
