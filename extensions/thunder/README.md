@@ -6,9 +6,9 @@ Thunder aims to be usable, understandable, and extensible and can achieve signif
 
 This extension directory shows how Thunder can be used with LitGPT.
 
-## Thunder 👉👈 LitGPT: a short guide
+## Thunder 👉👈 LitGPT: a short showcase
 
-The simplest way to use Thunder with your model is to simply `thunder.jit` it. 
+To try Lightning Thunder with your model simply `thunder.jit()` it.
 
 ```python
 from litgpt import GPT
@@ -596,15 +596,15 @@ We provide a version of the main pre-training script [that integrates Thunder](p
 |---------------|--------------|---------|-------------------|-------------|
 | FSDP Zero 3   | Eager        | 8       | 460.88            | 22.13       |
 | FSDP Zero 3   | Inductor     | 8       | 318.71            | 17.08       |
-| FSDP Zero 3   | Thunder      | 8       | TODO              | TODO        |
+| FSDP Zero 3   | Thunder      | 8       | 345.02            | 18.28       |
 |               |              |         |                   |             |
 | Replicated    | Eager        | 8       | 535.28            | 32.05       |
 | Replicated    | Inductor     | 8       | 348.19            | 27.01       |
-| Replicated    | Thunder      | 8       | TODO              |             |
+| Replicated    | Thunder      | 8       | OOM               | OOM         |
 |               |              |         |                   |             |
-| -             | Eager        | 1       | TODO              |             |
-| -             | Inductor     | 1       | TODO              |             |
-| -             | Thunder      | 1       | TODO              |             |
+| None          | Eager        | 1       | 449.88            | 29.85       |
+| None          | Inductor     | 1       | 320.22            | 24.81       |
+| None          | Thunder      | 1       | 322.83            | 26.37       |
 
 <details>
 <summary>Details</summary>
