@@ -1,12 +1,19 @@
 import os
 import re
+import sys
+from pathlib import Path
 from typing import Optional, Tuple, Union
 
 import pytest
 import torch
-from conftest import RunIf
 from lightning.fabric import Fabric
 from lightning.fabric.utilities.imports import _TORCH_GREATER_EQUAL_2_3
+
+from conftest import RunIf
+
+# support running without installing as a package
+wd = Path(__file__).parent.parent.resolve()
+sys.path.append(str(wd))
 
 from extensions.thunder.strategies.thunder_fsdp import ThunderFSDPStrategy
 from extensions.thunder.strategies.utils import _validate_executors

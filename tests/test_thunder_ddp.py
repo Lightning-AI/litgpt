@@ -6,7 +6,9 @@ import torch
 from conftest import RunIf
 from lightning import Fabric
 
-sys.path.append(str(Path(__file__).parent.parent))
+# support running without installing as a package
+wd = Path(__file__).parent.parent.resolve()
+sys.path.append(str(wd))
 
 
 @RunIf(min_cuda_gpus=2, thunder=True, standalone=True)
