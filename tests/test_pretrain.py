@@ -112,11 +112,18 @@ def test_initialize_weights(strategy, expected):
     fabric_mock = Mock()
     fabric_mock.strategy = Mock(spec=strategy)
 
-    class Model(torch.nn.Module):
+    class Child(torch.nn.Module):
         pass
 
-    model = Model()
+    class Parent(torch.nn.Module):
+        def __init__(self):
+            super().__init__()
+            self.child = Child()
+
+    model = Parent()
     model.reset_parameters = Mock()
+    model.child.reset_parameters = Mock()
 
     initialize_weights(fabric_mock, model, n_layer=2, n_embd=8)
     assert model.reset_parameters.call_count == int(expected)
+    assert model.child.reset_parameters.call_count == int(expected)
