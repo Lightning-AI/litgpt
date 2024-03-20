@@ -19,12 +19,12 @@ from litgpt.tokenizer import Tokenizer
 from litgpt.utils import check_valid_checkpoint_dir, chunked_cross_entropy, estimate_flops, lazy_load, num_parameters
 
 # support running without installing as a package
-wd = Path(__file__).parent.parent.parent.resolve()
+wd = Path(__file__).parents[3].resolve()
 sys.path.append(str(wd))
 
-from xla.generate.base import generate
-from xla.scripts.prepare_alpaca import generate_prompt
-from xla.utils import rank_print, sequential_load_and_fsdp_wrap
+from extensions.xla.generate.base import generate
+from extensions.xla.scripts.prepare_alpaca import generate_prompt
+from extensions.xla.utils import rank_print, sequential_load_and_fsdp_wrap
 
 eval_interval = 200
 save_interval = 200
