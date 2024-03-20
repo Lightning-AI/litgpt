@@ -391,8 +391,7 @@ def _get_state_dict(
 def _unwrap_tom(obj: object) -> object:
     # TODO: this unwrap won't be required when Fabric's `_unwrap_objects` supports Thunder
     from thunder import ThunderModule
-    from thunder.common import ThunderOptimizedModule
 
-    if isinstance(obj, (ThunderOptimizedModule, ThunderModule)):
+    if isinstance(obj, ThunderModule):
         return obj._model
     return obj
