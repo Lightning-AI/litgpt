@@ -139,10 +139,9 @@ unsloth_ex.register_implementation(
  RMSNorm
 =========
 
-The RMSNorm kernel is not integrated because it's not numerically correct and it doesn't compute the gradient for the
+The RMSNorm kernel is not integrated because it's not numerically equal and it doesn't compute the gradient for the
 weight, just for the input.
 """
-
 
 
 """
