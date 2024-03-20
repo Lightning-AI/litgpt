@@ -10,11 +10,16 @@ import pytest
 import yaml
 from lightning import Fabric
 
-import eval.lm_eval_harness as module
-from eval.lm_eval_harness import EvalHarnessBase
 from litgpt.model import GPT
 from litgpt.scripts.download import download_from_hub
 from litgpt.tokenizer import Tokenizer
+
+# support running without installing as a package
+wd = Path(__file__).parent.parent.resolve()
+sys.path.append(str(wd))
+
+import eval.lm_eval_harness as module
+from eval.lm_eval_harness import EvalHarnessBase
 
 
 @pytest.mark.xfail(
