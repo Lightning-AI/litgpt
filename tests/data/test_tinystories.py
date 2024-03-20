@@ -8,8 +8,7 @@ import torch
 from torch.utils._pytree import tree_map
 from torch.utils.data import ConcatDataset
 
-from litgpt.data.tinystories import PretokDataset, TinyStories
-from litgpt.data.tinystories import process_shard
+from litgpt.data.tinystories import PretokDataset, TinyStories, process_shard
 
 
 def fake_bin(tmp_path, data, name):

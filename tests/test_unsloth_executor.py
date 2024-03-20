@@ -1,7 +1,7 @@
 import pytest
 import torch
-
 from conftest import RunIf
+
 from litgpt import GPT, Config
 from litgpt.utils import chunked_cross_entropy
 
@@ -91,4 +91,3 @@ def test_unsloth_gpt():
     bwd = thunder.last_traces(cfn_grad)
     bwd_str = bwd[-1].python()
     assert "unsloth_cross_entropy_backward" in bwd_str
-
