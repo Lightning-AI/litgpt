@@ -119,4 +119,4 @@ def test_initialize_weights(strategy, expected):
     model.reset_parameters = Mock()
 
     initialize_weights(fabric_mock, model, n_layer=2, n_embd=8)
-    model.reset_parameters.call_count == int(expected)
+    assert model.reset_parameters.call_count == int(expected)
