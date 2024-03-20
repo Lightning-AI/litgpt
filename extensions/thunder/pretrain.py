@@ -106,7 +106,7 @@ def setup(
         raise NotImplementedError  # FIXME: the strategy only supports compiling the model
 
         if compiler == "thunder":
-            from lightning_thunder.strategies.thunder_fsdp import ThunderFSDPStrategy
+            from extensions.thunder.strategies.thunder_fsdp import ThunderFSDPStrategy
 
             strategy = ThunderFSDPStrategy(
                 sharding_strategy="ZERO3",

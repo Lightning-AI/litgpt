@@ -1,5 +1,4 @@
 # Copyright Lightning AI. Licensed under the Apache License 2.0, see LICENSE file.
-from functools import reduce
 from typing import Optional, Tuple
 
 import thunder
@@ -9,9 +8,6 @@ from thunder.core.transforms import get_grad, mean_backward, put_grads
 from thunder.extend import OperatorExecutor, register_executor
 from thunder.torch import ne, sum, true_divide
 from torch import Tensor
-
-import lightning_thunder.unsloth.kernels as kernels
-import litgpt
 
 unsloth_ex = OperatorExecutor("unsloth_ex", version="0.1")
 register_executor(unsloth_ex)
@@ -38,14 +34,14 @@ def unsloth_cross_entropy_meta(logits: TensorProxy, labels: TensorProxy) -> Tupl
 
 
 unsloth_cross_entropy = unsloth_ex.register_operator(
-    "unsloth_cross_entropy", meta=unsloth_cross_entropy_meta, fn=kernels.cross_entropy_loss._cross_entropy_forward_impl
+    "unsloth_cross_entropy", meta=unsloth_cross_entropy_meta, fn=extensions.lightning_thunder.unsloth.kernels.cross_entropy_loss._cross_entropy_forward_impl
 )
 
 
 def unsloth_cross_entropy_backward_impl(dlosses: Tensor, logits: Tensor, labels: Tensor, logsumexp: Tensor) -> Tensor:
     # clone() because the kernel writes the grads in the logits.
     # If it works, we can remove this it, but it's not a thing we generally anticipate and support right now.
-    return kernels.cross_entropy_loss._cross_entropy_backward_impl(dlosses, logits.clone(), logsumexp, labels)
+    return extensions.lightning_thunder.unsloth.kernels.cross_entropy_loss._cross_entropy_backward_impl(dlosses, logits.clone(), logsumexp, labels)
 
 
 def unsloth_cross_entropy_backward_meta(

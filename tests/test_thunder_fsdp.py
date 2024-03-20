@@ -8,8 +8,8 @@ from conftest import RunIf
 from lightning.fabric import Fabric
 from lightning.fabric.utilities.imports import _TORCH_GREATER_EQUAL_2_3
 
-from lightning_thunder.strategies.thunder_fsdp import ThunderFSDPStrategy
-from lightning_thunder.strategies.utils import _validate_executors
+from extensions.thunder.strategies.thunder_fsdp import ThunderFSDPStrategy
+from extensions.thunder.strategies.utils import _validate_executors
 
 
 @RunIf(thunder=True)

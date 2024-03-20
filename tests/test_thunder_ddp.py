@@ -8,7 +8,7 @@ from lightning import Fabric
 @pytest.mark.parametrize("strategy", ["ddp", "thunder_ddp"])
 def test_no_backward_sync(strategy):
     if strategy == "thunder_ddp":
-        from lightning_thunder.strategies.thunder_ddp import ThunderDDPStrategy
+        from extensions.thunder.strategies.thunder_ddp import ThunderDDPStrategy
 
         strategy = ThunderDDPStrategy()
 

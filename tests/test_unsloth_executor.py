@@ -1,6 +1,9 @@
 import pytest
 import torch
+
 from conftest import RunIf
+from litgpt import GPT, Config
+from litgpt.utils import chunked_cross_entropy
 
 
 @RunIf(min_cuda_gpus=1, thunder=True)
@@ -9,7 +12,7 @@ def test_unsloth_cross_entropy(reduction):
     import thunder
     from thunder.core.transforms import grad
 
-    from lightning_thunder.unsloth.executor import unsloth_ex
+    from extensions.thunder.unsloth.executor import unsloth_ex
 
     logits = torch.randn(64, 128, device="cuda")
     labels = torch.randint(128, (64,), device="cuda")
@@ -44,9 +47,7 @@ def test_unsloth_gpt():
     import thunder
     from thunder.core.transforms import grad
 
-    from lightning_thunder.unsloth.executor import unsloth_ex
-    from litgpt import GPT, Config
-    from litgpt.utils import chunked_cross_entropy
+    from extensions.thunder.unsloth.executor import unsloth_ex
 
     def forward_and_loss(model, input_ids, targets):
         logits = model(input_ids)
