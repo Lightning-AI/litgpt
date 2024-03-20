@@ -582,7 +582,7 @@ Notice how `torch.compile` is a valid executor. This executor registers a few op
 
 ### Custom executors
 
-Coming soon.
+FIXME
 
 ## Examples and benchmarks:
 
