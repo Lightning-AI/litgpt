@@ -3,7 +3,6 @@
 import math
 import os
 import pprint
-import sys
 import time
 from datetime import timedelta
 from functools import partial
@@ -35,10 +34,6 @@ from litgpt.utils import (
     save_config,
     save_hyperparameters,
 )
-
-# support running without installing as a package
-wd = Path(__file__).parent.parent.resolve()
-sys.path.append(str(wd))
 
 
 def setup(
