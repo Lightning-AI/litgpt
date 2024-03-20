@@ -114,7 +114,5 @@ def test_convert_hf_checkpoint(tmp_path):
     assert {p.name for p in tmp_path.glob("*")} == {"foo.bin", "model_config.yaml", "lit_model.pth"}
 
     # ensure that the config dict can be loaded
-    from litgpt import Config
-
     config = Config.from_file(tmp_path / "model_config.yaml")
     assert isinstance(config, Config)

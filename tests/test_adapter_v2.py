@@ -12,6 +12,7 @@ from conftest import RunIf
 from lightning import Fabric
 from lightning.fabric.plugins.precision.bitsandbytes import _BITSANDBYTES_AVAILABLE, BitsandbytesPrecision
 from lightning.fabric.wrappers import _FabricOptimizer
+from torch._dynamo.backends import debugging
 from transformers.models.mixtral import MixtralConfig, MixtralForCausalLM
 
 import litgpt.config as config_module
@@ -146,8 +147,6 @@ def test_base_model_can_be_adapter_v2_loaded(name):
 def test_adapter_v2_compile():
     model = AdapterV2GPT.from_name("pythia-14m", n_layer=3)
     x = torch.randint(model.config.vocab_size, size=(2, model.config.block_size), dtype=torch.int64)
-
-    from torch._dynamo.backends import debugging
 
     explanation = torch._dynamo.explain(model)(x)
     assert isinstance(explanation, debugging.ExplainOutput)

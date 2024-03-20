@@ -11,6 +11,7 @@ from conftest import RunIf
 from lightning import Fabric
 from lightning.fabric.utilities.imports import _IS_WINDOWS
 from lightning.fabric.utilities.init import _materialize_meta_tensors
+from torch._dynamo.backends import debugging
 from torch.backends.cuda import (
     SDPAParams,
     SDPBackend,
@@ -593,8 +594,6 @@ def test_against_original_gemma(model_name, device, dtype):
 def test_model_compile():
     model = GPT.from_name("pythia-14m", n_layer=3)
     x = torch.randint(model.config.vocab_size, size=(2, model.config.block_size), dtype=torch.int64)
-
-    from torch._dynamo.backends import debugging
 
     explanation = torch._dynamo.explain(model)(x)
     assert isinstance(explanation, debugging.ExplainOutput)

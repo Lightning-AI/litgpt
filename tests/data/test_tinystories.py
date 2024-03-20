@@ -8,6 +8,9 @@ import torch
 from torch.utils._pytree import tree_map
 from torch.utils.data import ConcatDataset
 
+from litgpt.data.tinystories import PretokDataset, TinyStories
+from litgpt.data.tinystories import process_shard
+
 
 def fake_bin(tmp_path, data, name):
     all_tokens = np.array(data, dtype=np.uint16)
@@ -27,8 +30,6 @@ def fake_bin(tmp_path, data, name):
     ],
 )
 def test_pretok_dataset(tmp_path, max_seq_len, expected):
-    from litgpt.data.tinystories import PretokDataset
-
     fake_data = [0, 23, 15, 63, 0, 73, 5, 0, 1, 1999, 0, 13]
     assert len(fake_data) == 12
     bin_path = fake_bin(tmp_path, fake_data, "data")
@@ -39,8 +40,6 @@ def test_pretok_dataset(tmp_path, max_seq_len, expected):
 
 
 def test_process_shard(tmp_path):
-    from litgpt.data.tinystories import process_shard
-
     story1, story2 = "foo bar", "    fun    "
     data = [{"story": story1}, {"story": story2}]
     shard_path = tmp_path / "data.json"
@@ -65,8 +64,6 @@ def test_process_shard(tmp_path):
 
 
 def test_tinystories_datamodule(tmp_path):
-    from litgpt.data.tinystories import PretokDataset, TinyStories
-
     datamodule = TinyStories(tmp_path, seed=42)
     datamodule.connect(max_seq_length=2)
 

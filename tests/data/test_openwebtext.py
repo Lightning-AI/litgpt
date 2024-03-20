@@ -4,17 +4,16 @@ from unittest import mock
 from unittest.mock import ANY, call
 
 import pytest
+from litdata.streaming import StreamingDataLoader, StreamingDataset
 from torch.utils.data import DataLoader
+
+from litgpt.data import OpenWebText
 
 
 @pytest.mark.skipif(sys.platform == "win32", reason="Not in the mood to add Windows support right now.")
 @mock.patch("litdata.optimize")
 @mock.patch("datasets.load_dataset")
 def test_openwebtext(_, optimize_mock, tmp_path, mock_tokenizer):
-    from litdata.streaming import StreamingDataLoader, StreamingDataset
-
-    from litgpt.data import OpenWebText
-
     data = OpenWebText(data_path=(tmp_path / "openwebtext"))
     assert data.seq_length == 2048
     assert data.batch_size == 1
