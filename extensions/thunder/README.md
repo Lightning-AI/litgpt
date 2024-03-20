@@ -582,7 +582,33 @@ Notice how `torch.compile` is a valid executor. This executor registers a few op
 
 ### Custom executors
 
-FIXME
+Lightning Thunder provides extension points to integrate fast kernels for operators in your model without having to modify your implementation.
+
+For instance, the [Unsloth project](https://github.com/unslothai/unsloth/) provides several Triton kernels that can be used with LitGPT:
+- Cross entropy loss
+- SwiGLU (part of `LLaMAMLP`)
+- RoPE
+
+The [`unsloth` directory](unsloth) contains a [custom executor](unsloth/executor.py) that registers these operators for LitGPT.
+
+Doing this, the model trace now includes the unsloth kernel calls:
+
+```python
+def augmented_forward_fn(*args):
+    ...
+    (t121, _, _, _, _, _) = unsloth_apply_rope(t120, t21, t22)
+    ...
+    (t189, t190) = unsloth_cross_entropy(t187, t188)
+    ...
+
+def backward_fn(saved_for_backward, cotangents):
+    ...
+    t652 = unsloth_cross_entropy_backward(t651, t187, t188, t190)  # t652: "cuda:0 f32[6, 320]"
+    ...
+    t763 = unsloth_apply_rope_backward(t757, t21, t22, 1, 8, 4)  # t763: "cuda:0 f32[2, 4, 3, 16]"
+```
+
+We provide a specific [pre-training script copy](unsloth/pretrain.py) that uses this executor.
 
 ## Examples and benchmarks:
 
@@ -592,19 +618,21 @@ FIXME
 
 We provide a version of the main pre-training script [that integrates Thunder](pretrain.py) that uses TinyLlama, a 1.1B parameter LLM.
 
-| Data parallel | Compiler/JIT | Devices | ms/iter @ step 10 | Memory (GB) |
-|---------------|--------------|---------|-------------------|-------------|
-| FSDP Zero 3   | Eager        | 8       | 460.88            | 22.13       |
-| FSDP Zero 3   | Inductor     | 8       | 318.71            | 17.08       |
-| FSDP Zero 3   | Thunder      | 8       | 345.02            | 18.28       |
-|               |              |         |                   |             |
-| Replicated    | Eager        | 8       | 535.28            | 32.05       |
-| Replicated    | Inductor     | 8       | 348.19            | 27.01       |
-| Replicated    | Thunder      | 8       | OOM               | OOM         |
-|               |              |         |                   |             |
-| None          | Eager        | 1       | 449.88            | 29.85       |
-| None          | Inductor     | 1       | 320.22            | 24.81       |
-| None          | Thunder      | 1       | 322.83            | 26.37       |
+| Setting     | Compiler/JIT | Devices | ms/iter @ step 10 | Memory (GB) |
+|-------------|--------------|---------|-------------------|-------------|
+| FSDP Zero 3 | Eager        | 8       | 460.88            | 22.13       |
+| FSDP Zero 3 | Inductor     | 8       | 318.71            | 17.08       |
+| FSDP Zero 3 | Thunder      | 8       | 345.02            | 18.28       |
+|             |              |         |                   |             |
+| Replicated  | Eager        | 8       | 535.28            | 32.05       |
+| Replicated  | Inductor     | 8       | 348.19            | 27.01       |
+| Replicated  | Thunder      | 8       | OOM               | OOM         |
+|             |              |         |                   |             |
+| -           | Eager        | 1       | 449.88            | 29.85       |
+| -           | Inductor     | 1       | 320.22            | 24.81       |
+| -           | Thunder      | 1       | 322.83            | 26.37       |
+|             |              |         |                   |             |
+| Unsloth     | Thunder      | 1       | TODO              | TODO        |
 
 <details>
 <summary>Details</summary>
