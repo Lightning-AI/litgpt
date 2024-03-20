@@ -71,111 +71,53 @@ def _rope_embedding(
 pass
 
 
-class Fast_RoPE_Embedding(torch.autograd.Function):
-    @staticmethod
-    def forward(ctx, Q, cos, sin):
-        cos, sin = cos.squeeze(), sin.squeeze()
-        batch, seq_len, n_heads, head_dim = Q.shape
-        Q = Q.view(batch*seq_len, n_heads*head_dim)
-        n_rows, n_cols = Q.shape
-        assert(seq_len <= cos.shape[0])
+def _rope_embedding_forward_impl(Q, cos, sin):
+    Q = Q.transpose(1, 2).clone()
+    cos, sin = cos.squeeze(), sin.squeeze()
+    batch, seq_len, n_heads, head_dim = Q.shape
+    Q = Q.reshape(batch*seq_len, n_heads*head_dim)
+    n_rows, n_cols = Q.shape
+    assert(seq_len <= cos.shape[0])
 
-        # [TODO] Changing blocksize to head_dim//2 seems to have
-        # some concurrency / un-deterministic issues.
-        BLOCK_SIZE, num_warps = calculate_settings(head_dim//2) # (head_dim//2)
-        
-        # group_size = 4 # 4 or 8, too large group_size can hurt performance.
-        div, mod = divmod(n_heads, ROPE_GROUP_SIZE)
-        n_groups = div + (mod != 0)
+    # [TODO] Changing blocksize to head_dim//2 seems to have
+    # some concurrency / un-deterministic issues.
+    BLOCK_SIZE, num_warps = calculate_settings(head_dim//2) # (head_dim//2)
 
-        _rope_embedding[(n_rows, n_groups, )](
-              Q,   Q.stride(0),
-            cos, cos.stride(0),
-            sin, sin.stride(0),
-            seq_len,
-            head_dim, n_heads,
-            BACKWARD_PASS = False,
-            BLOCK_SIZE = BLOCK_SIZE,
-            num_warps  = num_warps,
-        )
-        ctx.BLOCK_SIZE = BLOCK_SIZE
-        ctx.num_warps  = num_warps
-        ctx.n_groups = n_groups
-        ctx.cos = cos
-        ctx.sin = sin
-        return Q.view(batch, seq_len, n_heads, head_dim)
-    pass
+    # group_size = 4 # 4 or 8, too large group_size can hurt performance.
+    div, mod = divmod(n_heads, ROPE_GROUP_SIZE)
+    n_groups = div + (mod != 0)
 
-    @staticmethod
-    def backward(ctx, dY):
-        batch, seq_len, n_heads, head_dim = dY.shape
-        dY = dY.reshape(batch*seq_len, n_heads*head_dim)
-        # Must be reshape not view
-        n_rows, n_cols = dY.shape
-
-        cos = ctx.cos
-        sin = ctx.sin
-
-        _rope_embedding[(n_rows, ctx.n_groups, )](
-            dY,  dY .stride(0),
-            cos, cos.stride(0),
-            sin, sin.stride(0),
-            seq_len, head_dim, n_heads,
-            BACKWARD_PASS = True,
-            BLOCK_SIZE = ctx.BLOCK_SIZE,
-            num_warps  = ctx.num_warps,
-        )
-        dY = dY.view(batch, seq_len, n_heads, head_dim)
-        return dY, None, None,
-    pass
-pass
+    _rope_embedding[(n_rows, n_groups, )](
+          Q,   Q.stride(0),
+        cos, cos.stride(0),
+        sin, sin.stride(0),
+        seq_len,
+        head_dim, n_heads,
+        BACKWARD_PASS = False,
+        BLOCK_SIZE = BLOCK_SIZE,
+        num_warps  = num_warps,
+    )
+    Q = Q.view(batch, seq_len, n_heads, head_dim)
+    Q = Q.transpose(1, 2)
+    return Q, cos, sin, n_groups, BLOCK_SIZE, num_warps
 
 
-def fast_rope_embedding(Q, K, cos, sin):
-    Q = Fast_RoPE_Embedding.apply(Q.transpose(1, 2), cos, sin).transpose(1, 2)
-    K = Fast_RoPE_Embedding.apply(K.transpose(1, 2), cos, sin).transpose(1, 2)
-    return Q, K
-pass
+def _rope_embedding_backward_impl(dY, cos, sin, n_groups, BLOCK_SIZE, num_warps):
+    dY = dY.transpose(1, 2)
+    batch, seq_len, n_heads, head_dim = dY.shape
+    dY = dY.reshape(batch*seq_len, n_heads*head_dim)
+    # Must be reshape not view
+    n_rows, n_cols = dY.shape
 
-
-class Slow_RoPE_Embedding(torch.autograd.Function):
-    @staticmethod
-    def forward(ctx, Q, cos, sin, position_ids):
-        if position_ids is not None:
-            # The first two dimensions of cos and sin are always 1, so we can `squeeze` them.
-            cos = cos.squeeze(1).squeeze(0)  # [seq_len, dim]
-            sin = sin.squeeze(1).squeeze(0)  # [seq_len, dim]
-            cos = cos[position_ids].unsqueeze(1)  # [bs, 1, seq_len, dim]
-            sin = sin[position_ids].unsqueeze(1)  # [bs, 1, seq_len, dim]
-
-        # Q * cos + rotate_half(Q) * sin
-        half = Q.shape[-1]//2
-        RH_Q = torch.cat((-Q[..., half:], Q[..., :half]), dim = -1)
-        Q *= cos
-        Q.addcmul_(RH_Q, sin)
-        # RH_Q *= sin
-        # Q += RH_Q
-        ctx.save_for_backward(cos, sin)
-        return Q
-    pass
-
-    @staticmethod
-    def backward(ctx, dY):
-        cos, sin = ctx.saved_tensors
-        # Q * cos + rotate_half.T(Q) * sin
-        half = dY.shape[-1]//2
-        RH_dY = torch.cat((dY[..., half:], -dY[..., :half]), dim = -1)
-        dY *= cos
-        dY.addcmul_(RH_dY, sin)
-        # RH_dY *= sin
-        # dY += RH_dY
-        return dY, None, None, None
-    pass
-pass
-
-
-def inplace_rope_embedding(Q, K, cos, sin, position_ids):
-    Q = Slow_RoPE_Embedding.apply(Q, cos, sin, position_ids)
-    K = Slow_RoPE_Embedding.apply(K, cos, sin, position_ids)
-    return Q, K
-pass
+    _rope_embedding[(n_rows, n_groups, )](
+        dY,  dY .stride(0),
+        cos, cos.stride(0),
+        sin, sin.stride(0),
+        seq_len, head_dim, n_heads,
+        BACKWARD_PASS = True,
+        BLOCK_SIZE = BLOCK_SIZE,
+        num_warps  = num_warps,
+    )
+    dY = dY.view(batch, seq_len, n_heads, head_dim)
+    dY = dY.transpose(1, 2)
+    return dY

@@ -11,6 +11,8 @@ from thunder.extend import OperatorExecutor, register_executor
 from thunder.torch import ne, sum, true_divide
 from torch import Tensor
 
+import litgpt.model
+
 sys.path.append(str(Path(__file__).parent))
 
 import kernels
@@ -115,15 +117,11 @@ def unsloth_cross_entropy_grad(
     label_smoothing: float = 0.0,
 ) -> TensorProxy:
     loss, logsumexp = cross_entropy_to_unsloth(**locals())
-
     grad = get_grad(loss)
-
     if reduction == "mean":
         grad = mean_backward(logsumexp.ndim, logsumexp.shape, (0,), grad)
-
     logits_grad = unsloth_cross_entropy_backward(grad, logits, labels, logsumexp)
     put_grads((logits,), (logits_grad,))
-
     return loss
 
 
@@ -163,4 +161,57 @@ weight, just for the input.
 """
 
 
-# FIXME
+def apply_rope_meta(x: TensorProxy, cos: TensorProxy, sin: TensorProxy) -> TensorProxy:
+    return TensorProxy(like=x)
+
+
+apply_rope = unsloth_ex.register_operator(
+    "litgpt_apply_rope", like=apply_rope_meta, fn=litgpt.model.apply_rope, replaces=litgpt.model.apply_rope
+)
+
+
+def unsloth_apply_rope_meta(
+    Q: TensorProxy, cos: TensorProxy, sin: TensorProxy
+) -> Tuple[TensorProxy, TensorProxy, TensorProxy, int, int, int]:
+    batch, n_heads, seq_len, head_dim = Q.shape
+    assert seq_len <= cos.shape[0]
+    BLOCK_SIZE, num_warps = kernels.calculate_settings(head_dim // 2)
+    div, mod = divmod(n_heads, kernels.rope_embedding.ROPE_GROUP_SIZE)
+    n_groups = div + (mod != 0)
+    return TensorProxy(like=Q), cos, sin, n_groups, BLOCK_SIZE, num_warps
+
+
+unsloth_apply_rope = unsloth_ex.register_operator(
+    "unsloth_apply_rope", meta=unsloth_apply_rope_meta, fn=kernels._rope_embedding_forward_impl
+)
+
+
+def unsloth_apply_rope_backward_meta(
+    dY: TensorProxy, cos: TensorProxy, sin: TensorProxy, n_groups: int, BLOCK_SIZE: int, num_warps: int
+) -> TensorProxy:
+    return TensorProxy(like=dY)
+
+
+unsloth_apply_rope_backward = unsloth_ex.register_operator(
+    "unsloth_apply_rope_backward", meta=unsloth_apply_rope_backward_meta, fn=kernels._rope_embedding_backward_impl
+)
+
+
+def apply_rope_to_unsloth_checker(x: TensorProxy, cos: TensorProxy, sin: TensorProxy) -> bool:
+    return len(x.shape) == 4 and x.device.type == "cuda" and cos.device.type == "cuda" and sin.device.type == "cuda"
+
+
+def unsloth_apply_rope_grad(x: TensorProxy, cos: TensorProxy, sin: TensorProxy) -> TensorProxy:
+    Q, cos, sin, n_groups, BLOCK_SIZE, num_warps = unsloth_apply_rope(x, cos, sin)
+    dY = get_grad(Q)
+    dX = unsloth_apply_rope_backward(dY, cos, sin, n_groups, BLOCK_SIZE, num_warps)
+    put_grads((x,), (dX,))
+    return Q
+
+
+unsloth_ex.register_implementation(
+    apply_rope,
+    checker=apply_rope_to_unsloth_checker,
+    execution_transform=lambda *args: unsloth_apply_rope(*args)[0],
+    grad_transform=unsloth_apply_rope_grad,
+)

@@ -4,6 +4,7 @@ from conftest import RunIf
 
 from litgpt import GPT, Config
 from litgpt.utils import chunked_cross_entropy
+from litgpt.model import apply_rope, build_rope_cache
 
 
 @RunIf(min_cuda_gpus=1, thunder=True)
@@ -14,7 +15,7 @@ def test_unsloth_cross_entropy(reduction):
 
     from extensions.thunder.unsloth.executor import unsloth_ex
 
-    logits = torch.randn(64, 128, device="cuda")
+    logits = torch.randn(64, 128, device="cuda", requires_grad=True)
     labels = torch.randint(128, (64,), device="cuda")
 
     def foo(logits, labels):
@@ -26,19 +27,54 @@ def test_unsloth_cross_entropy(reduction):
     cfoo = thunder.jit(foo, executors=[unsloth_ex])
     actual = cfoo(logits, labels)
     trace_str = str(thunder.last_traces(cfoo)[-1])
-    assert "unsloth_cross_entropy" in trace_str
+    assert "unsloth_cross_entropy" in trace_str and "backward" not in trace_str
+    trace_str = str(thunder.last_backward_traces(cfoo)[-1])
+    assert "unsloth_cross_entropy_backward" in trace_str
 
     expected = foo(logits, labels)
     torch.testing.assert_close(actual, expected)
 
-    logits.requires_grad_()
     cfoo_grad = grad(cfoo)
     actual = cfoo_grad(logits, labels)[0]
     trace_str = str(thunder.last_traces(cfoo_grad)[-1])
     assert "unsloth_cross_entropy_backward" in trace_str
-    out = cfoo(logits, labels)
+    out = foo(logits, labels)
     out.sum().backward()
     expected = logits.grad
+    torch.testing.assert_close(actual, expected)
+
+
+@RunIf(min_cuda_gpus=1, thunder=True)
+def test_unsloth_rope():
+    import thunder
+    from thunder.core.transforms import grad
+
+    from extensions.thunder.unsloth.executor import unsloth_ex
+
+    B, nh, T, hs = 2, 32, 64, 16
+    cos, sin = build_rope_cache(T, hs, device="cuda")
+    q = torch.rand((B, nh, T, hs), device="cuda", requires_grad=True)
+
+    def foo(x, cos, sin):
+        return apply_rope(x, cos, sin)
+
+    cfoo = thunder.jit(foo, executors=[unsloth_ex])
+    actual = cfoo(q, cos, sin)
+    trace_str = str(thunder.last_traces(cfoo)[-1])
+    assert "unsloth_apply_rope" in trace_str and "backward" not in trace_str
+    trace_str = str(thunder.last_backward_traces(cfoo)[-1])
+    assert "unsloth_apply_rope_backward" in trace_str
+
+    expected = foo(q, cos, sin)
+    torch.testing.assert_close(actual, expected)
+
+    cfoo_grad = grad(cfoo)
+    actual = cfoo_grad(q, cos, sin)[0]
+    trace_str = str(thunder.last_traces(cfoo_grad)[-1])
+    assert "unsloth_apply_rope_backward" in trace_str
+    out = foo(q, cos, sin)
+    out.sum().backward()
+    expected = q.grad
     torch.testing.assert_close(actual, expected)
 
 
@@ -80,14 +116,15 @@ def test_unsloth_gpt():
     fwd = thunder.last_traces(cfn)
     bwd = thunder.last_backward_traces(cfn)
     fwd_str, bwd_str = fwd[-1].python(), bwd[-1].python()
-    print(fwd_str)
-    print(bwd_str)
 
     assert "unsloth_cross_entropy" in fwd_str
     assert "unsloth_cross_entropy_backward" in bwd_str
+    assert "unsloth_apply_rope" in fwd_str
+    assert "unsloth_apply_rope_backward" in bwd_str
 
     cfn_grad = grad(cfn)
     _ = cfn_grad(model, input_ids, targets)
     bwd = thunder.last_traces(cfn_grad)
     bwd_str = bwd[-1].python()
     assert "unsloth_cross_entropy_backward" in bwd_str
+    assert "unsloth_apply_rope_backward" in bwd_str
