@@ -1,7 +1,7 @@
 # Copyright Lightning AI. Licensed under the Apache License 2.0, see LICENSE file.
 from dataclasses import dataclass, field
 from pathlib import Path
-from typing import Union, Optional
+from typing import Optional, Union
 
 from torch.utils.data import DataLoader
 

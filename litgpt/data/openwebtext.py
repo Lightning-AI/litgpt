@@ -3,7 +3,7 @@ import os
 from dataclasses import dataclass, field
 from functools import partial
 from pathlib import Path
-from typing import Union, Optional
+from typing import Optional, Union
 
 from torch.utils.data import DataLoader
 

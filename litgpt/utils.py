@@ -45,6 +45,13 @@ def num_parameters(module: nn.Module, requires_grad: Optional[bool] = None) -> i
     return total
 
 
+def reset_parameters(module: nn.Module) -> None:
+    """Calls `reset_parameters` on the module and all its submodules."""
+    for mod in module.modules():
+        if callable(getattr(mod, "reset_parameters", None)):
+            mod.reset_parameters()
+
+
 def check_valid_checkpoint_dir(checkpoint_dir: Path, lora: bool = False) -> None:
     model_filename = "lit_model.pth.lora" if lora else "lit_model.pth"
     files = {

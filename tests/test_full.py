@@ -9,13 +9,13 @@ from unittest.mock import Mock
 import torch
 import yaml
 
+import litgpt.finetune.full as module
+from litgpt.args import EvalArgs, TrainArgs
+from litgpt.data import Alpaca
+
 
 @mock.patch.dict(os.environ, {"LT_ACCELERATOR": "cpu"})
 def test_full_script(tmp_path, fake_checkpoint_dir, monkeypatch, alpaca_path):
-    import litgpt.finetune.full as module
-    from litgpt.args import EvalArgs, TrainArgs
-    from litgpt.data import Alpaca
-
     model_config = dict(block_size=128, n_layer=2, n_embd=8, n_head=4, padded_vocab_size=8)
     (fake_checkpoint_dir / "model_config.yaml").write_text(yaml.dump(model_config))
     monkeypatch.setattr(module, "load_checkpoint", Mock())
