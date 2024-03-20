@@ -635,7 +635,7 @@ We provide a version of the main pre-training script [that integrates Thunder](p
 | Unsloth     | Thunder      | 1       | TODO              | TODO        |
 
 <details>
-<summary>Details</summary>
+<summary>Reproduction details</summary>
 
 Config:
 
