@@ -2,7 +2,6 @@
 
 import os
 import shutil
-import sys
 from pathlib import Path
 from typing import List, Optional
 
@@ -10,14 +9,6 @@ import pytest
 import torch
 from lightning.fabric.utilities.testing import _runif_reasons
 from lightning_utilities.core.imports import RequirementCache
-
-wd = Path(__file__).parent.parent.absolute()
-
-
-@pytest.fixture(autouse=True)
-def add_wd_to_path():
-    # this adds support for running tests without the package installed
-    sys.path.append(str(wd))
 
 
 @pytest.fixture()

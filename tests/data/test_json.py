@@ -1,13 +1,14 @@
 # Copyright Lightning AI. Licensed under the Apache License 2.0, see LICENSE file.
 import json
+
 import pytest
+
+from litgpt.data import JSON
+from litgpt.prompts import PromptStyle
 
 
 @pytest.mark.parametrize("as_jsonl", [False, True])
 def test_json(as_jsonl, tmp_path, mock_tokenizer):
-    from litgpt.data import JSON
-    from litgpt.prompts import PromptStyle
-
     class Style(PromptStyle):
         def apply(self, prompt, **kwargs):
             return f"X: {prompt} {kwargs['input']} Y:"
@@ -62,8 +63,6 @@ def test_json(as_jsonl, tmp_path, mock_tokenizer):
 
 
 def test_json_input_validation(tmp_path):
-    from litgpt.data import JSON
-
     with pytest.raises(FileNotFoundError, match="The `json_path` must be a file or a directory"):
         JSON(tmp_path / "not exist")
 
@@ -85,8 +84,6 @@ def test_json_input_validation(tmp_path):
 
 @pytest.mark.parametrize("as_jsonl", [False, True])
 def test_json_with_splits(as_jsonl, tmp_path, mock_tokenizer):
-    from litgpt.data import JSON
-
     mock_train_data = [
         {"instruction": "Add", "input": "2+2", "output": "4"},
         {"instruction": "Subtract", "input": "5-3", "output": "2"},

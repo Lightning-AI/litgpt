@@ -10,14 +10,26 @@ import pytest
 import torch
 import yaml
 from conftest import RunIf
+from transformers import AutoConfig, AutoModelForCausalLM
+from transformers.models.falcon import FalconConfig, FalconForCausalLM
+from transformers.models.gemma import GemmaConfig, GemmaForCausalLM
+from transformers.models.gpt_neox import GPTNeoXConfig, GPTNeoXForCausalLM
+from transformers.models.llama import LlamaConfig, LlamaForCausalLM
+from transformers.models.mixtral import MixtralConfig, MixtralForCausalLM
 
-wd = Path(__file__).parent.parent.absolute()
+from litgpt import GPT, Config
+from litgpt.scripts.convert_lit_checkpoint import (
+    check_conversion_supported,
+    convert_lit_checkpoint,
+    copy_weights_falcon,
+    copy_weights_gpt_neox,
+    copy_weights_llama,
+    copy_weights_phi,
+    qkv_split,
+)
 
 
 def test_convert_lit_checkpoint(tmp_path):
-    from litgpt import GPT, Config
-    from litgpt.scripts.convert_lit_checkpoint import convert_lit_checkpoint
-
     ours_config = Config.from_name("Llama-2-7b-hf", block_size=8, n_layer=2, n_embd=32, n_head=2, padding_multiple=128)
     ours_model = GPT(ours_config)
     checkpoint_path = tmp_path / "lit_model.pth"
@@ -40,12 +52,6 @@ def test_convert_lit_checkpoint(tmp_path):
 
 @torch.inference_mode()
 def test_against_falcon_40b():
-    from transformers.models.falcon.configuration_falcon import FalconConfig
-    from transformers.models.falcon.modeling_falcon import FalconForCausalLM
-
-    from litgpt import GPT, Config
-    from litgpt.scripts.convert_lit_checkpoint import copy_weights_falcon as copy_to_theirs
-
     ours_config = Config.from_name("falcon-40b", n_layer=2, n_head=8, n_query_groups=4, n_embd=32)
     theirs_config = FalconConfig(
         vocab_size=ours_config.padded_vocab_size,
@@ -61,7 +67,7 @@ def test_against_falcon_40b():
     ours_model = GPT(ours_config)
     ours_state_dict = ours_model.state_dict()
     theirs_state_dict = {}
-    copy_to_theirs("40b", theirs_state_dict, ours_state_dict)
+    copy_weights_falcon("40b", theirs_state_dict, ours_state_dict)
 
     theirs_model = FalconForCausalLM(theirs_config)
     # assign must be set to True for torch.testing.assert_close to pass
@@ -76,11 +82,6 @@ def test_against_falcon_40b():
 
 @torch.inference_mode()
 def test_against_original_gpt_neox():
-    from transformers import GPTNeoXConfig, GPTNeoXForCausalLM
-
-    from litgpt import GPT, Config
-    from litgpt.scripts.convert_lit_checkpoint import copy_weights_gpt_neox as copy_to_theirs
-
     ours_config = Config(block_size=64, vocab_size=100, n_layer=4, n_head=8, n_embd=16)
     assert ours_config.padded_vocab_size == 512
     theirs_config = GPTNeoXConfig(
@@ -101,7 +102,7 @@ def test_against_original_gpt_neox():
     ours_model = GPT(ours_config)
     ours_state_dict = ours_model.state_dict()
     theirs_state_dict = {}
-    copy_to_theirs(theirs_state_dict, ours_state_dict)
+    copy_weights_gpt_neox(theirs_state_dict, ours_state_dict)
     theirs_model = GPTNeoXForCausalLM(theirs_config)
     # strict=False because we don't save the rotary embeddings inv frequency
     keys = theirs_model.load_state_dict(theirs_state_dict, strict=False)
@@ -120,12 +121,6 @@ def test_against_original_gpt_neox():
     "ours_kwargs", [{"name": "Llama-2-7b-hf"}, {"name": "CodeLlama-7b-hf"}, {"name": "Llama-2-70b-chat-hf"}]
 )
 def test_against_hf_llama2(ours_kwargs):
-    from transformers.models.llama.configuration_llama import LlamaConfig
-    from transformers.models.llama.modeling_llama import LlamaForCausalLM
-
-    from litgpt import GPT, Config
-    from litgpt.scripts.convert_lit_checkpoint import copy_weights_llama
-
     ours_config = Config.from_name(
         padded_vocab_size=10000, n_layer=2, n_head=8, n_embd=32, intermediate_size=86, **ours_kwargs
     )
@@ -159,11 +154,6 @@ def test_against_hf_llama2(ours_kwargs):
 
 @torch.inference_mode()
 def test_against_mixtral():
-    from transformers.models.mixtral import MixtralConfig, MixtralForCausalLM
-
-    from litgpt import GPT, Config
-    from litgpt.scripts.convert_lit_checkpoint import copy_weights_llama
-
     ours_config = Config.from_name(
         "Mixtral-8x7B-Instruct-v0.1",
         padded_vocab_size=10000,
@@ -205,12 +195,6 @@ def test_against_mixtral():
 
 @torch.inference_mode()
 def test_against_original_open_llama_3b():
-    from transformers.models.llama.configuration_llama import LlamaConfig
-    from transformers.models.llama.modeling_llama import LlamaForCausalLM
-
-    from litgpt import GPT, Config
-    from litgpt.scripts.convert_lit_checkpoint import copy_weights_llama
-
     ours_config = Config.from_name("open_llama_3b", n_layer=2, n_head=8, n_embd=32, intermediate_size=86)
     T = 5
     theirs_config = LlamaConfig(
@@ -239,6 +223,7 @@ def test_against_original_open_llama_3b():
 
 @torch.inference_mode()
 def test_against_hf_phi_1_5():
+    wd = Path(__file__).parent.parent.absolute()
     workdir = wd / "tests" / "reference_models"
     workdir.mkdir(parents=True, exist_ok=True)
     file_paths = [workdir / "original_phi_1_5.py", workdir / "configuration_phi.py"]
@@ -252,9 +237,6 @@ def test_against_hf_phi_1_5():
 
     from reference_models.configuration_phi import PhiConfig
     from reference_models.original_phi_1_5 import PhiForCausalLM
-
-    from litgpt import GPT, Config
-    from litgpt.scripts.convert_lit_checkpoint import copy_weights_phi
 
     ours_config = Config.from_name(
         "phi-1_5", padded_vocab_size=10000, n_layer=2, n_head=4, n_embd=256, rotary_percentage=0.5
@@ -290,6 +272,7 @@ def test_against_hf_phi_1_5():
 
 @torch.inference_mode()
 def test_against_hf_phi_2():
+    wd = Path(__file__).parent.parent.absolute()
     workdir = wd / "tests" / "reference_models"
     workdir.mkdir(parents=True, exist_ok=True)
     file_paths = [workdir / "original_phi_2.py", workdir / "configuration_phi.py"]
@@ -303,9 +286,6 @@ def test_against_hf_phi_2():
 
     from reference_models.configuration_phi import PhiConfig
     from reference_models.original_phi_2 import PhiForCausalLM
-
-    from litgpt import GPT, Config
-    from litgpt.scripts.convert_lit_checkpoint import copy_weights_phi
 
     ours_config = Config.from_name(
         "phi-2", padded_vocab_size=10000, n_layer=2, n_head=4, n_embd=256, rotary_percentage=0.5
@@ -341,11 +321,6 @@ def test_against_hf_phi_2():
 
 @torch.inference_mode()
 def test_against_original_stablelm_zephyr_3b():
-    from transformers import AutoConfig, AutoModelForCausalLM
-
-    from litgpt import GPT, Config
-    from litgpt.scripts.convert_lit_checkpoint import copy_weights_llama
-
     T = 5
     ours_config = Config.from_name("stablelm-zephyr-3b", n_layer=2, n_head=16, n_embd=32, intermediate_size=86)
     theirs_config = AutoConfig.from_pretrained(
@@ -394,12 +369,6 @@ def test_against_original_stablelm_zephyr_3b():
     ],
 )
 def test_against_original_gemma(model_name, device, dtype):
-    from transformers.models.gemma.configuration_gemma import GemmaConfig
-    from transformers.models.gemma.modeling_gemma import GemmaForCausalLM
-
-    from litgpt import GPT, Config
-    from litgpt.scripts.convert_lit_checkpoint import copy_weights_llama
-
     torch.set_default_dtype(dtype)
 
     T = 5
@@ -439,8 +408,6 @@ def test_against_original_gemma(model_name, device, dtype):
 
 
 def test_check_conversion_supported_adapter():
-    from litgpt.scripts.convert_lit_checkpoint import check_conversion_supported
-
     lit_weights = {"some.key.name": ANY, "error.key.gating_factor": ANY}
     with pytest.raises(NotImplementedError, match="Converting adapter"):
         check_conversion_supported(lit_weights=lit_weights)
@@ -451,17 +418,12 @@ def test_check_conversion_supported_adapter():
 
 
 def test_check_conversion_supported_lora():
-    from litgpt.scripts.convert_lit_checkpoint import check_conversion_supported
-
     lit_weights = {"some.key.name": ANY, "error.key.lora": ANY}
     with pytest.raises(ValueError, match=r"LoRA.*cannot be converted"):
         check_conversion_supported(lit_weights=lit_weights)
 
 
 def test_qkv_split():
-    from litgpt import Config
-    from litgpt.scripts.convert_lit_checkpoint import qkv_split
-
     # MHA
     config = Config(n_embd=4, n_head=4)
     qkv = torch.tensor(

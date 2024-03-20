@@ -14,6 +14,11 @@ import yaml
 from conftest import RunIf
 from lightning import Fabric
 
+from litgpt import Config
+from litgpt.generate.sequentially import layer_to_device, replace_device, sequential
+from litgpt.model import GPT, Block
+from litgpt.scripts.download import download_from_hub
+
 
 @pytest.mark.parametrize(
     ("n_layer", "devices", "expected"),
@@ -24,9 +29,6 @@ from lightning import Fabric
     ],
 )
 def test_layer_to_device(n_layer, devices, expected):
-    from litgpt.generate.sequentially import layer_to_device
-    from litgpt.model import GPT, Block
-
     with torch.device("meta"):
         model = GPT.from_name("pythia-14m", n_layer=n_layer)
 
@@ -40,8 +42,6 @@ def path_to_device(model):
 
 
 def test_replace_device():
-    from litgpt.generate.sequentially import replace_device
-
     class Submodule(torch.nn.Module):
         def __init__(self):
             super().__init__()
@@ -86,9 +86,6 @@ def test_replace_device():
 
 
 def _test_model_1device(accelerator):
-    from litgpt import GPT
-    from litgpt.generate.sequentially import sequential
-
     fabric = Fabric(accelerator=accelerator, devices=1)
     with torch.device("meta"):
         model = GPT.from_name("pythia-14m", n_layer=2)
@@ -157,9 +154,6 @@ def find_forward_hooks(module):
 
 @RunIf(min_cuda_gpus=2)
 def test_model_forward_hooks():
-    from litgpt import GPT
-    from litgpt.generate.sequentially import sequential
-
     fabric = Fabric(accelerator="cuda", devices=1)
     with torch.device("meta"):
         model = GPT.from_name("pythia-14m")  # 6 layers
@@ -274,9 +268,6 @@ root = Path(__file__).parent.parent.resolve()
 
 @RunIf(min_cuda_gpus=2)
 def test_base_with_sequentially(tmp_path):
-    from litgpt import GPT, Config
-    from litgpt.scripts.download import download_from_hub
-
     # download the tokenizer
     download_from_hub(repo_id="EleutherAI/pythia-14m", tokenizer_only=True, checkpoint_dir=tmp_path)
     checkpoint_dir = tmp_path / "EleutherAI/pythia-14m"

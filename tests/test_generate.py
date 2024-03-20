@@ -12,14 +12,15 @@ import pytest
 import torch
 import yaml
 
+import litgpt.generate.base as generate
+from litgpt import GPT, Config
+from litgpt.generate.base import sample
+
 
 @pytest.mark.parametrize(
     "max_seq_length", (pytest.param(10, marks=pytest.mark.xfail(raises=NotImplementedError, strict=True)), 20 + 5)
 )
 def test_generate(max_seq_length):
-    import litgpt.generate.base as generate
-    from litgpt import GPT, Config
-
     T = 5
     input_idx = torch.randint(10, size=(T,))
 
@@ -47,8 +48,6 @@ def test_generate(max_seq_length):
 
 
 def test_main(fake_checkpoint_dir, monkeypatch, tensor_like):
-    import litgpt.generate.base as generate
-
     config_path = fake_checkpoint_dir / "model_config.yaml"
     config = {"block_size": 128, "vocab_size": 50, "n_layer": 2, "n_head": 4, "n_embd": 8, "rotary_percentage": 1}
     config_path.write_text(yaml.dump(config))
@@ -98,8 +97,6 @@ def test_cli(mode):
 
 @pytest.mark.parametrize("temperature", (0.0, 1.0, 0.5))
 def test_sample(temperature):
-    from litgpt.generate.base import sample
-
     # shape: 2x3x5
     logits = torch.tensor(
         [
