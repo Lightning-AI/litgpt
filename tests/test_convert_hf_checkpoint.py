@@ -5,11 +5,11 @@ from unittest import mock
 import pytest
 import torch
 
+from litgpt import Config
+from litgpt.scripts.convert_hf_checkpoint import convert_hf_checkpoint, copy_weights_hf_llama
+
 
 def test_llama2_70b_conversion():
-    from litgpt import Config
-    from litgpt.scripts.convert_hf_checkpoint import copy_weights_hf_llama
-
     shapes = {
         "model.embed_tokens.weight": (32000, 8192),
         "model.layers.0.input_layernorm.weight": (8192,),
@@ -102,8 +102,6 @@ def test_llama2_70b_conversion():
 
 
 def test_convert_hf_checkpoint(tmp_path):
-    from litgpt.scripts.convert_hf_checkpoint import convert_hf_checkpoint
-
     with pytest.raises(ValueError, match="to contain .bin"):
         convert_hf_checkpoint(checkpoint_dir=tmp_path, model_name="pythia-14m")
 

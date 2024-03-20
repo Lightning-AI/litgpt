@@ -4,9 +4,10 @@ import pytest
 from torch.utils.data import DataLoader
 
 
-def test_tinyllama(tmp_path, monkeypatch):
+def test_tinyllama(tmp_path):
+    from litdata.streaming import CombinedStreamingDataset, StreamingDataLoader, StreamingDataset
+
     from litgpt.data import TinyLlama
-    from litdata.streaming import StreamingDataLoader, StreamingDataset, CombinedStreamingDataset
 
     data = TinyLlama(data_path=(tmp_path / "data"))
     assert data.seq_length == 2048

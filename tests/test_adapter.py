@@ -9,17 +9,20 @@ from unittest.mock import Mock
 import pytest
 import torch
 import yaml
-
 from conftest import RunIf
 from lightning import Fabric
 from lightning.fabric.plugins.precision.bitsandbytes import _BITSANDBYTES_AVAILABLE, BitsandbytesPrecision
 from lightning.fabric.wrappers import _FabricOptimizer
 
+import litgpt.adapter as gpt_adapter
+import litgpt.finetune.adapter as module
+import litgpt.model as gpt
+from litgpt.adapter import GPT, Config, adapter_filter
+from litgpt.args import EvalArgs, TrainArgs
+from litgpt.data import Alpaca
+
 
 def test_config_identical():
-    import litgpt.adapter as gpt_adapter
-    import litgpt.model as gpt
-
     name = "pythia-14m"
     base_config = asdict(gpt.Config.from_name(name))
     adapter_config = asdict(gpt_adapter.Config.from_name(name))
@@ -34,8 +37,6 @@ def test_config_identical():
 
 
 def test_adapter_filter(tmp_path):
-    from litgpt.adapter import GPT, adapter_filter
-
     fabric = Fabric(devices=1)
     model = GPT.from_name("pythia-14m", n_layer=4)
     save_path = tmp_path / "model.pth"
@@ -53,10 +54,6 @@ def test_adapter_filter(tmp_path):
 
 @mock.patch.dict(os.environ, {"LT_ACCELERATOR": "cpu"})
 def test_adapter_script(tmp_path, fake_checkpoint_dir, monkeypatch, alpaca_path):
-    import litgpt.finetune.adapter as module
-    from litgpt.args import EvalArgs, TrainArgs
-    from litgpt.data import Alpaca
-
     model_config = dict(block_size=128, n_layer=2, n_embd=8, n_head=4, padded_vocab_size=8, adapter_start_layer=0)
     (fake_checkpoint_dir / "model_config.yaml").write_text(yaml.dump(model_config))
 
@@ -103,8 +100,6 @@ def test_adapter_script(tmp_path, fake_checkpoint_dir, monkeypatch, alpaca_path)
 
 
 def test_adapter_gpt_init_weights():
-    from litgpt.adapter import GPT, Config
-
     config = Config(n_layer=1, n_head=6, n_embd=12, block_size=1, vocab_size=1, adapter_start_layer=0)
     model = GPT(config)
     param = model.transformer.h[0].attn.gating_factor
@@ -119,8 +114,6 @@ def test_adapter_gpt_init_weights():
 @RunIf(dynamo=True)
 @torch.inference_mode()
 def test_adapter_compile():
-    from litgpt.adapter import GPT
-
     model = GPT.from_name("pythia-14m", n_layer=3)
     x = torch.randint(model.config.vocab_size, size=(2, model.config.block_size), dtype=torch.int64)
 
@@ -142,9 +135,6 @@ def test_adapter_compile():
 
 @RunIf(min_cuda_gpus=1)
 def test_adapter_bitsandbytes(monkeypatch, tmp_path, fake_checkpoint_dir, alpaca_path):
-    import litgpt.finetune.adapter as module
-    from litgpt.data import Alpaca
-
     if not _BITSANDBYTES_AVAILABLE:
         pytest.skip("BNB not available")
 

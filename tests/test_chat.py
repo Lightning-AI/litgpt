@@ -11,6 +11,10 @@ from unittest.mock import ANY, MagicMock, Mock, call, patch
 import pytest
 import torch
 import yaml
+from lightning.fabric import Fabric
+
+import litgpt.chat.base as chat
+import litgpt.generate.base as generate
 
 
 @pytest.mark.parametrize(
@@ -25,9 +29,6 @@ import yaml
     ],
 )
 def test_generate(monkeypatch, generated, stop_tokens, expected):
-    import litgpt.chat.base as chat
-    import litgpt.generate.base as generate
-
     input_idx = torch.tensor([5, 3])
     max_returned_tokens = len(input_idx) + 8
     model = MagicMock()
@@ -54,10 +55,6 @@ def test_generate(monkeypatch, generated, stop_tokens, expected):
 
 @pytest.mark.parametrize("tokenizer_backend", ["huggingface", "sentencepiece"])
 def test_decode(tokenizer_backend):
-    from lightning.fabric import Fabric
-
-    import litgpt.chat.base as chat
-
     class Tokenizer:
         backend = tokenizer_backend
         id2token = {1: "foo ", 2: "bar ", 3: "baz "}
@@ -81,8 +78,6 @@ def test_decode(tokenizer_backend):
 @patch("litgpt.chat.base.input")
 @pytest.mark.parametrize("stop_iteration", [KeyboardInterrupt, ""])
 def test_main(mocked_input, stop_iteration, fake_checkpoint_dir, monkeypatch, tensor_like):
-    import litgpt.chat.base as chat
-
     # these values will be iteratively provided for each `input()` call
     mocked_input.side_effect = ["Hello", stop_iteration]
 

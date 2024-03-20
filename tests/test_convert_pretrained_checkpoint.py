@@ -4,10 +4,10 @@ import os
 
 import torch
 
+from litgpt.scripts.convert_pretrained_checkpoint import convert_pretrained_checkpoint
+
 
 def test_convert_pretrained_checkpoint(tmp_path, fake_checkpoint_dir):
-    from litgpt.scripts.convert_pretrained_checkpoint import convert_pretrained_checkpoint
-
     # Pretend we made a checkpoint from pretraining
     pretrained_checkpoint = {
         "model": {"some.module.weight": torch.rand(2, 2), "_orig_mod.some.other.module.weight": torch.rand(2, 2)},

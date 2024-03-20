@@ -2,7 +2,7 @@
 import os
 from dataclasses import dataclass, field
 from pathlib import Path
-from typing import Union, Optional, Tuple
+from typing import Optional, Tuple, Union
 
 from torch.utils.data import DataLoader
 
