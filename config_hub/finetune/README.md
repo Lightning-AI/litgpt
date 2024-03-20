@@ -54,7 +54,7 @@ or
 ```bash
 litgpt finetune lora \
   --config config_hub/finetune/phi-2/lora.yaml \
-  --precision 16-true
+  --precision 16-mixed
 ```
 
 Note that `16-true` is more compute and memory-efficient, but it can sometimes lead to training convergence issues. In this case, it's recommended to use `16-mixed`.
