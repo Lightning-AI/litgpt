@@ -6,9 +6,9 @@ Thunder aims to be usable, understandable, and extensible and can achieve signif
 
 This extension directory shows how Thunder can be used with LitGPT.
 
-## Quickstart
+## Thunder 👉👈 LitGPT: a short guide
 
-The simplest way to use Thunder with your model is to simply "jit" it. 
+The simplest way to use Thunder with your model is to simply `thunder.jit` it. 
 
 ```python
 from litgpt import GPT
@@ -24,10 +24,10 @@ y = model(x)  # forward, this may take a bit
 
 This will require some compilation time on the first forward call.
 
-In this case, the JIT is will acquire a Python program (a trace) from the Python program (`GPT` nn.Module) that was given.
-This process targets PyTorch operators (like `.view`, `+`, `scaled_dot_product_atttention`) and optionally custom operators (more about that later).
-
 ### Traces
+
+The JIT is will acquire a Python program (what we call a "trace") from the Python program (`GPT`, a `torch.nn.Module` in this example) that was given.
+This process targets PyTorch operators (like `Tensor.view()`, `+`, `torch.nn.functional.scaled_dot_product_atttention()`) and optionally custom operators (more about that later).
 
 We can visualize the thunder trace generated under the hood:
 
@@ -205,6 +205,11 @@ def augmented_forward_fn(*args):
 ```
 
 This is a straight-lined version of `GPT.forward` that has been optimized. Since it's running on CUDA, the [NvFuser](https://github.com/NVIDIA/Fuser) executor has created regions (look for "nvFusion") that fuse multiple operators together.
+
+Operator fusion is very desirable with modern hardware and helps out in overhead-bound or device-bound settings by:
+- Launching less kernels, thus reducing the kernel launch overhead.
+- Reducing the number of memory accesses performed by reusing them in a fused operation
+- Minimizing host-device communications
 
 Thunder also uses a multi-level intermediate representation. If we let it print all levels
 
@@ -517,7 +522,7 @@ These traces are long, and require some familiarity with the model implementatio
 
 ### Transforms
 
-Transforms are one of the core features of Thunder. For LitGPT, they enable easy data parallel distribution. That is replicated data parallelism (DDP) and fully-sharded data parallelism (FSDP).
+Transforms are one of the core features of Thunder. For example, they enable easy data parallel distribution. That is replicated data parallelism (DDP) and fully-sharded data parallelism (FSDP).
 
 We provide ready-to-use Fabric strategies that integrate Thunder DDP|FSDP. Under the hood, the code is quite straightforward:
 
@@ -578,3 +583,8 @@ Notice how `torch.compile` is a valid executor. This executor registers a few op
 ### Custom executors
 
 FIXME: finish unsloth
+
+
+## Examples and benchmarks:
+
+FIXME
