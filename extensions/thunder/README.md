@@ -1,4 +1,4 @@
-# Lightning Thunder: a source-to-source compiler for PyTorch.
+# Lightning Thunder: a source-to-source compiler for PyTorch
 
 [Lightning Thunder](https://github.com/Lightning-AI/lightning-thunder) makes PyTorch programs faster both on single accelerators or in distributed settings.
 
