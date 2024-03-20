@@ -1,7 +1,12 @@
+import sys
+from pathlib import Path
+
 import pytest
 import torch
 from conftest import RunIf
 from lightning import Fabric
+
+sys.path.append(str(Path(__file__).parent.parent))
 
 
 @RunIf(min_cuda_gpus=2, thunder=True, standalone=True)
