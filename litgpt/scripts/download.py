@@ -22,6 +22,7 @@ def download_from_hub(
     convert_checkpoint: bool = True,
     dtype: Optional[str] = None,
     checkpoint_dir: Path = Path("checkpoints"),
+    model_name: Optional[str] = None,
 ) -> None:
     """Download weights or tokenizer data from the Hugging Face Hub.
 
@@ -33,6 +34,8 @@ def download_from_hub(
         dtype: The data type to convert the checkpoint files to. If not specified, the weights will remain in the
             dtype they are downloaded in.
         checkpoint_dir: Where to save the downloaded files.
+        model_name: The existing config name to use for this repo_id. This is useful to download alternative weights of
+            existing architectures.
     """
 
     if repo_id is None:
@@ -40,7 +43,7 @@ def download_from_hub(
 
         options = [f"{config['hf_config']['org']}/{config['hf_config']['name']}" for config in configs]
         print("Please specify --repo_id <repo_id>. Available values:")
-        print("\n".join(options))
+        print("\n".join(sorted(options, key=lambda x: x.lower())))
         return
 
     from huggingface_hub import snapshot_download
@@ -101,7 +104,7 @@ def download_from_hub(
 
     if convert_checkpoint and not tokenizer_only:
         print("Converting checkpoint files to LitGPT format.")
-        convert_hf_checkpoint(checkpoint_dir=directory, dtype=dtype)
+        convert_hf_checkpoint(checkpoint_dir=directory, dtype=dtype, model_name=model_name)
 
 
 def find_weight_files(repo_id: str, access_token: Optional[str]) -> Tuple[List[str], List[str]]:
@@ -123,8 +126,8 @@ def gated_repo_catcher(repo_id: str):
     except OSError as e:
         if "gated repo" in str(e):
             raise ValueError(
-                f"{repo_id} requires authentication, please set the `HF_TOKEN=your_token` environment"
-                " variable or pass --access_token=your_token. You can find your token by visiting"
+                f"https://huggingface.co/{repo_id} requires authentication, please set the `HF_TOKEN=your_token`"
+                " environment variable or pass --access_token=your_token. You can find your token by visiting"
                 " https://huggingface.co/settings/tokens"
             )
         raise e
