@@ -5,6 +5,7 @@ from typing import Optional, Tuple
 
 import thunder
 import thunder.torch as ltorch
+import torch
 from thunder.core.proxies import TensorProxy
 from thunder.core.transforms import get_grad, mean_backward, put_grads
 from thunder.extend import OperatorExecutor, register_executor
@@ -151,7 +152,76 @@ weight, just for the input.
 """
 
 
-# FIXME
+def swiglu_forward_meta(e: TensorProxy, g: TensorProxy) -> TensorProxy:
+    return TensorProxy(like=e)
+
+
+def swiglu_forward(e: torch.Tensor, g: torch.Tensor) -> torch.Tensor:
+    return torch.nn.functional.silu(e) * g
+
+
+swiglu = unsloth_ex.register_operator("swiglu", meta=swiglu_forward_meta, fn=swiglu_forward)
+
+
+from litgpt.model import LLaMAMLP as OriginalLLaMAMLP
+
+
+class ThunderLLaMAMLP(OriginalLLaMAMLP):
+    def forward(self, x: torch.Tensor) -> torch.Tensor:
+        x_fc_1 = self.fc_1(x)
+        x_fc_2 = self.fc_2(x)
+        # There's no `register_operator` for Modules and `swiglu_forward` is not a torch symbol that we can register to
+        # For now, some duplication and monkey patching is required
+        fn = swiglu if thunder.core.interpreter.is_jitting() else swiglu_forward
+        x = fn(x_fc_1, x_fc_2)
+        return self.proj(x)
+
+
+litgpt.model.LLaMAMLP = ThunderLLaMAMLP
+
+
+unsloth_swiglu_forward = unsloth_ex.register_operator(
+    "unsloth_swiglu_forward", meta=swiglu_forward_meta, fn=lambda *args: kernels.swiglu_fg_kernel(*args)
+)
+
+
+def unsloth_swiglu_backward_meta(DW: TensorProxy, e: TensorProxy, g: TensorProxy) -> Tuple[TensorProxy, TensorProxy]:
+    return TensorProxy(like=g), TensorProxy(like=e)
+
+
+def unsloth_swiglu_backward_fn(DW: Tensor, e: Tensor, g: Tensor) -> Tuple[Tensor, Tuple]:
+    B, T, n_embd = e.shape
+    e = e.view(-1, n_embd)
+    g = g.view(-1, n_embd)
+    DW, e, g = kernels.swiglu_DWf_DW_dfg_kernel(DW, e, g)
+    e = e.view(B, T, n_embd)
+    g = g.view(B, T, n_embd)
+    return g, e
+
+
+unsloth_swiglu_backward = unsloth_ex.register_operator(
+    "unsloth_swiglu_backward", meta=unsloth_swiglu_backward_meta, fn=unsloth_swiglu_backward_fn
+)
+
+
+def swiglu_to_unsloth_checker(e: TensorProxy, g: TensorProxy) -> bool:
+    return e.device.type == "cuda" and g.device.type == "cuda"
+
+
+def unsloth_swiglu_grad(e: TensorProxy, g: TensorProxy) -> TensorProxy:
+    h = unsloth_swiglu_forward(**locals())
+    grad = get_grad(h)
+    e_grad, g_grad = unsloth_swiglu_backward(grad, e, g)
+    put_grads((e, g), (e_grad, g_grad))
+    return h
+
+
+unsloth_ex.register_implementation(
+    swiglu,
+    checker=swiglu_to_unsloth_checker,
+    execution_transform=unsloth_swiglu_forward,
+    grad_transform=unsloth_swiglu_grad,
+)
 
 
 """

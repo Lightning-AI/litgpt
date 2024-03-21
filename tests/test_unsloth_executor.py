@@ -39,6 +39,7 @@ def test_unsloth_cross_entropy(reduction):
     trace_str = str(thunder.last_traces(cfoo_grad)[-1])
     assert "unsloth_cross_entropy_backward" in trace_str
     out = foo(logits, labels)
+    assert logits.grad is None
     out.sum().backward()
     expected = logits.grad
     torch.testing.assert_close(actual, expected)
@@ -73,8 +74,46 @@ def test_unsloth_rope():
     trace_str = str(thunder.last_traces(cfoo_grad)[-1])
     assert "unsloth_apply_rope_backward" in trace_str
     out = foo(q, cos, sin)
+    assert q.grad is None
     out.sum().backward()
     expected = q.grad
+    torch.testing.assert_close(actual, expected)
+
+
+@RunIf(min_cuda_gpus=1, thunder=True)
+def test_unsloth_swiglu():
+    import thunder
+    from thunder.core.transforms import grad
+
+    from extensions.thunder.unsloth.executor import unsloth_ex, ThunderLLaMAMLP
+    from litgpt.model import LLaMAMLP
+    from litgpt import Config
+
+    config = Config.from_name("Llama-2-7b-hf")
+    with torch.device("cuda"):
+        x = torch.randn(2, 16, config.n_embd, requires_grad=True)
+        mlp = LLaMAMLP(config)
+    # monkeypatching was successful
+    assert isinstance(mlp, ThunderLLaMAMLP)
+
+    cmlp = thunder.jit(mlp, executors=[unsloth_ex])
+    actual = cmlp(x)
+    trace_str = str(thunder.last_traces(cmlp)[-1])
+    assert "unsloth_swiglu" in trace_str and "backward" not in trace_str
+    trace_str = str(thunder.last_backward_traces(cmlp)[-1])
+    assert "unsloth_swiglu_backward" in trace_str
+
+    expected = mlp(x)
+    torch.testing.assert_close(actual, expected)
+
+    cmlp_grad = grad(cmlp)
+    actual = cmlp_grad(x)[0]
+    trace_str = str(thunder.last_traces(cmlp_grad)[-1])
+    assert "unsloth_swiglu_backward" in trace_str
+    out = mlp(x)
+    assert x.grad is None
+    out.sum().backward()
+    expected = x.grad
     torch.testing.assert_close(actual, expected)
 
 
@@ -121,6 +160,8 @@ def test_unsloth_gpt():
     assert "unsloth_cross_entropy_backward" in bwd_str
     assert "unsloth_apply_rope" in fwd_str
     assert "unsloth_apply_rope_backward" in bwd_str
+    assert "unsloth_swiglu" in fwd_str
+    assert "unsloth_swiglu_backward" in bwd_str
 
     cfn_grad = grad(cfn)
     _ = cfn_grad(model, input_ids, targets)
@@ -128,3 +169,4 @@ def test_unsloth_gpt():
     bwd_str = bwd[-1].python()
     assert "unsloth_cross_entropy_backward" in bwd_str
     assert "unsloth_apply_rope_backward" in bwd_str
+    assert "unsloth_swiglu_backward" in bwd_str
