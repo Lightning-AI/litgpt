@@ -4,9 +4,6 @@ import json
 import os
 from pathlib import Path
 from typing import Optional
-
-from lm_eval import evaluator
-from lm_eval.utils import make_table
 import torch
 
 from litgpt.scripts.convert_lit_checkpoint import convert_lit_checkpoint
@@ -46,6 +43,10 @@ def convert_and_evaluate(
         save_filepath: The file where the results will be saved. 
           Saves to `out_dir`/results.json by default.
     """
+
+    from lm_eval import evaluator
+    from lm_eval.utils import make_table
+
     if checkpoint_dir is None:
         raise ValueError("Provide a checkpoint_dir argument.")
     if out_dir is None:
