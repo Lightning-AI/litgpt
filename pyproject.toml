@@ -30,6 +30,7 @@ test = [
     "einops",
     "protobuf",
     "lightning-thunder; python_version >= '3.10'",
+    "lm-eval"
 ]
 all = [
     "bitsandbytes==0.42.0",      # quantization
