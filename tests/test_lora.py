@@ -665,4 +665,4 @@ def test_lora_bitsandbytes(monkeypatch, tmp_path, fake_checkpoint_dir, alpaca_pa
 
     logs = stdout.getvalue()
     assert "of trainable parameters: 512" in logs
-    assert "of non trainable parameters: 1,888" in logs
+    assert "of non-trainable parameters: 1,888" in logs
