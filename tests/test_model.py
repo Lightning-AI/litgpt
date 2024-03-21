@@ -71,6 +71,9 @@ def test_against_gpt_neox_model(rotary_pct, batch_size, n_embd, parallel_residua
         n_embd=n_embd,
         rotary_percentage=rotary_pct,
         parallel_residual=parallel_residual,
+        attn_qkv_bias=True,
+        attn_proj_bias=True,
+        mlp_bias=True,
     )
     assert ours_config.padded_vocab_size == 512
     theirs_config = GPTNeoXConfig(

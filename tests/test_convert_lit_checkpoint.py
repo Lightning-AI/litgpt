@@ -82,7 +82,16 @@ def test_against_falcon_40b():
 
 @torch.inference_mode()
 def test_against_original_gpt_neox():
-    ours_config = Config(block_size=64, vocab_size=100, n_layer=4, n_head=8, n_embd=16)
+    ours_config = Config(
+        block_size=64,
+        vocab_size=100,
+        n_layer=4,
+        n_head=8,
+        n_embd=16,
+        attn_qkv_bias=True,
+        attn_proj_bias=True,
+        mlp_bias=True,
+    )
     assert ours_config.padded_vocab_size == 512
     theirs_config = GPTNeoXConfig(
         hidden_act="gelu",

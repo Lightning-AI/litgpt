@@ -99,7 +99,7 @@ def test_against_hf_config_bias_parity(model_name):
         )
     except OSError as e_info:
         if "You are trying to access a gated repo." in str(e_info):
-            pytest.skip("Gated repo.")
+            pytest.xfail("Gated repo.")
         else:
             raise e_info
 
