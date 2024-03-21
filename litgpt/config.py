@@ -28,9 +28,9 @@ class Config:
     n_embd: int = 4096
     rotary_percentage: float = 0.25
     parallel_residual: bool = True
-    attn_qkv_bias: bool = True,
-    attn_proj_bias: bool = True,
-    mlp_bias: bool = True,
+    attn_qkv_bias: bool = True
+    attn_proj_bias: bool = True
+    mlp_bias: bool = True
     lm_head_bias: bool = False
     # to use multi-head attention (MHA), set this to `n_head` (default)
     # to use multi-query attention (MQA), set this to 1
