@@ -30,9 +30,9 @@ from litgpt.utils import (
     copy_config_files,
     num_parameters,
     parse_devices,
+    reset_parameters,
     save_config,
     save_hyperparameters,
-    reset_parameters,
 )
 
 
@@ -153,7 +153,7 @@ def main(
     t0 = time.perf_counter()
     with fabric.init_module(empty_init=True):
         model = GPT(config)
-    
+
     initialize_weights(fabric, model, n_layer=config.n_layer, n_embd=config.n_embd)
 
     if train.tie_embeddings:
@@ -203,7 +203,7 @@ def main(
 
 
 def fit(
-    fabric,
+    fabric: L.Fabric,
     devices: int,
     state: dict,
     train_dataloader: DataLoader,

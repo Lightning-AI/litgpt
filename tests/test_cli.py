@@ -6,10 +6,10 @@ from unittest import mock
 import pytest
 from packaging.version import Version
 
+from litgpt.__main__ import main
+
 
 def test_cli():
-    from litgpt.__main__ import main
-
     out = StringIO()
     with pytest.raises(SystemExit), redirect_stdout(out), mock.patch("sys.argv", ["litgpt", "-h"]):
         main()

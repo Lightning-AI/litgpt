@@ -10,8 +10,13 @@ from unittest.mock import ANY, Mock
 import pytest
 import torch
 from conftest import RunIf
+from lightning.fabric.strategies import FSDPStrategy, SingleDeviceStrategy
 from torch.utils.data import DataLoader
-from lightning.fabric.strategies import SingleDeviceStrategy, FSDPStrategy
+
+from litgpt import pretrain
+from litgpt.args import EvalArgs, TrainArgs
+from litgpt.config import Config
+from litgpt.pretrain import init_out_dir, initialize_weights
 
 
 @RunIf(min_cuda_gpus=2, standalone=True)
@@ -22,10 +27,6 @@ from lightning.fabric.strategies import SingleDeviceStrategy, FSDPStrategy
 # launching, so we need to mock `save_hyperparameters()`
 @mock.patch("litgpt.pretrain.save_hyperparameters")
 def test_pretrain(_, tmp_path):
-    from litgpt import pretrain
-    from litgpt.args import EvalArgs, TrainArgs
-    from litgpt.config import Config
-
     model_config = Config(block_size=2, n_layer=2, n_embd=8, n_head=4, padded_vocab_size=8)
 
     dataset = torch.tensor([[0, 1, 2], [3, 4, 5], [0, 1, 2]])
@@ -69,9 +70,6 @@ def test_pretrain(_, tmp_path):
 @mock.patch.dict(os.environ, {"CUDA_VISIBLE_DEVICES": "0,1"})
 @mock.patch("litgpt.pretrain.L.Fabric.load_raw")
 def test_initial_checkpoint_dir(load_mock, tmp_path):
-    from litgpt import pretrain
-    from litgpt.config import Config
-
     model_config = Config(block_size=2, n_layer=2, n_embd=8, n_head=4, padded_vocab_size=8)
 
     dataset = torch.tensor([[0, 1, 2], [3, 4, 5], [0, 1, 2]])
@@ -85,16 +83,11 @@ def test_initial_checkpoint_dir(load_mock, tmp_path):
 
 
 def test_pretrain_model_name_and_config():
-    from litgpt import pretrain
-    from litgpt.config import Config
-
     with pytest.raises(ValueError, match="Only one of `model_name` or `model_config`"):
         pretrain.setup(model_name="tiny-llama-1.1b", model_config=Config(name="tiny-llama-1.1b"))
 
 
 def test_init_out_dir(tmp_path):
-    from litgpt.pretrain import init_out_dir
-
     relative_path = Path("./out")
     absolute_path = tmp_path / "out"
     assert init_out_dir(relative_path) == relative_path
@@ -107,8 +100,6 @@ def test_init_out_dir(tmp_path):
 
 @pytest.mark.parametrize(("strategy", "expected"), [(SingleDeviceStrategy, True), (FSDPStrategy, False)])
 def test_initialize_weights(strategy, expected):
-    from litgpt.pretrain import initialize_weights
-
     fabric_mock = Mock()
     fabric_mock.strategy = Mock(spec=strategy)
 
