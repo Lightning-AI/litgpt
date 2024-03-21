@@ -20,10 +20,10 @@ def test_cli():
         """Available subcommands:
     download            Download weights or tokenizer data from the Hugging
                         Face Hub.
-    chat                Chat with a model.
-    evaluate            Evaluate a model with the LM Evaluation Harness."""
+    chat                Chat with a model."""
         in out
     )
+    assert ("""evaluate            Evaluate a model with the LM Evaluation Harness.""") in out
 
     out = StringIO()
     with pytest.raises(SystemExit), redirect_stdout(out), mock.patch("sys.argv", ["litgpt", "finetune", "-h"]):
