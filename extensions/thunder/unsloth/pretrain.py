@@ -3,11 +3,12 @@
 import math
 import os
 import pprint
+import sys
 import time
 from datetime import timedelta
 from functools import partial
 from pathlib import Path
-from typing import Optional, Tuple, Union
+from typing import Any, Callable, Optional, Tuple, Union
 
 import lightning as L
 import torch
@@ -21,7 +22,7 @@ from typing_extensions import Literal
 from litgpt import Tokenizer
 from litgpt.args import EvalArgs, TrainArgs
 from litgpt.data import DataModule, TinyLlama
-from litgpt.model import GPT, Block, CausalSelfAttention, Config, LLaMAMLP
+from litgpt.model import GPT, CausalSelfAttention, Config, LLaMAMLP
 from litgpt.utils import (
     CLI,
     CycleIterator,
@@ -34,6 +35,8 @@ from litgpt.utils import (
     save_config,
     save_hyperparameters,
 )
+
+sys.path.append(str(Path(__file__).parent))
 
 
 def setup(
@@ -103,11 +106,12 @@ def setup(
     )
 
     if devices > 1:
-        strategy = FSDPStrategy(auto_wrap_policy={Block}, state_dict_type="full", sharding_strategy="HYBRID_SHARD")
-    else:
-        strategy = "auto"
-    fabric = L.Fabric(devices=devices, strategy=strategy, precision="bf16-mixed", loggers=[logger])
+        raise NotImplementedError("Cannot fsdp a model that's input to a jitted function #2489")
+    fabric = L.Fabric(devices=devices, precision="bf16-true", loggers=[logger])
     fabric.launch()
+
+    global forward_and_loss
+    forward_and_loss = jit(forward_and_loss)
 
     fabric.print(pprint.pformat(hparams))
     if logger_name in ("tensorboard", "wandb"):
@@ -164,7 +168,6 @@ def main(
     fabric.print(f"Time to instantiate model: {time.perf_counter() - t0:.02f} seconds.")
     fabric.print(f"Total parameters: {num_parameters(model):,}")
 
-    model = torch.compile(model)
     model = fabric.setup(model)
     optimizer = torch.optim.AdamW(
         model.parameters(),
@@ -260,14 +263,14 @@ def fit(
 
         is_accumulating = state["iter_num"] % train.gradient_accumulation_iters(devices) != 0
         with fabric.no_backward_sync(model, enabled=is_accumulating):
-            logits = model(input_ids)
-            loss = chunked_cross_entropy(logits, targets)
+            loss = forward_and_loss(model, input_ids, targets)
             fabric.backward(loss / train.gradient_accumulation_iters(devices))
 
         running_loss.update(loss.detach())
 
         if not is_accumulating:
-            fabric.clip_gradients(model, optimizer, max_norm=train.max_norm)
+            # THUNDER unsupported: https://github.com/Lightning-AI/lightning-thunder/issues/2357
+            # fabric.clip_gradients(model, optimizer, max_norm=train.max_norm)
             optimizer.step()
             optimizer.zero_grad()
             state["step_count"] += 1
@@ -333,6 +336,13 @@ def fit(
                 save_config(model.config, checkpoint_file.parent)
 
 
+def forward_and_loss(model: nn.Module, input_ids: torch.Tensor, targets: torch.Tensor) -> torch.Tensor:
+    logits = model(input_ids)
+    # disable chunk_size to enable the unsloth cross entropy kernel
+    loss = chunked_cross_entropy(logits, targets, chunk_size=0)
+    return loss
+
+
 @torch.no_grad()
 def validate(fabric: L.Fabric, model: nn.Module, val_dataloader: DataLoader, max_iters: int) -> torch.Tensor:
     fabric.barrier()
@@ -345,8 +355,7 @@ def validate(fabric: L.Fabric, model: nn.Module, val_dataloader: DataLoader, max
             break
         input_ids = batch[:, 0 : model.max_seq_length].contiguous().long()
         targets = batch[:, 1 : (model.max_seq_length + 1)].contiguous().long()
-        logits = model(input_ids)
-        loss = chunked_cross_entropy(logits, targets)
+        loss = forward_and_loss(model, input_ids, targets)
         losses.append(loss)
 
     val_loss = torch.stack(losses).mean()
@@ -426,6 +435,18 @@ def validate_args(train: TrainArgs, eval: EvalArgs, initial_checkpoint_dir, resu
         issues.append("Can't provide both `--resume` and `--initial_checkpoint_dir`. Choose one.")
     if issues:
         raise ValueError("\n".join(issues))
+
+
+def jit(fn: Callable) -> Any:
+    import thunder
+    from thunder.executors.sdpaex import sdpa_ex
+    from thunder.executors.torch_compile import torch_compile_executor
+
+    from executor import unsloth_ex
+
+    return thunder.jit(
+        fn, executors=[sdpa_ex, unsloth_ex, torch_compile_executor, thunder.nvfuser_executor, thunder.pytorch_executor]
+    )
 
 
 if __name__ == "__main__":

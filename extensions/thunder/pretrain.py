@@ -7,7 +7,7 @@ import time
 from datetime import timedelta
 from functools import partial
 from pathlib import Path
-from typing import Optional, Tuple, Union
+from typing import Any, Callable, Optional, Tuple, Union
 
 import lightning as L
 import torch
@@ -63,6 +63,8 @@ def setup(
     tokenizer_dir: Optional[Path] = None,
     logger_name: Literal["wandb", "tensorboard", "csv"] = "tensorboard",
     seed: int = 42,
+    compiler: Optional[Literal["thunder", "torch"]] = "thunder",
+    strategy: Literal["auto", "ddp", "fsdp"] = "fsdp",
 ):
     """Pretrain a model.
 
@@ -85,6 +87,8 @@ def setup(
             module require this.
         logger_name: The name of the logger to send metrics to.
         seed: The random seed to use for reproducibility.
+        compiler: If desired, the compiler/JIT to use.
+        strategy: If desired, the strategy to use.
     """
     hparams = locals()
     data = TinyLlama() if data is None else data
@@ -103,10 +107,28 @@ def setup(
     )
 
     if devices > 1:
-        strategy = FSDPStrategy(auto_wrap_policy={Block}, state_dict_type="full", sharding_strategy="HYBRID_SHARD")
+        if compiler == "thunder":
+            executors = ("sdpa", "torchcompile", "nvfuser", "torch")
+            global jit
+            jit = lambda model: model  # the strategy will call `jit`
+            if strategy == "fsdp":
+                from extensions.thunder.strategies import ThunderFSDPStrategy
+
+                strategy = ThunderFSDPStrategy(
+                    sharding_strategy="ZERO3", bucketing_strategy="BLOCK", executors=executors, state_dict_type="full"
+                )
+            elif strategy == "ddp":
+                from extensions.thunder.strategies import ThunderDDPStrategy
+
+                strategy = ThunderDDPStrategy()
+        else:
+            if strategy == "fsdp":
+                strategy = FSDPStrategy(
+                    auto_wrap_policy={Block}, state_dict_type="full", sharding_strategy="FULL_SHARD"
+                )
     else:
         strategy = "auto"
-    fabric = L.Fabric(devices=devices, strategy=strategy, precision="bf16-mixed", loggers=[logger])
+    fabric = L.Fabric(devices=devices, strategy=strategy, precision="bf16-true", loggers=[logger])
     fabric.launch()
 
     fabric.print(pprint.pformat(hparams))
@@ -126,6 +148,7 @@ def setup(
         tokenizer,
         train,
         eval,
+        compiler,
     )
 
 
@@ -142,6 +165,7 @@ def main(
     tokenizer: Optional[Tokenizer],
     train: TrainArgs,
     eval: EvalArgs,
+    compiler: Optional[Literal["thunder", "torch"]],
 ) -> None:
     validate_args(train, eval, initial_checkpoint_dir, resume)
 
@@ -164,7 +188,8 @@ def main(
     fabric.print(f"Time to instantiate model: {time.perf_counter() - t0:.02f} seconds.")
     fabric.print(f"Total parameters: {num_parameters(model):,}")
 
-    model = torch.compile(model)
+    if compiler is not None:
+        model = jit(model) if compiler == "thunder" else torch.compile(model)
     model = fabric.setup(model)
     optimizer = torch.optim.AdamW(
         model.parameters(),
@@ -267,7 +292,8 @@ def fit(
         running_loss.update(loss.detach())
 
         if not is_accumulating:
-            fabric.clip_gradients(model, optimizer, max_norm=train.max_norm)
+            # THUNDER unsupported: https://github.com/Lightning-AI/lightning-thunder/issues/2357
+            # fabric.clip_gradients(model, optimizer, max_norm=train.max_norm)
             optimizer.step()
             optimizer.zero_grad()
             state["step_count"] += 1
@@ -426,6 +452,16 @@ def validate_args(train: TrainArgs, eval: EvalArgs, initial_checkpoint_dir, resu
         issues.append("Can't provide both `--resume` and `--initial_checkpoint_dir`. Choose one.")
     if issues:
         raise ValueError("\n".join(issues))
+
+
+def jit(fn: Callable) -> Any:
+    import thunder
+    from thunder.executors.sdpaex import sdpa_ex
+    from thunder.executors.torch_compile import torch_compile_executor
+
+    return thunder.jit(
+        fn, executors=[sdpa_ex, torch_compile_executor, thunder.nvfuser_executor, thunder.pytorch_executor]
+    )
 
 
 if __name__ == "__main__":
