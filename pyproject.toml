@@ -43,6 +43,8 @@ all = [
     "pyarrow",                   # litgpt.data.prepare_starcoder.py
     "tensorboard",               # litgpt.pretrain
     "torchmetrics",              # litgpt.pretrain
+    "transformers>=4.38.0",      # litgpt.evaluate
+    "lm_eval",                   # litgpt.evaluate
     "safetensors",               # download
     "huggingface_hub[hf_transfer]>=0.21.0"  # download
 ]

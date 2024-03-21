@@ -15,12 +15,13 @@ def test_cli():
         main()
     out = out.getvalue()
     assert "usage: litgpt" in out
-    assert "{download,chat,finetune,pretrain,generate,convert,merge_lora}" in out
+    assert "{download,chat,finetune,pretrain,generate,convert,merge_lora,evaluate}" in out
     assert (
         """Available subcommands:
     download            Download weights or tokenizer data from the Hugging
                         Face Hub.
-    chat                Chat with a model."""
+    chat                Chat with a model.
+    evaluate            Evaluate a model with the LM Evaluation Harness."""
         in out
     )
 
