@@ -28,7 +28,7 @@ test = [
     "pytest-timeout",
     "transformers>=4.38.0",
     "einops",
-    "lm-eval",
+    "lm-eval>=0.42.0",
     "protobuf",
     "lightning-thunder; python_version >= '3.10'",
 ]
@@ -45,7 +45,7 @@ all = [
     "tensorboard",               # litgpt.pretrain
     "torchmetrics",              # litgpt.pretrain
     "transformers>=4.38.0",      # litgpt.evaluate
-    "lm-eval",                   # litgpt.evaluate
+    "lm-eval>=0.42.0",           # litgpt.evaluate
     "safetensors",               # download
     "huggingface_hub[hf_transfer]>=0.21.0"  # download
 ]
