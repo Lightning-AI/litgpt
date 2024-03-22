@@ -10,6 +10,30 @@ from litgpt.scripts.convert_lit_checkpoint import convert_lit_checkpoint
 from litgpt.utils import CLI, copy_config_files
 
 
+def safe_safetensors(out_dir, repo_id):
+    from transformers import AutoModel
+
+    state_dict = torch.load(out_dir/"model.pth")
+    model = AutoModel.from_pretrained(
+        repo_id, state_dict=state_dict
+    )
+    model.save_pretrained(out_dir)
+
+
+def prepare_results(results, save_filepath, print_results=True):
+    from lm_eval.utils import make_table
+
+    if print_results:
+        print(make_table(results))
+        if "groups" in results:
+            print(make_table(results, "groups"))
+
+    json_result = json.dumps(
+            results, indent=2, ensure_ascii=False
+    )
+    save_filepath.open("w", encoding="utf-8").write(json_result)
+
+
 def convert_and_evaluate(
     checkpoint_dir: Optional[str] = None,
     out_dir: Optional[str] = None,
@@ -45,7 +69,6 @@ def convert_and_evaluate(
     """
 
     from lm_eval import evaluator
-    from lm_eval.utils import make_table
 
     if checkpoint_dir is None:
         raise ValueError("Provide a checkpoint_dir argument.")
@@ -68,16 +91,7 @@ def convert_and_evaluate(
 
     if not skip_conversion:
         convert_lit_checkpoint(checkpoint_dir=checkpoint_dir, output_dir=out_dir)
-
-        from transformers import AutoModel
-
-        state_dict = torch.load(out_dir/"model.pth")
-        model = AutoModel.from_pretrained(
-            repo_id, state_dict=state_dict
-        )
-
-        # Saves .safetensors files
-        model.save_pretrained(out_dir)
+        safe_safetensors(out_dir, repo_id)
 
     os.environ["TOKENIZERS_PARALLELISM"] = "false"
 
@@ -94,15 +108,8 @@ def convert_and_evaluate(
         torch_random_seed=seed,
     )
 
-    print(make_table(results))
-    if "groups" in results:
-        print(make_table(results, "groups"))
-
-    json_result = json.dumps(
-            results, indent=2, ensure_ascii=False
-    )
-
-    save_filepath.open("w", encoding="utf-8").write(json_result)
+    print("results", results)
+    prepare_results(results, save_filepath)
 
 
 if __name__ == "__main__":
