@@ -40,7 +40,7 @@ print(forward_trace)
 @torch.no_grad()
 @no_autocast()
 def augmented_forward_fn(*args):
-  # args: "Collection" 
+  # args: "Collection"
   t0, \
   t1, \
   t2, \
@@ -245,8 +245,8 @@ print(backward_trace)
 @torch.no_grad()
 @no_autocast()
 def backward_fn(saved_for_backward, cotangents):
-  # saved_for_backward: "Collection" 
-  # cotangents: "Collection" 
+  # saved_for_backward: "Collection"
+  # cotangents: "Collection"
   C0, \
   C1, \
   = saved_for_backward
@@ -528,7 +528,7 @@ We provide ready-to-use Fabric strategies that integrate Thunder DDP|FSDP. Under
 
 ```python
 model = thunder.distributed.ddp(model)
-# or 
+# or
 # model = thunder.distributed.fsdp(model)
 
 model = thunder.jit(model)

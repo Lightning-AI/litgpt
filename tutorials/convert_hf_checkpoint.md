@@ -26,13 +26,13 @@ checkpoints/
 To disable the automatic conversion, which is useful for development and debugging purposes, you can run the `litgpt/scripts/download.py` with the `--convert_checkpoint false` flag. This will only download the checkpoint files but do not convert them for use in LitGPT:
 
 ```bash
-rm -rf checkpoints/EleutherAI/pythia-14m 
+rm -rf checkpoints/EleutherAI/pythia-14m
 
 litgpt download \
   --repo_id EleutherAI/pythia-14m \
   --convert_checkpoint false
-  
-ls checkpoints/EleutherAI/pythia-14m 
+
+ls checkpoints/EleutherAI/pythia-14m
 ```
 
 ```
@@ -52,4 +52,3 @@ The required files `model_config.yaml` and `lit_model.pth` files can then be man
 litgpt convert to_litgpt \
   --checkpoint_dir checkpoints/EleutherAI/pythia-14m
 ```
-
