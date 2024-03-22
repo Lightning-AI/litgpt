@@ -36,6 +36,7 @@ def test_run_eval(tmp_path, float_like):
         model_args=f"pretrained={checkpoint_path}",
         tasks=eval_tasks.split(","),
         limit=2,
+        device="cpu"
     )
 
     save_path = checkpoint_path/"results.json"
