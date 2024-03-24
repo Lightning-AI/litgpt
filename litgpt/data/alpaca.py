@@ -7,9 +7,10 @@ from pathlib import Path
 from typing import Optional, Union
 
 import torch
-from torch.utils.data import random_split, DataLoader
 from lightning_utilities.core.imports import RequirementCache
-from litgpt.data import SFTDataset, get_sft_collate_fn, DataModule
+from torch.utils.data import DataLoader, random_split
+
+from litgpt.data import DataModule, SFTDataset, get_sft_collate_fn
 from litgpt.prompts import PromptStyle
 from litgpt.tokenizer import Tokenizer
 

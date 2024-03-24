@@ -1,10 +1,12 @@
 # Copyright Lightning AI. Licensed under the Apache License 2.0, see LICENSE file.
 from unittest import mock
 
+from litgpt.data import Deita, SFTDataset
+from litgpt.data.deita import format_dataset
+from litgpt.prompts import Alpaca as AlpacaPromptStyle
+
 
 def test_format_dataset():
-    from litgpt.data.deita import format_dataset
-
     data = [
         {
             "prompt": "prompt1",
@@ -43,9 +45,6 @@ def test_format_dataset():
 @mock.patch("litgpt.data.deita.format_dataset")
 @mock.patch("datasets.load_dataset")
 def test_deita(_, format_dataset_mock, mock_tokenizer, tmp_path):
-    from litgpt.data import Deita, SFTDataset
-    from litgpt.prompts import Alpaca as AlpacaPromptStyle
-
     format_dataset_mock.return_value = [
         {"instruction": "inst1", "output": "out1"},
         {"instruction": "inst2", "output": "out2"},

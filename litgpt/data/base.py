@@ -1,13 +1,13 @@
 # Copyright Lightning AI. Licensed under the Apache License 2.0, see LICENSE file.
 from abc import abstractmethod
 from functools import partial
-from typing import List, Dict, Union, Optional, Callable, Any
+from typing import Any, Callable, Dict, List, Optional, Union
 
 import torch
+from lightning import LightningDataModule
 from torch import Tensor
 from torch.utils.data import Dataset
 
-from lightning import LightningDataModule
 from litgpt import Tokenizer
 from litgpt.prompts import PromptStyle
 

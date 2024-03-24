@@ -6,6 +6,8 @@ from litdata import optimize
 from litdata.streaming import StreamingDataset, TokensLoader
 from torch.utils._pytree import tree_map
 
+from litgpt.data.tinystories import PretokDataset, TinyStories, process_shard
+
 
 def fake_chunk(path, data):
     def fn(_):
@@ -36,7 +38,7 @@ def test_pretok_dataset(tmp_path, max_seq_len, expected):
     assert actual == expected
 
 
-def test_tokenize(tmp_path, monkeypatch):
+def test_tokenize(tmp_path):
     from litgpt.data.tinystories import tokenize
 
     story1, story2 = "foo bar", "    fun    "

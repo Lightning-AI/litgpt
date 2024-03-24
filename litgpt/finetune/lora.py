@@ -168,7 +168,7 @@ def main(
     mark_only_lora_as_trainable(model)
 
     fabric.print(f"Number of trainable parameters: {num_parameters(model, requires_grad=True):,}")
-    fabric.print(f"Number of non trainable parameters: {num_parameters(model, requires_grad=False):,}")
+    fabric.print(f"Number of non-trainable parameters: {num_parameters(model, requires_grad=False):,}")
 
     model = fabric.setup_module(model)
 

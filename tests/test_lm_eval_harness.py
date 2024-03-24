@@ -10,6 +10,17 @@ import pytest
 import yaml
 from lightning import Fabric
 
+from litgpt.model import GPT
+from litgpt.scripts.download import download_from_hub
+from litgpt.tokenizer import Tokenizer
+
+# support running without installing as a package
+wd = Path(__file__).parent.parent.resolve()
+sys.path.append(str(wd))
+
+import eval.lm_eval_harness as module
+from eval.lm_eval_harness import EvalHarnessBase
+
 
 @pytest.mark.xfail(
     raises=(datasets.builder.DatasetGenerationError, NotImplementedError),
@@ -17,11 +28,6 @@ from lightning import Fabric
     match="Loading a dataset cached in a LocalFileSystem is not supported",
 )
 def test_run_eval(tmp_path, float_like):
-    from eval.lm_eval_harness import EvalHarnessBase
-    from litgpt.model import GPT
-    from litgpt.scripts.download import download_from_hub
-    from litgpt.tokenizer import Tokenizer
-
     fabric = Fabric(devices=1)
     with fabric.init_module():
         model = GPT.from_name("pythia-14m")
@@ -57,8 +63,6 @@ def test_run_eval(tmp_path, float_like):
 
 
 def test_eval_script(tmp_path, fake_checkpoint_dir, monkeypatch):
-    import eval.lm_eval_harness as module
-
     model_config = dict(block_size=128, n_layer=2, n_embd=8, n_head=4, padded_vocab_size=8)
     with open(fake_checkpoint_dir / "model_config.yaml", "w") as fp:
         yaml.dump(model_config, fp)
