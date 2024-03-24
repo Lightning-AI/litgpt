@@ -41,9 +41,7 @@ class TinyStories(DataModule):
         self.data_path_train = str(self.data_path).rstrip("/") + "/train"
         self.data_path_val = str(self.data_path).rstrip("/") + "/val"
 
-    def connect(
-        self, tokenizer: Optional[Tokenizer] = None, batch_size: int = 1, max_seq_length: int = -1
-    ) -> None:
+    def connect(self, tokenizer: Optional[Tokenizer] = None, batch_size: int = 1, max_seq_length: int = -1) -> None:
         self.tokenizer = tokenizer
         self.batch_size = batch_size
         self.max_seq_length = max_seq_length + 1  # Increase by one because we need the next token as well

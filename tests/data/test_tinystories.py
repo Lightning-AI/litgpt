@@ -11,13 +11,8 @@ def fake_chunk(path, data):
     def fn(_):
         for story in data:
             yield torch.tensor(story)
-    optimize(
-        fn=fn,
-        inputs=[None] * len(data),
-        output_dir=str(path),
-        num_workers=1,
-        chunk_bytes="200MB",
-    )
+
+    optimize(fn=fn, inputs=[None] * len(data), output_dir=str(path), num_workers=1, chunk_bytes="200MB")
 
 
 @pytest.mark.parametrize(
@@ -35,10 +30,7 @@ def test_pretok_dataset(tmp_path, max_seq_len, expected):
     fake_chunk(tmp_path, [fake_data])
 
     dataset = StreamingDataset(
-        input_dir=str(tmp_path),
-        item_loader=TokensLoader(block_size=max_seq_len + 1),
-        shuffle=False,
-        drop_last=False,
+        input_dir=str(tmp_path), item_loader=TokensLoader(block_size=max_seq_len + 1), shuffle=False, drop_last=False
     )
     actual = tree_map(torch.Tensor.tolist, list(dataset))
     assert actual == expected
@@ -67,9 +59,9 @@ def test_tokenize(tmp_path, monkeypatch):
     assert list(data) == [[0, 102, 111, 111, 32, 98, 97, 114], [0, 102, 117, 110]]
 
 
-
 def test_tinystories_datamodule(tmp_path):
     from litgpt.data.tinystories import TinyStories
+
     data_dir = tmp_path / "tinystories"
 
     datamodule = TinyStories(data_dir, seed=42)
@@ -86,4 +78,18 @@ def test_tinystories_datamodule(tmp_path):
     torch.manual_seed(0)
     actual = tree_map(torch.Tensor.tolist, list(tr_dataloader))
     # there is 1 sample per index in the data (13)
-    assert actual == [[[1999, 0, 13]], [[0, 13, 12]], [[1, 1999, 0]], [[63, 0, 73]], [[5, 0, 1]], [[0, 73, 5]], [[0, 23, 15]], [[0, 1, 1999]], [[15, 63, 0]], [[73, 5, 0]], [[12, 0, 23]], [[23, 15, 63]], [[13, 12, 0]]]
+    assert actual == [
+        [[1999, 0, 13]],
+        [[0, 13, 12]],
+        [[1, 1999, 0]],
+        [[63, 0, 73]],
+        [[5, 0, 1]],
+        [[0, 73, 5]],
+        [[0, 23, 15]],
+        [[0, 1, 1999]],
+        [[15, 63, 0]],
+        [[73, 5, 0]],
+        [[12, 0, 23]],
+        [[23, 15, 63]],
+        [[13, 12, 0]],
+    ]
