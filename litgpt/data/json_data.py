@@ -18,8 +18,8 @@ class JSON(DataModule):
     """Loads JSON or JSONL data for supervised finetuning."""
 
     json_path: Path
-    """A path to a JSON file or a directory with `train.json` and `val.json` containing the data. 
-    The file(s) should contain a list of samples (dicts). Each dict must have the keys 'instruction' and 'output', 
+    """A path to a JSON file or a directory with `train.json` and `val.json` containing the data.
+    The file(s) should contain a list of samples (dicts). Each dict must have the keys 'instruction' and 'output',
     and can optionally have a key 'input' (see Alpaca)."""
     mask_prompt: bool = False
     """Whether to mask the prompt section from the label (with ``ignore_index``)."""
