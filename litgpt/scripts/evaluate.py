@@ -65,7 +65,7 @@ def convert_and_evaluate(
         limit: Limit on number of examples per task.
         seed: Random seed.
         save_filepath: The file where the results will be saved. 
-          Saves to `out_dir`/results.json by default.
+            Saves to `out_dir/results.json` by default.
     """
 
     from lm_eval import evaluator
