@@ -14,8 +14,6 @@ from litgpt import Tokenizer
 from litgpt.data import DataModule
 from litgpt.data.alpaca import download_if_missing
 
-_URL = "https://huggingface.co/datasets/roneneldan/TinyStories/resolve/main/TinyStories_all_data.tar.gz"
-
 
 @dataclass
 class TinyStories(DataModule):
@@ -26,7 +24,7 @@ class TinyStories(DataModule):
 
     data_path: Path = Path("data/tinystories")
     """The path to the data directory, containing two folders 'train' and 'val'
-    which are the output of the preprocessing step. The path can also be a remote path (e.g., s3://)."""
+    which are the output of the preprocessing step."""
     seed: int = 42
     """The seed to use for shuffling the dataset."""
     num_workers: int = 8
@@ -37,9 +35,8 @@ class TinyStories(DataModule):
     max_seq_length: int = field(default=-1, init=False, repr=False)
 
     def __post_init__(self) -> None:
-        # Could be a remote path (s3://) or a local path
-        self.data_path_train = str(self.data_path).rstrip("/") + "/train"
-        self.data_path_val = str(self.data_path).rstrip("/") + "/val"
+        self.data_path_train = self.data_path / "train"
+        self.data_path_val = self.data_path / "val"
 
     def connect(self, tokenizer: Optional[Tokenizer] = None, batch_size: int = 1, max_seq_length: int = -1) -> None:
         self.tokenizer = tokenizer
@@ -62,7 +59,7 @@ class TinyStories(DataModule):
             optimize(
                 fn=partial(tokenize, tokenizer=self.tokenizer),
                 inputs=train_files,
-                output_dir=self.data_path_train,
+                output_dir=str(self.data_path_train),
                 num_workers=num_workers,
                 chunk_bytes="200MB",
             )
@@ -70,7 +67,7 @@ class TinyStories(DataModule):
             optimize(
                 fn=partial(tokenize, tokenizer=self.tokenizer),
                 inputs=val_files,
-                output_dir=self.data_path_val,
+                output_dir=str(self.data_path_val),
                 num_workers=num_workers,
                 chunk_bytes="200MB",
             )
@@ -79,7 +76,7 @@ class TinyStories(DataModule):
         from litdata.streaming import StreamingDataLoader, StreamingDataset, TokensLoader
 
         train_dataset = StreamingDataset(
-            input_dir=self.data_path_train,
+            input_dir=str(self.data_path_train),
             item_loader=TokensLoader(block_size=self.max_seq_length),
             shuffle=True,
             drop_last=True,
@@ -93,7 +90,7 @@ class TinyStories(DataModule):
         from litdata.streaming import StreamingDataset, TokensLoader
 
         val_dataset = StreamingDataset(
-            input_dir=self.data_path_val,
+            input_dir=str(self.data_path_val),
             item_loader=TokensLoader(block_size=self.max_seq_length),
             shuffle=True,
             # Consider setting to False, but we would lose some samples due to truncation when world size > 1
@@ -116,6 +113,9 @@ def tokenize(filename: str, tokenizer: Tokenizer):
         text = text.strip()  # get rid of leading/trailing whitespace
         tokens = tokenizer.encode(text, bos=True, eos=False)  # encode the text, use BOS
         yield tokens
+
+
+_URL = "https://huggingface.co/datasets/roneneldan/TinyStories/resolve/main/TinyStories_all_data.tar.gz"
 
 
 def download(data_dir: Path):
