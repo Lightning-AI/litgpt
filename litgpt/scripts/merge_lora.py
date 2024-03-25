@@ -22,7 +22,7 @@ def merge_lora(
 
     Args:
         checkpoint_dir: Path to the checkpoint directory with trained LoRA weights, which is the output of
-            ``litgpt finetune --method lora``.
+            ``litgpt finetune lora``.
         pretrained_checkpoint_dir: Optional path to the checkpoint directory with the weights of the base model
             corresponding to the LoRA checkpoint. By default, this will automatically be inferred from the metadata
             in the given `checkpoint_dir` directory. Only set this if the base model's checkpoint directory
