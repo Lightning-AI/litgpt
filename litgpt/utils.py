@@ -52,8 +52,7 @@ def reset_parameters(module: nn.Module) -> None:
             mod.reset_parameters()
 
 
-def check_valid_checkpoint_dir(checkpoint_dir: Path, lora: bool = False) -> None:
-    model_filename = "lit_model.pth.lora" if lora else "lit_model.pth"
+def check_valid_checkpoint_dir(checkpoint_dir: Path, model_filename: str = "lit_model.pth") -> None:
     files = {
         model_filename: (checkpoint_dir / model_filename).is_file(),
         "model_config.yaml": (checkpoint_dir / "model_config.yaml").is_file(),

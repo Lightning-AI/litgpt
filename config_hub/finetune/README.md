@@ -1,6 +1,6 @@
 ## Config files
 
-The table below lists the performances you can expect from the provided config files. Note that you can achieve lower memory consumption by lowering the micro batch size as needed. In addition, you can lower the rank (`lora_r`) in the LoRA configuration files and disable LoRA for certain layers (for example, setting `lora_projection` and other LoRA layer-specific parameters to `false`). 
+The table below lists the performances you can expect from the provided config files. Note that you can achieve lower memory consumption by lowering the micro batch size as needed. In addition, you can lower the rank (`lora_r`) in the LoRA configuration files and disable LoRA for certain layers (for example, setting `lora_projection` and other LoRA layer-specific parameters to `false`).
 For more information, see the [Dealing with out-of-memory (OOM) errors](../../tutorials/oom.md) on lowering the memory requirements.
 
 &nbsp;
@@ -35,5 +35,26 @@ For more information, see the [Dealing with out-of-memory (OOM) errors](../../tu
 | tiny-llama/full.yaml              | 1.1B | Alpaca 2k | 1      | 1.105    | 14.10 GB    | 512            | 4                | bfloat16  | 2.59 min (1xA10G)  |
 
 &nbsp;
+## Extending the context length
 
 If you require a longer sequence length than the one used in a given config file, you can either edit the `max_seq_length` in the config file or pass an additional argument when running the finetuning command, for example, `--max_seq_length 4096` to override the sequence length provided in the config file.
+
+&nbsp;
+## Training on GPUs without bfloat16 support
+
+If you are training on GPUs without bfloat-16 support, you need to change the `precision` option to `16-true` (16-bit floating point precision) or `16-mixed` (16/32-bit mixed precision) training:
+
+```bash
+litgpt finetune lora \
+  --config config_hub/finetune/phi-2/lora.yaml \
+  --precision 16-true
+```
+or
+
+```bash
+litgpt finetune lora \
+  --config config_hub/finetune/phi-2/lora.yaml \
+  --precision 16-mixed
+```
+
+Note that `16-true` is more compute and memory-efficient, but it can sometimes lead to training convergence issues. In this case, it's recommended to use `16-mixed`.

@@ -401,4 +401,3 @@ If you use LitGPT in your research, please cite the following work:
 ## License
 
 LitGPT is released under the [Apache 2.0](https://github.com/Lightning-AI/litgpt/blob/main/LICENSE) license.
-
