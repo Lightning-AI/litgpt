@@ -31,6 +31,7 @@ from litgpt.utils import (
     num_parameters,
     parse_devices,
     save_hyperparameters,
+    get_linear_nonlinear_params
 )
 
 
@@ -153,22 +154,11 @@ def main(
     model = fabric.setup(model)
 
     if use_galore:
-        # Currently apply galore to all parameters; might add options to target specific layers later
 
-        linear_params = []
-        non_linear_params = []
-
-        for module in model.modules():
-            if isinstance(module, torch.nn.Linear):
-                linear_params.extend(list(model.parameters()))
-            else:
-                non_linear_params.extend(list(model.parameters()))
-
-        # Make extra sure that there is no overlap
-        linear_params = list(set(linear_params) - set(non_linear_params))
-
+        linear_params, nonlinear_params = get_linear_nonlinear_params(model)
+        # Currently apply galore to all parameters; might add options to target specific layers later)
         param_groups = [
-            {'params': non_linear_params},
+            {'params': nonlinear_params},
             {
              'params': linear_params,
              'rank': galore_r,
