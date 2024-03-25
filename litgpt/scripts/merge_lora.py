@@ -30,7 +30,7 @@ def merge_lora(
         precision: Optional precision setting to instantiate the model weights in. By default, this will
             automatically be inferred from the metadata in the given ``checkpoint_dir`` directory.
     """
-    check_valid_checkpoint_dir(checkpoint_dir, lora=True)
+    check_valid_checkpoint_dir(checkpoint_dir, model_filename="lit_model.pth.lora")
     if pretrained_checkpoint_dir is not None:
         check_valid_checkpoint_dir(pretrained_checkpoint_dir)
     if (checkpoint_dir / "lit_model.pth").is_file():
