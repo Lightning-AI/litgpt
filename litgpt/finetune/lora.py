@@ -94,6 +94,8 @@ def setup(
     pprint(locals())
     data = Alpaca() if data is None else data
     devices = parse_devices(devices)
+
+    check_valid_checkpoint_dir(checkpoint_dir)
     config = Config.from_file(
         checkpoint_dir / "model_config.yaml",
         lora_r=lora_r,
@@ -150,7 +152,6 @@ def main(
     eval: EvalArgs,
 ) -> None:
     validate_args(train, eval)
-    check_valid_checkpoint_dir(checkpoint_dir)
 
     tokenizer = Tokenizer(checkpoint_dir)
     train_dataloader, val_dataloader = get_dataloaders(fabric, data, tokenizer, train)
