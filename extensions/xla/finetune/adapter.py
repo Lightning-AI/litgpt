@@ -19,12 +19,12 @@ from litgpt.tokenizer import Tokenizer
 from litgpt.utils import check_valid_checkpoint_dir, chunked_cross_entropy, estimate_flops, lazy_load, num_parameters
 
 # support running without installing as a package
-wd = Path(__file__).parent.parent.parent.resolve()
+wd = Path(__file__).parents[3].resolve()
 sys.path.append(str(wd))
 
-from xla.generate.base import generate
-from xla.scripts.prepare_alpaca import generate_prompt
-from xla.utils import rank_print, sequential_load_and_fsdp_wrap
+from extensions.xla.generate.base import generate
+from extensions.xla.scripts.prepare_alpaca import generate_prompt
+from extensions.xla.utils import rank_print, sequential_load_and_fsdp_wrap
 
 eval_interval = 200
 save_interval = 200
@@ -102,7 +102,7 @@ def main(fabric: L.Fabric, data_dir: Path, checkpoint_dir: Path, out_dir: Path) 
     mark_only_adapter_as_trainable(model)
     # these are not correct in the sharding case
     rank_print(fabric, f"Number of trainable parameters: {num_parameters(model, requires_grad=True):,}")
-    rank_print(fabric, f"Number of non trainable parameters: {num_parameters(model, requires_grad=False):,}")
+    rank_print(fabric, f"Number of non-trainable parameters: {num_parameters(model, requires_grad=False):,}")
 
     trainable_params = [p for p in model.parameters() if p.requires_grad]
     optimizer = torch.optim.SGD(trainable_params, lr=learning_rate)

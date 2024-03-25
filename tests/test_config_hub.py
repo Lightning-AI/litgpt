@@ -14,7 +14,10 @@ fixed_pairs = [
     ("litgpt/pretrain.py", "pretrain/debug.yaml"),
     ("litgpt/pretrain.py", "pretrain/tinyllama.yaml"),
     ("litgpt/pretrain.py", "pretrain/tinystories.yaml"),
-    ("litgpt/pretrain.py", "https://raw.githubusercontent.com/Lightning-AI/litgpt/main/config_hub/pretrain/tinystories.yaml"),
+    (
+        "litgpt/pretrain.py",
+        "https://raw.githubusercontent.com/Lightning-AI/litgpt/main/config_hub/pretrain/tinystories.yaml",
+    ),
 ]
 
 config_hub_path = Path(__file__).parent.parent / "config_hub" / "finetune"
@@ -33,7 +36,7 @@ all_pairs = fixed_pairs + model_pairs
 
 
 @pytest.mark.parametrize(("script_file", "config_file"), all_pairs)
-def test_config_help(script_file, config_file):
+def test_config_help(script_file, config_file, monkeypatch):
     """Test that configs validate against the signature in the scripts."""
     script_file = Path(__file__).parent.parent / script_file
     assert script_file.is_file()
@@ -45,10 +48,11 @@ def test_config_help(script_file, config_file):
     module = importlib.util.module_from_spec(spec)
     spec.loader.exec_module(module)
 
-    module.main = Mock()
-    module.Tokenizer = Mock()
-    module.BitsandbytesPrecision = Mock(return_value=Precision())
-    module.Config = Mock(return_value=Config.from_name("pythia-14m"))
+    monkeypatch.setattr(module, "main", Mock())
+    monkeypatch.setattr(module, "Tokenizer", Mock())
+    monkeypatch.setattr(module, "BitsandbytesPrecision", Mock(return_value=Precision()), raising=False)
+    monkeypatch.setattr(module, "Config", Mock(return_value=Config.from_name("pythia-14m")))
+    monkeypatch.setattr(module, "check_valid_checkpoint_dir", Mock(), raising=False)
 
     with mock.patch("sys.argv", [script_file.name, "--config", str(config_file), "--devices", "1"]):
         CLI(module.setup)

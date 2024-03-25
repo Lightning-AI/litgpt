@@ -25,9 +25,9 @@
 
 ✅ &nbsp;[The latest model weights](tutorials/download_model_weights.md): Gemma, Mistral, Mixtral, Phi 2, Llama 2, Falcon, CodeLlama, and [many more](tutorials/download_model_weights.md).
 
-✅ &nbsp;Optimized and efficient code: Flash Attention v2, multi-GPU support via fully-sharded data parallelism, [optional CPU offloading](tutorials/oom.md#do-sharding-across-multiple-gpus), and [TPU and XLA support](./xla).
+✅ &nbsp;Optimized and efficient code: Flash Attention v2, multi-GPU support via fully-sharded data parallelism, [optional CPU offloading](tutorials/oom.md#do-sharding-across-multiple-gpus), and [TPU and XLA support](extensions/xla).
 
-✅ &nbsp;[Pretraining](tutorials/pretraining.md), [finetuning](tutorials/finetune.md), and [inference](tutorials/inference.md) in various precision settings: FP32, FP16, BF16, and FP16/FP32 mixed.
+✅ &nbsp;[Pretraining](tutorials/pretrain_tinyllama.md), [finetuning](tutorials/finetune.md), and [inference](tutorials/inference.md) in various precision settings: FP32, FP16, BF16, and FP16/FP32 mixed.
 
 ✅ &nbsp;[Configuration files](config_hub) for great out-of-the-box performance.
 
@@ -344,7 +344,7 @@ helping democratize AI for millions of developers and researchers worldwide.
 
 Using TPUs with Lightning is as straightforward as changing one line of code.
 
-We provide scripts fully optimized for TPUs in the [XLA directory](xla).
+We provide scripts fully optimized for TPUs in the [XLA directory](extensions/xla).
 
 
 
@@ -401,4 +401,3 @@ If you use LitGPT in your research, please cite the following work:
 ## License
 
 LitGPT is released under the [Apache 2.0](https://github.com/Lightning-AI/litgpt/blob/main/LICENSE) license.
-

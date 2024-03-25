@@ -144,11 +144,8 @@ class LoRALinear(LoRALayer):
         if self.r > 0 and not self.merged:
             pretrained_dtype = self.linear.weight.data.dtype
             lora_data = self.get_lora_AB()
-            # if the pretrained weights and LoRA weights are of the same dtype - simply sum them
-            if pretrained_dtype == lora_data.dtype:
-                self.linear.weight.data += lora_data
             # if only the pretrained are in quantized form - dequantize, sum with LoRA and quantize the result
-            elif pretrained_dtype == torch.uint8:
+            if pretrained_dtype == torch.uint8:
                 import bitsandbytes as bnb
 
                 weight = self.linear.weight
@@ -159,6 +156,10 @@ class LoRALinear(LoRALayer):
                 # assign updated weights and quantize by moving to CUDA device
                 self.linear.weight = bnb.nn.Params4bit(weight_data, requires_grad=False, **weight.__dict__)
                 self.linear.weight.cuda(weight.device)
+            # if the pretrained weights and LoRA weights are of compatible dtypes - simply sum them
+            elif torch.finfo(pretrained_dtype).max >= torch.finfo(lora_data.dtype).max:
+                # self.linear might be on CPU and lora_data on CUDA
+                self.linear.weight.data += lora_data.to(device=self.linear.weight.data.device)
             else:
                 raise NotImplementedError(
                     f"Cannot merge the pretrained weights of type {pretrained_dtype}"
@@ -686,6 +687,8 @@ class LLaMAMLP(litgpt.model.LLaMAMLP):
             lora_dropout=config.lora_dropout,
         )
 
+        self.config = config
+
     def _load_from_state_dict(self, state_dict: Dict, prefix: str, *args: Any, **kwargs: Any) -> None:
         """For compatibility with base checkpoints."""
         mapping = {
@@ -704,7 +707,7 @@ class GemmaMLP(LLaMAMLP):
     def forward(self, x: torch.Tensor) -> torch.Tensor:
         x_fc_1 = self.fc_1(x)
         x_fc_2 = self.fc_2(x)
-        x = torch.nn.functional.gelu(x_fc_1) * x_fc_2
+        x = torch.nn.functional.gelu(x_fc_1, approximate=self.config.gelu_approximate) * x_fc_2
         return self.proj(x)
 
 

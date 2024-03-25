@@ -66,7 +66,7 @@ For convenience, we first specify an environment variable (optional) to avoid co
 export repo_id=TinyLlama/TinyLlama-1.1B-intermediate-step-1431k-3T
 ```
 
-Instead of using TinyLlama, you can replace the `repo_id` target with any other model repository 
+Instead of using TinyLlama, you can replace the `repo_id` target with any other model repository
 specifier that is currently supported by LitGPT. You can get a list of supported repository specifier
 by running `litgpt/scripts/download.py` without any additional arguments.
 

@@ -3,13 +3,13 @@
 import json
 from dataclasses import dataclass, field
 from pathlib import Path
-from typing import Optional, Dict, List, Set, Union
+from typing import Dict, List, Optional, Set, Union
 
 import torch
 from torch.utils.data import DataLoader
 
 from litgpt import PromptStyle
-from litgpt.data import SFTDataset, get_sft_collate_fn, DataModule
+from litgpt.data import DataModule, SFTDataset, get_sft_collate_fn
 from litgpt.data.alpaca import download_if_missing
 from litgpt.tokenizer import Tokenizer
 

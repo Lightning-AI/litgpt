@@ -11,14 +11,14 @@ import pytest
 import torch
 import yaml
 
+from litgpt.lora import GPT as LoRAGPT
+from litgpt.lora import lora_filter
+from litgpt.model import GPT
+from litgpt.scripts.merge_lora import load_lora_metadata, merge_lora
+
 
 @mock.patch.dict(os.environ, {"LT_ACCELERATOR": "cpu"})
 def test_merge_lora(tmp_path, fake_checkpoint_dir):
-    from litgpt.lora import GPT as LoRAGPT
-    from litgpt.lora import lora_filter
-    from litgpt.model import GPT
-    from litgpt.scripts.merge_lora import merge_lora
-
     pretrained_checkpoint_dir = tmp_path / "pretrained"
     lora_checkpoint_dir = tmp_path / "lora"
     shutil.copytree(fake_checkpoint_dir, pretrained_checkpoint_dir)
@@ -72,8 +72,6 @@ def test_merge_lora(tmp_path, fake_checkpoint_dir):
 
 
 def test_load_lora_metadata(fake_checkpoint_dir):
-    from litgpt.scripts.merge_lora import load_lora_metadata
-
     assert not (fake_checkpoint_dir / "hyperparameters.yaml").is_file()
     with pytest.raises(FileNotFoundError, match="missing a `hyperparameters.yaml` file"):
         load_lora_metadata(fake_checkpoint_dir)

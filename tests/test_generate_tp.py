@@ -10,10 +10,12 @@ import yaml
 from conftest import RunIf
 from test_generate_sequentially import find_forward_hooks
 
+from litgpt import GPT, Config
+from litgpt.generate.tp import tensor_parallel, tensor_parallel_linear
+from litgpt.scripts.download import download_from_hub
+
 
 def test_tensor_parallel_linear():
-    from litgpt.generate.tp import tensor_parallel_linear
-
     fabric = Mock()
     fabric.world_size = 4
     fabric.global_rank = 2
@@ -82,9 +84,6 @@ def test_tensor_parallel_linear():
     ],
 )
 def test_tensor_parallel_llama(name, expected):
-    from litgpt import GPT
-    from litgpt.generate.tp import tensor_parallel
-
     fabric = Mock()
     fabric.world_size = 8
     fabric.global_rank = 1
@@ -108,9 +107,6 @@ root = Path(__file__).parent.parent.resolve()
 
 @RunIf(min_cuda_gpus=2)
 def test_tp(tmp_path):
-    from litgpt import GPT, Config
-    from litgpt.scripts.download import download_from_hub
-
     # download the tokenizer
     download_from_hub(repo_id="EleutherAI/pythia-14m", tokenizer_only=True, checkpoint_dir=tmp_path)
     checkpoint_dir = tmp_path / "EleutherAI/pythia-14m"
