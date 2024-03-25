@@ -27,7 +27,7 @@
 
 ✅ &nbsp;Optimized and efficient code: Flash Attention v2, multi-GPU support via fully-sharded data parallelism, [optional CPU offloading](tutorials/oom.md#do-sharding-across-multiple-gpus), and [TPU and XLA support](extensions/xla).
 
-✅ &nbsp;[Pretraining](tutorials/pretraining.md), [finetuning](tutorials/finetune.md), and [inference](tutorials/inference.md) in various precision settings: FP32, FP16, BF16, and FP16/FP32 mixed.
+✅ &nbsp;[Pretraining](tutorials/pretrain_tinyllama.md), [finetuning](tutorials/finetune.md), and [inference](tutorials/inference.md) in various precision settings: FP32, FP16, BF16, and FP16/FP32 mixed.
 
 ✅ &nbsp;[Configuration files](config_hub) for great out-of-the-box performance.
 
