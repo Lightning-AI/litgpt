@@ -53,11 +53,11 @@ def setup(
     ),
     eval: EvalArgs = EvalArgs(interval=600, max_new_tokens=100, max_iters=100),
     use_galore: bool = False,
-    galore_8bit = False,
+    galore_8bit: bool = False,
     galore_r: int = 128,
     galore_update_proj_gap: int = 200,
     galore_scale: float = 0.25,
-    galore_proj_type: str = "std",
+    galore_proj_type: Literal["std", "reverse_std"] = "std",
     logger_name: Literal["wandb", "tensorboard", "csv"] = "csv",
     seed: int = 1337,
 ) -> None:
@@ -73,13 +73,13 @@ def setup(
         data: Data-related arguments. If not provided, the default is ``litgpt.data.Alpaca``.
         train: Training-related arguments. See ``litgpt.args.TrainArgs`` for details.
         eval: Evaluation-related arguments. See ``litgpt.args.EvalArgs`` for details.
-        use_galore: TODO,
-        use_galore_8bit: TODO,
-        galore_r: TODO,
-        galore_optimizer: TODO,
-        galore_update_proj_gap: TODO,
-        galore_scale: TODO,
-        galore_proj_type: TODO,
+        use_galore: Whether to enable GaLore (GaLore is applied to all linear layers).
+        use_galore_8bit: Whether to use the 8-bit GaLore AdamW optimizer
+            instead of the Galore AdamW optimizer.
+        galore_r: GaLore rank,
+        galore_update_proj_gap: GaLore hyperparameter,
+        galore_scale: GaLore scale factor,
+        galore_proj_type: GaLore projection type,
         logger_name: The name of the logger to send metrics to.
         seed: The random seed to use for reproducibility.
     """
