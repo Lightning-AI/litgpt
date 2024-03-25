@@ -52,6 +52,11 @@ def setup(
         max_seq_length=None,
     ),
     eval: EvalArgs = EvalArgs(interval=600, max_new_tokens=100, max_iters=100),
+    use_galore: bool = False,
+    galore_r: int = 128,
+    galore_update_proj_gap: int = 200,
+    galore_scale: float = 0.25,
+    galore_proj_type: str = "std",
     logger_name: Literal["wandb", "tensorboard", "csv"] = "csv",
     seed: int = 1337,
 ) -> None:
@@ -67,6 +72,12 @@ def setup(
         data: Data-related arguments. If not provided, the default is ``litgpt.data.Alpaca``.
         train: Training-related arguments. See ``litgpt.args.TrainArgs`` for details.
         eval: Evaluation-related arguments. See ``litgpt.args.EvalArgs`` for details.
+        use_galore: TODO,
+        galore_r: TODO,
+        galore_optimizer: TODO,
+        galore_update_proj_gap: TODO,
+        galore_scale: TODO,
+        galore_proj_type: TODO,
         logger_name: The name of the logger to send metrics to.
         seed: The random seed to use for reproducibility.
     """
@@ -95,7 +106,10 @@ def setup(
         strategy = "auto"
 
     fabric = L.Fabric(devices=devices, strategy=strategy, precision=precision, loggers=logger)
-    fabric.launch(main, devices, resume, seed, config, data, checkpoint_dir, out_dir, train, eval)
+    fabric.launch(
+        main, devices, resume, seed, config, data, checkpoint_dir, out_dir, train, eval,
+        use_galore, galore_r, galore_update_proj_gap, galore_scale, galore_proj_type
+    )
 
 
 def main(
@@ -109,6 +123,11 @@ def main(
     out_dir: Path,
     train: TrainArgs,
     eval: EvalArgs,
+    use_galore: bool,
+    galore_r: int,
+    galore_update_proj_gap: int,
+    galore_scale: float,
+    galore_proj_type: str,
 ) -> None:
     validate_args(train, eval)
 
@@ -129,9 +148,43 @@ def main(
     fabric.print(f"Number of trainable parameters: {num_parameters(model, requires_grad=True):,}")
 
     model = fabric.setup(model)
-    optimizer = torch.optim.AdamW(
-        model.parameters(), lr=train.learning_rate, weight_decay=train.weight_decay, betas=(train.beta1, train.beta2)
-    )
+
+    if use_galore:
+        # Currently apply galore to all parameters; might add options to target specific layers later
+
+        from galore_torch import GaLoreAdamW
+
+        linear_params = []
+        non_linear_params = []
+
+        for module in model.modules():
+            if isinstance(module, torch.nn.Linear):
+                linear_params.extend(list(model.parameters()))
+            else:
+                non_linear_params.extend(list(model.parameters()))
+
+        # Make extra sure that there is no overlap
+        linear_params = list(set(linear_params) - set(non_linear_params))
+
+        param_groups = [
+            {'params': non_linear_params},
+            {
+             'params': linear_params,
+             'rank': galore_r,
+             'update_proj_gap': galore_update_proj_gap,
+             'scale': galore_scale,
+             'proj_type': galore_proj_type
+            }
+        ]
+        optimizer = GaLoreAdamW(
+            param_groups, lr=train.learning_rate, weight_decay=train.weight_decay, betas=(train.beta1, train.beta2)
+        )
+
+    else:
+        optimizer = torch.optim.AdamW(
+            model.parameters(), lr=train.learning_rate, weight_decay=train.weight_decay, betas=(train.beta1, train.beta2)
+        )
+
     optimizer = fabric.setup_optimizers(optimizer)
     scheduler = get_lr_scheduler(optimizer, warmup_steps=train.lr_warmup_steps, max_steps=lr_max_steps)
     state = {"model": model, "optimizer": optimizer, "scheduler": scheduler, "iter_num": 0, "step_count": 0}
