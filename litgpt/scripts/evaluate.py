@@ -35,9 +35,9 @@ def prepare_results(results, save_filepath, print_results=True):
 
 
 def convert_and_evaluate(
-    checkpoint_dir: Optional[str] = None,
-    out_dir: Optional[str] = None,
-    repo_id: Optional[str] = None,
+    checkpoint_dir: str,
+    out_dir: str,
+    repo_id: str,
     skip_conversion: bool = False,
     tasks: Optional[str] = "hellaswag,gsm8k,truthfulqa_mc2,mmlu,winogrande,arc_challenge",
     num_fewshot: Optional[int] = None,
@@ -69,13 +69,6 @@ def convert_and_evaluate(
     """
 
     from lm_eval import evaluator
-
-    if checkpoint_dir is None:
-        raise ValueError("Provide a checkpoint_dir argument.")
-    if out_dir is None:
-        raise ValueError("Provide a checkpoint_dir argument.")
-    if repo_id is None:
-        raise ValueError("Provide a repo_id argument.")   
 
     checkpoint_dir, out_dir = Path(checkpoint_dir), Path(out_dir)
 
