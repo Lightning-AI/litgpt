@@ -79,11 +79,7 @@ def convert_and_evaluate(
 
     checkpoint_dir, out_dir = Path(checkpoint_dir), Path(out_dir)
 
-    if save_filepath is None:
-        save_filepath = "results.json"
-        save_filepath = out_dir / Path(save_filepath)
-    else:
-        save_filepath = Path(save_filepath)
+    save_filepath = out_dir / Path("results.json") if save_filepath is None else Path(save_filepath)
 
     out_dir.mkdir(parents=True, exist_ok=True)
 
