@@ -29,8 +29,7 @@ specify in the following evaluation command:
 ```
 litgpt evaluate \
   --checkpoint_dir checkpoints/microsoft/phi-2/ \
-  --out_dir evaluate_model/ \
-  --repo_id microsoft/phi-2
+  --out_dir evaluate_model/
 ```
 
 Please note that the `litgpt eval` command run an internal model conversion. 
@@ -41,7 +40,6 @@ when you want to evaluate a model a second time, you can pass the `--skip_conver
 litgpt evaluate \
   --checkpoint_dir checkpoints/microsoft/phi-2/ \
   --out_dir evaluate_model/ \
-  --repo_id microsoft/phi-2 \
   --skip_conversion true
 ```
 
@@ -78,5 +76,4 @@ litgpt finetune lora \
 litgpt evaluate \
   --checkpoint_dir lora_model/final \
   --out_dir evaluate_model/ \
-  --repo_id microsoft/phi-2
 ```

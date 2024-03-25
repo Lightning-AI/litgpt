@@ -4,6 +4,7 @@ import json
 import os
 from pathlib import Path
 from typing import Optional
+import yaml
 import torch
 
 from litgpt.scripts.convert_lit_checkpoint import convert_lit_checkpoint
@@ -37,7 +38,6 @@ def prepare_results(results, save_filepath, print_results=True):
 def convert_and_evaluate(
     checkpoint_dir: str,
     out_dir: str,
-    repo_id: str,
     skip_conversion: bool = False,
     tasks: Optional[str] = "hellaswag,gsm8k,truthfulqa_mc2,mmlu,winogrande,arc_challenge",
     num_fewshot: Optional[int] = None,
@@ -52,7 +52,6 @@ def convert_and_evaluate(
     Arguments:
         checkpoint_dir: Directory where the `lit_model.pth` and tokenizer files are located.
         out_dir: Directory in which to save the converted checkpoints for evaluation.
-        repo_id: The original repo ID the model was derived from.
         skip_conversion: Set to `True` to skip the model conversion,
             assuming the model has already been converted and the
             model.pth and .safetensor files exist.
@@ -73,6 +72,11 @@ def convert_and_evaluate(
     checkpoint_dir, out_dir = Path(checkpoint_dir), Path(out_dir)
 
     save_filepath = out_dir / Path("results.json") if save_filepath is None else Path(save_filepath)
+    config_filepath = checkpoint_dir/"model_config.yaml"
+
+    with open(config_filepath) as f:
+        config_dict = yaml.safe_load(f)
+    repo_id = f"{config_dict['hf_config']['org']}/{config_dict['hf_config']['name']}"
 
     out_dir.mkdir(parents=True, exist_ok=True)
 
