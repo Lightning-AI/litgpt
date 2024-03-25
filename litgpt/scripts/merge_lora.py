@@ -9,7 +9,7 @@ import torch
 import yaml
 
 from litgpt.lora import GPT, Config, lora_filter, merge_lora_weights
-from litgpt.utils import CLI, check_valid_checkpoint_dir, lazy_load
+from litgpt.utils import CLI, check_valid_checkpoint_dir
 
 
 def merge_lora(
