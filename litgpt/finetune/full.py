@@ -53,6 +53,7 @@ def setup(
     ),
     eval: EvalArgs = EvalArgs(interval=600, max_new_tokens=100, max_iters=100),
     use_galore: bool = False,
+    galore_8bit = False,
     galore_r: int = 128,
     galore_update_proj_gap: int = 200,
     galore_scale: float = 0.25,
@@ -73,6 +74,7 @@ def setup(
         train: Training-related arguments. See ``litgpt.args.TrainArgs`` for details.
         eval: Evaluation-related arguments. See ``litgpt.args.EvalArgs`` for details.
         use_galore: TODO,
+        use_galore_8bit: TODO,
         galore_r: TODO,
         galore_optimizer: TODO,
         galore_update_proj_gap: TODO,
@@ -108,7 +110,7 @@ def setup(
     fabric = L.Fabric(devices=devices, strategy=strategy, precision=precision, loggers=logger)
     fabric.launch(
         main, devices, resume, seed, config, data, checkpoint_dir, out_dir, train, eval,
-        use_galore, galore_r, galore_update_proj_gap, galore_scale, galore_proj_type
+        use_galore, galore_8bit, galore_r, galore_update_proj_gap, galore_scale, galore_proj_type
     )
 
 
@@ -124,6 +126,7 @@ def main(
     train: TrainArgs,
     eval: EvalArgs,
     use_galore: bool,
+    galore_8bit: bool,
     galore_r: int,
     galore_update_proj_gap: int,
     galore_scale: float,
@@ -152,8 +155,6 @@ def main(
     if use_galore:
         # Currently apply galore to all parameters; might add options to target specific layers later
 
-        from galore_torch import GaLoreAdamW
-
         linear_params = []
         non_linear_params = []
 
@@ -176,9 +177,16 @@ def main(
              'proj_type': galore_proj_type
             }
         ]
-        optimizer = GaLoreAdamW(
-            param_groups, lr=train.learning_rate, weight_decay=train.weight_decay, betas=(train.beta1, train.beta2)
-        )
+        if galore_8bit:
+            from galore_torch import GaLoreAdamW8bit
+            optimizer = GaLoreAdamW8bit(
+                        param_groups, lr=train.learning_rate, weight_decay=train.weight_decay, betas=(train.beta1, train.beta2)
+                    )
+        else:
+            from galore_torch import GaLoreAdamW
+            optimizer = GaLoreAdamW(
+                param_groups, lr=train.learning_rate, weight_decay=train.weight_decay, betas=(train.beta1, train.beta2)
+            )
 
     else:
         optimizer = torch.optim.AdamW(
