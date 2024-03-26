@@ -102,6 +102,7 @@ def main(
     quantize: Optional[Literal["bnb.nf4", "bnb.nf4-dq", "bnb.fp4", "bnb.fp4-dq", "bnb.int8"]] = None,
     precision: Optional[str] = None,
     compile: bool = False,
+    seed: int = 1245,
 ) -> None:
     """Generates text samples based on a pre-trained model and tokenizer.
 
@@ -172,7 +173,7 @@ def main(
     load_checkpoint(fabric, model, checkpoint_path)
     fabric.print(f"Time to load the model weights: {time.perf_counter() - t0:.02f} seconds.", file=sys.stderr)
 
-    L.seed_everything(1234)
+    L.seed_everything(seed)
     for i in range(num_samples):
         t0 = time.perf_counter()
         y = generate(model, encoded, max_returned_tokens, temperature=temperature, top_k=top_k, eos_id=tokenizer.eos_id)
