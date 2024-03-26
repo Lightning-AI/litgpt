@@ -397,7 +397,7 @@ Time for inference: 2.15 sec total, 39.57 tokens/sec, 85 tokens
 - [config_hub/finetune](../[config_hub/finetune): Pre-made config files for finetuning that work well out of the box
 
 &nbsp;
-## Inference (/chat)
+## LLM inference
 
 To use a downloaded or finetuned model for chat, you only need to provide the corresponding checkpoint directory containing the model and tokenizer files. For example, to chat with the phi-2 model from Microsoft, download it as follows, as described in the "Download pretrained model" section:
 
