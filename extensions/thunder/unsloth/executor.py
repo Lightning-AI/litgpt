@@ -48,8 +48,7 @@ unsloth_cross_entropy = unsloth_ex.register_operator(
 
 
 def unsloth_cross_entropy_backward_impl(dlosses: Tensor, logits: Tensor, labels: Tensor, logsumexp: Tensor) -> Tensor:
-    # clone() because the kernel writes the grads in the logits.
-    # If it works, we can remove this it, but it's not a thing we generally anticipate and support right now.
+    # clone() because the kernel writes the grads in the logits
     return kernels.cross_entropy_loss._cross_entropy_backward_impl(dlosses, logits.clone(), logsumexp, labels)
 
 
@@ -151,6 +150,7 @@ weight, just for the input.
 ========
 """
 
+
 def swiglu(e: torch.Tensor, g: torch.Tensor) -> torch.Tensor:
     return torch.nn.functional.silu(e) * g
 
@@ -177,9 +177,7 @@ litgpt_swiglu = unsloth_ex.register_operator("litgpt_swiglu", meta=swiglu_forwar
 
 
 unsloth_swiglu_forward = unsloth_ex.register_operator(
-    "unsloth_swiglu_forward",
-    meta=swiglu_forward_meta,
-    fn=lambda *args: kernels.swiglu_fg_kernel(*args),
+    "unsloth_swiglu_forward", meta=swiglu_forward_meta, fn=lambda *args: kernels.swiglu_fg_kernel(*args)
 )
 
 
