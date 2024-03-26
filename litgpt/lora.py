@@ -122,8 +122,8 @@ class LoRALinear(LoRALayer):
 
         # Actual trainable parameters
         if r > 0:
-            self.lora_A = nn.Parameter(torch.zeros((r, in_features)))
-            self.lora_B = nn.Parameter(torch.zeros((out_features, r)))
+            self.lora_A = nn.Parameter(torch.empty((r, in_features)))
+            self.lora_B = nn.Parameter(torch.empty((out_features, r)))
             self.scaling = self.lora_alpha / self.r
             self.reset_parameters()
 
