@@ -186,6 +186,7 @@ class LoRAQKVLinear(LoRALinear):
         in_features: int,
         out_features: int,
         # ↓ the remaining part is for LoRA
+        head_size: int,
         n_head: int,
         n_query_groups: int,
         r: int = 0,
@@ -205,6 +206,7 @@ class LoRAQKVLinear(LoRALinear):
         Args:
             in_features: number of input features of the pretrained weights
             out_features: number of output features of the pretrained weights
+            head_size: size of a single attention head
             n_head: number of attention heads
             n_query_groups: number of query groups (see diagram in `litgpt/config.py`)
             r: rank of the weight update matrices. To make sense of using LoRA the rank should be smaller than the rank of
@@ -235,12 +237,13 @@ class LoRAQKVLinear(LoRALinear):
         if r > 0 and any(enable_lora):
             self.lora_A = nn.Parameter(torch.zeros((r * sum(enable_lora), in_features)))  # (4, 128)
             enable_q, enable_k, enable_v = enable_lora
-            self.kv_embd_size = self.linear.in_features // (n_head // n_query_groups)
             # qkv_shapes will be used to split a tensor with weights correctly
             qkv_shapes = (
-                self.linear.in_features * enable_q,
-                self.kv_embd_size * enable_k,
-                self.kv_embd_size * enable_v,
+                # if `head_size` is explicitly specified in the config, `n_embd` (or `in_features`)
+                # might not be equal to `head_size * n_head`, thus we use it directly here
+                head_size * n_head * enable_q,
+                head_size * n_query_groups * enable_k,
+                head_size * n_query_groups * enable_v,
             )
             self.qkv_shapes = [s for s in qkv_shapes if s]
             self.lora_B = nn.Parameter(torch.zeros(sum(self.qkv_shapes), r))  # (256, 2))
@@ -597,6 +600,7 @@ class CausalSelfAttention(BaseCausalSelfAttention):
             enable_lora=(config.lora_query, config.lora_key, config.lora_value),
             bias=config.bias,
             # for MQA/GQA support
+            head_size=config.head_size,
             n_head=config.n_head,
             n_query_groups=config.n_query_groups,
         )
