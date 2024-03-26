@@ -35,7 +35,7 @@
 
 ✅ &nbsp;[Quantization](tutorials/quantize.md): 4-bit floats, 8-bit integers, and double quantization.
 
-✅ &nbsp;[Exporting](https://github.com/Lightning-AI/litgpt/blob/wip/tutorials/convert_lit_models.md) to other popular model weight formats.
+✅ &nbsp;[Exporting](tutorials/convert_lit_models.md) to other popular model weight formats.
 
 ✅ &nbsp;Many popular datasets for [pretraining](tutorials/pretrain_tinyllama.md) and [finetuning](tutorials/prepare_dataset.md), and [support for custom datasets](tutorials/prepare_dataset.md#preparing-custom-datasets-for-instruction-finetuning).
 
