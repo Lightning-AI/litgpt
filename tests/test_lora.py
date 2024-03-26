@@ -524,6 +524,9 @@ def test_against_hf_mixtral():
         n_query_groups=2,
         intermediate_size=86,
         n_expert=4,
+        lora_r=1,
+        lora_key=True,
+        lora_value=True,
     )
     T = 5
     theirs_config = MixtralConfig(
@@ -545,7 +548,10 @@ def test_against_hf_mixtral():
     state_dict = {}
     copy_weights_hf_llama(ours_config, {}, state_dict, theirs_state_dict)
     ours_model = LoRAGPT(ours_config).to(device)
-    ours_model.load_state_dict(state_dict)
+    keys = ours_model.load_state_dict(state_dict, strict=False)
+    assert not keys.unexpected_keys
+    for k in keys.missing_keys:
+        assert lora_filter(k, None)
 
     # test end to end
     x = torch.tensor([[9856, 23, 491, 1536, 304], [23, 345, 65, 123, 321]], dtype=torch.int32, device=device)
@@ -562,7 +568,17 @@ def test_against_hf_gemma(model_name):
     device = torch.device("cpu")
     dtype = torch.float32
     T = 5
-    ours_config = Config.from_name(model_name, n_layer=2, n_head=16, n_embd=32, intermediate_size=86)
+    ours_config = Config.from_name(
+        model_name,
+        n_layer=2,
+        n_head=16,
+        n_embd=32,
+        head_size=4,
+        intermediate_size=86,
+        lora_r=1,
+        lora_key=True,
+        lora_value=True,
+    )
     theirs_config = GemmaConfig(
         vocab_size=ours_config.padded_vocab_size,
         hidden_size=ours_config.n_embd,
@@ -587,7 +603,10 @@ def test_against_hf_gemma(model_name):
     state_dict = {}
     copy_weights_hf_llama(ours_config, {}, state_dict, theirs_state_dict)
     ours_model = LoRAGPT(ours_config).to(device)
-    ours_model.load_state_dict(state_dict)
+    keys = ours_model.load_state_dict(state_dict, strict=False)
+    assert not keys.unexpected_keys
+    for k in keys.missing_keys:
+        assert lora_filter(k, None)
 
     # test end to end
     x = torch.tensor([[9856, 23, 491, 1536, 304]], dtype=torch.int32, device=device)
