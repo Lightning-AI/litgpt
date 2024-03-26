@@ -234,7 +234,7 @@ def test_lora_init_when_linear_overridden():
     original_linear = torch.nn.Linear
     # Our bnb does this sort of monkey patching
     torch.nn.Linear = MyLinear
-    layer = LoRAQKVLinear(1, 1, 1, 1)
+    layer = LoRAQKVLinear(1, 1, 1, 1, 1)
     assert isinstance(layer.linear, original_linear)
     torch.nn.Linear = original_linear
 
@@ -324,6 +324,7 @@ def test_lora_gpt_query_groups_merge_and_forward_no_exception(n_query_groups, ap
 
 
 @torch.inference_mode()
+@pytest.mark.parametrize("head_size", (1, 2, 4))
 @pytest.mark.parametrize("n_head", (1, 2, 3, 6, 12))
 @pytest.mark.parametrize(
     "enable_lora",
@@ -337,9 +338,11 @@ def test_lora_gpt_query_groups_merge_and_forward_no_exception(n_query_groups, ap
         (True, True, True),
     ],
 )
-def test_lora_qkv_linear_compare_conv1d(n_head, enable_lora):
+def test_lora_qkv_linear_compare_conv1d(head_size, n_head, enable_lora):
     C = 12
-    layer = LoRAQKVLinear(C, 3 * C, n_head=n_head, n_query_groups=n_head, r=2, enable_lora=enable_lora)
+    layer = LoRAQKVLinear(
+        C, 3 * C, head_size=head_size, n_head=n_head, n_query_groups=n_head, r=2, enable_lora=enable_lora
+    )
     x = torch.randn((1, 1, C))
     a = F.linear(x, layer.lora_A).transpose(-2, -1)  # after_A
     b = layer.lora_B.data.unsqueeze(-1)
@@ -371,7 +374,8 @@ def test_lora_linear_weights_merged_status(rank, expected_merged):
     ((0, True, False), (1, True, True), (0, False, False), (1, False, False)),
 )
 def test_lora_qkv_linear_weights_merged_status(rank, enable_lora, expected_merged):
-    layer = LoRAQKVLinear(10, 3 * 10, n_head=2, n_query_groups=2, r=rank, enable_lora=enable_lora)
+    C = 10
+    layer = LoRAQKVLinear(C, 3 * C, head_size=5, n_head=2, n_query_groups=2, r=rank, enable_lora=enable_lora)
     assert not layer.merged
     layer.merge()
     assert layer.merged == expected_merged
@@ -576,6 +580,7 @@ def test_against_hf_gemma(model_name):
         head_size=4,
         intermediate_size=86,
         lora_r=1,
+        lora_query=True,
         lora_key=True,
         lora_value=True,
     )
