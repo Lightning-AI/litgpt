@@ -151,7 +151,8 @@ class CausalSelfAttention(BaseCausalSelfAttention):
         return y + self.gating_factor * ay
 
     def reset_parameters(self) -> None:
-        torch.nn.init.zeros_(self.gating_factor)
+        if hasattr(self, "gating_factor"):
+            torch.nn.init.zeros_(self.gating_factor)
 
     def _load_from_state_dict(self, state_dict: Dict, prefix: str, *args: Any, **kwargs: Any) -> None:
         """For compatibility with older checkpoints."""
