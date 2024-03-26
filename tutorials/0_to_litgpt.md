@@ -126,6 +126,7 @@ litgpt pretrain --help
 **More information and additional resources**
 
 - [tutorials/pretrain_tinyllama](./pretrain_tinyllama.md): A tutorial for finetuning a 1.1B TinyLlama model on 3 trillion tokens
+- [config_hub/pretrain](../[config_hub/pretrain): Pre-made config files for pretraining that work well out of the box
 - Project templates in reproducible environments with multi-GPU and multi-node support:
   - [Prepare the TinyLlama 1T token dataset](https://lightning.ai/lightning-ai/studios/prepare-the-tinyllama-1t-token-dataset)
   - [Pretrain LLMs - TinyLlama 1.1B](https://lightning.ai/lightning-ai/studios/pretrain-llms-tinyllama-1-1b)
@@ -393,8 +394,7 @@ Time for inference: 2.15 sec total, 39.57 tokens/sec, 85 tokens
 - [tutorials/finetune_lora](finetune_lora.md): Options for parameter-efficient finetuning with LoRA and QLoRA
 - [tutorials/finetune_adapter](finetune_adapter.md): A description of the parameter-efficient Llama-Adapter methods supported in LitGPT 
 - [tutorials/oom](oom.md): Tips for dealing with out-of-memory (OOM) errors
-
-TODO: Mention config file resources
+- [config_hub/finetune](../[config_hub/finetune): Pre-made config files for finetuning that work well out of the box
 
 &nbsp;
 ## Inference (/chat)
