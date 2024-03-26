@@ -527,7 +527,7 @@ lm_eval --model hf \
 &nbsp;
 **More information and additional resources**
 
-- [tutorials/convert_lit_models]: Tutorial on converting LitGPT weights
+- [tutorials/convert_lit_models](tutorials/convert_lit_models.md): Tutorial on converting LitGPT weights
 
 
 
