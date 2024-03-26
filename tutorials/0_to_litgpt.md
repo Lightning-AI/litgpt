@@ -394,7 +394,7 @@ Time for inference: 2.15 sec total, 39.57 tokens/sec, 85 tokens
 - [tutorials/finetune_lora](finetune_lora.md): Options for parameter-efficient finetuning with LoRA and QLoRA
 - [tutorials/finetune_adapter](finetune_adapter.md): A description of the parameter-efficient Llama-Adapter methods supported in LitGPT 
 - [tutorials/oom](oom.md): Tips for dealing with out-of-memory (OOM) errors
-- [config_hub/finetune](../[config_hub/finetune): Pre-made config files for finetuning that work well out of the box
+- [config_hub/finetune](../config_hub/finetune): Pre-made config files for finetuning that work well out of the box
 
 &nbsp;
 ## LLM inference
