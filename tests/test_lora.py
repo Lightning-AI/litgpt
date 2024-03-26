@@ -566,7 +566,6 @@ def test_against_hf_mixtral():
 
 
 @torch.inference_mode()
-@pytest.mark.xfail(raises=AssertionError, match="Tensor-likes are not close")
 @pytest.mark.parametrize("model_name", ["gemma-2b", "gemma-7b"])
 def test_against_hf_gemma(model_name):
     device = torch.device("cpu")
