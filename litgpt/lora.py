@@ -239,7 +239,7 @@ class LoRAQKVLinear(LoRALinear):
             enable_q, enable_k, enable_v = enable_lora
             # qkv_shapes will be used to split a tensor with weights correctly
             qkv_shapes = (
-                # if `head_size` is explicitly specified in the config, `n_emd` (or `in_features`)
+                # if `head_size` is explicitly specified in the config, `n_embd` (or `in_features`)
                 # might not be equal to `head_size * n_head`, thus we use it directly here
                 head_size * n_head * enable_q,
                 head_size * n_query_groups * enable_k,
