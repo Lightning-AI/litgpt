@@ -9,7 +9,7 @@ import torch
 import yaml
 
 from litgpt.lora import GPT, Config, lora_filter, merge_lora_weights
-from litgpt.utils import CLI, check_valid_checkpoint_dir, lazy_load
+from litgpt.utils import CLI, check_valid_checkpoint_dir
 
 
 def merge_lora(
@@ -22,7 +22,7 @@ def merge_lora(
 
     Args:
         checkpoint_dir: Path to the checkpoint directory with trained LoRA weights, which is the output of
-            ``litgpt finetune --method lora``.
+            ``litgpt finetune lora``.
         pretrained_checkpoint_dir: Optional path to the checkpoint directory with the weights of the base model
             corresponding to the LoRA checkpoint. By default, this will automatically be inferred from the metadata
             in the given `checkpoint_dir` directory. Only set this if the base model's checkpoint directory
@@ -30,7 +30,7 @@ def merge_lora(
         precision: Optional precision setting to instantiate the model weights in. By default, this will
             automatically be inferred from the metadata in the given ``checkpoint_dir`` directory.
     """
-    check_valid_checkpoint_dir(checkpoint_dir, lora=True)
+    check_valid_checkpoint_dir(checkpoint_dir, model_filename="lit_model.pth.lora")
     if pretrained_checkpoint_dir is not None:
         check_valid_checkpoint_dir(pretrained_checkpoint_dir)
     if (checkpoint_dir / "lit_model.pth").is_file():
@@ -43,16 +43,16 @@ def merge_lora(
     fabric = L.Fabric(devices=1, precision=precision, accelerator="cpu")
     config = Config.from_file(checkpoint_dir / "model_config.yaml", **lora_params)
 
-    with fabric.init_module(empty_init=True):
+    with fabric.init_module(), torch.device("meta"):
         model = GPT(config)
 
     lora_path = checkpoint_dir / "lit_model.pth.lora"
-    pretrained_checkpoint = lazy_load(pretrained_checkpoint_dir / "lit_model.pth")
-    lora_checkpoint = lazy_load(lora_path)
+    pretrained_checkpoint = torch.load(str(pretrained_checkpoint_dir / "lit_model.pth"), mmap=True)
+    lora_checkpoint = torch.load(str(lora_path), mmap=True)
 
     # Merge LoRA weights into the base model
     pretrained_checkpoint.update(lora_checkpoint.get("model", lora_checkpoint))
-    model.load_state_dict(pretrained_checkpoint)
+    model.load_state_dict(pretrained_checkpoint, assign=True)
     merge_lora_weights(model)
 
     # Remove LoRA parameters and the LoRA linear substring

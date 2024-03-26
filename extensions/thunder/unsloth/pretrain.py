@@ -439,10 +439,9 @@ def validate_args(train: TrainArgs, eval: EvalArgs, initial_checkpoint_dir, resu
 
 def jit(fn: Callable) -> Any:
     import thunder
+    from executor import unsloth_ex
     from thunder.executors.sdpaex import sdpa_ex
     from thunder.executors.torch_compile import torch_compile_executor
-
-    from executor import unsloth_ex
 
     return thunder.jit(
         fn, executors=[sdpa_ex, unsloth_ex, torch_compile_executor, thunder.nvfuser_executor, thunder.pytorch_executor]

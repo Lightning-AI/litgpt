@@ -209,7 +209,7 @@ litgpt chat --checkpoint_dir checkpoints/$repo_id
 &nbsp;
 ## Specific Models
 
-Note that certain models require that you've been granted access to the weights on the Hugging Face Hub. 
+Note that certain models require that you've been granted access to the weights on the Hugging Face Hub.
 
 For example, to get access to the Gemma 2B model, you can do so by following the steps at https://huggingface.co/google/gemma-2b. After access is granted, you can find your HF hub token in https://huggingface.co/settings/tokens.
 
@@ -249,7 +249,7 @@ litgpt download \
 &nbsp;
 ## Converting Checkpoints Manually
 
-For development purposes, for example, when adding or experimenting with new model configurations, it may be beneficial to split the weight download and model conversion into two separate steps. 
+For development purposes, for example, when adding or experimenting with new model configurations, it may be beneficial to split the weight download and model conversion into two separate steps.
 
 You can do this by passing the `--convert_checkpoint false` option to the download script:
 

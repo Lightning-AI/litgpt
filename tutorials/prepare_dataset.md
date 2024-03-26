@@ -80,7 +80,7 @@ For comparison, the Falcon 7B model requires 23.52 GB of memory for the original
 ### Alpaca-GPT4
 
 
-The Alpaca-GPT4 was built by using the prompts of the original Alpaca dataset and generate the responses via GPT 4. The 
+The Alpaca-GPT4 was built by using the prompts of the original Alpaca dataset and generate the responses via GPT 4. The
 dataset consists of 52,000 instructions and responses.
 
 The original [Alpaca-GPT4](https://github.com/Instruction-Tuning-with-GPT-4/GPT-4-LLM) dataset can be used as follows:
@@ -131,7 +131,7 @@ litgpt finetune lora \
 
 ### Deita
 
-The Deita dataset (short for Data-Efficient Instruction Tuning for Alignment) is a collection of 9500 prompts and responses, as described in the [What Makes Good Data for Alignment? A Comprehensive Study of Automatic Data Selection in Instruction Tuning](https://arxiv.org/abs/2312.15685) paper. 
+The Deita dataset (short for Data-Efficient Instruction Tuning for Alignment) is a collection of 9500 prompts and responses, as described in the [What Makes Good Data for Alignment? A Comprehensive Study of Automatic Data Selection in Instruction Tuning](https://arxiv.org/abs/2312.15685) paper.
 Using Falcon 7b as an example, we can use the dataset as follows:
 
 ```bash
