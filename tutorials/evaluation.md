@@ -47,7 +47,8 @@ litgpt evaluate \
 
 > [!TIP]
 > By default, `ligpt evaluate` will evaluate a model on all Open LM Leaderboard tasks, which corresponds
-to the setting `--tasks "hellaswag,gsm8k,truthfulqa_mc2,mmlu,winogrande,arc_challenge"`. 
+> to the setting `--tasks 
+> "hellaswag,gsm8k,truthfulqa_mc2,mmlu,winogrande,arc_challenge"`. 
 
 > [!TIP]
 > The evaluation may take a long time, and for testing purpoes, you may want to reduce the number of tasks
@@ -72,7 +73,7 @@ litgpt finetune lora \
 
 &nbsp;
 
-```
+```bash
 litgpt evaluate \
   --checkpoint_dir lora_model/final \
   --out_dir evaluate_model/ \
