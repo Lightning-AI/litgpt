@@ -23,7 +23,7 @@ from litgpt.scripts.convert_pretrained_checkpoint import (
 )
 from litgpt.scripts.download import download_from_hub as download_fn
 from litgpt.scripts.merge_lora import merge_lora as merge_lora_fn
-from litgpt.scripts.evaluate import convert_and_evaluate as evaluate_fn
+from litgpt.eval.evaluate import convert_and_evaluate as evaluate_fn
 
 if TYPE_CHECKING:
     from jsonargparse import ArgumentParser
