@@ -329,7 +329,7 @@ def test_jit_before_setup(jit):
     fmodel = fabric.setup(tmodel)
     fmodel(x)
 
-    assert "all_gather" in thunder.last_traces(tmodel)[-1]
+    assert "all_gather" in thunder.last_traces(tmodel)[-1].python()
 
 
 @RunIf(min_cuda_gpus=1, thunder=True)
