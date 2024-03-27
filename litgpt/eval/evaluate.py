@@ -11,14 +11,18 @@ from litgpt.scripts.convert_lit_checkpoint import convert_lit_checkpoint
 from litgpt.utils import CLI, copy_config_files
 
 
-def safe_safetensors(out_dir, repo_id):
-    from transformers import AutoModel
+def get_hf_model(out_dir, repo_id):
+    from transformers import AutoModel, AutoTokenizer
+    from lm_eval.models.huggingface import HFLM
 
     state_dict = torch.load(out_dir/"model.pth")
     model = AutoModel.from_pretrained(
         repo_id, state_dict=state_dict
     )
-    model.save_pretrained(out_dir)
+    tokenizer = AutoTokenizer.from_pretrained(
+        repo_id
+    )
+    return HFLM(model, tokenizer=tokenizer)
 
 
 def prepare_results(results, save_filepath, print_results=True):
@@ -38,7 +42,7 @@ def prepare_results(results, save_filepath, print_results=True):
 def convert_and_evaluate(
     checkpoint_dir: str,
     out_dir: Optional[str] = None,
-    skip_conversion: bool = False,
+    force_conversion: bool = False,
     tasks: Optional[str] = "hellaswag,gsm8k,truthfulqa_mc2,mmlu,winogrande,arc_challenge",
     num_fewshot: Optional[int] = None,
     batch_size: int = 1,
@@ -53,9 +57,8 @@ def convert_and_evaluate(
         checkpoint_dir: Directory where the `lit_model.pth` and tokenizer files are located.
         out_dir: Directory in which to save the converted checkpoints for evaluation.
             Saves to `checkpoint_dir`/evaluate by default.
-        skip_conversion: Set to `True` to skip the model conversion,
-            assuming the model has already been converted and the
-            model.pth and .safetensor files exist.
+        force_conversion: Set to `True` to reconvert the model and override
+            an existing model.pth from a previous evaluation call.
         tasks: CSV of task names to evaluate.
            By default, the Open LM Leaderboard tasks are used:
            "hellaswag,gsm8k,truthfulqa_mc2,mmlu,winogrande,arc_challenge"
@@ -87,15 +90,15 @@ def convert_and_evaluate(
 
     copy_config_files(source_dir=checkpoint_dir, out_dir=out_dir)
 
-    if not skip_conversion:
+    model_path = out_dir / "model.pth"
+    if not model_path.exists() or force_conversion:
         convert_lit_checkpoint(checkpoint_dir=checkpoint_dir, output_dir=out_dir)
-        safe_safetensors(out_dir, repo_id)
+    hf_model = get_hf_model(out_dir, repo_id)
 
     os.environ["TOKENIZERS_PARALLELISM"] = "false"
 
     results = evaluator.simple_evaluate(
-        model="hf",
-        model_args=f"pretrained={out_dir}",
+        model=hf_model,
         tasks=tasks.split(","),
         num_fewshot=num_fewshot,
         batch_size=batch_size,

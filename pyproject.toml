@@ -44,7 +44,7 @@ all = [
     "torchmetrics",              # litgpt.pretrain
     "datasets",                  # litgpt.evaluate
     "transformers>=4.38.0",      # litgpt.evaluate
-    "lm-eval>=0.42.0",           # litgpt.evaluate
+    "lm-eval>=0.4.2",            # litgpt.evaluate
     "safetensors",               # download
     "huggingface_hub[hf_transfer]>=0.21.0"  # download
 ]
