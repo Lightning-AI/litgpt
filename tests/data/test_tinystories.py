@@ -7,12 +7,13 @@ from litdata.streaming import StreamingDataset, TokensLoader
 from torch.utils._pytree import tree_map
 
 
-def fake_chunk(path, data):
-    def fn(_):
-        for story in data:
-            yield torch.tensor(story)
+def tokenize(data):
+    for story in data:
+        yield torch.tensor(story)
 
-    optimize(fn=fn, inputs=[None] * len(data), output_dir=str(path), num_workers=1, chunk_bytes="200MB")
+
+def fake_chunk(path, data):
+    optimize(fn=tokenize, inputs=[data] * len(data), output_dir=str(path), num_workers=1, chunk_bytes="200MB")
 
 
 @pytest.mark.xfail(raises=IndexError, strict=True)  # requires https://github.com/Lightning-AI/litdata/pull/77
