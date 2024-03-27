@@ -136,8 +136,13 @@ class ThunderDDPStrategy(ParallelStrategy):
                     "You already called `thunder.jit()` and generated an execution trace. It's too late to apply the"
                     " DDP transform. Remove the `forward` call before `fabric.setup()`"
                 )
-            # modify the reference
-            cd.fn = thunder.distributed.ddp(cd.fn, **self._ddp_kwargs)
+            assert cd.is_module  # sanity check
+            ddp_module = thunder.distributed.ddp(cd.fn, **self._ddp_kwargs)
+            # update the compile data state
+            cd.fn = ddp_module
+            assert hasattr(cd, "_processed_function")  # sanity check
+            cd._processed_function = ddp_module
+            cd.process_group_for_ddp = ddp_module.process_group_for_ddp
             return module
         else:
             module = thunder.distributed.ddp(module, **self._ddp_kwargs)

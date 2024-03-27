@@ -167,14 +167,19 @@ class ThunderFSDPStrategy(ParallelStrategy, _Sharded):
                     "You already called `thunder.jit()` and generated an execution trace. It's too late to apply the"
                     " FSDP transform. Remove the `forward` call before `fabric.setup()`"
                 )
-            # modify the reference
-            cd.fn = thunder.distributed.fsdp(
+            assert cd.is_module  # sanity check
+            fsdp_module = thunder.distributed.fsdp(
                 cd.fn,
                 device=self.root_device,
                 sharding_strategy=self.sharding_strategy,
                 bucketing_strategy=self.bucketing_strategy,
                 **self._fsdp_kwargs,
             )
+            # update the compile data state
+            cd.fn = fsdp_module
+            assert hasattr(cd, "_processed_function")  # sanity check
+            cd._processed_function = fsdp_module
+            cd.process_group_for_ddp = fsdp_module.process_group_for_ddp
             return module
         else:
             module = thunder.distributed.fsdp(
