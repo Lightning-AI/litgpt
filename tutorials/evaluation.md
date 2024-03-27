@@ -32,7 +32,7 @@ litgpt evaluate \
   --out_dir evaluate_model/
 ```
 
-Please note that the `litgpt eval` command run an internal model conversion. 
+Please note that the `litgpt evaluate` command run an internal model conversion. 
 This is only necessary the first time you want to evaluate a model. To skip the conversion, 
 when you want to evaluate a model a second time, you can pass the `--skip_conversion true` argument:
 
