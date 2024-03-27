@@ -28,6 +28,9 @@ def test_thunder_strategy_input_parsing():
     assert strategy.executors == (pythonex,)
     assert strategy.sharding_strategy is FSDPType.ZERO3
 
+    with pytest.raises(ValueError, match="doesn't have an effect with `jit=False"):
+        ThunderFSDPStrategy(jit=False, executors=("python",))
+
 
 @RunIf(thunder=True)
 def test_validate_executors():
@@ -315,14 +318,13 @@ def test_save_load_sharded_checkpoint(tmp_path):
 @pytest.mark.parametrize("jit", (False, True))
 def test_jit_before_setup(jit):
     import thunder
-    from extensions.thunder.strategies import ThunderFSDPStrategy
 
     fabric = Fabric(devices=2, accelerator="cuda", strategy=ThunderFSDPStrategy(jit=jit))
     fabric.launch()
 
     x = torch.randn(1, 1, device=fabric.device)
     model = torch.nn.Linear(1, 2, bias=False, device=fabric.device)
-    
+
     tmodel = thunder.jit(model)
     fmodel = fabric.setup(tmodel)
     fmodel(x)
@@ -333,7 +335,6 @@ def test_jit_before_setup(jit):
 @RunIf(min_cuda_gpus=1, thunder=True)
 def test_setup_already_traced():
     import thunder
-    from extensions.thunder.strategies import ThunderFSDPStrategy
 
     device = torch.device("cuda")
     x = torch.randn(1, 1, device=device)

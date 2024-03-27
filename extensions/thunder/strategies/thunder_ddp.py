@@ -45,17 +45,35 @@ class ThunderDDPStrategy(ParallelStrategy):
         cluster_environment: Optional[ClusterEnvironment] = None,
         checkpoint_io: Optional[CheckpointIO] = None,
         precision: Optional[Precision] = None,
+        jit: bool = True,
         executors: Optional[Tuple[Union["Executor", str], ...]] = None,
         process_group_backend: Optional[str] = None,
         timeout: Optional[timedelta] = default_pg_timeout,
         **kwargs: Any,
     ):
+        r"""Strategy for Replicated Data Parallel provided by Lightning Thunder.
+
+        .. warning::  This is an :ref:`experimental <versioning:Experimental API>` feature.
+
+        Arguments:
+            jit: Whether to automatically call ``thunder.jit(model)`` if necessary. Disable this if you are manually
+                jitting a function that includes the model.
+
+            executors: The list of Thunder executors to enable. They can be either string aliases for the executors
+                or the actual executor instances.
+
+            \**kwargs: See available parameters in :func:`thunder.distributed.ddp`.
+
+        """
         if not _THUNDER_AVAILABLE:
             raise ModuleNotFoundError(str(_THUNDER_AVAILABLE))
         super().__init__(accelerator=accelerator, checkpoint_io=checkpoint_io, precision=precision)
         self.parallel_devices = parallel_devices
         self.cluster_environment: Optional[ClusterEnvironment] = cluster_environment
 
+        if not jit and executors is not None:
+            raise ValueError(f"Passing executors={executors} doesn't have an effect with `jit={jit}`")
+        self.jit = jit
         self.executors = _validate_executors(executors)
         self._num_nodes = 1
         self._process_group_backend: Optional[str] = process_group_backend
@@ -111,8 +129,20 @@ class ThunderDDPStrategy(ParallelStrategy):
     def setup_module(self, module: Module) -> Module:
         import thunder
 
-        module = thunder.distributed.ddp(module, **self._ddp_kwargs)
-
+        if (cd := thunder.compile_data(module)) is not None:
+            # the module was already jitted
+            if thunder.compile_stats(module).last_traces is not None:
+                raise RuntimeError(
+                    "You already called `thunder.jit()` and generated an execution trace. It's too late to apply the"
+                    " DDP transform. Remove the `forward` call before `fabric.setup()`"
+                )
+            # modify the reference
+            cd.fn = thunder.distributed.ddp(cd.fn, **self._ddp_kwargs)
+            return module
+        else:
+            module = thunder.distributed.ddp(module, **self._ddp_kwargs)
+        if not self.jit:
+            return module
         return thunder.jit(module, executors=self.executors)
 
     @override
