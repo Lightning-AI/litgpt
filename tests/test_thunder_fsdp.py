@@ -309,3 +309,39 @@ def test_save_load_sharded_checkpoint(tmp_path):
         actual["buf"] = actual["buf"].to(device="cpu")
         torch.testing.assert_close(actual, expected)
     assert state["primitive"] == 123
+
+
+@RunIf(min_cuda_gpus=2, thunder=True, standalone=True)
+@pytest.mark.parametrize("jit", (False, True))
+def test_jit_before_setup(jit):
+    import thunder
+    from extensions.thunder.strategies import ThunderFSDPStrategy
+
+    fabric = Fabric(devices=2, accelerator="cuda", strategy=ThunderFSDPStrategy(jit=jit))
+    fabric.launch()
+
+    x = torch.randn(1, 1, device=fabric.device)
+    model = torch.nn.Linear(1, 2, bias=False, device=fabric.device)
+    
+    tmodel = thunder.jit(model)
+    fmodel = fabric.setup(tmodel)
+    fmodel(x)
+
+    assert "all_gather" in thunder.last_traces(tmodel)[-1]
+
+
+@RunIf(min_cuda_gpus=1, thunder=True)
+def test_setup_already_traced():
+    import thunder
+    from extensions.thunder.strategies import ThunderFSDPStrategy
+
+    device = torch.device("cuda")
+    x = torch.randn(1, 1, device=device)
+    model = torch.nn.Linear(1, 2, bias=False, device=device)
+
+    strategy = ThunderFSDPStrategy()
+
+    tmodel = thunder.jit(model)
+    tmodel(x)
+    with pytest.raises(RuntimeError, match="already called"):
+        strategy.setup_module(tmodel)

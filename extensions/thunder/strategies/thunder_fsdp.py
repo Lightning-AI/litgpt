@@ -165,7 +165,7 @@ class ThunderFSDPStrategy(ParallelStrategy, _Sharded):
             if thunder.compile_stats(module).last_traces is not None:
                 raise RuntimeError(
                     "You already called `thunder.jit()` and generated an execution trace. It's too late to apply the"
-                    " FSDP transform."
+                    " FSDP transform. Remove the `forward` call before `fabric.setup()`"
                 )
             # modify the reference
             cd.fn = thunder.distributed.fsdp(
