@@ -15,7 +15,7 @@ quantize:
 devices: 1
 
 # The LoRA rank. (type: int, default: 8)
-lora_r: 16
+lora_r: 8
 
 # The LoRA alpha. (type: int, default: 16)
 lora_alpha: 16
@@ -71,7 +71,7 @@ train:
   lr_warmup_steps: 200
 
   # Number of epochs to train on (type: Optional[int], default: 5)
-  epochs: 4
+  epochs: 2
 
   # Total number of tokens to train on (type: Optional[int], default: null)
   max_tokens:
