@@ -119,8 +119,9 @@ _URL = "https://huggingface.co/datasets/roneneldan/TinyStories/resolve/main/Tiny
 
 
 def download(data_dir: Path):
-    data_dir.mkdir(exist_ok=True)
+    data_dir.mkdir(exist_ok=True, parents=True)
 
+    data_tar = data_dir / "TinyStories_all_data.tar.gz"
     data_dir = data_dir / "TinyStories_all_data"
     shard_filenames = sorted(glob.glob(str(data_dir / "*.json")))
     if shard_filenames:
@@ -128,13 +129,12 @@ def download(data_dir: Path):
         return
 
     # download the TinyStories dataset, unless it's already downloaded
-    data_filename = data_dir / "TinyStories_all_data.tar.gz"
-    download_if_missing(data_filename, _URL, stream=True, mode="wb")
-    print("Download done.")
+    download_if_missing(data_tar, _URL, stream=True, mode="wb")
 
     # unpack the tar.gz file into all the data shards (json files)
-    data_dir.mkdir(exist_ok=True)
-    print(f"Unpacking {data_filename}...")
-    os.system(f"tar -xzf {data_filename} -C {data_dir}")
+    data_dir.mkdir(exist_ok=False)
+    tar_command = f"tar -xzf {data_tar} -C {data_dir}"
+    print(tar_command)
+    os.system(tar_command)
     shard_filenames = sorted(glob.glob(str(data_dir / "*.json")))
     print(f"Number of shards: {len(shard_filenames)}")
