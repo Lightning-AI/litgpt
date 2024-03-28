@@ -22,7 +22,7 @@ from typing_extensions import Literal
 from litgpt import Tokenizer
 from litgpt.args import EvalArgs, TrainArgs
 from litgpt.data import DataModule, TinyLlama
-from litgpt.model import GPT, CausalSelfAttention, Config, LLaMAMLP
+from litgpt.model import GPT, CausalSelfAttention, Config, LLaMAMLP, Block
 from litgpt.utils import (
     CLI,
     CycleIterator,
