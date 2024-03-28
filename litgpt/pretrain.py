@@ -92,9 +92,8 @@ def setup(
         raise ValueError("Only one of `model_name` or `model_config` can be set.")
     elif model_config is None and model_name is None:
         from litgpt.config import name_to_config
-        print("Please specify --model_name <model_name>. Available values:")
-        print("\n".join(sorted(name_to_config)))
-        quit()
+        available_models = "\n".join(sorted(name_to_config))
+        raise ValueError(f"Please specify --model_name <model_name>. Available values:\n{available_models}")
     config = Config.from_name(model_name) if model_config is None else model_config
     devices = parse_devices(devices)
     out_dir = init_out_dir(out_dir)
