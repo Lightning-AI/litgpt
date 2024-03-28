@@ -36,7 +36,9 @@ from litgpt.utils import (
     save_hyperparameters,
 )
 
-sys.path.append(str(Path(__file__).parent))
+# support running without installing as a package
+wd = Path(__file__).parent.resolve()
+sys.path.append(str(wd))
 
 
 def setup(
