@@ -586,7 +586,7 @@ python extensions/thunder/pretrain.py --config config.yaml --compiler null --dev
 python extensions/thunder/pretrain.py --config config.yaml --compiler torch --devices 1
 python extensions/thunder/pretrain.py --config config.yaml --executors '[sdpa, torchcompile, nvfuser, torch]' --devices 1
 
-python extensions/thunder/pretrain.py --config config.yaml --executors '[sdpa, unsloth_ex, torchcompile, nvfuser, torch]' --devices 1
+python extensions/thunder/pretrain.py --config config.yaml --executors '[sdpa, unsloth, torchcompile, nvfuser, torch]' --devices 1
 ```
 
 Gradient accumulation is disabled in the FSDP setting because Thunder does not support skipping the backward synchronization yet.

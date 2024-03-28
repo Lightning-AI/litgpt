@@ -40,6 +40,8 @@ from litgpt.utils import (
 wd = Path(__file__).parent.resolve()
 sys.path.append(str(wd))
 
+from unsloth.executor import unsloth_ex  # import for registration
+
 
 def setup(
     model_name: Optional[str] = None,
@@ -471,7 +473,6 @@ def validate_args(train: TrainArgs, eval: EvalArgs, initial_checkpoint_dir, resu
 def jit(fn: Callable, executors: List[str]) -> Any:
     assert executors is not None
     import thunder
-    from unsloth.executor import unsloth_ex  # import for registration
     from strategies.utils import _validate_executors
 
     executors = _validate_executors(executors)

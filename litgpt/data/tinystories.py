@@ -52,7 +52,7 @@ class TinyStories(DataModule):
         assert len(files) > 0, f"No json files found in {files}"
         assert len(files) > 1, f"Expected at least two json files in {files}"
         # train/test split. let's use only shard 0 for test split, rest train
-        val_files, *train_files = files
+        val_file, *train_files = files
         num_workers = os.cpu_count() - 1
 
         if not Path(self.data_path_train).is_dir():
@@ -66,9 +66,9 @@ class TinyStories(DataModule):
         if not Path(self.data_path_val).is_dir():
             optimize(
                 fn=partial(tokenize, tokenizer=self.tokenizer),
-                inputs=val_files,
+                inputs=[val_file],
                 output_dir=str(self.data_path_val),
-                num_workers=num_workers,
+                num_workers=1,  # there's only 1 file
                 chunk_bytes="200MB",
             )
 
