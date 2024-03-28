@@ -29,6 +29,7 @@ specify in the following evaluation command:
 ```
 litgpt evaluate \
   --checkpoint_dir checkpoints/microsoft/phi-2/ \
+  --batch_size 4 \
   --out_dir evaluate_model/
 ```
 
@@ -39,6 +40,7 @@ when you want to evaluate a model a second time, you can pass the `--skip_conver
 ```
 litgpt evaluate \
   --checkpoint_dir checkpoints/microsoft/phi-2/ \
+  --batch_size 4 \
   --out_dir evaluate_model/ \
   --skip_conversion true
 ```
@@ -76,5 +78,6 @@ litgpt finetune lora \
 ```bash
 litgpt evaluate \
   --checkpoint_dir lora_model/final \
+  --batch_size 4 \
   --out_dir evaluate_model/ \
 ```
