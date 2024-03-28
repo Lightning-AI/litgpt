@@ -134,7 +134,7 @@ LitGPT also allows users to use configuration files in YAML format instead of sp
 
 ```bash
 litgpt finetune lora \
-  --config https://github.com/Lightning-AI/litgpt/blob/wip/config_hub/finetune/llama-2-7b/lora.yaml
+  --config https://raw.githubusercontent.com/Lightning-AI/litgpt/main/config_hub/finetune/llama-2-7b/lora.yaml
 ```
 
 For added convenience, you can also manually override config file setting via the CLI:
