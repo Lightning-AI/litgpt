@@ -1,4 +1,4 @@
-# Zero to Pretraining, Finetuning, and Using LLMs with LitGPT
+# Zero to LitGPT: Getting Started with Pretraining, Finetuning, and Using LLMs
 
 
 
