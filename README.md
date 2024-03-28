@@ -106,7 +106,7 @@ For more information, refer to the [download](tutorials/download_model_weights.m
 &nbsp;
 
 > [!NOTE]
-> We recommend starting with the **[Zero to Pretraining, Finetuning, and Using LLMs with LitGPT](https://chat.openai.com/c/tutorial/0_to_litgpt.md)** if you are looking to get started with using LitGPT.
+> We recommend starting with the **[Zero to LitGPT: Getting Started with Pretraining, Finetuning, and Using LLMs](tutorial/0_to_litgpt.md)** if you are looking to get started with using LitGPT.
 
 
 
@@ -151,7 +151,7 @@ litgpt finetune lora \
   --lora_r 4
 ```
 
-You can browse the available configuration files [here](https://github.com/Lightning-AI/litgpt/tree/main/config_hub).
+You can browse the available configuration files [here](config_hub).
 
 &nbsp;
 
@@ -331,7 +331,7 @@ If you have general questions about building with LitGPT, please [join our Disco
 
 
 > [!NOTE]
-> We recommend starting with the **[Zero to Pretraining, Finetuning, and Using LLMs with LitGPT](https://chat.openai.com/c/tutorial/0_to_litgpt.md)** if you are looking to get started with using LitGPT.
+> We recommend starting with the **[Zero to LitGPT: Getting Started with Pretraining, Finetuning, and Using LLMs](tutorial/0_to_litgpt.md)** if you are looking to get started with using LitGPT.
 
 Tutorials and in-depth feature documentation can be found below:
 
