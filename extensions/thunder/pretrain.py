@@ -295,6 +295,7 @@ def fit(
         targets = train_data[:, 1 : (model.max_seq_length + 1)].contiguous().long()
 
         is_accumulating = state["iter_num"] % train.gradient_accumulation_iters(devices) != 0
+        # FIXME: need the jitted model reference to pass it here. How do I get it?
         with fabric.no_backward_sync(model, enabled=is_accumulating):
             loss = forward_and_loss(model, input_ids, targets)
             fabric.backward(loss / train.gradient_accumulation_iters(devices))
