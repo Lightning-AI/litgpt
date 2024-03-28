@@ -566,12 +566,7 @@ Config:
 
 ```yaml
 out_dir: out/pretrain-thunder
-data:
-  class_path: litgpt.data.TinyStories
-  init_args:
-    path: data
-    num_workers: 0
-    seed: 42
+data: TinyStories
 tokenizer_dir: checkpoints/meta-llama/Llama-2-7b-hf
 logger_name: csv
 ```

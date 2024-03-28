@@ -469,7 +469,7 @@ def validate_args(train: TrainArgs, eval: EvalArgs, initial_checkpoint_dir, resu
 
 
 def jit(fn: Callable, executors: List[str]) -> Any:
-    assert isinstance(executors, list), executors
+    assert executors is not None
     import thunder
     from unsloth.executor import unsloth_ex  # import for registration
     from strategies.utils import _validate_executors
