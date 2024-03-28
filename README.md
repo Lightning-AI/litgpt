@@ -25,9 +25,9 @@
 
 ✅ &nbsp;[The latest model weights](tutorials/download_model_weights.md): Gemma, Mistral, Mixtral, Phi 2, Llama 2, Falcon, CodeLlama, and [many more](tutorials/download_model_weights.md).
 
-✅ &nbsp;Optimized and efficient code: Flash Attention v2, multi-GPU support via fully-sharded data parallelism, [optional CPU offloading](tutorials/oom.md#do-sharding-across-multiple-gpus), and [TPU and XLA support](./xla).
+✅ &nbsp;Optimized and efficient code: Flash Attention v2, multi-GPU support via fully-sharded data parallelism, [optional CPU offloading](tutorials/oom.md#do-sharding-across-multiple-gpus), and [TPU and XLA support](extensions/xla).
 
-✅ &nbsp;[Pretraining](tutorials/pretraining.md), [finetuning](tutorials/finetuning.md), and [inference](tutorials/inference.md) in various precision settings: FP32, FP16, BF16, and FP16/FP32 mixed.
+✅ &nbsp;[Pretraining](tutorials/pretrain_tinyllama.md), [finetuning](tutorials/finetune.md), and [inference](tutorials/inference.md) in various precision settings: FP32, FP16, BF16, and FP16/FP32 mixed.
 
 ✅ &nbsp;[Configuration files](config_hub) for great out-of-the-box performance.
 
@@ -51,11 +51,11 @@
 The following [Lightning Studio](https://lightning.ai/lightning-ai/studios) templates provide LitGPT tutorials and projects in reproducible environments with multi-GPU and multi-node support:
 
 
-|  |  |
-| ------------------------------------------------------------ | ------------------------------------------------------------ |
-| <p align="left">[Prepare the TinyLlama 1T token dataset](https://lightning.ai/lightning-ai/studios/prepare-the-tinyllama-1t-token-dataset) <br> [<img src="./images/3.webp" width="300"></p>](https://lightning.ai/lightning-ai/studios/prepare-the-tinyllama-1t-token-dataset) | [Pretrain LLMs - TinyLlama 1.1B](https://lightning.ai/lightning-ai/studios/pretrain-llms-tinyllama-1-1b) <br> <p align="left">[<img src="./images/4.webp" width="300"></p>](https://lightning.ai/lightning-ai/studios/pretrain-llms-tinyllama-1-1b) |
-| [Continued Pretraining with TinyLlama 1.1B](https://lightning.ai/lightning-ai/studios/continued-pretraining-with-tinyllama-1-1b) <br> <p align="left">[<img src="./images/1.webp" width="300"></p>](https://lightning.ai/lightning-ai/studios/continued-pretraining-with-tinyllama-1-1b) | [Instruction finetuning - TinyLlama 1.1B LLM](https://lightning.ai/lightning-ai/studios/instruction-finetuning-tinyllama-1-1b-llm) <br> <p align="left">[<img src="./images/2.webp" width="300"></p>](https://lightning.ai/lightning-ai/studios/instruction-finetuning-tinyllama-1-1b-llm) |
-|  |  |
+|                                                                                                                                                                                                                                                                                                                                             |                                                                                                                                                                                                                                                                                                                                                |
+|---------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------|------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------|
+| <p align="left">[Prepare the TinyLlama 1T token dataset](https://lightning.ai/lightning-ai/studios/prepare-the-tinyllama-1t-token-dataset) <br> [<img src="https://pl-public-data.s3.amazonaws.com/assets_litgpt/readme/3.webp" width="300"></p>](https://lightning.ai/lightning-ai/studios/prepare-the-tinyllama-1t-token-dataset)         | [Pretrain LLMs - TinyLlama 1.1B](https://lightning.ai/lightning-ai/studios/pretrain-llms-tinyllama-1-1b) <br> <p align="left">[<img src="https://pl-public-data.s3.amazonaws.com/assets_litgpt/readme/4.webp" width="300"></p>](https://lightning.ai/lightning-ai/studios/pretrain-llms-tinyllama-1-1b)                                        |
+| [Continued Pretraining with TinyLlama 1.1B](https://lightning.ai/lightning-ai/studios/continued-pretraining-with-tinyllama-1-1b) <br> <p align="left">[<img src="https://pl-public-data.s3.amazonaws.com/assets_litgpt/readme/1.webp" width="300"></p>](https://lightning.ai/lightning-ai/studios/continued-pretraining-with-tinyllama-1-1b) | [Instruction finetuning - TinyLlama 1.1B LLM](https://lightning.ai/lightning-ai/studios/instruction-finetuning-tinyllama-1-1b-llm) <br> <p align="left">[<img src="https://pl-public-data.s3.amazonaws.com/assets_litgpt/readme/2.webp" width="300"></p>](https://lightning.ai/lightning-ai/studios/instruction-finetuning-tinyllama-1-1b-llm) |
+|                                                                                                                                                                                                                                                                                                                                             |                                                                                                                                                                                                                                                                                                                                                |
 
 
 
@@ -134,14 +134,14 @@ LitGPT also allows users to use configuration files in YAML format instead of sp
 
 ```bash
 litgpt finetune lora \
-  --config https://github.com/Lightning-AI/litgpt/blob/wip/config_hub/finetune/llama-2-7b/lora.yaml
+  --config https://raw.githubusercontent.com/Lightning-AI/litgpt/main/config_hub/finetune/llama-2-7b/lora.yaml
 ```
 
 For added convenience, you can also manually override config file setting via the CLI:
 
 
 ```bash
-litgpt finetune lora
+litgpt finetune lora \
   --config https://raw.githubusercontent.com/Lightning-AI/litgpt/main/config_hub/finetune/llama-2-7b/lora.yaml \
   --lora_r 4
 ```
@@ -344,7 +344,7 @@ helping democratize AI for millions of developers and researchers worldwide.
 
 Using TPUs with Lightning is as straightforward as changing one line of code.
 
-We provide scripts fully optimized for TPUs in the [XLA directory](xla)
+We provide scripts fully optimized for TPUs in the [XLA directory](extensions/xla).
 
 
 
@@ -366,8 +366,9 @@ This implementation extends on [Lit-LLaMA](https://github.com/lightning-AI/lit-l
 
 ## Community showcase
 
-Checkout the projects below using and building on LitGPT. If you have a project you'd like to add to our this section, please don't hestiate to open a pull request.
+Check out the projects below using and building on LitGPT. If you have a project you'd like to add to this section, please don't hestiate to open a pull request.
 
+&nbsp;
 
 **🏆 NeurIPS 2023 Large Language Model Efficiency Challenge: 1 LLM + 1 GPU + 1 Day**
 
@@ -375,7 +376,7 @@ The LitGPT repository was the official starter kit for the [NeurIPS 2023 LLM Eff
 
 &nbsp;
 
-**TinyLlama: An Open-Source Small Language Model**
+**🦙 TinyLlama: An Open-Source Small Language Model**
 
 LitGPT powered the [TinyLlama project](https://github.com/jzhang38/TinyLlama) and [TinyLlama: An Open-Source Small Language Model](https://arxiv.org/abs/2401.02385) research paper.
 
@@ -400,4 +401,3 @@ If you use LitGPT in your research, please cite the following work:
 ## License
 
 LitGPT is released under the [Apache 2.0](https://github.com/Lightning-AI/litgpt/blob/main/LICENSE) license.
-

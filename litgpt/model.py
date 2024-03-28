@@ -139,6 +139,12 @@ class GPT(nn.Module):
 class Block(nn.Module):
     def __init__(self, config: Config) -> None:
         super().__init__()
+        if not config.parallel_residual and config.shared_attention_norm:
+            raise NotImplementedError(
+                "No checkpoint amongst the ones we support uses this configuration"
+                " (non-parallel residual and shared attention norm)."
+            )
+
         self.norm_1 = config.norm_class(config.n_embd, eps=config.norm_eps)
         self.attn = CausalSelfAttention(config)
         self.norm_2 = None if config.shared_attention_norm else config.norm_class(config.n_embd, eps=config.norm_eps)
@@ -154,18 +160,30 @@ class Block(nn.Module):
         mask: Optional[torch.Tensor] = None,
         input_pos: Optional[torch.Tensor] = None,
     ) -> torch.Tensor:
-        n_1 = self.norm_1(x)
-        h = self.attn(n_1, cos, sin, mask, input_pos)
+        """
+        Non-parallel residual       Parallel residual
+           ┌─ x                     ┌─ x ────────────┐             Note: if `shared_attention_norm` is True,
+           │  ↓                     │  ↓             ↓                   the output from `norm_1` is reused
+           │  norm_1                │  norm_1  ───►  norm_2
+           │  ↓                     │  ↓             ↓
+           │  attn                  │  attn          mlp
+           │  ↓                     │  ↓             │
+        ┌─ └► +                     └► + ◄───────────┘
+        │     norm_2
+        │     ↓
+        │     mlp
+        │     ↓
+        └───► +
+        """
+
+        x_normed = self.norm_1(x)
+        attention_output = self.attn(x_normed, cos, sin, mask, input_pos)
+
         if self.config.parallel_residual:
-            n_2 = n_1 if self.config.shared_attention_norm else self.norm_2(x)
-            x = self.mlp(n_2) + h + x
+            x_normed = x_normed if self.config.shared_attention_norm else self.norm_2(x)
+            x = self.mlp(x_normed) + attention_output + x
         else:
-            if self.config.shared_attention_norm:
-                raise NotImplementedError(
-                    "No checkpoint amongst the ones we support uses this configuration"
-                    " (non-parallel residual and shared attention norm)."
-                )
-            x = h + x
+            x = attention_output + x
             x = self.mlp(self.norm_2(x)) + x
         return x
 

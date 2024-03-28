@@ -110,6 +110,8 @@ class Config:
     def from_file(cls, path: Union[str, Path], **kwargs: Any) -> Self:
         with open(path, encoding="utf-8") as fp:
             file_kwargs = yaml.safe_load(fp)
+            if file_kwargs is None:
+                raise ValueError(f"{path} is empty which is likely unexpected.")
         file_kwargs.update(kwargs)
         return cls(**file_kwargs)
 

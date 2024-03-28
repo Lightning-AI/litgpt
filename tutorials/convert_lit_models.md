@@ -66,7 +66,7 @@ For convenience, we first specify an environment variable (optional) to avoid co
 export repo_id=TinyLlama/TinyLlama-1.1B-intermediate-step-1431k-3T
 ```
 
-Instead of using TinyLlama, you can replace the `repo_id` target with any other model repository 
+Instead of using TinyLlama, you can replace the `repo_id` target with any other model repository
 specifier that is currently supported by LitGPT. You can get a list of supported repository specifier
 by running `litgpt/scripts/download.py` without any additional arguments.
 
@@ -116,4 +116,35 @@ from transformers import AutoModel
 
 state_dict = torch.load('out/hf-tinyllama/converted/model.pth')
 model = AutoModel.from_pretrained("TinyLlama/TinyLlama-1.1B-intermediate-step-1431k-3T", state_dict=state_dict)
+```
+
+&nbsp;
+## Using the LM Evaluation Harness
+
+To evaluate LitGPT models, use the integrated evaluation utilities based on Eleuther AI's LM Evaluation Harness. For more information, please see the [evaluation](evaluation.md) documentation.
+
+Alternatively, if you wish to use converted LitGPT models with the LM Evaluation Harness from [Eleuther AI's GitHub repository](https://github.com/EleutherAI/lm-evaluation-harness), you can use the following steps.
+
+1. Follow the instructions above to load the model into a Hugging Face transformers model.
+
+2. Create a `model.safetensor` file:
+
+```python
+model.save_pretrained("out/hf-tinyllama/converted/")
+```
+
+3. Copy the tokenizer files into the model-containing directory:
+
+```bash
+cp checkpoints/$repo_id/tokenizer* out/hf-tinyllama/converted
+```
+
+4. Run the evaluation harness, for example:
+
+```bash
+lm_eval --model hf \
+    --model_args pretrained=out/hf-tinyllama/converted \
+    --tasks "hellaswag,gsm8k,truthfulqa_mc2,mmlu,winogrande,arc_challenge" \
+    --device "cuda:0" \
+    --batch_size 4
 ```

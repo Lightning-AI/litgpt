@@ -41,8 +41,13 @@ jobs:
       displayName: "Image info & NVIDIA"
 
     - script: |
-        pip install '.[all,test]'
+        pip install '.[all,test]' 'lm_eval @ git+https://github.com/EleutherAI/lm-evaluation-harness.git@115206dc89dad67b8b'
       displayName: 'Install dependencies'
+
+    - script: |
+        pip uninstall -y torchvision torchaudio
+        pip install --pre 'nvfuser-cu121[torch]' --extra-index-url https://pypi.nvidia.com
+      displayName: 'Install PyTorch nightly'
 
     - bash: |
         set -e

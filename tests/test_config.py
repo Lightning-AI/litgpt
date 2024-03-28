@@ -1,21 +1,13 @@
 # Copyright Lightning AI. Licensed under the Apache License 2.0, see LICENSE file.
 
-import sys
-from pathlib import Path
-
 import pytest
 import yaml
 
-# support running without installing as a package
-wd = Path(__file__).parent.parent.resolve()
-sys.path.append(str(wd))
-
 import litgpt.config as config_module
+from litgpt import Config
 
 
 def test_config():
-    from litgpt import Config
-
     config = Config()
     assert config.name == ""
     assert config.block_size == 4096
@@ -34,8 +26,6 @@ def test_config():
 
 
 def test_from_hf_name():
-    from litgpt import Config
-
     # by short-hand name
     config0 = Config.from_name("tiny-llama-1.1b")
     # or by huggingface hub repo name
@@ -45,8 +35,6 @@ def test_from_hf_name():
 
 @pytest.mark.parametrize("config", config_module.configs, ids=[c["name"] for c in config_module.configs])
 def test_short_and_hf_names_are_equal_unless_on_purpose(config):
-    from litgpt import Config
-
     # by short-hand name
     config0 = Config.from_name(config["name"])
     # or by huggingface hub repo name
@@ -55,15 +43,11 @@ def test_short_and_hf_names_are_equal_unless_on_purpose(config):
 
 
 def test_nonexisting_name():
-    from litgpt import Config
-
     with pytest.raises(ValueError, match="not a supported"):
         Config.from_name("foobar")
 
 
 def test_from_checkpoint(tmp_path):
-    from litgpt import Config
-
     # 1. Neither `lit_config.py` nor matching config exists.
     with pytest.raises(FileNotFoundError, match="neither 'model_config.yaml' nor matching config exists"):
         Config.from_checkpoint(tmp_path / "non_existing_checkpoint")
@@ -95,8 +79,6 @@ def test_from_checkpoint(tmp_path):
 
 @pytest.mark.parametrize("head_size", [None, 128])
 def test_head_size(head_size):
-    from litgpt import Config
-
     config = Config(head_size)
 
     assert config.head_size == head_size or config.n_embd // config.n_head

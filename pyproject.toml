@@ -1,6 +1,6 @@
 [project]
 name = "litgpt"
-version = "0.1.0"
+version = "0.3.0.dev0"
 description = "Hackable implementation of state-of-the-art open-source LLMs"
 authors = [
     { name = "Lightning AI", email = "contact@lightning.ai" },
@@ -10,9 +10,8 @@ license = { file = "LICENSE" }
 
 dependencies = [
     "torch>=2.2.0",
-    "lightning @ git+https://github.com/Lightning-AI/lightning@b19c3a961c79028d7c39a4f1ff1c2df991406d1d",
-    # TODO: install from PyPI when https://github.com/omni-us/jsonargparse/pull/466 is released
-    "jsonargparse[signatures] @ git+https://github.com/omni-us/jsonargparse",
+    "lightning==2.3.0.dev20240324",
+    "jsonargparse[signatures]>=4.27.6",
 ]
 
 [project.urls]
@@ -30,10 +29,10 @@ test = [
     "transformers>=4.38.0",
     "einops",
     "protobuf",
+    "lightning-thunder; python_version >= '3.10'",
 ]
 all = [
-    "bitsandbytes==0.41.0",      # quantization
-    "scipy",                     # required by bitsandbytes
+    "bitsandbytes==0.42.0",      # quantization
     "sentencepiece",             # llama-based models
     "tokenizers",                # pythia, falcon, redpajama
     "datasets",                  # eval
@@ -44,7 +43,7 @@ all = [
     "pyarrow",                   # litgpt.data.prepare_starcoder.py
     "tensorboard",               # litgpt.pretrain
     "torchmetrics",              # litgpt.pretrain
-    "lm_eval @ git+https://github.com/EleutherAI/lm-evaluation-harness.git@115206dc89dad67b8b",
+    "safetensors",               # download
     "huggingface_hub[hf_transfer]>=0.21.0"  # download
 ]
 
