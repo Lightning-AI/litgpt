@@ -581,25 +581,22 @@ Commands:
 ```bash
 python extensions/thunder/pretrain.py --config config.yaml --compiler null --train.global_batch_size 32
 python extensions/thunder/pretrain.py --config config.yaml --compiler torch --train.global_batch_size 32
-python extensions/thunder/pretrain.py --config config.yaml --train.global_batch_size 32
+python extensions/thunder/pretrain.py --config config.yaml --executors '[sdpa, torchcompile, nvfuser, torch]' --train.global_batch_size 32
 
 python extensions/thunder/pretrain.py --config config.yaml --compiler null --strategy ddp
 python extensions/thunder/pretrain.py --config config.yaml --compiler torch --strategy ddp
-python extensions/thunder/pretrain.py --config config.yaml --strategy ddp
+python extensions/thunder/pretrain.py --config config.yaml --executors '[sdpa, torchcompile, nvfuser, torch]' --strategy ddp
 
 python extensions/thunder/pretrain.py --config config.yaml --compiler null --devices 1
 python extensions/thunder/pretrain.py --config config.yaml --compiler torch --devices 1
-python extensions/thunder/pretrain.py --config config.yaml --devices 1
+python extensions/thunder/pretrain.py --config config.yaml --executors '[sdpa, torchcompile, nvfuser, torch]' --devices 1
 
-python extensions/thunder/unsloth/pretrain.py --config config.yaml --devices 1
+python extensions/thunder/pretrain.py --config config.yaml --executors '[sdpa, unsloth_ex, torchcompile, nvfuser, torch]' --devices 1
 ```
 
 Gradient accumulation is disabled in the FSDP setting because Thunder does not support skipping the backward synchronization yet.
 
 The CUDA devices are all NVIDIA A100-SXM4-40GB.
-
-The Unsloth example does not support distributed yet.
-The Unsloth example requires commenting out this line in Lightning Fabric: https://github.com/Lightning-AI/pytorch-lightning/blob/fadd2fc/src/lightning/fabric/wrappers.py#L233
 
 ```text
 Python version: 3.10.12 (main, Nov 20 2023, 15:14:05) [GCC 11.4.0] (64-bit runtime)

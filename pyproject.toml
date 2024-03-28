@@ -10,6 +10,7 @@ license = { file = "LICENSE" }
 
 dependencies = [
     "torch>=2.2.0",
+    # FIXME
     "lightning==2.3.0.dev20240324",
     "jsonargparse[signatures]>=4.27.6",
 ]
