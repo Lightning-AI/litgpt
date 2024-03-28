@@ -146,7 +146,14 @@ togethercomputer/RedPajama-INCITE-Chat-7B-v0.1
 togethercomputer/RedPajama-INCITE-Instruct-3B-v1
 togethercomputer/RedPajama-INCITE-Instruct-7B-v0.1
 Trelis/Llama-2-7b-chat-hf-function-calling-v2
+unsloth/Mistral-7B-v0.2
 ```
+
+&nbsp;
+
+> [!TIP]
+> To sort the list above by model name after the `/`, use `litgpt download | sort -f -t'/' -k2`.
+
 
 &nbsp;
 ### 2. Download Model Weights
