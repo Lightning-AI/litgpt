@@ -52,7 +52,7 @@ class TinyStories(DataModule):
         assert len(files) > 0, f"No json files found in {files}"
         assert len(files) > 1, f"Expected at least two json files in {files}"
         # train/test split. let's use only shard 0 for test split, rest train
-        val_files, *train_files = files
+        val_file, *train_files = files
         num_workers = os.cpu_count() - 1
 
         if not Path(self.data_path_train).is_dir():
@@ -66,9 +66,9 @@ class TinyStories(DataModule):
         if not Path(self.data_path_val).is_dir():
             optimize(
                 fn=partial(tokenize, tokenizer=self.tokenizer),
-                inputs=val_files,
+                inputs=[val_file],
                 output_dir=str(self.data_path_val),
-                num_workers=num_workers,
+                num_workers=1,  # there's only 1 file
                 chunk_bytes="200MB",
             )
 
@@ -119,8 +119,9 @@ _URL = "https://huggingface.co/datasets/roneneldan/TinyStories/resolve/main/Tiny
 
 
 def download(data_dir: Path):
-    data_dir.mkdir(exist_ok=True)
+    data_dir.mkdir(exist_ok=True, parents=True)
 
+    data_tar = data_dir / "TinyStories_all_data.tar.gz"
     data_dir = data_dir / "TinyStories_all_data"
     shard_filenames = sorted(glob.glob(str(data_dir / "*.json")))
     if shard_filenames:
@@ -128,13 +129,12 @@ def download(data_dir: Path):
         return
 
     # download the TinyStories dataset, unless it's already downloaded
-    data_filename = data_dir / "TinyStories_all_data.tar.gz"
-    download_if_missing(data_filename, _URL, stream=True, mode="wb")
-    print("Download done.")
+    download_if_missing(data_tar, _URL, stream=True, mode="wb")
 
     # unpack the tar.gz file into all the data shards (json files)
-    data_dir.mkdir(exist_ok=True)
-    print(f"Unpacking {data_filename}...")
-    os.system(f"tar -xzf {data_filename} -C {data_dir}")
+    data_dir.mkdir(exist_ok=False)
+    tar_command = f"tar -xzf {data_tar} -C {data_dir}"
+    print(tar_command)
+    os.system(tar_command)
     shard_filenames = sorted(glob.glob(str(data_dir / "*.json")))
     print(f"Number of shards: {len(shard_filenames)}")
