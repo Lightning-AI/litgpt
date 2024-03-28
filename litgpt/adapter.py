@@ -66,6 +66,8 @@ class GPT(BaseModel):
             mask = None
 
         x = self.transformer.wte(idx)  # token embeddings of shape (b, t, n_embd)
+        if self.config.scale_embeddings:
+            x = x * (self.config.n_embd**0.5)
         for block in self.transformer.h:
             x = block(x, cos, sin, mask, input_pos)
         x = self.transformer.ln_f(x)
@@ -149,7 +151,8 @@ class CausalSelfAttention(BaseCausalSelfAttention):
         return y + self.gating_factor * ay
 
     def reset_parameters(self) -> None:
-        torch.nn.init.zeros_(self.gating_factor)
+        if hasattr(self, "gating_factor"):
+            torch.nn.init.zeros_(self.gating_factor)
 
     def _load_from_state_dict(self, state_dict: Dict, prefix: str, *args: Any, **kwargs: Any) -> None:
         """For compatibility with older checkpoints."""
