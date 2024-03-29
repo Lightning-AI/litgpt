@@ -106,7 +106,7 @@ For more information, refer to the [download](tutorials/download_model_weights.m
 &nbsp;
 
 > [!NOTE]
-> We recommend starting with the **[Zero to LitGPT: Getting Started with Pretraining, Finetuning, and Using LLMs](tutorial/0_to_litgpt.md)** if you are looking to get started with using LitGPT.
+> We recommend starting with the **[Zero to LitGPT: Getting Started with Pretraining, Finetuning, and Using LLMs](tutorials/0_to_litgpt.md)** if you are looking to get started with using LitGPT.
 
 
 
@@ -331,7 +331,7 @@ If you have general questions about building with LitGPT, please [join our Disco
 
 
 > [!NOTE]
-> We recommend starting with the **[Zero to LitGPT: Getting Started with Pretraining, Finetuning, and Using LLMs](tutorial/0_to_litgpt.md)** if you are looking to get started with using LitGPT.
+> We recommend starting with the **[Zero to LitGPT: Getting Started with Pretraining, Finetuning, and Using LLMs](tutorials/0_to_litgpt.md)** if you are looking to get started with using LitGPT.
 
 Tutorials and in-depth feature documentation can be found below:
 
