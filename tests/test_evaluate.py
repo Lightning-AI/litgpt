@@ -47,6 +47,7 @@ def test_evaluate_script(tmp_path, fake_checkpoint_dir, monkeypatch):
     fn_kwargs = dict(
         checkpoint_dir=fake_checkpoint_dir,
         out_dir=output_dir,
+        device="cpu"
     )
     stdout = StringIO()
     with redirect_stdout(stdout), mock.patch("sys.argv", ["evaluate.py"]):
