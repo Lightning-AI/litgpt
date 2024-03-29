@@ -33,6 +33,26 @@ litgpt evaluate \
   --out_dir evaluate_model/
 ```
 
+The resulting output is as follows:
+
+```
+...
+|---------------------------------------|-------|------|-----:|--------|-----:|---|-----:|
+...
+|truthfulqa_mc2                         |      2|none  |     0|acc     |0.4656|±  |0.0164|
+|hellaswag                              |      1|none  |     0|acc     |0.2569|±  |0.0044|
+|                                       |       |none  |     0|acc_norm|0.2632|±  |0.0044|
+
+|      Groups      |Version|Filter|n-shot|Metric|Value |   |Stderr|
+|------------------|-------|------|-----:|------|-----:|---|-----:|
+|mmlu              |N/A    |none  |     0|acc   |0.2434|±  |0.0036|
+| - humanities     |N/A    |none  |     0|acc   |0.2578|±  |0.0064|
+| - other          |N/A    |none  |     0|acc   |0.2401|±  |0.0077|
+| - social_sciences|N/A    |none  |     0|acc   |0.2301|±  |0.0076|
+| - stem           |N/A    |none  |     0|acc   |0.2382|±  |0.0076|
+```
+
+
 Please note that the `litgpt evaluate` command run an internal model conversion. 
 This is only necessary the first time you want to evaluate a model. To skip the conversion, 
 when you want to evaluate a model a second time, you can pass the `--skip_conversion true` argument:
@@ -48,9 +68,9 @@ litgpt evaluate \
 &nbsp;
 
 > [!TIP]
-> By default, `ligpt evaluate` will evaluate a model on all Open LM Leaderboard tasks, which corresponds
+> By default, `ligpt evaluate` will evaluate a model on 3 tasks
 > to the setting `--tasks 
-> "hellaswag,gsm8k,truthfulqa_mc2,mmlu,winogrande,arc_challenge"`. 
+> "hellaswag,truthfulqa_mc2,mmlu"`. 
 
 > [!TIP]
 > The evaluation may take a long time, and for testing purpoes, you may want to reduce the number of tasks

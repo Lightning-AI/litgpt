@@ -39,7 +39,7 @@ def convert_and_evaluate(
     checkpoint_dir: str,
     out_dir: Optional[str] = None,
     force_conversion: bool = False,
-    tasks: Optional[str] = "hellaswag,gsm8k,truthfulqa_mc2,mmlu,winogrande,arc_challenge",
+    tasks: Optional[str] = "hellaswag,truthfulqa_mc2,mmlu",
     num_fewshot: Optional[int] = None,
     batch_size: int = 1,
     device: Optional[str] = None,
@@ -56,8 +56,8 @@ def convert_and_evaluate(
         force_conversion: Set to `True` to reconvert the model and override
             an existing model.pth from a previous evaluation call.
         tasks: CSV of task names to evaluate.
-           By default, the Open LM Leaderboard tasks are used:
-           "hellaswag,gsm8k,truthfulqa_mc2,mmlu,winogrande,arc_challenge"
+           By default, the following tasks are used:
+           "hellaswag,truthfulqa_mc2,mmlu"
         num_fewshot: Number of examples in few-shot context.
         batch_size: Batch size configuration.
         device: Device to use for evaluation, for example, "cuda" or "cuda:0".
