@@ -56,7 +56,7 @@ def test_evaluate_script(tmp_path, fake_checkpoint_dir, monkeypatch):
 
 def test_cli():
     cli_path = Path(__file__).parent.parent / "eval" / "evaluate.py"
-    output = subprocess.check_output([sys.executable, cli_path, "-h"])
+    output = subprocess.check_output([sys.executable, cli_path, f"--checkpoint_dir {fake_checkpoint_dir}", "-h"])
     output = str(output.decode())
     assert "evaluate" in output
 
