@@ -22,8 +22,11 @@ For more information, see the [Dealing with out-of-memory (OOM) errors](../../tu
 | llama-2-7b/qlora.yaml             | 7B   | Alpaca 2k | 4      | 0.814    | 13.68 GB    | 512            | 2                | bfloat16  | 45.68 min (A10G)   |
 | llama-2-7b/full.yaml              | 7B   | Alpaca 2k | 1      | 0.941    | 26.81 GB    | 512            | 4                | bfloat16  | 1.78 min (4xA100)  |
 |                                   |      |           |        |          |             |                |                  |           |                    |
-| mistral-7b/lora.yaml              | 7B   | Alpaca 2k | 4      | 0.796    | 20.65 GB    | 512            | 2                | bfloat16  | 31.04 min (1xA10G) |
-| mistral-7b/qlora.yaml             | 7B   | Alpaca 2k | 4      | 0.803    | 14.29 GB    | 512            | 2                | bfloat16  | 44.69 min (1xA10G) |
+| mistral-7b/lora.yaml  (v0.1)      | 7B   | Alpaca 2k | 4      | 0.796    | 20.65 GB    | 512            | 2                | bfloat16  | 31.04 min (1xA10G) |
+| mistral-7b/qlora.yaml (v0.1)      | 7B   | Alpaca 2k | 4      | 0.803    | 14.29 GB    | 512            | 2                | bfloat16  | 44.69 min (1xA10G) |
+|                                   |      |           |        |          |             |                |                  |           |                    |
+| mistral-7b-v0.2/lora.yaml         | 7B   | Alpaca 2k | 4      | 0.801    | 20.65 GB    | 512            | 2                | bfloat16  | 30.96 min (1xA10G) |
+| mistral-7b-v0.2/qlora.yaml        | 7B   | Alpaca 2k | 4      | 0.813    | 14.29 GB    | 512            | 2                | bfloat16  | 44.68 min (1xA10G) |
 |                                   |      |           |        |          |             |                |                  |           |                    |
 | phi-2/lora.yaml                   | 2B   | Alpaca 2k | 1      | 0.832    | 13.98 GB    | 512            | 4                | bfloat16  | 3.82 min (1xA10G)  |
 | phi-2/qlora.yaml                  | 2B   | Alpaca 2k | 1      | 0.846    | 14.27 GB    | 512            | 4                | bfloat16  | 4.55 min (1xA10G)  |
