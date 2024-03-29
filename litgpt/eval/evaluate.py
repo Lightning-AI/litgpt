@@ -11,18 +11,14 @@ from litgpt.scripts.convert_lit_checkpoint import convert_lit_checkpoint
 from litgpt.utils import CLI, copy_config_files
 
 
-def get_hf_model(out_dir, repo_id):
-    from transformers import AutoModel, AutoTokenizer
-    from lm_eval.models.huggingface import HFLM
+def safe_safetensors(out_dir, repo_id):
+    from transformers import AutoModel
 
     state_dict = torch.load(out_dir/"model.pth")
     model = AutoModel.from_pretrained(
-        repo_id, state_dict=state_dict
-    )
-    tokenizer = AutoTokenizer.from_pretrained(
-        repo_id
-    )
-    return HFLM(model, tokenizer=tokenizer)
+         repo_id, state_dict=state_dict
+     )
+    model.save_pretrained(out_dir)
 
 
 def prepare_results(results, save_filepath, print_results=True):
@@ -75,6 +71,12 @@ def convert_and_evaluate(
 
     checkpoint_dir = Path(checkpoint_dir)
 
+    if out_dir is None:
+        out_dir = checkpoint_dir / "evaluate"
+    else:
+        out_dir = Path(out_dir)
+    out_dir.mkdir(parents=True, exist_ok=True)
+
     save_filepath = out_dir / Path("results.json") if save_filepath is None else Path(save_filepath)
     config_filepath = checkpoint_dir/"model_config.yaml"
 
@@ -82,23 +84,21 @@ def convert_and_evaluate(
         config_dict = yaml.safe_load(f)
     repo_id = f"{config_dict['hf_config']['org']}/{config_dict['hf_config']['name']}"
 
-    if out_dir is None:
-        out_dir = checkpoint_dir / "evaluate"
-    else:
-        out_dir = Path(out_dir)
-    out_dir.mkdir(parents=True, exist_ok=True)
-
     copy_config_files(source_dir=checkpoint_dir, out_dir=out_dir)
 
     model_path = out_dir / "model.pth"
     if not model_path.exists() or force_conversion:
         convert_lit_checkpoint(checkpoint_dir=checkpoint_dir, output_dir=out_dir)
-    hf_model = get_hf_model(out_dir, repo_id)
+
+    safetensors_path = out_dir / "model.safetensors"
+    if not safetensors_path.exists() or force_conversion:
+        safe_safetensors(out_dir, repo_id)
 
     os.environ["TOKENIZERS_PARALLELISM"] = "false"
 
     results = evaluator.simple_evaluate(
-        model=hf_model,
+        model="hf",
+        model_args=f"pretrained={out_dir}",
         tasks=tasks.split(","),
         num_fewshot=num_fewshot,
         batch_size=batch_size,
@@ -108,8 +108,6 @@ def convert_and_evaluate(
         numpy_random_seed=seed,
         torch_random_seed=seed,
     )
-
-    print("results", results)
     prepare_results(results, save_filepath)
 
 
