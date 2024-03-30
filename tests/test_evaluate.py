@@ -54,10 +54,10 @@ def test_evaluate_script(tmp_path, fake_checkpoint_dir, monkeypatch):
         module.convert_and_evaluate(**fn_kwargs)
 
 
-@pytest.mark.parametrize("mode", ["file", "entrypoint"])
+@pytest.mark.parametrize("checkpoint_dir", ["fake_checkpoint_dir"])
 def test_cli():
     cli_path = Path(__file__).parent.parent / "eval" / "evaluate.py"
-    output = subprocess.check_output([sys.executable, cli_path, f"--checkpoint_dir {fake_checkpoint_dir}", "-h"])
+    output = subprocess.check_output([sys.executable, cli_path])
     output = str(output.decode())
     assert "evaluate" in output
 
