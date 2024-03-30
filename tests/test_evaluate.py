@@ -8,6 +8,7 @@ from unittest import mock
 import litgpt.eval.evaluate as module
 from contextlib import redirect_stdout
 from io import StringIO
+import shutil
 import subprocess
 
 import datasets
@@ -37,50 +38,29 @@ sys.path.append(str(wd))
 def test_evaluate_script(tmp_path, monkeypatch):
     ours_config = Config.from_name("pythia-14m")
     download_from_hub(repo_id="EleutherAI/pythia-14m", tokenizer_only=True, checkpoint_dir=tmp_path)
+    shutil.move(tmp_path / "EleutherAI" / "pythia-14m" / "tokenizer.json", tmp_path)
+    shutil.move(tmp_path / "EleutherAI" / "pythia-14m" / "tokenizer_config.json", tmp_path)
     ours_model = GPT(ours_config)
     checkpoint_path = tmp_path / "lit_model.pth"
-    config_path = tmp_path / "model_config.yaml"
     torch.save(ours_model.state_dict(), checkpoint_path)
+    config_path = tmp_path / "model_config.yaml"
     with open(config_path, "w") as fp:
         yaml.dump(asdict(ours_config), fp)
-    torch.save({"model": ours_model.state_dict()}, tmp_path)
 
     fn_kwargs = dict(
         checkpoint_dir=tmp_path,
         out_dir=tmp_path / "out_dir",
         device="cpu",
-        tasks="hellaswag"
+        limit=5,
+        tasks="mathqa"
     )
     stdout = StringIO()
-    with redirect_stdout(stdout), mock.patch("sys.argv", ["eval" / "evaluate.py"]):
+    with redirect_stdout(stdout), mock.patch("sys.argv", [Path("eval") / "evaluate.py"]):
         module.convert_and_evaluate(**fn_kwargs)
+        stdout_out = stdout.getvalue()
+        assert "mathqa" in stdout_out
+        assert "Metric" in stdout_out
 
-"""
-@pytest.mark.xfail(
-    raises=(datasets.builder.DatasetGenerationError, NotImplementedError),
-    strict=False,
-    match="Loading a dataset cached in a LocalFileSystem is not supported",
-)
-@mock.patch.dict(os.environ, {"LT_ACCELERATOR": "cpu"})
-def test_evaluate_script(tmp_path, fake_checkpoint_dir, monkeypatch):
-    ours_config = Config.from_name("pythia-14m")
-    ours_model = GPT(ours_config)
-    checkpoint_path = fake_checkpoint_dir / "lit_model.pth"
-    config_path = fake_checkpoint_dir / "model_config.yaml"
-    torch.save(ours_model.state_dict(), checkpoint_path)
-    with open(config_path, "w") as fp:
-        yaml.dump(asdict(ours_config), fp)
-    output_dir = fake_checkpoint_dir / "out_dir"
-
-    fn_kwargs = dict(
-        checkpoint_dir=fake_checkpoint_dir,
-        out_dir=output_dir,
-        device="cpu"
-    )
-    stdout = StringIO()
-    with redirect_stdout(stdout), mock.patch("sys.argv", ["evaluate.py"]):
-        module.convert_and_evaluate(**fn_kwargs)
-"""
 
 def test_cli(fake_checkpoint_dir):
     cli_path = Path(__file__).parent.parent / "litgpt" / "eval" / "evaluate.py"

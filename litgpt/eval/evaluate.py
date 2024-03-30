@@ -63,7 +63,7 @@ def convert_and_evaluate(
         device: Device to use for evaluation, for example, "cuda" or "cuda:0".
         limit: Limit on number of examples per task.
         seed: Random seed.
-        save_filepath: The file where the results will be saved. 
+        save_filepath: The file where the results will be saved.
             Saves to `out_dir/results.json` by default.
     """
 
