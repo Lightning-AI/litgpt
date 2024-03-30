@@ -27,6 +27,34 @@ from lm_eval import evaluator
 wd = Path(__file__).parent.parent.resolve()
 sys.path.append(str(wd))
 
+
+@pytest.mark.xfail(
+    raises=(datasets.builder.DatasetGenerationError, NotImplementedError),
+    strict=False,
+    match="Loading a dataset cached in a LocalFileSystem is not supported",
+)
+@mock.patch.dict(os.environ, {"LT_ACCELERATOR": "cpu"})
+def test_evaluate_script(tmp_path, monkeypatch):
+    ours_config = Config.from_name("pythia-14m")
+    download_from_hub(repo_id="EleutherAI/pythia-14m", tokenizer_only=True, checkpoint_dir=tmp_path)
+    ours_model = GPT(ours_config)
+    checkpoint_path = tmp_path / "lit_model.pth"
+    config_path = tmp_path / "model_config.yaml"
+    torch.save(ours_model.state_dict(), checkpoint_path)
+    with open(config_path, "w") as fp:
+        yaml.dump(asdict(ours_config), fp)
+    torch.save({"model": ours_model.state_dict()}, tmp_path)
+
+    fn_kwargs = dict(
+        checkpoint_dir=tmp_path,
+        out_dir=tmp_path / "out_dir",
+        device="cpu",
+        tasks="hellaswag"
+    )
+    stdout = StringIO()
+    with redirect_stdout(stdout), mock.patch("sys.argv", ["eval" / "evaluate.py"]):
+        module.convert_and_evaluate(**fn_kwargs)
+
 """
 @pytest.mark.xfail(
     raises=(datasets.builder.DatasetGenerationError, NotImplementedError),
@@ -42,7 +70,7 @@ def test_evaluate_script(tmp_path, fake_checkpoint_dir, monkeypatch):
     torch.save(ours_model.state_dict(), checkpoint_path)
     with open(config_path, "w") as fp:
         yaml.dump(asdict(ours_config), fp)
-    output_dir = tmp_path / "out_dir"
+    output_dir = fake_checkpoint_dir / "out_dir"
 
     fn_kwargs = dict(
         checkpoint_dir=fake_checkpoint_dir,
@@ -50,57 +78,12 @@ def test_evaluate_script(tmp_path, fake_checkpoint_dir, monkeypatch):
         device="cpu"
     )
     stdout = StringIO()
-    #with redirect_stdout(stdout), mock.patch("sys.argv", ["evaluate.py", "--checkpoint_dir", "fake_checkpoint_dir"]):
-    #    module.convert_and_evaluate(**fn_kwargs)
+    with redirect_stdout(stdout), mock.patch("sys.argv", ["evaluate.py"]):
+        module.convert_and_evaluate(**fn_kwargs)
 """
-
 
 def test_cli(fake_checkpoint_dir):
     cli_path = Path(__file__).parent.parent / "litgpt" / "eval" / "evaluate.py"
     output = subprocess.check_output([sys.executable, cli_path, "-h"])
     output = str(output.decode())
     assert "evaluate" in output
-
-
-
-"""
-def test_run_eval(tmp_path, float_like):
-    repo_id = "EleutherAI/pythia-14m"
-    download_from_hub(repo_id=repo_id, checkpoint_dir=tmp_path)
-
-    checkpoint_path = Path(tmp_path) / Path(repo_id)
-
-    convert_lit_checkpoint(checkpoint_dir=checkpoint_path, output_dir=checkpoint_path)
-    safe_safetensors(out_dir=checkpoint_path, repo_id=repo_id)
-
-    eval_tasks = "coqa,hellaswag"
-    results = evaluator.simple_evaluate(
-        model="hf",
-        model_args=f"pretrained={checkpoint_path}",
-        tasks=eval_tasks.split(","),
-        limit=2,
-        device="cpu"
-    )
-
-    save_path = checkpoint_path/"results.json"
-    prepare_results(results, save_path, print_results=False)
-
-    print(checkpoint_path/"dump.txt")
-    assert save_path.is_file()
-    assert results["results"] == {
-            'coqa': {
-                'alias': 'coqa',
-                'em,none': 0.0,
-                'em_stderr,none': 0.0,
-                'f1,none': 0.0,
-                'f1_stderr,none': 0.0
-            },
-            'hellaswag': {
-                'acc,none': 0.0,
-                'acc_stderr,none': 0.0,
-                'acc_norm,none': 0.5,
-                'acc_norm_stderr,none': 0.5,
-                'alias': 'hellaswag'
-            }
-    }
-"""
