@@ -55,9 +55,9 @@ def test_evaluate_script(tmp_path, fake_checkpoint_dir, monkeypatch):
 
 
 @pytest.mark.parametrize("checkpoint_dir", ["fake_checkpoint_dir"])
-def test_cli():
+def test_cli(checkpoint_dir):
     cli_path = Path(__file__).parent.parent / "eval" / "evaluate.py"
-    output = subprocess.check_output([sys.executable, cli_path])
+    output = subprocess.check_output([sys.executable, cli_path, f"--checkpoint_dir {checkpoint_dir}"])
     output = str(output.decode())
     assert "evaluate" in output
 
