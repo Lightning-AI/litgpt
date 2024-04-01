@@ -211,7 +211,7 @@ def fit(
         f" {model.max_seq_length} and context length is {model.config.block_size}"
     )
 
-    validate(fabric, model, val_dataloader, tokenizer, dataclasses.replace(eval, max_iters=2), data)  # sanity check
+    val_loss = validate(fabric, model, val_dataloader, tokenizer, dataclasses.replace(eval, max_iters=2), data)  # sanity check
 
     train_iterator = CycleIterator(train_dataloader)
     throughput = ThroughputMonitor(fabric, window_size=50)
@@ -223,7 +223,6 @@ def fit(
     iter_num = 0
     total_lengths = 0
     total_t0 = time.perf_counter()
-    val_loss = "n/a"
 
     while step_count < max_steps and train_iterator.epoch < train.epochs:
         iter_num += 1
@@ -248,7 +247,7 @@ def fit(
             step_count += 1
 
         total_lengths += input_ids.numel()
-        if iter_num % train.log_interval == 0:
+        if iter_num % train.log_interval == 0  or max_steps == step_count:
             loss = running_loss.compute().item()  # expensive device-to-host synchronization
             t1 = time.perf_counter()
             throughput.update(
@@ -265,12 +264,10 @@ def fit(
                 "total_tokens": (iter_num * train.micro_batch_size * model.config.block_size * fabric.world_size),
                 "learning_rate": scheduler.get_last_lr()[0],
             }
-            if isinstance(val_loss, torch.Tensor):
-                val_loss = f"{val_loss:.3f}"
             fabric.print(
                 f"Epoch {metrics['epoch'] + 1} | iter {metrics['iter']} step {metrics['step']} |"
                 f" loss train: {metrics['loss']:.3f},"
-                f" val: {val_loss} |"
+                f" val: {val_loss:.3f} |"
                 f" iter time: {metrics['iter_time'] * 1000:.2f} ms"
                 f"{' (step)' if not is_accumulating else ''}"
             )
@@ -294,13 +291,20 @@ def fit(
                 save_hyperparameters(setup, checkpoint_file.parent)
                 save_prompt_style(data.prompt_style, checkpoint_file.parent)
 
+        if step_count == max_steps:
+            fabric.print("Final validation ...")
+            train_loss = validate(fabric, model, train_dataloader, tokenizer, eval, data, print_output=False)
+            val_loss = validate(fabric, model, val_dataloader, tokenizer, eval, data, print_output=False)
+            fabric.print(f"Final train loss: {train_loss:.3f} | final val loss: {val_loss:.3f}")
+
 
 # the adapter "kv cache" cannot be initialized under `inference_mode`
 @torch.no_grad()
 def validate(
-    fabric: L.Fabric, model: GPT, val_dataloader: DataLoader, tokenizer: Tokenizer, eval: EvalArgs, data: DataModule
+    fabric: L.Fabric, model: GPT, val_dataloader: DataLoader, tokenizer: Tokenizer, eval: EvalArgs, data: DataModule, print_output: bool = True
 ) -> torch.Tensor:
-    fabric.print("Validating ...")
+    if print_output:
+        fabric.print("Validating ...")
     model.eval()
     losses = torch.zeros(min(len(val_dataloader), eval.max_iters))
     for k, batch in enumerate(val_dataloader):
@@ -312,20 +316,21 @@ def validate(
 
     val_loss = losses.mean()
 
-    # produce an example:
-    instruction = "Recommend a movie for me to watch during the weekend and explain the reason."
-    fabric.print(instruction)
-    prompt = data.prompt_style.apply(instruction)
-    encoded = tokenizer.encode(prompt, device=fabric.device)
-    with fabric.init_tensor():
-        # do not set `max_seq_length=max_returned_token` because memory is not a concern here
-        model.set_kv_cache(batch_size=1)
-    output = generate(
-        model, encoded, max_returned_tokens=len(encoded) + eval.max_new_tokens, temperature=0.8, eos_id=tokenizer.eos_id
-    )
-    model.clear_kv_cache()
-    output = tokenizer.decode(output)
-    fabric.print(output)
+    if print_output:
+        # produce an example:
+        instruction = "Recommend a movie for me to watch during the weekend and explain the reason."
+        fabric.print(instruction)
+        prompt = data.prompt_style.apply(instruction)
+        encoded = tokenizer.encode(prompt, device=fabric.device)
+        with fabric.init_tensor():
+            # do not set `max_seq_length=max_returned_token` because memory is not a concern here
+            model.set_kv_cache(batch_size=1)
+        output = generate(
+            model, encoded, max_returned_tokens=len(encoded) + eval.max_new_tokens, temperature=0.8, eos_id=tokenizer.eos_id
+        )
+        model.clear_kv_cache()
+        output = tokenizer.decode(output)
+        fabric.print(output)
 
     model.train()
     return val_loss
