@@ -1,8 +1,7 @@
 # Pretrain LLMs with LitGPT
 
 
-The simplest way to get started with pretraining LLMs in LitGPT ...
-
+This document explains how to pretrain LLMs using LitGPT.
 
 &nbsp;
 ## The Pretraining API
@@ -13,7 +12,7 @@ You can pretrain models in LitGPT using the `litgpt pretrain` API starting with 
 litgpt pretrain
 ```
 
-Shown below is an abbreviated list
+Shown below is an abbreviated list:
 
 ```
 ValueError: Please specify --model_name <model_name>. Available values:
