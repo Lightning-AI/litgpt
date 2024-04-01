@@ -391,6 +391,12 @@ The LitGPT repository was the official starter kit for the [NeurIPS 2023 LLM Eff
 
 LitGPT powered the [TinyLlama project](https://github.com/jzhang38/TinyLlama) and [TinyLlama: An Open-Source Small Language Model](https://arxiv.org/abs/2401.02385) research paper.
 
+&nbsp;
+
+**🍪 MicroLlama: MicroLlama-300M**
+
+[MicroLlama](https://github.com/keeeeenw/MicroLlama) is a 300M Llama model pretrained on 50B tokens powered by TinyLlama and LitGPT.
+
 
 &nbsp;
 
