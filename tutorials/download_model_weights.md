@@ -146,7 +146,24 @@ togethercomputer/RedPajama-INCITE-Chat-7B-v0.1
 togethercomputer/RedPajama-INCITE-Instruct-3B-v1
 togethercomputer/RedPajama-INCITE-Instruct-7B-v0.1
 Trelis/Llama-2-7b-chat-hf-function-calling-v2
+unsloth/Mistral-7B-v0.2
 ```
+
+&nbsp;
+
+> [!TIP]
+> To sort the list above by model name after the `/`, use `litgpt download | sort -f -t'/' -k2`.
+
+&nbsp;
+
+> [!NOTE]
+> If you want to adopt a model variant that is not listed in the table above but has a similar architecture as one of the supported models, you can use this model by by using the `--model_name` argument as shown below:
+> ```bash
+> litgpt download \
+>  --repo_id NousResearch/Hermes-2-Pro-Mistral-7B \
+>  --model_name Mistral-7B-v0.1
+> ```
+
 
 &nbsp;
 ### 2. Download Model Weights

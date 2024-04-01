@@ -389,7 +389,7 @@ Time for inference: 2.15 sec total, 39.57 tokens/sec, 85 tokens
 
 **More information and additional resources**
 
-- [tutorials/prepare_dataset](prepare_dataset): A summary of all out-of-the-box supported datasets in LitGPT and utilities for preparing custom datasets
+- [tutorials/prepare_dataset](prepare_dataset.md): A summary of all out-of-the-box supported datasets in LitGPT and utilities for preparing custom datasets
 - [tutorials/finetune](finetune.md): An overview of the different finetuning methods supported in LitGPT
 - [tutorials/finetune_full](finetune_full.md): A tutorial on full-parameter finetuning
 - [tutorials/finetune_lora](finetune_lora.md): Options for parameter-efficient finetuning with LoRA and QLoRA
@@ -528,7 +528,7 @@ lm_eval --model hf \
 &nbsp;
 **More information and additional resources**
 
-- [tutorials/convert_lit_models](tutorials/convert_lit_models.md): Tutorial on converting LitGPT weights
+- [tutorials/convert_lit_models](./convert_lit_models.md): Tutorial on converting LitGPT weights
 
 
 
