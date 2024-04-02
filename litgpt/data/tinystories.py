@@ -54,7 +54,7 @@ class TinyStories(DataModule):
         assert len(files) > 1, f"Expected at least two json files in {files}"
         # train/test split. let's use only shard 0 for test split, rest train
         val_file, *train_files = files
-        if None:
+        if num_workers is None:
             num_workers = os.cpu_count() - 1
 
         if not Path(self.data_path_train).is_dir():
