@@ -28,8 +28,8 @@ class TinyStories(DataModule):
     seed: int = 42
     """The seed to use for shuffling the dataset."""
     num_workers: Optional[int] = None,
-    """The number of workers to use for the dataloaders.
-       Sets the number of workers equal to the number of avaialable CPUs by default."""
+    """The number of workers to use per dataloader.
+       Sets the number of workers equal to the number of avaialable CPUs - 1 by default."""
 
     tokenizer: Optional[Tokenizer] = field(default=None, init=False, repr=False)
     batch_size: int = field(default=1, init=False, repr=False)
@@ -83,8 +83,13 @@ class TinyStories(DataModule):
             shuffle=True,
             drop_last=True,
         )
+        if self.num_workers is None:
+            half_workers = (os.cpu_count() - 1) // 2
+            if half_workers < 1:
+                half_workers = 1
+
         train_dataloader = StreamingDataLoader(
-            train_dataset, batch_size=self.batch_size, pin_memory=True, num_workers=self.num_workers, drop_last=True
+            train_dataset, batch_size=self.batch_size, pin_memory=True, num_workers=half_workers, drop_last=True
         )
         return train_dataloader
 
@@ -98,8 +103,12 @@ class TinyStories(DataModule):
             # Consider setting to False, but we would lose some samples due to truncation when world size > 1
             drop_last=True,
         )
+        if self.num_workers is None:
+            half_workers = (os.cpu_count() - 1) // 2
+            if half_workers < 1:
+                half_workers = 1
         val_dataloader = DataLoader(
-            val_dataset, batch_size=self.batch_size, pin_memory=True, num_workers=self.num_workers, drop_last=True
+            val_dataset, batch_size=self.batch_size, pin_memory=True, num_workers=half_workers, drop_last=True
         )
         return val_dataloader
 
