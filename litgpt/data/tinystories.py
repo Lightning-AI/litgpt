@@ -27,8 +27,9 @@ class TinyStories(DataModule):
     which are the output of the preprocessing step."""
     seed: int = 42
     """The seed to use for shuffling the dataset."""
-    num_workers: int = 8
-    """The number of workers to use for the dataloaders."""
+    num_workers: Optional[int] = None,
+    """The number of workers to use for the dataloaders.
+       Sets the number of workers equal to the number of avaialable CPUs by default."""
 
     tokenizer: Optional[Tokenizer] = field(default=None, init=False, repr=False)
     batch_size: int = field(default=1, init=False, repr=False)
@@ -53,7 +54,8 @@ class TinyStories(DataModule):
         assert len(files) > 1, f"Expected at least two json files in {files}"
         # train/test split. let's use only shard 0 for test split, rest train
         val_file, *train_files = files
-        num_workers = os.cpu_count() - 1
+        if None:
+            num_workers = os.cpu_count() - 1
 
         if not Path(self.data_path_train).is_dir():
             optimize(
