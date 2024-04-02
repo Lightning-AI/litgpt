@@ -125,6 +125,7 @@ litgpt pretrain --help
 
 **More information and additional resources**
 
+- [tutorials/pretraimd](./pretrain.md): General information about pretraining in LitGPT
 - [tutorials/pretrain_tinyllama](./pretrain_tinyllama.md): A tutorial for finetuning a 1.1B TinyLlama model on 3 trillion tokens
 - [config_hub/pretrain](../config_hub/pretrain): Pre-made config files for pretraining that work well out of the box
 - Project templates in reproducible environments with multi-GPU and multi-node support:
