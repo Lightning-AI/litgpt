@@ -63,8 +63,8 @@ litgpt download \
 
 litgpt pretrain \
    --model_name pythia-14m \
-   --data TextFiles \
    --tokenizer_dir checkpoints/EleutherAI/pythia-14m \
+   --data TextFiles \
    --data.train_data_path custom_pretraining_data \
    --train.learning_rate 0.005 \
    --train.lr_warmup_steps=200
