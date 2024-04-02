@@ -451,9 +451,9 @@ def choose_logger(
     **kwargs: Any,
 ):
     if logger_name == "csv":
-        return CSVLogger(root_dir=(out_dir / "logs"), name="csv", flush_logs_every_n_steps=log_interval, **kwargs)
+        return CSVLogger(root_dir=(out_dir / "logs"), name=name, flush_logs_every_n_steps=log_interval, **kwargs)
     if logger_name == "tensorboard":
-        return TensorBoardLogger(root_dir=(out_dir / "logs"), name="tensorboard", **kwargs)
+        return TensorBoardLogger(root_dir=(out_dir / "logs"), name=name, **kwargs)
     if logger_name == "wandb":
         return WandbLogger(project=name, resume=resume, **kwargs)
     raise ValueError(f"`--logger_name={logger_name}` is not a valid option. Choose from 'csv', 'tensorboard', 'wandb'.")
