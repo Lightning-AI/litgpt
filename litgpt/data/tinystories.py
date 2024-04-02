@@ -103,6 +103,11 @@ class TinyStories(DataModule):
 
 
 def tokenize(filename: str, tokenizer: Tokenizer):
+    if tokenizer is None:
+        raise ValueError(
+            "Tokenizer is None. If you are using this data module via `litgpt pretrain`, "
+            "please provide a valid `--tokenizer_dir` path."
+        )
     with open(filename, "r") as f:
         data = json.load(f)
     global_rank = int(os.environ["DATA_OPTIMIZER_GLOBAL_RANK"])
