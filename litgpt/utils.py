@@ -445,7 +445,7 @@ def parse_devices(devices: Union[str, int]) -> int:
 def choose_logger(
     logger_name: Literal["csv", "tensorboard", "wandb"],
     out_dir: Path,
-    name: str,
+    name: str = "csv",
     log_interval: int = 1,
     resume: Optional[bool] = None,
     **kwargs: Any,
