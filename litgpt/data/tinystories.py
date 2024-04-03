@@ -46,6 +46,12 @@ class TinyStories(DataModule):
     def prepare_data(self) -> None:
         from litdata import optimize
 
+        if self.tokenizer is None:
+            raise ValueError(
+                "Tokenizer is None. If you are using this data module via `litgpt pretrain`, "
+                "please provide a valid `--tokenizer_dir` path."
+            )
+
         download(self.data_path)
 
         files = sorted(glob.glob(str(self.data_path / "TinyStories_all_data" / "*.json")))
@@ -103,11 +109,6 @@ class TinyStories(DataModule):
 
 
 def tokenize(filename: str, tokenizer: Tokenizer):
-    if tokenizer is None:
-        raise ValueError(
-            "Tokenizer is None. If you are using this data module via `litgpt pretrain`, "
-            "please provide a valid `--tokenizer_dir` path."
-        )
     with open(filename, "r") as f:
         data = json.load(f)
     global_rank = int(os.environ["DATA_OPTIMIZER_GLOBAL_RANK"])

@@ -29,9 +29,8 @@ class TextFiles(DataModule):
     and provides training and validation dataloaders that return batches of tokens.
     Every sample is set to a fixed length.
     """
-    train_data_path: Path = Path("data/")
-    """The path to the data directory used for training that
-    contains .txt files"""
+    train_data_path: Path
+    """The path to the data directory used for training that contains .txt files"""
     val_data_path: Optional[str] = None
     """The path to the data directory used for validation that
     contains .txt files. Splits off data for validation from the
@@ -52,11 +51,11 @@ class TextFiles(DataModule):
         self.max_seq_length = max_seq_length + 1  # Increase by one because we need the next token as well
 
     def __post_init__(self) -> None:
-        self.data_path_train = self.train_data_path / "train"
+        self.out_path_train = self.train_data_path / "train"
         if self.val_data_path is None:
-            self.data_path_val = self.train_data_path / "val"
+            self.out_path_val = self.train_data_path / "val"
         else:
-            self.data_path_val = Path(self.val_data_path) / "val"
+            self.out_path_val = Path(self.val_data_path) / "val"
 
     def prepare_data(self) -> None:
         from litdata import optimize
@@ -72,25 +71,32 @@ class TextFiles(DataModule):
         # train/test split. let's use only shard 0 for test split, rest train
         else:
             val_files, *train_files = train_files
+            val_files = [val_files] if not isinstance(val_files, list) else val_files
 
         if self.num_workers is None:
             num_workers = os.cpu_count() - 1
         else:
             num_workers = self.num_workers
 
-        if not Path(self.data_path_train).is_dir():
+        if self.tokenizer is None:
+            raise ValueError(
+                "Tokenizer is None. If you are using this data module via `litgpt pretrain`, "
+                "please provide a valid `--tokenizer_dir` path."
+            )
+
+        if not Path(self.out_path_train).is_dir():
             optimize(
                 fn=partial(tokenize, tokenizer=self.tokenizer),
                 inputs=train_files,
-                output_dir=str(self.data_path_train),
+                output_dir=str(self.out_path_train),
                 num_workers=num_workers,
                 chunk_bytes="50MB",
             )
-        if not Path(self.data_path_val).is_dir():
+        if not Path(self.out_path_val).is_dir():
             optimize(
                 fn=partial(tokenize, tokenizer=self.tokenizer),
-                inputs=[val_files] if not isinstance(val_files, list) else val_files,
-                output_dir=str(self.data_path_val),
+                inputs=val_files,
+                output_dir=str(self.out_path_val),
                 num_workers=1,  # there's only 1 file
                 chunk_bytes="50MB",
             )
@@ -99,7 +105,7 @@ class TextFiles(DataModule):
         from litdata.streaming import StreamingDataLoader, StreamingDataset, TokensLoader
 
         train_dataset = StreamingDataset(
-            input_dir=str(self.data_path_train),
+            input_dir=str(self.out_path_train),
             item_loader=TokensLoader(block_size=self.max_seq_length),
             shuffle=True,
             drop_last=True,
@@ -119,7 +125,7 @@ class TextFiles(DataModule):
             num_workers = get_half_workers()
 
         val_dataset = StreamingDataset(
-            input_dir=str(self.data_path_val),
+            input_dir=str(self.out_path_val),
             item_loader=TokensLoader(block_size=self.max_seq_length),
             shuffle=True,
             # Consider setting to False, but we would lose some samples due to truncation when world size > 1
@@ -132,29 +138,24 @@ class TextFiles(DataModule):
 
 
 def tokenize(filename: str, tokenizer: Tokenizer):
-    if tokenizer is None:
-        raise ValueError(
-            "Tokenizer is None. If you are using this data module via `litgpt pretrain`, "
-            "please provide a valid `--tokenizer_dir` path."
-        )
     with open(filename, "r", encoding="utf-8") as file:
         text = file.read()
     text = text.strip()
 
+    global_rank = int(os.environ["DATA_OPTIMIZER_GLOBAL_RANK"])
+    num_workers = int(os.environ["DATA_OPTIMIZER_NUM_WORKERS"])
+
     chunks = []
     total_length = len(text)
-    num_chunks = 10
+    num_chunks = max(1, num_workers - 1)
     chunk_size = total_length // num_chunks
     for i in range(num_chunks):
         start_index = i * chunk_size
         end_index = (i + 1) * chunk_size if i < 9 else total_length
         chunks.append(text[start_index:end_index])
 
-
-    global_rank = int(os.environ["DATA_OPTIMIZER_GLOBAL_RANK"])
-    num_workers = int(os.environ["DATA_OPTIMIZER_NUM_WORKERS"])
     local_rank = global_rank % num_workers
     for example in tqdm(chunks, position=local_rank):
-        tokens = tokenizer.encode(example.strip(), bos=True, eos=False)  # encode the text, use BOS
+        tokens = tokenizer.encode(example)
         yield tokens
 

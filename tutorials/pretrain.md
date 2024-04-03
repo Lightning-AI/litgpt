@@ -4,7 +4,7 @@
 This document explains how to pretrain LLMs using LitGPT.
 
 &nbsp;
-## The `pretrain` API
+## Using the `litgpt pretrain` command
 
 You can pretrain models in LitGPT using the `litgpt pretrain` API starting with any of the available architectures listed by calling `litgpt pretrain` without any additional arguments:
 
@@ -39,7 +39,20 @@ litgpt pretrain \
 &nbsp;
 ## Pretrain on custom data
 
-The simplest way to get started with pretraining on custom data is by using the `TextFiles` data module, which lets you pretrain a dataset from a folder containing plain text files. 
+The simplest way to get started with pretraining on a small custom dataset is by using the `TextFiles` data module, which lets you pretrain a dataset from a folder containing plain text files.
+
+&nbsp;
+
+> [!NOTE]
+> This approach assumes that you have already cleaned the text files, for example, removing any unwanted characters and inserting beginning-of-sequence and end-of-sequence tokens if applicable.
+
+&nbsp;
+
+> [!WARNING]
+> Using this approach is only recommended for small datasets. Since text data is highly compressible, it is often stored in compressed format, and often in file formats where documents can be loaded row by row without having to load entire files at once. In other words, this `TextFiles` approach is only feasible to store the data in plain text files due to the limited size.
+> For datasets that take up multiple gigabytes, we recommend preprocessing it with [LitData](https://github.com/Lightning-AI/litdata) and then reading it from a local directory or S3 connection using `--data LitData`.
+
+&nbsp;
 
 For instance, assume you stored a number of text files in a `custom_pretraining_dataset` folder (we recommend avoiding small files and concatenating them to files of at least 50 Mb for efficiency):
 
@@ -76,6 +89,19 @@ litgpt pretrain \
 
 Often, it makes sense to adopt an existing pretrained model and further pretrain it on our own custom data. The existing pretrained model can be either our own pretrained model or a model downloaded from a model hub. 
 
+&nbsp;
+
+> [!NOTE]
+> This approach assumes that you have already cleaned the text files, for example, removing any unwanted characters and inserting beginning-of-sequence and end-of-sequence tokens if applicable.
+
+&nbsp;
+
+> [!WARNING]
+> Using this approach is only recommended for small datasets. Since text data is highly compressible, it is often stored in compressed format, and often in file formats where documents can be loaded row by row without having to load entire files at once. In other words, this `TextFiles` approach is only feasible to store the data in plain text files due to the limited size.
+> For datasets that take up multiple gigabytes, we recommend preprocessing it with [LitData](https://github.com/Lightning-AI/litdata) and then reading it from a local directory or S3 connection using `--data LitData`.
+
+&nbsp;
+
 For instance, let's assume we download a Pythia model:
 
 ```bash
@@ -94,6 +120,7 @@ litgpt pretrain \
    --train.learning_rate 0.005 \
    --train.lr_warmup_steps=200
 ```
+
 
 &nbsp;
 ## Pretrain a 1.1B TinyLlama model
