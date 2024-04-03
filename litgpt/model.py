@@ -201,7 +201,10 @@ class CausalSelfAttention(nn.Module):
         self.kv_cache: Optional[KVCache] = None
 
         self.config = config
-        self.config.longlora_group_size_ratio = 1 / 4
+
+        # LongLora
+        self._longlora_n_groups = getattr(self.config, "longlora_n_groups", None)
+        self._longlora_available = self._longlora_n_groups is not None
 
     def forward(
         self,
@@ -213,10 +216,13 @@ class CausalSelfAttention(nn.Module):
     ) -> torch.Tensor:
         B, T, C = x.size()  # batch size, sequence length, embedding dimensionality (n_embd)
 
-        longlora_group_size = int(T * 1 / 4)
-        if input_pos is None and longlora_group_size > 0 and T % longlora_group_size > 0:
-            raise ValueError("sequence length %d should be divisible by group size %d." % (T, longlora_group_size))
-        longlora_num_groups = T // longlora_group_size if input_pos is None and longlora_group_size > 0 else None
+        if T > 1 and input_pos is None and self._longlora_available:
+            longlora_group_size = T / self.config.longlora_n_groups
+            if longlora_group_size > 0 and T % longlora_group_size > 0:
+                raise ValueError("sequence length %d should be divisible by group size %d." % (T, longlora_group_size))
+            longlora_group_size = int(longlora_group_size)
+        else:
+            longlora_group_size = 0
 
         qkv = self.attn(x)
 
@@ -245,12 +251,12 @@ class CausalSelfAttention(nn.Module):
         q = torch.cat((q_roped, q[..., self.config.rope_n_elem :]), dim=-1)
         k = torch.cat((k_roped, k[..., self.config.rope_n_elem :]), dim=-1)
 
-        num_heads = q.shape[1]
         if input_pos is not None:
             if not isinstance(self.kv_cache, KVCache):
                 raise TypeError("You need to call `gpt.set_kv_cache()`")
             k, v = self.kv_cache(input_pos, k, v)
         elif longlora_group_size > 0:
+            num_heads = q.shape[1]
             q = roll_and_group(q, B, T, longlora_group_size, num_heads, self.config.head_size)
             k = roll_and_group(k, B, T, longlora_group_size, num_heads, self.config.head_size)
             v = roll_and_group(v, B, T, longlora_group_size, num_heads, self.config.head_size)

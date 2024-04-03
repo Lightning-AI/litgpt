@@ -496,6 +496,7 @@ class Config(BaseConfig):
     lora_projection: bool = False
     lora_mlp: bool = False
     lora_head: bool = False
+    longlora_n_groups: Optional[int] = None
 
     @property
     def mlp_class(self) -> Type:
@@ -618,6 +619,10 @@ class CausalSelfAttention(BaseCausalSelfAttention):
         self.kv_cache: Optional[KVCache] = None
 
         self.config = config
+
+        # LongLora
+        self._longlora_n_groups = getattr(self.config, "longlora_n_groups", None)
+        self._longlora_available = self._longlora_n_groups is not None
 
     def _load_from_state_dict(self, state_dict: Dict, prefix: str, *args: Any, **kwargs: Any) -> None:
         """For compatibility with base checkpoints."""

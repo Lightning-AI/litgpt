@@ -52,6 +52,9 @@ def setup(
     lora_projection: bool = False,
     lora_mlp: bool = False,
     lora_head: bool = False,
+    longlora_n_groups: Optional[int] = None,
+    rope_condense_ratio: float = 1.0,
+    model_block_size: int = 4096,
     data: Optional[DataModule] = None,
     train: TrainArgs = TrainArgs(
         save_interval=1000,
@@ -62,6 +65,8 @@ def setup(
         epochs=5,
         learning_rate=3e-4,
         max_seq_length=None,
+        remove_last_perc_layers=None,
+        trainable_params=None,
     ),
     eval: EvalArgs = EvalArgs(interval=100, max_new_tokens=100, max_iters=100),
     logger_name: Literal["wandb", "tensorboard", "csv"] = "csv",
@@ -107,6 +112,9 @@ def setup(
         lora_projection=lora_projection,
         lora_mlp=lora_mlp,
         lora_head=lora_head,
+        longlora_n_groups=longlora_n_groups,
+        rope_condense_ratio=rope_condense_ratio,
+        block_size=model_block_size
     )
 
     precision = precision or get_default_supported_precision(training=True)
@@ -166,17 +174,18 @@ def main(
     checkpoint_path = checkpoint_dir / "lit_model.pth"
     with fabric.init_module(empty_init=(devices > 1)):
         model = GPT(config)
-        remove_last_layers = getattr(train, "remove_last_layers", 0.5)
-        if remove_last_layers > 0.0:
-            layers_to_keep = int(config.n_layer - config.n_layer * remove_last_layers)
-            if layers_to_keep > 0:
-                fabric.print(f"Removing last {int(config.n_layer * remove_last_layers)} layers")
-                model.transformer.h = model.transformer.h[:layers_to_keep]
+        remove_last_perc_layers = getattr(train, "remove_last_perc_layers", 0.0)
+        if remove_last_perc_layers > 0.0:
+            layers_to_remove = int(config.n_layer * remove_last_perc_layers)
+            if layers_to_remove > 0:
+                fabric.print(f"Removing last {layers_to_remove} layers")
+                model.transformer.h = model.transformer.h[:-layers_to_remove]
     mark_only_lora_as_trainable(model)
 
-    # Let layer-norms and input embedding be trainable
+    # Let other layers be trainable
+    trainable_params = set(train.trainable_params.strip().split(","))
     for n, p in model.named_parameters():
-        if "norm_" in n or "wte" in n:
+        if any(trainable_p_name in n for trainable_p_name in trainable_params):
             p.requires_grad = True
 
     fabric.print(f"Number of trainable parameters: {num_parameters(model, requires_grad=True):,}")
@@ -246,12 +255,18 @@ def fit(
     data: DataModule,
 ) -> None:
     tokenizer = Tokenizer(checkpoint_dir)
-    longest_seq_length, longest_seq_ix = get_longest_seq_length(train_dataloader.dataset)
-    model.max_seq_length = min(longest_seq_length, train.max_seq_length or float("inf"))
-    fabric.print(
-        f"The longest sequence length in the train data is {longest_seq_length}, the model's maximum sequence length is"
-        f" {model.max_seq_length} and context length is {model.config.block_size}"
-    )
+    if train.get_longest_seq_length:
+        longest_seq_length, longest_seq_ix = get_longest_seq_length(train_dataloader.dataset)
+        model.max_seq_length = min(longest_seq_length, train.max_seq_length or float("inf"))
+        fabric.print(
+            f"The longest sequence length in the train data is {longest_seq_length}, the model's maximum sequence length is"
+            f" {model.max_seq_length} and context length is {model.config.block_size}"
+        )
+    else:
+        if train.max_seq_length is None:
+            model.max_seq_length = model.config.block_size
+        else:
+            model.max_seq_length = train.max_seq_length
 
     validate(fabric, model, val_dataloader, tokenizer, dataclasses.replace(eval, max_iters=2), data)  # sanity check
 

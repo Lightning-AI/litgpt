@@ -44,6 +44,7 @@ class SFTDataset(Dataset):
         ignore_index: The index to use for elements to be ignored in the label.
         transform: An optional transform to apply to the sample before it gets tokenized. Use this to rename the
             keys in the dataset to the expected 'instruction' and 'output' keys.
+        pad_multiple_of: If set, sequences will be padded to a multiple of 'pad_multiple_of'.
 
     Returns a dict with two keys:
         input_ids: The encoded prompt + response
@@ -93,18 +94,30 @@ class SFTDataset(Dataset):
         return {"input_ids": encoded_prompt_and_response.type(torch.int64), "labels": labels.type(torch.int64)}
 
 
-def get_sft_collate_fn(max_seq_length: int = -1, pad_id: int = 0, ignore_index: int = -100):
+def get_sft_collate_fn(
+    max_seq_length: int = -1, pad_id: int = 0, ignore_index: int = -100, pad_multiple_of: Optional[int] = None
+):
     """Returns the collate function for supervised finetuning (needed in the DataLoader).
 
     The collate function gets a list of dicts with keys `input_ids` and `labels`.
     It returns a dict with batched `input_ids` and `labels`. Also pads short sequences to the longest element in
     the batch. Optionally truncates all sequences to the specified maximum length.
     """
-    return partial(_sft_collate_fn, max_seq_length=max_seq_length, pad_id=pad_id, ignore_index=ignore_index)
+    return partial(
+        _sft_collate_fn,
+        max_seq_length=max_seq_length,
+        pad_id=pad_id,
+        ignore_index=ignore_index,
+        pad_multiple_of=pad_multiple_of,
+    )
 
 
 def _sft_collate_fn(
-    samples: List[Dict[str, Tensor]], max_seq_length: int = -1, pad_id: int = 0, ignore_index: int = -100
+    samples: List[Dict[str, Tensor]],
+    max_seq_length: int = -1,
+    pad_id: int = 0,
+    ignore_index: int = -100,
+    pad_multiple_of: Optional[int] = None,
 ) -> Dict[str, Tensor]:
 
     batched = {}
@@ -116,17 +129,19 @@ def _sft_collate_fn(
             [sample[key] for sample in samples], batch_first=True, padding_value=pad_value
         )
 
-        # Pad to multiple of 4
-        pad_to = batched[key].shape[1] + 4 - 1
-        pad_to -= pad_to % 4
-        pad_to_add = pad_to - batched[key].shape[1]
-        batched[key] = torch.cat(
-            (
-                batched[key],
-                torch.full((batched[key].shape[0], pad_to_add, *batched[key].shape[2:]), fill_value=pad_value),
-            ),
-            dim=1,
-        )
+        # Pad to multiple of 'pad_multiple_of'
+        if pad_multiple_of is not None:
+            pad_to = batched[key].shape[1] + pad_multiple_of - 1
+            pad_to -= pad_to % pad_multiple_of
+            pad_to_add = pad_to - batched[key].shape[1]
+            if pad_to_add > 0:
+                batched[key] = torch.cat(
+                    (
+                        batched[key],
+                        torch.full((batched[key].shape[0], pad_to_add, *batched[key].shape[2:]), fill_value=pad_value),
+                    ),
+                    dim=1,
+                )
 
         # Truncate if needed
         if max_seq_length > 0:

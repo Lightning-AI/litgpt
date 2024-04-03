@@ -38,6 +38,14 @@ class TrainArgs:
     max_norm: Optional[float] = None
     min_lr: float = 6e-5
 
+    # Misc args
+    remove_last_perc_layers: Optional[float] = None
+    """Remove the last 'perc'% layers, excluding the output layer"""
+    trainable_params: Optional[str] = None
+    """Trainable parameters, specified as a list of layer names comma-separated"""
+    get_longest_seq_length: bool = False
+    """Whether to compute the longest sequence length in the dataset"""
+
     def gradient_accumulation_iters(self, devices: int) -> int:
         """Number of iterations between gradient synchronizations"""
         gradient_accumulation_iters = self.batch_size(devices) // self.micro_batch_size

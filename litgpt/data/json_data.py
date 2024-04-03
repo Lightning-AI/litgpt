@@ -34,6 +34,8 @@ class JSON(DataModule):
     """The random seed for creating the train/val splits and shuffling the dataset."""
     num_workers: int = 4
     """How many DataLoader processes to use for loading."""
+    pad_multiple_of: Optional[int] = None
+    """If set, then pad sequences to a multiple of 'pad_multiple_of'"""
 
     tokenizer: Optional[Tokenizer] = field(default=None, init=False, repr=False)
     batch_size: int = field(default=1, init=False, repr=False)
@@ -89,7 +91,9 @@ class JSON(DataModule):
             shuffle=True,
             generator=torch.Generator().manual_seed(self.seed),
             num_workers=self.num_workers,
-            collate_fn=get_sft_collate_fn(max_seq_length=self.max_seq_length, ignore_index=self.ignore_index),
+            collate_fn=get_sft_collate_fn(
+                max_seq_length=self.max_seq_length, ignore_index=self.ignore_index, pad_multiple_of=self.pad_multiple_of
+            ),
         )
 
     def val_dataloader(self) -> DataLoader:
@@ -98,7 +102,9 @@ class JSON(DataModule):
             batch_size=self.batch_size,
             shuffle=False,
             num_workers=self.num_workers,
-            collate_fn=get_sft_collate_fn(max_seq_length=self.max_seq_length, ignore_index=self.ignore_index),
+            collate_fn=get_sft_collate_fn(
+                max_seq_length=self.max_seq_length, ignore_index=self.ignore_index, pad_multiple_of=self.pad_multiple_of
+            ),
         )
 
     def get_splits(self) -> Tuple:
