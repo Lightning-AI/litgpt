@@ -427,8 +427,6 @@ def validate_args(train: TrainArgs, eval: EvalArgs, initial_checkpoint_dir, resu
                 issues.append(f"{__file__} requires the {name!r} argument. This is set in {args}")
     if initial_checkpoint_dir and resume:
         issues.append("Can't provide both `--resume` and `--initial_checkpoint_dir`. Choose one.")
-    if train.lr_warmup_fraction and train.lr_warmup_steps:
-        issues.append("Can't provide both `--train.lr_warmup_fraction` and `--train.lr_warmup_steps`. Choose one.")
     if issues:
         raise ValueError("\n".join(issues))
 

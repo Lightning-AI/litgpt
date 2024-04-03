@@ -40,6 +40,14 @@ class TrainArgs:
     max_norm: Optional[float] = None
     min_lr: float = 6e-5
 
+    def __post_init__(self) -> None:
+        if self.lr_warmup_fraction and self.lr_warmup_steps:
+            raise ValueError(
+                "Can't provide both `--train.lr_warmup_fraction` and `--train.lr_warmup_steps`. Choose one."
+            )
+        if self.lr_warmup_fraction and not (0 <= self.lr_warmup_fraction <= 1):
+            raise ValueError("`--train.lr_warmup_fraction` must be between 0 and 1.")
+
     def gradient_accumulation_iters(self, devices: int) -> int:
         """Number of iterations between gradient synchronizations"""
         gradient_accumulation_iters = self.batch_size(devices) // self.micro_batch_size
