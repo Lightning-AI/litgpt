@@ -244,7 +244,8 @@ def fit(
     total_t0 = time.perf_counter()
     val_loss = "n/a"
 
-    warmup_iters = train.lr_warmup_steps * train.gradient_accumulation_iters(devices)
+    warmup_iters = compute_warmup_iters(devices, max_iters, train, train_dataloader)
+
     for train_data in train_iterator:
         if state["iter_num"] >= max_iters:
             break
@@ -369,6 +370,14 @@ def get_dataloaders(
     return train_dataloader, val_dataloader
 
 
+def compute_warmup_iters(devices, max_iters, train, train_dataloader) -> int:
+    if train.warmup_fraction:
+        return min(max_iters, train.warmup_fraction * len(train_dataloader))
+    if train.lr_warmup_steps:
+        return min(max_iters, train.lr_warmup_steps * train.gradient_accumulation_iters(devices))
+    return 0
+
+
 # learning rate decay scheduler (cosine with linear warmup)
 def get_lr(learning_rate: float, it: int, warmup_iters: int, max_iters: int, min_lr: float) -> float:
     # 1) linear warmup for warmup_iters steps
@@ -426,6 +435,8 @@ def validate_args(train: TrainArgs, eval: EvalArgs, initial_checkpoint_dir, resu
                 issues.append(f"{__file__} requires the {name!r} argument. This is set in {args}")
     if initial_checkpoint_dir and resume:
         issues.append("Can't provide both `--resume` and `--initial_checkpoint_dir`. Choose one.")
+    if train.warmup_fraction and train.lr_warmup_steps:
+        issues.append("Can't provide both `--train.warmup_fraction` and `--train.lr_warmup_steps`. Choose one.")
     if issues:
         raise ValueError("\n".join(issues))
 
