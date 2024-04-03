@@ -201,7 +201,7 @@ class CausalSelfAttention(nn.Module):
         self.kv_cache: Optional[KVCache] = None
 
         self.config = config
-        self.config.longlora_group_size_ratio = 0.4
+        self.config.longlora_group_size_ratio = 1 / 4
 
     def forward(
         self,

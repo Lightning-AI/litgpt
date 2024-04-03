@@ -166,7 +166,18 @@ def main(
     checkpoint_path = checkpoint_dir / "lit_model.pth"
     with fabric.init_module(empty_init=(devices > 1)):
         model = GPT(config)
+        remove_last_layers = getattr(train, "remove_last_layers", 0.5)
+        if remove_last_layers > 0.0:
+            layers_to_keep = int(config.n_layer - config.n_layer * remove_last_layers)
+            if layers_to_keep > 0:
+                fabric.print(f"Removing last {int(config.n_layer * remove_last_layers)} layers")
+                model.transformer.h = model.transformer.h[:layers_to_keep]
     mark_only_lora_as_trainable(model)
+
+    # Let layer-norms and input embedding be trainable
+    for n, p in model.named_parameters():
+        if "norm_" in n or "wte" in n:
+            p.requires_grad = True
 
     fabric.print(f"Number of trainable parameters: {num_parameters(model, requires_grad=True):,}")
     fabric.print(f"Number of non-trainable parameters: {num_parameters(model, requires_grad=False):,}")
