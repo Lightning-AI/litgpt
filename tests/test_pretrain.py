@@ -16,7 +16,7 @@ from torch.utils.data import DataLoader
 from litgpt import pretrain
 from litgpt.args import EvalArgs, TrainArgs
 from litgpt.config import Config
-from litgpt.pretrain import init_out_dir, initialize_weights
+from litgpt.pretrain import compute_warmup_iters, init_out_dir, initialize_weights
 
 
 @RunIf(min_cuda_gpus=2, standalone=True)
@@ -118,3 +118,21 @@ def test_initialize_weights(strategy, expected):
     initialize_weights(fabric_mock, model, n_layer=2, n_embd=8)
     assert model.reset_parameters.call_count == int(expected)
     assert model.child.reset_parameters.call_count == int(expected)
+
+
+def test_compute_warmup_iters():
+    # lr_warmup_steps
+    train = TrainArgs(global_batch_size=1, micro_batch_size=1, lr_warmup_steps=100, lr_warmup_fraction=0)
+    assert compute_warmup_iters(devices=1, max_iters=1000, train=train, train_dataloader=range(10)) == 100
+    # lr_warmup_steps multiplied by accumulation factor
+    train.global_batch_size = 4
+    assert compute_warmup_iters(devices=1, max_iters=1000, train=train, train_dataloader=range(10)) == 400
+    assert compute_warmup_iters(devices=2, max_iters=1000, train=train, train_dataloader=range(10)) == 200
+    # lr_warmup_steps truncated by max iters
+    assert compute_warmup_iters(devices=1, max_iters=120, train=train, train_dataloader=range(10)) == 120
+
+    # lr_warmup_fraction
+    train = TrainArgs(global_batch_size=1, micro_batch_size=1, lr_warmup_steps=0, lr_warmup_fraction=0.3)
+    assert compute_warmup_iters(devices=1, max_iters=1000, train=train, train_dataloader=range(100)) == 30
+    # lr_warmup_fraction truncated by max iters
+    assert compute_warmup_iters(devices=1, max_iters=20, train=train, train_dataloader=range(100)) == 20
