@@ -371,8 +371,8 @@ def get_dataloaders(
 
 
 def compute_warmup_iters(devices, max_iters, train, train_dataloader) -> int:
-    if train.warmup_fraction:
-        return min(max_iters, train.warmup_fraction * len(train_dataloader))
+    if train.lr_warmup_fraction:
+        return min(max_iters, train.lr_warmup_fraction * len(train_dataloader))
     if train.lr_warmup_steps:
         return min(max_iters, train.lr_warmup_steps * train.gradient_accumulation_iters(devices))
     return 0
@@ -435,8 +435,8 @@ def validate_args(train: TrainArgs, eval: EvalArgs, initial_checkpoint_dir, resu
                 issues.append(f"{__file__} requires the {name!r} argument. This is set in {args}")
     if initial_checkpoint_dir and resume:
         issues.append("Can't provide both `--resume` and `--initial_checkpoint_dir`. Choose one.")
-    if train.warmup_fraction and train.lr_warmup_steps:
-        issues.append("Can't provide both `--train.warmup_fraction` and `--train.lr_warmup_steps`. Choose one.")
+    if train.lr_warmup_fraction and train.lr_warmup_steps:
+        issues.append("Can't provide both `--train.lr_warmup_fraction` and `--train.lr_warmup_steps`. Choose one.")
     if issues:
         raise ValueError("\n".join(issues))
 

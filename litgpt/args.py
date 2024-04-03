@@ -18,7 +18,7 @@ class TrainArgs:
     """Number of samples per data-parallel rank"""
     lr_warmup_steps: Optional[int] = 100
     """Number of iterations with learning rate warmup active"""
-    warmup_fraction: Optional[float] = None
+    lr_warmup_fraction: Optional[float] = None
     """The fraction of an epoch to use for learning rate warmup"""
     epochs: Optional[int] = None
     """Number of epochs to train on"""
