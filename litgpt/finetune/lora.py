@@ -177,6 +177,8 @@ def main(
             fabric.print(f"The 'rope_condense_ratio' has been adapted to {config.rope_condense_ratio}")
 
         model = GPT(config)
+
+        # Sec. 4.4 of https://arxiv.org/abs/2403.17887
         remove_last_perc_layers = getattr(train, "remove_last_perc_layers", 0.0)
         if remove_last_perc_layers > 0.0:
             layers_to_remove = int(config.n_layer * remove_last_perc_layers)
