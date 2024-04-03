@@ -54,15 +54,18 @@ The resulting output is as follows:
 
 
 Please note that the `litgpt evaluate` command run an internal model conversion. 
-This is only necessary the first time you want to evaluate a model. To skip the conversion, 
-when you want to evaluate a model a second time, you can pass the `--skip_conversion true` argument:
+This is only necessary the first time you want to evaluate a model, and it will skip the
+conversion steps if you run the `litgpt evaluate` on the same checkpint directory again.
+
+In some cases, for example, if you modified the model in the `checkpoint_dir` since the first `litgpt evaluate`
+call, you need to use the `--force_conversion` flag to to update the files used by litgpt evaluate accordingly: 
 
 ```
 litgpt evaluate \
   --checkpoint_dir checkpoints/microsoft/phi-2/ \
   --batch_size 4 \
   --out_dir evaluate_model/ \
-  --skip_conversion true
+  --force_conversion true
 ```
 
 &nbsp;
