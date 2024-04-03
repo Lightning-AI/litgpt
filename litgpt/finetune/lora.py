@@ -56,8 +56,8 @@ def setup(
     train: TrainArgs = TrainArgs(
         save_interval=1000,
         log_interval=1,
-        global_batch_size=128,
-        micro_batch_size=4,
+        global_batch_size=16,
+        micro_batch_size=1,
         lr_warmup_steps=100,
         epochs=5,
         learning_rate=3e-4,
@@ -397,7 +397,7 @@ def save_lora_checkpoint(fabric: L.Fabric, model: torch.nn.Module, file_path: Pa
 
 def validate_args(train: TrainArgs, eval: EvalArgs) -> None:
     issues = []
-    unsupported = [(train, ["max_tokens", "max_norm", "tie_embeddings"])]
+    unsupported = [(train, ["max_tokens", "max_norm", "tie_embeddings", "lr_warmup_fraction"])]
     for args, names in unsupported:
         for name in names:
             if getattr(args, name) is not None:
