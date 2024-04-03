@@ -46,8 +46,8 @@ def setup(
     train: TrainArgs = TrainArgs(
         save_interval=1000,
         log_interval=1,
-        global_batch_size=128,
-        micro_batch_size=4,
+        global_batch_size=16,
+        micro_batch_size=1,
         lr_warmup_steps=100,
         epochs=5,
         learning_rate=1e-3,

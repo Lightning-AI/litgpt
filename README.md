@@ -27,7 +27,7 @@
 
 ✅ &nbsp;Optimized and efficient code: Flash Attention v2, multi-GPU support via fully-sharded data parallelism, [optional CPU offloading](tutorials/oom.md#do-sharding-across-multiple-gpus), and [TPU and XLA support](extensions/xla).
 
-✅ &nbsp;[Pretraining](tutorials/pretrain_tinyllama.md), [finetuning](tutorials/finetune.md), and [inference](tutorials/inference.md) in various precision settings: FP32, FP16, BF16, and FP16/FP32 mixed.
+✅ &nbsp;[Pretraining](tutorials/pretrain.md), [finetuning](tutorials/finetune.md), and [inference](tutorials/inference.md) in various precision settings: FP32, FP16, BF16, and FP16/FP32 mixed.
 
 ✅ &nbsp;[Configuration files](config_hub) for great out-of-the-box performance.
 
@@ -37,7 +37,7 @@
 
 ✅ &nbsp;[Exporting](tutorials/convert_lit_models.md) to other popular model weight formats.
 
-✅ &nbsp;Many popular datasets for [pretraining](tutorials/pretrain_tinyllama.md) and [finetuning](tutorials/prepare_dataset.md), and [support for custom datasets](tutorials/prepare_dataset.md#preparing-custom-datasets-for-instruction-finetuning).
+✅ &nbsp;Many popular datasets for [pretraining](tutorials/pretrain.md) and [finetuning](tutorials/prepare_dataset.md), and [support for custom datasets](tutorials/prepare_dataset.md#preparing-custom-datasets-for-instruction-finetuning).
 
 ✅ &nbsp;Readable and easy-to-modify code to experiment with the latest research ideas.
 
@@ -114,7 +114,7 @@ For more information, refer to the [download](tutorials/download_model_weights.m
 
 ## Finetuning and pretraining
 
-LitGPT supports [pretraining](tutorials/pretrain_tinyllama.md) and [finetuning](tutorials/finetune.md) to optimize models on excisting or custom datasets. Below is an example showing how to finetune a model with LoRA:
+LitGPT supports [pretraining](tutorials/pretrain.md) and [finetuning](tutorials/finetune.md) to optimize models on excisting or custom datasets. Below is an example showing how to finetune a model with LoRA:
 
 ```bash
 # 1) Download a pretrained model
@@ -336,7 +336,7 @@ If you have general questions about building with LitGPT, please [join our Disco
 Tutorials and in-depth feature documentation can be found below:
 
 -  Finetuning, incl. LoRA, QLoRA, and Adapters ([tutorials/finetune.md](tutorials/finetune.md))
--  Pretraining ([tutorials/pretrain_tinyllama.md](tutorials/pretrain_tinyllama.md))
+-  Pretraining ([tutorials/pretrain.md](tutorials/pretrain.md))
 -  Model evaluation ([tutorials/evaluation.md](tutorials/evaluation.md))
 -  Supported and custom datasets ([tutorials/prepare_dataset.md](tutorials/prepare_dataset.md))
 -  Quantization ([tutorials/quantize.md](tutorials/quantize.md))
