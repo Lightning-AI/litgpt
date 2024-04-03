@@ -43,7 +43,7 @@ pip install -e '.[all]'
 &nbsp;
 ## Pretrain LLMs
 
-Pretraining LLMs requires substantial compute resources and time commitment. For that reason, most researchers and practitioners prefer to skip this step and continue with the *Download pretrained model weights section* instead. 
+Pretraining LLMs requires substantial compute resources and time commitment. For that reason, most researchers and practitioners prefer to skip this step and continue with the *Download pretrained model weights* section instead. 
 
 However, if you feel adventurous and want to pretrain your own LLM, here's how.
 
