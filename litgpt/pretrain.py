@@ -244,7 +244,7 @@ def fit(
     total_t0 = time.perf_counter()
     val_loss = "n/a"
 
-    warmup_iters = compute_warmup_iters(devices, max_iters, train, train_dataloader)
+    warmup_iters = train.warmup_iters(devices, max_iters, train_dataloader)
 
     for train_data in train_iterator:
         if state["iter_num"] >= max_iters:
@@ -368,14 +368,6 @@ def get_dataloaders(
     train_dataloader = data.train_dataloader()
     val_dataloader = data.val_dataloader()
     return train_dataloader, val_dataloader
-
-
-def compute_warmup_iters(devices, max_iters, train, train_dataloader) -> int:
-    if train.lr_warmup_fraction:
-        return min(max_iters, train.lr_warmup_fraction * len(train_dataloader))
-    if train.lr_warmup_steps:
-        return min(max_iters, train.lr_warmup_steps * train.gradient_accumulation_iters(devices))
-    return 0
 
 
 # learning rate decay scheduler (cosine with linear warmup)

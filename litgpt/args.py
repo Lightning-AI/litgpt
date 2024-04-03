@@ -1,5 +1,5 @@
 # Copyright Lightning AI. Licensed under the Apache License 2.0, see LICENSE file.
-
+import math
 from dataclasses import dataclass
 from typing import Optional
 
@@ -51,6 +51,14 @@ class TrainArgs:
         batch_size = self.global_batch_size // devices
         assert batch_size > 0
         return batch_size
+
+    def warmup_iters(self, devices: int, max_iters: int, train_dataloader) -> int:
+        """Number of iterations to warm up the learning rate."""
+        if self.lr_warmup_fraction:
+            return min(max_iters, math.ceil(self.lr_warmup_fraction * len(train_dataloader)))
+        if self.lr_warmup_steps:
+            return min(max_iters, self.lr_warmup_steps * self.gradient_accumulation_iters(devices))
+        return 0
 
 
 @dataclass
