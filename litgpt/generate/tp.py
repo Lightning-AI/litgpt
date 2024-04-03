@@ -137,7 +137,6 @@ def main(
     fabric.launch()
 
     check_valid_checkpoint_dir(checkpoint_dir)
-
     config = Config.from_file(checkpoint_dir / "model_config.yaml")
 
     model_file = "lit_model.pth"

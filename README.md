@@ -27,7 +27,7 @@
 
 ✅ &nbsp;Optimized and efficient code: Flash Attention v2, multi-GPU support via fully-sharded data parallelism, [optional CPU offloading](tutorials/oom.md#do-sharding-across-multiple-gpus), and [TPU and XLA support](extensions/xla).
 
-✅ &nbsp;[Pretraining](tutorials/pretraining.md), [finetuning](tutorials/finetune.md), and [inference](tutorials/inference.md) in various precision settings: FP32, FP16, BF16, and FP16/FP32 mixed.
+✅ &nbsp;[Pretraining](tutorials/pretrain.md), [finetuning](tutorials/finetune.md), and [inference](tutorials/inference.md) in various precision settings: FP32, FP16, BF16, and FP16/FP32 mixed.
 
 ✅ &nbsp;[Configuration files](config_hub) for great out-of-the-box performance.
 
@@ -35,12 +35,11 @@
 
 ✅ &nbsp;[Quantization](tutorials/quantize.md): 4-bit floats, 8-bit integers, and double quantization.
 
-✅ &nbsp;[Exporting](https://github.com/Lightning-AI/litgpt/blob/wip/tutorials/convert_lit_models.md) to other popular model weight formats.
+✅ &nbsp;[Exporting](tutorials/convert_lit_models.md) to other popular model weight formats.
 
-✅ &nbsp;Many popular datasets for [pretraining](tutorials/pretrain_tinyllama.md) and [finetuning](tutorials/prepare_dataset.md), and [support for custom datasets](tutorials/prepare_dataset.md#preparing-custom-datasets-for-instruction-finetuning).
+✅ &nbsp;Many popular datasets for [pretraining](tutorials/pretrain.md) and [finetuning](tutorials/prepare_dataset.md), and [support for custom datasets](tutorials/prepare_dataset.md#preparing-custom-datasets-for-instruction-finetuning).
 
 ✅ &nbsp;Readable and easy-to-modify code to experiment with the latest research ideas.
-
 
 &nbsp;
 <br>
@@ -56,8 +55,6 @@ The following [Lightning Studio](https://lightning.ai/lightning-ai/studios) temp
 | <p align="left">[Prepare the TinyLlama 1T token dataset](https://lightning.ai/lightning-ai/studios/prepare-the-tinyllama-1t-token-dataset) <br> [<img src="https://pl-public-data.s3.amazonaws.com/assets_litgpt/readme/3.webp" width="300"></p>](https://lightning.ai/lightning-ai/studios/prepare-the-tinyllama-1t-token-dataset)         | [Pretrain LLMs - TinyLlama 1.1B](https://lightning.ai/lightning-ai/studios/pretrain-llms-tinyllama-1-1b) <br> <p align="left">[<img src="https://pl-public-data.s3.amazonaws.com/assets_litgpt/readme/4.webp" width="300"></p>](https://lightning.ai/lightning-ai/studios/pretrain-llms-tinyllama-1-1b)                                        |
 | [Continued Pretraining with TinyLlama 1.1B](https://lightning.ai/lightning-ai/studios/continued-pretraining-with-tinyllama-1-1b) <br> <p align="left">[<img src="https://pl-public-data.s3.amazonaws.com/assets_litgpt/readme/1.webp" width="300"></p>](https://lightning.ai/lightning-ai/studios/continued-pretraining-with-tinyllama-1-1b) | [Instruction finetuning - TinyLlama 1.1B LLM](https://lightning.ai/lightning-ai/studios/instruction-finetuning-tinyllama-1-1b-llm) <br> <p align="left">[<img src="https://pl-public-data.s3.amazonaws.com/assets_litgpt/readme/2.webp" width="300"></p>](https://lightning.ai/lightning-ai/studios/instruction-finetuning-tinyllama-1-1b-llm) |
 |                                                                                                                                                                                                                                                                                                                                             |                                                                                                                                                                                                                                                                                                                                                |
-
-
 
 
 
@@ -107,9 +104,17 @@ For more information, refer to the [download](tutorials/download_model_weights.m
 
 
 &nbsp;
+
+> [!NOTE]
+> We recommend starting with the **[Zero to LitGPT: Getting Started with Pretraining, Finetuning, and Using LLMs](tutorials/0_to_litgpt.md)** if you are looking to get started with using LitGPT.
+
+
+
+&nbsp;
+
 ## Finetuning and pretraining
 
-LitGPT supports [pretraining](tutorials/pretrain_tinyllama.md) and [finetuning](tutorials/finetune.md) to optimize models on excisting or custom datasets. Below is an example showing how to finetune a model with LoRA:
+LitGPT supports [pretraining](tutorials/pretrain.md) and [finetuning](tutorials/finetune.md) to optimize models on excisting or custom datasets. Below is an example showing how to finetune a model with LoRA:
 
 ```bash
 # 1) Download a pretrained model
@@ -134,7 +139,7 @@ LitGPT also allows users to use configuration files in YAML format instead of sp
 
 ```bash
 litgpt finetune lora \
-  --config https://github.com/Lightning-AI/litgpt/blob/wip/config_hub/finetune/llama-2-7b/lora.yaml
+  --config https://raw.githubusercontent.com/Lightning-AI/litgpt/main/config_hub/finetune/llama-2-7b/lora.yaml
 ```
 
 For added convenience, you can also manually override config file setting via the CLI:
@@ -146,7 +151,7 @@ litgpt finetune lora \
   --lora_r 4
 ```
 
-You can browse the available configuration files [here](https://github.com/Lightning-AI/litgpt/tree/main/config_hub).
+You can browse the available configuration files [here](config_hub).
 
 &nbsp;
 
@@ -324,8 +329,14 @@ If you have general questions about building with LitGPT, please [join our Disco
 
 ## Tutorials, how-to guides, and docs
 
+
+> [!NOTE]
+> We recommend starting with the **[Zero to LitGPT: Getting Started with Pretraining, Finetuning, and Using LLMs](tutorials/0_to_litgpt.md)** if you are looking to get started with using LitGPT.
+
+Tutorials and in-depth feature documentation can be found below:
+
 -  Finetuning, incl. LoRA, QLoRA, and Adapters ([tutorials/finetune.md](tutorials/finetune.md))
--  Pretraining ([tutorials/pretrain_tinyllama.md](tutorials/pretrain_tinyllama.md))
+-  Pretraining ([tutorials/pretrain.md](tutorials/pretrain.md))
 -  Model evaluation ([tutorials/evaluation.md](tutorials/evaluation.md))
 -  Supported and custom datasets ([tutorials/prepare_dataset.md](tutorials/prepare_dataset.md))
 -  Quantization ([tutorials/quantize.md](tutorials/quantize.md))

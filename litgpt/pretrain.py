@@ -20,6 +20,7 @@ from typing_extensions import Literal
 
 from litgpt import Tokenizer
 from litgpt.args import EvalArgs, TrainArgs
+from litgpt.config import name_to_config
 from litgpt.data import DataModule, TinyLlama
 from litgpt.model import GPT, Block, CausalSelfAttention, Config, LLaMAMLP
 from litgpt.utils import (
@@ -91,7 +92,8 @@ def setup(
     if model_config is not None and model_name is not None:
         raise ValueError("Only one of `model_name` or `model_config` can be set.")
     elif model_config is None and model_name is None:
-        model_name = "tiny-llama-1.1b"
+        available_models = "\n".join(sorted(name_to_config))
+        raise ValueError(f"Please specify --model_name <model_name>. Available values:\n{available_models}")
     config = Config.from_name(model_name) if model_config is None else model_config
     devices = parse_devices(devices)
     out_dir = init_out_dir(out_dir)
