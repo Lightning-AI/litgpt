@@ -1,32 +1,23 @@
 # Copyright Lightning AI. Licensed under the Apache License 2.0, see LICENSE file.
 
-import sys
 import os
-from dataclasses import asdict
-from pathlib import Path
-from unittest import mock
-import litgpt.eval.evaluate as module
-from contextlib import redirect_stdout
-from io import StringIO
 import shutil
 import subprocess
+import sys
+from contextlib import redirect_stdout
+from dataclasses import asdict
+from io import StringIO
+from pathlib import Path
+from unittest import mock
 
 import datasets
 import pytest
-import yaml
 import torch
+import yaml
 
-
+import litgpt.eval.evaluate as module
 from litgpt import GPT, Config
-
 from litgpt.scripts.download import download_from_hub
-from litgpt.eval.evaluate import safe_safetensors, prepare_results
-from litgpt.scripts.convert_lit_checkpoint import convert_lit_checkpoint
-from lm_eval import evaluator
-
-# support running without installing as a package
-wd = Path(__file__).parent.parent.resolve()
-sys.path.append(str(wd))
 
 
 @pytest.mark.xfail(
@@ -62,8 +53,13 @@ def test_evaluate_script(tmp_path, monkeypatch):
         assert "Metric" in stdout_out
 
 
-def test_cli(fake_checkpoint_dir):
-    cli_path = Path(__file__).parent.parent / "litgpt" / "eval" / "evaluate.py"
-    output = subprocess.check_output([sys.executable, cli_path, "-h"])
+@pytest.mark.parametrize("mode", ["file", "entrypoint"])
+def test_cli(mode):
+    if mode == "file":
+        cli_path = Path(__file__).parent.parent / "litgpt/eval/evaluate.py"
+        args = [sys.executable, cli_path, "-h"]
+    else:
+        args = ["litgpt", "evaluate", "-h"]
+    output = subprocess.check_output(args)
     output = str(output.decode())
-    assert "evaluate" in output
+    assert "run the LM Evaluation Harness" in output
