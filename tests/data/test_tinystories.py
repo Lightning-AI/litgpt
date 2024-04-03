@@ -16,7 +16,6 @@ def fake_chunk(path, data):
     optimize(fn=tokenize, inputs=[data] * len(data), output_dir=str(path), num_workers=1, chunk_bytes="200MB")
 
 
-@pytest.mark.xfail(raises=IndexError, strict=True)  # requires https://github.com/Lightning-AI/litdata/pull/77
 @pytest.mark.parametrize(
     ("max_seq_len", "expected"),
     [
