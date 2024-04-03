@@ -116,6 +116,18 @@ def _sft_collate_fn(
             [sample[key] for sample in samples], batch_first=True, padding_value=pad_value
         )
 
+        # Pad to multiple of 4
+        pad_to = batched[key].shape[1] + 4 - 1
+        pad_to -= pad_to % 4
+        pad_to_add = pad_to - batched[key].shape[1]
+        batched[key] = torch.cat(
+            (
+                batched[key],
+                torch.full((batched[key].shape[0], pad_to_add, *batched[key].shape[2:]), fill_value=pad_value),
+            ),
+            dim=1,
+        )
+
         # Truncate if needed
         if max_seq_length > 0:
             batched[key] = batched[key][:, :max_seq_length]
