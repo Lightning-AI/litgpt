@@ -46,7 +46,7 @@ jobs:
 
     - name: Install minimal dependencies
       run: |
-        uv pip install --system --prerelease=allow .
+        uv pip install --system .
         uv pip list
         # make sure all modules are still importable with only the minimal dependencies available
         modules=$(
