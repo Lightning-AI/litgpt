@@ -61,3 +61,5 @@ class EvalArgs:
     """Number of tokens to generate"""
     max_iters: int = 100
     """Number of iterations"""
+    skip_validation: bool = False
+    """Whether to skip evaluation on the validation set and the final evaluation validation and training sets"""

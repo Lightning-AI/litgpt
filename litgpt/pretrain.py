@@ -414,7 +414,7 @@ def init_out_dir(out_dir: Path) -> Path:
 
 def validate_args(train: TrainArgs, eval: EvalArgs, initial_checkpoint_dir, resume) -> None:
     issues = []
-    unsupported = [(train, ["max_steps", "epochs"]), (eval, ["max_new_tokens"])]
+    unsupported = [(train, ["max_steps", "epochs"]), (eval, ["max_new_tokens", "skip_validation"])]
     for args, names in unsupported:
         for name in names:
             if getattr(args, name) is not None:

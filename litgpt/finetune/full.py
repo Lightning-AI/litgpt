@@ -185,7 +185,9 @@ def fit(
         f" {model.max_seq_length} and context length is {model.config.block_size}"
     )
 
-    val_loss = validate(fabric, model, val_dataloader, tokenizer, dataclasses.replace(eval, max_iters=2), data)  # sanity check
+    if not eval.skip_validation:
+        val_loss = validate(fabric, model, val_dataloader, tokenizer, dataclasses.replace(eval, max_iters=eval.max_iters), data)
+
     initial_iter = state["iter_num"]
     max_steps = train.max_steps or float("inf")
     train_iterator = CycleIterator(train_dataloader)
@@ -207,6 +209,7 @@ def fit(
         fabric.device
     )
     fabric.barrier()
+    validated_after_step = False
 
     while state["step_count"] < max_steps and train_iterator.epoch < train.epochs:
         state["iter_num"] += 1
@@ -228,6 +231,7 @@ def fit(
             optimizer.zero_grad()
             scheduler.step()
             state["step_count"] += 1
+            validated_after_step = False
 
         if state["iter_num"] % train.log_interval == 0 or max_steps == state["step_count"]:
             loss = running_loss.compute().item()  # expensive device-to-host synchronization
@@ -244,18 +248,24 @@ def fit(
                 ),
                 "learning_rate": scheduler.get_last_lr()[0],
             }
+            if not eval.skip_validation:
+                val_loss_str = f" val: {val_loss:.3f} |"
+            else:
+                val_loss_str = ""
+
             fabric.print(
                 f"Epoch {metrics['epoch']+1} | iter {metrics['iter']} step {metrics['step']} |"
                 f" loss train: {metrics['loss']:.3f},"
-                f" val: {val_loss:.3f} |"
+                f"{val_loss_str}"
                 f" iter time: {metrics['iter_time'] * 1000:.2f} ms"
                 f"{' (step)' if not is_accumulating else ''}"
             )
             fabric.log_dict(metrics, step=state["iter_num"])
 
-        if not is_accumulating and state["step_count"] % eval.interval == 0:
+        if not is_accumulating and state["step_count"] % eval.interval == 0 and not eval.skip_validation:
             t0 = time.perf_counter()
             val_loss = validate(fabric, model, val_dataloader, tokenizer, eval, data)
+            validated_after_step = True
             t1 = time.perf_counter() - t0
             fabric.print(f"iter {state['iter_num']}: val loss {val_loss.item():.4f}, val time: {t1 * 1000:.2f} ms")
             metrics = {"val_loss": val_loss, "val_ppl": math.exp(val_loss)}
@@ -272,11 +282,12 @@ def fit(
                 save_hyperparameters(setup, checkpoint_file.parent)
                 save_prompt_style(data.prompt_style, checkpoint_file.parent)
 
-        if state["step_count"] == max_steps:
-            fabric.print("Final validation ...")
+        if state["step_count"] == max_steps and not eval.skip_validation:
             train_loss = validate(fabric, model, train_dataloader, tokenizer, eval, data, print_output=False)
-            val_loss = validate(fabric, model, val_dataloader, tokenizer, eval, data, print_output=False)
+            if not validated_after_step:
+                val_loss = validate(fabric, model, val_dataloader, tokenizer, eval, data, print_output=False)
             fabric.print(f"Final train loss: {train_loss:.3f} | final val loss: {val_loss:.3f}")
+
 
 
 # FSDP has issues with `inference_mode`
