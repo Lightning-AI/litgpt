@@ -543,21 +543,21 @@ Given the Unsloth results below, these hand-written kernels do not seem to be wo
 
 We provide a version of the main pre-training script [that integrates Thunder](pretrain.py) that uses TinyLlama, a 1.1B parameter LLM.
 
-| Setting              | Compiler/JIT | Devices | ms/iter @ step 10 | Memory (GB) |
-|----------------------|--------------|---------|-------------------|-------------|
-| Fully-sharded ZeRO 3 | Eager        | 8       | 460.88            | 22.13       |
-| Fully-sharded ZeRO 3 | Inductor     | 8       | Error             | Error       |
-| Fully-sharded ZeRO 3 | Thunder      | 8       | 332.48            | 21.40       |
-|                      |              |         |                   |             |
-| Replicated           | Eager        | 8       | 535.28            | 32.05       |
-| Replicated           | Inductor     | 8       | Error             | Error       |
-| Replicated           | Thunder      | 8       | 368.25            | 27.42       |
-|                      |              |         |                   |             |
-| -                    | Eager        | 1       | 449.88            | 29.85       |
-| -                    | Inductor     | 1       | Error             | Error       |
-| -                    | Thunder      | 1       | 323.78            | 27.42       |
-|                      |              |         |                   |             |
-| Unsloth              | Thunder      | 1       | 334.98            | 25.19       |
+| Setting              | Compiler/JIT | Devices | ms/iter @ step 10 | Memory (GB)   |
+|----------------------|--------------|---------|-------------------|---------------|
+| Fully-sharded ZeRO 3 | Eager        | 8       | 460.88            | 22.13         |
+| Fully-sharded ZeRO 3 | Inductor     | 8       | Not supported     | Not supported |
+| Fully-sharded ZeRO 3 | Thunder      | 8       | 332.48            | 21.40         |
+|                      |              |         |                   |               |
+| Replicated           | Eager        | 8       | 535.28            | 32.05         |
+| Replicated           | Inductor     | 8       | Not supported     | Not supported |
+| Replicated           | Thunder      | 8       | 368.25            | 27.42         |
+|                      |              |         |                   |               |
+| -                    | Eager        | 1       | 449.88            | 29.85         |
+| -                    | Inductor     | 1       | Not supported     | Not supported |
+| -                    | Thunder      | 1       | 323.78            | 27.42         |
+|                      |              |         |                   |               |
+| Unsloth              | Thunder      | 1       | 334.98            | 25.19         |
 
 <details>
 <summary>Reproduction details</summary>
@@ -591,7 +591,7 @@ python extensions/thunder/pretrain.py --config config.yaml --executors '[sdpa, u
 
 Gradient accumulation is disabled in the FSDP setting because Thunder does not support skipping the backward synchronization yet.
 
-`torch.compile` fails to compile the `_FabricModule` due to this issue: https://github.com/pytorch/pytorch/issues/112787#issuecomment-1986827601 
+`torch.compile` does not support compiling the `_FabricModule` due to this issue: https://github.com/pytorch/pytorch/issues/112787#issuecomment-1986827601
 
 The CUDA devices are all NVIDIA A100-SXM4-40GB.
 
