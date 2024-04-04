@@ -9,6 +9,7 @@ import lightning as L
 import torch
 import torch._dynamo.config
 import torch._inductor.config
+import yaml
 from lightning.fabric.plugins import BitsandbytesPrecision
 
 from litgpt import GPT, Config, PromptStyle, Tokenizer
@@ -134,6 +135,12 @@ def main(
 
     check_valid_checkpoint_dir(checkpoint_dir)
     config = Config.from_file(checkpoint_dir / "model_config.yaml")
+    if (hyperparams_dir := (checkpoint_dir / "hyperparameters.yaml")).is_file():
+        with open(hyperparams_dir, "r", encoding="utf-8") as hparams_file:
+            hparams = yaml.safe_load(hparams_file)
+            remove_last_perc_layers = hparams.get("train", 0.0).get("remove_last_perc_layers", 0.0)
+    else:
+        remove_last_perc_layers = 0.0
 
     checkpoint_path = checkpoint_dir / "lit_model.pth"
 
@@ -151,6 +158,15 @@ def main(
     t0 = time.perf_counter()
     with fabric.init_module(empty_init=True):
         model = GPT(config)
+
+        # Sec. 4.4 of https://arxiv.org/abs/2403.17887
+        if remove_last_perc_layers > 0.0:
+            layers_num = len(model.transformer.h)
+            layers_to_remove = int(config.n_layer * remove_last_perc_layers)
+            if layers_to_remove > 0:
+                fabric.print(f"Removing last {layers_to_remove} layers")
+                model.transformer.h = model.transformer.h[:-layers_to_remove]
+
     fabric.print(f"Time to instantiate model: {time.perf_counter() - t0:.02f} seconds.", file=sys.stderr)
     with fabric.init_tensor():
         # set the max_seq_length to limit the memory usage to what we need
