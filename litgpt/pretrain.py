@@ -49,7 +49,7 @@ def setup(
         log_interval=1,
         global_batch_size=512,
         micro_batch_size=4,
-        warmup_fraction=0.01,
+        lr_warmup_fraction=0.01,
         max_tokens=int(3e12),  # 3 trillion
         learning_rate=4e-4,
         weight_decay=1e-1,
