@@ -20,11 +20,6 @@ from litgpt import GPT, Config
 from litgpt.scripts.download import download_from_hub
 
 
-@pytest.mark.xfail(
-    raises=(datasets.builder.DatasetGenerationError, NotImplementedError),
-    strict=False,
-    match="Loading a dataset cached in a LocalFileSystem is not supported",
-)
 @mock.patch.dict(os.environ, {"LT_ACCELERATOR": "cpu"})
 def test_evaluate_script(tmp_path, monkeypatch):
     ours_config = Config.from_name("pythia-14m")
@@ -42,6 +37,7 @@ def test_evaluate_script(tmp_path, monkeypatch):
         checkpoint_dir=tmp_path,
         out_dir=tmp_path / "out_dir",
         device="cpu",
+        dtype=torch.float32,
         limit=5,
         tasks="mathqa"
     )

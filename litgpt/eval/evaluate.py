@@ -3,22 +3,12 @@
 import json
 import os
 from pathlib import Path
-from typing import Optional
+from typing import Optional, Union
 import yaml
 import torch
 
 from litgpt.scripts.convert_lit_checkpoint import convert_lit_checkpoint
 from litgpt.utils import CLI, copy_config_files
-
-
-def save_safetensors(out_dir, repo_id):
-    from transformers import AutoModel
-
-    state_dict = torch.load(out_dir/"model.pth")
-    model = AutoModel.from_pretrained(
-         repo_id, state_dict=state_dict
-     )
-    model.save_pretrained(out_dir)
 
 
 def prepare_results(results, save_filepath, print_results=True):
@@ -43,6 +33,7 @@ def convert_and_evaluate(
     num_fewshot: Optional[int] = None,
     batch_size: int = 1,
     device: Optional[str] = None,
+    dtype: Optional[Union[str, torch.dtype]] = None,
     limit: Optional[float] = None,
     seed: int = 1234,
     save_filepath: Optional[str] = None,
@@ -90,15 +81,15 @@ def convert_and_evaluate(
     if not model_path.exists() or force_conversion:
         convert_lit_checkpoint(checkpoint_dir=checkpoint_dir, output_dir=out_dir)
 
-    safetensors_path = out_dir / "model.safetensors"
-    if not safetensors_path.exists() or force_conversion:
-        save_safetensors(out_dir, repo_id)
+    from lm_eval.models.huggingface import HFLM
+
+    state_dict = torch.load(model_path)
+    model = HFLM(repo_id, state_dict=state_dict, device=device, batch_size=batch_size, dtype=dtype)
 
     os.environ["TOKENIZERS_PARALLELISM"] = "false"
 
     results = evaluator.simple_evaluate(
-        model="hf",
-        model_args=f"pretrained={out_dir}",
+        model=model,
         tasks=tasks.split(","),
         num_fewshot=num_fewshot,
         batch_size=batch_size,
