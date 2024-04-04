@@ -603,7 +603,7 @@ CUDA runtime version: 12.3.107
 Nvidia driver version: 545.23.08
 pytorch-triton==3.0.0+989adb9a29
 torch==2.4.0.dev20240326+cu121
-lightning-thunder==84ac1b0f5352f9a5388bd207aab7a0580c29cbfc
+lightning-thunder==0.2.0.dev20240404
 nvfuser_cu121==0.2.0.dev20240327
 ```
 
