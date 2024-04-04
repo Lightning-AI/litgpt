@@ -1,47 +1,71 @@
 # Finetuning
 
-We provide a simple training scripts (`litgpt/finetune/*.py`) that instruction-tunes a pretrained model on the [Alpaca](https://github.com/tatsu-lab/stanford_alpaca) dataset.
-For example, you can either use
+We provide a simple finetuning commands (`litgpt finetune *`) that instruction-finetune a pretrained model on datasets such as [Alpaca](https://github.com/tatsu-lab/stanford_alpaca), [Dolly](https://www.databricks.com/blog/2023/04/12/dolly-first-open-commercially-viable-instruction-tuned-llm), and others. For more information on the supported instruction datasets and how to prepare your own custom datasets, please see the [tutorials/prepare_dataset](prepare_dataset.md) tutorials.
 
-LoRA ([Hu et al. 2021](https://arxiv.org/abs/2106.09685)):
+LitGPT currently supports the following finetuning methods:
+
+```bash
+litgpt finetune full
+litgpt finetune lora
+litgpt finetune adapter
+litgpt finetune adapter_v2
+```
+
+The following section provides more details about these methods, including links for additional resources.
+
+
+&nbsp;
+## LitGPT finetuning commands
+
+The section below provides additional information on the available and links to further resources.
+
+&nbsp;
+### Full finetuning
+
+```bash
+litgpt finetune full
+```
+
+This method trains all model weight parameters and is the most memory-intensive finetuning technique in LitGPT.
+
+**More information and resources:**
+
+- the LitGPT [tutorials/finetune_full](finetune_full.md) tutorial
+
+
+&nbsp;
+### LoRA and QLoRA finetuning
 
 ```bash
 litgpt finetune lora
 ```
 
-or Adapter ([Zhang et al. 2023](https://arxiv.org/abs/2303.16199)):
+LoRA and QLoRA are parameter-efficient finetuning technique that only require updating a small number of parameters, which makes this a more memory-efficienty alternative to full finetuning.
+
+**More information and resources:**
+
+- the LitGPT [tutorials/finetune_lora](finetune_lora.md) tutorial
+- the LoRA paper by ([Hu et al. 2021](https://arxiv.org/abs/2106.09685))
+- the conceptual tutorial [Parameter-Efficient LLM Finetuning With Low-Rank Adaptation (LoRA)](https://lightning.ai/pages/community/tutorial/lora-llm/)
+
+
+&nbsp;
+### Adapter finetuning
 
 ```bash
 litgpt finetune adapter
 ```
 
-or Adapter v2 ([Gao et al. 2023](https://arxiv.org/abs/2304.15010)):
+or
 
 ```bash
 litgpt finetune adapter_v2
 ```
 
+Simillar to LoRA, adapter finetuning is a parameter-efficient finetuning technique that only requires training a small subset of weight parameters, making this finetuning method more memory-efficient than full-parameter finetuning. 
 
-The finetuning requires at least one GPU with ~12 GB memory (RTX 3060).
+**More information and resources:**
 
-It is expected that you have downloaded the pretrained weights as described above.
-More details about each finetuning method and how you can apply it to your own data can be found in our technical how-to guides.
-
-
-### Finetuning how-to guides
-
-These technical tutorials illustrate how to run the finetuning code.
-
-- [Full-parameter finetuning](finetune_full.md)
-- [Finetune with Adapters](finetune_adapter.md)
-- [Finetune with LoRA or QLoRA](finetune_lora.md)
-
-&nbsp;
-
-### Understanding finetuning -- conceptual tutorials
-
-Looking for conceptual tutorials and explanations? We have some additional articles below:
-
-- [Understanding Parameter-Efficient Finetuning of Large Language Models: From Prefix Tuning to LLaMA-Adapters](https://lightning.ai/pages/community/article/understanding-llama-adapters/)
-
-- [Parameter-Efficient LLM Finetuning With Low-Rank Adaptation (LoRA)](https://lightning.ai/pages/community/tutorial/lora-llm/)
+- the LitGPT [tutorials/finetune_adapter](finetune_adapter.md) tutorial
+- the Llama-Adapter ([Gao et al. 2023](https://arxiv.org/abs/2304.15010)) and Llama-Adapter v2  ([Zhang et al. 2023](https://arxiv.org/abs/2303.16199)) papers that originally introduces these methods
+- the conceptual tutorial [Understanding Parameter-Efficient Finetuning of Large Language Models: From Prefix Tuning to LLaMA-Adapters](https://lightning.ai/pages/community/article/understanding-llama-adapters/)
