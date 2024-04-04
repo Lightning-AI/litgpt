@@ -140,8 +140,6 @@ class ThunderDDPStrategy(ParallelStrategy):
             ddp_module = thunder.distributed.ddp(cd.fn, **self._ddp_kwargs)
             # update the compile data state
             cd.fn = ddp_module
-            assert hasattr(cd, "_processed_function")  # sanity check
-            cd._processed_function = ddp_module
             cd.process_group_for_ddp = ddp_module.process_group_for_ddp
             return module
         else:
