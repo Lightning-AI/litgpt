@@ -177,8 +177,6 @@ class ThunderFSDPStrategy(ParallelStrategy, _Sharded):
             )
             # update the compile data state
             cd.fn = fsdp_module
-            assert hasattr(cd, "_processed_function")  # sanity check
-            cd._processed_function = fsdp_module
             cd.process_group_for_ddp = fsdp_module.process_group_for_ddp
             return module
         else:
