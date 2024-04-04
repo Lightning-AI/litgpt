@@ -11,7 +11,7 @@ from litgpt.scripts.convert_lit_checkpoint import convert_lit_checkpoint
 from litgpt.utils import CLI, copy_config_files
 
 
-def safe_safetensors(out_dir, repo_id):
+def save_safetensors(out_dir, repo_id):
     from transformers import AutoModel
 
     state_dict = torch.load(out_dir/"model.pth")
@@ -92,7 +92,7 @@ def convert_and_evaluate(
 
     safetensors_path = out_dir / "model.safetensors"
     if not safetensors_path.exists() or force_conversion:
-        safe_safetensors(out_dir, repo_id)
+        save_safetensors(out_dir, repo_id)
 
     os.environ["TOKENIZERS_PARALLELISM"] = "false"
 
