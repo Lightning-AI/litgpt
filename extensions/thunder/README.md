@@ -547,15 +547,15 @@ We provide a version of the main pre-training script [that integrates Thunder](p
 |----------------------|--------------|---------|-------------------|-------------|
 | Fully-sharded ZeRO 3 | Eager        | 8       | 460.88            | 22.13       |
 | Fully-sharded ZeRO 3 | Inductor     | 8       | Error             | Error       |
-| Fully-sharded ZeRO 3 | Thunder      | 8       | 333.22            | 21.40       |
+| Fully-sharded ZeRO 3 | Thunder      | 8       | 332.48            | 21.40       |
 |                      |              |         |                   |             |
 | Replicated           | Eager        | 8       | 535.28            | 32.05       |
 | Replicated           | Inductor     | 8       | Error             | Error       |
-| Replicated           | Thunder      | 8       | OOM               | OOM         |
+| Replicated           | Thunder      | 8       | 368.25            | 27.42       |
 |                      |              |         |                   |             |
 | -                    | Eager        | 1       | 449.88            | 29.85       |
 | -                    | Inductor     | 1       | Error             | Error       |
-| -                    | Thunder      | 1       | 322.83            | 26.37       |
+| -                    | Thunder      | 1       | 323.78            | 27.42       |
 |                      |              |         |                   |             |
 | Unsloth              | Thunder      | 1       | 331.93            | 25.19       |
 
@@ -591,7 +591,7 @@ python extensions/thunder/pretrain.py --config config.yaml --executors '[sdpa, u
 
 Gradient accumulation is disabled in the FSDP setting because Thunder does not support skipping the backward synchronization yet.
 
-`torch.compile` fails to compile the `_FabricModule` due to this bug: https://github.com/pytorch/pytorch/issues/112787#issuecomment-1986827601 
+`torch.compile` fails to compile the `_FabricModule` due to this issue: https://github.com/pytorch/pytorch/issues/112787#issuecomment-1986827601 
 
 The CUDA devices are all NVIDIA A100-SXM4-40GB.
 
