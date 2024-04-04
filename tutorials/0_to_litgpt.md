@@ -12,7 +12,7 @@ The topics, following the installation of LitGPT, are in chronological order, re
 
 &nbsp;
 
-<img src="images/0_to_litgpt/4-commands.webp" width=300>
+<img src="images/0_to_litgpt/commands.webp" width=300>
 
 &nbsp;
 
@@ -449,6 +449,19 @@ Time for inference: 1.14 sec total, 26.26 tokens/sec, 30 tokens
 - [tutorials/quantize](quantize.md): Quantizing models to reduce GPU memory requirements
 
 
+&nbsp;
+## Evaluating models
+
+LitGPT comes with a handy `litgpt evaluate` command to evaluate models with [Eleuther AI's Evaluation Harness](https://github.com/EleutherAI/lm-evaluation-harness). For example, to evaluate the previously downloaded `microsoft/phi-2` model on several tasks available from the Evaluation Harness, you can use the following command:
+
+```bash
+litgpt evaluate \
+  --checkpoint_dir checkpoints/microsoft/phi-2
+  --batch_size 16 \
+  --tasks "hellaswag,gsm8k,truthfulqa_mc2,mmlu,winogrande,arc_challenge"
+```
+
+(A list of supported tasks can be found [here](https://github.com/EleutherAI/lm-evaluation-harness/blob/master/docs/task_table.md).)
 
 
 &nbsp;
