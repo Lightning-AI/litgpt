@@ -49,13 +49,13 @@ def merge_lora(
     lora_path = checkpoint_dir / "lit_model.pth.lora"
     pretrained_checkpoint = torch.load(str(pretrained_checkpoint_dir / "lit_model.pth"), mmap=True)
     lora_checkpoint = torch.load(str(lora_path), mmap=True)
-    # since LoRA finetuning only saves the LoRA weights, we treat the lora weights dtype as the expected dtype
-    lora_dtype = next(iter(lora_checkpoint.values())).dtype
-    pretrained_checkpoint = {k: v.to(dtype=lora_dtype) for k, v in pretrained_checkpoint.items()}
 
     # Merge LoRA weights into the base model
     pretrained_checkpoint.update(lora_checkpoint.get("model", lora_checkpoint))
     model.load_state_dict(pretrained_checkpoint, assign=True)
+    # since LoRA finetuning only saves the LoRA weights, we treat the lora weights dtype as the expected dtype
+    lora_dtype = next(iter(lora_checkpoint.values())).dtype
+    model.to(dtype=lora_dtype)
     merge_lora_weights(model)
 
     # Remove LoRA parameters and the LoRA linear substring
