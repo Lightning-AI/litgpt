@@ -72,8 +72,7 @@ litgpt evaluate \
 
 > [!TIP]
 > By default, `ligpt evaluate` will evaluate a model on 3 tasks
-> to the setting `--tasks 
-> "hellaswag,truthfulqa_mc2,mmlu"`. 
+> to the setting `--tasks "hellaswag,truthfulqa_mc2,mmlu"`. 
 
 > [!TIP]
 > The evaluation may take a long time, and for testing purpoes, you may want to reduce the number of tasks
