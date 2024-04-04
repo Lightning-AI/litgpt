@@ -557,7 +557,7 @@ We provide a version of the main pre-training script [that integrates Thunder](p
 | -                    | Inductor     | 1       | Error             | Error       |
 | -                    | Thunder      | 1       | 323.78            | 27.42       |
 |                      |              |         |                   |             |
-| Unsloth              | Thunder      | 1       | 331.93            | 25.19       |
+| Unsloth              | Thunder      | 1       | 334.98            | 25.19       |
 
 <details>
 <summary>Reproduction details</summary>
