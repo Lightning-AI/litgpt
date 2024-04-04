@@ -62,7 +62,6 @@ class TextFiles(DataModule):
 
         train_files = sorted(glob.glob(str(self.train_data_path / "*.txt")))
         assert len(train_files) > 0, f"No .txt files found in train data {train_files}"
-        assert len(train_files) > 1, f"Expected at least two .txt files in {train_files}"
 
         if self.val_data_path is not None:
             self.val_data_path = Path(self.val_data_path)
@@ -70,6 +69,7 @@ class TextFiles(DataModule):
             assert len(val_files) > 0, f"No .txt files found in validation data {val_files}"
         # train/test split. let's use only shard 0 for test split, rest train
         else:
+            assert len(train_files) > 1, f"Expected at least two .txt files in {train_files}"
             val_files, *train_files = train_files
             val_files = [val_files]
 
@@ -145,17 +145,15 @@ def tokenize(filename: str, tokenizer: Tokenizer):
     global_rank = int(os.environ["DATA_OPTIMIZER_GLOBAL_RANK"])
     num_workers = int(os.environ["DATA_OPTIMIZER_NUM_WORKERS"])
 
-    chunks = []
     total_length = len(text)
     num_chunks = max(1, num_workers - 1)
     chunk_size = total_length // num_chunks
-    for i in range(num_chunks):
-        start_index = i * chunk_size
-        end_index = (i + 1) * chunk_size if i < 9 else total_length
-        chunks.append(text[start_index:end_index])
 
     local_rank = global_rank % num_workers
-    for example in tqdm(chunks, position=local_rank):
-        tokens = tokenizer.encode(example)
-        yield tokens
 
+    chunk_indices = [(i * chunk_size, (i + 1) * chunk_size if i < num_chunks - 1 else total_length)
+                     for i in range(num_chunks)]
+    for start_index, end_index in tqdm(chunk_indices, position=local_rank, desc="Tokenizing"):
+        chunk = text[start_index:end_index]
+        tokens = tokenizer.encode(chunk, bos=False, eos=False)
+        yield tokens
