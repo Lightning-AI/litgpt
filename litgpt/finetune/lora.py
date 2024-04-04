@@ -113,7 +113,7 @@ def setup(
         lora_mlp=lora_mlp,
         lora_head=lora_head,
         longlora_n_groups=longlora_n_groups,
-        longlora_context_length=longlora_context_length
+        longlora_context_length=longlora_context_length,
     )
 
     precision = precision or get_default_supported_precision(training=True)
@@ -274,7 +274,7 @@ def fit(
         )
     else:
         longest_seq_length = find_multiple(train.max_seq_length or model.max_seq_length, pad_multiple_of)
-    model.max_seq_length = find_multiple(longest_seq_length, pad_multiple_of)
+    model.max_seq_length = longest_seq_length
     fabric.print(
         f"The longest sequence length in the train data is {longest_seq_length}, the model's maximum sequence length is"
         f" {model.max_seq_length} and context length is {model.config.block_size}"
