@@ -7,6 +7,7 @@ LitGPT currently supports the following finetuning methods:
 ```bash
 litgpt finetune full
 litgpt finetune lora
+litgpt finetune qlora
 litgpt finetune adapter
 litgpt finetune adapter_v2
 ```
@@ -40,7 +41,12 @@ This method trains all model weight parameters and is the most memory-intensive 
 litgpt finetune lora
 ```
 
-LoRA and QLoRA are parameter-efficient finetuning technique that only require updating a small number of parameters, which makes this a more memory-efficienty alternative to full finetuning.
+```bash
+litgpt finetune qlora
+```
+
+
+LoRA and QLoRA (short for quantized LoRA) are parameter-efficient finetuning technique that only require updating a small number of parameters, which makes this a more memory-efficienty alternative to full finetuning.
 
 **More information and resources:**
 

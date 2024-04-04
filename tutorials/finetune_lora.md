@@ -46,6 +46,15 @@ and optionally with double-quantization:
 litgpt finetune lora --quantize "bnb.nf4-dq"
 ```
 
+&nbsp;
+
+> [!TIP]
+> Alternatively, you can use the dedicated `qlora` subcommand: 
+> `litgpt finetune qlora`
+> which has implements default settings equivalent to using `litgpt lora` with the `bnb.nf4-dq` quantization setting and all LoRA layers (`lora_key`, `lora_value`, `lora_projection`, `lora_mlp`, `lora_head`) enabled, similar to the settings used in the [QLoRA paper](https://arxiv.org/abs/2305.14314).
+
+&nbsp;
+
 The table below lists a comparison with different settings on a StableLM 3B model finetuned with LoRA on Alpaca for 1,000 iterations using a microbatch size of 1:
 
 | Settings                                    | Training Memory | Training Time |  Inference Memory |
