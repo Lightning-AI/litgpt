@@ -71,7 +71,7 @@ class TextFiles(DataModule):
         # train/test split. let's use only shard 0 for test split, rest train
         else:
             val_files, *train_files = train_files
-            val_files = [val_files] if not isinstance(val_files, list) else val_files
+            val_files = [val_files]
 
         if self.num_workers is None:
             num_workers = os.cpu_count() - 1
