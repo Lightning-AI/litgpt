@@ -535,7 +535,7 @@ def backward_fn(saved_for_backward, cotangents):
 We provide a specific [pre-training script copy](unsloth/pretrain.py) that uses this executor.
 Given the Unsloth results below, these hand-written kernels do not seem to be worth it, showcasing the power of automated fusion compilers like [NvFuser](https://github.com/NVIDIA/Fuser).
 
-## Examples and benchmarks:
+## Examples and benchmarks
 
 > [!WARNING]
 > Lightning Thunder is alpha and not ready for production runs. Feel free to try it out, expect a few bumps along the way.
