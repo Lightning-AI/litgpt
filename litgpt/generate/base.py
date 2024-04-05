@@ -142,6 +142,7 @@ def main(
             remove_last_perc_layers = hparams.get("train", 0.0).get("remove_last_perc_layers", 0.0)
     else:
         remove_last_perc_layers = 0.0
+        longlora_context_length = config.block_size
 
     checkpoint_path = checkpoint_dir / "lit_model.pth"
 
