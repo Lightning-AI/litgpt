@@ -18,14 +18,14 @@
   <a href="https://lightning.ai/">Lightning.ai</a> •
   <a href="#install-litgpt">Install</a> •
   <a href="#get-started">Get started</a> •
+  <a href="#use-an-llm">Use LLMs</a> •
+  <a href="#finetune-an-llm">Finetune LLMs</a> •
+  <a href="#pretrain-an-llm">Pretrain LLMs</a> •
   <a href="#choose-from-20-llms">Models</a> •
   <a href="#state-of-the-art-features">Features</a> •
   <a href="#project-templates">Templates</a> •
-  <a href="#finetune">Finetune</a> •
-  <a href="#pretrain">Pretrain</a> •
   <a href="#use-optimized-configurations">YAML configs</a> •
   <a href="#litgpt-design-principles">Design principles</a> •
-  <a href="#acknowledgements">Acknowledgements</a>
 </p>
 
 </div>
@@ -56,9 +56,11 @@ pip install -e '.[all]'
 
 &nbsp;
 
-## Get started
+# Get started
+LitGPT is a command-line tool to use, pretrain, finetune and deploy LLMs.
 
-LitGPT is a command-line tool. Here's an example showing how to use the Mistral 7B LLM.
+###  Use an LLM
+Here's an example showing how to use the Mistral 7B LLM.
 
 ```bash
 # 1) Download a pretrained model
@@ -73,11 +75,51 @@ litgpt chat \
 
 For more information, refer to the [download](tutorials/download_model_weights.md) and [inference](tutorials/inference.md) tutorials.
 
+&nbsp;  
 
-&nbsp;
+### Finetune an LLM
+[Finetune](tutorials/finetune.md) a model to specialize it on your own custom dataset. Here's an example that finetunes phi-2:
+
+```bash
+# 1) Download a pretrained model
+litgpt download --repo_id microsoft/phi-2
+
+# 2) Finetune the model
+litgpt finetune lora \
+  --checkpoint_dir checkpoints/microsoft/phi-2 \
+  --data Alpaca2k \
+  --out_dir out/phi-2-lora
+
+# 3) Chat with the model
+litgpt chat \
+  --checkpoint_dir out/phi-2-lora/final
+```    
+
+&nbsp;  
+
+### Pretrain an LLM
+Train an LLM from scratch on your own data via [pretraining](tutorials/pretrain.md):
+
+```bash
+# 1) Download a pretrained model
+litgpt download --repo_id microsoft/phi-2
+
+# 2) Finetune the model
+litgpt pretrain lora \
+  --checkpoint_dir checkpoints/microsoft/phi-2 \
+  --data Alpaca2k \
+  --out_dir out/phi-2-lora
+
+# 3) Chat with the model
+litgpt chat \
+  --checkpoint_dir out/phi-2-lora/final
+```
+Finetune an LLM on your own data:
+
+&nbsp;    
 
 > [!NOTE]
-> We recommend starting with the **[Zero to LitGPT: Getting Started with Pretraining, Finetuning, and Using LLMs](tutorials/0_to_litgpt.md)** if you are looking to get started with using LitGPT.
+> Full guide and docs are here: **[Zero to LitGPT: Getting Started with Pretraining, Finetuning, and Using LLMs](tutorials/0_to_litgpt.md)** if you are looking to get started with using LitGPT.
 
 
 &nbsp;
@@ -150,7 +192,7 @@ The following [Lightning Studio](https://lightning.ai/lightning-ai/studios) temp
 <br>
 &nbsp;
 
-&nbsp;
+
 
 # Finetune
 
@@ -163,7 +205,8 @@ litgpt download --repo_id microsoft/phi-2
 # 2) Finetune the model
 litgpt finetune lora \
   --checkpoint_dir checkpoints/microsoft/phi-2 \
-  --data Alpaca2k \
+  --data JSON \
+  --data.json_path path/to/your/data.json \
   --out_dir out/phi-2-lora
 
 # 3) Chat with the model
@@ -192,6 +235,8 @@ litgpt chat \
 ```
 
 &nbsp;
+
+
 # Use optimized configurations
 
 LitGPT comes with out-of-the-box, highly performant settings via our YAML configs.
