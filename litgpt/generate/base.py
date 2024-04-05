@@ -139,9 +139,7 @@ def main(
         with open(hyperparams_dir, "r", encoding="utf-8") as hparams_file:
             hparams = yaml.safe_load(hparams_file)
             longlora_context_length = hparams.get("longlora_context_length", config.block_size)
-            remove_last_perc_layers = hparams.get("train", 0.0).get("remove_last_perc_layers", 0.0)
     else:
-        remove_last_perc_layers = 0.0
         longlora_context_length = config.block_size
 
     checkpoint_path = checkpoint_dir / "lit_model.pth"
@@ -169,14 +167,6 @@ def main(
             fabric.print(f"The 'rope_condense_ratio' has been adapted to {config.rope_condense_ratio}")
 
         model = GPT(config)
-
-        # Sec. 4.4 of https://arxiv.org/abs/2403.17887
-        if remove_last_perc_layers > 0.0:
-            layers_num = len(model.transformer.h)
-            layers_to_remove = int(config.n_layer * remove_last_perc_layers)
-            if layers_to_remove > 0:
-                fabric.print(f"Removing last {layers_to_remove} layers")
-                model.transformer.h = model.transformer.h[:-layers_to_remove]
 
     fabric.print(f"Time to instantiate model: {time.perf_counter() - t0:.02f} seconds.", file=sys.stderr)
     with fabric.init_tensor():

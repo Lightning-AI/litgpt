@@ -41,10 +41,6 @@ class TrainArgs:
     min_lr: float = 6e-5
 
     # Misc args
-    remove_last_perc_layers: Optional[float] = None
-    """Remove the last 'perc'% layers, excluding the output layer"""
-    trainable_params: Optional[str] = None
-    """Trainable parameters, specified as a list of layer names comma-separated"""
     get_longest_seq_length: bool = False
     """Whether to compute the longest sequence length in the dataset"""
 

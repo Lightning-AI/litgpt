@@ -37,12 +37,6 @@ def merge_lora(
     if (checkpoint_dir / "lit_model.pth").is_file():
         print("LoRA weights have already been merged in this checkpoint.")
         return
-    if (hyperparams_dir := (checkpoint_dir / "hyperparameters.yaml")).is_file():
-        with open(hyperparams_dir, "r", encoding="utf-8") as hparams_file:
-            hparams = yaml.safe_load(hparams_file)
-            remove_last_perc_layers = hparams.get("train", 0.0).get("remove_last_perc_layers", 0.0)
-    else:
-        remove_last_perc_layers = 0.0
 
     lora_params, pretrained_checkpoint_dir, lora_precision = load_lora_metadata(checkpoint_dir)
     precision = precision if precision is not None else lora_precision
@@ -53,31 +47,9 @@ def merge_lora(
     with fabric.init_module():
         model = GPT(config)
 
-        # Sec. 4.4 of https://arxiv.org/abs/2403.17887
-        if remove_last_perc_layers > 0.0:
-            layers_num = len(model.transformer.h)
-            layers_to_remove = int(config.n_layer * remove_last_perc_layers)
-            if layers_to_remove > 0:
-                fabric.print(f"Removing last {layers_to_remove} layers")
-                model.transformer.h = model.transformer.h[:-layers_to_remove]
-
     lora_path = checkpoint_dir / "lit_model.pth.lora"
     pretrained_checkpoint = torch.load(str(pretrained_checkpoint_dir / "lit_model.pth"), mmap=True)
     lora_checkpoint = torch.load(str(lora_path), mmap=True)
-
-    # Remove from the pretrained checkpoint layers removed during the finetuning
-    if remove_last_perc_layers > 0.0:
-        find_number = re.compile(r"\.(\d+)\.")
-        pretrained_checkpoint_layers_removed = {}
-        for k, v in pretrained_checkpoint.items():
-            layer_num = find_number.findall(k)
-            if layer_num != []:
-                layer_num = int(layer_num[0])
-                if layer_num < layers_num - layers_to_remove:
-                    pretrained_checkpoint_layers_removed[k] = v
-            else:
-                pretrained_checkpoint_layers_removed[k] = v
-        pretrained_checkpoint = pretrained_checkpoint_layers_removed
 
     # Merge LoRA weights into the base model
     pretrained_checkpoint.update(lora_checkpoint.get("model", lora_checkpoint))

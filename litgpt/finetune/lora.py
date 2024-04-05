@@ -55,6 +55,7 @@ def setup(
     lora_head: bool = False,
     longlora_n_groups: Optional[int] = None,
     longlora_context_length: Optional[int] = None,
+    longlora_trainable_params: Optional[str] = None,
     data: Optional[DataModule] = None,
     train: TrainArgs = TrainArgs(
         save_interval=1000,
@@ -65,8 +66,6 @@ def setup(
         epochs=5,
         learning_rate=3e-4,
         max_seq_length=None,
-        remove_last_perc_layers=None,
-        trainable_params=None,
     ),
     eval: EvalArgs = EvalArgs(interval=100, max_new_tokens=100, max_iters=100),
     logger_name: Literal["wandb", "tensorboard", "csv"] = "csv",
@@ -114,6 +113,7 @@ def setup(
         lora_head=lora_head,
         longlora_n_groups=longlora_n_groups,
         longlora_context_length=longlora_context_length,
+        longlora_trainable_params=longlora_trainable_params
     )
 
     precision = precision or get_default_supported_precision(training=True)
@@ -181,22 +181,15 @@ def main(
             )
             fabric.print(f"The 'rope_condense_ratio' has been adapted to {config.rope_condense_ratio}")
 
-        model = GPT(config)
-
-        # Sec. 4.4 of https://arxiv.org/abs/2403.17887
-        remove_last_perc_layers = getattr(train, "remove_last_perc_layers", 0.0)
-        if remove_last_perc_layers > 0.0:
-            layers_to_remove = int(config.n_layer * remove_last_perc_layers)
-            if layers_to_remove > 0:
-                fabric.print(f"Removing last {layers_to_remove} layers")
-                model.transformer.h = model.transformer.h[:-layers_to_remove]
+        model = GPT(config)        
     mark_only_lora_as_trainable(model)
 
     # Let other layers be trainable
-    trainable_params = set(train.trainable_params.strip().split(","))
-    for n, p in model.named_parameters():
-        if any(trainable_p_name in n for trainable_p_name in trainable_params):
-            p.requires_grad = True
+    if config.longlora_trainable_params is not None:
+        trainable_params = set(config.longlora_trainable_params.strip().split(","))
+        for n, p in model.named_parameters():
+            if any(trainable_p_name in n for trainable_p_name in trainable_params):
+                p.requires_grad = True
 
     fabric.print(f"Number of trainable parameters: {num_parameters(model, requires_grad=True):,}")
     fabric.print(f"Number of non-trainable parameters: {num_parameters(model, requires_grad=False):,}")

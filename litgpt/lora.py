@@ -498,6 +498,7 @@ class Config(BaseConfig):
     lora_head: bool = False
     longlora_n_groups: Optional[int] = None
     longlora_context_length: Optional[int] = None
+    longlora_trainable_params: Optional[str] = None
 
     @property
     def mlp_class(self) -> Type:
