@@ -44,7 +44,7 @@ pip install 'litgpt[all]'
 
 <details>
   <summary>Advanced install options</summary>
-  
+
 Install from source:
 
 ```bash
@@ -106,14 +106,14 @@ For more information, refer to the [download](tutorials/download_model_weights.m
 | StableLM by Stability AI                     | 3B, 7B                                   | [Stability AI 2023](https://github.com/Stability-AI/StableLM)                                                                |
 | StableLM Zephyr by Stability AI              | 3B                                       | [Stability AI 2023](https://stability.ai/blog/stablecode-llm-generative-ai-coding)                                           |
 | TinyLlama by Zhang et al.                    | 1.1B                                     | [Zhang et al. 2023](https://github.com/jzhang38/TinyLlama)                                                                   |
-| Vicuna by LMSYS                              | 7B, 13B, 33B                             | [Li et al. 2023](https://lmsys.org/blog/2023-03-30-vicuna/)     
+| Vicuna by LMSYS                              | 7B, 13B, 33B                             | [Li et al. 2023](https://lmsys.org/blog/2023-03-30-vicuna/)
 
-&nbsp;    
+&nbsp;
 
 ## State-of-the-art features
 ✅ &nbsp;State-of-the-art optimizations: Flash Attention v2, multi-GPU support via fully-sharded data parallelism, [optional CPU offloading](tutorials/oom.md#do-sharding-across-multiple-gpus), and [TPU and XLA support](extensions/xla).
 
-✅ &nbsp;[Pretrain](tutorials/pretrain.md), [finetune](tutorials/finetune.md), and [deploy](tutorials/inference.md) 
+✅ &nbsp;[Pretrain](tutorials/pretrain.md), [finetune](tutorials/finetune.md), and [deploy](tutorials/inference.md)
 
 ✅ &nbsp;Various precision settings: FP32, FP16, BF16, and FP16/FP32 mixed.
 
@@ -179,10 +179,11 @@ Train an LLM from scratch by [pretraining](tutorials/pretrain.md) on your own da
 # 1) Download a pretrained model
 litgpt download --repo_id microsoft/phi-2
 
-# 2) Finetune the model
+# 2) Finetune (/further pretrain) the model
 litgpt pretrain lora \
   --checkpoint_dir checkpoints/microsoft/phi-2 \
-  --data Alpaca2k \
+  --data LitData \
+  --data.path path/to/your/data \
   --out_dir out/phi-2-lora
 
 # 3) Chat with the model
@@ -200,7 +201,7 @@ litgpt finetune lora \
   --config https://raw.githubusercontent.com/Lightning-AI/litgpt/main/config_hub/finetune/llama-2-7b/lora.yaml
 ```
 
-Override any parameter in the CLI:    
+Override any parameter in the CLI:
 
 ```bash
 litgpt finetune lora \
@@ -208,7 +209,7 @@ litgpt finetune lora \
   --lora_r 4
 ```
 
-Browse the available configuration files [here](config_hub).   
+Browse the available configuration files [here](config_hub).
 
 &nbsp;
 
@@ -407,7 +408,7 @@ Tutorials and in-depth feature documentation can be found below:
 
 ## XLA
 
-Lightning AI has partnered with Google to add first-class support for [Cloud TPUs](https://cloud.google.com/tpu) in [Lightning’s frameworks](https://github.com/Lightning-AI/lightning) and LitGPT,
+Lightning AI has partnered with Google to add first-class support for [Cloud TPUs](https://cloud.google.com/tpu) in [Lightning's frameworks](https://github.com/Lightning-AI/lightning) and LitGPT,
 helping democratize AI for millions of developers and researchers worldwide.
 
 Using TPUs with Lightning is as straightforward as changing one line of code.
@@ -434,7 +435,7 @@ This implementation extends on [Lit-LLaMA](https://github.com/lightning-AI/lit-l
 
 ## Community showcase
 
-Check out the projects below using and building on LitGPT. If you have a project you'd like to add to this section, please don't hestiate to open a pull request.
+Check out the projects below that use and build on LitGPT. If you have a project you'd like to add to this section, please don't hesitate to open a pull request.
 
 &nbsp;
 
