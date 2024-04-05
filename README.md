@@ -184,7 +184,7 @@ litgpt pretrain \
   --initial_checkpoint_dir checkpoints/microsoft/phi-2 \
   --data LitData \
   --data.path path/to/your/data \
-  --out_dir out/phi-2-lora
+  --out_dir out/custom_phi2
 
 # 3) Chat with the model
 litgpt chat \
