@@ -73,7 +73,7 @@ litgpt evaluate \
 &nbsp;
 
 > [!TIP]
-> Run `ligpt evaluate` without any additional arguments to print a list
+> Run `litgpt evaluate` without any additional arguments to print a list
 > of the supported tasks. 
 
 > [!TIP]
