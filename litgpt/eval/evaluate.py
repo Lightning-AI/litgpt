@@ -69,7 +69,7 @@ def convert_and_evaluate(
 
     from lm_eval import evaluator
 
-    if checkpoint_dir is None and not isinstance(tasks, str):
+    if tasks is None:
         from lm_eval.tasks import TaskManager
         taskm = TaskManager()
 
