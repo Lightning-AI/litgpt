@@ -13,14 +13,6 @@ from litgpt import Tokenizer
 from litgpt.data import DataModule
 
 
-def get_half_workers():
-    num_workers = (os.cpu_count() - 1) // 2
-    if num_workers < 1:
-        return 1
-    else:
-        return num_workers
-
-
 @dataclass
 class TextFiles(DataModule):
     """The TextFile data module used for pretraining.
@@ -37,9 +29,8 @@ class TextFiles(DataModule):
     training set if None."""
     seed: int = 42
     """The seed to use for shuffling the dataset."""
-    num_workers: Optional[int] = None
-    """The number of workers to use for data loading.
-       Sets the number of workers equal to the number of avaialable CPUs-1 by default."""
+    num_workers: int = 4
+    """The number of workers to use for data loading."""
 
     tokenizer: Optional[Tokenizer] = field(default=None, init=False, repr=False)
     batch_size: int = field(default=1, init=False, repr=False)
@@ -73,31 +64,30 @@ class TextFiles(DataModule):
             val_files, *train_files = train_files
             val_files = [val_files]
 
-        if self.num_workers is None:
-            num_workers = os.cpu_count() - 1
-        else:
-            num_workers = self.num_workers
-
         if self.tokenizer is None:
             raise ValueError(
                 "Tokenizer is None. If you are using this data module via `litgpt pretrain`, "
                 "please provide a valid `--tokenizer_dir` path."
             )
 
+        # It's ok to use almost all CPUs here because this runs in a single process
+        num_workers = os.cpu_count() - 1
+        use_workers = min(num_workers, len(train_files))
         if not Path(self.out_path_train).is_dir():
             optimize(
                 fn=partial(tokenize, tokenizer=self.tokenizer),
                 inputs=train_files,
                 output_dir=str(self.out_path_train),
-                num_workers=num_workers,
+                num_workers=use_workers,
                 chunk_bytes="50MB",
             )
+        use_workers = min(num_workers, len(val_files))
         if not Path(self.out_path_val).is_dir():
             optimize(
                 fn=partial(tokenize, tokenizer=self.tokenizer),
                 inputs=val_files,
                 output_dir=str(self.out_path_val),
-                num_workers=1,  # there's only 1 file
+                num_workers=use_workers,
                 chunk_bytes="50MB",
             )
 
@@ -110,19 +100,14 @@ class TextFiles(DataModule):
             shuffle=True,
             drop_last=True,
         )
-        if self.num_workers is None:
-            num_workers = get_half_workers()
 
         train_dataloader = StreamingDataLoader(
-            train_dataset, batch_size=self.batch_size, pin_memory=True, num_workers=num_workers, drop_last=True
+            train_dataset, batch_size=self.batch_size, pin_memory=True, num_workers=self.num_workers, drop_last=True
         )
         return train_dataloader
 
     def val_dataloader(self) -> DataLoader:
         from litdata.streaming import StreamingDataset, TokensLoader
-
-        if self.num_workers is None:
-            num_workers = get_half_workers()
 
         val_dataset = StreamingDataset(
             input_dir=str(self.out_path_val),
@@ -132,7 +117,7 @@ class TextFiles(DataModule):
             drop_last=True,
         )
         val_dataloader = DataLoader(
-            val_dataset, batch_size=self.batch_size, pin_memory=True, num_workers=num_workers, drop_last=True
+            val_dataset, batch_size=self.batch_size, pin_memory=True, num_workers=self.num_workers, drop_last=True
         )
         return val_dataloader
 
@@ -141,19 +126,4 @@ def tokenize(filename: str, tokenizer: Tokenizer):
     with open(filename, "r", encoding="utf-8") as file:
         text = file.read()
     text = text.strip()
-
-    global_rank = int(os.environ["DATA_OPTIMIZER_GLOBAL_RANK"])
-    num_workers = int(os.environ["DATA_OPTIMIZER_NUM_WORKERS"])
-
-    total_length = len(text)
-    num_chunks = max(1, num_workers - 1)
-    chunk_size = total_length // num_chunks
-
-    local_rank = global_rank % num_workers
-
-    chunk_indices = [(i * chunk_size, (i + 1) * chunk_size if i < num_chunks - 1 else total_length)
-                     for i in range(num_chunks)]
-    for start_index, end_index in tqdm(chunk_indices, position=local_rank, desc="Tokenizing"):
-        chunk = text[start_index:end_index]
-        tokens = tokenizer.encode(chunk, bos=False, eos=False)
-        yield tokens
+    yield tokenizer.encode(text, bos=True, eos=False)

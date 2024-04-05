@@ -44,7 +44,7 @@ The simplest way to get started with pretraining on a small custom dataset is by
 &nbsp;
 
 > [!NOTE]
-> This approach assumes that you have already cleaned the text files, for example, removing any unwanted characters and inserting beginning-of-sequence and end-of-sequence tokens if applicable.
+> This approach adds a beginning-of-sequence token at the beginning of each text file. However, it otherwise assumes that you have already cleaned the text files, for example, removing any unwanted characters and inserting beginning-of-sequence and end-of-sequence tokens if applicable in case a text file conists of multiple documents. 
 
 &nbsp;
 
