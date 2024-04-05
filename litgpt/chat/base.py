@@ -137,9 +137,9 @@ def main(
     checkpoint_path = checkpoint_dir / "lit_model.pth"
 
     # Merge if this is a raw LoRA checkpoint
-    if (checkpoint_path / "lit_model.pth.lora").is_file() and not checkpoint_path.is_file():
+    if (checkpoint_dir / "lit_model.pth.lora").is_file() and not checkpoint_path.is_file():
         print("Merging LoRA weights with the base model. This won't take long and is a one-time-only thing.")
-        merge_lora(checkpoint_path)
+        merge_lora(checkpoint_dir)
 
     with fabric.init_module(empty_init=True):
         model = GPT(config)
