@@ -111,7 +111,7 @@ litgpt download --repo_id microsoft/phi-2
 litgpt pretrain \
   --initial_checkpoint_dir checkpoints/microsoft/phi-2 \
   --data Alpaca2k \
-  --out_dir out/phi-2
+  --out_dir out/custom-phi-2
 
 # 3) Chat with the model
 litgpt chat \
