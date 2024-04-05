@@ -38,8 +38,6 @@ Please read the [tutorials/finetune_*.md](.) documents for more information abou
 
 ### Alpaca
 
-&nbsp;
-
 The Alpaca dataset consists of 52,000 instructions and demonstrations produced by OpenAI's text-davinci-003 engine. This data is used in instruction-tuning, helping improve the performance of language models to follow instructions.
 
 In its development, the creators leveraged the data generation methodology from the [Self-Instruct framework](https://github.com/yizhongw/self-instruct).
