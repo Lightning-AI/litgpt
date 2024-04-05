@@ -10,6 +10,7 @@ from torch.utils.data import Dataset
 
 from litgpt import Tokenizer
 from litgpt.prompts import PromptStyle
+from litgpt.utils import find_multiple
 
 
 class DataModule(LightningDataModule):
@@ -131,8 +132,7 @@ def _sft_collate_fn(
 
         # Pad to multiple of 'pad_multiple_of'
         if pad_multiple_of is not None:
-            pad_to = batched[key].shape[1] + pad_multiple_of - 1
-            pad_to -= pad_to % pad_multiple_of
+            pad_to = find_multiple(batched[key].shape[1], pad_multiple_of)
             pad_to_add = pad_to - batched[key].shape[1]
             if pad_to_add > 0:
                 batched[key] = torch.cat(

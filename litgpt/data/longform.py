@@ -32,6 +32,8 @@ class LongForm(DataModule):
     """How many DataLoader processes to use for loading."""
     download_dir: Path = Path("./data/longform")
     """The directory in which the downloaded dataset gets saved."""
+    pad_multiple_of: Optional[int] = None
+    """If set, then pad sequences to a multiple of 'pad_multiple_of'"""
 
     tokenizer: Optional[Tokenizer] = field(default=None, init=False, repr=False)
     batch_size: int = field(default=1, init=False, repr=False)
@@ -80,7 +82,9 @@ class LongForm(DataModule):
             shuffle=(split == "train"),
             generator=torch.Generator().manual_seed(self.seed),
             num_workers=self.num_workers,
-            collate_fn=get_sft_collate_fn(max_seq_length=self.max_seq_length, ignore_index=self.ignore_index),
+            collate_fn=get_sft_collate_fn(
+                max_seq_length=self.max_seq_length, ignore_index=self.ignore_index, pad_multiple_of=self.pad_multiple_of
+            ),
         )
 
 

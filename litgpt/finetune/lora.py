@@ -29,6 +29,7 @@ from litgpt.utils import (
     choose_logger,
     chunked_cross_entropy,
     copy_config_files,
+    find_multiple,
     get_default_supported_precision,
     load_checkpoint,
     num_parameters,
@@ -53,6 +54,7 @@ def setup(
     lora_mlp: bool = False,
     lora_head: bool = False,
     longlora_n_groups: Optional[int] = None,
+    longlora_context_length: Optional[int] = None,
     data: Optional[DataModule] = None,
     train: TrainArgs = TrainArgs(
         save_interval=1000,
@@ -111,6 +113,7 @@ def setup(
         lora_mlp=lora_mlp,
         lora_head=lora_head,
         longlora_n_groups=longlora_n_groups,
+        longlora_context_length=longlora_context_length,
     )
 
     precision = precision or get_default_supported_precision(training=True)
@@ -169,11 +172,13 @@ def main(
 
     checkpoint_path = checkpoint_dir / "lit_model.pth"
     with fabric.init_module(empty_init=(devices > 1)):
-        if train.max_seq_length is not None and train.max_seq_length > config.block_size:
+        if config.longlora_context_length is not None and config.longlora_context_length > config.block_size:
             old_block_size = config.block_size
-            config.block_size = train.max_seq_length
-            config.rope_condense_ratio = train.max_seq_length / old_block_size
-            fabric.print(f"The model block size has been increased from {old_block_size} to {train.max_seq_length}")
+            config.block_size = config.longlora_context_length
+            config.rope_condense_ratio = config.longlora_context_length / old_block_size
+            fabric.print(
+                f"The model context length has been increased from {old_block_size} to {config.longlora_context_length}"
+            )
             fabric.print(f"The 'rope_condense_ratio' has been adapted to {config.rope_condense_ratio}")
 
         model = GPT(config)
@@ -261,22 +266,19 @@ def fit(
 ) -> None:
     tokenizer = Tokenizer(checkpoint_dir)
     old_model_max_seq_length = model.max_seq_length
+    pad_multiple_of = getattr(data, "pad_multiple_of", 1)
     if train.get_longest_seq_length:
         longest_seq_length, longest_seq_ix = get_longest_seq_length(train_dataloader.dataset)
-        model.max_seq_length = min(longest_seq_length, train.max_seq_length or float("inf"))
+        longest_seq_length = find_multiple(
+            min(longest_seq_length, train.max_seq_length or float("inf")), pad_multiple_of
+        )
     else:
-        longest_seq_length = train.max_seq_length or model.max_seq_length
-        model.max_seq_length = longest_seq_length
+        longest_seq_length = find_multiple(train.max_seq_length or model.max_seq_length, pad_multiple_of)
+    model.max_seq_length = longest_seq_length
     fabric.print(
         f"The longest sequence length in the train data is {longest_seq_length}, the model's maximum sequence length is"
         f" {model.max_seq_length} and context length is {model.config.block_size}"
     )
-    if model.max_seq_length > old_model_max_seq_length:
-        model.config.rope_condense_ratio = model.max_seq_length / old_model_max_seq_length
-        fabric.print(
-            f"The model block size has been increased from {old_model_max_seq_length} to {model.max_seq_length}"
-        )
-        fabric.print(f"The 'rope_condense_ratio' has been adapted to {model.config.rope_condense_ratio}")
 
     validate(fabric, model, val_dataloader, tokenizer, dataclasses.replace(eval, max_iters=2), data)  # sanity check
 

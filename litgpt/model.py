@@ -256,10 +256,9 @@ class CausalSelfAttention(nn.Module):
                 raise TypeError("You need to call `gpt.set_kv_cache()`")
             k, v = self.kv_cache(input_pos, k, v)
         elif longlora_group_size > 0:
-            num_heads = q.shape[1]
-            q = roll_and_group(q, B, T, longlora_group_size, num_heads, self.config.head_size)
-            k = roll_and_group(k, B, T, longlora_group_size, num_heads, self.config.head_size)
-            v = roll_and_group(v, B, T, longlora_group_size, num_heads, self.config.head_size)
+            q = roll_and_group(q, B, T, longlora_group_size, q.shape[1], self.config.head_size)
+            k = roll_and_group(k, B, T, longlora_group_size, k.shape[1], self.config.head_size)
+            v = roll_and_group(v, B, T, longlora_group_size, v.shape[1], self.config.head_size)
 
         y = self.scaled_dot_product_attention(q, k, v, mask)
         y_cloned = y
@@ -267,6 +266,7 @@ class CausalSelfAttention(nn.Module):
         if input_pos is None and longlora_group_size > 0:
             # Shift back and unroll
             y_cloned = y.clone()
+            num_heads = y_cloned.shape[2]
             y_cloned[:, :, num_heads // 2 :] = y_cloned[:, :, num_heads // 2 :].roll(longlora_group_size // 2, dims=1)
 
         y = y_cloned.reshape(
