@@ -59,6 +59,9 @@ pip install -e '.[all]'
 # Get started
 LitGPT is a command-line tool to use, pretrain, finetune and deploy LLMs.
 
+
+&nbsp;
+
 ###  Use an LLM
 Here's an example showing how to use the Mistral 7B LLM.
 
@@ -194,47 +197,6 @@ The following [Lightning Studio](https://lightning.ai/lightning-ai/studios) temp
 
 
 
-# Finetune
-
-[Finetune](tutorials/finetune.md) a model to specialize it on a custom dataset. Here's an example that finetunes phi-2:
-
-```bash
-# 1) Download a pretrained model
-litgpt download --repo_id microsoft/phi-2
-
-# 2) Finetune the model
-litgpt finetune lora \
-  --checkpoint_dir checkpoints/microsoft/phi-2 \
-  --data JSON \
-  --data.json_path path/to/your/data.json \
-  --out_dir out/phi-2-lora
-
-# 3) Chat with the model
-litgpt chat \
-  --checkpoint_dir out/phi-2-lora/final
-```
-
-# Pretrain
-
-Train an LLM from scratch by [pretraining](tutorials/pretrain.md) on your own data:
-
-```bash
-# 1) Download a pretrained model
-litgpt download --repo_id microsoft/phi-2
-
-# 2) Finetune (/further pretrain) the model
-litgpt pretrain \
-  --initial_checkpoint_dir checkpoints/microsoft/phi-2 \
-  --data LitData \
-  --data.path path/to/your/data \
-  --out_dir out/custom_phi2
-
-# 3) Chat with the model
-litgpt chat \
-  --checkpoint_dir out/phi-2-lora/final
-```
-
-&nbsp;
 
 
 # Use optimized configurations
