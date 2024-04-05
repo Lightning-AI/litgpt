@@ -180,8 +180,8 @@ Train an LLM from scratch by [pretraining](tutorials/pretrain.md) on your own da
 litgpt download --repo_id microsoft/phi-2
 
 # 2) Finetune (/further pretrain) the model
-litgpt pretrain lora \
-  --checkpoint_dir checkpoints/microsoft/phi-2 \
+litgpt pretrain \
+  --initial_checkpoint_dir checkpoints/microsoft/phi-2 \
   --data LitData \
   --data.path path/to/your/data \
   --out_dir out/phi-2-lora
