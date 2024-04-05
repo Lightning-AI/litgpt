@@ -30,6 +30,7 @@ specify in the following evaluation command:
 litgpt evaluate \
   --checkpoint_dir checkpoints/microsoft/phi-2/ \
   --batch_size 4 \
+  --tasks "hellaswag,truthfulqa_mc2,mmlu" \
   --out_dir evaluate_model/
 ```
 
@@ -65,20 +66,19 @@ litgpt evaluate \
   --checkpoint_dir checkpoints/microsoft/phi-2/ \
   --batch_size 4 \
   --out_dir evaluate_model/ \
+  --tasks "hellaswag,truthfulqa_mc2,mmlu" \
   --force_conversion true
 ```
 
 &nbsp;
 
 > [!TIP]
-> By default, `ligpt evaluate` will evaluate a model on 3 tasks
-> to the setting `--tasks "hellaswag,truthfulqa_mc2,mmlu"`. 
+> Run `ligpt evaluate` without any additional arguments to print a list
+> of the supported tasks. 
 
 > [!TIP]
 > The evaluation may take a long time, and for testing purpoes, you may want to reduce the number of tasks
 > or set a limit for the number of examples per task, for example, `--limit 10`.
-
-A list of supported tasks can be found [here](https://github.com/EleutherAI/lm-evaluation-harness/blob/master/docs/task_table.md).
 
 
 
@@ -101,5 +101,6 @@ litgpt finetune lora \
 litgpt evaluate \
   --checkpoint_dir lora_model/final \
   --batch_size 4 \
+  --tasks "hellaswag,truthfulqa_mc2,mmlu" \
   --out_dir evaluate_model/ \
 ```
