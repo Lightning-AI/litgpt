@@ -36,10 +36,10 @@ def prepare_results(results, save_filepath, print_results=True):
 
 
 def convert_and_evaluate(
-    checkpoint_dir: str,
+    checkpoint_dir: Optional[str] = None,
+    tasks: Optional[str] = None,
     out_dir: Optional[str] = None,
     force_conversion: bool = False,
-    tasks: Optional[str] = "hellaswag,truthfulqa_mc2,mmlu",
     num_fewshot: Optional[int] = None,
     batch_size: int = 1,
     device: Optional[str] = None,
@@ -68,6 +68,16 @@ def convert_and_evaluate(
     """
 
     from lm_eval import evaluator
+
+    if checkpoint_dir is None and not isinstance(tasks, str):
+        from lm_eval.tasks import TaskManager
+        taskm = TaskManager()
+
+        for key, value in taskm.task_index.items():
+            print(key)
+        raise ValueError(
+            "Tasks should be a comma-separated list of strings: 'hellaswag,truthfulqa_mc2,mmlu'"
+            "See the list of supported tasks above. To search for a specific task, use `litgpt evaluate | grep task_name`")
 
     checkpoint_dir = Path(checkpoint_dir)
 
