@@ -76,7 +76,7 @@ def convert_and_evaluate(
         for key, value in taskm.task_index.items():
             print(key)
         raise ValueError(
-            "Tasks should be a comma-separated list of strings: 'hellaswag,truthfulqa_mc2,mmlu'"
+            "Tasks should be a comma-separated list of strings, for example, `'hellaswag,truthfulqa_mc2,mmlu'`"
             "See the list of supported tasks above. To search for a specific task, use `litgpt evaluate | grep task_name`")
 
     checkpoint_dir = Path(checkpoint_dir)
