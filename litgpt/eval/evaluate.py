@@ -72,12 +72,9 @@ def convert_and_evaluate(
     if tasks is None:
         from lm_eval.tasks import TaskManager
         taskm = TaskManager()
-
-        for key, value in taskm.task_index.items():
-            print(key)
-
+        print("\n".join(taskm.task_index.values())
         print(
-            "To evaluate multiple tasks, you can chain the task names "
+            "\n\nTo evaluate multiple tasks, you can chain the task names "
             "listed above via a comma-separated list."
             "\nFor example: `--tasks 'hellaswag,truthfulqa_mc2,mmlu'`. "
             "\nTo search for a specific task, use `litgpt evaluate | grep task_name`."
