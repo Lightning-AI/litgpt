@@ -7,7 +7,7 @@
 
 ⚡ Pretrain, finetune, deploy over 20 LLMs with state-of-the-art techniques.
 
-✅ fp16/fp32/fp8/fp4 &nbsp; &nbsp;  ✅ LoRA, QLoRA, Adapter, Adapter v2 &nbsp; &nbsp;  ✅ flash attention &nbsp; &nbsp;  ✅ FSDP &nbsp; &nbsp;  ✅ 1, 1000+ GPUs/TPUs 
+✅ fp16/fp32/fp8/fp4 &nbsp; &nbsp;  ✅ LoRA, QLoRA, Adapter (v1, v2) &nbsp; &nbsp;  ✅ flash attention &nbsp; &nbsp;  ✅ FSDP &nbsp; &nbsp;  ✅ 1, 1000+ GPUs/TPUs 
 
 ---   
 
@@ -35,6 +35,8 @@
 </p>
 
 </div>
+
+&nbsp;
 
 ## Install LitGPT
 
