@@ -89,7 +89,7 @@ For more information, refer to the [download](tutorials/download_model_weights.m
 &nbsp;  
 
 ### Finetune an LLM
-[Finetune](tutorials/finetune.md) a model to specialize it on your own custom dataset. Here's an example that finetunes phi-2:
+[Finetune](tutorials/finetune.md) a model to specialize it on your own custom dataset:
 
 ```bash
 # 1) Download a pretrained model
@@ -125,12 +125,11 @@ litgpt pretrain \
 litgpt chat \
   --checkpoint_dir out/phi-2-lora/final
 ```
-Finetune an LLM on your own data:
 
 &nbsp;    
 
 > [!NOTE]
-> Full guide and docs are here: **[Zero to LitGPT: Getting Started with Pretraining, Finetuning, and Using LLMs](tutorials/0_to_litgpt.md)** if you are looking to get started with using LitGPT.
+> **[Read the full docs](tutorials/0_to_litgpt.md)**.
 
 &nbsp;
 
