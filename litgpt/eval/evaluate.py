@@ -72,7 +72,7 @@ def convert_and_evaluate(
     if tasks is None:
         from lm_eval.tasks import TaskManager
         taskm = TaskManager()
-        print("\n".join(taskm.task_index.values())
+        print("\n".join(taskm.task_index.keys()))
         print(
             "\n\nTo evaluate multiple tasks, you can chain the task names "
             "listed above via a comma-separated list."
