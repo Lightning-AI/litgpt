@@ -78,8 +78,8 @@ def convert_and_evaluate(
 
         print(
             "To evaluate multiple tasks, you can chain the task names "
-            "listed above via a comma-separated list,"
-            "\nfor example: `--tasks 'hellaswag,truthfulqa_mc2,mmlu'`. "
+            "listed above via a comma-separated list."
+            "\nFor example: `--tasks 'hellaswag,truthfulqa_mc2,mmlu'`. "
             "\nTo search for a specific task, use `litgpt evaluate | grep task_name`."
         )
         return
