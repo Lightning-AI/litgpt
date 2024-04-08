@@ -254,7 +254,9 @@ def fit(
     model = state["model"]
     optimizer = state["optimizer"]
 
+    t0 = time.perf_counter()
     validate(fabric, model, val_dataloader, max_iters=2)  # sanity check
+    fabric.print(f"{timedelta(seconds=int(time.perf_counter()-t0))!s}")
     throughput = ThroughputMonitor(fabric, window_size=5)
 
     with torch.device("meta"):
@@ -283,7 +285,7 @@ def fit(
     warmup_iters = train.warmup_iters(devices, max_iters, train_dataloader)
 
     for train_data in train_iterator:
-        if state["iter_num"] >= max_iters:
+        if state["iter_num"] >= max_iters or state["step_count"] >= 10:
             break
 
         # determine and set the learning rate for this iteration

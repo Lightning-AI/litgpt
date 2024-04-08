@@ -575,15 +575,15 @@ Commands:
 
 ```bash
 python extensions/thunder/pretrain.py --config config.yaml --compiler null --train.global_batch_size 32
-python extensions/thunder/pretrain.py --config config.yaml --compiler torch --train.global_batch_size 32
+python extensions/thunder/pretrain.py --config config.yaml --executors '[torchcompile_complete]' --train.global_batch_size 32
 python extensions/thunder/pretrain.py --config config.yaml --executors '[sdpa, torchcompile, nvfuser, torch]' --train.global_batch_size 32
 
 python extensions/thunder/pretrain.py --config config.yaml --compiler null --strategy ddp
-python extensions/thunder/pretrain.py --config config.yaml --compiler torch --strategy ddp
+python extensions/thunder/pretrain.py --config config.yaml --executors '[torchcompile_complete]' --strategy ddp
 python extensions/thunder/pretrain.py --config config.yaml --executors '[sdpa, torchcompile, nvfuser, torch]' --strategy ddp
 
 python extensions/thunder/pretrain.py --config config.yaml --compiler null --devices 1
-python extensions/thunder/pretrain.py --config config.yaml --compiler torch --devices 1
+python extensions/thunder/pretrain.py --config config.yaml --executors '[torchcompile_complete]' --devices 1
 python extensions/thunder/pretrain.py --config config.yaml --executors '[sdpa, torchcompile, nvfuser, torch]' --devices 1
 
 python extensions/thunder/pretrain.py --config config.yaml --executors '[sdpa, unsloth, torchcompile, nvfuser, torch]' --devices 1
@@ -591,7 +591,7 @@ python extensions/thunder/pretrain.py --config config.yaml --executors '[sdpa, u
 
 Gradient accumulation is disabled in the FSDP setting because Thunder does not support skipping the backward synchronization yet.
 
-`torch.compile` does not support compiling the `_FabricModule` due to this issue: https://github.com/pytorch/pytorch/issues/112787#issuecomment-1986827601
+`--compiler torch` (`torch.compile` without `thunder`) is not include because it does not support compiling the `_FabricModule` due to this issue: https://github.com/pytorch/pytorch/issues/112787#issuecomment-1986827601
 
 The CUDA devices are all NVIDIA A100-SXM4-40GB.
 
