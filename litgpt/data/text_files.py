@@ -64,16 +64,11 @@ class TextFiles(DataModule):
             val_files, *train_files = train_files
             val_files = [val_files]
 
-        if self.tokenizer is None:
-            raise ValueError(
-                "Tokenizer is None. If you are using this data module via `litgpt pretrain`, "
-                "please provide a valid `--tokenizer_dir` path."
-            )
-
         # It's ok to use almost all CPUs here because this runs in a single process
         num_workers = os.cpu_count() - 1
         use_workers = min(num_workers, len(train_files))
         if not Path(self.out_path_train).is_dir():
+            validate_tokenizer(self.tokenizer)
             optimize(
                 fn=partial(tokenize, tokenizer=self.tokenizer),
                 inputs=train_files,
@@ -83,6 +78,7 @@ class TextFiles(DataModule):
             )
         use_workers = min(num_workers, len(val_files))
         if not Path(self.out_path_val).is_dir():
+            validate_tokenizer(self.tokenizer)
             optimize(
                 fn=partial(tokenize, tokenizer=self.tokenizer),
                 inputs=val_files,
@@ -127,3 +123,11 @@ def tokenize(filename: str, tokenizer: Tokenizer):
         text = file.read()
     text = text.strip()
     yield tokenizer.encode(text, bos=True, eos=False)
+
+
+def validate_tokenizer(tokenizer: Tokenizer) -> None:
+    if tokenizer is None:
+        raise ValueError(
+            "Tokenizer is None. If you are using this data module via `litgpt pretrain`, "
+            "please provide a valid `--tokenizer_dir` path."
+        )
