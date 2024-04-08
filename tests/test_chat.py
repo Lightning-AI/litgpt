@@ -16,6 +16,8 @@ from lightning.fabric import Fabric
 
 import litgpt.chat.base as chat
 import litgpt.generate.base as generate
+from litgpt import Config
+from litgpt.utils import save_config
 
 
 @pytest.mark.parametrize(
@@ -142,17 +144,8 @@ def test_merge_lora_if_needed(mocked_merge_lora, mocked_input, fake_checkpoint_d
     os.rename(fake_checkpoint_dir / "lit_model.pth", fake_checkpoint_dir / "lit_model.pth.lora")
     mocked_merge_lora.side_effect = lambda _: Path(fake_checkpoint_dir / "lit_model.pth").touch()
 
-    config_path = fake_checkpoint_dir / "model_config.yaml"
-    config = {
-        "name": "Llama 3",
-        "block_size": 128,
-        "vocab_size": 50,
-        "n_layer": 2,
-        "n_head": 4,
-        "n_embd": 8,
-        "rotary_percentage": 1,
-    }
-    config_path.write_text(yaml.dump(config))
+    config = Config.from_name("pythia-14m")
+    save_config(config, fake_checkpoint_dir)
     monkeypatch.setattr(chat, "load_checkpoint", Mock())
     monkeypatch.setattr(chat, "Tokenizer", Mock())
 
