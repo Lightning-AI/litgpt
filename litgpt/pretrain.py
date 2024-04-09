@@ -19,7 +19,7 @@ from torchmetrics.aggregation import RunningMean
 from typing_extensions import Literal
 
 from litgpt import Tokenizer
-from litgpt.args import EvalArgs, TrainArgs
+from litgpt.args import EvalArgs, TrainArgs, GaLoreArgs
 from litgpt.config import name_to_config
 from litgpt.data import DataModule, TinyLlama
 from litgpt.model import GPT, Block, CausalSelfAttention, Config, LLaMAMLP
@@ -34,6 +34,7 @@ from litgpt.utils import (
     reset_parameters,
     save_config,
     save_hyperparameters,
+    get_linear_nonlinear_params
 )
 
 
@@ -60,6 +61,13 @@ def setup(
         tie_embeddings=False,
     ),
     eval: EvalArgs = EvalArgs(interval=1000, max_iters=100),
+    galore: GaLoreArgs = GaLoreArgs(
+        galore_8bit=False,
+        galore_r=128,
+        galore_update_proj_gap=200,
+        galore_scale=0.25,
+        galore_proj_type="std",
+    ),
     devices: Union[int, str] = "auto",
     tokenizer_dir: Optional[Path] = None,
     logger_name: Literal["wandb", "tensorboard", "csv"] = "tensorboard",
@@ -84,6 +92,7 @@ def setup(
         devices: How many devices/GPUs to use. Uses all GPUs by default.
         tokenizer_dir: Optional path to the tokenizer dir that was used for preprocessing the dataset. Only some data
             module require this.
+        galore: GaLore-related arguments. See ``litgpt.args.GaLoreArgs`` for details.
         logger_name: The name of the logger to send metrics to.
         seed: The random seed to use for reproducibility.
     """
@@ -128,6 +137,7 @@ def setup(
         tokenizer,
         train,
         eval,
+        galore,
     )
 
 
@@ -144,6 +154,7 @@ def main(
     tokenizer: Optional[Tokenizer],
     train: TrainArgs,
     eval: EvalArgs,
+    galore: GaLoreArgs,
 ) -> None:
     validate_args(train, eval, initial_checkpoint_dir, resume)
 
@@ -168,13 +179,47 @@ def main(
 
     model = torch.compile(model)
     model = fabric.setup(model)
-    optimizer = torch.optim.AdamW(
-        model.parameters(),
-        lr=train.learning_rate,
-        weight_decay=train.weight_decay,
-        betas=(train.beta1, train.beta2),
-        fused=True,
-    )
+
+    if galore.use_galore:
+        linear_params, nonlinear_params = get_linear_nonlinear_params(model)
+        # Currently apply galore to all parameters; might add options to target specific layers later)
+        param_groups = [
+            {'params': nonlinear_params},
+            {
+             'params': linear_params,
+             'rank': galore.galore_r,
+             'update_proj_gap': galore.galore_update_proj_gap,
+             'scale': galore.galore_scale,
+             'proj_type': galore.galore_proj_type
+            }
+        ]
+        if galore.galore_8bit:
+            from galore_torch import GaLoreAdamW8bit
+            optimizer = GaLoreAdamW8bit(
+                        param_groups,
+                        lr=train.learning_rate,
+                        weight_decay=train.weight_decay,
+                        betas=(train.beta1, train.beta2),
+                        fused=True
+                    ),
+        else:
+            from galore_torch import GaLoreAdamW
+            optimizer = GaLoreAdamW(
+                param_groups,
+                lr=train.learning_rate,
+                weight_decay=train.weight_decay,
+                betas=(train.beta1, train.beta2),
+                fused=True,
+            )
+
+    else:
+        optimizer = torch.optim.AdamW(
+            model.parameters(),
+            lr=train.learning_rate,
+            weight_decay=train.weight_decay,
+            betas=(train.beta1, train.beta2),
+            fused=True,
+        )
     optimizer = fabric.setup_optimizers(optimizer)
 
     train_dataloader, val_dataloader = get_dataloaders(fabric, data, tokenizer, train, model.max_seq_length)

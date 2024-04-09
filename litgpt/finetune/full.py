@@ -143,7 +143,6 @@ def main(
     model = fabric.setup(model)
 
     if galore.use_galore:
-
         linear_params, nonlinear_params = get_linear_nonlinear_params(model)
         # Currently apply galore to all parameters; might add options to target specific layers later)
         param_groups = [
