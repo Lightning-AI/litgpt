@@ -10,7 +10,7 @@ license = { file = "LICENSE" }
 
 dependencies = [
     "torch>=2.2.0",
-    "lightning==2.3.0.dev20240324",
+    "lightning==2.3.0.dev20240328",
     "jsonargparse[signatures]>=4.27.6",
 ]
 
@@ -26,17 +26,16 @@ test = [
     "pytest",
     "pytest-rerunfailures",
     "pytest-timeout",
-    "transformers>=4.38.0",
+    "transformers>=4.38.0",  # numerical comparisons
     "einops",
     "protobuf",
-    "lightning-thunder; python_version >= '3.10'",
+    "lightning-thunder==0.2.0.dev20240404; python_version >= '3.10'",
 ]
 all = [
     "galore-torch",              # galore
     "bitsandbytes==0.42.0",      # quantization
     "sentencepiece",             # llama-based models
     "tokenizers",                # pythia, falcon, redpajama
-    "datasets",                  # eval
     "requests",                  # litgpt.data
     "litdata",                   # litgpt.data
     "zstandard",                 # litgpt.data.prepare_slimpajama.py
@@ -44,6 +43,9 @@ all = [
     "pyarrow",                   # litgpt.data.prepare_starcoder.py
     "tensorboard",               # litgpt.pretrain
     "torchmetrics",              # litgpt.pretrain
+    "datasets",                  # litgpt.evaluate
+    "transformers>=4.38.0",      # litgpt.evaluate
+    "lm-eval>=0.4.2",            # litgpt.evaluate
     "safetensors",               # download
     "huggingface_hub[hf_transfer]>=0.21.0"  # download
 ]

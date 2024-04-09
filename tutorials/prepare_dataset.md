@@ -38,8 +38,6 @@ Please read the [tutorials/finetune_*.md](.) documents for more information abou
 
 ### Alpaca
 
-&nbsp;
-
 The Alpaca dataset consists of 52,000 instructions and demonstrations produced by OpenAI's text-davinci-003 engine. This data is used in instruction-tuning, helping improve the performance of language models to follow instructions.
 
 In its development, the creators leveraged the data generation methodology from the [Self-Instruct framework](https://github.com/yizhongw/self-instruct).
@@ -78,7 +76,6 @@ For comparison, the Falcon 7B model requires 23.52 GB of memory for the original
 <img src="images/prepare_dataset/alpaca-2k.jpg" width=400px>
 
 ### Alpaca-GPT4
-
 
 The Alpaca-GPT4 was built by using the prompts of the original Alpaca dataset and generate the responses via GPT 4. The
 dataset consists of 52,000 instructions and responses.
@@ -126,7 +123,6 @@ litgpt finetune lora \
   --train.max_seq_length 256
 ```
 
-
 &nbsp;
 
 ### Deita
@@ -161,7 +157,6 @@ litgpt finetune lora \
   --checkpoint_dir "checkpoints/tiiuae/falcon-7b" \
   --train.max_seq_length 512
 ```
-
 
 &nbsp;
 
@@ -281,7 +276,6 @@ litgpt finetune lora \
 
 However, you can also select individual subsets via comma-separated strings as follows:
 
-
 ```bash
 litgpt finetune lora \
   --data FLAN \
@@ -385,5 +379,4 @@ Note that you only need to modify a small fraction of the code file, namely the 
 
 In addition to the finetuning dataset described above, LitGPT also supports several datasets for pretraining. The pretraining datasets are described in more detail in the following separate tutorial documents:
 
-- [Pretrain Llama 2 on OpenWebText](./pretrain_openwebtext.md)
 - [Pretrain TinyLlama on Slimpajama and Starcoder](./pretrain_tinyllama.md)

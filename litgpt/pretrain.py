@@ -20,6 +20,7 @@ from typing_extensions import Literal
 
 from litgpt import Tokenizer
 from litgpt.args import EvalArgs, TrainArgs
+from litgpt.config import name_to_config
 from litgpt.data import DataModule, TinyLlama
 from litgpt.model import GPT, Block, CausalSelfAttention, Config, LLaMAMLP
 from litgpt.utils import (
@@ -91,7 +92,8 @@ def setup(
     if model_config is not None and model_name is not None:
         raise ValueError("Only one of `model_name` or `model_config` can be set.")
     elif model_config is None and model_name is None:
-        model_name = "tiny-llama-1.1b"
+        available_models = "\n".join(sorted(name_to_config))
+        raise ValueError(f"Please specify --model_name <model_name>. Available values:\n{available_models}")
     config = Config.from_name(model_name) if model_config is None else model_config
     devices = parse_devices(devices)
     out_dir = init_out_dir(out_dir)
@@ -197,6 +199,10 @@ def main(
 
     train_time = time.perf_counter()
     fit(fabric, devices, state, train_dataloader, val_dataloader, out_dir, tokenizer_dir, train, eval)
+
+    # Save final checkpoint
+    save_checkpoint(fabric, state, tokenizer_dir, out_dir / "final" / "lit_model.pth")
+
     fabric.print(f"Training time: {(time.perf_counter()-train_time):.2f}s")
     if fabric.device.type == "cuda":
         fabric.print(f"Memory used: {torch.cuda.max_memory_allocated() / 1e9:.02f} GB")
@@ -242,7 +248,8 @@ def fit(
     total_t0 = time.perf_counter()
     val_loss = "n/a"
 
-    warmup_iters = train.lr_warmup_steps * train.gradient_accumulation_iters(devices)
+    warmup_iters = train.warmup_iters(devices, max_iters, train_dataloader)
+
     for train_data in train_iterator:
         if state["iter_num"] >= max_iters:
             break
@@ -322,15 +329,7 @@ def fit(
             fabric.barrier()
 
         if train.save_interval is not None and not is_accumulating and state["step_count"] % train.save_interval == 0:
-            checkpoint_file = out_dir / f"step-{state['step_count']:08d}" / "lit_model.pth"
-            checkpoint_file.parent.mkdir(parents=True, exist_ok=True)
-            fabric.print(f"Saving checkpoint to {str(checkpoint_file)!r}")
-            fabric.save(checkpoint_file, state)
-            if fabric.global_rank == 0:
-                save_hyperparameters(setup, checkpoint_file.parent)
-                if tokenizer_dir is not None:
-                    copy_config_files(tokenizer_dir, checkpoint_file.parent)
-                save_config(model.config, checkpoint_file.parent)
+            save_checkpoint(fabric, state, tokenizer_dir, out_dir / f"step-{state['step_count']:08d}" / "lit_model.pth")
 
 
 @torch.no_grad()
@@ -408,6 +407,18 @@ def init_out_dir(out_dir: Path) -> Path:
     if not out_dir.is_absolute() and "LIGHTNING_ARTIFACTS_DIR" in os.environ:
         return Path(os.getenv("LIGHTNING_ARTIFACTS_DIR")) / out_dir
     return out_dir
+
+
+def save_checkpoint(fabric, state, tokenizer_dir, checkpoint_file):
+    model = state["model"]
+    checkpoint_file.parent.mkdir(parents=True, exist_ok=True)
+    fabric.print(f"Saving checkpoint to {str(checkpoint_file)!r}")
+    fabric.save(checkpoint_file, state)
+    if fabric.global_rank == 0:
+        save_hyperparameters(setup, checkpoint_file.parent)
+        if tokenizer_dir is not None:
+            copy_config_files(tokenizer_dir, checkpoint_file.parent)
+        save_config(model.config, checkpoint_file.parent)
 
 
 def validate_args(train: TrainArgs, eval: EvalArgs, initial_checkpoint_dir, resume) -> None:

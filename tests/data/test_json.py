@@ -81,6 +81,9 @@ def test_json_input_validation(tmp_path):
     with pytest.raises(FileNotFoundError, match="must be a file or a directory containing"):
         data.setup()
 
+    with pytest.raises(ValueError, match="you must set `val_split_fraction` to a value between 0 and 1"):
+        JSON(tmp_path / "train.json", val_split_fraction=None)
+
 
 @pytest.mark.parametrize("as_jsonl", [False, True])
 def test_json_with_splits(as_jsonl, tmp_path, mock_tokenizer):
