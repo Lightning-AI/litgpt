@@ -1,56 +1,47 @@
-import json
 import random
 import string
 import os
 
-import pytest
 import torch
 
 from litdata import optimize
 from torch.utils._pytree import tree_map
 
 
-def create_random_strings_file(file_path, num_strings=100, string_length=10):
-    def generate_random_string(length):
-        characters = string.ascii_uppercase + string.digits
-        return "".join(random.choice(characters) for _ in range(length))
+class Tokenizer:
+    bos_id = 0
 
-    os.makedirs(os.path.dirname(file_path), exist_ok=True)
+    def encode(self, text, bos, eos):
+        assert bos
+        assert not eos
+        return [self.bos_id] + [ord(c) for c in text]
 
-    with open(file_path, "w") as f:
-        for _ in range(num_strings):
-            random_string = generate_random_string(string_length)
-            f.write(f"{random_string}\n")
+
+def tokenize(data):
+    for story in data:
+        yield torch.tensor(story)
+
+
+def fake_chunk(path, data):
+    optimize(fn=tokenize, inputs=[data] * len(data), output_dir=str(path), num_workers=1, chunk_bytes="200MB")
 
 
 def test_textfiles_datamodule(tmp_path):
     from litgpt.data.text_files import TextFiles
 
     data_dir = tmp_path / "textfiles"
-
-    random.seed(123)
-    create_random_strings_file(data_dir/"file_1.txt")
-    create_random_strings_file(data_dir/"file_2.txt")
-    create_random_strings_file(data_dir/"file_3.txt")
-
     datamodule = TextFiles(train_data_path=data_dir)
-    datamodule.connect(max_seq_length=2)
+    datamodule.connect(max_seq_length=2, tokenizer=Tokenizer())
 
+    # simulate `datamodule.prepare_data`
     train_data_dir = data_dir / "train"
     train_data_dir.mkdir(parents=True)
+    fake_chunk(train_data_dir, [[12], [0, 23, 15, 63, 0], [73, 5, 0, 1, 1999, 0, 13]])
     datamodule.setup()
-    datamodule.prepare_data()
 
     tr_dataloader = datamodule.train_dataloader()
     torch.manual_seed(123)
 
-    #import pdb; pdb.set_trace();
-
-    #for batch in tr_dataloader:
-    #    pass
-
-
-    """
     actual = tree_map(torch.Tensor.tolist, list(tr_dataloader))
     # there is 1 sample per index in the data (13)
     assert actual == [
@@ -68,4 +59,3 @@ def test_textfiles_datamodule(tmp_path):
         [[23, 15, 63]],
         [[13, 12, 0]],
     ]
-    """
