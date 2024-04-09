@@ -36,7 +36,7 @@ def prepare_results(results, save_filepath, print_results=True):
 
 
 def convert_and_evaluate(
-    checkpoint_dir: Optional[str] = None,
+    checkpoint_dir: Path,
     tasks: Optional[str] = None,
     out_dir: Optional[str] = None,
     force_conversion: bool = False,
