@@ -5,21 +5,14 @@
 
 # ⚡ LitGPT
 
-**Pretrain, finetune, deploy 20+ LLMs on your own data**    
+**Pretrain, finetune, deploy 20+ LLMs on your own data**
 
-Uses the latest state-of-the-art techniques:    
+Uses the latest state-of-the-art techniques:
 
-✅ fp4/8/16/32 &nbsp; &nbsp;  ✅ LoRA, QLoRA, Adapter (v1, v2) &nbsp; &nbsp;  ✅ flash attention &nbsp; &nbsp;  ✅ FSDP &nbsp; &nbsp;  ✅ 1-1000+ GPUs/TPUs 
+✅ fp4/8/16/32 &nbsp; &nbsp;  ✅ LoRA, QLoRA, Adapter (v1, v2) &nbsp; &nbsp;  ✅ flash attention &nbsp; &nbsp;  ✅ FSDP &nbsp; &nbsp;  ✅ 1-1000+ GPUs/TPUs
 
----   
+---
 
-<!--
-<p align="center">
-  <a href="https://www.lightning.ai/">Lightning.ai</a> •
-  <a href="https://lightning.ai/docs/pytorch/stable/">PyTorch Lightning</a> •
-  <a href="https://lightning.ai/docs/fabric/stable/">Fabric</a>
-</p>
--->
 
 ![PyPI - Python Version](https://img.shields.io/pypi/pyversions/pytorch-lightning)
 ![cpu-tests](https://github.com/lightning-AI/lit-stablelm/actions/workflows/cpu-tests.yml/badge.svg) [![license](https://img.shields.io/badge/License-Apache%202.0-blue.svg)](https://github.com/Lightning-AI/lit-stablelm/blob/master/LICENSE) [![Discord](https://img.shields.io/discord/1077906959069626439?style=plastic)](https://discord.gg/VptPCZkGNa)
@@ -64,7 +57,7 @@ pip install -e '.[all]'
 
 &nbsp;
 
---- 
+---
 
 # Get started
 LitGPT is a command-line tool to use, pretrain, finetune and deploy LLMs.
@@ -88,7 +81,7 @@ litgpt chat \
 
 For more information, refer to the [download](tutorials/download_model_weights.md) and [inference](tutorials/inference.md) tutorials.
 
-&nbsp;  
+&nbsp;
 
 ### Finetune an LLM
 [Finetune](tutorials/finetune.md) a model to specialize it on your own custom dataset:
@@ -106,9 +99,9 @@ litgpt finetune lora \
 # 3) Chat with the model
 litgpt chat \
   --checkpoint_dir out/phi-2-lora/final
-```    
+```
 
-&nbsp;  
+&nbsp;
 
 ### Pretrain an LLM
 Train an LLM from scratch on your own data via [pretraining](tutorials/pretrain.md):
@@ -128,21 +121,21 @@ litgpt chat \
   --checkpoint_dir out/phi-2-lora/final
 ```
 
-&nbsp;    
+&nbsp;
 
 > [!NOTE]
 > **[Read the full docs](tutorials/0_to_litgpt.md)**.
 
 &nbsp;
 
---- 
+---
 
 # Choose from 20+ LLMs
 
 Use, Finetune, pretrain, deploy over 20+ LLMs ([full list](tutorials/download_model_weights.md)).
 
 | Model | Model size | Author | Reference |
-|----|----|----|----|    
+|----|----|----|----|
 | Code Llama | 7B, 13B, 34B, 70B | Meta AI | [Rozière et al. 2023](https://arxiv.org/abs/2308.12950) |
 | Dolly | 3B, 7B, 12B | Databricks | [Conover et al. 2023](https://www.databricks.com/blog/2023/04/12/dolly-first-open-commercially-viable-instruction-tuned-llm) |
 | Falcon | 7B, 40B, 180B | TII UAE | [TII 2023](https://falconllm.tii.ae)                                                                                         |
@@ -171,13 +164,13 @@ Use, Finetune, pretrain, deploy over 20+ LLMs ([full list](tutorials/download_mo
 
 ✅ &nbsp;[Pretrain](tutorials/pretrain.md), [finetune](tutorials/finetune.md), and [deploy](tutorials/inference.md)
 
-✅ &nbsp;Various precision settings: FP32, FP16, BF16, and FP16/FP32 mixed.
+✅ &nbsp;Reduce compute requirements by via low-precision settings: FP16, BF16, and FP16/FP32 mixed.
+
+✅ &nbsp;Lower memory requirements with [quantization](tutorials/quantize.md): 4-bit floats, 8-bit integers, and double quantization.
 
 ✅ &nbsp;[Configuration files](config_hub) for great out-of-the-box performance.
 
-✅ &nbsp;Efficient finetuning: [LoRA](tutorials/finetune_lora.md), [QLoRA](tutorials/finetune_lora.md), [Adapter](tutorials/finetune_adapter.md), and [Adapter v2](tutorials/finetune_adapter.md).
-
-✅ &nbsp;[Quantization](tutorials/quantize.md): 4-bit floats, 8-bit integers, and double quantization.
+✅ &nbsp;Parameter-efficient finetuning: [LoRA](tutorials/finetune_lora.md), [QLoRA](tutorials/finetune_lora.md), [Adapter](tutorials/finetune_adapter.md), and [Adapter v2](tutorials/finetune_adapter.md).
 
 ✅ &nbsp;[Exporting](tutorials/convert_lit_models.md) to other popular model weight formats.
 
@@ -187,11 +180,11 @@ Use, Finetune, pretrain, deploy over 20+ LLMs ([full list](tutorials/download_mo
 
 &nbsp;
 
---- 
+---
 
 # Training recipes
 
-LitGPT comes with validated recipes (YAML configs) to train models under different conditions.   
+LitGPT comes with validated recipes (YAML configs) to train models under different conditions.
 
 We've generated these recipes based on the parameters we found to perform the best for different training conditions.
 
@@ -205,7 +198,7 @@ litgpt finetune lora \
 Browse all training recipes [here](config_hub).
 
 ### What is a config
-Configs let you customize training for all granular parameters like:   
+Configs let you customize training for all granular parameters like:
 
 ```yaml
 # The path to the base model's checkpoint directory to load for finetuning. (type: <class 'Path'>, default: checkpoints/stabilityai/stablelm-base-alpha-3b)
@@ -218,7 +211,7 @@ out_dir: out/finetune/qlora-llama2-7b
 precision: bf16-true
 
 ...
-```   
+```
 
 <details>
   <summary>Example: LoRA finetuning config</summary>
@@ -359,23 +352,6 @@ litgpt finetune lora \
   --config https://raw.githubusercontent.com/Lightning-AI/litgpt/main/config_hub/finetune/llama-2-7b/lora.yaml \
   --lora_r 4
 ```
-
-&nbsp;
-
---- 
-
-# LitGPT design principles
-
-This repository follows the main principle of **openness through clarity**.
-
-**LitGPT** is:
-
-- **Simple:** Single-file implementation without boilerplate.
-- **Correct:** Numerically equivalent to the original model.
-- **Optimized:** Runs fast on consumer hardware or at scale.
-- **Open-source:** No strings attached.
-
-Avoiding code duplication is **not** a goal. **Readability** and **hackability** are.
 
 &nbsp;
 
