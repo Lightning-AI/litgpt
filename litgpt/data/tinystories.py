@@ -13,6 +13,7 @@ from tqdm import tqdm
 from litgpt import Tokenizer
 from litgpt.data import DataModule
 from litgpt.data.alpaca import download_if_missing
+from litgpt.data.text_files import validate_tokenizer
 
 
 @dataclass
@@ -56,6 +57,7 @@ class TinyStories(DataModule):
         num_workers = os.cpu_count() - 1
 
         if not Path(self.data_path_train).is_dir():
+            validate_tokenizer(self.tokenizer)
             optimize(
                 fn=partial(tokenize, tokenizer=self.tokenizer),
                 inputs=train_files,
@@ -64,6 +66,7 @@ class TinyStories(DataModule):
                 chunk_bytes="200MB",
             )
         if not Path(self.data_path_val).is_dir():
+            validate_tokenizer(self.tokenizer)
             optimize(
                 fn=partial(tokenize, tokenizer=self.tokenizer),
                 inputs=[val_file],
