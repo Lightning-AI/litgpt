@@ -9,7 +9,10 @@ import lightning as L
 import torch
 from lightning.fabric.plugins import BitsandbytesPrecision
 
-from litgpt import GPT, Config, PromptStyle, Tokenizer
+from litgpt.model import GPT
+from litgpt.config import Config
+from litgpt.prompts import PromptStyle
+from litgpt.tokenizer import Tokenizer
 from litgpt.generate.base import next_token
 from litgpt.prompts import has_prompt_style, load_prompt_style
 from litgpt.scripts.merge_lora import merge_lora

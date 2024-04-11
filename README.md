@@ -127,6 +127,66 @@ litgpt chat \
 
 &nbsp;
 
+### Deploy an LLM
+
+Deploy a LitGPT model using [LitServe](https://github.com/Lightning-AI/litserve):
+
+```bash
+# pip install litserve
+
+import litserve as ls
+from litgpt.generate.base import main
+from functools import partial
+from pathlib import Path
+
+
+# STEP 1: DEFINE YOUR MODEL API
+class SimpleAPIForLitGPT(ls.LitAPI):
+    def setup(self, device):
+        # Setup the model so it can be called in `predict`.
+        self.generate = partial(
+            main,
+            top_k=200,
+            temperature=0.8,
+            checkpoint_dir=Path("litgpt/checkpoints/microsoft/phi-2"),
+            precision="bf16-true",
+            quantize=None,
+            compile=False
+        )
+
+    def decode_request(self, request):
+        # Convert the request payload to your model input.
+        return request["input"]
+
+    def predict(self, x):
+        # Run the model on the input and return the output.
+        return self.generate(prompt=x)
+
+    def encode_response(self, output):
+        # Convert the model output to a response payload.
+        return {"output": output}
+
+# STEP 2: START THE SERVER
+api = SimpleAPIForLitGPT()
+server = ls.LitServer(api, accelerator="gpu")
+server.run(port=8000)
+```
+
+In a new Python session:
+
+```python
+# STEP 3: USE THE SERVER
+import requests
+
+response = requests.post(
+  "http://127.0.0.1:8000/predict",
+  json={"prompt": "Fix typos in the following sentence: Exampel input"}
+)
+print(response.content)
+```
+
+&nbsp;
+
 > [!NOTE]
 > **[Read the full docs](tutorials/0_to_litgpt.md)**.
 
