@@ -32,4 +32,4 @@ jobs:
 
       - name: Find Markdown Files and Check Links
         run: |
-          find . -name \*.md -print0 | xargs -0 -n1 markdown-link-check -c $GITHUB_WORKSPACE/md_checker_config.json
+          find . -name \*.md -print0 | xargs -0 -n1 markdown-link-check -c $GITHUB_WORKSPACE/md_checker_config.json --alive https://falconllm.tii.ae
