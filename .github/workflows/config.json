@@ -1,8 +1,0 @@
-{
-  "projectBaseUrl":"${workspaceFolder}",
-  "ignorePatterns": [
-    {
-      "pattern": "^#"
-    }
-  ]
-}
