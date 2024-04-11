@@ -105,24 +105,54 @@ litgpt chat \
   --checkpoint_dir out/phi-2-lora/final
 ```
 
-&nbsp;
+Train an LLM from scratch on your own data via pretraining:
 
-### Pretrain an LLM
-Train an LLM from scratch on your own data via [pretraining](tutorials/pretrain.md):
+```
+mkdir -p custom_texts
+curl https://www.gutenberg.org/cache/epub/24440/pg24440.txt --output custom_texts/book1.txt
+curl https://www.gutenberg.org/cache/epub/26393/pg26393.txt --output custom_texts/book2.txt
 
-```bash
-# 1) Download a pretrained model
-litgpt download --repo_id microsoft/phi-2
+# 1) Download a tokenizer
+litgpt download \
+  --repo_id EleutherAI/pythia-160m \
+  --tokenizer_only True
 
-# 2) Finetune the model
+# 2) Pretrain the model
 litgpt pretrain \
-  --initial_checkpoint_dir checkpoints/microsoft/phi-2 \
-  --data Alpaca2k \
-  --out_dir out/custom-phi-2
+  --model_name pythia-160m \
+  --tokenizer_dir checkpointsEleutherAI/pythia-160m \
+  --data TextFiles \
+  --data.train_data_path "custom_texts/" \
+  --train.max_tokens 10_000_000 \
+  --out_dir out/custom-model
 
 # 3) Chat with the model
 litgpt chat \
-  --checkpoint_dir out/phi-2-lora/final
+  --checkpoint_dir out/custom-model/final
+```
+
+Specialize an already pretrained model by training on custom data:
+
+```
+mkdir -p custom_texts
+curl https://www.gutenberg.org/cache/epub/24440/pg24440.txt --output custom_texts/book1.txt
+curl https://www.gutenberg.org/cache/epub/26393/pg26393.txt --output custom_texts/book2.txt
+
+# 1) Download a pretrained model
+litgpt download --repo_id EleutherAI/pythia-160m
+
+# 2) Continue pretraining the model
+litgpt pretrain \
+  --model_name pythia-160m \
+  --initial_checkpoint_dir checkpoints/EleutherAI/pythia-160m \
+  --data TextFiles \
+  --data.train_data_path "custom_texts/" \
+  --train.max_tokens 10_000_000 \
+  --out_dir out/custom-model
+
+# 3) Chat with the model
+litgpt chat \
+  --checkpoint_dir out/custom-model/final
 ```
 
 &nbsp;
