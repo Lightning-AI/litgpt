@@ -21,4 +21,4 @@ jobs:
 
       - name: Find Markdown Files and Check Links
         run: |
-          find . -name \*.md -print0 | xargs -0 -n1 markdown-link-check --alive #install-litgpt,#get-started,#use-an-llm,#finetune-an-llm,#choose-from-20-llms,#state-of-the-art-features,#training-recipes,#litgpt-design-principles
+          find . -name \*.md -print0 | xargs -0 -n1 markdown-link-check -c config.json
