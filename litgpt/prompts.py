@@ -330,7 +330,7 @@ def model_name_to_prompt_style(model_name: str) -> PromptStyle:
         return Phi2()
     if re.search(r"tiny-llama.*chat", model_name):
         return TinyLlama()
-    if re.search(r"Gemma.*-it", model_name):
+    if re.search(r"(Code)*Gemma.*-it", model_name):
         return Gemma()
     return Default()
 
