@@ -91,9 +91,13 @@ For more information, refer to the [download](tutorials/download_model_weights.m
 litgpt download --repo_id microsoft/phi-2
 
 # 2) Finetune the model
+curl -L https://huggingface.co/datasets/medalpaca/medical_meadow_health_advice/raw/main/medical_meadow_health_advice.json -o my_custom_dataset.json
+
 litgpt finetune lora \
   --checkpoint_dir checkpoints/microsoft/phi-2 \
-  --data Alpaca2k \
+  --data JSON \
+  --data.json_path my_custom_dataset.json \
+  --val_split_fraction 0.1 \
   --out_dir out/phi-2-lora
 
 # 3) Chat with the model
