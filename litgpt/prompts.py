@@ -251,7 +251,7 @@ class Phi1(PromptStyle):
 
 class Phi2(PromptStyle):
     def apply(self, prompt: str, **kwargs: str) -> str:
-        return f"Instruct:{prompt}\nOutput:"
+        return f"Instruct: {prompt}\nOutput:"
 
 
 class TinyLlama(PromptStyle):
