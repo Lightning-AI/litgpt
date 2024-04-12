@@ -1,4 +1,5 @@
 # Copyright Lightning AI. Licensed under the Apache License 2.0, see LICENSE file.
+from dataclasses import asdict
 
 import os
 from contextlib import redirect_stderr
@@ -18,9 +19,11 @@ from lightning.pytorch.loggers import WandbLogger
 from lightning_utilities.core.imports import RequirementCache
 
 from litgpt import GPT
+from litgpt.args import TrainArgs
 from litgpt.utils import (
     CLI,
     CycleIterator,
+    capture_hparams,
     check_valid_checkpoint_dir,
     choose_logger,
     chunked_cross_entropy,
@@ -217,6 +220,26 @@ def test_copy_config_files(fake_checkpoint_dir, tmp_path):
     expected = {"model_config.yaml", "tokenizer_config.json", "tokenizer.json"}
     contents = set(os.listdir(tmp_path))
     assert expected.issubset(contents)
+
+
+def test_capture_hparams():
+    integer = 1
+    string = "string"
+    boolean = True
+    none = None
+    path = Path("/path")
+    dataclass = TrainArgs()
+    other = torch.nn.Linear(1, 1)
+    hparams = capture_hparams()
+    assert hparams == {
+        "integer": integer,
+        "string": string,
+        "boolean": boolean,
+        "none": none,
+        "path": path,
+        "dataclass": asdict(dataclass),
+        "other": str(other),
+    }
 
 
 def _test_function(out_dir: Path, foo: bool = False, bar: int = 1):
