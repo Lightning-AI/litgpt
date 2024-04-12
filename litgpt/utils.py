@@ -413,8 +413,10 @@ def capture_hparams() -> Dict[str, Any]:
     for name, value in locals_of_caller.items():
         if value is None or isinstance(value, (int, float, str, bool, Path)):
             hparams[name] = value
-        if is_dataclass(value):
+        elif is_dataclass(value):
             hparams[name] = asdict(value)
+        else:
+            hparams[name] = str(value)
     return hparams
 
 
