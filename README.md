@@ -125,64 +125,56 @@ litgpt chat \
   --checkpoint_dir out/phi-2-lora/final
 ```
 
+
 &nbsp;
 
 ### Deploy an LLM
 
 Deploy a LitGPT model using [LitServe](https://github.com/Lightning-AI/litserve):
 
-```bash
-# pip install litserve
-
-import litserve as ls
-from litgpt.generate.base import main
-from functools import partial
-from pathlib import Path
-
+```python
+from litserve import LitAPI, LitServer
+...
 
 # STEP 1: DEFINE YOUR MODEL API
-class SimpleAPIForLitGPT(ls.LitAPI):
+class SimpleLitAPI(LitAPI):
+
     def setup(self, device):
         # Setup the model so it can be called in `predict`.
-        self.generate = partial(
-            main,
-            top_k=200,
-            temperature=0.8,
-            checkpoint_dir=Path("litgpt/checkpoints/microsoft/phi-2"),
-            precision="bf16-true",
-            quantize=None,
-            compile=False
-        )
+        repo_id = "microsoft/phi-2"
+        checkpoint_dir = Path(f"checkpoints/{repo_id}")
+        ...
+ 
 
     def decode_request(self, request):
         # Convert the request payload to your model input.
-        return request["input"]
+        prompt = request["prompt"]
+        ...
+        return encoded
 
-    def predict(self, x):
+    def predict(self, inputs):
         # Run the model on the input and return the output.
-        return self.generate(prompt=x)
+        ...
+        y = generate(...)
+        return y
 
     def encode_response(self, output):
         # Convert the model output to a response payload.
-        return {"output": output}
+        decoded_output = self.tokenizer.decode(output)
+        return {"output": decoded_output}
+
 
 # STEP 2: START THE SERVER
-api = SimpleAPIForLitGPT()
-server = ls.LitServer(api, accelerator="gpu")
-server.run(port=8000)
+if __name__ == "__main__":
+    server = LitServer(SimpleLitAPI(), accelerator="cuda", devices=1)
+    server.run(port=8000)
 ```
-
-In a new Python session:
 
 ```python
 # STEP 3: USE THE SERVER
-import requests
-
-response = requests.post(
-  "http://127.0.0.1:8000/predict",
-  json={"prompt": "Fix typos in the following sentence: Exampel input"}
-)
-print(response.content)
+import requests, json
+response = requests.post("http://127.0.0.1:8000/predict", 
+json={"prompt": "Fix typos in the following sentence: Exampel input"})
 ```
 
 &nbsp;

@@ -10,7 +10,7 @@ from typing import Dict, List, Optional, Tuple, Union
 import torch
 from lightning.fabric.utilities.load import _NotYetLoadedTensor as NotYetLoadedTensor
 
-from litgpt import Config
+from litgpt.config import Config
 from litgpt.utils import incremental_save, lazy_load, save_config
 
 

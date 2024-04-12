@@ -441,12 +441,66 @@ Time for inference: 1.14 sec total, 26.26 tokens/sec, 30 tokens
 > [!TIP]
 > Most model weights are already represented in an efficient bfloat16 format. However, if the model currently exceeds your GPU memory, you can try to pass the `--precision bf16-true` option. In addition, you can check the quantization documentation for further optimization, which is linked below.
 
-
 &nbsp;
 **More information and additional resources**
 
 - [tutorials/inference](inference.md): Chat and inference tutorial
 - [tutorials/quantize](quantize.md): Quantizing models to reduce GPU memory requirements
+
+&nbsp;
+## Deploy LLMs
+
+You can deploy LitGPT LLMs using your tool of choice. Below is an abbreviated example using [LitServe](https://github.com/Lightning-AI/litserve) to deploy an LLM:
+
+```python
+from litserve import LitAPI, LitServer
+...
+
+# STEP 1: DEFINE YOUR MODEL API
+class SimpleLitAPI(LitAPI):
+
+    def setup(self, device):
+        # Setup the model so it can be called in `predict`.
+        repo_id = "microsoft/phi-2"
+        checkpoint_dir = Path(f"checkpoints/{repo_id}")
+        ...
+ 
+
+    def decode_request(self, request):
+        # Convert the request payload to your model input.
+        prompt = request["prompt"]
+        ...
+        return encoded
+
+    def predict(self, inputs):
+        # Run the model on the input and return the output.
+        ...
+        y = generate(...)
+        return y
+
+    def encode_response(self, output):
+        # Convert the model output to a response payload.
+        decoded_output = self.tokenizer.decode(output)
+        return {"output": decoded_output}
+
+
+# STEP 2: START THE SERVER
+if __name__ == "__main__":
+    server = LitServer(SimpleLitAPI(), accelerator="cuda", devices=1)
+    server.run(port=8000)
+```
+
+```python
+# STEP 3: USE THE SERVER
+import requests, json
+response = requests.post("http://127.0.0.1:8000/predict", 
+json={"prompt": "Fix typos in the following sentence: Exampel input"})
+```
+
+&nbsp;
+**More information and additional resources**
+
+- [tutorials/deploy](deploy.md): A full deployment tutorial and example
 
 
 &nbsp;
