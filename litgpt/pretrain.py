@@ -26,6 +26,7 @@ from litgpt.model import GPT, Block, CausalSelfAttention, Config, LLaMAMLP
 from litgpt.utils import (
     CLI,
     CycleIterator,
+    capture_hparams,
     choose_logger,
     chunked_cross_entropy,
     copy_config_files,
@@ -87,7 +88,7 @@ def setup(
         logger_name: The name of the logger to send metrics to.
         seed: The random seed to use for reproducibility.
     """
-    hparams = locals()
+    hparams = capture_hparams()
     data = TinyLlama() if data is None else data
     if model_config is not None and model_name is not None:
         raise ValueError("Only one of `model_name` or `model_config` can be set.")
