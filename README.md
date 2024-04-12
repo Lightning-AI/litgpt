@@ -120,7 +120,7 @@ litgpt download \
 # 2) Pretrain the model
 litgpt pretrain \
   --model_name pythia-160m \
-  --tokenizer_dir checkpointsEleutherAI/pythia-160m \
+  --tokenizer_dir checkpoints/EleutherAI/pythia-160m \
   --data TextFiles \
   --data.train_data_path "custom_texts/" \
   --train.max_tokens 10_000_000 \
