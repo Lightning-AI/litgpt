@@ -1,11 +1,12 @@
 # Copyright Lightning AI. Licensed under the Apache License 2.0, see LICENSE file.
 
 """Utility functions for training and inference."""
+import inspect
 import math
 import pickle
 import shutil
 import sys
-from dataclasses import asdict
+from dataclasses import asdict, is_dataclass
 from io import BytesIO
 from pathlib import Path
 from typing import TYPE_CHECKING, Any, Dict, Iterable, List, Literal, Mapping, Optional, TypeVar, Union
@@ -402,6 +403,18 @@ def CLI(*args: Any, **kwargs: Any) -> Any:
     kwargs.setdefault("as_positional", False)
 
     return CLI(*args, **kwargs)
+
+
+def capture_hparams():
+    """Captures the local variables ('hyperparameters') from where this function gets called."""
+    caller_frame = inspect.currentframe().f_back
+    locals_of_caller = caller_frame.f_locals
+    hparams = {}
+    for name, value in locals_of_caller.items():
+        if isinstance(value, (int, float, str, bool, Path)):
+            hparams[name] = value
+        if is_dataclass(value):
+            hparams[name] = asdict(value)
 
 
 def save_hyperparameters(function: callable, checkpoint_dir: Path) -> None:
