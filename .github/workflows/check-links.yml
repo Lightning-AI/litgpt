@@ -27,4 +27,4 @@ jobs:
 
     - name: Check links
       run: |
-        pytest --check-links ./
+        pytest --check-links ./ --links-ext md,rst,html,ipynb --ignore=conftest.py
