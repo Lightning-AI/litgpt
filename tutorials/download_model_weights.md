@@ -5,6 +5,7 @@ LitGPT supports a variety of LLM architectures with publicly available weights. 
 
 | Model                                        | Model size                               | Reference                                                                                                                    |
 |----------------------------------------------|------------------------------------------|------------------------------------------------------------------------------------------------------------------------------|
+| Danube2 by H2O.ai                            | 1.8B                                     | [H2O.ai](https://h2o.ai/platform/danube-1-8b/)
 | CodeGemma by Google                          | 7B                                       | [Google Team, Google Deepmind](https://ai.google.dev/gemma/docs/codegemma)                                                                      |
 | Code Llama by Meta AI                        | 7B, 13B, 34B, 70B                        | [Rozière et al. 2023](https://arxiv.org/abs/2308.12950)                                                                      |
 | Dolly by Databricks                          | 3B, 7B, 12B                              | [Conover et al. 2023](https://www.databricks.com/blog/2023/04/12/dolly-first-open-commercially-viable-instruction-tuned-llm) |
@@ -90,6 +91,7 @@ google/gemma-2b
 google/gemma-2b-it
 google/gemma-7b
 google/gemma-7b-it
+h2oai/h2o-danube2-1.8b-chat
 lmsys/longchat-13b-16k
 lmsys/longchat-7b-16k
 lmsys/vicuna-13b-v1.3
