@@ -567,13 +567,15 @@ Config:
 ```yaml
 out_dir: out/pretrain-thunder
 data: TinyStories
-tokenizer_dir: checkpoints/meta-llama/Llama-2-7b-hf
+tokenizer_dir: checkpoints/mistralai/Mistral-7B-v0.1
 logger_name: csv
 ```
 
 Commands:
 
 ```bash
+litgpt download --repo_id mistralai/Mistral-7B-v0.1 --tokenizer_only true
+
 python extensions/thunder/pretrain.py --config config.yaml --compiler null --train.global_batch_size 32
 python extensions/thunder/pretrain.py --config config.yaml --executors '[torchcompile_complete]' --train.global_batch_size 32
 python extensions/thunder/pretrain.py --config config.yaml --executors '[sdpa, torchcompile, nvfuser, torch]' --train.global_batch_size 32
