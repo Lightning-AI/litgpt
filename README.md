@@ -105,6 +105,7 @@ litgpt chat \
   --checkpoint_dir out/phi-2-lora/final
 ```
 
+### Pretrain an LLM   
 Train an LLM from scratch on your own data via pretraining:
 
 ```bash
@@ -131,7 +132,8 @@ litgpt chat \
   --checkpoint_dir out/custom-model/final
 ```
 
-Specialize an already pretrained model by training on custom data:
+### Continue pretraining an LLM       
+This is another way of finetuning that specialize an already pretrained model by training on custom data:    
 
 ```
 mkdir -p custom_texts
