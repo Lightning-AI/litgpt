@@ -120,8 +120,11 @@ You can now send requests to the inference server you started in step 2. For exa
 
 ```python
 import requests, json
-response = requests.post("http://127.0.0.1:8000/predict", 
-json={"prompt": "Fix typos in the following sentence: Exampel input"})
+
+response = requests.post(
+    "http://127.0.0.1:8000/predict", 
+    json={"prompt": "Fix typos in the following sentence: Exampel input"}
+)
 
 decoded_string = response.content.decode("utf-8")
 output_str = json.loads(decoded_string)["output"]

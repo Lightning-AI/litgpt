@@ -493,8 +493,10 @@ if __name__ == "__main__":
 ```python
 # STEP 3: USE THE SERVER
 import requests, json
-response = requests.post("http://127.0.0.1:8000/predict", 
-json={"prompt": "Fix typos in the following sentence: Exampel input"})
+response = requests.post(
+    "http://127.0.0.1:8000/predict", 
+    json={"prompt": "Fix typos in the following sentence: Exampel input"}
+)
 ```
 
 &nbsp;
