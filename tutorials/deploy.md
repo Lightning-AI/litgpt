@@ -131,6 +131,6 @@ print(output_str)
 Executing the code above prints the following output:
 
 ```
-Instruct:Fix typos in the following sentence: Exampel input
+Instruct: Fix typos in the following sentence: Exampel input
 Output: Example input.
 ```
