@@ -339,7 +339,7 @@ def model_name_to_prompt_style(model_name: str) -> PromptStyle:
     if re.search(r"(Code)?Gemma.*-it", model_name):
         return Gemma()
     if re.search("Danube2.*-chat", model_name):
-        return H2Oai
+        return H2Oai()
     return Default()
 
 
