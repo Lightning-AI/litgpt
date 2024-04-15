@@ -1,8 +1,9 @@
 from pathlib import Path
-from typing import Dict, Any, Optional
+from typing import Dict, Any, Optional, Literal
 from litgpt.utils import check_valid_checkpoint_dir
 
 import lightning as L
+from lightning.fabric.plugins import BitsandbytesPrecision
 import torch
 from litserve import LitAPI, LitServer
 
@@ -11,13 +12,14 @@ from litgpt.config import Config
 from litgpt.tokenizer import Tokenizer
 from litgpt.generate.base import generate
 from litgpt.prompts import load_prompt_style, has_prompt_style, PromptStyle
-from litgpt.utils import load_checkpoint, CLI
+from litgpt.utils import load_checkpoint, CLI, get_default_supported_precision
 
 
 class SimpleLitAPI(LitAPI):
     def __init__(self,
                  checkpoint_dir: Path,
                  precision: Optional[str] = None,
+                 quantize: Optional[Literal["bnb.nf4", "bnb.nf4-dq", "bnb.fp4", "bnb.fp4-dq", "bnb.int8"]] = None,
                  temperature: float = 0.8,
                  top_k: int = 200,
                  max_generated_tokens: int = 30) -> None:
@@ -25,6 +27,7 @@ class SimpleLitAPI(LitAPI):
         super().__init__()
         self.checkpoint_dir = checkpoint_dir
         self.precision = precision
+        self.quantize = quantize
         self.temperature = temperature
         self.top_k = top_k
         self.max_generated_tokens = max_generated_tokens
@@ -34,10 +37,20 @@ class SimpleLitAPI(LitAPI):
         config = Config.from_file(self.checkpoint_dir / "model_config.yaml")
         device = torch.device(device)
         torch.set_float32_matmul_precision("high")
+
+        precision = self.precision or get_default_supported_precision(training=False)
+        plugins = None
+        if self.quantize is not None and self.quantize.startswith("bnb."):
+            if "mixed" in self.precision:
+                raise ValueError("Quantization and mixed precision is not supported.")
+            dtype = {"16-true": torch.float16, "bf16-true": torch.bfloat16, "32-true": torch.float32}[precision]
+            plugins = BitsandbytesPrecision(self.quantize[4:], dtype)
+            precision = None
         fabric = L.Fabric(
             accelerator=device.type,
             devices=[device.index],
-            precision=self.precision
+            precision=precision,
+            plugins=plugins,
         )
         checkpoint_path = self.checkpoint_dir / "lit_model.pth"
         self.tokenizer = Tokenizer(self.checkpoint_dir)
@@ -91,9 +104,10 @@ class SimpleLitAPI(LitAPI):
 def run_server(
     checkpoint_dir: Path = Path("checkpoints"),
     precision: Optional[str] = None,
+    quantize: Optional[Literal["bnb.nf4", "bnb.nf4-dq", "bnb.fp4", "bnb.fp4-dq", "bnb.int8"]] = None,
     temperature: float = 0.8,
     top_k: int = 200,
-    max_generated_tokens: int = 30,
+    max_generated_tokens: int = 50,
     devices: int = 1,
     accelerator: str = "cuda",
     port: int = 8000
@@ -104,6 +118,10 @@ def run_server(
         checkpoint_dir: The checkpoint directory to load the model from.
         precision: Optional precision setting to instantiate the model weights in. By default, this will
             automatically be inferred from the metadata in the given ``checkpoint_dir`` directory.
+        quantize: Whether to quantize the model and using which method:
+            - bnb.nf4, bnb.nf4-dq, bnb.fp4, bnb.fp4-dq: 4-bit quantization from bitsandbytes
+            - bnb.int8: 8-bit quantization from bitsandbytes
+            for more details, see https://github.com/Lightning-AI/litgpt/blob/main/tutorials/quantize.md
         temperature: Temperature setting for the text generation. Value above 1 increase randomness.
             Values below 1 decrease randomness.
         top_k: The size of the pool of potential next tokens. Values larger than 1 result in more novel
@@ -117,7 +135,9 @@ def run_server(
 
     server = LitServer(
         SimpleLitAPI(
-            checkpoint_dir, precision,
+            checkpoint_dir=checkpoint_dir,
+            precision=precision,
+            quantize=quantize,
             temperature=temperature,
             top_k=top_k,
             max_generated_tokens=max_generated_tokens,
