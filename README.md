@@ -3,7 +3,7 @@
 
 &nbsp;
 
-# ⚡ LitGPT
+# ⚡ LitGPT    
 
 **Pretrain, finetune, deploy 20+ LLMs on your own data**
 
