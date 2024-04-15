@@ -28,7 +28,9 @@ class Config:
     n_embd: int = 4096
     rotary_percentage: float = 0.25
     parallel_residual: bool = True
-    bias: bool = True
+    attn_qkv_bias: bool = False
+    attn_proj_bias: bool = False
+    mlp_bias: bool = False
     lm_head_bias: bool = False
     # to use multi-head attention (MHA), set this to `n_head` (default)
     # to use multi-query attention (MQA), set this to 1
@@ -146,7 +148,16 @@ class Config:
 ########################
 configs = [
     # https://huggingface.co/stabilityai/stablelm-base-alpha-3b/blob/main/config.json
-    dict(name="stablelm-base-alpha-3b", hf_config=dict(org="stabilityai", name="stablelm-base-alpha-3b")),
+    dict(
+        name="stablelm-base-alpha-3b",
+        hf_config=dict(
+            org="stabilityai",
+            name="stablelm-base-alpha-3b",
+        ),
+        attn_qkv_bias=True,
+        attn_proj_bias=True,
+        mlp_bias=True,
+    ),
     # https://huggingface.co/stabilityai/stablelm-base-alpha-7b/blob/main/config.json
     dict(
         name="stablelm-base-alpha-7b",
@@ -154,9 +165,19 @@ configs = [
         n_head=48,
         n_embd=6144,
         padding_multiple=256,
+        attn_qkv_bias=True,
+        attn_proj_bias=True,
+        mlp_bias=True,
     ),
     # https://huggingface.co/stabilityai/stablelm-tuned-alpha-3b/blob/main/config.json
-    dict(name="stablelm-tuned-alpha-3b", hf_config=dict(org="stabilityai", name="stablelm-tuned-alpha-3b"), n_head=32),
+    dict(
+        name="stablelm-tuned-alpha-3b",
+        hf_config=dict(org="stabilityai", name="stablelm-tuned-alpha-3b"),
+        n_head=32,
+        attn_qkv_bias=True,
+        attn_proj_bias=True,
+        mlp_bias=True,
+    ),
     # https://huggingface.co/stabilityai/stablelm-tuned-alpha-7b/blob/main/config.json
     dict(
         name="stablelm-tuned-alpha-7b",
@@ -164,6 +185,9 @@ configs = [
         n_head=48,
         n_embd=6144,
         padding_multiple=256,
+        attn_qkv_bias=True,
+        attn_proj_bias=True,
+        mlp_bias=True,
     ),
     # https://huggingface.co/stabilityai/stablelm-3b-4e1t/blob/main/config.json
     dict(
@@ -174,7 +198,6 @@ configs = [
         n_head=32,
         n_embd=2560,
         parallel_residual=False,
-        bias=False,
         mlp_class_name="LLaMAMLP",
         intermediate_size=6912,
     ),
@@ -187,7 +210,6 @@ configs = [
         n_head=32,
         n_embd=2560,
         parallel_residual=False,
-        bias=False,
         mlp_class_name="LLaMAMLP",
         intermediate_size=6912,
     ),
@@ -206,6 +228,9 @@ stablecode = [
         vocab_size=49152,
         n_layer=32,
         n_embd=2560,
+        attn_qkv_bias=True,
+        attn_proj_bias=True,
+        mlp_bias=True,
     ),
     # https://huggingface.co/stabilityai/stablecode-completion-alpha-3b-4k/blob/main/config.json
     dict(
@@ -214,6 +239,9 @@ stablecode = [
         vocab_size=49152,
         n_layer=32,
         n_embd=2560,
+        attn_qkv_bias=True,
+        attn_proj_bias=True,
+        mlp_bias=True,
     ),
     # https://huggingface.co/stabilityai/stablecode-instruct-alpha-3b/blob/main/config.json
     dict(
@@ -222,6 +250,9 @@ stablecode = [
         vocab_size=49152,
         n_layer=32,
         n_embd=2560,
+        attn_qkv_bias=True,
+        attn_proj_bias=True,
+        mlp_bias=True,
     ),
     # https://huggingface.co/stabilityai/stable-code-3b/blob/main/config.json
     dict(
@@ -232,7 +263,6 @@ stablecode = [
         n_embd=2560,
         block_size=16384,
         parallel_residual=False,
-        bias=False,
         mlp_class_name="LLaMAMLP",
         intermediate_size=6912,
     ),
@@ -253,6 +283,9 @@ pythia = [
         n_embd=128,
         n_head=4,
         padding_multiple=128,
+        attn_qkv_bias=True,
+        attn_proj_bias=True,
+        mlp_bias=True,
     ),
     # https://huggingface.co/EleutherAI/pythia-31m/blob/main/config.json
     dict(
@@ -263,6 +296,9 @@ pythia = [
         n_embd=256,
         n_head=8,
         padding_multiple=128,
+        attn_qkv_bias=True,
+        attn_proj_bias=True,
+        mlp_bias=True,
     ),
     # https://huggingface.co/EleutherAI/pythia-70m/blob/main/config.json
     dict(
@@ -273,6 +309,9 @@ pythia = [
         n_embd=512,
         n_head=8,
         padding_multiple=128,
+        attn_qkv_bias=True,
+        attn_proj_bias=True,
+        mlp_bias=True,
     ),
     # https://huggingface.co/EleutherAI/pythia-160m/blob/main/config.json
     dict(
@@ -283,6 +322,9 @@ pythia = [
         n_embd=768,
         n_head=12,
         padding_multiple=128,
+        attn_qkv_bias=True,
+        attn_proj_bias=True,
+        mlp_bias=True,
     ),
     # https://huggingface.co/EleutherAI/pythia-410m/blob/main/config.json
     dict(
@@ -293,6 +335,9 @@ pythia = [
         n_embd=1024,
         n_head=16,
         padding_multiple=128,
+        attn_qkv_bias=True,
+        attn_proj_bias=True,
+        mlp_bias=True,
     ),
     # https://huggingface.co/EleutherAI/pythia-1b/blob/main/config.json
     dict(
@@ -302,6 +347,9 @@ pythia = [
         n_embd=2048,
         n_head=8,
         padding_multiple=128,
+        attn_qkv_bias=True,
+        attn_proj_bias=True,
+        mlp_bias=True,
     ),
     # https://huggingface.co/EleutherAI/pythia-1.4b/blob/main/config.json
     dict(
@@ -312,6 +360,9 @@ pythia = [
         n_embd=2048,
         n_head=16,
         padding_multiple=128,
+        attn_qkv_bias=True,
+        attn_proj_bias=True,
+        mlp_bias=True,
     ),
     # https://huggingface.co/EleutherAI/pythia-2.8b/blob/main/config.json
     dict(
@@ -321,6 +372,9 @@ pythia = [
         n_layer=32,
         n_embd=2560,
         padding_multiple=128,
+        attn_qkv_bias=True,
+        attn_proj_bias=True,
+        mlp_bias=True,
     ),
     # https://huggingface.co/EleutherAI/pythia-6.9b/blob/main/config.json
     dict(
@@ -329,6 +383,9 @@ pythia = [
         block_size=2048,
         n_layer=32,
         padding_multiple=256,
+        attn_qkv_bias=True,
+        attn_proj_bias=True,
+        mlp_bias=True,
     ),
     # https://huggingface.co/EleutherAI/pythia-12b/blob/main/config.json
     dict(
@@ -338,6 +395,9 @@ pythia = [
         n_layer=36,
         n_embd=5120,
         n_head=40,
+        attn_qkv_bias=True,
+        attn_proj_bias=True,
+        mlp_bias=True,
     ),
 ]
 configs.extend(pythia)
@@ -363,6 +423,9 @@ dolly = [
         n_layer=32,
         n_embd=2560,
         padded_vocab_size=50280,
+        attn_qkv_bias=True,
+        attn_proj_bias=True,
+        mlp_bias=True,
     ),
     # https://huggingface.co/databricks/dolly-v2-7b/blob/main/config.json
     dict(
@@ -371,6 +434,9 @@ dolly = [
         block_size=2048,
         n_layer=32,
         padded_vocab_size=50280,
+        attn_qkv_bias=True,
+        attn_proj_bias=True,
+        mlp_bias=True,
     ),
     # https://huggingface.co/databricks/dolly-v2-12b/blob/main/config.json
     dict(
@@ -381,6 +447,9 @@ dolly = [
         n_embd=5120,
         n_head=40,
         padded_vocab_size=50280,
+        attn_qkv_bias=True,
+        attn_proj_bias=True,
+        mlp_bias=True,
     ),
 ]
 configs.extend(dolly)
@@ -400,6 +469,9 @@ redpajama_incite = [
         padding_multiple=256,
         rotary_percentage=1.0,
         parallel_residual=False,
+        attn_qkv_bias=True,
+        attn_proj_bias=True,
+        mlp_bias=True,
     ),
     # https://huggingface.co/togethercomputer/RedPajama-INCITE-7B-Base/blob/main/config.json
     dict(
@@ -410,6 +482,9 @@ redpajama_incite = [
         padding_multiple=256,
         rotary_percentage=1.0,
         parallel_residual=False,
+        attn_qkv_bias=True,
+        attn_proj_bias=True,
+        mlp_bias=True,
     ),
     # this redirects to the checkpoint above. kept for those who had the old weights already downloaded
     dict(
@@ -420,6 +495,9 @@ redpajama_incite = [
         padding_multiple=256,
         rotary_percentage=1.0,
         parallel_residual=False,
+        attn_qkv_bias=True,
+        attn_proj_bias=True,
+        mlp_bias=True,
     ),
 ]
 for c in redpajama_incite:
@@ -446,7 +524,6 @@ falcon = [
         n_embd=4544,
         rotary_percentage=1.0,
         n_query_groups=1,
-        bias=False,
         # this is not in the config, but in the original model implementation, only for this config
         shared_attention_norm=True,
     ),
@@ -462,7 +539,6 @@ falcon = [
         n_embd=8192,
         rotary_percentage=1.0,
         n_query_groups=8,
-        bias=False,
     ),
 ]
 for c in falcon:
@@ -484,7 +560,6 @@ falcon180b = dict(
     n_embd=14848,
     rotary_percentage=1.0,
     n_query_groups=8,
-    bias=False,
 )
 
 for kind in ("", "-chat"):
@@ -509,7 +584,6 @@ open_LLaMA = [
         n_embd=3200,
         rotary_percentage=1.0,
         parallel_residual=False,
-        bias=False,
         norm_class_name="RMSNorm",
         norm_eps=1e-6,
         mlp_class_name="LLaMAMLP",
@@ -525,7 +599,6 @@ open_LLaMA = [
         n_layer=32,
         rotary_percentage=1.0,
         parallel_residual=False,
-        bias=False,
         norm_class_name="RMSNorm",
         norm_eps=1e-6,
         mlp_class_name="LLaMAMLP",
@@ -543,7 +616,6 @@ open_LLaMA = [
         n_embd=5120,
         rotary_percentage=1.0,
         parallel_residual=False,
-        bias=False,
         norm_class_name="RMSNorm",
         norm_eps=1e-6,
         mlp_class_name="LLaMAMLP",
@@ -567,7 +639,6 @@ vicuna = [
         n_layer=32,
         rotary_percentage=1.0,
         parallel_residual=False,
-        bias=False,
         norm_class_name="RMSNorm",
         norm_eps=1e-6,
         mlp_class_name="LLaMAMLP",
@@ -585,7 +656,6 @@ vicuna = [
         n_embd=5120,
         rotary_percentage=1.0,
         parallel_residual=False,
-        bias=False,
         norm_class_name="RMSNorm",
         norm_eps=1e-6,
         mlp_class_name="LLaMAMLP",
@@ -603,7 +673,6 @@ vicuna = [
         n_embd=6656,
         rotary_percentage=1.0,
         parallel_residual=False,
-        bias=False,
         norm_class_name="RMSNorm",
         norm_eps=1e-6,
         mlp_class_name="LLaMAMLP",
@@ -618,7 +687,6 @@ vicuna = [
         n_layer=32,
         rotary_percentage=1.0,
         parallel_residual=False,
-        bias=False,
         norm_class_name="RMSNorm",
         mlp_class_name="LLaMAMLP",
         intermediate_size=11008,
@@ -633,7 +701,6 @@ vicuna = [
         n_layer=32,
         rotary_percentage=1.0,
         parallel_residual=False,
-        bias=False,
         norm_class_name="RMSNorm",
         mlp_class_name="LLaMAMLP",
         intermediate_size=11008,
@@ -650,7 +717,6 @@ vicuna = [
         n_embd=5120,
         rotary_percentage=1.0,
         parallel_residual=False,
-        bias=False,
         norm_class_name="RMSNorm",
         mlp_class_name="LLaMAMLP",
         intermediate_size=13824,
@@ -667,7 +733,6 @@ vicuna = [
         n_embd=5120,
         rotary_percentage=1.0,
         parallel_residual=False,
-        bias=False,
         norm_class_name="RMSNorm",
         mlp_class_name="LLaMAMLP",
         intermediate_size=13824,
@@ -691,7 +756,6 @@ long_chat = [
         n_layer=32,
         rotary_percentage=1.0,
         parallel_residual=False,
-        bias=False,
         norm_class_name="RMSNorm",
         norm_eps=1e-6,
         mlp_class_name="LLaMAMLP",
@@ -710,7 +774,6 @@ long_chat = [
         n_embd=5120,
         rotary_percentage=1.0,
         parallel_residual=False,
-        bias=False,
         norm_class_name="RMSNorm",
         norm_eps=1e-6,
         mlp_class_name="LLaMAMLP",
@@ -733,7 +796,6 @@ nous_research = [
         n_layer=32,
         rotary_percentage=1.0,
         parallel_residual=False,
-        bias=False,
         norm_class_name="RMSNorm",
         norm_eps=1e-05,
         mlp_class_name="LLaMAMLP",
@@ -751,7 +813,6 @@ nous_research = [
         n_embd=5120,
         rotary_percentage=1.0,
         parallel_residual=False,
-        bias=False,
         norm_class_name="RMSNorm",
         norm_eps=1e-6,
         mlp_class_name="LLaMAMLP",
@@ -768,7 +829,6 @@ nous_research = [
         n_embd=5120,
         rotary_percentage=1.0,
         parallel_residual=False,
-        bias=False,
         norm_class_name="RMSNorm",
         norm_eps=1e-05,
         mlp_class_name="LLaMAMLP",
@@ -791,7 +851,6 @@ llama_2 = [
         n_layer=32,
         rotary_percentage=1.0,
         parallel_residual=False,
-        bias=False,
         norm_class_name="RMSNorm",
         mlp_class_name="LLaMAMLP",
         intermediate_size=11008,
@@ -807,7 +866,6 @@ llama_2 = [
         n_embd=5120,
         rotary_percentage=1.0,
         parallel_residual=False,
-        bias=False,
         norm_class_name="RMSNorm",
         mlp_class_name="LLaMAMLP",
         intermediate_size=13824,
@@ -824,7 +882,6 @@ llama_2 = [
         n_query_groups=8,
         rotary_percentage=1.0,
         parallel_residual=False,
-        bias=False,
         norm_class_name="RMSNorm",
         mlp_class_name="LLaMAMLP",
         intermediate_size=28672,
@@ -855,7 +912,6 @@ gemma = [
         n_query_groups=1,
         rotary_percentage=1.0,
         parallel_residual=False,
-        bias=False,
         norm_class_name="RMSNorm",
         mlp_class_name="GemmaMLP",
         gelu_approximate="tanh",
@@ -874,7 +930,6 @@ gemma = [
         head_size=256,
         rotary_percentage=1.0,
         parallel_residual=False,
-        bias=False,
         norm_class_name="RMSNorm",
         mlp_class_name="GemmaMLP",
         gelu_approximate="tanh",
@@ -931,7 +986,6 @@ freewilly_2 = [
         n_query_groups=8,
         rotary_percentage=1.0,
         parallel_residual=False,
-        bias=False,
         norm_class_name="RMSNorm",
         mlp_class_name="LLaMAMLP",
         intermediate_size=28672,
@@ -954,7 +1008,6 @@ code_llama = [
         n_layer=32,
         rotary_percentage=1.0,
         parallel_residual=False,
-        bias=False,
         norm_class_name="RMSNorm",
         norm_eps=1e-05,
         mlp_class_name="LLaMAMLP",
@@ -973,7 +1026,6 @@ code_llama = [
         n_embd=5120,
         rotary_percentage=1.0,
         parallel_residual=False,
-        bias=False,
         norm_class_name="RMSNorm",
         norm_eps=1e-05,
         mlp_class_name="LLaMAMLP",
@@ -993,7 +1045,6 @@ code_llama = [
         n_query_groups=8,
         rotary_percentage=1.0,
         parallel_residual=False,
-        bias=False,
         norm_class_name="RMSNorm",
         norm_eps=1e-05,
         mlp_class_name="LLaMAMLP",
@@ -1013,7 +1064,6 @@ code_llama = [
         n_query_groups=8,
         rotary_percentage=1.0,
         parallel_residual=False,
-        bias=False,
         norm_class_name="RMSNorm",
         norm_eps=1e-05,
         mlp_class_name="LLaMAMLP",
@@ -1030,7 +1080,6 @@ code_llama = [
         n_layer=32,
         rotary_percentage=1.0,
         parallel_residual=False,
-        bias=False,
         norm_class_name="RMSNorm",
         norm_eps=1e-05,
         mlp_class_name="LLaMAMLP",
@@ -1049,7 +1098,6 @@ code_llama = [
         n_embd=5120,
         rotary_percentage=1.0,
         parallel_residual=False,
-        bias=False,
         norm_class_name="RMSNorm",
         norm_eps=1e-05,
         mlp_class_name="LLaMAMLP",
@@ -1069,7 +1117,6 @@ code_llama = [
         n_query_groups=8,
         rotary_percentage=1.0,
         parallel_residual=False,
-        bias=False,
         norm_class_name="RMSNorm",
         norm_eps=1e-05,
         mlp_class_name="LLaMAMLP",
@@ -1089,7 +1136,6 @@ code_llama = [
         n_query_groups=8,
         rotary_percentage=1.0,
         parallel_residual=False,
-        bias=False,
         norm_class_name="RMSNorm",
         norm_eps=1e-05,
         mlp_class_name="LLaMAMLP",
@@ -1106,7 +1152,6 @@ code_llama = [
         n_layer=32,
         rotary_percentage=1.0,
         parallel_residual=False,
-        bias=False,
         norm_class_name="RMSNorm",
         norm_eps=1e-05,
         mlp_class_name="LLaMAMLP",
@@ -1125,7 +1170,6 @@ code_llama = [
         n_embd=5120,
         rotary_percentage=1.0,
         parallel_residual=False,
-        bias=False,
         norm_class_name="RMSNorm",
         norm_eps=1e-05,
         mlp_class_name="LLaMAMLP",
@@ -1145,7 +1189,6 @@ code_llama = [
         n_query_groups=8,
         rotary_percentage=1.0,
         parallel_residual=False,
-        bias=False,
         norm_class_name="RMSNorm",
         norm_eps=1e-05,
         mlp_class_name="LLaMAMLP",
@@ -1165,7 +1208,6 @@ code_llama = [
         n_query_groups=8,
         rotary_percentage=1.0,
         parallel_residual=False,
-        bias=False,
         norm_class_name="RMSNorm",
         norm_eps=1e-05,
         mlp_class_name="LLaMAMLP",
@@ -1191,7 +1233,6 @@ platypus = [
         n_embd=6656,
         rotary_percentage=1.0,
         parallel_residual=False,
-        bias=False,
         norm_class_name="RMSNorm",
         norm_eps=1e-06,
         mlp_class_name="LLaMAMLP",
@@ -1205,7 +1246,6 @@ platypus = [
         n_layer=32,
         rotary_percentage=1.0,
         parallel_residual=False,
-        bias=False,
         norm_class_name="RMSNorm",
         norm_eps=1e-05,
         mlp_class_name="LLaMAMLP",
@@ -1221,7 +1261,6 @@ platypus = [
         n_embd=5120,
         rotary_percentage=1.0,
         parallel_residual=False,
-        bias=False,
         norm_class_name="RMSNorm",
         norm_eps=1e-05,
         mlp_class_name="LLaMAMLP",
@@ -1237,7 +1276,6 @@ platypus = [
         n_embd=8192,
         rotary_percentage=1.0,
         parallel_residual=False,
-        bias=False,
         norm_class_name="RMSNorm",
         mlp_class_name="LLaMAMLP",
         intermediate_size=28672,
@@ -1252,7 +1290,6 @@ platypus = [
         n_embd=5120,
         rotary_percentage=1.0,
         parallel_residual=False,
-        bias=False,
         norm_class_name="RMSNorm",
         mlp_class_name="LLaMAMLP",
         intermediate_size=13824,
@@ -1268,7 +1305,6 @@ platypus = [
         n_query_groups=8,
         rotary_percentage=1.0,
         parallel_residual=False,
-        bias=False,
         norm_class_name="RMSNorm",
         mlp_class_name="LLaMAMLP",
         intermediate_size=28672,
@@ -1283,7 +1319,6 @@ platypus = [
         n_embd=5120,
         rotary_percentage=1.0,
         parallel_residual=False,
-        bias=False,
         norm_class_name="RMSNorm",
         mlp_class_name="LLaMAMLP",
         intermediate_size=13824,
@@ -1299,7 +1334,6 @@ platypus = [
         n_query_groups=8,
         rotary_percentage=1.0,
         parallel_residual=False,
-        bias=False,
         norm_class_name="RMSNorm",
         mlp_class_name="LLaMAMLP",
         intermediate_size=28672,
@@ -1321,7 +1355,6 @@ together_llama2_32k = [
         n_layer=32,
         rotary_percentage=1.0,
         parallel_residual=False,
-        bias=False,
         norm_class_name="RMSNorm",
         mlp_class_name="LLaMAMLP",
         intermediate_size=11008,
@@ -1346,6 +1379,9 @@ phi = [
         n_layer=24,
         rotary_percentage=0.5,  # 32 / (n_embd / n_head) = 32 / 64
         shared_attention_norm=True,
+        attn_qkv_bias=True,
+        attn_proj_bias=True,
+        mlp_bias=True,
         lm_head_bias=True,
         gelu_approximate="tanh",
     ),
@@ -1360,6 +1396,9 @@ phi = [
         n_layer=32,
         rotary_percentage=0.4,  # 32 / (n_embd / n_head) = 32 / 80
         shared_attention_norm=True,
+        attn_qkv_bias=True,
+        attn_proj_bias=True,
+        mlp_bias=True,
         lm_head_bias=True,
         gelu_approximate="tanh",
     ),
@@ -1381,7 +1420,6 @@ mistral = [
         n_query_groups=8,
         rotary_percentage=1.0,
         parallel_residual=False,
-        bias=False,
         norm_class_name="RMSNorm",
         norm_eps=1e-05,
         mlp_class_name="LLaMAMLP",
@@ -1397,7 +1435,6 @@ mistral = [
         n_query_groups=8,
         rotary_percentage=1.0,
         parallel_residual=False,
-        bias=False,
         norm_class_name="RMSNorm",
         norm_eps=1e-05,
         mlp_class_name="LLaMAMoE",
@@ -1442,7 +1479,6 @@ configs.append(
         n_query_groups=8,
         rotary_percentage=1.0,
         parallel_residual=False,
-        bias=False,
         norm_class_name="RMSNorm",
         norm_eps=1e-05,
         mlp_class_name="LLaMAMLP",
@@ -1466,7 +1502,6 @@ tiny_llama = [
         n_embd=2048,
         rotary_percentage=1.0,
         parallel_residual=False,
-        bias=False,
         norm_class_name="RMSNorm",  # original TinyLlama uses FusedRMSNorm
         norm_eps=1e-5,
         mlp_class_name="LLaMAMLP",
@@ -1494,7 +1529,6 @@ llama_2_function_calling = [
         n_layer=32,
         rotary_percentage=1.0,
         parallel_residual=False,
-        bias=False,
         norm_class_name="RMSNorm",
         mlp_class_name="LLaMAMLP",
         intermediate_size=11008,
