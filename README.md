@@ -33,7 +33,7 @@ Uses the latest state-of-the-art techniques:
 &nbsp;
 
 ## Finetune, pretrain and deploy AI models Lightning fast ⚡⚡
-LitGPT is a command-line tool to use, pretrain, finetune and deploy LLMs. It is config based with highly-optimized recipes for training the world's largest, most powerful open-source LLMs.     
+LitGPT is a command-line tool to use, pretrain, finetune and deploy LLMs. It is based on configs with highly-optimized recipes for training the world's largest, most powerful open-source LLMs.     
 
 We've reimplemented all the model architectures and training recipes for 3 reasons:   
 
