@@ -12,6 +12,7 @@ dependencies = [
     "torch>=2.2.0",
     "lightning==2.3.0.dev20240328",
     "jsonargparse[signatures]>=4.27.6",
+    "litserve",   # imported by litgpt.deploy
 ]
 
 [project.urls]
@@ -37,7 +38,6 @@ all = [
     "tokenizers",                # pythia, falcon, redpajama
     "requests",                  # litgpt.data
     "litdata",                   # litgpt.data
-    "litserve",                  # litgpt.deploy
     "zstandard",                 # litgpt.data.prepare_slimpajama.py
     "pandas",                    # litgpt.data.prepare_starcoder.py
     "pyarrow",                   # litgpt.data.prepare_starcoder.py

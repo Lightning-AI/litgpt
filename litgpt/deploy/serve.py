@@ -15,7 +15,6 @@ from litgpt.utils import load_checkpoint, CLI
 
 
 class SimpleLitAPI(LitAPI):
-
     def __init__(self,
                  checkpoint_dir: Path,
                  precision: Optional[str] = None,
