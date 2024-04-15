@@ -15,7 +15,7 @@ Uses the latest state-of-the-art techniques:
 
 
 ![PyPI - Python Version](https://img.shields.io/pypi/pyversions/pytorch-lightning)
-![cpu-tests](https://github.com/lightning-AI/lit-stablelm/actions/workflows/cpu-tests.yml/badge.svg) [![license](https://img.shields.io/badge/License-Apache%202.0-blue.svg)](https://github.com/Lightning-AI/lit-stablelm/blob/master/LICENSE) [![Discord](https://img.shields.io/discord/1077906959069626439?style=plastic)](https://discord.gg/VptPCZkGNa)
+![cpu-tests](https://github.com/lightning-AI/lit-stablelm/actions/workflows/cpu-tests.yml/badge.svg) [![license](https://img.shields.io/badge/License-Apache%202.0-blue.svg)](https://github.com/Lightning-AI/lit-stablelm/blob/master/LICENSE) [![Discord](https://img.shields.io/discord/1077906959069626439)](https://discord.gg/VptPCZkGNa)
 
 <p align="center">
   <a href="https://lightning.ai/">Lightning.ai</a> •
@@ -25,11 +25,21 @@ Uses the latest state-of-the-art techniques:
   <a href="#finetune-an-llm">Finetune, pretrain LLMs</a> •
   <a href="#choose-from-20-llms">Models</a> •
   <a href="#state-of-the-art-features">Features</a> •
-  <a href="#training-recipes">Training recipes (YAML)</a> •
-  <a href="#litgpt-design-principles">Design principles</a>
+  <a href="#training-recipes">Training recipes (YAML)</a>
 </p>
 
 </div>
+
+&nbsp;
+
+## Finetune, pretrain and deploy AI models Lightning fast ⚡⚡
+LitGPT is a command-line tool to use, pretrain, finetune and deploy LLMs. It is based on configs with highly-optimized recipes for training the world's largest, most powerful open-source LLMs.     
+
+We've reimplemented all the model architectures and training recipes for 3 reasons:   
+
+1. Remove all abstraction layers and have single file implementations.
+2. Guarantee Apache 2.0 compliance to enable enterprise use without limits.
+3. Optimized every detail of every model to get the fastest performance possible to lower cost and training speeds.       
 
 &nbsp;
 
@@ -60,8 +70,7 @@ pip install -e '.[all]'
 ---
 
 # Get started
-LitGPT is a command-line tool to use, pretrain, finetune and deploy LLMs.
-
+LitGPT is CLI and config-based. Select the model and the action you want to take on that model (finetune, pretrain, evaluate, deploy, etc...):    
 
 &nbsp;
 
