@@ -106,7 +106,7 @@ litgpt finetune lora \
   --checkpoint_dir checkpoints/microsoft/phi-2 \
   --data JSON \
   --data.json_path my_custom_dataset.json \
-  --val_split_fraction 0.1 \
+  --data.val_split_fraction 0.1 \
   --out_dir out/phi-2-lora
 
 # 3) Chat with the model
