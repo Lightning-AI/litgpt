@@ -70,7 +70,7 @@ pip install -e '.[all]'
 ---
 
 # Get started
-LitGPT is CLI and config based. Select the model and the action you want to take on that model (finetune, pretrain, deploy, etc...):    
+LitGPT is CLI and config-based. Select the model and the action you want to take on that model (finetune, pretrain, evaluate, deploy, etc...):    
 
 &nbsp;
 
