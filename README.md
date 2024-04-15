@@ -106,7 +106,7 @@ litgpt finetune lora \
   --checkpoint_dir checkpoints/microsoft/phi-2 \
   --data JSON \
   --data.json_path my_custom_dataset.json \
-  --val_split_fraction 0.1 \
+  --data.val_split_fraction 0.1 \
   --out_dir out/phi-2-lora
 
 # 3) Chat with the model
@@ -483,6 +483,11 @@ LitGPT powered the [TinyLlama project](https://github.com/jzhang38/TinyLlama) an
 
 [MicroLlama](https://github.com/keeeeenw/MicroLlama) is a 300M Llama model pretrained on 50B tokens powered by TinyLlama and LitGPT.
 
+&nbsp;
+
+**🔬 Pre-training Small Base LMs with Fewer Tokens**
+
+The research paper ["Pre-training Small Base LMs with Fewer Tokens"](https://arxiv.org/abs/2404.08634), which utilizes LitGPT, develops smaller base language models by inheriting a few transformer blocks from larger models and training on a tiny fraction of the data used by the larger models. It demonstrates that these smaller models can perform comparably to larger models despite using significantly less training data and resources.
 
 &nbsp;
 

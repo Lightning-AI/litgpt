@@ -334,7 +334,7 @@ Then simply run any of the finetuning scripts with this input:
 litgpt finetune lora \
   --data JSON \
   --data.json_path path/to/your/data.json \
-  --val_split_fraction 0.1 \
+  --data.val_split_fraction 0.1 \
   --checkpoint_dir "checkpoints/tiiuae/falcon-7b"
 ```
 

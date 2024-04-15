@@ -33,14 +33,14 @@ class Tokenizer:
             self.backend = "huggingface"
 
             if (special_tokens_path := checkpoint_dir / "tokenizer_config.json").is_file():
-                with open(special_tokens_path) as fp:
+                with open(special_tokens_path, encoding="utf-8") as fp:
                     config = json.load(fp)
                 bos_token = config.get("bos_token")
                 self.bos_id = self.token_to_id(bos_token) if bos_token is not None else None
                 eos_token = config.get("eos_token")
                 self.eos_id = self.token_to_id(eos_token) if eos_token is not None else None
             if (special_tokens_path := checkpoint_dir / "generation_config.json").is_file():
-                with open(special_tokens_path) as fp:
+                with open(special_tokens_path, encoding="utf-8") as fp:
                     config = json.load(fp)
                 if self.bos_id is None:
                     self.bos_id = config.get("bos_token_id")
@@ -71,7 +71,7 @@ class Tokenizer:
     def check_if_bos_token_used(self, checkpoint_dir: Path) -> bool:
         if not (tokenizer_config_path := checkpoint_dir / "tokenizer_config.json").is_file():
             return False
-        with open(tokenizer_config_path) as fp:
+        with open(tokenizer_config_path, encoding="utf-8") as fp:
             config = json.load(fp)
         if any(config.get(check, False) for check in ("add_bos_token", "add_prefix_space")):
             return True
