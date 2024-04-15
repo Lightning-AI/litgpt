@@ -37,6 +37,7 @@ all = [
     "tokenizers",                # pythia, falcon, redpajama
     "requests",                  # litgpt.data
     "litdata",                   # litgpt.data
+    "litserve"                   # litgpt.deploy
     "zstandard",                 # litgpt.data.prepare_slimpajama.py
     "pandas",                    # litgpt.data.prepare_starcoder.py
     "pyarrow",                   # litgpt.data.prepare_starcoder.py
