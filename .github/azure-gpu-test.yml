@@ -66,4 +66,4 @@ jobs:
       env:
         PL_RUN_CUDA_TESTS: "1"
       displayName: "Standalone tests"
-      timeoutInMinutes: "5"
+      timeoutInMinutes: "10"
