@@ -1,6 +1,5 @@
 # Copyright Lightning AI. Licensed under the Apache License 2.0, see LICENSE file.
 
-import os
 import shutil
 import subprocess
 import sys
@@ -25,7 +24,6 @@ from litgpt.scripts.download import download_from_hub
     strict=False,
     match="Loading a dataset cached in a LocalFileSystem is not supported",
 )
-@mock.patch.dict(os.environ, {"LT_ACCELERATOR": "cpu"})
 def test_evaluate_script(tmp_path, monkeypatch):
     ours_config = Config.from_name("pythia-14m")
     download_from_hub(repo_id="EleutherAI/pythia-14m", tokenizer_only=True, checkpoint_dir=tmp_path)
@@ -42,6 +40,7 @@ def test_evaluate_script(tmp_path, monkeypatch):
         checkpoint_dir=tmp_path,
         out_dir=tmp_path / "out_dir",
         device="cpu",
+        dtype=torch.float32,
         limit=5,
         tasks="mathqa"
     )
