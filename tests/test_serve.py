@@ -30,11 +30,13 @@ def test_simple(tmp_path):
         yaml.dump(asdict(ours_config), fp)
 
     accelerator = "cpu"
-    server = LitServer(SimpleLitAPI(checkpoint_dir=tmp_path), accelerator=accelerator, devices=1, timeout=60)
+    server = LitServer(
+        SimpleLitAPI(checkpoint_dir=tmp_path, temperature=1, top_k=1),
+        accelerator=accelerator, devices=1, timeout=60
+        )
 
     with TestClient(server.app) as client:
-        response = client.post("/predict", json={"prompt": "Hello, World"})
-        if accelerator == "gpu":
-            assert response.json()["output"][:25] == "Hello, World gcc exchange", response.json()["output"][:25]
-        else:
-            assert response.json()["output"][:25] == "Hello, World Associatedim", response.json()["output"][:25]
+        response = client.post("/predict", json={"prompt": "Hello world"})
+        # Model is a small random model, not trained, hence the gibberish.
+        # We are just testing that the server works.
+        assert response.json()["output"][:19] == "Hello world statues"
