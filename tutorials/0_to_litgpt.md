@@ -485,13 +485,14 @@ import requests, json
      "http://127.0.0.1:8000/predict", 
      json={"prompt": "Fix typos in the following sentence: Exampel input"}
 )
-print(response.content)
+print(response.json()["output"])
 ```
 
 This prints:
 
 ```
-b'{"output":"Instruct: Fix typos in the following sentence: Exampel input\\nOutput: Example input: Hello World\\n"}'
+Instruct: Fix typos in the following sentence: Exampel input
+Output: Example input.
 ```
 
 

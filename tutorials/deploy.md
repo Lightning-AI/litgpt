@@ -38,9 +38,7 @@ response = requests.post(
     json={"prompt": "Fix typos in the following sentence: Exampel input"}
 )
 
-decoded_string = response.content.decode("utf-8")
-output_str = json.loads(decoded_string)["output"]
-print(output_str)
+print(response.json()["output"])
 ```
 
 Executing the code above prints the following output:
