@@ -41,6 +41,7 @@ jobs:
       displayName: "Image info & NVIDIA"
 
     - script: |
+        pip install --upgrade pip
         pip install '.[all,test]'
       displayName: 'Install dependencies'
 
