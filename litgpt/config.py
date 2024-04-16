@@ -888,6 +888,32 @@ for c in gemma:
     copy["hf_config"]["name"] = f"{c['hf_config']['name']}-it"
     configs.append(copy)
 
+##################
+# Google CodeGemma
+##################
+codegemma = [
+    # https://huggingface.co/google/codegemma-7b-it/blob/main/config.json
+    dict(
+        name="CodeGemma-7b-it",
+        hf_config=dict(org="google", name="codegemma-7b-it"),
+        scale_embeddings=True,
+        vocab_size=256000,
+        padding_multiple=64,
+        n_embd=3072,
+        n_layer=28,
+        n_head=16,
+        head_size=256,
+        rotary_percentage=1.0,
+        parallel_residual=False,
+        bias=False,
+        norm_class_name="RMSNorm",
+        mlp_class_name="GemmaMLP",
+        gelu_approximate="tanh",
+        intermediate_size=24576,
+    ),
+]
+configs.extend(codegemma)
+
 
 ##########################
 # Stability AI FreeWilly2

@@ -26,10 +26,10 @@ def prepare_results(results, save_filepath, print_results=True):
 
 
 def convert_and_evaluate(
-    checkpoint_dir: str,
+    checkpoint_dir: Path,
+    tasks: Optional[str] = None,
     out_dir: Optional[str] = None,
     force_conversion: bool = False,
-    tasks: Optional[str] = "hellaswag,truthfulqa_mc2,mmlu",
     num_fewshot: Optional[int] = None,
     batch_size: int = 1,
     device: Optional[str] = None,
@@ -60,6 +60,18 @@ def convert_and_evaluate(
 
     from lm_eval import evaluator
 
+    if tasks is None:
+        from lm_eval.tasks import TaskManager
+        taskm = TaskManager()
+        print("\n".join(taskm.task_index.keys()))
+        print(
+            "\n\nTo evaluate multiple tasks, you can chain the task names "
+            "listed above via a comma-separated list."
+            "\nFor example: `--tasks 'hellaswag,truthfulqa_mc2,mmlu'`. "
+            "\nTo search for a specific task, use `litgpt evaluate | grep task_name`."
+        )
+        return
+
     checkpoint_dir = Path(checkpoint_dir)
 
     if out_dir is None:
@@ -71,7 +83,7 @@ def convert_and_evaluate(
     save_filepath = out_dir / Path("results.json") if save_filepath is None else Path(save_filepath)
     config_filepath = checkpoint_dir/"model_config.yaml"
 
-    with open(config_filepath) as f:
+    with open(config_filepath, encoding="utf-8") as f:
         config_dict = yaml.safe_load(f)
     repo_id = f"{config_dict['hf_config']['org']}/{config_dict['hf_config']['name']}"
 

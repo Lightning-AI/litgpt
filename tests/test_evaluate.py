@@ -33,7 +33,7 @@ def test_evaluate_script(tmp_path, monkeypatch):
     checkpoint_path = tmp_path / "lit_model.pth"
     torch.save(ours_model.state_dict(), checkpoint_path)
     config_path = tmp_path / "model_config.yaml"
-    with open(config_path, "w") as fp:
+    with open(config_path, "w", encoding="utf-8") as fp:
         yaml.dump(asdict(ours_config), fp)
 
     fn_kwargs = dict(
