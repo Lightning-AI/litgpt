@@ -45,6 +45,7 @@ jobs:
 
     - name: Install minimal dependencies
       run: |
+        pip install --upgrade pip
         pip install .
         pip list
         # make sure all modules are still importable with only the minimal dependencies available
