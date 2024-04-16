@@ -71,7 +71,16 @@ pip install -e '.[all]'
 ---
 
 # Get started
-LitGPT is CLI and config-based. Select the model and the action you want to take on that model (finetune, pretrain, evaluate, deploy, etc...):    
+After installing LitGPT, select the model and action you want to take on that model (finetune, pretrain, evaluate, deploy, etc...):    
+
+```bash
+# ligpt [action] [model]
+litgpt  download  mistralai/Mistral-7B-Instruct-v0.2
+litgpt  chat      mistralai/Mistral-7B-Instruct-v0.2
+litgpt  finetune  mistralai/Mistral-7B-Instruct-v0.2    
+litgpt  pretrain  mistralai/Mistral-7B-Instruct-v0.2    
+litgpt  serve     mistralai/Mistral-7B-Instruct-v0.2    
+```
 
 &nbsp;
 
