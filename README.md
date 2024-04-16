@@ -18,7 +18,7 @@ Uses the latest state-of-the-art techniques:
 ![cpu-tests](https://github.com/lightning-AI/lit-stablelm/actions/workflows/cpu-tests.yml/badge.svg) [![license](https://img.shields.io/badge/License-Apache%202.0-blue.svg)](https://github.com/Lightning-AI/lit-stablelm/blob/master/LICENSE) [![Discord](https://img.shields.io/discord/1077906959069626439)](https://discord.gg/VptPCZkGNa)
 
 <p align="center">
-  <a href="https://lightning.ai/">Lightning.ai</a> •
+  <a href="https://lightning.ai/">Lightning AI</a> •
   <a href="#choose-from-20-llms">Models</a> •
   <a href="#install-litgpt">Install</a> •
   <a href="#get-started">Get started</a> •
