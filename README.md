@@ -32,7 +32,7 @@ Uses the latest state-of-the-art techniques:
 
 &nbsp;
 
-## Finetune, pretrain and deploy LLMs Lightning fast ⚡⚡   
+# Finetune, pretrain and deploy LLMs Lightning fast ⚡⚡   
 LitGPT is a command-line tool designed to easily [finetune](#finetune-an-llm), [pretrain](#pretrain-an-llm), [evaluate](#use-an-llm), and deploy [20+ LLMs](#choose-from-20-llms) **on your own data**. It features highly-optimized [training recipes](#training-recipes) for the world's most powerful open-source large-language-models (LLMs).
 
 We reimplemented all model architectures and training recipes from scratch for 4 reasons:   
@@ -399,6 +399,8 @@ litgpt finetune lora \
 ```
 
 &nbsp;
+
+# Community        
 
 ## Get involved!
 
