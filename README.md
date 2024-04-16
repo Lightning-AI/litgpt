@@ -15,7 +15,7 @@ Uses the latest state-of-the-art techniques:
 
 
 ![PyPI - Python Version](https://img.shields.io/pypi/pyversions/pytorch-lightning)
-![cpu-tests](https://github.com/lightning-AI/lit-stablelm/actions/workflows/cpu-tests.yml/badge.svg) [![license](https://img.shields.io/badge/License-Apache%202.0-blue.svg)](https://github.com/Lightning-AI/lit-stablelm/blob/master/LICENSE) [![Discord](https://img.shields.io/discord/1077906959069626439?style=plastic)](https://discord.gg/VptPCZkGNa)
+![cpu-tests](https://github.com/lightning-AI/lit-stablelm/actions/workflows/cpu-tests.yml/badge.svg) [![license](https://img.shields.io/badge/License-Apache%202.0-blue.svg)](https://github.com/Lightning-AI/lit-stablelm/blob/master/LICENSE) [![Discord](https://img.shields.io/discord/1077906959069626439)](https://discord.gg/VptPCZkGNa)
 
 <p align="center">
   <a href="https://lightning.ai/">Lightning.ai</a> •
@@ -25,11 +25,21 @@ Uses the latest state-of-the-art techniques:
   <a href="#finetune-an-llm">Finetune, pretrain LLMs</a> •
   <a href="#choose-from-20-llms">Models</a> •
   <a href="#state-of-the-art-features">Features</a> •
-  <a href="#training-recipes">Training recipes (YAML)</a> •
-  <a href="#litgpt-design-principles">Design principles</a>
+  <a href="#training-recipes">Training recipes (YAML)</a>
 </p>
 
 </div>
+
+&nbsp;
+
+## Finetune, pretrain and deploy AI models Lightning fast ⚡⚡
+LitGPT is a command-line tool to use, pretrain, finetune and deploy LLMs. It is based on configs with highly-optimized recipes for training the world's largest, most powerful open-source LLMs.     
+
+We've reimplemented all the model architectures and training recipes for 3 reasons:   
+
+1. Remove all abstraction layers and have single file implementations.
+2. Guarantee Apache 2.0 compliance to enable enterprise use without limits.
+3. Optimized every detail of every model to get the fastest performance possible to lower cost and training speeds.       
 
 &nbsp;
 
@@ -60,8 +70,7 @@ pip install -e '.[all]'
 ---
 
 # Get started
-LitGPT is a command-line tool to use, pretrain, finetune and deploy LLMs.
-
+LitGPT is CLI and config-based. Select the model and the action you want to take on that model (finetune, pretrain, evaluate, deploy, etc...):    
 
 &nbsp;
 
@@ -97,7 +106,7 @@ litgpt finetune lora \
   --checkpoint_dir checkpoints/microsoft/phi-2 \
   --data JSON \
   --data.json_path my_custom_dataset.json \
-  --val_split_fraction 0.1 \
+  --data.val_split_fraction 0.1 \
   --out_dir out/phi-2-lora
 
 # 3) Chat with the model
@@ -105,6 +114,7 @@ litgpt chat \
   --checkpoint_dir out/phi-2-lora/final
 ```
 
+### Pretrain an LLM   
 Train an LLM from scratch on your own data via pretraining:
 
 ```bash
@@ -131,7 +141,8 @@ litgpt chat \
   --checkpoint_dir out/custom-model/final
 ```
 
-Specialize an already pretrained model by training on custom data:
+### Continue pretraining an LLM       
+This is another way of finetuning that specialize an already pretrained model by training on custom data:    
 
 ```
 mkdir -p custom_texts
@@ -472,6 +483,11 @@ LitGPT powered the [TinyLlama project](https://github.com/jzhang38/TinyLlama) an
 
 [MicroLlama](https://github.com/keeeeenw/MicroLlama) is a 300M Llama model pretrained on 50B tokens powered by TinyLlama and LitGPT.
 
+&nbsp;
+
+**🔬 Pre-training Small Base LMs with Fewer Tokens**
+
+The research paper ["Pre-training Small Base LMs with Fewer Tokens"](https://arxiv.org/abs/2404.08634), which utilizes LitGPT, develops smaller base language models by inheriting a few transformer blocks from larger models and training on a tiny fraction of the data used by the larger models. It demonstrates that these smaller models can perform comparably to larger models despite using significantly less training data and resources.
 
 &nbsp;
 

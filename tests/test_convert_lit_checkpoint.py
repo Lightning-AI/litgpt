@@ -35,7 +35,7 @@ def test_convert_lit_checkpoint(tmp_path):
     checkpoint_path = tmp_path / "lit_model.pth"
     config_path = tmp_path / "model_config.yaml"
     torch.save(ours_model.state_dict(), checkpoint_path)
-    with open(config_path, "w") as fp:
+    with open(config_path, "w", encoding="utf-8") as fp:
         yaml.dump(asdict(ours_config), fp)
     output_dir = tmp_path / "out_dir"
 
