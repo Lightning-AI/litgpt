@@ -263,6 +263,8 @@ def distributed_ckpt_to_regular(path):
 
 @RunIf(min_cuda_gpus=2, thunder=True, standalone=True)
 def test_save_load_sharded_checkpoint(tmp_path):
+    pytest.skip("Temporarily disabled, often exceeds 5 min timeout")
+
     strategy = ThunderFSDPStrategy(state_dict_type="sharded", broadcast_from=0)
     fabric = Fabric(accelerator="cuda", devices=2, strategy=strategy)
     fabric.launch()

@@ -43,7 +43,7 @@ def merge_lora(
     fabric = L.Fabric(devices=1, precision=precision, accelerator="cpu")
     config = Config.from_file(checkpoint_dir / "model_config.yaml", **lora_params)
 
-    with fabric.init_module(), torch.device("meta"):
+    with fabric.init_module():
         model = GPT(config)
 
     lora_path = checkpoint_dir / "lit_model.pth.lora"
@@ -52,7 +52,7 @@ def merge_lora(
 
     # Merge LoRA weights into the base model
     pretrained_checkpoint.update(lora_checkpoint.get("model", lora_checkpoint))
-    model.load_state_dict(pretrained_checkpoint, assign=True)
+    model.load_state_dict(pretrained_checkpoint)
     merge_lora_weights(model)
 
     # Remove LoRA parameters and the LoRA linear substring
@@ -72,7 +72,7 @@ def load_lora_metadata(checkpoint_dir: Path) -> Tuple[Dict[str, Any], Path, Opti
             f" the `litgpt/finetune/lora.py` script."
         )
 
-    with open(hparams_file, "r") as file:
+    with open(hparams_file, "r", encoding="utf-8") as file:
         hparams = yaml.safe_load(file)
 
     lora_params = {k: v for k, v in hparams.items() if k.startswith("lora_")}

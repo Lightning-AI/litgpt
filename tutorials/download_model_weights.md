@@ -5,6 +5,7 @@ LitGPT supports a variety of LLM architectures with publicly available weights. 
 
 | Model                                        | Model size                               | Reference                                                                                                                    |
 |----------------------------------------------|------------------------------------------|------------------------------------------------------------------------------------------------------------------------------|
+| CodeGemma by Google                          | 7B                                       | [Google Team, Google Deepmind](https://ai.google.dev/gemma/docs/codegemma)                                                                      |
 | Code Llama by Meta AI                        | 7B, 13B, 34B, 70B                        | [Rozière et al. 2023](https://arxiv.org/abs/2308.12950)                                                                      |
 | Dolly by Databricks                          | 3B, 7B, 12B                              | [Conover et al. 2023](https://www.databricks.com/blog/2023/04/12/dolly-first-open-commercially-viable-instruction-tuned-llm) |
 | Falcon by TII UAE                            | 7B, 40B, 180B                            | [TII 2023](https://falconllm.tii.ae)                                                                                         |
@@ -84,6 +85,7 @@ garage-bAInd/Platypus2-70B
 garage-bAInd/Platypus2-70B-instruct
 garage-bAInd/Platypus2-7B
 garage-bAInd/Stable-Platypus2-13B
+google/codegemma-7b-it
 google/gemma-2b
 google/gemma-2b-it
 google/gemma-7b
@@ -241,7 +243,7 @@ litgpt download \
 &nbsp;
 ## Finetunes and other model variants
 
-Sometimes you want to download the weights of a finetune of one of the models listed above. To do this, you need to manually specifiy the `model_name` associated to the config to use. For example:
+Sometimes you want to download the weights of a finetune of one of the models listed above. To do this, you need to manually specify the `model_name` associated to the config to use. For example:
 
 ```bash
 litgpt download \

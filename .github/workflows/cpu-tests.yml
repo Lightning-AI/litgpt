@@ -16,7 +16,6 @@ defaults:
 
 env:
   HF_TOKEN: ${{ secrets.HF_TOKEN }}
-  UV_HTTP_TIMEOUT: 500
 
 jobs:
   cpu-tests:
@@ -40,14 +39,15 @@ jobs:
       uses: actions/setup-python@v5
       with:
         python-version: ${{ matrix.python-version }}
-
-    - name: Install uv
-      run: pip install uv
+        cache: 'pip'
+        cache-dependency-path: |
+          pyproject.toml
 
     - name: Install minimal dependencies
       run: |
-        uv pip install --system .
-        uv pip list
+        pip install --upgrade pip
+        pip install .
+        pip list
         # make sure all modules are still importable with only the minimal dependencies available
         modules=$(
           find litgpt -type f -name "*.py" | \
@@ -59,8 +59,8 @@ jobs:
 
     - name: Install all dependencies
       run: |
-        uv pip install --system '.[all,test]' 'lm_eval @ git+https://github.com/EleutherAI/lm-evaluation-harness.git@115206dc89dad67b8b'
-        uv pip list
+        pip install '.[all,test]'
+        pip list
 
     - name: Run tests
       run: |
