@@ -40,7 +40,7 @@ We reimplemented all model architectures and training recipes from scratch for 4
 1. Remove all abstraction layers and have single file implementations.   
 2. Guarantee Apache 2.0 compliance to enable enterprise use without limits.    
 3. Optimized each model architectural detail to maximize performance, reduce costs, and speed up training.    
-4. Highly-optimized [recipe configs](https://github.com/Lightning-AI/litgpt/tree/main/config_hub) we have tested at enterprise scale.               
+4. Highly-optimized [recipe configs](#training-recipes) we have tested at enterprise scale.               
 
 &nbsp;
 
@@ -231,9 +231,9 @@ Use, Finetune, pretrain, deploy over 20+ LLMs ([full list](tutorials/download_mo
 
 # Training recipes
 
-LitGPT comes with validated recipes (YAML configs) to train models under different conditions.
+LitGPT comes with validated recipes (YAML configs) to train models under different conditions.  We've generated these recipes based on the parameters we found to perform the best for different training conditions.
 
-We've generated these recipes based on the parameters we found to perform the best for different training conditions.
+Browse all training recipes [here](config_hub).
 
 ### Example
 
@@ -241,8 +241,6 @@ We've generated these recipes based on the parameters we found to perform the be
 litgpt finetune lora \
   --config https://raw.githubusercontent.com/Lightning-AI/litgpt/main/config_hub/finetune/llama-2-7b/lora.yaml
 ```
-
-Browse all training recipes [here](config_hub).
 
 ### What is a config
 Configs let you customize training for all granular parameters like:
