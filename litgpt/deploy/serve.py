@@ -21,7 +21,7 @@ class SimpleLitAPI(LitAPI):
                  precision: Optional[str] = None,
                  quantize: Optional[Literal["bnb.nf4", "bnb.nf4-dq", "bnb.fp4", "bnb.fp4-dq", "bnb.int8"]] = None,
                  temperature: float = 0.8,
-                 top_k: int = 200,
+                 top_k: int = 50,
                  max_new_tokens: int = 50) -> None:
 
         super().__init__()
