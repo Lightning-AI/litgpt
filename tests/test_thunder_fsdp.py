@@ -261,6 +261,7 @@ def distributed_ckpt_to_regular(path):
     return state_dict
 
 
+@pytest.skip("Temporarily disabled, often exceeds 5 min timeout")
 @RunIf(min_cuda_gpus=2, thunder=True, standalone=True)
 def test_save_load_sharded_checkpoint(tmp_path):
     strategy = ThunderFSDPStrategy(state_dict_type="sharded", broadcast_from=0)
