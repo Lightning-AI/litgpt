@@ -348,12 +348,12 @@ def save_prompt_style(style: Union[str, PromptStyle], checkpoint_dir: Path) -> N
     cls = type(style)
     # Allow saving the full module path for user-defined prompt classes
     config = {"class_path": f"{cls.__module__}.{cls.__name__}"}
-    with open(checkpoint_dir / "prompt_style.yaml", "w") as file:
+    with open(checkpoint_dir / "prompt_style.yaml", "w", encoding="utf-8") as file:
         yaml.dump(config, file)
 
 
 def load_prompt_style(checkpoint_dir: Path) -> PromptStyle:
-    with open(checkpoint_dir / "prompt_style.yaml", "r") as file:
+    with open(checkpoint_dir / "prompt_style.yaml", "r", encoding="utf-8") as file:
         config = yaml.safe_load(file)
     # Support loading the full module path for user-defined prompt classes
     full_module_path, cls_name = config["class_path"].rsplit(".", 1)

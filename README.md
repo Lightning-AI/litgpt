@@ -5,17 +5,17 @@
 
 # ⚡ LitGPT
 
-**Pretrain, finetune, deploy 20+ LLMs on your own data**
+**Pretrain, finetune, evaluate, and deploy 20+ LLMs on your own data**
 
 Uses the latest state-of-the-art techniques:
 
-✅ fp4/8/16/32 &nbsp; &nbsp;  ✅ LoRA, QLoRA, Adapter (v1, v2) &nbsp; &nbsp;  ✅ flash attention &nbsp; &nbsp;  ✅ FSDP &nbsp; &nbsp;  ✅ 1-1000+ GPUs/TPUs
+✅ flash attention &nbsp; &nbsp;  ✅ fp4/8/16/32 &nbsp; &nbsp;  ✅ LoRA, QLoRA, Adapter (v1, v2) &nbsp; &nbsp;  ✅ FSDP &nbsp; &nbsp;  ✅ 1-1000+ GPUs/TPUs
 
 ---
 
 
 ![PyPI - Python Version](https://img.shields.io/pypi/pyversions/pytorch-lightning)
-![cpu-tests](https://github.com/lightning-AI/lit-stablelm/actions/workflows/cpu-tests.yml/badge.svg) [![license](https://img.shields.io/badge/License-Apache%202.0-blue.svg)](https://github.com/Lightning-AI/lit-stablelm/blob/master/LICENSE) [![Discord](https://img.shields.io/discord/1077906959069626439?style=plastic)](https://discord.gg/VptPCZkGNa)
+![cpu-tests](https://github.com/lightning-AI/lit-stablelm/actions/workflows/cpu-tests.yml/badge.svg) [![license](https://img.shields.io/badge/License-Apache%202.0-blue.svg)](https://github.com/Lightning-AI/lit-stablelm/blob/master/LICENSE) [![Discord](https://img.shields.io/discord/1077906959069626439)](https://discord.gg/VptPCZkGNa)
 
 <p align="center">
   <a href="https://lightning.ai/">Lightning.ai</a> •
@@ -25,11 +25,22 @@ Uses the latest state-of-the-art techniques:
   <a href="#finetune-an-llm">Finetune, pretrain LLMs</a> •
   <a href="#choose-from-20-llms">Models</a> •
   <a href="#state-of-the-art-features">Features</a> •
-  <a href="#training-recipes">Training recipes (YAML)</a> •
-  <a href="#litgpt-design-principles">Design principles</a>
+  <a href="#training-recipes">Training recipes (YAML)</a>
 </p>
 
 </div>
+
+&nbsp;
+
+# Finetune, pretrain and deploy LLMs Lightning fast ⚡⚡   
+LitGPT is a command-line tool designed to easily [finetune](#finetune-an-llm), [pretrain](#pretrain-an-llm), [evaluate](#use-an-llm), and deploy [20+ LLMs](#choose-from-20-llms) **on your own data**. It features highly-optimized [training recipes](#training-recipes) for the world's most powerful open-source large-language-models (LLMs).
+
+We reimplemented all model architectures and training recipes from scratch for 4 reasons:   
+
+1. Remove all abstraction layers and have single file implementations.   
+2. Guarantee Apache 2.0 compliance to enable enterprise use without limits.    
+3. Optimized each model architectural detail to maximize performance, reduce costs, and speed up training.    
+4. Highly-optimized [recipe configs](#training-recipes) we have tested at enterprise scale.               
 
 &nbsp;
 
@@ -60,8 +71,16 @@ pip install -e '.[all]'
 ---
 
 # Get started
-LitGPT is a command-line tool to use, pretrain, finetune and deploy LLMs.
+After installing LitGPT, select the model and action you want to take on that model (finetune, pretrain, evaluate, deploy, etc...):    
 
+```bash
+# ligpt [action] [model]
+litgpt  download  mistralai/Mistral-7B-Instruct-v0.2
+litgpt  chat      mistralai/Mistral-7B-Instruct-v0.2
+litgpt  finetune  mistralai/Mistral-7B-Instruct-v0.2    
+litgpt  pretrain  mistralai/Mistral-7B-Instruct-v0.2    
+litgpt  serve     mistralai/Mistral-7B-Instruct-v0.2    
+```
 
 &nbsp;
 
@@ -97,7 +116,7 @@ litgpt finetune lora \
   --checkpoint_dir checkpoints/microsoft/phi-2 \
   --data JSON \
   --data.json_path my_custom_dataset.json \
-  --val_split_fraction 0.1 \
+  --data.val_split_fraction 0.1 \
   --out_dir out/phi-2-lora
 
 # 3) Chat with the model
@@ -105,24 +124,56 @@ litgpt chat \
   --checkpoint_dir out/phi-2-lora/final
 ```
 
-&nbsp;
-
-### Pretrain an LLM
-Train an LLM from scratch on your own data via [pretraining](tutorials/pretrain.md):
+### Pretrain an LLM   
+Train an LLM from scratch on your own data via pretraining:
 
 ```bash
-# 1) Download a pretrained model
-litgpt download --repo_id microsoft/phi-2
+mkdir -p custom_texts
+curl https://www.gutenberg.org/cache/epub/24440/pg24440.txt --output custom_texts/book1.txt
+curl https://www.gutenberg.org/cache/epub/26393/pg26393.txt --output custom_texts/book2.txt
 
-# 2) Finetune the model
+# 1) Download a tokenizer
+litgpt download \
+  --repo_id EleutherAI/pythia-160m \
+  --tokenizer_only True
+
+# 2) Pretrain the model
 litgpt pretrain \
-  --initial_checkpoint_dir checkpoints/microsoft/phi-2 \
-  --data Alpaca2k \
-  --out_dir out/custom-phi-2
+  --model_name pythia-160m \
+  --tokenizer_dir checkpoints/EleutherAI/pythia-160m \
+  --data TextFiles \
+  --data.train_data_path "custom_texts/" \
+  --train.max_tokens 10_000_000 \
+  --out_dir out/custom-model
 
 # 3) Chat with the model
 litgpt chat \
-  --checkpoint_dir out/phi-2-lora/final
+  --checkpoint_dir out/custom-model/final
+```
+
+### Continue pretraining an LLM       
+This is another way of finetuning that specialize an already pretrained model by training on custom data:    
+
+```
+mkdir -p custom_texts
+curl https://www.gutenberg.org/cache/epub/24440/pg24440.txt --output custom_texts/book1.txt
+curl https://www.gutenberg.org/cache/epub/26393/pg26393.txt --output custom_texts/book2.txt
+
+# 1) Download a pretrained model
+litgpt download --repo_id EleutherAI/pythia-160m
+
+# 2) Continue pretraining the model
+litgpt pretrain \
+  --model_name pythia-160m \
+  --initial_checkpoint_dir checkpoints/EleutherAI/pythia-160m \
+  --data TextFiles \
+  --data.train_data_path "custom_texts/" \
+  --train.max_tokens 10_000_000 \
+  --out_dir out/custom-model
+
+# 3) Chat with the model
+litgpt chat \
+  --checkpoint_dir out/custom-model/final
 ```
 
 &nbsp;
@@ -190,9 +241,9 @@ Use, Finetune, pretrain, deploy over 20+ LLMs ([full list](tutorials/download_mo
 
 # Training recipes
 
-LitGPT comes with validated recipes (YAML configs) to train models under different conditions.
+LitGPT comes with validated recipes (YAML configs) to train models under different conditions.  We've generated these recipes based on the parameters we found to perform the best for different training conditions.
 
-We've generated these recipes based on the parameters we found to perform the best for different training conditions.
+Browse all training recipes [here](config_hub).
 
 ### Example
 
@@ -200,8 +251,6 @@ We've generated these recipes based on the parameters we found to perform the be
 litgpt finetune lora \
   --config https://raw.githubusercontent.com/Lightning-AI/litgpt/main/config_hub/finetune/llama-2-7b/lora.yaml
 ```
-
-Browse all training recipes [here](config_hub).
 
 ### What is a config
 Configs let you customize training for all granular parameters like:
@@ -361,6 +410,8 @@ litgpt finetune lora \
 
 &nbsp;
 
+# Community        
+
 ## Get involved!
 
 We appreciate your feedback and contributions. If you have feature requests, questions, or want to contribute code or config files, please don't hesitate to use the [GitHub Issue](https://github.com/Lightning-AI/litgpt/issues) tracker.
@@ -437,6 +488,17 @@ The LitGPT repository was the official starter kit for the [NeurIPS 2023 LLM Eff
 
 LitGPT powered the [TinyLlama project](https://github.com/jzhang38/TinyLlama) and [TinyLlama: An Open-Source Small Language Model](https://arxiv.org/abs/2401.02385) research paper.
 
+&nbsp;
+
+**🍪 MicroLlama: MicroLlama-300M**
+
+[MicroLlama](https://github.com/keeeeenw/MicroLlama) is a 300M Llama model pretrained on 50B tokens powered by TinyLlama and LitGPT.
+
+&nbsp;
+
+**🔬 Pre-training Small Base LMs with Fewer Tokens**
+
+The research paper ["Pre-training Small Base LMs with Fewer Tokens"](https://arxiv.org/abs/2404.08634), which utilizes LitGPT, develops smaller base language models by inheriting a few transformer blocks from larger models and training on a tiny fraction of the data used by the larger models. It demonstrates that these smaller models can perform comparably to larger models despite using significantly less training data and resources.
 
 &nbsp;
 

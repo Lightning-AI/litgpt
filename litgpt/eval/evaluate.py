@@ -92,7 +92,7 @@ def convert_and_evaluate(
     save_filepath = out_dir / Path("results.json") if save_filepath is None else Path(save_filepath)
     config_filepath = checkpoint_dir/"model_config.yaml"
 
-    with open(config_filepath) as f:
+    with open(config_filepath, encoding="utf-8") as f:
         config_dict = yaml.safe_load(f)
     repo_id = f"{config_dict['hf_config']['org']}/{config_dict['hf_config']['name']}"
 
