@@ -241,7 +241,7 @@ def fit(
     longest_seq_length = longest_seq_length_train if longest_seq_length_train > longest_seq_length_val else longest_seq_length_val
     model.max_seq_length = min(longest_seq_length, train.max_seq_length or float("inf"))
     fabric.print(
-        f"The longest sequence length in the train data is {longest_seq_length_train}, longest sequence lenght in the validation data is {longest_seq_length_val}. The model's maximum sequence length is"
+"The longest sequence lengths are {longest_seq_length_train} in training data and {longest_seq_length_val} in validation data. The model's maximum sequence length is"
         f" {model.max_seq_length} and context length is {model.config.block_size}"
     )
 
