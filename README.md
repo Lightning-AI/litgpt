@@ -5,11 +5,11 @@
 
 # ⚡ LitGPT
 
-**Pretrain, finetune, deploy 20+ LLMs on your own data**
+**Pretrain, finetune, evaluate, and deploy 20+ LLMs on your own data**
 
 Uses the latest state-of-the-art techniques:
 
-✅ fp4/8/16/32 &nbsp; &nbsp;  ✅ LoRA, QLoRA, Adapter (v1, v2) &nbsp; &nbsp;  ✅ flash attention &nbsp; &nbsp;  ✅ FSDP &nbsp; &nbsp;  ✅ 1-1000+ GPUs/TPUs
+✅ flash attention &nbsp; &nbsp;  ✅ fp4/8/16/32 &nbsp; &nbsp;  ✅ LoRA, QLoRA, Adapter (v1, v2) &nbsp; &nbsp;  ✅ FSDP &nbsp; &nbsp;  ✅ 1-1000+ GPUs/TPUs
 
 ---
 
@@ -32,14 +32,15 @@ Uses the latest state-of-the-art techniques:
 
 &nbsp;
 
-## Finetune, pretrain and deploy AI models Lightning fast ⚡⚡
-LitGPT is a command-line tool to use, pretrain, finetune and deploy LLMs. It is based on configs with highly-optimized recipes for training the world's largest, most powerful open-source LLMs.     
+# Finetune, pretrain and deploy LLMs Lightning fast ⚡⚡   
+LitGPT is a command-line tool designed to easily [finetune](#finetune-an-llm), [pretrain](#pretrain-an-llm), [evaluate](#use-an-llm), and deploy [20+ LLMs](#choose-from-20-llms) **on your own data**. It features highly-optimized [training recipes](#training-recipes) for the world's most powerful open-source large-language-models (LLMs).
 
-We've reimplemented all the model architectures and training recipes for 3 reasons:   
+We reimplemented all model architectures and training recipes from scratch for 4 reasons:   
 
-1. Remove all abstraction layers and have single file implementations.
-2. Guarantee Apache 2.0 compliance to enable enterprise use without limits.
-3. Optimized every detail of every model to get the fastest performance possible to lower cost and training speeds.       
+1. Remove all abstraction layers and have single file implementations.   
+2. Guarantee Apache 2.0 compliance to enable enterprise use without limits.    
+3. Optimized each model architectural detail to maximize performance, reduce costs, and speed up training.    
+4. Highly-optimized [recipe configs](#training-recipes) we have tested at enterprise scale.               
 
 &nbsp;
 
@@ -70,7 +71,16 @@ pip install -e '.[all]'
 ---
 
 # Get started
-LitGPT is CLI and config-based. Select the model and the action you want to take on that model (finetune, pretrain, evaluate, deploy, etc...):    
+After installing LitGPT, select the model and action you want to take on that model (finetune, pretrain, evaluate, deploy, etc...):    
+
+```bash
+# ligpt [action] [model]
+litgpt  download  mistralai/Mistral-7B-Instruct-v0.2
+litgpt  chat      mistralai/Mistral-7B-Instruct-v0.2
+litgpt  finetune  mistralai/Mistral-7B-Instruct-v0.2    
+litgpt  pretrain  mistralai/Mistral-7B-Instruct-v0.2    
+litgpt  serve     mistralai/Mistral-7B-Instruct-v0.2    
+```
 
 &nbsp;
 
@@ -252,9 +262,9 @@ Use, Finetune, pretrain, deploy over 20+ LLMs ([full list](tutorials/download_mo
 
 # Training recipes
 
-LitGPT comes with validated recipes (YAML configs) to train models under different conditions.
+LitGPT comes with validated recipes (YAML configs) to train models under different conditions.  We've generated these recipes based on the parameters we found to perform the best for different training conditions.
 
-We've generated these recipes based on the parameters we found to perform the best for different training conditions.
+Browse all training recipes [here](config_hub).
 
 ### Example
 
@@ -262,8 +272,6 @@ We've generated these recipes based on the parameters we found to perform the be
 litgpt finetune lora \
   --config https://raw.githubusercontent.com/Lightning-AI/litgpt/main/config_hub/finetune/llama-2-7b/lora.yaml
 ```
-
-Browse all training recipes [here](config_hub).
 
 ### What is a config
 Configs let you customize training for all granular parameters like:
@@ -422,6 +430,8 @@ litgpt finetune lora \
 ```
 
 &nbsp;
+
+# Community        
 
 ## Get involved!
 
