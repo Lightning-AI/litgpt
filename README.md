@@ -22,8 +22,9 @@ Uses the latest state-of-the-art techniques:
   <a href="#choose-from-20-llms">Models</a> •
   <a href="#install-litgpt">Install</a> •
   <a href="#get-started">Get started</a> •
-  <a href="#use-an-llm">Use LLMs</a> •
-  <a href="#finetune-an-llm">Finetune, pretrain LLMs</a> •
+  <a href="#use-an-llm">Evaluate</a> •
+  <a href="#finetune-an-llm">Finetune</a> •
+  <a href="#finetune-an-llm">Pretrain</a> •
   <a href="#state-of-the-art-features">Features</a> •
   <a href="#training-recipes">Training recipes (YAML)</a>
 </p>
