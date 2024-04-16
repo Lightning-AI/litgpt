@@ -40,7 +40,7 @@ We reimplemented all model architectures and training recipes from scratch for 4
 1. Remove all abstraction layers and have single file implementations.   
 2. Guarantee Apache 2.0 compliance to enable enterprise use without limits.    
 3. Optimized each model architectural detail to maximize performance, reduce costs, and speed up training.    
-4. Highly-optimized recipe configs we have tested at enterprise scale.               
+4. Highly-optimized [recipe configs](https://github.com/Lightning-AI/litgpt/tree/main/config_hub) we have tested at enterprise scale.               
 
 &nbsp;
 
