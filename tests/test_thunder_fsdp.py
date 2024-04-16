@@ -6,10 +6,9 @@ from typing import Optional, Tuple, Union
 
 import pytest
 import torch
+from conftest import RunIf
 from lightning.fabric import Fabric
 from lightning.fabric.utilities.imports import _TORCH_GREATER_EQUAL_2_3
-
-from conftest import RunIf
 
 # support running without installing as a package
 wd = Path(__file__).parent.parent.resolve()
@@ -28,6 +27,9 @@ def test_thunder_strategy_input_parsing():
     assert strategy.bucketing_strategy is FSDPBucketingStrategy.BLOCK
     assert strategy.executors == (pythonex,)
     assert strategy.sharding_strategy is FSDPType.ZERO3
+
+    with pytest.raises(ValueError, match="doesn't have an effect with `jit=False"):
+        ThunderFSDPStrategy(jit=False, executors=("python",))
 
 
 @RunIf(thunder=True)
@@ -261,6 +263,8 @@ def distributed_ckpt_to_regular(path):
 
 @RunIf(min_cuda_gpus=2, thunder=True, standalone=True)
 def test_save_load_sharded_checkpoint(tmp_path):
+    pytest.skip("Temporarily disabled, often exceeds 5 min timeout")
+
     strategy = ThunderFSDPStrategy(state_dict_type="sharded", broadcast_from=0)
     fabric = Fabric(accelerator="cuda", devices=2, strategy=strategy)
     fabric.launch()
@@ -310,3 +314,37 @@ def test_save_load_sharded_checkpoint(tmp_path):
         actual["buf"] = actual["buf"].to(device="cpu")
         torch.testing.assert_close(actual, expected)
     assert state["primitive"] == 123
+
+
+@RunIf(min_cuda_gpus=2, thunder=True, standalone=True)
+@pytest.mark.parametrize("jit", (False, True))
+def test_jit_before_setup(jit):
+    import thunder
+
+    fabric = Fabric(devices=2, accelerator="cuda", strategy=ThunderFSDPStrategy(jit=jit))
+    fabric.launch()
+
+    x = torch.randn(1, 1, device=fabric.device)
+    model = torch.nn.Linear(1, 2, bias=False, device=fabric.device)
+
+    tmodel = thunder.jit(model)
+    fmodel = fabric.setup(tmodel)
+    fmodel(x)
+
+    assert "all_gather" in thunder.last_traces(tmodel)[-1].python()
+
+
+@RunIf(min_cuda_gpus=1, thunder=True)
+def test_setup_already_traced():
+    import thunder
+
+    device = torch.device("cuda")
+    x = torch.randn(1, 1, device=device)
+    model = torch.nn.Linear(1, 2, bias=False, device=device)
+
+    strategy = ThunderFSDPStrategy()
+
+    tmodel = thunder.jit(model)
+    tmodel(x)
+    with pytest.raises(RuntimeError, match="already called"):
+        strategy.setup_module(tmodel)

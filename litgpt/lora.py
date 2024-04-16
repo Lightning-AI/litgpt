@@ -122,8 +122,8 @@ class LoRALinear(LoRALayer):
 
         # Actual trainable parameters
         if r > 0:
-            self.lora_A = nn.Parameter(torch.zeros((r, in_features)))
-            self.lora_B = nn.Parameter(torch.zeros((out_features, r)))
+            self.lora_A = nn.Parameter(torch.empty((r, in_features)))
+            self.lora_B = nn.Parameter(torch.empty((out_features, r)))
             self.scaling = self.lora_alpha / self.r
             self.reset_parameters()
 
@@ -144,11 +144,8 @@ class LoRALinear(LoRALayer):
         if self.r > 0 and not self.merged:
             pretrained_dtype = self.linear.weight.data.dtype
             lora_data = self.get_lora_AB()
-            # if the pretrained weights and LoRA weights are of the same dtype - simply sum them
-            if pretrained_dtype == lora_data.dtype:
-                self.linear.weight.data += lora_data
             # if only the pretrained are in quantized form - dequantize, sum with LoRA and quantize the result
-            elif pretrained_dtype == torch.uint8:
+            if pretrained_dtype == torch.uint8:
                 import bitsandbytes as bnb
 
                 weight = self.linear.weight
@@ -160,11 +157,9 @@ class LoRALinear(LoRALayer):
                 self.linear.weight = bnb.nn.Params4bit(weight_data, requires_grad=False, **weight.__dict__)
                 self.linear.weight.cuda(weight.device)
             else:
-                raise NotImplementedError(
-                    f"Cannot merge the pretrained weights of type {pretrained_dtype}"
-                    f" and LoRA weights of type {lora_data.dtype}"
-                )
-
+                # self.linear might be on CPU and lora_data on CUDA
+                # the inplace add will preserve the dtype of linear.weight
+                self.linear.weight.data += lora_data.to(device=self.linear.weight.data.device)
             self.merged = True
 
     def forward(self, x: torch.Tensor) -> torch.Tensor:
@@ -185,6 +180,7 @@ class LoRAQKVLinear(LoRALinear):
         in_features: int,
         out_features: int,
         # ↓ the remaining part is for LoRA
+        head_size: int,
         n_head: int,
         n_query_groups: int,
         r: int = 0,
@@ -204,6 +200,7 @@ class LoRAQKVLinear(LoRALinear):
         Args:
             in_features: number of input features of the pretrained weights
             out_features: number of output features of the pretrained weights
+            head_size: size of a single attention head
             n_head: number of attention heads
             n_query_groups: number of query groups (see diagram in `litgpt/config.py`)
             r: rank of the weight update matrices. To make sense of using LoRA the rank should be smaller than the rank of
@@ -232,17 +229,18 @@ class LoRAQKVLinear(LoRALinear):
         # ⚬ r: 2
         # ⚬ enable_lora: [True, False, True]
         if r > 0 and any(enable_lora):
-            self.lora_A = nn.Parameter(torch.zeros((r * sum(enable_lora), in_features)))  # (4, 128)
+            self.lora_A = nn.Parameter(torch.empty((r * sum(enable_lora), in_features)))  # (4, 128)
             enable_q, enable_k, enable_v = enable_lora
-            self.kv_embd_size = self.linear.in_features // (n_head // n_query_groups)
             # qkv_shapes will be used to split a tensor with weights correctly
             qkv_shapes = (
-                self.linear.in_features * enable_q,
-                self.kv_embd_size * enable_k,
-                self.kv_embd_size * enable_v,
+                # if `head_size` is explicitly specified in the config, `n_embd` (or `in_features`)
+                # might not be equal to `head_size * n_head`, thus we use it directly here
+                head_size * n_head * enable_q,
+                head_size * n_query_groups * enable_k,
+                head_size * n_query_groups * enable_v,
             )
             self.qkv_shapes = [s for s in qkv_shapes if s]
-            self.lora_B = nn.Parameter(torch.zeros(sum(self.qkv_shapes), r))  # (256, 2))
+            self.lora_B = nn.Parameter(torch.empty(sum(self.qkv_shapes), r))  # (256, 2))
             # Notes about shapes above
             # - self.lora_A has shape (4, 128): 4 because rank is 2 and LoRA is applied only to two matrices;
             # 128 is the input size of the x (embedding size). (4, 128) and not (128, 4) because later on in
@@ -541,6 +539,8 @@ class GPT(BaseModel):
             mask = None
 
         x = self.transformer.wte(idx)  # token embeddings of shape (b, t, n_embd)
+        if self.config.scale_embeddings:
+            x = x * (self.config.n_embd**0.5)
         for block in self.transformer.h:
             x = block(x, cos, sin, mask, input_pos)
         x = self.transformer.ln_f(x)
@@ -594,6 +594,7 @@ class CausalSelfAttention(BaseCausalSelfAttention):
             enable_lora=(config.lora_query, config.lora_key, config.lora_value),
             bias=config.bias,
             # for MQA/GQA support
+            head_size=config.head_size,
             n_head=config.n_head,
             n_query_groups=config.n_query_groups,
         )
@@ -686,6 +687,8 @@ class LLaMAMLP(litgpt.model.LLaMAMLP):
             lora_dropout=config.lora_dropout,
         )
 
+        self.config = config
+
     def _load_from_state_dict(self, state_dict: Dict, prefix: str, *args: Any, **kwargs: Any) -> None:
         """For compatibility with base checkpoints."""
         mapping = {
@@ -704,7 +707,7 @@ class GemmaMLP(LLaMAMLP):
     def forward(self, x: torch.Tensor) -> torch.Tensor:
         x_fc_1 = self.fc_1(x)
         x_fc_2 = self.fc_2(x)
-        x = torch.nn.functional.gelu(x_fc_1) * x_fc_2
+        x = torch.nn.functional.gelu(x_fc_1, approximate=self.config.gelu_approximate) * x_fc_2
         return self.proj(x)
 
 

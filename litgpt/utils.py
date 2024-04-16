@@ -1,11 +1,12 @@
 # Copyright Lightning AI. Licensed under the Apache License 2.0, see LICENSE file.
 
 """Utility functions for training and inference."""
+import inspect
 import math
 import pickle
 import shutil
 import sys
-from dataclasses import asdict
+from dataclasses import asdict, is_dataclass
 from io import BytesIO
 from pathlib import Path
 from typing import TYPE_CHECKING, Any, Dict, Iterable, List, Literal, Mapping, Optional, TypeVar, Union
@@ -52,8 +53,7 @@ def reset_parameters(module: nn.Module) -> None:
             mod.reset_parameters()
 
 
-def check_valid_checkpoint_dir(checkpoint_dir: Path, lora: bool = False) -> None:
-    model_filename = "lit_model.pth.lora" if lora else "lit_model.pth"
+def check_valid_checkpoint_dir(checkpoint_dir: Path, model_filename: str = "lit_model.pth") -> None:
     files = {
         model_filename: (checkpoint_dir / model_filename).is_file(),
         "model_config.yaml": (checkpoint_dir / "model_config.yaml").is_file(),
@@ -405,6 +405,21 @@ def CLI(*args: Any, **kwargs: Any) -> Any:
     return CLI(*args, **kwargs)
 
 
+def capture_hparams() -> Dict[str, Any]:
+    """Captures the local variables ('hyperparameters') from where this function gets called."""
+    caller_frame = inspect.currentframe().f_back
+    locals_of_caller = caller_frame.f_locals
+    hparams = {}
+    for name, value in locals_of_caller.items():
+        if value is None or isinstance(value, (int, float, str, bool, Path)):
+            hparams[name] = value
+        elif is_dataclass(value):
+            hparams[name] = asdict(value)
+        else:
+            hparams[name] = str(value)
+    return hparams
+
+
 def save_hyperparameters(function: callable, checkpoint_dir: Path) -> None:
     """Captures the CLI parameters passed to `function` without running `function` and saves them to the checkpoint."""
     from jsonargparse import capture_parser
@@ -431,7 +446,7 @@ def save_hyperparameters(function: callable, checkpoint_dir: Path) -> None:
 
 def save_config(config: "Config", checkpoint_dir: Path) -> None:
     config_dict = asdict(config)
-    with open(checkpoint_dir / "model_config.yaml", "w") as fp:
+    with open(checkpoint_dir / "model_config.yaml", "w", encoding="utf-8") as fp:
         yaml.dump(config_dict, fp)
 
 

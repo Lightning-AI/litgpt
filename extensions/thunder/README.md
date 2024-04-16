@@ -40,28 +40,9 @@ print(forward_trace)
 @torch.no_grad()
 @no_autocast()
 def augmented_forward_fn(*args):
-  # args: "Collection" 
-  t0, \
-  t1, \
-  t2, \
-  t3, \
-  t4, \
-  t5, \
-  t6, \
-  t7, \
-  t8, \
-  t9, \
-  t10, \
-  t11, \
-  t12, \
-  t13, \
-  t14, \
-  t15, \
-  t16, \
-  t17, \
-  t18, \
-  t19, \
-  = args
+  # args: "Collection"
+  t0, t1, t2, t3, t4, t5, t6, t7, t8, t9, t10, t11, t12, t13, t14, t15, t16, t17, \
+  t18, t19, = args
   del args
   t24 = torch.nn.functional.embedding(t0, t19, None, None, 2.0, False, False)  # t24: "cuda:0 f32[2, 5, 4096]"
   t20 = torch_slice_prim_impl(t1, [0, 0], [5, 128], [1, 1])  # t20: "cuda:0 f32[5, 128]"
@@ -245,92 +226,21 @@ print(backward_trace)
 @torch.no_grad()
 @no_autocast()
 def backward_fn(saved_for_backward, cotangents):
-  # saved_for_backward: "Collection" 
-  # cotangents: "Collection" 
-  C0, \
-  C1, \
-  = saved_for_backward
+  # saved_for_backward: "Collection"
+  # cotangents: "Collection"
+  C0, C1, = saved_for_backward
   clear_collection(saved_for_backward)
   del saved_for_backward
-  t178, \
-  = cotangents
+  t178, = cotangents
   clear_collection(cotangents)
   del cotangents
-  t0, \
-  t101, \
-  t104, \
-  t105, \
-  t114, \
-  t136, \
-  t138, \
-  t139, \
-  t140, \
-  t141, \
-  t142, \
-  t144, \
-  t146, \
-  t15, \
-  t152, \
-  t155, \
-  t156, \
-  t157, \
-  t158, \
-  t16, \
-  t164, \
-  t166, \
-  t17, \
-  t172, \
-  t175, \
-  t176, \
-  t18, \
-  t24, \
-  t3, \
-  t30, \
-  t33, \
-  t34, \
-  t4, \
-  t43, \
-  t49, \
-  t5, \
-  t51, \
-  t6, \
-  t65, \
-  t67, \
-  t68, \
-  t69, \
-  t7, \
-  t70, \
-  t71, \
-  t73, \
-  t75, \
-  t8, \
-  t81, \
-  t84, \
-  t85, \
-  t86, \
-  t87, \
-  t9, \
-  t93, \
-  t95, \
-  = C0
+  t0, t101, t104, t105, t114, t136, t138, t139, t140, t141, t142, t144, t146, \
+  t15, t152, t155, t156, t157, t158, t16, t164, t166, t17, t172, t175, t176, t18, \
+  t24, t3, t30, t33, t34, t4, t43, t49, t5, t51, t6, t65, t67, t68, t69, t7, t70, \
+  t71, t73, t75, t8, t81, t84, t85, t86, t87, t9, t93, t95, = C0
   clear_collection(C0)
   del C0
-  b1, \
-  b2, \
-  b41, \
-  b91, \
-  f101, \
-  f106, \
-  f40, \
-  f42, \
-  f51, \
-  f56, \
-  f6, \
-  f90, \
-  f92, \
-  i0, \
-  i23, \
-  i73, \
+  b1, b2, b41, b91, f101, f106, f40, f42, f51, f56, f6, f90, f92, i0, i23, i73, \
   = C1
   clear_collection(C1)
   del C1
@@ -528,7 +438,7 @@ We provide ready-to-use Fabric strategies that integrate Thunder DDP|FSDP. Under
 
 ```python
 model = thunder.distributed.ddp(model)
-# or 
+# or
 # model = thunder.distributed.fsdp(model)
 
 model = thunder.jit(model)
@@ -622,10 +532,10 @@ def backward_fn(saved_for_backward, cotangents):
     t763 = unsloth_apply_rope_backward(t757, t21, t22, 1, 8, 4)  # t763: "cuda:0 f32[2, 4, 3, 16]"
 ```
 
-We provide a specific [pre-training script copy](unsloth/pretrain.py) that uses this executor.
+We provide a specific [pre-training script copy](pretrain.py) that uses this executor.
 Given the Unsloth results below, these hand-written kernels do not seem to be worth it, showcasing the power of automated fusion compilers like [NvFuser](https://github.com/NVIDIA/Fuser).
 
-## Examples and benchmarks:
+## Examples and benchmarks
 
 > [!WARNING]
 > Lightning Thunder is alpha and not ready for production runs. Feel free to try it out, expect a few bumps along the way.
@@ -633,21 +543,21 @@ Given the Unsloth results below, these hand-written kernels do not seem to be wo
 
 We provide a version of the main pre-training script [that integrates Thunder](pretrain.py) that uses TinyLlama, a 1.1B parameter LLM.
 
-| Setting              | Compiler/JIT | Devices | ms/iter @ step 10 | Memory (GB) |
-|----------------------|--------------|---------|-------------------|-------------|
-| Fully-sharded ZeRO 3 | Eager        | 8       | 460.88            | 22.13       |
-| Fully-sharded ZeRO 3 | Inductor     | 8       | 318.71            | 17.08       |
-| Fully-sharded ZeRO 3 | Thunder      | 8       | 345.02            | 18.28       |
-|                      |              |         |                   |             |
-| Replicated           | Eager        | 8       | 535.28            | 32.05       |
-| Replicated           | Inductor     | 8       | 348.19            | 27.01       |
-| Replicated           | Thunder      | 8       | OOM               | OOM         |
-|                      |              |         |                   |             |
-| -                    | Eager        | 1       | 449.88            | 29.85       |
-| -                    | Inductor     | 1       | 320.22            | 24.81       |
-| -                    | Thunder      | 1       | 322.83            | 26.37       |
-|                      |              |         |                   |             |
-| Unsloth              | Thunder      | 1       | 331.93            | 25.19       |
+| Setting              | Compiler/JIT | Devices | ms/iter @ step 10 | Memory (GB)   |
+|----------------------|--------------|---------|-------------------|---------------|
+| Fully-sharded ZeRO 3 | Eager        | 8       | 460.88            | 22.13         |
+| Fully-sharded ZeRO 3 | Inductor     | 8       | Not supported     | Not supported |
+| Fully-sharded ZeRO 3 | Thunder      | 8       | 332.48            | 21.40         |
+|                      |              |         |                   |               |
+| Replicated           | Eager        | 8       | 535.28            | 32.05         |
+| Replicated           | Inductor     | 8       | Not supported     | Not supported |
+| Replicated           | Thunder      | 8       | 368.25            | 27.42         |
+|                      |              |         |                   |               |
+| -                    | Eager        | 1       | 449.88            | 29.85         |
+| -                    | Inductor     | 1       | Not supported     | Not supported |
+| -                    | Thunder      | 1       | 323.78            | 27.42         |
+|                      |              |         |                   |               |
+| Unsloth              | Thunder      | 1       | 334.98            | 25.19         |
 
 <details>
 <summary>Reproduction details</summary>
@@ -656,12 +566,7 @@ Config:
 
 ```yaml
 out_dir: out/pretrain-thunder
-data:
-  class_path: litgpt.data.TinyStories
-  init_args:
-    path: data
-    num_workers: 0
-    seed: 42
+data: TinyStories
 tokenizer_dir: checkpoints/meta-llama/Llama-2-7b-hf
 logger_name: csv
 ```
@@ -671,25 +576,24 @@ Commands:
 ```bash
 python extensions/thunder/pretrain.py --config config.yaml --compiler null --train.global_batch_size 32
 python extensions/thunder/pretrain.py --config config.yaml --compiler torch --train.global_batch_size 32
-python extensions/thunder/pretrain.py --config config.yaml --train.global_batch_size 32
+python extensions/thunder/pretrain.py --config config.yaml --executors '[sdpa, torchcompile, nvfuser, torch]' --train.global_batch_size 32
 
 python extensions/thunder/pretrain.py --config config.yaml --compiler null --strategy ddp
 python extensions/thunder/pretrain.py --config config.yaml --compiler torch --strategy ddp
-python extensions/thunder/pretrain.py --config config.yaml --strategy ddp
+python extensions/thunder/pretrain.py --config config.yaml --executors '[sdpa, torchcompile, nvfuser, torch]' --strategy ddp
 
 python extensions/thunder/pretrain.py --config config.yaml --compiler null --devices 1
 python extensions/thunder/pretrain.py --config config.yaml --compiler torch --devices 1
-python extensions/thunder/pretrain.py --config config.yaml --devices 1
+python extensions/thunder/pretrain.py --config config.yaml --executors '[sdpa, torchcompile, nvfuser, torch]' --devices 1
 
-python extensions/thunder/unsloth/pretrain.py --config config.yaml --devices 1
+python extensions/thunder/pretrain.py --config config.yaml --executors '[sdpa, unsloth, torchcompile, nvfuser, torch]' --devices 1
 ```
 
 Gradient accumulation is disabled in the FSDP setting because Thunder does not support skipping the backward synchronization yet.
 
-The CUDA devices are all NVIDIA A100-SXM4-40GB.
+`torch.compile` does not support compiling the `_FabricModule` due to this issue: https://github.com/pytorch/pytorch/issues/112787#issuecomment-1986827601
 
-The Unsloth example does not support distributed yet.
-The Unsloth example requires commenting out this line in Lightning Fabric: https://github.com/Lightning-AI/pytorch-lightning/blob/fadd2fc/src/lightning/fabric/wrappers.py#L233
+The CUDA devices are all NVIDIA A100-SXM4-40GB.
 
 ```text
 Python version: 3.10.12 (main, Nov 20 2023, 15:14:05) [GCC 11.4.0] (64-bit runtime)
@@ -698,9 +602,10 @@ CUDA used to build PyTorch: 12.1
 CUDA runtime version: 12.3.107
 Nvidia driver version: 545.23.08
 pytorch-triton==3.0.0+989adb9a29
-torch==2.3.0.dev20240314+cu121
-lightning-thunder==0.1.0
-nvfuser_cu121==0.1.7.dev20240315
+torch==2.4.0.dev20240326+cu121
+lightning==2.3.0.dev20240328
+lightning-thunder==0.2.0.dev20240404
+nvfuser_cu121==0.2.0.dev20240327
 ```
 
 </details>

@@ -5,6 +5,7 @@ LitGPT supports a variety of LLM architectures with publicly available weights. 
 
 | Model                                        | Model size                               | Reference                                                                                                                    |
 |----------------------------------------------|------------------------------------------|------------------------------------------------------------------------------------------------------------------------------|
+| CodeGemma by Google                          | 7B                                       | [Google Team, Google Deepmind](https://ai.google.dev/gemma/docs/codegemma)                                                                      |
 | Code Llama by Meta AI                        | 7B, 13B, 34B, 70B                        | [Rozière et al. 2023](https://arxiv.org/abs/2308.12950)                                                                      |
 | Dolly by Databricks                          | 3B, 7B, 12B                              | [Conover et al. 2023](https://www.databricks.com/blog/2023/04/12/dolly-first-open-commercially-viable-instruction-tuned-llm) |
 | Falcon by TII UAE                            | 7B, 40B, 180B                            | [TII 2023](https://falconllm.tii.ae)                                                                                         |
@@ -84,6 +85,7 @@ garage-bAInd/Platypus2-70B
 garage-bAInd/Platypus2-70B-instruct
 garage-bAInd/Platypus2-7B
 garage-bAInd/Stable-Platypus2-13B
+google/codegemma-7b-it
 google/gemma-2b
 google/gemma-2b-it
 google/gemma-7b
@@ -146,7 +148,24 @@ togethercomputer/RedPajama-INCITE-Chat-7B-v0.1
 togethercomputer/RedPajama-INCITE-Instruct-3B-v1
 togethercomputer/RedPajama-INCITE-Instruct-7B-v0.1
 Trelis/Llama-2-7b-chat-hf-function-calling-v2
+unsloth/Mistral-7B-v0.2
 ```
+
+&nbsp;
+
+> [!TIP]
+> To sort the list above by model name after the `/`, use `litgpt download | sort -f -t'/' -k2`.
+
+&nbsp;
+
+> [!NOTE]
+> If you want to adopt a model variant that is not listed in the table above but has a similar architecture as one of the supported models, you can use this model by by using the `--model_name` argument as shown below:
+> ```bash
+> litgpt download \
+>  --repo_id NousResearch/Hermes-2-Pro-Mistral-7B \
+>  --model_name Mistral-7B-v0.1
+> ```
+
 
 &nbsp;
 ### 2. Download Model Weights
@@ -209,7 +228,7 @@ litgpt chat --checkpoint_dir checkpoints/$repo_id
 &nbsp;
 ## Specific Models
 
-Note that certain models require that you've been granted access to the weights on the Hugging Face Hub. 
+Note that certain models require that you've been granted access to the weights on the Hugging Face Hub.
 
 For example, to get access to the Gemma 2B model, you can do so by following the steps at https://huggingface.co/google/gemma-2b. After access is granted, you can find your HF hub token in https://huggingface.co/settings/tokens.
 
@@ -224,7 +243,7 @@ litgpt download \
 &nbsp;
 ## Finetunes and other model variants
 
-Sometimes you want to download the weights of a finetune of one of the models listed above. To do this, you need to manually specifiy the `model_name` associated to the config to use. For example:
+Sometimes you want to download the weights of a finetune of one of the models listed above. To do this, you need to manually specify the `model_name` associated to the config to use. For example:
 
 ```bash
 litgpt download \
@@ -249,7 +268,7 @@ litgpt download \
 &nbsp;
 ## Converting Checkpoints Manually
 
-For development purposes, for example, when adding or experimenting with new model configurations, it may be beneficial to split the weight download and model conversion into two separate steps. 
+For development purposes, for example, when adding or experimenting with new model configurations, it may be beneficial to split the weight download and model conversion into two separate steps.
 
 You can do this by passing the `--convert_checkpoint false` option to the download script:
 

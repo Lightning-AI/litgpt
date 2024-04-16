@@ -46,8 +46,8 @@ def setup(
     train: TrainArgs = TrainArgs(
         save_interval=1000,
         log_interval=1,
-        global_batch_size=128,
-        micro_batch_size=4,
+        global_batch_size=16,
+        micro_batch_size=1,
         lr_warmup_steps=100,
         epochs=5,
         learning_rate=1e-3,
@@ -75,6 +75,8 @@ def setup(
     pprint(locals())
     data = Alpaca() if data is None else data
     devices = parse_devices(devices)
+
+    check_valid_checkpoint_dir(checkpoint_dir)
     config = Config.from_file(checkpoint_dir / "model_config.yaml")
 
     precision = precision or get_default_supported_precision(training=True)
@@ -120,7 +122,6 @@ def main(
     eval: EvalArgs,
 ) -> None:
     validate_args(train, eval)
-    check_valid_checkpoint_dir(checkpoint_dir)
 
     tokenizer = Tokenizer(checkpoint_dir)
     train_dataloader, val_dataloader = get_dataloaders(fabric, data, tokenizer, train)
@@ -365,7 +366,7 @@ def save_adapter_v2_checkpoint(fabric: L.Fabric, model: torch.nn.Module, file_pa
 
 def validate_args(train: TrainArgs, eval: EvalArgs) -> None:
     issues = []
-    unsupported = [(train, ["max_tokens", "max_norm", "tie_embeddings"])]
+    unsupported = [(train, ["max_tokens", "max_norm", "tie_embeddings", "lr_warmup_fraction"])]
     for args, names in unsupported:
         for name in names:
             if getattr(args, name) is not None:

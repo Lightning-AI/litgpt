@@ -9,7 +9,7 @@ out_dir: out/finetune/full-gemma-2b
 precision: bf16-true
 
 # How many devices/GPUs to use. (type: Union[int, str], default: 1)
-devices: 1
+devices: 4
 
 # Data-related arguments. If not provided, the default is ``litgpt.data.Alpaca``.
 data:
@@ -32,7 +32,7 @@ train:
   log_interval: 1
 
   # Number of samples between optimizer steps across data-parallel ranks (type: int, default: 128)
-  global_batch_size: 6
+  global_batch_size: 16
 
   # Number of samples per data-parallel rank (type: int, default: 4)
   micro_batch_size: 1
@@ -41,13 +41,13 @@ train:
   lr_warmup_steps: 100
 
   # Number of epochs to train on (type: Optional[int], default: 5)
-  epochs: 3
+  epochs: 1
 
   # Total number of tokens to train on (type: Optional[int], default: null)
   max_tokens:
 
   # Limits the number of optimizer steps to run. (type: Optional[int], default: null)
-  max_steps:
+  max_steps: 50
 
   # Limits the length of samples. Off by default (type: Optional[int], default: null)
   max_seq_length: 512

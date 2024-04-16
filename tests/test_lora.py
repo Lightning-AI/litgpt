@@ -15,6 +15,7 @@ from lightning.fabric.plugins.precision.bitsandbytes import _BITSANDBYTES_AVAILA
 from lightning.fabric.wrappers import _FabricOptimizer
 from torch._dynamo.backends import debugging
 from torch.nn import functional as F
+from transformers.models.gemma import GemmaConfig, GemmaForCausalLM
 from transformers.models.mixtral import MixtralConfig, MixtralForCausalLM
 
 import litgpt.config as config_module
@@ -233,7 +234,7 @@ def test_lora_init_when_linear_overridden():
     original_linear = torch.nn.Linear
     # Our bnb does this sort of monkey patching
     torch.nn.Linear = MyLinear
-    layer = LoRAQKVLinear(1, 1, 1, 1)
+    layer = LoRAQKVLinear(1, 1, 1, 1, 1)
     assert isinstance(layer.linear, original_linear)
     torch.nn.Linear = original_linear
 
@@ -323,6 +324,7 @@ def test_lora_gpt_query_groups_merge_and_forward_no_exception(n_query_groups, ap
 
 
 @torch.inference_mode()
+@pytest.mark.parametrize("head_size", (1, 2, 4))
 @pytest.mark.parametrize("n_head", (1, 2, 3, 6, 12))
 @pytest.mark.parametrize(
     "enable_lora",
@@ -336,9 +338,11 @@ def test_lora_gpt_query_groups_merge_and_forward_no_exception(n_query_groups, ap
         (True, True, True),
     ],
 )
-def test_lora_qkv_linear_compare_conv1d(n_head, enable_lora):
+def test_lora_qkv_linear_compare_conv1d(head_size, n_head, enable_lora):
     C = 12
-    layer = LoRAQKVLinear(C, 3 * C, n_head=n_head, n_query_groups=n_head, r=2, enable_lora=enable_lora)
+    layer = LoRAQKVLinear(
+        C, 3 * C, head_size=head_size, n_head=n_head, n_query_groups=n_head, r=2, enable_lora=enable_lora
+    )
     x = torch.randn((1, 1, C))
     a = F.linear(x, layer.lora_A).transpose(-2, -1)  # after_A
     b = layer.lora_B.data.unsqueeze(-1)
@@ -370,7 +374,8 @@ def test_lora_linear_weights_merged_status(rank, expected_merged):
     ((0, True, False), (1, True, True), (0, False, False), (1, False, False)),
 )
 def test_lora_qkv_linear_weights_merged_status(rank, enable_lora, expected_merged):
-    layer = LoRAQKVLinear(10, 3 * 10, n_head=2, n_query_groups=2, r=rank, enable_lora=enable_lora)
+    C = 10
+    layer = LoRAQKVLinear(C, 3 * C, head_size=5, n_head=2, n_query_groups=2, r=rank, enable_lora=enable_lora)
     assert not layer.merged
     layer.merge()
     assert layer.merged == expected_merged
@@ -523,6 +528,9 @@ def test_against_hf_mixtral():
         n_query_groups=2,
         intermediate_size=86,
         n_expert=4,
+        lora_r=1,
+        lora_key=True,
+        lora_value=True,
     )
     T = 5
     theirs_config = MixtralConfig(
@@ -544,10 +552,68 @@ def test_against_hf_mixtral():
     state_dict = {}
     copy_weights_hf_llama(ours_config, {}, state_dict, theirs_state_dict)
     ours_model = LoRAGPT(ours_config).to(device)
-    ours_model.load_state_dict(state_dict)
+    keys = ours_model.load_state_dict(state_dict, strict=False)
+    assert not keys.unexpected_keys
+    for k in keys.missing_keys:
+        assert lora_filter(k, None)
 
     # test end to end
     x = torch.tensor([[9856, 23, 491, 1536, 304], [23, 345, 65, 123, 321]], dtype=torch.int32, device=device)
+    assert x.size(1) == T
+    ours_y = ours_model(x)
+    theirs_y = theirs_model(x)["logits"].to(dtype)  # HF converts logits to float
+    torch.testing.assert_close(ours_y, theirs_y)
+
+
+@torch.inference_mode()
+@pytest.mark.parametrize("model_name", ["gemma-2b", "gemma-7b"])
+def test_against_hf_gemma(model_name):
+    device = torch.device("cpu")
+    dtype = torch.float32
+    T = 5
+    ours_config = Config.from_name(
+        model_name,
+        n_layer=2,
+        n_head=16,
+        n_embd=32,
+        head_size=4,
+        intermediate_size=86,
+        lora_r=1,
+        lora_query=True,
+        lora_key=True,
+        lora_value=True,
+    )
+    theirs_config = GemmaConfig(
+        vocab_size=ours_config.padded_vocab_size,
+        hidden_size=ours_config.n_embd,
+        head_dim=ours_config.head_size,
+        num_attention_heads=ours_config.n_head,
+        num_hidden_layers=ours_config.n_layer,
+        intermediate_size=ours_config.intermediate_size,
+        max_position_embeddings=T,
+        rms_norm_eps=ours_config.norm_eps,
+        num_key_value_heads=ours_config.n_query_groups,
+        rope_theta=ours_config.rope_base,
+        attention_bias=ours_config.bias,
+        tie_word_embeddings=True,
+        hidden_act="gelu_pytorch_tanh",
+    )
+    assert ours_config.intermediate_size == theirs_config.intermediate_size
+
+    theirs_model = GemmaForCausalLM(theirs_config).to(device)
+    theirs_state_dict = theirs_model.state_dict()
+    # Gemma weights are shipped without `lm_head.weight`
+    theirs_state_dict.pop("lm_head.weight")
+    state_dict = {}
+    copy_weights_hf_llama(ours_config, {}, state_dict, theirs_state_dict)
+    ours_model = LoRAGPT(ours_config).to(device)
+    keys = ours_model.load_state_dict(state_dict, strict=False)
+    assert not keys.unexpected_keys
+    for k in keys.missing_keys:
+        assert lora_filter(k, None)
+
+    # test end to end
+    x = torch.tensor([[9856, 23, 491, 1536, 304]], dtype=torch.int32, device=device)
     assert x.size(1) == T
     ours_y = ours_model(x)
     theirs_y = theirs_model(x)["logits"].to(dtype)  # HF converts logits to float

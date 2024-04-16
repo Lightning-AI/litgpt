@@ -888,6 +888,32 @@ for c in gemma:
     copy["hf_config"]["name"] = f"{c['hf_config']['name']}-it"
     configs.append(copy)
 
+##################
+# Google CodeGemma
+##################
+codegemma = [
+    # https://huggingface.co/google/codegemma-7b-it/blob/main/config.json
+    dict(
+        name="CodeGemma-7b-it",
+        hf_config=dict(org="google", name="codegemma-7b-it"),
+        scale_embeddings=True,
+        vocab_size=256000,
+        padding_multiple=64,
+        n_embd=3072,
+        n_layer=28,
+        n_head=16,
+        head_size=256,
+        rotary_percentage=1.0,
+        parallel_residual=False,
+        bias=False,
+        norm_class_name="RMSNorm",
+        mlp_class_name="GemmaMLP",
+        gelu_approximate="tanh",
+        intermediate_size=24576,
+    ),
+]
+configs.extend(codegemma)
+
 
 ##########################
 # Stability AI FreeWilly2
@@ -1387,6 +1413,24 @@ for c in mistral:
         copy["name"] = c["name"].format(kind)
         copy["hf_config"]["name"] = c["hf_config"]["name"].format(kind)
         configs.append(copy)
+configs.append(
+    # https://huggingface.co/unsloth/mistral-7b-v0.2/blob/main/config.json
+    dict(
+        name="Mistral-7B-v0.2",
+        hf_config=dict(org="unsloth", name="Mistral-7B-v0.2"),
+        padded_vocab_size=32000,
+        block_size=32768,
+        n_layer=32,
+        n_query_groups=8,
+        rotary_percentage=1.0,
+        parallel_residual=False,
+        bias=False,
+        norm_class_name="RMSNorm",
+        norm_eps=1e-05,
+        mlp_class_name="LLaMAMLP",
+        intermediate_size=14336,
+    )
+)
 configs.append(
     # https://huggingface.co/mistralai/Mistral-7B-Instruct-v0.2/blob/main/config.json
     dict(

@@ -3,8 +3,8 @@ import torch
 from conftest import RunIf
 
 from litgpt import GPT, Config
-from litgpt.utils import chunked_cross_entropy
 from litgpt.model import apply_rope, build_rope_cache
+from litgpt.utils import chunked_cross_entropy
 
 
 @RunIf(min_cuda_gpus=1, thunder=True)
@@ -85,9 +85,9 @@ def test_unsloth_swiglu():
     import thunder
     from thunder.core.transforms import grad
 
-    from extensions.thunder.unsloth.executor import unsloth_ex, ThunderLLaMAMLP
-    from litgpt.model import LLaMAMLP
+    from extensions.thunder.unsloth.executor import ThunderLLaMAMLP, unsloth_ex
     from litgpt import Config
+    from litgpt.model import LLaMAMLP
 
     config = Config.from_name("Llama-2-7b-hf")
     with torch.device("cuda"):

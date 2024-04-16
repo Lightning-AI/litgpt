@@ -5,6 +5,7 @@ This tutorial will walk you through pretraining [TinyLlama](https://github.com/j
 > [!TIP]
 > To get started with zero setup, clone the [TinyLlama studio on Lightning AI](https://lightning.ai/lightning-ai/studios/llm-pretrain-tinyllama-1-1b).
 
+&nbsp;
 ## What's TinyLlama?
 
 [TinyLlama](https://github.com/jzhang38/TinyLlama/) is architecturally the same as Meta AI's LLama 2, but only has 1.1B parameters and is instead trained on multiple epochs on a mix of [SlimPajama](https://huggingface.co/datasets/cerebras/SlimPajama-627B) and [Starcoder](https://huggingface.co/datasets/bigcode/starcoderdata) datasets.
@@ -26,6 +27,7 @@ Here is a quick fact sheet:
 
 (this table was sourced from the author's [README](https://github.com/jzhang38/TinyLlama/))
 
+&nbsp;
 ## Download datasets
 
 You can download the data using git lfs:
@@ -42,6 +44,7 @@ git clone https://huggingface.co/datasets/bigcode/starcoderdata data/starcoderda
 
 Around 1.2 TB of disk space is required to store both datasets.
 
+&nbsp;
 ## Prepare the datasets for training
 
 In order to start pretraining litgpt on it, you need to read, tokenize, and write the data in binary chunks. This will leverage the `litdata` optimization pipeline and streaming dataset.
@@ -95,6 +98,7 @@ python litgpt/data/prepare_slimpajama.py \
 If you want to run on a small slice of the datasets first, pass the flag `--fast_dev_run=true` to the commands above.
 In the above we are assuming that you will be using the same tokenizer as used in LlaMA/TinyLlama, but any trained [SentencePiece](https://github.com/google/sentencepiece) tokenizer with a 32000 vocabulary size will do here.
 
+&nbsp;
 ## Pretraining
 
 Running the pretraining script with its default settings requires at least 8 A100 GPUs.
@@ -114,11 +118,7 @@ or change the model type and size by passing a different string to the model nam
 litgpt pretrain --model_name Gemma-2b
 ```
 
-The currently supported model names are contained in the [config.py](https://github.com/Lightning-AI/litgpt/litgpt/config.py) file.
-You can
-
-1) either search this file for lines containing "name =",
-2) or run `litgpt download` without additional command line arguments
+The currently supported model names can be listed by executing `litgpt pretrain` without any additional arguments.
 
 Keep in mind that training with a single machine will take weeks. To speed up the process, you'll need access to a cluster.
 Once you're in a cluster, you can follow [these instructions](https://lightning.ai/docs/fabric/stable/fundamentals/launch.html#launch-on-a-cluster)
@@ -139,6 +139,7 @@ Last, logging is kept minimal in the script, but for long-running experiments we
 As an example, we included WandB (set `--logger_name=wandb`) to show how you can integrate any experiment tracking framework.
 For reference, [here are the loss curves for our reproduction](https://api.wandb.ai/links/awaelchli/y7pzdpwy).
 
+&nbsp;
 ## Resume training
 
 The checkpoints saved during pretraining contain all the information to resume if needed.
@@ -151,6 +152,7 @@ litgpt pretrain \
 ```
 **Important:** Each checkpoint is a directory. Point to the directory, not the 'lit_model.pth' file inside of it.
 
+&nbsp;
 ## Export checkpoints
 
 After training is completed, you can convert the checkpoint to a format that can be loaded for evaluation, inference, finetuning etc.
@@ -172,3 +174,16 @@ checkpoints/tiny-llama/final
 ```
 
 You can then use this checkpoint folder to run [evaluation](evaluation.md), [inference](inference.md), [finetuning](finetune_lora.md) or [process the checkpoint further](convert_lit_models.md).
+
+
+&nbsp;
+## Project templates
+
+The following [Lightning Studio](https://lightning.ai/lightning-ai/studios) templates provide LitGPT pretraining projects in reproducible environments with multi-GPU and multi-node support:
+&nbsp;
+
+|                                                                                                                                                                                                                                                                                                                                             |                                                                                                                                                                                                                                                                                                                                                |
+|---------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------|------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------|
+| <p align="left">[Prepare the TinyLlama 1T token dataset](https://lightning.ai/lightning-ai/studios/prepare-the-tinyllama-1t-token-dataset) <br> [<img src="https://pl-public-data.s3.amazonaws.com/assets_litgpt/readme/3.webp" width="300"></p>](https://lightning.ai/lightning-ai/studios/prepare-the-tinyllama-1t-token-dataset)         | [Pretrain LLMs - TinyLlama 1.1B](https://lightning.ai/lightning-ai/studios/pretrain-llms-tinyllama-1-1b) <br> <p align="left">[<img src="https://pl-public-data.s3.amazonaws.com/assets_litgpt/readme/4.webp" width="300"></p>](https://lightning.ai/lightning-ai/studios/pretrain-llms-tinyllama-1-1b)                                        |
+| [Continued Pretraining with TinyLlama 1.1B](https://lightning.ai/lightning-ai/studios/continued-pretraining-with-tinyllama-1-1b) <br> <p align="left">[<img src="https://pl-public-data.s3.amazonaws.com/assets_litgpt/readme/1.webp" width="300"></p>](https://lightning.ai/lightning-ai/studios/continued-pretraining-with-tinyllama-1-1b) | |
+|                                                                                                                                                                                                                                                                                                                                             |

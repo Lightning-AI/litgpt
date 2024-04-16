@@ -6,7 +6,7 @@ Below is a table of all datasets that are currently supported in LitGPT:
 |--------------|-------------|---------------------|--------------------------------------------------------------------------------------|---------------------------------------------------------------------------------------------------------------------------|------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------|
 | Alpaca       | Finetuning  | 51,759 samples      | [URL](https://github.com/tatsu-lab/stanford_alpaca)                                  | [URL](https://crfm.stanford.edu/2023/03/13/alpaca.html)                                                                   | Attribution-NonCommercial 4.0 International, [URL](https://crfm.stanford.edu/2023/03/13/alpaca.html)                                                                                                             |
 | Alpaca-2k    | Finetuning  | 2000 samples        | [URL](https://huggingface.co/datasets/mhenrichsen/alpaca_2k_test)                    | See Alpaca above                                                                                                          | See Alpaca Above                                                                                                                                                                                                 |
-| Alpaca-GPT4  | Finetuning  | 52,002 samples      | [URL](https://github.com/Instruction-Tuning-with-GPT-4/GPT-4-LLM)                    | [URL](https://arxiv.org/abs/2304.03277)                                                                                   | Attribution-NonCommercial 4.0 International, [URL](https://github.com/Instruction-Tuning-with-GPT-4/GPT-4-LLM/blob/main/DATA_LICENSEl)                                                                           |
+| Alpaca-GPT4  | Finetuning  | 52,002 samples      | [URL](https://github.com/Instruction-Tuning-with-GPT-4/GPT-4-LLM)                    | [URL](https://arxiv.org/abs/2304.03277)                                                                                   | Attribution-NonCommercial 4.0 International, [URL](https://github.com/Instruction-Tuning-with-GPT-4/GPT-4-LLM/blob/main/DATA_LICENSE)                                                                           |
 | Alpaca Libre | Finetuning  | 55,370 samples      | [URL](https://github.com/mobarski/alpaca-libre)                                      | -                                                                                                                         | CC0/MIT,  [URL](https://github.com/mobarski/alpaca-libre)                                                                                                                                                        |
 | Deita        | Finetuning  | 9,500 samples       | [URL](https://huggingface.co/datasets/HuggingFaceH4/deita-10k-v0-sft/tree/main/data) | [URL](https://arxiv.org/abs/2312.15685)                                                                                   | MIT [URL](https://huggingface.co/datasets/hkust-nlp/deita-10k-v0/blob/main/README.md)                                                                                                                            |
 | Dolly        | Finetuning  | 15,011 samples      | [URL](https://github.com/databrickslabs/dolly/tree/master/data)                      | [URL](https://www.databricks.com/blog/2023/04/12/dolly-first-open-commercially-viable-instruction-tuned-llm)              | CC-BY-SA, [URL](https://github.com/databrickslabs/dolly#model-overview)                                                                                                                                          |
@@ -37,8 +37,6 @@ Please read the [tutorials/finetune_*.md](.) documents for more information abou
 &nbsp;
 
 ### Alpaca
-
-&nbsp;
 
 The Alpaca dataset consists of 52,000 instructions and demonstrations produced by OpenAI's text-davinci-003 engine. This data is used in instruction-tuning, helping improve the performance of language models to follow instructions.
 
@@ -79,8 +77,7 @@ For comparison, the Falcon 7B model requires 23.52 GB of memory for the original
 
 ### Alpaca-GPT4
 
-
-The Alpaca-GPT4 was built by using the prompts of the original Alpaca dataset and generate the responses via GPT 4. The 
+The Alpaca-GPT4 was built by using the prompts of the original Alpaca dataset and generate the responses via GPT 4. The
 dataset consists of 52,000 instructions and responses.
 
 The original [Alpaca-GPT4](https://github.com/Instruction-Tuning-with-GPT-4/GPT-4-LLM) dataset can be used as follows:
@@ -126,12 +123,11 @@ litgpt finetune lora \
   --train.max_seq_length 256
 ```
 
-
 &nbsp;
 
 ### Deita
 
-The Deita dataset (short for Data-Efficient Instruction Tuning for Alignment) is a collection of 9500 prompts and responses, as described in the [What Makes Good Data for Alignment? A Comprehensive Study of Automatic Data Selection in Instruction Tuning](https://arxiv.org/abs/2312.15685) paper. 
+The Deita dataset (short for Data-Efficient Instruction Tuning for Alignment) is a collection of 9500 prompts and responses, as described in the [What Makes Good Data for Alignment? A Comprehensive Study of Automatic Data Selection in Instruction Tuning](https://arxiv.org/abs/2312.15685) paper.
 Using Falcon 7b as an example, we can use the dataset as follows:
 
 ```bash
@@ -161,7 +157,6 @@ litgpt finetune lora \
   --checkpoint_dir "checkpoints/tiiuae/falcon-7b" \
   --train.max_seq_length 512
 ```
-
 
 &nbsp;
 
@@ -281,7 +276,6 @@ litgpt finetune lora \
 
 However, you can also select individual subsets via comma-separated strings as follows:
 
-
 ```bash
 litgpt finetune lora \
   --data FLAN \
@@ -340,6 +334,7 @@ Then simply run any of the finetuning scripts with this input:
 litgpt finetune lora \
   --data JSON \
   --data.json_path path/to/your/data.json \
+  --data.val_split_fraction 0.1 \
   --checkpoint_dir "checkpoints/tiiuae/falcon-7b"
 ```
 
@@ -385,5 +380,4 @@ Note that you only need to modify a small fraction of the code file, namely the 
 
 In addition to the finetuning dataset described above, LitGPT also supports several datasets for pretraining. The pretraining datasets are described in more detail in the following separate tutorial documents:
 
-- [Pretrain Llama 2 on OpenWebText](./pretrain_openwebtext.md)
 - [Pretrain TinyLlama on Slimpajama and Starcoder](./pretrain_tinyllama.md)
