@@ -243,7 +243,7 @@ litgpt download \
 &nbsp;
 ## Finetunes and other model variants
 
-Sometimes you want to download the weights of a finetune of one of the models listed above. To do this, you need to manually specifiy the `model_name` associated to the config to use. For example:
+Sometimes you want to download the weights of a finetune of one of the models listed above. To do this, you need to manually specify the `model_name` associated to the config to use. For example:
 
 ```bash
 litgpt download \
