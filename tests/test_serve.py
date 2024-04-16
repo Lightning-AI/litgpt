@@ -29,13 +29,12 @@ def test_simple(tmp_path):
     with open(config_path, "w", encoding="utf-8") as fp:
         yaml.dump(asdict(ours_config), fp)
 
-    server = LitServer(SimpleLitAPI(checkpoint_dir=tmp_path), accelerator="cpu", devices=1, timeout=60)
+    accelerator = "cpu"
+    server = LitServer(SimpleLitAPI(checkpoint_dir=tmp_path), accelerator=accelerator, devices=1, timeout=60)
 
     with TestClient(server.app) as client:
         response = client.post("/predict", json={"prompt": "Hello, World"})
-        assert response.json()["output"][:25] == "Hello, World gcc exchange", response.json()["output"][:25]
-
-
-if __name__ == """__main__""":
-    from pathlib import Path
-    test_simple(Path("tmp_path"))
+        if accelerator == "gpu":
+            assert response.json()["output"][:25] == "Hello, World gcc exchange", response.json()["output"][:25]
+        else:
+            assert response.json()["output"][:25] == "Hello, World Associatedim", response.json()["output"][:25]

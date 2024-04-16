@@ -47,9 +47,10 @@ class SimpleLitAPI(LitAPI):
             dtype = {"16-true": torch.float16, "bf16-true": torch.bfloat16, "32-true": torch.float32}[precision]
             plugins = BitsandbytesPrecision(self.quantize[4:], dtype)
             precision = None
+
         fabric = L.Fabric(
             accelerator=device.type,
-            devices=[device.index],
+            devices=1 if device.type=="cpu" else [device.index], # TODO: Update once LitServe supports "auto"
             precision=precision,
             plugins=plugins,
         )

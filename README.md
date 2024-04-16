@@ -195,7 +195,7 @@ import requests, json
      "http://127.0.0.1:8000/predict", 
      json={"prompt": "Fix typos in the following sentence: Exampel input"}
 )
-print(response.content)
+print(response.json()["output"])
 ```
 
 &nbsp;
