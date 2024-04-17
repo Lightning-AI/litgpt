@@ -227,11 +227,11 @@ This is another way of finetuning that specialize an already pretrained model by
 
 &nbsp; 
 
+```bash
 mkdir -p custom_texts
 curl https://www.gutenberg.org/cache/epub/24440/pg24440.txt --output custom_texts/book1.txt
 curl https://www.gutenberg.org/cache/epub/26393/pg26393.txt --output custom_texts/book2.txt
 
-```bash
 # 1) Download a pretrained model
 litgpt download --repo_id EleutherAI/pythia-160m
 
