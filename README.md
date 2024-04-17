@@ -185,6 +185,12 @@ litgpt chat \
 ### Pretrain an LLM   
 Train an LLM from scratch on your own data via pretraining:
 
+<a target="_blank" href="https://lightning.ai/lightning-ai/studios/litgpt-pretrain">
+<img src="https://pl-bolts-doc-images.s3.us-east-2.amazonaws.com/app-2/studio-badge.svg"; alt="Open In Studio"/>
+</a>
+
+&nbsp; 
+
 ```bash
 mkdir -p custom_texts
 curl https://www.gutenberg.org/cache/epub/24440/pg24440.txt --output custom_texts/book1.txt
@@ -213,6 +219,12 @@ litgpt chat \
 
 ### Continue pretraining an LLM       
 This is another way of finetuning that specialize an already pretrained model by training on custom data:    
+
+<a target="_blank" href="https://lightning.ai/lightning-ai/studios/litgpt-continue-pretraining">
+<img src="https://pl-bolts-doc-images.s3.us-east-2.amazonaws.com/app-2/studio-badge.svg"; alt="Open In Studio"/>
+</a>
+
+&nbsp; 
 
 ```
 mkdir -p custom_texts
