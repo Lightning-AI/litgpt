@@ -168,7 +168,7 @@ litgpt download --repo_id microsoft/phi-2
 # 2) Finetune the model
 curl -L https://huggingface.co/datasets/medalpaca/medical_meadow_health_advice/raw/main/medical_meadow_health_advice.json -o my_custom_dataset.json
 
-litgpt finetune lora \
+litgpt finetune \
   --checkpoint_dir checkpoints/microsoft/phi-2 \
   --data JSON \
   --data.json_path my_custom_dataset.json \
@@ -315,7 +315,7 @@ Browse all training recipes [here](config_hub).
 ### Example
 
 ```bash
-litgpt finetune lora \
+litgpt finetune \
   --config https://raw.githubusercontent.com/Lightning-AI/litgpt/main/config_hub/finetune/llama-2-7b/lora.yaml
 ```
 
@@ -470,7 +470,7 @@ seed: 1337
 Override any parameter in the CLI:
 
 ```bash
-litgpt finetune lora \
+litgpt finetune \
   --config https://raw.githubusercontent.com/Lightning-AI/litgpt/main/config_hub/finetune/llama-2-7b/lora.yaml \
   --lora_r 4
 ```

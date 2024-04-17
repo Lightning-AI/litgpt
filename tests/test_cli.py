@@ -23,19 +23,8 @@ def test_cli():
     chat                Chat with a model."""
         in out
     )
-    assert ("""evaluate            Evaluate a model with the LM Evaluation Harness.""") in out
-    assert ("""serve               Serve and deploy a model with LitServe.""") in out
-    out = StringIO()
-    with pytest.raises(SystemExit), redirect_stdout(out), mock.patch("sys.argv", ["litgpt", "finetune", "-h"]):
-        main()
-    out = out.getvalue()
-    assert (
-        """Available subcommands:
-    lora                Finetune a model with LoRA.
-    full                Finetune a model."""
-        in out
-    )
-
+    assert """evaluate            Evaluate a model with the LM Evaluation Harness.""" in out
+    assert """serve               Serve and deploy a model with LitServe.""" in out
     out = StringIO()
     with pytest.raises(SystemExit), redirect_stdout(out), mock.patch("sys.argv", ["litgpt", "finetune", "lora", "-h"]):
         main()
@@ -61,3 +50,13 @@ def test_cli():
                         Optional[int], default: 3000000000000)"""
         in out
     )
+
+
+def test_rewrite_finetune_command():
+    out1 = StringIO()
+    with pytest.raises(SystemExit), redirect_stdout(out1), mock.patch("sys.argv", ["litgpt", "fineune", "-h"]):
+        main()
+    out2 = StringIO()
+    with pytest.raises(SystemExit), redirect_stdout(out2), mock.patch("sys.argv", ["litgpt", "fineune", "lora", "-h"]):
+        main()
+    assert out1.getvalue() == out2.getvalue()
