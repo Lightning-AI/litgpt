@@ -6,6 +6,7 @@ import subprocess
 import os
 
 REPO_ID = Path("EleutherAI/pythia-14m")
+CUSTOM_TEXTS_DIR = Path("custom_texts")
 
 
 def run_command(command):
@@ -19,6 +20,20 @@ def test_download_model():
     output = run_command(command)
     assert "Saving converted checkpoint to checkpoints/EleutherAI/pythia-14m" in output
     assert os.path.exists(f"checkpoints"/REPO_ID)
+
+
+@pytest.mark.dependency()
+def test_download_books():
+    CUSTOM_TEXTS_DIR.mkdir(parents=True, exist_ok=True)
+
+    books = [
+        ("https://www.gutenberg.org/cache/epub/24440/pg24440.txt", "book1.txt"),
+        ("https://www.gutenberg.org/cache/epub/26393/pg26393.txt", "book2.txt")
+    ]
+    for url, filename in books:
+        subprocess.run(["curl", url, "--output", str(CUSTOM_TEXTS_DIR / filename)], check=True)
+        # Verify each book is downloaded
+        assert (CUSTOM_TEXTS_DIR / filename).exists(), f"{filename} not downloaded"
 
 
 @pytest.mark.dependency(depends=["test_download_model"])
@@ -54,3 +69,21 @@ def test_finetune_model():
 
     assert (OUT_DIR/"final").exists(), "Finetuning output directory was not created"
     assert (OUT_DIR/"final"/"lit_model.pth").exists(), "Model file was not created"
+
+
+@pytest.mark.dependency(depends=["test_download_model", "test_download_books"])
+def test_pretrain_model():
+    OUT_DIR = Path("custom_pretrained")
+    pretrain_command = [
+        "litgpt", "pretrain",
+        "--model_name", "pythia-14m",
+        "--tokenizer_dir", str("checkpoints"/REPO_ID),
+        "--data", "TextFiles",
+        "--data.train_data_path", str(CUSTOM_TEXTS_DIR),
+        "--train.max_tokens", "100",
+        "--out_dir", str(OUT_DIR)
+    ]
+    run_command(pretrain_command)
+
+    assert (".." / OUT_DIR / "final").exists(), "Pretraining output directory was not created"
+    assert (".." / OUT_DIR / "final" / "lit_model.pth").exists(), "Model file was not created"
