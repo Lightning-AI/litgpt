@@ -73,7 +73,7 @@ def test_finetune_model():
 
 @pytest.mark.dependency(depends=["test_download_model", "test_download_books"])
 def test_pretrain_model():
-    OUT_DIR = Path("custom_pretrained")
+    OUT_DIR = Path("out") / "custom_pretrained"
     pretrain_command = [
         "litgpt", "pretrain",
         "--model_name", "pythia-14m",
