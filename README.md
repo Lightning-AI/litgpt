@@ -231,6 +231,7 @@ mkdir -p custom_texts
 curl https://www.gutenberg.org/cache/epub/24440/pg24440.txt --output custom_texts/book1.txt
 curl https://www.gutenberg.org/cache/epub/26393/pg26393.txt --output custom_texts/book2.txt
 
+```bash
 # 1) Download a pretrained model
 litgpt download --repo_id EleutherAI/pythia-160m
 
@@ -248,6 +249,8 @@ litgpt pretrain \
 litgpt chat \
   --checkpoint_dir out/custom-model/final
 ```
+
+&nbsp;
 
 ### Deploy an LLM
 
