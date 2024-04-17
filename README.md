@@ -155,6 +155,12 @@ For more information, refer to the [download](tutorials/download_model_weights.m
 ### Finetune an LLM
 [Finetune](tutorials/finetune.md) a model to specialize it on your own custom dataset:
 
+<a target="_blank" href="https://lightning.ai/lightning-ai/studios/litgpt-finetune">
+  <img src="https://pl-bolts-doc-images.s3.us-east-2.amazonaws.com/app-2/studio-badge.svg" alt="Open In Studio"/>
+</a>
+
+&nbsp; 
+
 ```bash
 # 1) Download a pretrained model
 litgpt download --repo_id microsoft/phi-2
@@ -173,6 +179,8 @@ litgpt finetune lora \
 litgpt chat \
   --checkpoint_dir out/phi-2-lora/final
 ```
+
+&nbsp;
 
 ### Pretrain an LLM   
 Train an LLM from scratch on your own data via pretraining:
@@ -200,6 +208,8 @@ litgpt pretrain \
 litgpt chat \
   --checkpoint_dir out/custom-model/final
 ```
+
+&nbsp;
 
 ### Continue pretraining an LLM       
 This is another way of finetuning that specialize an already pretrained model by training on custom data:    
