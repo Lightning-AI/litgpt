@@ -131,6 +131,12 @@ litgpt  serve     mistralai/Mistral-7B-Instruct-v0.2
 ###  Use an LLM
 Here's an example showing how to use the Mistral 7B LLM.
 
+<a target="_blank" href="https://lightning.ai/lightning-ai/studios/litgpt-chat">
+  <img src="https://pl-bolts-doc-images.s3.us-east-2.amazonaws.com/app-2/studio-badge.svg" alt="Open In Studio"/>
+</a>
+
+&nbsp;    
+
 ```bash
 # 1) Download a pretrained model
 litgpt download --repo_id mistralai/Mistral-7B-Instruct-v0.2
