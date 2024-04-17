@@ -41,6 +41,7 @@ def _new_parser(**kwargs: Any) -> "ArgumentParser":
 
 
 def _rewrite_argv_for_default_subcommand(parser_data: dict, command: str, subcommand: str) -> None:
+    """Rewrites the `sys.argv` such that `litgpt command` defaults to `litgpt command subcommand`."""
     if (
         len(sys.argv) > 2
         and sys.argv[1] == command
