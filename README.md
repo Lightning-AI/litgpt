@@ -220,13 +220,14 @@ litgpt chat \
 ### Continue pretraining an LLM       
 This is another way of finetuning that specialize an already pretrained model by training on custom data:    
 
+
 <a target="_blank" href="https://lightning.ai/lightning-ai/studios/litgpt-continue-pretraining">
 <img src="https://pl-bolts-doc-images.s3.us-east-2.amazonaws.com/app-2/studio-badge.svg"; alt="Open In Studio"/>
 </a>
 
 &nbsp; 
 
-```
+```bash
 mkdir -p custom_texts
 curl https://www.gutenberg.org/cache/epub/24440/pg24440.txt --output custom_texts/book1.txt
 curl https://www.gutenberg.org/cache/epub/26393/pg26393.txt --output custom_texts/book2.txt
@@ -247,6 +248,30 @@ litgpt pretrain \
 # 3) Chat with the model
 litgpt chat \
   --checkpoint_dir out/custom-model/final
+```
+
+&nbsp;
+
+### Deploy an LLM
+
+This example illustrates how to deploy an LLM using LitGPT
+
+```bash
+# 1) Download a pretrained model (alternatively, use your own finetuned model)
+litgpt download --repo_id microsoft/phi-2
+
+# 2) Start the server
+litgpt serve --checkpoint_dir checkpoints/microsoft/phi-2
+```
+
+```python
+# 3) Use the server (in a separate session)
+import requests, json
+ response = requests.post(
+     "http://127.0.0.1:8000/predict", 
+     json={"prompt": "Fix typos in the following sentence: Exampel input"}
+)
+print(response.json()["output"])
 ```
 
 &nbsp;

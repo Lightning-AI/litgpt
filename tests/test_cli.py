@@ -15,7 +15,7 @@ def test_cli():
         main()
     out = out.getvalue()
     assert "usage: litgpt" in out
-    assert "{download,chat,finetune,pretrain,generate,convert,merge_lora,evaluate}" in out
+    assert "{download,chat,finetune,pretrain,generate,convert,merge_lora,evaluate,serve}" in out
     assert (
         """Available subcommands:
     download            Download weights or tokenizer data from the Hugging
@@ -24,7 +24,7 @@ def test_cli():
         in out
     )
     assert ("""evaluate            Evaluate a model with the LM Evaluation Harness.""") in out
-
+    assert ("""serve               Serve and deploy a model with LitServe.""") in out
     out = StringIO()
     with pytest.raises(SystemExit), redirect_stdout(out), mock.patch("sys.argv", ["litgpt", "finetune", "-h"]):
         main()
