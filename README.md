@@ -225,6 +225,7 @@ litgpt download --repo_id EleutherAI/pythia-160m
 # 2) Continue pretraining the model
 litgpt pretrain \
   --model_name pythia-160m \
+  --tokenizer_dir checkpoints/EleutherAI/pythia-160m \
   --initial_checkpoint_dir checkpoints/EleutherAI/pythia-160m \
   --data TextFiles \
   --data.train_data_path "custom_texts/" \
