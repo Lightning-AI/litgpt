@@ -185,6 +185,12 @@ litgpt chat \
 ### Pretrain an LLM   
 Train an LLM from scratch on your own data via pretraining:
 
+<a target="_blank" href="https://lightning.ai/lightning-ai/studios/litgpt-pretrain">
+<img src="https://pl-bolts-doc-images.s3.us-east-2.amazonaws.com/app-2/studio-badge.svg"; alt="Open In Studio"/>
+</a>
+
+&nbsp; 
+
 ```bash
 mkdir -p custom_texts
 curl https://www.gutenberg.org/cache/epub/24440/pg24440.txt --output custom_texts/book1.txt
@@ -214,7 +220,13 @@ litgpt chat \
 ### Continue pretraining an LLM       
 This is another way of finetuning that specialize an already pretrained model by training on custom data:    
 
-```bash
+
+<a target="_blank" href="https://lightning.ai/lightning-ai/studios/litgpt-continue-pretraining">
+<img src="https://pl-bolts-doc-images.s3.us-east-2.amazonaws.com/app-2/studio-badge.svg"; alt="Open In Studio"/>
+</a>
+
+&nbsp; 
+
 mkdir -p custom_texts
 curl https://www.gutenberg.org/cache/epub/24440/pg24440.txt --output custom_texts/book1.txt
 curl https://www.gutenberg.org/cache/epub/26393/pg26393.txt --output custom_texts/book2.txt
@@ -225,6 +237,7 @@ litgpt download --repo_id EleutherAI/pythia-160m
 # 2) Continue pretraining the model
 litgpt pretrain \
   --model_name pythia-160m \
+  --tokenizer_dir checkpoints/EleutherAI/pythia-160m \
   --initial_checkpoint_dir checkpoints/EleutherAI/pythia-160m \
   --data TextFiles \
   --data.train_data_path "custom_texts/" \
