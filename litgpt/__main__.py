@@ -1,4 +1,5 @@
 # Copyright Lightning AI. Licensed under the Apache License 2.0, see LICENSE file.
+import sys
 
 from typing import TYPE_CHECKING, Any
 
@@ -37,6 +38,16 @@ def _new_parser(**kwargs: Any) -> "ArgumentParser":
         "-c", "--config", action=ActionConfigFile, help="Path to a configuration file in json or yaml format."
     )
     return parser
+
+
+def _rewrite_argv_for_default_subcommand(parser_data: dict, command: str, subcommand: str) -> None:
+    if (
+        len(sys.argv) > 2
+        and sys.argv[1] == command
+        and sys.argv[2] not in parser_data[command].keys()
+        and not any(h in sys.argv for h in ["-h", "--help"])
+    ):
+        sys.argv.insert(2, subcommand)
 
 
 def main() -> None:
@@ -86,6 +97,8 @@ def main() -> None:
 
     set_docstring_parse_options(attribute_docstrings=True)
     set_config_read_mode(urls_enabled=True)
+
+    _rewrite_argv_for_default_subcommand(parser_data, "finetune", "lora")
 
     root_parser = _new_parser(prog="litgpt")
 
