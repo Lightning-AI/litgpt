@@ -254,7 +254,13 @@ litgpt chat \
 
 ### Deploy an LLM
 
-This example illustrates how to deploy an LLM using LitGPT
+This example illustrates how to deploy an LLM using LitGPT.
+
+<a target="_blank" href="https://lightning.ai/lightning-ai/studios/litgpt-serve">
+  <img src="https://pl-bolts-doc-images.s3.us-east-2.amazonaws.com/app-2/studio-badge.svg" alt="Open In Studio"/>
+</a>
+
+&nbsp;
 
 ```bash
 # 1) Download a pretrained model (alternatively, use your own finetuned model)
