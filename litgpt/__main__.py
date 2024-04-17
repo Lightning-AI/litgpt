@@ -42,12 +42,7 @@ def _new_parser(**kwargs: Any) -> "ArgumentParser":
 
 def _rewrite_argv_for_default_subcommand(parser_data: dict, command: str, subcommand: str) -> None:
     """Rewrites the `sys.argv` such that `litgpt command` defaults to `litgpt command subcommand`."""
-    if (
-        len(sys.argv) > 2
-        and sys.argv[1] == command
-        and sys.argv[2] not in parser_data[command].keys()
-        and not any(h in sys.argv for h in ["-h", "--help"])
-    ):
+    if len(sys.argv) > 2 and sys.argv[1] == command and sys.argv[2] not in parser_data[command].keys():
         sys.argv.insert(2, subcommand)
 
 

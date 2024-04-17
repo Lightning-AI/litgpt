@@ -61,3 +61,13 @@ def test_cli():
                         Optional[int], default: 3000000000000)"""
         in out
     )
+
+
+def test_rewrite_finetune_command():
+    out1 = StringIO()
+    with pytest.raises(SystemExit), redirect_stdout(out1), mock.patch("sys.argv", ["litgpt", "fineune", "-h"]):
+        main()
+    out2 = StringIO()
+    with pytest.raises(SystemExit), redirect_stdout(out2), mock.patch("sys.argv", ["litgpt", "fineune", "lora", "-h"]):
+        main()
+    assert out1.getvalue() == out2.getvalue()
