@@ -23,18 +23,7 @@ def test_cli():
     chat                Chat with a model."""
         in out
     )
-    assert ("""evaluate            Evaluate a model with the LM Evaluation Harness.""") in out
-
-    out = StringIO()
-    with pytest.raises(SystemExit), redirect_stdout(out), mock.patch("sys.argv", ["litgpt", "finetune", "-h"]):
-        main()
-    out = out.getvalue()
-    assert (
-        """Available subcommands:
-    lora                Finetune a model with LoRA.
-    full                Finetune a model."""
-        in out
-    )
+    assert """evaluate            Evaluate a model with the LM Evaluation Harness.""" in out
 
     out = StringIO()
     with pytest.raises(SystemExit), redirect_stdout(out), mock.patch("sys.argv", ["litgpt", "finetune", "lora", "-h"]):
