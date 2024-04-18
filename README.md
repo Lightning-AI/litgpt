@@ -33,7 +33,7 @@ Uses the latest state-of-the-art techniques:
 
 &nbsp;
 <img src="https://pl-bolts-doc-images.s3.us-east-2.amazonaws.com/GithubLitGPTDAG2.png" alt="LitGPT steps" width="auto"/>
-
+&nbsp;
 
 # Finetune, pretrain and deploy LLMs Lightning fast ⚡⚡   
 LitGPT is a command-line tool designed to easily [finetune](#finetune-an-llm), [pretrain](#pretrain-an-llm), [evaluate](#use-an-llm), and deploy [20+ LLMs](#choose-from-20-llms) **on your own data**. It features highly-optimized [training recipes](#training-recipes) for the world's most powerful open-source large-language-models (LLMs).
@@ -46,6 +46,8 @@ We reimplemented all model architectures and training recipes from scratch for 4
 4. Highly-optimized [recipe configs](#training-recipes) we have tested at enterprise scale.               
 
 ---
+
+&nbsp;
 
 # Choose from 20+ LLMs
 LitGPT has 🤯 **custom, from-scratch implementations** of [20+ LLMs](tutorials/download_model_weights.md) without layers of abstraction:   
@@ -60,6 +62,7 @@ LitGPT has 🤯 **custom, from-scratch implementations** of [20+ LLMs](tutorials
 
 <details>
   <summary>See full list of 20+ LLMs</summary>
+
 &nbsp; 
 
 #### All models
@@ -90,6 +93,8 @@ LitGPT has 🤯 **custom, from-scratch implementations** of [20+ LLMs](tutorials
 
 </details>
 
+&nbsp;
+
 ## Install LitGPT
 
 Install LitGPT with all dependencies (including CLI, quantization, tokenizers for all models, etc.):
@@ -112,9 +117,9 @@ pip install -e '.[all]'
 ```
 </details>
 
-&nbsp;
-
 ---
+
+&nbsp;
 
 # Get started
 After installing LitGPT, select the model and action you want to take on that model (finetune, pretrain, evaluate, deploy, etc...):    
