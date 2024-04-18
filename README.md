@@ -1,7 +1,5 @@
 <div align="center">
-<img src="https://pl-public-data.s3.amazonaws.com/assets_lightning/LitStableLM_Badge.png" alt="LitGPT" width="128"/>
 
-&nbsp;
 
 # ⚡ LitGPT
 
@@ -18,12 +16,13 @@ Uses the latest state-of-the-art techniques:
 ![cpu-tests](https://github.com/lightning-AI/lit-stablelm/actions/workflows/cpu-tests.yml/badge.svg) [![license](https://img.shields.io/badge/License-Apache%202.0-blue.svg)](https://github.com/Lightning-AI/lit-stablelm/blob/master/LICENSE) [![Discord](https://img.shields.io/discord/1077906959069626439)](https://discord.gg/VptPCZkGNa)
 
 <p align="center">
-  <a href="https://lightning.ai/">Lightning.ai</a> •
+  <a href="https://lightning.ai/">Lightning AI</a> •
+  <a href="#choose-from-20-llms">Models</a> •
   <a href="#install-litgpt">Install</a> •
   <a href="#get-started">Get started</a> •
-  <a href="#use-an-llm">Use LLMs</a> •
-  <a href="#finetune-an-llm">Finetune, pretrain LLMs</a> •
-  <a href="#choose-from-20-llms">Models</a> •
+  <a href="#use-an-llm">Evaluate</a> •
+  <a href="#finetune-an-llm">Finetune</a> •
+  <a href="#finetune-an-llm">Pretrain</a> •
   <a href="#state-of-the-art-features">Features</a> •
   <a href="#training-recipes">Training recipes (YAML)</a>
 </p>
@@ -42,7 +41,51 @@ We reimplemented all model architectures and training recipes from scratch for 4
 3. Optimized each model architectural detail to maximize performance, reduce costs, and speed up training.    
 4. Highly-optimized [recipe configs](#training-recipes) we have tested at enterprise scale.               
 
-&nbsp;
+---
+
+# Choose from 20+ LLMs
+LitGPT has 🤯 **custom, from-scratch implementations** of [20+ LLMs](tutorials/download_model_weights.md) without layers of abstraction:   
+
+| Model | Model size | Author | Reference |
+|----|----|----|----|
+| Llama 2 | 7B, 13B, 70B | Meta AI | [Touvron et al. 2023](https://arxiv.org/abs/2307.09288)                                                                      |
+| Code Llama | 7B, 13B, 34B, 70B | Meta AI | [Rozière et al. 2023](https://arxiv.org/abs/2308.12950) |
+| Mistral | 7B | Mistral AI | [Mistral website](https://mistral.ai/)                                                                                       |
+| CodeGemma | 7B | Google | [Google Team, Google Deepmind](https://ai.google.dev/gemma/docs/codegemma) |
+| ... | ... | ... | ...   |
+
+<details>
+  <summary>See full list of 20+ LLMs</summary>
+&nbsp; 
+
+#### All models
+  
+| Model | Model size | Author | Reference |
+|----|----|----|----|
+| CodeGemma | 7B | Google | [Google Team, Google Deepmind](https://ai.google.dev/gemma/docs/codegemma) |
+| Code Llama | 7B, 13B, 34B, 70B | Meta AI | [Rozière et al. 2023](https://arxiv.org/abs/2308.12950) |
+| Danube2 | 1.8B | H2O.ai | [H2O.ai](https://h2o.ai/platform/danube-1-8b/) |
+| Dolly | 3B, 7B, 12B | Databricks | [Conover et al. 2023](https://www.databricks.com/blog/2023/04/12/dolly-first-open-commercially-viable-instruction-tuned-llm) |
+| Falcon | 7B, 40B, 180B | TII UAE | [TII 2023](https://falconllm.tii.ae)                                                                                         |
+| FreeWilly2 (Stable Beluga 2) | 70B | Stability AI | [Stability AI 2023](https://stability.ai/blog/stable-beluga-large-instruction-fine-tuned-models)                             |
+| Function Calling Llama 2 | 7B | Trelis | [Trelis et al. 2023](https://huggingface.co/Trelis/Llama-2-7b-chat-hf-function-calling-v2)                                   |
+| Gemma | 2B, 7B | Google | [Google Team, Google Deepmind](https://storage.googleapis.com/deepmind-media/gemma/gemma-report.pdf)                         |
+| Llama 2 | 7B, 13B, 70B | Meta AI | [Touvron et al. 2023](https://arxiv.org/abs/2307.09288)                                                                      |
+| LongChat | 7B, 13B | LMSYS | [LongChat Team 2023](https://lmsys.org/blog/2023-06-29-longchat/)                                                            |
+| Mistral | 7B | Mistral AI | [Mistral website](https://mistral.ai/)                                                                                       |
+| Nous-Hermes | 7B, 13B, 70B | NousResearch | [Org page](https://huggingface.co/NousResearch)                                                                              |
+| OpenLLaMA | 3B, 7B, 13B | OpenLM Research | [Geng & Liu 2023](https://github.com/openlm-research/open_llama)                                                             |
+| Phi | 1.3B, 2.7B | Microsoft Research  | [Li et al. 2023](https://arxiv.org/abs/2309.05463)                                                                           |
+| Platypus | 7B, 13B, 70B |  Lee et al. | [Lee, Hunter, and Ruiz 2023](https://arxiv.org/abs/2308.07317)                                                               |
+| Pythia | {14,31,70,160,410}M, {1,1.4,2.8,6.9,12}B | EleutherAI | [Biderman et al. 2023](https://arxiv.org/abs/2304.01373)                                                                     |
+| RedPajama-INCITE | 3B, 7B | Together | [Together 2023](https://together.ai/blog/redpajama-models-v1)                                                                |
+| StableCode | 3B | Stability AI | [Stability AI 2023](https://stability.ai/blog/stablecode-llm-generative-ai-coding)                                           |
+| StableLM  | 3B, 7B | Stability AI | [Stability AI 2023](https://github.com/Stability-AI/StableLM)                                                                |
+| StableLM Zephyr | 3B | Stability AI | [Stability AI 2023](https://stability.ai/blog/stablecode-llm-generative-ai-coding)                                           |
+| TinyLlama | 1.1B | Zhang et al. | [Zhang et al. 2023](https://github.com/jzhang38/TinyLlama)                                                                   |
+| Vicuna | 7B, 13B, 33B | LMSYS | [Li et al. 2023](https://lmsys.org/blog/2023-03-30-vicuna/)
+
+</details>
 
 ## Install LitGPT
 
@@ -87,6 +130,12 @@ litgpt  serve     mistralai/Mistral-7B-Instruct-v0.2
 ###  Use an LLM
 Here's an example showing how to use the Mistral 7B LLM.
 
+<a target="_blank" href="https://lightning.ai/lightning-ai/studios/litgpt-chat">
+  <img src="https://pl-bolts-doc-images.s3.us-east-2.amazonaws.com/app-2/studio-badge.svg" alt="Open In Studio"/>
+</a>
+
+&nbsp;    
+
 ```bash
 # 1) Download a pretrained model
 litgpt download --repo_id mistralai/Mistral-7B-Instruct-v0.2
@@ -105,14 +154,20 @@ For more information, refer to the [download](tutorials/download_model_weights.m
 ### Finetune an LLM
 [Finetune](tutorials/finetune.md) a model to specialize it on your own custom dataset:
 
+<a target="_blank" href="https://lightning.ai/lightning-ai/studios/litgpt-finetune">
+  <img src="https://pl-bolts-doc-images.s3.us-east-2.amazonaws.com/app-2/studio-badge.svg" alt="Open In Studio"/>
+</a>
+
+&nbsp; 
+
 ```bash
 # 1) Download a pretrained model
 litgpt download --repo_id microsoft/phi-2
 
 # 2) Finetune the model
-curl -L https://huggingface.co/datasets/medalpaca/medical_meadow_health_advice/raw/main/medical_meadow_health_advice.json -o my_custom_dataset.json
+curl -L https://huggingface.co/datasets/ksaw008/finance_alpaca/resolve/main/finance_alpaca.json -o my_custom_dataset.json
 
-litgpt finetune lora \
+litgpt finetune \
   --checkpoint_dir checkpoints/microsoft/phi-2 \
   --data JSON \
   --data.json_path my_custom_dataset.json \
@@ -124,8 +179,16 @@ litgpt chat \
   --checkpoint_dir out/phi-2-lora/final
 ```
 
+&nbsp;
+
 ### Pretrain an LLM   
 Train an LLM from scratch on your own data via pretraining:
+
+<a target="_blank" href="https://lightning.ai/lightning-ai/studios/litgpt-pretrain">
+<img src="https://pl-bolts-doc-images.s3.us-east-2.amazonaws.com/app-2/studio-badge.svg"; alt="Open In Studio"/>
+</a>
+
+&nbsp; 
 
 ```bash
 mkdir -p custom_texts
@@ -151,10 +214,19 @@ litgpt chat \
   --checkpoint_dir out/custom-model/final
 ```
 
+&nbsp;
+
 ### Continue pretraining an LLM       
 This is another way of finetuning that specialize an already pretrained model by training on custom data:    
 
-```
+
+<a target="_blank" href="https://lightning.ai/lightning-ai/studios/litgpt-continue-pretraining">
+<img src="https://pl-bolts-doc-images.s3.us-east-2.amazonaws.com/app-2/studio-badge.svg"; alt="Open In Studio"/>
+</a>
+
+&nbsp; 
+
+```bash
 mkdir -p custom_texts
 curl https://www.gutenberg.org/cache/epub/24440/pg24440.txt --output custom_texts/book1.txt
 curl https://www.gutenberg.org/cache/epub/26393/pg26393.txt --output custom_texts/book2.txt
@@ -165,6 +237,7 @@ litgpt download --repo_id EleutherAI/pythia-160m
 # 2) Continue pretraining the model
 litgpt pretrain \
   --model_name pythia-160m \
+  --tokenizer_dir checkpoints/EleutherAI/pythia-160m \
   --initial_checkpoint_dir checkpoints/EleutherAI/pythia-160m \
   --data TextFiles \
   --data.train_data_path "custom_texts/" \
@@ -178,45 +251,44 @@ litgpt chat \
 
 &nbsp;
 
+### Deploy an LLM
+
+This example illustrates how to deploy an LLM using LitGPT.
+
+<a target="_blank" href="https://lightning.ai/lightning-ai/studios/litgpt-serve">
+  <img src="https://pl-bolts-doc-images.s3.us-east-2.amazonaws.com/app-2/studio-badge.svg" alt="Open In Studio"/>
+</a>
+
+&nbsp;
+
+```bash
+# 1) Download a pretrained model (alternatively, use your own finetuned model)
+litgpt download --repo_id microsoft/phi-2
+
+# 2) Start the server
+litgpt serve --checkpoint_dir checkpoints/microsoft/phi-2
+```
+
+```python
+# 3) Use the server (in a separate session)
+import requests, json
+ response = requests.post(
+     "http://127.0.0.1:8000/predict", 
+     json={"prompt": "Fix typos in the following sentence: Exampel input"}
+)
+print(response.json()["output"])
+```
+
+&nbsp;
+
 > [!NOTE]
 > **[Read the full docs](tutorials/0_to_litgpt.md)**.
 
 &nbsp;
 
----
+----
 
-# Choose from 20+ LLMs
-
-Use, Finetune, pretrain, deploy over 20+ LLMs ([full list](tutorials/download_model_weights.md)).
-
-| Model | Model size | Author | Reference |
-|----|----|----|----|
-| Danube2 | 1.8B | H2O.ai | [H2O.ai](https://h2o.ai/platform/danube-1-8b/)
-| CodeGemma | 7B | Google | [Google Team, Google Deepmind](https://ai.google.dev/gemma/docs/codegemma) |
-| Code Llama | 7B, 13B, 34B, 70B | Meta AI | [Rozière et al. 2023](https://arxiv.org/abs/2308.12950) |
-| Dolly | 3B, 7B, 12B | Databricks | [Conover et al. 2023](https://www.databricks.com/blog/2023/04/12/dolly-first-open-commercially-viable-instruction-tuned-llm) |
-| Falcon | 7B, 40B, 180B | TII UAE | [TII 2023](https://falconllm.tii.ae)                                                                                         |
-| FreeWilly2 (Stable Beluga 2) | 70B | Stability AI | [Stability AI 2023](https://stability.ai/blog/stable-beluga-large-instruction-fine-tuned-models)                             |
-| Function Calling Llama 2 | 7B | Trelis | [Trelis et al. 2023](https://huggingface.co/Trelis/Llama-2-7b-chat-hf-function-calling-v2)                                   |
-| Gemma | 2B, 7B | Google | [Google Team, Google Deepmind](https://storage.googleapis.com/deepmind-media/gemma/gemma-report.pdf)                         |
-| Llama 2 | 7B, 13B, 70B | Meta AI | [Touvron et al. 2023](https://arxiv.org/abs/2307.09288)                                                                      |
-| LongChat | 7B, 13B | LMSYS | [LongChat Team 2023](https://lmsys.org/blog/2023-06-29-longchat/)                                                            |
-| Mistral | 7B | Mistral AI | [Mistral website](https://mistral.ai/)                                                                                       |
-| Nous-Hermes | 7B, 13B, 70B | NousResearch | [Org page](https://huggingface.co/NousResearch)                                                                              |
-| OpenLLaMA | 3B, 7B, 13B | OpenLM Research | [Geng & Liu 2023](https://github.com/openlm-research/open_llama)                                                             |
-| Phi | 1.3B, 2.7B | Microsoft Research  | [Li et al. 2023](https://arxiv.org/abs/2309.05463)                                                                           |
-| Platypus | 7B, 13B, 70B |  Lee et al. | [Lee, Hunter, and Ruiz 2023](https://arxiv.org/abs/2308.07317)                                                               |
-| Pythia | {14,31,70,160,410}M, {1,1.4,2.8,6.9,12}B | EleutherAI | [Biderman et al. 2023](https://arxiv.org/abs/2304.01373)                                                                     |
-| RedPajama-INCITE | 3B, 7B | Together | [Together 2023](https://together.ai/blog/redpajama-models-v1)                                                                |
-| StableCode | 3B | Stability AI | [Stability AI 2023](https://stability.ai/blog/stablecode-llm-generative-ai-coding)                                           |
-| StableLM  | 3B, 7B | Stability AI | [Stability AI 2023](https://github.com/Stability-AI/StableLM)                                                                |
-| StableLM Zephyr | 3B | Stability AI | [Stability AI 2023](https://stability.ai/blog/stablecode-llm-generative-ai-coding)                                           |
-| TinyLlama | 1.1B | Zhang et al. | [Zhang et al. 2023](https://github.com/jzhang38/TinyLlama)                                                                   |
-| Vicuna | 7B, 13B, 33B | LMSYS | [Li et al. 2023](https://lmsys.org/blog/2023-03-30-vicuna/)
-
-&nbsp;
-
-## State-of-the-art features
+# State-of-the-art features
 ✅ &nbsp;State-of-the-art optimizations: Flash Attention v2, multi-GPU support via fully-sharded data parallelism, [optional CPU offloading](tutorials/oom.md#do-sharding-across-multiple-gpus), and [TPU and XLA support](extensions/xla).
 
 ✅ &nbsp;[Pretrain](tutorials/pretrain.md), [finetune](tutorials/finetune.md), and [deploy](tutorials/inference.md)
@@ -248,7 +320,7 @@ Browse all training recipes [here](config_hub).
 ### Example
 
 ```bash
-litgpt finetune lora \
+litgpt finetune \
   --config https://raw.githubusercontent.com/Lightning-AI/litgpt/main/config_hub/finetune/llama-2-7b/lora.yaml
 ```
 
@@ -403,7 +475,7 @@ seed: 1337
 Override any parameter in the CLI:
 
 ```bash
-litgpt finetune lora \
+litgpt finetune \
   --config https://raw.githubusercontent.com/Lightning-AI/litgpt/main/config_hub/finetune/llama-2-7b/lora.yaml \
   --lora_r 4
 ```
