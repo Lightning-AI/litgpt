@@ -171,11 +171,11 @@ litgpt finetune \
   --data JSON \
   --data.json_path my_custom_dataset.json \
   --data.val_split_fraction 0.1 \
-  --out_dir out/phi-2-lora
+  --out_dir out/custom-model
 
 # 3) Chat with the model
 litgpt chat \
-  --checkpoint_dir out/phi-2-lora/final
+  --checkpoint_dir out/custom-model/final
 ```
 
 &nbsp;
