@@ -1,5 +1,4 @@
 <div align="center">
-<img src="https://pl-bolts-doc-images.s3.us-east-2.amazonaws.com/LitGPTRebrand.png" alt="LitGPT" width="128"/>
 
 
 # ⚡ LitGPT
