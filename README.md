@@ -32,6 +32,8 @@ Uses the latest state-of-the-art techniques:
 </div>
 
 &nbsp;
+<img src="https://pl-bolts-doc-images.s3.us-east-2.amazonaws.com/GithubLitGPTDAG2.png" alt="LitGPT steps" width="auto"/>
+
 
 # Finetune, pretrain and deploy LLMs Lightning fast ⚡⚡   
 LitGPT is a command-line tool designed to easily [finetune](#finetune-an-llm), [pretrain](#pretrain-an-llm), [evaluate](#use-an-llm), and deploy [20+ LLMs](#choose-from-20-llms) **on your own data**. It features highly-optimized [training recipes](#training-recipes) for the world's most powerful open-source large-language-models (LLMs).
