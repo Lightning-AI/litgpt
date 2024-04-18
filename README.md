@@ -32,13 +32,13 @@ Uses the latest state-of-the-art techniques:
 &nbsp;
 
 # Finetune, pretrain and deploy LLMs Lightning fast ⚡⚡   
-LitGPT is a command-line tool designed to easily [finetune](#finetune-an-llm), [pretrain](#pretrain-an-llm), [evaluate](#use-an-llm), and deploy [20+ LLMs](#choose-from-20-llms) **on your own data**. It features highly-optimized [training recipes](#training-recipes) for the world's most powerful open-source large-language-models (LLMs).
+LitGPT is a command-line tool designed to easily [finetune](#finetune-an-llm), [pretrain](#pretrain-an-llm), [evaluate](#use-an-llm), and deploy [20+ LLMs](#choose-from-20-llms) **on your own data**. It features highly-optimized [training recipes](#training-recipes) for the world's most powerful open-source large language models (LLMs).
 
 We reimplemented all model architectures and training recipes from scratch for 4 reasons:   
 
 1. Remove all abstraction layers and have single file implementations.   
 2. Guarantee Apache 2.0 compliance to enable enterprise use without limits.    
-3. Optimized each model architectural detail to maximize performance, reduce costs, and speed up training.    
+3. Optimized each model's architectural detail to maximize performance, reduce costs, and speed up training.    
 4. Highly-optimized [recipe configs](#training-recipes) we have tested at enterprise scale.               
 
 ---
@@ -216,7 +216,7 @@ litgpt chat \
 &nbsp;
 
 ### Continue pretraining an LLM       
-This is another way of finetuning that specialize an already pretrained model by training on custom data:    
+This is another way of finetuning that specializes an already pretrained model by training on custom data:    
 
 
 <a target="_blank" href="https://lightning.ai/lightning-ai/studios/litgpt-continue-pretraining">
