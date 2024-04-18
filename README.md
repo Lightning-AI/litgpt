@@ -164,7 +164,7 @@ For more information, refer to the [download](tutorials/download_model_weights.m
 litgpt download --repo_id microsoft/phi-2
 
 # 2) Finetune the model
-curl -L https://huggingface.co/datasets/medalpaca/medical_meadow_health_advice/raw/main/medical_meadow_health_advice.json -o my_custom_dataset.json
+curl -L https://huggingface.co/datasets/ksaw008/finance_alpaca/resolve/main/finance_alpaca.json -o my_custom_dataset.json
 
 litgpt finetune \
   --checkpoint_dir checkpoints/microsoft/phi-2 \
