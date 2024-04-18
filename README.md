@@ -1,7 +1,6 @@
 <div align="center">
-<img src="https://pl-public-data.s3.amazonaws.com/assets_lightning/LitStableLM_Badge.png" alt="LitGPT" width="128"/>
+<img src="https://pl-bolts-doc-images.s3.us-east-2.amazonaws.com/LitGPTRebrand.png" alt="LitGPT" width="128"/>
 
-&nbsp;
 
 # ⚡ LitGPT
 
