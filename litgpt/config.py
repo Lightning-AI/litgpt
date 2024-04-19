@@ -850,7 +850,6 @@ llama_3 = [
         padding_multiple=64,
         n_layer=32,
         n_head=32,
-        # n_embd=8192,
         n_query_groups=8,
         rotary_percentage=1.0,
         parallel_residual=False,
