@@ -60,30 +60,29 @@ LitGPT has 🤯 **custom, from-scratch implementations** of [20+ LLMs](tutorials
 
 #### All models
   
-| Model                        | Model size                               | Author | Reference                                                                                                                    |
-|------------------------------|------------------------------------------|----|------------------------------------------------------------------------------------------------------------------------------|
-| CodeGemma                    | 7B                                       | Google | [Google Team, Google Deepmind](https://ai.google.dev/gemma/docs/codegemma)                                                   |
-| Code Llama                   | 7B, 13B, 34B, 70B                        | Meta AI | [Rozière et al. 2023](https://arxiv.org/abs/2308.12950)                                                                      |
-| Dolly                        | 3B, 7B, 12B                              | Databricks | [Conover et al. 2023](https://www.databricks.com/blog/2023/04/12/dolly-first-open-commercially-viable-instruction-tuned-llm) |
-| Falcon                       | 7B, 40B, 180B                            | TII UAE | [TII 2023](https://falconllm.tii.ae)                                                                                         |
-| FreeWilly2 (Stable Beluga 2) | 70B                                      | Stability AI | [Stability AI 2023](https://stability.ai/blog/stable-beluga-large-instruction-fine-tuned-models)                             |
-| Function Calling Llama 2     | 7B                                       | Trelis | [Trelis et al. 2023](https://huggingface.co/Trelis/Llama-2-7b-chat-hf-function-calling-v2)                                   |
-| Gemma                        | 2B, 7B                                   | Google | [Google Team, Google Deepmind](https://storage.googleapis.com/deepmind-media/gemma/gemma-report.pdf)                         |
-| Llama 2                      | 7B, 13B, 70B                             | Meta AI | [Touvron et al. 2023](https://arxiv.org/abs/2307.09288)                                                                      |
-| Llama 3                      | 8B, 70B                                  | Meta AI | [Meta AI 2024](https://github.com/meta-llama/llama3)                                                                     |
-| LongChat                     | 7B, 13B                                  | LMSYS | [LongChat Team 2023](https://lmsys.org/blog/2023-06-29-longchat/)                                                            |
-| Mistral                      | 7B                                       | Mistral AI | [Mistral website](https://mistral.ai/)                                                                                       |
-| Nous-Hermes                  | 7B, 13B, 70B                             | NousResearch | [Org page](https://huggingface.co/NousResearch)                                                                              |
-| OpenLLaMA                    | 3B, 7B, 13B                              | OpenLM Research | [Geng & Liu 2023](https://github.com/openlm-research/open_llama)                                                             |
-| Phi                          | 1.3B, 2.7B                               | Microsoft Research  | [Li et al. 2023](https://arxiv.org/abs/2309.05463)                                                                           |
-| Platypus                     | 7B, 13B, 70B                             |  Lee et al. | [Lee, Hunter, and Ruiz 2023](https://arxiv.org/abs/2308.07317)                                                               |
-| Pythia                       | {14,31,70,160,410}M, {1,1.4,2.8,6.9,12}B | EleutherAI | [Biderman et al. 2023](https://arxiv.org/abs/2304.01373)                                                                     |
-| RedPajama-INCITE             | 3B, 7B                                   | Together | [Together 2023](https://together.ai/blog/redpajama-models-v1)                                                                |
-| StableCode                   | 3B                                       | Stability AI | [Stability AI 2023](https://stability.ai/blog/stablecode-llm-generative-ai-coding)                                           |
-| StableLM                     | 3B, 7B                                   | Stability AI | [Stability AI 2023](https://github.com/Stability-AI/StableLM)                                                                |
-| StableLM Zephyr              | 3B                                       | Stability AI | [Stability AI 2023](https://stability.ai/blog/stablecode-llm-generative-ai-coding)                                           |
-| TinyLlama                    | 1.1B                                     | Zhang et al. | [Zhang et al. 2023](https://github.com/jzhang38/TinyLlama)                                                                   |
-| Vicuna                       | 7B, 13B, 33B                             | LMSYS | [Li et al. 2023](https://lmsys.org/blog/2023-03-30-vicuna/)                                                                  
+| Model | Model size | Author | Reference |
+|----|----|----|----|
+| CodeGemma | 7B | Google | [Google Team, Google Deepmind](https://ai.google.dev/gemma/docs/codegemma) |
+| Code Llama | 7B, 13B, 34B, 70B | Meta AI | [Rozière et al. 2023](https://arxiv.org/abs/2308.12950) |
+| Dolly | 3B, 7B, 12B | Databricks | [Conover et al. 2023](https://www.databricks.com/blog/2023/04/12/dolly-first-open-commercially-viable-instruction-tuned-llm) |
+| Falcon | 7B, 40B, 180B | TII UAE | [TII 2023](https://falconllm.tii.ae)                                                                                         |
+| FreeWilly2 (Stable Beluga 2) | 70B | Stability AI | [Stability AI 2023](https://stability.ai/blog/stable-beluga-large-instruction-fine-tuned-models)                             |
+| Function Calling Llama 2 | 7B | Trelis | [Trelis et al. 2023](https://huggingface.co/Trelis/Llama-2-7b-chat-hf-function-calling-v2)                                   |
+| Gemma | 2B, 7B | Google | [Google Team, Google Deepmind](https://storage.googleapis.com/deepmind-media/gemma/gemma-report.pdf)                         |
+| Llama 2 | 7B, 13B, 70B | Meta AI | [Touvron et al. 2023](https://arxiv.org/abs/2307.09288)                                                                      |
+| LongChat | 7B, 13B | LMSYS | [LongChat Team 2023](https://lmsys.org/blog/2023-06-29-longchat/)                                                            |
+| Mistral | 7B | Mistral AI | [Mistral website](https://mistral.ai/)                                                                                       |
+| Nous-Hermes | 7B, 13B, 70B | NousResearch | [Org page](https://huggingface.co/NousResearch)                                                                              |
+| OpenLLaMA | 3B, 7B, 13B | OpenLM Research | [Geng & Liu 2023](https://github.com/openlm-research/open_llama)                                                             |
+| Phi | 1.3B, 2.7B | Microsoft Research  | [Li et al. 2023](https://arxiv.org/abs/2309.05463)                                                                           |
+| Platypus | 7B, 13B, 70B |  Lee et al. | [Lee, Hunter, and Ruiz 2023](https://arxiv.org/abs/2308.07317)                                                               |
+| Pythia | {14,31,70,160,410}M, {1,1.4,2.8,6.9,12}B | EleutherAI | [Biderman et al. 2023](https://arxiv.org/abs/2304.01373)                                                                     |
+| RedPajama-INCITE | 3B, 7B | Together | [Together 2023](https://together.ai/blog/redpajama-models-v1)                                                                |
+| StableCode | 3B | Stability AI | [Stability AI 2023](https://stability.ai/blog/stablecode-llm-generative-ai-coding)                                           |
+| StableLM  | 3B, 7B | Stability AI | [Stability AI 2023](https://github.com/Stability-AI/StableLM)                                                                |
+| StableLM Zephyr | 3B | Stability AI | [Stability AI 2023](https://stability.ai/blog/stablecode-llm-generative-ai-coding)                                           |
+| TinyLlama | 1.1B | Zhang et al. | [Zhang et al. 2023](https://github.com/jzhang38/TinyLlama)                                                                   |
+| Vicuna | 7B, 13B, 33B | LMSYS | [Li et al. 2023](https://lmsys.org/blog/2023-03-30-vicuna/)
 
 </details>
 
