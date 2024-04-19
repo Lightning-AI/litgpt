@@ -22,9 +22,9 @@ For more information, see the [Dealing with out-of-memory (OOM) errors](../../tu
 | llama-2-7b/qlora.yaml             | 7B   | Alpaca 2k | 4      | 0.814    | 13.68 GB    | 512            | 2                | bfloat16  | 45.68 min (A10G)   |
 | llama-2-7b/full.yaml              | 7B   | Alpaca 2k | 1      | 0.941    | 26.81 GB    | 512            | 4                | bfloat16  | 1.78 min (4xA100)  |
 |                                   |      |           |        |          |             |                |                  |           |                    |
-| llama-3-8b/lora.yaml              | 8B   | Alpaca 2k | 4      | -----    | --------    | 512            | 2                | bfloat16  | ----------------   |
-| llama-3-8b/qlora.yaml             | 8B   | Alpaca 2k | 4      | -----    | --------    | 512            | 2                | bfloat16  | ----------------   |
-| llama-3-8b/full.yaml              | 8B   | Alpaca 2k | 1      | -----    | --------    | 512            | 4                | bfloat16  | ----------------   |
+| llama-3-8b/lora.yaml              | 8B   | Alpaca 2k | 2      | 0.890    | 19.73 GB    | 512            | 1                | bfloat16  | 14.80 min (A10G)   |
+| llama-3-8b/qlora.yaml             | 8B   | Alpaca 2k | 2      | 0.941    | 17.41 GB    | 512            | 2                | bfloat16  | 22.34 min (A10G)   |
+| llama-3-8b/full.yaml              | 8B   | Alpaca 2k | 1      | 1.451    | 35.48 GB    | 512            | 4                | bfloat16  | 2.14 min (4xA100)  |
 |                                   |      |           |        |          |             |                |                  |           |                    |
 | mistral-7b/lora.yaml  (v0.1)      | 7B   | Alpaca 2k | 4      | 0.796    | 20.65 GB    | 512            | 2                | bfloat16  | 31.04 min (1xA10G) |
 | mistral-7b/qlora.yaml (v0.1)      | 7B   | Alpaca 2k | 4      | 0.803    | 14.29 GB    | 512            | 2                | bfloat16  | 44.69 min (1xA10G) |
