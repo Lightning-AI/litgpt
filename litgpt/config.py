@@ -836,6 +836,54 @@ for c in llama_2:
         copy["name"] = c["name"].format(kind)
         copy["hf_config"]["name"] = c["hf_config"]["name"].format(kind)
         configs.append(copy)
+        
+
+###############
+# Meta LLaMA 3
+###############
+llama_3 = [
+    # https://huggingface.co/meta-llama/Meta-Llama-3-8B/blob/main/config.json
+    dict(
+        name="Llama-3-8B{}",
+        hf_config=dict(org="meta-llama", name="Meta-Llama-3-8B{}"),
+        vocab_size=128256,
+        padding_multiple=64,
+        n_layer=32,
+        n_head=32,
+        n_query_groups=8,
+        rotary_percentage=1.0,
+        parallel_residual=False,
+        bias=False,
+        norm_class_name="RMSNorm",
+        mlp_class_name="LLaMAMLP",
+        intermediate_size=14336,
+        rope_base=500000,
+    ),
+    # https://huggingface.co/meta-llama/Meta-Llama-3-70B/blob/main/config.json
+    dict(
+        name="Llama-3-70B{}",
+        hf_config=dict(org="meta-llama", name="Meta-Llama-3-70B{}"),
+        vocab_size=128256,
+        padding_multiple=64,
+        n_layer=80,
+        n_head=64,
+        n_embd=8192,
+        n_query_groups=8,
+        rotary_percentage=1.0,
+        parallel_residual=False,
+        bias=False,
+        norm_class_name="RMSNorm",
+        mlp_class_name="LLaMAMLP",
+        intermediate_size=28672,
+        rope_base=500000,
+    ),
+]
+for c in llama_3:
+    for kind in ("", "-Instruct"):
+        copy = deepcopy(c)
+        copy["name"] = c["name"].format(kind)
+        copy["hf_config"]["name"] = c["hf_config"]["name"].format(kind)
+        configs.append(copy)
 
 
 ###############
