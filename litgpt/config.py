@@ -846,6 +846,7 @@ llama_3 = [
     dict(
         name="Llama-3-8B{}",
         hf_config=dict(org="meta-llama", name="Meta-Llama-3-8B{}"),
+        block_size=8192,
         vocab_size=128256,
         padding_multiple=64,
         n_layer=32,
@@ -863,6 +864,7 @@ llama_3 = [
     dict(
         name="Llama-3-70B{}",
         hf_config=dict(org="meta-llama", name="Meta-Llama-3-70B{}"),
+        block_size=8192,
         vocab_size=128256,
         padding_multiple=64,
         n_layer=80,
