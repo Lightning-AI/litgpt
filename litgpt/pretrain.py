@@ -65,6 +65,7 @@ def setup(
     tokenizer_dir: Optional[Path] = None,
     logger_name: Literal["wandb", "tensorboard", "csv"] = "tensorboard",
     seed: int = 42,
+    use_full_mha: bool = False,
 ):
     """Pretrain a model.
 
@@ -96,6 +97,12 @@ def setup(
         available_models = "\n".join(sorted(name_to_config))
         raise ValueError(f"Please specify --model_name <model_name>. Available values:\n{available_models}")
     config = Config.from_name(model_name) if model_config is None else model_config
+    
+    # if use_full_mha:
+    #     config.n_query_groups = config.n_head
+    # else:
+    #     config.n_query_groups = 4
+        
     devices = parse_devices(devices)
     out_dir = init_out_dir(out_dir)
     # in case the dataset requires the Tokenizer
@@ -154,8 +161,14 @@ def main(
     fabric.seed_everything(seed)  # same seed for every process to init model (FSDP)
 
     t0 = time.perf_counter()
+    
+    # from litgpt.model2 import GPT
+    
     with fabric.init_module(empty_init=True):
         model = GPT(config)
+
+    # with torch.device(fabric.device):
+    #     model.setup_caches(max_batch_size=train.micro_batch_size, max_seq_length=train.max_seq_length)
 
     initialize_weights(fabric, model, n_layer=config.n_layer, n_embd=config.n_embd)
 
@@ -226,14 +239,16 @@ def fit(
     validate(fabric, model, val_dataloader, max_iters=2)  # sanity check
     throughput = ThroughputMonitor(fabric, window_size=5)
 
-    with torch.device("meta"):
-        meta_model = GPT(model.config)
-        x = torch.randint(0, 1, (train.micro_batch_size, meta_model.max_seq_length))
-        model_fwd = lambda: meta_model(x)
-        model_loss = lambda y: chunked_cross_entropy(y, x, chunk_size=0)
-        measured_flops = measure_flops(meta_model, model_fwd, model_loss)
-        fabric.print(f"Measured TFLOPs: {measured_flops * fabric.world_size / 1e12:.2f}")
-        del meta_model, x
+    # with torch.device("meta"):
+    #     meta_model = GPT(model.config)
+    #     x = torch.randint(0, 1, (train.micro_batch_size, meta_model.max_seq_length))
+    #     model_fwd = lambda: meta_model(x)
+    #     model_loss = lambda y: chunked_cross_entropy(y, x, chunk_size=0)
+    #     measured_flops = measure_flops(meta_model, model_fwd, model_loss)
+    #     fabric.print(f"Measured TFLOPs: {measured_flops * fabric.world_size / 1e12:.2f}")
+    #     del meta_model, x
+        
+    measured_flops = 100
 
     max_tokens_per_device = train.max_tokens // fabric.world_size
     tokens_per_iter = train.micro_batch_size * model.max_seq_length

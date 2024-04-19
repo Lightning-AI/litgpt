@@ -1,0 +1,55 @@
+
+model_name:
+
+model_config:
+  name: stories15M
+  hf_config: {}
+  scale_embeddings: false
+  block_size: 256
+  padded_vocab_size: 32000
+  n_layer: 6
+  n_head: 6
+  n_query_groups: 6
+  n_embd: 288
+  head_size: 48
+  rotary_percentage: 1.0
+  parallel_residual: false
+  bias: false
+  norm_class_name: RMSNorm
+  mlp_class_name: LLaMAMLP
+  intermediate_size: 768
+
+out_dir: out/pretrain/stories15M
+
+data: 
+  class_path: litgpt.data.TinyStories
+  init_args:
+    data_path: ./data/TinyStories
+
+train:
+  save_interval: 1000
+  log_interval: 1
+  global_batch_size: 512
+  micro_batch_size: 128
+  lr_warmup_steps: 1000
+  epochs:
+  max_tokens: 200000000
+  max_steps:
+  max_seq_length: 256
+  tie_embeddings: true
+  learning_rate: 0.0005
+  weight_decay: 0.1
+  beta1: 0.9
+  beta2: 0.95
+  max_norm: 1.0
+  min_lr: 0.0
+
+eval:
+  interval: 2000
+  max_new_tokens:
+  max_iters: 100
+
+devices: 1
+# tokenizer_dir: checkpoints/meta-llama/Llama-2-7b-hf
+logger_name: wandb
+seed: 42
