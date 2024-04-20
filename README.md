@@ -119,11 +119,11 @@ After installing LitGPT, select the model and action you want to take on that mo
 
 ```bash
 # ligpt [action] [model]
-litgpt  download  mistralai/Mistral-7B-Instruct-v0.2
-litgpt  chat      mistralai/Mistral-7B-Instruct-v0.2
-litgpt  finetune  mistralai/Mistral-7B-Instruct-v0.2    
-litgpt  pretrain  mistralai/Mistral-7B-Instruct-v0.2    
-litgpt  serve     mistralai/Mistral-7B-Instruct-v0.2    
+litgpt  download  meta-llama/Meta-Llama-3-8B-Instruct
+litgpt  chat      meta-llama/Meta-Llama-3-8B-Instruct
+litgpt  finetune  meta-llama/Meta-Llama-3-8B-Instruct    
+litgpt  pretrain  meta-llama/Meta-Llama-3-8B-Instruct    
+litgpt  serve     meta-llama/Meta-Llama-3-8B-Instruct    
 ```
 
 &nbsp;
