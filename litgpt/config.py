@@ -867,7 +867,6 @@ llama_3 = [
         block_size=8192,
         vocab_size=128000,
         padded_vocab_size=128256,
-        padding_multiple=64,
         n_layer=80,
         n_head=64,
         n_embd=8192,
