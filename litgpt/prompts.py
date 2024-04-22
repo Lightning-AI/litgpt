@@ -200,6 +200,24 @@ class Llama2(PromptStyle):
         )
 
 
+class Llama3(PromptStyle):
+    def apply(self, prompt: str, **kwargs: str) -> str:
+        # https://github.com/meta-llama/llama3/blob/359887376f0aaf30e433f23e25df858d8c2a9833/llama/tokenizer.py#L202-L229
+        return (
+            "<|begin_of_text|><|start_header_id|>system<|end_header_id|>\n\n"
+            "You are a helpful assistant.<|eot_id|>\n"  # The system prompt is optional
+            "<|start_header_id|>user<|end_header_id|>\n\n"
+            f"{prompt}<|eot_id|>\n"
+            "<|start_header_id|>assistant<|end_header_id|>\n\n"
+        )
+
+    def stop_tokens(self, tokenizer: "Tokenizer") -> Tuple[List[int], ...]:
+        return (
+            [tokenizer.eos_id],
+            [tokenizer.token_to_id("<|eot_id|>")],
+        )
+
+
 class FreeWilly2(PromptStyle):
     def apply(self, prompt: str, **kwargs: str) -> str:
         return (
@@ -251,7 +269,7 @@ class Phi1(PromptStyle):
 
 class Phi2(PromptStyle):
     def apply(self, prompt: str, **kwargs: str) -> str:
-        return f"Instruct:{prompt}\nOutput:"
+        return f"Instruct: {prompt}\nOutput:"
 
 
 class TinyLlama(PromptStyle):
@@ -316,6 +334,8 @@ def model_name_to_prompt_style(model_name: str) -> PromptStyle:
         return Llama2FunctionCalling()
     if re.search("Llama-2.*-chat", model_name):
         return Llama2()
+    if re.search("Llama-3.*-Instruct", model_name):
+        return Llama3()
     if re.search("FreeWilly2", model_name):
         return FreeWilly2()
     if re.search("Platypus", model_name):
@@ -330,7 +350,7 @@ def model_name_to_prompt_style(model_name: str) -> PromptStyle:
         return Phi2()
     if re.search(r"tiny-llama.*chat", model_name):
         return TinyLlama()
-    if re.search(r"Gemma.*-it", model_name):
+    if re.search(r"(Code)?Gemma.*-it", model_name):
         return Gemma()
     return Default()
 
@@ -340,12 +360,12 @@ def save_prompt_style(style: Union[str, PromptStyle], checkpoint_dir: Path) -> N
     cls = type(style)
     # Allow saving the full module path for user-defined prompt classes
     config = {"class_path": f"{cls.__module__}.{cls.__name__}"}
-    with open(checkpoint_dir / "prompt_style.yaml", "w") as file:
+    with open(checkpoint_dir / "prompt_style.yaml", "w", encoding="utf-8") as file:
         yaml.dump(config, file)
 
 
 def load_prompt_style(checkpoint_dir: Path) -> PromptStyle:
-    with open(checkpoint_dir / "prompt_style.yaml", "r") as file:
+    with open(checkpoint_dir / "prompt_style.yaml", "r", encoding="utf-8") as file:
         config = yaml.safe_load(file)
     # Support loading the full module path for user-defined prompt classes
     full_module_path, cls_name = config["class_path"].rsplit(".", 1)

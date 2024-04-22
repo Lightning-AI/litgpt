@@ -125,7 +125,7 @@ litgpt pretrain --help
 
 **More information and additional resources**
 
-- [tutorials/pretraimd](./pretrain.md): General information about pretraining in LitGPT
+- [tutorials/pretrain](./pretrain.md): General information about pretraining in LitGPT
 - [tutorials/pretrain_tinyllama](./pretrain_tinyllama.md): A tutorial for finetuning a 1.1B TinyLlama model on 3 trillion tokens
 - [config_hub/pretrain](../config_hub/pretrain): Pre-made config files for pretraining that work well out of the box
 - Project templates in reproducible environments with multi-GPU and multi-node support:
@@ -462,6 +462,44 @@ litgpt evaluate \
 ```
 
 (A list of supported tasks can be found [here](https://github.com/EleutherAI/lm-evaluation-harness/blob/master/docs/task_table.md).)
+
+
+&nbsp;
+## Deploy LLMs
+
+You can deploy LitGPT LLMs using your tool of choice. Below is an example using LitGPT built-in serving capabilities:
+
+
+```bash
+# 1) Download a pretrained model (alternatively, use your own finetuned model)
+litgpt download --repo_id microsoft/phi-2
+
+# 2) Start the server
+litgpt serve --checkpoint_dir checkpoints/microsoft/phi-2
+```
+
+```python
+# 3) Use the server (in a separate session)
+import requests, json
+ response = requests.post(
+     "http://127.0.0.1:8000/predict", 
+     json={"prompt": "Fix typos in the following sentence: Exampel input"}
+)
+print(response.json()["output"])
+```
+
+This prints:
+
+```
+Instruct: Fix typos in the following sentence: Exampel input
+Output: Example input.
+```
+
+
+&nbsp;
+**More information and additional resources**
+
+- [tutorials/deploy](deploy.md): A full deployment tutorial and example
 
 
 &nbsp;

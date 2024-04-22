@@ -836,6 +836,56 @@ for c in llama_2:
         copy["name"] = c["name"].format(kind)
         copy["hf_config"]["name"] = c["hf_config"]["name"].format(kind)
         configs.append(copy)
+        
+
+###############
+# Meta LLaMA 3
+###############
+llama_3 = [
+    # https://huggingface.co/meta-llama/Meta-Llama-3-8B/blob/main/config.json
+    dict(
+        name="Llama-3-8B{}",
+        hf_config=dict(org="meta-llama", name="Meta-Llama-3-8B{}"),
+        block_size=8192,
+        vocab_size=128256,
+        padding_multiple=64,
+        n_layer=32,
+        n_head=32,
+        n_query_groups=8,
+        rotary_percentage=1.0,
+        parallel_residual=False,
+        bias=False,
+        norm_class_name="RMSNorm",
+        mlp_class_name="LLaMAMLP",
+        intermediate_size=14336,
+        rope_base=500000,
+    ),
+    # https://huggingface.co/meta-llama/Meta-Llama-3-70B/blob/main/config.json
+    dict(
+        name="Llama-3-70B{}",
+        hf_config=dict(org="meta-llama", name="Meta-Llama-3-70B{}"),
+        block_size=8192,
+        vocab_size=128256,
+        padding_multiple=64,
+        n_layer=80,
+        n_head=64,
+        n_embd=8192,
+        n_query_groups=8,
+        rotary_percentage=1.0,
+        parallel_residual=False,
+        bias=False,
+        norm_class_name="RMSNorm",
+        mlp_class_name="LLaMAMLP",
+        intermediate_size=28672,
+        rope_base=500000,
+    ),
+]
+for c in llama_3:
+    for kind in ("", "-Instruct"):
+        copy = deepcopy(c)
+        copy["name"] = c["name"].format(kind)
+        copy["hf_config"]["name"] = c["hf_config"]["name"].format(kind)
+        configs.append(copy)
 
 
 ###############
@@ -887,6 +937,32 @@ for c in gemma:
     copy["name"] = f"{c['name']}-it"
     copy["hf_config"]["name"] = f"{c['hf_config']['name']}-it"
     configs.append(copy)
+
+##################
+# Google CodeGemma
+##################
+codegemma = [
+    # https://huggingface.co/google/codegemma-7b-it/blob/main/config.json
+    dict(
+        name="CodeGemma-7b-it",
+        hf_config=dict(org="google", name="codegemma-7b-it"),
+        scale_embeddings=True,
+        vocab_size=256000,
+        padding_multiple=64,
+        n_embd=3072,
+        n_layer=28,
+        n_head=16,
+        head_size=256,
+        rotary_percentage=1.0,
+        parallel_residual=False,
+        bias=False,
+        norm_class_name="RMSNorm",
+        mlp_class_name="GemmaMLP",
+        gelu_approximate="tanh",
+        intermediate_size=24576,
+    ),
+]
+configs.extend(codegemma)
 
 
 ##########################

@@ -160,18 +160,10 @@ class LoRALinear(LoRALayer):
                     weight_data, requires_grad=False, **weight.__dict__
                 )
                 self.linear.weight.cuda(weight.device)
-            # if the pretrained weights and LoRA weights are of compatible dtypes - simply sum them
-            elif torch.finfo(pretrained_dtype).max >= torch.finfo(lora_data.dtype).max:
-                # self.linear might be on CPU and lora_data on CUDA
-                self.linear.weight.data += lora_data.to(
-                    device=self.linear.weight.data.device
-                )
             else:
-                raise NotImplementedError(
-                    f"Cannot merge the pretrained weights of type {pretrained_dtype}"
-                    f" and LoRA weights of type {lora_data.dtype}"
-                )
-
+                # self.linear might be on CPU and lora_data on CUDA
+                # the inplace add will preserve the dtype of linear.weight
+                self.linear.weight.data += lora_data.to(device=self.linear.weight.data.device)
             self.merged = True
 
     def forward(self, x: torch.Tensor) -> torch.Tensor:
