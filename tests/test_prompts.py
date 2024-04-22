@@ -50,6 +50,8 @@ def test_prompt_style_from_config():
         "Llama-2-7b-chat-hf",
         "Llama-2-13b-chat-hf",
         "Llama-2-70b-chat-hf",
+        "Llama-3-8B-Instruct",
+        "Llama-3-70B-Instruct",
         "Gemma-2b-it",
         "Gemma-7b-it",
         "FreeWilly2",

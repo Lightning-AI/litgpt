@@ -200,6 +200,24 @@ class Llama2(PromptStyle):
         )
 
 
+class Llama3(PromptStyle):
+    def apply(self, prompt: str, **kwargs: str) -> str:
+        # https://github.com/meta-llama/llama3/blob/359887376f0aaf30e433f23e25df858d8c2a9833/llama/tokenizer.py#L202-L229
+        return (
+            "<|begin_of_text|><|start_header_id|>system<|end_header_id|>\n\n"
+            "You are a helpful assistant.<|eot_id|>\n"  # The system prompt is optional
+            "<|start_header_id|>user<|end_header_id|>\n\n"
+            f"{prompt}<|eot_id|>\n"
+            "<|start_header_id|>assistant<|end_header_id|>\n\n"
+        )
+
+    def stop_tokens(self, tokenizer: "Tokenizer") -> Tuple[List[int], ...]:
+        return (
+            [tokenizer.eos_id],
+            [tokenizer.token_to_id("<|eot_id|>")],
+        )
+
+
 class FreeWilly2(PromptStyle):
     def apply(self, prompt: str, **kwargs: str) -> str:
         return (
@@ -322,6 +340,8 @@ def model_name_to_prompt_style(model_name: str) -> PromptStyle:
         return Llama2FunctionCalling()
     if re.search("Llama-2.*-chat", model_name):
         return Llama2()
+    if re.search("Llama-3.*-Instruct", model_name):
+        return Llama3()
     if re.search("FreeWilly2", model_name):
         return FreeWilly2()
     if re.search("Platypus", model_name):

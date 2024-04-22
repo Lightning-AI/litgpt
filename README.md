@@ -18,11 +18,11 @@ Uses the latest state-of-the-art techniques:
 <p align="center">
   <a href="https://lightning.ai/">Lightning AI</a> •
   <a href="#choose-from-20-llms">Models</a> •
-  <a href="#install-litgpt">Install</a> •
-  <a href="#get-started">Get started</a> •
-  <a href="#use-an-llm">Evaluate</a> •
+  <a href="#quick-start">Quick start</a> •
+  <a href="#use-an-llm-for-inference">Inference</a> •
   <a href="#finetune-an-llm">Finetune</a> •
   <a href="#finetune-an-llm">Pretrain</a> •
+    <a href="#deploy-an-llm">Deploy</a> •
   <a href="#state-of-the-art-features">Features</a> •
   <a href="#training-recipes">Training recipes (YAML)</a>
 </p>
@@ -32,13 +32,13 @@ Uses the latest state-of-the-art techniques:
 &nbsp;
 
 # Finetune, pretrain and deploy LLMs Lightning fast ⚡⚡   
-LitGPT is a command-line tool designed to easily [finetune](#finetune-an-llm), [pretrain](#pretrain-an-llm), [evaluate](#use-an-llm), and deploy [20+ LLMs](#choose-from-20-llms) **on your own data**. It features highly-optimized [training recipes](#training-recipes) for the world's most powerful open-source large-language-models (LLMs).
+LitGPT is a command-line tool designed to easily [finetune](#finetune-an-llm), [pretrain](#pretrain-an-llm), [evaluate](#use-an-llm), and [deploy](#deploy-an-llm) [20+ LLMs](#choose-from-20-llms) **on your own data**. It features highly-optimized [training recipes](#training-recipes) for the world's most powerful open-source large language models (LLMs).
 
 We reimplemented all model architectures and training recipes from scratch for 4 reasons:   
 
 1. Remove all abstraction layers and have single file implementations.   
 2. Guarantee Apache 2.0 compliance to enable enterprise use without limits.    
-3. Optimized each model architectural detail to maximize performance, reduce costs, and speed up training.    
+3. Optimized each model's architectural detail to maximize performance, reduce costs, and speed up training.    
 4. Highly-optimized [recipe configs](#training-recipes) we have tested at enterprise scale.               
 
 ---
@@ -48,6 +48,7 @@ LitGPT has 🤯 **custom, from-scratch implementations** of [20+ LLMs](tutorials
 
 | Model | Model size | Author | Reference |
 |----|----|----|----|
+| Llama 3 | 8B, 70B | Meta AI | [Meta AI 2024](https://github.com/meta-llama/llama3)                                                                     |
 | Llama 2 | 7B, 13B, 70B | Meta AI | [Touvron et al. 2023](https://arxiv.org/abs/2307.09288)                                                                      |
 | Code Llama | 7B, 13B, 34B, 70B | Meta AI | [Rozière et al. 2023](https://arxiv.org/abs/2308.12950) |
 | Mistral | 7B | Mistral AI | [Mistral website](https://mistral.ai/)                                                                                       |
@@ -71,6 +72,7 @@ LitGPT has 🤯 **custom, from-scratch implementations** of [20+ LLMs](tutorials
 | Function Calling Llama 2 | 7B | Trelis | [Trelis et al. 2023](https://huggingface.co/Trelis/Llama-2-7b-chat-hf-function-calling-v2)                                   |
 | Gemma | 2B, 7B | Google | [Google Team, Google Deepmind](https://storage.googleapis.com/deepmind-media/gemma/gemma-report.pdf)                         |
 | Llama 2 | 7B, 13B, 70B | Meta AI | [Touvron et al. 2023](https://arxiv.org/abs/2307.09288)                                                                      |
+| Llama 3 | 8B, 70B | Meta AI | [Meta AI 2024](https://github.com/meta-llama/llama3)                                                                     |
 | LongChat | 7B, 13B | LMSYS | [LongChat Team 2023](https://lmsys.org/blog/2023-06-29-longchat/)                                                            |
 | Mistral | 7B | Mistral AI | [Mistral website](https://mistral.ai/)                                                                                       |
 | Nous-Hermes | 7B, 13B, 70B | NousResearch | [Org page](https://huggingface.co/NousResearch)                                                                              |
@@ -113,21 +115,22 @@ pip install -e '.[all]'
 
 ---
 
-# Get started
+# Quick start
 After installing LitGPT, select the model and action you want to take on that model (finetune, pretrain, evaluate, deploy, etc...):    
 
 ```bash
 # ligpt [action] [model]
-litgpt  download  mistralai/Mistral-7B-Instruct-v0.2
-litgpt  chat      mistralai/Mistral-7B-Instruct-v0.2
-litgpt  finetune  mistralai/Mistral-7B-Instruct-v0.2    
-litgpt  pretrain  mistralai/Mistral-7B-Instruct-v0.2    
-litgpt  serve     mistralai/Mistral-7B-Instruct-v0.2    
+litgpt  download  meta-llama/Meta-Llama-3-8B-Instruct
+litgpt  chat      meta-llama/Meta-Llama-3-8B-Instruct
+litgpt  finetune  meta-llama/Meta-Llama-3-8B-Instruct    
+litgpt  pretrain  meta-llama/Meta-Llama-3-8B-Instruct    
+litgpt  serve     meta-llama/Meta-Llama-3-8B-Instruct    
 ```
 
 &nbsp;
 
-###  Use an LLM
+###  Use an LLM for inference
+Use LLMs for inference to test its chatting capabilities, run evaluations, or extract embeddings, etc...     
 Here's an example showing how to use the Mistral 7B LLM.
 
 <a target="_blank" href="https://lightning.ai/lightning-ai/studios/litgpt-chat">
@@ -217,7 +220,7 @@ litgpt chat \
 &nbsp;
 
 ### Continue pretraining an LLM       
-This is another way of finetuning that specialize an already pretrained model by training on custom data:    
+This is another way of finetuning that specializes an already pretrained model by training on custom data:    
 
 
 <a target="_blank" href="https://lightning.ai/lightning-ai/studios/litgpt-continue-pretraining">
@@ -252,8 +255,7 @@ litgpt chat \
 &nbsp;
 
 ### Deploy an LLM
-
-This example illustrates how to deploy an LLM using LitGPT.
+Once you're ready to deploy a finetuned LLM, run this command:   
 
 <a target="_blank" href="https://lightning.ai/lightning-ai/studios/litgpt-serve">
   <img src="https://pl-bolts-doc-images.s3.us-east-2.amazonaws.com/app-2/studio-badge.svg" alt="Open In Studio"/>
@@ -262,13 +264,15 @@ This example illustrates how to deploy an LLM using LitGPT.
 &nbsp;
 
 ```bash
-# 1) Download a pretrained model (alternatively, use your own finetuned model)
-litgpt download --repo_id microsoft/phi-2
+# locate the checkpoint to your finetuned or pretrained model and call the `serve` command:  
+litgpt serve --checkpoint_dir path/to/your/checkpoint/microsoft/phi-2
 
-# 2) Start the server
+# Alternative: if you haven't finetuned, download any checkpoint to deploy it:     
+litgpt download --repo_id microsoft/phi-2
 litgpt serve --checkpoint_dir checkpoints/microsoft/phi-2
 ```
 
+Test the server in a separate terminal and integrate the model API into your AI product:    
 ```python
 # 3) Use the server (in a separate session)
 import requests, json
