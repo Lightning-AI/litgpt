@@ -40,7 +40,7 @@ class SimpleLitAPI(LitAPI):
 
         fabric = L.Fabric(
             accelerator=device.type,
-            devices=1 if device.type=="cpu" else [device.index], # TODO: Update once LitServe supports "auto"
+            devices=[device.index],
             precision=precision,
         )
         checkpoint_path = self.checkpoint_dir / "lit_model.pth"
