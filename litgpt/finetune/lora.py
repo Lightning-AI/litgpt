@@ -476,10 +476,13 @@ def save_lora_checkpoint(fabric: L.Fabric, model: GPT, file_path: Path) -> None:
         file_path,
         {"model": model},
         filter={
-            "model": lora_filter
-            or partial(
-                longlora_filter,
-                additional_weights=config.longlora_trainable_params.strip().split(","),
+            "model": (
+                lora_filter
+                if model.config.longlora_context_length is None
+                else partial(
+                    longlora_filter,
+                    additional_weights=model.config.longlora_trainable_params.strip().split(","),
+                )
             )
         },
     )
