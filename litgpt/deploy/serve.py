@@ -114,7 +114,7 @@ def run_server(
             generated text but can also lead to more incoherent texts.
         max_new_tokens: The number of generation steps to take.
         devices: How many devices/GPUs to use.
-        accelerator: The type of accelerator to use. For example, "auto", "cuda", "cpu", or "mps".capitalize
+        accelerator: The type of accelerator to use. For example, "auto", "cuda", "cpu", or "mps".
             The "auto" setting (default) chooses a GPU if available, and otherwise uses a CPU.
         port: The network port number on which the model is configured to be served.
     """
