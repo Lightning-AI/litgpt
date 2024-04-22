@@ -12,7 +12,7 @@ dependencies = [
     "torch>=2.2.0",
     "lightning==2.3.0.dev20240328",
     "jsonargparse[signatures]>=4.27.6",
-    "litserve==0.0.0.dev2",   # imported by litgpt.deploy
+    "litserve @ git+https://github.com/Lightning-AI/litserve.git@aefcb13721b97b9da4ed9f7166b2f870bedfd92f", # imported by litgpt.deploy
 ]
 
 [project.urls]
