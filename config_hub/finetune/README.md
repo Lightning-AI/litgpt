@@ -5,44 +5,35 @@ For more information, see the [Dealing with out-of-memory (OOM) errors](../../tu
 
 &nbsp;
 
-|                                   | Size | Dataset   | Epochs | Val loss | Peak memory | Max seq length | Micro batch size | Precision | Training runtime   |
-| --------------------------------- | ---- | --------- | ------ | -------- | ----------- | -------------- | ---------------- | --------- | -------------------|
-|                                   |      |           |        |          |             |                |                  |           |                    |
-| falcon-7b/lora.yaml               | 7B   | Alpaca 2k | 4      | 0.945    | 16.69 GB    | 512            | 2                | bfloat16  | 24.88 min (1xA10G) |
-| falcon-7b/qlora.yaml              | 7B   | Alpaca 2k | 4      | 0.993    | 9.44 GB     | 512            | 2                | bfloat16  | 50.76 min (1xA10G) |
-|                                   |      |           |        |          |             |                |                  |           |                    |
-| gemma-2b/lora.yaml                | 2B   | Alpaca 2k | 2      | 1.476    | 12.62 GB    | 512            | 2                | bfloat16  |  9.29 min (1xA10G) |
-| gemma-2b/qlora.yaml               | 2B   | Alpaca 2k | 2      | 0.981    | 11.59 GB    | 512            | 2                | bfloat16  | 12.90 min (1xA10G) |
-| gemma-2b/full.yaml                | 2B   | Alpaca 2k | 0.35   | 0.990    | 17.43 GB    | 512            | 1                | bfloat16  | 13.61 min (4xA10G) |
-|                                   |      |           |        |          |             |                |                  |           |                    |
-| gemma-7b/lora.yaml                | 7B   | Alpaca 2k | 2      | 0.903    | 25.30 GB    | 512            | 1                | bfloat16  | 11.47 min (1xA100) |
-| gemma-7b/qlora.yaml               | 7B   | Alpaca 2k | 2      | 0.951    | 17.31 GB    | 512            | 1                | bfloat16  | 23.46 min (1xA100) |
-|                                   |      |           |        |          |             |                |                  |           |                    |
-| llama-2-7b/lora.yaml              | 7B   | Alpaca 2k | 4      | 0.802    | 19.77 GB    | 512            | 2                | bfloat16  | 32.75 min (A10G)   |
-| llama-2-7b/qlora.yaml             | 7B   | Alpaca 2k | 4      | 0.814    | 13.68 GB    | 512            | 2                | bfloat16  | 45.68 min (A10G)   |
-| llama-2-7b/full.yaml              | 7B   | Alpaca 2k | 1      | 0.941    | 26.81 GB    | 512            | 4                | bfloat16  | 1.78 min (4xA100)  |
-|                                   |      |           |        |          |             |                |                  |           |                    |
-| llama-3-8b/lora.yaml              | 8B   | Alpaca 2k | 2      | 0.890    | 19.73 GB    | 512            | 1                | bfloat16  | 14.80 min (A10G)   |
-| llama-3-8b/qlora.yaml             | 8B   | Alpaca 2k | 2      | 0.941    | 17.41 GB    | 512            | 2                | bfloat16  | 22.34 min (A10G)   |
-| llama-3-8b/full.yaml              | 8B   | Alpaca 2k | 1      | 1.451    | 35.48 GB    | 512            | 4                | bfloat16  | 2.14 min (4xA100)  |
-|                                   |      |           |        |          |             |                |                  |           |                    |
-| mistral-7b/lora.yaml  (v0.1)      | 7B   | Alpaca 2k | 4      | 0.796    | 20.65 GB    | 512            | 2                | bfloat16  | 31.04 min (1xA10G) |
-| mistral-7b/qlora.yaml (v0.1)      | 7B   | Alpaca 2k | 4      | 0.803    | 14.29 GB    | 512            | 2                | bfloat16  | 44.69 min (1xA10G) |
-|                                   |      |           |        |          |             |                |                  |           |                    |
-| mistral-7b-v0.2/lora.yaml         | 7B   | Alpaca 2k | 4      | 0.801    | 20.65 GB    | 512            | 2                | bfloat16  | 30.96 min (1xA10G) |
-| mistral-7b-v0.2/qlora.yaml        | 7B   | Alpaca 2k | 4      | 0.813    | 14.29 GB    | 512            | 2                | bfloat16  | 44.68 min (1xA10G) |
-|                                   |      |           |        |          |             |                |                  |           |                    |
-| phi-2/lora.yaml                   | 2B   | Alpaca 2k | 1      | 0.832    | 13.98 GB    | 512            | 4                | bfloat16  | 3.82 min (1xA10G)  |
-| phi-2/qlora.yaml                  | 2B   | Alpaca 2k | 1      | 0.846    | 14.27 GB    | 512            | 4                | bfloat16  | 4.55 min (1xA10G)  |
-| phi-2/full.yaml                   | 2B   | Alpaca 2k | 1      | 0.937    | 14.44 GB    | 512            | 4                | bfloat16  | 13.00 min (1xA10G) |
-|                                   |      |           |        |          |             |                |                  |           |                    |
-| stablelm-base-alpha-3b/lora.yaml  | 3B   | Alpaca 2k | 4      | 1.367    | 8.58 GB     | 512            | 2                | bfloat16  | 13.02 min (1xA10G) |
-| stablelm-base-alpha-3b/qlora.yaml | 3B   | Alpaca 2k | 4      | 1.392    | 5.24 GB     | 512            | 2                | bfloat16  | 25.71 min (1xA10G) |
-| stablelm-base-alpha-3b/full.yaml  | 3B   | Alpaca 2k | 1      | 1.494    | 21.23 GB    | 512            | 1                | bfloat16  | 72.72 min (2xA10G) |
-|                                   |      |           |        |          |             |                |                  |           |                    |
-| tiny-llama/lora.yaml              | 1.1B | Alpaca 2k | 3      | 1.038    | 13.50 GB    | 512            | 8                | bfloat16  | 8.06 min (1xA10G)  |
-| tiny-llama/qlora.yaml             | 1.1B | Alpaca 2k | 3      | 1.056    | 16.24 GB    | 512            | 8                | bfloat16  | 8.74 min (1xA10G)  |
-| tiny-llama/full.yaml              | 1.1B | Alpaca 2k | 1      | 1.105    | 14.10 GB    | 512            | 4                | bfloat16  | 2.59 min (1xA10G)  |
+| Config | Model | Dataset | Epochs | Max seq length | Micro batch size | Precision | Machine | Training runtime | Cost | Peak memory | Validation loss | Validation perplexity |
+| --- | --- | --- | --- | --- | --- | --- | --- | --- | --- | --- | --- | --- |
+| falcon-7b/lora.yaml | falcon-7b | Alpaca2k | 4 | 512 | 1 | bf16-true | 4xA10G | 24.64 min | 2.0$ | 16.69 GB | 0.9448 | 2.5723 |
+| falcon-7b/qlora.yaml | falcon-7b | Alpaca2k | 4 | 512 | 1 | bf16-true | 1xA10G | 50.60 min | 4.1$ | 9.45 GB | 0.9930 | 2.6992 |
+| falcon-7b/qlora.yaml | falcon-7b | Alpaca2k | 4 | 512 | 1 | bf16-true | 4xA10G | 50.60 min | 4.1$ | 9.45 GB | 0.9931 | 2.6996 |
+| gemma-2b/lora.yaml | gemma-2b | Alpaca2k | 2 | 512 | 2 | bf16-true | 4xA10G | 9.29 min | 0.7$ | 12.62 GB | 0.9809 | 2.6669 |
+| gemma-2b/qlora.yaml | gemma-2b | Alpaca2k | 2 | 512 | 2 | bf16-true | 1xA10G | 12.79 min | 1.0$ | 11.57 GB | 1.0846 | 2.9582 |
+| gemma-2b/qlora.yaml | gemma-2b | Alpaca2k | 2 | 512 | 2 | bf16-true | 4xA10G | 12.82 min | 1.0$ | 11.57 GB | 1.0845 | 2.9580 |
+| gemma-7b/qlora.yaml | gemma-7b | Alpaca2k | 2 | 512 | 1 | bf16-true | 1xA10G | 43.35 min | 3.5$ | 17.18 GB | 0.9754 | 2.6522 |
+| gemma-7b/qlora.yaml | gemma-7b | Alpaca2k | 2 | 512 | 1 | bf16-true | 4xA10G | 43.42 min | 3.5$ | 17.18 GB | 0.9822 | 2.6704 |
+| llama-2-7b/lora.yaml | llama-2-7b | Alpaca2k | 4 | 512 | 2 | bf16-true | 4xA10G | 32.68 min | 2.6$ | 19.77 GB | 0.8017 | 2.2294 |
+| llama-2-7b/qlora.yaml | llama-2-7b | Alpaca2k | 4 | 512 | 2 | bf16-true | 1xA10G | 45.54 min | 3.7$ | 13.67 GB | 0.8142 | 2.2573 |
+| llama-2-7b/qlora.yaml | llama-2-7b | Alpaca2k | 4 | 512 | 2 | bf16-true | 4xA10G | 45.56 min | 3.7$ | 13.68 GB | 0.8141 | 2.2571 |
+| llama-3-8b/lora.yaml | llama-3-8b | Alpaca2k | 2 | 512 | 1 | bf16-true | 4xA10G | 14.75 min | 1.2$ | 19.73 GB | 0.8885 | 2.4316 |
+| llama-3-8b/qlora.yaml | llama-3-8b | Alpaca2k | 2 | 512 | 2 | bf16-true | 1xA10G | 22.17 min | 1.8$ | 17.41 GB | 0.9388 | 2.5568 |
+| llama-3-8b/qlora.yaml | llama-3-8b | Alpaca2k | 2 | 512 | 2 | bf16-true | 4xA10G | 22.13 min | 1.8$ | 17.41 GB | 0.9389 | 2.5573 |
+| mistral-7b/lora.yaml | mistral-7b | Alpaca2k | 4 | 512 | 2 | bf16-true | 4xA10G | 30.85 min | 2.5$ | 20.66 GB | 0.7927 | 2.2092 |
+| mistral-7b/qlora.yaml | mistral-7b | Alpaca2k | 4 | 512 | 2 | bf16-true | 1xA10G | 44.62 min | 3.6$ | 14.29 GB | 0.8030 | 2.2322 |
+| mistral-7b/qlora.yaml | mistral-7b | Alpaca2k | 4 | 512 | 2 | bf16-true | 4xA10G | 44.64 min | 3.6$ | 14.29 GB | 0.8031 | 2.2323 |
+| phi-2/lora.yaml | phi-2 | Alpaca2k | 1 | 512 | 4 | bf16-true | 4xA10G | 3.77 min | 0.3$ | 13.98 GB | 0.8191 | 2.2685 |
+| phi-2/qlora.yaml | phi-2 | Alpaca2k | 1 | 512 | 4 | bf16-true | 1xA10G | 4.48 min | 0.4$ | 14.27 GB | 0.8448 | 2.3275 |
+| phi-2/qlora.yaml | phi-2 | Alpaca2k | 1 | 512 | 4 | bf16-true | 4xA10G | 4.49 min | 0.4$ | 14.27 GB | 0.8600 | 2.3632 |
+| stablelm-base-alpha-3b/lora.yaml | stablelm-base-alpha-3b | Alpaca2k | 4 | 512 | 1 | bf16-true | 4xA10G | 12.99 min | 1.0$ | 8.58 GB | 1.3640 | 3.9119 |
+| stablelm-base-alpha-3b/qlora.yaml | stablelm-base-alpha-3b | Alpaca2k | 4 | 512 | 1 | bf16-true | 1xA10G | 25.59 min | 2.1$ | 5.24 GB | 1.3907 | 4.0177 |
+| stablelm-base-alpha-3b/qlora.yaml | stablelm-base-alpha-3b | Alpaca2k | 4 | 512 | 1 | bf16-true | 4xA10G | 25.66 min | 2.1$ | 5.24 GB | 1.3913 | 4.0199 |
+| tiny-llama/full.yaml | tiny-llama | Alpaca2k | 1 | 512 | 4 | bf16-true | 4xA10G | 2.56 min | 0.2$ | 14.10 GB | 1.0889 | 2.9711 |
+| tiny-llama/lora.yaml | tiny-llama | Alpaca2k | 3 | 512 | 8 | bf16-true | 4xA10G | 8.07 min | 0.6$ | 13.50 GB | 1.0385 | 2.8251 |
+| tiny-llama/qlora.yaml | tiny-llama | Alpaca2k | 3 | 512 | 8 | bf16-true | 1xA10G | 8.67 min | 0.7$ | 16.24 GB | 1.0560 | 2.8747 |
+| tiny-llama/qlora.yaml | tiny-llama | Alpaca2k | 3 | 512 | 8 | bf16-true | 4xA10G | 8.67 min | 0.7$ | 16.24 GB | 1.0560 | 2.8748 |
 
 &nbsp;
 ## Extending the context length
