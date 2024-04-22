@@ -500,7 +500,7 @@ def lora_filter(key: str, value: Any) -> bool:
 
 
 def longlora_filter(key: str, value: Any, additional_weights: Sequence[str] = ["lora_"]) -> bool:
-    return any(x in key for x in additional_weights)
+    return any(x in key for x in additional_weights + ["lora_"])
 
 
 @dataclass
