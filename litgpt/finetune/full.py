@@ -150,6 +150,14 @@ def main(
     if fabric.device.type == "cuda":
         fabric.print(f"Memory used: {torch.cuda.max_memory_allocated() / 1e9:.02f} GB")
 
+    # Final evaluation
+    val_loss = validate(
+        fabric, model, val_dataloader, tokenizer, dataclasses.replace(eval, max_iters=len(val_dataloader)), data
+    )
+    metrics = {"val_loss": val_loss, "val_ppl": math.exp(val_loss)}
+    fabric.log_dict(metrics, step=state["iter_num"])
+    fabric.print(f"Final evaluation | val loss: {val_loss.item():.4f} | val ppl: {math.exp(val_loss):.4f}")
+
     # Save the final checkpoint at the end of training
     save_path = out_dir / "final" / "lit_model.pth"
     save_path.parent.mkdir(parents=True, exist_ok=True)
