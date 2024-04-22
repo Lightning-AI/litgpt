@@ -63,7 +63,7 @@ class Config:
     n_expert_per_token: int = 0
     longlora_n_groups: Optional[int] = None
     longlora_context_length: Optional[int] = None
-    longlora_trainable_params: Optional[str] = None
+    longlora_trainable_params: str = ""
 
     def __post_init__(self):
         if not self.name:

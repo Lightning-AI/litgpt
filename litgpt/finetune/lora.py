@@ -63,7 +63,7 @@ def setup(
     lora_head: bool = False,
     longlora_n_groups: Optional[int] = None,
     longlora_context_length: Optional[int] = None,
-    longlora_trainable_params: Optional[str] = None,
+    longlora_trainable_params: str = "",
     data: Optional[DataModule] = None,
     train: TrainArgs = TrainArgs(
         save_interval=1000,
@@ -106,6 +106,14 @@ def setup(
     pprint(locals())
     data = Alpaca() if data is None else data
     devices = parse_devices(devices)
+
+    # Check longlora params: if one is set, then all must be set
+    longlora_params = [longlora_n_groups is not None, longlora_context_length is not None, longlora_trainable_params]
+    if any(longlora_params) and not all(longlora_params):
+        raise ValueError(
+            "If any of 'longlora_n_groups', 'longlora_context_length', or 'longlora_trainable_params' are set,"
+            " then all must be set."
+        )
 
     check_valid_checkpoint_dir(checkpoint_dir)
     config = Config.from_file(
