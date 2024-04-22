@@ -80,7 +80,7 @@ def setup(
 
     # Check longlora params: if one is set, then all must be set
     longlora_params = [longlora_n_groups is not None, longlora_context_length is not None, longlora_trainable_params]
-    if any(longlora_params) and not all(longlora_params):
+    if any(longlora_params) and not all(longlora_params[:-1]):
         raise ValueError(
             "If any of 'longlora_n_groups', 'longlora_context_length', or 'longlora_trainable_params' are set,"
             " then all must be set."

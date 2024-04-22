@@ -260,18 +260,15 @@ class CausalSelfAttention(nn.Module):
             k = roll_and_group(k, B, T, longlora_group_size, k.shape[1], self.config.head_size)
             v = roll_and_group(v, B, T, longlora_group_size, v.shape[1], self.config.head_size)
 
-        y = self.scaled_dot_product_attention(q, k, v, mask)
-        y_cloned = y
+        y = self.scaled_dot_product_attention(q, k, v, mask).contiguous()
+        y = y.reshape(B, T, -1, self.config.head_size)  # (B, T, nh, hs)
 
         if input_pos is None and longlora_group_size > 0:
             # Shift back and unroll
-            y_cloned = y.clone()
-            num_heads = y_cloned.shape[2]
-            y_cloned[:, :, num_heads // 2 :] = y_cloned[:, :, num_heads // 2 :].roll(longlora_group_size // 2, dims=1)
+            num_heads = y.shape[2]
+            y[:, :, num_heads // 2 :] = y[:, :, num_heads // 2 :].roll(longlora_group_size // 2, dims=1)
 
-        y = y_cloned.reshape(
-            B, T, self.config.head_size * self.config.n_head
-        )  # re-assemble all head outputs side by side
+        y = y.reshape(B, T, self.config.head_size * self.config.n_head)  # re-assemble all head outputs side by side
 
         # output projection
         return self.proj(y)
