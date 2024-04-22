@@ -1,18 +1,17 @@
 # Copyright Lightning AI. Licensed under the Apache License 2.0, see LICENSE file.
 
 from pathlib import Path
-import pytest
-import subprocess
 import os
+import pytest
+import requests
+import signal
+import subprocess
+import threading
+import time
+
 
 REPO_ID = Path("EleutherAI/pythia-14m")
 CUSTOM_TEXTS_DIR = Path("custom_texts")
-
-
-def init_out_dir(out_dir: Path) -> Path:
-    if not out_dir.is_absolute() and "LIGHTNING_ARTIFACTS_DIR" in os.environ:
-        return Path(os.getenv("LIGHTNING_ARTIFACTS_DIR")) / out_dir
-    return out_dir
 
 
 def run_command(command):
@@ -54,7 +53,6 @@ def test_chat_with_model():
 def test_finetune_model():
 
     OUT_DIR = Path("out")/"lora"
-    OUT_DIR = init_out_dir(OUT_DIR)
     DATASET_PATH = Path("custom_finetuning_dataset.json")
     CHECKPOINT_DIR = f"checkpoints"/REPO_ID
 
@@ -81,11 +79,10 @@ def test_finetune_model():
 @pytest.mark.dependency(depends=["test_download_model", "test_download_books"])
 def test_pretrain_model():
     OUT_DIR = Path("out") / "custom_pretrained"
-    OUT_DIR = init_out_dir(OUT_DIR)
     pretrain_command = [
         "litgpt", "pretrain",
         "--model_name", "pythia-14m",
-        "--tokenizer_dir", str("checkpoints"/REPO_ID),
+        "--tokenizer_dir", str("checkpoints" / REPO_ID),
         "--data", "TextFiles",
         "--data.train_data_path", str(CUSTOM_TEXTS_DIR),
         "--train.max_tokens", "100",
@@ -93,5 +90,68 @@ def test_pretrain_model():
     ]
     run_command(pretrain_command)
 
-    assert (OUT_DIR / "final").exists(), "Pretraining output directory was not created"
-    assert (OUT_DIR / "final" / "lit_model.pth").exists(), "Model file was not created"
+    if not OUT_DIR.is_absolute() and "LIGHTNING_ARTIFACTS_DIR" in os.environ:
+        assert (".." / OUT_DIR / "final").exists(), "Pretraining output directory was not created"
+        assert (".." / OUT_DIR / "final" / "lit_model.pth").exists(), "Model file was not created"
+    else:
+        assert (OUT_DIR / "final").exists(), "Pretraining output directory was not created"
+        assert (OUT_DIR / "final" / "lit_model.pth").exists(), "Model file was not created"
+
+
+@pytest.mark.dependency(depends=["test_download_model", "test_download_books"])
+def test_continue_pretrain_model():
+    OUT_DIR = Path("out") / "custom_continue_pretrained"
+    pretrain_command = [
+        "litgpt", "pretrain",
+        "--model_name", "pythia-14m",
+        "--initial_checkpoint", str("checkpoints" / REPO_ID),
+        "--tokenizer_dir", str("checkpoints" / REPO_ID),
+        "--data", "TextFiles",
+        "--data.train_data_path", str(CUSTOM_TEXTS_DIR),
+        "--train.max_tokens", "100",
+        "--out_dir", OUT_DIR
+    ]
+    run_command(pretrain_command)
+
+    if not OUT_DIR.is_absolute() and "LIGHTNING_ARTIFACTS_DIR" in os.environ:
+        assert (".." / OUT_DIR / "final").exists(), "Continued pretraining output directory was not created"
+        assert (".." / OUT_DIR / "final" / "lit_model.pth").exists(), "Model file was not created"
+    else:
+        assert (OUT_DIR / "final").exists(), "Continued pretraining output directory was not created"
+        assert (OUT_DIR / "final" / "lit_model.pth").exists(), "Model file was not created"
+
+
+@pytest.mark.dependency(depends=["test_download_model"])
+def test_serve():
+    CHECKPOINT_DIR = "checkpoints" / REPO_ID  # Ensure this path is correctly formed
+    run_command = [
+        "litgpt", "serve",
+        "--checkpoint_dir", str(CHECKPOINT_DIR)
+    ]
+
+    process = None
+
+    def run_server():
+        nonlocal process
+        try:
+            process = subprocess.Popen(run_command, stdout=subprocess.PIPE, stderr=subprocess.PIPE, text=True)
+            # stdout, stderr = process.communicate(timeout=30)
+            print('STDOUT:', stdout)
+            print('STDERR:', stderr)
+        except subprocess.TimeoutExpired:
+            print('Server start-up timeout expired')
+
+    server_thread = threading.Thread(target=run_server)
+    server_thread.start()
+
+    # Allow time to initialize and start serving
+    time.sleep(10)
+
+    try:
+        response = requests.get("http://127.0.0.1:8000")
+        print(response.status_code)
+        assert response.status_code == 200, "Server did not respond as expected."
+    finally:
+        if process:
+            process.kill()
+        server_thread.join()
