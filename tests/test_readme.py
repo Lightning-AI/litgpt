@@ -135,9 +135,9 @@ def test_serve():
         nonlocal process
         try:
             process = subprocess.Popen(run_command, stdout=subprocess.PIPE, stderr=subprocess.PIPE, text=True)
-            # stdout, stderr = process.communicate(timeout=30)
-            print('STDOUT:', stdout)
-            print('STDERR:', stderr)
+            stdout, stderr = process.communicate(timeout=10)
+            # print('STDOUT:', stdout)
+            # print('STDERR:', stderr)
         except subprocess.TimeoutExpired:
             print('Server start-up timeout expired')
 
