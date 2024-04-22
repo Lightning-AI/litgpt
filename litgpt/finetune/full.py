@@ -41,6 +41,9 @@ def setup(
     devices: Union[int, str] = 1,
     resume: Union[bool, Path] = False,
     data: Optional[DataModule] = None,
+    longlora_n_groups: Optional[int] = None,
+    longlora_context_length: Optional[int] = None,
+    longlora_trainable_params: Optional[str] = None,
     train: TrainArgs = TrainArgs(
         save_interval=1000,
         log_interval=1,
@@ -76,7 +79,12 @@ def setup(
     devices = parse_devices(devices)
 
     check_valid_checkpoint_dir(checkpoint_dir)
-    config = Config.from_file(checkpoint_dir / "model_config.yaml")
+    config = Config.from_file(
+        checkpoint_dir / "model_config.yaml",
+        longlora_n_groups=longlora_n_groups,
+        longlora_context_length=longlora_context_length,
+        longlora_trainable_params=longlora_trainable_params,
+    )
 
     precision = precision or get_default_supported_precision(training=True)
     logger = choose_logger(

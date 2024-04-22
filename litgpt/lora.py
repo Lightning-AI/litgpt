@@ -499,7 +499,7 @@ def lora_filter(key: str, value: Any) -> bool:
     return "lora_" in key
 
 
-def longlora_filter(key: str, value: Any, additional_weights: Sequence[str]) -> bool:
+def longlora_filter(key: str, value: Any, additional_weights: Sequence[str] = ["lora_"]) -> bool:
     return any(x in key for x in additional_weights)
 
 
@@ -525,9 +525,6 @@ class Config(BaseConfig):
     lora_projection: bool = False
     lora_mlp: bool = False
     lora_head: bool = False
-    longlora_n_groups: Optional[int] = None
-    longlora_context_length: Optional[int] = None
-    longlora_trainable_params: Optional[str] = None
 
     @property
     def mlp_class(self) -> Type:
