@@ -286,11 +286,11 @@ class TinyLlama(PromptStyle):
 class Gemma(PromptStyle):
     def apply(self, prompt: str, **kwargs: str) -> str:
         return f"<start_of_turn>user\n{prompt}<end_of_turn>\n<start_of_turn>model\n"
-    
+
 
 class H2Oai(PromptStyle):
     def apply(self, prompt: str, **kwargs: str) -> str:
-        return f"<s><|prompt|>{prompt}</s><|answer|>"        
+        return f"<s><|prompt|>{prompt}</s><|answer|>"
 
 
 # Maps prompt style names to PromptStyle classes
@@ -317,7 +317,7 @@ prompt_styles: Dict[str, Type[PromptStyle]] = {
     "phi-2": Phi2,
     "tinyllama": TinyLlama,
     "gemma": Gemma,
-    "h2oai": H2Oai
+    "h2oai": H2Oai,
 }
 
 
