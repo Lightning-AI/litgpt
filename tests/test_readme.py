@@ -9,6 +9,12 @@ REPO_ID = Path("EleutherAI/pythia-14m")
 CUSTOM_TEXTS_DIR = Path("custom_texts")
 
 
+def init_out_dir(out_dir: Path) -> Path:
+    if not out_dir.is_absolute() and "LIGHTNING_ARTIFACTS_DIR" in os.environ:
+        return Path(os.getenv("LIGHTNING_ARTIFACTS_DIR")) / out_dir
+    return out_dir
+
+
 def run_command(command):
     result = subprocess.run(command, capture_output=True, text=True, check=True)
     return result.stdout
@@ -48,6 +54,7 @@ def test_chat_with_model():
 def test_finetune_model():
 
     OUT_DIR = Path("out")/"lora"
+    OUT_DIR = init_out_dir(OUT_DIR)
     DATASET_PATH = Path("custom_finetuning_dataset.json")
     CHECKPOINT_DIR = f"checkpoints"/REPO_ID
 
@@ -63,7 +70,7 @@ def test_finetune_model():
         "--data.json_path", str(DATASET_PATH),
         "--data.val_split_fraction", "0.1",
         "--train.max_steps", "1",
-        "--out_dir", str(OUT_DIR)
+        "--out_dir", OUT_DIR
     ]
     run_command(finetune_command)
 
@@ -74,6 +81,7 @@ def test_finetune_model():
 @pytest.mark.dependency(depends=["test_download_model", "test_download_books"])
 def test_pretrain_model():
     OUT_DIR = Path("out") / "custom_pretrained"
+    OUT_DIR = init_out_dir(OUT_DIR)
     pretrain_command = [
         "litgpt", "pretrain",
         "--model_name", "pythia-14m",
@@ -81,9 +89,9 @@ def test_pretrain_model():
         "--data", "TextFiles",
         "--data.train_data_path", str(CUSTOM_TEXTS_DIR),
         "--train.max_tokens", "100",
-        "--out_dir", str(OUT_DIR)
+        "--out_dir", OUT_DIR
     ]
     run_command(pretrain_command)
 
-    assert (".." / OUT_DIR / "final").exists(), "Pretraining output directory was not created"
-    assert (".." / OUT_DIR / "final" / "lit_model.pth").exists(), "Model file was not created"
+    assert (OUT_DIR / "final").exists(), "Pretraining output directory was not created"
+    assert (OUT_DIR / "final" / "lit_model.pth").exists(), "Model file was not created"
