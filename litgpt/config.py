@@ -836,7 +836,7 @@ for c in llama_2:
         copy["name"] = c["name"].format(kind)
         copy["hf_config"]["name"] = c["hf_config"]["name"].format(kind)
         configs.append(copy)
-        
+
 
 ###############
 # Meta LLaMA 3
@@ -976,16 +976,17 @@ danube2 = [
         n_layer=24,
         n_head=32,
         n_embd=2560,
-        block_size=4096, # should be 8192 but sliding_window mechanism is not implemented
+        block_size=4096,  # should be 8192 but sliding_window mechanism is not implemented
         intermediate_size=6912,
         padding_multiple=64,
         norm_eps=1e-05,
         rope_base=10000,
         n_query_groups=8,
+        rotary_percentage=1.0,
         parallel_residual=False,
         bias=False,
         norm_class_name="RMSNorm",
-        mlp_class_name="LLaMAMLP"
+        mlp_class_name="LLaMAMLP",
     )
 ]
 configs.extend(danube2)
