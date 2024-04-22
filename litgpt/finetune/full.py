@@ -132,6 +132,15 @@ def main(
 
     checkpoint_path = checkpoint_dir / "lit_model.pth"
     with fabric.init_module(empty_init=(devices > 1)):
+        if config.longlora_context_length is not None and config.longlora_context_length > config.block_size:
+            old_block_size = config.block_size
+            config.block_size = config.longlora_context_length
+            config.rope_condense_ratio = config.longlora_context_length / old_block_size
+            fabric.print(
+                f"The model context length has been increased from {old_block_size} to {config.longlora_context_length}"
+            )
+            fabric.print(f"The 'rope_condense_ratio' has been adapted to {config.rope_condense_ratio}")
+
         model = GPT(config)
 
     fabric.print(f"Number of trainable parameters: {num_parameters(model, requires_grad=True):,}")
@@ -186,8 +195,15 @@ def fit(
     optimizer = state["optimizer"]
     scheduler = state["scheduler"]
     tokenizer = Tokenizer(checkpoint_dir)
-    longest_seq_length, longest_seq_ix = get_longest_seq_length(train_dataloader.dataset)
-    model.max_seq_length = min(longest_seq_length, train.max_seq_length or float("inf"))
+    pad_multiple_of = getattr(data, "pad_multiple_of", 1)
+    if train.get_longest_seq_length:
+        longest_seq_length, longest_seq_ix = get_longest_seq_length(train_dataloader.dataset)
+        longest_seq_length = find_multiple(
+            min(longest_seq_length, train.max_seq_length or float("inf")), pad_multiple_of
+        )
+    else:
+        longest_seq_length = find_multiple(train.max_seq_length or model.max_seq_length, pad_multiple_of)
+    model.max_seq_length = longest_seq_length
     fabric.print(
         f"The longest sequence length in the train data is {longest_seq_length}, the model's maximum sequence length is"
         f" {model.max_seq_length} and context length is {model.config.block_size}"
