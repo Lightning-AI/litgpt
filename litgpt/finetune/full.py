@@ -43,7 +43,6 @@ def setup(
     data: Optional[DataModule] = None,
     longlora_n_groups: Optional[int] = None,
     longlora_context_length: Optional[int] = None,
-    longlora_trainable_params: str = "",
     train: TrainArgs = TrainArgs(
         save_interval=1000,
         log_interval=1,
@@ -68,6 +67,8 @@ def setup(
         resume: Path to a checkpoint directory to resume from in case training was interrupted, or ``True`` to resume
             from the latest checkpoint in ``out_dir``.
         data: Data-related arguments. If not provided, the default is ``litgpt.data.Alpaca``.
+        longlora_n_groups: The number of groups to use for LongLora.
+        longlora_context_length: The increased context length to use for LongLora.
         train: Training-related arguments. See ``litgpt.args.TrainArgs`` for details.
         eval: Evaluation-related arguments. See ``litgpt.args.EvalArgs`` for details.
         logger_name: The name of the logger to send metrics to.
@@ -79,12 +80,9 @@ def setup(
     devices = parse_devices(devices)
 
     # Check longlora params: if one is set, then all must be set
-    longlora_params = [longlora_n_groups is not None, longlora_context_length is not None, longlora_trainable_params]
-    if any(longlora_params) and not all(longlora_params[:-1]):
-        raise ValueError(
-            "If any of 'longlora_n_groups', 'longlora_context_length', or 'longlora_trainable_params' are set,"
-            " then all must be set."
-        )
+    longlora_params = [longlora_n_groups is not None, longlora_context_length is not None]
+    if any(longlora_params) and not all(longlora_params):
+        raise ValueError("If any of 'longlora_n_groups' or 'longlora_context_length' are set," " then all must be set.")
 
     check_valid_checkpoint_dir(checkpoint_dir)
     config = Config.from_file(
