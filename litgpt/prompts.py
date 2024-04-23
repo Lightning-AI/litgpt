@@ -290,7 +290,7 @@ class Gemma(PromptStyle):
 
 class H2Oai(PromptStyle):
     def apply(self, prompt: str, **kwargs: str) -> str:
-        return f"<s><|prompt|>{prompt}</s><|answer|>"
+        return f"<|prompt|>{prompt}</s><|answer|>"
 
 
 # Maps prompt style names to PromptStyle classes
