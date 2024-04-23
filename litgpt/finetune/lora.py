@@ -63,7 +63,7 @@ def setup(
     lora_head: bool = False,
     longlora_n_groups: Optional[int] = None,
     longlora_context_length: Optional[int] = None,
-    longlora_trainable_params: str = "",
+    longlora_trainable_params: str = "wte,norm_,ln_",
     data: Optional[DataModule] = None,
     train: TrainArgs = TrainArgs(
         save_interval=1000,
@@ -96,6 +96,10 @@ def setup(
         lora_projection: Whether to apply LoRA to the output projection in the attention block.
         lora_mlp: Whether to apply LoRA to the weights of the MLP in the attention block.
         lora_head: Whether to apply LoRA to output head in GPT.
+        longlora_n_groups: The number of groups to use for LongLora.
+        longlora_context_length: The increased context length to use for LongLora.
+        longlora_trainable_params: The names of the parameters to make trainable for LongLora.
+            The parameters should be comma-separated, if any.
         data: Data-related arguments. If not provided, the default is ``litgpt.data.Alpaca``.
         train: Training-related arguments. See ``litgpt.args.TrainArgs`` for details.
         eval: Evaluation-related arguments. See ``litgpt.args.EvalArgs`` for details.
