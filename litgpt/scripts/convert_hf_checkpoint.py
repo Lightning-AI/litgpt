@@ -147,14 +147,15 @@ def copy_weights_hf_llama(
                 "model.layers.{}.mlp.down_proj.weight": "transformer.h.{l}.mlp.proj.weight",
             }
         )
+    elif config.mlp_class_name in ("Phi3MLP",):
+        weight_map.update(
+            {
+                "model.layers.{}.mlp.gate_up_proj.weight": "transformer.h.{l}.mlp.gate_up_proj.weight",
+                "model.layers.{}.mlp.down_proj.weight": "transformer.h.{l}.mlp.down_proj.weight",
+            }
+        )
     else:
         raise NotImplementedError
-
-    if "phi-3" in config.name.lower():
-        weight_map = {
-            key.replace("mlp.up_proj.weight", "mlp.gate_up_proj.weight"): value
-            for key, value in weight_map.items()
-        }
 
     for name, param in hf_weights.items():
         if "model.layers" in name:
@@ -163,14 +164,14 @@ def copy_weights_hf_llama(
             if "block_sparse_moe.experts" in name:
                 from_name, e = layer_template(from_name, 5)
             qkv = qkv_weights.setdefault(l, [None, None, None])
-            if "q_proj" in name:
+            if "qkv_proj" in name:
+                state_dict[f"transformer.h.{l}.attn.attn.weight"] = load_param(param, f"layer {l} qkv", dtype)
+            elif "q_proj" in name:
                 qkv[0] = param
             elif "k_proj" in name:
                 qkv[1] = param
             elif "v_proj" in name:
                 qkv[2] = param
-            elif "qkv_proj" in name:
-                qkv[:] = param
             to_name = weight_map[from_name]
             if to_name is None:
                 continue
@@ -186,21 +187,22 @@ def copy_weights_hf_llama(
         state_dict["lm_head.weight"] = state_dict["transformer.wte.weight"]
 
     # convert separate q, k, v matrices into an interleaved qkv
-    for i, (q, k, v) in list(qkv_weights.items()):
-        if q is None or k is None or v is None:
-            # split across different .bin files
-            continue
-        q = load_param(q, f"layer {i} q", dtype)
-        k = load_param(k, f"layer {i} k", dtype)
-        v = load_param(v, f"layer {i} v", dtype)
-        q_per_kv = config.n_head // config.n_query_groups
-        qs = torch.split(q, config.head_size * q_per_kv)
-        ks = torch.split(k, config.head_size)
-        vs = torch.split(v, config.head_size)
-        cycled = [t for group in zip(qs, ks, vs) for t in group]
-        qkv = torch.cat(cycled)
-        state_dict[f"transformer.h.{i}.attn.attn.weight"] = qkv
-        del qkv_weights[i]
+    if "qkv_proj" not in name:
+        for i, (q, k, v) in list(qkv_weights.items()):
+            if q is None or k is None or v is None:
+                # split across different .bin files
+                continue
+            q = load_param(q, f"layer {i} q", dtype)
+            k = load_param(k, f"layer {i} k", dtype)
+            v = load_param(v, f"layer {i} v", dtype)
+            q_per_kv = config.n_head // config.n_query_groups
+            qs = torch.split(q, config.head_size * q_per_kv)
+            ks = torch.split(k, config.head_size)
+            vs = torch.split(v, config.head_size)
+            cycled = [t for group in zip(qs, ks, vs) for t in group]
+            qkv = torch.cat(cycled)
+            state_dict[f"transformer.h.{i}.attn.attn.weight"] = qkv
+            del qkv_weights[i]
 
 
 def copy_weights_phi(
@@ -321,13 +323,10 @@ def convert_hf_checkpoint(
 
     if "falcon" in model_name:
         copy_fn = partial(copy_weights_falcon, model_name)
-    elif config.mlp_class_name in ("LLaMAMLP", "GemmaMLP", "LLaMAMoE"):
+    elif config.mlp_class_name in ("LLaMAMLP", "GemmaMLP", "LLaMAMoE", "Phi3MLP"):
         # holder to reconstitute the split q, k, v
         qkv_weights = {}
         copy_fn = partial(copy_weights_hf_llama, config, qkv_weights)
-    elif "phi-3" in model_name.lower():
-        qkv_weights = {}
-        copy_fn = partial(copy_weights_hf_llama, config, qkv_weights)       
     elif "phi" in model_name:
         # holder to reconstitute the split q, k, v
         qkv_weights = {}

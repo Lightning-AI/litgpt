@@ -54,7 +54,7 @@ class Config:
     shared_attention_norm: bool = False
     norm_class_name: Literal["LayerNorm", "RMSNorm"] = "LayerNorm"
     norm_eps: float = 1e-5
-    mlp_class_name: Literal["GptNeoxMLP", "LLaMAMLP", "GemmaMLP", "LLaMAMoE"] = "GptNeoxMLP"
+    mlp_class_name: Literal["GptNeoxMLP", "LLaMAMLP", "GemmaMLP", "LLaMAMoE", "Phi3MLP"] = "GptNeoxMLP"
     gelu_approximate: str = "none"
     intermediate_size: Optional[int] = None
     rope_condense_ratio: int = 1
@@ -1418,15 +1418,15 @@ phi = [
         name="Phi-3-mini-4k-instruct",
         hf_config=dict(org="microsoft", name="microsoft/Phi-3-mini-4k-instruct"),
         vocab_size=32064,
-        padded_vocab_size=32768,
+        padded_vocab_size=32064,
         block_size=4096,
         n_embd=3072,
         n_layer=32,
-        rotary_percentage=1.0,  #  Double-check
-        # shared_attention_norm=True, #  Double-check
-        bias=False, #  Double-check
-        intermediate_size=11008,
-        mlp_class_name="LLaMAMLP", #  Double-check
+        rotary_percentage=1.0,
+        bias=False,
+        norm_class_name="RMSNorm",
+        intermediate_size=16384,
+        mlp_class_name="Phi3MLP",
     ),
 ]
 configs.extend(phi)

@@ -298,6 +298,20 @@ class GptNeoxMLP(nn.Module):
         return self.proj(x)
 
 
+class Phi3MLP(nn.Module):
+    def __init__(self, config: Config) -> None:
+        super().__init__()
+        self.gate_up_proj = nn.Linear(config.n_embd, config.intermediate_size, bias=config.bias)
+        self.down_proj = nn.Linear(config.intermediate_size//2, config.n_embd, bias=config.bias)
+        self.config = config
+
+    def forward(self, x: torch.Tensor) -> torch.Tensor:
+        y = self.gate_up_proj(x)
+        gate, y = y.chunk(2, dim=-1)
+        y = y * torch.nn.functional.silu(gate)
+        return self.down_proj(y)
+
+
 class LLaMAMLP(nn.Module):
     def __init__(self, config: Config) -> None:
         super().__init__()
