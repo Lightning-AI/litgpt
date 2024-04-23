@@ -121,6 +121,7 @@ def copy_weights_hf_llama(
         "model.layers.{}.self_attn.q_proj.weight": None,
         "model.layers.{}.self_attn.k_proj.weight": None,
         "model.layers.{}.self_attn.v_proj.weight": None,
+        "model.layers.{}.self_attn.qkv_proj.weight": None,
         "model.layers.{}.self_attn.o_proj.weight": "transformer.h.{l}.attn.proj.weight",
         "model.layers.{}.self_attn.rotary_emb.inv_freq": None,
         "model.layers.{}.post_attention_layernorm.weight": "transformer.h.{l}.norm_2.weight",
@@ -149,6 +150,12 @@ def copy_weights_hf_llama(
     else:
         raise NotImplementedError
 
+    if "phi-3" in config.name.lower():
+        weight_map = {
+            key.replace("mlp.up_proj.weight", "mlp.gate_up_proj.weight"): value
+            for key, value in weight_map.items()
+        }
+
     for name, param in hf_weights.items():
         if "model.layers" in name:
             from_name, l = layer_template(name, 2)
@@ -162,6 +169,8 @@ def copy_weights_hf_llama(
                 qkv[1] = param
             elif "v_proj" in name:
                 qkv[2] = param
+            elif "qkv_proj" in name:
+                qkv[:] = param
             to_name = weight_map[from_name]
             if to_name is None:
                 continue
@@ -316,6 +325,9 @@ def convert_hf_checkpoint(
         # holder to reconstitute the split q, k, v
         qkv_weights = {}
         copy_fn = partial(copy_weights_hf_llama, config, qkv_weights)
+    elif "phi-3" in model_name.lower():
+        qkv_weights = {}
+        copy_fn = partial(copy_weights_hf_llama, config, qkv_weights)       
     elif "phi" in model_name:
         # holder to reconstitute the split q, k, v
         qkv_weights = {}

@@ -112,6 +112,7 @@ meta-llama/Meta-Llama-3-8B
 meta-llama/Meta-Llama-3-8B-Instruct
 microsoft/phi-1_5
 microsoft/phi-2
+microsoft/Phi-3-mini-4k-instruct
 mistralai/Mistral-7B-Instruct-v0.1
 mistralai/Mistral-7B-Instruct-v0.2
 mistralai/Mistral-7B-v0.1

@@ -836,7 +836,7 @@ for c in llama_2:
         copy["name"] = c["name"].format(kind)
         copy["hf_config"]["name"] = c["hf_config"]["name"].format(kind)
         configs.append(copy)
-        
+
 
 ###############
 # Meta LLaMA 3
@@ -1415,8 +1415,8 @@ phi = [
     ),
     # https://huggingface.co/microsoft/Phi-3-mini-4k-instruct/blob/main/config.json
     dict(
-        name="phi-3-mini-4k-instruct",
-        hf_config=dict(org="microsoft", name="Phi-3-mini-4k-instruct"),
+        name="Phi-3-mini-4k-instruct",
+        hf_config=dict(org="microsoft", name="microsoft/Phi-3-mini-4k-instruct"),
         vocab_size=32064,
         padded_vocab_size=32768,
         block_size=4096,
@@ -1425,6 +1425,7 @@ phi = [
         rotary_percentage=1.0,  #  Double-check
         # shared_attention_norm=True, #  Double-check
         bias=False, #  Double-check
+        intermediate_size=11008,
         mlp_class_name="LLaMAMLP", #  Double-check
     ),
 ]
