@@ -216,7 +216,7 @@ class CausalSelfAttention(nn.Module):
     ) -> torch.Tensor:
         B, T, C = x.size()  # batch size, sequence length, embedding dimensionality (n_embd)
 
-        if T > 1 and input_pos is None and self._longlora_available:
+        if input_pos is None and self._longlora_available:
             longlora_group_size = T / self.config.longlora_n_groups
             if longlora_group_size > 0 and T % longlora_group_size > 0:
                 raise ValueError("sequence length %d should be divisible by group size %d." % (T, longlora_group_size))
@@ -260,11 +260,11 @@ class CausalSelfAttention(nn.Module):
             k = roll_and_group(k, B, T, longlora_group_size, k.shape[1], self.config.head_size)
             v = roll_and_group(v, B, T, longlora_group_size, v.shape[1], self.config.head_size)
 
-        y = self.scaled_dot_product_attention(q, k, v, mask).contiguous()
-        y = y.reshape(B, T, -1, self.config.head_size)  # (B, T, nh, hs)
+        y = self.scaled_dot_product_attention(q, k, v, mask)
 
         if input_pos is None and longlora_group_size > 0:
             # Shift back and unroll
+            y = y.contiguous().reshape(B, T, -1, self.config.head_size)  # (B, T, nh, hs)
             num_heads = y.shape[2]
             y[:, :, num_heads // 2 :] = y[:, :, num_heads // 2 :].roll(longlora_group_size // 2, dims=1)
 
