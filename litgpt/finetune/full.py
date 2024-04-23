@@ -26,6 +26,7 @@ from litgpt.utils import (
     choose_logger,
     chunked_cross_entropy,
     copy_config_files,
+    find_multiple,
     get_default_supported_precision,
     load_checkpoint,
     num_parameters,
@@ -89,7 +90,6 @@ def setup(
         checkpoint_dir / "model_config.yaml",
         longlora_n_groups=longlora_n_groups,
         longlora_context_length=longlora_context_length,
-        longlora_trainable_params=longlora_trainable_params,
     )
 
     precision = precision or get_default_supported_precision(training=True)
