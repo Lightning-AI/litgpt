@@ -3,6 +3,7 @@
 """Utility functions for training and inference."""
 import inspect
 import math
+import os
 import pickle
 import shutil
 import sys
@@ -25,6 +26,12 @@ from typing_extensions import Self
 
 if TYPE_CHECKING:
     from litgpt import GPT, Config
+
+
+def init_out_dir(out_dir: Path) -> Path:
+    if not out_dir.is_absolute() and "LIGHTNING_ARTIFACTS_DIR" in os.environ:
+        return Path(os.getenv("LIGHTNING_ARTIFACTS_DIR")) / out_dir
+    return out_dir
 
 
 def find_multiple(n: int, k: int) -> int:

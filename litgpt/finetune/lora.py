@@ -40,6 +40,7 @@ from litgpt.utils import (
     find_multiple,
     get_default_supported_precision,
     load_checkpoint,
+    init_out_dir,
     num_parameters,
     parse_devices,
     save_hyperparameters,
@@ -83,7 +84,8 @@ def setup(
 
     Arguments:
         checkpoint_dir: The path to the base model's checkpoint directory to load for finetuning.
-        out_dir: Directory in which to save checkpoints and logs.
+        out_dir: Directory in which to save checkpoints and logs. If running in a Lightning Studio Job, look for it in
+            /teamspace/jobs/<job-name>/share.
         precision: The precision to use for finetuning. Possible choices: "bf16-true", "bf16-mixed", "32-true".
         quantize: If set, quantize the model with this algorithm. See ``tutorials/quantize.md`` for more information.
         devices: How many devices/GPUs to use.
@@ -110,6 +112,7 @@ def setup(
     pprint(locals())
     data = Alpaca() if data is None else data
     devices = parse_devices(devices)
+    out_dir = init_out_dir(out_dir)
 
     # Check longlora params: if one is set, then all must be set
     longlora_params = [
@@ -278,6 +281,12 @@ def main(
     if fabric.device.type == "cuda":
         fabric.print(f"Memory used: {torch.cuda.max_memory_allocated() / 1e9:.02f} GB")
 
+    # Final evaluation
+    val_loss = validate(fabric, model, val_dataloader, dataclasses.replace(eval, max_iters=len(val_dataloader)))
+    metrics = {"val_loss": val_loss, "val_ppl": math.exp(val_loss)}
+    fabric.log_dict(metrics)
+    fabric.print(f"Final evaluation | val loss: {val_loss.item():.3f} | val ppl: {math.exp(val_loss):.3f}")
+
     # Save the final LoRA checkpoint at the end of training
     save_path = out_dir / "final" / "lit_model.pth.lora"
     save_path.parent.mkdir(parents=True, exist_ok=True)
@@ -321,14 +330,7 @@ def fit(
         f" {model.max_seq_length} and context length is {model.config.block_size}"
     )
 
-    validate(
-        fabric,
-        model,
-        val_dataloader,
-        tokenizer,
-        dataclasses.replace(eval, max_iters=2),
-        data,
-    )  # sanity check
+    validate(fabric, model, val_dataloader, dataclasses.replace(eval, max_iters=2))  # sanity check
 
     train_iterator = CycleIterator(train_dataloader)
     throughput = ThroughputMonitor(fabric, window_size=50)
@@ -398,7 +400,8 @@ def fit(
 
         if not is_accumulating and step_count % eval.interval == 0:
             t0 = time.perf_counter()
-            val_loss = validate(fabric, model, val_dataloader, tokenizer, eval, data)
+            val_loss = validate(fabric, model, val_dataloader, eval)
+            generate_example(fabric, model, tokenizer, eval, data)
             t1 = time.perf_counter() - t0
             fabric.print(f"iter {iter_num}: val loss {val_loss.item():.4f}, val time: {t1 * 1000:.2f} ms")
             metrics = {"val_loss": val_loss, "val_ppl": math.exp(val_loss)}
@@ -417,14 +420,7 @@ def fit(
 
 # FSDP has issues with `inference_mode`
 @torch.no_grad()
-def validate(
-    fabric: L.Fabric,
-    model: GPT,
-    val_dataloader: DataLoader,
-    tokenizer: Tokenizer,
-    eval: EvalArgs,
-    data: DataModule,
-) -> torch.Tensor:
+def validate(fabric: L.Fabric, model: GPT, val_dataloader: DataLoader, eval: EvalArgs) -> torch.Tensor:
     fabric.print("Validating ...")
     model.eval()
     losses = torch.zeros(min(len(val_dataloader), eval.max_iters))
@@ -437,11 +433,18 @@ def validate(
 
     val_loss = losses.mean()
 
-    # produce an example:
+    model.train()
+    return val_loss
+
+
+@torch.no_grad()
+def generate_example(fabric: L.Fabric, model: GPT, tokenizer: Tokenizer, eval: EvalArgs, data: DataModule):
     instruction = "Recommend a movie for me to watch during the weekend and explain the reason."
     fabric.print(instruction)
     prompt = data.prompt_style.apply(instruction)
     encoded = tokenizer.encode(prompt, device=fabric.device)
+    model.eval()
+
     with fabric.init_tensor():
         # do not set `max_seq_length=max_returned_token` because memory is not a concern here
         model.set_kv_cache(batch_size=1)
@@ -453,11 +456,9 @@ def validate(
         eos_id=tokenizer.eos_id,
     )
     model.clear_kv_cache()
+    model.train()
     output = tokenizer.decode(output)
     fabric.print(output)
-
-    model.train()
-    return val_loss
 
 
 def get_lr_scheduler(optimizer, warmup_steps: int, max_steps: int):
