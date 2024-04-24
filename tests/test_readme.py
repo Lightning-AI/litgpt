@@ -13,10 +13,20 @@ import time
 REPO_ID = Path("EleutherAI/pythia-14m")
 CUSTOM_TEXTS_DIR = Path("custom_texts")
 
-
 def run_command(command):
-    result = subprocess.run(command, capture_output=True, text=True, check=True)
-    return result.stdout
+    try:
+        result = subprocess.run(command, capture_output=True, text=True, check=True)
+        return result.stdout
+    except subprocess.CalledProcessError as e:
+        error_message = (
+            f"Command '{' '.join(command)}' failed with exit status {e.returncode}\n"
+            f"Output:\n{e.stdout}\n"
+            f"Error:\n{e.stderr}"
+        )
+        # You can either print the message, log it, or raise an exception with it
+        print(error_message)
+        raise RuntimeError(error_message) from None
+
 
 
 @pytest.mark.dependency()
@@ -90,12 +100,8 @@ def test_pretrain_model():
     ]
     run_command(pretrain_command)
 
-    if not OUT_DIR.is_absolute() and "LIGHTNING_ARTIFACTS_DIR" in os.environ:
-        assert (".." / OUT_DIR / "final").exists(), "Pretraining output directory was not created"
-        assert (".." / OUT_DIR / "final" / "lit_model.pth").exists(), "Model file was not created"
-    else:
-        assert (OUT_DIR / "final").exists(), "Pretraining output directory was not created"
-        assert (OUT_DIR / "final" / "lit_model.pth").exists(), "Model file was not created"
+    assert (OUT_DIR / "final").exists(), "Pretraining output directory was not created"
+    assert (OUT_DIR / "final" / "lit_model.pth").exists(), "Model file was not created"
 
 
 @pytest.mark.dependency(depends=["test_download_model", "test_download_books"])
@@ -113,12 +119,8 @@ def test_continue_pretrain_model():
     ]
     run_command(pretrain_command)
 
-    if not OUT_DIR.is_absolute() and "LIGHTNING_ARTIFACTS_DIR" in os.environ:
-        assert (".." / OUT_DIR / "final").exists(), "Continued pretraining output directory was not created"
-        assert (".." / OUT_DIR / "final" / "lit_model.pth").exists(), "Model file was not created"
-    else:
-        assert (OUT_DIR / "final").exists(), "Continued pretraining output directory was not created"
-        assert (OUT_DIR / "final" / "lit_model.pth").exists(), "Model file was not created"
+    assert (OUT_DIR / "final").exists(), "Continued pretraining output directory was not created"
+    assert (OUT_DIR / "final" / "lit_model.pth").exists(), "Model file was not created"
 
 
 @pytest.mark.dependency(depends=["test_download_model"])
