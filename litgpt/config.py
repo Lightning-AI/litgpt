@@ -839,7 +839,7 @@ for c in llama_2:
         copy["name"] = c["name"].format(kind)
         copy["hf_config"]["name"] = c["hf_config"]["name"].format(kind)
         configs.append(copy)
-        
+
 
 ###############
 # Meta LLaMA 3

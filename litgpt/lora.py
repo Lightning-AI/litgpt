@@ -150,15 +150,11 @@ class LoRALinear(LoRALayer):
 
                 weight = self.linear.weight
                 # dequantize the pretrained weights
-                weight_data = bnb.functional.dequantize_4bit(
-                    weight.data, weight.quant_state
-                ).to(lora_data.dtype)
+                weight_data = bnb.functional.dequantize_4bit(weight.data, weight.quant_state).to(lora_data.dtype)
                 # add pretrained and LoRA weights
                 weight_data += lora_data
                 # assign updated weights and quantize by moving to CUDA device
-                self.linear.weight = bnb.nn.Params4bit(
-                    weight_data, requires_grad=False, **weight.__dict__
-                )
+                self.linear.weight = bnb.nn.Params4bit(weight_data, requires_grad=False, **weight.__dict__)
                 self.linear.weight.cuda(weight.device)
             else:
                 # self.linear might be on CPU and lora_data on CUDA
@@ -172,11 +168,7 @@ class LoRALinear(LoRALayer):
         pretrained = self.linear(x)
         if self.r == 0 or self.merged:
             return pretrained
-        lora = (
-            self.lora_dropout(x)
-            @ self.lora_A.transpose(0, 1)
-            @ self.lora_B.transpose(0, 1)
-        ) * self.scaling
+        lora = (self.lora_dropout(x) @ self.lora_A.transpose(0, 1) @ self.lora_B.transpose(0, 1)) * self.scaling
         return pretrained + lora
 
 
@@ -221,9 +213,7 @@ class LoRAQKVLinear(LoRALinear):
                 don't want to apply LoRA we can set it as False. For example if we want to apply LoRA only to `query`
                 and `value` but keep `key` without weight updates we should pass `[True, False, True]`
         """
-        super(LoRALinear, self).__init__(
-            r=r, lora_alpha=lora_alpha, lora_dropout=lora_dropout
-        )
+        super(LoRALinear, self).__init__(r=r, lora_alpha=lora_alpha, lora_dropout=lora_dropout)
         self.linear = torch.nn.Linear(in_features, out_features, **kwargs)
         self.n_head = n_head
         self.n_query_groups = n_query_groups
@@ -239,9 +229,7 @@ class LoRAQKVLinear(LoRALinear):
         # ⚬ r: 2
         # ⚬ enable_lora: [True, False, True]
         if r > 0 and any(enable_lora):
-            self.lora_A = nn.Parameter(
-                torch.empty((r * sum(enable_lora), in_features))
-            )  # (4, 128)
+            self.lora_A = nn.Parameter(torch.empty((r * sum(enable_lora), in_features)))  # (4, 128)
             enable_q, enable_k, enable_v = enable_lora
             # qkv_shapes will be used to split a tensor with weights correctly
             qkv_shapes = (
@@ -252,9 +240,7 @@ class LoRAQKVLinear(LoRALinear):
                 head_size * n_query_groups * enable_v,
             )
             self.qkv_shapes = [s for s in qkv_shapes if s]
-            self.lora_B = nn.Parameter(
-                torch.empty(sum(self.qkv_shapes), r)
-            )  # (256, 2))
+            self.lora_B = nn.Parameter(torch.empty(sum(self.qkv_shapes), r))  # (256, 2))
             # Notes about shapes above
             # - self.lora_A has shape (4, 128): 4 because rank is 2 and LoRA is applied only to two matrices;
             # 128 is the input size of the x (embedding size). (4, 128) and not (128, 4) because later on in
@@ -283,14 +269,10 @@ class LoRAQKVLinear(LoRALinear):
                 q_ind = [x for x in ind if (x // head_size) % total_qkv < total_qkv - 2]
                 self.lora_ind.extend(q_ind)
             if enable_k:
-                k_ind = [
-                    x for x in ind if (x // head_size) % total_qkv == total_qkv - 2
-                ]
+                k_ind = [x for x in ind if (x // head_size) % total_qkv == total_qkv - 2]
                 self.lora_ind.extend(k_ind)
             if enable_v:
-                v_ind = [
-                    x for x in ind if (x // head_size) % total_qkv == total_qkv - 1
-                ]
+                v_ind = [x for x in ind if (x // head_size) % total_qkv == total_qkv - 1]
                 self.lora_ind.extend(v_ind)
             self.reset_parameters()
 
@@ -357,9 +339,7 @@ class LoRAQKVLinear(LoRALinear):
             torch.tensor(self.lora_ind, device=result.device),
             x.reshape(-1, sum(self.qkv_shapes)),
         )  # (4096, 256)
-        return result.view((*x.shape[:-1], self.linear.out_features)).transpose(
-            0, 1
-        )  # (64, 64, 384)
+        return result.view((*x.shape[:-1], self.linear.out_features)).transpose(0, 1)  # (64, 64, 384)
 
     def conv1d(self, input: torch.Tensor, weight: torch.Tensor) -> torch.Tensor:
         """An extension of the `torch.nn.functional.conv1d` function with a logic specific to grouped queries.
@@ -383,9 +363,7 @@ class LoRAQKVLinear(LoRALinear):
 
         """
         if self.n_head == self.n_query_groups:
-            return F.conv1d(
-                input, weight, groups=sum(self.enable_lora)
-            )  # (B, C_output, T)
+            return F.conv1d(input, weight, groups=sum(self.enable_lora))  # (B, C_output, T)
 
         # Notation:
         # ⚬ N: number of enabled LoRA layers (self.enable_lora)
@@ -411,9 +389,7 @@ class LoRAQKVLinear(LoRALinear):
         ).squeeze(
             0
         )  # (1, 4, 128) @ (256, 2, 1) -> (1, 256, 128) -> (256, 128)
-        return self.zero_pad(
-            lora * self.scaling
-        )  # (256, 128) after zero_pad (384, 128)
+        return self.zero_pad(lora * self.scaling)  # (256, 128) after zero_pad (384, 128)
 
     def merge(self) -> None:
         """Merges the LoRA weights into the full-rank weights (W = W + delta_W)."""
@@ -444,9 +420,7 @@ class LoRAQKVLinear(LoRALinear):
         pretrained = self.linear(x)
         if self.r == 0 or not any(self.enable_lora) or self.merged:
             return pretrained
-        after_A = F.linear(
-            self.lora_dropout(x), self.lora_A
-        )  # (64, 64, 128) @ (4, 128) -> (64, 64, 4)
+        after_A = F.linear(self.lora_dropout(x), self.lora_A)  # (64, 64, 128) @ (4, 128) -> (64, 64, 4)
         # For F.conv1d:
         # ⚬ input: input tensor of shape (mini-batch, in_channels, iW)
         # ⚬ weight: filters of shape (out_channels, in_channels/groups, kW)
@@ -456,9 +430,7 @@ class LoRAQKVLinear(LoRALinear):
         ).transpose(
             -2, -1
         )  # (64, 4, 64) @ (256, 2, 1) -> (64, 256, 64) -> (64, 64, 256)
-        lora = (
-            self.zero_pad(after_B) * self.scaling
-        )  # (64, 64, 256) after zero_pad (64, 64, 384)
+        lora = self.zero_pad(after_B) * self.scaling  # (64, 64, 256) after zero_pad (64, 64, 384)
         return pretrained + lora
 
 
@@ -563,9 +535,7 @@ class GPT(BaseModel):
     ) -> Union[torch.Tensor, List[torch.Tensor]]:
         T = idx.size(1)
         if self.max_seq_length < T:
-            raise ValueError(
-                f"Cannot forward sequence of length {T}, max seq length is only {self.max_seq_length}."
-            )
+            raise ValueError(f"Cannot forward sequence of length {T}, max seq length is only {self.max_seq_length}.")
 
         if input_pos is not None:  # use the kv cache
             cos = self.cos.index_select(0, input_pos)
@@ -599,9 +569,7 @@ class GPT(BaseModel):
         if isinstance(module, LoRALinear):
             module.reset_parameters()
 
-    def _load_from_state_dict(
-        self, state_dict: Dict, prefix: str, *args: Any, **kwargs: Any
-    ) -> None:
+    def _load_from_state_dict(self, state_dict: Dict, prefix: str, *args: Any, **kwargs: Any) -> None:
         """For compatibility with base checkpoints."""
         mapping = {
             "lm_head.weight": "lm_head.linear.weight",
@@ -662,9 +630,7 @@ class CausalSelfAttention(BaseCausalSelfAttention):
         self._longlora_n_groups = getattr(self.config, "longlora_n_groups", None)
         self._longlora_available = self._longlora_n_groups is not None
 
-    def _load_from_state_dict(
-        self, state_dict: Dict, prefix: str, *args: Any, **kwargs: Any
-    ) -> None:
+    def _load_from_state_dict(self, state_dict: Dict, prefix: str, *args: Any, **kwargs: Any) -> None:
         """For compatibility with base checkpoints."""
         mapping = {
             "attn.weight": "attn.linear.weight",
@@ -698,9 +664,7 @@ class GptNeoxMLP(litgpt.model.GptNeoxMLP):
 
         self.config = config
 
-    def _load_from_state_dict(
-        self, state_dict: Dict, prefix: str, *args: Any, **kwargs: Any
-    ) -> None:
+    def _load_from_state_dict(self, state_dict: Dict, prefix: str, *args: Any, **kwargs: Any) -> None:
         """For compatibility with base checkpoints."""
         mapping = {
             "fc.weight": "fc.linear.weight",
@@ -742,9 +706,7 @@ class LLaMAMLP(litgpt.model.LLaMAMLP):
 
         self.config = config
 
-    def _load_from_state_dict(
-        self, state_dict: Dict, prefix: str, *args: Any, **kwargs: Any
-    ) -> None:
+    def _load_from_state_dict(self, state_dict: Dict, prefix: str, *args: Any, **kwargs: Any) -> None:
         """For compatibility with base checkpoints."""
         mapping = {
             "fc_1.weight": "fc_1.linear.weight",
@@ -762,10 +724,7 @@ class GemmaMLP(LLaMAMLP):
     def forward(self, x: torch.Tensor) -> torch.Tensor:
         x_fc_1 = self.fc_1(x)
         x_fc_2 = self.fc_2(x)
-        x = (
-            torch.nn.functional.gelu(x_fc_1, approximate=self.config.gelu_approximate)
-            * x_fc_2
-        )
+        x = torch.nn.functional.gelu(x_fc_1, approximate=self.config.gelu_approximate) * x_fc_2
         return self.proj(x)
 
 
@@ -784,9 +743,7 @@ class LLaMAMoE(litgpt.model.LLaMAMoE):
 
         self.config = config
 
-    def _load_from_state_dict(
-        self, state_dict: Dict, prefix: str, *args: Any, **kwargs: Any
-    ) -> None:
+    def _load_from_state_dict(self, state_dict: Dict, prefix: str, *args: Any, **kwargs: Any) -> None:
         """For compatibility with base checkpoints."""
         mapping = {"gate.weight": "gate.linear.weight"}
         state_dict = map_old_state_dict_weights(state_dict, mapping, prefix)
