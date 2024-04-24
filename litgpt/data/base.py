@@ -131,7 +131,7 @@ def _sft_collate_fn(
         )
 
         # Pad to multiple of 'pad_multiple_of'
-        if pad_multiple_of is not None:
+        if pad_multiple_of is not None and pad_multiple_of > 1:
             pad_to = find_multiple(batched[key].shape[1], pad_multiple_of)
             pad_to_add = pad_to - batched[key].shape[1]
             if pad_to_add > 0:
