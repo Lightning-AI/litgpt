@@ -21,6 +21,7 @@ class TextFiles(DataModule):
     and provides training and validation dataloaders that return batches of tokens.
     Every sample is set to a fixed length.
     """
+
     train_data_path: Path
     """The path to the data directory used for training that contains .txt files"""
     val_data_path: Optional[Path] = None
