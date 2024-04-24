@@ -203,8 +203,7 @@ class CausalSelfAttention(nn.Module):
         self.config = config
 
         # LongLora
-        self._longlora_n_groups = getattr(self.config, "longlora_n_groups", None)
-        self._longlora_available = self._longlora_n_groups is not None
+        self._longlora_available = self.config.longlora_n_groups is not None and self.config.longlora_n_groups > 0
 
     def forward(
         self,
@@ -217,10 +216,9 @@ class CausalSelfAttention(nn.Module):
         B, T, C = x.size()  # batch size, sequence length, embedding dimensionality (n_embd)
 
         if input_pos is None and self._longlora_available:
-            longlora_group_size = T / self.config.longlora_n_groups
-            if longlora_group_size > 0 and T % longlora_group_size > 0:
+            if T % self.config.longlora_n_groups != 0:
                 raise ValueError("sequence length %d should be divisible by group size %d." % (T, longlora_group_size))
-            longlora_group_size = int(longlora_group_size)
+            longlora_group_size = T // self.config.longlora_n_groups
         else:
             longlora_group_size = 0
 
