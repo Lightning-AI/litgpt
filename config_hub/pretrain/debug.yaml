@@ -11,6 +11,9 @@ model_config:
 # /teamspace/jobs/<job-name>/share. (type: <class 'Path'>, default: out/pretrain)
 out_dir: out/pretrain/debug
 
+# The precision to use for pretraining. Possible choices: "bf16-true", "bf16-mixed", "32-true". (type: Optional[str], default: null)
+precision: bf16-true
+
 # Optional path to a checkpoint directory to initialize the model from.
 # Useful for continued pretraining. Mutually exclusive with ``resume``. (type: Optional[Path], default: null)
 initial_checkpoint_dir:

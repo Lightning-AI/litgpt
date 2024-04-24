@@ -29,6 +29,7 @@ from litgpt.utils import (
     choose_logger,
     chunked_cross_entropy,
     copy_config_files,
+    get_default_supported_precision,
     init_out_dir,
     num_parameters,
     parse_devices,
@@ -42,6 +43,7 @@ def setup(
     model_name: Optional[str] = None,
     model_config: Optional[Config] = None,
     out_dir: Path = Path("out/pretrain"),
+    precision: Optional[str] = None,
     initial_checkpoint_dir: Optional[Path] = None,
     resume: Union[bool, Path] = False,
     data: Optional[DataModule] = None,
@@ -75,6 +77,7 @@ def setup(
             ``model_config``.
         out_dir: Directory in which to save checkpoints and logs. If running in a Lightning Studio Job, look for it in
             /teamspace/jobs/<job-name>/share.
+        precision: The precision to use for finetuning. Possible choices: "bf16-true", "bf16-mixed", "32-true".
         initial_checkpoint_dir: Optional path to a checkpoint directory to initialize the model from.
             Useful for continued pretraining. Mutually exclusive with ``resume``.
         resume: Path to a checkpoint directory to resume from in case training was interrupted, or ``True`` to resume
@@ -96,6 +99,7 @@ def setup(
         available_models = "\n".join(sorted(name_to_config))
         raise ValueError(f"Please specify --model_name <model_name>. Available values:\n{available_models}")
     config = Config.from_name(model_name) if model_config is None else model_config
+    precision = precision or get_default_supported_precision(training=True)
     devices = parse_devices(devices)
     out_dir = init_out_dir(out_dir)
     # in case the dataset requires the Tokenizer
@@ -109,7 +113,7 @@ def setup(
         strategy = FSDPStrategy(auto_wrap_policy={Block}, state_dict_type="full", sharding_strategy="HYBRID_SHARD")
     else:
         strategy = "auto"
-    fabric = L.Fabric(devices=devices, strategy=strategy, precision="bf16-mixed", loggers=[logger])
+    fabric = L.Fabric(devices=devices, strategy=strategy, precision=precision, loggers=[logger])
     fabric.launch()
 
     fabric.print(pprint.pformat(hparams))
@@ -169,12 +173,13 @@ def main(
 
     model = torch.compile(model)
     model = fabric.setup(model)
+
     optimizer = torch.optim.AdamW(
         model.parameters(),
         lr=train.learning_rate,
         weight_decay=train.weight_decay,
         betas=(train.beta1, train.beta2),
-        fused=True,
+        fused=torch.cuda.is_available(),
     )
     optimizer = fabric.setup_optimizers(optimizer)
 
