@@ -42,7 +42,7 @@ class SimpleLitAPI(LitAPI):
 
         fabric = L.Fabric(
             accelerator=device.type,
-            devices=1 if device.type == "cpu" else [device.index],  # TODO: Update once LitServe supports "auto"
+            devices=1 if device.type=="cpu" else [device.index],
             precision=precision,
         )
         checkpoint_path = self.checkpoint_dir / "lit_model.pth"
@@ -101,8 +101,8 @@ def run_server(
     top_k: int = 200,
     max_new_tokens: int = 50,
     devices: int = 1,
-    accelerator: str = "cuda",
-    port: int = 8000,
+    accelerator: str = "auto",
+    port: int = 8000
 ) -> None:
     """Serve a LitGPT model using LitServe
 
@@ -116,7 +116,8 @@ def run_server(
             generated text but can also lead to more incoherent texts.
         max_new_tokens: The number of generation steps to take.
         devices: How many devices/GPUs to use.
-        accelerator: The type of accelerator to use. For example, "cuda" or "cpu".
+        accelerator: The type of accelerator to use. For example, "auto", "cuda", "cpu", or "mps".
+            The "auto" setting (default) chooses a GPU if available, and otherwise uses a CPU.
         port: The network port number on which the model is configured to be served.
     """
     check_valid_checkpoint_dir(checkpoint_dir, model_filename="lit_model.pth")
