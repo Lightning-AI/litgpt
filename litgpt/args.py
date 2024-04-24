@@ -41,7 +41,7 @@ class TrainArgs:
     min_lr: float = 6e-5
 
     # Misc args
-    get_longest_seq_length: bool = False
+    get_longest_seq_length: bool = True
     """Whether to compute the longest sequence length in the dataset"""
 
     def gradient_accumulation_iters(self, devices: int) -> int:
