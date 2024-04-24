@@ -71,6 +71,9 @@ def convert_and_evaluate(
         )
         return
 
+    if device is None:
+        device = "cuda" if torch.cuda.is_available() else "cpu"
+
     checkpoint_dir = Path(checkpoint_dir)
 
     if out_dir is None:
