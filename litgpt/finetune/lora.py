@@ -64,7 +64,7 @@ def setup(
     lora_head: bool = False,
     longlora_n_groups: Optional[int] = None,
     longlora_context_length: Optional[int] = None,
-    longlora_trainable_params: str = "wte,norm_,ln_",
+    longlora_trainable_params: str = "",
     data: Optional[DataModule] = None,
     train: TrainArgs = TrainArgs(
         save_interval=1000,
@@ -118,7 +118,7 @@ def setup(
     longlora_params = [
         longlora_n_groups is not None,
         longlora_context_length is not None,
-        longlora_trainable_params,
+        longlora_trainable_params != "",
     ]
     if any(longlora_params) and not all(longlora_params[:-1]):
         raise ValueError(
