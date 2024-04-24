@@ -21,6 +21,7 @@ class TextFiles(DataModule):
     and provides training and validation dataloaders that return batches of tokens.
     Every sample is set to a fixed length.
     """
+
     train_data_path: Path
     """The path to the data directory used for training that contains .txt files"""
     val_data_path: Optional[Path] = None
@@ -35,6 +36,7 @@ class TextFiles(DataModule):
     tokenizer: Optional[Tokenizer] = field(default=None, init=False, repr=False)
     batch_size: int = field(default=1, init=False, repr=False)
     max_seq_length: int = field(default=-1, init=False, repr=False)
+    pad_multiple_of: Optional[int] = field(default=None, init=False, repr=False)
 
     def __post_init__(self) -> None:
         self.out_path_train = self.train_data_path / "train"
@@ -43,10 +45,17 @@ class TextFiles(DataModule):
         else:
             self.out_path_val = Path(self.val_data_path) / "val"
 
-    def connect(self, tokenizer: Optional[Tokenizer] = None, batch_size: int = 1, max_seq_length: int = -1) -> None:
+    def connect(
+        self,
+        tokenizer: Optional[Tokenizer] = None,
+        batch_size: int = 1,
+        max_seq_length: int = -1,
+        pad_multiple_of: Optional[int] = None,
+    ) -> None:
         self.tokenizer = tokenizer
         self.batch_size = batch_size
         self.max_seq_length = max_seq_length + 1  # Increase by one because we need the next token as well
+        self.pad_multiple_of = pad_multiple_of
 
     def prepare_data(self) -> None:
         from litdata import optimize

@@ -27,6 +27,7 @@ class TinyLlama(DataModule):
 
     batch_size: int = field(init=False, repr=False, default=1)
     seq_length: int = field(init=False, repr=False, default=2048)
+    pad_multiple_of: Optional[int] = field(init=False, repr=False, default=None)
 
     def __post_init__(self):
         # Could be a remote path (s3://) or a local path
@@ -35,10 +36,15 @@ class TinyLlama(DataModule):
         self.starcoder_train = str(self.data_path).rstrip("/") + "/starcoder"
 
     def connect(
-        self, tokenizer: Optional[Tokenizer] = None, batch_size: int = 1, max_seq_length: Optional[int] = None
+        self,
+        tokenizer: Optional[Tokenizer] = None,
+        batch_size: int = 1,
+        max_seq_length: Optional[int] = None,
+        pad_multiple_of: Optional[int] = None,
     ) -> None:
         self.batch_size = batch_size
         self.seq_length = max_seq_length + 1  # Increase by one because we need the next token as well
+        self.pad_multiple_of = pad_multiple_of
 
     def prepare_data(self) -> None:
         for path in (self.slimpajama_train, self.slimpajama_val, self.starcoder_train):

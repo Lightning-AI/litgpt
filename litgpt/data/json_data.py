@@ -38,6 +38,7 @@ class JSON(DataModule):
     tokenizer: Optional[Tokenizer] = field(default=None, init=False, repr=False)
     batch_size: int = field(default=1, init=False, repr=False)
     max_seq_length: int = field(default=-1, init=False, repr=False)
+    pad_multiple_of: Optional[int] = field(default=None, init=False, repr=False)
     train_dataset: Optional[SFTDataset] = field(default=None, init=False, repr=False)
     val_dataset: Optional[SFTDataset] = field(default=None, init=False, repr=False)
 
@@ -61,11 +62,16 @@ class JSON(DataModule):
             self.prompt_style = PromptStyle.from_name(self.prompt_style)
 
     def connect(
-        self, tokenizer: Optional[Tokenizer] = None, batch_size: int = 1, max_seq_length: Optional[int] = None
+        self,
+        tokenizer: Optional[Tokenizer] = None,
+        batch_size: int = 1,
+        max_seq_length: Optional[int] = None,
+        pad_multiple_of: Optional[int] = None,
     ) -> None:
         self.tokenizer = tokenizer
         self.batch_size = batch_size
         self.max_seq_length = -1 if max_seq_length is None else max_seq_length
+        self.pad_multiple_of = pad_multiple_of
 
     def setup(self, stage: str = "") -> None:
         train_data, test_data = self.get_splits()
@@ -94,7 +100,9 @@ class JSON(DataModule):
             shuffle=True,
             generator=torch.Generator().manual_seed(self.seed),
             num_workers=self.num_workers,
-            collate_fn=get_sft_collate_fn(max_seq_length=self.max_seq_length, ignore_index=self.ignore_index),
+            collate_fn=get_sft_collate_fn(
+                max_seq_length=self.max_seq_length, ignore_index=self.ignore_index, pad_multiple_of=self.pad_multiple_of
+            ),
         )
 
     def val_dataloader(self) -> DataLoader:
@@ -103,7 +111,9 @@ class JSON(DataModule):
             batch_size=self.batch_size,
             shuffle=False,
             num_workers=self.num_workers,
-            collate_fn=get_sft_collate_fn(max_seq_length=self.max_seq_length, ignore_index=self.ignore_index),
+            collate_fn=get_sft_collate_fn(
+                max_seq_length=self.max_seq_length, ignore_index=self.ignore_index, pad_multiple_of=self.pad_multiple_of
+            ),
         )
 
     def get_splits(self) -> Tuple:

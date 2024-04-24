@@ -61,6 +61,9 @@ class Config:
     rope_base: int = 10000
     n_expert: int = 0
     n_expert_per_token: int = 0
+    longlora_n_groups: Optional[int] = None
+    longlora_context_length: Optional[int] = None
+    longlora_trainable_params: str = ""
 
     def __post_init__(self):
         if not self.name:
@@ -836,7 +839,7 @@ for c in llama_2:
         copy["name"] = c["name"].format(kind)
         copy["hf_config"]["name"] = c["hf_config"]["name"].format(kind)
         configs.append(copy)
-        
+
 
 ###############
 # Meta LLaMA 3

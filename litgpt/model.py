@@ -202,6 +202,9 @@ class CausalSelfAttention(nn.Module):
 
         self.config = config
 
+        # LongLora
+        self._longlora_available = self.config.longlora_n_groups is not None and self.config.longlora_n_groups > 0
+
     def forward(
         self,
         x: torch.Tensor,
@@ -211,6 +214,13 @@ class CausalSelfAttention(nn.Module):
         input_pos: Optional[torch.Tensor] = None,
     ) -> torch.Tensor:
         B, T, C = x.size()  # batch size, sequence length, embedding dimensionality (n_embd)
+
+        if input_pos is None and self._longlora_available:
+            if T % self.config.longlora_n_groups != 0:
+                raise ValueError(f"sequence length {T} should be divisible by group size {longlora_group_size}.")
+            longlora_group_size = T // self.config.longlora_n_groups
+        else:
+            longlora_group_size = 0
 
         qkv = self.attn(x)
 
@@ -243,16 +253,33 @@ class CausalSelfAttention(nn.Module):
             if not isinstance(self.kv_cache, KVCache):
                 raise TypeError("You need to call `gpt.set_kv_cache()`")
             k, v = self.kv_cache(input_pos, k, v)
+        elif longlora_group_size > 0:
+            q = roll_and_group(q, B, T, longlora_group_size, q.shape[1], self.config.head_size)
+            k = roll_and_group(k, B, T, longlora_group_size, k.shape[1], self.config.head_size)
+            v = roll_and_group(v, B, T, longlora_group_size, v.shape[1], self.config.head_size)
 
         y = self.scaled_dot_product_attention(q, k, v, mask)
+        y_cloned = y
 
-        y = y.reshape(B, T, self.config.head_size * self.config.n_head)  # re-assemble all head outputs side by side
+        if input_pos is None and longlora_group_size > 0:
+            # shift back and unroll
+            n_heads = y.shape[2]
+            y_cloned = y.clone()
+            y_cloned = y_cloned.reshape(B, T, n_heads, self.config.head_size)  # (B, T, nh, hs)
+            y_cloned[:, :, n_heads // 2 :] = y_cloned[:, :, n_heads // 2 :].roll(longlora_group_size // 2, dims=1)
+
+        # re-assemble all head outputs side by side
+        y_cloned = y_cloned.reshape(B, T, self.config.head_size * self.config.n_head)
 
         # output projection
-        return self.proj(y)
+        return self.proj(y_cloned)
 
     def scaled_dot_product_attention(
-        self, q: torch.Tensor, k: torch.Tensor, v: torch.Tensor, mask: Optional[torch.Tensor] = None
+        self,
+        q: torch.Tensor,
+        k: torch.Tensor,
+        v: torch.Tensor,
+        mask: Optional[torch.Tensor] = None,
     ) -> torch.Tensor:
         scale = 1.0 / math.sqrt(self.config.head_size)
         y = torch.nn.functional.scaled_dot_product_attention(
@@ -282,6 +309,12 @@ class CausalSelfAttention(nn.Module):
                 rope_cache_length + self.config.head_size - self.config.rope_n_elem,
             )
         return KVCache(k_shape, v_shape, device=device, dtype=dtype)
+
+
+def roll_and_group(qkv, bsz, q_len, group_size, num_heads, head_dim):
+    qkv[:, num_heads // 2 :] = qkv[:, num_heads // 2 :].roll(-group_size // 2, dims=2)
+    qkv = qkv.transpose(1, 2).reshape(bsz * (q_len // group_size), group_size, num_heads, head_dim).transpose(1, 2)
+    return qkv
 
 
 class GptNeoxMLP(nn.Module):

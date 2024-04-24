@@ -16,12 +16,14 @@ from litgpt.utils import load_checkpoint, CLI, get_default_supported_precision
 
 
 class SimpleLitAPI(LitAPI):
-    def __init__(self,
-                 checkpoint_dir: Path,
-                 precision: Optional[str] = None,
-                 temperature: float = 0.8,
-                 top_k: int = 50,
-                 max_new_tokens: int = 50) -> None:
+    def __init__(
+        self,
+        checkpoint_dir: Path,
+        precision: Optional[str] = None,
+        temperature: float = 0.8,
+        top_k: int = 50,
+        max_new_tokens: int = 50,
+    ) -> None:
 
         super().__init__()
         self.checkpoint_dir = checkpoint_dir
@@ -79,7 +81,7 @@ class SimpleLitAPI(LitAPI):
             max_returned_tokens,
             temperature=self.temperature,
             top_k=self.top_k,
-            eos_id=self.tokenizer.eos_id
+            eos_id=self.tokenizer.eos_id,
         )
 
         for block in self.model.transformer.h:
@@ -127,9 +129,10 @@ def run_server(
             temperature=temperature,
             top_k=top_k,
             max_new_tokens=max_new_tokens,
-            ),
+        ),
         accelerator=accelerator,
-        devices=devices)
+        devices=devices,
+    )
 
     server.run(port=port)
 

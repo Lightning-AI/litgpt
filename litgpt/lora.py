@@ -45,7 +45,7 @@ two matrices of a lower rank.
 
 import math
 from dataclasses import dataclass
-from typing import Any, Dict, List, Optional, Tuple, Type, Union
+from typing import Any, Dict, List, Optional, Sequence, Tuple, Type, Union
 
 import torch
 import torch.nn as nn
@@ -335,7 +335,9 @@ class LoRAQKVLinear(LoRALinear):
         result = x.new_zeros((*x.shape[:-1], self.linear.out_features))  # (64, 64, 384)
         result = result.view(-1, self.linear.out_features)  # (4096, 384)
         result = result.index_copy(
-            1, torch.tensor(self.lora_ind, device=result.device), x.reshape(-1, sum(self.qkv_shapes))
+            1,
+            torch.tensor(self.lora_ind, device=result.device),
+            x.reshape(-1, sum(self.qkv_shapes)),
         )  # (4096, 256)
         return result.view((*x.shape[:-1], self.linear.out_features)).transpose(0, 1)  # (64, 64, 384)
 
@@ -371,7 +373,8 @@ class LoRAQKVLinear(LoRALinear):
         input_splitted = input.chunk(sum(self.enable_lora), dim=1)  # N * (B, C // N, T)
         weight_splitted = weight.split(self.qkv_shapes)  # N * (C_output', r, 1)
         return torch.cat(
-            [F.conv1d(a, b) for a, b in zip(input_splitted, weight_splitted)], dim=1  # (B, C_output', T)
+            [F.conv1d(a, b) for a, b in zip(input_splitted, weight_splitted)],
+            dim=1,  # (B, C_output', T)
         )  # (B, C_output, T)
 
     def get_lora_AB(self) -> torch.Tensor:
@@ -468,6 +471,10 @@ def lora_filter(key: str, value: Any) -> bool:
     return "lora_" in key
 
 
+def longlora_filter(key: str, value: Any, additional_weights: Sequence[str] = ["lora_"]) -> bool:
+    return any(x in key for x in additional_weights + ["lora_"])
+
+
 @dataclass
 class Config(BaseConfig):
     """
@@ -521,7 +528,10 @@ class GPT(BaseModel):
         self.mask_cache: Optional[torch.Tensor] = None
 
     def forward(
-        self, idx: torch.Tensor, input_pos: Optional[torch.Tensor] = None, lm_head_chunk_size: int = 0
+        self,
+        idx: torch.Tensor,
+        input_pos: Optional[torch.Tensor] = None,
+        lm_head_chunk_size: int = 0,
     ) -> Union[torch.Tensor, List[torch.Tensor]]:
         T = idx.size(1)
         if self.max_seq_length < T:
@@ -561,7 +571,10 @@ class GPT(BaseModel):
 
     def _load_from_state_dict(self, state_dict: Dict, prefix: str, *args: Any, **kwargs: Any) -> None:
         """For compatibility with base checkpoints."""
-        mapping = {"lm_head.weight": "lm_head.linear.weight", "lm_head.bias": "lm_head.linear.bias"}
+        mapping = {
+            "lm_head.weight": "lm_head.linear.weight",
+            "lm_head.bias": "lm_head.linear.bias",
+        }
         state_dict = map_old_state_dict_weights(state_dict, mapping, prefix)
         super()._load_from_state_dict(state_dict, prefix, *args, **kwargs)
 
@@ -612,6 +625,9 @@ class CausalSelfAttention(BaseCausalSelfAttention):
         self.kv_cache: Optional[KVCache] = None
 
         self.config = config
+
+        # LongLora
+        self._longlora_available = self.config.longlora_n_groups is not None and self.config.longlora_n_groups > 0
 
     def _load_from_state_dict(self, state_dict: Dict, prefix: str, *args: Any, **kwargs: Any) -> None:
         """For compatibility with base checkpoints."""

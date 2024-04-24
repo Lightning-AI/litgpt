@@ -1,5 +1,6 @@
 # Copyright Lightning AI. Licensed under the Apache License 2.0, see LICENSE file.
 import dataclasses
+from functools import partial
 import math
 import os
 import time
@@ -18,7 +19,14 @@ from torchmetrics import RunningMean
 from litgpt.args import EvalArgs, TrainArgs
 from litgpt.data import Alpaca, DataModule
 from litgpt.generate.base import generate
-from litgpt.lora import GPT, Block, Config, lora_filter, mark_only_lora_as_trainable
+from litgpt.lora import (
+    GPT,
+    Block,
+    Config,
+    longlora_filter,
+    lora_filter,
+    mark_only_lora_as_trainable,
+)
 from litgpt.prompts import save_prompt_style
 from litgpt.scripts.merge_lora import merge_lora
 from litgpt.tokenizer import Tokenizer
@@ -29,6 +37,7 @@ from litgpt.utils import (
     choose_logger,
     chunked_cross_entropy,
     copy_config_files,
+    find_multiple,
     get_default_supported_precision,
     load_checkpoint,
     init_out_dir,
@@ -53,6 +62,9 @@ def setup(
     lora_projection: bool = False,
     lora_mlp: bool = False,
     lora_head: bool = False,
+    longlora_n_groups: Optional[int] = None,
+    longlora_context_length: Optional[int] = None,
+    longlora_trainable_params: str = "",
     data: Optional[DataModule] = None,
     train: TrainArgs = TrainArgs(
         save_interval=1000,
@@ -86,6 +98,10 @@ def setup(
         lora_projection: Whether to apply LoRA to the output projection in the attention block.
         lora_mlp: Whether to apply LoRA to the weights of the MLP in the attention block.
         lora_head: Whether to apply LoRA to output head in GPT.
+        longlora_n_groups: The number of groups to use for LongLora.
+        longlora_context_length: The increased context length to use for LongLora.
+        longlora_trainable_params: The names of the parameters to make trainable for LongLora.
+            The parameters should be comma-separated, if any.
         data: Data-related arguments. If not provided, the default is ``litgpt.data.Alpaca``.
         train: Training-related arguments. See ``litgpt.args.TrainArgs`` for details.
         eval: Evaluation-related arguments. See ``litgpt.args.EvalArgs`` for details.
@@ -97,6 +113,18 @@ def setup(
     data = Alpaca() if data is None else data
     devices = parse_devices(devices)
     out_dir = init_out_dir(out_dir)
+
+    # Check longlora params: if one is set, then all must be set
+    longlora_params = [
+        longlora_n_groups is not None,
+        longlora_context_length is not None,
+        longlora_trainable_params != "",
+    ]
+    if any(longlora_params) and not all(longlora_params[:-1]):
+        raise ValueError(
+            "If any of 'longlora_n_groups', 'longlora_context_length', or 'longlora_trainable_params' are set,"
+            " then all must be set."
+        )
 
     check_valid_checkpoint_dir(checkpoint_dir)
     config = Config.from_file(
@@ -110,16 +138,28 @@ def setup(
         lora_projection=lora_projection,
         lora_mlp=lora_mlp,
         lora_head=lora_head,
+        longlora_n_groups=longlora_n_groups,
+        longlora_context_length=longlora_context_length,
+        longlora_trainable_params=longlora_trainable_params,
     )
 
     precision = precision or get_default_supported_precision(training=True)
-    logger = choose_logger(logger_name, out_dir, name=f"finetune-{config.name}", log_interval=train.log_interval)
+    logger = choose_logger(
+        logger_name,
+        out_dir,
+        name=f"finetune-{config.name}",
+        log_interval=train.log_interval,
+    )
 
     plugins = None
     if quantize is not None and quantize.startswith("bnb."):
         if "mixed" in precision:
             raise ValueError("Quantization and mixed precision is not supported.")
-        dtype = {"16-true": torch.float16, "bf16-true": torch.bfloat16, "32-true": torch.float32}[precision]
+        dtype = {
+            "16-true": torch.float16,
+            "bf16-true": torch.bfloat16,
+            "32-true": torch.float32,
+        }[precision]
         plugins = BitsandbytesPrecision(quantize[4:], dtype)
         precision = None
 
@@ -139,7 +179,13 @@ def setup(
     else:
         strategy = "auto"
 
-    fabric = L.Fabric(devices=devices, strategy=strategy, precision=precision, loggers=logger, plugins=plugins)
+    fabric = L.Fabric(
+        devices=devices,
+        strategy=strategy,
+        precision=precision,
+        loggers=logger,
+        plugins=plugins,
+    )
     fabric.launch(main, devices, seed, config, data, checkpoint_dir, out_dir, train, eval)
 
 
@@ -157,7 +203,9 @@ def main(
     validate_args(train, eval)
 
     tokenizer = Tokenizer(checkpoint_dir)
-    train_dataloader, val_dataloader = get_dataloaders(fabric, data, tokenizer, train)
+    train_dataloader, val_dataloader = get_dataloaders(
+        fabric, data, tokenizer, train, pad_multiple_of=config.longlora_n_groups
+    )
     steps_per_epoch = len(train_dataloader) // train.gradient_accumulation_iters(devices)
     lr_max_steps = min(train.epochs * steps_per_epoch, (train.max_steps or float("inf")))
 
@@ -168,8 +216,27 @@ def main(
 
     checkpoint_path = checkpoint_dir / "lit_model.pth"
     with fabric.init_module(empty_init=(devices > 1)):
+        if config.longlora_context_length is not None and config.longlora_context_length > config.block_size:
+            old_block_size = config.block_size
+            config.block_size = config.longlora_context_length
+            old_rope_condense_ratio = config.rope_condense_ratio
+            config.rope_condense_ratio = config.longlora_context_length / old_block_size
+            fabric.print(
+                f"The model context length has been increased from {old_block_size} to {config.longlora_context_length}"
+            )
+            fabric.print(
+                f"The 'rope_condense_ratio' has been adapted from {old_rope_condense_ratio} to {config.rope_condense_ratio}"
+            )
+
         model = GPT(config)
     mark_only_lora_as_trainable(model)
+
+    # Let other layers be trainable
+    if config.longlora_trainable_params != "":
+        trainable_params = set(config.longlora_trainable_params.strip().split(","))
+        for n, p in model.named_parameters():
+            if any(trainable_p_name in n for trainable_p_name in trainable_params):
+                p.requires_grad = True
 
     fabric.print(f"Number of trainable parameters: {num_parameters(model, requires_grad=True):,}")
     fabric.print(f"Number of non-trainable parameters: {num_parameters(model, requires_grad=False):,}")
@@ -184,7 +251,10 @@ def main(
     else:
         optimizer_cls = torch.optim.AdamW
     optimizer = optimizer_cls(
-        trainable_params, lr=train.learning_rate, weight_decay=train.weight_decay, betas=(train.beta1, train.beta2)
+        trainable_params,
+        lr=train.learning_rate,
+        weight_decay=train.weight_decay,
+        betas=(train.beta1, train.beta2),
     )
     optimizer = fabric.setup_optimizers(optimizer)
     scheduler = get_lr_scheduler(optimizer, warmup_steps=train.lr_warmup_steps, max_steps=lr_max_steps)
@@ -244,8 +314,17 @@ def fit(
     data: DataModule,
 ) -> None:
     tokenizer = Tokenizer(checkpoint_dir)
-    longest_seq_length, longest_seq_ix = get_longest_seq_length(train_dataloader.dataset)
-    model.max_seq_length = min(longest_seq_length, train.max_seq_length or float("inf"))
+    pad_multiple_of = data.pad_multiple_of or 1
+    if train.get_longest_seq_length:
+        longest_seq_length, longest_seq_ix = get_longest_seq_length(train_dataloader.dataset)
+        longest_seq_length = find_multiple(
+            min(longest_seq_length, train.max_seq_length or float("inf")), pad_multiple_of
+        )
+    else:
+        longest_seq_length = find_multiple(
+            min(model.max_seq_length, train.max_seq_length or float("inf")), pad_multiple_of
+        )
+    model.max_seq_length = longest_seq_length
     fabric.print(
         f"The longest sequence length in the train data is {longest_seq_length}, the model's maximum sequence length is"
         f" {model.max_seq_length} and context length is {model.config.block_size}"
@@ -292,7 +371,10 @@ def fit(
             loss = running_loss.compute().item()  # expensive device-to-host synchronization
             t1 = time.perf_counter()
             throughput.update(
-                time=t1 - total_t0, batches=iter_num, samples=iter_num * train.micro_batch_size, lengths=total_lengths
+                time=t1 - total_t0,
+                batches=iter_num,
+                samples=iter_num * train.micro_batch_size,
+                lengths=total_lengths,
             )
             throughput.compute_and_log(step=iter_num)
             metrics = {
@@ -367,7 +449,11 @@ def generate_example(fabric: L.Fabric, model: GPT, tokenizer: Tokenizer, eval: E
         # do not set `max_seq_length=max_returned_token` because memory is not a concern here
         model.set_kv_cache(batch_size=1)
     output = generate(
-        model, encoded, max_returned_tokens=len(encoded) + eval.max_new_tokens, temperature=0.8, eos_id=tokenizer.eos_id
+        model,
+        encoded,
+        max_returned_tokens=len(encoded) + eval.max_new_tokens,
+        temperature=0.8,
+        eos_id=tokenizer.eos_id,
     )
     model.clear_kv_cache()
     model.train()
@@ -383,9 +469,14 @@ def get_lr_scheduler(optimizer, warmup_steps: int, max_steps: int):
 
 
 def get_dataloaders(
-    fabric: L.Fabric, data: DataModule, tokenizer: Tokenizer, train: TrainArgs
+    fabric: L.Fabric, data: DataModule, tokenizer: Tokenizer, train: TrainArgs, pad_multiple_of: Optional[int] = None
 ) -> Tuple[DataLoader, DataLoader]:
-    data.connect(tokenizer=tokenizer, batch_size=train.micro_batch_size, max_seq_length=train.max_seq_length)
+    data.connect(
+        tokenizer=tokenizer,
+        batch_size=train.micro_batch_size,
+        max_seq_length=train.max_seq_length,
+        pad_multiple_of=pad_multiple_of,
+    )
     with fabric.rank_zero_first():
         data.prepare_data()
     data.setup()
@@ -403,9 +494,22 @@ def get_longest_seq_length(data: List[Dict]) -> Tuple[int, int]:
     return longest_seq_length, longest_seq_ix
 
 
-def save_lora_checkpoint(fabric: L.Fabric, model: torch.nn.Module, file_path: Path) -> None:
+def save_lora_checkpoint(fabric: L.Fabric, model: GPT, file_path: Path) -> None:
     fabric.print(f"Saving LoRA weights to {str(file_path)!r}")
-    fabric.save(file_path, {"model": model}, filter={"model": lora_filter})
+    fabric.save(
+        file_path,
+        {"model": model},
+        filter={
+            "model": (
+                lora_filter
+                if model.config.longlora_context_length is None
+                else partial(
+                    longlora_filter,
+                    additional_weights=model.config.longlora_trainable_params.strip().split(","),
+                )
+            )
+        },
+    )
 
 
 def validate_args(train: TrainArgs, eval: EvalArgs) -> None:
