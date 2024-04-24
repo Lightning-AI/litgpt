@@ -112,7 +112,11 @@ def setup(
     devices = parse_devices(devices)
 
     # Check longlora params: if one is set, then all must be set
-    longlora_params = [longlora_n_groups is not None, longlora_context_length is not None, longlora_trainable_params]
+    longlora_params = [
+        longlora_n_groups is not None,
+        longlora_context_length is not None,
+        longlora_trainable_params,
+    ]
     if any(longlora_params) and not all(longlora_params[:-1]):
         raise ValueError(
             "If any of 'longlora_n_groups', 'longlora_context_length', or 'longlora_trainable_params' are set,"
@@ -196,7 +200,9 @@ def main(
     validate_args(train, eval)
 
     tokenizer = Tokenizer(checkpoint_dir)
-    train_dataloader, val_dataloader = get_dataloaders(fabric, data, tokenizer, train)
+    train_dataloader, val_dataloader = get_dataloaders(
+        fabric, data, tokenizer, train, pad_multiple_of=config.longlora_n_groups
+    )
     steps_per_epoch = len(train_dataloader) // train.gradient_accumulation_iters(devices)
     lr_max_steps = min(train.epochs * steps_per_epoch, (train.max_steps or float("inf")))
 
@@ -210,11 +216,14 @@ def main(
         if config.longlora_context_length is not None and config.longlora_context_length > config.block_size:
             old_block_size = config.block_size
             config.block_size = config.longlora_context_length
+            old_rope_condense_ratio = config.rope_condense_ratio
             config.rope_condense_ratio = config.longlora_context_length / old_block_size
             fabric.print(
                 f"The model context length has been increased from {old_block_size} to {config.longlora_context_length}"
             )
-            fabric.print(f"The 'rope_condense_ratio' has been adapted to {config.rope_condense_ratio}")
+            fabric.print(
+                f"The 'rope_condense_ratio' has been adapted from {old_rope_condense_ratio} to {config.rope_condense_ratio}"
+            )
 
         model = GPT(config)
     mark_only_lora_as_trainable(model)
@@ -296,15 +305,16 @@ def fit(
     data: DataModule,
 ) -> None:
     tokenizer = Tokenizer(checkpoint_dir)
-    pad_multiple_of = getattr(data, "pad_multiple_of", 1)
+    pad_multiple_of = data.pad_multiple_of or 1
     if train.get_longest_seq_length:
         longest_seq_length, longest_seq_ix = get_longest_seq_length(train_dataloader.dataset)
         longest_seq_length = find_multiple(
-            min(longest_seq_length, train.max_seq_length or float("inf")),
-            pad_multiple_of,
+            min(longest_seq_length, train.max_seq_length or float("inf")), pad_multiple_of
         )
     else:
-        longest_seq_length = find_multiple(train.max_seq_length or model.max_seq_length, pad_multiple_of)
+        longest_seq_length = find_multiple(
+            min(model.max_seq_length, train.max_seq_length or float("inf")), pad_multiple_of
+        )
     model.max_seq_length = longest_seq_length
     fabric.print(
         f"The longest sequence length in the train data is {longest_seq_length}, the model's maximum sequence length is"
@@ -458,12 +468,13 @@ def get_lr_scheduler(optimizer, warmup_steps: int, max_steps: int):
 
 
 def get_dataloaders(
-    fabric: L.Fabric, data: DataModule, tokenizer: Tokenizer, train: TrainArgs
+    fabric: L.Fabric, data: DataModule, tokenizer: Tokenizer, train: TrainArgs, pad_multiple_of: Optional[int] = None
 ) -> Tuple[DataLoader, DataLoader]:
     data.connect(
         tokenizer=tokenizer,
         batch_size=train.micro_batch_size,
         max_seq_length=train.max_seq_length,
+        pad_multiple_of=pad_multiple_of,
     )
     with fabric.rank_zero_first():
         data.prepare_data()
