@@ -1,7 +1,6 @@
 # Copyright Lightning AI. Licensed under the Apache License 2.0, see LICENSE file.
 
 import math
-import os
 import pprint
 import time
 from datetime import timedelta
@@ -30,6 +29,7 @@ from litgpt.utils import (
     choose_logger,
     chunked_cross_entropy,
     copy_config_files,
+    init_out_dir,
     num_parameters,
     parse_devices,
     reset_parameters,
@@ -402,12 +402,6 @@ def initialize_weights(fabric: L.Fabric, model: GPT, n_layer: int, n_embd: int) 
 
     if not isinstance(fabric.strategy, FSDPStrategy):
         reset_parameters(model)
-
-
-def init_out_dir(out_dir: Path) -> Path:
-    if not out_dir.is_absolute() and "LIGHTNING_ARTIFACTS_DIR" in os.environ:
-        return Path(os.getenv("LIGHTNING_ARTIFACTS_DIR")) / out_dir
-    return out_dir
 
 
 def save_checkpoint(fabric, state, tokenizer_dir, checkpoint_file):
