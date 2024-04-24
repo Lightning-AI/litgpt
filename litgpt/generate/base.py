@@ -157,17 +157,18 @@ def main(
     fabric.print(f"Loading model {str(checkpoint_path)!r} with {config.__dict__}", file=sys.stderr)
     t0 = time.perf_counter()
     with fabric.init_module(empty_init=True):
-        if longlora_context_length > config.block_size:
+        if longlora_context_length is not None and longlora_context_length > config.block_size:
             old_block_size = config.block_size
             config.block_size = longlora_context_length
+            old_rope_condense_ratio = config.rope_condense_ratio
             config.rope_condense_ratio = longlora_context_length / old_block_size
             fabric.print(
-                f"The model context length has been increased from {old_block_size} to {longlora_context_length}"
+                f"The model context length has been increased from {old_block_size} to {config.longlora_context_length}"
             )
-            fabric.print(f"The 'rope_condense_ratio' has been adapted to {config.rope_condense_ratio}")
-
+            fabric.print(
+                f"The 'rope_condense_ratio' has been adapted from {old_rope_condense_ratio} to {config.rope_condense_ratio}"
+            )
         model = GPT(config)
-
     fabric.print(f"Time to instantiate model: {time.perf_counter() - t0:.02f} seconds.", file=sys.stderr)
     with fabric.init_tensor():
         # set the max_seq_length to limit the memory usage to what we need

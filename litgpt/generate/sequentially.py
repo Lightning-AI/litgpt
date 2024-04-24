@@ -16,6 +16,7 @@ from lightning.fabric.accelerators import CUDAAccelerator
 from lightning.fabric.plugins import BitsandbytesPrecision
 from lightning.fabric.utilities.init import _materialize_meta_tensors
 from typing_extensions import Type
+import yaml
 
 import litgpt.generate.base as generate_base
 from litgpt import GPT, Config, Tokenizer
@@ -159,6 +160,12 @@ def main(
 
     check_valid_checkpoint_dir(checkpoint_dir)
     config = Config.from_file(checkpoint_dir / "model_config.yaml")
+    if (hyperparams_dir := (checkpoint_dir / "hyperparameters.yaml")).is_file():
+        with open(hyperparams_dir, "r", encoding="utf-8") as hparams_file:
+            hparams = yaml.safe_load(hparams_file)
+            longlora_context_length = hparams.get("longlora_context_length", config.block_size)
+    else:
+        longlora_context_length = config.block_size
 
     checkpoint_path = checkpoint_dir / "lit_model.pth"
 
@@ -173,6 +180,17 @@ def main(
     # which means that the weights will get quantized on cuda:0 on checkpoint load. we need to load and then convert
     # still, use init_tensor for the precision
     with fabric.init_tensor(), torch.device("meta"):
+        if longlora_context_length is not None and longlora_context_length > config.block_size:
+            old_block_size = config.block_size
+            config.block_size = longlora_context_length
+            old_rope_condense_ratio = config.rope_condense_ratio
+            config.rope_condense_ratio = longlora_context_length / old_block_size
+            fabric.print(
+                f"The model context length has been increased from {old_block_size} to {config.longlora_context_length}"
+            )
+            fabric.print(
+                f"The 'rope_condense_ratio' has been adapted from {old_rope_condense_ratio} to {config.rope_condense_ratio}"
+            )
         model = GPT(config)
     print(f"Time to instantiate model: {time.perf_counter() - t0:.02f} seconds.", file=sys.stderr)
 
