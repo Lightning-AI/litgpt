@@ -13,6 +13,7 @@ import time
 REPO_ID = Path("EleutherAI/pythia-14m")
 CUSTOM_TEXTS_DIR = Path("custom_texts")
 
+
 def run_command(command):
     try:
         result = subprocess.run(command, capture_output=True, text=True, check=True)
@@ -28,13 +29,12 @@ def run_command(command):
         raise RuntimeError(error_message) from None
 
 
-
 @pytest.mark.dependency()
 def test_download_model():
     command = ["litgpt", "download", "--repo_id", REPO_ID]
     output = run_command(command)
     assert "Saving converted checkpoint to checkpoints/EleutherAI/pythia-14m" in output
-    assert os.path.exists(f"checkpoints"/REPO_ID)
+    assert ("checkpoints" / REPO_ID).exists()
 
 
 @pytest.mark.dependency()
@@ -62,9 +62,9 @@ def test_chat_with_model():
 @pytest.mark.dependency(depends=["test_download_model"])
 def test_finetune_model():
 
-    OUT_DIR = Path("out")/"lora"
+    OUT_DIR = Path("out") / "lora"
     DATASET_PATH = Path("custom_finetuning_dataset.json")
-    CHECKPOINT_DIR = f"checkpoints"/REPO_ID
+    CHECKPOINT_DIR = f"checkpoints" / REPO_ID
 
     download_command = ["curl", "-L", "https://huggingface.co/datasets/medalpaca/medical_meadow_health_advice/raw/main/medical_meadow_health_advice.json", "-o", str(DATASET_PATH)]
     subprocess.run(download_command, check=True)
@@ -78,7 +78,7 @@ def test_finetune_model():
         "--data.json_path", str(DATASET_PATH),
         "--data.val_split_fraction", "0.1",
         "--train.max_steps", "1",
-        "--out_dir", OUT_DIR
+        "--out_dir", str(OUT_DIR)
     ]
     run_command(finetune_command)
 
@@ -96,7 +96,7 @@ def test_pretrain_model():
         "--data", "TextFiles",
         "--data.train_data_path", str(CUSTOM_TEXTS_DIR),
         "--train.max_tokens", "100",
-        "--out_dir", OUT_DIR
+        "--out_dir", str(OUT_DIR)
     ]
     run_command(pretrain_command)
 
@@ -115,7 +115,7 @@ def test_continue_pretrain_model():
         "--data", "TextFiles",
         "--data.train_data_path", str(CUSTOM_TEXTS_DIR),
         "--train.max_tokens", "100",
-        "--out_dir", OUT_DIR
+        "--out_dir", str(OUT_DIR)
     ]
     run_command(pretrain_command)
 
@@ -125,7 +125,7 @@ def test_continue_pretrain_model():
 
 @pytest.mark.dependency(depends=["test_download_model"])
 def test_serve():
-    CHECKPOINT_DIR = "checkpoints" / REPO_ID  # Ensure this path is correctly formed
+    CHECKPOINT_DIR = str("checkpoints" / REPO_ID)
     run_command = [
         "litgpt", "serve",
         "--checkpoint_dir", str(CHECKPOINT_DIR)
