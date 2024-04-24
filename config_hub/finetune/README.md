@@ -64,6 +64,9 @@ The "Cost" column refers to the on-demand compute cost on [Lightning AI](https:/
 | tiny-llama/qlora.yaml             | tiny-llama             | Alpaca2k | 3      | 512            | 8                | bf16-true | 1xA10G  | 8.70 min         | $0.3 | 16.24 GB    | 1.056           | 2.874                 |
 | tiny-llama/qlora.yaml             | tiny-llama             | Alpaca2k | 3      | 512            | 8                | bf16-true | 4xA10G  | 8.70 min         | $0.7 | 16.24 GB    | 1.056           | 2.874                 |
 
+*OOM = Out of memory
+
+
 &nbsp;
 ## Extending the context length
 
