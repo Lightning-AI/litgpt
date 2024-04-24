@@ -217,7 +217,7 @@ class CausalSelfAttention(nn.Module):
 
         if input_pos is None and self._longlora_available:
             if T % self.config.longlora_n_groups != 0:
-                raise ValueError("sequence length %d should be divisible by group size %d." % (T, longlora_group_size))
+                raise ValueError(f"sequence length {T} should be divisible by group size {longlora_group_size}.")
             longlora_group_size = T // self.config.longlora_n_groups
         else:
             longlora_group_size = 0
