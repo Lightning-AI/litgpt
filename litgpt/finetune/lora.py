@@ -232,7 +232,7 @@ def main(
     mark_only_lora_as_trainable(model)
 
     # Let other layers be trainable
-    if config.longlora_trainable_params is not None:
+    if config.longlora_trainable_params != "":
         trainable_params = set(config.longlora_trainable_params.strip().split(","))
         for n, p in model.named_parameters():
             if any(trainable_p_name in n for trainable_p_name in trainable_params):
