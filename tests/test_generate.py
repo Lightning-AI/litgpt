@@ -68,7 +68,7 @@ def test_main(fake_checkpoint_dir, monkeypatch, tensor_like):
     num_samples = 2
     out, err = StringIO(), StringIO()
     with redirect_stdout(out), redirect_stderr(err):
-        generate.main(temperature=2.0, top_k=2, num_samples=num_samples, checkpoint_dir=fake_checkpoint_dir)
+        generate.main(temperature=2.0, top_k=2, top_p=0.9, num_samples=num_samples, checkpoint_dir=fake_checkpoint_dir)
 
     assert len(tokenizer_mock.return_value.decode.mock_calls) == num_samples
     assert torch.allclose(tokenizer_mock.return_value.decode.call_args[0][0], generate_mock.return_value)
@@ -104,7 +104,7 @@ def test_sample(temperature):
             [[85, 79, 57, 68, 50], [89, 46, 72, 45, 32], [68, 96, 68, 24, 36]],
         ]
     )
-    token = sample(logits, temperature=temperature)
+    token = sample(logits.float(), temperature=temperature, top_p=0.8)
 
     assert token.shape == (1,)
     # sample is batch size 1 only for now - this should be [0, 1] once batched generation is supported
