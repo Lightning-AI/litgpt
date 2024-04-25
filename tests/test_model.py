@@ -324,6 +324,66 @@ def test_against_hf_phi(model_name, device, dtype):
             torch.device("cuda"),
             torch.float16,
             marks=[
+                pytest.mark.xfail(raises=AssertionError, strict=False),
+                RunIf(min_cuda_gpus=1),
+            ],
+        ),
+    ],
+)
+def test_against_original_phi_3(device, dtype):
+    torch.set_default_dtype(dtype)
+
+    T = 5
+    ours_config = Config.from_name(
+        "Phi-3-mini-4k-instruct",
+        n_layer=2,
+        n_head=16,
+        n_embd=32,
+        intermediate_size=86,
+    )
+    theirs_config = AutoConfig.from_pretrained(
+        "/".join(ours_config.hf_config.values()),
+        vocab_size=ours_config.padded_vocab_size,
+        hidden_size=ours_config.n_embd,
+        head_dim=ours_config.head_size,
+        num_attention_heads=ours_config.n_head,
+        num_hidden_layers=ours_config.n_layer,
+        intermediate_size=ours_config.intermediate_size,
+        max_position_embeddings=T,
+        rms_norm_eps=ours_config.norm_eps,
+        num_key_value_heads=ours_config.n_query_groups,
+        rope_theta=ours_config.rope_base,
+        attention_bias=ours_config.bias,
+        trust_remote_code=True,
+    )
+    assert ours_config.intermediate_size == theirs_config.intermediate_size
+
+    theirs_model = AutoModelForCausalLM.from_config(
+        theirs_config, trust_remote_code=True
+    ).to(device)
+    theirs_state_dict = theirs_model.state_dict()
+    state_dict = {}
+    copy_weights_hf_llama(ours_config, {}, state_dict, theirs_state_dict)
+    ours_model = GPT(ours_config).to(device)
+    ours_model.load_state_dict(state_dict)
+
+    # test end to end
+    x = torch.tensor([[9856, 23, 491, 1536, 304]], dtype=torch.int32, device=device)
+    assert x.size(1) == T
+    ours_y = ours_model(x)
+    theirs_y = theirs_model(x)["logits"].to(dtype)  # HF converts logits to float
+    torch.testing.assert_close(ours_y, theirs_y)
+
+
+@torch.inference_mode()
+@pytest.mark.parametrize(
+    ("device", "dtype"),
+    [
+        (torch.device("cpu"), torch.float32),
+        pytest.param(
+            torch.device("cuda"),
+            torch.float16,
+            marks=[
                 # the reference does softmax upscaled to fp32 during attention. additionally, the final layernorm input
                 # is slightly different
                 pytest.mark.xfail(raises=AssertionError, strict=False),
