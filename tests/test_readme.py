@@ -1,10 +1,8 @@
 # Copyright Lightning AI. Licensed under the Apache License 2.0, see LICENSE file.
 
 from pathlib import Path
-import os
 import pytest
 import requests
-import signal
 import subprocess
 import threading
 import time
@@ -142,8 +140,6 @@ def test_serve():
         try:
             process = subprocess.Popen(run_command, stdout=subprocess.PIPE, stderr=subprocess.PIPE, text=True)
             stdout, stderr = process.communicate(timeout=60)
-            # print('STDOUT:', stdout)
-            # print('STDERR:', stderr)
         except subprocess.TimeoutExpired:
             print('Server start-up timeout expired')
 
