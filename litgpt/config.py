@@ -1416,7 +1416,7 @@ phi = [
     # https://huggingface.co/microsoft/Phi-3-mini-4k-instruct/blob/main/config.json
     dict(
         name="Phi-3-mini-4k-instruct",
-        hf_config=dict(org="microsoft", name="microsoft/Phi-3-mini-4k-instruct"),
+        hf_config=dict(org="microsoft", name="Phi-3-mini-4k-instruct"),
         vocab_size=32064,
         padded_vocab_size=32064,
         block_size=4096,
@@ -1425,8 +1425,9 @@ phi = [
         rotary_percentage=1.0,
         bias=False,
         norm_class_name="RMSNorm",
-        intermediate_size=16384,
+        intermediate_size=8192,
         mlp_class_name="Phi3MLP",
+        parallel_residual=False,
     ),
 ]
 configs.extend(phi)
