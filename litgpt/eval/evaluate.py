@@ -19,7 +19,9 @@ def prepare_results(results, save_filepath, print_results=True):
         if "groups" in results:
             print(make_table(results, "groups"))
 
-    json_result = json.dumps(results, indent=2, ensure_ascii=False)
+    json_result = json.dumps(
+        results, indent=2, ensure_ascii=False
+    )
     save_filepath.open("w", encoding="utf-8").write(json_result)
 
 
@@ -60,7 +62,6 @@ def convert_and_evaluate(
 
     if tasks is None:
         from lm_eval.tasks import TaskManager
-
         taskm = TaskManager()
         print("\n".join(taskm.task_index.keys()))
         print(
@@ -83,7 +84,7 @@ def convert_and_evaluate(
     out_dir.mkdir(parents=True, exist_ok=True)
 
     save_filepath = out_dir / Path("results.json") if save_filepath is None else Path(save_filepath)
-    config_filepath = checkpoint_dir / "model_config.yaml"
+    config_filepath = checkpoint_dir/"model_config.yaml"
 
     with open(config_filepath, encoding="utf-8") as f:
         config_dict = yaml.safe_load(f)

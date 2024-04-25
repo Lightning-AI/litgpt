@@ -129,22 +129,13 @@ def setup(
     )
 
     precision = precision or get_default_supported_precision(training=True)
-    logger = choose_logger(
-        logger_name,
-        out_dir,
-        name=f"finetune-{config.name}",
-        log_interval=train.log_interval,
-    )
+    logger = choose_logger(logger_name, out_dir, name=f"finetune-{config.name}", log_interval=train.log_interval)
 
     plugins = None
     if quantize is not None and quantize.startswith("bnb."):
         if "mixed" in precision:
             raise ValueError("Quantization and mixed precision is not supported.")
-        dtype = {
-            "16-true": torch.float16,
-            "bf16-true": torch.bfloat16,
-            "32-true": torch.float32,
-        }[precision]
+        dtype = {"16-true": torch.float16, "bf16-true": torch.bfloat16, "32-true": torch.float32}[precision]
         plugins = BitsandbytesPrecision(quantize[4:], dtype)
         precision = None
 
@@ -164,13 +155,7 @@ def setup(
     else:
         strategy = "auto"
 
-    fabric = L.Fabric(
-        devices=devices,
-        strategy=strategy,
-        precision=precision,
-        loggers=logger,
-        plugins=plugins,
-    )
+    fabric = L.Fabric(devices=devices, strategy=strategy, precision=precision, loggers=logger, plugins=plugins)
     fabric.launch(main, devices, seed, config, data, checkpoint_dir, out_dir, train, eval, longlora)
 
 
@@ -236,10 +221,7 @@ def main(
     else:
         optimizer_cls = torch.optim.AdamW
     optimizer = optimizer_cls(
-        trainable_params,
-        lr=train.learning_rate,
-        weight_decay=train.weight_decay,
-        betas=(train.beta1, train.beta2),
+        trainable_params, lr=train.learning_rate, weight_decay=train.weight_decay, betas=(train.beta1, train.beta2)
     )
     optimizer = fabric.setup_optimizers(optimizer)
     scheduler = get_lr_scheduler(optimizer, warmup_steps=train.lr_warmup_steps, max_steps=lr_max_steps)
@@ -352,10 +334,7 @@ def fit(
             loss = running_loss.compute().item()  # expensive device-to-host synchronization
             t1 = time.perf_counter()
             throughput.update(
-                time=t1 - total_t0,
-                batches=iter_num,
-                samples=iter_num * train.micro_batch_size,
-                lengths=total_lengths,
+                time=t1 - total_t0, batches=iter_num, samples=iter_num * train.micro_batch_size, lengths=total_lengths
             )
             throughput.compute_and_log(step=iter_num)
             metrics = {
@@ -430,11 +409,7 @@ def generate_example(fabric: L.Fabric, model: GPT, tokenizer: Tokenizer, eval: E
         # do not set `max_seq_length=max_returned_token` because memory is not a concern here
         model.set_kv_cache(batch_size=1)
     output = generate(
-        model,
-        encoded,
-        max_returned_tokens=len(encoded) + eval.max_new_tokens,
-        temperature=0.8,
-        eos_id=tokenizer.eos_id,
+        model, encoded, max_returned_tokens=len(encoded) + eval.max_new_tokens, temperature=0.8, eos_id=tokenizer.eos_id
     )
     model.clear_kv_cache()
     model.train()
@@ -456,7 +431,7 @@ def get_dataloaders(
         tokenizer=tokenizer,
         batch_size=train.micro_batch_size,
         max_seq_length=train.max_seq_length,
-        pad_multiple_of=pad_multiple_of,
+        pad_multiple_of=pad_multiple_of
     )
     with fabric.rank_zero_first():
         data.prepare_data()

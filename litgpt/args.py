@@ -75,7 +75,7 @@ class EvalArgs:
 
 @dataclass
 class LongLoraArgs:
-    """GaLore-related arguments"""
+    """LongLora-related arguments"""
 
     use_longlora: bool = False
     """Whether to enable LongLora."""

@@ -178,20 +178,7 @@ def main(
         load_checkpoint(fabric, state["model"], checkpoint_path)
 
     train_time = time.perf_counter()
-    fit(
-        fabric,
-        state,
-        train_dataloader,
-        val_dataloader,
-        devices,
-        resume,
-        checkpoint_dir,
-        out_dir,
-        train,
-        eval,
-        longlora,
-        data,
-    )
+    fit(fabric, state, train_dataloader, val_dataloader, devices, resume, checkpoint_dir,out_dir, train, eval, longlora, data)
     fabric.print(f"Training time: {(time.perf_counter()-train_time):.2f}s")
     if fabric.device.type == "cuda":
         fabric.print(f"Memory used: {torch.cuda.max_memory_allocated() / 1e9:.02f} GB")
@@ -227,7 +214,7 @@ def fit(
     longlora: LongLoraArgs,
     data: DataModule,
 ) -> None:
-    model: GPT = state["model"]
+    model = state["model"]
     optimizer = state["optimizer"]
     scheduler = state["scheduler"]
     tokenizer = Tokenizer(checkpoint_dir)
@@ -379,12 +366,7 @@ def get_lr_scheduler(optimizer, warmup_steps: int, max_steps: int):
 def get_dataloaders(
     fabric: L.Fabric, data: DataModule, tokenizer: Tokenizer, train: TrainArgs, pad_multiple_of: Optional[int] = None
 ) -> Tuple[DataLoader, DataLoader]:
-    data.connect(
-        tokenizer=tokenizer,
-        batch_size=train.micro_batch_size,
-        max_seq_length=train.max_seq_length,
-        pad_multiple_of=pad_multiple_of,
-    )
+    data.connect(tokenizer=tokenizer, batch_size=train.micro_batch_size, max_seq_length=train.max_seq_length, pad_multiple_of=pad_multiple_of)
     with fabric.rank_zero_first():
         data.prepare_data()
     data.setup()
