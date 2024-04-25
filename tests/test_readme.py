@@ -29,7 +29,8 @@ def run_command(command):
 
 @pytest.mark.dependency()
 def test_download_model():
-    command = ["litgpt", "download", "--repo_id", str(REPO_ID)]
+    repo_id = str(REPO_ID).replace("\\", "/")  # fix for Windows CI
+    command = ["litgpt", "download", "--repo_id", str(repo_id)]
     output = run_command(command)
     assert "Saving converted checkpoint to checkpoints/EleutherAI/pythia-14m" in output
     assert ("checkpoints" / REPO_ID).exists()
