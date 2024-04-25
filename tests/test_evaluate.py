@@ -27,7 +27,7 @@ def test_evaluate_script(tmp_path):
         yaml.dump(asdict(ours_config), fp)
 
     stdout = StringIO()
-    with redirect_stdout(stdout), mock.patch("sys.argv", ["eval/evaluate.py"]), mock.patch("huggingface_hub.snapshot_download"):
+    with redirect_stdout(stdout), mock.patch("sys.argv", ["eval/evaluate.py"]):
         module.convert_and_evaluate(
             checkpoint_dir=checkpoint_dir,
             out_dir=tmp_path / "out_dir",
