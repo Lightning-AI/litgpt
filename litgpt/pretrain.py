@@ -179,7 +179,7 @@ def main(
         lr=train.learning_rate,
         weight_decay=train.weight_decay,
         betas=(train.beta1, train.beta2),
-        fused=torch.cuda.is_available(),
+        fused=fabric.device.type == "cuda",
     )
     optimizer = fabric.setup_optimizers(optimizer)
 
