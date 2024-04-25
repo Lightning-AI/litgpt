@@ -35,7 +35,7 @@ def convert_and_evaluate(
     dtype: Optional[Union[str, torch.dtype]] = None,
     limit: Optional[float] = None,
     seed: int = 1234,
-    save_filepath: Optional[str] = None,
+    save_filepath: Optional[Path] = None,
 ) -> None:
     """Convert a LitGPT model and run the LM Evaluation Harness
 
