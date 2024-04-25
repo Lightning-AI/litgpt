@@ -97,7 +97,8 @@ def test_pretrain_model():
         "--tokenizer_dir", str("checkpoints" / REPO_ID),
         "--data", "TextFiles",
         "--data.train_data_path", str(CUSTOM_TEXTS_DIR),
-        "--train.max_tokens", "100",
+        "--train.max_tokens", "100",     # to accelerate things for CI
+        "--eval.max_iters", "1",         # to accelerate things for CI
         "--out_dir", str(OUT_DIR)
     ]
     run_command(pretrain_command)
@@ -116,7 +117,8 @@ def test_continue_pretrain_model():
         "--tokenizer_dir", str("checkpoints" / REPO_ID),
         "--data", "TextFiles",
         "--data.train_data_path", str(CUSTOM_TEXTS_DIR),
-        "--train.max_tokens", "100",
+        "--train.max_tokens", "100",     # to accelerate things for CI
+        "--eval.max_iters", "1",         # to accelerate things for CI
         "--out_dir", str(OUT_DIR)
     ]
     run_command(pretrain_command)
