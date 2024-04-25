@@ -23,7 +23,7 @@ def main(
     checkpoint_dir: Path = Path("checkpoints/stabilityai/stablelm-base-alpha-3b"),
     quantize: Optional[Literal["bnb.nf4", "bnb.nf4-dq", "bnb.fp4", "bnb.fp4-dq", "bnb.int8"]] = None,
     max_new_tokens: int = 100,
-    top_k: Optional[int] = 200,
+    top_k: Optional[int] = 50,
     temperature: float = 0.8,
     precision: Optional[str] = None,
 ) -> None:

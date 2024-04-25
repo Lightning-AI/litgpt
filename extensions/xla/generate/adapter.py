@@ -29,7 +29,7 @@ def setup(
     adapter_path: Path = Path("out/adapter/alpaca/lit_model_adapter_finetuned.pth"),
     checkpoint_dir: Path = Path("checkpoints/tiiuae/falcon-7b"),
     max_new_tokens: int = 100,
-    top_k: Optional[int] = 200,
+    top_k: Optional[int] = 50,
     temperature: float = 0.8,
     precision: str = "bf16-true",
 ) -> None:

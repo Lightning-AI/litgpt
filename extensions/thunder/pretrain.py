@@ -26,6 +26,7 @@ from litgpt.model import GPT, CausalSelfAttention, Config, LLaMAMLP, Block
 from litgpt.utils import (
     CLI,
     CycleIterator,
+    capture_hparams,
     choose_logger,
     chunked_cross_entropy,
     copy_config_files,
@@ -97,7 +98,7 @@ def setup(
         executors: If using Thunder, the executors to enable.
         strategy: If desired, the strategy to use.
     """
-    hparams = locals()
+    hparams = capture_hparams()
     data = TinyLlama() if data is None else data
     if model_config is not None and model_name is not None:
         raise ValueError("Only one of `model_name` or `model_config` can be set.")
@@ -232,6 +233,10 @@ def main(
     train_time = time.perf_counter()
     fit(fabric, devices, state, train_dataloader, val_dataloader, out_dir, tokenizer_dir, train, eval)
     fabric.print(f"Training time: {(time.perf_counter()-train_time):.2f}s")
+
+    # Save final checkpoint
+    save_checkpoint(fabric, state, tokenizer_dir, out_dir / "final" / "lit_model.pth")
+
     if fabric.device.type == "cuda":
         fabric.print(f"Memory used: {torch.cuda.max_memory_allocated() / 1e9:.02f} GB")
 
@@ -357,15 +362,7 @@ def fit(
             fabric.barrier()
 
         if train.save_interval is not None and not is_accumulating and state["step_count"] % train.save_interval == 0:
-            checkpoint_file = out_dir / f"step-{state['step_count']:08d}" / "lit_model.pth"
-            checkpoint_file.parent.mkdir(parents=True, exist_ok=True)
-            fabric.print(f"Saving checkpoint to {str(checkpoint_file)!r}")
-            fabric.save(checkpoint_file, state)
-            if fabric.global_rank == 0:
-                save_hyperparameters(setup, checkpoint_file.parent)
-                if tokenizer_dir is not None:
-                    copy_config_files(tokenizer_dir, checkpoint_file.parent)
-                save_config(model.config, checkpoint_file.parent)
+            save_checkpoint(fabric, state, tokenizer_dir, out_dir / f"step-{state['step_count']:08d}" / "lit_model.pth")
 
 
 def forward_and_loss(model: nn.Module, input_ids: torch.Tensor, targets: torch.Tensor) -> torch.Tensor:
@@ -449,6 +446,18 @@ def init_out_dir(out_dir: Path) -> Path:
     if not out_dir.is_absolute() and "LIGHTNING_ARTIFACTS_DIR" in os.environ:
         return Path(os.getenv("LIGHTNING_ARTIFACTS_DIR")) / out_dir
     return out_dir
+
+
+def save_checkpoint(fabric, state, tokenizer_dir, checkpoint_file):
+    model = state["model"]
+    checkpoint_file.parent.mkdir(parents=True, exist_ok=True)
+    fabric.print(f"Saving checkpoint to {str(checkpoint_file)!r}")
+    fabric.save(checkpoint_file, state)
+    if fabric.global_rank == 0:
+        save_hyperparameters(setup, checkpoint_file.parent)
+        if tokenizer_dir is not None:
+            copy_config_files(tokenizer_dir, checkpoint_file.parent)
+        save_config(model.config, checkpoint_file.parent)
 
 
 def validate_args(train: TrainArgs, eval: EvalArgs, initial_checkpoint_dir, resume) -> None:

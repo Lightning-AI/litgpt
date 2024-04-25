@@ -118,11 +118,7 @@ or change the model type and size by passing a different string to the model nam
 litgpt pretrain --model_name Gemma-2b
 ```
 
-The currently supported model names are contained in the [config.py](https://github.com/Lightning-AI/litgpt/litgpt/config.py) file.
-You can
-
-1) either search this file for lines containing "name =",
-2) or run `litgpt download` without additional command line arguments
+The currently supported model names can be listed by executing `litgpt pretrain` without any additional arguments.
 
 Keep in mind that training with a single machine will take weeks. To speed up the process, you'll need access to a cluster.
 Once you're in a cluster, you can follow [these instructions](https://lightning.ai/docs/fabric/stable/fundamentals/launch.html#launch-on-a-cluster)
@@ -190,4 +186,4 @@ The following [Lightning Studio](https://lightning.ai/lightning-ai/studios) temp
 |---------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------|------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------|
 | <p align="left">[Prepare the TinyLlama 1T token dataset](https://lightning.ai/lightning-ai/studios/prepare-the-tinyllama-1t-token-dataset) <br> [<img src="https://pl-public-data.s3.amazonaws.com/assets_litgpt/readme/3.webp" width="300"></p>](https://lightning.ai/lightning-ai/studios/prepare-the-tinyllama-1t-token-dataset)         | [Pretrain LLMs - TinyLlama 1.1B](https://lightning.ai/lightning-ai/studios/pretrain-llms-tinyllama-1-1b) <br> <p align="left">[<img src="https://pl-public-data.s3.amazonaws.com/assets_litgpt/readme/4.webp" width="300"></p>](https://lightning.ai/lightning-ai/studios/pretrain-llms-tinyllama-1-1b)                                        |
 | [Continued Pretraining with TinyLlama 1.1B](https://lightning.ai/lightning-ai/studios/continued-pretraining-with-tinyllama-1-1b) <br> <p align="left">[<img src="https://pl-public-data.s3.amazonaws.com/assets_litgpt/readme/1.webp" width="300"></p>](https://lightning.ai/lightning-ai/studios/continued-pretraining-with-tinyllama-1-1b) | |
-|                                                                                                                                                                                                                                                                                                                                             |                                                                                                                                                                                                                                                     
+|                                                                                                                                                                                                                                                                                                                                             |

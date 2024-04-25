@@ -1,11 +1,13 @@
 # Copyright Lightning AI. Licensed under the Apache License 2.0, see LICENSE file.
 
 """Utility functions for training and inference."""
+import inspect
 import math
+import os
 import pickle
 import shutil
 import sys
-from dataclasses import asdict
+from dataclasses import asdict, is_dataclass
 from io import BytesIO
 from pathlib import Path
 from typing import TYPE_CHECKING, Any, Dict, Iterable, List, Literal, Mapping, Optional, TypeVar, Union
@@ -24,6 +26,12 @@ from typing_extensions import Self
 
 if TYPE_CHECKING:
     from litgpt import GPT, Config
+
+
+def init_out_dir(out_dir: Path) -> Path:
+    if not out_dir.is_absolute() and "LIGHTNING_ARTIFACTS_DIR" in os.environ:
+        return Path(os.getenv("LIGHTNING_ARTIFACTS_DIR")) / out_dir
+    return out_dir
 
 
 def find_multiple(n: int, k: int) -> int:
@@ -404,6 +412,21 @@ def CLI(*args: Any, **kwargs: Any) -> Any:
     return CLI(*args, **kwargs)
 
 
+def capture_hparams() -> Dict[str, Any]:
+    """Captures the local variables ('hyperparameters') from where this function gets called."""
+    caller_frame = inspect.currentframe().f_back
+    locals_of_caller = caller_frame.f_locals
+    hparams = {}
+    for name, value in locals_of_caller.items():
+        if value is None or isinstance(value, (int, float, str, bool, Path)):
+            hparams[name] = value
+        elif is_dataclass(value):
+            hparams[name] = asdict(value)
+        else:
+            hparams[name] = str(value)
+    return hparams
+
+
 def save_hyperparameters(function: callable, checkpoint_dir: Path) -> None:
     """Captures the CLI parameters passed to `function` without running `function` and saves them to the checkpoint."""
     from jsonargparse import capture_parser
@@ -430,7 +453,7 @@ def save_hyperparameters(function: callable, checkpoint_dir: Path) -> None:
 
 def save_config(config: "Config", checkpoint_dir: Path) -> None:
     config_dict = asdict(config)
-    with open(checkpoint_dir / "model_config.yaml", "w") as fp:
+    with open(checkpoint_dir / "model_config.yaml", "w", encoding="utf-8") as fp:
         yaml.dump(config_dict, fp)
 
 
