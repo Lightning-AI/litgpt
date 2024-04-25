@@ -53,7 +53,7 @@ def sample(
     if temperature > 0.0 and top_p > 0.0:
         logits = logits / temperature
         # optionally crop the logits to smallest set of logits with a cumulative probability above top_p
-        if top_p <= 1.0:
+        if top_p < 1.0:
             logits = sample_top_p(logits, top_p)
         probs = torch.nn.functional.softmax(logits, dim=-1)
         return multinomial_num_samples_1(probs)
