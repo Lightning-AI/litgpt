@@ -15,7 +15,7 @@ from lightning.fabric.utilities import ThroughputMonitor
 from torch.utils.data import DataLoader
 from torchmetrics import RunningMean
 
-from litgpt.adapter import GPT, Block, Config, adapter_filter, mark_only_adapter_as_trainable
+from litgpt.adapter_v2 import GPT, Block, Config, adapter_filter, mark_only_adapter_v2_as_trainable
 from litgpt.args import EvalArgs, TrainArgs
 from litgpt.data import Alpaca, DataModule
 from litgpt.generate.base import generate
@@ -29,6 +29,7 @@ from litgpt.utils import (
     chunked_cross_entropy,
     copy_config_files,
     get_default_supported_precision,
+    init_out_dir,
     load_checkpoint,
     num_parameters,
     parse_devices,
@@ -38,7 +39,7 @@ from litgpt.utils import (
 
 def setup(
     checkpoint_dir: Path = Path("checkpoints/stabilityai/stablelm-base-alpha-3b"),
-    out_dir: Path = Path("out/finetune/adapter"),
+    out_dir: Path = Path("out/finetune/adapter-v2"),
     precision: Optional[str] = None,
     quantize: Optional[Literal["bnb.nf4", "bnb.nf4-dq", "bnb.fp4", "bnb.fp4-dq", "bnb.int8-training"]] = None,
     devices: Union[int, str] = 1,
@@ -57,11 +58,12 @@ def setup(
     logger_name: Literal["wandb", "tensorboard", "csv"] = "csv",
     seed: int = 1337,
 ) -> None:
-    """Finetune a model using the Adapter method.
+    """Finetune a model using the Adapter V2 method.
 
     Arguments:
         checkpoint_dir: The path to the base model's checkpoint directory to load for finetuning.
-        out_dir: Directory in which to save checkpoints and logs.
+        out_dir: Directory in which to save checkpoints and logs. If running in a Lightning Studio Job, look for it in
+            /teamspace/jobs/<job-name>/share.
         precision: The precision to use for finetuning. Possible choices: "bf16-true", "bf16-mixed", "32-true".
         quantize: If set, quantize the model with this algorithm. See ``tutorials/quantize.md`` for more information.
         devices: How many devices/GPUs to use.
@@ -75,6 +77,7 @@ def setup(
     pprint(locals())
     data = Alpaca() if data is None else data
     devices = parse_devices(devices)
+    out_dir = init_out_dir(out_dir)
 
     check_valid_checkpoint_dir(checkpoint_dir)
     config = Config.from_file(checkpoint_dir / "model_config.yaml")
@@ -136,7 +139,7 @@ def main(
     checkpoint_path = checkpoint_dir / "lit_model.pth"
     with fabric.init_module(empty_init=(devices > 1)):
         model = GPT(config)
-    mark_only_adapter_as_trainable(model)
+    mark_only_adapter_v2_as_trainable(model)
 
     fabric.print(f"Number of trainable parameters: {num_parameters(model, requires_grad=True):,}")
     fabric.print(f"Number of non-trainable parameters: {num_parameters(model, requires_grad=False):,}")
@@ -178,10 +181,16 @@ def main(
     if fabric.device.type == "cuda":
         fabric.print(f"Memory used: {torch.cuda.max_memory_allocated() / 1e9:.02f} GB")
 
+    # Final evaluation
+    val_loss = validate(fabric, model, val_dataloader, dataclasses.replace(eval, max_iters=len(val_dataloader)))
+    metrics = {"val_loss": val_loss, "val_ppl": math.exp(val_loss)}
+    fabric.log_dict(metrics)
+    fabric.print(f"Final evaluation | val loss: {val_loss.item():.3f} | val ppl: {math.exp(val_loss):.3f}")
+
     # Save the final Adapter checkpoint at the end of training
-    save_path = out_dir / "final" / "lit_model.pth.adapter"
+    save_path = out_dir / "final" / "lit_model.pth.adapter_v2"
     save_path.parent.mkdir(parents=True, exist_ok=True)
-    save_adapter_checkpoint(fabric, model, save_path)
+    save_adapter_v2_checkpoint(fabric, model, save_path)
     if fabric.global_rank == 0:
         # Copy checkpoint files from original checkpoint dir
         copy_config_files(checkpoint_dir, save_path.parent)
@@ -211,8 +220,7 @@ def fit(
         f" {model.max_seq_length} and context length is {model.config.block_size}"
     )
 
-    if not eval.skip_validation:
-        val_loss = validate(fabric, model, val_dataloader, tokenizer, dataclasses.replace(eval, max_iters=eval.max_iters), data)
+    validate(fabric, model, val_dataloader, dataclasses.replace(eval, max_iters=2))  # sanity check
 
     train_iterator = CycleIterator(train_dataloader)
     throughput = ThroughputMonitor(fabric, window_size=50)
@@ -224,7 +232,11 @@ def fit(
     iter_num = 0
     total_lengths = 0
     total_t0 = time.perf_counter()
-    validated_after_step = False
+    if eval.inital_validation:
+        fabric.print("Validating ...")
+        val_loss = validate(fabric, model, val_dataloader, dataclasses.replace(eval, max_iters=len(val_dataloader)))
+    else:
+        val_loss = "n/a"
 
     while step_count < max_steps and train_iterator.epoch < train.epochs:
         iter_num += 1
@@ -247,10 +259,9 @@ def fit(
             optimizer.zero_grad()
             scheduler.step()
             step_count += 1
-            validated_after_step = False
 
         total_lengths += input_ids.numel()
-        if iter_num % train.log_interval == 0 or max_steps == step_count:
+        if iter_num % train.log_interval == 0:
             loss = running_loss.compute().item()  # expensive device-to-host synchronization
             t1 = time.perf_counter()
             throughput.update(
@@ -267,24 +278,21 @@ def fit(
                 "total_tokens": (iter_num * train.micro_batch_size * model.config.block_size * fabric.world_size),
                 "learning_rate": scheduler.get_last_lr()[0],
             }
-            if not eval.skip_validation:
-                val_loss_str = f" val: {val_loss.item():.3f} |"
-            else:
-                val_loss_str = ""
-
+            if isinstance(val_loss, torch.Tensor):
+                val_loss = f"{val_loss:.3f}"
             fabric.print(
-                f"Epoch {metrics['epoch']+1} | iter {metrics['iter']} step {metrics['step']} |"
+                f"Epoch {metrics['epoch'] + 1} | iter {metrics['iter']} step {metrics['step']} |"
                 f" loss train: {metrics['loss']:.3f},"
-                f"{val_loss_str}"
+                f" val: {val_loss} |"
                 f" iter time: {metrics['iter_time'] * 1000:.2f} ms"
                 f"{' (step)' if not is_accumulating else ''}"
             )
             fabric.log_dict(metrics, step=iter_num)
 
-        if not is_accumulating and step_count % eval.interval == 0 and not eval.skip_validation:
+        if not is_accumulating and step_count % eval.interval == 0:
             t0 = time.perf_counter()
-            val_loss = validate(fabric, model, val_dataloader, tokenizer, eval, data)
-            validated_after_step = True
+            val_loss = validate(fabric, model, val_dataloader, eval)
+            generate_example(fabric, model, tokenizer, eval, data)
             t1 = time.perf_counter() - t0
             fabric.print(f"iter {iter_num}: val loss {val_loss.item():.4f}, val time: {t1 * 1000:.2f} ms")
             metrics = {"val_loss": val_loss, "val_ppl": math.exp(val_loss)}
@@ -292,28 +300,18 @@ def fit(
             fabric.barrier()
 
         if train.save_interval is not None and not is_accumulating and step_count % train.save_interval == 0:
-            checkpoint_file = out_dir / f"step-{step_count:06d}" / "lit_model.pth.adapter"
+            checkpoint_file = out_dir / f"step-{step_count:06d}" / "lit_model.pth.adapter_v2"
             checkpoint_file.parent.mkdir(parents=True, exist_ok=True)
-            save_adapter_checkpoint(fabric, model, checkpoint_file)
+            save_adapter_v2_checkpoint(fabric, model, checkpoint_file)
             if fabric.global_rank == 0:
                 copy_config_files(checkpoint_dir, checkpoint_file.parent)
                 save_hyperparameters(setup, checkpoint_file.parent)
                 save_prompt_style(data.prompt_style, checkpoint_file.parent)
 
-        if step_count == max_steps and not eval.skip_validation:
-            train_loss = validate(fabric, model, train_dataloader, tokenizer, eval, data, print_output=False)
-            if not validated_after_step:
-                val_loss = validate(fabric, model, val_dataloader, tokenizer, eval, data, print_output=False)
-            fabric.print(f"Final train loss: {train_loss:.3f} | final val loss: {val_loss:.3f}")
 
-
-# the adapter "kv cache" cannot be initialized under `inference_mode`
 @torch.no_grad()
-def validate(
-    fabric: L.Fabric, model: GPT, val_dataloader: DataLoader, tokenizer: Tokenizer, eval: EvalArgs, data: DataModule, print_output: bool = True
-) -> torch.Tensor:
-    if print_output:
-        fabric.print("Validating ...")
+def validate(fabric: L.Fabric, model: GPT, val_dataloader: DataLoader, eval: EvalArgs) -> torch.Tensor:
+    fabric.print("Validating ...")
     model.eval()
     losses = torch.zeros(min(len(val_dataloader), eval.max_iters))
     for k, batch in enumerate(val_dataloader):
@@ -324,25 +322,29 @@ def validate(
         losses[k] = chunked_cross_entropy(logits[..., :-1, :], targets[..., 1:], chunk_size=0)
 
     val_loss = losses.mean()
-
-    if print_output:
-        # produce an example:
-        instruction = "Recommend a movie for me to watch during the weekend and explain the reason."
-        fabric.print(instruction)
-        prompt = data.prompt_style.apply(instruction)
-        encoded = tokenizer.encode(prompt, device=fabric.device)
-        with fabric.init_tensor():
-            # do not set `max_seq_length=max_returned_token` because memory is not a concern here
-            model.set_kv_cache(batch_size=1)
-        output = generate(
-            model, encoded, max_returned_tokens=len(encoded) + eval.max_new_tokens, temperature=0.8, eos_id=tokenizer.eos_id
-        )
-        model.clear_kv_cache()
-        output = tokenizer.decode(output)
-        fabric.print(output)
-
     model.train()
     return val_loss
+
+
+# the adapter "kv cache" cannot be initialized under `inference_mode`
+@torch.no_grad()
+def generate_example(fabric: L.Fabric, model: GPT, tokenizer: Tokenizer, eval: EvalArgs, data: DataModule):
+    instruction = "Recommend a movie for me to watch during the weekend and explain the reason."
+    fabric.print(instruction)
+    prompt = data.prompt_style.apply(instruction)
+    encoded = tokenizer.encode(prompt, device=fabric.device)
+    model.eval()
+
+    with fabric.init_tensor():
+        # do not set `max_seq_length=max_returned_token` because memory is not a concern here
+        model.set_kv_cache(batch_size=1)
+    output = generate(
+        model, encoded, max_returned_tokens=len(encoded) + eval.max_new_tokens, temperature=0.8, eos_id=tokenizer.eos_id
+    )
+    model.clear_kv_cache()
+    model.train()
+    output = tokenizer.decode(output)
+    fabric.print(output)
 
 
 def get_lr_scheduler(optimizer, warmup_steps: int, max_steps: int):
@@ -373,8 +375,8 @@ def get_longest_seq_length(data: List[Dict]) -> Tuple[int, int]:
     return longest_seq_length, longest_seq_ix
 
 
-def save_adapter_checkpoint(fabric: L.Fabric, model: torch.nn.Module, file_path: Path) -> None:
-    fabric.print(f"Saving adapter weights to {str(file_path)!r}")
+def save_adapter_v2_checkpoint(fabric: L.Fabric, model: torch.nn.Module, file_path: Path) -> None:
+    fabric.print(f"Saving adapter v2 weights to {str(file_path)!r}")
     fabric.save(file_path, {"model": model}, filter={"model": adapter_filter})
 
 
