@@ -60,6 +60,7 @@ def test_chat_with_model():
 
 
 @pytest.mark.dependency(depends=["test_download_model"])
+@pytest.mark.timeout(300)
 def test_finetune_model():
 
     OUT_DIR = Path("out") / "lora"
