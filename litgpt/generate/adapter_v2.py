@@ -24,6 +24,7 @@ def main(
     quantize: Optional[Literal["bnb.nf4", "bnb.nf4-dq", "bnb.fp4", "bnb.fp4-dq", "bnb.int8"]] = None,
     max_new_tokens: int = 100,
     top_k: Optional[int] = 50,
+    top_p: Optional[float] = None,
     temperature: float = 0.8,
     precision: Optional[str] = None,
 ) -> None:
@@ -42,6 +43,11 @@ def main(
             for more details, see https://github.com/Lightning-AI/litgpt/blob/main/tutorials/quantize.md
         max_new_tokens: The number of generation steps to take.
         top_k: The number of top most probable tokens to consider in the sampling process.
+        top_p: The cumulative probability threshold to consider in the sampling process.
+            In top-p sampling the next token is sampled from the highest probability tokens
+            whose cumulative probability exceeds the threshold `top-p`.
+            For more details, see https://arxiv.org/abs/1904.09751
+            or https://huyenchip.com/2024/01/16/sampling.html#top_p
         temperature: A value controlling the randomness of the sampling process. Higher values result in more random
             samples.
         precision: Indicates the Fabric precision setting to use.
