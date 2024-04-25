@@ -301,8 +301,8 @@ class GptNeoxMLP(nn.Module):
 class Phi3MLP(nn.Module):
     def __init__(self, config: Config) -> None:
         super().__init__()
-        self.gate_up_proj = nn.Linear(config.n_embd, config.intermediate_size, bias=config.bias)
-        self.down_proj = nn.Linear(config.intermediate_size//2, config.n_embd, bias=config.bias)
+        self.gate_up_proj = nn.Linear(config.n_embd, 2 * config.intermediate_size, bias=config.bias)
+        self.down_proj = nn.Linear(config.intermediate_size, config.n_embd, bias=config.bias)
         self.config = config
 
     def forward(self, x: torch.Tensor) -> torch.Tensor:
