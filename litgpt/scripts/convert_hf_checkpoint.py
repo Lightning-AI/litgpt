@@ -165,7 +165,9 @@ def copy_weights_hf_llama(
                 from_name, e = layer_template(from_name, 5)
             qkv = qkv_weights.setdefault(l, [None, None, None])
             if "qkv_proj" in name:
-                state_dict[f"transformer.h.{l}.attn.attn.weight"] = load_param(param, f"layer {l} qkv", dtype)
+                weight = load_param(param, f"layer {l} qkv", dtype)
+                weight = qkv_reassemble(weight, config)
+                state_dict[f"transformer.h.{l}.attn.attn.weight"] = weight
             elif "q_proj" in name:
                 qkv[0] = param
             elif "k_proj" in name:
@@ -275,6 +277,21 @@ def copy_weights_phi(
             qkv = torch.cat(cycled)
             state_dict[f"transformer.h.{i}.attn.attn.{weight_type}"] = qkv
             del qkv_weights[i][weight_type]
+
+
+def qkv_reassemble(param: Union[torch.Tensor, NotYetLoadedTensor], config: Config) -> torch.Tensor:
+    q, k, v = param.split(
+        (
+            config.n_head * config.head_size,
+            config.n_query_groups * config.head_size,
+            config.n_query_groups * config.head_size,
+        )
+    )
+    qs = q.split(config.n_head // config.n_query_groups * config.head_size)
+    ks = k.split(config.head_size)
+    vs = v.split(config.head_size)
+    interleaved = [t for group in zip(qs, ks, vs) for t in group]
+    return torch.cat(interleaved)
 
 
 def layer_template(layer_name: str, idx: int) -> Tuple[str, int]:
