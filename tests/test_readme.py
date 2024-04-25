@@ -28,6 +28,7 @@ def run_command(command):
         raise RuntimeError(error_message) from None
 
 
+@pytest.mark.skipif(sys.platform.startswith("win") or sys.platform == "darwin", reason="Tests too slow on Windows and Mac CI")
 @pytest.mark.dependency()
 def test_download_model():
     repo_id = str(REPO_ID).replace("\\", "/")  # fix for Windows CI
@@ -91,7 +92,6 @@ def test_finetune_model():
 
 
 @pytest.mark.dependency(depends=["test_download_model", "test_download_books"])
-@pytest.mark.skipif(sys.platform.startswith("win") or sys.platform == "darwin", reason="Too slow on Windows and Mac CI")
 def test_pretrain_model():
     OUT_DIR = Path("out") / "custom_pretrained"
     pretrain_command = [
@@ -111,7 +111,6 @@ def test_pretrain_model():
 
 
 @pytest.mark.dependency(depends=["test_download_model", "test_download_books"])
-@pytest.mark.skipif(sys.platform.startswith("win") or sys.platform == "darwin", reason="Too slow on Windows and Mac CI")
 def test_continue_pretrain_model():
     OUT_DIR = Path("out") / "custom_continue_pretrained"
     pretrain_command = [
