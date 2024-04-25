@@ -99,7 +99,9 @@ def convert_and_evaluate(
     from lm_eval.models.huggingface import HFLM
 
     state_dict = torch.load(model_path)
-    model = HFLM(repo_id, state_dict=state_dict, device=device, batch_size=batch_size, dtype=dtype)
+    model = HFLM(
+        repo_id, state_dict=state_dict, device=device, batch_size=batch_size, dtype=dtype, trust_remote_code=True
+    )
 
     os.environ["TOKENIZERS_PARALLELISM"] = "false"
 
