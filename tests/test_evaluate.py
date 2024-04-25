@@ -40,6 +40,8 @@ def test_evaluate_script(tmp_path):
             limit=5,
             tasks="mathqa"
         )
+        
+    assert (tmp_path / "out_dir" / "results.json").is_file()
     stdout = stdout.getvalue()
     assert "mathqa" in stdout
     assert "Metric" in stdout
