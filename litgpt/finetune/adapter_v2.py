@@ -16,12 +16,12 @@ from torch.utils.data import DataLoader
 from torchmetrics import RunningMean
 
 from litgpt.adapter_v2 import GPT, Block, Config, adapter_filter, mark_only_adapter_v2_as_trainable
-from args import EvalArgs, TrainArgs
+from litgpt.args import EvalArgs, TrainArgs
 from litgpt.data import Alpaca, DataModule
 from litgpt.generate.base import generate
 from litgpt.prompts import save_prompt_style
 from litgpt.tokenizer import Tokenizer
-from utils import (
+from litgpt.utils import (
     CLI,
     CycleIterator,
     load_checkpoint_update, 
