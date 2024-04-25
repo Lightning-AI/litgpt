@@ -461,12 +461,12 @@ from extensions.thunder.strategies import ThunderFSDPStrategy, ThunderDDPStrateg
 strategy = ThunderFSDPStrategy(
     sharding_strategy="ZERO3",
     bucketing_strategy="BLOCK",
-    executors=("sdpa", "torchcompile", "nvfuser", "torch"),
+    executors=("sdpa", "torchcompile_cat", "nvfuser", "torch"),
     state_dict_type="full",
 )
 
 # replicated data parallel
-strategy = ThunderDDPStrategy(executors=("sdpa", "torchcompile", "nvfuser", "torch"))
+strategy = ThunderDDPStrategy(executors=("sdpa", "torchcompile_cat", "nvfuser", "torch"))
 
 fabric = L.Fabric(devices=devices, strategy=strategy)
 fabric.launch()
@@ -483,11 +483,11 @@ Thunder allows you to define a priority list of executors that can map operators
 ```python
 import thunder
 from thunder.executors.sdpaex import sdpa_ex
-from thunder.executors.torch_compile import torch_compile_executor
+from thunder.executors.torch_compile import torch_compile_cat_ex
 
 model = thunder.jit(
     model,
-    executors=[sdpa_ex, torch_compile_executor, thunder.nvfuser_executor, thunder.pytorch_executor]
+    executors=[sdpa_ex, torch_compile_cat_ex, thunder.nvfuser_executor, thunder.pytorch_executor]
 )
 ```
 
@@ -577,18 +577,18 @@ Commands:
 litgpt download --repo_id mistralai/Mistral-7B-v0.1 --tokenizer_only true
 
 python extensions/thunder/pretrain.py --config config.yaml --compiler null --train.global_batch_size 32
-python extensions/thunder/pretrain.py --config config.yaml --executors '[torchcompile_complete]' --train.global_batch_size 32
-python extensions/thunder/pretrain.py --config config.yaml --executors '[sdpa, torchcompile, nvfuser, torch]' --train.global_batch_size 32
+python extensions/thunder/pretrain.py --config config.yaml --executors '[torchcompile]' --train.global_batch_size 32
+python extensions/thunder/pretrain.py --config config.yaml --executors '[sdpa, torchcompile_cat, nvfuser, torch]' --train.global_batch_size 32
 
 python extensions/thunder/pretrain.py --config config.yaml --compiler null --strategy ddp
-python extensions/thunder/pretrain.py --config config.yaml --executors '[torchcompile_complete]' --strategy ddp
-python extensions/thunder/pretrain.py --config config.yaml --executors '[sdpa, torchcompile, nvfuser, torch]' --strategy ddp
+python extensions/thunder/pretrain.py --config config.yaml --executors '[torchcompile]' --strategy ddp
+python extensions/thunder/pretrain.py --config config.yaml --executors '[sdpa, torchcompile_cat, nvfuser, torch]' --strategy ddp
 
 python extensions/thunder/pretrain.py --config config.yaml --compiler null --devices 1
-python extensions/thunder/pretrain.py --config config.yaml --executors '[torchcompile_complete]' --devices 1
-python extensions/thunder/pretrain.py --config config.yaml --executors '[sdpa, torchcompile, nvfuser, torch]' --devices 1
+python extensions/thunder/pretrain.py --config config.yaml --executors '[torchcompile]' --devices 1
+python extensions/thunder/pretrain.py --config config.yaml --executors '[sdpa, torchcompile_cat, nvfuser, torch]' --devices 1
 
-python extensions/thunder/pretrain.py --config config.yaml --executors '[sdpa, unsloth, torchcompile, nvfuser, torch]' --devices 1
+python extensions/thunder/pretrain.py --config config.yaml --executors '[sdpa, unsloth, torchcompile_cat, nvfuser, torch]' --devices 1
 ```
 
 Gradient accumulation is disabled in the FSDP setting because Thunder does not support skipping the backward synchronization yet.
@@ -596,6 +596,8 @@ Gradient accumulation is disabled in the FSDP setting because Thunder does not s
 `--compiler torch` (`torch.compile` without `thunder`) is not include because it does not support compiling the `_FabricModule` due to this issue: https://github.com/pytorch/pytorch/issues/112787#issuecomment-1986827601
 
 The CUDA devices are all NVIDIA A100-SXM4-40GB.
+
+# FIXME
 
 ```text
 Python version: 3.10.12 (main, Nov 20 2023, 15:14:05) [GCC 11.4.0] (64-bit runtime)
