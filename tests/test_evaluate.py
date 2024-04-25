@@ -20,11 +20,6 @@ from litgpt.scripts.download import download_from_hub
 from litgpt.scripts.convert_hf_checkpoint import convert_hf_checkpoint
 
 
-# @pytest.mark.xfail(
-#     raises=(datasets.builder.DatasetGenerationError, NotImplementedError),
-#     strict=False,
-#     match="Loading a dataset cached in a LocalFileSystem is not supported",
-# )
 def test_evaluate_script(tmp_path):
     download_from_hub(repo_id="EleutherAI/pythia-14m", checkpoint_dir=tmp_path)
     checkpoint_dir = tmp_path / "EleutherAI" / "pythia-14m"
