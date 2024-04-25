@@ -4,6 +4,7 @@ from pathlib import Path
 import pytest
 import requests
 import subprocess
+import sys
 import threading
 import time
 
@@ -90,6 +91,7 @@ def test_finetune_model():
 
 
 @pytest.mark.dependency(depends=["test_download_model", "test_download_books"])
+@pytest.mark.skipif(sys.platform.startswith("win") or sys.platform == "darwin", reason="Too slow on Windows and Mac CI")
 def test_pretrain_model():
     OUT_DIR = Path("out") / "custom_pretrained"
     pretrain_command = [
@@ -109,6 +111,7 @@ def test_pretrain_model():
 
 
 @pytest.mark.dependency(depends=["test_download_model", "test_download_books"])
+@pytest.mark.skipif(sys.platform.startswith("win") or sys.platform == "darwin", reason="Too slow on Windows and Mac CI")
 def test_continue_pretrain_model():
     OUT_DIR = Path("out") / "custom_continue_pretrained"
     pretrain_command = [
