@@ -40,6 +40,7 @@ def test_evaluate_script(tmp_path):
     assert (tmp_path / "out_dir" / "results.json").is_file()
     assert "mathqa" in stdout
     assert "Metric" in stdout
+    assert "Loading checkpoint shards" not in stdout
 
 
 @pytest.mark.parametrize("mode", ["file", "entrypoint"])

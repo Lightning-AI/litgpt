@@ -27,7 +27,7 @@ def prepare_results(results, save_filepath, print_results=True):
 def convert_and_evaluate(
     checkpoint_dir: Path,
     tasks: Optional[str] = None,
-    out_dir: Optional[str] = None,
+    out_dir: Optional[Path] = None,
     force_conversion: bool = False,
     num_fewshot: Optional[int] = None,
     batch_size: int = 1,
@@ -45,9 +45,7 @@ def convert_and_evaluate(
             Saves to `checkpoint_dir`/evaluate by default.
         force_conversion: Set to `True` to reconvert the model and override
             an existing model.pth from a previous evaluation call.
-        tasks: CSV of task names to evaluate.
-           By default, the following tasks are used:
-           "hellaswag,truthfulqa_mc2,mmlu"
+        tasks: CSV of task names to evaluate. Example: "hellaswag,truthfulqa_mc2,mmlu"
         num_fewshot: Number of examples in few-shot context.
         batch_size: Batch size configuration.
         device: Device to use for evaluation, for example, "cuda" or "cuda:0".
