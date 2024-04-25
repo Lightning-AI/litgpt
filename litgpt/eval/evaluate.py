@@ -4,7 +4,6 @@ import json
 import os
 from pathlib import Path
 from typing import Optional, Union
-import yaml
 import torch
 
 from litgpt.scripts.convert_lit_checkpoint import convert_lit_checkpoint
@@ -84,11 +83,6 @@ def convert_and_evaluate(
     out_dir.mkdir(parents=True, exist_ok=True)
 
     save_filepath = out_dir / Path("results.json") if save_filepath is None else Path(save_filepath)
-    config_filepath = checkpoint_dir/"model_config.yaml"
-
-    with open(config_filepath, encoding="utf-8") as f:
-        config_dict = yaml.safe_load(f)
-    repo_id = f"{config_dict['hf_config']['org']}/{config_dict['hf_config']['name']}"
 
     copy_config_files(source_dir=checkpoint_dir, out_dir=out_dir)
 
@@ -98,8 +92,7 @@ def convert_and_evaluate(
 
     from lm_eval.models.huggingface import HFLM
 
-    state_dict = torch.load(model_path)
-    model = HFLM(repo_id, state_dict=state_dict, device=device, batch_size=batch_size, dtype=dtype)
+    model = HFLM(pretrained=str(model_path), device=device, batch_size=batch_size, dtype=dtype)
 
     os.environ["TOKENIZERS_PARALLELISM"] = "false"
 
