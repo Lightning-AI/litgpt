@@ -34,7 +34,7 @@ def test_download_model():
     output = run_command(command)
 
     s = Path("checkpoints") / repo_id
-    assert f"Saving converted checkpoint to {s(str)}" in output
+    assert f"Saving converted checkpoint to {str(s)}" in output
     assert ("checkpoints" / REPO_ID).exists()
 
 
