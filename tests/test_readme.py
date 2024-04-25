@@ -32,7 +32,9 @@ def test_download_model():
     repo_id = str(REPO_ID).replace("\\", "/")  # fix for Windows CI
     command = ["litgpt", "download", "--repo_id", str(repo_id)]
     output = run_command(command)
-    assert "Saving converted checkpoint to checkpoints/EleutherAI/pythia-14m" in output
+
+    s = Path("checkpoints") / repo_id
+    assert f"Saving converted checkpoint to {s(str)}" in output
     assert ("checkpoints" / REPO_ID).exists()
 
 
