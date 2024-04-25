@@ -222,73 +222,13 @@ def test_against_original_open_llama_3b():
 
 
 @torch.inference_mode()
-def test_against_hf_phi_1_5():
-    wd = Path(__file__).parent.parent.absolute()
-    workdir = wd / "tests" / "reference_models"
-    workdir.mkdir(parents=True, exist_ok=True)
-    file_paths = [workdir / "original_phi_1_5.py", workdir / "configuration_phi.py"]
-    urls = [
-        "https://huggingface.co/microsoft/phi-1_5/raw/main/modeling_phi.py",
-        "https://huggingface.co/microsoft/phi-1_5/raw/main/configuration_phi.py",
-    ]
-    for file_path, url in zip(file_paths, urls):
-        if not file_path.is_file():
-            urlretrieve(url=url, filename=file_path)
-
-    from reference_models.configuration_phi import PhiConfig
-    from reference_models.original_phi_1_5 import PhiForCausalLM
+@pytest.mark.parametrize("model_name", ("phi-1_5", "phi-2"))
+def test_against_hf_phi(model_name):
+    from transformers.models.phi.configuration_phi import PhiConfig
+    from transformers.models.phi.modeling_phi import PhiForCausalLM
 
     ours_config = Config.from_name(
-        "phi-1_5", padded_vocab_size=10000, n_layer=2, n_head=4, n_embd=256, rotary_percentage=0.5
-    )
-    T = 5
-    theirs_config = PhiConfig(
-        vocab_size=ours_config.padded_vocab_size,
-        max_position_embeddings=ours_config.block_size,
-        hidden_size=ours_config.n_embd,
-        intermediate_size=ours_config.intermediate_size,
-        num_attention_heads=ours_config.n_head,
-        num_hidden_layers=ours_config.n_layer,
-        partial_rotary_factor=ours_config.rotary_percentage,
-    )
-
-    ours_model = GPT(ours_config)
-    ours_state_dict = ours_model.state_dict()
-    theirs_state_dict = {}
-    copy_weights_phi(ours_config, theirs_state_dict, ours_state_dict)
-    theirs_model = PhiForCausalLM(theirs_config)
-    # strict=False because we don't save the rotary embeddings inv frequency
-    keys = theirs_model.load_state_dict(theirs_state_dict, strict=False)
-    assert not keys.unexpected_keys
-    assert all("inv_freq" in k for k in keys.missing_keys)
-
-    # test end to end
-    x = torch.tensor([[9856, 23, 491, 1536, 304]], dtype=torch.int32)
-    assert x.size(1) == T
-    ours_y = ours_model(x)
-    theirs_y = theirs_model(x)["logits"]
-    torch.testing.assert_close(ours_y, theirs_y)
-
-
-@torch.inference_mode()
-def test_against_hf_phi_2():
-    wd = Path(__file__).parent.parent.absolute()
-    workdir = wd / "tests" / "reference_models"
-    workdir.mkdir(parents=True, exist_ok=True)
-    file_paths = [workdir / "original_phi_2.py", workdir / "configuration_phi.py"]
-    urls = [
-        "https://huggingface.co/microsoft/phi-2/raw/main/modeling_phi.py",
-        "https://huggingface.co/microsoft/phi-2/raw/main/configuration_phi.py",
-    ]
-    for file_path, url in zip(file_paths, urls):
-        if not file_path.is_file():
-            urlretrieve(url=url, filename=file_path)
-
-    from reference_models.configuration_phi import PhiConfig
-    from reference_models.original_phi_2 import PhiForCausalLM
-
-    ours_config = Config.from_name(
-        "phi-2", padded_vocab_size=10000, n_layer=2, n_head=4, n_embd=256, rotary_percentage=0.5
+        model_name, padded_vocab_size=10000, n_layer=2, n_head=4, n_embd=256, rotary_percentage=0.5
     )
     T = 5
     theirs_config = PhiConfig(

@@ -30,6 +30,7 @@ from litgpt.utils import (
     copy_config_files,
     find_multiple,
     incremental_save,
+    init_out_dir,
     num_parameters,
     parse_devices,
     save_hyperparameters,
@@ -294,3 +295,14 @@ def test_choose_logger(tmp_path):
 
     with pytest.raises(ValueError, match="`--logger_name=foo` is not a valid option."):
         choose_logger("foo", out_dir=tmp_path, name="foo")
+
+
+def test_init_out_dir(tmp_path):
+    relative_path = Path("./out")
+    absolute_path = tmp_path / "out"
+    assert init_out_dir(relative_path) == relative_path
+    assert init_out_dir(absolute_path) == absolute_path
+
+    with mock.patch.dict(os.environ, {"LIGHTNING_ARTIFACTS_DIR": "prefix"}):
+        assert init_out_dir(relative_path) == Path("prefix") / relative_path
+        assert init_out_dir(absolute_path) == absolute_path

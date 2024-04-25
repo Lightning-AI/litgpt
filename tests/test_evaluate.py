@@ -39,7 +39,7 @@ def test_evaluate_script(tmp_path, monkeypatch):
     fn_kwargs = dict(
         checkpoint_dir=tmp_path,
         out_dir=tmp_path / "out_dir",
-        device="cpu",
+        device=None,
         dtype=torch.float32,
         limit=5,
         tasks="mathqa"
