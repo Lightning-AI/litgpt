@@ -11,8 +11,7 @@ license = { file = "LICENSE" }
 dependencies = [
     "torch>=2.2.0",
     "lightning==2.3.0.dev20240328",
-    "jsonargparse[signatures]>=4.27.6",
-    "litserve>=0.1.0" # imported by litgpt.deploy
+    "jsonargparse[signatures]>=4.27.6"
 ]
 
 [project.urls]
@@ -31,6 +30,7 @@ test = [
     "einops>=0.7.0",
     "protobuf>=4.23.4",
     "lightning-thunder==0.2.0.dev20240404; python_version >= '3.10'",
+    "litserve>=0.1.0" # litgpt.deploy
 ]
 all = [
     "bitsandbytes==0.42.0",      # quantization
@@ -38,6 +38,7 @@ all = [
     "tokenizers>=0.15.2",        # pythia, falcon, redpajama
     "requests>=2.31.0",          # litgpt.data
     "litdata>=0.2.2",            # litgpt.data
+    "litserve>=0.1.0",           # litgpt.deploy
     "zstandard>=0.22.0",         # litgpt.data.prepare_slimpajama.py
     "pandas>=1.9.0",             # litgpt.data.prepare_starcoder.py
     "pyarrow>=15.0.2",           # litgpt.data.prepare_starcoder.py

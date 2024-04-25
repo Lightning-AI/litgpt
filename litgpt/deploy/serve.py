@@ -1,11 +1,12 @@
 # Copyright Lightning AI. Licensed under the Apache License 2.0, see LICENSE file.
 from pathlib import Path
-from typing import Dict, Any, Optional, Literal
+from typing import Dict, Any, Optional
 from litgpt.utils import check_valid_checkpoint_dir
 
 import lightning as L
+from lightning_utilities.core.imports import RequirementCache 
 import torch
-from litserve import LitAPI, LitServer
+
 
 from litgpt.model import GPT
 from litgpt.config import Config
@@ -15,6 +16,13 @@ from litgpt.prompts import load_prompt_style, has_prompt_style, PromptStyle
 from litgpt.utils import load_checkpoint, CLI, get_default_supported_precision
 
 
+_LITSERVE_AVAILABLE = RequirementCache("litserve")
+if _LITSERVE_AVAILABLE:
+    from litserve import LitAPI, LitServer
+else:
+    LitAPI, LitServer = object, object
+
+
 class SimpleLitAPI(LitAPI):
     def __init__(self,
                  checkpoint_dir: Path,
@@ -22,6 +30,12 @@ class SimpleLitAPI(LitAPI):
                  temperature: float = 0.8,
                  top_k: int = 50,
                  max_new_tokens: int = 50) -> None:
+
+        if not _LITSERVE_AVAILABLE:
+            raise ImportError(
+                "Serving LitGPT requires the `litserve` library,"
+                " which can be installed via `pip install litserve`."
+            )
 
         super().__init__()
         self.checkpoint_dir = checkpoint_dir
