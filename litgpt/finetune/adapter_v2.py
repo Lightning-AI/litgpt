@@ -15,7 +15,7 @@ from lightning.fabric.utilities import ThroughputMonitor
 from torch.utils.data import DataLoader
 from torchmetrics import RunningMean
 
-from litgpt.adapter import GPT, Block, Config, adapter_filter, mark_only_adapter_as_trainable
+from litgpt.adapter_v2 import GPT, Block, Config, adapter_filter, mark_only_adapter_v2_as_trainable
 from litgpt.args import EvalArgs, TrainArgs
 from litgpt.data import Alpaca, DataModule
 from litgpt.generate.base import generate
@@ -39,7 +39,7 @@ from litgpt.utils import (
 
 def setup(
     checkpoint_dir: Path = Path("checkpoints/stabilityai/stablelm-base-alpha-3b"),
-    out_dir: Path = Path("out/finetune/adapter"),
+    out_dir: Path = Path("out/finetune/adapter-v2"),
     precision: Optional[str] = None,
     quantize: Optional[Literal["bnb.nf4", "bnb.nf4-dq", "bnb.fp4", "bnb.fp4-dq", "bnb.int8-training"]] = None,
     devices: Union[int, str] = 1,
@@ -58,7 +58,7 @@ def setup(
     logger_name: Literal["wandb", "tensorboard", "csv"] = "csv",
     seed: int = 1337,
 ) -> None:
-    """Finetune a model using the Adapter method.
+    """Finetune a model using the Adapter V2 method.
 
     Arguments:
         checkpoint_dir: The path to the base model's checkpoint directory to load for finetuning.
@@ -139,7 +139,7 @@ def main(
     checkpoint_path = checkpoint_dir / "lit_model.pth"
     with fabric.init_module(empty_init=(devices > 1)):
         model = GPT(config)
-    mark_only_adapter_as_trainable(model)
+    mark_only_adapter_v2_as_trainable(model)
 
     fabric.print(f"Number of trainable parameters: {num_parameters(model, requires_grad=True):,}")
     fabric.print(f"Number of non-trainable parameters: {num_parameters(model, requires_grad=False):,}")
@@ -188,9 +188,9 @@ def main(
     fabric.print(f"Final evaluation | val loss: {val_loss.item():.3f} | val ppl: {math.exp(val_loss):.3f}")
 
     # Save the final Adapter checkpoint at the end of training
-    save_path = out_dir / "final" / "lit_model.pth.adapter"
+    save_path = out_dir / "final" / "lit_model.pth.adapter_v2"
     save_path.parent.mkdir(parents=True, exist_ok=True)
-    save_adapter_checkpoint(fabric, model, save_path)
+    save_adapter_v2_checkpoint(fabric, model, save_path)
     if fabric.global_rank == 0:
         # Copy checkpoint files from original checkpoint dir
         copy_config_files(checkpoint_dir, save_path.parent)
@@ -300,9 +300,9 @@ def fit(
             fabric.barrier()
 
         if train.save_interval is not None and not is_accumulating and step_count % train.save_interval == 0:
-            checkpoint_file = out_dir / f"step-{step_count:06d}" / "lit_model.pth.adapter"
+            checkpoint_file = out_dir / f"step-{step_count:06d}" / "lit_model.pth.adapter_v2"
             checkpoint_file.parent.mkdir(parents=True, exist_ok=True)
-            save_adapter_checkpoint(fabric, model, checkpoint_file)
+            save_adapter_v2_checkpoint(fabric, model, checkpoint_file)
             if fabric.global_rank == 0:
                 copy_config_files(checkpoint_dir, checkpoint_file.parent)
                 save_hyperparameters(setup, checkpoint_file.parent)
@@ -375,8 +375,8 @@ def get_longest_seq_length(data: List[Dict]) -> Tuple[int, int]:
     return longest_seq_length, longest_seq_ix
 
 
-def save_adapter_checkpoint(fabric: L.Fabric, model: torch.nn.Module, file_path: Path) -> None:
-    fabric.print(f"Saving adapter weights to {str(file_path)!r}")
+def save_adapter_v2_checkpoint(fabric: L.Fabric, model: torch.nn.Module, file_path: Path) -> None:
+    fabric.print(f"Saving adapter v2 weights to {str(file_path)!r}")
     fabric.save(file_path, {"model": model}, filter={"model": adapter_filter})
 
 
