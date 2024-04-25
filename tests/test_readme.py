@@ -75,9 +75,10 @@ def test_finetune_model():
     finetune_command = [
         "litgpt", "finetune", "lora",
         "--checkpoint_dir", str(CHECKPOINT_DIR),
+        "--lora_r", "1",
         "--data", "JSON",
         "--data.json_path", str(DATASET_PATH),
-        "--data.val_split_fraction", "0.1",
+        "--data.val_split_fraction", "0.00001", # Keep small because new final validation is expensive
         "--train.max_steps", "1",
         "--out_dir", str(OUT_DIR)
     ]
