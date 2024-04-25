@@ -31,7 +31,7 @@ def run_command(command):
 
 @pytest.mark.dependency()
 def test_download_model():
-    command = ["litgpt", "download", "--repo_id", REPO_ID]
+    command = ["litgpt", "download", "--repo_id", str(REPO_ID)]
     output = run_command(command)
     assert "Saving converted checkpoint to checkpoints/EleutherAI/pythia-14m" in output
     assert ("checkpoints" / REPO_ID).exists()
