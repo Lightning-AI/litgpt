@@ -84,10 +84,9 @@ def convert_and_evaluate(
 
     save_filepath = out_dir / Path("results.json") if save_filepath is None else Path(save_filepath)
 
-    copy_config_files(source_dir=checkpoint_dir, out_dir=out_dir)
-
     model_path = out_dir / "pytorch_model.bin"
     if not model_path.exists() or force_conversion:
+        copy_config_files(source_dir=checkpoint_dir, out_dir=out_dir)
         convert_lit_checkpoint(checkpoint_dir=checkpoint_dir, output_dir=out_dir)
     
         # Hack: LitGPT's conversion doesn't save a pickle file that is compatible to be loaded with
