@@ -82,7 +82,7 @@ def generate(
         top_k: If specified, only sample among the tokens with the k highest probabilities.
         top_p: The cumulative probability threshold to consider in the sampling process.
             In top-p sampling the next token is sampled from the highest probability tokens
-            whose cumulative probability exceeds the threshold `top-p`.
+            whose cumulative probability exceeds the threshold `top_p`.
             For more details, see https://arxiv.org/abs/1904.09751
             or https://huyenchip.com/2024/01/16/sampling.html#top_p
         eos_id: If specified, stop generating any more token once the <eos> token is triggered.
