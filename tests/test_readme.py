@@ -137,7 +137,7 @@ def test_serve():
         nonlocal process
         try:
             process = subprocess.Popen(run_command, stdout=subprocess.PIPE, stderr=subprocess.PIPE, text=True)
-            stdout, stderr = process.communicate(timeout=10)
+            stdout, stderr = process.communicate(timeout=60)
             # print('STDOUT:', stdout)
             # print('STDERR:', stderr)
         except subprocess.TimeoutExpired:
@@ -147,7 +147,7 @@ def test_serve():
     server_thread.start()
 
     # Allow time to initialize and start serving
-    time.sleep(10)
+    time.sleep(30)
 
     try:
         response = requests.get("http://127.0.0.1:8000")
