@@ -66,7 +66,7 @@ def test_finetune_model():
 
     OUT_DIR = Path("out") / "lora"
     DATASET_PATH = Path("custom_finetuning_dataset.json")
-    CHECKPOINT_DIR = f"checkpoints" / REPO_ID
+    CHECKPOINT_DIR = "checkpoints" / REPO_ID
 
     download_command = ["curl", "-L", "https://huggingface.co/datasets/medalpaca/medical_meadow_health_advice/raw/main/medical_meadow_health_advice.json", "-o", str(DATASET_PATH)]
     subprocess.run(download_command, check=True)
@@ -79,7 +79,7 @@ def test_finetune_model():
         "--lora_r", "1",
         "--data", "JSON",
         "--data.json_path", str(DATASET_PATH),
-        "--data.val_split_fraction", "0.00001", # Keep small because new final validation is expensive
+        "--data.val_split_fraction", "0.00001",  # Keep small because new final validation is expensive
         "--train.max_steps", "1",
         "--out_dir", str(OUT_DIR)
     ]
