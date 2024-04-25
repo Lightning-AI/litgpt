@@ -43,7 +43,7 @@ def setup(
     model_name: Optional[str] = None,
     model_config: Optional[Config] = None,
     out_dir: Path = Path("out/pretrain"),
-    precision: Optional[str] = None,
+    precision: Literal["bf16-true", "bf16-mixed", "32-true", None] = None,
     initial_checkpoint_dir: Optional[Path] = None,
     resume: Union[bool, Path] = False,
     data: Optional[DataModule] = None,
@@ -77,7 +77,7 @@ def setup(
             ``model_config``.
         out_dir: Directory in which to save checkpoints and logs. If running in a Lightning Studio Job, look for it in
             /teamspace/jobs/<job-name>/share.
-        precision: The precision to use for finetuning. Possible choices: "bf16-true", "bf16-mixed", "32-true".
+        precision: The precision to use for finetuning. Determines a compatible precision setting by default.
         initial_checkpoint_dir: Optional path to a checkpoint directory to initialize the model from.
             Useful for continued pretraining. Mutually exclusive with ``resume``.
         resume: Path to a checkpoint directory to resume from in case training was interrupted, or ``True`` to resume
