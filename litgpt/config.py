@@ -1417,7 +1417,7 @@ phi = [
     dict(
         name="Phi-3-mini-4k-instruct",
         hf_config=dict(org="microsoft", name="Phi-3-mini-4k-instruct"),
-        vocab_size=32064,
+        vocab_size=32000,
         padded_vocab_size=32064,
         block_size=4096,
         n_embd=3072,
