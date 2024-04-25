@@ -32,10 +32,7 @@ class SimpleLitAPI(LitAPI):
                  max_new_tokens: int = 50) -> None:
 
         if not _LITSERVE_AVAILABLE:
-            raise ImportError(
-                "Serving LitGPT requires the `litserve` library,"
-                " which can be installed via `pip install litserve`."
-            )
+            raise ImportError(str(_LITSERVE_AVAILABLE))
 
         super().__init__()
         self.checkpoint_dir = checkpoint_dir
