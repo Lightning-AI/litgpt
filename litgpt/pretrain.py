@@ -228,7 +228,13 @@ def fit(
     model = state["model"]
     optimizer = state["optimizer"]
 
-    validate(fabric, model, val_dataloader, max_iters=2)  # sanity check
+    if eval.initial_validation:
+        val_loss = validate(fabric, model, val_dataloader, max_iters=eval.max_iters)
+        val_loss = f"{val_loss:.3f}"
+    else:
+        validate(fabric, model, val_dataloader, max_iters=2)   # sanity check
+        val_loss = "n/a"
+
     throughput = ThroughputMonitor(fabric, window_size=5)
 
     with torch.device("meta"):
@@ -252,7 +258,6 @@ def fit(
     )
     fabric.barrier()
     total_t0 = time.perf_counter()
-    val_loss = "n/a"
 
     warmup_iters = train.warmup_iters(devices, max_iters, train_dataloader)
 
@@ -423,7 +428,7 @@ def save_checkpoint(fabric, state, tokenizer_dir, checkpoint_file):
 
 def validate_args(train: TrainArgs, eval: EvalArgs, initial_checkpoint_dir, resume) -> None:
     issues = []
-    unsupported = [(train, ["max_steps", "epochs"]), (eval, ["max_new_tokens", "skip_validation"])]
+    unsupported = [(train, ["max_steps", "epochs"]), (eval, ["max_new_tokens"])]
     for args, names in unsupported:
         for name in names:
             if getattr(args, name) is not None:
