@@ -34,7 +34,7 @@ def sample(
         # do not use `torch.where` as in nanogpt because it will repeat top-k collisions
         logits = torch.full_like(logits, float("-inf")).scatter_(-1, i, v)
     # optionally crop the logits to smallest set of logits with a cumulative probability above top_p
-    if top_p is not None:
+    if top_p is not None and top_p < 1.0:
         sorted_logits, sorted_indices = torch.sort(logits, descending=False)
         cumulative_probs = sorted_logits.softmax(dim=-1).cumsum(dim=-1)
         # Example:
