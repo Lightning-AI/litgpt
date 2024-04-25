@@ -40,10 +40,6 @@ class TrainArgs:
     max_norm: Optional[float] = None
     min_lr: float = 6e-5
 
-    # Misc args
-    get_longest_seq_length: bool = True
-    """Whether to compute the longest sequence length in the dataset"""
-
     def gradient_accumulation_iters(self, devices: int) -> int:
         """Number of iterations between gradient synchronizations"""
         gradient_accumulation_iters = self.batch_size(devices) // self.micro_batch_size
@@ -75,3 +71,17 @@ class EvalArgs:
     """Number of tokens to generate"""
     max_iters: int = 100
     """Number of iterations"""
+
+
+@dataclass
+class LongLoraArgs:
+    """GaLore-related arguments"""
+
+    use_longlora: bool = False
+    """Whether to enable LongLora."""
+    n_groups: int = 4
+    """Number of groups to divide the sequence length into."""
+    context_length: int = 8192
+    """Length of the enlarged context window."""
+    trainable_params: str = "wte,norm,ln"
+    """List of comma-separated parameters to train in LongLora."""

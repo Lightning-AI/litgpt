@@ -202,9 +202,6 @@ class CausalSelfAttention(nn.Module):
 
         self.config = config
 
-        # LongLora
-        self._longlora_available = self.config.longlora_n_groups is not None and self.config.longlora_n_groups > 0
-
     def forward(
         self,
         x: torch.Tensor,
@@ -215,9 +212,11 @@ class CausalSelfAttention(nn.Module):
     ) -> torch.Tensor:
         B, T, C = x.size()  # batch size, sequence length, embedding dimensionality (n_embd)
 
-        if input_pos is None and self._longlora_available:
+        if input_pos is None and self.config.use_longlora:
             if T % self.config.longlora_n_groups != 0:
-                raise ValueError(f"sequence length {T} should be divisible by group size {longlora_group_size}.")
+                raise ValueError(
+                    f"sequence length {T} should be divisible by the number of groups {self.config.longlora_n_groups}."
+                )
             longlora_group_size = T // self.config.longlora_n_groups
         else:
             longlora_group_size = 0
@@ -259,20 +258,20 @@ class CausalSelfAttention(nn.Module):
             v = roll_and_group(v, B, T, longlora_group_size, v.shape[1], self.config.head_size)
 
         y = self.scaled_dot_product_attention(q, k, v, mask)
-        y_cloned = y
 
         if input_pos is None and longlora_group_size > 0:
             # shift back and unroll
             n_heads = y.shape[2]
-            y_cloned = y.clone()
-            y_cloned = y_cloned.reshape(B, T, n_heads, self.config.head_size)  # (B, T, nh, hs)
-            y_cloned[:, :, n_heads // 2 :] = y_cloned[:, :, n_heads // 2 :].roll(longlora_group_size // 2, dims=1)
+            y = y.reshape(B, T, n_heads, self.config.head_size)  # (B, T, nh, hs)
+            y0, y1 = y.split(n_heads // 2, dim=2)
+            y1 = y1.roll(longlora_group_size // 2, dims=1)
+            y = torch.cat((y0, y1), dim=2)
 
         # re-assemble all head outputs side by side
-        y_cloned = y_cloned.reshape(B, T, self.config.head_size * self.config.n_head)
+        y = y.reshape(B, T, self.config.head_size * self.config.n_head)
 
         # output projection
-        return self.proj(y_cloned)
+        return self.proj(y)
 
     def scaled_dot_product_attention(
         self,
@@ -311,8 +310,17 @@ class CausalSelfAttention(nn.Module):
         return KVCache(k_shape, v_shape, device=device, dtype=dtype)
 
 
-def roll_and_group(qkv, bsz, q_len, group_size, num_heads, head_dim):
-    qkv[:, num_heads // 2 :] = qkv[:, num_heads // 2 :].roll(-group_size // 2, dims=2)
+def roll_and_group(
+    qkv: torch.Tensor, bsz: int, q_len: int, group_size: int, num_heads: int, head_dim: int
+) -> torch.Tensor:
+    # Split, roll and recompose to avoid the following error:
+    # RuntimeError: Output 0 of SliceBackward0 is a view and is being modified inplace.
+    # This view is the output of a function that returns multiple views.
+    # Such functions do not allow the output views to be modified inplace.
+    # You should replace the inplace operation by an out-of-place one.
+    qkv0, qkv1 = qkv.split(num_heads // 2, dim=1)
+    qkv1 = qkv1.roll(-group_size // 2, dims=2)
+    qkv = torch.cat((qkv0, qkv1), dim=1)
     qkv = qkv.transpose(1, 2).reshape(bsz * (q_len // group_size), group_size, num_heads, head_dim).transpose(1, 2)
     return qkv
 

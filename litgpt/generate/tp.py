@@ -142,9 +142,13 @@ def main(
     if (hyperparams_dir := (checkpoint_dir / "hyperparameters.yaml")).is_file():
         with open(hyperparams_dir, "r", encoding="utf-8") as hparams_file:
             hparams = yaml.safe_load(hparams_file)
-            longlora_context_length = hparams.get("longlora_context_length", config.block_size)
+            longlora_cfg = hparams.get("longlora", None)
+            use_longlora = False
+            if longlora_cfg is not None:
+                use_longlora = longlora_cfg.get("use_longlora", False)
+                longlora_context_length = longlora_cfg.get("context_length", config.block_size)
     else:
-        longlora_context_length = config.block_size
+        use_longlora = False
 
     model_file = "lit_model.pth"
     checkpoint_path = checkpoint_dir / model_file
@@ -160,13 +164,13 @@ def main(
     # which means that the weights will get quantized on cuda:0 on checkpoint load. we need to load and then convert
     # still, use init_tensor for the precision
     with fabric.init_tensor(), torch.device("meta"):
-        if longlora_context_length is not None and longlora_context_length > config.block_size:
+        if use_longlora and longlora_context_length > config.block_size:
             old_block_size = config.block_size
             config.block_size = longlora_context_length
             old_rope_condense_ratio = config.rope_condense_ratio
             config.rope_condense_ratio = longlora_context_length / old_block_size
             fabric.print(
-                f"The model context length has been increased from {old_block_size} to {config.longlora_context_length}"
+                f"The model context length has been increased from {old_block_size} to {config.block_size}"
             )
             fabric.print(
                 f"The 'rope_condense_ratio' has been adapted from {old_rope_condense_ratio} to {config.rope_condense_ratio}"

@@ -626,9 +626,6 @@ class CausalSelfAttention(BaseCausalSelfAttention):
 
         self.config = config
 
-        # LongLora
-        self._longlora_available = self.config.longlora_n_groups is not None and self.config.longlora_n_groups > 0
-
     def _load_from_state_dict(self, state_dict: Dict, prefix: str, *args: Any, **kwargs: Any) -> None:
         """For compatibility with base checkpoints."""
         mapping = {

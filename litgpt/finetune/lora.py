@@ -7,6 +7,7 @@ import time
 from pathlib import Path
 from pprint import pprint
 from typing import Dict, List, Literal, Optional, Tuple, Union
+import warnings
 
 import lightning as L
 import torch
@@ -16,7 +17,7 @@ from lightning.fabric.utilities import ThroughputMonitor
 from torch.utils.data import DataLoader
 from torchmetrics import RunningMean
 
-from litgpt.args import EvalArgs, TrainArgs
+from litgpt.args import EvalArgs, LongLoraArgs, TrainArgs
 from litgpt.data import Alpaca, DataModule
 from litgpt.generate.base import generate
 from litgpt.lora import (
@@ -62,9 +63,6 @@ def setup(
     lora_projection: bool = False,
     lora_mlp: bool = False,
     lora_head: bool = False,
-    longlora_n_groups: Optional[int] = None,
-    longlora_context_length: Optional[int] = None,
-    longlora_trainable_params: str = "",
     data: Optional[DataModule] = None,
     train: TrainArgs = TrainArgs(
         save_interval=1000,
@@ -77,6 +75,9 @@ def setup(
         max_seq_length=None,
     ),
     eval: EvalArgs = EvalArgs(interval=100, max_new_tokens=100, max_iters=100),
+    longlora: LongLoraArgs = LongLoraArgs(
+        use_longlora=False, n_groups=4, context_length=8192, trainable_params="wte,norm,ln"
+    ),
     logger_name: Literal["wandb", "tensorboard", "csv"] = "csv",
     seed: int = 1337,
 ) -> None:
@@ -98,13 +99,10 @@ def setup(
         lora_projection: Whether to apply LoRA to the output projection in the attention block.
         lora_mlp: Whether to apply LoRA to the weights of the MLP in the attention block.
         lora_head: Whether to apply LoRA to output head in GPT.
-        longlora_n_groups: The number of groups to use for LongLora.
-        longlora_context_length: The increased context length to use for LongLora.
-        longlora_trainable_params: The names of the parameters to make trainable for LongLora.
-            The parameters should be comma-separated, if any.
         data: Data-related arguments. If not provided, the default is ``litgpt.data.Alpaca``.
         train: Training-related arguments. See ``litgpt.args.TrainArgs`` for details.
         eval: Evaluation-related arguments. See ``litgpt.args.EvalArgs`` for details.
+        longlora: LongLoRA-related arguments. See ``litgpt.args.LongLoraArgs`` for details.
         logger_name: The name of the logger to send metrics to.
         seed: The random seed to use for reproducibility.
     """
@@ -113,18 +111,6 @@ def setup(
     data = Alpaca() if data is None else data
     devices = parse_devices(devices)
     out_dir = init_out_dir(out_dir)
-
-    # Check longlora params: if one is set, then all must be set
-    longlora_params = [
-        longlora_n_groups is not None,
-        longlora_context_length is not None,
-        longlora_trainable_params != "",
-    ]
-    if any(longlora_params) and not all(longlora_params[:-1]):
-        raise ValueError(
-            "If any of 'longlora_n_groups', 'longlora_context_length', or 'longlora_trainable_params' are set,"
-            " then all must be set."
-        )
 
     check_valid_checkpoint_dir(checkpoint_dir)
     config = Config.from_file(
@@ -138,9 +124,8 @@ def setup(
         lora_projection=lora_projection,
         lora_mlp=lora_mlp,
         lora_head=lora_head,
-        longlora_n_groups=longlora_n_groups,
-        longlora_context_length=longlora_context_length,
-        longlora_trainable_params=longlora_trainable_params,
+        use_longlora=longlora.use_longlora,
+        longlora_n_groups=longlora.n_groups,
     )
 
     precision = precision or get_default_supported_precision(training=True)
@@ -186,7 +171,7 @@ def setup(
         loggers=logger,
         plugins=plugins,
     )
-    fabric.launch(main, devices, seed, config, data, checkpoint_dir, out_dir, train, eval)
+    fabric.launch(main, devices, seed, config, data, checkpoint_dir, out_dir, train, eval, longlora)
 
 
 def main(
@@ -199,12 +184,14 @@ def main(
     out_dir: Path,
     train: TrainArgs,
     eval: EvalArgs,
+    longlora: LongLoraArgs,
 ) -> None:
     validate_args(train, eval)
+    validate_longlora_args(config, longlora)
 
     tokenizer = Tokenizer(checkpoint_dir)
     train_dataloader, val_dataloader = get_dataloaders(
-        fabric, data, tokenizer, train, pad_multiple_of=config.longlora_n_groups
+        fabric, data, tokenizer, train, pad_multiple_of=longlora.n_groups if longlora.use_longlora else None
     )
     steps_per_epoch = len(train_dataloader) // train.gradient_accumulation_iters(devices)
     lr_max_steps = min(train.epochs * steps_per_epoch, (train.max_steps or float("inf")))
@@ -216,14 +203,12 @@ def main(
 
     checkpoint_path = checkpoint_dir / "lit_model.pth"
     with fabric.init_module(empty_init=(devices > 1)):
-        if config.longlora_context_length is not None and config.longlora_context_length > config.block_size:
+        if longlora.use_longlora and longlora.context_length > config.block_size:
             old_block_size = config.block_size
-            config.block_size = config.longlora_context_length
+            config.block_size = longlora.context_length
             old_rope_condense_ratio = config.rope_condense_ratio
-            config.rope_condense_ratio = config.longlora_context_length / old_block_size
-            fabric.print(
-                f"The model context length has been increased from {old_block_size} to {config.longlora_context_length}"
-            )
+            config.rope_condense_ratio = longlora.context_length / old_block_size
+            fabric.print(f"The model context length has been increased from {old_block_size} to {config.block_size}")
             fabric.print(
                 f"The 'rope_condense_ratio' has been adapted from {old_rope_condense_ratio} to {config.rope_condense_ratio}"
             )
@@ -232,8 +217,8 @@ def main(
     mark_only_lora_as_trainable(model)
 
     # Let other layers be trainable
-    if config.longlora_trainable_params != "":
-        trainable_params = set(config.longlora_trainable_params.strip().split(","))
+    if longlora.use_longlora and longlora.trainable_params != "":
+        trainable_params = set(longlora.trainable_params.strip().split(","))
         for n, p in model.named_parameters():
             if any(trainable_p_name in n for trainable_p_name in trainable_params):
                 p.requires_grad = True
@@ -275,6 +260,7 @@ def main(
         out_dir,
         train,
         eval,
+        longlora,
         data,
     )
     fabric.print(f"Training time: {(time.perf_counter()-train_time):.2f}s")
@@ -290,7 +276,7 @@ def main(
     # Save the final LoRA checkpoint at the end of training
     save_path = out_dir / "final" / "lit_model.pth.lora"
     save_path.parent.mkdir(parents=True, exist_ok=True)
-    save_lora_checkpoint(fabric, model, save_path)
+    save_lora_checkpoint(fabric, model, save_path, longlora=longlora)
     if fabric.global_rank == 0:
         # Copy checkpoint files from original checkpoint dir
         copy_config_files(checkpoint_dir, save_path.parent)
@@ -311,20 +297,12 @@ def fit(
     out_dir: Path,
     train: TrainArgs,
     eval: EvalArgs,
+    longlora: LongLoraArgs,
     data: DataModule,
 ) -> None:
     tokenizer = Tokenizer(checkpoint_dir)
-    pad_multiple_of = data.pad_multiple_of or 1
-    if train.get_longest_seq_length:
-        longest_seq_length, longest_seq_ix = get_longest_seq_length(train_dataloader.dataset)
-        longest_seq_length = find_multiple(
-            min(longest_seq_length, train.max_seq_length or float("inf")), pad_multiple_of
-        )
-    else:
-        longest_seq_length = find_multiple(
-            min(model.max_seq_length, train.max_seq_length or float("inf")), pad_multiple_of
-        )
-    model.max_seq_length = longest_seq_length
+    longest_seq_length, longest_seq_ix = get_longest_seq_length(train_dataloader.dataset)
+    model.max_seq_length = min(longest_seq_length, train.max_seq_length or float("inf"))
     fabric.print(
         f"The longest sequence length in the train data is {longest_seq_length}, the model's maximum sequence length is"
         f" {model.max_seq_length} and context length is {model.config.block_size}"
@@ -411,7 +389,7 @@ def fit(
         if train.save_interval is not None and not is_accumulating and step_count % train.save_interval == 0:
             checkpoint_file = out_dir / f"step-{step_count:06d}" / "lit_model.pth.lora"
             checkpoint_file.parent.mkdir(parents=True, exist_ok=True)
-            save_lora_checkpoint(fabric, model, checkpoint_file)
+            save_lora_checkpoint(fabric, model, checkpoint_file, longlora=longlora)
             if fabric.global_rank == 0:
                 copy_config_files(checkpoint_dir, checkpoint_file.parent)
                 save_hyperparameters(setup, checkpoint_file.parent)
@@ -494,7 +472,7 @@ def get_longest_seq_length(data: List[Dict]) -> Tuple[int, int]:
     return longest_seq_length, longest_seq_ix
 
 
-def save_lora_checkpoint(fabric: L.Fabric, model: GPT, file_path: Path) -> None:
+def save_lora_checkpoint(fabric: L.Fabric, model: GPT, file_path: Path, longlora: LongLoraArgs) -> None:
     fabric.print(f"Saving LoRA weights to {str(file_path)!r}")
     fabric.save(
         file_path,
@@ -502,10 +480,10 @@ def save_lora_checkpoint(fabric: L.Fabric, model: GPT, file_path: Path) -> None:
         filter={
             "model": (
                 lora_filter
-                if model.config.longlora_context_length is None
+                if not longlora.use_longlora
                 else partial(
                     longlora_filter,
-                    additional_weights=model.config.longlora_trainable_params.strip().split(","),
+                    additional_weights=longlora.trainable_params.strip().split(","),
                 )
             )
         },
@@ -528,6 +506,21 @@ def validate_args(train: TrainArgs, eval: EvalArgs) -> None:
         issues.append(f"{__file__} requires either epochs or max_steps to be set. This is set in {train}")
     if issues:
         raise ValueError("\n".join(issues))
+
+
+def validate_longlora_args(config: Config, longlora: LongLoraArgs):
+    if longlora.use_longlora:
+        if longlora.context_length <= config.block_size:
+            warnings.warn(
+                f"LongLora is disabled because the LongLora context length ({longlora.context_length}) "
+                f"is less than the model original block size {config.block_size}. "
+            )
+            longlora.use_longlora = False
+        elif longlora.context_length % longlora.n_groups != 0:
+            raise ValueError(
+                f"LongLora context length ({longlora.context_length}) must be a multiple of the number of groups "
+                f"({longlora.n_groups})."
+            )
 
 
 if __name__ == "__main__":
