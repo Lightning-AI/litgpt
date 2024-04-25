@@ -1,6 +1,7 @@
 # Copyright Lightning AI. Licensed under the Apache License 2.0, see LICENSE file.
 
 from pathlib import Path
+import os
 import pytest
 import requests
 import subprocess
@@ -28,7 +29,12 @@ def run_command(command):
         raise RuntimeError(error_message) from None
 
 
-@pytest.mark.skipif(sys.platform.startswith("win") or sys.platform == "darwin", reason="Tests too slow on Windows and Mac CI")
+@pytest.mark.skipif(
+    sys.platform.startswith("win") or
+    sys.platform == "darwin" or
+    'AGENT_NAME' in os.environ,
+    reason="Does not run on Windows, macOS, or Azure Pipelines"
+)
 @pytest.mark.dependency()
 def test_download_model():
     repo_id = str(REPO_ID).replace("\\", "/")  # fix for Windows CI
