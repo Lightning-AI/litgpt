@@ -94,5 +94,5 @@ class GaLoreArgs:
     """GaLore hyperparameter"""
     galore_scale: float = 0.25,
     """GaLore scale factor"""
-    galore_proj_type: Literal["std", "reverse_std"] = "std",
+    galore_proj_type: Literal["std", "reverse_std"] = "std"
     """GaLore projection type"""

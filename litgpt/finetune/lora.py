@@ -213,11 +213,9 @@ def main(
             }
         ]
         if galore.galore_8bit:
-            from litgpt.external.galore import GaLoreAdamW8bit
-            optimizer_cls = GaLoreAdamW8bit
+            from litgpt.external.galore import AdamW8bit as optimizer_cls
         else:
-            from litgpt.external.galore import GaLoreAdamW
-            optimizer_cls = GaLoreAdamW
+            from litgpt.external.galore import AdamW as optimizer_cls
 
     else:
         optimizer_cls = torch.optim.AdamW
