@@ -159,12 +159,12 @@ def main(
             }
         ]
         if galore.galore_8bit:
-            from galore_torch import GaLoreAdamW8bit
+            from litgpt.external.galore import GaLoreAdamW8bit
             optimizer = GaLoreAdamW8bit(
                         param_groups, lr=train.learning_rate, weight_decay=train.weight_decay, betas=(train.beta1, train.beta2)
                     )
         else:
-            from galore_torch import GaLoreAdamW
+            from litgpt.external.galore import GaLoreAdamW
             optimizer = GaLoreAdamW(
                 param_groups, lr=train.learning_rate, weight_decay=train.weight_decay, betas=(train.beta1, train.beta2)
             )

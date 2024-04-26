@@ -213,10 +213,10 @@ def main(
             }
         ]
         if galore.galore_8bit:
-            from galore_torch import GaLoreAdamW8bit
+            from litgpt.external.galore import GaLoreAdamW8bit
             optimizer_cls = GaLoreAdamW8bit
         else:
-            from galore_torch import GaLoreAdamW
+            from litgpt.external.galore import GaLoreAdamW
             optimizer_cls = GaLoreAdamW
 
     else:

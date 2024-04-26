@@ -32,7 +32,6 @@ test = [
     "lightning-thunder==0.2.0.dev20240404; python_version >= '3.10'",
 ]
 all = [
-    "galore-torch",              # galore
     "bitsandbytes==0.42.0",      # quantization
     "sentencepiece>=0.2.0",      # llama-based models
     "tokenizers>=0.15.2",        # pythia, falcon, redpajama
