@@ -532,7 +532,7 @@ def backward_fn(saved_for_backward, cotangents):
     t763 = unsloth_apply_rope_backward(t757, t21, t22, 1, 8, 4)  # t763: "cuda:0 f32[2, 4, 3, 16]"
 ```
 
-We provide a specific [pre-training script copy](unsloth/pretrain.py) that uses this executor.
+We provide a specific [pre-training script copy](pretrain.py) that uses this executor.
 Given the Unsloth results below, these hand-written kernels do not seem to be worth it, showcasing the power of automated fusion compilers like [NvFuser](https://github.com/NVIDIA/Fuser).
 
 ## Examples and benchmarks

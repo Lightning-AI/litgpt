@@ -26,6 +26,7 @@ from litgpt.model import GPT, CausalSelfAttention, Config, LLaMAMLP, Block
 from litgpt.utils import (
     CLI,
     CycleIterator,
+    capture_hparams,
     choose_logger,
     chunked_cross_entropy,
     copy_config_files,
@@ -97,7 +98,7 @@ def setup(
         executors: If using Thunder, the executors to enable.
         strategy: If desired, the strategy to use.
     """
-    hparams = locals()
+    hparams = capture_hparams()
     data = TinyLlama() if data is None else data
     if model_config is not None and model_name is not None:
         raise ValueError("Only one of `model_name` or `model_config` can be set.")

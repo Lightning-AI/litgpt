@@ -1,4 +1,5 @@
 # Copyright Lightning AI. Licensed under the Apache License 2.0, see LICENSE file.
+from dataclasses import asdict
 
 import os
 from contextlib import redirect_stderr
@@ -18,15 +19,18 @@ from lightning.pytorch.loggers import WandbLogger
 from lightning_utilities.core.imports import RequirementCache
 
 from litgpt import GPT
+from litgpt.args import TrainArgs
 from litgpt.utils import (
     CLI,
     CycleIterator,
+    capture_hparams,
     check_valid_checkpoint_dir,
     choose_logger,
     chunked_cross_entropy,
     copy_config_files,
     find_multiple,
     incremental_save,
+    init_out_dir,
     num_parameters,
     parse_devices,
     save_hyperparameters,
@@ -219,6 +223,26 @@ def test_copy_config_files(fake_checkpoint_dir, tmp_path):
     assert expected.issubset(contents)
 
 
+def test_capture_hparams():
+    integer = 1
+    string = "string"
+    boolean = True
+    none = None
+    path = Path("/path")
+    dataclass = TrainArgs()
+    other = torch.nn.Linear(1, 1)
+    hparams = capture_hparams()
+    assert hparams == {
+        "integer": integer,
+        "string": string,
+        "boolean": boolean,
+        "none": none,
+        "path": path,
+        "dataclass": asdict(dataclass),
+        "other": str(other),
+    }
+
+
 def _test_function(out_dir: Path, foo: bool = False, bar: int = 1):
     save_hyperparameters(_test_function, out_dir)
 
@@ -227,7 +251,7 @@ def test_save_hyperparameters(tmp_path):
     with mock.patch("sys.argv", ["any.py", "--out_dir", str(tmp_path), "--foo", "True"]):
         CLI(_test_function)
 
-    with open(tmp_path / "hyperparameters.yaml", "r") as file:
+    with open(tmp_path / "hyperparameters.yaml", "r", encoding="utf-8") as file:
         hparams = yaml.full_load(file)
 
     assert hparams["out_dir"] == str(tmp_path)
@@ -254,7 +278,7 @@ def test_save_hyperparameters_known_commands(command, tmp_path):
     with mock.patch("sys.argv", [*command.split(" "), "--out_dir", str(tmp_path), "--foo", "True"]):
         save_hyperparameters(_test_function2, tmp_path)
 
-    with open(tmp_path / "hyperparameters.yaml", "r") as file:
+    with open(tmp_path / "hyperparameters.yaml", "r", encoding="utf-8") as file:
         hparams = yaml.full_load(file)
 
     assert hparams["out_dir"] == str(tmp_path)
@@ -271,3 +295,14 @@ def test_choose_logger(tmp_path):
 
     with pytest.raises(ValueError, match="`--logger_name=foo` is not a valid option."):
         choose_logger("foo", out_dir=tmp_path, name="foo")
+
+
+def test_init_out_dir(tmp_path):
+    relative_path = Path("./out")
+    absolute_path = tmp_path / "out"
+    assert init_out_dir(relative_path) == relative_path
+    assert init_out_dir(absolute_path) == absolute_path
+
+    with mock.patch.dict(os.environ, {"LIGHTNING_ARTIFACTS_DIR": "prefix"}):
+        assert init_out_dir(relative_path) == Path("prefix") / relative_path
+        assert init_out_dir(absolute_path) == absolute_path

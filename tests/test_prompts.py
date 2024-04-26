@@ -50,6 +50,8 @@ def test_prompt_style_from_config():
         "Llama-2-7b-chat-hf",
         "Llama-2-13b-chat-hf",
         "Llama-2-70b-chat-hf",
+        "Llama-3-8B-Instruct",
+        "Llama-3-70B-Instruct",
         "Gemma-2b-it",
         "Gemma-7b-it",
         "FreeWilly2",
@@ -98,7 +100,7 @@ def test_save_load_prompt_style(tmp_path):
     assert not has_prompt_style(checkpoint_dir)
     save_prompt_style("alpaca", checkpoint_dir)
     assert has_prompt_style(checkpoint_dir)
-    with open(checkpoint_dir / "prompt_style.yaml", "r") as file:
+    with open(checkpoint_dir / "prompt_style.yaml", "r", encoding="utf-8") as file:
         contents = yaml.safe_load(file)
     assert contents == {"class_path": "litgpt.prompts.Alpaca"}
     loaded = load_prompt_style(checkpoint_dir)
@@ -108,7 +110,7 @@ def test_save_load_prompt_style(tmp_path):
     checkpoint_dir = tmp_path / "custom"
     checkpoint_dir.mkdir()
     save_prompt_style(CustomPromptStyle(), checkpoint_dir)
-    with open(checkpoint_dir / "prompt_style.yaml", "r") as file:
+    with open(checkpoint_dir / "prompt_style.yaml", "r", encoding="utf-8") as file:
         contents = yaml.safe_load(file)
     assert contents == {"class_path": "test_prompts.CustomPromptStyle"}
     loaded = load_prompt_style(checkpoint_dir)

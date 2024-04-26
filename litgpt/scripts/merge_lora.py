@@ -72,7 +72,7 @@ def load_lora_metadata(checkpoint_dir: Path) -> Tuple[Dict[str, Any], Path, Opti
             f" the `litgpt/finetune/lora.py` script."
         )
 
-    with open(hparams_file, "r") as file:
+    with open(hparams_file, "r", encoding="utf-8") as file:
         hparams = yaml.safe_load(file)
 
     lora_params = {k: v for k, v in hparams.items() if k.startswith("lora_")}
