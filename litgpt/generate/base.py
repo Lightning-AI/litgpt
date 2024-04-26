@@ -49,8 +49,7 @@ def sample(
         # do not use `torch.where` as in nanogpt because it will repeat top-k collisions
         logits = torch.full_like(logits, float("-inf")).scatter_(-1, i, v)
     # optionally scale the logits and sample from a probability distribution
-    top_p = top_p or 1.0
-    if temperature > 0.0 and top_p > 0.0:
+    if temperature > 0.0 and top_p is not None and top_p > 0.0:
         logits = logits / temperature
         # optionally crop the logits to smallest set of logits with a cumulative probability above top_p
         if top_p < 1.0:
