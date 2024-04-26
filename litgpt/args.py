@@ -80,19 +80,20 @@ class EvalArgs:
     max_iters: int = 100
     """Number of iterations"""
 
+
 @dataclass
 class GaLoreArgs:
     """GaLore-related arguments"""
 
-    use_galore: bool = False,
+    use_galore: bool = False
     """Whether to enable GaLore (GaLore is applied to all linear layers)."""
-    galore_8bit: bool = False,
+    galore_8bit: bool = False
     """Whether to use the 8-bit GaLore AdamW optimizer instead of the Galore AdamW optimizer."""
-    galore_r: int = 128,
+    galore_r: int = 128
     """GaLore rank"""
-    galore_update_proj_gap: int = 200,
+    galore_update_proj_gap: int = 200
     """GaLore hyperparameter"""
-    galore_scale: float = 0.25,
+    galore_scale: float = 0.25
     """GaLore scale factor"""
     galore_proj_type: Literal["std", "reverse_std"] = "std"
     """GaLore projection type"""
