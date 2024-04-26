@@ -42,6 +42,13 @@ def setup(
     precision: Optional[str] = None,
     devices: Union[int, str] = 1,
     resume: Union[bool, Path] = False,
+    galore: GaLoreArgs = GaLoreArgs(
+        galore_8bit=False,
+        galore_r=128,
+        galore_update_proj_gap=200,
+        galore_scale=0.25,
+        galore_proj_type="std",
+    ),
     data: Optional[DataModule] = None,
     train: TrainArgs = TrainArgs(
         save_interval=1000,
@@ -54,13 +61,6 @@ def setup(
         max_seq_length=None,
     ),
     eval: EvalArgs = EvalArgs(interval=600, max_new_tokens=100, max_iters=100),
-    galore: GaLoreArgs = GaLoreArgs(
-        galore_8bit=False,
-        galore_r=128,
-        galore_update_proj_gap=200,
-        galore_scale=0.25,
-        galore_proj_type="std",
-    ),
     logger_name: Literal["wandb", "tensorboard", "csv"] = "csv",
     seed: int = 1337,
 ) -> None:
