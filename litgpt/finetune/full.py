@@ -27,12 +27,12 @@ from litgpt.utils import (
     chunked_cross_entropy,
     copy_config_files,
     get_default_supported_precision,
+    get_linear_nonlinear_params,
     load_checkpoint,
     init_out_dir,
     num_parameters,
     parse_devices,
-    save_hyperparameters,
-    get_linear_nonlinear_params
+    save_hyperparameters
 )
 
 
@@ -145,35 +145,31 @@ def main(
 
     model = fabric.setup(model)
 
-    if galore.use_galore:
+    if not galore.use_galore:
+        trainable_params = [p for p in model.parameters() if p.requires_grad]
+        optimizer_cls = torch.optim.AdamW
+
+    else:
         linear_params, nonlinear_params = get_linear_nonlinear_params(model)
         # Currently apply galore to all parameters; might add options to target specific layers later)
-        param_groups = [
+        trainable_params = [
             {'params': nonlinear_params},
             {
-             'params': linear_params,
-             'rank': galore.galore_r,
-             'update_proj_gap': galore.galore_update_proj_gap,
-             'scale': galore.galore_scale,
-             'proj_type': galore.galore_proj_type
+                'params': linear_params,
+                'rank': galore.galore_r,
+                'update_proj_gap': galore.galore_update_proj_gap,
+                'scale': galore.galore_scale,
+                'proj_type': galore.galore_proj_type
             }
         ]
         if galore.galore_8bit:
-            from litgpt.external.galore import AdamW8bit
-            optimizer = AdamW8bit(
-                        param_groups, lr=train.learning_rate, weight_decay=train.weight_decay, betas=(train.beta1, train.beta2)
-                    )
+            from litgpt.external.galore import AdamW8bit as optimizer_cls
         else:
-            from litgpt.external.galore import AdamW
-            optimizer = AdamW(
-                param_groups, lr=train.learning_rate, weight_decay=train.weight_decay, betas=(train.beta1, train.beta2)
-            )
+            from litgpt.external.galore import AdamW as optimizer_cls
 
-    else:
-        optimizer = torch.optim.AdamW(
-            model.parameters(), lr=train.learning_rate, weight_decay=train.weight_decay, betas=(train.beta1, train.beta2)
-        )
-
+    optimizer = optimizer_cls(
+        trainable_params, lr=train.learning_rate, weight_decay=train.weight_decay, betas=(train.beta1, train.beta2)
+    )
     optimizer = fabric.setup_optimizers(optimizer)
     scheduler = get_lr_scheduler(optimizer, warmup_steps=train.lr_warmup_steps, max_steps=lr_max_steps)
     state = {"model": model, "optimizer": optimizer, "scheduler": scheduler, "iter_num": 0, "step_count": 0}

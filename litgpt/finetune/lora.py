@@ -30,12 +30,12 @@ from litgpt.utils import (
     chunked_cross_entropy,
     copy_config_files,
     get_default_supported_precision,
+    get_linear_nonlinear_params,
     load_checkpoint,
     init_out_dir,
     num_parameters,
     parse_devices,
-    save_hyperparameters,
-    get_linear_nonlinear_params
+    save_hyperparameters
 )
 
 
@@ -188,28 +188,28 @@ def main(
 
     model = fabric.setup_module(model)
 
-    trainable_params = [p for p in model.parameters() if p.requires_grad]
+    if not galore.use_galore:
+        trainable_params = [p for p in model.parameters() if p.requires_grad]
 
-    if isinstance(fabric.strategy.precision, BitsandbytesPrecision):
-        import bitsandbytes as bnb
+        if isinstance(fabric.strategy.precision, BitsandbytesPrecision):
+            from bitsandbytes.bnb.optim import PagedAdamW as optimizer_cls
+        else:
+            optimizer_cls = torch.optim.AdamW
 
-        if galore.use_galore:
+    else:
+        if isinstance(fabric.strategy.precision, BitsandbytesPrecision):
             raise ValueError("The combinatiomn of QLoRA and GaLore is currently not supported.")
-
-        optimizer_cls = bnb.optim.PagedAdamW
-
-    elif galore.use_galore:
 
         linear_params, nonlinear_params = get_linear_nonlinear_params(model)
         # Currently apply galore to all parameters; might add options to target specific layers later)
         trainable_params = [
             {'params': nonlinear_params},
             {
-             'params': linear_params,
-             'rank': galore.galore_r,
-             'update_proj_gap': galore.galore_update_proj_gap,
-             'scale': galore.galore_scale,
-             'proj_type': galore.galore_proj_type
+                'params': linear_params,
+                'rank': galore.galore_r,
+                'update_proj_gap': galore.galore_update_proj_gap,
+                'scale': galore.galore_scale,
+                'proj_type': galore.galore_proj_type
             }
         ]
         if galore.galore_8bit:
@@ -217,11 +217,10 @@ def main(
         else:
             from litgpt.external.galore import AdamW as optimizer_cls
 
-    else:
-        optimizer_cls = torch.optim.AdamW
     optimizer = optimizer_cls(
         trainable_params, lr=train.learning_rate, weight_decay=train.weight_decay, betas=(train.beta1, train.beta2)
     )
+
     optimizer = fabric.setup_optimizers(optimizer)
     scheduler = get_lr_scheduler(optimizer, warmup_steps=train.lr_warmup_steps, max_steps=lr_max_steps)
 

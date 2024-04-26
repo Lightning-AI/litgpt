@@ -16,7 +16,7 @@ from torch.utils.data import DataLoader
 from torchmetrics import RunningMean
 
 from litgpt.adapter_v2 import GPT, Block, Config, adapter_filter, mark_only_adapter_v2_as_trainable
-from litgpt.args import EvalArgs, TrainArgs
+from litgpt.args import EvalArgs, TrainArgs, GaLoreArgs
 from litgpt.data import Alpaca, DataModule
 from litgpt.generate.base import generate
 from litgpt.prompts import save_prompt_style
@@ -29,11 +29,12 @@ from litgpt.utils import (
     chunked_cross_entropy,
     copy_config_files,
     get_default_supported_precision,
+    get_linear_nonlinear_params,
     init_out_dir,
     load_checkpoint,
     num_parameters,
     parse_devices,
-    save_hyperparameters,
+    save_hyperparameters
 )
 
 
@@ -43,6 +44,13 @@ def setup(
     precision: Optional[str] = None,
     quantize: Optional[Literal["bnb.nf4", "bnb.nf4-dq", "bnb.fp4", "bnb.fp4-dq", "bnb.int8-training"]] = None,
     devices: Union[int, str] = 1,
+    galore: GaLoreArgs = GaLoreArgs(
+        galore_8bit=False,
+        galore_r=128,
+        galore_update_proj_gap=200,
+        galore_scale=0.25,
+        galore_proj_type="std",
+    ),
     data: Optional[DataModule] = None,
     train: TrainArgs = TrainArgs(
         save_interval=1000,
@@ -67,6 +75,7 @@ def setup(
         precision: The precision to use for finetuning. Possible choices: "bf16-true", "bf16-mixed", "32-true".
         quantize: If set, quantize the model with this algorithm. See ``tutorials/quantize.md`` for more information.
         devices: How many devices/GPUs to use.
+        galore: GaLore-related arguments. See ``litgpt.args.GaLoreArgs`` for details.
         data: Data-related arguments. If not provided, the default is ``litgpt.data.Alpaca``.
         train: Training-related arguments. See ``litgpt.args.TrainArgs`` for details.
         eval: Evaluation-related arguments. See ``litgpt.args.EvalArgs`` for details.
@@ -110,7 +119,7 @@ def setup(
         strategy = "auto"
 
     fabric = L.Fabric(devices=devices, strategy=strategy, precision=precision, loggers=logger, plugins=plugins)
-    fabric.launch(main, devices, seed, config, data, checkpoint_dir, out_dir, train, eval)
+    fabric.launch(main, devices, seed, config, data, checkpoint_dir, out_dir, train, eval, galore)
 
 
 def main(
@@ -123,6 +132,7 @@ def main(
     out_dir: Path,
     train: TrainArgs,
     eval: EvalArgs,
+    galore: GaLoreArgs,
 ) -> None:
     validate_args(train, eval)
 
@@ -146,16 +156,39 @@ def main(
 
     model = fabric.setup_module(model)
 
-    trainable_params = [p for p in model.parameters() if p.requires_grad]
-    if isinstance(fabric.strategy.precision, BitsandbytesPrecision):
-        import bitsandbytes as bnb
+    if not galore.use_galore:
+        trainable_params = [p for p in model.parameters() if p.requires_grad]
 
-        optimizer_cls = bnb.optim.PagedAdamW
+        if isinstance(fabric.strategy.precision, BitsandbytesPrecision):
+            from bitsandbytes.bnb.optim import PagedAdamW as optimizer_cls
+        else:
+            optimizer_cls = torch.optim.AdamW
+
     else:
-        optimizer_cls = torch.optim.AdamW
+        if isinstance(fabric.strategy.precision, BitsandbytesPrecision):
+            raise ValueError("The combinatiomn of QLoRA and GaLore is currently not supported.")
+
+        linear_params, nonlinear_params = get_linear_nonlinear_params(model)
+        # Currently apply galore to all parameters; might add options to target specific layers later)
+        trainable_params = [
+            {'params': nonlinear_params},
+            {
+                'params': linear_params,
+                'rank': galore.galore_r,
+                'update_proj_gap': galore.galore_update_proj_gap,
+                'scale': galore.galore_scale,
+                'proj_type': galore.galore_proj_type
+            }
+        ]
+        if galore.galore_8bit:
+            from litgpt.external.galore import AdamW8bit as optimizer_cls
+        else:
+            from litgpt.external.galore import AdamW as optimizer_cls
+
     optimizer = optimizer_cls(
         trainable_params, lr=train.learning_rate, weight_decay=train.weight_decay, betas=(train.beta1, train.beta2)
     )
+
     optimizer = fabric.setup_optimizers(optimizer)
     scheduler = get_lr_scheduler(optimizer, warmup_steps=train.lr_warmup_steps, max_steps=lr_max_steps)
 
