@@ -43,9 +43,18 @@ def main(
             for more details, see https://github.com/Lightning-AI/litgpt/blob/main/tutorials/quantize.md
         max_new_tokens: The number of generation steps to take.
         top_k: The number of top most probable tokens to consider in the sampling process.
-        top_p: The cumulative probability threshold to consider in the sampling process.
-            In top-p sampling the next token is sampled from the highest probability tokens
-            whose cumulative probability exceeds the threshold `top_p`.
+        top_p: If specified, it represents the cumulative probability threshold to consider in the sampling process.
+            In top-p sampling, the next token is sampled from the highest probability tokens
+            whose cumulative probability exceeds the threshold `top_p`. When specified,
+            it must be `0 <= top_p <= 1`. Here, `top_p=0` is equivalent
+            to sampling the most probable token, while `top_p=1` samples from the whole distribution.
+            It can be used in conjunction with `top_k` and `temperature` with the following order
+            of application:
+
+            1. `top_k` sampling
+            2. `temperature` scaling
+            3. `top_p` sampling
+
             For more details, see https://arxiv.org/abs/1904.09751
             or https://huyenchip.com/2024/01/16/sampling.html#top_p
         temperature: A value controlling the randomness of the sampling process. Higher values result in more random
