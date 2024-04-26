@@ -7,7 +7,7 @@ All experiments were conducted using bfloat-16 precision on the Alpaca2k dataset
 
 &nbsp;
 
-| Config                            | Model                  | Epochs | Max seq length | Micro batch size | Machine | Training runtime | Cost | Peak memory | Validation loss | Validation perplexity | Multitask score |
+| Config                            | Model                  | Epochs | Max seq length | Micro batch size | Machine | Training runtime | Cost | Peak memory | Validation loss | Validation perplexity | Multitask score (MMLU) |
 | --------------------------------- | ---------------------- | ------ | -------------- | ---------------- | ------- | ---------------- | ---- | ----------- | --------------- | --------------------- | --------------- |
 | falcon-7b/lora.yaml               | falcon-7b              | 4      | 512            | 1                | 1xA10G  | 24.84 min        | $0.7 | 16.69 GB    | 0.945           | 2.573                 | 26.2%           |
 | falcon-7b/lora.yaml               | falcon-7b              | 4      | 512            | 1                | 4xA10G  | 24.94 min        | $2.0 | 16.69 GB    | 0.945           | 2.573                 | 26.4%           |
