@@ -3,8 +3,18 @@ name: CPU tests
 on:
   push:
     branches: [main, wip]
+    paths:
+      - '**/*.py'
+      - '**/*.ipynb'
+      - '**/*.yaml'
+      - '**/*.sh'
   pull_request:
     branches: [main, "carmocca/*", wip]
+    paths:
+      - '**/*.py'
+      - '**/*.ipynb'
+      - '**/*.yaml'
+      - '**/*.sh'
 
 concurrency:
   group: ${{ github.workflow }}-${{ github.ref }}-${{ github.head_ref }}
