@@ -4,17 +4,13 @@ on:
   push:
     branches: [main, wip]
     paths:
-      - '**/*.py'
-      - '**/*.ipynb'
-      - '**/*.yaml'
-      - '**/*.sh'
+      - "!*.md"
+      - "!**/*.md"
   pull_request:
     branches: [main, "carmocca/*", wip]
     paths:
-      - '**/*.py'
-      - '**/*.ipynb'
-      - '**/*.yaml'
-      - '**/*.sh'
+      - "!*.md"
+      - "!**/*.md"
 
 concurrency:
   group: ${{ github.workflow }}-${{ github.ref }}-${{ github.head_ref }}
