@@ -272,7 +272,7 @@ def chunked_cross_entropy(
             for logit_chunk, target_chunk in zip(logit_chunks, target_chunks)
         ]
         non_masked_elems = (targets != ignore_index).sum()
-        return torch.cat(loss_chunks).sum() / max(1, non_masked_elems)
+        return torch.cat(loss_chunks).sum() / non_masked_elems.maximum(torch.ones_like(non_masked_elems))
 
     # no chunking at all
     logits = logits.reshape(-1, logits.size(-1))
@@ -288,7 +288,7 @@ def chunked_cross_entropy(
         for logit_chunk, target_chunk in zip(logit_chunks, target_chunks)
     ]
     non_masked_elems = (targets != ignore_index).sum()
-    return torch.cat(loss_chunks).sum() / max(1, non_masked_elems)
+    return torch.cat(loss_chunks).sum() / non_masked_elems.maximum(torch.ones_like(non_masked_elems))
 
 
 def map_old_state_dict_weights(state_dict: Dict, mapping: Mapping, prefix: str) -> Dict:

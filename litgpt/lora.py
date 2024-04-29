@@ -264,17 +264,21 @@ class LoRAQKVLinear(LoRALinear):
             total_qkv = q_per_kv + 2
             head_size = out_features // (self.n_query_groups * total_qkv)
             ind = range(out_features)
-            self.lora_ind = []
+            lora_ind = []
             if enable_q:
                 q_ind = [x for x in ind if (x // head_size) % total_qkv < total_qkv - 2]
-                self.lora_ind.extend(q_ind)
+                lora_ind.extend(q_ind)
             if enable_k:
                 k_ind = [x for x in ind if (x // head_size) % total_qkv == total_qkv - 2]
-                self.lora_ind.extend(k_ind)
+                lora_ind.extend(k_ind)
             if enable_v:
                 v_ind = [x for x in ind if (x // head_size) % total_qkv == total_qkv - 1]
-                self.lora_ind.extend(v_ind)
+                lora_ind.extend(v_ind)
+            self._lora_ind = torch.tensor(lora_ind)
+            self._lora_ind_cache = {self._lora_ind.device: self._lora_ind}
             self.reset_parameters()
+
+
 
     def zero_pad(self, x: torch.Tensor) -> torch.Tensor:
         """Properly pad weight updates with zeros.
@@ -328,14 +332,16 @@ class LoRAQKVLinear(LoRALinear):
         # ⚬ enable_lora: [True, False, True]
         # Then x has embeddings_size of 256 (2 * 128 as enable_lora only for query and value, not keys) and expected
         # embeddings_size is 384 (self.linear.out_features), so that means that we need to pad from 256 to 384 with zeros, but
-        # only for key updates (this is where self.lora_ind comes in handy)
+        # only for key updates (this is where lora_ind comes in handy)
         # Note: double transpose (in the beginning and in the end) is basically a guard for two-dimensional tensors
         # for example when we want to merge/unmerge LoRA weights and pretrained weights
         x = x.transpose(0, 1)
         result = x.new_zeros((*x.shape[:-1], self.linear.out_features))  # (64, 64, 384)
         result = result.view(-1, self.linear.out_features)  # (4096, 384)
+        if (lora_ind := self._lora_ind_cache.get(result.device)) is None:
+            self._lora_ind_cache[result.device] = lora_ind = self._lora_ind.to(result.device)
         result = result.index_copy(
-            1, torch.tensor(self.lora_ind, device=result.device), x.reshape(-1, sum(self.qkv_shapes))
+            1, torch.tensor(lora_ind, device=result.device), x.reshape(-1, sum(self.qkv_shapes))
         )  # (4096, 256)
         return result.view((*x.shape[:-1], self.linear.out_features)).transpose(0, 1)  # (64, 64, 384)
 
