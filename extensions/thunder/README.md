@@ -550,12 +550,12 @@ We provide a version of the main pre-training script [that integrates Thunder](p
 |----------------------|----------|----------------------------------------|---------|-------------------|---------------|
 | Fully-sharded ZeRO 3 | Eager    | -                                      | 8       | 456.57            | 22.13         |
 | Fully-sharded ZeRO 3 | torch    | -                                      | 8       | Not supported     | Not supported |
-| Fully-sharded ZeRO 3 | Thunder  | sdpa, torchcompile                     | 8       | TODO              | TODO          |
-| Fully-sharded ZeRO 3 | Thunder  | sdpa, torchcompile_cat, nvfuser, torch | 8       | TODO              | TODO          |
+| Fully-sharded ZeRO 3 | Thunder  | sdpa, torchcompile                     | 8       | Not supported     | Not supported |
+| Fully-sharded ZeRO 3 | Thunder  | sdpa, torchcompile_cat, nvfuser, torch | 8       | 333.56            | 21.40         |
 |                      |          |                                        |         |                   |               |
-| Replicated           | Eager    | -                                      | 8       | TODO              | TODO          |
+| Replicated           | Eager    | -                                      | 8       | 569.46            | 32.04         |
 | Replicated           | torch    | -                                      | 8       | Not supported     | Not supported |
-| Replicated           | Thunder  | sdpa, torchcompile                     | 8       | TODO              | TODO          |
+| Replicated           | Thunder  | sdpa, torchcompile                     | 8       | 426.44            | 22.19         |
 | Replicated           | Thunder  | sdpa, torchcompile_cat, nvfuser, torch | 8       | TODO              | TODO          |
 |                      |          |                                        |         |                   |               |
 | -                    | Eager    | -                                      | 1       | 447.65            | 29.84         |
