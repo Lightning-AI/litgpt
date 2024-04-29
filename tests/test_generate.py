@@ -102,9 +102,10 @@ def test_sample(temperature):
         [
             [[24, 4, 98, 77, 47], [65, 70, 32, 67, 24], [92, 32, 88, 36, 62]],
             [[85, 79, 57, 68, 50], [89, 46, 72, 45, 32], [68, 96, 68, 24, 36]],
-        ]
+        ],
+        dtype=torch.float32,
     )
-    token = sample(logits.float(), temperature=temperature, top_p=0.8)
+    token = sample(logits, temperature=temperature, top_p=0.8)
 
     assert token.shape == (1,)
     # sample is batch size 1 only for now - this should be [0, 1] once batched generation is supported
