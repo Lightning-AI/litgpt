@@ -91,6 +91,9 @@ eval:
   # Whether to evaluate on the validation set at the beginning of the training
   initial_validation: false
 
+  # Whether to evaluate on the validation set at the end the training
+  final_validation: false
+
 # How many devices/GPUs to use. Uses all GPUs by default. (type: Union[int, str], default: auto)
 devices: auto
 

@@ -88,6 +88,9 @@ eval:
   # Whether to evaluate on the validation set at the beginning of the training
   initial_validation: false
 
+  # Whether to evaluate on the validation set at the end the training
+  final_validation: true
+
 # The name of the logger to send metrics to. (type: Literal['wandb', 'tensorboard', 'csv'], default: csv)
 logger_name: csv
 
