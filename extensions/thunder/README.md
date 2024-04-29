@@ -556,7 +556,7 @@ We provide a version of the main pre-training script [that integrates Thunder](p
 | Replicated           | Eager    | -                                      | 8       | 569.46            | 32.04         |
 | Replicated           | torch    | -                                      | 8       | Not supported     | Not supported |
 | Replicated           | Thunder  | sdpa, torchcompile                     | 8       | 426.44            | 22.19         |
-| Replicated           | Thunder  | sdpa, torchcompile_cat, nvfuser, torch | 8       | TODO              | TODO          |
+| Replicated           | Thunder  | sdpa, torchcompile_cat, nvfuser, torch | 8       | 356.01            | 27.42         |
 |                      |          |                                        |         |                   |               |
 | -                    | Eager    | -                                      | 1       | 447.65            | 29.84         |
 | -                    | torch    | -                                      | 1       | Not supported     | Not supported |
