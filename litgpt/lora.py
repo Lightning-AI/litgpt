@@ -338,11 +338,13 @@ class LoRAQKVLinear(LoRALinear):
         x = x.transpose(0, 1)
         result = x.new_zeros((*x.shape[:-1], self.linear.out_features))  # (64, 64, 384)
         result = result.view(-1, self.linear.out_features)  # (4096, 384)
+
+        # `lora_ind` is constant, so we want to avoid copying it (and incurring an expensive cudaStreamSynchronize)
+        # every time this method is called. So instead we simply cache a copy on each device that needs it.
         if (lora_ind := self._lora_ind_cache.get(result.device)) is None:
             self._lora_ind_cache[result.device] = lora_ind = self._lora_ind.to(result.device)
-        result = result.index_copy(
-            1, torch.tensor(lora_ind, device=result.device), x.reshape(-1, sum(self.qkv_shapes))
-        )  # (4096, 256)
+
+        result = result.index_copy(1, lora_ind, x.reshape(-1, sum(self.qkv_shapes)))  # (4096, 256)
         return result.view((*x.shape[:-1], self.linear.out_features)).transpose(0, 1)  # (64, 64, 384)
 
     def conv1d(self, input: torch.Tensor, weight: torch.Tensor) -> torch.Tensor:
