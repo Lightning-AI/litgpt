@@ -567,25 +567,25 @@ Config:
 ```yaml
 out_dir: out/pretrain-thunder
 data: TinyStories
-tokenizer_dir: checkpoints/mistralai/Mistral-7B-v0.1
+tokenizer_dir: checkpoints/TinyLlama/TinyLlama-1.1B
 logger_name: csv
 ```
 
 Commands:
 
 ```bash
-litgpt download --repo_id mistralai/Mistral-7B-v0.1 --tokenizer_only true
+litgpt download --repo_id TinyLlama/TinyLlama-1.1B --tokenizer_only true
 
 python extensions/thunder/pretrain.py --config config.yaml --compiler null --train.global_batch_size 32
-python extensions/thunder/pretrain.py --config config.yaml --executors '[torchcompile]' --train.global_batch_size 32
+python extensions/thunder/pretrain.py --config config.yaml --executors '[sdpa, torchcompile]' --train.global_batch_size 32
 python extensions/thunder/pretrain.py --config config.yaml --executors '[sdpa, torchcompile_cat, nvfuser, torch]' --train.global_batch_size 32
 
 python extensions/thunder/pretrain.py --config config.yaml --compiler null --strategy ddp
-python extensions/thunder/pretrain.py --config config.yaml --executors '[torchcompile]' --strategy ddp
+python extensions/thunder/pretrain.py --config config.yaml --executors '[sdpa, torchcompile]' --strategy ddp
 python extensions/thunder/pretrain.py --config config.yaml --executors '[sdpa, torchcompile_cat, nvfuser, torch]' --strategy ddp
 
 python extensions/thunder/pretrain.py --config config.yaml --compiler null --devices 1
-python extensions/thunder/pretrain.py --config config.yaml --executors '[torchcompile]' --devices 1
+python extensions/thunder/pretrain.py --config config.yaml --executors '[sdpa, torchcompile]' --devices 1
 python extensions/thunder/pretrain.py --config config.yaml --executors '[sdpa, torchcompile_cat, nvfuser, torch]' --devices 1
 
 python extensions/thunder/pretrain.py --config config.yaml --executors '[sdpa, unsloth, torchcompile_cat, nvfuser, torch]' --devices 1
