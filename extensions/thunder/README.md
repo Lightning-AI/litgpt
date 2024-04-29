@@ -507,11 +507,14 @@ We can enable this executor by passing it to the list of executors available. Th
 `NvFuser` creates its fusion regions.
 
 ```python
+import thunder
+from thunder.executors.sdpaex import sdpa_ex
+from thunder.executors.torch_compile import torch_compile_cat_ex
 from unsloth.executor import unsloth_ex
 
 model = thunder.jit(
     model,
-    executors=[sdpa_ex, unsloth_ex, torch_compile_executor, thunder.nvfuser_executor, thunder.pytorch_executor]
+    executors=[sdpa_ex, unsloth_ex, torch_compile_cat_ex, thunder.nvfuser_executor, thunder.pytorch_executor]
 )
 ```
 
@@ -543,21 +546,24 @@ Given the Unsloth results below, these hand-written kernels do not seem to be wo
 
 We provide a version of the main pre-training script [that integrates Thunder](pretrain.py) that uses TinyLlama, a 1.1B parameter LLM.
 
-| Setting              | Compiler/JIT | Devices | ms/iter @ step 10 | Memory (GB)   |
-|----------------------|--------------|---------|-------------------|---------------|
-| Fully-sharded ZeRO 3 | Eager        | 8       | 460.88            | 22.13         |
-| Fully-sharded ZeRO 3 | Inductor     | 8       | Not supported     | Not supported |
-| Fully-sharded ZeRO 3 | Thunder      | 8       | 332.48            | 21.40         |
-|                      |              |         |                   |               |
-| Replicated           | Eager        | 8       | 535.28            | 32.05         |
-| Replicated           | Inductor     | 8       | Not supported     | Not supported |
-| Replicated           | Thunder      | 8       | 368.25            | 27.42         |
-|                      |              |         |                   |               |
-| -                    | Eager        | 1       | 449.88            | 29.85         |
-| -                    | Inductor     | 1       | Not supported     | Not supported |
-| -                    | Thunder      | 1       | 323.78            | 27.42         |
-|                      |              |         |                   |               |
-| Unsloth              | Thunder      | 1       | 334.98            | 25.19         |
+| Setting              | Compiler | Executors                              | Devices | ms/iter @ step 10 | Memory (GB)   |
+|----------------------|----------|----------------------------------------|---------|-------------------|---------------|
+| Fully-sharded ZeRO 3 | Eager    | -                                      | 8       | 456.57            | 22.13         |
+| Fully-sharded ZeRO 3 | torch    | -                                      | 8       | Not supported     | Not supported |
+| Fully-sharded ZeRO 3 | Thunder  | sdpa, torchcompile                     | 8       | TODO              | TODO          |
+| Fully-sharded ZeRO 3 | Thunder  | sdpa, torchcompile_cat, nvfuser, torch | 8       | TODO              | TODO          |
+|                      |          |                                        |         |                   |               |
+| Replicated           | Eager    | -                                      | 8       | TODO              | TODO          |
+| Replicated           | torch    | -                                      | 8       | Not supported     | Not supported |
+| Replicated           | Thunder  | sdpa, torchcompile                     | 8       | TODO              | TODO          |
+| Replicated           | Thunder  | sdpa, torchcompile_cat, nvfuser, torch | 8       | TODO              | TODO          |
+|                      |          |                                        |         |                   |               |
+| -                    | Eager    | -                                      | 1       | 447.65            | 29.84         |
+| -                    | torch    | -                                      | 1       | Not supported     | Not supported |
+| -                    | Thunder  | sdpa, torchcompile                     | 1       | 373.37            | 22.19         |
+| -                    | Thunder  | sdpa, torchcompile_cat, nvfuser, torch | 1       | 322.25            | 27.42         |
+|                      |          |                                        |         |                   |               |
+| Unsloth              | Thunder  | sdpa, torchcompile_cat, nvfuser, torch | 1       | 331.92            | 25.19         |
 
 <details>
 <summary>Reproduction details</summary>
@@ -597,19 +603,17 @@ Gradient accumulation is disabled in the FSDP setting because Thunder does not s
 
 The CUDA devices are all NVIDIA A100-SXM4-40GB.
 
-# FIXME
-
 ```text
-Python version: 3.10.12 (main, Nov 20 2023, 15:14:05) [GCC 11.4.0] (64-bit runtime)
+Python version: 3.10.12 [GCC 11.4.0] (64-bit runtime)
 Is debug build: False
 CUDA used to build PyTorch: 12.1
 CUDA runtime version: 12.3.107
 Nvidia driver version: 545.23.08
-pytorch-triton==3.0.0+989adb9a29
-torch==2.4.0.dev20240326+cu121
+pytorch-triton==3.0.0+45fff310c8
+torch==2.4.0.dev20240427+cu121
 lightning==2.3.0.dev20240328
-lightning-thunder==0.2.0.dev20240404
-nvfuser_cu121==0.2.0.dev20240327
+git+https://github.com/Lightning-AI/lightning-thunder.git@ba75ad8d1578e38d2386cebbcc3cd8775d398df1#egg=lightning_thunder
+nvfuser_cu121==0.2.3.dev20240428
 ```
 
 </details>

@@ -1,5 +1,4 @@
 import os
-import re
 import sys
 from pathlib import Path
 from typing import Optional, Tuple, Union
@@ -15,7 +14,6 @@ wd = Path(__file__).parent.parent.resolve()
 sys.path.append(str(wd))
 
 from extensions.thunder.strategies.thunder_fsdp import ThunderFSDPStrategy
-from extensions.thunder.strategies.utils import _validate_executors
 
 
 @RunIf(thunder=True)
@@ -30,18 +28,6 @@ def test_thunder_strategy_input_parsing():
 
     with pytest.raises(ValueError, match="doesn't have an effect with `jit=False"):
         ThunderFSDPStrategy(jit=False, executors=("python",))
-
-
-@RunIf(thunder=True)
-def test_validate_executors():
-    from thunder import pythonex, pytorch_executor
-
-    assert _validate_executors(None) is None
-    assert _validate_executors((pythonex, pytorch_executor)) == (pythonex, pytorch_executor)
-    assert _validate_executors(("python", "torch")) == (pythonex, pytorch_executor)
-    assert _validate_executors(("python", pytorch_executor)) == (pythonex, pytorch_executor)
-    with pytest.raises(ValueError, match=re.escape("not find the executors ['foo', 'bar'] in")):
-        assert _validate_executors(("python", "foo", pytorch_executor, "bar"))
 
 
 @RunIf(thunder=True)
