@@ -88,6 +88,9 @@ eval:
   # Number of iterations (type: int, default: 100)
   max_iters: 100
 
+  # Whether to evaluate on the validation set at the beginning of the training
+  initial_validation: false
+
 # The name of the logger to send metrics to. (type: Literal['wandb', 'tensorboard', 'csv'], default: csv)
 logger_name: csv
 
