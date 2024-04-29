@@ -33,22 +33,22 @@ Uses the latest state-of-the-art techniques:
 <img src="https://pl-bolts-doc-images.s3.us-east-2.amazonaws.com/GithubLitGPTDAG2.png" alt="LitGPT steps" width="auto"/>
 &nbsp;
 
-# Finetune, pretrain and deploy LLMs Lightning fast ⚡⚡   
+# Finetune, pretrain and deploy LLMs Lightning fast ⚡⚡
 LitGPT is a command-line tool designed to easily [finetune](#finetune-an-llm), [pretrain](#pretrain-an-llm), [evaluate](#use-an-llm), and [deploy](#deploy-an-llm) [20+ LLMs](#choose-from-20-llms) **on your own data**. It features highly-optimized [training recipes](#training-recipes) for the world's most powerful open-source large language models (LLMs).
 
-We reimplemented all model architectures and training recipes from scratch for 4 reasons:   
+We reimplemented all model architectures and training recipes from scratch for 4 reasons:
 
-1. Remove all abstraction layers and have single file implementations.   
-2. Guarantee Apache 2.0 compliance to enable enterprise use without limits.    
-3. Optimized each model's architectural detail to maximize performance, reduce costs, and speed up training.    
-4. Highly-optimized [recipe configs](#training-recipes) we have tested at enterprise scale.               
+1. Remove all abstraction layers and have single file implementations.
+2. Guarantee Apache 2.0 compliance to enable enterprise use without limits.
+3. Optimized each model's architectural detail to maximize performance, reduce costs, and speed up training.
+4. Highly-optimized [recipe configs](#training-recipes) we have tested at enterprise scale.
 
 ---
 
 &nbsp;
 
 # Choose from 20+ LLMs
-LitGPT has 🤯 **custom, from-scratch implementations** of [20+ LLMs](tutorials/download_model_weights.md) without layers of abstraction:   
+LitGPT has 🤯 **custom, from-scratch implementations** of [20+ LLMs](tutorials/download_model_weights.md) without layers of abstraction:
 
 | Model | Model size | Author | Reference |
 |----|----|----|----|
@@ -63,10 +63,10 @@ LitGPT has 🤯 **custom, from-scratch implementations** of [20+ LLMs](tutorials
 <details>
   <summary>See full list of 20+ LLMs</summary>
 
-&nbsp; 
+&nbsp;
 
 #### All models
-  
+
 | Model | Model size | Author | Reference |
 |----|----|----|----|
 | CodeGemma | 7B | Google | [Google Team, Google Deepmind](https://ai.google.dev/gemma/docs/codegemma) |
@@ -123,36 +123,36 @@ pip install -e '.[all]'
 
 &nbsp;
 # Quick start
-After installing LitGPT, select the model and action you want to take on that model (finetune, pretrain, evaluate, deploy, etc...):    
+After installing LitGPT, select the model and action you want to take on that model (finetune, pretrain, evaluate, deploy, etc...):
 
 ```bash
 # ligpt [action] [model]
 litgpt  download  meta-llama/Meta-Llama-3-8B-Instruct
 litgpt  chat      meta-llama/Meta-Llama-3-8B-Instruct
-litgpt  finetune  meta-llama/Meta-Llama-3-8B-Instruct    
-litgpt  pretrain  meta-llama/Meta-Llama-3-8B-Instruct    
-litgpt  serve     meta-llama/Meta-Llama-3-8B-Instruct    
+litgpt  finetune  meta-llama/Meta-Llama-3-8B-Instruct
+litgpt  pretrain  meta-llama/Meta-Llama-3-8B-Instruct
+litgpt  serve     meta-llama/Meta-Llama-3-8B-Instruct
 ```
 
 &nbsp;
 
 ###  Use an LLM for inference
-Use LLMs for inference to test its chatting capabilities, run evaluations, or extract embeddings, etc...     
-Here's an example showing how to use the Mistral 7B LLM.
+Use LLMs for inference to test its chatting capabilities, run evaluations, or extract embeddings, etc...
+Here's an example showing how to use the Phi-2 LLM.
 
 <a target="_blank" href="https://lightning.ai/lightning-ai/studios/litgpt-chat">
   <img src="https://pl-bolts-doc-images.s3.us-east-2.amazonaws.com/app-2/studio-badge.svg" alt="Open In Studio"/>
 </a>
 
-&nbsp;    
+&nbsp;
 
 ```bash
 # 1) Download a pretrained model
-litgpt download --repo_id mistralai/Mistral-7B-Instruct-v0.2
+litgpt download --repo_id microsoft/phi-2
 
 # 2) Chat with the model
 litgpt chat \
-  --checkpoint_dir checkpoints/mistralai/Mistral-7B-Instruct-v0.2
+  --checkpoint_dir checkpoints/microsoft/phi-2
 
 >> Prompt: What do Llamas eat?
 ```
@@ -168,7 +168,7 @@ For more information, refer to the [download](tutorials/download_model_weights.m
   <img src="https://pl-bolts-doc-images.s3.us-east-2.amazonaws.com/app-2/studio-badge.svg" alt="Open In Studio"/>
 </a>
 
-&nbsp; 
+&nbsp;
 
 ```bash
 # 1) Download a pretrained model
@@ -191,14 +191,14 @@ litgpt chat \
 
 &nbsp;
 
-### Pretrain an LLM   
+### Pretrain an LLM
 Train an LLM from scratch on your own data via pretraining:
 
 <a target="_blank" href="https://lightning.ai/lightning-ai/studios/litgpt-pretrain">
 <img src="https://pl-bolts-doc-images.s3.us-east-2.amazonaws.com/app-2/studio-badge.svg"; alt="Open In Studio"/>
 </a>
 
-&nbsp; 
+&nbsp;
 
 ```bash
 mkdir -p custom_texts
@@ -226,15 +226,15 @@ litgpt chat \
 
 &nbsp;
 
-### Continue pretraining an LLM       
-This is another way of finetuning that specializes an already pretrained model by training on custom data:    
+### Continue pretraining an LLM
+This is another way of finetuning that specializes an already pretrained model by training on custom data:
 
 
 <a target="_blank" href="https://lightning.ai/lightning-ai/studios/litgpt-continue-pretraining">
 <img src="https://pl-bolts-doc-images.s3.us-east-2.amazonaws.com/app-2/studio-badge.svg"; alt="Open In Studio"/>
 </a>
 
-&nbsp; 
+&nbsp;
 
 ```bash
 mkdir -p custom_texts
@@ -262,7 +262,7 @@ litgpt chat \
 &nbsp;
 
 ### Deploy an LLM
-Once you're ready to deploy a finetuned LLM, run this command:   
+Once you're ready to deploy a finetuned LLM, run this command:
 
 <a target="_blank" href="https://lightning.ai/lightning-ai/studios/litgpt-serve">
   <img src="https://pl-bolts-doc-images.s3.us-east-2.amazonaws.com/app-2/studio-badge.svg" alt="Open In Studio"/>
@@ -271,20 +271,20 @@ Once you're ready to deploy a finetuned LLM, run this command:
 &nbsp;
 
 ```bash
-# locate the checkpoint to your finetuned or pretrained model and call the `serve` command:  
+# locate the checkpoint to your finetuned or pretrained model and call the `serve` command:
 litgpt serve --checkpoint_dir path/to/your/checkpoint/microsoft/phi-2
 
-# Alternative: if you haven't finetuned, download any checkpoint to deploy it:     
+# Alternative: if you haven't finetuned, download any checkpoint to deploy it:
 litgpt download --repo_id microsoft/phi-2
 litgpt serve --checkpoint_dir checkpoints/microsoft/phi-2
 ```
 
-Test the server in a separate terminal and integrate the model API into your AI product:    
+Test the server in a separate terminal and integrate the model API into your AI product:
 ```python
 # 3) Use the server (in a separate session)
 import requests, json
  response = requests.post(
-     "http://127.0.0.1:8000/predict", 
+     "http://127.0.0.1:8000/predict",
      json={"prompt": "Fix typos in the following sentence: Exampel input"}
 )
 print(response.json()["output"])
@@ -493,7 +493,7 @@ litgpt finetune \
 
 &nbsp;
 
-# Community        
+# Community
 
 ## Get involved!
 
