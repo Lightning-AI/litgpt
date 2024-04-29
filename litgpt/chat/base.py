@@ -24,7 +24,7 @@ def generate(
     *,
     temperature: float = 1.0,
     top_k: Optional[int] = None,
-    top_p: Optional[float] = None,
+    top_p: float = 1.0,
     stop_tokens: Tuple[List[int], ...] = (),
 ) -> Iterator[torch.Tensor]:
     """Takes a conditioning sequence (prompt) as input and continues to generate as many tokens as possible.
@@ -114,7 +114,7 @@ def decode(fabric: L.Fabric, tokenizer: Tokenizer, token_stream: Iterator[torch.
 def main(
     *,
     top_k: Optional[int] = 200,
-    top_p: Optional[float] = None,
+    top_p: float = 1.0,
     temperature: float = 0.8,
     checkpoint_dir: Path = Path("checkpoints/stabilityai/stablelm-tuned-alpha-3b"),
     quantize: Optional[Literal["bnb.nf4", "bnb.nf4-dq", "bnb.fp4", "bnb.fp4-dq", "bnb.int8"]] = None,

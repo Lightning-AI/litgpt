@@ -40,8 +40,10 @@ def sample_top_p(logits: torch.Tensor, top_p: float) -> torch.Tensor:
 
 
 def sample(
-    logits: torch.Tensor, temperature: float = 1.0, top_k: Optional[int] = None, top_p: Optional[float] = None
+    logits: torch.Tensor, temperature: float = 1.0, top_k: Optional[int] = None, top_p: float = 1.0
 ) -> torch.Tensor:
+    if top_p < 0.0 or top_p > 1.0:
+        raise ValueError(f"top_p must be in [0, 1], got {top_p}")
     logits = logits[0, -1]
     # optionally crop the logits to only the top k options
     if top_k is not None:
@@ -49,10 +51,9 @@ def sample(
         # do not use `torch.where` as in nanogpt because it will repeat top-k collisions
         logits = torch.full_like(logits, float("-inf")).scatter_(-1, i, v)
     # optionally scale the logits and sample from a probability distribution
-    if top_p is None:
-        top_p = 1.0
-    if temperature > 0.0 and top_p > 0.0:
-        logits = logits / temperature
+    if temperature > 0.0 or top_p > 0.0:
+        if temperature > 0.0:
+            logits = logits / temperature
         # optionally crop the logits to smallest set of logits with a cumulative probability above top_p
         if top_p < 1.0:
             logits = sample_top_p(logits, top_p)
@@ -75,7 +76,7 @@ def generate(
     *,
     temperature: float = 1.0,
     top_k: Optional[int] = None,
-    top_p: Optional[float] = None,
+    top_p: float = 1.0,
     eos_id: Optional[int] = None,
 ) -> torch.Tensor:
     """Takes a conditioning sequence (prompt) as input and continues to generate as many tokens as requested.
@@ -137,7 +138,7 @@ def main(
     num_samples: int = 1,
     max_new_tokens: int = 50,
     top_k: Optional[int] = 50,
-    top_p: Optional[float] = None,
+    top_p: float = 1.0,
     temperature: float = 0.8,
     checkpoint_dir: Path = Path("checkpoints/stabilityai/stablelm-base-alpha-3b"),
     quantize: Optional[Literal["bnb.nf4", "bnb.nf4-dq", "bnb.fp4", "bnb.fp4-dq", "bnb.int8"]] = None,

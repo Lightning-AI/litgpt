@@ -24,7 +24,7 @@ def main(
     quantize: Optional[Literal["bnb.nf4", "bnb.nf4-dq", "bnb.fp4", "bnb.fp4-dq", "bnb.int8"]] = None,
     max_new_tokens: int = 100,
     top_k: Optional[int] = 50,
-    top_p: Optional[float] = None,
+    top_p: float = 1.0,
     temperature: float = 0.8,
     precision: Optional[str] = None,
 ) -> None:

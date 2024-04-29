@@ -21,6 +21,7 @@ class SimpleLitAPI(LitAPI):
                  precision: Optional[str] = None,
                  temperature: float = 0.8,
                  top_k: int = 50,
+                 top_p: float = 1.0,
                  max_new_tokens: int = 50) -> None:
 
         super().__init__()
@@ -29,6 +30,7 @@ class SimpleLitAPI(LitAPI):
         self.temperature = temperature
         self.top_k = top_k
         self.max_new_tokens = max_new_tokens
+        self.top_p = top_p
 
     def setup(self, device: str) -> None:
         # Setup the model so it can be called in `predict`.
@@ -79,6 +81,7 @@ class SimpleLitAPI(LitAPI):
             max_returned_tokens,
             temperature=self.temperature,
             top_k=self.top_k,
+            top_p=self.top_p,
             eos_id=self.tokenizer.eos_id
         )
 
@@ -97,6 +100,7 @@ def run_server(
     precision: Optional[str] = None,
     temperature: float = 0.8,
     top_k: int = 200,
+    top_p: float = 1.0,
     max_new_tokens: int = 50,
     devices: int = 1,
     accelerator: str = "auto",
@@ -112,6 +116,20 @@ def run_server(
             Values below 1 decrease randomness.
         top_k: The size of the pool of potential next tokens. Values larger than 1 result in more novel
             generated text but can also lead to more incoherent texts.
+        top_p: If specified, it represents the cumulative probability threshold to consider in the sampling process.
+            In top-p sampling, the next token is sampled from the highest probability tokens
+            whose cumulative probability exceeds the threshold `top_p`. When specified,
+            it must be `0 <= top_p <= 1`. Here, `top_p=0` is equivalent
+            to sampling the most probable token, while `top_p=1` samples from the whole distribution.
+            It can be used in conjunction with `top_k` and `temperature` with the following order
+            of application:
+
+            1. `top_k` sampling
+            2. `temperature` scaling
+            3. `top_p` sampling
+
+            For more details, see https://arxiv.org/abs/1904.09751
+            or https://huyenchip.com/2024/01/16/sampling.html#top_p
         max_new_tokens: The number of generation steps to take.
         devices: How many devices/GPUs to use.
         accelerator: The type of accelerator to use. For example, "auto", "cuda", "cpu", or "mps".
@@ -126,6 +144,7 @@ def run_server(
             precision=precision,
             temperature=temperature,
             top_k=top_k,
+            top_p=top_p,
             max_new_tokens=max_new_tokens,
             ),
         accelerator=accelerator,
