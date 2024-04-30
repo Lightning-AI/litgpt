@@ -79,3 +79,5 @@ class EvalArgs:
     """Number of tokens to generate"""
     max_iters: int = 100
     """Number of iterations"""
+    initial_validation: bool = False
+    """Whether to evaluate on the validation set at the beginning of the training"""

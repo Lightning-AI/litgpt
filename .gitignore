@@ -16,5 +16,3 @@ checkpoints
 out
 wandb
 events.out.tfevents*
-
-tests/reference_models
