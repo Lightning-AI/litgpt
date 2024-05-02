@@ -124,4 +124,4 @@ def test_generate_different_results_with_different_top_p():
     output1 = generate.generate(model, input_idx, 20, top_p=1.0)
     output2 = generate.generate(model, input_idx, 20, top_p=0.1)
 
-    assert torch.equal(output1, output2)
+    assert not torch.equal(output1, output2)
