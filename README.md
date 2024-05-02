@@ -157,7 +157,8 @@ litgpt chat \
 >> Prompt: What do Llamas eat?
 ```
 
-For more information, refer to the [download](tutorials/download_model_weights.md) and [inference](tutorials/inference.md) tutorials.
+The download of certain models requires an additional access token. You can read more about this in the [download](tutorials/download_model_weights.md#specific-models-and-access-tokens) documentation. 
+For more information on the different inference options, refer to the [inference](tutorials/inference.md) tutorial.
 
 &nbsp;
 
