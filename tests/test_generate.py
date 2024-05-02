@@ -110,3 +110,18 @@ def test_sample(temperature):
     assert token.shape == (1,)
     # sample is batch size 1 only for now - this should be [0, 1] once batched generation is supported
     assert token.tolist() == [0]
+
+
+def test_generate_different_results_with_different_top_p():
+    config = Config(block_size=128, vocab_size=16, n_layer=1, n_head=4, n_embd=8)
+    model = GPT(config)
+    model.max_seq_length = 50
+    model.set_kv_cache(batch_size=1)
+
+    torch.manual_seed(123)
+    input_idx = torch.randint(10, size=(1,))
+
+    output1 = generate.generate(model, input_idx, 20, top_p=1.0)
+    output2 = generate.generate(model, input_idx, 20, top_p=0.1)
+
+    assert torch.equal(output1, output2)
