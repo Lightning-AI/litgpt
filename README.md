@@ -146,9 +146,15 @@ Here's an example showing how to use the Phi-2 LLM.
 
 &nbsp;
 
+### Get a Hugging Face access token
+litgpt downloads the models from repositories on Hugging Face, and that's why we 
+need to [get your token](https://huggingface.co/docs/hub/security-tokens) first on their website. You can find all your tokens by visiting https://huggingface.co/settings/tokens
+
+Then, set the `HF_TOKEN=your_token` environment variable or pass --access_token=your_token. 
+
 ```bash
 # 1) Download a pretrained model
-litgpt download --repo_id microsoft/phi-2
+litgpt download --repo_id microsoft/phi-2  # or add --access_token=<your_token>
 
 # 2) Chat with the model
 litgpt chat \
