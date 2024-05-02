@@ -2,7 +2,7 @@
 #git tag -a "v0.0.1-beta" -m "beta version testing"
 #git push --tags
 # https://dev.to/iamtekson/publish-package-to-pypi-and-release-new-version-using-github-actions-108k
-name: Publish BioPandas to PyPI / GitHub
+name: Publish LitGPT to PyPI / GitHub
 
 on:
   push:
