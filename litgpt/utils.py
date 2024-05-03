@@ -272,7 +272,8 @@ def chunked_cross_entropy(
             for logit_chunk, target_chunk in zip(logit_chunks, target_chunks)
         ]
         non_masked_elems = (targets != ignore_index).sum()
-        return torch.cat(loss_chunks).sum() / max(1, non_masked_elems)
+        # See [non_masked_elems div note]
+        return torch.cat(loss_chunks).sum() / non_masked_elems.maximum(torch.ones_like(non_masked_elems))
 
     # no chunking at all
     logits = logits.reshape(-1, logits.size(-1))
@@ -288,7 +289,11 @@ def chunked_cross_entropy(
         for logit_chunk, target_chunk in zip(logit_chunks, target_chunks)
     ]
     non_masked_elems = (targets != ignore_index).sum()
-    return torch.cat(loss_chunks).sum() / max(1, non_masked_elems)
+    # [non_masked_elems div note]:
+    #   max(1, non_masked_elems) would be more ergonomic to avoid a division by zero. However that
+    #   results in a python int which is then passed back to torch division. By using the
+    #   `x.maximum(torch.ones_like(x))` pattern we avoid a cudaStreamSynchronize.
+    return torch.cat(loss_chunks).sum() / non_masked_elems.maximum(torch.ones_like(non_masked_elems))
 
 
 def map_old_state_dict_weights(state_dict: Dict, mapping: Mapping, prefix: str) -> Dict:
