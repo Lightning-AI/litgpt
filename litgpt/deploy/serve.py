@@ -1,11 +1,12 @@
 # Copyright Lightning AI. Licensed under the Apache License 2.0, see LICENSE file.
 from pathlib import Path
-from typing import Dict, Any, Optional, Literal
+from typing import Dict, Any, Optional
 from litgpt.utils import check_valid_checkpoint_dir
 
 import lightning as L
+from lightning_utilities.core.imports import RequirementCache 
 import torch
-from litserve import LitAPI, LitServer
+
 
 from litgpt.model import GPT
 from litgpt.config import Config
@@ -15,6 +16,13 @@ from litgpt.prompts import load_prompt_style, has_prompt_style, PromptStyle
 from litgpt.utils import load_checkpoint, CLI, get_default_supported_precision
 
 
+_LITSERVE_AVAILABLE = RequirementCache("litserve")
+if _LITSERVE_AVAILABLE:
+    from litserve import LitAPI, LitServer
+else:
+    LitAPI, LitServer = object, object
+
+
 class SimpleLitAPI(LitAPI):
     def __init__(self,
                  checkpoint_dir: Path,
@@ -22,6 +30,9 @@ class SimpleLitAPI(LitAPI):
                  temperature: float = 0.8,
                  top_k: int = 50,
                  max_new_tokens: int = 50) -> None:
+
+        if not _LITSERVE_AVAILABLE:
+            raise ImportError(str(_LITSERVE_AVAILABLE))
 
         super().__init__()
         self.checkpoint_dir = checkpoint_dir
@@ -40,7 +51,7 @@ class SimpleLitAPI(LitAPI):
 
         fabric = L.Fabric(
             accelerator=device.type,
-            devices=1 if device.type=="cpu" else [device.index], # TODO: Update once LitServe supports "auto"
+            devices=1 if device.type=="cpu" else [device.index],
             precision=precision,
         )
         checkpoint_path = self.checkpoint_dir / "lit_model.pth"
@@ -99,7 +110,7 @@ def run_server(
     top_k: int = 200,
     max_new_tokens: int = 50,
     devices: int = 1,
-    accelerator: str = "cuda",
+    accelerator: str = "auto",
     port: int = 8000
 ) -> None:
     """Serve a LitGPT model using LitServe
@@ -114,7 +125,8 @@ def run_server(
             generated text but can also lead to more incoherent texts.
         max_new_tokens: The number of generation steps to take.
         devices: How many devices/GPUs to use.
-        accelerator: The type of accelerator to use. For example, "cuda" or "cpu".
+        accelerator: The type of accelerator to use. For example, "auto", "cuda", "cpu", or "mps".
+            The "auto" setting (default) chooses a GPU if available, and otherwise uses a CPU.
         port: The network port number on which the model is configured to be served.
     """
     check_valid_checkpoint_dir(checkpoint_dir, model_filename="lit_model.pth")

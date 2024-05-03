@@ -234,8 +234,7 @@ litgpt chat --checkpoint_dir checkpoints/$repo_id
 ```
 
 &nbsp;
-
-## Specific Models
+## Specific models and access tokens
 
 Note that certain models require that you've been granted access to the weights on the Hugging Face Hub.
 
