@@ -16,15 +16,15 @@ from litgpt.scripts.merge_lora import merge_lora
 from litgpt.utils import CLI, check_valid_checkpoint_dir, get_default_supported_precision, load_checkpoint
 
 
-def read_multiline_input(prompt):
+def get_multiline_input(prompt=">> Prompt: "):
     print(prompt, end="")
-    input_lines = []
+    lines = []
     while True:
         line = input()
-        if line.strip() == "":
+        if line.strip() == ":submit:":  # special command to submit
             break
-        input_lines.append(line)
-    return "\n".join(input_lines)
+        lines.append(line)
+    return "\n".join(lines)
 
 
 @torch.inference_mode()
@@ -205,17 +205,16 @@ def main(
     stop_tokens = prompt_style.stop_tokens(tokenizer)
 
     print(
-        f"Now chatting with {config.name}.\nTo exit, type 'exit'"
-        " or 'quit' and press 'Enter'.\nAfter entering your prompt,"
-        " hit 'Enter' once to start writing on a new line. Hit 'Enter'"
-        " twice to submit the prompt.")
+        f"Now chatting with {config.name}.\nTo submit your prompt, type :submit: on a new line and press Enter'.\n"
+        "To quit, press CTRL+C or submit 'exit() or 'quit()' as a prompt."
+    )
     L.seed_everything(1234)
     while True:
         try:
-            prompt = read_multiline_input(">> Prompt: ")
+            prompt = get_multiline_input()
         except KeyboardInterrupt:
             break
-        if prompt.lower().strip() in ("quit", "exit"):
+        if prompt.lower().strip() in ("", "quit()", "exit()"):
             break
         prompt = prompt_style.apply(prompt=prompt)
         encoded_prompt = tokenizer.encode(prompt, device=fabric.device)

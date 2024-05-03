@@ -209,7 +209,8 @@ litgpt chat --checkpoint_dir checkpoints/microsoft/phi-2
 
 ```
 Now chatting with phi-2.
-To exit, press 'Enter' on an empty prompt.
+To submit your prompt, type :submit: on a new line and press Enter.
+To quit, press CTRL+C or submit 'exit()' or 'quit()' as a prompt.
 
 Seed set to 1234
 >> Prompt: Why are LLMs so useful?    
