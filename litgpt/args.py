@@ -32,13 +32,8 @@ class TrainArgs:
     tie_embeddings: Optional[bool] = None
     """Whether to tie the embedding weights with the language modeling head weights"""
 
-    # Optimization args
-    learning_rate: float = 1e-3
-    weight_decay: float = 0.02
-    beta1: float = 0.9
-    beta2: float = 0.95
-    max_norm: Optional[float] = None
     min_lr: float = 6e-5
+    max_norm: Optional[float] = None
 
     def __post_init__(self) -> None:
         if self.lr_warmup_fraction and self.lr_warmup_steps:
@@ -83,15 +78,20 @@ class EvalArgs:
     """Whether to evaluate on the validation set at the beginning of the training"""
 
 
-
 @dataclass
-class GaLoreArgs:
-    """GaLore-related arguments"""
+class OptimizerArgs:
+    """Optimizer-related arguments"""
 
-    use_galore: bool = False
-    """Whether to enable GaLore (GaLore is applied to all linear layers)."""
-    galore_8bit: bool = False
-    """Whether to use the 8-bit GaLore AdamW optimizer instead of the Galore AdamW optimizer."""
+    optimizer: Literal["adamw", "galore_adamw", "galore_adamw_8bit"] = "adamw"
+    """Which optimizer to use"""
+    learning_rate: float = 1e-3
+    """Learning rated used by the optimizer"""
+    weight_decay: float = 0.02
+    """AdamW weight decay coefficient"""
+    beta1: float = 0.9
+    """AdamW coefficient used for computing running averages of the gradients"""
+    beta2: float = 0.95
+    """AdamW coefficient used for computing squared running averages of the gradients"""
     galore_r: int = 128
     """GaLore rank"""
     galore_update_proj_gap: int = 200
@@ -100,4 +100,3 @@ class GaLoreArgs:
     """GaLore scale factor"""
     galore_proj_type: Literal["std", "reverse_std"] = "std"
     """GaLore projection type"""
-

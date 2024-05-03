@@ -18,7 +18,7 @@ from torchmetrics.aggregation import RunningMean
 from typing_extensions import Literal
 
 from litgpt import Tokenizer
-from litgpt.args import EvalArgs, TrainArgs, GaLoreArgs
+from litgpt.args import EvalArgs, TrainArgs, OptimizerArgs
 from litgpt.config import name_to_config
 from litgpt.data import DataModule, TinyLlama
 from litgpt.model import GPT, Block, CausalSelfAttention, Config, LLaMAMLP
@@ -54,18 +54,18 @@ def setup(
         global_batch_size=512,
         micro_batch_size=4,
         max_tokens=int(3e12),  # 3 trillion
-        learning_rate=4e-4,
-        weight_decay=1e-1,
-        beta1=0.9,
-        beta2=0.95,
         max_norm=1.0,
         min_lr=4e-5,
         lr_warmup_steps=2000,
         tie_embeddings=False,
     ),
     eval: EvalArgs = EvalArgs(interval=1000, max_iters=100),
-    galore: GaLoreArgs = GaLoreArgs(
-        galore_8bit=False,
+    optim: OptimizerArgs = OptimizerArgs(
+        optimizer="adamw",
+        learning_rate=4e-4,
+        weight_decay=1e-1,
+        beta1=0.9,
+        beta2=0.95,
         galore_r=128,
         galore_update_proj_gap=200,
         galore_scale=0.25,
@@ -96,7 +96,7 @@ def setup(
         devices: How many devices/GPUs to use. Uses all GPUs by default.
         tokenizer_dir: Optional path to the tokenizer dir that was used for preprocessing the dataset. Only some data
             module require this.
-        galore: GaLore-related arguments. See ``litgpt.args.GaLoreArgs`` for details.
+        optim: Optimizer-related arguments. See ``litgpt.args.OptimizerArgs`` for details.
         logger_name: The name of the logger to send metrics to.
         seed: The random seed to use for reproducibility.
     """
@@ -142,7 +142,7 @@ def setup(
         tokenizer,
         train,
         eval,
-        galore,
+        optim,
     )
 
 
@@ -159,7 +159,7 @@ def main(
     tokenizer: Optional[Tokenizer],
     train: TrainArgs,
     eval: EvalArgs,
-    galore: GaLoreArgs,
+    optim: OptimizerArgs,
 ) -> None:
     validate_args(train, eval, initial_checkpoint_dir, resume)
 
@@ -185,30 +185,33 @@ def main(
     model = torch.compile(model)
     model = fabric.setup(model)
 
-    if not galore.use_galore:
+    if optim.optimizer == "adamw":
         trainable_params = [p for p in model.parameters() if p.requires_grad]
         optimizer_cls = torch.optim.AdamW
 
-    else:
+    elif optim.optimizer in ("galore_adamw", "galore_adamw_8bit"):
         linear_params, nonlinear_params = get_linear_nonlinear_params(model)
-        # Currently apply galore to all parameters; might add options to target specific layers later)
+        # Currently apply galore to all parameters;
+        # we could add options to target specific layers for AdamW and GaLore later
         trainable_params = [
             {'params': nonlinear_params},
             {
                 'params': linear_params,
-                'rank': galore.galore_r,
-                'update_proj_gap': galore.galore_update_proj_gap,
-                'scale': galore.galore_scale,
-                'proj_type': galore.galore_proj_type
+                'rank': optim.galore_r,
+                'update_proj_gap': optim.galore_update_proj_gap,
+                'scale': optim.galore_scale,
+                'proj_type': optim.galore_proj_type
             }
         ]
-        if galore.galore_8bit:
+        if optim.optimizer == "galore_adamw_8bit":
             from litgpt.external.galore import AdamW8bit as optimizer_cls
         else:
             from litgpt.external.galore import AdamW as optimizer_cls
+    else:
+        raise ValueError(f"Optimizer choice {optim.optimizer} is not supported.")
 
     optimizer = optimizer_cls(
-        trainable_params, lr=train.learning_rate, weight_decay=train.weight_decay, betas=(train.beta1, train.beta2)
+        trainable_params, lr=optim.learning_rate, weight_decay=optim.weight_decay, betas=(optim.beta1, optim.beta2)
     )
 
     optimizer = fabric.setup_optimizers(optimizer)
@@ -234,7 +237,7 @@ def main(
         fabric.load(resume, state)
 
     train_time = time.perf_counter()
-    fit(fabric, devices, state, train_dataloader, val_dataloader, out_dir, tokenizer_dir, train, eval)
+    fit(fabric, devices, state, train_dataloader, val_dataloader, out_dir, tokenizer_dir, train, eval, optim)
 
     # Save final checkpoint
     save_checkpoint(fabric, state, tokenizer_dir, out_dir / "final" / "lit_model.pth")
@@ -254,6 +257,7 @@ def fit(
     tokenizer_dir: Optional[Path],
     train: TrainArgs,
     eval: EvalArgs,
+    optim: OptimizerArgs,
 ) -> None:
     model = state["model"]
     optimizer = state["optimizer"]
@@ -296,7 +300,7 @@ def fit(
             break
 
         # determine and set the learning rate for this iteration
-        lr = get_lr(train.learning_rate, state["iter_num"], warmup_iters, max_iters, train.min_lr)
+        lr = get_lr(optim.learning_rate, state["iter_num"], warmup_iters, max_iters, train.min_lr)
         for param_group in optimizer.param_groups:
             param_group["lr"] = lr
 

@@ -15,7 +15,7 @@ from lightning.fabric.utilities import ThroughputMonitor
 from torch.utils.data import DataLoader
 from torchmetrics import RunningMean
 
-from litgpt.args import EvalArgs, TrainArgs, GaLoreArgs
+from litgpt.args import EvalArgs, TrainArgs, OptimizerArgs
 from litgpt.data import Alpaca, DataModule
 from litgpt.generate.base import generate
 from litgpt.lora import GPT, Block, Config, lora_filter, mark_only_lora_as_trainable
@@ -54,8 +54,9 @@ def setup(
     lora_projection: bool = False,
     lora_mlp: bool = False,
     lora_head: bool = False,
-    galore: GaLoreArgs = GaLoreArgs(
-        galore_8bit=False,
+    optim: OptimizerArgs = OptimizerArgs(
+        optimizer="adamw",
+        learning_rate=3e-4,
         galore_r=128,
         galore_update_proj_gap=200,
         galore_scale=0.25,
@@ -69,7 +70,6 @@ def setup(
         micro_batch_size=1,
         lr_warmup_steps=100,
         epochs=5,
-        learning_rate=3e-4,
         max_seq_length=None,
     ),
     eval: EvalArgs = EvalArgs(interval=100, max_new_tokens=100, max_iters=100),
@@ -94,7 +94,7 @@ def setup(
         lora_projection: Whether to apply LoRA to the output projection in the attention block.
         lora_mlp: Whether to apply LoRA to the weights of the MLP in the attention block.
         lora_head: Whether to apply LoRA to output head in GPT.
-        galore: GaLore-related arguments. See ``litgpt.args.GaLoreArgs`` for details.
+        optim: Optimizer-related arguments. See ``litgpt.args.OptimizerArgs`` for details.
         data: Data-related arguments. If not provided, the default is ``litgpt.data.Alpaca``.
         train: Training-related arguments. See ``litgpt.args.TrainArgs`` for details.
         eval: Evaluation-related arguments. See ``litgpt.args.EvalArgs`` for details.
@@ -150,7 +150,7 @@ def setup(
 
     fabric = L.Fabric(devices=devices, strategy=strategy, precision=precision, loggers=logger, plugins=plugins)
     fabric.launch(
-        main, devices, seed, config, data, checkpoint_dir, out_dir, train, eval, galore,
+        main, devices, seed, config, data, checkpoint_dir, out_dir, train, eval, optim,
     )
 
 
@@ -164,7 +164,7 @@ def main(
     out_dir: Path,
     train: TrainArgs,
     eval: EvalArgs,
-    galore: GaLoreArgs,
+    optim: OptimizerArgs,
 ) -> None:
     validate_args(train, eval)
 
@@ -188,7 +188,7 @@ def main(
 
     model = fabric.setup_module(model)
 
-    if not galore.use_galore:
+    if optim.optimizer == "adamw":
         trainable_params = [p for p in model.parameters() if p.requires_grad]
 
         if isinstance(fabric.strategy.precision, BitsandbytesPrecision):
@@ -196,29 +196,32 @@ def main(
         else:
             optimizer_cls = torch.optim.AdamW
 
-    else:
+    elif optim.optimizer in ("galore_adamw", "galore_adamw_8bit"):
         if isinstance(fabric.strategy.precision, BitsandbytesPrecision):
-            raise ValueError("The combinatiomn of QLoRA and GaLore is currently not supported.")
+            raise ValueError("The combination of QLoRA and GaLore is currently not supported.")
 
         linear_params, nonlinear_params = get_linear_nonlinear_params(model)
-        # Currently apply galore to all parameters; might add options to target specific layers later)
+        # Currently apply galore to all parameters;
+        # we could add options to target specific layers for AdamW and GaLore later
         trainable_params = [
             {'params': nonlinear_params},
             {
                 'params': linear_params,
-                'rank': galore.galore_r,
-                'update_proj_gap': galore.galore_update_proj_gap,
-                'scale': galore.galore_scale,
-                'proj_type': galore.galore_proj_type
+                'rank': optim.galore_r,
+                'update_proj_gap':  optim.galore_update_proj_gap,
+                'scale':  optim.galore_scale,
+                'proj_type':  optim.galore_proj_type
             }
         ]
-        if galore.galore_8bit:
+        if optim.optimizer == "galore_adamw_8bit":
             from litgpt.external.galore import AdamW8bit as optimizer_cls
         else:
             from litgpt.external.galore import AdamW as optimizer_cls
+    else:
+        raise ValueError(f"Optimizer choice {optim.optimizer} is not supported.")
 
     optimizer = optimizer_cls(
-        trainable_params, lr=train.learning_rate, weight_decay=train.weight_decay, betas=(train.beta1, train.beta2)
+        trainable_params, lr=optim.learning_rate, weight_decay=optim.weight_decay, betas=(optim.beta1, optim.beta2)
     )
 
     optimizer = fabric.setup_optimizers(optimizer)
