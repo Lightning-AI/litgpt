@@ -107,7 +107,7 @@ def test_lora_mqa_gqa():
     assert attn.linear.weight.shape == (24, 8)
     assert attn.lora_A.shape == (4, 8)
     assert attn.lora_B.shape == (16, 2)
-    assert attn.lora_ind == lora_ind
+    assert torch.equal(attn._lora_ind, torch.tensor(lora_ind))
     x = torch.randint(0, 8, size=(3, 5, 16), dtype=torch.int64)
     assert attn.zero_pad(x).shape == (3, 5, 24)
     bsz, ctx_len, in_dim = 2, 30, 8
@@ -128,7 +128,7 @@ def test_lora_mqa_gqa():
     assert attn.linear.weight.shape == (12, 8)
     assert attn.lora_A.shape == (4, 8)
     assert attn.lora_B.shape == (10, 2)
-    assert attn.lora_ind == lora_ind
+    assert torch.equal(attn._lora_ind, torch.tensor(lora_ind))
     x = torch.randint(0, 8, size=(3, 5, 10), dtype=torch.int64)
     assert attn.zero_pad(x).shape == (3, 5, 12)
     bsz, ctx_len, in_dim = 2, 30, 8
@@ -149,7 +149,7 @@ def test_lora_mqa_gqa():
     assert attn.linear.weight.shape == (16, 8)
     assert attn.lora_A.shape == (4, 8)
     assert attn.lora_B.shape == (12, 2)
-    assert attn.lora_ind == lora_ind
+    assert torch.equal(attn._lora_ind, torch.tensor(lora_ind))
     x = torch.randint(0, 8, size=(3, 5, 12), dtype=torch.int64)
     assert attn.zero_pad(x).shape == (3, 5, 16)
     bsz, ctx_len, in_dim = 2, 30, 8

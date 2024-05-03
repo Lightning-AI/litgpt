@@ -4,7 +4,6 @@ import json
 import os
 from pathlib import Path
 from typing import Optional, Union
-import yaml
 import torch
 
 from litgpt.scripts.convert_lit_checkpoint import convert_lit_checkpoint
@@ -28,7 +27,7 @@ def prepare_results(results, save_filepath, print_results=True):
 def convert_and_evaluate(
     checkpoint_dir: Path,
     tasks: Optional[str] = None,
-    out_dir: Optional[str] = None,
+    out_dir: Optional[Path] = None,
     force_conversion: bool = False,
     num_fewshot: Optional[int] = None,
     batch_size: int = 1,
@@ -36,7 +35,7 @@ def convert_and_evaluate(
     dtype: Optional[Union[str, torch.dtype]] = None,
     limit: Optional[float] = None,
     seed: int = 1234,
-    save_filepath: Optional[str] = None,
+    save_filepath: Optional[Path] = None,
 ) -> None:
     """Convert a LitGPT model and run the LM Evaluation Harness
 
@@ -46,9 +45,7 @@ def convert_and_evaluate(
             Saves to `checkpoint_dir`/evaluate by default.
         force_conversion: Set to `True` to reconvert the model and override
             an existing model.pth from a previous evaluation call.
-        tasks: CSV of task names to evaluate.
-           By default, the following tasks are used:
-           "hellaswag,truthfulqa_mc2,mmlu"
+        tasks: CSV of task names to evaluate. Example: "hellaswag,truthfulqa_mc2,mmlu"
         num_fewshot: Number of examples in few-shot context.
         batch_size: Batch size configuration.
         device: Device to use for evaluation, for example, "cuda" or "cuda:0".
@@ -84,22 +81,22 @@ def convert_and_evaluate(
     out_dir.mkdir(parents=True, exist_ok=True)
 
     save_filepath = out_dir / Path("results.json") if save_filepath is None else Path(save_filepath)
-    config_filepath = checkpoint_dir/"model_config.yaml"
 
-    with open(config_filepath, encoding="utf-8") as f:
-        config_dict = yaml.safe_load(f)
-    repo_id = f"{config_dict['hf_config']['org']}/{config_dict['hf_config']['name']}"
-
-    copy_config_files(source_dir=checkpoint_dir, out_dir=out_dir)
-
-    model_path = out_dir / "model.pth"
+    model_path = out_dir / "pytorch_model.bin"
     if not model_path.exists() or force_conversion:
+        copy_config_files(source_dir=checkpoint_dir, out_dir=out_dir)
         convert_lit_checkpoint(checkpoint_dir=checkpoint_dir, output_dir=out_dir)
+    
+        # Hack: LitGPT's conversion doesn't save a pickle file that is compatible to be loaded with
+        # `torch.load(..., weights_only=True)`, which is a requirement in HFLM.
+        # So we're `torch.load`-ing and `torch.sav`-ing it again to work around this.
+        state_dict = torch.load(out_dir / "model.pth")
+        torch.save(state_dict, model_path)
+        os.remove(out_dir / "model.pth")
 
     from lm_eval.models.huggingface import HFLM
 
-    state_dict = torch.load(model_path)
-    model = HFLM(repo_id, state_dict=state_dict, device=device, batch_size=batch_size, dtype=dtype)
+    model = HFLM(pretrained=str(out_dir.resolve()), device=device, batch_size=batch_size, dtype=dtype)
 
     os.environ["TOKENIZERS_PARALLELISM"] = "false"
 
