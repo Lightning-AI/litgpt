@@ -2,11 +2,11 @@
 
 LitGPT supports a variety of LLM architectures with publicly available weights. You can download model weights and access a list of supported models using the LitGPT `download.py` script.
 
-
 | Model                                        | Model size                              | Reference                                                                                                                |
 |----------------------------------------------|-----------------------------------------|--------------------------------------------------------------------------------------------------------------------------|
 | CodeGemma by Google                          | 7B                                      | [Google Team, Google Deepmind](https://ai.google.dev/gemma/docs/codegemma)                                                             |
 | Code Llama by Meta AI                        | 7B, 13B, 34B, 70B                       | [Rozière et al. 2023](https://arxiv.org/abs/2308.12950)                                                                  |
+| Danube2 by H2O.ai                            | 1.8B                                    | [H2O.ai](https://h2o.ai/platform/danube-1-8b/)
 | Dolly by Databricks                          | 3B, 7B, 12B                             | [Conover et al. 2023](https://www.databricks.com/blog/2023/04/12/dolly-first-open-commercially-viable-instruction-tuned-llm) |
 | Falcon by TII UAE                            | 7B, 40B, 180B                           | [TII 2023](https://falconllm.tii.ae)                                                                                     |
 | FreeWilly2 (Stable Beluga 2) by Stability AI | 70B                                     | [Stability AI 2023](https://stability.ai/blog/stable-beluga-large-instruction-fine-tuned-models)                         |
@@ -28,11 +28,9 @@ LitGPT supports a variety of LLM architectures with publicly available weights. 
 | TinyLlama by Zhang et al.                    | 1.1B                                    | [Zhang et al. 2023](https://github.com/jzhang38/TinyLlama)                                                               |
 | Vicuna by LMSYS                              | 7B, 13B, 33B                            | [Li et al. 2023](https://lmsys.org/blog/2023-03-30-vicuna/)                                                              |
 
-
-
 &nbsp;
-## General Instructions
 
+## General Instructions
 
 ### 1. List Available Models
 
@@ -91,6 +89,7 @@ google/gemma-2b
 google/gemma-2b-it
 google/gemma-7b
 google/gemma-7b-it
+h2oai/h2o-danube2-1.8b-chat
 lmsys/longchat-13b-16k
 lmsys/longchat-7b-16k
 lmsys/vicuna-13b-v1.3
@@ -165,14 +164,15 @@ unsloth/Mistral-7B-v0.2
 
 > [!NOTE]
 > If you want to adopt a model variant that is not listed in the table above but has a similar architecture as one of the supported models, you can use this model by by using the `--model_name` argument as shown below:
+>
 > ```bash
 > litgpt download \
 >  --repo_id NousResearch/Hermes-2-Pro-Mistral-7B \
 >  --model_name Mistral-7B-v0.1
 > ```
 
-
 &nbsp;
+
 ### 2. Download Model Weights
 
 To download the weights for a specific model, use the `--repo_id` argument. Replace `<repo_id>` with the model's repository ID. For example:
@@ -180,11 +180,12 @@ To download the weights for a specific model, use the `--repo_id` argument. Repl
 ```bash
 litgpt download --repo_id <repo_id>
 ```
+
 This command downloads the model checkpoint into the `checkpoints/` directory.
 
 &nbsp;
-### 3. Additional Help
 
+### 3. Additional Help
 
 For more options, add the `--help` flag when running the script:
 
@@ -193,6 +194,7 @@ litgpt download --help
 ```
 
 &nbsp;
+
 ### 4. Run the Model
 
 After conversion, run the model with the `--checkpoint_dir` flag, adjusting `repo_id` accordingly:
@@ -202,6 +204,7 @@ litgpt chat --checkpoint_dir checkpoints/<repo_id>
 ```
 
 &nbsp;
+
 ## Tinyllama Example
 
 This section shows a typical end-to-end example for downloading and using TinyLlama:
@@ -235,7 +238,7 @@ litgpt chat --checkpoint_dir checkpoints/$repo_id
 
 Note that certain models require that you've been granted access to the weights on the Hugging Face Hub.
 
-For example, to get access to the Gemma 2B model, you can do so by following the steps at https://huggingface.co/google/gemma-2b. After access is granted, you can find your HF hub token in https://huggingface.co/settings/tokens.
+For example, to get access to the Gemma 2B model, you can do so by following the steps at <https://huggingface.co/google/gemma-2b>. After access is granted, you can find your HF hub token in <https://huggingface.co/settings/tokens>.
 
 Once you've been granted access and obtained the access token you need to pass the additional `--access_token`:
 
@@ -246,7 +249,8 @@ litgpt download \
 ```
 
 &nbsp;
-## Finetunes and other model variants
+
+## Finetunes and Other Model Variants
 
 Sometimes you want to download the weights of a finetune of one of the models listed above. To do this, you need to manually specify the `model_name` associated to the config to use. For example:
 
@@ -257,10 +261,10 @@ litgpt download \
 ```
 
 &nbsp;
+
 ## Tips for GPU Memory Limitations
 
 The `download.py` script will automatically convert the downloaded model checkpoint into a LitGPT-compatible format. In case this conversion fails due to GPU memory constraints, you can try to reduce the memory requirements by passing the  `--dtype bf16-true` flag to convert all parameters into this smaller precision (however, note that most model weights are already in a bfloat16 format, so it may not have any effect):
-
 
 ```bash
 litgpt download \
@@ -271,6 +275,7 @@ litgpt download \
 (If your GPU does not support the bfloat16 format, you can also try a regular 16-bit float format via `--dtype 16-true`.)
 
 &nbsp;
+
 ## Converting Checkpoints Manually
 
 For development purposes, for example, when adding or experimenting with new model configurations, it may be beneficial to split the weight download and model conversion into two separate steps.
@@ -291,6 +296,7 @@ litgpt convert to_litgpt \
 ```
 
 &nbsp;
+
 ## Downloading Tokenizers Only
 
 In some cases we don't need the model weight, for example, when we are pretraining a model from scratch instead of finetuning it. For cases like this, you can use the `--tokenizer_only` flag to only download a model's tokenizer, which can then be used in the pretraining scripts:
