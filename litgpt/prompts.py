@@ -275,7 +275,7 @@ class Phi2(PromptStyle):
 class Phi3(PromptStyle):
     def apply(self, prompt: str, **kwargs: str) -> str:
         return (
-            "<|system|>\n"
+            "<|user|>\n"
             "You are a helpful AI assistant.<|end|>\n"
             "<|user|>\n"
             "{prompt}<|end|>\n"
