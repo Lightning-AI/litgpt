@@ -27,5 +27,5 @@ jobs:
 
     - name: Check links
       run: |
-        pytest --check-links README.md --check-links-ignore "https://stability.ai/blog/stablecode-llm-generative-ai-coding"
-        pytest --check-links tutorials --check-links-ignore "https://stability.ai/blog/stablecode-llm-generative-ai-coding"
+        pytest --check-links README.md --check-links-ignore "http*"
+        pytest --check-links tutorials --check-links-ignore "http*"

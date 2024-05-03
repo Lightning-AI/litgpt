@@ -3,6 +3,7 @@
 """Utility functions for training and inference."""
 import inspect
 import math
+import os
 import pickle
 import shutil
 import sys
@@ -25,6 +26,12 @@ from typing_extensions import Self
 
 if TYPE_CHECKING:
     from litgpt import GPT, Config
+
+
+def init_out_dir(out_dir: Path) -> Path:
+    if not out_dir.is_absolute() and "LIGHTNING_ARTIFACTS_DIR" in os.environ:
+        return Path(os.getenv("LIGHTNING_ARTIFACTS_DIR")) / out_dir
+    return out_dir
 
 
 def find_multiple(n: int, k: int) -> int:
@@ -265,7 +272,8 @@ def chunked_cross_entropy(
             for logit_chunk, target_chunk in zip(logit_chunks, target_chunks)
         ]
         non_masked_elems = (targets != ignore_index).sum()
-        return torch.cat(loss_chunks).sum() / max(1, non_masked_elems)
+        # See [non_masked_elems div note]
+        return torch.cat(loss_chunks).sum() / non_masked_elems.maximum(torch.ones_like(non_masked_elems))
 
     # no chunking at all
     logits = logits.reshape(-1, logits.size(-1))
@@ -281,7 +289,11 @@ def chunked_cross_entropy(
         for logit_chunk, target_chunk in zip(logit_chunks, target_chunks)
     ]
     non_masked_elems = (targets != ignore_index).sum()
-    return torch.cat(loss_chunks).sum() / max(1, non_masked_elems)
+    # [non_masked_elems div note]:
+    #   max(1, non_masked_elems) would be more ergonomic to avoid a division by zero. However that
+    #   results in a python int which is then passed back to torch division. By using the
+    #   `x.maximum(torch.ones_like(x))` pattern we avoid a cudaStreamSynchronize.
+    return torch.cat(loss_chunks).sum() / non_masked_elems.maximum(torch.ones_like(non_masked_elems))
 
 
 def map_old_state_dict_weights(state_dict: Dict, mapping: Mapping, prefix: str) -> Dict:
@@ -385,7 +397,7 @@ class CycleIterator:
 def copy_config_files(source_dir: Path, out_dir: Path) -> None:
     """Copies the specified configuration and tokenizer files into the output directory."""
 
-    config_files = ["generation_config.json", "model_config.yaml"]
+    config_files = ["config.json", "generation_config.json", "model_config.yaml"]
     tokenizer_files = ["tokenizer.json", "tokenizer.model", "tokenizer_config.json"]
 
     for file_name in config_files + tokenizer_files:

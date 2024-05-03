@@ -22,7 +22,8 @@ def main(
     checkpoint_dir: Path = Path("checkpoints/stabilityai/stablelm-base-alpha-3b"),
     quantize: Optional[Literal["bnb.nf4", "bnb.nf4-dq", "bnb.fp4", "bnb.fp4-dq", "bnb.int8"]] = None,
     max_new_tokens: int = 100,
-    top_k: Optional[int] = 200,
+    top_k: Optional[int] = 50,
+    top_p: float = 1.0,
     temperature: float = 0.8,
     precision: Optional[str] = None,
 ) -> None:
@@ -41,6 +42,20 @@ def main(
             for more details, see https://github.com/Lightning-AI/litgpt/blob/main/tutorials/quantize.md
         max_new_tokens: The number of generation steps to take.
         top_k: The number of top most probable tokens to consider in the sampling process.
+        top_p: If specified, it represents the cumulative probability threshold to consider in the sampling process.
+            In top-p sampling, the next token is sampled from the highest probability tokens
+            whose cumulative probability exceeds the threshold `top_p`. When specified,
+            it must be `0 <= top_p <= 1`. Here, `top_p=0` is equivalent
+            to sampling the most probable token, while `top_p=1` samples from the whole distribution.
+            It can be used in conjunction with `top_k` and `temperature` with the following order
+            of application:
+
+            1. `top_k` sampling
+            2. `temperature` scaling
+            3. `top_p` sampling
+
+            For more details, see https://arxiv.org/abs/1904.09751
+            or https://huyenchip.com/2024/01/16/sampling.html#top_p
         temperature: A value controlling the randomness of the sampling process. Higher values result in more random
             samples.
         precision: Indicates the Fabric precision setting to use.
@@ -93,7 +108,7 @@ def main(
 
     L.seed_everything(1234)
     t0 = time.perf_counter()
-    y = generate(model, encoded, max_returned_tokens, temperature=temperature, top_k=top_k, eos_id=tokenizer.eos_id)
+    y = generate(model, encoded, max_returned_tokens, temperature=temperature, top_k=top_k, top_p=top_p, eos_id=tokenizer.eos_id)
     t = time.perf_counter() - t0
 
     output = tokenizer.decode(y)
