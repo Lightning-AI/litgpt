@@ -26,6 +26,7 @@ test = [
     "pytest>=8.1.1",
     "pytest-rerunfailures>=14.0",
     "pytest-timeout>=2.3.1",
+    "pytest-dependency>=0.6.0",
     "transformers>=4.38.0",  # numerical comparisons
     "einops>=0.7.0",
     "protobuf>=4.23.4",
