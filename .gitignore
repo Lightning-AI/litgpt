@@ -13,7 +13,7 @@ datasets
 !litgpt/data
 !tests/data
 checkpoints
-out
+out/qlora-llama-2-13b
 wandb
 events.out.tfevents*
 
