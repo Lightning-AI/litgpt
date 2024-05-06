@@ -266,6 +266,7 @@ def test_save_load_sharded_checkpoint(tmp_path):
     strategy = ThunderFSDPStrategy(state_dict_type="sharded", broadcast_from=0)
     fabric = Fabric(accelerator="cuda", devices=2, strategy=strategy)
     fabric.launch()
+    print(fabric.global_rank, "Past fabric.launch()")
 
     model = MyModel(4)
     expected = model.state_dict()
