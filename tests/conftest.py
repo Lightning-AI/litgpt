@@ -50,6 +50,14 @@ def restore_default_dtype():
     torch.set_default_dtype(torch.float32)
 
 
+@pytest.fixture(autouse=True)
+def destroy_process_group():
+    import torch.distributed
+
+    if torch.distributed.is_available() and torch.distributed.is_initialized():
+        torch.distributed.destroy_process_group()
+
+
 class MockTokenizer:
     """A dummy tokenizer that encodes each character as its ASCII code."""
 
