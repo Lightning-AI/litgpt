@@ -11,7 +11,7 @@ import pytest
 import torch
 import torch.nn.functional as F
 import yaml
-from conftest import RunIf
+from tests.conftest import RunIf
 from lightning import Fabric
 from lightning.fabric.loggers import CSVLogger, TensorBoardLogger
 from lightning.fabric.plugins import BitsandbytesPrecision

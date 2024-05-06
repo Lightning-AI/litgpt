@@ -7,12 +7,12 @@ from unittest.mock import Mock
 import pytest
 import torch
 import yaml
-from conftest import RunIf
-from test_generate_sequentially import find_forward_hooks
 
 from litgpt import GPT, Config
 from litgpt.generate.tp import tensor_parallel, tensor_parallel_linear
 from litgpt.scripts.download import download_from_hub
+from tests.conftest import RunIf
+from tests.test_generate_sequentially import find_forward_hooks
 
 
 def test_tensor_parallel_linear():

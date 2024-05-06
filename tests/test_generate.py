@@ -68,13 +68,13 @@ def test_main(fake_checkpoint_dir, monkeypatch, tensor_like):
     num_samples = 2
     out, err = StringIO(), StringIO()
     with redirect_stdout(out), redirect_stderr(err):
-        generate.main(temperature=2.0, top_k=2, num_samples=num_samples, checkpoint_dir=fake_checkpoint_dir)
+        generate.main(temperature=2.0, top_k=2, top_p=0.9, num_samples=num_samples, checkpoint_dir=fake_checkpoint_dir)
 
     assert len(tokenizer_mock.return_value.decode.mock_calls) == num_samples
     assert torch.allclose(tokenizer_mock.return_value.decode.call_args[0][0], generate_mock.return_value)
     assert (
         generate_mock.mock_calls
-        == [call(ANY, tensor_like, 53, temperature=2.0, top_k=2, eos_id=tokenizer_mock.return_value.eos_id)]
+        == [call(ANY, tensor_like, 53, temperature=2.0, top_k=2, top_p=0.9, eos_id=tokenizer_mock.return_value.eos_id)]
         * num_samples
     )
     # only the generated result is printed to stdout
@@ -102,10 +102,28 @@ def test_sample(temperature):
         [
             [[24, 4, 98, 77, 47], [65, 70, 32, 67, 24], [92, 32, 88, 36, 62]],
             [[85, 79, 57, 68, 50], [89, 46, 72, 45, 32], [68, 96, 68, 24, 36]],
-        ]
+        ],
+        dtype=torch.float32,
     )
-    token = sample(logits, temperature=temperature)
+    token = sample(logits, temperature=temperature, top_p=0.8)
 
     assert token.shape == (1,)
     # sample is batch size 1 only for now - this should be [0, 1] once batched generation is supported
     assert token.tolist() == [0]
+
+
+def test_generate_different_results_with_different_top_p():
+    config = Config(block_size=128, vocab_size=16, n_layer=1, n_head=4, n_embd=8)
+    model = GPT(config)
+    model.max_seq_length = 50
+    model.set_kv_cache(batch_size=1)
+
+    torch.manual_seed(123)
+    input_idx = torch.randint(10, size=(1,))
+
+    torch.manual_seed(123)
+    output1 = generate.generate(model, input_idx, 20, top_p=1.0)
+    torch.manual_seed(123)
+    output2 = generate.generate(model, input_idx, 20, top_p=0.1)
+
+    assert not torch.equal(output1, output2)
