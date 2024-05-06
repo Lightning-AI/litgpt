@@ -215,6 +215,7 @@ class LoRAQKVLinear(LoRALinear):
         """
         super(LoRALinear, self).__init__(r=r, lora_alpha=lora_alpha, lora_dropout=lora_dropout)
         self.linear = torch.nn.Linear(in_features, out_features, **kwargs)
+        self.head_size = head_size
         self.n_head = n_head
         self.n_query_groups = n_query_groups
         if isinstance(enable_lora, bool):
@@ -258,30 +259,34 @@ class LoRAQKVLinear(LoRALinear):
             # https://github.com/cloneofsimo/lora
             self.scaling = self.lora_alpha / self.r
 
-            # Compute the indices
-            # Indices are needed to properly pad weight updates with zeros in `zero_pad` method.
-            q_per_kv = self.n_head // self.n_query_groups
-            total_qkv = q_per_kv + 2
-            head_size = out_features // (self.n_query_groups * total_qkv)
-            ind = range(out_features)
-            lora_ind = []
-            if enable_q:
-                q_ind = [x for x in ind if (x // head_size) % total_qkv < total_qkv - 2]
-                lora_ind.extend(q_ind)
-            if enable_k:
-                k_ind = [x for x in ind if (x // head_size) % total_qkv == total_qkv - 2]
-                lora_ind.extend(k_ind)
-            if enable_v:
-                v_ind = [x for x in ind if (x // head_size) % total_qkv == total_qkv - 1]
-                lora_ind.extend(v_ind)
-            self._lora_ind = torch.tensor(lora_ind)
-            self._lora_ind_cache = {self._lora_ind.device: self._lora_ind}
             self.reset_parameters()
 
+    @property
+    def lora_ind(self) -> torch.Tensor:
+        """Lazy creation of a buffer with LoRA indices to overcome the limitation when FSDP with meta device is used."""
+        # Indices are needed to properly pad weight updates with zeros.
+        if not hasattr(self, "_lora_ind"):
+            enable_q, enable_k, enable_v = self.enable_lora
+            qkv_group_size = self.n_head // self.n_query_groups + 2
+            candidate_indices = range(self.linear.out_features)
+            lora_ind = []
+            if enable_q:
+                q_ind = [x for x in candidate_indices if (x // self.head_size) % qkv_group_size < qkv_group_size - 2]
+                lora_ind.extend(q_ind)
+            if enable_k:
+                k_ind = [x for x in candidate_indices if (x // self.head_size) % qkv_group_size == qkv_group_size - 2]
+                lora_ind.extend(k_ind)
+            if enable_v:
+                v_ind = [x for x in candidate_indices if (x // self.head_size) % qkv_group_size == qkv_group_size - 1]
+                lora_ind.extend(v_ind)
+            self.register_buffer(
+                "_lora_ind", torch.tensor(lora_ind, device=self.linear.weight.device), persistent=False
+            )
 
+        return self._lora_ind
 
     def zero_pad(self, x: torch.Tensor) -> torch.Tensor:
-        """Properly pad weight updates with zeros.
+        """Properly pad the last dimension of weight updates with zeros.
 
         If, based on `self.enable_lora`, we want to fine-tune queries and values, but not keys,
         then the weights update should be:
@@ -332,20 +337,9 @@ class LoRAQKVLinear(LoRALinear):
         # ⚬ enable_lora: [True, False, True]
         # Then x has embeddings_size of 256 (2 * 128 as enable_lora only for query and value, not keys) and expected
         # embeddings_size is 384 (self.linear.out_features), so that means that we need to pad from 256 to 384 with zeros, but
-        # only for key updates (this is where lora_ind comes in handy)
-        # Note: double transpose (in the beginning and in the end) is basically a guard for two-dimensional tensors
-        # for example when we want to merge/unmerge LoRA weights and pretrained weights
-        x = x.transpose(0, 1)
-        result = x.new_zeros((*x.shape[:-1], self.linear.out_features))  # (64, 64, 384)
-        result = result.view(-1, self.linear.out_features)  # (4096, 384)
-
-        # `lora_ind` is constant, so we want to avoid copying it (and incurring an expensive cudaStreamSynchronize)
-        # every time this method is called. So instead we simply cache a copy on each device that needs it.
-        if (lora_ind := self._lora_ind_cache.get(result.device)) is None:
-            self._lora_ind_cache[result.device] = lora_ind = self._lora_ind.to(result.device)
-
-        result = result.index_copy(1, lora_ind, x.reshape(-1, sum(self.qkv_shapes)))  # (4096, 256)
-        return result.view((*x.shape[:-1], self.linear.out_features)).transpose(0, 1)  # (64, 64, 384)
+        # only for key updates (this is where self.lora_ind comes in handy)
+        result = x.new_zeros(*x.shape[:-1], self.linear.out_features)  # (64, 64, 384)
+        return result.index_copy_(dim=-1, index=self.lora_ind, source=x)  # (64, 64, 384)
 
     def conv1d(self, input: torch.Tensor, weight: torch.Tensor) -> torch.Tensor:
         """An extension of the `torch.nn.functional.conv1d` function with a logic specific to grouped queries.
@@ -379,7 +373,8 @@ class LoRAQKVLinear(LoRALinear):
         input_splitted = input.chunk(sum(self.enable_lora), dim=1)  # N * (B, C // N, T)
         weight_splitted = weight.split(self.qkv_shapes)  # N * (C_output', r, 1)
         return torch.cat(
-            [F.conv1d(a, b) for a, b in zip(input_splitted, weight_splitted)], dim=1  # (B, C_output', T)
+            [F.conv1d(a, b) for a, b in zip(input_splitted, weight_splitted)],
+            dim=1,  # (B, C_output', T)
         )  # (B, C_output, T)
 
     def get_lora_AB(self) -> torch.Tensor:
@@ -391,10 +386,8 @@ class LoRAQKVLinear(LoRALinear):
         lora = self.conv1d(
             self.lora_A.data.unsqueeze(0),  # (4, 128) -> (1, 4, 128)
             self.lora_B.data.unsqueeze(-1),  # (256, 2) -> (256, 2, 1)
-        ).squeeze(
-            0
-        )  # (1, 4, 128) @ (256, 2, 1) -> (1, 256, 128) -> (256, 128)
-        return self.zero_pad(lora * self.scaling)  # (256, 128) after zero_pad (384, 128)
+        ).squeeze(0)  # (1, 4, 128) @ (256, 2, 1) -> (1, 256, 128) -> (256, 128)
+        return self.zero_pad(lora.T * self.scaling).T  # (256, 128) after zero_pad (384, 128)
 
     def merge(self) -> None:
         """Merges the LoRA weights into the full-rank weights (W = W + delta_W)."""
@@ -432,9 +425,7 @@ class LoRAQKVLinear(LoRALinear):
         after_B = self.conv1d(
             after_A.transpose(-2, -1),  # (64, 64, 4) -> (64, 4, 64)
             self.lora_B.unsqueeze(-1),  # (256, 2) -> (256, 2, 1)
-        ).transpose(
-            -2, -1
-        )  # (64, 4, 64) @ (256, 2, 1) -> (64, 256, 64) -> (64, 64, 256)
+        ).transpose(-2, -1)  # (64, 4, 64) @ (256, 2, 1) -> (64, 256, 64) -> (64, 64, 256)
         lora = self.zero_pad(after_B) * self.scaling  # (64, 64, 256) after zero_pad (64, 64, 384)
         return pretrained + lora
 

@@ -28,8 +28,6 @@ from torch import Tensor
 from torch.nn import Module
 from typing_extensions import override
 
-from .utils import _validate_executors
-
 if TYPE_CHECKING:
     from thunder import Executor
 
@@ -74,7 +72,7 @@ class ThunderDDPStrategy(ParallelStrategy):
         if not jit and executors is not None:
             raise ValueError(f"Passing executors={executors} doesn't have an effect with `jit={jit}`")
         self.jit = jit
-        self.executors = _validate_executors(executors)
+        self.executors = executors
         self._num_nodes = 1
         self._process_group_backend: Optional[str] = process_group_backend
         self._timeout: Optional[timedelta] = timeout

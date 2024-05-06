@@ -30,7 +30,7 @@ test = [
     "transformers>=4.38.0",  # numerical comparisons
     "einops>=0.7.0",
     "protobuf>=4.23.4",
-    "lightning-thunder==0.2.0.dev20240404; python_version >= '3.10'",
+    "lightning-thunder==0.2.0.dev20240505; python_version >= '3.10'",
 ]
 all = [
     "bitsandbytes==0.42.0",      # quantization

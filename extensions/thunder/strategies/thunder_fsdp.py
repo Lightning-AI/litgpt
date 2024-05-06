@@ -32,8 +32,6 @@ from torch.nn import Module
 from torch.optim import Optimizer
 from typing_extensions import override
 
-from .utils import _validate_executors
-
 if TYPE_CHECKING:
     from thunder import Executor
     from thunder.distributed import FSDPBucketingStrategy, FSDPType
@@ -122,7 +120,7 @@ class ThunderFSDPStrategy(ParallelStrategy, _Sharded):
         if not jit and executors is not None:
             raise ValueError(f"Passing executors={executors} doesn't have an effect with `jit={jit}`")
         self.jit = jit
-        self.executors = _validate_executors(executors)
+        self.executors = executors
         self._state_dict_type = state_dict_type
         self._fsdp_kwargs = kwargs
 

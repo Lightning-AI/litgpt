@@ -121,7 +121,9 @@ def test_generate_different_results_with_different_top_p():
     torch.manual_seed(123)
     input_idx = torch.randint(10, size=(1,))
 
+    torch.manual_seed(123)
     output1 = generate.generate(model, input_idx, 20, top_p=1.0)
+    torch.manual_seed(123)
     output2 = generate.generate(model, input_idx, 20, top_p=0.1)
 
     assert not torch.equal(output1, output2)
