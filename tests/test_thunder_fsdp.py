@@ -6,7 +6,7 @@ from typing import Optional, Tuple, Union
 
 import pytest
 import torch
-from conftest import RunIf
+from tests.conftest import RunIf
 from lightning.fabric import Fabric
 from lightning.fabric.utilities.imports import _TORCH_GREATER_EQUAL_2_3
 

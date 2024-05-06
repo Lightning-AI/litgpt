@@ -112,6 +112,6 @@ def test_save_load_prompt_style(tmp_path):
     save_prompt_style(CustomPromptStyle(), checkpoint_dir)
     with open(checkpoint_dir / "prompt_style.yaml", "r", encoding="utf-8") as file:
         contents = yaml.safe_load(file)
-    assert contents == {"class_path": "test_prompts.CustomPromptStyle"}
+    assert contents == {"class_path": "tests.test_prompts.CustomPromptStyle"}
     loaded = load_prompt_style(checkpoint_dir)
     assert isinstance(loaded, CustomPromptStyle)

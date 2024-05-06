@@ -2,7 +2,6 @@
 
 import os
 import shutil
-import warnings
 from pathlib import Path
 from typing import List, Optional
 
@@ -157,7 +156,3 @@ def pytest_collection_modifyitems(items: List[pytest.Function], config: pytest.C
             bold=True,
             purple=True,  # oh yeah, branded pytest messages
         )
-
-
-# Ignore cleanup warnings from pytest (rarely happens due to a race condition when executing pytest in parallel)
-warnings.filterwarnings("ignore", category=pytest.PytestWarning, message=r".*\(rm_rf\) error removing.*")

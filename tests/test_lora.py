@@ -9,7 +9,6 @@ from unittest.mock import Mock
 import pytest
 import torch
 import yaml
-from conftest import RunIf
 from lightning import Fabric
 from lightning.fabric.plugins.precision.bitsandbytes import _BITSANDBYTES_AVAILABLE, BitsandbytesPrecision
 from lightning.fabric.wrappers import _FabricOptimizer
@@ -22,11 +21,12 @@ import litgpt.config as config_module
 import litgpt.finetune.lora as module
 from litgpt.args import EvalArgs, TrainArgs
 from litgpt.data import Alpaca
-from litgpt.lora import GPT as LoRAGPT
 from litgpt.lora import CausalSelfAttention as LoRACausalSelfAttention
 from litgpt.lora import Config, LoRALinear, LoRAQKVLinear, lora_filter, mark_only_lora_as_trainable, merge_lora_weights
+from litgpt.lora import GPT as LoRAGPT
 from litgpt.model import GPT as BaseGPT
 from litgpt.scripts.convert_hf_checkpoint import copy_weights_hf_llama
+from tests.conftest import RunIf
 
 
 def test_lora_layer_replacement():
