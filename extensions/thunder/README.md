@@ -482,12 +482,10 @@ Thunder allows you to define a priority list of executors that can map operators
 
 ```python
 import thunder
-from thunder.executors.sdpaex import sdpa_ex
-from thunder.executors.torch_compile import torch_compile_cat_ex
 
 model = thunder.jit(
     model,
-    executors=[sdpa_ex, torch_compile_cat_ex, thunder.nvfuser_executor, thunder.pytorch_executor]
+    executors=["sdpa", "torchcompile_cat", "nvfuser", "torch"]
 )
 ```
 
@@ -508,13 +506,10 @@ We can enable this executor by passing it to the list of executors available. Th
 
 ```python
 import thunder
-from thunder.executors.sdpaex import sdpa_ex
-from thunder.executors.torch_compile import torch_compile_cat_ex
-from unsloth.executor import unsloth_ex
 
 model = thunder.jit(
     model,
-    executors=[sdpa_ex, unsloth_ex, torch_compile_cat_ex, thunder.nvfuser_executor, thunder.pytorch_executor]
+    executors=["sdpa", "unsloth", "torchcompile_cat", "nvfuser", "torch"]
 )
 ```
 
