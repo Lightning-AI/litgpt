@@ -612,7 +612,7 @@ Nvidia driver version: 545.23.08
 pytorch-triton==3.0.0+45fff310c8
 torch==2.4.0.dev20240427+cu121
 lightning==2.3.0.dev20240328
-git+https://github.com/Lightning-AI/lightning-thunder.git@ba75ad8d1578e38d2386cebbcc3cd8775d398df1#egg=lightning_thunder
+lightning-thunder==0.2.0.dev20240505
 nvfuser_cu121==0.2.3.dev20240428
 ```
 
