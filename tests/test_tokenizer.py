@@ -8,6 +8,7 @@ from transformers import AutoTokenizer
 from transformers.utils import cached_file
 
 import litgpt.config as config_module
+from litgpt import PromptStyle
 from litgpt.tokenizer import Tokenizer
 
 
@@ -67,6 +68,7 @@ def test_tokenizer_against_hf(config):
         assert ours.eos_id == theirs.eos_token_id
 
     prompt = "Hello, readers of this test!"
+    prompt = PromptStyle.from_config(config).apply(prompt)
     actual = ours.encode(prompt)
     expected = theirs.encode(prompt)
     if config.name.startswith("CodeLlama-70b"):
