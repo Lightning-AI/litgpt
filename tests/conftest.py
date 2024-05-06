@@ -2,7 +2,6 @@
 
 import os
 import shutil
-import warnings
 from pathlib import Path
 from typing import List, Optional
 
@@ -48,6 +47,14 @@ def float_like():
 def restore_default_dtype():
     # just in case
     torch.set_default_dtype(torch.float32)
+
+
+@pytest.fixture(autouse=True)
+def destroy_process_group():
+    import torch.distributed
+
+    if torch.distributed.is_available() and torch.distributed.is_initialized():
+        torch.distributed.destroy_process_group()
 
 
 class MockTokenizer:
@@ -149,7 +156,3 @@ def pytest_collection_modifyitems(items: List[pytest.Function], config: pytest.C
             bold=True,
             purple=True,  # oh yeah, branded pytest messages
         )
-
-
-# Ignore cleanup warnings from pytest (rarely happens due to a race condition when executing pytest in parallel)
-warnings.filterwarnings("ignore", category=pytest.PytestWarning, message=r".*\(rm_rf\) error removing.*")

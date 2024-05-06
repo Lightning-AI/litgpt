@@ -1,10 +1,10 @@
 import pytest
 import torch
-from conftest import RunIf
 
 from litgpt import GPT, Config
 from litgpt.model import apply_rope, build_rope_cache
 from litgpt.utils import chunked_cross_entropy
+from tests.conftest import RunIf
 
 
 @RunIf(min_cuda_gpus=1, thunder=True)

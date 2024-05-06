@@ -2,14 +2,11 @@
 
 import os
 from dataclasses import asdict
-from pathlib import Path
 from unittest.mock import ANY
-from urllib.request import urlretrieve
 
 import pytest
 import torch
 import yaml
-from conftest import RunIf
 from transformers import AutoConfig, AutoModelForCausalLM
 from transformers.models.falcon import FalconConfig, FalconForCausalLM
 from transformers.models.gemma import GemmaConfig, GemmaForCausalLM
@@ -27,6 +24,7 @@ from litgpt.scripts.convert_lit_checkpoint import (
     copy_weights_phi,
     qkv_split,
 )
+from tests.conftest import RunIf
 
 
 def test_convert_lit_checkpoint(tmp_path):

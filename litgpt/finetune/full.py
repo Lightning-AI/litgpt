@@ -227,7 +227,13 @@ def fit(
         f" {model.max_seq_length} and context length is {model.config.block_size}"
     )
 
-    validate(fabric, model, val_dataloader, dataclasses.replace(eval, max_iters=2))  # sanity check
+    if eval.initial_validation:
+        val_loss = validate(fabric, model, val_dataloader, dataclasses.replace(eval, max_iters=len(val_dataloader)))
+        val_loss = f"{val_loss:.3f}"
+    else:
+        validate(fabric, model, val_dataloader, dataclasses.replace(eval, max_iters=2))  # sanity check
+        val_loss = "n/a"
+
     initial_iter = state["iter_num"]
     max_steps = train.max_steps or float("inf")
     train_iterator = CycleIterator(train_dataloader)
@@ -249,7 +255,6 @@ def fit(
         fabric.device
     )
     fabric.barrier()
-    val_loss = "n/a"
 
     while state["step_count"] < max_steps and train_iterator.epoch < train.epochs:
         state["iter_num"] += 1
