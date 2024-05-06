@@ -266,17 +266,14 @@ def test_save_load_sharded_checkpoint(tmp_path):
     strategy = ThunderFSDPStrategy(state_dict_type="sharded", broadcast_from=0)
     fabric = Fabric(accelerator="cuda", devices=2, strategy=strategy)
     fabric.launch()
-    print(fabric.global_rank, "Past fabric.launch()")
 
     model = MyModel(4)
     expected = model.state_dict()
 
     # save a sharded model
     model = fabric.setup(model)
-    print(fabric.global_rank, "Past fabric.setup()")
     state = {"model": model, "stateful": StatefulThing(), "primitive": 123}
     fabric.save(tmp_path, state)
-    print(fabric.global_rank, "Past fabric.save()")
 
     # assert the file contents
     if fabric.global_rank == 0:
@@ -296,21 +293,17 @@ def test_save_load_sharded_checkpoint(tmp_path):
             }
         }
         torch.testing.assert_close(checkpoint["model"], expected)
-    print(fabric.global_rank, "Past rank0 save checks()")
 
     # load its weights into a different sharded model
     model = MyModel(4)
     model = fabric.setup(model)
-    print(fabric.global_rank, "Past fabric.setup() 2")
     state = {"model": model, "stateful": StatefulThing(), "primitive": 321}
     fabric.load(tmp_path, state)
-    print(fabric.global_rank, "Past fabric.load()")
 
     from thunder.distributed import _unshard_params
 
     # unshard this model's parameters to compare with the original state dict before sharding
     _unshard_params(model, model.process_group_for_ddp, True)
-    print(fabric.global_rank, "Past unshard_params")
     # we loaded rank 0's weights, so this would fail in the other ranks
     if fabric.global_rank == 0:
         actual = model.state_dict()
@@ -318,7 +311,6 @@ def test_save_load_sharded_checkpoint(tmp_path):
         assert actual["buf"].device.type == "cuda"
         actual["buf"] = actual["buf"].to(device="cpu")
         torch.testing.assert_close(actual, expected)
-    print(fabric.global_rank, "Past rank0 shard checks()")
     assert state["primitive"] == 123
 
 
@@ -329,14 +321,12 @@ def test_jit_before_setup(jit):
 
     fabric = Fabric(devices=2, accelerator="cuda", strategy=ThunderFSDPStrategy(jit=jit))
     fabric.launch()
-    print(fabric.global_rank, "Past fabric.launch()")
 
     x = torch.randn(1, 1, device=fabric.device)
     model = torch.nn.Linear(1, 2, bias=False, device=fabric.device)
 
     tmodel = thunder.jit(model)
     fmodel = fabric.setup(tmodel)
-    print(fabric.global_rank, "Past fabric.setup()")
     fmodel(x)
 
     assert "all_gather" in thunder.last_traces(tmodel)[-1].python()
