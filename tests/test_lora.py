@@ -733,3 +733,28 @@ def test_lora_bitsandbytes(monkeypatch, tmp_path, fake_checkpoint_dir, alpaca_pa
     logs = stdout.getvalue()
     assert "of trainable parameters: 512" in logs
     assert "of non-trainable parameters: 1,888" in logs
+
+
+@RunIf(standalone=True, min_cuda_gpus=2)
+def test_lora_model_fsdp_init():
+    config = Config(
+        n_layer=1,
+        n_head=2,
+        n_embd=8,
+        block_size=8,
+        vocab_size=8,
+        lora_r=8,
+        lora_alpha=8,
+        lora_dropout=0.1,
+        lora_query=True,
+        lora_value=False,
+        lora_projection=True,
+    )
+    fabric = Fabric(devices=2, strategy="fsdp", precision="16-true")
+    fabric.launch()
+    with fabric.init_module(empty_init=True):
+        model = LoRAGPT(config)
+    x = torch.randint(0, config.padded_vocab_size, size=(2, config.block_size), dtype=torch.int64, device=fabric.device)
+    model = fabric.setup(model)
+    y = model(x)
+    assert y.shape == torch.Size([2, 8, 512])
