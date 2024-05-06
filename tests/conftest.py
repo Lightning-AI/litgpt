@@ -1,19 +1,15 @@
+# Copyright Lightning AI. Licensed under the Apache License 2.0, see LICENSE file.
+
 import os
-import sys
+import shutil
+import warnings
 from pathlib import Path
-from typing import List
+from typing import List, Optional
 
 import pytest
 import torch
 from lightning.fabric.utilities.testing import _runif_reasons
-
-wd = Path(__file__).parent.parent.absolute()
-
-
-@pytest.fixture(autouse=True)
-def add_wd_to_path():
-    # this adds support for running tests without the package installed
-    sys.path.append(str(wd))
+from lightning_utilities.core.imports import RequirementCache
 
 
 @pytest.fixture()
@@ -22,7 +18,7 @@ def fake_checkpoint_dir(tmp_path):
     checkpoint_dir = tmp_path / "checkpoints" / "tmp"
     checkpoint_dir.mkdir(parents=True)
     (checkpoint_dir / "lit_model.pth").touch()
-    (checkpoint_dir / "lit_config.json").touch()
+    (checkpoint_dir / "model_config.yaml").touch()
     (checkpoint_dir / "tokenizer.json").touch()
     (checkpoint_dir / "tokenizer_config.json").touch()
     return checkpoint_dir
@@ -54,8 +50,61 @@ def restore_default_dtype():
     torch.set_default_dtype(torch.float32)
 
 
-def RunIf(**kwargs):
+class MockTokenizer:
+    """A dummy tokenizer that encodes each character as its ASCII code."""
+
+    eos_id = 1
+
+    def encode(self, text: str, eos: bool = False, max_length: int = -1) -> torch.Tensor:
+        output = [ord(c) for c in text]
+        if eos:
+            output.append(self.eos_id)
+        output = output[:max_length] if max_length > 0 else output
+        return torch.tensor(output)
+
+    def decode(self, tokens: torch.Tensor) -> str:
+        return "".join(chr(int(t)) for t in tokens.tolist())
+
+
+@pytest.fixture()
+def mock_tokenizer():
+    return MockTokenizer()
+
+
+@pytest.fixture()
+def alpaca_path(tmp_path):
+    file = Path(__file__).parent / "data" / "fixtures" / "alpaca.json"
+    shutil.copyfile(file, tmp_path / "alpaca.json")
+    return tmp_path / "alpaca.json"
+
+
+@pytest.fixture()
+def dolly_path(tmp_path):
+    file = Path(__file__).parent / "data" / "fixtures" / "dolly.json"
+    shutil.copyfile(file, tmp_path / "dolly.json")
+    return tmp_path / "dolly.json"
+
+
+@pytest.fixture()
+def longform_path(tmp_path):
+    path = tmp_path / "longform"
+    path.mkdir()
+    for split in ("train", "val"):
+        file = Path(__file__).parent / "data" / "fixtures" / f"longform_{split}.json"
+        shutil.copyfile(file, path / f"{split}.json")
+    return path
+
+
+def RunIf(thunder: Optional[bool] = None, **kwargs):
     reasons, marker_kwargs = _runif_reasons(**kwargs)
+
+    if thunder is not None:
+        thunder_available = bool(RequirementCache("lightning-thunder", "thunder"))
+        if thunder and not thunder_available:
+            reasons.append("Thunder")
+        elif not thunder and thunder_available:
+            reasons.append("not Thunder")
+
     return pytest.mark.skipif(condition=len(reasons) > 0, reason=f"Requires: [{' + '.join(reasons)}]", **marker_kwargs)
 
 
@@ -93,12 +142,14 @@ def pytest_collection_modifyitems(items: List[pytest.Function], config: pytest.C
     if config.option.verbose >= 0 and (filtered or skipped):
         writer = config.get_terminal_writer()
         writer.write(
-            (
-                f"\nThe number of tests has been filtered from {initial_size} to {initial_size - filtered} after the"
-                f" filters {conditions}.\n{skipped} tests are marked as unconditional skips.\nIn total,"
-                f" {len(items)} tests will run.\n"
-            ),
+            f"\nThe number of tests has been filtered from {initial_size} to {initial_size - filtered} after the"
+            f" filters {conditions}.\n{skipped} tests are marked as unconditional skips.\nIn total,"
+            f" {len(items)} tests will run.\n",
             flush=True,
             bold=True,
             purple=True,  # oh yeah, branded pytest messages
         )
+
+
+# Ignore cleanup warnings from pytest (rarely happens due to a race condition when executing pytest in parallel)
+warnings.filterwarnings("ignore", category=pytest.PytestWarning, message=r".*\(rm_rf\) error removing.*")

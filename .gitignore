@@ -3,14 +3,16 @@ __pycache__
 .DS_Store
 *.egg-info
 build
+dist
 .venv
 .vscode
 
 # data
 data
 datasets
+!litgpt/data
+!tests/data
 checkpoints
 out
 wandb
-
-tests/original_phi_1_5.py
+events.out.tfevents*
