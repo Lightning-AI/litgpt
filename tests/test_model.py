@@ -2,12 +2,9 @@
 
 from copy import deepcopy
 from functools import partial
-from pathlib import Path
-from urllib.request import urlretrieve
 
 import pytest
 import torch
-from conftest import RunIf
 from lightning import Fabric
 from lightning.fabric.utilities.imports import _IS_WINDOWS
 from lightning.fabric.utilities.init import _materialize_meta_tensors
@@ -37,6 +34,7 @@ from litgpt.scripts.convert_hf_checkpoint import (
     copy_weights_hf_llama,
     copy_weights_phi,
 )
+from tests.conftest import RunIf
 
 
 @torch.inference_mode()
