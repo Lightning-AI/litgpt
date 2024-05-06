@@ -573,14 +573,14 @@ Config:
 ```yaml
 out_dir: out/pretrain-thunder
 data: TinyStories
-tokenizer_dir: checkpoints/TinyLlama/TinyLlama-1.1B
+tokenizer_dir: checkpoints/TinyLlama/TinyLlama-1.1B-Chat-v1.0
 logger_name: csv
 ```
 
 Commands:
 
 ```bash
-litgpt download --repo_id TinyLlama/TinyLlama-1.1B --tokenizer_only true
+litgpt download --repo_id TinyLlama/TinyLlama-1.1B-Chat-v1.0 --tokenizer_only true
 
 python extensions/thunder/pretrain.py --config config.yaml --compiler null --train.global_batch_size 32
 python extensions/thunder/pretrain.py --config config.yaml --executors '[sdpa, torchcompile]' --train.global_batch_size 32
