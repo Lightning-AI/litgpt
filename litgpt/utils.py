@@ -490,13 +490,12 @@ def choose_logger(
 def get_linear_nonlinear_params(model):
     linear_params = []
     nonlinear_params = []
-
     for module in model.modules():
         if isinstance(module, torch.nn.Linear):
-            linear_params.extend(list(model.parameters()))
+            linear_params.extend(list(module.parameters()))
         else:
-            nonlinear_params.extend(list(model.parameters()))
 
-    # Make extra sure that there is no overlap
-    linear_params = list(set(linear_params) - set(nonlinear_params))
+            nonlinear_params.extend(list(module.parameters()))
+    linear_params = list(set(linear_params))
+    nonlinear_params = list(set(nonlinear_params) - set(linear_params))
     return linear_params, nonlinear_params
