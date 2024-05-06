@@ -43,7 +43,7 @@ def test_tokenize(tmp_path, monkeypatch):
     story1, story2 = "foo bar", "    fun    "
     data = [{"story": story1}, {"story": story2}]
     shard_path = tmp_path / "data.json"
-    with open(shard_path, "w") as f:
+    with open(shard_path, "w", encoding="utf-8") as f:
         json.dump(data, f)
 
     class Tokenizer:

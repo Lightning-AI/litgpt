@@ -9,7 +9,7 @@ from unittest.mock import Mock
 import pytest
 import torch
 import yaml
-from conftest import RunIf
+from tests.conftest import RunIf
 from lightning import Fabric
 from lightning.fabric.plugins.precision.bitsandbytes import _BITSANDBYTES_AVAILABLE, BitsandbytesPrecision
 from lightning.fabric.wrappers import _FabricOptimizer
@@ -98,7 +98,8 @@ def test_adapter_script(tmp_path, fake_checkpoint_dir, monkeypatch, alpaca_path)
 
     logs = stdout.getvalue()
     assert logs.count("(step)") == 6
-    assert logs.count("val loss") == 3
+    assert logs.count("val loss") == 4  # 3 validations + 1 final validation
+    assert logs.count("Final evaluation") == 1
     assert "of trainable parameters: 168" in logs
 
 

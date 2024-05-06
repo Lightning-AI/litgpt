@@ -1,7 +1,6 @@
 # Copyright Lightning AI. Licensed under the Apache License 2.0, see LICENSE file.
 
 import math
-import os
 import pprint
 import time
 from datetime import timedelta
@@ -26,9 +25,12 @@ from litgpt.model import GPT, Block, CausalSelfAttention, Config, LLaMAMLP
 from litgpt.utils import (
     CLI,
     CycleIterator,
+    capture_hparams,
     choose_logger,
     chunked_cross_entropy,
     copy_config_files,
+    get_default_supported_precision,
+    init_out_dir,
     num_parameters,
     parse_devices,
     reset_parameters,
@@ -41,6 +43,7 @@ def setup(
     model_name: Optional[str] = None,
     model_config: Optional[Config] = None,
     out_dir: Path = Path("out/pretrain"),
+    precision: Literal["bf16-true", "bf16-mixed", "32-true", None] = None,
     initial_checkpoint_dir: Optional[Path] = None,
     resume: Union[bool, Path] = False,
     data: Optional[DataModule] = None,
@@ -74,6 +77,7 @@ def setup(
             ``model_config``.
         out_dir: Directory in which to save checkpoints and logs. If running in a Lightning Studio Job, look for it in
             /teamspace/jobs/<job-name>/share.
+        precision: The precision to use for finetuning. Determines a compatible precision setting by default.
         initial_checkpoint_dir: Optional path to a checkpoint directory to initialize the model from.
             Useful for continued pretraining. Mutually exclusive with ``resume``.
         resume: Path to a checkpoint directory to resume from in case training was interrupted, or ``True`` to resume
@@ -87,7 +91,7 @@ def setup(
         logger_name: The name of the logger to send metrics to.
         seed: The random seed to use for reproducibility.
     """
-    hparams = locals()
+    hparams = capture_hparams()
     data = TinyLlama() if data is None else data
     if model_config is not None and model_name is not None:
         raise ValueError("Only one of `model_name` or `model_config` can be set.")
@@ -95,6 +99,7 @@ def setup(
         available_models = "\n".join(sorted(name_to_config))
         raise ValueError(f"Please specify --model_name <model_name>. Available values:\n{available_models}")
     config = Config.from_name(model_name) if model_config is None else model_config
+    precision = precision or get_default_supported_precision(training=True)
     devices = parse_devices(devices)
     out_dir = init_out_dir(out_dir)
     # in case the dataset requires the Tokenizer
@@ -108,7 +113,7 @@ def setup(
         strategy = FSDPStrategy(auto_wrap_policy={Block}, state_dict_type="full", sharding_strategy="HYBRID_SHARD")
     else:
         strategy = "auto"
-    fabric = L.Fabric(devices=devices, strategy=strategy, precision="bf16-mixed", loggers=[logger])
+    fabric = L.Fabric(devices=devices, strategy=strategy, precision=precision, loggers=[logger])
     fabric.launch()
 
     fabric.print(pprint.pformat(hparams))
@@ -168,12 +173,13 @@ def main(
 
     model = torch.compile(model)
     model = fabric.setup(model)
+
     optimizer = torch.optim.AdamW(
         model.parameters(),
         lr=train.learning_rate,
         weight_decay=train.weight_decay,
         betas=(train.beta1, train.beta2),
-        fused=True,
+        fused=fabric.device.type == "cuda",
     )
     optimizer = fabric.setup_optimizers(optimizer)
 
@@ -222,7 +228,13 @@ def fit(
     model = state["model"]
     optimizer = state["optimizer"]
 
-    validate(fabric, model, val_dataloader, max_iters=2)  # sanity check
+    if eval.initial_validation:
+        val_loss = validate(fabric, model, val_dataloader, max_iters=eval.max_iters)
+        val_loss = f"{val_loss:.3f}"
+    else:
+        validate(fabric, model, val_dataloader, max_iters=2)   # sanity check
+        val_loss = "n/a"
+
     throughput = ThroughputMonitor(fabric, window_size=5)
 
     with torch.device("meta"):
@@ -246,7 +258,6 @@ def fit(
     )
     fabric.barrier()
     total_t0 = time.perf_counter()
-    val_loss = "n/a"
 
     warmup_iters = train.warmup_iters(devices, max_iters, train_dataloader)
 
@@ -401,12 +412,6 @@ def initialize_weights(fabric: L.Fabric, model: GPT, n_layer: int, n_embd: int) 
 
     if not isinstance(fabric.strategy, FSDPStrategy):
         reset_parameters(model)
-
-
-def init_out_dir(out_dir: Path) -> Path:
-    if not out_dir.is_absolute() and "LIGHTNING_ARTIFACTS_DIR" in os.environ:
-        return Path(os.getenv("LIGHTNING_ARTIFACTS_DIR")) / out_dir
-    return out_dir
 
 
 def save_checkpoint(fabric, state, tokenizer_dir, checkpoint_file):

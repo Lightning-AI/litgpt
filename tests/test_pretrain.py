@@ -3,20 +3,19 @@
 import os
 from contextlib import redirect_stdout
 from io import StringIO
-from pathlib import Path
 from unittest import mock
 from unittest.mock import ANY, Mock
 
 import pytest
 import torch
-from conftest import RunIf
 from lightning.fabric.strategies import FSDPStrategy, SingleDeviceStrategy
 from torch.utils.data import DataLoader
 
 from litgpt import pretrain
 from litgpt.args import EvalArgs, TrainArgs
 from litgpt.config import Config
-from litgpt.pretrain import init_out_dir, initialize_weights
+from litgpt.pretrain import initialize_weights
+from tests.conftest import RunIf
 
 
 @RunIf(min_cuda_gpus=2, standalone=True)
@@ -87,17 +86,6 @@ def test_initial_checkpoint_dir(_, load_mock, tmp_path):
 def test_pretrain_model_name_and_config():
     with pytest.raises(ValueError, match="Only one of `model_name` or `model_config`"):
         pretrain.setup(model_name="tiny-llama-1.1b", model_config=Config(name="tiny-llama-1.1b"))
-
-
-def test_init_out_dir(tmp_path):
-    relative_path = Path("./out")
-    absolute_path = tmp_path / "out"
-    assert init_out_dir(relative_path) == relative_path
-    assert init_out_dir(absolute_path) == absolute_path
-
-    with mock.patch.dict(os.environ, {"LIGHTNING_ARTIFACTS_DIR": "prefix"}):
-        assert init_out_dir(relative_path) == Path("prefix") / relative_path
-        assert init_out_dir(absolute_path) == absolute_path
 
 
 @pytest.mark.parametrize(("strategy", "expected"), [(SingleDeviceStrategy, True), (FSDPStrategy, False)])

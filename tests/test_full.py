@@ -55,7 +55,8 @@ def test_full_script(tmp_path, fake_checkpoint_dir, monkeypatch, alpaca_path):
 
     logs = stdout.getvalue()
     assert logs.count("(step)") == 6
-    assert logs.count("val loss") == 3
+    assert logs.count("val loss") == 4  # 3 validations + 1 final validation
+    assert logs.count("Final evaluation") == 1
     assert "of trainable parameters: 1,888" in logs
 
     # Resume training and do 2 steps more

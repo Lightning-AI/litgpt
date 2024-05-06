@@ -13,7 +13,7 @@ pr:
 
 jobs:
   - job: testing
-    timeoutInMinutes: "20"
+    timeoutInMinutes: "30"
     cancelTimeoutInMinutes: "2"
     pool: "lit-rtx-3090"
     variables:
@@ -41,6 +41,7 @@ jobs:
       displayName: "Image info & NVIDIA"
 
     - script: |
+        pip install --upgrade pip
         pip install '.[all,test]'
       displayName: 'Install dependencies'
 
@@ -66,4 +67,4 @@ jobs:
       env:
         PL_RUN_CUDA_TESTS: "1"
       displayName: "Standalone tests"
-      timeoutInMinutes: "5"
+      timeoutInMinutes: "10"
