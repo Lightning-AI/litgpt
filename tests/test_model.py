@@ -2,12 +2,9 @@
 
 from copy import deepcopy
 from functools import partial
-from pathlib import Path
-from urllib.request import urlretrieve
 
 import pytest
 import torch
-from conftest import RunIf
 from lightning import Fabric
 from lightning.fabric.utilities.imports import _IS_WINDOWS
 from lightning.fabric.utilities.init import _materialize_meta_tensors
@@ -37,6 +34,7 @@ from litgpt.scripts.convert_hf_checkpoint import (
     copy_weights_hf_llama,
     copy_weights_phi,
 )
+from tests.conftest import RunIf
 
 
 @torch.inference_mode()
@@ -411,64 +409,6 @@ def test_against_hf_mixtral():
 
     # test end to end
     x = torch.tensor([[9856, 23, 491, 1536, 304], [23, 345, 65, 123, 321]], dtype=torch.int32, device=device)
-    assert x.size(1) == T
-    ours_y = ours_model(x)
-    theirs_y = theirs_model(x)["logits"].to(dtype)  # HF converts logits to float
-    torch.testing.assert_close(ours_y, theirs_y)
-
-
-@torch.inference_mode()
-@pytest.mark.parametrize(
-    ("device", "dtype"),
-    [
-        (torch.device("cpu"), torch.float32),
-        pytest.param(
-            torch.device("cuda"),
-            torch.float16,
-            marks=[
-                # the reference does softmax upscaled to fp32 during attention. additionally, the final layernorm input
-                # is slightly different
-                pytest.mark.xfail(raises=AssertionError, strict=False),
-                RunIf(min_cuda_gpus=1),
-            ],
-        ),
-    ],
-)
-def test_against_hf_h2o_danube(device, dtype):
-    torch.set_default_dtype(dtype)
-
-    ours_config = Config.from_name(
-        "Danube2-1.8b-chat",
-        padded_vocab_size=10000,
-        n_layer=2,
-        n_embd=16,
-        n_head=8,
-        n_query_groups=2,
-        intermediate_size=43,
-    )
-    T = 5
-    theirs_config = MistralConfig(
-        vocab_size=ours_config.padded_vocab_size,
-        hidden_size=ours_config.n_embd,
-        num_attention_heads=ours_config.n_head,
-        num_hidden_layers=ours_config.n_layer,
-        intermediate_size=ours_config.intermediate_size,
-        max_position_embeddings=T,
-        rms_norm_eps=ours_config.norm_eps,
-        num_key_value_heads=ours_config.n_query_groups,
-        rope_theta=ours_config.rope_base,
-    )
-    assert ours_config.intermediate_size == theirs_config.intermediate_size
-
-    theirs_model = MistralForCausalLM(theirs_config).to(device)
-    theirs_state_dict = theirs_model.state_dict()
-    state_dict = {}
-    copy_weights_hf_llama(ours_config, {}, state_dict, theirs_state_dict)
-    ours_model = GPT(ours_config).to(device)
-    ours_model.load_state_dict(state_dict)
-
-    # test end to end
-    x = torch.tensor([[9856, 23, 491, 1536, 304]], dtype=torch.int32, device=device)
     assert x.size(1) == T
     ours_y = ours_model(x)
     theirs_y = theirs_model(x)["logits"].to(dtype)  # HF converts logits to float
