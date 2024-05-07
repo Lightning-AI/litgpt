@@ -3,21 +3,19 @@
 import os
 from contextlib import redirect_stdout
 from io import StringIO
-from pathlib import Path
 from unittest import mock
 from unittest.mock import ANY, Mock
 
 import pytest
 import torch
-from conftest import RunIf
 from lightning.fabric.strategies import FSDPStrategy, SingleDeviceStrategy
 from torch.utils.data import DataLoader
 
-from test_utils import test_init_out_dir
 from litgpt import pretrain
 from litgpt.args import EvalArgs, TrainArgs
 from litgpt.config import Config
 from litgpt.pretrain import initialize_weights
+from tests.conftest import RunIf
 
 
 @RunIf(min_cuda_gpus=2, standalone=True)

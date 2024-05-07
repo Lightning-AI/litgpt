@@ -482,9 +482,7 @@ def jit(fn: Callable, executors: List[str]) -> Any:
     assert executors is not None
     import thunder
     from unsloth.executor import unsloth_ex  # import for registration  # noqa: F401
-    from strategies.utils import _validate_executors
 
-    executors = _validate_executors(executors)
     return thunder.jit(fn, executors=executors)
 
 

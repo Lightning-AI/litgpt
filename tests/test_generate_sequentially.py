@@ -11,7 +11,7 @@ from re import escape
 import pytest
 import torch
 import yaml
-from conftest import RunIf
+from tests.conftest import RunIf
 from lightning import Fabric
 
 from litgpt import Config
