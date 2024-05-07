@@ -758,3 +758,13 @@ def test_lora_model_fsdp_init():
     model = fabric.setup(model)
     y = model(x)
     assert y.shape == torch.Size([2, 8, 512])
+
+    # verify that all the parameters, buffers and other attributes aren't on `meta` device
+    for m in model.modules():
+        for p_name, parameter in m.named_parameters():
+            assert not parameter.is_meta, f"Parameter `{p_name}` isn't materialized."
+        for b_name, buffer in m._buffers.items():
+            assert not buffer.is_meta, f"Buffer `{b_name}` isn't materialized."
+        for attr_name, attr_value in m.__dict__.items():
+            if isinstance(attr_value, torch.Tensor):
+                assert not attr_value.is_meta, f"Attribute `{attr_name}` isn't materialized."
