@@ -209,8 +209,7 @@ litgpt chat --checkpoint_dir checkpoints/microsoft/phi-2
 
 ```
 Now chatting with phi-2.
-To submit your prompt, type :submit: on a new line and press Enter.
-To quit, press CTRL+C or submit 'exit()' or 'quit()' as a prompt.
+To exit, press 'Enter' on an empty prompt.
 
 Seed set to 1234
 >> Prompt: Why are LLMs so useful?    
@@ -220,7 +219,12 @@ Time for inference: 1.26 sec total, 27.81 tokens/sec, 35 tokens
 
 >> Prompt: 
 ```
+&nbsp;
 
+> [!TIP]
+> Use `--multiline_prompts true` to support prompts that require multiple input lines.
+
+<br>
 
 &nbsp;
 **More information and additional resources**
