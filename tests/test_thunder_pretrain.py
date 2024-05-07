@@ -6,7 +6,7 @@ from pathlib import Path
 from unittest.mock import Mock
 
 import torch
-from conftest import RunIf
+from tests.conftest import RunIf
 from torch.utils.data import DataLoader
 
 from litgpt import Config

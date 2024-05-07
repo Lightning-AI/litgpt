@@ -3,7 +3,7 @@ from pathlib import Path
 
 import pytest
 import torch
-from conftest import RunIf
+from tests.conftest import RunIf
 from lightning import Fabric
 
 # support running without installing as a package
