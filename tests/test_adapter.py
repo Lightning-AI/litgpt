@@ -9,7 +9,7 @@ from unittest.mock import Mock
 import pytest
 import torch
 import yaml
-from conftest import RunIf
+from tests.conftest import RunIf
 from lightning import Fabric
 from lightning.fabric.plugins.precision.bitsandbytes import _BITSANDBYTES_AVAILABLE, BitsandbytesPrecision
 from lightning.fabric.wrappers import _FabricOptimizer
