@@ -16,17 +16,6 @@ from litgpt.scripts.merge_lora import merge_lora
 from litgpt.utils import CLI, check_valid_checkpoint_dir, get_default_supported_precision, load_checkpoint
 
 
-def get_multiline_input(prompt=">> Prompt: "):
-    print(prompt, end="")
-    lines = []
-    while True:
-        line = input()
-        if line.strip() == ":submit:":  # special command to submit
-            break
-        lines.append(line)
-    return "\n".join(lines)
-
-
 @torch.inference_mode()
 def generate(
     model: GPT,
@@ -121,6 +110,51 @@ def decode(fabric: L.Fabric, tokenizer: Tokenizer, token_stream: Iterator[torch.
     return tokens_generated
 
 
+def process_prompt(prompt, model, tokenizer, prompt_style, fabric, temperature, top_k, top_p, stop_tokens):
+    if not prompt.lower().strip() in ("", "quit", "exit"):
+        prompt = prompt_style.apply(prompt=prompt)
+        encoded_prompt = tokenizer.encode(prompt, device=fabric.device)
+        y = generate(
+            model, encoded_prompt, model.max_seq_length, temperature=temperature, top_k=top_k, top_p=top_p, stop_tokens=stop_tokens
+        )
+        fabric.print(">> Reply: ", end="")
+        t0 = time.perf_counter()
+        tokens_generated = decode(fabric, tokenizer, y)
+        t = time.perf_counter() - t0
+        for block in model.transformer.h:
+            block.attn.kv_cache.reset_parameters()
+        fabric.print(
+            f"\nTime for inference: {t:.02f} sec total, {tokens_generated / t:.02f} tokens/sec,"
+            f" {tokens_generated} tokens",
+            file=sys.stderr,
+        )
+        fabric.print()
+
+
+def interact(multiline_prompts, model, tokenizer, prompt_style, fabric, temperature, top_k, top_p, stop_tokens):
+    while True:
+        try:
+            if not multiline_prompts:
+                prompt = input(">> Prompt: ")
+            else:
+                print(">> Prompt: (Type '!submit' on a new line to end input)")
+                prompt_lines = []
+                while True:
+                    line = input()
+                    if line.strip().lower() == "!submit":
+                        break
+                    prompt_lines.append(line)
+                prompt = "\n".join(prompt_lines)
+
+        except KeyboardInterrupt:
+            break
+
+        if prompt.lower().strip() in ("quit", "exit"):
+            break
+
+        process_prompt(prompt, model, tokenizer, prompt_style, fabric, temperature, top_k, top_p, stop_tokens)
+
+
 @torch.inference_mode()
 def main(
     *,
@@ -131,6 +165,7 @@ def main(
     quantize: Optional[Literal["bnb.nf4", "bnb.nf4-dq", "bnb.fp4", "bnb.fp4-dq", "bnb.int8"]] = None,
     precision: Optional[str] = None,
     compile: bool = False,
+    multiline_prompts: bool = False,
 ) -> None:
     """Starts a conversation with a tuned GPT model.
 
@@ -159,6 +194,7 @@ def main(
             for more details, see https://github.com/Lightning-AI/litgpt/blob/main/tutorials/quantize.md
         precision: Indicates the Fabric precision setting to use.
         compile: Whether to use compilation to speed up token generation. Will increase startup time.
+        multiline_prompts: Whether to support multiline input prompts.
     """
     precision = precision or get_default_supported_precision(training=False)
 
@@ -204,35 +240,20 @@ def main(
     )
     stop_tokens = prompt_style.stop_tokens(tokenizer)
 
-    print(
-        f"Now chatting with {config.name}.\nTo submit your prompt, type :submit: on a new line and press Enter'.\n"
-        "To quit, press CTRL+C or submit 'exit() or 'quit()' as a prompt."
-    )
+    print(f"Now chatting with {config.name}.\nTo exit, press 'Enter' on an empty prompt.\n")
     L.seed_everything(1234)
-    while True:
-        try:
-            prompt = get_multiline_input()
-        except KeyboardInterrupt:
-            break
-        if prompt.lower().strip() in ("", "quit()", "exit()"):
-            break
-        prompt = prompt_style.apply(prompt=prompt)
-        encoded_prompt = tokenizer.encode(prompt, device=fabric.device)
-        y = generate(
-            model, encoded_prompt, model.max_seq_length, temperature=temperature, top_k=top_k, top_p=top_p, stop_tokens=stop_tokens
-        )
-        fabric.print(">> Reply: ", end="")
-        t0 = time.perf_counter()
-        tokens_generated = decode(fabric, tokenizer, y)
-        t = time.perf_counter() - t0
-        for block in model.transformer.h:
-            block.attn.kv_cache.reset_parameters()
-        fabric.print(
-            f"\nTime for inference: {t:.02f} sec total, {tokens_generated / t:.02f} tokens/sec,"
-            f" {tokens_generated} tokens",
-            file=sys.stderr,
-        )
-        fabric.print()
+
+    interact(
+        multiline_prompts=multiline_prompts,
+        model=model,
+        tokenizer=tokenizer,
+        prompt_style=prompt_style,
+        fabric=fabric,
+        temperature=temperature,
+        top_k=top_k,
+        top_p=top_p,
+        stop_tokens=stop_tokens
+    )
 
 
 if __name__ == "__main__":
