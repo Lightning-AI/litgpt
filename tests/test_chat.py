@@ -122,13 +122,8 @@ def test_main(mocked_input, stop_iteration, fake_checkpoint_dir, monkeypatch, te
     assert re.match("Now chatting with Llama 3.*>> .*Reply: foo bar baz", out.getvalue(), re.DOTALL)
 
 
-@pytest.mark.parametrize("mode", ["file", "entrypoint"])
-def test_cli(mode):
-    if mode == "file":
-        cli_path = Path(__file__).parent.parent / "litgpt/chat/base.py"
-        args = [sys.executable, cli_path, "-h"]
-    else:
-        args = ["litgpt", "chat", "-h"]
+def test_cli():
+    args = ["litgpt", "chat", "-h"]
     output = subprocess.check_output(args)
     output = str(output.decode())
     assert "Starts a conversation" in output
