@@ -450,8 +450,3 @@ def validate_args(train: TrainArgs, eval: EvalArgs, initial_checkpoint_dir, resu
     if issues:
         raise ValueError("\n".join(issues))
 
-
-if __name__ == "__main__":
-    torch.set_float32_matmul_precision("high")
-
-    CLI(setup)
