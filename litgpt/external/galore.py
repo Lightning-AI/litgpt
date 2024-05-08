@@ -232,7 +232,6 @@ def get_galore_params(model):
         if not any(target_key in module_name for target_key in target_modules_list):
             continue
 
-        print('enable GaLore for weights in module: ', module_name)
         galore_params.append(module.weight)
     id_galore_params = [id(p) for p in galore_params]
     # make parameters without "rank" to another group
@@ -377,7 +376,7 @@ class AdamW(Optimizer):
         eps: float = 1e-6,
         weight_decay: float = 0.0,
         correct_bias: bool = True,
-        no_deprecation_warning: bool = False,
+        no_deprecation_warning: bool = True,
     ):
         if not no_deprecation_warning:
             warnings.warn(

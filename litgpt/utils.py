@@ -485,19 +485,3 @@ def choose_logger(
     if logger_name == "wandb":
         return WandbLogger(project=name, resume=resume, **kwargs)
     raise ValueError(f"`--logger_name={logger_name}` is not a valid option. Choose from 'csv', 'tensorboard', 'wandb'.")
-
-
-## REMOVE
-def get_linear_nonlinear_params(model):
-    linear_params = []
-    nonlinear_params = []
-    for module in model.modules():
-        if isinstance(module, torch.nn.Linear):
-            linear_params.extend(list(module.parameters()))
-        else:
-
-            nonlinear_params.extend(list(module.parameters()))
-    linear_params = list(set(linear_params))
-    nonlinear_params = list(set(nonlinear_params) - set(linear_params))
-    return linear_params, nonlinear_params
-        

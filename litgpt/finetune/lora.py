@@ -30,7 +30,6 @@ from litgpt.utils import (
     chunked_cross_entropy,
     copy_config_files,
     get_default_supported_precision,
-    get_linear_nonlinear_params,
     load_checkpoint,
     init_out_dir,
     num_parameters,
@@ -200,17 +199,17 @@ def main(
         if isinstance(fabric.strategy.precision, BitsandbytesPrecision):
             raise ValueError("The combination of QLoRA and GaLore is currently not supported.")
 
-        linear_params, nonlinear_params = get_linear_nonlinear_params(model)
-        # Currently apply galore to all parameters;
-        # we could add options to target specific layers for AdamW and GaLore later
+        from litgpt.external.galore import get_galore_params
+
+        regular_params, galore_params = get_galore_params(model)
         trainable_params = [
-            {'params': nonlinear_params},
+            {'params': regular_params},
             {
-                'params': linear_params,
+                'params': galore_params,
                 'rank': optim.galore_r,
-                'update_proj_gap':  optim.galore_update_proj_gap,
-                'scale':  optim.galore_scale,
-                'proj_type':  optim.galore_proj_type
+                'update_proj_gap': optim.galore_update_proj_gap,
+                'scale': optim.galore_scale,
+                'proj_type': optim.galore_proj_type
             }
         ]
         if optim.optimizer == "galore_adamw_8bit":
