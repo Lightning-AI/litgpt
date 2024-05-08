@@ -254,9 +254,3 @@ def main(
         top_p=top_p,
         stop_tokens=stop_tokens
     )
-
-
-if __name__ == "__main__":
-    torch.set_float32_matmul_precision("high")
-
-    CLI(main)

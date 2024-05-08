@@ -267,6 +267,7 @@ def _test_function2(out_dir: Path, foo: bool = False, bar: int = 1):
     "command",
     [
         "any.py",
+        "litgpt finetune",
         "litgpt finetune full",
         "litgpt finetune lora",
         "litgpt finetune adapter",

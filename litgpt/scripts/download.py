@@ -144,7 +144,3 @@ def gated_repo_catcher(repo_id: str, access_token: Optional[str]):
                     f" visit https://huggingface.co/{repo_id} for more information."
                 ) from None
         raise e from None
-
-
-if __name__ == "__main__":
-    CLI(download_from_hub)

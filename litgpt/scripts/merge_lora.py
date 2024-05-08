@@ -86,7 +86,3 @@ def load_lora_metadata(checkpoint_dir: Path) -> Tuple[Dict[str, Any], Path, Opti
     pretrained_checkpoint_dir = Path(hparams["checkpoint_dir"])
     precision = hparams.get("precision")
     return lora_params, pretrained_checkpoint_dir, precision
-
-
-if __name__ == "__main__":
-    CLI(merge_lora)
