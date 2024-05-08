@@ -112,7 +112,3 @@ def convert_and_evaluate(
         torch_random_seed=seed,
     )
     prepare_results(results, save_filepath)
-
-
-if __name__ == "__main__":
-    CLI(convert_and_evaluate)
