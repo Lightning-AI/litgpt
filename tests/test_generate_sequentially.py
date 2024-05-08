@@ -285,9 +285,9 @@ def test_base_with_sequentially(tmp_path):
         f"--checkpoint_dir={str(checkpoint_dir)}",
     ]
     env = {"CUDA_VISIBLE_DEVICES": "0,1"}
-    base_stdout = subprocess.check_output(["litgpt", "generate", "base", *args], env=env).decode()
+    base_stdout = subprocess.check_output([sys.executable, "-m", "litgpt", "generate", "base", *args], env=env, cwd=root).decode()
     sequential_stdout = subprocess.check_output(
-        ["litgpt", "generate", "sequentially", *args], env=env
+        [sys.executable, "-m", "litgpt", "generate", "sequentially", *args], env=env, cwd=root,
     ).decode()
 
     assert base_stdout.startswith("What food do llamas eat?")
