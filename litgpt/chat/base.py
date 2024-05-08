@@ -111,24 +111,23 @@ def decode(fabric: L.Fabric, tokenizer: Tokenizer, token_stream: Iterator[torch.
 
 
 def process_prompt(prompt, model, tokenizer, prompt_style, fabric, temperature, top_k, top_p, stop_tokens):
-    if not prompt.lower().strip() in ("", "quit", "exit"):
-        prompt = prompt_style.apply(prompt=prompt)
-        encoded_prompt = tokenizer.encode(prompt, device=fabric.device)
-        y = generate(
-            model, encoded_prompt, model.max_seq_length, temperature=temperature, top_k=top_k, top_p=top_p, stop_tokens=stop_tokens
-        )
-        fabric.print(">> Reply: ", end="")
-        t0 = time.perf_counter()
-        tokens_generated = decode(fabric, tokenizer, y)
-        t = time.perf_counter() - t0
-        for block in model.transformer.h:
-            block.attn.kv_cache.reset_parameters()
-        fabric.print(
-            f"\nTime for inference: {t:.02f} sec total, {tokens_generated / t:.02f} tokens/sec,"
-            f" {tokens_generated} tokens",
-            file=sys.stderr,
-        )
-        fabric.print()
+    prompt = prompt_style.apply(prompt=prompt)
+    encoded_prompt = tokenizer.encode(prompt, device=fabric.device)
+    y = generate(
+        model, encoded_prompt, model.max_seq_length, temperature=temperature, top_k=top_k, top_p=top_p, stop_tokens=stop_tokens
+    )
+    fabric.print(">> Reply: ", end="")
+    t0 = time.perf_counter()
+    tokens_generated = decode(fabric, tokenizer, y)
+    t = time.perf_counter() - t0
+    for block in model.transformer.h:
+        block.attn.kv_cache.reset_parameters()
+    fabric.print(
+        f"\nTime for inference: {t:.02f} sec total, {tokens_generated / t:.02f} tokens/sec,"
+        f" {tokens_generated} tokens",
+        file=sys.stderr,
+    )
+    fabric.print()
 
 
 def interact(multiline_prompts, model, tokenizer, prompt_style, fabric, temperature, top_k, top_p, stop_tokens):
@@ -137,11 +136,11 @@ def interact(multiline_prompts, model, tokenizer, prompt_style, fabric, temperat
             if not multiline_prompts:
                 prompt = input(">> Prompt: ")
             else:
-                print(">> Prompt: (Type '!submit' on a new line to end input)")
+                print(">> Prompt: (Type '!submit' on a new line to end input).")
                 prompt_lines = []
                 while True:
                     line = input()
-                    if line.strip().lower() == "!submit":
+                    if line.strip().lower() in ("!submit", "!quit", "!exit"):
                         break
                     prompt_lines.append(line)
                 prompt = "\n".join(prompt_lines)
@@ -149,7 +148,8 @@ def interact(multiline_prompts, model, tokenizer, prompt_style, fabric, temperat
         except KeyboardInterrupt:
             break
 
-        if prompt.lower().strip() in ("quit", "exit"):
+        prompt = prompt.lower().strip()
+        if not prompt or prompt in ("!quit", "!exit"):
             break
 
         process_prompt(prompt, model, tokenizer, prompt_style, fabric, temperature, top_k, top_p, stop_tokens)
@@ -240,7 +240,12 @@ def main(
     )
     stop_tokens = prompt_style.stop_tokens(tokenizer)
 
-    print(f"Now chatting with {config.name}.\nTo exit, press 'Enter' on an empty prompt.\n")
+    if multiline_prompts:
+        exit_instruction = "To exit, enter '!quit' or '!exit' on an empty prompt and press 'Enter'."
+    else:
+        exit_instruction = "To exit, press 'Enter' on an empty prompt."
+
+    print(f"Now chatting with {config.name}.\n{exit_instruction}\n")
     L.seed_everything(1234)
 
     interact(
