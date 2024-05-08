@@ -487,6 +487,7 @@ def choose_logger(
     raise ValueError(f"`--logger_name={logger_name}` is not a valid option. Choose from 'csv', 'tensorboard', 'wandb'.")
 
 
+## REMOVE
 def get_linear_nonlinear_params(model):
     linear_params = []
     nonlinear_params = []
@@ -499,3 +500,4 @@ def get_linear_nonlinear_params(model):
     linear_params = list(set(linear_params))
     nonlinear_params = list(set(nonlinear_params) - set(linear_params))
     return linear_params, nonlinear_params
+        

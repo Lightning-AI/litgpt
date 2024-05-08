@@ -221,6 +221,27 @@ else:
     Optimizer2State = object
 
 
+def get_galore_params(model):
+    # make parameters with "rank" to a single group, if param_name has "mlp" or "attn"
+    galore_params = []
+    target_modules_list = ["attn", "mlp"]  # This is what's used in the official GaLore implementation
+    for module_name, module in model.named_modules():
+        if not isinstance(module, nn.Linear):
+            continue
+
+        if not any(target_key in module_name for target_key in target_modules_list):
+            continue
+
+        print('enable GaLore for weights in module: ', module_name)
+        galore_params.append(module.weight)
+    id_galore_params = [id(p) for p in galore_params]
+    # make parameters without "rank" to another group
+    regular_params = [p for p in model.parameters() if id(p) not in id_galore_params]
+    # then call galore_adamw
+
+    return regular_params, galore_params
+
+
 class GaLoreProjector:
     def __init__(self, rank, verbose=False, update_proj_gap=200, scale=1.0, proj_type='std'):
         self.rank = rank
