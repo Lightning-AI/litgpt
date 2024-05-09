@@ -103,3 +103,23 @@ logger_name: tensorboard
 
 # The random seed to use for reproducibility. (type: int, default: 42)
 seed: 42
+
+# Optimizer-related arguments
+optim: 
+  # Which optimizer to use. Possible choices: "adamw", "galore_adamw", "galore_adamw_8bit". (type: Optional[str], default: "adamw")
+  optimizer: "adamw"
+
+  #   (type: float, default: 0.0004)
+  learning_rate: 4e-4
+
+  #   (type: float, default: 0.1)
+  weight_decay: 0.1
+
+  #   (type: float, default: 0.9)
+  beta1: 0.9
+
+  #   (type: float, default: 0.95)
+  beta2: 0.95
+
+  # Additional optimizer keyword arguments, for example, "rank=8,update_proj_gap=200" for GaLore. (type: Optional[str], default: None)
+  extra_kwargs:

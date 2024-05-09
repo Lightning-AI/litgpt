@@ -15,27 +15,6 @@ devices: 4
 # from the latest checkpoint in ``out_dir``. (type: Union[bool, Path], default: False)
 resume: false
 
-# GaLore-related arguments. See ``litgpt.args.GaLoreArgs`` for details
-galore:
-
-  # Whether to enable GaLore (GaLore is applied to all linear layers). (type: bool, default: False)
-  use_galore: false
-
-  # Whether to use the 8-bit GaLore AdamW optimizer instead of the Galore AdamW optimizer. (type: bool, default: False)
-  galore_8bit: false
-
-  # GaLore rank. (type: int, default: 128)
-  galore_r: 128
-
-  # GaLore hyperparameter. (type: int, default: 200)
-  galore_update_proj_gap: 200
-
-  # GaLore scale factor. (type: float, default: 0.25)
-  galore_scale: 0.25
-
-  # GaLore projection type. Possible choices: "std, "reverse_std". (type: Optional[str], default: "std")
-  galore_proj_type: std
-
 # Data-related arguments. If not provided, the default is ``litgpt.data.Alpaca``.
 data:
   class_path: litgpt.data.Alpaca2k
@@ -79,18 +58,6 @@ train:
   # Whether to tie the embedding weights with the language modeling head weights. (type: Optional[bool], default: null)
   tie_embeddings:
 
-  #   (type: float, default: 0.003)
-  learning_rate: 0.0002
-
-  #   (type: float, default: 0.02)
-  weight_decay: 0.1
-
-  #   (type: float, default: 0.9)
-  beta1: 0.9
-
-  #   (type: float, default: 0.95)
-  beta2: 0.95
-
   #   (type: Optional[float], default: null)
   max_norm:
 
@@ -117,3 +84,23 @@ logger_name: csv
 
 # The random seed to use for reproducibility. (type: int, default: 1337)
 seed: 1337
+
+# Optimizer-related arguments
+optim: 
+  # Which optimizer to use. Possible choices: "adamw", "galore_adamw", "galore_adamw_8bit". (type: Optional[str], default: "adamw")
+  optimizer: "adamw"
+
+  #   (type: float, default: 0.003)
+  learning_rate: 0.0002
+
+  #   (type: float, default: 0.02)
+  weight_decay: 0.1
+
+  #   (type: float, default: 0.9)
+  beta1: 0.9
+
+  #   (type: float, default: 0.95)
+  beta2: 0.95
+
+  # Additional optimizer keyword arguments, for example, "rank=8,update_proj_gap=200" for GaLore. (type: Optional[str], default: None)
+  extra_kwargs:

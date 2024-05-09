@@ -62,10 +62,49 @@ or
 litgpt finetune adapter_v2
 ```
 
-Simillar to LoRA, adapter finetuning is a parameter-efficient finetuning technique that only requires training a small subset of weight parameters, making this finetuning method more memory-efficient than full-parameter finetuning. 
+Similar to LoRA, adapter finetuning is a parameter-efficient finetuning technique that only requires training a small subset of weight parameters, making this finetuning method more memory-efficient than full-parameter finetuning. 
 
 **More information and resources:**
 
 - the LitGPT [tutorials/finetune_adapter](finetune_adapter.md) tutorial
 - the Llama-Adapter ([Gao et al. 2023](https://arxiv.org/abs/2304.15010)) and Llama-Adapter v2  ([Zhang et al. 2023](https://arxiv.org/abs/2303.16199)) papers that originally introduces these methods
 - the conceptual tutorial [Understanding Parameter-Efficient Finetuning of Large Language Models: From Prefix Tuning to LLaMA-Adapters](https://lightning.ai/pages/community/article/understanding-llama-adapters/)
+
+&nbsp;
+### GaLore finetuning
+
+```bash
+litgpt finetune full --optim.optimizer "galore_adamw"
+```
+
+or
+
+```bash
+litgpt finetune full --optim.optimizer "galore_adamw_8bit"
+```
+
+GaLore, or Gradient Low-Rank Projection, is a new strategy for training large language models that enables full-parameter learning while being more memory-efficient than traditional methods and offers an alternative to low-rank adaptation methods like LoRA. 
+
+You can adjust the GaLore hyperparameter by passing custom `--optim.extra_args` values. By default GaLore uses the following values:
+
+```
+{
+"rank": 8,
+"update_proj_gap": 200,
+"scale": 0.25,
+"proj_type": "std"
+        }
+```
+
+For example, to change the rank to 1 and the scale to 0.5, use 
+
+```bash
+litgpt finetune \
+  --optim.optimizer "galore_adamw" \
+  --optim.extra_args "rank=8,scale=0.5"
+```
+
+
+**More information and resources:**
+
+- the [GaLore: Memory-Efficient LLM Training by Gradient Low-Rank Projection](https://arxiv.org/abs/2403.03507) and [code repository](https://github.com/jiaweizzhao/GaLore) that originally introduced this method

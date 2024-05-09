@@ -485,3 +485,31 @@ def choose_logger(
     if logger_name == "wandb":
         return WandbLogger(project=name, resume=resume, **kwargs)
     raise ValueError(f"`--logger_name={logger_name}` is not a valid option. Choose from 'csv', 'tensorboard', 'wandb'.")
+
+
+def parse_kwargs_from_string(kwargs_str, defaults=None):
+    """Split a string, such as,
+    "rank=8, update_proj_gap=200, scale=0.25, proj_type=std"
+    or
+    "rank = 8, update_proj_gap = 200, scale = 0.25, proj_type = std"
+    or
+    "rank=8,update_proj_gap=200,scale=0.25,proj_type=std"
+    and prepare a kwarg dictionary
+    """
+    if defaults is None:
+        defaults = {}
+    kwargs_dict = {}
+    if kwargs_str:
+        for pair in kwargs_str.replace(" ", "").split(","):
+            key, value = pair.split("=")
+            try:
+                value = int(value)
+            except ValueError:
+                try:
+                    value = float(value)
+                except ValueError:
+                    pass
+            kwargs_dict[key] = value
+    for key, value in defaults.items():
+        kwargs_dict.setdefault(key, value)
+    return kwargs_dict

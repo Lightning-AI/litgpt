@@ -34,6 +34,7 @@ from litgpt.utils import (
     init_out_dir,
     num_parameters,
     parse_devices,
+    parse_kwargs_from_string,
     save_hyperparameters
 )
 
@@ -56,10 +57,7 @@ def setup(
     optim: OptimizerArgs = OptimizerArgs(
         optimizer="adamw",
         learning_rate=3e-4,
-        galore_r=128,
-        galore_update_proj_gap=200,
-        galore_scale=0.25,
-        galore_proj_type="std",
+        extra_kwargs=None
     ),
     data: Optional[DataModule] = None,
     train: TrainArgs = TrainArgs(
@@ -147,6 +145,20 @@ def setup(
     else:
         strategy = "auto"
 
+    if "galore" in optim.optimizer:
+        default_values = {
+            "rank": 8,
+            "update_proj_gap": 200,
+            "scale": 0.25,
+            "proj_type": "std"
+        }
+    elif optim.extra_kwargs is None:
+        optim.extra_kwargs = ""
+        default_values = {}
+    else:
+        default_values = {}
+    optim.extra_kwargs = parse_kwargs_from_string(optim.extra_kwargs, defaults=default_values)
+
     fabric = L.Fabric(devices=devices, strategy=strategy, precision=precision, loggers=logger, plugins=plugins)
     fabric.launch(
         main, devices, seed, config, data, checkpoint_dir, out_dir, train, eval, optim,
@@ -206,12 +218,10 @@ def main(
             {'params': regular_params},
             {
                 'params': galore_params,
-                'rank': optim.galore_r,
-                'update_proj_gap': optim.galore_update_proj_gap,
-                'scale': optim.galore_scale,
-                'proj_type': optim.galore_proj_type
+                **optim.extra_kwargs
             }
         ]
+        optim.extra_kwargs = {}
         if optim.optimizer == "galore_adamw_8bit":
             from litgpt.external.galore import AdamW8bit as optimizer_cls
         else:
@@ -220,7 +230,8 @@ def main(
         raise ValueError(f"Optimizer choice {optim.optimizer} is not supported.")
 
     optimizer = optimizer_cls(
-        trainable_params, lr=optim.learning_rate, weight_decay=optim.weight_decay, betas=(optim.beta1, optim.beta2)
+        trainable_params, lr=optim.learning_rate, weight_decay=optim.weight_decay,
+        betas=(optim.beta1, optim.beta2), **optim.extra_kwargs
     )
 
     optimizer = fabric.setup_optimizers(optimizer)

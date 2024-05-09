@@ -92,11 +92,5 @@ class OptimizerArgs:
     """AdamW coefficient used for computing running averages of the gradients"""
     beta2: float = 0.95
     """AdamW coefficient used for computing squared running averages of the gradients"""
-    galore_r: int = 128
-    """GaLore rank"""
-    galore_update_proj_gap: int = 200
-    """GaLore hyperparameter"""
-    galore_scale: float = 0.25
-    """GaLore scale factor"""
-    galore_proj_type: Literal["std", "reverse_std"] = "std"
-    """GaLore projection type"""
+    extra_kwargs: Optional[str] = None
+    """Additional optimizer keyword arguments, for example, "rank=8,update_proj_gap=200"""
