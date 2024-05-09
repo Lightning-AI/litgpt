@@ -46,7 +46,3 @@ def convert_pretrained_checkpoint(checkpoint_dir: Path, output_dir: Path) -> Non
         saver.save(converted_state_dict)
 
     copy_config_files(checkpoint_dir, output_dir)
-
-
-if __name__ == "__main__":
-    CLI(convert_pretrained_checkpoint)

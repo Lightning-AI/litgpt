@@ -349,9 +349,3 @@ def convert_hf_checkpoint(
         gc.collect()
         print(f"Saving converted checkpoint to {checkpoint_dir}")
         saver.save(sd)
-
-
-if __name__ == "__main__":
-    from jsonargparse import CLI
-
-    CLI(convert_hf_checkpoint)

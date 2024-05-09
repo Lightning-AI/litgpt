@@ -22,7 +22,6 @@ from litgpt.generate.base import generate
 from litgpt.prompts import save_prompt_style
 from litgpt.tokenizer import Tokenizer
 from litgpt.utils import (
-    CLI,
     CycleIterator,
     check_valid_checkpoint_dir,
     choose_logger,
@@ -438,9 +437,3 @@ def validate_args(train: TrainArgs, eval: EvalArgs) -> None:
         issues.append(f"{__file__} requires either epochs or max_steps to be set. This is set in {train}")
     if issues:
         raise ValueError("\n".join(issues))
-
-
-if __name__ == "__main__":
-    torch.set_float32_matmul_precision("high")
-
-    CLI(setup)

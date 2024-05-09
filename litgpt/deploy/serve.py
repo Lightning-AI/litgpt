@@ -162,7 +162,3 @@ def run_server(
         devices=devices)
 
     server.run(port=port)
-
-
-if __name__ == "__main__":
-    CLI(run_server)
