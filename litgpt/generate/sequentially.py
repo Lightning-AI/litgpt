@@ -21,7 +21,7 @@ import yaml
 import litgpt.generate.base as generate_base
 from litgpt import GPT, Config, Tokenizer
 from litgpt.model import Block, build_mask_cache
-from litgpt.utils import CLI, check_valid_checkpoint_dir, get_default_supported_precision
+from litgpt.utils import check_valid_checkpoint_dir, get_default_supported_precision
 
 
 @torch.inference_mode()
@@ -254,9 +254,3 @@ def main(
             f"Time for inference {i + 1}: {t:.02f} sec total, {tokens_generated / t:.02f} tokens/sec", file=sys.stderr
         )
     print(f"Memory used: {torch.cuda.max_memory_allocated() / 1e9:.02f} GB", file=sys.stderr)
-
-
-if __name__ == "__main__":
-    torch.set_float32_matmul_precision("high")
-
-    CLI(main)

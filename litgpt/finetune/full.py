@@ -22,7 +22,6 @@ from litgpt.model import GPT, Block, Config
 from litgpt.prompts import save_prompt_style
 from litgpt.tokenizer import Tokenizer
 from litgpt.utils import (
-    CLI,
     CycleIterator,
     check_valid_checkpoint_dir,
     choose_logger,
@@ -420,9 +419,3 @@ def validate_longlora_args(config: Config, longlora: LongLoraArgs):
                 f"LongLora context length ({longlora.context_length}) must be a multiple of the number of groups "
                 f"({longlora.n_groups})."
             )
-
-
-if __name__ == "__main__":
-    torch.set_float32_matmul_precision("high")
-
-    CLI(setup)
