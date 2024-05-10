@@ -118,17 +118,5 @@ optim:
   # Which optimizer to use. Possible choices: "adamw", "galore_adamw", "galore_adamw_8bit". (type: Optional[str], default: "adamw")
   optimizer: "adamw"
 
-  #   (type: float, default: 0.0003)
-  learning_rate: 0.0002
-
-  #   (type: float, default: 0.02)
-  weight_decay: 0.0
-
-  #   (type: float, default: 0.9)
-  beta1: 0.9
-
-  #   (type: float, default: 0.95)
-  beta2: 0.95
-
   # Additional optimizer keyword arguments, for example, "rank=8,update_proj_gap=200" for GaLore. (type: Optional[str], default: None)
   extra_kwargs:
