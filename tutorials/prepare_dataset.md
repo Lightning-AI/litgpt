@@ -50,6 +50,9 @@ litgpt finetune lora \
   --checkpoint_dir "checkpoints/tiiuae/falcon-7b"
 ```
 
+> [!TIP]
+> Use `litgpt finetune --data.help Alpaca` to list additional dataset-specific command line options.
+
 #### Truncating datasets
 
 By default, the finetuning scripts will determine the size of the longest tokenized sample in the dataset to determine the block size. However, if you are willing to truncate a few examples in the training set, you can reduce the computational resource requirements significantly. For instance you can set a sequence length threshold via `--train.max_seq_length`. We can determine an appropriate maximum sequence length by considering the distribution of the data sample lengths shown in the histogram below.
@@ -73,7 +76,19 @@ For comparison, the Falcon 7B model requires 23.52 GB of memory for the original
 
 [Alpaca-2k](https://huggingface.co/datasets/mhenrichsen/alpaca_2k_test) is a smaller, 2000-sample subset of Alpaca described above.
 
+```bash
+litgpt finetune lora \
+  --data Alpaca2k \
+  --checkpoint_dir "checkpoints/tiiuae/falcon-7b"
+```
+
+> [!TIP]
+> Use `litgpt finetune --data.help Alpaca2k` to list additional dataset-specific command line options.
+
+The Alpaca-2k dataset distribution is shown below.
+
 <img src="images/prepare_dataset/alpaca-2k.jpg" width=400px>
+
 
 ### Alpaca-GPT4
 
@@ -87,6 +102,9 @@ litgpt finetune lora \
   --data AlpacaGPT4 \
   --checkpoint_dir "checkpoints/tiiuae/falcon-7b"
 ```
+
+> [!TIP]
+> Use `litgpt finetune --data.help AlpacaGPT4` to list additional dataset-specific command line options.
 
 The Alpaca-GPT4 dataset distribution is shown below.
 
@@ -107,6 +125,9 @@ litgpt finetune lora \
   --data.file_name "alpaca_libre_data_cleaned_archive.json" \
   --checkpoint_dir "checkpoints/tiiuae/falcon-7b"
 ```
+
+> [!TIP]
+> Use `litgpt finetune --data.help Alpaca` to list additional dataset-specific command line options.
 
 The Alpaca Libre dataset distribution is shown below.
 
@@ -135,6 +156,9 @@ litgpt finetune lora \
   --data Deita \
   --checkpoint_dir "checkpoints/tiiuae/falcon-7b"
 ```
+
+> [!TIP]
+> Use `litgpt finetune --data.help Deita` to list additional dataset-specific command line options.
 
 Deita contains multiturn conversations. By default, only the first instruction-response pairs from
 each of these multiturn conversations are included. If you want to override this behavior and include the follow-up instructions
@@ -171,6 +195,9 @@ litgpt finetune lora \
   --data Dolly \
   --checkpoint_dir "checkpoints/tiiuae/falcon-7b" \
 ```
+
+> [!TIP]
+> Use `litgpt finetune --data.help Dolly` to list additional dataset-specific command line options.
 
 The Dolly dataset distribution is shown below.
 
@@ -226,6 +253,9 @@ litgpt finetune lora \
   --train.max_seq_length 1500
 ```
 
+> [!TIP]
+> Use `litgpt finetune --data.help LongForm` to list additional dataset-specific command line options.
+
 &nbsp;
 
 ### LIMA
@@ -241,6 +271,10 @@ litgpt finetune lora \
   --data LIMA \
   --checkpoint_dir "checkpoints/tiiuae/falcon-7b"
 ```
+
+> [!TIP]
+> Use `litgpt finetune --data.help LIMA` to list additional dataset-specific command line options.
+
 
 LIMA contains a handful of multiturn conversations. By default, only the first instruction-response pairs from
 each of these multiturn conversations are included. If you want to override this behavior and include the follow-up instructions
@@ -282,6 +316,9 @@ litgpt finetune lora \
   --data.subsets "aeslc_10templates,ag_news_subset_10templates,anli_r1_10templates" \
   --checkpoint_dir "checkpoints/tiiuae/falcon-7b"
 ```
+
+> [!TIP]
+> Use `litgpt finetune --data.help FLAN` to list additional dataset-specific command line options.
 
 You can find a list of all 66 supported subsets [here](https://huggingface.co/datasets/Muennighoff/flan).
 
@@ -362,6 +399,9 @@ litgpt finetune lora \
 ```
 
 You can also pass a directory containing a `train.json` and `val.json` to `--data.json_path` to define a fixed train/val split.
+
+> [!TIP]
+> Use `litgpt finetune --data.help JSON` to list additional dataset-specific command line options.
 
 &nbsp;
 
