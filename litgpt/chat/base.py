@@ -165,7 +165,7 @@ def main(
     quantize: Optional[Literal["bnb.nf4", "bnb.nf4-dq", "bnb.fp4", "bnb.fp4-dq", "bnb.int8"]] = None,
     precision: Optional[str] = None,
     compile: bool = False,
-    multiline_prompts: bool = False,
+    multiline: bool = False,
 ) -> None:
     """Starts a conversation with a tuned GPT model.
 
