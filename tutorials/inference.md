@@ -28,7 +28,7 @@ This script can work with any checkpoint. For the best chat-like experience, we 
 fine-tuned for chatting such as `stabilityai/stablelm-tuned-alpha-3b` or `togethercomputer/RedPajama-INCITE-Chat-3B-v1`.
 
 > [!TIP]
-> Use `--multiline_prompts` to work with inputs that span multiple lines.
+> Use `--multiline true` to work with inputs that span multiple lines.
 
 
 ## Run a large model on one smaller device

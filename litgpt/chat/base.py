@@ -130,10 +130,10 @@ def process_prompt(prompt, model, tokenizer, prompt_style, fabric, temperature, 
     fabric.print()
 
 
-def interact(multiline_prompts, model, tokenizer, prompt_style, fabric, temperature, top_k, top_p, stop_tokens):
+def interact(multiline, model, tokenizer, prompt_style, fabric, temperature, top_k, top_p, stop_tokens):
     while True:
         try:
-            if not multiline_prompts:
+            if not multiline:
                 prompt = input(">> Prompt: ")
             else:
                 print(">> Prompt: (Type '!submit' on a new line to end input).")
@@ -194,7 +194,7 @@ def main(
             for more details, see https://github.com/Lightning-AI/litgpt/blob/main/tutorials/quantize.md
         precision: Indicates the Fabric precision setting to use.
         compile: Whether to use compilation to speed up token generation. Will increase startup time.
-        multiline_prompts: Whether to support multiline input prompts.
+        multiline: Whether to support multiline input prompts.
     """
     precision = precision or get_default_supported_precision(training=False)
 
@@ -240,7 +240,7 @@ def main(
     )
     stop_tokens = prompt_style.stop_tokens(tokenizer)
 
-    if multiline_prompts:
+    if multiline:
         exit_instruction = "To exit, enter '!quit' or '!exit' on an empty prompt and press 'Enter'."
     else:
         exit_instruction = "To exit, press 'Enter' on an empty prompt."
@@ -249,7 +249,7 @@ def main(
     L.seed_everything(1234)
 
     interact(
-        multiline_prompts=multiline_prompts,
+        multiline=multiline,
         model=model,
         tokenizer=tokenizer,
         prompt_style=prompt_style,
