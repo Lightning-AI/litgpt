@@ -219,7 +219,12 @@ Time for inference: 1.26 sec total, 27.81 tokens/sec, 35 tokens
 
 >> Prompt: 
 ```
+&nbsp;
 
+> [!TIP]
+> Use `--multiline true` to support prompts that require multiple input lines.
+
+<br>
 
 &nbsp;
 **More information and additional resources**
