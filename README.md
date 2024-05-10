@@ -552,6 +552,7 @@ This implementation extends on [Lit-LLaMA](https://github.com/lightning-AI/lit-l
 - [@TimDettmers](https://github.com/TimDettmers) for [bitsandbytes](https://github.com/TimDettmers/bitsandbytes)
 - [@Microsoft](https://github.com/microsoft) for [LoRA](https://github.com/microsoft/LoRA)
 - [@tridao](https://github.com/tridao) for [Flash Attention 2](https://github.com/Dao-AILab/flash-attention)
+- [@jiaweizzhao](https://github.com/jiaweizzhao) for [GaLore](https://github.com/jiaweizzhao/GaLore)
 
 
 &nbsp;
