@@ -118,6 +118,8 @@ def main() -> None:
             if k == "help":
                 continue
             subsubcommand_parser = _new_parser()
+            if subcommand in ("finetune", "pretrain"):
+                subsubcommand_parser.add_subclass_arguments(torch.optim.Optimizer, "optimizer", instantiate=False, fail_untyped=False, skip={"params"})
             subsubcommand_parser.add_function_arguments(v["fn"])
             subcommands.add_subcommand(k, subsubcommand_parser, help=v["help"])
 
