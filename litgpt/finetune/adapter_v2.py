@@ -115,6 +115,8 @@ def setup(
         strategy = "auto"
 
     if "galore" in optim.optimizer:
+        if devices > 1:
+            raise ValueError(f"Chosen devices is {devices} but GaLore currently only supports single device training.")
         default_values = {
             "rank": 8,
             "update_proj_gap": 200,
