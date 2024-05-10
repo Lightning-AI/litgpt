@@ -30,6 +30,8 @@ For the following examples, we will focus on finetuning with the `litgpt/finetun
 However, the same steps apply to all other models and finetuning scripts.
 Please read the [tutorials/finetune_*.md](.) documents for more information about finetuning models.
 
+&nbsp;
+
 > [!IMPORTANT]
 > By default, the maximum sequence length is obtained from the model configuration file. In case you run into out-of-memory errors, especially in the cases of LIMA and Dolly,
 > you can try to lower the context length by setting the `--train.max_seq_length` parameter, for example, `litgpt finetune lora --train.max_seq_length 256`. For more information on truncating datasets, see the *Truncating datasets* section in the Alpaca section near the top of this article.
@@ -49,6 +51,13 @@ litgpt finetune lora \
   --data Alpaca \
   --checkpoint_dir "checkpoints/tiiuae/falcon-7b"
 ```
+
+&nbsp;
+
+> [!TIP]
+> Use `litgpt finetune --data.help Alpaca` to list additional dataset-specific command line options.
+
+&nbsp;
 
 #### Truncating datasets
 
@@ -73,7 +82,23 @@ For comparison, the Falcon 7B model requires 23.52 GB of memory for the original
 
 [Alpaca-2k](https://huggingface.co/datasets/mhenrichsen/alpaca_2k_test) is a smaller, 2000-sample subset of Alpaca described above.
 
+```bash
+litgpt finetune lora \
+  --data Alpaca2k \
+  --checkpoint_dir "checkpoints/tiiuae/falcon-7b"
+```
+
+&nbsp;
+
+> [!TIP]
+> Use `litgpt finetune --data.help Alpaca2k` to list additional dataset-specific command line options.
+
+&nbsp;
+
+The Alpaca-2k dataset distribution is shown below.
+
 <img src="images/prepare_dataset/alpaca-2k.jpg" width=400px>
+
 
 ### Alpaca-GPT4
 
@@ -87,6 +112,13 @@ litgpt finetune lora \
   --data AlpacaGPT4 \
   --checkpoint_dir "checkpoints/tiiuae/falcon-7b"
 ```
+
+&nbsp;
+
+> [!TIP]
+> Use `litgpt finetune --data.help AlpacaGPT4` to list additional dataset-specific command line options.
+
+&nbsp;
 
 The Alpaca-GPT4 dataset distribution is shown below.
 
@@ -107,6 +139,13 @@ litgpt finetune lora \
   --data.file_name "alpaca_libre_data_cleaned_archive.json" \
   --checkpoint_dir "checkpoints/tiiuae/falcon-7b"
 ```
+
+&nbsp;
+
+> [!TIP]
+> Use `litgpt finetune --data.help Alpaca` to list additional dataset-specific command line options.
+
+&nbsp;
 
 The Alpaca Libre dataset distribution is shown below.
 
@@ -135,6 +174,14 @@ litgpt finetune lora \
   --data Deita \
   --checkpoint_dir "checkpoints/tiiuae/falcon-7b"
 ```
+
+&nbsp;
+
+
+> [!TIP]
+> Use `litgpt finetune --data.help Deita` to list additional dataset-specific command line options.
+
+&nbsp;
 
 Deita contains multiturn conversations. By default, only the first instruction-response pairs from
 each of these multiturn conversations are included. If you want to override this behavior and include the follow-up instructions
@@ -171,6 +218,13 @@ litgpt finetune lora \
   --data Dolly \
   --checkpoint_dir "checkpoints/tiiuae/falcon-7b" \
 ```
+
+&nbsp;
+
+> [!TIP]
+> Use `litgpt finetune --data.help Dolly` to list additional dataset-specific command line options.
+
+&nbsp;
 
 The Dolly dataset distribution is shown below.
 
@@ -228,6 +282,13 @@ litgpt finetune lora \
 
 &nbsp;
 
+> [!TIP]
+> Use `litgpt finetune --data.help LongForm` to list additional dataset-specific command line options.
+
+&nbsp;
+
+&nbsp;
+
 ### LIMA
 
 The LIMA dataset is a collection of 1,000 carefully curated prompts and responses, as described in the [LIMA: Less Is More for Alignment](https://arxiv.org/abs/2305.11206) paper. The dataset is sourced from three community Q&A websites: Stack Exchange, wikiHow, and the Pushshift Reddit Dataset. In addition, it also contains prompts and answers written and collected by the authors of the LIMA paper.
@@ -241,6 +302,13 @@ litgpt finetune lora \
   --data LIMA \
   --checkpoint_dir "checkpoints/tiiuae/falcon-7b"
 ```
+
+&nbsp;
+
+> [!TIP]
+> Use `litgpt finetune --data.help LIMA` to list additional dataset-specific command line options.
+
+&nbsp;
 
 LIMA contains a handful of multiturn conversations. By default, only the first instruction-response pairs from
 each of these multiturn conversations are included. If you want to override this behavior and include the follow-up instructions
@@ -282,6 +350,13 @@ litgpt finetune lora \
   --data.subsets "aeslc_10templates,ag_news_subset_10templates,anli_r1_10templates" \
   --checkpoint_dir "checkpoints/tiiuae/falcon-7b"
 ```
+
+&nbsp;
+
+> [!TIP]
+> Use `litgpt finetune --data.help FLAN` to list additional dataset-specific command line options.
+
+&nbsp;
 
 You can find a list of all 66 supported subsets [here](https://huggingface.co/datasets/Muennighoff/flan).
 
@@ -362,6 +437,11 @@ litgpt finetune lora \
 ```
 
 You can also pass a directory containing a `train.json` and `val.json` to `--data.json_path` to define a fixed train/val split.
+
+&nbsp;
+
+> [!TIP]
+> Use `litgpt finetune --data.help JSON` to list additional dataset-specific command line options.
 
 &nbsp;
 
