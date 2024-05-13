@@ -20,12 +20,9 @@ from extensions.thunder.strategies.thunder_fsdp import ThunderFSDPStrategy
 def test_thunder_strategy_input_parsing():
     from thunder.distributed import FSDPBucketingStrategy, FSDPType
 
-    strategy = ThunderFSDPStrategy(bucketing_strategy="BlOcK", executors=("python",), sharding_strategy="zero3")
+    strategy = ThunderFSDPStrategy(bucketing_strategy="BlOcK", sharding_strategy="zero3")
     assert strategy.bucketing_strategy is FSDPBucketingStrategy.BLOCK
     assert strategy.sharding_strategy is FSDPType.ZERO3
-
-    with pytest.raises(ValueError, match="doesn't have an effect with `jit=False"):
-        ThunderFSDPStrategy(jit=False, executors=("python",))
 
 
 @RunIf(thunder=True)
@@ -299,11 +296,10 @@ def test_save_load_sharded_checkpoint(tmp_path):
 
 
 @RunIf(min_cuda_gpus=2, thunder=True, standalone=True)
-@pytest.mark.parametrize("jit", (False, True))
-def test_jit_before_setup(jit):
+def test_jit_before_setup():
     import thunder
 
-    fabric = Fabric(devices=2, accelerator="cuda", strategy=ThunderFSDPStrategy(jit=jit))
+    fabric = Fabric(devices=2, accelerator="cuda", strategy=ThunderFSDPStrategy())
     fabric.launch()
 
     x = torch.randn(1, 1, device=fabric.device)
