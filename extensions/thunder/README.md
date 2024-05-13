@@ -592,8 +592,6 @@ python extensions/thunder/pretrain.py --config config.yaml --executors '[sdpa, t
 python extensions/thunder/pretrain.py --config config.yaml --executors '[sdpa, unsloth, torchcompile_cat, nvfuser, torch]' --devices 1
 ```
 
-Gradient accumulation is disabled in the FSDP setting because Thunder does not support skipping the backward synchronization yet.
-
 `--compiler torch` (`torch.compile` without `thunder`) is not include because it does not support compiling the `_FabricModule` due to this issue: https://github.com/pytorch/pytorch/issues/112787#issuecomment-1986827601
 
 The CUDA devices are all NVIDIA A100-SXM4-40GB.
