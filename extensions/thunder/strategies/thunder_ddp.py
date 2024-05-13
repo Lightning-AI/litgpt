@@ -76,7 +76,7 @@ class ThunderDDPStrategy(ParallelStrategy):
         self._num_nodes = 1
         self._process_group_backend: Optional[str] = process_group_backend
         self._timeout: Optional[timedelta] = timeout
-        self._backward_sync_control = _DDPBackwardSyncControl()
+        self._backward_sync_control = _ThunderDataParalellBackwardSyncControl()
         self._ddp_kwargs = kwargs
 
     @property
@@ -194,12 +194,40 @@ class ThunderDDPStrategy(ParallelStrategy):
         rank_zero_only.rank = utils_rank_zero_only.rank = self.global_rank
 
 
-class _DDPBackwardSyncControl(_BackwardSyncControl):
+class _ThunderDataParalellBackwardSyncControl(_BackwardSyncControl):
     def __init__(self):
         self._enabled = False
 
     @override
     def no_backward_sync(self, module: Module, enabled: bool) -> ContextManager:
+        """
+        In Thunder, we cannot use ``module.no_sync()`` because reduction happens at the end of the context manager.
+        It assumes that the user will reuse it across all gradient accumulation iterations:
+
+        .. code-block:: python
+
+            with model.no_sync():
+                for _ in range(len(gradient_accumulation_iters)):
+                    fwd()
+                    bwd()  # uses no-sync-backward trace
+                fwd()
+                bwd()  # uses regular-backward trace
+
+        However, Fabric is designed to the context manager every iteration:
+
+        .. code-block:: python
+
+            for i in range(iters):
+                is_accumulating = (i + 1) % gradient_accumulation_iters != 0
+                ctx = model.no_sync() if is_accumulating else nullcontext()
+                with ctx:
+                    fwd()
+                    bwd()
+
+        So we need to be smart about when to sync grads based on the ``enabled`` value.
+
+        More info in https://github.com/Lightning-AI/lit-thunder-LEGACY/issues/2085
+        """
         if not getattr(module, "use_ddp", False):
             raise TypeError(
                 "Blocking backward sync is only possible if the module passed to"
@@ -207,19 +235,17 @@ class _DDPBackwardSyncControl(_BackwardSyncControl):
                 f" Got: {module.__class__.__name__}."
             )
 
-        # see https://github.com/Lightning-AI/lightning-thunder/issues/2085
-        # for why we cannot just return `module.no_sync()`
         from thunder.distributed import skip_data_parallel_grad_sync
 
         previous, self._enabled = self._enabled, enabled
         if enabled:
             return skip_data_parallel_grad_sync()
         if not enabled and previous:
-            return _AllReduceGradsContextManager(module)
+            return _SyncGradsContextManager(module)
         return nullcontext()
 
 
-class _AllReduceGradsContextManager:
+class _SyncGradsContextManager:
     def __init__(self, module: Module) -> None:
         self._module = module
 
