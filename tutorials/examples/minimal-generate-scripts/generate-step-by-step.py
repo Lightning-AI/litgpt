@@ -19,8 +19,8 @@ def use_model():
     # Load model
     ###################
 
-    # run `litgpt download --repo_id EleutherAI/pythia-160m` to download the checkpoint first
-    checkpoint_dir = Path("checkpoints") / "EleutherAI" / "pythia-160m"
+    # run `litgpt download --repo_id EleutherAI/pythia-1b` to download the checkpoint first
+    checkpoint_dir = Path("checkpoints") / "EleutherAI" / "pythia-1b"
     config = Config.from_file(checkpoint_dir / "model_config.yaml")
 
     precision = get_default_supported_precision(training=False)
@@ -61,11 +61,13 @@ def use_model():
     prompt_length = encoded.size(0)
     max_returned_tokens = prompt_length + max_new_tokens
 
+    torch.manual_seed(123)
+
     y = generate(
         model,
         encoded,
         max_returned_tokens,
-        temperature=0.8,
+        temperature=0.5,
         top_k=200,
         top_p=1.0,
         eos_id=tokenizer.eos_id
