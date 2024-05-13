@@ -1,7 +1,7 @@
 # Copyright Lightning AI. Licensed under the Apache License 2.0, see LICENSE file.
 import math
 from dataclasses import dataclass
-from typing import Optional
+from typing import Literal, Optional
 
 
 @dataclass
@@ -32,13 +32,8 @@ class TrainArgs:
     tie_embeddings: Optional[bool] = None
     """Whether to tie the embedding weights with the language modeling head weights"""
 
-    # Optimization args
-    learning_rate: float = 1e-3
-    weight_decay: float = 0.02
-    beta1: float = 0.9
-    beta2: float = 0.95
-    max_norm: Optional[float] = None
     min_lr: float = 6e-5
+    max_norm: Optional[float] = None
 
     def __post_init__(self) -> None:
         if self.lr_warmup_fraction and self.lr_warmup_steps:
@@ -81,3 +76,21 @@ class EvalArgs:
     """Number of iterations"""
     initial_validation: bool = False
     """Whether to evaluate on the validation set at the beginning of the training"""
+
+
+@dataclass
+class OptimizerArgs:
+    """Optimizer-related arguments"""
+
+    optimizer: Literal["adamw", "galore_adamw", "galore_adamw_8bit"] = "adamw"
+    """Which optimizer to use"""
+    learning_rate: float = 1e-3
+    """Learning rated used by the optimizer"""
+    weight_decay: float = 0.02
+    """AdamW weight decay coefficient"""
+    beta1: float = 0.9
+    """AdamW coefficient used for computing running averages of the gradients"""
+    beta2: float = 0.95
+    """AdamW coefficient used for computing squared running averages of the gradients"""
+    extra_kwargs: Optional[str] = None
+    """Additional optimizer keyword arguments, for example, "rank=8,update_proj_gap=200"""

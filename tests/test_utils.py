@@ -33,6 +33,7 @@ from litgpt.utils import (
     init_out_dir,
     num_parameters,
     parse_devices,
+    parse_kwargs_from_string,
     save_hyperparameters,
 )
 
@@ -307,3 +308,31 @@ def test_init_out_dir(tmp_path):
     with mock.patch.dict(os.environ, {"LIGHTNING_ARTIFACTS_DIR": "prefix"}):
         assert init_out_dir(relative_path) == Path("prefix") / relative_path
         assert init_out_dir(absolute_path) == absolute_path
+
+
+def test_parse_kwargs_from_string():
+    s1 = "rank=8, update_proj_gap=200, scale=0.25, proj_type=std"
+    s2 = "rank = 8, update_proj_gap = 200, scale = 0.25, proj_type = std"
+    s3 = "rank=8,update_proj_gap=200,scale=0.25,proj_type=std"
+
+    expect = {
+        "rank": 8,
+        "update_proj_gap": 200,
+        "scale": 0.25,
+        "proj_type": "std"
+    }
+
+    for s in (s1, s2, s3):
+        kwargs = parse_kwargs_from_string(s)
+        assert expect == kwargs
+
+    s4 = "update_proj_gap=200,scale=0.25,proj_type=std"
+    assert expect != parse_kwargs_from_string(s4)
+
+    default_values = {
+        "rank": 8,
+        "update_proj_gap": 200,
+        "scale": 0.25,
+        "proj_type": "std"
+    }
+    assert expect == parse_kwargs_from_string(s4, defaults=default_values)

@@ -13,7 +13,7 @@ from lightning.fabric.strategies import FSDPStrategy
 from torch.utils.data import DataLoader
 from torchmetrics import RunningMean
 
-from litgpt.args import EvalArgs, TrainArgs
+from litgpt.args import EvalArgs, TrainArgs, OptimizerArgs
 from litgpt.data import Alpaca, DataModule
 from litgpt.generate.base import generate
 from litgpt.model import GPT, Block, Config
@@ -30,7 +30,8 @@ from litgpt.utils import (
     init_out_dir,
     num_parameters,
     parse_devices,
-    save_hyperparameters,
+    parse_kwargs_from_string,
+    save_hyperparameters
 )
 
 
@@ -40,6 +41,11 @@ def setup(
     precision: Optional[str] = None,
     devices: Union[int, str] = 1,
     resume: Union[bool, Path] = False,
+    optim: OptimizerArgs = OptimizerArgs(
+        optimizer="adamw",
+        learning_rate=3e-3,
+        extra_kwargs=None
+    ),
     data: Optional[DataModule] = None,
     train: TrainArgs = TrainArgs(
         save_interval=1000,
@@ -48,7 +54,6 @@ def setup(
         micro_batch_size=1,
         lr_warmup_steps=100,
         epochs=5,
-        learning_rate=3e-3,
         max_seq_length=None,
     ),
     eval: EvalArgs = EvalArgs(interval=600, max_new_tokens=100, max_iters=100),
@@ -68,6 +73,7 @@ def setup(
         data: Data-related arguments. If not provided, the default is ``litgpt.data.Alpaca``.
         train: Training-related arguments. See ``litgpt.args.TrainArgs`` for details.
         eval: Evaluation-related arguments. See ``litgpt.args.EvalArgs`` for details.
+        optim: Optimizer-related arguments. See ``litgpt.args.OptimizerArgs`` for details.
         logger_name: The name of the logger to send metrics to.
         seed: The random seed to use for reproducibility.
     """
@@ -96,8 +102,27 @@ def setup(
     else:
         strategy = "auto"
 
+    if "galore" in optim.optimizer:
+        if devices > 1:
+            raise ValueError(f"Chosen devices is {devices} but GaLore currently only supports single device training.")
+
+        default_values = {
+            "rank": 8,
+            "update_proj_gap": 200,
+            "scale": 0.25,
+            "proj_type": "std"
+        }
+    elif optim.extra_kwargs is None:
+        optim.extra_kwargs = ""
+        default_values = {}
+    else:
+        default_values = {}
+    optim.extra_kwargs = parse_kwargs_from_string(optim.extra_kwargs, defaults=default_values)
+
     fabric = L.Fabric(devices=devices, strategy=strategy, precision=precision, loggers=logger)
-    fabric.launch(main, devices, resume, seed, config, data, checkpoint_dir, out_dir, train, eval)
+    fabric.launch(
+        main, devices, resume, seed, config, data, checkpoint_dir, out_dir, train, eval, optim
+    )
 
 
 def main(
@@ -111,6 +136,7 @@ def main(
     out_dir: Path,
     train: TrainArgs,
     eval: EvalArgs,
+    optim: OptimizerArgs,
 ) -> None:
     validate_args(train, eval)
 
@@ -131,8 +157,33 @@ def main(
     fabric.print(f"Number of trainable parameters: {num_parameters(model, requires_grad=True):,}")
 
     model = fabric.setup(model)
-    optimizer = torch.optim.AdamW(
-        model.parameters(), lr=train.learning_rate, weight_decay=train.weight_decay, betas=(train.beta1, train.beta2)
+
+    if optim.optimizer == "adamw":
+        trainable_params = [p for p in model.parameters() if p.requires_grad]
+        optimizer_cls = torch.optim.AdamW
+
+    elif optim.optimizer in ("galore_adamw", "galore_adamw_8bit"):
+        from litgpt.external.galore import get_galore_params
+
+        regular_params, galore_params = get_galore_params(model)
+        trainable_params = [
+            {'params': regular_params},
+            {
+                'params': galore_params,
+                **optim.extra_kwargs
+            }
+        ]
+        optim.extra_kwargs = {}
+        if optim.optimizer == "galore_adamw_8bit":
+            from litgpt.external.galore import AdamW8bit as optimizer_cls
+        else:
+            from litgpt.external.galore import AdamW as optimizer_cls
+    else:
+        raise ValueError(f"Optimizer choice {optim.optimizer} is not supported.")
+
+    optimizer = optimizer_cls(
+        trainable_params, lr=optim.learning_rate, weight_decay=optim.weight_decay,
+        betas=(optim.beta1, optim.beta2), **optim.extra_kwargs
     )
     optimizer = fabric.setup_optimizers(optimizer)
     scheduler = get_lr_scheduler(optimizer, warmup_steps=train.lr_warmup_steps, max_steps=lr_max_steps)

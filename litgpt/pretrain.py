@@ -18,7 +18,7 @@ from torchmetrics.aggregation import RunningMean
 from typing_extensions import Literal
 
 from litgpt import Tokenizer
-from litgpt.args import EvalArgs, TrainArgs
+from litgpt.args import EvalArgs, TrainArgs, OptimizerArgs
 from litgpt.config import name_to_config
 from litgpt.data import DataModule, TinyLlama
 from litgpt.model import GPT, Block, CausalSelfAttention, Config, LLaMAMLP
@@ -33,9 +33,10 @@ from litgpt.utils import (
     init_out_dir,
     num_parameters,
     parse_devices,
+    parse_kwargs_from_string,
     reset_parameters,
     save_config,
-    save_hyperparameters,
+    save_hyperparameters
 )
 
 
@@ -53,16 +54,20 @@ def setup(
         global_batch_size=512,
         micro_batch_size=4,
         max_tokens=int(3e12),  # 3 trillion
-        learning_rate=4e-4,
-        weight_decay=1e-1,
-        beta1=0.9,
-        beta2=0.95,
         max_norm=1.0,
         min_lr=4e-5,
         lr_warmup_steps=2000,
         tie_embeddings=False,
     ),
     eval: EvalArgs = EvalArgs(interval=1000, max_iters=100),
+    optim: OptimizerArgs = OptimizerArgs(
+        optimizer="adamw",
+        learning_rate=4e-4,
+        weight_decay=1e-1,
+        beta1=0.9,
+        beta2=0.95,
+        extra_kwargs=None
+    ),
     devices: Union[int, str] = "auto",
     tokenizer_dir: Optional[Path] = None,
     logger_name: Literal["wandb", "tensorboard", "csv"] = "tensorboard",
@@ -88,6 +93,7 @@ def setup(
         devices: How many devices/GPUs to use. Uses all GPUs by default.
         tokenizer_dir: Optional path to the tokenizer dir that was used for preprocessing the dataset. Only some data
             module require this.
+        optim: Optimizer-related arguments. See ``litgpt.args.OptimizerArgs`` for details.
         logger_name: The name of the logger to send metrics to.
         seed: The random seed to use for reproducibility.
     """
@@ -113,6 +119,24 @@ def setup(
         strategy = FSDPStrategy(auto_wrap_policy={Block}, state_dict_type="full", sharding_strategy="HYBRID_SHARD")
     else:
         strategy = "auto"
+
+    if "galore" in optim.optimizer:
+        if devices > 1:
+            raise ValueError(f"Chosen devices is {devices} but GaLore currently only supports single device training.")
+
+        default_values = {
+            "rank": 8,
+            "update_proj_gap": 200,
+            "scale": 0.25,
+            "proj_type": "std"
+        }
+    elif optim.extra_kwargs is None:
+        optim.extra_kwargs = ""
+        default_values = {}
+    else:
+        default_values = {}
+    optim.extra_kwargs = parse_kwargs_from_string(optim.extra_kwargs, defaults=default_values)
+
     fabric = L.Fabric(devices=devices, strategy=strategy, precision=precision, loggers=[logger])
     fabric.launch()
 
@@ -133,6 +157,7 @@ def setup(
         tokenizer,
         train,
         eval,
+        optim,
     )
 
 
@@ -149,6 +174,7 @@ def main(
     tokenizer: Optional[Tokenizer],
     train: TrainArgs,
     eval: EvalArgs,
+    optim: OptimizerArgs,
 ) -> None:
     validate_args(train, eval, initial_checkpoint_dir, resume)
 
@@ -174,13 +200,34 @@ def main(
     model = torch.compile(model)
     model = fabric.setup(model)
 
-    optimizer = torch.optim.AdamW(
-        model.parameters(),
-        lr=train.learning_rate,
-        weight_decay=train.weight_decay,
-        betas=(train.beta1, train.beta2),
-        fused=fabric.device.type == "cuda",
+    if optim.optimizer == "adamw":
+        trainable_params = [p for p in model.parameters() if p.requires_grad]
+        optimizer_cls = torch.optim.AdamW
+
+    elif optim.optimizer in ("galore_adamw", "galore_adamw_8bit"):
+        from litgpt.external.galore import get_galore_params
+
+        regular_params, galore_params = get_galore_params(model)
+        trainable_params = [
+            {'params': regular_params},
+            {
+                'params': galore_params,
+                **optim.extra_kwargs
+            }
+        ]
+        optim.extra_kwargs = {}
+        if optim.optimizer == "galore_adamw_8bit":
+            from litgpt.external.galore import AdamW8bit as optimizer_cls
+        else:
+            from litgpt.external.galore import AdamW as optimizer_cls
+    else:
+        raise ValueError(f"Optimizer choice {optim.optimizer} is not supported.")
+
+    optimizer = optimizer_cls(
+        trainable_params, lr=optim.learning_rate, weight_decay=optim.weight_decay,
+        betas=(optim.beta1, optim.beta2), **optim.extra_kwargs
     )
+
     optimizer = fabric.setup_optimizers(optimizer)
 
     train_dataloader, val_dataloader = get_dataloaders(fabric, data, tokenizer, train, model.max_seq_length)
@@ -204,7 +251,7 @@ def main(
         fabric.load(resume, state)
 
     train_time = time.perf_counter()
-    fit(fabric, devices, state, train_dataloader, val_dataloader, out_dir, tokenizer_dir, train, eval)
+    fit(fabric, devices, state, train_dataloader, val_dataloader, out_dir, tokenizer_dir, train, eval, optim)
 
     # Save final checkpoint
     save_checkpoint(fabric, state, tokenizer_dir, out_dir / "final" / "lit_model.pth")
@@ -224,6 +271,7 @@ def fit(
     tokenizer_dir: Optional[Path],
     train: TrainArgs,
     eval: EvalArgs,
+    optim: OptimizerArgs,
 ) -> None:
     model = state["model"]
     optimizer = state["optimizer"]
@@ -266,7 +314,7 @@ def fit(
             break
 
         # determine and set the learning rate for this iteration
-        lr = get_lr(train.learning_rate, state["iter_num"], warmup_iters, max_iters, train.min_lr)
+        lr = get_lr(optim.learning_rate, state["iter_num"], warmup_iters, max_iters, train.min_lr)
         for param_group in optimizer.param_groups:
             param_group["lr"] = lr
 
