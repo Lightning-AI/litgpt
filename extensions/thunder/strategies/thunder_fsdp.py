@@ -53,7 +53,6 @@ class ThunderFSDPStrategy(ParallelStrategy, _Sharded):
         cluster_environment: Optional[ClusterEnvironment] = None,
         checkpoint_io: Optional[CheckpointIO] = None,
         precision: Optional[Precision] = None,
-        executors: Optional[Tuple[Union["Executor", str], ...]] = None,
         sharding_strategy: "_FSDP_TYPE" = "ZERO3",
         bucketing_strategy: "_BUCKETING_STRATEGY" = "NONE",
         state_dict_type: Literal["full", "sharded"] = "sharded",
