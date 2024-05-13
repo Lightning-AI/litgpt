@@ -24,7 +24,7 @@ def test_thunder_strategy_input_parsing():
 @pytest.mark.parametrize("choice", ["ddp", "thunder_ddp", "fsdp", "thunder_fsdp"])
 def test_no_backward_sync(choice):
     if choice == "thunder_ddp":
-        strategy = ThunderDDPStrategy()
+        strategy = ThunderDDPStrategy(jit=False)
     elif choice == "thunder_fsdp":
         strategy = ThunderFSDPStrategy()
     else:
@@ -38,6 +38,11 @@ def test_no_backward_sync(choice):
     
     model = torch.nn.Linear(1, out_features, bias=False, device=fabric.device)
     x = torch.randn(1, 1, device=fabric.device)
+
+    if "thunder" in choice:
+        import thunder
+
+        model = thunder.jit(model)
     model = fabric.setup(model)
 
     # 6 iters, 3 grad accumulation iters
