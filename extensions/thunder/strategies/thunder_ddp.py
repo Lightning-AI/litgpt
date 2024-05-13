@@ -228,10 +228,10 @@ class _ThunderDataParalellBackwardSyncControl(_BackwardSyncControl):
 
         More info in https://github.com/Lightning-AI/lit-thunder-LEGACY/issues/2085
         """
-        if not getattr(module, "use_ddp", False):
+        if not getattr(module, "use_ddp", False) and not getattr(module, "use_fsdp", False):
             raise TypeError(
                 "Blocking backward sync is only possible if the module passed to"
-                f" `{self.__class__.__name__}.no_backward_sync` is applied DDP."
+                f" `{self.__class__.__name__}.no_backward_sync` is applied DDP or FSDP."
                 f" Got: {module.__class__.__name__}."
             )
 
