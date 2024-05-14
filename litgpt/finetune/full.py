@@ -8,8 +8,10 @@ from pprint import pprint
 from typing import Dict, List, Literal, Optional, Tuple, Union
 
 import lightning as L
-import torch
+from lightning.pytorch.cli import instantiate_class
 from lightning.fabric.strategies import FSDPStrategy
+import torch
+from torch.optim import Optimizer
 from torch.utils.data import DataLoader
 from torchmetrics import RunningMean
 
@@ -52,6 +54,7 @@ def setup(
         max_seq_length=None,
     ),
     eval: EvalArgs = EvalArgs(interval=600, max_new_tokens=100, max_iters=100),
+    optimizer: Optional[Optimizer] = None,
     logger_name: Literal["wandb", "tensorboard", "csv"] = "csv",
     seed: int = 1337,
 ) -> None:
@@ -131,9 +134,10 @@ def main(
     fabric.print(f"Number of trainable parameters: {num_parameters(model, requires_grad=True):,}")
 
     model = fabric.setup(model)
-    optimizer = torch.optim.AdamW(
-        model.parameters(), lr=train.learning_rate, weight_decay=train.weight_decay, betas=(train.beta1, train.beta2)
-    )
+
+    optimizer_cls = {"lr": train.learning_rate, "weight_decay": train.weight_decay, "betas": (train.beta1, train.beta2)}
+    optimizer = instantiate_class(model.parameters(), {"class_path": "torch.optim.AdamW", "init_args": optimizer_cls})
+
     optimizer = fabric.setup_optimizers(optimizer)
     scheduler = get_lr_scheduler(optimizer, warmup_steps=train.lr_warmup_steps, max_steps=lr_max_steps)
     state = {"model": model, "optimizer": optimizer, "scheduler": scheduler, "iter_num": 0, "step_count": 0}
