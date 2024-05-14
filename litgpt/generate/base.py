@@ -68,7 +68,7 @@ def next_token(model: GPT, input_pos: torch.Tensor, x: torch.Tensor, **kwargs: A
     return next.to(dtype=x.dtype)
 
 
-@torch.inference_mode()
+@torch.no_grad()
 def generate(
     model: GPT,
     prompt: torch.Tensor,
