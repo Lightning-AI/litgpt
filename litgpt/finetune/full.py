@@ -77,6 +77,7 @@ def setup(
 
     pprint(locals())
     data = Alpaca() if data is None else data
+    optimizer = torch.optim.AdamW if optimizer is None else optimizer
     devices = parse_devices(devices)
     out_dir = init_out_dir(out_dir)
 
@@ -100,7 +101,7 @@ def setup(
         strategy = "auto"
 
     fabric = L.Fabric(devices=devices, strategy=strategy, precision=precision, loggers=logger)
-    fabric.launch(main, devices, resume, seed, config, data, checkpoint_dir, out_dir, train, eval)
+    fabric.launch(main, devices, resume, seed, config, data, checkpoint_dir, out_dir, train, eval, optimizer)
 
 
 def main(
@@ -114,6 +115,7 @@ def main(
     out_dir: Path,
     train: TrainArgs,
     eval: EvalArgs,
+    optimizer,
 ) -> None:
     validate_args(train, eval)
 
@@ -136,7 +138,8 @@ def main(
     model = fabric.setup(model)
 
     optimizer_cls = {"lr": train.learning_rate, "weight_decay": train.weight_decay, "betas": (train.beta1, train.beta2)}
-    optimizer = instantiate_class(model.parameters(), {"class_path": "torch.optim.AdamW", "init_args": optimizer_cls})
+    class_path = f"{optimizer.__module__}.{optimizer.__name__}"
+    optimizer = instantiate_class(model.parameters(), {"class_path": class_path, "init_args": optimizer_cls})
 
     optimizer = fabric.setup_optimizers(optimizer)
     scheduler = get_lr_scheduler(optimizer, warmup_steps=train.lr_warmup_steps, max_steps=lr_max_steps)
