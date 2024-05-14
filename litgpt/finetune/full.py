@@ -8,9 +8,9 @@ from pprint import pprint
 from typing import Dict, List, Literal, Optional, Tuple, Union
 
 import lightning as L
+import torch
 from lightning.pytorch.cli import instantiate_class
 from lightning.fabric.strategies import FSDPStrategy
-import torch
 from torch.optim import Optimizer
 from torch.utils.data import DataLoader
 from torchmetrics import RunningMean
@@ -57,6 +57,7 @@ def setup(
     optimizer: Optional[Optimizer] = None,
     logger_name: Literal["wandb", "tensorboard", "csv"] = "csv",
     seed: int = 1337,
+    **kwargs
 ) -> None:
     """Finetune a model.
 
@@ -71,13 +72,26 @@ def setup(
         data: Data-related arguments. If not provided, the default is ``litgpt.data.Alpaca``.
         train: Training-related arguments. See ``litgpt.args.TrainArgs`` for details.
         eval: Evaluation-related arguments. See ``litgpt.args.EvalArgs`` for details.
+        optimizer: An optimizer such as torch.optim.AdamW.
         logger_name: The name of the logger to send metrics to.
         seed: The random seed to use for reproducibility.
     """
-
     pprint(locals())
+
     data = Alpaca() if data is None else data
-    optimizer = torch.optim.AdamW if optimizer is None else optimizer
+    # optimizer = torch.optim.AdamW if optimizer is None else optimizer
+
+    optimizer_class_path = None
+    optimizer_init_args = {}
+    for key, value in list(kwargs.items()):
+        if key.startswith("optimizer"):
+            if "class_path" in key:
+                optimizer_class_path = value
+            elif "init_args" in key:
+                init_arg_key = key.split(".")[-1]
+                optimizer_init_args[init_arg_key] = value
+            del kwargs[key]
+
     devices = parse_devices(devices)
     out_dir = init_out_dir(out_dir)
 
@@ -101,7 +115,7 @@ def setup(
         strategy = "auto"
 
     fabric = L.Fabric(devices=devices, strategy=strategy, precision=precision, loggers=logger)
-    fabric.launch(main, devices, resume, seed, config, data, checkpoint_dir, out_dir, train, eval, optimizer)
+    fabric.launch(main, devices, resume, seed, config, data, checkpoint_dir, out_dir, train, eval, optimizer_class_path, optimizer_init_args)
 
 
 def main(
@@ -115,7 +129,8 @@ def main(
     out_dir: Path,
     train: TrainArgs,
     eval: EvalArgs,
-    optimizer,
+    optimizer_class_path: str,
+    optimizer_init_args: str,
 ) -> None:
     validate_args(train, eval)
 
@@ -137,9 +152,13 @@ def main(
 
     model = fabric.setup(model)
 
-    optimizer_cls = {"lr": train.learning_rate, "weight_decay": train.weight_decay, "betas": (train.beta1, train.beta2)}
-    class_path = f"{optimizer.__module__}.{optimizer.__name__}"
-    optimizer = instantiate_class(model.parameters(), {"class_path": class_path, "init_args": optimizer_cls})
+    #optimizer_cls = {"lr": train.learning_rate, "weight_decay": train.weight_decay, "betas": (train.beta1, train.beta2)}
+    optimizer_cls = optimizer_init_args
+    if not optimizer_class_path:
+        optimizer = torch.optim.AdamW
+        optimizer_class_path = f"{optimizer.__module__}.{optimizer.__name__}"
+
+    optimizer = instantiate_class(model.parameters(), {"class_path": optimizer_class_path, "init_args": optimizer_cls})
 
     optimizer = fabric.setup_optimizers(optimizer)
     scheduler = get_lr_scheduler(optimizer, warmup_steps=train.lr_warmup_steps, max_steps=lr_max_steps)
