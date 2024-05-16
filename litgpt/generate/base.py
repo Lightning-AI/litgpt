@@ -245,22 +245,22 @@ def main(
     for i in range(num_samples):
         t0 = time.perf_counter()
         if stream:
-            num_generated_tokens = 0
+            tokens_generated = 0
             for token in generate(model, encoded, max_returned_tokens, temperature=temperature, top_k=top_k, top_p=top_p, eos_id=tokenizer.eos_id, stream=stream):
-                num_generated_tokens += 1
+                tokens_generated += 1
                 fabric.print(tokenizer.decode(token), end="", flush=True)
             fabric.print("")
         else:
             y_gen = generate(model, encoded, max_returned_tokens, temperature=temperature, top_k=top_k, top_p=top_p, eos_id=tokenizer.eos_id, stream=stream)
             y = list(y_gen)[0]
             fabric.print(tokenizer.decode(y))
-            num_generated_tokens = y.size(0) - prompt_length
+            tokens_generated = y.size(0) - prompt_length
 
         t = time.perf_counter() - t0
         for block in model.transformer.h:
             block.attn.kv_cache.reset_parameters()
         fabric.print(
-            f"Time for inference {i + 1}: {t:.02f} sec total, {num_generated_tokens / t:.02f} tokens/sec", file=sys.stderr
+            f"Time for inference {i + 1}: {t:.02f} sec total, {tokens_generated / t:.02f} tokens/sec", file=sys.stderr
         )
     if fabric.device.type == "cuda":
         fabric.print(f"Memory used: {torch.cuda.max_memory_allocated() / 1e9:.02f} GB", file=sys.stderr)
