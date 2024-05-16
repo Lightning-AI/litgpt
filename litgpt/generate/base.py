@@ -78,6 +78,7 @@ def generate(
     top_k: Optional[int] = None,
     top_p: float = 1.0,
     eos_id: Optional[int] = None,
+    stream: bool = False,
 ) -> torch.Tensor:
     """Takes a conditioning sequence (prompt) as input and continues to generate as many tokens as requested.
 
@@ -104,6 +105,8 @@ def generate(
             For more details, see https://arxiv.org/abs/1904.09751
             or https://huyenchip.com/2024/01/16/sampling.html#top_p
         eos_id: If specified, stop generating any more token once the <eos> token is triggered.
+        stream: If True, yields tokens as they are generated instead of returning them all at once.
+
     """
     T = prompt.size(0)
     assert max_returned_tokens > T
@@ -120,6 +123,10 @@ def generate(
         model, torch.arange(0, T, device=device), prompt.view(1, -1), temperature=temperature, top_k=top_k, top_p=top_p
     ).clone()
     tokens.append(token)
+
+    if stream:
+        yield token
+
     for _ in range(2, max_returned_tokens - T + 1):
         token = next_token(
             model, input_pos, token.view(1, -1), temperature=temperature, top_k=top_k, top_p=top_p
@@ -128,7 +135,11 @@ def generate(
         if token == eos_id:
             break
         input_pos = input_pos.add_(1)
-    return torch.cat(tokens)
+        if stream:
+            yield token
+
+    if not stream:
+        yield torch.cat(tokens)
 
 
 @torch.inference_mode()
@@ -144,6 +155,7 @@ def main(
     quantize: Optional[Literal["bnb.nf4", "bnb.nf4-dq", "bnb.fp4", "bnb.fp4-dq", "bnb.int8"]] = None,
     precision: Optional[str] = None,
     compile: bool = False,
+    stream: bool = False,
 ) -> None:
     """Generates text samples based on a pre-trained model and tokenizer.
 
@@ -175,6 +187,7 @@ def main(
             for more details, see https://github.com/Lightning-AI/litgpt/blob/main/tutorials/quantize.md
         precision: Indicates the Fabric precision setting to use.
         compile: Whether to compile the model.
+        stream: If True, yields tokens as they are generated instead of returning them all at once.
     """
     precision = precision or get_default_supported_precision(training=False)
 
@@ -231,14 +244,23 @@ def main(
     L.seed_everything(1234)
     for i in range(num_samples):
         t0 = time.perf_counter()
-        y = generate(model, encoded, max_returned_tokens, temperature=temperature, top_k=top_k, top_p=top_p, eos_id=tokenizer.eos_id)
+        if stream:
+            num_generated_tokens = 0
+            for token in generate(model, encoded, max_returned_tokens, temperature=temperature, top_k=top_k, top_p=top_p, eos_id=tokenizer.eos_id, stream=stream):
+                num_generated_tokens += 1
+                fabric.print(tokenizer.decode(token), end="", flush=True)
+            fabric.print("")
+        else:
+            y_gen = generate(model, encoded, max_returned_tokens, temperature=temperature, top_k=top_k, top_p=top_p, eos_id=tokenizer.eos_id, stream=stream)
+            y = list(y_gen)[0]
+            fabric.print(tokenizer.decode(y))
+            num_generated_tokens = y.size(0) - prompt_length
+
         t = time.perf_counter() - t0
         for block in model.transformer.h:
             block.attn.kv_cache.reset_parameters()
-        fabric.print(tokenizer.decode(y))
-        tokens_generated = y.size(0) - prompt_length
         fabric.print(
-            f"Time for inference {i + 1}: {t:.02f} sec total, {tokens_generated / t:.02f} tokens/sec", file=sys.stderr
+            f"Time for inference {i + 1}: {t:.02f} sec total, {num_generated_tokens / t:.02f} tokens/sec", file=sys.stderr
         )
     if fabric.device.type == "cuda":
         fabric.print(f"Memory used: {torch.cuda.max_memory_allocated() / 1e9:.02f} GB", file=sys.stderr)
