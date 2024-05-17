@@ -3,7 +3,7 @@
 import sys
 import time
 from pathlib import Path
-from typing import Any, Literal, Optional
+from typing import Any, Literal, Optional, Generator
 
 import lightning as L
 import torch
@@ -79,7 +79,7 @@ def generate(
     top_p: float = 1.0,
     eos_id: Optional[int] = None,
     stream: bool = False,
-) -> torch.Tensor:
+) -> Generator[torch.Tensor, None, None]:
     """Takes a conditioning sequence (prompt) as input and continues to generate as many tokens as requested.
 
     The implementation of this function is modified from A. Karpathy's nanoGPT.
@@ -123,9 +123,6 @@ def generate(
         model, torch.arange(0, T, device=device), prompt.view(1, -1), temperature=temperature, top_k=top_k, top_p=top_p
     ).clone()
     tokens.append(token)
-
-    if stream:
-        yield token
 
     for _ in range(2, max_returned_tokens - T + 1):
         token = next_token(
