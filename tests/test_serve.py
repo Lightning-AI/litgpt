@@ -1,5 +1,6 @@
 # Copyright Lightning AI. Licensed under the Apache License 2.0, see LICENSE file.
 from dataclasses import asdict
+import json
 import shutil
 
 from lightning.fabric import seed_everything
@@ -10,7 +11,7 @@ import yaml
 
 
 from litgpt import GPT, Config
-from litgpt.deploy.serve import SimpleLitAPI
+from litgpt.deploy.serve import SimpleLitAPI, StreamLitAPI
 from litgpt.scripts.download import download_from_hub
 
 
@@ -37,6 +38,19 @@ def test_simple(tmp_path):
 
     with TestClient(server.app) as client:
         response = client.post("/predict", json={"prompt": "Hello world"})
-        # Model is a small random model, not trained, hence the gibberish.
-        # We are just testing that the server works.
         assert response.json()["output"][:19] == "Hello world statues"
+
+    # Test with streaming enabled
+    server = LitServer(
+        StreamLitAPI(checkpoint_dir=tmp_path, temperature=1, top_k=1),
+        accelerator=accelerator, devices=1, timeout=60, stream=True
+        )
+    with TestClient(server.app) as client:
+        response = client.post("/predict", json={"prompt": "Hello world"})
+    response_list = response.json()
+    parsed_response = []
+
+    for item in response_list:
+        parsed_dict = json.loads(item)
+        parsed_response.append(parsed_dict)
+    assert parsed_response[0]["output"][:19] == "Hello world statues"
