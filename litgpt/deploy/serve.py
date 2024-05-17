@@ -144,7 +144,7 @@ class StreamLitAPI(BaseLitAPI):
         for block in self.model.transformer.h:
             block.attn.kv_cache.reset_parameters()
 
-        yield generate(
+        yield from generate(
                 self.model,
                 inputs,
                 max_returned_tokens,
@@ -152,11 +152,10 @@ class StreamLitAPI(BaseLitAPI):
                 top_k=self.top_k,
                 top_p=self.top_p,
                 eos_id=self.tokenizer.eos_id
-                )
+            )
 
-    def encode_response(self, output_stream):
-        for outputs in output_stream:
-            yield [json.dumps({"output": self.tokenizer.decode(output)}) for output in outputs]
+    def encode_response(self, output):
+        yield {"output": self.tokenizer.decode(next(output))}
 
 
 def run_server(

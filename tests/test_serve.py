@@ -47,10 +47,5 @@ def test_simple(tmp_path):
         )
     with TestClient(server.app) as client:
         response = client.post("/predict", json={"prompt": "Hello world"})
-    response_list = response.json()
-    parsed_response = []
 
-    for item in response_list:
-        parsed_dict = json.loads(item)
-        parsed_response.append(parsed_dict)
-    assert parsed_response[0]["output"][:19] == "Hello world statues"
+    assert response.json()["output"][:19] == "Hello world statues"
