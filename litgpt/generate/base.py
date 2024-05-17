@@ -124,6 +124,9 @@ def generate(
     ).clone()
     tokens.append(token)
 
+    if stream:  # Otherwise 1 token is missing (see tests)
+        yield token
+
     for _ in range(2, max_returned_tokens - T + 1):
         token = next_token(
             model, input_pos, token.view(1, -1), temperature=temperature, top_k=top_k, top_p=top_p

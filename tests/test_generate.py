@@ -47,6 +47,35 @@ def test_generate(max_seq_length):
     torch.testing.assert_close(out, expected)
 
 
+@pytest.mark.parametrize(
+    "max_returned_tokens",
+    [15, 25, 20]
+)
+def test_generate_stream(max_returned_tokens):
+    T = 5
+    prompt = torch.randint(10, size=(T,))
+    config = Config(block_size=128, vocab_size=16, n_layer=1, n_head=4, n_embd=8)
+    model = GPT(config)
+    model.max_seq_length = 30
+    max_new_tokens = max_returned_tokens - T
+
+    model.set_kv_cache(batch_size=1)
+
+    multinomial_results = []
+
+    def multinomial(*args, **kwargs):
+        out = torch.multinomial(*args, **kwargs, num_samples=1)
+        multinomial_results.append(out)
+        return out
+
+    with mock.patch("litgpt.generate.base.multinomial_num_samples_1", multinomial):
+        token_generator = generate.generate(model, prompt, max_returned_tokens, stream=True)
+        generated_tokens = list(token_generator)
+
+    expected_length = min(max_new_tokens, len(multinomial_results))
+    assert len(generated_tokens) == expected_length
+
+
 def test_main(fake_checkpoint_dir, monkeypatch, tensor_like):
     config_path = fake_checkpoint_dir / "model_config.yaml"
     config = {"block_size": 128, "vocab_size": 50, "n_layer": 2, "n_head": 4, "n_embd": 8, "rotary_percentage": 1}
