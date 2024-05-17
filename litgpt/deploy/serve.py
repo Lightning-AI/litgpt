@@ -86,14 +86,16 @@ class SimpleLitAPI(LitAPI):
         prompt_length = inputs.size(0)
         max_returned_tokens = prompt_length + self.max_new_tokens
 
-        y = generate(
-            self.model,
-            inputs,
-            max_returned_tokens,
-            temperature=self.temperature,
-            top_k=self.top_k,
-            top_p=self.top_p,
-            eos_id=self.tokenizer.eos_id
+        y = next(
+            generate(
+                self.model,
+                inputs,
+                max_returned_tokens,
+                temperature=self.temperature,
+                top_k=self.top_k,
+                top_p=self.top_p,
+                eos_id=self.tokenizer.eos_id
+                )
         )
 
         for block in self.model.transformer.h:
