@@ -1,5 +1,4 @@
 # Copyright Lightning AI. Licensed under the Apache License 2.0, see LICENSE file.
-import json
 from pathlib import Path
 from typing import Dict, Any, Optional
 from litgpt.utils import check_valid_checkpoint_dir
