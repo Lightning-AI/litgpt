@@ -52,7 +52,11 @@ class LitData(DataModule):
         from litdata.streaming import StreamingDataset, TokensLoader
 
         dataset = StreamingDataset(
-            input_dir=input_dir, item_loader=TokensLoader(block_size=self.seq_length), shuffle=train, drop_last=True
+            input_dir=input_dir,
+            item_loader=TokensLoader(block_size=self.seq_length),
+            shuffle=train,
+            drop_last=True,
+            seed=self.seed,
         )
         dataloader = DataLoader(
             dataset, batch_size=self.batch_size, pin_memory=True, num_workers=self.num_workers, drop_last=True

@@ -318,6 +318,7 @@ prompt_styles: Dict[str, Type[PromptStyle]] = {
     "tinyllama": TinyLlama,
     "gemma": Gemma,
     "h2oai": H2Oai,
+    "llama3": Llama3,
 }
 
 
