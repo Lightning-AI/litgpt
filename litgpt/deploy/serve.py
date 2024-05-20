@@ -102,14 +102,14 @@ class SimpleLitAPI(BaseLitAPI):
         max_returned_tokens = prompt_length + self.max_new_tokens
 
         y = plain_generate(
-                self.model,
-                inputs,
-                max_returned_tokens,
-                temperature=self.temperature,
-                top_k=self.top_k,
-                top_p=self.top_p,
-                eos_id=self.tokenizer.eos_id
-                )
+            self.model,
+            inputs,
+            max_returned_tokens,
+            temperature=self.temperature,
+            top_k=self.top_k,
+            top_p=self.top_p,
+            eos_id=self.tokenizer.eos_id
+        )
 
         for block in self.model.transformer.h:
             block.attn.kv_cache.reset_parameters()
@@ -143,14 +143,14 @@ class StreamLitAPI(BaseLitAPI):
             block.attn.kv_cache.reset_parameters()
 
         yield from stream_generate(
-                self.model,
-                inputs,
-                max_returned_tokens,
-                temperature=self.temperature,
-                top_k=self.top_k,
-                top_p=self.top_p,
-                stop_tokens=[self.tokenizer.decode(torch.tensor([self.tokenizer.eos_id]))]
-            )
+            self.model,
+            inputs,
+            max_returned_tokens,
+            temperature=self.temperature,
+            top_k=self.top_k,
+            top_p=self.top_p,
+            stop_tokens=[self.tokenizer.decode(torch.tensor([self.tokenizer.eos_id]))]
+        )
 
     def encode_response(self, output):
         for out in output:
