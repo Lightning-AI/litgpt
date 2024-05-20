@@ -54,7 +54,7 @@ class BaseLitAPI(LitAPI):
 
         fabric = L.Fabric(
             accelerator=device.type,
-            devices=1 if device.type=="cpu" else [device.index],
+            devices=1 if device.type == "cpu" else [device.index],
             precision=precision,
         )
         checkpoint_path = self.checkpoint_dir / "lit_model.pth"
@@ -151,11 +151,13 @@ class StreamLitAPI(BaseLitAPI):
                 temperature=self.temperature,
                 top_k=self.top_k,
                 top_p=self.top_p,
-                eos_id=self.tokenizer.eos_id
+                eos_id=self.tokenizer.eos_id,
+                stream=True
             )
 
     def encode_response(self, output):
-        yield {"output": self.tokenizer.decode(next(output))}
+        for out in output:
+            yield {"output": self.tokenizer.decode(out)}
 
 
 def run_server(
@@ -204,7 +206,6 @@ def run_server(
     check_valid_checkpoint_dir(checkpoint_dir, model_filename="lit_model.pth")
 
     if not stream:
-
         server = LitServer(
             SimpleLitAPI(
                 checkpoint_dir=checkpoint_dir,
