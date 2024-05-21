@@ -11,7 +11,6 @@ import lightning as L
 import torch
 from lightning.pytorch.cli import instantiate_class
 from lightning.fabric.strategies import FSDPStrategy
-from torch.optim import Optimizer
 from torch.utils.data import DataLoader
 from torchmetrics import RunningMean
 

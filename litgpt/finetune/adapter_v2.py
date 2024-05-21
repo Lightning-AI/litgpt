@@ -9,6 +9,7 @@ from typing import Dict, List, Literal, Optional, Tuple, Union
 
 import lightning as L
 import torch
+from lightning.pytorch.cli import instantiate_class
 from lightning.fabric.plugins import BitsandbytesPrecision
 from lightning.fabric.strategies import FSDPStrategy
 from lightning.fabric.utilities import ThroughputMonitor
@@ -27,6 +28,7 @@ from litgpt.utils import (
     choose_logger,
     chunked_cross_entropy,
     copy_config_files,
+    get_argument_names,
     get_default_supported_precision,
     init_out_dir,
     load_checkpoint,
@@ -54,6 +56,7 @@ def setup(
         max_seq_length=None,
     ),
     eval: EvalArgs = EvalArgs(interval=100, max_new_tokens=100, max_iters=100),
+    optimizer: Union[str, Dict] = "AdamW",
     logger_name: Literal["wandb", "tensorboard", "csv"] = "csv",
     seed: int = 1337,
 ) -> None:
@@ -69,6 +72,7 @@ def setup(
         data: Data-related arguments. If not provided, the default is ``litgpt.data.Alpaca``.
         train: Training-related arguments. See ``litgpt.args.TrainArgs`` for details.
         eval: Evaluation-related arguments. See ``litgpt.args.EvalArgs`` for details.
+        optimizer: An optimizer such as torch.optim.AdamW.
         logger_name: The name of the logger to send metrics to.
         seed: The random seed to use for reproducibility.
     """
@@ -109,7 +113,7 @@ def setup(
         strategy = "auto"
 
     fabric = L.Fabric(devices=devices, strategy=strategy, precision=precision, loggers=logger, plugins=plugins)
-    fabric.launch(main, devices, seed, config, data, checkpoint_dir, out_dir, train, eval)
+    fabric.launch(main, devices, seed, config, data, checkpoint_dir, out_dir, train, eval, optimizer)
 
 
 def main(
@@ -122,6 +126,7 @@ def main(
     out_dir: Path,
     train: TrainArgs,
     eval: EvalArgs,
+    optimizer: Union[str, Dict],
 ) -> None:
     validate_args(train, eval)
 
@@ -145,16 +150,24 @@ def main(
 
     model = fabric.setup_module(model)
 
-    trainable_params = [p for p in model.parameters() if p.requires_grad]
     if isinstance(fabric.strategy.precision, BitsandbytesPrecision):
-        import bitsandbytes as bnb
+        if (isinstance(optimizer, str) and "AdamW" not in optimizer) or (isinstance(optimizer, dict) and "AdamW" not in optimizer.get("class_path", "")):
+            raise ValueError("The chosen quantization format only supports the AdamW optimizer.")
 
-        optimizer_cls = bnb.optim.PagedAdamW
+        import bitsandbytes as bnb
+        if isinstance(optimizer, str):
+            optimizer = bnb.optim.PagedAdamW(model.parameters())
+        else:
+            optim_args = get_argument_names(bnb.optim.PagedAdamW)
+            allowed_kwargs = {key: optimizer["init_args"][key] for key in optim_args & optimizer["init_args"].keys()}
+            optimizer = bnb.optim.PagedAdamW(model.parameters(), **allowed_kwargs)
     else:
-        optimizer_cls = torch.optim.AdamW
-    optimizer = optimizer_cls(
-        trainable_params, lr=train.learning_rate, weight_decay=train.weight_decay, betas=(train.beta1, train.beta2)
-    )
+        if isinstance(optimizer, str):
+            optimizer_cls = getattr(torch.optim, optimizer)
+            optimizer = optimizer_cls(model.parameters())
+        else:
+            optimizer = instantiate_class(model.parameters(), optimizer)
+
     optimizer = fabric.setup_optimizers(optimizer)
     scheduler = get_lr_scheduler(optimizer, warmup_steps=train.lr_warmup_steps, max_steps=lr_max_steps)
 

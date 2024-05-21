@@ -10,7 +10,7 @@ import sys
 from dataclasses import asdict, is_dataclass
 from io import BytesIO
 from pathlib import Path
-from typing import TYPE_CHECKING, Any, Dict, Iterable, List, Literal, Mapping, Optional, TypeVar, Union, Tuple
+from typing import TYPE_CHECKING, Any, Dict, Iterable, List, Literal, Mapping, Optional, TypeVar, Union
 
 import lightning as L
 import torch
@@ -486,3 +486,9 @@ def choose_logger(
     if logger_name == "wandb":
         return WandbLogger(project=name, resume=resume, **kwargs)
     raise ValueError(f"`--logger_name={logger_name}` is not a valid option. Choose from 'csv', 'tensorboard', 'wandb'.")
+
+
+def get_argument_names(cls):
+    sig = inspect.signature(cls.__init__)
+    return {name for name, param in sig.parameters.items()
+            if param.kind in [inspect.Parameter.POSITIONAL_OR_KEYWORD, inspect.Parameter.KEYWORD_ONLY]}
