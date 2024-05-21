@@ -142,6 +142,10 @@ def main() -> None:
 
     torch.set_float32_matmul_precision("high")
 
+    # dictionary unpacking on the jsonargparse namespace seems to flatten inner namespaces. i dont know if that's a bug or intended
+    # but we can simply convert to dict at this point
+    kwargs = kwargs.as_dict()
+
     fn(**kwargs)
 
 

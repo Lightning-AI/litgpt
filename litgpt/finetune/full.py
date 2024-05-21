@@ -54,10 +54,9 @@ def setup(
         max_seq_length=None,
     ),
     eval: EvalArgs = EvalArgs(interval=600, max_new_tokens=100, max_iters=100),
-    optimizer: Optional[Optimizer] = None,
+    optimizer: Union[str, Dict] = "Adam",
     logger_name: Literal["wandb", "tensorboard", "csv"] = "csv",
     seed: int = 1337,
-    **kwargs
 ) -> None:
     """Finetune a model.
 
@@ -79,18 +78,6 @@ def setup(
     pprint(locals())
 
     data = Alpaca() if data is None else data
-    # optimizer = torch.optim.AdamW if optimizer is None else optimizer
-
-    optimizer_class_path = None
-    optimizer_init_args = {}
-    for key, value in list(kwargs.items()):
-        if key.startswith("optimizer"):
-            if "class_path" in key:
-                optimizer_class_path = value
-            elif "init_args" in key:
-                init_arg_key = key.split(".")[-1]
-                optimizer_init_args[init_arg_key] = value
-            del kwargs[key]
 
     devices = parse_devices(devices)
     out_dir = init_out_dir(out_dir)
@@ -115,7 +102,7 @@ def setup(
         strategy = "auto"
 
     fabric = L.Fabric(devices=devices, strategy=strategy, precision=precision, loggers=logger)
-    fabric.launch(main, devices, resume, seed, config, data, checkpoint_dir, out_dir, train, eval, optimizer_class_path, optimizer_init_args)
+    fabric.launch(main, devices, resume, seed, config, data, checkpoint_dir, out_dir, train, eval, optimizer)
 
 
 def main(
@@ -129,8 +116,7 @@ def main(
     out_dir: Path,
     train: TrainArgs,
     eval: EvalArgs,
-    optimizer_class_path: str,
-    optimizer_init_args: str,
+    optimizer: Union[str, Dict],
 ) -> None:
     validate_args(train, eval)
 
@@ -152,13 +138,11 @@ def main(
 
     model = fabric.setup(model)
 
-    #optimizer_cls = {"lr": train.learning_rate, "weight_decay": train.weight_decay, "betas": (train.beta1, train.beta2)}
-    optimizer_cls = optimizer_init_args
-    if not optimizer_class_path:
-        optimizer = torch.optim.AdamW
-        optimizer_class_path = f"{optimizer.__module__}.{optimizer.__name__}"
-
-    optimizer = instantiate_class(model.parameters(), {"class_path": optimizer_class_path, "init_args": optimizer_cls})
+    if isinstance(optimizer, str):
+        optimizer_cls = getattr(torch.optim, optimizer)
+        optimizer = optimizer_cls(model.parameters())
+    else:
+        optimizer = instantiate_class(model.parameters(), optimizer)
 
     optimizer = fabric.setup_optimizers(optimizer)
     scheduler = get_lr_scheduler(optimizer, warmup_steps=train.lr_warmup_steps, max_steps=lr_max_steps)
