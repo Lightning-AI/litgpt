@@ -80,7 +80,6 @@ litgpt pretrain \
    --data TextFiles \
    --data.train_data_path custom_pretraining_data \
    --train.lr_warmup_steps=200
-   --optimizer AdamW \
    --optimizer.lr 0.005
 ```
 
@@ -119,7 +118,6 @@ litgpt pretrain \
    --data TextFiles \
    --data.train_data_path custom_pretraining_data \
    --train.lr_warmup_steps=200
-   --optimizer AdamW \
    --optimizer.lr 0.005
 ```
 
