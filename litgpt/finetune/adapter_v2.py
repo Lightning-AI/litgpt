@@ -9,7 +9,6 @@ from typing import Dict, List, Literal, Optional, Tuple, Union
 
 import lightning as L
 import torch
-from lightning.pytorch.cli import instantiate_class
 from lightning.fabric.plugins import BitsandbytesPrecision
 from lightning.fabric.strategies import FSDPStrategy
 from lightning.fabric.utilities import ThroughputMonitor
@@ -28,9 +27,10 @@ from litgpt.utils import (
     choose_logger,
     chunked_cross_entropy,
     copy_config_files,
-    get_argument_names,
     get_default_supported_precision,
     init_out_dir,
+    instantiate_torch_optimizer,
+    instantiate_bnb_optimizer,
     load_checkpoint,
     num_parameters,
     parse_devices,
@@ -150,22 +150,9 @@ def main(
     model = fabric.setup_module(model)
 
     if isinstance(fabric.strategy.precision, BitsandbytesPrecision):
-        if (isinstance(optimizer, str) and "AdamW" not in optimizer) or (isinstance(optimizer, dict) and "AdamW" not in optimizer.get("class_path", "")):
-            raise ValueError("The chosen quantization format only supports the AdamW optimizer.")
-
-        import bitsandbytes as bnb
-        if isinstance(optimizer, str):
-            optimizer = bnb.optim.PagedAdamW(model.parameters())
-        else:
-            optim_args = get_argument_names(bnb.optim.PagedAdamW)
-            allowed_kwargs = {key: optimizer["init_args"][key] for key in optim_args & optimizer["init_args"].keys()}
-            optimizer = bnb.optim.PagedAdamW(model.parameters(), **allowed_kwargs)
+        optimizer = instantiate_bnb_optimizer(optimizer, model.parameters())
     else:
-        if isinstance(optimizer, str):
-            optimizer_cls = getattr(torch.optim, optimizer)
-            optimizer = optimizer_cls(model.parameters())
-        else:
-            optimizer = instantiate_class(model.parameters(), optimizer)
+        optimizer = instantiate_torch_optimizer(optimizer, model.parameters())
 
     optimizer = fabric.setup_optimizers(optimizer)
     scheduler = get_lr_scheduler(optimizer, warmup_steps=train.lr_warmup_steps, max_steps=lr_max_steps)

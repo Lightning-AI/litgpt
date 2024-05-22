@@ -11,7 +11,6 @@ from typing import Optional, Tuple, Union, Dict
 import lightning as L
 import torch
 import torch.nn as nn
-from lightning.pytorch.cli import instantiate_class
 from lightning.fabric.strategies import FSDPStrategy
 from lightning.fabric.utilities.throughput import ThroughputMonitor, measure_flops
 from torch.utils.data import DataLoader
@@ -24,7 +23,6 @@ from litgpt.config import name_to_config
 from litgpt.data import DataModule, TinyLlama
 from litgpt.model import GPT, Block, CausalSelfAttention, Config, LLaMAMLP
 from litgpt.utils import (
-    CLI,
     CycleIterator,
     capture_hparams,
     choose_logger,
@@ -32,6 +30,7 @@ from litgpt.utils import (
     copy_config_files,
     get_default_supported_precision,
     init_out_dir,
+    instantiate_torch_optimizer,
     num_parameters,
     parse_devices,
     reset_parameters,
@@ -175,13 +174,8 @@ def main(
     model = torch.compile(model)
     model = fabric.setup(model)
 
-    if isinstance(optimizer, str):
-        optimizer_cls = getattr(torch.optim, optimizer)
-        optimizer = optimizer_cls(model.parameters(), fused=fabric.device.type == "cuda")
-    else:
-        #optimizer["fused"] = fabric.device.type == "cuda"
-        optimizer = instantiate_class(model.parameters(), optimizer)
-
+    # TODO: add fused=fabric.device.type == "cuda"
+    optimizer = instantiate_torch_optimizer(optimizer, model.parameters())
     optimizer = fabric.setup_optimizers(optimizer)
 
     train_dataloader, val_dataloader = get_dataloaders(fabric, data, tokenizer, train, model.max_seq_length)

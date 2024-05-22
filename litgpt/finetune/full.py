@@ -9,7 +9,6 @@ from typing import Dict, List, Literal, Optional, Tuple, Union
 
 import lightning as L
 import torch
-from lightning.pytorch.cli import instantiate_class
 from lightning.fabric.strategies import FSDPStrategy
 from torch.utils.data import DataLoader
 from torchmetrics import RunningMean
@@ -29,6 +28,7 @@ from litgpt.utils import (
     get_default_supported_precision,
     load_checkpoint,
     init_out_dir,
+    instantiate_torch_optimizer,
     num_parameters,
     parse_devices,
     save_hyperparameters,
@@ -136,12 +136,7 @@ def main(
 
     model = fabric.setup(model)
 
-    if isinstance(optimizer, str):
-        optimizer_cls = getattr(torch.optim, optimizer)
-        optimizer = optimizer_cls(model.parameters())
-    else:
-        optimizer = instantiate_class(model.parameters(), optimizer)
-
+    optimizer = instantiate_torch_optimizer(optimizer, model.parameters())
     optimizer = fabric.setup_optimizers(optimizer)
     scheduler = get_lr_scheduler(optimizer, warmup_steps=train.lr_warmup_steps, max_steps=lr_max_steps)
     state = {"model": model, "optimizer": optimizer, "scheduler": scheduler, "iter_num": 0, "step_count": 0}
