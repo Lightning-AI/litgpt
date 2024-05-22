@@ -124,7 +124,7 @@ def copy_weights_hf_llama(
         "model.layers.{}.self_attn.o_proj.weight": "transformer.h.{l}.attn.proj.weight",
         "model.layers.{}.self_attn.rotary_emb.inv_freq": None,
         "model.layers.{}.post_attention_layernorm.weight": "transformer.h.{l}.norm_2.weight",
-        "model.layers.{}.post_attention_layernorm.bias": "transfo.attention.wkrmer.h.{l}.norm_2.bias",
+        "model.layers.{}.post_attention_layernorm.bias": "transformer.h.{l}.norm_2.bias",
         "model.norm.weight": "transformer.ln_f.weight",
         "model.norm.bias": "transformer.ln_f.bias",
         "lm_head.weight": "lm_head.weight",
