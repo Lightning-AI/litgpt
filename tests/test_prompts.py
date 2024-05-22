@@ -61,8 +61,10 @@ def test_prompt_style_from_config():
         "CodeLlama-70b-Instruct-hf",
         "phi-1_5",
         "phi-2",
+        "Mistral-7B-v0.3",
         "Mistral-7B-Instruct-v0.1",
         "Mistral-7B-Instruct-v0.2",
+        "Mistral-7B-Instruct-v0.3",
         "tiny-llama-1.1b-chat",
         "Llama-2-7b-chat-hf-function-calling-v2",
     ]
