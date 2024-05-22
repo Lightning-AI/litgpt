@@ -84,6 +84,7 @@ seed: 1337
 
 # Optimizer-related arguments
 optimizer:
+
   class_path: torch.optim.AdamW
   
   init_args:
