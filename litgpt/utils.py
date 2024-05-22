@@ -509,10 +509,10 @@ def instantiate_bnb_optimizer(optimizer, model_parameters):
     return optimizer
 
 
-def instantiate_torch_optimizer(optimizer, model_parameters):
+def instantiate_torch_optimizer(optimizer, model_parameters, **kwargs):
     if isinstance(optimizer, str):
         optimizer_cls = getattr(torch.optim, optimizer)
-        optimizer = optimizer_cls(model_parameters)
+        optimizer = optimizer_cls(model_parameters, **kwargs)
     else:
-        optimizer = instantiate_class(model_parameters, optimizer)
+        optimizer = instantiate_class(model_parameters, optimizer, **kwargs)
     return optimizer

@@ -174,8 +174,8 @@ def main(
     model = torch.compile(model)
     model = fabric.setup(model)
 
-    # TODO: add fused=fabric.device.type == "cuda"
-    optimizer = instantiate_torch_optimizer(optimizer, model.parameters())
+    extra_kwargs = {"fused": fabric.device.type == "cuda"}
+    optimizer = instantiate_torch_optimizer(optimizer, model.parameters(), **extra_kwargs)
     optimizer = fabric.setup_optimizers(optimizer)
 
     train_dataloader, val_dataloader = get_dataloaders(fabric, data, tokenizer, train, model.max_seq_length)
