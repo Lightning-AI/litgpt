@@ -28,6 +28,7 @@ from litgpt.utils import (
     get_default_supported_precision,
     load_checkpoint,
     init_out_dir,
+    instantiate_torch_optimizer,
     num_parameters,
     parse_devices,
     save_hyperparameters,
@@ -48,10 +49,10 @@ def setup(
         micro_batch_size=1,
         lr_warmup_steps=100,
         epochs=5,
-        learning_rate=3e-3,
         max_seq_length=None,
     ),
     eval: EvalArgs = EvalArgs(interval=600, max_new_tokens=100, max_iters=100),
+    optimizer: Union[str, Dict] = "AdamW",
     logger_name: Literal["wandb", "tensorboard", "csv"] = "csv",
     seed: int = 1337,
 ) -> None:
@@ -68,12 +69,14 @@ def setup(
         data: Data-related arguments. If not provided, the default is ``litgpt.data.Alpaca``.
         train: Training-related arguments. See ``litgpt.args.TrainArgs`` for details.
         eval: Evaluation-related arguments. See ``litgpt.args.EvalArgs`` for details.
+        optimizer: An optimizer name (such as "AdamW") or config.
         logger_name: The name of the logger to send metrics to.
         seed: The random seed to use for reproducibility.
     """
-
     pprint(locals())
+
     data = Alpaca() if data is None else data
+
     devices = parse_devices(devices)
     out_dir = init_out_dir(out_dir)
 
@@ -97,7 +100,7 @@ def setup(
         strategy = "auto"
 
     fabric = L.Fabric(devices=devices, strategy=strategy, precision=precision, loggers=logger)
-    fabric.launch(main, devices, resume, seed, config, data, checkpoint_dir, out_dir, train, eval)
+    fabric.launch(main, devices, resume, seed, config, data, checkpoint_dir, out_dir, train, eval, optimizer)
 
 
 def main(
@@ -111,6 +114,7 @@ def main(
     out_dir: Path,
     train: TrainArgs,
     eval: EvalArgs,
+    optimizer: Union[str, Dict],
 ) -> None:
     validate_args(train, eval)
 
@@ -131,9 +135,8 @@ def main(
     fabric.print(f"Number of trainable parameters: {num_parameters(model, requires_grad=True):,}")
 
     model = fabric.setup(model)
-    optimizer = torch.optim.AdamW(
-        model.parameters(), lr=train.learning_rate, weight_decay=train.weight_decay, betas=(train.beta1, train.beta2)
-    )
+
+    optimizer = instantiate_torch_optimizer(optimizer, model.parameters())
     optimizer = fabric.setup_optimizers(optimizer)
     scheduler = get_lr_scheduler(optimizer, warmup_steps=train.lr_warmup_steps, max_steps=lr_max_steps)
     state = {"model": model, "optimizer": optimizer, "scheduler": scheduler, "iter_num": 0, "step_count": 0}
@@ -371,4 +374,3 @@ def validate_args(train: TrainArgs, eval: EvalArgs) -> None:
         issues.append(f"{__file__} requires either epochs or max_steps to be set. This is set in {train}")
     if issues:
         raise ValueError("\n".join(issues))
-

@@ -118,7 +118,10 @@ def main() -> None:
             if k == "help":
                 continue
             subsubcommand_parser = _new_parser()
-            subsubcommand_parser.add_function_arguments(v["fn"])
+            if subcommand in ("finetune", "pretrain"):
+                subsubcommand_parser.add_subclass_arguments(torch.optim.Optimizer, "optimizer", instantiate=False, fail_untyped=False, skip={"params"})
+                subsubcommand_parser.set_defaults({"optimizer": "AdamW"})
+            subsubcommand_parser.add_function_arguments(v["fn"], skip={"optimizer"})
             subcommands.add_subcommand(k, subsubcommand_parser, help=v["help"])
 
     args = root_parser.parse_args()
@@ -139,6 +142,10 @@ def main() -> None:
     kwargs.pop("config")
 
     torch.set_float32_matmul_precision("high")
+
+    # dictionary unpacking on the jsonargparse namespace seems to flatten inner namespaces. i dont know if that's a bug or intended
+    # but we can simply convert to dict at this point
+    kwargs = kwargs.as_dict()
 
     fn(**kwargs)
 

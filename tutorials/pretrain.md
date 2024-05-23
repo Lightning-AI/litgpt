@@ -79,8 +79,8 @@ litgpt pretrain \
    --tokenizer_dir checkpoints/EleutherAI/pythia-14m \
    --data TextFiles \
    --data.train_data_path custom_pretraining_data \
-   --train.learning_rate 0.005 \
    --train.lr_warmup_steps=200
+   --optimizer.lr 0.005
 ```
 
 
@@ -117,8 +117,8 @@ litgpt pretrain \
    --out_dir new_phi-2_checkpoint \
    --data TextFiles \
    --data.train_data_path custom_pretraining_data \
-   --train.learning_rate 0.005 \
    --train.lr_warmup_steps=200
+   --optimizer.lr 0.005
 ```
 
 

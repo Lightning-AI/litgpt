@@ -16,7 +16,7 @@ fixed_pairs = [
     ("litgpt/pretrain.py", "pretrain/tinystories.yaml"),
     (
         "litgpt/pretrain.py",
-        "https://raw.githubusercontent.com/Lightning-AI/litgpt/main/config_hub/pretrain/tinystories.yaml",
+        "https://raw.githubusercontent.com/Lightning-AI/litgpt/eb6ec386a9ffc8214f6435cb8345789b3b31a267/config_hub/pretrain/tinystories.yaml",
     ),
 ]
 
