@@ -149,7 +149,7 @@ class StreamLitAPI(BaseLitAPI):
             temperature=self.temperature,
             top_k=self.top_k,
             top_p=self.top_p,
-            # stop_tokens=[self.tokenizer.decode(torch.tensor([self.tokenizer.eos_id]))]
+            stop_tokens=([self.tokenizer.eos_id],)
         )
 
     def encode_response(self, output):
