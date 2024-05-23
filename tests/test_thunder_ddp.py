@@ -42,16 +42,14 @@ def test_no_backward_sync(choice):
     if "thunder" in choice:
         import thunder
 
-        cmodel = model = thunder.jit(model)
+        model = thunder.jit(model)
     model = fabric.setup(model)
-    if "thunder" not in choice:
-        cmodel = model
 
     # 6 iters, 3 grad accumulation iters
     for i, enabled in enumerate((True, True, False, True, True, False), 1):
         x = torch.tensor([i * (fabric.local_rank + 1)], device=fabric.device, dtype=torch.float32)
 
-        with fabric.no_backward_sync(cmodel, enabled):
+        with fabric.no_backward_sync(model, enabled):
             y = model(x)
             fabric.backward(y.sum())
         if not enabled:
