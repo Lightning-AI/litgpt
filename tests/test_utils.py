@@ -335,7 +335,7 @@ def test_instantiate_bnb_optimizer_with_dict(model_parameters):
 
 
 def test_instantiate_bnb_optimizer_with_invalid_str(model_parameters):
-    with pytest.raises(ValueError):
+    with pytest.raises(ValueError, match="only supports the AdamW"):
         instantiate_bnb_optimizer("SGD", model_parameters)
 
 
