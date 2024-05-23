@@ -87,11 +87,11 @@ def setup(
         data: Data-related arguments. If not provided, the default is ``litgpt.data.TinyLlama``.
         train: Training-related arguments. See ``litgpt.args.TrainArgs`` for details.
         eval: Evaluation-related arguments. See ``litgpt.args.EvalArgs`` for details.
+        optimizer: An optimizer name (such as "AdamW") or config.
         devices: How many devices/GPUs to use. Uses all GPUs by default.
         tokenizer_dir: Optional path to the tokenizer dir that was used for preprocessing the dataset. Only some data
             module require this.
         logger_name: The name of the logger to send metrics to.
-        optimizer: An optimizer name (such as "AdamW") or config.
         seed: The random seed to use for reproducibility.
         compiler: If desired, the compiler/JIT to use.
         executors: If using Thunder, the executors to enable.
@@ -226,7 +226,7 @@ def main(
         fabric.load(resume, state)
 
     train_time = time.perf_counter()
-    fit(fabric, devices, state, train_dataloader, val_dataloader, out_dir, tokenizer_dir, train, eval)
+    fit(fabric, devices, state, train_dataloader, val_dataloader, out_dir, tokenizer_dir, train, eval, optim)
     fabric.print(f"Training time: {(time.perf_counter()-train_time):.2f}s")
 
     # Save final checkpoint
@@ -283,7 +283,7 @@ def fit(
             break
 
         # determine and set the learning rate for this iteration
-        lr = get_lr(train.learning_rate, state["iter_num"], warmup_iters, max_iters, train.min_lr)
+        lr = get_lr(optimizer.param_groups[0]["lr"], state["iter_num"], warmup_iters, max_iters, train.min_lr)
         for param_group in optimizer.param_groups:
             param_group["lr"] = lr
 
