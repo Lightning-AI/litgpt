@@ -284,7 +284,7 @@ def fit(
             break
 
         # determine and set the learning rate for this iteration
-        lr = get_lr(optimizer.param_groups[0]["lr"], state["iter_num"], warmup_iters, max_iters, train.min_lr)
+        lr = get_lr(optimizer.defaults["lr"], state["iter_num"], warmup_iters, max_iters, train.min_lr)
         for param_group in optimizer.param_groups:
             param_group["lr"] = lr
 
