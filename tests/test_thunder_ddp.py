@@ -44,6 +44,8 @@ def test_no_backward_sync(choice):
 
         cmodel = model = thunder.jit(model)
     model = fabric.setup(model)
+    if "thunder" not in choice:
+        cmodel = model
 
     # 6 iters, 3 grad accumulation iters
     for i, enabled in enumerate((True, True, False, True, True, False), 1):
