@@ -33,10 +33,6 @@ class TrainArgs:
     """Whether to tie the embedding weights with the language modeling head weights"""
 
     # Optimization args
-    learning_rate: float = 1e-3
-    weight_decay: float = 0.02
-    beta1: float = 0.9
-    beta2: float = 0.95
     max_norm: Optional[float] = None
     min_lr: float = 6e-5
 
