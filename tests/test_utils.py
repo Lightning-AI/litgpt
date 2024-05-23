@@ -340,16 +340,13 @@ def test_instantiate_bnb_optimizer_with_invalid_str(model_parameters):
 
 
 def test_instantiate_torch_optimizer_with_str(model_parameters):
-    with mock.patch("litgpt.utils.instantiate_class") as mock_instantiate_class:
-        mock_instantiate_class.return_value = torch.optim.Adam(model_parameters, lr=0.01)
-        optimizer = instantiate_torch_optimizer("Adam", model_parameters, lr=0.01)
-        assert isinstance(optimizer, torch.optim.Adam)
-        assert optimizer.param_groups[0]["lr"] == 0.01
+    optimizer = instantiate_torch_optimizer("Adam", model_parameters, lr=0.01)
+    assert isinstance(optimizer, torch.optim.Adam)
+    assert optimizer.param_groups[0]["lr"] == 0.01
 
 
 def test_instantiate_torch_optimizer_with_class(model_parameters):
-    with mock.patch("litgpt.utils.instantiate_class") as mock_instantiate_class:
-        mock_instantiate_class.return_value = torch.optim.Adam(model_parameters, lr=0.02)
-        optimizer = instantiate_torch_optimizer(torch.optim.Adam, model_parameters, lr=0.02)
-        assert isinstance(optimizer, torch.optim.Adam)
-        assert optimizer.param_groups[0]["lr"] == 0.02
+    optimizer = instantiate_torch_optimizer({"class_path": "torch.optim.Adam", "init_args": {"lr": 123}}, model_parameters, lr=0.02)
+    assert isinstance(optimizer, torch.optim.Adam)
+    # init args gets overridden
+    assert optimizer.param_groups[0]["lr"] == 0.02
