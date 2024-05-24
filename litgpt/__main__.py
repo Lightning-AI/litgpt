@@ -80,24 +80,17 @@ def main() -> None:
 
     # register level 1 subcommands
     subcommands = root_parser.add_subcommands()
-    subcommand_to_parser = {}
     for k, v in parser_data.items():
         subcommand_parser = _new_parser()
         if "fn" in v:
-            subcommand_parser.add_function_arguments(v["fn"])
-        else:
-            subcommand_to_parser[k] = subcommand_parser
+            skip_args = {"optimizer"} if k in ("finetune", "pretrain") else {}
+            subcommand_parser.add_function_arguments(v["fn"], skip=skip_args)
+        if k in ("finetune", "pretrain"):
+            subcommand_parser.add_subclass_arguments(
+                torch.optim.Optimizer, "optimizer", instantiate=False, fail_untyped=False, skip={"params"}
+            )
+            subcommand_parser.set_defaults({"optimizer": "AdamW"})
         subcommands.add_subcommand(k, subcommand_parser, help=v["help"])
-    for subcommand, parser in subcommand_to_parser.items():
-        subcommands = parser.add_subcommands()
-        for k, v in parser_data[subcommand].items():
-            if k == "help":
-                continue
-
-            if subcommand in ("finetune", "pretrain"):
-                subcommand_parser.add_subclass_arguments(torch.optim.Optimizer, "optimizer", instantiate=False, fail_untyped=False, skip={"params"})
-                subcommand_parser.set_defaults({"optimizer": "AdamW"})
-            subcommand_parser.add_function_arguments(v["fn"], skip={"optimizer"})
 
     args = root_parser.parse_args()
     args = root_parser.instantiate_classes(args)
