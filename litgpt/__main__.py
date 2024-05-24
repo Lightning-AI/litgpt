@@ -1,5 +1,4 @@
 # Copyright Lightning AI. Licensed under the Apache License 2.0, see LICENSE file.
-import sys
 
 from typing import TYPE_CHECKING, Any
 
@@ -47,11 +46,11 @@ def main() -> None:
         "download": {"help": "Download weights or tokenizer data from the Hugging Face Hub.", "fn": download_fn},
         "chat": {"help": "Chat with a model.", "fn": chat_fn},
 
-        "finetune": {"help": "Finetune a model (uses LoRA).", "fn": finetune_lora_fn},
-        "finetune_lora": {"help": "Finetune a model with LoRA.", "fn": finetune_lora_fn},
-        "finetune_full": {"help": "Finetune a model.", "fn": finetune_full_fn},
-        "finetune_adapter": {"help": "Finetune a model with Adapter.", "fn": finetune_adapter_fn},
-        "finetune_adapter_v2": {"help": "Finetune a model with Adapter v2.", "fn": finetune_adapter_v2_fn},
+        "finetune": {"fn": finetune_lora_fn, "help": "Finetune a model (uses LoRA)."},
+        "finetune_lora": {"fn": finetune_lora_fn, "help": "Finetune a model with LoRA."},
+        "finetune_full": {"fn": finetune_full_fn, "help": "Finetune a model."},
+        "finetune_adapter": {"fn": finetune_adapter_fn, "help": "Finetune a model with Adapter."},
+        "finetune_adapter_v2": {"fn": finetune_adapter_v2_fn, "help": "Finetune a model with Adapter v2."},
 
         "pretrain": {"help": "Pretrain a model.", "fn": pretrain_fn},
 
@@ -66,9 +65,9 @@ def main() -> None:
         "convert_from_litgpt": {"fn": convert_lit_checkpoint_fn, "help": "Convert LitGPT weights to Hugging Face weights."},
         "convert_pretrained_checkpoint": {"fn": convert_pretrained_checkpoint_fn, "help": "Convert a checkpoint after pretraining."},
 
-        "merge_lora": {"help": "Merges the LoRA weights with the base model.", "fn": merge_lora_fn},
-        "evaluate": {"help": "Evaluate a model with the LM Evaluation Harness.", "fn": evaluate_fn},
-        "serve": {"help": "Serve and deploy a model with LitServe.", "fn": serve_fn},
+        "merge_lora": {"fn": merge_lora_fn, "help": "Merges the LoRA weights with the base model."},
+        "evaluate": {"fn": evaluate_fn, "help": "Evaluate a model with the LM Evaluation Harness."},
+        "serve": {"fn": serve_fn, "help": "Serve and deploy a model with LitServe."},
     }
 
     from jsonargparse import set_config_read_mode, set_docstring_parse_options
@@ -78,18 +77,19 @@ def main() -> None:
 
     root_parser = _new_parser(prog="litgpt")
 
-    # register level 1 subcommands
+    # Register level 1 subcommands directly, integrating optimizer settings when relevant.
     subcommands = root_parser.add_subcommands()
     for k, v in parser_data.items():
         subcommand_parser = _new_parser()
-        if "fn" in v:
-            skip_args = {"optimizer"} if k in ("finetune", "pretrain") else {}
-            subcommand_parser.add_function_arguments(v["fn"], skip=skip_args)
-        if k in ("finetune", "pretrain"):
-            subcommand_parser.add_subclass_arguments(
-                torch.optim.Optimizer, "optimizer", instantiate=False, fail_untyped=False, skip={"params"}
-            )
+        if "finetune" in k or "pretrain" in k:
+            # Add optimizer arguments for finetune and pretrain subcommands
+            subcommand_parser.add_subclass_arguments(torch.optim.Optimizer, "optimizer", instantiate=False, fail_untyped=False, skip={"params"})
             subcommand_parser.set_defaults({"optimizer": "AdamW"})
+
+        if "fn" in v:
+            # Skip optimizer in function arguments if it's already added
+            skip_args = {"optimizer"} if "finetune" in k or "pretrain" in k else {}
+            subcommand_parser.add_function_arguments(v["fn"], skip=skip_args)
         subcommands.add_subcommand(k, subcommand_parser, help=v["help"])
 
     args = root_parser.parse_args()
@@ -99,6 +99,7 @@ def main() -> None:
     subargs = args.get(subcommand)
 
     level_1 = parser_data[subcommand]
+
     fn = level_1["fn"]
     kwargs = subargs
     kwargs.pop("config")
