@@ -42,51 +42,30 @@ def _new_parser(**kwargs: Any) -> "ArgumentParser":
     return parser
 
 
-def _rewrite_argv_for_default_subcommand(parser_data: dict, command: str, subcommand: str) -> None:
-    """Rewrites the `sys.argv` such that `litgpt command` defaults to `litgpt command subcommand`."""
-    if len(sys.argv) > 2 and sys.argv[1] == command and sys.argv[2] not in parser_data[command].keys():
-        sys.argv.insert(2, subcommand)
-
-
 def main() -> None:
     parser_data = {
         "download": {"help": "Download weights or tokenizer data from the Hugging Face Hub.", "fn": download_fn},
         "chat": {"help": "Chat with a model.", "fn": chat_fn},
-        "finetune": {
-            "help": "Finetune a model with one of our existing methods.",
-            "lora": {"help": "Finetune a model with LoRA.", "fn": finetune_lora_fn},
-            "full": {"help": "Finetune a model.", "fn": finetune_full_fn},
-            "adapter": {"help": "Finetune a model with Adapter.", "fn": finetune_adapter_fn},
-            "adapter_v2": {"help": "Finetune a model with Adapter v2.", "fn": finetune_adapter_v2_fn},
-        },
+
+        "finetune": {"help": "Finetune a model (uses LoRA).", "fn": finetune_lora_fn},
+        "finetune_lora": {"help": "Finetune a model with LoRA.", "fn": finetune_lora_fn},
+        "finetune_full": {"help": "Finetune a model.", "fn": finetune_full_fn},
+        "finetune_adapter": {"help": "Finetune a model with Adapter.", "fn": finetune_adapter_fn},
+        "finetune_adapter_v2": {"help": "Finetune a model with Adapter v2.", "fn": finetune_adapter_v2_fn},
+
         "pretrain": {"help": "Pretrain a model.", "fn": pretrain_fn},
-        "generate": {
-            "help": "Generate text samples based on a model and tokenizer.",
-            "base": {"fn": generate_base_fn, "help": "Default generation option."},
-            "full": {"fn": generate_full_fn, "help": "For models finetuned with `litgpt finetune full`."},
-            "adapter": {"fn": generate_adapter_fn, "help": "For models finetuned with `litgpt finetune adapter`."},
-            "adapter_v2": {
-                "fn": generate_adapter_v2_fn,
-                "help": "For models finetuned with `litgpt finetune adapter v2`.",
-            },
-            "sequentially": {
-                "fn": generate_sequentially_fn,
-                "help": "Generation script that partitions layers across devices to be run sequentially.",
-            },
-            "tp": {
-                "fn": generate_tp_fn,
-                "help": "Generation script that uses tensor parallelism to run across devices.",
-            },
-        },
-        "convert": {
-            "help": "Utilities to convert from and to LitGPT.",
-            "to_litgpt": {"fn": convert_hf_checkpoint_fn, "help": "Convert Hugging Face weights to LitGPT weights."},
-            "from_litgpt": {"fn": convert_lit_checkpoint_fn, "help": "Convert LitGPT weights to Hugging Face weights."},
-            "pretrained_checkpoint": {
-                "fn": convert_pretrained_checkpoint_fn,
-                "help": "Convert a checkpoint after pretraining.",
-            },
-        },
+
+        "generate": {"fn": generate_base_fn, "help": "Default generation option."},
+        "generate_full": {"fn": generate_full_fn, "help": "For models finetuned with `litgpt_finetune_full"},
+        "generate_adapter": {"fn": generate_adapter_fn, "help": "For models finetuned with `litgpt_finetune_adapter`."},
+        "generate_adapter_v2": {"fn": generate_adapter_v2_fn, "help": "For models finetuned with `litgpt finetune_adapter_v2`."},
+        "generate_sequentially": {"fn": generate_sequentially_fn, "help": "Generation script that partitions layers across devices to be run sequentially."},
+        "generate_tp": {"fn": generate_tp_fn, "help": "Generation script that uses tensor parallelism to run across devices."},
+
+        "convert_to_litgpt": {"fn": convert_hf_checkpoint_fn, "help": "Convert Hugging Face weights to LitGPT weights."},
+        "convert_from_litgpt": {"fn": convert_lit_checkpoint_fn, "help": "Convert LitGPT weights to Hugging Face weights."},
+        "convert_pretrained_checkpoint": {"fn": convert_pretrained_checkpoint_fn, "help": "Convert a checkpoint after pretraining."},
+
         "merge_lora": {"help": "Merges the LoRA weights with the base model.", "fn": merge_lora_fn},
         "evaluate": {"help": "Evaluate a model with the LM Evaluation Harness.", "fn": evaluate_fn},
         "serve": {"help": "Serve and deploy a model with LitServe.", "fn": serve_fn},
@@ -97,12 +76,9 @@ def main() -> None:
     set_docstring_parse_options(attribute_docstrings=True)
     set_config_read_mode(urls_enabled=True)
 
-    _rewrite_argv_for_default_subcommand(parser_data, "finetune", "lora")
-
     root_parser = _new_parser(prog="litgpt")
 
-    # register level 1 subcommands and level 2 subsubcommands. If there are more levels in the future we would want to
-    # refactor this to do BFS traversal for registration
+    # register level 1 subcommands
     subcommands = root_parser.add_subcommands()
     subcommand_to_parser = {}
     for k, v in parser_data.items():
@@ -117,33 +93,26 @@ def main() -> None:
         for k, v in parser_data[subcommand].items():
             if k == "help":
                 continue
-            subsubcommand_parser = _new_parser()
+
             if subcommand in ("finetune", "pretrain"):
-                subsubcommand_parser.add_subclass_arguments(torch.optim.Optimizer, "optimizer", instantiate=False, fail_untyped=False, skip={"params"})
-                subsubcommand_parser.set_defaults({"optimizer": "AdamW"})
-            subsubcommand_parser.add_function_arguments(v["fn"], skip={"optimizer"})
-            subcommands.add_subcommand(k, subsubcommand_parser, help=v["help"])
+                subcommand_parser.add_subclass_arguments(torch.optim.Optimizer, "optimizer", instantiate=False, fail_untyped=False, skip={"params"})
+                subcommand_parser.set_defaults({"optimizer": "AdamW"})
+            subcommand_parser.add_function_arguments(v["fn"], skip={"optimizer"})
 
     args = root_parser.parse_args()
     args = root_parser.instantiate_classes(args)
 
     subcommand = args.get("subcommand")
     subargs = args.get(subcommand)
-    subsubcommand = subargs.get("subcommand")
-    subsubargs = subargs.get(subsubcommand) if isinstance(subsubcommand, str) else None
 
     level_1 = parser_data[subcommand]
-    if subsubcommand is None:
-        fn = level_1["fn"]
-        kwargs = subargs
-    else:
-        fn = level_1[subsubcommand]["fn"]
-        kwargs = subsubargs
+    fn = level_1["fn"]
+    kwargs = subargs
     kwargs.pop("config")
 
     torch.set_float32_matmul_precision("high")
 
-    # dictionary unpacking on the jsonargparse namespace seems to flatten inner namespaces. i dont know if that's a bug or intended
+    # dictionary unpacking on the jsonargparse namespace seems to flatten inner namespaces. I dont know if that's a bug or intended
     # but we can simply convert to dict at this point
     kwargs = kwargs.as_dict()
 
