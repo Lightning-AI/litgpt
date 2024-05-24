@@ -149,11 +149,10 @@ Here's an example showing how to use the Phi-2 LLM.
 
 ```bash
 # 1) Download a pretrained model
-litgpt download --repo_id microsoft/phi-2
+litgpt download microsoft/phi-2
 
 # 2) Chat with the model
-litgpt chat \
-  --checkpoint_dir checkpoints/microsoft/phi-2
+litgpt chat microsoft/phi-2
 
 >> Prompt: What do Llamas eat?
 ```
@@ -174,21 +173,19 @@ For more information on the different inference options, refer to the [inference
 
 ```bash
 # 1) Download a pretrained model
-litgpt download --repo_id microsoft/phi-2
+litgpt download microsoft/phi-2
 
 # 2) Finetune the model
 curl -L https://huggingface.co/datasets/ksaw008/finance_alpaca/resolve/main/finance_alpaca.json -o my_custom_dataset.json
 
-litgpt finetune \
-  --checkpoint_dir checkpoints/microsoft/phi-2 \
+litgpt finetune microsoft/phi-2 \
   --data JSON \
   --data.json_path my_custom_dataset.json \
   --data.val_split_fraction 0.1 \
   --out_dir out/custom-model
 
 # 3) Chat with the model
-litgpt chat \
-  --checkpoint_dir out/custom-model/final
+litgpt chat out/custom-model/final
 ```
 
 &nbsp;
@@ -208,22 +205,19 @@ curl https://www.gutenberg.org/cache/epub/24440/pg24440.txt --output custom_text
 curl https://www.gutenberg.org/cache/epub/26393/pg26393.txt --output custom_texts/book2.txt
 
 # 1) Download a tokenizer
-litgpt download \
-  --repo_id EleutherAI/pythia-160m \
+litgpt download EleutherAI/pythia-160m \
   --tokenizer_only True
 
 # 2) Pretrain the model
-litgpt pretrain \
-  --model_name pythia-160m \
-  --tokenizer_dir checkpoints/EleutherAI/pythia-160m \
+litgpt pretrain EleutherAI/pythia-160m \
+  --tokenizer_dir EleutherAI/pythia-160m \
   --data TextFiles \
   --data.train_data_path "custom_texts/" \
   --train.max_tokens 10_000_000 \
   --out_dir out/custom-model
 
 # 3) Chat with the model
-litgpt chat \
-  --checkpoint_dir out/custom-model/final
+litgpt chat out/custom-model/final
 ```
 
 &nbsp;
@@ -244,21 +238,19 @@ curl https://www.gutenberg.org/cache/epub/24440/pg24440.txt --output custom_text
 curl https://www.gutenberg.org/cache/epub/26393/pg26393.txt --output custom_texts/book2.txt
 
 # 1) Download a pretrained model
-litgpt download --repo_id EleutherAI/pythia-160m
+litgpt download EleutherAI/pythia-160m
 
 # 2) Continue pretraining the model
-litgpt pretrain \
-  --model_name pythia-160m \
-  --tokenizer_dir checkpoints/EleutherAI/pythia-160m \
-  --initial_checkpoint_dir checkpoints/EleutherAI/pythia-160m \
+litgpt pretrain EleutherAI/pythia-160m \
+  --tokenizer_dir EleutherAI/pythia-160m \
+  --initial_checkpoint_dir EleutherAI/pythia-160m \
   --data TextFiles \
   --data.train_data_path "custom_texts/" \
   --train.max_tokens 10_000_000 \
   --out_dir out/custom-model
 
 # 3) Chat with the model
-litgpt chat \
-  --checkpoint_dir out/custom-model/final
+litgpt chat out/custom-model/final
 ```
 
 &nbsp;
@@ -274,11 +266,11 @@ Once you're ready to deploy a finetuned LLM, run this command:
 
 ```bash
 # locate the checkpoint to your finetuned or pretrained model and call the `serve` command:
-litgpt serve --checkpoint_dir path/to/your/checkpoint/microsoft/phi-2
+litgpt serve microsoft/phi-2
 
 # Alternative: if you haven't finetuned, download any checkpoint to deploy it:
-litgpt download --repo_id microsoft/phi-2
-litgpt serve --checkpoint_dir checkpoints/microsoft/phi-2
+litgpt download microsoft/phi-2
+litgpt serve microsoft/phi-2
 ```
 
 Test the server in a separate terminal and integrate the model API into your AI product:
