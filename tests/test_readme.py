@@ -62,7 +62,7 @@ def test_download_books():
 
 @pytest.mark.dependency(depends=["test_download_model"])
 def test_chat_with_model():
-    command = ["litgpt", "generate", "base", "--checkpoint_dir", f"checkpoints"/REPO_ID]
+    command = ["litgpt", "generate", "--checkpoint_dir", f"checkpoints"/REPO_ID]
     prompt = "What do Llamas eat?"
     result = subprocess.run(command, input=prompt, text=True, capture_output=True, check=True)
     assert "What food do llamas eat?" in result.stdout
@@ -82,7 +82,7 @@ def test_finetune_model():
     assert DATASET_PATH.exists(), "Dataset file not downloaded"
 
     finetune_command = [
-        "litgpt", "finetune", "lora",
+        "litgpt", "finetune_lora",
         "--checkpoint_dir", str(CHECKPOINT_DIR),
         "--lora_r", "1",
         "--data", "JSON",
