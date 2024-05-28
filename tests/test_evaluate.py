@@ -44,4 +44,4 @@ def test_cli():
     args = ["litgpt", "evaluate", "-h"]
     output = subprocess.check_output(args)
     output = str(output.decode())
-    assert "run the LM Evaluation Harness" in output
+    assert "Evaluate a model with the LM Evaluation Harness" in output

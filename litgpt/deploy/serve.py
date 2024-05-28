@@ -117,7 +117,7 @@ def run_server(
     accelerator: str = "auto",
     port: int = 8000
 ) -> None:
-    """Serve a LitGPT model using LitServe
+    """Serve a LitGPT model using LitServe.
 Evaluate a model with the LM Evaluation Harness.
     Arguments:
         checkpoint_dir: The checkpoint directory to load the model from.

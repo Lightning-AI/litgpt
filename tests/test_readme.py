@@ -38,7 +38,7 @@ def run_command(command):
 @pytest.mark.dependency()
 def test_download_model():
     repo_id = str(REPO_ID).replace("\\", "/")  # fix for Windows CI
-    command = ["litgpt", "download", "--repo_id", str(repo_id)]
+    command = ["litgpt", "download", str(repo_id)]
     output = run_command(command)
 
     s = Path("checkpoints") / repo_id

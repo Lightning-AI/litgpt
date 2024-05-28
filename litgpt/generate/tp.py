@@ -103,7 +103,7 @@ def main(
     compile: bool = False,
 ) -> None:
     """Generation script that uses tensor parallelism to run across devices.
-    
+
     Generates text samples based on a pre-trained model and tokenizer.
 
     Args:

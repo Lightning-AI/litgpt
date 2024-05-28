@@ -52,4 +52,4 @@ def test_cli(version):
     args = ["litgpt", f"generate_adapter{version}", "-h"]
     output = subprocess.check_output(args)
     output = str(output.decode())
-    assert "Generates a response" in output
+    assert "For models finetuned with `litgpt finetune_adapter`" in output

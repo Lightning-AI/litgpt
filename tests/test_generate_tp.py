@@ -134,4 +134,4 @@ def test_cli():
     args = ["litgpt", "generate", "tp", "-h"]
     output = subprocess.check_output(args)
     output = str(output.decode())
-    assert "Generates text samples" in output
+    assert "Generation script that uses tensor parallelism" in output

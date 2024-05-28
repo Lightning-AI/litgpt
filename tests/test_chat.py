@@ -126,7 +126,7 @@ def test_cli():
     args = ["litgpt", "chat", "-h"]
     output = subprocess.check_output(args)
     output = str(output.decode())
-    assert "Starts a conversation" in output
+    assert "Chat with a model" in output
 
 
 @patch("litgpt.chat.base.input")

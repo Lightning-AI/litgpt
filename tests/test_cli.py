@@ -27,7 +27,7 @@ def test_cli():
         in out
     )
     assert """evaluate            Evaluate a model with the LM Evaluation Harness.""" in out
-    assert """serve               Serve and deploy a model with LitServe.""" in out
+    assert """serve               Serve a LitGPT model using LitServe.""" in out
     out = StringIO()
     with pytest.raises(SystemExit), redirect_stdout(out), mock.patch("sys.argv", ["litgpt", "finetune_lora", "-h"]):
         main()
