@@ -167,7 +167,7 @@ def main(
     compile: bool = False,
     multiline: bool = False,
 ) -> None:
-    """Starts a conversation with a tuned GPT model.
+    """Chat with a model.
 
     Args:
         top_k: The number of top most probable tokens to consider in the sampling process.

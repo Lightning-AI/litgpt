@@ -118,7 +118,7 @@ def run_server(
     port: int = 8000
 ) -> None:
     """Serve a LitGPT model using LitServe
-
+Evaluate a model with the LM Evaluation Harness.
     Arguments:
         checkpoint_dir: The checkpoint directory to load the model from.
         precision: Optional precision setting to instantiate the model weights in. By default, this will

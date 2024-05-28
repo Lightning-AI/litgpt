@@ -102,7 +102,9 @@ def main(
     precision: Optional[str] = None,
     compile: bool = False,
 ) -> None:
-    """Generates text samples based on a pre-trained model and tokenizer.
+    """Generation script that uses tensor parallelism to run across devices.
+    
+    Generates text samples based on a pre-trained model and tokenizer.
 
     Args:
         prompt: The prompt string to use for generating the samples.

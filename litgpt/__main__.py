@@ -43,74 +43,64 @@ def _new_parser(**kwargs: Any) -> "ArgumentParser":
 
 def main() -> None:
     parser_data = {
-        "download": {"help": "Download weights or tokenizer data from the Hugging Face Hub.", "fn": download_fn},
-        "chat": {"help": "Chat with a model.", "fn": chat_fn},
+        "download": {"fn": download_fn, "_help": "Download weights or tokenizer data from the Hugging Face Hub."},
+        "chat": {"fn": chat_fn, "_help": "Chat with a model."},
 
-        "finetune": {"fn": finetune_lora_fn, "help": "Finetune a model (uses LoRA)."},
-        "finetune_lora": {"fn": finetune_lora_fn, "help": "Finetune a model with LoRA."},
-        "finetune_full": {"fn": finetune_full_fn, "help": "Finetune a model."},
-        "finetune_adapter": {"fn": finetune_adapter_fn, "help": "Finetune a model with Adapter."},
-        "finetune_adapter_v2": {"fn": finetune_adapter_v2_fn, "help": "Finetune a model with Adapter v2."},
+        "finetune": {"fn": finetune_lora_fn, "_help": "Finetune a model (uses LoRA)."},
+        "finetune_lora": {"fn": finetune_lora_fn, "_help": "Finetune a model with LoRA."},
+        "finetune_full": {"fn": finetune_full_fn, "_help": "Finetune a model."},
+        "finetune_adapter": {"fn": finetune_adapter_fn, "_help": "Finetune a model with Adapter."},
+        "finetune_adapter_v2": {"fn": finetune_adapter_v2_fn, "_help": "Finetune a model with Adapter v2."},
 
-        "pretrain": {"help": "Pretrain a model.", "fn": pretrain_fn},
+        "pretrain": {"fn": pretrain_fn, "_help": "Pretrain a model.", },
 
-        "generate": {"fn": generate_base_fn, "help": "Default generation option."},
-        "generate_full": {"fn": generate_full_fn, "help": "For models finetuned with `litgpt_finetune_full"},
-        "generate_adapter": {"fn": generate_adapter_fn, "help": "For models finetuned with `litgpt_finetune_adapter`."},
-        "generate_adapter_v2": {"fn": generate_adapter_v2_fn, "help": "For models finetuned with `litgpt finetune_adapter_v2`."},
-        "generate_sequentially": {"fn": generate_sequentially_fn, "help": "Generation script that partitions layers across devices to be run sequentially."},
-        "generate_tp": {"fn": generate_tp_fn, "help": "Generation script that uses tensor parallelism to run across devices."},
+        "generate": {"fn": generate_base_fn, "_help": "Default generation option."},
+        "generate_full": {"fn": generate_full_fn, "_help": "For models finetuned with `litgpt_finetune_full"},
+        "generate_adapter": {"fn": generate_adapter_fn, "_help": "For models finetuned with `litgpt_finetune_adapter`."},
+        "generate_adapter_v2": {"fn": generate_adapter_v2_fn, "_help": "For models finetuned with `litgpt finetune_adapter_v2`."},
+        "generate_sequentially": {"fn": generate_sequentially_fn, "_help": "Generation script that partitions layers across devices to be run sequentially."},
+        "generate_tp": {"fn": generate_tp_fn, "_help": "Generation script that uses tensor parallelism to run across devices."},
 
-        "convert_to_litgpt": {"fn": convert_hf_checkpoint_fn, "help": "Convert Hugging Face weights to LitGPT weights."},
-        "convert_from_litgpt": {"fn": convert_lit_checkpoint_fn, "help": "Convert LitGPT weights to Hugging Face weights."},
-        "convert_pretrained_checkpoint": {"fn": convert_pretrained_checkpoint_fn, "help": "Convert a checkpoint after pretraining."},
+        "convert_to_litgpt": {"fn": convert_hf_checkpoint_fn, "_help": "Convert Hugging Face weights to LitGPT weights."},
+        "convert_from_litgpt": {"fn": convert_lit_checkpoint_fn, "_help": "Convert LitGPT weights to Hugging Face weights."},
+        "convert_pretrained_checkpoint": {"fn": convert_pretrained_checkpoint_fn, "_help": "Convert a checkpoint after pretraining."},
 
-        "merge_lora": {"fn": merge_lora_fn, "help": "Merges the LoRA weights with the base model."},
-        "evaluate": {"fn": evaluate_fn, "help": "Evaluate a model with the LM Evaluation Harness."},
-        "serve": {"fn": serve_fn, "help": "Serve and deploy a model with LitServe."},
+        "merge_lora": {"fn": merge_lora_fn, "_help": "Merges the LoRA weights with the base model."},
+        "evaluate": {"fn": evaluate_fn, "_help": "Evaluate a model with the LM Evaluation Harness."},
+        "serve": {"fn": serve_fn, "_help": "Serve and deploy a model with LitServe."},
     }
 
-    from jsonargparse import set_config_read_mode, set_docstring_parse_options
+    parser_data = {
+        "download": download_fn,
+        "chat": chat_fn,
+        "finetune": finetune_lora_fn,
+        "finetune_lora": finetune_lora_fn,
+        "finetune_full": finetune_full_fn,
+        "finetune_adapter": finetune_adapter_fn,
+        "finetune_adapter_v2": finetune_adapter_v2_fn,
+        "pretrain": pretrain_fn,
+        "generate": generate_base_fn,
+        "generate_full": generate_full_fn,
+        "generate_adapter": generate_adapter_fn,
+        "generate_adapter_v2": generate_adapter_v2_fn,
+        "generate_sequentially": generate_sequentially_fn,
+        "generate_tp": generate_tp_fn,
+        "convert_to_litgpt": convert_hf_checkpoint_fn,
+        "convert_from_litgpt": convert_lit_checkpoint_fn,
+        "convert_pretrained_checkpoint": convert_pretrained_checkpoint_fn,
+        "merge_lora": merge_lora_fn,
+        "evaluate": evaluate_fn,
+        "serve": serve_fn
+    }
+
+    from jsonargparse import set_config_read_mode, set_docstring_parse_options, CLI
 
     set_docstring_parse_options(attribute_docstrings=True)
     set_config_read_mode(urls_enabled=True)
 
-    root_parser = _new_parser(prog="litgpt")
-
-    # Register level 1 subcommands directly, integrating optimizer settings when relevant.
-    subcommands = root_parser.add_subcommands()
-    for k, v in parser_data.items():
-        subcommand_parser = _new_parser()
-        if "finetune" in k or "pretrain" in k:
-            # Add optimizer arguments for finetune and pretrain subcommands
-            subcommand_parser.add_subclass_arguments(torch.optim.Optimizer, "optimizer", instantiate=False, fail_untyped=False, skip={"params"})
-            subcommand_parser.set_defaults({"optimizer": "AdamW"})
-
-        if "fn" in v:
-            # Skip optimizer in function arguments if it's already added
-            skip_args = {"optimizer"} if "finetune" in k or "pretrain" in k else {}
-            subcommand_parser.add_function_arguments(v["fn"], skip=skip_args)
-        subcommands.add_subcommand(k, subcommand_parser, help=v["help"])
-
-    args = root_parser.parse_args()
-    args = root_parser.instantiate_classes(args)
-
-    subcommand = args.get("subcommand")
-    subargs = args.get(subcommand)
-
-    level_1 = parser_data[subcommand]
-
-    fn = level_1["fn"]
-    kwargs = subargs
-    kwargs.pop("config")
-
+    CLI(parser_data)
     torch.set_float32_matmul_precision("high")
 
-    # dictionary unpacking on the jsonargparse namespace seems to flatten inner namespaces. I dont know if that's a bug or intended
-    # but we can simply convert to dict at this point
-    kwargs = kwargs.as_dict()
-
-    fn(**kwargs)
 
 
 if __name__ == "__main__":

@@ -79,8 +79,8 @@ def generate(
     top_p: float = 1.0,
     eos_id: Optional[int] = None,
 ) -> torch.Tensor:
-    """Takes a conditioning sequence (prompt) as input and continues to generate as many tokens as requested.
-
+    """
+    Takes a conditioning sequence (prompt) as input and continues to generate as many tokens as requested.
     The implementation of this function is modified from A. Karpathy's nanoGPT.
 
     Args:
@@ -145,7 +145,9 @@ def main(
     precision: Optional[str] = None,
     compile: bool = False,
 ) -> None:
-    """Generates text samples based on a pre-trained model and tokenizer.
+    """Default generation option.
+
+    Generates text samples based on a pre-trained model and tokenizer.
 
     Args:
         prompt: The prompt string to use for generating the samples.

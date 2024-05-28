@@ -28,7 +28,9 @@ def main(
     temperature: float = 0.8,
     precision: Optional[str] = None,
 ) -> None:
-    """Generates a response based on a given instruction and an optional input. This script will only work with
+    """For models finetuned with `litgpt finetune adapter_v2`
+
+    Generates a response based on a given instruction and an optional input. This script will only work with
     checkpoints from the instruction-tuned adapter v2 model. See ``litgpt.finetune.adapter_v2``.
 
     Args:

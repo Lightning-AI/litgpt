@@ -124,7 +124,9 @@ def main(
     precision: Optional[str] = None,
     compile: bool = False,
 ) -> None:
-    """Generates text samples based on a pre-trained model and tokenizer.
+    """Generation script that partitions layers across devices to be run sequentially.
+
+    Generates text samples based on a pre-trained model and tokenizer.
 
     Args:
         prompt: The prompt string to use for generating the samples.

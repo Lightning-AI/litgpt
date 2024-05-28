@@ -37,7 +37,7 @@ def convert_and_evaluate(
     seed: int = 1234,
     save_filepath: Optional[Path] = None,
 ) -> None:
-    """Convert a LitGPT model and run the LM Evaluation Harness
+    """Evaluate a model with the LM Evaluation Harness.
 
     Arguments:
         checkpoint_dir: Directory where the `lit_model.pth` and tokenizer files are located.

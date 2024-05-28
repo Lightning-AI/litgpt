@@ -15,7 +15,9 @@ from litgpt.utils import CLI, check_valid_checkpoint_dir
 def merge_lora(
     checkpoint_dir: Path, pretrained_checkpoint_dir: Optional[Path] = None, precision: Optional[str] = None
 ) -> None:
-    """Merges the LoRA weights with the base model. See ``litgpt finetune lora``.
+    """Merges the LoRA weights with the base model.
+    
+    See ``litgpt finetune lora``.
 
     Creates a new ``lit_model.pth`` file by merging the LoRA weights (``lit_model.pth.lora``)
     with the original checkpoint weights.
