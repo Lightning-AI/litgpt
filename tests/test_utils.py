@@ -272,10 +272,10 @@ def _test_function2(out_dir: Path, foo: bool = False, bar: int = 1):
     [
         "any.py",
         "litgpt finetune",
-        "litgpt finetune full",
-        "litgpt finetune lora",
-        "litgpt finetune adapter",
-        "litgpt finetune adapter_v2",
+        "litgpt finetune_full",
+        "litgpt finetune_lora",
+        "litgpt finetune_adapter",
+        "litgpt finetune_adapter_v2",
         "litgpt pretrain",
     ],
 )
