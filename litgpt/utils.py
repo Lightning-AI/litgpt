@@ -441,10 +441,10 @@ def save_hyperparameters(function: callable, checkpoint_dir: Path) -> None:
     # This hack strips away the subcommands from the top-level CLI
     # to parse the file as if it was called as a script
     known_commands = [
-        ("finetune", "full"),
-        ("finetune", "finetune_lora"),
-        ("finetune", "finetune_adapter"),
-        ("finetune", "finetune_adapter_v2"),
+        ("finetune_full"),
+        ("finetune_lora"),
+        ("finetune_adapter"),
+        ("finetune_adapter_v2"),
         ("finetune",),
         ("pretrain",),
     ]
