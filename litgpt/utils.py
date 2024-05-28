@@ -21,6 +21,7 @@ from lightning.fabric.loggers import CSVLogger, TensorBoardLogger
 from lightning.fabric.strategies import FSDPStrategy
 from lightning.fabric.utilities.load import _lazy_load as lazy_load
 from lightning.pytorch.loggers import WandbLogger
+from lightning.pytorch.cli import instantiate_class
 from torch.serialization import normalize_storage_type
 from typing_extensions import Self
 
@@ -486,3 +487,34 @@ def choose_logger(
     if logger_name == "wandb":
         return WandbLogger(project=name, resume=resume, **kwargs)
     raise ValueError(f"`--logger_name={logger_name}` is not a valid option. Choose from 'csv', 'tensorboard', 'wandb'.")
+
+
+def get_argument_names(cls):
+    sig = inspect.signature(cls.__init__)
+    return {name for name, param in sig.parameters.items()
+            if param.kind in [inspect.Parameter.POSITIONAL_OR_KEYWORD, inspect.Parameter.KEYWORD_ONLY]}
+
+
+def instantiate_bnb_optimizer(optimizer, model_parameters):
+    if (isinstance(optimizer, str) and "AdamW" not in optimizer) or (isinstance(optimizer, dict) and "AdamW" not in optimizer.get("class_path", "")):
+        raise ValueError("The chosen quantization format only supports the AdamW optimizer.")
+
+    import bitsandbytes as bnb
+    if isinstance(optimizer, str):
+        optimizer = bnb.optim.PagedAdamW(model_parameters)
+    else:
+        optim_args = get_argument_names(bnb.optim.PagedAdamW)
+        allowed_kwargs = {key: optimizer["init_args"][key] for key in optim_args & optimizer["init_args"].keys()}
+        optimizer = bnb.optim.PagedAdamW(model_parameters, **allowed_kwargs)
+    return optimizer
+
+
+def instantiate_torch_optimizer(optimizer, model_parameters, **kwargs):
+    if isinstance(optimizer, str):
+        optimizer_cls = getattr(torch.optim, optimizer)
+        optimizer = optimizer_cls(model_parameters, **kwargs)
+    else:
+        optimizer = dict(optimizer)  # copy
+        optimizer["init_args"].update(kwargs)
+        optimizer = instantiate_class(model_parameters, optimizer)
+    return optimizer

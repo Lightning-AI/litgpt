@@ -75,7 +75,9 @@ class TinyLlama(DataModule):
 
         # Mix SlimPajama data and Starcoder data with these proportions:
         weights = (0.693584, 0.306416)
-        combined_dataset = CombinedStreamingDataset(datasets=train_datasets, seed=self.seed, weights=weights)
+        combined_dataset = CombinedStreamingDataset(
+            datasets=train_datasets, seed=self.seed, weights=weights, iterate_over_all=False
+        )
         train_dataloader = StreamingDataLoader(
             combined_dataset, batch_size=self.batch_size, pin_memory=True, num_workers=self.num_workers, drop_last=True
         )
