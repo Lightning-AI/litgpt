@@ -95,7 +95,7 @@ def setup(
         quit()
 
     # Support both model_name options: meta-llama/Meta-Llama-3-8B & Meta-Llama-3-8B
-    if model_config is not None:
+    if model_config is None:
         num_slashes = model_name.count("/")
         if num_slashes > 1:
             raise ValueError(
@@ -103,7 +103,12 @@ def setup(
                 " It should be either in the format 'meta-llama/Meta-Llama-3-8B' or 'Meta-Llama-3-8B'."
                 )
         if num_slashes:
-            _, model_name = model_name.split("/")
+            try:
+                model_name = Config.get_name_from_hf_config(model_name)
+            except ValueError:
+                available_models = "\n".join(sorted(name_to_config))
+                print(f"Available values:\n{available_models}")
+                quit()
     else:
         model_name = "placeholder"
 

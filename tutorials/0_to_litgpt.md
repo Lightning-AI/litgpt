@@ -50,7 +50,7 @@ However, if you feel adventurous and want to pretrain your own LLM, here's how.
 First, we have to decide which type of model architecture we want to use. We list the available architectures by using the `pretrain` command without any additional arguments:
 
 ```bash
-litgpt pretrain
+litgpt pretrain list
 ```
 
 This prints a list of all available model architectures in alphabetical order:
@@ -60,7 +60,8 @@ Camel-Platypus2-13B
 Camel-Platypus2-70B
 CodeLlama-13b-Python-hf
 ...
-tiny-llama-1.1b
+EleutherAI/pythia-410m
+...
 vicuna-13b-v1.3
 vicuna-13b-v1.5
 vicuna-13b-v1.5-16k
@@ -72,12 +73,12 @@ vicuna-7b-v1.5-16k
 
 Suppose we want to pretraining the 1.1B parameter small `tiny-llama-1.1b` model. Before starting finetuning, we must also choose and download a tokenizer. 
 
-We can download a tokenizer via the `download` command. Note that running `litgpt download` without any additional arguments will also print a list of all available models and tokenizers to download. 
+We can download a tokenizer via the `download` command. Note that running `litgpt download list` will also print a list of all available models and tokenizers to download. 
 
 To filter for specific models, e.g., TinyLlama, we can use the `grep` command in our terminal:
 
 ```bash
-litgpt download | grep  TinyLlama
+litgpt download list | grep  TinyLlama
 ```
 
 This prints
@@ -87,11 +88,11 @@ TinyLlama/TinyLlama-1.1B-intermediate-step-1431k-3T
 TinyLlama/TinyLlama-1.1B-Chat-v1.0
 ```
 
-Let's now download the tokenizer corresponding to `TinyLlama/TinyLlama-1.1B-intermediate-step-1431k-3T` that we can then use to pretrain the TinyLlama model, which saves the download tokenizer to a `checkpoints/` folder by default:
+Let's now download the tokenizer corresponding to `TinyLlama/TinyLlama-1.1B-intermediate-step-1431k-3T` that we can then use to pretrain the TinyLlama model, which saves the download tokenizer to a `checkpoints/` subfolder by default:
 
 ```
 litgpt download \
-   --repo_id TinyLlama/TinyLlama-1.1B-intermediate-step-1431k-3T \
+   TinyLlama/TinyLlama-1.1B-intermediate-step-1431k-3T \
    --tokenizer_only true
 ```
 
@@ -104,8 +105,7 @@ litgpt download \
 Next, we can pretrain the model on the OpenWebText dataset with the default setting as follows:
 
 ```bash
-litgpt pretrain \
-  --model_name tiny-llama-1.1b \
+litgpt pretrain tiny-llama-1.1b \
   --data OpenWebText \
   --tokenizer_dir checkpoints/TinyLlama/TinyLlama-1.1B-intermediate-step-1431k-3T
 ```

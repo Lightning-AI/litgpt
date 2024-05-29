@@ -82,3 +82,20 @@ def test_head_size(head_size):
     config = Config(head_size)
 
     assert config.head_size == head_size or config.n_embd // config.n_head
+
+
+def test_get_name_from_hf_config():
+    # Test case 1: valid input
+    hf_name = "TinyLlama/TinyLlama-1.1B"
+    expected_name = "tiny-llama-1.1b"
+    assert Config.get_name_from_hf_config(hf_name) == expected_name
+
+    # Test case 2: invalid input - org not found
+    hf_name_invalid_org = "UnknownOrg/TinyLlama-1.1B"
+    with pytest.raises(ValueError, match="is not a supported config name"):
+        Config.get_name_from_hf_config(hf_name_invalid_org)
+
+    # Test case 3: invalid input - name not found
+    hf_name_invalid_name = "TinyLlama/UnknownName"
+    with pytest.raises(ValueError, match="is not a supported config name"):
+        Config.get_name_from_hf_config(hf_name_invalid_name)
