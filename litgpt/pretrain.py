@@ -68,10 +68,9 @@ def setup(
     """Pretrain a model.
 
     Arguments:
-        model_name: The name of the model to pretrain. Choose from names in ``litgpt.config``. Mutually exclusive with
-            ``model_config``.
+        model_name: The name of the model to pretrain. Choose from names in ``litgpt.config``. Use "list" to list the supported models.
         model_config: A ``litgpt.Config`` object to define the model architecture. Mutually exclusive with
-            ``model_config``.
+            ``model_config``. Overrides the `model_name` if specified.
         out_dir: Directory in which to save checkpoints and logs. If running in a Lightning Studio Job, look for it in
             /teamspace/jobs/<job-name>/share.
         precision: The precision to use for finetuning. Determines a compatible precision setting by default.
@@ -83,20 +82,34 @@ def setup(
         train: Training-related arguments. See ``litgpt.args.TrainArgs`` for details.
         eval: Evaluation-related arguments. See ``litgpt.args.EvalArgs`` for details.
         optimizer: An optimizer name (such as "AdamW") or config.
-        
+
         devices: How many devices/GPUs to use. Uses all GPUs by default.
         tokenizer_dir: Optional path to the tokenizer dir that was used for preprocessing the dataset. Only some data
             module require this.
         logger_name: The name of the logger to send metrics to.
         seed: The random seed to use for reproducibility.
     """
+    if model_name == "list":
+        available_models = "\n".join(sorted(name_to_config))
+        print(f"Available values:\n{available_models}")
+        quit()
+
+    # Support both model_name options: meta-llama/Meta-Llama-3-8B & Meta-Llama-3-8B
+    if model_config is not None:
+        num_slashes = model_name.count("/")
+        if num_slashes > 1:
+            raise ValueError(
+                f"Invalid model_name: {model_name}. The model_name argument cannot contain multiple slashes."
+                " It should be either in the format 'meta-llama/Meta-Llama-3-8B' or 'Meta-Llama-3-8B'."
+                )
+        if num_slashes:
+            _, model_name = model_name.split("/")
+    else:
+        model_name = "placeholder"
+
     hparams = capture_hparams()
     data = TinyLlama() if data is None else data
-    if model_config is not None and model_name is not None:
-        raise ValueError("Only one of `model_name` or `model_config` can be set.")
-    elif model_config is None and model_name is None:
-        available_models = "\n".join(sorted(name_to_config))
-        raise ValueError(f"Please specify --model_name <model_name>. Available values:\n{available_models}")
+
     config = Config.from_name(model_name) if model_config is None else model_config
     precision = precision or get_default_supported_precision(training=True)
     devices = parse_devices(devices)
