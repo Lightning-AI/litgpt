@@ -159,12 +159,12 @@ def test_adapter_bitsandbytes(monkeypatch, tmp_path, fake_checkpoint_dir, alpaca
     stdout = StringIO()
     with redirect_stdout(stdout), mock.patch("sys.argv", ["adapter.py"]):
         module.setup(
+            str(fake_checkpoint_dir),
             data=Alpaca(
                 download_dir=alpaca_path.parent, file_name=alpaca_path.name, val_split_fraction=0.5, num_workers=0
             ),
             precision="16-true",
             quantize="bnb.nf4-dq",
-            checkpoint_dir=fake_checkpoint_dir,
             out_dir=tmp_path,
         )
 

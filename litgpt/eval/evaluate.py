@@ -7,7 +7,7 @@ from typing import Optional, Union
 import torch
 
 from litgpt.scripts.convert_lit_checkpoint import convert_lit_checkpoint
-from litgpt.utils import CLI, copy_config_files
+from litgpt.utils import copy_config_files
 
 
 def prepare_results(results, save_filepath, print_results=True):
@@ -25,7 +25,7 @@ def prepare_results(results, save_filepath, print_results=True):
 
 
 def convert_and_evaluate(
-    checkpoint_dir: Path,
+    checkpoint_dir: str,
     tasks: Optional[str] = None,
     out_dir: Optional[Path] = None,
     force_conversion: bool = False,
@@ -86,7 +86,7 @@ def convert_and_evaluate(
     if not model_path.exists() or force_conversion:
         copy_config_files(source_dir=checkpoint_dir, out_dir=out_dir)
         convert_lit_checkpoint(checkpoint_dir=checkpoint_dir, output_dir=out_dir)
-    
+
         # Hack: LitGPT's conversion doesn't save a pickle file that is compatible to be loaded with
         # `torch.load(..., weights_only=True)`, which is a requirement in HFLM.
         # So we're `torch.load`-ing and `torch.sav`-ing it again to work around this.

@@ -20,13 +20,13 @@ def test_evaluate_script(tmp_path):
     checkpoint_dir = tmp_path / "EleutherAI" / "pythia-14m"
     ours_model = GPT(ours_config)
     torch.save(ours_model.state_dict(), checkpoint_dir / "lit_model.pth")
-    with open( checkpoint_dir / "model_config.yaml", "w", encoding="utf-8") as fp:
+    with open(checkpoint_dir / "model_config.yaml", "w", encoding="utf-8") as fp:
         yaml.dump(asdict(ours_config), fp)
 
     stdout = StringIO()
     with redirect_stdout(stdout), mock.patch("sys.argv", ["eval/evaluate.py"]):
         module.convert_and_evaluate(
-            checkpoint_dir=checkpoint_dir,
+            checkpoint_dir,
             out_dir=tmp_path / "out_dir",
             device=None,
             dtype=torch.float32,

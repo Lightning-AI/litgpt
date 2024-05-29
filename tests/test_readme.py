@@ -62,7 +62,7 @@ def test_download_books():
 
 @pytest.mark.dependency(depends=["test_download_model"])
 def test_chat_with_model():
-    command = ["litgpt", "generate", "--checkpoint_dir", f"checkpoints"/REPO_ID]
+    command = ["litgpt", "generate", f"checkpoints" / REPO_ID]
     prompt = "What do Llamas eat?"
     result = subprocess.run(command, input=prompt, text=True, capture_output=True, check=True)
     assert "What food do llamas eat?" in result.stdout
@@ -83,7 +83,7 @@ def test_finetune_model():
 
     finetune_command = [
         "litgpt", "finetune_lora",
-        "--checkpoint_dir", str(CHECKPOINT_DIR),
+        str(CHECKPOINT_DIR),
         "--lora_r", "1",
         "--data", "JSON",
         "--data.json_path", str(DATASET_PATH),
@@ -140,8 +140,7 @@ def test_continue_pretrain_model():
 def test_serve():
     CHECKPOINT_DIR = str("checkpoints" / REPO_ID)
     run_command = [
-        "litgpt", "serve",
-        "--checkpoint_dir", str(CHECKPOINT_DIR)
+        "litgpt", "serve", str(CHECKPOINT_DIR)
     ]
 
     process = None

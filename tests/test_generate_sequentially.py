@@ -285,9 +285,9 @@ def test_base_with_sequentially(tmp_path):
         f"--checkpoint_dir={str(checkpoint_dir)}",
     ]
     env = {"CUDA_VISIBLE_DEVICES": "0,1"}
-    base_stdout = subprocess.check_output([sys.executable, "-m", "litgpt", "generate", "base", *args], env=env, cwd=root).decode()
+    base_stdout = subprocess.check_output([sys.executable, "-m", "litgpt", "generate", *args], env=env, cwd=root).decode()
     sequential_stdout = subprocess.check_output(
-        [sys.executable, "-m", "litgpt", "generate", "sequentially", *args], env=env, cwd=root,
+        [sys.executable, "-m", "litgpt", "generate_sequentially", *args], env=env, cwd=root,
     ).decode()
 
     assert base_stdout.startswith("What food do llamas eat?")
@@ -295,7 +295,7 @@ def test_base_with_sequentially(tmp_path):
 
 
 def test_cli():
-    args = ["litgpt", "generate", "sequentially", "-h"]
+    args = ["litgpt", "generate_sequentially", "-h"]
     output = subprocess.check_output(args)
     output = str(output.decode())
-    assert "Generation script that partitions layers across devices to be run sequentially" in output
+    assert "Generation script that partitions layers across" in output

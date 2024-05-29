@@ -124,14 +124,14 @@ def test_tp(tmp_path):
         f"--checkpoint_dir={str(checkpoint_dir)}",
     ]
     env = {"CUDA_VISIBLE_DEVICES": "0,1"}
-    tp_stdout = subprocess.check_output([sys.executable, "-m", "litgpt", "generate", "tp", *args], env=env, cwd=root).decode()
+    tp_stdout = subprocess.check_output([sys.executable, "-m", "litgpt", "generate_tp", *args], env=env, cwd=root).decode()
 
     # there is some unaccounted randomness so cannot compare the output with that of `generate/base.py`
     assert tp_stdout.startswith("What food do llamas eat?")
 
 
 def test_cli():
-    args = ["litgpt", "generate", "tp", "-h"]
+    args = ["litgpt", "generate_tp", "-h"]
     output = subprocess.check_output(args)
     output = str(output.decode())
     assert "Generation script that uses tensor parallelism" in output

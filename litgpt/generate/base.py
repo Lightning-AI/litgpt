@@ -13,7 +13,7 @@ from lightning.fabric.plugins import BitsandbytesPrecision
 
 from litgpt import GPT, Config, PromptStyle, Tokenizer
 from litgpt.prompts import has_prompt_style, load_prompt_style
-from litgpt.utils import CLI, check_valid_checkpoint_dir, get_default_supported_precision, load_checkpoint
+from litgpt.utils import check_valid_checkpoint_dir, get_default_supported_precision, load_checkpoint
 
 
 def multinomial_num_samples_1(probs: torch.Tensor) -> torch.Tensor:
@@ -133,6 +133,7 @@ def generate(
 
 @torch.inference_mode()
 def main(
+    checkpoint_dir: str,
     prompt: str = "What food do llamas eat?",
     *,
     num_samples: int = 1,
@@ -140,7 +141,6 @@ def main(
     top_k: Optional[int] = 50,
     top_p: float = 1.0,
     temperature: float = 0.8,
-    checkpoint_dir: Path = Path("checkpoints/stabilityai/stablelm-base-alpha-3b"),
     quantize: Optional[Literal["bnb.nf4", "bnb.nf4-dq", "bnb.fp4", "bnb.fp4-dq", "bnb.int8"]] = None,
     precision: Optional[str] = None,
     compile: bool = False,
@@ -150,6 +150,7 @@ def main(
     Generates text samples based on a pre-trained model and tokenizer.
 
     Args:
+        checkpoint_dir: The checkpoint directory to load.
         prompt: The prompt string to use for generating the samples.
         num_samples: The number of text samples to generate.
         max_new_tokens: The number of generation steps to take.
@@ -170,7 +171,6 @@ def main(
             or https://huyenchip.com/2024/01/16/sampling.html#top_p
         temperature: A value controlling the randomness of the sampling process. Higher values result in more random
             samples.
-        checkpoint_dir: The checkpoint directory to load.
         quantize: Whether to quantize the model and using which method:
             - bnb.nf4, bnb.nf4-dq, bnb.fp4, bnb.fp4-dq: 4-bit quantization from bitsandbytes
             - bnb.int8: 8-bit quantization from bitsandbytes
@@ -178,6 +178,7 @@ def main(
         precision: Indicates the Fabric precision setting to use.
         compile: Whether to compile the model.
     """
+    checkpoint_dir = Path(checkpoint_dir)
     precision = precision or get_default_supported_precision(training=False)
 
     plugins = None
