@@ -2,6 +2,8 @@
 
 from pathlib import Path
 import os
+from unittest import mock
+
 import pytest
 import requests
 import subprocess
@@ -60,6 +62,7 @@ def test_download_books():
         assert (CUSTOM_TEXTS_DIR / filename).exists(), f"{filename} not downloaded"
 
 
+@mock.patch.dict(os.environ, {"LT_ACCELERATOR": "cpu"})
 @pytest.mark.dependency(depends=["test_download_model"])
 def test_chat_with_model():
     command = ["litgpt", "generate", f"checkpoints" / REPO_ID]
@@ -68,6 +71,7 @@ def test_chat_with_model():
     assert "What food do llamas eat?" in result.stdout
 
 
+@mock.patch.dict(os.environ, {"LT_ACCELERATOR": "cpu"})
 @pytest.mark.dependency(depends=["test_download_model"])
 @pytest.mark.timeout(300)
 def test_finetune_model():
@@ -97,6 +101,7 @@ def test_finetune_model():
     assert (OUT_DIR/"final"/"lit_model.pth").exists(), "Model file was not created"
 
 
+@mock.patch.dict(os.environ, {"LT_ACCELERATOR": "cpu"})
 @pytest.mark.dependency(depends=["test_download_model", "test_download_books"])
 def test_pretrain_model():
     OUT_DIR = Path("out") / "custom_pretrained"
@@ -116,6 +121,7 @@ def test_pretrain_model():
     assert (OUT_DIR / "final" / "lit_model.pth").exists(), "Model file was not created"
 
 
+@mock.patch.dict(os.environ, {"LT_ACCELERATOR": "cpu"})
 @pytest.mark.dependency(depends=["test_download_model", "test_download_books"])
 def test_continue_pretrain_model():
     OUT_DIR = Path("out") / "custom_continue_pretrained"

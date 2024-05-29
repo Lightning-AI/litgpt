@@ -413,8 +413,6 @@ def CLI(*args: Any, **kwargs: Any) -> Any:
     set_docstring_parse_options(attribute_docstrings=True)
     set_config_read_mode(urls_enabled=True)
 
-    kwargs.setdefault("as_positional", False)
-
     return CLI(*args, **kwargs)
 
 
