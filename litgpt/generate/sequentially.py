@@ -112,7 +112,7 @@ def replace_device(module: torch.nn.Module, replace: torch.device, by: torch.dev
 
 @torch.inference_mode()
 def main(
-    checkpoint_dir: str,
+    checkpoint_dir: Path,
     prompt: str = "What food do llamas eat?",
     *,
     num_samples: int = 1,
@@ -156,7 +156,6 @@ def main(
         precision: Indicates the Fabric precision setting to use.
         compile: Whether to compile the model.
     """
-    checkpoint_dir = Path(checkpoint_dir)
     precision = precision or get_default_supported_precision(training=False)
 
     plugins = None

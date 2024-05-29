@@ -17,7 +17,7 @@ from litgpt.utils import check_valid_checkpoint_dir, get_default_supported_preci
 
 
 def main(
-    checkpoint_dir: str,
+    checkpoint_dir: Path,
     prompt: str = "What food do llamas eat?",
     input: str = "",
     adapter_path: Path = Path("out/finetune/adapter-v2/final/lit_model.pth.adapter_v2"),
@@ -63,7 +63,6 @@ def main(
             samples.
         precision: Indicates the Fabric precision setting to use.
     """
-    checkpoint_dir = Path(checkpoint_dir)
     precision = precision or get_default_supported_precision(training=False)
 
     plugins = None

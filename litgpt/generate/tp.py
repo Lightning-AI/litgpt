@@ -90,7 +90,7 @@ def tensor_parallel(fabric: L.Fabric, model: GPT) -> GPT:
 
 @torch.inference_mode()
 def main(
-    checkpoint_dir: str,
+    checkpoint_dir: Path,
     prompt: str = "What food do llamas eat?",
     *,
     num_samples: int = 1,

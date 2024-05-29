@@ -287,7 +287,7 @@ def load_param(param: Union[torch.Tensor, NotYetLoadedTensor], name: str, dtype:
 
 @torch.inference_mode()
 def convert_hf_checkpoint(
-    checkpoint_dir: str,
+    checkpoint_dir: Path,
     *,
     model_name: Optional[str] = None,
     dtype: Optional[str] = None,
@@ -302,7 +302,6 @@ def convert_hf_checkpoint(
         dtype: The data type to convert the checkpoint files to. If not specified, the weights will remain in the
             dtype they are downloaded in.
     """
-    checkpoint_dir = Path(checkpoint_dir)
     if model_name is None:
         model_name = checkpoint_dir.name
     if dtype is not None:

@@ -36,7 +36,7 @@ from litgpt.utils import (
 
 
 def setup(
-    checkpoint_dir: str,
+    checkpoint_dir: Path,
     out_dir: Path = Path("out/finetune/full"),
     precision: Optional[str] = None,
     devices: Union[int, str] = 1,
@@ -78,7 +78,6 @@ def setup(
     devices = parse_devices(devices)
     out_dir = init_out_dir(out_dir)
 
-    checkpoint_dir = Path(checkpoint_dir)
     check_valid_checkpoint_dir(checkpoint_dir)
     config = Config.from_file(checkpoint_dir / "model_config.yaml")
 
