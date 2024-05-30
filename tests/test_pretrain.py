@@ -18,7 +18,7 @@ from litgpt.pretrain import initialize_weights
 from tests.conftest import RunIf
 
 
-@RunIf(min_cuda_gpus=2, standalone=True)
+@RunIf(min_cuda_gpus=2)
 # Set CUDA_VISIBLE_DEVICES for FSDP hybrid-shard, if fewer GPUs are used than are available
 @mock.patch.dict(os.environ, {"CUDA_VISIBLE_DEVICES": "0,1"})
 # If we were to use `save_hyperparameters()`, we would have to patch `sys.argv` or otherwise
@@ -36,6 +36,7 @@ def test_pretrain(_, tmp_path):
     stdout = StringIO()
     with redirect_stdout(stdout):
         pretrain.setup(
+            "pythia-14m",
             devices=2,
             model_config=model_config,
             out_dir=out_dir,
