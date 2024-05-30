@@ -252,7 +252,7 @@ def _test_function(out_dir: Path, foo: bool = False, bar: int = 1):
 
 
 def test_save_hyperparameters(tmp_path):
-    with mock.patch("sys.argv", ["any.py", "--out_dir", str(tmp_path), "--foo", "True"]):
+    with mock.patch("sys.argv", ["any.py", str(tmp_path), "--foo", "True"]):
         CLI(_test_function)
 
     with open(tmp_path / "hyperparameters.yaml", "r", encoding="utf-8") as file:
@@ -280,7 +280,7 @@ def _test_function2(out_dir: Path, foo: bool = False, bar: int = 1):
     ],
 )
 def test_save_hyperparameters_known_commands(command, tmp_path):
-    with mock.patch("sys.argv", [*command.split(" "), "--out_dir", str(tmp_path), "--foo", "True"]):
+    with mock.patch("sys.argv", [*command.split(" "), str(tmp_path), "--foo", "True"]):
         save_hyperparameters(_test_function2, tmp_path)
 
     with open(tmp_path / "hyperparameters.yaml", "r", encoding="utf-8") as file:
