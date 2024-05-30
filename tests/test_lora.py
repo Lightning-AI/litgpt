@@ -192,12 +192,12 @@ def test_lora_script(tmp_path, fake_checkpoint_dir, monkeypatch, alpaca_path):
 
     out_dir = tmp_path / "out"
     stdout = StringIO()
-    with redirect_stdout(stdout), mock.patch("sys.argv", ["lora.py"]):
+    with redirect_stdout(stdout), mock.patch("sys.argv", ["lora.py", str(fake_checkpoint_dir)]):
         module.setup(
+            fake_checkpoint_dir,
             data=Alpaca(
                 download_dir=alpaca_path.parent, file_name=alpaca_path.name, val_split_fraction=0.5, num_workers=0
             ),
-            checkpoint_dir=fake_checkpoint_dir,
             out_dir=out_dir,
             precision="32-true",
             train=TrainArgs(global_batch_size=1, save_interval=2, epochs=1, max_steps=6, micro_batch_size=1),

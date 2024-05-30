@@ -13,7 +13,7 @@ from litgpt.utils import check_valid_checkpoint_dir
 
 
 def merge_lora(
-    checkpoint_dir: str,
+    checkpoint_dir: Path,
     pretrained_checkpoint_dir: Optional[Path] = None,
     precision: Optional[str] = None
 ) -> None:
@@ -34,7 +34,6 @@ def merge_lora(
         precision: Optional precision setting to instantiate the model weights in. By default, this will
             automatically be inferred from the metadata in the given ``checkpoint_dir`` directory.
     """
-    checkpoint_dir = Path(checkpoint_dir)
     check_valid_checkpoint_dir(checkpoint_dir, model_filename="lit_model.pth.lora")
     if pretrained_checkpoint_dir is not None:
         check_valid_checkpoint_dir(pretrained_checkpoint_dir)

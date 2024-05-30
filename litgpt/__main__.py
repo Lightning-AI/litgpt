@@ -31,16 +31,6 @@ if TYPE_CHECKING:
     from jsonargparse import ArgumentParser
 
 
-def _new_parser(**kwargs: Any) -> "ArgumentParser":
-    from jsonargparse import ActionConfigFile, ArgumentParser
-
-    parser = ArgumentParser(**kwargs)
-    parser.add_argument(
-        "-c", "--config", action=ActionConfigFile, help="Path to a configuration file in json or yaml format."
-    )
-    return parser
-
-
 def main() -> None:
     parser_data = {
         "download": {"fn": download_fn, "_help": "Download weights or tokenizer data from the Hugging Face Hub."},
