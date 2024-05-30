@@ -92,25 +92,27 @@ class Config:
         self.rope_n_elem = int(self.rotary_percentage * self.head_size)
 
     @classmethod
-    def get_name_from_hf_config(cls, hf_name: str) -> str:
-        org, name = hf_name.split("/")
-        # Search for the matching config
-        try:
-            conf_dict = next(config for config in configs if config["hf_config"]["org"] == org and config["hf_config"]["name"] == name)
-            return conf_dict["name"]
-        except StopIteration:
-            raise ValueError(f"{hf_name!r} is not a supported config name")
+    def from_name(cls, name: str, **kwargs: Any) -> Optional[Self]:
+        num_slashes = name.count("/")
+        if num_slashes == 0:
+            if name not in name_to_config:
+                # search through all `config['hf_config']['name']`
+                try:
+                    conf_dict = next(config for config in configs if name == config["hf_config"]["name"])
+                except StopIteration:
+                    return None
+            else:
+                conf_dict = name_to_config[name]
 
-    @classmethod
-    def from_name(cls, name: str, **kwargs: Any) -> Self:
-        if name not in name_to_config:
-            # search through all `config['hf_config']['name']`
+        elif num_slashes == 1:
+            # get name from an org/model string like "meta-llama/Meta-Llama-3-8B"
+            org, model_name = name.split("/")
             try:
-                conf_dict = next(config for config in configs if name == config["hf_config"]["name"])
+                conf_dict = next(config for config in configs if config["hf_config"]["org"] == org and config["hf_config"]["name"] == model_name)
             except StopIteration:
-                raise ValueError(f"{name!r} is not a supported config name")
+                return None
         else:
-            conf_dict = name_to_config[name]
+            return None  # Return None when multiple slashes are present or other invalid input
 
         conf_dict = conf_dict.copy()
         conf_dict.update(kwargs)

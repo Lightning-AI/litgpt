@@ -94,23 +94,14 @@ def setup(
         print(f"Available values:\n{available_models}")
         quit()
 
-    # Support both model_name options: meta-llama/Meta-Llama-3-8B & Meta-Llama-3-8B
     if model_config is None:
-        num_slashes = model_name.count("/")
-        if num_slashes > 1:
-            raise ValueError(
-                f"Invalid model_name: {model_name}. The model_name argument cannot contain multiple slashes."
-                " It should be either in the format 'meta-llama/Meta-Llama-3-8B' or 'Meta-Llama-3-8B'."
-                )
-        if num_slashes:
-            try:
-                model_name = Config.get_name_from_hf_config(model_name)
-            except ValueError:
-                available_models = "\n".join(sorted(name_to_config))
-                print(f"Available values:\n{available_models}")
-                quit()
-    else:
-        model_name = "placeholder"
+        # Support both model_name options: meta-llama/Meta-Llama-3-8B & Meta-Llama-3-8B
+        model_config = Config.from_name(model_name)
+        if model_config is None:
+            print(f"Model name {model_name} is not supported.\n")
+            available_models = "\n".join(sorted(name_to_config))
+            print(f"Available values:\n{available_models}")
+            quit()
 
     hparams = capture_hparams()
     data = TinyLlama() if data is None else data

@@ -30,7 +30,14 @@ def test_from_hf_name():
     config0 = Config.from_name("tiny-llama-1.1b")
     # or by huggingface hub repo name
     config1 = Config.from_name("TinyLlama-1.1B-intermediate-step-1431k-3T")
+    assert config0 is not None
+    assert config1 is not None
     assert config0 == config1
+
+
+def test_nonexisting_name():
+    result = Config.from_name("invalid-model-name")
+    assert result is None
 
 
 @pytest.mark.parametrize("config", config_module.configs, ids=[c["name"] for c in config_module.configs])
@@ -42,9 +49,23 @@ def test_short_and_hf_names_are_equal_unless_on_purpose(config):
     assert config0.name == config1.name
 
 
-def test_nonexisting_name():
-    with pytest.raises(ValueError, match="not a supported"):
-        Config.from_name("foobar")
+def test_from_hf_name_with_org_string():
+    # Test case 1: valid input
+    config0 = Config.from_name("tiny-llama-1.1b")
+    config1 = Config.from_name("TinyLlama/TinyLlama-1.1B-intermediate-step-1431k-3T")
+    assert config0 is not None
+    assert config1 is not None
+    assert config0 == config1
+
+    # Test case 2: invalid input - org not found
+    hf_name_invalid_org = "UnknownOrg/TinyLlama-1.1B-intermediate-step-1431k-3T"
+    config2 = Config.from_name(hf_name_invalid_org)
+    assert config2 is None
+
+    # Test case 3: invalid input - name not found
+    hf_name_invalid_name = "TinyLlama/TinyLlama-XYZ"
+    config3 = Config.from_name(hf_name_invalid_name)
+    assert config3 is None
 
 
 def test_from_checkpoint(tmp_path):
@@ -84,18 +105,3 @@ def test_head_size(head_size):
     assert config.head_size == head_size or config.n_embd // config.n_head
 
 
-def test_get_name_from_hf_config():
-    # Test case 1: valid input
-    hf_name = "TinyLlama/TinyLlama-1.1B"
-    expected_name = "tiny-llama-1.1b"
-    assert Config.get_name_from_hf_config(hf_name) == expected_name
-
-    # Test case 2: invalid input - org not found
-    hf_name_invalid_org = "UnknownOrg/TinyLlama-1.1B"
-    with pytest.raises(ValueError, match="is not a supported config name"):
-        Config.get_name_from_hf_config(hf_name_invalid_org)
-
-    # Test case 3: invalid input - name not found
-    hf_name_invalid_name = "TinyLlama/UnknownName"
-    with pytest.raises(ValueError, match="is not a supported config name"):
-        Config.get_name_from_hf_config(hf_name_invalid_name)
