@@ -107,7 +107,7 @@ def test_pretrain_model():
     OUT_DIR = Path("out") / "custom_pretrained"
     pretrain_command = [
         "litgpt", "pretrain",
-        "--model_name", "pythia-14m",
+        "pythia-14m",
         "--tokenizer_dir", str("checkpoints" / REPO_ID),
         "--data", "TextFiles",
         "--data.train_data_path", str(CUSTOM_TEXTS_DIR),
@@ -127,7 +127,7 @@ def test_continue_pretrain_model():
     OUT_DIR = Path("out") / "custom_continue_pretrained"
     pretrain_command = [
         "litgpt", "pretrain",
-        "--model_name", "pythia-14m",
+        "pythia-14m",
         "--initial_checkpoint", str("checkpoints" / REPO_ID),
         "--tokenizer_dir", str("checkpoints" / REPO_ID),
         "--data", "TextFiles",
