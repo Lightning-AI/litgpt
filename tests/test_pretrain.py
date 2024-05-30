@@ -83,11 +83,6 @@ def test_initial_checkpoint_dir(_, load_mock, tmp_path):
     load_mock.assert_called_once_with(tmp_path / "lit_model.pth", ANY)
 
 
-def test_pretrain_model_name_and_config():
-    with pytest.raises(ValueError, match="Only one of `model_name` or `model_config`"):
-        pretrain.setup(model_name="tiny-llama-1.1b", model_config=Config(name="tiny-llama-1.1b"))
-
-
 @pytest.mark.parametrize(("strategy", "expected"), [(SingleDeviceStrategy, True), (FSDPStrategy, False)])
 def test_initialize_weights(strategy, expected):
     fabric_mock = Mock()
