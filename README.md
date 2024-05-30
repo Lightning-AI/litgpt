@@ -7,7 +7,11 @@
 
 Uses the latest state-of-the-art techniques:
 
-✅ flash attention &nbsp; &nbsp;  ✅ fp4/8/16/32 &nbsp; &nbsp;  ✅ LoRA, QLoRA, Adapter (v1, v2) &nbsp; &nbsp;  ✅ FSDP &nbsp; &nbsp;  ✅ 1-1000+ GPUs/TPUs
+<pre>
+✅ flash attention    ✅ fp4/8/16/32        ✅ LoRA, QLoRA, Adapter
+✅ FSDP               ✅ 1-1000+ GPUs/TPUs  ✅ 20+ LLMs            
+</pre>
+
 
 ---
 
