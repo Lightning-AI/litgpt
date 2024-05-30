@@ -30,8 +30,7 @@ pythia-14m
 For demonstration purposes, we can pretrain a small 14 million-parameter Pythia model on the small TinyStories dataset using the [debug.yaml config file](https://github.com/Lightning-AI/litgpt/blob/main/config_hub/pretrain/debug.yaml) as follows:
 
 ```bash
-litgpt pretrain \
-   --model_name pythia-14m \
+litgpt pretrain pythia-14m \
    --config https://raw.githubusercontent.com/Lightning-AI/litgpt/main/config_hub/pretrain/debug.yaml
 ```
 
@@ -70,12 +69,10 @@ total 3225M
 You can then use the `TextFiles` API to pretrain a model (here a small `pythia-14m` model for illustration purposes) from scratch as follows:
 
 ```bash
-litgpt download \
-  --repo_id EleutherAI/pythia-14m \
+litgpt download EleutherAI/pythia-14m \
   --tokenizer_only true
 
-litgpt pretrain \
-   --model_name pythia-14m \
+litgpt pretrain pythia-14m \
    --tokenizer_dir checkpoints/EleutherAI/pythia-14m \
    --data TextFiles \
    --data.train_data_path custom_pretraining_data \
@@ -105,14 +102,13 @@ Often, it makes sense to adopt an existing pretrained model and further pretrain
 For instance, let's assume we download a Pythia model:
 
 ```bash
-litgpt download --repo_id EleutherAI/pythia-14m
+litgpt download EleutherAI/pythia-14m
 ```
 
 Next, assume we have a custom dataset stored in text files similar to the *Pretrain on custom data* above. We can further pretrain the Pythia model via the `--initial_checkpoint_dir` setting as follows:
 
 ```bash
-litgpt pretrain \
-   --model_name pythia-14m \
+litgpt pretrain pythia-14m \
    --initial_checkpoint_dir checkpoints/EleutherAI/pythia-14m \
    --out_dir new_phi-2_checkpoint \
    --data TextFiles \

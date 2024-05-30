@@ -270,7 +270,7 @@ The LitGPT interface can be used via command line arguments and configuration fi
 If you have downloaded or cloned the LitGPT repository, you can provide the `config` file via a relative path:
 
 ```bash
-litgpt finetune_lora microsoft/phi-2\
+litgpt finetune_lora checkpoints/microsoft/phi-2\
   --config config_hub/finetune/phi-2/lora.yaml \
   --train.max_steps 5
 ```
@@ -278,7 +278,7 @@ litgpt finetune_lora microsoft/phi-2\
 Alternatively, you can provide a URL:
 
 ```bash
-litgpt finetune_lora microsoft/phi-2\
+litgpt finetune_lora checkpoints/microsoft/phi-2\
   --config https://raw.githubusercontent.com/Lightning-AI/litgpt/main/config_hub/finetune/phi-2/lora.yaml \
   --train.max_steps 5
 ```
@@ -372,7 +372,7 @@ Saved merged weights to 'out/finetune/lora-phi-2/final/lit_model.pth'
 Notice that the LoRA script saves both the LoRA weights (`'out/finetune/lora-phi-2/final/lit_model.pth.lora'`) and the LoRA weight merged back into the original model (`'out/finetune/lora-phi-2/final/lit_model.pth'`) for convenience. This allows us to use the finetuned model via the `chat` function directly:
 
 ```bash
-litgpt chatout/finetune/lora-phi-2/final/
+litgpt chat out/finetune/lora-phi-2/final/
 ```
 
 ```
@@ -462,7 +462,7 @@ LitGPT comes with a handy `litgpt evaluate` command to evaluate models with [Ele
 - TODO: Explain root dir
 
 ```bash
-litgpt evaluate microsoft/phi-2
+litgpt evaluate checkpoints/microsoft/phi-2
   --batch_size 16 \
   --tasks "hellaswag,gsm8k,truthfulqa_mc2,mmlu,winogrande,arc_challenge"
 ```
@@ -511,14 +511,10 @@ Output: Example input.
 &nbsp;
 ## Converting LitGPT model weights to `safetensors` format
 
-Sometimes, it can be useful to convert LitGPT model weights for third-party and external tools. For example, we can convert a LitGPT model to the Hugging Face format and save it via `.safetensors` files.
-
-The `--checkpoint_dir` argument provided below points to a directory corresponding to a downloaded or finetuned model (see the *Download pretrained model* or *Finetune LLMs* sections above for more information):
-
-- TODO: adjust root dir
+Sometimes, it can be useful to convert LitGPT model weights for third-party and external tools. For example, we can convert a LitGPT model to the Hugging Face format and save it via `.safetensors` files, which we can do as follows:
 
 ```bash
-litgpt convert from_litgpt microsoft/phi-2 \
+litgpt convert_from_litgpt checkpoints/microsoft/phi-2 \
     --output_dir out/converted_model/
 ```
 

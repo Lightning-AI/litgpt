@@ -133,10 +133,10 @@ After installing LitGPT, select the model and action you want to take on that mo
 ```bash
 # ligpt [action] [model]
 litgpt  download  meta-llama/Meta-Llama-3-8B-Instruct
-litgpt  chat      meta-llama/Meta-Llama-3-8B-Instruct
-litgpt  finetune  meta-llama/Meta-Llama-3-8B-Instruct
-litgpt  pretrain  meta-llama/Meta-Llama-3-8B-Instruct
-litgpt  serve     meta-llama/Meta-Llama-3-8B-Instruct
+litgpt  chat      checkpoints/meta-llama/Meta-Llama-3-8B-Instruct
+litgpt  finetune  checkpoints/meta-llama/Meta-Llama-3-8B-Instruct
+litgpt  pretrain  checkpoints/meta-llama/Meta-Llama-3-8B-Instruct
+litgpt  serve     checkpoints/meta-llama/Meta-Llama-3-8B-Instruct
 ```
 
 &nbsp;

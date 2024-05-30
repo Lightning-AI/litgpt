@@ -14,10 +14,10 @@ This section illustrates how we can set up an inference server for a phi-2 LLM u
 
 ```bash
 # 1) Download a pretrained model (alternatively, use your own finetuned model)
-litgpt download --repo_id microsoft/phi-2
+litgpt download microsoft/phi-2
 
 # 2) Start the server
-litgpt serve --checkpoint_dir checkpoints/microsoft/phi-2
+litgpt serve checkpoints/microsoft/phi-2
 ```
 
 > [!TIP]
