@@ -655,12 +655,12 @@ def test_lora_bitsandbytes(monkeypatch, tmp_path, fake_checkpoint_dir, alpaca_pa
     monkeypatch.setattr(module, "fit", train_mock)
 
     stdout = StringIO()
-    with redirect_stdout(stdout), mock.patch("sys.argv", ["full.py"]):
+    with redirect_stdout(stdout), mock.patch("sys.argv", ["full.py", str(fake_checkpoint_dir)]):
         module.setup(
+            fake_checkpoint_dir,
             data=Alpaca(
                 download_dir=alpaca_path.parent, file_name=alpaca_path.name, val_split_fraction=0.5, num_workers=0
             ),
-            checkpoint_dir=fake_checkpoint_dir,
             out_dir=tmp_path,
             precision="16-true",
             quantize="bnb.nf4-dq",
