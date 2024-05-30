@@ -107,7 +107,7 @@ class SimpleLitAPI(LitAPI):
 
 
 def run_server(
-    checkpoint_dir: str,
+    checkpoint_dir: Path,
     precision: Optional[str] = None,
     temperature: float = 0.8,
     top_k: int = 200,
@@ -149,7 +149,6 @@ def run_server(
             The "auto" setting (default) chooses a GPU if available, and otherwise uses a CPU.
         port: The network port number on which the model is configured to be served.
     """
-    checkpoint_dir = Path(checkpoint_dir)
     check_valid_checkpoint_dir(checkpoint_dir, model_filename="lit_model.pth")
 
     server = LitServer(

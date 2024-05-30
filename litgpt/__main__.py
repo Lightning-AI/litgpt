@@ -1,7 +1,5 @@
 # Copyright Lightning AI. Licensed under the Apache License 2.0, see LICENSE file.
 
-from typing import TYPE_CHECKING, Any
-
 import torch
 
 from litgpt.chat.base import main as chat_fn
@@ -25,41 +23,10 @@ from litgpt.scripts.download import download_from_hub as download_fn
 from litgpt.scripts.merge_lora import merge_lora as merge_lora_fn
 from litgpt.eval.evaluate import convert_and_evaluate as evaluate_fn
 from litgpt.deploy.serve import run_server as serve_fn
-
-
-if TYPE_CHECKING:
-    from jsonargparse import ArgumentParser
+from jsonargparse import set_config_read_mode, set_docstring_parse_options, CLI
 
 
 def main() -> None:
-    parser_data = {
-        "download": {"fn": download_fn, "_help": "Download weights or tokenizer data from the Hugging Face Hub."},
-        "chat": {"fn": chat_fn, "_help": "Chat with a model."},
-
-        "finetune": {"fn": finetune_lora_fn, "_help": "Finetune a model (uses LoRA)."},
-        "finetune_lora": {"fn": finetune_lora_fn, "_help": "Finetune a model with LoRA."},
-        "finetune_full": {"fn": finetune_full_fn, "_help": "Finetune a model."},
-        "finetune_adapter": {"fn": finetune_adapter_fn, "_help": "Finetune a model with Adapter."},
-        "finetune_adapter_v2": {"fn": finetune_adapter_v2_fn, "_help": "Finetune a model with Adapter v2."},
-
-        "pretrain": {"fn": pretrain_fn, "_help": "Pretrain a model.", },
-
-        "generate": {"fn": generate_base_fn, "_help": "Default generation option."},
-        "generate_full": {"fn": generate_full_fn, "_help": "For models finetuned with `litgpt_finetune_full"},
-        "generate_adapter": {"fn": generate_adapter_fn, "_help": "For models finetuned with `litgpt_finetune_adapter`."},
-        "generate_adapter_v2": {"fn": generate_adapter_v2_fn, "_help": "For models finetuned with `litgpt finetune_adapter_v2`."},
-        "generate_sequentially": {"fn": generate_sequentially_fn, "_help": "Generation script that partitions layers across devices to be run sequentially."},
-        "generate_tp": {"fn": generate_tp_fn, "_help": "Generation script that uses tensor parallelism to run across devices."},
-
-        "convert_to_litgpt": {"fn": convert_hf_checkpoint_fn, "_help": "Convert Hugging Face weights to LitGPT weights."},
-        "convert_from_litgpt": {"fn": convert_lit_checkpoint_fn, "_help": "Convert LitGPT weights to Hugging Face weights."},
-        "convert_pretrained_checkpoint": {"fn": convert_pretrained_checkpoint_fn, "_help": "Convert a checkpoint after pretraining."},
-
-        "merge_lora": {"fn": merge_lora_fn, "_help": "Merges the LoRA weights with the base model."},
-        "evaluate": {"fn": evaluate_fn, "_help": "Evaluate a model with the LM Evaluation Harness."},
-        "serve": {"fn": serve_fn, "_help": "Serve and deploy a model with LitServe."},
-    }
-
     parser_data = {
         "download": download_fn,
         "chat": chat_fn,
@@ -83,12 +50,9 @@ def main() -> None:
         "serve": serve_fn
     }
 
-    from jsonargparse import set_config_read_mode, set_docstring_parse_options, CLI
-
     set_docstring_parse_options(attribute_docstrings=True)
     set_config_read_mode(urls_enabled=True)
 
-    CLI(parser_data)
     torch.set_float32_matmul_precision("high")
 
 

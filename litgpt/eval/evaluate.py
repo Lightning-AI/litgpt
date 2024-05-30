@@ -25,7 +25,7 @@ def prepare_results(results, save_filepath, print_results=True):
 
 
 def convert_and_evaluate(
-    checkpoint_dir: str,
+    checkpoint_dir: Path,
     tasks: Optional[str] = None,
     out_dir: Optional[Path] = None,
     force_conversion: bool = False,
@@ -71,8 +71,6 @@ def convert_and_evaluate(
 
     if device is None:
         device = "cuda" if torch.cuda.is_available() else "cpu"
-
-    checkpoint_dir = Path(checkpoint_dir)
 
     if out_dir is None:
         out_dir = checkpoint_dir / "evaluate"

@@ -157,7 +157,7 @@ def interact(multiline, model, tokenizer, prompt_style, fabric, temperature, top
 
 @torch.inference_mode()
 def main(
-    checkpoint_dir: str,
+    checkpoint_dir: Path,
     *,
     top_k: Optional[int] = 200,
     top_p: float = 1.0,
@@ -196,7 +196,6 @@ def main(
         compile: Whether to use compilation to speed up token generation. Will increase startup time.
         multiline: Whether to support multiline input prompts.
     """
-    checkpoint_dir = Path(checkpoint_dir)
     precision = precision or get_default_supported_precision(training=False)
 
     plugins = None
