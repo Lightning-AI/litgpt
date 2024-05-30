@@ -142,7 +142,7 @@ litgpt  serve     meta-llama/Meta-Llama-3-8B-Instruct
 &nbsp;
 
 ###  Use an LLM for inference
-Use LLMs for inference to test its chatting capabilities, run evaluations, or extract embeddings, etc...
+Use LLMs for inference to test its chatting capabilities, run evaluations, or extract embeddings, etc.
 Here's an example showing how to use the Phi-2 LLM.
 
 <a target="_blank" href="https://lightning.ai/lightning-ai/studios/litgpt-chat">
