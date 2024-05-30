@@ -278,11 +278,11 @@ def test_base_with_sequentially(tmp_path):
     torch.save(GPT(config).state_dict(), checkpoint_dir / "lit_model.pth")
 
     args = [
+        str(checkpoint_dir),
         "--num_samples=1",
         "--max_new_tokens=10",
         "--precision=16-true",
         "--temperature=0.0",
-        f"--checkpoint_dir={str(checkpoint_dir)}",
     ]
     env = {"CUDA_VISIBLE_DEVICES": "0,1"}
     base_stdout = subprocess.check_output([sys.executable, "-m", "litgpt", "generate", *args], env=env, cwd=root).decode()
