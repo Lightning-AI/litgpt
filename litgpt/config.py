@@ -92,11 +92,15 @@ class Config:
         self.rope_n_elem = int(self.rotary_percentage * self.head_size)
 
     @classmethod
-    def from_name(cls, name: str, **kwargs: Any) -> Self:
+    def from_name(cls, name: str, **kwargs: Any) -> Optional[Self]:
         if name not in name_to_config:
             # search through all `config['hf_config']['name']`
             try:
-                conf_dict = next(config for config in configs if name == config["hf_config"]["name"])
+                conf_dict = next(
+                    config for config in configs
+                    if name == config["hf_config"]["name"] or
+                    config["hf_config"]["org"] + "/" + config["hf_config"]["name"] == name
+                )
             except StopIteration:
                 raise ValueError(f"{name!r} is not a supported config name")
         else:

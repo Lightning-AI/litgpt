@@ -84,10 +84,10 @@ def test_main(fake_checkpoint_dir, monkeypatch, tensor_like):
 
 
 def test_cli():
-    args = ["litgpt", "generate", "base", "-h"]
+    args = ["litgpt", "generate", "-h"]
     output = subprocess.check_output(args)
     output = str(output.decode())
-    assert "Generates text samples" in output
+    assert "Default generation option" in output
 
 
 @pytest.mark.parametrize("temperature", (0.0, 1.0, 0.5))

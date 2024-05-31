@@ -17,10 +17,10 @@ from litgpt.utils import check_valid_checkpoint_dir, get_default_supported_preci
 
 
 def main(
+    checkpoint_dir: Path,
     prompt: str = "What food do llamas eat?",
     input: str = "",
     adapter_path: Path = Path("out/finetune/adapter-v2/final/lit_model.pth.adapter_v2"),
-    checkpoint_dir: Path = Path("checkpoints/stabilityai/stablelm-base-alpha-3b"),
     quantize: Optional[Literal["bnb.nf4", "bnb.nf4-dq", "bnb.fp4", "bnb.fp4-dq", "bnb.int8"]] = None,
     max_new_tokens: int = 100,
     top_k: Optional[int] = 50,
@@ -28,15 +28,17 @@ def main(
     temperature: float = 0.8,
     precision: Optional[str] = None,
 ) -> None:
-    """Generates a response based on a given instruction and an optional input. This script will only work with
+    """For models finetuned with `litgpt finetune adapter_v2`.
+
+    Generates a response based on a given instruction and an optional input. This script will only work with
     checkpoints from the instruction-tuned adapter v2 model. See ``litgpt.finetune.adapter_v2``.
 
     Args:
+        checkpoint_dir: The path to the checkpoint folder with pretrained GPT weights.
         prompt: The prompt/instruction (Alpaca style).
         input: Optional input (Alpaca style).
         adapter_path: Path to the checkpoint with trained adapter weights, which are the output of
             ``litgpt.finetune.adapter_v2``.
-        checkpoint_dir: The path to the checkpoint folder with pretrained GPT weights.
         quantize: Whether to quantize the model and using which method:
             - bnb.nf4, bnb.nf4-dq, bnb.fp4, bnb.fp4-dq: 4-bit quantization from bitsandbytes
             - bnb.int8: 8-bit quantization from bitsandbytes

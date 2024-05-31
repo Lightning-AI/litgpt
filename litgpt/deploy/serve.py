@@ -13,7 +13,7 @@ from litgpt.config import Config
 from litgpt.tokenizer import Tokenizer
 from litgpt.generate.base import generate
 from litgpt.prompts import load_prompt_style, has_prompt_style, PromptStyle
-from litgpt.utils import load_checkpoint, CLI, get_default_supported_precision
+from litgpt.utils import load_checkpoint, get_default_supported_precision
 
 
 _LITSERVE_AVAILABLE = RequirementCache("litserve")
@@ -53,7 +53,7 @@ class SimpleLitAPI(LitAPI):
 
         fabric = L.Fabric(
             accelerator=device.type,
-            devices=1 if device.type=="cpu" else [device.index],
+            devices=1 if device.type == "cpu" else [device.index],
             precision=precision,
         )
         checkpoint_path = self.checkpoint_dir / "lit_model.pth"
@@ -107,7 +107,7 @@ class SimpleLitAPI(LitAPI):
 
 
 def run_server(
-    checkpoint_dir: Path = Path("checkpoints"),
+    checkpoint_dir: Path,
     precision: Optional[str] = None,
     temperature: float = 0.8,
     top_k: int = 200,
@@ -117,7 +117,9 @@ def run_server(
     accelerator: str = "auto",
     port: int = 8000
 ) -> None:
-    """Serve a LitGPT model using LitServe
+    """Serve a LitGPT model using LitServe.
+
+    Evaluate a model with the LM Evaluation Harness.
 
     Arguments:
         checkpoint_dir: The checkpoint directory to load the model from.

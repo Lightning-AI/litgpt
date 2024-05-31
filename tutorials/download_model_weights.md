@@ -178,7 +178,7 @@ unsloth/Mistral-7B-v0.2
 To download the weights for a specific model, use the `--repo_id` argument. Replace `<repo_id>` with the model's repository ID. For example:
 
 ```bash
-litgpt download --repo_id <repo_id>
+litgpt download <repo_id>
 ```
 
 This command downloads the model checkpoint into the `checkpoints/` directory.
@@ -197,10 +197,10 @@ litgpt download --help
 
 ### 4. Run the Model
 
-After conversion, run the model with the `--checkpoint_dir` flag, adjusting `repo_id` accordingly:
+After conversion, run the model with the given checkpoint path as input, adjusting `repo_id` accordingly:
 
 ```bash
-litgpt chat --checkpoint_dir checkpoints/<repo_id>
+litgpt chat checkpoints/<repo_id>
 ```
 
 &nbsp;
@@ -224,13 +224,13 @@ TinyLlama/TinyLlama-1.1B-Chat-v1.0
 
 ```bash
 export repo_id=TinyLlama/TinyLlama-1.1B-intermediate-step-1431k-3T
-litgpt download --repo_id $repo_id
+litgpt download $repo_id
 ```
 
 3. Use the TinyLlama model:
 
 ```bash
-litgpt chat --checkpoint_dir checkpoints/$repo_id
+litgpt chat checkpoints/$repo_id
 ```
 
 &nbsp;
@@ -243,8 +243,7 @@ For example, to get access to the Gemma 2B model, you can do so by following the
 Once you've been granted access and obtained the access token you need to pass the additional `--access_token`:
 
 ```bash
-litgpt download \
-  --repo_id google/gemma-2b \
+litgpt download google/gemma-2b \
   --access_token your_hf_token
 ```
 
@@ -255,8 +254,7 @@ litgpt download \
 Sometimes you want to download the weights of a finetune of one of the models listed above. To do this, you need to manually specify the `model_name` associated to the config to use. For example:
 
 ```bash
-litgpt download \
-  --repo_id NousResearch/Hermes-2-Pro-Mistral-7B \
+litgpt download NousResearch/Hermes-2-Pro-Mistral-7B \
   --model_name Mistral-7B-v0.1
 ```
 
@@ -267,8 +265,7 @@ litgpt download \
 The `download.py` script will automatically convert the downloaded model checkpoint into a LitGPT-compatible format. In case this conversion fails due to GPU memory constraints, you can try to reduce the memory requirements by passing the  `--dtype bf16-true` flag to convert all parameters into this smaller precision (however, note that most model weights are already in a bfloat16 format, so it may not have any effect):
 
 ```bash
-litgpt download \
-  --repo_id <repo_id>
+litgpt download  <repo_id>
   --dtype bf16-true
 ```
 
@@ -283,16 +280,14 @@ For development purposes, for example, when adding or experimenting with new mod
 You can do this by passing the `--convert_checkpoint false` option to the download script:
 
 ```bash
-litgpt download \
-  --repo_id <repo_id> \
+litgpt download <repo_id> \
   --convert_checkpoint false
 ```
 
 and then calling the `convert_hf_checkpoint.py` script:
 
 ```bash
-litgpt convert to_litgpt \
-  --checkpoint_dir checkpoint_dir/<repo_id>
+litgpt convert to_litgpt checkpoint_dir/<repo_id>
 ```
 
 &nbsp;
@@ -302,16 +297,14 @@ litgpt convert to_litgpt \
 In some cases we don't need the model weight, for example, when we are pretraining a model from scratch instead of finetuning it. For cases like this, you can use the `--tokenizer_only` flag to only download a model's tokenizer, which can then be used in the pretraining scripts:
 
 ```bash
-litgpt download \
-  --repo_id TinyLlama/TinyLlama-1.1B-intermediate-step-1431k-3T \
+litgpt download TinyLlama/TinyLlama-1.1B-intermediate-step-1431k-3T \
   --tokenizer_only true
 ```
 
 and
 
 ```bash
-litgpt pretrain \
+litgpt pretrain tiny-llama-1.1b \
   --data ... \
-  --model_name tiny-llama-1.1b \
   --tokenizer_dir checkpoints/TinyLlama/TinyLlama-1.1B-intermediate-step-1431k-3T/
 ```

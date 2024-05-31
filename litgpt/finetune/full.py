@@ -36,7 +36,7 @@ from litgpt.utils import (
 
 
 def setup(
-    checkpoint_dir: Path = Path("checkpoints/stabilityai/stablelm-base-alpha-3b"),
+    checkpoint_dir: Path,
     out_dir: Path = Path("out/finetune/full"),
     precision: Optional[str] = None,
     devices: Union[int, str] = 1,
@@ -74,9 +74,7 @@ def setup(
         seed: The random seed to use for reproducibility.
     """
     pprint(locals())
-
     data = Alpaca() if data is None else data
-
     devices = parse_devices(devices)
     out_dir = init_out_dir(out_dir)
 

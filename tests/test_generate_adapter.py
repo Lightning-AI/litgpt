@@ -49,7 +49,7 @@ def test_main(fake_checkpoint_dir, monkeypatch, version, tensor_like):
 
 @pytest.mark.parametrize("version", ("", "_v2"))
 def test_cli(version):
-    args = ["litgpt", "generate", f"adapter{version}", "-h"]
+    args = ["litgpt", f"generate_adapter{version}", "-h"]
     output = subprocess.check_output(args)
     output = str(output.decode())
-    assert "Generates a response" in output
+    assert "For models finetuned with" in output

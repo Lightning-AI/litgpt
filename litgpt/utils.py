@@ -413,8 +413,6 @@ def CLI(*args: Any, **kwargs: Any) -> Any:
     set_docstring_parse_options(attribute_docstrings=True)
     set_config_read_mode(urls_enabled=True)
 
-    kwargs.setdefault("as_positional", False)
-
     return CLI(*args, **kwargs)
 
 
@@ -441,10 +439,10 @@ def save_hyperparameters(function: callable, checkpoint_dir: Path) -> None:
     # This hack strips away the subcommands from the top-level CLI
     # to parse the file as if it was called as a script
     known_commands = [
-        ("finetune", "full"),
-        ("finetune", "lora"),
-        ("finetune", "adapter"),
-        ("finetune", "adapter_v2"),
+        ("finetune_full",),  # For subcommands, use `("finetune", "full")` etc
+        ("finetune_lora",),
+        ("finetune_adapter",),
+        ("finetune_adapter_v2",),
         ("finetune",),
         ("pretrain",),
     ]
