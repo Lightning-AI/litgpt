@@ -18,7 +18,7 @@ from litgpt.pretrain import initialize_weights
 from tests.conftest import RunIf
 
 
-@RunIf(min_cuda_gpus=2)
+@RunIf(min_cuda_gpus=2, standalone=True)
 # Set CUDA_VISIBLE_DEVICES for FSDP hybrid-shard, if fewer GPUs are used than are available
 @mock.patch.dict(os.environ, {"CUDA_VISIBLE_DEVICES": "0,1"})
 # If we were to use `save_hyperparameters()`, we would have to patch `sys.argv` or otherwise
