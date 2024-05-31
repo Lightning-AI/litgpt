@@ -96,14 +96,13 @@ class Config:
         if name not in name_to_config:
             # search through all `config['hf_config']['name']`
             try:
-                conf_dict = next(config for config in configs if name == config["hf_config"]["name"])
-
-            # try to get name from an org/model string like "meta-llama/Meta-Llama-3-8B"
+                conf_dict = next(
+                    config for config in configs
+                    if name == config["hf_config"]["name"] or
+                    config["hf_config"]["org"] + "/" + config["hf_config"]["name"] == name
+                )
             except StopIteration:
-                try:
-                    conf_dict = next(config for config in configs if config["hf_config"]["org"] + "/" + config["hf_config"]["name"] == name)
-                except StopIteration:
-                    raise ValueError(f"{name!r} is not a supported config name")
+                raise ValueError(f"{name!r} is not a supported config name")
         else:
             conf_dict = name_to_config[name]
 
