@@ -3,6 +3,7 @@
 import json
 import os
 from pathlib import Path
+from pprint import pprint
 from typing import Optional, Union
 import torch
 
@@ -54,6 +55,9 @@ def convert_and_evaluate(
         save_filepath: The file where the results will be saved.
             Saves to `out_dir/results.json` by default.
     """
+    if not checkpoint_dir.is_dir():
+        checkpoint_dir = "checkpoints" / checkpoint_dir
+    pprint(locals())
 
     from lm_eval import evaluator
 

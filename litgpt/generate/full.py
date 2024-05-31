@@ -3,6 +3,7 @@
 import sys
 import time
 from pathlib import Path
+from pprint import pprint
 from typing import Literal, Optional
 
 import lightning as L
@@ -62,6 +63,10 @@ def main(
             samples.
         precision: Indicates the Fabric precision setting to use.
     """
+    if not checkpoint_dir.is_dir():
+        checkpoint_dir = "checkpoints" / checkpoint_dir
+    pprint(locals())
+
     precision = precision or get_default_supported_precision(training=False)
 
     plugins = None

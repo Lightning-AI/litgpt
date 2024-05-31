@@ -119,7 +119,7 @@ def test_main(mocked_input, stop_iteration, fake_checkpoint_dir, monkeypatch, te
         call(ANY, tensor_like, 128, temperature=2.0, top_k=2, top_p=0.9, stop_tokens=([tokenizer_mock.return_value.eos_id],))
     ]
     # only the generated result is printed to stdout
-    assert re.match("Now chatting with Llama 3.*>> .*Reply: foo bar baz", out.getvalue(), re.DOTALL)
+    assert re.match(r".*Now chatting with Llama 3.*>> .*Reply: foo bar baz", out.getvalue(), re.DOTALL)
 
 
 def test_cli():
@@ -148,5 +148,5 @@ def test_merge_lora_if_needed(mocked_merge_lora, mocked_input, fake_checkpoint_d
     with redirect_stdout(out), redirect_stderr(err):
         chat.main(checkpoint_dir=fake_checkpoint_dir)
 
-    assert re.match("Merging LoRA weights with the base model.", out.getvalue(), re.DOTALL)
+    assert re.match(r".*Merging LoRA weights with the base model\..*", out.getvalue(), re.DOTALL)
     mocked_merge_lora.assert_called_once()

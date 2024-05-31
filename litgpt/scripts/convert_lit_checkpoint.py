@@ -3,6 +3,7 @@
 import gc
 from functools import partial
 from pathlib import Path
+from pprint import pprint
 from typing import Dict, Optional, Tuple, Union
 
 import torch
@@ -241,6 +242,10 @@ def check_conversion_supported(lit_weights: Dict[str, torch.Tensor]) -> None:
 @torch.inference_mode()
 def convert_lit_checkpoint(checkpoint_dir: Path, output_dir: Path) -> None:
     """Convert a LitGPT trained checkpoint into a Hugging Face Transformers checkpoint."""
+    if not checkpoint_dir.is_dir():
+        checkpoint_dir = "checkpoints" / checkpoint_dir
+    pprint(locals())
+
     config = Config.from_file(checkpoint_dir / "model_config.yaml")
 
     output_dir.mkdir(parents=True, exist_ok=True)

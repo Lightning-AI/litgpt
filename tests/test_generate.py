@@ -1,5 +1,6 @@
 # Copyright Lightning AI. Licensed under the Apache License 2.0, see LICENSE file.
 
+import re
 import subprocess
 import sys
 from contextlib import redirect_stderr, redirect_stdout
@@ -77,8 +78,10 @@ def test_main(fake_checkpoint_dir, monkeypatch, tensor_like):
         == [call(ANY, tensor_like, 53, temperature=2.0, top_k=2, top_p=0.9, eos_id=tokenizer_mock.return_value.eos_id)]
         * num_samples
     )
-    # only the generated result is printed to stdout
-    assert out.getvalue() == "foo bar baz\n" * num_samples
+    expected_output = "foo bar baz\n" * num_samples
+    # Allow for the config to be printed before the expected repeated strings.
+    pattern = rf".*^{re.escape(expected_output.strip())}$.*"
+    assert re.match(pattern, out.getvalue().strip(), re.DOTALL | re.MULTILINE)
 
     assert "'padded_vocab_size': 512, 'n_layer': 2, 'n_head': 4" in err.getvalue()
 

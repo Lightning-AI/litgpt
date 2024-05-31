@@ -1,5 +1,6 @@
 # Copyright Lightning AI. Licensed under the Apache License 2.0, see LICENSE file.
 from pathlib import Path
+from pprint import pprint
 from typing import Dict, Any, Optional
 from litgpt.utils import check_valid_checkpoint_dir
 
@@ -149,6 +150,10 @@ def run_server(
             The "auto" setting (default) chooses a GPU if available, and otherwise uses a CPU.
         port: The network port number on which the model is configured to be served.
     """
+    if not checkpoint_dir.is_dir():
+        checkpoint_dir = "checkpoints" / checkpoint_dir
+    pprint(locals())
+
     check_valid_checkpoint_dir(checkpoint_dir, model_filename="lit_model.pth")
 
     server = LitServer(

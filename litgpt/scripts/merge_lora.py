@@ -2,6 +2,7 @@
 
 """This script merges the LoRA weights with the base model"""
 from pathlib import Path
+from pprint import pprint
 from typing import Any, Dict, Optional, Tuple
 
 import lightning as L
@@ -34,6 +35,10 @@ def merge_lora(
         precision: Optional precision setting to instantiate the model weights in. By default, this will
             automatically be inferred from the metadata in the given ``checkpoint_dir`` directory.
     """
+    if not checkpoint_dir.is_dir():
+        checkpoint_dir = "checkpoints" / checkpoint_dir
+    pprint(locals())
+
     check_valid_checkpoint_dir(checkpoint_dir, model_filename="lit_model.pth.lora")
     if pretrained_checkpoint_dir is not None:
         check_valid_checkpoint_dir(pretrained_checkpoint_dir)

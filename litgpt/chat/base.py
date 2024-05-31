@@ -3,6 +3,7 @@
 import sys
 import time
 from pathlib import Path
+from pprint import pprint
 from typing import Iterator, List, Literal, Optional, Tuple
 
 import lightning as L
@@ -196,6 +197,10 @@ def main(
         compile: Whether to use compilation to speed up token generation. Will increase startup time.
         multiline: Whether to support multiline input prompts.
     """
+    if not checkpoint_dir.is_dir():
+        checkpoint_dir = "checkpoints" / checkpoint_dir
+    pprint(locals())
+
     precision = precision or get_default_supported_precision(training=False)
 
     plugins = None

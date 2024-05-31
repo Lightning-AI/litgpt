@@ -73,6 +73,8 @@ def setup(
         logger_name: The name of the logger to send metrics to.
         seed: The random seed to use for reproducibility.
     """
+    if not checkpoint_dir.is_dir():
+        checkpoint_dir = "checkpoints" / checkpoint_dir
     pprint(locals())
     data = Alpaca() if data is None else data
     devices = parse_devices(devices)

@@ -1,7 +1,7 @@
 # Copyright Lightning AI. Licensed under the Apache License 2.0, see LICENSE file.
 
 from pathlib import Path
-
+from pprint import pprint
 import torch
 
 from litgpt.utils import copy_config_files, incremental_save
@@ -19,6 +19,9 @@ def convert_pretrained_checkpoint(checkpoint_dir: Path, output_dir: Path) -> Non
         checkpoint_dir: Path to a checkpoint directory produced by ``litgpt.pretrain``.
         output_dir: The output folder where the converted state-dict file and config files will be saved to.
     """
+    if not checkpoint_dir.is_dir():
+        checkpoint_dir = "checkpoints" / checkpoint_dir
+    pprint(locals())
 
     if output_dir.is_dir() and output_dir.glob("*"):
         raise FileExistsError(

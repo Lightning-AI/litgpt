@@ -8,6 +8,7 @@ import time
 from collections import OrderedDict
 from functools import partial
 from pathlib import Path
+from pprint import pprint
 from typing import Literal, Optional
 
 import lightning as L
@@ -156,6 +157,10 @@ def main(
         precision: Indicates the Fabric precision setting to use.
         compile: Whether to compile the model.
     """
+    if not checkpoint_dir.is_dir():
+        checkpoint_dir = "checkpoints" / checkpoint_dir
+    pprint(locals())
+
     precision = precision or get_default_supported_precision(training=False)
 
     plugins = None
