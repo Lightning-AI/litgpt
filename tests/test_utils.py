@@ -61,7 +61,7 @@ def test_check_valid_checkpoint_dir(tmp_path):
         check_valid_checkpoint_dir(tmp_path)
     out = out.getvalue().strip()
     expected = f"""
---checkpoint_dir '{str(tmp_path.absolute())}' is missing the files: ['lit_model.pth', 'model_config.yaml', 'tokenizer.json OR tokenizer.model', 'tokenizer_config.json'].
+checkpoint_dir '{str(tmp_path.absolute())}' is missing the files: ['lit_model.pth', 'model_config.yaml', 'tokenizer.json OR tokenizer.model', 'tokenizer_config.json'].
 Find download instructions at https://github.com/Lightning-AI/litgpt/blob/main/tutorials
 
 See all download options by running:
@@ -75,7 +75,7 @@ See all download options by running:
         check_valid_checkpoint_dir(checkpoint_dir)
     out = out.getvalue().strip()
     expected = f"""
---checkpoint_dir '{str(checkpoint_dir.absolute())}' is not a checkpoint directory.
+checkpoint_dir '{str(checkpoint_dir.absolute())}' is not a checkpoint directory.
 Find download instructions at https://github.com/Lightning-AI/litgpt/blob/main/tutorials
 
 See all download options by running:
@@ -90,11 +90,11 @@ See all download options by running:
         check_valid_checkpoint_dir(foo_checkpoint_dir)
     out = out.getvalue().strip()
     expected = f"""
---checkpoint_dir '{str(foo_checkpoint_dir.absolute())}' is not a checkpoint directory.
+checkpoint_dir '{str(foo_checkpoint_dir.absolute())}' is not a checkpoint directory.
 Find download instructions at https://github.com/Lightning-AI/litgpt/blob/main/tutorials
 
 You have downloaded locally:
- --checkpoint_dir '{str(checkpoint_dir.absolute())}'
+'{str(checkpoint_dir.absolute())}'
 
 See all download options by running:
  litgpt download
