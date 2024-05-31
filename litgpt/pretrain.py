@@ -96,8 +96,9 @@ def setup(
 
     if model_config is None:
         # Support both model_name options: meta-llama/Meta-Llama-3-8B & Meta-Llama-3-8B
-        model_config = Config.from_name(model_name)
-        if model_config is None:
+        try:
+            model_config = Config.from_name(model_name)
+        except ValueError:
             print(f"Model name {model_name} is not supported.\n")
             available_models = "\n".join(sorted(name_to_config))
             print(f"Available values:\n{available_models}")

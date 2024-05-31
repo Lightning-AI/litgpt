@@ -36,8 +36,8 @@ def test_from_hf_name():
 
 
 def test_nonexisting_name():
-    result = Config.from_name("invalid-model-name")
-    assert result is None
+    with pytest.raises(ValueError, match="'invalid-model-name' is not a supported config name"):
+        Config.from_name("invalid-model-name")
 
 
 @pytest.mark.parametrize("config", config_module.configs, ids=[c["name"] for c in config_module.configs])
@@ -58,14 +58,12 @@ def test_from_hf_name_with_org_string():
     assert config0 == config1
 
     # Test case 2: invalid input - org not found
-    hf_name_invalid_org = "UnknownOrg/TinyLlama-1.1B-intermediate-step-1431k-3T"
-    config2 = Config.from_name(hf_name_invalid_org)
-    assert config2 is None
+    with pytest.raises(ValueError, match="'UnknownOrg/TinyLlama-1.1B-intermediate-step-1431k-3T' is not a supported config name"):
+        Config.from_name("UnknownOrg/TinyLlama-1.1B-intermediate-step-1431k-3T")
 
     # Test case 3: invalid input - name not found
-    hf_name_invalid_name = "TinyLlama/TinyLlama-XYZ"
-    config3 = Config.from_name(hf_name_invalid_name)
-    assert config3 is None
+    with pytest.raises(ValueError, match="'TinyLlama/TinyLlama-XYZ' is not a supported config name"):
+        Config.from_name("TinyLlama/TinyLlama-XYZ")
 
 
 def test_from_checkpoint(tmp_path):
