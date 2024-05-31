@@ -80,13 +80,13 @@ def check_valid_checkpoint_dir(checkpoint_dir: Path, model_filename: str = "lit_
     # list locally available checkpoints
     available = list(Path("checkpoints").glob("*/*"))
     if available:
-        options = "\n --checkpoint_dir ".join([""] + [repr(str(p.resolve())) for p in available])
+        options = "\n".join([""] + [repr(str(p.resolve())) for p in available])
         extra = f"\nYou have downloaded locally:{options}\n"
     else:
         extra = ""
 
     error_message = (
-        f"--checkpoint_dir {str(checkpoint_dir.absolute())!r}{problem}."
+        f"checkpoint_dir {str(checkpoint_dir.absolute())!r}{problem}."
         "\nFind download instructions at https://github.com/Lightning-AI/litgpt/blob/main/tutorials\n"
         f"{extra}\nSee all download options by running:\n litgpt download"
     )
