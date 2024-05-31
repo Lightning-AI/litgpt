@@ -22,7 +22,7 @@ Suppose you downloaded a base model that we want to evaluate. Here, we use the `
 litgpt download microsoft/phi-2
 ```
 
-The download command above will save the model to the `checkoints/microsoft/phi-2` directory, which we can
+The download command above will save the model to the `checkpoints/microsoft/phi-2` directory, which we can
 specify in the following evaluation command:
 
 
