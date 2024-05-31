@@ -79,7 +79,7 @@ def test_initial_checkpoint_dir(_, load_mock, tmp_path):
     pretrain.get_dataloaders = Mock(return_value=(dataloader, dataloader))
     pretrain.fit = Mock()
 
-    pretrain.setup(initial_checkpoint_dir=tmp_path, devices=2, model_config=model_config, out_dir=tmp_path)
+    pretrain.setup("pythia-14m", initial_checkpoint_dir=tmp_path, devices=2, model_config=model_config, out_dir=tmp_path)
 
     load_mock.assert_called_once_with(tmp_path / "lit_model.pth", ANY)
 
