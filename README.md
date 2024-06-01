@@ -98,6 +98,9 @@ LitGPT has 🤯 **custom, from-scratch implementations** of [20+ LLMs](tutorials
 | TinyLlama | 1.1B | Zhang et al. | [Zhang et al. 2023](https://github.com/jzhang38/TinyLlama)                                                                   |
 | Vicuna | 7B, 13B, 33B | LMSYS | [Li et al. 2023](https://lmsys.org/blog/2023-03-30-vicuna/)
 
+**Tip**: You can list all available models by running the `litgpt download list` command.
+
+
 </details>
 
 &nbsp;
@@ -152,10 +155,13 @@ Here's an example showing how to use the Phi-2 LLM.
 &nbsp;
 
 ```bash
-# 1) Download a pretrained model
+# 1) List all available models in litgpt
+litgpt download list
+
+# 2) Download a pretrained model
 litgpt download microsoft/phi-2
 
-# 2) Chat with the model
+# 3) Chat with the model
 litgpt chat checkpoints/microsoft/phi-2
 
 >> Prompt: What do Llamas eat?
