@@ -53,8 +53,8 @@ def main() -> None:
     set_docstring_parse_options(attribute_docstrings=True)
     set_config_read_mode(urls_enabled=True)
 
-    CLI(parser_data)
     torch.set_float32_matmul_precision("high")
+    CLI(parser_data)
 
 
 if __name__ == "__main__":
