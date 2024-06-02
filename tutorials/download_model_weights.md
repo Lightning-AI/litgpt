@@ -2,6 +2,8 @@
 
 LitGPT supports a variety of LLM architectures with publicly available weights. You can download model weights and access a list of supported models using the LitGPT `download.py` script.
 
+&nbsp;
+
 | Model                                        | Model size                              | Reference                                                                                                                |
 |----------------------------------------------|-----------------------------------------|--------------------------------------------------------------------------------------------------------------------------|
 | CodeGemma by Google                          | 7B                                      | [Google Team, Google Deepmind](https://ai.google.dev/gemma/docs/codegemma)                                                             |
@@ -15,12 +17,13 @@ LitGPT supports a variety of LLM architectures with publicly available weights. 
 | Llama 2 by Meta AI                           | 7B, 13B, 70B                            | [Touvron et al. 2023](https://arxiv.org/abs/2307.09288)                                                                  |
 | Llama 3 by Meta AI                           | 8B, 70B                                 | [Meta AI 2024](https://github.com/meta-llama/llama3)                                                                     |
 | LongChat by LMSYS                            | 7B, 13B                                 | [LongChat Team 2023](https://lmsys.org/blog/2023-06-29-longchat/)                                                        |
+| MicroLlama by Ken Wang                       | 300M                                    | [MicroLlama repository](https://github.com/keeeeenw/MicroLlama)                                                          |
 | Mistral and Mixtral by Mistral AI            | 7B                                      | [Mistral website](https://mistral.ai/)                                                                                   |
 | Nous-Hermes by NousResearch                  | 7B, 13B, 70B                            | [Org page](https://huggingface.co/NousResearch)                                                                          |
 | OpenLLaMA by OpenLM Research                 | 3B, 7B, 13B                             | [Geng & Liu 2023](https://github.com/openlm-research/open_llama)                                                         |
 | Phi by Microsoft Research                    | 1.3B, 2.7B                              | [Li et al. 2023](https://arxiv.org/abs/2309.05463)                                                                       |
 | Platypus by Lee at el.                       | 7B, 13B, 70B                            | [Lee, Hunter, and Ruiz 2023](https://arxiv.org/abs/2308.07317)                                                           |
-| Pythia by EleutherAI                         | {14,31,70,160,410}M, {1,1.4,2.8,6.9,12}B | [Biderman et al. 2023](https://arxiv.org/abs/2304.01373)                                                                 |
+| Pythia by EleutherAI                         | {14,31,70,160,410}M, {1,1.4,2.8,6.9,12}B | [Biderman et al. 2023](https://arxiv.org/abs/2304.01373)                                                                |
 | RedPajama-INCITE by Together                 | 3B, 7B                                  | [Together 2023](https://together.ai/blog/redpajama-models-v1)                                                            |
 | StableCode by Stability AI                   | 3B                                      | [Stability AI 2023](https://stability.ai/blog/stablecode-llm-generative-ai-coding)                                       |
 | StableLM by Stability AI                     | 3B, 7B                                  | [Stability AI 2023](https://github.com/Stability-AI/StableLM)                                                            |
