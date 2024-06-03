@@ -133,10 +133,10 @@ After installing LitGPT, select the model and action you want to take on that mo
 ```bash
 # ligpt [action] [model]
 litgpt  download  meta-llama/Meta-Llama-3-8B-Instruct
-litgpt  chat      checkpoints/meta-llama/Meta-Llama-3-8B-Instruct
-litgpt  finetune  checkpoints/meta-llama/Meta-Llama-3-8B-Instruct
-litgpt  pretrain  checkpoints/meta-llama/Meta-Llama-3-8B-Instruct
-litgpt  serve     checkpoints/meta-llama/Meta-Llama-3-8B-Instruct
+litgpt  chat      meta-llama/Meta-Llama-3-8B-Instruct
+litgpt  finetune  meta-llama/Meta-Llama-3-8B-Instruct
+litgpt  pretrain  meta-llama/Meta-Llama-3-8B-Instruct
+litgpt  serve     meta-llama/Meta-Llama-3-8B-Instruct
 ```
 
 &nbsp;
@@ -156,7 +156,7 @@ Here's an example showing how to use the Phi-2 LLM.
 litgpt download microsoft/phi-2
 
 # 2) Chat with the model
-litgpt chat checkpoints/microsoft/phi-2
+litgpt chat microsoft/phi-2
 
 >> Prompt: What do Llamas eat?
 ```
@@ -182,7 +182,7 @@ litgpt download microsoft/phi-2
 # 2) Finetune the model
 curl -L https://huggingface.co/datasets/ksaw008/finance_alpaca/resolve/main/finance_alpaca.json -o my_custom_dataset.json
 
-litgpt finetune checkpoints/microsoft/phi-2 \
+litgpt finetune microsoft/phi-2 \
   --data JSON \
   --data.json_path my_custom_dataset.json \
   --data.val_split_fraction 0.1 \
@@ -214,7 +214,7 @@ litgpt download EleutherAI/pythia-160m \
 
 # 2) Pretrain the model
 litgpt pretrain EleutherAI/pythia-160m \
-  --tokenizer_dir checkpoints/EleutherAI/pythia-160m \
+  --tokenizer_dir EleutherAI/pythia-160m \
   --data TextFiles \
   --data.train_data_path "custom_texts/" \
   --train.max_tokens 10_000_000 \
@@ -246,8 +246,8 @@ litgpt download EleutherAI/pythia-160m
 
 # 2) Continue pretraining the model
 litgpt pretrain EleutherAI/pythia-160m \
-  --tokenizer_dir checkpoints/EleutherAI/pythia-160m \
-  --initial_checkpoint_dir checkpoints/EleutherAI/pythia-160m \
+  --tokenizer_dir EleutherAI/pythia-160m \
+  --initial_checkpoint_dir EleutherAI/pythia-160m \
   --data TextFiles \
   --data.train_data_path "custom_texts/" \
   --train.max_tokens 10_000_000 \
@@ -270,11 +270,11 @@ Once you're ready to deploy a finetuned LLM, run this command:
 
 ```bash
 # locate the checkpoint to your finetuned or pretrained model and call the `serve` command:
-litgpt serve checkpoints/microsoft/phi-2
+litgpt serve microsoft/phi-2
 
 # Alternative: if you haven't finetuned, download any checkpoint to deploy it:
 litgpt download microsoft/phi-2
-litgpt serve checkpoints/microsoft/phi-2
+litgpt serve microsoft/phi-2
 ```
 
 Test the server in a separate terminal and integrate the model API into your AI product:

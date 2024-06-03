@@ -19,7 +19,7 @@ def use_model():
     # Load model
     ###################
 
-    # run `litgpt download --repo_id EleutherAI/pythia-1b` to download the checkpoint first
+    # run `litgpt download EleutherAI/pythia-1b` to download the checkpoint first
     checkpoint_dir = Path("checkpoints") / "EleutherAI" / "pythia-1b"
     config = Config.from_file(checkpoint_dir / "model_config.yaml")
 
