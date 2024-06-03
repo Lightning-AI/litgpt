@@ -11,7 +11,7 @@ from litgpt.utils import CLI
 
 
 class SlimPajamaDataRecipe(DataChunkRecipe):
-    is_generator = True # fix any exception related to DataChunkRecipe
+    is_generator = True
 
     def __init__(self, tokenizer: Tokenizer, chunk_size: int):
         super().__init__(chunk_size)

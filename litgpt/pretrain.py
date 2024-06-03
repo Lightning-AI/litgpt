@@ -105,11 +105,7 @@ def setup(
             quit()
 
     hparams = capture_hparams()
-    data = data
-    if data is None or data == 'TinyLlama':
-        data = TinyLlama()
-    elif data == 'MicroLlama':
-        data = MicroLlama()
+    data = TinyLlama() if data is None else data
 
     config = Config.from_name(model_name) if model_config is None else model_config
     precision = precision or get_default_supported_precision(training=True)

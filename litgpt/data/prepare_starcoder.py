@@ -18,6 +18,8 @@ else:
 
 
 class StarcoderDataRecipe(DataChunkRecipe):
+    is_generator = True
+
     def __init__(self, tokenizer: Tokenizer, chunk_size: int):
         super().__init__(chunk_size)
         self.tokenizer = tokenizer

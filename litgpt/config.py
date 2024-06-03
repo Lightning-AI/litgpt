@@ -1568,8 +1568,8 @@ for c in tiny_llama:
 ############
 micro_llama = [
     dict(
-        name="micro-llama-300M{}",
-        hf_config=dict(org="keeeeenw", name="MicroLlama{}"),
+        name="micro-llama-300M",
+        hf_config=dict(org="keeeeenw", name="MicroLlama"),
         block_size=2048,
         vocab_size=32000,
         padding_multiple=64,
@@ -1586,12 +1586,7 @@ micro_llama = [
         n_query_groups=4,
     )
 ]
-for c in micro_llama:
-    for kind, hf_postfix in [("", "")]:
-        copy = deepcopy(c)
-        copy["name"] = c["name"].format(kind)
-        copy["hf_config"]["name"] = c["hf_config"]["name"].format(hf_postfix)
-        configs.append(copy)
+configs.extend(micro_llama)
 
 
 ##########################

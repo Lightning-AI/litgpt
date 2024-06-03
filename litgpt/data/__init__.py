@@ -11,7 +11,6 @@ from litgpt.data.flan import FLAN
 from litgpt.data.lima import LIMA
 from litgpt.data.lit_data import LitData
 from litgpt.data.longform import LongForm
-from litgpt.data.llama_data import LlamaDataModule
 from litgpt.data.text_files import TextFiles
 from litgpt.data.tinyllama import TinyLlama
 from litgpt.data.tinystories import TinyStories
@@ -29,7 +28,6 @@ __all__ = [
     "JSON",
     "LIMA",
     "LitData",
-    "LlamaDataModule",
     "DataModule",
     "LongForm",
     "OpenWebText",
