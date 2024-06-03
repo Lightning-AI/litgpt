@@ -161,13 +161,8 @@ litgpt download list
 # 2) Download a pretrained model
 litgpt download microsoft/phi-2
 
-<<<<<<< add-checkpoints-path
-# 2) Chat with the model
-litgpt chat microsoft/phi-2
-=======
 # 3) Chat with the model
-litgpt chat checkpoints/microsoft/phi-2
->>>>>>> main
+litgpt chat microsoft/phi-2
 
 >> Prompt: What do Llamas eat?
 ```
