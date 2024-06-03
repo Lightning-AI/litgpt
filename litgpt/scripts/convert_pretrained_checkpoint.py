@@ -4,7 +4,11 @@ from pathlib import Path
 from pprint import pprint
 import torch
 
-from litgpt.utils import copy_config_files, incremental_save
+from litgpt.utils import (
+    copy_config_files,
+    extend_checkpoint_dir,
+    incremental_save
+)
 
 
 @torch.inference_mode()
@@ -19,8 +23,7 @@ def convert_pretrained_checkpoint(checkpoint_dir: Path, output_dir: Path) -> Non
         checkpoint_dir: Path to a checkpoint directory produced by ``litgpt.pretrain``.
         output_dir: The output folder where the converted state-dict file and config files will be saved to.
     """
-    if not checkpoint_dir.is_dir() and not checkpoint_dir.parts[0] == "checkpoints":
-        checkpoint_dir = "checkpoints" / checkpoint_dir
+    checkpoint_dir = extend_checkpoint_dir(checkpoint_dir)
     pprint(locals())
 
     if output_dir.is_dir() and output_dir.glob("*"):

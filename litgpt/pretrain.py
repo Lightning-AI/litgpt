@@ -28,6 +28,7 @@ from litgpt.utils import (
     choose_logger,
     chunked_cross_entropy,
     copy_config_files,
+    extend_checkpoint_dir,
     get_default_supported_precision,
     init_out_dir,
     instantiate_torch_optimizer,
@@ -94,9 +95,7 @@ def setup(
         print(f"Available values:\n{available_models}")
         quit()
 
-    if initial_checkpoint_dir is not None:
-        if not initial_checkpoint_dir.is_dir() and not initial_checkpoint_dir.parts[0] == "checkpoints":
-            initial_checkpoint_dir = "checkpoints" / initial_checkpoint_dir
+    initial_checkpoint_dir = extend_checkpoint_dir(initial_checkpoint_dir)
 
     if tokenizer_dir is not None:
         if not tokenizer_dir.is_dir() and not tokenizer_dir.parts[0] == "checkpoints":

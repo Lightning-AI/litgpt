@@ -29,6 +29,7 @@ from litgpt.utils import (
     choose_logger,
     chunked_cross_entropy,
     copy_config_files,
+    extend_checkpoint_dir,
     find_multiple,
     get_argument_names,
     incremental_save,
@@ -350,3 +351,15 @@ def test_instantiate_torch_optimizer_with_class(model_parameters):
     assert isinstance(optimizer, torch.optim.Adam)
     # init args gets overridden
     assert optimizer.param_groups[0]["lr"] == 0.02
+
+
+@pytest.mark.parametrize("input_path, expected", [
+    (Path("checkpoints/my_model"), Path("checkpoints/my_model")),                  # already prefixed
+    # the one below it to simulate what happens if the input is not a valid dir
+    (Path("data/my_model/file.txt"), Path("checkpoints/data/my_model/file.txt")),  # needs prefix
+    (Path("/data/my_model"), Path("/data/my_model")),                              # absolute path
+    (Path("./file.txt"), Path("checkpoints/./file.txt")),                          # current directory
+    (Path("../relative_path"), Path("checkpoints/../relative_path")),              # relative parent path
+])
+def test_extend_checkpoint_dir(input_path, expected):
+    assert extend_checkpoint_dir(input_path) == expected

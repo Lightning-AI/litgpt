@@ -14,7 +14,12 @@ from litgpt import PromptStyle, Tokenizer
 from litgpt.adapter_v2 import GPT, Config
 from litgpt.generate.base import generate
 from litgpt.prompts import has_prompt_style, load_prompt_style
-from litgpt.utils import check_valid_checkpoint_dir, get_default_supported_precision, lazy_load
+from litgpt.utils import (
+    check_valid_checkpoint_dir,
+    extend_checkpoint_dir,
+    get_default_supported_precision,
+    lazy_load
+)
 
 
 def main(
@@ -64,8 +69,7 @@ def main(
             samples.
         precision: Indicates the Fabric precision setting to use.
     """
-    if not checkpoint_dir.is_dir() and not checkpoint_dir.parts[0] == "checkpoints":
-        checkpoint_dir = "checkpoints" / checkpoint_dir
+    checkpoint_dir = extend_checkpoint_dir(checkpoint_dir)
     pprint(locals())
 
     precision = precision or get_default_supported_precision(training=False)

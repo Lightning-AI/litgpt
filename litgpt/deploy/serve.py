@@ -14,7 +14,11 @@ from litgpt.config import Config
 from litgpt.tokenizer import Tokenizer
 from litgpt.generate.base import generate
 from litgpt.prompts import load_prompt_style, has_prompt_style, PromptStyle
-from litgpt.utils import load_checkpoint, get_default_supported_precision
+from litgpt.utils import (
+    extend_checkpoint_dir,
+    get_default_supported_precision,
+    load_checkpoint
+)
 
 
 _LITSERVE_AVAILABLE = RequirementCache("litserve")
@@ -150,8 +154,7 @@ def run_server(
             The "auto" setting (default) chooses a GPU if available, and otherwise uses a CPU.
         port: The network port number on which the model is configured to be served.
     """
-    if not checkpoint_dir.is_dir():
-        checkpoint_dir = "checkpoints" / checkpoint_dir
+    checkpoint_dir = extend_checkpoint_dir(checkpoint_dir)
     pprint(locals())
 
     check_valid_checkpoint_dir(checkpoint_dir, model_filename="lit_model.pth")
