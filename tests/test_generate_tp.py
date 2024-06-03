@@ -127,7 +127,9 @@ def test_tp(tmp_path):
     tp_stdout = subprocess.check_output([sys.executable, "-m", "litgpt", "generate_tp", *args], env=env, cwd=root).decode()
 
     # there is some unaccounted randomness so cannot compare the output with that of `generate/base.py`
-    assert tp_stdout.startswith("What food do llamas eat?")
+    assert "What food do llamas eat?" in tp_stdout
+    match = tp_stdout[tp_stdout.index("What food do llamas eat?"):len("What food do llamas eat?")]
+    assert match == tp_stdout
 
 
 def test_cli():
