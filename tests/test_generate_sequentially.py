@@ -278,7 +278,7 @@ def test_base_with_sequentially(tmp_path):
     torch.save(GPT(config).state_dict(), checkpoint_dir / "lit_model.pth")
 
     args = [
-        str(checkpoint_dir),
+        Path(checkpoint_dir),
         "--num_samples=1",
         "--max_new_tokens=10",
         "--precision=16-true",
