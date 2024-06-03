@@ -94,6 +94,10 @@ def setup(
         print(f"Available values:\n{available_models}")
         quit()
 
+    if initial_checkpoint_dir is not None:
+        if not initial_checkpoint_dir.is_dir():
+            initial_checkpoint_dir = "checkpoints" / initial_checkpoint_dir
+
     if model_config is None:
         # Support both model_name options: meta-llama/Meta-Llama-3-8B & Meta-Llama-3-8B
         try:
