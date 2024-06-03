@@ -98,6 +98,10 @@ def setup(
         if not initial_checkpoint_dir.is_dir() and not initial_checkpoint_dir.parts[0] == "checkpoints":
             initial_checkpoint_dir = "checkpoints" / initial_checkpoint_dir
 
+    if tokenizer_dir is not None:
+        if not tokenizer_dir.is_dir() and not tokenizer_dir.parts[0] == "checkpoints":
+            tokenizer_dir = "checkpoints" / tokenizer_dir
+
     if model_config is None:
         # Support both model_name options: meta-llama/Meta-Llama-3-8B & Meta-Llama-3-8B
         try:
