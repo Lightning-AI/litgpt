@@ -290,9 +290,7 @@ def test_base_with_sequentially(tmp_path):
         [sys.executable, "-m", "litgpt", "generate_sequentially", *args], env=env, cwd=root,
     ).decode()
 
-    assert "What food do llamas eat?" in base_stdout
-    match = base_stdout[base_stdout.index("What food do llamas eat?"):len("What food do llamas eat?")]
-    assert match == sequential_stdout
+    assert "What food do llamas eat?" in sequential_stdout
 
 
 def test_cli():

@@ -128,8 +128,6 @@ def test_tp(tmp_path):
 
     # there is some unaccounted randomness so cannot compare the output with that of `generate/base.py`
     assert "What food do llamas eat?" in tp_stdout
-    match = tp_stdout[tp_stdout.index("What food do llamas eat?"):len("What food do llamas eat?")]
-    assert match == tp_stdout
 
 
 def test_cli():
