@@ -19,7 +19,7 @@ def convert_pretrained_checkpoint(checkpoint_dir: Path, output_dir: Path) -> Non
         checkpoint_dir: Path to a checkpoint directory produced by ``litgpt.pretrain``.
         output_dir: The output folder where the converted state-dict file and config files will be saved to.
     """
-    if not checkpoint_dir.is_dir():
+    if not checkpoint_dir.is_dir() and not checkpoint_dir.parts[0] == "checkpoints":
         checkpoint_dir = "checkpoints" / checkpoint_dir
     pprint(locals())
 

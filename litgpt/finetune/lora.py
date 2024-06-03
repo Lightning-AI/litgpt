@@ -94,7 +94,7 @@ def setup(
         logger_name: The name of the logger to send metrics to.
         seed: The random seed to use for reproducibility.
     """
-    if not checkpoint_dir.is_dir():
+    if not checkpoint_dir.is_dir() and not checkpoint_dir.parts[0] == "checkpoints":
         checkpoint_dir = "checkpoints" / checkpoint_dir
     pprint(locals())
     data = Alpaca() if data is None else data

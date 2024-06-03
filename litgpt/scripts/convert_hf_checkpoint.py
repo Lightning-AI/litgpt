@@ -303,7 +303,7 @@ def convert_hf_checkpoint(
         dtype: The data type to convert the checkpoint files to. If not specified, the weights will remain in the
             dtype they are downloaded in.
     """
-    if not checkpoint_dir.is_dir():
+    if not checkpoint_dir.is_dir() and not checkpoint_dir.parts[0] == "checkpoints":
         checkpoint_dir = "checkpoints" / checkpoint_dir
     pprint(locals())
 

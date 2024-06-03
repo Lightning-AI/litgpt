@@ -135,7 +135,7 @@ def main(
         precision: Indicates the Fabric precision setting to use.
         compile: Whether to compile the model.
     """
-    if not checkpoint_dir.is_dir():
+    if not checkpoint_dir.is_dir() and not checkpoint_dir.parts[0] == "checkpoints":
         checkpoint_dir = "checkpoints" / checkpoint_dir
     pprint(locals())
 

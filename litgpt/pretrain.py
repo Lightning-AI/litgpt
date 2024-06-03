@@ -95,7 +95,7 @@ def setup(
         quit()
 
     if initial_checkpoint_dir is not None:
-        if not initial_checkpoint_dir.is_dir():
+        if not initial_checkpoint_dir.is_dir() and not initial_checkpoint_dir.parts[0] == "checkpoints":
             initial_checkpoint_dir = "checkpoints" / initial_checkpoint_dir
 
     if model_config is None:
