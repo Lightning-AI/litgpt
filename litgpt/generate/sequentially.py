@@ -161,7 +161,7 @@ def main(
         precision: Indicates the Fabric precision setting to use.
         compile: Whether to compile the model.
     """
-    checkpoint_dir = extend_checkpoint_dir(extend_checkpoint_dir)
+    checkpoint_dir = extend_checkpoint_dir(checkpoint_dir)
     pprint(locals())
 
     precision = precision or get_default_supported_precision(training=False)
