@@ -8,6 +8,7 @@ import time
 from collections import OrderedDict
 from functools import partial
 from pathlib import Path
+from pprint import pprint
 from typing import Literal, Optional
 
 import lightning as L
@@ -20,7 +21,11 @@ from typing_extensions import Type
 import litgpt.generate.base as generate_base
 from litgpt import GPT, Config, Tokenizer
 from litgpt.model import Block, build_mask_cache
-from litgpt.utils import check_valid_checkpoint_dir, get_default_supported_precision
+from litgpt.utils import (
+    check_valid_checkpoint_dir,
+    extend_checkpoint_dir,
+    get_default_supported_precision
+)
 
 
 @torch.inference_mode()
@@ -156,6 +161,9 @@ def main(
         precision: Indicates the Fabric precision setting to use.
         compile: Whether to compile the model.
     """
+    checkpoint_dir = extend_checkpoint_dir(checkpoint_dir)
+    pprint(locals())
+
     precision = precision or get_default_supported_precision(training=False)
 
     plugins = None

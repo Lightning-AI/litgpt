@@ -145,7 +145,7 @@ The checkpoints saved during pretraining contain all the information to resume i
 Simply rerun the script with the `--resume` argument added:
 
 ```bash
-litgpt pretrain \
+litgpt pretrain tiny-llama\
   --config config_hub/pretrain/tinyllama.yaml \
   --resume out/pretrain/tiny-llama/step-00060500
 ```

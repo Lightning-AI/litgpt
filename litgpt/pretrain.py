@@ -28,6 +28,7 @@ from litgpt.utils import (
     choose_logger,
     chunked_cross_entropy,
     copy_config_files,
+    extend_checkpoint_dir,
     get_default_supported_precision,
     init_out_dir,
     instantiate_torch_optimizer,
@@ -93,6 +94,12 @@ def setup(
         available_models = "\n".join(sorted(name_to_config))
         print(f"Available values:\n{available_models}")
         quit()
+
+    if initial_checkpoint_dir is not None:
+        initial_checkpoint_dir = extend_checkpoint_dir(initial_checkpoint_dir)
+
+    if tokenizer_dir is not None:
+        tokenizer_dir = extend_checkpoint_dir(tokenizer_dir)
 
     if model_config is None:
         # Support both model_name options: meta-llama/Meta-Llama-3-8B & Meta-Llama-3-8B

@@ -3,6 +3,7 @@
 import sys
 import time
 from pathlib import Path
+from pprint import pprint
 from typing import Iterator, List, Literal, Optional, Tuple
 
 import lightning as L
@@ -13,7 +14,12 @@ from litgpt import GPT, Config, PromptStyle, Tokenizer
 from litgpt.generate.base import next_token
 from litgpt.prompts import has_prompt_style, load_prompt_style
 from litgpt.scripts.merge_lora import merge_lora
-from litgpt.utils import check_valid_checkpoint_dir, get_default_supported_precision, load_checkpoint
+from litgpt.utils import (
+    check_valid_checkpoint_dir,
+    extend_checkpoint_dir,
+    get_default_supported_precision,
+    load_checkpoint
+)
 
 
 @torch.inference_mode()
@@ -196,6 +202,9 @@ def main(
         compile: Whether to use compilation to speed up token generation. Will increase startup time.
         multiline: Whether to support multiline input prompts.
     """
+    checkpoint_dir = extend_checkpoint_dir(checkpoint_dir)
+    pprint(locals())
+
     precision = precision or get_default_supported_precision(training=False)
 
     plugins = None

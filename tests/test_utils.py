@@ -5,6 +5,7 @@ import os
 from contextlib import redirect_stderr
 from io import StringIO
 from pathlib import Path
+from tempfile import TemporaryDirectory
 from unittest import mock
 
 import pytest
@@ -16,7 +17,6 @@ from lightning import Fabric
 from lightning.fabric.loggers import CSVLogger, TensorBoardLogger
 from lightning.fabric.plugins import BitsandbytesPrecision
 from lightning.pytorch.loggers import WandbLogger
-from lightning.pytorch.cli import instantiate_class
 from lightning_utilities.core.imports import RequirementCache
 
 from litgpt import GPT
@@ -29,11 +29,11 @@ from litgpt.utils import (
     choose_logger,
     chunked_cross_entropy,
     copy_config_files,
+    extend_checkpoint_dir,
     find_multiple,
-    get_argument_names,
     incremental_save,
     init_out_dir,
-    instantiate_bnb_optimizer, 
+    instantiate_bnb_optimizer,
     instantiate_torch_optimizer,
     num_parameters,
     parse_devices,
@@ -350,3 +350,53 @@ def test_instantiate_torch_optimizer_with_class(model_parameters):
     assert isinstance(optimizer, torch.optim.Adam)
     # init args gets overridden
     assert optimizer.param_groups[0]["lr"] == 0.02
+
+
+@pytest.mark.parametrize("input_path, expected", [
+    (Path("checkpoints/my_model"), Path("checkpoints/my_model")),
+    (Path("checkpoints/my_model"), Path("./checkpoints/my_model")),
+])
+def test_extend_checkpoint_dir_is_prefixed(input_path, expected):
+    original_dir = Path.cwd()  # Save the current directory
+    with TemporaryDirectory() as tmp_dir:
+        os.chdir(tmp_dir)
+
+        try:
+            if not input_path.is_absolute():
+                input_path = Path(tmp_dir) / input_path
+            if not expected.is_absolute():
+                expected = Path(tmp_dir) / expected
+            input_path.parent.mkdir(parents=True, exist_ok=True)
+            input_path.touch(exist_ok=True)
+            assert extend_checkpoint_dir(input_path) == expected
+        finally:
+            os.chdir(original_dir)  # Reset the current directory
+
+
+@pytest.mark.parametrize("input_path, expected", [
+    (Path("my_model"), Path("checkpoints/my_model")),
+    (Path("my_model"), Path("./checkpoints/my_model")),
+])
+def test_extend_checkpoint_dir(input_path, expected):
+    original_dir = Path.cwd()  # Save the current directory
+    with TemporaryDirectory() as tmp_dir:
+        os.chdir(tmp_dir)
+
+        try:
+            if not input_path.is_absolute():
+                input_path = Path(tmp_dir) / "checkpoints" / input_path
+            if not expected.is_absolute():
+                expected = Path(tmp_dir) / expected
+            input_path.parent.mkdir(parents=True, exist_ok=True)
+            input_path.touch(exist_ok=True)
+            assert extend_checkpoint_dir(input_path) == expected
+        finally:
+            os.chdir(original_dir)  # Reset the current directory
+
+
+@pytest.mark.parametrize("input_path, expected", [
+    (Path("my_model"), Path("my_model")),
+    (Path("/my_model"), Path("/my_model")),
+])
+def test_extend_checkpoint_dir_dont_exist(input_path, expected):
+    assert extend_checkpoint_dir(input_path) == expected

@@ -16,7 +16,7 @@ For more information about dataset preparation, also see the [prepare_dataset.md
 ## Running the finetuning
 
 ```bash
-litgpt finetune_full checkpoints/tiiuae/falcon-7b \
+litgpt finetune_full tiiuae/falcon-7b \
   --data Alpaca \
 ```
 
@@ -28,7 +28,7 @@ Depending on the available GPU memory, you can also tune the `micro_batch_size` 
 This script will save checkpoints periodically to the `out_dir` directory. If you are finetuning different models or on your own dataset, you can specify an output directory with your preferred name:
 
 ```bash
-litgpt finetune_full checkpoints/tiiuae/falcon-7b \
+litgpt finetune_full tiiuae/falcon-7b \
   --data Alpaca \
   --out_dir out/full/my-model-finetuned
 ```
@@ -37,7 +37,7 @@ If your GPU does not support `bfloat16`, you can pass the `--precision 32-true` 
 For instance, to fine-tune on MPS (the GPU on modern Macs), you can run
 
 ```bash
-litgpt finetune_full checkpoints/tiiuae/falcon-7b \
+litgpt finetune_full tiiuae/falcon-7b \
   --data Alpaca \
   --out_dir out/full/my-model-finetuned \
   --precision 32-true
@@ -50,7 +50,7 @@ Note that `mps` as the accelerator will be picked up automatically by Fabric whe
 You can test the finetuned model with your own instructions by running:
 
 ```bash
-litgpt generate checkpoints/tiiuae/falcon-7b \
+litgpt generate tiiuae/falcon-7b \
     --prompt "Recommend a movie to watch on the weekend." \
     --finetuned_path out/full/my-model-finetuned/lit_model_finetuned.pth
 ```
@@ -85,7 +85,7 @@ You can easily train on your own instruction dataset saved in JSON format.
 2. Run `litgpt finetune` by passing in the location of your data (and optionally other parameters):
 
     ```bash
-    litgpt finetune checkpoints/tiiuae/falcon-7b \
+    litgpt finetune tiiuae/falcon-7b \
         --data JSON \
         --data.json_path data/mydata.json \
         --out_dir data/mydata-finetuned

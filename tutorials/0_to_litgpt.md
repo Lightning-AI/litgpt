@@ -88,13 +88,15 @@ TinyLlama/TinyLlama-1.1B-intermediate-step-1431k-3T
 TinyLlama/TinyLlama-1.1B-Chat-v1.0
 ```
 
-Let's now download the tokenizer corresponding to `TinyLlama/TinyLlama-1.1B-intermediate-step-1431k-3T` that we can then use to pretrain the TinyLlama model, which saves the download tokenizer to a `checkpoints/` subfolder by default:
+Let's now download the tokenizer corresponding to `TinyLlama/TinyLlama-1.1B-intermediate-step-1431k-3T` that we can then use to pretrain the TinyLlama model:
 
 ```
 litgpt download \
    TinyLlama/TinyLlama-1.1B-intermediate-step-1431k-3T \
    --tokenizer_only true
 ```
+
+(when specif)
 
 &nbsp;
 
@@ -107,7 +109,7 @@ Next, we can pretrain the model on the OpenWebText dataset with the default sett
 ```bash
 litgpt pretrain tiny-llama-1.1b \
   --data OpenWebText \
-  --tokenizer_dir checkpoints/TinyLlama/TinyLlama-1.1B-intermediate-step-1431k-3T
+  --tokenizer_dir TinyLlama/TinyLlama-1.1B-intermediate-step-1431k-3T
 ```
 
 If you are interested in additional settings, you can use the help command as follows:
@@ -204,7 +206,7 @@ total 11G
 The model is now ready for inference and chat, for example, using the `chat` command on the checkpoint directory:
 
 ```bash
-litgpt chat checkpoints/microsoft/phi-2
+litgpt chat microsoft/phi-2
 ```
 
 ```
@@ -270,7 +272,7 @@ The LitGPT interface can be used via command line arguments and configuration fi
 If you have downloaded or cloned the LitGPT repository, you can provide the `config` file via a relative path:
 
 ```bash
-litgpt finetune_lora checkpoints/microsoft/phi-2\
+litgpt finetune_lora microsoft/phi-2\
   --config config_hub/finetune/phi-2/lora.yaml \
   --train.max_steps 5
 ```
@@ -278,7 +280,7 @@ litgpt finetune_lora checkpoints/microsoft/phi-2\
 Alternatively, you can provide a URL:
 
 ```bash
-litgpt finetune_lora checkpoints/microsoft/phi-2\
+litgpt finetune_lora microsoft/phi-2\
   --config https://raw.githubusercontent.com/Lightning-AI/litgpt/main/config_hub/finetune/phi-2/lora.yaml \
   --train.max_steps 5
 ```
@@ -429,7 +431,7 @@ Saving converted checkpoint to checkpoints/microsoft/phi-2
 Then, chat with the model using the following command:
 
 ```bash
-litgpt chat checkpoints/microsoft/phi-2
+litgpt chat microsoft/phi-2
 ```
 
 ```
@@ -462,7 +464,7 @@ LitGPT comes with a handy `litgpt evaluate` command to evaluate models with [Ele
 - TODO: Explain root dir
 
 ```bash
-litgpt evaluate checkpoints/microsoft/phi-2
+litgpt evaluate microsoft/phi-2
   --batch_size 16 \
   --tasks "hellaswag,gsm8k,truthfulqa_mc2,mmlu,winogrande,arc_challenge"
 ```
@@ -481,7 +483,7 @@ You can deploy LitGPT LLMs using your tool of choice. Below is an example using 
 litgpt download microsoft/phi-2
 
 # 2) Start the server
-litgpt serve checkpoints/microsoft/phi-2
+litgpt serve microsoft/phi-2
 ```
 
 ```python
@@ -514,7 +516,7 @@ Output: Example input.
 Sometimes, it can be useful to convert LitGPT model weights for third-party and external tools. For example, we can convert a LitGPT model to the Hugging Face format and save it via `.safetensors` files, which we can do as follows:
 
 ```bash
-litgpt convert_from_litgpt checkpoints/microsoft/phi-2 \
+litgpt convert_from_litgpt microsoft/phi-2 \
     --output_dir out/converted_model/
 ```
 

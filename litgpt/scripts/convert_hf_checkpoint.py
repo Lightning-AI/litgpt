@@ -5,13 +5,19 @@ import json
 from collections import defaultdict
 from functools import partial
 from pathlib import Path
+from pprint import pprint
 from typing import Dict, List, Optional, Tuple, Union
 
 import torch
 from lightning.fabric.utilities.load import _NotYetLoadedTensor as NotYetLoadedTensor
 
 from litgpt import Config
-from litgpt.utils import incremental_save, lazy_load, save_config
+from litgpt.utils import (
+    extend_checkpoint_dir,
+    lazy_load,
+    incremental_save,
+    save_config
+)
 
 
 def copy_weights_gpt_neox(
@@ -302,6 +308,9 @@ def convert_hf_checkpoint(
         dtype: The data type to convert the checkpoint files to. If not specified, the weights will remain in the
             dtype they are downloaded in.
     """
+    checkpoint_dir = extend_checkpoint_dir(checkpoint_dir)
+    pprint(locals())
+
     if model_name is None:
         model_name = checkpoint_dir.name
     if dtype is not None:

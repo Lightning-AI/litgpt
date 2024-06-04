@@ -6,10 +6,10 @@ This document explains how to pretrain LLMs using LitGPT.
 &nbsp;
 ## Using the `litgpt pretrain` command
 
-You can pretrain models in LitGPT using the `litgpt pretrain` API starting with any of the available architectures listed by calling `litgpt pretrain` without any additional arguments:
+You can pretrain models in LitGPT using the `litgpt pretrain` API starting with any of the available architectures listed by calling `litgpt pretrain list` without any additional arguments:
 
 ```bash
-litgpt pretrain
+litgpt pretrain list
 ```
 
 Shown below is an abbreviated list:
@@ -73,7 +73,7 @@ litgpt download EleutherAI/pythia-14m \
   --tokenizer_only true
 
 litgpt pretrain pythia-14m \
-   --tokenizer_dir checkpoints/EleutherAI/pythia-14m \
+   --tokenizer_dir EleutherAI/pythia-14m \
    --data TextFiles \
    --data.train_data_path custom_pretraining_data \
    --train.lr_warmup_steps=200
@@ -109,7 +109,8 @@ Next, assume we have a custom dataset stored in text files similar to the *Pretr
 
 ```bash
 litgpt pretrain pythia-14m \
-   --initial_checkpoint_dir checkpoints/EleutherAI/pythia-14m \
+   --initial_checkpoint_dir EleutherAI/pythia-14m \
+   --tokenizer_dir EleutherAI/pythia-14m \
    --out_dir new_phi-2_checkpoint \
    --data TextFiles \
    --data.train_data_path custom_pretraining_data \

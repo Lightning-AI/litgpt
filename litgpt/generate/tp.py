@@ -5,6 +5,7 @@ import sys
 import time
 from functools import partial
 from pathlib import Path
+from pprint import pprint
 from typing import Literal, Optional, Union
 
 import lightning as L
@@ -18,7 +19,11 @@ from torch.distributed._functional_collectives import all_reduce
 import litgpt.generate.base as generate_base
 from litgpt import GPT, Config, Tokenizer
 from litgpt.model import CausalSelfAttention, GptNeoxMLP, LLaMAMLP, LLaMAMoE
-from litgpt.utils import CLI, check_valid_checkpoint_dir, get_default_supported_precision
+from litgpt.utils import (
+    check_valid_checkpoint_dir,
+    extend_checkpoint_dir,
+    get_default_supported_precision
+)
 
 
 def tensor_parallel_linear(fabric: L.Fabric, linear: torch.nn.Linear, style: str) -> None:
@@ -134,6 +139,9 @@ def main(
         precision: Indicates the Fabric precision setting to use.
         compile: Whether to compile the model.
     """
+    checkpoint_dir = extend_checkpoint_dir(checkpoint_dir)
+    pprint(locals())
+
     precision = precision or get_default_supported_precision(training=False)
 
     plugins = None

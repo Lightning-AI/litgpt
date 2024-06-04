@@ -3,11 +3,12 @@
 import json
 import os
 from pathlib import Path
+from pprint import pprint
 from typing import Optional, Union
 import torch
 
 from litgpt.scripts.convert_lit_checkpoint import convert_lit_checkpoint
-from litgpt.utils import copy_config_files
+from litgpt.utils import copy_config_files, extend_checkpoint_dir
 
 
 def prepare_results(results, save_filepath, print_results=True):
@@ -54,6 +55,8 @@ def convert_and_evaluate(
         save_filepath: The file where the results will be saved.
             Saves to `out_dir/results.json` by default.
     """
+    checkpoint_dir = extend_checkpoint_dir(checkpoint_dir)
+    pprint(locals())
 
     from lm_eval import evaluator
 

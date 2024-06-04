@@ -22,7 +22,7 @@ For more information about dataset preparation, also see the [prepare_dataset.md
 ## Running the Finetuning
 
 ```bash
-litgpt finetune_lora checkpoints/stabilityai/stablelm-base-alpha-3b \
+litgpt finetune_lora stabilityai/stablelm-base-alpha-3b \
   --data Alpaca
 ```
 
@@ -38,14 +38,14 @@ This script will save checkpoints periodically to the folder `out/`.
 Optionally, finetuning using 4-bit quantization (as in QLoRA) can be enabled via the `--quantize` flag, for example using the 4-bit NormalFloat data type:
 
 ```bash
-litgpt finetune_lora checkpoints/stabilityai/stablelm-base-alpha-3b \
+litgpt finetune_lora stabilityai/stablelm-base-alpha-3b \
   --quantize "bnb.nf4"
 ```
 
 and optionally with double-quantization:
 
 ```bash
-litgpt finetune_lora checkpoints/stabilityai/stablelm-base-alpha-3b \
+litgpt finetune_lora stabilityai/stablelm-base-alpha-3b \
   --quantize "bnb.nf4-dq"
 ```
 
@@ -77,7 +77,6 @@ You can test the finetuned model with your own instructions by running:
 
 ```bash
 litgpt generate "out/lora/final" \
-  --checkpoint_dir \
   --prompt "Recommend a movie to watch on the weekend."
 ```
 
@@ -113,10 +112,9 @@ You can easily train on your own instruction dataset saved in JSON format.
 2. Run `litgpt finetune_lora` by passing in the location of your data (and optionally other parameters):
 
     ```bash
-    litgpt finetune lora \
+    litgpt finetune_lora checkpoints/tiiuae/falcon-7b \
         --data JSON \
         --data.json_path data/mydata.json \
-        --checkpoint_dir checkpoints/tiiuae/falcon-7b \
         --out_dir data/mydata-finetuned
     ```
 

@@ -10,7 +10,7 @@ The scripts in this folder provide minimal examples showing how to use LitGPT fr
 Assuming you downloaded the checkpoint files via 
 
 ```bash
-litgpt download --repo_id EleutherAI/pythia-1b
+litgpt download EleutherAI/pythia-1b
 ```
 
 you can run the scripts as follows:

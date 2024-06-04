@@ -1,6 +1,6 @@
 # Download Model Weights with LitGPT
 
-LitGPT supports a variety of LLM architectures with publicly available weights. You can download model weights and access a list of supported models using the LitGPT `download.py` script.
+LitGPT supports a variety of LLM architectures with publicly available weights. You can download model weights and access a list of supported models using the `litgpt download` command.
 
 | Model                                        | Model size                              | Reference                                                                                                                |
 |----------------------------------------------|-----------------------------------------|--------------------------------------------------------------------------------------------------------------------------|
@@ -200,7 +200,7 @@ litgpt download --help
 After conversion, run the model with the given checkpoint path as input, adjusting `repo_id` accordingly:
 
 ```bash
-litgpt chat checkpoints/<repo_id>
+litgpt chat <repo_id>
 ```
 
 &nbsp;
@@ -230,7 +230,7 @@ litgpt download $repo_id
 3. Use the TinyLlama model:
 
 ```bash
-litgpt chat checkpoints/$repo_id
+litgpt chat $repo_id
 ```
 
 &nbsp;
@@ -262,7 +262,7 @@ litgpt download NousResearch/Hermes-2-Pro-Mistral-7B \
 
 ## Tips for GPU Memory Limitations
 
-The `download.py` script will automatically convert the downloaded model checkpoint into a LitGPT-compatible format. In case this conversion fails due to GPU memory constraints, you can try to reduce the memory requirements by passing the  `--dtype bf16-true` flag to convert all parameters into this smaller precision (however, note that most model weights are already in a bfloat16 format, so it may not have any effect):
+The `litgpt download` command will automatically convert the downloaded model checkpoint into a LitGPT-compatible format. In case this conversion fails due to GPU memory constraints, you can try to reduce the memory requirements by passing the  `--dtype bf16-true` flag to convert all parameters into this smaller precision (however, note that most model weights are already in a bfloat16 format, so it may not have any effect):
 
 ```bash
 litgpt download  <repo_id>
@@ -287,7 +287,7 @@ litgpt download <repo_id> \
 and then calling the `convert_hf_checkpoint.py` script:
 
 ```bash
-litgpt convert to_litgpt checkpoint_dir/<repo_id>
+litgpt convert to_litgpt <repo_id>
 ```
 
 &nbsp;
@@ -306,5 +306,5 @@ and
 ```bash
 litgpt pretrain tiny-llama-1.1b \
   --data ... \
-  --tokenizer_dir checkpoints/TinyLlama/TinyLlama-1.1B-intermediate-step-1431k-3T/
+  --tokenizer_dir TinyLlama/TinyLlama-1.1B-intermediate-step-1431k-3T/
 ```

@@ -22,14 +22,14 @@ For more information about dataset preparation, also see the [prepare_dataset.md
 ## Running the finetuning
 
 ```bash
-litgpt finetune_adapter checkpoints/stabilityai/stablelm-base-alpha-3b \
+litgpt finetune_adapter stabilityai/stablelm-base-alpha-3b \
   --data Alpaca \
 ```
 
 or for Adapter V2
 
 ```bash
-litgpt finetune adapter_v2 checkpoints/stabilityai/stablelm-base-alpha-3b \
+litgpt finetune adapter_v2 stabilityai/stablelm-base-alpha-3b \
   --data Alpaca \
 ```
 
@@ -47,7 +47,7 @@ For example, the following settings will let you finetune the model in under 1 h
 This script will save checkpoints periodically to the `out_dir` directory. If you are finetuning different models or on your own dataset, you can specify an output directory with your preferred name:
 
 ```bash
-litgpt finetune_adapter checkpoints/stabilityai/stablelm-base-alpha-3b \
+litgpt finetune_adapter stabilityai/stablelm-base-alpha-3b \
   --data Alpaca \
   --out_dir out/adapter/my-model-finetuned
 ```
@@ -55,7 +55,7 @@ litgpt finetune_adapter checkpoints/stabilityai/stablelm-base-alpha-3b \
 or for Adapter V2
 
 ```bash
-litgpt finetune_adapter_v2 checkpoints/stabilityai/stablelm-base-alpha-3b \
+litgpt finetune_adapter_v2 stabilityai/stablelm-base-alpha-3b \
   --data Alpaca \
   --out_dir out/adapter_v2/my-model-finetuned
 ```
@@ -64,7 +64,7 @@ If your GPU does not support `bfloat16`, you can pass the `--precision 32-true` 
 For instance, to fine-tune on MPS (the GPU on modern Macs), you can run
 
 ```bash
-litgpt finetune_adapter checkpoints/stabilityai/stablelm-base-alpha-3b \
+litgpt finetune_adapter stabilityai/stablelm-base-alpha-3b \
   --data Alpaca \
   --out_dir out/adapter/my-model-finetuned \
   --precision 32-true
@@ -77,14 +77,14 @@ Note that `mps` as the accelerator will be picked up automatically by Fabric whe
 Optionally, finetuning using quantization can be enabled via the `--quantize` flag, for example using the 4-bit NormalFloat data type:
 
 ```bash
-litgpt finetune_adapter checkpoints/stabilityai/stablelm-base-alpha-3b \
+litgpt finetune_adapter stabilityai/stablelm-base-alpha-3b \
   --quantize "bnb.nf4"
 ```
 
 or using `adapter_v2` with double-quantization:
 
 ```bash
-litgpt finetune_adapter_v2 checkpoints/stabilityai/stablelm-base-alpha-3b \
+litgpt finetune_adapter_v2 stabilityai/stablelm-base-alpha-3b \
   --quantize "bnb.nf4-dq"
 ```
 
@@ -95,14 +95,14 @@ For additional benchmarks and resource requirements, please see the [Resource Ta
 You can test the finetuned model with your own instructions by running:
 
 ```bash
-litgpt generate_adapter checkpoints/stabilityai/stablelm-base-alpha-3b \
+litgpt generate_adapter stabilityai/stablelm-base-alpha-3b \
     --prompt "Recommend a movie to watch on the weekend."
 ```
 
 or for Adapter V2
 
 ```bash
-litgpt generate_adapter_v2 checkpoints/stabilityai/stablelm-base-alpha-3b \
+litgpt generate_adapter_v2 stabilityai/stablelm-base-alpha-3b \
     --prompt "Recommend a movie to watch on the weekend."
 
 ```
@@ -137,7 +137,7 @@ You can easily train on your own instruction dataset saved in JSON format.
 2. Run `litgpt adapter` or `litgpt adapter_v2` by passing in the location of your data (and optionally other parameters):
 
     ```bash
-    litgpt finetune_adapter checkpoints/tiiuae/falcon-7b \
+    litgpt finetune_adapter tiiuae/falcon-7b \
         --data JSON \
         --data.json_path data/mydata.json \
         --out_dir data/mydata-finetuned

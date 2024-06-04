@@ -3,6 +3,7 @@
 import sys
 import time
 from pathlib import Path
+from pprint import pprint
 from typing import Any, Literal, Optional
 
 import lightning as L
@@ -13,7 +14,12 @@ from lightning.fabric.plugins import BitsandbytesPrecision
 
 from litgpt import GPT, Config, PromptStyle, Tokenizer
 from litgpt.prompts import has_prompt_style, load_prompt_style
-from litgpt.utils import check_valid_checkpoint_dir, get_default_supported_precision, load_checkpoint
+from litgpt.utils import (
+    check_valid_checkpoint_dir,
+    extend_checkpoint_dir,
+    get_default_supported_precision,
+    load_checkpoint
+)
 
 
 def multinomial_num_samples_1(probs: torch.Tensor) -> torch.Tensor:
@@ -178,6 +184,9 @@ def main(
         precision: Indicates the Fabric precision setting to use.
         compile: Whether to compile the model.
     """
+    checkpoint_dir = extend_checkpoint_dir(checkpoint_dir)
+    pprint(locals())
+
     precision = precision or get_default_supported_precision(training=False)
 
     plugins = None

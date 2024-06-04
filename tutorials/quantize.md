@@ -12,7 +12,7 @@ This document provides different strategies for quantizing the various models av
 It's useful to start with a baseline to have a reference point for memory savings via the various quantization methods.
 
 ```bash
-litgpt generate checkpoints/tiiuae/falcon-7b \
+litgpt generate tiiuae/falcon-7b \
   --precision 32-true \
   --max_new_tokens 256
 ...
@@ -26,7 +26,7 @@ In short, when `--precision bf16-true` or `--precision 16-true` is used, the mod
 However, this might not be enough for large models or when using GPUs with limited memory.
 
 ```bash
-litgpt generate checkpoints/tiiuae/falcon-7b \
+litgpt generate tiiuae/falcon-7b \
   --precision bf16-true \
   --max_new_tokens 256
 ...
@@ -52,7 +52,7 @@ Uses the normalized float 4 (nf4) data type. This is recommended over "fp4" base
 ```bash
 pip install bitsandbytes
 
-litgpt generate checkpoints/tiiuae/falcon-7b \
+litgpt generate tiiuae/falcon-7b \
   --quantize bnb.nf4 \
   --precision bf16-true \
   --max_new_tokens 256
@@ -71,7 +71,7 @@ In average, this amounts to about 0.37 bits per parameter (approximately 3 GB fo
 ```bash
 pip install bitsandbytes
 
-litgpt generate checkpoints/tiiuae/falcon-7b \
+litgpt generate tiiuae/falcon-7b \
   --quantize bnb.nf4-dq \
   --precision bf16-true \
   --max_new_tokens 256
@@ -90,7 +90,7 @@ Uses pure FP4 quantization.
 ```bash
 pip install bitsandbytes
 
-litgpt generate checkpoints/tiiuae/falcon-7b \
+litgpt generate tiiuae/falcon-7b \
   --quantize bnb.fp4 \
   --precision bf16-true \
   --max_new_tokens 256
@@ -109,7 +109,7 @@ In average, this amounts to about 0.37 bits per parameter (approximately 3 GB fo
 ```bash
 pip install bitsandbytes
 
-litgpt generate checkpoints/tiiuae/falcon-7b \
+litgpt generate tiiuae/falcon-7b \
   --quantize bnb.fp4-dq \
   --precision bf16-true \
   --max_new_tokens 256
@@ -125,7 +125,7 @@ Enabled with [bitsandbytes](https://github.com/TimDettmers/bitsandbytes). Check 
 ```bash
 pip install bitsandbytes
 
-litgpt generate checkpoints/tiiuae/falcon-7b \
+litgpt generate tiiuae/falcon-7b \
   --quantize bnb.int8 \
   --precision 16-true \
   --max_new_tokens 256
