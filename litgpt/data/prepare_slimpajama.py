@@ -11,6 +11,8 @@ from litgpt.utils import CLI, extend_checkpoint_dir
 
 
 class SlimPajamaDataRecipe(DataChunkRecipe):
+    is_generator = True
+
     def __init__(self, tokenizer: Tokenizer, chunk_size: int):
         super().__init__(chunk_size)
         self.tokenizer = tokenizer
