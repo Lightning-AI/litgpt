@@ -71,7 +71,6 @@ LitGPT has 🤯 **custom, from-scratch implementations** of [20+ LLMs](tutorials
 
 #### All models
 
-
 | Model | Model size | Author | Reference |
 |----|----|----|----|
 | CodeGemma | 7B | Google | [Google Team, Google Deepmind](https://ai.google.dev/gemma/docs/codegemma)                                                                 |
