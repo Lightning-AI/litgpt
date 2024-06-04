@@ -1,31 +1,15 @@
 
 # The name of the model to pretrain. Choose from names in ``litgpt.config``. Mutually exclusive with
 # ``model_config``. (type: Optional[str], default: null)
-model_name: stories15M
+model_name: micro-llama-300M
 
 # A ``litgpt.Config`` object to define the model architecture. Mutually exclusive with
 # ``model_config``. (type: Optional[Config], default: null)
 model_config:
-  name: stories15M
-  hf_config: {}
-  scale_embeddings: false
-  block_size: 256
-  padded_vocab_size: 32000
-  n_layer: 6
-  n_head: 6
-  n_query_groups: 6
-  n_embd: 288
-  head_size: 48
-  rotary_percentage: 1.0
-  parallel_residual: false
-  bias: false
-  norm_class_name: RMSNorm
-  mlp_class_name: LLaMAMLP
-  intermediate_size: 768
 
 # Directory in which to save checkpoints and logs. If running in a Lightning Studio Job, look for it in
 # /teamspace/jobs/<job-name>/share. (type: <class 'Path'>, default: out/pretrain)
-out_dir: out/pretrain/stories15M
+out_dir: out/pretrain/micro-llama
 
 # The precision to use for pretraining. Possible choices: "bf16-true", "bf16-mixed", "32-true". (type: Optional[str], default: null)
 precision: bf16-mixed
@@ -39,7 +23,7 @@ initial_checkpoint_dir:
 resume: false
 
 # Data-related arguments. If not provided, the default is ``litgpt.data.TinyLlama``.
-data: TinyStories
+data: MicroLlama
 
 # Training-related arguments. See ``litgpt.args.TrainArgs`` for details
 train:
@@ -50,41 +34,45 @@ train:
   # Number of iterations between logging calls (type: int, default: 1)
   log_interval: 1
 
-  # Number of samples between optimizer steps across data-parallel ranks (type: int, default: 512)
-  global_batch_size: 512
+  # Number of samples between optimizer steps across data-parallel ranks (type: int, default: 48)
+  # Scale this number according to the number of GPU and memory size per GPU
+  # For example, we used 48 for 4 x 24G 4090 
+  global_batch_size: 48
 
-  # Number of samples per data-parallel rank (type: int, default: 4)
-  micro_batch_size: 128
+  # Number of samples per data-parallel rank (type: int, default: 12)
+  # Scale this number according to the memory size per GPU
+  # For example, we used 12 for 24G 4090
+  micro_batch_size: 12
 
   # Number of iterations with learning rate warmup active (type: int, default: 2000)
-  lr_warmup_steps: 1000
+  lr_warmup_steps: 2000
 
   # Number of epochs to train on (type: Optional[int], default: null)
   epochs:
 
   # Total number of tokens to train on (type: Optional[int], default: 3000000000000)
-  max_tokens: 9700000000  # original did 298,000 iters
+  max_tokens: 3000000000000
 
   # Limits the number of optimizer steps to run. (type: Optional[int], default: null)
   max_steps:
 
   # Limits the length of samples. Off by default (type: Optional[int], default: null)
-  max_seq_length: 256
+  max_seq_length: 2048
 
   # Whether to tie the embedding weights with the language modeling head weights. (type: Optional[bool], default: False)
-  tie_embeddings: true
+  tie_embeddings:
 
   #   (type: Optional[float], default: 1.0)
   max_norm: 1.0
 
   #   (type: float, default: 4e-05)
-  min_lr: 0.0
+  min_lr: 4.0e-05
 
 # Evaluation-related arguments. See ``litgpt.args.EvalArgs`` for details
 eval:
 
   # Number of optimizer steps between evaluation calls (type: int, default: 1000)
-  interval: 2000
+  interval: 1000
 
   # Number of tokens to generate (type: Optional[int], default: null)
   max_new_tokens:
@@ -103,7 +91,7 @@ optimizer:
   init_args:
     
     #   (type: float, default: 0.001)
-    lr: 0.0005
+    lr: 4e-4
     
     #   (type: float, default: 0.01)
     weight_decay: 0.1
@@ -121,7 +109,7 @@ devices: auto
 tokenizer_dir: checkpoints/meta-llama/Llama-2-7b-hf
 
 # The name of the logger to send metrics to. (type: Literal['wandb', 'tensorboard', 'csv'], default: tensorboard)
-logger_name: csv
+logger_name: tensorboard
 
 # The random seed to use for reproducibility. (type: int, default: 42)
 seed: 42

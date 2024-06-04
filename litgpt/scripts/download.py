@@ -9,14 +9,13 @@ import torch
 from lightning_utilities.core.imports import RequirementCache
 
 from litgpt.scripts.convert_hf_checkpoint import convert_hf_checkpoint
-from litgpt.utils import CLI
 
 _SAFETENSORS_AVAILABLE = RequirementCache("safetensors")
 _HF_TRANSFER_AVAILABLE = RequirementCache("hf_transfer")
 
 
 def download_from_hub(
-    repo_id: Optional[str] = None,
+    repo_id: str,
     access_token: Optional[str] = os.getenv("HF_TOKEN"),
     tokenizer_only: bool = False,
     convert_checkpoint: bool = True,
@@ -28,6 +27,7 @@ def download_from_hub(
 
     Arguments:
         repo_id: The repository ID in the format ``org/name`` or ``user/name`` as shown in Hugging Face.
+            If "list" is provided as input, a list of the currently supported models in LitGPT and quits.
         access_token: Optional API token to access models with restrictions.
         tokenizer_only: Whether to download only the tokenizer files.
         convert_checkpoint: Whether to convert the checkpoint files to the LitGPT format after downloading.
@@ -37,8 +37,9 @@ def download_from_hub(
         model_name: The existing config name to use for this repo_id. This is useful to download alternative weights of
             existing architectures.
     """
+    print("repo_id:", repo_id)
 
-    if repo_id is None:
+    if repo_id == "list":
         from litgpt.config import configs
 
         options = [f"{config['hf_config']['org']}/{config['hf_config']['name']}" for config in configs]

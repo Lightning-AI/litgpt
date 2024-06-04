@@ -2,6 +2,7 @@
 
 """This script merges the LoRA weights with the base model"""
 from pathlib import Path
+from pprint import pprint
 from typing import Any, Dict, Optional, Tuple
 
 import lightning as L
@@ -9,18 +10,22 @@ import torch
 import yaml
 
 from litgpt.lora import GPT, Config, lora_filter, merge_lora_weights
-from litgpt.utils import CLI, check_valid_checkpoint_dir
+from litgpt.utils import check_valid_checkpoint_dir, extend_checkpoint_dir
 
 
 def merge_lora(
-    checkpoint_dir: Path, pretrained_checkpoint_dir: Optional[Path] = None, precision: Optional[str] = None
+    checkpoint_dir: Path,
+    pretrained_checkpoint_dir: Optional[Path] = None,
+    precision: Optional[str] = None
 ) -> None:
-    """Merges the LoRA weights with the base model. See ``litgpt finetune lora``.
+    """Merges the LoRA weights with the base model.
+
+    See ``litgpt finetune lora``.
 
     Creates a new ``lit_model.pth`` file by merging the LoRA weights (``lit_model.pth.lora``)
     with the original checkpoint weights.
 
-    Args:
+    Arguments:
         checkpoint_dir: Path to the checkpoint directory with trained LoRA weights, which is the output of
             ``litgpt finetune lora``.
         pretrained_checkpoint_dir: Optional path to the checkpoint directory with the weights of the base model
@@ -30,6 +35,9 @@ def merge_lora(
         precision: Optional precision setting to instantiate the model weights in. By default, this will
             automatically be inferred from the metadata in the given ``checkpoint_dir`` directory.
     """
+    checkpoint_dir = extend_checkpoint_dir(checkpoint_dir)
+    pprint(locals())
+
     check_valid_checkpoint_dir(checkpoint_dir, model_filename="lit_model.pth.lora")
     if pretrained_checkpoint_dir is not None:
         check_valid_checkpoint_dir(pretrained_checkpoint_dir)

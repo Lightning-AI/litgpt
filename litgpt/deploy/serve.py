@@ -1,5 +1,6 @@
 # Copyright Lightning AI. Licensed under the Apache License 2.0, see LICENSE file.
 from pathlib import Path
+from pprint import pprint
 from typing import Dict, Any, Optional
 from litgpt.utils import check_valid_checkpoint_dir
 
@@ -14,7 +15,11 @@ from litgpt.tokenizer import Tokenizer
 from litgpt.generate.base import generate as plain_generate
 from litgpt.chat.base import generate as stream_generate
 from litgpt.prompts import load_prompt_style, has_prompt_style, PromptStyle
-from litgpt.utils import load_checkpoint, CLI, get_default_supported_precision
+from litgpt.utils import (
+    extend_checkpoint_dir,
+    get_default_supported_precision,
+    load_checkpoint
+)
 
 
 _LITSERVE_AVAILABLE = RequirementCache("litserve")
@@ -158,7 +163,7 @@ class StreamLitAPI(BaseLitAPI):
 
 
 def run_server(
-    checkpoint_dir: Path = Path("checkpoints"),
+    checkpoint_dir: Path,
     precision: Optional[str] = None,
     temperature: float = 0.8,
     top_k: int = 200,
@@ -169,7 +174,9 @@ def run_server(
     port: int = 8000,
     stream: bool = False
 ) -> None:
-    """Serve a LitGPT model using LitServe
+    """Serve a LitGPT model using LitServe.
+
+    Evaluate a model with the LM Evaluation Harness.
 
     Arguments:
         checkpoint_dir: The checkpoint directory to load the model from.
@@ -200,6 +207,9 @@ def run_server(
         port: The network port number on which the model is configured to be served.
         stream: Whether to stream the responses.
     """
+    checkpoint_dir = extend_checkpoint_dir(checkpoint_dir)
+    pprint(locals())
+
     check_valid_checkpoint_dir(checkpoint_dir, model_filename="lit_model.pth")
 
     if not stream:

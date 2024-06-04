@@ -80,13 +80,13 @@ def check_valid_checkpoint_dir(checkpoint_dir: Path, model_filename: str = "lit_
     # list locally available checkpoints
     available = list(Path("checkpoints").glob("*/*"))
     if available:
-        options = "\n --checkpoint_dir ".join([""] + [repr(str(p.resolve())) for p in available])
+        options = "\n".join([""] + [repr(str(p.resolve())) for p in available])
         extra = f"\nYou have downloaded locally:{options}\n"
     else:
         extra = ""
 
     error_message = (
-        f"--checkpoint_dir {str(checkpoint_dir.absolute())!r}{problem}."
+        f"checkpoint_dir {str(checkpoint_dir.absolute())!r}{problem}."
         "\nFind download instructions at https://github.com/Lightning-AI/litgpt/blob/main/tutorials\n"
         f"{extra}\nSee all download options by running:\n litgpt download"
     )
@@ -413,8 +413,6 @@ def CLI(*args: Any, **kwargs: Any) -> Any:
     set_docstring_parse_options(attribute_docstrings=True)
     set_config_read_mode(urls_enabled=True)
 
-    kwargs.setdefault("as_positional", False)
-
     return CLI(*args, **kwargs)
 
 
@@ -441,10 +439,10 @@ def save_hyperparameters(function: callable, checkpoint_dir: Path) -> None:
     # This hack strips away the subcommands from the top-level CLI
     # to parse the file as if it was called as a script
     known_commands = [
-        ("finetune", "full"),
-        ("finetune", "lora"),
-        ("finetune", "adapter"),
-        ("finetune", "adapter_v2"),
+        ("finetune_full",),  # For subcommands, use `("finetune", "full")` etc
+        ("finetune_lora",),
+        ("finetune_adapter",),
+        ("finetune_adapter_v2",),
         ("finetune",),
         ("pretrain",),
     ]
@@ -518,3 +516,12 @@ def instantiate_torch_optimizer(optimizer, model_parameters, **kwargs):
         optimizer["init_args"].update(kwargs)
         optimizer = instantiate_class(model_parameters, optimizer)
     return optimizer
+
+
+def extend_checkpoint_dir(checkpoint_dir: Path) -> Path:
+    new_checkpoint_dir = "checkpoints" / checkpoint_dir
+    should_return_new_dir = (not checkpoint_dir.is_dir() and
+                             checkpoint_dir.parts[0] != "checkpoints" and
+                             not checkpoint_dir.is_absolute() and
+                             new_checkpoint_dir.exists())
+    return new_checkpoint_dir if should_return_new_dir else checkpoint_dir

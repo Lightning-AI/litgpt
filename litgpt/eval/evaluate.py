@@ -3,11 +3,12 @@
 import json
 import os
 from pathlib import Path
+from pprint import pprint
 from typing import Optional, Union
 import torch
 
 from litgpt.scripts.convert_lit_checkpoint import convert_lit_checkpoint
-from litgpt.utils import CLI, copy_config_files
+from litgpt.utils import copy_config_files, extend_checkpoint_dir
 
 
 def prepare_results(results, save_filepath, print_results=True):
@@ -37,7 +38,7 @@ def convert_and_evaluate(
     seed: int = 1234,
     save_filepath: Optional[Path] = None,
 ) -> None:
-    """Convert a LitGPT model and run the LM Evaluation Harness
+    """Evaluate a model with the LM Evaluation Harness.
 
     Arguments:
         checkpoint_dir: Directory where the `lit_model.pth` and tokenizer files are located.
@@ -54,6 +55,8 @@ def convert_and_evaluate(
         save_filepath: The file where the results will be saved.
             Saves to `out_dir/results.json` by default.
     """
+    checkpoint_dir = extend_checkpoint_dir(checkpoint_dir)
+    pprint(locals())
 
     from lm_eval import evaluator
 
@@ -72,8 +75,6 @@ def convert_and_evaluate(
     if device is None:
         device = "cuda" if torch.cuda.is_available() else "cpu"
 
-    checkpoint_dir = Path(checkpoint_dir)
-
     if out_dir is None:
         out_dir = checkpoint_dir / "evaluate"
     else:
@@ -86,7 +87,7 @@ def convert_and_evaluate(
     if not model_path.exists() or force_conversion:
         copy_config_files(source_dir=checkpoint_dir, out_dir=out_dir)
         convert_lit_checkpoint(checkpoint_dir=checkpoint_dir, output_dir=out_dir)
-    
+
         # Hack: LitGPT's conversion doesn't save a pickle file that is compatible to be loaded with
         # `torch.load(..., weights_only=True)`, which is a requirement in HFLM.
         # So we're `torch.load`-ing and `torch.sav`-ing it again to work around this.

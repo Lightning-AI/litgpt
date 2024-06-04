@@ -27,6 +27,7 @@ from litgpt.utils import (
     choose_logger,
     chunked_cross_entropy,
     copy_config_files,
+    extend_checkpoint_dir,
     get_default_supported_precision,
     init_out_dir,
     instantiate_torch_optimizer,
@@ -39,7 +40,7 @@ from litgpt.utils import (
 
 
 def setup(
-    checkpoint_dir: Path = Path("checkpoints/stabilityai/stablelm-base-alpha-3b"),
+    checkpoint_dir: Path,
     out_dir: Path = Path("out/finetune/adapter-v2"),
     precision: Optional[str] = None,
     quantize: Optional[Literal["bnb.nf4", "bnb.nf4-dq", "bnb.fp4", "bnb.fp4-dq", "bnb.int8-training"]] = None,
@@ -75,7 +76,7 @@ def setup(
         logger_name: The name of the logger to send metrics to.
         seed: The random seed to use for reproducibility.
     """
-
+    checkpoint_dir = extend_checkpoint_dir(checkpoint_dir)
     pprint(locals())
     data = Alpaca() if data is None else data
     devices = parse_devices(devices)
