@@ -1,6 +1,6 @@
 # Converting Hugging Face Transformers to LitGPT weights
 
-By default, the `litgpt/scripts/download.py` script converts the downloaded HF checkpoint files into a LitGPT compatible format after downloading. For example,
+By default, the `litgpt download` command converts the downloaded HF checkpoint files into a LitGPT compatible format after downloading. For example,
 
 ```bash
 litgpt download EleutherAI/pythia-14m
@@ -23,7 +23,7 @@ checkpoints/
 
 
 
-To disable the automatic conversion, which is useful for development and debugging purposes, you can run the `litgpt/scripts/download.py` with the `--convert_checkpoint false` flag. This will only download the checkpoint files but do not convert them for use in LitGPT:
+To disable the automatic conversion, which is useful for development and debugging purposes, you can run the `litgpt download` with the `--convert_checkpoint false` flag. This will only download the checkpoint files but do not convert them for use in LitGPT:
 
 ```bash
 rm -rf checkpoints/EleutherAI/pythia-14m

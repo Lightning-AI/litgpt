@@ -17,7 +17,7 @@ This section illustrates how we can set up an inference server for a phi-2 LLM u
 litgpt download microsoft/phi-2
 
 # 2) Start the server
-litgpt serve checkpoints/microsoft/phi-2
+litgpt serve microsoft/phi-2
 ```
 
 > [!TIP]

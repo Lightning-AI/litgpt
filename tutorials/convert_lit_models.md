@@ -2,14 +2,14 @@
 
 LitGPT weights need to be converted to a format that Hugging Face understands with a [conversion script](../litgpt/scripts/convert_lit_checkpoint.py) before our scripts can run.
 
-We provide a helpful script to convert models LitGPT models back to their equivalent Hugging Face Transformers format:
+We provide a helpful command to convert models LitGPT models back to their equivalent Hugging Face Transformers format:
 
 ```sh
 litgpt convert_from_litgpt checkpoint_dir \
     --output_dir converted_dir
 ```
 
-These paths are just placeholders, you will need to customize them based on which finetuning or pretraining script you ran and its configuration.
+These paths are just placeholders, you will need to customize them based on which finetuning or pretraining command you ran and its configuration.
 
 ### Loading converted LitGPT checkpoints into transformers
 
@@ -43,7 +43,7 @@ model = AutoModel.from_pretrained("online_repo_id", state_dict=state_dict)
 
 ### Merging LoRA weights
 
-Please note that if you want to convert a model that has been fine-tuned using an adapter like LoRA, these weights should be [merged](../litgpt/scripts/merge_lora.py) to the checkpoint prior to converting.
+Please note that if you want to convert a model that has been finetuned using an adapter like LoRA, these weights should be [merged](../litgpt/scripts/merge_lora.py) to the checkpoint prior to converting.
 
 ```sh
 litgpt merge_lora path/to/lora/checkpoint_dir
@@ -80,7 +80,7 @@ litgpt download $repo_id
 ```bash
 export finetuned_dir=out/lit-finetuned-model
 
-litgpt finetune lora checkpoints/$repo_id \
+litgpt finetune_lora $repo_id \
    --out_dir $finetuned_dir \
    --train.epochs 1 \
    --data Alpaca

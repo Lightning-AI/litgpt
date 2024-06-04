@@ -27,7 +27,7 @@ specify in the following evaluation command:
 
 
 ```
-litgpt evaluate checkpoints/microsoft/phi-2/ \
+litgpt evaluate microsoft/phi-2/ \
   --batch_size 4 \
   --tasks "hellaswag,truthfulqa_mc2,mmlu" \
   --out_dir evaluate_model/
@@ -61,7 +61,7 @@ In some cases, for example, if you modified the model in the `checkpoint_dir` si
 call, you need to use the `--force_conversion` flag to to update the files used by litgpt evaluate accordingly: 
 
 ```
-litgpt evaluate checkpoints/microsoft/phi-2/ \
+litgpt evaluate microsoft/phi-2/ \
   --batch_size 4 \
   --out_dir evaluate_model/ \
   --tasks "hellaswag,truthfulqa_mc2,mmlu" \
@@ -88,7 +88,7 @@ litgpt evaluate checkpoints/microsoft/phi-2/ \
 No further conversion is necessary when evaluating LoRA-finetuned models as the `finetune_lora` command already prepares the necessary merged model files:
 
 ```bash
-litgpt finetune_lora checkpoints/microsoft/phi-2 \
+litgpt finetune_lora microsoft/phi-2 \
   --out_dir lora_model
 ```
 
