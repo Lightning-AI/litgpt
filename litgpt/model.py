@@ -212,6 +212,15 @@ class CausalSelfAttention(nn.Module):
     ) -> torch.Tensor:
         B, T, C = x.size()  # batch size, sequence length, embedding dimensionality (n_embd)
 
+        if input_pos is None and self.config.use_longlora:
+            if T % self.config.longlora_n_groups != 0:
+                raise ValueError(
+                    f"sequence length {T} should be divisible by the number of groups {self.config.longlora_n_groups}."
+                )
+            longlora_group_size = T // self.config.longlora_n_groups
+        else:
+            longlora_group_size = 0
+
         qkv = self.attn(x)
 
         # assemble into a number of query groups to support MHA, MQA and GQA together (see `config.n_query_groups`)
@@ -243,10 +252,23 @@ class CausalSelfAttention(nn.Module):
             if not isinstance(self.kv_cache, KVCache):
                 raise TypeError("You need to call `gpt.set_kv_cache()`")
             k, v = self.kv_cache(input_pos, k, v)
+        elif longlora_group_size > 0:
+            q = roll_and_group(q, B, T, longlora_group_size, q.shape[1], self.config.head_size)
+            k = roll_and_group(k, B, T, longlora_group_size, k.shape[1], self.config.head_size)
+            v = roll_and_group(v, B, T, longlora_group_size, v.shape[1], self.config.head_size)
 
         y = self.scaled_dot_product_attention(q, k, v, mask)
 
-        y = y.reshape(B, T, self.config.head_size * self.config.n_head)  # re-assemble all head outputs side by side
+        if input_pos is None and longlora_group_size > 0:
+            # shift back and unroll
+            n_heads = y.shape[2]
+            y = y.reshape(B, T, n_heads, self.config.head_size)  # (B, T, nh, hs)
+            y0, y1 = y.split(n_heads // 2, dim=2)
+            y1 = y1.roll(longlora_group_size // 2, dims=1)
+            y = torch.cat((y0, y1), dim=2)
+
+        # re-assemble all head outputs side by side
+        y = y.reshape(B, T, self.config.head_size * self.config.n_head)
 
         # output projection
         return self.proj(y)
@@ -282,6 +304,21 @@ class CausalSelfAttention(nn.Module):
                 rope_cache_length + self.config.head_size - self.config.rope_n_elem,
             )
         return KVCache(k_shape, v_shape, device=device, dtype=dtype)
+
+
+def roll_and_group(
+    qkv: torch.Tensor, bsz: int, q_len: int, group_size: int, num_heads: int, head_dim: int
+) -> torch.Tensor:
+    # Split, roll and recompose to avoid the following error:
+    # RuntimeError: Output 0 of SliceBackward0 is a view and is being modified inplace.
+    # This view is the output of a function that returns multiple views.
+    # Such functions do not allow the output views to be modified inplace.
+    # You should replace the inplace operation by an out-of-place one.
+    qkv0, qkv1 = qkv.split(num_heads // 2, dim=1)
+    qkv1 = qkv1.roll(-group_size // 2, dims=2)
+    qkv = torch.cat((qkv0, qkv1), dim=1)
+    qkv = qkv.transpose(1, 2).reshape(bsz * (q_len // group_size), group_size, num_heads, head_dim).transpose(1, 2)
+    return qkv
 
 
 class GptNeoxMLP(nn.Module):

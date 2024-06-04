@@ -8,6 +8,7 @@ from typing import Literal, Optional
 import lightning as L
 import torch
 from lightning.fabric.plugins import BitsandbytesPrecision
+import yaml
 
 from litgpt import GPT, Config, PromptStyle, Tokenizer
 from litgpt.generate.base import generate
@@ -77,6 +78,16 @@ def main(
 
     check_valid_checkpoint_dir(checkpoint_dir)
     config = Config.from_file(checkpoint_dir / "model_config.yaml")
+    if (hyperparams_dir := (checkpoint_dir / "hyperparameters.yaml")).is_file():
+        with open(hyperparams_dir, "r", encoding="utf-8") as hparams_file:
+            hparams = yaml.safe_load(hparams_file)
+            longlora_cfg = hparams.get("longlora", None)
+            use_longlora = False
+            if longlora_cfg is not None:
+                use_longlora = longlora_cfg.get("use_longlora", False)
+                longlora_context_length = longlora_cfg.get("context_length", config.block_size)
+    else:
+        use_longlora = False
 
     checkpoint_path = finetuned_path
 
@@ -93,6 +104,17 @@ def main(
     fabric.print(f"Loading model {str(checkpoint_path)!r} with {config.__dict__}", file=sys.stderr)
     t0 = time.perf_counter()
     with fabric.init_module(empty_init=True):
+        if use_longlora and longlora_context_length > config.block_size:
+            old_block_size = config.block_size
+            config.block_size = longlora_context_length
+            old_rope_condense_ratio = config.rope_condense_ratio
+            config.rope_condense_ratio = longlora_context_length / old_block_size
+            fabric.print(
+                f"The model context length has been increased from {old_block_size} to {config.block_size}"
+            )
+            fabric.print(
+                f"The 'rope_condense_ratio' has been adapted from {old_rope_condense_ratio} to {config.rope_condense_ratio}"
+            )
         model = GPT(config)
     fabric.print(f"Time to instantiate model: {time.perf_counter() - t0:.02f} seconds.", file=sys.stderr)
     with fabric.init_tensor():

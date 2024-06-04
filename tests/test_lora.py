@@ -19,7 +19,7 @@ from transformers.models.mixtral import MixtralConfig, MixtralForCausalLM
 
 import litgpt.config as config_module
 import litgpt.finetune.lora as module
-from litgpt.args import EvalArgs, TrainArgs
+from litgpt.args import EvalArgs, LongLoraArgs, TrainArgs
 from litgpt.data import Alpaca
 from litgpt.lora import CausalSelfAttention as LoRACausalSelfAttention
 from litgpt.lora import Config, LoRALinear, LoRAQKVLinear, lora_filter, mark_only_lora_as_trainable, merge_lora_weights
@@ -224,6 +224,70 @@ def test_lora_script(tmp_path, fake_checkpoint_dir, monkeypatch, alpaca_path):
     assert logs.count("val loss") == 4  # 3 validations + 1 final validation
     assert logs.count("Final evaluation") == 1
     assert "of trainable parameters: 512" in logs
+
+
+@mock.patch.dict(os.environ, {"LT_ACCELERATOR": "cpu"})
+def test_longlora_script(tmp_path, fake_checkpoint_dir, monkeypatch, alpaca_path):
+    model_config = dict(block_size=128, n_layer=2, n_embd=8, n_head=4, padded_vocab_size=8)
+    (fake_checkpoint_dir / "model_config.yaml").write_text(yaml.dump(model_config))
+    monkeypatch.setattr(module, "load_checkpoint", Mock())
+    monkeypatch.setattr(module, "merge_lora", Mock())
+
+    tokenizer_mock = Mock()
+    tokenizer_mock.return_value = tokenizer_mock
+    tokenizer_mock.encode = lambda *_, **__: torch.tensor([3, 2, 1])
+    monkeypatch.setattr(module, "Tokenizer", tokenizer_mock)
+
+    out_dir = tmp_path / "out"
+    stdout = StringIO()
+    with redirect_stdout(stdout), mock.patch("sys.argv", ["lora.py"]):
+        module.setup(
+            data=Alpaca(
+                download_dir=alpaca_path.parent, file_name=alpaca_path.name, val_split_fraction=0.5, num_workers=0
+            ),
+            checkpoint_dir=fake_checkpoint_dir,
+            out_dir=out_dir,
+            precision="32-true",
+            train=TrainArgs(global_batch_size=1, save_interval=2, epochs=1, max_steps=6, micro_batch_size=1),
+            eval=EvalArgs(interval=2, max_iters=2, max_new_tokens=1),
+            longlora=LongLoraArgs(use_longlora=True, context_length=256),
+        )
+
+    out_dir_contents = set(os.listdir(out_dir))
+    checkpoint_dirs = {"step-000002", "step-000004", "step-000006", "final"}
+    assert checkpoint_dirs.issubset(out_dir_contents)
+    assert all((out_dir / p).is_dir() for p in checkpoint_dirs)
+    for checkpoint_dir in checkpoint_dirs:
+        assert {p.name for p in (out_dir / checkpoint_dir).iterdir()} == {
+            "lit_model.pth.lora",
+            "model_config.yaml",
+            "tokenizer_config.json",
+            "tokenizer.json",
+            "hyperparameters.yaml",
+            "prompt_style.yaml",
+        }
+        lora_ckpt = torch.load(out_dir / checkpoint_dir / "lit_model.pth.lora")["model"]
+        lora_ckpt_keys = lora_ckpt.keys()
+        assert all(
+            param in lora_ckpt_keys
+            for param in [
+                "transformer.wte.weight",
+                "transformer.h.0.norm_1.weight",
+                "transformer.h.0.norm_2.weight",
+                "transformer.h.1.norm_1.weight",
+                "transformer.h.1.norm_2.weight",
+                "transformer.ln_f.weight",
+            ]
+        )
+    assert (out_dir / "logs" / "csv" / "version_0" / "metrics.csv").is_file()
+
+    logs = stdout.getvalue()
+    assert logs.count("(step)") == 6
+    assert logs.count("val loss") == 4  # 3 validations + 1 final validation
+    assert logs.count("Final evaluation") == 1
+    assert "of trainable parameters: 656" in logs
+    assert "The model context length has been increased from 128 to 256" in logs
+    assert "The 'rope_condense_ratio' has been adapted from 1 to 2.0" in logs
 
 
 def test_lora_init_when_linear_overridden():

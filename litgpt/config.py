@@ -61,6 +61,8 @@ class Config:
     rope_base: int = 10000
     n_expert: int = 0
     n_expert_per_token: int = 0
+    use_longlora: bool = False
+    longlora_n_groups: int = 4
 
     def __post_init__(self):
         if not self.name:

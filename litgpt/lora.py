@@ -45,7 +45,7 @@ two matrices of a lower rank.
 
 import math
 from dataclasses import dataclass
-from typing import Any, Dict, List, Optional, Tuple, Type, Union
+from typing import Any, Dict, List, Optional, Sequence, Tuple, Type, Union
 
 import torch
 import torch.nn as nn
@@ -465,6 +465,10 @@ def mark_only_lora_as_trainable(model: nn.Module, bias: str = "none") -> None:
 
 def lora_filter(key: str, value: Any) -> bool:
     return "lora_" in key
+
+
+def longlora_filter(key: str, value: Any, additional_weights: Sequence[str] = ["lora_"]) -> bool:
+    return any(x in key for x in additional_weights + ["lora_"])
 
 
 @dataclass

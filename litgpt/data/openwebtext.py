@@ -28,6 +28,7 @@ class OpenWebText(DataModule):
     tokenizer: Optional[Tokenizer] = field(default=None, repr=False, init=False)
     batch_size: int = field(default=1, repr=False, init=False)
     seq_length: int = field(default=2048, repr=False, init=False)
+    pad_multiple_of: Optional[int] = field(default=None, repr=False, init=False)
 
     def __post_init__(self) -> None:
         # Could be a remote path (s3://) or a local path
@@ -35,11 +36,16 @@ class OpenWebText(DataModule):
         self.data_path_val = str(self.data_path).rstrip("/") + "/val"
 
     def connect(
-        self, tokenizer: Optional[Tokenizer] = None, batch_size: int = 1, max_seq_length: Optional[int] = 2048
+        self,
+        tokenizer: Optional[Tokenizer] = None,
+        batch_size: int = 1,
+        max_seq_length: Optional[int] = 2048,
+        pad_multiple_of: Optional[int] = None,
     ) -> None:
         self.tokenizer = tokenizer
         self.batch_size = batch_size
         self.seq_length = max_seq_length + 1  # Increase by one because we need the next token as well
+        self.pad_multiple_of = pad_multiple_of
 
     def prepare_data(self) -> None:
         from datasets import Dataset, load_dataset
