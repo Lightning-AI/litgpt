@@ -519,7 +519,9 @@ def instantiate_torch_optimizer(optimizer, model_parameters, **kwargs):
 
 
 def extend_checkpoint_dir(checkpoint_dir: Path) -> Path:
-    new_checkpoint_dir = Path(checkpoint_dir)  # duplicate Path object to not overwrite the original
-    if not new_checkpoint_dir.is_dir() and new_checkpoint_dir.parts[0] != "checkpoints" and not new_checkpoint_dir.is_absolute():
-        new_checkpoint_dir = "checkpoints" / new_checkpoint_dir
-    return new_checkpoint_dir
+    new_checkpoint_dir = "checkpoints" / checkpoint_dir
+    should_return_new_dir = (not checkpoint_dir.is_dir() and
+                             checkpoint_dir.parts[0] != "checkpoints" and
+                             not checkpoint_dir.is_absolute() and
+                             new_checkpoint_dir.exists())
+    return new_checkpoint_dir if should_return_new_dir else checkpoint_dir
