@@ -355,7 +355,7 @@ def test_instantiate_torch_optimizer_with_class(model_parameters):
 
 @pytest.mark.parametrize("input_path, expected", [
     (Path("checkpoints/my_model"), Path("checkpoints/my_model")),                  # already prefixed
-    # the one below it to simulate what happens if the input is not a valid dir
+    # the one below is to simulate what happens if the input is not a valid dir
     (Path("data/my_model/file.txt"), Path("checkpoints/data/my_model/file.txt")),  # needs prefix
     (Path("/data/my_model"), Path("/data/my_model")),                              # absolute path
     (Path("./file.txt"), Path("checkpoints/./file.txt")),                          # current directory
