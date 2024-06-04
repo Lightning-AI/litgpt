@@ -357,16 +357,20 @@ def test_instantiate_torch_optimizer_with_class(model_parameters):
     (Path("checkpoints/my_model"), Path("./checkpoints/my_model")),
 ])
 def test_extend_checkpoint_dir_is_prefixed(input_path, expected):
+    original_dir = Path.cwd()  # Save the current directory
     with TemporaryDirectory() as tmp_dir:
         os.chdir(tmp_dir)
 
-        if not input_path.is_absolute():
-            input_path = Path(tmp_dir) / input_path
-        if not expected.is_absolute():
-            expected = Path(tmp_dir) / expected
-        input_path.parent.mkdir(parents=True, exist_ok=True)
-        input_path.touch(exist_ok=True)
-        assert extend_checkpoint_dir(input_path) == expected
+        try:
+            if not input_path.is_absolute():
+                input_path = Path(tmp_dir) / input_path
+            if not expected.is_absolute():
+                expected = Path(tmp_dir) / expected
+            input_path.parent.mkdir(parents=True, exist_ok=True)
+            input_path.touch(exist_ok=True)
+            assert extend_checkpoint_dir(input_path) == expected
+        finally:
+            os.chdir(original_dir)  # Reset the current directory
 
 
 @pytest.mark.parametrize("input_path, expected", [
@@ -374,16 +378,20 @@ def test_extend_checkpoint_dir_is_prefixed(input_path, expected):
     (Path("my_model"), Path("./checkpoints/my_model")),
 ])
 def test_extend_checkpoint_dir(input_path, expected):
+    original_dir = Path.cwd()  # Save the current directory
     with TemporaryDirectory() as tmp_dir:
         os.chdir(tmp_dir)
 
-        if not input_path.is_absolute():
-            input_path = Path(tmp_dir) / "checkpoints" / input_path
-        if not expected.is_absolute():
-            expected = Path(tmp_dir) / expected
-        input_path.parent.mkdir(parents=True, exist_ok=True)
-        input_path.touch(exist_ok=True)
-        assert extend_checkpoint_dir(input_path) == expected
+        try:
+            if not input_path.is_absolute():
+                input_path = Path(tmp_dir) / "checkpoints" / input_path
+            if not expected.is_absolute():
+                expected = Path(tmp_dir) / expected
+            input_path.parent.mkdir(parents=True, exist_ok=True)
+            input_path.touch(exist_ok=True)
+            assert extend_checkpoint_dir(input_path) == expected
+        finally:
+            os.chdir(original_dir)  # Reset the current directory
 
 
 @pytest.mark.parametrize("input_path, expected", [
