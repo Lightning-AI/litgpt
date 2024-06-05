@@ -44,7 +44,7 @@ class TrainArgs:
         if self.lr_warmup_fraction and not (0 <= self.lr_warmup_fraction <= 1):
             raise ValueError("`--train.lr_warmup_fraction` must be between 0 and 1.")
 
-        if self.lr_warmup_steps >= self.max_steps:
+        if self.lr_warmup_steps and self.max_steps and (self.lr_warmup_steps >= self.max_steps):
             raise ValueError("`--train.lr_warmup_steps` must be less than `--train.max_steps`.")
 
     def gradient_accumulation_iters(self, devices: int) -> int:
