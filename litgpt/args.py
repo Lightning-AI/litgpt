@@ -2,6 +2,7 @@
 import math
 from dataclasses import dataclass
 from typing import Optional
+import warnings
 
 
 @dataclass
@@ -45,7 +46,9 @@ class TrainArgs:
             raise ValueError("`--train.lr_warmup_fraction` must be between 0 and 1.")
 
         if self.lr_warmup_steps and self.max_steps and (self.lr_warmup_steps >= self.max_steps):
-            raise ValueError("`--train.lr_warmup_steps` must be less than `--train.max_steps`.")
+            warnings.warn(
+                "`--train.lr_warmup_steps` should be less than `--train.max_steps`."
+                f" Got {self.lr_warmup_steps} lr_warmup_steps and {self.max_steps} max_steps.", UserWarning)
 
     def gradient_accumulation_iters(self, devices: int) -> int:
         """Number of iterations between gradient synchronizations"""
