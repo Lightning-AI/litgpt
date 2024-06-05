@@ -18,7 +18,7 @@ llm = LLM.load(
     hub="hf | local | other"
     quantize="bnb.nf4",
     precision="bf16-true",
-    device="cuda | cpu",
+    device=""auto | cuda | cpu",
 )
 ```
 
