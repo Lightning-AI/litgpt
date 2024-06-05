@@ -75,7 +75,7 @@ dataset = llm.prepare_dataset(
 
 ```python
 llm.instruction_finetune(
-    config_file=None,
+    config=None,
     dataset=dataset,
     max_iter=10,
     method="full | lora | adapter | adapter_v2"
@@ -83,7 +83,7 @@ llm.instruction_finetune(
 ```
 
 ```python
-llm.pretrain(config_file=None, dataset=dataset, max_iter=10, ...)
+llm.pretrain(config=None, dataset=dataset, max_iter=10, ...)
 ```
 
 &nbsp;
