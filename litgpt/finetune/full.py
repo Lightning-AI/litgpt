@@ -189,7 +189,9 @@ def fit(
     optimizer = state["optimizer"]
     scheduler = state["scheduler"]
     tokenizer = Tokenizer(checkpoint_dir)
-    longest_seq_length, longest_seq_ix = get_longest_seq_length(train_dataloader.dataset)
+    longest_train_seq_length, longest_train_seq_ix = get_longest_seq_length(train_dataloader.dataset)
+    longest_val_seq_length, longest_val_seq_ix = get_longest_seq_length(val_dataloader.dataset)
+    longest_seq_length = max(longest_train_seq_length, longest_val_seq_length)
     model.max_seq_length = min(longest_seq_length, train.max_seq_length or float("inf"))
     fabric.print(
         f"The longest sequence length in the train data is {longest_seq_length}, the model's maximum sequence length is"
