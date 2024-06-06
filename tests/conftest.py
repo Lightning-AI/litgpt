@@ -51,6 +51,8 @@ def restore_default_dtype():
 
 @pytest.fixture(autouse=True)
 def destroy_process_group():
+    yield
+
     import torch.distributed
 
     if torch.distributed.is_available() and torch.distributed.is_initialized():

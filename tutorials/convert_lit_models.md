@@ -2,15 +2,14 @@
 
 LitGPT weights need to be converted to a format that Hugging Face understands with a [conversion script](../litgpt/scripts/convert_lit_checkpoint.py) before our scripts can run.
 
-We provide a helpful script to convert models LitGPT models back to their equivalent Hugging Face Transformers format:
+We provide a helpful command to convert models LitGPT models back to their equivalent Hugging Face Transformers format:
 
 ```sh
-litgpt convert from_litgpt \
-    --checkpoint_dir checkpoint_dir \
+litgpt convert_from_litgpt checkpoint_dir \
     --output_dir converted_dir
 ```
 
-These paths are just placeholders, you will need to customize them based on which finetuning or pretraining script you ran and its configuration.
+These paths are just placeholders, you will need to customize them based on which finetuning or pretraining command you ran and its configuration.
 
 ### Loading converted LitGPT checkpoints into transformers
 
@@ -44,11 +43,10 @@ model = AutoModel.from_pretrained("online_repo_id", state_dict=state_dict)
 
 ### Merging LoRA weights
 
-Please note that if you want to convert a model that has been fine-tuned using an adapter like LoRA, these weights should be [merged](../litgpt/scripts/merge_lora.py) to the checkpoint prior to converting.
+Please note that if you want to convert a model that has been finetuned using an adapter like LoRA, these weights should be [merged](../litgpt/scripts/merge_lora.py) to the checkpoint prior to converting.
 
 ```sh
-litgpt merge_lora \
-    --checkpoint_dir path/to/lora/checkpoint_dir
+litgpt merge_lora path/to/lora/checkpoint_dir
 ```
 
 <br>
@@ -73,7 +71,7 @@ by running `litgpt/scripts/download.py` without any additional arguments.
 Then, we download the model we specified via `$repo_id` above:
 
 ```bash
-litgpt download --repo_id $repo_id
+litgpt download $repo_id
 ```
 
 2. Finetune the model:
@@ -82,8 +80,7 @@ litgpt download --repo_id $repo_id
 ```bash
 export finetuned_dir=out/lit-finetuned-model
 
-litgpt finetune lora \
-   --checkpoint_dir checkpoints/$repo_id \
+litgpt finetune_lora $repo_id \
    --out_dir $finetuned_dir \
    --train.epochs 1 \
    --data Alpaca
@@ -94,16 +91,14 @@ litgpt finetune lora \
 Note that this step only applies if the model was finetuned with `lora.py` above and not when `full.py` was used for finetuning.
 
 ```bash
-litgpt merge_lora \
-    --checkpoint_dir $finetuned_dir/final
+litgpt merge_lora $finetuned_dir/final
 ```
 
 
 4. Convert the finetuning model back into a HF format:
 
 ```bash
-litgpt convert from_litgpt \
-   --checkpoint_dir $finetuned_dir/final/ \
+litgpt convert from_litgpt $finetuned_dir/final/ \
    --output_dir out/hf-tinyllama/converted \
 ```
 

@@ -30,7 +30,14 @@ def test_from_hf_name():
     config0 = Config.from_name("tiny-llama-1.1b")
     # or by huggingface hub repo name
     config1 = Config.from_name("TinyLlama-1.1B-intermediate-step-1431k-3T")
+    assert config0 is not None
+    assert config1 is not None
     assert config0 == config1
+
+
+def test_nonexisting_name():
+    with pytest.raises(ValueError, match="'invalid-model-name' is not a supported config name"):
+        Config.from_name("invalid-model-name")
 
 
 @pytest.mark.parametrize("config", config_module.configs, ids=[c["name"] for c in config_module.configs])
@@ -42,9 +49,21 @@ def test_short_and_hf_names_are_equal_unless_on_purpose(config):
     assert config0.name == config1.name
 
 
-def test_nonexisting_name():
-    with pytest.raises(ValueError, match="not a supported"):
-        Config.from_name("foobar")
+def test_from_hf_name_with_org_string():
+    # Test case 1: valid input
+    config0 = Config.from_name("tiny-llama-1.1b")
+    config1 = Config.from_name("TinyLlama/TinyLlama-1.1B-intermediate-step-1431k-3T")
+    assert config0 is not None
+    assert config1 is not None
+    assert config0 == config1
+
+    # Test case 2: invalid input - org not found
+    with pytest.raises(ValueError, match="'UnknownOrg/TinyLlama-1.1B-intermediate-step-1431k-3T' is not a supported config name"):
+        Config.from_name("UnknownOrg/TinyLlama-1.1B-intermediate-step-1431k-3T")
+
+    # Test case 3: invalid input - name not found
+    with pytest.raises(ValueError, match="'TinyLlama/TinyLlama-XYZ' is not a supported config name"):
+        Config.from_name("TinyLlama/TinyLlama-XYZ")
 
 
 def test_from_checkpoint(tmp_path):
@@ -82,3 +101,5 @@ def test_head_size(head_size):
     config = Config(head_size)
 
     assert config.head_size == head_size or config.n_embd // config.n_head
+
+

@@ -2,6 +2,8 @@
 
 from pathlib import Path
 import os
+from unittest import mock
+
 import pytest
 import requests
 import subprocess
@@ -38,7 +40,7 @@ def run_command(command):
 @pytest.mark.dependency()
 def test_download_model():
     repo_id = str(REPO_ID).replace("\\", "/")  # fix for Windows CI
-    command = ["litgpt", "download", "--repo_id", str(repo_id)]
+    command = ["litgpt", "download", str(repo_id)]
     output = run_command(command)
 
     s = Path("checkpoints") / repo_id
@@ -60,14 +62,16 @@ def test_download_books():
         assert (CUSTOM_TEXTS_DIR / filename).exists(), f"{filename} not downloaded"
 
 
+@mock.patch.dict(os.environ, {"LT_ACCELERATOR": "cpu"})
 @pytest.mark.dependency(depends=["test_download_model"])
 def test_chat_with_model():
-    command = ["litgpt", "generate", "base", "--checkpoint_dir", f"checkpoints"/REPO_ID]
+    command = ["litgpt", "generate", f"checkpoints" / REPO_ID]
     prompt = "What do Llamas eat?"
     result = subprocess.run(command, input=prompt, text=True, capture_output=True, check=True)
     assert "What food do llamas eat?" in result.stdout
 
 
+@mock.patch.dict(os.environ, {"LT_ACCELERATOR": "cpu"})
 @pytest.mark.dependency(depends=["test_download_model"])
 @pytest.mark.timeout(300)
 def test_finetune_model():
@@ -82,8 +86,8 @@ def test_finetune_model():
     assert DATASET_PATH.exists(), "Dataset file not downloaded"
 
     finetune_command = [
-        "litgpt", "finetune", "lora",
-        "--checkpoint_dir", str(CHECKPOINT_DIR),
+        "litgpt", "finetune_lora",
+        str(CHECKPOINT_DIR),
         "--lora_r", "1",
         "--data", "JSON",
         "--data.json_path", str(DATASET_PATH),
@@ -97,12 +101,13 @@ def test_finetune_model():
     assert (OUT_DIR/"final"/"lit_model.pth").exists(), "Model file was not created"
 
 
+@mock.patch.dict(os.environ, {"LT_ACCELERATOR": "cpu"})
 @pytest.mark.dependency(depends=["test_download_model", "test_download_books"])
 def test_pretrain_model():
     OUT_DIR = Path("out") / "custom_pretrained"
     pretrain_command = [
         "litgpt", "pretrain",
-        "--model_name", "pythia-14m",
+        "pythia-14m",
         "--tokenizer_dir", str("checkpoints" / REPO_ID),
         "--data", "TextFiles",
         "--data.train_data_path", str(CUSTOM_TEXTS_DIR),
@@ -116,12 +121,13 @@ def test_pretrain_model():
     assert (OUT_DIR / "final" / "lit_model.pth").exists(), "Model file was not created"
 
 
+@mock.patch.dict(os.environ, {"LT_ACCELERATOR": "cpu"})
 @pytest.mark.dependency(depends=["test_download_model", "test_download_books"])
 def test_continue_pretrain_model():
     OUT_DIR = Path("out") / "custom_continue_pretrained"
     pretrain_command = [
         "litgpt", "pretrain",
-        "--model_name", "pythia-14m",
+        "pythia-14m",
         "--initial_checkpoint", str("checkpoints" / REPO_ID),
         "--tokenizer_dir", str("checkpoints" / REPO_ID),
         "--data", "TextFiles",
@@ -140,8 +146,7 @@ def test_continue_pretrain_model():
 def test_serve():
     CHECKPOINT_DIR = str("checkpoints" / REPO_ID)
     run_command = [
-        "litgpt", "serve",
-        "--checkpoint_dir", str(CHECKPOINT_DIR)
+        "litgpt", "serve", str(CHECKPOINT_DIR)
     ]
 
     process = None

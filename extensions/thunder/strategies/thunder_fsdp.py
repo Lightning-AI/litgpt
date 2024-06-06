@@ -31,6 +31,7 @@ from torch import Tensor
 from torch.nn import Module
 from torch.optim import Optimizer
 from typing_extensions import override
+from extensions.thunder.strategies.thunder_ddp import _ThunderDataParalellBackwardSyncControl
 
 if TYPE_CHECKING:
     from thunder import Executor
@@ -122,6 +123,7 @@ class ThunderFSDPStrategy(ParallelStrategy, _Sharded):
         self.jit = jit
         self.executors = executors
         self._state_dict_type = state_dict_type
+        self._backward_sync_control = _ThunderDataParalellBackwardSyncControl()
         self._fsdp_kwargs = kwargs
 
     @property

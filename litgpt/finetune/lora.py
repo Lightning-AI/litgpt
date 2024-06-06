@@ -12,7 +12,7 @@ import torch
 from lightning.fabric.plugins import BitsandbytesPrecision
 from lightning.fabric.strategies import FSDPStrategy
 from lightning.fabric.utilities import ThroughputMonitor
-from torch.utils.data import DataLoader
+from torch.utils.data import DataLoader, ConcatDataset
 from torchmetrics import RunningMean
 
 from litgpt.args import EvalArgs, TrainArgs
@@ -28,9 +28,12 @@ from litgpt.utils import (
     choose_logger,
     chunked_cross_entropy,
     copy_config_files,
+    extend_checkpoint_dir,
     get_default_supported_precision,
     load_checkpoint,
     init_out_dir,
+    instantiate_torch_optimizer,
+    instantiate_bnb_optimizer,
     num_parameters,
     parse_devices,
     save_hyperparameters,
@@ -38,7 +41,7 @@ from litgpt.utils import (
 
 
 def setup(
-    checkpoint_dir: Path = Path("checkpoints/stabilityai/stablelm-base-alpha-3b"),
+    checkpoint_dir: Path,
     out_dir: Path = Path("out/finetune/lora"),
     precision: Optional[str] = None,
     quantize: Optional[Literal["bnb.nf4", "bnb.nf4-dq", "bnb.fp4", "bnb.fp4-dq", "bnb.int8-training"]] = None,
@@ -60,10 +63,10 @@ def setup(
         micro_batch_size=1,
         lr_warmup_steps=100,
         epochs=5,
-        learning_rate=3e-4,
         max_seq_length=None,
     ),
     eval: EvalArgs = EvalArgs(interval=100, max_new_tokens=100, max_iters=100),
+    optimizer: Union[str, Dict] = "AdamW",
     logger_name: Literal["wandb", "tensorboard", "csv"] = "csv",
     seed: int = 1337,
 ) -> None:
@@ -88,10 +91,11 @@ def setup(
         data: Data-related arguments. If not provided, the default is ``litgpt.data.Alpaca``.
         train: Training-related arguments. See ``litgpt.args.TrainArgs`` for details.
         eval: Evaluation-related arguments. See ``litgpt.args.EvalArgs`` for details.
+        optimizer: An optimizer name (such as "AdamW") or config.
         logger_name: The name of the logger to send metrics to.
         seed: The random seed to use for reproducibility.
     """
-
+    checkpoint_dir = extend_checkpoint_dir(checkpoint_dir)
     pprint(locals())
     data = Alpaca() if data is None else data
     devices = parse_devices(devices)
@@ -139,7 +143,7 @@ def setup(
         strategy = "auto"
 
     fabric = L.Fabric(devices=devices, strategy=strategy, precision=precision, loggers=logger, plugins=plugins)
-    fabric.launch(main, devices, seed, config, data, checkpoint_dir, out_dir, train, eval)
+    fabric.launch(main, devices, seed, config, data, checkpoint_dir, out_dir, train, eval, optimizer)
 
 
 def main(
@@ -152,6 +156,7 @@ def main(
     out_dir: Path,
     train: TrainArgs,
     eval: EvalArgs,
+    optimizer: Union[str, Dict],
 ) -> None:
     validate_args(train, eval)
 
@@ -175,16 +180,11 @@ def main(
 
     model = fabric.setup_module(model)
 
-    trainable_params = [p for p in model.parameters() if p.requires_grad]
     if isinstance(fabric.strategy.precision, BitsandbytesPrecision):
-        import bitsandbytes as bnb
-
-        optimizer_cls = bnb.optim.PagedAdamW
+        optimizer = instantiate_bnb_optimizer(optimizer, model.parameters())
     else:
-        optimizer_cls = torch.optim.AdamW
-    optimizer = optimizer_cls(
-        trainable_params, lr=train.learning_rate, weight_decay=train.weight_decay, betas=(train.beta1, train.beta2)
-    )
+        optimizer = instantiate_torch_optimizer(optimizer, model.parameters())
+
     optimizer = fabric.setup_optimizers(optimizer)
     scheduler = get_lr_scheduler(optimizer, warmup_steps=train.lr_warmup_steps, max_steps=lr_max_steps)
 
@@ -244,7 +244,7 @@ def fit(
     data: DataModule,
 ) -> None:
     tokenizer = Tokenizer(checkpoint_dir)
-    longest_seq_length, longest_seq_ix = get_longest_seq_length(train_dataloader.dataset)
+    longest_seq_length, longest_seq_ix = get_longest_seq_length(ConcatDataset([train_dataloader.dataset, val_dataloader.dataset]))
     model.max_seq_length = min(longest_seq_length, train.max_seq_length or float("inf"))
     fabric.print(
         f"The longest sequence length in the train data is {longest_seq_length}, the model's maximum sequence length is"

@@ -1,7 +1,7 @@
 
 # The name of the model to pretrain. Choose from names in ``litgpt.config``. Mutually exclusive with
 # ``model_config``. (type: Optional[str], default: null)
-model_name: tiny-llama-1.1b
+model_name: micro-llama-300M
 
 # A ``litgpt.Config`` object to define the model architecture. Mutually exclusive with
 # ``model_config``. (type: Optional[Config], default: null)
@@ -9,7 +9,7 @@ model_config:
 
 # Directory in which to save checkpoints and logs. If running in a Lightning Studio Job, look for it in
 # /teamspace/jobs/<job-name>/share. (type: <class 'Path'>, default: out/pretrain)
-out_dir: out/pretrain/tiny-llama
+out_dir: out/pretrain/micro-llama
 
 # The precision to use for pretraining. Possible choices: "bf16-true", "bf16-mixed", "32-true". (type: Optional[str], default: null)
 precision: bf16-mixed
@@ -23,7 +23,7 @@ initial_checkpoint_dir:
 resume: false
 
 # Data-related arguments. If not provided, the default is ``litgpt.data.TinyLlama``.
-data: TinyLlama
+data: MicroLlama
 
 # Training-related arguments. See ``litgpt.args.TrainArgs`` for details
 train:
@@ -34,11 +34,15 @@ train:
   # Number of iterations between logging calls (type: int, default: 1)
   log_interval: 1
 
-  # Number of samples between optimizer steps across data-parallel ranks (type: int, default: 512)
-  global_batch_size: 512
+  # Number of samples between optimizer steps across data-parallel ranks (type: int, default: 48)
+  # Scale this number according to the number of GPU and memory size per GPU
+  # For example, we used 48 for 4 x 24G 4090 
+  global_batch_size: 48
 
-  # Number of samples per data-parallel rank (type: int, default: 4)
-  micro_batch_size: 4
+  # Number of samples per data-parallel rank (type: int, default: 12)
+  # Scale this number according to the memory size per GPU
+  # For example, we used 12 for 24G 4090
+  micro_batch_size: 12
 
   # Number of iterations with learning rate warmup active (type: int, default: 2000)
   lr_warmup_steps: 2000
@@ -78,9 +82,6 @@ eval:
 
   # Whether to evaluate on the validation set at the beginning of the training
   initial_validation: false
-
-  # Whether to evaluate on the validation set at the end the training
-  final_validation: false
 
 # Optimizer-related arguments
 optimizer:

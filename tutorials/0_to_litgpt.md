@@ -50,7 +50,7 @@ However, if you feel adventurous and want to pretrain your own LLM, here's how.
 First, we have to decide which type of model architecture we want to use. We list the available architectures by using the `pretrain` command without any additional arguments:
 
 ```bash
-litgpt pretrain
+litgpt pretrain list
 ```
 
 This prints a list of all available model architectures in alphabetical order:
@@ -60,7 +60,8 @@ Camel-Platypus2-13B
 Camel-Platypus2-70B
 CodeLlama-13b-Python-hf
 ...
-tiny-llama-1.1b
+EleutherAI/pythia-410m
+...
 vicuna-13b-v1.3
 vicuna-13b-v1.5
 vicuna-13b-v1.5-16k
@@ -72,12 +73,12 @@ vicuna-7b-v1.5-16k
 
 Suppose we want to pretraining the 1.1B parameter small `tiny-llama-1.1b` model. Before starting finetuning, we must also choose and download a tokenizer. 
 
-We can download a tokenizer via the `download` command. Note that running `litgpt download` without any additional arguments will also print a list of all available models and tokenizers to download. 
+We can download a tokenizer via the `download` command. Note that running `litgpt download list` will also print a list of all available models and tokenizers to download. 
 
 To filter for specific models, e.g., TinyLlama, we can use the `grep` command in our terminal:
 
 ```bash
-litgpt download | grep  TinyLlama
+litgpt download list | grep  TinyLlama
 ```
 
 This prints
@@ -87,13 +88,15 @@ TinyLlama/TinyLlama-1.1B-intermediate-step-1431k-3T
 TinyLlama/TinyLlama-1.1B-Chat-v1.0
 ```
 
-Let's now download the tokenizer corresponding to `TinyLlama/TinyLlama-1.1B-intermediate-step-1431k-3T` that we can then use to pretrain the TinyLlama model, which saves the download tokenizer to a `checkpoints/` folder by default:
+Let's now download the tokenizer corresponding to `TinyLlama/TinyLlama-1.1B-intermediate-step-1431k-3T` that we can then use to pretrain the TinyLlama model:
 
 ```
 litgpt download \
-   --repo_id TinyLlama/TinyLlama-1.1B-intermediate-step-1431k-3T \
+   TinyLlama/TinyLlama-1.1B-intermediate-step-1431k-3T \
    --tokenizer_only true
 ```
+
+(when specif)
 
 &nbsp;
 
@@ -104,10 +107,9 @@ litgpt download \
 Next, we can pretrain the model on the OpenWebText dataset with the default setting as follows:
 
 ```bash
-litgpt pretrain \
-  --model_name tiny-llama-1.1b \
+litgpt pretrain tiny-llama-1.1b \
   --data OpenWebText \
-  --tokenizer_dir checkpoints/TinyLlama/TinyLlama-1.1B-intermediate-step-1431k-3T
+  --tokenizer_dir TinyLlama/TinyLlama-1.1B-intermediate-step-1431k-3T
 ```
 
 If you are interested in additional settings, you can use the help command as follows:
@@ -137,10 +139,10 @@ litgpt pretrain --help
 &nbsp;
 ## Download pretrained model weights
 
-Most practical use cases, like LLM inference (/chat) or finetuning, involve using pretrained model weights. LitGPT supports a large number of model weights, which can be listed by executing the `download` command without any additional arguments:
+Most practical use cases, like LLM inference (/chat) or finetuning, involve using pretrained model weights. LitGPT supports a large number of model weights, which can be listed by executing the `download` with `list` as an argument:
 
 ```bash
-litgpt download
+litgpt download list
 ```
 
 This will print a (long) list of all supported pretrained models (abbreviated for readability below):
@@ -157,10 +159,10 @@ mistralai/Mixtral-8x7B-Instruct-v0.1
 ...
 ```
 
-To download the model weights, provide one of the model strings above as a `--repo_id` argument:
+To download the model weights, provide one of the model strings above as input argument:
 
 ```bash
-litgpt download --repo_id microsoft/phi-2
+litgpt download microsoft/phi-2
 ```
 
 ```
@@ -204,7 +206,7 @@ total 11G
 The model is now ready for inference and chat, for example, using the `chat` command on the checkpoint directory:
 
 ```bash
-litgpt chat --checkpoint_dir checkpoints/microsoft/phi-2
+litgpt chat microsoft/phi-2
 ```
 
 ```
@@ -219,7 +221,12 @@ Time for inference: 1.26 sec total, 27.81 tokens/sec, 35 tokens
 
 >> Prompt: 
 ```
+&nbsp;
 
+> [!TIP]
+> Use `--multiline true` to support prompts that require multiple input lines.
+
+<br>
 
 &nbsp;
 **More information and additional resources**
@@ -257,7 +264,7 @@ In the following example, we will use LoRA for finetuning, which is one of the m
 Before we start, we have to download a model as explained in the previous "Download pretrained model" section above:
 
 ```bash
-litgpt download --repo_id microsoft/phi-2
+litgpt download microsoft/phi-2
 ```
 
 The LitGPT interface can be used via command line arguments and configuration files. We recommend starting with the configuration files from the [config_hub](../config_hub) and either modifying them directly or overriding specific settings via the command line. For example, we can use the following setting to train the downloaded 2.7B parameter `microsoft/phi-2` model, where we set `--max_steps 5` for a quick test run.
@@ -265,7 +272,7 @@ The LitGPT interface can be used via command line arguments and configuration fi
 If you have downloaded or cloned the LitGPT repository, you can provide the `config` file via a relative path:
 
 ```bash
-litgpt finetune lora \
+litgpt finetune_lora microsoft/phi-2\
   --config config_hub/finetune/phi-2/lora.yaml \
   --train.max_steps 5
 ```
@@ -273,7 +280,7 @@ litgpt finetune lora \
 Alternatively, you can provide a URL:
 
 ```bash
-litgpt finetune lora \
+litgpt finetune_lora microsoft/phi-2\
   --config https://raw.githubusercontent.com/Lightning-AI/litgpt/main/config_hub/finetune/phi-2/lora.yaml \
   --train.max_steps 5
 ```
@@ -284,14 +291,14 @@ litgpt finetune lora \
 
 > [!TIP]
 > Note that the config file above will finetune the model on the `Alpaca2k` dataset on 1 GPU and save the resulting files in an `out/finetune/lora-phi-2` directory. All of these settings can be changed via a respective command line argument or by changing the config file. 
-> To see more options, execute `litgpt finetune lora --help`.
+> To see more options, execute `litgpt finetune_lora --help`.
 
 &nbsp;
 
 Running the previous finetuning command will initiate the finetuning process, which should only take about a minute on a GPU due to the `--train.max_steps 5` setting.
 
 ```
-{'checkpoint_dir': PosixPath('checkpoints/microsoft/phi-2'),
+{'checkpoint_dir': PosixPath('checkpoints/microsoft/phi-2'),  # TODO
  'data': Alpaca2k(mask_prompt=False,
                   val_split_fraction=0.03847,
                   prompt_style=<litgpt.prompts.Alpaca object at 0x7f5fa2867e80>,
@@ -367,7 +374,7 @@ Saved merged weights to 'out/finetune/lora-phi-2/final/lit_model.pth'
 Notice that the LoRA script saves both the LoRA weights (`'out/finetune/lora-phi-2/final/lit_model.pth.lora'`) and the LoRA weight merged back into the original model (`'out/finetune/lora-phi-2/final/lit_model.pth'`) for convenience. This allows us to use the finetuned model via the `chat` function directly:
 
 ```bash
-litgpt chat --checkpoint_dir out/finetune/lora-phi-2/final/
+litgpt chat out/finetune/lora-phi-2/final/
 ```
 
 ```
@@ -403,7 +410,7 @@ Time for inference: 2.15 sec total, 39.57 tokens/sec, 85 tokens
 To use a downloaded or finetuned model for chat, you only need to provide the corresponding checkpoint directory containing the model and tokenizer files. For example, to chat with the phi-2 model from Microsoft, download it as follows, as described in the "Download pretrained model" section:
 
 ```bash
-litgpt download --repo_id microsoft/phi-2
+litgpt download microsoft/phi-2
 ```
 
 ```
@@ -424,7 +431,7 @@ Saving converted checkpoint to checkpoints/microsoft/phi-2
 Then, chat with the model using the following command:
 
 ```bash
-litgpt chat --checkpoint_dir checkpoints/microsoft/phi-2
+litgpt chat microsoft/phi-2
 ```
 
 ```
@@ -454,9 +461,10 @@ Time for inference: 1.14 sec total, 26.26 tokens/sec, 30 tokens
 
 LitGPT comes with a handy `litgpt evaluate` command to evaluate models with [Eleuther AI's Evaluation Harness](https://github.com/EleutherAI/lm-evaluation-harness). For example, to evaluate the previously downloaded `microsoft/phi-2` model on several tasks available from the Evaluation Harness, you can use the following command:
 
+- TODO: Explain root dir
+
 ```bash
-litgpt evaluate \
-  --checkpoint_dir checkpoints/microsoft/phi-2
+litgpt evaluate microsoft/phi-2
   --batch_size 16 \
   --tasks "hellaswag,gsm8k,truthfulqa_mc2,mmlu,winogrande,arc_challenge"
 ```
@@ -472,10 +480,10 @@ You can deploy LitGPT LLMs using your tool of choice. Below is an example using 
 
 ```bash
 # 1) Download a pretrained model (alternatively, use your own finetuned model)
-litgpt download --repo_id microsoft/phi-2
+litgpt download microsoft/phi-2
 
 # 2) Start the server
-litgpt serve --checkpoint_dir checkpoints/microsoft/phi-2
+litgpt serve microsoft/phi-2
 ```
 
 ```python
@@ -505,14 +513,10 @@ Output: Example input.
 &nbsp;
 ## Converting LitGPT model weights to `safetensors` format
 
-Sometimes, it can be useful to convert LitGPT model weights for third-party and external tools. For example, we can convert a LitGPT model to the Hugging Face format and save it via `.safetensors` files.
-
-The `--checkpoint_dir` argument provided below points to a directory corresponding to a downloaded or finetuned model (see the *Download pretrained model* or *Finetune LLMs* sections above for more information):
-
+Sometimes, it can be useful to convert LitGPT model weights for third-party and external tools. For example, we can convert a LitGPT model to the Hugging Face format and save it via `.safetensors` files, which we can do as follows:
 
 ```bash
-litgpt convert from_litgpt \
-    --checkpoint_dir checkpoints/microsoft/phi-2 \
+litgpt convert_from_litgpt microsoft/phi-2 \
     --output_dir out/converted_model/
 ```
 

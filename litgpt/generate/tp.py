@@ -5,6 +5,7 @@ import sys
 import time
 from functools import partial
 from pathlib import Path
+from pprint import pprint
 from typing import Literal, Optional, Union
 
 import lightning as L
@@ -18,7 +19,11 @@ from torch.distributed._functional_collectives import all_reduce
 import litgpt.generate.base as generate_base
 from litgpt import GPT, Config, Tokenizer
 from litgpt.model import CausalSelfAttention, GptNeoxMLP, LLaMAMLP, LLaMAMoE
-from litgpt.utils import CLI, check_valid_checkpoint_dir, get_default_supported_precision
+from litgpt.utils import (
+    check_valid_checkpoint_dir,
+    extend_checkpoint_dir,
+    get_default_supported_precision
+)
 
 
 def tensor_parallel_linear(fabric: L.Fabric, linear: torch.nn.Linear, style: str) -> None:
@@ -90,6 +95,7 @@ def tensor_parallel(fabric: L.Fabric, model: GPT) -> GPT:
 
 @torch.inference_mode()
 def main(
+    checkpoint_dir: Path,
     prompt: str = "What food do llamas eat?",
     *,
     num_samples: int = 1,
@@ -97,14 +103,16 @@ def main(
     top_k: Optional[int] = 50,
     top_p: float = 1.0,
     temperature: float = 0.8,
-    checkpoint_dir: Path = Path("checkpoints/stabilityai/stablelm-base-alpha-3b"),
     quantize: Optional[Literal["bnb.nf4", "bnb.nf4-dq", "bnb.fp4", "bnb.fp4-dq"]] = None,
     precision: Optional[str] = None,
     compile: bool = False,
 ) -> None:
-    """Generates text samples based on a pre-trained model and tokenizer.
+    """Generation script that uses tensor parallelism to run across devices.
+
+    Generates text samples based on a pre-trained model and tokenizer.
 
     Args:
+        checkpoint_dir: The checkpoint directory to load.
         prompt: The prompt string to use for generating the samples.
         num_samples: The number of text samples to generate.
         max_new_tokens: The number of generation steps to take.
@@ -125,13 +133,15 @@ def main(
             or https://huyenchip.com/2024/01/16/sampling.html#top_p
         temperature: A value controlling the randomness of the sampling process. Higher values result in more random
             samples.
-        checkpoint_dir: The checkpoint directory to load.
         quantize: Whether to quantize the model and using which method:
             - bnb.nf4, bnb.nf4-dq, bnb.fp4, bnb.fp4-dq: 4-bit quantization from bitsandbytes
             for more details, see https://github.com/Lightning-AI/litgpt/blob/main/tutorials/quantize.md
         precision: Indicates the Fabric precision setting to use.
         compile: Whether to compile the model.
     """
+    checkpoint_dir = extend_checkpoint_dir(checkpoint_dir)
+    pprint(locals())
+
     precision = precision or get_default_supported_precision(training=False)
 
     plugins = None
