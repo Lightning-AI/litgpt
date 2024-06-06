@@ -36,6 +36,8 @@ def merge_lora(
             automatically be inferred from the metadata in the given ``checkpoint_dir`` directory.
     """
     checkpoint_dir = extend_checkpoint_dir(checkpoint_dir)
+    if pretrained_checkpoint_dir is not None:
+        pretrained_checkpoint_dir = extend_checkpoint_dir(pretrained_checkpoint_dir)
     pprint(locals())
 
     check_valid_checkpoint_dir(checkpoint_dir, model_filename="lit_model.pth.lora")
@@ -45,8 +47,12 @@ def merge_lora(
         print("LoRA weights have already been merged in this checkpoint.")
         return
 
-    lora_params, pretrained_checkpoint_dir, lora_precision = load_lora_metadata(checkpoint_dir)
+    lora_params, meta_pretrained_checkpoint_dir, lora_precision = load_lora_metadata(checkpoint_dir)
     precision = precision if precision is not None else lora_precision
+
+    if pretrained_checkpoint_dir is not None:
+        pretrained_checkpoint_dir = meta_pretrained_checkpoint_dir
+        pretrained_checkpoint_dir = extend_checkpoint_dir(pretrained_checkpoint_dir)
 
     fabric = L.Fabric(devices=1, precision=precision, accelerator="cpu")
     config = Config.from_file(checkpoint_dir / "model_config.yaml", **lora_params)
