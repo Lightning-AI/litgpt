@@ -355,6 +355,13 @@ def fit(
         if train.save_interval is not None and not is_accumulating and state["step_count"] % train.save_interval == 0:
             save_checkpoint(fabric, state, tokenizer_dir, out_dir / f"step-{state['step_count']:08d}" / "lit_model.pth")
 
+    # Final validation
+    if eval.final_validation:
+        val_loss = validate(fabric, model, val_dataloader, max_iters=eval.max_iters)
+        metrics = {"val_loss": val_loss, "val_ppl": math.exp(val_loss)}
+        fabric.log_dict(metrics, step=state["iter_num"])
+        fabric.print(f"Final evaluation | val loss: {val_loss.item():.3f} | val ppl: {math.exp(val_loss):.3f}")
+
 
 @torch.no_grad()
 def validate(fabric: L.Fabric, model: nn.Module, val_dataloader: DataLoader, max_iters: int) -> torch.Tensor:

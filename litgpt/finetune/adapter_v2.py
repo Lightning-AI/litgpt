@@ -181,10 +181,11 @@ def main(
         fabric.print(f"Memory used: {torch.cuda.max_memory_allocated() / 1e9:.02f} GB")
 
     # Final evaluation
-    val_loss = validate(fabric, model, val_dataloader, dataclasses.replace(eval, max_iters=len(val_dataloader)))
-    metrics = {"val_loss": val_loss, "val_ppl": math.exp(val_loss)}
-    fabric.log_dict(metrics)
-    fabric.print(f"Final evaluation | val loss: {val_loss.item():.3f} | val ppl: {math.exp(val_loss):.3f}")
+    if eval.final_validation:
+        val_loss = validate(fabric, model, val_dataloader, dataclasses.replace(eval, max_iters=len(val_dataloader)))
+        metrics = {"val_loss": val_loss, "val_ppl": math.exp(val_loss)}
+        fabric.log_dict(metrics)
+        fabric.print(f"Final evaluation | val loss: {val_loss.item():.3f} | val ppl: {math.exp(val_loss):.3f}")
 
     # Save the final Adapter checkpoint at the end of training
     save_path = out_dir / "final" / "lit_model.pth.adapter_v2"

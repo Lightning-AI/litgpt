@@ -41,7 +41,7 @@ def test_pretrain(_, tmp_path):
             model_config=model_config,
             out_dir=out_dir,
             train=TrainArgs(global_batch_size=2, max_tokens=16, save_interval=1, micro_batch_size=1, max_norm=1.0),
-            eval=EvalArgs(interval=1, max_iters=1),
+            eval=EvalArgs(interval=1, max_iters=1, final_validation=False),
         )
 
     if torch.distributed.get_rank() == 0:
