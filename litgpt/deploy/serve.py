@@ -5,7 +5,7 @@ from typing import Dict, Any, Optional
 from litgpt.utils import check_valid_checkpoint_dir
 
 import lightning as L
-from lightning_utilities.core.imports import RequirementCache 
+from lightning_utilities.core.imports import RequirementCache
 import torch
 
 
@@ -82,7 +82,7 @@ class BaseLitAPI(LitAPI):
 
     def decode_request(self, request: Dict[str, Any]) -> Any:
         # Convert the request payload to your model input.
-        prompt = request["prompt"]
+        prompt = str(request["input"])
         prompt = self.prompt_style.apply(prompt)
         encoded = self.tokenizer.encode(prompt, device=self.device)
         return encoded
@@ -123,7 +123,7 @@ class SimpleLitAPI(BaseLitAPI):
     def encode_response(self, output: torch.Tensor) -> Dict[str, Any]:
         # Convert the model output to a response payload.
         decoded_output = self.tokenizer.decode(output)
-        return {"output": decoded_output}
+        return {"response": decoded_output}
 
 
 class StreamLitAPI(BaseLitAPI):
@@ -159,7 +159,7 @@ class StreamLitAPI(BaseLitAPI):
 
     def encode_response(self, output):
         for out in output:
-            yield {"output": self.tokenizer.decode(out)}
+            yield {"response": self.tokenizer.decode(out)}
 
 
 def run_server(

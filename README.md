@@ -286,13 +286,13 @@ litgpt serve microsoft/phi-2
 
 Test the server in a separate terminal and integrate the model API into your AI product:
 ```python
-# 3) Use the server (in a separate session)
+# 3) Use the server (in a separate Python session)
 import requests, json
- response = requests.post(
-     "http://127.0.0.1:8000/predict",
-     json={"prompt": "Fix typos in the following sentence: Exampel input"}
+response = requests.post(
+    "http://127.0.0.1:8000/predict",
+    json={"input": "Fix typos in the following sentence: Exampel input"}
 )
-print(response.json()["output"])
+print(response.json()["response"])
 ```
 
 &nbsp;

@@ -491,9 +491,9 @@ litgpt serve microsoft/phi-2
 import requests, json
  response = requests.post(
      "http://127.0.0.1:8000/predict", 
-     json={"prompt": "Fix typos in the following sentence: Exampel input"}
+     json={"input": "Fix typos in the following sentence: Exampel input"}
 )
-print(response.json()["output"])
+print(response.json()["response"])
 ```
 
 This prints:
