@@ -50,7 +50,7 @@ def merge_lora(
     lora_params, meta_pretrained_checkpoint_dir, lora_precision = load_lora_metadata(checkpoint_dir)
     precision = precision if precision is not None else lora_precision
 
-    if pretrained_checkpoint_dir is not None:
+    if pretrained_checkpoint_dir is None:
         pretrained_checkpoint_dir = meta_pretrained_checkpoint_dir
         pretrained_checkpoint_dir = extend_checkpoint_dir(pretrained_checkpoint_dir)
 
