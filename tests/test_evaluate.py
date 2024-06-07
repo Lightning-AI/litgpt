@@ -1,5 +1,6 @@
 # Copyright Lightning AI. Licensed under the Apache License 2.0, see LICENSE file.
 
+import pytest
 import subprocess
 from contextlib import redirect_stdout
 from dataclasses import asdict
@@ -25,13 +26,40 @@ def test_evaluate_script(tmp_path):
 
     stdout = StringIO()
     with redirect_stdout(stdout), mock.patch("sys.argv", ["eval/evaluate.py"]):
+        with pytest.raises(ValueError) as excinfo:
+            module.convert_and_evaluate(
+                checkpoint_dir,
+                out_dir=tmp_path / "out_dir",
+                device=None,
+                dtype=torch.float32,
+                limit=5,
+                tasks="mathqa",
+                batch_size=0  # Test for non-positive integer
+            )
+        assert "batch_size must be a positive integer or 'auto'" in str(excinfo.value)
+
+        with pytest.raises(ValueError) as excinfo:
+            module.convert_and_evaluate(
+                checkpoint_dir,
+                out_dir=tmp_path / "out_dir",
+                device=None,
+                dtype=torch.float32,
+                limit=5,
+                tasks="mathqa",
+                batch_size="invalid"  # Test for invalid string
+            )
+        assert "batch_size must be a positive integer or 'auto'" in str(excinfo.value)
+
+    stdout = StringIO()
+    with redirect_stdout(stdout), mock.patch("sys.argv", ["eval/evaluate.py"]):
         module.convert_and_evaluate(
             checkpoint_dir,
             out_dir=tmp_path / "out_dir",
             device=None,
             dtype=torch.float32,
             limit=5,
-            tasks="mathqa"
+            tasks="mathqa",
+            batch_size=1  # Valid case
         )
     stdout = stdout.getvalue()
     assert (tmp_path / "out_dir" / "results.json").is_file()
