@@ -5,10 +5,12 @@ import time
 from pathlib import Path
 from pprint import pprint
 from typing import Literal, Optional
+import warnings
 
 import lightning as L
 import torch
 from lightning.fabric.plugins import BitsandbytesPrecision
+from lightning_utilities.core.imports import RequirementCache
 
 from litgpt import PromptStyle, Tokenizer
 from litgpt.adapter_v2 import GPT, Config
@@ -78,6 +80,11 @@ def main(
     if quantize is not None and quantize.startswith("bnb."):
         if "mixed" in precision:
             raise ValueError("Quantization and mixed precision is not supported.")
+        if RequirementCache("bitsandbytes != 0.42.0"):
+            warnings.warn(
+                "LitGPT only supports bitsandbytes v0.42.0. "
+                "This may result in errors when using quantization."
+            )
         dtype = {"16-true": torch.float16, "bf16-true": torch.bfloat16, "32-true": torch.float32}[precision]
         plugins = BitsandbytesPrecision(quantize[4:], dtype)
         precision = None
