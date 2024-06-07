@@ -36,7 +36,7 @@ def test_evaluate_script(tmp_path):
                 tasks="mathqa",
                 batch_size=0  # Test for non-positive integer
             )
-        assert "batch_size must be a positive integer or 'auto'" in str(excinfo.value)
+        assert "batch_size must be a positive integer, 'auto', or in the format 'auto:N'." in str(excinfo.value)
 
         with pytest.raises(ValueError) as excinfo:
             module.convert_and_evaluate(
@@ -48,7 +48,7 @@ def test_evaluate_script(tmp_path):
                 tasks="mathqa",
                 batch_size="invalid"  # Test for invalid string
             )
-        assert "batch_size must be a positive integer or 'auto'" in str(excinfo.value)
+        assert "batch_size must be a positive integer, 'auto', or in the format 'auto:N'." in str(excinfo.value)
 
     stdout = StringIO()
     with redirect_stdout(stdout), mock.patch("sys.argv", ["eval/evaluate.py"]):
