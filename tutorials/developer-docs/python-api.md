@@ -1,6 +1,6 @@
 # LitGPT High-level Python API
 
-This is a work-in-progress draft for a high-level LitGPT Pyhon API.
+This is a work-in-progress draft for a high-level LitGPT Python API.
 
 &nbsp;
 ## Model loading & saving
