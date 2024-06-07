@@ -5,6 +5,7 @@ import inspect
 import math
 import os
 import pickle
+import pkg_resources
 import shutil
 import sys
 from dataclasses import asdict, is_dataclass
@@ -525,3 +526,11 @@ def extend_checkpoint_dir(checkpoint_dir: Path) -> Path:
                              not checkpoint_dir.is_absolute() and
                              new_checkpoint_dir.exists())
     return new_checkpoint_dir if should_return_new_dir else checkpoint_dir
+
+
+def check_library_version(lib_name, expected_version):
+    try:
+        installed_version = pkg_resources.get_distribution(lib_name).version
+        return (installed_version == expected_version, installed_version)
+    except pkg_resources.DistributionNotFound:
+        return (False, "")

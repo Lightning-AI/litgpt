@@ -5,6 +5,7 @@ import os
 from contextlib import redirect_stderr
 from io import StringIO
 from pathlib import Path
+from pkg_resources import DistributionNotFound
 from tempfile import TemporaryDirectory
 from unittest import mock
 
@@ -25,6 +26,7 @@ from litgpt.utils import (
     CLI,
     CycleIterator,
     capture_hparams,
+    check_library_version,
     check_valid_checkpoint_dir,
     choose_logger,
     chunked_cross_entropy,
@@ -400,3 +402,18 @@ def test_extend_checkpoint_dir(input_path, expected):
 ])
 def test_extend_checkpoint_dir_dont_exist(input_path, expected):
     assert extend_checkpoint_dir(input_path) == expected
+
+
+def test_check_library_version(monkeypatch):
+    class MockDistribution:
+        def __init__(self, version):
+            self.version = version
+
+    monkeypatch.setattr("pkg_resources.get_distribution", lambda x: MockDistribution("0.42.0"))
+    assert check_library_version("example_lib", "0.42.0") == (True, "0.42.0"), "Test failed: Expected matching version to return True and the version"
+
+    monkeypatch.setattr("pkg_resources.get_distribution", lambda x: MockDistribution("0.40.0"))
+    assert check_library_version("example_lib", "0.42.0") == (False, "0.40.0"), "Test failed: Expected non-matching version to return False and the version"
+
+    monkeypatch.setattr("pkg_resources.get_distribution", lambda x: (_ for _ in ()).throw(DistributionNotFound))
+    assert check_library_version("example_lib", "0.42.0") == (False, ""), "Test failed: Expected uninstalled library to return False and an empty string"
