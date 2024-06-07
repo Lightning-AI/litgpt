@@ -12,8 +12,10 @@ import torch._dynamo.config
 import torch._inductor.config
 from lightning.fabric.plugins import BitsandbytesPrecision
 
-from litgpt import GPT, Config, PromptStyle, Tokenizer
-from litgpt.prompts import has_prompt_style, load_prompt_style
+from litgpt.model import GPT
+from litgpt.config import Config
+from litgpt.tokenizer import Tokenizer
+from litgpt.prompts import has_prompt_style, load_prompt_style, PromptStyle
 from litgpt.utils import (
     check_valid_checkpoint_dir,
     extend_checkpoint_dir,
