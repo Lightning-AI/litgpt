@@ -6,13 +6,15 @@ import time
 from pathlib import Path
 from pprint import pprint
 from typing import Dict, List, Literal, Optional, Tuple, Union
+import warnings
 
 import lightning as L
 import torch
 from lightning.fabric.plugins import BitsandbytesPrecision
 from lightning.fabric.strategies import FSDPStrategy
 from lightning.fabric.utilities import ThroughputMonitor
-from torch.utils.data import DataLoader
+from lightning_utilities.core.imports import RequirementCache
+from torch.utils.data import DataLoader, ConcatDataset
 from torchmetrics import RunningMean
 
 from litgpt.adapter_v2 import GPT, Block, Config, adapter_filter, mark_only_adapter_v2_as_trainable
@@ -92,6 +94,11 @@ def setup(
     if quantize is not None and quantize.startswith("bnb."):
         if "mixed" in precision:
             raise ValueError("Quantization and mixed precision is not supported.")
+        if RequirementCache("bitsandbytes != 0.42.0"):
+            warnings.warn(
+                "LitGPT only supports bitsandbytes v0.42.0. "
+                "This may result in errors when using quantization."
+            )
         dtype = {"16-true": torch.float16, "bf16-true": torch.bfloat16, "32-true": torch.float32}[precision]
         plugins = BitsandbytesPrecision(quantize[4:], dtype)
         precision = None
@@ -181,10 +188,11 @@ def main(
         fabric.print(f"Memory used: {torch.cuda.max_memory_allocated() / 1e9:.02f} GB")
 
     # Final evaluation
-    val_loss = validate(fabric, model, val_dataloader, dataclasses.replace(eval, max_iters=len(val_dataloader)))
-    metrics = {"val_loss": val_loss, "val_ppl": math.exp(val_loss)}
-    fabric.log_dict(metrics)
-    fabric.print(f"Final evaluation | val loss: {val_loss.item():.3f} | val ppl: {math.exp(val_loss):.3f}")
+    if eval.final_validation:
+        val_loss = validate(fabric, model, val_dataloader, dataclasses.replace(eval, max_iters=len(val_dataloader)))
+        metrics = {"val_loss": val_loss, "val_ppl": math.exp(val_loss)}
+        fabric.log_dict(metrics)
+        fabric.print(f"Final evaluation | val loss: {val_loss.item():.3f} | val ppl: {math.exp(val_loss):.3f}")
 
     # Save the final Adapter checkpoint at the end of training
     save_path = out_dir / "final" / "lit_model.pth.adapter_v2"
@@ -212,7 +220,7 @@ def fit(
     data: DataModule,
 ) -> None:
     tokenizer = Tokenizer(checkpoint_dir)
-    longest_seq_length, longest_seq_ix = get_longest_seq_length(train_dataloader.dataset)
+    longest_seq_length, longest_seq_ix = get_longest_seq_length(ConcatDataset([train_dataloader.dataset, val_dataloader.dataset]))
     model.max_seq_length = min(longest_seq_length, train.max_seq_length or float("inf"))
     fabric.print(
         f"The longest sequence length in the train data is {longest_seq_length}, the model's maximum sequence length is"

@@ -1548,7 +1548,7 @@ tiny_llama = [
         rotary_percentage=1.0,
         parallel_residual=False,
         bias=False,
-        norm_class_name="RMSNorm",  # original TinyLlama uses FusedRMSNorm
+        norm_class_name="RMSNorm",  # original TinyLlama use FusedRMSNorm
         norm_eps=1e-5,
         mlp_class_name="LLaMAMLP",
         intermediate_size=5632,
@@ -1561,6 +1561,32 @@ for c in tiny_llama:
         copy["name"] = c["name"].format(kind)
         copy["hf_config"]["name"] = c["hf_config"]["name"].format(hf_postfix)
         configs.append(copy)
+
+
+############
+# MicroLlama
+############
+micro_llama = [
+    dict(
+        name="micro-llama-300M",
+        hf_config=dict(org="keeeeenw", name="MicroLlama"),
+        block_size=2048,
+        vocab_size=32000,
+        padding_multiple=64,
+        n_layer=12,
+        n_head=16,
+        n_embd=1024,
+        rotary_percentage=1.0,
+        parallel_residual=False,
+        bias=False,
+        norm_class_name="RMSNorm",  # original TinyLlama and MicroLlama use FusedRMSNorm
+        norm_eps=1e-5,
+        mlp_class_name="LLaMAMLP",
+        intermediate_size=5632,
+        n_query_groups=4,
+    )
+]
+configs.extend(micro_llama)
 
 
 ##########################

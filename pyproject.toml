@@ -38,7 +38,7 @@ all = [
     "tokenizers>=0.15.2",        # pythia, falcon, redpajama
     "requests>=2.31.0",          # litgpt.data
     "litdata==0.2.6",            # litgpt.data
-    "litserve>=0.1.0",           # litgpt.deploy
+    "litserve==0.1.1dev0",       # litgpt.deploy
     "zstandard>=0.22.0",         # litgpt.data.prepare_slimpajama.py
     "pandas>=1.9.0",             # litgpt.data.prepare_starcoder.py
     "pyarrow>=15.0.2",           # litgpt.data.prepare_starcoder.py
