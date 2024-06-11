@@ -1,6 +1,6 @@
 # Download Model Weights with LitGPT
 
-LitGPT supports a variety of LLM architectures with publicly available weights. You can download model weights and access a list of supported models using the `litgpt download` command.
+LitGPT supports a variety of LLM architectures with publicly available weights. You can download model weights and access a list of supported models using the `litgpt download list` command.
 
 &nbsp;
 
@@ -39,10 +39,10 @@ LitGPT supports a variety of LLM architectures with publicly available weights. 
 
 ### 1. List Available Models
 
-To see all supported models, run the following command without arguments:
+To see all supported models, run the following command:
 
 ```bash
-litgpt download
+litgpt download list
 ```
 
 The output is shown below:
@@ -163,7 +163,7 @@ unsloth/Mistral-7B-v0.2
 &nbsp;
 
 > [!TIP]
-> To sort the list above by model name after the `/`, use `litgpt download | sort -f -t'/' -k2`.
+> To sort the list above by model name after the `/`, use `litgpt download list | sort -f -t'/' -k2`.
 
 &nbsp;
 
@@ -171,8 +171,7 @@ unsloth/Mistral-7B-v0.2
 > If you want to adopt a model variant that is not listed in the table above but has a similar architecture as one of the supported models, you can use this model by by using the `--model_name` argument as shown below:
 >
 > ```bash
-> litgpt download \
->  --repo_id NousResearch/Hermes-2-Pro-Mistral-7B \
+> litgpt download NousResearch/Hermes-2-Pro-Mistral-7B \
 >  --model_name Mistral-7B-v0.1
 > ```
 
@@ -180,7 +179,7 @@ unsloth/Mistral-7B-v0.2
 
 ### 2. Download Model Weights
 
-To download the weights for a specific model, use the `--repo_id` argument. Replace `<repo_id>` with the model's repository ID. For example:
+To download the weights for a specific model provide a `<repo_id>` with the model's repository ID. For example:
 
 ```bash
 litgpt download <repo_id>
@@ -217,7 +216,7 @@ This section shows a typical end-to-end example for downloading and using TinyLl
 1. List available TinyLlama checkpoints:
 
 ```bash
-litgpt download | grep Tiny
+litgpt download list | grep Tiny
 ```
 
 ```
@@ -270,7 +269,7 @@ litgpt download NousResearch/Hermes-2-Pro-Mistral-7B \
 The `litgpt download` command will automatically convert the downloaded model checkpoint into a LitGPT-compatible format. In case this conversion fails due to GPU memory constraints, you can try to reduce the memory requirements by passing the  `--dtype bf16-true` flag to convert all parameters into this smaller precision (however, note that most model weights are already in a bfloat16 format, so it may not have any effect):
 
 ```bash
-litgpt download  <repo_id>
+litgpt download <repo_id>
   --dtype bf16-true
 ```
 
@@ -289,7 +288,7 @@ litgpt download <repo_id> \
   --convert_checkpoint false
 ```
 
-and then calling the `convert_hf_checkpoint.py` script:
+and then calling the `convert_hf_checkpoint` command:
 
 ```bash
 litgpt convert to_litgpt <repo_id>
