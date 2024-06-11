@@ -4,7 +4,8 @@ This document provides an overview and explanation of how new LLM architectures 
 
 &nbsp;
 
-> [!NOTE] One of the design focus areas of LitGPT is to provide efficient readable code. At the same time, LitGPT aims to support selected LLMs that are useful to the community. LitGPT aims to reuse and share as much code as possible between different LLMs to strike a balance between code readability and enabling support for various LLMs. In short, we try to minimize writing custom code for a given LLM and aim for code reuse.
+> [!NOTE]
+> One of the design focus areas of LitGPT is to provide efficient readable code. At the same time, LitGPT aims to support selected LLMs that are useful to the community. LitGPT aims to reuse and share as much code as possible between different LLMs to strike a balance between code readability and enabling support for various LLMs. In short, we try to minimize writing custom code for a given LLM and aim for code reuse.
 
 
 &nbsp;
@@ -105,6 +106,7 @@ litgpt download meta-llama/Meta-Llama-3-70B --access_token ...
 
 If the conversion following the download fails, proceed with the next section.
 
+&nbsp;
 ## 5. Update the checkpoint conversion script
 
 If the `litgpt download ...` command from the previous section failed, you may have to adjust the checkpoint conversion script: [../../litgpt/scripts/convert_hf_checkpoint.py](../../litgpt/scripts/convert_hf_checkpoint.py).
@@ -117,7 +119,7 @@ You can test the updated conversion code without needing to redownload the weigh
 python litgpt/scripts/convert_hf_checkpoint.py meta-llama/Meta-Llama-3-70B
 ```
 
-
+&nbsp;
 ## 6. Add the Prompt Style
 
 If you are adding a new model class, find out its prompt style. First, check [../litgpt/prompts](../litgpt/prompts) if a similar prompt style template already exists. For Llama 3, this is as follows:
