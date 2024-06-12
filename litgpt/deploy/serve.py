@@ -82,7 +82,7 @@ class BaseLitAPI(LitAPI):
 
     def decode_request(self, request: Dict[str, Any]) -> Any:
         # Convert the request payload to your model input.
-        prompt = str(request["input"])
+        prompt = str(request["prompt"])
         prompt = self.prompt_style.apply(prompt)
         encoded = self.tokenizer.encode(prompt, device=self.device)
         return encoded
@@ -123,7 +123,7 @@ class SimpleLitAPI(BaseLitAPI):
     def encode_response(self, output: torch.Tensor) -> Dict[str, Any]:
         # Convert the model output to a response payload.
         decoded_output = self.tokenizer.decode(output)
-        return {"response": decoded_output}
+        return {"output": decoded_output}
 
 
 class StreamLitAPI(BaseLitAPI):
@@ -159,7 +159,7 @@ class StreamLitAPI(BaseLitAPI):
 
     def encode_response(self, output):
         for out in output:
-            yield {"response": self.tokenizer.decode(out)}
+            yield {"output": self.tokenizer.decode(out)}
 
 
 def run_server(
@@ -241,4 +241,4 @@ def run_server(
             stream=True
             )
 
-    server.run(port=port)
+    server.run(port=port, generate_client_file=False)

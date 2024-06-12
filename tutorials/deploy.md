@@ -35,10 +35,10 @@ import requests, json
 
 response = requests.post(
     "http://127.0.0.1:8000/predict", 
-    json={"input": "Fix typos in the following sentence: Exampel input"}
+    json={"response": "Fix typos in the following sentence: Exampel input"}
 )
 
-print(response.json()["response"])
+print(response.json()["output"])
 ```
 
 Executing the code above prints the following output:
