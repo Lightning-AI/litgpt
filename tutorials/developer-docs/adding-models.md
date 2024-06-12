@@ -34,9 +34,9 @@ pip install litgpt -e ".[all]"
 &nbsp;
 ## 3. Update the config file
 
-Update the [../litgpt/config.py](litgpt/config.py) config file, adding the new model configuration there. It's easiest to start with the most similar model, copy the configuration, and then modify it according to the `config.json` file on the HF hub.
+Update the [litgpt/config.py](../../litgpt/config.py) config file, adding the new model configuration there. It's easiest to start with the most similar model, copy the configuration, and then modify it according to the `config.json` file on the HF hub.
 
-For example, suppose an entry for Llama 3 8B already exists and you want to add support for Llama 3 70B. 
+For example, suppose an entry for Llama 3 8B already exists and you want to add support for Llama 3 70B.
 
 Copy the Llama 3 8B entry:
 
@@ -113,7 +113,7 @@ If the conversion following the download fails, proceed with the next section.
 &nbsp;
 ## 5. Update the checkpoint conversion script
 
-If the `litgpt download ...` command from the previous section failed, you may have to adjust the checkpoint conversion script: [../../litgpt/scripts/convert_hf_checkpoint.py](../../litgpt/scripts/convert_hf_checkpoint.py).
+If the `litgpt download ...` command from the previous section failed, you may have to adjust the checkpoint conversion script: [litgpt/scripts/convert_hf_checkpoint.py](../../litgpt/scripts/convert_hf_checkpoint.py).
 
 Here, you may have to adjust or implement a new `def copy_weights_hf_...` function.
 
@@ -126,7 +126,7 @@ python litgpt/scripts/convert_hf_checkpoint.py meta-llama/Meta-Llama-3-70B
 &nbsp;
 ## 6. Add the Prompt Style
 
-If you are adding a new model class, find out its prompt style. First, check [../litgpt/prompts](../litgpt/prompts) if a similar prompt style template already exists. For Llama 3, this is as follows:
+If you are adding a new model class, find out its prompt style. First, check [litgpt/prompts](../../litgpt/prompts) if a similar prompt style template already exists. For Llama 3, this is as follows:
 
 ```python
 class Llama3(PromptStyle):
@@ -154,7 +154,7 @@ Then, in the same file, update the `prompt_styles` dictionary:
 ```python
 prompt_styles: Dict[str, Type[PromptStyle]] = {
     ...
-    "llama3": Llama3,  
+    "llama3": Llama3,
 }
 ```
 
@@ -189,7 +189,7 @@ litgpt generate meta-llama/Meta-Llama-3-70B
 &nbsp;
 ### 8.1 Add model unit tests
 
-Open the [`../tests/test_model.py`](../tests/test_model.py) file and add a new `def test_against_hf_...` function using one of the existing functions as a template. For instance,
+Open the [`tests/test_model.py`](../../tests/test_model.py) file and add a new `def test_against_hf_...` function using one of the existing functions as a template. For instance,
 
 ```python
 def test_against_hf_llama2(ours_kwargs, device, dtype):
@@ -202,7 +202,7 @@ def test_against_hf_llama2(ours_kwargs, device, dtype):
     torch.testing.assert_close(ours_y, theirs_y)
 ```
 
-If the 
+If the
 
 ```bash
 litgpt generate meta-llama/Meta-Llama-3-70B
@@ -219,7 +219,7 @@ pytest tests/test_model.py::test_against_hf_...
 &nbsp;
 ### 8.2 Add prompt style unit test
 
-Open the [`../tests/test_model.py`](../tests/test_model.py) file and add a test for the respective prompts you added earlier, if applicable. For example,
+Open the [`tests/test_model.py`](../../tests/test_model.py) file and add a test for the respective prompts you added earlier, if applicable. For example,
 
 
 ```python
@@ -254,7 +254,7 @@ Finally, update the documentation files.
 &nbsp;
 ### 10.1 Update the README file
 
-Update the "All Models" table in the [../../README.md](../../README.md) file.
+Update the "All Models" table in the [README.md](../../README.md) file.
 
 &nbsp;
 ### 10.2 Update the download tutorials
