@@ -1530,6 +1530,42 @@ configs.append(
         intermediate_size=14336,
     )
 )
+configs.append(
+    # https://huggingface.co/mistralai/Mistral-7B-v0.3/blob/main/config.json
+    dict(
+        name="Mistral-7B-v0.3",
+        hf_config=dict(org="unsloth", name="Mistral-7B-v0.3"),
+        padded_vocab_size=32768,
+        block_size=32768,
+        n_layer=32,
+        n_query_groups=8,
+        rotary_percentage=1.0,
+        parallel_residual=False,
+        bias=False,
+        norm_class_name="RMSNorm",
+        norm_eps=1e-05,
+        mlp_class_name="LLaMAMLP",
+        intermediate_size=14336,
+    )
+)
+configs.append(
+    # https://huggingface.co/mistralai/Mistral-7B-Instruct-v0.3/blob/main/config.json
+    dict(
+        name="Mistral-7B-Instruct-v0.2",
+        hf_config=dict(org="mistralai", name="Mistral-7B-Instruct-v0.3"),
+        padded_vocab_size=32768,
+        block_size=32768,
+        n_layer=32,
+        n_query_groups=8,
+        rotary_percentage=1.0,
+        parallel_residual=False,
+        bias=False,
+        norm_class_name="RMSNorm",
+        norm_eps=1e-05,
+        mlp_class_name="LLaMAMLP",
+        intermediate_size=14336,
+    )
+)
 
 
 ############
