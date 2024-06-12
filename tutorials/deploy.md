@@ -35,7 +35,7 @@ import requests, json
 
 response = requests.post(
     "http://127.0.0.1:8000/predict", 
-    json={"response": "Fix typos in the following sentence: Exampel input"}
+    json={"prompt": "Fix typos in the following sentence: Exampel input"}
 )
 
 print(response.json()["output"])
