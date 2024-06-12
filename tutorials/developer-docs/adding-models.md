@@ -87,6 +87,10 @@ Then create the entry for the 70B model. Here, make sure you update the values a
 
 > [!NOTE]
 > Some models may require you to implement a new MLP class analogous to `class LLaMAMLP`.
+> A reliable indicator is the presence of a `modeling.py` file in the model's original repository.
+> If this file exists, it suggests that the current version of Hugging Face does not support
+> the new model. This will require additional changes beyond simply updating
+> the configuration in LitGPT's `config.py`.
 
 &nbsp;
 ## 4. Try downloading the model
