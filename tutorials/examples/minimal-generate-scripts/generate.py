@@ -8,7 +8,7 @@ from litgpt.utils import get_default_supported_precision
 
 def use_model():
 
-    # run `litgpt download --repo_id EleutherAI/pythia-1b` to download the checkpoint first
+    # run `litgpt download EleutherAI/pythia-1b` to download the checkpoint first
     checkpoint_dir = Path("checkpoints") / "EleutherAI" / "pythia-1b"
 
     torch.manual_seed(123)

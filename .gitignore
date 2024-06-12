@@ -18,5 +18,6 @@ wandb
 events.out.tfevents*
 
 # test artifacts from tests/test_readme.py
-tests/custom_finetuning_dataset.json
-tests/custom_texts
+**/custom_finetuning_dataset.json
+client.py
+**/custom_texts/

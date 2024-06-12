@@ -58,8 +58,7 @@ pip install '.[all]'
 You will need to have the tokenizer config available:
 
 ```bash
-litgpt download \
-   --repo_id meta-llama/Llama-2-7b-hf \
+litgpt download meta-llama/Llama-2-7b-hf \
    --access_token your_hf_token \
    --tokenizer_only true
 ```
@@ -115,7 +114,7 @@ Note that `pretrain` is not actually a model-specific training script, so feel f
 or change the model type and size by passing a different string to the model name argument, for example:
 
 ```shell
-litgpt pretrain --model_name Gemma-2b
+litgpt pretrain Gemma-2b
 ```
 
 The currently supported model names can be listed by executing `litgpt pretrain` without any additional arguments.
@@ -146,7 +145,7 @@ The checkpoints saved during pretraining contain all the information to resume i
 Simply rerun the script with the `--resume` argument added:
 
 ```bash
-litgpt pretrain \
+litgpt pretrain tiny-llama\
   --config config_hub/pretrain/tinyllama.yaml \
   --resume out/pretrain/tiny-llama/step-00060500
 ```
@@ -158,8 +157,7 @@ litgpt pretrain \
 After training is completed, you can convert the checkpoint to a format that can be loaded for evaluation, inference, finetuning etc.
 
 ```bash
-litgpt convert pretrained_checkpoint \
-  --checkpoint_dir out/pretrain/tiny-llama/step-00060500 \
+litgpt convert_pretrained_checkpoint out/pretrain/tiny-llama/step-00060500 \
   --output_dir checkpoints/tiny-llama/final
 ```
 

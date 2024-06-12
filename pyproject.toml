@@ -1,6 +1,6 @@
 [project]
 name = "litgpt"
-version = "0.4.0.dev0"
+version = "0.4.1.dev0"
 description = "Hackable implementation of state-of-the-art open-source LLMs"
 authors = [
     { name = "Lightning AI", email = "contact@lightning.ai" },
@@ -37,8 +37,8 @@ all = [
     "sentencepiece>=0.2.0",      # llama-based models
     "tokenizers>=0.15.2",        # pythia, falcon, redpajama
     "requests>=2.31.0",          # litgpt.data
-    "litdata>=0.2.6",            # litgpt.data
-    "litserve>=0.1.0",           # litgpt.deploy
+    "litdata==0.2.6",            # litgpt.data
+    "litserve==0.1.1dev0",       # litgpt.deploy
     "zstandard>=0.22.0",         # litgpt.data.prepare_slimpajama.py
     "pandas>=1.9.0",             # litgpt.data.prepare_starcoder.py
     "pyarrow>=15.0.2",           # litgpt.data.prepare_starcoder.py

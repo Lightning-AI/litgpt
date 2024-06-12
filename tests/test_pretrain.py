@@ -36,11 +36,12 @@ def test_pretrain(_, tmp_path):
     stdout = StringIO()
     with redirect_stdout(stdout):
         pretrain.setup(
+            "pythia-14m",
             devices=2,
             model_config=model_config,
             out_dir=out_dir,
             train=TrainArgs(global_batch_size=2, max_tokens=16, save_interval=1, micro_batch_size=1, max_norm=1.0),
-            eval=EvalArgs(interval=1, max_iters=1),
+            eval=EvalArgs(interval=1, max_iters=1, final_validation=False),
         )
 
     if torch.distributed.get_rank() == 0:
@@ -78,14 +79,9 @@ def test_initial_checkpoint_dir(_, load_mock, tmp_path):
     pretrain.get_dataloaders = Mock(return_value=(dataloader, dataloader))
     pretrain.fit = Mock()
 
-    pretrain.setup(initial_checkpoint_dir=tmp_path, devices=2, model_config=model_config, out_dir=tmp_path)
+    pretrain.setup("pythia-14m", initial_checkpoint_dir=tmp_path, devices=2, model_config=model_config, out_dir=tmp_path)
 
     load_mock.assert_called_once_with(tmp_path / "lit_model.pth", ANY)
-
-
-def test_pretrain_model_name_and_config():
-    with pytest.raises(ValueError, match="Only one of `model_name` or `model_config`"):
-        pretrain.setup(model_name="tiny-llama-1.1b", model_config=Config(name="tiny-llama-1.1b"))
 
 
 @pytest.mark.parametrize(("strategy", "expected"), [(SingleDeviceStrategy, True), (FSDPStrategy, False)])

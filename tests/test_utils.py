@@ -5,6 +5,7 @@ import os
 from contextlib import redirect_stderr
 from io import StringIO
 from pathlib import Path
+from tempfile import TemporaryDirectory
 from unittest import mock
 
 import pytest
@@ -28,9 +29,12 @@ from litgpt.utils import (
     choose_logger,
     chunked_cross_entropy,
     copy_config_files,
+    extend_checkpoint_dir,
     find_multiple,
     incremental_save,
     init_out_dir,
+    instantiate_bnb_optimizer,
+    instantiate_torch_optimizer,
     num_parameters,
     parse_devices,
     save_hyperparameters,
@@ -57,7 +61,7 @@ def test_check_valid_checkpoint_dir(tmp_path):
         check_valid_checkpoint_dir(tmp_path)
     out = out.getvalue().strip()
     expected = f"""
---checkpoint_dir '{str(tmp_path.absolute())}' is missing the files: ['lit_model.pth', 'model_config.yaml', 'tokenizer.json OR tokenizer.model', 'tokenizer_config.json'].
+checkpoint_dir '{str(tmp_path.absolute())}' is missing the files: ['lit_model.pth', 'model_config.yaml', 'tokenizer.json OR tokenizer.model', 'tokenizer_config.json'].
 Find download instructions at https://github.com/Lightning-AI/litgpt/blob/main/tutorials
 
 See all download options by running:
@@ -71,7 +75,7 @@ See all download options by running:
         check_valid_checkpoint_dir(checkpoint_dir)
     out = out.getvalue().strip()
     expected = f"""
---checkpoint_dir '{str(checkpoint_dir.absolute())}' is not a checkpoint directory.
+checkpoint_dir '{str(checkpoint_dir.absolute())}' is not a checkpoint directory.
 Find download instructions at https://github.com/Lightning-AI/litgpt/blob/main/tutorials
 
 See all download options by running:
@@ -86,11 +90,11 @@ See all download options by running:
         check_valid_checkpoint_dir(foo_checkpoint_dir)
     out = out.getvalue().strip()
     expected = f"""
---checkpoint_dir '{str(foo_checkpoint_dir.absolute())}' is not a checkpoint directory.
+checkpoint_dir '{str(foo_checkpoint_dir.absolute())}' is not a checkpoint directory.
 Find download instructions at https://github.com/Lightning-AI/litgpt/blob/main/tutorials
 
 You have downloaded locally:
- --checkpoint_dir '{str(checkpoint_dir.absolute())}'
+'{str(checkpoint_dir.absolute())}'
 
 See all download options by running:
  litgpt download
@@ -248,7 +252,7 @@ def _test_function(out_dir: Path, foo: bool = False, bar: int = 1):
 
 
 def test_save_hyperparameters(tmp_path):
-    with mock.patch("sys.argv", ["any.py", "--out_dir", str(tmp_path), "--foo", "True"]):
+    with mock.patch("sys.argv", ["any.py", str(tmp_path), "--foo", "True"]):
         CLI(_test_function)
 
     with open(tmp_path / "hyperparameters.yaml", "r", encoding="utf-8") as file:
@@ -268,15 +272,15 @@ def _test_function2(out_dir: Path, foo: bool = False, bar: int = 1):
     [
         "any.py",
         "litgpt finetune",
-        "litgpt finetune full",
-        "litgpt finetune lora",
-        "litgpt finetune adapter",
-        "litgpt finetune adapter_v2",
+        "litgpt finetune_full",
+        "litgpt finetune_lora",
+        "litgpt finetune_adapter",
+        "litgpt finetune_adapter_v2",
         "litgpt pretrain",
     ],
 )
 def test_save_hyperparameters_known_commands(command, tmp_path):
-    with mock.patch("sys.argv", [*command.split(" "), "--out_dir", str(tmp_path), "--foo", "True"]):
+    with mock.patch("sys.argv", [*command.split(" "), str(tmp_path), "--foo", "True"]):
         save_hyperparameters(_test_function2, tmp_path)
 
     with open(tmp_path / "hyperparameters.yaml", "r", encoding="utf-8") as file:
@@ -307,3 +311,92 @@ def test_init_out_dir(tmp_path):
     with mock.patch.dict(os.environ, {"LIGHTNING_ARTIFACTS_DIR": "prefix"}):
         assert init_out_dir(relative_path) == Path("prefix") / relative_path
         assert init_out_dir(absolute_path) == absolute_path
+
+
+@pytest.fixture
+def model_parameters():
+    return [torch.nn.Parameter(torch.randn(2, 2))]
+
+
+def test_instantiate_bnb_optimizer_with_str(model_parameters):
+    import bitsandbytes as bnb
+    with mock.patch("litgpt.utils.get_argument_names", return_value={"lr", "eps", "weight_decay"}):
+        optimizer = instantiate_bnb_optimizer("AdamW", model_parameters)
+        assert isinstance(optimizer, bnb.optim.adamw.PagedAdamW)
+
+
+def test_instantiate_bnb_optimizer_with_dict(model_parameters):
+    import bitsandbytes as bnb
+    optimizer_dict = {"class_path": "AdamW", "init_args": {"lr": 0.01}}
+    with mock.patch("litgpt.utils.get_argument_names", return_value={"lr", "eps", "weight_decay"}):
+        optimizer = instantiate_bnb_optimizer(optimizer_dict, model_parameters)
+        assert isinstance(optimizer, bnb.optim.adamw.PagedAdamW)
+        assert optimizer.param_groups[0]["lr"] == 0.01
+
+
+def test_instantiate_bnb_optimizer_with_invalid_str(model_parameters):
+    with pytest.raises(ValueError, match="only supports the AdamW"):
+        instantiate_bnb_optimizer("SGD", model_parameters)
+
+
+def test_instantiate_torch_optimizer_with_str(model_parameters):
+    optimizer = instantiate_torch_optimizer("Adam", model_parameters, lr=0.01)
+    assert isinstance(optimizer, torch.optim.Adam)
+    assert optimizer.param_groups[0]["lr"] == 0.01
+
+
+def test_instantiate_torch_optimizer_with_class(model_parameters):
+    optimizer = instantiate_torch_optimizer({"class_path": "torch.optim.Adam", "init_args": {"lr": 123}}, model_parameters, lr=0.02)
+    assert isinstance(optimizer, torch.optim.Adam)
+    # init args gets overridden
+    assert optimizer.param_groups[0]["lr"] == 0.02
+
+
+@pytest.mark.parametrize("input_path, expected", [
+    (Path("checkpoints/my_model"), Path("checkpoints/my_model")),
+    (Path("checkpoints/my_model"), Path("./checkpoints/my_model")),
+])
+def test_extend_checkpoint_dir_is_prefixed(input_path, expected):
+    original_dir = Path.cwd()  # Save the current directory
+    with TemporaryDirectory() as tmp_dir:
+        os.chdir(tmp_dir)
+
+        try:
+            if not input_path.is_absolute():
+                input_path = Path(tmp_dir) / input_path
+            if not expected.is_absolute():
+                expected = Path(tmp_dir) / expected
+            input_path.parent.mkdir(parents=True, exist_ok=True)
+            input_path.touch(exist_ok=True)
+            assert extend_checkpoint_dir(input_path) == expected
+        finally:
+            os.chdir(original_dir)  # Reset the current directory
+
+
+@pytest.mark.parametrize("input_path, expected", [
+    (Path("my_model"), Path("checkpoints/my_model")),
+    (Path("my_model"), Path("./checkpoints/my_model")),
+])
+def test_extend_checkpoint_dir(input_path, expected):
+    original_dir = Path.cwd()  # Save the current directory
+    with TemporaryDirectory() as tmp_dir:
+        os.chdir(tmp_dir)
+
+        try:
+            if not input_path.is_absolute():
+                input_path = Path(tmp_dir) / "checkpoints" / input_path
+            if not expected.is_absolute():
+                expected = Path(tmp_dir) / expected
+            input_path.parent.mkdir(parents=True, exist_ok=True)
+            input_path.touch(exist_ok=True)
+            assert extend_checkpoint_dir(input_path) == expected
+        finally:
+            os.chdir(original_dir)  # Reset the current directory
+
+
+@pytest.mark.parametrize("input_path, expected", [
+    (Path("my_model"), Path("my_model")),
+    (Path("/my_model"), Path("/my_model")),
+])
+def test_extend_checkpoint_dir_dont_exist(input_path, expected):
+    assert extend_checkpoint_dir(input_path) == expected
