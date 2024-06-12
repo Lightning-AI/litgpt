@@ -126,7 +126,7 @@ python litgpt/scripts/convert_hf_checkpoint.py meta-llama/Meta-Llama-3-70B
 &nbsp;
 ## 6. Add the Prompt Style
 
-If you are adding a new model class, find out its prompt style. First, check [litgpt/prompts](../../litgpt/prompts) if a similar prompt style template already exists. For Llama 3, this is as follows:
+If you are adding a new model class, find out its prompt style. First, check [litgpt/prompts.py](../../litgpt/prompts.py) if a similar prompt style template already exists. For Llama 3, this is as follows:
 
 ```python
 class Llama3(PromptStyle):
