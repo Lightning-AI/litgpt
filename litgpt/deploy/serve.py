@@ -113,7 +113,8 @@ class SimpleLitAPI(BaseLitAPI):
             temperature=self.temperature,
             top_k=self.top_k,
             top_p=self.top_p,
-            eos_id=self.tokenizer.eos_id
+            eos_id=self.tokenizer.eos_id,
+            include_prompt=False
         )
 
         for block in self.model.transformer.h:
