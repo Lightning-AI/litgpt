@@ -6,12 +6,14 @@ import time
 from pathlib import Path
 from pprint import pprint
 from typing import Dict, List, Literal, Optional, Tuple, Union
+import warnings
 
 import lightning as L
 import torch
 from lightning.fabric.plugins import BitsandbytesPrecision
 from lightning.fabric.strategies import FSDPStrategy
 from lightning.fabric.utilities import ThroughputMonitor
+from lightning_utilities.core.imports import RequirementCache
 from torch.utils.data import DataLoader, ConcatDataset
 from torchmetrics import RunningMean
 
@@ -92,6 +94,11 @@ def setup(
     if quantize is not None and quantize.startswith("bnb."):
         if "mixed" in precision:
             raise ValueError("Quantization and mixed precision is not supported.")
+        if RequirementCache("bitsandbytes != 0.42.0"):
+            warnings.warn(
+                "LitGPT only supports bitsandbytes v0.42.0. "
+                "This may result in errors when using quantization."
+            )
         dtype = {"16-true": torch.float16, "bf16-true": torch.bfloat16, "32-true": torch.float32}[precision]
         plugins = BitsandbytesPrecision(quantize[4:], dtype)
         precision = None

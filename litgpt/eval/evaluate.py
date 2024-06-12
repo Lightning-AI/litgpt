@@ -31,7 +31,7 @@ def convert_and_evaluate(
     out_dir: Optional[Path] = None,
     force_conversion: bool = False,
     num_fewshot: Optional[int] = None,
-    batch_size: int = 1,
+    batch_size: Union[int, str] = 1,
     device: Optional[str] = None,
     dtype: Optional[Union[str, torch.dtype]] = None,
     limit: Optional[float] = None,
@@ -48,7 +48,8 @@ def convert_and_evaluate(
             an existing model.pth from a previous evaluation call.
         tasks: CSV of task names to evaluate. Example: "hellaswag,truthfulqa_mc2,mmlu"
         num_fewshot: Number of examples in few-shot context.
-        batch_size: Batch size configuration.
+        batch_size: Batch size configuration as positive integer value (default: 1),
+            "auto", in the format 'auto:N', where 'auto:4' recomputes the batch size 4 times.
         device: Device to use for evaluation, for example, "cuda" or "cuda:0".
         limit: Limit on number of examples per task.
         seed: Random seed.
@@ -57,6 +58,9 @@ def convert_and_evaluate(
     """
     checkpoint_dir = extend_checkpoint_dir(checkpoint_dir)
     pprint(locals())
+
+    if not (isinstance(batch_size, int) and batch_size > 0) and not (isinstance(batch_size, str) and batch_size.startswith("auto")):
+            raise ValueError("batch_size must be a positive integer, 'auto', or in the format 'auto:N'.")
 
     from lm_eval import evaluator
 
