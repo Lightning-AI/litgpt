@@ -59,7 +59,7 @@ def download_from_hub(
         elif safetensors:
             if not _SAFETENSORS_AVAILABLE:
                 raise ModuleNotFoundError(str(_SAFETENSORS_AVAILABLE))
-            download_files.append("*.safetensors")
+            download_files.append("*.safetensors*")
             from_safetensors = True
         else:
             raise ValueError(f"Couldn't find weight files for {repo_id}")
