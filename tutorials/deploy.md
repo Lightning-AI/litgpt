@@ -44,6 +44,5 @@ print(response.json()["output"])
 Executing the code above prints the following output:
 
 ```
-Instruct: Fix typos in the following sentence: Exampel input
-Output: Example input.
+Example input.
 ```
