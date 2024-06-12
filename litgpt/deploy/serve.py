@@ -8,7 +8,6 @@ import lightning as L
 from lightning_utilities.core.imports import RequirementCache
 import torch
 
-
 from litgpt.model import GPT
 from litgpt.config import Config
 from litgpt.tokenizer import Tokenizer
@@ -20,7 +19,6 @@ from litgpt.utils import (
     get_default_supported_precision,
     load_checkpoint
 )
-
 
 _LITSERVE_AVAILABLE = RequirementCache("litserve")
 if _LITSERVE_AVAILABLE:
@@ -37,7 +35,6 @@ class BaseLitAPI(LitAPI):
                  top_k: int = 50,
                  top_p: float = 1.0,
                  max_new_tokens: int = 50) -> None:
-
         if not _LITSERVE_AVAILABLE:
             raise ImportError(str(_LITSERVE_AVAILABLE))
 
@@ -80,11 +77,13 @@ class BaseLitAPI(LitAPI):
         load_checkpoint(fabric, self.model, checkpoint_path)
         self.device = fabric.device
 
-    def decode_request(self, request: Dict[str, Any]) -> Any:
+    def decode_request(self, request: Dict[str, Any], context: dict) -> Any:
         # Convert the request payload to your model input.
         prompt = str(request["prompt"])
         prompt = self.prompt_style.apply(prompt)
         encoded = self.tokenizer.encode(prompt, device=self.device)
+        context["temperature"] = request.get("temperature", self.temperature)
+        context["max_new_tokens"] = request.get("max_new_tokens", self.max_new_tokens)
         return encoded
 
 
@@ -96,21 +95,24 @@ class SimpleLitAPI(BaseLitAPI):
                  top_k: int = 50,
                  top_p: float = 1.0,
                  max_new_tokens: int = 50):
-        super().__init__(checkpoint_dir, precision, temperature, top_k, top_p, max_new_tokens)   
+        super().__init__(checkpoint_dir, precision, temperature, top_k, top_p, max_new_tokens)
 
     def setup(self, device: str):
         super().setup(device)
 
-    def predict(self, inputs: torch.Tensor) -> Any:
+    def predict(self, inputs: torch.Tensor, context: dict) -> Any:
+        # Fetch context data for current request saved during decode_request
+        temperature = context["temperature"]
+        max_new_tokens = context["max_new_tokens"]
         # Run the model on the input and return the output.
         prompt_length = inputs.size(0)
-        max_returned_tokens = prompt_length + self.max_new_tokens
+        max_returned_tokens = prompt_length + max_new_tokens
 
         y = plain_generate(
             self.model,
             inputs,
             max_returned_tokens,
-            temperature=self.temperature,
+            temperature=temperature,
             top_k=self.top_k,
             top_p=self.top_p,
             eos_id=self.tokenizer.eos_id,
@@ -135,7 +137,7 @@ class StreamLitAPI(BaseLitAPI):
                  top_k: int = 50,
                  top_p: float = 1.0,
                  max_new_tokens: int = 50):
-        super().__init__(checkpoint_dir, precision, temperature, top_k, top_p, max_new_tokens)   
+        super().__init__(checkpoint_dir, precision, temperature, top_k, top_p, max_new_tokens)
 
     def setup(self, device: str):
         super().setup(device)
@@ -164,16 +166,16 @@ class StreamLitAPI(BaseLitAPI):
 
 
 def run_server(
-    checkpoint_dir: Path,
-    precision: Optional[str] = None,
-    temperature: float = 0.8,
-    top_k: int = 200,
-    top_p: float = 1.0,
-    max_new_tokens: int = 50,
-    devices: int = 1,
-    accelerator: str = "auto",
-    port: int = 8000,
-    stream: bool = False
+        checkpoint_dir: Path,
+        precision: Optional[str] = None,
+        temperature: float = 0.8,
+        top_k: int = 200,
+        top_p: float = 1.0,
+        max_new_tokens: int = 50,
+        devices: int = 1,
+        accelerator: str = "auto",
+        port: int = 8000,
+        stream: bool = False
 ) -> None:
     """Serve a LitGPT model using LitServe.
 
@@ -222,10 +224,10 @@ def run_server(
                 top_k=top_k,
                 top_p=top_p,
                 max_new_tokens=max_new_tokens,
-                ),
+            ),
             accelerator=accelerator,
             devices=devices
-            )
+        )
 
     else:
         server = LitServer(
@@ -236,10 +238,10 @@ def run_server(
                 top_k=top_k,
                 top_p=top_p,
                 max_new_tokens=max_new_tokens,
-                ),
+            ),
             accelerator=accelerator,
             devices=devices,
             stream=True
-            )
+        )
 
     server.run(port=port, generate_client_file=False)
