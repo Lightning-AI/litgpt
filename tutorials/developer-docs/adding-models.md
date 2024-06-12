@@ -187,7 +187,7 @@ litgpt generate meta-llama/Meta-Llama-3-70B
 
 Open the [`../tests/test_model.py`](../tests/test_model.py) file and add a new `def test_against_hf_...` function using one of the existing functions as a template. For instance,
 
-```
+```python
 def test_against_hf_llama2(ours_kwargs, device, dtype):
 ...
     # test end to end
