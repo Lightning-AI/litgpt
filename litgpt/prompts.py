@@ -241,8 +241,10 @@ class Llama3(PromptStyle):
                     template += assistant_template.format(assistant_msg=content)
                 elif role == "user":
                     template += user_template.format(user_msg=content)
+                elif role == "system":
+                    raise ValueError("'system' role is only allowed at the beginning of the conversation list.")
                 else:
-                    raise ValueError(f"Unknown role: '{role}'. Supported roles are 'system', 'assistant' and 'user'")
+                    raise ValueError(f"Unknown role: '{role}'. Supported roles are 'assistant' and 'user'")
             template += "<|start_header_id|>assistant<|end_header_id|>\n\n"
             return template
 
