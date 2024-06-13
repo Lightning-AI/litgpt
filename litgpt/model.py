@@ -388,16 +388,21 @@ class KVCache(nn.Module):
         dtype: Optional[torch.dtype] = None,
     ) -> None:
         super().__init__()
+        print(f"kv: ", k_shape, v_shape)
         self.register_buffer("k", torch.zeros(k_shape, device=device, dtype=dtype), persistent=False)
         self.register_buffer("v", torch.zeros(v_shape, device=device, dtype=dtype), persistent=False)
 
     def forward(self, input_pos: torch.Tensor, k: torch.Tensor, v: torch.Tensor) -> Tuple[torch.Tensor, torch.Tensor]:
         # move the buffer to the activation dtype for when AMP is used
+        # print(f"kv input_pos: {input_pos.shape}")
+        # print(f"k : {k.shape}")
+        # print(f"v : {v.shape}")
         self.k = self.k.to(k.dtype)
         self.v = self.v.to(v.dtype)
         # update the cache
-        k = self.k.index_copy_(2, input_pos, k)
-        v = self.v.index_copy_(2, input_pos, v)
+        n = k.size(0)
+        k = self.k[:n, ...].index_copy_(2, input_pos, k)
+        v = self.v[:n, ...].index_copy_(2, input_pos, v)
         return k, v
 
     def reset_parameters(self) -> None:
