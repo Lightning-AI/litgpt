@@ -59,7 +59,7 @@ def download_from_hub(
         elif safetensors:
             if not _SAFETENSORS_AVAILABLE:
                 raise ModuleNotFoundError(str(_SAFETENSORS_AVAILABLE))
-            download_files.append("*.safetensors")
+            download_files.append("*.safetensors*")
             from_safetensors = True
         else:
             raise ValueError(f"Couldn't find weight files for {repo_id}")
@@ -116,7 +116,7 @@ def find_weight_files(repo_id: str, access_token: Optional[str]) -> Tuple[List[s
         info = repo_info(repo_id, token=access_token)
     filenames = [f.rfilename for f in info.siblings]
     bins = list(filter_repo_objects(items=filenames, allow_patterns=["*.bin*"]))
-    safetensors = list(filter_repo_objects(items=filenames, allow_patterns=["*.safetensors"]))
+    safetensors = list(filter_repo_objects(items=filenames, allow_patterns=["*.safetensors*"]))
     return bins, safetensors
 
 

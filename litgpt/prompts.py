@@ -202,6 +202,11 @@ class Llama2(PromptStyle):
 
 class Llama3(PromptStyle):
     def apply(self, prompt: Union[str, List[Dict[str, str]]], **kwargs: str) -> str:
+        def has_system_prompt(messages: List[Dict[str, str]]) -> bool:
+            if len(messages):
+                return messages[0].get("role", "") == "system"
+            return False
+
         # https://github.com/meta-llama/llama3/blob/359887376f0aaf30e433f23e25df858d8c2a9833/llama/tokenizer.py#L202-L229
         if isinstance(prompt, str):
             return (
@@ -224,18 +229,22 @@ class Llama3(PromptStyle):
                 "<|start_header_id|>assistant<|end_header_id|>\n\n"
                 "{assistant_msg}<|eot_id|>"
             )
+            if has_system_prompt(prompt):
+                template = template.format(system=prompt[0]["content"])
+                prompt = prompt[1:]
+            else:
+                template = template.format(system="You are a helpful assistant.")  # fall back to default
 
             for item in prompt:
                 role, content = item["role"], item["content"]
-                if role == "system":
-                    template = template.format(system=content)
-                elif role == "assistant":
+                if role == "assistant":
                     template += assistant_template.format(assistant_msg=content)
                 elif role == "user":
                     template += user_template.format(user_msg=content)
+                elif role == "system":
+                    raise ValueError("'system' role is only allowed at the beginning of the conversation list.")
                 else:
-                    raise ValueError(f"Unknown role: '{role}'. Supported roles are 'system', 'assistant' and 'user'")
-            template = template.format(system="You are a helpful assistant.")  # fall back to default
+                    raise ValueError(f"Unknown role: '{role}'. Supported roles are 'assistant' and 'user'")
             template += "<|start_header_id|>assistant<|end_header_id|>\n\n"
             return template
 
