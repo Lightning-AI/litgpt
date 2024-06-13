@@ -141,8 +141,7 @@ def test_multiturn_prompt():
     wo_system_multiturn_output = style.apply(msgs)
     assert "You are a helpful assistant." in wo_system_multiturn_output
 
-
-
+    # Longer turn
     msgs = [
         {"role": "system", "content": "You are a helpful AI assistant for travel tips and recommendations"},
         {"role": "user", "content": "What is France's capital?"},
@@ -154,6 +153,27 @@ def test_multiturn_prompt():
     assert multiturn_output == """<|begin_of_text|><|start_header_id|>system<|end_header_id|>
 
 You are a helpful AI assistant for travel tips and recommendations<|eot_id|>
+<|start_header_id|>user<|end_header_id|>
+
+What is France's capital?<|eot_id|><|start_header_id|>assistant<|end_header_id|>
+
+Bonjour! The capital of France is Paris!<|eot_id|><|start_header_id|>user<|end_header_id|>
+
+What can I do there?<|eot_id|><|start_header_id|>assistant<|end_header_id|>
+
+"""
+
+    # Longer list without "system"
+    msgs = [
+        {"role": "user", "content": "What is France's capital?"},
+        {"role": "assistant", "content": "Bonjour! The capital of France is Paris!"},
+        {"role": "user", "content": "What can I do there?"},
+    ]
+    multiturn_output = style.apply(msgs)
+
+    assert multiturn_output == """<|begin_of_text|><|start_header_id|>system<|end_header_id|>
+
+You are a helpful assistant.<|eot_id|>
 <|start_header_id|>user<|end_header_id|>
 
 What is France's capital?<|eot_id|><|start_header_id|>assistant<|end_header_id|>
