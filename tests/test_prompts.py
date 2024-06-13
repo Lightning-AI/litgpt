@@ -184,7 +184,7 @@ What can I do there?<|eot_id|><|start_header_id|>assistant<|end_header_id|>
 
 """
 
-    # {random} string formats shouldn't lead key error
+    # {random} string format shouldn't lead to key error
     content = "this is {random} {system} {user}"
     msgs = [
         {"role": "user", "content": content}
