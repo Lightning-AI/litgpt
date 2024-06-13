@@ -208,7 +208,7 @@ class Llama3(PromptStyle):
                 "<|begin_of_text|><|start_header_id|>system<|end_header_id|>\n\n"
                 "You are a helpful assistant.<|eot_id|>\n"  # The system prompt is optional
                 "<|start_header_id|>user<|end_header_id|>\n\n"
-                f"{prompt}<|eot_id|>\n"
+                f"{prompt}<|eot_id|>"
                 "<|start_header_id|>assistant<|end_header_id|>\n\n"
             )
         elif isinstance(prompt, list):
@@ -236,7 +236,7 @@ class Llama3(PromptStyle):
                 else:
                     raise ValueError(f"Unknown role: '{role}'. Supported roles are 'system', 'assistant' and 'user'")
             template = template.format(system="You are a helpful assistant.")  # fall back to default
-            template += "\n<|start_header_id|>assistant<|end_header_id|>\n\n"
+            template += "<|start_header_id|>assistant<|end_header_id|>\n\n"
             return template
 
     def stop_tokens(self, tokenizer: "Tokenizer") -> Tuple[List[int], ...]:

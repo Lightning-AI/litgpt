@@ -119,10 +119,47 @@ def test_save_load_prompt_style(tmp_path):
 
 
 def test_multiturn_prompt():
-    content = "What is the capital of France?"
-    msgs = [{"role": "user", "content": content}]
+    prompt = "What is the capital of France?"
+    msgs = [{"role": "user", "content": prompt}]
     style = Llama3()
-    simple_output = style.apply(content)
+    simple_output = style.apply(prompt)
+    multiturn_output = style.apply(msgs)
+    assert simple_output == multiturn_output
+
+    # override system prompt
+    msgs = [
+        {"role": "system", "content": "You are not a helpful assistant."},
+        {"role": "user", "content": prompt}
+    ]
+    with_system_multiturn_output = style.apply(msgs)
+    assert "You are not a helpful assistant." in with_system_multiturn_output
+
+    # use default system prompt
+    msgs = [
+        {"role": "user", "content": prompt},
+    ]
+    wo_system_multiturn_output = style.apply(msgs)
+    assert "You are a helpful assistant." in wo_system_multiturn_output
+
+
+
+    msgs = [
+        {"role": "system", "content": "You are a helpful AI assistant for travel tips and recommendations"},
+        {"role": "user", "content": "What is France's capital?"},
+        {"role": "assistant", "content": "Bonjour! The capital of France is Paris!"},
+        {"role": "user", "content": "What can I do there?"},
+    ]
     multiturn_output = style.apply(msgs)
 
-    assert simple_output == multiturn_output
+    assert multiturn_output == """<|begin_of_text|><|start_header_id|>system<|end_header_id|>
+
+You are a helpful AI assistant for travel tips and recommendations<|eot_id|>
+<|start_header_id|>user<|end_header_id|>
+
+What is France's capital?<|eot_id|><|start_header_id|>assistant<|end_header_id|>
+
+Bonjour! The capital of France is Paris!<|eot_id|><|start_header_id|>user<|end_header_id|>
+
+What can I do there?<|eot_id|><|start_header_id|>assistant<|end_header_id|>
+
+"""
