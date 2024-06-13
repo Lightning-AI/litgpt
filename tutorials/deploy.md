@@ -9,7 +9,7 @@ This section illustrates how we can set up an inference server for a phi-2 LLM u
 
 
 &nbsp;
-## Step 1: Start the inference server
+### Step 1: Start the inference server
 
 
 ```bash
@@ -25,7 +25,7 @@ litgpt serve microsoft/phi-2
 
 
 &nbsp;
-## Step 2: Query the inference server
+### Step 2: Query the inference server
 
 You can now send requests to the inference server you started in step 2. For example, in a new Python session, we can send requests to the inference server as follows:
 
@@ -45,4 +45,31 @@ Executing the code above prints the following output:
 
 ```
 Example input.
+```
+
+&nbsp;
+## Optional streaming mode
+
+The 2-step procedure described above returns the complete response all at once. If you want to stream the response on a token-by-token basis, start the server with the streaming option enabled:
+
+```bash
+litgpt serve microsoft/phi-2 --stream true
+```
+
+Then, use the following updated code to query the inference server:
+
+```python
+import requests, json
+
+response = requests.post(
+    "http://127.0.0.1:8000/predict", 
+    json={"prompt": "Fix typos in the following sentence: Exampel input"},
+    stream=True
+)
+
+print(response.json()["output"])
+```
+
+```
+b'{"output": "The"}'b'{"output": " corrected"}'b'{"output": " sentence"}'b'{"output": " is"}'b'{"output": ":"}'b'{"output": " Example"}'b'{"output": " input"}'
 ```
