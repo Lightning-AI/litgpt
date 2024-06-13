@@ -201,15 +201,43 @@ class Llama2(PromptStyle):
 
 
 class Llama3(PromptStyle):
-    def apply(self, prompt: str, **kwargs: str) -> str:
+    def apply(self, prompt: Union[str, List[Dict[str, str]]], **kwargs: str) -> str:
         # https://github.com/meta-llama/llama3/blob/359887376f0aaf30e433f23e25df858d8c2a9833/llama/tokenizer.py#L202-L229
-        return (
-            "<|begin_of_text|><|start_header_id|>system<|end_header_id|>\n\n"
-            "You are a helpful assistant.<|eot_id|>\n"  # The system prompt is optional
-            "<|start_header_id|>user<|end_header_id|>\n\n"
-            f"{prompt}<|eot_id|>\n"
-            "<|start_header_id|>assistant<|end_header_id|>\n\n"
-        )
+        if isinstance(prompt, str):
+            return (
+                "<|begin_of_text|><|start_header_id|>system<|end_header_id|>\n\n"
+                "You are a helpful assistant.<|eot_id|>\n"  # The system prompt is optional
+                "<|start_header_id|>user<|end_header_id|>\n\n"
+                f"{prompt}<|eot_id|>\n"
+                "<|start_header_id|>assistant<|end_header_id|>\n\n"
+            )
+        elif isinstance(prompt, list):
+            template = (
+                "<|begin_of_text|><|start_header_id|>system<|end_header_id|>\n\n"
+                "{system}<|eot_id|>\n"  # The system prompt is optional
+            )
+            user_template = (
+                "<|start_header_id|>user<|end_header_id|>\n\n"
+                "{user_msg}<|eot_id|>"
+            )
+            assistant_template = (
+                "<|start_header_id|>assistant<|end_header_id|>\n\n"
+                "{assistant_msg}<|eot_id|>"
+            )
+
+            for item in prompt:
+                role, content = item["role"], item["content"]
+                if role == "system":
+                    template = template.format(system=content)
+                elif role == "assistant":
+                    template += assistant_template.format(assistant_msg=content)
+                elif role == "user":
+                    template += user_template.format(user_msg=content)
+                else:
+                    raise ValueError(f"Unknown role: '{role}'. Supported roles are 'system', 'assistant' and 'user'")
+            template = template.format(system="You are a helpful assistant.")  # fall back to default
+            template += "\n<|start_header_id|>assistant<|end_header_id|>\n\n"
+            return template
 
     def stop_tokens(self, tokenizer: "Tokenizer") -> Tuple[List[int], ...]:
         return (

@@ -6,6 +6,7 @@ import litgpt.config
 from litgpt import Config
 from litgpt.prompts import (
     Alpaca,
+    Llama3,
     Default,
     PromptStyle,
     has_prompt_style,
@@ -115,3 +116,13 @@ def test_save_load_prompt_style(tmp_path):
     assert contents == {"class_path": "tests.test_prompts.CustomPromptStyle"}
     loaded = load_prompt_style(checkpoint_dir)
     assert isinstance(loaded, CustomPromptStyle)
+
+
+def test_multiturn_prompt():
+    content = "What is the capital of France?"
+    msgs = [{"role": "user", "content": content}]
+    style = Llama3()
+    simple_output = style.apply(content)
+    multiturn_output = style.apply(msgs)
+
+    assert simple_output == multiturn_output
