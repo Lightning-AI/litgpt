@@ -34,7 +34,7 @@ def setup(
     precision: str = "bf16-true",
 ) -> None:
     """Generates a response based on a given instruction and an optional input.
-    This script will only work with checkpoints from the instruction-tuned GPT-Adapter model.
+    This script will only work with checkpoints from the instruction-tuned Adapter model.
     See `xla/finetune/adapter.py`.
 
     Args:
@@ -42,7 +42,7 @@ def setup(
         input: Optional input (Alpaca style).
         adapter_path: Path to the checkpoint with trained adapter weights, which are the output of
             `xla/finetune/adapter.py`.
-        checkpoint_dir: The path to the checkpoint folder with pretrained GPT weights.
+        checkpoint_dir: The path to the checkpoint folder with pretrained model weights.
         max_new_tokens: The number of generation steps to take.
         top_k: The number of top most probable tokens to consider in the sampling process.
         temperature: A value controlling the randomness of the sampling process. Higher values result in more random
