@@ -36,16 +36,40 @@ class LLM:
         self.prompt_style = prompt_style
         self.checkpoint_dir = checkpoint_dir
         self.fabric = fabric
+    """
+    LLM model class for inference, pretraining, and finetuning.
 
+    Example:
+        from litgpt.api import LLM
+
+        llm = LLM.load("microsoft/phi-2", device_type="cuda", devices=1)
+        text = llm.generate("What do Llamas eat?", top_k=1)
+        print(text)
+    """
     @classmethod
     def load(
         cls,
         model: str,
         device_type: Literal["cpu", "cuda", "auto"] = "auto",
         devices: Union[int, List[int]] = 1,
-        quantize: Optional[Any] = None,
+        quantize: Optional[Literal["bnb.nf4", "bnb.nf4-dq", "bnb.fp4", "bnb.fp4-dq", "bnb.int8"]] = None,
         precision: Optional[Any] = None,
     ) -> "LLM":
+        """
+        Loads the LLM from a local directory or model hub.
+
+        Arguments
+            model: A local path to a directory containing the model weights.
+            device_type: Which device type to load the model on ("cpu", "cuda", or "auto")
+            devices: The number of devices (1, 2, etc.) or device IDs (e.g., [0, 2] to use the first and third GPU).
+            quantize: Whether to quantize the model and using which method:
+                - bnb.nf4, bnb.nf4-dq, bnb.fp4, bnb.fp4-dq: 4-bit quantization from bitsandbytes
+                - bnb.int8: 8-bit quantization from bitsandbytes
+                for more details, see https://github.com/Lightning-AI/litgpt/blob/main/tutorials/quantize.md
+            precision: Indicates the Fabric precision setting to use.
+                For instance, "32-true", "16-mixed", "16-true", "bf16-mixed", "bf16-true".
+                For more details, see https://lightning.ai/docs/fabric/stable/api/fabric_args.html#precision
+        """
 
         if device_type not in {"cpu", "cuda", "auto"}:
             raise ValueError(f"Invalid device_type: {device_type}. Must be one of 'cpu', 'cuda', or 'auto'.")
@@ -116,7 +140,31 @@ class LLM:
         eos_id: Optional[int] = None,
         return_as_token_ids: bool = False,
     ) -> Tuple[str, torch.Tensor]:
+        """
+        Takes a conditioning sequence (prompt) as input and continues to generate as many tokens as requested.
 
+        Arguments:
+            model: The model to use.
+            prompt: Tensor of shape (T) with indices of the prompt sequence.
+            max_returned_tokens: The maximum number of tokens to return (given plus generated).
+            temperature: Scales the predicted logits by 1 / temperature.
+            top_k: If specified, only sample among the tokens with the k highest probabilities.
+            top_p: If specified, it represents the cumulative probability threshold to consider in the sampling process.
+                In top-p sampling, the next token is sampled from the highest probability tokens
+                whose cumulative probability exceeds the threshold `top_p`. When specified,
+                it must be `0 <= top_p <= 1`. Here, `top_p=0` is equivalent
+                to sampling the most probable token, while `top_p=1` samples from the whole distribution.
+                It can be used in conjunction with `top_k` and `temperature` with the following order
+                of application:
+
+                1. `top_k` sampling
+                2. `temperature` scaling
+                3. `top_p` sampling
+
+                For more details, see https://arxiv.org/abs/1904.09751
+                or https://huyenchip.com/2024/01/16/sampling.html#top_p
+            eos_id: If specified, stop generating any more token once the <eos> token is triggered.
+        """
         prompt = self.prompt_style.apply(prompt)
         input_ids = self.preprocessor.tokenizer.encode(prompt)
         prompt_length = input_ids.size(0)
@@ -149,6 +197,9 @@ class LLM:
 
 
 class Preprocessor:
+    """
+    Preprocesser class for tokenization and de-tokenization.
+    """
     def __init__(self, tokenizer: Tokenizer) -> None:
         self.tokenizer: Tokenizer = tokenizer
 
@@ -160,5 +211,8 @@ class Preprocessor:
 
 
 def calcuate_number_of_devices(devices):
+    """
+    Utility function to calculate the number of devices.
+    """
     num_devices = devices if isinstance(devices, int) else len(devices) if isinstance(devices, list) else 0
     return num_devices
