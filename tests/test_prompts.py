@@ -183,3 +183,12 @@ Bonjour! The capital of France is Paris!<|eot_id|><|start_header_id|>user<|end_h
 What can I do there?<|eot_id|><|start_header_id|>assistant<|end_header_id|>
 
 """
+
+    # {random} string formats shouldn't lead key error
+    content = "this is {random} {system} {user}"
+    msgs = [
+        {"role": "user", "content": content}
+    ]
+    output = style.apply(msgs)
+    simple_output = style.apply(content)
+    assert output == simple_output
