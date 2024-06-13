@@ -107,6 +107,7 @@ def convert_and_evaluate(
 
     results = evaluator.simple_evaluate(
         model=model,
+        model_args="trust_remote_code=True",
         tasks=tasks.split(","),
         num_fewshot=num_fewshot,
         batch_size=batch_size,
