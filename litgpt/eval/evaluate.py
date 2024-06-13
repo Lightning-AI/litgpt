@@ -60,7 +60,7 @@ def convert_and_evaluate(
     pprint(locals())
 
     if not (isinstance(batch_size, int) and batch_size > 0) and not (isinstance(batch_size, str) and batch_size.startswith("auto")):
-            raise ValueError("batch_size must be a positive integer, 'auto', or in the format 'auto:N'.")
+        raise ValueError("batch_size must be a positive integer, 'auto', or in the format 'auto:N'.")
 
     from lm_eval import evaluator
 
