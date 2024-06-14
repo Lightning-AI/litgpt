@@ -35,6 +35,21 @@ def init_out_dir(out_dir: Path) -> Path:
     return out_dir
 
 
+def find_resume_path(resume: Union[bool, Literal["auto"], Path], out_dir: Path) -> Optional[Path]:
+    if not resume or isinstance(resume, Path):
+        return resume
+
+    ckpts = list(out_dir.rglob("step-*/*.pth"))
+    resume_path = max(ckpts, key=(lambda p: int(p.parent.name.split("-")[1]))) if ckpts else None
+    if resume == "auto":
+        return resume_path
+    if resume is True and resume_path is None:
+        raise FileNotFoundError(
+            f"You passed `--resume=True`, but no checkpont file was found in `--out_dir={out_dir}`."
+        )
+    return resume_path
+
+
 def find_multiple(n: int, k: int) -> int:
     assert k > 0
     if n % k == 0:

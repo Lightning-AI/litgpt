@@ -29,6 +29,7 @@ from litgpt.utils import (
     chunked_cross_entropy,
     copy_config_files,
     extend_checkpoint_dir,
+    find_resume_path,
     get_default_supported_precision,
     init_out_dir,
     instantiate_torch_optimizer,
@@ -211,11 +212,7 @@ def main(
         "step_count": 0,
     }
 
-    if resume == "auto":
-        ckpts = list(out_dir.rglob("step-*/*.pth"))
-        resume = max(ckpts, key=(lambda p: int(p.parent.name.split("-")[1]))) if ckpts else False
-    if resume is True:
-        resume = max(out_dir.rglob("step-*/*.pth"), key=(lambda p: int(p.parent.name.split("-")[1])))
+    resume = find_resume_path(resume, out_dir)
     if resume:
         fabric.print(f"Resuming training from {resume}")
         fabric.load(resume, state)
