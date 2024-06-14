@@ -14,6 +14,7 @@ from litgpt.generate.full import main as generate_full_fn
 from litgpt.generate.sequentially import main as generate_sequentially_fn
 from litgpt.generate.tp import main as generate_tp_fn
 from litgpt.pretrain import setup as pretrain_fn
+from litgpt.pretrain_mixed import setup as pretrain_mixed_fn
 from litgpt.scripts.convert_hf_checkpoint import convert_hf_checkpoint as convert_hf_checkpoint_fn
 from litgpt.scripts.convert_lit_checkpoint import convert_lit_checkpoint as convert_lit_checkpoint_fn
 from litgpt.scripts.convert_pretrained_checkpoint import (
@@ -36,6 +37,7 @@ def main() -> None:
         "finetune_adapter": finetune_adapter_fn,
         "finetune_adapter_v2": finetune_adapter_v2_fn,
         "pretrain": pretrain_fn,
+        "pretrain_mixed": pretrain_mixed_fn,
         "generate": generate_base_fn,
         "generate_full": generate_full_fn,
         "generate_adapter": generate_adapter_fn,
