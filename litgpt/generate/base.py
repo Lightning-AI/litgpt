@@ -14,8 +14,10 @@ import torch._inductor.config
 from lightning.fabric.plugins import BitsandbytesPrecision
 from lightning_utilities.core.imports import RequirementCache
 
-from litgpt import GPT, Config, PromptStyle, Tokenizer
-from litgpt.prompts import has_prompt_style, load_prompt_style
+from litgpt.model import GPT
+from litgpt.config import Config
+from litgpt.tokenizer import Tokenizer
+from litgpt.prompts import has_prompt_style, load_prompt_style, PromptStyle
 from litgpt.utils import (
     check_valid_checkpoint_dir,
     extend_checkpoint_dir,
@@ -86,7 +88,6 @@ def generate(
     top_k: Optional[int] = None,
     top_p: float = 1.0,
     eos_id: Optional[int] = None,
-    include_prompt: bool = True,
 ) -> torch.Tensor:
     """
     Takes a conditioning sequence (prompt) as input and continues to generate as many tokens as requested.
@@ -113,7 +114,6 @@ def generate(
             For more details, see https://arxiv.org/abs/1904.09751
             or https://huyenchip.com/2024/01/16/sampling.html#top_p
         eos_id: If specified, stop generating any more token once the <eos> token is triggered.
-        include_prompt: If true (default) prepends the prompt (after applying the prompt style) to the output.
     """
     T = prompt.size(0)
     assert max_returned_tokens > T
@@ -124,10 +124,7 @@ def generate(
         raise NotImplementedError(f"max_seq_length {model.max_seq_length} needs to be >= {max_returned_tokens - 1}")
 
     device = prompt.device
-    if include_prompt:
-        tokens = [prompt]
-    else:
-        tokens = []
+    tokens = [prompt]
     input_pos = torch.tensor([T], device=device)
     token = next_token(
         model, torch.arange(0, T, device=device), prompt.view(1, -1), temperature=temperature, top_k=top_k, top_p=top_p
