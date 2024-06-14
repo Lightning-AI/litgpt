@@ -39,8 +39,7 @@ def find_resume_path(resume: Union[bool, Literal["auto"], Path], out_dir: Path) 
     if not resume or isinstance(resume, Path):
         return resume
 
-    ckpts = list(out_dir.rglob("step-*/*.pth"))
-    resume_path = max(ckpts, key=(lambda p: int(p.parent.name.split("-")[1]))) if ckpts else None
+    resume_path = max(out_dir.rglob("step-*/*.pth"), key=(lambda p: int(p.parent.name.split("-")[1])), default=None)
     if resume == "auto":
         return resume_path
     if resume is True and resume_path is None:
