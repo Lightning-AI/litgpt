@@ -301,7 +301,6 @@ def fit(
             dataloader_idx = train_data[2]
 
         # Process LM data
-        #breakpoint()
         is_accumulating = state["iter_num"] % train.gradient_accumulation_iters(devices) != 0
 
         if lm_data is not None:
@@ -414,8 +413,6 @@ def validate(fabric: L.Fabric, model: nn.Module, val_dataloader: DataLoader, max
         if k >= max_iters:
             break
         
-        #breakpoint() # why is the train dataloader different from the val dataloader what is this lol
-
         if isinstance(batch, tuple): # TODO: this iterator is structured weirdly, maybe reconsider. 
             # structure: ({"sft": sft_data, "lm": lm_data}, batch_idx, dataloader_idx)
             paired_data = batch[0]
@@ -444,17 +441,6 @@ def validate(fabric: L.Fabric, model: nn.Module, val_dataloader: DataLoader, max
             losses.append(sft_loss)
             losses_sft.append(sft_loss)
             
-        # if isinstance(batch, tuple): # I messed up and included extra metadata, I don't think this should break other stuff?
-        #     batch_idx = batch[1]
-        #     dataloader_idx = batch[2]
-        #     batch = batch[0] # remove extra metadata
-            
-
-        # input_ids = batch[:, 0 : model.max_seq_length].contiguous().long()
-        # targets = batch[:, 1 : (model.max_seq_length + 1)].contiguous().long()
-        # logits = model(input_ids)
-        # loss = chunked_cross_entropy(logits, targets)
-        # losses.append(loss)
 
     val_loss = torch.stack(losses).mean()
     val_loss_lm = torch.stack(losses_lm).mean()
@@ -514,7 +500,6 @@ def initialize_weights(fabric: L.Fabric, model: GPT, n_layer: int, n_embd: int) 
 
 
 def save_checkpoint(fabric, state, tokenizer_dir, checkpoint_file):
-    breakpoint()
     model = state["model"]
     checkpoint_file.parent.mkdir(parents=True, exist_ok=True)
     fabric.print(f"Saving checkpoint to {str(checkpoint_file)!r}")
