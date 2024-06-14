@@ -46,7 +46,7 @@ def setup(
     out_dir: Path = Path("out/pretrain"),
     precision: Literal["bf16-true", "bf16-mixed", "32-true", None] = None,
     initial_checkpoint_dir: Optional[Path] = None,
-    resume: Union[bool, Path] = False,
+    resume: Union[bool, Literal["auto"], Path] = False,
     data: Optional[DataModule] = None,
     train: TrainArgs = TrainArgs(
         save_interval=1000,
@@ -78,7 +78,8 @@ def setup(
         initial_checkpoint_dir: Optional path to a checkpoint directory to initialize the model from.
             Useful for continued pretraining. Mutually exclusive with ``resume``.
         resume: Path to a checkpoint directory to resume from in case training was interrupted, or ``True`` to resume
-            from the latest checkpoint in ``out_dir``.
+            from the latest checkpoint in ``out_dir``. An error will be raised if no checkpoint is found. Passing
+            ``'auto'`` will resume from the latest checkpoint but not error if no checkpoint exists.
         data: Data-related arguments. If not provided, the default is ``litgpt.data.TinyLlama``.
         train: Training-related arguments. See ``litgpt.args.TrainArgs`` for details.
         eval: Evaluation-related arguments. See ``litgpt.args.EvalArgs`` for details.
@@ -158,7 +159,7 @@ def main(
     devices: int,
     seed: int,
     initial_checkpoint_dir: Optional[Path],
-    resume: Union[bool, Path],
+    resume: Union[bool, Literal["auto"], Path],
     config: Config,
     data: DataModule,
     out_dir: Path,
@@ -210,6 +211,9 @@ def main(
         "step_count": 0,
     }
 
+    if resume == "auto":
+        ckpts = list(out_dir.rglob("step-*/*.pth"))
+        resume = max(ckpts, key=(lambda p: int(p.parent.name.split("-")[1]))) if ckpts else False
     if resume is True:
         resume = max(out_dir.rglob("step-*/*.pth"), key=(lambda p: int(p.parent.name.split("-")[1])))
     if resume:
