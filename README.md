@@ -566,6 +566,12 @@ Check out the projects below that use and build on LitGPT. If you have a project
 
 &nbsp;
 
+📊 **SAMBA: Simple Hybrid State Space Models for Efficient Unlimited Context Language Modeling**
+
+The [Samba](https://github.com/microsoft/Samba) project by researchers at Microsoft is built on top of the LitGPT code base and combines state space models with sliding window attention, which outperforms pure state space models.
+
+
+
 **🏆 NeurIPS 2023 Large Language Model Efficiency Challenge: 1 LLM + 1 GPU + 1 Day**
 
 The LitGPT repository was the official starter kit for the [NeurIPS 2023 LLM Efficiency Challenge](https://llm-efficiency-challenge.github.io), which is a competition focused on finetuning an existing non-instruction tuned LLM for 24 hours on a single GPU.
