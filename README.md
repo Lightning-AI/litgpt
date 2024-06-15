@@ -570,7 +570,7 @@ Check out the projects below that use and build on LitGPT. If you have a project
 
 The [Samba](https://github.com/microsoft/Samba) project by researchers at Microsoft is built on top of the LitGPT code base and combines state space models with sliding window attention, which outperforms pure state space models.
 
-
+&nbsp;
 
 **🏆 NeurIPS 2023 Large Language Model Efficiency Challenge: 1 LLM + 1 GPU + 1 Day**
 
