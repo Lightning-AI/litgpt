@@ -31,6 +31,7 @@ from litgpt.utils import (
     copy_config_files,
     extend_checkpoint_dir,
     find_multiple,
+    find_resume_path,
     incremental_save,
     init_out_dir,
     instantiate_bnb_optimizer,
@@ -311,6 +312,31 @@ def test_init_out_dir(tmp_path):
     with mock.patch.dict(os.environ, {"LIGHTNING_ARTIFACTS_DIR": "prefix"}):
         assert init_out_dir(relative_path) == Path("prefix") / relative_path
         assert init_out_dir(absolute_path) == absolute_path
+
+
+def test_find_resume_path(tmp_path):
+    assert find_resume_path(resume=None, out_dir=Path("does/not/exist")) is None
+    assert find_resume_path(resume=Path("does/not/exist"), out_dir=Path("does/not/matter")) == Path("does/not/exist")
+    assert find_resume_path(resume=(tmp_path / "checkpoint.pt"), out_dir=Path("does/not/matter")) == (tmp_path / "checkpoint.pt")
+
+    # `resume='auto'` does not enforce the checkpoint to exist
+    assert find_resume_path(resume="auto", out_dir=Path("does/not/exist")) is None
+
+    # `resume=True` requires a checkpoint to exist
+    with pytest.raises(FileNotFoundError, match="You passed `--resume=True`, but no checkpont file was found"):
+        find_resume_path(resume=True, out_dir=Path("does/not/exist"))
+    with pytest.raises(FileNotFoundError, match="You passed `--resume=True`, but no checkpont file was found"):
+        find_resume_path(resume=True, out_dir=tmp_path)
+
+    (tmp_path / "step-001").mkdir()
+    (tmp_path / "step-001" / "lit_model.pth").touch()
+    (tmp_path / "step-002").mkdir()
+    (tmp_path / "step-002" / "lit_model.pth").touch()
+    (tmp_path / "step-003").mkdir()
+    (tmp_path / "step-003" / "lit_model.pth").touch()
+
+    assert find_resume_path(resume=True, out_dir=tmp_path) == (tmp_path / "step-003" / "lit_model.pth")
+    assert find_resume_path(resume="auto", out_dir=tmp_path) == (tmp_path / "step-003" / "lit_model.pth")
 
 
 @pytest.fixture

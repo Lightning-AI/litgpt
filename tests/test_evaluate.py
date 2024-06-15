@@ -33,7 +33,7 @@ def test_evaluate_script(tmp_path):
                 device=None,
                 dtype=torch.float32,
                 limit=5,
-                tasks="mathqa",
+                tasks="logiqa",
                 batch_size=0  # Test for non-positive integer
             )
         assert "batch_size must be a positive integer, 'auto', or in the format 'auto:N'." in str(excinfo.value)
@@ -45,7 +45,7 @@ def test_evaluate_script(tmp_path):
                 device=None,
                 dtype=torch.float32,
                 limit=5,
-                tasks="mathqa",
+                tasks="logiqa",
                 batch_size="invalid"  # Test for invalid string
             )
         assert "batch_size must be a positive integer, 'auto', or in the format 'auto:N'." in str(excinfo.value)
@@ -58,12 +58,12 @@ def test_evaluate_script(tmp_path):
             device=None,
             dtype=torch.float32,
             limit=5,
-            tasks="mathqa",
+            tasks="logiqa",
             batch_size=1  # Valid case
         )
     stdout = stdout.getvalue()
     assert (tmp_path / "out_dir" / "results.json").is_file()
-    assert "mathqa" in stdout
+    assert "logiqa" in stdout
     assert "Metric" in stdout
     assert "Loading checkpoint shards" not in stdout
 

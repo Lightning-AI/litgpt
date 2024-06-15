@@ -286,11 +286,11 @@ litgpt serve microsoft/phi-2
 
 Test the server in a separate terminal and integrate the model API into your AI product:
 ```python
-# 3) Use the server (in a separate session)
+# 3) Use the server (in a separate Python session)
 import requests, json
- response = requests.post(
-     "http://127.0.0.1:8000/predict",
-     json={"prompt": "Fix typos in the following sentence: Exampel input"}
+response = requests.post(
+    "http://127.0.0.1:8000/predict",
+    json={"prompt": "Fix typos in the following sentence: Exampel input"}
 )
 print(response.json()["output"])
 ```
@@ -563,6 +563,12 @@ This implementation extends on [Lit-LLaMA](https://github.com/lightning-AI/lit-l
 ## Community showcase
 
 Check out the projects below that use and build on LitGPT. If you have a project you'd like to add to this section, please don't hesitate to open a pull request.
+
+&nbsp;
+
+📊 **SAMBA: Simple Hybrid State Space Models for Efficient Unlimited Context Language Modeling**
+
+The [Samba](https://github.com/microsoft/Samba) project by researchers at Microsoft is built on top of the LitGPT code base and combines state space models with sliding window attention, which outperforms pure state space models.
 
 &nbsp;
 

@@ -26,6 +26,7 @@ from litgpt.utils import (
     chunked_cross_entropy,
     copy_config_files,
     extend_checkpoint_dir,
+    find_resume_path,
     get_default_supported_precision,
     load_checkpoint,
     init_out_dir,
@@ -41,7 +42,7 @@ def setup(
     out_dir: Path = Path("out/finetune/full"),
     precision: Optional[str] = None,
     devices: Union[int, str] = 1,
-    resume: Union[bool, Path] = False,
+    resume: Union[bool, Literal["auto"], Path] = False,
     data: Optional[DataModule] = None,
     train: TrainArgs = TrainArgs(
         save_interval=1000,
@@ -66,7 +67,8 @@ def setup(
         precision: The precision to use for finetuning. Possible choices: "bf16-true", "bf16-mixed", "32-true".
         devices: How many devices/GPUs to use
         resume: Path to a checkpoint directory to resume from in case training was interrupted, or ``True`` to resume
-            from the latest checkpoint in ``out_dir``.
+            from the latest checkpoint in ``out_dir``. An error will be raised if no checkpoint is found. Passing
+            ``'auto'`` will resume from the latest checkpoint but not error if no checkpoint exists.
         data: Data-related arguments. If not provided, the default is ``litgpt.data.Alpaca``.
         train: Training-related arguments. See ``litgpt.args.TrainArgs`` for details.
         eval: Evaluation-related arguments. See ``litgpt.args.EvalArgs`` for details.
@@ -85,7 +87,7 @@ def setup(
 
     precision = precision or get_default_supported_precision(training=True)
     logger = choose_logger(
-        logger_name, out_dir, name=f"finetune-{config.name}", resume=resume, log_interval=train.log_interval
+        logger_name, out_dir, name=f"finetune-{config.name}", resume=bool(resume), log_interval=train.log_interval
     )
 
     if devices > 1:
@@ -106,7 +108,7 @@ def setup(
 def main(
     fabric: L.Fabric,
     devices: int,
-    resume: Union[bool, Path],
+    resume: Union[bool, Literal["auto"], Path],
     seed: int,
     config: Config,
     data: DataModule,
@@ -141,8 +143,7 @@ def main(
     scheduler = get_lr_scheduler(optimizer, warmup_steps=train.lr_warmup_steps, max_steps=lr_max_steps)
     state = {"model": model, "optimizer": optimizer, "scheduler": scheduler, "iter_num": 0, "step_count": 0}
 
-    if resume is True:
-        resume = max(out_dir.rglob("step-*/*.pth"), key=(lambda p: int(p.parent.name.split("-")[1])))
+    resume = find_resume_path(resume, out_dir)
     if resume:
         fabric.print(f"Resuming training from {resume}")
         fabric.load(resume, state)
@@ -179,7 +180,7 @@ def fit(
     train_dataloader: DataLoader,
     val_dataloader: DataLoader,
     devices: int,
-    resume: Union[bool, Path],
+    resume: Union[bool, Literal["auto"], Path],
     checkpoint_dir: Path,
     out_dir: Path,
     train: TrainArgs,

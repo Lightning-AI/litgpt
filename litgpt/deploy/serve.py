@@ -5,7 +5,7 @@ from typing import Dict, Any, Optional
 from litgpt.utils import check_valid_checkpoint_dir
 
 import lightning as L
-from lightning_utilities.core.imports import RequirementCache 
+from lightning_utilities.core.imports import RequirementCache
 import torch
 
 
@@ -82,7 +82,7 @@ class BaseLitAPI(LitAPI):
 
     def decode_request(self, request: Dict[str, Any]) -> Any:
         # Convert the request payload to your model input.
-        prompt = request["prompt"]
+        prompt = str(request["prompt"])
         prompt = self.prompt_style.apply(prompt)
         encoded = self.tokenizer.encode(prompt, device=self.device)
         return encoded
@@ -113,7 +113,8 @@ class SimpleLitAPI(BaseLitAPI):
             temperature=self.temperature,
             top_k=self.top_k,
             top_p=self.top_p,
-            eos_id=self.tokenizer.eos_id
+            eos_id=self.tokenizer.eos_id,
+            include_prompt=False
         )
 
         for block in self.model.transformer.h:
@@ -241,4 +242,4 @@ def run_server(
             stream=True
             )
 
-    server.run(port=port)
+    server.run(port=port, generate_client_file=False)
