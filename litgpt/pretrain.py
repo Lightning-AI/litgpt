@@ -246,7 +246,8 @@ def fit(
         val_loss = validate(fabric, model, val_dataloader, max_iters=eval.max_iters)
         val_loss = f"{val_loss:.3f}"
     else:
-        validate(fabric, model, val_dataloader, max_iters=2)   # sanity check
+        print("Verifying settings ...")
+        validate(fabric, model, val_dataloader, max_iters=2, verbose=False)   # sanity check
         val_loss = "n/a"
 
     throughput = ThroughputMonitor(fabric, window_size=5)
@@ -365,9 +366,10 @@ def fit(
 
 
 @torch.no_grad()
-def validate(fabric: L.Fabric, model: nn.Module, val_dataloader: DataLoader, max_iters: int) -> torch.Tensor:
+def validate(fabric: L.Fabric, model: nn.Module, val_dataloader: DataLoader, max_iters: int, verbose: bool = True) -> torch.Tensor:
     fabric.barrier()
-    fabric.print("Validating ...")
+    if verbose:
+        fabric.print("Validating ...")
     model.eval()
 
     losses = []
