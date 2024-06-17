@@ -16,6 +16,7 @@ from litgpt.data.tinyllama import TinyLlama
 from litgpt.data.tinystories import TinyStories
 from litgpt.data.openwebtext import OpenWebText
 from litgpt.data.microllama import MicroLlama
+from litgpt.data.mixed_dataset import MixedDataset
 
 
 __all__ = [
@@ -35,6 +36,7 @@ __all__ = [
     "TextFiles",
     "TinyLlama",
     "TinyStories",
-    "MicroLlama"
+    "MicroLlama",
+    "MixedDataset",
     "get_sft_collate_fn",
 ]
