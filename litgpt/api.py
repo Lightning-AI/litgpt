@@ -31,7 +31,7 @@ class LLM:
         fabric: L.Fabric = None
     ) -> None:
         self.model = model
-        self.preprocessor = Preprocessor(tokenizer)
+        self.preprocessor = Preprocessor(tokenizer, device=fabric.device)
         self.devices = devices
         self.prompt_style = prompt_style
         self.checkpoint_dir = checkpoint_dir
@@ -77,7 +77,7 @@ class LLM:
         if device_type == "auto":
             device_type = "cuda" if torch.cuda.is_available() else "cpu"
 
-        num_devices = calcuate_number_of_devices(devices)
+        num_devices = calculate_number_of_devices(devices)
 
         if num_devices > 1:
             raise NotImplementedError(
@@ -172,7 +172,7 @@ class LLM:
 
         self.model.eval()
 
-        if calcuate_number_of_devices(self.devices) > 1:
+        if calculate_number_of_devices(self.devices) > 1:
             raise NotImplementedError(
                 "Support for multiple devices is currently not implemented for `generate`"
             )
@@ -200,8 +200,9 @@ class Preprocessor:
     """
     Preprocesser class for tokenization and de-tokenization.
     """
-    def __init__(self, tokenizer: Tokenizer) -> None:
-        self.tokenizer: Tokenizer = tokenizer
+    def __init__(self, tokenizer: Tokenizer, device: str = "cpu") -> None:
+        self.tokenizer = tokenizer
+        self.device = device
 
     def encode(self, text: str) -> torch.Tensor:
         return self.tokenizer.encode(text, device=self.device)
@@ -210,7 +211,7 @@ class Preprocessor:
         return self.tokenizer.decode(token_ids)
 
 
-def calcuate_number_of_devices(devices):
+def calculate_number_of_devices(devices):
     """
     Utility function to calculate the number of devices.
     """
