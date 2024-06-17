@@ -202,7 +202,7 @@ def fit(
         val_loss = validate(fabric, model, val_dataloader, dataclasses.replace(eval, max_iters=len(val_dataloader)))
         val_loss = f"{val_loss:.3f}"
     else:
-        print("Verifying settings ...")
+        fabric.print("Verifying settings ...")
         validate(fabric, model, val_dataloader, dataclasses.replace(eval, max_iters=2), verbose=False)  # sanity check
         val_loss = "n/a"
 
