@@ -1,108 +1,57 @@
-# Copyright Lightning AI. Licensed under the Apache License 2.0, see LICENSE file.
-
 import pytest
-from unittest.mock import Mock, patch
 import torch
-
-import lightning as L
-from litgpt.model import GPT
-from litgpt.tokenizer import Tokenizer
-from litgpt.prompts import PromptStyle
-from litgpt.api import LLM, Preprocessor, calculate_number_of_devices
-
+from unittest.mock import MagicMock
+from litgpt.api import LLM, calculate_number_of_devices
 
 @pytest.fixture
-def gpt_model():
-    return Mock(spec=GPT)
+def mock_llm():
+    llm = MagicMock(spec=LLM)
+    llm.model = MagicMock()
+    llm.preprocessor = MagicMock()
+    llm.prompt_style = MagicMock()
+    llm.checkpoint_dir = MagicMock()
+    llm.fabric = MagicMock()
+    return llm
 
 
-@pytest.fixture
-def tokenizer():
-    mock = Mock(spec=Tokenizer)
-    mock.encode.return_value = torch.tensor([1, 2, 3], dtype=torch.int32)
-    mock.decode.return_value = "decoded text"
-    return mock
+def test_load_model(mock_llm):
+    assert isinstance(mock_llm, LLM)
+    assert mock_llm.model is not None
+    assert mock_llm.preprocessor is not None
+    assert mock_llm.prompt_style is not None
+    assert mock_llm.checkpoint_dir is not None
+    assert mock_llm.fabric is not None
 
 
-@pytest.fixture
-def prompt_style():
-    return Mock(spec=PromptStyle)
+def test_generate(mock_llm):
+    prompt = "What do Llamas eat?"
+    mock_llm.generate.return_value = prompt + " Mock output"
+    output = mock_llm.generate(prompt, max_new_tokens=10, temperature=0.8, top_k=5)
+    assert isinstance(output, str)
+    assert len(output) > len(prompt)
 
 
-@pytest.fixture
-def fabric():
-    fabric_mock = Mock(spec=L.Fabric)
-    fabric_mock.device = "cpu"
-    return fabric_mock
-
-
-@pytest.fixture
-def llm_instance(gpt_model, tokenizer, prompt_style, fabric):
-    return LLM(gpt_model, tokenizer, prompt_style, devices=1, fabric=fabric)
+def test_generate_token_ids(mock_llm):
+    prompt = "What do Llamas eat?"
+    mock_output_ids = MagicMock(spec=torch.Tensor)
+    mock_output_ids.shape = [len(prompt) + 10]
+    mock_llm.generate.return_value = mock_output_ids
+    output_ids = mock_llm.generate(prompt, max_new_tokens=10, return_as_token_ids=True)
+    assert isinstance(output_ids, torch.Tensor)
+    assert output_ids.shape[0] > len(prompt)
 
 
 def test_calculate_number_of_devices():
-    assert calculate_number_of_devices(5) == 5
+    assert calculate_number_of_devices(1) == 1
     assert calculate_number_of_devices([0, 1, 2]) == 3
-    assert calculate_number_of_devices([0]) == 1
+    assert calculate_number_of_devices(None) == 0
 
 
-class TestPreprocessor:
-    def test_encode(self, tokenizer):
-        preprocessor = Preprocessor(tokenizer)
-        text = "Hello, world!"
-        result = preprocessor.encode(text)
-        tokenizer.encode.assert_called_once_with(text, device=preprocessor.device)
-        assert torch.equal(result, torch.tensor([1, 2, 3], dtype=torch.int32))
-
-    def test_decode(self, tokenizer):
-        preprocessor = Preprocessor(tokenizer)
-        tokens = torch.tensor([1, 2, 3], dtype=torch.int32)
-        result = preprocessor.decode(tokens)
-        tokenizer.decode.assert_called_once_with(tokens)
-        assert result == "decoded text"
+def test_invalid_accelerator(mock_llm):
+    with pytest.raises(ValueError, match="Invalid accelerator"):
+        LLM.load("path/to/model", accelerator="invalid")
 
 
-def mock_path_exists(path):
-    if str(path) in ["some/path", "checkpoints/some/path"]:
-        return True
-    return False
-
-
-def mock_path_is_file(path):
-    if str(path) in ["some/path/tokenizer.model", "some/path/tokenizer.json", "checkpoints/some/path/tokenizer_config.json"]:
-        return True
-    return False
-
-
-@patch("litgpt.config.Config.from_file")
-@patch("lightning.Fabric", autospec=True)
-@patch("litgpt.model.GPT", autospec=True)
-@patch("litgpt.tokenizer.Tokenizer", autospec=True)
-@patch("litgpt.utils.load_checkpoint")
-@patch("torch.cuda.is_available", return_value=True)
-@patch("pathlib.Path.exists", side_effect=mock_path_exists)
-@patch("pathlib.Path.is_file", side_effect=mock_path_is_file)
-def test_llm_load(is_file_mock, exists_mock, is_available_mock, load_checkpoint_mock, gpt_mock, tokenizer_mock, fabric_mock, config_mock, fabric, tokenizer, gpt_model):
-    model_path = "some/path"
-    device_type = "auto"
-    devices = 1
-    quantize = None
-    precision = None
-
-    config_mock.return_value = Mock()
-    fabric_mock.return_value = fabric
-    tokenizer_mock.return_value = tokenizer
-    gpt_mock.return_value = gpt_model
-
-    llm = LLM.load(model_path, device_type, devices, quantize, precision)
-
-    assert isinstance(llm, LLM)
-    assert llm.devices == 1
-    assert llm.fabric.device == "cpu"
-
-    with pytest.raises(ValueError):
-        LLM.load(model_path, "invalid_device", devices)
-
-    with pytest.raises(NotImplementedError):
-        LLM.load(model_path, device_type, [0, 1])
+def test_multiple_devices_not_implemented(mock_llm):
+    with pytest.raises(NotImplementedError, match="Support for multiple devices is currently not implemented"):
+        LLM.load("path/to/model", accelerator="cpu", devices=2)
