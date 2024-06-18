@@ -15,7 +15,7 @@ Then, load the model in Python:
 
 ```python
 from litgpt.api import LLM
-llm = LLM.load("EleutherAI/pythia-160m", device_type="cuda", devices=1)
+llm = LLM.load("EleutherAI/pythia-160m", accelerator="cuda", devices=1)
 ```
 
 ## Generate/Chat
