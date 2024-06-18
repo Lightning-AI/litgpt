@@ -2,7 +2,6 @@ name: Bug Report
 description: Report errors related to LitGPT
 title: "Description"
 labels: bug
-assignees: rasbt
 body:
   - type: markdown
     attributes:
