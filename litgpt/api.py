@@ -42,7 +42,7 @@ class LLM:
     Example:
         from litgpt.api import LLM
 
-        llm = LLM.load("microsoft/phi-2", device_type="cuda", devices=1)
+        llm = LLM.load("microsoft/phi-2", accelerator="cuda", devices=1)
         text = llm.generate("What do Llamas eat?", top_k=1)
         print(text)
     """
@@ -50,7 +50,7 @@ class LLM:
     def load(
         cls,
         model: str,
-        device_type: Literal["cpu", "cuda", "auto"] = "auto",
+        accelerator: Literal["cpu", "cuda", "auto"] = "auto",
         devices: Union[int, List[int]] = 1,
         quantize: Optional[Literal["bnb.nf4", "bnb.nf4-dq", "bnb.fp4", "bnb.fp4-dq", "bnb.int8"]] = None,
         precision: Optional[Any] = None,
@@ -60,7 +60,7 @@ class LLM:
 
         Arguments
             model: A local path to a directory containing the model weights.
-            device_type: Which device type to load the model on ("cpu", "cuda", or "auto")
+            accelerator: Which device type to load the model on ("cpu", "gpu", "mps", "cuda", or "auto")
             devices: The number of devices (1, 2, etc.) or device IDs (e.g., [0, 2] to use the first and third GPU).
             quantize: Whether to quantize the model and using which method:
                 - bnb.nf4, bnb.nf4-dq, bnb.fp4, bnb.fp4-dq: 4-bit quantization from bitsandbytes
@@ -71,11 +71,17 @@ class LLM:
                 For more details, see https://lightning.ai/docs/fabric/stable/api/fabric_args.html#precision
         """
 
-        if device_type not in {"cpu", "cuda", "auto"}:
-            raise ValueError(f"Invalid device_type: {device_type}. Must be one of 'cpu', 'cuda', or 'auto'.")
+        allowed_accelerators = {"cpu", "gpu", "cuda", "mps", "auto"}
+        if accelerator not in allowed_accelerators:
+            raise ValueError(f"Invalid accelerator: {accelerator}. Must be one of {allowed_accelerators}.")
 
-        if device_type == "auto":
-            device_type = "cuda" if torch.cuda.is_available() else "cpu"
+        if accelerator == "auto":
+            if torch.cuda.is_available():
+                accelerator = "cuda"
+            elif torch.backends.mps.is_available():
+                accelerator = "mps"
+            else:
+                accelerator = "cpu"
 
         num_devices = calculate_number_of_devices(devices)
 
@@ -97,12 +103,10 @@ class LLM:
 
         config = Config.from_file(checkpoint_dir / "model_config.yaml")
         torch.set_float32_matmul_precision("high")
-
-        devices = _normalize_parse_gpu_input_to_list(devices, include_cuda=True, include_mps=True)
         precision = precision or get_default_supported_precision(training=False)
 
         fabric = L.Fabric(
-            accelerator=device_type,
+            accelerator=accelerator,
             devices=devices,
             precision=precision,
         )
