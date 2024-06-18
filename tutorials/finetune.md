@@ -11,6 +11,12 @@ litgpt finetune_adapter
 litgpt finetune_adapter_v2
 ```
 
+&nbsp;
+> [!TIP]
+> To install all required dependencies before finetuning, first run `pip install "litgpt[all]"`.
+&nbsp;
+
+
 The following section provides more details about these methods, including links for additional resources.
 
 

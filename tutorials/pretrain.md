@@ -8,6 +8,11 @@ This document explains how to pretrain LLMs using LitGPT.
 
 You can pretrain models in LitGPT using the `litgpt pretrain` API starting with any of the available architectures listed by calling `litgpt pretrain list` without any additional arguments:
 
+&nbsp;
+> [!TIP]
+> To install all required dependencies before pretraining, first run `pip install "litgpt[all]"`.
+&nbsp;
+
 ```bash
 litgpt pretrain list
 ```
