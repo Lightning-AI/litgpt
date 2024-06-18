@@ -1,0 +1,51 @@
+name: Bug Report
+description: Report errors related to LitGPT
+title: "Description"
+labels: bug
+body:
+  - type: markdown
+    attributes:
+      value: |
+        Thank you for taking the time to report an issue. Please fill out the details below to help us resolve it.
+
+  - type: textarea
+    id: bug_description
+    attributes:
+      label: Bug description
+      description: A description of the issue.
+      placeholder: |
+        Please provide a description of what the bug or issue is.
+    validations:
+      required: true
+
+  - type: dropdown
+    id: operating_system
+    attributes:
+      label: What operating system are you using?
+      description: If applicable, please select the operating system where you experienced this issue.
+      options:
+        - "Unknown"
+        - "macOS"
+        - "Linux"
+        - "Windows"
+    validations:
+      required: true
+
+  - type: textarea
+    id: version
+    attributes:
+      label: LitGPT Version
+      description: |
+        Please provide details about your LitGPT version by running the following code in your terminal:
+        ```
+        pip show litgpt | grep Version:
+        ```
+        You can simply copy and paste the outputs below.
+      value: |
+        ``` 
+
+
+
+        ```
+    validations:
+      required: false
