@@ -262,7 +262,8 @@ def fit(
         val_loss = validate(fabric, model, val_dataloader, dataclasses.replace(eval, max_iters=len(val_dataloader)))
         val_loss = f"{val_loss:.3f}"
     else:
-        validate(fabric, model, val_dataloader, dataclasses.replace(eval, max_iters=2))  # sanity check
+        fabric.print("Verifying settings ...")
+        validate(fabric, model, val_dataloader, dataclasses.replace(eval, max_iters=2), verbose=False)  # sanity check
         val_loss = "n/a"
 
     train_iterator = CycleIterator(train_dataloader)
@@ -349,8 +350,9 @@ def fit(
 
 # FSDP has issues with `inference_mode`
 @torch.no_grad()
-def validate(fabric: L.Fabric, model: GPT, val_dataloader: DataLoader, eval: EvalArgs) -> torch.Tensor:
-    fabric.print("Validating ...")
+def validate(fabric: L.Fabric, model: GPT, val_dataloader: DataLoader, eval: EvalArgs, verbose: bool = True) -> torch.Tensor:
+    if verbose:
+        fabric.print("Validating ...")
     model.eval()
     losses = torch.zeros(min(len(val_dataloader), eval.max_iters))
     for k, batch in enumerate(val_dataloader):
