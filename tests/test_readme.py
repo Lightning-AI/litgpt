@@ -97,7 +97,7 @@ def test_finetune_model():
 @pytest.mark.skipif(
     sys.platform.startswith("win") or
     sys.platform == "darwin",
-    reason="`torch.compile` is not supported"
+    reason="`torch.compile` is not supported on this OS."
 )
 @mock.patch.dict(os.environ, {"LT_ACCELERATOR": "cpu"})
 @pytest.mark.dependency(depends=["test_download_model", "test_download_books"])
@@ -122,7 +122,7 @@ def test_pretrain_model():
 @pytest.mark.skipif(
     sys.platform.startswith("win") or
     sys.platform == "darwin",
-    reason="`torch.compile` is not supported"
+    reason="`torch.compile` is not supported on this OS."
 )
 @mock.patch.dict(os.environ, {"LT_ACCELERATOR": "cpu"})
 @pytest.mark.dependency(depends=["test_download_model", "test_download_books"])
