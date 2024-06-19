@@ -1,8 +1,7 @@
 # Copyright Lightning AI. Licensed under the Apache License 2.0, see LICENSE file.
-from dataclasses import asdict
-
 import os
 from contextlib import redirect_stderr
+from dataclasses import asdict
 from io import StringIO
 from pathlib import Path
 from tempfile import TemporaryDirectory
@@ -12,7 +11,6 @@ import pytest
 import torch
 import torch.nn.functional as F
 import yaml
-from tests.conftest import RunIf
 from lightning import Fabric
 from lightning.fabric.loggers import CSVLogger, TensorBoardLogger
 from lightning.fabric.plugins import BitsandbytesPrecision
@@ -39,7 +37,9 @@ from litgpt.utils import (
     num_parameters,
     parse_devices,
     save_hyperparameters,
+    validate_pinned_dependencies,
 )
+from tests.conftest import RunIf
 
 
 def test_find_multiple():
@@ -426,3 +426,33 @@ def test_extend_checkpoint_dir(input_path, expected):
 ])
 def test_extend_checkpoint_dir_dont_exist(input_path, expected):
     assert extend_checkpoint_dir(input_path) == expected
+
+
+@pytest.mark.parametrize("package_name", ("litdata", "bitsandbytes"))
+def test_validate_pinned_dependencies(package_name):
+
+    data = """
+        [project]
+        name = "litgpt"
+        version = "0.4.1"
+        description = "Hackable implementation of state-of-the-art open-source LLMs"
+        authors = [
+            {{ name = "Lightning AI", email = "contact@lightning.ai" }},
+        ]
+        readme = "README.md"
+        license = {{ file = "LICENSE" }}
+
+        dependencies = [
+            "{package_name}==0.0",
+        ]
+    """.format(package_name=package_name)
+
+    with mock.patch("builtins.open", mock.mock_open(read_data=data)):
+        # since only one of the dependencies is pinned (per test), only one warning should be raised
+        import bitsandbytes as bnb  # noqa: F401
+        import litdata  # noqa: F401
+        with pytest.warns() as record:
+            validate_pinned_dependencies()
+
+    assert len(record) == 1
+    assert str(record[0].message) == f"LitGPT only supports {package_name} v0.0. This may result in errors."

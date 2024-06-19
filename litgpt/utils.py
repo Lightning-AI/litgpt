@@ -548,8 +548,7 @@ def validate_pinned_dependencies() -> None:
     """"Checks installed version of pinned dependencies. Validate only imported ones."""
 
     with open(Path(__file__).parents[1] / "pyproject.toml", "r", encoding="utf-8") as f:
-        dep_pattern = re.compile(r"\"(.+?==.+?)\"")
-        for dependency in dep_pattern.findall(f.read()):
+        for dependency in re.findall(r"\"(.+?==.+?)\"", f.read()):
             dependency = dependency.split(";")[0]  # e.g. "name==version; python_version >= '3.10'"
             package_name, _, version = dependency.rpartition("==")
             if package_name in sys.modules and not RequirementCache(dependency):
