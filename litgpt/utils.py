@@ -549,9 +549,8 @@ def validate_pinned_dependencies() -> None:
 
     with open(Path(__file__).parents[1] / "pyproject.toml", "r", encoding="utf-8") as f:
         dep_pattern = re.compile(r"\"(.+?==.+?)\"")
-        for line in f:
-            if dependency := dep_pattern.search(line):
-                dependency = dependency.group(1).split(";")[0]  # e.g. "name==version; python_version >= '3.10'"
-                package_name, _, version = dependency.rpartition("==")
-                if package_name in sys.modules and not RequirementCache(dependency):
-                    warnings.warn(f"LitGPT only supports {package_name} v{version}. This may result in errors.")
+        for dependency in dep_pattern.findall(f.read()):
+            dependency = dependency.split(";")[0]  # e.g. "name==version; python_version >= '3.10'"
+            package_name, _, version = dependency.rpartition("==")
+            if package_name in sys.modules and not RequirementCache(dependency):
+                warnings.warn(f"LitGPT only supports {package_name} v{version}. This may result in errors.")
