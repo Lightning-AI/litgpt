@@ -7,12 +7,14 @@ import os
 import pickle
 import shutil
 import sys
+import warnings
 from dataclasses import asdict, is_dataclass
 from io import BytesIO
 from pathlib import Path
 from typing import TYPE_CHECKING, Any, Dict, Iterable, List, Literal, Mapping, Optional, TypeVar, Union
 
 import lightning as L
+import toml
 import torch
 import torch.nn as nn
 import torch.utils._device
@@ -20,8 +22,9 @@ import yaml
 from lightning.fabric.loggers import CSVLogger, TensorBoardLogger
 from lightning.fabric.strategies import FSDPStrategy
 from lightning.fabric.utilities.load import _lazy_load as lazy_load
-from lightning.pytorch.loggers import WandbLogger
 from lightning.pytorch.cli import instantiate_class
+from lightning.pytorch.loggers import WandbLogger
+from lightning_utilities.core.imports import RequirementCache
 from torch.serialization import normalize_storage_type
 from typing_extensions import Self
 
@@ -539,3 +542,20 @@ def extend_checkpoint_dir(checkpoint_dir: Path) -> Path:
                              not checkpoint_dir.is_absolute() and
                              new_checkpoint_dir.exists())
     return new_checkpoint_dir if should_return_new_dir else checkpoint_dir
+
+
+def validate_pinned_dependencies() -> None:
+    """"Checks installed version of a pinned dependency. Validate only imported ones."""
+
+    with open(Path(__file__).parents[1] / "pyproject.toml", "r", encoding="utf-8") as f:
+        config = toml.load(f)
+
+    dependencies = list(config["project"]["dependencies"])
+    dependencies.extend(sum(config["project"]["optional-dependencies"].values(), []))
+    dependencies = [d.split(";")[0] for d in dependencies]  # e.g. "name==version; python_version >= '3.10'",
+
+    for dependency in dependencies:
+        if "==" in dependency:
+            package_name, _, version = dependency.rpartition("==")
+            if package_name in sys.modules and not RequirementCache(dependency):
+                warnings.warn(f"LitGPT only supports {package_name} v{version}. This may result in errors.")
