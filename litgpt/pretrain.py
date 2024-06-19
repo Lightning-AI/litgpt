@@ -39,6 +39,7 @@ from litgpt.utils import (
     save_config,
     save_hyperparameters,
 )
+from lit_logger import LightningLogger
 
 
 def setup(
@@ -123,9 +124,7 @@ def setup(
     # in case the dataset requires the Tokenizer
     tokenizer = Tokenizer(tokenizer_dir) if tokenizer_dir is not None else None
 
-    logger = choose_logger(
-        logger_name, out_dir, name=f"pretrain-{config.name}", resume=bool(resume), log_interval=train.log_interval
-    )
+    logger = LightningLogger()
 
     if devices > 1:
         strategy = FSDPStrategy(auto_wrap_policy={Block}, state_dict_type="full", sharding_strategy="HYBRID_SHARD")
@@ -135,8 +134,8 @@ def setup(
     fabric.launch()
 
     fabric.print(pprint.pformat(hparams))
-    if logger_name in ("tensorboard", "wandb"):
-        fabric.logger.log_hyperparams(hparams)
+    # if logger_name in ("tensorboard", "wandb"):
+    #     fabric.logger.log_hyperparams(hparams)
 
     main(
         fabric,
@@ -242,13 +241,14 @@ def fit(
     model = state["model"]
     optimizer = state["optimizer"]
 
-    if eval.initial_validation:
-        val_loss = validate(fabric, model, val_dataloader, max_iters=eval.max_iters)
-        val_loss = f"{val_loss:.3f}"
-    else:
-        fabric.print("Verifying settings ...")
-        validate(fabric, model, val_dataloader, max_iters=2, verbose=False)   # sanity check
-        val_loss = "n/a"
+    # if eval.initial_validation:
+    #     val_loss = validate(fabric, model, val_dataloader, max_iters=eval.max_iters)
+    #     val_loss = f"{val_loss:.3f}"
+    # else:
+    #     fabric.print("Verifying settings ...")
+    #     validate(fabric, model, val_dataloader, max_iters=2, verbose=False)   # sanity check
+    #     val_loss = "n/a"
+    val_loss = "n/a"
 
     throughput = ThroughputMonitor(fabric, window_size=5)
 
@@ -354,8 +354,8 @@ def fit(
             fabric.log_dict(metrics, step=state["iter_num"] - 1)
             fabric.barrier()
 
-        if train.save_interval is not None and not is_accumulating and state["step_count"] % train.save_interval == 0:
-            save_checkpoint(fabric, state, tokenizer_dir, out_dir / f"step-{state['step_count']:08d}" / "lit_model.pth")
+        # if train.save_interval is not None and not is_accumulating and state["step_count"] % train.save_interval == 0:
+        #     save_checkpoint(fabric, state, tokenizer_dir, out_dir / f"step-{state['step_count']:08d}" / "lit_model.pth")
 
     # Final validation
     if eval.final_validation:
