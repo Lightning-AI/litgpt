@@ -31,12 +31,6 @@ def run_command(command):
         raise RuntimeError(error_message) from None
 
 
-@pytest.mark.skipif(
-    sys.platform.startswith("win") or
-    sys.platform == "darwin" or
-    'AGENT_NAME' in os.environ,
-    reason="Does not run on Windows, macOS, or Azure Pipelines"
-)
 @pytest.mark.dependency()
 def test_download_model():
     repo_id = str(REPO_ID).replace("\\", "/")  # fix for Windows CI
