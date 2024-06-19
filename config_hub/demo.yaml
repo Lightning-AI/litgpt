@@ -38,7 +38,7 @@ train:
   log_interval: 1
 
   # Number of samples between optimizer steps across data-parallel ranks (type: int, default: 512)
-  global_batch_size: 125
+  global_batch_size: 100000
 
   # Number of samples per data-parallel rank (type: int, default: 4)
   micro_batch_size: 5

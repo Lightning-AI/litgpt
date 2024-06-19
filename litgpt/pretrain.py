@@ -127,15 +127,13 @@ def setup(
     logger = LightningLogger()
 
     if devices > 1:
-        strategy = FSDPStrategy(auto_wrap_policy={Block}, state_dict_type="full", sharding_strategy="HYBRID_SHARD")
+        strategy = FSDPStrategy(auto_wrap_policy={Block}, state_dict_type="full", sharding_strategy="HYBRID_SHARD", process_group_backend="gloo")
     else:
         strategy = "auto"
     fabric = L.Fabric(devices=devices, strategy=strategy, precision=precision, loggers=[logger])
     fabric.launch()
 
     fabric.print(pprint.pformat(hparams))
-    # if logger_name in ("tensorboard", "wandb"):
-    #     fabric.logger.log_hyperparams(hparams)
 
     main(
         fabric,
