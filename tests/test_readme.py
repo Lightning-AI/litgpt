@@ -1,16 +1,15 @@
 # Copyright Lightning AI. Licensed under the Apache License 2.0, see LICENSE file.
 
-from pathlib import Path
 import os
-from unittest import mock
-
-import pytest
-import requests
 import subprocess
 import sys
 import threading
 import time
+from pathlib import Path
+from unittest import mock
 
+import pytest
+import requests
 
 REPO_ID = Path("EleutherAI/pythia-14m")
 CUSTOM_TEXTS_DIR = Path("custom_texts")
@@ -31,12 +30,6 @@ def run_command(command):
         raise RuntimeError(error_message) from None
 
 
-@pytest.mark.skipif(
-    sys.platform.startswith("win") or
-    sys.platform == "darwin" or
-    'AGENT_NAME' in os.environ,
-    reason="Does not run on Windows, macOS, or Azure Pipelines"
-)
 @pytest.mark.dependency()
 def test_download_model():
     repo_id = str(REPO_ID).replace("\\", "/")  # fix for Windows CI
@@ -65,7 +58,7 @@ def test_download_books():
 @mock.patch.dict(os.environ, {"LT_ACCELERATOR": "cpu"})
 @pytest.mark.dependency(depends=["test_download_model"])
 def test_chat_with_model():
-    command = ["litgpt", "generate", f"checkpoints" / REPO_ID]
+    command = ["litgpt", "generate", "checkpoints" / REPO_ID]
     prompt = "What do Llamas eat?"
     result = subprocess.run(command, input=prompt, text=True, capture_output=True, check=True)
     assert "What food do llamas eat?" in result.stdout
@@ -101,6 +94,11 @@ def test_finetune_model():
     assert (OUT_DIR/"final"/"lit_model.pth").exists(), "Model file was not created"
 
 
+@pytest.mark.skipif(
+    sys.platform.startswith("win") or
+    sys.platform == "darwin",
+    reason="`torch.compile` is not supported on this OS."
+)
 @mock.patch.dict(os.environ, {"LT_ACCELERATOR": "cpu"})
 @pytest.mark.dependency(depends=["test_download_model", "test_download_books"])
 def test_pretrain_model():
@@ -121,6 +119,11 @@ def test_pretrain_model():
     assert (OUT_DIR / "final" / "lit_model.pth").exists(), "Model file was not created"
 
 
+@pytest.mark.skipif(
+    sys.platform.startswith("win") or
+    sys.platform == "darwin",
+    reason="`torch.compile` is not supported on this OS."
+)
 @mock.patch.dict(os.environ, {"LT_ACCELERATOR": "cpu"})
 @pytest.mark.dependency(depends=["test_download_model", "test_download_books"])
 def test_continue_pretrain_model():
