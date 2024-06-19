@@ -5,6 +5,7 @@ import inspect
 import math
 import os
 import pickle
+import re
 import shutil
 import sys
 import warnings
@@ -14,7 +15,6 @@ from pathlib import Path
 from typing import TYPE_CHECKING, Any, Dict, Iterable, List, Literal, Mapping, Optional, TypeVar, Union
 
 import lightning as L
-import toml
 import torch
 import torch.nn as nn
 import torch.utils._device
@@ -548,14 +548,10 @@ def validate_pinned_dependencies() -> None:
     """"Checks installed version of a pinned dependency. Validate only imported ones."""
 
     with open(Path(__file__).parents[1] / "pyproject.toml", "r", encoding="utf-8") as f:
-        config = toml.load(f)
-
-    dependencies = list(config["project"]["dependencies"])
-    dependencies.extend(sum(config["project"]["optional-dependencies"].values(), []))
-    dependencies = [d.split(";")[0] for d in dependencies]  # e.g. "name==version; python_version >= '3.10'",
-
-    for dependency in dependencies:
-        if "==" in dependency:
-            package_name, _, version = dependency.rpartition("==")
-            if package_name in sys.modules and not RequirementCache(dependency):
-                warnings.warn(f"LitGPT only supports {package_name} v{version}. This may result in errors.")
+        dep_pattern = re.compile(r"\"(.+?==.+?)\"")
+        for line in f:
+            if dependency := dep_pattern.search(line):
+                dependency = dependency.group(1).split(";")[0]  # e.g. "name==version; python_version >= '3.10'"
+                package_name, _, version = dependency.rpartition("==")
+                if package_name in sys.modules and not RequirementCache(dependency):
+                    warnings.warn(f"LitGPT only supports {package_name} v{version}. This may result in errors.")

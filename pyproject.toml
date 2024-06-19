@@ -50,7 +50,6 @@ all = [
     "lm-eval>=0.4.2",            # litgpt.evaluate
     "safetensors>=0.4.3",        # download
     "huggingface_hub[hf_transfer]>=0.21.0"  # download
-    "toml>=0.10.2",              # validate pinned dependencies
 ]
 
 [build-system]
