@@ -1,16 +1,15 @@
 # Copyright Lightning AI. Licensed under the Apache License 2.0, see LICENSE file.
 
-from pathlib import Path
 import os
-from unittest import mock
-
-import pytest
-import requests
 import subprocess
 import sys
 import threading
 import time
+from pathlib import Path
+from unittest import mock
 
+import pytest
+import requests
 
 REPO_ID = Path("EleutherAI/pythia-14m")
 CUSTOM_TEXTS_DIR = Path("custom_texts")
