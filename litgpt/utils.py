@@ -545,7 +545,7 @@ def extend_checkpoint_dir(checkpoint_dir: Path) -> Path:
 
 
 def validate_pinned_dependencies() -> None:
-    """"Checks installed version of a pinned dependency. Validate only imported ones."""
+    """"Checks installed version of pinned dependencies. Validate only imported ones."""
 
     with open(Path(__file__).parents[1] / "pyproject.toml", "r", encoding="utf-8") as f:
         dep_pattern = re.compile(r"\"(.+?==.+?)\"")
