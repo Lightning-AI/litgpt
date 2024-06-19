@@ -95,6 +95,11 @@ def test_finetune_model():
     assert (OUT_DIR/"final"/"lit_model.pth").exists(), "Model file was not created"
 
 
+@pytest.mark.skipif(
+    sys.platform.startswith("win") or
+    sys.platform == "darwin",
+    reason="`torch.compile` is not supported"
+)
 @mock.patch.dict(os.environ, {"LT_ACCELERATOR": "cpu"})
 @pytest.mark.dependency(depends=["test_download_model", "test_download_books"])
 def test_pretrain_model():
@@ -115,6 +120,11 @@ def test_pretrain_model():
     assert (OUT_DIR / "final" / "lit_model.pth").exists(), "Model file was not created"
 
 
+@pytest.mark.skipif(
+    sys.platform.startswith("win") or
+    sys.platform == "darwin",
+    reason="`torch.compile` is not supported"
+)
 @mock.patch.dict(os.environ, {"LT_ACCELERATOR": "cpu"})
 @pytest.mark.dependency(depends=["test_download_model", "test_download_books"])
 def test_continue_pretrain_model():
