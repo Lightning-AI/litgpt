@@ -85,6 +85,11 @@ litgpt pretrain pythia-14m \
    --optimizer.lr 0.005
 ```
 
+&nbsp;
+> [!TIP]
+> Use the `litgpt pretrain --data.help TextFiles` command to list additional dataset options.
+&nbsp;
+
 
 &nbsp;
 ## Continued pretraining on custom data
@@ -122,6 +127,11 @@ litgpt pretrain pythia-14m \
    --train.lr_warmup_steps=200
    --optimizer.lr 0.005
 ```
+
+&nbsp;
+> [!TIP]
+> Use the `litgpt pretrain --data.help TextFiles` command to list additional dataset options.
+&nbsp;
 
 
 &nbsp;
