@@ -101,7 +101,13 @@ def download_from_hub(
                 raise RuntimeError(f"{safetensor_path} is likely corrupted. Please try to re-download it.") from e
             print(f"{safetensor_path} --> {bin_path}")
             torch.save(result, bin_path)
-            os.remove(safetensor_path)
+            try:
+                os.remove(safetensor_path)
+            except PermissionError:
+                print(
+                    f"Unable to remove {safetensor_path} file. "
+                    "This file is no longer needed and you may want to delete it manually to save disk space."
+                )
 
     if convert_checkpoint and not tokenizer_only:
         print("Converting checkpoint files to LitGPT format.")
