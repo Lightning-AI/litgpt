@@ -1,7 +1,9 @@
+from pathlib import Path
 import pytest
 import torch
 from unittest.mock import MagicMock
 from litgpt.api import LLM, calculate_number_of_devices
+from litgpt.tokenizer import Tokenizer
 
 @pytest.fixture
 def mock_llm():
@@ -55,3 +57,29 @@ def test_invalid_accelerator(mock_llm):
 def test_multiple_devices_not_implemented(mock_llm):
     with pytest.raises(NotImplementedError, match="Support for multiple devices is currently not implemented"):
         LLM.load("path/to/model", accelerator="cpu", devices=2)
+
+
+def test_load_model_without_checkpoint(mock_llm):
+    """
+    Test loading the model without using a checkpoint, requiring a tokenizer directory.
+    """
+    model_config_path = "path/to/model_dir/model_config.yaml"
+    model_weights_path = "path/to/model_dir/lit_model.pth"
+    tokenizer_dir = "path/to/tokenizer_dir"
+
+    from unittest.mock import patch
+    with patch('litgpt.config.Config.from_name') as mock_config_from_name, \
+         patch('os.path.exists') as mock_path_exists, \
+         patch('litgpt.tokenizer.Tokenizer') as mock_tokenizer:
+
+        mock_path_exists.side_effect = lambda x: x in [model_config_path, model_weights_path, tokenizer_dir]
+        mock_config_from_name.return_value = MagicMock()
+        mock_tokenizer.return_value = MagicMock(spec=Tokenizer)
+
+        test_model = LLM.load("model_name", from_checkpoint=False, tokenizer_dir=tokenizer_dir)
+
+        mock_config_from_name.assert_called_once_with("model_name")
+        assert test_model.checkpoint_dir is None
+        assert test_model.model is not None
+        assert test_model.tokenizer is not None
+        mock_tokenizer.assert_called_once_with(Path(tokenizer_dir))

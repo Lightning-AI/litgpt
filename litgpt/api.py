@@ -9,7 +9,7 @@ import lightning as L
 from lightning.fabric.utilities.device_parser import _normalize_parse_gpu_input_to_list
 
 from litgpt.model import GPT  # needs to be imported before config
-from litgpt.config import Config
+from litgpt.config import name_to_config, Config
 from litgpt.tokenizer import Tokenizer
 from litgpt.generate.base import generate as generate_fn
 from litgpt.prompts import load_prompt_style, has_prompt_style, PromptStyle
@@ -54,12 +54,14 @@ class LLM:
         devices: Union[int, List[int]] = 1,
         quantize: Optional[Literal["bnb.nf4", "bnb.nf4-dq", "bnb.fp4", "bnb.fp4-dq", "bnb.int8"]] = None,
         precision: Optional[Any] = None,
+        from_checkpoint: bool = True,
+        tokenizer_dir: Optional[Path] = None
     ) -> "LLM":
         """
         Loads the LLM from a local directory or model hub.
 
         Arguments
-            model: A local path to a directory containing the model weights.
+            model: A local path to a directory containing the model weights or a model name when `from_checkpoint=False`.
             accelerator: Which device type to load the model on ("cpu", "gpu", "mps", "cuda", or "auto")
             devices: The number of devices (1, 2, etc.) or device IDs (e.g., [0, 2] to use the first and third GPU).
             quantize: Whether to quantize the model and using which method:
@@ -69,6 +71,10 @@ class LLM:
             precision: Indicates the Fabric precision setting to use.
                 For instance, "32-true", "16-mixed", "16-true", "bf16-mixed", "bf16-true".
                 For more details, see https://lightning.ai/docs/fabric/stable/api/fabric_args.html#precision
+            from_checkpoint: Loads `model` from a checkpoint file if true (default).
+                Otherwise, initializes model from random weights.
+            tokenizer_dir: An optional tokenizer directory if `model` is not a checkpoint directory, or if a user
+                wants to use a different tokenizer instead.
         """
 
         allowed_accelerators = {"cpu", "gpu", "cuda", "mps", "auto"}
@@ -99,9 +105,21 @@ class LLM:
         # And
         #   source = "EleutherAI/pythia-16m", hub = "local" will always consider the local model
         # Also, we may add support for other hubs in the future.
-        checkpoint_dir = extend_checkpoint_dir(Path(model))
 
-        config = Config.from_file(checkpoint_dir / "model_config.yaml")
+        if from_checkpoint:
+            checkpoint_dir = extend_checkpoint_dir(Path(model))
+            config = Config.from_file(checkpoint_dir / "model_config.yaml")
+
+        else:
+            checkpoint_dir = None
+            try:
+                config = Config.from_name(model)
+            except ValueError:
+                print(f"Model name {model} is not supported.\n")
+                available_models = "\n".join(sorted(name_to_config))
+                print(f"Available values:\n{available_models}")
+                quit()
+
         torch.set_float32_matmul_precision("high")
         precision = precision or get_default_supported_precision(training=False)
 
@@ -111,14 +129,22 @@ class LLM:
             precision=precision,
         )
 
-        checkpoint_path = checkpoint_dir / "lit_model.pth"
-        tokenizer = Tokenizer(checkpoint_dir)
+        if tokenizer_dir is not None:
+            tokenizer_dir = extend_checkpoint_dir(Path(tokenizer_dir))
+            tokenizer = Tokenizer(tokenizer_dir)
+        elif checkpoint_dir is not None:
+            tokenizer = Tokenizer(checkpoint_dir)
+        else:
+            raise ValueError("Provide a path to a tokenizer directory via the `tokenizer_dir` setting.")
 
-        prompt_style = (
-            load_prompt_style(checkpoint_dir)
-            if has_prompt_style(checkpoint_dir)
-            else PromptStyle.from_config(config)
-        )
+        if checkpoint_dir is not None:
+            prompt_style = (
+                load_prompt_style(checkpoint_dir)
+                if has_prompt_style(checkpoint_dir)
+                else PromptStyle.from_config(config)
+            )
+        else:
+            prompt_style = PromptStyle.from_config(config)
 
         with fabric.init_module(empty_init=(num_devices > 1)):
             model = GPT(config)
@@ -128,7 +154,10 @@ class LLM:
 
         model.eval()
         model = fabric.setup_module(model)
-        load_checkpoint(fabric, model, checkpoint_path)
+
+        if checkpoint_dir is not None:
+            checkpoint_path = checkpoint_dir / "lit_model.pth"
+            load_checkpoint(fabric, model, checkpoint_path)
         return cls(
             model=model, tokenizer=tokenizer, devices=devices,
             prompt_style=prompt_style, checkpoint_dir=checkpoint_dir, fabric=fabric,
