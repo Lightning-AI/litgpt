@@ -1,6 +1,6 @@
 # LitGPT High-level Python API
 
-This is a work-in-progress draft for a high-level LitGPT Pyhon API.
+This is a work-in-progress draft for a high-level LitGPT Python API.
 
 &nbsp;
 ## Model loading & saving
@@ -11,11 +11,11 @@ The `LLM.load` command loads an `llm` object, which contains both the model obje
 from litgpt import LLM
 
 llm = LLM.load(
-    source="url | local_path",
+    model="url | local_path",
     # high-level user only needs to care about those:
     memory_reduction="none | medium | strong"
     # advanced options for technical users:
-    hub="hf | local | other"
+    source="hf | local | other"
     quantize="bnb.nf4",
     precision="bf16-true",
     device=""auto | cuda | cpu",

@@ -42,7 +42,7 @@ def main(
     checkpoints from the instruction-tuned adapter v2 model. See ``litgpt.finetune.adapter_v2``.
 
     Args:
-        checkpoint_dir: The path to the checkpoint folder with pretrained GPT weights.
+        checkpoint_dir: The path to the checkpoint folder with pretrained model weights.
         prompt: The prompt/instruction (Alpaca style).
         input: Optional input (Alpaca style).
         adapter_path: Path to the checkpoint with trained adapter weights, which are the output of

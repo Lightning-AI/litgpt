@@ -9,7 +9,7 @@ from lightning_utilities.core.imports import RequirementCache
 import torch
 
 
-from litgpt.model import GPT
+from litgpt.model import GPT  # needs to be imported before config
 from litgpt.config import Config
 from litgpt.tokenizer import Tokenizer
 from litgpt.generate.base import generate as plain_generate
