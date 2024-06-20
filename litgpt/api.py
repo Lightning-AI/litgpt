@@ -6,12 +6,12 @@ from typing import Any, List, Literal, Optional, Tuple, Union
 
 import torch
 import lightning as L
-from lightning.fabric.utilities.device_parser import _normalize_parse_gpu_input_to_list
 
 from litgpt.model import GPT  # needs to be imported before config
 from litgpt.config import Config
 from litgpt.tokenizer import Tokenizer
 from litgpt.generate.base import generate as generate_fn
+from litgpt.chat.base import generate as stream_generate
 from litgpt.prompts import load_prompt_style, has_prompt_style, PromptStyle
 from litgpt.utils import (
     extend_checkpoint_dir,
@@ -22,13 +22,13 @@ from litgpt.utils import (
 
 class LLM:
     def __init__(
-        self,
-        model: GPT,
-        tokenizer: Tokenizer,
-        prompt_style: PromptStyle,
-        devices: Union[int, List[int]] = 1,
-        checkpoint_dir: Path = None,
-        fabric: L.Fabric = None
+            self,
+            model: GPT,
+            tokenizer: Tokenizer,
+            prompt_style: PromptStyle,
+            devices: Union[int, List[int]] = 1,
+            checkpoint_dir: Path = None,
+            fabric: L.Fabric = None
     ) -> None:
         self.model = model
         self.preprocessor = Preprocessor(tokenizer, device=fabric.device)
@@ -36,6 +36,7 @@ class LLM:
         self.prompt_style = prompt_style
         self.checkpoint_dir = checkpoint_dir
         self.fabric = fabric
+
     """
     LLM model class for inference, pretraining, and finetuning.
 
@@ -46,14 +47,15 @@ class LLM:
         text = llm.generate("What do Llamas eat?", top_k=1)
         print(text)
     """
+
     @classmethod
     def load(
-        cls,
-        model: str,
-        accelerator: Literal["cpu", "cuda", "auto"] = "auto",
-        devices: Union[int, List[int]] = 1,
-        quantize: Optional[Literal["bnb.nf4", "bnb.nf4-dq", "bnb.fp4", "bnb.fp4-dq", "bnb.int8"]] = None,
-        precision: Optional[Any] = None,
+            cls,
+            model: str,
+            accelerator: Literal["cpu", "cuda", "auto"] = "auto",
+            devices: Union[int, List[int]] = 1,
+            quantize: Optional[Literal["bnb.nf4", "bnb.nf4-dq", "bnb.fp4", "bnb.fp4-dq", "bnb.int8"]] = None,
+            precision: Optional[Any] = None,
     ) -> "LLM":
         """
         Loads the LLM from a local directory or model hub.
@@ -135,16 +137,17 @@ class LLM:
         )
 
     def generate(
-        self,
-        prompt: str,
-        max_new_tokens: int = 50,
-        temperature: float = 1.0,
-        top_k: Optional[int] = None,
-        top_p: float = 1.0,
-        eos_id: Optional[int] = None,
-        include_prompt: bool = True,
-        return_as_token_ids: bool = False,
-    ) -> Tuple[str, torch.Tensor]:
+            self,
+            prompt: str,
+            max_new_tokens: int = 50,
+            temperature: float = 1.0,
+            top_k: Optional[int] = None,
+            top_p: float = 1.0,
+            eos_id: Optional[int] = None,
+            include_prompt: bool = True,
+            return_as_token_ids: bool = False,
+            stream: bool = False
+    ) -> Union[str, torch.Tensor]:
         """
         Takes a conditioning sequence (prompt) as input and continues to generate as many tokens as requested.
 
@@ -185,30 +188,53 @@ class LLM:
                 "Support for multiple devices is currently not implemented for `generate`"
             )
 
-        output_ids = generate_fn(
-            model=self.model,
-            prompt=input_ids.to(self.fabric.device),
-            max_returned_tokens=max_returned_tokens,
-            temperature=temperature,
-            top_k=top_k,
-            top_p=top_p,
-            eos_id=self.preprocessor.tokenizer.eos_id,
-            include_prompt=include_prompt,
-        )
+        def iterator():
+            outputs = stream_generate(
+                model=self.model,
+                prompt=input_ids.to(self.fabric.device),
+                max_returned_tokens=max_returned_tokens,
+                temperature=temperature,
+                top_k=top_k,
+                top_p=top_p,
+                stop_tokens=([self.preprocessor.tokenizer.eos_id],),
+            )
+            if return_as_token_ids:
+                yield from outputs
+            else:
+                for output in outputs:
+                    yield self.preprocessor.tokenizer.decode(output)
+            return
+
+        if stream:
+            outputs = iterator()
+        else:
+            outputs = generate_fn(
+                model=self.model,
+                prompt=input_ids.to(self.fabric.device),
+                max_returned_tokens=max_returned_tokens,
+                temperature=temperature,
+                top_k=top_k,
+                top_p=top_p,
+                eos_id=self.preprocessor.tokenizer.eos_id,
+                include_prompt=include_prompt,
+            )
 
         for block in self.model.transformer.h:
             block.attn.kv_cache.reset_parameters()
 
+        if stream:
+            return outputs
         if return_as_token_ids:
-            return output_ids
+            return outputs
         else:
-            return self.preprocessor.tokenizer.decode(output_ids)
+            return self.preprocessor.tokenizer.decode(outputs)
 
 
 class Preprocessor:
     """
     Preprocesser class for tokenization and de-tokenization.
     """
+
     def __init__(self, tokenizer: Tokenizer, device: str = "cpu") -> None:
         self.tokenizer = tokenizer
         self.device = device
