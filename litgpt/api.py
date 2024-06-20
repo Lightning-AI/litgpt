@@ -11,7 +11,7 @@ from litgpt.model import GPT  # needs to be imported before config
 from litgpt.config import Config
 from litgpt.tokenizer import Tokenizer
 from litgpt.generate.base import generate as generate_fn
-from litgpt.chat.base import generate as stream_generate
+from litgpt.chat.base import generate as stream_generate_fn
 from litgpt.prompts import load_prompt_style, has_prompt_style, PromptStyle
 from litgpt.utils import (
     extend_checkpoint_dir,
@@ -189,7 +189,7 @@ class LLM:
             )
 
         def iterator():
-            outputs = stream_generate(
+            outputs = stream_generate_fn(
                 model=self.model,
                 prompt=input_ids.to(self.fabric.device),
                 max_returned_tokens=max_returned_tokens,
@@ -224,7 +224,7 @@ class LLM:
 
         if stream:
             return outputs
-        if return_as_token_ids:
+        elif return_as_token_ids:
             return outputs
         else:
             return self.preprocessor.tokenizer.decode(outputs)
