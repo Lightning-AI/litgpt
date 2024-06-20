@@ -22,13 +22,13 @@ from litgpt.utils import (
 
 class LLM:
     def __init__(
-            self,
-            model: GPT,
-            tokenizer: Tokenizer,
-            prompt_style: PromptStyle,
-            devices: Union[int, List[int]] = 1,
-            checkpoint_dir: Path = None,
-            fabric: L.Fabric = None
+        self,
+        model: GPT,
+        tokenizer: Tokenizer,
+        prompt_style: PromptStyle,
+        devices: Union[int, List[int]] = 1,
+        checkpoint_dir: Path = None,
+        fabric: L.Fabric = None
     ) -> None:
         self.model = model
         self.preprocessor = Preprocessor(tokenizer, device=fabric.device)
@@ -50,12 +50,12 @@ class LLM:
 
     @classmethod
     def load(
-            cls,
-            model: str,
-            accelerator: Literal["cpu", "cuda", "auto"] = "auto",
-            devices: Union[int, List[int]] = 1,
-            quantize: Optional[Literal["bnb.nf4", "bnb.nf4-dq", "bnb.fp4", "bnb.fp4-dq", "bnb.int8"]] = None,
-            precision: Optional[Any] = None,
+        cls,
+        model: str,
+        accelerator: Literal["cpu", "cuda", "auto"] = "auto",
+        devices: Union[int, List[int]] = 1,
+        quantize: Optional[Literal["bnb.nf4", "bnb.nf4-dq", "bnb.fp4", "bnb.fp4-dq", "bnb.int8"]] = None,
+        precision: Optional[Any] = None,
     ) -> "LLM":
         """
         Loads the LLM from a local directory or model hub.
@@ -137,16 +137,16 @@ class LLM:
         )
 
     def generate(
-            self,
-            prompt: str,
-            max_new_tokens: int = 50,
-            temperature: float = 1.0,
-            top_k: Optional[int] = None,
-            top_p: float = 1.0,
-            eos_id: Optional[int] = None,
-            include_prompt: bool = True,
-            return_as_token_ids: bool = False,
-            stream: bool = False
+        self,
+        prompt: str,
+        max_new_tokens: int = 50,
+        temperature: float = 1.0,
+        top_k: Optional[int] = None,
+        top_p: float = 1.0,
+        eos_id: Optional[int] = None,
+        include_prompt: bool = True,
+        return_as_token_ids: bool = False,
+        stream: bool = False
     ) -> Union[str, torch.Tensor]:
         """
         Takes a conditioning sequence (prompt) as input and continues to generate as many tokens as requested.
