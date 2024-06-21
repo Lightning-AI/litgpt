@@ -3,23 +3,21 @@
 This is a work-in-progress draft describing the current LitGPT Python API (experimental and subject to change).
 
 
-&nbsp;
 ## Model loading
 
 Download a model using the CLI:
 
 ```bash
-litgpt download EleutherAI/pythia160-m
+litgpt download microsoft/phi-2
 ```
 
 Then, load the model in Python:
 
 ```python
-from litgpt.api import LLM
-llm = LLM.load("EleutherAI/pythia-160m", accelerator="cuda", devices=1)
+from litgpt import LLM
+llm = LLM.load("microsoft/phi-2", accelerator="cuda")
 ```
 
-&nbsp;
 ## Generate/Chat
 
 Generate output using the `.generate` method:
@@ -35,14 +33,10 @@ What do Llamas eat?
 "A lot of people, the Llamas, I was, a Llamas, a lama, a lama, a lama, a lama, a lama, a lama, a lama, a
 ```
 
-&nbsp;
-## Pretraining
+Generate with response streaming:
 
-To start with random weights, initialize the model with `from_checkpoint=False`. Note that this requires passing a `tokenizer_dir` that contains a valid tokenizer file. 
-
-```python
-from litgpt.api import LLM
-llm = LLM.load("pythia-160m", accelerator="cuda", devices=1, from_checkpoint=False, tokenizer_dir="EleutherAI/pythia-160m")
 ```
-
-To be continued ...
+result = llm.generate("hi", stream=True)
+for e in result:
+    print(e, end="", flush=True)
+```

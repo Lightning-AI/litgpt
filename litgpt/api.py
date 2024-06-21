@@ -54,7 +54,7 @@ class LLM:
         devices: Union[int, List[int]] = 1,
         quantize: Optional[Literal["bnb.nf4", "bnb.nf4-dq", "bnb.fp4", "bnb.fp4-dq", "bnb.int8"]] = None,
         precision: Optional[Any] = None,
-        from_checkpoint: bool = True,
+        init: Optional[Literal["local", "random"]] = "local",
         tokenizer_dir: Optional[Path] = None
     ) -> "LLM":
         """
@@ -71,12 +71,11 @@ class LLM:
             precision: Indicates the Fabric precision setting to use.
                 For instance, "32-true", "16-mixed", "16-true", "bf16-mixed", "bf16-true".
                 For more details, see https://lightning.ai/docs/fabric/stable/api/fabric_args.html#precision
-            from_checkpoint: Loads `model` from a checkpoint file if true (default).
-                Otherwise, initializes model from random weights.
+            init: If "local" (default), loads the `model` from a local model checkpoint directory.
+                If "random", initializes the `model` with random weights.
             tokenizer_dir: An optional tokenizer directory if `model` is not a checkpoint directory, or if a user
                 wants to use a different tokenizer instead.
         """
-
         allowed_accelerators = {"cpu", "gpu", "cuda", "mps", "auto"}
         if accelerator not in allowed_accelerators:
             raise ValueError(f"Invalid accelerator: {accelerator}. Must be one of {allowed_accelerators}.")
@@ -96,21 +95,12 @@ class LLM:
                 "Support for multiple devices is currently not implemented, yet."
             )
 
-        # It's called `model` and not `checkpoint_dir` in the function signature
-        # because we will later add functionality to automatically download the model
-        # E.g.,
-        #   model = "EleutherAI/pythia-16m", source = "hf"
-        #   will download the model from the HF hub if it doesn't exist locally under
-        #   "EleutherAI/pythia-16m" or "checkpoints/EleutherAI/pythia-16m"
-        # And
-        #   source = "EleutherAI/pythia-16m", hub = "local" will always consider the local model
-        # Also, we may add support for other hubs in the future.
-
-        if from_checkpoint:
+        allowed_init = {"local", "random"}
+        if init == "local":
             checkpoint_dir = extend_checkpoint_dir(Path(model))
             config = Config.from_file(checkpoint_dir / "model_config.yaml")
 
-        else:
+        elif init == "random":
             checkpoint_dir = None
             try:
                 config = Config.from_name(model)
@@ -119,6 +109,9 @@ class LLM:
                 available_models = "\n".join(sorted(name_to_config))
                 print(f"Available values:\n{available_models}")
                 quit()
+
+        else:
+            raise ValueError(f"Invalid init option: {init}. Must be one of {allowed_init}")
 
         torch.set_float32_matmul_precision("high")
         precision = precision or get_default_supported_precision(training=False)
