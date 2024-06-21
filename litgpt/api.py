@@ -2,10 +2,11 @@
 #
 # This file implements the LitGPT Python API
 from pathlib import Path
-from typing import Any, List, Literal, Optional, Tuple, Union
+from typing import Any, List, Literal, Optional, Union
 
 import torch
 import lightning as L
+
 
 from litgpt.model import GPT  # needs to be imported before config
 from litgpt.config import name_to_config, Config
@@ -56,7 +57,7 @@ class LLM:
         devices: Union[int, List[int]] = 1,
         quantize: Optional[Literal["bnb.nf4", "bnb.nf4-dq", "bnb.fp4", "bnb.fp4-dq", "bnb.int8"]] = None,
         precision: Optional[Any] = None,
-        init: Optional[Literal["local", "random"]] = "local",
+        init: Optional[Literal["local", "random", "hub"]] = "local",
         tokenizer_dir: Optional[Path] = None
     ) -> "LLM":
         """
@@ -75,6 +76,9 @@ class LLM:
                 For more details, see https://lightning.ai/docs/fabric/stable/api/fabric_args.html#precision
             init: If "local" (default), loads the `model` from a local model checkpoint directory.
                 If "random", initializes the `model` with random weights.
+                If "hub", downloads and loads the model from the HF hub.
+            access_token:
+                Optional API token to access models with restrictions when using `init="hub"`.
             tokenizer_dir: An optional tokenizer directory if `model` is not a checkpoint directory, or if a user
                 wants to use a different tokenizer instead.
         """
@@ -98,7 +102,14 @@ class LLM:
             )
 
         allowed_init = {"local", "random"}
-        if init == "local":
+
+        if init == "hub":
+            from litgpt.scripts.download import download_from_hub  # Moved here due to the circular import issue in LitGPT that we need to solve some time
+            download_from_hub(repo_id=model)
+            checkpoint_dir = Path("checkpoints") / model
+            config = Config.from_file(checkpoint_dir / "model_config.yaml")
+
+        elif init == "local":
             checkpoint_dir = extend_checkpoint_dir(Path(model))
             config = Config.from_file(checkpoint_dir / "model_config.yaml")
 
