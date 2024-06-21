@@ -1,9 +1,11 @@
-import inspect
+from pathlib import Path
+
 
 import pytest
 import torch
 from unittest.mock import MagicMock
 from litgpt.api import LLM, calculate_number_of_devices
+from litgpt.scripts.download import download_from_hub
 
 
 @pytest.fixture
@@ -72,3 +74,18 @@ def test_invalid_accelerator(mock_llm):
 def test_multiple_devices_not_implemented(mock_llm):
     with pytest.raises(NotImplementedError, match="Support for multiple devices is currently not implemented"):
         LLM.load("path/to/model", accelerator="cpu", devices=2)
+
+
+def test_llm_load_random_init(tmp_path):
+    download_from_hub(repo_id="EleutherAI/pythia-14m", tokenizer_only=True, checkpoint_dir=tmp_path)
+
+    torch.manual_seed(123)
+    llm = LLM.load(
+        model="pythia-160m",
+        accelerator="cpu",
+        devices=1,
+        init="random",
+        tokenizer_dir=Path(tmp_path/"EleutherAI/pythia-14m")
+    )
+    text = llm.generate("text", max_new_tokens=10)
+    assert len(text.split(" ")) > 5

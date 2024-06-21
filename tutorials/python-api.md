@@ -42,3 +42,14 @@ for e in result:
 ```
 Llamas are herbivores and primarily eat grass, leaves, and shrubs. They have a specialized digestive system that allows them to efficiently extract
 ```
+
+
+&nbsp;
+## Random weights
+
+To start with random weights, for example, if you plan a pretraining script, initialize the model with `init="random""`. Note that this requires passing a `tokenizer_dir` that contains a valid tokenizer file. 
+
+```python
+from litgpt.api import LLM
+llm = LLM.load("pythia-160m", accelerator="cuda", init="random", tokenizer_dir="EleutherAI/pythia-160m")
+```
