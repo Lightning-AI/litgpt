@@ -11,7 +11,7 @@ import litgpt.config as config_module
 from litgpt.tokenizer import Tokenizer
 
 
-@pytest.mark.flaky(reruns=5)
+@pytest.mark.flaky(reruns=5, rerun_except=["AssertionError", "assert"])
 @pytest.mark.parametrize("config", config_module.configs, ids=[c["hf_config"]["name"] for c in config_module.configs])
 def test_tokenizer_against_hf(config):
     access_token = os.getenv("HF_TOKEN")
