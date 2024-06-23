@@ -101,7 +101,8 @@ class Tokenizer:
             bos_id = self.bos_id
             if bos_id is None:
                 raise NotImplementedError("This tokenizer does not have a defined a bos token")
-            tokens = [bos_id] + tokens
+            if tokens[0] != bos_id:
+                tokens = [bos_id] + tokens
         if eos:
             tokens = tokens + [self.eos_id]
         if max_length > 0:
