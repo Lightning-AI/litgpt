@@ -28,8 +28,12 @@ class Tokenizer:
                 with open(special_tokens_path, encoding="utf-8") as fp:
                     config = json.load(fp)
                 bos_token = config.get("bos_token")
-                self.bos_id = self.token_to_id(bos_token) if bos_token is not None else None
                 eos_token = config.get("eos_token")
+                if bos_token is not None and isinstance(bos_token, dict):
+                    bos_token = bos_token.get("content")
+                if eos_token is not None and isinstance(eos_token, dict):
+                    eos_token = eos_token.get("content")
+                self.bos_id = self.token_to_id(bos_token) if bos_token is not None else None
                 self.eos_id = self.token_to_id(eos_token) if eos_token is not None else None
             if (special_tokens_path := checkpoint_dir / "generation_config.json").is_file():
                 with open(special_tokens_path, encoding="utf-8") as fp:
