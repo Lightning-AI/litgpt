@@ -45,12 +45,12 @@ def test_tokenizer_against_hf(config):
     )
     ours = Tokenizer(checkpoint_dir)
 
+    assert ours.vocab_size == theirs.vocab_size
     if config.name.startswith("CodeLlama-70b-Instruct"):
         # TODO: the HF tokenizer returns 1 less token for this model. why?
-        assert ours.vocab_size == theirs.vocab_size + 1
+        assert ours.vocab_size == config.vocab_size - 1
     else:
-        assert ours.vocab_size == theirs.vocab_size
-    assert ours.vocab_size == config.vocab_size
+        assert ours.vocab_size == config.vocab_size
 
     if config.name.startswith("falcon") or config.name.startswith("stablecode"):
         # even though their config defines it, it's set as None in HF
