@@ -5,18 +5,24 @@ This is a work-in-progress draft describing the current LitGPT Python API (exper
 
 ## Model loading
 
-Download a model using the CLI:
-
-```bash
-litgpt download microsoft/phi-2
-```
-
-Then, load the model in Python:
+If `init="hub"`, the model will be downloaded and loaded automatically.
 
 ```python
 from litgpt import LLM
-llm = LLM.load("microsoft/phi-2", accelerator="cuda")
+llm = LLM.load("microsoft/phi-2", accelerator="cuda", init="hub")
 ```
+
+If you already have a downloaded checkpoint on your computer, use `init="local"`:
+
+```python
+from litgpt import LLM
+llm = LLM.load("microsoft/phi-2", accelerator="cuda", init="local")
+```
+
+&nbsp;
+> [!NOTE]
+> To get a list of all supported models, execute `litgpt download list` in the command line terminal.
+&nbsp;
 
 ## Generate/Chat
 
