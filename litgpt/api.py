@@ -106,10 +106,9 @@ class LLM:
                 "Support for multiple devices is currently not implemented, yet."
             )
 
-        if init == "auto":
-            pass
+        allowed_init = {"auto", "hub_HF", "local"}
 
-        elif init == "hub_HF":
+        if init == "hub_HF":
             from litgpt.scripts.download import download_from_hub  # Moved here due to the circular import issue in LitGPT that we need to solve some time
 
             checkpoint_dir = extend_checkpoint_dir(Path(model))
