@@ -1,7 +1,12 @@
+from pathlib import Path
+
+
 import pytest
 import torch
 from unittest.mock import MagicMock
 from litgpt.api import LLM, calculate_number_of_devices
+from litgpt.scripts.download import download_from_hub
+
 
 @pytest.fixture
 def mock_llm():
@@ -31,6 +36,20 @@ def test_generate(mock_llm):
     assert len(output) > len(prompt)
 
 
+def test_stream_generate(mock_llm):
+    prompt = "What do Llamas eat?"
+
+    def iterator():
+        outputs = (prompt + " Mock output").split()
+        for output in outputs:
+            yield output
+
+    mock_llm.generate.return_value = iterator()
+    output = mock_llm.generate(prompt, max_new_tokens=10, temperature=0.8, top_k=5, stream=True)
+    result = "".join([out for out in output])
+    assert len(result) > len(prompt)
+
+
 def test_generate_token_ids(mock_llm):
     prompt = "What do Llamas eat?"
     mock_output_ids = MagicMock(spec=torch.Tensor)
@@ -55,3 +74,31 @@ def test_invalid_accelerator(mock_llm):
 def test_multiple_devices_not_implemented(mock_llm):
     with pytest.raises(NotImplementedError, match="Support for multiple devices is currently not implemented"):
         LLM.load("path/to/model", accelerator="cpu", devices=2)
+
+
+def test_llm_load_random_init(tmp_path):
+    download_from_hub(repo_id="EleutherAI/pythia-14m", tokenizer_only=True, checkpoint_dir=tmp_path)
+
+    torch.manual_seed(123)
+    llm = LLM.load(
+        model="pythia-160m",
+        accelerator="cpu",
+        devices=1,
+        init="random",
+        tokenizer_dir=Path(tmp_path/"EleutherAI/pythia-14m")
+    )
+    text = llm.generate("text", max_new_tokens=10)
+    assert len(text.split(" ")) > 5
+
+
+def test_llm_load_hub_init(tmp_path):
+
+    torch.manual_seed(123)
+    llm = LLM.load(
+        model="EleutherAI/pythia-14m",
+        accelerator="cpu",
+        devices=1,
+        init="hub"
+    )
+    text = llm.generate("text", max_new_tokens=10)
+    assert len(text) > 0

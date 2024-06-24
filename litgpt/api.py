@@ -2,16 +2,17 @@
 #
 # This file implements the LitGPT Python API
 from pathlib import Path
-from typing import Any, List, Literal, Optional, Tuple, Union
+from typing import Any, List, Literal, Optional, Union
 
 import torch
 import lightning as L
-from lightning.fabric.utilities.device_parser import _normalize_parse_gpu_input_to_list
+
 
 from litgpt.model import GPT  # needs to be imported before config
-from litgpt.config import Config
+from litgpt.config import name_to_config, Config
 from litgpt.tokenizer import Tokenizer
 from litgpt.generate.base import generate as generate_fn
+from litgpt.chat.base import generate as stream_generate_fn
 from litgpt.prompts import load_prompt_style, has_prompt_style, PromptStyle
 from litgpt.utils import (
     extend_checkpoint_dir,
@@ -36,6 +37,7 @@ class LLM:
         self.prompt_style = prompt_style
         self.checkpoint_dir = checkpoint_dir
         self.fabric = fabric
+
     """
     LLM model class for inference, pretraining, and finetuning.
 
@@ -46,6 +48,7 @@ class LLM:
         text = llm.generate("What do Llamas eat?", top_k=1)
         print(text)
     """
+
     @classmethod
     def load(
         cls,
@@ -54,12 +57,14 @@ class LLM:
         devices: Union[int, List[int]] = 1,
         quantize: Optional[Literal["bnb.nf4", "bnb.nf4-dq", "bnb.fp4", "bnb.fp4-dq", "bnb.int8"]] = None,
         precision: Optional[Any] = None,
+        init: Optional[Literal["local", "random", "hub"]] = "local",
+        tokenizer_dir: Optional[Path] = None
     ) -> "LLM":
         """
         Loads the LLM from a local directory or model hub.
 
         Arguments
-            model: A local path to a directory containing the model weights.
+            model: A local path to a directory containing the model weights or a model name when `from_checkpoint=False`.
             accelerator: Which device type to load the model on ("cpu", "gpu", "mps", "cuda", or "auto")
             devices: The number of devices (1, 2, etc.) or device IDs (e.g., [0, 2] to use the first and third GPU).
             quantize: Whether to quantize the model and using which method:
@@ -69,8 +74,14 @@ class LLM:
             precision: Indicates the Fabric precision setting to use.
                 For instance, "32-true", "16-mixed", "16-true", "bf16-mixed", "bf16-true".
                 For more details, see https://lightning.ai/docs/fabric/stable/api/fabric_args.html#precision
+            init: If "local" (default), loads the `model` from a local model checkpoint directory.
+                If "random", initializes the `model` with random weights.
+                If "hub", downloads and loads the model from the HF hub.
+            access_token:
+                Optional API token to access models with restrictions when using `init="hub"`.
+            tokenizer_dir: An optional tokenizer directory if `model` is not a checkpoint directory, or if a user
+                wants to use a different tokenizer instead.
         """
-
         allowed_accelerators = {"cpu", "gpu", "cuda", "mps", "auto"}
         if accelerator not in allowed_accelerators:
             raise ValueError(f"Invalid accelerator: {accelerator}. Must be one of {allowed_accelerators}.")
@@ -90,18 +101,31 @@ class LLM:
                 "Support for multiple devices is currently not implemented, yet."
             )
 
-        # It's called `model` and not `checkpoint_dir` in the function signature
-        # because we will later add functionality to automatically download the model
-        # E.g.,
-        #   model = "EleutherAI/pythia-16m", source = "hf"
-        #   will download the model from the HF hub if it doesn't exist locally under
-        #   "EleutherAI/pythia-16m" or "checkpoints/EleutherAI/pythia-16m"
-        # And
-        #   source = "EleutherAI/pythia-16m", hub = "local" will always consider the local model
-        # Also, we may add support for other hubs in the future.
-        checkpoint_dir = extend_checkpoint_dir(Path(model))
+        allowed_init = {"local", "random"}
 
-        config = Config.from_file(checkpoint_dir / "model_config.yaml")
+        if init == "hub":
+            from litgpt.scripts.download import download_from_hub  # Moved here due to the circular import issue in LitGPT that we need to solve some time
+            download_from_hub(repo_id=model)
+            checkpoint_dir = Path("checkpoints") / model
+            config = Config.from_file(checkpoint_dir / "model_config.yaml")
+
+        elif init == "local":
+            checkpoint_dir = extend_checkpoint_dir(Path(model))
+            config = Config.from_file(checkpoint_dir / "model_config.yaml")
+
+        elif init == "random":
+            checkpoint_dir = None
+            try:
+                config = Config.from_name(model)
+            except ValueError:
+                print(f"Model name {model} is not supported.\n")
+                available_models = "\n".join(sorted(name_to_config))
+                print(f"Available values:\n{available_models}")
+                quit()
+
+        else:
+            raise ValueError(f"Invalid init option: {init}. Must be one of {allowed_init}")
+
         torch.set_float32_matmul_precision("high")
         precision = precision or get_default_supported_precision(training=False)
 
@@ -111,14 +135,22 @@ class LLM:
             precision=precision,
         )
 
-        checkpoint_path = checkpoint_dir / "lit_model.pth"
-        tokenizer = Tokenizer(checkpoint_dir)
+        if tokenizer_dir is not None:
+            tokenizer_dir = extend_checkpoint_dir(Path(tokenizer_dir))
+            tokenizer = Tokenizer(tokenizer_dir)
+        elif checkpoint_dir is not None:
+            tokenizer = Tokenizer(checkpoint_dir)
+        else:
+            raise ValueError("Provide a path to a tokenizer directory via the `tokenizer_dir` setting.")
 
-        prompt_style = (
-            load_prompt_style(checkpoint_dir)
-            if has_prompt_style(checkpoint_dir)
-            else PromptStyle.from_config(config)
-        )
+        if checkpoint_dir is not None:
+            prompt_style = (
+                load_prompt_style(checkpoint_dir)
+                if has_prompt_style(checkpoint_dir)
+                else PromptStyle.from_config(config)
+            )
+        else:
+            prompt_style = PromptStyle.from_config(config)
 
         with fabric.init_module(empty_init=(num_devices > 1)):
             model = GPT(config)
@@ -128,7 +160,10 @@ class LLM:
 
         model.eval()
         model = fabric.setup_module(model)
-        load_checkpoint(fabric, model, checkpoint_path)
+
+        if checkpoint_dir is not None:
+            checkpoint_path = checkpoint_dir / "lit_model.pth"
+            load_checkpoint(fabric, model, checkpoint_path)
         return cls(
             model=model, tokenizer=tokenizer, devices=devices,
             prompt_style=prompt_style, checkpoint_dir=checkpoint_dir, fabric=fabric,
@@ -142,9 +177,9 @@ class LLM:
         top_k: Optional[int] = None,
         top_p: float = 1.0,
         eos_id: Optional[int] = None,
-        include_prompt: bool = True,
         return_as_token_ids: bool = False,
-    ) -> Tuple[str, torch.Tensor]:
+        stream: bool = False
+    ) -> Union[str, torch.Tensor]:
         """
         Takes a conditioning sequence (prompt) as input and continues to generate as many tokens as requested.
 
@@ -169,7 +204,6 @@ class LLM:
                 For more details, see https://arxiv.org/abs/1904.09751
                 or https://huyenchip.com/2024/01/16/sampling.html#top_p
             eos_id: If specified, stop generating any more token once the <eos> token is triggered.
-            include_prompt: If true (default) prepends the prompt (after applying the prompt style) to the output.
             return_as_token_ids: If true. returns the generated tokens as IDs rather then detokenized text.
 
         """
@@ -185,30 +219,53 @@ class LLM:
                 "Support for multiple devices is currently not implemented for `generate`"
             )
 
-        output_ids = generate_fn(
-            model=self.model,
-            prompt=input_ids.to(self.fabric.device),
-            max_returned_tokens=max_returned_tokens,
-            temperature=temperature,
-            top_k=top_k,
-            top_p=top_p,
-            eos_id=self.preprocessor.tokenizer.eos_id,
-            include_prompt=include_prompt,
-        )
+        def iterator():
+            outputs = stream_generate_fn(
+                model=self.model,
+                prompt=input_ids.to(self.fabric.device),
+                max_returned_tokens=max_returned_tokens,
+                temperature=temperature,
+                top_k=top_k,
+                top_p=top_p,
+                stop_tokens=([self.preprocessor.tokenizer.eos_id],),
+            )
+            if return_as_token_ids:
+                yield from outputs
+            else:
+                for output in outputs:
+                    yield self.preprocessor.tokenizer.decode(output)
+            return
+
+        if stream:
+            outputs = iterator()
+        else:
+            outputs = generate_fn(
+                model=self.model,
+                prompt=input_ids.to(self.fabric.device),
+                max_returned_tokens=max_returned_tokens,
+                temperature=temperature,
+                top_k=top_k,
+                top_p=top_p,
+                eos_id=self.preprocessor.tokenizer.eos_id,
+                include_prompt=False,
+            )
 
         for block in self.model.transformer.h:
             block.attn.kv_cache.reset_parameters()
 
-        if return_as_token_ids:
-            return output_ids
+        if stream:
+            return outputs
+        elif return_as_token_ids:
+            return outputs
         else:
-            return self.preprocessor.tokenizer.decode(output_ids)
+            return self.preprocessor.tokenizer.decode(outputs)
 
 
 class Preprocessor:
     """
     Preprocesser class for tokenization and de-tokenization.
     """
+
     def __init__(self, tokenizer: Tokenizer, device: str = "cpu") -> None:
         self.tokenizer = tokenizer
         self.device = device
