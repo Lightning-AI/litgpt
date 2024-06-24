@@ -106,6 +106,12 @@ Running the pretraining script with its default settings requires at least 8 A10
 litgpt pretrain --config config_hub/pretrain/tinyllama.yaml
 ```
 
+&nbsp;
+> [!TIP]
+> Use the `litgpt pretrain --data.help TinyLlama` command to list additional dataset options.
+&nbsp;
+
+
 The script will save checkpoints periodically to the folder `out/`.
 By default, the `pretrain` script will pretrain the model with FSDP in
 `bfloat16` mixed precision and gradient accumulation.
@@ -150,6 +156,12 @@ litgpt pretrain tiny-llama\
   --resume out/pretrain/tiny-llama/step-00060500
 ```
 **Important:** Each checkpoint is a directory. Point to the directory, not the 'lit_model.pth' file inside of it.
+
+&nbsp;
+> [!TIP]
+> Use the `litgpt pretrain --data.help TinyLlama` command to list additional dataset options.
+&nbsp;
+
 
 &nbsp;
 ## Export checkpoints
