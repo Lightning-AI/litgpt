@@ -30,7 +30,7 @@ def _rope_embedding(
     n_heads         : tl.constexpr,
     BACKWARD_PASS   : tl.constexpr,
     BLOCK_SIZE      : tl.constexpr,
-    ROPE_GROUP_SIZE : tl.constexpr,
+    ROPE_GROUP_SIZE : tl.constexpr = 4,
 ):
     """
         Calculates the RoPE Embedding quickly
