@@ -1,6 +1,7 @@
 # Copyright Lightning AI. Licensed under the Apache License 2.0, see LICENSE file.
 #
 # This file implements the LitGPT Python API
+import os
 from pathlib import Path
 from typing import Any, List, Literal, Optional, Union
 
@@ -15,6 +16,7 @@ from litgpt.generate.base import generate as generate_fn
 from litgpt.chat.base import generate as stream_generate_fn
 from litgpt.prompts import load_prompt_style, has_prompt_style, PromptStyle
 from litgpt.utils import (
+    check_valid_checkpoint_dir,
     extend_checkpoint_dir,
     get_default_supported_precision,
     load_checkpoint,
@@ -57,8 +59,9 @@ class LLM:
         devices: Union[int, List[int]] = 1,
         quantize: Optional[Literal["bnb.nf4", "bnb.nf4-dq", "bnb.fp4", "bnb.fp4-dq", "bnb.int8"]] = None,
         precision: Optional[Any] = None,
-        init: Optional[Literal["local", "random", "hub"]] = "local",
-        tokenizer_dir: Optional[Path] = None
+        init: Optional[Literal["hub_HF", "random", "local"]] = "hub_HF",
+        tokenizer_dir: Optional[Path] = None,
+        access_token: Optional[str] = None
     ) -> "LLM":
         """
         Loads the LLM from a local directory or model hub.
@@ -74,9 +77,11 @@ class LLM:
             precision: Indicates the Fabric precision setting to use.
                 For instance, "32-true", "16-mixed", "16-true", "bf16-mixed", "bf16-true".
                 For more details, see https://lightning.ai/docs/fabric/stable/api/fabric_args.html#precision
-            init: If "local" (default), loads the `model` from a local model checkpoint directory.
+            init: If "hub_HF" (default), downloads the model from the HF Hub if a local model can't be found at the `model`
+                directory name; otherwise loads the model from the local directory.
                 If "random", initializes the `model` with random weights.
-                If "hub", downloads and loads the model from the HF hub.
+                If "local", loads the model from the local directory specified via `model` but never attempts to download
+                it the local directory is invalid but raises a FileNotFoundError instead.
             access_token:
                 Optional API token to access models with restrictions when using `init="hub"`.
             tokenizer_dir: An optional tokenizer directory if `model` is not a checkpoint directory, or if a user
@@ -101,16 +106,26 @@ class LLM:
                 "Support for multiple devices is currently not implemented, yet."
             )
 
-        allowed_init = {"local", "random"}
+        if init == "auto":
+            pass
 
-        if init == "hub":
+        elif init == "hub_HF":
             from litgpt.scripts.download import download_from_hub  # Moved here due to the circular import issue in LitGPT that we need to solve some time
-            download_from_hub(repo_id=model)
+
+            checkpoint_dir = extend_checkpoint_dir(Path(model))
+            try:
+                check_valid_checkpoint_dir(checkpoint_dir, verbose=False, raise_error=True)
+            except FileNotFoundError:
+                if not access_token:
+                    access_token = os.getenv("HF_TOKEN")
+                download_from_hub(repo_id=model, access_token=access_token)
+
             checkpoint_dir = Path("checkpoints") / model
             config = Config.from_file(checkpoint_dir / "model_config.yaml")
 
         elif init == "local":
             checkpoint_dir = extend_checkpoint_dir(Path(model))
+            check_valid_checkpoint_dir(checkpoint_dir, verbose=False, raise_error=True)
             config = Config.from_file(checkpoint_dir / "model_config.yaml")
 
         elif init == "random":
