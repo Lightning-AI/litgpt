@@ -89,3 +89,16 @@ def test_llm_load_random_init(tmp_path):
     )
     text = llm.generate("text", max_new_tokens=10)
     assert len(text.split(" ")) > 5
+
+
+def test_llm_load_hub_init(tmp_path):
+
+    torch.manual_seed(123)
+    llm = LLM.load(
+        model="EleutherAI/pythia-14m",
+        accelerator="cpu",
+        devices=1,
+        init="hub"
+    )
+    text = llm.generate("text", max_new_tokens=10)
+    assert len(text) > 0
