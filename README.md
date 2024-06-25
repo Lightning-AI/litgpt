@@ -51,7 +51,7 @@ In addition to a simple Python API, it offers a command-line tool designed to ea
 &nbsp;
 
 # Quick start
-Install litGPT
+Install LitGPT
 ```
 pip install 'litgpt[all]'
 ```
@@ -65,6 +65,19 @@ text = llm.generate("Correct the spelling: Every summer, the familly enjoys a tr
 print(text)
 # Corrected Sentence: Every summer, the family enjoys a vacation to the mountains.       
 ```
+
+> [!NOTE]
+> **[Explore the Python API options](tutorials/python-api.md)**.
+
+&nbsp;
+&nbsp;
+
+✅ Optimized for fast inference    
+✅ Quantization    
+✅ Runs on low-memory GPUs    
+✅ No layers of internal abstractions    
+✅ Optimized for production scale   
+
 &nbsp;
 
 <details>
@@ -141,6 +154,7 @@ LitGPT has 🤯 **custom, from-scratch implementations** of [20+ LLMs](tutorials
 ---
 
 &nbsp;
+
 # Advanced workflows
 Use the command line interface to run advanced workflows such as pretraining or finetuning on your own data.   
 
@@ -538,7 +552,8 @@ We welcome all individual contributors, regardless of their level of experience 
 
 &nbsp;
 
-# Community showcase
+
+## Projects using LitGPT
 
 Check out the projects below that use and build on LitGPT. If you have a project you'd like to add to this section, please don't hesitate to open a pull request.
 
