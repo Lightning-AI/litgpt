@@ -61,10 +61,10 @@ Load and use any LLM
 ```python
 from litgpt import LLM
 
-llm = LLM.load('llama-3')
-generation = llm.generate('What do people say about New York?')
-print(generation)
-# New york is a place that XYZ and ABC           
+llm = LLM.load("microsoft/phi-2")
+text = llm.generate("Correct the spelling: Every summer, the familly enjoys a trip to the mountains.")
+print(text)
+# Corrected Sentence: Every summer, the family enjoys a vacation to the mountains.       
 ```
 
 ✅ Optimized for fast inference    
@@ -322,32 +322,8 @@ litgpt chat microsoft/phi-2
 The download of certain models requires an additional access token. You can read more about this in the [download](tutorials/download_model_weights.md#specific-models-and-access-tokens) documentation. 
 For more information on the different inference options, refer to the [inference](tutorials/inference.md) tutorial.
 
-&nbsp;
-### Use the Python API
-
-Use the LitGPT Python API to integrate LitGPT into your own Python code project:
-
-```python
-from litgpt import LLM
-
-llm = LLM.load("microsoft/phi-2")
-text = llm.generate("Correct the spelling: Every summer, the familly enjoys a trip to the mountains.")
-print(text)
-```
-
-Output:
-
-```
-Corrected Sentence: Every summer, the family enjoys a vacation to the mountains.
-```
-
-> [!NOTE]
-> **[Read the API docs](tutorials/python-api.md)**.
-
-
 ----
 &nbsp;
-
 
 # State-of-the-art features
 ✅ &nbsp;State-of-the-art optimizations: Flash Attention v2, multi-GPU support via fully-sharded data parallelism, [optional CPU offloading](tutorials/oom.md#do-sharding-across-multiple-gpus), and [TPU and XLA support](extensions/xla).
