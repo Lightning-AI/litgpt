@@ -5,19 +5,16 @@ This is a work-in-progress draft describing the current LitGPT Python API (exper
 
 ## Model loading
 
-If `init="hub"`, the model will be downloaded and loaded automatically.
 
 ```python
 from litgpt import LLM
-llm = LLM.load("microsoft/phi-2", accelerator="cuda", init="hub")
+llm = LLM.load("microsoft/phi-2", accelerator="cuda")
 ```
 
-If you already have a downloaded checkpoint on your computer, use `init="local"`:
-
-```python
-from litgpt import LLM
-llm = LLM.load("microsoft/phi-2", accelerator="cuda", init="local")
-```
+&nbsp;
+> [!TIP]
+> The command above will download the model automatically if it doesn't already exist at `"microsoft/phi-2"` or `"checkpoints/microsoft/phi-2"`. If you want to suppress automatic downloads, pass the additional `init="local"` setting: `llm = LLM.load("microsoft/phi-2", accelerator="cuda", init="local")`
+&nbsp;
 
 &nbsp;
 > [!NOTE]
