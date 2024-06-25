@@ -14,11 +14,11 @@ from torch.utils.data import DataLoader
 
 
 @dataclass
-class FineWeb(DataModule):
+class FineWebDataset(DataModule):
     """The FineWeb data module for pretraining."""
 
     data_path: Union[str, Path] = Path(
-        "/data/users/nightingal3/manifold/all_in_one_pretraining/datasets/pretraining/fineweb-edu-2"
+        "/data/users/nightingal3/manifold/all_in_one_pretraining/datasets/pretraining/fineweb/"
     )
     """The path to the data directory, containing two folders 'train' and 'val'
     which are the output of the preprocessing step. The path can also be a remote path (e.g., s3://)."""
@@ -37,10 +37,8 @@ class FineWeb(DataModule):
 
     def __post_init__(self) -> None:
         # Could be a remote path (s3://) or a local path
-        self.data_path_train = (
-            str(self.data_path).rstrip("/") + self.data_split + "/train"
-        )
-        self.data_path_val = str(self.data_path).rstrip("/") + self.data_split + "/val"
+        self.data_path_train = os.path.join(self.data_path, "train")
+        self.data_path_val = os.path.join(self.data_path, "val")
 
     def connect(
         self,

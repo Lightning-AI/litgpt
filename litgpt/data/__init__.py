@@ -1,23 +1,25 @@
 # Copyright Lightning AI. Licensed under the Apache License 2.0, see LICENSE file.
 
-from litgpt.data.base import DataModule, SFTDataset, get_sft_collate_fn
-from litgpt.data.alpaca import Alpaca
-from litgpt.data.alpaca_2k import Alpaca2k
-from litgpt.data.alpaca_gpt4 import AlpacaGPT4
-from litgpt.data.json_data import JSON
-from litgpt.data.deita import Deita
-from litgpt.data.dolly import Dolly
-from litgpt.data.flan import FLAN
-from litgpt.data.lima import LIMA
-from litgpt.data.lit_data import LitData
-from litgpt.data.longform import LongForm
-from litgpt.data.text_files import TextFiles
-from litgpt.data.tinyllama import TinyLlama
-from litgpt.data.tinystories import TinyStories
-from litgpt.data.openwebtext import OpenWebText
-from litgpt.data.microllama import MicroLlama
-from litgpt.data.mixed_dataset import MixedDataset
+# TODO: vscode doesn't seem to recognize the isort skip file for the whole file. Doing this to avoid circular import
 
+from litgpt.data.base import DataModule, SFTDataset, get_sft_collate_fn  # isort: skip
+from litgpt.data.alpaca import Alpaca  # isort: skip
+from litgpt.data.alpaca_2k import Alpaca2k  # isort: skip
+from litgpt.data.alpaca_gpt4 import AlpacaGPT4  # isort: skip
+from litgpt.data.json_data import JSON  # isort: skip
+from litgpt.data.deita import Deita  # isort: skip
+from litgpt.data.dolly import Dolly  # isort: skip
+from litgpt.data.flan import FLAN  # isort: skip
+from litgpt.data.lima import LIMA  # isort: skip
+from litgpt.data.lit_data import LitData  # isort: skip
+from litgpt.data.longform import LongForm  # isort: skip
+from litgpt.data.text_files import TextFiles  # isort: skip
+from litgpt.data.tinyllama import TinyLlama  # isort: skip
+from litgpt.data.tinystories import TinyStories  # isort: skip
+from litgpt.data.openwebtext import OpenWebText  # isort: skip
+from litgpt.data.microllama import MicroLlama  # isort: skip
+from litgpt.data.mixed_dataset import MixedDataset  # isort: skip
+from litgpt.data.fineweb import FineWebDataset  # isort: skip
 
 __all__ = [
     "Alpaca",
@@ -38,5 +40,6 @@ __all__ = [
     "TinyStories",
     "MicroLlama",
     "MixedDataset",
+    "FineWebDataset",
     "get_sft_collate_fn",
 ]

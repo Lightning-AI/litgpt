@@ -1,31 +1,49 @@
 # (c) Meta Platforms, Inc. and affiliates. Confidential and proprietary.
-from dataclasses import dataclass, field
-from torch.utils.data import DataLoader, IterableDataset
-from pathlib import Path
-import os
-import glob
-from torch.utils.data import BatchSampler
-
-from litdata.streaming import TokensLoader, StreamingDataLoader, StreamingDataset
-from litgpt.data import DataModule
-from litgpt.data.json_data import load_split
-from litgpt.data.text_files import optimize_data
-from litgpt.data.base import SFTDataset, get_sft_collate_fn
-from litgpt.tokenizer import Tokenizer
-from litgpt import PromptStyle
-
 ### For CombinedLoader
 import contextlib
+import glob
+import os
 from collections.abc import Iterable
-from typing import Any, Callable, Dict, Iterator, List, Literal, Optional, Tuple, Type, Union
-
-from torch.utils.data.dataloader import _BaseDataLoaderIter, _MultiProcessingDataLoaderIter
-from torch.utils.data import DataLoader
-from typing_extensions import Self, TypedDict, override
+from dataclasses import dataclass, field
+from pathlib import Path
+from typing import (
+    Any,
+    Callable,
+    Dict,
+    Iterator,
+    List,
+    Literal,
+    Optional,
+    Tuple,
+    Type,
+    Union,
+)
 
 from lightning.fabric.utilities.data import sized_len
 from lightning.fabric.utilities.types import _Stateful
-from lightning.pytorch.utilities._pytree import _map_and_unflatten, _tree_flatten, tree_unflatten
+from lightning.pytorch.utilities._pytree import (
+    _map_and_unflatten,
+    _tree_flatten,
+    tree_unflatten,
+)
+
+# from litgpt.data.text_files import optimize_data
+from litdata import optimize
+
+from litdata.streaming import StreamingDataLoader, StreamingDataset, TokensLoader
+from litgpt import PromptStyle
+from litgpt.data import DataModule
+from litgpt.data.base import get_sft_collate_fn, SFTDataset
+from litgpt.data.json_data import find_split, get_splits, load_split
+from litgpt.tokenizer import Tokenizer
+from torch.utils.data import BatchSampler, DataLoader, IterableDataset
+
+from torch.utils.data.dataloader import (
+    _BaseDataLoaderIter,
+    _MultiProcessingDataLoaderIter,
+)
+from typing_extensions import override, Self, TypedDict
+
 
 @dataclass
 class MixedDataset(DataModule):
@@ -34,7 +52,10 @@ class MixedDataset(DataModule):
     """
 
     # A path to a directory containing both pretraining data (files in txt form) as well as SFT data (json files). Should contain two subdirectories "texts" and "sft".
-    data_path: str = "data/"
+    pretraining_data_path: str = "data/"
+    sft_data_path: str = "sft/"
+    pretrain_data_type: str = "streaming"  # "streaming" or "txt"
+    sft_val_split_fraction: float = 0.05
     max_seq_length: int = field(init=False, repr=False, default=2048)
     tokenizer: Optional[Tokenizer] = field(default=None, init=False, repr=False)
     prompt_style: Union[str, PromptStyle] = "alpaca"
@@ -42,27 +63,37 @@ class MixedDataset(DataModule):
     ignore_index: int = -100
     seed: int = 42
     num_workers: int = 4
-
+    cycle_mode: str = "max_size_cycle"
+    fast_dev_run: bool = False
 
     def __post_init__(self):
-        self.lm_train_path = Path(str(self.data_path).rstrip("/") + "/texts/train_raw/")
-        self.lm_val_path = Path(str(self.data_path).rstrip("/") + "/texts/val_raw/")
+        # self.lm_train_path = Path(
+        #    str(self.pretraining_data_path).rstrip("/") + "/train"
+        # )
+        self.lm_train_path = os.path.join(self.pretraining_data_path, "train")
+        # self.lm_val_path = Path(str(self.pretraining_data_path).rstrip("/") + "/val")
+        self.lm_val_path = os.path.join(self.pretraining_data_path, "val")
 
-        self.sft_train_path = Path(str(self.data_path).rstrip("/") + "/sft/train/train.json")
-        self.sft_val_path = Path(str(self.data_path).rstrip("/") + "/sft/val/val.json")
+        # self.sft_train_path = Path(str(self.sft_data_path).rstrip("/") + "/train.json")
+        # self.sft_val_path = Path(str(self.sft_data_path).rstrip("/") + "/val.json")
 
         # TODO: for now assume there's only one jsonl/json file in each sft dir. We should iterate over multiple though to make it easier to add datasets
-        self.sft_train_data = load_split(self.sft_train_path)
-        self.sft_val_data = load_split(self.sft_val_path)
-        #self.lm_train_data = load_split(self.lm_train_path)
-        #self.lm_val_data = load_split(self.lm_val_path)
+        # self.sft_train_data = load_split(self.sft_train_path)
+        # self.sft_val_data = load_split(self.sft_val_path)
 
-        self.out_path_train_lm = self.data_path + "/texts/train/"
-        self.out_path_val_lm = self.data_path + "/texts/val/" 
+        # self.out_path_train_lm = self.pretraining_data_path + "/texts/train/"
+        # self.out_path_val_lm = self.pretraining_data_path + "/texts/val/"
+
+        self.out_path_train_lm = self.lm_train_path
+        self.out_path_val_lm = self.lm_val_path
 
     def setup(self):
+        sft_train_data, sft_val_data = get_splits(
+            Path(self.sft_data_path), self.sft_val_split_fraction
+        )
+
         self.sft_train_dataset = SFTDataset(
-            data=self.sft_train_data,
+            data=sft_train_data,
             tokenizer=self.tokenizer,
             prompt_style=self.prompt_style,
             max_seq_length=self.max_seq_length_sft,
@@ -70,43 +101,118 @@ class MixedDataset(DataModule):
             ignore_index=self.ignore_index,
         )
         self.sft_test_dataset = SFTDataset(
-            data=self.sft_val_data,
+            data=sft_val_data,
             tokenizer=self.tokenizer,
             prompt_style=self.prompt_style,
             max_seq_length=self.max_seq_length_sft,
             mask_prompt=self.mask_prompt,
             ignore_index=self.ignore_index,
         )
-    
-    def connect(self, tokenizer: Optional[Tokenizer] = None, batch_size: int = 1, max_seq_length: int = -1) -> None:
+
+    def connect(
+        self,
+        tokenizer: Optional[Tokenizer] = None,
+        batch_size: int = 1,
+        max_seq_length: int = -1,
+    ) -> None:
         self.tokenizer = tokenizer
         self.batch_size = batch_size
         self.max_seq_length_sft = max_seq_length
         self.max_seq_length_lm = max_seq_length + 1
 
     def prepare_data(self) -> None:
-        train_files = sorted(glob.glob(str(self.lm_train_path / "*.txt")))
-        assert len(train_files) > 0, f"No .txt files found in train data {train_files}"
+        if self.pretrain_data_type == "streaming":
+            hf_cache_dir = os.getenv("HF_HOME")
 
-        if self.lm_val_path is not None:
-            self.lm_val_path = Path(self.lm_val_path)
-            val_files = sorted(glob.glob(str(self.lm_val_path / "*.txt")))
-            assert len(val_files) > 0, f"No .txt files found in validation data {val_files}"
-        # train/test split. let's use only shard 0 for test split, rest train
+            if str(self.pretraining_data_path).startswith("s3://"):
+                print(
+                    f"The FineWeb data path points to an S3 location: {self.pretraining_data_path}. Skipping preprocessing."
+                )
+                return
+
+            if Path(self.lm_train_path).is_dir() and Path(self.lm_val_path).is_dir():
+                print(
+                    f"Found FineWeb train and val dir: {self.pretraining_data_path}. Skipping preprocessing."
+                )
+                return
+
+            dataset = load_dataset(
+                "HuggingFaceFW/fineweb-edu",
+                num_proc=os.cpu_count() // 8,
+                name=self.data_split,  # 149M examples
+                cache_dir=hf_cache_dir,
+                split="train",
+            )
+            print("Total examples:", len(dataset))
+            # save dataset to manifold
+            print("Saving dataset to disk")
+            dataset.save_to_disk(self.pretraining_data_path)
+
+            # Split the data in training and validation
+            split_dataset = dataset.train_test_split(
+                test_size=self.val_split_fraction, seed=self.seed, shuffle=True
+            )
+            split_dataset["val"] = split_dataset.pop(
+                "test"
+            )  # rename the test split to val
+
+            def tokenize(data: Dataset, index: int):
+                yield self.tokenizer.encode(data[index]["text"], eos=True)
+
+            optimize(
+                fn=partial(tokenize, split_dataset["train"]),
+                inputs=list(range(len(split_dataset["train"]))),
+                output_dir=self.out_path_train_lm,
+                num_workers=(os.cpu_count() // 8),
+                # num_workers=8,
+                chunk_bytes="200MB",
+                fast_dev_run=self.fast_dev_run,
+            )
+
+            optimize(
+                fn=partial(tokenize, split_dataset["val"]),
+                inputs=list(range(len(split_dataset["val"]))),
+                output_dir=self.out_path_val_lm,
+                num_workers=(os.cpu_count() // 8),
+                chunk_bytes="200MB",
+                fast_dev_run=self.fast_dev_run,
+            )
+            print(f"Finished preprocessing of {self.data_path}")
         else:
-            assert len(train_files) > 1, f"Expected at least two .txt files in {train_files}"
-            val_files, *train_files = train_files
-            val_files = [val_files]
+            train_files = sorted(glob.glob(str(self.lm_train_path / "*.txt")))
+            assert (
+                len(train_files) > 0
+            ), f"No .txt files found in train data {train_files}"
 
-        # It's ok to use almost all CPUs here because this runs in a single process
-        # TODO: left off here - encapsulate this part and call it in mixed dataset
-        num_workers = os.cpu_count() - 1
+            if self.lm_val_path is not None:
+                self.lm_val_path = Path(self.lm_val_path)
+                val_files = sorted(glob.glob(str(self.lm_val_path / "*.txt")))
+                assert (
+                    len(val_files) > 0
+                ), f"No .txt files found in validation data {val_files}"
+            # train/test split. let's use only shard 0 for test split, rest train
+            else:
+                assert (
+                    len(train_files) > 1
+                ), f"Expected at least two .txt files in {train_files}"
+                val_files, *train_files = train_files
+                val_files = [val_files]
 
-        optimize_data(num_workers, str(self.out_path_train_lm), str(self.out_path_val_lm), self.tokenizer, train_files, val_files)
+            # It's ok to use almost all CPUs here because this runs in a single process
+            num_workers = os.cpu_count() - 1
+
+            optimize_data(
+                num_workers,
+                str(self.out_path_train_lm),
+                str(self.out_path_val_lm),
+                self.tokenizer,
+                train_files,
+                val_files,
+            )
 
     def train_dataloader(self) -> DataLoader:
-        from litgpt.data import DataModule, SFTDataset, get_sft_collate_fn
-        
+        from litgpt.data import DataModule, get_sft_collate_fn, SFTDataset
+
         self.lm_train_dataset = StreamingDataset(
             input_dir=self.out_path_train_lm,
             item_loader=TokensLoader(block_size=self.max_seq_length_lm),
@@ -115,7 +221,10 @@ class MixedDataset(DataModule):
         )
 
         lm_train_dataloader = StreamingDataLoader(
-            self.lm_train_dataset, batch_size=self.batch_size, pin_memory=True, drop_last=True
+            self.lm_train_dataset,
+            batch_size=self.batch_size,
+            pin_memory=True,
+            drop_last=True,
         )
         sft_train_dataloader = DataLoader(
             self.sft_train_dataset,
@@ -127,12 +236,14 @@ class MixedDataset(DataModule):
             ),
         )
 
-        return CombinedLoader({"lm": lm_train_dataloader, "sft": sft_train_dataloader}, "max_size_cycle")
+        return CombinedLoader(
+            {"lm": lm_train_dataloader, "sft": sft_train_dataloader}, self.cycle_mode
+        )
 
     # TODO - should we return two separate validation sets and report metrics on both separately -- probably
     def val_dataloader(self) -> DataLoader:
-        from litgpt.data import DataModule, SFTDataset, get_sft_collate_fn
-        
+        from litgpt.data import DataModule, get_sft_collate_fn, SFTDataset
+
         self.lm_test_dataset = StreamingDataset(
             input_dir=self.out_path_val_lm,
             item_loader=TokensLoader(block_size=self.max_seq_length_lm),
@@ -141,7 +252,10 @@ class MixedDataset(DataModule):
         )
 
         lm_test_dataloader = StreamingDataLoader(
-            self.lm_test_dataset, batch_size=self.batch_size, pin_memory=True, drop_last=True
+            self.lm_test_dataset,
+            batch_size=self.batch_size,
+            pin_memory=True,
+            drop_last=True,
         )
         sft_test_dataloader = DataLoader(
             self.sft_test_dataset,
@@ -153,7 +267,9 @@ class MixedDataset(DataModule):
             ),
         )
 
-        return CombinedLoader({"lm": lm_test_dataloader, "sft": sft_test_dataloader}, "max_size_cycle")
+        return CombinedLoader(
+            {"lm": lm_test_dataloader, "sft": sft_test_dataloader}, "max_size"
+        )
 
 
 ### This code was not present in the current version of lightning. Adding it here
@@ -176,9 +292,15 @@ _ITERATOR_RETURN = Tuple[Any, int, int]  # batch, batch_idx, dataloader_idx
 
 
 class _ModeIterator(Iterator[_ITERATOR_RETURN]):
-    def __init__(self, iterables: List[Iterable], limits: Optional[List[Union[int, float]]] = None) -> None:
+    def __init__(
+        self,
+        iterables: List[Iterable],
+        limits: Optional[List[Union[int, float]]] = None,
+    ) -> None:
         if limits is not None and len(limits) != len(iterables):
-            raise ValueError(f"Mismatch in number of limits ({len(limits)}) and number of iterables ({len(iterables)})")
+            raise ValueError(
+                f"Mismatch in number of limits ({len(limits)}) and number of iterables ({len(iterables)})"
+            )
         self.iterables = iterables
         self.iterators: List[Iterator] = []
         self._idx = 0  # what would be batch_idx
@@ -215,7 +337,11 @@ class _ModeIterator(Iterator[_ITERATOR_RETURN]):
 
 
 class _MaxSizeCycle(_ModeIterator):
-    def __init__(self, iterables: List[Iterable], limits: Optional[List[Union[int, float]]] = None) -> None:
+    def __init__(
+        self,
+        iterables: List[Iterable],
+        limits: Optional[List[Union[int, float]]] = None,
+    ) -> None:
         super().__init__(iterables, limits)
         self._consumed: List[bool] = []
 
@@ -271,7 +397,11 @@ class _MinSize(_ModeIterator):
 
 
 class _Sequential(_ModeIterator):
-    def __init__(self, iterables: List[Iterable], limits: Optional[List[Union[int, float]]] = None) -> None:
+    def __init__(
+        self,
+        iterables: List[Iterable],
+        limits: Optional[List[Union[int, float]]] = None,
+    ) -> None:
         super().__init__(iterables, limits)
         self._iterator_idx = 0  # what would be dataloader_idx
 
@@ -366,7 +496,9 @@ _SUPPORTED_MODES = {
     "max_size": _CombinationMode(fn=max, iterator=_MaxSize),
     "sequential": _CombinationMode(fn=sum, iterator=_Sequential),
 }
-_LITERAL_SUPPORTED_MODES = Literal["min_size", "max_size_cycle", "max_size", "sequential"]
+_LITERAL_SUPPORTED_MODES = Literal[
+    "min_size", "max_size_cycle", "max_size", "sequential"
+]
 
 
 class CombinedLoader(DataLoader):
@@ -431,15 +563,19 @@ class CombinedLoader(DataLoader):
 
     """
 
-    def __init__(self, iterables: Any, mode: _LITERAL_SUPPORTED_MODES = "min_size") -> None:
+    def __init__(
+        self, iterables: Any, mode: _LITERAL_SUPPORTED_MODES = "min_size"
+    ) -> None:
         if mode not in _SUPPORTED_MODES:
-            raise ValueError(f"Unsupported mode {mode!r}, please select one of: {list(_SUPPORTED_MODES)}.")
+            raise ValueError(
+                f"Unsupported mode {mode!r}, please select one of: {list(_SUPPORTED_MODES)}."
+            )
         self._iterables = iterables
         self._flattened, self._spec = _tree_flatten(iterables)
         self._mode = mode
         self._iterator: Optional[_ModeIterator] = None
         self._limits: Optional[List[Union[int, float]]] = None
-        self.multiprocessing_context = None # is this a good default?
+        self.multiprocessing_context = None  # is this a good default?
 
     @property
     def iterables(self) -> Any:
@@ -449,12 +585,20 @@ class CombinedLoader(DataLoader):
     @property
     def sampler(self) -> Any:
         """Return a collections of samplers extracted from iterables."""
-        return UnifiedBatchSampler(_map_and_unflatten(lambda x: getattr(x, "sampler", None), self.flattened, self._spec))
+        return UnifiedBatchSampler(
+            _map_and_unflatten(
+                lambda x: getattr(x, "sampler", None), self.flattened, self._spec
+            )
+        )
 
     @property
     def batch_sampler(self) -> Any:
         """Return a collections of batch samplers extracted from iterables."""
-        return UnifiedBatchSampler(_map_and_unflatten(lambda x: getattr(x, "batch_sampler", None), self.flattened, self._spec))
+        return UnifiedBatchSampler(
+            _map_and_unflatten(
+                lambda x: getattr(x, "batch_sampler", None), self.flattened, self._spec
+            )
+        )
 
     @property
     def flattened(self) -> List[Any]:
@@ -478,7 +622,9 @@ class CombinedLoader(DataLoader):
         return self._limits
 
     @limits.setter
-    def limits(self, limits: Optional[Union[int, float, List[Union[int, float]]]]) -> None:
+    def limits(
+        self, limits: Optional[Union[int, float, List[Union[int, float]]]]
+    ) -> None:
         if isinstance(limits, (int, float)):
             limits = [limits] * len(self.flattened)
         elif isinstance(limits, list) and len(limits) != len(self.flattened):
@@ -528,13 +674,19 @@ class CombinedLoader(DataLoader):
 
     def _state_dicts(self) -> List[Dict[str, Any]]:
         """Returns the list of state dicts for iterables in `self.flattened` that are stateful."""
-        return [loader.state_dict() for loader in self.flattened if isinstance(loader, _Stateful)]
+        return [
+            loader.state_dict()
+            for loader in self.flattened
+            if isinstance(loader, _Stateful)
+        ]
 
     def _load_state_dicts(self, states: List[Dict[str, Any]]) -> None:
         """Loads the state dicts for iterables in `self.flattened` that are stateful."""
         if not states:
             return
-        stateful_loaders = [loader for loader in self.flattened if isinstance(loader, _Stateful)]
+        stateful_loaders = [
+            loader for loader in self.flattened if isinstance(loader, _Stateful)
+        ]
         if len(stateful_loaders) != len(states):
             raise RuntimeError(
                 f"The CombinedLoader has {len(stateful_loaders)} stateful loaders, but found {len(states)} states"
@@ -553,22 +705,32 @@ def _shutdown_workers_and_reset_iterator(dataloader: object) -> None:
 
 
 def _get_iterables_lengths(iterables: List[Iterable]) -> List[Union[int, float]]:
-    return [(float("inf") if (length := sized_len(iterable)) is None else length) for iterable in iterables]
+    return [
+        (float("inf") if (length := sized_len(iterable)) is None else length)
+        for iterable in iterables
+    ]
+
 
 class UnifiedBatchSampler(BatchSampler):
     def __init__(self, batch_samplers):
         self.batch_samplers = batch_samplers
-        self.samplers_iter = {key: iter(sampler) for key, sampler in batch_samplers.items()}
+        self.samplers_iter = {
+            key: iter(sampler) for key, sampler in batch_samplers.items()
+        }
+
     def __iter__(self):
         active_samplers = list(self.samplers_iter.keys())
         while active_samplers:
-            for key in list(active_samplers):  # List to avoid modification during iteration
+            for key in list(
+                active_samplers
+            ):  # List to avoid modification during iteration
                 try:
                     batch = next(self.samplers_iter[key])
                     yield batch
                 except StopIteration:
                     active_samplers.remove(key)
                     del self.samplers_iter[key]
+
     def __len__(self):
         # This might need to be adjusted based on how you decide to combine the batches
         return sum(len(sampler) for sampler in self.batch_samplers.values())

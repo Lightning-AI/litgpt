@@ -6,11 +6,11 @@ from pathlib import Path
 from typing import Any, Optional, Tuple, Union
 
 import torch
-from torch.utils.data import DataLoader, random_split
 
 from litgpt import PromptStyle
-from litgpt.data import DataModule, SFTDataset, get_sft_collate_fn
+from litgpt.data import DataModule, get_sft_collate_fn, SFTDataset
 from litgpt.tokenizer import Tokenizer
+from torch.utils.data import DataLoader, random_split
 
 
 @dataclass
@@ -61,7 +61,10 @@ class JSON(DataModule):
             self.prompt_style = PromptStyle.from_name(self.prompt_style)
 
     def connect(
-        self, tokenizer: Optional[Tokenizer] = None, batch_size: int = 1, max_seq_length: Optional[int] = None
+        self,
+        tokenizer: Optional[Tokenizer] = None,
+        batch_size: int = 1,
+        max_seq_length: Optional[int] = None,
     ) -> None:
         self.tokenizer = tokenizer
         self.batch_size = batch_size
@@ -94,7 +97,9 @@ class JSON(DataModule):
             shuffle=True,
             generator=torch.Generator().manual_seed(self.seed),
             num_workers=self.num_workers,
-            collate_fn=get_sft_collate_fn(max_seq_length=self.max_seq_length, ignore_index=self.ignore_index),
+            collate_fn=get_sft_collate_fn(
+                max_seq_length=self.max_seq_length, ignore_index=self.ignore_index
+            ),
         )
 
     def val_dataloader(self) -> DataLoader:
@@ -103,7 +108,9 @@ class JSON(DataModule):
             batch_size=self.batch_size,
             shuffle=False,
             num_workers=self.num_workers,
-            collate_fn=get_sft_collate_fn(max_seq_length=self.max_seq_length, ignore_index=self.ignore_index),
+            collate_fn=get_sft_collate_fn(
+                max_seq_length=self.max_seq_length, ignore_index=self.ignore_index
+            ),
         )
 
     def get_splits(self) -> Tuple:
@@ -120,7 +127,9 @@ class JSON(DataModule):
             return train_data, test_data
 
         # A directory containing train.json and val.json
-        if (train_file := self.find_split("train")) and (val_file := self.find_split("val")):
+        if (train_file := self.find_split("train")) and (
+            val_file := self.find_split("val")
+        ):
             train_data = load_split(train_file)
             test_data = load_split(val_file)
             return train_data, test_data
@@ -144,4 +153,39 @@ def load_split(json_path: Path) -> Any:
         with open(json_path, "r", encoding="utf-8") as file:
             return [json.loads(line) for line in file]
     else:
-        raise ValueError(f"Unsupported file format: {json_path.suffix}. Expected `.json` or `.jsonl`.")
+        raise ValueError(
+            f"Unsupported file format: {json_path.suffix}. Expected `.json` or `.jsonl`."
+        )
+
+
+def get_splits(json_path: str, val_split_fraction: float, seed: int = 42) -> Tuple:
+    # A single file (gets split into train and test)
+    if json_path.is_file():
+        data = load_split(json_path)
+
+        # Partition the dataset into train and test
+        train_data, test_data = random_split(
+            data,
+            [1.0 - val_split_fraction, val_split_fraction],
+            generator=torch.Generator().manual_seed(seed),
+        )
+        return train_data, test_data
+
+    # A directory containing train.json and val.json
+    if (train_file := find_split(json_path, "train")) and (
+        val_file := find_split(json_path, "val")
+    ):
+        train_data = load_split(train_file)
+        test_data = load_split(val_file)
+        return train_data, test_data
+
+    raise FileNotFoundError(
+        "The `json_path` must be a file or a directory containing 'train.json' and 'val.json' files."
+    )
+
+
+def find_split(json_path: str, split_name: str) -> Optional[Path]:
+    for suffix in (".json", ".jsonl"):
+        if (file := json_path / f"{split_name}{suffix}").is_file():
+            return file
+    return None
