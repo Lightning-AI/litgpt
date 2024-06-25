@@ -52,7 +52,7 @@ We reimplemented all model architectures and training recipes from scratch for 4
 &nbsp;
 
 # Quick start
-Install litGPT
+Install LitGPT
 ```
 pip install 'litgpt[all]'
 ```
@@ -66,6 +66,8 @@ text = llm.generate("Correct the spelling: Every summer, the familly enjoys a tr
 print(text)
 # Corrected Sentence: Every summer, the family enjoys a vacation to the mountains.       
 ```
+
+&nbsp;
 
 ✅ Optimized for fast inference    
 ✅ Quantization    
