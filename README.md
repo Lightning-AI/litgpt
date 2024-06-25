@@ -165,6 +165,7 @@ After installing LitGPT, select the model and action you want to take on that mo
 # ligpt [action] [model]
 litgpt  download  meta-llama/Meta-Llama-3-8B-Instruct
 litgpt  chat      meta-llama/Meta-Llama-3-8B-Instruct
+litgpt  evaluate  meta-llama/Meta-Llama-3-8B-Instruct
 litgpt  finetune  meta-llama/Meta-Llama-3-8B-Instruct
 litgpt  pretrain  meta-llama/Meta-Llama-3-8B-Instruct
 litgpt  serve     meta-llama/Meta-Llama-3-8B-Instruct
@@ -262,6 +263,19 @@ litgpt pretrain EleutherAI/pythia-160m \
 # 3) Chat with the model
 litgpt chat out/custom-model/final
 ```
+
+&nbsp;
+
+### Evaluate an LLM
+
+If you want to evaluate a downloaded, finetuned, or pretrained LLM on popular benchmark tasks, such as MMLU and Truthful QA, run the following command:
+
+```bash
+litgpt evaluate microsoft/phi-2 --tasks 'truthfulqa_mc2,mmlu'
+```
+
+> [!NOTE]
+> **[Read the evaluation docs](tutorials/evaluation.md)** for more options.
 
 &nbsp;
 
