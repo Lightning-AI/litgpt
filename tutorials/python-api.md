@@ -27,6 +27,7 @@ tokenizer_config.json: 100%|█████████████████�
 > [!NOTE]
 > To get a list of all supported models, execute `litgpt download list` in the command line terminal.
 &nbsp;
+<br>
 
 
 If you attempt to load the model again, LitGPT will load this model from a local directory since it's already been downloaded:
