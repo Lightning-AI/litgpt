@@ -106,7 +106,7 @@ class Tokenizer:
         if tokens is None:
             raise ValueError("`tokens` is None")
 
-        if eos and (not tokens or tokens[-1] != eos_id):
+        if eos and (not tokens or tokens[-1] != self.eos_id):
             tokens = tokens + [self.eos_id]
         if max_length > 0:
             tokens = tokens[:max_length]
