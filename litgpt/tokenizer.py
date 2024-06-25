@@ -103,7 +103,10 @@ class Tokenizer:
                 raise NotImplementedError("This tokenizer does not have a defined a bos token")
             if tokens[0] != bos_id:
                 tokens = [bos_id] + tokens
-        if eos:
+        if tokens is None:
+            raise ValueError("`tokens` is None")
+
+        if eos and (not tokens or tokens[-1] != eos_id):
             tokens = tokens + [self.eos_id]
         if max_length > 0:
             tokens = tokens[:max_length]
