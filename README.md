@@ -67,6 +67,11 @@ print(text)
 # Corrected Sentence: Every summer, the family enjoys a vacation to the mountains.       
 ```
 
+> [!NOTE]
+> **[Explore the Python API options](tutorials/python-api.md)**.
+
+&nbsp;
+
 &nbsp;
 
 ✅ Optimized for fast inference    
@@ -150,7 +155,7 @@ LitGPT has 🤯 **custom, from-scratch implementations** of [20+ LLMs](tutorials
 ---
 
 &nbsp;
-# CLI API
+# Command line interface (CLI API)
 Use the CLI API to run advanced workflows such as pretraining or finetuning on your own data.   
 
 ## All commands   
