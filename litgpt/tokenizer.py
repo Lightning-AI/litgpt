@@ -105,11 +105,10 @@ class Tokenizer:
             raise ValueError("`self.processor` returned tokens of None value.")
 
         if bos or (bos is None and self.use_bos):
-            bos_id = self.bos_id
-            if bos_id is None:
+            if self.bos_id is None:
                 raise NotImplementedError("This tokenizer does not have a defined bos token.")
-            if not tokens or tokens[0] != bos_id:
-                tokens = [bos_id] + tokens
+            if not tokens or tokens[0] != self.bos_id:
+                tokens = [self.bos_id] + tokens
         # if the processor misbehaves and adds `bos` token no matter what
         elif tokens and tokens[0] == self.bos_id:
             tokens = tokens[1:]
