@@ -30,6 +30,7 @@ jobs:
       - name: Build source and wheel distributions
         run: |
           python -m pip install --upgrade build twine
+          pip install importlib_metadata==7.2.1
           python -m build
           twine check --strict dist/*
       - name: Publish distribution to PyPI
