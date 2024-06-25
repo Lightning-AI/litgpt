@@ -322,6 +322,29 @@ litgpt chat microsoft/phi-2
 The download of certain models requires an additional access token. You can read more about this in the [download](tutorials/download_model_weights.md#specific-models-and-access-tokens) documentation. 
 For more information on the different inference options, refer to the [inference](tutorials/inference.md) tutorial.
 
+&nbsp;
+### Use the Python API
+
+Use the LitGPT Python API to integrate LitGPT into your own Python code project:
+
+```python
+from litgpt import LLM
+
+llm = LLM.load("microsoft/phi-2")
+text = llm.generate("Correct the spelling: Every summer, the familly enjoys a trip to the mountains.")
+print(text)
+```
+
+Output:
+
+```
+Corrected Sentence: Every summer, the family enjoys a vacation to the mountains.
+```
+
+> [!NOTE]
+> **[Read the API docs](tutorials/python-api.md)**.
+
+
 ----
 &nbsp;
 
