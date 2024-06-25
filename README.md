@@ -3,7 +3,7 @@
 
 # ⚡ LitGPT
 
-**Pretrain, finetune, evaluate, and deploy 20+ LLMs on your own data**
+**Load, finetune, pretrain, evaluate, and deploy 20+ LLMs on your own data**
 
 Uses the latest state-of-the-art techniques:
 
@@ -46,6 +46,47 @@ We reimplemented all model architectures and training recipes from scratch for 4
 2. Guarantee Apache 2.0 compliance to enable enterprise use without limits.
 3. Optimized each model's architectural detail to maximize performance, reduce costs, and speed up training.
 4. Highly-optimized [recipe configs](#training-recipes) we have tested at enterprise scale.
+
+---
+
+&nbsp;
+
+# Quick start
+Install litGPT
+```
+pip install 'litgpt[all]'
+```
+
+Load and use any LLM
+```python
+from litgpt import LLM
+
+llm = LLM.load('llama-3')
+generation = llm.generate('What do people say about New York?')
+print(generation)
+# New york is a place that XYZ and ABC           
+```
+
+✅ Optimized for fast inference    
+✅ Quantization    
+✅ Runs on low-memory GPUs    
+✅ No layers of internal abstractions    
+✅ Optimized for production scale   
+
+
+<details>
+  <summary>Advanced install options</summary>
+
+&nbsp;
+
+Install from source:
+
+```bash
+git clone https://github.com/Lightning-AI/litgpt
+cd litgpt
+pip install -e '.[all]'
+```
+</details>
 
 ---
 
@@ -104,34 +145,13 @@ LitGPT has 🤯 **custom, from-scratch implementations** of [20+ LLMs](tutorials
 
 </details>
 
-&nbsp;
-
-## Install LitGPT
-
-Install LitGPT with all dependencies (including CLI, quantization, tokenizers for all models, etc.):
-
-```bash
-pip install 'litgpt[all]'
-```
-
-<details>
-  <summary>Advanced install options</summary>
-
-&nbsp;
-
-Install from source:
-
-```bash
-git clone https://github.com/Lightning-AI/litgpt
-cd litgpt
-pip install -e '.[all]'
-```
-</details>
-
 ---
 
 &nbsp;
-# Quick start
+# CLI API
+Use the CLI API to run advanced workflows such as pretraining or finetuning on your own data.   
+
+## All commands   
 After installing LitGPT, select the model and action you want to take on that model (finetune, pretrain, evaluate, deploy, etc...):
 
 ```bash
@@ -142,34 +162,6 @@ litgpt  finetune  meta-llama/Meta-Llama-3-8B-Instruct
 litgpt  pretrain  meta-llama/Meta-Llama-3-8B-Instruct
 litgpt  serve     meta-llama/Meta-Llama-3-8B-Instruct
 ```
-
-&nbsp;
-
-###  Use an LLM for inference
-Use LLMs for inference to test its chatting capabilities, run evaluations, or extract embeddings, etc.
-Here's an example showing how to use the Phi-2 LLM.
-
-<a target="_blank" href="https://lightning.ai/lightning-ai/studios/litgpt-chat">
-  <img src="https://pl-bolts-doc-images.s3.us-east-2.amazonaws.com/app-2/studio-badge.svg" alt="Open In Studio"/>
-</a>
-
-&nbsp;
-
-```bash
-# 1) List all available models in litgpt
-litgpt download list
-
-# 2) Download a pretrained model
-litgpt download microsoft/phi-2
-
-# 3) Chat with the model
-litgpt chat microsoft/phi-2
-
->> Prompt: What do Llamas eat?
-```
-
-The download of certain models requires an additional access token. You can read more about this in the [download](tutorials/download_model_weights.md#specific-models-and-access-tokens) documentation. 
-For more information on the different inference options, refer to the [inference](tutorials/inference.md) tutorial.
 
 &nbsp;
 
@@ -303,6 +295,36 @@ print(response.json()["output"])
 &nbsp;
 
 ----
+
+###  Use an LLM for inference
+Use LLMs for inference to test its chatting capabilities, run evaluations, or extract embeddings, etc.
+Here's an example showing how to use the Phi-2 LLM.
+
+<a target="_blank" href="https://lightning.ai/lightning-ai/studios/litgpt-chat">
+  <img src="https://pl-bolts-doc-images.s3.us-east-2.amazonaws.com/app-2/studio-badge.svg" alt="Open In Studio"/>
+</a>
+
+&nbsp;
+
+```bash
+# 1) List all available models in litgpt
+litgpt download list
+
+# 2) Download a pretrained model
+litgpt download microsoft/phi-2
+
+# 3) Chat with the model
+litgpt chat microsoft/phi-2
+
+>> Prompt: What do Llamas eat?
+```
+
+The download of certain models requires an additional access token. You can read more about this in the [download](tutorials/download_model_weights.md#specific-models-and-access-tokens) documentation. 
+For more information on the different inference options, refer to the [inference](tutorials/inference.md) tutorial.
+
+----
+&nbsp;
+
 
 # State-of-the-art features
 ✅ &nbsp;State-of-the-art optimizations: Flash Attention v2, multi-GPU support via fully-sharded data parallelism, [optional CPU offloading](tutorials/oom.md#do-sharding-across-multiple-gpus), and [TPU and XLA support](extensions/xla).
