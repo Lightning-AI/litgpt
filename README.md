@@ -155,8 +155,8 @@ LitGPT has 🤯 **custom, from-scratch implementations** of [20+ LLMs](tutorials
 
 &nbsp;
 
-# Command line interface
-Use the CLI API to run advanced workflows such as pretraining or finetuning on your own data.   
+# Advanced workflows
+Use the command line interface to run advanced workflows such as pretraining or finetuning on your own data.   
 
 ## All commands   
 After installing LitGPT, select the model and action you want to take on that model (finetune, pretrain, evaluate, deploy, etc...):
