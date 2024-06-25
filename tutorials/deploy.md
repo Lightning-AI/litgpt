@@ -67,9 +67,14 @@ response = requests.post(
     stream=True
 )
 
-print(response.json()["output"])
+# stream the response
+for line in response.iter_lines(decode_unicode=True):
+    if line:
+        print(json.loads(line)["output"], end="")
 ```
 
 ```
-b'{"output": "The"}'b'{"output": " corrected"}'b'{"output": " sentence"}'b'{"output": " is"}'b'{"output": ":"}'b'{"output": " Example"}'b'{"output": " input"}'
+Sure, here is the corrected sentence:
+
+Example input
 ```
