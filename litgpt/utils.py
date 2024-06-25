@@ -75,7 +75,7 @@ def reset_parameters(module: nn.Module) -> None:
             mod.reset_parameters()
 
 
-def check_valid_checkpoint_dir(checkpoint_dir: Path, model_filename: str = "lit_model.pth") -> None:
+def check_valid_checkpoint_dir(checkpoint_dir: Path, model_filename: str = "lit_model.pth", verbose: bool = True, raise_error: bool = False) -> None:
     files = {
         model_filename: (checkpoint_dir / model_filename).is_file(),
         "model_config.yaml": (checkpoint_dir / "model_config.yaml").is_file(),
@@ -99,13 +99,18 @@ def check_valid_checkpoint_dir(checkpoint_dir: Path, model_filename: str = "lit_
     else:
         extra = ""
 
-    error_message = (
-        f"checkpoint_dir {str(checkpoint_dir.absolute())!r}{problem}."
-        "\nFind download instructions at https://github.com/Lightning-AI/litgpt/blob/main/tutorials\n"
-        f"{extra}\nSee all download options by running:\n litgpt download"
-    )
-    print(error_message, file=sys.stderr)
-    raise SystemExit(1)
+    if verbose:
+        error_message = (
+            f"checkpoint_dir {str(checkpoint_dir.absolute())!r}{problem}."
+            "\nFind download instructions at https://github.com/Lightning-AI/litgpt/blob/main/tutorials\n"
+            f"{extra}\nSee all download options by running:\n litgpt download"
+        )
+        print(error_message, file=sys.stderr)
+
+    if raise_error:
+        raise FileNotFoundError(f"checkpoint_dir {str(checkpoint_dir.absolute())!r}{problem}.")
+    else:
+        raise SystemExit(1)
 
 
 class SavingProxyForStorage:
