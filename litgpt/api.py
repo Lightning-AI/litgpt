@@ -59,7 +59,7 @@ class LLM:
         devices: Union[int, List[int]] = 1,
         quantize: Optional[Literal["bnb.nf4", "bnb.nf4-dq", "bnb.fp4", "bnb.fp4-dq", "bnb.int8"]] = None,
         precision: Optional[Any] = None,
-        init: Optional[Literal["hub_HF", "random", "local"]] = "hub_HF",
+        init: Optional[Literal["pretrained", "random"]] = "pretrained",
         tokenizer_dir: Optional[Path] = None,
         access_token: Optional[str] = None
     ) -> "LLM":
@@ -67,7 +67,8 @@ class LLM:
         Loads the LLM from a local directory or model hub.
 
         Arguments
-            model: A local path to a directory containing the model weights or a model name when `from_checkpoint=False`.
+            model: A local path to a directory containing the model weights or a valid model name.
+               You can get a list of valid model names via the `litgpt download list` command line argument.
             accelerator: Which device type to load the model on ("cpu", "gpu", "mps", "cuda", or "auto")
             devices: The number of devices (1, 2, etc.) or device IDs (e.g., [0, 2] to use the first and third GPU).
             quantize: Whether to quantize the model and using which method:
@@ -77,13 +78,11 @@ class LLM:
             precision: Indicates the Fabric precision setting to use.
                 For instance, "32-true", "16-mixed", "16-true", "bf16-mixed", "bf16-true".
                 For more details, see https://lightning.ai/docs/fabric/stable/api/fabric_args.html#precision
-            init: If "hub_HF" (default), downloads the model from the HF Hub if a local model can't be found at the `model`
+            init: If "pretrained" (default), downloads the model from the HF Hub if a local model can't be found at the `model`
                 directory name; otherwise loads the model from the local directory.
                 If "random", initializes the `model` with random weights.
-                If "local", loads the model from the local directory specified via `model` but never attempts to download
-                it the local directory is invalid but raises a FileNotFoundError instead.
             access_token:
-                Optional API token to access models with restrictions when using `init="hub"`.
+                Optional API token to access models with restrictions when using `init="pretrained"`.
             tokenizer_dir: An optional tokenizer directory if `model` is not a checkpoint directory, or if a user
                 wants to use a different tokenizer instead.
         """
@@ -106,9 +105,9 @@ class LLM:
                 "Support for multiple devices is currently not implemented, yet."
             )
 
-        allowed_init = {"auto", "hub_HF", "local"}
+        allowed_init = {"pretrained", "random"}
 
-        if init == "hub_HF":
+        if init == "pretrained":
             from litgpt.scripts.download import download_from_hub  # Moved here due to the circular import issue in LitGPT that we need to solve some time
 
             checkpoint_dir = extend_checkpoint_dir(Path(model))
@@ -120,11 +119,6 @@ class LLM:
                 download_from_hub(repo_id=model, access_token=access_token)
 
             checkpoint_dir = Path("checkpoints") / model
-            config = Config.from_file(checkpoint_dir / "model_config.yaml")
-
-        elif init == "local":
-            checkpoint_dir = extend_checkpoint_dir(Path(model))
-            check_valid_checkpoint_dir(checkpoint_dir, verbose=False, raise_error=True)
             config = Config.from_file(checkpoint_dir / "model_config.yaml")
 
         elif init == "random":
