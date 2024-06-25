@@ -98,7 +98,7 @@ def test_llm_load_hub_init(tmp_path):
         model="EleutherAI/pythia-14m",
         accelerator="cpu",
         devices=1,
-        init="hub_HF"
+        init="pretrained"
     )
     text = llm.generate("text", max_new_tokens=10)
     assert len(text) > 0
