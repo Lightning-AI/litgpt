@@ -588,7 +588,7 @@ This implementation extends on [Lit-LLaMA](https://github.com/lightning-AI/lit-l
 &nbsp;
 
 
-## Community showcase
+## Projects using LitGPT
 
 Check out the projects below that use and build on LitGPT. If you have a project you'd like to add to this section, please don't hesitate to open a pull request.
 
