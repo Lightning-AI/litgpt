@@ -93,6 +93,9 @@ class Tokenizer:
             tokens = self.processor.encode(string)
         else:
             raise RuntimeError
+        if tokens is None:
+            raise ValueError("`self.processor` returned tokens of None value.")
+
         if bos or (bos is None and self.use_bos):
             bos_id = self.bos_id
             if bos_id is None:
