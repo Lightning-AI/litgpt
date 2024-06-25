@@ -32,14 +32,14 @@ tokenizer_config.json: 100%|█████████████████�
 
 If you attempt to load the model again, LitGPT will load this model from a local directory since it's already been downloaded:
 
-```
+```python
 llm_2 = LLM.load("microsoft/phi-2")
 ```
 
 
 If you created a pretrained of finetuned model checkpoint via LitGPT, you can load it in a similar fashion:
 
-```
+```python
 my_llm = LLM.load("path/to/my/local/checkpoint")
 ```
 
@@ -52,6 +52,10 @@ my_llm = LLM.load("path/to/my/local/checkpoint")
 Generate output using the `.generate` method:
 
 ```python
+from litgpt import LLM
+
+llm = LLM.load("microsoft/phi-2")
+
 text = llm.generate("What do Llamas eat?", top_k=1, max_new_tokens=30)
 print(text)
 ```
