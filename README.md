@@ -36,19 +36,17 @@ Uses the latest state-of-the-art techniques:
 <img src="https://pl-bolts-doc-images.s3.us-east-2.amazonaws.com/GithubLitGPTDAG2.png" alt="LitGPT steps" width="auto"/>
 &nbsp;
 
-# Load, finetune, pretrain and deploy LLMs Lightning fast ⚡⚡
+# Load, finetune, pretrain, deploy LLMs Lightning fast ⚡⚡
 LitGPT is a library of **lightning-fast** large language model (LLMs) **implemented from scratch** (Apache 2.0) with **no abstractions**.   
-
-In addition to a simple Python API, it offers a command-line tool designed to easily [finetune](#finetune-an-llm), [pretrain](#pretrain-an-llm), [evaluate](#use-an-llm), and [deploy](#deploy-an-llm) [20+ LLMs](#choose-from-20-llms) **on your own data**. It features highly-optimized [training recipes](#training-recipes) for the world's most powerful open-source large language models (LLMs).
 
 We reimplemented all model architectures and training recipes from scratch for 4 reasons:
 
-✅ Guarantee Apache 2.0 compliance to enable enterprise use without limits.    
+✅ Apache 2.0 compliance to enable unlimited enterprise use.    
 ✅ Easy debugging/hacking with no abstraction layers and single file implementations.    
-✅ Optimized each model's architectural detail to maximize performance, reduce costs, and speed up training.    
+✅ Optimized model architectures to maximize performance, reduce costs, and speed up training.    
 ✅ Highly-optimized [recipe configs](#training-recipes) we have tested at enterprise scale.    
 
----
+In addition to a simple Python API, it offers a command-line tool designed to easily [finetune](#finetune-an-llm), [pretrain](#pretrain-an-llm), [evaluate](#use-an-llm), and [deploy](#deploy-an-llm) [20+ LLMs](#choose-from-20-llms) **on your own data**. It features highly-optimized [training recipes](#training-recipes) for the world's most powerful open-source large language models (LLMs).
 
 &nbsp;
 
@@ -58,7 +56,7 @@ Install litGPT
 pip install 'litgpt[all]'
 ```
 
-Load and use any LLM
+Load and use any of the [20+ LLMs](#choose-from-20-llms):   
 ```python
 from litgpt import LLM
 
@@ -67,13 +65,7 @@ text = llm.generate("Correct the spelling: Every summer, the familly enjoys a tr
 print(text)
 # Corrected Sentence: Every summer, the family enjoys a vacation to the mountains.       
 ```
-
-✅ Optimized for fast inference    
-✅ Quantization    
-✅ Runs on low-memory GPUs    
-✅ No layers of internal abstractions    
-✅ Optimized for production scale   
-
+&nbsp;
 
 <details>
   <summary>Advanced install options</summary>
