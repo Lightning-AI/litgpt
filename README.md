@@ -282,7 +282,7 @@ litgpt evaluate microsoft/phi-2 --tasks 'truthfulqa_mc2,mmlu'
 &nbsp;
 
 ### Deploy an LLM
-Once you're ready to [deploy](tutorials/deploy) a finetuned LLM, run this command:
+Once you're ready to [deploy](tutorials/deploy.md) a finetuned LLM, run this command:
 
 <a target="_blank" href="https://lightning.ai/lightning-ai/studios/litgpt-serve">
   <img src="https://pl-bolts-doc-images.s3.us-east-2.amazonaws.com/app-2/studio-badge.svg" alt="Open In Studio"/>
@@ -312,7 +312,7 @@ print(response.json()["output"])
 
 
 > [!NOTE]
-> **[Read the full docs](tutorials/deploy)**.
+> **[Read the full docs](tutorials/deploy.md)**.
 
 &nbsp;
 
