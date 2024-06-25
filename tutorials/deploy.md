@@ -61,7 +61,11 @@ Then, use the following updated code to query the inference server:
 ```python
 import requests, json
 
-response = requests.post(url="http://127.0.0.1:8000/predict", json={"prompt": "Fix typos in the following sentence: Exampel input"}, stream=True)
+response = requests.post(
+    "http://127.0.0.1:8000/predict", 
+    json={"prompt": "Fix typos in the following sentence: Exampel input"},
+    stream=True
+)
 
 # stream the response
 for line in response.iter_lines(decode_unicode=True):
