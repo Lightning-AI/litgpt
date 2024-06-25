@@ -8,8 +8,8 @@
 Uses the latest state-of-the-art techniques:
 
 <pre>
-✅ flash attention    ✅ fp4/8/16/32        ✅ LoRA, QLoRA, Adapter
-✅ FSDP               ✅ 1-1000+ GPUs/TPUs  ✅ 20+ LLMs            
+✅ From scratch implementations     ✅ flash attention    ✅ fp4/8/16/32        ✅ LoRA, QLoRA, Adapter
+✅ No abstractions                  ✅ FSDP               ✅ 1-1000+ GPUs/TPUs  ✅ 20+ LLMs            
 </pre>
 
 
@@ -37,15 +37,17 @@ Uses the latest state-of-the-art techniques:
 <img src="https://pl-bolts-doc-images.s3.us-east-2.amazonaws.com/GithubLitGPTDAG2.png" alt="LitGPT steps" width="auto"/>
 &nbsp;
 
-# Finetune, pretrain and deploy LLMs Lightning fast ⚡⚡
-LitGPT is a command-line tool designed to easily [finetune](#finetune-an-llm), [pretrain](#pretrain-an-llm), [evaluate](#use-an-llm), and [deploy](#deploy-an-llm) [20+ LLMs](#choose-from-20-llms) **on your own data**. It features highly-optimized [training recipes](#training-recipes) for the world's most powerful open-source large language models (LLMs).
+# Load, finetune, pretrain and deploy LLMs Lightning fast ⚡⚡
+LitGPT is a library of **lightning-fast** large language model (LLMs) **implemented from scratch** (Apache 2.0) with **no abstractions**.   
+
+In addition to a simple Python API, it offers a command-line tool designed to easily [finetune](#finetune-an-llm), [pretrain](#pretrain-an-llm), [evaluate](#use-an-llm), and [deploy](#deploy-an-llm) [20+ LLMs](#choose-from-20-llms) **on your own data**. It features highly-optimized [training recipes](#training-recipes) for the world's most powerful open-source large language models (LLMs).
 
 We reimplemented all model architectures and training recipes from scratch for 4 reasons:
 
-1. Remove all abstraction layers and have single file implementations.
-2. Guarantee Apache 2.0 compliance to enable enterprise use without limits.
-3. Optimized each model's architectural detail to maximize performance, reduce costs, and speed up training.
-4. Highly-optimized [recipe configs](#training-recipes) we have tested at enterprise scale.
+✅ Guarantee Apache 2.0 compliance to enable enterprise use without limits.    
+✅ Easy debugging/hacking with no abstraction layers and single file implementations.    
+✅ Optimized each model's architectural detail to maximize performance, reduce costs, and speed up training.    
+✅ Highly-optimized [recipe configs](#training-recipes) we have tested at enterprise scale.    
 
 ---
 
