@@ -82,7 +82,7 @@ class LLM:
                 directory name; otherwise loads the model from the local directory.
                 If "random", initializes the `model` with random weights.
             access_token:
-                Optional API token to access models with restrictions when using `init="hub"`.
+                Optional API token to access models with restrictions when using `init="hub_HF"`.
             tokenizer_dir: An optional tokenizer directory if `model` is not a checkpoint directory, or if a user
                 wants to use a different tokenizer instead.
         """
