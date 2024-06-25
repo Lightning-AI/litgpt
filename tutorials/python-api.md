@@ -5,22 +5,54 @@ This is a work-in-progress draft describing the current LitGPT Python API (exper
 
 ## Model loading
 
+Use the `LLM.load` method to load a model from a LitGPT model checkpoint folder. For example, consider loading a Phi-2 model. If a given checkpoint directory `"microsoft/phi-2"` does not exist as a local checkpoint directory, the model will be downloaded automatically from the HF Hub (assuming that `"microsoft/phi-2"` is a valid repository name):
 
 ```python
 from litgpt import LLM
-llm = LLM.load("microsoft/phi-2", accelerator="cuda")
+
+llm_1 = LLM.load("microsoft/phi-2")
 ```
 
-&nbsp;
-> [!TIP]
-> The command above will download the model automatically if it doesn't already exist at `"microsoft/phi-2"` or `"checkpoints/microsoft/phi-2"`. If you want to suppress automatic downloads, pass the additional `init="local"` setting: `llm = LLM.load("microsoft/phi-2", accelerator="cuda", init="local")`
-&nbsp;
+```
+config.json: 100%
+ 735/735 [00:00<00:00, 95.9kB/s]
+generation_config.json: 100%
+ 124/124 [00:00<00:00, 22.6kB/s]
+model-00001-of-00002.safetensors: 100%
+ 5.00G/5.00G [00:12<00:00, 413MB/s]
+model-00002-of-00002.safetensors: 100%
+ 564M/564M [00:01<00:00, 433MB/s]
+model.safetensors.index.json: 100%
+ 35.7k/35.7k [00:00<00:00, 6.22MB/s]
+tokenizer.json: 100%
+ 2.11M/2.11M [00:00<00:00, 46.2MB/s]
+tokenizer_config.json: 100%
+ 7.34k/7.34k [00:00<00:00, 1.30MB/s]
+```
 
 &nbsp;
 > [!NOTE]
 > To get a list of all supported models, execute `litgpt download list` in the command line terminal.
 &nbsp;
 
+
+If you attempt to load the model again, LitGPT will load this model from a local directory since it's already been downloaded:
+
+```
+llm_2 = LLM.load("microsoft/phi-2")
+```
+
+
+If you created a pretrained of finetuned model checkpoint via LitGPT, you can load it in a similar fashion:
+
+```
+my_llm = LLM.load("path/to/my/local/checkpoint")
+```
+
+
+
+
+&nbsp;
 ## Generate/Chat
 
 Generate output using the `.generate` method:
