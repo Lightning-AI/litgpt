@@ -202,7 +202,8 @@ litgpt chat out/custom-model/final
 &nbsp;
 
 ### Pretrain an LLM
-Train an LLM from scratch on your own data via pretraining:
+
+[Train an LLM from scratch](tutorials/pretrain.md) on your own data via pretraining:
 
 <a target="_blank" href="https://lightning.ai/lightning-ai/studios/litgpt-pretrain">
 <img src="https://pl-bolts-doc-images.s3.us-east-2.amazonaws.com/app-2/studio-badge.svg"; alt="Open In Studio"/>
@@ -234,7 +235,8 @@ litgpt chat out/custom-model/final
 &nbsp;
 
 ### Continue pretraining an LLM
-This is another way of finetuning that specializes an already pretrained model by training on custom data:
+
+[Continued pretraining](tutorials/pretrain.md#continued-pretraining-on-custom-data) is another way of finetuning that specializes an already pretrained model by training on custom data:
 
 
 <a target="_blank" href="https://lightning.ai/lightning-ai/studios/litgpt-continue-pretraining">
@@ -268,7 +270,7 @@ litgpt chat out/custom-model/final
 
 ### Evaluate an LLM
 
-If you want to evaluate a downloaded, finetuned, or pretrained LLM on popular benchmark tasks, such as MMLU and Truthful QA, run the following command:
+If you want to [evaluate](tutorials/evaluation.md) a downloaded, finetuned, or pretrained LLM on popular benchmark tasks, such as MMLU and Truthful QA, run the following command:
 
 ```bash
 litgpt evaluate microsoft/phi-2 --tasks 'truthfulqa_mc2,mmlu'
@@ -280,7 +282,7 @@ litgpt evaluate microsoft/phi-2 --tasks 'truthfulqa_mc2,mmlu'
 &nbsp;
 
 ### Deploy an LLM
-Once you're ready to deploy a finetuned LLM, run this command:
+Once you're ready to [deploy](tutorials/deploy) a finetuned LLM, run this command:
 
 <a target="_blank" href="https://lightning.ai/lightning-ai/studios/litgpt-serve">
   <img src="https://pl-bolts-doc-images.s3.us-east-2.amazonaws.com/app-2/studio-badge.svg" alt="Open In Studio"/>
@@ -308,17 +310,17 @@ response = requests.post(
 print(response.json()["output"])
 ```
 
-&nbsp;
 
 > [!NOTE]
-> **[Read the full docs](tutorials/0_to_litgpt.md)**.
+> **[Read the full docs](tutorials/deploy)**.
 
 &nbsp;
 
 ----
 
 ###  Use an LLM for inference
-Use LLMs for inference to test its chatting capabilities, run evaluations, or extract embeddings, etc.
+
+Use LLMs for [inference](tutorials/deploy.md) to test its chatting capabilities, run evaluations, or extract embeddings, etc.
 Here's an example showing how to use the Phi-2 LLM.
 
 <a target="_blank" href="https://lightning.ai/lightning-ai/studios/litgpt-chat">
@@ -347,6 +349,7 @@ For more information on the different inference options, refer to the [inference
 &nbsp;
 
 # State-of-the-art features
+
 ✅ &nbsp;State-of-the-art optimizations: Flash Attention v2, multi-GPU support via fully-sharded data parallelism, [optional CPU offloading](tutorials/oom.md#do-sharding-across-multiple-gpus), and [TPU and XLA support](extensions/xla).
 
 ✅ &nbsp;[Pretrain](tutorials/pretrain.md), [finetune](tutorials/finetune.md), and [deploy](tutorials/inference.md)
