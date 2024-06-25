@@ -80,5 +80,5 @@ To start with random weights, for example, if you plan a pretraining script, ini
 
 ```python
 from litgpt.api import LLM
-llm = LLM.load("pythia-160m", accelerator="cuda", init="random", tokenizer_dir="EleutherAI/pythia-160m")
+llm = LLM.load("pythia-160m", init="random", tokenizer_dir="EleutherAI/pythia-160m")
 ```

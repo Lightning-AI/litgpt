@@ -59,7 +59,7 @@ class LLM:
         devices: Union[int, List[int]] = 1,
         quantize: Optional[Literal["bnb.nf4", "bnb.nf4-dq", "bnb.fp4", "bnb.fp4-dq", "bnb.int8"]] = None,
         precision: Optional[Any] = None,
-        init: Optional[Literal["hub_HF", "random"]] = "hub_HF",
+        init: Optional[Literal["pretrained", "random"]] = "pretrained",
         tokenizer_dir: Optional[Path] = None,
         access_token: Optional[str] = None
     ) -> "LLM":
@@ -78,11 +78,11 @@ class LLM:
             precision: Indicates the Fabric precision setting to use.
                 For instance, "32-true", "16-mixed", "16-true", "bf16-mixed", "bf16-true".
                 For more details, see https://lightning.ai/docs/fabric/stable/api/fabric_args.html#precision
-            init: If "hub_HF" (default), downloads the model from the HF Hub if a local model can't be found at the `model`
+            init: If "pretrained" (default), downloads the model from the HF Hub if a local model can't be found at the `model`
                 directory name; otherwise loads the model from the local directory.
                 If "random", initializes the `model` with random weights.
             access_token:
-                Optional API token to access models with restrictions when using `init="hub_HF"`.
+                Optional API token to access models with restrictions when using `init="pretrained"`.
             tokenizer_dir: An optional tokenizer directory if `model` is not a checkpoint directory, or if a user
                 wants to use a different tokenizer instead.
         """
@@ -105,9 +105,9 @@ class LLM:
                 "Support for multiple devices is currently not implemented, yet."
             )
 
-        allowed_init = {"auto", "hub_HF", "local"}
+        allowed_init = {"pretrained", "random"}
 
-        if init == "hub_HF":
+        if init == "pretrained":
             from litgpt.scripts.download import download_from_hub  # Moved here due to the circular import issue in LitGPT that we need to solve some time
 
             checkpoint_dir = extend_checkpoint_dir(Path(model))
