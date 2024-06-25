@@ -8,10 +8,11 @@ from transformers import AutoTokenizer
 from transformers.utils import cached_file
 
 import litgpt.config as config_module
+from litgpt import PromptStyle
 from litgpt.tokenizer import Tokenizer
 
 
-@pytest.mark.flaky(reruns=5)
+@pytest.mark.flaky(reruns=5, rerun_except=["AssertionError", "assert"])
 @pytest.mark.parametrize("config", config_module.configs, ids=[c["hf_config"]["name"] for c in config_module.configs])
 def test_tokenizer_against_hf(config):
     access_token = os.getenv("HF_TOKEN")
@@ -45,12 +46,12 @@ def test_tokenizer_against_hf(config):
     )
     ours = Tokenizer(checkpoint_dir)
 
+    assert ours.vocab_size == theirs.vocab_size
     if config.name.startswith("CodeLlama-70b-Instruct"):
         # TODO: the HF tokenizer returns 1 less token for this model. why?
-        assert ours.vocab_size == theirs.vocab_size + 1
+        assert ours.vocab_size == config.vocab_size - 1
     else:
-        assert ours.vocab_size == theirs.vocab_size
-    assert ours.vocab_size == config.vocab_size
+        assert ours.vocab_size == config.vocab_size
 
     if config.name.startswith("falcon") or config.name.startswith("stablecode"):
         # even though their config defines it, it's set as None in HF
@@ -67,6 +68,7 @@ def test_tokenizer_against_hf(config):
         assert ours.eos_id == theirs.eos_token_id
 
     prompt = "Hello, readers of this test!"
+    prompt = PromptStyle.from_config(config).apply(prompt)
     actual = ours.encode(prompt)
     expected = theirs.encode(prompt)
     if config.name.startswith("CodeLlama-70b"):

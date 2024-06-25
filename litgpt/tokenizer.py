@@ -17,16 +17,8 @@ class Tokenizer:
         self.bos_id = None
         self.eos_id = None
 
-        # some checkpoints have both files, `.model` takes precedence
-        if (vocabulary_path := checkpoint_dir / "tokenizer.model").is_file():
-            from sentencepiece import SentencePieceProcessor
-
-            self.processor = SentencePieceProcessor(model_file=str(vocabulary_path))
-            self.backend = "sentencepiece"
-            self.bos_id = self.processor.bos_id()
-            self.eos_id = self.processor.eos_id()
-
-        elif (vocabulary_path := checkpoint_dir / "tokenizer.json").is_file():
+        # some checkpoints have both files, `.json` takes precedence
+        if (vocabulary_path := checkpoint_dir / "tokenizer.json").is_file():
             from tokenizers import Tokenizer as HFTokenizer
 
             self.processor = HFTokenizer.from_file(str(vocabulary_path))
@@ -36,8 +28,12 @@ class Tokenizer:
                 with open(special_tokens_path, encoding="utf-8") as fp:
                     config = json.load(fp)
                 bos_token = config.get("bos_token")
-                self.bos_id = self.token_to_id(bos_token) if bos_token is not None else None
                 eos_token = config.get("eos_token")
+                if bos_token is not None and isinstance(bos_token, dict):
+                    bos_token = bos_token.get("content")
+                if eos_token is not None and isinstance(eos_token, dict):
+                    eos_token = eos_token.get("content")
+                self.bos_id = self.token_to_id(bos_token) if bos_token is not None else None
                 self.eos_id = self.token_to_id(eos_token) if eos_token is not None else None
             if (special_tokens_path := checkpoint_dir / "generation_config.json").is_file():
                 with open(special_tokens_path, encoding="utf-8") as fp:
@@ -46,6 +42,14 @@ class Tokenizer:
                     self.bos_id = config.get("bos_token_id")
                 if self.eos_id is None:
                     self.eos_id = config.get("eos_token_id")
+
+        elif (vocabulary_path := checkpoint_dir / "tokenizer.model").is_file():
+            from sentencepiece import SentencePieceProcessor
+
+            self.processor = SentencePieceProcessor(model_file=str(vocabulary_path))
+            self.backend = "sentencepiece"
+            self.bos_id = self.processor.bos_id()
+            self.eos_id = self.processor.eos_id()
         else:
             raise NotImplementedError
 
@@ -100,8 +104,12 @@ class Tokenizer:
             bos_id = self.bos_id
             if bos_id is None:
                 raise NotImplementedError("This tokenizer does not have a defined a bos token")
-            tokens = [bos_id] + tokens
-        if eos:
+            if tokens[0] != bos_id:
+                tokens = [bos_id] + tokens
+        if tokens is None:
+            raise ValueError("`tokens` is None")
+
+        if eos and (not tokens or tokens[-1] != self.eos_id):
             tokens = tokens + [self.eos_id]
         if max_length > 0:
             tokens = tokens[:max_length]
