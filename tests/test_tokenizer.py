@@ -91,7 +91,9 @@ def test_tokenizer_input_validation():
 @pytest.mark.parametrize("use_bos_by_default", (True, False))
 @pytest.mark.parametrize("encode_use_bos", (None, True, False))
 @pytest.mark.parametrize("encode_use_eos", (True, False))
-def test_tokenizer_bos_eos(tmp_path, use_bos_by_default, encode_use_bos, encode_use_eos):
+@pytest.mark.parametrize("processor_returns_bos", (True, False))
+@pytest.mark.parametrize("fake_return_ids", ([], [34, 8, 17, 2]))
+def test_tokenizer_bos_eos(tmp_path, use_bos_by_default, encode_use_bos, encode_use_eos, processor_returns_bos, fake_return_ids):
 
     # let `Tokenizers` create a proper (albeit empty) vocab in json format
     HFTokenizer(BPE()).save(str(tmp_path / "tokenizer.json"))
@@ -101,20 +103,24 @@ def test_tokenizer_bos_eos(tmp_path, use_bos_by_default, encode_use_bos, encode_
     tokenizer.eos_id = 1
     tokenizer.use_bos = use_bos_by_default
 
-    with mock.patch.object(tokenizer.processor, "encode", return_value=SimpleNamespace(**dict(ids=[34, 8, 17, 2]))):
+    if processor_returns_bos:
+        fake_return_ids = [tokenizer.bos_id] + fake_return_ids
+    fake_return_ids = SimpleNamespace(**dict(ids=fake_return_ids))
+
+    with mock.patch.object(tokenizer.processor, "encode", return_value=fake_return_ids):
         tokens = tokenizer.encode("Hello world", bos=encode_use_bos, eos=encode_use_eos).tolist()
 
     if encode_use_bos or (encode_use_bos is None and use_bos_by_default):
         assert tokens[0] == tokenizer.bos_id
     else:
-        assert tokens[0] != tokenizer.bos_id
+        assert not tokens or tokens[0] != tokenizer.bos_id
 
     if encode_use_eos:
         assert tokens[-1] == tokenizer.eos_id
     else:
-        assert tokens[-1] != tokenizer.eos_id
+        assert not tokens or tokens[-1] != tokenizer.eos_id
 
-    # both `bos` and `eos` should either not be found or occure only once at the begging (bos)
+    # both `bos` and `eos` should either not be found or occur only once at the begging (bos)
     # or at the end (eos) of the tokens sequence
     assert max([id for id, token in enumerate(tokens) if token == tokenizer.bos_id], default=0) == 0
     assert max([id for id, token in enumerate(tokens[::-1]) if token == tokenizer.eos_id], default=0) == 0
