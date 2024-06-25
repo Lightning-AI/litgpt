@@ -77,6 +77,10 @@ class Tokenizer:
             return False
         with open(tokenizer_config_path, encoding="utf-8") as fp:
             config = json.load(fp)
+        # for LlaMA-3 tokenizer there is no `add_bos_token` at all and `tokenizer_class` is only
+        # `PreTrainedTokenizerFast`
+        if checkpoint_dir.stem.startswith("Meta-Llama-3"):
+            return True
         if "add_bos_token" in config:
             return config["add_bos_token"]
         # if `add_bos_token` isn't in the config file, but LLaMA tokenizer is used - return True.
