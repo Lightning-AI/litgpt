@@ -620,6 +620,51 @@ litgpt finetune \
 
 &nbsp;
 
+----
+
+# Project highlights
+
+LitGPT powers many great AI projects, initiatives, challenges and of course enterprises. Please submit a pull request to be considered for a feature.   
+
+<details>
+  <summary>📊 SAMBA: Simple Hybrid State Space Models for Efficient Unlimited Context Language Modeling</summary>
+
+The [Samba](https://github.com/microsoft/Samba) project by researchers at Microsoft is built on top of the LitGPT code base and combines state space models with sliding window attention, which outperforms pure state space models.
+
+</details>
+
+<details>
+  <summary>🏆 NeurIPS 2023 Large Language Model Efficiency Challenge: 1 LLM + 1 GPU + 1 Day</summary>
+
+The LitGPT repository was the official starter kit for the [NeurIPS 2023 LLM Efficiency Challenge](https://llm-efficiency-challenge.github.io), which is a competition focused on finetuning an existing non-instruction tuned LLM for 24 hours on a single GPU.
+
+</details>
+
+<details>
+  <summary>🦙 TinyLlama: An Open-Source Small Language Model</summary>
+
+
+LitGPT powered the [TinyLlama project](https://github.com/jzhang38/TinyLlama) and [TinyLlama: An Open-Source Small Language Model](https://arxiv.org/abs/2401.02385) research paper.
+
+</details>
+
+<details>
+  <summary>🍪 MicroLlama: MicroLlama-300M</summary>
+
+[MicroLlama](https://github.com/keeeeenw/MicroLlama) is a 300M Llama model pretrained on 50B tokens powered by TinyLlama and LitGPT.
+</details>
+
+<details>
+  <summary>🔬 Pre-training Small Base LMs with Fewer Tokens</summary>
+
+The research paper ["Pre-training Small Base LMs with Fewer Tokens"](https://arxiv.org/abs/2404.08634), which utilizes LitGPT, develops smaller base language models by inheriting a few transformer blocks from larger models and training on a tiny fraction of the data used by the larger models. It demonstrates that these smaller models can perform comparably to larger models despite using significantly less training data and resources.
+
+</details>
+
+&nbsp;
+
+----
+
 # Community
 
 We welcome all individual contributors, regardless of their level of experience or hardware. Your contributions are valuable, and we are excited to see what you can accomplish in this collaborative and supportive environment.
@@ -643,44 +688,9 @@ We welcome all individual contributors, regardless of their level of experience 
 
 &nbsp;
 
+----
 
-## Projects using LitGPT
-
-Check out the projects below that use and build on LitGPT. If you have a project you'd like to add to this section, please don't hesitate to open a pull request.
-
-&nbsp;
-
-📊 **SAMBA: Simple Hybrid State Space Models for Efficient Unlimited Context Language Modeling**
-
-The [Samba](https://github.com/microsoft/Samba) project by researchers at Microsoft is built on top of the LitGPT code base and combines state space models with sliding window attention, which outperforms pure state space models.
-
-&nbsp;
-
-**🏆 NeurIPS 2023 Large Language Model Efficiency Challenge: 1 LLM + 1 GPU + 1 Day**
-
-The LitGPT repository was the official starter kit for the [NeurIPS 2023 LLM Efficiency Challenge](https://llm-efficiency-challenge.github.io), which is a competition focused on finetuning an existing non-instruction tuned LLM for 24 hours on a single GPU.
-
-&nbsp;
-
-**🦙 TinyLlama: An Open-Source Small Language Model**
-
-LitGPT powered the [TinyLlama project](https://github.com/jzhang38/TinyLlama) and [TinyLlama: An Open-Source Small Language Model](https://arxiv.org/abs/2401.02385) research paper.
-
-&nbsp;
-
-**🍪 MicroLlama: MicroLlama-300M**
-
-[MicroLlama](https://github.com/keeeeenw/MicroLlama) is a 300M Llama model pretrained on 50B tokens powered by TinyLlama and LitGPT.
-
-&nbsp;
-
-**🔬 Pre-training Small Base LMs with Fewer Tokens**
-
-The research paper ["Pre-training Small Base LMs with Fewer Tokens"](https://arxiv.org/abs/2404.08634), which utilizes LitGPT, develops smaller base language models by inheriting a few transformer blocks from larger models and training on a tiny fraction of the data used by the larger models. It demonstrates that these smaller models can perform comparably to larger models despite using significantly less training data and resources.
-
-&nbsp;
-
-## Acknowledgements
+### Acknowledgements
 
 This implementation extends on [Lit-LLaMA](https://github.com/lightning-AI/lit-llama) and [nanoGPT](https://github.com/karpathy/nanoGPT), and it's **powered by [Lightning Fabric](https://lightning.ai/docs/fabric/stable/) ⚡**.
 
@@ -690,14 +700,11 @@ This implementation extends on [Lit-LLaMA](https://github.com/lightning-AI/lit-l
 - [@Microsoft](https://github.com/microsoft) for [LoRA](https://github.com/microsoft/LoRA)
 - [@tridao](https://github.com/tridao) for [Flash Attention 2](https://github.com/Dao-AILab/flash-attention)
 
-&nbsp;
-
-## License
+### License
 
 LitGPT is released under the [Apache 2.0](https://github.com/Lightning-AI/litgpt/blob/main/LICENSE) license.
 
-
-## Citation
+### Citation
 
 If you use LitGPT in your research, please cite the following work:
 
