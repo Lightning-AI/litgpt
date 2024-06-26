@@ -3,13 +3,14 @@
 
 # ⚡ LitGPT
 
-**Load, finetune, pretrain, evaluate, and deploy 20+ LLMs on your own data**
+**Use, finetune, pretrain, evaluate, and deploy 20+ LLMs on your own data**
 
-Uses the latest state-of-the-art techniques:
+High-performance large-language models (LLMs) powered by the latest state-of-the-art techniques:
 
 <pre>
-✅ Scratch implementations  ✅ flash attention  ✅ fp4/8/16/32        ✅ LoRA, QLoRA, Adapter
-✅ No abstractions          ✅ FSDP             ✅ 1-1000+ GPUs/TPUs  ✅ 20+ LLMs            
+✅ From scratch implementations  ✅ No abstractions    ✅ Beginner friendly   
+✅ flash attention               ✅ fp4/8/16/32        ✅ LoRA, QLoRA, Adapter
+✅ FSDP                          ✅ 1-1000+ GPUs/TPUs  ✅ 20+ LLMs            
 </pre>
 
 
@@ -27,7 +28,7 @@ Uses the latest state-of-the-art techniques:
   <a href="#deploy-an-llm">Deploy</a> •    
     <a href="#evaluate-an-llm">Evaluate</a> •
   <a href="#state-of-the-art-features">Features</a> •
-  <a href="#training-recipes">Training recipes (YAML)</a> •
+  <a href="#training-recipes">Recipes (YAML)</a> •
     <a href="#tutorials">Tutorials</a>
 </p>
 
@@ -41,17 +42,17 @@ Uses the latest state-of-the-art techniques:
 
 </div>
 
-# Load, finetune, pretrain, deploy LLMs Lightning fast ⚡⚡
-LitGPT is a library of **lightning-fast** large language model (LLMs) **implemented from scratch** (Apache 2.0) with **no abstractions**.   
+# Use, finetune, pretrain, deploy LLMs Lightning fast ⚡⚡
+Easily work with 20+ LLMs. Every LLM is **implemented from scratch** with **no abstractions** and **full control**. 
 
-We reimplemented all model architectures and training recipes from scratch for 4 reasons:
+As a result, LitGPT large-language-models (LLMs) are blazing fast, minimal, and performant at enterprise scale.
 
 ✅ Apache 2.0 compliance to enable unlimited enterprise use.    
 ✅ Easy debugging/hacking with no abstraction layers and single file implementations.    
 ✅ Optimized model architectures to maximize performance, reduce costs, and speed up training.    
 ✅ Highly-optimized [recipe configs](#training-recipes) we have tested at enterprise scale.    
 
-In addition to a simple Python API, it offers a command-line tool designed to easily [finetune](#finetune-an-llm), [pretrain](#pretrain-an-llm), [evaluate](#use-an-llm), and [deploy](#deploy-an-llm) [20+ LLMs](#choose-from-20-llms) **on your own data**. It features highly-optimized [training recipes](#training-recipes) for the world's most powerful open-source large language models (LLMs).
+Use the Python API to load and use any model. Use the command-line interface to run advanced workflows to [finetune](#finetune-an-llm), [pretrain](#pretrain-an-llm), [evaluate](#use-an-llm), and [deploy](#deploy-an-llm) [20+ LLMs](#choose-from-20-llms) **on your own data**. Workflows feature highly-optimized [training recipes](#training-recipes) for the world's most powerful open-source large language models (LLMs).
 
 &nbsp;
 
