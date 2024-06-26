@@ -18,6 +18,7 @@ from litgpt.generate.base import next_token
 from litgpt.prompts import has_prompt_style, load_prompt_style
 from litgpt.scripts.merge_lora import merge_lora
 from litgpt.utils import (
+    check_file_size_on_cpu_and_warn,
     check_valid_checkpoint_dir,
     extend_checkpoint_dir,
     get_default_supported_precision,
@@ -221,6 +222,7 @@ def main(
     fabric = L.Fabric(devices=1, precision=precision, plugins=plugins)
 
     checkpoint_path = checkpoint_dir / "lit_model.pth"
+    check_file_size_on_cpu_and_warn(checkpoint_path, fabric.device)
 
     # Merge if this is a raw LoRA checkpoint
     if (checkpoint_dir / "lit_model.pth.lora").is_file() and not checkpoint_path.is_file():
