@@ -5,7 +5,7 @@ import os
 from contextlib import redirect_stderr
 from io import StringIO
 from pathlib import Path
-from tempfile import TemporaryDirectory
+from tempfile import TemporaryDirectory, NamedTemporaryFile
 from unittest import mock
 
 import pytest
@@ -431,22 +431,25 @@ def test_extend_checkpoint_dir_dont_exist(input_path, expected):
 
 def test_file_size_below_limit_on_cpu():
     # Test file size below limit on CPU
-    with mock.patch("os.path.getsize", return_value=4_000_000_000):
-        size = check_file_size_on_cpu_and_warn("fake_path.pth", "cpu")
-        assert size == 4_000_000_000
+    with NamedTemporaryFile() as temp_file:
+        with mock.patch("os.path.getsize", return_value=4_000_000_000):
+            size = check_file_size_on_cpu_and_warn(temp_file.name, "cpu")
+            assert size == 4_000_000_000
 
 
 def test_file_size_above_limit_on_cpu():
     # Test file size above limit on CPU
-    with mock.patch("os.path.getsize", return_value=4_600_000_000):
-        with pytest.warns(UserWarning) as record:
-            size = check_file_size_on_cpu_and_warn("fake_path.pth", "cpu")
-        assert size == 4_600_000_000
-        assert "over 4.2 GB" in str(record[0].message)
+    with NamedTemporaryFile() as temp_file:
+        with mock.patch("os.path.getsize", return_value=4_600_000_000):
+            with pytest.warns(UserWarning) as record:
+                size = check_file_size_on_cpu_and_warn(temp_file.name, "cpu")
+            assert size == 4_600_000_000
+            assert "over 4.2 GB" in str(record[0].message)
 
 
 def test_file_size_above_limit_on_gpu():
     # Test file size above limit on GPU should not warn
-    with mock.patch("os.path.getsize", return_value=4_600_000_000):
-        size = check_file_size_on_cpu_and_warn("fake_path.pth", "gpu")
-        assert size == 4_600_000_000
+    with NamedTemporaryFile() as temp_file:
+        with mock.patch("os.path.getsize", return_value=4_600_000_000):
+            size = check_file_size_on_cpu_and_warn(temp_file.name, "gpu")
+            assert size == 4_600_000_000
