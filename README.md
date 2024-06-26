@@ -23,8 +23,9 @@ Uses the latest state-of-the-art techniques:
   <a href="https://lightning.ai/">Lightning AI</a> •
   <a href="#quick-start">Quick start</a> •
   <a href="#choose-from-20-llms">Models</a> •
-  <a href="#finetune-an-llm">Finetune/pretrain</a> •   
-    <a href="#deploy-an-llm">Deploy</a> •
+  <a href="#finetune-an-llm">Finetune/pretrain</a> • 
+  <a href="#deploy-an-llm">Deploy</a> •    
+    <a href="#evaluate-an-llm">Evaluate</a> •
   <a href="#state-of-the-art-features">Features</a> •
   <a href="#training-recipes">Training recipes (YAML)</a> •
     <a href="#tutorials">Tutorials</a>
