@@ -3,11 +3,11 @@
 
 # ⚡ LitGPT
 
-**Use, finetune, pretrain, evaluate, and deploy 20+ LLMs on your own data**
-
-High-performance large-language models (LLMs) powered by the latest state-of-the-art techniques:
+**20+ high-performance LLM implementations with recipes to pretrain, finetune, deploy at scale.**
 
 <pre>
+Some of the state of the art features supported:  
+      
 ✅ From scratch implementations  ✅ No abstractions    ✅ Beginner friendly   
 ✅ flash attention               ✅ fp4/8/16/32        ✅ LoRA, QLoRA, Adapter
 ✅ FSDP                          ✅ 1-1000+ GPUs/TPUs  ✅ 20+ LLMs            
