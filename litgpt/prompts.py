@@ -315,7 +315,7 @@ class Phi3(PromptStyle):
             "<|user|>\n"
             "You are a helpful AI assistant.<|end|>\n"
             "<|user|>\n"
-            "{prompt}<|end|>\n"
+            f"{prompt}<|end|>\n"
             "<|assistant|>"
         )
 
@@ -404,8 +404,8 @@ def model_name_to_prompt_style(model_name: str) -> PromptStyle:
         return Phi1()
     if re.search("phi-2", model_name):
         return Phi2()
-    # if re.search("Phi-3", model_name):
-    #     return Phi3()
+    if re.search("Phi-3", model_name):
+        return Phi3()
     if re.search(r"tiny-llama.*chat", model_name):
         return TinyLlama()
     if re.search(r"(Code)?Gemma.*-it", model_name):
