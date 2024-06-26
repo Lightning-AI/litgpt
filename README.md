@@ -43,7 +43,9 @@ Some of the state of the art features supported:
 </div>
 
 # Use, finetune, pretrain, deploy LLMs Lightning fast ⚡⚡
-**Easily work with 20+ LLMs:** Every LLM is implemented from scratch with **no abstractions** and **full control**, making them blazing fast, minimal, and performant at an enterprise scale.
+Easily work with 20+ LLMs.  
+
+Every LLM is implemented from scratch with **no abstractions** and **full control**, making them blazing fast, minimal, and performant at enterprise scale.
 
 **Key features**:
 
@@ -72,18 +74,16 @@ print(text)
 # Corrected Sentence: Every summer, the family enjoys a vacation to the mountains.       
 ```
 
+&nbsp;
+
 ✅ Optimized for fast inference    
 ✅ Quantization    
 ✅ Runs on low-memory GPUs    
 ✅ No layers of internal abstractions    
 ✅ Optimized for production scale   
 
-&nbsp;
-
 <details>
   <summary>Advanced install options</summary>
-
-&nbsp;
 
 Install from source:
 
@@ -100,7 +100,7 @@ pip install -e '.[all]'
 
 ---
 # Choose from 20+ LLMs
-LitGPT has 🤯 **custom, from-scratch implementations** of [20+ LLMs](tutorials/download_model_weights.md) without layers of abstraction:
+Every model is written from scratch to maximize performance and remove layers of abstraction:   
 
 | Model | Model size | Author | Reference |
 |----|----|----|----|
