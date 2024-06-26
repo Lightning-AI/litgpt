@@ -49,7 +49,7 @@ Some of the state of the art features supported:
 
 ✅ **Enterprise ready -** Apache 2.0 for unlimited enterprise use.    
 ✅ **Developer friendly -** Easy debugging with no abstraction layers and single file implementations.    
-✅ **Optimized performance -** Architectures designed to maximize performance, reduce costs, and speed up training.    
+✅ **Optimized performance -** Models designed to maximize performance, reduce costs, and speed up training.    
 ✅ **Proven recipes -** Highly-optimized training/finetuning recipes tested at enterprise scale.    
 
 Use the Python API to load any model, or the command-line interface for advanced workflows to [finetune](#finetune-an-llm), [pretrain](#pretrain-an-llm), [evaluate](#use-an-llm), and [deploy](#deploy-an-llm) LLMs on your own data. Our workflows feature highly-optimized [training recipes](#training-recipes) for the world's most powerful open-source large language models.
