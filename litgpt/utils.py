@@ -552,7 +552,7 @@ def check_file_size_on_cpu_and_warn(checkpoint_path, device, size_limit=4_509_71
     Checks the file size and raises a warning if it exceeds the size_limit.
     The default size limit is 4.2 GB, the size of TinyLlama 1.1B: 4.2 * 1024 * 1024 * 1024 = 4_509_715_660
     """
-    size = None
+    size = 0.0
     if os.path.exists(checkpoint_path):
         size = os.path.getsize(checkpoint_path)
         if size > size_limit and str(device) == "cpu":
