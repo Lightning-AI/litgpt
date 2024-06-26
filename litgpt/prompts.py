@@ -386,7 +386,7 @@ def model_name_to_prompt_style(model_name: str) -> PromptStyle:
         return Platypus()
     if re.search("Nous-Hermes", model_name):
         return NousResearch()
-    if re.search("CodeLlama|Mistral.*Instruct", model_name):
+    if re.search("CodeLlama|Mi[sx]tral.*Instruct", model_name):
         return CodeLlama()
     if re.search("phi-1", model_name):
         return Phi1()
