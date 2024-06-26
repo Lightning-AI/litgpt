@@ -43,16 +43,16 @@ Some of the state of the art features supported:
 </div>
 
 # Use, finetune, pretrain, deploy LLMs Lightning fast ⚡⚡
-Easily work with 20+ LLMs. Every LLM is **implemented from scratch** with **no abstractions** and **full control**. 
+**Easily work with 20+ LLMs:** Every LLM is implemented from scratch with **no abstractions** and **full control**, making them blazing fast, minimal, and performant at an enterprise scale.
 
-As a result, LitGPT large-language-models (LLMs) are blazing fast, minimal, and performant at enterprise scale.
+**Key features**:
 
-✅ Apache 2.0 compliance to enable unlimited enterprise use.    
-✅ Easy debugging/hacking with no abstraction layers and single file implementations.    
-✅ Optimized model architectures to maximize performance, reduce costs, and speed up training.    
-✅ Highly-optimized [recipe configs](#training-recipes) we have tested at enterprise scale.    
+✅ **Enterprise ready -** Apache 2.0 for unlimited enterprise use.    
+✅ **Developer friendly -** Easy debugging with no abstraction layers and single file implementations.    
+✅ **Optimized performance -** Architectures designed to maximize performance, reduce costs, and speed up training.    
+✅ **Proven recipes -** Highly-optimized training/finetuning recipes tested at enterprise scale.    
 
-Use the Python API to load and use any model. Use the command-line interface to run advanced workflows to [finetune](#finetune-an-llm), [pretrain](#pretrain-an-llm), [evaluate](#use-an-llm), and [deploy](#deploy-an-llm) [20+ LLMs](#choose-from-20-llms) **on your own data**. Workflows feature highly-optimized [training recipes](#training-recipes) for the world's most powerful open-source large language models (LLMs).
+Use the Python API to load any model, or the command-line interface for advanced workflows to [finetune](#finetune-an-llm), [pretrain](#pretrain-an-llm), [evaluate](#use-an-llm), and [deploy](#deploy-an-llm) LLMs on your own data. Our workflows feature highly-optimized [training recipes](#training-recipes) for the world's most powerful open-source large language models.
 
 &nbsp;
 
