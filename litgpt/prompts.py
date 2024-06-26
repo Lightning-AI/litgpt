@@ -311,13 +311,8 @@ class Phi2(PromptStyle):
 
 class Phi3(PromptStyle):
     def apply(self, prompt: str, **kwargs: str) -> str:
-        return (
-            "<|user|>\n"
-            "You are a helpful AI assistant.<|end|>\n"
-            "<|user|>\n"
-            f"{prompt}<|end|>\n"
-            "<|assistant|>"
-        )
+        return f'<s><|user|>\n{prompt}<|end|>\n<|assistant|>\n'
+
 
 
 class TinyLlama(PromptStyle):
