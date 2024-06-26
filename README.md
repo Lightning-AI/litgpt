@@ -72,11 +72,6 @@ print(text)
 # Corrected Sentence: Every summer, the family enjoys a vacation to the mountains.       
 ```
 
-[Explore the full Python API docs](tutorials/python-api.md).
-
-&nbsp;
-&nbsp;
-
 ✅ Optimized for fast inference    
 ✅ Quantization    
 ✅ Runs on low-memory GPUs    
@@ -99,10 +94,11 @@ pip install -e '.[all]'
 ```
 </details>
 
----
+[Explore the full Python API docs](tutorials/python-api.md).
 
 &nbsp;
 
+---
 # Choose from 20+ LLMs
 LitGPT has 🤯 **custom, from-scratch implementations** of [20+ LLMs](tutorials/download_model_weights.md) without layers of abstraction:
 
@@ -156,15 +152,15 @@ LitGPT has 🤯 **custom, from-scratch implementations** of [20+ LLMs](tutorials
 
 </details>
 
----
-
 &nbsp;
+
+---
 
 # Advanced workflows
 Use the command line interface to run advanced workflows such as pretraining or finetuning on your own data.   
 
-## All commands   
-After installing LitGPT, select the model and action you want to take on that model (finetune, pretrain, evaluate, deploy, etc...):
+## All workflows   
+After installing LitGPT, select the model and workflow to run (finetune, pretrain, evaluate, deploy, etc...):
 
 ```bash
 # ligpt [action] [model]
@@ -178,12 +174,20 @@ litgpt  serve     meta-llama/Meta-Llama-3-8B-Instruct
 
 &nbsp;
 
-### Finetune an LLM
-[Finetune](tutorials/finetune.md) a model to specialize it on your own custom dataset:
+---- 
 
+## Finetune an LLM
+
+<div align="center">
 <a target="_blank" href="https://lightning.ai/lightning-ai/studios/litgpt-finetune">
-  <img src="https://pl-bolts-doc-images.s3.us-east-2.amazonaws.com/app-2/studio-badge.svg" alt="Open In Studio"/>
+  <img src="https://pl-bolts-doc-images.s3.us-east-2.amazonaws.com/app-2/run-on-studio.svg" height="36px" alt="Run on Studios"/>
 </a>
+</div>
+
+&nbsp;
+
+Finetuning is the process of taking a pretrained AI model and further training it on a smaller, specialized dataset tailored to a specific task or application.
+
 
 &nbsp;
 
@@ -204,15 +208,26 @@ litgpt finetune microsoft/phi-2 \
 litgpt chat out/custom-model/final
 ```
 
+[Read the full finetuning docs](tutorials/finetune.md)
+
 &nbsp;
 
-### Pretrain an LLM
+---- 
 
-[Train an LLM from scratch](tutorials/pretrain.md) on your own data via pretraining:
+## Pretrain an LLM
 
+<div align="center">
 <a target="_blank" href="https://lightning.ai/lightning-ai/studios/litgpt-pretrain">
-<img src="https://pl-bolts-doc-images.s3.us-east-2.amazonaws.com/app-2/studio-badge.svg"; alt="Open In Studio"/>
+  <img src="https://pl-bolts-doc-images.s3.us-east-2.amazonaws.com/app-2/run-on-studio.svg" height="36px" alt="Run on Studios"/>
 </a>
+</div>
+
+&nbsp;
+
+Pretraining is the process of teaching an AI model by exposing it to a large amount of data before it is fine-tuned for specific tasks.
+
+<details>
+  <summary>Show code:</summary>
 
 &nbsp;
 
@@ -233,19 +248,34 @@ litgpt pretrain EleutherAI/pythia-160m \
   --train.max_tokens 10_000_000 \
   --out_dir out/custom-model
 
-# 3) Chat with the model
+# 3) Test the model
 litgpt chat out/custom-model/final
 ```
+</details>
+
+[Read the full pretraining docs](tutorials/pretrain.md)
 
 &nbsp;
 
-### Continue pretraining an LLM
+---- 
 
-[Continued pretraining](tutorials/pretrain.md#continued-pretraining-on-custom-data) is another way of finetuning that specializes an already pretrained model by training on custom data:
+## Continue pretraining an LLM
 
+<div align="center">
+<a target="_blank" href="https://lightning.ai/lightning-ai/studios/litgpt-continue-pretraining">
+  <img src="https://pl-bolts-doc-images.s3.us-east-2.amazonaws.com/app-2/run-on-studio.svg" height="36px" alt="Run on Studios"/>
+</a>
+</div>
+
+&nbsp;
+
+Continued pretraining is another way of finetuning that specializes an already pretrained model by training on custom data:
+
+<details>
+  <summary>Show code:</summary>
 
 <a target="_blank" href="https://lightning.ai/lightning-ai/studios/litgpt-continue-pretraining">
-<img src="https://pl-bolts-doc-images.s3.us-east-2.amazonaws.com/app-2/studio-badge.svg"; alt="Open In Studio"/>
+  <img src="https://pl-bolts-doc-images.s3.us-east-2.amazonaws.com/app-2/run-on-studio.svg" height="36px" alt="Run on Studios"/>
 </a>
 
 &nbsp;
@@ -267,30 +297,50 @@ litgpt pretrain EleutherAI/pythia-160m \
   --train.max_tokens 10_000_000 \
   --out_dir out/custom-model
 
-# 3) Chat with the model
+# 3) Test the model
 litgpt chat out/custom-model/final
 ```
 
+</details>
+
+[Read the full continued pretraining docs](tutorials/pretrain.md#continued-pretraining-on-custom-data)
+
 &nbsp;
 
-### Evaluate an LLM
+---- 
 
-If you want to [evaluate](tutorials/evaluation.md) a downloaded, finetuned, or pretrained LLM on popular benchmark tasks, such as MMLU and Truthful QA, run the following command:
+## Evaluate an LLM
+Evaluate an LLM to test its performance on various tasks to see how well it understands and generates text. Simply put, we can evaluate things like how well would it do in college-level chemistry, coding, etc... (MMLU, Truthful QA, etc...)
+
+<details>
+  <summary>Show code:</summary>
 
 ```bash
 litgpt evaluate microsoft/phi-2 --tasks 'truthfulqa_mc2,mmlu'
 ```
 
+</details>
+
 [Read the full evaluation docs](tutorials/evaluation.md).
 
 &nbsp;
 
-### Deploy an LLM
-Once you're ready to [deploy](tutorials/deploy.md) a finetuned LLM, run this command:
+---- 
 
+## Deploy an LLM
+
+<div align="center">
 <a target="_blank" href="https://lightning.ai/lightning-ai/studios/litgpt-serve">
-  <img src="https://pl-bolts-doc-images.s3.us-east-2.amazonaws.com/app-2/studio-badge.svg" alt="Open In Studio"/>
+  <img src="https://pl-bolts-doc-images.s3.us-east-2.amazonaws.com/app-2/deploy-on-studios.svg" height="36px" alt="Deploy on Studios"/>
 </a>
+</div>
+
+&nbsp;
+
+Deploy a pretrained or finetune LLM to use it in real-world applications. Deploy, automatically sets up a web server that can be accessed by a website or app.   
+
+<details>
+  <summary>Show code:</summary>
 
 &nbsp;
 
@@ -313,6 +363,7 @@ response = requests.post(
 )
 print(response.json()["output"])
 ```
+</details>
 
 [Read the full deploy docs](tutorials/deploy.md).
 
@@ -320,14 +371,26 @@ print(response.json()["output"])
 
 ----
 
-###  Use an LLM for inference
+##  Test an LLM
 
-Use LLMs for [inference](tutorials/deploy.md) to test its chatting capabilities, run evaluations, or extract embeddings, etc.
+<div align="center">
+<a target="_blank" href="https://lightning.ai/lightning-ai/studios/litgpt-chat">
+  <img src="https://pl-bolts-doc-images.s3.us-east-2.amazonaws.com/app-2/run-on-studio.svg" height="36px" alt="Run on Studios"/>
+</a>
+</div>
+
+&nbsp;
+    
+Test how well the model works via an interactive chat. Use the `chat` command to chat, extract embeddings, etc...
+
+<details>
+  <summary>Show code:</summary>
+</details>
+
 Here's an example showing how to use the Phi-2 LLM.
 
-<a target="_blank" href="https://lightning.ai/lightning-ai/studios/litgpt-chat">
-  <img src="https://pl-bolts-doc-images.s3.us-east-2.amazonaws.com/app-2/studio-badge.svg" alt="Open In Studio"/>
-</a>
+<details>
+  <summary>Show code:</summary>
 
 &nbsp;
 
@@ -345,10 +408,14 @@ litgpt chat microsoft/phi-2
 ```
 
 The download of certain models requires an additional access token. You can read more about this in the [download](tutorials/download_model_weights.md#specific-models-and-access-tokens) documentation. 
-For more information on the different inference options, refer to the [inference](tutorials/inference.md) tutorial.
+
+</details>
+
+[Read the full chat docs](tutorials/inference.md).
+
+&nbsp;
 
 ----
-&nbsp;
 
 # State-of-the-art features
 
