@@ -30,11 +30,15 @@ Uses the latest state-of-the-art techniques:
     <a href="#tutorials">Tutorials</a>
 </p>
 
-</div>
+&nbsp;
+  
+<a target="_blank" href="https://lightning.ai/lightning-ai/studios/litgpt-quick-start">
+  <img src="https://pl-bolts-doc-images.s3.us-east-2.amazonaws.com/app-2/get-started-badge.svg" height="36px" alt="Get started"/>
+</a>
 
 &nbsp;
-<img src="https://pl-bolts-doc-images.s3.us-east-2.amazonaws.com/GithubLitGPTDAG2.png" alt="LitGPT steps" width="auto"/>
-&nbsp;
+
+</div>
 
 # Load, finetune, pretrain, deploy LLMs Lightning fast ⚡⚡
 LitGPT is a library of **lightning-fast** large language model (LLMs) **implemented from scratch** (Apache 2.0) with **no abstractions**.   
@@ -66,8 +70,7 @@ print(text)
 # Corrected Sentence: Every summer, the family enjoys a vacation to the mountains.       
 ```
 
-> [!NOTE]
-> **[Explore the Python API options](tutorials/python-api.md)**.
+[Explore the full Python API docs](tutorials/python-api.md).
 
 &nbsp;
 &nbsp;
@@ -276,8 +279,7 @@ If you want to [evaluate](tutorials/evaluation.md) a downloaded, finetuned, or p
 litgpt evaluate microsoft/phi-2 --tasks 'truthfulqa_mc2,mmlu'
 ```
 
-> [!NOTE]
-> **[Read the evaluation docs](tutorials/evaluation.md)** for more options.
+[Read the full evaluation docs](tutorials/evaluation.md).
 
 &nbsp;
 
@@ -310,9 +312,7 @@ response = requests.post(
 print(response.json()["output"])
 ```
 
-
-> [!NOTE]
-> **[Read the full docs](tutorials/deploy.md)**.
+[Read the full deploy docs](tutorials/deploy.md).
 
 &nbsp;
 
