@@ -157,7 +157,20 @@ LitGPT has 🤯 **custom, from-scratch implementations** of [20+ LLMs](tutorials
 ---
 
 # Advanced workflows
+
+<p align="center">
+  <a href="#finetune-an-llm">Finetune</a> • 
+  <a href="#pretrain-an-llm">Pretrain</a> • 
+  <a href="#continue-pretraining-an-llm">Continued pretraining</a> •    
+    <a href="#evaluate-an-llm">Evaluate</a> •
+    <a href="#deploy-an-llm">Deploy</a> •
+    <a href="#test-an-llm">Test</a>
+</p>
+
+&nbsp;
+
 Use the command line interface to run advanced workflows such as pretraining or finetuning on your own data.   
+
 
 ## All workflows   
 After installing LitGPT, select the model and workflow to run (finetune, pretrain, evaluate, deploy, etc...):
@@ -274,10 +287,6 @@ Continued pretraining is another way of finetuning that specializes an already p
 <details>
   <summary>Show code:</summary>
 
-<a target="_blank" href="https://lightning.ai/lightning-ai/studios/litgpt-continue-pretraining">
-  <img src="https://pl-bolts-doc-images.s3.us-east-2.amazonaws.com/app-2/run-on-studio.svg" height="36px" alt="Run on Studios"/>
-</a>
-
 &nbsp;
 
 ```bash
@@ -383,16 +392,12 @@ print(response.json()["output"])
     
 Test how well the model works via an interactive chat. Use the `chat` command to chat, extract embeddings, etc...
 
-<details>
-  <summary>Show code:</summary>
-</details>
-
-Here's an example showing how to use the Phi-2 LLM.
 
 <details>
   <summary>Show code:</summary>
 
 &nbsp;
+Here's an example showing how to use the Phi-2 LLM.
 
 ```bash
 # 1) List all available models in litgpt
