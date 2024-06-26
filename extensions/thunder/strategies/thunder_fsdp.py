@@ -31,8 +31,7 @@ from torch import Tensor
 from torch.nn import Module
 from torch.optim import Optimizer
 from typing_extensions import override
-
-from .utils import _validate_executors
+from extensions.thunder.strategies.thunder_ddp import _ThunderDataParalellBackwardSyncControl
 
 if TYPE_CHECKING:
     from thunder import Executor
@@ -122,8 +121,9 @@ class ThunderFSDPStrategy(ParallelStrategy, _Sharded):
         if not jit and executors is not None:
             raise ValueError(f"Passing executors={executors} doesn't have an effect with `jit={jit}`")
         self.jit = jit
-        self.executors = _validate_executors(executors)
+        self.executors = executors
         self._state_dict_type = state_dict_type
+        self._backward_sync_control = _ThunderDataParalellBackwardSyncControl()
         self._fsdp_kwargs = kwargs
 
     @property

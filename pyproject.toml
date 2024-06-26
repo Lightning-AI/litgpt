@@ -1,6 +1,6 @@
 [project]
 name = "litgpt"
-version = "0.4.0.dev0"
+version = "0.4.2"
 description = "Hackable implementation of state-of-the-art open-source LLMs"
 authors = [
     { name = "Lightning AI", email = "contact@lightning.ai" },
@@ -30,16 +30,17 @@ test = [
     "transformers>=4.38.0",  # numerical comparisons
     "einops>=0.7.0",
     "protobuf>=4.23.4",
-    "lightning-thunder==0.2.0.dev20240404; python_version >= '3.10'",
+    "lightning-thunder==0.2.0.dev20240623; python_version >= '3.10'",
 ]
 all = [
     "bitsandbytes==0.42.0",      # quantization
     "sentencepiece>=0.2.0",      # llama-based models
     "tokenizers>=0.15.2",        # pythia, falcon, redpajama
     "requests>=2.31.0",          # litgpt.data
-    "litdata>=0.2.2",            # litgpt.data
-    "litserve>=0.1.0",           # litgpt.deploy
+    "litdata==0.2.6",            # litgpt.data
+    "litserve>=0.1.2",           # litgpt.deploy
     "zstandard>=0.22.0",         # litgpt.data.prepare_slimpajama.py
+    "numpy<2.0.0",               # PyTorch dependency; "pinned" until NumPy 2.0 is tested
     "pandas>=1.9.0",             # litgpt.data.prepare_starcoder.py
     "pyarrow>=15.0.2",           # litgpt.data.prepare_starcoder.py
     "tensorboard>=2.14.0",       # litgpt.pretrain

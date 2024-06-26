@@ -1,5 +1,6 @@
 # Copyright Lightning AI. Licensed under the Apache License 2.0, see LICENSE file.
 
+import re
 import subprocess
 import sys
 from contextlib import redirect_stderr, redirect_stdout
@@ -77,22 +78,19 @@ def test_main(fake_checkpoint_dir, monkeypatch, tensor_like):
         == [call(ANY, tensor_like, 53, temperature=2.0, top_k=2, top_p=0.9, eos_id=tokenizer_mock.return_value.eos_id)]
         * num_samples
     )
-    # only the generated result is printed to stdout
-    assert out.getvalue() == "foo bar baz\n" * num_samples
+    expected_output = "foo bar baz\n" * num_samples
+    # Allow for the config to be printed before the expected repeated strings.
+    pattern = rf".*^{re.escape(expected_output.strip())}$.*"
+    assert re.match(pattern, out.getvalue().strip(), re.DOTALL | re.MULTILINE)
 
     assert "'padded_vocab_size': 512, 'n_layer': 2, 'n_head': 4" in err.getvalue()
 
 
-@pytest.mark.parametrize("mode", ["file", "entrypoint"])
-def test_cli(mode):
-    if mode == "file":
-        cli_path = Path(__file__).parent.parent / "litgpt/generate/base.py"
-        args = [sys.executable, cli_path, "-h"]
-    else:
-        args = ["litgpt", "generate", "base", "-h"]
+def test_cli():
+    args = ["litgpt", "generate", "-h"]
     output = subprocess.check_output(args)
     output = str(output.decode())
-    assert "Generates text samples" in output
+    assert "Default generation option" in output
 
 
 @pytest.mark.parametrize("temperature", (0.0, 1.0, 0.5))
@@ -121,7 +119,9 @@ def test_generate_different_results_with_different_top_p():
     torch.manual_seed(123)
     input_idx = torch.randint(10, size=(1,))
 
+    torch.manual_seed(123)
     output1 = generate.generate(model, input_idx, 20, top_p=1.0)
+    torch.manual_seed(123)
     output2 = generate.generate(model, input_idx, 20, top_p=0.1)
 
     assert not torch.equal(output1, output2)

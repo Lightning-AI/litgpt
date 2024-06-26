@@ -9,7 +9,7 @@ from unittest.mock import Mock
 import pytest
 import torch
 import yaml
-from conftest import RunIf
+from tests.conftest import RunIf
 from lightning import Fabric
 from lightning.fabric.plugins.precision.bitsandbytes import _BITSANDBYTES_AVAILABLE, BitsandbytesPrecision
 from lightning.fabric.wrappers import _FabricOptimizer
@@ -69,12 +69,12 @@ def test_adapter_script(tmp_path, fake_checkpoint_dir, monkeypatch, alpaca_path)
 
     out_dir = tmp_path / "out"
     stdout = StringIO()
-    with redirect_stdout(stdout), mock.patch("sys.argv", ["adapter.py"]):
+    with redirect_stdout(stdout), mock.patch("sys.argv", ["adapter.py", str(fake_checkpoint_dir)]):
         module.setup(
+            fake_checkpoint_dir,
             data=Alpaca(
                 download_dir=alpaca_path.parent, file_name=alpaca_path.name, val_split_fraction=0.5, num_workers=0
             ),
-            checkpoint_dir=fake_checkpoint_dir,
             out_dir=out_dir,
             precision="32-true",
             train=TrainArgs(global_batch_size=1, save_interval=2, epochs=1, max_steps=6, micro_batch_size=1),
@@ -157,14 +157,14 @@ def test_adapter_bitsandbytes(monkeypatch, tmp_path, fake_checkpoint_dir, alpaca
     monkeypatch.setattr(module, "fit", train_mock)
 
     stdout = StringIO()
-    with redirect_stdout(stdout), mock.patch("sys.argv", ["adapter.py"]):
+    with redirect_stdout(stdout), mock.patch("sys.argv", ["adapter.py", str(fake_checkpoint_dir)]):
         module.setup(
+            fake_checkpoint_dir,
             data=Alpaca(
                 download_dir=alpaca_path.parent, file_name=alpaca_path.name, val_split_fraction=0.5, num_workers=0
             ),
             precision="16-true",
             quantize="bnb.nf4-dq",
-            checkpoint_dir=fake_checkpoint_dir,
             out_dir=tmp_path,
         )
 

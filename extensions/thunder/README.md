@@ -461,12 +461,12 @@ from extensions.thunder.strategies import ThunderFSDPStrategy, ThunderDDPStrateg
 strategy = ThunderFSDPStrategy(
     sharding_strategy="ZERO3",
     bucketing_strategy="BLOCK",
-    executors=("sdpa", "torchcompile", "nvfuser", "torch"),
+    executors=("sdpa", "torchcompile_cat", "nvfuser", "torch"),
     state_dict_type="full",
 )
 
 # replicated data parallel
-strategy = ThunderDDPStrategy(executors=("sdpa", "torchcompile", "nvfuser", "torch"))
+strategy = ThunderDDPStrategy(executors=("sdpa", "torchcompile_cat", "nvfuser", "torch"))
 
 fabric = L.Fabric(devices=devices, strategy=strategy)
 fabric.launch()
@@ -482,12 +482,10 @@ Thunder allows you to define a priority list of executors that can map operators
 
 ```python
 import thunder
-from thunder.executors.sdpaex import sdpa_ex
-from thunder.executors.torch_compile import torch_compile_executor
 
 model = thunder.jit(
     model,
-    executors=[sdpa_ex, torch_compile_executor, thunder.nvfuser_executor, thunder.pytorch_executor]
+    executors=["sdpa", "torchcompile_cat", "nvfuser", "torch"]
 )
 ```
 
@@ -507,11 +505,11 @@ We can enable this executor by passing it to the list of executors available. Th
 `NvFuser` creates its fusion regions.
 
 ```python
-from unsloth.executor import unsloth_ex
+import thunder
 
 model = thunder.jit(
     model,
-    executors=[sdpa_ex, unsloth_ex, torch_compile_executor, thunder.nvfuser_executor, thunder.pytorch_executor]
+    executors=["sdpa", "unsloth", "torchcompile_cat", "nvfuser", "torch"]
 )
 ```
 
@@ -543,21 +541,24 @@ Given the Unsloth results below, these hand-written kernels do not seem to be wo
 
 We provide a version of the main pre-training script [that integrates Thunder](pretrain.py) that uses TinyLlama, a 1.1B parameter LLM.
 
-| Setting              | Compiler/JIT | Devices | ms/iter @ step 10 | Memory (GB)   |
-|----------------------|--------------|---------|-------------------|---------------|
-| Fully-sharded ZeRO 3 | Eager        | 8       | 460.88            | 22.13         |
-| Fully-sharded ZeRO 3 | Inductor     | 8       | Not supported     | Not supported |
-| Fully-sharded ZeRO 3 | Thunder      | 8       | 332.48            | 21.40         |
-|                      |              |         |                   |               |
-| Replicated           | Eager        | 8       | 535.28            | 32.05         |
-| Replicated           | Inductor     | 8       | Not supported     | Not supported |
-| Replicated           | Thunder      | 8       | 368.25            | 27.42         |
-|                      |              |         |                   |               |
-| -                    | Eager        | 1       | 449.88            | 29.85         |
-| -                    | Inductor     | 1       | Not supported     | Not supported |
-| -                    | Thunder      | 1       | 323.78            | 27.42         |
-|                      |              |         |                   |               |
-| Unsloth              | Thunder      | 1       | 334.98            | 25.19         |
+| Setting              | Compiler | Executors                              | Devices | ms/iter @ step 10 | Memory (GB)   |
+|----------------------|----------|----------------------------------------|---------|-------------------|---------------|
+| Fully-sharded ZeRO 3 | Eager    | -                                      | 8       | 456.57            | 22.13         |
+| Fully-sharded ZeRO 3 | torch    | -                                      | 8       | Not supported     | Not supported |
+| Fully-sharded ZeRO 3 | Thunder  | sdpa, torchcompile                     | 8       | Not supported     | Not supported |
+| Fully-sharded ZeRO 3 | Thunder  | sdpa, torchcompile_cat, nvfuser, torch | 8       | 333.56            | 21.40         |
+|                      |          |                                        |         |                   |               |
+| Replicated           | Eager    | -                                      | 8       | 569.46            | 32.04         |
+| Replicated           | torch    | -                                      | 8       | Not supported     | Not supported |
+| Replicated           | Thunder  | sdpa, torchcompile                     | 8       | 426.44            | 22.19         |
+| Replicated           | Thunder  | sdpa, torchcompile_cat, nvfuser, torch | 8       | 356.01            | 27.42         |
+|                      |          |                                        |         |                   |               |
+| -                    | Eager    | -                                      | 1       | 447.65            | 29.84         |
+| -                    | torch    | -                                      | 1       | Not supported     | Not supported |
+| -                    | Thunder  | sdpa, torchcompile                     | 1       | 373.37            | 22.19         |
+| -                    | Thunder  | sdpa, torchcompile_cat, nvfuser, torch | 1       | 322.25            | 27.42         |
+|                      |          |                                        |         |                   |               |
+| Unsloth              | Thunder  | sdpa, torchcompile_cat, nvfuser, torch | 1       | 331.92            | 25.19         |
 
 <details>
 <summary>Reproduction details</summary>
@@ -567,45 +568,45 @@ Config:
 ```yaml
 out_dir: out/pretrain-thunder
 data: TinyStories
-tokenizer_dir: checkpoints/meta-llama/Llama-2-7b-hf
+tokenizer_dir: checkpoints/TinyLlama/TinyLlama-1.1B-Chat-v1.0
 logger_name: csv
 ```
 
 Commands:
 
 ```bash
+litgpt download --repo_id TinyLlama/TinyLlama-1.1B-Chat-v1.0 --tokenizer_only true
+
 python extensions/thunder/pretrain.py --config config.yaml --compiler null --train.global_batch_size 32
-python extensions/thunder/pretrain.py --config config.yaml --compiler torch --train.global_batch_size 32
-python extensions/thunder/pretrain.py --config config.yaml --executors '[sdpa, torchcompile, nvfuser, torch]' --train.global_batch_size 32
+python extensions/thunder/pretrain.py --config config.yaml --executors '[sdpa, torchcompile]' --train.global_batch_size 32
+python extensions/thunder/pretrain.py --config config.yaml --executors '[sdpa, torchcompile_cat, nvfuser, torch]' --train.global_batch_size 32
 
 python extensions/thunder/pretrain.py --config config.yaml --compiler null --strategy ddp
-python extensions/thunder/pretrain.py --config config.yaml --compiler torch --strategy ddp
-python extensions/thunder/pretrain.py --config config.yaml --executors '[sdpa, torchcompile, nvfuser, torch]' --strategy ddp
+python extensions/thunder/pretrain.py --config config.yaml --executors '[sdpa, torchcompile]' --strategy ddp
+python extensions/thunder/pretrain.py --config config.yaml --executors '[sdpa, torchcompile_cat, nvfuser, torch]' --strategy ddp
 
 python extensions/thunder/pretrain.py --config config.yaml --compiler null --devices 1
-python extensions/thunder/pretrain.py --config config.yaml --compiler torch --devices 1
-python extensions/thunder/pretrain.py --config config.yaml --executors '[sdpa, torchcompile, nvfuser, torch]' --devices 1
+python extensions/thunder/pretrain.py --config config.yaml --executors '[sdpa, torchcompile]' --devices 1
+python extensions/thunder/pretrain.py --config config.yaml --executors '[sdpa, torchcompile_cat, nvfuser, torch]' --devices 1
 
-python extensions/thunder/pretrain.py --config config.yaml --executors '[sdpa, unsloth, torchcompile, nvfuser, torch]' --devices 1
+python extensions/thunder/pretrain.py --config config.yaml --executors '[sdpa, unsloth, torchcompile_cat, nvfuser, torch]' --devices 1
 ```
 
-Gradient accumulation is disabled in the FSDP setting because Thunder does not support skipping the backward synchronization yet.
-
-`torch.compile` does not support compiling the `_FabricModule` due to this issue: https://github.com/pytorch/pytorch/issues/112787#issuecomment-1986827601
+`--compiler torch` (`torch.compile` without `thunder`) is not include because it does not support compiling the `_FabricModule` due to this issue: https://github.com/pytorch/pytorch/issues/112787#issuecomment-1986827601
 
 The CUDA devices are all NVIDIA A100-SXM4-40GB.
 
 ```text
-Python version: 3.10.12 (main, Nov 20 2023, 15:14:05) [GCC 11.4.0] (64-bit runtime)
+Python version: 3.10.12 [GCC 11.4.0] (64-bit runtime)
 Is debug build: False
 CUDA used to build PyTorch: 12.1
 CUDA runtime version: 12.3.107
 Nvidia driver version: 545.23.08
-pytorch-triton==3.0.0+989adb9a29
-torch==2.4.0.dev20240326+cu121
+pytorch-triton==3.0.0+45fff310c8
+torch==2.4.0.dev20240427+cu121
 lightning==2.3.0.dev20240328
-lightning-thunder==0.2.0.dev20240404
-nvfuser_cu121==0.2.0.dev20240327
+lightning-thunder==0.2.0.dev20240505
+nvfuser_cu121==0.2.3.dev20240428
 ```
 
 </details>

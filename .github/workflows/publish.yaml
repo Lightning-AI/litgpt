@@ -1,0 +1,40 @@
+# To create a release, create a tag and push it to GitHub:
+#git tag -a "v0.0.1-beta" -m "beta version testing"
+#git push --tags
+# https://dev.to/iamtekson/publish-package-to-pypi-and-release-new-version-using-github-actions-108k
+name: Publish LitGPT to PyPI
+
+on:
+  push:
+    tags:
+      - "v*"
+jobs:
+  build-n-publish:
+    name: Build and publish to PyPI
+    runs-on: ubuntu-latest
+    environment:
+      name: pypi
+      url: https://pypi.org/p/litgpt
+    permissions:
+      id-token: write
+
+    steps:
+      - name: Checkout source
+        uses: actions/checkout@v3
+
+      - name: Set up Python
+        uses: actions/setup-python@v4
+        with:
+          python-version: "3.x"
+
+      - name: Build source and wheel distributions
+        run: |
+          python -m pip install --upgrade build twine
+          pip install importlib_metadata==7.2.1
+          python -m build
+          twine check --strict dist/*
+      - name: Publish distribution to PyPI
+        uses: pypa/gh-action-pypi-publish@release/v1
+        with:
+          user: __token__
+          password: ${{ secrets.PYPI_API_TOKEN }}

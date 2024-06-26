@@ -16,3 +16,8 @@ checkpoints
 out
 wandb
 events.out.tfevents*
+
+# test artifacts from tests/test_readme.py
+**/custom_finetuning_dataset.json
+client.py
+**/custom_texts/

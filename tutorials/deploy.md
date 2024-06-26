@@ -9,15 +9,15 @@ This section illustrates how we can set up an inference server for a phi-2 LLM u
 
 
 &nbsp;
-## Step 1: Start the inference server
+### Step 1: Start the inference server
 
 
 ```bash
 # 1) Download a pretrained model (alternatively, use your own finetuned model)
-litgpt download --repo_id microsoft/phi-2
+litgpt download microsoft/phi-2
 
 # 2) Start the server
-litgpt serve --checkpoint_dir checkpoints/microsoft/phi-2
+litgpt serve microsoft/phi-2
 ```
 
 > [!TIP]
@@ -25,7 +25,7 @@ litgpt serve --checkpoint_dir checkpoints/microsoft/phi-2
 
 
 &nbsp;
-## Step 2: Query the inference server
+### Step 2: Query the inference server
 
 You can now send requests to the inference server you started in step 2. For example, in a new Python session, we can send requests to the inference server as follows:
 
@@ -44,6 +44,37 @@ print(response.json()["output"])
 Executing the code above prints the following output:
 
 ```
-Instruct: Fix typos in the following sentence: Exampel input
-Output: Example input.
+Example input.
+```
+
+&nbsp;
+## Optional streaming mode
+
+The 2-step procedure described above returns the complete response all at once. If you want to stream the response on a token-by-token basis, start the server with the streaming option enabled:
+
+```bash
+litgpt serve microsoft/phi-2 --stream true
+```
+
+Then, use the following updated code to query the inference server:
+
+```python
+import requests, json
+
+response = requests.post(
+    "http://127.0.0.1:8000/predict", 
+    json={"prompt": "Fix typos in the following sentence: Exampel input"},
+    stream=True
+)
+
+# stream the response
+for line in response.iter_lines(decode_unicode=True):
+    if line:
+        print(json.loads(line)["output"], end="")
+```
+
+```
+Sure, here is the corrected sentence:
+
+Example input
 ```

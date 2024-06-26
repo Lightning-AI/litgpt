@@ -3,6 +3,7 @@
 import logging
 import re
 
+from litgpt.api import LLM
 from litgpt.model import GPT  # needs to be imported before config
 from litgpt.config import Config
 from litgpt.prompts import PromptStyle
@@ -16,4 +17,4 @@ logging.getLogger("torch._dynamo.variables.torch").addFilter(lambda record: not 
 logging.getLogger("torch.distributed.fsdp._optim_utils").disabled = True
 logging.getLogger("torch.distributed.fsdp._debug_utils").disabled = True
 
-__all__ = ["GPT", "Config", "PromptStyle", "Tokenizer"]
+__all__ = ["LLM", "GPT", "Config", "PromptStyle", "Tokenizer"]

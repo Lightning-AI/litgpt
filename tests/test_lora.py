@@ -9,7 +9,6 @@ from unittest.mock import Mock
 import pytest
 import torch
 import yaml
-from conftest import RunIf
 from lightning import Fabric
 from lightning.fabric.plugins.precision.bitsandbytes import _BITSANDBYTES_AVAILABLE, BitsandbytesPrecision
 from lightning.fabric.wrappers import _FabricOptimizer
@@ -22,11 +21,12 @@ import litgpt.config as config_module
 import litgpt.finetune.lora as module
 from litgpt.args import EvalArgs, TrainArgs
 from litgpt.data import Alpaca
-from litgpt.lora import GPT as LoRAGPT
 from litgpt.lora import CausalSelfAttention as LoRACausalSelfAttention
 from litgpt.lora import Config, LoRALinear, LoRAQKVLinear, lora_filter, mark_only_lora_as_trainable, merge_lora_weights
+from litgpt.lora import GPT as LoRAGPT
 from litgpt.model import GPT as BaseGPT
 from litgpt.scripts.convert_hf_checkpoint import copy_weights_hf_llama
+from tests.conftest import RunIf
 
 
 def test_lora_layer_replacement():
@@ -107,7 +107,7 @@ def test_lora_mqa_gqa():
     assert attn.linear.weight.shape == (24, 8)
     assert attn.lora_A.shape == (4, 8)
     assert attn.lora_B.shape == (16, 2)
-    assert torch.equal(attn._lora_ind, torch.tensor(lora_ind))
+    assert torch.equal(attn.lora_ind, torch.tensor(lora_ind))
     x = torch.randint(0, 8, size=(3, 5, 16), dtype=torch.int64)
     assert attn.zero_pad(x).shape == (3, 5, 24)
     bsz, ctx_len, in_dim = 2, 30, 8
@@ -128,7 +128,7 @@ def test_lora_mqa_gqa():
     assert attn.linear.weight.shape == (12, 8)
     assert attn.lora_A.shape == (4, 8)
     assert attn.lora_B.shape == (10, 2)
-    assert torch.equal(attn._lora_ind, torch.tensor(lora_ind))
+    assert torch.equal(attn.lora_ind, torch.tensor(lora_ind))
     x = torch.randint(0, 8, size=(3, 5, 10), dtype=torch.int64)
     assert attn.zero_pad(x).shape == (3, 5, 12)
     bsz, ctx_len, in_dim = 2, 30, 8
@@ -149,7 +149,7 @@ def test_lora_mqa_gqa():
     assert attn.linear.weight.shape == (16, 8)
     assert attn.lora_A.shape == (4, 8)
     assert attn.lora_B.shape == (12, 2)
-    assert torch.equal(attn._lora_ind, torch.tensor(lora_ind))
+    assert torch.equal(attn.lora_ind, torch.tensor(lora_ind))
     x = torch.randint(0, 8, size=(3, 5, 12), dtype=torch.int64)
     assert attn.zero_pad(x).shape == (3, 5, 16)
     bsz, ctx_len, in_dim = 2, 30, 8
@@ -192,12 +192,12 @@ def test_lora_script(tmp_path, fake_checkpoint_dir, monkeypatch, alpaca_path):
 
     out_dir = tmp_path / "out"
     stdout = StringIO()
-    with redirect_stdout(stdout), mock.patch("sys.argv", ["lora.py"]):
+    with redirect_stdout(stdout), mock.patch("sys.argv", ["lora.py", str(fake_checkpoint_dir)]):
         module.setup(
+            fake_checkpoint_dir,
             data=Alpaca(
                 download_dir=alpaca_path.parent, file_name=alpaca_path.name, val_split_fraction=0.5, num_workers=0
             ),
-            checkpoint_dir=fake_checkpoint_dir,
             out_dir=out_dir,
             precision="32-true",
             train=TrainArgs(global_batch_size=1, save_interval=2, epochs=1, max_steps=6, micro_batch_size=1),
@@ -655,12 +655,12 @@ def test_lora_bitsandbytes(monkeypatch, tmp_path, fake_checkpoint_dir, alpaca_pa
     monkeypatch.setattr(module, "fit", train_mock)
 
     stdout = StringIO()
-    with redirect_stdout(stdout), mock.patch("sys.argv", ["full.py"]):
+    with redirect_stdout(stdout), mock.patch("sys.argv", ["full.py", str(fake_checkpoint_dir)]):
         module.setup(
+            fake_checkpoint_dir,
             data=Alpaca(
                 download_dir=alpaca_path.parent, file_name=alpaca_path.name, val_split_fraction=0.5, num_workers=0
             ),
-            checkpoint_dir=fake_checkpoint_dir,
             out_dir=tmp_path,
             precision="16-true",
             quantize="bnb.nf4-dq",
@@ -733,3 +733,38 @@ def test_lora_bitsandbytes(monkeypatch, tmp_path, fake_checkpoint_dir, alpaca_pa
     logs = stdout.getvalue()
     assert "of trainable parameters: 512" in logs
     assert "of non-trainable parameters: 1,888" in logs
+
+
+@RunIf(standalone=True, min_cuda_gpus=2)
+def test_lora_model_fsdp_init():
+    config = Config(
+        n_layer=1,
+        n_head=2,
+        n_embd=8,
+        block_size=8,
+        vocab_size=8,
+        lora_r=8,
+        lora_alpha=8,
+        lora_dropout=0.1,
+        lora_query=True,
+        lora_value=False,
+        lora_projection=True,
+    )
+    fabric = Fabric(devices=2, strategy="fsdp", precision="16-true")
+    fabric.launch()
+    with fabric.init_module(empty_init=True):
+        model = LoRAGPT(config)
+    x = torch.randint(0, config.padded_vocab_size, size=(2, config.block_size), dtype=torch.int64, device=fabric.device)
+    model = fabric.setup(model)
+    y = model(x)
+    assert y.shape == torch.Size([2, 8, 512])
+
+    # verify that all the parameters, buffers and other attributes aren't on `meta` device
+    for m in model.modules():
+        for p_name, parameter in m.named_parameters():
+            assert not parameter.is_meta, f"Parameter `{p_name}` isn't materialized."
+        for b_name, buffer in m._buffers.items():
+            assert not buffer.is_meta, f"Buffer `{b_name}` isn't materialized."
+        for attr_name, attr_value in m.__dict__.items():
+            if isinstance(attr_value, torch.Tensor):
+                assert not attr_value.is_meta, f"Attribute `{attr_name}` isn't materialized."

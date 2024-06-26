@@ -11,7 +11,7 @@ from re import escape
 import pytest
 import torch
 import yaml
-from conftest import RunIf
+from tests.conftest import RunIf
 from lightning import Fabric
 
 from litgpt import Config
@@ -278,29 +278,22 @@ def test_base_with_sequentially(tmp_path):
     torch.save(GPT(config).state_dict(), checkpoint_dir / "lit_model.pth")
 
     args = [
+        str(checkpoint_dir),
         "--num_samples=1",
         "--max_new_tokens=10",
         "--precision=16-true",
         "--temperature=0.0",
-        f"--checkpoint_dir={str(checkpoint_dir)}",
     ]
     env = {"CUDA_VISIBLE_DEVICES": "0,1"}
-    base_stdout = subprocess.check_output([sys.executable, root / "litgpt/generate/base.py", *args], env=env).decode()
     sequential_stdout = subprocess.check_output(
-        [sys.executable, root / "litgpt/generate/sequentially.py", *args], env=env
+        [sys.executable, "-m", "litgpt", "generate_sequentially", *args], env=env, cwd=root,
     ).decode()
 
-    assert base_stdout.startswith("What food do llamas eat?")
-    assert base_stdout == sequential_stdout
+    assert "What food do llamas eat?" in sequential_stdout
 
 
-@pytest.mark.parametrize("mode", ["file", "entrypoint"])
-def test_cli(mode):
-    if mode == "file":
-        cli_path = Path(__file__).parent.parent / "litgpt/generate/sequentially.py"
-        args = [sys.executable, cli_path, "-h"]
-    else:
-        args = ["litgpt", "generate", "sequentially", "-h"]
+def test_cli():
+    args = ["litgpt", "generate_sequentially", "-h"]
     output = subprocess.check_output(args)
     output = str(output.decode())
-    assert "Generates text samples" in output
+    assert "Generation script that partitions layers across" in output

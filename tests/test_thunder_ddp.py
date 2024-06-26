@@ -3,7 +3,7 @@ from pathlib import Path
 
 import pytest
 import torch
-from conftest import RunIf
+from tests.conftest import RunIf
 from lightning import Fabric
 
 # support running without installing as a package
@@ -11,6 +11,7 @@ wd = Path(__file__).parent.parent.resolve()
 sys.path.append(str(wd))
 
 from extensions.thunder.strategies.thunder_ddp import ThunderDDPStrategy
+from extensions.thunder.strategies.thunder_fsdp import ThunderFSDPStrategy
 
 
 @RunIf(thunder=True)
@@ -20,15 +21,22 @@ def test_thunder_strategy_input_parsing():
 
 
 @RunIf(min_cuda_gpus=2, thunder=True, standalone=True)
-@pytest.mark.parametrize("strategy", ["ddp", "thunder_ddp"])
-def test_no_backward_sync(strategy):
-    if strategy == "thunder_ddp":
+@pytest.mark.parametrize("choice", ["ddp", "thunder_ddp", "fsdp", "thunder_fsdp"])
+def test_no_backward_sync(choice):
+    if choice == "thunder_ddp":
         strategy = ThunderDDPStrategy()
+    elif choice == "thunder_fsdp":
+        strategy = ThunderFSDPStrategy()
+    else:
+        strategy = choice
 
     fabric = Fabric(devices=2, accelerator="cuda", strategy=strategy)
     fabric.launch()
 
-    model = torch.nn.Linear(1, 1, bias=False, device=fabric.device)
+    # account for sharding in the case of FSDP
+    out_features = 1 if "ddp" in choice else fabric.world_size
+    
+    model = torch.nn.Linear(1, out_features, bias=False, device=fabric.device)
     x = torch.randn(1, 1, device=fabric.device)
     model = fabric.setup(model)
 
@@ -38,7 +46,7 @@ def test_no_backward_sync(strategy):
 
         with fabric.no_backward_sync(model, enabled):
             y = model(x)
-            y.backward()
+            fabric.backward(y.sum())
         if not enabled:
             # Math for the first 3 iters
             #
@@ -51,8 +59,13 @@ def test_no_backward_sync(strategy):
             # ((1*1+2*1) + (1*2+2*2)) / 2        + (3*1 + 3*2)  / 2        = 9
             #   ^^^^^^^     ^^^^^^^   ^^^           ^^^   ^^^   ^^^
             #   rank0       rank1     allreduce1    rank0 rank1 allreduce2
+            assert model.weight.grad.shape.numel() == 1, model.weight.grad.shape
             assert model.weight.grad.item() == (9.0 if i == 3 else 22.5)
+            assert not hasattr(model.weight, "_thunder_fsdp_unsharded_grad")
             model.weight.grad = None
+        elif choice == "thunder_fsdp":
+            assert model.weight._thunder_fsdp_unsharded_grad.shape == (2, 1)
+            assert model.weight.grad is None
 
 
 @RunIf(min_cuda_gpus=2, thunder=True, standalone=True)

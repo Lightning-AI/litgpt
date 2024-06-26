@@ -39,4 +39,4 @@ def test_simple(tmp_path):
         response = client.post("/predict", json={"prompt": "Hello world"})
         # Model is a small random model, not trained, hence the gibberish.
         # We are just testing that the server works.
-        assert response.json()["output"][:19] == "Hello world statues"
+        assert response.json()["output"][:19] == " statues CAD pierci"

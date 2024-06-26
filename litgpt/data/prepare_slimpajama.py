@@ -7,10 +7,12 @@ from pathlib import Path
 
 from litgpt import Tokenizer
 from litgpt.data.prepare_starcoder import DataChunkRecipe
-from litgpt.utils import CLI
+from litgpt.utils import CLI, extend_checkpoint_dir
 
 
 class SlimPajamaDataRecipe(DataChunkRecipe):
+    is_generator = True
+
     def __init__(self, tokenizer: Tokenizer, chunk_size: int):
         super().__init__(chunk_size)
         self.tokenizer = tokenizer
@@ -40,7 +42,7 @@ def prepare(
 ) -> None:
     from litdata.processing.data_processor import DataProcessor
 
-    tokenizer = Tokenizer(tokenizer_path)
+    tokenizer_path = extend_checkpoint_dir(tokenizer_path)
     data_recipe = SlimPajamaDataRecipe(tokenizer=tokenizer, chunk_size=chunk_size)
     data_processor = DataProcessor(
         input_dir=str(input_dir),

@@ -5,13 +5,19 @@ import json
 from collections import defaultdict
 from functools import partial
 from pathlib import Path
+from pprint import pprint
 from typing import Dict, List, Optional, Tuple, Union
 
 import torch
 from lightning.fabric.utilities.load import _NotYetLoadedTensor as NotYetLoadedTensor
 
 from litgpt import Config
-from litgpt.utils import incremental_save, lazy_load, save_config
+from litgpt.utils import (
+    extend_checkpoint_dir,
+    lazy_load,
+    incremental_save,
+    save_config
+)
 
 
 def copy_weights_gpt_neox(
@@ -315,8 +321,8 @@ def load_param(param: Union[torch.Tensor, NotYetLoadedTensor], name: str, dtype:
 
 @torch.inference_mode()
 def convert_hf_checkpoint(
+    checkpoint_dir: Path,
     *,
-    checkpoint_dir: Path = Path("checkpoints/stabilityai/stablelm-base-alpha-3b"),
     model_name: Optional[str] = None,
     dtype: Optional[str] = None,
 ) -> None:
@@ -330,6 +336,9 @@ def convert_hf_checkpoint(
         dtype: The data type to convert the checkpoint files to. If not specified, the weights will remain in the
             dtype they are downloaded in.
     """
+    checkpoint_dir = extend_checkpoint_dir(checkpoint_dir)
+    pprint(locals())
+
     if model_name is None:
         model_name = checkpoint_dir.name
     if dtype is not None:
@@ -356,10 +365,18 @@ def convert_hf_checkpoint(
 
     # Load the json file containing weight mapping
     pytorch_bin_map_json_path = checkpoint_dir / "pytorch_model.bin.index.json"
+    model_safetensor_map_json_path = checkpoint_dir / "model.safetensors.index.json"
     if pytorch_bin_map_json_path.is_file():  # not all checkpoints have this file
         with open(pytorch_bin_map_json_path, encoding="utf-8") as json_map:
             bin_index = json.load(json_map)
         bin_files = {checkpoint_dir / bin for bin in bin_index["weight_map"].values()}
+    elif model_safetensor_map_json_path.is_file():
+        with open(model_safetensor_map_json_path, encoding="utf-8") as json_map:
+            bin_index = json.load(json_map)
+        bin_files = {
+            checkpoint_dir / Path(bin).with_suffix(".bin")
+            for bin in bin_index["weight_map"].values()
+        }
     else:
         bin_files = set(checkpoint_dir.glob("*.bin"))
         # some checkpoints serialize the training arguments
@@ -377,9 +394,3 @@ def convert_hf_checkpoint(
         gc.collect()
         print(f"Saving converted checkpoint to {checkpoint_dir}")
         saver.save(sd)
-
-
-if __name__ == "__main__":
-    from jsonargparse import CLI
-
-    CLI(convert_hf_checkpoint)

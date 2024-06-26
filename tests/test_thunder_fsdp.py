@@ -1,12 +1,11 @@
 import os
-import re
 import sys
 from pathlib import Path
 from typing import Optional, Tuple, Union
 
 import pytest
 import torch
-from conftest import RunIf
+from tests.conftest import RunIf
 from lightning.fabric import Fabric
 from lightning.fabric.utilities.imports import _TORCH_GREATER_EQUAL_2_3
 
@@ -15,33 +14,18 @@ wd = Path(__file__).parent.parent.resolve()
 sys.path.append(str(wd))
 
 from extensions.thunder.strategies.thunder_fsdp import ThunderFSDPStrategy
-from extensions.thunder.strategies.utils import _validate_executors
 
 
 @RunIf(thunder=True)
 def test_thunder_strategy_input_parsing():
-    from thunder import pythonex
     from thunder.distributed import FSDPBucketingStrategy, FSDPType
 
     strategy = ThunderFSDPStrategy(bucketing_strategy="BlOcK", executors=("python",), sharding_strategy="zero3")
     assert strategy.bucketing_strategy is FSDPBucketingStrategy.BLOCK
-    assert strategy.executors == (pythonex,)
     assert strategy.sharding_strategy is FSDPType.ZERO3
 
     with pytest.raises(ValueError, match="doesn't have an effect with `jit=False"):
         ThunderFSDPStrategy(jit=False, executors=("python",))
-
-
-@RunIf(thunder=True)
-def test_validate_executors():
-    from thunder import pythonex, pytorch_executor
-
-    assert _validate_executors(None) is None
-    assert _validate_executors((pythonex, pytorch_executor)) == (pythonex, pytorch_executor)
-    assert _validate_executors(("python", "torch")) == (pythonex, pytorch_executor)
-    assert _validate_executors(("python", pytorch_executor)) == (pythonex, pytorch_executor)
-    with pytest.raises(ValueError, match=re.escape("not find the executors ['foo', 'bar'] in")):
-        assert _validate_executors(("python", "foo", pytorch_executor, "bar"))
 
 
 @RunIf(thunder=True)
@@ -263,8 +247,6 @@ def distributed_ckpt_to_regular(path):
 
 @RunIf(min_cuda_gpus=2, thunder=True, standalone=True)
 def test_save_load_sharded_checkpoint(tmp_path):
-    pytest.skip("Temporarily disabled, often exceeds 5 min timeout")
-
     strategy = ThunderFSDPStrategy(state_dict_type="sharded", broadcast_from=0)
     fabric = Fabric(accelerator="cuda", devices=2, strategy=strategy)
     fabric.launch()

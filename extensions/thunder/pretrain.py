@@ -8,7 +8,7 @@ import time
 from datetime import timedelta
 from functools import partial
 from pathlib import Path
-from typing import Any, Callable, Optional, Tuple, Union, List
+from typing import Any, Callable, Optional, Tuple, Union, List, Dict
 
 import lightning as L
 import torch
@@ -30,6 +30,8 @@ from litgpt.utils import (
     choose_logger,
     chunked_cross_entropy,
     copy_config_files,
+    find_resume_path,
+    instantiate_torch_optimizer,
     num_parameters,
     parse_devices,
     reset_parameters,
@@ -47,7 +49,7 @@ def setup(
     model_config: Optional[Config] = None,
     out_dir: Path = Path("out/pretrain"),
     initial_checkpoint_dir: Optional[Path] = None,
-    resume: Union[bool, Path] = False,
+    resume: Union[bool, Literal["auto"], Path] = False,
     data: Optional[DataModule] = None,
     train: TrainArgs = TrainArgs(
         save_interval=1000,
@@ -55,16 +57,13 @@ def setup(
         global_batch_size=512,
         micro_batch_size=4,
         max_tokens=int(3e12),  # 3 trillion
-        learning_rate=4e-4,
-        weight_decay=1e-1,
-        beta1=0.9,
-        beta2=0.95,
         max_norm=1.0,
         min_lr=4e-5,
         lr_warmup_steps=2000,
         tie_embeddings=False,
     ),
     eval: EvalArgs = EvalArgs(interval=1000, max_iters=100),
+    optimizer: Union[str, Dict] = "AdamW",
     devices: Union[int, str] = "auto",
     tokenizer_dir: Optional[Path] = None,
     logger_name: Literal["wandb", "tensorboard", "csv"] = "tensorboard",
@@ -85,10 +84,12 @@ def setup(
         initial_checkpoint_dir: Optional path to a checkpoint directory to initialize the model from.
             Useful for continued pretraining. Mutually exclusive with ``resume``.
         resume: Path to a checkpoint directory to resume from in case training was interrupted, or ``True`` to resume
-            from the latest checkpoint in ``out_dir``.
+            from the latest checkpoint in ``out_dir``. An error will be raised if no checkpoint is found. Passing
+            ``'auto'`` will resume from the latest checkpoint but not error if no checkpoint exists.
         data: Data-related arguments. If not provided, the default is ``litgpt.data.TinyLlama``.
         train: Training-related arguments. See ``litgpt.args.TrainArgs`` for details.
         eval: Evaluation-related arguments. See ``litgpt.args.EvalArgs`` for details.
+        optimizer: An optimizer name (such as "AdamW") or config.
         devices: How many devices/GPUs to use. Uses all GPUs by default.
         tokenizer_dir: Optional path to the tokenizer dir that was used for preprocessing the dataset. Only some data
             module require this.
@@ -111,7 +112,7 @@ def setup(
     tokenizer = Tokenizer(tokenizer_dir) if tokenizer_dir is not None else None
 
     logger = choose_logger(
-        logger_name, out_dir, name=f"pretrain-{config.name}", resume=resume, log_interval=train.log_interval
+        logger_name, out_dir, name=f"pretrain-{config.name}", resume=bool(resume), log_interval=train.log_interval
     )
 
     if devices > 1:
@@ -157,6 +158,7 @@ def setup(
         tokenizer,
         train,
         eval,
+        optimizer,
         compiler,
     )
 
@@ -166,7 +168,7 @@ def main(
     devices: int,
     seed: int,
     initial_checkpoint_dir: Optional[Path],
-    resume: Union[bool, Path],
+    resume: Union[bool, Literal["auto"], Path],
     config: Config,
     data: DataModule,
     out_dir: Path,
@@ -174,6 +176,7 @@ def main(
     tokenizer: Optional[Tokenizer],
     train: TrainArgs,
     eval: EvalArgs,
+    optimizer: Union[str, Dict],
     compiler: Optional[Literal["thunder", "torch"]],
 ) -> None:
     validate_args(train, eval, initial_checkpoint_dir, resume)
@@ -201,13 +204,7 @@ def main(
     if compiler == "thunder":
         # avoid `Tensor.register_hook` which is unsupported
         model._register_backward_hook = lambda *_: None
-    optimizer = torch.optim.AdamW(
-        model.parameters(),
-        lr=train.learning_rate,
-        weight_decay=train.weight_decay,
-        betas=(train.beta1, train.beta2),
-        fused=True,
-    )
+    optimizer = instantiate_torch_optimizer(optimizer, model.parameters())
     optimizer = fabric.setup_optimizers(optimizer)
 
     train_dataloader, val_dataloader = get_dataloaders(fabric, data, tokenizer, train, model.max_seq_length)
@@ -224,14 +221,13 @@ def main(
         "step_count": 0,
     }
 
-    if resume is True:
-        resume = max(out_dir.rglob("step-*/*.pth"), key=(lambda p: int(p.parent.name.split("-")[1])))
+    resume = find_resume_path(resume, out_dir)
     if resume:
         fabric.print(f"Resuming training from {resume}")
         fabric.load(resume, state)
 
     train_time = time.perf_counter()
-    fit(fabric, devices, state, train_dataloader, val_dataloader, out_dir, tokenizer_dir, train, eval)
+    fit(fabric, devices, state, train_dataloader, val_dataloader, out_dir, tokenizer_dir, train, eval, optimizer)
     fabric.print(f"Training time: {(time.perf_counter()-train_time):.2f}s")
 
     # Save final checkpoint
@@ -251,6 +247,7 @@ def fit(
     tokenizer_dir: Optional[Path],
     train: TrainArgs,
     eval: EvalArgs,
+    optimizer: Union[str, Dict],
 ) -> None:
     model = state["model"]
     optimizer = state["optimizer"]
@@ -288,7 +285,7 @@ def fit(
             break
 
         # determine and set the learning rate for this iteration
-        lr = get_lr(train.learning_rate, state["iter_num"], warmup_iters, max_iters, train.min_lr)
+        lr = get_lr(optimizer.defaults["lr"], state["iter_num"], warmup_iters, max_iters, train.min_lr)
         for param_group in optimizer.param_groups:
             param_group["lr"] = lr
 
@@ -482,9 +479,7 @@ def jit(fn: Callable, executors: List[str]) -> Any:
     assert executors is not None
     import thunder
     from unsloth.executor import unsloth_ex  # import for registration  # noqa: F401
-    from strategies.utils import _validate_executors
 
-    executors = _validate_executors(executors)
     return thunder.jit(fn, executors=executors)
 
 

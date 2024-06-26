@@ -16,7 +16,7 @@ fixed_pairs = [
     ("litgpt/pretrain.py", "pretrain/tinystories.yaml"),
     (
         "litgpt/pretrain.py",
-        "https://raw.githubusercontent.com/Lightning-AI/litgpt/main/config_hub/pretrain/tinystories.yaml",
+        "https://raw.githubusercontent.com/Lightning-AI/litgpt/4d55ab6d0aa404f0da0d03a80a8801ed60e07e83/config_hub/pretrain/tinystories.yaml",  # TODO: Update with path from main after merge
     ),
 ]
 

@@ -3,11 +3,15 @@
 
 # ⚡ LitGPT
 
-**Pretrain, finetune, evaluate, and deploy 20+ LLMs on your own data**
+**Load, finetune, pretrain, evaluate, and deploy 20+ LLMs on your own data**
 
 Uses the latest state-of-the-art techniques:
 
-✅ flash attention &nbsp; &nbsp;  ✅ fp4/8/16/32 &nbsp; &nbsp;  ✅ LoRA, QLoRA, Adapter (v1, v2) &nbsp; &nbsp;  ✅ FSDP &nbsp; &nbsp;  ✅ 1-1000+ GPUs/TPUs
+<pre>
+✅ Scratch implementations  ✅ flash attention  ✅ fp4/8/16/32        ✅ LoRA, QLoRA, Adapter
+✅ No abstractions          ✅ FSDP             ✅ 1-1000+ GPUs/TPUs  ✅ 20+ LLMs            
+</pre>
+
 
 ---
 
@@ -17,31 +21,82 @@ Uses the latest state-of-the-art techniques:
 
 <p align="center">
   <a href="https://lightning.ai/">Lightning AI</a> •
-  <a href="#choose-from-20-llms">Models</a> •
   <a href="#quick-start">Quick start</a> •
-  <a href="#use-an-llm-for-inference">Inference</a> •
-  <a href="#finetune-an-llm">Finetune</a> •
-  <a href="#finetune-an-llm">Pretrain</a> •
-    <a href="#deploy-an-llm">Deploy</a> •
+  <a href="#choose-from-20-llms">Models</a> •
+  <a href="#finetune-an-llm">Finetune/pretrain</a> • 
+  <a href="#deploy-an-llm">Deploy</a> •    
+    <a href="#evaluate-an-llm">Evaluate</a> •
   <a href="#state-of-the-art-features">Features</a> •
-  <a href="#training-recipes">Training recipes (YAML)</a>
+  <a href="#training-recipes">Training recipes (YAML)</a> •
+    <a href="#tutorials">Tutorials</a>
 </p>
+
+&nbsp;
+  
+<a target="_blank" href="https://lightning.ai/lightning-ai/studios/litgpt-quick-start">
+  <img src="https://pl-bolts-doc-images.s3.us-east-2.amazonaws.com/app-2/get-started-badge.svg" height="36px" alt="Get started"/>
+</a>
+
+&nbsp;
 
 </div>
 
-&nbsp;
-<img src="https://pl-bolts-doc-images.s3.us-east-2.amazonaws.com/GithubLitGPTDAG2.png" alt="LitGPT steps" width="auto"/>
-&nbsp;
-
-# Finetune, pretrain and deploy LLMs Lightning fast ⚡⚡
-LitGPT is a command-line tool designed to easily [finetune](#finetune-an-llm), [pretrain](#pretrain-an-llm), [evaluate](#use-an-llm), and [deploy](#deploy-an-llm) [20+ LLMs](#choose-from-20-llms) **on your own data**. It features highly-optimized [training recipes](#training-recipes) for the world's most powerful open-source large language models (LLMs).
+# Load, finetune, pretrain, deploy LLMs Lightning fast ⚡⚡
+LitGPT is a library of **lightning-fast** large language model (LLMs) **implemented from scratch** (Apache 2.0) with **no abstractions**.   
 
 We reimplemented all model architectures and training recipes from scratch for 4 reasons:
 
-1. Remove all abstraction layers and have single file implementations.
-2. Guarantee Apache 2.0 compliance to enable enterprise use without limits.
-3. Optimized each model's architectural detail to maximize performance, reduce costs, and speed up training.
-4. Highly-optimized [recipe configs](#training-recipes) we have tested at enterprise scale.
+✅ Apache 2.0 compliance to enable unlimited enterprise use.    
+✅ Easy debugging/hacking with no abstraction layers and single file implementations.    
+✅ Optimized model architectures to maximize performance, reduce costs, and speed up training.    
+✅ Highly-optimized [recipe configs](#training-recipes) we have tested at enterprise scale.    
+
+In addition to a simple Python API, it offers a command-line tool designed to easily [finetune](#finetune-an-llm), [pretrain](#pretrain-an-llm), [evaluate](#use-an-llm), and [deploy](#deploy-an-llm) [20+ LLMs](#choose-from-20-llms) **on your own data**. It features highly-optimized [training recipes](#training-recipes) for the world's most powerful open-source large language models (LLMs).
+
+&nbsp;
+
+# Quick start
+Install LitGPT
+```
+pip install 'litgpt[all]'
+```
+
+Load and use any of the [20+ LLMs](#choose-from-20-llms):   
+```python
+from litgpt import LLM
+
+llm = LLM.load("microsoft/phi-2")
+text = llm.generate("Correct the spelling: Every summer, the familly enjoys a trip to the mountains.")
+print(text)
+# Corrected Sentence: Every summer, the family enjoys a vacation to the mountains.       
+```
+
+[Explore the full Python API docs](tutorials/python-api.md).
+
+&nbsp;
+&nbsp;
+
+✅ Optimized for fast inference    
+✅ Quantization    
+✅ Runs on low-memory GPUs    
+✅ No layers of internal abstractions    
+✅ Optimized for production scale   
+
+&nbsp;
+
+<details>
+  <summary>Advanced install options</summary>
+
+&nbsp;
+
+Install from source:
+
+```bash
+git clone https://github.com/Lightning-AI/litgpt
+cd litgpt
+pip install -e '.[all]'
+```
+</details>
 
 ---
 
@@ -69,97 +124,56 @@ LitGPT has 🤯 **custom, from-scratch implementations** of [20+ LLMs](tutorials
 
 | Model | Model size | Author | Reference |
 |----|----|----|----|
-| CodeGemma | 7B | Google | [Google Team, Google Deepmind](https://ai.google.dev/gemma/docs/codegemma) |
-| Code Llama | 7B, 13B, 34B, 70B | Meta AI | [Rozière et al. 2023](https://arxiv.org/abs/2308.12950) |
-| Danube2 | 1.8B | H2O.ai | [H2O.ai](https://h2o.ai/platform/danube-1-8b/) |
-| Dolly | 3B, 7B, 12B | Databricks | [Conover et al. 2023](https://www.databricks.com/blog/2023/04/12/dolly-first-open-commercially-viable-instruction-tuned-llm) |
-| Falcon | 7B, 40B, 180B | TII UAE | [TII 2023](https://falconllm.tii.ae)                                                                                         |
-| FreeWilly2 (Stable Beluga 2) | 70B | Stability AI | [Stability AI 2023](https://stability.ai/blog/stable-beluga-large-instruction-fine-tuned-models)                             |
-| Function Calling Llama 2 | 7B | Trelis | [Trelis et al. 2023](https://huggingface.co/Trelis/Llama-2-7b-chat-hf-function-calling-v2)                                   |
-| Gemma | 2B, 7B | Google | [Google Team, Google Deepmind](https://storage.googleapis.com/deepmind-media/gemma/gemma-report.pdf)                         |
-| Llama 2 | 7B, 13B, 70B | Meta AI | [Touvron et al. 2023](https://arxiv.org/abs/2307.09288)                                                                      |
-| Llama 3 | 8B, 70B | Meta AI | [Meta AI 2024](https://github.com/meta-llama/llama3)                                                                     |
-| LongChat | 7B, 13B | LMSYS | [LongChat Team 2023](https://lmsys.org/blog/2023-06-29-longchat/)                                                            |
-| Mixtral MoE | 8x7B | Mistral AI | [Mistral AI 2023](https://mistral.ai/news/mixtral-of-experts/)                                                                      |
-| Mistral | 7B | Mistral AI | [Mistral AI 2023](https://mistral.ai/news/announcing-mistral-7b/)                                                                         |
-| Nous-Hermes | 7B, 13B, 70B | NousResearch | [Org page](https://huggingface.co/NousResearch)                                                                              |
-| OpenLLaMA | 3B, 7B, 13B | OpenLM Research | [Geng & Liu 2023](https://github.com/openlm-research/open_llama)                                                             |
-| Phi | 1.3B, 2.7B | Microsoft Research  | [Li et al. 2023](https://arxiv.org/abs/2309.05463)                                                                           |
+| CodeGemma | 7B | Google | [Google Team, Google Deepmind](https://ai.google.dev/gemma/docs/codegemma)                                                                 |
+| Code Llama | 7B, 13B, 34B, 70B | Meta AI | [Rozière et al. 2023](https://arxiv.org/abs/2308.12950)                                                                   |
+| Danube2 | 1.8B | H2O.ai | [H2O.ai](https://h2o.ai/platform/danube-1-8b/)                                                                                             |
+| Dolly | 3B, 7B, 12B | Databricks | [Conover et al. 2023](https://www.databricks.com/blog/2023/04/12/dolly-first-open-commercially-viable-instruction-tuned-llm)      |
+| Falcon | 7B, 40B, 180B | TII UAE | [TII 2023](https://falconllm.tii.ae)                                                                                              |
+| FreeWilly2 (Stable Beluga 2) | 70B | Stability AI | [Stability AI 2023](https://stability.ai/blog/stable-beluga-large-instruction-fine-tuned-models)                 |
+| Function Calling Llama 2 | 7B | Trelis | [Trelis et al. 2023](https://huggingface.co/Trelis/Llama-2-7b-chat-hf-function-calling-v2)                                  |
+| Gemma | 2B, 7B | Google | [Google Team, Google Deepmind](https://storage.googleapis.com/deepmind-media/gemma/gemma-report.pdf)                                       |
+| Llama 2 | 7B, 13B, 70B | Meta AI | [Touvron et al. 2023](https://arxiv.org/abs/2307.09288)                                                                           |
+| Llama 3 | 8B, 70B | Meta AI | [Meta AI 2024](https://github.com/meta-llama/llama3)                                                                                   |
+| LongChat | 7B, 13B | LMSYS | [LongChat Team 2023](https://lmsys.org/blog/2023-06-29-longchat/)                                                                       |
+| MicroLlama | 300M | Ken Wang | [MicroLlama repo](https://github.com/keeeeenw/MicroLlama)
+| Mixtral MoE | 8x7B | Mistral AI | [Mistral AI 2023](https://mistral.ai/news/mixtral-of-experts/)                                                                     |
+| Mistral | 7B | Mistral AI | [Mistral AI 2023](https://mistral.ai/news/announcing-mistral-7b/)                                                                        |
+| Nous-Hermes | 7B, 13B, 70B | NousResearch | [Org page](https://huggingface.co/NousResearch)                                                                          |
+| OpenLLaMA | 3B, 7B, 13B | OpenLM Research | [Geng & Liu 2023](https://github.com/openlm-research/open_llama)                                                         |
+| Phi | 1.3B, 2.7B | Microsoft Research  | [Li et al. 2023](https://arxiv.org/abs/2309.05463)                                                                          |
 | Platypus | 7B, 13B, 70B |  Lee et al. | [Lee, Hunter, and Ruiz 2023](https://arxiv.org/abs/2308.07317)                                                               |
-| Pythia | {14,31,70,160,410}M, {1,1.4,2.8,6.9,12}B | EleutherAI | [Biderman et al. 2023](https://arxiv.org/abs/2304.01373)                                                                     |
-| RedPajama-INCITE | 3B, 7B | Together | [Together 2023](https://together.ai/blog/redpajama-models-v1)                                                                |
-| StableCode | 3B | Stability AI | [Stability AI 2023](https://stability.ai/blog/stablecode-llm-generative-ai-coding)                                           |
-| StableLM  | 3B, 7B | Stability AI | [Stability AI 2023](https://github.com/Stability-AI/StableLM)                                                                |
-| StableLM Zephyr | 3B | Stability AI | [Stability AI 2023](https://stability.ai/blog/stablecode-llm-generative-ai-coding)                                           |
-| TinyLlama | 1.1B | Zhang et al. | [Zhang et al. 2023](https://github.com/jzhang38/TinyLlama)                                                                   |
-| Vicuna | 7B, 13B, 33B | LMSYS | [Li et al. 2023](https://lmsys.org/blog/2023-03-30-vicuna/)
+| Pythia | {14,31,70,160,410}M, {1,1.4,2.8,6.9,12}B | EleutherAI | [Biderman et al. 2023](https://arxiv.org/abs/2304.01373)                                            |
+| RedPajama-INCITE | 3B, 7B | Together | [Together 2023](https://together.ai/blog/redpajama-models-v1)                                                                 |
+| StableCode | 3B | Stability AI | [Stability AI 2023](https://stability.ai/blog/stablecode-llm-generative-ai-coding)                                                  |
+| StableLM  | 3B, 7B | Stability AI | [Stability AI 2023](https://github.com/Stability-AI/StableLM)                                                                    |
+| StableLM Zephyr | 3B | Stability AI | [Stability AI 2023](https://stability.ai/blog/stablecode-llm-generative-ai-coding)                                             |
+| TinyLlama | 1.1B | Zhang et al. | [Zhang et al. 2023](https://github.com/jzhang38/TinyLlama)                                                                         |
+| Vicuna | 7B, 13B, 33B | LMSYS | [Li et al. 2023](https://lmsys.org/blog/2023-03-30-vicuna/)                                                                          |
 
-</details>
+**Tip**: You can list all available models by running the `litgpt download list` command.
 
-&nbsp;
 
-## Install LitGPT
-
-Install LitGPT with all dependencies (including CLI, quantization, tokenizers for all models, etc.):
-
-```bash
-pip install 'litgpt[all]'
-```
-
-<details>
-  <summary>Advanced install options</summary>
-
-&nbsp;
-
-Install from source:
-
-```bash
-git clone https://github.com/Lightning-AI/litgpt
-cd litgpt
-pip install -e '.[all]'
-```
 </details>
 
 ---
 
 &nbsp;
-# Quick start
+
+# Advanced workflows
+Use the command line interface to run advanced workflows such as pretraining or finetuning on your own data.   
+
+## All commands   
 After installing LitGPT, select the model and action you want to take on that model (finetune, pretrain, evaluate, deploy, etc...):
 
 ```bash
 # ligpt [action] [model]
 litgpt  download  meta-llama/Meta-Llama-3-8B-Instruct
 litgpt  chat      meta-llama/Meta-Llama-3-8B-Instruct
+litgpt  evaluate  meta-llama/Meta-Llama-3-8B-Instruct
 litgpt  finetune  meta-llama/Meta-Llama-3-8B-Instruct
 litgpt  pretrain  meta-llama/Meta-Llama-3-8B-Instruct
 litgpt  serve     meta-llama/Meta-Llama-3-8B-Instruct
 ```
-
-&nbsp;
-
-###  Use an LLM for inference
-Use LLMs for inference to test its chatting capabilities, run evaluations, or extract embeddings, etc...
-Here's an example showing how to use the Phi-2 LLM.
-
-<a target="_blank" href="https://lightning.ai/lightning-ai/studios/litgpt-chat">
-  <img src="https://pl-bolts-doc-images.s3.us-east-2.amazonaws.com/app-2/studio-badge.svg" alt="Open In Studio"/>
-</a>
-
-&nbsp;
-
-```bash
-# 1) Download a pretrained model
-litgpt download --repo_id microsoft/phi-2
-
-# 2) Chat with the model
-litgpt chat \
-  --checkpoint_dir checkpoints/microsoft/phi-2
-
->> Prompt: What do Llamas eat?
-```
-
-The download of certain models requires an additional access token. You can read more about this in the [download](tutorials/download_model_weights.md#specific-models-and-access-tokens) documentation. 
-For more information on the different inference options, refer to the [inference](tutorials/inference.md) tutorial.
 
 &nbsp;
 
@@ -174,27 +188,26 @@ For more information on the different inference options, refer to the [inference
 
 ```bash
 # 1) Download a pretrained model
-litgpt download --repo_id microsoft/phi-2
+litgpt download microsoft/phi-2
 
 # 2) Finetune the model
 curl -L https://huggingface.co/datasets/ksaw008/finance_alpaca/resolve/main/finance_alpaca.json -o my_custom_dataset.json
 
-litgpt finetune \
-  --checkpoint_dir checkpoints/microsoft/phi-2 \
+litgpt finetune microsoft/phi-2 \
   --data JSON \
   --data.json_path my_custom_dataset.json \
   --data.val_split_fraction 0.1 \
   --out_dir out/custom-model
 
 # 3) Chat with the model
-litgpt chat \
-  --checkpoint_dir out/custom-model/final
+litgpt chat out/custom-model/final
 ```
 
 &nbsp;
 
 ### Pretrain an LLM
-Train an LLM from scratch on your own data via pretraining:
+
+[Train an LLM from scratch](tutorials/pretrain.md) on your own data via pretraining:
 
 <a target="_blank" href="https://lightning.ai/lightning-ai/studios/litgpt-pretrain">
 <img src="https://pl-bolts-doc-images.s3.us-east-2.amazonaws.com/app-2/studio-badge.svg"; alt="Open In Studio"/>
@@ -208,28 +221,26 @@ curl https://www.gutenberg.org/cache/epub/24440/pg24440.txt --output custom_text
 curl https://www.gutenberg.org/cache/epub/26393/pg26393.txt --output custom_texts/book2.txt
 
 # 1) Download a tokenizer
-litgpt download \
-  --repo_id EleutherAI/pythia-160m \
+litgpt download EleutherAI/pythia-160m \
   --tokenizer_only True
 
 # 2) Pretrain the model
-litgpt pretrain \
-  --model_name pythia-160m \
-  --tokenizer_dir checkpoints/EleutherAI/pythia-160m \
+litgpt pretrain EleutherAI/pythia-160m \
+  --tokenizer_dir EleutherAI/pythia-160m \
   --data TextFiles \
   --data.train_data_path "custom_texts/" \
   --train.max_tokens 10_000_000 \
   --out_dir out/custom-model
 
 # 3) Chat with the model
-litgpt chat \
-  --checkpoint_dir out/custom-model/final
+litgpt chat out/custom-model/final
 ```
 
 &nbsp;
 
 ### Continue pretraining an LLM
-This is another way of finetuning that specializes an already pretrained model by training on custom data:
+
+[Continued pretraining](tutorials/pretrain.md#continued-pretraining-on-custom-data) is another way of finetuning that specializes an already pretrained model by training on custom data:
 
 
 <a target="_blank" href="https://lightning.ai/lightning-ai/studios/litgpt-continue-pretraining">
@@ -244,27 +255,37 @@ curl https://www.gutenberg.org/cache/epub/24440/pg24440.txt --output custom_text
 curl https://www.gutenberg.org/cache/epub/26393/pg26393.txt --output custom_texts/book2.txt
 
 # 1) Download a pretrained model
-litgpt download --repo_id EleutherAI/pythia-160m
+litgpt download EleutherAI/pythia-160m
 
 # 2) Continue pretraining the model
-litgpt pretrain \
-  --model_name pythia-160m \
-  --tokenizer_dir checkpoints/EleutherAI/pythia-160m \
-  --initial_checkpoint_dir checkpoints/EleutherAI/pythia-160m \
+litgpt pretrain EleutherAI/pythia-160m \
+  --tokenizer_dir EleutherAI/pythia-160m \
+  --initial_checkpoint_dir EleutherAI/pythia-160m \
   --data TextFiles \
   --data.train_data_path "custom_texts/" \
   --train.max_tokens 10_000_000 \
   --out_dir out/custom-model
 
 # 3) Chat with the model
-litgpt chat \
-  --checkpoint_dir out/custom-model/final
+litgpt chat out/custom-model/final
 ```
 
 &nbsp;
 
+### Evaluate an LLM
+
+If you want to [evaluate](tutorials/evaluation.md) a downloaded, finetuned, or pretrained LLM on popular benchmark tasks, such as MMLU and Truthful QA, run the following command:
+
+```bash
+litgpt evaluate microsoft/phi-2 --tasks 'truthfulqa_mc2,mmlu'
+```
+
+[Read the full evaluation docs](tutorials/evaluation.md).
+
+&nbsp;
+
 ### Deploy an LLM
-Once you're ready to deploy a finetuned LLM, run this command:
+Once you're ready to [deploy](tutorials/deploy.md) a finetuned LLM, run this command:
 
 <a target="_blank" href="https://lightning.ai/lightning-ai/studios/litgpt-serve">
   <img src="https://pl-bolts-doc-images.s3.us-east-2.amazonaws.com/app-2/studio-badge.svg" alt="Open In Studio"/>
@@ -274,34 +295,62 @@ Once you're ready to deploy a finetuned LLM, run this command:
 
 ```bash
 # locate the checkpoint to your finetuned or pretrained model and call the `serve` command:
-litgpt serve --checkpoint_dir path/to/your/checkpoint/microsoft/phi-2
+litgpt serve microsoft/phi-2
 
 # Alternative: if you haven't finetuned, download any checkpoint to deploy it:
-litgpt download --repo_id microsoft/phi-2
-litgpt serve --checkpoint_dir checkpoints/microsoft/phi-2
+litgpt download microsoft/phi-2
+litgpt serve microsoft/phi-2
 ```
 
 Test the server in a separate terminal and integrate the model API into your AI product:
 ```python
-# 3) Use the server (in a separate session)
+# 3) Use the server (in a separate Python session)
 import requests, json
- response = requests.post(
-     "http://127.0.0.1:8000/predict",
-     json={"prompt": "Fix typos in the following sentence: Exampel input"}
+response = requests.post(
+    "http://127.0.0.1:8000/predict",
+    json={"prompt": "Fix typos in the following sentence: Exampel input"}
 )
 print(response.json()["output"])
 ```
 
-&nbsp;
-
-> [!NOTE]
-> **[Read the full docs](tutorials/0_to_litgpt.md)**.
+[Read the full deploy docs](tutorials/deploy.md).
 
 &nbsp;
 
 ----
 
+###  Use an LLM for inference
+
+Use LLMs for [inference](tutorials/deploy.md) to test its chatting capabilities, run evaluations, or extract embeddings, etc.
+Here's an example showing how to use the Phi-2 LLM.
+
+<a target="_blank" href="https://lightning.ai/lightning-ai/studios/litgpt-chat">
+  <img src="https://pl-bolts-doc-images.s3.us-east-2.amazonaws.com/app-2/studio-badge.svg" alt="Open In Studio"/>
+</a>
+
+&nbsp;
+
+```bash
+# 1) List all available models in litgpt
+litgpt download list
+
+# 2) Download a pretrained model
+litgpt download microsoft/phi-2
+
+# 3) Chat with the model
+litgpt chat microsoft/phi-2
+
+>> Prompt: What do Llamas eat?
+```
+
+The download of certain models requires an additional access token. You can read more about this in the [download](tutorials/download_model_weights.md#specific-models-and-access-tokens) documentation. 
+For more information on the different inference options, refer to the [inference](tutorials/inference.md) tutorial.
+
+----
+&nbsp;
+
 # State-of-the-art features
+
 ✅ &nbsp;State-of-the-art optimizations: Flash Attention v2, multi-GPU support via fully-sharded data parallelism, [optional CPU offloading](tutorials/oom.md#do-sharding-across-multiple-gpus), and [TPU and XLA support](extensions/xla).
 
 ✅ &nbsp;[Pretrain](tutorials/pretrain.md), [finetune](tutorials/finetune.md), and [deploy](tutorials/inference.md)
@@ -336,8 +385,9 @@ Browse all training recipes [here](config_hub).
 litgpt finetune \
   --config https://raw.githubusercontent.com/Lightning-AI/litgpt/main/config_hub/finetune/llama-2-7b/lora.yaml
 ```
-
-### What is a config
+<details>
+  <summary>✅ Use configs to customize training</summary>
+  
 Configs let you customize training for all granular parameters like:
 
 ```yaml
@@ -352,9 +402,10 @@ precision: bf16-true
 
 ...
 ```
+</details>
 
 <details>
-  <summary>Example: LoRA finetuning config</summary>
+  <summary>✅ Example: LoRA finetuning config</summary>
 
 &nbsp;
 
@@ -484,82 +535,51 @@ seed: 1337
 ```
 </details>
 
-### Override config params via CLI
-Override any parameter in the CLI:
+<details>
+  <summary>✅ Override any parameter in the CLI:</summary>
 
 ```bash
 litgpt finetune \
   --config https://raw.githubusercontent.com/Lightning-AI/litgpt/main/config_hub/finetune/llama-2-7b/lora.yaml \
   --lora_r 4
 ```
+</details>
 
 &nbsp;
 
 # Community
 
-## Get involved!
-
-We appreciate your feedback and contributions. If you have feature requests, questions, or want to contribute code or config files, please don't hesitate to use the [GitHub Issue](https://github.com/Lightning-AI/litgpt/issues) tracker.
-
 We welcome all individual contributors, regardless of their level of experience or hardware. Your contributions are valuable, and we are excited to see what you can accomplish in this collaborative and supportive environment.
 
-&nbsp;
-
-> [!TIP]
-> Unsure about contributing? Check out our [How to Contribute to LitGPT](https://lightning.ai/pages/community/tutorial/how-to-contribute-to-litgpt/) guide.
-
-If you have general questions about building with LitGPT, please [join our Discord](https://discord.gg/VptPCZkGNa).
-
+- [Request a feature](https://github.com/Lightning-AI/litgpt/issues)    
+- [Submit your first contribution](https://lightning.ai/pages/community/tutorial/how-to-contribute-to-litgpt/)    
+- [Join our Discord](https://discord.gg/VptPCZkGNa)    
 
 &nbsp;
 
-## Tutorials, how-to guides, and docs
+# Tutorials   
 
-
-> [!NOTE]
-> We recommend starting with the **[Zero to LitGPT: Getting Started with Pretraining, Finetuning, and Using LLMs](tutorials/0_to_litgpt.md)** if you are looking to get started with using LitGPT.
-
-Tutorials and in-depth feature documentation can be found below:
-
--  Finetuning, incl. LoRA, QLoRA, and Adapters ([tutorials/finetune.md](tutorials/finetune.md))
--  Pretraining ([tutorials/pretrain.md](tutorials/pretrain.md))
--  Model evaluation ([tutorials/evaluation.md](tutorials/evaluation.md))
--  Supported and custom datasets ([tutorials/prepare_dataset.md](tutorials/prepare_dataset.md))
--  Quantization ([tutorials/quantize.md](tutorials/quantize.md))
--  Tips for dealing with out-of-memory (OOM) errors ([tutorials/oom.md](tutorials/oom.md))
-
-&nbsp;
-
-## XLA
-
-Lightning AI has partnered with Google to add first-class support for [Cloud TPUs](https://cloud.google.com/tpu) in [Lightning's frameworks](https://github.com/Lightning-AI/lightning) and LitGPT,
-helping democratize AI for millions of developers and researchers worldwide.
-
-Using TPUs with Lightning is as straightforward as changing one line of code.
-
-We provide scripts fully optimized for TPUs in the [XLA directory](extensions/xla).
-
-
-
-&nbsp;
-
-## Acknowledgements
-
-This implementation extends on [Lit-LLaMA](https://github.com/lightning-AI/lit-llama) and [nanoGPT](https://github.com/karpathy/nanoGPT), and it's **powered by [Lightning Fabric](https://lightning.ai/docs/fabric/stable/) ⚡**.
-
-- [@karpathy](https://github.com/karpathy) for [nanoGPT](https://github.com/karpathy/nanoGPT)
-- [@EleutherAI](https://github.com/EleutherAI) for [GPT-NeoX](https://github.com/EleutherAI/gpt-neox) and the [Evaluation Harness](https://github.com/EleutherAI/lm-evaluation-harness)
-- [@TimDettmers](https://github.com/TimDettmers) for [bitsandbytes](https://github.com/TimDettmers/bitsandbytes)
-- [@Microsoft](https://github.com/microsoft) for [LoRA](https://github.com/microsoft/LoRA)
-- [@tridao](https://github.com/tridao) for [Flash Attention 2](https://github.com/Dao-AILab/flash-attention)
-
+🚀 [Get started](tutorials/0_to_litgpt.md)    
+⚡️  [Finetuning, incl. LoRA, QLoRA, and Adapters](tutorials/finetune.md)    
+🤖 [Pretraining](tutorials/pretrain.md)    
+💬 [Model evaluation](tutorials/evaluation.md)    
+📘 [Supported and custom datasets](tutorials/prepare_dataset.md)    
+🧹 [Quantization](tutorials/quantize.md)    
+🤯 [Tips for dealing with out-of-memory (OOM) errors](tutorials/oom.md)   
+🧑🏽‍💻 [Using cloud TPUs](extensions/xla)
 
 &nbsp;
 
 
-## Community showcase
+## Projects using LitGPT
 
 Check out the projects below that use and build on LitGPT. If you have a project you'd like to add to this section, please don't hesitate to open a pull request.
+
+&nbsp;
+
+📊 **SAMBA: Simple Hybrid State Space Models for Efficient Unlimited Context Language Modeling**
+
+The [Samba](https://github.com/microsoft/Samba) project by researchers at Microsoft is built on top of the LitGPT code base and combines state space models with sliding window attention, which outperforms pure state space models.
 
 &nbsp;
 
@@ -587,6 +607,23 @@ The research paper ["Pre-training Small Base LMs with Fewer Tokens"](https://arx
 
 &nbsp;
 
+## Acknowledgements
+
+This implementation extends on [Lit-LLaMA](https://github.com/lightning-AI/lit-llama) and [nanoGPT](https://github.com/karpathy/nanoGPT), and it's **powered by [Lightning Fabric](https://lightning.ai/docs/fabric/stable/) ⚡**.
+
+- [@karpathy](https://github.com/karpathy) for [nanoGPT](https://github.com/karpathy/nanoGPT)
+- [@EleutherAI](https://github.com/EleutherAI) for [GPT-NeoX](https://github.com/EleutherAI/gpt-neox) and the [Evaluation Harness](https://github.com/EleutherAI/lm-evaluation-harness)
+- [@TimDettmers](https://github.com/TimDettmers) for [bitsandbytes](https://github.com/TimDettmers/bitsandbytes)
+- [@Microsoft](https://github.com/microsoft) for [LoRA](https://github.com/microsoft/LoRA)
+- [@tridao](https://github.com/tridao) for [Flash Attention 2](https://github.com/Dao-AILab/flash-attention)
+
+&nbsp;
+
+## License
+
+LitGPT is released under the [Apache 2.0](https://github.com/Lightning-AI/litgpt/blob/main/LICENSE) license.
+
+
 ## Citation
 
 If you use LitGPT in your research, please cite the following work:
@@ -601,7 +638,3 @@ If you use LitGPT in your research, please cite the following work:
 ```
 
 &nbsp;
-
-## License
-
-LitGPT is released under the [Apache 2.0](https://github.com/Lightning-AI/litgpt/blob/main/LICENSE) license.

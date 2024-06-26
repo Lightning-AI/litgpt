@@ -3,17 +3,27 @@
 import sys
 import time
 from pathlib import Path
+from pprint import pprint
 from typing import Any, Literal, Optional
+import warnings
 
 import lightning as L
 import torch
 import torch._dynamo.config
 import torch._inductor.config
 from lightning.fabric.plugins import BitsandbytesPrecision
+from lightning_utilities.core.imports import RequirementCache
 
-from litgpt import GPT, Config, PromptStyle, Tokenizer
-from litgpt.prompts import has_prompt_style, load_prompt_style
-from litgpt.utils import CLI, check_valid_checkpoint_dir, get_default_supported_precision, load_checkpoint
+from litgpt.model import GPT
+from litgpt.config import Config
+from litgpt.tokenizer import Tokenizer
+from litgpt.prompts import has_prompt_style, load_prompt_style, PromptStyle
+from litgpt.utils import (
+    check_valid_checkpoint_dir,
+    extend_checkpoint_dir,
+    get_default_supported_precision,
+    load_checkpoint
+)
 
 
 def multinomial_num_samples_1(probs: torch.Tensor) -> torch.Tensor:
@@ -78,9 +88,10 @@ def generate(
     top_k: Optional[int] = None,
     top_p: float = 1.0,
     eos_id: Optional[int] = None,
+    include_prompt: bool = True,
 ) -> torch.Tensor:
-    """Takes a conditioning sequence (prompt) as input and continues to generate as many tokens as requested.
-
+    """
+    Takes a conditioning sequence (prompt) as input and continues to generate as many tokens as requested.
     The implementation of this function is modified from A. Karpathy's nanoGPT.
 
     Args:
@@ -104,6 +115,7 @@ def generate(
             For more details, see https://arxiv.org/abs/1904.09751
             or https://huyenchip.com/2024/01/16/sampling.html#top_p
         eos_id: If specified, stop generating any more token once the <eos> token is triggered.
+        include_prompt: If true (default) prepends the prompt (after applying the prompt style) to the output.
     """
     T = prompt.size(0)
     assert max_returned_tokens > T
@@ -114,7 +126,10 @@ def generate(
         raise NotImplementedError(f"max_seq_length {model.max_seq_length} needs to be >= {max_returned_tokens - 1}")
 
     device = prompt.device
-    tokens = [prompt]
+    if include_prompt:
+        tokens = [prompt]
+    else:
+        tokens = []
     input_pos = torch.tensor([T], device=device)
     token = next_token(
         model, torch.arange(0, T, device=device), prompt.view(1, -1), temperature=temperature, top_k=top_k, top_p=top_p
@@ -133,6 +148,7 @@ def generate(
 
 @torch.inference_mode()
 def main(
+    checkpoint_dir: Path,
     prompt: str = "What food do llamas eat?",
     *,
     num_samples: int = 1,
@@ -140,14 +156,16 @@ def main(
     top_k: Optional[int] = 50,
     top_p: float = 1.0,
     temperature: float = 0.8,
-    checkpoint_dir: Path = Path("checkpoints/stabilityai/stablelm-base-alpha-3b"),
     quantize: Optional[Literal["bnb.nf4", "bnb.nf4-dq", "bnb.fp4", "bnb.fp4-dq", "bnb.int8"]] = None,
     precision: Optional[str] = None,
     compile: bool = False,
 ) -> None:
-    """Generates text samples based on a pre-trained model and tokenizer.
+    """Default generation option.
+
+    Generates text samples based on a pre-trained model and tokenizer.
 
     Args:
+        checkpoint_dir: The checkpoint directory to load.
         prompt: The prompt string to use for generating the samples.
         num_samples: The number of text samples to generate.
         max_new_tokens: The number of generation steps to take.
@@ -168,7 +186,6 @@ def main(
             or https://huyenchip.com/2024/01/16/sampling.html#top_p
         temperature: A value controlling the randomness of the sampling process. Higher values result in more random
             samples.
-        checkpoint_dir: The checkpoint directory to load.
         quantize: Whether to quantize the model and using which method:
             - bnb.nf4, bnb.nf4-dq, bnb.fp4, bnb.fp4-dq: 4-bit quantization from bitsandbytes
             - bnb.int8: 8-bit quantization from bitsandbytes
@@ -176,12 +193,20 @@ def main(
         precision: Indicates the Fabric precision setting to use.
         compile: Whether to compile the model.
     """
+    checkpoint_dir = extend_checkpoint_dir(checkpoint_dir)
+    pprint(locals())
+
     precision = precision or get_default_supported_precision(training=False)
 
     plugins = None
     if quantize is not None and quantize.startswith("bnb."):
         if "mixed" in precision:
             raise ValueError("Quantization and mixed precision is not supported.")
+        if RequirementCache("bitsandbytes != 0.42.0"):
+            warnings.warn(
+                "LitGPT only supports bitsandbytes v0.42.0. "
+                "This may result in errors when using quantization."
+            )
         dtype = {"16-true": torch.float16, "bf16-true": torch.bfloat16, "32-true": torch.float32}[precision]
         plugins = BitsandbytesPrecision(quantize[4:], dtype)
         precision = None
@@ -242,9 +267,3 @@ def main(
         )
     if fabric.device.type == "cuda":
         fabric.print(f"Memory used: {torch.cuda.max_memory_allocated() / 1e9:.02f} GB", file=sys.stderr)
-
-
-if __name__ == "__main__":
-    torch.set_float32_matmul_precision("high")
-
-    CLI(main)

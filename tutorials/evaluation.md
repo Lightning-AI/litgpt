@@ -19,16 +19,15 @@ pip install lm_eval
 Suppose you downloaded a base model that we want to evaluate. Here, we use the `microsoft/phi-2` model:
 
 ```bash
-litgpt download --repo_id microsoft/phi-2
+litgpt download microsoft/phi-2
 ```
 
-The download command above will save the model to the `checkoints/microsoft/phi-2` directory, which we can
+The download command above will save the model to the `checkpoints/microsoft/phi-2` directory, which we can
 specify in the following evaluation command:
 
 
 ```
-litgpt evaluate \
-  --checkpoint_dir checkpoints/microsoft/phi-2/ \
+litgpt evaluate microsoft/phi-2/ \
   --batch_size 4 \
   --tasks "hellaswag,truthfulqa_mc2,mmlu" \
   --out_dir evaluate_model/
@@ -62,8 +61,7 @@ In some cases, for example, if you modified the model in the `checkpoint_dir` si
 call, you need to use the `--force_conversion` flag to to update the files used by litgpt evaluate accordingly: 
 
 ```
-litgpt evaluate \
-  --checkpoint_dir checkpoints/microsoft/phi-2/ \
+litgpt evaluate microsoft/phi-2/ \
   --batch_size 4 \
   --out_dir evaluate_model/ \
   --tasks "hellaswag,truthfulqa_mc2,mmlu" \
@@ -73,7 +71,7 @@ litgpt evaluate \
 &nbsp;
 
 > [!TIP]
-> Run `litgpt evaluate --checkpoint_dir ...` without specifying `--tasks` to print a list
+> Run `litgpt evaluate ...` without specifying `--tasks` to print a list
 > of the supported tasks. 
 
 > [!TIP]
@@ -87,19 +85,17 @@ litgpt evaluate \
 
 ### Evaluating LoRA-finetuned LLMs
 
-No further conversion is necessary when evaluating LoRA-finetuned models as the `finetune lora` command already prepares the necessary merged model files:
+No further conversion is necessary when evaluating LoRA-finetuned models as the `finetune_lora` command already prepares the necessary merged model files:
 
 ```bash
-litgpt finetune lora \
-  --checkpoint_dir checkpoints/microsoft/phi-2 \
+litgpt finetune_lora microsoft/phi-2 \
   --out_dir lora_model
 ```
 
 &nbsp;
 
 ```bash
-litgpt evaluate \
-  --checkpoint_dir lora_model/final \
+litgpt evaluate lora_model/final \
   --batch_size 4 \
   --tasks "hellaswag,truthfulqa_mc2,mmlu" \
   --out_dir evaluate_model/ \

@@ -3,17 +3,26 @@
 import sys
 import time
 from pathlib import Path
+from pprint import pprint
 from typing import Iterator, List, Literal, Optional, Tuple
 
 import lightning as L
 import torch
 from lightning.fabric.plugins import BitsandbytesPrecision
 
-from litgpt import GPT, Config, PromptStyle, Tokenizer
+from litgpt.model import GPT
+from litgpt.config import Config
+from litgpt.prompts import PromptStyle
+from litgpt.tokenizer import Tokenizer
 from litgpt.generate.base import next_token
 from litgpt.prompts import has_prompt_style, load_prompt_style
 from litgpt.scripts.merge_lora import merge_lora
-from litgpt.utils import CLI, check_valid_checkpoint_dir, get_default_supported_precision, load_checkpoint
+from litgpt.utils import (
+    check_valid_checkpoint_dir,
+    extend_checkpoint_dir,
+    get_default_supported_precision,
+    load_checkpoint
+)
 
 
 @torch.inference_mode()
@@ -29,7 +38,7 @@ def generate(
 ) -> Iterator[torch.Tensor]:
     """Takes a conditioning sequence (prompt) as input and continues to generate as many tokens as possible.
 
-    Args:
+    Arguments:
         model: The model to use.
         prompt: Tensor of shape (T) with indices of the prompt sequence.
         max_returned_tokens: The maximum number of tokens to return (given plus generated).
@@ -110,20 +119,67 @@ def decode(fabric: L.Fabric, tokenizer: Tokenizer, token_stream: Iterator[torch.
     return tokens_generated
 
 
+def process_prompt(prompt, model, tokenizer, prompt_style, fabric, temperature, top_k, top_p, stop_tokens):
+    prompt = prompt_style.apply(prompt=prompt)
+    encoded_prompt = tokenizer.encode(prompt, device=fabric.device)
+    y = generate(
+        model, encoded_prompt, model.max_seq_length, temperature=temperature, top_k=top_k, top_p=top_p, stop_tokens=stop_tokens
+    )
+    fabric.print(">> Reply: ", end="")
+    t0 = time.perf_counter()
+    tokens_generated = decode(fabric, tokenizer, y)
+    t = time.perf_counter() - t0
+    for block in model.transformer.h:
+        block.attn.kv_cache.reset_parameters()
+    fabric.print(
+        f"\nTime for inference: {t:.02f} sec total, {tokens_generated / t:.02f} tokens/sec,"
+        f" {tokens_generated} tokens",
+        file=sys.stderr,
+    )
+    fabric.print()
+
+
+def interact(multiline, model, tokenizer, prompt_style, fabric, temperature, top_k, top_p, stop_tokens):
+    while True:
+        try:
+            if not multiline:
+                prompt = input(">> Prompt: ")
+            else:
+                print(">> Prompt: (Type '!submit' on a new line to end input).")
+                prompt_lines = []
+                while True:
+                    line = input()
+                    if line.strip().lower() in ("!submit", "!quit", "!exit"):
+                        break
+                    prompt_lines.append(line)
+                prompt = "\n".join(prompt_lines)
+
+        except KeyboardInterrupt:
+            break
+
+        prompt = prompt.lower().strip()
+        if not prompt or prompt in ("!quit", "!exit"):
+            break
+
+        process_prompt(prompt, model, tokenizer, prompt_style, fabric, temperature, top_k, top_p, stop_tokens)
+
+
 @torch.inference_mode()
 def main(
+    checkpoint_dir: Path,
     *,
     top_k: Optional[int] = 200,
     top_p: float = 1.0,
     temperature: float = 0.8,
-    checkpoint_dir: Path = Path("checkpoints/stabilityai/stablelm-tuned-alpha-3b"),
     quantize: Optional[Literal["bnb.nf4", "bnb.nf4-dq", "bnb.fp4", "bnb.fp4-dq", "bnb.int8"]] = None,
     precision: Optional[str] = None,
     compile: bool = False,
+    multiline: bool = False,
 ) -> None:
-    """Starts a conversation with a tuned GPT model.
+    """Chat with a model.
 
     Args:
+        checkpoint_dir: The checkpoint directory to load.
         top_k: The number of top most probable tokens to consider in the sampling process.
         top_p: If specified, it represents the cumulative probability threshold to consider in the sampling process.
             In top-p sampling, the next token is sampled from the highest probability tokens
@@ -141,14 +197,17 @@ def main(
             or https://huyenchip.com/2024/01/16/sampling.html#top_p
         temperature: A value controlling the randomness of the sampling process. Higher values result in more random
             samples.
-        checkpoint_dir: The checkpoint directory to load.
         quantize: Whether to quantize the model and using which method:
             - bnb.nf4, bnb.nf4-dq, bnb.fp4, bnb.fp4-dq: 4-bit quantization from bitsandbytes
             - bnb.int8: 8-bit quantization from bitsandbytes
             for more details, see https://github.com/Lightning-AI/litgpt/blob/main/tutorials/quantize.md
         precision: Indicates the Fabric precision setting to use.
         compile: Whether to use compilation to speed up token generation. Will increase startup time.
+        multiline: Whether to support multiline input prompts.
     """
+    checkpoint_dir = extend_checkpoint_dir(checkpoint_dir)
+    pprint(locals())
+
     precision = precision or get_default_supported_precision(training=False)
 
     plugins = None
@@ -193,35 +252,22 @@ def main(
     )
     stop_tokens = prompt_style.stop_tokens(tokenizer)
 
-    print(f"Now chatting with {config.name}.\nTo exit, press 'Enter' on an empty prompt.\n")
+    if multiline:
+        exit_instruction = "To exit, enter '!quit' or '!exit' on an empty prompt and press 'Enter'."
+    else:
+        exit_instruction = "To exit, press 'Enter' on an empty prompt."
+
+    print(f"Now chatting with {config.name}.\n{exit_instruction}\n")
     L.seed_everything(1234)
-    while True:
-        try:
-            prompt = input(">> Prompt: ")
-        except KeyboardInterrupt:
-            break
-        if prompt.lower().strip() in ("", "quit", "exit"):
-            break
-        prompt = prompt_style.apply(prompt=prompt)
-        encoded_prompt = tokenizer.encode(prompt, device=fabric.device)
-        y = generate(
-            model, encoded_prompt, model.max_seq_length, temperature=temperature, top_k=top_k, top_p=top_p, stop_tokens=stop_tokens
-        )
-        fabric.print(">> Reply: ", end="")
-        t0 = time.perf_counter()
-        tokens_generated = decode(fabric, tokenizer, y)
-        t = time.perf_counter() - t0
-        for block in model.transformer.h:
-            block.attn.kv_cache.reset_parameters()
-        fabric.print(
-            f"\nTime for inference: {t:.02f} sec total, {tokens_generated / t:.02f} tokens/sec,"
-            f" {tokens_generated} tokens",
-            file=sys.stderr,
-        )
-        fabric.print()
 
-
-if __name__ == "__main__":
-    torch.set_float32_matmul_precision("high")
-
-    CLI(main)
+    interact(
+        multiline=multiline,
+        model=model,
+        tokenizer=tokenizer,
+        prompt_style=prompt_style,
+        fabric=fabric,
+        temperature=temperature,
+        top_k=top_k,
+        top_p=top_p,
+        stop_tokens=stop_tokens
+    )

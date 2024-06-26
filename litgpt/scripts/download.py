@@ -9,14 +9,13 @@ import torch
 from lightning_utilities.core.imports import RequirementCache
 
 from litgpt.scripts.convert_hf_checkpoint import convert_hf_checkpoint
-from litgpt.utils import CLI
 
 _SAFETENSORS_AVAILABLE = RequirementCache("safetensors")
 _HF_TRANSFER_AVAILABLE = RequirementCache("hf_transfer")
 
 
 def download_from_hub(
-    repo_id: Optional[str] = None,
+    repo_id: str,
     access_token: Optional[str] = os.getenv("HF_TOKEN"),
     tokenizer_only: bool = False,
     convert_checkpoint: bool = True,
@@ -28,6 +27,7 @@ def download_from_hub(
 
     Arguments:
         repo_id: The repository ID in the format ``org/name`` or ``user/name`` as shown in Hugging Face.
+            If "list" is provided as input, a list of the currently supported models in LitGPT and quits.
         access_token: Optional API token to access models with restrictions.
         tokenizer_only: Whether to download only the tokenizer files.
         convert_checkpoint: Whether to convert the checkpoint files to the LitGPT format after downloading.
@@ -37,8 +37,9 @@ def download_from_hub(
         model_name: The existing config name to use for this repo_id. This is useful to download alternative weights of
             existing architectures.
     """
+    print("repo_id:", repo_id)
 
-    if repo_id is None:
+    if repo_id == "list":
         from litgpt.config import configs
 
         options = [f"{config['hf_config']['org']}/{config['hf_config']['name']}" for config in configs]
@@ -58,7 +59,7 @@ def download_from_hub(
         elif safetensors:
             if not _SAFETENSORS_AVAILABLE:
                 raise ModuleNotFoundError(str(_SAFETENSORS_AVAILABLE))
-            download_files.append("*.safetensors")
+            download_files.append("*.safetensors*")
             from_safetensors = True
         else:
             raise ValueError(f"Couldn't find weight files for {repo_id}")
@@ -100,7 +101,13 @@ def download_from_hub(
                 raise RuntimeError(f"{safetensor_path} is likely corrupted. Please try to re-download it.") from e
             print(f"{safetensor_path} --> {bin_path}")
             torch.save(result, bin_path)
-            os.remove(safetensor_path)
+            try:
+                os.remove(safetensor_path)
+            except PermissionError:
+                print(
+                    f"Unable to remove {safetensor_path} file. "
+                    "This file is no longer needed and you may want to delete it manually to save disk space."
+                )
 
     if convert_checkpoint and not tokenizer_only:
         print("Converting checkpoint files to LitGPT format.")
@@ -115,7 +122,7 @@ def find_weight_files(repo_id: str, access_token: Optional[str]) -> Tuple[List[s
         info = repo_info(repo_id, token=access_token)
     filenames = [f.rfilename for f in info.siblings]
     bins = list(filter_repo_objects(items=filenames, allow_patterns=["*.bin*"]))
-    safetensors = list(filter_repo_objects(items=filenames, allow_patterns=["*.safetensors"]))
+    safetensors = list(filter_repo_objects(items=filenames, allow_patterns=["*.safetensors*"]))
     return bins, safetensors
 
 
@@ -144,7 +151,3 @@ def gated_repo_catcher(repo_id: str, access_token: Optional[str]):
                     f" visit https://huggingface.co/{repo_id} for more information."
                 ) from None
         raise e from None
-
-
-if __name__ == "__main__":
-    CLI(download_from_hub)
