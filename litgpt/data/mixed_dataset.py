@@ -40,6 +40,7 @@ from torch.utils.data import BatchSampler, DataLoader, IterableDataset
 
 from torch.utils.data.dataloader import (
     _BaseDataLoaderIter,
+    _InfiniteConstantSampler,
     _MultiProcessingDataLoaderIter,
 )
 from typing_extensions import override, Self, TypedDict
@@ -771,6 +772,13 @@ class UnifiedBatchSampler(BatchSampler):
             key: iter(sampler) for key, sampler in batch_samplers.items()
         }
 
+        self._max_size = 0
+        for sampler in self.batch_samplers.values():
+            try:
+                self._max_size = max(self._max_size, len(sampler))
+            except:
+                continue
+
     def __iter__(self):
         active_samplers = list(self.samplers_iter.keys())
         while active_samplers:
@@ -786,4 +794,9 @@ class UnifiedBatchSampler(BatchSampler):
 
     def __len__(self):
         # This might need to be adjusted based on how you decide to combine the batches
-        return sum(len(sampler) for sampler in self.batch_samplers.values())
+        sum_size = 0
+        for sampler in self.batch_samplers:
+            try:
+                sum_size += len(sampler)
+            except:
+                sum_size += self._max_size  # just set this for infinite datasets
