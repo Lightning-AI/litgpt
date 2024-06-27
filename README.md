@@ -3,13 +3,14 @@
 
 # ⚡ LitGPT
 
-**Load, finetune, pretrain, evaluate, and deploy 20+ LLMs on your own data**
-
-Uses the latest state-of-the-art techniques:
+**20+ high-performance LLM implementations with recipes to pretrain, finetune, deploy at scale.**
 
 <pre>
-✅ Scratch implementations  ✅ flash attention  ✅ fp4/8/16/32        ✅ LoRA, QLoRA, Adapter
-✅ No abstractions          ✅ FSDP             ✅ 1-1000+ GPUs/TPUs  ✅ 20+ LLMs            
+Some of the state of the art features supported:  
+      
+✅ From scratch implementations  ✅ No abstractions    ✅ Beginner friendly   
+✅ flash attention               ✅ fp4/8/16/32        ✅ LoRA, QLoRA, Adapter
+✅ FSDP                          ✅ 1-1000+ GPUs/TPUs  ✅ 20+ LLMs            
 </pre>
 
 
@@ -27,7 +28,7 @@ Uses the latest state-of-the-art techniques:
   <a href="#deploy-an-llm">Deploy</a> •    
     <a href="#evaluate-an-llm">Evaluate</a> •
   <a href="#state-of-the-art-features">Features</a> •
-  <a href="#training-recipes">Training recipes (YAML)</a> •
+  <a href="#training-recipes">Recipes (YAML)</a> •
     <a href="#tutorials">Tutorials</a>
 </p>
 
@@ -41,17 +42,19 @@ Uses the latest state-of-the-art techniques:
 
 </div>
 
-# Load, finetune, pretrain, deploy LLMs Lightning fast ⚡⚡
-LitGPT is a library of **lightning-fast** large language model (LLMs) **implemented from scratch** (Apache 2.0) with **no abstractions**.   
+# Use, finetune, pretrain, deploy LLMs Lightning fast ⚡⚡
+Easily work with 20+ LLMs.  
 
-We reimplemented all model architectures and training recipes from scratch for 4 reasons:
+Every LLM is implemented from scratch with **no abstractions** and **full control**, making them blazing fast, minimal, and performant at enterprise scale.
 
-✅ Apache 2.0 compliance to enable unlimited enterprise use.    
-✅ Easy debugging/hacking with no abstraction layers and single file implementations.    
-✅ Optimized model architectures to maximize performance, reduce costs, and speed up training.    
-✅ Highly-optimized [recipe configs](#training-recipes) we have tested at enterprise scale.    
+**Key features**:
 
-In addition to a simple Python API, it offers a command-line tool designed to easily [finetune](#finetune-an-llm), [pretrain](#pretrain-an-llm), [evaluate](#use-an-llm), and [deploy](#deploy-an-llm) [20+ LLMs](#choose-from-20-llms) **on your own data**. It features highly-optimized [training recipes](#training-recipes) for the world's most powerful open-source large language models (LLMs).
+✅ **Enterprise ready -** Apache 2.0 for unlimited enterprise use.    
+✅ **Developer friendly -** Easy debugging with no abstraction layers and single file implementations.    
+✅ **Optimized performance -** Models designed to maximize performance, reduce costs, and speed up training.    
+✅ **Proven recipes -** Highly-optimized training/finetuning recipes tested at enterprise scale.    
+
+Use the Python API to load any model, or the command-line interface for advanced workflows to [finetune](#finetune-an-llm), [pretrain](#pretrain-an-llm), [evaluate](#use-an-llm), and [deploy](#deploy-an-llm) LLMs on your own data. Our workflows feature highly-optimized [training recipes](#training-recipes) for the world's most powerful open-source large language models.
 
 &nbsp;
 
@@ -71,9 +74,6 @@ print(text)
 # Corrected Sentence: Every summer, the family enjoys a vacation to the mountains.       
 ```
 
-[Explore the full Python API docs](tutorials/python-api.md).
-
-&nbsp;
 &nbsp;
 
 ✅ Optimized for fast inference    
@@ -82,12 +82,8 @@ print(text)
 ✅ No layers of internal abstractions    
 ✅ Optimized for production scale   
 
-&nbsp;
-
 <details>
   <summary>Advanced install options</summary>
-
-&nbsp;
 
 Install from source:
 
@@ -98,12 +94,13 @@ pip install -e '.[all]'
 ```
 </details>
 
----
+[Explore the full Python API docs](tutorials/python-api.md).
 
 &nbsp;
 
+---
 # Choose from 20+ LLMs
-LitGPT has 🤯 **custom, from-scratch implementations** of [20+ LLMs](tutorials/download_model_weights.md) without layers of abstraction:
+Every model is written from scratch to maximize performance and remove layers of abstraction:   
 
 | Model | Model size | Author | Reference |
 |----|----|----|----|
@@ -155,15 +152,28 @@ LitGPT has 🤯 **custom, from-scratch implementations** of [20+ LLMs](tutorials
 
 </details>
 
+&nbsp;
+
 ---
+
+# Advanced workflows
+
+<p align="center">
+  <a href="#finetune-an-llm">Finetune</a> • 
+  <a href="#pretrain-an-llm">Pretrain</a> • 
+  <a href="#continue-pretraining-an-llm">Continued pretraining</a> •    
+    <a href="#evaluate-an-llm">Evaluate</a> •
+    <a href="#deploy-an-llm">Deploy</a> •
+    <a href="#test-an-llm">Test</a>
+</p>
 
 &nbsp;
 
-# Advanced workflows
 Use the command line interface to run advanced workflows such as pretraining or finetuning on your own data.   
 
-## All commands   
-After installing LitGPT, select the model and action you want to take on that model (finetune, pretrain, evaluate, deploy, etc...):
+
+## All workflows   
+After installing LitGPT, select the model and workflow to run (finetune, pretrain, evaluate, deploy, etc...):
 
 ```bash
 # ligpt [action] [model]
@@ -177,12 +187,20 @@ litgpt  serve     meta-llama/Meta-Llama-3-8B-Instruct
 
 &nbsp;
 
-### Finetune an LLM
-[Finetune](tutorials/finetune.md) a model to specialize it on your own custom dataset:
+---- 
 
+## Finetune an LLM
+
+<div align="center">
 <a target="_blank" href="https://lightning.ai/lightning-ai/studios/litgpt-finetune">
-  <img src="https://pl-bolts-doc-images.s3.us-east-2.amazonaws.com/app-2/studio-badge.svg" alt="Open In Studio"/>
+  <img src="https://pl-bolts-doc-images.s3.us-east-2.amazonaws.com/app-2/run-on-studio.svg" height="36px" alt="Run on Studios"/>
 </a>
+</div>
+
+&nbsp;
+
+Finetuning is the process of taking a pretrained AI model and further training it on a smaller, specialized dataset tailored to a specific task or application.
+
 
 &nbsp;
 
@@ -203,15 +221,26 @@ litgpt finetune microsoft/phi-2 \
 litgpt chat out/custom-model/final
 ```
 
+[Read the full finetuning docs](tutorials/finetune.md)
+
 &nbsp;
 
-### Pretrain an LLM
+---- 
 
-[Train an LLM from scratch](tutorials/pretrain.md) on your own data via pretraining:
+## Pretrain an LLM
 
+<div align="center">
 <a target="_blank" href="https://lightning.ai/lightning-ai/studios/litgpt-pretrain">
-<img src="https://pl-bolts-doc-images.s3.us-east-2.amazonaws.com/app-2/studio-badge.svg"; alt="Open In Studio"/>
+  <img src="https://pl-bolts-doc-images.s3.us-east-2.amazonaws.com/app-2/run-on-studio.svg" height="36px" alt="Run on Studios"/>
 </a>
+</div>
+
+&nbsp;
+
+Pretraining is the process of teaching an AI model by exposing it to a large amount of data before it is fine-tuned for specific tasks.
+
+<details>
+  <summary>Show code:</summary>
 
 &nbsp;
 
@@ -232,20 +261,31 @@ litgpt pretrain EleutherAI/pythia-160m \
   --train.max_tokens 10_000_000 \
   --out_dir out/custom-model
 
-# 3) Chat with the model
+# 3) Test the model
 litgpt chat out/custom-model/final
 ```
+</details>
+
+[Read the full pretraining docs](tutorials/pretrain.md)
 
 &nbsp;
 
-### Continue pretraining an LLM
+---- 
 
-[Continued pretraining](tutorials/pretrain.md#continued-pretraining-on-custom-data) is another way of finetuning that specializes an already pretrained model by training on custom data:
+## Continue pretraining an LLM
 
-
+<div align="center">
 <a target="_blank" href="https://lightning.ai/lightning-ai/studios/litgpt-continue-pretraining">
-<img src="https://pl-bolts-doc-images.s3.us-east-2.amazonaws.com/app-2/studio-badge.svg"; alt="Open In Studio"/>
+  <img src="https://pl-bolts-doc-images.s3.us-east-2.amazonaws.com/app-2/run-on-studio.svg" height="36px" alt="Run on Studios"/>
 </a>
+</div>
+
+&nbsp;
+
+Continued pretraining is another way of finetuning that specializes an already pretrained model by training on custom data:
+
+<details>
+  <summary>Show code:</summary>
 
 &nbsp;
 
@@ -266,30 +306,50 @@ litgpt pretrain EleutherAI/pythia-160m \
   --train.max_tokens 10_000_000 \
   --out_dir out/custom-model
 
-# 3) Chat with the model
+# 3) Test the model
 litgpt chat out/custom-model/final
 ```
 
+</details>
+
+[Read the full continued pretraining docs](tutorials/pretrain.md#continued-pretraining-on-custom-data)
+
 &nbsp;
 
-### Evaluate an LLM
+---- 
 
-If you want to [evaluate](tutorials/evaluation.md) a downloaded, finetuned, or pretrained LLM on popular benchmark tasks, such as MMLU and Truthful QA, run the following command:
+## Evaluate an LLM
+Evaluate an LLM to test its performance on various tasks to see how well it understands and generates text. Simply put, we can evaluate things like how well would it do in college-level chemistry, coding, etc... (MMLU, Truthful QA, etc...)
+
+<details>
+  <summary>Show code:</summary>
 
 ```bash
 litgpt evaluate microsoft/phi-2 --tasks 'truthfulqa_mc2,mmlu'
 ```
 
+</details>
+
 [Read the full evaluation docs](tutorials/evaluation.md).
 
 &nbsp;
 
-### Deploy an LLM
-Once you're ready to [deploy](tutorials/deploy.md) a finetuned LLM, run this command:
+---- 
 
+## Deploy an LLM
+
+<div align="center">
 <a target="_blank" href="https://lightning.ai/lightning-ai/studios/litgpt-serve">
-  <img src="https://pl-bolts-doc-images.s3.us-east-2.amazonaws.com/app-2/studio-badge.svg" alt="Open In Studio"/>
+  <img src="https://pl-bolts-doc-images.s3.us-east-2.amazonaws.com/app-2/deploy-on-studios.svg" height="36px" alt="Deploy on Studios"/>
 </a>
+</div>
+
+&nbsp;
+
+Deploy a pretrained or finetune LLM to use it in real-world applications. Deploy, automatically sets up a web server that can be accessed by a website or app.   
+
+<details>
+  <summary>Show code:</summary>
 
 &nbsp;
 
@@ -312,6 +372,7 @@ response = requests.post(
 )
 print(response.json()["output"])
 ```
+</details>
 
 [Read the full deploy docs](tutorials/deploy.md).
 
@@ -319,16 +380,24 @@ print(response.json()["output"])
 
 ----
 
-###  Use an LLM for inference
+##  Test an LLM
 
-Use LLMs for [inference](tutorials/deploy.md) to test its chatting capabilities, run evaluations, or extract embeddings, etc.
-Here's an example showing how to use the Phi-2 LLM.
-
+<div align="center">
 <a target="_blank" href="https://lightning.ai/lightning-ai/studios/litgpt-chat">
-  <img src="https://pl-bolts-doc-images.s3.us-east-2.amazonaws.com/app-2/studio-badge.svg" alt="Open In Studio"/>
+  <img src="https://pl-bolts-doc-images.s3.us-east-2.amazonaws.com/app-2/run-on-studio.svg" height="36px" alt="Run on Studios"/>
 </a>
+</div>
 
 &nbsp;
+    
+Test how well the model works via an interactive chat. Use the `chat` command to chat, extract embeddings, etc...
+
+
+<details>
+  <summary>Show code:</summary>
+
+&nbsp;
+Here's an example showing how to use the Phi-2 LLM.
 
 ```bash
 # 1) List all available models in litgpt
@@ -344,10 +413,14 @@ litgpt chat microsoft/phi-2
 ```
 
 The download of certain models requires an additional access token. You can read more about this in the [download](tutorials/download_model_weights.md#specific-models-and-access-tokens) documentation. 
-For more information on the different inference options, refer to the [inference](tutorials/inference.md) tutorial.
+
+</details>
+
+[Read the full chat docs](tutorials/inference.md).
+
+&nbsp;
 
 ----
-&nbsp;
 
 # State-of-the-art features
 
@@ -547,6 +620,51 @@ litgpt finetune \
 
 &nbsp;
 
+----
+
+# Project highlights
+
+LitGPT powers many great AI projects, initiatives, challenges and of course enterprises. Please submit a pull request to be considered for a feature.   
+
+<details>
+  <summary>📊 SAMBA: Simple Hybrid State Space Models for Efficient Unlimited Context Language Modeling</summary>
+
+The [Samba](https://github.com/microsoft/Samba) project by researchers at Microsoft is built on top of the LitGPT code base and combines state space models with sliding window attention, which outperforms pure state space models.
+
+</details>
+
+<details>
+  <summary>🏆 NeurIPS 2023 Large Language Model Efficiency Challenge: 1 LLM + 1 GPU + 1 Day</summary>
+
+The LitGPT repository was the official starter kit for the [NeurIPS 2023 LLM Efficiency Challenge](https://llm-efficiency-challenge.github.io), which is a competition focused on finetuning an existing non-instruction tuned LLM for 24 hours on a single GPU.
+
+</details>
+
+<details>
+  <summary>🦙 TinyLlama: An Open-Source Small Language Model</summary>
+
+
+LitGPT powered the [TinyLlama project](https://github.com/jzhang38/TinyLlama) and [TinyLlama: An Open-Source Small Language Model](https://arxiv.org/abs/2401.02385) research paper.
+
+</details>
+
+<details>
+  <summary>🍪 MicroLlama: MicroLlama-300M</summary>
+
+[MicroLlama](https://github.com/keeeeenw/MicroLlama) is a 300M Llama model pretrained on 50B tokens powered by TinyLlama and LitGPT.
+</details>
+
+<details>
+  <summary>🔬 Pre-training Small Base LMs with Fewer Tokens</summary>
+
+The research paper ["Pre-training Small Base LMs with Fewer Tokens"](https://arxiv.org/abs/2404.08634), which utilizes LitGPT, develops smaller base language models by inheriting a few transformer blocks from larger models and training on a tiny fraction of the data used by the larger models. It demonstrates that these smaller models can perform comparably to larger models despite using significantly less training data and resources.
+
+</details>
+
+&nbsp;
+
+----
+
 # Community
 
 We welcome all individual contributors, regardless of their level of experience or hardware. Your contributions are valuable, and we are excited to see what you can accomplish in this collaborative and supportive environment.
@@ -570,44 +688,9 @@ We welcome all individual contributors, regardless of their level of experience 
 
 &nbsp;
 
+----
 
-## Projects using LitGPT
-
-Check out the projects below that use and build on LitGPT. If you have a project you'd like to add to this section, please don't hesitate to open a pull request.
-
-&nbsp;
-
-📊 **SAMBA: Simple Hybrid State Space Models for Efficient Unlimited Context Language Modeling**
-
-The [Samba](https://github.com/microsoft/Samba) project by researchers at Microsoft is built on top of the LitGPT code base and combines state space models with sliding window attention, which outperforms pure state space models.
-
-&nbsp;
-
-**🏆 NeurIPS 2023 Large Language Model Efficiency Challenge: 1 LLM + 1 GPU + 1 Day**
-
-The LitGPT repository was the official starter kit for the [NeurIPS 2023 LLM Efficiency Challenge](https://llm-efficiency-challenge.github.io), which is a competition focused on finetuning an existing non-instruction tuned LLM for 24 hours on a single GPU.
-
-&nbsp;
-
-**🦙 TinyLlama: An Open-Source Small Language Model**
-
-LitGPT powered the [TinyLlama project](https://github.com/jzhang38/TinyLlama) and [TinyLlama: An Open-Source Small Language Model](https://arxiv.org/abs/2401.02385) research paper.
-
-&nbsp;
-
-**🍪 MicroLlama: MicroLlama-300M**
-
-[MicroLlama](https://github.com/keeeeenw/MicroLlama) is a 300M Llama model pretrained on 50B tokens powered by TinyLlama and LitGPT.
-
-&nbsp;
-
-**🔬 Pre-training Small Base LMs with Fewer Tokens**
-
-The research paper ["Pre-training Small Base LMs with Fewer Tokens"](https://arxiv.org/abs/2404.08634), which utilizes LitGPT, develops smaller base language models by inheriting a few transformer blocks from larger models and training on a tiny fraction of the data used by the larger models. It demonstrates that these smaller models can perform comparably to larger models despite using significantly less training data and resources.
-
-&nbsp;
-
-## Acknowledgements
+### Acknowledgements
 
 This implementation extends on [Lit-LLaMA](https://github.com/lightning-AI/lit-llama) and [nanoGPT](https://github.com/karpathy/nanoGPT), and it's **powered by [Lightning Fabric](https://lightning.ai/docs/fabric/stable/) ⚡**.
 
@@ -617,14 +700,11 @@ This implementation extends on [Lit-LLaMA](https://github.com/lightning-AI/lit-l
 - [@Microsoft](https://github.com/microsoft) for [LoRA](https://github.com/microsoft/LoRA)
 - [@tridao](https://github.com/tridao) for [Flash Attention 2](https://github.com/Dao-AILab/flash-attention)
 
-&nbsp;
-
-## License
+### License
 
 LitGPT is released under the [Apache 2.0](https://github.com/Lightning-AI/litgpt/blob/main/LICENSE) license.
 
-
-## Citation
+### Citation
 
 If you use LitGPT in your research, please cite the following work:
 

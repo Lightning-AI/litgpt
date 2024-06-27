@@ -11,6 +11,7 @@ from dataclasses import asdict, is_dataclass
 from io import BytesIO
 from pathlib import Path
 from typing import TYPE_CHECKING, Any, Dict, Iterable, List, Literal, Mapping, Optional, TypeVar, Union
+import warnings
 
 import lightning as L
 import torch
@@ -544,3 +545,19 @@ def extend_checkpoint_dir(checkpoint_dir: Path) -> Path:
                              not checkpoint_dir.is_absolute() and
                              new_checkpoint_dir.exists())
     return new_checkpoint_dir if should_return_new_dir else checkpoint_dir
+
+
+def check_file_size_on_cpu_and_warn(checkpoint_path, device, size_limit=4_509_715_660):
+    """
+    Checks the file size and raises a warning if it exceeds the size_limit.
+    The default size limit is 4.2 GB, the size of TinyLlama 1.1B: 4.2 * 1024 * 1024 * 1024 = 4_509_715_660
+    """
+    size = 0.0
+    if os.path.exists(checkpoint_path):
+        size = os.path.getsize(checkpoint_path)
+        if size > size_limit and str(device) == "cpu":
+            warnings.warn(
+                f"The file size of {checkpoint_path} is over {size_limit/1024/1024/1024:.1f} GB. Using a model "
+                "with more than 1B parameters on a CPU can be slow, it is recommended to switch to a GPU."
+            )
+    return size
