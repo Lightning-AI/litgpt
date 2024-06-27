@@ -8,7 +8,6 @@ from pathlib import Path
 from pprint import pprint
 from typing import Dict, List, Optional, Tuple, Union
 
-from tqdm import tqdm
 import torch
 from lightning.fabric.utilities.load import _NotYetLoadedTensor as NotYetLoadedTensor
 
@@ -26,7 +25,6 @@ def copy_weights_gpt_neox(
     hf_weights: Dict[str, Union[torch.Tensor, NotYetLoadedTensor]],
     saver: Optional[incremental_save] = None,
     dtype: Optional[torch.dtype] = None,
-    verbose: bool = True,
 ) -> None:
     weight_map = {
         "gpt_neox.embed_in.weight": "transformer.wte.weight",
@@ -49,8 +47,8 @@ def copy_weights_gpt_neox(
         "gpt_neox.final_layer_norm.weight": "transformer.ln_f.weight",
         "embed_out.weight": "lm_head.weight",
     }
-    iterable = tqdm(hf_weights.items(), desc="Processing weights") if not verbose else hf_weights.items()
-    for name, param in iterable:
+
+    for name, param in hf_weights.items():
         if "gpt_neox.layers" in name:
             from_name, number = layer_template(name, 2)
             to_name = weight_map[from_name]
@@ -59,7 +57,7 @@ def copy_weights_gpt_neox(
             to_name = to_name.format(number)
         else:
             to_name = weight_map[name]
-        param = load_param(param, name, dtype, verbose=verbose)
+        param = load_param(param, name, dtype)
         if saver is not None:
             param = saver.store_early(param)
         state_dict[to_name] = param
@@ -71,7 +69,6 @@ def copy_weights_falcon(
     hf_weights: Dict[str, Union[torch.Tensor, NotYetLoadedTensor]],
     saver: Optional[incremental_save] = None,
     dtype: Optional[torch.dtype] = None,
-    verbose: bool = True,
 ) -> None:
     weight_map = {
         "transformer.word_embeddings.weight": "transformer.wte.weight",
@@ -103,14 +100,13 @@ def copy_weights_falcon(
     else:
         raise NotImplementedError
 
-    iterable = tqdm(hf_weights.items(), desc="Processing weights") if not verbose else hf_weights.items()
-    for name, param in iterable:
+    for name, param in hf_weights.items():
         if "transformer.h" in name:
             from_name, number = layer_template(name, 2)
             to_name = weight_map[from_name].format(number)
         else:
             to_name = weight_map[name]
-        param = load_param(param, name, dtype, verbose=verbose)
+        param = load_param(param, name, dtype)
         if saver is not None:
             param = saver.store_early(param)
         state_dict[to_name] = param
@@ -123,7 +119,6 @@ def copy_weights_hf_llama(
     hf_weights: Dict[str, Union[torch.Tensor, NotYetLoadedTensor]],
     saver: Optional[incremental_save] = None,
     dtype: Optional[torch.dtype] = None,
-    verbose: bool = True,
 ) -> None:
     weight_map = {
         "model.embed_tokens.weight": "transformer.wte.weight",
@@ -160,8 +155,7 @@ def copy_weights_hf_llama(
     else:
         raise NotImplementedError
 
-    iterable = tqdm(hf_weights.items(), desc="Processing weights") if not verbose else hf_weights.items()
-    for name, param in iterable:
+    for name, param in hf_weights.items():
         if "model.layers" in name:
             from_name, l = layer_template(name, 2)
             e = None
@@ -180,7 +174,7 @@ def copy_weights_hf_llama(
             to_name = to_name.format(l=l, e=e)
         else:
             to_name = weight_map[name]
-        param = load_param(param, name, dtype, verbose=verbose)
+        param = load_param(param, name, dtype)
         if saver is not None:
             param = saver.store_early(param)
         state_dict[to_name] = param
@@ -193,9 +187,9 @@ def copy_weights_hf_llama(
         if q is None or k is None or v is None:
             # split across different .bin files
             continue
-        q = load_param(q, f"layer {i} q", dtype, verbose=verbose)
-        k = load_param(k, f"layer {i} k", dtype, verbose=verbose)
-        v = load_param(v, f"layer {i} v", dtype, verbose=verbose)
+        q = load_param(q, f"layer {i} q", dtype)
+        k = load_param(k, f"layer {i} k", dtype)
+        v = load_param(v, f"layer {i} v", dtype)
         q_per_kv = config.n_head // config.n_query_groups
         qs = torch.split(q, config.head_size * q_per_kv)
         ks = torch.split(k, config.head_size)
@@ -213,7 +207,6 @@ def copy_weights_phi(
     hf_weights: Dict[str, Union[torch.Tensor, NotYetLoadedTensor]],
     saver: Optional[incremental_save] = None,
     dtype: Optional[torch.dtype] = None,
-    verbose: bool = True,
 ) -> None:
     if any(layer_name.startswith(("layers.", "transformer.")) for layer_name in hf_weights):
         raise ValueError(
@@ -242,8 +235,7 @@ def copy_weights_phi(
         "lm_head.bias": "lm_head.bias",
     }
 
-    iterable = tqdm(hf_weights.items(), desc="Processing weights") if not verbose else hf_weights.items()
-    for name, param in iterable:
+    for name, param in hf_weights.items():
         if name.startswith("model.layers."):
             from_name, l = layer_template(name, 2)
             qkv = qkv_weights.setdefault(l, defaultdict(dict))
@@ -256,21 +248,20 @@ def copy_weights_phi(
             to_name = to_name.format(l)
         else:
             to_name = weight_map[name]
-        param = load_param(param, name, dtype, verbose=verbose)
+        param = load_param(param, name, dtype)
         if saver is not None:
             param = saver.store_early(param)
         state_dict[to_name] = param
 
-    outer_iterable = tqdm(list(qkv_weights), desc="Processing QKV weights") if not verbose else list(qkv_weights)
-    for i in outer_iterable:
+    for i in list(qkv_weights):
         for weight_type in list(qkv_weights[i]):
             qkv = qkv_weights[i][weight_type]
             if len(qkv) != 3:
                 # split across different .bin files
                 continue
-            q = load_param(qkv["q_proj"], f"layer {i} q {weight_type}", dtype, verbose=verbose)
-            k = load_param(qkv["k_proj"], f"layer {i} k {weight_type}", dtype, verbose=verbose)
-            v = load_param(qkv["v_proj"], f"layer {i} v {weight_type}", dtype, verbose=verbose)
+            q = load_param(qkv["q_proj"], f"layer {i} q {weight_type}", dtype)
+            k = load_param(qkv["k_proj"], f"layer {i} k {weight_type}", dtype)
+            v = load_param(qkv["v_proj"], f"layer {i} v {weight_type}", dtype)
             q_per_kv = config.n_head // config.n_query_groups
             qs = torch.split(q, config.head_size * q_per_kv)
             ks = torch.split(k, config.head_size)
@@ -289,15 +280,13 @@ def layer_template(layer_name: str, idx: int) -> Tuple[str, int]:
     return from_name, number
 
 
-def load_param(param: Union[torch.Tensor, NotYetLoadedTensor], name: str, dtype: Optional[torch.dtype], verbose: bool = True) -> torch.Tensor:
+def load_param(param: Union[torch.Tensor, NotYetLoadedTensor], name: str, dtype: Optional[torch.dtype]) -> torch.Tensor:
     if hasattr(param, "_load_tensor"):
         # support tensors loaded via `lazy_load()`
-        if verbose:
-            print(f"Loading {name!r} into RAM")
+        print(f"Loading {name!r} into RAM")
         param = param._load_tensor()
     if dtype is not None and type(dtype) is not NotYetLoadedTensor and dtype != param.dtype:
-        if verbose:
-            print(f"Converting {name!r} from {param.dtype} to {dtype}")
+        print(f"Converting {name!r} from {param.dtype} to {dtype}")
         param = param.to(dtype)
     return param
 
@@ -308,7 +297,6 @@ def convert_hf_checkpoint(
     *,
     model_name: Optional[str] = None,
     dtype: Optional[str] = None,
-    verbose: bool = True,
 ) -> None:
     """
     Convert a Hugging Face Transformers checkpoint into a LitGPT compatible checkpoint.
@@ -332,7 +320,7 @@ def convert_hf_checkpoint(
     save_config(config, checkpoint_dir)
 
     if "falcon" in model_name:
-        copy_fn = partial(copy_weights_falcon, model_name, verbose=verbose)
+        copy_fn = partial(copy_weights_falcon, model_name)
     elif config.mlp_class_name in ("LLaMAMLP", "GemmaMLP", "LLaMAMoE"):
         # holder to reconstitute the split q, k, v
         qkv_weights = {}
@@ -374,7 +362,7 @@ def convert_hf_checkpoint(
         for bin_file in sorted(bin_files):
             print("Processing", bin_file)
             hf_weights = lazy_load(bin_file)
-            copy_fn(sd, hf_weights, saver=saver, dtype=dtype, verbose=verbose)
+            copy_fn(sd, hf_weights, saver=saver, dtype=dtype)
         gc.collect()
         print(f"Saving converted checkpoint to {checkpoint_dir}")
         saver.save(sd)

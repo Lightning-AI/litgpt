@@ -117,7 +117,7 @@ class LLM:
             except FileNotFoundError:
                 if not access_token:
                     access_token = os.getenv("HF_TOKEN")
-                download_from_hub(repo_id=model, access_token=access_token, verbose=False)
+                download_from_hub(repo_id=model, access_token=access_token)
 
             checkpoint_dir = Path("checkpoints") / model
             config = Config.from_file(checkpoint_dir / "model_config.yaml")
