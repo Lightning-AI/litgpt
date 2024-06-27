@@ -332,7 +332,7 @@ def convert_hf_checkpoint(
     save_config(config, checkpoint_dir)
 
     if "falcon" in model_name:
-        copy_fn = partial(copy_weights_falcon, model_name, verbose)
+        copy_fn = partial(copy_weights_falcon, model_name, verbose=verbose)
     elif config.mlp_class_name in ("LLaMAMLP", "GemmaMLP", "LLaMAMoE"):
         # holder to reconstitute the split q, k, v
         qkv_weights = {}
