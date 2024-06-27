@@ -4,7 +4,7 @@ LitGPT weights need to be converted to a format that Hugging Face understands wi
 
 We provide a helpful command to convert models LitGPT models back to their equivalent Hugging Face Transformers format:
 
-```sh
+```bash
 litgpt convert_from_litgpt checkpoint_dir converted_dir
 ```
 
