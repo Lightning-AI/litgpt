@@ -127,7 +127,6 @@ def copy_weights_hf_llama(
         "model.layers.{}.self_attn.q_proj.weight": None,
         "model.layers.{}.self_attn.k_proj.weight": None,
         "model.layers.{}.self_attn.v_proj.weight": None,
-        "model.layers.{}.self_attn.qkv_proj.weight": None,
         "model.layers.{}.self_attn.o_proj.weight": "transformer.h.{l}.attn.proj.weight",
         "model.layers.{}.self_attn.rotary_emb.inv_freq": None,
         "model.layers.{}.post_attention_layernorm.weight": "transformer.h.{l}.norm_2.weight",
@@ -163,11 +162,7 @@ def copy_weights_hf_llama(
             if "block_sparse_moe.experts" in name:
                 from_name, e = layer_template(from_name, 5)
             qkv = qkv_weights.setdefault(l, [None, None, None])
-            if "qkv_proj" in name:
-                weight = load_param(param, f"layer {l} qkv", dtype)
-                weight = qkv_reassemble(weight, config)
-                state_dict[f"transformer.h.{l}.attn.attn.weight"] = weight
-            elif "q_proj" in name:
+            if "q_proj" in name:
                 qkv[0] = param
             elif "k_proj" in name:
                 qkv[1] = param
@@ -188,22 +183,21 @@ def copy_weights_hf_llama(
         state_dict["lm_head.weight"] = state_dict["transformer.wte.weight"]
 
     # convert separate q, k, v matrices into an interleaved qkv
-    if "qkv_proj" not in name:
-        for i, (q, k, v) in list(qkv_weights.items()):
-            if q is None or k is None or v is None:
-                # split across different .bin files
-                continue
-            q = load_param(q, f"layer {i} q", dtype)
-            k = load_param(k, f"layer {i} k", dtype)
-            v = load_param(v, f"layer {i} v", dtype)
-            q_per_kv = config.n_head // config.n_query_groups
-            qs = torch.split(q, config.head_size * q_per_kv)
-            ks = torch.split(k, config.head_size)
-            vs = torch.split(v, config.head_size)
-            cycled = [t for group in zip(qs, ks, vs) for t in group]
-            qkv = torch.cat(cycled)
-            state_dict[f"transformer.h.{i}.attn.attn.weight"] = qkv
-            del qkv_weights[i]
+    for i, (q, k, v) in list(qkv_weights.items()):
+        if q is None or k is None or v is None:
+            # split across different .bin files
+            continue
+        q = load_param(q, f"layer {i} q", dtype)
+        k = load_param(k, f"layer {i} k", dtype)
+        v = load_param(v, f"layer {i} v", dtype)
+        q_per_kv = config.n_head // config.n_query_groups
+        qs = torch.split(q, config.head_size * q_per_kv)
+        ks = torch.split(k, config.head_size)
+        vs = torch.split(v, config.head_size)
+        cycled = [t for group in zip(qs, ks, vs) for t in group]
+        qkv = torch.cat(cycled)
+        state_dict[f"transformer.h.{i}.attn.attn.weight"] = qkv
+        del qkv_weights[i]
 
 
 def copy_weights_phi(
