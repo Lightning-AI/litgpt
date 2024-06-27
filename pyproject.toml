@@ -49,6 +49,7 @@ all = [
     "transformers>=4.38.0",      # litgpt.evaluate
     "lm-eval>=0.4.2",            # litgpt.evaluate
     "safetensors>=0.4.3",        # download
+    "tqdm>=4.66.0",              # convert_hf_checkpoint
     "huggingface_hub[hf_transfer]>=0.21.0"  # download
 ]
 
