@@ -153,13 +153,6 @@ def copy_weights_hf_llama(
                 "model.layers.{}.mlp.down_proj.weight": "transformer.h.{l}.mlp.proj.weight",
             }
         )
-    elif config.mlp_class_name in ("Phi3MLP",):
-        weight_map.update(
-            {
-                "model.layers.{}.mlp.gate_up_proj.weight": "transformer.h.{l}.mlp.gate_up_proj.weight",
-                "model.layers.{}.mlp.down_proj.weight": "transformer.h.{l}.mlp.down_proj.weight",
-            }
-        )
     else:
         raise NotImplementedError
 
@@ -248,13 +241,36 @@ def copy_weights_phi(
         "lm_head.bias": "lm_head.bias",
     }
 
+    if config.name.startswith("Phi-3"):
+        weight_map.update(
+            {
+                "model.layers.{}.self_attn.qkv_proj.weight": "transformer.h.{}.attn.attn.weight",
+                "model.layers.{}.self_attn.o_proj.weight": "transformer.h.{}.attn.proj.weight",
+                'model.layers.{}.post_attention_layernorm.weight': "transformer.h.{}.norm_2.weight",
+                "model.layers.{}.mlp.down_proj.weight": "transformer.h.{}.mlp.proj.weight",
+                "model.norm.weight": "transformer.ln_f.weight",
+            }
+        )
+
     for name, param in hf_weights.items():
         if name.startswith("model.layers."):
             from_name, l = layer_template(name, 2)
             qkv = qkv_weights.setdefault(l, defaultdict(dict))
-            if any(w in from_name for w in ("q_proj", "k_proj", "v_proj")):
+            if "qkv_proj" in from_name:
+                weight = load_param(param, f"layer {l} qkv", dtype)
+                weight = qkv_reassemble(weight, config)
+                to_name = weight_map[from_name].format(l)
+                state_dict[to_name] = weight
+                continue
+            elif any(w in from_name for w in ("q_proj", "k_proj", "v_proj")):
                 weight_name, weight_type = from_name.split(".")[-2:]
                 qkv[weight_type][weight_name] = param
+            elif from_name.endswith("gate_up_proj.weight"):
+                weight = load_param(param, f"layer {l} gate_up_proj", dtype)
+                fc_1, fc_2 = weight.chunk(2, dim=0)
+                state_dict[f"transformer.h.{l}.mlp.fc_1.weight"] = fc_1
+                state_dict[f"transformer.h.{l}.mlp.fc_2.weight"] = fc_2
+                continue
             to_name = weight_map[from_name]
             if to_name is None:
                 continue
@@ -349,14 +365,14 @@ def convert_hf_checkpoint(
 
     if "falcon" in model_name:
         copy_fn = partial(copy_weights_falcon, model_name)
-    elif config.mlp_class_name in ("LLaMAMLP", "GemmaMLP", "LLaMAMoE", "Phi3MLP"):
-        # holder to reconstitute the split q, k, v
-        qkv_weights = {}
-        copy_fn = partial(copy_weights_hf_llama, config, qkv_weights)
-    elif "phi" in model_name:
+    elif model_name.startswith(("phi", "Phi")):
         # holder to reconstitute the split q, k, v
         qkv_weights = {}
         copy_fn = partial(copy_weights_phi, config, qkv_weights)
+    elif config.mlp_class_name in ("LLaMAMLP", "GemmaMLP", "LLaMAMoE"):
+        # holder to reconstitute the split q, k, v
+        qkv_weights = {}
+        copy_fn = partial(copy_weights_hf_llama, config, qkv_weights)
     else:
         copy_fn = copy_weights_gpt_neox
 
