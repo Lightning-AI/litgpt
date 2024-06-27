@@ -54,7 +54,7 @@ class Config:
     shared_attention_norm: bool = False
     norm_class_name: Literal["LayerNorm", "RMSNorm"] = "LayerNorm"
     norm_eps: float = 1e-5
-    mlp_class_name: Literal["GptNeoxMLP", "LLaMAMLP", "GemmaMLP", "LLaMAMoE", "Phi3MLP"] = "GptNeoxMLP"
+    mlp_class_name: Literal["GptNeoxMLP", "LLaMAMLP", "GemmaMLP", "LLaMAMoE"] = "GptNeoxMLP"
     gelu_approximate: str = "none"
     intermediate_size: Optional[int] = None
     rope_condense_ratio: int = 1
@@ -1457,7 +1457,7 @@ phi = [
         bias=False,
         norm_class_name="RMSNorm",
         intermediate_size=8192,
-        mlp_class_name="Phi3MLP",
+        mlp_class_name="LLaMAMLP",
         parallel_residual=False,
     ),
 ]
