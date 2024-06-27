@@ -16,6 +16,7 @@ from litgpt.generate.base import generate as generate_fn
 from litgpt.chat.base import generate as stream_generate_fn
 from litgpt.prompts import load_prompt_style, has_prompt_style, PromptStyle
 from litgpt.utils import (
+    check_file_size_on_cpu_and_warn,
     check_valid_checkpoint_dir,
     extend_checkpoint_dir,
     get_default_supported_precision,
@@ -171,6 +172,7 @@ class LLM:
 
         if checkpoint_dir is not None:
             checkpoint_path = checkpoint_dir / "lit_model.pth"
+            check_file_size_on_cpu_and_warn(checkpoint_path, fabric.device)
             load_checkpoint(fabric, model, checkpoint_path)
         return cls(
             model=model, tokenizer=tokenizer, devices=devices,
