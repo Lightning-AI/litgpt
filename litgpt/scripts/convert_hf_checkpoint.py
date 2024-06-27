@@ -8,6 +8,7 @@ from pathlib import Path
 from pprint import pprint
 from typing import Dict, List, Optional, Tuple, Union
 
+from tqdm import tqdm
 import torch
 from lightning.fabric.utilities.load import _NotYetLoadedTensor as NotYetLoadedTensor
 
@@ -25,6 +26,10 @@ def copy_weights_gpt_neox(
     hf_weights: Dict[str, Union[torch.Tensor, NotYetLoadedTensor]],
     saver: Optional[incremental_save] = None,
     dtype: Optional[torch.dtype] = None,
+    copy_fn: Optional[tqdm] = None,
+    pbar: Optional[tqdm] = None,
+    progress_per_file: Optional[float] = None,
+
 ) -> None:
     weight_map = {
         "gpt_neox.embed_in.weight": "transformer.wte.weight",
@@ -48,6 +53,9 @@ def copy_weights_gpt_neox(
         "embed_out.weight": "lm_head.weight",
     }
 
+    if progress_per_file is not None and progress_per_file is not None:
+        progress_per_entry = progress_per_file / len(hf_weights)
+
     for name, param in hf_weights.items():
         if "gpt_neox.layers" in name:
             from_name, number = layer_template(name, 2)
@@ -62,6 +70,9 @@ def copy_weights_gpt_neox(
             param = saver.store_early(param)
         state_dict[to_name] = param
 
+        if progress_per_file is not None and progress_per_file is not None:
+            pbar.update(progress_per_entry)
+
 
 def copy_weights_falcon(
     model_name: str,
@@ -69,6 +80,8 @@ def copy_weights_falcon(
     hf_weights: Dict[str, Union[torch.Tensor, NotYetLoadedTensor]],
     saver: Optional[incremental_save] = None,
     dtype: Optional[torch.dtype] = None,
+    pbar: Optional[tqdm] = None,
+    progress_per_file: Optional[float] = None,
 ) -> None:
     weight_map = {
         "transformer.word_embeddings.weight": "transformer.wte.weight",
@@ -100,6 +113,9 @@ def copy_weights_falcon(
     else:
         raise NotImplementedError
 
+    if progress_per_file is not None and progress_per_file is not None:
+        progress_per_entry = progress_per_file / len(hf_weights)
+
     for name, param in hf_weights.items():
         if "transformer.h" in name:
             from_name, number = layer_template(name, 2)
@@ -110,6 +126,8 @@ def copy_weights_falcon(
         if saver is not None:
             param = saver.store_early(param)
         state_dict[to_name] = param
+        if progress_per_file is not None and progress_per_file is not None:
+            pbar.update(progress_per_entry)
 
 
 def copy_weights_hf_llama(
@@ -119,6 +137,8 @@ def copy_weights_hf_llama(
     hf_weights: Dict[str, Union[torch.Tensor, NotYetLoadedTensor]],
     saver: Optional[incremental_save] = None,
     dtype: Optional[torch.dtype] = None,
+    pbar: Optional[tqdm] = None,
+    progress_per_file: Optional[float] = None,
 ) -> None:
     weight_map = {
         "model.embed_tokens.weight": "transformer.wte.weight",
@@ -155,6 +175,9 @@ def copy_weights_hf_llama(
     else:
         raise NotImplementedError
 
+    if progress_per_file is not None and progress_per_file is not None:
+        progress_per_entry = progress_per_file / (len(hf_weights) + len(qkv_weights))
+
     for name, param in hf_weights.items():
         if "model.layers" in name:
             from_name, l = layer_template(name, 2)
@@ -179,6 +202,10 @@ def copy_weights_hf_llama(
             param = saver.store_early(param)
         state_dict[to_name] = param
 
+        if progress_per_file is not None and progress_per_file is not None:
+            pbar.update(progress_per_entry)
+
+
     if "lm_head.weight" not in state_dict:
         state_dict["lm_head.weight"] = state_dict["transformer.wte.weight"]
 
@@ -198,6 +225,9 @@ def copy_weights_hf_llama(
         qkv = torch.cat(cycled)
         state_dict[f"transformer.h.{i}.attn.attn.weight"] = qkv
         del qkv_weights[i]
+        if progress_per_file is not None and progress_per_file is not None:
+            pbar.update(progress_per_entry)
+
 
 
 def copy_weights_phi(
@@ -207,6 +237,8 @@ def copy_weights_phi(
     hf_weights: Dict[str, Union[torch.Tensor, NotYetLoadedTensor]],
     saver: Optional[incremental_save] = None,
     dtype: Optional[torch.dtype] = None,
+    pbar: Optional[tqdm] = None,
+    progress_per_file: Optional[float] = None,
 ) -> None:
     if any(layer_name.startswith(("layers.", "transformer.")) for layer_name in hf_weights):
         raise ValueError(
@@ -235,6 +267,9 @@ def copy_weights_phi(
         "lm_head.bias": "lm_head.bias",
     }
 
+    if progress_per_file is not None and progress_per_file is not None:
+        progress_per_entry = progress_per_file / (len(hf_weights) + len(qkv_weights))
+
     for name, param in hf_weights.items():
         if name.startswith("model.layers."):
             from_name, l = layer_template(name, 2)
@@ -252,6 +287,9 @@ def copy_weights_phi(
         if saver is not None:
             param = saver.store_early(param)
         state_dict[to_name] = param
+        if progress_per_file is not None and progress_per_file is not None:
+            pbar.update(progress_per_entry)
+
 
     for i in list(qkv_weights):
         for weight_type in list(qkv_weights[i]):
@@ -270,6 +308,8 @@ def copy_weights_phi(
             qkv = torch.cat(cycled)
             state_dict[f"transformer.h.{i}.attn.attn.{weight_type}"] = qkv
             del qkv_weights[i][weight_type]
+            if progress_per_file is not None and progress_per_file is not None:
+                pbar.update(progress_per_entry)
 
 
 def layer_template(layer_name: str, idx: int) -> Tuple[str, int]:
@@ -280,13 +320,15 @@ def layer_template(layer_name: str, idx: int) -> Tuple[str, int]:
     return from_name, number
 
 
-def load_param(param: Union[torch.Tensor, NotYetLoadedTensor], name: str, dtype: Optional[torch.dtype]) -> torch.Tensor:
+def load_param(param: Union[torch.Tensor, NotYetLoadedTensor], name: str, dtype: Optional[torch.dtype], verbose=False) -> torch.Tensor:
     if hasattr(param, "_load_tensor"):
         # support tensors loaded via `lazy_load()`
-        print(f"Loading {name!r} into RAM")
+        if verbose:
+            print(f"Loading {name!r} into RAM")
         param = param._load_tensor()
     if dtype is not None and type(dtype) is not NotYetLoadedTensor and dtype != param.dtype:
-        print(f"Converting {name!r} from {param.dtype} to {dtype}")
+        if verbose:
+            print(f"Converting {name!r} from {param.dtype} to {dtype}")
         param = param.to(dtype)
     return param
 
@@ -359,10 +401,14 @@ def convert_hf_checkpoint(
     with incremental_save(checkpoint_dir / "lit_model.pth") as saver:
         # for checkpoints that split the QKV across several files, we need to keep all the bin files
         # open, so we use `ExitStack` to close them all together at the end
-        for bin_file in sorted(bin_files):
-            print("Processing", bin_file)
-            hf_weights = lazy_load(bin_file)
-            copy_fn(sd, hf_weights, saver=saver, dtype=dtype)
-        gc.collect()
-        print(f"Saving converted checkpoint to {checkpoint_dir}")
-        saver.save(sd)
+        total_progress = 100
+        progress_per_file = total_progress / len(bin_files)
+
+        with tqdm(total=total_progress) as pbar:
+            for bin_file in sorted(bin_files):
+                print("Processing", bin_file)
+                hf_weights = lazy_load(bin_file)
+                copy_fn(sd, hf_weights, saver=saver, dtype=dtype, pbar=pbar, progress_per_file=progress_per_file)
+            gc.collect()
+            print(f"Saving converted checkpoint to {checkpoint_dir}")
+            saver.save(sd)
