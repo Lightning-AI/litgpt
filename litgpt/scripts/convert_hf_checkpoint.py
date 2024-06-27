@@ -12,12 +12,7 @@ import torch
 from lightning.fabric.utilities.load import _NotYetLoadedTensor as NotYetLoadedTensor
 
 from litgpt import Config
-from litgpt.utils import (
-    extend_checkpoint_dir,
-    lazy_load,
-    incremental_save,
-    save_config
-)
+from litgpt.utils import extend_checkpoint_dir, incremental_save, lazy_load, save_config
 
 
 def copy_weights_gpt_neox(
@@ -256,7 +251,7 @@ def copy_weights_phi(
                 to_name = weight_map[from_name].format(l)
                 state_dict[to_name] = weight
                 continue
-            elif any(w in from_name for w in ("q_proj", "k_proj", "v_proj")):
+            if any(w in from_name for w in ("q_proj", "k_proj", "v_proj")):
                 weight_name, weight_type = from_name.split(".")[-2:]
                 qkv[weight_type][weight_name] = param
             elif from_name.endswith("gate_up_proj.weight"):
@@ -296,6 +291,9 @@ def copy_weights_phi(
 
 
 def qkv_reassemble(param: Union[torch.Tensor, NotYetLoadedTensor], config: Config) -> torch.Tensor:
+    """Reassamble from a normal to an interleaved placement in a QKV matrix.
+    [Q, Q, ..., K, K, ..., V, V, ...] --> [Q, K, V, Q, K, V, ...]
+    """
     q, k, v = param.split(
         (
             config.n_head * config.head_size,

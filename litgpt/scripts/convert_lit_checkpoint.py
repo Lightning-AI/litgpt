@@ -11,11 +11,7 @@ from lightning.fabric.utilities.load import _NotYetLoadedTensor as NotYetLoadedT
 
 from litgpt import Config
 from litgpt.scripts.convert_hf_checkpoint import layer_template, load_param
-from litgpt.utils import (
-    extend_checkpoint_dir,
-    incremental_save,
-    lazy_load
-)
+from litgpt.utils import extend_checkpoint_dir, incremental_save, lazy_load
 
 
 def copy_weights_falcon(
