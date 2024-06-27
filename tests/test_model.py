@@ -314,6 +314,57 @@ def test_against_hf_phi(model_name, device, dtype):
 
 
 @torch.inference_mode()
+@pytest.mark.parametrize("model_name", ("Phi-3-mini-4k-instruct",))
+@pytest.mark.parametrize(
+    ("device", "dtype"),
+    [
+        (torch.device("cpu"), torch.float32),
+        pytest.param(
+            torch.device("cuda"),
+            torch.float16,
+            marks=[pytest.mark.xfail(raises=AssertionError, strict=False), RunIf(min_cuda_gpus=1)],
+        ),
+    ],
+)
+def test_against_hf_phi3(model_name, device, dtype):
+    from transformers.models.phi3.configuration_phi3 import Phi3Config
+    from transformers.models.phi3.modeling_phi3 import Phi3ForCausalLM
+
+    torch.set_default_dtype(dtype)
+
+    ours_config = Config.from_name(
+        model_name, padded_vocab_size=10000, n_layer=2, n_head=4, n_embd=256, rotary_percentage=0.5
+    )
+    T = 5
+    theirs_config = Phi3Config(
+        vocab_size=ours_config.padded_vocab_size,
+        pad_token_id=ours_config.padded_vocab_size - 1,
+        max_position_embeddings=ours_config.block_size,
+        hidden_size=ours_config.n_embd,
+        intermediate_size=ours_config.intermediate_size,
+        num_attention_heads=ours_config.n_head,
+        num_hidden_layers=ours_config.n_layer,
+        partial_rotary_factor=ours_config.rotary_percentage,
+        torch_dtype=dtype,
+    )
+
+    theirs_model = Phi3ForCausalLM(theirs_config).to(device)
+    theirs_state_dict = theirs_model.state_dict()
+    state_dict = {}
+    # copy_weights_phi(ours_config, {}, state_dict, theirs_state_dict)
+    copy_weights_hf_llama(ours_config, {}, state_dict, theirs_state_dict)
+    ours_model = GPT(ours_config).to(device)
+    ours_model.load_state_dict(state_dict)
+
+    # test end to end
+    x = torch.tensor([[9856, 23, 491, 1536, 304]], dtype=torch.int32, device=device)
+    assert x.size(1) == T
+    ours_y = ours_model(x)
+    theirs_y = theirs_model(x)["logits"].to(dtype)  # HF converts logits to float
+    torch.testing.assert_close(ours_y, theirs_y)
+
+
+@torch.inference_mode()
 @pytest.mark.parametrize(
     ("device", "dtype"),
     [
