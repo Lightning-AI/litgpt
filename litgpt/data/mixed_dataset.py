@@ -63,27 +63,16 @@ class MixedDataset(DataModule):
     ignore_index: int = -100
     seed: int = 42
     num_workers: int = 4
-    cycle_mode: str = "max_size_cycle"
+    cycle_mode: Literal[
+        "max_size_cycle", "min_size_cycle", "max_size", "sequential", "max_size_spread"
+    ] = "max_size_cycle"
     fast_dev_run: bool = False
 
     def __post_init__(self):
-        # self.lm_train_path = Path(
-        #    str(self.pretraining_data_path).rstrip("/") + "/train"
-        # )
         self.lm_train_path = os.path.join(self.pretraining_data_path, "train")
-        # self.lm_val_path = Path(str(self.pretraining_data_path).rstrip("/") + "/val")
         self.lm_val_path = os.path.join(self.pretraining_data_path, "val")
 
-        # self.sft_train_path = Path(str(self.sft_data_path).rstrip("/") + "/train.json")
-        # self.sft_val_path = Path(str(self.sft_data_path).rstrip("/") + "/val.json")
-
         # TODO: for now assume there's only one jsonl/json file in each sft dir. We should iterate over multiple though to make it easier to add datasets
-        # self.sft_train_data = load_split(self.sft_train_path)
-        # self.sft_val_data = load_split(self.sft_val_path)
-
-        # self.out_path_train_lm = self.pretraining_data_path + "/texts/train/"
-        # self.out_path_val_lm = self.pretraining_data_path + "/texts/val/"
-
         self.out_path_train_lm = self.lm_train_path
         self.out_path_val_lm = self.lm_val_path
 
@@ -382,6 +371,67 @@ class _MaxSizeCycle(_ModeIterator):
         self._consumed = []
 
 
+class _MaxSizeDistributed(_ModeIterator):
+    # Largest dataset should always be placed at ind 0. Assume we want to distribute the rest
+    def __init__(self, iterables, limits=None):
+        super().__init__(iterables, limits)
+        self.large_dataset_idx = 0
+        self.small_datasets_idx = [0 for _ in range(len(iterables) - 1)]
+
+        self.large_data_len = len(self.iterables[0])
+        self.small_data_len = [
+            len(self.iterables[i]) for i in range(1, len(self.iterables))
+        ]
+        self.small_data_per_batch = [
+            self.large_data_len // small_data_len
+            for small_data_len in self.small_data_len
+        ]
+        self.data_intervals = []
+
+        for i, small_data_num in enumerate(self.small_data_per_batch):
+            if small_data_num < 1:  # have 1 item oer N batches
+                self.data_intervals.append(int(1 / small_data_num))
+            else:
+                self.data_intervals.append(1)
+
+        self.intervals_passed = deepcopy(self.data_intervals)
+
+        self._consumed: List[bool] = []
+
+    def __next__(self):
+        try:
+            large_batch = next(self.iterators[0])
+            small_batches = []
+            for i, small_dataset in enumerate(self.iterators[1:]):
+                data_interval = self.data_intervals[i]
+                if data_interval == 1:
+                    small_batch = next(small_dataset)
+                else:
+                    self.intervals_passed[i] -= 1
+                    if self.intervals_passed[i] == 0:
+                        small_batch = next(small_dataset)
+                        self.intervals_passed[i] = data_interval
+
+            index = self._idx
+            self._idx += 1
+            return [large_batch, *small_batches], index, 0
+
+        except StopIteration:
+            raise StopIteration
+
+    @override
+    def __len__(self) -> int:
+        lengths = _get_iterables_lengths(self.iterables)
+        if self.limits is not None:
+            return max(min(length, limit) for length, limit in zip(lengths, self.limits))  # type: ignore[return-value]
+        return max(lengths)  # type: ignore[return-value]
+
+    @override
+    def reset(self) -> None:
+        super().reset()
+        self._consumed = []
+
+
 class _MinSize(_ModeIterator):
     @override
     def __next__(self) -> _ITERATOR_RETURN:
@@ -495,9 +545,12 @@ _SUPPORTED_MODES = {
     "max_size_cycle": _CombinationMode(fn=max, iterator=_MaxSizeCycle),
     "max_size": _CombinationMode(fn=max, iterator=_MaxSize),
     "sequential": _CombinationMode(fn=sum, iterator=_Sequential),
+    "max_size_distributed": _CombinationMode(fn=max, iterator=_MaxSizeDistributed),
 }
+
+# max_size_distributed: mimic scattering a small dataset across a large one (no repeats, but evenly spaced data)
 _LITERAL_SUPPORTED_MODES = Literal[
-    "min_size", "max_size_cycle", "max_size", "sequential"
+    "min_size", "max_size_cycle", "max_size", "sequential", "max_size_distributed"
 ]
 
 
