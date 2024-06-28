@@ -84,6 +84,7 @@ def test_against_gpt_neox_model(rotary_pct, batch_size, n_embd, parallel_residua
         rotary_pct=ours_config.rotary_percentage,
         vocab_size=ours_config.padded_vocab_size,
         use_parallel_residual=ours_config.parallel_residual,
+        attn_implementation="eager",
     )
 
     state_dict = {}
