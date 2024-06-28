@@ -291,7 +291,7 @@ def copy_weights_phi(
 
 
 def qkv_reassemble(param: Union[torch.Tensor, NotYetLoadedTensor], config: Config) -> torch.Tensor:
-    """Reassamble from a normal to an interleaved placement in a QKV matrix.
+    """Reassemble from a normal to an interleaved placement in a QKV matrix.
     [Q, Q, ..., K, K, ..., V, V, ...] --> [Q, K, V, Q, K, V, ...]
     """
     q, k, v = param.split(

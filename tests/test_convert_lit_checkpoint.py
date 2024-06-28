@@ -258,6 +258,49 @@ def test_against_hf_phi(model_name):
 
 
 @torch.inference_mode()
+@pytest.mark.parametrize("model_name", ("Phi-3-mini-4k-instruct",))
+def test_against_hf_phi_3(model_name):
+    from transformers.models.phi3.configuration_phi3 import Phi3Config
+    from transformers.models.phi3.modeling_phi3 import Phi3ForCausalLM
+
+    ours_config = Config.from_name(
+        model_name, padded_vocab_size=10000, n_layer=2, n_head=4, n_embd=256
+    )
+    T = 5
+    theirs_config = Phi3Config(
+        attention_bias=ours_config.bias,
+        head_dim=ours_config.head_size,
+        hidden_size=ours_config.n_embd,
+        intermediate_size=ours_config.intermediate_size,
+        max_position_embeddings=T,
+        num_attention_heads=ours_config.n_head,
+        num_hidden_layers=ours_config.n_layer,
+        num_key_value_heads=ours_config.n_query_groups,
+        pad_token_id=ours_config.padded_vocab_size - 1,
+        partial_rotary_factor=ours_config.rotary_percentage,
+        rms_norm_eps=ours_config.norm_eps,
+        rope_theta=ours_config.rope_base,
+        vocab_size=ours_config.padded_vocab_size,
+    )
+
+    ours_model = GPT(ours_config)
+    ours_state_dict = ours_model.state_dict()
+    theirs_state_dict = {}
+    copy_weights_phi(ours_config, theirs_state_dict, ours_state_dict)
+    theirs_model = Phi3ForCausalLM(theirs_config)
+    # strict=False because we don't save the rotary embeddings inv frequency
+    keys = theirs_model.load_state_dict(theirs_state_dict, strict=False)
+    assert not keys.unexpected_keys
+    assert all("inv_freq" in k for k in keys.missing_keys)
+
+    # test end to end
+    x = torch.tensor([[9856, 23, 491, 1536, 304]], dtype=torch.int32)
+    assert x.size(1) == T
+    ours_y = ours_model(x)
+    theirs_y = theirs_model(x)["logits"]
+    torch.testing.assert_close(ours_y, theirs_y)
+
+@torch.inference_mode()
 def test_against_original_stablelm_zephyr_3b():
     T = 5
     ours_config = Config.from_name("stablelm-zephyr-3b", n_layer=2, n_head=16, n_embd=32, intermediate_size=86)
