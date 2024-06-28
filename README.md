@@ -6,8 +6,6 @@
 **20+ high-performance LLM implementations with recipes to pretrain, finetune, deploy at scale.**
 
 <pre>
-Some of the state of the art features supported:  
-      
 ✅ From scratch implementations  ✅ No abstractions    ✅ Beginner friendly   
 ✅ flash attention               ✅ fp4/8/16/32        ✅ LoRA, QLoRA, Adapter
 ✅ FSDP                          ✅ 1-1000+ GPUs/TPUs  ✅ 20+ LLMs            
@@ -43,18 +41,12 @@ Some of the state of the art features supported:
 </div>
 
 # Use, finetune, pretrain, deploy LLMs Lightning fast ⚡⚡
-Easily work with 20+ LLMs.  
-
 Every LLM is implemented from scratch with **no abstractions** and **full control**, making them blazing fast, minimal, and performant at enterprise scale.
-
-**Key features**:
 
 ✅ **Enterprise ready -** Apache 2.0 for unlimited enterprise use.    
 ✅ **Developer friendly -** Easy debugging with no abstraction layers and single file implementations.    
 ✅ **Optimized performance -** Models designed to maximize performance, reduce costs, and speed up training.    
 ✅ **Proven recipes -** Highly-optimized training/finetuning recipes tested at enterprise scale.    
-
-Use the Python API to load any model, or the command-line interface for advanced workflows to [finetune](#finetune-an-llm), [pretrain](#pretrain-an-llm), [evaluate](#use-an-llm), and [deploy](#deploy-an-llm) LLMs on your own data. Our workflows feature highly-optimized [training recipes](#training-recipes) for the world's most powerful open-source large language models.
 
 &nbsp;
 
