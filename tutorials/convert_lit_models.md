@@ -4,9 +4,8 @@ LitGPT weights need to be converted to a format that Hugging Face understands wi
 
 We provide a helpful command to convert models LitGPT models back to their equivalent Hugging Face Transformers format:
 
-```sh
-litgpt convert_from_litgpt checkpoint_dir \
-    --output_dir converted_dir
+```bash
+litgpt convert_from_litgpt checkpoint_dir converted_dir
 ```
 
 These paths are just placeholders, you will need to customize them based on which finetuning or pretraining command you ran and its configuration.
@@ -98,8 +97,7 @@ litgpt merge_lora $finetuned_dir/final
 4. Convert the finetuning model back into a HF format:
 
 ```bash
-litgpt convert from_litgpt $finetuned_dir/final/ \
-   --output_dir out/hf-tinyllama/converted \
+litgpt convert_from_litgpt $finetuned_dir/final/ out/hf-tinyllama/converted
 ```
 
 

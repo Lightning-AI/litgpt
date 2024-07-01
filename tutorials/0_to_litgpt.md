@@ -516,8 +516,7 @@ Output: Example input.
 Sometimes, it can be useful to convert LitGPT model weights for third-party and external tools. For example, we can convert a LitGPT model to the Hugging Face format and save it via `.safetensors` files, which we can do as follows:
 
 ```bash
-litgpt convert_from_litgpt microsoft/phi-2 \
-    --output_dir out/converted_model/
+litgpt convert_from_litgpt microsoft/phi-2 out/converted_model/
 ```
 
 Certain tools like the `.from_pretrained` method in Hugging Face `transformers` also require the original `config.json` file that originally came with the downloaded model:

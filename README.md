@@ -6,8 +6,6 @@
 **20+ high-performance LLM implementations with recipes to pretrain, finetune, deploy at scale.**
 
 <pre>
-Some of the state of the art features supported:  
-      
 ✅ From scratch implementations  ✅ No abstractions    ✅ Beginner friendly   
 ✅ flash attention               ✅ fp4/8/16/32        ✅ LoRA, QLoRA, Adapter
 ✅ FSDP                          ✅ 1-1000+ GPUs/TPUs  ✅ 20+ LLMs            
@@ -43,18 +41,12 @@ Some of the state of the art features supported:
 </div>
 
 # Use, finetune, pretrain, deploy LLMs Lightning fast ⚡⚡
-Easily work with 20+ LLMs.  
-
 Every LLM is implemented from scratch with **no abstractions** and **full control**, making them blazing fast, minimal, and performant at enterprise scale.
-
-**Key features**:
 
 ✅ **Enterprise ready -** Apache 2.0 for unlimited enterprise use.    
 ✅ **Developer friendly -** Easy debugging with no abstraction layers and single file implementations.    
 ✅ **Optimized performance -** Models designed to maximize performance, reduce costs, and speed up training.    
 ✅ **Proven recipes -** Highly-optimized training/finetuning recipes tested at enterprise scale.    
-
-Use the Python API to load any model, or the command-line interface for advanced workflows to [finetune](#finetune-an-llm), [pretrain](#pretrain-an-llm), [evaluate](#use-an-llm), and [deploy](#deploy-an-llm) LLMs on your own data. Our workflows feature highly-optimized [training recipes](#training-recipes) for the world's most powerful open-source large language models.
 
 &nbsp;
 
@@ -137,7 +129,8 @@ Every model is written from scratch to maximize performance and remove layers of
 | Mistral | 7B | Mistral AI | [Mistral AI 2023](https://mistral.ai/news/announcing-mistral-7b/)                                                                        |
 | Nous-Hermes | 7B, 13B, 70B | NousResearch | [Org page](https://huggingface.co/NousResearch)                                                                          |
 | OpenLLaMA | 3B, 7B, 13B | OpenLM Research | [Geng & Liu 2023](https://github.com/openlm-research/open_llama)                                                         |
-| Phi | 1.3B, 2.7B | Microsoft Research  | [Li et al. 2023](https://arxiv.org/abs/2309.05463)                                                                          |
+| Phi 1.5 & 2 | 1.3B, 2.7B | Microsoft Research  | [Li et al. 2023](https://arxiv.org/abs/2309.05463)                                                                          |
+| Phi 3 | 3.8B | Microsoft Research | [Abdin et al. 2024](https://arxiv.org/abs/2404.14219)
 | Platypus | 7B, 13B, 70B |  Lee et al. | [Lee, Hunter, and Ruiz 2023](https://arxiv.org/abs/2308.07317)                                                               |
 | Pythia | {14,31,70,160,410}M, {1,1.4,2.8,6.9,12}B | EleutherAI | [Biderman et al. 2023](https://arxiv.org/abs/2304.01373)                                            |
 | RedPajama-INCITE | 3B, 7B | Together | [Together 2023](https://together.ai/blog/redpajama-models-v1)                                                                 |

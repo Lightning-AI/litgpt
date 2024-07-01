@@ -258,6 +258,49 @@ def test_against_hf_phi(model_name):
 
 
 @torch.inference_mode()
+@pytest.mark.parametrize("model_name", ("Phi-3-mini-4k-instruct",))
+def test_against_hf_phi_3(model_name):
+    from transformers.models.phi3.configuration_phi3 import Phi3Config
+    from transformers.models.phi3.modeling_phi3 import Phi3ForCausalLM
+
+    ours_config = Config.from_name(
+        model_name, padded_vocab_size=10000, n_layer=2, n_head=4, n_embd=256
+    )
+    T = 5
+    theirs_config = Phi3Config(
+        attention_bias=ours_config.bias,
+        head_dim=ours_config.head_size,
+        hidden_size=ours_config.n_embd,
+        intermediate_size=ours_config.intermediate_size,
+        max_position_embeddings=T,
+        num_attention_heads=ours_config.n_head,
+        num_hidden_layers=ours_config.n_layer,
+        num_key_value_heads=ours_config.n_query_groups,
+        pad_token_id=ours_config.padded_vocab_size - 1,
+        partial_rotary_factor=ours_config.rotary_percentage,
+        rms_norm_eps=ours_config.norm_eps,
+        rope_theta=ours_config.rope_base,
+        vocab_size=ours_config.padded_vocab_size,
+    )
+
+    ours_model = GPT(ours_config)
+    ours_state_dict = ours_model.state_dict()
+    theirs_state_dict = {}
+    copy_weights_phi(ours_config, theirs_state_dict, ours_state_dict)
+    theirs_model = Phi3ForCausalLM(theirs_config)
+    # strict=False because we don't save the rotary embeddings inv frequency
+    keys = theirs_model.load_state_dict(theirs_state_dict, strict=False)
+    assert not keys.unexpected_keys
+    assert all("inv_freq" in k for k in keys.missing_keys)
+
+    # test end to end
+    x = torch.tensor([[9856, 23, 491, 1536, 304]], dtype=torch.int32)
+    assert x.size(1) == T
+    ours_y = ours_model(x)
+    theirs_y = theirs_model(x)["logits"]
+    torch.testing.assert_close(ours_y, theirs_y)
+
+@torch.inference_mode()
 def test_against_original_stablelm_zephyr_3b():
     T = 5
     ours_config = Config.from_name("stablelm-zephyr-3b", n_layer=2, n_head=16, n_embd=32, intermediate_size=86)
@@ -364,52 +407,97 @@ def test_check_conversion_supported_lora():
 def test_qkv_split():
     # MHA
     config = Config(n_embd=4, n_head=4)
-    qkv = torch.tensor(
+    qkv_interleaved = torch.tensor(
         [
-            [0, 1, 2, 3],
-            [4, 5, 6, 7],
-            [8, 9, 10, 11],
-            [12, 13, 14, 15],
-            [16, 17, 18, 19],
-            [20, 21, 22, 23],
-            [24, 25, 26, 27],
-            [28, 29, 30, 31],
-            [32, 33, 34, 35],
-            [36, 37, 38, 39],
-            [40, 41, 42, 43],
-            [44, 45, 46, 47],
+            [0, 1, 2, 3],  # query
+            [16, 17, 18, 19],  # key
+            [32, 33, 34, 35],  # value
+            [4, 5, 6, 7],  # query
+            [20, 21, 22, 23],  # key
+            [36, 37, 38, 39],  # value
+            [8, 9, 10, 11],  # query
+            [24, 25, 26, 27],  # key
+            [40, 41, 42, 43],  # value
+            [12, 13, 14, 15],  # query
+            [28, 29, 30, 31],  # key
+            [44, 45, 46, 47],  # value
         ]
     )
-    q, k, v = qkv_split(qkv, config)
-    torch.testing.assert_close(q, torch.tensor([[0, 1, 2, 3], [12, 13, 14, 15], [24, 25, 26, 27], [36, 37, 38, 39]]))
-    torch.testing.assert_close(k, torch.tensor([[4, 5, 6, 7], [16, 17, 18, 19], [28, 29, 30, 31], [40, 41, 42, 43]]))
-    torch.testing.assert_close(v, torch.tensor([[8, 9, 10, 11], [20, 21, 22, 23], [32, 33, 34, 35], [44, 45, 46, 47]]))
+    qkv = torch.cat(qkv_split(qkv_interleaved, config))
+    torch.testing.assert_close(
+        qkv,
+        torch.tensor(
+            [
+                [0, 1, 2, 3],  # query
+                [4, 5, 6, 7],  # query
+                [8, 9, 10, 11],  # query
+                [12, 13, 14, 15],  # query
+                [16, 17, 18, 19],  # key
+                [20, 21, 22, 23],  # key
+                [24, 25, 26, 27],  # key
+                [28, 29, 30, 31],  # key
+                [32, 33, 34, 35],  # value
+                [36, 37, 38, 39],  # value
+                [40, 41, 42, 43],  # value
+                [44, 45, 46, 47],  # value
+            ]
+        ),
+    )
 
     # GQA
     config = Config(n_embd=4, n_head=4, n_query_groups=2)
-    qkv = torch.tensor(
+    qkv_interleaved = torch.tensor(
         [
-            [0, 1, 2, 3],
-            [4, 5, 6, 7],
-            [8, 9, 10, 11],
-            [12, 13, 14, 15],
-            [16, 17, 18, 19],
-            [20, 21, 22, 23],
-            [24, 25, 26, 27],
-            [28, 29, 30, 31],
+            [0, 1, 2, 3],  # query
+            [4, 5, 6, 7],  # query
+            [16, 17, 18, 19],  # key
+            [24, 25, 26, 27],  # value
+            [8, 9, 10, 11],  # query
+            [12, 13, 14, 15],  # query
+            [20, 21, 22, 23],  # key
+            [28, 29, 30, 31],  # value
         ]
     )
-    q, k, v = qkv_split(qkv, config)
-    torch.testing.assert_close(q, torch.tensor([[0, 1, 2, 3], [4, 5, 6, 7], [16, 17, 18, 19], [20, 21, 22, 23]]))
-    torch.testing.assert_close(k, torch.tensor([[8, 9, 10, 11], [24, 25, 26, 27]]))
-    torch.testing.assert_close(v, torch.tensor([[12, 13, 14, 15], [28, 29, 30, 31]]))
+    qkv = torch.cat(qkv_split(qkv_interleaved, config))
+    torch.testing.assert_close(
+        qkv,
+        torch.tensor(
+            [
+                [0, 1, 2, 3],  # query
+                [4, 5, 6, 7],  # query
+                [8, 9, 10, 11],  # query
+                [12, 13, 14, 15],  # query
+                [16, 17, 18, 19],  # key
+                [20, 21, 22, 23],  # key
+                [24, 25, 26, 27],  # value
+                [28, 29, 30, 31],  # value
+            ]
+        ),
+    )
 
     # MQA
     config = Config(n_embd=4, n_head=4, n_query_groups=1)
-    qkv = torch.tensor(
-        [[0, 1, 2, 3], [4, 5, 6, 7], [8, 9, 10, 11], [12, 13, 14, 15], [16, 17, 18, 19], [20, 21, 22, 23]]
+    qkv_interleaved = torch.tensor(
+        [
+            [0, 1, 2, 3],  # query
+            [4, 5, 6, 7],  # query
+            [8, 9, 10, 11],  # query
+            [12, 13, 14, 15],  # query
+            [16, 17, 18, 19],  # key
+            [20, 21, 22, 23],  # value
+        ]
     )
-    q, k, v = qkv_split(qkv, config)
-    torch.testing.assert_close(q, torch.tensor([[0, 1, 2, 3], [4, 5, 6, 7], [8, 9, 10, 11], [12, 13, 14, 15]]))
-    torch.testing.assert_close(k, torch.tensor([[16, 17, 18, 19]]))
-    torch.testing.assert_close(v, torch.tensor([[20, 21, 22, 23]]))
+    qkv = torch.cat(qkv_split(qkv_interleaved, config))
+    torch.testing.assert_close(
+        qkv,
+        torch.tensor(
+            [
+                [0, 1, 2, 3],  # query
+                [4, 5, 6, 7],  # query
+                [8, 9, 10, 11],  # query
+                [12, 13, 14, 15],  # query
+                [16, 17, 18, 19],  # key
+                [20, 21, 22, 23],  # value
+            ]
+        ),
+    )

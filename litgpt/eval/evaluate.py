@@ -20,7 +20,7 @@ def prepare_results(results, save_filepath, print_results=True):
             print(make_table(results, "groups"))
 
     json_result = json.dumps(
-        results, indent=2, ensure_ascii=False
+        results, indent=2, ensure_ascii=False, default=str
     )
     save_filepath.open("w", encoding="utf-8").write(json_result)
 
