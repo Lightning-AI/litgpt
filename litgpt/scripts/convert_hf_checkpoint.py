@@ -357,7 +357,7 @@ def convert_hf_checkpoint(
 
     if "falcon" in model_name:
         copy_fn = partial(copy_weights_falcon, model_name)
-    elif model_name.startswith(("phi", "Phi")):
+    elif model_name.lower().startswith("phi"):
         # holder to reconstitute the split q, k, v
         qkv_weights = {}
         copy_fn = partial(copy_weights_phi, config, qkv_weights)
