@@ -12,7 +12,7 @@ from litgpt import PromptStyle
 from litgpt.tokenizer import Tokenizer
 
 
-@pytest.mark.flaky(reruns=5, rerun_except=["AssertionError", "assert"])
+@pytest.mark.flaky(reruns=5, rerun_except=["AssertionError", "assert", "TypeError"])
 @pytest.mark.parametrize("config", config_module.configs, ids=[c["hf_config"]["name"] for c in config_module.configs])
 def test_tokenizer_against_hf(config):
     access_token = os.getenv("HF_TOKEN")
@@ -75,6 +75,9 @@ def test_tokenizer_against_hf(config):
         # TODO: there's a encoding difference with this model. why? note that the decoding is equal
         # "Hello": 10994, "▁Hello": 15043
         assert [15043 if t == 10994 else t for t in actual.tolist()] == expected
+    elif config.name.startswith("Phi-3"):
+        # Phi-3 tokenizer adds `bos` twice
+        assert [ours.bos_id] + actual.tolist() == expected
     else:
         assert actual.tolist() == expected
     assert ours.decode(actual) == theirs.decode(expected, skip_special_tokens=True)
