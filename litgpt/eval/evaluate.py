@@ -3,8 +3,6 @@
 import json
 import os
 from pathlib import Path
-from packaging import version
-import pkg_resources
 from pprint import pprint
 from typing import Optional, Union
 import torch
@@ -21,12 +19,8 @@ def prepare_results(results, save_filepath, print_results=True):
         if "groups" in results:
             print(make_table(results, "groups"))
 
-    lm_version = pkg_resources.get_distribution("lm_eval").version
-    if version.parse(lm_version) >= version.parse("0.4.3"):
-        del results["config"]  # this entry is not serializable via JSON below
-
     json_result = json.dumps(
-        results, indent=2, ensure_ascii=False
+        results, indent=2, ensure_ascii=False, default=str
     )
     save_filepath.open("w", encoding="utf-8").write(json_result)
 
