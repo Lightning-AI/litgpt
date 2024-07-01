@@ -422,7 +422,7 @@ def convert_hf_checkpoint(
 
             with tqdm(total=total_progress, desc="Initializing", bar_format="{desc}{percentage:3.0f}%|{bar}| {elapsed}<{remaining}, {rate_fmt}") as pbar:
                 for bin_file in sorted(bin_files):
-                    pbar.set_description(f"Processing: {bin_file.name}")
+                    pbar.set_description(f"Loading weights: {bin_file.name}")
                     current_file_size = os.path.getsize(bin_file)
                     progress_per_file = (current_file_size / total_size) * total_progress
 
