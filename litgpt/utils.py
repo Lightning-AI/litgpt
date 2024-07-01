@@ -493,7 +493,7 @@ def parse_devices(devices: Union[str, int]) -> int:
 def choose_logger(
     logger_name: Literal["csv", "tensorboard", "wandb"],
     out_dir: Path,
-    name: str,
+    project: str,
     log_interval: int = 1,
     resume: Optional[bool] = None,
     **kwargs: Any,
@@ -503,7 +503,7 @@ def choose_logger(
     if logger_name == "tensorboard":
         return TensorBoardLogger(root_dir=(out_dir / "logs"), name="tensorboard", **kwargs)
     if logger_name == "wandb":
-        return WandbLogger(project=name, resume=resume, **kwargs)
+        return WandbLogger(project=project, resume=resume, **kwargs)
     raise ValueError(f"`--logger_name={logger_name}` is not a valid option. Choose from 'csv', 'tensorboard', 'wandb'.")
 
 
