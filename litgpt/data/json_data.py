@@ -1,5 +1,6 @@
 # Copyright Lightning AI. Licensed under the Apache License 2.0, see LICENSE file.
 
+import itertools
 import json
 from dataclasses import dataclass, field
 from pathlib import Path
@@ -10,7 +11,7 @@ import torch
 from litgpt import PromptStyle
 from litgpt.data import DataModule, get_sft_collate_fn, SFTDataset
 from litgpt.tokenizer import Tokenizer
-from torch.utils.data import DataLoader, random_split
+from torch.utils.data import DataLoader, Dataset, random_split
 
 
 @dataclass
@@ -117,7 +118,6 @@ class JSON(DataModule):
         # A single file (gets split into train and test)
         if self.json_path.is_file():
             data = load_split(self.json_path)
-
             # Partition the dataset into train and test
             train_data, test_data = random_split(
                 data,
@@ -158,17 +158,34 @@ def load_split(json_path: Path) -> Any:
         )
 
 
-def get_splits(json_path: str, val_split_fraction: float, seed: int = 42) -> Tuple:
+class RepeatedDataset(Dataset):
+    def __init__(self, dataset: Dataset, num_repeats: int = 1) -> None:
+        self.dataset = dataset
+        self.num_repeats = num_repeats
+
+    def __len__(self):
+        return len(self.dataset) * self.num_repeats
+
+    def __getitem__(self, index: int) -> Any:
+        return self.dataset[index % len(self.dataset)]
+
+
+def get_splits(
+    json_path: str, val_split_fraction: float, seed: int = 42, num_repeats: int = 1
+) -> Tuple:
     # A single file (gets split into train and test)
     if json_path.is_file():
         data = load_split(json_path)
-
         # Partition the dataset into train and test
         train_data, test_data = random_split(
             data,
             [1.0 - val_split_fraction, val_split_fraction],
             generator=torch.Generator().manual_seed(seed),
         )
+
+        if num_repeats > 1:
+            train_data = RepeatedDataset(train_data, num_repeats)
+
         return train_data, test_data
 
     # A directory containing train.json and val.json
@@ -177,6 +194,10 @@ def get_splits(json_path: str, val_split_fraction: float, seed: int = 42) -> Tup
     ):
         train_data = load_split(train_file)
         test_data = load_split(val_file)
+
+        if num_repeats > 1:
+            train_data = RepeatedDataset(train_data, num_repeats)
+
         return train_data, test_data
 
     raise FileNotFoundError(
