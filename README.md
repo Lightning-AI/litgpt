@@ -6,9 +6,9 @@
 **20+ high-performance LLM implementations with recipes to pretrain, finetune, deploy at scale.**
 
 <pre>
-✅ From scratch implementations  ✅ No abstractions    ✅ Beginner friendly   
-✅ flash attention               ✅ fp4/8/16/32        ✅ LoRA, QLoRA, Adapter
-✅ FSDP                          ✅ 1-1000+ GPUs/TPUs  ✅ 20+ LLMs            
+✅ From scratch implementations     ✅ No abstractions    ✅ Beginner friendly   
+✅ Flash attention                  ✅ FSDP               ✅ LoRA, QLoRA, Adapter
+✅ Reduce GPU memory (fp4/8/16/32)  ✅ 1-1000+ GPUs/TPUs  ✅ 20+ LLMs            
 </pre>
 
 
