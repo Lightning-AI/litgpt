@@ -934,6 +934,35 @@ gemma = [
         gelu_approximate="tanh",
         intermediate_size=24576,
     ),
+    # https://huggingface.co/google/gemma-2-9b/blob/main/config.json
+    dict(
+        name="Gemma-2-9b",
+        hf_config=dict(org="google", name="gemma-2-9b"),
+        scale_embeddings=True,
+        # TODO: Add scaler for attention scores.
+        # should be scaled not by head_size (256), but by n_embd / n_head = 3584 / 16 = 224
+        vocab_size=256000,
+        block_size=8192,
+        # TODO: add setting for a sliding window
+        intermediate_size=14336,
+        n_embd=3584,
+        n_layer=42,
+        n_head=16,
+        n_query_groups=8,
+        head_size=256,
+        rotary_percentage=1.0,
+        parallel_residual=False,
+        bias=False,
+        norm_class_name="RMSNorm",
+        mlp_class_name="GemmaMLP",
+        gelu_approximate="tanh",
+        # TODO:
+        # 1. Add logit softcapping for attention
+        # 2. Add logit softcapping for final logits
+
+    ),
+    # TODO: add config for 27b verson
+    # https://huggingface.co/google/gemma-2-27b/blob/main/config.json
 ]
 configs.extend(gemma)
 for c in gemma:
