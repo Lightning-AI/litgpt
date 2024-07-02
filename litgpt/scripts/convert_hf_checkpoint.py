@@ -56,9 +56,8 @@ def copy_weights_gpt_neox(
         "embed_out.weight": "lm_head.weight",
     }
 
-    total_params = len(hf_weights)
     if progress_per_file is not None:
-        progress_per_file = progress_per_file / total_params
+        progress_per_file = progress_per_file / max(1, len(hf_weights))
 
     for name, param in hf_weights.items():
         if "gpt_neox.layers" in name:
@@ -119,7 +118,7 @@ def copy_weights_falcon(
         raise NotImplementedError
 
     if progress_per_file is not None:
-        progress_per_file = progress_per_file / len(hf_weights)
+        progress_per_file = progress_per_file / max(1, len(hf_weights))
 
     for name, param in hf_weights.items():
         if "transformer.h" in name:
@@ -182,7 +181,7 @@ def copy_weights_hf_llama(
         raise NotImplementedError
 
     if progress_per_file is not None:
-        progress_per_file = progress_per_file / (len(hf_weights) + len(qkv_weights))
+        progress_per_file = progress_per_file / max(1, len(hf_weights) + len(qkv_weights))
 
     for name, param in hf_weights.items():
         if "model.layers" in name:
@@ -284,7 +283,7 @@ def copy_weights_phi(
         )
 
     if progress_per_file is not None:
-        progress_per_file = progress_per_file / (len(hf_weights) + len(qkv_weights))
+        progress_per_file = progress_per_file / max(1, len(hf_weights) + len(qkv_weights))
 
     for name, param in hf_weights.items():
         if name.startswith("model.layers."):
@@ -453,7 +452,7 @@ def convert_hf_checkpoint(
         if not debug_mode:
             # Using tqdm progress bar when not in debug mode
 
-            total_size = sum(os.path.getsize(bin_file) for bin_file in bin_files)
+            total_size = max(1, sum(os.path.getsize(bin_file) for bin_file in bin_files))
             total_progress = 100
 
             with tqdm(total=total_progress, desc="Initializing", bar_format="{desc}{percentage:3.0f}%|{bar}| {elapsed}<{remaining}, {rate_fmt}") as pbar:
