@@ -22,9 +22,9 @@
   <a href="https://lightning.ai/">Lightning AI</a> •
   <a href="#quick-start">Quick start</a> •
   <a href="#choose-from-20-llms">Models</a> •
-  <a href="#finetune-an-llm">Finetune/pretrain</a> • 
+  <a href="#finetune-an-llm">Finetune</a> • 
   <a href="#deploy-an-llm">Deploy</a> •    
-    <a href="#evaluate-an-llm">Evaluate</a> •
+  <a href="#all-workflows">All workflows</a> • 
   <a href="#state-of-the-art-features">Features</a> •
   <a href="#training-recipes">Recipes (YAML)</a> •
     <a href="#tutorials">Tutorials</a>
@@ -149,7 +149,7 @@ Every model is written from scratch to maximize performance and remove layers of
 
 ---
 
-# Advanced workflows
+# Workflows
 
 <p align="center">
   <a href="#finetune-an-llm">Finetune</a> • 
@@ -237,7 +237,7 @@ litgpt serve out/custom-model/final
 Deploy a pretrained or finetune LLM to use it in real-world applications. Deploy, automatically sets up a web server that can be accessed by a website or app.   
 
 ```bash
-# Deploy an out-of-the-box LLM
+# deploy an out-of-the-box LLM
 litgpt download microsoft/phi-2
 litgpt serve microsoft/phi-2
 
@@ -246,7 +246,7 @@ litgpt serve path/to/microsoft/phi-2/checkpoint
 ```
 
 <details>
-  <summary>Show code:</summary>
+  <summary>Show code to query server:</summary>
 
 &nbsp;
 
