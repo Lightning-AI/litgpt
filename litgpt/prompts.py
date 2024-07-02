@@ -311,7 +311,7 @@ class Phi2(PromptStyle):
 
 class Phi3(PromptStyle):
     def apply(self, prompt: str, **kwargs: str) -> str:
-        return f'<s><|user|>\n{prompt}<|end|>\n<|assistant|>\n'
+        return f'<|system|>\nYou are a helpful assistant.<|end|>\n<|user|>\n{prompt}<|end|>\n<|assistant|>\n'
 
 
 
