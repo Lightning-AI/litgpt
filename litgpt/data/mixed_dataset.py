@@ -4,6 +4,7 @@ import contextlib
 import glob
 import os
 from collections.abc import Iterable
+from copy import deepcopy
 from dataclasses import dataclass, field
 from pathlib import Path
 from typing import (
@@ -18,6 +19,8 @@ from typing import (
     Type,
     Union,
 )
+
+from datasets import load_dataset
 
 from lightning.fabric.utilities.data import sized_len
 from lightning.fabric.utilities.types import _Stateful
@@ -46,6 +49,10 @@ from torch.utils.data.dataloader import (
 from typing_extensions import override, Self, TypedDict
 
 
+# hacky
+MAX_ITERS = None
+
+
 @dataclass
 class MixedDataset(DataModule):
     """
@@ -66,8 +73,12 @@ class MixedDataset(DataModule):
     num_workers: int = 4
     cycle_mode: Literal[
         "max_size_cycle", "min_size_cycle", "max_size", "sequential", "max_size_spread"
-    ] = "max_size_cycle"
+    ] = "max_size_spread"
     fast_dev_run: bool = False
+    # number of times to repeat the sft datasets
+    num_repeats: int = 1
+    # the max iters through the pretraining dataset. Used to space out the sft datasets accordingly
+    max_iters: int = 100000
 
     def __post_init__(self):
         self.lm_train_path = os.path.join(self.pretraining_data_path, "train")
@@ -79,7 +90,9 @@ class MixedDataset(DataModule):
 
     def setup(self):
         sft_train_data, sft_val_data = get_splits(
-            Path(self.sft_data_path), self.sft_val_split_fraction
+            Path(self.sft_data_path),
+            self.sft_val_split_fraction,
+            num_repeats=self.num_repeats,
         )
 
         self.sft_train_dataset = SFTDataset(
@@ -104,11 +117,14 @@ class MixedDataset(DataModule):
         tokenizer: Optional[Tokenizer] = None,
         batch_size: int = 1,
         max_seq_length: int = -1,
+        max_iters: int = 1000000,
     ) -> None:
         self.tokenizer = tokenizer
         self.batch_size = batch_size
         self.max_seq_length_sft = max_seq_length
         self.max_seq_length_lm = max_seq_length + 1
+        self.max_iters = max_iters
+        MAX_ITERS = self.max_iters
 
     def prepare_data(self) -> None:
         if self.pretrain_data_type == "streaming":
@@ -216,9 +232,17 @@ class MixedDataset(DataModule):
             pin_memory=True,
             drop_last=True,
         )
+        print("BATCH SIZE:", self.batch_size)
+
+        if self.cycle_mode == "max_size_spread":
+            # sft_batch_size = 1  # to better control sampling rate
+            sft_batch_size = self.batch_size  # TODO: should I change this back?
+        else:
+            sft_batch_size = self.batch_size
+
         sft_train_dataloader = DataLoader(
             self.sft_train_dataset,
-            batch_size=self.batch_size,
+            batch_size=sft_batch_size,
             shuffle=True,
             num_workers=self.num_workers,
             collate_fn=get_sft_collate_fn(
@@ -374,6 +398,8 @@ class _MaxSizeCycle(_ModeIterator):
 
 class _MaxSizeDistributed(_ModeIterator):
     # Largest dataset should always be placed at ind 0. Assume we want to distribute the rest
+    max_steps = 10000  # TODO: the global variable hack doesn't work, fix the pass through later.
+
     def __init__(self, iterables, limits=None):
         super().__init__(iterables, limits)
         self.large_dataset_idx = 0
@@ -383,8 +409,9 @@ class _MaxSizeDistributed(_ModeIterator):
         self.small_data_len = [
             len(self.iterables[i]) for i in range(1, len(self.iterables))
         ]
+
         self.small_data_per_batch = [
-            self.large_data_len // small_data_len
+            small_data_len / min(self.large_data_len, self.max_steps)
             for small_data_len in self.small_data_len
         ]
         self.data_intervals = []
@@ -395,27 +422,37 @@ class _MaxSizeDistributed(_ModeIterator):
             else:
                 self.data_intervals.append(1)
 
+        print(f"Adding SFT data every {self.data_intervals} batches")
+
         self.intervals_passed = deepcopy(self.data_intervals)
 
         self._consumed: List[bool] = []
 
     def __next__(self):
+        out = [None] * len(self.iterators)
         try:
             large_batch = next(self.iterators[0])
+            out[0] = large_batch
             small_batches = []
             for i, small_dataset in enumerate(self.iterators[1:]):
                 data_interval = self.data_intervals[i]
                 if data_interval == 1:
                     small_batch = next(small_dataset)
+                    small_batches.extend(small_batch)
+                    out[i + 1] = small_batch
                 else:
+                    # note: length of an iterable is the # batches, not # samples
                     self.intervals_passed[i] -= 1
-                    if self.intervals_passed[i] == 0:
+                    if self.intervals_passed[i] <= 0:
                         small_batch = next(small_dataset)
+                        small_batches.extend(small_batch)
+                        out[i + 1] = small_batch
                         self.intervals_passed[i] = data_interval
 
             index = self._idx
             self._idx += 1
-            return [large_batch, *small_batches], index, 0
+            # out = {"lm": large_batch, "sft": small_batches}
+            return out, index, 0
 
         except StopIteration:
             raise StopIteration
@@ -546,12 +583,12 @@ _SUPPORTED_MODES = {
     "max_size_cycle": _CombinationMode(fn=max, iterator=_MaxSizeCycle),
     "max_size": _CombinationMode(fn=max, iterator=_MaxSize),
     "sequential": _CombinationMode(fn=sum, iterator=_Sequential),
-    "max_size_distributed": _CombinationMode(fn=max, iterator=_MaxSizeDistributed),
+    "max_size_spread": _CombinationMode(fn=max, iterator=_MaxSizeDistributed),
 }
 
 # max_size_distributed: mimic scattering a small dataset across a large one (no repeats, but evenly spaced data)
 _LITERAL_SUPPORTED_MODES = Literal[
-    "min_size", "max_size_cycle", "max_size", "sequential", "max_size_distributed"
+    "min_size", "max_size_cycle", "max_size", "sequential", "max_size_spread"
 ]
 
 
@@ -567,6 +604,7 @@ class CombinedLoader(DataLoader):
               through the rest of the iterables.
             * ``max_size``: stops after the longest iterable (the one with most items) is done, while returning None
               for the exhausted iterables.
+            *  ``max_size_spread``: mimics scattering a small dataset across a large one (no repeats, but evenly spaced data)
             * ``sequential``: completely consumes each iterable sequentially, and returns a triplet
               ``(data, idx, iterable_idx)``
 
