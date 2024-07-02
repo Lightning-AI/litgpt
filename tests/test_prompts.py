@@ -6,8 +6,8 @@ import litgpt.config
 from litgpt import Config
 from litgpt.prompts import (
     Alpaca,
-    Llama3,
     Default,
+    Llama3,
     PromptStyle,
     has_prompt_style,
     load_prompt_style,
@@ -62,6 +62,7 @@ def test_prompt_style_from_config():
         "CodeLlama-70b-Instruct-hf",
         "phi-1_5",
         "phi-2",
+        "Phi-3-mini-4k-instruct",
         "Mistral-7B-Instruct-v0.1",
         "Mistral-7B-Instruct-v0.2",
         "tiny-llama-1.1b-chat",
