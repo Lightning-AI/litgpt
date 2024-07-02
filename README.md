@@ -198,20 +198,24 @@ Finetuning is the process of taking a pretrained AI model and further training i
 &nbsp;
 
 ```bash
+# 0) setup your dataset
+curl -L https://huggingface.co/datasets/ksaw008/finance_alpaca/resolve/main/finance_alpaca.json -o my_custom_dataset.json
+
 # 1) Download a pretrained model
 litgpt download microsoft/phi-2
 
 # 2) Finetune the model
-curl -L https://huggingface.co/datasets/ksaw008/finance_alpaca/resolve/main/finance_alpaca.json -o my_custom_dataset.json
-
 litgpt finetune microsoft/phi-2 \
   --data JSON \
   --data.json_path my_custom_dataset.json \
   --data.val_split_fraction 0.1 \
   --out_dir out/custom-model
 
-# 3) Chat with the model
+# 3) Test the model
 litgpt chat out/custom-model/final
+
+# 4) Deploy the model
+litgpt serve out/custom-model/final
 ```
 
 [Read the full finetuning docs](tutorials/finetune.md)
@@ -219,6 +223,108 @@ litgpt chat out/custom-model/final
 &nbsp;
 
 ---- 
+
+## Deploy an LLM
+
+<div align="center">
+<a target="_blank" href="https://lightning.ai/lightning-ai/studios/litgpt-serve">
+  <img src="https://pl-bolts-doc-images.s3.us-east-2.amazonaws.com/app-2/deploy-on-studios.svg" height="36px" alt="Deploy on Studios"/>
+</a>
+</div>
+
+&nbsp;
+
+Deploy a pretrained or finetune LLM to use it in real-world applications. Deploy, automatically sets up a web server that can be accessed by a website or app.   
+
+```bash
+# Deploy an out-of-the-box LLM
+litgpt download microsoft/phi-2
+litgpt serve microsoft/phi-2
+
+# deploy your own trained model
+litgpt serve path/to/microsoft/phi-2/checkpoint
+```
+
+<details>
+  <summary>Show code:</summary>
+
+&nbsp;
+
+Test the server in a separate terminal and integrate the model API into your AI product:
+```python
+# 3) Use the server (in a separate Python session)
+import requests, json
+response = requests.post(
+    "http://127.0.0.1:8000/predict",
+    json={"prompt": "Fix typos in the following sentence: Exampel input"}
+)
+print(response.json()["output"])
+```
+</details>
+
+[Read the full deploy docs](tutorials/deploy.md).
+
+&nbsp;
+
+----
+
+## Evaluate an LLM
+Evaluate an LLM to test its performance on various tasks to see how well it understands and generates text. Simply put, we can evaluate things like how well would it do in college-level chemistry, coding, etc... (MMLU, Truthful QA, etc...)
+
+```bash
+litgpt evaluate microsoft/phi-2 --tasks 'truthfulqa_mc2,mmlu'
+```
+
+[Read the full evaluation docs](tutorials/evaluation.md).
+
+&nbsp;
+
+---- 
+
+##  Test an LLM
+
+<div align="center">
+<a target="_blank" href="https://lightning.ai/lightning-ai/studios/litgpt-chat">
+  <img src="https://pl-bolts-doc-images.s3.us-east-2.amazonaws.com/app-2/run-on-studio.svg" height="36px" alt="Run on Studios"/>
+</a>
+</div>
+
+&nbsp;
+    
+Test how well the model works via an interactive chat. Use the `chat` command to chat, extract embeddings, etc...
+
+Here's an example showing how to use the Phi-2 LLM:
+```bash
+litgpt chat microsoft/phi-2
+
+>> Prompt: What do Llamas eat?
+```
+
+<details>
+  <summary>Full code:</summary>
+
+&nbsp;
+
+```bash
+# 1) Download the LLM
+litgpt download list
+litgpt download microsoft/phi-2
+
+# 2) Test the model
+litgpt chat microsoft/phi-2
+
+>> Prompt: What do Llamas eat?
+```
+
+The download of certain models requires an additional access token. You can read more about this in the [download](tutorials/download_model_weights.md#specific-models-and-access-tokens) documentation. 
+
+</details>
+
+[Read the full chat docs](tutorials/inference.md).
+
+&nbsp;
+
+----
 
 ## Pretrain an LLM
 
@@ -310,110 +416,6 @@ litgpt chat out/custom-model/final
 &nbsp;
 
 ---- 
-
-## Evaluate an LLM
-Evaluate an LLM to test its performance on various tasks to see how well it understands and generates text. Simply put, we can evaluate things like how well would it do in college-level chemistry, coding, etc... (MMLU, Truthful QA, etc...)
-
-<details>
-  <summary>Show code:</summary>
-
-```bash
-litgpt evaluate microsoft/phi-2 --tasks 'truthfulqa_mc2,mmlu'
-```
-
-</details>
-
-[Read the full evaluation docs](tutorials/evaluation.md).
-
-&nbsp;
-
----- 
-
-## Deploy an LLM
-
-<div align="center">
-<a target="_blank" href="https://lightning.ai/lightning-ai/studios/litgpt-serve">
-  <img src="https://pl-bolts-doc-images.s3.us-east-2.amazonaws.com/app-2/deploy-on-studios.svg" height="36px" alt="Deploy on Studios"/>
-</a>
-</div>
-
-&nbsp;
-
-Deploy a pretrained or finetune LLM to use it in real-world applications. Deploy, automatically sets up a web server that can be accessed by a website or app.   
-
-<details>
-  <summary>Show code:</summary>
-
-&nbsp;
-
-```bash
-# locate the checkpoint to your finetuned or pretrained model and call the `serve` command:
-litgpt serve microsoft/phi-2
-
-# Alternative: if you haven't finetuned, download any checkpoint to deploy it:
-litgpt download microsoft/phi-2
-litgpt serve microsoft/phi-2
-```
-
-Test the server in a separate terminal and integrate the model API into your AI product:
-```python
-# 3) Use the server (in a separate Python session)
-import requests, json
-response = requests.post(
-    "http://127.0.0.1:8000/predict",
-    json={"prompt": "Fix typos in the following sentence: Exampel input"}
-)
-print(response.json()["output"])
-```
-</details>
-
-[Read the full deploy docs](tutorials/deploy.md).
-
-&nbsp;
-
-----
-
-##  Test an LLM
-
-<div align="center">
-<a target="_blank" href="https://lightning.ai/lightning-ai/studios/litgpt-chat">
-  <img src="https://pl-bolts-doc-images.s3.us-east-2.amazonaws.com/app-2/run-on-studio.svg" height="36px" alt="Run on Studios"/>
-</a>
-</div>
-
-&nbsp;
-    
-Test how well the model works via an interactive chat. Use the `chat` command to chat, extract embeddings, etc...
-
-
-<details>
-  <summary>Show code:</summary>
-
-&nbsp;
-Here's an example showing how to use the Phi-2 LLM.
-
-```bash
-# 1) List all available models in litgpt
-litgpt download list
-
-# 2) Download a pretrained model
-litgpt download microsoft/phi-2
-
-# 3) Chat with the model
-litgpt chat microsoft/phi-2
-
->> Prompt: What do Llamas eat?
-```
-
-The download of certain models requires an additional access token. You can read more about this in the [download](tutorials/download_model_weights.md#specific-models-and-access-tokens) documentation. 
-
-</details>
-
-[Read the full chat docs](tutorials/inference.md).
-
-&nbsp;
-
-----
 
 # State-of-the-art features
 
