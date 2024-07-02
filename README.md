@@ -61,9 +61,9 @@ Load and use any of the [20+ LLMs](#choose-from-20-llms):
 from litgpt import LLM
 
 llm = LLM.load("microsoft/phi-2")
-text = llm.generate("Correct the spelling: Every summer, the familly enjoys a trip to the mountains.")
+text = llm.generate("Fix the spelling: Every fall, the familly goes to the mountains.")
 print(text)
-# Corrected Sentence: Every summer, the family enjoys a vacation to the mountains.       
+# Corrected Sentence: Every fall, the family goes to the mountains.       
 ```
 
 &nbsp;
