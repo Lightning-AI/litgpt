@@ -41,6 +41,22 @@ from torchmetrics.aggregation import RunningMean
 from typing_extensions import Literal
 
 
+# TODO: backwards update, just a static weight for now
+class DataWeights(nn.Module):
+    def __init__(self, init_weights: list = [1, 1], normalize: bool = False, **kwargs):
+        super(DataWeights, self).__init__()
+        self.source_weights = nn.Parameter(
+            torch.tensor(init_weights, dtype=torch.float)
+        )  # (pretrain_w, sft_w)
+        self.normalize = normalize
+
+    def forward(self):
+        if self.normalize:
+            return torch.softmax(self.source_weights, dim=0)
+        else:
+            return self.source_weights
+
+
 def setup(
     model_name: str,
     model_config: Optional[Config] = None,
@@ -59,6 +75,7 @@ def setup(
         min_lr=4e-5,
         lr_warmup_steps=2000,
         tie_embeddings=False,
+        max_steps=10000,
     ),
     eval: EvalArgs = EvalArgs(interval=1000, max_iters=100),
     optimizer: Union[str, Dict] = "AdamW",
@@ -161,6 +178,7 @@ def setup(
         train,
         eval,
         optimizer,
+        train.max_steps,
     )
 
 
@@ -178,6 +196,7 @@ def main(
     train: TrainArgs,
     eval: EvalArgs,
     optimizer: Union[str, Dict],
+    max_steps: int,
 ) -> None:
     validate_args(train, eval, initial_checkpoint_dir, resume)
 
@@ -209,8 +228,16 @@ def main(
     )
     optimizer = fabric.setup_optimizers(optimizer)
 
+    # need max iters up here to evenly space
+    if max_steps is None:
+        max_tokens_per_device = train.max_tokens // fabric.world_size
+        tokens_per_iter = train.micro_batch_size * model.max_seq_length
+        max_iters = max_tokens_per_device // tokens_per_iter
+    else:
+        max_iters = max_steps
+
     train_dataloader, val_dataloader = get_dataloaders(
-        fabric, data, tokenizer, train, model.max_seq_length
+        fabric, data, tokenizer, train, model.max_seq_length, max_iters=max_iters
     )
     train_dataloader, val_dataloader = fabric.setup_dataloaders(
         train_dataloader, val_dataloader
@@ -247,6 +274,7 @@ def main(
         tokenizer_dir,
         train,
         eval,
+        max_iters,
     )
 
     # Save final checkpoint
@@ -267,9 +295,11 @@ def fit(
     tokenizer_dir: Optional[Path],
     train: TrainArgs,
     eval: EvalArgs,
+    max_iters: int,
 ) -> None:
     model = state["model"]
     optimizer = state["optimizer"]
+    data_weights = DataWeights()
 
     if eval.initial_validation:
         val_loss, val_loss_lm, val_loss_sft = validate(
@@ -295,9 +325,11 @@ def fit(
         )
         del meta_model, x
 
-    max_tokens_per_device = train.max_tokens // fabric.world_size
-    tokens_per_iter = train.micro_batch_size * model.max_seq_length
-    max_iters = max_tokens_per_device // tokens_per_iter
+    if max_iters is None:
+        max_tokens_per_device = train.max_tokens // fabric.world_size
+        tokens_per_iter = train.micro_batch_size * model.max_seq_length
+        max_iters = max_tokens_per_device // tokens_per_iter
+
     log_iter_interval = train.log_interval * train.gradient_accumulation_iters(devices)
     initial_iter = state["iter_num"]
     train_iterator = CycleIterator(train_dataloader)
@@ -323,7 +355,7 @@ def fit(
 
         # determine and set the learning rate for this iteration
         lr = get_lr(
-            optimizer.defaults["lr"],
+            2e-5,  # the default LR is too high. Using this one
             state["iter_num"],
             warmup_iters,
             max_iters,
@@ -365,10 +397,12 @@ def fit(
             input_ids = lm_data[:, 0 : model.max_seq_length].contiguous().long()
             targets = lm_data[:, 1 : (model.max_seq_length + 1)].contiguous().long()
             logits = model(input_ids)
-            loss = chunked_cross_entropy(logits, targets) * 1
+            lm_loss = chunked_cross_entropy(logits, targets)
+            w_lm = 1 if sft_data is None else data_weights.source_weights[0]
+            loss = lm_loss * w_lm
 
             running_loss_total.update(loss.detach())
-            lm_loss_total.update(loss.detach())
+            lm_loss_total.update(lm_loss.detach())
 
         # rocess SFT data
         if sft_data is not None:
@@ -377,7 +411,8 @@ def fit(
             sft_loss = chunked_cross_entropy(
                 logits[..., :-1, :], targets[..., 1:], chunk_size=0
             )
-            loss += sft_loss * 0
+            sft_w = 1 if lm_data is None else data_weights.source_weights[1]
+            loss += sft_loss * sft_w
 
             running_loss_total.update(sft_loss.detach())
             sft_loss_total.update(sft_loss.detach())
@@ -408,6 +443,7 @@ def fit(
                     state["iter_num"] * train.micro_batch_size * model.max_seq_length
                 ),
             )
+
             metrics = {
                 "loss": loss,
                 "loss_lm": loss_lm,
@@ -565,11 +601,13 @@ def get_dataloaders(
     tokenizer: Tokenizer,
     train: TrainArgs,
     block_size: int,
+    **kwargs,
 ) -> Tuple[DataLoader, DataLoader]:
     data.connect(
         tokenizer=tokenizer,
         batch_size=train.micro_batch_size,
         max_seq_length=block_size,
+        **kwargs,
     )
     with fabric.rank_zero_first():
         data.prepare_data()
@@ -647,7 +685,7 @@ def validate_args(
     train: TrainArgs, eval: EvalArgs, initial_checkpoint_dir, resume
 ) -> None:
     issues = []
-    unsupported = [(train, ["max_steps", "epochs"]), (eval, ["max_new_tokens"])]
+    unsupported = [(train, ["epochs"]), (eval, ["max_new_tokens"])]
     for args, names in unsupported:
         for name in names:
             if getattr(args, name) is not None:
