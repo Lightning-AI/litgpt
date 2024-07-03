@@ -461,7 +461,6 @@ Time for inference: 1.14 sec total, 26.26 tokens/sec, 30 tokens
 
 LitGPT comes with a handy `litgpt evaluate` command to evaluate models with [Eleuther AI's Evaluation Harness](https://github.com/EleutherAI/lm-evaluation-harness). For example, to evaluate the previously downloaded `microsoft/phi-2` model on several tasks available from the Evaluation Harness, you can use the following command:
 
-- TODO: Explain root dir
 
 ```bash
 litgpt evaluate microsoft/phi-2

@@ -56,14 +56,6 @@ def convert_and_evaluate(
         save_filepath: The file where the results will be saved.
             Saves to `out_dir/results.json` by default.
     """
-    checkpoint_dir = extend_checkpoint_dir(checkpoint_dir)
-    pprint(locals())
-
-    if not (isinstance(batch_size, int) and batch_size > 0) and not (isinstance(batch_size, str) and batch_size.startswith("auto")):
-        raise ValueError("batch_size must be a positive integer, 'auto', or in the format 'auto:N'.")
-
-    from lm_eval import evaluator
-
     if tasks is None:
         from lm_eval.tasks import TaskManager
         taskm = TaskManager()
@@ -72,9 +64,17 @@ def convert_and_evaluate(
             "\n\nTo evaluate multiple tasks, you can chain the task names "
             "listed above via a comma-separated list."
             "\nFor example: `--tasks 'hellaswag,truthfulqa_mc2,mmlu'`. "
-            "\nTo search for a specific task, use `litgpt evaluate | grep task_name`."
+            "\nTo search for a specific task, use `litgpt evaluate list | grep task_name`."
         )
         return
+
+    checkpoint_dir = extend_checkpoint_dir(checkpoint_dir)
+    pprint(locals())
+
+    if not (isinstance(batch_size, int) and batch_size > 0) and not (isinstance(batch_size, str) and batch_size.startswith("auto")):
+        raise ValueError("batch_size must be a positive integer, 'auto', or in the format 'auto:N'.")
+
+    from lm_eval import evaluator
 
     if device is None:
         device = "cuda" if torch.cuda.is_available() else "cpu"
