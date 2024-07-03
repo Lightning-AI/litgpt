@@ -67,7 +67,7 @@ response = requests.post(
     stream=True
 )
 
-# stream the response
+# stream the responseclear
 for line in response.iter_lines(decode_unicode=True):
     if line:
         print(json.loads(line)["output"], end="")

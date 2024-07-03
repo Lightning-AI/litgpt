@@ -71,8 +71,8 @@ litgpt evaluate microsoft/phi-2/ \
 &nbsp;
 
 > [!TIP]
-> Run `litgpt evaluate ...` without specifying `--tasks` to print a list
-> of the supported tasks. 
+> Run `litgpt evaluate list` to print a list
+> of the supported tasks. To filter for a specific subset of tasks, e.g., MMLU, use `litgpt evaluate list | grep mmlu`.
 
 > [!TIP]
 > The evaluation may take a long time, and for testing purpoes, you may want to reduce the number of tasks
