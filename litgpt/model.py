@@ -150,6 +150,14 @@ class Block(nn.Module):
         self.norm_2 = None if config.shared_attention_norm else config.norm_class(config.n_embd, eps=config.norm_eps)
         self.mlp = config.mlp_class(config)
 
+        # TODO: check what is faster nn.Identity or lambda x: x
+        self.post_attention_norm = (
+            config.norm_class(config.n_embd, eps=config.norm_eps) if config.post_attention_norm else nn.Identity()
+        )
+        self.post_mlp_norm = (
+            config.norm_class(config.n_embd, eps=config.norm_eps) if config.post_mlp_norm else nn.Identity()
+        )
+
         self.config = config
 
     def forward(
@@ -176,15 +184,20 @@ class Block(nn.Module):
         └───► +
         """
 
+        # TODO: prettify norm layers naming (separate PR maybe)
+        # pre_attention_norm, post_attention_norm, pre_mlp_norm, post_mlp_norm ??
+
         x_normed = self.norm_1(x)
         attention_output = self.attn(x_normed, cos, sin, mask, input_pos)
+        # TODO: maybe a more verbose if-else would be a better choice?
+        attention_output = self.post_attention_norm(attention_output)
 
         if self.config.parallel_residual:
             x_normed = x_normed if self.config.shared_attention_norm else self.norm_2(x)
             x = self.mlp(x_normed) + attention_output + x
         else:
             x = attention_output + x
-            x = self.mlp(self.norm_2(x)) + x
+            x = self.post_mlp_norm(self.mlp(self.norm_2(x))) + x
         return x
 
 
@@ -254,7 +267,7 @@ class CausalSelfAttention(nn.Module):
     def scaled_dot_product_attention(
         self, q: torch.Tensor, k: torch.Tensor, v: torch.Tensor, mask: Optional[torch.Tensor] = None
     ) -> torch.Tensor:
-        scale = 1.0 / math.sqrt(self.config.head_size)
+        scale = 1.0 / math.sqrt(self.config.query_pre_attention_scaler or self.config.head_size)
         y = torch.nn.functional.scaled_dot_product_attention(
             q, k, v, attn_mask=mask, dropout_p=0.0, scale=scale, is_causal=mask is None
         )

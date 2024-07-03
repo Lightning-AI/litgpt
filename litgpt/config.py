@@ -18,6 +18,7 @@ class Config:
     name: str = ""
     hf_config: dict = field(default_factory=dict)
     scale_embeddings: bool = False
+    query_pre_attention_scaler: Optional[int] = None
     block_size: int = 4096
     vocab_size: int = 50254
     padding_multiple: int = 512
@@ -99,9 +100,10 @@ class Config:
             # search through all `config['hf_config']['name']`
             try:
                 conf_dict = next(
-                    config for config in configs
-                    if name == config["hf_config"]["name"] or
-                    config["hf_config"]["org"] + "/" + config["hf_config"]["name"] == name
+                    config
+                    for config in configs
+                    if name == config["hf_config"]["name"]
+                    or config["hf_config"]["org"] + "/" + config["hf_config"]["name"] == name
                 )
             except StopIteration:
                 raise ValueError(f"{name!r} is not a supported config name")
@@ -943,6 +945,7 @@ gemma = [
         scale_embeddings=True,
         # TODO: Add scaler for attention scores.
         # should be scaled not by head_size (256), but by n_embd / n_head = 3584 / 16 = 224
+        query_pre_attention_scaler=224,
         vocab_size=256000,
         block_size=8192,
         # TODO: add setting for a sliding window
@@ -963,7 +966,6 @@ gemma = [
         # TODO:
         # 1. Add logit softcapping for attention
         # 2. Add logit softcapping for final logits
-
     ),
     # TODO: add config for 27b verson
     # https://huggingface.co/google/gemma-2-27b/blob/main/config.json
