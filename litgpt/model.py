@@ -443,12 +443,8 @@ class RMSNorm(torch.nn.Module):
         # NOTE: the original RMSNorm paper implementation is not equivalent
         norm_x = torch.mean(x * x, dim=self.dim, keepdim=True)
         x_normed = x * torch.rsqrt(norm_x + self.eps)
-        x_normed = x_normed.to(dtype=dtype)
-        if self.add_unit_offset:
-            # Gemma model requires a unit offset
-            # https://github.com/google/gemma_pytorch/blob/main/gemma/model.py#L176
-            return x_normed * (1 + self.weight)
-        return x_normed * self.weight
+        weight = (1 + self.weight) if self.add_unit_offset else self.weight
+        return (x_normed * weight.float()).to(dtype=dtype)
 
     def reset_parameters(self) -> None:
         torch.nn.init.ones_(self.weight)
