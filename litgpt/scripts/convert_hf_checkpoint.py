@@ -17,18 +17,11 @@ from litgpt import Config
 from litgpt.utils import extend_checkpoint_dir, incremental_save, lazy_load, save_config
 
 
-def estimate_total_entries(bin_files):
-    total_size = sum(f.stat().st_size for f in bin_files)
-    avg_param_size = 2 * 1024
-    return total_size // avg_param_size
-
-
 def copy_weights_gpt_neox(
     state_dict: Dict[str, torch.Tensor],
     hf_weights: Dict[str, Union[torch.Tensor, NotYetLoadedTensor]],
     saver: Optional[incremental_save] = None,
     dtype: Optional[torch.dtype] = None,
-    copy_fn: Optional[tqdm] = None,
     pbar: Optional[tqdm] = None,
     progress_per_file: Optional[float] = None,
     debug_mode: Optional[bool] = False
@@ -471,7 +464,6 @@ def convert_hf_checkpoint(
         else:
             # Handling files without progress bar in debug mode
             for bin_file in sorted(bin_files):
-                current_file_size = os.path.getsize(bin_file)
                 hf_weights = lazy_load(bin_file)
                 copy_fn(sd, hf_weights, saver=saver, dtype=dtype, debug_mode=debug_mode)
 
