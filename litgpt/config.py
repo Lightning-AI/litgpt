@@ -53,6 +53,8 @@ class Config:
     n_query_groups: Optional[int] = None
     shared_attention_norm: bool = False
     norm_class_name: Literal["LayerNorm", "RMSNorm"] = "LayerNorm"
+    post_attention_norm: bool = False
+    post_mlp_norm: bool = False
     norm_eps: float = 1e-5
     mlp_class_name: Literal["GptNeoxMLP", "LLaMAMLP", "GemmaMLP", "LLaMAMoE"] = "GptNeoxMLP"
     gelu_approximate: str = "none"
@@ -956,6 +958,8 @@ gemma = [
         norm_class_name="RMSNorm",
         mlp_class_name="GemmaMLP",
         gelu_approximate="tanh",
+        post_attention_norm=True,
+        post_mlp_norm=True,
         # TODO:
         # 1. Add logit softcapping for attention
         # 2. Add logit softcapping for final logits
