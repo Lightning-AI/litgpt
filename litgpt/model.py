@@ -88,7 +88,7 @@ class GPT(nn.Module):
 
         x = self.transformer.wte(idx)  # token embeddings of shape (b, t, n_embd)
         if self.config.scale_embeddings:
-            x = x * (self.config.n_embd**0.5)
+            x = x * torch.tensor(self.config.n_embd**0.5, dtype=x.dtype)
 
         for block in self.transformer.h:
             x = block(x, cos, sin, mask, input_pos)
