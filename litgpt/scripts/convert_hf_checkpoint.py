@@ -464,7 +464,6 @@ def convert_hf_checkpoint(
         else:
             # Handling files without progress bar in debug mode
             for bin_file in sorted(bin_files):
-                current_file_size = os.path.getsize(bin_file)
                 hf_weights = lazy_load(bin_file)
                 copy_fn(sd, hf_weights, saver=saver, dtype=dtype, debug_mode=debug_mode)
 
