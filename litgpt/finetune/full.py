@@ -20,7 +20,6 @@ from litgpt.model import GPT, Block, Config
 from litgpt.prompts import save_prompt_style
 from litgpt.tokenizer import Tokenizer
 from litgpt.utils import (
-    adjust_max_new_tokens,
     CycleIterator,
     check_valid_checkpoint_dir,
     choose_logger,
@@ -326,9 +325,14 @@ def generate_example(fabric: L.Fabric, model: GPT, tokenizer: Tokenizer, eval: E
     with fabric.init_tensor():
         # do not set `max_seq_length=max_returned_token` because memory is not a concern here
         model.set_kv_cache(batch_size=1)
-    max_new_tokens = adjust_max_new_tokens(len(encoded), eval.max_new_tokens, model.max_seq_length)
+
+    max_returned_tokens = len(encoded) + eval.max_new_tokens
+    print(
+        f"Length of encoded instruction ({len(encoded)}) and eval.max_new_tokens {eval.max_new_tokens} "
+        f"exceeds model.max_seq_length {model.max_seq_length}. Skipping example generation."
+    )
     output = generate(
-        model, encoded, max_returned_tokens=max_new_tokens, temperature=0.8, eos_id=tokenizer.eos_id
+        model, encoded, max_returned_tokens=max_returned_tokens, temperature=0.8, eos_id=tokenizer.eos_id
     )
     model.clear_kv_cache()
     model.train()

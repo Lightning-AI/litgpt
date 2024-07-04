@@ -561,25 +561,3 @@ def check_file_size_on_cpu_and_warn(checkpoint_path, device, size_limit=4_509_71
                 "with more than 1B parameters on a CPU can be slow, it is recommended to switch to a GPU."
             )
     return size
-
-
-def adjust_max_new_tokens(encoded_length, max_new_tokens, model_max_seq_length):
-    """
-    Adjusts the max_new_tokens to ensure the total number of tokens does not exceed model_max_seq_length.
-
-    Args:
-        encoded_length (int): Length of the encoded input.
-        max_new_tokens (int): Initial maximum number of new tokens.
-        model_max_seq_length (int): Model's maximum sequence length.
-
-    Returns:
-        int: Adjusted max_new_tokens value.
-    """
-    max_returned_tokens = encoded_length + max_new_tokens
-
-    if max_returned_tokens > model_max_seq_length:
-        excess_tokens = max_returned_tokens - model_max_seq_length
-        max_new_tokens = max_new_tokens - excess_tokens
-        max_new_tokens = max(0, max_new_tokens)
-
-    return max_new_tokens

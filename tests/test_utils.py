@@ -22,7 +22,6 @@ from lightning_utilities.core.imports import RequirementCache
 from litgpt import GPT
 from litgpt.args import TrainArgs
 from litgpt.utils import (
-    adjust_max_new_tokens,
     CLI,
     CycleIterator,
     capture_hparams,
@@ -454,19 +453,3 @@ def test_file_size_above_limit_on_gpu():
         with mock.patch("os.path.getsize", return_value=4_600_000_000):
             size = check_file_size_on_cpu_and_warn(temp_file.name, "gpu")
             assert size == 4_600_000_000
-
-
-def test_adjust_max_new_tokens_with_excess():
-    encoded_length = 50
-    max_new_tokens = 60
-    model_max_seq_length = 101
-    adjusted_tokens = adjust_max_new_tokens(encoded_length, max_new_tokens, model_max_seq_length)
-    assert adjusted_tokens == 51
-
-
-def test_adjust_max_new_tokens_without_excess():
-    encoded_length = 40
-    max_new_tokens = 50
-    model_max_seq_length = 101
-    adjusted_tokens = adjust_max_new_tokens(encoded_length, max_new_tokens, model_max_seq_length)
-    assert adjusted_tokens == 50
