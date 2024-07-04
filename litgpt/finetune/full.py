@@ -342,7 +342,8 @@ def generate_example(fabric: L.Fabric, model: GPT, tokenizer: Tokenizer, eval: E
     else:
         print(
             f"Length of encoded instruction ({len(encoded)}) and eval.max_new_tokens ({eval.max_new_tokens}) "
-            f"exceeds model.max_seq_length ({model.max_seq_length}). Skipping example generation."
+            f"exceeds model.max_seq_length ({model.max_seq_length}) used for training. Skipping example generation for efficiency. "
+            f"The model's supported context size (post-training) is {model.config.block_size}."
         )
 
 
