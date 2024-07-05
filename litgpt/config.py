@@ -20,6 +20,7 @@ class Config:
     scale_embeddings: bool = False
     query_pre_attention_scaler: Optional[int] = None
     block_size: int = 4096
+    sliding_window_size: Optional[int] = None
     vocab_size: int = 50254
     padding_multiple: int = 512
     padded_vocab_size: Optional[int] = None
@@ -945,10 +946,12 @@ gemma = [
         scale_embeddings=True,
         # TODO: Add scaler for attention scores.
         # should be scaled not by head_size (256), but by n_embd / n_head = 3584 / 16 = 224
+        # TODO; find a better name
         query_pre_attention_scaler=224,
         vocab_size=256000,
         block_size=8192,
         # TODO: add setting for a sliding window
+        sliding_window_size=4096,
         intermediate_size=14336,
         n_embd=3584,
         n_layer=42,

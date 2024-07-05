@@ -26,7 +26,7 @@ class GPT(nn.Module):
         self.transformer = nn.ModuleDict(
             dict(
                 wte=nn.Embedding(config.padded_vocab_size, config.n_embd),
-                h=nn.ModuleList(Block(config) for _ in range(config.n_layer)),
+                h=nn.ModuleList(Block(config, block_idx) for block_idx in range(config.n_layer)),
                 ln_f=config.norm_class(config.n_embd, eps=config.norm_eps),
             )
         )
@@ -137,7 +137,7 @@ class GPT(nn.Module):
 
 
 class Block(nn.Module):
-    def __init__(self, config: Config) -> None:
+    def __init__(self, config: Config, block_idx: int) -> None:
         super().__init__()
         if not config.parallel_residual and config.shared_attention_norm:
             raise NotImplementedError(
@@ -146,7 +146,7 @@ class Block(nn.Module):
             )
 
         self.norm_1 = config.norm_class(config.n_embd, eps=config.norm_eps)
-        self.attn = CausalSelfAttention(config)
+        self.attn = CausalSelfAttention(config, block_idx)
         self.norm_2 = None if config.shared_attention_norm else config.norm_class(config.n_embd, eps=config.norm_eps)
         self.mlp = config.mlp_class(config)
 
@@ -202,7 +202,7 @@ class Block(nn.Module):
 
 
 class CausalSelfAttention(nn.Module):
-    def __init__(self, config: Config) -> None:
+    def __init__(self, config: Config, block_idx: int) -> None:
         super().__init__()
         shape = (config.n_head + 2 * config.n_query_groups) * config.head_size
         # key, query, value projections for all heads, but in a batch
@@ -214,6 +214,7 @@ class CausalSelfAttention(nn.Module):
         self.kv_cache: Optional[KVCache] = None
 
         self.config = config
+        self.block_idx = block_idx
 
     def forward(
         self,
@@ -256,6 +257,21 @@ class CausalSelfAttention(nn.Module):
             if not isinstance(self.kv_cache, KVCache):
                 raise TypeError("You need to call `gpt.set_kv_cache()`")
             k, v = self.kv_cache(input_pos, k, v)
+
+        # TODO: convert it in a registered buffer?
+        # In Gemma every other layer has a sliding window attention
+        if self.config.sliding_window_size is not None and self.block_idx % 2:
+            # TODO: doesn't look particularly fast (optimized)
+            if mask is None:
+                min_dtype = torch.finfo(q.dtype).min
+                mask = torch.tril(torch.ones(self.config.block_size, self.config.block_size))
+                mask = mask.masked_fill(mask == 0, min_dtype)
+
+            min_dtype = torch.finfo(q.dtype).min
+            sliding_window_mask = torch.tril(
+                torch.ones_like(mask, dtype=torch.bool), diagonal=-self.config.sliding_window_size
+            )
+            mask = torch.where(sliding_window_mask, min_dtype, mask)
 
         y = self.scaled_dot_product_attention(q, k, v, mask)
 

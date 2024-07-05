@@ -605,9 +605,15 @@ def test_against_original_gemma(model_name, device, dtype):
 def test_against_original_gemma_2(model_name, device, dtype):
     torch.set_default_dtype(dtype)
 
-    T = 5
-    # TODO: update both configs to reflect soft-caping and sliding window attention
-    ours_config = Config.from_name(model_name, n_layer=2, n_head=16, n_embd=32, intermediate_size=86)
+    # torch.manual_seed(42)
+
+    T = 20
+    # TODO; update both config to reflect:
+    # [x] sliding window attention
+    # [] softcapping
+    ours_config = Config.from_name(
+        model_name, block_size=T, sliding_window_size=T // 2, n_layer=2, n_head=16, n_embd=32, intermediate_size=86
+    )
     theirs_config = Gemma2Config(
         vocab_size=ours_config.padded_vocab_size,
         hidden_size=ours_config.n_embd,
@@ -615,13 +621,20 @@ def test_against_original_gemma_2(model_name, device, dtype):
         num_attention_heads=ours_config.n_head,
         num_hidden_layers=ours_config.n_layer,
         intermediate_size=ours_config.intermediate_size,
-        max_position_embeddings=T,
+        max_position_embeddings=ours_config.block_size,
+        sliding_window=T // 2,
         rms_norm_eps=ours_config.norm_eps,
         num_key_value_heads=ours_config.n_query_groups,
         rope_theta=ours_config.rope_base,
         attention_bias=ours_config.bias,
         tie_word_embeddings=True,
         hidden_act="gelu_pytorch_tanh",
+        # TODO: fails so far with enabled softcapping
+        # NOTE: not yet implemented
+        # final_logit_softcapping=30.0,
+        # attn_logit_softcapping=50.0,
+        final_logit_softcapping=None,
+        attn_logit_softcapping=None,
     )
     assert ours_config.intermediate_size == theirs_config.intermediate_size
 
@@ -635,8 +648,15 @@ def test_against_original_gemma_2(model_name, device, dtype):
     ours_model.load_state_dict(state_dict)
 
     # test end to end
-    # TODO: generate indices randomly
-    x = torch.tensor([[9856, 23, 491, 1536, 304]], dtype=torch.int32, device=device)
+    # generator = torch.Generator(device=device)
+    # generator.manual_seed(42)
+    x = torch.randint(
+        low=0,
+        high=ours_config.padded_vocab_size,
+        size=(T,),
+        # generator=generator,
+        device=device,
+    ).unsqueeze(0)
     assert x.size(1) == T
     ours_y = ours_model(x)
     theirs_y = theirs_model(x)["logits"].to(dtype)  # HF converts logits to float
