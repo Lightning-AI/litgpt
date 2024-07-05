@@ -52,7 +52,7 @@ All experiments were conducted using bfloat-16 precision on the Alpaca2k dataset
 | phi-2/lora.yaml                   | phi-2                  | 1      | 512            | 4                | 4xA10G  | 3.78 min         | $0.3 | 13.98 GB    | 0.820           | 2.271                 | 52.4%           |
 | phi-2/qlora.yaml                  | phi-2                  | 1      | 512            | 4                | 1xA10G  | 4.51 min         | $0.1 | 14.27 GB    | 0.837           | 2.310                 | 52.3%           |
 | phi-2/qlora.yaml                  | phi-2                  | 1      | 512            | 4                | 4xA10G  | 4.52 min         | $0.4 | 14.27 GB    | 0.837           | 2.309                 | 52.3%           |
-|
+|                                   |                        |        |                |                  |         |                  |      |             |                 |                       |                 |
 | phi-3/full.yaml                   | Phi-3-mini-4k-instruct | 1      | 512            | 4                | 1xA10G  | 6.93 min         | $0.2 | 17.01 GB    | 0.714           | 2.043                 | 69.81%          |
 | phi-3/lora.yaml                   | Phi-3-mini-4k-instruct | 1      | 512            | 4                | 1xA10G  | 6.46 min         | $0.2 | 19.75 GB    | 0.707           | 2.028                 | 69.70%          |
 | phi-3/qlora.yaml                  | Phi-3-mini-4k-instruct | 1      | 512            | 4                | 1xA10G  | 7.47 min         | $0.2 | 19.13 GB    | 0.729           | 2.074                 | 68.96%          |
