@@ -11,6 +11,9 @@ precision: bf16-true
 # How many devices/GPUs to use. (type: Union[int, str], default: 1)
 devices: 1
 
+# How many nodes to use. (type: int, default: 1)
+num_nodes: 1
+
 # Data-related arguments. If not provided, the default is ``litgpt.data.Alpaca``.
 data:
   class_path: litgpt.data.Alpaca2k

@@ -47,6 +47,7 @@ def setup(
     precision: Optional[str] = None,
     quantize: Optional[Literal["bnb.nf4", "bnb.nf4-dq", "bnb.fp4", "bnb.fp4-dq", "bnb.int8-training"]] = None,
     devices: Union[int, str] = 1,
+    num_nodes: int = 1,
     data: Optional[DataModule] = None,
     train: TrainArgs = TrainArgs(
         save_interval=1000,
@@ -71,6 +72,7 @@ def setup(
         precision: The precision to use for finetuning. Possible choices: "bf16-true", "bf16-mixed", "32-true".
         quantize: If set, quantize the model with this algorithm. See ``tutorials/quantize.md`` for more information.
         devices: How many devices/GPUs to use.
+        num_nodes: How many nodes the code is being run on.
         data: Data-related arguments. If not provided, the default is ``litgpt.data.Alpaca``.
         train: Training-related arguments. See ``litgpt.args.TrainArgs`` for details.
         eval: Evaluation-related arguments. See ``litgpt.args.EvalArgs`` for details.
@@ -103,11 +105,11 @@ def setup(
         plugins = BitsandbytesPrecision(quantize[4:], dtype)
         precision = None
 
-    if devices > 1:
+    if devices * num_nodes > 1:
         if quantize:
             raise NotImplementedError(
-                "Quantization is currently not supported for multi-GPU training. Please set devices=1 when using the"
-                " --quantize flag."
+                "Quantization is currently not supported for multi-GPU training. Please set devices=1 and num_nodes=1"
+                " when using the --quantize flag."
             )
         strategy = FSDPStrategy(
             auto_wrap_policy={Block},
@@ -119,7 +121,14 @@ def setup(
     else:
         strategy = "auto"
 
-    fabric = L.Fabric(devices=devices, strategy=strategy, precision=precision, loggers=logger, plugins=plugins)
+    fabric = L.Fabric(
+        devices=devices,
+        num_nodes=num_nodes,
+        strategy=strategy,
+        precision=precision,
+        loggers=logger,
+        plugins=plugins,
+    )
     fabric.launch(main, devices, seed, config, data, checkpoint_dir, out_dir, train, eval, optimizer)
 
 
@@ -148,7 +157,7 @@ def main(
         os.makedirs(out_dir, exist_ok=True)
 
     checkpoint_path = checkpoint_dir / "lit_model.pth"
-    with fabric.init_module(empty_init=(devices > 1)):
+    with fabric.init_module(empty_init=(fabric.world_size > 1)):
         model = GPT(config)
     mark_only_adapter_v2_as_trainable(model)
 
@@ -344,16 +353,25 @@ def generate_example(fabric: L.Fabric, model: GPT, tokenizer: Tokenizer, eval: E
     encoded = tokenizer.encode(prompt, device=fabric.device)
     model.eval()
 
-    with fabric.init_tensor():
-        # do not set `max_seq_length=max_returned_token` because memory is not a concern here
-        model.set_kv_cache(batch_size=1)
-    output = generate(
-        model, encoded, max_returned_tokens=len(encoded) + eval.max_new_tokens, temperature=0.8, eos_id=tokenizer.eos_id
-    )
-    model.clear_kv_cache()
-    model.train()
-    output = tokenizer.decode(output)
-    fabric.print(output)
+    max_returned_tokens = len(encoded) + eval.max_new_tokens
+
+    if max_returned_tokens < model.max_seq_length:
+        with fabric.init_tensor():
+            # do not set `max_seq_length=max_returned_token` because memory is not a concern here
+            model.set_kv_cache(batch_size=1)
+        output = generate(
+            model, encoded, max_returned_tokens=max_returned_tokens, temperature=0.8, eos_id=tokenizer.eos_id
+        )
+        model.clear_kv_cache()
+        model.train()
+        output = tokenizer.decode(output)
+        fabric.print(output)
+    else:
+        print(
+            f"Length of encoded instruction ({len(encoded)}) and eval.max_new_tokens ({eval.max_new_tokens}) "
+            f"exceeds model.max_seq_length ({model.max_seq_length}) used for training. Skipping example generation for efficiency. "
+            f"The model's supported context size (post-training) is {model.config.block_size}."
+        )
 
 
 def get_lr_scheduler(optimizer, warmup_steps: int, max_steps: int):

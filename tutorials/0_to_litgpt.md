@@ -318,6 +318,7 @@ Running the previous finetuning command will initiate the finetuning process, wh
  'lora_query': True,
  'lora_r': 8,
  'lora_value': True,
+ 'num_nodes': 1,
  'out_dir': PosixPath('out/finetune/lora-phi-2'),
  'precision': 'bf16-true',
  'quantize': None,
@@ -461,7 +462,6 @@ Time for inference: 1.14 sec total, 26.26 tokens/sec, 30 tokens
 
 LitGPT comes with a handy `litgpt evaluate` command to evaluate models with [Eleuther AI's Evaluation Harness](https://github.com/EleutherAI/lm-evaluation-harness). For example, to evaluate the previously downloaded `microsoft/phi-2` model on several tasks available from the Evaluation Harness, you can use the following command:
 
-- TODO: Explain root dir
 
 ```bash
 litgpt evaluate microsoft/phi-2

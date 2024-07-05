@@ -78,6 +78,10 @@ class Tokenizer:
             return False
         with open(tokenizer_config_path, encoding="utf-8") as fp:
             config = json.load(fp)
+        # for LlaMA-3 tokenizer there is no `add_bos_token` at all and `tokenizer_class` is only
+        # `PreTrainedTokenizerFast`
+        if checkpoint_dir.stem.startswith("Meta-Llama-3"):
+            return True
         if "add_bos_token" in config:
             return config["add_bos_token"]
         # if `add_bos_token` isn't in the config file, but LLaMA tokenizer is used - return True.
@@ -97,18 +101,22 @@ class Tokenizer:
         elif self.backend == "sentencepiece":
             tokens = self.processor.encode(string)
         else:
-            raise RuntimeError
-        if bos or (bos is None and self.use_bos):
-            bos_id = self.bos_id
-            if bos_id is None:
-                raise NotImplementedError("This tokenizer does not have a defined a bos token")
-            if tokens[0] != bos_id:
-                tokens = [bos_id] + tokens
+            raise RuntimeError(f"`{self.backend}` is not supported.")
         if tokens is None:
-            raise ValueError("`tokens` is None")
+            raise ValueError("`self.processor` returned tokens of None value.")
+
+        if bos or (bos is None and self.use_bos):
+            if self.bos_id is None:
+                raise NotImplementedError("This tokenizer does not have a defined bos token.")
+            if not tokens or tokens[0] != self.bos_id:
+                tokens = [self.bos_id] + tokens
+        # if the processor misbehaves and adds `bos` token no matter what
+        elif tokens and tokens[0] == self.bos_id:
+            tokens = tokens[1:]
 
         if eos and (not tokens or tokens[-1] != self.eos_id):
             tokens = tokens + [self.eos_id]
+
         if max_length > 0:
             tokens = tokens[:max_length]
         return torch.tensor(tokens, dtype=torch.int, device=device)

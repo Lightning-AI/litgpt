@@ -65,6 +65,7 @@ def setup(
     eval: EvalArgs = EvalArgs(interval=1000, max_iters=100),
     optimizer: Union[str, Dict] = "AdamW",
     devices: Union[int, str] = "auto",
+    num_nodes: int = 1,
     tokenizer_dir: Optional[Path] = None,
     logger_name: Literal["wandb", "tensorboard", "csv"] = "tensorboard",
     seed: int = 42,
@@ -91,6 +92,7 @@ def setup(
         eval: Evaluation-related arguments. See ``litgpt.args.EvalArgs`` for details.
         optimizer: An optimizer name (such as "AdamW") or config.
         devices: How many devices/GPUs to use. Uses all GPUs by default.
+        num_nodes: How many nodes the code is being run on.
         tokenizer_dir: Optional path to the tokenizer dir that was used for preprocessing the dataset. Only some data
             module require this.
         logger_name: The name of the logger to send metrics to.
@@ -115,7 +117,7 @@ def setup(
         logger_name, out_dir, name=f"pretrain-{config.name}", resume=bool(resume), log_interval=train.log_interval
     )
 
-    if devices > 1:
+    if devices * num_nodes > 1:
         if compiler == "thunder":
             if strategy == "fsdp":
                 from extensions.thunder.strategies import ThunderFSDPStrategy
@@ -134,7 +136,7 @@ def setup(
                 )
     else:
         strategy = "auto"
-    fabric = L.Fabric(devices=devices, strategy=strategy, precision="bf16-true", loggers=[logger])
+    fabric = L.Fabric(devices=devices, num_nodes=num_nodes, strategy=strategy, precision="bf16-true", loggers=[logger])
     fabric.launch()
 
     if compiler is not None:
