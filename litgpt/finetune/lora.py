@@ -48,6 +48,7 @@ def setup(
     precision: Optional[str] = None,
     quantize: Optional[Literal["bnb.nf4", "bnb.nf4-dq", "bnb.fp4", "bnb.fp4-dq", "bnb.int8-training"]] = None,
     devices: Union[int, str] = 1,
+    num_nodes: int = 1,
     lora_r: int = 8,
     lora_alpha: int = 16,
     lora_dropout: float = 0.05,
@@ -81,6 +82,7 @@ def setup(
         precision: The precision to use for finetuning. Possible choices: "bf16-true", "bf16-mixed", "32-true".
         quantize: If set, quantize the model with this algorithm. See ``tutorials/quantize.md`` for more information.
         devices: How many devices/GPUs to use.
+        num_nodes: How many nodes the code is being run on.
         lora_r: The LoRA rank.
         lora_alpha: The LoRA alpha.
         lora_dropout: The LoRA dropout value.
@@ -133,11 +135,11 @@ def setup(
         plugins = BitsandbytesPrecision(quantize[4:], dtype)
         precision = None
 
-    if devices > 1:
+    if devices * num_nodes > 1:
         if quantize:
             raise NotImplementedError(
-                "Quantization is currently not supported for multi-GPU training. Please set devices=1 when using the"
-                " --quantize flag."
+                "Quantization is currently not supported for multi-GPU training. Please set devices=1 and num_nodes=1"
+                " when using the --quantize flag."
             )
         strategy = FSDPStrategy(
             auto_wrap_policy={Block},
@@ -149,7 +151,14 @@ def setup(
     else:
         strategy = "auto"
 
-    fabric = L.Fabric(devices=devices, strategy=strategy, precision=precision, loggers=logger, plugins=plugins)
+    fabric = L.Fabric(
+        devices=devices,
+        num_nodes=num_nodes,
+        strategy=strategy,
+        precision=precision,
+        loggers=logger,
+        plugins=plugins,
+    )
     fabric.launch(main, devices, seed, config, data, checkpoint_dir, out_dir, train, eval, optimizer)
 
 
@@ -178,7 +187,7 @@ def main(
         os.makedirs(out_dir, exist_ok=True)
 
     checkpoint_path = checkpoint_dir / "lit_model.pth"
-    with fabric.init_module(empty_init=(devices > 1)):
+    with fabric.init_module(empty_init=(fabric.world_size > 1)):
         model = GPT(config)
     mark_only_lora_as_trainable(model)
 

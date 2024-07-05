@@ -63,6 +63,7 @@ def setup(
     eval: EvalArgs = EvalArgs(interval=1000, max_iters=100),
     optimizer: Union[str, Dict] = "AdamW",
     devices: Union[int, str] = "auto",
+    num_nodes: int = 1,
     tokenizer_dir: Optional[Path] = None,
     logger_name: Literal["wandb", "tensorboard", "csv"] = "tensorboard",
     seed: int = 42,
@@ -87,6 +88,7 @@ def setup(
         optimizer: An optimizer name (such as "AdamW") or config.
 
         devices: How many devices/GPUs to use. Uses all GPUs by default.
+        num_nodes: How many nodes the code is being run on.
         tokenizer_dir: Optional path to the tokenizer dir that was used for preprocessing the dataset. Only some data
             module require this.
         logger_name: The name of the logger to send metrics to.
@@ -127,11 +129,11 @@ def setup(
         logger_name, out_dir, name=f"pretrain-{config.name}", resume=bool(resume), log_interval=train.log_interval
     )
 
-    if devices > 1:
+    if devices * num_nodes > 1:
         strategy = FSDPStrategy(auto_wrap_policy={Block}, state_dict_type="full", sharding_strategy="HYBRID_SHARD")
     else:
         strategy = "auto"
-    fabric = L.Fabric(devices=devices, strategy=strategy, precision=precision, loggers=[logger])
+    fabric = L.Fabric(devices=devices, num_nodes=num_nodes, strategy=strategy, precision=precision, loggers=[logger])
     fabric.launch()
 
     fabric.print(pprint.pformat(hparams))
