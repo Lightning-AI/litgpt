@@ -2,14 +2,17 @@
 
 import os
 from pathlib import Path
+from types import SimpleNamespace
+from unittest import mock
 
 import pytest
+from tokenizers import Tokenizer as HFTokenizer
+from tokenizers.models import BPE
 from transformers import AutoTokenizer
 from transformers.utils import cached_file
 
 import litgpt.config as config_module
-from litgpt import PromptStyle
-from litgpt.tokenizer import Tokenizer
+from litgpt import PromptStyle, Tokenizer
 
 
 @pytest.mark.flaky(reruns=5, rerun_except=["AssertionError", "assert", "TypeError"])
@@ -75,9 +78,6 @@ def test_tokenizer_against_hf(config):
         # TODO: there's a encoding difference with this model. why? note that the decoding is equal
         # "Hello": 10994, "▁Hello": 15043
         assert [15043 if t == 10994 else t for t in actual.tolist()] == expected
-    elif config.name.startswith("Phi-3"):
-        # Phi-3 tokenizer adds `bos` twice
-        assert [ours.bos_id] + actual.tolist() == expected
     else:
         assert actual.tolist() == expected
     assert ours.decode(actual) == theirs.decode(expected, skip_special_tokens=True)
@@ -86,3 +86,41 @@ def test_tokenizer_against_hf(config):
 def test_tokenizer_input_validation():
     with pytest.raises(NotADirectoryError, match="The checkpoint directory does not exist"):
         Tokenizer("cocofruit")
+
+
+@pytest.mark.parametrize("use_bos_by_default", (True, False))
+@pytest.mark.parametrize("encode_use_bos", (None, True, False))
+@pytest.mark.parametrize("encode_use_eos", (True, False))
+@pytest.mark.parametrize("processor_returns_bos", (True, False))
+@pytest.mark.parametrize("fake_return_ids", ([], [34, 8, 17, 2]))
+def test_tokenizer_bos_eos(tmp_path, use_bos_by_default, encode_use_bos, encode_use_eos, processor_returns_bos, fake_return_ids):
+
+    # let `Tokenizers` create a proper (albeit empty) vocab in json format
+    HFTokenizer(BPE()).save(str(tmp_path / "tokenizer.json"))
+
+    tokenizer = Tokenizer(tmp_path)
+    tokenizer.bos_id = 0
+    tokenizer.eos_id = 1
+    tokenizer.use_bos = use_bos_by_default
+
+    if processor_returns_bos:
+        fake_return_ids = [tokenizer.bos_id] + fake_return_ids
+    fake_return_ids = SimpleNamespace(**dict(ids=fake_return_ids))
+
+    with mock.patch.object(tokenizer.processor, "encode", return_value=fake_return_ids):
+        tokens = tokenizer.encode("Hello world", bos=encode_use_bos, eos=encode_use_eos).tolist()
+
+    if encode_use_bos or (encode_use_bos is None and use_bos_by_default):
+        assert tokens[0] == tokenizer.bos_id
+    else:
+        assert not tokens or tokens[0] != tokenizer.bos_id
+
+    if encode_use_eos:
+        assert tokens[-1] == tokenizer.eos_id
+    else:
+        assert not tokens or tokens[-1] != tokenizer.eos_id
+
+    # both `bos` and `eos` should either not be found or occur only once at the begging (bos)
+    # or at the end (eos) of the tokens sequence
+    assert max([id for id, token in enumerate(tokens) if token == tokenizer.bos_id], default=0) == 0
+    assert max([id for id, token in enumerate(tokens[::-1]) if token == tokenizer.eos_id], default=0) == 0
