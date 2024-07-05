@@ -318,6 +318,7 @@ Running the previous finetuning command will initiate the finetuning process, wh
  'lora_query': True,
  'lora_r': 8,
  'lora_value': True,
+ 'num_nodes': 1,
  'out_dir': PosixPath('out/finetune/lora-phi-2'),
  'precision': 'bf16-true',
  'quantize': None,

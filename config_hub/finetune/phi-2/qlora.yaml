@@ -14,6 +14,9 @@ quantize: bnb.nf4
 # How many devices/GPUs to use. (type: Union[int, str], default: 1)
 devices: 1
 
+# How many nodes to use. (type: int, default: 1)
+num_nodes: 1
+
 # The LoRA rank. (type: int, default: 8)
 lora_r: 8
 

@@ -105,6 +105,9 @@ optimizer:
 # How many devices/GPUs to use. Uses all GPUs by default. (type: Union[int, str], default: auto)
 devices: auto
 
+# How many nodes to use. (type: int, default: 1)
+num_nodes: 1
+
 # Optional path to the tokenizer dir that was used for preprocessing the dataset. Only some data
 # module require this. (type: Optional[Path], default: null)
 tokenizer_dir: checkpoints/meta-llama/Llama-2-7b-hf
