@@ -262,6 +262,7 @@ class CausalSelfAttention(nn.Module):
         # In Gemma every other layer has a sliding window attention
         if self.config.sliding_window_size is not None and self.block_idx % 2:
             # TODO: doesn't look particularly fast (optimized)
+            # TODO: deal with device in a prettier way
             if mask is None:
                 min_dtype = torch.finfo(q.dtype).min
                 mask = torch.tril(torch.ones(self.config.block_size, self.config.block_size))
@@ -272,6 +273,7 @@ class CausalSelfAttention(nn.Module):
                 torch.ones_like(mask, dtype=torch.bool), diagonal=-self.config.sliding_window_size
             )
             mask = torch.where(sliding_window_mask, min_dtype, mask)
+            mask = mask.to(q.device)
 
         y = self.scaled_dot_product_attention(q, k, v, mask)
 
