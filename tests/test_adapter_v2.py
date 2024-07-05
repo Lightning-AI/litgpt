@@ -8,12 +8,12 @@ from unittest.mock import Mock
 import pytest
 import torch
 import yaml
-from tests.conftest import RunIf
 from lightning import Fabric
 from lightning.fabric.plugins.precision.bitsandbytes import _BITSANDBYTES_AVAILABLE, BitsandbytesPrecision
 from lightning.fabric.wrappers import _FabricOptimizer
 from torch._dynamo.backends import debugging
 from transformers.models.gemma import GemmaConfig, GemmaForCausalLM
+from transformers.models.gemma2 import Gemma2Config, Gemma2ForCausalLM
 from transformers.models.mixtral import MixtralConfig, MixtralForCausalLM
 
 import litgpt.config as config_module
@@ -23,7 +23,8 @@ from litgpt.adapter_v2 import Config, adapter_filter
 from litgpt.args import EvalArgs, TrainArgs
 from litgpt.data import Alpaca
 from litgpt.model import GPT as BaseGPT
-from litgpt.scripts.convert_hf_checkpoint import copy_weights_hf_llama
+from litgpt.scripts.convert_hf_checkpoint import copy_weights_gemma_2, copy_weights_hf_llama
+from tests.conftest import RunIf
 
 
 def test_config_identical():
@@ -240,10 +241,79 @@ def test_against_hf_gemma(model_name):
     state_dict = {}
     copy_weights_hf_llama(ours_config, {}, state_dict, theirs_state_dict)
     ours_model = AdapterV2GPT(ours_config).to(device)
-    ours_model.load_state_dict(state_dict, strict=False)
+    keys = ours_model.load_state_dict(state_dict, strict=False)
+    assert not keys.unexpected_keys
+    for k in keys.missing_keys:
+        assert adapter_filter(k, None)
 
     # test end to end
     x = torch.tensor([[9856, 23, 491, 1536, 304]], dtype=torch.int32, device=device)
+    assert x.size(1) == T
+    ours_y = ours_model(x)
+    theirs_y = theirs_model(x)["logits"].to(dtype)  # HF converts logits to float
+    torch.testing.assert_close(ours_y, theirs_y)
+
+
+@torch.inference_mode()
+@pytest.mark.parametrize("model_name", ("gemma-2-9b",))
+def test_against_original_gemma_2(model_name):
+    # torch.manual_seed(42)
+
+    device = torch.device("cpu")
+    dtype = torch.float32
+    T = 20
+    # TODO; update both config to reflect:
+    # [x] sliding window attention
+    # [] softcapping
+    ours_config = Config.from_name(
+        model_name, block_size=T, sliding_window_size=T // 2, n_layer=2, n_head=16, n_embd=32, intermediate_size=86
+    )
+    theirs_config = Gemma2Config(
+        vocab_size=ours_config.padded_vocab_size,
+        hidden_size=ours_config.n_embd,
+        head_dim=ours_config.head_size,
+        num_attention_heads=ours_config.n_head,
+        num_hidden_layers=ours_config.n_layer,
+        intermediate_size=ours_config.intermediate_size,
+        max_position_embeddings=ours_config.block_size,
+        sliding_window=T // 2,
+        rms_norm_eps=ours_config.norm_eps,
+        num_key_value_heads=ours_config.n_query_groups,
+        rope_theta=ours_config.rope_base,
+        attention_bias=ours_config.bias,
+        tie_word_embeddings=True,
+        hidden_act="gelu_pytorch_tanh",
+        # TODO: fails so far with enabled softcapping
+        # NOTE: not yet implemented
+        # final_logit_softcapping=30.0,
+        # attn_logit_softcapping=50.0,
+        final_logit_softcapping=None,
+        attn_logit_softcapping=None,
+    )
+    assert ours_config.intermediate_size == theirs_config.intermediate_size
+
+    theirs_model = Gemma2ForCausalLM(theirs_config).to(device)
+    theirs_state_dict = theirs_model.state_dict()
+    # Gemma weights are shipped without `lm_head.weight`
+    theirs_state_dict.pop("lm_head.weight")
+    state_dict = {}
+    copy_weights_gemma_2(ours_config, {}, state_dict, theirs_state_dict)
+    ours_model = AdapterV2GPT(ours_config).to(device)
+    keys = ours_model.load_state_dict(state_dict, strict=False)
+    assert not keys.unexpected_keys
+    for k in keys.missing_keys:
+        assert adapter_filter(k, None)
+
+    # test end to end
+    # generator = torch.Generator(device=device)
+    # generator.manual_seed(42)
+    x = torch.randint(
+        low=0,
+        high=ours_config.padded_vocab_size,
+        size=(T,),
+        # generator=generator,
+        device=device,
+    ).unsqueeze(0)
     assert x.size(1) == T
     ours_y = ours_model(x)
     theirs_y = theirs_model(x)["logits"].to(dtype)  # HF converts logits to float

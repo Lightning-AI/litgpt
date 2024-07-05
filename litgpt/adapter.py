@@ -100,6 +100,14 @@ class Block(BaseBlock):
             self.norm_2 = config.norm_class(config.n_embd, eps=config.norm_eps)
         self.mlp = config.mlp_class(config)
 
+        # TODO: check what is faster nn.Identity or lambda x: x
+        self.post_attention_norm = (
+            config.norm_class(config.n_embd, eps=config.norm_eps) if config.post_attention_norm else nn.Identity()
+        )
+        self.post_mlp_norm = (
+            config.norm_class(config.n_embd, eps=config.norm_eps) if config.post_mlp_norm else nn.Identity()
+        )
+
         self.config = config
 
 
@@ -108,7 +116,7 @@ class CausalSelfAttention(BaseCausalSelfAttention):
     over the adaption prompt."""
 
     def __init__(self, config: Config, block_idx: int) -> None:
-        super().__init__(config)
+        super().__init__(config, block_idx)
         if block_idx >= config.adapter_start_layer:
             # adapter embedding layer
             self.adapter_wte = nn.Embedding(config.adapter_prompt_length, config.n_embd)
@@ -121,6 +129,21 @@ class CausalSelfAttention(BaseCausalSelfAttention):
     def scaled_dot_product_attention(
         self, q: torch.Tensor, k: torch.Tensor, v: torch.Tensor, mask: Optional[torch.Tensor] = None
     ) -> torch.Tensor:
+        # TODO: convert it in a registered buffer?
+        # In Gemma every other layer has a sliding window attention
+        if self.config.sliding_window_size is not None and self.block_idx % 2:
+            # TODO: doesn't look particularly fast (optimized)
+            if mask is None:
+                min_dtype = torch.finfo(q.dtype).min
+                mask = torch.tril(torch.ones(self.config.block_size, self.config.block_size))
+                mask = mask.masked_fill(mask == 0, min_dtype)
+
+            min_dtype = torch.finfo(q.dtype).min
+            sliding_window_mask = torch.tril(
+                torch.ones_like(mask, dtype=torch.bool), diagonal=-self.config.sliding_window_size
+            )
+            mask = torch.where(sliding_window_mask, min_dtype, mask)
+
         y = super().scaled_dot_product_attention(q, k, v, mask)
         if self.block_idx < self.config.adapter_start_layer:
             return y
