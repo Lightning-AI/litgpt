@@ -233,6 +233,9 @@ def copy_weights_gemma_2(
     hf_weights: Dict[str, Union[torch.Tensor, NotYetLoadedTensor]],
     saver: Optional[incremental_save] = None,
     dtype: Optional[torch.dtype] = None,
+    pbar: Optional[tqdm] = None,
+    progress_per_file: Optional[float] = None,
+    debug_mode: Optional[bool] = False
 ) -> None:
     weight_map = {
         "model.embed_tokens.weight": "transformer.wte.weight",
@@ -251,6 +254,9 @@ def copy_weights_gemma_2(
         "lm_head.weight": "lm_head.weight",
     }
 
+    if progress_per_file is not None:
+        progress_per_file = progress_per_file / max(1, len(hf_weights) + len(qkv_weights))
+
     for name, param in hf_weights.items():
         if "model.layers" in name:
             from_name, l_idx = layer_template(name, 2)
@@ -268,6 +274,9 @@ def copy_weights_gemma_2(
         if saver is not None:
             param = saver.store_early(param)
         state_dict[to_name] = param
+
+        if progress_per_file is not None:
+            pbar.update(progress_per_file)
 
     if "lm_head.weight" not in state_dict:
         state_dict["lm_head.weight"] = state_dict["transformer.wte.weight"]
@@ -290,6 +299,8 @@ def copy_weights_gemma_2(
             qkv = torch.cat(cycled)
             state_dict[f"transformer.h.{i}.attn.attn.{weight_type}"] = qkv
             del qkv_weights[i][weight_type]
+            if progress_per_file is not None:
+                pbar.update(progress_per_file)
 
 
 def copy_weights_phi(
@@ -329,7 +340,7 @@ def copy_weights_phi(
         "lm_head.weight": "lm_head.weight",
         "lm_head.bias": "lm_head.bias",
     }
- 
+
     if config.name.startswith("Phi-3"):
         weight_map.update(
             {
@@ -507,7 +518,7 @@ def convert_hf_checkpoint(
 
     with incremental_save(checkpoint_dir / "lit_model.pth") as saver:
         # for checkpoints that split the QKV across several files, we need to keep all the bin files
-        # open, so we use `ExitStack` to close them all together at the end        
+        # open, so we use `ExitStack` to close them all together at the end
 
         if not debug_mode:
             # Using tqdm progress bar when not in debug mode
