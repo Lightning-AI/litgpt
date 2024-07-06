@@ -143,6 +143,7 @@ class CausalSelfAttention(BaseCausalSelfAttention):
                 min_dtype = torch.finfo(q.dtype).min
                 mask = torch.tril(torch.ones(self.config.block_size, self.config.block_size))
                 mask = mask.masked_fill(mask == 0, min_dtype)
+                mask = mask.to(q.device)
 
             min_dtype = torch.finfo(q.dtype).min
             sliding_window_mask = torch.tril(

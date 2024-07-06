@@ -289,6 +289,7 @@ class CausalSelfAttention(nn.Module):
                 mask = torch.tril(torch.ones(T, T))
                 # mask = mask.masked_fill(mask == 0, min_dtype).to(q.dtype)
                 mask = mask.masked_fill(mask == 0, float("-inf")).to(q.dtype)
+                mask = mask.to(q.device)
 
             scale = 1.0 / math.sqrt(self.config.query_pre_attention_scaler or self.config.head_size)
             scores = q @ k.mT * scale
