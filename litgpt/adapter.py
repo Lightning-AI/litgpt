@@ -8,6 +8,7 @@ https://arxiv.org/abs/2303.16199
 Port for LitGPT
 """
 
+import math
 from dataclasses import dataclass
 from typing import Any, Dict, List, Optional, Tuple, Union
 
@@ -74,7 +75,12 @@ class GPT(BaseModel):
         if lm_head_chunk_size > 0:
             # chunk the lm head logits to reduce the peak memory used by autograd
             return [self.lm_head(x_i) for x_i in x.split(lm_head_chunk_size, dim=1)]
-        return self.lm_head(x)  # (b, t, vocab_size)
+        x = self.lm_head(x)  # (b, t, vocab_size)
+        if self.config.final_logit_softcapping is not None and self.train:
+            x = x / self.config.final_logit_softcapping
+            x = torch.tanh(x)
+            x = x * self.config.final_logit_softcapping
+        return x
 
     @classmethod
     def from_name(cls, name: str, **kwargs: Any) -> Self:

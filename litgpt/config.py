@@ -65,6 +65,8 @@ class Config:
     rope_base: int = 10000
     n_expert: int = 0
     n_expert_per_token: int = 0
+    attention_logit_softcapping: Optional[float] = None
+    final_logit_softcapping: Optional[float] = None
 
     def __post_init__(self):
         if not self.name:
@@ -969,6 +971,8 @@ gemma = [
         # TODO:
         # 1. Add logit softcapping for attention
         # 2. Add logit softcapping for final logits
+        attention_logit_softcapping=50.0,
+        final_logit_softcapping=30.0,
     ),
     # TODO: add config for 27b verson
     # https://huggingface.co/google/gemma-2-27b/blob/main/config.json

@@ -93,7 +93,12 @@ class GPT(nn.Module):
         for block in self.transformer.h:
             x = block(x, cos, sin, mask, input_pos)
         x = self.transformer.ln_f(x)
-        return self.lm_head(x)  # (b, t, vocab_size)
+        x = self.lm_head(x)  # (b, t, vocab_size)
+        if self.config.final_logit_softcapping is not None and self.train:
+            x = x / self.config.final_logit_softcapping
+            x = torch.tanh(x)
+            x = x * self.config.final_logit_softcapping
+        return x
 
     @classmethod
     def from_name(cls, name: str, **kwargs: Any) -> Self:
@@ -275,7 +280,30 @@ class CausalSelfAttention(nn.Module):
             mask = torch.where(sliding_window_mask, min_dtype, mask)
             mask = mask.to(q.device)
 
-        y = self.scaled_dot_product_attention(q, k, v, mask)
+        # softcapping is really needed only during training
+        if self.config.attention_logit_softcapping is not None and self.train:
+            # # TODO: mask needs to be created only once
+            if mask is None:
+                min_dtype = torch.finfo(q.dtype).min
+                # mask = torch.tril(torch.ones(self.config.block_size, self.config.block_size))
+                mask = torch.tril(torch.ones(T, T))
+                # mask = mask.masked_fill(mask == 0, min_dtype).to(q.dtype)
+                mask = mask.masked_fill(mask == 0, float("-inf")).to(q.dtype)
+
+            scale = 1.0 / math.sqrt(self.config.query_pre_attention_scaler or self.config.head_size)
+            scores = q @ k.mT * scale
+            # TODO: make tests fail without these 3 lines below
+            # softcapping start
+            scores = scores / self.config.attention_logit_softcapping
+            scores = torch.tanh(scores)
+            scores = scores * self.config.attention_logit_softcapping
+            # softcapping end
+            scores = scores + mask
+            scores = torch.nn.functional.softmax(scores, dim=-1, dtype=torch.float).to(dtype=q.dtype)
+            y = scores @ v
+            y = y.transpose(1, 2)
+        else:
+            y = self.scaled_dot_product_attention(q, k, v, mask)
 
         y = y.reshape(B, T, self.config.head_size * self.config.n_head)  # re-assemble all head outputs side by side
 
