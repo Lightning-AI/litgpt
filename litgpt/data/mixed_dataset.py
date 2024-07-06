@@ -39,7 +39,8 @@ from litgpt.data import DataModule
 from litgpt.data.base import get_sft_collate_fn, SFTDataset
 from litgpt.data.json_data import find_split, get_splits, load_split
 from litgpt.tokenizer import Tokenizer
-from torch.utils.data import BatchSampler, DataLoader, IterableDataset
+
+from torch.utils.data import BatchSampler, ConcatDataset, DataLoader, IterableDataset
 
 from torch.utils.data.dataloader import (
     _BaseDataLoaderIter,
@@ -251,7 +252,9 @@ class MixedDataset(DataModule):
         )
 
         return CombinedLoader(
-            {"lm": lm_train_dataloader, "sft": sft_train_dataloader}, self.cycle_mode
+            {"lm": lm_train_dataloader, "sft": sft_train_dataloader},
+            self.cycle_mode,
+            max_iters=self.max_iters,
         )
 
     # TODO - should we return two separate validation sets and report metrics on both separately -- probably
@@ -656,7 +659,10 @@ class CombinedLoader(DataLoader):
     """
 
     def __init__(
-        self, iterables: Any, mode: _LITERAL_SUPPORTED_MODES = "min_size"
+        self,
+        iterables: Any,
+        mode: _LITERAL_SUPPORTED_MODES = "min_size",
+        max_iters=None,
     ) -> None:
         if mode not in _SUPPORTED_MODES:
             raise ValueError(
@@ -668,6 +674,10 @@ class CombinedLoader(DataLoader):
         self._iterator: Optional[_ModeIterator] = None
         self._limits: Optional[List[Union[int, float]]] = None
         self.multiprocessing_context = None  # is this a good default?
+        self.max_iters = max_iters
+        self.dataset = ConcatIterableDataset(
+            [getattr(dl, "dataset", None) for dl in self.flattened]
+        )
 
     @property
     def iterables(self) -> Any:
@@ -679,8 +689,11 @@ class CombinedLoader(DataLoader):
         """Return a collections of samplers extracted from iterables."""
         return UnifiedBatchSampler(
             _map_and_unflatten(
-                lambda x: getattr(x, "sampler", None), self.flattened, self._spec
-            )
+                lambda x: getattr(x, "sampler", None),
+                self.flattened,
+                self._spec,
+            ),
+            max_iters=self.max_iters,
         )
 
     @property
@@ -688,8 +701,11 @@ class CombinedLoader(DataLoader):
         """Return a collections of batch samplers extracted from iterables."""
         return UnifiedBatchSampler(
             _map_and_unflatten(
-                lambda x: getattr(x, "batch_sampler", None), self.flattened, self._spec
-            )
+                lambda x: getattr(x, "batch_sampler", None),
+                self.flattened,
+                self._spec,
+            ),
+            max_iters=self.max_iters,
         )
 
     @property
@@ -804,13 +820,15 @@ def _get_iterables_lengths(iterables: List[Iterable]) -> List[Union[int, float]]
 
 
 class UnifiedBatchSampler(BatchSampler):
-    def __init__(self, batch_samplers):
+    def __init__(self, batch_samplers, max_iters=None):
         self.batch_samplers = batch_samplers
         self.samplers_iter = {
             key: iter(sampler) for key, sampler in batch_samplers.items()
         }
+        self.max_iters = max_iters
 
-        self._max_size = 0
+        self._max_size = 0 if self.max_iters is None else self.max_iters
+
         for sampler in self.batch_samplers.values():
             try:
                 self._max_size = max(self._max_size, len(sampler))
@@ -833,8 +851,20 @@ class UnifiedBatchSampler(BatchSampler):
     def __len__(self):
         # This might need to be adjusted based on how you decide to combine the batches
         sum_size = 0
-        for sampler in self.batch_samplers:
+        for sampler in self.batch_samplers.values():
             try:
                 sum_size += len(sampler)
             except:
                 sum_size += self._max_size  # just set this for infinite datasets
+        return sum_size
+
+
+class ConcatIterableDataset(IterableDataset):
+    def __init__(self, datasets):
+        super(ConcatIterableDataset, self).__init__()
+        self.datasets = datasets
+
+    def __iter__(self):
+        for dataset in self.datasets:
+            for item in dataset:
+                yield item

@@ -19,6 +19,7 @@ from litgpt import Tokenizer
 from litgpt.args import EvalArgs, TrainArgs
 from litgpt.config import name_to_config
 from litgpt.data import DataModule, MicroLlama, TinyLlama
+from litgpt.data.mixed_dataset import CombinedLoader
 from litgpt.model import Block, CausalSelfAttention, Config, GPT, LLaMAMLP
 from litgpt.utils import (
     capture_hparams,
@@ -73,9 +74,9 @@ def setup(
         max_tokens=int(3e12),  # 3 trillion
         max_norm=1.0,
         min_lr=4e-5,
-        lr_warmup_steps=2000,
         tie_embeddings=False,
         max_steps=10000,
+        lr_warmup_fraction=0.01,
     ),
     eval: EvalArgs = EvalArgs(interval=1000, max_iters=100),
     optimizer: Union[str, Dict] = "AdamW",
@@ -239,6 +240,7 @@ def main(
     train_dataloader, val_dataloader = get_dataloaders(
         fabric, data, tokenizer, train, model.max_seq_length, max_iters=max_iters
     )
+
     train_dataloader, val_dataloader = fabric.setup_dataloaders(
         train_dataloader, val_dataloader
     )
@@ -346,7 +348,6 @@ def fit(
 
     fabric.barrier()
     total_t0 = time.perf_counter()
-
     warmup_iters = train.warmup_iters(devices, max_iters, train_dataloader)
 
     for train_data in train_iterator:
@@ -614,6 +615,17 @@ def get_dataloaders(
     data.setup()
     train_dataloader = data.train_dataloader()
     val_dataloader = data.val_dataloader()
+
+    # this is a quirk of the combined dataloader implementation - the dataloader has no len defined until the first iter()
+    print(f"FABRIC RANK {fabric.local_rank} IS HERE!!!!!")
+    if isinstance(train_dataloader, CombinedLoader):
+        print(f"FABRIC RANK {fabric.local_rank} IS DOING THE THING!!!!")
+        iter(train_dataloader)
+        print(f"THE DATASET LEN IS {len(train_dataloader)}")
+
+    if isinstance(val_dataloader, CombinedLoader):
+        iter(val_dataloader)
+
     return train_dataloader, val_dataloader
 
 
