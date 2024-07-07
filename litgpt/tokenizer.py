@@ -54,6 +54,12 @@ class Tokenizer:
         else:
             raise NotImplementedError
 
+        # NOTE: A temporary fix until it's resolved on Tokenizers side.
+        # LlaMA tokenizer strips leading spaces if to decode a single token at a time.
+        # https://github.com/huggingface/transformers/issues/31643
+        with open(checkpoint_dir / "tokenizer_config.json", encoding="utf-8") as fp:
+            self.apply_decoding_fix = "LlamaTokenizer" in json.load(fp)["tokenizer_class"]
+
     @property
     def vocab_size(self) -> int:
         if self.backend == "huggingface":
@@ -123,10 +129,8 @@ class Tokenizer:
 
     def decode(self, tensor: torch.Tensor) -> str:
         tokens = [tensor.item()] if tensor.ndim == 0 else tensor.tolist()
-        # Phi-3 tokenizer strips any spaces if to decode a single token at a time.
-        # https://github.com/huggingface/transformers/issues/31643
-        # if self.model_name.startswith("Phi-3") and len(tokens) == 1:
-        #     dummy_token_id = 33 # \x1e
-        #     dummy_token = self.processor.decode([dummy_token_id])
-        #     return self.processor.decode([dummy_token_id] + tokens).replace(dummy_token, "")
+        if len(tokens) == 1 and self.apply_decoding_fix:
+            dummy_token_id = 33  # \x1e
+            dummy_token = self.processor.decode([dummy_token_id])
+            return self.processor.decode([dummy_token_id] + tokens)[len(dummy_token) :]
         return self.processor.decode(tokens)

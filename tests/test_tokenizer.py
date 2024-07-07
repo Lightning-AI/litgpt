@@ -82,7 +82,10 @@ def test_tokenizer_against_hf(config):
         assert actual.tolist() == expected
     assert ours.decode(actual) == theirs.decode(expected, skip_special_tokens=True)
 
-    assert "".join([ours.decode(x) for x in actual]) == ours.decode(actual), type(theirs)
+    decoded_output = "".join([ours.decode(x) for x in actual])
+    if ours.apply_decoding_fix and decoded_output[0] == " ":
+        decoded_output = decoded_output[1:]  # the "hack" adds an empty space to the beginning
+    assert decoded_output == ours.decode(actual), type(theirs)
 
 
 def test_tokenizer_input_validation():
@@ -95,8 +98,9 @@ def test_tokenizer_input_validation():
 @pytest.mark.parametrize("encode_use_eos", (True, False))
 @pytest.mark.parametrize("processor_returns_bos", (True, False))
 @pytest.mark.parametrize("fake_return_ids", ([], [34, 8, 17, 2]))
-def test_tokenizer_bos_eos(tmp_path, use_bos_by_default, encode_use_bos, encode_use_eos, processor_returns_bos, fake_return_ids):
-
+def test_tokenizer_bos_eos(
+    tmp_path, use_bos_by_default, encode_use_bos, encode_use_eos, processor_returns_bos, fake_return_ids
+):
     # let `Tokenizers` create a proper (albeit empty) vocab in json format
     HFTokenizer(BPE()).save(str(tmp_path / "tokenizer.json"))
 
