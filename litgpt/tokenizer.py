@@ -57,8 +57,10 @@ class Tokenizer:
         # NOTE: A temporary fix until it's resolved on Tokenizers side.
         # LlaMA tokenizer strips leading spaces if to decode a single token at a time.
         # https://github.com/huggingface/transformers/issues/31643
-        with open(checkpoint_dir / "tokenizer_config.json", encoding="utf-8") as fp:
-            self.apply_decoding_fix = "LlamaTokenizer" in json.load(fp)["tokenizer_class"]
+        self.apply_decoding_fix = None
+        if (config_path := checkpoint_dir / "tokenizer_config.json").is_file():
+            with open(config_path, encoding="utf-8") as fp:
+                self.apply_decoding_fix = "LlamaTokenizer" in json.load(fp)["tokenizer_class"]
 
     @property
     def vocab_size(self) -> int:
