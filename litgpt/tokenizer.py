@@ -125,8 +125,8 @@ class Tokenizer:
         tokens = [tensor.item()] if tensor.ndim == 0 else tensor.tolist()
         # Phi-3 tokenizer strips any spaces if to decode a single token at a time.
         # https://github.com/huggingface/transformers/issues/31643
-        if self.model_name.startswith("Phi-3") and len(tokens) == 1:
-            dummy_token_id = 33 # \x1e
-            dummy_token = self.processor.decode([dummy_token_id])
-            return self.processor.decode([dummy_token_id] + tokens).replace(dummy_token, "")
+        # if self.model_name.startswith("Phi-3") and len(tokens) == 1:
+        #     dummy_token_id = 33 # \x1e
+        #     dummy_token = self.processor.decode([dummy_token_id])
+        #     return self.processor.decode([dummy_token_id] + tokens).replace(dummy_token, "")
         return self.processor.decode(tokens)

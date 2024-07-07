@@ -82,6 +82,8 @@ def test_tokenizer_against_hf(config):
         assert actual.tolist() == expected
     assert ours.decode(actual) == theirs.decode(expected, skip_special_tokens=True)
 
+    assert "".join([ours.decode(x) for x in actual]) == ours.decode(actual), type(theirs)
+
 
 def test_tokenizer_input_validation():
     with pytest.raises(NotADirectoryError, match="The checkpoint directory does not exist"):
