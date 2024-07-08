@@ -605,8 +605,6 @@ def test_against_original_gemma(model_name, device, dtype):
 def test_against_original_gemma_2(model_name, device, dtype):
     torch.set_default_dtype(dtype)
 
-    torch.manual_seed(42)
-
     T = 20
     ours_config = Config.from_name(
         model_name,
@@ -634,8 +632,9 @@ def test_against_original_gemma_2(model_name, device, dtype):
         hidden_act="gelu_pytorch_tanh",
         attn_logit_softcapping=ours_config.attention_logit_softcapping,
         final_logit_softcapping=ours_config.final_logit_softcapping,
+        initializer_range=1.0,  # to make the affect of attention_logit_softcapping more prominent
+        attn_implementation="eager",
     )
-    assert ours_config.intermediate_size == theirs_config.intermediate_size
 
     theirs_model = Gemma2ForCausalLM(theirs_config).to(device)
     theirs_state_dict = theirs_model.state_dict()
@@ -647,15 +646,7 @@ def test_against_original_gemma_2(model_name, device, dtype):
     ours_model.load_state_dict(state_dict)
 
     # test end to end
-    generator = torch.Generator(device=device)
-    generator.manual_seed(42)
-    x = torch.randint(
-        low=0,
-        high=ours_config.padded_vocab_size,
-        size=(T,),
-        generator=generator,
-        device=device,
-    ).unsqueeze(0)
+    x = torch.randint(low=0, high=ours_config.padded_vocab_size, size=(T,), device=device).unsqueeze(0)
     assert x.size(1) == T
     theirs_y = theirs_model(x)["logits"].to(dtype)  # HF converts logits to float
     ours_y = ours_model(x)

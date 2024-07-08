@@ -327,6 +327,8 @@ def test_against_original_gemma_2(model_name, device, dtype):
         hidden_act="gelu_pytorch_tanh",
         attn_logit_softcapping=ours_config.attention_logit_softcapping,
         final_logit_softcapping=ours_config.final_logit_softcapping,
+        initializer_range=1.0,  # to make the affect of attention_logit_softcapping more prominent
+        attn_implementation="eager",
     )
     assert ours_config.intermediate_size == theirs_config.intermediate_size
 
