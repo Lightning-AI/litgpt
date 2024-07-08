@@ -329,6 +329,7 @@ def test_against_original_gemma_2(model_name, device, dtype):
         final_logit_softcapping=ours_config.final_logit_softcapping,
         initializer_range=1.0,  # to make the affect of attention_logit_softcapping more prominent
         attn_implementation="eager",
+        query_pre_attn_scalar=ours_config.attention_scores_scalar,
     )
     assert ours_config.intermediate_size == theirs_config.intermediate_size
 

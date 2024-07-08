@@ -263,7 +263,7 @@ class CausalSelfAttention(nn.Module):
                 raise TypeError("You need to call `gpt.set_kv_cache()`")
             k, v = self.kv_cache(input_pos, k, v)
 
-        # TODO: convert it in a registered buffer?
+        # TODO: convert it into a registered buffer?
         # In Gemma every other layer has a sliding window attention
         if self.config.sliding_window_size is not None and self.block_idx % 2:
             # TODO: doesn't look particularly fast (optimized)
@@ -293,7 +293,6 @@ class CausalSelfAttention(nn.Module):
 
             scale = 1.0 / math.sqrt(self.config.attention_scores_scalar or self.config.head_size)
             scores = q @ k.mT * scale
-            # TODO: make tests fail without these 3 lines below
             # softcapping start
             scores = scores / self.config.attention_logit_softcapping
             scores = torch.tanh(scores)

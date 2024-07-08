@@ -135,7 +135,7 @@ def test_adapter_v2_gpt_init_weights():
 
 @pytest.mark.parametrize("name", [c["name"] for c in config_module.configs])
 def test_base_model_can_be_adapter_v2_loaded(name):
-    kwargs = {"n_layer": 2, "n_head": 8, "n_embd": 16, "padded_vocab_size": 32}
+    kwargs = {"n_layer": 2, "n_head": 8, "n_query_groups": 4, "n_embd": 16, "padded_vocab_size": 32}
     base_model = BaseGPT.from_name(name, **kwargs)
     base_model_state_dict = base_model.state_dict()
     lora_model = AdapterV2GPT.from_name(name, **kwargs, adapter_start_layer=0)
@@ -288,6 +288,7 @@ def test_against_original_gemma_2(model_name):
         final_logit_softcapping=ours_config.final_logit_softcapping,
         initializer_range=1.0,  # to make the affect of attention_logit_softcapping more prominent
         attn_implementation="eager",
+        query_pre_attn_scalar=ours_config.attention_scores_scalar,
     )
     assert ours_config.intermediate_size == theirs_config.intermediate_size
 

@@ -969,8 +969,34 @@ gemma = [
         attention_logit_softcapping=50.0,
         final_logit_softcapping=30.0,
     ),
-    # TODO: add config for 27b verson
     # https://huggingface.co/google/gemma-2-27b/blob/main/config.json
+    dict(
+        name="Gemma-2-27b",
+        hf_config=dict(org="google", name="gemma-2-27b"),
+        scale_embeddings=True,
+        # In Gemma attention scores are scaled not by `head_size` (128),
+        # but by `n_emb` / `n_head` = 4608 / 32 = 144
+        attention_scores_scalar=144,
+        vocab_size=256000,
+        block_size=8192,
+        sliding_window_size=4096,
+        intermediate_size=36864,
+        n_embd=4608,
+        n_layer=46,
+        n_head=32,
+        n_query_groups=16,
+        head_size=128,
+        rotary_percentage=1.0,
+        parallel_residual=False,
+        bias=False,
+        norm_class_name="RMSNorm",
+        mlp_class_name="GemmaMLP",
+        gelu_approximate="tanh",
+        post_attention_norm=True,
+        post_mlp_norm=True,
+        attention_logit_softcapping=50.0,
+        final_logit_softcapping=30.0,
+    ),
 ]
 configs.extend(gemma)
 for c in gemma:

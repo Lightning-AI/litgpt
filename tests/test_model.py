@@ -585,7 +585,7 @@ def test_against_original_gemma(model_name, device, dtype):
 
 
 @torch.inference_mode()
-@pytest.mark.parametrize("model_name", ("gemma-2-9b",))
+@pytest.mark.parametrize("model_name", ("gemma-2-9b", "gemma-2-27b"))
 @pytest.mark.parametrize(
     ("device", "dtype"),
     [
@@ -634,6 +634,7 @@ def test_against_original_gemma_2(model_name, device, dtype):
         final_logit_softcapping=ours_config.final_logit_softcapping,
         initializer_range=1.0,  # to make the affect of attention_logit_softcapping more prominent
         attn_implementation="eager",
+        query_pre_attn_scalar=ours_config.attention_scores_scalar,
     )
 
     theirs_model = Gemma2ForCausalLM(theirs_config).to(device)
@@ -648,8 +649,8 @@ def test_against_original_gemma_2(model_name, device, dtype):
     # test end to end
     x = torch.randint(low=0, high=ours_config.padded_vocab_size, size=(T,), device=device).unsqueeze(0)
     assert x.size(1) == T
-    theirs_y = theirs_model(x)["logits"].to(dtype)  # HF converts logits to float
     ours_y = ours_model(x)
+    theirs_y = theirs_model(x)["logits"].to(dtype)  # HF converts logits to float
     torch.testing.assert_close(ours_y, theirs_y)
 
 
