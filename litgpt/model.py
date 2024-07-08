@@ -291,7 +291,7 @@ class CausalSelfAttention(nn.Module):
                 mask = mask.masked_fill(mask == 0, float("-inf")).to(q.dtype)
                 mask = mask.to(q.device)
 
-            scale = 1.0 / math.sqrt(self.config.query_pre_attention_scaler or self.config.head_size)
+            scale = 1.0 / math.sqrt(self.config.attention_scores_scalar or self.config.head_size)
             scores = q @ k.mT * scale
             # TODO: make tests fail without these 3 lines below
             # softcapping start
@@ -314,7 +314,7 @@ class CausalSelfAttention(nn.Module):
     def scaled_dot_product_attention(
         self, q: torch.Tensor, k: torch.Tensor, v: torch.Tensor, mask: Optional[torch.Tensor] = None
     ) -> torch.Tensor:
-        scale = 1.0 / math.sqrt(self.config.query_pre_attention_scaler or self.config.head_size)
+        scale = 1.0 / math.sqrt(self.config.attention_scores_scalar or self.config.head_size)
         y = torch.nn.functional.scaled_dot_product_attention(
             q, k, v, attn_mask=mask, dropout_p=0.0, scale=scale, is_causal=mask is None
         )

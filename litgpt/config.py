@@ -18,7 +18,7 @@ class Config:
     name: str = ""
     hf_config: dict = field(default_factory=dict)
     scale_embeddings: bool = False
-    query_pre_attention_scaler: Optional[int] = None
+    attention_scores_scalar: Optional[int] = None
     block_size: int = 4096
     sliding_window_size: Optional[int] = None
     vocab_size: int = 50254
@@ -946,13 +946,11 @@ gemma = [
         name="Gemma-2-9b",
         hf_config=dict(org="google", name="gemma-2-9b"),
         scale_embeddings=True,
-        # TODO: Add scaler for attention scores.
-        # should be scaled not by head_size (256), but by n_embd / n_head = 3584 / 16 = 224
-        # TODO; find a better name
-        query_pre_attention_scaler=224,
+        # In Gemma attention scores are scaled not by `head_size` (256),
+        # but by `n_emb` / `n_head` = 3584 / 16 = 224
+        attention_scores_scalar=224,
         vocab_size=256000,
         block_size=8192,
-        # TODO: add setting for a sliding window
         sliding_window_size=4096,
         intermediate_size=14336,
         n_embd=3584,
@@ -968,9 +966,6 @@ gemma = [
         gelu_approximate="tanh",
         post_attention_norm=True,
         post_mlp_norm=True,
-        # TODO:
-        # 1. Add logit softcapping for attention
-        # 2. Add logit softcapping for final logits
         attention_logit_softcapping=50.0,
         final_logit_softcapping=30.0,
     ),
