@@ -396,10 +396,14 @@ def get_dataloaders(
 
 def get_longest_seq_length(data: List[Dict]) -> Tuple[int, int]:
     # find out the minimum max_seq_length required during fine-tuning (saves memory!)
-    lengths = [len(d["input_ids"]) for d in data]
-    longest_seq_length = max(lengths)
-    longest_seq_ix = lengths.index(longest_seq_length)
-    return longest_seq_length, longest_seq_ix
+    max_length = -1
+    max_index = -1
+    for i, d in enumerate(data):
+        current_length = len(d["input_ids"])
+        if current_length > max_length:
+            max_length = current_length
+            max_index = i
+    return max_length, max_index
 
 
 def save_adapter_v2_checkpoint(fabric: L.Fabric, model: torch.nn.Module, file_path: Path) -> None:
