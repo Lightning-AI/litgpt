@@ -75,7 +75,6 @@ def main() -> None:
     set_config_read_mode(urls_enabled=True)
 
     torch.set_float32_matmul_precision("high")
-
     CLI(parser_data)
 
 
