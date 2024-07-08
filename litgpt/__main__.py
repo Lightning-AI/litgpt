@@ -1,26 +1,6 @@
 # Copyright Lightning AI. Licensed under the Apache License 2.0, see LICENSE file.
 
 import warnings
-import re
-# There is currently a PyTorch bug that raises a false-positive warning.
-# For more information, see https://github.com/Lightning-AI/litgpt/issues/1561
-warning_message = (
-    "The epoch parameter in `scheduler.step()` was not necessary and is being deprecated "
-    "where possible. Please use `scheduler.step()` to step the scheduler. During the deprecation, "
-    "if epoch is different from None, the closed form is used instead of the new chainable form, "
-    "where available. Please open an issue if you are unable to replicate your use case: "
-    "https://github.com/pytorch/pytorch/issues/new/choose."
-)
-
-
-def custom_filter(warning):
-    return issubclass(warning.category, UserWarning) and re.match(re.escape(warning_message), str(warning.message))
-
-
-warnings.filterwarnings("ignore", category=UserWarning, module="torch.optim.lr_scheduler")
-warnings.showwarning = custom_filter
-
-
 import torch
 
 from litgpt.chat.base import main as chat_fn
@@ -73,6 +53,19 @@ def main() -> None:
 
     set_docstring_parse_options(attribute_docstrings=True)
     set_config_read_mode(urls_enabled=True)
+
+    # PyTorch bug that raises a false-positive warning
+    # More info: https://github.com/Lightning-AI/litgpt/issues/1561
+    warning_message = (
+        r"The epoch parameter in `scheduler.step\(\)` was not necessary and is being deprecated.*"
+    )
+
+    warnings.filterwarnings(
+        action="ignore",
+        message=warning_message,
+        category=UserWarning,
+        module=r'.*torch\.optim\.lr_scheduler.*'
+    )
 
     torch.set_float32_matmul_precision("high")
     CLI(parser_data)
