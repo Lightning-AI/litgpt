@@ -2,9 +2,11 @@
 
 import json
 import os
+import subprocess
 from pathlib import Path
 from pprint import pprint
 from typing import Optional, Union
+
 import torch
 
 from litgpt.scripts.convert_lit_checkpoint import convert_lit_checkpoint
@@ -18,18 +20,22 @@ def prepare_results(results, save_filepath, print_results=True):
         print(make_table(results))
         if "groups" in results:
             print(make_table(results, "groups"))
+    try:
+        json_result = json.dumps(results, indent=2, ensure_ascii=False)
+        save_filepath.open("w", encoding="utf-8").write(json_result)
+    except:
+        # TODO: troubleshoot this later
+        print("Failed to save results, continuing...")
 
-    json_result = json.dumps(
-        results, indent=2, ensure_ascii=False
-    )
-    save_filepath.open("w", encoding="utf-8").write(json_result)
-
+def print_results_to_file(results_bytes, save_path):
+    with open(save_path, "wb") as f:
+        f.write(results_bytes)
 
 def convert_and_evaluate(
     checkpoint_dir: Path,
     tasks: Optional[str] = None,
     out_dir: Optional[Path] = None,
-    force_conversion: bool = False,
+    force_conversion: bool = True,
     num_fewshot: Optional[int] = None,
     batch_size: Union[int, str] = 1,
     device: Optional[str] = None,
@@ -37,6 +43,8 @@ def convert_and_evaluate(
     limit: Optional[float] = None,
     seed: int = 1234,
     save_filepath: Optional[Path] = None,
+    use_cli: bool = True,
+    include_path: Optional[str] = None,
 ) -> None:
     """Evaluate a model with the LM Evaluation Harness.
 
@@ -59,13 +67,18 @@ def convert_and_evaluate(
     checkpoint_dir = extend_checkpoint_dir(checkpoint_dir)
     pprint(locals())
 
-    if not (isinstance(batch_size, int) and batch_size > 0) and not (isinstance(batch_size, str) and batch_size.startswith("auto")):
-            raise ValueError("batch_size must be a positive integer, 'auto', or in the format 'auto:N'.")
+    if not (isinstance(batch_size, int) and batch_size > 0) and not (
+        isinstance(batch_size, str) and batch_size.startswith("auto")
+    ):
+        raise ValueError(
+            "batch_size must be a positive integer, 'auto', or in the format 'auto:N'."
+        )
 
     from lm_eval import evaluator
 
     if tasks is None:
         from lm_eval.tasks import TaskManager
+
         taskm = TaskManager()
         print("\n".join(taskm.task_index.keys()))
         print(
@@ -85,7 +98,9 @@ def convert_and_evaluate(
         out_dir = Path(out_dir)
     out_dir.mkdir(parents=True, exist_ok=True)
 
-    save_filepath = out_dir / Path("results.json") if save_filepath is None else Path(save_filepath)
+    save_filepath = (
+        out_dir / Path("results.json") if save_filepath is None else Path(save_filepath)
+    )
 
     model_path = out_dir / "pytorch_model.bin"
     if not model_path.exists() or force_conversion:
@@ -101,19 +116,44 @@ def convert_and_evaluate(
 
     from lm_eval.models.huggingface import HFLM
 
-    model = HFLM(pretrained=str(out_dir.resolve()), device=device, batch_size=batch_size, dtype=dtype)
+    model = HFLM(
+        pretrained=str(out_dir.resolve()),
+        device=device,
+        batch_size=batch_size,
+        dtype=dtype,
+    )
 
     os.environ["TOKENIZERS_PARALLELISM"] = "false"
-
-    results = evaluator.simple_evaluate(
-        model=model,
-        tasks=tasks.split(","),
-        num_fewshot=num_fewshot,
-        batch_size=batch_size,
-        device=device,
-        limit=limit,
-        random_seed=seed,
-        numpy_random_seed=seed,
-        torch_random_seed=seed,
-    )
-    prepare_results(results, save_filepath)
+    if use_cli:
+        results = subprocess.run(
+            [
+                "with-proxy",
+                "lm_eval",
+                "--model",
+                "hf",
+                "--model_args",
+                f"pretrained={out_dir}",
+                "--include_path",
+                include_path,
+                "--tasks",
+                tasks,
+                "--trust_remote_code",
+            ],
+            stdout=subprocess.PIPE,
+            stderr=subprocess.STDOUT,
+        ).stdout
+        txt_save_filepath = str(save_filepath).replace(".json", ".txt")
+        print_results_to_file(results, txt_save_filepath)
+    else:
+        results = evaluator.simple_evaluate(
+            model=model,
+            tasks=tasks.split(","),
+            num_fewshot=num_fewshot,
+            batch_size=batch_size,
+            device=device,
+            limit=limit,
+            random_seed=seed,
+            numpy_random_seed=seed,
+            torch_random_seed=seed,
+        )
+        prepare_results(results, save_filepath)
