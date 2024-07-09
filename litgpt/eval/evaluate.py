@@ -30,6 +30,8 @@ def prepare_results(results, save_filepath, print_results=True):
 def print_results_to_file(results_bytes, save_path):
     with open(save_path, "wb") as f:
         f.write(results_bytes)
+    
+    print(f"Eval harness result written to {save_path}")
 
 def convert_and_evaluate(
     checkpoint_dir: Path,
