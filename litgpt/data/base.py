@@ -79,11 +79,9 @@ class SFTDataset(Dataset):
         if self.transform is not None:
             example = self.transform(example)
         prompt = self.prompt_style.apply(prompt=example["instruction"], **example)
-        prompt_and_response = prompt + example["output"]
         encoded_prompt = self.tokenizer.encode(prompt, max_length=self.max_seq_length)
-        encoded_prompt_and_response = self.tokenizer.encode(
-            prompt_and_response, eos=True, max_length=self.max_seq_length
-        )
+        encoded_response = self.tokenizer.encode(example["output"], eos=True, max_length=self.max_seq_length)
+        encoded_prompt_and_response = encoded_prompt + encoded_response[1:] # We remove bos from response
 
         # The labels are the full prompt with response, but with the prompt masked out
         labels = encoded_prompt_and_response.clone()
