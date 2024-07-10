@@ -328,7 +328,7 @@ class TinyLlama(PromptStyle):
 
 class Gemma(PromptStyle):
     def apply(self, prompt: str, **kwargs: str) -> str:
-        return f"<bos><start_of_turn>user\n{prompt}<end_of_turn>\n<start_of_turn>model\n"
+        return f"<start_of_turn>user\n{prompt}<end_of_turn>\n<start_of_turn>model\n"
 
 
 class H2Oai(PromptStyle):
