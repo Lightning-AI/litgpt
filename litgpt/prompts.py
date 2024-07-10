@@ -202,51 +202,46 @@ class Llama2(PromptStyle):
 
 class Llama3(PromptStyle):
     def apply(self, prompt: Union[str, List[Dict[str, str]]], **kwargs: str) -> str:
-        def has_system_prompt(messages: List[Dict[str, str]]) -> bool:
-            if len(messages):
-                return messages[0].get("role", "") == "system"
-            return False
+
+        default_system_prompt = "You are a helpful assistant."
 
         # https://github.com/meta-llama/llama3/blob/359887376f0aaf30e433f23e25df858d8c2a9833/llama/tokenizer.py#L202-L229
         if isinstance(prompt, str):
             return (
                 "<|begin_of_text|><|start_header_id|>system<|end_header_id|>\n\n"
-                "You are a helpful assistant.<|eot_id|>\n"  # The system prompt is optional
+                f"{default_system_prompt}<|eot_id|>" # No newline
                 "<|start_header_id|>user<|end_header_id|>\n\n"
-                f"{prompt}<|eot_id|>"
+                f"{prompt}<|eot_id|>" # No newline
                 "<|start_header_id|>assistant<|end_header_id|>\n\n"
             )
         elif isinstance(prompt, list):
-            template = (
-                "<|begin_of_text|><|start_header_id|>system<|end_header_id|>\n\n"
-                "{system}<|eot_id|>\n"  # The system prompt is optional
-            )
-            user_template = (
-                "<|start_header_id|>user<|end_header_id|>\n\n"
-                "{user_msg}<|eot_id|>"
-            )
-            assistant_template = (
-                "<|start_header_id|>assistant<|end_header_id|>\n\n"
-                "{assistant_msg}<|eot_id|>"
-            )
-            if has_system_prompt(prompt):
-                template = template.format(system=prompt[0]["content"])
-                prompt = prompt[1:]
-            else:
-                template = template.format(system="You are a helpful assistant.")  # fall back to default
 
-            for item in prompt:
-                role, content = item["role"], item["content"]
-                if role == "assistant":
-                    template += assistant_template.format(assistant_msg=content)
-                elif role == "user":
-                    template += user_template.format(user_msg=content)
-                elif role == "system":
+            def encode_header(role: str) -> List[str]:
+                return [f"<|start_header_id|>{role}<|end_header_id|>\n\n"]
+            
+            def encode_message(message: Dict[str, str]) -> List[str]:
+                tokens = encode_header(message["role"])
+                # NOTE: Meta stripped this. I'm not sure I agree, but who am I to argue?
+                tokens.append(message["content"].strip())
+                tokens.append("<|eot_id|>")
+                return tokens
+            
+            def has_system_prompt(messages: List[Dict[str, str]]) -> bool:
+                return messages[0].get("role", "") == "system" if len(messages) else False
+
+            tokens = ["<|begin_of_text|>"]
+            if not has_system_prompt(prompt):
+                tokens.extend(encode_message({"role": "system", "content": default_system_prompt}))
+            for i, message in enumerate(prompt):
+                if i != 0 and message["role"] == "system":
                     raise ValueError("'system' role is only allowed at the beginning of the conversation list.")
-                else:
-                    raise ValueError(f"Unknown role: '{role}'. Supported roles are 'assistant' and 'user'")
-            template += "<|start_header_id|>assistant<|end_header_id|>\n\n"
-            return template
+                if not message["role"] in ["assistant", "user", "system"]:
+                    raise ValueError(f"Unknown role: '{message['role']}'. Supported roles are 'assistant', 'user', and 'system'.")
+                tokens.extend(encode_message(message))
+            tokens.extend(encode_header("assistant"))
+            return "".join(tokens)
+        else:
+            raise ValueError(f"Unsupported prompt type: {type(prompt)}")
 
     def stop_tokens(self, tokenizer: "Tokenizer") -> Tuple[List[int], ...]:
         return (
