@@ -1,7 +1,6 @@
 # Copyright Lightning AI. Licensed under the Apache License 2.0, see LICENSE file.
 #
 # This file implements the LitGPT Python API
-import os
 from pathlib import Path
 from typing import Any, List, Literal, Optional, Union
 
@@ -16,8 +15,8 @@ from litgpt.generate.base import generate as generate_fn
 from litgpt.chat.base import generate as stream_generate_fn
 from litgpt.prompts import load_prompt_style, has_prompt_style, PromptStyle
 from litgpt.utils import (
+    auto_download_checkpoint,
     check_file_size_on_cpu_and_warn,
-    check_valid_checkpoint_dir,
     extend_checkpoint_dir,
     get_default_supported_precision,
     load_checkpoint,
@@ -109,17 +108,7 @@ class LLM:
         allowed_init = {"pretrained", "random"}
 
         if init == "pretrained":
-            from litgpt.scripts.download import download_from_hub  # Moved here due to the circular import issue in LitGPT that we need to solve some time
-
-            checkpoint_dir = extend_checkpoint_dir(Path(model))
-            try:
-                check_valid_checkpoint_dir(checkpoint_dir, verbose=False, raise_error=True)
-            except FileNotFoundError:
-                if not access_token:
-                    access_token = os.getenv("HF_TOKEN")
-                download_from_hub(repo_id=model, access_token=access_token)
-
-            checkpoint_dir = Path("checkpoints") / model
+            checkpoint_dir = auto_download_checkpoint(model_name=model, access_token=access_token)
             config = Config.from_file(checkpoint_dir / "model_config.yaml")
 
         elif init == "random":

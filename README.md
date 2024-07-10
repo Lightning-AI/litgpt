@@ -201,20 +201,17 @@ Finetuning is the process of taking a pretrained AI model and further training i
 # 0) setup your dataset
 curl -L https://huggingface.co/datasets/ksaw008/finance_alpaca/resolve/main/finance_alpaca.json -o my_custom_dataset.json
 
-# 1) Download a pretrained model
-litgpt download microsoft/phi-2
-
-# 2) Finetune the model
+# 1) Download and finetune the model
 litgpt finetune microsoft/phi-2 \
   --data JSON \
   --data.json_path my_custom_dataset.json \
   --data.val_split_fraction 0.1 \
   --out_dir out/custom-model
 
-# 3) Test the model
+# 2) Test the model
 litgpt chat out/custom-model/final
 
-# 4) Deploy the model
+# 3) Deploy the model
 litgpt serve out/custom-model/final
 ```
 
@@ -238,7 +235,6 @@ Deploy a pretrained or finetune LLM to use it in real-world applications. Deploy
 
 ```bash
 # deploy an out-of-the-box LLM
-litgpt download microsoft/phi-2
 litgpt serve microsoft/phi-2
 
 # deploy your own trained model
@@ -306,11 +302,10 @@ litgpt chat microsoft/phi-2
 &nbsp;
 
 ```bash
-# 1) Download the LLM
+# 1) List all supported LLMs
 litgpt download list
-litgpt download microsoft/phi-2
 
-# 2) Test the model
+# 2) Download and use the model
 litgpt chat microsoft/phi-2
 
 >> Prompt: What do Llamas eat?
@@ -393,10 +388,7 @@ mkdir -p custom_texts
 curl https://www.gutenberg.org/cache/epub/24440/pg24440.txt --output custom_texts/book1.txt
 curl https://www.gutenberg.org/cache/epub/26393/pg26393.txt --output custom_texts/book2.txt
 
-# 1) Download a pretrained model
-litgpt download EleutherAI/pythia-160m
-
-# 2) Continue pretraining the model
+# 1) Download and continue pretraining a model
 litgpt pretrain EleutherAI/pythia-160m \
   --tokenizer_dir EleutherAI/pythia-160m \
   --initial_checkpoint_dir EleutherAI/pythia-160m \
@@ -405,7 +397,7 @@ litgpt pretrain EleutherAI/pythia-160m \
   --train.max_tokens 10_000_000 \
   --out_dir out/custom-model
 
-# 3) Test the model
+# 2) Test the model
 litgpt chat out/custom-model/final
 ```
 

@@ -18,9 +18,9 @@ from litgpt.generate.base import next_token
 from litgpt.prompts import has_prompt_style, load_prompt_style
 from litgpt.scripts.merge_lora import merge_lora
 from litgpt.utils import (
+    auto_download_checkpoint,
     check_file_size_on_cpu_and_warn,
     check_valid_checkpoint_dir,
-    extend_checkpoint_dir,
     get_default_supported_precision,
     load_checkpoint
 )
@@ -176,11 +176,13 @@ def main(
     precision: Optional[str] = None,
     compile: bool = False,
     multiline: bool = False,
+    access_token: Optional[str] = None,
 ) -> None:
     """Chat with a model.
 
     Args:
-        checkpoint_dir: The checkpoint directory to load.
+        checkpoint_dir: A local path to a directory containing the model weights or a valid model name.
+            You can get a list of valid model names via the `litgpt download list` command line argument.
         top_k: The number of top most probable tokens to consider in the sampling process.
         top_p: If specified, it represents the cumulative probability threshold to consider in the sampling process.
             In top-p sampling, the next token is sampled from the highest probability tokens
@@ -205,8 +207,9 @@ def main(
         precision: Indicates the Fabric precision setting to use.
         compile: Whether to use compilation to speed up token generation. Will increase startup time.
         multiline: Whether to support multiline input prompts.
+        access_token: Optional API token to access models with restrictions.
     """
-    checkpoint_dir = extend_checkpoint_dir(checkpoint_dir)
+    checkpoint_dir = auto_download_checkpoint(model_name=checkpoint_dir, access_token=access_token)
     pprint(locals())
 
     precision = precision or get_default_supported_precision(training=False)

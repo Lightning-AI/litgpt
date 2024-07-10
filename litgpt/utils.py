@@ -26,6 +26,7 @@ from lightning.pytorch.cli import instantiate_class
 from torch.serialization import normalize_storage_type
 from typing_extensions import Self
 
+
 if TYPE_CHECKING:
     from litgpt import GPT, Config
 
@@ -561,3 +562,22 @@ def check_file_size_on_cpu_and_warn(checkpoint_path, device, size_limit=4_509_71
                 "with more than 1B parameters on a CPU can be slow, it is recommended to switch to a GPU."
             )
     return size
+
+
+def auto_download_checkpoint(model_name, access_token=None):
+    from litgpt.scripts.download import download_from_hub  # moved here due to circular import issue
+
+    checkpoint_dir = extend_checkpoint_dir(Path(model_name))
+    try:
+        check_valid_checkpoint_dir(checkpoint_dir, verbose=False, raise_error=True)
+    except FileNotFoundError as e:
+        if access_token is None:
+            access_token = os.getenv("HF_TOKEN")
+
+        if checkpoint_dir.parts[0] != "checkpoints":
+            download_from_hub(repo_id=str(model_name), access_token=access_token)
+            checkpoint_dir = Path("checkpoints") / checkpoint_dir
+        else:
+            raise e
+
+    return checkpoint_dir
