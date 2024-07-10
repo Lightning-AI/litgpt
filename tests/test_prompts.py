@@ -153,8 +153,7 @@ def test_multiturn_prompt():
 
     assert multiturn_output == """<|begin_of_text|><|start_header_id|>system<|end_header_id|>
 
-You are a helpful AI assistant for travel tips and recommendations<|eot_id|>
-<|start_header_id|>user<|end_header_id|>
+You are a helpful AI assistant for travel tips and recommendations<|eot_id|><|start_header_id|>user<|end_header_id|>
 
 What is France's capital?<|eot_id|><|start_header_id|>assistant<|end_header_id|>
 
@@ -174,8 +173,7 @@ What can I do there?<|eot_id|><|start_header_id|>assistant<|end_header_id|>
 
     assert multiturn_output == """<|begin_of_text|><|start_header_id|>system<|end_header_id|>
 
-You are a helpful assistant.<|eot_id|>
-<|start_header_id|>user<|end_header_id|>
+You are a helpful assistant.<|eot_id|><|start_header_id|>user<|end_header_id|>
 
 What is France's capital?<|eot_id|><|start_header_id|>assistant<|end_header_id|>
 

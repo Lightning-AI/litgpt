@@ -209,9 +209,9 @@ class Llama3(PromptStyle):
         if isinstance(prompt, str):
             return (
                 "<|begin_of_text|><|start_header_id|>system<|end_header_id|>\n\n"
-                f"{default_system_prompt}<|eot_id|>\n"
+                f"{default_system_prompt}<|eot_id|>" # No newline
                 "<|start_header_id|>user<|end_header_id|>\n\n"
-                f"{prompt}<|eot_id|>"
+                f"{prompt}<|eot_id|>" # No newline
                 "<|start_header_id|>assistant<|end_header_id|>\n\n"
             )
         elif isinstance(prompt, list):
@@ -221,7 +221,8 @@ class Llama3(PromptStyle):
             
             def encode_message(message: Dict[str, str]) -> List[str]:
                 tokens = encode_header(message["role"])
-                tokens.append(message["content"]) # NOTE: Probably shouldn't be stripped.
+                # NOTE: Meta stripped this. I'm not sure I agree, but who am I to argue?
+                tokens.append(message["content"].strip())
                 tokens.append("<|eot_id|>")
                 return tokens
             
