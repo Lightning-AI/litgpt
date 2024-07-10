@@ -285,7 +285,7 @@ class CodeLlama(PromptStyle):
         # for CodeLLama, we don't set a default system prompt, but it is supported:
         # https://huggingface.co/blog/codellama#conversational-instructions
         # Mistral does not: https://huggingface.co/mistralai/Mistral-7B-Instruct-v0.1#instruction-format
-        b_inst, e_inst = "<s>[INST]", "[/INST]"
+        b_inst, e_inst = "[INST]", "[/INST]"
         return f"{b_inst} {prompt} {e_inst}"
 
 
