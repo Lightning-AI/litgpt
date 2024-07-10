@@ -574,7 +574,7 @@ def auto_download_checkpoint(model_name, access_token=None):
         if access_token is None:
             access_token = os.getenv("HF_TOKEN")
 
-        if checkpoint_dir.parts[0] != "checkpoints":
+        if checkpoint_dir.parts[0] != "checkpoints" and not checkpoint_dir.is_absolute():
             download_from_hub(repo_id=str(model_name), access_token=access_token)
             checkpoint_dir = Path("checkpoints") / checkpoint_dir
         else:
