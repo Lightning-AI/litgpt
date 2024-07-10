@@ -28,7 +28,7 @@ However, it is also possible, and even common, to use and deploy models with Lit
 LitGPT is available as a Python library from the PyPI package repository, and we recommend installing it using Python's `pip` installer module, including all required package dependencies:
 
 ```bash
-pip install 'litgpt[all]' 
+pip install 'litgpt[all]'
 ```
 
 Alternatively, if you are a researcher or developer planning to make changes to LitGPT, you can clone the GitHub repository and install it from a local folder as follows:
@@ -43,7 +43,7 @@ pip install -e '.[all]'
 &nbsp;
 ## Pretrain LLMs
 
-Pretraining LLMs requires substantial compute resources and time commitment. For that reason, most researchers and practitioners prefer to skip this step and continue with the *Download pretrained model weights* section instead. 
+Pretraining LLMs requires substantial compute resources and time commitment. For that reason, most researchers and practitioners prefer to skip this step and continue with the *Download pretrained model weights* section instead.
 
 However, if you feel adventurous and want to pretrain your own LLM, here's how.
 
@@ -71,9 +71,9 @@ vicuna-7b-v1.5
 vicuna-7b-v1.5-16k
 ```
 
-Suppose we want to pretraining the 1.1B parameter small `tiny-llama-1.1b` model. Before starting finetuning, we must also choose and download a tokenizer. 
+Suppose we want to pretraining the 1.1B parameter small `tiny-llama-1.1b` model. Before starting finetuning, we must also choose and download a tokenizer.
 
-We can download a tokenizer via the `download` command. Note that running `litgpt download list` will also print a list of all available models and tokenizers to download. 
+We can download a tokenizer via the `download` command. Note that running `litgpt download list` will also print a list of all available models and tokenizers to download.
 
 To filter for specific models, e.g., TinyLlama, we can use the `grep` command in our terminal:
 
@@ -214,12 +214,12 @@ Now chatting with phi-2.
 To exit, press 'Enter' on an empty prompt.
 
 Seed set to 1234
->> Prompt: Why are LLMs so useful?    
+>> Prompt: Why are LLMs so useful?
 >> Reply:  When building applications or operating systems, you can use LLMs to know how a computer should respond to your commands. This can make your programs run faster and more efficiently.
 
 Time for inference: 1.26 sec total, 27.81 tokens/sec, 35 tokens
 
->> Prompt: 
+>> Prompt:
 ```
 &nbsp;
 
@@ -237,9 +237,9 @@ Time for inference: 1.26 sec total, 27.81 tokens/sec, 35 tokens
 &nbsp;
 ## Finetune LLMs
 
-LitGPT supports several methods of supervised instruction finetuning, which allows you to finetune models to follow instructions. 
+LitGPT supports several methods of supervised instruction finetuning, which allows you to finetune models to follow instructions.
 
-Datasets for Instruction-finetuning are usually formatted in the following way: 
+Datasets for Instruction-finetuning are usually formatted in the following way:
 
 &nbsp;
 
@@ -249,7 +249,7 @@ Datasets for Instruction-finetuning are usually formatted in the following way:
 
 Alternatively, datasets for instruction finetuning can also contain an `'input'` field:
 
-In an instruction-finetuning context, "full" finetuning means updating all model parameters as opposed to only a subset. Adapter and LoRA (short for low-rank adaptation) are methods for parameter-efficient finetuning that only require updating a small fraction of the model weights. 
+In an instruction-finetuning context, "full" finetuning means updating all model parameters as opposed to only a subset. Adapter and LoRA (short for low-rank adaptation) are methods for parameter-efficient finetuning that only require updating a small fraction of the model weights.
 
 &nbsp;
 
@@ -257,7 +257,7 @@ In an instruction-finetuning context, "full" finetuning means updating all model
 
 &nbsp;
 
-Parameter-efficient finetuning is much more resource-efficient and cheaper than full finetuning, and it often results in the same good performance on downstream tasks. 
+Parameter-efficient finetuning is much more resource-efficient and cheaper than full finetuning, and it often results in the same good performance on downstream tasks.
 
 In the following example, we will use LoRA for finetuning, which is one of the most popular LLM finetuning methods. (For more information on how LoRA works, please see [Code LoRA from Scratch](https://lightning.ai/lightning-ai/studios/code-lora-from-scratch).)
 
@@ -290,7 +290,7 @@ litgpt finetune_lora microsoft/phi-2\
 
 
 > [!TIP]
-> Note that the config file above will finetune the model on the `Alpaca2k` dataset on 1 GPU and save the resulting files in an `out/finetune/lora-phi-2` directory. All of these settings can be changed via a respective command line argument or by changing the config file. 
+> Note that the config file above will finetune the model on the `Alpaca2k` dataset on 1 GPU and save the resulting files in an `out/finetune/lora-phi-2` directory. All of these settings can be changed via a respective command line argument or by changing the config file.
 > To see more options, execute `litgpt finetune_lora --help`.
 
 &nbsp;
@@ -383,12 +383,12 @@ Now chatting with phi-2.
 To exit, press 'Enter' on an empty prompt.
 
 Seed set to 1234
->> Prompt: Why are LLMs so useful?   
+>> Prompt: Why are LLMs so useful?
 >> Reply: LLMs are useful because they can be trained to perform various natural language tasks, such as language translation, text generation, and question-answering. They are also able to understand the context of the input data, which makes them particularly useful for tasks such as sentiment analysis and text summarization. Additionally, because LLMs can learn from large amounts of data, they are able to generalize well and perform well on new data.
 
 Time for inference: 2.15 sec total, 39.57 tokens/sec, 85 tokens
 
->> Prompt: 
+>> Prompt:
 ```
 
 
@@ -401,7 +401,7 @@ Time for inference: 2.15 sec total, 39.57 tokens/sec, 85 tokens
 - [tutorials/finetune](finetune.md): An overview of the different finetuning methods supported in LitGPT
 - [tutorials/finetune_full](finetune_full.md): A tutorial on full-parameter finetuning
 - [tutorials/finetune_lora](finetune_lora.md): Options for parameter-efficient finetuning with LoRA and QLoRA
-- [tutorials/finetune_adapter](finetune_adapter.md): A description of the parameter-efficient Llama-Adapter methods supported in LitGPT 
+- [tutorials/finetune_adapter](finetune_adapter.md): A description of the parameter-efficient Llama-Adapter methods supported in LitGPT
 - [tutorials/oom](oom.md): Tips for dealing with out-of-memory (OOM) errors
 - [config_hub/finetune](../config_hub/finetune): Pre-made config files for finetuning that work well out of the box
 
@@ -424,8 +424,6 @@ Processing checkpoints/microsoft/phi-2/model-00001-of-00002.bin
 ...
 Saving converted checkpoint to checkpoints/microsoft/phi-2
 ```
-
-
 
 
 
@@ -455,6 +453,34 @@ Time for inference: 1.14 sec total, 26.26 tokens/sec, 30 tokens
 
 - [tutorials/inference](inference.md): Chat and inference tutorial
 - [tutorials/quantize](quantize.md): Quantizing models to reduce GPU memory requirements
+
+
+&nbsp;
+## Using the LitGPT Python API for Inference
+
+The previous section explained how to use the `litgpt chat` command line interface for inference. Alternatively, LitGPT also offers a Python API approach to generate text using an LLM:
+
+```python
+from litgpt import LLM
+
+llm = LLM.load("microsoft/phi-2")
+text = llm.generate("What do Llamas eat?", top_k=1, max_new_tokens=30)
+print(text)
+```
+
+Note that the if you pass a supported model name to `LLM.load()`, as shown above, it will download the model from the HF hub if it doesn't exist locally, yet (use `litgpt download list` on the command line to get a list of all currently supported models.)
+
+Alternatively, to load model from a local path, just provide the corresponding path as input to the `load` method:
+
+```python
+llm = LLM.load("path/to/my/local/checkpoint")
+```
+
+&nbsp;
+**More information and additional resources**
+
+- [tutorials/python-api](python-api.md): The LitGPT Python API documentation
+
 
 
 &nbsp;
@@ -490,7 +516,7 @@ litgpt serve microsoft/phi-2
 # 3) Use the server (in a separate session)
 import requests, json
  response = requests.post(
-     "http://127.0.0.1:8000/predict", 
+     "http://127.0.0.1:8000/predict",
      json={"prompt": "Fix typos in the following sentence: Exampel input"}
 )
 print(response.json()["output"])
