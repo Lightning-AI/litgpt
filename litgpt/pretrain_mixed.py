@@ -75,7 +75,7 @@ def setup(
         max_norm=1.0,
         min_lr=4e-5,
         tie_embeddings=False,
-        max_steps=10000,
+        max_steps=100000,
         lr_warmup_fraction=0.01,
     ),
     eval: EvalArgs = EvalArgs(interval=1000, max_iters=100),
@@ -220,7 +220,7 @@ def main(
     fabric.print(f"Time to instantiate model: {time.perf_counter() - t0:.02f} seconds.")
     fabric.print(f"Total parameters: {num_parameters(model):,}")
 
-    model = torch.compile(model)
+    # model = torch.compile(model)
     model = fabric.setup(model)
 
     extra_kwargs = {"fused": fabric.device.type == "cuda"}
@@ -617,11 +617,8 @@ def get_dataloaders(
     val_dataloader = data.val_dataloader()
 
     # this is a quirk of the combined dataloader implementation - the dataloader has no len defined until the first iter()
-    print(f"FABRIC RANK {fabric.local_rank} IS HERE!!!!!")
     if isinstance(train_dataloader, CombinedLoader):
-        print(f"FABRIC RANK {fabric.local_rank} IS DOING THE THING!!!!")
         iter(train_dataloader)
-        print(f"THE DATASET LEN IS {len(train_dataloader)}")
 
     if isinstance(val_dataloader, CombinedLoader):
         iter(val_dataloader)

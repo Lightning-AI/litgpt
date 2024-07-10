@@ -58,6 +58,7 @@ def setup(
         min_lr=4e-5,
         lr_warmup_steps=2000,
         tie_embeddings=False,
+        max_steps=100000,
     ),
     eval: EvalArgs = EvalArgs(interval=1000, max_iters=100),
     optimizer: Union[str, Dict] = "AdamW",
@@ -160,6 +161,7 @@ def setup(
         train,
         eval,
         optimizer,
+        train.max_steps,
     )
 
 
@@ -177,6 +179,7 @@ def main(
     train: TrainArgs,
     eval: EvalArgs,
     optimizer: Union[str, Dict],
+    max_steps: Optional[int],
 ) -> None:
     validate_args(train, eval, initial_checkpoint_dir, resume)
 
@@ -199,13 +202,21 @@ def main(
     fabric.print(f"Time to instantiate model: {time.perf_counter() - t0:.02f} seconds.")
     fabric.print(f"Total parameters: {num_parameters(model):,}")
 
-    model = torch.compile(model)
+    # model = torch.compile(model)
     model = fabric.setup(model)
 
     extra_kwargs = {"fused": fabric.device.type == "cuda"}
     optimizer = instantiate_torch_optimizer(
         optimizer, model.parameters(), **extra_kwargs
     )
+    # need max iters up here to evenly space
+    if max_steps is None:
+        max_tokens_per_device = train.max_tokens // fabric.world_size
+        tokens_per_iter = train.micro_batch_size * model.max_seq_length
+        max_iters = max_tokens_per_device // tokens_per_iter
+    else:
+        max_iters = max_steps
+
     optimizer = fabric.setup_optimizers(optimizer)
 
     train_dataloader, val_dataloader = get_dataloaders(
@@ -246,6 +257,7 @@ def main(
         tokenizer_dir,
         train,
         eval,
+        max_iters,
     )
 
     # Save final checkpoint
@@ -266,6 +278,7 @@ def fit(
     tokenizer_dir: Optional[Path],
     train: TrainArgs,
     eval: EvalArgs,
+    max_iters: int,
 ) -> None:
     model = state["model"]
     optimizer = state["optimizer"]
@@ -290,9 +303,10 @@ def fit(
         )
         del meta_model, x
 
-    max_tokens_per_device = train.max_tokens // fabric.world_size
-    tokens_per_iter = train.micro_batch_size * model.max_seq_length
-    max_iters = max_tokens_per_device // tokens_per_iter
+    if not max_iters:
+        max_tokens_per_device = train.max_tokens // fabric.world_size
+        tokens_per_iter = train.micro_batch_size * model.max_seq_length
+        max_iters = max_tokens_per_device // tokens_per_iter
     log_iter_interval = train.log_interval * train.gradient_accumulation_iters(devices)
     initial_iter = state["iter_num"]
     train_iterator = CycleIterator(train_dataloader)
@@ -311,7 +325,7 @@ def fit(
 
         # determine and set the learning rate for this iteration
         lr = get_lr(
-            1e-4,  # the default lr is too high. using this one
+            2e-5,  # the default lr is too high. using this one
             state["iter_num"],
             warmup_iters,
             max_iters,
@@ -535,7 +549,7 @@ def validate_args(
     train: TrainArgs, eval: EvalArgs, initial_checkpoint_dir, resume
 ) -> None:
     issues = []
-    unsupported = [(train, ["max_steps", "epochs"]), (eval, ["max_new_tokens"])]
+    unsupported = [(train, ["epochs"]), (eval, ["max_new_tokens"])]
     for args, names in unsupported:
         for name in names:
             if getattr(args, name) is not None:
