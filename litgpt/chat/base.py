@@ -209,7 +209,6 @@ def main(
         multiline: Whether to support multiline input prompts.
         access_token: Optional API token to access models with restrictions.
     """
-    checkpoint_dir = auto_download_checkpoint(model_name=checkpoint_dir, access_token=access_token)
     pprint(locals())
 
     precision = precision or get_default_supported_precision(training=False)
@@ -232,7 +231,7 @@ def main(
         print("Merging LoRA weights with the base model. This won't take long and is a one-time-only thing.")
         merge_lora(checkpoint_dir)
 
-    check_valid_checkpoint_dir(checkpoint_dir)
+    checkpoint_dir = auto_download_checkpoint(model_name=checkpoint_dir, access_token=access_token)
     config = Config.from_file(checkpoint_dir / "model_config.yaml")
 
     with fabric.init_module(empty_init=True):
