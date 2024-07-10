@@ -8,7 +8,7 @@ from typing import Optional, Union
 import torch
 
 from litgpt.scripts.convert_lit_checkpoint import convert_lit_checkpoint
-from litgpt.utils import copy_config_files, extend_checkpoint_dir
+from litgpt.utils import copy_config_files, auto_download_checkpoint
 
 
 def prepare_results(results, save_filepath, print_results=True):
@@ -37,6 +37,7 @@ def convert_and_evaluate(
     limit: Optional[float] = None,
     seed: int = 1234,
     save_filepath: Optional[Path] = None,
+    access_token: Optional[str] = None,
 ) -> None:
     """Evaluate a model with the LM Evaluation Harness.
 
@@ -55,6 +56,7 @@ def convert_and_evaluate(
         seed: Random seed.
         save_filepath: The file where the results will be saved.
             Saves to `out_dir/results.json` by default.
+        access_token: Optional API token to access models with restrictions.
     """
     if tasks is None:
         from lm_eval.tasks import TaskManager
@@ -68,7 +70,7 @@ def convert_and_evaluate(
         )
         return
 
-    checkpoint_dir = extend_checkpoint_dir(checkpoint_dir)
+    checkpoint_dir = auto_download_checkpoint(model_name=checkpoint_dir, access_token=access_token)
     pprint(locals())
 
     if not (isinstance(batch_size, int) and batch_size > 0) and not (isinstance(batch_size, str) and batch_size.startswith("auto")):

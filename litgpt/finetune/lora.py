@@ -25,12 +25,12 @@ from litgpt.prompts import save_prompt_style
 from litgpt.scripts.merge_lora import merge_lora
 from litgpt.tokenizer import Tokenizer
 from litgpt.utils import (
+    auto_download_checkpoint,
     CycleIterator,
     check_valid_checkpoint_dir,
     choose_logger,
     chunked_cross_entropy,
     copy_config_files,
-    extend_checkpoint_dir,
     get_default_supported_precision,
     load_checkpoint,
     init_out_dir,
@@ -72,6 +72,7 @@ def setup(
     optimizer: Union[str, Dict] = "AdamW",
     logger_name: Literal["wandb", "tensorboard", "csv"] = "csv",
     seed: int = 1337,
+    access_token: Optional[str] = None,
 ) -> None:
     """Finetune a model using the LoRA method.
 
@@ -98,8 +99,9 @@ def setup(
         optimizer: An optimizer name (such as "AdamW") or config.
         logger_name: The name of the logger to send metrics to.
         seed: The random seed to use for reproducibility.
+        access_token: Optional API token to access models with restrictions.
     """
-    checkpoint_dir = extend_checkpoint_dir(checkpoint_dir)
+    checkpoint_dir = auto_download_checkpoint(model_name=checkpoint_dir, access_token=access_token)
     pprint(locals())
     data = Alpaca() if data is None else data
     devices = parse_devices(devices)
