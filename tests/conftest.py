@@ -70,7 +70,6 @@ class MockTokenizer:
         if bos:
             output.append(self.bos_id)
         output.extend([ord(c) for c in text])
-        output = [ord(c) for c in text]
         if eos:
             output.append(self.eos_id)
         output = output[:max_length] if max_length > 0 else output
