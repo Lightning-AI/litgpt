@@ -48,6 +48,7 @@ jobs:
     - script: |
         pip uninstall -y torchvision torchaudio
         pip install --pre 'nvfuser-cu121[torch]' --extra-index-url https://pypi.nvidia.com
+        pip install git+https://github.com/lightning-ai/litdata
       displayName: 'Install PyTorch nightly'
 
     - bash: |
