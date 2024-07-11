@@ -256,7 +256,7 @@ class incremental_save:
         if storage.device.type != "cpu":
             storage = storage.cpu()
         num_bytes = storage.nbytes()
-        self.zipfile.write_record(name, storage.data_ptr(), num_bytes)
+        self.zipfile.write_record(name, storage, num_bytes)
         return key
 
     def __exit__(self, type, value, traceback):
