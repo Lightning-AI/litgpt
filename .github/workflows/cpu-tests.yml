@@ -60,7 +60,6 @@ jobs:
     - name: Install all dependencies
       run: |
         pip install '.[all,test]'
-        pip install git+https://github.com/lightning-ai/litdata
         pip list
 
     - name: Run tests
