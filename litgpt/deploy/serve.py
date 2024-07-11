@@ -16,7 +16,7 @@ from litgpt.generate.base import generate as plain_generate
 from litgpt.chat.base import generate as stream_generate
 from litgpt.prompts import load_prompt_style, has_prompt_style, PromptStyle
 from litgpt.utils import (
-    extend_checkpoint_dir,
+    auto_download_checkpoint,
     get_default_supported_precision,
     load_checkpoint
 )
@@ -173,7 +173,8 @@ def run_server(
     devices: int = 1,
     accelerator: str = "auto",
     port: int = 8000,
-    stream: bool = False
+    stream: bool = False,
+    access_token: Optional[str] = None,
 ) -> None:
     """Serve a LitGPT model using LitServe.
 
@@ -207,11 +208,10 @@ def run_server(
             The "auto" setting (default) chooses a GPU if available, and otherwise uses a CPU.
         port: The network port number on which the model is configured to be served.
         stream: Whether to stream the responses.
+        access_token: Optional API token to access models with restrictions.
     """
-    checkpoint_dir = extend_checkpoint_dir(checkpoint_dir)
+    checkpoint_dir = auto_download_checkpoint(model_name=checkpoint_dir, access_token=access_token)
     pprint(locals())
-
-    check_valid_checkpoint_dir(checkpoint_dir, model_filename="lit_model.pth")
 
     if not stream:
         server = LitServer(

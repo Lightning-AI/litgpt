@@ -61,11 +61,15 @@ def destroy_process_group():
 
 class MockTokenizer:
     """A dummy tokenizer that encodes each character as its ASCII code."""
-
+    
+    bos_id = 0
     eos_id = 1
 
-    def encode(self, text: str, eos: bool = False, max_length: int = -1) -> torch.Tensor:
-        output = [ord(c) for c in text]
+    def encode(self, text: str, bos: Optional[bool] = None, eos: bool = False, max_length: int = -1) -> torch.Tensor:
+        output = []
+        if bos:
+            output.append(self.bos_id)
+        output.extend([ord(c) for c in text])
         if eos:
             output.append(self.eos_id)
         output = output[:max_length] if max_length > 0 else output
