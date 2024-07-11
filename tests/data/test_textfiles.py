@@ -44,7 +44,6 @@ def test_textfiles_datamodule(tmp_path):
 
     actual = tree_map(torch.Tensor.tolist, list(tr_dataloader))
     # there is 1 sample per index in the data (13)
-    print(actual)
     assert actual == [
         [[5, 0, 1]],
         [[0, 1, 1999]],
