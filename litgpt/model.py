@@ -265,7 +265,7 @@ class CausalSelfAttention(nn.Module):
 
         # TODO: convert it into a registered buffer?
         # In Gemma every other layer has a sliding window attention
-        if self.config.sliding_window_size is not None and self.block_idx % 2:
+        if self.config.sliding_window_size is not None and not self.block_idx % 2:
             # TODO: doesn't look particularly fast (optimized)
             # TODO: deal with device in a prettier way
             if mask is None:
