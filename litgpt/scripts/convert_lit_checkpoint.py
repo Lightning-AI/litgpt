@@ -192,10 +192,10 @@ def copy_weights_gemma_2(
         if name == "lm_head.weight" and untie_weights:
             continue
         if name.endswith(".attn.attn.weight"):
-            from_name, l = layer_template(name, 2)
-            q = "model.layers.{}.self_attn.q_proj.weight".format(l)
-            k = "model.layers.{}.self_attn.k_proj.weight".format(l)
-            v = "model.layers.{}.self_attn.v_proj.weight".format(l)
+            from_name, layer_idx = layer_template(name, 2)
+            q = "model.layers.{}.self_attn.q_proj.weight".format(layer_idx)
+            k = "model.layers.{}.self_attn.k_proj.weight".format(layer_idx)
+            v = "model.layers.{}.self_attn.v_proj.weight".format(layer_idx)
             qkv = load_param(param, name, None)
             qp, kp, vp = qkv_split(qkv, config)
             for to_name, param in zip((q, k, v), (qp, kp, vp)):
@@ -204,12 +204,12 @@ def copy_weights_gemma_2(
                 state_dict[to_name] = param
         else:
             if "transformer.h" in name:
-                from_name, l = layer_template(name, 2)
+                from_name, layer_idx = layer_template(name, 2)
                 e = None
                 if "mlp.experts" in name:
                     from_name, e = layer_template(from_name, 5)
                 to_name = weight_map[from_name]
-                to_name = to_name.format(l=l, e=e)
+                to_name = to_name.format(layer_idx)
             else:
                 to_name = weight_map[name]
             param = load_param(param, name, None)
@@ -337,6 +337,8 @@ def convert_lit_checkpoint(checkpoint_dir: Path, output_dir: Path) -> None:
 
     if "falcon" in config.name:
         copy_fn = partial(copy_weights_falcon, config.name)
+    elif config.name.startswith("Gemma-2"):
+        copy_fn = partial(copy_weights_gemma_2, config)
     elif config.name.lower().startswith("phi"):
         copy_fn = partial(copy_weights_phi, config)
     elif config.mlp_class_name in ("LLaMAMLP", "GemmaMLP", "LLaMAMoE"):
