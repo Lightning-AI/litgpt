@@ -25,6 +25,7 @@ from litgpt.model import GPT, Block, CausalSelfAttention, Config, LLaMAMLP
 from litgpt.utils import (
     CycleIterator,
     capture_hparams,
+    check_nvlink_connectivity,
     choose_logger,
     chunked_cross_entropy,
     copy_config_files,
@@ -133,7 +134,17 @@ def setup(
         strategy = FSDPStrategy(auto_wrap_policy={Block}, state_dict_type="full", sharding_strategy="HYBRID_SHARD")
     else:
         strategy = "auto"
-    fabric = L.Fabric(devices=devices, num_nodes=num_nodes, strategy=strategy, precision=precision, loggers=[logger])
+    fabric = L.Fabric(
+        devices=devices,
+        num_nodes=num_nodes,
+        strategy=strategy,
+        precision=precision,
+        loggers=[logger]
+    )
+
+    if devices > 1:
+        check_nvlink_connectivity(fabric)
+
     fabric.launch()
 
     fabric.print(pprint.pformat(hparams))

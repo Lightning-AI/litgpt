@@ -10,6 +10,7 @@ import sys
 from dataclasses import asdict, is_dataclass
 from io import BytesIO
 from pathlib import Path
+import subprocess
 from typing import TYPE_CHECKING, Any, Dict, Iterable, List, Literal, Mapping, Optional, TypeVar, Union
 import warnings
 
@@ -581,3 +582,43 @@ def auto_download_checkpoint(model_name, access_token=None):
             raise e
 
     return checkpoint_dir
+
+
+def check_nvlink_connectivity(fabric=None):
+    if fabric is not None:
+        custom_print = fabric.print
+    else:
+        custom_print = print
+    if os.getenv("RANK", "0") == "0":
+        try:
+            result = subprocess.run(["nvidia-smi", "topo", "-m"], stdout=subprocess.PIPE, text=True)
+
+            if result.returncode != 0:
+                custom_print("Failed to run nvidia-smi")
+                return
+
+            lines = result.stdout.split('\n')
+            gpu_matrix = []
+
+            start_index = next((i for i, line in enumerate(lines) if "GPU0" in line), None) + 1
+            headers = lines[start_index - 1].split()
+            gpu_count = len([header for header in headers if "GPU" in header])
+            gpu_matrix = lines[start_index:start_index + gpu_count]
+
+            all_nvlink = True
+            for line in gpu_matrix:
+                connections = line.split()[1:1 + gpu_count]
+                if not all('NV' in conn for conn in connections if conn != 'X'):
+                    all_nvlink = False
+                    break
+
+            if all_nvlink:
+                custom_print("All GPUs are fully connected via NVLink.")
+            else:
+                custom_print(
+                    "Warning: Not all GPUs are fully connected via NVLink. Some GPUs are connected via slower interfaces. "
+                    "It is recommended to switch to a different machine with faster GPU connections for optimal multi-GPU training performance."
+                )
+
+        except Exception as e:
+            custom_print(f"An error occurred: {e}")

@@ -26,6 +26,7 @@ from litgpt.utils import (
     CycleIterator,
     capture_hparams,
     check_file_size_on_cpu_and_warn,
+    check_nvlink_connectivity,
     check_valid_checkpoint_dir,
     choose_logger,
     chunked_cross_entropy,
@@ -453,3 +454,40 @@ def test_file_size_above_limit_on_gpu():
         with mock.patch("os.path.getsize", return_value=4_600_000_000):
             size = check_file_size_on_cpu_and_warn(temp_file.name, "gpu")
             assert size == 4_600_000_000
+
+
+@pytest.fixture
+def nvlink_connected_output():
+    return mock.MagicMock(stdout="""GPU0	GPU1	GPU2	GPU3
+GPU0	X	NV12	NV12	NV12
+GPU1	NV12	X	NV12	NV12
+GPU2	NV12	NV12	X	NV12
+GPU3	NV12	NV12	NV12	X""", returncode=0)
+
+
+@pytest.fixture
+def nvlink_partially_connected_output():
+    return mock.MagicMock(stdout="""GPU0	GPU1	GPU2	GPU3
+GPU0	X	SYS	NV12	SYS
+GPU1	SYS	X	NV12	SYS
+GPU2	NV12	NV12	X	NV12
+GPU3	SYS	SYS	NV12	X""", returncode=0)
+
+
+@mock.patch("subprocess.run")
+def test_all_nvlink_connected(mock_run, nvlink_connected_output):
+    mock_run.return_value = nvlink_connected_output
+    with mock.patch("builtins.print") as mock_print:
+        check_nvlink_connectivity()
+        mock_print.assert_any_call("All GPUs are fully connected via NVLink.")
+
+
+@mock.patch("subprocess.run")
+def test_not_all_nvlink_connected(mock_run, nvlink_partially_connected_output):
+    mock_run.return_value = nvlink_partially_connected_output
+    with mock.patch("builtins.print") as mock_print:
+        check_nvlink_connectivity()
+        mock_print.assert_any_call(
+            "Warning: Not all GPUs are fully connected via NVLink. Some GPUs are connected via slower interfaces. "
+            "It is recommended to switch to a different machine with faster GPU connections for optimal multi-GPU training performance."
+        )
