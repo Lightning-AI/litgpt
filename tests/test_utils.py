@@ -456,26 +456,23 @@ def test_file_size_above_limit_on_gpu():
             assert size == 4_600_000_000
 
 
-@pytest.fixture
-def mock_cuda_available(mocker):
-    mocker.patch("torch.cuda.is_available", return_value=True)
-    mocker.patch("torch.cuda.device_count", return_value=1)
-    return mocker.patch("torch.cuda.get_device_properties")
-
-
 @pytest.mark.parametrize("gpu_name, expected", [
     ("NVIDIA H100", True),
     ("NVIDIA H800", True),
-    ("NVIDIA A100", False),
+    ("NVIDIA A100", False),  # A100 should not pass the H100 or H800 check
     ("NVIDIA GTX 1080", False)
 ])
-def test_gpu_models(mock_cuda_available, gpu_name, expected):
-    mock_props = mock.MagicMock()
-    mock_props.name = gpu_name
-    mock_cuda_available.return_value = mock_props
-    assert has_h100_or_h800() == expected
+def test_gpu_models(gpu_name, expected):
+    with mock.patch('torch.cuda.is_available', return_value=True), \
+         mock.patch('torch.cuda.device_count', return_value=1), \
+         mock.patch('torch.cuda.get_device_properties') as mock_get_device_properties:
+        mock_props = mock.MagicMock()
+        mock_props.name = gpu_name
+        mock_get_device_properties.return_value = mock_props
+
+        assert has_h100_or_h800() == expected
 
 
-def test_has_h100_or_h800_no_cuda(mocker):
-    mocker.patch("torch.cuda.is_available", return_value=False)
-    assert not has_h100_or_h800()
+def test_has_h100_or_h800_no_cuda():
+    with mock.patch('torch.cuda.is_available', return_value=False):
+        assert not has_h100_or_h800()
