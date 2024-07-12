@@ -266,30 +266,20 @@ class CausalSelfAttention(nn.Module):
         # TODO: convert it into a registered buffer?
         # In Gemma every other layer has a sliding window attention
         if self.config.sliding_window_size is not None and not self.block_idx % 2:
-            # TODO: doesn't look particularly fast (optimized)
-            # TODO: deal with device in a prettier way
+            # TODO: maybe add a small diagram (for both masks?
             if mask is None:
-                min_dtype = torch.finfo(q.dtype).min
-                mask = torch.tril(torch.ones(self.config.block_size, self.config.block_size))
-                mask = mask.masked_fill(mask == 0, min_dtype)
-
-            min_dtype = torch.finfo(q.dtype).min
-            sliding_window_mask = torch.tril(
-                torch.ones_like(mask, dtype=torch.bool), diagonal=-self.config.sliding_window_size
-            )
-            mask = torch.where(sliding_window_mask, min_dtype, mask)
-            mask = mask.to(q.device)
+                mask = torch.ones(T, T, dtype=q.dtype, device=q.device).triu(diagonal=1)
+                mask.masked_fill_(mask.bool(), float("-inf"))
+            sliding_window_mask = torch.ones_like(mask).tril(diagonal=-self.config.sliding_window_size)
+            sliding_window_mask.masked_fill_(sliding_window_mask.bool(), float("-inf"))
+            mask += sliding_window_mask
 
         # softcapping is really needed only during training
         if self.config.attention_logit_softcapping is not None and self.train:
             # # TODO: mask needs to be created only once
             if mask is None:
-                min_dtype = torch.finfo(q.dtype).min
-                # mask = torch.tril(torch.ones(self.config.block_size, self.config.block_size))
-                mask = torch.tril(torch.ones(T, T))
-                # mask = mask.masked_fill(mask == 0, min_dtype).to(q.dtype)
-                mask = mask.masked_fill(mask == 0, float("-inf")).to(q.dtype)
-                mask = mask.to(q.device)
+                mask = torch.ones(T, T, dtype=q.dtype, device=q.device).triu(diagonal=1)
+                mask.masked_fill_(mask.bool(), torch.finfo(q.dtype).min)
 
             scale = 1.0 / math.sqrt(self.config.attention_scores_scalar or self.config.head_size)
             scores = q @ k.mT * scale
