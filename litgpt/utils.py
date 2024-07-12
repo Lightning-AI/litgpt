@@ -589,3 +589,15 @@ def auto_download_checkpoint(model_name, access_token=None):
             raise e
 
     return checkpoint_dir
+
+
+def has_h100_or_h800():
+    if not torch.cuda.is_available():
+        return False
+
+    for i in range(torch.cuda.device_count()):
+        props = torch.cuda.get_device_properties(i)
+        if "H100" in props.name or "H800" in props.name:
+            return True
+
+    return False

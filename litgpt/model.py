@@ -11,9 +11,14 @@ from typing import Any, Optional, Tuple
 
 import torch
 import torch.nn as nn
+from lightning_utilities.core.imports import RequirementCache
 from typing_extensions import Self
 
 from litgpt.config import Config
+from litgpt.utils import has_h100_or_h800
+
+
+FlashAttention3Available = bool(RequirementCache("flash-attn>=2.6.1"))
 
 
 class GPT(nn.Module):
@@ -253,8 +258,22 @@ class CausalSelfAttention(nn.Module):
 
     def scaled_dot_product_attention(
         self, q: torch.Tensor, k: torch.Tensor, v: torch.Tensor, mask: Optional[torch.Tensor] = None
-    ) -> torch.Tensor:
+    ):
         scale = 1.0 / math.sqrt(self.config.head_size)
+        if (
+            FlashAttention3Available
+            and mask is None
+            and q.device.type == "cuda"
+            and q.dtype in (torch.float16, torch.bfloat16)
+            and has_h100_or_h800()
+        ):
+            from flash_attn import flash_attn_func
+
+            # flash-attn requires (B, T, nh, hs)
+            q = q.transpose(1, 2)
+            k = k.transpose(1, 2)
+            v = v.transpose(1, 2)
+            return flash_attn_func(q, k, v, dropout_p=0.0, softmax_scale=scale, causal=True)
         y = torch.nn.functional.scaled_dot_product_attention(
             q, k, v, attn_mask=mask, dropout_p=0.0, scale=scale, is_causal=mask is None
         )

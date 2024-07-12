@@ -33,6 +33,7 @@ from litgpt.utils import (
     extend_checkpoint_dir,
     find_multiple,
     find_resume_path,
+    has_h100_or_h800,
     incremental_save,
     init_out_dir,
     instantiate_bnb_optimizer,
@@ -453,3 +454,28 @@ def test_file_size_above_limit_on_gpu():
         with mock.patch("os.path.getsize", return_value=4_600_000_000):
             size = check_file_size_on_cpu_and_warn(temp_file.name, "gpu")
             assert size == 4_600_000_000
+
+
+@pytest.fixture
+def mock_cuda_available(mocker):
+    mocker.patch("torch.cuda.is_available", return_value=True)
+    mocker.patch("torch.cuda.device_count", return_value=1)
+    return mocker.patch("torch.cuda.get_device_properties")
+
+
+@pytest.mark.parametrize("gpu_name, expected", [
+    ("NVIDIA H100", True),
+    ("NVIDIA H800", True),
+    ("NVIDIA A100", False),
+    ("NVIDIA GTX 1080", False)
+])
+def test_gpu_models(mock_cuda_available, gpu_name, expected):
+    mock_props = mock.MagicMock()
+    mock_props.name = gpu_name
+    mock_cuda_available.return_value = mock_props
+    assert has_h100_or_h800() == expected
+
+
+def test_has_h100_or_h800_no_cuda(mocker):
+    mocker.patch("torch.cuda.is_available", return_value=False)
+    assert not has_h100_or_h800()

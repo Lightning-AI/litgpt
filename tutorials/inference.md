@@ -17,6 +17,7 @@ The script assumes you have downloaded and converted the weights as described [h
 
 This will run the 3B pre-trained model and require ~7 GB of GPU memory using the `bfloat16` datatype.
 
+&nbsp;
 ## Run interactively
 
 You can also chat with the model interactively:
@@ -32,14 +33,19 @@ fine-tuned for chatting such as `stabilityai/stablelm-tuned-alpha-3b` or `togeth
 > Use `--multiline true` to work with inputs that span multiple lines.
 
 
+&nbsp;
 ## Run a large model on one smaller device
 
 Check out our [quantization tutorial](quantize.md).
 
+
+&nbsp;
 ## Run a large model on multiple smaller devices
 
 We offer two scripts to leverage multiple devices for inference.
 
+
+&nbsp;
 ### [`litgpt generate_sequentially`](../litgpt/generate/sequentially.py)
 
 Allows you to run models that wouldn't fit in a single card by partitioning the transformer blocks across all your devices and running them sequentially.
@@ -82,6 +88,8 @@ litgpt generate_sequentially meta-llama/Llama-2-70b-chat-hf \
 
 Smaller devices can also be used to run inference with this technique.
 
+
+&nbsp;
 ### [`litgpt generate_tp`](../litgpt/generate/tp.py)
 
 Uses tensor parallelism (TP) to run models that wouldn't fit in a single card by sharding the MLP and Attention QKV linear layers across all your devices.
@@ -123,3 +131,16 @@ litgpt generate_tp meta-llama/Llama-2-70b-chat-hf \
 | 8       | 6.15 GB     | 6.20      |
 
 Smaller devices can also be used to run inference with this technique.
+
+&nbsp;
+## Use FlashAttention 3
+
+[FlashAttention](https://github.com/Dao-AILab/flash-attention) is a highly optimized technique for computing the attention mechanism, which is designed to be fast and memory-efficient while maintaining exact computational precision. It specifically addresses the I/O bandwidth and memory access patterns to minimize latency and maximize throughput on modern GPU architectures. LitGPT uses FlashAttention v2 automatically for modern GPUs. 
+
+To use the latest FlashAttention v3 implementation, which is optimized for Hopper GPUs, such as H100 and H800, install the `flash-attention` package via
+
+```bash
+pip install git+https://github.com/Dao-AILab/flash-attention.git
+```
+
+If you are using a H100 or H800 GPU and the latest flash-attention package is installed, LitGPT will use FlashAttention v3 automatically.
