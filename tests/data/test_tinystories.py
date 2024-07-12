@@ -80,12 +80,17 @@ def test_tinystories_datamodule(tmp_path):
     actual = tree_map(torch.Tensor.tolist, list(tr_dataloader))
     # there is 1 sample per index in the data (13)
     assert actual == [
-        [[0, 1, 1999]],
+        [[1999, 0, 13]],
+        [[0, 13, 12]],
         [[1, 1999, 0]],
+        [[63, 0, 73]],
+        [[5, 0, 1]],
+        [[0, 73, 5]],
+        [[0, 23, 15]],
+        [[0, 1, 1999]],
         [[15, 63, 0]],
         [[73, 5, 0]],
         [[12, 0, 23]],
-        [[0, 73, 5]],
         [[23, 15, 63]],
         [[13, 12, 0]]
     ]

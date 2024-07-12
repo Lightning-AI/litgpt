@@ -82,10 +82,9 @@ class TinyStories(DataModule):
             input_dir=str(self.data_path_train),
             item_loader=TokensLoader(block_size=self.max_seq_length),
             shuffle=True,
-            drop_last=True,
         )
         train_dataloader = StreamingDataLoader(
-            train_dataset, batch_size=self.batch_size, pin_memory=True, num_workers=self.num_workers, drop_last=True
+            train_dataset, batch_size=self.batch_size, pin_memory=True, num_workers=self.num_workers
         )
         return train_dataloader
 
