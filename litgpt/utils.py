@@ -9,6 +9,7 @@ import shutil
 import sys
 from dataclasses import asdict, is_dataclass
 from io import BytesIO
+from packaging import version
 from pathlib import Path
 from typing import TYPE_CHECKING, Any, Dict, Iterable, List, Literal, Mapping, Optional, TypeVar, Union
 import warnings
@@ -256,7 +257,14 @@ class incremental_save:
         if storage.device.type != "cpu":
             storage = storage.cpu()
         num_bytes = storage.nbytes()
-        self.zipfile.write_record(name, storage.data_ptr(), num_bytes)
+
+        current_version = version.parse(torch.__version__)
+        threshold_version = version.parse("2.2.2")
+        if current_version <= threshold_version:
+            self.zipfile.write_record(name, storage.data_ptr(), num_bytes)
+        else:
+            self.zipfile.write_record(name, storage, num_bytes)
+
         return key
 
     def __exit__(self, type, value, traceback):
