@@ -62,7 +62,12 @@ class MixedDataset(DataModule):
 
     # A path to a directory containing both pretraining data (files in txt form) as well as SFT data (json files). Should contain two subdirectories "texts" and "sft".
     pretraining_data_path: str = "data/"
-    sft_data_path: str = "sft/"
+    sft_data_paths: List[str] = ["sft/"]
+    sft_dataset_names: List[str] = ["sft1"]
+    data_ratios: List[str] = [
+        0.5,
+        0.5,
+    ]  # the data ratios of [pretrain_dist, sft1, ...., sft_n]. Must add up to 1.
     pretrain_data_type: str = "streaming"  # "streaming" or "txt"
     sft_val_split_fraction: float = 0.05
     max_seq_length: int = field(init=False, repr=False, default=2048)
@@ -89,29 +94,39 @@ class MixedDataset(DataModule):
         self.out_path_train_lm = self.lm_train_path
         self.out_path_val_lm = self.lm_val_path
 
-    def setup(self):
-        sft_train_data, sft_val_data = get_splits(
-            Path(self.sft_data_path),
-            self.sft_val_split_fraction,
-            num_repeats=self.num_repeats,
-        )
+        self.sft_train_datasets = {name: None for name in self.sft_dataset_names}
+        self.sft_val_datasets = {name: None for name in self.sft_dataset_names}
+        assert len(self.sft_data_paths) == len(self.sft_data_names), "the length of the data paths provided must be equal to the length of sft set names"
+        assert len(self.data_ratios) == len(self.sft_data_paths) + 1, "data_ratios must be the same length as num sft data paths + 1"
+        assert sum(self.data_ratios) == 1, "data_ratios must sum to 1"
 
-        self.sft_train_dataset = SFTDataset(
-            data=sft_train_data,
-            tokenizer=self.tokenizer,
-            prompt_style=self.prompt_style,
-            max_seq_length=self.max_seq_length_sft,
-            mask_prompt=self.mask_prompt,
-            ignore_index=self.ignore_index,
-        )
-        self.sft_test_dataset = SFTDataset(
-            data=sft_val_data,
-            tokenizer=self.tokenizer,
-            prompt_style=self.prompt_style,
-            max_seq_length=self.max_seq_length_sft,
-            mask_prompt=self.mask_prompt,
-            ignore_index=self.ignore_index,
-        )
+    def setup(self):
+        for sft_data_name, sft_data_path in zip(self.sft_data_names, self.sft_data_paths):
+            sft_train_data, sft_val_data = get_splits(
+                Path(self.sft_data_path),
+                self.sft_val_split_fraction,
+                num_repeats=self.num_repeats,
+            )
+
+            sft_train_dataset = SFTDataset(
+                data=sft_train_data,
+                tokenizer=self.tokenizer,
+                prompt_style=self.prompt_style,
+                max_seq_length=self.max_seq_length_sft,
+                mask_prompt=self.mask_prompt,
+                ignore_index=self.ignore_index,
+            )
+            sft_val_dataset = SFTDataset(
+                data=sft_val_data,
+                tokenizer=self.tokenizer,
+                prompt_style=self.prompt_style,
+                max_seq_length=self.max_seq_length_sft,
+                mask_prompt=self.mask_prompt,
+                ignore_index=self.ignore_index,
+            )
+
+            self.sft_train_datasets[sft_data_name] = sft_train_dataset
+            self.sft_val_datasets[sft_data_name] = sft_val_dataset
 
     def connect(
         self,
@@ -235,24 +250,23 @@ class MixedDataset(DataModule):
         )
         print("BATCH SIZE:", self.batch_size)
 
-        if self.cycle_mode == "max_size_spread":
-            # sft_batch_size = 1  # to better control sampling rate
-            sft_batch_size = self.batch_size  # TODO: should I change this back?
-        else:
-            sft_batch_size = self.batch_size
-
-        sft_train_dataloader = DataLoader(
-            self.sft_train_dataset,
-            batch_size=sft_batch_size,
-            shuffle=True,
-            num_workers=self.num_workers,
-            collate_fn=get_sft_collate_fn(
-                max_seq_length=self.max_seq_length_sft, ignore_index=self.ignore_index
-            ),
-        )
+        sft_train_dataloaders = {}
+        for sft_name in self.sft_train_datasets:
+            sft_train_dataset = self.sft_train_datasets[sft_name]
+            sft_train_dataloader = DataLoader(
+                sft_train_dataset,
+                batch_size=1,
+                shuffle=True,
+                num_workers=self.num_workers,
+                collate_fn=get_sft_collate_fn(
+                    max_seq_length=self.max_seq_length_sft,
+                    ignore_index=self.ignore_index,
+                ),
+            )
+            sft_train_dataloaders[sft_name] = sft_train_dataloader
 
         return CombinedLoader(
-            {"lm": lm_train_dataloader, "sft": sft_train_dataloader},
+            {"lm": lm_train_dataloader, **sft_train_dataloaders},
             self.cycle_mode,
             max_iters=self.max_iters,
         )
@@ -274,18 +288,24 @@ class MixedDataset(DataModule):
             pin_memory=True,
             drop_last=True,
         )
-        sft_test_dataloader = DataLoader(
-            self.sft_test_dataset,
-            batch_size=self.batch_size,
-            shuffle=True,
-            num_workers=self.num_workers,
-            collate_fn=get_sft_collate_fn(
-                max_seq_length=self.max_seq_length_sft, ignore_index=self.ignore_index
-            ),
-        )
+
+        sft_val_dataloaders = {}
+        for sft_name in self.sft_val_datasets:
+            sft_val_dataset = self.sft_val_datasets[sft_name]
+
+            sft_val_dataloader = DataLoader(
+                sft_val_dataset,
+                batch_size=self.batch_size,
+                shuffle=True,
+                num_workers=self.num_workers,
+                collate_fn=get_sft_collate_fn(
+                    max_seq_length=self.max_seq_length_sft, ignore_index=self.ignore_index
+                ),
+            )
+            sft_val_dataloaders[sft_name] = sft_val_dataloader
 
         return CombinedLoader(
-            {"lm": lm_test_dataloader, "sft": sft_test_dataloader}, "max_size"
+            {"lm": lm_test_dataloader, **sft_val_dataloaders}, "max_size"
         )
 
 
@@ -401,7 +421,7 @@ class _MaxSizeCycle(_ModeIterator):
 
 class _MaxSizeDistributed(_ModeIterator):
     # Largest dataset should always be placed at ind 0. Assume we want to distribute the rest
-    max_steps = 10000  # TODO: the global variable hack doesn't work, fix the pass through later.
+    max_steps = 100000  # TODO: the global variable hack doesn't work, fix the pass through later.
 
     def __init__(self, iterables, limits=None):
         super().__init__(iterables, limits)
@@ -425,7 +445,10 @@ class _MaxSizeDistributed(_ModeIterator):
             else:
                 self.data_intervals.append(1)
 
+        print(f"Pretraining dataset batches: {self.large_data_len}")
+        print(f"SFT dataset batches: {self.small_data_len}")
         print(f"Adding SFT data every {self.data_intervals} batches")
+        print(f"Small data per batch: {self.small_data_num}")
 
         self.intervals_passed = deepcopy(self.data_intervals)
 
@@ -447,14 +470,19 @@ class _MaxSizeDistributed(_ModeIterator):
                     # note: length of an iterable is the # batches, not # samples
                     self.intervals_passed[i] -= 1
                     if self.intervals_passed[i] <= 0:
-                        small_batch = next(small_dataset)
+                        if self.small_data_per_batch[i] > 1:
+                            small_batch = []
+                            for _ in range(self.small_data_per_batch[i]):
+                                small_batch.append(next(small_dataset))
+                        else:
+                            small_batch = next(small_dataset)
                         small_batches.extend(small_batch)
                         out[i + 1] = small_batch
                         self.intervals_passed[i] = data_interval
 
             index = self._idx
             self._idx += 1
-            # out = {"lm": large_batch, "sft": small_batches}
+
             return out, index, 0
 
         except StopIteration:
