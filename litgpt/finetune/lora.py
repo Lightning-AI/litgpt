@@ -162,8 +162,10 @@ def setup(
         loggers=logger,
         plugins=plugins,
     )
-    if devices > 1:
+
+    if torch.cuda.is_available() and devices > 1:
         check_nvlink_connectivity(fabric)
+
     fabric.launch(main, devices, seed, config, data, checkpoint_dir, out_dir, train, eval, optimizer)
 
 
