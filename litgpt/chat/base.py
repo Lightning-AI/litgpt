@@ -20,8 +20,9 @@ from litgpt.scripts.merge_lora import merge_lora
 from litgpt.utils import (
     auto_download_checkpoint,
     check_file_size_on_cpu_and_warn,
+    extend_checkpoint_dir,
     get_default_supported_precision,
-    load_checkpoint
+    load_checkpoint,
 )
 
 
@@ -208,6 +209,7 @@ def main(
         multiline: Whether to support multiline input prompts.
         access_token: Optional API token to access models with restrictions.
     """
+    checkpoint_dir = extend_checkpoint_dir(checkpoint_dir)
     pprint(locals())
 
     precision = precision or get_default_supported_precision(training=False)
