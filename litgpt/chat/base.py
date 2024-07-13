@@ -20,9 +20,9 @@ from litgpt.scripts.merge_lora import merge_lora
 from litgpt.utils import (
     auto_download_checkpoint,
     check_file_size_on_cpu_and_warn,
-    check_valid_checkpoint_dir,
+    extend_checkpoint_dir,
     get_default_supported_precision,
-    load_checkpoint
+    load_checkpoint,
 )
 
 
@@ -209,6 +209,7 @@ def main(
         multiline: Whether to support multiline input prompts.
         access_token: Optional API token to access models with restrictions.
     """
+    checkpoint_dir = extend_checkpoint_dir(checkpoint_dir)
     pprint(locals())
 
     precision = precision or get_default_supported_precision(training=False)
@@ -223,15 +224,15 @@ def main(
 
     fabric = L.Fabric(devices=1, precision=precision, plugins=plugins)
 
-    checkpoint_path = checkpoint_dir / "lit_model.pth"
-    check_file_size_on_cpu_and_warn(checkpoint_path, fabric.device)
-
     # Merge if this is a raw LoRA checkpoint
+    checkpoint_path = checkpoint_dir / "lit_model.pth"
     if (checkpoint_dir / "lit_model.pth.lora").is_file() and not checkpoint_path.is_file():
         print("Merging LoRA weights with the base model. This won't take long and is a one-time-only thing.")
         merge_lora(checkpoint_dir)
 
     checkpoint_dir = auto_download_checkpoint(model_name=checkpoint_dir, access_token=access_token)
+    check_file_size_on_cpu_and_warn(checkpoint_path, fabric.device)
+
     config = Config.from_file(checkpoint_dir / "model_config.yaml")
 
     with fabric.init_module(empty_init=True):
