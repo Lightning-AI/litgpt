@@ -1,5 +1,7 @@
 # Copyright Lightning AI. Licensed under the Apache License 2.0, see LICENSE file.
 import os
+import torch
+import tiktoken
 from dataclasses import dataclass, field
 from functools import partial
 from pathlib import Path
@@ -61,21 +63,25 @@ class OpenWebText(DataModule):
         )
         split_dataset["val"] = split_dataset.pop("test")  # rename the test split to val
 
+        tokenizer = tiktoken.get_encoding("gpt2")
+
         def tokenize(data: Dataset, index: int):
-            yield self.tokenizer.encode(data[index]["text"], eos=True)
+            ids = tokenizer.encode_ordinary(data[index]["text"])
+            ids.append(tokenizer.eot_token)
+            yield torch.tensor(ids, dtype=torch.long)
 
         optimize(
             fn=partial(tokenize, split_dataset["train"]),
             inputs=list(range(len(split_dataset["train"]))),
             output_dir=self.data_path_train,
-            num_workers=(os.cpu_count() - 1),
+            num_workers=64,
             chunk_bytes="200MB",
         )
         optimize(
             fn=partial(tokenize, split_dataset["val"]),
             inputs=list(range(len(split_dataset["val"]))),
             output_dir=self.data_path_val,
-            num_workers=(os.cpu_count() - 1),
+            num_workers=8,
             chunk_bytes="200MB",
         )
 
