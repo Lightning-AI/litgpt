@@ -467,14 +467,6 @@ GPU3	NV12	NV12	NV12	X""", returncode=0)
 
 @pytest.fixture
 def nvlink_partially_connected_output():
-    return mock.MagicMock(stdout="""GPU0	GPU1	GPU2	GPU3
-GPU0	X	SYS	NV12	SYS
-GPU1	SYS	X	NV12	SYS
-GPU2	NV12	NV12	X	NV12
-GPU3	SYS	SYS	NV12	X""", returncode=0)
-
-@pytest.fixture
-def nvlink_partially_connected_output():
     return mock.MagicMock(stdout="""	GPU0	GPU1	GPU2	GPU3	GPU4	GPU5	GPU6	GPU7	NIC0	NIC1	NIC2	NIC3	NIC4	NIC5	NIC6	NIC7	NIC8	NIC9	CPU Affinity	NUMA Affinity	GPU NUMA ID
 GPU0	X 	NV12	NV12	NV12	NV12	NV12	NV12	NV12	SYS	SYS	PXB	PXB	SYS	SYS	SYS	SYS	SYS	SYS	0-63,128-191	0		N/A
 GPU1	NV12	X 	NV12	NV12	NV12	NV12	NV12	NV12	SYS	SYS	PXB	PXB	SYS	SYS	SYS	SYS	SYS	SYS	0-63,128-191	0		N/A
@@ -519,6 +511,8 @@ NIC Legend:
   NIC9: mlx5_9
 
 """, returncode=0)
+
+
 @mock.patch("subprocess.run")
 def test_all_nvlink_connected(mock_run, nvlink_connected_output):
     mock_run.return_value = nvlink_connected_output
