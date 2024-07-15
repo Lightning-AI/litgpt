@@ -5,6 +5,7 @@ import inspect
 import math
 import os
 import pickle
+import re
 import shutil
 import sys
 from dataclasses import asdict, is_dataclass
@@ -601,9 +602,12 @@ def check_nvlink_connectivity(fabric=None):
             gpu_matrix = []
 
             start_index = next((i for i, line in enumerate(lines) if "GPU0" in line), None) + 1
-            headers = lines[start_index - 1].split()
-            gpu_count = len([header for header in headers if "GPU" in header])
-            gpu_matrix = lines[start_index:start_index + gpu_count]
+            headers_line = lines[start_index - 1]
+            headers = headers_line.split()
+            # The regex is to avoid counting the "GPU NUMA ID" header as a GPU
+            # in headers like ['\x1b[4mGPU0', 'GPU1', 'GPU2', 'GPU3', 'GPU4', 'GPU5', 'GPU6', 'GPU7', 'NIC0', 'NIC1', 'NIC2', 'NIC3', 'NIC4', 'NIC5', 'NIC6', 'NIC7', 'NIC8', 'NIC9', 'CPU', 'Affinity', 'NUMA', 'Affinity', 'GPU', 'NUMA', 'ID\x1b[0m']
+            gpu_regex = re.compile(r'^GPU\d+$')
+            gpu_count = len([header for header in headers if gpu_regex.match(header)])
 
             all_nvlink = True
             for line in gpu_matrix:
