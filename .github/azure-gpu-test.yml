@@ -9,6 +9,7 @@ pr:
     include:
       - "main"
       - "wip"
+      - "carmocca/*"
 
 jobs:
   - job: testing
@@ -18,7 +19,7 @@ jobs:
     variables:
       DEVICES: $( python -c 'print("$(Agent.Name)".split("_")[-1])' )
     container:
-      image: "pytorchlightning/pytorch_lightning:base-cuda-py3.10-torch2.2-cuda12.1.0"
+      image: "pytorchlightning/pytorch_lightning:base-cuda-py3.11-torch2.3-cuda12.1.0"
       options: "--gpus=all --shm-size=8gb"
     workspace:
       clean: all
