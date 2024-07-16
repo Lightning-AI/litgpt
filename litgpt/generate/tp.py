@@ -22,6 +22,7 @@ import litgpt.generate.base as generate_base
 from litgpt import GPT, Config, Tokenizer
 from litgpt.model import CausalSelfAttention, GptNeoxMLP, LLaMAMLP, LLaMAMoE
 from litgpt.utils import (
+    check_nvlink_connectivity,
     check_valid_checkpoint_dir,
     extend_checkpoint_dir,
     get_default_supported_precision
@@ -166,6 +167,8 @@ def main(
 
     # set "ddp" as the strategy for the launching functionality, but there's no data-parallelism
     fabric = L.Fabric(devices="auto", strategy="ddp", precision=precision, plugins=plugins)
+    if torch.cuda.is_available() and fabric.accelerator.auto_device_count() > 1:
+        check_nvlink_connectivity(fabric)
     fabric.launch()
 
     check_valid_checkpoint_dir(checkpoint_dir)
