@@ -131,7 +131,7 @@ class LLM:
         plugins = None
         if quantize is not None and quantize.startswith("bnb."):
             if "mixed" in precision:
-                raise ValueError("Quantization and mixed precision is not supported.")
+                raise ValueError("The combination of quantization and mixed precision is not supported.")
             dtype = {"16-true": torch.float16, "bf16-true": torch.bfloat16, "32-true": torch.float32}[precision]
             plugins = BitsandbytesPrecision(quantize[4:], dtype)
             precision = None
