@@ -38,9 +38,9 @@ def test_generate(mock_llm):
 
 
 @RunIf(min_cuda_gpus=1)
-def test_quantization_is_applied():
-    llm = LLM.load("EleutherAI/pythia-14m", quantize="bnb.nf4")
-    text = llm.generate("text", max_new_tokens=10)
+def test_quantization_is_applied(tmp_path):
+    download_from_hub(repo_id="EleutherAI/pythia-14m", tokenizer_only=True, checkpoint_dir=tmp_path)
+    llm = LLM.load("EleutherAI/pythia-14m", quantize="bnb.nf4", init="random", tokenizer_dir=Path(tmp_path/"EleutherAI/pythia-14m"))
     assert "NF4Linear" in str(type(llm.model.lm_head))
 
 
