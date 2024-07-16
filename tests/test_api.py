@@ -6,6 +6,7 @@ import torch
 from unittest.mock import MagicMock
 from litgpt.api import LLM, calculate_number_of_devices
 from litgpt.scripts.download import download_from_hub
+from tests.conftest import RunIf
 
 
 @pytest.fixture
@@ -34,6 +35,12 @@ def test_generate(mock_llm):
     output = mock_llm.generate(prompt, max_new_tokens=10, temperature=0.8, top_k=5)
     assert isinstance(output, str)
     assert len(output) > len(prompt)
+
+
+@RunIf(min_cuda_gpus=1)
+def test_quantization_is_applied():
+    llm = LLM.load("EleutherAI/pythia-14m", quantize="bnb.nf4")
+    assert "NF4Linear" in str(type(llm.model.lm_head))
 
 
 def test_stream_generate(mock_llm):

@@ -6,6 +6,7 @@ from typing import Any, List, Literal, Optional, Union
 
 import torch
 import lightning as L
+from lightning.fabric.plugins import BitsandbytesPrecision
 
 
 from litgpt.model import GPT  # needs to be imported before config
@@ -127,10 +128,19 @@ class LLM:
         torch.set_float32_matmul_precision("high")
         precision = precision or get_default_supported_precision(training=False)
 
+        plugins = None
+        if quantize is not None and quantize.startswith("bnb."):
+            if "mixed" in precision:
+                raise ValueError("Quantization and mixed precision is not supported.")
+            dtype = {"16-true": torch.float16, "bf16-true": torch.bfloat16, "32-true": torch.float32}[precision]
+            plugins = BitsandbytesPrecision(quantize[4:], dtype)
+            precision = None
+
         fabric = L.Fabric(
             accelerator=accelerator,
             devices=devices,
             precision=precision,
+            plugins=plugins
         )
 
         if tokenizer_dir is not None:
