@@ -22,6 +22,7 @@ from litgpt.tokenizer import Tokenizer
 from litgpt.utils import (
     auto_download_checkpoint,
     CycleIterator,
+    check_nvlink_connectivity,
     check_valid_checkpoint_dir,
     choose_logger,
     chunked_cross_entropy,
@@ -105,7 +106,17 @@ def setup(
     else:
         strategy = "auto"
 
-    fabric = L.Fabric(devices=devices, num_nodes=num_nodes, strategy=strategy, precision=precision, loggers=logger)
+    fabric = L.Fabric(
+        devices=devices,
+        num_nodes=num_nodes,
+        strategy=strategy,
+        precision=precision,
+        loggers=logger
+    )
+
+    if torch.cuda.is_available() and devices > 1:
+        check_nvlink_connectivity(fabric)
+
     fabric.launch(main, devices, resume, seed, config, data, checkpoint_dir, out_dir, train, eval, optimizer)
 
 

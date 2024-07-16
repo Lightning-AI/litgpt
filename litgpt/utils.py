@@ -5,12 +5,14 @@ import inspect
 import math
 import os
 import pickle
+import re
 import shutil
 import sys
 from dataclasses import asdict, is_dataclass
 from io import BytesIO
 from packaging import version
 from pathlib import Path
+import subprocess
 from typing import TYPE_CHECKING, Any, Dict, Iterable, List, Literal, Mapping, Optional, TypeVar, Union
 import warnings
 
@@ -601,3 +603,54 @@ def has_h100_or_h800():
             return True
 
     return False
+
+  
+def check_nvlink_connectivity(fabric=None):
+    if fabric is not None:
+        custom_print = fabric.print
+    else:
+        custom_print = print
+    if os.getenv("RANK", "0") == "0":
+        try:
+            result = subprocess.run(["nvidia-smi", "topo", "-m"], stdout=subprocess.PIPE, text=True)
+
+            if result.returncode != 0:
+                custom_print("Failed to run nvidia-smi")
+                return
+
+            lines = result.stdout.split('\n')
+            gpu_matrix = []
+
+            start_index = next((i for i, line in enumerate(lines) if "GPU0" in line), None) + 1
+            headers_line = lines[start_index - 1]
+            headers = headers_line.split()
+            # The regex is to avoid counting the "GPU NUMA ID" header as a GPU
+            # in headers like ['\x1b[4mGPU0', 'GPU1', 'GPU2', 'GPU3', 'GPU4', 'GPU5', 'GPU6', 'GPU7', 'NIC0', 'NIC1', 'NIC2', 'NIC3', 'NIC4', 'NIC5', 'NIC6', 'NIC7', 'NIC8', 'NIC9', 'CPU', 'Affinity', 'NUMA', 'Affinity', 'GPU', 'NUMA', 'ID\x1b[0m']
+            gpu_regex = re.compile(r'^GPU\d+$')
+            gpu_count = len([header for header in headers if gpu_regex.match(header)])
+
+            for line in lines[start_index:]:
+                if not line.strip():
+                    break
+                gpu_matrix.append(line.strip())
+
+            all_nvlink = True
+            for line in gpu_matrix:
+                connections = line.split()[1:1 + gpu_count]
+                if not all("NV" in conn for conn in connections if conn != "X"):
+                    all_nvlink = False
+                    break
+
+            if all_nvlink:
+                custom_print("All GPUs are fully connected via NVLink.")
+            else:
+                custom_print(
+                    "Warning: Not all GPUs are fully connected via NVLink. Some GPUs are connected via slower interfaces. "
+                    "It is recommended to switch to a different machine with faster GPU connections for optimal multi-GPU training performance."
+                )
+
+        except Exception as e:
+            custom_print(f"An error occurred: {e}")
+
+        except Exception as e:
+            custom_print(f"An error occurred: {e}")
