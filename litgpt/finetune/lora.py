@@ -26,6 +26,7 @@ from litgpt.scripts.merge_lora import merge_lora
 from litgpt.tokenizer import Tokenizer
 from litgpt.utils import (
     auto_download_checkpoint,
+    check_nvlink_connectivity,
     CycleIterator,
     check_valid_checkpoint_dir,
     choose_logger,
@@ -161,6 +162,10 @@ def setup(
         loggers=logger,
         plugins=plugins,
     )
+
+    if torch.cuda.is_available() and devices > 1:
+        check_nvlink_connectivity(fabric)
+
     fabric.launch(main, devices, seed, config, data, checkpoint_dir, out_dir, train, eval, optimizer)
 
 
