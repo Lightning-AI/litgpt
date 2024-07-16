@@ -40,6 +40,7 @@ def test_generate(mock_llm):
 @RunIf(min_cuda_gpus=1)
 def test_quantization_is_applied():
     llm = LLM.load("EleutherAI/pythia-14m", quantize="bnb.nf4")
+    text = llm.generate("text", max_new_tokens=10)
     assert "NF4Linear" in str(type(llm.model.lm_head))
 
 
