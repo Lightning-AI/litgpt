@@ -9,7 +9,6 @@ pr:
     include:
       - "main"
       - "wip"
-      - "carmocca/*"
 
 jobs:
   - job: testing
@@ -45,10 +44,10 @@ jobs:
         pip install '.[all,test]'
       displayName: 'Install dependencies'
 
-    - script: |
-        pip uninstall -y torchvision torchaudio
-        pip install --pre 'nvfuser-cu121[torch]' --extra-index-url https://pypi.nvidia.com
-      displayName: 'Install PyTorch nightly'
+    #- script: |
+    #    pip uninstall -y torchvision torchaudio
+    #    pip install --pre 'nvfuser-cu121[torch]' --extra-index-url https://pypi.nvidia.com
+    #  displayName: 'Install PyTorch nightly'
 
     - bash: |
         set -e
