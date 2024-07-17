@@ -163,8 +163,9 @@ class LLM:
         with fabric.init_module(empty_init=(num_devices > 1)):
             model = GPT(config)
 
-        with fabric.init_tensor():
-            model.set_kv_cache(batch_size=1)
+        # This should be set if we add a compile feature later
+        # with fabric.init_tensor():
+        #     model.set_kv_cache(batch_size=1)
 
         model.eval()
         model = fabric.setup_module(model)
@@ -178,6 +179,7 @@ class LLM:
             prompt_style=prompt_style, checkpoint_dir=checkpoint_dir, fabric=fabric,
         )
 
+    @torch.inference_mode()
     def generate(
         self,
         prompt: str,
@@ -220,6 +222,11 @@ class LLM:
         input_ids = self.preprocessor.tokenizer.encode(prompt)
         prompt_length = input_ids.size(0)
         max_returned_tokens = prompt_length + max_new_tokens
+
+        first_turn = self.model.mask_cache is None
+        if first_turn or max_returned_tokens > self.model.max_seq_length:
+            self.model.max_seq_length = max_returned_tokens
+            self.model.set_kv_cache(batch_size=1, device=self.fabric.device)
 
         self.model.eval()
 
