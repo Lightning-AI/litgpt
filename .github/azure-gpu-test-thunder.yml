@@ -9,9 +9,10 @@ pr:
     include:
       - "main"
       - "wip"
+      - "carmocca/*"
 
 jobs:
-  - job: GPU tests
+  - job: testing
     timeoutInMinutes: "30"
     cancelTimeoutInMinutes: "2"
     pool: "lit-rtx-3090"
@@ -44,14 +45,19 @@ jobs:
         pip install '.[all,test]'
       displayName: 'Install dependencies'
 
+    - script: |
+        pip uninstall -y torchvision torchaudio
+        pip install --pre 'nvfuser-cu121[torch]' --extra-index-url https://pypi.nvidia.com
+      displayName: 'Install PyTorch nightly'
+
     - bash: |
         set -e
         pip list
         python -c "import torch ; mgpu = torch.cuda.device_count() ; assert mgpu == 2, f'GPU: {mgpu}'"
       displayName: "Env details"
 
-    - bash: pytest -v --disable-pytest-warnings --strict-markers --color=yes --ignore-glob='test_thunder*.py'
-      displayName: 'Ordinary tests'
+    - bash: pytest -v --disable-pytest-warnings --strict-markers --color=yes test_thunder*.py
+      displayName: 'Thunder ordinary tests'
       env:
         PL_RUN_CUDA_TESTS: "1"
       timeoutInMinutes: "5"
@@ -60,5 +66,5 @@ jobs:
       workingDirectory: tests
       env:
         PL_RUN_CUDA_TESTS: "1"
-      displayName: "Standalone tests"
+      displayName: "Thunder standalone tests"
       timeoutInMinutes: "10"
