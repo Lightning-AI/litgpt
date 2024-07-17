@@ -52,7 +52,7 @@ train:
   save_interval: 4000
 
   # Number of iterations between logging calls (type: int, default: 1)
-  log_interval: 1
+  log_interval: 10
 
   # Number of samples between optimizer steps across data-parallel ranks (type: int, default: 512)
   global_batch_size: 480
@@ -94,7 +94,7 @@ eval:
   max_new_tokens:
 
   # Number of iterations (type: int, default: 100)
-  max_iters: 40
+  max_iters: 100
 
   # Whether to evaluate on the validation set at the beginning of the training
   initial_validation: true
