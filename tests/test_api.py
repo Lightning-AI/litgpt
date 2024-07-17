@@ -95,8 +95,24 @@ def test_llm_load_random_init(tmp_path):
         init="random",
         tokenizer_dir=Path(tmp_path/"EleutherAI/pythia-14m")
     )
-    text = llm.generate("text", max_new_tokens=10)
-    assert len(text.split(" ")) > 5
+
+    input_text = "some text text"
+    output_text = llm.generate(input_text, max_new_tokens=15)
+    ln = len(llm.preprocessor.tokenizer.encode(output_text)) - len(llm.preprocessor.tokenizer.encode(input_text))
+    assert ln <= 15
+
+    # The following below tests that generate works with different prompt lengths
+    # after the kv cache was set
+
+    input_text = "some text"
+    output_text = llm.generate(input_text, max_new_tokens=15)
+    ln = len(llm.preprocessor.tokenizer.encode(output_text)) - len(llm.preprocessor.tokenizer.encode(input_text))
+    assert ln <= 15
+
+    input_text = "some text text text"
+    output_text = llm.generate(input_text, max_new_tokens=15)
+    ln = len(llm.preprocessor.tokenizer.encode(output_text)) - len(llm.preprocessor.tokenizer.encode(input_text))
+    assert ln <= 15
 
 
 def test_llm_load_hub_init(tmp_path):
