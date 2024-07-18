@@ -167,7 +167,7 @@ def run_server(
     checkpoint_dir: Path,
     precision: Optional[str] = None,
     temperature: float = 0.8,
-    top_k: int = 200,
+    top_k: int = 50,
     top_p: float = 1.0,
     max_new_tokens: int = 50,
     devices: int = 1,
