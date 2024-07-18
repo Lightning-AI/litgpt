@@ -95,9 +95,7 @@ class GPT(nn.Module):
         x = self.transformer.ln_f(x)
         x = self.lm_head(x)  # (b, t, vocab_size)
         if self.config.final_logit_softcapping is not None:
-            x = x / self.config.final_logit_softcapping
-            x = torch.tanh(x)
-            x = x * self.config.final_logit_softcapping
+            x = torch.tanh(x / self.config.final_logit_softcapping) * self.config.final_logit_softcapping
         return x
 
     @classmethod
@@ -266,7 +264,7 @@ class CausalSelfAttention(nn.Module):
         # TODO: convert it into a registered buffer?
         # In Gemma every other layer has a sliding window attention
         if self.config.sliding_window_size is not None and not self.block_idx % 2:
-            # TODO: maybe add a small diagram (for both masks?
+            # TODO: maybe add a small diagram (for both masks?)
             if mask is None:
                 mask = torch.ones(T, T, dtype=q.dtype, device=q.device).triu(diagonal=1)
                 mask.masked_fill_(mask.bool(), float("-inf"))
@@ -274,26 +272,7 @@ class CausalSelfAttention(nn.Module):
             sliding_window_mask.masked_fill_(sliding_window_mask.bool(), float("-inf"))
             mask += sliding_window_mask
 
-        # softcapping is really needed only during training
-        if self.config.attention_logit_softcapping:
-            # # TODO: mask needs to be created only once
-            if mask is None:
-                mask = torch.ones(T, T, dtype=q.dtype, device=q.device).triu(diagonal=1)
-                mask.masked_fill_(mask.bool(), torch.finfo(q.dtype).min)
-
-            scale = 1.0 / math.sqrt(self.config.attention_scores_scalar or self.config.head_size)
-            scores = q @ k.mT * scale
-            # softcapping start
-            scores = scores / self.config.attention_logit_softcapping
-            scores = torch.tanh(scores)
-            scores = scores * self.config.attention_logit_softcapping
-            # softcapping end
-            scores = scores + mask
-            scores = torch.nn.functional.softmax(scores, dim=-1, dtype=torch.float).to(dtype=q.dtype)
-            y = scores @ v
-            y = y.transpose(1, 2)
-        else:
-            y = self.scaled_dot_product_attention(q, k, v, mask)
+        y = self.scaled_dot_product_attention(q, k, v, mask)
 
         y = y.reshape(B, T, self.config.head_size * self.config.n_head)  # re-assemble all head outputs side by side
 
@@ -303,10 +282,25 @@ class CausalSelfAttention(nn.Module):
     def scaled_dot_product_attention(
         self, q: torch.Tensor, k: torch.Tensor, v: torch.Tensor, mask: Optional[torch.Tensor] = None
     ) -> torch.Tensor:
+
         scale = 1.0 / math.sqrt(self.config.attention_scores_scalar or self.config.head_size)
-        y = torch.nn.functional.scaled_dot_product_attention(
-            q, k, v, attn_mask=mask, dropout_p=0.0, scale=scale, is_causal=mask is None
-        )
+
+        # with softcapping we cannot use SDPA
+        if self.config.attention_logit_softcapping is not None:
+            # # TODO: mask needs to be created only once
+            if mask is None:
+                mask = torch.ones(q.size(2), q.size(2), dtype=q.dtype, device=q.device).triu(diagonal=1)
+                mask.masked_fill_(mask.bool(), torch.finfo(q.dtype).min)
+            scale = 1.0 / math.sqrt(self.config.attention_scores_scalar or self.config.head_size)
+            scores = q @ k.mT * scale
+            scores = torch.tanh(scores / self.config.attention_logit_softcapping) * self.config.attention_logit_softcapping
+            scores = scores + mask
+            scores = torch.nn.functional.softmax(scores, dim=-1, dtype=torch.float).to(dtype=q.dtype)
+            y = scores @ v
+        else:
+            y = torch.nn.functional.scaled_dot_product_attention(
+                q, k, v, attn_mask=mask, dropout_p=0.0, scale=scale, is_causal=mask is None
+            )
         return y.transpose(1, 2)
 
     def build_kv_cache(

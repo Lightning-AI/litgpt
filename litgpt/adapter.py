@@ -76,10 +76,8 @@ class GPT(BaseModel):
             # chunk the lm head logits to reduce the peak memory used by autograd
             return [self.lm_head(x_i) for x_i in x.split(lm_head_chunk_size, dim=1)]
         x = self.lm_head(x)  # (b, t, vocab_size)
-        if self.config.final_logit_softcapping is not None and self.train:
-            x = x / self.config.final_logit_softcapping
-            x = torch.tanh(x)
-            x = x * self.config.final_logit_softcapping
+        if self.config.final_logit_softcapping is not None:
+            x = torch.tanh(x / self.config.final_logit_softcapping) * self.config.final_logit_softcapping
         return x
 
     @classmethod
@@ -137,7 +135,7 @@ class CausalSelfAttention(BaseCausalSelfAttention):
     ) -> torch.Tensor:
         # TODO: convert it in a registered buffer?
         # In Gemma every other layer has a sliding window attention
-        if self.config.sliding_window_size is not None and self.block_idx % 2:
+        if self.config.sliding_window_size is not None and not self.block_idx % 2:
             # TODO: doesn't look particularly fast (optimized)
             if mask is None:
                 min_dtype = torch.finfo(q.dtype).min
