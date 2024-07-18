@@ -275,7 +275,7 @@ class CausalSelfAttention(nn.Module):
             mask += sliding_window_mask
 
         # softcapping is really needed only during training
-        if self.config.attention_logit_softcapping is not None and self.train:
+        if self.config.attention_logit_softcapping is not None and self.training:
             # # TODO: mask needs to be created only once
             if mask is None:
                 mask = torch.ones(T, T, dtype=q.dtype, device=q.device).triu(diagonal=1)
