@@ -266,8 +266,7 @@ class LLM:
                 include_prompt=False,
             )
 
-        for block in self.model.transformer.h:
-            block.attn.kv_cache.reset_parameters()
+        self.model.clear_kv_cache()
 
         if stream:
             return outputs
