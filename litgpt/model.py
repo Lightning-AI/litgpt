@@ -173,17 +173,22 @@ class Block(nn.Module):
     ) -> torch.Tensor:
         """
         Non-parallel residual       Parallel residual
-           ┌─ x                     ┌─ x ────────────┐             Note: if `shared_attention_norm` is True,
-           │  ↓                     │  ↓             ↓                   the output from `norm_1` is reused
-           │  norm_1                │  norm_1  ───►  norm_2
-           │  ↓                     │  ↓             ↓
-           │  attn                  │  attn          mlp
-           │  ↓                     │  ↓             │
-        ┌─ └► +                     └► + ◄───────────┘
+           ┌─ x                     ┌─ x ──────────────────┐             Note: if `shared_attention_norm` is True,
+           │  ↓                     │  ↓                   ↓                   the output from `norm_1` is reused
+           │  norm_1                │  norm_1  ───────►    norm_2
+           │  ↓                     │  ↓                   ↓
+           │  ATTN                  │  ATTN                MLP
+           │  ↓                     │  ↓                   ↓
+           |  post_attn_norm        |  post_attn_norm      post_mlp_norm
+           |  ↓                     |  ↓                   ↓
+        ┌─ └► +                     └► + ◄─────────────────┘
+        |     ↓
         │     norm_2
         │     ↓
-        │     mlp
+        │     MLP
         │     ↓
+        |     post_mlp_norm
+        |     ↓
         └───► +
         """
 
@@ -264,7 +269,16 @@ class CausalSelfAttention(nn.Module):
         # TODO: convert it into a registered buffer?
         # In Gemma every other layer has a sliding window attention
         if self.config.sliding_window_size is not None and not self.block_idx % 2:
-            # TODO: maybe add a small diagram (for both masks?)
+            """
+                  Global Window              Sliding window                Final
+                  attention mask      +      attention mask      =      attention mask
+            ┌────────────────────────┐  ┌──────────────────────┐  ┌─────────────────────────┐
+            │ True False False False │  │True  True  True True │  │ True  False False False │
+            │ True True  False False │  │True  True  True True │  │ True  True  False False │
+            │ True True  True  False │  │False True  True True │  │ False True  True  False │
+            │ True True  True  True  │  │False False True True │  │ False False True  True  │
+            └────────────────────────┘  └──────────────────────┘  └─────────────────────────┘
+            """
             if mask is None:
                 mask = torch.ones(T, T, dtype=q.dtype, device=q.device).triu(diagonal=1)
                 mask.masked_fill_(mask.bool(), float("-inf"))
