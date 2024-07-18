@@ -733,6 +733,9 @@ SUPPORTS_FLASH_ATTENTION = (
 @pytest.mark.parametrize("config", deepcopy(config_module.configs), ids=[c["name"] for c in config_module.configs])
 @torch.inference_mode()
 def test_sdpa_choice(config):
+    if config["name"].startswith("Gemma-2-"):
+        pytest.skip("Gemma 2 doesn't support SDPA")
+
     torch.set_default_dtype(torch.float16)
 
     def assert_sdpa_backend(original_fn, q, k, v, mask):
