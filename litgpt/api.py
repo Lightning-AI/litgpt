@@ -187,7 +187,6 @@ class LLM:
         temperature: float = 1.0,
         top_k: Optional[int] = None,
         top_p: float = 1.0,
-        eos_id: Optional[int] = None,
         return_as_token_ids: bool = False,
         stream: bool = False
     ) -> Union[str, torch.Tensor]:
