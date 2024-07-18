@@ -34,7 +34,7 @@ class BaseLitAPI(LitAPI):
                  checkpoint_dir: Path,
                  precision: Optional[str] = None,
                  temperature: float = 0.8,
-                 top_k: int = 50,
+                 top_k: int = 1,
                  top_p: float = 1.0,
                  max_new_tokens: int = 50) -> None:
 
@@ -93,7 +93,7 @@ class SimpleLitAPI(BaseLitAPI):
                  checkpoint_dir: Path,
                  precision: Optional[str] = None,
                  temperature: float = 0.8,
-                 top_k: int = 50,
+                 top_k: int = 1,
                  top_p: float = 1.0,
                  max_new_tokens: int = 50):
         super().__init__(checkpoint_dir, precision, temperature, top_k, top_p, max_new_tokens)   
@@ -132,7 +132,7 @@ class StreamLitAPI(BaseLitAPI):
                  checkpoint_dir: Path,
                  precision: Optional[str] = None,
                  temperature: float = 0.8,
-                 top_k: int = 50,
+                 top_k: int = 1,
                  top_p: float = 1.0,
                  max_new_tokens: int = 50):
         super().__init__(checkpoint_dir, precision, temperature, top_k, top_p, max_new_tokens)   
@@ -167,7 +167,7 @@ def run_server(
     checkpoint_dir: Path,
     precision: Optional[str] = None,
     temperature: float = 0.8,
-    top_k: int = 200,
+    top_k: int = 1,
     top_p: float = 1.0,
     max_new_tokens: int = 50,
     devices: int = 1,
