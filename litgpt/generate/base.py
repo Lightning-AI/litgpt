@@ -154,7 +154,7 @@ def main(
     *,
     num_samples: int = 1,
     max_new_tokens: int = 50,
-    top_k: Optional[int] = 50,
+    top_k: Optional[int] = 1,
     top_p: float = 1.0,
     temperature: float = 0.8,
     quantize: Optional[Literal["bnb.nf4", "bnb.nf4-dq", "bnb.fp4", "bnb.fp4-dq", "bnb.int8"]] = None,
