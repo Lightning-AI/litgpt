@@ -197,7 +197,7 @@ class LLM:
             prompt: Tensor of shape (T) with indices of the prompt sequence.
             max_returned_tokens: The maximum number of tokens to return (given plus generated).
             temperature: Scales the predicted logits by 1 / temperature.
-            top_k: Only sample among the tokens with the k highest probabilities.
+            top_k: If specified, only sample among the tokens with the k highest probabilities.
             top_p: If specified, it represents the cumulative probability threshold to consider in the sampling process.
                 In top-p sampling, the next token is sampled from the highest probability tokens
                 whose cumulative probability exceeds the threshold `top_p`. When specified,
