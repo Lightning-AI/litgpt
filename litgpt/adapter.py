@@ -8,7 +8,6 @@ https://arxiv.org/abs/2303.16199
 Port for LitGPT
 """
 
-import math
 from dataclasses import dataclass
 from typing import Any, Dict, List, Optional, Tuple, Union
 

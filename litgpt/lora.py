@@ -547,10 +547,8 @@ class GPT(BaseModel):
             # chunk the lm head logits to reduce the peak memory used by autograd
             return [self.lm_head(x_i) for x_i in x.split(lm_head_chunk_size, dim=1)]
         x = self.lm_head(x)  # (b, t, vocab_size)
-        if self.config.final_logit_softcapping is not None and self.train:
-            x = x / self.config.final_logit_softcapping
-            x = torch.tanh(x)
-            x = x * self.config.final_logit_softcapping
+        if self.config.final_logit_softcapping is not None:
+            x = torch.tanh(x / self.config.final_logit_softcapping) * self.config.final_logit_softcapping
         return x
 
     @classmethod

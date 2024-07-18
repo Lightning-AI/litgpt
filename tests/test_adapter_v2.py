@@ -255,7 +255,7 @@ def test_against_hf_gemma(model_name):
 
 
 @torch.inference_mode()
-@pytest.mark.parametrize("model_name", ("gemma-2-9b",))
+@pytest.mark.parametrize("model_name", ("gemma-2-9b", "gemma-2-27b"))
 def test_against_original_gemma_2(model_name):
     device = torch.device("cpu")
     dtype = torch.float32
