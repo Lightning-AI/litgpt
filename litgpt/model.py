@@ -150,13 +150,11 @@ class Block(nn.Module):
 
         self.norm_1 = config.norm_class(config.n_embd, eps=config.norm_eps)
         self.attn = CausalSelfAttention(config, block_idx)
-        self.norm_2 = None if config.shared_attention_norm else config.norm_class(config.n_embd, eps=config.norm_eps)
-        self.mlp = config.mlp_class(config)
-
-        # TODO: check what is faster nn.Identity or lambda x: x
         self.post_attention_norm = (
             config.norm_class(config.n_embd, eps=config.norm_eps) if config.post_attention_norm else nn.Identity()
         )
+        self.norm_2 = None if config.shared_attention_norm else config.norm_class(config.n_embd, eps=config.norm_eps)
+        self.mlp = config.mlp_class(config)
         self.post_mlp_norm = (
             config.norm_class(config.n_embd, eps=config.norm_eps) if config.post_mlp_norm else nn.Identity()
         )
@@ -177,7 +175,7 @@ class Block(nn.Module):
            │  ↓                     │  ↓                   ↓                   the output from `norm_1` is reused
            │  norm_1                │  norm_1  ───────►    norm_2
            │  ↓                     │  ↓                   ↓
-           │  ATTN                  │  ATTN                MLP
+           │  attn                  │  attn                MLP
            │  ↓                     │  ↓                   ↓
            |  post_attn_norm        |  post_attn_norm      post_mlp_norm
            |  ↓                     |  ↓                   ↓
@@ -192,12 +190,8 @@ class Block(nn.Module):
         └───► +
         """
 
-        # TODO: prettify norm layers naming (separate PR maybe)
-        # pre_attention_norm, post_attention_norm, pre_mlp_norm, post_mlp_norm ??
-
         x_normed = self.norm_1(x)
         attention_output = self.attn(x_normed, cos, sin, mask, input_pos)
-        # TODO: maybe a more verbose if-else would be a better choice?
         attention_output = self.post_attention_norm(attention_output)
 
         if self.config.parallel_residual:
@@ -266,18 +260,17 @@ class CausalSelfAttention(nn.Module):
                 raise TypeError("You need to call `gpt.set_kv_cache()`")
             k, v = self.kv_cache(input_pos, k, v)
 
-        # TODO: convert it into a registered buffer?
-        # In Gemma every other layer has a sliding window attention
+        # In Gemma only layers 0, 2, 4, ... have a sliding window attention
         if self.config.sliding_window_size is not None and not self.block_idx % 2:
             """
-                  Global Window              Sliding window                Final
-                  attention mask      +      attention mask      =      attention mask
-            ┌────────────────────────┐  ┌──────────────────────┐  ┌─────────────────────────┐
-            │ True False False False │  │True  True  True True │  │ True  False False False │
-            │ True True  False False │  │True  True  True True │  │ True  True  False False │
-            │ True True  True  False │  │False True  True True │  │ False True  True  False │
-            │ True True  True  True  │  │False False True True │  │ False False True  True  │
-            └────────────────────────┘  └──────────────────────┘  └─────────────────────────┘
+                  Global Window              Sliding window                 Final
+                  attention mask      +      attention mask       =      attention mask
+            ┌────────────────────────┐  ┌───────────────────────┐  ┌─────────────────────────┐
+            │ True False False False │  │ True  True  True True │  │ True  False False False │
+            │ True True  False False │  │ True  True  True True │  │ True  True  False False │
+            │ True True  True  False │  │ False True  True True │  │ False True  True  False │
+            │ True True  True  True  │  │ False False True True │  │ False False True  True  │
+            └────────────────────────┘  └───────────────────────┘  └─────────────────────────┘
             """
             if mask is None:
                 mask = torch.ones(T, T, dtype=q.dtype, device=q.device).triu(diagonal=1)
@@ -296,18 +289,18 @@ class CausalSelfAttention(nn.Module):
     def scaled_dot_product_attention(
         self, q: torch.Tensor, k: torch.Tensor, v: torch.Tensor, mask: Optional[torch.Tensor] = None
     ) -> torch.Tensor:
-
         scale = 1.0 / math.sqrt(self.config.attention_scores_scalar or self.config.head_size)
 
         # with softcapping we cannot use SDPA
         if self.config.attention_logit_softcapping is not None:
-            # # TODO: mask needs to be created only once
+            scale = 1.0 / math.sqrt(self.config.attention_scores_scalar or self.config.head_size)
+            scores = q @ k.mT * scale
+            scores = (
+                torch.tanh(scores / self.config.attention_logit_softcapping) * self.config.attention_logit_softcapping
+            )
             if mask is None:
                 mask = torch.ones(q.size(2), q.size(2), dtype=q.dtype, device=q.device).triu(diagonal=1)
                 mask.masked_fill_(mask.bool(), torch.finfo(q.dtype).min)
-            scale = 1.0 / math.sqrt(self.config.attention_scores_scalar or self.config.head_size)
-            scores = q @ k.mT * scale
-            scores = torch.tanh(scores / self.config.attention_logit_softcapping) * self.config.attention_logit_softcapping
             scores = scores + mask
             scores = torch.nn.functional.softmax(scores, dim=-1, dtype=torch.float).to(dtype=q.dtype)
             y = scores @ v

@@ -98,16 +98,18 @@ class Block(BaseBlock):
     def __init__(self, config: Config, block_idx: int) -> None:
         # Skip the parent class __init__ altogether and replace it to avoid useless allocations
         nn.Module.__init__(self)
+        if not config.parallel_residual and config.shared_attention_norm:
+            raise NotImplementedError(
+                "No checkpoint amongst the ones we support uses this configuration"
+                " (non-parallel residual and shared attention norm)."
+            )
         self.norm_1 = config.norm_class(config.n_embd, eps=config.norm_eps)
         self.attn = CausalSelfAttention(config, block_idx)
-        if not config.shared_attention_norm:
-            self.norm_2 = config.norm_class(config.n_embd, eps=config.norm_eps)
-        self.mlp = config.mlp_class(config)
-
-        # TODO: check what is faster nn.Identity or lambda x: x
         self.post_attention_norm = (
             config.norm_class(config.n_embd, eps=config.norm_eps) if config.post_attention_norm else nn.Identity()
         )
+        self.norm_2 = None if config.shared_attention_norm else config.norm_class(config.n_embd, eps=config.norm_eps)
+        self.mlp = config.mlp_class(config)
         self.post_mlp_norm = (
             config.norm_class(config.n_embd, eps=config.norm_eps) if config.post_mlp_norm else nn.Identity()
         )
@@ -133,22 +135,6 @@ class CausalSelfAttention(BaseCausalSelfAttention):
     def scaled_dot_product_attention(
         self, q: torch.Tensor, k: torch.Tensor, v: torch.Tensor, mask: Optional[torch.Tensor] = None
     ) -> torch.Tensor:
-        # TODO: convert it in a registered buffer?
-        # In Gemma every other layer has a sliding window attention
-        if self.config.sliding_window_size is not None and not self.block_idx % 2:
-            # TODO: doesn't look particularly fast (optimized)
-            if mask is None:
-                min_dtype = torch.finfo(q.dtype).min
-                mask = torch.tril(torch.ones(self.config.block_size, self.config.block_size))
-                mask = mask.masked_fill(mask == 0, min_dtype)
-                mask = mask.to(q.device)
-
-            min_dtype = torch.finfo(q.dtype).min
-            sliding_window_mask = torch.tril(
-                torch.ones_like(mask, dtype=torch.bool), diagonal=-self.config.sliding_window_size
-            )
-            mask = torch.where(sliding_window_mask, min_dtype, mask)
-
         y = super().scaled_dot_product_attention(q, k, v, mask)
         if self.block_idx < self.config.adapter_start_layer:
             return y

@@ -480,7 +480,6 @@ def convert_hf_checkpoint(
 
     if "falcon" in model_name:
         copy_fn = partial(copy_weights_falcon, model_name)
-    # TODO: decide whether we need it as a separate function
     elif model_name.lower().startswith("gemma-2"):
         qkv_weights = {}
         copy_fn = partial(copy_weights_gemma_2, config, qkv_weights)
