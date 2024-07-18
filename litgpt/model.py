@@ -94,7 +94,7 @@ class GPT(nn.Module):
             x = block(x, cos, sin, mask, input_pos)
         x = self.transformer.ln_f(x)
         x = self.lm_head(x)  # (b, t, vocab_size)
-        if self.config.final_logit_softcapping is not None and self.train:
+        if self.config.final_logit_softcapping is not None:
             x = x / self.config.final_logit_softcapping
             x = torch.tanh(x)
             x = x * self.config.final_logit_softcapping
@@ -275,7 +275,7 @@ class CausalSelfAttention(nn.Module):
             mask += sliding_window_mask
 
         # softcapping is really needed only during training
-        if self.config.attention_logit_softcapping is not None and self.training:
+        if self.config.attention_logit_softcapping:
             # # TODO: mask needs to be created only once
             if mask is None:
                 mask = torch.ones(T, T, dtype=q.dtype, device=q.device).triu(diagonal=1)
