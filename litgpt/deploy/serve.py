@@ -117,8 +117,7 @@ class SimpleLitAPI(BaseLitAPI):
             include_prompt=False
         )
 
-        for block in self.model.transformer.h:
-            block.attn.kv_cache.reset_parameters()
+        self.model.clear_kv_cache()
         return y
 
     def encode_response(self, output: torch.Tensor) -> Dict[str, Any]:
@@ -145,8 +144,7 @@ class StreamLitAPI(BaseLitAPI):
         prompt_length = inputs.size(0)
         max_returned_tokens = prompt_length + self.max_new_tokens
 
-        for block in self.model.transformer.h:
-            block.attn.kv_cache.reset_parameters()
+        self.model.clear_kv_cache()
 
         yield from stream_generate(
             self.model,
