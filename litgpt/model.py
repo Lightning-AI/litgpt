@@ -216,7 +216,7 @@ class CausalSelfAttention(nn.Module):
         self.kv_cache: Optional[KVCache] = None
 
         self.config = config
-        self.block_idx = block_idx
+        self.apply_sliding_window_attention = self.config.sliding_window_size is not None and not block_idx % self.config.swa_apply_to_layers
 
     def forward(
         self,
@@ -260,8 +260,7 @@ class CausalSelfAttention(nn.Module):
                 raise TypeError("You need to call `gpt.set_kv_cache()`")
             k, v = self.kv_cache(input_pos, k, v)
 
-        # In Gemma only layers 0, 2, 4, ... have a sliding window attention
-        if self.config.sliding_window_size is not None and not self.block_idx % 2:
+        if self.apply_sliding_window_attention:
             """
                   Global Window              Sliding window             Sliding window
                   attention mask      +            bias          =      attention mask

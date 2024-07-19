@@ -21,6 +21,7 @@ class Config:
     attention_scores_scalar: Optional[int] = None
     block_size: int = 4096
     sliding_window_size: Optional[int] = None
+    swa_apply_to_layers: Optional[Literal["all", "interleaved"]] = None
     vocab_size: int = 50254
     padding_multiple: int = 512
     padded_vocab_size: Optional[int] = None
@@ -96,6 +97,11 @@ class Config:
             self.intermediate_size = 4 * self.n_embd
 
         self.rope_n_elem = int(self.rotary_percentage * self.head_size)
+
+        if self.sliding_window_size is not None and self.swa_apply_to_layers is None:
+            self.swa_apply_to_layers = 1
+        else:
+            self.swa_apply_to_layers = 1 if self.swa_apply_to_layers == "all" else 2
 
     @classmethod
     def from_name(cls, name: str, **kwargs: Any) -> Optional[Self]:
@@ -952,6 +958,8 @@ gemma = [
         vocab_size=256000,
         block_size=8192,
         sliding_window_size=4096,
+        # only layer with idx 0, 2, 4, ... have sliding window attention
+        swa_apply_to_layers="interleaved",
         intermediate_size=14336,
         n_embd=3584,
         n_layer=42,
@@ -980,6 +988,8 @@ gemma = [
         vocab_size=256000,
         block_size=8192,
         sliding_window_size=4096,
+        # only layer with idx 0, 2, 4, ... have sliding window attention
+        swa_apply_to_layers="interleaved",
         intermediate_size=36864,
         n_embd=4608,
         n_layer=46,
