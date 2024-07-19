@@ -3,10 +3,11 @@
 import contextlib
 import glob
 import os
+from collections import defaultdict
 from collections.abc import Iterable
 from copy import deepcopy
 from dataclasses import dataclass, field
-from functools import partial
+from itertools import cycle
 from pathlib import Path
 from typing import (
     Any,
@@ -20,6 +21,9 @@ from typing import (
     Type,
     Union,
 )
+
+import numpy as np
+import torch
 
 from datasets import load_dataset
 
@@ -37,7 +41,12 @@ from litdata import optimize
 from litdata.streaming import StreamingDataLoader, StreamingDataset, TokensLoader
 from litgpt import PromptStyle
 from litgpt.data import DataModule
-from litgpt.data.base import get_sft_collate_fn, SFTDataset
+from litgpt.data.base import (
+    _sft_collate_fn,
+    get_sft_collate_fn,
+    pad_and_stack,
+    SFTDataset,
+)
 from litgpt.data.json_data import find_split, get_splits, load_split
 from litgpt.tokenizer import Tokenizer
 
@@ -56,14 +65,16 @@ MAX_ITERS = None
 
 
 @dataclass
-class MixedDatasetCanon(DataModule):
+class MixedDataset(DataModule):
     """
     A dataset that blends together unstructured text (the usual pretraining data) and structured text (SFT data). Can have different proportions of each that evolve over time.
     """
 
     # A path to a directory containing both pretraining data (files in txt form) as well as SFT data (json files). Should contain two subdirectories "texts" and "sft".
     pretraining_data_path: str = "data/"
-    sft_data_path: str = "sft/"
+    # format of the data: name_1 weight_1 (between 0-1) path_1, name_2 weight_2 path_2, ...
+    # if no weights, will combine the sft sets in equal proportions.
+    sft_data_paths: str = "sft/"
     pretrain_data_type: str = "streaming"  # "streaming" or "txt"
     sft_val_split_fraction: float = 0.05
     max_seq_length: int = field(init=False, repr=False, default=2048)
@@ -80,7 +91,8 @@ class MixedDatasetCanon(DataModule):
     # number of times to repeat the sft datasets
     num_repeats: int = 1
     # the max iters through the pretraining dataset. Used to space out the sft datasets accordingly
-    max_iters: int = 5000
+    max_iters: int = 100000
+    use_adaptive_sampling: bool = False
 
     def __post_init__(self):
         self.lm_train_path = os.path.join(self.pretraining_data_path, "train")
@@ -90,36 +102,63 @@ class MixedDatasetCanon(DataModule):
         self.out_path_train_lm = self.lm_train_path
         self.out_path_val_lm = self.lm_val_path
 
-    def setup(self):
-        sft_train_data, sft_val_data = get_splits(
-            Path(self.sft_data_path),
-            self.sft_val_split_fraction,
-            num_repeats=self.num_repeats,
-        )
+        self.sft_datasets_and_sample_rates = self.initialize_sft()
+        self.sft_train_datasets = {}
+        self.sft_val_datasets = {}
 
-        self.sft_train_dataset = SFTDataset(
-            data=sft_train_data,
-            tokenizer=self.tokenizer,
-            prompt_style=self.prompt_style,
-            max_seq_length=self.max_seq_length_sft,
-            mask_prompt=self.mask_prompt,
-            ignore_index=self.ignore_index,
-        )
-        self.sft_test_dataset = SFTDataset(
-            data=sft_val_data,
-            tokenizer=self.tokenizer,
-            prompt_style=self.prompt_style,
-            max_seq_length=self.max_seq_length_sft,
-            mask_prompt=self.mask_prompt,
-            ignore_index=self.ignore_index,
-        )
+    def initialize_sft(self) -> dict:
+        self.sft_sets = {}
+        try:
+            for dataset_str in self.sft_data_paths.split(","):
+                if " " in dataset_str:
+                    name, path, p_dataset = dataset_str.strip().split(" ")
+                    self.sft_sets[name] = (float(p_dataset), path)
+                else:
+                    path = dataset_str.strip()
+                    self.sft_sets[path] = (
+                        1 / len(self.sft_data_paths.split(",")),
+                        path,
+                    )
+        except:
+            print(
+                "Error parsing your datasets. Please put them in the format '<path> <init_weight>,...'"
+            )
+
+    def setup(self):
+        for sft_data_name in self.sft_sets:
+            data_weight, sft_data_path = self.sft_sets[sft_data_name]
+            sft_train_data, sft_val_data = get_splits(
+                Path(sft_data_path),
+                self.sft_val_split_fraction,
+                num_repeats=self.num_repeats,
+            )
+
+            sft_train_dataset = SFTDataset(
+                data=sft_train_data,
+                tokenizer=self.tokenizer,
+                prompt_style=self.prompt_style,
+                max_seq_length=self.max_seq_length_sft,
+                mask_prompt=self.mask_prompt,
+                ignore_index=self.ignore_index,
+            )
+            sft_val_dataset = SFTDataset(
+                data=sft_val_data,
+                tokenizer=self.tokenizer,
+                prompt_style=self.prompt_style,
+                max_seq_length=self.max_seq_length_sft,
+                mask_prompt=self.mask_prompt,
+                ignore_index=self.ignore_index,
+            )
+
+            self.sft_train_datasets[sft_data_name] = sft_train_dataset
+            self.sft_val_datasets[sft_data_name] = sft_val_dataset
 
     def connect(
         self,
         tokenizer: Optional[Tokenizer] = None,
         batch_size: int = 1,
         max_seq_length: int = -1,
-        max_iters: int = 5000,
+        max_iters: int = 1000000,
     ) -> None:
         self.tokenizer = tokenizer
         self.batch_size = batch_size
@@ -220,6 +259,7 @@ class MixedDatasetCanon(DataModule):
     def train_dataloader(self) -> DataLoader:
         from litgpt.data import DataModule, get_sft_collate_fn, SFTDataset
 
+        sampling_batch_size = self.batch_size if not self.use_adaptive_sampling else 1
         self.lm_train_dataset = StreamingDataset(
             input_dir=self.out_path_train_lm,
             item_loader=TokensLoader(block_size=self.max_seq_length_lm),
@@ -229,35 +269,43 @@ class MixedDatasetCanon(DataModule):
 
         lm_train_dataloader = StreamingDataLoader(
             self.lm_train_dataset,
-            batch_size=self.batch_size,
+            batch_size=sampling_batch_size,
             pin_memory=True,
             drop_last=True,
         )
         print("BATCH SIZE:", self.batch_size)
 
-        if self.cycle_mode == "max_size_spread":
-            # sft_batch_size = 1  # to better control sampling rate
-            sft_batch_size = self.batch_size  # TODO: should I change this back?
+        sft_train_dataloaders = {}
+        for sft_name in self.sft_train_datasets:
+            sft_train_dataset = self.sft_train_datasets[sft_name]
+            sft_train_dataloader = DataLoader(
+                sft_train_dataset,
+                batch_size=1,
+                shuffle=True,
+                num_workers=self.num_workers,
+                collate_fn=get_sft_collate_fn(
+                    max_seq_length=self.max_seq_length_sft,
+                    ignore_index=self.ignore_index,
+                ),
+            )
+            sft_train_dataloaders[sft_name] = sft_train_dataloader
+
+        if self.use_adaptive_sampling:
+            return CombinedLoaderWithSamplingRates(
+                {"lm": lm_train_dataloader, **sft_train_dataloaders},
+                [0.8, 0.1, 0.1],  # TODO: we need to pass this through lol
+                batch_size=self.batch_size,
+                max_iters=self.max_iters,
+                seq_max_len=self.max_seq_length_sft,
+            )
         else:
-            sft_batch_size = self.batch_size
+            return CombinedLoader(
+                {"lm": lm_train_dataloader, **sft_train_dataloaders},
+                self.cycle_mode,
+                max_iters=self.max_iters,
+                batch_size=self.batch_size,
+            )
 
-        sft_train_dataloader = DataLoader(
-            self.sft_train_dataset,
-            batch_size=sft_batch_size,
-            shuffle=True,
-            num_workers=self.num_workers,
-            collate_fn=get_sft_collate_fn(
-                max_seq_length=self.max_seq_length_sft, ignore_index=self.ignore_index
-            ),
-        )
-
-        return CombinedLoader(
-            {"lm": lm_train_dataloader, "sft": sft_train_dataloader},
-            self.cycle_mode,
-            max_iters=self.max_iters,
-        )
-
-    # TODO - should we return two separate validation sets and report metrics on both separately -- probably
     def val_dataloader(self) -> DataLoader:
         from litgpt.data import DataModule, get_sft_collate_fn, SFTDataset
 
@@ -274,19 +322,109 @@ class MixedDatasetCanon(DataModule):
             pin_memory=True,
             drop_last=True,
         )
-        sft_test_dataloader = DataLoader(
-            self.sft_test_dataset,
-            batch_size=self.batch_size,
-            shuffle=True,
-            num_workers=self.num_workers,
-            collate_fn=get_sft_collate_fn(
-                max_seq_length=self.max_seq_length_sft, ignore_index=self.ignore_index
-            ),
-        )
+
+        sft_val_dataloaders = {}
+        for sft_name in self.sft_val_datasets:
+            sft_val_dataset = self.sft_val_datasets[sft_name]
+
+            sft_val_dataloader = DataLoader(
+                sft_val_dataset,
+                batch_size=self.batch_size,
+                shuffle=True,
+                num_workers=self.num_workers,
+                collate_fn=get_sft_collate_fn(
+                    max_seq_length=self.max_seq_length_sft,
+                    ignore_index=self.ignore_index,
+                ),
+            )
+            sft_val_dataloaders[sft_name] = sft_val_dataloader
 
         return CombinedLoader(
-            {"lm": lm_test_dataloader, "sft": sft_test_dataloader}, "max_size"
+            {"lm": lm_test_dataloader, **sft_val_dataloaders}, "max_size"
         )
+
+
+class CombinedLoaderWithSamplingRates(DataLoader):
+    ### A combined loader where we can pass in a list of sampling rates for each dataset.
+    ### Note: the final batch may not exactly represent the sampling rates.
+    ### Entries will be returned in the same format as the combinedloader: {"data_1": data1_samples, "data_2": data2_samples, ...}
+    ### The data samples will be None if there were no samples from that dataset selected.
+    def __init__(
+        self, loaders, sampling_rates, batch_size, max_iters, seq_max_len, **kwargs
+    ):
+        self.loaders = loaders
+        self.sampling_rates = sampling_rates
+        assert len(self.loaders) == len(
+            self.sampling_rates
+        ), "The length of sampling rates should be the same as the number of iterables"
+        self.max_iters = max_iters
+        self.batch_size = batch_size
+        self.seq_max_len = seq_max_len
+        self.cumulative_rates = [
+            sum(sampling_rates[:i]) for i in range(len(sampling_rates))
+        ]
+        self.multiprocessing_context = None
+        self.iterators = {}
+
+        # dataset = SampledCombinedDataset(loaders, sampling_rates, max_iters, batch_size)
+        # super().__init__(dataset, batch_size, **kwargs)
+
+    def __len__(self):
+        return self.max_iters
+
+    def __iter__(self):
+        # initialize the iterators
+        for name, loader in self.loaders.items():
+            if isinstance(loader, DataLoader):
+                self.iterators[name] = iter(loader)
+            elif hasattr(loader, "__iter__"):
+                self.iterators[name] = iter(cycle(loader))
+            else:
+                raise ValueError(
+                    f"Expected a DataLoader or iterable, but got {type(loader)}"
+                )
+        # fill the batch by random sampling from each dataset
+        iterators = {name: iterable for name, iterable in self.iterators.items()}
+        rng = np.random.default_rng(seed=42)
+
+        for _ in range(self.max_iters):
+            batch = defaultdict(list)
+            chosen_datasets = rng.choice(
+                list(self.iterators.keys()), size=self.batch_size, p=self.sampling_rates
+            )
+
+            for dataset_name in chosen_datasets:
+                if batch[dataset_name] is None:
+                    batch[dataset_name] = []
+                try:
+                    item = next(iterators[dataset_name])
+                except StopIteration:
+                    # reset
+                    iterators[dataset_name] = iter(self.iterators[dataset_name])
+                    item = next(iterators[dataset_name])
+
+                batch[dataset_name].append(item)
+
+            # stack to tensor
+            for dataset_name in batch:
+                if dataset_name == "lm":
+                    batch[dataset_name] = torch.cat(batch[dataset_name], dim=0)
+                else:  # sft format
+                    stacked = {}
+                    for key in ["input_ids", "labels"]:
+                        stacked[key] = pad_and_stack(
+                            [sample[key] for sample in batch[dataset_name]],
+                            self.seq_max_len,
+                        )
+                    batch[dataset_name] = stacked
+
+            yield dict(batch)
+
+    def change_sampling_rates(self, new_sampling_rates):
+        self.sampling_rates = new_sampling_rates
+        self.cumulative_rates = [
+            sum(self.sampling_rates[:i]) for i in range(len(self.sampling_rates))
+        ]
 
 
 ### This code was not present in the current version of lightning. Adding it here
@@ -401,15 +539,12 @@ class _MaxSizeCycle(_ModeIterator):
 
 class _MaxSizeDistributed(_ModeIterator):
     # Largest dataset should always be placed at ind 0. Assume we want to distribute the rest
-    max_steps = (
-        5000  # TODO: the global variable hack doesn't work, fix the pass through later.
-    )
+    max_steps = 100000  # TODO: the global variable hack doesn't work, fix the pass through later.
 
     def __init__(self, iterables, limits=None):
         super().__init__(iterables, limits)
         self.large_dataset_idx = 0
         self.small_datasets_idx = [0 for _ in range(len(iterables) - 1)]
-
         self.large_data_len = len(self.iterables[0])
         self.small_data_len = [
             len(self.iterables[i]) for i in range(1, len(self.iterables))
@@ -427,6 +562,8 @@ class _MaxSizeDistributed(_ModeIterator):
             else:
                 self.data_intervals.append(1)
 
+        print(f"Pretraining dataset batches: {self.large_data_len}")
+        print(f"SFT dataset batches: {self.small_data_len}")
         print(f"Adding SFT data every {self.data_intervals} batches")
 
         self.intervals_passed = deepcopy(self.data_intervals)
@@ -449,13 +586,19 @@ class _MaxSizeDistributed(_ModeIterator):
                     # note: length of an iterable is the # batches, not # samples
                     self.intervals_passed[i] -= 1
                     if self.intervals_passed[i] <= 0:
-                        small_batch = next(small_dataset)
+                        if self.small_data_per_batch[i] > 1:
+                            small_batch = []
+                            for _ in range(self.small_data_per_batch[i]):
+                                small_batch.append(next(small_dataset))
+                        else:
+                            small_batch = next(small_dataset)
                         small_batches.extend(small_batch)
                         out[i + 1] = small_batch
                         self.intervals_passed[i] = data_interval
 
             index = self._idx
             self._idx += 1
+
             return out, index, 0
 
         except StopIteration:
@@ -663,7 +806,7 @@ class CombinedLoader(DataLoader):
         self,
         iterables: Any,
         mode: _LITERAL_SUPPORTED_MODES = "min_size",
-        max_iters=5000,
+        max_iters=None,
     ) -> None:
         if mode not in _SUPPORTED_MODES:
             raise ValueError(

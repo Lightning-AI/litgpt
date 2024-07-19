@@ -62,6 +62,7 @@ def setup(
     model_name: str,
     model_config: Optional[Config] = None,
     out_dir: Path = Path("out/pretrain"),
+    logs_dir: Path = Path("out/pretrain"),
     precision: Literal["bf16-true", "bf16-mixed", "32-true", None] = None,
     initial_checkpoint_dir: Optional[Path] = None,
     resume: Union[bool, Path] = False,
@@ -75,7 +76,7 @@ def setup(
         max_norm=1.0,
         min_lr=4e-5,
         tie_embeddings=False,
-        max_steps=100000,
+        max_steps=7500,
         lr_warmup_fraction=0.01,
     ),
     eval: EvalArgs = EvalArgs(interval=1000, max_iters=100),
@@ -137,12 +138,18 @@ def setup(
     precision = precision or get_default_supported_precision(training=True)
     devices = parse_devices(devices)
     out_dir = init_out_dir(out_dir)
+    logs_dir = init_out_dir(logs_dir)
     # in case the dataset requires the Tokenizer
     tokenizer = Tokenizer(tokenizer_dir) if tokenizer_dir is not None else None
 
+    if train.episode_length is None:
+        train.episode_length = float("inf")
+
+    assert train.episode_length > 0, "Episode length must be positive"
+
     logger = choose_logger(
         logger_name,
-        out_dir,
+        logs_dir,
         name=f"pretrain-{config.name}",
         resume=resume,
         log_interval=train.log_interval,
@@ -180,6 +187,7 @@ def setup(
         eval,
         optimizer,
         train.max_steps,
+        train.episode_length,
     )
 
 
@@ -198,6 +206,7 @@ def main(
     eval: EvalArgs,
     optimizer: Union[str, Dict],
     max_steps: int,
+    episode_length,
 ) -> None:
     validate_args(train, eval, initial_checkpoint_dir, resume)
 
@@ -277,6 +286,7 @@ def main(
         train,
         eval,
         max_iters,
+        episode_length,
     )
 
     # Save final checkpoint
@@ -298,10 +308,10 @@ def fit(
     train: TrainArgs,
     eval: EvalArgs,
     max_iters: int,
+    episode_length: int,
 ) -> None:
     model = state["model"]
     optimizer = state["optimizer"]
-    data_weights = DataWeights()
 
     if eval.initial_validation:
         val_loss, val_loss_lm, val_loss_sft = validate(
@@ -346,14 +356,23 @@ def fit(
         window=train.gradient_accumulation_iters(devices), sync_on_compute=False
     ).to(fabric.device)
 
+    sft_loss_per_dataset = {}
+
     fabric.barrier()
     total_t0 = time.perf_counter()
     warmup_iters = train.warmup_iters(devices, max_iters, train_dataloader)
+
+    data_weights = None
 
     for train_data in train_iterator:
         if state["iter_num"] >= max_iters:
             break
 
+        if state["iter_num"] % episode_length == 0 and state["iter_num"] != 0:
+            # Update the sampling ratios
+            # TODO: just testing here. Change this to the real update later.
+            pass
+            
         # determine and set the learning rate for this iteration
         lr = get_lr(
             2e-5,  # the default LR is too high. Using this one
@@ -384,39 +403,81 @@ def fit(
         ):  # TODO: this iterator is structured weirdly, maybe reconsider.
             # structure: ({"sft": sft_data, "lm": lm_data}, batch_idx, dataloader_idx)
             paired_data = train_data[0]
-            sft_data = paired_data.get("sft", None)
+            sft_datasets = {
+                key: paired_data[key] for key in paired_data.keys() if key != "lm"
+            }
             lm_data = paired_data.get("lm", None)
             batch_idx = train_data[1]
             dataloader_idx = train_data[2]
+
+        elif isinstance(train_data, dict):
+            lm_data = train_data.get("lm", None)
+            sft_datasets = {
+                key: train_data[key] for key in train_data.keys() if key != "lm"
+            }
+
+        if data_weights is None:
+            # data_weights = DataWeights([1] * len(sft_datasets))
+            data_weights = DataWeights([0.8, 0.1, 0.1])
 
         # Process LM data
         is_accumulating = (
             state["iter_num"] % train.gradient_accumulation_iters(devices) != 0
         )
 
+        all_losses = []
+
+        lm_samples = 0
+
         if lm_data is not None:
-            input_ids = lm_data[:, 0 : model.max_seq_length].contiguous().long()
-            targets = lm_data[:, 1 : (model.max_seq_length + 1)].contiguous().long()
-            logits = model(input_ids)
-            lm_loss = chunked_cross_entropy(logits, targets)
-            w_lm = 1 if sft_data is None else data_weights.source_weights[0]
-            loss = lm_loss * w_lm
-
-            running_loss_total.update(loss.detach())
-            lm_loss_total.update(lm_loss.detach())
-
-        # rocess SFT data
-        if sft_data is not None:
-            input_ids, targets = sft_data["input_ids"], sft_data["labels"]
-            logits = model(input_ids)
-            sft_loss = chunked_cross_entropy(
-                logits[..., :-1, :], targets[..., 1:], chunk_size=0
+            try:
+                input_ids = lm_data[:, 0 : model.max_seq_length].contiguous().long()
+                targets = lm_data[:, 1 : (model.max_seq_length + 1)].contiguous().long()
+                logits = model(input_ids)
+                lm_loss = chunked_cross_entropy(logits, targets)
+            except:
+                breakpoint()
+            w_lm = (
+                1
+                if all([val is None for key, val in sft_datasets.values()])
+                else data_weights.source_weights[0]
             )
-            sft_w = 1 if lm_data is None else data_weights.source_weights[1]
-            loss += sft_loss * sft_w
+            all_losses.append(lm_loss)
+            # running_loss_total.update(loss.detach())
+            lm_loss_total.update(lm_loss.detach())
+            lm_samples += input_ids.size(0)
 
-            running_loss_total.update(sft_loss.detach())
-            sft_loss_total.update(sft_loss.detach())
+        # process SFT data
+        sft_samples_per_dataset = {}
+
+        for i, key in enumerate(sft_datasets):
+            sft_data = sft_datasets[key]
+            if sft_data is not None:
+                input_ids, targets = sft_data["input_ids"], sft_data["labels"]
+                logits = model(input_ids)
+                sft_loss = chunked_cross_entropy(
+                    logits[..., :-1, :], targets[..., 1:], chunk_size=0
+                )
+
+                sft_w = 1 if lm_data is None else data_weights.source_weights[i]
+
+                if key not in sft_loss_per_dataset:
+                    sft_loss_per_dataset[key] = RunningMean(
+                        window=train.gradient_accumulation_iters(devices),
+                        sync_on_compute=False,
+                    ).to(fabric.device)
+
+                sft_loss_per_dataset[key].update(sft_loss.detach())
+                running_loss_total.update(sft_loss.detach())
+                sft_loss_total.update(sft_loss.detach())
+                all_losses.append(sft_loss)
+                sft_samples_per_dataset[key] = sft_samples_per_dataset.get(
+                    key, 0
+                ) + input_ids.size(0)
+
+        loss = sum(all_losses) / len(
+            all_losses
+        )  # TODO: losses can be combined in different ways.
 
         # backprop
         with fabric.no_backward_sync(model, enabled=is_accumulating):
@@ -428,12 +489,16 @@ def fit(
             optimizer.zero_grad()
             state["step_count"] += 1
 
+        running_loss_total.update(loss.detach())
+
         if state["iter_num"] % log_iter_interval == 0:
             loss = (
                 running_loss_total.compute().item()
             )  # expensive device-to-host synchronization
             loss_lm = lm_loss_total.compute().item()
+            avg_loss_lm = loss_lm / lm_samples if lm_samples > 0 else None
             loss_sft = sft_loss_total.compute().item()
+
             t1 = time.perf_counter()
             throughput.update(
                 time=(t1 - total_t0),
@@ -444,11 +509,30 @@ def fit(
                     state["iter_num"] * train.micro_batch_size * model.max_seq_length
                 ),
             )
+            sft_loss_breakdown = {
+                key: loss_per_dataset.compute().item()
+                for key, loss_per_dataset in sft_loss_per_dataset.items()
+            }
+            avg_loss_sft = {
+                key: (
+                    loss_per_dataset.compute().item() / sft_samples_per_dataset[key]
+                    if sft_samples_per_dataset.get(key, 0) > 0
+                    else None
+                )
+                for key, loss_per_dataset in sft_loss_per_dataset.items()
+            }
 
+            sft_num_samples = {
+                key: sft_samples_per_dataset.get(key, 0)
+                for key in sft_loss_per_dataset.keys()
+            }
             metrics = {
                 "loss": loss,
                 "loss_lm": loss_lm,
                 "loss_sft": loss_sft,
+                **sft_loss_breakdown,
+                "num_samples_lm": lm_samples,
+                **sft_num_samples,
                 "iter": state["iter_num"],
                 "step": state["step_count"],
                 "epoch": train_iterator.epoch,
@@ -471,11 +555,16 @@ def fit(
             }
             if isinstance(val_loss, float):
                 val_loss = f"{val_loss:.3f}"
+
+            sft_sets_str = " | ".join(
+                [f"loss {name}: {loss}" for name, loss in sft_loss_breakdown.items()]
+            )
             fabric.print(
                 f"Epoch {metrics['epoch']+1} | iter {metrics['iter']} step {metrics['step']} |"
                 f" loss train: {metrics['loss']:.3f},"
                 f" loss train (lm): {metrics['loss_lm']}",
                 f" loss train (sft): {metrics['loss_sft']}",
+                f" ~~ breakdown: {sft_sets_str} ~~"
                 f" val: {val_loss} |"
                 f" iter time: {metrics['iter_time'] * 1000:.2f} ms"
                 f"{' (step)' if not is_accumulating else ''}"
@@ -561,8 +650,10 @@ def validate(
         ):  # TODO: this iterator is structured weirdly, maybe reconsider.
             # structure: ({"sft": sft_data, "lm": lm_data}, batch_idx, dataloader_idx)
             paired_data = batch[0]
-            sft_data = paired_data.get("sft", None)
             lm_data = paired_data.get("lm", None)
+            sft_datasets = {
+                key: paired_data[key] for key in paired_data.keys() if key != "lm"
+            }
             batch_idx = batch[1]
             dataloader_idx = batch[2]
 
@@ -577,16 +668,18 @@ def validate(
             losses_lm.append(loss)
 
         # Process SFT data
-        if sft_data is not None:
-            input_ids, targets = sft_data["input_ids"], sft_data["labels"]
-            logits = model(input_ids)
-            sft_loss = chunked_cross_entropy(
-                logits[..., :-1, :], targets[..., 1:], chunk_size=0
-            )
-            # issue is that this seq len is too long. Probably due to mismatch between sft length and lm dataset length
+        for key in sft_datasets:
+            sft_data = sft_datasets[key]
+            if sft_data is not None:
+                input_ids, targets = sft_data["input_ids"], sft_data["labels"]
+                logits = model(input_ids)
+                sft_loss = chunked_cross_entropy(
+                    logits[..., :-1, :], targets[..., 1:], chunk_size=0
+                )
+                # issue is that this seq len is too long. Probably due to mismatch between sft length and lm dataset length
 
-            losses.append(sft_loss)
-            losses_sft.append(sft_loss)
+                losses.append(sft_loss)
+                losses_sft.append(sft_loss)
 
     val_loss = torch.stack(losses).mean()
     val_loss_lm = torch.stack(losses_lm).mean()

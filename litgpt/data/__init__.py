@@ -18,7 +18,7 @@ from litgpt.data.tinyllama import TinyLlama  # isort: skip
 from litgpt.data.tinystories import TinyStories  # isort: skip
 from litgpt.data.openwebtext import OpenWebText  # isort: skip
 from litgpt.data.microllama import MicroLlama  # isort: skip
-from litgpt.data.mixed_dataset import MixedDataset  # isort: skip
+from litgpt.data.mixed_dataset_inprog import MixedDataset  # isort: skip
 from litgpt.data.fineweb import FineWebDataset  # isort: skip
 
 __all__ = [

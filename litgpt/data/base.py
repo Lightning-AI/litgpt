@@ -5,11 +5,11 @@ from typing import Any, Callable, Dict, List, Optional, Union
 
 import torch
 from lightning import LightningDataModule
-from torch import Tensor
-from torch.utils.data import Dataset
 
 from litgpt import Tokenizer
 from litgpt.prompts import PromptStyle
+from torch import Tensor
+from torch.utils.data import Dataset
 
 
 class DataModule(LightningDataModule):
@@ -17,7 +17,10 @@ class DataModule(LightningDataModule):
 
     @abstractmethod
     def connect(
-        self, tokenizer: Optional[Tokenizer] = None, batch_size: int = 1, max_seq_length: Optional[int] = None
+        self,
+        tokenizer: Optional[Tokenizer] = None,
+        batch_size: int = 1,
+        max_seq_length: Optional[int] = None,
     ) -> None:
         """All settings that can't be determined at the time of instantiation need to be passed through here
         before any dataloaders can be accessed.
@@ -64,7 +67,9 @@ class SFTDataset(Dataset):
         self.data = data
         self.tokenizer = tokenizer
         self.prompt_style = (
-            prompt_style if isinstance(prompt_style, PromptStyle) else PromptStyle.from_name(prompt_style)
+            prompt_style
+            if isinstance(prompt_style, PromptStyle)
+            else PromptStyle.from_name(prompt_style)
         )
         self.max_seq_length = max_seq_length
         self.mask_prompt = mask_prompt
@@ -90,30 +95,51 @@ class SFTDataset(Dataset):
         if self.mask_prompt:
             labels[: len(encoded_prompt)] = self.ignore_index
 
-        return {"input_ids": encoded_prompt_and_response.type(torch.int64), "labels": labels.type(torch.int64)}
+        return {
+            "input_ids": encoded_prompt_and_response.type(torch.int64),
+            "labels": labels.type(torch.int64),
+        }
 
 
-def get_sft_collate_fn(max_seq_length: int = -1, pad_id: int = 0, ignore_index: int = -100):
+def get_sft_collate_fn(
+    max_seq_length: int = -1, pad_id: int = 0, ignore_index: int = -100
+):
     """Returns the collate function for supervised finetuning (needed in the DataLoader).
 
     The collate function gets a list of dicts with keys `input_ids` and `labels`.
     It returns a dict with batched `input_ids` and `labels`. Also pads short sequences to the longest element in
     the batch. Optionally truncates all sequences to the specified maximum length.
     """
-    return partial(_sft_collate_fn, max_seq_length=max_seq_length, pad_id=pad_id, ignore_index=ignore_index)
+    return partial(
+        _sft_collate_fn,
+        max_seq_length=max_seq_length,
+        pad_id=pad_id,
+        ignore_index=ignore_index,
+    )
 
 
 def _sft_collate_fn(
-    samples: List[Dict[str, Tensor]], max_seq_length: int = -1, pad_id: int = 0, ignore_index: int = -100
+    samples: List[Dict[str, Tensor]],
+    max_seq_length: int = -1,
+    pad_id: int = 0,
+    ignore_index: int = -100,
 ) -> Dict[str, Tensor]:
 
     batched = {}
     for key in ("input_ids", "labels"):
         pad_value = pad_id if key == "input_ids" else ignore_index
 
+        # not sure if this will interfere with other stuff, need it for my combined loader
+        # sequences = [
+        #     sample[key].unsqueeze(0) if sample[key].dim() == 1 else sample[key]
+        #     for sample in samples
+        # ]
+
         # Pad right based on the longest sequence
         batched[key] = torch.nn.utils.rnn.pad_sequence(
-            [sample[key] for sample in samples], batch_first=True, padding_value=pad_value
+            [sample[key] for sample in samples],
+            batch_first=True,
+            padding_value=pad_value,
         )
 
         # Truncate if needed
@@ -121,3 +147,22 @@ def _sft_collate_fn(
             batched[key] = batched[key][:, :max_seq_length]
 
     return batched
+
+
+def pad_and_stack(
+    tensors: List[Tensor],
+    max_seq_length: int = -1,
+    pad_id: int = 0,
+    ignore_index: int = -100,
+    dim: int = 1,
+) -> Tensor:
+    # note: for 2d tensors
+    max_len = max(tensor.size(dim) for tensor in tensors)
+
+    padded = []
+    for t in tensors:
+        pad_len = max_len - t.size(dim)
+        padded_t = torch.nn.functional.pad(t, (0, pad_len), value=pad_id)
+        padded.append(padded_t)
+
+    return torch.cat(padded, dim=1 - dim)
