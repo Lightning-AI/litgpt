@@ -214,9 +214,9 @@ class CausalSelfAttention(nn.Module):
         self.proj = nn.Linear(config.head_size * config.n_head, config.n_embd, bias=config.bias)
         # disabled by default
         self.kv_cache: Optional[KVCache] = None
+        self.apply_sliding_window_attention = config.sliding_window_size is not None and not block_idx % config.swa_apply_to_layers
 
         self.config = config
-        self.apply_sliding_window_attention = self.config.sliding_window_size is not None and not block_idx % self.config.swa_apply_to_layers
 
     def forward(
         self,

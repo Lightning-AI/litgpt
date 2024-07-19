@@ -178,6 +178,7 @@ class CausalSelfAttention(BaseCausalSelfAttention):
             # kv cache for inference
             self.adapter_kv_cache: Optional[Tuple[torch.Tensor, torch.Tensor]] = None
         self.block_idx = block_idx
+        self.apply_sliding_window_attention = config.sliding_window_size is not None and not block_idx % config.swa_apply_to_layers
 
         self.config = config
 

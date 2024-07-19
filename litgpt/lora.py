@@ -622,9 +622,9 @@ class CausalSelfAttention(BaseCausalSelfAttention):
         )
         # disabled by default
         self.kv_cache: Optional[KVCache] = None
+        self.apply_sliding_window_attention = config.sliding_window_size is not None and not block_idx % config.swa_apply_to_layers
 
         self.config = config
-        self.block_idx = block_idx
 
     def _load_from_state_dict(self, state_dict: Dict, prefix: str, *args: Any, **kwargs: Any) -> None:
         """For compatibility with base checkpoints."""
