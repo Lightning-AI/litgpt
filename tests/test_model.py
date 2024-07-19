@@ -386,11 +386,12 @@ def test_against_hf_phi_3(model_name, device, dtype):
         ),
     ],
 )
-def test_against_hf_mistral(device, dtype):
+@pytest.mark.parametrize("model_name", ["Mistral-7B-Instruct-v0.1", "Mathstral-7B-v0.1"])
+def test_against_mistral_hf_models(device, dtype, model_name):
     torch.set_default_dtype(dtype)
 
     ours_config = Config.from_name(
-        "Mistral-7B-Instruct-v0.1",
+        model_name,
         padded_vocab_size=10000,
         n_layer=2,
         n_embd=32,
@@ -398,6 +399,7 @@ def test_against_hf_mistral(device, dtype):
         n_query_groups=2,
         intermediate_size=86,
     )
+
     T = 5
     theirs_config = MistralConfig(
         vocab_size=ours_config.padded_vocab_size,
@@ -410,6 +412,7 @@ def test_against_hf_mistral(device, dtype):
         num_key_value_heads=ours_config.n_query_groups,
         rope_theta=ours_config.rope_base,
     )
+
     assert ours_config.intermediate_size == theirs_config.intermediate_size
 
     theirs_model = MistralForCausalLM(theirs_config).to(device)

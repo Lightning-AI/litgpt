@@ -6,6 +6,7 @@ from typing import Any, List, Literal, Optional, Union
 
 import torch
 import lightning as L
+from lightning.fabric.plugins import BitsandbytesPrecision
 
 
 from litgpt.model import GPT  # needs to be imported before config
@@ -127,10 +128,19 @@ class LLM:
         torch.set_float32_matmul_precision("high")
         precision = precision or get_default_supported_precision(training=False)
 
+        plugins = None
+        if quantize is not None and quantize.startswith("bnb."):
+            if "mixed" in precision:
+                raise ValueError("The combination of quantization and mixed precision is not supported.")
+            dtype = {"16-true": torch.float16, "bf16-true": torch.bfloat16, "32-true": torch.float32}[precision]
+            plugins = BitsandbytesPrecision(quantize[4:], dtype)
+            precision = None
+
         fabric = L.Fabric(
             accelerator=accelerator,
             devices=devices,
             precision=precision,
+            plugins=plugins
         )
 
         if tokenizer_dir is not None:
@@ -153,8 +163,9 @@ class LLM:
         with fabric.init_module(empty_init=(num_devices > 1)):
             model = GPT(config)
 
-        with fabric.init_tensor():
-            model.set_kv_cache(batch_size=1)
+        # This should be set if we add a compile feature later
+        # with fabric.init_tensor():
+        #     model.set_kv_cache(batch_size=1)
 
         model.eval()
         model = fabric.setup_module(model)
@@ -168,6 +179,7 @@ class LLM:
             prompt_style=prompt_style, checkpoint_dir=checkpoint_dir, fabric=fabric,
         )
 
+    @torch.inference_mode()
     def generate(
         self,
         prompt: str,
@@ -175,7 +187,6 @@ class LLM:
         temperature: float = 1.0,
         top_k: Optional[int] = None,
         top_p: float = 1.0,
-        eos_id: Optional[int] = None,
         return_as_token_ids: bool = False,
         stream: bool = False
     ) -> Union[str, torch.Tensor]:
@@ -202,14 +213,16 @@ class LLM:
 
                 For more details, see https://arxiv.org/abs/1904.09751
                 or https://huyenchip.com/2024/01/16/sampling.html#top_p
-            eos_id: If specified, stop generating any more token once the <eos> token is triggered.
-            return_as_token_ids: If true. returns the generated tokens as IDs rather then detokenized text.
-
         """
         prompt = self.prompt_style.apply(prompt)
         input_ids = self.preprocessor.tokenizer.encode(prompt)
         prompt_length = input_ids.size(0)
         max_returned_tokens = prompt_length + max_new_tokens
+
+        first_turn = self.model.mask_cache is None
+        if first_turn or max_returned_tokens > self.model.max_seq_length:
+            self.model.max_seq_length = max_returned_tokens
+            self.model.set_kv_cache(batch_size=1, device=self.fabric.device)
 
         self.model.eval()
 
@@ -249,8 +262,7 @@ class LLM:
                 include_prompt=False,
             )
 
-        for block in self.model.transformer.h:
-            block.attn.kv_cache.reset_parameters()
+        self.model.clear_kv_cache()
 
         if stream:
             return outputs
