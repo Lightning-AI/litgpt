@@ -138,7 +138,7 @@ class Block(BaseBlock):
         nn.Module.__init__(self)
         if not config.parallel_residual and config.shared_attention_norm:
             raise NotImplementedError(
-                "No checkpoint amongst the ones we support uses this configuration"
+                "No checkpoint amongst the ones we support uses this configuration:"
                 " (non-parallel residual and shared attention norm)."
             )
         self.norm_1 = config.norm_class(config.n_embd, eps=config.norm_eps)
