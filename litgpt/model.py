@@ -263,8 +263,8 @@ class CausalSelfAttention(nn.Module):
         # In Gemma only layers 0, 2, 4, ... have a sliding window attention
         if self.config.sliding_window_size is not None and not self.block_idx % 2:
             """
-                  Global Window              Sliding window                 Final
-                  attention mask      +      attention mask       =      attention mask
+                  Global Window              Sliding window             Sliding window
+                  attention mask      +            bias          =      attention mask
             ┌────────────────────────┐  ┌───────────────────────┐  ┌─────────────────────────┐
             │ True False False False │  │ True  True  True True │  │ True  False False False │
             │ True True  False False │  │ True  True  True True │  │ True  True  False False │
@@ -275,9 +275,9 @@ class CausalSelfAttention(nn.Module):
             if mask is None:
                 mask = torch.ones(T, T, dtype=q.dtype, device=q.device).triu(diagonal=1)
                 mask.masked_fill_(mask.bool(), float("-inf"))
-            sliding_window_mask = torch.ones_like(mask).tril(diagonal=-self.config.sliding_window_size)
-            sliding_window_mask.masked_fill_(sliding_window_mask.bool(), float("-inf"))
-            mask += sliding_window_mask
+            sliding_window_bias = torch.ones_like(mask).tril(diagonal=-self.config.sliding_window_size)
+            sliding_window_bias.masked_fill_(sliding_window_bias.bool(), float("-inf"))
+            mask += sliding_window_bias
 
         y = self.scaled_dot_product_attention(q, k, v, mask)
 
