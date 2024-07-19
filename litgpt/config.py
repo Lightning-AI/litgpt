@@ -98,10 +98,8 @@ class Config:
 
         self.rope_n_elem = int(self.rotary_percentage * self.head_size)
 
-        if self.sliding_window_size is not None and self.swa_apply_to_layers is None:
-            self.swa_apply_to_layers = 1
-        else:
-            self.swa_apply_to_layers = 1 if self.swa_apply_to_layers == "all" else 2
+        if self.sliding_window_size is not None:
+            self.swa_apply_to_layers = 1 if (self.swa_apply_to_layers is None or self.swa_apply_to_layers == "all") else 2
 
     @classmethod
     def from_name(cls, name: str, **kwargs: Any) -> Optional[Self]:
