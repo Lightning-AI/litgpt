@@ -947,7 +947,7 @@ gemma = [
         hf_config=dict(org="google", name="gemma-2-9b"),
         scale_embeddings=True,
         # In Gemma attention scores are scaled not by `sqrt(head_size)` (16),
-        # but by `n_emb` / `n_head` = 3584 / 16 = 224
+        # but by `sqrt(n_emb // n_head)` = sqrt(3584 // 16) = 14.96
         attention_scores_scalar=224,
         vocab_size=256000,
         block_size=8192,
@@ -974,8 +974,8 @@ gemma = [
         name="Gemma-2-27b",
         hf_config=dict(org="google", name="gemma-2-27b"),
         scale_embeddings=True,
-        # In Gemma attention scores are scaled not by `head_size` (128),
-        # but by `n_emb` / `n_head` = 4608 / 32 = 144
+        # In Gemma attention scores are scaled not by `sqrt(head_size)` (11.31),
+        # but by `sqrt(n_emb // n_head)` = sqrt(4608 // 32) = 12
         attention_scores_scalar=144,
         vocab_size=256000,
         block_size=8192,
