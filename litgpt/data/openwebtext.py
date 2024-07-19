@@ -74,14 +74,14 @@ class OpenWebText(DataModule):
             fn=partial(tokenize, split_dataset["train"]),
             inputs=list(range(len(split_dataset["train"]))),
             output_dir=self.data_path_train,
-            num_workers=64,
+            num_workers=min(64, os.cpu_count() - 1),
             chunk_bytes="200MB",
         )
         optimize(
             fn=partial(tokenize, split_dataset["val"]),
             inputs=list(range(len(split_dataset["val"]))),
             output_dir=self.data_path_val,
-            num_workers=8,
+            num_workers=min(8, os.cpu_count() - 1),
             chunk_bytes="200MB",
         )
 
@@ -92,7 +92,6 @@ class OpenWebText(DataModule):
             input_dir=self.data_path_train,
             item_loader=TokensLoader(block_size=self.seq_length),
             shuffle=True,
-            drop_last=True,
         )
         train_dataloader = StreamingDataLoader(
             train_dataset, batch_size=self.batch_size, pin_memory=True, num_workers=self.num_workers, drop_last=True
@@ -106,8 +105,6 @@ class OpenWebText(DataModule):
             input_dir=self.data_path_val,
             item_loader=TokensLoader(block_size=self.seq_length),
             shuffle=True,
-            # Consider setting to False, but we would lose some samples due to truncation when world size > 1
-            drop_last=True,
         )
         val_dataloader = StreamingDataLoader(
             val_dataset, batch_size=self.batch_size, pin_memory=True, num_workers=self.num_workers, drop_last=True
