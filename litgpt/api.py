@@ -187,7 +187,6 @@ class LLM:
         temperature: float = 1.0,
         top_k: Optional[int] = None,
         top_p: float = 1.0,
-        eos_id: Optional[int] = None,
         return_as_token_ids: bool = False,
         stream: bool = False
     ) -> Union[str, torch.Tensor]:
@@ -214,9 +213,6 @@ class LLM:
 
                 For more details, see https://arxiv.org/abs/1904.09751
                 or https://huyenchip.com/2024/01/16/sampling.html#top_p
-            eos_id: If specified, stop generating any more token once the <eos> token is triggered.
-            return_as_token_ids: If true. returns the generated tokens as IDs rather then detokenized text.
-
         """
         prompt = self.prompt_style.apply(prompt)
         input_ids = self.preprocessor.tokenizer.encode(prompt)
