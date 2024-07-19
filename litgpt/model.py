@@ -396,8 +396,9 @@ class KVCache(nn.Module):
         self.k = self.k.to(k.dtype)
         self.v = self.v.to(v.dtype)
         # update the cache
-        k = self.k.index_copy_(2, input_pos, k)
-        v = self.v.index_copy_(2, input_pos, v)
+        n = k.size(0)
+        k = self.k[:n, ...].index_copy_(2, input_pos, k)
+        v = self.v[:n, ...].index_copy_(2, input_pos, v)
         return k, v
 
     def reset_parameters(self) -> None:
