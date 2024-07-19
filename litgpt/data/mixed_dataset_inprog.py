@@ -420,7 +420,10 @@ class CombinedLoaderWithSamplingRates(DataLoader):
 
             yield dict(batch)
 
-    def change_sampling_rates(self, new_sampling_rates):
+    def set_sampling_rates(self, new_sampling_rates):
+        assert len(self.loaders.keys()) == len(
+            new_sampling_rates
+        ), "The length of sampling rates should be equal to the num datasets"
         self.sampling_rates = new_sampling_rates
         self.cumulative_rates = [
             sum(self.sampling_rates[:i]) for i in range(len(self.sampling_rates))

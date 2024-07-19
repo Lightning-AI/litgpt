@@ -10,6 +10,7 @@ from pathlib import Path
 from typing import Dict, Optional, Tuple, Union
 
 import lightning as L
+import numpy as np
 import torch
 import torch.nn as nn
 from lightning.fabric.strategies import FSDPStrategy
@@ -371,8 +372,13 @@ def fit(
         if state["iter_num"] % episode_length == 0 and state["iter_num"] != 0:
             # Update the sampling ratios
             # TODO: just testing here. Change this to the real update later.
-            pass
-            
+            # wtf there's an inner dataloader (likely the real one) and separate copy of attributes in fabric loader.
+            # Change them both just to be safe?
+            new_sampling_rate = list(np.random.dirichlet(np.ones(3)))
+            train_dataloader.sampling_rates = new_sampling_rate
+            train_dataloader._dataloader.sampling_rates = new_sampling_rate
+            print(f"Changing sampling rate to {new_sampling_rate}")
+
         # determine and set the learning rate for this iteration
         lr = get_lr(
             2e-5,  # the default LR is too high. Using this one

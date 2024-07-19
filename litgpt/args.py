@@ -36,6 +36,10 @@ class TrainArgs:
     # Optimization args
     max_norm: Optional[float] = None
     min_lr: float = 6e-5
+    init_lr: float = 2e-5
+
+    # for adaptive sampling
+    episode_length: Optional[float] = None
 
     def __post_init__(self) -> None:
         if self.lr_warmup_fraction and self.lr_warmup_steps:
