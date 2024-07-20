@@ -66,7 +66,6 @@ def test_chat_with_model():
 
 
 @RunIf(min_cuda_gpus=1)
-@mock.patch.dict(os.environ, {"LT_ACCELERATOR": "gpu"})
 @pytest.mark.dependency(depends=["test_download_model"])
 def test_chat_with_quantized_model():
     command = ["litgpt", "generate", "checkpoints" / REPO_ID, "--quantize", "bnb.nf4", "--precision", "bf16-true"]
