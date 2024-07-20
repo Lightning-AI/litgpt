@@ -64,6 +64,15 @@ def test_chat_with_model():
     assert "What food do llamas eat?" in result.stdout
 
 
+@mock.patch.dict(os.environ, {"LT_ACCELERATOR": "gpu"})
+@pytest.mark.dependency(depends=["test_download_model"])
+def test_chat_with_quantized_model():
+    command = ["litgpt", "generate", "checkpoints" / REPO_ID, "--quantize", "bnb.nf4", "--precision", "bf16-true"]
+    prompt = "What do Llamas eat?"
+    result = subprocess.run(command, input=prompt, text=True, capture_output=True, check=True)
+    assert "What food do llamas eat?" in result.stdout, result.stdout
+
+
 @mock.patch.dict(os.environ, {"LT_ACCELERATOR": "cpu"})
 @pytest.mark.dependency(depends=["test_download_model"])
 @pytest.mark.timeout(300)
