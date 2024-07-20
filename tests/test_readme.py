@@ -10,6 +10,7 @@ from unittest import mock
 
 import pytest
 import requests
+from tests.conftest import RunIf
 
 REPO_ID = Path("EleutherAI/pythia-14m")
 CUSTOM_TEXTS_DIR = Path("custom_texts")
@@ -64,6 +65,7 @@ def test_chat_with_model():
     assert "What food do llamas eat?" in result.stdout
 
 
+@RunIf(min_cuda_gpus=1)
 @mock.patch.dict(os.environ, {"LT_ACCELERATOR": "gpu"})
 @pytest.mark.dependency(depends=["test_download_model"])
 def test_chat_with_quantized_model():
