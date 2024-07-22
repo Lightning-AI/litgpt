@@ -1,9 +1,11 @@
 # (c) Meta Platforms, Inc. and affiliates. Confidential and proprietary.
 # Copyright Lightning AI. Licensed under the Apache License 2.0, see LICENSE file.
 
+import contextlib
 import math
 import pprint
 import time
+from collections import defaultdict
 from datetime import timedelta
 from functools import partial
 from pathlib import Path
@@ -41,6 +43,16 @@ from litgpt.utils import (
 from torch.utils.data import DataLoader
 from torchmetrics.aggregation import RunningMean
 from typing_extensions import Literal
+
+
+@contextlib.contextmanager
+def selective_grad_mode(enable_grad):
+    if enable_grad:
+        with torch.enable_grad():
+            yield
+    else:
+        with torch.no_grad():
+            yield
 
 
 # TODO: backwards update, just a static weight for now
@@ -298,6 +310,30 @@ def main(
         fabric.print(f"Memory used: {torch.cuda.max_memory_allocated() / 1e9:.02f} GB")
 
 
+def collect_gradients(fabric, model, loss):
+    gradients = {}
+
+    def make_hook(name):
+        def hook(grad):
+            gradients[name] = grad.clone().detach()
+            return grad
+
+        return hook
+
+    handles = []
+    for name, param in model.named_parameters():
+        if param.requires_grad:
+            handle = param.register_hook(make_hook(name))
+            handles.append(handle)
+
+    fabric.backward(loss)
+
+    for handle in handles:
+        handle.remove()
+
+    return gradients
+
+
 def fit(
     fabric: L.Fabric,
     devices: int,
@@ -315,14 +351,16 @@ def fit(
     optimizer = state["optimizer"]
 
     if eval.initial_validation:
-        val_loss, val_loss_lm, val_loss_sft = validate(
+        val_loss, val_loss_lm, val_loss_sft, _ = validate(
             fabric, model, val_dataloader, max_iters=eval.max_iters
         )
         val_loss = f"{val_loss:.3f}"
         val_loss_lm = f"{val_loss_lm:.3f}"
         val_loss_sft = f"{val_loss_sft:.3f}"
     else:
-        validate(fabric, model, val_dataloader, max_iters=2)  # sanity check
+        validate(
+            fabric, model, val_dataloader, max_iters=2, do_collect_gradients=True
+        )  # sanity check
         val_loss = "n/a"
 
     throughput = ThroughputMonitor(fabric, window_size=5)
@@ -587,8 +625,12 @@ def fit(
             and state["step_count"] % eval.interval == 0
         ):
             t0 = time.perf_counter()
-            val_loss, val_loss_lm, val_loss_sft = validate(
-                fabric, model, val_dataloader, max_iters=eval.max_iters
+            val_loss, val_loss_lm, val_loss_sft, mean_grads = validate(
+                fabric,
+                model,
+                val_dataloader,
+                max_iters=eval.max_iters,
+                do_collect_gradients=True,
             )
             val_loss = val_loss.item()
             val_loss_lm = val_loss_lm.item()
@@ -621,7 +663,7 @@ def fit(
 
     # Final validation
     if eval.final_validation:
-        val_loss, val_loss_lm, val_loss_sft = validate(
+        val_loss, val_loss_lm, val_loss_sft, _ = validate(
             fabric, model, val_dataloader, max_iters=eval.max_iters
         )
         metrics = {
@@ -638,7 +680,11 @@ def fit(
 
 @torch.no_grad()
 def validate(
-    fabric: L.Fabric, model: nn.Module, val_dataloader: DataLoader, max_iters: int
+    fabric: L.Fabric,
+    model: nn.Module,
+    val_dataloader: DataLoader,
+    max_iters: int,
+    do_collect_gradients: bool = False,
 ) -> torch.Tensor:
     fabric.barrier()
     fabric.print("Validating ...")
@@ -647,52 +693,72 @@ def validate(
     losses = []
     losses_lm = []
     losses_sft = []
-    for k, batch in enumerate(val_dataloader):
-        if k >= max_iters:
-            break
+    all_gradients = defaultdict(list)
 
-        if isinstance(
-            batch, tuple
-        ):  # TODO: this iterator is structured weirdly, maybe reconsider.
-            # structure: ({"sft": sft_data, "lm": lm_data}, batch_idx, dataloader_idx)
-            paired_data = batch[0]
-            lm_data = paired_data.get("lm", None)
-            sft_datasets = {
-                key: paired_data[key] for key in paired_data.keys() if key != "lm"
-            }
-            batch_idx = batch[1]
-            dataloader_idx = batch[2]
+    with selective_grad_mode(do_collect_gradients):
+        for k, batch in enumerate(val_dataloader):
+            if k >= max_iters:
+                break
 
-        # Process LM data
-        if lm_data is not None:
-            input_ids = lm_data[:, 0 : model.max_seq_length].contiguous().long()
-            targets = lm_data[:, 1 : (model.max_seq_length + 1)].contiguous().long()
-            logits = model(input_ids)
-            loss = chunked_cross_entropy(logits, targets)
+            if isinstance(
+                batch, tuple
+            ):  # TODO: this iterator is structured weirdly, maybe reconsider.
+                # structure: ({"sft": sft_data, "lm": lm_data}, batch_idx, dataloader_idx)
+                paired_data = batch[0]
+                lm_data = paired_data.get("lm", None)
+                sft_datasets = {
+                    key: paired_data[key] for key in paired_data.keys() if key != "lm"
+                }
+                batch_idx = batch[1]
+                dataloader_idx = batch[2]
 
-            losses.append(loss)
-            losses_lm.append(loss)
-
-        # Process SFT data
-        for key in sft_datasets:
-            sft_data = sft_datasets[key]
-            if sft_data is not None:
-                input_ids, targets = sft_data["input_ids"], sft_data["labels"]
+            # Process LM data
+            if lm_data is not None:
+                input_ids = lm_data[:, 0 : model.max_seq_length].contiguous().long()
+                targets = lm_data[:, 1 : (model.max_seq_length + 1)].contiguous().long()
                 logits = model(input_ids)
-                sft_loss = chunked_cross_entropy(
-                    logits[..., :-1, :], targets[..., 1:], chunk_size=0
-                )
-                # issue is that this seq len is too long. Probably due to mismatch between sft length and lm dataset length
+                loss = chunked_cross_entropy(logits, targets)
+                if do_collect_gradients:
+                    lm_gradients = collect_gradients(fabric, model, loss)
+                    all_gradients["lm"].append(lm_gradients)
+                losses.append(loss)
+                losses_lm.append(loss)
 
-                losses.append(sft_loss)
-                losses_sft.append(sft_loss)
+            # Process SFT data
+            for key in sft_datasets:
+                sft_data = sft_datasets[key]
+                if sft_data is not None:
+                    input_ids, targets = sft_data["input_ids"], sft_data["labels"]
+                    logits = model(input_ids)
+                    sft_loss = chunked_cross_entropy(
+                        logits[..., :-1, :], targets[..., 1:], chunk_size=0
+                    )
+                    # issue is that this seq len is too long. Probably due to mismatch between sft length and lm dataset length
+                    if do_collect_gradients:
+                        task_gradients = collect_gradients(fabric, model, sft_loss)
+                        all_gradients[key].append(task_gradients)
+
+                    losses.append(sft_loss)
+                    losses_sft.append(sft_loss)
 
     val_loss = torch.stack(losses).mean()
     val_loss_lm = torch.stack(losses_lm).mean()
     val_loss_sft = torch.stack(losses_sft).mean()
+
+    mean_gradients = {}
+    if do_collect_gradients:
+        # TODO: just going to take the grad from the last layer now. Can do rand projections like the less paper later?
+        for dataset in all_gradients:
+            mean_gradients[dataset] = torch.stack(
+                [
+                    grad["_forward_module.lm_head.weight"]
+                    for grad in all_gradients[dataset]
+                ]
+            ).mean(dim=0)
+
     model.train()
     fabric.barrier()
-    return val_loss, val_loss_lm, val_loss_sft
+    return val_loss, val_loss_lm, val_loss_sft, mean_gradients
 
 
 def get_dataloaders(
