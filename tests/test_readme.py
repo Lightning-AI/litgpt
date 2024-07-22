@@ -10,6 +10,7 @@ from unittest import mock
 
 import pytest
 import requests
+from tests.conftest import RunIf
 
 REPO_ID = Path("EleutherAI/pythia-14m")
 CUSTOM_TEXTS_DIR = Path("custom_texts")
@@ -62,6 +63,15 @@ def test_chat_with_model():
     prompt = "What do Llamas eat?"
     result = subprocess.run(command, input=prompt, text=True, capture_output=True, check=True)
     assert "What food do llamas eat?" in result.stdout
+
+
+@RunIf(min_cuda_gpus=1)
+@pytest.mark.dependency(depends=["test_download_model"])
+def test_chat_with_quantized_model():
+    command = ["litgpt", "generate", "checkpoints" / REPO_ID, "--quantize", "bnb.nf4", "--precision", "bf16-true"]
+    prompt = "What do Llamas eat?"
+    result = subprocess.run(command, input=prompt, text=True, capture_output=True, check=True)
+    assert "What food do llamas eat?" in result.stdout, result.stdout
 
 
 @mock.patch.dict(os.environ, {"LT_ACCELERATOR": "cpu"})

@@ -49,16 +49,15 @@ class LitData(DataModule):
         return self._dataloader(input_dir=input_dir, train=False)
 
     def _dataloader(self, input_dir: str, train: bool):
-        from litdata.streaming import StreamingDataset, TokensLoader
+        from litdata.streaming import StreamingDataset, StreamingDataLoader, TokensLoader
 
         dataset = StreamingDataset(
             input_dir=input_dir,
             item_loader=TokensLoader(block_size=self.seq_length),
             shuffle=train,
-            drop_last=True,
             seed=self.seed,
         )
-        dataloader = DataLoader(
+        dataloader = StreamingDataLoader(
             dataset, batch_size=self.batch_size, pin_memory=True, num_workers=self.num_workers, drop_last=True
         )
         return dataloader

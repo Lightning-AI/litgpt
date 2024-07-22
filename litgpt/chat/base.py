@@ -180,7 +180,7 @@ def main(
     checkpoint_dir: Path,
     *,
     max_new_tokens: int = 50,
-    top_k: Optional[int] = 200,
+    top_k: Optional[int] = 50,
     top_p: float = 1.0,
     temperature: float = 0.8,
     quantize: Optional[Literal["bnb.nf4", "bnb.nf4-dq", "bnb.fp4", "bnb.fp4-dq", "bnb.int8"]] = None,
