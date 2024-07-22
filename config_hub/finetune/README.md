@@ -12,40 +12,33 @@ All experiments were conducted using bfloat-16 precision on the Alpaca2k dataset
 | falcon-7b/lora.yaml               | falcon-7b              | 4      | 512            | 1                | 1xA10G  | 24.84 min        | $0.7 | 16.69 GB    | 0.945           | 2.573                 | 26.2%           |
 | falcon-7b/lora.yaml               | falcon-7b              | 4      | 512            | 1                | 4xA10G  | 24.94 min        | $2.0 | 16.69 GB    | 0.945           | 2.573                 | 26.4%           |
 | falcon-7b/qlora.yaml              | falcon-7b              | 4      | 512            | 1                | 1xA10G  | 50.85 min        | $1.5 | 9.44 GB     | 0.993           | 2.699                 | 26.3%           |
-| falcon-7b/qlora.yaml              | falcon-7b              | 4      | 512            | 1                | 4xA10G  | 50.88 min        | $4.1 | 9.44 GB     | 0.993           | 2.699                 | 26.3%           |
 |                                   |                        |        |                |                  |         |                  |      |             |                 |                       |                 |
 | gemma-2b/full.yaml                | gemma-2b               | 1      | 512            | 1                | 4xA10G  | 14.06 min        | $1.1 | 17.43 GB    | 1.021           | 2.777                 | 32.4%           |
 | gemma-2b/lora.yaml                | gemma-2b               | 2      | 512            | 2                | 1xA10G  | 9.41 min         | $0.3 | 12.62 GB    | 0.981           | 2.666                 | 34.4%           |
 | gemma-2b/lora.yaml                | gemma-2b               | 2      | 512            | 2                | 4xA10G  | 9.41 min         | $0.8 | 12.62 GB    | 0.981           | 2.667                 | 34.0%           |
 | gemma-2b/qlora.yaml               | gemma-2b               | 2      | 512            | 2                | 1xA10G  | 12.91 min        | $0.4 | 11.58 GB    | 1.085           | 2.959                 | 36.4%           |
-| gemma-2b/qlora.yaml               | gemma-2b               | 2      | 512            | 2                | 4xA10G  | 12.91 min        | $1.0 | 11.59 GB    | 1.085           | 2.958                 | 36.4%           |
 |                                   |                        |        |                |                  |         |                  |      |             |                 |                       |                 |
 | gemma-7b/lora.yaml                | gemma-7b               | 2      | 512            | 1                | 1xA10G  | OOM              | OOM  | OOM         | OOM             | OOM                   |                 |
 | gemma-7b/lora.yaml                | gemma-7b               | 2      | 512            | 1                | 4xA10G  | OOM              | OOM  | OOM         | OOM             | OOM                   |                 |
-| gemma-7b/qlora.yaml               | gemma-7b               | 2      | 512            | 1                | 1xA10G  | 43.58 min        | $1.3 | 17.18 GB    | 0.973           | 2.646                 |                 |
-| gemma-7b/qlora.yaml               | gemma-7b               | 2      | 512            | 1                | 4xA10G  | 43.58 min        | $3.5 | 17.18 GB    | 0.983           | 2.672                 |                 |
+| gemma-7b/qlora.yaml               | gemma-7b               | 2      | 512            | 1                | 1xA10G  | 43.58 min        | $1.3 | 17.18 GB    | 0.973           | 2.646                 | 62.45%          |
 |                                   |                        |        |                |                  |         |                  |      |             |                 |                       |                 |
 | llama-2-7b/full.yaml              | llama-2-7b             | 1      | 512            | 4                | 4xA10G  | OOM              | OOM  | OOM         | OOM             | OOM                   |                 |
 | llama-2-7b/lora.yaml              | llama-2-7b             | 4      | 512            | 2                | 1xA10G  | 32.82 min        | $1.0 | 19.77 GB    | 0.802           | 2.230                 | 40.3%           |
 | llama-2-7b/lora.yaml              | llama-2-7b             | 4      | 512            | 2                | 4xA10G  | 32.83 min        | $2.6 | 19.77 GB    | 0.802           | 2.229                 | 40.2%           |
 | llama-2-7b/qlora.yaml             | llama-2-7b             | 4      | 512            | 2                | 1xA10G  | 45.67 min        | $1.4 | 13.68 GB    | 0.814           | 2.258                 | 38.6%           |
-| llama-2-7b/qlora.yaml             | llama-2-7b             | 4      | 512            | 2                | 4xA10G  | 45.69 min        | $3.7 | 13.68 GB    | 0.815           | 2.258                 | 38.6%           |
 |                                   |                        |        |                |                  |         |                  |      |             |                 |                       |                 |
 | llama-3-8b/full.yaml              | llama-3-8b             | 1      | 512            | 4                | 4xA10G  | OOM              | OOM  | OOM         | OOM             | OOM                   |                 |
 | llama-3-8b/lora.yaml              | llama-3-8b             | 2      | 512            | 1                | 1xA10G  | 14.79 min        | $0.4 | 19.73 GB    | 0.888           | 2.431                 | 62.4%           |
 | llama-3-8b/lora.yaml              | llama-3-8b             | 2      | 512            | 1                | 4xA10G  | 14.88 min        | $1.2 | 19.73 GB    | 0.889           | 2.432                 | 62.5%           |
 | llama-3-8b/qlora.yaml             | llama-3-8b             | 2      | 512            | 2                | 1xA10G  | 22.24 min        | $0.7 | 17.41 GB    | 0.939           | 2.558                 | 62.2%           |
-| llama-3-8b/qlora.yaml             | llama-3-8b             | 2      | 512            | 2                | 4xA10G  | 22.20 min        | $1.8 | 17.41 GB    | 0.939           | 2.557                 | 62.2%           |
 |                                   |                        |        |                |                  |         |                  |      |             |                 |                       |                 |
 | mistral-7b-v0.2/lora.yaml         | mistral-7b-v0.2        | 4      | 512            | 2                | 1xA10G  | 31.00 min        | $0.9 | 20.66 GB    | 0.801           | 2.228                 | 55.7%           |
 | mistral-7b-v0.2/lora.yaml         | mistral-7b-v0.2        | 4      | 512            | 2                | 4xA10G  | 31.00 min        | $2.5 | 20.66 GB    | 0.802           | 2.229                 | 55.5%           |
 | mistral-7b-v0.2/qlora.yaml        | mistral-7b-v0.2        | 4      | 512            | 2                | 1xA10G  | 44.75 min        | $1.3 | 14.29 GB    | 0.813           | 2.255                 | 56.5%           |
-| mistral-7b-v0.2/qlora.yaml        | mistral-7b-v0.2        | 4      | 512            | 2                | 4xA10G  | 44.75 min        | $3.6 | 14.29 GB    | 0.813           | 2.254                 | 56.3%           |
 |                                   |                        |        |                |                  |         |                  |      |             |                 |                       |                 |
 | mistral-7b/lora.yaml              | mistral-7b             | 4      | 512            | 2                | 1xA10G  | 31.01 min        | $0.9 | 20.66 GB    | 0.794           | 2.211                 | 57.9%           |
 | mistral-7b/lora.yaml              | mistral-7b             | 4      | 512            | 2                | 4xA10G  | 31.03 min        | $2.5 | 20.66 GB    | 0.796           | 2.218                 | 57.9%           |
 | mistral-7b/qlora.yaml             | mistral-7b             | 4      | 512            | 2                | 1xA10G  | 44.75 min        | $1.3 | 14.29 GB    | 0.803           | 2.231                 | 57.9%           |
-| mistral-7b/qlora.yaml             | mistral-7b             | 4      | 512            | 2                | 4xA10G  | 44.81 min        | $3.6 | 14.29 GB    | 0.803           | 2.233                 | 57.6%           |
 |                                   |                        |        |                |                  |         |                  |      |             |                 |                       |                 |
 | phi-2/full.yaml                   | phi-2                  | 1      | 512            | 4                | 4xA10G  | 11.87 min        | $1.0 | 14.44 GB    | 1.305           | 3.688                 | 38.4%           |
 | phi-2/lora.yaml                   | phi-2                  | 1      | 512            | 4                | 1xA10G  | 3.78 min         | $0.1 | 13.98 GB    | 0.819           | 2.269                 | 53.0%           |
@@ -61,15 +54,14 @@ All experiments were conducted using bfloat-16 precision on the Alpaca2k dataset
 | stablelm-base-alpha-3b/lora.yaml  | stablelm-base-alpha-3b | 4      | 512            | 1                | 1xA10G  | 13.07 min        | $0.4 | 8.58 GB     | 1.361           | 3.900                 | 25.9%           |
 | stablelm-base-alpha-3b/lora.yaml  | stablelm-base-alpha-3b | 4      | 512            | 1                | 4xA10G  | 13.16 min        | $1.1 | 8.58 GB     | 1.362           | 3.906                 | 25.9%           |
 | stablelm-base-alpha-3b/qlora.yaml | stablelm-base-alpha-3b | 4      | 512            | 1                | 1xA10G  | 25.86 min        | $0.8 | 5.24 GB     | 1.388           | 4.009                 | 26.1%           |
-| stablelm-base-alpha-3b/qlora.yaml | stablelm-base-alpha-3b | 4      | 512            | 1                | 4xA10G  | 25.80 min        | $2.1 | 5.24 GB     | 1.391           | 4.020                 | 26.6%           |
 |                                   |                        |        |                |                  |         |                  |      |             |                 |                       |                 |
 | tiny-llama/full.yaml              | tiny-llama             | 1      | 512            | 4                | 1xA10G  | 2.58 min         | $0.1 | 14.10 GB    | 1.088           | 2.968                 | 24.6%           |
 | tiny-llama/full.yaml              | tiny-llama             | 1      | 512            | 4                | 4xA10G  | 2.57 min         | $0.2 | 14.10 GB    | 1.088           | 2.968                 | 24.5%           |
 | tiny-llama/lora.yaml              | tiny-llama             | 3      | 512            | 8                | 1xA10G  | 8.09 min         | $0.2 | 13.50 GB    | 1.039           | 2.826                 | 25.5%           |
 | tiny-llama/qlora.yaml             | tiny-llama             | 3      | 512            | 8                | 1xA10G  | 8.70 min         | $0.3 | 16.24 GB    | 1.056           | 2.874                 | 25.3%           |
-| tiny-llama/qlora.yaml             | tiny-llama             | 3      | 512            | 8                | 4xA10G  | 8.70 min         | $0.7 | 16.24 GB    | 1.056           | 2.874                 | 25.4%           |
 
 *OOM = Out of memory
+** 
 
 
 &nbsp;
@@ -96,3 +88,15 @@ litgpt finetune lora \
 ```
 
 Note that `16-true` is more compute and memory-efficient, but it can sometimes lead to training convergence issues. In this case, it's recommended to use `16-mixed`.
+
+&nbsp;
+## Multi-GPU experiments
+
+All runs are single-GPU experiments, use `--devices 4` to utilize more than one GPU:
+
+
+```bash
+litgpt finetune lora \
+  --config config_hub/finetune/phi-2/lora.yaml \
+  --devices 4
+```
