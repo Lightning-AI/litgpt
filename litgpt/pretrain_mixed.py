@@ -55,6 +55,12 @@ def selective_grad_mode(enable_grad):
             yield
 
 
+# accumulate grad and return the grad norm
+def accumulate_grads(fabric, model, loss):
+    fabric.backward(loss)
+    return torch.nn.utils.clip_grad_norm_(model.parameters(), max_norm=float("inf"))
+
+
 # TODO: backwards update, just a static weight for now
 class DataWeights(nn.Module):
     def __init__(self, init_weights: list = [1, 1], normalize: bool = False, **kwargs):
@@ -69,6 +75,22 @@ class DataWeights(nn.Module):
             return torch.softmax(self.source_weights, dim=0)
         else:
             return self.source_weights
+
+
+def compute_gradient_similarities(gradients):
+    similarities = {}
+    datasets = list(gradients.keys())
+    for i, dataset1 in enumerate(datasets):
+        similarities[dataset1] = {}
+        for dataset2 in datasets[i + 1 :]:
+            grad1 = gradients[dataset1]["_forward_module.lm_head.weight"].view(-1)
+            grad2 = gradients[dataset2]["_forward_module.lm_head.weight"].view(-1)
+            sim = torch.nn.functional.cosine_similarity(grad1, grad2, dim=0)
+            similarities[dataset1][dataset2] = sim.item()
+            if dataset2 not in similarities:
+                similarities[dataset2] = {}
+            similarities[dataset2][dataset1] = sim.item()
+    return similarities
 
 
 def setup(
@@ -632,6 +654,10 @@ def fit(
                 max_iters=eval.max_iters,
                 do_collect_gradients=True,
             )
+
+            sim = compute_gradient_similarities(mean_grads)
+            fabric.print(f"Similarity of task gradients to each other (dev): {sim}")
+
             val_loss = val_loss.item()
             val_loss_lm = val_loss_lm.item()
             val_loss_sft = val_loss_sft.item()
@@ -693,7 +719,8 @@ def validate(
     losses = []
     losses_lm = []
     losses_sft = []
-    all_gradients = defaultdict(list)
+    gradient_sums = defaultdict(lambda: defaultdict(lambda: defaultdict(float)))
+    gradient_counts = defaultdict(int)
 
     with selective_grad_mode(do_collect_gradients):
         for k, batch in enumerate(val_dataloader):
@@ -712,17 +739,28 @@ def validate(
                 batch_idx = batch[1]
                 dataloader_idx = batch[2]
 
+            model.zero_grad()
+
             # Process LM data
             if lm_data is not None:
                 input_ids = lm_data[:, 0 : model.max_seq_length].contiguous().long()
                 targets = lm_data[:, 1 : (model.max_seq_length + 1)].contiguous().long()
                 logits = model(input_ids)
                 loss = chunked_cross_entropy(logits, targets)
-                if do_collect_gradients:
-                    lm_gradients = collect_gradients(fabric, model, loss)
-                    all_gradients["lm"].append(lm_gradients)
                 losses.append(loss)
                 losses_lm.append(loss)
+
+                if do_collect_gradients:
+                    accumulate_grads(fabric, model, loss)
+                    for name, param in model.named_parameters():
+                        if param.grad is not None:
+                            if name not in gradient_sums["lm"]:
+                                gradient_sums["lm"][name] = param.grad.clone()
+                            else:
+                                gradient_sums["lm"][name] += param.grad
+                    gradient_counts["lm"] += 1
+
+                model.zero_grad()
 
             # Process SFT data
             for key in sft_datasets:
@@ -733,13 +771,21 @@ def validate(
                     sft_loss = chunked_cross_entropy(
                         logits[..., :-1, :], targets[..., 1:], chunk_size=0
                     )
-                    # issue is that this seq len is too long. Probably due to mismatch between sft length and lm dataset length
-                    if do_collect_gradients:
-                        task_gradients = collect_gradients(fabric, model, sft_loss)
-                        all_gradients[key].append(task_gradients)
 
                     losses.append(sft_loss)
                     losses_sft.append(sft_loss)
+
+                    if do_collect_gradients:
+                        accumulate_grads(fabric, model, sft_loss)
+                        for name, param in model.named_parameters():
+                            if param.grad is not None:
+                                if name not in gradient_sums[key]:
+                                    gradient_sums[key][name] = param.grad.clone()
+                                else:
+                                    gradient_sums[key][name] += param.grad
+                        gradient_counts[key] += 1
+
+                    model.zero_grad()
 
     val_loss = torch.stack(losses).mean()
     val_loss_lm = torch.stack(losses_lm).mean()
@@ -747,17 +793,15 @@ def validate(
 
     mean_gradients = {}
     if do_collect_gradients:
-        # TODO: just going to take the grad from the last layer now. Can do rand projections like the less paper later?
-        for dataset in all_gradients:
-            mean_gradients[dataset] = torch.stack(
-                [
-                    grad["_forward_module.lm_head.weight"]
-                    for grad in all_gradients[dataset]
-                ]
-            ).mean(dim=0)
+        for task in gradient_sums:
+            mean_gradients[task] = {
+                name: grad_sum / gradient_counts[task]
+                for name, grad_sum in gradient_sums[task].items()
+            }
 
     model.train()
     fabric.barrier()
+
     return val_loss, val_loss_lm, val_loss_sft, mean_gradients
 
 
