@@ -125,7 +125,7 @@ def process_prompt(prompt, model, tokenizer, prompt_style, fabric, temperature, 
     encoded_prompt = tokenizer.encode(prompt, device=fabric.device)
 
     if max_new_tokens is None:
-        max_new_tokens = model.max_seq_length
+        max_returned_tokens = model.max_seq_length
     else:
         first_turn = model.mask_cache is None
         max_returned_tokens = encoded_prompt.size(0) + max_new_tokens
