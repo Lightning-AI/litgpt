@@ -39,13 +39,20 @@ def test_input_dir_and_splits(dl_mock, tmp_path):
 
 @pytest.mark.skipif(sys.platform == "win32", reason="Needs to implement platform agnostic path/url joining")
 @mock.patch("litdata.streaming.StreamingDataset")
-def test_dataset_args(streaming_dataset_mock, tmp_path):
+@mock.patch("litdata.streaming.StreamingDataLoader")
+def test_dataset_args(streaming_dataloader_mock, streaming_dataset_mock, tmp_path):
     data = LitData(data_path=tmp_path, seed=1000)
     data.train_dataloader()
     streaming_dataset_mock.assert_called_with(
         input_dir=str(tmp_path),
         item_loader=ANY,
         shuffle=True,
-        drop_last=True,
         seed=1000,
+    )
+    streaming_dataloader_mock.assert_called_with(
+        streaming_dataset_mock(),
+        batch_size=1,
+        pin_memory=True,
+        num_workers=8,
+        drop_last=True,
     )
