@@ -89,16 +89,14 @@ class TinyLlama(DataModule):
         return train_dataloader
 
     def val_dataloader(self) -> DataLoader:
-        from litdata.streaming import StreamingDataset, TokensLoader
+        from litdata.streaming import StreamingDataLoader, StreamingDataset, TokensLoader
 
         val_dataset = StreamingDataset(
             input_dir=self.slimpajama_val,
             item_loader=TokensLoader(block_size=self.seq_length),
             shuffle=True,
-            # Consider setting to False, but we would lose some samples due to truncation when world size > 1
-            drop_last=True,
         )
-        val_dataloader = DataLoader(
+        val_dataloader = StreamingDataLoader(
             val_dataset, batch_size=self.batch_size, pin_memory=True, num_workers=self.num_workers, drop_last=True
         )
         return val_dataloader
