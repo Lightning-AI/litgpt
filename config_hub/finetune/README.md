@@ -61,7 +61,6 @@ All experiments were conducted using bfloat-16 precision on the Alpaca2k dataset
 | tiny-llama/qlora.yaml             | tiny-llama             | 3      | 512            | 8                | 1xA10G  | 8.70 min         | $0.3 | 16.24 GB    | 1.056           | 2.874                 | 25.3%           |
 
 *OOM = Out of memory
-** 
 
 
 &nbsp;
