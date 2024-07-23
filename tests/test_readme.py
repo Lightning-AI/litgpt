@@ -131,7 +131,7 @@ def test_pretrain_model():
 
     # Test that warning is displayed when running it a second time
     output = run_command(pretrain_command)
-    assert "Warning: Preprocessed training data found" not in output
+    assert "Warning: Preprocessed training data found" in output
 
 
 @pytest.mark.skipif(
