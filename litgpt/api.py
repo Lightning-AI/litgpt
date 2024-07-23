@@ -196,7 +196,7 @@ class LLM:
         Arguments:
             model: The model to use.
             prompt: Tensor of shape (T) with indices of the prompt sequence.
-            max_returned_tokens: The maximum number of tokens to return (given plus generated).
+            max_new_tokens: The maximum number of tokens to generate.
             temperature: Scales the predicted logits by 1 / temperature.
             top_k: If specified, only sample among the tokens with the k highest probabilities.
             top_p: If specified, it represents the cumulative probability threshold to consider in the sampling process.
