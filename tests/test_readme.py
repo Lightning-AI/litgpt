@@ -41,6 +41,11 @@ def test_download_model():
     assert f"Saving converted checkpoint to {str(s)}" in output
     assert ("checkpoints" / REPO_ID).exists()
 
+    # Also test valid but unsupported repo IDs
+    command = ["litgpt", "download", "CohereForAI/aya-23-8B"]
+    output = run_command(command)
+    assert "Unsupported repo_id" in output
+
 
 @pytest.mark.dependency()
 def test_download_books():
