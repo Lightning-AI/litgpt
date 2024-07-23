@@ -4,7 +4,6 @@ import os
 from dataclasses import dataclass, field
 from functools import partial
 from pathlib import Path
-from tqdm import tqdm
 from typing import Optional
 
 from torch.utils.data import DataLoader
@@ -76,6 +75,13 @@ class TextFiles(DataModule):
                 num_workers=use_workers,
                 chunk_bytes="50MB",
             )
+        else:
+            print(
+                f"\nWarning: Preprocessed training data found in {self.out_path_train}."
+                " For efficiency, reprocessing is skipped. If your text input has changed since"
+                " the last `litgpt pretrain` command, remove the preprocessed file(s) to trigger"
+                f" reprocessing: `rm -rf {self.out_path_train}`\n"
+            )
         use_workers = min(num_workers, len(val_files))
         if not Path(self.out_path_val).is_dir():
             validate_tokenizer(self.tokenizer)
@@ -85,6 +91,13 @@ class TextFiles(DataModule):
                 output_dir=str(self.out_path_val),
                 num_workers=use_workers,
                 chunk_bytes="50MB",
+            )
+        else:
+            print(
+                f"\nWarning: Preprocessed validation data found in {self.out_path_val}."
+                " For efficiency, reprocessing is skipped. If your text input has changed since"
+                " the last `litgpt pretrain` command, remove the preprocessed file(s) to trigger"
+                f" reprocessing: `rm -rf {self.out_path_val}`\n"
             )
 
     def train_dataloader(self) -> DataLoader:

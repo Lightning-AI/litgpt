@@ -123,10 +123,15 @@ def test_pretrain_model():
         "--eval.max_iters", "1",         # to accelerate things for CI
         "--out_dir", str(OUT_DIR)
     ]
-    run_command(pretrain_command)
+    output = run_command(pretrain_command)
 
+    assert "Warning: Preprocessed training data found" not in output
     assert (OUT_DIR / "final").exists(), "Pretraining output directory was not created"
     assert (OUT_DIR / "final" / "lit_model.pth").exists(), "Model file was not created"
+
+    # Test that warning is displayed when running it a second time
+    output = run_command(pretrain_command)
+    assert "Warning: Preprocessed training data found" not in output
 
 
 @pytest.mark.skipif(
