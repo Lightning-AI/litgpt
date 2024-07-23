@@ -45,8 +45,11 @@ def download_from_hub(
         print("\n".join(sorted(options, key=lambda x: x.lower())))
         return
 
-    if repo_id not in options:
-        print(f"Unsupported repo_id: {repo_id}. Please choose a valid repo_id from the following list:")
+    if model_name is None and repo_id not in options:
+        print(f"Unsupported repo_id: {repo_id}. If these are alternative "
+        "weights for a supported model, please specify this via the `--model_name` option, "
+        "for example, `litgpt download NousResearch/Hermes-2-Pro-Llama-3-8B --model_name Llama-3-8B`."
+        "\nAlternatively, please choose a valid repo_id from the following list:")
         print("\n".join(sorted(options, key=lambda x: x.lower())))
         return
 
