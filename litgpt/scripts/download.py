@@ -46,7 +46,8 @@ def download_from_hub(
         return
 
     if model_name is None and repo_id not in options:
-        print(f"Unsupported repo_id: {repo_id}. If you are trying to download alternative "
+        print(f"Unsupported `repo_id`: {repo_id}."
+        "\nIf you are trying to download alternative "
         "weights for a supported model, please specify the corresponding model via the `--model_name` option, "
         "for example, `litgpt download NousResearch/Hermes-2-Pro-Llama-3-8B --model_name Llama-3-8B`."
         "\nAlternatively, please choose a valid `repo_id` from the list of supported models, which can be obtained via "
