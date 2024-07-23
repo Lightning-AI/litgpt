@@ -15,6 +15,7 @@ import lightning as L
 import numpy as np
 import torch
 import torch.nn as nn
+import torch.nn.functional as F
 from lightning.fabric.strategies import FSDPStrategy
 from lightning.fabric.utilities.throughput import measure_flops, ThroughputMonitor
 
@@ -23,6 +24,7 @@ from litgpt.args import EvalArgs, TrainArgs
 from litgpt.config import name_to_config
 from litgpt.data import DataModule, MicroLlama, TinyLlama
 from litgpt.data.mixed_dataset import CombinedLoader
+from litgpt.data_selection.data_selectors import DataSelector
 from litgpt.model import Block, CausalSelfAttention, Config, GPT, LLaMAMLP
 from litgpt.utils import (
     capture_hparams,
@@ -91,6 +93,12 @@ def compute_gradient_similarities(gradients):
                 similarities[dataset2] = {}
             similarities[dataset2][dataset1] = sim.item()
     return similarities
+
+
+def compute_gradient_similarity(grad1, grad2):
+    grad1_flat = torch.cat([g.view(-1) for g in grad1.values()])
+    grad2_flat = torch.cat([g.view(-1) for g in grad2.values()])
+    return F.cosine_similarity(grad1_flat, grad2_flat, dim=0)
 
 
 def setup(
@@ -372,6 +380,16 @@ def fit(
     model = state["model"]
     optimizer = state["optimizer"]
 
+    # store the data selector in the checkpoint for resuming
+    if "data_selector" not in state:
+        data_selector = DataSelector(len(train_dataloader.loaders))
+        data_optimizer = torch.optim.AdamW(data_selector.parameters(), lr=1e-3)
+        state["data_selector"] = data_selector
+        state["data_optimizer"] = data_optimizer
+    else:
+        data_selector = state["data_selector"]
+        data_optimizer = state["data_optimizer"]
+
     if eval.initial_validation:
         val_loss, val_loss_lm, val_loss_sft, _ = validate(
             fabric, model, val_dataloader, max_iters=eval.max_iters
@@ -423,7 +441,10 @@ def fit(
     total_t0 = time.perf_counter()
     warmup_iters = train.warmup_iters(devices, max_iters, train_dataloader)
 
+    # train grads for each dataset, for adjusting sampling
     data_weights = None
+    train_gradients = defaultdict(lambda: defaultdict(lambda: defaultdict(float)))
+    train_gradient_counts = defaultdict(int)
 
     for train_data in train_iterator:
         if state["iter_num"] >= max_iters:
@@ -434,10 +455,53 @@ def fit(
             # TODO: just testing here. Change this to the real update later.
             # wtf there's an inner dataloader (likely the real one) and separate copy of attributes in fabric loader.
             # Change them both just to be safe?
-            new_sampling_rate = list(np.random.dirichlet(np.ones(3)))
+
+            dev_loss, dev_loss_lm, dev_loss_sft, dev_grads = validate(
+                fabric,
+                model,
+                val_dataloader,
+                max_iters=eval.max_iters,
+                do_collect_gradients=True,
+            )
+
+            similarities = {}
+            for dataset_name, grad in train_gradients.items():
+                if grad is not None:
+                    sim = compute_gradient_similarity(dev_grads, grad)
+                    similarities[dataset_name] = sim.item()
+                else:
+                    similarities[dataset_name] = 0
+
+            dataset_ids = torch.arange(
+                len(train_dataloader.loaders), device=fabric.device
+            )
+            rewards = torch.tensor(
+                [similarities[name] for name in train_dataloader.datasets.keys()],
+                device=fabric.device,
+            )
+
+            logits = data_selector(dataset_ids)
+            data_loss = -torch.mean(logits * rewards)  # Policy gradient loss
+
+            data_optimizer.zero_grad()
+            data_loss.backward()
+            data_optimizer.step()
+
+            # Get new sampling rates from updated LanguageActor
+            with torch.no_grad():
+                logits = data_selector(dataset_ids)
+                new_sampling_rate = torch.softmax(logits, dim=-1).tolist()
+
+            # Update sampling rates in the dataloader
             train_dataloader.sampling_rates = new_sampling_rate
             train_dataloader._dataloader.sampling_rates = new_sampling_rate
-            print(f"Changing sampling rate to {new_sampling_rate}")
+
+            fabric.print(f"Updated sampling rates: {new_sampling_rate}")
+
+            # Reset train gradients for the next episode
+            train_gradients = {
+                dataset_name: None for dataset_name in train_dataloader.datasets.keys()
+            }
 
         # determine and set the learning rate for this iteration
         lr = get_lr(
@@ -509,9 +573,17 @@ def fit(
                 else data_weights.source_weights[0]
             )
             all_losses.append(lm_loss)
-            # running_loss_total.update(loss.detach())
             lm_loss_total.update(lm_loss.detach())
             lm_samples += input_ids.size(0)
+
+            accumulate_grads(fabric, model, lm_loss)
+            for name, param in model.named_parameters():
+                if param.grad is not None:
+                    if name not in train_gradients["lm"]:
+                        train_gradients["lm"][name] = param.grad.clone().detach()
+                    else:
+                        train_gradients["lm"][name] += param.grad.clone().detach()
+            train_gradient_counts["lm"] += 1
 
         # process SFT data
         sft_samples_per_dataset = {}
@@ -532,6 +604,14 @@ def fit(
                         window=train.gradient_accumulation_iters(devices),
                         sync_on_compute=False,
                     ).to(fabric.device)
+
+                for name, param in model.named_parameters():
+                    if param.grad is not None:
+                        if name not in train_gradients[key]:
+                            train_gradients[key][name] = param.grad.clone()
+                        else:
+                            train_gradients[key][name] += param.grad
+                train_gradient_counts[key] += 1
 
                 sft_loss_per_dataset[key].update(sft_loss.detach())
                 running_loss_total.update(sft_loss.detach())
@@ -755,9 +835,9 @@ def validate(
                     for name, param in model.named_parameters():
                         if param.grad is not None:
                             if name not in gradient_sums["lm"]:
-                                gradient_sums["lm"][name] = param.grad.clone()
+                                gradient_sums["lm"][name] = param.grad.clone().detach()
                             else:
-                                gradient_sums["lm"][name] += param.grad
+                                gradient_sums["lm"][name] += param.grad.clone().detach()
                     gradient_counts["lm"] += 1
 
                 model.zero_grad()
@@ -780,9 +860,9 @@ def validate(
                         for name, param in model.named_parameters():
                             if param.grad is not None:
                                 if name not in gradient_sums[key]:
-                                    gradient_sums[key][name] = param.grad.clone()
+                                    gradient_sums[key][name] = param.grad.detach().clone()
                                 else:
-                                    gradient_sums[key][name] += param.grad
+                                    gradient_sums[key][name] += param.grad.detach().clone()
                         gradient_counts[key] += 1
 
                     model.zero_grad()
