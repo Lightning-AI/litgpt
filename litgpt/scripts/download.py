@@ -49,8 +49,8 @@ def download_from_hub(
         print(f"Unsupported repo_id: {repo_id}. If you are trying to download alternative "
         "weights for a supported model, please specify the corresponding model via the `--model_name` option, "
         "for example, `litgpt download NousResearch/Hermes-2-Pro-Llama-3-8B --model_name Llama-3-8B`."
-        "\nAlternatively, please choose a valid `repo_id` from the following list:")
-        print("\n".join(sorted(options, key=lambda x: x.lower())))
+        "\nAlternatively, please choose a valid `repo_id` from the list of supported models, which can be obtained via "
+        "`litgpt download list`.")
         return
 
     from huggingface_hub import snapshot_download
