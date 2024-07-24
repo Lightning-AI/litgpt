@@ -877,6 +877,7 @@ llama_3 = [
         intermediate_size=14336,
         rope_base=500000,
     ),
+    # https://huggingface.co/meta-llama/Meta-Llama-3.1-8B/blob/main/config.json
     dict(
         name="Llama-3.1-8B{}",
         hf_config=dict(org="meta-llama", name="Meta-Llama-3.1-8B{}"),
@@ -913,6 +914,7 @@ llama_3 = [
         intermediate_size=28672,
         rope_base=500000,
     ),
+    # https://huggingface.co/meta-llama/Meta-Llama-3.1-70B/blob/main/config.json
     dict(
         name="Llama-3.1-70B{}",
         hf_config=dict(org="meta-llama", name="Meta-Llama-3.1-70B{}"),
@@ -929,6 +931,25 @@ llama_3 = [
         norm_class_name="RMSNorm",
         mlp_class_name="LLaMAMLP",
         intermediate_size=28672,
+        rope_base=500000,
+    ),
+    # https://huggingface.co/meta-llama/Meta-Llama-3.1-405B/blob/main/config.json
+    dict(
+        name="Llama-3.1-405B{}",
+        hf_config=dict(org="meta-llama", name="Meta-Llama-3.1-405B{}"),
+        block_size=131072,
+        vocab_size=128000,
+        padded_vocab_size=128256,
+        n_layer=126,
+        n_head=128,
+        n_embd=16384,
+        n_query_groups=16,
+        rotary_percentage=1.0,
+        parallel_residual=False,
+        bias=False,
+        norm_class_name="RMSNorm",
+        mlp_class_name="LLaMAMLP",
+        intermediate_size=53248,
         rope_base=500000,
     ),
 ]
