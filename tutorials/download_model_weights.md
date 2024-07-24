@@ -117,6 +117,8 @@ meta-llama/Meta-Llama-3-70B
 meta-llama/Meta-Llama-3-70B-Instruct
 meta-llama/Meta-Llama-3-8B
 meta-llama/Meta-Llama-3-8B-Instruct
+meta-llama/Meta-Llama-3.1-405B
+meta-llama/Meta-Llama-3.1-405B-Instruct
 microsoft/phi-1_5
 microsoft/phi-2
 microsoft/Phi-3-mini-4k-instruct
