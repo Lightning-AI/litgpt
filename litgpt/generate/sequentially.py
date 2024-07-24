@@ -34,7 +34,7 @@ from litgpt.utils import (
 @torch.inference_mode()
 def sequential(model: GPT, root: torch.device, max_seq_length: int, devices: int):
     if model.config.n_layer < devices:
-        raise RuntimeError(
+        raise ValueError(
             f"The number of layers in the model must be larger than the number of devices, but got"
             f" n_layer={model.config.n_layer} and devices={devices}."
         )

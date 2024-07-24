@@ -47,7 +47,7 @@ def test_sequential_layer_to_device_mapping_not_possible():
     config = Config(n_layer=1)
     with torch.device("meta"):
         model = GPT(config)
-    with pytest.raises(RuntimeError, match="number of layers in the model must be larger than the number of devices"):
+    with pytest.raises(ValueError, match="number of layers in the model must be larger than the number of devices"):
         sequential(model, root=torch.device("cpu"), max_seq_length=128, devices=2)
 
     # Last device would get 0 layers
