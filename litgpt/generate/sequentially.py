@@ -45,6 +45,7 @@ def sequential(model: GPT, root: torch.device, max_seq_length: int, devices: int
     mapping = layer_to_device(model, chunk_on=Block, chunk_size=max_layers_per_device)
 
     if set(mapping.values()) != set(range(devices)):
+        # TODO: support smarter partitioning schemes
         raise RuntimeError(
             f"Not able to distribute the {model.config.n_layer} layers across {devices} devices."
             " Try running with a lower number of devices."
