@@ -5,6 +5,7 @@ import logging
 import re
 import sys
 import time
+import math
 from collections import OrderedDict
 from functools import partial
 from pathlib import Path
@@ -32,14 +33,17 @@ from litgpt.utils import (
 
 @torch.inference_mode()
 def sequential(model: GPT, root: torch.device, max_seq_length: int, devices: int):
-    if model.config.n_layer % devices:
-        # TODO: support smarter partitioning schemes
-        raise NotImplementedError(
-            f"Only balanced partitioning is implemented: n_layer={model.config.n_layer}, devices {devices}"
+    if model.config.n_layer < devices:
+        raise RuntimeError(
+            f"The number of layers in the model must be larger than the number of devices, but got"
+            f" n_layer={model.config.n_layer} and devices={devices}."
         )
-    layers_per_rank = model.config.n_layer // devices
+        
+    # The last device might get fewer layers if number of layers not evenly divisible by device count
+    max_layers_per_device = math.ceil(model.config.n_layer / devices)
     # dictates where each block should be instantiated
-    mapping = layer_to_device(model, chunk_on=Block, chunk_size=layers_per_rank)
+    mapping = layer_to_device(model, chunk_on=Block, chunk_size=max_layers_per_device)
+    num_layers_per_device = {i: sum(1 for v in mapping.values() if v == i) for i in range(devices)}
 
     # materialize each block on the appropriate device
     for path, target_index in mapping.items():
@@ -67,7 +71,7 @@ def sequential(model: GPT, root: torch.device, max_seq_length: int, devices: int
         # install hooks to move layer inputs/output between devices
         for layer_num, (path, target_index) in enumerate(mapping.items()):
             submodule = model.get_submodule(path)
-            if layer_num >= layers_per_rank:
+            if layer_num >= num_layers_per_device[target_index]:
                 # we need to move the block input on the boundaries between devices
                 # and also on every non-root device because the RoPE and mask cache is shared
                 # TODO: the second case could be optimized and then we would only need this hook for
