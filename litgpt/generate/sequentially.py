@@ -45,6 +45,12 @@ def sequential(model: GPT, root: torch.device, max_seq_length: int, devices: int
     mapping = layer_to_device(model, chunk_on=Block, chunk_size=max_layers_per_device)
     num_layers_per_device = {i: sum(1 for v in mapping.values() if v == i) for i in range(devices)}
 
+    if set(num_layers_per_device.values()) != set(range(devices)):
+        raise RuntimeError(
+            f"Not able to distribute the {model.config.n_layer} layers across {devices} devices."
+            " Try running with a lower number of devices."
+        )
+
     # materialize each block on the appropriate device
     for path, target_index in mapping.items():
         submodule = model.get_submodule(path)
