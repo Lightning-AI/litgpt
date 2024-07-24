@@ -1,7 +1,7 @@
 # Copyright Lightning AI. Licensed under the Apache License 2.0, see LICENSE file.
 
 import os
-from concurrent.futures import ThreadPoolExecutor
+from concurrent.futures import ProcessPoolExecutor
 from contextlib import contextmanager
 from pathlib import Path
 from typing import List, Optional, Tuple
@@ -93,11 +93,10 @@ def download_from_hub(
     constants.HF_HUB_ENABLE_HF_TRANSFER = previous
     download.HF_HUB_ENABLE_HF_TRANSFER = previous
 
-    # convert safetensors to PyTorch binaries
     if from_safetensors:
         print("Converting .safetensor files to PyTorch binaries (.bin)")
         safetensor_paths = list(directory.glob("*.safetensors"))
-        with ThreadPoolExecutor() as executor:
+        with ProcessPoolExecutor() as executor:
             executor.map(convert_safetensors_file, safetensor_paths)
 
     if convert_checkpoint and not tokenizer_only:
