@@ -1,6 +1,7 @@
 # Copyright Lightning AI. Licensed under the Apache License 2.0, see LICENSE file.
 
 import itertools
+import math
 import subprocess
 import sys
 from collections import defaultdict
@@ -23,18 +24,38 @@ from litgpt.scripts.download import download_from_hub
 @pytest.mark.parametrize(
     ("n_layer", "devices", "expected"),
     [
+        (6, 1, {0: 0, 1: 0, 2: 0, 3: 0, 4: 0, 5: 0}),
         (6, 2, {0: 0, 1: 0, 2: 0, 3: 1, 4: 1, 5: 1}),
         (6, 3, {0: 0, 1: 0, 2: 1, 3: 1, 4: 2, 5: 2}),
-        (6, 1, {0: 0, 1: 0, 2: 0, 3: 0, 4: 0, 5: 0}),
+        (6, 4, {0: 0, 1: 0, 2: 1, 3: 1, 4: 2, 5: 2}),
+        (6, 5, {0: 0, 1: 0, 2: 1, 3: 1, 4: 2, 5: 2}),
+        (6, 6, {0: 0, 1: 1, 2: 2, 3: 3, 4: 4, 5: 5}),
     ],
 )
 def test_layer_to_device(n_layer, devices, expected):
     with torch.device("meta"):
         model = GPT.from_name("pythia-14m", n_layer=n_layer)
 
-    actual = layer_to_device(model, Block, chunk_size=n_layer // devices)
+    max_layers_per_device = math.ceil(n_layer / devices)
+    actual = layer_to_device(model, Block, chunk_size=max_layers_per_device)
     expected = {f"transformer.h.{i}": v for i, v in expected.items()}
     assert actual == expected
+
+
+def test_sequential_layer_to_device_mapping_not_possible():
+    # Fewer layers than devices
+    config = Config(n_layer=1)
+    with torch.device("meta"):
+        model = GPT(config)
+    with pytest.raises(ValueError, match="number of layers in the model must be larger than the number of devices"):
+        sequential(model, root=torch.device("cpu"), max_seq_length=128, devices=2)
+
+    # Last device would get 0 layers
+    config = Config(n_layer=6)
+    with torch.device("meta"):
+        model = GPT(config)
+    with pytest.raises(RuntimeError, match="Not able to distribute the 6 layers across 4 devices"):
+        sequential(model, root=torch.device("cpu"), max_seq_length=128, devices=4)
 
 
 def path_to_device(model):
