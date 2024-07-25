@@ -11,7 +11,11 @@ license = { file = "LICENSE" }
 dependencies = [
     "torch>=2.2.0",
     "lightning==2.3.0.dev20240428",
-    "jsonargparse[signatures]>=4.27.6"
+    "jsonargparse[signatures]>=4.27.6",
+    "huggingface_hub>=0.23.5",          # download models
+    "safetensors>=0.4.3",               # download models
+    "tokenizers>=0.15.2",               # tokenization in most models
+    "tqdm>=4.66.0",                     # convert_hf_checkpoint
 ]
 
 [project.urls]
@@ -35,7 +39,6 @@ test = [
 all = [
     "bitsandbytes==0.42.0",      # quantization
     "sentencepiece>=0.2.0",      # llama-based models
-    "tokenizers>=0.15.2",        # pythia, falcon, redpajama
     "requests>=2.31.0",          # litgpt.data
     "litdata==0.2.17",           # litgpt.data
     "litserve>=0.1.2",           # litgpt.deploy
@@ -48,8 +51,7 @@ all = [
     "datasets>=2.18.0",          # litgpt.evaluate
     "transformers>=4.38.0",      # litgpt.evaluate
     "lm-eval>=0.4.2",            # litgpt.evaluate
-    "safetensors>=0.4.3",        # download
-    "tqdm>=4.66.0",              # convert_hf_checkpoint
+
     "huggingface_hub[hf_transfer]>=0.21.0"  # download
 ]
 
