@@ -3,6 +3,7 @@
 import contextlib
 import glob
 import os
+import time
 from collections import defaultdict
 from collections.abc import Iterable
 from copy import deepcopy
@@ -50,6 +51,8 @@ from litgpt.data.base import (
 from litgpt.data.json_data import find_split, get_splits, load_split
 from litgpt.tokenizer import Tokenizer
 
+from torch.distributed import get_rank
+
 from torch.utils.data import BatchSampler, ConcatDataset, DataLoader, IterableDataset
 
 from torch.utils.data.dataloader import (
@@ -92,7 +95,7 @@ class MixedDataset(DataModule):
     num_repeats: int = 1
     # the max iters through the pretraining dataset. Used to space out the sft datasets accordingly
     max_iters: int = 100000
-    use_adaptive_sampling: bool = False
+    use_adaptive_sampling: str = False
 
     def __post_init__(self):
         self.lm_train_path = os.path.join(self.pretraining_data_path, "train")
@@ -293,7 +296,7 @@ class MixedDataset(DataModule):
         if self.use_adaptive_sampling:
             return CombinedLoaderWithSamplingRates(
                 {"lm": lm_train_dataloader, **sft_train_dataloaders},
-                [0.8, 0.1, 0.1],  # TODO: we need to pass this through lol
+                [0.85, 0.05, 0.05, 0.05],  # TODO: we need to pass this through lol
                 batch_size=self.batch_size,
                 max_iters=self.max_iters,
                 seq_max_len=self.max_seq_length_sft,
@@ -366,6 +369,11 @@ class CombinedLoaderWithSamplingRates(DataLoader):
         self.multiprocessing_context = None
         self.iterators = {}
 
+        self._flattened, self._spec = _tree_flatten(loaders)
+        self.dataset = ConcatIterableDataset(
+            [getattr(dl, "dataset", None) for dl in self.flattened]
+        )
+
         # dataset = SampledCombinedDataset(loaders, sampling_rates, max_iters, batch_size)
         # super().__init__(dataset, batch_size, **kwargs)
 
@@ -389,9 +397,29 @@ class CombinedLoaderWithSamplingRates(DataLoader):
 
         for _ in range(self.max_iters):
             batch = defaultdict(list)
-            chosen_datasets = rng.choice(
-                list(self.iterators.keys()), size=self.batch_size, p=self.sampling_rates
-            )
+            try:
+                chosen_datasets = rng.choice(
+                    list(self.iterators.keys()),
+                    size=self.batch_size,
+                    p=self.sampling_rates,
+                )
+            except:
+                self.sampling_rates = [
+                    x / sum(self.sampling_rates) for x in self.sampling_rates
+                ]  # sometimes it doesn't sum to 1 due to floating point
+                chosen_datasets = rng.choice(
+                    list(self.iterators.keys()),
+                    size=self.batch_size,
+                    p=self.sampling_rates,
+                )
+
+            # torch.distributed.barrier()
+            # if torch.distributed.get_rank() == 0:
+            #     print(f"here {torch.distributed.get_rank()}")
+            #     breakpoint()
+            # else:
+            #     # give us time to debug
+            #     time.sleep(1000000)
 
             for dataset_name in chosen_datasets:
                 if batch[dataset_name] is None:
@@ -428,6 +456,56 @@ class CombinedLoaderWithSamplingRates(DataLoader):
         self.cumulative_rates = [
             sum(self.sampling_rates[:i]) for i in range(len(self.sampling_rates))
         ]
+
+    @property
+    def iterables(self) -> Any:
+        """Return the original collection of iterables."""
+        return self.loaders
+
+    @property
+    def sampler(self) -> Any:
+        """Return a collections of samplers extracted from iterables."""
+        return UnifiedBatchSampler(
+            _map_and_unflatten(
+                lambda x: getattr(x, "sampler", None),
+                self.flattened,
+                self._spec,
+            ),
+            max_iters=self.max_iters,
+        )
+
+    @property
+    def batch_sampler(self) -> Any:
+        """Return a collections of batch samplers extracted from iterables."""
+        return UnifiedBatchSampler(
+            _map_and_unflatten(
+                lambda x: getattr(x, "batch_sampler", None),
+                self.flattened,
+                self._spec,
+            ),
+            max_iters=self.max_iters,
+        )
+
+    @property
+    def flattened(self) -> List[Any]:
+        """Return the flat list of iterables."""
+        return self._flattened
+
+    @flattened.setter
+    def flattened(self, flattened: List[Any]) -> None:
+        """Setter to conveniently update the list of iterables."""
+        if len(flattened) != len(self._flattened):
+            raise ValueError(
+                f"Mismatch in flattened length ({len(flattened)}) and existing length ({len(self._flattened)})"
+            )
+        # update the iterable collection
+        self._iterables = tree_unflatten(flattened, self._spec)
+        self._flattened = flattened
+
+    @property
+    def limits(self) -> Optional[List[Union[int, float]]]:
+        """Optional limits per iterator."""
+        return self._limits
 
 
 ### This code was not present in the current version of lightning. Adding it here

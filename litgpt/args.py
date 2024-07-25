@@ -40,6 +40,8 @@ class TrainArgs:
 
     # for adaptive sampling
     episode_length: Optional[float] = None
+    # Freeze the sampling rate to the initial weights specified
+    freeze_sampling_rate: Optional[bool] = False
 
     def __post_init__(self) -> None:
         if self.lr_warmup_fraction and self.lr_warmup_steps:

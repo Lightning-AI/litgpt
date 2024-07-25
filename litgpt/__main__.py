@@ -1,8 +1,11 @@
 # Copyright Lightning AI. Licensed under the Apache License 2.0, see LICENSE file.
 
 import torch
+from jsonargparse import CLI, set_config_read_mode, set_docstring_parse_options
 
 from litgpt.chat.base import main as chat_fn
+from litgpt.deploy.serve import run_server as serve_fn
+from litgpt.eval.evaluate import convert_and_evaluate as evaluate_fn
 from litgpt.finetune.adapter import setup as finetune_adapter_fn
 from litgpt.finetune.adapter_v2 import setup as finetune_adapter_v2_fn
 from litgpt.finetune.full import setup as finetune_full_fn
@@ -15,16 +18,18 @@ from litgpt.generate.sequentially import main as generate_sequentially_fn
 from litgpt.generate.tp import main as generate_tp_fn
 from litgpt.pretrain import setup as pretrain_fn
 from litgpt.pretrain_mixed import setup as pretrain_mixed_fn
-from litgpt.scripts.convert_hf_checkpoint import convert_hf_checkpoint as convert_hf_checkpoint_fn
-from litgpt.scripts.convert_lit_checkpoint import convert_lit_checkpoint as convert_lit_checkpoint_fn
+from litgpt.pretrain_mixed_old import setup as pretrain_mixed_old_fn
+from litgpt.scripts.convert_hf_checkpoint import (
+    convert_hf_checkpoint as convert_hf_checkpoint_fn,
+)
+from litgpt.scripts.convert_lit_checkpoint import (
+    convert_lit_checkpoint as convert_lit_checkpoint_fn,
+)
 from litgpt.scripts.convert_pretrained_checkpoint import (
     convert_pretrained_checkpoint as convert_pretrained_checkpoint_fn,
 )
 from litgpt.scripts.download import download_from_hub as download_fn
 from litgpt.scripts.merge_lora import merge_lora as merge_lora_fn
-from litgpt.eval.evaluate import convert_and_evaluate as evaluate_fn
-from litgpt.deploy.serve import run_server as serve_fn
-from jsonargparse import set_config_read_mode, set_docstring_parse_options, CLI
 
 
 def main() -> None:
@@ -38,6 +43,7 @@ def main() -> None:
         "finetune_adapter_v2": finetune_adapter_v2_fn,
         "pretrain": pretrain_fn,
         "pretrain_mixed": pretrain_mixed_fn,
+        "pretrain_mixed_old": pretrain_mixed_old_fn,
         "generate": generate_base_fn,
         "generate_full": generate_full_fn,
         "generate_adapter": generate_adapter_fn,
@@ -49,7 +55,7 @@ def main() -> None:
         "convert_pretrained_checkpoint": convert_pretrained_checkpoint_fn,
         "merge_lora": merge_lora_fn,
         "evaluate": evaluate_fn,
-        "serve": serve_fn
+        "serve": serve_fn,
     }
 
     set_docstring_parse_options(attribute_docstrings=True)
