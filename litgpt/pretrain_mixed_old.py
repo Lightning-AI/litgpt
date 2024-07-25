@@ -1,22 +1,17 @@
 # (c) Meta Platforms, Inc. and affiliates. Confidential and proprietary.
 # Copyright Lightning AI. Licensed under the Apache License 2.0, see LICENSE file.
 
-import contextlib
-import gc
 import math
 import pprint
 import time
-from collections import defaultdict
 from datetime import timedelta
 from functools import partial
 from pathlib import Path
 from typing import Dict, Optional, Tuple, Union
 
 import lightning as L
-import numpy as np
 import torch
 import torch.nn as nn
-import torch.nn.functional as F
 from lightning.fabric.strategies import FSDPStrategy
 from lightning.fabric.utilities.throughput import measure_flops, ThroughputMonitor
 
@@ -25,7 +20,6 @@ from litgpt.args import EvalArgs, TrainArgs
 from litgpt.config import name_to_config
 from litgpt.data import DataModule, MicroLlama, TinyLlama
 from litgpt.data.mixed_dataset import CombinedLoader
-from litgpt.data_selection.data_selectors import DataSelector
 from litgpt.model import Block, CausalSelfAttention, Config, GPT, LLaMAMLP
 from litgpt.utils import (
     capture_hparams,
@@ -48,22 +42,6 @@ from torchmetrics.aggregation import RunningMean
 from typing_extensions import Literal
 
 
-@contextlib.contextmanager
-def selective_grad_mode(enable_grad):
-    if enable_grad:
-        with torch.enable_grad():
-            yield
-    else:
-        with torch.no_grad():
-            yield
-
-
-# accumulate grad and return the grad norm
-def accumulate_grads(fabric, model, loss):
-    fabric.backward(loss)
-    return torch.nn.utils.clip_grad_norm_(model.parameters(), max_norm=float("inf"))
-
-
 # TODO: backwards update, just a static weight for now
 class DataWeights(nn.Module):
     def __init__(self, init_weights: list = [1, 1], normalize: bool = False, **kwargs):
@@ -78,48 +56,6 @@ class DataWeights(nn.Module):
             return torch.softmax(self.source_weights, dim=0)
         else:
             return self.source_weights
-
-
-def compute_gradient_similarities(gradients, key="_forward_module.lm_head.weight"):
-    similarities = {}
-    datasets = list(gradients.keys())
-    for i, dataset1 in enumerate(datasets):
-        similarities[dataset1] = {}
-        for dataset2 in datasets[i + 1 :]:
-            grad1 = gradients[dataset1][key].view(-1)
-            grad2 = gradients[dataset2][key].view(-1)
-            sim = torch.nn.functional.cosine_similarity(grad1, grad2, dim=0)
-            similarities[dataset1][dataset2] = sim.item()
-            if dataset2 not in similarities:
-                similarities[dataset2] = {}
-            similarities[dataset2][dataset1] = sim.item()
-    return similarities
-
-
-def compute_gradient_similarity(grad1, grad2):
-    grad1_flat = grad1.view(-1)
-    grad2_flat = grad2.view(-1)
-    return F.cosine_similarity(grad1_flat, grad2_flat, dim=0)
-
-
-def is_distributed_environment():
-    return torch.distributed.is_available() and torch.distributed.is_initialized()
-
-
-def round_and_normalize(probs: torch.Tensor, decimals: int = 5) -> torch.Tensor:
-    """
-    Round the probabilities to a certain number of decimal places and normalize.
-
-    Args:
-    probs (torch.Tensor): Input probability tensor
-    decimals (int): Number of decimal places to round to
-
-    Returns:
-    torch.Tensor: Rounded and normalized probabilities
-    """
-    factor = 10**decimals
-    probs = torch.round(probs * factor) / factor
-    return probs / probs.sum()
 
 
 def setup(
@@ -252,7 +188,6 @@ def setup(
         optimizer,
         train.max_steps,
         train.episode_length,
-        precision,
     )
 
 
@@ -271,8 +206,7 @@ def main(
     eval: EvalArgs,
     optimizer: Union[str, Dict],
     max_steps: int,
-    episode_length: int,
-    precision: str,
+    episode_length,
 ) -> None:
     validate_args(train, eval, initial_checkpoint_dir, resume)
 
@@ -353,7 +287,6 @@ def main(
         eval,
         max_iters,
         episode_length,
-        precision,
     )
 
     # Save final checkpoint
@@ -362,30 +295,6 @@ def main(
     fabric.print(f"Training time: {(time.perf_counter()-train_time):.2f}s")
     if fabric.device.type == "cuda":
         fabric.print(f"Memory used: {torch.cuda.max_memory_allocated() / 1e9:.02f} GB")
-
-
-def collect_gradients(fabric, model, loss):
-    gradients = {}
-
-    def make_hook(name):
-        def hook(grad):
-            gradients[name] = grad.clone().detach()
-            return grad
-
-        return hook
-
-    handles = []
-    for name, param in model.named_parameters():
-        if param.requires_grad:
-            handle = param.register_hook(make_hook(name))
-            handles.append(handle)
-
-    fabric.backward(loss)
-
-    for handle in handles:
-        handle.remove()
-
-    return gradients
 
 
 def fit(
@@ -400,38 +309,19 @@ def fit(
     eval: EvalArgs,
     max_iters: int,
     episode_length: int,
-    precision: str,
 ) -> None:
     model = state["model"]
     optimizer = state["optimizer"]
 
-    # store the data selector in the checkpoint for resuming
-    if "data_selector" not in state:
-        data_selector = DataSelector(
-            fabric,
-            len(train_dataloader.loaders),
-            device=devices,
-            initial_weights=[0.85, 0.05, 0.05, 0.05],
-            use_bfloat16=precision == "bf16-true",
-        )
-        data_optimizer = torch.optim.AdamW(data_selector.parameters(), lr=1e-3)
-        state["data_selector"] = data_selector
-        state["data_optimizer"] = data_optimizer
-    else:
-        data_selector = state["data_selector"]
-        data_optimizer = state["data_optimizer"]
-
     if eval.initial_validation:
-        val_loss, val_loss_lm, val_loss_sft, _ = validate(
+        val_loss, val_loss_lm, val_loss_sft = validate(
             fabric, model, val_dataloader, max_iters=eval.max_iters
         )
         val_loss = f"{val_loss:.3f}"
         val_loss_lm = f"{val_loss_lm:.3f}"
         val_loss_sft = f"{val_loss_sft:.3f}"
     else:
-        validate(
-            fabric, model, val_dataloader, max_iters=2, do_collect_gradients=True
-        )  # sanity check
+        validate(fabric, model, val_dataloader, max_iters=2)  # sanity check
         val_loss = "n/a"
 
     throughput = ThroughputMonitor(fabric, window_size=5)
@@ -472,10 +362,7 @@ def fit(
     total_t0 = time.perf_counter()
     warmup_iters = train.warmup_iters(devices, max_iters, train_dataloader)
 
-    # train grads for each dataset, for adjusting sampling
     data_weights = None
-    train_gradients = defaultdict(lambda: defaultdict(lambda: defaultdict(float)))
-    train_gradient_counts = defaultdict(int)
 
     for train_data in train_iterator:
         if state["iter_num"] >= max_iters:
@@ -484,108 +371,7 @@ def fit(
         if state["iter_num"] % episode_length == 0 and state["iter_num"] != 0:
             # Update the sampling ratios
             # TODO: just testing here. Change this to the real update later.
-            # wtf there's an inner dataloader (likely the real one) and separate copy of attributes in fabric loader.
-            # Change them both just to be safe?
-
-            dev_loss, dev_loss_lm, dev_loss_sft, dev_grads = validate(
-                fabric,
-                model,
-                val_dataloader,
-                max_iters=eval.max_iters,
-                do_collect_gradients=True,
-            )
-
-            metrics = {
-                "val_loss": dev_loss,
-                "val_loss_lm": dev_loss_lm,
-                "val_loss_sft": dev_loss_sft,
-                "val_ppl": math.exp(dev_loss),
-            }
-            fabric.log_dict(metrics, step=state["iter_num"] - 1)
-            fabric.barrier()
-            layer_key = (
-                "_forward_module._fsdp_wrapped_module.lm_head.weight"
-                if is_distributed_environment()
-                else "_forward_module.lm_head.weight"
-            )
-
-            print("layer key: ", layer_key)
-
-            if state["iter_num"] == episode_length:
-                # first iter, print the similarities of dev grads to each other
-                fabric.print("Dev grad similarities:")
-                fabric.print(compute_gradient_similarities(dev_grads, key=layer_key))
-
-            if not train.freeze_sampling_rate:
-                similarities = {}
-                
-                mean_dev_gradient = torch.mean(
-                    torch.stack([g[layer_key] for g in dev_grads.values() if layer_key in g]),
-                    dim=0,
-                )
-                for dataset_name, grad in train_gradients.items():
-                    if grad is not None:
-                        sim = compute_gradient_similarity(
-                            mean_dev_gradient,
-                            grad[layer_key],
-                        )
-                        similarities[dataset_name] = sim.item()
-                    else:
-                        similarities[dataset_name] = 0
-
-                dataset_ids = torch.arange(
-                    len(train_dataloader.loaders), device=fabric.device
-                )
-
-                rewards = torch.tensor(
-                    [similarities[name] for name in train_dataloader.loaders.keys()],
-                    device=fabric.device,
-                )
-
-                logits = data_selector(dataset_ids)
-                data_loss = -torch.mean(logits * rewards)  # Policy gradient loss
-
-                data_optimizer.zero_grad()
-                fabric.backward(data_loss)
-                data_optimizer.step()
-
-                del similarities
-
-                # Get new sampling rates from updated LanguageActor
-                with torch.no_grad():
-                    logits = data_selector(dataset_ids)
-                    new_sampling_rate = torch.softmax(logits, dim=-1)
-                    new_sampling_rate = round_and_normalize(new_sampling_rate).tolist()
-            else:
-                new_sampling_rate = train_dataloader.sampling_rates
-                rewards = torch.zeros(len(train_dataloader.loaders))
-
-            # Update sampling rates in the dataloader
-            fabric.print(f"Old sampling rates: {train_dataloader.sampling_rates}")
-            train_dataloader.sampling_rates = new_sampling_rate
-            train_dataloader._dataloader.sampling_rates = new_sampling_rate
-
-            fabric.print(f"Updated sampling rates: {new_sampling_rate}")
-
-            sampling_rates_dict = {
-                f"sampling_rate_{name}": round(sampling_rate, 3)
-                for name, sampling_rate in zip(
-                    train_dataloader.loaders.keys(), new_sampling_rate
-                )
-            }
-            metrics = {
-                **sampling_rates_dict,
-                "reward": rewards.sum().item(),
-            }
-            fabric.log_dict(metrics, step=state["iter_num"] - 1)
-
-            # Reset train gradients for the next episode
-            del train_gradients
-            del train_gradient_counts
-            train_gradients = defaultdict(
-                lambda: defaultdict(lambda: defaultdict(float))
-            )
-            train_gradient_counts = defaultdict(int)
+            pass
 
         # determine and set the learning rate for this iteration
         lr = get_lr(
@@ -632,7 +418,7 @@ def fit(
 
         if data_weights is None:
             # data_weights = DataWeights([1] * len(sft_datasets))
-            data_weights = DataWeights([0.85, 0.05, 0.05, 0.05])
+            data_weights = DataWeights([0.8, 0.1, 0.1])
 
         # Process LM data
         is_accumulating = (
@@ -657,6 +443,7 @@ def fit(
                 else data_weights.source_weights[0]
             )
             all_losses.append(lm_loss)
+            # running_loss_total.update(loss.detach())
             lm_loss_total.update(lm_loss.detach())
             lm_samples += input_ids.size(0)
 
@@ -695,39 +482,6 @@ def fit(
         # backprop
         with fabric.no_backward_sync(model, enabled=is_accumulating):
             fabric.backward(loss / train.gradient_accumulation_iters(devices))
-
-        if lm_data is not None:
-            for name, param in model.named_parameters():
-                if param.grad is not None:
-                    # TODO: OOM issues.
-                    if (
-                        name != "_forward_module.lm_head.weight"
-                        and name
-                        != "_forward_module._fsdp_wrapped_module.lm_head.weight"
-                    ):
-                        continue
-                    if name not in train_gradients["lm"]:
-                        train_gradients["lm"][name] = param.grad.detach().clone()
-                    else:
-                        train_gradients["lm"][name] += param.grad.detach().clone()
-            train_gradient_counts["lm"] += 1
-
-        for key in sft_datasets:
-            if sft_datasets[key] is not None:
-                for name, param in model.named_parameters():
-                    # TODO: OOM issues.
-                    if (
-                        name != "_forward_module.lm_head.weight"
-                        and name
-                        != "_forward_module._fsdp_wrapped_module.lm_head.weight"
-                    ):
-                        continue
-                    if param.grad is not None:
-                        if name not in train_gradients[key]:
-                            train_gradients[key][name] = param.grad.detach().clone()
-                        else:
-                            train_gradients[key][name] += param.grad.detach().clone()
-                train_gradient_counts[key] += 1
 
         if not is_accumulating:
             fabric.clip_gradients(model, optimizer, max_norm=train.max_norm)
@@ -827,10 +581,9 @@ def fit(
             and state["step_count"] % eval.interval == 0
         ):
             t0 = time.perf_counter()
-            val_loss, val_loss_lm, val_loss_sft, mean_grads = validate(
+            val_loss, val_loss_lm, val_loss_sft = validate(
                 fabric, model, val_dataloader, max_iters=eval.max_iters
             )
-
             val_loss = val_loss.item()
             val_loss_lm = val_loss_lm.item()
             val_loss_sft = val_loss_sft.item()
@@ -862,7 +615,7 @@ def fit(
 
     # Final validation
     if eval.final_validation:
-        val_loss, val_loss_lm, val_loss_sft, _ = validate(
+        val_loss, val_loss_lm, val_loss_sft = validate(
             fabric, model, val_dataloader, max_iters=eval.max_iters
         )
         metrics = {
@@ -879,11 +632,7 @@ def fit(
 
 @torch.no_grad()
 def validate(
-    fabric: L.Fabric,
-    model: nn.Module,
-    val_dataloader: DataLoader,
-    max_iters: int,
-    do_collect_gradients: bool = False,
+    fabric: L.Fabric, model: nn.Module, val_dataloader: DataLoader, max_iters: int
 ) -> torch.Tensor:
     fabric.barrier()
     fabric.print("Validating ...")
@@ -892,129 +641,52 @@ def validate(
     losses = []
     losses_lm = []
     losses_sft = []
-    gradient_sums = defaultdict(lambda: defaultdict(lambda: defaultdict(float)))
-    gradient_counts = defaultdict(int)
+    for k, batch in enumerate(val_dataloader):
+        if k >= max_iters:
+            break
 
-    # print(torch.cuda.memory_summary())
+        if isinstance(
+            batch, tuple
+        ):  # TODO: this iterator is structured weirdly, maybe reconsider.
+            # structure: ({"sft": sft_data, "lm": lm_data}, batch_idx, dataloader_idx)
+            paired_data = batch[0]
+            lm_data = paired_data.get("lm", None)
+            sft_datasets = {
+                key: paired_data[key] for key in paired_data.keys() if key != "lm"
+            }
+            batch_idx = batch[1]
+            dataloader_idx = batch[2]
 
-    with selective_grad_mode(do_collect_gradients):
-        for k, batch in enumerate(val_dataloader):
-            if k >= max_iters:
-                break
+        # Process LM data
+        if lm_data is not None:
+            input_ids = lm_data[:, 0 : model.max_seq_length].contiguous().long()
+            targets = lm_data[:, 1 : (model.max_seq_length + 1)].contiguous().long()
+            logits = model(input_ids)
+            loss = chunked_cross_entropy(logits, targets)
 
-            if isinstance(
-                batch, tuple
-            ):  # TODO: this iterator is structured weirdly, maybe reconsider.
-                # structure: ({"sft": sft_data, "lm": lm_data}, batch_idx, dataloader_idx)
-                paired_data = batch[0]
-                lm_data = paired_data.get("lm", None)
-                sft_datasets = {
-                    key: paired_data[key] for key in paired_data.keys() if key != "lm"
-                }
-                batch_idx = batch[1]
-                dataloader_idx = batch[2]
+            losses.append(loss)
+            losses_lm.append(loss)
 
-            model.zero_grad()
-
-            # Process LM data
-            if lm_data is not None:
-                input_ids = lm_data[:, 0 : model.max_seq_length].contiguous().long()
-                targets = lm_data[:, 1 : (model.max_seq_length + 1)].contiguous().long()
+        # Process SFT data
+        for key in sft_datasets:
+            sft_data = sft_datasets[key]
+            if sft_data is not None:
+                input_ids, targets = sft_data["input_ids"], sft_data["labels"]
                 logits = model(input_ids)
-                loss = chunked_cross_entropy(logits, targets)
-                losses.append(loss.detach())
-                losses_lm.append(loss.detach())
+                sft_loss = chunked_cross_entropy(
+                    logits[..., :-1, :], targets[..., 1:], chunk_size=0
+                )
+                # issue is that this seq len is too long. Probably due to mismatch between sft length and lm dataset length
 
-                # if do_collect_gradients:
-                #     torch.distributed.barrier()
-                #     if torch.distributed.get_rank() == 0:
-                #         print(f"here {torch.distributed.get_rank()}")
-                #         breakpoint()
-                #     else:
-                #         # give us time to debug
-                #         time.sleep(1000000)
-                if do_collect_gradients:
-                    accumulate_grads(fabric, model, loss)
-                    num_with_grad = 0
-                    for name, param in model.named_parameters():
-                        if param.grad is not None:
-                            num_with_grad += 1
-                            # TODO: oom issues, only store this for now
-                            if (
-                                name != "_forward_module.lm_head.weight"
-                                and name
-                                != "_forward_module._fsdp_wrapped_module.lm_head.weight"
-                            ):
-                                continue
-
-                            if name not in gradient_sums["lm"]:
-                                gradient_sums["lm"][name] = param.grad.clone().detach()
-                            else:
-                                gradient_sums["lm"][name] += param.grad.clone().detach()
-                    gradient_counts["lm"] += 1
-
-                model.zero_grad()
-
-            # Process SFT data
-            for key in sft_datasets:
-                sft_data = sft_datasets[key]
-                if sft_data is not None:
-                    input_ids, targets = sft_data["input_ids"], sft_data["labels"]
-                    logits = model(input_ids)
-                    sft_loss = chunked_cross_entropy(
-                        logits[..., :-1, :], targets[..., 1:], chunk_size=0
-                    )
-
-                    losses.append(sft_loss.detach())
-                    losses_sft.append(sft_loss.detach())
-
-                    if do_collect_gradients:
-                        accumulate_grads(fabric, model, sft_loss)
-                        for name, param in model.named_parameters():
-                            if param.grad is not None:
-                                if (
-                                    name != "_forward_module.lm_head.weight"
-                                    and name
-                                    != "_forward_module._fsdp_wrapped_module.lm_head.weight"
-                                ):
-                                    continue
-                                if name not in gradient_sums[key]:
-                                    gradient_sums[key][
-                                        name
-                                    ] = param.grad.detach().clone()
-                                else:
-                                    gradient_sums[key][
-                                        name
-                                    ] += param.grad.detach().clone()
-                        gradient_counts[key] += 1
-
-                    model.zero_grad()
+                losses.append(sft_loss)
+                losses_sft.append(sft_loss)
 
     val_loss = torch.stack(losses).mean()
     val_loss_lm = torch.stack(losses_lm).mean()
     val_loss_sft = torch.stack(losses_sft).mean()
-
-    mean_gradients = {}
-    if do_collect_gradients:
-        for task in gradient_sums:
-            mean_gradients[task] = {
-                name: grad_sum / gradient_counts[task]
-                for name, grad_sum in gradient_sums[task].items()
-            }
-
     model.train()
     fabric.barrier()
-
-    del gradient_sums
-    del gradient_counts
-    del losses
-    del losses_lm
-    del losses_sft
-
-    gc.collect()
-    torch.cuda.empty_cache()
-
-    return val_loss, val_loss_lm, val_loss_sft, mean_gradients
+    return val_loss, val_loss_lm, val_loss_sft
 
 
 def get_dataloaders(
