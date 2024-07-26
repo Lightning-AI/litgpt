@@ -227,32 +227,34 @@ class LLM:
         max_returned_tokens = prompt_length + max_new_tokens
 
         # Create or grow the kv cache if necessary.
-        first_turn = self.model.mask_cache is None
-        if first_turn or (max_seq_length == 'dynamic' and max_returned_tokens > self.model.max_seq_length):
-            max_model_supported = self.model.max_seq_length
-            if max_seq_length == 'dynamic':
-                new_kvcache_max_seq_length = max_returned_tokens
-            elif max_seq_length == 'max_model_supported':
-                new_kvcache_max_seq_length = max_model_supported
-            elif type(max_seq_length) == int:
-                new_kvcache_max_seq_length = max_seq_length
-            else:
-                raise ValueError(f"Invalid max_seq_length: {max_seq_length}")
+        kvcache_uninitialized = self.model.mask_cache is None
+        prev_size = self.model.mask_cache.size(-1) if not kvcache_uninitialized else None
+        max_model_supported = self.model.max_seq_length
 
-            if new_kvcache_max_seq_length > max_model_supported:
-                shortfall = max_model_supported - prompt_length
-                if first_turn:
-                    first_line = f"Cannot create a kv cache with {new_kvcache_max_seq_length} tokens.\n"
-                else:
-                    prev_size = self.model.mask_cache.size(-1)
-                    first_line = f"Cannot grow the kv cache from {prev_size} to {new_kvcache_max_seq_length} tokens.\n"
+        if max_returned_tokens > max_seq_length:
+            raise ValueError(
+                f"Not enough space within {max_seq_length=} to hold the prompt ({prompt_length} tokens) plus {max_returned_tokens=}.\n"
+                f"Please resolve this by increasing max_seq_length, using a shorter prompt, or setting a smaller max_returned_tokens."
+            )
+        
+
+        if max_seq_length == 'dynamic':
+            if max_returned_tokens > max_model_supported:
                 raise ValueError(
-                        first_line +
+                        f"Cannot generate a response with {max_returned_tokens} tokens.\n"
                         f"This model has a maximum context length of {max_model_supported} tokens.\n"
-                        f"The prompt contains {prompt_length} tokens, leaving {shortfall} for the response, which is not enough."
+                        f"The prompt contains {prompt_length} tokens, leaving {max_model_supported - prompt_length} for the response, which is not enough."
                     )
-
-            self.model.set_kv_cache(batch_size=1, max_seq_length=new_kvcache_max_seq_length, device=self.fabric.device)
+            if kvcache_uninitialized or prev_size < max_returned_tokens:
+                self.model.set_kv_cache(batch_size=1, max_seq_length=max_returned_tokens, device=self.fabric.device)
+        elif max_seq_length == 'max_model_supported':
+            if kvcache_uninitialized or prev_size != max_model_supported:
+                self.model.set_kv_cache(batch_size=1, max_seq_length=max_model_supported, device=self.fabric.device)
+        elif type(max_seq_length) == int:
+            if kvcache_uninitialized or prev_size != max_seq_length:
+                self.model.set_kv_cache(batch_size=1, max_seq_length=max_seq_length, device=self.fabric.device)
+        else:
+            raise ValueError(f"Invalid max_seq_length: {max_seq_length}")
 
         self.model.eval()
 
