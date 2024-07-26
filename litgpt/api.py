@@ -219,6 +219,9 @@ class LLM:
         prompt_length = input_ids.size(0)
         max_returned_tokens = prompt_length + max_new_tokens
 
+        if self.model.mask_cache is not None:
+            self.model.clear_kv_cache()
+
         first_turn = self.model.mask_cache is None
         if first_turn or max_returned_tokens > self.model.max_seq_length:
             self.model.max_seq_length = max_returned_tokens
@@ -261,8 +264,6 @@ class LLM:
                 eos_id=self.preprocessor.tokenizer.eos_id,
                 include_prompt=False,
             )
-
-        self.model.clear_kv_cache()
 
         if stream:
             return outputs
