@@ -21,8 +21,10 @@ from lightning.fabric.plugins import BitsandbytesPrecision
 from lightning.fabric.utilities.init import _materialize_meta_tensors
 from typing_extensions import Type
 
+from litgpt.model import GPT
+from litgpt.config import Config
+from litgpt.tokenizer import Tokenizer
 import litgpt.generate.base as generate_base
-from litgpt import GPT, Config, Tokenizer
 from litgpt.model import Block, build_mask_cache
 from litgpt.prompts import PromptStyle, has_prompt_style, load_prompt_style
 from litgpt.utils import (
@@ -33,7 +35,12 @@ from litgpt.utils import (
 
 
 @torch.inference_mode()
-def sequential(model: GPT, root: torch.device, max_seq_length: int, devices: int):
+def sequential(
+    model: GPT,
+    root: torch.device,
+    max_seq_length: int,
+    devices: int
+):
     if model.config.n_layer < devices:
         raise ValueError(
             f"The number of layers in the model must be larger than the number of devices, but got"

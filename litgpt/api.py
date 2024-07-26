@@ -2,16 +2,18 @@
 #
 # This file implements the LitGPT Python API
 from pathlib import Path
+import sys
 from typing import Any, List, Literal, Optional, Union
 
 import torch
 import lightning as L
 from lightning.fabric.plugins import BitsandbytesPrecision
-
+from lightning.fabric.accelerators import CUDAAccelerator
 
 from litgpt.model import GPT  # needs to be imported before config
 from litgpt.config import name_to_config, Config
 from litgpt.tokenizer import Tokenizer
+from litgpt.generate.sequentially import sequential
 from litgpt.generate.base import generate as generate_fn
 from litgpt.chat.base import generate as stream_generate_fn
 from litgpt.prompts import load_prompt_style, has_prompt_style, PromptStyle
@@ -32,7 +34,8 @@ class LLM:
         prompt_style: PromptStyle,
         devices: Union[int, List[int]] = 1,
         checkpoint_dir: Path = None,
-        fabric: L.Fabric = None
+        fabric: L.Fabric = None,
+        generate_strategy: Optional[Literal["sequential"]] = None
     ) -> None:
         self.model = model
         self.preprocessor = Preprocessor(tokenizer, device=fabric.device)
@@ -40,6 +43,7 @@ class LLM:
         self.prompt_style = prompt_style
         self.checkpoint_dir = checkpoint_dir
         self.fabric = fabric
+        self.generate_strategy = generate_strategy
 
     """
     LLM model class for inference, pretraining, and finetuning.
@@ -62,7 +66,8 @@ class LLM:
         precision: Optional[Any] = None,
         init: Optional[Literal["pretrained", "random"]] = "pretrained",
         tokenizer_dir: Optional[Path] = None,
-        access_token: Optional[str] = None
+        access_token: Optional[str] = None,
+        generate_strategy: Optional[Literal["sequential"]] = None
     ) -> "LLM":
         """
         Loads the LLM from a local directory or model hub.
@@ -86,6 +91,10 @@ class LLM:
                 Optional API token to access models with restrictions when using `init="pretrained"`.
             tokenizer_dir: An optional tokenizer directory if `model` is not a checkpoint directory, or if a user
                 wants to use a different tokenizer instead.
+            generate_strategy: Whether to use a sequential model generation strategy. The "sequential" settings allows running 
+                models that wouldn't fit in a single card by partitioning the transformer blocks across
+                all devices and running them sequentially.
+                This may be slower but allows using larger models.
         """
         allowed_accelerators = {"cpu", "gpu", "cuda", "mps", "auto"}
         if accelerator not in allowed_accelerators:
@@ -101,9 +110,9 @@ class LLM:
 
         num_devices = calculate_number_of_devices(devices)
 
-        if num_devices > 1:
+        if generate_strategy is None and num_devices > 1:
             raise NotImplementedError(
-                "Support for multiple devices is currently not implemented, yet."
+                "Support for multiple devices is currently only implemented for generate_strategy='sequential'."
             )
 
         allowed_init = {"pretrained", "random"}
@@ -160,23 +169,47 @@ class LLM:
         else:
             prompt_style = PromptStyle.from_config(config)
 
-        with fabric.init_module(empty_init=(num_devices > 1)):
-            model = GPT(config)
+        if checkpoint_dir is not None:
+            checkpoint_path = checkpoint_dir / "lit_model.pth"
+            check_file_size_on_cpu_and_warn(checkpoint_path, fabric.device)
+
+        if generate_strategy is None:
+            with fabric.init_module(empty_init=(num_devices > 1)):
+                model = GPT(config)
+            model.eval()
+            load_checkpoint(fabric, model, checkpoint_path)
+            model = fabric.setup_module(model)
+
+        elif generate_strategy == "sequential":
+            # cannot use `init_module` because if bitsandbytes is used, the Linear layers will be replaced
+            # which means that the weights will get quantized on cuda:0 on checkpoint load. we need to load and then convert
+            # still, use init_tensor for the precision
+            total_devices = CUDAAccelerator.auto_device_count()
+            print(f"Using {total_devices} devices", file=sys.stderr)
+
+            with fabric.init_tensor(), torch.device("meta"):
+                model = GPT(config)
+
+            model.eval()
+            state_dict = torch.load(str(checkpoint_path), mmap=True, map_location="cpu")
+            model.load_state_dict(state_dict, assign=True)
+            model = fabric.setup_module(model, move_to_device=False)
+
+            # model = sequential(model, fabric.device, model.max_seq_length, total_devices)
+            model = sequential(model, fabric.device, 256, total_devices)
+            # TODO: need to find out how to let users best configure max_seq_length
+
+        else:
+            raise ValueError(f"Unsupported generate_strategy: {generate_strategy}")
 
         # This should be set if we add a compile feature later
         # with fabric.init_tensor():
         #     model.set_kv_cache(batch_size=1)
 
-        model.eval()
-        model = fabric.setup_module(model)
-
-        if checkpoint_dir is not None:
-            checkpoint_path = checkpoint_dir / "lit_model.pth"
-            check_file_size_on_cpu_and_warn(checkpoint_path, fabric.device)
-            load_checkpoint(fabric, model, checkpoint_path)
         return cls(
             model=model, tokenizer=tokenizer, devices=devices,
             prompt_style=prompt_style, checkpoint_dir=checkpoint_dir, fabric=fabric,
+            generate_strategy=generate_strategy
         )
 
     @torch.inference_mode()
@@ -215,26 +248,40 @@ class LLM:
                 or https://huyenchip.com/2024/01/16/sampling.html#top_p
         """
         prompt = self.prompt_style.apply(prompt)
-        input_ids = self.preprocessor.tokenizer.encode(prompt)
+        input_ids = self.preprocessor.tokenizer.encode(prompt, self.fabric.device)
         prompt_length = input_ids.size(0)
         max_returned_tokens = prompt_length + max_new_tokens
 
-        first_turn = self.model.mask_cache is None
-        if first_turn or max_returned_tokens > self.model.max_seq_length:
-            self.model.max_seq_length = max_returned_tokens
-            self.model.set_kv_cache(batch_size=1, device=self.fabric.device)
-
         self.model.eval()
 
-        if calculate_number_of_devices(self.devices) > 1:
-            raise NotImplementedError(
-                "Support for multiple devices is currently not implemented for `generate`"
-            )
+        if self.generate_strategy is None:
+            first_turn = self.model.mask_cache is None
+            if self.model.mask_cache is not None:
+                self.model.clear_kv_cache()
+
+            if calculate_number_of_devices(self.devices) > 1:
+                raise NotImplementedError(
+                    "Support for multiple devices is currently only implemented for generate_strategy='sequential'."
+                )
+            if first_turn or max_returned_tokens > self.model.max_seq_length:
+                self.model.max_seq_length = max_returned_tokens
+                self.model.set_kv_cache(batch_size=1, device=self.fabric.device)
+
+        elif self.generate_strategy == "sequential":
+            if stream:
+                raise NotImplementedError(
+                    "The stream=True setting is not supported when using generate_strategy='sequential'."
+                )
+            #if first_turn:
+            #    self.model.set_kv_cache(batch_size=1, device=self.fabric.device)
+            if self.model.mask_cache is not None:
+                for block in self.model.transformer.h:
+                    block.attn.kv_cache.reset_parameters()
 
         def iterator():
             outputs = stream_generate_fn(
                 model=self.model,
-                prompt=input_ids.to(self.fabric.device),
+                prompt=input_ids,
                 max_returned_tokens=max_returned_tokens,
                 temperature=temperature,
                 top_k=top_k,
@@ -261,8 +308,6 @@ class LLM:
                 eos_id=self.preprocessor.tokenizer.eos_id,
                 include_prompt=False,
             )
-
-        self.model.clear_kv_cache()
 
         if stream:
             return outputs
