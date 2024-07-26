@@ -195,7 +195,7 @@ class LLM:
 
         Arguments:
             model: The model to use.
-            prompt: Tensor of shape (T) with indices of the prompt sequence.
+            prompt: The prompt string to use for generating the samples.
             max_new_tokens: The maximum number of tokens to generate.
             temperature: Scales the predicted logits by 1 / temperature.
             top_k: If specified, only sample among the tokens with the k highest probabilities.
@@ -218,6 +218,9 @@ class LLM:
         input_ids = self.preprocessor.tokenizer.encode(prompt)
         prompt_length = input_ids.size(0)
         max_returned_tokens = prompt_length + max_new_tokens
+
+        if self.model.mask_cache is not None:
+            self.model.clear_kv_cache()
 
         first_turn = self.model.mask_cache is None
         if first_turn or max_returned_tokens > self.model.max_seq_length:
@@ -261,8 +264,6 @@ class LLM:
                 eos_id=self.preprocessor.tokenizer.eos_id,
                 include_prompt=False,
             )
-
-        self.model.clear_kv_cache()
 
         if stream:
             return outputs
