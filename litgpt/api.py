@@ -226,8 +226,12 @@ class LLM:
         prompt_length = input_ids.size(0)
         max_returned_tokens = prompt_length + max_new_tokens
 
-        # Create or grow the kv cache if necessary.
+        # Create, clear or grow the kv cache if necessary.
         kvcache_uninitialized = self.model.mask_cache is None
+        
+        if not kvcache_uninitialized:
+            self.model.clear_kv_cache()
+    
         prev_size = self.model.mask_cache.size(-1) if not kvcache_uninitialized else None
         max_model_supported = self.model.max_seq_length
 
@@ -299,8 +303,6 @@ class LLM:
                 eos_id=self.preprocessor.tokenizer.eos_id,
                 include_prompt=False,
             )
-
-        self.model.clear_kv_cache()
 
         if stream:
             return outputs
