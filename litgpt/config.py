@@ -18,7 +18,10 @@ class Config:
     name: str = ""
     hf_config: dict = field(default_factory=dict)
     scale_embeddings: bool = False
+    attention_scores_scalar: Optional[int] = None
     block_size: int = 4096
+    sliding_window_size: Optional[int] = None
+    sliding_window_layer_placing: Optional[Literal["all", "interleaved"]] = None
     vocab_size: int = 50254
     padding_multiple: int = 512
     padded_vocab_size: Optional[int] = None
@@ -53,6 +56,8 @@ class Config:
     n_query_groups: Optional[int] = None
     shared_attention_norm: bool = False
     norm_class_name: Literal["LayerNorm", "RMSNorm"] = "LayerNorm"
+    post_attention_norm: bool = False
+    post_mlp_norm: bool = False
     norm_eps: float = 1e-5
     mlp_class_name: Literal["GptNeoxMLP", "LLaMAMLP", "GemmaMLP", "LLaMAMoE"] = "GptNeoxMLP"
     gelu_approximate: str = "none"
@@ -61,6 +66,8 @@ class Config:
     rope_base: int = 10000
     n_expert: int = 0
     n_expert_per_token: int = 0
+    attention_logit_softcapping: Optional[float] = None
+    final_logit_softcapping: Optional[float] = None
 
     def __post_init__(self):
         if not self.name:
@@ -91,15 +98,21 @@ class Config:
 
         self.rope_n_elem = int(self.rotary_percentage * self.head_size)
 
+        if self.sliding_window_size is not None:
+            self.sliding_window_layer_placing = (
+                1 if (self.sliding_window_layer_placing is None or self.sliding_window_layer_placing == "all") else 2
+            )
+
     @classmethod
     def from_name(cls, name: str, **kwargs: Any) -> Optional[Self]:
         if name not in name_to_config:
             # search through all `config['hf_config']['name']`
             try:
                 conf_dict = next(
-                    config for config in configs
-                    if name == config["hf_config"]["name"] or
-                    config["hf_config"]["org"] + "/" + config["hf_config"]["name"] == name
+                    config
+                    for config in configs
+                    if name == config["hf_config"]["name"]
+                    or config["hf_config"]["org"] + "/" + config["hf_config"]["name"] == name
                 )
             except StopIteration:
                 raise ValueError(f"{name!r} is not a supported config name")
@@ -864,6 +877,24 @@ llama_3 = [
         intermediate_size=14336,
         rope_base=500000,
     ),
+    # https://huggingface.co/meta-llama/Meta-Llama-3.1-8B/blob/main/config.json
+    dict(
+        name="Llama-3.1-8B{}",
+        hf_config=dict(org="meta-llama", name="Meta-Llama-3.1-8B{}"),
+        block_size=8192,
+        vocab_size=128000,
+        padded_vocab_size=128256,
+        n_layer=32,
+        n_head=32,
+        n_query_groups=8,
+        rotary_percentage=1.0,
+        parallel_residual=False,
+        bias=False,
+        norm_class_name="RMSNorm",
+        mlp_class_name="LLaMAMLP",
+        intermediate_size=14336,
+        rope_base=500000,
+    ),
     # https://huggingface.co/meta-llama/Meta-Llama-3-70B/blob/main/config.json
     dict(
         name="Llama-3-70B{}",
@@ -881,6 +912,44 @@ llama_3 = [
         norm_class_name="RMSNorm",
         mlp_class_name="LLaMAMLP",
         intermediate_size=28672,
+        rope_base=500000,
+    ),
+    # https://huggingface.co/meta-llama/Meta-Llama-3.1-70B/blob/main/config.json
+    dict(
+        name="Llama-3.1-70B{}",
+        hf_config=dict(org="meta-llama", name="Meta-Llama-3.1-70B{}"),
+        block_size=8192,
+        vocab_size=128000,
+        padded_vocab_size=128256,
+        n_layer=80,
+        n_head=64,
+        n_embd=8192,
+        n_query_groups=8,
+        rotary_percentage=1.0,
+        parallel_residual=False,
+        bias=False,
+        norm_class_name="RMSNorm",
+        mlp_class_name="LLaMAMLP",
+        intermediate_size=28672,
+        rope_base=500000,
+    ),
+    # https://huggingface.co/meta-llama/Meta-Llama-3.1-405B/blob/main/config.json
+    dict(
+        name="Llama-3.1-405B{}",
+        hf_config=dict(org="meta-llama", name="Meta-Llama-3.1-405B{}"),
+        block_size=131072,
+        vocab_size=128000,
+        padded_vocab_size=128256,
+        n_layer=126,
+        n_head=128,
+        n_embd=16384,
+        n_query_groups=16,
+        rotary_percentage=1.0,
+        parallel_residual=False,
+        bias=False,
+        norm_class_name="RMSNorm",
+        mlp_class_name="LLaMAMLP",
+        intermediate_size=53248,
         rope_base=500000,
     ),
 ]
@@ -933,6 +1002,64 @@ gemma = [
         mlp_class_name="GemmaMLP",
         gelu_approximate="tanh",
         intermediate_size=24576,
+    ),
+    # https://huggingface.co/google/gemma-2-9b/blob/main/config.json
+    dict(
+        name="Gemma-2-9b",
+        hf_config=dict(org="google", name="gemma-2-9b"),
+        scale_embeddings=True,
+        attention_scores_scalar=256,
+        vocab_size=256000,
+        block_size=8192,
+        sliding_window_size=4096,
+        # only layer with idx 0, 2, 4, ... have sliding window attention
+        sliding_window_layer_placing="interleaved",
+        intermediate_size=14336,
+        n_embd=3584,
+        n_layer=42,
+        n_head=16,
+        n_query_groups=8,
+        head_size=256,
+        rotary_percentage=1.0,
+        parallel_residual=False,
+        bias=False,
+        norm_class_name="RMSNorm",
+        mlp_class_name="GemmaMLP",
+        gelu_approximate="tanh",
+        post_attention_norm=True,
+        post_mlp_norm=True,
+        attention_logit_softcapping=50.0,
+        final_logit_softcapping=30.0,
+    ),
+    # https://huggingface.co/google/gemma-2-27b/blob/main/config.json
+    dict(
+        name="Gemma-2-27b",
+        hf_config=dict(org="google", name="gemma-2-27b"),
+        scale_embeddings=True,
+        # In Gemma 2 27B attention scores are scaled not by `sqrt(head_size)` (11.31),
+        # but by `sqrt(n_emb // n_head)` = sqrt(4608 // 32) = 12
+        attention_scores_scalar=144,
+        vocab_size=256000,
+        block_size=8192,
+        sliding_window_size=4096,
+        # only layer with idx 0, 2, 4, ... have sliding window attention
+        sliding_window_layer_placing="interleaved",
+        intermediate_size=36864,
+        n_embd=4608,
+        n_layer=46,
+        n_head=32,
+        n_query_groups=16,
+        head_size=128,
+        rotary_percentage=1.0,
+        parallel_residual=False,
+        bias=False,
+        norm_class_name="RMSNorm",
+        mlp_class_name="GemmaMLP",
+        gelu_approximate="tanh",
+        post_attention_norm=True,
+        post_mlp_norm=True,
+        attention_logit_softcapping=50.0,
+        final_logit_softcapping=30.0,
     ),
 ]
 configs.extend(gemma)

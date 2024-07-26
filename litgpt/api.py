@@ -188,7 +188,6 @@ class LLM:
         temperature: float = 1.0,
         top_k: Optional[int] = None,
         top_p: float = 1.0,
-        eos_id: Optional[int] = None,
         return_as_token_ids: bool = False,
         stream: bool = False
     ) -> Union[str, torch.Tensor]:
@@ -198,7 +197,7 @@ class LLM:
         Arguments:
             model: The model to use.
             prompt: Tensor of shape (T) with indices of the prompt sequence.
-            max_returned_tokens: The maximum number of tokens to return (given plus generated).
+            max_new_tokens: The maximum number of new tokens to return.
             max_seq_length: The size of kvcache to use. If 'dynamic', the kvcache size will be
                 sized to the max returned tokens, up to 'max_model_supported'.
             temperature: Scales the predicted logits by 1 / temperature.
@@ -217,9 +216,6 @@ class LLM:
 
                 For more details, see https://arxiv.org/abs/1904.09751
                 or https://huyenchip.com/2024/01/16/sampling.html#top_p
-            eos_id: If specified, stop generating any more token once the <eos> token is triggered.
-            return_as_token_ids: If true. returns the generated tokens as IDs rather then detokenized text.
-
         """
         prompt = self.prompt_style.apply(prompt)
         input_ids = self.preprocessor.tokenizer.encode(prompt)
@@ -294,8 +290,7 @@ class LLM:
                 include_prompt=False,
             )
 
-        for block in self.model.transformer.h:
-            block.attn.kv_cache.reset_parameters()
+        self.model.clear_kv_cache()
 
         if stream:
             return outputs

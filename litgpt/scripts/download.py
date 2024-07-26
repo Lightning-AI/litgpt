@@ -8,6 +8,7 @@ from typing import List, Optional, Tuple
 import torch
 from lightning_utilities.core.imports import RequirementCache
 
+from litgpt.config import configs
 from litgpt.scripts.convert_hf_checkpoint import convert_hf_checkpoint
 
 _SAFETENSORS_AVAILABLE = RequirementCache("safetensors")
@@ -37,14 +38,20 @@ def download_from_hub(
         model_name: The existing config name to use for this repo_id. This is useful to download alternative weights of
             existing architectures.
     """
-    print("repo_id:", repo_id)
+    options = [f"{config['hf_config']['org']}/{config['hf_config']['name']}" for config in configs]
 
     if repo_id == "list":
-        from litgpt.config import configs
-
-        options = [f"{config['hf_config']['org']}/{config['hf_config']['name']}" for config in configs]
         print("Please specify --repo_id <repo_id>. Available values:")
         print("\n".join(sorted(options, key=lambda x: x.lower())))
+        return
+
+    if model_name is None and repo_id not in options:
+        print(f"Unsupported `repo_id`: {repo_id}."
+        "\nIf you are trying to download alternative "
+        "weights for a supported model, please specify the corresponding model via the `--model_name` option, "
+        "for example, `litgpt download NousResearch/Hermes-2-Pro-Llama-3-8B --model_name Llama-3-8B`."
+        "\nAlternatively, please choose a valid `repo_id` from the list of supported models, which can be obtained via "
+        "`litgpt download list`.")
         return
 
     from huggingface_hub import snapshot_download

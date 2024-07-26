@@ -1,6 +1,6 @@
 [project]
 name = "litgpt"
-version = "0.4.5"
+version = "0.4.6"
 description = "Hackable implementation of state-of-the-art open-source LLMs"
 authors = [
     { name = "Lightning AI", email = "contact@lightning.ai" },
@@ -10,7 +10,7 @@ license = { file = "LICENSE" }
 
 dependencies = [
     "torch>=2.2.0",
-    "lightning==2.3.3",
+    "lightning==2.3.0.dev20240428",
     "jsonargparse[signatures]>=4.27.6"
 ]
 
@@ -37,7 +37,7 @@ all = [
     "sentencepiece>=0.2.0",      # llama-based models
     "tokenizers>=0.15.2",        # pythia, falcon, redpajama
     "requests>=2.31.0",          # litgpt.data
-    "litdata==0.2.16",           # litgpt.data
+    "litdata==0.2.17",           # litgpt.data
     "litserve>=0.1.2",           # litgpt.deploy
     "zstandard>=0.22.0",         # litgpt.data.prepare_slimpajama.py
     "numpy<2.0.0",               # PyTorch dependency; "pinned" until NumPy 2.0 is tested

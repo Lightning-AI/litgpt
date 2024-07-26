@@ -10,6 +10,7 @@ from unittest import mock
 
 import pytest
 import requests
+from tests.conftest import RunIf
 
 REPO_ID = Path("EleutherAI/pythia-14m")
 CUSTOM_TEXTS_DIR = Path("custom_texts")
@@ -40,6 +41,11 @@ def test_download_model():
     assert f"Saving converted checkpoint to {str(s)}" in output
     assert ("checkpoints" / REPO_ID).exists()
 
+    # Also test valid but unsupported repo IDs
+    command = ["litgpt", "download", "CohereForAI/aya-23-8B"]
+    output = run_command(command)
+    assert "Unsupported `repo_id`" in output
+
 
 @pytest.mark.dependency()
 def test_download_books():
@@ -62,6 +68,15 @@ def test_chat_with_model():
     prompt = "What do Llamas eat?"
     result = subprocess.run(command, input=prompt, text=True, capture_output=True, check=True)
     assert "What food do llamas eat?" in result.stdout
+
+
+@RunIf(min_cuda_gpus=1)
+@pytest.mark.dependency(depends=["test_download_model"])
+def test_chat_with_quantized_model():
+    command = ["litgpt", "generate", "checkpoints" / REPO_ID, "--quantize", "bnb.nf4", "--precision", "bf16-true"]
+    prompt = "What do Llamas eat?"
+    result = subprocess.run(command, input=prompt, text=True, capture_output=True, check=True)
+    assert "What food do llamas eat?" in result.stdout, result.stdout
 
 
 @mock.patch.dict(os.environ, {"LT_ACCELERATOR": "cpu"})
@@ -113,10 +128,15 @@ def test_pretrain_model():
         "--eval.max_iters", "1",         # to accelerate things for CI
         "--out_dir", str(OUT_DIR)
     ]
-    run_command(pretrain_command)
+    output = run_command(pretrain_command)
 
+    assert "Warning: Preprocessed training data found" not in output
     assert (OUT_DIR / "final").exists(), "Pretraining output directory was not created"
     assert (OUT_DIR / "final" / "lit_model.pth").exists(), "Model file was not created"
+
+    # Test that warning is displayed when running it a second time
+    output = run_command(pretrain_command)
+    assert "Warning: Preprocessed training data found" in output
 
 
 @pytest.mark.skipif(

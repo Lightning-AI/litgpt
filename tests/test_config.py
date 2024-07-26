@@ -101,5 +101,3 @@ def test_head_size(head_size):
     config = Config(head_size)
 
     assert config.head_size == head_size or config.n_embd // config.n_head
-
-
