@@ -195,7 +195,7 @@ class LLM:
 
         Arguments:
             model: The model to use.
-            prompt: Tensor of shape (T) with indices of the prompt sequence.
+            prompt: The prompt string to use for generating the samples.
             max_new_tokens: The maximum number of tokens to generate.
             temperature: Scales the predicted logits by 1 / temperature.
             top_k: If specified, only sample among the tokens with the k highest probabilities.

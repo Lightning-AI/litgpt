@@ -24,6 +24,7 @@ from typing_extensions import Type
 import litgpt.generate.base as generate_base
 from litgpt import GPT, Config, Tokenizer
 from litgpt.model import Block, build_mask_cache
+from litgpt.prompts import PromptStyle, has_prompt_style, load_prompt_style
 from litgpt.utils import (
     check_valid_checkpoint_dir,
     extend_checkpoint_dir,
@@ -38,7 +39,7 @@ def sequential(model: GPT, root: torch.device, max_seq_length: int, devices: int
             f"The number of layers in the model must be larger than the number of devices, but got"
             f" n_layer={model.config.n_layer} and devices={devices}."
         )
-        
+
     # The last device might get fewer layers if number of layers not evenly divisible by device count
     max_layers_per_device = math.ceil(model.config.n_layer / devices)
     # dictates where each block should be instantiated
@@ -207,6 +208,10 @@ def main(
     checkpoint_path = checkpoint_dir / "lit_model.pth"
 
     tokenizer = Tokenizer(checkpoint_dir)
+    prompt_style = (
+        load_prompt_style(checkpoint_dir) if has_prompt_style(checkpoint_dir) else PromptStyle.from_config(config)
+    )
+    prompt = prompt_style.apply(prompt)
     encoded = tokenizer.encode(prompt, device=fabric.device)
     prompt_length = encoded.size(0)
     max_returned_tokens = prompt_length + max_new_tokens
