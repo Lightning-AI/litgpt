@@ -7,7 +7,7 @@ https://github.com/EleutherAI/gpt-neox/tree/main/megatron/model.
 """
 
 import math
-from typing import Any, Literal, Optional, Tuple
+from typing import Any, Optional, Tuple
 
 import torch
 import torch.nn as nn

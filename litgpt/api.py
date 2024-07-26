@@ -196,7 +196,7 @@ class LLM:
 
         Arguments:
             model: The model to use.
-            prompt: Tensor of shape (T) with indices of the prompt sequence.
+            prompt: The prompt string to use for generating the samples.
             max_new_tokens: The maximum number of new tokens to return.
             max_seq_length: The size of kvcache to use. If 'dynamic', the kvcache size will be
                 sized to the max returned tokens, up to 'max_model_supported'.
