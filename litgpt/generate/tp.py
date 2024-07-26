@@ -21,6 +21,7 @@ from torch.distributed._functional_collectives import all_reduce
 import litgpt.generate.base as generate_base
 from litgpt import GPT, Config, Tokenizer
 from litgpt.model import CausalSelfAttention, GptNeoxMLP, LLaMAMLP, LLaMAMoE
+from litgpt.prompts import PromptStyle, has_prompt_style, load_prompt_style
 from litgpt.utils import (
     check_nvlink_connectivity,
     check_valid_checkpoint_dir,
@@ -178,6 +179,10 @@ def main(
     checkpoint_path = checkpoint_dir / model_file
 
     tokenizer = Tokenizer(checkpoint_dir)
+    prompt_style = (
+        load_prompt_style(checkpoint_dir) if has_prompt_style(checkpoint_dir) else PromptStyle.from_config(config)
+    )
+    prompt = prompt_style.apply(prompt)
     encoded = tokenizer.encode(prompt, device=fabric.device)
     prompt_length = encoded.size(0)
     max_returned_tokens = prompt_length + max_new_tokens
