@@ -216,6 +216,10 @@ class LLM:
 
                 For more details, see https://arxiv.org/abs/1904.09751
                 or https://huyenchip.com/2024/01/16/sampling.html#top_p
+            return_as_token_ids: If True, returns the token IDs as a torch.Tensor. Otherwise, returns the decoded text as a string.
+            stream: If True, returns a generator that yields tokens as they are generated.
+                At the moment, this setting is slower and may use more memory than the non-streaming version.
+                We plan to resolve this in the future.
         """
         prompt = self.prompt_style.apply(prompt)
         input_ids = self.preprocessor.tokenizer.encode(prompt)
@@ -226,13 +230,6 @@ class LLM:
         kvcache_uninitialized = self.model.mask_cache is None
         prev_size = self.model.mask_cache.size(-1) if not kvcache_uninitialized else None
         max_model_supported = self.model.max_seq_length
-
-        if max_returned_tokens > max_seq_length:
-            raise ValueError(
-                f"Not enough space within {max_seq_length=} to hold the prompt ({prompt_length} tokens) plus {max_returned_tokens=}.\n"
-                f"Please resolve this by increasing max_seq_length, using a shorter prompt, or setting a smaller max_returned_tokens."
-            )
-        
 
         if max_seq_length == 'dynamic':
             if max_returned_tokens > max_model_supported:
@@ -247,10 +244,23 @@ class LLM:
             if kvcache_uninitialized or prev_size != max_model_supported:
                 self.model.set_kv_cache(batch_size=1, max_seq_length=max_model_supported, device=self.fabric.device)
         elif type(max_seq_length) == int:
+            if max_seq_length > max_model_supported:
+                raise ValueError(
+                        f"Cannot initialize a kvcache for {max_seq_length} tokens. "
+                        "This model has a maximum context length of {max_model_supported} tokens."
+                    )
             if kvcache_uninitialized or prev_size != max_seq_length:
+                print("Creating new kvcache with max_seq_length:", max_seq_length)
                 self.model.set_kv_cache(batch_size=1, max_seq_length=max_seq_length, device=self.fabric.device)
         else:
             raise ValueError(f"Invalid max_seq_length: {max_seq_length}")
+
+        current_kvcache_size = self.model.mask_cache.size(-1)
+        if max_returned_tokens > current_kvcache_size:
+            raise ValueError(
+                f"Not enough space within {max_seq_length=} to hold the prompt ({prompt_length} tokens) plus {max_returned_tokens=}.\n"
+                f"Please resolve this by increasing max_seq_length, using a shorter prompt, or setting a smaller max_returned_tokens."
+            )
 
         self.model.eval()
 
