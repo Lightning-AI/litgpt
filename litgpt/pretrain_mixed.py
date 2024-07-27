@@ -122,6 +122,20 @@ def round_and_normalize(probs: torch.Tensor, decimals: int = 5) -> torch.Tensor:
     return probs / probs.sum()
 
 
+def compute_lm_loss(model, input_ids, targets):
+    logits = model(input_ids)
+    lm_loss = chunked_cross_entropy(logits, targets)
+    return lm_loss
+
+
+def compute_sft_loss(model, input_ids, targets):
+    logits = model(input_ids)
+    sft_loss = chunked_cross_entropy(
+        logits[..., :-1, :], targets[..., 1:], chunk_size=0
+    )
+    return sft_loss
+
+
 def setup(
     model_name: str,
     model_config: Optional[Config] = None,
@@ -269,7 +283,7 @@ def main(
     tokenizer: Optional[Tokenizer],
     train: TrainArgs,
     eval: EvalArgs,
-    optimizer: Union[str, Dict],
+    optimizer_config: Union[str, Dict],
     max_steps: int,
     episode_length: int,
     precision: str,
@@ -300,7 +314,7 @@ def main(
 
     extra_kwargs = {"fused": fabric.device.type == "cuda"}
     optimizer = instantiate_torch_optimizer(
-        optimizer, model.parameters(), **extra_kwargs
+        optimizer_config, model.parameters(), **extra_kwargs
     )
     optimizer = fabric.setup_optimizers(optimizer)
 
@@ -331,6 +345,24 @@ def main(
         "step_count": 0,
     }
 
+    # need dummy optimizers to get the gradients from each dataset separately.
+    if data.use_adaptive_sampling:
+        lm_dummy_optimizer = instantiate_torch_optimizer(
+            optimizer_config, model.parameters(), **extra_kwargs
+        )
+        lm_dummy_optimizer = fabric.setup_optimizers(lm_dummy_optimizer)
+        sft_dummy_optimizers = {}
+        for sft_dataset in train_dataloader.loaders:
+            sft_dummy_optimizers[sft_dataset] = instantiate_torch_optimizer(
+                optimizer_config, model.parameters(), **extra_kwargs
+            )
+            sft_dummy_optimizers[sft_dataset] = fabric.setup_optimizers(
+                sft_dummy_optimizers[sft_dataset]
+            )
+
+        state["lm_optimizer_dummy"] = lm_dummy_optimizer
+        state["sft_optimizers_dummy"] = sft_dummy_optimizers
+
     if resume is True:
         resume = max(
             out_dir.rglob("step-*/*.pth"),
@@ -354,6 +386,7 @@ def main(
         max_iters,
         episode_length,
         precision,
+        data.use_adaptive_sampling,
     )
 
     # Save final checkpoint
@@ -401,9 +434,13 @@ def fit(
     max_iters: int,
     episode_length: int,
     precision: str,
+    use_adaptive_sampling: bool,
 ) -> None:
     model = state["model"]
     optimizer = state["optimizer"]
+    if use_adaptive_sampling:
+        lm_dummy_optimizer = state["lm_optimizer_dummy"]
+        sft_dummy_optimizers = state["sft_optimizers_dummy"]
 
     # store the data selector in the checkpoint for resuming
     if "data_selector" not in state:
@@ -476,16 +513,26 @@ def fit(
     data_weights = None
     train_gradients = defaultdict(lambda: defaultdict(lambda: defaultdict(float)))
     train_gradient_counts = defaultdict(int)
+    first_iter = True
 
     for train_data in train_iterator:
+        if first_iter:
+            optimizer.zero_grad()
+            # Reset previous_grads and train_gradients at the start of each accumulation cycle
+            previous_grads = {
+                name: torch.zeros_like(param)
+                for name, param in model.named_parameters()
+                if name == "_forward_module.lm_head.weight"
+                or name == "_forward_module.\_fsdp_wrapped_module.lm_head.weight"
+            }
+            train_gradients = defaultdict(lambda: defaultdict(torch.zeros_like))
+            first_iter = False
+
         if state["iter_num"] >= max_iters:
             break
 
         if state["iter_num"] % episode_length == 0 and state["iter_num"] != 0:
             # Update the sampling ratios
-            # TODO: just testing here. Change this to the real update later.
-            # wtf there's an inner dataloader (likely the real one) and separate copy of attributes in fabric loader.
-            # Change them both just to be safe?
 
             dev_loss, dev_loss_lm, dev_loss_sft, dev_grads = validate(
                 fabric,
@@ -509,8 +556,6 @@ def fit(
                 else "_forward_module.lm_head.weight"
             )
 
-            print("layer key: ", layer_key)
-
             if state["iter_num"] == episode_length:
                 # first iter, print the similarities of dev grads to each other
                 fabric.print("Dev grad similarities:")
@@ -518,44 +563,93 @@ def fit(
 
             if not train.freeze_sampling_rate:
                 similarities = {}
-                
-                mean_dev_gradient = torch.mean(
-                    torch.stack([g[layer_key] for g in dev_grads.values() if layer_key in g]),
-                    dim=0,
-                )
-                for dataset_name, grad in train_gradients.items():
-                    if grad is not None:
-                        sim = compute_gradient_similarity(
-                            mean_dev_gradient,
-                            grad[layer_key],
-                        )
-                        similarities[dataset_name] = sim.item()
+
+                # if we have not accumulated the train gradients yet, skip updating the sampling rate
+                if len(train_gradients) == 0:
+                    fabric.print(
+                        "Have not hit first gradient accumulation yet, waiting to update the sampling rate...."
+                    )
+                else:
+                    # TODO: wtf why is layer_key undefined here, investigate later
+                    if is_distributed_environment():
+                        try:
+                            mean_dev_gradient = torch.mean(
+                                torch.stack(
+                                    [
+                                        g[
+                                            "_forward_module._fsdp_wrapped_module.lm_head.weight"
+                                        ]
+                                        for g in dev_grads.values()
+                                        if layer_key in g
+                                    ]
+                                ),
+                                dim=0,
+                            )
+                        except:
+                            torch.distributed.barrier()
+                            if torch.distributed.get_rank() == 0:
+                                breakpoint()
+                            else:
+                                time.sleep(10000)
                     else:
-                        similarities[dataset_name] = 0
+                        mean_dev_gradient = torch.mean(
+                            torch.stack(
+                                [
+                                    g["_forward_module.lm_head.weight"]
+                                    for g in dev_grads.values()
+                                    if layer_key in g
+                                ]
+                            ),
+                            dim=0,
+                        )
 
-                dataset_ids = torch.arange(
-                    len(train_dataloader.loaders), device=fabric.device
-                )
+                    for dataset_name, grad in train_gradients.items():
+                        if grad is not None:
+                            sim = compute_gradient_similarity(
+                                mean_dev_gradient,
+                                grad[layer_key],
+                            )
+                            similarities[dataset_name] = sim.item()
+                        else:
+                            similarities[dataset_name] = 0
 
-                rewards = torch.tensor(
-                    [similarities[name] for name in train_dataloader.loaders.keys()],
-                    device=fabric.device,
-                )
+                    dataset_ids = torch.arange(
+                        len(train_dataloader.loaders), device=fabric.device
+                    )
 
-                logits = data_selector(dataset_ids)
-                data_loss = -torch.mean(logits * rewards)  # Policy gradient loss
+                    try:
+                        rewards = torch.tensor(
+                            [
+                                similarities[name]
+                                for name in train_dataloader.loaders.keys()
+                            ],
+                            device=fabric.device,
+                        )
+                    except:
+                        torch.distributed.barrier()
+                        if torch.distributed.get_rank() == 0:
+                            breakpoint()
+                        else:
+                            time.sleep(10000)
 
-                data_optimizer.zero_grad()
-                fabric.backward(data_loss)
-                data_optimizer.step()
-
-                del similarities
-
-                # Get new sampling rates from updated LanguageActor
-                with torch.no_grad():
                     logits = data_selector(dataset_ids)
-                    new_sampling_rate = torch.softmax(logits, dim=-1)
-                    new_sampling_rate = round_and_normalize(new_sampling_rate).tolist()
+                    data_loss = -torch.mean(logits * rewards)  # Policy gradient loss
+
+                    data_optimizer.zero_grad()
+                    fabric.backward(data_loss)
+                    data_optimizer.step()
+
+                    del similarities
+                    del mean_dev_gradient
+                    del data_loss
+
+                    # Get new sampling rates from updated LanguageActor
+                    with torch.no_grad():
+                        logits = data_selector(dataset_ids)
+                        new_sampling_rate = torch.softmax(logits, dim=-1)
+                        new_sampling_rate = round_and_normalize(
+                            new_sampling_rate
+                        ).tolist()
             else:
                 new_sampling_rate = train_dataloader.sampling_rates
                 rewards = torch.zeros(len(train_dataloader.loaders))
@@ -580,12 +674,17 @@ def fit(
             fabric.log_dict(metrics, step=state["iter_num"] - 1)
 
             # Reset train gradients for the next episode
-            del train_gradients
-            del train_gradient_counts
-            train_gradients = defaultdict(
-                lambda: defaultdict(lambda: defaultdict(float))
-            )
-            train_gradient_counts = defaultdict(int)
+            # del train_gradients
+            # del train_gradient_counts
+            # del logits
+            # del new_sampling_rate
+            # train_gradients = defaultdict(
+            # lambda: defaultdict(lambda: defaultdict(float))
+            # )
+            # train_gradient_counts = defaultdict(int)
+
+            gc.collect()
+            torch.cuda.empty_cache()
 
         # determine and set the learning rate for this iteration
         lr = get_lr(
@@ -596,14 +695,6 @@ def fit(
             train.min_lr,
         )
 
-        # lr = get_lr_linear_decay(
-        #     optimizer.defaults["lr"],
-        #     state["iter_num"],
-        #     warmup_iters,
-        #     max_iters,
-        #     train.min_lr,
-        # )
-
         assert lr >= 0, "Learning rate must be positive"
 
         for param_group in optimizer.param_groups:
@@ -612,9 +703,7 @@ def fit(
         state["iter_num"] += 1
         iter_t0 = time.perf_counter()
 
-        if isinstance(
-            train_data, tuple
-        ):  # TODO: this iterator is structured weirdly, maybe reconsider.
+        if isinstance(train_data, tuple):
             # structure: ({"sft": sft_data, "lm": lm_data}, batch_idx, dataloader_idx)
             paired_data = train_data[0]
             sft_datasets = {
@@ -631,7 +720,6 @@ def fit(
             }
 
         if data_weights is None:
-            # data_weights = DataWeights([1] * len(sft_datasets))
             data_weights = DataWeights([0.85, 0.05, 0.05, 0.05])
 
         # Process LM data
@@ -644,21 +732,30 @@ def fit(
         lm_samples = 0
 
         if lm_data is not None:
-            try:
-                input_ids = lm_data[:, 0 : model.max_seq_length].contiguous().long()
-                targets = lm_data[:, 1 : (model.max_seq_length + 1)].contiguous().long()
-                logits = model(input_ids)
-                lm_loss = chunked_cross_entropy(logits, targets)
-            except:
-                breakpoint()
-            w_lm = (
-                1
-                if all([val is None for key, val in sft_datasets.values()])
-                else data_weights.source_weights[0]
-            )
+            input_ids = lm_data[:, 0 : model.max_seq_length].contiguous().long()
+            targets = lm_data[:, 1 : (model.max_seq_length + 1)].contiguous().long()
+            lm_loss = compute_lm_loss(model, input_ids, targets)
+
             all_losses.append(lm_loss)
             lm_loss_total.update(lm_loss.detach())
             lm_samples += input_ids.size(0)
+
+            if use_adaptive_sampling:
+                model.zero_grad()
+                lm_loss.backward(retain_graph=True)
+                for name, param in model.named_parameters():
+                    if param.grad is not None and (
+                        name == "_forward_module.lm_head.weight"
+                        or name == "_forward_module._fsdp_wrapped_module.lm_head.weight"
+                    ):
+                        if name not in train_gradients["lm"]:
+                            # very important: we can't subtract the previous grads the FIRST time since it will be equal to train_grads, leading to all 0s
+                            train_gradients["lm"][name] = param.grad
+                        else:
+                            train_gradients["lm"][name] += (
+                                param.grad - previous_grads[name].detach()
+                            )
+                        previous_grads[name] = param.grad.clone()
 
         # process SFT data
         sft_samples_per_dataset = {}
@@ -667,12 +764,7 @@ def fit(
             sft_data = sft_datasets[key]
             if sft_data is not None:
                 input_ids, targets = sft_data["input_ids"], sft_data["labels"]
-                logits = model(input_ids)
-                sft_loss = chunked_cross_entropy(
-                    logits[..., :-1, :], targets[..., 1:], chunk_size=0
-                )
-
-                sft_w = 1 if lm_data is None else data_weights.source_weights[i]
+                sft_loss = compute_sft_loss(model, input_ids, targets)
 
                 if key not in sft_loss_per_dataset:
                     sft_loss_per_dataset[key] = RunningMean(
@@ -688,6 +780,23 @@ def fit(
                     key, 0
                 ) + input_ids.size(0)
 
+                if use_adaptive_sampling:
+                    model.zero_grad()
+                    sft_loss.backward(retain_graph=True)
+                    for name, param in model.named_parameters():
+                        if param.grad is not None and (
+                            name == "_forward_module.lm_head.weight"
+                            or name
+                            == "_forward_module._fsdp_wrapped_module.lm_head.weight"
+                        ):
+                            if name not in train_gradients[key]:
+                                train_gradients[key][name] = param.grad
+                            else:
+                                train_gradients[key][name] += (
+                                    param.grad - previous_grads[name].detach()
+                                )
+                            previous_grads[name] = param.grad.clone()
+
         loss = sum(all_losses) / len(
             all_losses
         )  # TODO: losses can be combined in different ways.
@@ -696,40 +805,18 @@ def fit(
         with fabric.no_backward_sync(model, enabled=is_accumulating):
             fabric.backward(loss / train.gradient_accumulation_iters(devices))
 
-        if lm_data is not None:
-            for name, param in model.named_parameters():
-                if param.grad is not None:
-                    # TODO: OOM issues.
-                    if (
-                        name != "_forward_module.lm_head.weight"
-                        and name
-                        != "_forward_module._fsdp_wrapped_module.lm_head.weight"
-                    ):
-                        continue
-                    if name not in train_gradients["lm"]:
-                        train_gradients["lm"][name] = param.grad.detach().clone()
-                    else:
-                        train_gradients["lm"][name] += param.grad.detach().clone()
-            train_gradient_counts["lm"] += 1
-
-        for key in sft_datasets:
-            if sft_datasets[key] is not None:
-                for name, param in model.named_parameters():
-                    # TODO: OOM issues.
-                    if (
-                        name != "_forward_module.lm_head.weight"
-                        and name
-                        != "_forward_module._fsdp_wrapped_module.lm_head.weight"
-                    ):
-                        continue
-                    if param.grad is not None:
-                        if name not in train_gradients[key]:
-                            train_gradients[key][name] = param.grad.detach().clone()
-                        else:
-                            train_gradients[key][name] += param.grad.detach().clone()
-                train_gradient_counts[key] += 1
-
         if not is_accumulating:
+            previous_grads = {
+                name: torch.zeros_like(param)
+                for name, param in model.named_parameters()
+                if name == "_forward_module.lm_head.weight"
+                or name == "_forward_module._fsdp_wrapped_module.lm_head.weight"
+            }
+            train_gradients = defaultdict(
+                lambda: defaultdict(lambda: defaultdict(float))
+            )
+            train_gradient_counts = defaultdict(int)
+
             fabric.clip_gradients(model, optimizer, max_norm=train.max_norm)
             optimizer.step()
             optimizer.zero_grad()
@@ -846,6 +933,12 @@ def fit(
                 "val_ppl": math.exp(val_loss),
             }
             fabric.log_dict(metrics, step=state["iter_num"] - 1)
+
+            del val_loss
+            del val_loss_lm
+            del val_loss_sft
+            gc.collect()
+            torch.cuda.empty_cache()
             fabric.barrier()
 
         if (
@@ -925,35 +1018,26 @@ def validate(
                 losses.append(loss.detach())
                 losses_lm.append(loss.detach())
 
-                # if do_collect_gradients:
-                #     torch.distributed.barrier()
-                #     if torch.distributed.get_rank() == 0:
-                #         print(f"here {torch.distributed.get_rank()}")
-                #         breakpoint()
-                #     else:
-                #         # give us time to debug
-                #         time.sleep(1000000)
                 if do_collect_gradients:
                     accumulate_grads(fabric, model, loss)
-                    num_with_grad = 0
-                    for name, param in model.named_parameters():
-                        if param.grad is not None:
-                            num_with_grad += 1
-                            # TODO: oom issues, only store this for now
-                            if (
-                                name != "_forward_module.lm_head.weight"
-                                and name
-                                != "_forward_module._fsdp_wrapped_module.lm_head.weight"
-                            ):
-                                continue
-
-                            if name not in gradient_sums["lm"]:
-                                gradient_sums["lm"][name] = param.grad.clone().detach()
-                            else:
-                                gradient_sums["lm"][name] += param.grad.clone().detach()
                     gradient_counts["lm"] += 1
 
-                model.zero_grad()
+            for name, param in model.named_parameters():
+                if param.grad is not None:
+                    # TODO: oom issues, only store this for now
+                    if (
+                        name != "_forward_module.lm_head.weight"
+                        and name
+                        != "_forward_module._fsdp_wrapped_module.lm_head.weight"
+                    ):
+                        continue
+
+                    if name not in gradient_sums["lm"]:
+                        gradient_sums["lm"][name] = param.grad.clone().detach()
+                    else:
+                        gradient_sums["lm"][name] += param.grad.clone().detach()
+
+            model.zero_grad()
 
             # Process SFT data
             for key in sft_datasets:
@@ -970,23 +1054,20 @@ def validate(
 
                     if do_collect_gradients:
                         accumulate_grads(fabric, model, sft_loss)
-                        for name, param in model.named_parameters():
-                            if param.grad is not None:
-                                if (
-                                    name != "_forward_module.lm_head.weight"
-                                    and name
-                                    != "_forward_module._fsdp_wrapped_module.lm_head.weight"
-                                ):
-                                    continue
-                                if name not in gradient_sums[key]:
-                                    gradient_sums[key][
-                                        name
-                                    ] = param.grad.detach().clone()
-                                else:
-                                    gradient_sums[key][
-                                        name
-                                    ] += param.grad.detach().clone()
                         gradient_counts[key] += 1
+
+                    for name, param in model.named_parameters():
+                        if param.grad is not None:
+                            if (
+                                name != "_forward_module.lm_head.weight"
+                                and name
+                                != "_forward_module._fsdp_wrapped_module.lm_head.weight"
+                            ):
+                                continue
+                            if name not in gradient_sums[key]:
+                                gradient_sums[key][name] = param.grad.detach().clone()
+                            else:
+                                gradient_sums[key][name] += param.grad.detach().clone()
 
                     model.zero_grad()
 

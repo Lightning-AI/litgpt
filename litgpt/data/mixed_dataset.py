@@ -56,7 +56,7 @@ MAX_ITERS = None
 
 
 @dataclass
-class MixedDatasetCanon(DataModule):
+class MixedDatasetClassic(DataModule):
     """
     A dataset that blends together unstructured text (the usual pretraining data) and structured text (SFT data). Can have different proportions of each that evolve over time.
     """
@@ -679,6 +679,7 @@ class CombinedLoader(DataLoader):
         self.dataset = ConcatIterableDataset(
             [getattr(dl, "dataset", None) for dl in self.flattened]
         )
+        breakpoint()
 
     @property
     def iterables(self) -> Any:
