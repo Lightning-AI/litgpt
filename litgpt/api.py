@@ -247,7 +247,7 @@ class LLM:
         elif max_seq_length == 'max_model_supported':
             if kvcache_uninitialized or prev_size != max_model_supported:
                 self.model.set_kv_cache(batch_size=1, max_seq_length=max_model_supported, device=self.fabric.device)
-        elif type(max_seq_length) == int:
+        if isinstance(max_seq_length, int):
             if max_seq_length > max_model_supported:
                 raise ValueError(
                         f"Cannot initialize a kvcache for {max_seq_length} tokens. "
