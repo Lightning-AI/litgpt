@@ -2,16 +2,16 @@
 
 import gc
 import json
+import os
 from collections import defaultdict
 from functools import partial
-import os
 from pathlib import Path
 from pprint import pprint
 from typing import Dict, List, Optional, Tuple, Union
 
-from tqdm import tqdm
 import torch
 from lightning.fabric.utilities.load import _NotYetLoadedTensor as NotYetLoadedTensor
+from tqdm import tqdm
 
 from litgpt import Config
 from litgpt.utils import extend_checkpoint_dir, incremental_save, lazy_load, save_config
@@ -127,55 +127,76 @@ def copy_weights_falcon(
             pbar.update(progress_per_file)
 
 
-def copy_weights_hf_olmo(
+def copy_weights_olmo(
     config: Config,
     qkv_weights: Dict[int, List[Optional[NotYetLoadedTensor]]],
     state_dict: Dict[str, torch.Tensor],
     hf_weights: Dict[str, Union[torch.Tensor, NotYetLoadedTensor]],
     saver: Optional[incremental_save] = None,
     dtype: Optional[torch.dtype] = None,
+    pbar: Optional[tqdm] = None,
+    progress_per_file: Optional[float] = None,
+    debug_mode: Optional[bool] = False
 ) -> None:
+
     weight_map = {
-        "model.transformer.wte.weight": "transformer.wte.weight",
-        "model.transformer.ff_out.weight": "lm_head.weight",
-        #"model.transformer.ln_f.weight": "transformer.ln_f.weight",
-        #"model.transformer.ln_f.bias": "transformer.ln_f.bias",
-        "model.transformer.blocks.{}.attn_out.weight": "transformer.h.{}.attn.proj.weight",
-        "model.transformer.blocks.{}.ff_proj.weight": "transformer.h.{}.mlp.ff_proj.weight",
-        "model.transformer.blocks.{}.att_proj.weight": "transformer.h.{}.attn.attn.weight",
-        "model.transformer.blocks.{}.ff_out.weight": "transformer.h.{}.mlp.ff_out.weight",
+        "model.embed_tokens.weight": "transformer.wte.weight",
+        "model.layers.{}.self_attn.q_proj.weight": None,
+        "model.layers.{}.self_attn.k_proj.weight": None,
+        "model.layers.{}.self_attn.v_proj.weight": None,
+        "model.layers.{}.self_attn.o_proj.weight": "transformer.h.{}.attn.proj.weight",
+        "model.layers.{}.mlp.gate_proj.weight": "transformer.h.{}.mlp.fc_1.weight",
+        "model.layers.{}.mlp.up_proj.weight": "transformer.h.{}.mlp.fc_2.weight",
+        "model.layers.{}.mlp.down_proj.weight": "transformer.h.{}.mlp.proj.weight",
+        "lm_head.weight": "lm_head.weight",
     }
 
-    for l in range(config.n_layer):
-        # Note that Olmo uses a non-parameteric LayerNorm meaning LayerNorm without shift and scale parameters
-        state_dict[f"transformer.h.{l}.norm_1.weight"] = torch.ones(config.n_embd)
-        state_dict[f"transformer.h.{l}.norm_2.weight"] = torch.ones(config.n_embd)
-        state_dict[f"transformer.ln_f.weight"] = torch.ones(config.n_embd)
-        state_dict[f"transformer.h.{l}.norm_1.bias"] = torch.zeros(config.n_embd)
-        state_dict[f"transformer.h.{l}.norm_2.bias"] = torch.zeros(config.n_embd)
-        state_dict[f"transformer.ln_f.bias"] = torch.zeros(config.n_embd)
+    if progress_per_file is not None:
+        progress_per_file = progress_per_file / max(1, len(hf_weights) + len(qkv_weights))
 
     for name, param in hf_weights.items():
-        if "model.transformer.blocks" in name:
-            from_name, number = layer_template(name, 3)
+        if name.startswith("model.layers."):
+            from_name, l_idx = layer_template(name, 2)
+            qkv = qkv_weights.setdefault(l_idx, defaultdict(dict))
+            if any(w in from_name for w in ("q_proj", "k_proj", "v_proj")):
+                weight_name, weight_type = from_name.split(".")[-2:]
+                qkv[weight_type][weight_name] = param
             to_name = weight_map[from_name]
             if to_name is None:
                 continue
-            to_name = to_name.format(number)
+            to_name = to_name.format(l_idx)
         else:
             to_name = weight_map[name]
-        param = load_param(param, name, dtype)
+        param = load_param(param, name, dtype, verbose=debug_mode)
         if saver is not None:
             param = saver.store_early(param)
-            state_dict[to_name] = param
-        else:
-            state_dict[to_name] = param
+        state_dict[to_name] = param
+        if progress_per_file is not None:
+            pbar.update(progress_per_file)
 
-    # weight tying for the 1B model. But it seems like the 7B model
-    # has an model.transformer.ff_out.weight that the 1B model doesn't have
-    # so only do weight tying for the 1B model if that key is not present:
-    if "lm_head.weight" not in state_dict.keys(): 
+    # 1B variant supports weight tying, but not 7B
+    if "lm_head.weight" not in state_dict:
         state_dict["lm_head.weight"] = state_dict["transformer.wte.weight"]
+
+    for i in list(qkv_weights):
+        for weight_type in list(qkv_weights[i]):
+            qkv = qkv_weights[i][weight_type]
+            if len(qkv) != 3:
+                # split across different .bin files
+                continue
+            q = load_param(qkv["q_proj"], f"layer {i} q {weight_type}", dtype, verbose=debug_mode)
+            k = load_param(qkv["k_proj"], f"layer {i} k {weight_type}", dtype, verbose=debug_mode)
+            v = load_param(qkv["v_proj"], f"layer {i} v {weight_type}", dtype, verbose=debug_mode)
+            q_per_kv = config.n_head // config.n_query_groups
+            qs = torch.split(q, config.head_size * q_per_kv)
+            ks = torch.split(k, config.head_size)
+            vs = torch.split(v, config.head_size)
+            cycled = [t for group in zip(qs, ks, vs) for t in group]
+            qkv = torch.cat(cycled)
+            state_dict[f"transformer.h.{i}.attn.attn.{weight_type}"] = qkv
+            del qkv_weights[i][weight_type]
+            if progress_per_file is not None:
+                pbar.update(progress_per_file)
 
 
 def copy_weights_hf_llama(
@@ -538,6 +559,10 @@ def convert_hf_checkpoint(
         # holder to reconstitute the split q, k, v
         qkv_weights = {}
         copy_fn = partial(copy_weights_phi, config, qkv_weights)
+    elif model_name.lower().startswith("olmo"):
+        # holder to reconstitute the split q, k, v
+        qkv_weights = {}
+        copy_fn = partial(copy_weights_olmo, config, qkv_weights)
     elif config.mlp_class_name in ("LLaMAMLP", "GemmaMLP", "LLaMAMoE"):
         # holder to reconstitute the split q, k, v
         qkv_weights = {}

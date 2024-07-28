@@ -26,6 +26,7 @@ from transformers.models.gpt_neox import GPTNeoXConfig, GPTNeoXForCausalLM
 from transformers.models.llama import LlamaConfig, LlamaForCausalLM
 from transformers.models.mistral import MistralConfig, MistralForCausalLM
 from transformers.models.mixtral import MixtralConfig, MixtralForCausalLM
+from transformers.models.olmo import OlmoConfig, OlmoForCausalLM
 
 import litgpt.config as config_module
 from litgpt import GPT, Config
@@ -484,10 +485,7 @@ def test_against_hf_mixtral():
 
 
 @torch.inference_mode()
-@pytest.mark.parametrize(
-    "ours_kwargs",
-    [{"name": "OLMo-7b-hf"}, {"name": "OLMo-1b-hf"}],
-)
+@pytest.mark.parametrize("model_name", ("OLMo-1b", "OLMo-7b"))
 @pytest.mark.parametrize(
     ("device", "dtype"),
     [
@@ -504,64 +502,38 @@ def test_against_hf_mixtral():
         ),
     ],
 )
-def test_against_hf_olmo(ours_kwargs, device, dtype):
-    from hf_olmo.configuration_olmo import OLMoConfig
-    # pip install ai2-olmo
-    from hf_olmo.modeling_olmo import AutoModelForCausalLM
-
-    from lit_gpt import GPT, Config
-    from scripts.convert_hf_checkpoint import copy_weights_hf_olmo
+def test_against_olmo(model_name, device, dtype):
+    from litgpt.scripts.convert_hf_checkpoint import copy_weights_olmo
 
     torch.set_default_dtype(dtype)
 
     ours_config = Config.from_name(
-        padded_vocab_size=10000, n_layer=2, n_head=8, n_embd=32, intermediate_size=86, **ours_kwargs
+        model_name,
+        padded_vocab_size=10000,
+        n_layer=2,
+        n_head=8,
+        n_embd=32,
+        intermediate_size=86,
     )
     T = 5
-    theirs_config = OLMoConfig(
-        attention_dropout=0.0,
-        attention_layer_norm=False,
-        attention_layer_norm_with_affine=False,
-        bias_for_layer_norm=False,
-        block_group_size=1,
-        block_type="sequential",
-        d_model=ours_config.n_embd,
-        embedding_dropout=0.0,
-        embedding_size=ours_config.padded_vocab_size,
-        #eos_token_id=50279,
-        flash_attention=False,
-        include_bias=False,
-        init_cutoff_factor=None,
-        init_device="meta",
-        init_fn="mitchell",
-        init_std=0.02,
-        layer_norm_type="default",
-        layer_norm_with_affine=False,
-        max_sequence_length=T,
-        mlp_hidden_size=ours_config.intermediate_size*2,
-        #mlp_ratio=4,
-        model_type="olmo",
-        multi_query_attention=False,
-        n_heads=ours_config.n_head,
-        n_layers=ours_config.n_layer,
-        pad_token_id=1,
-        #precision=amp_bf16,
-        residual_dropout=0.0,
-        rope=True,
-        rope_full_precision=True,
-        scale_logits=False,
-        #transformers_version=4.37.1
-        #use_cache=true
+    theirs_config = OlmoConfig(
         vocab_size=ours_config.padded_vocab_size,
-        weight_tying=False
+        hidden_size=ours_config.n_embd,
+        intermediate_size=ours_config.intermediate_size,
+        num_hidden_layers=ours_config.n_layer,
+        num_attention_heads=ours_config.n_head,
+        num_key_value_heads=ours_config.n_query_groups,
+        max_positional_embeddings=T,
+        attention_bias=ours_config.bias,
+        rope_theta=ours_config.rope_base,
+        tie_word_embeddings=(model_name == "OLMo-1b"),
     )
+    assert ours_config.intermediate_size == theirs_config.intermediate_size
 
-    #assert ours_config.intermediate_size == theirs_config.intermediate_size
-
-    theirs_model = AutoModelForCausalLM.from_config(theirs_config).to(device)
+    theirs_model = OlmoForCausalLM(theirs_config).to(device)
     theirs_state_dict = theirs_model.state_dict()
     state_dict = {}
-    copy_weights_hf_olmo(ours_config, {}, state_dict, theirs_state_dict)
+    copy_weights_olmo(ours_config, {}, state_dict, theirs_state_dict)
     ours_model = GPT(ours_config).to(device)
     ours_model.load_state_dict(state_dict)
 
