@@ -5,7 +5,7 @@ from collections import defaultdict
 from functools import partial
 from pathlib import Path
 from pprint import pprint
-from typing import Dict, List, Optional, Tuple, Union
+from typing import Dict, Optional, Tuple, Union
 
 import torch
 from lightning.fabric.utilities.load import _NotYetLoadedTensor as NotYetLoadedTensor
