@@ -1000,8 +1000,7 @@ olmo = [
         bias=False,
         norm_class_name="LayerNorm",
         mlp_class_name="LLaMAMLP",
-        # intermediate_size=11008,
-        intermediate_size=22016,
+        intermediate_size=11008,
     ),
 ]
 
