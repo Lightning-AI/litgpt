@@ -969,10 +969,10 @@ for c in llama_3:
 # Allen AI OLMo
 #################
 olmo = [
-    # https://huggingface.co/allenai/OLMo-1B/blob/main/config.json
+    # https://huggingface.co/allenai/OLMo-1B-hf/blob/main/config.json
     dict(
-        name="OLMo-1b",
-        hf_config=dict(org="allenai", name="OLMo-1b"),
+        name="OLMo-1b-hf",
+        hf_config=dict(org="allenai", name="OLMo-1b-hf"),
         vocab_size=50280,
         padded_vocab_size=50304,
         block_size=2048,
@@ -986,10 +986,10 @@ olmo = [
         mlp_class_name="LLaMAMLP",
         intermediate_size=8192,
     ),
-    # https://huggingface.co/allenai/OLMo-7B/blob/main/config.json
+    # https://huggingface.co/allenai/OLMo-7B-hf/blob/main/config.json
     dict(
-        name="OLMo-7b",
-        hf_config=dict(org="allenai", name="OLMo-7b"),
+        name="OLMo-7b-hf",
+        hf_config=dict(org="allenai", name="OLMo-7b-hf"),
         vocab_size=50280,
         padded_vocab_size=50304,
         block_size=2048,
