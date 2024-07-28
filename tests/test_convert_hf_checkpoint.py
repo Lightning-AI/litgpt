@@ -5,11 +5,11 @@ from unittest import mock
 import pytest
 import torch
 
+from litgpt import Config
+from litgpt.scripts.convert_hf_checkpoint import convert_hf_checkpoint, copy_weights_hf_llama
+
 
 def test_llama2_70b_conversion():
-    from litgpt import Config
-    from litgpt.scripts.convert_hf_checkpoint import copy_weights_hf_llama
-
     shapes = {
         "model.embed_tokens.weight": (32000, 8192),
         "model.layers.0.input_layernorm.weight": (8192,),
@@ -102,8 +102,6 @@ def test_llama2_70b_conversion():
 
 
 def test_convert_hf_checkpoint(tmp_path):
-    from litgpt.scripts.convert_hf_checkpoint import convert_hf_checkpoint
-
     with pytest.raises(ValueError, match="to contain .bin"):
         convert_hf_checkpoint(checkpoint_dir=tmp_path, model_name="pythia-14m")
 
@@ -116,7 +114,107 @@ def test_convert_hf_checkpoint(tmp_path):
     assert {p.name for p in tmp_path.glob("*")} == {"foo.bin", "model_config.yaml", "lit_model.pth"}
 
     # ensure that the config dict can be loaded
-    from litgpt import Config
-
     config = Config.from_file(tmp_path / "model_config.yaml")
     assert isinstance(config, Config)
+
+
+def test_qkv_reassemble():
+    from litgpt import Config
+    from litgpt.scripts.convert_hf_checkpoint import qkv_reassemble
+
+    # MHA
+    config = Config(n_embd=4, n_head=4)
+    qkv = torch.tensor(
+        [
+            [0, 1, 2, 3],  # query
+            [4, 5, 6, 7],  # query
+            [8, 9, 10, 11],  # query
+            [12, 13, 14, 15],  # query
+            [16, 17, 18, 19],  # key
+            [20, 21, 22, 23],  # key
+            [24, 25, 26, 27],  # key
+            [28, 29, 30, 31],  # key
+            [32, 33, 34, 35],  # value
+            [36, 37, 38, 39],  # value
+            [40, 41, 42, 43],  # value
+            [44, 45, 46, 47],  # value
+        ]
+    )
+    qkv_interleaved = qkv_reassemble(qkv, config)
+    torch.testing.assert_close(
+        qkv_interleaved,
+        torch.tensor(
+            [
+                [0, 1, 2, 3],  # query
+                [16, 17, 18, 19],  # key
+                [32, 33, 34, 35],  # value
+                [4, 5, 6, 7],  # query
+                [20, 21, 22, 23],  # key
+                [36, 37, 38, 39],  # value
+                [8, 9, 10, 11],  # query
+                [24, 25, 26, 27],  # key
+                [40, 41, 42, 43],  # value
+                [12, 13, 14, 15],  # query
+                [28, 29, 30, 31],  # key
+                [44, 45, 46, 47],  # value
+            ]
+        ),
+    )
+
+    # GQA
+    config = Config(n_embd=4, n_head=4, n_query_groups=2)
+    qkv = torch.tensor(
+        [
+            [0, 1, 2, 3],  # query
+            [4, 5, 6, 7],  # query
+            [8, 9, 10, 11],  # query
+            [12, 13, 14, 15],  # query
+            [16, 17, 18, 19],  # key
+            [20, 21, 22, 23],  # key
+            [24, 25, 26, 27],  # value
+            [28, 29, 30, 31],  # value
+        ]
+    )
+    qkv_interleaved = qkv_reassemble(qkv, config)
+    torch.testing.assert_close(
+        qkv_interleaved,
+        torch.tensor(
+            [
+                [0, 1, 2, 3],  # query
+                [4, 5, 6, 7],  # query
+                [16, 17, 18, 19],  # key
+                [24, 25, 26, 27],  # value
+                [8, 9, 10, 11],  # query
+                [12, 13, 14, 15],  # query
+                [20, 21, 22, 23],  # key
+                [28, 29, 30, 31],  # value
+            ]
+        ),
+    )
+
+    # MQA
+    config = Config(n_embd=4, n_head=4, n_query_groups=1)
+    qkv = torch.tensor(
+        [
+            [0, 1, 2, 3],  # query
+            [4, 5, 6, 7],  # query
+            [8, 9, 10, 11],  # query
+            [12, 13, 14, 15],  # query
+            [16, 17, 18, 19],  # key
+            [20, 21, 22, 23],  # value
+        ]
+    )
+    qkv_interleaved = qkv_reassemble(qkv, config)
+    torch.testing.assert_close(
+        qkv_interleaved,
+        torch.tensor(
+            [
+                [0, 1, 2, 3],  # query
+                [4, 5, 6, 7],  # query
+                [8, 9, 10, 11],  # query
+                [12, 13, 14, 15],  # query
+                [16, 17, 18, 19],  # key
+                [20, 21, 22, 23],  # value
+            ]
+        ),
+    )

@@ -1,7 +1,7 @@
 # Copyright Lightning AI. Licensed under the Apache License 2.0, see LICENSE file.
+import os
 import re
 import subprocess
-import sys
 from contextlib import redirect_stderr, redirect_stdout
 from io import StringIO
 from itertools import repeat
@@ -11,6 +11,12 @@ from unittest.mock import ANY, MagicMock, Mock, call, patch
 import pytest
 import torch
 import yaml
+from lightning.fabric import Fabric
+
+import litgpt.chat.base as chat
+import litgpt.generate.base as generate
+from litgpt import Config
+from litgpt.utils import save_config
 
 
 @pytest.mark.parametrize(
@@ -25,9 +31,6 @@ import yaml
     ],
 )
 def test_generate(monkeypatch, generated, stop_tokens, expected):
-    import litgpt.chat.base as chat
-    import litgpt.generate.base as generate
-
     input_idx = torch.tensor([5, 3])
     max_returned_tokens = len(input_idx) + 8
     model = MagicMock()
@@ -54,10 +57,6 @@ def test_generate(monkeypatch, generated, stop_tokens, expected):
 
 @pytest.mark.parametrize("tokenizer_backend", ["huggingface", "sentencepiece"])
 def test_decode(tokenizer_backend):
-    from lightning.fabric import Fabric
-
-    import litgpt.chat.base as chat
-
     class Tokenizer:
         backend = tokenizer_backend
         id2token = {1: "foo ", 2: "bar ", 3: "baz "}
@@ -81,8 +80,6 @@ def test_decode(tokenizer_backend):
 @patch("litgpt.chat.base.input")
 @pytest.mark.parametrize("stop_iteration", [KeyboardInterrupt, ""])
 def test_main(mocked_input, stop_iteration, fake_checkpoint_dir, monkeypatch, tensor_like):
-    import litgpt.chat.base as chat
-
     # these values will be iteratively provided for each `input()` call
     mocked_input.side_effect = ["Hello", stop_iteration]
 
@@ -112,25 +109,43 @@ def test_main(mocked_input, stop_iteration, fake_checkpoint_dir, monkeypatch, te
 
     out, err = StringIO(), StringIO()
     with redirect_stdout(out), redirect_stderr(err):
-        chat.main(temperature=2.0, top_k=2, checkpoint_dir=fake_checkpoint_dir)
+        chat.main(temperature=2.0, max_new_tokens=10, top_k=2, top_p=0.9, checkpoint_dir=fake_checkpoint_dir)
 
     # decoding is done per each generated item
     assert len(tokenizer_mock.return_value.decode.mock_calls) == generate_mock.return_value.numel()
     assert torch.allclose(tokenizer_mock.return_value.decode.call_args[0][0], generate_mock.return_value)
     assert generate_mock.mock_calls == [
-        call(ANY, tensor_like, 128, temperature=2.0, top_k=2, stop_tokens=([tokenizer_mock.return_value.eos_id],))
+        call(ANY, tensor_like, 13, temperature=2.0, top_k=2, top_p=0.9, stop_tokens=([tokenizer_mock.return_value.eos_id],))
     ]
     # only the generated result is printed to stdout
-    assert re.match("Now chatting with Llama 3.*>> .*Reply: foo bar baz", out.getvalue(), re.DOTALL)
+    assert re.match(r".*Now chatting with Llama 3.*>> .*Reply: foo bar baz", out.getvalue(), re.DOTALL)
 
 
-@pytest.mark.parametrize("mode", ["file", "entrypoint"])
-def test_cli(mode):
-    if mode == "file":
-        cli_path = Path(__file__).parent.parent / "litgpt/chat/base.py"
-        args = [sys.executable, cli_path, "-h"]
-    else:
-        args = ["litgpt", "chat", "-h"]
+def test_cli():
+    args = ["litgpt", "chat", "-h"]
     output = subprocess.check_output(args)
     output = str(output.decode())
-    assert "Starts a conversation" in output
+    assert "Chat with a model" in output
+
+
+@patch("litgpt.chat.base.input")
+@patch("litgpt.chat.base.merge_lora")
+def test_merge_lora_if_needed(mocked_merge_lora, mocked_input, fake_checkpoint_dir, monkeypatch, tensor_like):
+    # these values will be iteratively provided for each `input()` call
+    mocked_input.side_effect = [""]
+
+    # pretend there is an unmerged LORA checkpoint
+    os.rename(fake_checkpoint_dir / "lit_model.pth", fake_checkpoint_dir / "lit_model.pth.lora")
+    mocked_merge_lora.side_effect = lambda _: Path(fake_checkpoint_dir / "lit_model.pth").touch()
+
+    config = Config.from_name("pythia-14m")
+    save_config(config, fake_checkpoint_dir)
+    monkeypatch.setattr(chat, "load_checkpoint", Mock())
+    monkeypatch.setattr(chat, "Tokenizer", Mock())
+
+    out, err = StringIO(), StringIO()
+    with redirect_stdout(out), redirect_stderr(err):
+        chat.main(checkpoint_dir=fake_checkpoint_dir)
+
+    assert re.match(r".*Merging LoRA weights with the base model\..*", out.getvalue(), re.DOTALL)
+    mocked_merge_lora.assert_called_once()

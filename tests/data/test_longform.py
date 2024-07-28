@@ -1,10 +1,9 @@
 # Copyright Lightning AI. Licensed under the Apache License 2.0, see LICENSE file.
+from litgpt.data import LongForm
+from litgpt.prompts import Longform as LongFormPromptStyle
 
 
 def test_longform(mock_tokenizer, longform_path):
-    from litgpt.data import LongForm
-    from litgpt.prompts import Longform as LongFormPromptStyle
-
     alpaca = LongForm(download_dir=longform_path, num_workers=0)
     assert isinstance(alpaca.prompt_style, LongFormPromptStyle)
     alpaca.connect(mock_tokenizer, batch_size=2, max_seq_length=10)

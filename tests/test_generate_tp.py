@@ -7,13 +7,15 @@ from unittest.mock import Mock
 import pytest
 import torch
 import yaml
-from conftest import RunIf
-from test_generate_sequentially import find_forward_hooks
+
+from litgpt import GPT, Config
+from litgpt.generate.tp import tensor_parallel, tensor_parallel_linear
+from litgpt.scripts.download import download_from_hub
+from tests.conftest import RunIf
+from tests.test_generate_sequentially import find_forward_hooks
 
 
 def test_tensor_parallel_linear():
-    from litgpt.generate.tp import tensor_parallel_linear
-
     fabric = Mock()
     fabric.world_size = 4
     fabric.global_rank = 2
@@ -82,9 +84,6 @@ def test_tensor_parallel_linear():
     ],
 )
 def test_tensor_parallel_llama(name, expected):
-    from litgpt import GPT
-    from litgpt.generate.tp import tensor_parallel
-
     fabric = Mock()
     fabric.world_size = 8
     fabric.global_rank = 1
@@ -108,9 +107,6 @@ root = Path(__file__).parent.parent.resolve()
 
 @RunIf(min_cuda_gpus=2)
 def test_tp(tmp_path):
-    from litgpt import GPT, Config
-    from litgpt.scripts.download import download_from_hub
-
     # download the tokenizer
     download_from_hub(repo_id="EleutherAI/pythia-14m", tokenizer_only=True, checkpoint_dir=tmp_path)
     checkpoint_dir = tmp_path / "EleutherAI/pythia-14m"
@@ -121,26 +117,21 @@ def test_tp(tmp_path):
     torch.save(GPT(config).state_dict(), checkpoint_dir / "lit_model.pth")
 
     args = [
+        str(checkpoint_dir),
         "--num_samples=1",
         "--max_new_tokens=10",
         "--precision=16-true",
         "--temperature=0.0",
-        f"--checkpoint_dir={str(checkpoint_dir)}",
     ]
     env = {"CUDA_VISIBLE_DEVICES": "0,1"}
-    tp_stdout = subprocess.check_output([sys.executable, root / "litgpt/generate/tp.py", *args], env=env).decode()
+    tp_stdout = subprocess.check_output([sys.executable, "-m", "litgpt", "generate_tp", *args], env=env, cwd=root).decode()
 
     # there is some unaccounted randomness so cannot compare the output with that of `generate/base.py`
-    assert tp_stdout.startswith("What food do llamas eat?")
+    assert "What food do llamas eat?" in tp_stdout
 
 
-@pytest.mark.parametrize("mode", ["file", "entrypoint"])
-def test_cli(mode):
-    if mode == "file":
-        cli_path = Path(__file__).parent.parent / "litgpt/generate/tp.py"
-        args = [sys.executable, cli_path, "-h"]
-    else:
-        args = ["litgpt", "generate", "tp", "-h"]
+def test_cli():
+    args = ["litgpt", "generate_tp", "-h"]
     output = subprocess.check_output(args)
     output = str(output.decode())
-    assert "Generates text samples" in output
+    assert "Generation script that uses tensor parallelism" in output

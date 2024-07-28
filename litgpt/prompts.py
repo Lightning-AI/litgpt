@@ -200,6 +200,56 @@ class Llama2(PromptStyle):
         )
 
 
+class Llama3(PromptStyle):
+    def apply(self, prompt: Union[str, List[Dict[str, str]]], **kwargs: str) -> str:
+
+        default_system_prompt = "You are a helpful assistant."
+
+        # https://github.com/meta-llama/llama3/blob/359887376f0aaf30e433f23e25df858d8c2a9833/llama/tokenizer.py#L202-L229
+        if isinstance(prompt, str):
+            return (
+                "<|begin_of_text|><|start_header_id|>system<|end_header_id|>\n\n"
+                f"{default_system_prompt}<|eot_id|>" # No newline
+                "<|start_header_id|>user<|end_header_id|>\n\n"
+                f"{prompt}<|eot_id|>" # No newline
+                "<|start_header_id|>assistant<|end_header_id|>\n\n"
+            )
+        elif isinstance(prompt, list):
+
+            def encode_header(role: str) -> List[str]:
+                return [f"<|start_header_id|>{role}<|end_header_id|>\n\n"]
+            
+            def encode_message(message: Dict[str, str]) -> List[str]:
+                tokens = encode_header(message["role"])
+                # NOTE: Meta stripped this. I'm not sure I agree, but who am I to argue?
+                tokens.append(message["content"].strip())
+                tokens.append("<|eot_id|>")
+                return tokens
+            
+            def has_system_prompt(messages: List[Dict[str, str]]) -> bool:
+                return messages[0].get("role", "") == "system" if len(messages) else False
+
+            tokens = ["<|begin_of_text|>"]
+            if not has_system_prompt(prompt):
+                tokens.extend(encode_message({"role": "system", "content": default_system_prompt}))
+            for i, message in enumerate(prompt):
+                if i != 0 and message["role"] == "system":
+                    raise ValueError("'system' role is only allowed at the beginning of the conversation list.")
+                if not message["role"] in ["assistant", "user", "system"]:
+                    raise ValueError(f"Unknown role: '{message['role']}'. Supported roles are 'assistant', 'user', and 'system'.")
+                tokens.extend(encode_message(message))
+            tokens.extend(encode_header("assistant"))
+            return "".join(tokens)
+        else:
+            raise ValueError(f"Unsupported prompt type: {type(prompt)}")
+
+    def stop_tokens(self, tokenizer: "Tokenizer") -> Tuple[List[int], ...]:
+        return (
+            [tokenizer.eos_id],
+            [tokenizer.token_to_id("<|eot_id|>")],
+        )
+
+
 class FreeWilly2(PromptStyle):
     def apply(self, prompt: str, **kwargs: str) -> str:
         return (
@@ -230,7 +280,7 @@ class CodeLlama(PromptStyle):
         # for CodeLLama, we don't set a default system prompt, but it is supported:
         # https://huggingface.co/blog/codellama#conversational-instructions
         # Mistral does not: https://huggingface.co/mistralai/Mistral-7B-Instruct-v0.1#instruction-format
-        b_inst, e_inst = "<s>[INST]", "[/INST]"
+        b_inst, e_inst = "[INST]", "[/INST]"
         return f"{b_inst} {prompt} {e_inst}"
 
 
@@ -251,7 +301,13 @@ class Phi1(PromptStyle):
 
 class Phi2(PromptStyle):
     def apply(self, prompt: str, **kwargs: str) -> str:
-        return f"Instruct:{prompt}\nOutput:"
+        return f"Instruct: {prompt}\nOutput:"
+
+
+class Phi3(PromptStyle):
+    def apply(self, prompt: str, **kwargs: str) -> str:
+        return f'<|system|>\nYou are a helpful assistant.<|end|>\n<|user|>\n{prompt}<|end|>\n<|assistant|>\n'
+
 
 
 class TinyLlama(PromptStyle):
@@ -268,6 +324,11 @@ class TinyLlama(PromptStyle):
 class Gemma(PromptStyle):
     def apply(self, prompt: str, **kwargs: str) -> str:
         return f"<start_of_turn>user\n{prompt}<end_of_turn>\n<start_of_turn>model\n"
+
+
+class H2Oai(PromptStyle):
+    def apply(self, prompt: str, **kwargs: str) -> str:
+        return f"<|prompt|>{prompt}</s><|answer|>"
 
 
 # Maps prompt style names to PromptStyle classes
@@ -292,8 +353,11 @@ prompt_styles: Dict[str, Type[PromptStyle]] = {
     "codellama": CodeLlama,
     "phi-1": Phi1,
     "phi-2": Phi2,
+    "phi-3": Phi3,
     "tinyllama": TinyLlama,
     "gemma": Gemma,
+    "h2oai": H2Oai,
+    "llama3": Llama3,
 }
 
 
@@ -316,22 +380,28 @@ def model_name_to_prompt_style(model_name: str) -> PromptStyle:
         return Llama2FunctionCalling()
     if re.search("Llama-2.*-chat", model_name):
         return Llama2()
+    if re.search("Llama-3.*-Instruct", model_name):
+        return Llama3()
     if re.search("FreeWilly2", model_name):
         return FreeWilly2()
     if re.search("Platypus", model_name):
         return Platypus()
     if re.search("Nous-Hermes", model_name):
         return NousResearch()
-    if re.search("CodeLlama|Mistral.*Instruct", model_name):
+    if re.search("CodeLlama|Mi[sx]tral.*Instruct", model_name):
         return CodeLlama()
     if re.search("phi-1", model_name):
         return Phi1()
     if re.search("phi-2", model_name):
         return Phi2()
+    if re.search("Phi-3", model_name):
+        return Phi3()
     if re.search(r"tiny-llama.*chat", model_name):
         return TinyLlama()
-    if re.search(r"Gemma.*-it", model_name):
+    if re.search(r"(Code)?Gemma.*-it", model_name):
         return Gemma()
+    if re.search("Danube2.*-chat", model_name):
+        return H2Oai()
     return Default()
 
 
@@ -340,12 +410,12 @@ def save_prompt_style(style: Union[str, PromptStyle], checkpoint_dir: Path) -> N
     cls = type(style)
     # Allow saving the full module path for user-defined prompt classes
     config = {"class_path": f"{cls.__module__}.{cls.__name__}"}
-    with open(checkpoint_dir / "prompt_style.yaml", "w") as file:
+    with open(checkpoint_dir / "prompt_style.yaml", "w", encoding="utf-8") as file:
         yaml.dump(config, file)
 
 
 def load_prompt_style(checkpoint_dir: Path) -> PromptStyle:
-    with open(checkpoint_dir / "prompt_style.yaml", "r") as file:
+    with open(checkpoint_dir / "prompt_style.yaml", "r", encoding="utf-8") as file:
         config = yaml.safe_load(file)
     # Support loading the full module path for user-defined prompt classes
     full_module_path, cls_name = config["class_path"].rsplit(".", 1)

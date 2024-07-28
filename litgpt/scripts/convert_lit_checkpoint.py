@@ -1,8 +1,10 @@
 # Copyright Lightning AI. Licensed under the Apache License 2.0, see LICENSE file.
 
 import gc
+from collections import defaultdict
 from functools import partial
 from pathlib import Path
+from pprint import pprint
 from typing import Dict, Optional, Tuple, Union
 
 import torch
@@ -10,7 +12,7 @@ from lightning.fabric.utilities.load import _NotYetLoadedTensor as NotYetLoadedT
 
 from litgpt import Config
 from litgpt.scripts.convert_hf_checkpoint import layer_template, load_param
-from litgpt.utils import CLI, incremental_save, lazy_load
+from litgpt.utils import extend_checkpoint_dir, incremental_save, lazy_load
 
 
 def copy_weights_falcon(
@@ -165,6 +167,57 @@ def copy_weights_llama(
             state_dict[to_name] = param
 
 
+def copy_weights_gemma_2(
+    config: Config,
+    state_dict: Dict[str, torch.Tensor],
+    lit_weights: Dict[str, Union[torch.Tensor, NotYetLoadedTensor]],
+    untie_weights: bool = False,
+    saver: Optional[incremental_save] = None,
+) -> None:
+    weight_map = {
+        "transformer.wte.weight": "model.embed_tokens.weight",
+        "transformer.h.{}.attn.proj.weight": "model.layers.{}.self_attn.o_proj.weight",
+        "transformer.h.{}.mlp.fc_1.weight": "model.layers.{}.mlp.gate_proj.weight",
+        "transformer.h.{}.mlp.fc_2.weight": "model.layers.{}.mlp.up_proj.weight",
+        "transformer.h.{}.mlp.proj.weight": "model.layers.{}.mlp.down_proj.weight",
+        "transformer.h.{}.norm_1.weight": "model.layers.{}.input_layernorm.weight",
+        "transformer.h.{}.post_attention_norm.weight": "model.layers.{}.post_attention_layernorm.weight",
+        "transformer.h.{}.norm_2.weight": "model.layers.{}.pre_feedforward_layernorm.weight",
+        "transformer.h.{}.post_mlp_norm.weight": "model.layers.{}.post_feedforward_layernorm.weight",
+        "transformer.ln_f.weight": "model.norm.weight",
+        "lm_head.weight": "lm_head.weight",
+    }
+
+    for name, param in lit_weights.items():
+        if name == "lm_head.weight" and untie_weights:
+            continue
+        if name.endswith(".attn.attn.weight"):
+            from_name, layer_idx = layer_template(name, 2)
+            q = "model.layers.{}.self_attn.q_proj.weight".format(layer_idx)
+            k = "model.layers.{}.self_attn.k_proj.weight".format(layer_idx)
+            v = "model.layers.{}.self_attn.v_proj.weight".format(layer_idx)
+            qkv = load_param(param, name, None)
+            qp, kp, vp = qkv_split(qkv, config)
+            for to_name, param in zip((q, k, v), (qp, kp, vp)):
+                if saver is not None:
+                    param = saver.store_early(param)
+                state_dict[to_name] = param
+        else:
+            if "transformer.h" in name:
+                from_name, layer_idx = layer_template(name, 2)
+                e = None
+                if "mlp.experts" in name:
+                    from_name, e = layer_template(from_name, 5)
+                to_name = weight_map[from_name]
+                to_name = to_name.format(layer_idx)
+            else:
+                to_name = weight_map[name]
+            param = load_param(param, name, None)
+            if saver is not None:
+                param = saver.store_early(param)
+            state_dict[to_name] = param
+
+
 def copy_weights_phi(
     config: Config,
     state_dict: Dict[str, torch.Tensor],
@@ -187,30 +240,63 @@ def copy_weights_phi(
         "lm_head.bias": "lm_head.bias",
     }
 
+    if config.name.startswith("Phi-3"):
+        weight_map.update(
+            {
+                "transformer.h.{}.attn.attn.weight": "model.layers.{}.self_attn.qkv_proj.weight",
+                "transformer.h.{}.attn.proj.weight": "model.layers.{}.self_attn.o_proj.weight",
+                "transformer.h.{}.norm_2.weight": "model.layers.{}.post_attention_layernorm.weight",
+                "transformer.h.{}.mlp.proj.weight": "model.layers.{}.mlp.down_proj.weight",
+                "transformer.ln_f.weight": "model.norm.weight",
+            }
+        )
+        gate_up_proj_weights = defaultdict(dict)
+
     for name, param in lit_weights.items():
         if name.endswith((".attn.attn.weight", ".attn.attn.bias")):
-            from_name, l = layer_template(name, 2)
-            weight_type = name.split(".")[-1]  # weight or bias
-            q = f"model.layers.{l}.self_attn.q_proj.{weight_type}"
-            k = f"model.layers.{l}.self_attn.k_proj.{weight_type}"
-            v = f"model.layers.{l}.self_attn.v_proj.{weight_type}"
+            from_name, l_idx = layer_template(name, 2)
             qkv = load_param(param, name, None)
             qp, kp, vp = qkv_split(qkv, config)
-            for to_name, param in zip((q, k, v), (qp, kp, vp)):
+            if config.name.startswith("Phi-3"):
+                qkv_reassembled = torch.concat([qp, kp, vp], dim=0)
+                to_name = weight_map[from_name].format(l_idx)
                 if saver is not None:
-                    param = saver.store_early(param)
-                state_dict[to_name] = param
+                    qkv_reassembled = saver.store_early(qkv_reassembled)
+                state_dict[to_name] = qkv_reassembled
+            else:
+                weight_type = name.split(".")[-1]  # weight or bias
+                q = f"model.layers.{l_idx}.self_attn.q_proj.{weight_type}"
+                k = f"model.layers.{l_idx}.self_attn.k_proj.{weight_type}"
+                v = f"model.layers.{l_idx}.self_attn.v_proj.{weight_type}"
+                for to_name, param in zip((q, k, v), (qp, kp, vp)):
+                    if saver is not None:
+                        param = saver.store_early(param)
+                    state_dict[to_name] = param
+        elif name.endswith((".fc_1.weight", ".fc_2.weight")):
+            from_name, l_idx = layer_template(name, 2)
+            weight = load_param(param, name, None)
+            weight_name = name.split(".")[-2]
+            gate_up_proj_weights[l_idx][weight_name] = weight
         else:
             if "transformer.h" in name:
-                from_name, l = layer_template(name, 2)
+                from_name, l_idx = layer_template(name, 2)
                 to_name = weight_map[from_name]
-                to_name = to_name.format(l)
+                to_name = to_name.format(l_idx)
             else:
                 to_name = weight_map[name]
             param = load_param(param, name, None)
             if saver is not None:
                 param = saver.store_early(param)
             state_dict[to_name] = param
+
+    if config.name.startswith("Phi-3"):
+        for i in list(gate_up_proj_weights):
+            fc_1_weight = gate_up_proj_weights[i]["fc_1"]
+            fc_2_weight = gate_up_proj_weights[i]["fc_2"]
+            weight = torch.concat([fc_1_weight, fc_2_weight], dim=0)
+            layer_name = f"model.layers.{i}.mlp.gate_up_proj.weight"
+            state_dict[layer_name] = weight
+            del gate_up_proj_weights[i]
 
 
 def qkv_split(
@@ -235,12 +321,15 @@ def check_conversion_supported(lit_weights: Dict[str, torch.Tensor]) -> None:
     if any("lora" in wn for wn in lit_weights):
         raise ValueError("Checkpoints with LoRA weights cannot be converted. Call `scripts/merge_lora.py` first.")
     if any("adapter" in wn or "gating_factor" in wn for wn in lit_weights):
-        raise NotImplementedError("Converting adapter models is supported.")
+        raise NotImplementedError("Converting adapter models is not supported.")
 
 
 @torch.inference_mode()
 def convert_lit_checkpoint(checkpoint_dir: Path, output_dir: Path) -> None:
     """Convert a LitGPT trained checkpoint into a Hugging Face Transformers checkpoint."""
+    checkpoint_dir = extend_checkpoint_dir(checkpoint_dir)
+    pprint(locals())
+
     config = Config.from_file(checkpoint_dir / "model_config.yaml")
 
     output_dir.mkdir(parents=True, exist_ok=True)
@@ -248,11 +337,13 @@ def convert_lit_checkpoint(checkpoint_dir: Path, output_dir: Path) -> None:
 
     if "falcon" in config.name:
         copy_fn = partial(copy_weights_falcon, config.name)
+    elif config.name.startswith("Gemma-2"):
+        copy_fn = partial(copy_weights_gemma_2, config)
+    elif config.name.lower().startswith("phi"):
+        copy_fn = partial(copy_weights_phi, config)
     elif config.mlp_class_name in ("LLaMAMLP", "GemmaMLP", "LLaMAMoE"):
         untie_weights = "Gemma" in config.name
         copy_fn = partial(copy_weights_llama, config, untie_weights=untie_weights)
-    elif "phi" in config.name:
-        copy_fn = partial(copy_weights_phi, config)
     else:
         copy_fn = copy_weights_gpt_neox
 
@@ -265,7 +356,3 @@ def convert_lit_checkpoint(checkpoint_dir: Path, output_dir: Path) -> None:
         copy_fn(sd, lit_weights, saver=saver)
         gc.collect()
         saver.save(sd)
-
-
-if __name__ == "__main__":
-    CLI(convert_lit_checkpoint)

@@ -26,7 +26,7 @@ class GPT(nn.Module):
         self.transformer = nn.ModuleDict(
             dict(
                 wte=nn.Embedding(config.padded_vocab_size, config.n_embd),
-                h=nn.ModuleList(Block(config) for _ in range(config.n_layer)),
+                h=nn.ModuleList(Block(config, block_idx) for block_idx in range(config.n_layer)),
                 ln_f=config.norm_class(config.n_embd, eps=config.norm_eps),
             )
         )
@@ -88,12 +88,15 @@ class GPT(nn.Module):
 
         x = self.transformer.wte(idx)  # token embeddings of shape (b, t, n_embd)
         if self.config.scale_embeddings:
-            x = x * (self.config.n_embd**0.5)
+            x = x * torch.tensor(self.config.n_embd**0.5, dtype=x.dtype)
 
         for block in self.transformer.h:
             x = block(x, cos, sin, mask, input_pos)
         x = self.transformer.ln_f(x)
-        return self.lm_head(x)  # (b, t, vocab_size)
+        x = self.lm_head(x)  # (b, t, vocab_size)
+        if self.config.final_logit_softcapping is not None:
+            x = torch.tanh(x / self.config.final_logit_softcapping) * self.config.final_logit_softcapping
+        return x
 
     @classmethod
     def from_name(cls, name: str, **kwargs: Any) -> Self:
@@ -137,12 +140,24 @@ class GPT(nn.Module):
 
 
 class Block(nn.Module):
-    def __init__(self, config: Config) -> None:
+    def __init__(self, config: Config, block_idx: int) -> None:
         super().__init__()
+        if not config.parallel_residual and config.shared_attention_norm:
+            raise NotImplementedError(
+                "No checkpoint amongst the ones we support uses this configuration"
+                " (non-parallel residual and shared attention norm)."
+            )
+
         self.norm_1 = config.norm_class(config.n_embd, eps=config.norm_eps)
-        self.attn = CausalSelfAttention(config)
+        self.attn = CausalSelfAttention(config, block_idx)
+        self.post_attention_norm = (
+            config.norm_class(config.n_embd, eps=config.norm_eps) if config.post_attention_norm else nn.Identity()
+        )
         self.norm_2 = None if config.shared_attention_norm else config.norm_class(config.n_embd, eps=config.norm_eps)
         self.mlp = config.mlp_class(config)
+        self.post_mlp_norm = (
+            config.norm_class(config.n_embd, eps=config.norm_eps) if config.post_mlp_norm else nn.Identity()
+        )
 
         self.config = config
 
@@ -154,24 +169,42 @@ class Block(nn.Module):
         mask: Optional[torch.Tensor] = None,
         input_pos: Optional[torch.Tensor] = None,
     ) -> torch.Tensor:
-        n_1 = self.norm_1(x)
-        h = self.attn(n_1, cos, sin, mask, input_pos)
+        """
+        Non-parallel residual       Parallel residual
+           ┌─ x                     ┌─ x ──────────────────┐             Note: if `shared_attention_norm` is True,
+           │  ↓                     │  ↓                   ↓                   the output from `norm_1` is reused
+           │  norm_1                │  norm_1  ───────►    norm_2
+           │  ↓                     │  ↓                   ↓
+           │  attn                  │  attn                MLP
+           │  ↓                     │  ↓                   ↓
+           |  post_attn_norm        |  post_attn_norm      post_mlp_norm
+           |  ↓                     |  ↓                   ↓
+        ┌─ └► +                     └► + ◄─────────────────┘
+        |     ↓
+        │     norm_2
+        │     ↓
+        │     MLP
+        │     ↓
+        |     post_mlp_norm
+        |     ↓
+        └───► +
+        """
+
+        x_normed = self.norm_1(x)
+        attention_output = self.attn(x_normed, cos, sin, mask, input_pos)
+        attention_output = self.post_attention_norm(attention_output)
+
         if self.config.parallel_residual:
-            n_2 = n_1 if self.config.shared_attention_norm else self.norm_2(x)
-            x = self.mlp(n_2) + h + x
+            x_normed = x_normed if self.config.shared_attention_norm else self.norm_2(x)
+            x = self.mlp(x_normed) + attention_output + x
         else:
-            if self.config.shared_attention_norm:
-                raise NotImplementedError(
-                    "No checkpoint amongst the ones we support uses this configuration"
-                    " (non-parallel residual and shared attention norm)."
-                )
-            x = h + x
-            x = self.mlp(self.norm_2(x)) + x
+            x = attention_output + x
+            x = self.post_mlp_norm(self.mlp(self.norm_2(x))) + x
         return x
 
 
 class CausalSelfAttention(nn.Module):
-    def __init__(self, config: Config) -> None:
+    def __init__(self, config: Config, block_idx: int) -> None:
         super().__init__()
         shape = (config.n_head + 2 * config.n_query_groups) * config.head_size
         # key, query, value projections for all heads, but in a batch
@@ -181,6 +214,10 @@ class CausalSelfAttention(nn.Module):
         self.proj = nn.Linear(config.head_size * config.n_head, config.n_embd, bias=config.bias)
         # disabled by default
         self.kv_cache: Optional[KVCache] = None
+        self.apply_sliding_window_attention = (
+            config.sliding_window_size is not None and
+            block_idx % config.sliding_window_layer_placing == 0
+        )
 
         self.config = config
 
@@ -226,6 +263,24 @@ class CausalSelfAttention(nn.Module):
                 raise TypeError("You need to call `gpt.set_kv_cache()`")
             k, v = self.kv_cache(input_pos, k, v)
 
+        if self.apply_sliding_window_attention:
+            """
+                  Global Window              Sliding window             Sliding window
+                  attention mask      +            bias          =      attention mask
+            ┌────────────────────────┐  ┌───────────────────────┐  ┌─────────────────────────┐
+            │ True False False False │  │ True  True  True True │  │ True  False False False │
+            │ True True  False False │  │ True  True  True True │  │ True  True  False False │
+            │ True True  True  False │  │ False True  True True │  │ False True  True  False │
+            │ True True  True  True  │  │ False False True True │  │ False False True  True  │
+            └────────────────────────┘  └───────────────────────┘  └─────────────────────────┘
+            """
+            if mask is None:
+                mask = torch.ones(T, T, dtype=q.dtype, device=q.device).triu(diagonal=1)
+                mask.masked_fill_(mask.bool(), float("-inf"))
+            sliding_window_bias = torch.ones_like(mask).tril(diagonal=-self.config.sliding_window_size)
+            sliding_window_bias.masked_fill_(sliding_window_bias.bool(), float("-inf"))
+            mask += sliding_window_bias
+
         y = self.scaled_dot_product_attention(q, k, v, mask)
 
         y = y.reshape(B, T, self.config.head_size * self.config.n_head)  # re-assemble all head outputs side by side
@@ -236,10 +291,25 @@ class CausalSelfAttention(nn.Module):
     def scaled_dot_product_attention(
         self, q: torch.Tensor, k: torch.Tensor, v: torch.Tensor, mask: Optional[torch.Tensor] = None
     ) -> torch.Tensor:
-        scale = 1.0 / math.sqrt(self.config.head_size)
-        y = torch.nn.functional.scaled_dot_product_attention(
-            q, k, v, attn_mask=mask, dropout_p=0.0, scale=scale, is_causal=mask is None
-        )
+        scale = 1.0 / math.sqrt(self.config.attention_scores_scalar or self.config.head_size)
+
+        # with softcapping we cannot use SDPA
+        if self.config.attention_logit_softcapping is not None:
+            scale = 1.0 / math.sqrt(self.config.attention_scores_scalar or self.config.head_size)
+            scores = q @ k.mT * scale
+            scores = (
+                torch.tanh(scores / self.config.attention_logit_softcapping) * self.config.attention_logit_softcapping
+            )
+            if mask is None:
+                mask = torch.ones(q.size(2), q.size(2), dtype=q.dtype, device=q.device).triu(diagonal=1)
+                mask.masked_fill_(mask.bool(), torch.finfo(q.dtype).min)
+            scores = scores + mask
+            scores = torch.nn.functional.softmax(scores, dim=-1, dtype=torch.float).to(dtype=q.dtype)
+            y = scores @ v
+        else:
+            y = torch.nn.functional.scaled_dot_product_attention(
+                q, k, v, attn_mask=mask, dropout_p=0.0, scale=scale, is_causal=mask is None
+            )
         return y.transpose(1, 2)
 
     def build_kv_cache(
@@ -401,8 +471,9 @@ class KVCache(nn.Module):
         self.k = self.k.to(k.dtype)
         self.v = self.v.to(v.dtype)
         # update the cache
-        k = self.k.index_copy_(2, input_pos, k)
-        v = self.v.index_copy_(2, input_pos, v)
+        n = k.size(0)
+        k = self.k[:n, ...].index_copy_(2, input_pos, k)
+        v = self.v[:n, ...].index_copy_(2, input_pos, v)
         return k, v
 
     def reset_parameters(self) -> None:
@@ -435,12 +506,8 @@ class RMSNorm(torch.nn.Module):
         # NOTE: the original RMSNorm paper implementation is not equivalent
         norm_x = torch.mean(x * x, dim=self.dim, keepdim=True)
         x_normed = x * torch.rsqrt(norm_x + self.eps)
-        x_normed = x_normed.to(dtype=dtype)
-        if self.add_unit_offset:
-            # Gemma model requires a unit offset
-            # https://github.com/google/gemma_pytorch/blob/main/gemma/model.py#L176
-            return x_normed * (1 + self.weight)
-        return x_normed * self.weight
+        weight = (1 + self.weight) if self.add_unit_offset else self.weight
+        return (x_normed * weight.float()).to(dtype=dtype)
 
     def reset_parameters(self) -> None:
         torch.nn.init.ones_(self.weight)

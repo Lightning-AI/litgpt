@@ -1,14 +1,13 @@
 # Copyright Lightning AI. Licensed under the Apache License 2.0, see LICENSE file.
 
 import torch
+from transformers.models.gpt_neox.modeling_gpt_neox import GPTNeoXRotaryEmbedding, apply_rotary_pos_emb
+
+from litgpt.model import apply_rope, build_rope_cache
 
 
 @torch.inference_mode()
 def test_rope():
-    from transformers.models.gpt_neox.modeling_gpt_neox import GPTNeoXRotaryEmbedding, apply_rotary_pos_emb
-
-    from litgpt.model import apply_rope, build_rope_cache
-
     bs, seq_len, n_head, n_embed = 1, 6, 2, 8
     head_size = n_embed // n_head
     x = torch.randint(0, 10000, size=(bs, n_head, seq_len, head_size)).float()

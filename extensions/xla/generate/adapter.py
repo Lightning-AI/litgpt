@@ -15,11 +15,11 @@ from litgpt.prompts import Alpaca
 from litgpt.utils import check_valid_checkpoint_dir, lazy_load
 
 # support running without installing as a package
-wd = Path(__file__).parent.parent.parent.resolve()
+wd = Path(__file__).parents[3].resolve()
 sys.path.append(str(wd))
 
-from xla.generate.base import generate
-from xla.utils import rank_print
+from extensions.xla.generate.base import generate
+from extensions.xla.utils import rank_print
 
 
 def setup(
@@ -29,12 +29,12 @@ def setup(
     adapter_path: Path = Path("out/adapter/alpaca/lit_model_adapter_finetuned.pth"),
     checkpoint_dir: Path = Path("checkpoints/tiiuae/falcon-7b"),
     max_new_tokens: int = 100,
-    top_k: Optional[int] = 200,
+    top_k: Optional[int] = 50,
     temperature: float = 0.8,
     precision: str = "bf16-true",
 ) -> None:
     """Generates a response based on a given instruction and an optional input.
-    This script will only work with checkpoints from the instruction-tuned GPT-Adapter model.
+    This script will only work with checkpoints from the instruction-tuned Adapter model.
     See `xla/finetune/adapter.py`.
 
     Args:
@@ -42,7 +42,7 @@ def setup(
         input: Optional input (Alpaca style).
         adapter_path: Path to the checkpoint with trained adapter weights, which are the output of
             `xla/finetune/adapter.py`.
-        checkpoint_dir: The path to the checkpoint folder with pretrained GPT weights.
+        checkpoint_dir: The path to the checkpoint folder with pretrained model weights.
         max_new_tokens: The number of generation steps to take.
         top_k: The number of top most probable tokens to consider in the sampling process.
         temperature: A value controlling the randomness of the sampling process. Higher values result in more random

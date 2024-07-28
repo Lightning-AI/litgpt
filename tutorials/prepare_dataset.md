@@ -6,7 +6,7 @@ Below is a table of all datasets that are currently supported in LitGPT:
 |--------------|-------------|---------------------|--------------------------------------------------------------------------------------|---------------------------------------------------------------------------------------------------------------------------|------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------|
 | Alpaca       | Finetuning  | 51,759 samples      | [URL](https://github.com/tatsu-lab/stanford_alpaca)                                  | [URL](https://crfm.stanford.edu/2023/03/13/alpaca.html)                                                                   | Attribution-NonCommercial 4.0 International, [URL](https://crfm.stanford.edu/2023/03/13/alpaca.html)                                                                                                             |
 | Alpaca-2k    | Finetuning  | 2000 samples        | [URL](https://huggingface.co/datasets/mhenrichsen/alpaca_2k_test)                    | See Alpaca above                                                                                                          | See Alpaca Above                                                                                                                                                                                                 |
-| Alpaca-GPT4  | Finetuning  | 52,002 samples      | [URL](https://github.com/Instruction-Tuning-with-GPT-4/GPT-4-LLM)                    | [URL](https://arxiv.org/abs/2304.03277)                                                                                   | Attribution-NonCommercial 4.0 International, [URL](https://github.com/Instruction-Tuning-with-GPT-4/GPT-4-LLM/blob/main/DATA_LICENSEl)                                                                           |
+| Alpaca-GPT4  | Finetuning  | 52,002 samples      | [URL](https://github.com/Instruction-Tuning-with-GPT-4/GPT-4-LLM)                    | [URL](https://arxiv.org/abs/2304.03277)                                                                                   | Attribution-NonCommercial 4.0 International, [URL](https://github.com/Instruction-Tuning-with-GPT-4/GPT-4-LLM/blob/main/DATA_LICENSE)                                                                           |
 | Alpaca Libre | Finetuning  | 55,370 samples      | [URL](https://github.com/mobarski/alpaca-libre)                                      | -                                                                                                                         | CC0/MIT,  [URL](https://github.com/mobarski/alpaca-libre)                                                                                                                                                        |
 | Deita        | Finetuning  | 9,500 samples       | [URL](https://huggingface.co/datasets/HuggingFaceH4/deita-10k-v0-sft/tree/main/data) | [URL](https://arxiv.org/abs/2312.15685)                                                                                   | MIT [URL](https://huggingface.co/datasets/hkust-nlp/deita-10k-v0/blob/main/README.md)                                                                                                                            |
 | Dolly        | Finetuning  | 15,011 samples      | [URL](https://github.com/databrickslabs/dolly/tree/master/data)                      | [URL](https://www.databricks.com/blog/2023/04/12/dolly-first-open-commercially-viable-instruction-tuned-llm)              | CC-BY-SA, [URL](https://github.com/databrickslabs/dolly#model-overview)                                                                                                                                          |
@@ -26,9 +26,11 @@ The steps here only need to be done once before preparing the finetuning dataset
 1. Follow the instructions in the [README](../README.md) to install the dependencies.
 2. Download and convert the weights following our [guide](download_model_weights.md).
 
-For the following examples, we will focus on finetuning with the `litgpt/finetune/lora.py` script and use a Falcon 7B model.
+For the following examples, we will focus on finetuning with the `litgpt finetune_lora` command and use a Falcon 7B model.
 However, the same steps apply to all other models and finetuning scripts.
 Please read the [tutorials/finetune_*.md](.) documents for more information about finetuning models.
+
+&nbsp;
 
 > [!IMPORTANT]
 > By default, the maximum sequence length is obtained from the model configuration file. In case you run into out-of-memory errors, especially in the cases of LIMA and Dolly,
@@ -38,8 +40,6 @@ Please read the [tutorials/finetune_*.md](.) documents for more information abou
 
 ### Alpaca
 
-&nbsp;
-
 The Alpaca dataset consists of 52,000 instructions and demonstrations produced by OpenAI's text-davinci-003 engine. This data is used in instruction-tuning, helping improve the performance of language models to follow instructions.
 
 In its development, the creators leveraged the data generation methodology from the [Self-Instruct framework](https://github.com/yizhongw/self-instruct).
@@ -47,10 +47,16 @@ In its development, the creators leveraged the data generation methodology from 
 The original [Alpaca](https://crfm.stanford.edu/2023/03/13/alpaca.html) dataset can be used as follows:
 
 ```bash
-litgpt finetune lora \
-  --data Alpaca \
-  --checkpoint_dir "checkpoints/tiiuae/falcon-7b"
+litgpt finetune_lora tiiuae/falcon-7b \
+  --data Alpaca
 ```
+
+&nbsp;
+
+> [!TIP]
+> Use `litgpt finetune --data.help Alpaca` to list additional dataset-specific command line options.
+
+&nbsp;
 
 #### Truncating datasets
 
@@ -61,9 +67,8 @@ By default, the finetuning scripts will determine the size of the longest tokeni
 In this case, a cut-off of 256 may be a reasonable choice:
 
 ```bash
-litgpt finetune lora \
+litgpt finetune_lora tiiuae/falcon-7b \
   --data Alpaca \
-  --checkpoint_dir "checkpoints/tiiuae/falcon-7b" \
   --train.max_seq_length 256
 ```
 
@@ -75,21 +80,41 @@ For comparison, the Falcon 7B model requires 23.52 GB of memory for the original
 
 [Alpaca-2k](https://huggingface.co/datasets/mhenrichsen/alpaca_2k_test) is a smaller, 2000-sample subset of Alpaca described above.
 
+```bash
+litgpt finetune_lora "tiiuae/falcon-7b" \
+  --data Alpaca2k
+```
+
+&nbsp;
+
+> [!TIP]
+> Use `litgpt_finetune --data.help Alpaca2k` to list additional dataset-specific command line options.
+
+&nbsp;
+
+The Alpaca-2k dataset distribution is shown below.
+
 <img src="images/prepare_dataset/alpaca-2k.jpg" width=400px>
+
 
 ### Alpaca-GPT4
 
-
-The Alpaca-GPT4 was built by using the prompts of the original Alpaca dataset and generate the responses via GPT 4. The 
+The Alpaca-GPT4 was built by using the prompts of the original Alpaca dataset and generate the responses via GPT 4. The
 dataset consists of 52,000 instructions and responses.
 
 The original [Alpaca-GPT4](https://github.com/Instruction-Tuning-with-GPT-4/GPT-4-LLM) dataset can be used as follows:
 
 ```bash
-litgpt finetune lora \
-  --data AlpacaGPT4 \
-  --checkpoint_dir "checkpoints/tiiuae/falcon-7b"
+litgpt finetune lora "tiiuae/falcon-7b" \
+  --data AlpacaGPT4
 ```
+
+&nbsp;
+
+> [!TIP]
+> Use `litgpt_finetune --data.help AlpacaGPT4` to list additional dataset-specific command line options.
+
+&nbsp;
 
 The Alpaca-GPT4 dataset distribution is shown below.
 
@@ -104,12 +129,18 @@ The Alpaca-GPT4 dataset distribution is shown below.
 To use Alpaca Libre instead of the original Alpaca dataset, use the following command:
 
 ```bash
-litgpt finetune lora \
+litgpt finetune_lora tiiuae/falcon-7b \
   --data Alpaca \
   --data.file_url "https://raw.githubusercontent.com/mobarski/alpaca-libre/main/data/output/alpaca_libre_ok_tasks_v4.json" \
-  --data.file_name "alpaca_libre_data_cleaned_archive.json" \
-  --checkpoint_dir "checkpoints/tiiuae/falcon-7b"
+  --data.file_name "alpaca_libre_data_cleaned_archive.json"
 ```
+
+&nbsp;
+
+> [!TIP]
+> Use `litgpt finetune --data.help Alpaca` to list additional dataset-specific command line options.
+
+&nbsp;
 
 The Alpaca Libre dataset distribution is shown below.
 
@@ -118,27 +149,32 @@ The Alpaca Libre dataset distribution is shown below.
 You may want to consider truncating the dataset (see the *Truncating datasets* discussion in the Alpaca section for more information.) For this dataset, a cut-off of 256 may be a good choice:
 
 ```bash
-litgpt finetune lora \
+litgpt finetune_lora tiiuae/falcon-7b \
   --data Alpaca \
   --data.file_url "https://raw.githubusercontent.com/mobarski/alpaca-libre/main/data/output/alpaca_libre_ok_tasks_v4.json" \
   --data.file_name "alpaca_libre_data_cleaned_archive.json" \
-  --checkpoint_dir "checkpoints/tiiuae/falcon-7b" \
   --train.max_seq_length 256
 ```
-
 
 &nbsp;
 
 ### Deita
 
-The Deita dataset (short for Data-Efficient Instruction Tuning for Alignment) is a collection of 9500 prompts and responses, as described in the [What Makes Good Data for Alignment? A Comprehensive Study of Automatic Data Selection in Instruction Tuning](https://arxiv.org/abs/2312.15685) paper. 
+The Deita dataset (short for Data-Efficient Instruction Tuning for Alignment) is a collection of 9500 prompts and responses, as described in the [What Makes Good Data for Alignment? A Comprehensive Study of Automatic Data Selection in Instruction Tuning](https://arxiv.org/abs/2312.15685) paper.
 Using Falcon 7b as an example, we can use the dataset as follows:
 
 ```bash
-litgpt finetune lora \
-  --data Deita \
-  --checkpoint_dir "checkpoints/tiiuae/falcon-7b"
+litgpt finetune_lora tiiuae/falcon-7b \
+  --data Deita
 ```
+
+&nbsp;
+
+
+> [!TIP]
+> Use `litgpt finetune --data.help Deita` to list additional dataset-specific command line options.
+
+&nbsp;
 
 Deita contains multiturn conversations. By default, only the first instruction-response pairs from
 each of these multiturn conversations are included. If you want to override this behavior and include the follow-up instructions
@@ -156,12 +192,10 @@ The Deita dataset distribution including multit-turn conversations is depicted i
 You may want to consider truncating the dataset (see the *Truncating datasets* discussion in the Alpaca section for more information.) For this dataset, a cut-off of 512 may be a good choice:
 
 ```bash
-litgpt finetune lora \
+litgpt finetune_lora tiiuae/falcon-7b \
   --data Deita \
-  --checkpoint_dir "checkpoints/tiiuae/falcon-7b" \
   --train.max_seq_length 512
 ```
-
 
 &nbsp;
 
@@ -172,10 +206,16 @@ The Dolly dataset is a publicly available collection of 15k instruction-followin
 The usage is similar to the Alpaca dataset described above. Using Falcon 7b as an example, we can use the dataset as follows:
 
 ```bash
-litgpt finetune lora \
-  --data Dolly \
-  --checkpoint_dir "checkpoints/tiiuae/falcon-7b" \
+litgpt finetune_lora tiiuae/falcon-7b \
+  --data Dolly
 ```
+
+&nbsp;
+
+> [!TIP]
+> Use `litgpt finetune --data.help Dolly` to list additional dataset-specific command line options.
+
+&nbsp;
 
 The Dolly dataset distribution is shown below.
 
@@ -184,9 +224,8 @@ The Dolly dataset distribution is shown below.
 You may want to consider truncating the dataset (see the *Truncating datasets* discussion in the Alpaca section for more information.) For this dataset, a cut-off of 512 may be a good choice:
 
 ```bash
-litgpt finetune lora \
+litgpt finetune_lora tiiuae/falcon-7b \
   --data Dolly \
-  --checkpoint_dir "checkpoints/tiiuae/falcon-7b" \
   --train.max_seq_length 256
 ```
 
@@ -225,11 +264,17 @@ The LongForm dataset distribution is shown below.
 You may want to consider truncating the dataset (see the *Truncating datasets* discussion in the Alpaca section for more information.) For this dataset, a cut-off of 1500 may be a good choice:
 
 ```bash
-litgpt finetune lora \
+litgpt finetune_lora tiiuae/falcon-7b \
   --data LongForm \
-  --checkpoint_dir "checkpoints/tiiuae/falcon-7b" \
   --train.max_seq_length 1500
 ```
+
+&nbsp;
+
+> [!TIP]
+> Use `litgpt finetune --data.help LongForm` to list additional dataset-specific command line options.
+
+&nbsp;
 
 &nbsp;
 
@@ -244,8 +289,15 @@ export HF_TOKEN="insert_your_huggingface_token_here"
 
 litgpt finetune lora \
   --data LIMA \
-  --checkpoint_dir "checkpoints/tiiuae/falcon-7b"
+  --checkpoint_dir "tiiuae/falcon-7b"
 ```
+
+&nbsp;
+
+> [!TIP]
+> Use `litgpt finetune --data.help LIMA` to list additional dataset-specific command line options.
+
+&nbsp;
 
 LIMA contains a handful of multiturn conversations. By default, only the first instruction-response pairs from
 each of these multiturn conversations are included. If you want to override this behavior and include the follow-up instructions
@@ -258,9 +310,8 @@ The LIMA dataset distribution is shown below.
 You may want to consider truncating the dataset (see the *Truncating datasets* discussion in the Alpaca section for more information.) For this dataset, a cut-off of 512 may be a good choice:
 
 ```bash
-litgpt finetune lora \
+litgpt finetune_lora tiiuae/falcon-7b \
   --data LIMA \
-  --checkpoint_dir "checkpoints/tiiuae/falcon-7b" \
   --train.max_seq_length 512
 ```
 
@@ -274,20 +325,24 @@ FLAN is a collection of several datset subsets by Google. In particular, the pro
 By default, all subsets (1,386,050 samples) and validations sets (367,190 subsets) are combined into a single dataset:
 
 ```bash
-litgpt finetune lora \
-  --data FLAN \
-  --checkpoint_dir "checkpoints/tiiuae/falcon-7b"
+litgpt finetune_lora tiiuae/falcon-7b \
+  --data FLAN
 ```
 
 However, you can also select individual subsets via comma-separated strings as follows:
 
-
 ```bash
-litgpt finetune lora \
+litgpt finetune lora tiiuae/falcon-7b \
   --data FLAN \
-  --data.subsets "aeslc_10templates,ag_news_subset_10templates,anli_r1_10templates" \
-  --checkpoint_dir "checkpoints/tiiuae/falcon-7b"
+  --data.subsets "aeslc_10templates,ag_news_subset_10templates,anli_r1_10templates"
 ```
+
+&nbsp;
+
+> [!TIP]
+> Use `litgpt finetune --data.help FLAN` to list additional dataset-specific command line options.
+
+&nbsp;
 
 You can find a list of all 66 supported subsets [here](https://huggingface.co/datasets/Muennighoff/flan).
 
@@ -337,10 +392,10 @@ You can prepare custom dataset using a JSON file where each row is a dictionary 
 Then simply run any of the finetuning scripts with this input:
 
 ```bash
-litgpt finetune lora \
+litgpt finetune_lora tiiuae/falcon-7b \
   --data JSON \
   --data.json_path path/to/your/data.json \
-  --checkpoint_dir "checkpoints/tiiuae/falcon-7b"
+  --data.val_split_fraction 0.1
 ```
 
 You can also customize how the dataset is read by using these additional parameters
@@ -356,17 +411,21 @@ You can also customize how the dataset is read by using these additional paramet
 To use the settings described above, you can add the respective command line arguments when calling the finetuning scripts as shown in the example below:
 
 ```bash
-litgpt finetune lora \
+litgpt finetune_lora tiiuae/falcon-7b \
   --data JSON \
   --data.json_path path/to/your/data.json \
   --data.val_split_fraction 0.1 \
   --data.seed 42 \
   --data.mask_inputs False \
-  --data.ignore_index -100 \
-  --checkpoint_dir "checkpoints/tiiuae/falcon-7b"
+  --data.ignore_index -100
 ```
 
 You can also pass a directory containing a `train.json` and `val.json` to `--data.json_path` to define a fixed train/val split.
+
+&nbsp;
+
+> [!TIP]
+> Use `litgpt finetune --data.help JSON` to list additional dataset-specific command line options.
 
 &nbsp;
 
@@ -385,5 +444,4 @@ Note that you only need to modify a small fraction of the code file, namely the 
 
 In addition to the finetuning dataset described above, LitGPT also supports several datasets for pretraining. The pretraining datasets are described in more detail in the following separate tutorial documents:
 
-- [Pretrain Llama 2 on OpenWebText](./pretrain_openwebtext.md)
 - [Pretrain TinyLlama on Slimpajama and Starcoder](./pretrain_tinyllama.md)

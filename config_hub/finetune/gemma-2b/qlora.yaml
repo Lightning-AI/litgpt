@@ -14,6 +14,9 @@ quantize: bnb.nf4
 # How many devices/GPUs to use. (type: Union[int, str], default: 1)
 devices: 1
 
+# How many nodes to use. (type: int, default: 1)
+num_nodes: 1
+
 # The LoRA rank. (type: int, default: 8)
 lora_r: 16
 
@@ -71,7 +74,7 @@ train:
   lr_warmup_steps: 200
 
   # Number of epochs to train on (type: Optional[int], default: 5)
-  epochs: 4
+  epochs: 2
 
   # Total number of tokens to train on (type: Optional[int], default: null)
   max_tokens:
@@ -84,18 +87,6 @@ train:
 
   # Whether to tie the embedding weights with the language modeling head weights. (type: Optional[bool], default: null)
   tie_embeddings:
-
-  #   (type: float, default: 0.0003)
-  learning_rate: 0.0002
-
-  #   (type: float, default: 0.02)
-  weight_decay: 0.0
-
-  #   (type: float, default: 0.9)
-  beta1: 0.9
-
-  #   (type: float, default: 0.95)
-  beta2: 0.95
 
   #   (type: Optional[float], default: null)
   max_norm:
@@ -115,8 +106,32 @@ eval:
   # Number of iterations (type: int, default: 100)
   max_iters: 100
 
+  # Whether to evaluate on the validation set at the beginning of the training
+  initial_validation: false
+
+  # Whether to evaluate on the validation set at the end the training
+  final_validation: true
+
 # The name of the logger to send metrics to. (type: Literal['wandb', 'tensorboard', 'csv'], default: csv)
 logger_name: csv
 
 # The random seed to use for reproducibility. (type: int, default: 1337)
 seed: 1337
+
+# Optimizer-related arguments
+optimizer:
+
+  class_path: torch.optim.AdamW
+  
+  init_args:
+    
+    #   (type: float, default: 0.001)
+    lr: 0.0002
+    
+    #   (type: float, default: 0.01)
+    weight_decay: 0.0
+    
+    #   (type: tuple, default: (0.9,0.999))
+    betas:
+      - 0.9
+      - 0.95

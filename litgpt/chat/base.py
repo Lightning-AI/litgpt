@@ -3,17 +3,27 @@
 import sys
 import time
 from pathlib import Path
+from pprint import pprint
 from typing import Iterator, List, Literal, Optional, Tuple
 
 import lightning as L
 import torch
 from lightning.fabric.plugins import BitsandbytesPrecision
 
-from litgpt import GPT, Config, PromptStyle, Tokenizer
+from litgpt.model import GPT
+from litgpt.config import Config
+from litgpt.prompts import PromptStyle
+from litgpt.tokenizer import Tokenizer
 from litgpt.generate.base import next_token
 from litgpt.prompts import has_prompt_style, load_prompt_style
 from litgpt.scripts.merge_lora import merge_lora
-from litgpt.utils import CLI, check_valid_checkpoint_dir, get_default_supported_precision, load_checkpoint
+from litgpt.utils import (
+    auto_download_checkpoint,
+    check_file_size_on_cpu_and_warn,
+    extend_checkpoint_dir,
+    get_default_supported_precision,
+    load_checkpoint,
+)
 
 
 @torch.inference_mode()
@@ -24,16 +34,31 @@ def generate(
     *,
     temperature: float = 1.0,
     top_k: Optional[int] = None,
+    top_p: float = 1.0,
     stop_tokens: Tuple[List[int], ...] = (),
 ) -> Iterator[torch.Tensor]:
     """Takes a conditioning sequence (prompt) as input and continues to generate as many tokens as possible.
 
-    Args:
+    Arguments:
         model: The model to use.
         prompt: Tensor of shape (T) with indices of the prompt sequence.
         max_returned_tokens: The maximum number of tokens to return (given plus generated).
         temperature: Scales the predicted logits by 1 / temperature
-        top_k: If specified, only sample among the tokens with the k highest probabilities
+        top_k: If specified, only sample among the tokens with the k highest probabilities.
+        top_p: If specified, it represents the cumulative probability threshold to consider in the sampling process.
+            In top-p sampling, the next token is sampled from the highest probability tokens
+            whose cumulative probability exceeds the threshold `top_p`. When specified,
+            it must be `0 <= top_p <= 1`. Here, `top_p=0` is equivalent
+            to sampling the most probable token, while `top_p=1` samples from the whole distribution.
+            It can be used in conjunction with `top_k` and `temperature` with the following order
+            of application:
+
+            1. `top_k` sampling
+            2. `temperature` scaling
+            3. `top_p` sampling
+
+            For more details, see https://arxiv.org/abs/1904.09751
+            or https://huyenchip.com/2024/01/16/sampling.html#top_p
         stop_tokens: If specified, stop generating any more token once one of this list is generated.
     """
     T = prompt.size(0)
@@ -51,7 +76,7 @@ def generate(
     tokens = []
     token = prompt
     for t in range(1, max_returned_tokens - T + 1):
-        token = next_token(model, input_pos, token.view(1, -1), temperature=temperature, top_k=top_k)
+        token = next_token(model, input_pos, token.view(1, -1), temperature=temperature, top_k=top_k, top_p=top_p)
         tokens.append(token)
         # check the stop condition
         if any((l := len(st)) <= len(tokens) and all(a == b for a, b in zip(tokens[-l:], st)) for st in stop_tokens):
@@ -95,30 +120,110 @@ def decode(fabric: L.Fabric, tokenizer: Tokenizer, token_stream: Iterator[torch.
     return tokens_generated
 
 
+def process_prompt(prompt, model, tokenizer, prompt_style, fabric, temperature, max_new_tokens, top_k, top_p, stop_tokens):
+    prompt = prompt_style.apply(prompt=prompt)
+    encoded_prompt = tokenizer.encode(prompt, device=fabric.device)
+
+    if max_new_tokens is None:
+        max_returned_tokens = model.max_seq_length
+    else:
+        first_turn = model.mask_cache is None
+        max_returned_tokens = encoded_prompt.size(0) + max_new_tokens
+        if first_turn or max_returned_tokens > model.max_seq_length:
+            model.max_seq_length = max_returned_tokens
+            model.set_kv_cache(batch_size=1, device=fabric.device)
+
+    y = generate(
+        model, encoded_prompt, max_returned_tokens, temperature=temperature, top_k=top_k, top_p=top_p, stop_tokens=stop_tokens
+    )
+    fabric.print(">> Reply: ", end="")
+    t0 = time.perf_counter()
+    tokens_generated = decode(fabric, tokenizer, y)
+    t = time.perf_counter() - t0
+    for block in model.transformer.h:
+        block.attn.kv_cache.reset_parameters()
+    fabric.print(
+        f"\nTime for inference: {t:.02f} sec total, {tokens_generated / t:.02f} tokens/sec,"
+        f" {tokens_generated} tokens",
+        file=sys.stderr,
+    )
+    fabric.print()
+
+
+def interact(multiline, model, tokenizer, prompt_style, fabric, temperature, max_new_tokens, top_k, top_p, stop_tokens):
+    while True:
+        try:
+            if not multiline:
+                prompt = input(">> Prompt: ")
+            else:
+                print(">> Prompt: (Type '!submit' on a new line to end input).")
+                prompt_lines = []
+                while True:
+                    line = input()
+                    if line.strip().lower() in ("!submit", "!quit", "!exit"):
+                        break
+                    prompt_lines.append(line)
+                prompt = "\n".join(prompt_lines)
+
+        except KeyboardInterrupt:
+            break
+
+        prompt = prompt.lower().strip()
+        if not prompt or prompt in ("!quit", "!exit"):
+            break
+
+        process_prompt(prompt, model, tokenizer, prompt_style, fabric, temperature, max_new_tokens, top_k, top_p, stop_tokens)
+
+
 @torch.inference_mode()
 def main(
+    checkpoint_dir: Path,
     *,
-    top_k: Optional[int] = 200,
+    max_new_tokens: int = 50,
+    top_k: Optional[int] = 50,
+    top_p: float = 1.0,
     temperature: float = 0.8,
-    checkpoint_dir: Path = Path("checkpoints/stabilityai/stablelm-tuned-alpha-3b"),
     quantize: Optional[Literal["bnb.nf4", "bnb.nf4-dq", "bnb.fp4", "bnb.fp4-dq", "bnb.int8"]] = None,
     precision: Optional[str] = None,
     compile: bool = False,
+    multiline: bool = False,
+    access_token: Optional[str] = None,
 ) -> None:
-    """Starts a conversation with a tuned GPT model.
+    """Chat with a model.
 
     Args:
+        checkpoint_dir: A local path to a directory containing the model weights or a valid model name.
+            You can get a list of valid model names via the `litgpt download list` command line argument.
+        max_new_tokens: The number of generation steps to take.
         top_k: The number of top most probable tokens to consider in the sampling process.
+        top_p: If specified, it represents the cumulative probability threshold to consider in the sampling process.
+            In top-p sampling, the next token is sampled from the highest probability tokens
+            whose cumulative probability exceeds the threshold `top_p`. When specified,
+            it must be `0 <= top_p <= 1`. Here, `top_p=0` is equivalent
+            to sampling the most probable token, while `top_p=1` samples from the whole distribution.
+            It can be used in conjunction with `top_k` and `temperature` with the following order
+            of application:
+
+            1. `top_k` sampling
+            2. `temperature` scaling
+            3. `top_p` sampling
+
+            For more details, see https://arxiv.org/abs/1904.09751
+            or https://huyenchip.com/2024/01/16/sampling.html#top_p
         temperature: A value controlling the randomness of the sampling process. Higher values result in more random
             samples.
-        checkpoint_dir: The checkpoint directory to load.
         quantize: Whether to quantize the model and using which method:
             - bnb.nf4, bnb.nf4-dq, bnb.fp4, bnb.fp4-dq: 4-bit quantization from bitsandbytes
             - bnb.int8: 8-bit quantization from bitsandbytes
             for more details, see https://github.com/Lightning-AI/litgpt/blob/main/tutorials/quantize.md
         precision: Indicates the Fabric precision setting to use.
         compile: Whether to use compilation to speed up token generation. Will increase startup time.
+        multiline: Whether to support multiline input prompts.
+        access_token: Optional API token to access models with restrictions.
     """
+    checkpoint_dir = extend_checkpoint_dir(checkpoint_dir)
+    pprint(locals())
+
     precision = precision or get_default_supported_precision(training=False)
 
     plugins = None
@@ -131,21 +236,25 @@ def main(
 
     fabric = L.Fabric(devices=1, precision=precision, plugins=plugins)
 
-    check_valid_checkpoint_dir(checkpoint_dir)
+    # Merge if this is a raw LoRA checkpoint
+    checkpoint_path = checkpoint_dir / "lit_model.pth"
+    if (checkpoint_dir / "lit_model.pth.lora").is_file() and not checkpoint_path.is_file():
+        print("Merging LoRA weights with the base model. This won't take long and is a one-time-only thing.")
+        merge_lora(checkpoint_dir)
+
+    checkpoint_dir = auto_download_checkpoint(model_name=checkpoint_dir, access_token=access_token)
+    check_file_size_on_cpu_and_warn(checkpoint_path, fabric.device)
 
     config = Config.from_file(checkpoint_dir / "model_config.yaml")
 
-    checkpoint_path = checkpoint_dir / "lit_model.pth"
-
-    # Merge if this is a raw LoRA checkpoint
-    if (checkpoint_path / "lit_model.pth.lora").is_file() and not checkpoint_path.is_file():
-        print("Merging LoRA weights with the base model. This won't take long and is a one-time-only thing.")
-        merge_lora(checkpoint_path)
-
     with fabric.init_module(empty_init=True):
         model = GPT(config)
-        # enable the kv cache
-        model.set_kv_cache(batch_size=1)
+        if compile:
+            print(
+                "IMPORTANT: with enabled compilation the KV-cache size is determined by model's maximum context size, which leads to "
+                "a higher memory consumption. In case of an OOM error, try to set `--compile=False`."
+            )
+            model.set_kv_cache(batch_size=1)
     load_checkpoint(fabric, model, checkpoint_path)
     model.eval()
 
@@ -164,35 +273,26 @@ def main(
     )
     stop_tokens = prompt_style.stop_tokens(tokenizer)
 
-    print(f"Now chatting with {config.name}.\nTo exit, press 'Enter' on an empty prompt.\n")
+    if multiline:
+        exit_instruction = "To exit, enter '!quit' or '!exit' on an empty prompt and press 'Enter'."
+    else:
+        exit_instruction = "To exit, press 'Enter' on an empty prompt."
+
+    print(f"Now chatting with {config.name}.\n{exit_instruction}\n")
     L.seed_everything(1234)
-    while True:
-        try:
-            prompt = input(">> Prompt: ")
-        except KeyboardInterrupt:
-            break
-        if prompt.lower().strip() in ("", "quit", "exit"):
-            break
-        prompt = prompt_style.apply(prompt=prompt)
-        encoded_prompt = tokenizer.encode(prompt, device=fabric.device)
-        y = generate(
-            model, encoded_prompt, model.max_seq_length, temperature=temperature, top_k=top_k, stop_tokens=stop_tokens
-        )
-        fabric.print(">> Reply: ", end="")
-        t0 = time.perf_counter()
-        tokens_generated = decode(fabric, tokenizer, y)
-        t = time.perf_counter() - t0
-        for block in model.transformer.h:
-            block.attn.kv_cache.reset_parameters()
-        fabric.print(
-            f"\nTime for inference: {t:.02f} sec total, {tokens_generated / t:.02f} tokens/sec,"
-            f" {tokens_generated} tokens",
-            file=sys.stderr,
-        )
-        fabric.print()
 
+    interact(
+        multiline=multiline,
+        model=model,
+        tokenizer=tokenizer,
+        prompt_style=prompt_style,
+        fabric=fabric,
+        temperature=temperature,
+        max_new_tokens=(None if compile else max_new_tokens),
+        top_k=top_k,
+        top_p=top_p,
+        stop_tokens=stop_tokens
+    )
 
-if __name__ == "__main__":
-    torch.set_float32_matmul_precision("high")
-
-    CLI(main)
+    if fabric.device.type == "cuda":
+        fabric.print(f"\nMemory used: {torch.cuda.max_memory_allocated() / 1e9:.02f} GB", file=sys.stderr)
