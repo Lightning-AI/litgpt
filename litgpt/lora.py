@@ -708,10 +708,12 @@ class LLaMAMLP(litgpt.model.LLaMAMLP):
     def _load_from_state_dict(self, state_dict: Dict, prefix: str, *args: Any, **kwargs: Any) -> None:
         """For compatibility with base checkpoints."""
         mapping = {
-            "ff_proj.weight": "ff_proj.linear.weight",
-            "ff_proj.bias": "ff_proj.linear.bias",
-            "ff_out.weight": "ff_out.linear.weight",
-            "ff_out.bias": "ff_out.linear.bias",
+            "fc_1.weight": "fc_1.linear.weight",
+            "fc_1.bias": "fc_1.linear.bias",
+            "fc_2.weight": "fc_2.linear.weight",
+            "fc_2.bias": "fc_2.linear.bias",
+            "proj.weight": "proj.linear.weight",
+            "proj.bias": "proj.linear.bias",
         }
         state_dict = map_old_state_dict_weights(state_dict, mapping, prefix)
         super()._load_from_state_dict(state_dict, prefix, *args, **kwargs)
