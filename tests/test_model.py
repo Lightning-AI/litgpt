@@ -35,6 +35,7 @@ from litgpt.scripts.convert_hf_checkpoint import (
     copy_weights_gemma_2,
     copy_weights_gpt_neox,
     copy_weights_hf_llama,
+    copy_weights_olmo,
     copy_weights_phi,
 )
 from tests.conftest import RunIf
@@ -503,8 +504,6 @@ def test_against_hf_mixtral():
     ],
 )
 def test_against_olmo(model_name, device, dtype):
-    from litgpt.scripts.convert_hf_checkpoint import copy_weights_olmo
-
     torch.set_default_dtype(dtype)
 
     ours_config = Config.from_name(
