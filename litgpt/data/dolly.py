@@ -38,6 +38,7 @@ class Dolly(Alpaca):
     """The name of the dataset file to download."""
 
     def __post_init__(self) -> None:
+        super().__init__()
         if isinstance(self.prompt_style, str):
             self.prompt_style = PromptStyle.from_name(self.prompt_style)
 

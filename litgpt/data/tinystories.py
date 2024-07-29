@@ -36,6 +36,7 @@ class TinyStories(DataModule):
     max_seq_length: int = field(default=-1, init=False, repr=False)
 
     def __post_init__(self) -> None:
+        super().__init__()
         self.data_path_train = self.data_path / "train"
         self.data_path_val = self.data_path / "val"
 

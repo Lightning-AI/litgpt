@@ -43,6 +43,7 @@ class LIMA(DataModule):
     test_dataset: Optional[SFTDataset] = field(default=None, init=False, repr=False)
 
     def __post_init__(self):
+        super().__init__()
         if self.access_token is None:
             raise ValueError(
                 "LIMA requires authentication, please set the `HF_TOKEN=your_token` environment"
