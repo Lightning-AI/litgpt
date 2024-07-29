@@ -114,13 +114,16 @@ class GPT(nn.Module):
     def set_kv_cache(
         self,
         batch_size: int,
+        max_seq_length: Optional[int] = None,
         rope_cache_length: Optional[int] = None,
         device: Optional[torch.device] = None,
         dtype: Optional[torch.dtype] = None,
     ) -> None:
         if rope_cache_length is None:
             rope_cache_length = self.cos.size(-1)
-        max_seq_length = self.max_seq_length
+
+        if max_seq_length is None:
+            max_seq_length = self.max_seq_length
 
         # initialize the kv cache for all blocks
         for block in self.transformer.h:

@@ -114,6 +114,19 @@ def test_llm_load_random_init(tmp_path):
     ln = len(llm.preprocessor.tokenizer.encode(output_text)) - len(llm.preprocessor.tokenizer.encode(input_text))
     assert ln <= 15
 
+    # Request too big a kvcache size
+    with pytest.raises(ValueError):
+        output_text = llm.generate(input_text, max_new_tokens=15, max_seq_length=2**63)
+
+    input_text = "Lorem ipsum"
+    for max_seq in ('dynamic', 'max_model_supported', 64):
+        # Request an amount of tokens that don't fit in the kvcache
+        output_text = llm.generate(input_text, max_new_tokens=15, max_seq_length=max_seq)
+
+        # Request too many tokens
+        with pytest.raises(ValueError):
+            output_text = llm.generate(input_text, max_new_tokens=2**63, max_seq_length=15)
+
 
 def test_llm_load_hub_init(tmp_path):
 

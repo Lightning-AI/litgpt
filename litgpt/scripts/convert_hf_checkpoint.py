@@ -13,7 +13,7 @@ from tqdm import tqdm
 import torch
 from lightning.fabric.utilities.load import _NotYetLoadedTensor as NotYetLoadedTensor
 
-from litgpt import Config
+from litgpt.config import Config
 from litgpt.utils import extend_checkpoint_dir, incremental_save, lazy_load, save_config
 
 
