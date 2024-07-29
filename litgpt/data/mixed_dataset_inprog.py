@@ -383,9 +383,7 @@ class CombinedLoaderWithSamplingRates(DataLoader):
     def __iter__(self):
         # initialize the iterators
         for name, loader in self.loaders.items():
-            if isinstance(loader, DataLoader):
-                self.iterators[name] = iter(loader)
-            elif hasattr(loader, "__iter__"):
+            if isinstance(loader, DataLoader) or hasattr(loader, "__iter__"):
                 self.iterators[name] = iter(cycle(loader))
             else:
                 raise ValueError(
@@ -413,14 +411,6 @@ class CombinedLoaderWithSamplingRates(DataLoader):
                     p=self.sampling_rates,
                 )
 
-            # torch.distributed.barrier()
-            # if torch.distributed.get_rank() == 0:
-            #     print(f"here {torch.distributed.get_rank()}")
-            #     breakpoint()
-            # else:
-            #     # give us time to debug
-            #     time.sleep(1000000)
-
             for dataset_name in chosen_datasets:
                 if batch[dataset_name] is None:
                     batch[dataset_name] = []
@@ -429,7 +419,10 @@ class CombinedLoaderWithSamplingRates(DataLoader):
                 except StopIteration:
                     # reset
                     iterators[dataset_name] = iter(self.iterators[dataset_name])
-                    item = next(iterators[dataset_name])
+                    try:
+                        item = next(iterators[dataset_name])
+                    except:
+                        breakpoint()
 
                 batch[dataset_name].append(item)
 
