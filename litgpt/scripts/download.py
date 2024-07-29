@@ -1,6 +1,7 @@
 # Copyright Lightning AI. Licensed under the Apache License 2.0, see LICENSE file.
 
 import os
+from concurrent.futures import ProcessPoolExecutor
 from contextlib import contextmanager
 from pathlib import Path
 from typing import List, Optional, Tuple
@@ -92,31 +93,35 @@ def download_from_hub(
     constants.HF_HUB_ENABLE_HF_TRANSFER = previous
     download.HF_HUB_ENABLE_HF_TRANSFER = previous
 
-    # convert safetensors to PyTorch binaries
     if from_safetensors:
-        from safetensors import SafetensorError
-        from safetensors.torch import load_file as safetensors_load
-
         print("Converting .safetensor files to PyTorch binaries (.bin)")
-        for safetensor_path in directory.glob("*.safetensors"):
-            bin_path = safetensor_path.with_suffix(".bin")
-            try:
-                result = safetensors_load(safetensor_path)
-            except SafetensorError as e:
-                raise RuntimeError(f"{safetensor_path} is likely corrupted. Please try to re-download it.") from e
-            print(f"{safetensor_path} --> {bin_path}")
-            torch.save(result, bin_path)
-            try:
-                os.remove(safetensor_path)
-            except PermissionError:
-                print(
-                    f"Unable to remove {safetensor_path} file. "
-                    "This file is no longer needed and you may want to delete it manually to save disk space."
-                )
+        safetensor_paths = list(directory.glob("*.safetensors"))
+        with ProcessPoolExecutor() as executor:
+            executor.map(convert_safetensors_file, safetensor_paths)
 
     if convert_checkpoint and not tokenizer_only:
         print("Converting checkpoint files to LitGPT format.")
         convert_hf_checkpoint(checkpoint_dir=directory, dtype=dtype, model_name=model_name)
+
+
+def convert_safetensors_file(safetensor_path: Path) -> None:
+    from safetensors import SafetensorError
+    from safetensors.torch import load_file as safetensors_load
+
+    bin_path = safetensor_path.with_suffix(".bin")
+    try:
+        result = safetensors_load(safetensor_path)
+    except SafetensorError as e:
+        raise RuntimeError(f"{safetensor_path} is likely corrupted. Please try to re-download it.") from e
+    print(f"{safetensor_path} --> {bin_path}")
+    torch.save(result, bin_path)
+    try:
+        os.remove(safetensor_path)
+    except PermissionError:
+        print(
+            f"Unable to remove {safetensor_path} file. "
+            "This file is no longer needed and you may want to delete it manually to save disk space."
+        )
 
 
 def find_weight_files(repo_id: str, access_token: Optional[str]) -> Tuple[List[str], List[str]]:
