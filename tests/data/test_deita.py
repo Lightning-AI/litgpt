@@ -67,3 +67,6 @@ def test_deita(_, format_dataset_mock, mock_tokenizer, tmp_path):
 
     assert isinstance(train_dataloader.dataset.prompt_style, AlpacaPromptStyle)
     assert isinstance(val_dataloader.dataset.prompt_style, AlpacaPromptStyle)
+
+    # has attributes from super class `LightningDataModule`
+    assert deita.prepare_data_per_node

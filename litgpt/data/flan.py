@@ -46,6 +46,7 @@ class FLAN(DataModule):
     test_dataset: Optional[SFTDataset] = field(default=None, init=False, repr=False)
 
     def __post_init__(self):
+        super().__init__()
         if isinstance(self.prompt_style, str):
             self.prompt_style = PromptStyle.from_name(self.prompt_style)
 
