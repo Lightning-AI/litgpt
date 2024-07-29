@@ -1002,6 +1002,22 @@ olmo = [
         mlp_class_name="LLaMAMLP",
         intermediate_size=11008,
     ),
+    # https://huggingface.co/allenai/OLMo-7B-Instruct-hf/blob/main/config.json
+    dict(
+        name="OLMo-7b-Instruct-hf",
+        hf_config=dict(org="allenai", name="OLMo-7b-Instruct-hf"),
+        vocab_size=50280,
+        padded_vocab_size=50304,
+        block_size=2048,
+        n_layer=32,
+        n_head=32,
+        rotary_percentage=1.0,
+        parallel_residual=False,
+        bias=False,
+        norm_class_name="LayerNorm",
+        mlp_class_name="LLaMAMLP",
+        intermediate_size=11008,
+    ),
 ]
 
 configs.extend(olmo)
