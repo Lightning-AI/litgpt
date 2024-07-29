@@ -60,3 +60,6 @@ def test_openwebtext(_, __, optimize_mock, tmp_path, mock_tokenizer):
     val_dataloader = data.val_dataloader()
     assert isinstance(val_dataloader, DataLoader)
     assert isinstance(val_dataloader.dataset, StreamingDataset)
+
+    # has attributes from super class `LightningDataModule`
+    assert data.prepare_data_per_node

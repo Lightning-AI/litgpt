@@ -35,3 +35,6 @@ def test_tinyllama(_, tmp_path):
     val_dataloader = data.val_dataloader()
     assert isinstance(val_dataloader, DataLoader)
     assert isinstance(val_dataloader.dataset, StreamingDataset)
+
+    # has attributes from super class `LightningDataModule`
+    assert data.prepare_data_per_node

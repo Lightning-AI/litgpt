@@ -5,14 +5,14 @@ from litgpt.prompts import Alpaca as AlpacaPromptStyle
 
 
 def test_dolly(mock_tokenizer, dolly_path):
-    alpaca = Dolly(val_split_fraction=0.5, download_dir=dolly_path.parent, file_name=dolly_path.name, num_workers=0)
-    assert isinstance(alpaca.prompt_style, AlpacaPromptStyle)
-    alpaca.connect(mock_tokenizer, batch_size=2, max_seq_length=10)
-    alpaca.prepare_data()
-    alpaca.setup()
+    dolly = Dolly(val_split_fraction=0.5, download_dir=dolly_path.parent, file_name=dolly_path.name, num_workers=0)
+    assert isinstance(dolly.prompt_style, AlpacaPromptStyle)
+    dolly.connect(mock_tokenizer, batch_size=2, max_seq_length=10)
+    dolly.prepare_data()
+    dolly.setup()
 
-    train_dataloader = alpaca.train_dataloader()
-    val_dataloader = alpaca.val_dataloader()
+    train_dataloader = dolly.train_dataloader()
+    val_dataloader = dolly.val_dataloader()
 
     assert len(train_dataloader) == 3
     assert len(val_dataloader) == 3
@@ -26,3 +26,6 @@ def test_dolly(mock_tokenizer, dolly_path):
 
     assert isinstance(train_dataloader.dataset.prompt_style, AlpacaPromptStyle)
     assert isinstance(val_dataloader.dataset.prompt_style, AlpacaPromptStyle)
+
+    # has attributes from super class `LightningDataModule`
+    assert dolly.prepare_data_per_node

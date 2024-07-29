@@ -25,3 +25,6 @@ def test_alpaca(mock_tokenizer, alpaca_path):
 
     assert isinstance(train_dataloader.dataset.prompt_style, AlpacaPromptStyle)
     assert isinstance(val_dataloader.dataset.prompt_style, AlpacaPromptStyle)
+
+    # has attributes from super class `LightningDataModule`
+    assert alpaca.prepare_data_per_node
