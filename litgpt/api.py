@@ -40,6 +40,8 @@ class LLM:
         self.prompt_style = prompt_style
         self.checkpoint_dir = checkpoint_dir
         self.fabric = fabric
+        self.kvcache_initialized = False
+        self.prev_generated_seq_length = 0
 
     """
     LLM model class for inference, pretraining, and finetuning.
@@ -163,10 +165,6 @@ class LLM:
         with fabric.init_module(empty_init=(num_devices > 1)):
             model = GPT(config)
 
-        # This should be set if we add a compile feature later
-        # with fabric.init_tensor():
-        #     model.set_kv_cache(batch_size=1)
-
         model.eval()
         model = fabric.setup_module(model)
 
@@ -184,7 +182,7 @@ class LLM:
         self,
         prompt: str,
         max_new_tokens: int = 50,
-        max_seq_length: Union[int, Literal['dynamic', 'max_model_supported']] = 'dynamic',
+        max_seq_length: Union[int, Literal["dynamic", "max_model_supported"]] = "dynamic",
         temperature: float = 1.0,
         top_k: Optional[int] = None,
         top_p: float = 1.0,
@@ -226,46 +224,46 @@ class LLM:
         prompt_length = input_ids.size(0)
         max_returned_tokens = prompt_length + max_new_tokens
 
+        # Clear KV cache
+        if self.kvcache_initialized:
+            if max_seq_length == "dynamic" or max_seq_length != self.prev_generated_seq_length:
+                self.model.clear_kv_cache()
+                self.kvcache_initialized = False
+            else:
+                for block in self.model.transformer.h:
+                    block.attn.kv_cache = None
+
         # Create, clear or grow the kv cache if necessary.
-        kvcache_uninitialized = self.model.mask_cache is None
-        
-        if not kvcache_uninitialized:
-            self.model.clear_kv_cache()
-    
-        prev_size = self.model.mask_cache.size(-1) if not kvcache_uninitialized else None
         max_model_supported = self.model.max_seq_length
 
-        if max_seq_length == 'dynamic':
-            if max_returned_tokens > max_model_supported:
-                raise ValueError(
-                        f"Cannot generate a response with {max_returned_tokens} tokens.\n"
-                        f"This model has a maximum context length of {max_model_supported} tokens.\n"
-                        f"The prompt contains {prompt_length} tokens, leaving {max_model_supported - prompt_length} for the response, which is not enough."
-                    )
-            if kvcache_uninitialized or prev_size < max_returned_tokens:
-                self.model.set_kv_cache(batch_size=1, max_seq_length=max_returned_tokens, device=self.fabric.device)
-        elif max_seq_length == 'max_model_supported':
-            if kvcache_uninitialized or prev_size != max_model_supported:
-                self.model.set_kv_cache(batch_size=1, max_seq_length=max_model_supported, device=self.fabric.device)
-        if isinstance(max_seq_length, int):
+        if max_returned_tokens > max_model_supported:
+            raise ValueError(
+                    f"Cannot generate a response with {max_returned_tokens} tokens.\n"
+                    f"This model has a maximum context length of {max_model_supported} tokens.\n"
+                    f"The prompt contains {prompt_length} tokens, leaving {max_model_supported - prompt_length} for the response, which is not enough."
+                )
+
+        if max_seq_length == "dynamic":
+            max_seq_length_setting = max_returned_tokens
+
+        elif max_seq_length == "max_model_supported":
+            max_seq_length_setting = max_model_supported
+
+        elif isinstance(max_seq_length, int):
             if max_seq_length > max_model_supported:
                 raise ValueError(
                         f"Cannot initialize a kvcache for {max_seq_length} tokens. "
                         "This model has a maximum context length of {max_model_supported} tokens."
                     )
-            if kvcache_uninitialized or prev_size != max_seq_length:
-                print("Creating new kvcache with max_seq_length:", max_seq_length)
-                self.model.set_kv_cache(batch_size=1, max_seq_length=max_seq_length, device=self.fabric.device)
+            max_seq_length_setting = max_seq_length
         else:
             raise ValueError(f"Invalid max_seq_length: {max_seq_length}")
 
-        current_kvcache_size = self.model.mask_cache.size(-1)
-        if max_returned_tokens > current_kvcache_size:
-            raise ValueError(
-                f"Not enough space within {max_seq_length=} to hold the prompt ({prompt_length} tokens) plus {max_returned_tokens=}.\n"
-                f"Please resolve this by increasing max_seq_length, using a shorter prompt, or setting a smaller max_returned_tokens."
-            )
+        if not self.kvcache_initialized or self.prev_generated_seq_length != max_returned_tokens:
+            self.model.set_kv_cache(batch_size=1, max_seq_length=max_seq_length_setting, device=self.fabric.device)
+            self.kvcache_initialized = True
 
+        self.prev_generated_seq_length = max_returned_tokens
         self.model.eval()
 
         if calculate_number_of_devices(self.devices) > 1:
