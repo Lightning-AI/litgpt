@@ -44,6 +44,7 @@ def setup(
     model_name: str,
     model_config: Optional[Config] = None,
     out_dir: Path = Path("out/pretrain"),
+    logs_dir: Path = Path("out/pretrain"),
     precision: Literal["bf16-true", "bf16-mixed", "32-true", None] = None,
     initial_checkpoint_dir: Optional[Path] = None,
     resume: Union[bool, Path] = False,
@@ -119,12 +120,13 @@ def setup(
     precision = precision or get_default_supported_precision(training=True)
     devices = parse_devices(devices)
     out_dir = init_out_dir(out_dir)
+    logs_dir = init_out_dir(logs_dir)
     # in case the dataset requires the Tokenizer
     tokenizer = Tokenizer(tokenizer_dir) if tokenizer_dir is not None else None
 
     logger = choose_logger(
         logger_name,
-        out_dir,
+        logs_dir,
         name=f"pretrain-{config.name}",
         resume=resume,
         log_interval=train.log_interval,
@@ -324,13 +326,20 @@ def fit(
             break
 
         # determine and set the learning rate for this iteration
-        lr = get_lr(
-            2e-5,  # the default lr is too high. using this one
-            state["iter_num"],
-            warmup_iters,
-            max_iters,
-            train.min_lr,
-        )
+        if train.decay_lr:
+            # note: all param groups have the same lr 
+            lr = get_lr_decay_stage(
+                optimizer.param_groups[0]["lr"], state["iter_num"], initial_iter, train.min_lr
+            )
+        else:
+            lr = get_lr(
+                0.0004,  # the default lr is too high. using this one
+                state["iter_num"],
+                warmup_iters,
+                max_iters,
+                train.min_lr,
+            )
+
         for param_group in optimizer.param_groups:
             param_group["lr"] = lr
 
@@ -505,6 +514,20 @@ def get_lr(
     assert 0 <= decay_ratio <= 1
     coeff = 0.5 * (1.0 + math.cos(math.pi * decay_ratio))  # coeff ranges 0..1
     return min_lr + coeff * (learning_rate - min_lr)
+
+
+def get_lr_decay_stage(
+    learning_rate: float, it: int, decay_start: int, min_lr: float
+) -> float:
+    # learning_rate: the max lr to start from.
+    # it: current iter
+    # decay_start: the iter at which decay begins
+    # min_lr: the minimum LR
+    if it < decay_start:
+        return learning_rate
+    decay_ratio = 0.5 ** ((it - decay_start) / decay_start)
+    decayed_lr = learning_rate * decay_ratio
+    return max(min_lr, decayed_lr)
 
 
 def initialize_weights(fabric: L.Fabric, model: GPT, n_layer: int, n_embd: int) -> None:

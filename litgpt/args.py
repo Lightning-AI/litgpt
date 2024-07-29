@@ -43,6 +43,9 @@ class TrainArgs:
     # Freeze the sampling rate to the initial weights specified
     freeze_sampling_rate: Optional[bool] = False
 
+    # use an exponential decay schedule
+    decay_lr: Optional[bool] = False
+
     def __post_init__(self) -> None:
         if self.lr_warmup_fraction and self.lr_warmup_steps:
             print(

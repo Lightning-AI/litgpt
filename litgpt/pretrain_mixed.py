@@ -686,14 +686,19 @@ def fit(
             gc.collect()
             torch.cuda.empty_cache()
 
-        # determine and set the learning rate for this iteration
-        lr = get_lr(
-            2e-5,  # the default LR is too high. Using this one
-            state["iter_num"],
-            warmup_iters,
-            max_iters,
-            train.min_lr,
-        )
+        if train.decay_lr:
+            lr = get_lr_decay_stage(
+                optimizer["lr"], state["iter_num"], initial_iter, train.min_lr
+            )
+        else:
+            # determine and set the learning rate for this iteration
+            lr = get_lr(
+                2e-5,  # the default LR is too high. Using this one
+                state["iter_num"],
+                warmup_iters,
+                max_iters,
+                train.min_lr,
+            )
 
         assert lr >= 0, "Learning rate must be positive"
 
@@ -934,7 +939,6 @@ def fit(
             }
             fabric.log_dict(metrics, step=state["iter_num"] - 1)
 
-            del val_loss
             del val_loss_lm
             del val_loss_sft
             gc.collect()
@@ -1143,6 +1147,20 @@ def get_lr(
     assert 0 <= decay_ratio <= 1
     coeff = 0.5 * (1.0 + math.cos(math.pi * decay_ratio))  # coeff ranges 0..1
     return min_lr + coeff * (learning_rate - min_lr)
+
+
+def get_lr_decay_stage(
+    learning_rate: float, it: int, decay_start: int, min_lr: float
+) -> float:
+    # learning_rate: the max lr to start from.
+    # it: current iter
+    # decay_start: the iter at which decay begins
+    # min_lr: the minimum LR
+    if it < decay_start:
+        return learning_rate
+    decay_ratio = 0.5 ** ((it - decay_start) / decay_start)
+    decayed_lr = learning_rate * decay_ratio
+    return max(min_lr, decayed_lr)
 
 
 def get_lr_linear_decay(
