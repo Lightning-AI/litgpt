@@ -370,7 +370,7 @@ def main(
         )
     if resume:
         fabric.print(f"Resuming training from {resume}")
-        fabric.load(resume, state)
+        fabric.load(resume, state, strict=False)
 
     train_time = time.perf_counter()
     fit(
@@ -561,6 +561,9 @@ def fit(
                 fabric.print("Dev grad similarities:")
                 fabric.print(compute_gradient_similarities(dev_grads, key=layer_key))
 
+            new_sampling_rate = train_dataloader.sampling_rates
+            rewards = torch.zeros(len(train_dataloader.loaders))
+
             if not train.freeze_sampling_rate:
                 similarities = {}
 
@@ -656,8 +659,12 @@ def fit(
 
             # Update sampling rates in the dataloader
             fabric.print(f"Old sampling rates: {train_dataloader.sampling_rates}")
-            train_dataloader.sampling_rates = new_sampling_rate
-            train_dataloader._dataloader.sampling_rates = new_sampling_rate
+            train_dataloader.sampling_rates = (
+                new_sampling_rate or train_dataloader.sampling_rates
+            )
+            train_dataloader._dataloader.sampling_rates = (
+                new_sampling_rate or train_dataloader.sampling_rates
+            )
 
             fabric.print(f"Updated sampling rates: {new_sampling_rate}")
 
