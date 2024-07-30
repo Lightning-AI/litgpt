@@ -11,7 +11,7 @@ from lightning.fabric.plugins import BitsandbytesPrecision
 from lightning.fabric.accelerators import CUDAAccelerator
 
 
-from litgpt.model import GPT  # needs to be imported before config
+from litgpt.model import GPT
 from litgpt.config import name_to_config, Config
 from litgpt.tokenizer import Tokenizer
 from litgpt.generate.sequentially import sequential
@@ -150,7 +150,8 @@ class LLM:
 
         fabric = L.Fabric(
             accelerator=accelerator,
-            devices=devices,
+            devices=1,  # Otherwise sequential wouldn't work, see litgpt/generate/sequentially.py
+            #devices=devices,   ### TODO: update this
             precision=precision,
             plugins=plugins
         )
@@ -254,50 +255,52 @@ class LLM:
                 We plan to resolve this in the future.
         """
         prompt = self.prompt_style.apply(prompt)
-        input_ids = self.preprocessor.encode(prompt)
+        input_ids = self.preprocessor.tokenizer.encode(prompt, device=self.fabric.device)
         prompt_length = input_ids.size(0)
         max_returned_tokens = prompt_length + max_new_tokens
 
-        # Clear KV cache
-        if self.kvcache_initialized:
-            if max_seq_length == "dynamic" or max_seq_length != self.prev_generated_seq_length:
-                self.model.clear_kv_cache()
-                self.kvcache_initialized = False
-            else:
-                for block in self.model.transformer.h:
-                    block.attn.kv_cache = None
+        if not self.generate_strategy == "sequential":
+            # Clear KV cache
+            if self.kvcache_initialized:
+                if max_seq_length == "dynamic" or max_seq_length != self.prev_generated_seq_length:
+                    self.model.clear_kv_cache()
+                    self.kvcache_initialized = False
+                else:
+                    for block in model.transformer.h:
+                        block.attn.kv_cache.reset_parameters()
 
-        # Create, clear or grow the kv cache if necessary.
-        max_model_supported = self.model.max_seq_length
+            # Create, clear or grow the kv cache if necessary.
+            max_model_supported = self.model.max_seq_length
 
-        if max_returned_tokens > max_model_supported:
-            raise ValueError(
-                    f"Cannot generate a response with {max_returned_tokens} tokens.\n"
-                    f"This model has a maximum context length of {max_model_supported} tokens.\n"
-                    f"The prompt contains {prompt_length} tokens, leaving {max_model_supported - prompt_length} for the response, which is not enough."
-                )
-
-        if max_seq_length == "dynamic":
-            max_seq_length_setting = max_returned_tokens
-
-        elif max_seq_length == "max_model_supported":
-            max_seq_length_setting = max_model_supported
-
-        elif isinstance(max_seq_length, int):
-            if max_seq_length > max_model_supported:
+            if max_returned_tokens > max_model_supported:
                 raise ValueError(
-                        f"Cannot initialize a kvcache for {max_seq_length} tokens. "
-                        "This model has a maximum context length of {max_model_supported} tokens."
+                        f"Cannot generate a response with {max_returned_tokens} tokens.\n"
+                        f"This model has a maximum context length of {max_model_supported} tokens.\n"
+                        f"The prompt contains {prompt_length} tokens, leaving {max_model_supported - prompt_length} for the response, which is not enough."
                     )
-            max_seq_length_setting = max_seq_length
-        else:
-            raise ValueError(f"Invalid max_seq_length: {max_seq_length}")
 
-        if not self.kvcache_initialized or self.prev_generated_seq_length != max_returned_tokens:
-            self.model.set_kv_cache(batch_size=1, max_seq_length=max_seq_length_setting, device=self.fabric.device)
-            self.kvcache_initialized = True
+            if max_seq_length == "dynamic":
+                max_seq_length_setting = max_returned_tokens
+
+            elif max_seq_length == "max_model_supported":
+                max_seq_length_setting = max_model_supported
+
+            elif isinstance(max_seq_length, int):
+                if max_seq_length > max_model_supported:
+                    raise ValueError(
+                            f"Cannot initialize a kvcache for {max_seq_length} tokens. "
+                            "This model has a maximum context length of {max_model_supported} tokens."
+                        )
+                max_seq_length_setting = max_seq_length
+            else:
+                raise ValueError(f"Invalid max_seq_length: {max_seq_length}")
+
+            if not self.kvcache_initialized or self.prev_generated_seq_length != max_returned_tokens:
+                self.model.set_kv_cache(batch_size=1, max_seq_length=max_seq_length_setting, device=self.fabric.device)
+                self.kvcache_initialized = True
 
         self.prev_generated_seq_length = max_returned_tokens
+
         self.model.eval()
 
         if calculate_number_of_devices(self.devices) > 1:
@@ -308,7 +311,7 @@ class LLM:
         def iterator():
             outputs = stream_generate_fn(
                 model=self.model,
-                prompt=input_ids,
+                prompt=input_ids.to("cuda:0"), ### TODO: Remove later
                 max_returned_tokens=max_returned_tokens,
                 temperature=temperature,
                 top_k=top_k,
@@ -335,6 +338,10 @@ class LLM:
                 eos_id=self.preprocessor.tokenizer.eos_id,
                 include_prompt=False,
             )
+
+        if self.generate_strategy == "sequential":
+            for block in self.model.transformer.h:
+                block.attn.kv_cache.reset_parameters()
 
         if stream:
             return outputs
