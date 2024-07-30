@@ -4,14 +4,14 @@ from litgpt.prompts import Longform as LongFormPromptStyle
 
 
 def test_longform(mock_tokenizer, longform_path):
-    alpaca = LongForm(download_dir=longform_path, num_workers=0)
-    assert isinstance(alpaca.prompt_style, LongFormPromptStyle)
-    alpaca.connect(mock_tokenizer, batch_size=2, max_seq_length=10)
-    alpaca.prepare_data()
-    alpaca.setup()
+    longform = LongForm(download_dir=longform_path, num_workers=0)
+    assert isinstance(longform.prompt_style, LongFormPromptStyle)
+    longform.connect(mock_tokenizer, batch_size=2, max_seq_length=10)
+    longform.prepare_data()
+    longform.setup()
 
-    train_dataloader = alpaca.train_dataloader()
-    val_dataloader = alpaca.val_dataloader()
+    train_dataloader = longform.train_dataloader()
+    val_dataloader = longform.val_dataloader()
 
     assert len(train_dataloader) == 9
     assert len(val_dataloader) == 5
@@ -25,3 +25,6 @@ def test_longform(mock_tokenizer, longform_path):
 
     assert isinstance(train_dataloader.dataset.prompt_style, LongFormPromptStyle)
     assert isinstance(val_dataloader.dataset.prompt_style, LongFormPromptStyle)
+
+    # has attributes from super class `LightningDataModule`
+    assert longform.prepare_data_per_node
