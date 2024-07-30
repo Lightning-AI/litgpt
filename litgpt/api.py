@@ -231,7 +231,7 @@ class LLM:
                 self.kvcache_initialized = False
             else:
                 for block in self.model.transformer.h:
-                    block.attn.kv_cache = None
+                    block.attn.kv_cache.reset_parameters()
 
         # Create, clear or grow the kv cache if necessary.
         max_model_supported = self.model.max_seq_length
