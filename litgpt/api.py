@@ -10,6 +10,7 @@ import lightning as L
 from lightning.fabric.plugins import BitsandbytesPrecision
 from lightning.fabric.accelerators import CUDAAccelerator
 
+
 from litgpt.model import GPT  # needs to be imported before config
 from litgpt.config import name_to_config, Config
 from litgpt.tokenizer import Tokenizer
@@ -89,10 +90,10 @@ class LLM:
             init: If "pretrained" (default), downloads the model from the HF Hub if a local model can't be found at the `model`
                 directory name; otherwise loads the model from the local directory.
                 If "random", initializes the `model` with random weights.
-            access_token:
-                Optional API token to access models with restrictions when using `init="pretrained"`.
             tokenizer_dir: An optional tokenizer directory if `model` is not a checkpoint directory, or if a user
                 wants to use a different tokenizer instead.
+            access_token:
+                Optional API token to access models with restrictions when using `init="pretrained"`.
             generate_strategy: Whether to use a sequential model generation strategy. The "sequential" settings allows running 
                 models that wouldn't fit in a single card by partitioning the transformer blocks across
                 all devices and running them sequentially.
@@ -204,14 +205,6 @@ class LLM:
         else:
             raise ValueError(f"Unsupported generate_strategy: {generate_strategy}")
 
-        model.eval()
-        model = fabric.setup_module(model)
-
-        if checkpoint_dir is not None:
-            checkpoint_path = checkpoint_dir / "lit_model.pth"
-            check_file_size_on_cpu_and_warn(checkpoint_path, fabric.device)
-            load_checkpoint(fabric, model, checkpoint_path)
-  
         return cls(
             model=model, tokenizer=tokenizer, devices=devices,
             prompt_style=prompt_style, checkpoint_dir=checkpoint_dir, fabric=fabric,
@@ -261,10 +254,9 @@ class LLM:
                 We plan to resolve this in the future.
         """
         prompt = self.prompt_style.apply(prompt)
-        input_ids = self.preprocessor.tokenizer.encode(prompt, self.fabric.device)
+        input_ids = self.preprocessor.encode(prompt)
         prompt_length = input_ids.size(0)
         max_returned_tokens = prompt_length + max_new_tokens
-
 
         # Clear KV cache
         if self.kvcache_initialized:
@@ -306,32 +298,12 @@ class LLM:
             self.kvcache_initialized = True
 
         self.prev_generated_seq_length = max_returned_tokens
-
         self.model.eval()
 
-        if self.generate_strategy is None:
-            first_turn = self.model.mask_cache is None
-            if self.model.mask_cache is not None:
-                self.model.clear_kv_cache()
-
-            if calculate_number_of_devices(self.devices) > 1:
-                raise NotImplementedError(
-                    "Support for multiple devices is currently only implemented for generate_strategy='sequential'."
-                )
-            if first_turn or max_returned_tokens > self.model.max_seq_length:
-                self.model.max_seq_length = max_returned_tokens
-                self.model.set_kv_cache(batch_size=1, device=self.fabric.device)
-
-        elif self.generate_strategy == "sequential":
-            if stream:
-                raise NotImplementedError(
-                    "The stream=True setting is not supported when using generate_strategy='sequential'."
-                )
-            #if first_turn:
-            #    self.model.set_kv_cache(batch_size=1, device=self.fabric.device)
-            if self.model.mask_cache is not None:
-                for block in self.model.transformer.h:
-                    block.attn.kv_cache.reset_parameters()
+        if calculate_number_of_devices(self.devices) > 1:
+            raise NotImplementedError(
+                "Support for multiple devices is currently not implemented for `generate`"
+            )
 
         def iterator():
             outputs = stream_generate_fn(
@@ -355,7 +327,7 @@ class LLM:
         else:
             outputs = generate_fn(
                 model=self.model,
-                prompt=input_ids.to(self.fabric.device),
+                prompt=input_ids,
                 max_returned_tokens=max_returned_tokens,
                 temperature=temperature,
                 top_k=top_k,
