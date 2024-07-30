@@ -1,6 +1,7 @@
 # (c) Meta Platforms, Inc. and affiliates. Confidential and proprietary.
 # Copyright Lightning AI. Licensed under the Apache License 2.0, see LICENSE file.
 
+import ast
 import contextlib
 import gc
 import math
@@ -10,7 +11,7 @@ from collections import defaultdict
 from datetime import timedelta
 from functools import partial
 from pathlib import Path
-from typing import Dict, Optional, Tuple, Union
+from typing import Dict, List, Optional, Tuple, Union
 
 import lightning as L
 import numpy as np
@@ -210,6 +211,12 @@ def setup(
             quit()
 
     hparams = capture_hparams()
+
+    if data.initial_sampling_rates:
+        initial_sampling_rates = data.initial_sampling_rates
+    else:
+        initial_sampling_rates = None
+
     data = TinyLlama() if data is None else data
 
     config = Config.from_name(model_name) if model_config is None else model_config
@@ -267,6 +274,7 @@ def setup(
         train.max_steps,
         train.episode_length,
         precision,
+        initial_sampling_rates,
     )
 
 
@@ -287,6 +295,7 @@ def main(
     max_steps: int,
     episode_length: int,
     precision: str,
+    initial_sampling_rates: Optional[List[float]],
 ) -> None:
     validate_args(train, eval, initial_checkpoint_dir, resume)
 
@@ -327,7 +336,12 @@ def main(
         max_iters = max_steps
 
     train_dataloader, val_dataloader = get_dataloaders(
-        fabric, data, tokenizer, train, model.max_seq_length, max_iters=max_iters
+        fabric,
+        data,
+        tokenizer,
+        train,
+        model.max_seq_length,
+        max_iters=max_iters,
     )
 
     train_dataloader, val_dataloader = fabric.setup_dataloaders(
@@ -344,24 +358,6 @@ def main(
         "iter_num": 0,
         "step_count": 0,
     }
-
-    # need dummy optimizers to get the gradients from each dataset separately.
-    if data.use_adaptive_sampling:
-        lm_dummy_optimizer = instantiate_torch_optimizer(
-            optimizer_config, model.parameters(), **extra_kwargs
-        )
-        lm_dummy_optimizer = fabric.setup_optimizers(lm_dummy_optimizer)
-        sft_dummy_optimizers = {}
-        for sft_dataset in train_dataloader.loaders:
-            sft_dummy_optimizers[sft_dataset] = instantiate_torch_optimizer(
-                optimizer_config, model.parameters(), **extra_kwargs
-            )
-            sft_dummy_optimizers[sft_dataset] = fabric.setup_optimizers(
-                sft_dummy_optimizers[sft_dataset]
-            )
-
-        state["lm_optimizer_dummy"] = lm_dummy_optimizer
-        state["sft_optimizers_dummy"] = sft_dummy_optimizers
 
     if resume is True:
         resume = max(
@@ -387,6 +383,7 @@ def main(
         episode_length,
         precision,
         data.use_adaptive_sampling,
+        initial_sampling_rates,
     )
 
     # Save final checkpoint
@@ -435,28 +432,29 @@ def fit(
     episode_length: int,
     precision: str,
     use_adaptive_sampling: bool,
+    initial_sampling_rates: Optional[List[float]] = None,
 ) -> None:
     model = state["model"]
     optimizer = state["optimizer"]
-    if use_adaptive_sampling:
-        lm_dummy_optimizer = state["lm_optimizer_dummy"]
-        sft_dummy_optimizers = state["sft_optimizers_dummy"]
 
     # store the data selector in the checkpoint for resuming
-    if "data_selector" not in state:
-        data_selector = DataSelector(
-            fabric,
-            len(train_dataloader.loaders),
-            device=devices,
-            initial_weights=[0.85, 0.05, 0.05, 0.05],
-            use_bfloat16=precision == "bf16-true",
-        )
-        data_optimizer = torch.optim.AdamW(data_selector.parameters(), lr=1e-3)
-        state["data_selector"] = data_selector
-        state["data_optimizer"] = data_optimizer
-    else:
-        data_selector = state["data_selector"]
-        data_optimizer = state["data_optimizer"]
+
+    if not initial_sampling_rates:
+        initial_sampling_rates = [
+            1 / len(train_dataloader.loaders) for _ in train_dataloader.loaders
+        ]
+
+    # note: we cannot save the data optimizer in the same state due to this line: https://github.com/Lightning-AI/pytorch-lightning/blob/f5d82504da252a255df268bd2bb99bf3f2886d27/src/lightning/fabric/strategies/fsdp.py#L460
+    data_selector = DataSelector(
+        fabric,
+        len(train_dataloader.loaders),
+        device=devices,
+        initial_weights=initial_sampling_rates,
+        use_bfloat16=precision == "bf16-true",
+    )
+    data_optimizer = torch.optim.AdamW(data_selector.parameters(), lr=1e-3)
+    # state["data_selector"] = data_selector
+    # state["data_optimizer"] = data_optimizer
 
     if eval.initial_validation:
         val_loss, val_loss_lm, val_loss_sft, _ = validate(
@@ -508,9 +506,9 @@ def fit(
     fabric.barrier()
     total_t0 = time.perf_counter()
     warmup_iters = train.warmup_iters(devices, max_iters, train_dataloader)
+    initial_lr = optimizer.param_groups[0]["lr"]
 
     # train grads for each dataset, for adjusting sampling
-    data_weights = None
     train_gradients = defaultdict(lambda: defaultdict(lambda: defaultdict(float)))
     train_gradient_counts = defaultdict(int)
     first_iter = True
@@ -531,7 +529,9 @@ def fit(
         if state["iter_num"] >= max_iters:
             break
 
-        if state["iter_num"] % episode_length == 0 and state["iter_num"] != 0:
+        if (
+            state["iter_num"] % episode_length == 0 and state["iter_num"] != 0
+        ) and not train.freeze_sampling_rate:
             # Update the sampling ratios
 
             dev_loss, dev_loss_lm, dev_loss_sft, dev_grads = validate(
@@ -623,17 +623,17 @@ def fit(
                     try:
                         rewards = torch.tensor(
                             [
-                                similarities[name]
+                                (
+                                    similarities[name]
+                                    if name in train_dataloader.loaders.keys()
+                                    else 0
+                                )
                                 for name in train_dataloader.loaders.keys()
                             ],
                             device=fabric.device,
                         )
                     except:
-                        torch.distributed.barrier()
-                        if torch.distributed.get_rank() == 0:
-                            breakpoint()
-                        else:
-                            time.sleep(10000)
+                        breakpoint()
 
                     logits = data_selector(dataset_ids)
                     data_loss = -torch.mean(logits * rewards)  # Policy gradient loss
@@ -695,8 +695,14 @@ def fit(
 
         if train.decay_lr:
             lr = get_lr_decay_stage(
-                optimizer["lr"], state["iter_num"], initial_iter, train.min_lr
+                initial_lr,
+                state["iter_num"],
+                initial_iter,
+                train.min_lr,
+                iter_length=max_iters - initial_iter,
             )
+            # learning_rate: float, it: int, warmup_iters: int, max_iters: int, min_lr: float
+            # llama3.1 - decay to 0 linearly
         else:
             # determine and set the learning rate for this iteration
             lr = get_lr(
@@ -731,9 +737,6 @@ def fit(
                 key: train_data[key] for key in train_data.keys() if key != "lm"
             }
 
-        if data_weights is None:
-            data_weights = DataWeights([0.85, 0.05, 0.05, 0.05])
-
         # Process LM data
         is_accumulating = (
             state["iter_num"] % train.gradient_accumulation_iters(devices) != 0
@@ -752,7 +755,7 @@ def fit(
             lm_loss_total.update(lm_loss.detach())
             lm_samples += input_ids.size(0)
 
-            if use_adaptive_sampling:
+            if use_adaptive_sampling and not train.freeze_sampling_rate:
                 model.zero_grad()
                 lm_loss.backward(retain_graph=True)
                 for name, param in model.named_parameters():
@@ -792,7 +795,7 @@ def fit(
                     key, 0
                 ) + input_ids.size(0)
 
-                if use_adaptive_sampling:
+                if use_adaptive_sampling and not train.freeze_sampling_rate:
                     model.zero_grad()
                     sft_loss.backward(retain_graph=True)
                     for name, param in model.named_parameters():
@@ -1157,7 +1160,11 @@ def get_lr(
 
 
 def get_lr_decay_stage(
-    learning_rate: float, it: int, decay_start: int, min_lr: float
+    learning_rate: float,
+    it: int,
+    decay_start: int,
+    min_lr: float,
+    iter_length: int = 5000,
 ) -> float:
     # learning_rate: the max lr to start from.
     # it: current iter
@@ -1165,9 +1172,9 @@ def get_lr_decay_stage(
     # min_lr: the minimum LR
     if it < decay_start:
         return learning_rate
-    decay_ratio = 0.5 ** ((it - decay_start) / decay_start)
+    decay_ratio = 0.5 ** ((it - decay_start) / iter_length)
     decayed_lr = learning_rate * decay_ratio
-    return max(min_lr, decayed_lr)
+    return decayed_lr
 
 
 def get_lr_linear_decay(

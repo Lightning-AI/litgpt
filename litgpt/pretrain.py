@@ -320,6 +320,7 @@ def fit(
     total_t0 = time.perf_counter()
 
     warmup_iters = train.warmup_iters(devices, max_iters, train_dataloader)
+    initial_lr = optimizer.param_groups[0]["lr"]
 
     for train_data in train_iterator:
         if state["iter_num"] >= max_iters:
@@ -327,9 +328,13 @@ def fit(
 
         # determine and set the learning rate for this iteration
         if train.decay_lr:
-            # note: all param groups have the same lr 
+            # note: all param groups have the same lr
             lr = get_lr_decay_stage(
-                optimizer.param_groups[0]["lr"], state["iter_num"], initial_iter, train.min_lr
+                initial_lr,
+                state["iter_num"],
+                initial_iter,
+                train.min_lr,
+                iter_length=max_iters - initial_iter,
             )
         else:
             lr = get_lr(
@@ -517,7 +522,11 @@ def get_lr(
 
 
 def get_lr_decay_stage(
-    learning_rate: float, it: int, decay_start: int, min_lr: float
+    learning_rate: float,
+    it: int,
+    decay_start: int,
+    min_lr: float,
+    iter_length: int = 5000,
 ) -> float:
     # learning_rate: the max lr to start from.
     # it: current iter
@@ -525,9 +534,9 @@ def get_lr_decay_stage(
     # min_lr: the minimum LR
     if it < decay_start:
         return learning_rate
-    decay_ratio = 0.5 ** ((it - decay_start) / decay_start)
+    decay_ratio = 0.5 ** ((it - decay_start) / iter_length)
     decayed_lr = learning_rate * decay_ratio
-    return max(min_lr, decayed_lr)
+    return decayed_lr
 
 
 def initialize_weights(fabric: L.Fabric, model: GPT, n_layer: int, n_embd: int) -> None:
