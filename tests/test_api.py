@@ -79,11 +79,6 @@ def test_invalid_accelerator(mock_llm):
         LLM.load("path/to/model", accelerator="invalid")
 
 
-def test_multiple_devices_not_implemented(mock_llm):
-    with pytest.raises(NotImplementedError, match="Support for multiple devices is currently not implemented"):
-        LLM.load("path/to/model", accelerator="cpu", devices=2)
-
-
 def test_llm_load_random_init(tmp_path):
     download_from_hub(repo_id="EleutherAI/pythia-14m", tokenizer_only=True, checkpoint_dir=tmp_path)
 
@@ -114,18 +109,15 @@ def test_llm_load_random_init(tmp_path):
     ln = len(llm.preprocessor.tokenizer.encode(output_text)) - len(llm.preprocessor.tokenizer.encode(input_text))
     assert ln <= 15
 
-    # Request too big a kvcache size
-    with pytest.raises(ValueError):
-        output_text = llm.generate(input_text, max_new_tokens=15, max_seq_length=2**63)
 
-    input_text = "Lorem ipsum"
-    for max_seq in ('dynamic', 'max_model_supported', 64):
-        # Request an amount of tokens that don't fit in the kvcache
-        output_text = llm.generate(input_text, max_new_tokens=15, max_seq_length=max_seq)
-
-        # Request too many tokens
-        with pytest.raises(ValueError):
-            output_text = llm.generate(input_text, max_new_tokens=2**63, max_seq_length=15)
+def test_fixed_kv_cache(tmp_path):
+    llm = LLM.load(
+        model="EleutherAI/pythia-14m",
+        fixed_kv_cache_size=100,
+    )
+    # Request too many tokens
+    with pytest.raises(NotImplementedError, match="max_seq_length 512 needs to be >= 9223372036854775809"):
+        output_text = llm.generate("hello world", max_new_tokens=2**63)
 
 
 def test_llm_load_hub_init(tmp_path):
@@ -139,3 +131,18 @@ def test_llm_load_hub_init(tmp_path):
     )
     text = llm.generate("text", max_new_tokens=10)
     assert len(text) > 0
+
+
+def test_more_than_1_device_for_sequential(tmp_path):
+    llm = LLM.load(
+        model="EleutherAI/pythia-14m",
+        devices=2,
+        generate_strategy="sequential",
+    )
+    assert isinstance(llm.generate("What do llamas eat?"), str)
+
+    with pytest.raises(NotImplementedError, match="Support for multiple devices is currently only implemented for generate_strategy='sequential'."):
+        llm = LLM.load(
+            model="EleutherAI/pythia-14m",
+            devices=2
+        )

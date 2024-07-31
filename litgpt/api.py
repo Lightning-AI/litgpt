@@ -33,10 +33,12 @@ class LLM:
         model: GPT,
         tokenizer: Tokenizer,
         prompt_style: PromptStyle,
-        devices: Union[int, List[int]] = 1,
+        devices: Union[int, List[int]] = None,
         checkpoint_dir: Path = None,
         fabric: L.Fabric = None,
-        generate_strategy: Optional[Literal["sequential"]] = None
+        generate_strategy: Optional[Literal["sequential"]] = None,
+        kvcache_initialized: bool = False,
+        fixed_kv_cache_size: Union[int, Literal["max_model_supported"], None] = None
     ) -> None:
         self.model = model
         self.preprocessor = Preprocessor(tokenizer, device=fabric.device)
@@ -45,7 +47,8 @@ class LLM:
         self.checkpoint_dir = checkpoint_dir
         self.fabric = fabric
         self.generate_strategy = generate_strategy
-        self.kvcache_initialized = False
+        self.kvcache_initialized = kvcache_initialized
+        self.fixed_kv_cache_size = fixed_kv_cache_size
         self.prev_generated_seq_length = 0
 
     """
@@ -70,7 +73,8 @@ class LLM:
         init: Optional[Literal["pretrained", "random"]] = "pretrained",
         tokenizer_dir: Optional[Path] = None,
         access_token: Optional[str] = None,
-        generate_strategy: Optional[Literal["sequential"]] = None
+        generate_strategy: Optional[Literal["sequential"]] = None,
+        fixed_kv_cache_size: Union[int, Literal["max_model_supported"], None] = None
     ) -> "LLM":
         """
         Loads the LLM from a local directory or model hub.
@@ -96,8 +100,13 @@ class LLM:
                 Optional API token to access models with restrictions when using `init="pretrained"`.
             generate_strategy: Whether to use a sequential model generation strategy. The "sequential" settings allows running 
                 models that wouldn't fit in a single card by partitioning the transformer blocks across
-                all devices and running them sequentially.
-                This may be slower but allows using larger models.
+                all devices and running them sequentially. Sequential generation may be slower but allows using larger models.
+                Note that sequential generation sets `fixed_kv_cache_size="max_model_supported"`. You can set it to a lower integer
+                value, `fixed_kv_cache_size=256` to reduce memory memory. The `fixed_kv_cache_size` value determins the maximum number
+                of tokens that can be returned via `llm.generate(...)`.
+            fixed_kv_cache_size: If set to an integer value or "max_model_supported" is set, the kv-cache won't be resized dynamically
+                during `llm.generate` calls. Use this setting if you plan to compile the model or use `generate_strategy="sequential`.
+                Note that the chosen `fixed_kv_cache_size` value determines the maximum number of tokens that can be returned in `llm.generate(...)`.
         """
         allowed_accelerators = {"cpu", "gpu", "cuda", "mps", "auto"}
         if accelerator not in allowed_accelerators:
@@ -151,7 +160,7 @@ class LLM:
         fabric = L.Fabric(
             accelerator=accelerator,
             devices=1,  # Otherwise sequential wouldn't work, see litgpt/generate/sequentially.py
-            #devices=devices,   ### TODO: update this
+            #devices=devices,
             precision=precision,
             plugins=plugins
         )
@@ -177,6 +186,7 @@ class LLM:
             checkpoint_path = checkpoint_dir / "lit_model.pth"
             check_file_size_on_cpu_and_warn(checkpoint_path, fabric.device)
 
+        kv_cache_initialized = False
         if generate_strategy is None:
             with fabric.init_module(empty_init=(num_devices > 1)):
                 model = GPT(config)
@@ -184,11 +194,26 @@ class LLM:
             load_checkpoint(fabric, model, checkpoint_path)
             model = fabric.setup_module(model)
 
+            if fixed_kv_cache_size is not None:
+                if fixed_kv_cache_size is None or fixed_kv_cache_size == "max_model_supported":
+                    kv_cache_size = model.max_seq_length
+                else:
+                    kv_cache_size = fixed_kv_cache_size
+                model.set_kv_cache(batch_size=1, max_seq_length=kv_cache_size, device=fabric.device)
+                kv_cache_initialized = True
+
         elif generate_strategy == "sequential":
             # cannot use `init_module` because if bitsandbytes is used, the Linear layers will be replaced
             # which means that the weights will get quantized on cuda:0 on checkpoint load. we need to load and then convert
             # still, use init_tensor for the precision
+
             total_devices = CUDAAccelerator.auto_device_count()
+            if devices is not None:
+                if devices < total_devices:
+                    total_devices = devices
+                elif devices > total_devices:
+                    raise ValueError(f"This machine only has {total_devices} but you specified `devices={devices}`")
+
             print(f"Using {total_devices} devices", file=sys.stderr)
 
             with fabric.init_tensor(), torch.device("meta"):
@@ -199,9 +224,14 @@ class LLM:
             model.load_state_dict(state_dict, assign=True)
             model = fabric.setup_module(model, move_to_device=False)
 
-            # model = sequential(model, fabric.device, model.max_seq_length, total_devices)
-            model = sequential(model, fabric.device, 256, total_devices)
-            # TODO: need to find out how to let users best configure max_seq_length
+            if fixed_kv_cache_size is None:
+                fixed_kv_cache_size = "max_model_supported"
+            if fixed_kv_cache_size == "max_model_supported":
+                kv_cache_size = model.max_seq_length
+            else:
+                kv_cache_size = fixed_kv_cache_size
+            model = sequential(model, fabric.device, kv_cache_size, total_devices)
+            kv_cache_initialized = True
 
         else:
             raise ValueError(f"Unsupported generate_strategy: {generate_strategy}")
@@ -209,7 +239,8 @@ class LLM:
         return cls(
             model=model, tokenizer=tokenizer, devices=devices,
             prompt_style=prompt_style, checkpoint_dir=checkpoint_dir, fabric=fabric,
-            generate_strategy=generate_strategy
+            generate_strategy=generate_strategy, kvcache_initialized=kv_cache_initialized,
+            fixed_kv_cache_size=fixed_kv_cache_size
         )
 
     @torch.inference_mode()
@@ -217,7 +248,6 @@ class LLM:
         self,
         prompt: str,
         max_new_tokens: int = 50,
-        max_seq_length: Union[int, Literal["dynamic", "max_model_supported"]] = "dynamic",
         temperature: float = 1.0,
         top_k: Optional[int] = None,
         top_p: float = 1.0,
@@ -255,63 +285,30 @@ class LLM:
                 We plan to resolve this in the future.
         """
         prompt = self.prompt_style.apply(prompt)
-        input_ids = self.preprocessor.tokenizer.encode(prompt, device=self.fabric.device)
+        input_ids = self.preprocessor.encode(prompt)
         prompt_length = input_ids.size(0)
         max_returned_tokens = prompt_length + max_new_tokens
 
-        if not self.generate_strategy == "sequential":
-            # Clear KV cache
-            if self.kvcache_initialized:
-                if max_seq_length == "dynamic" or max_seq_length != self.prev_generated_seq_length:
-                    self.model.clear_kv_cache()
-                    self.kvcache_initialized = False
-                else:
-                    for block in model.transformer.h:
-                        block.attn.kv_cache.reset_parameters()
-
-            # Create, clear or grow the kv cache if necessary.
-            max_model_supported = self.model.max_seq_length
-
-        if max_seq_length == "dynamic":
-            max_seq_length_setting = max_returned_tokens
-
-            elif max_seq_length == "max_model_supported":
-                max_seq_length_setting = max_model_supported
-
-            elif isinstance(max_seq_length, int):
-                if max_seq_length > max_model_supported:
-                    raise ValueError(
-                            f"Cannot initialize a kvcache for {max_seq_length} tokens. "
-                            "This model has a maximum context length of {max_model_supported} tokens."
-                        )
-                max_seq_length_setting = max_seq_length
-            else:
-                raise ValueError(f"Invalid max_seq_length: {max_seq_length}")
-
-        if max_returned_tokens > max_seq_length_setting:
-            raise ValueError(
-                    f"Cannot generate a response with {max_returned_tokens} tokens.\n"
-                    f"This model has a maximum context length of {max_seq_length_setting} tokens.\n"
-                    f"The prompt contains {prompt_length} tokens, leaving {max_seq_length_setting - prompt_length} for the response, which is not enough."
-                )
-
-        if not self.kvcache_initialized or self.prev_generated_seq_length != max_returned_tokens:
-            self.model.set_kv_cache(batch_size=1, max_seq_length=max_seq_length_setting, device=self.fabric.device)
+        if not self.kvcache_initialized:
+            self.model.set_kv_cache(batch_size=1, max_seq_length=max_returned_tokens, device=self.fabric.device)
             self.kvcache_initialized = True
 
+        # Dynamically grow the kv cache size if necessary
+        if self.fixed_kv_cache_size is None and self.prev_generated_seq_length < max_returned_tokens:
+            self.model.clear_kv_cache()
+            self.model.set_kv_cache(batch_size=1, max_seq_length=max_returned_tokens, device=self.fabric.device)
+
+        else:
+            for block in self.model.transformer.h:
+                block.attn.kv_cache.reset_parameters()
+
         self.prev_generated_seq_length = max_returned_tokens
-
         self.model.eval()
-
-        if calculate_number_of_devices(self.devices) > 1:
-            raise NotImplementedError(
-                "Support for multiple devices is currently not implemented for `generate`"
-            )
 
         def iterator():
             outputs = stream_generate_fn(
                 model=self.model,
-                prompt=input_ids.to("cuda:0"), ### TODO: Remove later
+                prompt=input_ids,
                 max_returned_tokens=max_returned_tokens,
                 temperature=temperature,
                 top_k=top_k,
@@ -338,10 +335,6 @@ class LLM:
                 eos_id=self.preprocessor.tokenizer.eos_id,
                 include_prompt=False,
             )
-
-        if self.generate_strategy == "sequential":
-            for block in self.model.transformer.h:
-                block.attn.kv_cache.reset_parameters()
 
         if stream:
             return outputs
