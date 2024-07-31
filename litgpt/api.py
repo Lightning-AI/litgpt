@@ -236,13 +236,6 @@ class LLM:
         # Create, clear or grow the kv cache if necessary.
         max_model_supported = self.model.max_seq_length
 
-        if max_returned_tokens > max_model_supported:
-            raise ValueError(
-                    f"Cannot generate a response with {max_returned_tokens} tokens.\n"
-                    f"This model has a maximum context length of {max_model_supported} tokens.\n"
-                    f"The prompt contains {prompt_length} tokens, leaving {max_model_supported - prompt_length} for the response, which is not enough."
-                )
-
         if max_seq_length == "dynamic":
             max_seq_length_setting = max_returned_tokens
 
@@ -258,6 +251,13 @@ class LLM:
             max_seq_length_setting = max_seq_length
         else:
             raise ValueError(f"Invalid max_seq_length: {max_seq_length}")
+
+        if max_returned_tokens > max_seq_length_setting:
+            raise ValueError(
+                    f"Cannot generate a response with {max_returned_tokens} tokens.\n"
+                    f"This model has a maximum context length of {max_seq_length_setting} tokens.\n"
+                    f"The prompt contains {prompt_length} tokens, leaving {max_seq_length_setting - prompt_length} for the response, which is not enough."
+                )
 
         if not self.kvcache_initialized or self.prev_generated_seq_length != max_returned_tokens:
             self.model.set_kv_cache(batch_size=1, max_seq_length=max_seq_length_setting, device=self.fabric.device)
