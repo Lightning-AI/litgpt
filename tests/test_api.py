@@ -133,7 +133,8 @@ def test_llm_load_hub_init(tmp_path):
     assert len(text) > 0
 
 
-def test_more_than_1_device_for_sequential(tmp_path):
+@RunIf(min_cuda_gpus=1)
+def test_more_than_1_device_for_sequential_gpu(tmp_path):
     llm = LLM.load(
         model="EleutherAI/pythia-14m",
         devices=2,
@@ -145,4 +146,13 @@ def test_more_than_1_device_for_sequential(tmp_path):
         llm = LLM.load(
             model="EleutherAI/pythia-14m",
             devices=2
+        )
+
+
+def test_sequential_cpu(tmp_path):
+    with pytest.raises(NotImplementedError, match="generate_strategy='sequential' is only supported for accelerator='cuda'."):
+        llm = LLM.load(
+            model="EleutherAI/pythia-14m",
+            accelerator="cpu",
+            generate_strategy="sequential"
         )

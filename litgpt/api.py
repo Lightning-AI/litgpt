@@ -120,6 +120,9 @@ class LLM:
             else:
                 accelerator = "cpu"
 
+        if generate_strategy == "sequential" and accelerator != "cuda":
+            raise NotImplementedError("generate_strategy='sequential' is only supported for accelerator='cuda'.")
+
         num_devices = calculate_number_of_devices(devices)
 
         if generate_strategy is None and num_devices > 1:
