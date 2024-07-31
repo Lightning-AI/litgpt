@@ -1,25 +1,14 @@
 # Copyright Lightning AI. Licensed under the Apache License 2.0, see LICENSE file.
 from pathlib import Path
 from pprint import pprint
-from typing import Dict, Any, Optional
+from typing import Dict, Any, Optional, Literal
 
-import lightning as L
 from lightning_utilities.core.imports import RequirementCache
 import torch
 
 from litgpt.api import LLM
 
-from litgpt.model import GPT  # needs to be imported before config
-from litgpt.config import Config
-from litgpt.tokenizer import Tokenizer
-from litgpt.generate.base import generate as plain_generate
-from litgpt.chat.base import generate as stream_generate
-from litgpt.prompts import load_prompt_style, has_prompt_style, PromptStyle
-from litgpt.utils import (
-    auto_download_checkpoint,
-    get_default_supported_precision,
-    load_checkpoint
-)
+from litgpt.utils import auto_download_checkpoint
 
 
 _LITSERVE_AVAILABLE = RequirementCache("litserve")
@@ -33,6 +22,7 @@ class BaseLitAPI(LitAPI):
     def __init__(
         self,
         checkpoint_dir: Path,
+        quantize: Optional[Literal["bnb.nf4", "bnb.nf4-dq", "bnb.fp4", "bnb.fp4-dq", "bnb.int8"]] = None,
         precision: Optional[str] = None,
         temperature: float = 0.8,
         top_k: int = 50,
@@ -45,6 +35,7 @@ class BaseLitAPI(LitAPI):
 
         super().__init__()
         self.checkpoint_dir = checkpoint_dir
+        self.quantize = quantize
         self.precision = precision
         self.temperature = temperature
         self.top_k = top_k
@@ -61,8 +52,9 @@ class BaseLitAPI(LitAPI):
 
         print("Initializing model...")
         self.llm = LLM.load(
-            self.checkpoint_dir,
+            model=self.checkpoint_dir,
             accelerator=accelerator,
+            quantize=self.quantize,
             precision=self.precision
         )
         print("Model successfully initialized.")
@@ -74,14 +66,17 @@ class BaseLitAPI(LitAPI):
 
 
 class SimpleLitAPI(BaseLitAPI):
-    def __init__(self,
-                 checkpoint_dir: Path,
-                 precision: Optional[str] = None,
-                 temperature: float = 0.8,
-                 top_k: int = 50,
-                 top_p: float = 1.0,
-                 max_new_tokens: int = 50):
-        super().__init__(checkpoint_dir, precision, temperature, top_k, top_p, max_new_tokens)   
+    def __init__(
+        self,
+        checkpoint_dir: Path,
+        quantize: Optional[str] = None,
+        precision: Optional[str] = None,
+        temperature: float = 0.8,
+        top_k: int = 50,
+        top_p: float = 1.0,
+        max_new_tokens: int = 50
+    ):
+        super().__init__(checkpoint_dir, quantize, precision, temperature, top_k, top_p, max_new_tokens)   
 
     def setup(self, device: str):
         super().setup(device)
@@ -102,14 +97,17 @@ class SimpleLitAPI(BaseLitAPI):
 
 
 class StreamLitAPI(BaseLitAPI):
-    def __init__(self,
-                 checkpoint_dir: Path,
-                 precision: Optional[str] = None,
-                 temperature: float = 0.8,
-                 top_k: int = 50,
-                 top_p: float = 1.0,
-                 max_new_tokens: int = 50):
-        super().__init__(checkpoint_dir, precision, temperature, top_k, top_p, max_new_tokens)   
+    def __init__(
+        self,
+        checkpoint_dir: Path,
+        quantize: Optional[str] = None,
+        precision: Optional[str] = None,
+        temperature: float = 0.8,
+        top_k: int = 50,
+        top_p: float = 1.0,
+        max_new_tokens: int = 50
+    ):
+        super().__init__(checkpoint_dir, quantize, precision, temperature, top_k, top_p, max_new_tokens)   
 
     def setup(self, device: str):
         super().setup(device)
@@ -132,6 +130,7 @@ class StreamLitAPI(BaseLitAPI):
 
 def run_server(
     checkpoint_dir: Path,
+    quantize: Optional[Literal["bnb.nf4", "bnb.nf4-dq", "bnb.fp4", "bnb.fp4-dq", "bnb.int8"]] = None,
     precision: Optional[str] = None,
     temperature: float = 0.8,
     top_k: int = 50,
@@ -149,6 +148,10 @@ def run_server(
 
     Arguments:
         checkpoint_dir: The checkpoint directory to load the model from.
+        quantize: Whether to quantize the model and using which method:
+            - bnb.nf4, bnb.nf4-dq, bnb.fp4, bnb.fp4-dq: 4-bit quantization from bitsandbytes
+            - bnb.int8: 8-bit quantization from bitsandbytes
+            for more details, see https://github.com/Lightning-AI/litgpt/blob/main/tutorials/quantize.md
         precision: Optional precision setting to instantiate the model weights in. By default, this will
             automatically be inferred from the metadata in the given ``checkpoint_dir`` directory.
         temperature: Temperature setting for the text generation. Value above 1 increase randomness.
@@ -184,6 +187,7 @@ def run_server(
         server = LitServer(
             SimpleLitAPI(
                 checkpoint_dir=checkpoint_dir,
+                quantize=quantize,
                 precision=precision,
                 temperature=temperature,
                 top_k=top_k,
@@ -198,6 +202,7 @@ def run_server(
         server = LitServer(
             StreamLitAPI(
                 checkpoint_dir=checkpoint_dir,
+                quantize=quantize,
                 precision=precision,
                 temperature=temperature,
                 top_k=top_k,
