@@ -123,6 +123,9 @@ class LLM:
         if generate_strategy == "sequential" and accelerator != "cuda":
             raise NotImplementedError("generate_strategy='sequential' is only supported for accelerator='cuda'.")
 
+        if generate_strategy == "sequential" and init != "pretrained":
+            raise NotImplementedError("generate_strategy='sequential' is only supported for init='pretrained'.")
+
         num_devices = calculate_number_of_devices(devices)
 
         if generate_strategy is None and num_devices > 1:
@@ -182,19 +185,20 @@ class LLM:
                 if has_prompt_style(checkpoint_dir)
                 else PromptStyle.from_config(config)
             )
-        else:
-            prompt_style = PromptStyle.from_config(config)
-
-        if checkpoint_dir is not None:
             checkpoint_path = checkpoint_dir / "lit_model.pth"
             check_file_size_on_cpu_and_warn(checkpoint_path, fabric.device)
+        else:
+            prompt_style = PromptStyle.from_config(config)
 
         kv_cache_initialized = False
         if generate_strategy is None:
             with fabric.init_module(empty_init=(num_devices > 1)):
                 model = GPT(config)
             model.eval()
-            load_checkpoint(fabric, model, checkpoint_path)
+
+            if checkpoint_dir is not None:
+                load_checkpoint(fabric, model, checkpoint_path)
+
             model = fabric.setup_module(model)
 
             if fixed_kv_cache_size is not None:

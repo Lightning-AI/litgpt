@@ -148,6 +148,13 @@ def test_more_than_1_device_for_sequential_gpu(tmp_path):
             devices=2
         )
 
+    with pytest.raises(NotImplementedError, match="generate_strategy='sequential' is only supported for init='pretrained'."):
+        llm = LLM.load(
+            model="EleutherAI/pythia-14m",
+            generate_strategy="sequential",
+            init="random"
+        )
+
 
 def test_sequential_cpu(tmp_path):
     with pytest.raises(NotImplementedError, match="generate_strategy='sequential' is only supported for accelerator='cuda'."):
