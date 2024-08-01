@@ -137,5 +137,8 @@ def test_llm_load_hub_init(tmp_path):
         devices=1,
         init="pretrained"
     )
-    text = llm.generate("text", max_new_tokens=10)
-    assert len(text) > 0
+    text_1 = llm.generate("text", max_new_tokens=10, top_k=1)
+    assert len(text_1) > 0
+
+    text_2 = llm.generate("text", max_new_tokens=10, top_k=1, stream=True)
+    assert text_1 == "".join(list(text_2))
