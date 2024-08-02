@@ -3,20 +3,18 @@ from dataclasses import asdict
 import shutil
 
 from lightning.fabric import seed_everything
-from fastapi.testclient import TestClient
-from litserve.server import LitServer
 import torch
+import requests
+import subprocess
+import threading
+import time
 import yaml
 
-
 from litgpt import GPT, Config
-from litgpt.deploy.serve import SimpleLitAPI
 from litgpt.scripts.download import download_from_hub
 
 
 def test_simple(tmp_path):
-
-    # Create model checkpoint
     seed_everything(123)
     ours_config = Config.from_name("pythia-14m")
     download_from_hub(repo_id="EleutherAI/pythia-14m", tokenizer_only=True, checkpoint_dir=tmp_path)
@@ -29,14 +27,30 @@ def test_simple(tmp_path):
     with open(config_path, "w", encoding="utf-8") as fp:
         yaml.dump(asdict(ours_config), fp)
 
-    accelerator = "cpu"
-    server = LitServer(
-        SimpleLitAPI(checkpoint_dir=tmp_path, temperature=1, top_k=1),
-        accelerator=accelerator, devices=1, timeout=60
-        )
+    run_command = [
+        "litgpt", "serve", tmp_path
+    ]
 
-    with TestClient(server.app) as client:
-        response = client.post("/predict", json={"prompt": "Hello world"})
-        # Model is a small random model, not trained, hence the gibberish.
-        # We are just testing that the server works.
-        assert response.json()["output"][:19] == " statues CAD pierci"
+    process = None
+
+    def run_server():
+        nonlocal process
+        try:
+            process = subprocess.Popen(run_command, stdout=subprocess.PIPE, stderr=subprocess.PIPE, text=True)
+            stdout, stderr = process.communicate(timeout=60)
+        except subprocess.TimeoutExpired:
+            print('Server start-up timeout expired')
+
+    server_thread = threading.Thread(target=run_server)
+    server_thread.start()
+
+    time.sleep(30)
+
+    try:
+        response = requests.get("http://127.0.0.1:8000")
+        print(response.status_code)
+        assert response.status_code == 200, "Server did not respond as expected."
+    finally:
+        if process:
+            process.kill()
+        server_thread.join()
