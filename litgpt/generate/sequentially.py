@@ -20,9 +20,12 @@ from lightning.fabric.accelerators import CUDAAccelerator
 from lightning.fabric.plugins import BitsandbytesPrecision
 from lightning.fabric.utilities.init import _materialize_meta_tensors
 from typing_extensions import Type
+from tqdm import tqdm
 
+from litgpt.model import GPT
+from litgpt.config import Config
+from litgpt.tokenizer import Tokenizer
 import litgpt.generate.base as generate_base
-from litgpt import GPT, Config, Tokenizer
 from litgpt.model import Block, build_mask_cache
 from litgpt.prompts import PromptStyle, has_prompt_style, load_prompt_style
 from litgpt.utils import (
@@ -33,7 +36,12 @@ from litgpt.utils import (
 
 
 @torch.inference_mode()
-def sequential(model: GPT, root: torch.device, max_seq_length: int, devices: int):
+def sequential(
+    model: GPT,
+    root: torch.device,
+    max_seq_length: int,
+    devices: int
+):
     if model.config.n_layer < devices:
         raise ValueError(
             f"The number of layers in the model must be larger than the number of devices, but got"
@@ -55,16 +63,20 @@ def sequential(model: GPT, root: torch.device, max_seq_length: int, devices: int
     num_layers_per_device = {i: sum(1 for v in mapping.values() if v == i) for i in range(devices)}
 
     # materialize each block on the appropriate device
-    for path, target_index in mapping.items():
-        submodule = model.get_submodule(path)
-        target_device = torch.device(root.type, target_index)
-        print(f"Moving {path!r} to {target_device}", file=sys.stderr)
-        # submodules loaded by the checkpoint will be on CPU (if no quantization). move them
-        replace_device(submodule, replace=torch.device("cpu"), by=target_device)
-        # in case the checkpoint was partial, materialize leftover metas
-        _materialize_meta_tensors(submodule, target_device)
-        # and build the kv cache
-        submodule.attn.kv_cache = submodule.attn.build_kv_cache(1, max_seq_length, model.cos.size(-1), target_device)
+    with tqdm(total=len(mapping), desc="Moving submodules") as pbar:
+        for path, target_index in mapping.items():
+            submodule = model.get_submodule(path)
+            target_device = torch.device(root.type, target_index)
+
+            pbar.set_description(f"Moving {path!r} to {target_device}")
+            pbar.update(1)
+
+            # submodules loaded by the checkpoint will be on CPU (if no quantization). move them
+            replace_device(submodule, replace=torch.device("cpu"), by=target_device)
+            # in case the checkpoint was partial, materialize leftover metas
+            _materialize_meta_tensors(submodule, target_device)
+            # and build the kv cache
+            submodule.attn.kv_cache = submodule.attn.build_kv_cache(1, max_seq_length, model.cos.size(-1), target_device)
     # rebuild odd ends
     with root:
         model.max_seq_length = max_seq_length
