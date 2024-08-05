@@ -360,13 +360,17 @@ def main(
     }
 
     if resume is True:
+        breakpoint()
         resume = max(
             out_dir.rglob("step-*/*.pth"),
             key=(lambda p: int(p.parent.name.split("-")[1])),
         )
     if resume:
         fabric.print(f"Resuming training from {resume}")
+        start_time = time.time()
         fabric.load(resume, state, strict=False)
+        end_time = time.time()
+        fabric.print("Time to load model: ", end_time - start_time)
 
     train_time = time.perf_counter()
     fit(
@@ -575,25 +579,19 @@ def fit(
                 else:
                     # TODO: wtf why is layer_key undefined here, investigate later
                     if is_distributed_environment():
-                        try:
-                            mean_dev_gradient = torch.mean(
-                                torch.stack(
-                                    [
-                                        g[
-                                            "_forward_module._fsdp_wrapped_module.lm_head.weight"
-                                        ]
-                                        for g in dev_grads.values()
-                                        if layer_key in g
+                        mean_dev_gradient = torch.mean(
+                            torch.stack(
+                                [
+                                    g[
+                                        "_forward_module._fsdp_wrapped_module.lm_head.weight"
                                     ]
-                                ),
-                                dim=0,
-                            )
-                        except:
-                            torch.distributed.barrier()
-                            if torch.distributed.get_rank() == 0:
-                                breakpoint()
-                            else:
-                                time.sleep(10000)
+                                    for g in dev_grads.values()
+                                    if layer_key in g
+                                ]
+                            ),
+                            dim=0,
+                        )
+
                     else:
                         mean_dev_gradient = torch.mean(
                             torch.stack(
@@ -779,7 +777,10 @@ def fit(
             sft_data = sft_datasets[key]
             if sft_data is not None:
                 input_ids, targets = sft_data["input_ids"], sft_data["labels"]
-                sft_loss = compute_sft_loss(model, input_ids, targets)
+                if train.treat_sft_like_lm:
+                    sft_loss = compute_lm_loss(model, input_ids, targets)
+                else:
+                    sft_loss = compute_sft_loss(model, input_ids, targets)
 
                 if key not in sft_loss_per_dataset:
                     sft_loss_per_dataset[key] = RunningMean(

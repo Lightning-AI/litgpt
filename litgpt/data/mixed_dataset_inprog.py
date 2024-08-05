@@ -96,11 +96,12 @@ class MixedDataset(DataModule):
     # the max iters through the pretraining dataset. Used to space out the sft datasets accordingly
     max_iters: int = 100000
     use_adaptive_sampling: str = False
+    initial_sampling_rates: Optional[List[float]] = None
 
     def __post_init__(self):
         self.lm_train_path = os.path.join(self.pretraining_data_path, "train")
         self.lm_val_path = os.path.join(self.pretraining_data_path, "val")
-
+        
         # TODO: for now assume there's only one jsonl/json file in each sft dir. We should iterate over multiple though to make it easier to add datasets
         self.out_path_train_lm = self.lm_train_path
         self.out_path_val_lm = self.lm_val_path
@@ -188,7 +189,7 @@ class MixedDataset(DataModule):
             dataset = load_dataset(
                 "HuggingFaceFW/fineweb-edu",
                 num_proc=os.cpu_count() // 8,
-                name=self.data_split,  # 149M examples
+                name="train",  # 149M examples
                 cache_dir=hf_cache_dir,
                 split="train",
             )
@@ -296,7 +297,7 @@ class MixedDataset(DataModule):
         if self.use_adaptive_sampling:
             return CombinedLoaderWithSamplingRates(
                 {"lm": lm_train_dataloader, **sft_train_dataloaders},
-                [0.85, 0.05, 0.05, 0.05],  # TODO: we need to pass this through lol
+                self.initial_sampling_rates,
                 batch_size=self.batch_size,
                 max_iters=self.max_iters,
                 seq_max_len=self.max_seq_length_sft,
@@ -357,6 +358,7 @@ class CombinedLoaderWithSamplingRates(DataLoader):
     ):
         self.loaders = loaders
         self.sampling_rates = sampling_rates
+        print("The initial sampling rates are: ", self.sampling_rates)
         assert len(self.loaders) == len(
             self.sampling_rates
         ), "The length of sampling rates should be the same as the number of iterables"
@@ -373,6 +375,8 @@ class CombinedLoaderWithSamplingRates(DataLoader):
         self.dataset = ConcatIterableDataset(
             [getattr(dl, "dataset", None) for dl in self.flattened]
         )
+        self.rng = np.random.default_rng(seed=42)
+
 
         # dataset = SampledCombinedDataset(loaders, sampling_rates, max_iters, batch_size)
         # super().__init__(dataset, batch_size, **kwargs)
@@ -391,12 +395,11 @@ class CombinedLoaderWithSamplingRates(DataLoader):
                 )
         # fill the batch by random sampling from each dataset
         iterators = {name: iterable for name, iterable in self.iterators.items()}
-        rng = np.random.default_rng(seed=42)
 
         for _ in range(self.max_iters):
             batch = defaultdict(list)
             try:
-                chosen_datasets = rng.choice(
+                chosen_datasets = self.rng.choice(
                     list(self.iterators.keys()),
                     size=self.batch_size,
                     p=self.sampling_rates,
@@ -405,7 +408,7 @@ class CombinedLoaderWithSamplingRates(DataLoader):
                 self.sampling_rates = [
                     x / sum(self.sampling_rates) for x in self.sampling_rates
                 ]  # sometimes it doesn't sum to 1 due to floating point
-                chosen_datasets = rng.choice(
+                chosen_datasets = self.rng.choice(
                     list(self.iterators.keys()),
                     size=self.batch_size,
                     p=self.sampling_rates,

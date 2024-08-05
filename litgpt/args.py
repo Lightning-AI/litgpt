@@ -39,6 +39,8 @@ class TrainArgs:
     init_lr: float = 2e-5
 
     # for adaptive sampling
+    initial_sampling_rate: Optional[str] = "[0.8, 0.2]"
+    # note: the initial sampling rate should be parseable through literal_eval
     episode_length: Optional[float] = None
     # Freeze the sampling rate to the initial weights specified
     freeze_sampling_rate: Optional[bool] = False
