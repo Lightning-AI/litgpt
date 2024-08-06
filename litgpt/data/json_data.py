@@ -8,7 +8,7 @@ from typing import Any, Optional, Tuple, Union
 import torch
 from torch.utils.data import DataLoader, random_split
 
-from litgpt import PromptStyle
+from litgpt.prompts import PromptStyle
 from litgpt.data import DataModule, SFTDataset, get_sft_collate_fn
 from litgpt.tokenizer import Tokenizer
 

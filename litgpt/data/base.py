@@ -8,7 +8,7 @@ from lightning import LightningDataModule
 from torch import Tensor
 from torch.utils.data import Dataset
 
-from litgpt import Tokenizer
+from litgpt.tokenizer import Tokenizer
 from litgpt.prompts import PromptStyle
 
 

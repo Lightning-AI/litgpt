@@ -7,7 +7,7 @@ from typing import List, Optional, Union
 import torch
 from torch.utils.data import DataLoader
 
-from litgpt import PromptStyle
+from litgpt.prompts import PromptStyle
 from litgpt.data import DataModule, SFTDataset, get_sft_collate_fn
 from litgpt.tokenizer import Tokenizer
 

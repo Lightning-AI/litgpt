@@ -10,7 +10,7 @@ from typing import Optional
 from torch.utils.data import DataLoader
 from tqdm import tqdm
 
-from litgpt import Tokenizer
+from litgpt.tokenizer import Tokenizer
 from litgpt.data import DataModule
 from litgpt.data.alpaca import download_if_missing
 from litgpt.data.text_files import validate_tokenizer

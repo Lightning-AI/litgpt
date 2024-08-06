@@ -5,7 +5,7 @@ from typing import Optional, Union
 
 from torch.utils.data import DataLoader
 
-from litgpt import Tokenizer
+from litgpt.tokenizer import Tokenizer
 from litgpt.data import DataModule
 
 

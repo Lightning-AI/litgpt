@@ -8,8 +8,6 @@ from typing import Any, Literal, Optional, Type, Union
 import torch
 import yaml
 from typing_extensions import Self
-
-import litgpt.model
 from litgpt.utils import find_multiple
 
 
@@ -144,6 +142,7 @@ class Config:
     @property
     def mlp_class(self) -> Type:
         # `self.mlp_class_name` cannot be the type to keep the config serializable
+        import litgpt.model
         return getattr(litgpt.model, self.mlp_class_name)
 
     @property
