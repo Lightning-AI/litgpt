@@ -92,16 +92,18 @@ llm = LLM.load("pythia-160m", init="random", tokenizer_dir="EleutherAI/pythia-16
 &nbsp;
 ## Multi-GPU strategies
 
-By default, the model is loaded onto a single GPU. Optionally, you can enable the `generate_strategy="sequential"` setting to load different parts of the models onto different GPUs. The goal behind this strategy is to support models that, even when quantized, cannot fit into single-GPU memory. (Note that if you have a model that can fit onto a single GPU, this sequential strategy will be slower.)
+By default, the model is loaded onto a single GPU. Optionally, you can use the `.distribute()` method with the `generate_strategy="sequential"` setting to load different parts of the models onto different GPUs. The goal behind this strategy is to support models that cannot fit into single-GPU memory. (Note that if you have a model that can fit onto a single GPU, this sequential strategy will be slower.)
 
 ```python
 from litgpt.api import LLM
 
 llm = LLM.load(
-    "microsoft/phi-2",
+    "microsoft/phi-2"
+)
+
+llm.distribute(
     generate_strategy="sequential",
     devices=4,  # Optional setting, otherwise uses all available GPUs
-    quantize="bnb.nf4",  # Optionally quantize the model
     fixed_kv_cache_size=256  # Optionally use a small kv-cache to further reduce memory usage
 )
 ```
