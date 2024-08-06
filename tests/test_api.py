@@ -125,6 +125,7 @@ def test_model_not_initialized(tmp_path):
 
     llm = LLM.load(
         model="EleutherAI/pythia-14m",
+        tokenizer_dir="EleutherAI/pythia-14m",
         init="random",
         distribute=None
     )
@@ -135,62 +136,66 @@ def test_model_not_initialized(tmp_path):
         llm.generate("text")
 
 
-"""
-@RunIf(min_cuda_gpus=1)
+@RunIf(min_cuda_gpus=2)
 def test_more_than_1_device_for_sequential_gpu(tmp_path):
     llm = LLM.load(
         model="EleutherAI/pythia-14m",
-        devices=2,
-        generate_strategy="sequential",
     )
+
+    llm.distribute(devices=2, generate_strategy="sequential")
     assert isinstance(llm.generate("What do llamas eat?"), str)
 
+
     with pytest.raises(NotImplementedError, match="Support for multiple devices is currently only implemented for generate_strategy='sequential'."):
-        llm = LLM.load(
-            model="EleutherAI/pythia-14m",
-            devices=2
-        )
-
-    with pytest.raises(NotImplementedError, match="generate_strategy='sequential' is only supported for init='pretrained'."):
-        llm = LLM.load(
-            model="EleutherAI/pythia-14m",
-            generate_strategy="sequential",
-            init="random"
-        )
-"""
+        llm.distribute(devices=2)
 
 
-"""
+@RunIf(min_cuda_gpus=1)
+def test_sequential_incompatibility_with_random_weights(tmp_path):
+    llm = LLM.load(
+        model="EleutherAI/pythia-14m",
+        tokenizer_dir="EleutherAI/pythia-14m",
+        init="random"
+    )
+    with pytest.raises(NotImplementedError, match=re.escape("The LLM was initialized with init='random' but .distribute() currently only supports pretrained weights.")):
+        llm.distribute(devices=1, generate_strategy="sequential")
+
+
 def test_sequential_cpu(tmp_path):
+    llm = LLM.load(
+        model="EleutherAI/pythia-14m",
+    )
     with pytest.raises(NotImplementedError, match="generate_strategy='sequential' is only supported for accelerator='cuda'."):
-        llm = LLM.load(
-            model="EleutherAI/pythia-14m",
+        llm.distribute(
+            devices=1,
             accelerator="cpu",
             generate_strategy="sequential"
         )
-"""
 
-"""
+
 @RunIf(min_cuda_gpus=1)
 def test_quantization_is_applied(tmp_path):
-    download_from_hub(repo_id="EleutherAI/pythia-160m", tokenizer_only=True, checkpoint_dir=tmp_path)
-    llm = LLM.load("EleutherAI/pythia-160m", quantize="bnb.nf4", init="random", tokenizer_dir=Path(tmp_path/"EleutherAI/pythia-160m"))
+    llm = LLM.load(
+        model="EleutherAI/pythia-14m",
+    )
+    llm.distribute(devices=1, quantize="bnb.nf4", precision="bf16-true")
     assert "NF4Linear" in str(type(llm.model.lm_head))
-"""
 
-"""
+
 def test_fixed_kv_cache(tmp_path):
     llm = LLM.load(
         model="EleutherAI/pythia-14m",
-        fixed_kv_cache_size=100,
     )
+    llm.distribute(devices=1, fixed_kv_cache_size=100)    
+
     # Request too many tokens
     with pytest.raises(NotImplementedError, match="max_seq_length 512 needs to be >= 9223372036854775809"):
         output_text = llm.generate("hello world", max_new_tokens=2**63)
-"""
 
-"""
-def test_invalid_accelerator(mock_llm):
+
+def test_invalid_accelerator(tmp_path):
+    llm = LLM.load(
+        model="EleutherAI/pythia-14m",
+    )
     with pytest.raises(ValueError, match="Invalid accelerator"):
-        LLM.load("path/to/model", accelerator="invalid")
-"""
+        llm.distribute(accelerator="invalid")
