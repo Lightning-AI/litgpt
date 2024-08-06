@@ -1,13 +1,8 @@
-# Copyright Lightning AI. Licensed under the Apache License 2.0, see LICENSE file.
-
 import torch
 import litgpt
-from litgpt.lora import GPT, Block
+from litgpt.lora import GPT, merge_lora_weights
 from litgpt.data import Alpaca2k
 import lightning as L
-from lightning.fabric.utilities.load import _lazy_load as lazy_load
-from lightning.pytorch.strategies import FSDPStrategy
-from lightning.fabric.accelerators import CUDAAccelerator
 
 
 class LitLLM(L.LightningModule):
@@ -18,15 +13,13 @@ class LitLLM(L.LightningModule):
             lora_r=32,
             lora_alpha=16,
             lora_dropout=0.05,
-            lora_query=True,
             lora_key=False,
             lora_value=True,
         )
-        litgpt.lora.mark_only_lora_as_trainable(self.model)     
+        litgpt.lora.mark_only_lora_as_trainable(self.model)
 
-    def setup(self, stage):
-        state_dict = lazy_load("checkpoints/meta-llama/Meta-Llama-3.1-8B/lit_model.pth")
-        state_dict = state_dict.get("model", state_dict)
+    def on_train_start(self):
+        state_dict = torch.load("checkpoints/meta-llama/Meta-Llama-3.1-8B/lit_model.pth", mmap=True)
         self.model.load_state_dict(state_dict, strict=False)
 
     def training_step(self, batch):
@@ -46,26 +39,19 @@ class LitLLM(L.LightningModule):
 if __name__ == "__main__":
     data = Alpaca2k()
     tokenizer = litgpt.Tokenizer("checkpoints/meta-llama/Meta-Llama-3.1-8B")
-    data.connect(tokenizer, batch_size=1, max_seq_length=256)
-
-    device_count = CUDAAccelerator.auto_device_count()
-    if device_count > 1:
-        strategy = FSDPStrategy(
-            auto_wrap_policy={Block},
-            activation_checkpointing_policy={Block},
-            limit_all_gathers=True,
-            cpu_offload=True,
-        )
-    else:
-        strategy = "auto"
+    data.connect(tokenizer, batch_size=1, max_seq_length=512)
 
     trainer = L.Trainer(
+        devices=1,
         max_epochs=2,
         accumulate_grad_batches=8,
         precision="bf16-true",
-        strategy=strategy,
-        devices=device_count
     )
     with trainer.init_module(empty_init=True):
         model = LitLLM()
+
     trainer.fit(model, data)
+
+    # Save final checkpoint
+    merge_lora_weights(model.model)
+    trainer.save_checkpoint("checkpoints/finetuned.ckpt", weights_only=True)
