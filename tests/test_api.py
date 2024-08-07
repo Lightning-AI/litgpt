@@ -164,7 +164,7 @@ def test_sequential_cpu(tmp_path):
     llm = LLM.load(
         model="EleutherAI/pythia-14m",
     )
-    with pytest.raises(NotImplementedError, match="generate_strategy='sequential' is only supported for accelerator='cuda'."):
+    with pytest.raises(NotImplementedError, match="generate_strategy='sequential' is only supported for accelerator='cuda'|'gpu'."):
         llm.distribute(
             devices=1,
             accelerator="cpu",
@@ -185,7 +185,7 @@ def test_fixed_kv_cache(tmp_path):
     llm = LLM.load(
         model="EleutherAI/pythia-14m",
     )
-    llm.distribute(devices=1, fixed_kv_cache_size=100)    
+    llm.distribute(devices=1, fixed_kv_cache_size=100)
 
     # Request too many tokens
     with pytest.raises(NotImplementedError, match="max_seq_length 512 needs to be >= 9223372036854775809"):

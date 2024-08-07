@@ -229,7 +229,7 @@ class LLM:
                 accelerator = "cpu"
 
         if generate_strategy in ("sequential", "tensor_parallel") and accelerator not in ("cuda", "gpu"):
-            raise NotImplementedError(f"generate_strategy={generate_strategy} is only supported for accelerator='cuda'|'gpu.")
+            raise NotImplementedError(f"generate_strategy='{generate_strategy}' is only supported for accelerator='cuda'|'gpu'.")
 
         num_devices = calculate_number_of_devices(devices)
 
