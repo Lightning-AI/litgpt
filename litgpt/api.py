@@ -355,6 +355,8 @@ class LLM:
         assert self.model is not None
 
         if benchmark:
+            if stream:
+                raise NotImplementedError("The `benchmark=True` setting is not supported when `stream=True`.")
             benchmark_dict = {}
             t0 = time.perf_counter()
 

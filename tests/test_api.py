@@ -208,3 +208,6 @@ def test_returned_benchmark_dir(tmp_path):
 
     text, bench_d = llm.generate("hello world", benchmark=True)
     assert isinstance(bench_d["Inference speed in tokens/sec"], float)
+
+    with pytest.raises(NotImplementedError, match="The `benchmark=True` setting is not supported when `stream=True`."):
+        output_text = llm.generate("hello world", stream=True, benchmark=True)
