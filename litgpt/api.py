@@ -15,12 +15,14 @@ from litgpt.model import GPT
 from litgpt.config import name_to_config, Config
 from litgpt.tokenizer import Tokenizer
 from litgpt.generate.sequentially import sequential
+from litgpt.generate.tp import tensor_parallel
 from litgpt.generate.base import generate as generate_fn
 from litgpt.chat.base import generate as stream_generate_fn
 from litgpt.prompts import load_prompt_style, has_prompt_style, PromptStyle
 from litgpt.utils import (
     auto_download_checkpoint,
     check_file_size_on_cpu_and_warn,
+    check_nvlink_connectivity,
     extend_checkpoint_dir,
     get_default_supported_precision,
     load_checkpoint,
@@ -37,7 +39,7 @@ class LLM:
         config: Config = None,
         checkpoint_dir: Path = None,
         fabric: L.Fabric = None,
-        generate_strategy: Optional[Literal["sequential"]] = None,
+        generate_strategy: Optional[Literal["sequential", "tensor_parallel"]] = None,
         kv_cache_initialized: bool = False,
         fixed_kv_cache_size: Union[int, Literal["max_model_supported"], None] = None
     ) -> None:
@@ -181,7 +183,7 @@ class LLM:
         devices: Union[int, List[int]] = 1,
         precision: Optional[Any] = None,
         quantize: Optional[Literal["bnb.nf4", "bnb.nf4-dq", "bnb.fp4", "bnb.fp4-dq", "bnb.int8"]] = None,
-        generate_strategy: Optional[Literal["sequential"]] = None,
+        generate_strategy: Optional[Literal["sequential", "tensor_parallel"]] = None,
         fixed_kv_cache_size: Union[int, Literal["max_model_supported"], None] = None
     ):
         """
@@ -225,17 +227,14 @@ class LLM:
             else:
                 accelerator = "cpu"
 
-        if generate_strategy == "sequential" and accelerator not in ("cuda", "gpu"):
-            raise NotImplementedError("generate_strategy='sequential' is only supported for accelerator='cuda'|'gpu.")
-
-        #if generate_strategy == "sequential" and init != "pretrained":
-        #    raise NotImplementedError("generate_strategy='sequential' is only supported for init='pretrained'.")
+        if generate_strategy in ("sequential", "tensor_parallel") and accelerator not in ("cuda", "gpu"):
+            raise NotImplementedError(f"generate_strategy={generate_strategy} is only supported for accelerator='cuda'|'gpu.")
 
         num_devices = calculate_number_of_devices(devices)
 
         if generate_strategy is None and num_devices > 1:
             raise NotImplementedError(
-                "Support for multiple devices is currently only implemented for generate_strategy='sequential'."
+                "Support for multiple devices is currently only implemented for generate_strategy='sequential'|'tensor_parallel'."
             )
 
         plugins = None
@@ -246,13 +245,25 @@ class LLM:
             plugins = BitsandbytesPrecision(quantize[4:], dtype)
             precision = None
 
-        fabric = L.Fabric(
-            accelerator=accelerator,
-            devices=1,  # Otherwise sequential wouldn't work, see litgpt/generate/sequentially.py
-            # devices=devices,
-            precision=precision,
-            plugins=plugins
-        )
+        # set "ddp" as the strategy for the launching functionality, but there's no data-parallelism
+        if generate_strategy != "tensor_parallel":
+            fabric = L.Fabric(
+                accelerator=accelerator,
+                devices=1,  # Otherwise sequential wouldn't work, see litgpt/generate/sequentially.py
+                #devices=devices,
+                precision=precision,
+                plugins=plugins
+            )
+        else:
+            fabric = L.Fabric(
+                devices=devices,
+                strategy="ddp",
+                precision=precision,
+                plugins=plugins
+            )
+            if torch.cuda.is_available() and fabric.accelerator.auto_device_count() > 1:
+                check_nvlink_connectivity(fabric)
+                fabric.launch()
 
         self.kv_cache_initialized = False
         if generate_strategy is None:
@@ -274,11 +285,7 @@ class LLM:
                 self.kv_cache_initialized = True
                 self.fixed_kv_cache_size = fixed_kv_cache_size
 
-        elif generate_strategy == "sequential":
-            # cannot use `init_module` because if bitsandbytes is used, the Linear layers will be replaced
-            # which means that the weights will get quantized on cuda:0 on checkpoint load. we need to load and then convert
-            # still, use init_tensor for the precision
-
+        elif generate_strategy in ("sequential", "tensor_parallel"):
             total_devices = CUDAAccelerator.auto_device_count()
             if devices is not None:
                 if devices < total_devices:
@@ -290,20 +297,61 @@ class LLM:
 
             with fabric.init_tensor(), torch.device("meta"):
                 model = GPT(self.config)
-
             model.eval()
-            state_dict = torch.load(str(self.checkpoint_dir / "lit_model.pth"), mmap=True, map_location="cpu")
-            model.load_state_dict(state_dict, assign=True)
-            model = fabric.setup_module(model, move_to_device=False)
 
-            if fixed_kv_cache_size is None:
-                fixed_kv_cache_size = "max_model_supported"
-            if fixed_kv_cache_size == "max_model_supported":
-                kv_cache_size = model.max_seq_length
-            else:
-                kv_cache_size = fixed_kv_cache_size
-            model = sequential(model, fabric.device, kv_cache_size, total_devices)
-            self.fixed_kv_cache_size = fixed_kv_cache_size
+            if generate_strategy == "sequential":
+                state_dict = torch.load(str(self.checkpoint_dir / "lit_model.pth"), mmap=True, map_location="cpu")
+                model.load_state_dict(state_dict, assign=True)
+                model = fabric.setup_module(model, move_to_device=False)
+
+                if fixed_kv_cache_size is None:
+                    fixed_kv_cache_size = "max_model_supported"
+                if fixed_kv_cache_size == "max_model_supported":
+                    kv_cache_size = model.max_seq_length
+                else:
+                    kv_cache_size = fixed_kv_cache_size
+
+                model = sequential(model, fabric.device, kv_cache_size, total_devices)
+                self.fixed_kv_cache_size = fixed_kv_cache_size
+
+            elif generate_strategy == "tensor_parallel":
+                import time
+                for rank in range(fabric.world_size):
+                    if fabric.global_rank == rank:
+                        t0 = time.perf_counter()
+                        state_dict = torch.load(str(self.checkpoint_dir / "lit_model.pth"), mmap=True, map_location="cpu")
+                        model.load_state_dict(state_dict, assign=True)
+                        print(f"[{rank}] Time to load the model weights: {time.perf_counter() - t0:.02f} seconds.", file=sys.stderr)
+
+                        # cannot use `.setup_module` because it will wrap with DDP
+                        model = fabric._precision.convert_module(model)
+
+                        t0 = time.perf_counter()
+                        model = tensor_parallel(fabric, model)
+                        print(
+                            f"[{rank}] Time to tensor-parallelize the model: {time.perf_counter() - t0:.02f} seconds.",
+                            file=sys.stderr,
+                        )
+
+                        with fabric.init_tensor():
+                            if fixed_kv_cache_size is None:
+                                fixed_kv_cache_size = "max_model_supported"
+                            if fixed_kv_cache_size == "max_model_supported":
+                                kv_cache_size = model.max_seq_length
+                            else:
+                                kv_cache_size = fixed_kv_cache_size
+                            model.max_seq_length = kv_cache_size
+                            # the rope cache which is on meta device
+                            model.cos, model.sin = model.rope_cache()
+                            # enable the kv cache
+                            model.set_kv_cache(batch_size=1)
+                        model.eval()
+
+                        t0 = time.perf_counter()
+                        model = fabric.to_device(model)
+                        print(f"[{rank}] Time to move the model: {time.perf_counter() - t0:.02f} seconds.", file=sys.stderr)
+                    fabric.barrier()
+
             self.kv_cache_initialized = True
 
         else:
