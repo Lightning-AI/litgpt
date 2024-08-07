@@ -199,3 +199,12 @@ def test_invalid_accelerator(tmp_path):
     )
     with pytest.raises(ValueError, match="Invalid accelerator"):
         llm.distribute(accelerator="invalid")
+
+
+def test_returned_benchmark_dir(tmp_path):
+    llm = LLM.load(
+        model="EleutherAI/pythia-14m",
+    )
+
+    text, bench_d = llm.generate("hello world", benchmark=True)
+    assert isinstance(bench_d["Inference speed in tokens/sec"], float)
