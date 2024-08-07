@@ -164,7 +164,7 @@ def test_sequential_cpu(tmp_path):
     llm = LLM.load(
         model="EleutherAI/pythia-14m",
     )
-    with pytest.raises(NotImplementedError, match="generate_strategy='sequential' is only supported for accelerator='cuda'."):
+    with pytest.raises(NotImplementedError, match="generate_strategy='sequential' is only supported for  accelerator='cuda'|'gpu."):
         llm.distribute(
             devices=1,
             accelerator="cpu",
