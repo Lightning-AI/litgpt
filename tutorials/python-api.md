@@ -123,3 +123,34 @@ print(text)
 ```
  Llamas are herbivores and their diet consists mainly of grasses, plants, and leaves.
 ```
+
+&nbsp;
+## Speed and resource estimates
+
+Use the `.benchmark()` method to compare the computational performance of different settings. The `.benchmark()` method takes the same arguments as the `.generate()` method. For example, we can estimate the speed and GPU memory consumption as follows (the resulting numbers were obtained on an A10G GPU):
+
+```python
+from litgpt.api import LLM
+from pprint import pprint
+
+llm = LLM.load(
+    model="microsoft/phi-2",
+    distribute=None
+)
+
+llm.distribute(fixed_kv_cache_size=500)
+
+text, bench_d = llm.benchmark(prompt="What do llamas eat?", top_k=1, stream=True)
+print(text)
+pprint(bench_d)
+
+
+# Llamas are herbivores and primarily eat grass, leaves, and shrubs. They have a specialized 
+# digestive system that allows them to efficiently extract nutrients from plant material.
+
+# {'Inference speed in tokens/sec': 15.687777681894985,
+#  'Seconds to first token': 0.5756612900004257,
+#  'Seconds total': 1.5935972900006163,
+#  'Tokens generated': 25,
+#  'Total GPU memory allocated in GB': 11.534106624}
+```

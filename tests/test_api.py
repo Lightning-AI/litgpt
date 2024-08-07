@@ -145,7 +145,6 @@ def test_more_than_1_device_for_sequential_gpu(tmp_path):
     llm.distribute(devices=2, generate_strategy="sequential")
     assert isinstance(llm.generate("What do llamas eat?"), str)
 
-
     with pytest.raises(NotImplementedError, match="Support for multiple devices is currently only implemented for generate_strategy='sequential'."):
         llm.distribute(devices=2)
 
@@ -199,3 +198,15 @@ def test_invalid_accelerator(tmp_path):
     )
     with pytest.raises(ValueError, match="Invalid accelerator"):
         llm.distribute(accelerator="invalid")
+
+
+def test_returned_benchmark_dir(tmp_path):
+    llm = LLM.load(
+        model="EleutherAI/pythia-14m",
+    )
+
+    text, bench_d = llm.benchmark(prompt="hello world")
+    assert isinstance(bench_d["Inference speed in tokens/sec"], float)
+
+    text, bench_d = llm.benchmark(prompt="hello world", stream=True)
+    assert isinstance(bench_d["Inference speed in tokens/sec"], float)
