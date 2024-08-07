@@ -183,7 +183,7 @@ class LLM:
         precision: Optional[Any] = None,
         quantize: Optional[Literal["bnb.nf4", "bnb.nf4-dq", "bnb.fp4", "bnb.fp4-dq", "bnb.int8"]] = None,
         generate_strategy: Optional[Literal["sequential"]] = None,
-        fixed_kv_cache_size: Union[int, Literal["max_model_supported"], None] = None,
+        fixed_kv_cache_size: Union[int, Literal["max_model_supported"], None] = None
     ):
         """
         Moves the model onto specified devices for single-GPU or multi-GPU inference
@@ -320,8 +320,7 @@ class LLM:
         top_k: Optional[int] = None,
         top_p: float = 1.0,
         return_as_token_ids: bool = False,
-        stream: bool = False,
-        benchmark: bool = False,
+        stream: bool = False
     ) -> Union[str, torch.Tensor]:
         """
         Takes a conditioning sequence (prompt) as input and continues to generate as many tokens as requested.
@@ -350,18 +349,9 @@ class LLM:
             stream: If True, returns a generator that yields tokens as they are generated.
                 At the moment, this setting is slower and may use more memory than the non-streaming version.
                 We plan to resolve this in the future.
-            benchmark: Returns a dictionary containing inference time statistics if set to True.
         """
         assert self.model is not None
-
-        if benchmark:
-            if stream:
-                raise NotImplementedError("The `benchmark=True` setting is not supported when `stream=True`.")
-            benchmark_dict = {}
-            t0 = time.perf_counter()
-
-        prompt = self.prompt_style.apply(prompt)
-        input_ids = self.preprocessor.encode(prompt)
+        input_ids = self._text_to_token_ids(prompt)
         prompt_length = input_ids.size(0)
         max_returned_tokens = prompt_length + max_new_tokens
 
@@ -395,7 +385,7 @@ class LLM:
                 yield from outputs
             else:
                 for output in outputs:
-                    yield self.preprocessor.tokenizer.decode(output)
+                    yield self.preprocessor.decode(output)
             return
 
         if stream:
@@ -412,28 +402,50 @@ class LLM:
                 include_prompt=False,
             )
 
-        if benchmark:
-            benchmark_dict["Seconds total"] = time.perf_counter() - t0
-            benchmark_dict["Tokens generated"] = outputs.size(0) - input_ids.size(0)
-            benchmark_dict["Inference speed in tokens/sec"] = benchmark_dict["Tokens generated"] / benchmark_dict["Seconds total"]
-            if self.fabric.device.type == "cuda":
-                benchmark_dict["GPU memory used in GB"] = torch.cuda.max_memory_allocated() / 1e9
-
-            main_output = None
-            if stream:
-                main_output = outputs
-            elif return_as_token_ids:
-                main_output = outputs
-            else:
-                main_output = self.preprocessor.tokenizer.decode(outputs)
-            return main_output, benchmark_dict
+        if stream:
+            return outputs
+        elif return_as_token_ids:
+            return outputs
         else:
-            if stream:
-                return outputs
-            elif return_as_token_ids:
-                return outputs
-            else:
-                return self.preprocessor.tokenizer.decode(outputs)
+            return self.preprocessor.decode(outputs)
+
+    def _text_to_token_ids(self, prompt):
+        """Utility method to convert a prompt text to token IDs"""
+        prompt = self.prompt_style.apply(prompt)
+        input_ids = self.preprocessor.encode(prompt)
+        return input_ids
+
+    def benchmark(self, **kwargs):
+        """
+        A wrapper around the .generate() method to calculate runtime performance.
+
+        Arguments:
+        kwargs: Keyword arguments that are passed to the .generate() method.
+        """
+        benchmark_dict = {}
+
+        time_to_first_token = None
+        t0 = time.perf_counter()
+        outputs = self.generate(**kwargs)
+
+        if kwargs.get("stream", False):
+            gen_outputs = []
+            for e in outputs:
+                if time_to_first_token is None:
+                    t1 = time.perf_counter()
+                    time_to_first_token = t1 - t0
+                gen_outputs.append(e)
+            outputs = "".join(gen_outputs)
+        else:
+            outputs = self.generate(**kwargs, )
+        benchmark_dict["Seconds total"] = time.perf_counter() - t0
+        benchmark_dict["Seconds to first token"] = time_to_first_token
+        benchmark_dict["Tokens generated"] = self.preprocessor.encode(outputs).size(0) - self._text_to_token_ids(kwargs.get("prompt")).size(0)
+        benchmark_dict["Inference speed in tokens/sec"] = benchmark_dict["Tokens generated"] / benchmark_dict["Seconds total"]
+        if self.fabric.device.type == "cuda":
+            benchmark_dict["Total GPU memory allocated in GB"] = torch.cuda.max_memory_allocated() / 1e9
+
+        return outputs, benchmark_dict
 
 
 class Preprocessor:
