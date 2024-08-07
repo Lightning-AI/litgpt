@@ -145,7 +145,6 @@ def test_more_than_1_device_for_sequential_gpu(tmp_path):
     llm.distribute(devices=2, generate_strategy="sequential")
     assert isinstance(llm.generate("What do llamas eat?"), str)
 
-
     with pytest.raises(NotImplementedError, match="Support for multiple devices is currently only implemented for generate_strategy='sequential'."):
         llm.distribute(devices=2)
 
@@ -206,8 +205,8 @@ def test_returned_benchmark_dir(tmp_path):
         model="EleutherAI/pythia-14m",
     )
 
-    text, bench_d = llm.generate("hello world", benchmark=True)
+    text, bench_d = llm.benchmark(prompt="hello world")
     assert isinstance(bench_d["Inference speed in tokens/sec"], float)
 
-    with pytest.raises(NotImplementedError, match="The `benchmark=True` setting is not supported when `stream=True`."):
-        output_text = llm.generate("hello world", stream=True, benchmark=True)
+    text, bench_d = llm.benchmark(prompt="hello world", stream=True)
+    assert isinstance(bench_d["Inference speed in tokens/sec"], float)
