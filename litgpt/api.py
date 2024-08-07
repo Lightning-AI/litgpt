@@ -3,6 +3,7 @@
 # This file implements the LitGPT Python API
 from pathlib import Path
 import sys
+import time
 from typing import Any, List, Literal, Optional, Union
 
 import torch
@@ -182,7 +183,7 @@ class LLM:
         precision: Optional[Any] = None,
         quantize: Optional[Literal["bnb.nf4", "bnb.nf4-dq", "bnb.fp4", "bnb.fp4-dq", "bnb.int8"]] = None,
         generate_strategy: Optional[Literal["sequential"]] = None,
-        fixed_kv_cache_size: Union[int, Literal["max_model_supported"], None] = None
+        fixed_kv_cache_size: Union[int, Literal["max_model_supported"], None] = None,
     ):
         """
         Moves the model onto specified devices for single-GPU or multi-GPU inference
@@ -227,9 +228,6 @@ class LLM:
 
         if generate_strategy == "sequential" and accelerator not in ("cuda", "gpu"):
             raise NotImplementedError("generate_strategy='sequential' is only supported for accelerator='cuda'|'gpu.")
-
-        #if generate_strategy == "sequential" and init != "pretrained":
-        #    raise NotImplementedError("generate_strategy='sequential' is only supported for init='pretrained'.")
 
         num_devices = calculate_number_of_devices(devices)
 
@@ -322,7 +320,8 @@ class LLM:
         top_k: Optional[int] = None,
         top_p: float = 1.0,
         return_as_token_ids: bool = False,
-        stream: bool = False
+        stream: bool = False,
+        benchmark: bool = False,
     ) -> Union[str, torch.Tensor]:
         """
         Takes a conditioning sequence (prompt) as input and continues to generate as many tokens as requested.
@@ -351,8 +350,13 @@ class LLM:
             stream: If True, returns a generator that yields tokens as they are generated.
                 At the moment, this setting is slower and may use more memory than the non-streaming version.
                 We plan to resolve this in the future.
+            benchmark: Returns a dictionary containing inference time statistics if set to True.
         """
         assert self.model is not None
+
+        if benchmark:
+            benchmark_dict = {}
+            t0 = time.perf_counter()
 
         prompt = self.prompt_style.apply(prompt)
         input_ids = self.preprocessor.encode(prompt)
@@ -406,12 +410,28 @@ class LLM:
                 include_prompt=False,
             )
 
-        if stream:
-            return outputs
-        elif return_as_token_ids:
-            return outputs
+        if benchmark:
+            benchmark_dict["Seconds total"] = time.perf_counter() - t0
+            benchmark_dict["Tokens generated"] = outputs.size(0) - input_ids.size(0)
+            benchmark_dict["Inference speed in tokens/sec"] = benchmark_dict["Tokens generated"] / benchmark_dict["Seconds total"]
+            if self.fabric.device.type == "cuda":
+                benchmark_dict["GPU memory used in GB"] = torch.cuda.max_memory_allocated() / 1e9
+
+            main_output = None
+            if stream:
+                main_output = outputs
+            elif return_as_token_ids:
+                main_output = outputs
+            else:
+                main_output = self.preprocessor.tokenizer.decode(outputs)
+            return main_output, benchmark_dict
         else:
-            return self.preprocessor.tokenizer.decode(outputs)
+            if stream:
+                return outputs
+            elif return_as_token_ids:
+                return outputs
+            else:
+                return self.preprocessor.tokenizer.decode(outputs)
 
 
 class Preprocessor:
