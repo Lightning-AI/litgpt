@@ -137,7 +137,7 @@ def test_model_not_initialized(tmp_path):
 
 
 @RunIf(min_cuda_gpus=2)
-def test_more_than_1_device_for_sequential_gpu(tmp_path):
+def test_more_than_1_device_for_sequential_tp_gpu(tmp_path):
     llm = LLM.load(
         model="EleutherAI/pythia-14m",
     )
@@ -145,31 +145,36 @@ def test_more_than_1_device_for_sequential_gpu(tmp_path):
     llm.distribute(devices=2, generate_strategy="sequential")
     assert isinstance(llm.generate("What do llamas eat?"), str)
 
-    with pytest.raises(NotImplementedError, match="Support for multiple devices is currently only implemented for generate_strategy='sequential'."):
+    llm.distribute(devices=2, generate_strategy="tensor_parallel")
+    assert isinstance(llm.generate("What do llamas eat?"), str)
+
+    with pytest.raises(NotImplementedError, match=f"Support for multiple devices is currently only implemented for generate_strategy='sequential'|'tensor_parallel'."):
         llm.distribute(devices=2)
 
 
 @RunIf(min_cuda_gpus=1)
-def test_sequential_incompatibility_with_random_weights(tmp_path):
+def test_sequential_tp_incompatibility_with_random_weights(tmp_path):
     llm = LLM.load(
         model="EleutherAI/pythia-14m",
         tokenizer_dir="EleutherAI/pythia-14m",
         init="random"
     )
-    with pytest.raises(NotImplementedError, match=re.escape("The LLM was initialized with init='random' but .distribute() currently only supports pretrained weights.")):
-        llm.distribute(devices=1, generate_strategy="sequential")
+    for strategy in ("sequential", "tensor_parallel"):
+        with pytest.raises(NotImplementedError, match=re.escape("The LLM was initialized with init='random' but .distribute() currently only supports pretrained weights.")):
+            llm.distribute(devices=1, generate_strategy=strategy)
 
 
-def test_sequential_cpu(tmp_path):
+def test_sequential_tp_cpu(tmp_path):
     llm = LLM.load(
         model="EleutherAI/pythia-14m",
     )
-    with pytest.raises(NotImplementedError, match="generate_strategy='sequential' is only supported for accelerator='cuda'|'gpu'."):
-        llm.distribute(
-            devices=1,
-            accelerator="cpu",
-            generate_strategy="sequential"
-        )
+    for strategy in ("sequential", "tensor_parallel"):
+        with pytest.raises(NotImplementedError, match=f"generate_strategy='{strategy}' is only supported for accelerator='cuda'|'gpu'."):
+            llm.distribute(
+                devices=1,
+                accelerator="cpu",
+                generate_strategy=strategy
+            )
 
 
 @RunIf(min_cuda_gpus=1)
