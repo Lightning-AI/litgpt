@@ -142,13 +142,18 @@ from litgpt.api import LLM
 if __name__ == "__main__":
 
     llm = LLM.load(
-        model="microsoft/phi-2",
+        model="model="meta-llama/Meta-Llama-3.1-8B-Instruct",
         distribute=None
     )
 
     llm.distribute(generate_strategy="tensor_parallel", devices=4)
 
-    print(llm.generate(prompt="What do llamas eat?", top_k=1))
+    print(llm.generate(prompt="What do llamas eat?"))
+    print(llm.generate(prompt="What is 1+2?", top_k=1))
+```
+
+```
+
 ```
 
 
