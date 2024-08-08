@@ -6,6 +6,7 @@ import sys
 import time
 from typing import Any, List, Literal, Optional, Union
 
+from tqdm import tqdm
 import torch
 import lightning as L
 from lightning.fabric.plugins import BitsandbytesPrecision
@@ -316,23 +317,16 @@ class LLM:
                 self.fixed_kv_cache_size = fixed_kv_cache_size
 
             elif generate_strategy == "tensor_parallel":
-                import time
+                if fabric.global_rank == 0:
+                    pbar = tqdm(total=fabric.world_size, desc="Loading model weights")
                 for rank in range(fabric.world_size):
                     if fabric.global_rank == rank:
-                        t0 = time.perf_counter()
                         state_dict = torch.load(str(self.checkpoint_dir / "lit_model.pth"), mmap=True, map_location="cpu")
                         model.load_state_dict(state_dict, assign=True)
-                        print(f"[{rank}] Time to load the model weights: {time.perf_counter() - t0:.02f} seconds.", file=sys.stderr)
 
                         # cannot use `.setup_module` because it will wrap with DDP
                         model = fabric._precision.convert_module(model)
-
-                        t0 = time.perf_counter()
                         model = tensor_parallel(fabric, model)
-                        print(
-                            f"[{rank}] Time to tensor-parallelize the model: {time.perf_counter() - t0:.02f} seconds.",
-                            file=sys.stderr,
-                        )
 
                         with fabric.init_tensor():
                             if fixed_kv_cache_size is None:
@@ -347,11 +341,14 @@ class LLM:
                             # enable the kv cache
                             model.set_kv_cache(batch_size=1)
                         model.eval()
-
-                        t0 = time.perf_counter()
                         model = fabric.to_device(model)
-                        print(f"[{rank}] Time to move the model: {time.perf_counter() - t0:.02f} seconds.", file=sys.stderr)
+
                     fabric.barrier()
+                    if fabric.global_rank == 0:
+                        pbar.update(1)
+
+                if fabric.global_rank == 0:
+                    pbar.close()
 
             self.kv_cache_initialized = True
 
