@@ -19,7 +19,9 @@ from lightning.fabric.utilities import rank_zero_only
 from torch.distributed._functional_collectives import all_reduce
 
 import litgpt.generate.base as generate_base
-from litgpt import GPT, Config, Tokenizer
+from litgpt.model import GPT
+from litgpt.config import Config
+from litgpt.tokenizer import Tokenizer
 from litgpt.model import CausalSelfAttention, GptNeoxMLP, LLaMAMLP, LLaMAMoE
 from litgpt.prompts import PromptStyle, has_prompt_style, load_prompt_style
 from litgpt.utils import (

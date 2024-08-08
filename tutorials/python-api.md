@@ -92,7 +92,11 @@ llm = LLM.load("pythia-160m", init="random", tokenizer_dir="EleutherAI/pythia-16
 &nbsp;
 ## Multi-GPU strategies
 
-By default, the model is loaded onto a single GPU. Optionally, you can use the `.distribute()` method with the `generate_strategy="sequential"` setting to load different parts of the models onto different GPUs. The goal behind this strategy is to support models that cannot fit into single-GPU memory. (Note that if you have a model that can fit onto a single GPU, this sequential strategy will be slower.)
+By default, the model is loaded onto a single GPU. Optionally, you can use the `.distribute()` method with the "sequential" or "tensor_parallel" `generate_strategy` settings.
+
+### Sequential strategy
+
+the `generate_strategy="sequential"` setting to load different parts of the models onto different GPUs. The goal behind this strategy is to support models that cannot fit into single-GPU memory. (Note that if you have a model that can fit onto a single GPU, this sequential strategy will be slower.)
 
 ```python
 from litgpt.api import LLM
@@ -123,6 +127,35 @@ print(text)
 ```
  Llamas are herbivores and their diet consists mainly of grasses, plants, and leaves.
 ```
+
+&nbsp;
+### Tensor parallel strategy
+
+The sequential strategy explained in the previous subsection distributes the model sequentially across GPUs, which allows users to load models that would not fit onto a single GPU. However, due to this method's sequential nature, processing is naturally slower than parallel processing. 
+
+To take advantage of parallel processing via tensor parallelism, you can use the `generate_strategy="tensor_parallel" setting. However, this method has downsides: the initial setup may be slower for large models, and it cannot run in interactive processes such as Jupyter notebooks.
+
+```python
+from litgpt.api import LLM
+
+
+if __name__ == "__main__":
+
+    llm = LLM.load(
+        model="meta-llama/Meta-Llama-3.1-8B-Instruct",
+        distribute=None
+    )
+
+    llm.distribute(generate_strategy="tensor_parallel", devices=4)
+
+    print(llm.generate(prompt="What do llamas eat?"))
+    print(llm.generate(prompt="What is 1+2?", top_k=1))
+```
+
+```
+
+```
+
 
 &nbsp;
 ## Speed and resource estimates
