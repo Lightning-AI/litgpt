@@ -142,7 +142,7 @@ from litgpt.api import LLM
 if __name__ == "__main__":
 
     llm = LLM.load(
-        model="model="meta-llama/Meta-Llama-3.1-8B-Instruct",
+        model="meta-llama/Meta-Llama-3.1-8B-Instruct",
         distribute=None
     )
 
