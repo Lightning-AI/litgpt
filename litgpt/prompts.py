@@ -40,6 +40,19 @@ class Default(PromptStyle):
     def stop_tokens(self, tokenizer: "Tokenizer") -> Tuple[List[int], ...]:
         return ([tokenizer.eos_id],)
 
+class DefaultSFT(PromptStyle):
+    def apply(self, prompt: str, **kwargs: str) -> str:
+        if kwargs.get("input"):
+            return f"{prompt} {kwargs['input']}"
+        
+        return prompt
+    
+class DefaultQA(PromptStyle):
+    def apply(self, prompt: str, **kwargs: str) -> str:
+        if kwargs.get("input"):
+            return f"Question: {prompt}\nInput: {kwargs['input']}\nAnswer:"
+        
+        return f"Question: {prompt}\nAnswer:"
 
 class Alpaca(PromptStyle):
     def apply(self, prompt: str, **kwargs: str) -> str:
@@ -319,6 +332,8 @@ prompt_styles: Dict[str, Type[PromptStyle]] = {
     "gemma": Gemma,
     "h2oai": H2Oai,
     "llama3": Llama3,
+    "default": DefaultSFT,
+    "qa": DefaultQA
 }
 
 

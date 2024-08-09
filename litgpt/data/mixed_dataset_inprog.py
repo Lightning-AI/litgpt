@@ -25,7 +25,7 @@ from typing import (
 
 import numpy as np
 import torch
-
+import torch.distributed as dist
 from datasets import load_dataset
 
 from lightning.fabric.utilities.data import sized_len
@@ -53,7 +53,7 @@ from litgpt.tokenizer import Tokenizer
 
 from torch.distributed import get_rank
 
-from torch.utils.data import BatchSampler, ConcatDataset, DataLoader, IterableDataset
+from torch.utils.data import BatchSampler, ConcatDataset, DataLoader, IterableDataset, Dataset
 
 from torch.utils.data.dataloader import (
     _BaseDataLoaderIter,
@@ -75,6 +75,7 @@ class MixedDataset(DataModule):
 
     # A path to a directory containing both pretraining data (files in txt form) as well as SFT data (json files). Should contain two subdirectories "texts" and "sft".
     pretraining_data_path: str = "data/"
+    pretraining_val_path: Optional[str] = None # optional val path if in a different dir
     # format of the data: name_1 weight_1 (between 0-1) path_1, name_2 weight_2 path_2, ...
     # if no weights, will combine the sft sets in equal proportions.
     sft_data_paths: str = "sft/"
@@ -86,7 +87,7 @@ class MixedDataset(DataModule):
     mask_prompt: bool = False
     ignore_index: int = -100
     seed: int = 42
-    num_workers: int = 4
+    num_workers: int = 1
     cycle_mode: Literal[
         "max_size_cycle", "min_size_cycle", "max_size", "sequential", "max_size_spread"
     ] = "max_size_spread"
@@ -100,7 +101,9 @@ class MixedDataset(DataModule):
 
     def __post_init__(self):
         self.lm_train_path = os.path.join(self.pretraining_data_path, "train")
-        self.lm_val_path = os.path.join(self.pretraining_data_path, "val")
+        self.lm_val_path = os.path.join(self.pretraining_data_path, "val") if self.pretraining_data_path else self.pretraining_val_path
+        if not self.lm_val_path:
+            raise OSError("No path found for validation dir, either pass a pretraining_data_path with train/ and val/ subdirs, or a separate pretraining_val_path.")
         
         # TODO: for now assume there's only one jsonl/json file in each sft dir. We should iterate over multiple though to make it easier to add datasets
         self.out_path_train_lm = self.lm_train_path
@@ -109,6 +112,7 @@ class MixedDataset(DataModule):
         self.sft_datasets_and_sample_rates = self.initialize_sft()
         self.sft_train_datasets = {}
         self.sft_val_datasets = {}
+
 
     def initialize_sft(self) -> dict:
         self.sft_sets = {}
@@ -180,6 +184,8 @@ class MixedDataset(DataModule):
                 )
                 return
 
+            print("LM train path: ", self.lm_train_path)
+            print("LM val path: ", self.lm_val_path)
             if Path(self.lm_train_path).is_dir() and Path(self.lm_val_path).is_dir():
                 print(
                     f"Found FineWeb train and val dir: {self.pretraining_data_path}. Skipping preprocessing."
@@ -301,6 +307,7 @@ class MixedDataset(DataModule):
                 batch_size=self.batch_size,
                 max_iters=self.max_iters,
                 seq_max_len=self.max_seq_length_sft,
+                num_workers=1,
             )
         else:
             return CombinedLoader(
@@ -348,6 +355,7 @@ class MixedDataset(DataModule):
         )
 
 
+
 class CombinedLoaderWithSamplingRates(DataLoader):
     ### A combined loader where we can pass in a list of sampling rates for each dataset.
     ### Note: the final batch may not exactly represent the sampling rates.
@@ -375,8 +383,33 @@ class CombinedLoaderWithSamplingRates(DataLoader):
         self.dataset = ConcatIterableDataset(
             [getattr(dl, "dataset", None) for dl in self.flattened]
         )
-        self.rng = np.random.default_rng(seed=42)
 
+        # if dist.is_initialized():
+        #     rank = dist.get_rank()
+        #     world_size = dist.get_world_size()
+        #     seed = 42 + rank
+        # else:
+        #     seed = 42
+
+        self.sharded_loaders = {}
+        if dist.is_initialized():
+            rank = dist.get_rank()
+            world_size = dist.get_world_size()
+            for name, loader in self.loaders.items():
+                if not isinstance(loader, StreamingDataLoader):
+                    sharded_dataset = torch.utils.data.Subset(
+                        loader.dataset, range(rank, len(loader.dataset), world_size)
+                    )
+                    self.sharded_loaders[name] = DataLoader(
+                        sharded_dataset,
+                        batch_size=loader.batch_size,
+                        collate_fn=loader.collate_fn,
+                        num_workers=loader.num_workers,
+                    )
+                else:
+                    # don't need to shard pretraining datasets
+                    self.sharded_loaders[name] = loader
+        self.rng = np.random.default_rng(seed=42)
 
         # dataset = SampledCombinedDataset(loaders, sampling_rates, max_iters, batch_size)
         # super().__init__(dataset, batch_size, **kwargs)
@@ -386,7 +419,7 @@ class CombinedLoaderWithSamplingRates(DataLoader):
 
     def __iter__(self):
         # initialize the iterators
-        for name, loader in self.loaders.items():
+        for name, loader in self.sharded_loaders.items():
             if isinstance(loader, DataLoader) or hasattr(loader, "__iter__"):
                 self.iterators[name] = iter(cycle(loader))
             else:
@@ -503,6 +536,196 @@ class CombinedLoaderWithSamplingRates(DataLoader):
         """Optional limits per iterator."""
         return self._limits
 
+
+class _CombinedLoaderWithSamplingRates(DataLoader):
+    ### A combined loader where we can pass in a list of sampling rates for each dataset.
+    ### Note: the final batch may not exactly represent the sampling rates.
+    ### Entries will be returned in the same format as the combinedloader: {"data_1": data1_samples, "data_2": data2_samples, ...}
+    ### The data samples will be None if there were no samples from that dataset selected.
+    def __init__(
+        self, loaders, sampling_rates, batch_size, max_iters, seq_max_len, num_workers=1, **kwargs
+    ):
+
+        self.loaders = loaders
+        self.sampling_rates = sampling_rates
+        print("The initial sampling rates are: ", self.sampling_rates)
+        assert len(self.loaders) == len(
+            self.sampling_rates
+        ), "The length of sampling rates should be the same as the number of iterables"
+        self.max_iters = max_iters
+        self.batch_size = batch_size
+        self.seq_max_len = seq_max_len
+        self.cumulative_rates = [
+            sum(sampling_rates[:i]) for i in range(len(sampling_rates))
+        ]
+        self.multiprocessing_context = None
+        self.iterators = {}
+
+        self._flattened, self._spec = _tree_flatten(loaders)
+        self.dataset = ConcatIterableDataset(
+            [getattr(dl, "dataset", None) for dl in self.flattened]
+        )
+        self.rng = torch.Generator()
+        self.seed = 42
+        self.set_seed_and_shard()
+
+
+    def __len__(self):
+        return self.max_iters
+    
+    def set_seed_and_shard(self):
+        if dist.is_initialized():
+            rank = dist.get_rank()
+            print(f"Rank {rank}: The dataloader is distributed. Setting the seed to {self.seed} + {rank}")
+            self.rng.manual_seed(self.seed + rank)
+            self.world_size = dist.get_world_size()
+            self.rank = rank
+
+            # self.sharded_loaders = {}
+            # for name, loader in self.loaders.items():
+            #     if not isinstance(loader, StreamingDataLoader):
+            #         sharded_dataset = torch.utils.data.Subset(
+            #             loader.dataset, range(self.rank, len(loader.dataset), self.world_size)
+            #         )
+            #         self.sharded_loaders[name] = DataLoader(
+            #             sharded_dataset,
+            #             batch_size=loader.batch_size,
+            #             collate_fn=loader.collate_fn,
+            #             num_workers=loader.num_workers,
+            #         )
+            #     else:
+            #         # don't need to shard pretraining datasets
+            #         self.sharded_loaders[name] = loader
+            
+        else:
+            print(f"The dataloader is not distributed. Setting the seed to {self.seed}")
+            self.rng.manual_seed(self.seed)
+            self.sharded_loaders = self.loaders
+            self.world_size = 1
+            self.rank = 0
+
+    def __iter__(self):
+        for name, loader in self.loaders.items():
+            if isinstance(loader, DataLoader) or hasattr(loader, "__iter__"):
+                self.iterators[name] = iter(cycle(loader))
+            else:
+                raise ValueError(
+                    f"Expected a DataLoader or iterable, but got {type(loader)}"
+                )
+        # fill the batch by random sampling from each dataset
+        iterators = {name: iterable for name, iterable in self.iterators.items()}
+
+        for _ in range(self.max_iters):
+            batch = defaultdict(list)
+            try:
+                # chosen_datasets = self.rng.choice(
+                #     list(self.iterators.keys()),
+                #     size=self.batch_size,
+                #     p=self.sampling_rates,
+                # )
+                chosen_dataset_inds = torch.multinomial(torch.tensor(self.sampling_rates), self.batch_size, replacement=True, generator=self.rng)
+            except:
+                self.sampling_rates = [
+                    x / sum(self.sampling_rates) for x in self.sampling_rates
+                ]  # sometimes it doesn't sum to 1 due to floating point
+                # chosen_datasets = self.rng.choice(
+                #     list(self.iterators.keys()),
+                #     size=self.batch_size,
+                #     p=self.sampling_rates,
+                # )
+                chosen_dataset_inds = torch.multinomial(torch.tensor(self.sampling_rates), self.batch_size, replacement=True, generator=self.rng)
+            
+            chosen_datasets = [list(self.iterators.keys())[i] for i in chosen_dataset_inds]
+            rank = dist.get_rank() if dist.is_initialized() else 0
+            for dataset_name in chosen_datasets:
+                if batch[dataset_name] is None:
+                    batch[dataset_name] = []
+                try:
+                    item = next(iterators[dataset_name])
+
+                except StopIteration:
+                    # reset
+                    iterators[dataset_name] = iter(self.iterators[dataset_name])
+                    try:
+                        item = next(iterators[dataset_name])
+                    except:
+                        breakpoint()
+
+                batch[dataset_name].append(item)
+
+            # stack to tensor
+            for dataset_name in batch:
+                if dataset_name == "lm":
+                    batch[dataset_name] = torch.cat(batch[dataset_name], dim=0)
+                else:  # sft format
+                    stacked = {}
+                    for key in ["input_ids", "labels"]:
+                        stacked[key] = pad_and_stack(
+                            [sample[key] for sample in batch[dataset_name]],
+                            self.seq_max_len,
+                        )
+                    batch[dataset_name] = stacked
+
+            yield dict(batch)
+
+    def set_sampling_rates(self, new_sampling_rates):
+        assert len(self.loaders.keys()) == len(
+            new_sampling_rates
+        ), "The length of sampling rates should be equal to the num datasets"
+        self.sampling_rates = new_sampling_rates
+        self.cumulative_rates = [
+            sum(self.sampling_rates[:i]) for i in range(len(self.sampling_rates))
+        ]
+
+    @property
+    def iterables(self) -> Any:
+        """Return the original collection of iterables."""
+        return self.loaders
+
+    @property
+    def sampler(self) -> Any:
+        """Return a collections of samplers extracted from iterables."""
+        return UnifiedBatchSampler(
+            _map_and_unflatten(
+                lambda x: getattr(x, "sampler", None),
+                self.flattened,
+                self._spec,
+            ),
+            max_iters=self.max_iters,
+        )
+
+    @property
+    def batch_sampler(self) -> Any:
+        """Return a collections of batch samplers extracted from iterables."""
+        return UnifiedBatchSampler(
+            _map_and_unflatten(
+                lambda x: getattr(x, "batch_sampler", None),
+                self.flattened,
+                self._spec,
+            ),
+            max_iters=self.max_iters,
+        )
+
+    @property
+    def flattened(self) -> List[Any]:
+        """Return the flat list of iterables."""
+        return self._flattened
+
+    @flattened.setter
+    def flattened(self, flattened: List[Any]) -> None:
+        """Setter to conveniently update the list of iterables."""
+        if len(flattened) != len(self._flattened):
+            raise ValueError(
+                f"Mismatch in flattened length ({len(flattened)}) and existing length ({len(self._flattened)})"
+            )
+        # update the iterable collection
+        self._iterables = tree_unflatten(flattened, self._spec)
+        self._flattened = flattened
+
+    @property
+    def limits(self) -> Optional[List[Union[int, float]]]:
+        """Optional limits per iterator."""
+        return self._limits
 
 ### This code was not present in the current version of lightning. Adding it here
 # Copyright The Lightning AI team.
