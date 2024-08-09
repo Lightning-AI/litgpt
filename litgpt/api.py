@@ -185,6 +185,7 @@ class LLM:
         if self.checkpoint_dir is not None:
             state_dict = torch.load(self.checkpoint_dir / "lit_model.pth")
             self.model.load_state_dict(state_dict, strict=False)
+        return self.model, self.preprocessor.tokenizer
 
     def distribute(
         self,
