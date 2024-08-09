@@ -71,7 +71,7 @@ class LLM:
     @property
     def model(self):
         if self._model is None:
-            raise AttributeError("The model is not initialized yet; use the .distribute() method to initialize the model.")
+            raise AttributeError("The model is not initialized yet; use the .distribute() or .trainer_setup() method to initialize the model.")
         return self._model
 
     @model.setter
@@ -178,6 +178,13 @@ class LLM:
             config=config, checkpoint_dir=checkpoint_dir, fabric=fabric, generate_strategy=None,
             kv_cache_initialized=False, fixed_kv_cache_size=False
         )
+
+    def trainer_setup(self):
+        """Initializes the model checkpoint for PyTorch Lightning Trainer contexts"""
+        self.model = GPT(self.config)
+        if self.checkpoint_dir is not None:
+            state_dict = torch.load(self.checkpoint_dir / "lit_model.pth")
+            self.model.load_state_dict(state_dict, strict=False)
 
     def distribute(
         self,
