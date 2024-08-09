@@ -239,6 +239,9 @@ class LLM:
                 "Support for multiple devices is currently only implemented for generate_strategy='sequential'|'tensor_parallel'."
             )
 
+        if precision is None:
+            precision = get_default_supported_precision(training=False)
+
         plugins = None
         if quantize is not None and quantize.startswith("bnb."):
             if "mixed" in precision:

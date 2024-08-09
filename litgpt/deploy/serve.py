@@ -53,6 +53,10 @@ class BaseLitAPI(LitAPI):
         print("Initializing model...")
         self.llm = LLM.load(
             model=self.checkpoint_dir,
+            distribute=None
+        )
+
+        self.llm.distribute(
             accelerator=accelerator,
             quantize=self.quantize,
             precision=self.precision
