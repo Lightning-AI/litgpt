@@ -44,6 +44,8 @@ from litgpt.utils import (
     save_config,
     save_hyperparameters,
 )
+from litgpt.schedulers import get_lr, get_lr_decay_stage, get_lr_linear_decay
+
 from torch.utils.data import DataLoader
 from torchmetrics.aggregation import RunningMean
 from typing_extensions import Literal
@@ -137,6 +139,23 @@ def compute_sft_loss(model, input_ids, targets):
     return sft_loss
 
 
+def decode_batch(batch, tokenizer):
+    # Assuming 'input_ids' is the key for encoded sequences in your batch
+    input_ids = batch['input_ids']
+    
+    # Convert to list of lists
+    input_ids_list = input_ids.tolist()
+    
+    # Decode each sequence
+    decoded_texts = []
+    for seq in input_ids_list:
+        # Remove any padding tokens (usually represented by 0)
+        seq = [token for token in seq if token != 0]
+        decoded_text = tokenizer.decode(seq)
+        decoded_texts.append(decoded_text)
+    
+    return decoded_texts
+
 def setup(
     model_name: str,
     model_config: Optional[Config] = None,
@@ -155,7 +174,8 @@ def setup(
         max_norm=1.0,
         min_lr=4e-5,
         tie_embeddings=False,
-        max_steps=7500,
+        max_iters=100000,
+        max_additional_steps=None,
         lr_warmup_fraction=0.01,
     ),
     eval: EvalArgs = EvalArgs(interval=1000, max_iters=100),
@@ -271,7 +291,8 @@ def setup(
         train,
         eval,
         optimizer,
-        train.max_steps,
+        train.max_iters,
+        train.max_additional_steps,
         train.episode_length,
         precision,
         initial_sampling_rates,
@@ -292,7 +313,8 @@ def main(
     train: TrainArgs,
     eval: EvalArgs,
     optimizer_config: Union[str, Dict],
-    max_steps: int,
+    max_iters: int,
+    max_additional_steps: Optional[int],
     episode_length: int,
     precision: str,
     initial_sampling_rates: Optional[List[float]],
@@ -328,12 +350,11 @@ def main(
     optimizer = fabric.setup_optimizers(optimizer)
 
     # need max iters up here to evenly space
-    if max_steps is None:
+    if max_iters is None:
         max_tokens_per_device = train.max_tokens // fabric.world_size
         tokens_per_iter = train.micro_batch_size * model.max_seq_length
         max_iters = max_tokens_per_device // tokens_per_iter
-    else:
-        max_iters = max_steps
+
 
     train_dataloader, val_dataloader = get_dataloaders(
         fabric,
@@ -360,7 +381,6 @@ def main(
     }
 
     if resume is True:
-        breakpoint()
         resume = max(
             out_dir.rglob("step-*/*.pth"),
             key=(lambda p: int(p.parent.name.split("-")[1])),
@@ -374,6 +394,7 @@ def main(
 
     train_time = time.perf_counter()
     fit(
+        tokenizer,
         fabric,
         devices,
         state,
@@ -384,10 +405,11 @@ def main(
         train,
         eval,
         max_iters,
+        max_additional_steps,
         episode_length,
         precision,
         data.use_adaptive_sampling,
-        initial_sampling_rates,
+        initial_sampling_rates
     )
 
     # Save final checkpoint
@@ -423,6 +445,7 @@ def collect_gradients(fabric, model, loss):
 
 
 def fit(
+    tokenizer: None, #TODO: remove
     fabric: L.Fabric,
     devices: int,
     state: dict,
@@ -433,6 +456,7 @@ def fit(
     train: TrainArgs,
     eval: EvalArgs,
     max_iters: int,
+    max_additional_steps: int,
     episode_length: int,
     precision: str,
     use_adaptive_sampling: bool,
@@ -487,9 +511,11 @@ def fit(
         del meta_model, x
 
     if max_iters is None:
-        max_tokens_per_device = train.max_tokens // fabric.world_size
-        tokens_per_iter = train.micro_batch_size * model.max_seq_length
-        max_iters = max_tokens_per_device // tokens_per_iter
+        if not max_additional_steps:
+            fabric.print("Max iters and max additional steps both not set, defaulting to iters for max tokens...")
+            max_tokens_per_device = train.max_tokens // fabric.world_size
+            tokens_per_iter = train.micro_batch_size * model.max_seq_length
+            max_iters = max_tokens_per_device // tokens_per_iter
 
     log_iter_interval = train.log_interval * train.gradient_accumulation_iters(devices)
     initial_iter = state["iter_num"]
@@ -516,6 +542,7 @@ def fit(
     train_gradients = defaultdict(lambda: defaultdict(lambda: defaultdict(float)))
     train_gradient_counts = defaultdict(int)
     first_iter = True
+    initial_steps = state["step_count"]
 
     for train_data in train_iterator:
         if first_iter:
@@ -531,6 +558,10 @@ def fit(
             first_iter = False
 
         if state["iter_num"] >= max_iters:
+            fabric.print("Reached max iters, exiting")
+            break
+        if state["step_count"] - initial_steps >= max_additional_steps:
+            fabric.print("Reached max additional steps, exiting")
             break
 
         if (
@@ -697,10 +728,17 @@ def fit(
                 state["iter_num"],
                 initial_iter,
                 train.min_lr,
-                iter_length=max_iters - initial_iter,
+                train.gradient_accumulation_iters(devices),
             )
             # learning_rate: float, it: int, warmup_iters: int, max_iters: int, min_lr: float
             # llama3.1 - decay to 0 linearly
+            # lr = get_lr_linear_decay(
+            #     initial_lr,
+            #     state["iter_num"],
+            #     0,
+            #     max_iters,
+            #     0
+            # )
         else:
             # determine and set the learning rate for this iteration
             lr = get_lr(
@@ -744,81 +782,78 @@ def fit(
 
         lm_samples = 0
 
-        if lm_data is not None:
-            input_ids = lm_data[:, 0 : model.max_seq_length].contiguous().long()
-            targets = lm_data[:, 1 : (model.max_seq_length + 1)].contiguous().long()
-            lm_loss = compute_lm_loss(model, input_ids, targets)
+        with fabric.no_backward_sync(model, enabled=is_accumulating):
+            if lm_data is not None:
+                input_ids = lm_data[:, 0 : model.max_seq_length].contiguous().long()
+                targets = lm_data[:, 1 : (model.max_seq_length + 1)].contiguous().long()
+                lm_loss = compute_lm_loss(model, input_ids, targets)
 
-            all_losses.append(lm_loss)
-            lm_loss_total.update(lm_loss.detach())
-            lm_samples += input_ids.size(0)
-
-            if use_adaptive_sampling and not train.freeze_sampling_rate:
-                model.zero_grad()
-                lm_loss.backward(retain_graph=True)
-                for name, param in model.named_parameters():
-                    if param.grad is not None and (
-                        name == "_forward_module.lm_head.weight"
-                        or name == "_forward_module._fsdp_wrapped_module.lm_head.weight"
-                    ):
-                        if name not in train_gradients["lm"]:
-                            # very important: we can't subtract the previous grads the FIRST time since it will be equal to train_grads, leading to all 0s
-                            train_gradients["lm"][name] = param.grad
-                        else:
-                            train_gradients["lm"][name] += (
-                                param.grad - previous_grads[name].detach()
-                            )
-                        previous_grads[name] = param.grad.clone()
-
-        # process SFT data
-        sft_samples_per_dataset = {}
-
-        for i, key in enumerate(sft_datasets):
-            sft_data = sft_datasets[key]
-            if sft_data is not None:
-                input_ids, targets = sft_data["input_ids"], sft_data["labels"]
-                if train.treat_sft_like_lm:
-                    sft_loss = compute_lm_loss(model, input_ids, targets)
-                else:
-                    sft_loss = compute_sft_loss(model, input_ids, targets)
-
-                if key not in sft_loss_per_dataset:
-                    sft_loss_per_dataset[key] = RunningMean(
-                        window=train.gradient_accumulation_iters(devices),
-                        sync_on_compute=False,
-                    ).to(fabric.device)
-
-                sft_loss_per_dataset[key].update(sft_loss.detach())
-                running_loss_total.update(sft_loss.detach())
-                sft_loss_total.update(sft_loss.detach())
-                all_losses.append(sft_loss)
-                sft_samples_per_dataset[key] = sft_samples_per_dataset.get(
-                    key, 0
-                ) + input_ids.size(0)
+                all_losses.append(lm_loss)
+                lm_loss_total.update(lm_loss.detach())
+                lm_samples += input_ids.size(0)
 
                 if use_adaptive_sampling and not train.freeze_sampling_rate:
-                    model.zero_grad()
-                    sft_loss.backward(retain_graph=True)
+                    #model.zero_grad()
+                    lm_loss.backward(retain_graph=True)
                     for name, param in model.named_parameters():
                         if param.grad is not None and (
                             name == "_forward_module.lm_head.weight"
-                            or name
-                            == "_forward_module._fsdp_wrapped_module.lm_head.weight"
+                            or name == "_forward_module._fsdp_wrapped_module.lm_head.weight"
                         ):
-                            if name not in train_gradients[key]:
-                                train_gradients[key][name] = param.grad
+                            if name not in train_gradients["lm"]:
+                                # very important: we can't subtract the previous grads the FIRST time since it will be equal to train_grads, leading to all 0s
+                                train_gradients["lm"][name] = param.grad
                             else:
-                                train_gradients[key][name] += (
+                                train_gradients["lm"][name] += (
                                     param.grad - previous_grads[name].detach()
                                 )
                             previous_grads[name] = param.grad.clone()
 
-        loss = sum(all_losses) / len(
-            all_losses
-        )  # TODO: losses can be combined in different ways.
+            # process SFT data
+            sft_samples_per_dataset = {}
 
-        # backprop
-        with fabric.no_backward_sync(model, enabled=is_accumulating):
+            for i, key in enumerate(sft_datasets):
+                sft_data = sft_datasets[key]
+                if sft_data is not None:
+                    input_ids, targets = sft_data["input_ids"], sft_data["labels"]
+
+                    sft_loss = compute_sft_loss(model, input_ids, targets)
+                    if key not in sft_loss_per_dataset:
+                        sft_loss_per_dataset[key] = RunningMean(
+                            window=train.gradient_accumulation_iters(devices),
+                            sync_on_compute=False,
+                        ).to(fabric.device)
+
+                    sft_loss_per_dataset[key].update(sft_loss.detach())
+                    running_loss_total.update(sft_loss.detach())
+                    sft_loss_total.update(sft_loss.detach())
+                    all_losses.append(sft_loss)
+                    sft_samples_per_dataset[key] = sft_samples_per_dataset.get(
+                        key, 0
+                    ) + input_ids.size(0)
+
+                    if use_adaptive_sampling and not train.freeze_sampling_rate:
+                        #model.zero_grad()
+                        sft_loss.backward(retain_graph=True)
+                        for name, param in model.named_parameters():
+                            if param.grad is not None and (
+                                name == "_forward_module.lm_head.weight"
+                                or name
+                                == "_forward_module._fsdp_wrapped_module.lm_head.weight"
+                            ):
+                                if name not in train_gradients[key]:
+                                    train_gradients[key][name] = param.grad
+                                else:
+                                    train_gradients[key][name] += (
+                                        param.grad - previous_grads[name].detach()
+                                    )
+                                previous_grads[name] = param.grad.clone()
+
+            loss = sum(all_losses) / len(
+                all_losses
+            )  # TODO: losses can be combined in different ways.
+
+            # backprop
             fabric.backward(loss / train.gradient_accumulation_iters(devices))
 
         if not is_accumulating:
@@ -875,6 +910,8 @@ def fit(
                 key: sft_samples_per_dataset.get(key, 0)
                 for key in sft_loss_per_dataset.keys()
             }
+            sft_num_samples["lm"] = lm_samples
+
             metrics = {
                 "loss": loss,
                 "loss_lm": loss_lm,
@@ -908,12 +945,16 @@ def fit(
             sft_sets_str = " | ".join(
                 [f"loss {name}: {loss}" for name, loss in sft_loss_breakdown.items()]
             )
+            num_samples_str = " | ".join(
+                [f"num {name}: {num}" for name, num in sft_num_samples.items()]
+            )
             fabric.print(
                 f"Epoch {metrics['epoch']+1} | iter {metrics['iter']} step {metrics['step']} |"
                 f" loss train: {metrics['loss']:.3f},"
                 f" loss train (lm): {metrics['loss_lm']}",
                 f" loss train (sft): {metrics['loss_sft']}",
                 f" ~~ breakdown: {sft_sets_str} ~~"
+                f" ~~ num samples: {num_samples_str} ~~"
                 f" val: {val_loss} |"
                 f" iter time: {metrics['iter_time'] * 1000:.2f} ms"
                 f"{' (step)' if not is_accumulating else ''}"
@@ -1141,51 +1182,6 @@ def get_dataloaders(
         iter(val_dataloader)
 
     return train_dataloader, val_dataloader
-
-
-# learning rate decay scheduler (cosine with linear warmup)
-def get_lr(
-    learning_rate: float, it: int, warmup_iters: int, max_iters: int, min_lr: float
-) -> float:
-    # 1) linear warmup for warmup_iters steps
-    if it < warmup_iters:
-        return learning_rate * it / warmup_iters
-    # 2) if it > max_iters, return min learning rate
-    if it > max_iters:
-        return min_lr
-    # 3) in between, use cosine decay down to min learning rate
-    decay_ratio = (it - warmup_iters) / (max_iters - warmup_iters)
-    assert 0 <= decay_ratio <= 1
-    coeff = 0.5 * (1.0 + math.cos(math.pi * decay_ratio))  # coeff ranges 0..1
-    return min_lr + coeff * (learning_rate - min_lr)
-
-
-def get_lr_decay_stage(
-    learning_rate: float,
-    it: int,
-    decay_start: int,
-    min_lr: float,
-    iter_length: int = 5000,
-) -> float:
-    # learning_rate: the max lr to start from.
-    # it: current iter
-    # decay_start: the iter at which decay begins
-    # min_lr: the minimum LR
-    if it < decay_start:
-        return learning_rate
-    decay_ratio = 0.5 ** ((it - decay_start) / iter_length)
-    decayed_lr = learning_rate * decay_ratio
-    return decayed_lr
-
-
-def get_lr_linear_decay(
-    learning_rate: float, it: int, warmup_iters: int, max_iters: int, min_lr: float
-) -> float:
-    if it < warmup_iters:
-        return learning_rate * it / warmup_iters
-
-    return learning_rate * (1 - it / max_iters) + min_lr
-
 
 def initialize_weights(fabric: L.Fabric, model: GPT, n_layer: int, n_embd: int) -> None:
     """GPT-NeoX weight initialization (https://arxiv.org/abs/2204.06745)."""
