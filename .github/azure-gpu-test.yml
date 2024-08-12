@@ -45,6 +45,7 @@ jobs:
     - script: |
         pip install --upgrade pip
         pip install '.[all,test]'
+        pip install -U torch torchvision torchaudio
       displayName: 'Install dependencies'
 
     - bash: |
