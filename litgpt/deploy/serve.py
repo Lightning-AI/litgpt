@@ -27,7 +27,8 @@ class BaseLitAPI(LitAPI):
         temperature: float = 0.8,
         top_k: int = 50,
         top_p: float = 1.0,
-        max_new_tokens: int = 50
+        max_new_tokens: int = 50,
+        devices: int = 1
     ) -> None:
 
         if not _LITSERVE_AVAILABLE:
@@ -41,6 +42,7 @@ class BaseLitAPI(LitAPI):
         self.top_k = top_k
         self.max_new_tokens = max_new_tokens
         self.top_p = top_p
+        self.devices = devices
 
     def setup(self, device: str) -> None:
         if ":" in device:
@@ -53,9 +55,15 @@ class BaseLitAPI(LitAPI):
         print("Initializing model...")
         self.llm = LLM.load(
             model=self.checkpoint_dir,
+            distribute=None
+        )
+
+        self.llm.distribute(
+            devices=self.devices,
             accelerator=accelerator,
             quantize=self.quantize,
-            precision=self.precision
+            precision=self.precision,
+            generate_strategy="sequential" if self.devices is not None and self.devices > 1 else None
         )
         print("Model successfully initialized.")
 
@@ -74,9 +82,10 @@ class SimpleLitAPI(BaseLitAPI):
         temperature: float = 0.8,
         top_k: int = 50,
         top_p: float = 1.0,
-        max_new_tokens: int = 50
+        max_new_tokens: int = 50,
+        devices: int = 1
     ):
-        super().__init__(checkpoint_dir, quantize, precision, temperature, top_k, top_p, max_new_tokens)   
+        super().__init__(checkpoint_dir, quantize, precision, temperature, top_k, top_p, max_new_tokens, devices)   
 
     def setup(self, device: str):
         super().setup(device)
@@ -105,9 +114,10 @@ class StreamLitAPI(BaseLitAPI):
         temperature: float = 0.8,
         top_k: int = 50,
         top_p: float = 1.0,
-        max_new_tokens: int = 50
+        max_new_tokens: int = 50,
+        devices: int = 1
     ):
-        super().__init__(checkpoint_dir, quantize, precision, temperature, top_k, top_p, max_new_tokens)   
+        super().__init__(checkpoint_dir, quantize, precision, temperature, top_k, top_p, max_new_tokens, devices)   
 
     def setup(self, device: str):
         super().setup(device)
@@ -193,9 +203,10 @@ def run_server(
                 top_k=top_k,
                 top_p=top_p,
                 max_new_tokens=max_new_tokens,
+                devices=devices
                 ),
             accelerator=accelerator,
-            devices=devices
+            devices=1  # We need to use the devives inside the `SimpleLitAPI` class
             )
 
     else:
@@ -208,9 +219,10 @@ def run_server(
                 top_k=top_k,
                 top_p=top_p,
                 max_new_tokens=max_new_tokens,
+                devices=devices  # We need to use the devives inside the `StreamLitAPI` class
                 ),
             accelerator=accelerator,
-            devices=devices,
+            devices=1,
             stream=True
             )
 
