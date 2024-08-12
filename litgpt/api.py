@@ -31,7 +31,7 @@ from litgpt.utils import (
 )
 
 
-class LLM:
+class LLM(torch.nn.Module):
     def __init__(
         self,
         model: GPT,
@@ -45,6 +45,7 @@ class LLM:
         kv_cache_initialized: bool = False,
         fixed_kv_cache_size: Union[int, Literal["max_model_supported"], None] = None
     ) -> None:
+        super().__init__()
         self._model = model
         self.preprocessor = preprocessor
         self.devices = devices
@@ -185,7 +186,6 @@ class LLM:
         if self.checkpoint_dir is not None:
             state_dict = torch.load(self.checkpoint_dir / "lit_model.pth")
             self.model.load_state_dict(state_dict, strict=False)
-        return self.model, self.preprocessor.tokenizer
 
     def distribute(
         self,
