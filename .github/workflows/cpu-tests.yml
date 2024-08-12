@@ -4,7 +4,7 @@ on:
   push:
     branches: [main, wip]
   pull_request:
-    branches: [main, "carmocca/*", wip]
+    branches: [main, wip]
 
 concurrency:
   group: ${{ github.workflow }}-${{ github.ref }}-${{ github.head_ref }}
