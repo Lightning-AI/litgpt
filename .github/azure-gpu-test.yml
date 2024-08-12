@@ -1,3 +1,5 @@
+name: GPU tests
+
 trigger:
   branches:
     include:
