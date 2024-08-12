@@ -54,7 +54,7 @@ jobs:
         python -c "import torch ; mgpu = torch.cuda.device_count() ; assert mgpu == 2, f'GPU: {mgpu}'"
       displayName: "Env details"
 
-    - bash: pytest -v --disable-pytest-warnings --strict-markers --color=yes --ignore-glob="test_thunder*" --ignore="test_unsloth_executor.py"
+    - bash: pytest -v --disable-pytest-warnings --strict-markers --color=yes --ignore-glob="tests/test_thunder*" --ignore="tests/test_unsloth_executor.py"
       displayName: 'Ordinary tests'
       env:
         PL_RUN_CUDA_TESTS: "1"
