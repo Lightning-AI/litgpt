@@ -219,7 +219,7 @@ def run_server(
                 top_k=top_k,
                 top_p=top_p,
                 max_new_tokens=max_new_tokens,
-                devices=devices  # We need to use the devives inside the `SimpleLitAPI` class
+                devices=devices  # We need to use the devives inside the `StreamLitAPI` class
                 ),
             accelerator=accelerator,
             devices=1,
