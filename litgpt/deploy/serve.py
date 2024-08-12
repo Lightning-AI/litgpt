@@ -57,6 +57,7 @@ class BaseLitAPI(LitAPI):
         )
 
         self.llm.distribute(
+            devices=devices, # ????
             accelerator=accelerator,
             quantize=self.quantize,
             precision=self.precision
