@@ -87,8 +87,29 @@ class LLM(torch.nn.Module):
         return self.model.state_dict(destination=destination, prefix=prefix, keep_vars=keep_vars)
 
     def load_state_dict(self, state_dict, strict=True):
-        if self.model is not None:
-            return self.model.load_state_dict(state_dict, strict=strict)
+        return self.model.load_state_dict(state_dict, strict=strict)
+
+    def forward(
+            self,
+            input_ids: torch.Tensor,
+            target_ids: Optional[torch.Tensor] = None,
+            loss_fn: Optional[Callable[[torch.Tensor, torch.Tensor], torch.Tensor]] = None
+        ):
+        logits = self.model(input_ids)
+        if target_ids is not None:
+            if loss_fn is None:
+                loss_fn = chunked_cross_entropy
+            loss = loss_fn(logits[..., :-1, :], target_ids[..., 1:])
+            return logits, loss
+        else:
+            return logits
+
+    def trainer_setup(self):
+        """Initializes the model checkpoint for PyTorch Lightning Trainer contexts"""
+        self.model = GPT(self.config)
+        if self.checkpoint_dir is not None:
+            state_dict = torch.load(self.checkpoint_dir / "lit_model.pth")
+            self.load_state_dict(state_dict, strict=False)
 
     @classmethod
     def load(
@@ -190,29 +211,6 @@ class LLM(torch.nn.Module):
             config=config, checkpoint_dir=checkpoint_dir, fabric=fabric, generate_strategy=None,
             kv_cache_initialized=False, fixed_kv_cache_size=False
         )
-
-    def trainer_setup(self):
-        """Initializes the model checkpoint for PyTorch Lightning Trainer contexts"""
-        self.model = GPT(self.config)
-        if self.checkpoint_dir is not None:
-            state_dict = torch.load(self.checkpoint_dir / "lit_model.pth")
-            self.load_state_dict(state_dict, strict=False)
-
-    def forward(
-            self,
-            input_ids: torch.Tensor,
-            target_ids: Optional[torch.Tensor] = None,
-            loss_fn: Optional[Callable[[torch.Tensor, torch.Tensor], torch.Tensor]] = None
-        ):
-        logits = self.model(input_ids)
-        if target_ids is not None:
-            if loss_fn is None:
-                loss_fn = chunked_cross_entropy
-            loss = loss_fn(logits[..., :-1, :], target_ids[..., 1:])
-            return logits, loss
-        else:
-            return logits
-        
 
     def distribute(
         self,
