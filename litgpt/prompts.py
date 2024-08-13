@@ -5,6 +5,8 @@ from abc import abstractmethod
 from json import dumps
 from pathlib import Path
 from typing import TYPE_CHECKING, Dict, List, Tuple, Type, Union
+import string
+import random
 
 import yaml
 
@@ -53,6 +55,34 @@ class DefaultQA(PromptStyle):
             return f"Question: {prompt}\nInput: {kwargs['input']}\nAnswer:"
         
         return f"Question: {prompt}\nAnswer:"
+
+class DefaultQAContextBefore(PromptStyle):
+    def apply(self, prompt: str, **kwargs: str) -> str:
+        if kwargs.get("input"):
+            return f"{kwargs['input']}\nQuestion: {prompt}\nAnswer:"
+        
+        return f"Question: {prompt}\nAnswer:"
+
+class DefaultQAExplicit(PromptStyle):
+    def apply(self, prompt: str, **kwargs: str) -> str:
+        if kwargs.get("choices"):
+            if kwargs.get("input"):
+                prompt = f"{input}Question: {prompt}\n"
+            else:
+                prompt = f"Question: {prompt}\n"
+            alpha_order = string.ascii_uppercase
+            for i, choice in enumerate(kwargs["choices"].split(",")):
+                prompt += f"\n{alpha_order[i]}. {choice}"
+            prompt += "\nAnswer:"
+
+        return f"Question: {prompt}\nAnswer:"
+
+class RandomQAPrompt(PromptStyle): 
+    # Randomly mix together the QA styles for more diversity
+    def apply(self, prompt: str, **kwargs: str) -> str:
+        all_qa_styles = [DefaultSFT, DefaultQA, DefaultQAContextBefore, DefaultQAExplicit]
+        qa_style = random.choice(all_qa_styles)
+        return qa_style().apply(prompt, **kwargs)
 
 class Alpaca(PromptStyle):
     def apply(self, prompt: str, **kwargs: str) -> str:
@@ -333,7 +363,8 @@ prompt_styles: Dict[str, Type[PromptStyle]] = {
     "h2oai": H2Oai,
     "llama3": Llama3,
     "default": DefaultSFT,
-    "qa": DefaultQA
+    "qa": DefaultQA,
+    "mixed_qa": RandomQAPrompt,
 }
 
 

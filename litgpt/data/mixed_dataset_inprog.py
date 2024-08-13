@@ -409,6 +409,8 @@ class CombinedLoaderWithSamplingRates(DataLoader):
                 else:
                     # don't need to shard pretraining datasets
                     self.sharded_loaders[name] = loader
+        else:
+            self.sharded_loaders = self.loaders
         self.rng = np.random.default_rng(seed=42)
 
         # dataset = SampledCombinedDataset(loaders, sampling_rates, max_iters, batch_size)
