@@ -4,14 +4,13 @@
 from pathlib import Path
 import sys
 import time
-from typing import Any, List, Literal, Optional, Union
+from typing import Any, Callable, List, Literal, Optional, Union
 
 from tqdm import tqdm
 import torch
 import lightning as L
 from lightning.fabric.plugins import BitsandbytesPrecision
 from lightning.fabric.accelerators import CUDAAccelerator
-
 
 from litgpt.model import GPT
 from litgpt.config import name_to_config, Config
@@ -25,6 +24,7 @@ from litgpt.utils import (
     auto_download_checkpoint,
     check_file_size_on_cpu_and_warn,
     check_nvlink_connectivity,
+    chunked_cross_entropy,
     extend_checkpoint_dir,
     get_default_supported_precision,
     load_checkpoint,
@@ -186,6 +186,22 @@ class LLM(torch.nn.Module):
         if self.checkpoint_dir is not None:
             state_dict = torch.load(self.checkpoint_dir / "lit_model.pth")
             self.model.load_state_dict(state_dict, strict=False)
+
+    def forward(
+            self,
+            input_ids: torch.Tensor,
+            target_ids: Optional[torch.Tensor] = None,
+            loss_fn: Optional[Callable[[torch.Tensor, torch.Tensor], torch.Tensor]] = None
+        ):
+        logits = self.model(input_ids)
+        if target_ids is not None:
+            if loss_fn is None:
+                loss_fn = chunked_cross_entropy
+            loss = loss_fn(logits[..., :-1, :], target_ids[..., 1:])
+            return logits, loss
+        else:
+            return logits
+        
 
     def distribute(
         self,
