@@ -79,6 +79,17 @@ class LLM(torch.nn.Module):
     def model(self, content):
         self._model = content
 
+    @property
+    def tokenizer(self):
+        return self.preprocessor.tokenizer
+
+    def state_dict(self, destination=None, prefix='', keep_vars=False):
+        return self.model.state_dict(destination=destination, prefix=prefix, keep_vars=keep_vars)
+
+    def load_state_dict(self, state_dict, strict=True):
+        if self.model is not None:
+            return self.model.load_state_dict(state_dict, strict=strict)
+
     @classmethod
     def load(
         cls,
@@ -185,7 +196,7 @@ class LLM(torch.nn.Module):
         self.model = GPT(self.config)
         if self.checkpoint_dir is not None:
             state_dict = torch.load(self.checkpoint_dir / "lit_model.pth")
-            self.model.load_state_dict(state_dict, strict=False)
+            self.load_state_dict(state_dict, strict=False)
 
     def forward(
             self,

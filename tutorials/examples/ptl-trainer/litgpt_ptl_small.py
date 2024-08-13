@@ -7,15 +7,6 @@ from litgpt.data import Alpaca2k
 import lightning as L
 
 
-# Copyright Lightning AI. Licensed under the Apache License 2.0, see LICENSE file.
-
-import torch
-import litgpt
-from litgpt import LLM
-from litgpt.data import Alpaca2k
-import lightning as L
-
-
 class LitLLM(L.LightningModule):
     def __init__(self):
         super().__init__()
@@ -38,19 +29,18 @@ class LitLLM(L.LightningModule):
 
 if __name__ == "__main__":
     
-    model = LitLLM()
+    lit_model = LitLLM()
     data = Alpaca2k()
 
-    # TODO: think of a better way to provide the tokenizer to the dataset
-    data.connect(model.llm.preprocessor.tokenizer, batch_size=1, max_seq_length=512)
+    data.connect(lit_model.llm.tokenizer, batch_size=8, max_seq_length=512)
 
     trainer = L.Trainer(
         devices=1,
         accelerator="cuda",
-        max_epochs=2,
-        accumulate_grad_batches=8,
+        max_epochs=1,
+        #accumulate_grad_batches=8,
         precision="bf16-true",
     )
-    trainer.fit(model, data)
+    trainer.fit(lit_model, data)
 
     # TODO: Add inference example
