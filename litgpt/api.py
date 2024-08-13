@@ -19,12 +19,18 @@ from litgpt.generate.sequentially import sequential
 from litgpt.generate.tp import tensor_parallel
 from litgpt.generate.base import generate as generate_fn
 from litgpt.chat.base import generate as stream_generate_fn
-from litgpt.prompts import load_prompt_style, has_prompt_style, PromptStyle
+from litgpt.prompts import (
+    load_prompt_style,
+    has_prompt_style,
+    save_prompt_style,
+    PromptStyle
+)
 from litgpt.utils import (
     auto_download_checkpoint,
     check_file_size_on_cpu_and_warn,
     check_nvlink_connectivity,
     chunked_cross_entropy,
+    copy_config_files,
     extend_checkpoint_dir,
     get_default_supported_precision,
     load_checkpoint,
@@ -104,12 +110,39 @@ class LLM(torch.nn.Module):
         else:
             return logits
 
-    def trainer_setup(self):
+    def trainer_setup(self, trainer_ckpt: Optional[Path] = None):
         """Initializes the model checkpoint for PyTorch Lightning Trainer contexts"""
         self.model = GPT(self.config)
-        if self.checkpoint_dir is not None:
+        
+        if trainer_ckpt is not None:
+            state_dict = torch.load(trainer_ckpt)
+            self.load_state_dict(state_dict, strict=False)            
+        
+        elif self.checkpoint_dir is not None:
             state_dict = torch.load(self.checkpoint_dir / "lit_model.pth")
             self.load_state_dict(state_dict, strict=False)
+
+        else:
+            raise ValueError(
+                "No checkpoint found. Either provide a valid path via `trainer_ckpt` "
+                "or ensure that `self.checkpoint_dir` points to a folder containing a `lit_model.pth` weight file."
+            )
+
+    def save(self, out_dir: Optional[Path] = None, prompt_style: Optional[PromptStyle] = None):
+        save_path = out_dir / Path("lit_model.pth")
+        save_path.parent.mkdir(parents=True, exist_ok=True)
+
+        if prompt_style is None:
+            prompt_style = PromptStyle.from_config(self.config)
+        if self.fabric is None:
+            torch.save(self.state_dict(), save_path)
+        else:
+            fabric.save(save_path, self.state_dict())
+
+        if self.fabric is None or self.fabric.global_rank == 0:
+            copy_config_files(self.checkpoint_dir, save_path.parent)
+            save_prompt_style(prompt_style, save_path.parent)
+            
 
     @classmethod
     def load(

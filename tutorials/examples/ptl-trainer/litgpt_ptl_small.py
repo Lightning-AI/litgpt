@@ -8,12 +8,15 @@ import lightning as L
 
 
 class LitLLM(L.LightningModule):
-    def __init__(self):
+    def __init__(self, checkpoint_dir):
         super().__init__()
-        self.llm = LLM.load("EleutherAI/pythia-160m", distribute=None)
+        self.llm = LLM.load(checkpoint_dir, distribute=None)
 
     def setup(self, stage):
         self.llm.trainer_setup()
+        # Load an existing checkpoint from a previous Trainer run by providing a `trainer_ckpt`:
+        #self.llm.trainer_setup(trainer_ckpt="/teamspace/studios/this_studio/lightning_logs/version_4/checkpoints/epoch=0-step=238.ckpt")
+        
 
     def training_step(self, batch):
         logits, loss = self.llm(input_ids=batch["input_ids"], target_ids=batch["labels"])
@@ -29,8 +32,25 @@ class LitLLM(L.LightningModule):
 
 if __name__ == "__main__":
     
-    lit_model = LitLLM()
+    lit_model = LitLLM(checkpoint_dir="EleutherAI/pythia-160m")
     data = Alpaca2k()
+
+    data.connect(lit_model.llm.tokenizer, batch_size=8, max_seq_length=512)
+
+    trainer = L.Trainer(
+        devices=1,
+        accelerator="cuda",
+        max_epochs=1,
+        #accumulate_grad_batches=8,
+        precision="bf16-true",
+    )
+    trainer.fit(lit_model, data)
+    
+    #########################################################
+    # Save and resume
+    lit_model.llm.save("finetuned_checkpoint")
+    del lit_model
+    lit_model = LitLLM(checkpoint_dir="finetuned_checkpoint")
 
     data.connect(lit_model.llm.tokenizer, batch_size=8, max_seq_length=512)
 
