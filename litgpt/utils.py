@@ -80,14 +80,25 @@ def reset_parameters(module: nn.Module) -> None:
             mod.reset_parameters()
 
 
-def check_valid_checkpoint_dir(checkpoint_dir: Path, model_filename: str = "lit_model.pth", verbose: bool = True, raise_error: bool = False) -> None:
+def check_valid_checkpoint_dir(
+        checkpoint_dir: Path,
+        model_filename: str = "lit_model.pth",
+        verbose: bool = True,
+        raise_error: bool = False,
+        ignore_tokenizer_files: bool = False
+    ) -> None:
+
     files = {
         model_filename: (checkpoint_dir / model_filename).is_file(),
         "model_config.yaml": (checkpoint_dir / "model_config.yaml").is_file(),
-        "tokenizer.json OR tokenizer.model": (checkpoint_dir / "tokenizer.json").is_file()
-        or (checkpoint_dir / "tokenizer.model").is_file(),
-        "tokenizer_config.json": (checkpoint_dir / "tokenizer_config.json").is_file(),
     }
+    if not ignore_tokenizer_files:
+        files.update({
+            "tokenizer.json OR tokenizer.model": (checkpoint_dir / "tokenizer.json").is_file() or
+                                                (checkpoint_dir / "tokenizer.model").is_file(),
+            "tokenizer_config.json": (checkpoint_dir / "tokenizer_config.json").is_file(),
+        })
+
     if checkpoint_dir.is_dir():
         if all(files.values()):
             # we're good
@@ -574,12 +585,12 @@ def check_file_size_on_cpu_and_warn(checkpoint_path, device, size_limit=4_509_71
     return size
 
 
-def auto_download_checkpoint(model_name, access_token=None):
+def auto_download_checkpoint(model_name, access_token=None, ignore_tokenizer_files=False):
     from litgpt.scripts.download import download_from_hub  # moved here due to circular import issue
 
     checkpoint_dir = extend_checkpoint_dir(Path(model_name))
     try:
-        check_valid_checkpoint_dir(checkpoint_dir, verbose=False, raise_error=True)
+        check_valid_checkpoint_dir(checkpoint_dir, verbose=False, raise_error=True, ignore_tokenizer_files=ignore_tokenizer_files)
     except FileNotFoundError as e:
         if access_token is None:
             access_token = os.getenv("HF_TOKEN")

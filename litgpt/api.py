@@ -34,6 +34,7 @@ from litgpt.utils import (
     extend_checkpoint_dir,
     get_default_supported_precision,
     load_checkpoint,
+    save_config,
 )
 
 
@@ -63,6 +64,7 @@ class LLM(torch.nn.Module):
         self.kv_cache_initialized = kv_cache_initialized
         self.fixed_kv_cache_size = fixed_kv_cache_size
         self.prev_generated_seq_length = 0
+        self.fabric = None
 
     """
     LLM model class for inference, pretraining, and finetuning.
@@ -78,7 +80,10 @@ class LLM(torch.nn.Module):
     @property
     def model(self):
         if self._model is None:
-            raise AttributeError("The model is not initialized yet; use the .distribute() or .trainer_setup() method to initialize the model.")
+            raise AttributeError(
+                "The model is not initialized yet; use the .distribute() "
+                "or .trainer_setup() method to initialize the model."
+            )
         return self._model
 
     @model.setter
@@ -89,18 +94,18 @@ class LLM(torch.nn.Module):
     def tokenizer(self):
         return self.preprocessor.tokenizer
 
-    def state_dict(self, destination=None, prefix='', keep_vars=False):
+    def state_dict(self, destination=None, prefix="", keep_vars=False):
         return self.model.state_dict(destination=destination, prefix=prefix, keep_vars=keep_vars)
 
     def load_state_dict(self, state_dict, strict=True):
         return self.model.load_state_dict(state_dict, strict=strict)
 
     def forward(
-            self,
-            input_ids: torch.Tensor,
-            target_ids: Optional[torch.Tensor] = None,
-            loss_fn: Optional[Callable[[torch.Tensor, torch.Tensor], torch.Tensor]] = None
-        ):
+        self,
+        input_ids: torch.Tensor,
+        target_ids: Optional[torch.Tensor] = None,
+        loss_fn: Optional[Callable[[torch.Tensor, torch.Tensor], torch.Tensor]] = None
+    ) -> Union[torch.Tensor, Tuple[torch.Tensor, torch.Tensor]]::
         logits = self.model(input_ids)
         if target_ids is not None:
             if loss_fn is None:
@@ -110,16 +115,24 @@ class LLM(torch.nn.Module):
         else:
             return logits
 
-    def trainer_setup(self, trainer_ckpt: Optional[Path] = None):
+    def trainer_setup(self, trainer_ckpt: Optional[Path] = None) -> None:
         """Initializes the model checkpoint for PyTorch Lightning Trainer contexts"""
         self.model = GPT(self.config)
-        
+
         if trainer_ckpt is not None:
-            state_dict = torch.load(trainer_ckpt)
-            self.load_state_dict(state_dict, strict=False)            
-        
+            # strip the object name key from the state_dict
+            state_dict = torch.load(trainer_ckpt, weights_only=True)["state_dict"]
+            first_key = next(iter(state_dict))
+            prefix = first_key.split(".")[0] + "."
+            keys_to_modify = [key for key in state_dict if key.startswith(prefix)]
+            for key in keys_to_modify:
+                new_key = key.replace(prefix, "", 1)
+                state_dict[new_key] = state_dict.pop(key)
+
+            self.load_state_dict(state_dict, strict=True)   
+
         elif self.checkpoint_dir is not None:
-            state_dict = torch.load(self.checkpoint_dir / "lit_model.pth")
+            state_dict = torch.load(self.checkpoint_dir / "lit_model.pth", weights_only=False)
             self.load_state_dict(state_dict, strict=False)
 
         else:
@@ -128,8 +141,9 @@ class LLM(torch.nn.Module):
                 "or ensure that `self.checkpoint_dir` points to a folder containing a `lit_model.pth` weight file."
             )
 
-    def save(self, out_dir: Optional[Path] = None, prompt_style: Optional[PromptStyle] = None):
-        save_path = out_dir / Path("lit_model.pth")
+    def save(self, out_dir: Optional[Path] = None, prompt_style: Optional[PromptStyle] = None) -> None:
+        out_dir = Path(out_dir)
+        save_path = out_dir / "lit_model.pth"
         save_path.parent.mkdir(parents=True, exist_ok=True)
 
         if prompt_style is None:
@@ -137,12 +151,16 @@ class LLM(torch.nn.Module):
         if self.fabric is None:
             torch.save(self.state_dict(), save_path)
         else:
-            fabric.save(save_path, self.state_dict())
+            self.fabric.save(save_path, self.state_dict())
 
         if self.fabric is None or self.fabric.global_rank == 0:
-            copy_config_files(self.checkpoint_dir, save_path.parent)
+            # If initialization a model with random weights, the checkpoint dir can be none
+            if self.checkpoint_dir is not None:
+                copy_config_files(Path(self.checkpoint_dir), save_path.parent)
+            else:
+                save_config(self.config, out_dir)
+
             save_prompt_style(prompt_style, save_path.parent)
-            
 
     @classmethod
     def load(
@@ -173,7 +191,7 @@ class LLM(torch.nn.Module):
         allowed_init = {"pretrained", "random"}
 
         if init == "pretrained":
-            checkpoint_dir = auto_download_checkpoint(model_name=model, access_token=access_token)
+            checkpoint_dir = auto_download_checkpoint(model_name=model, access_token=access_token, ignore_tokenizer_files=tokenizer_dir is not None)
             config = Config.from_file(checkpoint_dir / "model_config.yaml")
 
         elif init == "random":
@@ -184,7 +202,7 @@ class LLM(torch.nn.Module):
                 print(f"Model name {model} is not supported.\n")
                 available_models = "\n".join(sorted(name_to_config))
                 print(f"Available values:\n{available_models}")
-                quit()
+                return
 
         else:
             raise ValueError(f"Invalid init option: {init}. Must be one of {allowed_init}")
@@ -253,7 +271,7 @@ class LLM(torch.nn.Module):
         quantize: Optional[Literal["bnb.nf4", "bnb.nf4-dq", "bnb.fp4", "bnb.fp4-dq", "bnb.int8"]] = None,
         generate_strategy: Optional[Literal["sequential", "tensor_parallel"]] = None,
         fixed_kv_cache_size: Union[int, Literal["max_model_supported"], None] = None
-    ):
+    ) -> None:
         """
         Moves the model onto specified devices for single-GPU or multi-GPU inference
 
@@ -473,13 +491,17 @@ class LLM(torch.nn.Module):
         max_returned_tokens = prompt_length + max_new_tokens
 
         if not self.kv_cache_initialized:
-            self.model.set_kv_cache(batch_size=1, max_seq_length=max_returned_tokens, device=self.fabric.device)
+            if self.fabric is not None:
+                device = self.fabric.device
+            else:
+                device = self.preprocessor.device
+            self.model.set_kv_cache(batch_size=1, max_seq_length=max_returned_tokens, device=device)
             self.kv_cache_initialized = True
 
         # Dynamically grow the kv cache size if necessary
         if self.fixed_kv_cache_size is None and self.prev_generated_seq_length < max_returned_tokens:
             self.model.clear_kv_cache()
-            self.model.set_kv_cache(batch_size=1, max_seq_length=max_returned_tokens, device=self.fabric.device)
+            self.model.set_kv_cache(batch_size=1, max_seq_length=max_returned_tokens, device=device)
 
         else:
             for block in self.model.transformer.h:
