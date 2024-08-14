@@ -117,10 +117,11 @@ def test_model_not_initialized(tmp_path):
         init="pretrained",
         distribute=None
     )
-    with pytest.raises(AttributeError, match=re.escape("The model is not initialized yet; use the .distribute() or .trainer_setup() method to initialize the model.")):
-        llm.model
-
-    with pytest.raises(AttributeError, match=re.escape("The model is not initialized yet; use the .distribute() or .trainer_setup() method to initialize the model.")):
+    s = (
+        "The model is not initialized yet; use the .distribute() "
+        "or .trainer_setup() method to initialize the model."
+    )
+    with pytest.raises(AttributeError, match=re.escape(s)):
         llm.generate("text")
 
     llm = LLM.load(
@@ -129,10 +130,11 @@ def test_model_not_initialized(tmp_path):
         init="random",
         distribute=None
     )
-    with pytest.raises(AttributeError, match=re.escape("The model is not initialized yet; use the .distribute() or .trainer_setup() method to initialize the model.")):
-        llm.model
-
-    with pytest.raises(AttributeError, match=re.escape("The model is not initialized yet; use the .distribute() or .trainer_setup() method to initialize the model.")):
+    s = (
+        "The model is not initialized yet; use the .distribute() "
+        "or .trainer_setup() method to initialize the model."
+    )
+    with pytest.raises(AttributeError, match=re.escape(s)):
         llm.generate("text")
 
 
@@ -152,6 +154,7 @@ def test_more_than_1_device_for_sequential_tp_gpu(tmp_path):
 
     with pytest.raises(NotImplementedError, match=f"Support for multiple devices is currently only implemented for generate_strategy='sequential'|'tensor_parallel'."):
         llm.distribute(devices=2)
+
 
 @RunIf(min_cuda_gpus=1)
 def test_sequential_tp_incompatibility_with_random_weights(tmp_path):
@@ -181,11 +184,17 @@ def test_sequential_tp_cpu(tmp_path):
 def test_initialization_for_trainer(tmp_path):
     llm = LLM.load(
         model="EleutherAI/pythia-14m",
+        distribute=None
     )
-    with pytest.raises(NotImplementedError, match=re.escape("The LLM was initialized with init='random' but .distribute() currently only supports pretrained weights.")):
+    s = (
+        "The model is not initialized yet; use the .distribute() "
+        "or .trainer_setup() method to initialize the model."
+    )
+    with pytest.raises(AttributeError, match=re.escape(s)):
         llm.generate("hello world")
 
     llm.trainer_setup()
+    llm.model.to(llm.preprocessor.device)
     assert isinstance(llm.generate("hello world"), str)
 
 

@@ -4,7 +4,7 @@
 from pathlib import Path
 import sys
 import time
-from typing import Any, Callable, List, Literal, Optional, Union
+from typing import Any, Callable, List, Literal, Optional, Union, Tuple
 
 from tqdm import tqdm
 import torch
@@ -53,7 +53,7 @@ class LLM(torch.nn.Module):
         fixed_kv_cache_size: Union[int, Literal["max_model_supported"], None] = None
     ) -> None:
         super().__init__()
-        self._model = model
+        self.model = model
         self.preprocessor = preprocessor
         self.devices = devices
         self.prompt_style = prompt_style
@@ -64,7 +64,6 @@ class LLM(torch.nn.Module):
         self.kv_cache_initialized = kv_cache_initialized
         self.fixed_kv_cache_size = fixed_kv_cache_size
         self.prev_generated_seq_length = 0
-        self.fabric = None
 
     """
     LLM model class for inference, pretraining, and finetuning.
@@ -76,20 +75,6 @@ class LLM(torch.nn.Module):
         text = llm.generate("What do Llamas eat?", top_k=1)
         print(text)
     """
-
-    @property
-    def model(self):
-        if self._model is None:
-            raise AttributeError(
-                "The model is not initialized yet; use the .distribute() "
-                "or .trainer_setup() method to initialize the model."
-            )
-        return self._model
-
-    @model.setter
-    def model(self, content):
-        self._model = content
-
     @property
     def tokenizer(self):
         return self.preprocessor.tokenizer
@@ -485,7 +470,11 @@ class LLM(torch.nn.Module):
                 At the moment, this setting is slower and may use more memory than the non-streaming version.
                 We plan to resolve this in the future.
         """
-        assert self.model is not None
+        if self.model is None:
+            raise AttributeError(
+                "The model is not initialized yet; use the .distribute() "
+                "or .trainer_setup() method to initialize the model."
+            )
         input_ids = self._text_to_token_ids(prompt)
         prompt_length = input_ids.size(0)
         max_returned_tokens = prompt_length + max_new_tokens
@@ -581,7 +570,7 @@ class LLM(torch.nn.Module):
         benchmark_dict["Seconds to first token"] = time_to_first_token
         benchmark_dict["Tokens generated"] = self.preprocessor.encode(outputs).size(0) - self._text_to_token_ids(kwargs.get("prompt")).size(0)
         benchmark_dict["Inference speed in tokens/sec"] = benchmark_dict["Tokens generated"] / benchmark_dict["Seconds total"]
-        if self.fabric.device.type == "cuda":
+        if self.fabric is not None and self.fabric.device.type == "cuda":
             benchmark_dict["Total GPU memory allocated in GB"] = torch.cuda.max_memory_allocated() / 1e9
 
         return outputs, benchmark_dict
