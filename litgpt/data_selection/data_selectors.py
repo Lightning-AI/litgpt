@@ -62,3 +62,11 @@ class DataSelector(nn.Module):
         self.optimizer.step()
 
         return torch.softmax(logits.detach(), dim=-1)
+
+
+def basic_linear_scheduler(num_total_iters: int, curr_iter: int, num_other_datasets: int = 1) -> list:
+    """
+    Linearly decays the sampling rate of pretrain data while increasing other data
+    """
+    progress = curr_iter / num_total_iters
+    return [1 - progress] + [progress / num_other_datasets] 

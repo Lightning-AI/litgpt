@@ -621,3 +621,20 @@ def extend_checkpoint_dir(checkpoint_dir: Path) -> Path:
         and new_checkpoint_dir.exists()
     )
     return new_checkpoint_dir if should_return_new_dir else checkpoint_dir
+
+
+
+def round_and_normalize(probs: torch.Tensor, decimals: int = 5) -> torch.Tensor:
+    """
+    Round the probabilities to a certain number of decimal places and normalize.
+
+    Args:
+    probs (torch.Tensor): Input probability tensor
+    decimals (int): Number of decimal places to round to
+
+    Returns:
+    torch.Tensor: Rounded and normalized probabilities
+    """
+    factor = 10**decimals
+    probs = torch.round(probs * factor) / factor
+    return probs / probs.sum()

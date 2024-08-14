@@ -2,7 +2,7 @@
 import math
 import warnings
 from dataclasses import dataclass
-from typing import Optional
+from typing import Optional, Literal
 
 
 @dataclass
@@ -27,7 +27,11 @@ class TrainArgs:
     max_tokens: Optional[int] = None
     """Total number of tokens to train on"""
     max_steps: Optional[int] = None
-    """Limits the number of optimizer steps to run"""
+    """Number of optimizer steps to train for"""
+    max_iters: Optional[int] = None
+    """Limits the number of iters to run"""
+    max_additional_steps: Optional[int] = None
+    """Number of steps (in addition to those already in the checkpoint) to train on"""
     max_seq_length: Optional[int] = None
     """Limits the length of samples"""
     tie_embeddings: Optional[bool] = None
@@ -44,6 +48,8 @@ class TrainArgs:
     episode_length: Optional[float] = None
     # Freeze the sampling rate to the initial weights specified
     freeze_sampling_rate: Optional[bool] = False
+
+    scheduler: Optional[Literal["linear", "grad", "ts_gp"]] = None
 
     # use an exponential decay schedule
     decay_lr: Optional[bool] = False
@@ -72,6 +78,9 @@ class TrainArgs:
                 f" Got {self.lr_warmup_steps} lr_warmup_steps and {self.max_steps} max_steps.",
                 UserWarning,
             )
+
+        if self.freeze_sampling_rate and self.scheduler:
+            raise ValueError("cannot use a data scheduler with frozen sampling rate")
 
     def gradient_accumulation_iters(self, devices: int) -> int:
         """Number of iterations between gradient synchronizations"""

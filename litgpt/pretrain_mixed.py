@@ -26,7 +26,7 @@ from litgpt.args import EvalArgs, TrainArgs
 from litgpt.config import name_to_config
 from litgpt.data import DataModule, MicroLlama, TinyLlama
 from litgpt.data.mixed_dataset import CombinedLoader
-from litgpt.data_selection.data_selectors import DataSelector
+from litgpt.data_selection.data_selectors import DataSelector, basic_linear_scheduler
 from litgpt.model import Block, CausalSelfAttention, Config, GPT, LLaMAMLP
 from litgpt.utils import (
     capture_hparams,
@@ -43,8 +43,17 @@ from litgpt.utils import (
     reset_parameters,
     save_config,
     save_hyperparameters,
+    round_and_normalize
 )
 from litgpt.schedulers import get_lr, get_lr_decay_stage, get_lr_linear_decay
+from botorch.models import SingleTaskGP
+from botorch.fit import fit_gpytorch_mll
+from botorch.generation import MaxPosteriorSampling
+import gpytorch
+from gpytorch.mlls import ExactMarginalLogLikelihood
+from gpytorch.likelihoods import GaussianLikelihood
+from gpytorch.kernels import MaternKernel, ScaleKernel
+from torch.quasirandom import SobolEngine
 
 from torch.utils.data import DataLoader
 from torchmetrics.aggregation import RunningMean
@@ -109,22 +118,6 @@ def is_distributed_environment():
     return torch.distributed.is_available() and torch.distributed.is_initialized()
 
 
-def round_and_normalize(probs: torch.Tensor, decimals: int = 5) -> torch.Tensor:
-    """
-    Round the probabilities to a certain number of decimal places and normalize.
-
-    Args:
-    probs (torch.Tensor): Input probability tensor
-    decimals (int): Number of decimal places to round to
-
-    Returns:
-    torch.Tensor: Rounded and normalized probabilities
-    """
-    factor = 10**decimals
-    probs = torch.round(probs * factor) / factor
-    return probs / probs.sum()
-
-
 def compute_lm_loss(model, input_ids, targets):
     logits = model(input_ids)
     lm_loss = chunked_cross_entropy(logits, targets)
@@ -155,6 +148,33 @@ def decode_batch(batch, tokenizer):
         decoded_texts.append(decoded_text)
     
     return decoded_texts
+
+def generate_ts_candidates(X, Y, batch_size, n_candidates):
+    likelihood = GaussianLikelihood(noise_constraint=gpytorch.constraints.Interval(1e-8, 1e-3))
+    covar_module = ScaleKernel(MaternKernel(nu=2.5, ard_num_dims=X.shape[-1]))
+
+    model = SingleTaskGP(X, Y, likelihood=likelihood, covar_module=covar_module)
+    mll = ExactMarginalLogLikelihood(model.likelihood, model)
+    fit_gpytorch_mll(mll)
+
+    sobol = SobolEngine(X.shape[-1], scramble=True)
+    X_cand = sobol.draw(n_candidates).to(dtype=X.dtype, device=X.device)
+    #X_cand = project_to_simplex(X_cand)
+
+    with torch.no_grad():
+        thompson_sampling = MaxPosteriorSampling(model=model, replacement=False)
+        X_next = thompson_sampling(X_cand, num_samples=batch_size)
+
+    return X_next
+
+def project_to_simplex(weights):
+    # TODO: check this
+    x_sorted, _ = torch.sort(weights, descending=True)
+    cumsum = torch.cumsum(x_sorted, dim=-1)
+    indices = torch.arange(1, len(weights) + 1, device=weights.device)
+    rho = (x_sorted > (cumsum - 1) / indices).sum() - 1
+    theta = (cumsum[rho] - 1) / (rho + 1)
+    return torch.clamp(weights - theta, min=0)
 
 def setup(
     model_name: str,
@@ -510,16 +530,22 @@ def fit(
         )
         del meta_model, x
 
-    if max_iters is None:
-        if not max_additional_steps:
-            fabric.print("Max iters and max additional steps both not set, defaulting to iters for max tokens...")
-            max_tokens_per_device = train.max_tokens // fabric.world_size
-            tokens_per_iter = train.micro_batch_size * model.max_seq_length
-            max_iters = max_tokens_per_device // tokens_per_iter
+
+    if not max_iters and not max_additional_steps:
+        max_tokens_per_device = train.max_tokens // fabric.world_size
+        tokens_per_iter = train.micro_batch_size * model.max_seq_length
+        max_iters = max_tokens_per_device // tokens_per_iter
+
 
     log_iter_interval = train.log_interval * train.gradient_accumulation_iters(devices)
     initial_iter = state["iter_num"]
     train_iterator = CycleIterator(train_dataloader)
+
+    if max_iters and max_additional_steps:
+        fabric.print("Specified both max iters and max additional steps, overriding max_iters with max_additional_steps")
+        max_iters = initial_iter + (max_additional_steps * train.gradient_accumulation_iters(devices))
+        fabric.print(f"Setting max_iters to {max_iters}")
+
 
     running_loss_total = RunningMean(
         window=train.gradient_accumulation_iters(devices), sync_on_compute=False
@@ -544,6 +570,16 @@ def fit(
     first_iter = True
     initial_steps = state["step_count"]
 
+
+    # keep track of observations for thompson sampling
+    if train.scheduler == "ts_gp":
+        n_datasets = len(train_dataloader.loaders)
+        X = torch.zeros((0, n_datasets), dtype=torch.float64, device=fabric.device)
+        Y = torch.zeros((0, 1), dtype=torch.float64, device=fabric.device)  # Change to (0, 1)
+        running_avg_performance = None
+        alpha = 0.1  # Exponential moving average factor
+
+
     for train_data in train_iterator:
         if first_iter:
             optimizer.zero_grad()
@@ -552,7 +588,7 @@ def fit(
                 name: torch.zeros_like(param)
                 for name, param in model.named_parameters()
                 if name == "_forward_module.lm_head.weight"
-                or name == "_forward_module.\_fsdp_wrapped_module.lm_head.weight"
+                or name == "_forward_module._fsdp_wrapped_module.lm_head.weight"
             }
             train_gradients = defaultdict(lambda: defaultdict(torch.zeros_like))
             first_iter = False
@@ -569,123 +605,162 @@ def fit(
         ) and not train.freeze_sampling_rate:
             # Update the sampling ratios
 
-            dev_loss, dev_loss_lm, dev_loss_sft, dev_grads = validate(
-                fabric,
-                model,
-                val_dataloader,
-                max_iters=eval.max_iters,
-                do_collect_gradients=True,
-            )
+            if train.scheduler == "grad":
+                dev_loss, dev_loss_lm, dev_loss_sft, dev_grads = validate(
+                    fabric,
+                    model,
+                    val_dataloader,
+                    max_iters=eval.max_iters,
+                    do_collect_gradients=True,
+                )
 
-            metrics = {
-                "val_loss": dev_loss,
-                "val_loss_lm": dev_loss_lm,
-                "val_loss_sft": dev_loss_sft,
-                "val_ppl": math.exp(dev_loss),
-            }
-            fabric.log_dict(metrics, step=state["iter_num"] - 1)
-            fabric.barrier()
-            layer_key = (
-                "_forward_module._fsdp_wrapped_module.lm_head.weight"
-                if is_distributed_environment()
-                else "_forward_module.lm_head.weight"
-            )
+                metrics = {
+                    "val_loss": dev_loss,
+                    "val_loss_lm": dev_loss_lm,
+                    "val_loss_sft": dev_loss_sft,
+                    "val_ppl": math.exp(dev_loss),
+                }
+                fabric.log_dict(metrics, step=state["iter_num"] - 1)
+                fabric.barrier()
+                layer_key = (
+                    "_forward_module._fsdp_wrapped_module.lm_head.weight"
+                    if is_distributed_environment()
+                    else "_forward_module.lm_head.weight"
+                )
 
-            if state["iter_num"] == episode_length:
-                # first iter, print the similarities of dev grads to each other
-                fabric.print("Dev grad similarities:")
-                fabric.print(compute_gradient_similarities(dev_grads, key=layer_key))
+                if state["iter_num"] == episode_length:
+                    # first iter, print the similarities of dev grads to each other
+                    fabric.print("Dev grad similarities:")
+                    fabric.print(compute_gradient_similarities(dev_grads, key=layer_key))
 
-            new_sampling_rate = train_dataloader.sampling_rates
-            rewards = torch.zeros(len(train_dataloader.loaders))
-
-            if not train.freeze_sampling_rate:
-                similarities = {}
-
-                # if we have not accumulated the train gradients yet, skip updating the sampling rate
-                if len(train_gradients) == 0:
-                    fabric.print(
-                        "Have not hit first gradient accumulation yet, waiting to update the sampling rate...."
-                    )
-                else:
-                    # TODO: wtf why is layer_key undefined here, investigate later
-                    if is_distributed_environment():
-                        mean_dev_gradient = torch.mean(
-                            torch.stack(
-                                [
-                                    g[
-                                        "_forward_module._fsdp_wrapped_module.lm_head.weight"
-                                    ]
-                                    for g in dev_grads.values()
-                                    if layer_key in g
-                                ]
-                            ),
-                            dim=0,
-                        )
-
-                    else:
-                        mean_dev_gradient = torch.mean(
-                            torch.stack(
-                                [
-                                    g["_forward_module.lm_head.weight"]
-                                    for g in dev_grads.values()
-                                    if layer_key in g
-                                ]
-                            ),
-                            dim=0,
-                        )
-
-                    for dataset_name, grad in train_gradients.items():
-                        if grad is not None:
-                            sim = compute_gradient_similarity(
-                                mean_dev_gradient,
-                                grad[layer_key],
-                            )
-                            similarities[dataset_name] = sim.item()
-                        else:
-                            similarities[dataset_name] = 0
-
-                    dataset_ids = torch.arange(
-                        len(train_dataloader.loaders), device=fabric.device
-                    )
-
-                    try:
-                        rewards = torch.tensor(
-                            [
-                                (
-                                    similarities[name]
-                                    if name in train_dataloader.loaders.keys()
-                                    else 0
-                                )
-                                for name in train_dataloader.loaders.keys()
-                            ],
-                            device=fabric.device,
-                        )
-                    except:
-                        breakpoint()
-
-                    logits = data_selector(dataset_ids)
-                    data_loss = -torch.mean(logits * rewards)  # Policy gradient loss
-
-                    data_optimizer.zero_grad()
-                    fabric.backward(data_loss)
-                    data_optimizer.step()
-
-                    del similarities
-                    del mean_dev_gradient
-                    del data_loss
-
-                    # Get new sampling rates from updated LanguageActor
-                    with torch.no_grad():
-                        logits = data_selector(dataset_ids)
-                        new_sampling_rate = torch.softmax(logits, dim=-1)
-                        new_sampling_rate = round_and_normalize(
-                            new_sampling_rate
-                        ).tolist()
-            else:
                 new_sampling_rate = train_dataloader.sampling_rates
                 rewards = torch.zeros(len(train_dataloader.loaders))
 
+                if not train.freeze_sampling_rate:
+                    similarities = {}
+                    #TODO: make this a switch based on train.scheduler
+
+                    # if we have not accumulated the train gradients yet, skip updating the sampling rate
+                    if len(train_gradients) == 0:
+                        fabric.print(
+                            "Have not hit first gradient accumulation yet, waiting to update the sampling rate...."
+                        )
+                    else:
+                        # TODO: wtf why is layer_key undefined here, investigate later
+                        if is_distributed_environment():
+                            mean_dev_gradient = torch.mean(
+                                torch.stack(
+                                    [
+                                        g[
+                                            "_forward_module._fsdp_wrapped_module.lm_head.weight"
+                                        ]
+                                        for g in dev_grads.values()
+                                        if layer_key in g
+                                    ]
+                                ),
+                                dim=0,
+                            )
+
+                        else:
+                            mean_dev_gradient = torch.mean(
+                                torch.stack(
+                                    [
+                                        g["_forward_module.lm_head.weight"]
+                                        for g in dev_grads.values()
+                                        if layer_key in g
+                                    ]
+                                ),
+                                dim=0,
+                            )
+
+                        for dataset_name, grad in train_gradients.items():
+                            if grad is not None:
+                                sim = compute_gradient_similarity(
+                                    mean_dev_gradient,
+                                    grad[layer_key],
+                                )
+                                similarities[dataset_name] = sim.item()
+                            else:
+                                similarities[dataset_name] = 0
+
+                        dataset_ids = torch.arange(
+                            len(train_dataloader.loaders), device=fabric.device
+                        )
+
+                        try:
+                            rewards = torch.tensor(
+                                [
+                                    (
+                                        similarities[name]
+                                        if name in train_dataloader.loaders.keys()
+                                        else 0
+                                    )
+                                    for name in train_dataloader.loaders.keys()
+                                ],
+                                device=fabric.device,
+                            )
+                        except:
+                            breakpoint()
+
+                        logits = data_selector(dataset_ids)
+                        data_loss = -torch.mean(logits * rewards)  # Policy gradient loss
+
+                        data_optimizer.zero_grad()
+                        fabric.backward(data_loss)
+                        data_optimizer.step()
+
+                        del similarities
+                        del mean_dev_gradient
+                        del data_loss
+
+                        # Get new sampling rates from updated LanguageActor
+                        with torch.no_grad():
+                            logits = data_selector(dataset_ids)
+                            new_sampling_rate = torch.softmax(logits, dim=-1)
+                            new_sampling_rate = round_and_normalize(
+                                new_sampling_rate
+                            ).tolist()
+                else:
+                    new_sampling_rate = train_dataloader.sampling_rates
+                    rewards = torch.zeros(len(train_dataloader.loaders))
+                    sampling_rates_dict = {
+                        f"sampling_rate_{name}": round(sampling_rate, 3)
+                        for name, sampling_rate in zip(
+                            train_dataloader.loaders.keys(), new_sampling_rate
+                        )
+                    }
+                    metrics = {
+                        **sampling_rates_dict,
+                        "reward": rewards.sum().item(),
+                    }
+                    fabric.log_dict(metrics, step=state["iter_num"] - 1)
+            elif train.scheduler == "linear":
+                new_sampling_rate = basic_linear_scheduler(max_iters - initial_iter, state["iter_num"] - initial_iter, num_other_datasets=len(train_dataloader.loaders) - 1)
+            elif train.scheduler == "ts_gp":
+                dev_loss, dev_loss_lm, dev_loss_sft, dev_grads = validate(
+                    fabric,
+                    model,
+                    val_dataloader,
+                    max_iters=eval.max_iters,
+                    do_collect_gradients=True,
+                )
+
+
+                current_weights = torch.tensor(train_dataloader.sampling_rates, dtype=torch.float64, device=fabric.device)
+                X = torch.cat([X, current_weights.unsqueeze(0)], dim=0)
+                Y = torch.cat([Y, torch.tensor([[dev_loss]], dtype=torch.float64, device=fabric.device)])  # Note the double brackets
+
+                # Generate new weights using Thompson Sampling
+                if len(X) > 1:  # Ensure we have at least two data points for GP
+                    candidate_weights = generate_ts_candidates(X, Y, n_candidates=1000, batch_size=1)
+                    new_sampling_rate = round_and_normalize(candidate_weights).tolist()[0]
+                else:
+                    # just pick a random candidate
+                    sobol = SobolEngine(dimension=n_datasets, scramble=True)
+                    new_sampling_rate = sobol.draw(1).tolist()[0]
+                
+                #new_sampling_rate = train_dataloader.sampling_rates # TODO remove this
+                
             # Update sampling rates in the dataloader
             fabric.print(f"Old sampling rates: {train_dataloader.sampling_rates}")
             train_dataloader.sampling_rates = (
@@ -696,18 +771,6 @@ def fit(
             )
 
             fabric.print(f"Updated sampling rates: {new_sampling_rate}")
-
-            sampling_rates_dict = {
-                f"sampling_rate_{name}": round(sampling_rate, 3)
-                for name, sampling_rate in zip(
-                    train_dataloader.loaders.keys(), new_sampling_rate
-                )
-            }
-            metrics = {
-                **sampling_rates_dict,
-                "reward": rewards.sum().item(),
-            }
-            fabric.log_dict(metrics, step=state["iter_num"] - 1)
 
             # Reset train gradients for the next episode
             # del train_gradients
@@ -792,7 +855,7 @@ def fit(
                 lm_loss_total.update(lm_loss.detach())
                 lm_samples += input_ids.size(0)
 
-                if use_adaptive_sampling and not train.freeze_sampling_rate:
+                if use_adaptive_sampling and train.scheduler == "grad":
                     #model.zero_grad()
                     lm_loss.backward(retain_graph=True)
                     for name, param in model.named_parameters():
@@ -832,7 +895,7 @@ def fit(
                         key, 0
                     ) + input_ids.size(0)
 
-                    if use_adaptive_sampling and not train.freeze_sampling_rate:
+                    if use_adaptive_sampling and train.scheduler == "grad":
                         #model.zero_grad()
                         sft_loss.backward(retain_graph=True)
                         for name, param in model.named_parameters():
