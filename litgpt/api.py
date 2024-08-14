@@ -105,7 +105,7 @@ class LLM(torch.nn.Module):
         input_ids: torch.Tensor,
         target_ids: Optional[torch.Tensor] = None,
         loss_fn: Optional[Callable[[torch.Tensor, torch.Tensor], torch.Tensor]] = None
-    ) -> Union[torch.Tensor, Tuple[torch.Tensor, torch.Tensor]]::
+    ) -> Union[torch.Tensor, Tuple[torch.Tensor, torch.Tensor]]:
         logits = self.model(input_ids)
         if target_ids is not None:
             if loss_fn is None:
