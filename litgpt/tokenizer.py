@@ -2,7 +2,7 @@
 
 import json
 from pathlib import Path
-from typing import Optional, Union
+from typing import Optional, Union, Iterator
 
 import torch
 
@@ -136,3 +136,30 @@ class Tokenizer:
             dummy_token = self.processor.decode([dummy_token_id])
             return self.processor.decode([dummy_token_id] + tokens)[len(dummy_token) :]
         return self.processor.decode(tokens)
+
+    def decode_stream(self, token_stream: Iterator[torch.Tensor]) -> Iterator[str]:
+        if self.backend == "huggingface":
+            try:
+                for token in token_stream:
+                    yield self.decode(token)
+            except KeyboardInterrupt:
+                return
+        elif self.backend == "sentencepiece":
+            # TODO: Is there a way to not have to do this?
+            # This may actually affect our tokens per second. 
+
+            # sentencepiece does not support decoding token-by-token because it adds spaces based on the surrounding tokens
+            # meaning that we need to decode everything each time
+            so_far = torch.tensor([], dtype=torch.long, device=fabric.device)
+            decoded_so_far = ""
+            try:
+                for token in token_stream:
+                    so_far = so_far.to(device=token.device)
+                    so_far = torch.cat((so_far, token.view(-1)))
+                    decoded_new = self.decode(so_far)
+                    yield decoded_new[len(decoded_so_far) :]
+                    decoded_so_far = decoded_new
+            except KeyboardInterrupt:
+                return
+        else:
+            raise NotImplementedError(self.backend)

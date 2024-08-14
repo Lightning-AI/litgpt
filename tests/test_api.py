@@ -185,7 +185,8 @@ def test_quantization_is_applied(tmp_path):
         model="EleutherAI/pythia-14m",
     )
     llm.distribute(devices=1, quantize="bnb.nf4", precision="bf16-true")
-    assert "NF4Linear" in str(type(llm.model.lm_head))
+    strtype = str(type(llm.model.lm_head))
+    assert "NF4Linear" in strtype, strtype
 
 
 def test_fixed_kv_cache(tmp_path):
