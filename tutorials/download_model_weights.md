@@ -23,7 +23,7 @@ LitGPT supports a variety of LLM architectures with publicly available weights. 
 | Mathstral | 7B | Mistral AI | [Mistral AI 2024](https://mistral.ai/news/mathstral/)                                                                        |
 | MicroLlama | 300M | Ken Wang | [MicroLlama repo](https://github.com/keeeeenw/MicroLlama)
 | Mixtral MoE | 8x7B | Mistral AI | [Mistral AI 2023](https://mistral.ai/news/mixtral-of-experts/)                                                                     |
-| Mistral | 7B | Mistral AI | [Mistral AI 2023](https://mistral.ai/news/announcing-mistral-7b/)                                                                        |
+| Mistral | 7B, 123B | Mistral AI | [Mistral AI 2023](https://mistral.ai/news/announcing-mistral-7b/)                                                                        |
 | Nous-Hermes | 7B, 13B, 70B | NousResearch | [Org page](https://huggingface.co/NousResearch)                                                                          |
 | OpenLLaMA | 3B, 7B, 13B | OpenLM Research | [Geng & Liu 2023](https://github.com/openlm-research/open_llama)                                                         |
 | Phi 1.5 & 2 | 1.3B, 2.7B | Microsoft Research  | [Li et al. 2023](https://arxiv.org/abs/2309.05463)                                                                          |
@@ -136,7 +136,10 @@ microsoft/Phi-3-mini-4k-instruct
 mistralai/mathstral-7B-v0.1
 mistralai/Mistral-7B-Instruct-v0.1
 mistralai/Mistral-7B-Instruct-v0.2
+mistralai/Mistral-7B-Instruct-v0.3
 mistralai/Mistral-7B-v0.1
+mistralai/Mistral-7B-v0.3
+mistralai/Mistral-Large-Instruct-2407
 mistralai/Mixtral-8x7B-Instruct-v0.1
 mistralai/Mixtral-8x7B-v0.1
 NousResearch/Nous-Hermes-13b
