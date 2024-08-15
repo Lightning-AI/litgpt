@@ -62,34 +62,17 @@ def generate(
         stop_tokens: If specified, stop generating any more token once one of this list is generated.
     """
     from litgpt.generate.base import _generate
-    return _generate(include_prompt=False, model=model, prompt=prompt, max_returned_tokens=max_returned_tokens, temperature=temperature, top_k=top_k, top_p=top_p, stop_tokens=stop_tokens)
-    
-    # T = prompt.size(0) # Number of tokens in prompt
-    # assert max_returned_tokens > T
-    # if model.max_seq_length < max_returned_tokens - 1:
-    #     # rolling the kv cache based on the `input_pos` value would be necessary. However, doing so would introduce a
-    #     # data dependency on the `input_pos` tensor and impact model compilation. Since this setting is uncommon, we do
-    #     # not support it to avoid negatively impacting the overall speed
-    #     raise NotImplementedError(f"max_seq_length {model.max_seq_length} needs to be >= {max_returned_tokens - 1}")
-
-    # device = prompt.device
-    # buffer_length = max((len(tokens) for tokens in stop_tokens), default=1)
-    # yield_i = 0
-    # input_pos = torch.arange(0, T, device=device)
-    # tokens = []
-    # token = prompt
-    # for t in range(1, max_returned_tokens - T + 1):
-    #     token = next_token(model, input_pos, token.view(1, -1), temperature=temperature, top_k=top_k, top_p=top_p)
-    #     tokens.append(token)
-    #     # check the stop condition
-    #     if any((l := len(st)) <= len(tokens) and all(a == b for a, b in zip(tokens[-l:], st)) for st in stop_tokens):
-    #         return
-    #     # if the buffer is full
-    #     if t - yield_i >= buffer_length:
-    #         # we know this idx is not part of stop tokens, safe to yield
-    #         yield from tokens[yield_i:t]
-    #         yield_i = t
-    #     input_pos = input_pos[-1:].add_(1)
+    return _generate(
+        include_prompt=False,
+        include_eos=False,
+        model=model,
+        prompt=prompt,
+        max_returned_tokens=max_returned_tokens,
+        temperature=temperature,
+        top_k=top_k,
+        top_p=top_p,
+        stop_tokens=stop_tokens
+    )
 
 
 def process_prompt(prompt, model, tokenizer, prompt_style, fabric, temperature, max_new_tokens, top_k, top_p, stop_tokens):

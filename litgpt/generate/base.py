@@ -91,24 +91,17 @@ def _generate(
     stop_tokens: Tuple[List[int], ...] = (),
     include_prompt: bool,
     include_eos: bool,
-) -> Union[torch.Tensor, Iterator[torch.Tensor]]:
-    prompt_size = prompt.size(0) # Number of tokens in prompt
+) -> Iterator[torch.Tensor]:
+    prompt_size = prompt.size(0)
     assert max_returned_tokens > prompt_size
     if model.max_seq_length < max_returned_tokens - 1:
-        # rolling the kv cache based on the `input_pos` value would be necessary. However, doing so would introduce a
-        # data dependency on the `input_pos` tensor and impact model compilation. Since this setting is uncommon, we do
-        # not support it to avoid negatively impacting the overall speed
         raise NotImplementedError(f"max_seq_length {model.max_seq_length} needs to be >= {max_returned_tokens - 1}")
 
     device = prompt.device
-    buffer_length = max((len(seq) for seq in stop_tokens), default=1)
-    yield_i = 0
 
-    if include_prompt:
-        tokens = [prompt]
-    else:
-        tokens = []
-
+    # Prefill
+    tokens = [prompt] if include_prompt else []
+    
     token = next_token(
         model,
         torch.arange(0, prompt_size, device=device),
@@ -117,64 +110,59 @@ def _generate(
         top_k=top_k,
         top_p=top_p
     ).clone()
+
+    # Yield the prompt if include_prompt is True
+    if include_prompt:
+        yield from tokens
+
+    # Immediately yield the first generated token.
+    yield token
     tokens.append(token)
 
-    input_pos = torch.tensor([prompt_size], device=device)
-    for t in range(len(tokens), max_returned_tokens - prompt_size + len(tokens)):
+    stop_progress = [0] * len(stop_tokens)
+    last_yielded_idx = len(tokens) - 1
 
+    # Generate output tokens
+    input_pos = torch.tensor([prompt_size], device=device)
+    for current_idx in range(len(tokens), max_returned_tokens - prompt_size + len(tokens) - 1):
         # Generate the token
         token = next_token(model, input_pos, token.view(1, -1), temperature=temperature, top_k=top_k, top_p=top_p)
         tokens.append(token)
+        int_token = token.item()
 
-        print(t)
-        print(token.item())
+        # Check for stop sequences
+        # For each stop sequence, we keep a running total of how many are matched in stop_progress.
+        # If the current token matches the next token in the stop sequence, we increment the
+        # running total and hold on yielding the token.
+        progress_made = False
+        for i, seq in enumerate(stop_tokens):
+            if int_token == seq[stop_progress[i]]:
+                stop_progress[i] += 1
+                progress_made = True
+                if stop_progress[i] == len(seq):
+                    if include_eos:
+                        yield from tokens[last_yielded_idx + 1:]
+                    return
+            else:
+                stop_progress[i] = 0
 
-        # Check if we're at the end of the stream.
-        eos_len = 0
-        tokens_len = len(tokens)
-        for st in stop_tokens:
-            st: List[int]
-            # Compare the last chunk of the token stream
-            stlen = len(st)
-            if stlen <= tokens_len and tokens[-stlen:] == st:
-                eos_len = stlen # last stlen tokens are the eos tokens
-                break
-
-        # Yield the tokens that are safe to yield
-        if t - yield_i >= buffer_length:
-            yield from tokens[yield_i:t]
-            yield_i = t
-        
-        # If we're done generating, output what we have. Otherwise, move on to the next token.
-        if not eos_len:
-            input_pos = input_pos.add_(1)
+        # Yield tokens that are not part of a stop sequence in progress.
+        # If there are no stop tokens, that's all of them.
+        if stop_tokens:
+            safe_idx = len(tokens) - max(stop_progress)
         else:
-            #if include_eos:
-            #    yield from tokens[yield_i:t]
-            break
-            
+            safe_idx = current_idx + 1
 
+        if safe_idx > last_yielded_idx:
+            yield from tokens[last_yielded_idx + 1 : safe_idx]
+            last_yielded_idx = safe_idx - 1
 
-    # device = prompt.device
-    # if include_prompt:
-    #     tokens = [prompt]
-    # else:
-    #     tokens = []
-    # input_pos = torch.tensor([T], device=device)
-    # token = next_token(
-    #     model, torch.arange(0, T, device=device), prompt.view(1, -1), temperature=temperature, top_k=top_k, top_p=top_p
-    # ).clone()
-    # tokens.append(token)
-    # for _ in range(2, max_returned_tokens - T + 1):
-    #     token = next_token(
-    #         model, input_pos, token.view(1, -1), temperature=temperature, top_k=top_k, top_p=top_p
-    #     ).clone()
-    #     tokens.append(token)
-    #     if token == eos_id:
-    #         break
-    #     input_pos = input_pos.add_(1)
-    # return torch.cat(tokens)
+        # Update input position for the next iteration
+        input_pos = input_pos.add_(1)
 
+    # Yield any remaining tokens
+    if last_yielded_idx < len(tokens):
+        yield from tokens[last_yielded_idx + 1:]
 
 
 @torch.inference_mode()
@@ -218,35 +206,20 @@ def generate(
     """
     
     stop_tokens = ([eos_id],) if eos_id is not None else ()
-    token_list = list(_generate(include_prompt=True, include_eos=True, model=model, prompt=prompt, max_returned_tokens=max_returned_tokens, temperature=temperature, top_k=top_k, top_p=top_p, stop_tokens=stop_tokens))
+    token_list = list(_generate(
+        include_prompt=include_prompt,
+        include_eos=True,
+        model=model,
+        prompt=prompt,
+        max_returned_tokens=max_returned_tokens,
+        temperature=temperature,
+        top_k=top_k,
+        top_p=top_p,
+        stop_tokens=stop_tokens
+    ))
     if len(token_list) == 0:
-        return torch.Tensor() # cat can't handle len 0
+        return torch.Tensor() # Can't cat() list of len 0
     return torch.cat(token_list)
-
-    # T = prompt.size(0)
-    # assert max_returned_tokens > T
-    # if model.max_seq_length < max_returned_tokens - 1:
-    #     # rolling the kv cache based on the `input_pos` value would be necessary. However, doing so would introduce a
-    #     # data dependency on the `input_pos` tensor and impact model compilation. Since this setting is uncommon, we do
-    #     # not support it to avoid negatively impacting the overall speed
-    #     raise NotImplementedError(f"max_seq_length {model.max_seq_length} needs to be >= {max_returned_tokens - 1}")
-
-    # device = prompt.device
-    # tokens = []
-    # input_pos = torch.tensor([T], device=device)
-    # token = next_token(
-    #     model, torch.arange(0, T, device=device), prompt.view(1, -1), temperature=temperature, top_k=top_k, top_p=top_p
-    # ).clone()
-    # tokens.append(token)
-    # for _ in range(2, max_returned_tokens - T + 1):
-    #     token = next_token(
-    #         model, input_pos, token.view(1, -1), temperature=temperature, top_k=top_k, top_p=top_p
-    #     ).clone()
-    #     tokens.append(token)
-    #     if token == eos_id:
-    #         break
-    #     input_pos = input_pos.add_(1)
-    # return torch.cat(tokens)
 
 
 @torch.inference_mode()
