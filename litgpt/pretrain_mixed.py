@@ -91,6 +91,33 @@ class DataWeights(nn.Module):
         else:
             return self.source_weights
 
+class DistributedMovingWindowGP:
+    def __init__(self, fabric, n_datasets=2, window_size=100):
+        self.fabric = fabric
+        self.window_size = window_size
+        self.X = torch.zeros((0, n_datasets), dtype=torch.float64, device=fabric.device)
+        self.Y = torch.zeros((0, 1), dtype=torch.float64, device=fabric.device)
+
+    def add_observation(self, x, y):
+        # Gather observations from all processes
+        x_list = [torch.zeros_like(x) for _ in range(self.fabric.world_size)]
+        y_list = [torch.zeros_like(y) for _ in range(self.fabric.world_size)]
+        
+        dist.all_gather(x_list, x)
+        dist.all_gather(y_list, y)
+        
+        x_gathered = torch.stack(x_list)
+        y_gathered = torch.stack(y_list)
+        
+        self.X = torch.cat([self.X, x_gathered], dim=0)
+        self.Y = torch.cat([self.Y, y_gathered], dim=0)
+        
+        if len(self.X) > self.window_size:
+            self.X = self.X[-self.window_size:]
+            self.Y = self.Y[-self.window_size:]
+
+    def get_data(self):
+        return self.X, self.Y
 
 def compute_gradient_similarities(gradients, key="_forward_module.lm_head.weight"):
     similarities = {}
@@ -157,8 +184,10 @@ def generate_ts_candidates(X, Y, batch_size, n_candidates):
     mll = ExactMarginalLogLikelihood(model.likelihood, model)
     fit_gpytorch_mll(mll)
 
-    sobol = SobolEngine(X.shape[-1], scramble=True)
-    X_cand = sobol.draw(n_candidates).to(dtype=X.dtype, device=X.device)
+    #sobol = SobolEngine(X.shape[-1], scramble=True)
+    #X_cand = sobol.draw(n_candidates).to(dtype=X.dtype, device=X.device)
+    X_cand = sample_from_simplex(n_candidates, X.shape[-1]).to(dtype=X.dtype, device=X.device)
+
     #X_cand = project_to_simplex(X_cand)
 
     with torch.no_grad():
@@ -167,14 +196,15 @@ def generate_ts_candidates(X, Y, batch_size, n_candidates):
 
     return X_next
 
-def project_to_simplex(weights):
-    # TODO: check this
-    x_sorted, _ = torch.sort(weights, descending=True)
-    cumsum = torch.cumsum(x_sorted, dim=-1)
-    indices = torch.arange(1, len(weights) + 1, device=weights.device)
-    rho = (x_sorted > (cumsum - 1) / indices).sum() - 1
-    theta = (cumsum[rho] - 1) / (rho + 1)
-    return torch.clamp(weights - theta, min=0)
+def sample_from_simplex(n_samples: int, n_dimensions: int) -> torch.Tensor:
+    """Sample from the unit simplex in dim dimensions.
+
+    This is a uniform sample from the unit simplex in dim dimensions.
+    """
+    samples = torch.distributions.Exponential(rate=torch.ones(n_dimensions)).sample((n_samples,))
+    
+    # Normalize to make sure each sample sums to 1
+    return samples / samples.sum(dim=1, keepdim=True)
 
 def setup(
     model_name: str,
@@ -578,6 +608,9 @@ def fit(
         Y = torch.zeros((0, 1), dtype=torch.float64, device=fabric.device)  # Change to (0, 1)
         running_avg_performance = None
         alpha = 0.1  # Exponential moving average factor
+        INITIAL_EXPLORE_STEPS = 100 # TODO: add in initial exploration phase
+
+        moving_window_gp = DistributedMovingWindowGP(fabric, n_datasets)
 
 
     for train_data in train_iterator:
@@ -605,7 +638,7 @@ def fit(
         ) and not train.freeze_sampling_rate:
             # Update the sampling ratios
 
-            if train.scheduler == "grad":
+            if train.data_scheduler == "grad":
                 dev_loss, dev_loss_lm, dev_loss_sft, dev_grads = validate(
                     fabric,
                     model,
@@ -734,9 +767,9 @@ def fit(
                         "reward": rewards.sum().item(),
                     }
                     fabric.log_dict(metrics, step=state["iter_num"] - 1)
-            elif train.scheduler == "linear":
+            elif train.data_scheduler == "linear":
                 new_sampling_rate = basic_linear_scheduler(max_iters - initial_iter, state["iter_num"] - initial_iter, num_other_datasets=len(train_dataloader.loaders) - 1)
-            elif train.scheduler == "ts_gp":
+            elif train.data_scheduler == "ts_gp":
                 dev_loss, dev_loss_lm, dev_loss_sft, dev_grads = validate(
                     fabric,
                     model,
@@ -745,20 +778,49 @@ def fit(
                     do_collect_gradients=True,
                 )
 
+                if running_avg_performance is None:
+                    running_avg_performance = 0.9 * dev_loss_lm.item() + 0.1 * dev_loss_sft.item()
+                else:
+                    running_avg_performance = (1 - alpha) * running_avg_performance + alpha * ( 0.9 * dev_loss_lm.item() + 0.1 * dev_loss_sft.item())
 
-                current_weights = torch.tensor(train_dataloader.sampling_rates, dtype=torch.float64, device=fabric.device)
-                X = torch.cat([X, current_weights.unsqueeze(0)], dim=0)
-                Y = torch.cat([Y, torch.tensor([[dev_loss]], dtype=torch.float64, device=fabric.device)])  # Note the double brackets
+                    relative_improvement = (running_avg_performance - ( 0.9 * dev_loss_lm.item() + 0.1 * dev_loss_sft.item())) / running_avg_performance
 
+                    current_weights = torch.tensor(train_dataloader.sampling_rates, dtype=torch.float64, device=fabric.device)
+                    #X = torch.cat([X, current_weights.unsqueeze(0)], dim=0)
+                    #Y = torch.cat([Y, torch.tensor([[relative_improvement]], dtype=torch.float64, device=fabric.device)]) 
+
+                    moving_window_gp.add_observation(current_weights, relative_improvement)
+                    X, Y = moving_window_gp.get_data()
+
+                # TODO: make sure all Xs and Ys are gathered across GPUs
                 # Generate new weights using Thompson Sampling
-                if len(X) > 1:  # Ensure we have at least two data points for GP
+                if len(X) > 5:  # Ensure we have at least 5 data points for GP 
+                    # if fabric.local_rank == 0:               
+                    #     candidate_weights = generate_ts_candidates(X, Y, n_candidates=1000, batch_size=1)
+                    #     new_sampling_rate = round_and_normalize(candidate_weights).tolist()[0]
+                    # else:
+                    #     new_sampling_rate = [0.0] * len(train_dataloader.loaders)
+                    
+                    # new_sampling_rate = fabric.broadcast(new_sampling_rate, src=0)
+
                     candidate_weights = generate_ts_candidates(X, Y, n_candidates=1000, batch_size=1)
                     new_sampling_rate = round_and_normalize(candidate_weights).tolist()[0]
+                    new_sampling_rate = fabric.broadcast(new_sampling_rate, src=0)
                 else:
                     # just pick a random candidate
-                    sobol = SobolEngine(dimension=n_datasets, scramble=True)
-                    new_sampling_rate = sobol.draw(1).tolist()[0]
-                
+                    #sobol = SobolEngine(dimension=n_datasets, scramble=True)
+                    #new_sampling_rate = sobol.draw(1).tolist()[0]
+                    # if fabric.local_rank == 0:
+                    #     breakpoint()
+                    #     new_sampling_rate = sample_from_simplex(1, X.shape[-1]).to(dtype=X.dtype, device=X.device).tolist()[0]
+                    # else:
+                    #     new_sampling_rate = [0.0] * len(train_dataloader.loaders)
+                    
+                    # new_sampling_rate = fabric.broadcast(new_sampling_rate, src=0)
+
+                    new_sampling_rate = sample_from_simplex(1, X.shape[-1]).to(dtype=X.dtype, device=X.device).tolist()[0]
+                    new_samplng_rate = fabric.broadcast(new_sampling_rate, src=0)
+
                 #new_sampling_rate = train_dataloader.sampling_rates # TODO remove this
                 
             # Update sampling rates in the dataloader
@@ -785,7 +847,7 @@ def fit(
             gc.collect()
             torch.cuda.empty_cache()
 
-        if train.decay_lr:
+        if train.lr_scheduler == "decay":
             lr = get_lr_decay_stage(
                 initial_lr,
                 state["iter_num"],
@@ -793,16 +855,7 @@ def fit(
                 train.min_lr,
                 train.gradient_accumulation_iters(devices),
             )
-            # learning_rate: float, it: int, warmup_iters: int, max_iters: int, min_lr: float
-            # llama3.1 - decay to 0 linearly
-            # lr = get_lr_linear_decay(
-            #     initial_lr,
-            #     state["iter_num"],
-            #     0,
-            #     max_iters,
-            #     0
-            # )
-        else:
+        elif train.lr_scheduler == "cosine":
             # determine and set the learning rate for this iteration
             lr = get_lr(
                 2e-5,  # the default LR is too high. Using this one
@@ -811,6 +864,8 @@ def fit(
                 max_iters,
                 train.min_lr,
             )
+        elif train.lr_scheduler == "constant":
+            lr = initial_lr
 
         assert lr >= 0, "Learning rate must be positive"
 
@@ -855,7 +910,7 @@ def fit(
                 lm_loss_total.update(lm_loss.detach())
                 lm_samples += input_ids.size(0)
 
-                if use_adaptive_sampling and train.scheduler == "grad":
+                if use_adaptive_sampling and train.data_scheduler == "grad":
                     #model.zero_grad()
                     lm_loss.backward(retain_graph=True)
                     for name, param in model.named_parameters():
@@ -895,7 +950,7 @@ def fit(
                         key, 0
                     ) + input_ids.size(0)
 
-                    if use_adaptive_sampling and train.scheduler == "grad":
+                    if use_adaptive_sampling and train.data_scheduler == "grad":
                         #model.zero_grad()
                         sft_loss.backward(retain_graph=True)
                         for name, param in model.named_parameters():

@@ -52,7 +52,7 @@ class TrainArgs:
     scheduler: Optional[Literal["linear", "grad", "ts_gp"]] = None
 
     # use an exponential decay schedule
-    decay_lr: Optional[bool] = False
+    lr_scheduler: Literal["cosine", "decay", "constant"] = "cosine"
 
     def __post_init__(self) -> None:
         if self.lr_warmup_fraction and self.lr_warmup_steps:

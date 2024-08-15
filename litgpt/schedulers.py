@@ -43,3 +43,6 @@ def get_lr_linear_decay(
     if it < warmup_iters:
         return learning_rate * it / warmup_iters
     return learning_rate * (1 - it / max_iters) + min_lr
+
+
+def get_lr_constant = lambda learning_rate: learning_rate

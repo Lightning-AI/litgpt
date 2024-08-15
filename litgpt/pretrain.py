@@ -239,11 +239,12 @@ def main(
     state = {
         "model": model,
         "optimizer": optimizer,
-        "train_dataloader": train_dataloader,
+       # "train_dataloader": train_dataloader,
         "iter_num": 0,
         "step_count": 0,
     }
 
+    #TODO: remove train_dataloader from state
     if resume is True:
         resume = max(
             out_dir.rglob("step-*/*.pth"),
@@ -252,6 +253,8 @@ def main(
     if resume:
         fabric.print(f"Resuming training from {resume}")
         fabric.load(resume, state)
+
+    state["train_dataloader"] = train_dataloader
 
     train_time = time.perf_counter()
     fit(
@@ -342,7 +345,7 @@ def fit(
             break
 
         # determine and set the learning rate for this iteration
-        if train.decay_lr:
+        if train.lr_scheduler == "decay":
             # note: all param groups have the same lr
             lr = get_lr_decay_stage(
                 initial_lr,
@@ -353,7 +356,7 @@ def fit(
             )
             # note: the hyperparam may have to be scaled according to the gradient accumulation iters?
             # it looks like we want the final LR to 
-        else:
+        elif train.lr_scheduler == "cosine":
             lr = get_lr(
                 0.0004,  # the default lr is too high. using this one
                 state["iter_num"],
@@ -361,6 +364,10 @@ def fit(
                 max_iters,
                 train.min_lr,
             )
+        elif train.lr_scheduler == "constant":
+            lr = initial_lr
+        else:
+            raise NotImplementedError
 
         for param_group in optimizer.param_groups:
             param_group["lr"] = lr
