@@ -97,39 +97,26 @@ def _generate(
     if model.max_seq_length < max_returned_tokens - 1:
         raise NotImplementedError(f"max_seq_length {model.max_seq_length} needs to be >= {max_returned_tokens - 1}")
 
-    device = prompt.device
-
-    # Prefill
-    tokens = [prompt] if include_prompt else []
-
-    token = next_token(
-        model,
-        torch.arange(0, prompt_size, device=device),
-        prompt.view(1, -1),
-        temperature=temperature,
-        top_k=top_k,
-        top_p=top_p
-    ).clone()
-
     # Yield the prompt if include_prompt is True
     if include_prompt:
-        yield from tokens
+        yield prompt
 
-    # Immediately yield the first generated token.
-    yield token
-    tokens.append(token)
+    tokens = []
+    device = prompt.device
 
     stop_progress = [0] * len(stop_tokens)
-    last_yielded_idx = len(tokens) - 1
+    yielded_idx = 0
 
     # Generate output tokens
-    input_pos = torch.tensor([prompt_size], device=device)
-    for current_idx in range(len(tokens), max_returned_tokens - prompt_size + len(tokens) - 1):
+    token = prompt
+    prefill_token = True
+    input_pos = torch.arange(0, prompt_size, device=device)
+    for current_idx in range(max_returned_tokens - prompt_size):
         # Generate the token
         token = next_token(model, input_pos, token.view(1, -1), temperature=temperature, top_k=top_k, top_p=top_p)
         tokens.append(token)
         int_token = token.item()
-
+        
         # Check for stop sequences
         # For each stop sequence, we keep a running total of how many are matched in stop_progress.
         # If the current token matches the next token in the stop sequence, we increment the
@@ -141,7 +128,7 @@ def _generate(
                 progress_made = True
                 if stop_progress[i] == len(seq):
                     if include_eos:
-                        yield from tokens[last_yielded_idx + 1:]
+                        yield from tokens[yielded_idx:]
                     return
             else:
                 stop_progress[i] = 0
@@ -151,18 +138,22 @@ def _generate(
         if stop_tokens:
             safe_idx = len(tokens) - max(stop_progress)
         else:
-            safe_idx = current_idx + 1
-
-        if safe_idx > last_yielded_idx:
-            yield from tokens[last_yielded_idx + 1 : safe_idx]
-            last_yielded_idx = safe_idx - 1
+            safe_idx = current_idx + 1 # include the token just generated
+        
+        if yielded_idx < safe_idx:
+            y_tokens = tokens[yielded_idx : safe_idx]
+            yield from y_tokens
+            yielded_idx = safe_idx
 
         # Update input position for the next iteration
+        if prefill_token:
+            prefill_token = False
+            input_pos = torch.tensor([prompt_size], device=device)
         input_pos = input_pos.add_(1)
 
     # Yield any remaining tokens
-    if last_yielded_idx < len(tokens):
-        yield from tokens[last_yielded_idx + 1:]
+    if yielded_idx < len(tokens):
+        yield from tokens[yielded_idx:]
 
 
 @torch.inference_mode()
