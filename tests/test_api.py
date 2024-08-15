@@ -108,7 +108,8 @@ def test_llm_load_hub_init(tmp_path):
     assert len(text_1) > 0
 
     text_2 = llm.generate("text", max_new_tokens=10, top_k=1, stream=True)
-    assert text_1 == "".join(list(text_2)), text_2
+    text_2 = "".join(list(text_2))
+    assert text_1 == text_2, (text1, text_2)
 
 
 def test_model_not_initialized(tmp_path):

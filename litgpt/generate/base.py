@@ -101,7 +101,7 @@ def _generate(
 
     # Prefill
     tokens = [prompt] if include_prompt else []
-    
+
     token = next_token(
         model,
         torch.arange(0, prompt_size, device=device),
@@ -204,8 +204,7 @@ def generate(
         eos_id: If specified, stop generating any more token once the <eos> token is triggered.
         include_prompt: If true (default) prepends the prompt (after applying the prompt style) to the output.
     """
-    
-    stop_tokens = ([eos_id],) if eos_id is not None else ()
+
     token_list = list(_generate(
         include_prompt=include_prompt,
         include_eos=True,
@@ -215,8 +214,9 @@ def generate(
         temperature=temperature,
         top_k=top_k,
         top_p=top_p,
-        stop_tokens=stop_tokens
+        stop_tokens=(([eos_id],) if eos_id is not None else ())
     ))
+
     if len(token_list) == 0:
         return torch.Tensor() # Can't cat() list of len 0
     return torch.cat(token_list)

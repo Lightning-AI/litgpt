@@ -146,7 +146,7 @@ class Tokenizer:
                 return
         elif self.backend == "sentencepiece":
             # TODO: Is there a way to not have to do this?
-            # This may actually affect our tokens per second. 
+            # This may actually affect our tokens per second.
 
             # sentencepiece does not support decoding token-by-token because it adds spaces based on the surrounding tokens
             # meaning that we need to decode everything each time

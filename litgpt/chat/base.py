@@ -103,7 +103,7 @@ def process_prompt(prompt, model, tokenizer, prompt_style, fabric, temperature, 
         fabric.print(tok, end="", flush=True)
 
     t = time.perf_counter() - t0
-    
+
     for block in model.transformer.h:
         block.attn.kv_cache.reset_parameters()
     fabric.print(
