@@ -7,7 +7,6 @@ from io import StringIO
 from itertools import repeat
 from pathlib import Path
 from unittest.mock import ANY, MagicMock, Mock, call, patch
-from typing import Iterator
 
 import pytest
 import torch
