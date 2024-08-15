@@ -153,10 +153,6 @@ if __name__ == "__main__":
     print(llm.generate(prompt="What is 1+2?", top_k=1))
 ```
 
-```
-
-```
-
 
 &nbsp;
 ## Speed and resource estimates
@@ -352,10 +348,6 @@ lit_model.llm.generate("hello world")
 This example illustrates how we can save a LitGPT checkpoint from a previous training run that we can load and use later. Note that compared to using the Trainer checkpoint in the previous section, the model saved via this approach also contains the tokenizer and other relevant files. Hence, this approach does not require the original `"EleutherAI/pythia-160m"` model checkpoint directory.
 
 ```python
-#################################################################
-# Use case 4: Resume training after saving a checkpoint manually
-#################################################################
-
 lit_model.llm.save("finetuned_checkpoint")
 del lit_model
 lit_model = LitLLM(checkpoint_dir="finetuned_checkpoint")
