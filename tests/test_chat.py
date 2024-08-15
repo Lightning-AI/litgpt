@@ -45,15 +45,9 @@ def test_generate(monkeypatch, generated, stop_tokens, expected):
         out = next(it)
         return torch.tensor([out])
 
-    print(f"{generated=}")
-    print(f"{stop_tokens=}")
-    print(f"{expected=}")
-
     monkeypatch.setattr(generate, "multinomial_num_samples_1", multinomial)
     actual = chat.generate(model, input_idx, max_returned_tokens, stop_tokens=stop_tokens)
     actual = list(actual)
-
-    print(f"actual={[t.item() for t in actual]}")
 
     assert len(actual) == len(expected), (actual, expected)
     if not actual:
