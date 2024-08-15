@@ -4,14 +4,13 @@
 from pathlib import Path
 import sys
 import time
-from typing import Any, List, Literal, Optional, Union
+from typing import Any, Callable, List, Literal, Optional, Union, Tuple
 
 from tqdm import tqdm
 import torch
 import lightning as L
 from lightning.fabric.plugins import BitsandbytesPrecision
 from lightning.fabric.accelerators import CUDAAccelerator
-
 
 from litgpt.model import GPT
 from litgpt.config import name_to_config, Config
@@ -20,18 +19,26 @@ from litgpt.generate.sequentially import sequential
 from litgpt.generate.tp import tensor_parallel
 from litgpt.generate.base import generate as generate_fn
 from litgpt.chat.base import generate as stream_generate_fn
-from litgpt.prompts import load_prompt_style, has_prompt_style, PromptStyle
+from litgpt.prompts import (
+    load_prompt_style,
+    has_prompt_style,
+    save_prompt_style,
+    PromptStyle
+)
 from litgpt.utils import (
     auto_download_checkpoint,
     check_file_size_on_cpu_and_warn,
     check_nvlink_connectivity,
+    chunked_cross_entropy,
+    copy_config_files,
     extend_checkpoint_dir,
     get_default_supported_precision,
     load_checkpoint,
+    save_config,
 )
 
 
-class LLM:
+class LLM(torch.nn.Module):
     def __init__(
         self,
         model: GPT,
@@ -45,7 +52,8 @@ class LLM:
         kv_cache_initialized: bool = False,
         fixed_kv_cache_size: Union[int, Literal["max_model_supported"], None] = None
     ) -> None:
-        self._model = model
+        super().__init__()
+        self.model = model
         self.preprocessor = preprocessor
         self.devices = devices
         self.prompt_style = prompt_style
@@ -67,16 +75,77 @@ class LLM:
         text = llm.generate("What do Llamas eat?", top_k=1)
         print(text)
     """
-
     @property
-    def model(self):
-        if self._model is None:
-            raise AttributeError("The model is not initialized yet; use the .distribute() method to initialize the model.")
-        return self._model
+    def tokenizer(self):
+        return self.preprocessor.tokenizer
 
-    @model.setter
-    def model(self, content):
-        self._model = content
+    def state_dict(self, destination=None, prefix="", keep_vars=False):
+        return self.model.state_dict(destination=destination, prefix=prefix, keep_vars=keep_vars)
+
+    def load_state_dict(self, state_dict, strict=True):
+        return self.model.load_state_dict(state_dict, strict=strict)
+
+    def forward(
+        self,
+        input_ids: torch.Tensor,
+        target_ids: Optional[torch.Tensor] = None,
+        loss_fn: Optional[Callable[[torch.Tensor, torch.Tensor], torch.Tensor]] = None
+    ) -> Union[torch.Tensor, Tuple[torch.Tensor, torch.Tensor]]:
+        logits = self.model(input_ids)
+        if target_ids is not None:
+            if loss_fn is None:
+                loss_fn = chunked_cross_entropy
+            loss = loss_fn(logits[..., :-1, :], target_ids[..., 1:])
+            return logits, loss
+        else:
+            return logits
+
+    def trainer_setup(self, trainer_ckpt: Optional[Path] = None) -> None:
+        """Initializes the model checkpoint for PyTorch Lightning Trainer contexts"""
+        self.model = GPT(self.config)
+
+        if trainer_ckpt is not None:
+            # strip the object name key from the state_dict
+            state_dict = torch.load(trainer_ckpt, weights_only=True)["state_dict"]
+            first_key = next(iter(state_dict))
+            prefix = first_key.split(".")[0] + "."
+            keys_to_modify = [key for key in state_dict if key.startswith(prefix)]
+            for key in keys_to_modify:
+                new_key = key.replace(prefix, "", 1)
+                state_dict[new_key] = state_dict.pop(key)
+
+            self.load_state_dict(state_dict, strict=True)   
+
+        elif self.checkpoint_dir is not None:
+            state_dict = torch.load(self.checkpoint_dir / "lit_model.pth", weights_only=False)
+            self.load_state_dict(state_dict, strict=False)
+
+        else:
+            raise ValueError(
+                "No checkpoint found. Either provide a valid path via `trainer_ckpt` "
+                "or ensure that `self.checkpoint_dir` points to a folder containing a `lit_model.pth` weight file."
+            )
+
+    def save(self, out_dir: Optional[Path] = None, prompt_style: Optional[PromptStyle] = None) -> None:
+        out_dir = Path(out_dir)
+        save_path = out_dir / "lit_model.pth"
+        save_path.parent.mkdir(parents=True, exist_ok=True)
+
+        if prompt_style is None:
+            prompt_style = PromptStyle.from_config(self.config)
+        if self.fabric is None:
+            torch.save(self.state_dict(), save_path)
+        else:
+            self.fabric.save(save_path, self.state_dict())
+
+        if self.fabric is None or self.fabric.global_rank == 0:
+            # If initialization a model with random weights, the checkpoint dir can be none
+            if self.checkpoint_dir is not None:
+                copy_config_files(Path(self.checkpoint_dir), save_path.parent)
+            else:
+                save_config(self.config, out_dir)
+
+            save_prompt_style(prompt_style, save_path.parent)
 
     @classmethod
     def load(
@@ -107,7 +176,7 @@ class LLM:
         allowed_init = {"pretrained", "random"}
 
         if init == "pretrained":
-            checkpoint_dir = auto_download_checkpoint(model_name=model, access_token=access_token)
+            checkpoint_dir = auto_download_checkpoint(model_name=model, access_token=access_token, ignore_tokenizer_files=tokenizer_dir is not None)
             config = Config.from_file(checkpoint_dir / "model_config.yaml")
 
         elif init == "random":
@@ -118,7 +187,7 @@ class LLM:
                 print(f"Model name {model} is not supported.\n")
                 available_models = "\n".join(sorted(name_to_config))
                 print(f"Available values:\n{available_models}")
-                quit()
+                return
 
         else:
             raise ValueError(f"Invalid init option: {init}. Must be one of {allowed_init}")
@@ -187,7 +256,7 @@ class LLM:
         quantize: Optional[Literal["bnb.nf4", "bnb.nf4-dq", "bnb.fp4", "bnb.fp4-dq", "bnb.int8"]] = None,
         generate_strategy: Optional[Literal["sequential", "tensor_parallel"]] = None,
         fixed_kv_cache_size: Union[int, Literal["max_model_supported"], None] = None
-    ):
+    ) -> None:
         """
         Moves the model onto specified devices for single-GPU or multi-GPU inference
 
@@ -401,19 +470,27 @@ class LLM:
                 At the moment, this setting is slower and may use more memory than the non-streaming version.
                 We plan to resolve this in the future.
         """
-        assert self.model is not None
+        if self.model is None:
+            raise AttributeError(
+                "The model is not initialized yet; use the .distribute() "
+                "or .trainer_setup() method to initialize the model."
+            )
         input_ids = self._text_to_token_ids(prompt)
         prompt_length = input_ids.size(0)
         max_returned_tokens = prompt_length + max_new_tokens
 
         if not self.kv_cache_initialized:
-            self.model.set_kv_cache(batch_size=1, max_seq_length=max_returned_tokens, device=self.fabric.device)
+            if self.fabric is not None:
+                device = self.fabric.device
+            else:
+                device = self.preprocessor.device
+            self.model.set_kv_cache(batch_size=1, max_seq_length=max_returned_tokens, device=device)
             self.kv_cache_initialized = True
 
         # Dynamically grow the kv cache size if necessary
         if self.fixed_kv_cache_size is None and self.prev_generated_seq_length < max_returned_tokens:
             self.model.clear_kv_cache()
-            self.model.set_kv_cache(batch_size=1, max_seq_length=max_returned_tokens, device=self.fabric.device)
+            self.model.set_kv_cache(batch_size=1, max_seq_length=max_returned_tokens, device=device)
 
         else:
             for block in self.model.transformer.h:
@@ -493,7 +570,7 @@ class LLM:
         benchmark_dict["Seconds to first token"] = time_to_first_token
         benchmark_dict["Tokens generated"] = self.preprocessor.encode(outputs).size(0) - self._text_to_token_ids(kwargs.get("prompt")).size(0)
         benchmark_dict["Inference speed in tokens/sec"] = benchmark_dict["Tokens generated"] / benchmark_dict["Seconds total"]
-        if self.fabric.device.type == "cuda":
+        if self.fabric is not None and self.fabric.device.type == "cuda":
             benchmark_dict["Total GPU memory allocated in GB"] = torch.cuda.max_memory_allocated() / 1e9
 
         return outputs, benchmark_dict
