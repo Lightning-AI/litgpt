@@ -102,7 +102,8 @@ the `generate_strategy="sequential"` setting to load different parts of the mode
 from litgpt.api import LLM
 
 llm = LLM.load(
-    "microsoft/phi-2"
+    "microsoft/phi-2",
+    distribute=None
 )
 
 llm.distribute(
