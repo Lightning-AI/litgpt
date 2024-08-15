@@ -1,13 +1,18 @@
+# Copyright Lightning AI. Licensed under the Apache License 2.0, see LICENSE file.
+
+from collections import OrderedDict
+import os
 from pathlib import Path
 
-import os
 import pytest
 import re
 import torch
 from unittest.mock import MagicMock
+from tests.conftest import RunIf
+
 from litgpt.api import LLM, calculate_number_of_devices
 from litgpt.scripts.download import download_from_hub
-from tests.conftest import RunIf
+
 
 
 @pytest.fixture
@@ -117,10 +122,11 @@ def test_model_not_initialized(tmp_path):
         init="pretrained",
         distribute=None
     )
-    with pytest.raises(AttributeError, match=re.escape("The model is not initialized yet; use the .distribute() method to initialize the model.")):
-        llm.model
-
-    with pytest.raises(AttributeError, match=re.escape("The model is not initialized yet; use the .distribute() method to initialize the model.")):
+    s = (
+        "The model is not initialized yet; use the .distribute() "
+        "or .trainer_setup() method to initialize the model."
+    )
+    with pytest.raises(AttributeError, match=re.escape(s)):
         llm.generate("text")
 
     llm = LLM.load(
@@ -129,10 +135,11 @@ def test_model_not_initialized(tmp_path):
         init="random",
         distribute=None
     )
-    with pytest.raises(AttributeError, match=re.escape("The model is not initialized yet; use the .distribute() method to initialize the model.")):
-        llm.model
-
-    with pytest.raises(AttributeError, match=re.escape("The model is not initialized yet; use the .distribute() method to initialize the model.")):
+    s = (
+        "The model is not initialized yet; use the .distribute() "
+        "or .trainer_setup() method to initialize the model."
+    )
+    with pytest.raises(AttributeError, match=re.escape(s)):
         llm.generate("text")
 
 
@@ -179,6 +186,23 @@ def test_sequential_tp_cpu(tmp_path):
             )
 
 
+def test_initialization_for_trainer(tmp_path):
+    llm = LLM.load(
+        model="EleutherAI/pythia-14m",
+        distribute=None
+    )
+    s = (
+        "The model is not initialized yet; use the .distribute() "
+        "or .trainer_setup() method to initialize the model."
+    )
+    with pytest.raises(AttributeError, match=re.escape(s)):
+        llm.generate("hello world")
+
+    llm.trainer_setup()
+    llm.model.to(llm.preprocessor.device)
+    assert isinstance(llm.generate("hello world"), str)
+
+
 @RunIf(min_cuda_gpus=1)
 def test_quantization_is_applied(tmp_path):
     llm = LLM.load(
@@ -217,3 +241,46 @@ def test_returned_benchmark_dir(tmp_path):
 
     text, bench_d = llm.benchmark(prompt="hello world", stream=True)
     assert isinstance(bench_d["Inference speed in tokens/sec"], float)
+
+
+def test_state_dict(tmp_path):
+    llm = LLM.load(
+        model="EleutherAI/pythia-14m",
+    )
+    assert isinstance(llm.state_dict(), OrderedDict)
+    assert llm.state_dict()['lm_head.weight'].shape == torch.Size([50304, 128])
+
+
+def test_save_method(tmp_path):
+    llm = LLM.load(
+        model="EleutherAI/pythia-14m",
+    )
+
+    target_dir = "saved_model"
+    llm.save(target_dir)
+
+    expected_files = [
+        "config.json",
+        "generation_config.json",
+        "lit_model.pth",
+        "model_config.yaml",
+        "prompt_style.yaml",
+        "tokenizer_config.json",
+        "tokenizer.json"
+    ]
+
+    files_in_directory = os.listdir(target_dir)
+    for file_name in expected_files:
+        assert file_name in files_in_directory, f"{file_name} is missing from {target_dir}"
+
+
+def test_forward_method(tmp_path):
+    llm = LLM.load(
+        model="EleutherAI/pythia-14m",
+    )
+    inputs = torch.ones(6, 128, dtype=torch.int64).to(next(llm.model.parameters()).device)
+
+    assert llm(inputs).shape == torch.Size([6, 128, 50304])
+    logits, loss = llm(inputs, target_ids=inputs)
+    assert logits.shape == torch.Size([6, 128, 50304])
+    assert isinstance(loss.item(), float)

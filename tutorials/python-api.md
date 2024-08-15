@@ -153,10 +153,6 @@ if __name__ == "__main__":
     print(llm.generate(prompt="What is 1+2?", top_k=1))
 ```
 
-```
-
-```
-
 
 &nbsp;
 ## Speed and resource estimates
@@ -187,4 +183,186 @@ pprint(bench_d)
 #  'Seconds total': 1.5935972900006163,
 #  'Tokens generated': 25,
 #  'Total GPU memory allocated in GB': 11.534106624}
+```
+
+
+&nbsp;
+## PyTorch Lightning Trainer support
+
+You can use the LitGPT `LLM` class with the [PyTorch Lightning Trainer](https://lightning.ai/docs/pytorch/stable/common/trainer.html) to pretrain and finetune models. 
+
+The examples below show the usage via a simple 160 million parameter model for demonstration purposes to be able to quickly try it out. However, you can replace the `EleutherAI/pythia-160m` model with any model supported by LitGPT (you can find a list of supported models by executing `litgpt download list` or visiting the [model weight docs](download_model_weights.md)).
+
+&nbsp;
+### Step 1: Define a `LightningModule`
+
+First, we define a `LightningModule` similar to what we would do when working with other types of neural networks in PyTorch Lightning:
+
+
+```python
+import torch
+import litgpt
+from litgpt import LLM
+from litgpt.data import Alpaca2k
+import lightning as L
+
+
+class LitLLM(L.LightningModule):
+    def __init__(self, checkpoint_dir, tokenizer_dir=None, trainer_ckpt_path=None):
+        super().__init__()
+ 
+        self.llm = LLM.load(checkpoint_dir, tokenizer_dir=tokenizer_dir, distribute=None)
+        self.trainer_ckpt_path = trainer_ckpt_path
+
+    def setup(self, stage):
+        self.llm.trainer_setup(trainer_ckpt=self.trainer_ckpt_path)
+        
+    def training_step(self, batch):
+        logits, loss = self.llm(input_ids=batch["input_ids"], target_ids=batch["labels"])
+        self.log("train_loss", loss, prog_bar=True)
+        return loss
+
+    def validation_step(self, batch):
+        logits, loss = self.llm(input_ids=batch["input_ids"], target_ids=batch["labels"])
+        self.log("validation_loss", loss, prog_bar=True)
+        return loss
+
+    def configure_optimizers(self):
+        warmup_steps = 10
+        optimizer = torch.optim.AdamW(self.llm.model.parameters(), lr=0.0002, weight_decay=0.0, betas=(0.9, 0.95))
+        scheduler = torch.optim.lr_scheduler.LambdaLR(optimizer, lambda step: step / warmup_steps)
+        return [optimizer], [scheduler]
+```
+
+In the code example above, note how we set `distribute=None` in `llm.load()` in the `__init__` method. This step is necessary because we want to let the PyTorch Lightning Trainer handle the GPU devices. We then call `self.llm.trainer_setup` in the `setup()` method, which adjusts the LitGPT settings to be compatible with the Trainer. Other than that, everything else looks like a standard `LightningModule`.
+
+Next, we have a selection of different use cases, but first, let's set some general settings to specify the batch size and gradient accumulation steps:
+
+```python
+batch_size = 8
+accumulate_grad_batches = 1
+```
+
+For larger models, you may want to decrease the batch size and increase the number of accumulation steps. (Setting `accumulate_grad_batches = 1` effectively disables gradient accumulation, and it is only shown here for reference in case you wish to change this setting.)
+
+### Step 2: Using the Trainer
+
+&nbsp;
+#### Use case 1: Pretraining from random weights
+
+In case you plan to train a model from scratch (not recommended over finetuning because training a model from scratch in general requires substantial time and resources), you can do it as follows:
+
+```python
+# Create model with random as opposed to pretrained weights
+llm = LLM.load("EleutherAI/pythia-160m", tokenizer_dir="EleutherAI/pythia-160m", init="random")
+llm.save("pythia-160m-random-weights")
+del llm
+
+lit_model = LitLLM(checkpoint_dir="pythia-160m-random-weights", tokenizer_dir="EleutherAI/pythia-160m")
+data = Alpaca2k()
+
+data.connect(lit_model.llm.tokenizer, batch_size=batch_size, max_seq_length=512)
+
+trainer = L.Trainer(
+    devices=1,
+    accelerator="cuda",
+    max_epochs=1,
+    accumulate_grad_batches=accumulate_grad_batches,
+    precision="bf16-true",
+)
+trainer.fit(lit_model, data)
+
+lit_model.llm.model.to(lit_model.llm.preprocessor.device)
+lit_model.llm.generate("hello world")
+```
+
+&nbsp;
+#### Use case 1: Continued pretraining or finetuning a downloaded model
+
+The continued pretraining or finetuning from a downloaded model checkpoint is similar to the example above, except that we can skip the initial steps of instantiating a model with random weights.
+
+```python
+
+lit_model = LitLLM(checkpoint_dir="EleutherAI/pythia-160m")
+data = Alpaca2k()
+
+data.connect(lit_model.llm.tokenizer, batch_size=batch_size, max_seq_length=512)
+
+trainer = L.Trainer(
+    devices=1,
+    accelerator="cuda",
+    max_epochs=1,
+    accumulate_grad_batches=accumulate_grad_batches,
+    precision="bf16-true",
+)
+trainer.fit(lit_model, data)
+
+lit_model.llm.model.to(lit_model.llm.preprocessor.device)
+lit_model.llm.generate("hello world")
+```
+
+&nbsp;
+#### Use case 3: Resume training from Trainer checkpoint
+
+Suppose you trained a model and decide to follow up with a few additional training rounds. This can be achieved as follows by loading an existing Trainer checkpoint:
+
+```python
+
+import os
+
+def find_latest_checkpoint(directory):
+    latest_checkpoint = None
+    latest_time = 0
+
+    for root, _, files in os.walk(directory):
+        for file in files:
+            if file.endswith('.ckpt'):
+                file_path = os.path.join(root, file)
+                file_time = os.path.getmtime(file_path)
+                if file_time > latest_time:
+                    latest_time = file_time
+                    latest_checkpoint = file_path
+
+    return latest_checkpoint
+
+lit_model = LitLLM(checkpoint_dir="EleutherAI/pythia-160m", trainer_ckpt_path=find_latest_checkpoint("lightning_logs"))
+
+data.connect(lit_model.llm.tokenizer, batch_size=batch_size, max_seq_length=512)
+
+trainer = L.Trainer(
+    devices=1,
+    accelerator="cuda",
+    max_epochs=1,
+    accumulate_grad_batches=accumulate_grad_batches,
+    precision="bf16-true",
+)
+trainer.fit(lit_model, data)
+
+lit_model.llm.model.to(lit_model.llm.preprocessor.device)
+lit_model.llm.generate("hello world")
+```
+
+&nbsp;
+#### Use case 4: Resume training after saving a checkpoint manually
+
+This example illustrates how we can save a LitGPT checkpoint from a previous training run that we can load and use later. Note that compared to using the Trainer checkpoint in the previous section, the model saved via this approach also contains the tokenizer and other relevant files. Hence, this approach does not require the original `"EleutherAI/pythia-160m"` model checkpoint directory.
+
+```python
+lit_model.llm.save("finetuned_checkpoint")
+del lit_model
+lit_model = LitLLM(checkpoint_dir="finetuned_checkpoint")
+
+data.connect(lit_model.llm.tokenizer, batch_size=batch_size, max_seq_length=512)
+
+trainer = L.Trainer(
+    devices=1,
+    accelerator="cuda",
+    max_epochs=1,
+    accumulate_grad_batches=accumulate_grad_batches,
+    precision="bf16-true",
+)
+trainer.fit(lit_model, data)
+
+lit_model.llm.model.to(lit_model.llm.preprocessor.device)
+lit_model.llm.generate("hello world")
 ```
