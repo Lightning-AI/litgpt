@@ -7,6 +7,7 @@ from io import StringIO
 from itertools import repeat
 from pathlib import Path
 from unittest.mock import ANY, MagicMock, Mock, call, patch
+from typing import Iterator
 
 import pytest
 import torch
@@ -61,25 +62,8 @@ def test_generate(monkeypatch, generated, stop_tokens, expected):
 
 @pytest.mark.parametrize("tokenizer_backend", ["huggingface", "sentencepiece"])
 def test_decode(tokenizer_backend):
-    class Tokenizer:
-        backend = tokenizer_backend
-        id2token = {1: "foo ", 2: "bar ", 3: "baz "}
-
-        def decode(self, tensor: torch.Tensor) -> str:
-            tensor = [tensor] if tensor.ndim == 0 else tensor
-            return "".join(self.id2token[int(value)] for value in tensor)
-
-    tokenizer_mock = Tokenizer()
-
-    fabric = Fabric(devices=1, accelerator="cpu")
-
-    # TODO: Rewrite test
-    # token_stream = torch.tensor([3, 2, 1])
-    # out, err = StringIO(), StringIO()
-    # with redirect_stdout(out), redirect_stderr(err):
-    #     chat.decode(fabric, tokenizer_mock, token_stream)
-
-    # assert out.getvalue() == "baz bar foo "
+    # TODO: Rewrite this test. Load a tokenizer from a checkpoint dir, and test decode() and decode_stream().
+    assert True
 
 
 @patch("litgpt.chat.base.input")
