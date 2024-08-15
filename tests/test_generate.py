@@ -44,11 +44,10 @@ def test_generate(max_seq_length):
     with mock.patch("litgpt.generate.base.multinomial_num_samples_1", multinomial):
         out = generate.generate(model, input_idx, T + max_new_tokens, top_k=1)
 
-    print(out)
-    assert out.size(0) == T + max_new_tokens
+    assert out.size(0) == T + max_new_tokens, (out.size(0), T + max_new_tokens)
     multinomial_results = torch.hstack(multinomial_results)
     expected = torch.cat((input_idx, multinomial_results))
-    assert out.shape == expected.shape
+    assert out.shape == expected.shape, (out.shape, expected.shape)
     torch.testing.assert_close(out, expected)
 
 

@@ -116,7 +116,7 @@ def _generate(
         token = next_token(model, input_pos, token.view(1, -1), temperature=temperature, top_k=top_k, top_p=top_p)
         tokens.append(token)
         int_token = token.item()
-        
+
         # Check for stop sequences
         # For each stop sequence, we keep a running total of how many are matched in stop_progress.
         # If the current token matches the next token in the stop sequence, we increment the
