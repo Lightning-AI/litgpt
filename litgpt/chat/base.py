@@ -61,8 +61,8 @@ def generate(
             or https://huyenchip.com/2024/01/16/sampling.html#top_p
         stop_tokens: If specified, stop generating any more token once one of this list is generated.
     """
-    from litgpt.generate.base import _generate
-    return _generate(
+    from litgpt.generate.base import generate_fn
+    return generate_fn(
         include_prompt=False,
         include_eos=False,
         model=model,

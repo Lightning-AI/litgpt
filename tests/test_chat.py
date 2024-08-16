@@ -145,9 +145,8 @@ import litgpt
 from litgpt.utils import auto_download_checkpoint
 
 
-prompt = "Hello world!"
-expected_output_part = "def reverse_string(s):"
-model_name = "microsoft/phi-2"
+prompt = "Hello World"
+model_name = "EleutherAI/pythia-14m"
 
 def test_litgpt_chat_endtoend():
     from litgpt.chat.base import main
@@ -164,7 +163,8 @@ def test_litgpt_chat_endtoend():
             except KeyboardInterrupt:
                 pass
 
-    assert expected_output_part in captured_output.getvalue(), "Expected output not found"
+    # pythia-14m is not instruct-tuned, so it does not give an "answer" per se, but a continuation.
+    assert ">> Reply: !" in captured_output.getvalue(), f"Expected output not found. Got:\n{captured_output.getvalue()}"
     assert simulated_input.call_count == 2
 
 
@@ -180,4 +180,5 @@ def test_litgpt_generate_endtoend():
         except KeyboardInterrupt:
             pass
 
-    assert expected_output_part in captured_output.getvalue(), "Expected output not found"
+    # pythia-14m is not instruct-tuned, so it does not give an "answer" per se, but a continuation.
+    assert "Hello World!" in captured_output.getvalue(), f"Expected output not found. Got:\n{captured_output.getvalue()}"

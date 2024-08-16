@@ -80,7 +80,7 @@ def next_token(model: GPT, input_pos: torch.Tensor, x: torch.Tensor, **kwargs: A
 
 
 @torch.inference_mode()
-def _generate(
+def generate_fn(
     model: GPT,
     prompt: torch.Tensor,
     max_returned_tokens: int,
@@ -93,7 +93,10 @@ def _generate(
     include_eos: bool,
 ) -> Iterator[torch.Tensor]:
     prompt_size = prompt.size(0)
-    assert max_returned_tokens > prompt_size
+    device = prompt.device
+
+    assert max_returned_tokens > prompt_size, f"Not enough space for {prompt_size} prompt tokens in a context length of {max_returned_tokens}."
+    assert max_returned_tokens > prompt_size, f"Not enough space for {prompt_size} prompt tokens in a context length of {max_returned_tokens}."
     if model.max_seq_length < max_returned_tokens - 1:
         raise NotImplementedError(f"max_seq_length {model.max_seq_length} needs to be >= {max_returned_tokens - 1}")
 
@@ -101,17 +104,19 @@ def _generate(
     if include_prompt:
         yield prompt
 
-    tokens = []
-    device = prompt.device
-
     stop_progress = [0] * len(stop_tokens)
     yielded_idx = 0
 
-    # Generate output tokens
+    # Generate output tokens.
+    # The first token generated is the prefill token.
+    # The input_pos for this token is the width of the entire prompt.
+    # For subsequent iterations, it's the index in the context for the token that we're generating.
+    tokens = []
     token = prompt
     prefill_token = True
     input_pos = torch.arange(0, prompt_size, device=device)
     for current_idx in range(max_returned_tokens - prompt_size):
+
         # Generate the token
         token = next_token(model, input_pos, token.view(1, -1), temperature=temperature, top_k=top_k, top_p=top_p)
         tokens.append(token)
@@ -120,12 +125,10 @@ def _generate(
         # Check for stop sequences
         # For each stop sequence, we keep a running total of how many are matched in stop_progress.
         # If the current token matches the next token in the stop sequence, we increment the
-        # running total and hold on yielding the token.
-        progress_made = False
+        # running total and hold off on yielding the token.
         for i, seq in enumerate(stop_tokens):
             if int_token == seq[stop_progress[i]]:
                 stop_progress[i] += 1
-                progress_made = True
                 if stop_progress[i] == len(seq):
                     if include_eos:
                         yield from tokens[yielded_idx:]
@@ -134,7 +137,7 @@ def _generate(
                 stop_progress[i] = 0
 
         # Yield tokens that are not part of a stop sequence in progress.
-        # If there are no stop tokens, that's all of them.
+        # If there are no stop sequences, then that's all of them.
         if stop_tokens:
             safe_idx = len(tokens) - max(stop_progress)
         else:
@@ -145,7 +148,7 @@ def _generate(
             yield from y_tokens
             yielded_idx = safe_idx
 
-        # Update input position for the next iteration
+        # Update input_pos for the next iteration.
         if prefill_token:
             prefill_token = False
             input_pos = torch.tensor([prompt_size], device=device)
@@ -196,7 +199,7 @@ def generate(
         include_prompt: If true (default) prepends the prompt (after applying the prompt style) to the output.
     """
 
-    token_list = list(_generate(
+    token_list = list(generate_fn(
         include_prompt=include_prompt,
         include_eos=True,
         model=model,
@@ -208,9 +211,7 @@ def generate(
         stop_tokens=(([eos_id],) if eos_id is not None else ())
     ))
 
-    if len(token_list) == 0:
-        return torch.Tensor() # Can't cat() list of len 0
-    return torch.cat(token_list)
+    return torch.cat(token_list) if not len(token_list) == 0 else torch.Tensor()
 
 
 @torch.inference_mode()
