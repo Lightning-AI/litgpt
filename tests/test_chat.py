@@ -16,7 +16,7 @@ from lightning.fabric import Fabric
 import litgpt.chat.base as chat
 import litgpt.generate.base as generate
 from litgpt import Config
-from litgpt.utils import save_config
+from litgpt.utils import save_config, auto_download_checkpoint
 
 
 @pytest.mark.parametrize(
@@ -137,25 +137,14 @@ def test_merge_lora_if_needed(mocked_merge_lora, mocked_input, fake_checkpoint_d
     mocked_merge_lora.assert_called_once()
 
 
-import io
-from unittest.mock import Mock, patch
-from contextlib import redirect_stdout
-
-import litgpt
-from litgpt.utils import auto_download_checkpoint
-
-
-prompt = "Hello World"
-model_name = "EleutherAI/pythia-14m"
-
 def test_litgpt_chat_endtoend():
     from litgpt.chat.base import main
 
-    checkpoint_dir = auto_download_checkpoint(model_name)
+    checkpoint_dir = auto_download_checkpoint("EleutherAI/pythia-14m")
 
     # Patch input() and redirect stdout. Raise to exit the repl.
     simulated_input = Mock(side_effect=["input", KeyboardInterrupt])
-    captured_output = io.StringIO()
+    captured_output = StringIO()
     with patch('builtins.input', simulated_input):
         with redirect_stdout(captured_output):
             try:
@@ -171,12 +160,12 @@ def test_litgpt_chat_endtoend():
 def test_litgpt_generate_endtoend():
     from litgpt.generate.base import main
 
-    checkpoint_dir = auto_download_checkpoint(model_name)
+    checkpoint_dir = auto_download_checkpoint("EleutherAI/pythia-14m")
 
-    captured_output = io.StringIO()
+    captured_output = StringIO()
     with redirect_stdout(captured_output):
         try:
-            main(checkpoint_dir=checkpoint_dir, prompt=prompt, max_new_tokens=256, top_k=1)
+            main(checkpoint_dir=checkpoint_dir, prompt="Hello World", max_new_tokens=256, top_k=1)
         except KeyboardInterrupt:
             pass
 
