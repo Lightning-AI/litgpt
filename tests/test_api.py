@@ -235,6 +235,7 @@ def test_quantization_is_applied(tmp_path):
     assert "NF4Linear" in str(type(llm.model.lm_head))
 
 
+@RunIf(min_cuda_gpus=1)
 def test_fixed_kv_cache(tmp_path):
     llm = LLM.load(
         model="EleutherAI/pythia-14m",

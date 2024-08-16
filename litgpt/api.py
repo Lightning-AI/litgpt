@@ -311,7 +311,7 @@ class LLM(torch.nn.Module):
             total_devices = CUDAAccelerator.auto_device_count()
             if use_devices > total_devices:
                 raise ValueError(
-                    f"You selected more devices {use_devices} than available in your system {total_devices}."
+                    f"You selected more devices ({use_devices}) than available in your system ({total_devices})."
                 )
             else:
                 total_devices = use_devices
