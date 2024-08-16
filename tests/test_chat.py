@@ -7,6 +7,7 @@ from io import StringIO
 from itertools import repeat
 from pathlib import Path
 from unittest.mock import ANY, MagicMock, Mock, call, patch
+from typing import Iterable
 
 import pytest
 import torch
@@ -15,7 +16,7 @@ from lightning.fabric import Fabric
 
 import litgpt.chat.base as chat
 import litgpt.generate.base as generate
-from litgpt import Config
+from litgpt import Config, Tokenizer
 from litgpt.utils import save_config, auto_download_checkpoint
 
 
@@ -59,10 +60,21 @@ def test_generate(monkeypatch, generated, stop_tokens, expected):
         assert actual_list == expected, (actual_list, expected)
 
 
-@pytest.mark.parametrize("tokenizer_backend", ["huggingface", "sentencepiece"])
-def test_decode(tokenizer_backend):
-    # TODO: Rewrite this test. Load a tokenizer from a checkpoint dir, and test decode() and decode_stream().
-    assert True
+def test_decode():
+    checkpoint_dir = auto_download_checkpoint("EleutherAI/pythia-14m")
+    tokenizer = Tokenizer(checkpoint_dir)
+
+    text = ("Hello World! This a bunch of text. Lorem ipsum dolor sit amet, "
+            "consectetur adipiscing elit, sed do eiusmod tempor incididunt "
+            "ut labore et dolore magna aliqua.")    
+
+    encoded: torch.Tensor = tokenizer.encode(text)
+    encoded_stream: Iterable[torch.Tensor] = torch.tensor_split(encoded, encoded.shape[0], dim=0)
+
+    decoded_stream: Iterator[str] = tokenizer.decode_stream(encoded_stream)
+    decoded: str = "".join(decoded_stream)
+
+    assert text == decoded, (text, decoded)
 
 
 @patch("litgpt.chat.base.input")

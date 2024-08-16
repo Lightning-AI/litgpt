@@ -2,7 +2,7 @@
 
 import json
 from pathlib import Path
-from typing import Optional, Union, Iterator
+from typing import Optional, Union, Iterable, Iterator
 
 import torch
 
@@ -137,7 +137,7 @@ class Tokenizer:
             return self.processor.decode([dummy_token_id] + tokens)[len(dummy_token) :]
         return self.processor.decode(tokens)
 
-    def decode_stream(self, token_stream: Iterator[torch.Tensor]) -> Iterator[str]:
+    def decode_stream(self, token_stream: Iterable[torch.Tensor]) -> Iterator[str]:
         if self.backend == "huggingface":
             try:
                 for token in token_stream:
