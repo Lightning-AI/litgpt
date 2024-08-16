@@ -74,6 +74,9 @@ def test_decode():
     decoded_stream: Iterator[str] = tokenizer.decode_stream(encoded_stream)
     decoded: str = "".join(decoded_stream)
 
+    # Note that encoded and decoded text will not always be character for character identical.abs
+    # Indeed, sometimes it is not. But that tends to be because of special cases, and this is not
+    # one of those.
     assert text == decoded, (text, decoded)
 
 
