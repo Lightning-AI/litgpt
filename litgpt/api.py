@@ -499,8 +499,9 @@ class LLM(torch.nn.Module):
 
         # Dynamically grow the kv cache size if necessary
         if not self.fixed_kv_cache_size and self.prev_generated_seq_length < max_returned_tokens:
+            tmp_device = self.model.mask_cache.device
             self.model.clear_kv_cache()
-            self.model.set_kv_cache(batch_size=1, max_seq_length=max_returned_tokens, device=self.model.mask_cache.device)
+            self.model.set_kv_cache(batch_size=1, max_seq_length=max_returned_tokens, device=tmp_device)
 
         else:
             for block in self.model.transformer.h:
