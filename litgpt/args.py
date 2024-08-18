@@ -49,7 +49,7 @@ class TrainArgs:
     # Freeze the sampling rate to the initial weights specified
     freeze_sampling_rate: Optional[bool] = False
 
-    scheduler: Optional[Literal["linear", "grad", "ts_gp"]] = None
+    data_scheduler: Optional[Literal["linear", "grad", "ts_gp"]] = None
 
     # use an exponential decay schedule
     lr_scheduler: Literal["cosine", "decay", "constant"] = "cosine"
@@ -79,7 +79,7 @@ class TrainArgs:
                 UserWarning,
             )
 
-        if self.freeze_sampling_rate and self.scheduler:
+        if self.freeze_sampling_rate and self.data_scheduler:
             raise ValueError("cannot use a data scheduler with frozen sampling rate")
 
     def gradient_accumulation_iters(self, devices: int) -> int:
