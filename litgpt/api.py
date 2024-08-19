@@ -6,6 +6,7 @@ import sys
 import time
 from typing import Any, Callable, List, Literal, Optional, Union, Tuple
 
+import numpy as np
 from tqdm import tqdm
 import torch
 import lightning as L
@@ -543,35 +544,45 @@ class LLM(torch.nn.Module):
         input_ids = self.preprocessor.encode(prompt)
         return input_ids
 
-    def benchmark(self, **kwargs):
+    def benchmark(self, num_iterations=1, **kwargs):
         """
         A wrapper around the .generate() method to calculate runtime performance.
 
         Arguments:
+        num_iterations: How often the `.generate()` call is repeated.
         kwargs: Keyword arguments that are passed to the .generate() method.
         """
         benchmark_dict = {}
 
-        time_to_first_token = None
-        t0 = time.perf_counter()
-        outputs = self.generate(**kwargs)
+        for i in range(num_iterations):
 
-        if kwargs.get("stream", False):
-            gen_outputs = []
-            for e in outputs:
-                if time_to_first_token is None:
-                    t1 = time.perf_counter()
-                    time_to_first_token = t1 - t0
-                gen_outputs.append(e)
-            outputs = "".join(gen_outputs)
-        else:
-            outputs = self.generate(**kwargs, )
-        benchmark_dict["Seconds total"] = time.perf_counter() - t0
-        benchmark_dict["Seconds to first token"] = time_to_first_token
-        benchmark_dict["Tokens generated"] = self.preprocessor.encode(outputs).size(0) - self._text_to_token_ids(kwargs.get("prompt")).size(0)
-        benchmark_dict["Inference speed in tokens/sec"] = benchmark_dict["Tokens generated"] / benchmark_dict["Seconds total"]
-        if self.fabric is not None and self.fabric.device.type == "cuda":
-            benchmark_dict["Total GPU memory allocated in GB"] = torch.cuda.max_memory_allocated() / 1e9
+            time_to_first_token = None
+            t0 = time.perf_counter()
+            outputs = self.generate(**kwargs)
+
+            if kwargs.get("stream", False):
+                gen_outputs = []
+                for e in outputs:
+                    if time_to_first_token is None:
+                        t1 = time.perf_counter()
+                        time_to_first_token = t1 - t0
+                    gen_outputs.append(e)
+                outputs = "".join(gen_outputs)
+            else:
+                outputs = self.generate(**kwargs, )
+            benchmark_dict.setdefault("Seconds total", []).append(time.perf_counter() - t0)
+
+            benchmark_dict.setdefault("Seconds to first token", []).append(time_to_first_token)
+            benchmark_dict.setdefault("Tokens generated", []).append(
+                self.preprocessor.encode(outputs).size(0) - self._text_to_token_ids(kwargs.get("prompt")).size(0)
+            )
+            benchmark_dict.setdefault("Inference speed in tokens/sec", []).append(
+                benchmark_dict["Tokens generated"][-1] / benchmark_dict["Seconds total"][-1]
+            )
+            if self.fabric is not None and self.fabric.device.type == "cuda":
+                benchmark_dict.setdefault("Total GPU memory allocated in GB", []).append(
+                    torch.cuda.max_memory_allocated() / 1e9
+                )
 
         return outputs, benchmark_dict
 
@@ -598,3 +609,91 @@ def calculate_number_of_devices(devices):
     """
     num_devices = devices if isinstance(devices, int) else len(devices) if isinstance(devices, list) else 0
     return num_devices
+
+
+def benchmark_dict_to_markdown_table(data):
+    """
+    Converts .benchmark() outputs to a markdown table
+    """
+    markdown_table = "| Metric                              | Mean                        | Std Dev                     |\n"
+    markdown_table += "|-------------------------------------|-----------------------------|-----------------------------|\n"
+
+    for key, values in data.items():
+        mean_value = np.mean(values)
+        std_dev_value = np.std(values, ddof=1)
+
+        formatted_mean = f"{mean_value:.2f}"
+        formatted_std_dev = f"{std_dev_value:.2f}"
+
+        markdown_table += f"| {key.ljust(35)} | {formatted_mean.ljust(27)} | {formatted_std_dev.ljust(27)} |\n"
+
+    return markdown_table
+
+
+def pull_request_benchmark_util(model_name="microsoft/phi-2", num_iterations=6):
+
+    def print_table(header, data):
+        print(f"\n### {header}\n")
+        markdown_table = (
+            f"| Metric                               | First Iteration | "
+            f"Iter 2-{num_iterations} Mean     | Iter 2-{num_iterations} Standard Dev.  |\n"
+            f"|--------------------------------------|-----------------|"
+            f"-------------------|-------------------------|\n"
+        )
+
+        for key, value in data.items():
+            first_iteration = f"{value[0]:.2f}" if value[0] is not None else 'N/A'
+            clean_values = [v for v in value[1:] if v is not None]
+
+            if clean_values:
+                mean_value = np.mean(clean_values)
+                std_dev_value = np.std(clean_values, ddof=1)
+                mean_str = f"{mean_value:.2f}"
+                std_dev_str = f"{std_dev_value:.2f}"
+            else:
+                mean_str = "N/A"
+                std_dev_str = "N/A"
+
+            markdown_table += (
+                f"| {key:<36} | {first_iteration:<15} | "
+                f"{mean_str:<17} | {std_dev_str:<23} |\n"
+            )
+        print(markdown_table)
+
+    print(f"PyTorch version: {torch.__version__}")
+    device = torch.device("cuda" if torch.cuda.is_available() else "cpu")
+    print(f"Device: {device}\n")
+
+    # 1st table
+    llm = LLM.load(
+        model=model_name,
+    )
+    text, bench_d = llm.benchmark(num_iterations=num_iterations, prompt="What do llamas eat?", top_k=1)
+    print_table(f"Defaults ({model_name}), 1st time", bench_d)
+    del llm
+
+    # 2nd table
+    llm = LLM.load(
+        model=model_name,
+    )
+    text, bench_d = llm.benchmark(num_iterations=num_iterations, prompt="What do llamas eat?", top_k=1)
+    print_table(f"Defaults ({model_name}), 2nd time", bench_d)
+    del llm
+
+    # 3nd table
+    llm = LLM.load(
+        model=model_name,
+    )
+    text, bench_d = llm.benchmark(num_iterations=num_iterations, prompt="What do llamas eat?", top_k=1, stream=True)
+    print_table("stream=True", bench_d)
+    del llm
+
+    # 4th table
+    llm = LLM.load(
+        model=model_name,
+        distribute=None
+    )
+    llm.distribute(fixed_kv_cache_size=500)
+
+    text, bench_d = llm.benchmark(num_iterations=num_iterations, prompt="What do llamas eat?", top_k=1, stream=True)
+    print_table("stream=True + fixed_kv_cache=500", bench_d)

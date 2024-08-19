@@ -178,12 +178,65 @@ pprint(bench_d)
 # Llamas are herbivores and primarily eat grass, leaves, and shrubs. They have a specialized 
 # digestive system that allows them to efficiently extract nutrients from plant material.
 
-# {'Inference speed in tokens/sec': 15.687777681894985,
-#  'Seconds to first token': 0.5756612900004257,
-#  'Seconds total': 1.5935972900006163,
-#  'Tokens generated': 25,
-#  'Total GPU memory allocated in GB': 11.534106624}
+# Using 1 device(s)
+#  Llamas are herbivores and primarily eat grass, leaves, and shrubs. They have a unique digestive system that allows them to efficiently extract nutrients from tough plant material.
+
+# {'Inference speed in tokens/sec': [17.617540650112936],
+#  'Seconds to first token': [0.6533610639999097],
+#  'Seconds total': [1.4758019020000575],
+#  'Tokens generated': [26],
+#  'Total GPU memory allocated in GB': [5.923729408]}
 ```
+
+To get more reliably estimates, it's recommended to repeat the benchmark for multiple iterations via `num_iterations=10`:
+
+```python
+text, bench_d = llm.benchmark(num_iterations=10, prompt="What do llamas eat?", top_k=1, stream=True)
+print(text)
+pprint(bench_d)
+
+# Using 1 device(s)
+#  Llamas are herbivores and primarily eat grass, leaves, and shrubs. They have a unique digestive system that allows them to efficiently extract nutrients from tough plant material.
+
+# {'Inference speed in tokens/sec': [17.08638672485105,
+#                                    31.79908547222976,
+#                                    32.83646959864293,
+#                                    32.95994240022436,
+#                                    33.01563039816964,
+#                                    32.85263413816648,
+#                                    32.82712094713627,
+#                                    32.69216141907453,
+#                                    31.52431714347663,
+#                                    32.56752130561681],
+#  'Seconds to first token': [0.7278506560005553,
+#                             0.022963577999689733,
+#                             0.02399449199947412,
+#                             0.022921959999621322,
+# ...
+```
+
+As one can see, the first iteration may take longer due to warmup times. So, it's recommended to discard the first iteration:
+
+```python
+for key in bench_d:
+    bench_d[key] = bench_d[key][1:]
+```
+
+For better visualization, you can use the `benchmark_dict_to_markdown_table` function
+
+```python
+from litgpt.api import benchmark_dict_to_markdown_table
+
+print(benchmark_dict_to_markdown_table(bench_d_list))
+```
+
+| Metric                              | Mean                        | Std Dev                     |
+|-------------------------------------|-----------------------------|-----------------------------|
+| Seconds total                       | 0.80                        | 0.01                        |
+| Seconds to first token              | 0.02                        | 0.00                        |
+| Tokens generated                    | 26.00                       | 0.00                        |
+| Inference speed in tokens/sec       | 32.56                       | 0.50                        |
+| Total GPU memory allocated in GB    | 5.92                        | 0.00                        |
 
 
 &nbsp;
