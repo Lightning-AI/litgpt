@@ -639,3 +639,72 @@ def benchmark_dict_to_markdown_table(data):
         markdown_table += f"| {key.ljust(35)} | {formatted_mean.ljust(27)} | {formatted_std_dev.ljust(27)} |\n"
 
     return markdown_table
+
+
+def pull_request_benchmark_util(model_name="microsoft/phi-2", num_iterations=6):
+
+    def print_table(header, data):
+        print(f"\n### {header}\n")
+        markdown_table = (
+            f"| Metric                               | First Iteration | "
+            f"Iter 2-{num_iterations} Mean     | Iter 2-{num_iterations} Standard Dev.  |\n"
+            f"|--------------------------------------|-----------------|"
+            f"-------------------|-------------------------|\n"
+        )
+
+        for key, value in data.items():
+            first_iteration = f"{value[0]:.2f}" if value[0] is not None else 'N/A'
+            clean_values = [v for v in value[1:] if v is not None]
+
+            if clean_values:
+                mean_value = np.mean(clean_values)
+                std_dev_value = np.std(clean_values, ddof=1)
+                mean_str = f"{mean_value:.2f}"
+                std_dev_str = f"{std_dev_value:.2f}"
+            else:
+                mean_str = "N/A"
+                std_dev_str = "N/A"
+
+            markdown_table += (
+                f"| {key:<36} | {first_iteration:<15} | "
+                f"{mean_str:<17} | {std_dev_str:<23} |\n"
+            )
+        print(markdown_table)
+
+    print(f"PyTorch version: {torch.__version__}")
+    device = torch.device("cuda" if torch.cuda.is_available() else "cpu")
+    print(f"Device: {device}\n")
+
+    # 1st table
+    llm = LLM.load(
+        model=model_name,
+    )
+    text, bench_d = llm.benchmark(num_iterations=num_iterations, prompt="What do llamas eat?", top_k=1)
+    print_table(f"Defaults ({model_name}), 1st time", bench_d)
+    del llm
+
+    # 2nd table
+    llm = LLM.load(
+        model=model_name,
+    )
+    text, bench_d = llm.benchmark(num_iterations=num_iterations, prompt="What do llamas eat?", top_k=1)
+    print_table(f"Defaults ({model_name}), 2nd time", bench_d)
+    del llm
+
+    # 3nd table
+    llm = LLM.load(
+        model=model_name,
+    )
+    text, bench_d = llm.benchmark(num_iterations=num_iterations, prompt="What do llamas eat?", top_k=1, stream=True)
+    print_table("stream=True", bench_d)
+    del llm
+
+    # 4th table
+    llm = LLM.load(
+        model=model_name,
+        distribute=None
+    )
+    llm.distribute(fixed_kv_cache_size=500)
+
+    text, bench_d = llm.benchmark(num_iterations=num_iterations, prompt="What do llamas eat?", top_k=1, stream=True)
+    print_table("stream=True + fixed_kv_cache=500", bench_d)
