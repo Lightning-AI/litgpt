@@ -6,6 +6,7 @@ import sys
 import time
 from typing import Any, Callable, List, Literal, Optional, Union, Tuple
 
+import numpy as np
 from tqdm import tqdm
 import torch
 import lightning as L
@@ -554,35 +555,45 @@ class LLM(torch.nn.Module):
         input_ids = self.preprocessor.encode(prompt)
         return input_ids
 
-    def benchmark(self, **kwargs):
+    def benchmark(self, num_iterations=1, **kwargs):
         """
         A wrapper around the .generate() method to calculate runtime performance.
 
         Arguments:
+        num_iterations: How often the `.generate()` call is repeated.
         kwargs: Keyword arguments that are passed to the .generate() method.
         """
         benchmark_dict = {}
 
-        time_to_first_token = None
-        t0 = time.perf_counter()
-        outputs = self.generate(**kwargs)
+        for i in range(num_iterations):
 
-        if kwargs.get("stream", False):
-            gen_outputs = []
-            for e in outputs:
-                if time_to_first_token is None:
-                    t1 = time.perf_counter()
-                    time_to_first_token = t1 - t0
-                gen_outputs.append(e)
-            outputs = "".join(gen_outputs)
-        else:
-            outputs = self.generate(**kwargs, )
-        benchmark_dict["Seconds total"] = time.perf_counter() - t0
-        benchmark_dict["Seconds to first token"] = time_to_first_token
-        benchmark_dict["Tokens generated"] = self.preprocessor.encode(outputs).size(0) - self._text_to_token_ids(kwargs.get("prompt")).size(0)
-        benchmark_dict["Inference speed in tokens/sec"] = benchmark_dict["Tokens generated"] / benchmark_dict["Seconds total"]
-        if self.fabric is not None and self.fabric.device.type == "cuda":
-            benchmark_dict["Total GPU memory allocated in GB"] = torch.cuda.max_memory_allocated() / 1e9
+            time_to_first_token = None
+            t0 = time.perf_counter()
+            outputs = self.generate(**kwargs)
+
+            if kwargs.get("stream", False):
+                gen_outputs = []
+                for e in outputs:
+                    if time_to_first_token is None:
+                        t1 = time.perf_counter()
+                        time_to_first_token = t1 - t0
+                    gen_outputs.append(e)
+                outputs = "".join(gen_outputs)
+            else:
+                outputs = self.generate(**kwargs, )
+            benchmark_dict.setdefault("Seconds total", []).append(time.perf_counter() - t0)
+
+            benchmark_dict.setdefault("Seconds to first token", []).append(time_to_first_token)
+            benchmark_dict.setdefault("Tokens generated", []).append(
+                self.preprocessor.encode(outputs).size(0) - self._text_to_token_ids(kwargs.get("prompt")).size(0)
+            )
+            benchmark_dict.setdefault("Inference speed in tokens/sec", []).append(
+                benchmark_dict["Tokens generated"][-1] / benchmark_dict["Seconds total"][-1]
+            )
+            if self.fabric is not None and self.fabric.device.type == "cuda":
+                benchmark_dict.setdefault("Total GPU memory allocated in GB", []).append(
+                    torch.cuda.max_memory_allocated() / 1e9
+                )
 
         return outputs, benchmark_dict
 
@@ -609,3 +620,22 @@ def calculate_number_of_devices(devices):
     """
     num_devices = devices if isinstance(devices, int) else len(devices) if isinstance(devices, list) else 0
     return num_devices
+
+
+def benchmark_dict_to_markdown_table(data):
+    """
+    Converts .benchmark() outputs to a markdown table
+    """
+    markdown_table = "| Metric                              | Mean                        | Std Dev                     |\n"
+    markdown_table += "|-------------------------------------|-----------------------------|-----------------------------|\n"
+
+    for key, values in data.items():
+        mean_value = np.mean(values)
+        std_dev_value = np.std(values, ddof=1)
+
+        formatted_mean = f"{mean_value:.2f}"
+        formatted_std_dev = f"{std_dev_value:.2f}"
+
+        markdown_table += f"| {key.ljust(35)} | {formatted_mean.ljust(27)} | {formatted_std_dev.ljust(27)} |\n"
+
+    return markdown_table
