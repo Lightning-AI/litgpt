@@ -11,7 +11,11 @@ from unittest.mock import MagicMock
 from tests.conftest import RunIf
 
 from lightning.fabric.accelerators import CUDAAccelerator
-from litgpt.api import LLM, calculate_number_of_devices
+from litgpt.api import (
+    LLM,
+    calculate_number_of_devices,
+    benchmark_dict_to_markdown_table
+)
 from litgpt.scripts.download import download_from_hub
 
 
@@ -261,10 +265,69 @@ def test_returned_benchmark_dir(tmp_path):
     )
 
     text, bench_d = llm.benchmark(prompt="hello world")
-    assert isinstance(bench_d["Inference speed in tokens/sec"], float)
+    assert isinstance(bench_d["Inference speed in tokens/sec"], list)
+    assert len(bench_d["Inference speed in tokens/sec"]) == 1
+    assert isinstance(bench_d["Inference speed in tokens/sec"][0], float)
 
     text, bench_d = llm.benchmark(prompt="hello world", stream=True)
-    assert isinstance(bench_d["Inference speed in tokens/sec"], float)
+    assert isinstance(bench_d["Inference speed in tokens/sec"], list)
+    assert len(bench_d["Inference speed in tokens/sec"]) == 1
+    assert isinstance(bench_d["Inference speed in tokens/sec"][0], float)
+
+    text, bench_d = llm.benchmark(num_iterations=10, prompt="hello world", stream=True)
+    assert isinstance(bench_d["Inference speed in tokens/sec"], list)
+    assert len(bench_d["Inference speed in tokens/sec"]) == 10
+    assert isinstance(bench_d["Inference speed in tokens/sec"][0], float)
+
+
+def test_benchmark_dict_to_markdown_table_single_values():
+    bench_d = {
+        'Inference speed in tokens/sec': [17.617540650112936],
+        'Seconds to first token': [0.6533610639999097],
+        'Seconds total': [1.4758019020000575],
+        'Tokens generated': [26],
+        'Total GPU memory allocated in GB': [5.923729408]
+    }
+
+    expected_output = (
+        "| Metric                              | Mean                        | Std Dev                     |\n"
+        "|-------------------------------------|-----------------------------|-----------------------------|\n"
+        "| Inference speed in tokens/sec       | 17.62                       | nan                         |\n"
+        "| Seconds to first token              | 0.65                        | nan                         |\n"
+        "| Seconds total                       | 1.48                        | nan                         |\n"
+        "| Tokens generated                    | 26.00                       | nan                         |\n"
+        "| Total GPU memory allocated in GB    | 5.92                        | nan                         |\n"
+    )
+
+    assert benchmark_dict_to_markdown_table(bench_d) == expected_output
+
+def test_benchmark_dict_to_markdown_table_multiple_values():
+    bench_d_list = {
+        'Inference speed in tokens/sec': [17.034547562152305, 32.8974175404589, 33.04784205046782, 32.445697744648584,
+                                          33.204480197756396, 32.64187570945661, 33.21232058140845, 32.69377798373551,
+                                          32.92351459309756, 32.48909032591177],
+        'Seconds to first token': [0.7403525039999295, 0.022901020000063, 0.02335712100011733, 0.022969672000272112,
+                                   0.022788318000039, 0.02365505999978268, 0.02320190000000366, 0.022791139999753796,
+                                   0.022871761999795126, 0.023060415999680117],
+        'Seconds total': [1.5263099829999192, 0.7903355929997815, 0.7867382069998712, 0.8013389080001616,
+                          0.7830268640000213, 0.7965228539997042, 0.7828420160003589, 0.7952583520000189,
+                          0.7897091279996857, 0.8002686360000553],
+        'Tokens generated': [26, 26, 26, 26, 26, 26, 26, 26, 26, 26],
+        'Total GPU memory allocated in GB': [5.923729408, 5.923729408, 5.923729408, 5.923729408, 5.923729408,
+                                             5.923729408, 5.923729408, 5.923729408, 5.923729408, 5.923729408]
+    }
+
+    expected_output = (
+        "| Metric                              | Mean                        | Std Dev                     |\n"
+        "|-------------------------------------|-----------------------------|-----------------------------|\n"
+        "| Inference speed in tokens/sec       | 31.26                       | 5.01                        |\n"
+        "| Seconds to first token              | 0.09                        | 0.23                        |\n"
+        "| Seconds total                       | 0.87                        | 0.23                        |\n"
+        "| Tokens generated                    | 26.00                       | 0.00                        |\n"
+        "| Total GPU memory allocated in GB    | 5.92                        | 0.00                        |\n"
+    )
+
+    assert benchmark_dict_to_markdown_table(bench_d_list) == expected_output
 
 
 def test_state_dict(tmp_path):
