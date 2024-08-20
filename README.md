@@ -682,7 +682,7 @@ We welcome all individual contributors, regardless of their level of experience 
 
 ----
 
-### Acknowledgements
+### Acknowledgments
 
 This implementation extends on [Lit-LLaMA](https://github.com/lightning-AI/lit-llama) and [nanoGPT](https://github.com/karpathy/nanoGPT), and it's **powered by [Lightning Fabric](https://lightning.ai/docs/fabric/stable/) ⚡**.
 
