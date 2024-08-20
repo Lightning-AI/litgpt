@@ -628,9 +628,7 @@ def check_nvlink_connectivity(fabric=None):
             gpu_regex = re.compile(r'^GPU\d+$')
             gpu_count = len([header for header in headers if gpu_regex.match(header)])
 
-            for line in lines[start_index:]:
-                if not line.strip():
-                    break
+            for line in lines[start_index:start_index + gpu_count]:
                 gpu_matrix.append(line.strip())
 
             all_nvlink = True
@@ -647,9 +645,6 @@ def check_nvlink_connectivity(fabric=None):
                     "Warning: Not all GPUs are fully connected via NVLink. Some GPUs are connected via slower interfaces. "
                     "It is recommended to switch to a different machine with faster GPU connections for optimal multi-GPU training performance."
                 )
-
-        except Exception as e:
-            custom_print(f"An error occurred: {e}")
 
         except Exception as e:
             custom_print(f"An error occurred: {e}")
