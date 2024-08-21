@@ -628,11 +628,9 @@ def check_nvlink_connectivity(fabric=None):
             gpu_regex = re.compile(r'^GPU\d+$')
             gpu_count = len([header for header in headers if gpu_regex.match(header)])
 
+            all_nvlink = True
             for line in lines[start_index:start_index + gpu_count]:
                 gpu_matrix.append(line.strip())
-
-            all_nvlink = True
-            for line in gpu_matrix:
                 connections = line.split()[1:1 + gpu_count]
                 if not all("NV" in conn for conn in connections if conn != "X"):
                     all_nvlink = False
