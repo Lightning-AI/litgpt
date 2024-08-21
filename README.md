@@ -102,7 +102,7 @@ Every model is written from scratch to maximize performance and remove layers of
 | Mistral | 7B, 123B | Mistral AI | [Mistral AI 2023](https://mistral.ai/news/announcing-mistral-7b/)                                            |
 | CodeGemma | 7B | Google | [Google Team, Google Deepmind](https://ai.google.dev/gemma/docs/codegemma)                                     |
 | Gemma 2 | 2B, 9B, 27B | Google | [Google Team, Google Deepmind](https://storage.googleapis.com/deepmind-media/gemma/gemma-2-report.pdf)  |
-| Phi 3   | 3.8B | Microsoft | [Abdin et al. 2024](https://arxiv.org/abs/2404.14219)                                              |
+| Phi 3 & 3.5   | 3.8B | Microsoft | [Abdin et al. 2024](https://arxiv.org/abs/2404.14219)                                              |
 | ... | ... | ... | ...   |
 
 <details>
@@ -682,7 +682,7 @@ We welcome all individual contributors, regardless of their level of experience 
 
 ----
 
-### Acknowledgements
+### Acknowledgments
 
 This implementation extends on [Lit-LLaMA](https://github.com/lightning-AI/lit-llama) and [nanoGPT](https://github.com/karpathy/nanoGPT), and it's **powered by [Lightning Fabric](https://lightning.ai/docs/fabric/stable/) ⚡**.
 
