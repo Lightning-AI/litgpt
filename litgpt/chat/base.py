@@ -76,7 +76,7 @@ def generate(
     tokens = []
     token = prompt
     for t in range(1, max_returned_tokens - T + 1):
-        token = next_token(model, input_pos, token.view(1, -1), temperature=temperature, top_k=top_k, top_p=top_p)
+        token = next_token(model, input_pos, token.view(1, -1), temperature=temperature, top_k=top_k, top_p=top_p, use_mask=(t == 1))
         tokens.append(token)
         # check the stop condition
         if any((l := len(st)) <= len(tokens) and all(a == b for a, b in zip(tokens[-l:], st)) for st in stop_tokens):

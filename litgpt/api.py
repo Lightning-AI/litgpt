@@ -115,7 +115,7 @@ class LLM(torch.nn.Module):
                 new_key = key.replace(prefix, "", 1)
                 state_dict[new_key] = state_dict.pop(key)
 
-            self.load_state_dict(state_dict, strict=True)   
+            self.load_state_dict(state_dict, strict=True)
 
         elif self.checkpoint_dir is not None:
             state_dict = torch.load(self.checkpoint_dir / "lit_model.pth", weights_only=False)
@@ -671,10 +671,10 @@ def pull_request_benchmark_util(model_name="microsoft/phi-2", num_iterations=6):
             )
         print(markdown_table)
 
-    import subprocess
-    g_hash = subprocess.run(['git', 'rev-parse', '--short', 'HEAD'],
-                            capture_output=True, text=True, check=True).stdout.strip()
-    print(f"Git Commit Hash: {g_hash}")
+    # import subprocess
+    # g_hash = subprocess.run(['git', 'rev-parse', '--short', 'HEAD'],
+    #                         capture_output=True, text=True, check=True).stdout.strip()
+    # print(f"Git Commit Hash: {g_hash}")
     print(f"PyTorch version: {torch.__version__}")
     device = torch.device("cuda" if torch.cuda.is_available() else "cpu")
     print(f"Device: {device}\n")

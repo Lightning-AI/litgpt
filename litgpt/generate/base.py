@@ -2,10 +2,10 @@
 
 import sys
 import time
+import warnings
 from pathlib import Path
 from pprint import pprint
 from typing import Any, Literal, Optional
-import warnings
 
 import lightning as L
 import torch
@@ -14,16 +14,16 @@ import torch._inductor.config
 from lightning.fabric.plugins import BitsandbytesPrecision
 from lightning_utilities.core.imports import RequirementCache
 
-from litgpt.model import GPT
 from litgpt.config import Config
+from litgpt.model import GPT
+from litgpt.prompts import PromptStyle, has_prompt_style, load_prompt_style
 from litgpt.tokenizer import Tokenizer
-from litgpt.prompts import has_prompt_style, load_prompt_style, PromptStyle
 from litgpt.utils import (
     check_file_size_on_cpu_and_warn,
     check_valid_checkpoint_dir,
     extend_checkpoint_dir,
     get_default_supported_precision,
-    load_checkpoint
+    load_checkpoint,
 )
 
 
@@ -73,8 +73,8 @@ def sample(
     return torch.argmax(logits, dim=-1, keepdim=True)
 
 
-def next_token(model: GPT, input_pos: torch.Tensor, x: torch.Tensor, **kwargs: Any) -> torch.Tensor:
-    logits = model(x, input_pos)
+def next_token(model: GPT, input_pos: torch.Tensor, x: torch.Tensor, use_mask: bool = True, **kwargs: Any) -> torch.Tensor:
+    logits = model(x, input_pos, use_mask)
     next = sample(logits, **kwargs)
     return next.to(dtype=x.dtype)
 
@@ -138,7 +138,7 @@ def generate(
     tokens.append(token)
     for _ in range(2, max_returned_tokens - T + 1):
         token = next_token(
-            model, input_pos, token.view(1, -1), temperature=temperature, top_k=top_k, top_p=top_p
+            model, input_pos, token.view(1, -1), temperature=temperature, top_k=top_k, top_p=top_p, use_mask=False,
         ).clone()
         tokens.append(token)
         if token == eos_id:
