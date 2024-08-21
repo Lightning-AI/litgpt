@@ -153,7 +153,7 @@ def generate_fn(
             prefill_token = False
             input_pos = torch.tensor([prompt_size], device=device)
         else:
-            input_pos = input_pos.add_(1)
+            input_pos.add_(1)
 
     # Yield any remaining tokens
     if yielded_idx < len(tokens):
