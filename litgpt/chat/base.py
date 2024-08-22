@@ -61,63 +61,18 @@ def generate(
             or https://huyenchip.com/2024/01/16/sampling.html#top_p
         stop_tokens: If specified, stop generating any more token once one of this list is generated.
     """
-    T = prompt.size(0)
-    assert max_returned_tokens > T
-    if model.max_seq_length < max_returned_tokens - 1:
-        # rolling the kv cache based on the `input_pos` value would be necessary. However, doing so would introduce a
-        # data dependency on the `input_pos` tensor and impact model compilation. Since this setting is uncommon, we do
-        # not support it to avoid negatively impacting the overall speed
-        raise NotImplementedError(f"max_seq_length {model.max_seq_length} needs to be >= {max_returned_tokens - 1}")
-
-    device = prompt.device
-    buffer_length = max((len(tokens) for tokens in stop_tokens), default=1)
-    yield_i = 0
-    input_pos = torch.arange(0, T, device=device)
-    tokens = []
-    token = prompt
-    for t in range(1, max_returned_tokens - T + 1):
-        token = next_token(model, input_pos, token.view(1, -1), temperature=temperature, top_k=top_k, top_p=top_p)
-        tokens.append(token)
-        # check the stop condition
-        if any((l := len(st)) <= len(tokens) and all(a == b for a, b in zip(tokens[-l:], st)) for st in stop_tokens):
-            return
-        # if the buffer is full
-        if t - yield_i >= buffer_length:
-            # we know this idx is not part of stop tokens, safe to yield
-            yield from tokens[yield_i:t]
-            yield_i = t
-        input_pos = input_pos[-1:].add_(1)
-
-
-def decode(fabric: L.Fabric, tokenizer: Tokenizer, token_stream: Iterator[torch.Tensor]) -> int:
-    tokens_generated = 0
-    if tokenizer.backend == "huggingface":
-        try:
-            for token in token_stream:
-                fabric.print(tokenizer.decode(token), end="", flush=True)
-                tokens_generated += 1
-        except KeyboardInterrupt:
-            # support stopping generation
-            return tokens_generated
-    elif tokenizer.backend == "sentencepiece":
-        # sentencepiece does not support decoding token-by-token because it adds spaces based on the surrounding tokens
-        # meaning that we need to decode everything each time
-        so_far = torch.tensor([], dtype=torch.long, device=fabric.device)
-        decoded_so_far = ""
-        try:
-            for token in token_stream:
-                so_far = so_far.to(device=token.device)
-                so_far = torch.cat((so_far, token.view(-1)))
-                decoded_new = tokenizer.decode(so_far)
-                fabric.print(decoded_new[len(decoded_so_far) :], end="", flush=True)
-                decoded_so_far = decoded_new
-                tokens_generated += 1
-        except KeyboardInterrupt:
-            # support stopping generation
-            return tokens_generated
-    else:
-        raise NotImplementedError(tokenizer.backend)
-    return tokens_generated
+    from litgpt.generate.base import generate_fn
+    return generate_fn(
+        include_prompt=False,
+        include_eos=False,
+        model=model,
+        prompt=prompt,
+        max_returned_tokens=max_returned_tokens,
+        temperature=temperature,
+        top_k=top_k,
+        top_p=top_p,
+        stop_tokens=stop_tokens
+    )
 
 
 def process_prompt(prompt, model, tokenizer, prompt_style, fabric, temperature, max_new_tokens, top_k, top_p, stop_tokens):
@@ -133,13 +88,22 @@ def process_prompt(prompt, model, tokenizer, prompt_style, fabric, temperature, 
             model.max_seq_length = max_returned_tokens
             model.set_kv_cache(batch_size=1, device=fabric.device)
 
-    y = generate(
+    y: Iterator[torch.Tensor] = generate(
         model, encoded_prompt, max_returned_tokens, temperature=temperature, top_k=top_k, top_p=top_p, stop_tokens=stop_tokens
     )
+    token_generator: Iterator[str] = tokenizer.decode_stream(y)
+
     fabric.print(">> Reply: ", end="")
+
     t0 = time.perf_counter()
-    tokens_generated = decode(fabric, tokenizer, y)
+
+    tokens_generated = 0
+    for tok in token_generator:
+        tokens_generated += 1
+        fabric.print(tok, end="", flush=True)
+
     t = time.perf_counter() - t0
+
     for block in model.transformer.h:
         block.attn.kv_cache.reset_parameters()
     fabric.print(
