@@ -262,7 +262,7 @@ class LLM(torch.nn.Module):
         Moves the model onto specified devices for single-GPU or multi-GPU inference
 
         accelerator: Which device type to load the model on ("cpu", "gpu", "mps", "cuda", or "auto")
-        devices: The number of devices (1, 2, etc.) or device IDs (e.g., [0, 2] to use the first and third GPU).
+        devices: The number of devices (1, 2, etc.) or "auto", which uses all available devices.
         quantize: Whether to quantize the model and using which method:
             - bnb.nf4, bnb.nf4-dq, bnb.fp4, bnb.fp4-dq: 4-bit quantization from bitsandbytes
             - bnb.int8: 8-bit quantization from bitsandbytes
