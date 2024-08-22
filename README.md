@@ -26,6 +26,7 @@
   <a href="#all-workflows">All workflows</a> • 
   <a href="#state-of-the-art-features">Features</a> •
   <a href="#training-recipes">Recipes (YAML)</a> •
+  <a href="https://lightning.ai/">Lightning AI</a> •
     <a href="#tutorials">Tutorials</a>
 </p>
 
