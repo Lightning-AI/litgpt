@@ -66,7 +66,7 @@ def test_decode():
 
     text = ("Hello World! This a bunch of text. Lorem ipsum dolor sit amet, "
             "consectetur adipiscing elit, sed do eiusmod tempor incididunt "
-            "ut labore et dolore magna aliqua.")    
+            "ut labore et dolore magna aliqua.")
 
     encoded: torch.Tensor = tokenizer.encode(text)
     encoded_stream: Iterable[torch.Tensor] = torch.tensor_split(encoded, encoded.shape[0], dim=0)

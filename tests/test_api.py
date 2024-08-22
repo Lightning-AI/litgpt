@@ -154,21 +154,44 @@ def test_model_not_initialized(tmp_path):
 
 
 @RunIf(min_cuda_gpus=2)
-def test_more_than_1_device_for_sequential_tp_gpu(tmp_path):
+def test_more_than_1_device_for_sequential_gpu(tmp_path):
+
+    device_count = CUDAAccelerator.auto_device_count()
+
+    if device_count <= 2:
+        model_name = "EleutherAI/pythia-14m"
+    else:
+        model_name = "EleutherAI/pythia-160m"
     llm = LLM.load(
-        model="EleutherAI/pythia-14m",
+        model=model_name,
     )
+
+    with pytest.raises(NotImplementedError, match=f"Support for multiple devices is currently only implemented for generate_strategy='sequential'|'tensor_parallel'."):
+        llm.distribute(devices=2)
 
     llm.distribute(devices=2, generate_strategy="sequential")
     assert isinstance(llm.generate("What do llamas eat?"), str)
+    assert str(llm.model.transformer.h[0].mlp.fc.weight.device) == "cuda:0"
+    last_layer_idx = len(llm.model.transformer.h) - 1
+    assert str(llm.model.transformer.h[last_layer_idx].mlp.fc.weight.device) == f"cuda:1"
+
+    # Also check with default (devices="auto") setting
+    llm.distribute(generate_strategy="sequential")
+    assert isinstance(llm.generate("What do llamas eat?"), str)
+    assert str(llm.model.transformer.h[0].mlp.fc.weight.device) == "cuda:0"
+    assert str(llm.model.transformer.h[last_layer_idx].mlp.fc.weight.device) == f"cuda:{device_count-1}"
+
+
+@RunIf(min_cuda_gpus=2)
+def test_more_than_1_device_for_tensor_parallel_gpu(tmp_path):
+    llm = LLM.load(
+        model="EleutherAI/pythia-14m",
+    )
 
     if os.getenv("CI") != "true":
         # this crashes the CI, maybe because of process forking; works fine locally though
         llm.distribute(devices=2, generate_strategy="tensor_parallel")
         assert isinstance(llm.generate("What do llamas eat?"), str)
-
-    with pytest.raises(NotImplementedError, match=f"Support for multiple devices is currently only implemented for generate_strategy='sequential'|'tensor_parallel'."):
-        llm.distribute(devices=2)
 
 
 @RunIf(min_cuda_gpus=1)
@@ -223,6 +246,7 @@ def test_quantization_is_applied(tmp_path):
     assert "NF4Linear" in strtype, strtype
 
 
+@RunIf(min_cuda_gpus=1)
 def test_fixed_kv_cache(tmp_path):
     llm = LLM.load(
         model="EleutherAI/pythia-14m",

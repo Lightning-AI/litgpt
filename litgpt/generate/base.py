@@ -142,7 +142,7 @@ def generate_fn(
             safe_idx = len(tokens) - max(stop_progress)
         else:
             safe_idx = current_idx + 1 # include the token just generated
-        
+
         if yielded_idx < safe_idx:
             y_tokens = tokens[yielded_idx : safe_idx]
             yield from y_tokens
