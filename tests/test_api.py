@@ -163,7 +163,7 @@ def test_more_than_1_device_for_sequential_tp_gpu(tmp_path):
     assert isinstance(llm.generate("What do llamas eat?"), str)
 
     if os.getenv("CI") != "true":
-        # this crashes the CI, maybe because of process forking; works fien locally though
+        # this crashes the CI, maybe because of process forking; works fine locally though
         llm.distribute(devices=2, generate_strategy="tensor_parallel")
         assert isinstance(llm.generate("What do llamas eat?"), str)
 
