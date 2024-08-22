@@ -114,7 +114,7 @@ def generate_fn(
     tokens = []
     token = prompt
     prefill_token = True
-    input_pos = torch.arange(0, prompt_size, device=device)
+    input_pos = torch.arange(0, prompt_size, device=device, dtype=torch.int64)
     for current_idx in range(max_returned_tokens - prompt_size):
 
         # Generate the token
@@ -151,7 +151,7 @@ def generate_fn(
         # Update input_pos for the next iteration.
         if prefill_token:
             prefill_token = False
-            input_pos = torch.tensor([prompt_size], device=device)
+            input_pos = torch.tensor([prompt_size], device=device, dtype=torch.int64)
         else:
             input_pos.add_(1)
 
