@@ -252,7 +252,7 @@ class LLM(torch.nn.Module):
     def distribute(
         self,
         accelerator: Literal["cpu", "cuda", "auto"] = "auto",
-        devices: Union[int, Literal["auto"]] = "auto",
+        devices: Union[int, List[int]] = 1,
         precision: Optional[Any] = None,
         quantize: Optional[Literal["bnb.nf4", "bnb.nf4-dq", "bnb.fp4", "bnb.fp4-dq", "bnb.int8"]] = None,
         generate_strategy: Optional[Literal["sequential", "tensor_parallel"]] = None,
@@ -262,7 +262,7 @@ class LLM(torch.nn.Module):
         Moves the model onto specified devices for single-GPU or multi-GPU inference
 
         accelerator: Which device type to load the model on ("cpu", "gpu", "mps", "cuda", or "auto")
-        devices: The number of devices (1, 2, etc.) or "auto", which uses all available devices
+        devices: The number of devices (1, 2, etc.) or device IDs (e.g., [0, 2] to use the first and third GPU).
         quantize: Whether to quantize the model and using which method:
             - bnb.nf4, bnb.nf4-dq, bnb.fp4, bnb.fp4-dq: 4-bit quantization from bitsandbytes
             - bnb.int8: 8-bit quantization from bitsandbytes
@@ -274,7 +274,7 @@ class LLM(torch.nn.Module):
             models that wouldn't fit in a single card by partitioning the transformer blocks across
             all devices and running them sequentially. Sequential generation may be slower but allows using larger models.
             Note that sequential generation sets `fixed_kv_cache_size="max_model_supported"`. You can set it to a lower integer
-            value, `fixed_kv_cache_size=256` to reduce memory. The `fixed_kv_cache_size` value determines the maximum number
+            value, `fixed_kv_cache_size=256` to reduce memory memory. The `fixed_kv_cache_size` value determins the maximum number
             of tokens that can be returned via `llm.generate(...)`.
         fixed_kv_cache_size: If set to an integer value or "max_model_supported" is set, the kv-cache won't be resized dynamically
             during `llm.generate` calls. Use this setting if you plan to compile the model or use `generate_strategy="sequential`.
@@ -302,30 +302,12 @@ class LLM(torch.nn.Module):
         if generate_strategy in ("sequential", "tensor_parallel") and accelerator not in ("cuda", "gpu"):
             raise NotImplementedError(f"generate_strategy='{generate_strategy}' is only supported for accelerator='cuda'|'gpu'.")
 
-        if devices == "auto":
-            if generate_strategy in ("sequential", "tensor_parallel"):
-                total_devices = CUDAAccelerator.auto_device_count()
-            else:
-                total_devices = 1
-        elif isinstance(devices, int):
-            use_devices = calculate_number_of_devices(devices)
-            total_devices = CUDAAccelerator.auto_device_count()
-            if use_devices > total_devices:
-                raise ValueError(
-                    f"You selected more devices ({use_devices}) than available in your system ({total_devices})."
-                )
-            else:
-                total_devices = use_devices
+        num_devices = calculate_number_of_devices(devices)
 
-            if total_devices > 1 and generate_strategy not in ("sequential", "tensor_parallel"):
-                raise NotImplementedError(
-                    "Support for multiple devices is currently only implemented for generate_strategy='sequential'|'tensor_parallel'."
-                )
-
-        else:
-            raise ValueError(f"devices argument must be an integer or 'auto', got {devices}")
-
-        print(f"Using {total_devices} device(s)", file=sys.stderr)
+        if generate_strategy is None and num_devices > 1:
+            raise NotImplementedError(
+                "Support for multiple devices is currently only implemented for generate_strategy='sequential'|'tensor_parallel'."
+            )
 
         if precision is None:
             precision = get_default_supported_precision(training=False)
@@ -349,7 +331,7 @@ class LLM(torch.nn.Module):
             )
         else:
             fabric = L.Fabric(
-                devices=total_devices,
+                devices=devices,
                 strategy="ddp",
                 precision=precision,
                 plugins=plugins
@@ -360,7 +342,7 @@ class LLM(torch.nn.Module):
 
         self.kv_cache_initialized = False
         if generate_strategy is None:
-            with fabric.init_module(empty_init=(total_devices > 1)):
+            with fabric.init_module(empty_init=(num_devices > 1)):
                 model = GPT(self.config)
             model.eval()
 
@@ -379,6 +361,14 @@ class LLM(torch.nn.Module):
                 self.fixed_kv_cache_size = fixed_kv_cache_size
 
         elif generate_strategy in ("sequential", "tensor_parallel"):
+            total_devices = CUDAAccelerator.auto_device_count()
+            if devices is not None:
+                if devices < total_devices:
+                    total_devices = devices
+                elif devices > total_devices:
+                    raise ValueError(f"This machine only has {total_devices} but you specified `devices={devices}`")
+
+            print(f"Using {total_devices} devices", file=sys.stderr)
 
             with fabric.init_tensor(), torch.device("meta"):
                 model = GPT(self.config)
@@ -503,7 +493,6 @@ class LLM(torch.nn.Module):
             tmp_device = self.model.mask_cache.device
             self.model.clear_kv_cache()
             self.model.set_kv_cache(batch_size=1, max_seq_length=max_returned_tokens, device=tmp_device)
-
         else:
             for block in self.model.transformer.h:
                 block.attn.kv_cache.reset_parameters()

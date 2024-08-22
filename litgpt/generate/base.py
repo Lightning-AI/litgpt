@@ -75,8 +75,135 @@ def sample(
 
 def next_token(model: GPT, input_pos: torch.Tensor, x: torch.Tensor, **kwargs: Any) -> torch.Tensor:
     logits = model(x, input_pos)
-    next = sample(logits, **kwargs)
-    return next.to(dtype=x.dtype)
+    _next = sample(logits, **kwargs)
+    return _next.to(dtype=x.dtype)
+
+
+def batched_sample(logits: list[torch.Tensor], dtype: torch.dtype, kwargs: list[dict]) -> list[torch.Tensor]:
+    return [sample(logits, **sample_args).to(dtype=dtype) for sample_args, logits in zip(kwargs, logits)]
+
+
+def batched_next_token(model: GPT, input_pos: torch.Tensor | list[torch.Tensor], x: torch.Tensor | list[torch.Tensor], kwargs: dict | list[dict]) -> list[torch.Tensor]:
+    # Pad the contexts into a batch.
+    if isinstance(input_pos, list):
+        assert all(isinstance(t, torch.Tensor) for t in input_pos), "input_pos must be a list of tensors."
+        input_pos = [t.squeeze() for t in input_pos]
+        assert all(t.ndim == 1 for t in input_pos), "input_pos must be a list of tensors that can be squeezed to 1D."
+        input_pos = torch.nn.utils.rnn.pad_sequence(input_pos, batch_first=True)
+
+    # Pad the input positions into a batch.
+    # The first token generated is the prefill token, so the input position for this token is the width of the entire prompt.
+    # In the continuous batching case, when we mix prefill and subsequent tokens, we pad everything to the biggest prefill prompt length.
+    # This is bad. I do not want to do this. Let me know if you know the better way to do this.
+    if isinstance(x, list):
+        assert all(isinstance(t, torch.Tensor) for t in x), "x must be a list of tensors."
+        x = [t.squeeze() for t in x]
+        assert all(t.ndim == 1 for t in x), "x must be a list of tensors that can be squeezed to 1D."
+        x = torch.nn.utils.rnn.pad_sequence([t.squeeze() for t in x], batch_first=True)
+
+    # Make sure we converted all the arguments correctly.
+    assert isinstance(input_pos, torch.Tensor)
+    assert isinstance(x, torch.Tensor)
+    assert input_pos.ndim == 2, "Could not create a 2D tensor from input_pos."
+    assert x.ndim == 2, "Could not create a 2D tensor from x."
+    assert x.size(0) == input_pos.size(0), "Batch size mismatch between input_pos and x."
+    assert x.size(1) == input_pos.size(1), "Max sequence length mismatch between input_pos and x."
+    assert input_pos.dtype == torch.int32, "input_pos must be a tensor with dtype int32."
+    assert x.dtype == torch.int32, "x must be a tensor with dtype int32."
+
+    if not isinstance(kwargs, list):
+        kwargs = [kwargs] * x.size(0)
+    assert all(isinstance(k, dict) for k in kwargs), "kwargs must be a dictionary or list of dictionaries."
+
+    # Run the model on the batch.
+    logits_stack = model(x, input_pos) # Explodes for the moment. Working on it.
+
+    # Unbind the logits stack into a list of logits.
+    logits_list = [logits_stack] if logits_stack.ndim == 1 else logits_stack.unbind(0)
+
+    # Return the next token for each sample in the batch.
+    return batched_sample(logits_list, dtype=x.dtype, kwargs=kwargs)
+
+
+@torch.inference_mode()
+def generate_fn(
+    model: GPT,
+    prompt: torch.Tensor,
+    max_returned_tokens: int,
+    *,
+    temperature: float = 1.0,
+    top_k: Optional[int] = None,
+    top_p: float = 1.0,
+    stop_tokens: Tuple[List[int], ...] = (),
+    include_prompt: bool,
+    include_eos: bool,
+) -> Iterator[torch.Tensor]:
+    prompt_size = prompt.size(0)
+    device = prompt.device
+
+    assert max_returned_tokens > prompt_size, f"Not enough space for {prompt_size} prompt tokens in a context length of {max_returned_tokens}."
+    assert max_returned_tokens > prompt_size, f"Not enough space for {prompt_size} prompt tokens in a context length of {max_returned_tokens}."
+    if model.max_seq_length < max_returned_tokens - 1:
+        raise NotImplementedError(f"max_seq_length {model.max_seq_length} needs to be >= {max_returned_tokens - 1}")
+
+    # Yield the prompt if include_prompt is True
+    if include_prompt:
+        yield prompt
+
+    stop_progress = [0] * len(stop_tokens)
+    yielded_idx = 0
+
+    # Generate output tokens.
+    # The first token generated is the prefill token.
+    # The input_pos for this token is the width of the entire prompt.
+    # For subsequent iterations, it's the index in the context for the token that we're generating.
+    tokens = []
+    token = prompt
+    prefill_token = True
+    input_pos = torch.arange(0, prompt_size, device=device)
+    for current_idx in range(max_returned_tokens - prompt_size):
+
+        # Generate the token
+        token = next_token(model, input_pos, token.view(1, -1), temperature=temperature, top_k=top_k, top_p=top_p)
+        tokens.append(token)
+        int_token = token.item()
+
+        # Check for stop sequences
+        # For each stop sequence, we keep a running total of how many are matched in stop_progress.
+        # If the current token matches the next token in the stop sequence, we increment the
+        # running total and hold off on yielding the token.
+        for i, seq in enumerate(stop_tokens):
+            if int_token == seq[stop_progress[i]]:
+                stop_progress[i] += 1
+                if stop_progress[i] == len(seq):
+                    if include_eos:
+                        yield from tokens[yielded_idx:]
+                    return
+            else:
+                stop_progress[i] = 0
+
+        # Yield tokens that are not part of a stop sequence in progress.
+        # If there are no stop sequences, then that's all of them.
+        if stop_tokens:
+            safe_idx = len(tokens) - max(stop_progress)
+        else:
+            safe_idx = current_idx + 1 # include the token just generated
+        
+        if yielded_idx < safe_idx:
+            y_tokens = tokens[yielded_idx : safe_idx]
+            yield from y_tokens
+            yielded_idx = safe_idx
+
+        # Update input_pos for the next iteration.
+        if prefill_token:
+            prefill_token = False
+            input_pos = torch.tensor([prompt_size], device=device)
+        else:
+            input_pos = input_pos.add_(1)
+
+    # Yield any remaining tokens
+    if yielded_idx < len(tokens):
+        yield from tokens[yielded_idx:]
 
 
 def batched_sample(logits: list[torch.Tensor], dtype: torch.dtype, kwargs: list[dict]) -> list[torch.Tensor]:
