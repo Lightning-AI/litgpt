@@ -75,8 +75,54 @@ def sample(
 
 def next_token(model: GPT, input_pos: torch.Tensor, x: torch.Tensor, **kwargs: Any) -> torch.Tensor:
     logits = model(x, input_pos)
-    next = sample(logits, **kwargs)
-    return next.to(dtype=x.dtype)
+    _next = sample(logits, **kwargs)
+    return _next.to(dtype=x.dtype)
+
+
+def batched_sample(logits: list[torch.Tensor], dtype: torch.dtype, kwargs: list[dict]) -> list[torch.Tensor]:
+    return [sample(logits, **sample_args).to(dtype=dtype) for sample_args, logits in zip(kwargs, logits)]
+
+
+def batched_next_token(model: GPT, input_pos: torch.Tensor | list[torch.Tensor], x: torch.Tensor | list[torch.Tensor], kwargs: dict | list[dict]) -> list[torch.Tensor]:
+    # Pad the contexts into a batch.
+    if isinstance(input_pos, list):
+        assert all(isinstance(t, torch.Tensor) for t in input_pos), "input_pos must be a list of tensors."
+        input_pos = [t.squeeze() for t in input_pos]
+        assert all(t.ndim == 1 for t in input_pos), "input_pos must be a list of tensors that can be squeezed to 1D."
+        input_pos = torch.nn.utils.rnn.pad_sequence(input_pos, batch_first=True)
+
+    # Pad the input positions into a batch.
+    # The first token generated is the prefill token, so the input position for this token is the width of the entire prompt.
+    # In the continuous batching case, when we mix prefill and subsequent tokens, we pad everything to the biggest prefill prompt length.
+    # This is bad. I do not want to do this. Let me know if you know the better way to do this.
+    if isinstance(x, list):
+        assert all(isinstance(t, torch.Tensor) for t in x), "x must be a list of tensors."
+        x = [t.squeeze() for t in x]
+        assert all(t.ndim == 1 for t in x), "x must be a list of tensors that can be squeezed to 1D."
+        x = torch.nn.utils.rnn.pad_sequence([t.squeeze() for t in x], batch_first=True)
+
+    # Make sure we converted all the arguments correctly.
+    assert isinstance(input_pos, torch.Tensor)
+    assert isinstance(x, torch.Tensor)
+    assert input_pos.ndim == 2, "Could not create a 2D tensor from input_pos."
+    assert x.ndim == 2, "Could not create a 2D tensor from x."
+    assert x.size(0) == input_pos.size(0), "Batch size mismatch between input_pos and x."
+    assert x.size(1) == input_pos.size(1), "Max sequence length mismatch between input_pos and x."
+    assert input_pos.dtype == torch.int32, "input_pos must be a tensor with dtype int32."
+    assert x.dtype == torch.int32, "x must be a tensor with dtype int32."
+
+    if not isinstance(kwargs, list):
+        kwargs = [kwargs] * x.size(0)
+    assert all(isinstance(k, dict) for k in kwargs), "kwargs must be a dictionary or list of dictionaries."
+
+    # Run the model on the batch.
+    logits_stack = model(x, input_pos) # Explodes for the moment. Working on it.
+
+    # Unbind the logits stack into a list of logits.
+    logits_list = [logits_stack] if logits_stack.ndim == 1 else logits_stack.unbind(0)
+
+    # Return the next token for each sample in the batch.
+    return batched_sample(logits_list, dtype=x.dtype, kwargs=kwargs)
 
 
 @torch.inference_mode()
