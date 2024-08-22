@@ -212,14 +212,12 @@ def batched_sample(logits: list[torch.Tensor], dtype: torch.dtype, kwargs: list[
 
 
 def batched_next_token(model: GPT, input_pos: torch.Tensor, x: torch.Tensor | list[torch.Tensor], kwargs: dict | list[dict]) -> list[torch.Tensor]:
-    # TODO: Take input_pos as a tensor.
-    # This means making the rope cache and kvcache work with batches.
-    # This is relatively complicated, given the current implementation.
+    # TODO: Take input_pos as a 2d tensor or list of tensors.
+    # This means making the rope cache and kvcache forward() work with batches. Currently, they do not.
+    # This is relatively complicated, given the current implementation. It will require some rewriting.
     # Relevant thread: https://discuss.pytorch.org/t/batched-index-select/9115
-    # We will also need the same with tensor.index_copy_(). These do not work for batches.
-
-    # This is where we would pad the input positions into a batch.
-    # See the above comment. Until then, we can only accept prompts that are all the same length.
+    # We will also need the same with tensor.index_copy_(). These do not work for batches, and the replacement
+    # is somewhat nontrivial. Until then, we can only accept prompts that are all the same length.
     assert input_pos.ndim == 1, "Passing input_pos as a tensor is not yet supported."
     if isinstance(x, list):
         assert all(t.size(0) == input_pos.size(0) for t in x), "For now, all input sequences must have the same length as input_pos."
