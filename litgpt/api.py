@@ -671,9 +671,12 @@ def pull_request_benchmark_util(model_name="microsoft/phi-2", num_iterations=6):
         print(markdown_table)
 
     import subprocess
-    g_hash = subprocess.run(['git', 'rev-parse', '--short', 'HEAD'],
-                            capture_output=True, text=True, check=True).stdout.strip()
-    print(f"Git Commit Hash: {g_hash}")
+    try:
+        g_hash = subprocess.run(['git', 'rev-parse', '--short', 'HEAD'],
+                                capture_output=True, text=True, check=True).stdout.strip()
+        print(f"Git Commit Hash: {g_hash}")
+    except subprocess.CalledProcessError:
+        print("Git Commit Hash: N/A")
     print(f"PyTorch version: {torch.__version__}")
     device = torch.device("cuda" if torch.cuda.is_available() else "cpu")
     print(f"Device: {device}\n")
