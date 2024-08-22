@@ -274,7 +274,7 @@ class LLM(torch.nn.Module):
             models that wouldn't fit in a single card by partitioning the transformer blocks across
             all devices and running them sequentially. Sequential generation may be slower but allows using larger models.
             Note that sequential generation sets `fixed_kv_cache_size="max_model_supported"`. You can set it to a lower integer
-            value, `fixed_kv_cache_size=256` to reduce memory memory. The `fixed_kv_cache_size` value determins the maximum number
+            value, `fixed_kv_cache_size=256` to reduce memory memory. The `fixed_kv_cache_size` value determines the maximum number
             of tokens that can be returned via `llm.generate(...)`.
         fixed_kv_cache_size: If set to an integer value or "max_model_supported" is set, the kv-cache won't be resized dynamically
             during `llm.generate` calls. Use this setting if you plan to compile the model or use `generate_strategy="sequential`.
