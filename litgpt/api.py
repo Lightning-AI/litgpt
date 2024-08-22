@@ -252,7 +252,7 @@ class LLM(torch.nn.Module):
     def distribute(
         self,
         accelerator: Literal["cpu", "cuda", "auto"] = "auto",
-        devices: Union[int, List[int]] = 1,
+        devices: Union[int, Literal["auto"]] = "auto",
         precision: Optional[Any] = None,
         quantize: Optional[Literal["bnb.nf4", "bnb.nf4-dq", "bnb.fp4", "bnb.fp4-dq", "bnb.int8"]] = None,
         generate_strategy: Optional[Literal["sequential", "tensor_parallel"]] = None,
