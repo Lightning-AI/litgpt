@@ -10,9 +10,6 @@ import torch
 from unittest.mock import MagicMock
 from tests.conftest import RunIf
 
-
-from litgpt.api import LLM, calculate_number_of_devices
-
 from lightning.fabric.accelerators import CUDAAccelerator
 from litgpt.api import (
     LLM,
