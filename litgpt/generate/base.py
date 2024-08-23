@@ -103,7 +103,7 @@ def batched_next_token(model: GPT, input_pos: torch.Tensor, x: list[torch.Tensor
         assert all(isinstance(t, torch.Tensor) for t in x), "x must be a list of tensors."
         x = [t.squeeze() for t in x]
         assert all(t.ndim == 1 for t in x), "x must be a list of tensors that can be squeezed to 1D."
-        x = torch.nn.utils.rnn.pad_sequence([t.squeeze() for t in x], batch_first=True)
+        x = torch.nn.utils.rnn.pad_sequence([t.squeeze()[::-1] for t in x], batch_first=True).flip(dims=[1])
 
     # Make sure we converted all the arguments correctly.
     assert x.ndim == 2, "Could not create a 2D tensor from x."
