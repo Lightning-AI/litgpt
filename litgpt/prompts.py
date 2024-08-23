@@ -133,9 +133,6 @@ class TogetherComputerInstruct(PromptStyle):
 
 class Falcon(PromptStyle):
     def apply(self, prompt: str, **kwargs: str) -> str:
-        # First line could be modified. AFAIK Falcon doesn't impose a specific system prompt
-        # The instruction to not prefix its replies doesn't work always, but better than nothing
-        # I've also tried just "{prompt}\n" but the model seems to ramble more often
         return f"{prompt}\nAnswer:"
 
     def stop_tokens(self, tokenizer: "Tokenizer") -> Tuple[List[int], ...]:
