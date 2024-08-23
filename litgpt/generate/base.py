@@ -76,15 +76,15 @@ def sample(
 def next_token(model: GPT, input_pos: torch.Tensor, x: torch.Tensor, **kwargs: Any) -> torch.Tensor:
     logits = model(x, input_pos)
     _next = sample(logits, **kwargs)
-    return _next.to(dtype=x.dtype)
+    return _next.to(dtype=torch.int64)
 
 
-def batched_sample(logits: list[torch.Tensor], dtype: torch.dtype, kwargs: list[dict]) -> list[torch.Tensor]:
+def batched_sample(logits: list[torch.Tensor], kwargs: list[dict]) -> list[torch.Tensor]:
     assert len(logits) == len(kwargs), "logits and kwargs must have the same length."
-    return [sample(l, **sample_args).to(dtype=dtype) for sample_args, l in zip(kwargs, logits)]
+    return [sample(l, **sample_args).to(dtype=torch.int64) for sample_args, l in zip(kwargs, logits)]
 
 
-def batched_next_token(model: GPT, input_pos: torch.Tensor, x: torch.Tensor | list[torch.Tensor], kwargs: dict | list[dict]) -> list[torch.Tensor]:
+def batched_next_token(model: GPT, input_pos: torch.Tensor, x: list[torch.Tensor], kwargs: dict | list[dict]) -> list[torch.Tensor]:
     # TODO: Take input_pos as a list of tensors.
     # The desired API is input_pos: torch.Tensor | list[torch.Tensor]
     # This means making the rope cache and kvcache forward() work with batches. Currently, they do not.
@@ -93,10 +93,7 @@ def batched_next_token(model: GPT, input_pos: torch.Tensor, x: torch.Tensor | li
     # We will also need the same with tensor.index_copy_(). These do not work for batches, and the replacement
     # is somewhat nontrivial. Until then, we can only accept prompts that are all the same length.
     assert input_pos.ndim == 1, "Passing input_pos as a tensor is not yet supported."
-    if isinstance(x, list):
-        assert all(t.size(0) == input_pos.size(0) for t in x), "For now, all input sequences must have the same length as input_pos."
-    else:
-        assert x.size(0) == input_pos.size(0), "For now, all input sequences must have the same length as input_pos."
+    assert all(t.size(0) == input_pos.size(0) for t in x), "For now, all input sequences must have the same length as input_pos."
 
     # After this problem is resolved, there will be another problem. That being, continuous batched prefill.
     # If you have any ideas on this, let me know. I don't think that padding input_pos is viable.
@@ -113,9 +110,8 @@ def batched_next_token(model: GPT, input_pos: torch.Tensor, x: torch.Tensor | li
     assert input_pos.dtype == torch.int64, "input_pos must be a tensor with dtype int64."
     assert x.dtype == torch.int64, "x must be a tensor with dtype int64."
 
-    if not isinstance(kwargs, list):
-        kwargs = [kwargs] * x.size(0)
-    assert all(isinstance(k, dict) for k in kwargs), "kwargs must be a dictionary or list of dictionaries."
+    _kwargs = kwargs if isinstance(kwargs, list) else [kwargs] * x.size(0)
+    assert all(isinstance(k, dict) for k in _kwargs), "kwargs must be a dictionary or list of dictionaries."
 
     # Run the model on the batch.
     logits_stack = model(x, input_pos)
@@ -125,7 +121,7 @@ def batched_next_token(model: GPT, input_pos: torch.Tensor, x: torch.Tensor | li
     logits_list = [l.unsqueeze(0) for l in logits_list]
 
     # Return the next token for each sample in the batch.
-    return batched_sample(logits_list, dtype=x.dtype, kwargs=kwargs)
+    return batched_sample(logits_list, kwargs=_kwargs)
 
 
 @torch.inference_mode()
