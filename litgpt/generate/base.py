@@ -84,9 +84,9 @@ def batched_sample(logits: list[torch.Tensor], kwargs: list[dict]) -> list[torch
     return [sample(l, **sample_args).to(dtype=torch.int64) for sample_args, l in zip(kwargs, logits)]
 
 
-def batched_next_token(model: GPT, input_pos: torch.Tensor, x: list[torch.Tensor], kwargs: dict | list[dict]) -> list[torch.Tensor]:
+def batched_next_token(model: GPT, input_pos: torch.Tensor, x: list[torch.Tensor], kwargs: Union[dict, list[dict]]) -> list[torch.Tensor]:
     # TODO: Take input_pos as a list of tensors.
-    # The desired API is input_pos: torch.Tensor | list[torch.Tensor]
+    # The desired API is input_pos: Union[torch.Tensor, list[torch.Tensor]].
     # This means making the rope cache and kvcache forward() work with batches. Currently, they do not.
     # This is relatively complicated, given the current implementation. It will require some rewriting.
     # Relevant thread: https://discuss.pytorch.org/t/batched-index-select/9115
