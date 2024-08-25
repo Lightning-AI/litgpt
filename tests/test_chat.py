@@ -7,6 +7,7 @@ from io import StringIO
 from itertools import repeat
 from pathlib import Path
 from unittest.mock import ANY, MagicMock, Mock, call, patch
+from typing import Iterable
 
 import pytest
 import torch
@@ -15,8 +16,8 @@ from lightning.fabric import Fabric
 
 import litgpt.chat.base as chat
 import litgpt.generate.base as generate
-from litgpt import Config
-from litgpt.utils import save_config
+from litgpt import Config, Tokenizer
+from litgpt.utils import save_config, auto_download_checkpoint
 
 
 @pytest.mark.parametrize(
@@ -31,6 +32,9 @@ from litgpt.utils import save_config
     ],
 )
 def test_generate(monkeypatch, generated, stop_tokens, expected):
+    import lightning as L
+    L.seed_everything(1234)
+
     input_idx = torch.tensor([5, 3])
     max_returned_tokens = len(input_idx) + 8
     model = MagicMock()
@@ -46,35 +50,34 @@ def test_generate(monkeypatch, generated, stop_tokens, expected):
     actual = chat.generate(model, input_idx, max_returned_tokens, stop_tokens=stop_tokens)
     actual = list(actual)
 
-    assert len(actual) == len(expected)
+    assert len(actual) == len(expected), (actual, expected)
     if not actual:
-        assert actual == expected
+        assert actual == expected, (actual, expected)
     else:
         for t in actual:
-            assert t.dtype == torch.long
-        assert torch.cat(actual).tolist() == expected
+            assert t.dtype == torch.long, t.dtype
+        actual_list = torch.cat(actual).tolist()
+        assert actual_list == expected, (actual_list, expected)
 
 
-@pytest.mark.parametrize("tokenizer_backend", ["huggingface", "sentencepiece"])
-def test_decode(tokenizer_backend):
-    class Tokenizer:
-        backend = tokenizer_backend
-        id2token = {1: "foo ", 2: "bar ", 3: "baz "}
+def test_decode():
+    checkpoint_dir = auto_download_checkpoint("EleutherAI/pythia-14m")
+    tokenizer = Tokenizer(checkpoint_dir)
 
-        def decode(self, tensor: torch.Tensor) -> str:
-            tensor = [tensor] if tensor.ndim == 0 else tensor
-            return "".join(self.id2token[int(value)] for value in tensor)
+    text = ("Hello World! This a bunch of text. Lorem ipsum dolor sit amet, "
+            "consectetur adipiscing elit, sed do eiusmod tempor incididunt "
+            "ut labore et dolore magna aliqua.")
 
-    tokenizer_mock = Tokenizer()
+    encoded: torch.Tensor = tokenizer.encode(text)
+    encoded_stream: Iterable[torch.Tensor] = torch.tensor_split(encoded, encoded.shape[0], dim=0)
 
-    fabric = Fabric(devices=1, accelerator="cpu")
+    decoded_stream: Iterator[str] = tokenizer.decode_stream(encoded_stream)
+    decoded: str = "".join(decoded_stream)
 
-    token_stream = torch.tensor([3, 2, 1])
-    out, err = StringIO(), StringIO()
-    with redirect_stdout(out), redirect_stderr(err):
-        chat.decode(fabric, tokenizer_mock, token_stream)
-
-    assert out.getvalue() == "baz bar foo "
+    # Note that encoded and decoded text will not always be character for character identical.abs
+    # Indeed, sometimes it is not. But that tends to be because of special cases, and this is not
+    # one of those.
+    assert text == decoded, (text, decoded)
 
 
 @patch("litgpt.chat.base.input")
@@ -101,10 +104,10 @@ def test_main(mocked_input, stop_iteration, fake_checkpoint_dir, monkeypatch, te
     tokenizer_mock = Mock()
     tokenizer_mock.return_value.backend = "sentencepiece"
     tokenizer_mock.return_value.encode.return_value = torch.tensor([1, 2, 3])
-    tokenizer_mock.return_value.decode.return_value = "foo bar baz"
+    tokenizer_mock.return_value.decode_stream.return_value = "foo bar baz"
     monkeypatch.setattr(chat, "Tokenizer", tokenizer_mock)
-    generate_mock = Mock()
-    generate_mock.return_value = torch.tensor([3, 2, 1])
+    generate_mock = MagicMock()
+    generate_mock.__iter__.return_value = [torch.tensor([3, 2, 1])]
     monkeypatch.setattr(chat, "generate", generate_mock)
 
     out, err = StringIO(), StringIO()
@@ -112,13 +115,11 @@ def test_main(mocked_input, stop_iteration, fake_checkpoint_dir, monkeypatch, te
         chat.main(temperature=2.0, max_new_tokens=10, top_k=2, top_p=0.9, checkpoint_dir=fake_checkpoint_dir)
 
     # decoding is done per each generated item
-    assert len(tokenizer_mock.return_value.decode.mock_calls) == generate_mock.return_value.numel()
-    assert torch.allclose(tokenizer_mock.return_value.decode.call_args[0][0], generate_mock.return_value)
-    assert generate_mock.mock_calls == [
-        call(ANY, tensor_like, 13, temperature=2.0, top_k=2, top_p=0.9, stop_tokens=([tokenizer_mock.return_value.eos_id],))
-    ]
-    # only the generated result is printed to stdout
-    assert re.match(r".*Now chatting with Llama 3.*>> .*Reply: foo bar baz", out.getvalue(), re.DOTALL)
+    assert len(tokenizer_mock.return_value.decode_stream.mock_calls) == 1
+    assert tokenizer_mock.return_value.decode_stream.call_args[0][0] is generate_mock.return_value # Now a Mock
+
+    # Assert that the generated result is printed to stdout
+    assert re.match(r".*Now chatting with Llama 3.*>> .*Reply: foo bar baz", out.getvalue(), re.DOTALL), out.getvalue()
 
 
 def test_cli():
@@ -149,3 +150,39 @@ def test_merge_lora_if_needed(mocked_merge_lora, mocked_input, fake_checkpoint_d
 
     assert re.match(r".*Merging LoRA weights with the base model\..*", out.getvalue(), re.DOTALL)
     mocked_merge_lora.assert_called_once()
+
+
+def test_litgpt_chat_endtoend():
+    from litgpt.chat.base import main
+
+    checkpoint_dir = auto_download_checkpoint("EleutherAI/pythia-14m")
+
+    # Patch input() and redirect stdout. Raise to exit the repl.
+    simulated_input = Mock(side_effect=["input", KeyboardInterrupt])
+    captured_output = StringIO()
+    with patch('builtins.input', simulated_input):
+        with redirect_stdout(captured_output):
+            try:
+                main(checkpoint_dir=checkpoint_dir, max_new_tokens=256, top_k=1)
+            except KeyboardInterrupt:
+                pass
+
+    # pythia-14m is not instruct-tuned, so it does not give an "answer" per se, but a continuation.
+    assert ">> Reply: !" in captured_output.getvalue(), f"Expected output not found. Got:\n{captured_output.getvalue()}"
+    assert simulated_input.call_count == 2
+
+
+def test_litgpt_generate_endtoend():
+    from litgpt.generate.base import main
+
+    checkpoint_dir = auto_download_checkpoint("EleutherAI/pythia-14m")
+
+    captured_output = StringIO()
+    with redirect_stdout(captured_output):
+        try:
+            main(checkpoint_dir=checkpoint_dir, prompt="Hello World", max_new_tokens=256, top_k=1)
+        except KeyboardInterrupt:
+            pass
+
+    # pythia-14m is not instruct-tuned, so it does not give an "answer" per se, but a continuation.
+    assert "Hello World!" in captured_output.getvalue(), f"Expected output not found. Got:\n{captured_output.getvalue()}"

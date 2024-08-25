@@ -16,7 +16,9 @@ from litgpt.api import (
     calculate_number_of_devices,
     benchmark_dict_to_markdown_table
 )
+
 from litgpt.scripts.download import download_from_hub
+
 
 
 @pytest.fixture
@@ -117,7 +119,8 @@ def test_llm_load_hub_init(tmp_path):
     assert len(text_1) > 0
 
     text_2 = llm.generate("text", max_new_tokens=10, top_k=1, stream=True)
-    assert text_1 == "".join(list(text_2))
+    text_2 = "".join(list(text_2))
+    assert text_1 == text_2, (text1, text_2)
 
 
 def test_model_not_initialized(tmp_path):
@@ -236,7 +239,8 @@ def test_quantization_is_applied(tmp_path):
         model="EleutherAI/pythia-14m",
     )
     llm.distribute(devices=1, quantize="bnb.nf4", precision="bf16-true")
-    assert "NF4Linear" in str(type(llm.model.lm_head))
+    strtype = str(type(llm.model.lm_head))
+    assert "NF4Linear" in strtype, strtype
 
 
 @RunIf(min_cuda_gpus=1)
