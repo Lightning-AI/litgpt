@@ -82,6 +82,7 @@ class GPT(nn.Module):
                 if self.mask_cache is None:
                     raise TypeError("You need to call `gpt.set_kv_cache()`")
                 mask = self.mask_cache.index_select(2, input_pos)
+                mask = mask[:, :, :, :input_pos[-1] + 1]
             else:
                 mask = None
         else:
@@ -240,7 +241,6 @@ class CausalSelfAttention(nn.Module):
         input_pos: Optional[torch.Tensor] = None,
         use_mask: bool = True,
     ) -> torch.Tensor:
-        # print(f"{mask=}")
         B, T, C = x.size()  # batch size, sequence length, embedding dimensionality (n_embd)
 
         qkv = self.attn(x)
@@ -459,11 +459,12 @@ class KVCache(nn.Module):
         # move the buffer to the activation dtype for when AMP is used
         self.k = self.k.to(k.dtype)
         self.v = self.v.to(v.dtype)
+        T = input_pos[-1] + 1
         # update the cache
         n = k.size(0)
         k = self.k[:n, ...].index_copy_(2, input_pos, k)
         v = self.v[:n, ...].index_copy_(2, input_pos, v)
-        return k, v
+        return k[:, :, :T], v[:, :, :T]
 
     def reset_parameters(self) -> None:
         torch.nn.init.zeros_(self.k)

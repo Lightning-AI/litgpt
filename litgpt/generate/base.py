@@ -118,7 +118,8 @@ def generate_fn(
     for current_idx in range(max_returned_tokens - prompt_size):
 
         # Generate the token
-        token = next_token(model, input_pos, token.view(1, -1), temperature=temperature, top_k=top_k, top_p=top_p)
+        use_mask = current_idx == 0
+        token = next_token(model, input_pos, token.view(1, -1), temperature=temperature, top_k=top_k, top_p=top_p, use_mask=use_mask)
         tokens.append(token)
         int_token = token.item()
 
@@ -337,3 +338,11 @@ def main(
         )
     if fabric.device.type == "cuda":
         fabric.print(f"Memory used: {torch.cuda.max_memory_allocated() / 1e9:.02f} GB", file=sys.stderr)
+
+
+if __name__ == "__main__":
+    from pathlib import Path
+    repo_id = Path("microsoft/phi-2")
+    # repo_id = Path("google/gemma-2-2b")
+    # main(repo_id, prompt="Hello")
+    main(repo_id)
