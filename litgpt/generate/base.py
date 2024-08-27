@@ -4,7 +4,7 @@ import sys
 import time
 from pathlib import Path
 from pprint import pprint
-from typing import Any, Literal, Optional, Tuple, List, Union, Iterator
+from typing import Any, Literal, Optional, Tuple, List, TypedDict, Union, Iterator
 import warnings
 
 import lightning as L
@@ -25,6 +25,11 @@ from litgpt.utils import (
     get_default_supported_precision,
     load_checkpoint
 )
+
+class SampleArgs(TypedDict):
+    temperature: float
+    top_k: Optional[int]
+    top_p: float
 
 
 def multinomial_num_samples_1(probs: torch.Tensor) -> torch.Tensor:
@@ -77,51 +82,6 @@ def next_token(model: GPT, input_pos: torch.Tensor, x: torch.Tensor, **kwargs: A
     logits = model(x, input_pos)
     _next = sample(logits, **kwargs)
     return _next.to(dtype=torch.int64)
-
-
-def batched_sample(logits: list[torch.Tensor], kwargs: list[dict]) -> list[torch.Tensor]:
-    assert len(logits) == len(kwargs), "logits and kwargs must have the same length."
-    return [sample(l, **sample_args).to(dtype=torch.int64) for sample_args, l in zip(kwargs, logits)]
-
-
-def batched_next_token(model: GPT, input_pos: torch.Tensor, x: list[torch.Tensor], kwargs: Union[dict, list[dict]]) -> list[torch.Tensor]:
-    # TODO: Take input_pos as a list of tensors.
-    # The desired API is input_pos: Union[torch.Tensor, list[torch.Tensor]].
-    # This means making the rope cache and kvcache forward() work with batches. Currently, they do not.
-    # This is relatively complicated, given the current implementation. It will require some rewriting.
-    # Relevant thread: https://discuss.pytorch.org/t/batched-index-select/9115
-    # We will also need the same with tensor.index_copy_(). These do not work for batches, and the replacement
-    # is somewhat nontrivial. Until then, we can only accept prompts that are all the same length.
-    assert input_pos.ndim == 1, "Passing input_pos as a tensor is not yet supported."
-    assert all(t.size(0) == input_pos.size(0) for t in x), "For now, all input sequences must have the same length as input_pos."
-
-    # After this problem is resolved, there will be another problem. That being, continuous batched prefill.
-    # If you have any ideas on this, let me know. I don't think that padding input_pos is viable.
-
-    # Pad the contexts into a batch.
-    if isinstance(x, list):
-        assert all(isinstance(t, torch.Tensor) for t in x), "x must be a list of tensors."
-        x = [t.squeeze() for t in x]
-        assert all(t.ndim == 1 for t in x), "x must be a list of tensors that can be squeezed to 1D."
-        x = torch.nn.utils.rnn.pad_sequence([t.squeeze()[::-1] for t in x], batch_first=True).flip(dims=[1])
-
-    # Make sure we converted all the arguments correctly.
-    assert x.ndim == 2, "Could not create a 2D tensor from x."
-    assert input_pos.dtype == torch.int64, "input_pos must be a tensor with dtype int64."
-    assert x.dtype == torch.int64, "x must be a tensor with dtype int64."
-
-    _kwargs = kwargs if isinstance(kwargs, list) else [kwargs] * x.size(0)
-    assert all(isinstance(k, dict) for k in _kwargs), "kwargs must be a dictionary or list of dictionaries."
-
-    # Run the model on the batch.
-    logits_stack = model(x, input_pos)
-
-    # Unbind the logits stack into a list of logits.
-    logits_list = [logits_stack] if logits_stack.ndim == 1 else logits_stack.unbind(0)
-    logits_list = [l.unsqueeze(0) for l in logits_list]
-
-    # Return the next token for each sample in the batch.
-    return batched_sample(logits_list, kwargs=_kwargs)
 
 
 @torch.inference_mode()
@@ -195,6 +155,143 @@ def generate_fn(
         # Update input_pos for the next iteration.
         if prefill_token:
             prefill_token = False
+            input_pos = torch.tensor([prompt_size], device=device, dtype=torch.int64)
+        else:
+            input_pos.add_(1)
+
+    # Yield any remaining tokens
+    if yielded_idx < len(tokens):
+        yield from tokens[yielded_idx:]
+
+
+def batched_sample(logits: list[torch.Tensor], kwargs: list[dict]) -> list[torch.Tensor]:
+    assert len(logits) == len(kwargs), "logits and kwargs must have the same length."
+    return [sample(l, **sample_args).to(dtype=torch.int64) for sample_args, l in zip(kwargs, logits)]
+
+
+def batched_next_token(model: GPT, input_pos: torch.Tensor, x: list[torch.Tensor], kwargs: Union[dict, list[dict]]) -> list[torch.Tensor]:
+    # TODO: Take input_pos as a list of tensors.
+    # The desired API is input_pos: Union[torch.Tensor, list[torch.Tensor]].
+    # This means making the rope cache and kvcache forward() work with batches. Currently, they do not.
+    # This is relatively complicated, given the current implementation. It will require some rewriting.
+    # Relevant thread: https://discuss.pytorch.org/t/batched-index-select/9115
+    # We will also need the same with tensor.index_copy_(). These do not work for batches, and the replacement
+    # is somewhat nontrivial. Until then, we can only accept prompts that are all the same length.
+    assert input_pos.ndim == 1, "Passing input_pos as a tensor is not yet supported."
+    assert all(t.size(0) == input_pos.size(0) for t in x), "For now, all input sequences must have the same length as input_pos."
+
+    # After this problem is resolved, there will be another problem. That being, continuous batched prefill.
+    # If you have any ideas on this, let me know. I don't think that padding input_pos is viable.
+
+    # Pad the contexts into a batch.
+    if isinstance(x, list):
+        assert all(isinstance(t, torch.Tensor) for t in x), "x must be a list of tensors."
+        x = [t.squeeze() for t in x] # [::-1]
+        assert all(t.ndim == 1 for t in x), "x must be a list of tensors that can be squeezed to 1D."
+        x = torch.nn.utils.rnn.pad_sequence([t.squeeze() for t in x], batch_first=True)
+
+    # Make sure we converted all the arguments correctly.
+    assert x.ndim == 2, "Could not create a 2D tensor from x."
+    assert input_pos.dtype == torch.int64, "input_pos must be a tensor with dtype int64."
+    assert x.dtype == torch.int64, "x must be a tensor with dtype int64."
+
+    _kwargs = kwargs if isinstance(kwargs, list) else [kwargs] * x.size(0)
+    assert all(isinstance(k, dict) for k in _kwargs), "kwargs must be a dictionary or list of dictionaries."
+
+    # Run the model on the batch.
+    logits_stack = model(x, input_pos)
+
+    # Unbind the logits stack into a list of logits.
+    logits_list = [logits_stack] if logits_stack.ndim == 1 else logits_stack.unbind(0)
+    logits_list = [l.unsqueeze(0) for l in logits_list]
+
+    # Return the next token for each sample in the batch.
+    return batched_sample(logits_list, kwargs=_kwargs)
+
+@torch.inference_mode()
+def batched_generate_fn(
+    model: GPT,
+    prompts: list[Union[torch.Tensor, None]],
+    max_returned_tokens: int,
+    *,
+    sample_args: Union[list[dict], dict],
+    stop_tokens: Tuple[List[int], ...] = (),
+    include_prompt: bool,
+    include_eos: bool,
+) -> Iterator[list[Union[torch.Tensor, None]]]:
+
+    if isinstance(sample_args, dict):
+        sample_args = [sample_args] * len(prompts)
+        
+    n_prompts = len(prompts)
+    max_prompt_size = max(prompt.size(0) for prompt in prompts)
+    prompt_size = prompts[0].size(0)
+    device = prompts[0].device
+
+    assert all(prompt.size(0) == max_prompt_size for prompt in prompts), "For now, prompts must have the same length."
+    assert all(prompt.device == prompts[0].device for prompt in prompts), "Prompts must be on the same device."
+
+    assert max_returned_tokens > max_prompt_size, f"Not enough space for {prompt_size} prompt tokens in a context length of {max_returned_tokens}."
+    if model.max_seq_length < max_returned_tokens - 1:
+        raise NotImplementedError(f"max_seq_length {model.max_seq_length} needs to be >= {max_returned_tokens - 1}")
+
+    # Yield the prompts if include_prompt is True
+    if include_prompt:
+        yield prompts
+
+    stop_progresses = [([0] * len(stop_tokens)) for _ in range(n_prompts)]
+    yielded_idxes = [0] * n_prompts
+
+    # Generate output tokens.
+    # The first token generated is the prefill token.
+    # The input_pos for this token is the width of the entire prompt.
+    # For subsequent iterations, it's the index in the context for the token that we're generating.
+    token_lists = [[] for _ in range(n_prompts)]
+    tokens = prompts
+    prefill_token = True
+    input_pos = torch.arange(0, prompt_size, device=device, dtype=torch.int64)
+    for current_idx in range(max_returned_tokens - prompt_size):
+
+        # Generate the token
+        tokens = batched_next_token(model, input_pos, [token.view(1, -1) for token in tokens], sample_args)
+        for i, token in enumerate(tokens):
+            token_lists[i].append(token)
+        int_tokens = [token.item() for token in tokens]
+
+        # Check for stop sequences
+        # For each stop sequence, we keep a running total of how many are matched in stop_progress.
+        # If the current token matches the next token in the stop sequence, we increment the
+        # running total and hold off on yielding the token.
+        for batch_idx, int_token in enumerate(int_tokens):
+            for i, seq in enumerate(stop_tokens):
+                if int_token == seq[stop_progresses[batch_idx][i]]:
+                    stop_progresses[batch_idx][i] += 1
+                    if stop_progresses[batch_idx][i] == len(seq):
+                        if include_eos:
+                            yield from token_lists[batch_idx][yielded_idxes[batch_idx]:]
+                        return
+                else:
+                    stop_progresses[batch_idx][i] = 0
+                    
+        # ==============================================================================================================
+
+        # Yield tokens that are not part of a stop sequence in progress.
+        # If there are no stop sequences, then that's all of them.
+        if stop_tokens:
+            safe_idx = len(tokens) - max(stop_progress)
+        else:
+            safe_idx = current_idx + 1 # include the token just generated
+
+        if yielded_idx < safe_idx:
+            y_tokens = tokens[yielded_idx : safe_idx]
+            yield from y_tokens
+            yielded_idx = safe_idx
+
+        # Update input_pos for the next iteration.
+        if prefill_token:
+            prefill_token = False
+
+            # TODO: Add batch dim (fix kvcache and rope cache)
             input_pos = torch.tensor([prompt_size], device=device, dtype=torch.int64)
         else:
             input_pos.add_(1)
