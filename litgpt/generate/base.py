@@ -75,8 +75,8 @@ def sample(
 
 def next_token(model: GPT, input_pos: torch.Tensor, x: torch.Tensor, **kwargs: Any) -> torch.Tensor:
     logits = model(x, input_pos)
-    _next = sample(logits, **kwargs)
-    return _next.to(dtype=torch.int64)
+    _next = sample(logits, **kwargs).to(dtype=torch.int64)
+    return _next
 
 
 def batched_sample(logits: list[torch.Tensor], kwargs: list[dict]) -> list[torch.Tensor]:
@@ -85,6 +85,10 @@ def batched_sample(logits: list[torch.Tensor], kwargs: list[dict]) -> list[torch
 
 
 def batched_next_token(model: GPT, input_pos: torch.Tensor, x: list[torch.Tensor], kwargs: Union[dict, list[dict]]) -> list[torch.Tensor]:
+    # Where
+    # input_pos is a tensor of shape [seq_length...]
+    # Each tensor in x is 1d, and represents the context tokens to add to the kvcache.
+
     # TODO: Take input_pos as a list of tensors.
     # The desired API is input_pos: Union[torch.Tensor, list[torch.Tensor]].
     # This means making the rope cache and kvcache forward() work with batches. Currently, they do not.
@@ -92,18 +96,17 @@ def batched_next_token(model: GPT, input_pos: torch.Tensor, x: list[torch.Tensor
     # Relevant thread: https://discuss.pytorch.org/t/batched-index-select/9115
     # We will also need the same with tensor.index_copy_(). These do not work for batches, and the replacement
     # is somewhat nontrivial. Until then, we can only accept prompts that are all the same length.
-    assert input_pos.ndim == 1, "Passing input_pos as a tensor is not yet supported."
-    assert all(t.size(0) == input_pos.size(0) for t in x), "For now, all input sequences must have the same length as input_pos."
-
     # After this problem is resolved, there will be another problem. That being, continuous batched prefill.
     # If you have any ideas on this, let me know. I don't think that padding input_pos is viable.
 
     # Pad the contexts into a batch.
-    if isinstance(x, list):
-        assert all(isinstance(t, torch.Tensor) for t in x), "x must be a list of tensors."
-        x = [t.squeeze() for t in x]
-        assert all(t.ndim == 1 for t in x), "x must be a list of tensors that can be squeezed to 1D."
-        x = torch.nn.utils.rnn.pad_sequence([t.squeeze()[::-1] for t in x], batch_first=True).flip(dims=[1])
+    assert all(isinstance(t, torch.Tensor) for t in x), "x must be a list of tensors."
+    for t in x:
+        print("X size:", t.size())
+    assert all(t.size(0) == input_pos.size(0) for t in x), "For now, all input sequences must have the same length as input_pos."
+    assert all(t.ndim == 1 for t in x), "x must be a list of tensors that can be squeezed to 1D."
+    # TODO: x = torch.nn.utils.rnn.pad_sequence(x[::-1], batch_first=True).flip(dims=[1])
+    x: torch.Tensor = torch.nn.utils.rnn.pad_sequence(x, batch_first=True)
 
     # Make sure we converted all the arguments correctly.
     assert x.ndim == 2, "Could not create a 2D tensor from x."
