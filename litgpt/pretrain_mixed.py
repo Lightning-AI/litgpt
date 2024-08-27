@@ -18,6 +18,7 @@ import numpy as np
 import torch
 import torch.nn as nn
 import torch.nn.functional as F
+import torch.distributed as dist
 from lightning.fabric.strategies import FSDPStrategy
 from lightning.fabric.utilities.throughput import measure_flops, ThroughputMonitor
 
@@ -27,6 +28,7 @@ from litgpt.config import name_to_config
 from litgpt.data import DataModule, MicroLlama, TinyLlama
 from litgpt.data.mixed_dataset import CombinedLoader
 from litgpt.data_selection.data_selectors import DataSelector, basic_linear_scheduler
+from litgpt.data_selection.visualization import visualize_predicted_rewards, visualize_predicted_rewards_polygon
 from litgpt.model import Block, CausalSelfAttention, Config, GPT, LLaMAMLP
 from litgpt.utils import (
     capture_hparams,
@@ -43,9 +45,11 @@ from litgpt.utils import (
     reset_parameters,
     save_config,
     save_hyperparameters,
-    round_and_normalize
+    round_and_normalize,
+    sample_from_simplex
 )
 from litgpt.schedulers import get_lr, get_lr_decay_stage, get_lr_linear_decay
+
 from botorch.models import SingleTaskGP
 from botorch.fit import fit_gpytorch_mll
 from botorch.generation import MaxPosteriorSampling
@@ -92,32 +96,50 @@ class DataWeights(nn.Module):
             return self.source_weights
 
 class DistributedMovingWindowGP:
-    def __init__(self, fabric, n_datasets=2, window_size=100):
+    def __init__(self, fabric, n_datasets=2, window_size=50):
         self.fabric = fabric
         self.window_size = window_size
         self.X = torch.zeros((0, n_datasets), dtype=torch.float64, device=fabric.device)
         self.Y = torch.zeros((0, 1), dtype=torch.float64, device=fabric.device)
+        self.y_mean = None
+        self.y_std = None
 
     def add_observation(self, x, y):
         # Gather observations from all processes
-        x_list = [torch.zeros_like(x) for _ in range(self.fabric.world_size)]
-        y_list = [torch.zeros_like(y) for _ in range(self.fabric.world_size)]
-        
-        dist.all_gather(x_list, x)
-        dist.all_gather(y_list, y)
-        
-        x_gathered = torch.stack(x_list)
-        y_gathered = torch.stack(y_list)
-        
+
+        if self.fabric.world_size > 1:
+            x_list = [torch.zeros_like(x) for _ in range(self.fabric.world_size)]
+            y_list = [torch.zeros_like(y) for _ in range(self.fabric.world_size)]
+            
+            self.fabric.all_gather(x_list, x)
+            self.fabric.all_gather(y_list, y)
+            
+            # NOTE: can combine these observations in different ways.
+            x_gathered = torch.stack(x_list).squeeze(1)
+            y_gathered = torch.stack(y_list).squeeze(1)
+        else:
+            x_gathered = x
+            y_gathered = y
+
         self.X = torch.cat([self.X, x_gathered], dim=0)
         self.Y = torch.cat([self.Y, y_gathered], dim=0)
-        
+
         if len(self.X) > self.window_size:
             self.X = self.X[-self.window_size:]
             self.Y = self.Y[-self.window_size:]
 
+        # update scaling factors
+        self.y_mean = self.Y.mean()
+        self.y_std = self.Y.std()
+        if self.y_std == 0:
+            self.y_std = 1.0
+
     def get_data(self):
-        return self.X, self.Y
+        scaled_Y = (self.Y - self.y_mean) / self.y_std
+        print(self.X, scaled_Y)
+        print("orig rewards: ", self.Y)
+        # NOTE: the double normalization is excessive. Try just returning the original y val for now...
+        return self.X, scaled_Y
 
 def compute_gradient_similarities(gradients, key="_forward_module.lm_head.weight"):
     similarities = {}
@@ -176,7 +198,8 @@ def decode_batch(batch, tokenizer):
     
     return decoded_texts
 
-def generate_ts_candidates(X, Y, batch_size, n_candidates):
+def generate_ts_candidates(X, Y, batch_size, n_candidates, return_model=False):
+    y_normalized = (Y - Y.min()) / (Y.max() - Y.min())
     likelihood = GaussianLikelihood(noise_constraint=gpytorch.constraints.Interval(1e-8, 1e-3))
     covar_module = ScaleKernel(MaternKernel(nu=2.5, ard_num_dims=X.shape[-1]))
 
@@ -194,17 +217,8 @@ def generate_ts_candidates(X, Y, batch_size, n_candidates):
         thompson_sampling = MaxPosteriorSampling(model=model, replacement=False)
         X_next = thompson_sampling(X_cand, num_samples=batch_size)
 
-    return X_next
-
-def sample_from_simplex(n_samples: int, n_dimensions: int) -> torch.Tensor:
-    """Sample from the unit simplex in dim dimensions.
-
-    This is a uniform sample from the unit simplex in dim dimensions.
-    """
-    samples = torch.distributions.Exponential(rate=torch.ones(n_dimensions)).sample((n_samples,))
-    
-    # Normalize to make sure each sample sums to 1
-    return samples / samples.sum(dim=1, keepdim=True)
+    model = None if not return_model else model
+    return X_next, model
 
 def setup(
     model_name: str,
@@ -599,17 +613,17 @@ def fit(
     train_gradient_counts = defaultdict(int)
     first_iter = True
     initial_steps = state["step_count"]
-
+    best_dev_loss_so_far = None
 
     # keep track of observations for thompson sampling
-    if train.scheduler == "ts_gp":
+    if train.data_scheduler == "ts_gp":
         n_datasets = len(train_dataloader.loaders)
         X = torch.zeros((0, n_datasets), dtype=torch.float64, device=fabric.device)
         Y = torch.zeros((0, 1), dtype=torch.float64, device=fabric.device)  # Change to (0, 1)
         running_avg_performance = None
         alpha = 0.1  # Exponential moving average factor
         INITIAL_EXPLORE_STEPS = 100 # TODO: add in initial exploration phase
-
+        VISUALIZATION_STEPS = 500
         moving_window_gp = DistributedMovingWindowGP(fabric, n_datasets)
 
 
@@ -777,9 +791,13 @@ def fit(
                     max_iters=eval.max_iters,
                     do_collect_gradients=True,
                 )
+                if best_dev_loss_so_far is None:
+                    best_dev_loss_so_far = dev_loss.item()
 
                 if running_avg_performance is None:
                     running_avg_performance = 0.9 * dev_loss_lm.item() + 0.1 * dev_loss_sft.item()
+                    relative_improvement = 0
+                    absolute_improvement = best_dev_loss_so_far - dev_loss.item()
                 else:
                     running_avg_performance = (1 - alpha) * running_avg_performance + alpha * ( 0.9 * dev_loss_lm.item() + 0.1 * dev_loss_sft.item())
 
@@ -789,7 +807,13 @@ def fit(
                     #X = torch.cat([X, current_weights.unsqueeze(0)], dim=0)
                     #Y = torch.cat([Y, torch.tensor([[relative_improvement]], dtype=torch.float64, device=fabric.device)]) 
 
-                    moving_window_gp.add_observation(current_weights, relative_improvement)
+                    #moving_window_gp.add_observation(current_weights.unsqueeze(0), torch.tensor([[relative_improvement]], device=fabric.device))
+                    absolute_improvement = best_dev_loss_so_far - dev_loss.item()
+
+                    if dev_loss.item() < best_dev_loss_so_far:
+                        best_dev_loss_so_far = dev_loss.item()
+
+                    moving_window_gp.add_observation(current_weights.unsqueeze(0), torch.tensor([[relative_improvement]], device=fabric.device))
                     X, Y = moving_window_gp.get_data()
 
                 # TODO: make sure all Xs and Ys are gathered across GPUs
@@ -803,7 +827,11 @@ def fit(
                     
                     # new_sampling_rate = fabric.broadcast(new_sampling_rate, src=0)
 
-                    candidate_weights = generate_ts_candidates(X, Y, n_candidates=1000, batch_size=1)
+                    candidate_weights, gp_model = generate_ts_candidates(X, Y, n_candidates=1000, batch_size=1, return_model=True)
+                    if gp_model and state["iter_num"] % VISUALIZATION_STEPS == 0:
+                        fabric.print("Visualizing model reward preds...")
+                        visualize_predicted_rewards_polygon(gp_model, iters_passed=state["iter_num"] - initial_iter, dim=len(train_dataloader.loaders), device=fabric.device, output_dir="rewards_longer_trial_abs")
+                        
                     new_sampling_rate = round_and_normalize(candidate_weights).tolist()[0]
                     new_sampling_rate = fabric.broadcast(new_sampling_rate, src=0)
                 else:
@@ -820,6 +848,19 @@ def fit(
 
                     new_sampling_rate = sample_from_simplex(1, X.shape[-1]).to(dtype=X.dtype, device=X.device).tolist()[0]
                     new_samplng_rate = fabric.broadcast(new_sampling_rate, src=0)
+
+                
+                sampling_rates_dict = {
+                        f"sampling_rate_{name}": round(sampling_rate, 3)
+                        for name, sampling_rate in zip(
+                            train_dataloader.loaders.keys(), new_sampling_rate
+                        )
+                }
+                metrics = {
+                    **sampling_rates_dict,
+                    "reward": relative_improvement,
+                }
+                fabric.log_dict(metrics, step=state["iter_num"] - 1)
 
                 #new_sampling_rate = train_dataloader.sampling_rates # TODO remove this
                 

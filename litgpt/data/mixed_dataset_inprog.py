@@ -100,8 +100,13 @@ class MixedDataset(DataModule):
     initial_sampling_rates: Optional[List[float]] = None
 
     def __post_init__(self):
-        self.lm_train_path = os.path.join(self.pretraining_data_path, "train")
-        self.lm_val_path = os.path.join(self.pretraining_data_path, "val") if self.pretraining_data_path else self.pretraining_val_path
+        if not self.pretraining_val_path:
+            self.lm_train_path = os.path.join(self.pretraining_data_path, "train")
+            self.lm_val_path = os.path.join(self.pretraining_data_path, "val") 
+        else:
+            self.lm_train_path = self.pretraining_data_path
+            self.lm_val_path = self.pretraining_val_path
+            
         if not self.lm_val_path:
             raise OSError("No path found for validation dir, either pass a pretraining_data_path with train/ and val/ subdirs, or a separate pretraining_val_path.")
         

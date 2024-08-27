@@ -20,6 +20,7 @@ class FineWebDataset(DataModule):
     data_path: Union[str, Path] = Path(
         "/data/users/nightingal3/manifold/all_in_one_pretraining/datasets/pretraining/fineweb/"
     )
+    val_data_path: Optional[Union[str, Path]] = None # specify a separate val data path
     """The path to the data directory, containing two folders 'train' and 'val'
     which are the output of the preprocessing step. The path can also be a remote path (e.g., s3://)."""
     val_split_fraction: float = 0.0005
@@ -37,8 +38,12 @@ class FineWebDataset(DataModule):
 
     def __post_init__(self) -> None:
         # Could be a remote path (s3://) or a local path
-        self.data_path_train = os.path.join(self.data_path, "train")
-        self.data_path_val = os.path.join(self.data_path, "val")
+        if not self.val_data_path:
+            self.data_path_train = os.path.join(self.data_path, "train")
+            self.data_path_val = os.path.join(self.data_path, "val")
+        else:
+            self.data_path_train = self.data_path
+            self.data_path_val = self.val_data_path
 
     def connect(
         self,

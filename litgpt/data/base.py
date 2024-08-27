@@ -97,7 +97,7 @@ class SFTDataset(Dataset):
 
         return {
             "input_ids": encoded_prompt_and_response.type(torch.int64),
-            "labels": labels.type(torch.int64),
+            "labels": labels.type(torch.int64)
         }
 
 

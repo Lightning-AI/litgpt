@@ -679,7 +679,6 @@ class CombinedLoader(DataLoader):
         self.dataset = ConcatIterableDataset(
             [getattr(dl, "dataset", None) for dl in self.flattened]
         )
-        breakpoint()
 
     @property
     def iterables(self) -> Any:

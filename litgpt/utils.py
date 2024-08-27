@@ -638,3 +638,14 @@ def round_and_normalize(probs: torch.Tensor, decimals: int = 5) -> torch.Tensor:
     factor = 10**decimals
     probs = torch.round(probs * factor) / factor
     return probs / probs.sum()
+
+
+def sample_from_simplex(n_samples: int, n_dimensions: int) -> torch.Tensor:
+    """Sample from the unit simplex in dim dimensions.
+
+    This is a uniform sample from the unit simplex in dim dimensions.
+    """
+    samples = torch.distributions.Exponential(rate=torch.ones(n_dimensions)).sample((n_samples,))
+    
+    # Normalize to make sure each sample sums to 1
+    return samples / samples.sum(dim=1, keepdim=True)
