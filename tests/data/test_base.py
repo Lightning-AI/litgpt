@@ -9,7 +9,7 @@ from litgpt.prompts import PromptStyle
 
 @pytest.mark.parametrize("mask_prompt", [True, False])
 @pytest.mark.parametrize("ignore_index", [-1, -100])
-@pytest.mark.parametrize("max_seq_length", [1000, 5])
+@pytest.mark.parametrize("max_seq_length", [1000, 5, -1])
 def test_sft_dataset(max_seq_length, ignore_index, mask_prompt, mock_tokenizer):
     class Style(PromptStyle):
         def apply(self, prompt, **kwargs):
@@ -34,8 +34,12 @@ def test_sft_dataset(max_seq_length, ignore_index, mask_prompt, mock_tokenizer):
         torch.tensor([i, i, i, i, i, i, i, i, i, i, i, i, 66, 97, 114, 1]) if mask_prompt else expected_input_ids
     )
 
-    assert torch.equal(dataset[0]["input_ids"], expected_input_ids[:max_seq_length])
-    assert torch.equal(dataset[0]["labels"], expected_labels[:max_seq_length])
+    if max_seq_length == -1:
+        assert torch.equal(dataset[0]["input_ids"], expected_input_ids)
+        assert torch.equal(dataset[0]["labels"], expected_labels)
+    else:
+        assert torch.equal(dataset[0]["input_ids"], expected_input_ids[:max_seq_length])
+        assert torch.equal(dataset[0]["labels"], expected_labels[:max_seq_length])
 
 
 @pytest.mark.parametrize("ignore_index", [-1, -100])

@@ -133,10 +133,7 @@ class TogetherComputerInstruct(PromptStyle):
 
 class Falcon(PromptStyle):
     def apply(self, prompt: str, **kwargs: str) -> str:
-        # First line could be modified. AFAIK Falcon doesn't impose a specific system prompt
-        # The instruction to not prefix its replies doesn't work always, but better than nothing
-        # I've also tried just "{prompt}\n" but the model seems to ramble more often
-        return f"Do not prefix your replies with 'Bot: '\nUser: {prompt}\n"
+        return f"{prompt}\nAnswer:"
 
     def stop_tokens(self, tokenizer: "Tokenizer") -> Tuple[List[int], ...]:
         return (
@@ -218,14 +215,14 @@ class Llama3(PromptStyle):
 
             def encode_header(role: str) -> List[str]:
                 return [f"<|start_header_id|>{role}<|end_header_id|>\n\n"]
-            
+
             def encode_message(message: Dict[str, str]) -> List[str]:
                 tokens = encode_header(message["role"])
                 # NOTE: Meta stripped this. I'm not sure I agree, but who am I to argue?
                 tokens.append(message["content"].strip())
                 tokens.append("<|eot_id|>")
                 return tokens
-            
+
             def has_system_prompt(messages: List[Dict[str, str]]) -> bool:
                 return messages[0].get("role", "") == "system" if len(messages) else False
 
@@ -307,7 +304,6 @@ class Phi2(PromptStyle):
 class Phi3(PromptStyle):
     def apply(self, prompt: str, **kwargs: str) -> str:
         return f'<|system|>\nYou are a helpful assistant.<|end|>\n<|user|>\n{prompt}<|end|>\n<|assistant|>\n'
-
 
 
 class TinyLlama(PromptStyle):
