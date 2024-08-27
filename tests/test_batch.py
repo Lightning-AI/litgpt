@@ -1,19 +1,32 @@
 import torch
 import warnings
-warnings.filterwarnings("ignore")
-
+from pathlib import Path
 from litgpt.generate.base import next_token, batched_next_token
 from litgpt.api import LLM, GPT
+from litgpt.scripts.download import download_from_hub
 
-def test_batched_equivalence():
+warnings.filterwarnings("ignore")
+
+
+def test_batched_equivalence(tmp_path):
+
+    model_name = "microsoft/phi-2"
+    download_from_hub(repo_id=model_name, tokenizer_only=True, checkpoint_dir=tmp_path)
+
     batch_size = 2
     sample_kwargs = {"top_k": 1}
 
-    llm: LLM = LLM.load("microsoft/phi-2")
+    llm: LLM = LLM.load(
+        model_name,
+        tokenizer_dir=Path(tmp_path / model_name),
+        init="random",
+    )
     model: GPT = llm.model
     model.set_kv_cache(batch_size=1, max_seq_length=50, device="cuda:0")
 
-    input_pos_1 = torch.tensor([0, 1, 2, 3, 4, 5, 6, 7, 8, 9], dtype=torch.int64, device="cuda:0")
+    input_pos_1 = torch.tensor(
+        [0, 1, 2, 3, 4, 5, 6, 7, 8, 9], dtype=torch.int64, device="cuda:0"
+    )
     input_pos_2 = torch.tensor([10], dtype=torch.int64, device="cuda:0")
 
     x_1 = torch.tensor(
