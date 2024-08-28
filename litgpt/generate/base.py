@@ -78,19 +78,21 @@ def next_token(model: GPT, input_pos: torch.Tensor, x: torch.Tensor, **kwargs: A
     _next = sample(logits, **kwargs).to(dtype=torch.int64)
     return _next
 
-
-def batched_sample(logits: list[torch.Tensor], kwargs: list[dict]) -> list[torch.Tensor]:
+def batched_sample(logits: list[torch.Tensor], kwargs: list[dict]) -> torch.Tensor:
     assert len(logits) == len(kwargs), "logits and kwargs must have the same length."
-    return [sample(l, **sample_args).to(dtype=torch.int64) for sample_args, l in zip(kwargs, logits)]
+    return torch.stack([sample(l, **sample_args).to(dtype=torch.int64) for sample_args, l in zip(kwargs, logits)], dim=0)
 
+def batched_next_token(model: GPT, input_pos: torch.Tensor, x: torch.Tensor, kwargs: Union[dict, list[dict]]) -> torch.Tensor:
+    # Where:
+    # input_pos is a 1d tensor of shape [seq_length...]
+    # x is context tokens to add to the kvcache.
+    # For prefill, x is a 2d tensor of shape [batch_size, prompt_length].
+    # For subsequent tokens, x is a 2d tensor of shape [batch_size, 1].
+    # kwargs is a list of dictionaries, each containing the keyword arguments for the sample function.
+    # If one dictionary is passed, it's repeated for each sample in the batch.
 
-def batched_next_token(model: GPT, input_pos: torch.Tensor, x: list[torch.Tensor], kwargs: Union[dict, list[dict]]) -> list[torch.Tensor]:
-    # Where
-    # input_pos is a tensor of shape [seq_length...]
-    # Each tensor in x is 1d, and represents the context tokens to add to the kvcache.
-
-    # TODO: Take input_pos as a list of tensors.
-    # The desired API is input_pos: Union[torch.Tensor, list[torch.Tensor]].
+    # In the future, we would like input_pos to be a 2d tensor of shape [batch_size, seq_length].
+    # That way, we can support prompts of different sizes.
     # This means making the rope cache and kvcache forward() work with batches. Currently, they do not.
     # This is relatively complicated, given the current implementation. It will require some rewriting.
     # Relevant thread: https://discuss.pytorch.org/t/batched-index-select/9115
@@ -99,23 +101,8 @@ def batched_next_token(model: GPT, input_pos: torch.Tensor, x: list[torch.Tensor
     # After this problem is resolved, there will be another problem. That being, continuous batched prefill.
     # If you have any ideas on this, let me know. I don't think that padding input_pos is viable.
 
-    # Pad the contexts into a batch.
-    assert all(isinstance(t, torch.Tensor) for t in x), "x must be a list of tensors."
-    for t in x:
-        print("X size:", t.size())
-    assert all(t.size(0) == input_pos.size(0) for t in x), "For now, all input sequences must have the same length as input_pos."
-    assert all(t.ndim == 1 for t in x), "x must be a list of tensors that can be squeezed to 1D."
-    # TODO: x = torch.nn.utils.rnn.pad_sequence(x[::-1], batch_first=True).flip(dims=[1])
-    x: torch.Tensor = torch.nn.utils.rnn.pad_sequence(x, batch_first=True)
-
-    # Make sure we converted all the arguments correctly.
-    assert x.ndim == 2, "Could not create a 2D tensor from x."
-    assert input_pos.dtype == torch.int64, "input_pos must be a tensor with dtype int64."
-    assert x.dtype == torch.int64, "x must be a tensor with dtype int64."
-
     _kwargs = kwargs if isinstance(kwargs, list) else [kwargs] * x.size(0)
-    assert all(isinstance(k, dict) for k in _kwargs), "kwargs must be a dictionary or list of dictionaries."
-
+    
     # Run the model on the batch.
     logits_stack = model(x, input_pos)
 

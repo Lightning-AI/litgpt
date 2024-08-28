@@ -15,7 +15,7 @@ def test_batched_equivalence(tmp_path):
     download_from_hub(repo_id=model_name, tokenizer_only=True, checkpoint_dir=tmp_path)
 
     device = "cuda:0"
-    batch_size = 2
+    batch_size = 3
     sample_kwargs = {"top_k": 1}
 
     llm: LLM = LLM.load(
@@ -31,26 +31,34 @@ def test_batched_equivalence(tmp_path):
     )
     input_pos_2 = torch.tensor([10], dtype=torch.int64, device=device)
 
-    x_1 = torch.tensor(
+    x = torch.tensor(
         [43993, 25, 1867, 466, 32660, 17485, 4483, 30, 198, 26410],
         device=device,
         dtype=torch.int64,
     )
 
+    batch_x1 = torch.stack([x] * batch_size, dim=0)
+
     # Single token generation baseline
-    tok_1 = next_token(model, input_pos_1, x_1.unsqueeze(0), **sample_kwargs)
-    print("Next Token 1:", tok_1)
+    tok_1 = next_token(model, input_pos_1, x.unsqueeze(0), **sample_kwargs)
     tok_2 = next_token(model, input_pos_2, tok_1.unsqueeze(0), **sample_kwargs)
-    print("Next Token 2:", tok_2)
+
+    assert tok_1.ndim == 1
+    assert tok_2.ndim == 1
+    assert tok_1.size(0) == 1
+    assert tok_2.size(0) == 1
 
     # Switch to batched generation
     model.clear_kv_cache()
-    model.set_kv_cache(batch_size=batch_size, max_seq_length=50, device=device)
+    model.set_kv_cache(batch_size=batch_size, max_seq_length=50, device="cuda:0")
 
-    toks_1 = batched_next_token(model, input_pos_1, [x_1] * batch_size, sample_kwargs)
-    print("Batched Next Token 1:", toks_1)
-    toks_2 = batched_next_token(model, input_pos_2, toks_1, sample_kwargs)
-    print("Batched Next Token 2:", toks_2)
+    toks_1: torch.Tensor = batched_next_token(model, input_pos_1, batch_x1, sample_kwargs)
+    toks_2: torch.Tensor = batched_next_token(model, input_pos_2, toks_1, sample_kwargs)
+
+    assert toks_1.ndim == 2
+    assert toks_2.ndim == 2
+    assert toks_1.size(0) == batch_size
+    assert toks_2.size(0) == batch_size
 
     # Assert that single and batched next token generation are equivalent
     assert all(t == tok_1 for t in toks_1), f"{tok_1} != {toks_1}"
