@@ -75,8 +75,43 @@ def sample(
 
 def next_token(model: GPT, input_pos: torch.Tensor, x: torch.Tensor, **kwargs: Any) -> torch.Tensor:
     logits = model(x, input_pos)
-    next = sample(logits, **kwargs)
-    return next.to(dtype=x.dtype)
+    _next = sample(logits, **kwargs).to(dtype=torch.int64)
+    return _next
+
+def batched_sample(logits: list[torch.Tensor], kwargs: list[dict]) -> torch.Tensor:
+    assert len(logits) == len(kwargs), "logits and kwargs must have the same length."
+    return torch.stack([sample(l, **sample_args).to(dtype=torch.int64) for sample_args, l in zip(kwargs, logits)], dim=0)
+
+def batched_next_token(model: GPT, input_pos: torch.Tensor, x: torch.Tensor, kwargs: Union[dict, list[dict]]) -> torch.Tensor:
+    # Where:
+    # input_pos is a 1d tensor of shape [seq_length...]
+    # x is context tokens to add to the kvcache.
+    # For prefill, x is a 2d tensor of shape [batch_size, prompt_length].
+    # For subsequent tokens, x is a 2d tensor of shape [batch_size, 1].
+    # kwargs is a list of dictionaries, each containing the keyword arguments for the sample function.
+    # If one dictionary is passed, it's repeated for each sample in the batch.
+
+    # In the future, we would like input_pos to be a 2d tensor of shape [batch_size, seq_length].
+    # That way, we can support prompts of different sizes.
+    # This means making the rope cache and kvcache forward() work with batches. Currently, they do not.
+    # This is relatively complicated, given the current implementation. It will require some rewriting.
+    # Relevant thread: https://discuss.pytorch.org/t/batched-index-select/9115
+    # We will also need the same with tensor.index_copy_(). These do not work for batches, and the replacement
+    # is somewhat nontrivial. Until then, we can only accept prompts that are all the same length.
+    # After this problem is resolved, there will be another problem. That being, continuous batched prefill.
+    # If you have any ideas on this, let me know. I don't think that padding input_pos is viable.
+
+    _kwargs = kwargs if isinstance(kwargs, list) else [kwargs] * x.size(0)
+    
+    # Run the model on the batch.
+    logits_stack = model(x, input_pos)
+
+    # Unbind the logits stack into a list of logits.
+    logits_list = [logits_stack] if logits_stack.ndim == 1 else logits_stack.unbind(0)
+    logits_list = [l.unsqueeze(0) for l in logits_list]
+
+    # Return the next token for each sample in the batch.
+    return batched_sample(logits_list, kwargs=_kwargs)
 
 
 @torch.inference_mode()
