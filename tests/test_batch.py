@@ -69,6 +69,8 @@ def test_batched_equivalence(tmp_path):
 
 @RunIf(min_cuda_gpus=1)
 def test_simple_batch():
+    old_allow_tf32 = torch.backends.cuda.matmul.allow_tf32
+    torch.backends.cuda.matmul.allow_tf32 = False
     config = litgpt.Config.from_name(
         "Llama-3.1-8B", padded_vocab_size=10000, n_layer=2, n_head=8, n_embd=256
     )
@@ -96,8 +98,11 @@ def test_simple_batch():
     outs0_ref1 = m(x0[1:], input_pos0[1])
     outs1_ref1 = m(x1[1:], input_pos1[1])
 
-    outs_ref0 = torch.cat([outs0_ref0, outs0_ref1])
-    outs_ref1 = torch.cat([outs1_ref0, outs1_ref1])
+    outs0_ref = torch.cat([outs0_ref0, outs0_ref1])
+    outs1_ref = torch.cat([outs1_ref0, outs1_ref1])
 
-    torch.testing.assert_close(outs0, outs_ref0)
-    torch.testing.assert_close(outs1, outs_ref1)
+    print(outs0_ref - outs0)
+    print(outs0.shape)
+    torch.testing.assert_close(outs0, outs0_ref)
+    torch.testing.assert_close(outs1, outs1_ref)
+    torch.backends.cuda.matmul.allow_tf32 = old_allow_tf32
