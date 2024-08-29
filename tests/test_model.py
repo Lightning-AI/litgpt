@@ -790,7 +790,11 @@ def test_sdpa_choice_kv_cache(config):
     torch.set_default_dtype(torch.float16)
 
     def assert_sdpa_backend(original_fn, q, k, v, mask):
-        params = SDPAParams(q, k, v, mask, 0.0, True)
+        # SDPAParams gained an additional argument in PyTorch 2.5
+        args = []
+        if hasattr(SDPAParams, "enable_gqa"):
+            args.append(False)
+        params = SDPAParams(q, k, v, mask, 0.0, True, *args)
         if expected is SDPBackend.FLASH_ATTENTION:
             assert flash_sdp_enabled()
             assert can_use_flash_attention(params, True)
