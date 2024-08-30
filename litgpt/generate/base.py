@@ -199,50 +199,7 @@ def generate_fn(
         yield from tokens[yielded_idx:]
 
 
-def batched_sample(logits: list[torch.Tensor], kwargs: list[dict]) -> list[torch.Tensor]:
-    assert len(logits) == len(kwargs), "logits and kwargs must have the same length."
-    return [sample(l, **sample_args).to(dtype=torch.int64) for sample_args, l in zip(kwargs, logits)]
-
-
-def batched_next_token(model: GPT, input_pos: torch.Tensor, x: list[torch.Tensor], kwargs: Union[dict, list[dict]]) -> list[torch.Tensor]:
-    # TODO: Take input_pos as a list of tensors.
-    # The desired API is input_pos: Union[torch.Tensor, list[torch.Tensor]].
-    # This means making the rope cache and kvcache forward() work with batches. Currently, they do not.
-    # This is relatively complicated, given the current implementation. It will require some rewriting.
-    # Relevant thread: https://discuss.pytorch.org/t/batched-index-select/9115
-    # We will also need the same with tensor.index_copy_(). These do not work for batches, and the replacement
-    # is somewhat nontrivial. Until then, we can only accept prompts that are all the same length.
-    assert input_pos.ndim == 1, "Passing input_pos as a tensor is not yet supported."
-    assert all(t.size(0) == input_pos.size(0) for t in x), "For now, all input sequences must have the same length as input_pos."
-
-    # After this problem is resolved, there will be another problem. That being, continuous batched prefill.
-    # If you have any ideas on this, let me know. I don't think that padding input_pos is viable.
-
-    # Pad the contexts into a batch.
-    if isinstance(x, list):
-        assert all(isinstance(t, torch.Tensor) for t in x), "x must be a list of tensors."
-        x = [t.squeeze() for t in x] # [::-1]
-        assert all(t.ndim == 1 for t in x), "x must be a list of tensors that can be squeezed to 1D."
-        x = torch.nn.utils.rnn.pad_sequence([t.squeeze() for t in x], batch_first=True)
-
-    # Make sure we converted all the arguments correctly.
-    assert x.ndim == 2, "Could not create a 2D tensor from x."
-    assert input_pos.dtype == torch.int64, "input_pos must be a tensor with dtype int64."
-    assert x.dtype == torch.int64, "x must be a tensor with dtype int64."
-
-    _kwargs = kwargs if isinstance(kwargs, list) else [kwargs] * x.size(0)
-    assert all(isinstance(k, dict) for k in _kwargs), "kwargs must be a dictionary or list of dictionaries."
-
-    # Run the model on the batch.
-    logits_stack = model(x, input_pos)
-
-    # Unbind the logits stack into a list of logits.
-    logits_list = [logits_stack] if logits_stack.ndim == 1 else logits_stack.unbind(0)
-    logits_list = [l.unsqueeze(0) for l in logits_list]
-
-    # Return the next token for each sample in the batch.
-    return batched_sample(logits_list, kwargs=_kwargs)
-
+# TODO: Make include_eos work.
 @torch.inference_mode()
 def batched_generate_fn(
     model: GPT,
@@ -275,9 +232,11 @@ def batched_generate_fn(
 
     # Yield the prompts if include_prompt is True
     if include_prompt:
-        yield prompts
+        # TODO: Prompt length is padded, but they shouldn't all be the same length.
+        for s in range(max_prompt_size):
+            yield [prompt[s] for prompt in prompts]
 
-    stop_progresses = [([0] * len(stop_tokens)) for _ in range(batch_size)]
+    stop_progresses = [[0] * len(stop_tokens) for _ in range(batch_size)] # [batch_size, ~len(stop_tokens)]
     stop_idxes = [-1] * batch_size
     yielded_idx = 0
 
@@ -294,45 +253,60 @@ def batched_generate_fn(
         # Generate the next token for each prompt in the batch.
         # This is of shape [batch_size, 1].
         tokens = batched_next_token(model, input_pos, tokens, sample_args)
-        for i, token in enumerate(tokens):
-            token_lists[i].append(token)
+        for i in range(batch_size):
+            token_lists[i].append(tokens[i])
         int_tokens = [token.item() for token in tokens]
+        # print("Generated tokens:", int_tokens)
 
         # Check for stop sequences
         # For each stop sequence, we keep a running total of how many are matched in stop_progress.
         # If the current token matches the next token in the stop sequence, we increment the
         # running total and hold off on yielding the token.
         for batch_idx, int_token in enumerate(int_tokens):
-            for i, seq in enumerate(stop_tokens):
-                if int_token == seq[stop_progresses[batch_idx][i]]:
-                    stop_progresses[batch_idx][i] += 1
-                    if stop_progresses[batch_idx][i] == len(seq):
+            if stop_idxes[batch_idx] != -1:
+                continue
+            for seq_idx, seq in enumerate(stop_tokens):
+                seq_pos = stop_progresses[batch_idx][seq_idx]
+                if seq_pos >= len(seq):
+                    continue
+                if int_token == seq[seq_pos]:
+                    stop_progresses[batch_idx][seq_idx] += 1
+                    if stop_progresses[batch_idx][seq_idx] == len(seq):
                         stop_idxes[batch_idx] = current_idx
                 else:
-                    stop_progresses[batch_idx][i] = 0
+                    stop_progresses[batch_idx][seq_idx] = 0
+
+        # print("Stop progress:", stop_progresses)
 
         # Yield tokens that are not part of a stop sequence in progress.
         # If there are no stop sequences, then that's all of them.
-        if stop_tokens:
-            safe_idxes = [tokens.size(1) - max(stop_progress) for stop_progress in stop_progresses]
+        if len(stop_tokens) != 0:
+            safe_idxes = [len(token_lists[i]) - max(stop_progresses[i]) for i in range(batch_size)]
+            # print("safe_idxes:", safe_idxes)
         else:
             safe_idxes = [current_idx + 1] # include the token just generated
         safe_idx = min(safe_idxes)
+        # print("safe_idx:", safe_idx)
 
         if yielded_idx < safe_idx:
+            # print(yielded_idx, ":", safe_idx)
             for idx in range(yielded_idx, safe_idx):
-                token_list = token_lists[idx]
-                yield [token_list[i] if i < stop_idxes[i] else None for i in range(len(token_list))]
+                y_tokens = [token_lists[i][idx] if (stop_idxes[i] == -1 or idx < stop_idxes[i]) else None for i in range(batch_size)]
+                if all(y is None for y in y_tokens):
+                    return
+                yield y_tokens
             yielded_idx = safe_idx
 
         # Update input_pos for the next iteration.
         if prefill_token:
             prefill_token = False
 
-            # TODO: Add batch dim (fix kvcache and rope cache)
+            # TODO: Add batch dim
             input_pos = torch.tensor([max_prompt_size], device=device, dtype=torch.int64)
         else:
             input_pos.add_(1)
+
+    # print("Yielding remaining tokens.")
 
     # Yield any remaining tokens
     if yielded_idx < len(tokens):
