@@ -308,6 +308,7 @@ def batched_generate_fn(
 
     # print("Yielding remaining tokens.")
 
+    # TODO: Prove that this is unreachable.
     # Yield any remaining tokens
     if yielded_idx < len(tokens):
         yield from tokens[yielded_idx:]
