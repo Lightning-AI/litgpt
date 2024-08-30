@@ -200,6 +200,7 @@ def generate_fn(
 
 
 # TODO: Make include_eos work.
+# TODO: Rewrite unbatched generate_fn to use batched_generate_fn.
 @torch.inference_mode()
 def batched_generate_fn(
     model: GPT,
@@ -308,7 +309,7 @@ def batched_generate_fn(
 
     # print("Yielding remaining tokens.")
 
-    # TODO: Prove that this is unreachable.
+    # TODO: Prove that this is unreachable, remove from this function.
     # Yield any remaining tokens
     if yielded_idx < len(tokens):
         yield from tokens[yielded_idx:]
