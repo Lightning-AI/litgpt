@@ -2,9 +2,11 @@ import torch
 import pytest
 import warnings
 from pathlib import Path
+import litgpt
 from litgpt.generate.base import next_token, batched_next_token
 from litgpt.api import LLM, GPT
 from litgpt.scripts.download import download_from_hub
+from tests.conftest import RunIf
 
 warnings.filterwarnings("ignore")
 
@@ -63,3 +65,44 @@ def test_batched_equivalence(tmp_path):
     # Assert that single and batched next token generation are equivalent
     assert all(t == tok_1 for t in toks_1), f"{tok_1} != {toks_1}"
     assert all(t == tok_2 for t in toks_2), f"{tok_2} != {toks_2}"
+
+
+@RunIf(min_cuda_gpus=1)
+def test_simple_batch():
+    old_allow_tf32 = torch.backends.cuda.matmul.allow_tf32
+    torch.backends.cuda.matmul.allow_tf32 = False
+    config = litgpt.Config.from_name(
+        "Llama-3.1-8B", padded_vocab_size=10000, n_layer=2, n_head=8, n_embd=256
+    )
+    with torch.device("cuda"):
+        m = litgpt.GPT(config).requires_grad_(False).eval()
+        x0 = torch.tensor([[1, 2, 3, 4], [5, 6, 7, 7]])
+        input_pos0 = torch.tensor([[0, 1, 2, 3], [0, 1, 2, 2]])
+        x1 = torch.tensor([[1], [2]])
+        input_pos1 = torch.tensor([[4], [3]])
+
+    with torch.device("cuda"):
+        m.set_kv_cache(2)
+    outs0 = m(x0, input_pos0)
+    outs1 = m(x1, input_pos1)
+
+    with torch.device("cuda"):
+        m.set_kv_cache(1)
+
+    outs0_ref0 = m(x0[:1], input_pos0[0])
+    outs1_ref0 = m(x1[:1], input_pos1[0])
+
+    with torch.device("cuda"):
+        m.set_kv_cache(1)
+
+    outs0_ref1 = m(x0[1:], input_pos0[1])
+    outs1_ref1 = m(x1[1:], input_pos1[1])
+
+    outs0_ref = torch.cat([outs0_ref0, outs0_ref1])
+    outs1_ref = torch.cat([outs1_ref0, outs1_ref1])
+
+    print(outs0_ref - outs0)
+    print(outs0.shape)
+    torch.testing.assert_close(outs0, outs0_ref)
+    torch.testing.assert_close(outs1, outs1_ref)
+    torch.backends.cuda.matmul.allow_tf32 = old_allow_tf32
