@@ -257,7 +257,10 @@ def batched_generate_fn(
 
     if isinstance(sample_args, dict):
         sample_args = [sample_args] * len(prompts)
-        
+    
+    if prompts.ndim == 1:
+        prompts = prompts.unsqueeze(0)
+
     assert prompts.ndim == 2, "Prompts must be a 2D tensor."
     batch_size = prompts.size(0)
     max_prompt_size = prompts.size(1)
@@ -275,7 +278,8 @@ def batched_generate_fn(
         yield prompts
 
     stop_progresses = [([0] * len(stop_tokens)) for _ in range(batch_size)]
-    yielded_idxes = [0] * batch_size
+    stop_idxes = [-1] * batch_size
+    yielded_idx = 0
 
     # Generate output tokens.
     # The first token generated is the prefill token.
@@ -303,22 +307,22 @@ def batched_generate_fn(
                 if int_token == seq[stop_progresses[batch_idx][i]]:
                     stop_progresses[batch_idx][i] += 1
                     if stop_progresses[batch_idx][i] == len(seq):
-                        if include_eos:
-                            yield from token_lists[batch_idx][yielded_idxes[batch_idx]:]
-                        return
+                        stop_idxes[batch_idx] = current_idx
                 else:
                     stop_progresses[batch_idx][i] = 0
 
         # Yield tokens that are not part of a stop sequence in progress.
         # If there are no stop sequences, then that's all of them.
         if stop_tokens:
-            safe_idx = [tokens.size(1) - max(stop_progress) for stop_progress in stop_progresses]
+            safe_idxes = [tokens.size(1) - max(stop_progress) for stop_progress in stop_progresses]
         else:
-            safe_idx = [current_idx + 1] * batch_size # include the token just generated
+            safe_idxes = [current_idx + 1] # include the token just generated
+        safe_idx = min(safe_idxes)
 
         if yielded_idx < safe_idx:
-            y_tokens = tokens[yielded_idx : safe_idx]
-            yield from y_tokens
+            for idx in range(yielded_idx, safe_idx):
+                token_list = token_lists[idx]
+                yield [token_list[i] if i < stop_idxes[i] else None for i in range(len(token_list))]
             yielded_idx = safe_idx
 
         # Update input_pos for the next iteration.
@@ -326,7 +330,7 @@ def batched_generate_fn(
             prefill_token = False
 
             # TODO: Add batch dim (fix kvcache and rope cache)
-            input_pos = torch.tensor([prompt_size], device=device, dtype=torch.int64)
+            input_pos = torch.tensor([max_prompt_size], device=device, dtype=torch.int64)
         else:
             input_pos.add_(1)
 
