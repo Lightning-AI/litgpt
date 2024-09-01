@@ -353,6 +353,7 @@ def fit(
                 initial_iter,
                 train.min_lr,
                 train.gradient_accumulation_iters(devices),
+                total_decay_steps=max_iters - initial_iter,
             )
             # note: the hyperparam may have to be scaled according to the gradient accumulation iters?
             # it looks like we want the final LR to 

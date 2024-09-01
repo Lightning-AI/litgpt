@@ -17,13 +17,17 @@ def get_lr(
     return min_lr + coeff * (learning_rate - min_lr)
 
 
+def adjust_decay_hyperparam(total_decay_steps: float, gradient_accumulation_iters: float, final_lr_ratio: float =  0.1):
+    return (total_decay_steps * math.log(0.5) / (math.log(final_lr_ratio) * gradient_accumulation_iters))
+
 def get_lr_decay_stage(
     learning_rate: float,
     it: int,
     decay_start: int,
     min_lr: float,
     gradient_accumulation_iters: int,
-    decay_hyperparam: int = 50
+    decay_hyperparam: int = 50,
+    total_decay_steps: int = 200,
 ) -> float:
     # learning_rate: the max lr to start from.
     # it: current iter
@@ -31,7 +35,8 @@ def get_lr_decay_stage(
     # min_lr: the minimum LR
     if it < decay_start:
         return learning_rate
-
+    # make sure the final denom is the same as in 200 steps ver
+    decay_hyperparam = adjust_decay_hyperparam(total_decay_steps, gradient_accumulation_iters, 0.1)  
     decay_ratio = 0.5 ** ((it - decay_start) / (decay_hyperparam * gradient_accumulation_iters))
     decayed_lr = learning_rate * decay_ratio
     return decayed_lr

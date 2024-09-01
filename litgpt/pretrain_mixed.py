@@ -895,6 +895,7 @@ def fit(
                 initial_iter,
                 train.min_lr,
                 train.gradient_accumulation_iters(devices),
+                total_decay_steps=max_iters - initial_iter,
             )
         elif train.lr_scheduler == "cosine":
             # determine and set the learning rate for this iteration
