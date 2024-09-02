@@ -137,7 +137,7 @@ class Tokenizer:
             return self.processor.decode([dummy_token_id] + tokens)[len(dummy_token) :]
         return self.processor.decode(tokens)
 
-    def decode_stream(self, token_stream: Iterable[torch.Tensor]) -> Iterator[str]:
+    def decode_stream(self, token_stream: Iterable[torch.Tensor], device: Optional[torch.device] = None) -> Iterator[str]:
         if self.backend == "huggingface":
             try:
                 for token in token_stream:
@@ -150,7 +150,7 @@ class Tokenizer:
 
             # sentencepiece does not support decoding token-by-token because it adds spaces based on the surrounding tokens
             # meaning that we need to decode everything each time
-            so_far = torch.tensor([], dtype=torch.long, device=fabric.device)
+            so_far = torch.tensor([], dtype=torch.long, device=device)
             decoded_so_far = ""
             try:
                 for token in token_stream:
