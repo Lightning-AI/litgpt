@@ -283,14 +283,15 @@ def test_batch_generate_equivalence(tmp_path):
         dtype=torch.int64,
     )
 
+    # The other test tests the stop_tokens functionality much more exhaustively, we'll just generate and compare 50 tokens here.
+
     batch_tokens = []
     for l in batched_generate_fn(
         model,
         prompts=batch_x,
         max_returned_tokens=50,
-        stop_tokens=[(33814,)],
         sample_args=sample_kwargs,
-        include_prompt=True,
+        include_prompt=False,
         include_eos=False,
     ):
         batch_tokens.append([t.item() if t is not None else None for t in l])
@@ -305,8 +306,7 @@ def test_batch_generate_equivalence(tmp_path):
         model,
         prompt=batch_x[0],
         max_returned_tokens=50,
-        stop_tokens=[(33814,)],
-        include_prompt=True,
+        include_prompt=False,
         include_eos=False,
         **sample_kwargs,
     ):
@@ -321,4 +321,6 @@ def test_batch_generate_equivalence(tmp_path):
     # The output is really close... Something is going on here. For the moment, maybe this is close enough?
     # Enough at least that we can start prototyping.
 
+    print(first_stream)
+    print(tokens)
     # assert first_stream == tokens

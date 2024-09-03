@@ -301,7 +301,7 @@ def batched_generate_fn(
     max_token_lists = max(len(l) for l in token_lists)
     if yielded_idx < max_token_lists:
         for idx in range(yielded_idx, max_token_lists):
-            y_tokens = [token_lists[i][idx] for i in range(batch_size)]
+            y_tokens = [token_lists[i][idx] if (stop_idxes[i] == -1 or idx < stop_idxes[i]) else None for i in range(batch_size)]
             if all(y is None for y in y_tokens):
                 return
             yield y_tokens
