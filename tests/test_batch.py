@@ -141,6 +141,8 @@ def test_simple_batch():
 @RunIf(min_cuda_gpus=1)
 def test_batch_generate(tmp_path):
 
+    torch.use_deterministic_algorithms(True)
+
     device = "cuda:0"
     batch_size = 3
     sample_kwargs = {"top_k": 1}
@@ -184,6 +186,8 @@ def test_batch_generate(tmp_path):
     assert len(third_stream) == 41
     assert third_stream[-1] == 42358
 
+    torch.use_deterministic_algorithms(False)
+
     # for t in llm.tokenizer.decode_stream([torch.tensor(i) for i in first_stream]):
     #    print(t, end="", flush=True)
     # print()
@@ -191,6 +195,8 @@ def test_batch_generate(tmp_path):
 
 @RunIf(min_cuda_gpus=1)
 def test_batch_generate_equivalence(tmp_path):
+
+    torch.use_deterministic_algorithms(True)
 
     device = "cuda:0"
     batch_size = 3
@@ -238,6 +244,8 @@ def test_batch_generate_equivalence(tmp_path):
             tokens.append(t.item())
         else:
             tokens.extend(t.tolist())
+
+    torch.use_deterministic_algorithms(False)
 
     # TODO: (apaz-cli) This consistency test doesn't actually work at the moment. It's inconsistent.
     # The output is really close... Something is going on here. For the moment, maybe this is close enough?
