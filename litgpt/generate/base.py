@@ -252,7 +252,6 @@ def batched_generate_fn(
         for i in range(batch_size):
             token_lists[i].append(tokens[i])
         int_tokens = [token.item() for token in tokens]
-        # print("Generated tokens:", int_tokens)
 
         # Check for stop sequences
         # For each stop sequence, we keep a running total of how many are matched in stop_progress.
@@ -272,20 +271,15 @@ def batched_generate_fn(
                 else:
                     stop_progresses[batch_idx][seq_idx] = 0
 
-        # print("Stop progress:", stop_progresses)
-
         # Yield tokens that are not part of a stop sequence in progress.
         # If there are no stop sequences, then that's all of them.
         if len(stop_tokens) != 0:
             safe_idxes = [len(token_lists[i]) - max(stop_progresses[i]) for i in range(batch_size)]
-            # print("safe_idxes:", safe_idxes)
         else:
             safe_idxes = [current_idx + 1] # include the token just generated
         safe_idx = min(safe_idxes)
-        # print("safe_idx:", safe_idx)
 
         if yielded_idx < safe_idx:
-            # print(yielded_idx, ":", safe_idx)
             for idx in range(yielded_idx, safe_idx):
                 y_tokens = [token_lists[i][idx] if (stop_idxes[i] == -1 or idx < stop_idxes[i]) else None for i in range(batch_size)]
                 if all(y is None for y in y_tokens):
@@ -302,8 +296,6 @@ def batched_generate_fn(
             input_pos = torch.tensor([max_prompt_size], device=device, dtype=torch.int64)
         else:
             input_pos.add_(1)
-
-    # print("Yielding remaining tokens.")
 
     # Yield any remaining tokens
     max_token_lists = max(len(l) for l in token_lists)
