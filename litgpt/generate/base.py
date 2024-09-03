@@ -310,12 +310,14 @@ def batched_generate_fn(
     # print("Yielding remaining tokens.")
 
     # Yield any remaining tokens
-    if yielded_idx < len(token_lists[0]):
-        for idx in range(yielded_idx, max(len(tokens) for tokens in token_lists)):
+    max_token_lists = max(len(l) for l in token_lists)
+    if yielded_idx < max_token_lists:
+        for idx in range(yielded_idx, max_token_lists):
             y_tokens = [token_lists[i][idx] for i in range(batch_size)]
             if all(y is None for y in y_tokens):
                 return
             yield y_tokens
+    return
 
 
 @torch.inference_mode()
