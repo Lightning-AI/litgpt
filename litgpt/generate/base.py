@@ -4,7 +4,7 @@ import sys
 import time
 from pathlib import Path
 from pprint import pprint
-from typing import Any, Literal, Optional, Tuple, List, TypedDict, Union, Iterator
+from typing import Any, Literal, Optional, Tuple, List, Union, Iterator
 import warnings
 
 import lightning as L
