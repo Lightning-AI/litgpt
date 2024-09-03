@@ -10,6 +10,7 @@ license = { file = "LICENSE" }
 
 dependencies = [
     "torch>=2.2.0",
+    "numpy<2.0",
     "lightning==2.4.0.dev20240728",
     "jsonargparse[signatures]>=4.27.6",
     "huggingface_hub>=0.23.5",          # download models
