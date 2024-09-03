@@ -309,10 +309,13 @@ def batched_generate_fn(
 
     # print("Yielding remaining tokens.")
 
-    # TODO: Prove that this is unreachable, remove from this function.
     # Yield any remaining tokens
-    if yielded_idx < len(tokens):
-        yield from tokens[yielded_idx:]
+    if yielded_idx < len(token_lists[0]):
+        for idx in range(yielded_idx, max(len(tokens) for tokens in token_lists)):
+            y_tokens = [token_lists[i][idx] for i in range(batch_size)]
+            if all(y is None for y in y_tokens):
+                return
+            yield y_tokens
 
 
 @torch.inference_mode()
