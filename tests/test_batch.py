@@ -175,14 +175,17 @@ def test_batch_generate(tmp_path):
         tokens.append([t.item() if t is not None else None for t in l])
 
     first_stream = [t[0] for t in tokens if t[0] is not None]
+    print(first_stream)
     assert len(first_stream) == 46
     assert first_stream[-1] == 7596
 
     second_stream = [t[1] for t in tokens if t[1] is not None]
+    print(second_stream)
     assert len(second_stream) == 39
     assert second_stream[-1] == 46964
 
     third_stream = [t[2] for t in tokens if t[2] is not None]
+    print(third_stream)
     assert len(third_stream) == 41
     assert third_stream[-1] == 42358
 
