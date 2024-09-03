@@ -26,11 +26,6 @@ from litgpt.utils import (
     load_checkpoint
 )
 
-class SampleArgs(TypedDict):
-    temperature: float
-    top_k: Optional[int]
-    top_p: float
-
 
 def multinomial_num_samples_1(probs: torch.Tensor) -> torch.Tensor:
     if torch._dynamo.is_compiling():
@@ -215,7 +210,7 @@ def batched_generate_fn(
 
     if isinstance(sample_args, dict):
         sample_args = [sample_args] * len(prompts)
-    
+
     if prompts.ndim == 1:
         prompts = prompts.unsqueeze(0)
 
