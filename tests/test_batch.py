@@ -2,11 +2,13 @@ import torch
 import pytest
 import warnings
 from pathlib import Path
+import lightning as L
 import litgpt
-from litgpt.generate.base import next_token, batched_next_token
+from litgpt.generate.base import next_token, batched_next_token, batched_generate_fn
 from litgpt.api import LLM, GPT
 from litgpt.scripts.download import download_from_hub
 from tests.conftest import RunIf
+
 
 warnings.filterwarnings("ignore")
 
@@ -106,3 +108,43 @@ def test_simple_batch():
     torch.testing.assert_close(outs0, outs0_ref)
     torch.testing.assert_close(outs1, outs1_ref)
     torch.backends.cuda.matmul.allow_tf32 = old_allow_tf32
+
+@RunIf(min_cuda_gpus=1)
+def test_batch_generate():
+
+    L.seed_everything(42)
+
+    tmp_path = Path("/tmp/temp_folder")
+    model_name = "microsoft/phi-2"
+    download_from_hub(repo_id=model_name, tokenizer_only=True, checkpoint_dir=tmp_path)
+
+    device = "cuda:0"
+    batch_size = 3
+    sample_kwargs = {"top_k": 1}
+
+    llm: LLM = LLM.load(
+        model_name,
+        tokenizer_dir=Path(tmp_path / model_name),
+        init="random",
+    )
+    model: GPT = llm.model
+    model.set_kv_cache(batch_size=batch_size, max_seq_length=50, device=device)
+
+    x = torch.tensor(
+        [43993, 25, 1867, 466, 32660, 17485, 4483, 30, 198, 26410],
+        device=device,
+        dtype=torch.int64,
+    )
+
+    batch_x = torch.stack([x] * batch_size, dim=0)
+
+    for l in batched_generate_fn(
+        model,
+        prompts=batch_x,
+        max_returned_tokens=50,
+        stop_tokens=[(42789,),], # llm.prompt_style.stop_tokens(llm.tokenizer),
+        sample_args=sample_kwargs,
+        include_prompt=True,
+        include_eos=False,
+    ):
+        print("Outputed token:", l, "\n")

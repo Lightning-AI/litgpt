@@ -234,8 +234,8 @@ def batched_generate_fn(
     # Yield the prompts if include_prompt is True
     if include_prompt:
         # TODO: Prompt length is padded, but they shouldn't all be the same length.
-        for s in range(max_prompt_size):
-            yield [prompt[s] for prompt in prompts]
+        for i in range(max_prompt_size):
+            yield [prompt[i].view(-1) for prompt in prompts]
 
     stop_progresses = [[0] * len(stop_tokens) for _ in range(batch_size)] # [batch_size, ~len(stop_tokens)]
     stop_idxes = [-1] * batch_size
@@ -302,7 +302,8 @@ def batched_generate_fn(
         if prefill_token:
             prefill_token = False
 
-            # TODO: Add batch dim
+            # TODO: Make the model support a batched input_pos of shape [batch_size, 1].
+            # The kvcache has been fixed, but the rope cache is still broken.
             input_pos = torch.tensor([max_prompt_size], device=device, dtype=torch.int64)
         else:
             input_pos.add_(1)
