@@ -127,6 +127,23 @@ def generate_fn(
     include_prompt: bool,
     include_eos: bool,
 ) -> Iterator[torch.Tensor]:
+    """
+    Generates tokens for a single prompt.
+
+    Args:
+        model: The model to use.
+        prompt: The tokenized prompt to generate from.
+        max_returned_tokens: The maximum number of new tokens to return. Does not include the prompt tokens.
+        temperature: The temp to pass to sample().
+        top_k: The top_k to pass to sample().
+        top_p: The top_p to pass to sample().
+        stop_tokens: A tuple of stop sequences. If any of the sequences are generated, the generation stops early before max_returned_tokens.
+        include_prompt: Whether to output the prompt tokens.
+        include_eos: Whether to output the stop tokens if generation stops early.
+    """
+
+
+
     prompt_size = prompt.size(0)
     device = prompt.device
 
@@ -207,21 +224,36 @@ def batched_generate_fn(
     include_prompt: bool,
     include_eos: bool,
 ) -> Iterator[list[Union[torch.Tensor, None]]]:
+    """
+    Generates tokens for a batch of prompts.
 
-    if isinstance(sample_args, dict):
-        sample_args = [sample_args] * len(prompts)
+    Args:
+        model: The model to use.
+        prompts: A 2D tensor of shape [batch_size, prompt_length].
+        max_returned_tokens: The maximum number of new tokens to return. Does not include the prompt tokens.
+        sample_args: The dictionary of kwargs to pass to sample() for each each token for each index in the batch.
+        stop_tokens: A tuple of stop sequences. If any of the sequences are generated, the generation stops early before max_returned_tokens.
+        include_prompt: Whether to output the prompt tokens.
+        include_eos: Whether to output the stop tokens if generation stops early.
+
+    Yields:
+        A list of tokens for each prompt in the batch, or None if a stop sequence has already been encountered for that index in the batch.
+    """
 
     if prompts.ndim == 1:
         prompts = prompts.unsqueeze(0)
-
     assert prompts.ndim == 2, "Prompts must be a 2D tensor."
+
     batch_size = prompts.size(0)
     max_prompt_size = prompts.size(1)
     device = prompts.device
 
-    assert all(prompt.size(0) == max_prompt_size for prompt in prompts), "For now, prompts must have the same length."
-    assert all(prompt.device == prompts[0].device for prompt in prompts), "Prompts must be on the same device."
+    if isinstance(sample_args, dict):
+        sample_args = [sample_args] * len(prompts)
+    else:
+        assert len(sample_args) == batch_size, "sample_args must have the length as the batch size."
 
+    # TODO: This check (and the one in generate_fn) is not sufficient. We do the proper checks in LLM.generate().
     assert max_returned_tokens > max_prompt_size, f"Not enough space for {max_prompt_size} prompt tokens in a context length of {max_returned_tokens}."
     if model.max_seq_length < max_returned_tokens - 1:
         raise NotImplementedError(f"max_seq_length {model.max_seq_length} needs to be >= {max_returned_tokens - 1}")
