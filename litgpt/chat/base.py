@@ -91,7 +91,7 @@ def process_prompt(prompt, model, tokenizer, prompt_style, fabric, temperature, 
     y: Iterator[torch.Tensor] = generate(
         model, encoded_prompt, max_returned_tokens, temperature=temperature, top_k=top_k, top_p=top_p, stop_tokens=stop_tokens
     )
-    token_generator: Iterator[str] = tokenizer.decode_stream(y)
+    token_generator: Iterator[str] = tokenizer.decode_stream(y, device=fabric.device)
 
     fabric.print(">> Reply: ", end="")
 
