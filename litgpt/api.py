@@ -5,6 +5,7 @@ from pathlib import Path
 import sys
 import time
 from typing import Any, Callable, List, Literal, Optional, Union, Tuple
+import warnings
 
 import numpy as np
 from tqdm import tqdm
@@ -115,7 +116,7 @@ class LLM(torch.nn.Module):
                 new_key = key.replace(prefix, "", 1)
                 state_dict[new_key] = state_dict.pop(key)
 
-            self.load_state_dict(state_dict, strict=True)   
+            self.load_state_dict(state_dict, strict=True)
 
         elif self.checkpoint_dir is not None:
             state_dict = torch.load(self.checkpoint_dir / "lit_model.pth", weights_only=False)
@@ -216,14 +217,16 @@ class LLM(torch.nn.Module):
             if torch.cuda.is_available():
                 accelerator = "cuda"
             elif torch.backends.mps.is_available():
-                accelerator = "mps"
+                accelerator = "cpu"
+                # accelerator = "mps"
+                warnings.warn("MPS is currently not supported. Using CPU instead.", UserWarning)
             else:
                 accelerator = "cpu"
 
             fabric = L.Fabric(
                 accelerator=accelerator,
                 devices=1,
-                precision=get_default_supported_precision(training=False),
+                precision="32-true",
             )
 
             with fabric.init_module(empty_init=False):
@@ -295,7 +298,8 @@ class LLM(torch.nn.Module):
             if torch.cuda.is_available():
                 accelerator = "cuda"
             elif torch.backends.mps.is_available():
-                accelerator = "mps"
+                # accelerator = "mps"
+                warnings.warn("MPS is currently not supported. Using CPU instead.", UserWarning)
             else:
                 accelerator = "cpu"
 
@@ -329,6 +333,8 @@ class LLM(torch.nn.Module):
 
         if precision is None:
             precision = get_default_supported_precision(training=False)
+            precision = "32-true"
+        precision = "32-true"
 
         plugins = None
         if quantize is not None and quantize.startswith("bnb."):
@@ -349,6 +355,7 @@ class LLM(torch.nn.Module):
             )
         else:
             fabric = L.Fabric(
+                accelerator=accelerator,
                 devices=total_devices,
                 strategy="ddp",
                 precision=precision,

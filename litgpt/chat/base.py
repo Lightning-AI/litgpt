@@ -5,6 +5,7 @@ import time
 from pathlib import Path
 from pprint import pprint
 from typing import Iterator, List, Literal, Optional, Tuple
+import warnings
 
 import lightning as L
 import torch
@@ -14,7 +15,6 @@ from litgpt.model import GPT
 from litgpt.config import Config
 from litgpt.prompts import PromptStyle
 from litgpt.tokenizer import Tokenizer
-from litgpt.generate.base import next_token
 from litgpt.prompts import has_prompt_style, load_prompt_style
 from litgpt.scripts.merge_lora import merge_lora
 from litgpt.utils import (
@@ -198,7 +198,12 @@ def main(
         plugins = BitsandbytesPrecision(quantize[4:], dtype)
         precision = None
 
-    fabric = L.Fabric(devices=1, precision=precision, plugins=plugins)
+    if torch.backends.mps.is_available():
+        accelerator = "cpu"
+        warnings.warn("MPS is currently not supported. Using CPU instead.", UserWarning)
+        fabric = L.Fabric(devices=1, accelerator=accelerator, precision=precision, plugins=plugins)
+    else:
+        fabric = L.Fabric(devices=1, precision=precision, plugins=plugins)
 
     # Merge if this is a raw LoRA checkpoint
     checkpoint_path = checkpoint_dir / "lit_model.pth"
