@@ -226,7 +226,7 @@ class LLM(torch.nn.Module):
             fabric = L.Fabric(
                 accelerator=accelerator,
                 devices=1,
-                precision="32-true",
+                precision=get_default_supported_precision(training=False),
             )
 
             with fabric.init_module(empty_init=False):
