@@ -348,19 +348,29 @@ def map_old_state_dict_weights(state_dict: Dict, mapping: Mapping, prefix: str) 
     return state_dict
 
 
-def get_default_supported_precision(training: bool) -> str:
-    """Return default precision that is supported by the hardware: either `bf16` or `16`.
+def get_default_supported_precision(training: bool, use_mps: bool = False) -> str:
+    """
+    Return the default precision that is supported by the hardware: either `bf16` or `16`.
 
     Args:
-        training: `-mixed` or `-true` version of the precision to use
+        training: If True, returns '-mixed' version of the precision; if False, returns '-true' version.
+        use_mps: Flag to determine if MPS should be used when available.
 
     Returns:
-        default precision that is suitable for the task and is supported by the hardware
+        The default precision that is suitable for the task and is supported by the hardware.
     """
     from lightning.fabric.accelerators import MPSAccelerator
+    import torch
 
-    if MPSAccelerator.is_available() or (torch.cuda.is_available() and not torch.cuda.is_bf16_supported()):
+    if use_mps and MPSAccelerator.is_available():
         return "16-mixed" if training else "16-true"
+
+    if torch.cuda.is_available():
+        if torch.cuda.is_bf16_supported():
+            return "bf16-mixed" if training else "bf16-true"
+        else:
+            return "16-mixed" if training else "16-true"
+
     return "bf16-mixed" if training else "bf16-true"
 
 

@@ -299,6 +299,7 @@ class LLM(torch.nn.Module):
                 accelerator = "cuda"
             elif torch.backends.mps.is_available():
                 # accelerator = "mps"
+                accelerator = "cpu"
                 warnings.warn("MPS is currently not supported. Using CPU instead.", UserWarning)
             else:
                 accelerator = "cpu"
