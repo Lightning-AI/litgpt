@@ -154,14 +154,27 @@ def setup(
     else:
         strategy = "auto"
 
-    fabric = L.Fabric(
-        devices=devices,
-        num_nodes=num_nodes,
-        strategy=strategy,
-        precision=precision,
-        loggers=logger,
-        plugins=plugins,
-    )
+    if torch.backends.mps.is_available():
+        accelerator = "cpu"
+        warnings.warn("MPS is currently not supported. Using CPU instead.", UserWarning)
+        fabric = L.Fabric(
+            accelerator=accelerator,
+            devices=devices,
+            num_nodes=num_nodes,
+            strategy=strategy,
+            precision=precision,
+            loggers=logger,
+            plugins=plugins,
+        )
+    else:
+        fabric = L.Fabric(
+            devices=devices,
+            num_nodes=num_nodes,
+            strategy=strategy,
+            precision=precision,
+            loggers=logger,
+            plugins=plugins,
+        )
 
     if torch.cuda.is_available() and devices > 1:
         check_nvlink_connectivity(fabric)

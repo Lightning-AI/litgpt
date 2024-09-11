@@ -102,7 +102,7 @@ def batched_next_token(model: GPT, input_pos: torch.Tensor, x: torch.Tensor, kwa
     # If you have any ideas on this, let me know. I don't think that padding input_pos is viable.
 
     _kwargs = kwargs if isinstance(kwargs, list) else [kwargs] * x.size(0)
-    
+
     # Run the model on the batch.
     logits_stack = model(x, input_pos)
 
@@ -460,7 +460,12 @@ def main(
         plugins = BitsandbytesPrecision(quantize[4:], dtype)
         precision = None
 
-    fabric = L.Fabric(devices=1, precision=precision, plugins=plugins)
+    if torch.backends.mps.is_available():
+        accelerator = "cpu"
+        warnings.warn("MPS is currently not supported. Using CPU instead.", UserWarning)
+        fabric = L.Fabric(devices=1, accelerator=accelerator, precision=precision, plugins=plugins)
+    else:
+        fabric = L.Fabric(devices=1, precision=precision, plugins=plugins)
 
     check_valid_checkpoint_dir(checkpoint_dir)
     config = Config.from_file(checkpoint_dir / "model_config.yaml")

@@ -90,7 +90,12 @@ def main(
         plugins = BitsandbytesPrecision(quantize[4:], dtype)
         precision = None
 
-    fabric = L.Fabric(devices=1, precision=precision, plugins=plugins)
+    if torch.backends.mps.is_available():
+        accelerator = "cpu"
+        warnings.warn("MPS is currently not supported. Using CPU instead.", UserWarning)
+        fabric = L.Fabric(devices=1, accelerator=accelerator, precision=precision, plugins=plugins)
+    else:
+        fabric = L.Fabric(devices=1, precision=precision, plugins=plugins)
     fabric.launch()
 
     check_valid_checkpoint_dir(checkpoint_dir)
