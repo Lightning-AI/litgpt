@@ -863,11 +863,13 @@ def test_zero_pad_mps():
     if enable_v:
         v_ind = [idx for idx in candidate_indices if (idx // head_size) % qkv_group_size == qkv_group_size - 1]
         lora_ind.extend(v_ind)
-    lora_ind.sort()
+    # Remove the sorting to preserve the order
+    # lora_ind.sort()
 
-    expected_output[0, 0, lora_ind] = x[0, 0, :]
+    # Assign x to expected_output at positions specified by lora_ind
+    for idx, pos in enumerate(lora_ind):
+        expected_output[0, 0, pos] = x[0, 0, idx]
 
-    # Test with mps_compatibility_mode=False
     mps_compatibility_mode = False
     module = LoRAQKVLinear(
         in_features=in_features,
@@ -885,7 +887,6 @@ def test_zero_pad_mps():
     output = module.zero_pad(x)
     assert torch.allclose(output, expected_output), "Output does not match expected output for mps_compatibility_mode=False"
 
-    # Test with mps_compatibility_mode=True
     mps_compatibility_mode = True
     module_mps = LoRAQKVLinear(
         in_features=in_features,
