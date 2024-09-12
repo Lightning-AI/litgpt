@@ -498,7 +498,7 @@ class LLM(torch.nn.Module):
                 device = self.fabric.device
             else:
                 device = self.preprocessor.device
-            self.model.set_kv_cache(batch_size=1, max_seq_length=max_returned_tokens, device=device, mps_compatibility_mode=self.fabric is not None or str(self.fabric.device).startswith("mps"))
+            self.model.set_kv_cache(batch_size=1, max_seq_length=max_returned_tokens, device=device, mps_compatibility_mode=self.fabric is not None and str(self.fabric.device).startswith("mps"))
             self.kv_cache_initialized = True
 
         # Dynamically grow the kv cache size if necessary
