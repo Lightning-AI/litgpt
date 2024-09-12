@@ -5,7 +5,6 @@ from pathlib import Path
 import sys
 import time
 from typing import Any, Callable, List, Literal, Optional, Union, Tuple
-import warnings
 
 import numpy as np
 from tqdm import tqdm
@@ -217,9 +216,7 @@ class LLM(torch.nn.Module):
             if torch.cuda.is_available():
                 accelerator = "cuda"
             elif torch.backends.mps.is_available():
-                accelerator = "cpu"
-                # accelerator = "mps"
-                warnings.warn("MPS is currently not supported. Using CPU instead.", UserWarning)
+                accelerator = "mps"
             else:
                 accelerator = "cpu"
 
@@ -298,9 +295,7 @@ class LLM(torch.nn.Module):
             if torch.cuda.is_available():
                 accelerator = "cuda"
             elif torch.backends.mps.is_available():
-                # accelerator = "mps"
-                accelerator = "cpu"
-                warnings.warn("MPS is currently not supported. Using CPU instead.", UserWarning)
+                accelerator = "mps"
             else:
                 accelerator = "cpu"
 
@@ -382,7 +377,7 @@ class LLM(torch.nn.Module):
                     kv_cache_size = model.max_seq_length
                 else:
                     kv_cache_size = fixed_kv_cache_size
-                model.set_kv_cache(batch_size=1, max_seq_length=kv_cache_size, device=fabric.device)
+                model.set_kv_cache(batch_size=1, max_seq_length=kv_cache_size, device=fabric.device, mps_compatibility_mode=accelerator == "mps")
                 self.kv_cache_initialized = True
                 self.fixed_kv_cache_size = fixed_kv_cache_size
 
@@ -430,7 +425,7 @@ class LLM(torch.nn.Module):
                             # the rope cache which is on meta device
                             model.cos, model.sin = model.rope_cache()
                             # enable the kv cache
-                            model.set_kv_cache(batch_size=1)
+                            model.set_kv_cache(batch_size=1, mps_compatibility_mode=accelerator == "mps")
                         model.eval()
                         model = fabric.to_device(model)
 
@@ -503,14 +498,14 @@ class LLM(torch.nn.Module):
                 device = self.fabric.device
             else:
                 device = self.preprocessor.device
-            self.model.set_kv_cache(batch_size=1, max_seq_length=max_returned_tokens, device=device)
+            self.model.set_kv_cache(batch_size=1, max_seq_length=max_returned_tokens, device=device, mps_compatibility_mode=str(self.fabric.device).startswith("mps"))
             self.kv_cache_initialized = True
 
         # Dynamically grow the kv cache size if necessary
         if not self.fixed_kv_cache_size and self.prev_generated_seq_length < max_returned_tokens:
             tmp_device = self.model.mask_cache.device
             self.model.clear_kv_cache()
-            self.model.set_kv_cache(batch_size=1, max_seq_length=max_returned_tokens, device=tmp_device)
+            self.model.set_kv_cache(batch_size=1, max_seq_length=max_returned_tokens, device=tmp_device, mps_compatibility_mode=str(self.fabric.device).startswith("mps"))
 
         else:
             for block in self.model.transformer.h:

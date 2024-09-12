@@ -187,6 +187,7 @@ class LoRAQKVLinear(LoRALinear):
         lora_alpha: int = 1,
         lora_dropout: float = 0.0,
         enable_lora: Union[bool, Tuple[bool, bool, bool]] = False,
+        mps_compatibility_mode: bool = False,
         **kwargs: Any,
     ):
         """LoRA wrapper around linear class that is used for calculation of q, k and v matrices.
@@ -222,6 +223,7 @@ class LoRAQKVLinear(LoRALinear):
             enable_lora = [enable_lora] * 3
         assert len(enable_lora) == 3
         self.enable_lora = enable_lora
+        self.mps_compatibility_mode = mps_compatibility_mode
 
         # Actual trainable parameters
         # To better understand initialization let's imagine that we have such parameters:
@@ -338,8 +340,17 @@ class LoRAQKVLinear(LoRALinear):
         # Then x has embeddings_size of 256 (2 * 128 as enable_lora only for query and value, not keys) and expected
         # embeddings_size is 384 (self.linear.out_features), so that means that we need to pad from 256 to 384 with zeros, but
         # only for key updates (this is where self.lora_ind comes in handy)
-        result = x.new_zeros(*x.shape[:-1], self.linear.out_features)  # (64, 64, 384)
-        return result.index_copy_(dim=-1, index=self.lora_ind, source=x)  # (64, 64, 384)
+
+        if not self.mps_compatibility_mode:
+            result = x.new_zeros(*x.shape[:-1], self.linear.out_features)  # (64, 64, 384)
+            return result.index_copy_(dim=-1, index=self.lora_ind, source=x)  # (64, 64, 384)
+        else:
+            if all(self.enable_lora):
+                return x
+            else:
+                result = x.new_zeros(*x.shape[:-1], self.linear.out_features)
+                result[..., self.lora_ind] = x
+                return result
 
     def conv1d(self, input: torch.Tensor, weight: torch.Tensor) -> torch.Tensor:
         """An extension of the `torch.nn.functional.conv1d` function with a logic specific to grouped queries.
@@ -496,7 +507,7 @@ class Config(BaseConfig):
 
 
 class GPT(BaseModel):
-    def __init__(self, config: Config) -> None:
+    def __init__(self, config: Config, mps_compatibility_mode: bool = False) -> None:
         nn.Module.__init__(self)
         assert config.padded_vocab_size is not None
         self.config = config
@@ -512,7 +523,7 @@ class GPT(BaseModel):
         self.transformer = nn.ModuleDict(
             dict(
                 wte=nn.Embedding(config.padded_vocab_size, config.n_embd),
-                h=nn.ModuleList(Block(config, block_idx) for block_idx in range(config.n_layer)),
+                h=nn.ModuleList(Block(config, block_idx, mps_compatibility_mode=mps_compatibility_mode) for block_idx in range(config.n_layer)),
                 ln_f=config.norm_class(config.n_embd, eps=config.norm_eps),
             )
         )
@@ -569,7 +580,7 @@ class GPT(BaseModel):
 
 
 class Block(BaseBlock):
-    def __init__(self, config: Config, block_idx: int) -> None:
+    def __init__(self, config: Config, block_idx: int, mps_compatibility_mode: bool = False) -> None:
         nn.Module.__init__(self)
         if not config.parallel_residual and config.shared_attention_norm:
             raise NotImplementedError(
@@ -577,7 +588,7 @@ class Block(BaseBlock):
                 " non-parallel residual and shared attention norm."
             )
         self.norm_1 = config.norm_class(config.n_embd, eps=config.norm_eps)
-        self.attn = CausalSelfAttention(config, block_idx)
+        self.attn = CausalSelfAttention(config, block_idx, mps_compatibility_mode=mps_compatibility_mode)
         self.post_attention_norm = (
             config.norm_class(config.n_embd, eps=config.norm_eps) if config.post_attention_norm else nn.Identity()
         )
@@ -591,7 +602,7 @@ class Block(BaseBlock):
 
 
 class CausalSelfAttention(BaseCausalSelfAttention):
-    def __init__(self, config: Config, block_idx: int) -> None:
+    def __init__(self, config: Config, block_idx: int, mps_compatibility_mode: bool = False) -> None:
         # Skip the parent class __init__ altogether and replace it to avoid
         # useless allocations
         nn.Module.__init__(self)
@@ -609,6 +620,7 @@ class CausalSelfAttention(BaseCausalSelfAttention):
             head_size=config.head_size,
             n_head=config.n_head,
             n_query_groups=config.n_query_groups,
+            mps_compatibility_mode=mps_compatibility_mode,
         )
         # output projection
         # if `head_size` is explicitly specified in the config, `n_emd` might not be equal to `head_size * n_head`

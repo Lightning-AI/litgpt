@@ -124,27 +124,14 @@ def setup(
     else:
         strategy = "auto"
 
-    if torch.backends.mps.is_available():
-        accelerator = "cpu"
-        warnings.warn("MPS is currently not supported. Using CPU instead.", UserWarning)
-        fabric = L.Fabric(
-            accelerator=accelerator,
-            devices=devices,
-            num_nodes=num_nodes,
-            strategy=strategy,
-            precision=precision,
-            loggers=logger,
-            plugins=plugins,
-        )
-    else:
-        fabric = L.Fabric(
-            devices=devices,
-            num_nodes=num_nodes,
-            strategy=strategy,
-            precision=precision,
-            loggers=logger,
-            plugins=plugins,
-        )
+    fabric = L.Fabric(
+        devices=devices,
+        num_nodes=num_nodes,
+        strategy=strategy,
+        precision=precision,
+        loggers=logger,
+        plugins=plugins,
+    )
 
     if torch.cuda.is_available() and devices > 1:
         check_nvlink_connectivity(fabric)
@@ -378,7 +365,7 @@ def generate_example(fabric: L.Fabric, model: GPT, tokenizer: Tokenizer, eval: E
     if max_returned_tokens < model.max_seq_length:
         with fabric.init_tensor():
             # do not set `max_seq_length=max_returned_token` because memory is not a concern here
-            model.set_kv_cache(batch_size=1)
+            model.set_kv_cache(batch_size=1, mps_compatibility_mode=str(fabric.device).startswith("mps"))
         output = generate(
             model, encoded, max_returned_tokens=max_returned_tokens, temperature=0.8, eos_id=tokenizer.eos_id
         )
