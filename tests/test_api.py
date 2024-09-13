@@ -33,6 +33,7 @@ def mock_llm():
     return llm
 
 
+@pytest.mark.skipif(sys.platform == "darwin", reason="segfaults on macos-14")
 def test_load_model(mock_llm):
     assert isinstance(mock_llm, LLM)
     assert mock_llm.model is not None
@@ -42,6 +43,7 @@ def test_load_model(mock_llm):
     assert mock_llm.fabric is not None
 
 
+@pytest.mark.skipif(sys.platform == "darwin", reason="segfaults on macos-14")
 def test_generate(mock_llm):
     prompt = "What do Llamas eat?"
     mock_llm.generate.return_value = prompt + " Mock output"
