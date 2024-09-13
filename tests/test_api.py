@@ -74,13 +74,14 @@ def test_generate_token_ids(mock_llm):
     assert output_ids.shape[0] > len(prompt)
 
 
+@pytest.mark.skipif(sys.platform == "darwin", reason="segfaults on macos-14")
 def test_calculate_number_of_devices():
     assert calculate_number_of_devices(1) == 1
     assert calculate_number_of_devices([0, 1, 2]) == 3
     assert calculate_number_of_devices(None) == 0
 
 
-@pytest.mark.skipif(sys.platform == "darwin", reason="segfaults on macos-14")
+#@pytest.mark.skipif(sys.platform == "darwin", reason="segfaults on macos-14")
 def test_llm_load_random_init(tmp_path):
     download_from_hub(repo_id="EleutherAI/pythia-14m", tokenizer_only=True, checkpoint_dir=tmp_path)
 
