@@ -34,7 +34,6 @@ def mock_llm():
     return llm
 
 
-@pytest.mark.skipif(sys.platform == "darwin", reason="segfaults on macos-14")
 def test_load_model(mock_llm):
     assert isinstance(mock_llm, LLM)
     assert mock_llm.model is not None
@@ -44,7 +43,6 @@ def test_load_model(mock_llm):
     assert mock_llm.fabric is not None
 
 
-@pytest.mark.skipif(sys.platform == "darwin", reason="segfaults on macos-14")
 def test_generate(mock_llm):
     prompt = "What do Llamas eat?"
     mock_llm.generate.return_value = prompt + " Mock output"
@@ -53,7 +51,6 @@ def test_generate(mock_llm):
     assert len(output) > len(prompt)
 
 
-@pytest.mark.skipif(sys.platform == "darwin", reason="segfaults on macos-14")
 def test_stream_generate(mock_llm):
     prompt = "What do Llamas eat?"
 
@@ -68,7 +65,6 @@ def test_stream_generate(mock_llm):
     assert len(result) > len(prompt)
 
 
-@pytest.mark.skipif(sys.platform == "darwin", reason="segfaults on macos-14")
 def test_generate_token_ids(mock_llm):
     prompt = "What do Llamas eat?"
     mock_output_ids = MagicMock(spec=torch.Tensor)
@@ -79,14 +75,12 @@ def test_generate_token_ids(mock_llm):
     assert output_ids.shape[0] > len(prompt)
 
 
-@pytest.mark.skipif(sys.platform == "darwin", reason="segfaults on macos-14")
 def test_calculate_number_of_devices():
     assert calculate_number_of_devices(1) == 1
     assert calculate_number_of_devices([0, 1, 2]) == 3
     assert calculate_number_of_devices(None) == 0
 
 
-@pytest.mark.skipif(sys.platform == "darwin", reason="segfaults on macos-14")
 def test_llm_load_random_init(tmp_path):
     download_from_hub(repo_id="EleutherAI/pythia-14m", tokenizer_only=True, checkpoint_dir=tmp_path)
 
@@ -116,7 +110,6 @@ def test_llm_load_random_init(tmp_path):
     assert ln <= 15
 
 
-@pytest.mark.skipif(sys.platform == "darwin", reason="segfaults on macos-14")
 def test_llm_load_hub_init(tmp_path):
     torch.manual_seed(123)
     llm = LLM.load(
@@ -132,7 +125,6 @@ def test_llm_load_hub_init(tmp_path):
     assert text_1 == text_2, (text1, text_2)
 
 
-@pytest.mark.skipif(sys.platform == "darwin", reason="segfaults on macos-14")
 def test_model_not_initialized(tmp_path):
     llm = LLM.load(
         model="EleutherAI/pythia-14m",
@@ -160,7 +152,6 @@ def test_model_not_initialized(tmp_path):
         llm.generate("text")
 
 
-@pytest.mark.skipif(sys.platform == "darwin", reason="segfaults on macos-14")
 @RunIf(min_cuda_gpus=2)
 def test_more_than_1_device_for_sequential_gpu(tmp_path):
 
@@ -190,7 +181,6 @@ def test_more_than_1_device_for_sequential_gpu(tmp_path):
     assert str(llm.model.transformer.h[last_layer_idx].mlp.fc.weight.device) == f"cuda:{device_count-1}"
 
 
-@pytest.mark.skipif(sys.platform == "darwin", reason="segfaults on macos-14")
 @RunIf(min_cuda_gpus=2)
 def test_more_than_1_device_for_tensor_parallel_gpu(tmp_path):
     llm = LLM.load(
@@ -203,7 +193,6 @@ def test_more_than_1_device_for_tensor_parallel_gpu(tmp_path):
         assert isinstance(llm.generate("What do llamas eat?"), str)
 
 
-@pytest.mark.skipif(sys.platform == "darwin", reason="segfaults on macos-14")
 @RunIf(min_cuda_gpus=1)
 def test_sequential_tp_incompatibility_with_random_weights(tmp_path):
     llm = LLM.load(
@@ -216,7 +205,6 @@ def test_sequential_tp_incompatibility_with_random_weights(tmp_path):
             llm.distribute(devices=1, generate_strategy=strategy)
 
 
-@pytest.mark.skipif(sys.platform == "darwin", reason="segfaults on macos-14")
 def test_sequential_tp_cpu(tmp_path):
     llm = LLM.load(
         model="EleutherAI/pythia-14m",
@@ -230,7 +218,6 @@ def test_sequential_tp_cpu(tmp_path):
             )
 
 
-@pytest.mark.skipif(sys.platform == "darwin", reason="segfaults on macos-14")
 def test_initialization_for_trainer(tmp_path):
     llm = LLM.load(
         model="EleutherAI/pythia-14m",
@@ -248,7 +235,6 @@ def test_initialization_for_trainer(tmp_path):
     assert isinstance(llm.generate("hello world"), str)
 
 
-@pytest.mark.skipif(sys.platform == "darwin", reason="segfaults on macos-14")
 @RunIf(min_cuda_gpus=1)
 def test_quantization_is_applied(tmp_path):
     llm = LLM.load(
@@ -259,7 +245,6 @@ def test_quantization_is_applied(tmp_path):
     assert "NF4Linear" in strtype, strtype
 
 
-@pytest.mark.skipif(sys.platform == "darwin", reason="segfaults on macos-14")
 @RunIf(min_cuda_gpus=1)
 def test_fixed_kv_cache(tmp_path):
     llm = LLM.load(
@@ -272,7 +257,6 @@ def test_fixed_kv_cache(tmp_path):
         output_text = llm.generate("hello world", max_new_tokens=2**63)
 
 
-@pytest.mark.skipif(sys.platform == "darwin", reason="segfaults on macos-14")
 def test_invalid_accelerator(tmp_path):
     llm = LLM.load(
         model="EleutherAI/pythia-14m",
@@ -281,7 +265,6 @@ def test_invalid_accelerator(tmp_path):
         llm.distribute(accelerator="invalid")
 
 
-@pytest.mark.skipif(sys.platform == "darwin", reason="segfaults on macos-14")
 def test_returned_benchmark_dir(tmp_path):
     llm = LLM.load(
         model="EleutherAI/pythia-14m",
