@@ -505,7 +505,7 @@ class LLM(torch.nn.Module):
         if not self.fixed_kv_cache_size and self.prev_generated_seq_length < max_returned_tokens:
             tmp_device = self.model.mask_cache.device
             self.model.clear_kv_cache()
-            self.model.set_kv_cache(batch_size=1, max_seq_length=max_returned_tokens, device=tmp_device, mps_compatibility_mode=str(self.fabric.device).startswith("mps"))
+            self.model.set_kv_cache(batch_size=1, max_seq_length=max_returned_tokens, device=tmp_device, mps_compatibility_mode=self.fabric is not None and str(self.fabric.device).startswith("mps"))
 
         else:
             for block in self.model.transformer.h:
