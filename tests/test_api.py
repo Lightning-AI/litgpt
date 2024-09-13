@@ -79,6 +79,7 @@ def test_calculate_number_of_devices():
     assert calculate_number_of_devices(None) == 0
 
 
+@pytest.mark.skipif(sys.platform == "darwin", "segfaults on macos-14")
 def test_llm_load_random_init(tmp_path):
     download_from_hub(repo_id="EleutherAI/pythia-14m", tokenizer_only=True, checkpoint_dir=tmp_path)
 
