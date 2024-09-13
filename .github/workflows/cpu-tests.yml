@@ -63,4 +63,4 @@ jobs:
 
     - name: Run tests
       run: |
-        pytest -v --disable-pytest-warnings --strict-markers --color=yes --timeout 120
+        for t in tests/test_*.py ; do  pytest -v --disable-pytest-warnings --strict-markers --color=yes --timeout 120 $t ; done
