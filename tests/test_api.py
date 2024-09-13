@@ -50,6 +50,7 @@ def test_generate(mock_llm):
     assert len(output) > len(prompt)
 
 
+@pytest.mark.skipif(sys.platform == "darwin", reason="segfaults on macos-14")
 def test_stream_generate(mock_llm):
     prompt = "What do Llamas eat?"
 
@@ -64,6 +65,7 @@ def test_stream_generate(mock_llm):
     assert len(result) > len(prompt)
 
 
+@pytest.mark.skipif(sys.platform == "darwin", reason="segfaults on macos-14")
 def test_generate_token_ids(mock_llm):
     prompt = "What do Llamas eat?"
     mock_output_ids = MagicMock(spec=torch.Tensor)
@@ -81,7 +83,7 @@ def test_calculate_number_of_devices():
     assert calculate_number_of_devices(None) == 0
 
 
-#@pytest.mark.skipif(sys.platform == "darwin", reason="segfaults on macos-14")
+@pytest.mark.skipif(sys.platform == "darwin", reason="segfaults on macos-14")
 def test_llm_load_random_init(tmp_path):
     download_from_hub(repo_id="EleutherAI/pythia-14m", tokenizer_only=True, checkpoint_dir=tmp_path)
 
