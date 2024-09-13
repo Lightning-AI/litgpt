@@ -4,6 +4,7 @@ from copy import deepcopy
 from functools import partial
 
 import pytest
+from unittest import mock
 import torch
 from lightning import Fabric
 from lightning.fabric.utilities.imports import _IS_WINDOWS
@@ -864,3 +865,65 @@ def test_reset_parameters_device():
     _materialize_meta_tensors(model, torch.device("cuda"))
     model.reset_parameters()
     assert model.cos.device.type == "cuda"
+
+
+def test_batched_index_copy_modes():
+    # Mock the torch.backends.mps.is_available() function to simulate MPS availability
+    with mock.patch("torch.backends.mps.is_available", return_value=True):
+        # Mock the device type to simulate the "mps" device
+        with mock.patch("torch.Tensor.device", new_callable=mock.PropertyMock) as mock_device:
+            mock_device.return_value = torch.device("mps")
+
+            # Test case when idx.dim() == 1
+            t_original_1 = torch.randn(3, 5)
+            dim_1 = 0
+            idx_1 = torch.tensor([0, 2])
+            val_1 = torch.randn(2, 5)
+
+            t1_cpu = t_original_1.clone()
+            t1_mps = t_original_1.clone()
+
+            # Perform the index copy on CPU
+            batched_index_copy_(t1_cpu, dim_1, idx_1, val_1)
+
+            # Simulate the MPS index copy
+            idx_1_mps = idx_1
+            val_1_mps = val_1
+            batched_index_copy_(t1_mps, dim_1, idx_1_mps, val_1_mps)
+            assert torch.allclose(t1_cpu, t1_mps), "Mismatch with idx.dim() == 1 on mocked MPS"
+
+            # Test case when idx.dim() == 2
+            t_original_2 = torch.randn(2, 5, 4)
+            dim_2 = 1
+            idx_2 = torch.tensor([[0, 2], [1, 3]])
+            val_2 = torch.randn(2, 2, 4)
+
+            t2_cpu = t_original_2.clone()
+            t2_mps = t_original_2.clone()
+
+            # Perform the index copy on CPU
+            batched_index_copy_(t2_cpu, dim_2, idx_2, val_2)
+
+            # Simulate the MPS index copy
+            idx_2_mps = idx_2
+            val_2_mps = val_2
+            batched_index_copy_(t2_mps, dim_2, idx_2_mps, val_2_mps)
+            assert torch.allclose(t2_cpu, t2_mps), "Mismatch with idx.dim() == 2 on mocked MPS"
+
+            # Additional test with negative dimension
+            t_original_3 = torch.randn(2, 3, 4)
+            dim_3 = -2
+            idx_3 = torch.tensor([[0, 1], [1, 2]])
+            val_3 = torch.randn(2, 2, 4)
+
+            t3_cpu = t_original_3.clone()
+            t3_mps = t_original_3.clone()
+
+            # Perform the index copy on CPU
+            batched_index_copy_(t3_cpu, dim_3, idx_3, val_3)
+
+            # Simulate the MPS index copy
+            idx_3_mps = idx_3
+            val_3_mps = val_3
+            batched_index_copy_(t3_mps, dim_3, idx_3_mps, val_3_mps)
+            assert torch.allclose(t3_cpu, t3_mps), "Mismatch with negative dimension on mocked MPS"
