@@ -847,7 +847,7 @@ def test_zero_pad_cpu_and_mocked_mps():
 
     batch_size = 64
     seq_len = 64
-    embed_dim = 256
+    embed_dim = 320
     x = torch.randn(batch_size, seq_len, embed_dim)
 
     result_cpu = model.zero_pad(x)
