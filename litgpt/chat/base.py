@@ -85,7 +85,7 @@ def process_prompt(prompt, model, tokenizer, prompt_style, fabric, temperature, 
         max_returned_tokens = encoded_prompt.size(0) + max_new_tokens
         if first_turn or max_returned_tokens > model.max_seq_length:
             model.max_seq_length = max_returned_tokens
-            model.set_kv_cache(batch_size=1, device=fabric.device, mps_compatibility_mode=str(fabric.device).startswith("mps"))
+            model.set_kv_cache(batch_size=1, device=fabric.device)
 
     y: Iterator[torch.Tensor] = generate(
         model, encoded_prompt, max_returned_tokens, temperature=temperature, top_k=top_k, top_p=top_p, stop_tokens=stop_tokens
@@ -219,7 +219,7 @@ def main(
                 "IMPORTANT: with enabled compilation the KV-cache size is determined by model's maximum context size, which leads to "
                 "a higher memory consumption. In case of an OOM error, try to set `--compile=False`."
             )
-            model.set_kv_cache(batch_size=1, mps_compatibility_mode=str(fabric.device).startswith("mps"))
+            model.set_kv_cache(batch_size=1)
     load_checkpoint(fabric, model, checkpoint_path)
     model.eval()
 

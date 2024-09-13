@@ -122,7 +122,6 @@ class GPT(nn.Module):
         rope_cache_length: Optional[int] = None,
         device: Optional[torch.device] = None,
         dtype: Optional[torch.dtype] = None,
-        mps_compatibility_mode: bool = None,
     ) -> None:
         if rope_cache_length is None:
             rope_cache_length = self.cos.size(-1)
@@ -134,7 +133,6 @@ class GPT(nn.Module):
         for block in self.transformer.h:
             block.attn.kv_cache = block.attn.build_kv_cache(
                 batch_size, max_seq_length, rope_cache_length, device, dtype,
-                mps_compatibility_mode=mps_compatibility_mode
             )
 
         if self.mask_cache is None or self.mask_cache.size(3) != max_seq_length:
@@ -328,7 +326,6 @@ class CausalSelfAttention(nn.Module):
         rope_cache_length: Optional[int] = None,
         device: Optional[torch.device] = None,
         dtype: Optional[torch.dtype] = None,
-        mps_compatibility_mode: bool = False,
     ) -> "KVCache":
         heads = 1 if self.config.n_query_groups == 1 else self.config.n_head
         v_shape = (batch_size, heads, max_seq_length, self.config.head_size)
@@ -343,7 +340,7 @@ class CausalSelfAttention(nn.Module):
                 max_seq_length,
                 rope_cache_length + self.config.head_size - self.config.rope_n_elem,
             )
-        return KVCache(k_shape, v_shape, device=device, dtype=dtype, mps_compatibility_mode=mps_compatibility_mode)
+        return KVCache(k_shape, v_shape, device=device, dtype=dtype)
 
 
 class GptNeoxMLP(nn.Module):
@@ -450,28 +447,10 @@ def batched_index_select(t, dim, idx):
     return res
 
 
-def batched_index_copy_(t, dim, idx, val, mps_compatibility_mode=False):
+def batched_index_copy_(t, dim, idx, val):
     """Index copy for batched t, idx, val"""
 
-    if not mps_compatibility_mode:
-        if idx.dim() == 1:
-            return t.index_copy_(dim, idx, val)
-
-        assert idx.dim() == 2, f"multiple batch dims not yet {idx.shape=}"
-        assert dim != 0, f"cannot index batch dim"
-        batch_size, idx_size = idx.shape
-        assert batch_size == t.size(0)
-        assert batch_size == val.size(0)
-        t_indexed_dim = t.size(dim)
-
-        # if we can view the batch and indexed dimensions together, we could
-        # do index trickery. This is, sadly, not the case for kvcache so we
-        # fall back to for loop
-        for i in range(batch_size):
-            unbatched_dim = dim if dim < 0 else dim - 1
-            t[i].index_copy_(unbatched_dim, idx[i], val[i])
-        return t
-    else:
+    if t.device.type == "mps":
         # Normalize negative dimensions
         if dim < 0:
             dim = t.dim() + dim
@@ -499,6 +478,25 @@ def batched_index_copy_(t, dim, idx, val, mps_compatibility_mode=False):
         else:
             raise NotImplementedError(f"idx.dim() == {idx.dim()} not supported")
 
+    else:
+        if idx.dim() == 1:
+            return t.index_copy_(dim, idx, val)
+
+        assert idx.dim() == 2, f"multiple batch dims not yet {idx.shape=}"
+        assert dim != 0, f"cannot index batch dim"
+        batch_size, idx_size = idx.shape
+        assert batch_size == t.size(0)
+        assert batch_size == val.size(0)
+        t_indexed_dim = t.size(dim)
+
+        # if we can view the batch and indexed dimensions together, we could
+        # do index trickery. This is, sadly, not the case for kvcache so we
+        # fall back to for loop
+        for i in range(batch_size):
+            unbatched_dim = dim if dim < 0 else dim - 1
+            t[i].index_copy_(unbatched_dim, idx[i], val[i])
+        return t
+
 
 def apply_rope(x: torch.Tensor, cos: torch.Tensor, sin: torch.Tensor) -> torch.Tensor:
     head_size = x.size(-1)
@@ -523,10 +521,8 @@ class KVCache(nn.Module):
         v_shape: Tuple[int, int, int, int],
         device: Optional[torch.device] = None,
         dtype: Optional[torch.dtype] = None,
-        mps_compatibility_mode=False,
     ) -> None:
         super().__init__()
-        self.mps_compatibility_mode = mps_compatibility_mode
         self.register_buffer("k", torch.zeros(k_shape, device=device, dtype=dtype), persistent=False)
         self.register_buffer("v", torch.zeros(v_shape, device=device, dtype=dtype), persistent=False)
 
@@ -536,8 +532,8 @@ class KVCache(nn.Module):
         self.v = self.v.to(v.dtype)
         # update the cache
         n = k.size(0)
-        k = batched_index_copy_(self.k[:n, ...], -2, input_pos, k, mps_compatibility_mode=self.mps_compatibility_mode)
-        v = batched_index_copy_(self.v[:n, ...], -2, input_pos, v, mps_compatibility_mode=self.mps_compatibility_mode)
+        k = batched_index_copy_(self.k[:n, ...], -2, input_pos, k)
+        v = batched_index_copy_(self.v[:n, ...], -2, input_pos, v)
         return k, v
 
     def reset_parameters(self) -> None:
