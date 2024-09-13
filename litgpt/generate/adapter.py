@@ -119,7 +119,7 @@ def main(
         # set the max_seq_length to limit the memory usage to what we need
         model.max_seq_length = max_returned_tokens
         # enable the kv cache
-        model.set_kv_cache(batch_size=1, mps_compatibility_mode=str(fabric.device).startswith("mps"))
+        model.set_kv_cache(batch_size=1)
     model.eval()
 
     t0 = time.perf_counter()
