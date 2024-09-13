@@ -5,7 +5,6 @@ import time
 from pathlib import Path
 from pprint import pprint
 from typing import Iterator, List, Literal, Optional, Tuple
-import warnings
 
 import lightning as L
 import torch
@@ -86,7 +85,7 @@ def process_prompt(prompt, model, tokenizer, prompt_style, fabric, temperature, 
         max_returned_tokens = encoded_prompt.size(0) + max_new_tokens
         if first_turn or max_returned_tokens > model.max_seq_length:
             model.max_seq_length = max_returned_tokens
-            model.set_kv_cache(batch_size=1, device=fabric.device)
+            model.set_kv_cache(batch_size=1, device=fabric.device, mps_compatibility_mode=str(fabric.device).startswith("mps"))
 
     y: Iterator[torch.Tensor] = generate(
         model, encoded_prompt, max_returned_tokens, temperature=temperature, top_k=top_k, top_p=top_p, stop_tokens=stop_tokens
@@ -198,12 +197,7 @@ def main(
         plugins = BitsandbytesPrecision(quantize[4:], dtype)
         precision = None
 
-    if torch.backends.mps.is_available():
-        accelerator = "cpu"
-        warnings.warn("MPS is currently not supported. Using CPU instead.", UserWarning)
-        fabric = L.Fabric(devices=1, accelerator=accelerator, precision=precision, plugins=plugins)
-    else:
-        fabric = L.Fabric(devices=1, precision=precision, plugins=plugins)
+    fabric = L.Fabric(devices=1, precision=precision, plugins=plugins)
 
     # Merge if this is a raw LoRA checkpoint
     checkpoint_path = checkpoint_dir / "lit_model.pth"
@@ -225,7 +219,7 @@ def main(
                 "IMPORTANT: with enabled compilation the KV-cache size is determined by model's maximum context size, which leads to "
                 "a higher memory consumption. In case of an OOM error, try to set `--compile=False`."
             )
-            model.set_kv_cache(batch_size=1)
+            model.set_kv_cache(batch_size=1, mps_compatibility_mode=str(fabric.device).startswith("mps"))
     load_checkpoint(fabric, model, checkpoint_path)
     model.eval()
 

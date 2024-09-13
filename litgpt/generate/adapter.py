@@ -90,12 +90,8 @@ def main(
         plugins = BitsandbytesPrecision(quantize[4:], dtype)
         precision = None
 
-    if torch.backends.mps.is_available():
-        accelerator = "cpu"
-        warnings.warn("MPS is currently not supported. Using CPU instead.", UserWarning)
-        fabric = L.Fabric(devices=1, accelerator=accelerator, precision=precision, plugins=plugins)
-    else:
-        fabric = L.Fabric(devices=1, precision=precision, plugins=plugins)
+
+    fabric = L.Fabric(devices=1, precision=precision, plugins=plugins)
     fabric.launch()
 
     check_valid_checkpoint_dir(checkpoint_dir)
@@ -123,7 +119,7 @@ def main(
         # set the max_seq_length to limit the memory usage to what we need
         model.max_seq_length = max_returned_tokens
         # enable the kv cache
-        model.set_kv_cache(batch_size=1)
+        model.set_kv_cache(batch_size=1, mps_compatibility_mode=str(fabric.device).startswith("mps"))
     model.eval()
 
     t0 = time.perf_counter()
