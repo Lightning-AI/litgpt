@@ -11,14 +11,15 @@ import torch
 from unittest.mock import MagicMock
 from tests.conftest import RunIf
 
-from lightning.fabric.accelerators import CUDAAccelerator
-from litgpt.api import (
-    LLM,
-    calculate_number_of_devices,
-    benchmark_dict_to_markdown_table
-)
+if sys.platform != "darwin":
+    from lightning.fabric.accelerators import CUDAAccelerator
+    from litgpt.api import (
+        LLM,
+        calculate_number_of_devices,
+        benchmark_dict_to_markdown_table
+    )
 
-from litgpt.scripts.download import download_from_hub
+    from litgpt.scripts.download import download_from_hub
 
 
 
