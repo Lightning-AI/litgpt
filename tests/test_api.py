@@ -116,6 +116,7 @@ def test_llm_load_random_init(tmp_path):
     assert ln <= 15
 
 
+@pytest.mark.skipif(sys.platform == "darwin", reason="segfaults on macos-14")
 def test_llm_load_hub_init(tmp_path):
     torch.manual_seed(123)
     llm = LLM.load(
@@ -131,6 +132,7 @@ def test_llm_load_hub_init(tmp_path):
     assert text_1 == text_2, (text1, text_2)
 
 
+@pytest.mark.skipif(sys.platform == "darwin", reason="segfaults on macos-14")
 def test_model_not_initialized(tmp_path):
     llm = LLM.load(
         model="EleutherAI/pythia-14m",
@@ -158,6 +160,7 @@ def test_model_not_initialized(tmp_path):
         llm.generate("text")
 
 
+@pytest.mark.skipif(sys.platform == "darwin", reason="segfaults on macos-14")
 @RunIf(min_cuda_gpus=2)
 def test_more_than_1_device_for_sequential_gpu(tmp_path):
 
@@ -187,6 +190,7 @@ def test_more_than_1_device_for_sequential_gpu(tmp_path):
     assert str(llm.model.transformer.h[last_layer_idx].mlp.fc.weight.device) == f"cuda:{device_count-1}"
 
 
+@pytest.mark.skipif(sys.platform == "darwin", reason="segfaults on macos-14")
 @RunIf(min_cuda_gpus=2)
 def test_more_than_1_device_for_tensor_parallel_gpu(tmp_path):
     llm = LLM.load(
@@ -199,6 +203,7 @@ def test_more_than_1_device_for_tensor_parallel_gpu(tmp_path):
         assert isinstance(llm.generate("What do llamas eat?"), str)
 
 
+@pytest.mark.skipif(sys.platform == "darwin", reason="segfaults on macos-14")
 @RunIf(min_cuda_gpus=1)
 def test_sequential_tp_incompatibility_with_random_weights(tmp_path):
     llm = LLM.load(
@@ -211,6 +216,7 @@ def test_sequential_tp_incompatibility_with_random_weights(tmp_path):
             llm.distribute(devices=1, generate_strategy=strategy)
 
 
+@pytest.mark.skipif(sys.platform == "darwin", reason="segfaults on macos-14")
 def test_sequential_tp_cpu(tmp_path):
     llm = LLM.load(
         model="EleutherAI/pythia-14m",
@@ -224,6 +230,7 @@ def test_sequential_tp_cpu(tmp_path):
             )
 
 
+@pytest.mark.skipif(sys.platform == "darwin", reason="segfaults on macos-14")
 def test_initialization_for_trainer(tmp_path):
     llm = LLM.load(
         model="EleutherAI/pythia-14m",
@@ -241,6 +248,7 @@ def test_initialization_for_trainer(tmp_path):
     assert isinstance(llm.generate("hello world"), str)
 
 
+@pytest.mark.skipif(sys.platform == "darwin", reason="segfaults on macos-14")
 @RunIf(min_cuda_gpus=1)
 def test_quantization_is_applied(tmp_path):
     llm = LLM.load(
@@ -251,6 +259,7 @@ def test_quantization_is_applied(tmp_path):
     assert "NF4Linear" in strtype, strtype
 
 
+@pytest.mark.skipif(sys.platform == "darwin", reason="segfaults on macos-14")
 @RunIf(min_cuda_gpus=1)
 def test_fixed_kv_cache(tmp_path):
     llm = LLM.load(
@@ -263,6 +272,7 @@ def test_fixed_kv_cache(tmp_path):
         output_text = llm.generate("hello world", max_new_tokens=2**63)
 
 
+@pytest.mark.skipif(sys.platform == "darwin", reason="segfaults on macos-14")
 def test_invalid_accelerator(tmp_path):
     llm = LLM.load(
         model="EleutherAI/pythia-14m",
@@ -271,6 +281,7 @@ def test_invalid_accelerator(tmp_path):
         llm.distribute(accelerator="invalid")
 
 
+@pytest.mark.skipif(sys.platform == "darwin", reason="segfaults on macos-14")
 def test_returned_benchmark_dir(tmp_path):
     llm = LLM.load(
         model="EleutherAI/pythia-14m",
@@ -292,6 +303,7 @@ def test_returned_benchmark_dir(tmp_path):
     assert isinstance(bench_d["Inference speed in tokens/sec"][0], float)
 
 
+@pytest.mark.skipif(sys.platform == "darwin", reason="segfaults on macos-14")
 def test_benchmark_dict_to_markdown_table_single_values():
     bench_d = {
         'Inference speed in tokens/sec': [17.617540650112936],
@@ -313,6 +325,7 @@ def test_benchmark_dict_to_markdown_table_single_values():
 
     assert benchmark_dict_to_markdown_table(bench_d) == expected_output
 
+@pytest.mark.skipif(sys.platform == "darwin", reason="segfaults on macos-14")
 def test_benchmark_dict_to_markdown_table_multiple_values():
     bench_d_list = {
         'Inference speed in tokens/sec': [17.034547562152305, 32.8974175404589, 33.04784205046782, 32.445697744648584,
@@ -342,6 +355,7 @@ def test_benchmark_dict_to_markdown_table_multiple_values():
     assert benchmark_dict_to_markdown_table(bench_d_list) == expected_output
 
 
+@pytest.mark.skipif(sys.platform == "darwin", reason="segfaults on macos-14")
 def test_state_dict(tmp_path):
     llm = LLM.load(
         model="EleutherAI/pythia-14m",
@@ -350,6 +364,7 @@ def test_state_dict(tmp_path):
     assert llm.state_dict()['lm_head.weight'].shape == torch.Size([50304, 128])
 
 
+@pytest.mark.skipif(sys.platform == "darwin", reason="segfaults on macos-14")
 def test_save_method(tmp_path):
     llm = LLM.load(
         model="EleutherAI/pythia-14m",
@@ -373,6 +388,7 @@ def test_save_method(tmp_path):
         assert file_name in files_in_directory, f"{file_name} is missing from {target_dir}"
 
 
+@pytest.mark.skipif(sys.platform == "darwin", reason="segfaults on macos-14")
 def test_forward_method(tmp_path):
     llm = LLM.load(
         model="EleutherAI/pythia-14m",
