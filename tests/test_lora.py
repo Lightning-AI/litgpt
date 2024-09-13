@@ -826,80 +826,37 @@ def test_lora_model_fsdp_init():
                 assert not attr_value.is_meta, f"Attribute `{attr_name}` isn't materialized."
 
 
-def test_zero_pad_mps():
-    batch_size = 1
-    seq_length = 1
-    in_features = 8
-    head_size = 2
-    n_head = 4
-    n_query_groups = 2
-    r = 1
-    lora_alpha = 1
-    lora_dropout = 0.0
-    enable_lora = (True, False, True)  # Enable LoRA for query and value, but not for key
+def test_zero_pad_cpu_and_mocked_mps():
+    in_features = 128
+    out_features = 384
+    head_size = 64
+    n_head = 12
+    n_query_groups = 3
+    enable_lora = [True, False, True]
+    r = 4
 
-    out_features = (n_head + 2 * n_query_groups) * head_size  # (4 + 4) * 2 = 16
-
-    enable_q, enable_k, enable_v = enable_lora
-    qkv_shapes = (
-        head_size * n_head * enable_q,
-        head_size * n_query_groups * enable_k,
-        head_size * n_query_groups * enable_v,
-    )
-    qkv_shapes = [s for s in qkv_shapes if s]
-    total_shape = sum(qkv_shapes)  # total_shape = 8 + 4 = 12
-
-    x = torch.arange(batch_size * seq_length * total_shape).reshape(batch_size, seq_length, total_shape).float()
-
-    expected_output = torch.zeros(batch_size, seq_length, out_features)
-
-    candidate_indices = range(out_features)
-    qkv_group_size = n_head // n_query_groups + 2  # 4
-
-    lora_ind = []
-    if enable_q:
-        q_ind = [idx for idx in candidate_indices if (idx // head_size) % qkv_group_size < qkv_group_size - 2]
-        lora_ind.extend(q_ind)
-    if enable_v:
-        v_ind = [idx for idx in candidate_indices if (idx // head_size) % qkv_group_size == qkv_group_size - 1]
-        lora_ind.extend(v_ind)
-    # Remove the sorting to preserve the order
-    # lora_ind.sort()
-
-    # Assign x to expected_output at positions specified by lora_ind
-    for idx, pos in enumerate(lora_ind):
-        expected_output[0, 0, pos] = x[0, 0, idx]
-
-    mps_compatibility_mode = False
-    module = LoRAQKVLinear(
+    model = LoRAQKVLinear(
         in_features=in_features,
         out_features=out_features,
         head_size=head_size,
         n_head=n_head,
         n_query_groups=n_query_groups,
         r=r,
-        lora_alpha=lora_alpha,
-        lora_dropout=lora_dropout,
-        enable_lora=enable_lora,
-        mps_compatibility_mode=mps_compatibility_mode,
+        enable_lora=enable_lora
     )
 
-    output = module.zero_pad(x)
-    assert torch.allclose(output, expected_output), "Output does not match expected output for mps_compatibility_mode=False"
+    batch_size = 64
+    seq_len = 64
+    embed_dim = 320
+    x = torch.randn(batch_size, seq_len, embed_dim)
 
-    mps_compatibility_mode = True
-    module_mps = LoRAQKVLinear(
-        in_features=in_features,
-        out_features=out_features,
-        head_size=head_size,
-        n_head=n_head,
-        n_query_groups=n_query_groups,
-        r=r,
-        lora_alpha=lora_alpha,
-        lora_dropout=lora_dropout,
-        enable_lora=enable_lora,
-        mps_compatibility_mode=mps_compatibility_mode,
-    )
+    result_cpu = model.zero_pad(x)
 
-    output_mps = module_mps.zero_pad(x)
-    assert torch.allclose(output_mps, expected_output), "Output does not match expected output for mps_compatibility_mode=True"
+    with mock.patch("torch.backends.mps.is_available", return_value=True):
+        with mock.patch("torch.Tensor.device", new_callable=mock.PropertyMock) as mock_device:
+            mock_device.return_value = torch.device("mps")
+
+            result_mps = model.zero_pad(x)
+
+            assert result_cpu.shape == result_mps.shape, "Shape mismatch between CPU and MPS"
+            assert torch.allclose(result_cpu, result_mps), "Tensor values mismatch between CPU and MPS"

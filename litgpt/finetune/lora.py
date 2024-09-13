@@ -195,7 +195,7 @@ def main(
 
     checkpoint_path = checkpoint_dir / "lit_model.pth"
     with fabric.init_module(empty_init=(fabric.world_size > 1)):
-        model = GPT(config, mps_compatibility_mode=str(fabric.device).startswith("mps"))
+        model = GPT(config)
     mark_only_lora_as_trainable(model)
 
     fabric.print(f"Number of trainable parameters: {num_parameters(model, requires_grad=True):,}")
@@ -397,7 +397,7 @@ def generate_example(fabric: L.Fabric, model: GPT, tokenizer: Tokenizer, eval: E
     if max_returned_tokens < model.max_seq_length:
         with fabric.init_tensor():
             # do not set `max_seq_length=max_returned_token` because memory is not a concern here
-            model.set_kv_cache(batch_size=1, mps_compatibility_mode=str(fabric.device).startswith("mps"))
+            model.set_kv_cache(batch_size=1)
         output = generate(
             model, encoded, max_returned_tokens=max_returned_tokens, temperature=0.8, eos_id=tokenizer.eos_id
         )
