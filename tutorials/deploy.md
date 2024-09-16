@@ -2,8 +2,9 @@
 
 This document shows how you can serve a LitGPT for deployment. 
 
+
 &nbsp;
-## Serve an LLM
+## Serve an LLM with LitServe
 
 This section illustrates how we can set up an inference server for a phi-2 LLM using `litgpt serve` that is minimal and highly scalable.
 
@@ -48,7 +49,7 @@ Example input.
 ```
 
 &nbsp;
-## Optional streaming mode
+### Optional: Use the streaming mode
 
 The 2-step procedure described above returns the complete response all at once. If you want to stream the response on a token-by-token basis, start the server with the streaming option enabled:
 
@@ -78,3 +79,15 @@ Sure, here is the corrected sentence:
 
 Example input
 ```
+
+&nbsp;
+## Serve an LLM UI with Chainlit
+
+If you are interested in developing a simple ChatGPT-like UI prototype, you can find a demo see the following Studio using Chainlit:
+
+<a target="_blank" href="https://lightning.ai/lightning-ai/studios/chatgpt-like-llm-uis-via-chainlit">
+  <img src="https://pl-bolts-doc-images.s3.us-east-2.amazonaws.com/app-2/studio-badge.svg" alt="Open In Studio"/>
+</a>
+
+
+
