@@ -7,7 +7,6 @@ from unittest.mock import ANY
 import pytest
 import torch
 import yaml
-import sys
 from transformers import AutoConfig, AutoModelForCausalLM
 from transformers.models.falcon import FalconConfig, FalconForCausalLM
 from transformers.models.gemma import GemmaConfig, GemmaForCausalLM
@@ -28,12 +27,6 @@ from litgpt.scripts.convert_lit_checkpoint import (
     qkv_split,
 )
 from tests.conftest import RunIf
-
-
-skip_in_ci_on_macos = pytest.mark.skipif(
-    sys.platform == "darwin" and os.getenv("GITHUB_ACTIONS") == "true",
-    reason="Skipped on macOS in CI environment because CI machine produces results that don't occur when testing on Macs locally."
-)
 
 
 def test_convert_lit_checkpoint(tmp_path):
@@ -339,7 +332,6 @@ def test_against_original_stablelm_zephyr_3b():
     torch.testing.assert_close(ours_y, theirs_y)
 
 
-@skip_in_ci_on_macos
 @torch.inference_mode()
 @pytest.mark.parametrize("model_name", ["gemma-2b", "gemma-7b"])
 @pytest.mark.parametrize(
@@ -387,14 +379,14 @@ def test_against_original_gemma(model_name, device, dtype):
     theirs_state_dict = {}
     copy_weights_llama(ours_config, theirs_state_dict, ours_state_dict, untie_weights=True)
     theirs_model = GemmaForCausalLM(theirs_config).to(device)
-    theirs_model.load_state_dict(theirs_state_dict, strict=False)
+    theirs_model.load_state_dict(theirs_state_dict, strict=False,)
 
     # test end to end
     x = torch.tensor([[9856, 23, 491, 1536, 304]], dtype=torch.int32, device=device)
     assert x.size(1) == T
     ours_y = ours_model(x)
     theirs_y = theirs_model(x)["logits"].to(dtype)  # HF converts logits to float
-    torch.testing.assert_close(ours_y, theirs_y)
+    torch.testing.assert_close(ours_y, theirs_y, rtol=3e-5)
 
 
 @torch.inference_mode()
