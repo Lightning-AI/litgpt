@@ -7,6 +7,7 @@ from io import StringIO
 from itertools import repeat
 from pathlib import Path
 from unittest.mock import ANY, MagicMock, Mock, call, patch
+import sys
 from typing import Iterable
 
 import pytest
@@ -18,6 +19,12 @@ import litgpt.chat.base as chat
 import litgpt.generate.base as generate
 from litgpt import Config, Tokenizer
 from litgpt.utils import save_config, auto_download_checkpoint
+
+
+skip_in_ci_on_macos = pytest.mark.skipif(
+    sys.platform == "darwin" and os.getenv("GITHUB_ACTIONS") == "true",
+    reason="Skipped on macOS in CI environment because CI machine does not have enough memory to run this test."
+)
 
 
 @pytest.mark.parametrize(
@@ -80,6 +87,7 @@ def test_decode():
     assert text == decoded, (text, decoded)
 
 
+@skip_in_ci_on_macos
 @patch("litgpt.chat.base.input")
 @pytest.mark.parametrize("stop_iteration", [KeyboardInterrupt, ""])
 def test_main(mocked_input, stop_iteration, fake_checkpoint_dir, monkeypatch, tensor_like):
@@ -129,6 +137,7 @@ def test_cli():
     assert "Chat with a model" in output
 
 
+@skip_in_ci_on_macos
 @patch("litgpt.chat.base.input")
 @patch("litgpt.chat.base.merge_lora")
 def test_merge_lora_if_needed(mocked_merge_lora, mocked_input, fake_checkpoint_dir, monkeypatch, tensor_like):
@@ -152,6 +161,7 @@ def test_merge_lora_if_needed(mocked_merge_lora, mocked_input, fake_checkpoint_d
     mocked_merge_lora.assert_called_once()
 
 
+@skip_in_ci_on_macos
 def test_litgpt_chat_endtoend():
     from litgpt.chat.base import main
 

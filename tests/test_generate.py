@@ -5,6 +5,7 @@ import subprocess
 import sys
 from contextlib import redirect_stderr, redirect_stdout
 from io import StringIO
+import os
 from pathlib import Path
 from unittest import mock
 from unittest.mock import ANY, Mock, call
@@ -16,6 +17,12 @@ import yaml
 import litgpt.generate.base as generate
 from litgpt import GPT, Config
 from litgpt.generate.base import sample
+
+
+skip_in_ci_on_macos = pytest.mark.skipif(
+    sys.platform == "darwin" and os.getenv("GITHUB_ACTIONS") == "true",
+    reason="Skipped on macOS in CI environment because CI machine does not have enough memory to run this test."
+)
 
 
 @pytest.mark.parametrize(
@@ -51,6 +58,7 @@ def test_generate(max_seq_length):
     torch.testing.assert_close(out, expected)
 
 
+@skip_in_ci_on_macos
 def test_main(fake_checkpoint_dir, monkeypatch, tensor_like):
     config_path = fake_checkpoint_dir / "model_config.yaml"
     config = {"block_size": 128, "vocab_size": 50, "n_layer": 2, "n_head": 4, "n_embd": 8, "rotary_percentage": 1}
