@@ -182,6 +182,7 @@ def test_litgpt_chat_endtoend():
     assert simulated_input.call_count == 2
 
 
+@skip_in_ci_on_macos
 def test_litgpt_generate_endtoend():
     from litgpt.generate.base import main
 

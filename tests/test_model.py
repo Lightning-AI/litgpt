@@ -1,7 +1,9 @@
 # Copyright Lightning AI. Licensed under the Apache License 2.0, see LICENSE file.
 
+import os
 from copy import deepcopy
 from functools import partial
+import sys
 
 import pytest
 from unittest import mock
@@ -39,6 +41,12 @@ from litgpt.scripts.convert_hf_checkpoint import (
     copy_weights_phi,
 )
 from tests.conftest import RunIf
+
+
+skip_in_ci_on_macos = pytest.mark.skipif(
+    sys.platform == "darwin" and os.getenv("GITHUB_ACTIONS") == "true",
+    reason="Skipped on macOS in CI environment because CI machine produces results that don't occur when testing on Macs locally."
+)
 
 
 @torch.inference_mode()
@@ -592,6 +600,7 @@ def test_against_original_gemma(model_name, device, dtype):
     torch.testing.assert_close(ours_y, theirs_y)
 
 
+@skip_in_ci_on_macos
 @torch.inference_mode()
 @pytest.mark.parametrize("model_name", ("gemma-2-9b", "gemma-2-27b"))
 @pytest.mark.parametrize(

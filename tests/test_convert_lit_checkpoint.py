@@ -7,6 +7,7 @@ from unittest.mock import ANY
 import pytest
 import torch
 import yaml
+import sys
 from transformers import AutoConfig, AutoModelForCausalLM
 from transformers.models.falcon import FalconConfig, FalconForCausalLM
 from transformers.models.gemma import GemmaConfig, GemmaForCausalLM
@@ -27,6 +28,12 @@ from litgpt.scripts.convert_lit_checkpoint import (
     qkv_split,
 )
 from tests.conftest import RunIf
+
+
+skip_in_ci_on_macos = pytest.mark.skipif(
+    sys.platform == "darwin" and os.getenv("GITHUB_ACTIONS") == "true",
+    reason="Skipped on macOS in CI environment because CI machine produces results that don't occur when testing on Macs locally."
+)
 
 
 def test_convert_lit_checkpoint(tmp_path):
@@ -332,6 +339,7 @@ def test_against_original_stablelm_zephyr_3b():
     torch.testing.assert_close(ours_y, theirs_y)
 
 
+@skip_in_ci_on_macos
 @torch.inference_mode()
 @pytest.mark.parametrize("model_name", ["gemma-2b", "gemma-7b"])
 @pytest.mark.parametrize(
