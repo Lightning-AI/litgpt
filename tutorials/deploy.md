@@ -83,7 +83,7 @@ Example input
 &nbsp;
 ## Serve an LLM UI with Chainlit
 
-If you are interested in developing a simple ChatGPT-like UI prototype, you can find a demo see the following Studio using Chainlit:
+If you are interested in developing a simple ChatGPT-like UI prototype, see the Chainlit tutorial in the following Studio:
 
 <a target="_blank" href="https://lightning.ai/lightning-ai/studios/chatgpt-like-llm-uis-via-chainlit">
   <img src="https://pl-bolts-doc-images.s3.us-east-2.amazonaws.com/app-2/studio-badge.svg" alt="Open In Studio"/>
