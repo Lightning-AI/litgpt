@@ -13,6 +13,7 @@ from litgpt.data import DataModule, SFTDataset, get_sft_collate_fn
 from litgpt.data.alpaca import download_if_missing
 from litgpt.tokenizer import Tokenizer
 
+import pdb
 _URL = "https://huggingface.co/datasets/Muennighoff/flan/resolve/main"
 
 
@@ -83,8 +84,13 @@ class FLAN(DataModule):
         data = []
         for subset in self.subsets:
             data_file_path = self.download_dir / f"{subset}_{split}.jsonl"
-            data.extend(load_jsonl(data_file_path))
-
+            print(f"Loading data from {data_file_path}")
+            subset_data = load_jsonl(data_file_path)
+            print(f"Loaded {len(subset_data)} items from {subset}")
+            data.extend(subset_data)
+        
+        print(f"Total items loaded for {split}: {len(data)}")
+        
         dataset = SFTDataset(
             data=data,
             tokenizer=self.tokenizer,
@@ -92,8 +98,9 @@ class FLAN(DataModule):
             max_seq_length=self.max_seq_length,
             mask_prompt=self.mask_prompt,
             ignore_index=self.ignore_index,
-            transform=_transform,
+            transform=self._transform_with_logging,
         )
+        
         return DataLoader(
             dataset=dataset,
             batch_size=self.batch_size,
@@ -103,19 +110,51 @@ class FLAN(DataModule):
             collate_fn=get_sft_collate_fn(max_seq_length=self.max_seq_length, ignore_index=self.ignore_index),
         )
 
+    def _transform_with_logging(self, item: dict) -> dict:
+        try:
+            return self._transform(item)
+        except Exception as e:
+            print(f"Error transforming item: {e}")
+            print(f"Problematic item: {item}")
+            print(f"Item keys: {list(item.keys())}")
+            raise
 
-def load_jsonl(filename: Path) -> List[Dict[str, str]]:
+    @staticmethod
+    def _transform(item: dict) -> dict:
+        if "instruction" in item and "output" in item:
+            pass # already in the right format
+        elif "inputs" in item and "targets" in item:
+            item["instruction"] = item["inputs"]
+            item["output"] = item["targets"]
+        else:
+            raise ValueError(f"Item does not have the right format: {item}")
+        
+        return item
+
+def _load_jsonl(filename: Path) -> List[Dict[str, str]]:
     data = []
     with open(filename, "r", encoding="utf-8") as f:
         for line in f:
             data.append(json.loads(line))
     return data
 
+def load_jsonl(filename: Path) -> List[Dict[str, str]]:
+    data = []
+    with open(filename, "r", encoding="utf-8") as f:
+        for line_num, line in enumerate(f, 1):
+            try:
+                item = json.loads(line.strip())
+                if not isinstance(item, dict):
+                    logger.warning(f"Non-dict item in {filename}:{line_num}")
+                    continue
+                if "inputs" not in item or "targets" not in item:
+                    logger.warning(f"Missing keys in {filename}:{line_num}")
+                    continue
+                data.append(item)
+            except json.JSONDecodeError:
+                logger.warning(f"Invalid JSON in {filename}:{line_num}")
+    return data
 
-def _transform(item: dict) -> dict:
-    item["instruction"] = item.pop("inputs")
-    item["output"] = item.pop("targets")
-    return item
 
 
 def _supported_subsets() -> Set[str]:
