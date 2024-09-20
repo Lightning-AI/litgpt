@@ -29,7 +29,7 @@ class SlimPajamaDataRecipe(DataChunkRecipe):
                 text = json.loads(row)["text"]
                 if json.loads(row)["meta"]["redpajama_set_name"] == "RedPajamaGithub":
                     continue  # exclude the GitHub data since it overlaps with starcoder
-                text_ids = self.tokenizer.encode(text, bos=False, eos=True)
+                text_ids = self.tokenizer.encode(string=text, bos=False, eos=True)
                 yield text_ids
 
 
@@ -43,6 +43,7 @@ def prepare(
     from litdata.processing.data_processor import DataProcessor
 
     tokenizer_path = extend_checkpoint_dir(tokenizer_path)
+    tokenizer = Tokenizer(tokenizer_path)
     data_recipe = SlimPajamaDataRecipe(tokenizer=tokenizer, chunk_size=chunk_size)
     data_processor = DataProcessor(
         input_dir=str(input_dir),
