@@ -39,6 +39,8 @@ class FLAN(DataModule):
     """The URL from where to download the dataset."""
     subsets: Optional[str] = None
     """A comma separated list of subsets to use. If None, all subsets are used."""
+    force_iid_test: bool = False
+    """Use a slice of train as test rather than test.jsonl for each subset."""
 
     tokenizer: Optional[Tokenizer] = field(default=None, init=False, repr=False)
     batch_size: int = field(default=1, init=False, repr=False)
@@ -52,12 +54,12 @@ class FLAN(DataModule):
 
         supported_subsets = _supported_subsets()
         if self.subsets is not None:
-            self.subsets = self.subsets.split(",")
+            self.subsets = sorted(self.subsets.split(",")) # NOTE: need to sort this for consistent shuffling.
             for subset in self.subsets:
                 if subset not in supported_subsets:
                     raise ValueError(f"{subset} not in {supported_subsets}")
         else:
-            self.subsets = list(supported_subsets)
+            self.subsets = sorted(list(supported_subsets))
 
     def connect(
         self, tokenizer: Optional[Tokenizer] = None, batch_size: int = 1, max_seq_length: Optional[int] = None
@@ -82,7 +84,17 @@ class FLAN(DataModule):
 
     def _dataloader(self, split: str) -> DataLoader:
         data = []
+        TRAIN_RATIO = 0.95 # used to split train when force_iid_test is True
         for subset in self.subsets:
+            if self.force_iid_test:
+                data_file_path = self.download_dir / f"{subset}_train.jsonl"
+                data_file_url = f"{self.url}/{split}/{subset}_train.jsonl"
+                download_if_missing(data_file_path, data_file_url)
+                if split == "train":
+                    data.extend(_load_jsonl(data_file_path)[int(len(_load_jsonl(data_file_path))*TRAIN_RATIO):])
+                else:
+                    data.extend(_load_jsonl(data_file_path)[:int(len(_load_jsonl(data_file_path))*TRAIN_RATIO)])
+                
             data_file_path = self.download_dir / f"{subset}_{split}.jsonl"
             print(f"Loading data from {data_file_path}")
             subset_data = load_jsonl(data_file_path)
@@ -104,7 +116,7 @@ class FLAN(DataModule):
         return DataLoader(
             dataset=dataset,
             batch_size=self.batch_size,
-            shuffle=(split == "train"),
+            shuffle=True,
             generator=torch.Generator().manual_seed(self.seed),
             num_workers=self.num_workers,
             collate_fn=get_sft_collate_fn(max_seq_length=self.max_seq_length, ignore_index=self.ignore_index),
