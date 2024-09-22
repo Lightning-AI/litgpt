@@ -46,16 +46,18 @@ def setup(
     train: TrainArgs = TrainArgs(
         save_interval=1000,
         log_interval=1,
-        global_batch_size=16,
-        micro_batch_size=1,
+        global_batch_size=64,
+        micro_batch_size=8,
         lr_warmup_steps=100,
         epochs=5,
         max_seq_length=None,
+        max_lr=1e-4
     ),
     eval: EvalArgs = EvalArgs(interval=600, max_new_tokens=100, max_iters=100),
     optimizer: Union[str, Dict] = "AdamW",
     logger_name: Literal["wandb", "tensorboard", "csv"] = "csv",
     seed: int = 1337,
+    const_lr: bool = False,
 ) -> None:
     """Finetune a model.
 
@@ -118,6 +120,7 @@ def setup(
         train,
         eval,
         optimizer,
+        const_lr=const_lr,
     )
 
 
@@ -133,6 +136,7 @@ def main(
     train: TrainArgs,
     eval: EvalArgs,
     optimizer: Union[str, Dict],
+    const_lr: bool = False,
 ) -> None:
     validate_args(train, eval)
 
@@ -160,15 +164,18 @@ def main(
 
     model = fabric.setup(model)
 
-    # TODO: allow passing this in through args
-    extra_kwargs = {"lr": 2e-5}
     optimizer = instantiate_torch_optimizer(
-        optimizer, model.parameters(), **extra_kwargs
+        optimizer, model.parameters(), lr=train.max_lr
     )
     optimizer = fabric.setup_optimizers(optimizer)
-    scheduler = get_lr_scheduler(
-        optimizer, warmup_steps=train.lr_warmup_steps, max_steps=lr_max_steps
-    )
+
+    if const_lr:
+        optimizer.param_groups[0]["lr"] = train.max_lr
+        scheduler = torch.optim.lr_scheduler.ConstantLR(optimizer, factor=1, total_iters=lr_max_steps)
+    else:
+        scheduler = get_lr_scheduler(
+            optimizer, warmup_steps=train.lr_warmup_steps, max_steps=lr_max_steps
+        )
 
     state = {
         "model": model,
@@ -299,6 +306,11 @@ def fit(
         iter_t0 = time.perf_counter()
         batch = next(train_iterator)
         input_ids, targets = batch["input_ids"], batch["labels"]
+        #print("Sample input_ids:", input_ids[0])
+        #print("Decoded input:", tokenizer.decode(input_ids[0]))
+        #print("Sample targets:", targets[0])
+        #valid_targets = targets[0][targets[0] != -100]
+        #print("Decoded targets:", tokenizer.decode(valid_targets))
 
         is_accumulating = (
             state["iter_num"] % train.gradient_accumulation_iters(devices) != 0
@@ -404,28 +416,34 @@ def validate(
 def generate_example(
     fabric: L.Fabric, model: GPT, tokenizer: Tokenizer, eval: EvalArgs, data: DataModule
 ):
-    instruction = (
-        "Recommend a movie for me to watch during the weekend and explain the reason."
-    )
-    fabric.print(instruction)
-    prompt = data.prompt_style.apply(instruction)
-    encoded = tokenizer.encode(prompt, device=fabric.device)
-    model.eval()
+    # added mmlu examples. The answers for MMLU are A, A, C
+    instructions = [
+        "Recommend a movie for me to watch during the weekend and explain the reason.",
+        "Question: What is true for a type Ia-supernova?\nA. This type occurs in binary systems.\nB. This type occurs in young galaxies.\nC. This type produces gamma-ray bursts.\nD. This type produces high amounts of X-rays.\nAnswer:",
+        "Question: In a population of giraffes, an environmental change occurs that favors individuals that are tallest. As a result, more of the taller individuals are able to obtain nutrients and survive to pass along their genetic information. This is an example of\nA. directional selection\nB. stabilizing selection\nC. sexual selection\nD. disruptive selection\nAnswer:",
+        "Question: Rawls conceives of the original contract as one to:\nA. enter a particular society\nB. set up a particular form of government\nC. establish the principles of justice for the basic structure of society\nD. establish the content of morality\nAnswer:",
+    ]
+    for instruction in instructions:
+        fabric.print("instruction: ", instruction)
+        prompt = data.prompt_style.apply(instruction)
+        fabric.print("prompt: ", prompt)
+        encoded = tokenizer.encode(prompt, device=fabric.device)
+        model.eval()
 
-    with fabric.init_tensor():
-        # do not set `max_seq_length=max_returned_token` because memory is not a concern here
-        model.set_kv_cache(batch_size=1)
-    output = generate(
-        model,
-        encoded,
-        max_returned_tokens=len(encoded) + eval.max_new_tokens,
-        temperature=0.8,
-        eos_id=tokenizer.eos_id,
-    )
-    model.clear_kv_cache()
-    model.train()
-    output = tokenizer.decode(output)
-    fabric.print(output)
+        with fabric.init_tensor():
+            # do not set `max_seq_length=max_returned_token` because memory is not a concern here
+            model.set_kv_cache(batch_size=1)
+        output = generate(
+            model,
+            encoded,
+            max_returned_tokens=len(encoded) + eval.max_new_tokens,
+            temperature=0.8,
+            eos_id=tokenizer.eos_id,
+        )
+        model.clear_kv_cache()
+        model.train()
+        output = tokenizer.decode(output)
+        fabric.print("output: ", output)
 
 
 def get_lr_scheduler(optimizer, warmup_steps: int, max_steps: int):
