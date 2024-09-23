@@ -80,7 +80,7 @@ def test_calculate_number_of_devices():
 
 
 def test_llm_load_random_init():
-    download_from_hub(repo_id="EleutherAI/pythia-14m", tokenizer_only=True, checkpoint_dir=tmp_path)
+    download_from_hub(repo_id="EleutherAI/pythia-14m", tokenizer_only=True)
 
     torch.manual_seed(123)
     llm = LLM.load(
