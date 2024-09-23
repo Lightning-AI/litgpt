@@ -21,10 +21,9 @@ from litgpt.api import (
 from litgpt.scripts.download import download_from_hub
 
 
-skip_in_ci_on_macos = pytest.mark.skipif(
-     sys.platform == "darwin" and os.getenv("GITHUB_ACTIONS") == "true",
-     reason="Skipped on macOS in CI environment because CI machine may not have enough memory to run this test."
-)
+if sys.platform == "darwin" and os.getenv("GITHUB_ACTIONS") == "true":
+    os.environ["PYTORCH_MPS_FORCE_FALLBACK"] = "1"
+
 
 @pytest.fixture
 def mock_llm():
@@ -84,8 +83,6 @@ def test_calculate_number_of_devices():
     assert calculate_number_of_devices(None) == 0
 
 
-# This test causes segfaults on the macOS CI machine but works fine locally
-@skip_in_ci_on_macos
 def test_llm_load_random_init(tmp_path):
     download_from_hub(repo_id="EleutherAI/pythia-14m", tokenizer_only=True, checkpoint_dir=tmp_path)
 
@@ -115,8 +112,6 @@ def test_llm_load_random_init(tmp_path):
     assert ln <= 15
 
 
-# This test causes segfaults on the macOS CI machine but works fine locally
-@skip_in_ci_on_macos
 def test_llm_load_hub_init(tmp_path):
     torch.manual_seed(123)
     llm = LLM.load(
@@ -212,7 +207,6 @@ def test_sequential_tp_incompatibility_with_random_weights(tmp_path):
             llm.distribute(devices=1, generate_strategy=strategy)
 
 
-@skip_in_ci_on_macos
 def test_sequential_tp_cpu(tmp_path):
     llm = LLM.load(
         model="EleutherAI/pythia-14m",
@@ -275,7 +269,6 @@ def test_invalid_accelerator(tmp_path):
         llm.distribute(accelerator="invalid")
 
 
-@skip_in_ci_on_macos
 def test_returned_benchmark_dir(tmp_path):
     llm = LLM.load(
         model="EleutherAI/pythia-14m",
@@ -348,7 +341,6 @@ def test_benchmark_dict_to_markdown_table_multiple_values():
     assert benchmark_dict_to_markdown_table(bench_d_list) == expected_output
 
 
-@skip_in_ci_on_macos
 def test_state_dict(tmp_path):
     llm = LLM.load(
         model="EleutherAI/pythia-14m",
@@ -357,7 +349,6 @@ def test_state_dict(tmp_path):
     assert llm.state_dict()['lm_head.weight'].shape == torch.Size([50304, 128])
 
 
-@skip_in_ci_on_macos
 def test_save_method(tmp_path):
     llm = LLM.load(
         model="EleutherAI/pythia-14m",
@@ -381,7 +372,6 @@ def test_save_method(tmp_path):
         assert file_name in files_in_directory, f"{file_name} is missing from {target_dir}"
 
 
-@skip_in_ci_on_macos
 def test_forward_method(tmp_path):
     llm = LLM.load(
         model="EleutherAI/pythia-14m",
