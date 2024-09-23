@@ -79,12 +79,12 @@ def test_calculate_number_of_devices():
     assert calculate_number_of_devices(None) == 0
 
 
-def test_llm_load_random_init(tmp_path):
+def test_llm_load_random_init():
     download_from_hub(repo_id="EleutherAI/pythia-14m", tokenizer_only=True, checkpoint_dir=tmp_path)
 
     torch.manual_seed(123)
     llm = LLM.load(
         model="pythia-14m",
         init="random",
-        tokenizer_dir=Path(tmp_path/"EleutherAI/pythia-14m")
+        tokenizer_dir=Path("EleutherAI/pythia-14m")
     )
