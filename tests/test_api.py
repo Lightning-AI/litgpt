@@ -26,6 +26,7 @@ skip_in_ci_on_macos = pytest.mark.skipif(
      reason="Skipped on macOS in CI environment because CI machine may not have enough memory to run this test."
 )
 
+
 @pytest.fixture
 def mock_llm():
     llm = MagicMock(spec=LLM)
@@ -84,8 +85,6 @@ def test_calculate_number_of_devices():
     assert calculate_number_of_devices(None) == 0
 
 
-# This test causes segfaults on the macOS CI machine but works fine locally
-@skip_in_ci_on_macos
 def test_llm_load_random_init(tmp_path):
     download_from_hub(repo_id="EleutherAI/pythia-14m", tokenizer_only=True, checkpoint_dir=tmp_path)
 

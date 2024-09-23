@@ -215,8 +215,6 @@ class LLM(torch.nn.Module):
         if distribute == "auto":
             if torch.cuda.is_available():
                 accelerator = "cuda"
-            elif torch.backends.mps.is_available():
-                accelerator = "mps"
             else:
                 accelerator = "cpu"
 
