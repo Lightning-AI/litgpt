@@ -77,3 +77,32 @@ def test_calculate_number_of_devices():
     assert calculate_number_of_devices(1) == 1
     assert calculate_number_of_devices([0, 1, 2]) == 3
     assert calculate_number_of_devices(None) == 0
+
+
+def test_llm_load_random_init(tmp_path):
+    download_from_hub(repo_id="EleutherAI/pythia-14m", tokenizer_only=True, checkpoint_dir=tmp_path)
+
+    torch.manual_seed(123)
+    llm = LLM.load(
+        model="pythia-160m",
+        init="random",
+        tokenizer_dir=Path(tmp_path/"EleutherAI/pythia-14m")
+    )
+
+    input_text = "some text text"
+    output_text = llm.generate(input_text, max_new_tokens=15)
+    ln = len(llm.preprocessor.tokenizer.encode(output_text)) - len(llm.preprocessor.tokenizer.encode(input_text))
+    assert ln <= 15
+
+    # The following below tests that generate works with different prompt lengths
+    # after the kv cache was set
+
+    input_text = "some text"
+    output_text = llm.generate(input_text, max_new_tokens=15)
+    ln = len(llm.preprocessor.tokenizer.encode(output_text)) - len(llm.preprocessor.tokenizer.encode(input_text))
+    assert ln <= 15
+
+    input_text = "some text text text"
+    output_text = llm.generate(input_text, max_new_tokens=15)
+    ln = len(llm.preprocessor.tokenizer.encode(output_text)) - len(llm.preprocessor.tokenizer.encode(input_text))
+    assert ln <= 15
