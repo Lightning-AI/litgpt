@@ -115,6 +115,8 @@ def test_llm_load_random_init(tmp_path):
     assert ln <= 15
 
 
+# This test causes segfaults on the macOS CI machine but works fine locally
+@skip_in_ci_on_macos
 def test_llm_load_hub_init(tmp_path):
     torch.manual_seed(123)
     llm = LLM.load(
@@ -128,3 +130,31 @@ def test_llm_load_hub_init(tmp_path):
     text_2 = llm.generate("text", max_new_tokens=10, top_k=1, stream=True)
     text_2 = "".join(list(text_2))
     assert text_1 == text_2, (text1, text_2)
+
+
+def test_model_not_initialized(tmp_path):
+    llm = LLM.load(
+        model="EleutherAI/pythia-14m",
+        init="pretrained",
+        distribute=None
+    )
+    s = (
+        "The model is not initialized yet; use the .distribute() "
+        "or .trainer_setup() method to initialize the model."
+    )
+    with pytest.raises(AttributeError, match=re.escape(s)):
+        llm.generate("text")
+
+    llm = LLM.load(
+        model="EleutherAI/pythia-14m",
+        tokenizer_dir="EleutherAI/pythia-14m",
+        init="random",
+        distribute=None
+    )
+    s = (
+        "The model is not initialized yet; use the .distribute() "
+        "or .trainer_setup() method to initialize the model."
+    )
+    with pytest.raises(AttributeError, match=re.escape(s)):
+        llm.generate("text")
+
