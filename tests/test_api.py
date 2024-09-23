@@ -114,3 +114,17 @@ def test_llm_load_random_init(tmp_path):
     ln = len(llm.preprocessor.tokenizer.encode(output_text)) - len(llm.preprocessor.tokenizer.encode(input_text))
     assert ln <= 15
 
+
+def test_llm_load_hub_init(tmp_path):
+    torch.manual_seed(123)
+    llm = LLM.load(
+        model="EleutherAI/pythia-14m",
+        init="pretrained"
+    )
+
+    text_1 = llm.generate("text", max_new_tokens=10, top_k=1)
+    assert len(text_1) > 0
+
+    text_2 = llm.generate("text", max_new_tokens=10, top_k=1, stream=True)
+    text_2 = "".join(list(text_2))
+    assert text_1 == text_2, (text1, text_2)
