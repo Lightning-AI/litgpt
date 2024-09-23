@@ -84,7 +84,7 @@ def test_llm_load_random_init(tmp_path):
 
     torch.manual_seed(123)
     llm = LLM.load(
-        model="pythia-160m",
+        model="pythia-14m",
         init="random",
         tokenizer_dir=Path(tmp_path/"EleutherAI/pythia-14m")
     )
