@@ -26,7 +26,6 @@ skip_in_ci_on_macos = pytest.mark.skipif(
      reason="Skipped on macOS in CI environment because CI machine may not have enough memory to run this test."
 )
 
-
 @pytest.fixture
 def mock_llm():
     llm = MagicMock(spec=LLM)
@@ -85,6 +84,8 @@ def test_calculate_number_of_devices():
     assert calculate_number_of_devices(None) == 0
 
 
+# This test causes segfaults on the macOS CI machine but works fine locally
+@skip_in_ci_on_macos
 def test_llm_load_random_init(tmp_path):
     download_from_hub(repo_id="EleutherAI/pythia-14m", tokenizer_only=True, checkpoint_dir=tmp_path)
 
@@ -209,3 +210,55 @@ def test_sequential_tp_incompatibility_with_random_weights(tmp_path):
     for strategy in ("sequential", "tensor_parallel"):
         with pytest.raises(NotImplementedError, match=re.escape("The LLM was initialized with init='random' but .distribute() currently only supports pretrained weights.")):
             llm.distribute(devices=1, generate_strategy=strategy)
+
+
+def test_sequential_tp_cpu(tmp_path):
+    llm = LLM.load(
+        model="EleutherAI/pythia-14m",
+    )
+    for strategy in ("sequential", "tensor_parallel"):
+        with pytest.raises(NotImplementedError, match=f"generate_strategy='{strategy}' is only supported for accelerator='cuda'|'gpu'."):
+            llm.distribute(
+                devices=1,
+                accelerator="cpu",
+                generate_strategy=strategy
+            )
+
+
+def test_initialization_for_trainer(tmp_path):
+    llm = LLM.load(
+        model="EleutherAI/pythia-14m",
+        distribute=None
+    )
+    s = (
+        "The model is not initialized yet; use the .distribute() "
+        "or .trainer_setup() method to initialize the model."
+    )
+    with pytest.raises(AttributeError, match=re.escape(s)):
+        llm.generate("hello world")
+
+    llm.trainer_setup()
+    llm.model.to(llm.preprocessor.device)
+    assert isinstance(llm.generate("hello world"), str)
+
+
+@RunIf(min_cuda_gpus=1)
+def test_quantization_is_applied(tmp_path):
+    llm = LLM.load(
+        model="EleutherAI/pythia-14m",
+    )
+    llm.distribute(devices=1, quantize="bnb.nf4", precision="bf16-true")
+    strtype = str(type(llm.model.lm_head))
+    assert "NF4Linear" in strtype, strtype
+
+
+@RunIf(min_cuda_gpus=1)
+def test_fixed_kv_cache(tmp_path):
+    llm = LLM.load(
+        model="EleutherAI/pythia-14m",
+    )
+    llm.distribute(devices=1, fixed_kv_cache_size=100)
+
+    # Request too many tokens
+    with pytest.raises(NotImplementedError, match="max_seq_length 512 needs to be >= 9223372036854775809"):
+        output_text = llm.generate("hello world", max_new_tokens=2**63)
