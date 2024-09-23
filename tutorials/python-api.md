@@ -240,14 +240,14 @@ print(benchmark_dict_to_markdown_table(bench_d_list))
 
 
 &nbsp;
-## PyTorch Lightning Trainer support
+# PyTorch Lightning Trainer support
 
 You can use the LitGPT `LLM` class with the [PyTorch Lightning Trainer](https://lightning.ai/docs/pytorch/stable/common/trainer.html) to pretrain and finetune models. 
 
 The examples below show the usage via a simple 160 million parameter model for demonstration purposes to be able to quickly try it out. However, you can replace the `EleutherAI/pythia-160m` model with any model supported by LitGPT (you can find a list of supported models by executing `litgpt download list` or visiting the [model weight docs](download_model_weights.md)).
 
 &nbsp;
-### Step 1: Define a `LightningModule`
+## Step 1: Define a `LightningModule`
 
 First, we define a `LightningModule` similar to what we would do when working with other types of neural networks in PyTorch Lightning:
 
@@ -298,10 +298,10 @@ accumulate_grad_batches = 1
 
 For larger models, you may want to decrease the batch size and increase the number of accumulation steps. (Setting `accumulate_grad_batches = 1` effectively disables gradient accumulation, and it is only shown here for reference in case you wish to change this setting.)
 
-### Step 2: Using the Trainer
+## Step 2: Using the Trainer
 
 &nbsp;
-#### Use case 1: Pretraining from random weights
+### Use case 1: Pretraining from random weights
 
 In case you plan to train a model from scratch (not recommended over finetuning because training a model from scratch in general requires substantial time and resources), you can do it as follows:
 
@@ -330,7 +330,7 @@ lit_model.llm.generate("hello world")
 ```
 
 &nbsp;
-#### Use case 1: Continued pretraining or finetuning a downloaded model
+### Use case 2: Continued pretraining or finetuning a downloaded model
 
 The continued pretraining or finetuning from a downloaded model checkpoint is similar to the example above, except that we can skip the initial steps of instantiating a model with random weights.
 
@@ -355,7 +355,7 @@ lit_model.llm.generate("hello world")
 ```
 
 &nbsp;
-#### Use case 3: Resume training from Trainer checkpoint
+### Use case 3: Resume training from Trainer checkpoint
 
 Suppose you trained a model and decide to follow up with a few additional training rounds. This can be achieved as follows by loading an existing Trainer checkpoint:
 
@@ -396,7 +396,7 @@ lit_model.llm.generate("hello world")
 ```
 
 &nbsp;
-#### Use case 4: Resume training after saving a checkpoint manually
+### Use case 4: Resume training after saving a checkpoint manually
 
 This example illustrates how we can save a LitGPT checkpoint from a previous training run that we can load and use later. Note that compared to using the Trainer checkpoint in the previous section, the model saved via this approach also contains the tokenizer and other relevant files. Hence, this approach does not require the original `"EleutherAI/pythia-160m"` model checkpoint directory.
 
