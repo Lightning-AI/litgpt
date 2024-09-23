@@ -215,6 +215,7 @@ def test_sequential_tp_incompatibility_with_random_weights(tmp_path):
 def test_sequential_tp_cpu(tmp_path):
     llm = LLM.load(
         model="EleutherAI/pythia-14m",
+        distribute=None,
     )
     for strategy in ("sequential", "tensor_parallel"):
         with pytest.raises(NotImplementedError, match=f"generate_strategy='{strategy}' is only supported for accelerator='cuda'|'gpu'."):
