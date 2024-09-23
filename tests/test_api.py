@@ -3,6 +3,7 @@
 from collections import OrderedDict
 import os
 from pathlib import Path
+import sys
 
 import pytest
 import re
