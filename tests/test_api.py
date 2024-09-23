@@ -20,6 +20,10 @@ from litgpt.api import (
 from litgpt.scripts.download import download_from_hub
 
 
+skip_in_ci_on_macos = pytest.mark.skipif(
+     sys.platform == "darwin" and os.getenv("GITHUB_ACTIONS") == "true",
+     reason="Skipped on macOS in CI environment because CI machine may not have enough memory to run this test."
+
 
 @pytest.fixture
 def mock_llm():
@@ -79,12 +83,33 @@ def test_calculate_number_of_devices():
     assert calculate_number_of_devices(None) == 0
 
 
-def test_llm_load_random_init():
-    download_from_hub(repo_id="EleutherAI/pythia-14m", tokenizer_only=True)
+# This test causes segfaults on the macOS CI machine but works fine locally
+@skip_in_ci_on_macos
+def test_llm_load_random_init(tmp_path):
+    download_from_hub(repo_id="EleutherAI/pythia-14m", tokenizer_only=True, checkpoint_dir=tmp_path)
 
     torch.manual_seed(123)
     llm = LLM.load(
-        model="pythia-14m",
+        model="pythia-160m",
         init="random",
-        tokenizer_dir=Path("EleutherAI/pythia-14m")
+        tokenizer_dir=Path(tmp_path/"EleutherAI/pythia-14m")
     )
+
+    input_text = "some text text"
+    output_text = llm.generate(input_text, max_new_tokens=15)
+    ln = len(llm.preprocessor.tokenizer.encode(output_text)) - len(llm.preprocessor.tokenizer.encode(input_text))
+    assert ln <= 15
+
+    # The following below tests that generate works with different prompt lengths
+    # after the kv cache was set
+
+    input_text = "some text"
+    output_text = llm.generate(input_text, max_new_tokens=15)
+    ln = len(llm.preprocessor.tokenizer.encode(output_text)) - len(llm.preprocessor.tokenizer.encode(input_text))
+    assert ln <= 15
+
+    input_text = "some text text text"
+    output_text = llm.generate(input_text, max_new_tokens=15)
+    ln = len(llm.preprocessor.tokenizer.encode(output_text)) - len(llm.preprocessor.tokenizer.encode(input_text))
+    assert ln <= 15
+
