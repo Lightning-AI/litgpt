@@ -47,3 +47,17 @@ def test_generate(mock_llm):
     output = mock_llm.generate(prompt, max_new_tokens=10, temperature=0.8, top_k=5)
     assert isinstance(output, str)
     assert len(output) > len(prompt)
+
+
+def test_stream_generate(mock_llm):
+    prompt = "What do Llamas eat?"
+
+    def iterator():
+        outputs = (prompt + " Mock output").split()
+        for output in outputs:
+            yield output
+
+    mock_llm.generate.return_value = iterator()
+    output = mock_llm.generate(prompt, max_new_tokens=10, temperature=0.8, top_k=5, stream=True)
+    result = "".join([out for out in output])
+    assert len(result) > len(prompt)
