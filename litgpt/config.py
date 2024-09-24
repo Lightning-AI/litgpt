@@ -1613,6 +1613,8 @@ phi = [
         intermediate_size=8192,
         mlp_class_name="LLaMAMLP",
         parallel_residual=False,
+        sliding_window_size=2048,
+        sliding_window_layer_placing="all",
     ),
     # https://huggingface.co/microsoft/Phi-3.5-mini-instruct/blob/main/config.json
     dict(
@@ -1654,6 +1656,8 @@ configs.append(
         norm_eps=1e-05,
         mlp_class_name="LLaMAMLP",
         intermediate_size=14336,
+        sliding_window_size=4096,
+        sliding_window_layer_placing="all",
     )
 )
 
@@ -1673,6 +1677,8 @@ mistral = [
         norm_eps=1e-05,
         mlp_class_name="LLaMAMLP",
         intermediate_size=14336,
+        sliding_window_size=4096,
+        sliding_window_layer_placing="all",
     ),
     # https://huggingface.co/mistralai/Mixtral-8x7B-v0.1/blob/main/config.json
     dict(
