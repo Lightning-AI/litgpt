@@ -309,7 +309,7 @@ def test_choose_logger(tmp_path):
     ("relative", "some/relative/path", "some/relative/path"),
     ("absolute", "/usr/absolute/path", "/usr/absolute/path"),
     ("env_relative", "some/relative/path", "prefix/some/relative/path"),
-    ("env_absolute", "/usr/absolute/path", "/usr/absotests/test_utils.pylute/path")
+    ("env_absolute", "/usr/absolute/path", "/usr/absolute/path")
 ])
 def test_init_out_dir(path_type, input_path, expected):
     if path_type.startswith("env_"):
