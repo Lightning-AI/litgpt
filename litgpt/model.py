@@ -44,7 +44,8 @@ class GPT(nn.Module):
         This allows setting a smaller number to avoid allocating unused memory
         """
         if value > self.config.block_size:
-            raise ValueError(f"Cannot attend to {value}, block size is only {self.config.block_size}")
+            raise ValueError(f"Cannot attend to {value}, block size is only {self.config.block_size}."
+                             " This is likely because the input text exceeds the supported context length of this model.")
         self._max_seq_length = value
         if not hasattr(self, "cos"):
             # first call
