@@ -25,6 +25,8 @@ if sys.platform == "darwin" and os.getenv("GITHUB_ACTIONS") == "true":
     USE_MPS = False
 elif torch.backends.mps.is_available():
     USE_MPS = True
+else:
+    USE_MPS = False
 
 
 @pytest.fixture
