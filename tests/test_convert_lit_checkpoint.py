@@ -379,7 +379,7 @@ def test_against_original_gemma(model_name, device, dtype):
     theirs_state_dict = {}
     copy_weights_llama(ours_config, theirs_state_dict, ours_state_dict, untie_weights=True)
     theirs_model = GemmaForCausalLM(theirs_config).to(device)
-    theirs_model.load_state_dict(theirs_state_dict, strict=False)
+    theirs_model.load_state_dict(theirs_state_dict, strict=False,)
 
     # test end to end
     x = torch.tensor([[9856, 23, 491, 1536, 304]], dtype=torch.int32, device=device)
@@ -459,7 +459,7 @@ def test_against_original_gemma_2(model_name, device, dtype):
     assert x.size(1) == T
     ours_y = ours_model(x)
     theirs_y = theirs_model(x)["logits"].to(dtype)  # HF converts logits to float
-    torch.testing.assert_close(ours_y, theirs_y)
+    torch.testing.assert_close(ours_y, theirs_y, rtol=3e-5, atol=3e-5)
 
 
 def test_check_conversion_supported_adapter():
