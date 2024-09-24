@@ -8,8 +8,7 @@ import sys
 import pytest
 import re
 import torch
-from unittest.mock import MagicMock
-from unittest.mock import patch
+from unittest.mock import MagicMock, patch
 from tests.conftest import RunIf
 
 from lightning.fabric.accelerators import CUDAAccelerator
