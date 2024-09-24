@@ -6,6 +6,11 @@ Thunder aims to be usable, understandable, and extensible and can achieve signif
 
 This extension directory shows how Thunder can be used with LitGPT.
 
+> [!WARNING]
+> This document is an early-access development version that is currently only for internal use. We recommend users checking out the [Lightning Thunder](https://github.com/Lightning-AI/lightning-thunder) project directly, which provides more up-to-date usage information.
+
+
+&nbsp;
 ## Thunder 👉👈 LitGPT: a short showcase
 
 To try Lightning Thunder with your model simply `thunder.jit()` it.
