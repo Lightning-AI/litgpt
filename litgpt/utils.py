@@ -35,6 +35,8 @@ if TYPE_CHECKING:
 
 
 def init_out_dir(out_dir: Path) -> Path:
+    if not isinstance(out_dir, Path):
+        out_dir = Path(out_dir)
     if not out_dir.is_absolute() and "LIGHTNING_ARTIFACTS_DIR" in os.environ:
         return Path(os.getenv("LIGHTNING_ARTIFACTS_DIR")) / out_dir
     return out_dir

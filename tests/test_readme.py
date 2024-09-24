@@ -82,10 +82,10 @@ def test_chat_with_quantized_model():
 @mock.patch.dict(os.environ, {"LT_ACCELERATOR": "cpu"})
 @pytest.mark.dependency(depends=["test_download_model"])
 @pytest.mark.timeout(300)
-def test_finetune_model():
+def test_finetune_model(tmp_path):
 
-    OUT_DIR = Path("out") / "lora"
-    DATASET_PATH = Path("custom_finetuning_dataset.json")
+    OUT_DIR = tmp_path / "out" / "lora"
+    DATASET_PATH = tmp_path / "custom_finetuning_dataset.json"
     CHECKPOINT_DIR = "checkpoints" / REPO_ID
 
     download_command = ["curl", "-L", "https://huggingface.co/datasets/medalpaca/medical_meadow_health_advice/raw/main/medical_meadow_health_advice.json", "-o", str(DATASET_PATH)]
@@ -105,8 +105,10 @@ def test_finetune_model():
     ]
     run_command(finetune_command)
 
-    assert (OUT_DIR/"final").exists(), "Finetuning output directory was not created"
-    assert (OUT_DIR/"final"/"lit_model.pth").exists(), "Model file was not created"
+    generated_out_dir = OUT_DIR/"final"
+    assert generated_out_dir.exists(), f"Finetuning output directory ({generated_out_dir}) was not created"
+    model_file = OUT_DIR/"final"/"lit_model.pth"
+    assert model_file.exists(), f"Model file ({model_file}) was not created"
 
 
 @pytest.mark.skipif(
@@ -116,8 +118,8 @@ def test_finetune_model():
 )
 @mock.patch.dict(os.environ, {"LT_ACCELERATOR": "cpu"})
 @pytest.mark.dependency(depends=["test_download_model", "test_download_books"])
-def test_pretrain_model():
-    OUT_DIR = Path("out") / "custom_pretrained"
+def test_pretrain_model(tmp_path):
+    OUT_DIR = tmp_path / "out" / "custom_pretrained"
     pretrain_command = [
         "litgpt", "pretrain",
         "pythia-14m",
@@ -131,8 +133,10 @@ def test_pretrain_model():
     output = run_command(pretrain_command)
 
     assert "Warning: Preprocessed training data found" not in output
-    assert (OUT_DIR / "final").exists(), "Pretraining output directory was not created"
-    assert (OUT_DIR / "final" / "lit_model.pth").exists(), "Model file was not created"
+    out_dir_path = OUT_DIR / "final"
+    assert out_dir_path.exists(), f"Pretraining output directory ({out_dir_path}) was not created"
+    out_model_path = OUT_DIR / "final" / "lit_model.pth"
+    assert out_model_path.exists(), f"Model file ({out_model_path}) was not created"
 
     # Test that warning is displayed when running it a second time
     output = run_command(pretrain_command)
@@ -146,8 +150,8 @@ def test_pretrain_model():
 )
 @mock.patch.dict(os.environ, {"LT_ACCELERATOR": "cpu"})
 @pytest.mark.dependency(depends=["test_download_model", "test_download_books"])
-def test_continue_pretrain_model():
-    OUT_DIR = Path("out") / "custom_continue_pretrained"
+def test_continue_pretrain_model(tmp_path):
+    OUT_DIR = tmp_path / "out" / "custom_continue_pretrained"
     pretrain_command = [
         "litgpt", "pretrain",
         "pythia-14m",
@@ -161,8 +165,10 @@ def test_continue_pretrain_model():
     ]
     run_command(pretrain_command)
 
-    assert (OUT_DIR / "final").exists(), "Continued pretraining output directory was not created"
-    assert (OUT_DIR / "final" / "lit_model.pth").exists(), "Model file was not created"
+    generated_out_dir = OUT_DIR/"final"
+    assert generated_out_dir.exists(), f"Continued pretraining directory ({generated_out_dir}) was not created"
+    model_file = OUT_DIR/"final"/"lit_model.pth"
+    assert model_file.exists(), f"Model file ({model_file}) was not created"
 
 
 @pytest.mark.dependency(depends=["test_download_model"])

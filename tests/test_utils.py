@@ -305,15 +305,23 @@ def test_choose_logger(tmp_path):
         choose_logger("foo", out_dir=tmp_path, name="foo")
 
 
-def test_init_out_dir(tmp_path):
-    relative_path = Path("./out")
-    absolute_path = tmp_path / "out"
-    assert init_out_dir(relative_path) == relative_path
-    assert init_out_dir(absolute_path) == absolute_path
-
-    with mock.patch.dict(os.environ, {"LIGHTNING_ARTIFACTS_DIR": "prefix"}):
-        assert init_out_dir(relative_path) == Path("prefix") / relative_path
-        assert init_out_dir(absolute_path) == absolute_path
+@pytest.mark.parametrize("path_type, input_path, expected", [
+    ("relative", "some/relative/path", "some/relative/path"),
+    ("absolute", "/usr/absolute/path", "/usr/absolute/path"),
+    ("env_relative", "some/relative/path", "prefix/some/relative/path"),
+    ("env_absolute", "/usr/absolute/path", "/usr/absotests/test_utils.pylute/path")
+])
+def test_init_out_dir(path_type, input_path, expected):
+    if path_type.startswith("env_"):
+        with mock.patch.dict(os.environ, {"LIGHTNING_ARTIFACTS_DIR": "prefix"}):
+            result = init_out_dir(input_path)
+            assert result == Path(expected), f"Failed for {path_type} with input {input_path} (result {result})"
+    else:
+        result = init_out_dir(input_path)
+        if "LIGHTNING_ARTIFACTS_DIR" not in os.environ:
+            assert result == Path(expected), f"Failed for {path_type} with input {input_path} (result {result})"
+        else:
+            assert result == Path(os.getenv("LIGHTNING_ARTIFACTS_DIR")) / expected, f"Failed for {path_type} with input {input_path} (result {result})"
 
 
 def test_find_resume_path(tmp_path):
