@@ -9,6 +9,7 @@ import pytest
 import re
 import torch
 from unittest.mock import MagicMock
+from unittest.mock import patch
 from tests.conftest import RunIf
 
 from lightning.fabric.accelerators import CUDAAccelerator
@@ -22,7 +23,9 @@ from litgpt.scripts.download import download_from_hub
 
 
 if sys.platform == "darwin" and os.getenv("GITHUB_ACTIONS") == "true":
-    os.environ["PYTORCH_MPS_FORCE_FALLBACK"] = "1"
+    USE_MPS = False
+elif torch.backends.mps.is_available():
+    USE_MPS = True
 
 
 @pytest.fixture
@@ -87,11 +90,12 @@ def test_llm_load_random_init(tmp_path):
     download_from_hub(repo_id="EleutherAI/pythia-14m", tokenizer_only=True, checkpoint_dir=tmp_path)
 
     torch.manual_seed(123)
-    llm = LLM.load(
-        model="pythia-160m",
-        init="random",
-        tokenizer_dir=Path(tmp_path/"EleutherAI/pythia-14m")
-    )
+    with patch("torch.backends.mps.is_available", return_value=USE_MPS):
+        llm = LLM.load(
+            model="pythia-160m",
+            init="random",
+            tokenizer_dir=Path(tmp_path/"EleutherAI/pythia-14m")
+        )
 
     input_text = "some text text"
     output_text = llm.generate(input_text, max_new_tokens=15)
@@ -114,10 +118,11 @@ def test_llm_load_random_init(tmp_path):
 
 def test_llm_load_hub_init(tmp_path):
     torch.manual_seed(123)
-    llm = LLM.load(
-        model="EleutherAI/pythia-14m",
-        init="pretrained"
-    )
+    with patch("torch.backends.mps.is_available", return_value=USE_MPS):
+        llm = LLM.load(
+            model="EleutherAI/pythia-14m",
+            init="pretrained"
+        )
 
     text_1 = llm.generate("text", max_new_tokens=10, top_k=1)
     assert len(text_1) > 0
@@ -163,9 +168,10 @@ def test_more_than_1_device_for_sequential_gpu(tmp_path):
         model_name = "EleutherAI/pythia-14m"
     else:
         model_name = "EleutherAI/pythia-160m"
-    llm = LLM.load(
-        model=model_name,
-    )
+    with patch("torch.backends.mps.is_available", return_value=USE_MPS):
+        llm = LLM.load(
+            model=model_name,
+        )
 
     with pytest.raises(NotImplementedError, match=f"Support for multiple devices is currently only implemented for generate_strategy='sequential'|'tensor_parallel'."):
         llm.distribute(devices=2)
@@ -185,9 +191,10 @@ def test_more_than_1_device_for_sequential_gpu(tmp_path):
 
 @RunIf(min_cuda_gpus=2)
 def test_more_than_1_device_for_tensor_parallel_gpu(tmp_path):
-    llm = LLM.load(
-        model="EleutherAI/pythia-14m",
-    )
+    with patch("torch.backends.mps.is_available", return_value=USE_MPS):
+        llm = LLM.load(
+            model="EleutherAI/pythia-14m",
+        )
 
     if os.getenv("CI") != "true":
         # this crashes the CI, maybe because of process forking; works fine locally though
@@ -197,21 +204,24 @@ def test_more_than_1_device_for_tensor_parallel_gpu(tmp_path):
 
 @RunIf(min_cuda_gpus=1)
 def test_sequential_tp_incompatibility_with_random_weights(tmp_path):
-    llm = LLM.load(
-        model="EleutherAI/pythia-14m",
-        tokenizer_dir="EleutherAI/pythia-14m",
-        init="random"
-    )
+
+    with patch("torch.backends.mps.is_available", return_value=USE_MPS):
+        llm = LLM.load(
+            model="EleutherAI/pythia-14m",
+            tokenizer_dir="EleutherAI/pythia-14m",
+            init="random"
+        )
     for strategy in ("sequential", "tensor_parallel"):
         with pytest.raises(NotImplementedError, match=re.escape("The LLM was initialized with init='random' but .distribute() currently only supports pretrained weights.")):
             llm.distribute(devices=1, generate_strategy=strategy)
 
 
 def test_sequential_tp_cpu(tmp_path):
-    llm = LLM.load(
-        model="EleutherAI/pythia-14m",
-        distribute=None,
-    )
+    with patch("torch.backends.mps.is_available", return_value=USE_MPS):
+        llm = LLM.load(
+            model="EleutherAI/pythia-14m",
+            distribute=None,
+        )
     for strategy in ("sequential", "tensor_parallel"):
         with pytest.raises(NotImplementedError, match=f"generate_strategy='{strategy}' is only supported for accelerator='cuda'|'gpu'."):
             llm.distribute(
@@ -240,9 +250,10 @@ def test_initialization_for_trainer(tmp_path):
 
 @RunIf(min_cuda_gpus=1)
 def test_quantization_is_applied(tmp_path):
-    llm = LLM.load(
-        model="EleutherAI/pythia-14m",
-    )
+    with patch("torch.backends.mps.is_available", return_value=USE_MPS):
+        llm = LLM.load(
+            model="EleutherAI/pythia-14m",
+        )
     llm.distribute(devices=1, quantize="bnb.nf4", precision="bf16-true")
     strtype = str(type(llm.model.lm_head))
     assert "NF4Linear" in strtype, strtype
@@ -250,9 +261,10 @@ def test_quantization_is_applied(tmp_path):
 
 @RunIf(min_cuda_gpus=1)
 def test_fixed_kv_cache(tmp_path):
-    llm = LLM.load(
-        model="EleutherAI/pythia-14m",
-    )
+    with patch("torch.backends.mps.is_available", return_value=USE_MPS):
+        llm = LLM.load(
+            model="EleutherAI/pythia-14m",
+        )
     llm.distribute(devices=1, fixed_kv_cache_size=100)
 
     # Request too many tokens
@@ -270,9 +282,10 @@ def test_invalid_accelerator(tmp_path):
 
 
 def test_returned_benchmark_dir(tmp_path):
-    llm = LLM.load(
-        model="EleutherAI/pythia-14m",
-    )
+    with patch("torch.backends.mps.is_available", return_value=USE_MPS):
+        llm = LLM.load(
+            model="EleutherAI/pythia-14m",
+        )
 
     text, bench_d = llm.benchmark(prompt="hello world")
     assert isinstance(bench_d["Inference speed in tokens/sec"], list)
@@ -342,17 +355,19 @@ def test_benchmark_dict_to_markdown_table_multiple_values():
 
 
 def test_state_dict(tmp_path):
-    llm = LLM.load(
-        model="EleutherAI/pythia-14m",
-    )
+    with patch("torch.backends.mps.is_available", return_value=USE_MPS):
+        llm = LLM.load(
+            model="EleutherAI/pythia-14m",
+        )
     assert isinstance(llm.state_dict(), OrderedDict)
     assert llm.state_dict()['lm_head.weight'].shape == torch.Size([50304, 128])
 
 
 def test_save_method(tmp_path):
-    llm = LLM.load(
-        model="EleutherAI/pythia-14m",
-    )
+    with patch("torch.backends.mps.is_available", return_value=USE_MPS):
+        llm = LLM.load(
+            model="EleutherAI/pythia-14m",
+        )
 
     target_dir = "saved_model"
     llm.save(target_dir)
@@ -373,9 +388,10 @@ def test_save_method(tmp_path):
 
 
 def test_forward_method(tmp_path):
-    llm = LLM.load(
-        model="EleutherAI/pythia-14m",
-    )
+    with patch("torch.backends.mps.is_available", return_value=USE_MPS):
+        llm = LLM.load(
+            model="EleutherAI/pythia-14m",
+        )
     inputs = torch.ones(6, 128, dtype=torch.int64).to(next(llm.model.parameters()).device)
 
     assert llm(inputs).shape == torch.Size([6, 128, 50304])
