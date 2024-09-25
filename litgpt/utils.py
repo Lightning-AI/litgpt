@@ -577,15 +577,13 @@ def instantiate_torch_optimizer(optimizer, model_parameters, **kwargs):
 
         optimizer = optimizer_cls(model_parameters, **kwargs)
     elif isinstance(optimizer, dict):
-        optimizer = dict(optimizer)  # copy
-
+        optimizer = dict(optimizer)
         class_module, class_name = optimizer["class_path"].rsplit(".", 1)
         module = __import__(class_module, fromlist=[class_name])
         optimizer_cls = getattr(module, class_name)
 
-        if "fused" in kwargs and "fused" not in inspect.signature(optimizer_cls).parameters:
-            kwargs = dict(kwargs)   # copy
-            del kwargs["fused"]
+        valid_params = set(inspect.signature(optimizer_cls).parameters)
+        kwargs = {key: value for key, value in kwargs.items() if key in valid_params}
         
         optimizer["init_args"].update(kwargs)
         optimizer = instantiate_class(model_parameters, optimizer)
