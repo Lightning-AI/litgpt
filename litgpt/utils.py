@@ -561,9 +561,15 @@ def instantiate_torch_optimizer(optimizer, model_parameters, **kwargs):
     # Special care taken where some optimizers do not have parameter "fused" like:
     #   bnb.optim.AdamW8bit
     #   grokadamw.GrokAdamW
-
+    
     if isinstance(optimizer, str):
-        optimizer_cls = getattr(torch.optim, optimizer)
+        if "." in optimizer:
+            class_module, class_name = optimizer.rsplit(".", 1)
+        else:
+            class_module, class_name = "torch.optim", optimizer
+
+        module = __import__(class_module, fromlist=[class_name])
+        optimizer_cls = getattr(module, class_name)
 
         if "fused" in kwargs and "fused" not in inspect.signature(optimizer_cls).parameters:
             kwargs = dict(kwargs)   # copy
@@ -573,7 +579,6 @@ def instantiate_torch_optimizer(optimizer, model_parameters, **kwargs):
     elif isinstance(optimizer, dict):
         optimizer = dict(optimizer)  # copy
 
-        # borrowed from Lightning-AI/pytorch-lightning
         class_module, class_name = optimizer["class_path"].rsplit(".", 1)
         module = __import__(class_module, fromlist=[class_name])
         optimizer_cls = getattr(module, class_name)
