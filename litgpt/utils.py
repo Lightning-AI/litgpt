@@ -558,26 +558,34 @@ def instantiate_bnb_optimizer(optimizer, model_parameters):
 
 
 def instantiate_torch_optimizer(optimizer, model_parameters, **kwargs):
+    # Special care taken where some optimizers do not have parameter "fused" like:
+    #   bnb.optim.AdamW8bit
+    #   grokadamw.GrokAdamW
+
     if isinstance(optimizer, str):
         optimizer_cls = getattr(torch.optim, optimizer)
-        optimizer = optimizer_cls(model_parameters, **kwargs)
-    else:
-        optimizer = dict(optimizer)  # copy
-        optimizer["init_args"].update(kwargs)
 
-        # borrowed from https://github.com/Lightning-AI/pytorch-lightning/blob/48279a7961d39c4983254dede5b4414613e9eb03/src/lightning/pytorch/cli.py#L752
+        if "fused" in kwargs and "fused" not in inspect.signature(optimizer_cls).parameters:
+            kwargs = dict(kwargs)   # copy
+            del kwargs["fused"]
+
+        optimizer = optimizer_cls(model_parameters, **kwargs)
+    elif isinstance(optimizer, dict):
+        optimizer = dict(optimizer)  # copy
+
+        # borrowed from Lightning-AI/pytorch-lightning
         class_module, class_name = optimizer["class_path"].rsplit(".", 1)
         module = __import__(class_module, fromlist=[class_name])
         optimizer_cls = getattr(module, class_name)
 
-        # some optimizers do not have parameter "fused" like:
-        #   bnb.optim.AdamW8bit
-        #   grokadamw.GrokAdamW
-        if "fused" in optimizer["init_args"]:
-            if "fused" not in inspect.signature(optimizer_cls).parameters:
-                del optimizer["init_args"]["fused"]
+        if "fused" in kwargs and "fused" not in inspect.signature(optimizer_cls).parameters:
+            kwargs = dict(kwargs)   # copy
+            del kwargs["fused"]
         
+        optimizer["init_args"].update(kwargs)
         optimizer = instantiate_class(model_parameters, optimizer)
+    else:
+        raise ValueError(f'Unrecognized "optimizer" value: {optimizer}')
 
     return optimizer
 
