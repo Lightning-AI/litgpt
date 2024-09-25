@@ -407,6 +407,7 @@ def test_against_mistral_hf_models(device, dtype, model_name):
         padded_vocab_size=10000,
         block_size=T,
         sliding_window_size=T // 2,
+        sliding_window_layer_placing="all",
         n_layer=2,
         n_embd=32,
         n_head=8,
@@ -420,7 +421,7 @@ def test_against_mistral_hf_models(device, dtype, model_name):
         num_attention_heads=ours_config.n_head,
         num_hidden_layers=ours_config.n_layer,
         intermediate_size=ours_config.intermediate_size,
-        max_position_embeddings=T,
+        max_position_embeddings=ours_config.block_size,
         rms_norm_eps=ours_config.norm_eps,
         num_key_value_heads=ours_config.n_query_groups,
         rope_theta=ours_config.rope_base,
@@ -438,7 +439,7 @@ def test_against_mistral_hf_models(device, dtype, model_name):
     ours_model.load_state_dict(state_dict)
 
     # test end to end
-    x = torch.tensor([[9856, 23, 491, 1536, 304]], dtype=torch.int32, device=device)
+    x = torch.randint(low=0, high=ours_config.padded_vocab_size, size=(T,), device=device).unsqueeze(0)
     assert x.size(1) == T
     ours_y = ours_model(x)
     theirs_y = theirs_model(x)["logits"].to(dtype)  # HF converts logits to float
