@@ -414,7 +414,6 @@ def test_against_mistral_hf_models(device, dtype, model_name):
         intermediate_size=86,
     )
 
-    T = 5
     theirs_config = MistralConfig(
         vocab_size=ours_config.padded_vocab_size,
         hidden_size=ours_config.n_embd,
