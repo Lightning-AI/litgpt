@@ -594,8 +594,8 @@ def test_nvlink_all_gpu_connected_but_other_connected_output(mock_run, nvlink_al
 
 
 def test_fix_and_load_json():
-    # Invalid JSON string with a trailing comma
-    invalid_json = '''
+    # Test 1: Invalid JSON string with a trailing comma
+    invalid_json_trailing_comma = '''
     {
       "_from_model_config": true,
       "bos_token_id": 128000,
@@ -607,8 +607,7 @@ def test_fix_and_load_json():
     }
     '''
 
-    # Expected valid Python dictionary after fixing the JSON
-    expected_output = {
+    expected_output_trailing_comma = {
         "_from_model_config": True,
         "bos_token_id": 128000,
         "eos_token_id": 128001,
@@ -618,6 +617,31 @@ def test_fix_and_load_json():
         "top_p": 0.9
     }
 
-    # Run the function and compare the result
-    result = fix_and_load_json(invalid_json)
-    assert result == expected_output
+    result_trailing_comma = fix_and_load_json(invalid_json_trailing_comma)
+    assert result_trailing_comma == expected_output_trailing_comma
+
+    # Test 2: Invalid JSON string with missing commas between properties
+    invalid_json_missing_commas = '''
+    {
+      "_from_model_config": true,
+      "bos_token_id": 128000,
+      "eos_token_id": 128001,
+      "transformers_version": "4.45.0.dev0"
+      "do_sample": true,
+      "temperature": 0.6,
+      "top_p": 0.9,
+    }
+    '''
+
+    expected_output_missing_commas = {
+        "_from_model_config": True,
+        "bos_token_id": 128000,
+        "eos_token_id": 128001,
+        "transformers_version": "4.45.0.dev0",
+        "do_sample": True,
+        "temperature": 0.6,
+        "top_p": 0.9
+    }
+
+    result_missing_commas = fix_and_load_json(invalid_json_missing_commas)
+    assert result_missing_commas == expected_output_missing_commas
