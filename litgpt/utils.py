@@ -562,7 +562,7 @@ def instantiate_torch_optimizer(optimizer, model_parameters, **kwargs):
     #   bnb.optim.AdamW8bit
     #   grokadamw.GrokAdamW
     #   torch.optim.RMSprop
-    
+
     if isinstance(optimizer, str):
         if "." in optimizer:
             class_module, class_name = optimizer.rsplit(".", 1)
@@ -583,7 +583,7 @@ def instantiate_torch_optimizer(optimizer, model_parameters, **kwargs):
 
         valid_params = set(inspect.signature(optimizer_cls).parameters)
         kwargs = {key: value for key, value in dict(kwargs).items() if key in valid_params}
-        
+
         optimizer["init_args"].update(kwargs)
         optimizer = instantiate_class(model_parameters, optimizer)
     else:
@@ -681,6 +681,9 @@ def check_nvlink_connectivity(fabric=None):
 
 
 def fix_and_load_json(json_string):
-    """ Remove trailing comma before closing curly brace """
-    fixed_json_string = re.sub(r',\s*}', "}", json_string)
+    # Fix missing commas between JSON properties by finding consecutive closing and opening braces/quotes
+    fixed_json_string = re.sub(r'(["}\d])\s*["{]', r'\1,\n"', json_string)
+
+    # Remove trailing comma before closing curly brace
+    fixed_json_string = re.sub(r',\s*}', '}', fixed_json_string)
     return json.loads(fixed_json_string)
