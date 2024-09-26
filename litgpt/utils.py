@@ -15,7 +15,6 @@ from pathlib import Path
 import subprocess
 from typing import TYPE_CHECKING, Any, Dict, Iterable, List, Literal, Mapping, Optional, TypeVar, Union
 import warnings
-import inspect
 
 import lightning as L
 import torch
@@ -572,9 +571,7 @@ def instantiate_torch_optimizer(optimizer, model_parameters, **kwargs):
         optimizer_cls = getattr(module, class_name)
 
         valid_params = set(inspect.signature(optimizer_cls).parameters)
-        kwargs = {key: value for key, value in kwargs.items() if key in valid_params}
-        optimizer = optimizer_cls(model_parameters, **kwargs)
-
+        kwargs = {key: value for key, value in dict(kwargs).items() if key in valid_params}
         optimizer = optimizer_cls(model_parameters, **kwargs)
     elif isinstance(optimizer, dict):
         optimizer = dict(optimizer)
@@ -583,7 +580,7 @@ def instantiate_torch_optimizer(optimizer, model_parameters, **kwargs):
         optimizer_cls = getattr(module, class_name)
 
         valid_params = set(inspect.signature(optimizer_cls).parameters)
-        kwargs = {key: value for key, value in kwargs.items() if key in valid_params}
+        kwargs = {key: value for key, value in dict(kwargs).items() if key in valid_params}
         
         optimizer["init_args"].update(kwargs)
         optimizer = instantiate_class(model_parameters, optimizer)
