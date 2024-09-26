@@ -2,6 +2,7 @@
 
 """Utility functions for training and inference."""
 import inspect
+import json
 import math
 import os
 import pickle
@@ -653,3 +654,9 @@ def check_nvlink_connectivity(fabric=None):
 
         except Exception as e:
             custom_print(f"An error occurred: {e}")
+
+
+def fix_and_load_json(json_string):
+    """ Remove trailing comma before closing curly brace """
+    fixed_json_string = re.sub(r',\s*}', "}", json_string)
+    return json.loads(fixed_json_string)
