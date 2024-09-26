@@ -682,7 +682,7 @@ def check_nvlink_connectivity(fabric=None):
 
 def fix_and_load_json(json_string):
     # Fix missing commas between JSON properties by finding consecutive closing and opening braces/quotes
-    fixed_json_string = re.sub(r'(["}\d])\s*["{]', r'\1,\n"', json_string)
+    fixed_json_string = re.sub(r'(["\d}])\s*(?=["{])', r'\1,\n', json_string)
 
     # Remove trailing comma before closing curly brace
     fixed_json_string = re.sub(r',\s*}', '}', fixed_json_string)
