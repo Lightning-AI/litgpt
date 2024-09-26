@@ -560,6 +560,7 @@ def instantiate_torch_optimizer(optimizer, model_parameters, **kwargs):
     # Special care taken where some optimizers do not have parameter "fused" like:
     #   bnb.optim.AdamW8bit
     #   grokadamw.GrokAdamW
+    #   torch.optim.RMSprop
     
     if isinstance(optimizer, str):
         if "." in optimizer:
