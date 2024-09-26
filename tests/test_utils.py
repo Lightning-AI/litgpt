@@ -629,7 +629,7 @@ def test_fix_and_load_json():
       "transformers_version": "4.45.0.dev0"
       "do_sample": true,
       "temperature": 0.6,
-      "top_p": 0.9
+      "top_p": 0.9,
     }
     '''
 
