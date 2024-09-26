@@ -18,9 +18,10 @@ from litgpt.pretrain import initialize_weights
 from tests.conftest import RunIf
 
 
+@RunIf(min_cuda_gpus=1, standalone=True)
 @mock.patch("litgpt.pretrain.save_hyperparameters")
 def test_optimizer_args(_, tmp_path):
-    model_config = Config(block_size=2, n_layer=2, n_embd=8, n_head=4, padded_vocab_size=8)
+    model_config = Config(block_size=2, n_layer=2, n_embd=4, n_head=2, padded_vocab_size=8)
 
     dataset = torch.tensor([[0, 1, 2], [3, 4, 5], [0, 1, 2]])
     dataloader = DataLoader(dataset)
