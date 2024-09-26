@@ -562,7 +562,7 @@ def instantiate_torch_optimizer(optimizer, model_parameters, **kwargs):
     #   bnb.optim.AdamW8bit
     #   grokadamw.GrokAdamW
     #   torch.optim.RMSprop
-    
+
     if isinstance(optimizer, str):
         if "." in optimizer:
             class_module, class_name = optimizer.rsplit(".", 1)
@@ -583,7 +583,7 @@ def instantiate_torch_optimizer(optimizer, model_parameters, **kwargs):
 
         valid_params = set(inspect.signature(optimizer_cls).parameters)
         kwargs = {key: value for key, value in dict(kwargs).items() if key in valid_params}
-        
+
         optimizer["init_args"].update(kwargs)
         optimizer = instantiate_class(model_parameters, optimizer)
     else:
@@ -680,7 +680,18 @@ def check_nvlink_connectivity(fabric=None):
             custom_print(f"An error occurred: {e}")
 
 
-def fix_and_load_json(json_string):
-    """ Remove trailing comma before closing curly brace """
-    fixed_json_string = re.sub(r',\s*}', "}", json_string)
-    return json.loads(fixed_json_string)
+def fix_and_load_json(s):
+    # Remove trailing commas before } or ]
+    s = re.sub(r',(\s*[}\]])', r'\1', s)
+
+    # Insert missing commas between properties
+    # Match positions where a value is followed by a newline and then a quote without a comma
+    pattern = r'(?<=[}\]0-9truefalsenull"])\s*(\n\s*)"'
+    replacement = r',\1"'
+    s = re.sub(pattern, replacement, s)
+
+    # Now try to parse the JSON
+    try:
+        return json.loads(s)
+    except json.JSONDecodeError as e:
+        raise ValueError(f"Failed to parse JSON after fixing: {e}")
