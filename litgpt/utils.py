@@ -557,7 +557,7 @@ def instantiate_bnb_optimizer(optimizer, model_parameters):
 
 
 def instantiate_torch_optimizer(optimizer, model_parameters, **kwargs):
-    # Special care taken where some optimizers do not have parameter "fused" like:
+    # Special care taken where some optimizers do not have some parameters referenced in some of the code, for example "fused" in the pretrain.py script:
     #   bnb.optim.AdamW8bit
     #   grokadamw.GrokAdamW
     #   torch.optim.RMSprop
