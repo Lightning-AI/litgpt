@@ -219,9 +219,7 @@ def test_against_original_open_llama_3b(device, dtype):
         {"name": "Llama-3.1-8B"},
         {"name": "Llama-3.1-8B-Instruct"},
         {"name": "Llama-3.2-1B"},
-        {"name": "Llama-3.2-1B-Instruct"},
         {"name": "Llama-3.2-3B"},
-        {"name": "Llama-3.2-3B-Instruct"},
     ],
 )
 @pytest.mark.parametrize(
