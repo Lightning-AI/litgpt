@@ -108,19 +108,34 @@ class GPT(nn.Module):
         return cls(Config.from_name(name, **kwargs))
 
     def rope_cache(self, device: Optional[torch.device] = None) -> Tuple[torch.Tensor, torch.Tensor]:
-        config = {
-            "original_max_seq_len": self.config.rope_original_max_seq_len,
-            "factor": self.config.rope_factor,
-            "low_freq_factor": self.config.rope_low_freq_factor,
-            "high_freq_factor": self.config.rope_high_freq_factor,
-        }
+
+        params_present = [param in self.config.rope_adjustments for param in adjusted_params_required]
+        num_params_present = sum(params_present)
+
+        if num_params_present == 0:
+            extra_config = None  # uses standard RoPE
+        elif num_params_present == 4:
+            # These parameters should always be used together so that we don't interfere with standard rope
+            extra_config = {
+                "original_max_seq_len": self.config.rope_adjustments["original_max_seq_len"],
+                "factor": self.config.rope_adjustments["factor"],
+                "low_freq_factor": self.config.rope_adjustments["low_freq_factor"],
+                "high_freq_factor": self.config.rope_adjustments["high_freq_factor"],
+            }
+        else:
+            # Some but not all parameters are specified; raise an error
+            raise ValueError(
+                "The following adjusted RoPE parameters are missing in rope_adjustments."
+                "All adjusted RoPE parameters must be specified together."
+            )
+
         return build_rope_cache(
             seq_len=self.max_seq_length,
             n_elem=self.config.rope_n_elem,
             device=device,
             condense_ratio=self.config.rope_condense_ratio,
             base=self.config.rope_base,
-            config=config,
+            config=extra_config,
         )
 
     def set_kv_cache(

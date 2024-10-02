@@ -62,6 +62,7 @@ class Config:
     intermediate_size: Optional[int] = None
     rope_condense_ratio: int = 1
     rope_base: int = 10000
+    rope_adjustments: Optional[float] = None
     n_expert: int = 0
     n_expert_per_token: int = 0
     attention_logit_softcapping: Optional[float] = None
