@@ -461,10 +461,9 @@ def build_rope_cache(
     Returns:
         Tuple[torch.Tensor, torch.Tensor]: Cosine and sine caches for RoPE.
     """
-    assert n_elem % 2 == 0, "n_elem (head dimension) must be even"
 
-    # Compute the initial inverse frequencies (theta)
-    theta = 1.0 / (base ** (torch.arange(0, n_elem // 2, device=device).float() / (n_elem // 2)))
+    # $\Theta = {\theta_i = 10000^{\frac{2(i-1)}{d}}, i \in [1, 2, ..., \frac{d}{2}]}$	    assert n_elem % 2 == 0, "n_elem (head dimension) must be even"
+    theta = 1.0 / (base ** (torch.arange(0, n_elem, 2, device=device).float() / n_elem))
 
     if extra_config is not None:
         # Extract configuration parameters
