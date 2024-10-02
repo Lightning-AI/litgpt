@@ -96,7 +96,7 @@ Every model is written from scratch to maximize performance and remove layers of
 
 | Model | Model size | Author | Reference |
 |----|----|----|----|
-| Llama 3 & 3.1 | 8B, 70B, 405B | Meta AI | [Meta AI 2024](https://github.com/meta-llama/llama3)                                           |
+| Llama 3, 3.1, 3.2 | 1B, 3B, 8B, 70B, 405B | Meta AI | [Meta AI 2024](https://github.com/meta-llama/llama3)                                           |
 | Code Llama | 7B, 13B, 34B, 70B | Meta AI | [Rozière et al. 2023](https://arxiv.org/abs/2308.12950)                                       |
 | Mixtral MoE | 8x7B | Mistral AI | [Mistral AI 2023](https://mistral.ai/news/mixtral-of-experts/)                                         |
 | Mistral | 7B, 123B | Mistral AI | [Mistral AI 2023](https://mistral.ai/news/announcing-mistral-7b/)                                      |
@@ -125,6 +125,7 @@ Every model is written from scratch to maximize performance and remove layers of
 | Gemma 2 | 9B, 27B | Google | [Google Team, Google Deepmind](https://storage.googleapis.com/deepmind-media/gemma/gemma-2-report.pdf)                                  |
 | Llama 2 | 7B, 13B, 70B | Meta AI | [Touvron et al. 2023](https://arxiv.org/abs/2307.09288)                                                                           |
 | Llama 3.1 | 8B, 70B | Meta AI | [Meta AI 2024](https://github.com/meta-llama/llama3)                                                                                 |
+| Llama 3.2 | 1B, 3B | Meta AI | [Meta AI 2024](https://ai.meta.com/blog/llama-3-2-connect-2024-vision-edge-mobile-devices/)                                           |
 | LongChat | 7B, 13B | LMSYS | [LongChat Team 2023](https://lmsys.org/blog/2023-06-29-longchat/)                                                                       |
 | Mathstral | 7B | Mistral AI | [Mistral AI 2024](https://mistral.ai/news/mathstral/)                                                                                  |
 | MicroLlama | 300M | Ken Wang | [MicroLlama repo](https://github.com/keeeeenw/MicroLlama)                                                                             |
@@ -173,11 +174,11 @@ After installing LitGPT, select the model and workflow to run (finetune, pretrai
 
 ```bash
 # ligpt [action] [model]
-litgpt  serve     meta-llama/Meta-Llama-3.1-8B-Instruct
-litgpt  finetune  meta-llama/Meta-Llama-3.1-8B-Instruct
-litgpt  pretrain  meta-llama/Meta-Llama-3.1-8B-Instruct
-litgpt  chat      meta-llama/Meta-Llama-3.1-8B-Instruct
-litgpt  evaluate  meta-llama/Meta-Llama-3.1-8B-Instruct
+litgpt  serve     meta-llama/Llama-3.2-3B-Instruct
+litgpt  finetune  meta-llama/Llama-3.2-3B-Instruct
+litgpt  pretrain  meta-llama/Llama-3.2-3B-Instruct
+litgpt  chat      meta-llama/Llama-3.2-3B-Instruct
+litgpt  evaluate  meta-llama/Llama-3.2-3B-Instruct
 ```
 
 &nbsp;

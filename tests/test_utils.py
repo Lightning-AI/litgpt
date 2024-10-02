@@ -34,6 +34,7 @@ from litgpt.utils import (
     extend_checkpoint_dir,
     find_multiple,
     find_resume_path,
+    fix_and_load_json,
     incremental_save,
     init_out_dir,
     instantiate_bnb_optimizer,
@@ -590,3 +591,57 @@ def test_nvlink_all_gpu_connected_but_other_connected_output(mock_run, nvlink_al
     with mock.patch("builtins.print") as mock_print:
         check_nvlink_connectivity()
         mock_print.assert_any_call("All GPUs are fully connected via NVLink.")
+
+
+def test_fix_and_load_json():
+    # Test 1: Invalid JSON string with a trailing comma
+    invalid_json_trailing_comma = '''
+    {
+      "_from_model_config": true,
+      "bos_token_id": 128000,
+      "eos_token_id": 128001,
+      "transformers_version": "4.45.0.dev0",
+      "do_sample": true,
+      "temperature": 0.6,
+      "top_p": 0.9,
+    }
+    '''
+
+    expected_output_trailing_comma = {
+        "_from_model_config": True,
+        "bos_token_id": 128000,
+        "eos_token_id": 128001,
+        "transformers_version": "4.45.0.dev0",
+        "do_sample": True,
+        "temperature": 0.6,
+        "top_p": 0.9
+    }
+
+    result_trailing_comma = fix_and_load_json(invalid_json_trailing_comma)
+    assert result_trailing_comma == expected_output_trailing_comma
+
+    # Test 2: Invalid JSON string with missing commas between properties
+    invalid_json_missing_commas = '''
+    {
+      "_from_model_config": true,
+      "bos_token_id": 128000,
+      "eos_token_id": 128001,
+      "transformers_version": "4.45.0.dev0"
+      "do_sample": true,
+      "temperature": 0.6,
+      "top_p": 0.9,
+    }
+    '''
+
+    expected_output_missing_commas = {
+        "_from_model_config": True,
+        "bos_token_id": 128000,
+        "eos_token_id": 128001,
+        "transformers_version": "4.45.0.dev0",
+        "do_sample": True,
+        "temperature": 0.6,
+        "top_p": 0.9
+    }
+
+    result_missing_commas = fix_and_load_json(invalid_json_missing_commas)
+    assert result_missing_commas == expected_output_missing_commas

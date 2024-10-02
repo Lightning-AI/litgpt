@@ -4,6 +4,7 @@ import json
 from pathlib import Path
 from typing import Optional, Union, Iterable, Iterator
 
+from litgpt.utils import fix_and_load_json
 import torch
 
 
@@ -37,8 +38,13 @@ class Tokenizer:
                 self.bos_id = self.token_to_id(bos_token) if bos_token is not None else None
                 self.eos_id = self.token_to_id(eos_token) if eos_token is not None else None
             if (special_tokens_path := checkpoint_dir / "generation_config.json").is_file():
-                with open(special_tokens_path, encoding="utf-8") as fp:
-                    config = json.load(fp)
+                try:
+                    with open(special_tokens_path, encoding="utf-8") as fp:
+                        config = json.load(fp)
+                except json.JSONDecodeError:  # Some files like the Llama 3.2 one have bugs
+                    with open(special_tokens_path, encoding="utf-8") as fp:
+                        json_string = fp.read()
+                        config = fix_and_load_json(json_string)
                 if self.bos_id is None:
                     self.bos_id = config.get("bos_token_id")
                 if self.eos_id is None:

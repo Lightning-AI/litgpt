@@ -112,11 +112,24 @@ You can easily train on your own instruction dataset saved in JSON format.
 2. Run `litgpt finetune_lora` by passing in the location of your data (and optionally other parameters):
 
     ```bash
-    litgpt finetune_lora checkpoints/tiiuae/falcon-7b \
+    litgpt finetune_lora checkpoints/stabilityai/stablelm-base-alpha-3b \
         --data JSON \
         --data.json_path data/mydata.json \
-        --out_dir data/mydata-finetuned
+        --out_dir out_dir/mydata-finetuned
     ```
+
+3. Test and use the finetuned model:
+
+    ```bash
+    litgpt chat out_dir/mydata-finetuned/final
+    ```
+
+or
+
+    ```bash
+    litgpt serve out_dir/mydata-finetuned/final
+    ```
+
 
 
 &nbsp;
