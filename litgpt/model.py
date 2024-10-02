@@ -417,33 +417,12 @@ class LLaMAMoE(nn.Module):
 
 
 def build_rope_cache(
-    seq_len: int, n_elem: int, device: Optional[torch.device] = None, base: int = 10000, condense_ratio: int = 1
-) -> Tuple[torch.Tensor, torch.Tensor]:
-    """Enhanced Transformer with Rotary Position Embedding.
-
-    Derived from: https://github.com/labmlai/annotated_deep_learning_paper_implementations/blob/master/labml_nn/
-    transformers/rope/__init__.py. MIT License:
-    https://github.com/labmlai/annotated_deep_learning_paper_implementations/blob/master/license.
-    """
-    # $\Theta = {\theta_i = 10000^{\frac{2(i-1)}{d}}, i \in [1, 2, ..., \frac{d}{2}]}$
-    theta = 1.0 / (base ** (torch.arange(0, n_elem, 2, device=device).float() / n_elem))
-
-    # Create position indexes `[0, 1, ..., seq_len - 1]`
-    seq_idx = torch.arange(seq_len, device=device) / condense_ratio
-
-    # Calculate the product of position index and $\theta_i$
-    idx_theta = torch.outer(seq_idx, theta).repeat(1, 2)
-
-    return torch.cos(idx_theta), torch.sin(idx_theta)
-
-
-def build_rope_cache(
     seq_len: int,
     n_elem: int,
     device: Optional[torch.device] = None,
     base: int = 10000,
     condense_ratio: int = 1,
-    config: Optional[dict] = None,
+    extra_config: Optional[dict] = None,
 ) -> Tuple[torch.Tensor, torch.Tensor]:
     """Enhanced Transformer with Rotary Position Embedding.
 
@@ -457,7 +436,7 @@ def build_rope_cache(
         device (torch.device, optional): Device for tensor allocations.
         base (int, optional): Base for computing inverse frequencies.
         condense_ratio (int, optional): Ratio to condense the position indices.
-        config (dict, optional): Configuration parameters for frequency adjustments.
+        extra_config (dict, optional): Configuration parameters for frequency adjustments (used by Llama 3.1 and 3.2)
 
     Returns:
         Tuple[torch.Tensor, torch.Tensor]: Cosine and sine caches for RoPE.
@@ -467,12 +446,12 @@ def build_rope_cache(
     # Compute the initial inverse frequencies (theta)
     theta = 1.0 / (base ** (torch.arange(0, n_elem // 2, device=device).float() / (n_elem // 2)))
 
-    if config is not None:
+    if extra_config is not None:
         # Extract configuration parameters
-        orig_context_len = config["original_max_seq_len"]
-        factor = config["factor"]
-        low_freq_factor = config["low_freq_factor"]
-        high_freq_factor = config["high_freq_factor"]
+        orig_context_len = extra_config["original_max_seq_len"]
+        factor = extra_config["factor"]
+        low_freq_factor = extra_config["low_freq_factor"]
+        high_freq_factor = extra_config["high_freq_factor"]
 
         # Compute wavelength thresholds
         low_freq_wavelen = orig_context_len / low_freq_factor
