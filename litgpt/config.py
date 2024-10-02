@@ -69,38 +69,38 @@ class Config:
     final_logit_softcapping: Optional[float] = None
 
     def __post_init__(self):
-            if not self.name:
-                self.name = self.hf_config.get("name", self.name)
+        if not self.name:
+            self.name = self.hf_config.get("name", self.name)
 
-            if self.head_size is None:
-                assert self.n_embd % self.n_head == 0
-                self.head_size = self.n_embd // self.n_head
+        if self.head_size is None:
+            assert self.n_embd % self.n_head == 0
+            self.head_size = self.n_embd // self.n_head
 
-            # vocab size should be a power of 2 to be optimal on hardware. compute the closest value
-            if self.padded_vocab_size is None:
-                self.padded_vocab_size = find_multiple(self.vocab_size, self.padding_multiple)
-            else:
-                # vocab size shouldn't be larger than padded vocab size
-                self.vocab_size = min(self.vocab_size, self.padded_vocab_size)
+        # vocab size should be a power of 2 to be optimal on hardware. compute the closest value
+        if self.padded_vocab_size is None:
+            self.padded_vocab_size = find_multiple(self.vocab_size, self.padding_multiple)
+        else:
+            # vocab size shouldn't be larger than padded vocab size
+            self.vocab_size = min(self.vocab_size, self.padded_vocab_size)
 
-            # compute the number of query groups
-            if self.n_query_groups is not None:
-                assert self.n_head % self.n_query_groups == 0
-            else:
-                self.n_query_groups = self.n_head
+        # compute the number of query groups
+        if self.n_query_groups is not None:
+            assert self.n_head % self.n_query_groups == 0
+        else:
+            self.n_query_groups = self.n_head
 
-            # compute the intermediate size for MLP if not set
-            if self.intermediate_size is None:
-                if self.mlp_class_name == "LLaMAMLP":
-                    raise ValueError(f"The config {self.name!r}, needs to set the `intermediate_size`")
-                self.intermediate_size = 4 * self.n_embd
+        # compute the intermediate size for MLP if not set
+        if self.intermediate_size is None:
+            if self.mlp_class_name == "LLaMAMLP":
+                raise ValueError(f"The config {self.name!r}, needs to set the `intermediate_size`")
+            self.intermediate_size = 4 * self.n_embd
 
-            self.rope_n_elem = int(self.rotary_percentage * self.head_size)
+        self.rope_n_elem = int(self.rotary_percentage * self.head_size)
 
-            if self.sliding_window_size is not None:
-                self.sliding_window_layer_placing = (
-                    1 if (self.sliding_window_layer_placing is None or self.sliding_window_layer_placing == "all") else 2
-                )
+        if self.sliding_window_size is not None:
+            self.sliding_window_layer_placing = (
+                1 if (self.sliding_window_layer_placing is None or self.sliding_window_layer_placing == "all") else 2
+            )
 
     @classmethod
     def from_name(cls, name: str, **kwargs: Any) -> Optional[Self]:
