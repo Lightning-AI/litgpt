@@ -108,12 +108,19 @@ class GPT(nn.Module):
         return cls(Config.from_name(name, **kwargs))
 
     def rope_cache(self, device: Optional[torch.device] = None) -> Tuple[torch.Tensor, torch.Tensor]:
+        config = {
+            "original_max_seq_len": self.config.rope_original_max_seq_len,
+            "factor": self.config.rope_factor,
+            "low_freq_factor": self.config.rope_low_freq_factor,
+            "high_freq_factor": self.config.rope_high_freq_factor,
+        }
         return build_rope_cache(
             seq_len=self.max_seq_length,
             n_elem=self.config.rope_n_elem,
             device=device,
             condense_ratio=self.config.rope_condense_ratio,
             base=self.config.rope_base,
+            config=config,
         )
 
     def set_kv_cache(
@@ -426,6 +433,81 @@ def build_rope_cache(
 
     # Calculate the product of position index and $\theta_i$
     idx_theta = torch.outer(seq_idx, theta).repeat(1, 2)
+
+    return torch.cos(idx_theta), torch.sin(idx_theta)
+
+
+def build_rope_cache(
+    seq_len: int,
+    n_elem: int,
+    device: Optional[torch.device] = None,
+    base: int = 10000,
+    condense_ratio: int = 1,
+    config: Optional[dict] = None,
+) -> Tuple[torch.Tensor, torch.Tensor]:
+    """Enhanced Transformer with Rotary Position Embedding.
+
+    Derived from: https://github.com/labmlai/annotated_deep_learning_paper_implementations/blob/master/labml_nn/
+    transformers/rope/__init__.py. MIT License:
+    https://github.com/labmlai/annotated_deep_learning_paper_implementations/blob/master/license.
+
+    Args:
+        seq_len (int): Sequence length.
+        n_elem (int): Number of elements (head dimension).
+        device (torch.device, optional): Device for tensor allocations.
+        base (int, optional): Base for computing inverse frequencies.
+        condense_ratio (int, optional): Ratio to condense the position indices.
+        config (dict, optional): Configuration parameters for frequency adjustments.
+
+    Returns:
+        Tuple[torch.Tensor, torch.Tensor]: Cosine and sine caches for RoPE.
+    """
+    assert n_elem % 2 == 0, "n_elem (head dimension) must be even"
+
+    # Compute the initial inverse frequencies (theta)
+    theta = 1.0 / (base ** (torch.arange(0, n_elem // 2, device=device).float() / (n_elem // 2)))
+
+    if config is not None:
+        # Extract configuration parameters
+        orig_context_len = config["original_max_seq_len"]
+        factor = config["factor"]
+        low_freq_factor = config["low_freq_factor"]
+        high_freq_factor = config["high_freq_factor"]
+
+        # Compute wavelength thresholds
+        low_freq_wavelen = orig_context_len / low_freq_factor
+        high_freq_wavelen = orig_context_len / high_freq_factor
+
+        # Compute wavelengths corresponding to the inverse frequencies
+        wavelen = 2 * torch.pi / theta
+
+        # Initialize adjusted inverse frequencies
+        adjusted_theta = theta.clone()
+
+        # Low Frequency Region: wavelen > low_freq_wavelen
+        mask_low_freq = wavelen > low_freq_wavelen
+        adjusted_theta[mask_low_freq] = theta[mask_low_freq] / factor
+
+        # Medium Frequency Region: high_freq_wavelen ≤ wavelen ≤ low_freq_wavelen
+        mask_medium_freq = (wavelen >= high_freq_wavelen) & (wavelen <= low_freq_wavelen)
+        # Compute smooth factor for medium frequencies
+        ratio = orig_context_len / wavelen[mask_medium_freq]
+        smooth_factor = (ratio - low_freq_factor) / (high_freq_factor - low_freq_factor)
+        # Interpolate inverse frequencies
+        adjusted_theta[mask_medium_freq] = (
+            (1 - smooth_factor) * (theta[mask_medium_freq] / factor)
+            + smooth_factor * theta[mask_medium_freq]
+        )
+        theta = adjusted_theta
+
+    # Create position indices `[0, 1, ..., seq_len - 1]`
+    seq_idx = torch.arange(seq_len, device=device) / condense_ratio
+
+    # Calculate the outer product of position indices and adjusted inverse frequencies
+    idx_theta = torch.outer(seq_idx, theta)
+
+    # Expand idx_theta to match the dimension (interleaving for sin and cos)
+    idx_theta = torch.cat([idx_theta, idx_theta], dim=-1)  # Shape: (seq_len, n_elem)
 
     return torch.cos(idx_theta), torch.sin(idx_theta)
 
