@@ -494,10 +494,10 @@ def build_rope_cache(
         )
         theta = adjusted_theta
 
-    # Create position indices `[0, 1, ..., seq_len - 1]`
+    # Create position indexes `[0, 1, ..., seq_len - 1]`
     seq_idx = torch.arange(seq_len, device=device) / condense_ratio
 
-    # Calculate the outer product of position indices and adjusted inverse frequencies
+    # Calculate the outer product of position indexes and adjusted inverse frequencies
     idx_theta = torch.outer(seq_idx, theta)
 
     # Expand idx_theta to match the dimension (interleaving for sin and cos)
