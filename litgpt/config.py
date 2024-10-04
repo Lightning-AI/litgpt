@@ -62,6 +62,7 @@ class Config:
     intermediate_size: Optional[int] = None
     rope_condense_ratio: int = 1
     rope_base: int = 10000
+    rope_adjustments: Optional[dict] = None
     n_expert: int = 0
     n_expert_per_token: int = 0
     attention_logit_softcapping: Optional[float] = None
@@ -893,6 +894,7 @@ llama_3 = [
         mlp_class_name="LLaMAMLP",
         intermediate_size=14336,
         rope_base=500000,
+        rope_adjustments=dict(factor=8.0, low_freq_factor=1.0, high_freq_factor=4.0, original_max_seq_len=8192)
     ),
     # https://huggingface.co/meta-llama/Meta-Llama-3-70B/blob/main/config.json
     dict(
@@ -931,6 +933,7 @@ llama_3 = [
         mlp_class_name="LLaMAMLP",
         intermediate_size=28672,
         rope_base=500000,
+        rope_adjustments=dict(factor=8.0, low_freq_factor=1.0, high_freq_factor=4.0, original_max_seq_len=8192)
     ),
     # https://huggingface.co/meta-llama/Meta-Llama-3.1-405B/blob/main/config.json
     dict(
@@ -950,8 +953,9 @@ llama_3 = [
         mlp_class_name="LLaMAMLP",
         intermediate_size=53248,
         rope_base=500000,
+        rope_adjustments=dict(factor=8.0, low_freq_factor=1.0, high_freq_factor=4.0, original_max_seq_len=8192)
     ),
-    # https://huggingface.co/meta-llama/Llama-3.1-8B/blob/main/config.json
+    # https://huggingface.co/meta-llama/Llama-3.2-1B/blob/main/config.json
     dict(
         name="Llama-3.2-1B{}",
         hf_config=dict(org="meta-llama", name="Llama-3.2-1B{}"),
@@ -969,6 +973,7 @@ llama_3 = [
         mlp_class_name="LLaMAMLP",
         intermediate_size=8192,
         rope_base=500000,
+        rope_adjustments=dict(factor=32.0, low_freq_factor=1.0, high_freq_factor=4.0, original_max_seq_len=8192)
     ),
     # https://huggingface.co/meta-llama/Llama-3.2-3B/blob/main/config.json
     dict(
@@ -988,6 +993,7 @@ llama_3 = [
         mlp_class_name="LLaMAMLP",
         intermediate_size=8192,
         rope_base=500000,
+        rope_adjustments=dict(factor=32.0, low_freq_factor=1.0, high_freq_factor=4.0, original_max_seq_len=8192)
     ),
 ]
 for c in llama_3:
