@@ -202,7 +202,6 @@ def main(
     fabric.print(f"Number of non-trainable parameters: {num_parameters(model, requires_grad=False):,}")
 
     model = fabric.setup_module(model)
-
     if isinstance(fabric.strategy.precision, BitsandbytesPrecision):
         optimizer = instantiate_bnb_optimizer(optimizer, model.parameters())
 
@@ -210,8 +209,8 @@ def main(
         old_embedding = model.transformer.wte
         model.transformer.wte = StableEmbedding(old_embedding.num_embeddings, old_embedding.embedding_dim)
         with torch.no_grad():
-            model.wte.weight.copy_(old_embedding.weight)
-
+            model.transformer.wte.weight.copy_(old_embedding.weight)
+        model.transformer.wte = model.transformer.wte.to(device=old_embedding.weight.device, dtype=old_embedding.weight.dtype)
     else:
         optimizer = instantiate_torch_optimizer(optimizer, model.parameters())
 
