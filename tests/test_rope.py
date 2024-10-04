@@ -17,8 +17,8 @@ def test_rope_gptneox():
     x = torch.randint(0, 10000, size=(bs, n_head, seq_len, head_size)).float()
     position_ids = torch.arange(seq_len).unsqueeze(0)
 
-    theirs_rot_emb = GPTNeoXRotaryEmbedding(head_size, max_position_embeddings=seq_len)
-    theirs_cos, theirs_sin = theirs_rot_emb(x, seq_len=seq_len)
+    theirs_rot_emb = GPTNeoXRotaryEmbedding(head_size, seq_len)
+    theirs_cos, theirs_sin = theirs_rot_emb(x, position_ids)
 
     ours_cos_cached, ours_sin_cached = build_rope_cache(seq_len, head_size, device=x.device)
     # their rope cache has 2 added dimensions and the cos/sin is duplicated
