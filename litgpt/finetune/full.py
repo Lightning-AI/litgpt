@@ -354,7 +354,7 @@ def generate_example(fabric: L.Fabric, model: GPT, tokenizer: Tokenizer, eval: E
         model.clear_kv_cache()
         model.train()
         output = tokenizer.decode(output)
-        fabric.print(output)
+        fabric.print(f"{output}\n")
     else:
         print(
             f"Length of encoded instruction ({len(encoded)}) and eval.max_new_tokens ({eval.max_new_tokens}) "

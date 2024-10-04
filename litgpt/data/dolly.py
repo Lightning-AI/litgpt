@@ -11,9 +11,7 @@ from torch.utils.data import random_split
 from litgpt.prompts import PromptStyle
 from litgpt.data import Alpaca, SFTDataset
 
-_URL: str = (
-    "https://huggingface.co/datasets/databricks/databricks-dolly-15k/resolve/main/databricks-dolly-15k.jsonl"
-)
+_URL: str = "https://huggingface.co/datasets/databricks/databricks-dolly-15k/resolve/main/databricks-dolly-15k.jsonl"
 
 
 @dataclass
