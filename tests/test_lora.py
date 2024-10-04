@@ -724,6 +724,7 @@ def test_lora_bitsandbytes(monkeypatch, tmp_path, fake_checkpoint_dir, alpaca_pa
 
     args, kwargs = train_mock.call_args
     fabric, model, optimizer, *_ = args
+    model.transformer.wte = model.transformer.wte.half()
     assert isinstance(fabric.strategy.precision, BitsandbytesPrecision)
     assert isinstance(optimizer, _FabricOptimizer)
     assert isinstance(optimizer._optimizer, PagedAdamW)
@@ -748,6 +749,8 @@ def test_lora_bitsandbytes(monkeypatch, tmp_path, fake_checkpoint_dir, alpaca_pa
             "transformer.h.0.attn.attn.lora_B",
             "transformer.h.0.norm_2.weight",
             "transformer.wte.weight",
+            "transformer.wte.norm.weight",
+            "transformer.wte.norm.bias",
             "transformer.h.1.mlp.fc.linear.bias",
             "transformer.ln_f.bias",
             "transformer.h.1.attn.attn.lora_B",

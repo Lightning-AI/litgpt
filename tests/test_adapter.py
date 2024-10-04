@@ -182,6 +182,8 @@ def test_adapter_bitsandbytes(monkeypatch, tmp_path, fake_checkpoint_dir, alpaca
     assert dtype_to_name == {
         "torch.float16": {
             "transformer.wte.weight",
+            "transformer.wte.norm.weight",
+            "transformer.wte.norm.bias",
             "transformer.h.0.norm_1.weight",
             "transformer.h.0.norm_1.bias",
             "transformer.h.0.attn.gating_factor",

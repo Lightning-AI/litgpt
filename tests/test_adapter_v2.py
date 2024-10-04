@@ -405,6 +405,8 @@ def test_adapter_v2_bitsandbytes(monkeypatch, tmp_path, fake_checkpoint_dir, alp
             "transformer.h.1.mlp.fc.adapter_scale",
             "transformer.h.1.attn.attn.linear.bias",
             "transformer.wte.weight",
+            "transformer.wte.norm.weight",
+            "transformer.wte.norm.bias",
             "transformer.h.0.norm_2.weight",
             "transformer.h.1.mlp.proj.linear.bias",
             "transformer.h.0.attn.gating_factor",

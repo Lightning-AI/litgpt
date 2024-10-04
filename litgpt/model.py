@@ -108,12 +108,39 @@ class GPT(nn.Module):
         return cls(Config.from_name(name, **kwargs))
 
     def rope_cache(self, device: Optional[torch.device] = None) -> Tuple[torch.Tensor, torch.Tensor]:
+
+        if self.config.rope_adjustments is None:
+            extra_config = None
+
+        else:
+            adjusted_params_required = ["factor", "low_freq_factor", "high_freq_factor", "original_max_seq_len"]
+            params_present = [param in self.config.rope_adjustments for param in adjusted_params_required]
+            num_params_present = sum(params_present)
+
+            if num_params_present == 0:
+                extra_config = None  # uses standard RoPE
+            elif num_params_present == 4:
+                # These parameters should always be used together so that we don't interfere with standard rope
+                extra_config = {
+                    "original_max_seq_len": self.config.rope_adjustments["original_max_seq_len"],
+                    "factor": self.config.rope_adjustments["factor"],
+                    "low_freq_factor": self.config.rope_adjustments["low_freq_factor"],
+                    "high_freq_factor": self.config.rope_adjustments["high_freq_factor"],
+                }
+            else:
+                # Some but not all parameters are specified; raise an error
+                raise ValueError(
+                    "The following adjusted RoPE parameters are missing in rope_adjustments."
+                    "All adjusted RoPE parameters must be specified together."
+                )
+
         return build_rope_cache(
             seq_len=self.max_seq_length,
             n_elem=self.config.rope_n_elem,
             device=device,
             condense_ratio=self.config.rope_condense_ratio,
             base=self.config.rope_base,
+            extra_config=extra_config,
         )
 
     def set_kv_cache(
@@ -410,16 +437,66 @@ class LLaMAMoE(nn.Module):
 
 
 def build_rope_cache(
-    seq_len: int, n_elem: int, device: Optional[torch.device] = None, base: int = 10000, condense_ratio: int = 1
+    seq_len: int,
+    n_elem: int,
+    device: Optional[torch.device] = None,
+    base: int = 10000,
+    condense_ratio: int = 1,
+    extra_config: Optional[dict] = None,
 ) -> Tuple[torch.Tensor, torch.Tensor]:
     """Enhanced Transformer with Rotary Position Embedding.
 
     Derived from: https://github.com/labmlai/annotated_deep_learning_paper_implementations/blob/master/labml_nn/
     transformers/rope/__init__.py. MIT License:
     https://github.com/labmlai/annotated_deep_learning_paper_implementations/blob/master/license.
+
+    Args:
+        seq_len (int): Sequence length.
+        n_elem (int): Number of elements (head dimension).
+        device (torch.device, optional): Device for tensor allocations.
+        base (int, optional): Base for computing inverse frequencies.
+        condense_ratio (int, optional): Ratio to condense the position indices.
+        extra_config (dict, optional): Configuration parameters for frequency adjustments (used by Llama 3.1 and 3.2)
+
+    Returns:
+        Tuple[torch.Tensor, torch.Tensor]: Cosine and sine caches for RoPE.
     """
-    # $\Theta = {\theta_i = 10000^{\frac{2(i-1)}{d}}, i \in [1, 2, ..., \frac{d}{2}]}$
+
+    # $\Theta = {\theta_i = 10000^{\frac{2(i-1)}{d}}, i \in [1, 2, ..., \frac{d}{2}]}$	    assert n_elem % 2 == 0, "n_elem (head dimension) must be even"
     theta = 1.0 / (base ** (torch.arange(0, n_elem, 2, device=device).float() / n_elem))
+
+    if extra_config is not None:
+        # Extract configuration parameters
+        orig_context_len = extra_config["original_max_seq_len"]
+        factor = extra_config["factor"]
+        low_freq_factor = extra_config["low_freq_factor"]
+        high_freq_factor = extra_config["high_freq_factor"]
+
+        # Compute wavelength thresholds
+        low_freq_wavelen = orig_context_len / low_freq_factor
+        high_freq_wavelen = orig_context_len / high_freq_factor
+
+        # Compute wavelengths corresponding to the inverse frequencies
+        wavelen = 2 * torch.pi / theta
+
+        # Initialize adjusted inverse frequencies
+        adjusted_theta = theta.clone()
+
+        # Low Frequency Region: wavelen > low_freq_wavelen
+        mask_low_freq = wavelen > low_freq_wavelen
+        adjusted_theta[mask_low_freq] = theta[mask_low_freq] / factor
+
+        # Medium Frequency Region: high_freq_wavelen ≤ wavelen ≤ low_freq_wavelen
+        mask_medium_freq = (wavelen >= high_freq_wavelen) & (wavelen <= low_freq_wavelen)
+        # Compute smooth factor for medium frequencies
+        ratio = orig_context_len / wavelen[mask_medium_freq]
+        smooth_factor = (ratio - low_freq_factor) / (high_freq_factor - low_freq_factor)
+        # Interpolate inverse frequencies
+        adjusted_theta[mask_medium_freq] = (
+            (1 - smooth_factor) * (theta[mask_medium_freq] / factor)
+            + smooth_factor * theta[mask_medium_freq]
+        )
+        theta = adjusted_theta
 
     # Create position indexes `[0, 1, ..., seq_len - 1]`
     seq_idx = torch.arange(seq_len, device=device) / condense_ratio
