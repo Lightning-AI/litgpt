@@ -462,7 +462,8 @@ def build_rope_cache(
     Returns:
         Tuple[torch.Tensor, torch.Tensor]: Cosine and sine caches for RoPE.
     """
-
+    if device is None:
+        print("warning: build_rope_cache called without device, meta device custom ops may fail")
     # $\Theta = {\theta_i = 10000^{\frac{2(i-1)}{d}}, i \in [1, 2, ..., \frac{d}{2}]}$	    assert n_elem % 2 == 0, "n_elem (head dimension) must be even"
     theta = 1.0 / (base ** (torch.arange(0, n_elem, 2, device=device).float() / n_elem))
 
@@ -485,7 +486,17 @@ def build_rope_cache(
 
         # Low Frequency Region: wavelen > low_freq_wavelen
         mask_low_freq = wavelen > low_freq_wavelen
-        adjusted_theta[mask_low_freq] = theta[mask_low_freq] / factor
+        # avoid NotImplementedError: aten::nonzero: attempted to run this operator with Meta tensors
+        if device is not None:
+            adjusted_theta[mask_low_freq] = theta[mask_low_freq] / factor
+        else:
+            adjusted_theta = torch.where(
+                mask_low_freq,
+                theta / factor,
+                adjusted_theta
+            )
+        print(f"theta device: {theta.device}")
+        print(f"mask_low_freq device: {mask_low_freq.device}")
 
         # Medium Frequency Region: high_freq_wavelen ≤ wavelen ≤ low_freq_wavelen
         mask_medium_freq = (wavelen >= high_freq_wavelen) & (wavelen <= low_freq_wavelen)
