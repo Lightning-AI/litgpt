@@ -445,11 +445,8 @@ def build_rope_cache(
     condense_ratio: int = 1,
     extra_config: Optional[dict] = None,
 ) -> Tuple[torch.Tensor, torch.Tensor]:
-    """Enhanced Transformer with Rotary Position Embedding.
-
-    Derived from: https://github.com/labmlai/annotated_deep_learning_paper_implementations/blob/master/labml_nn/
-    transformers/rope/__init__.py. MIT License:
-    https://github.com/labmlai/annotated_deep_learning_paper_implementations/blob/master/license.
+    """
+    Enhanced Transformer with Rotary Position Embedding.
 
     Args:
         seq_len (int): Sequence length.
@@ -462,9 +459,8 @@ def build_rope_cache(
     Returns:
         Tuple[torch.Tensor, torch.Tensor]: Cosine and sine caches for RoPE.
     """
-    if device is None:
-        print("warning: build_rope_cache called without device, meta device custom ops may fail")
-    # $\Theta = {\theta_i = 10000^{\frac{2(i-1)}{d}}, i \in [1, 2, ..., \frac{d}{2}]}$	    assert n_elem % 2 == 0, "n_elem (head dimension) must be even"
+
+    # Compute the inverse frequencies theta
     theta = 1.0 / (base ** (torch.arange(0, n_elem, 2, device=device).float() / n_elem))
 
     if extra_config is not None:
@@ -481,39 +477,22 @@ def build_rope_cache(
         # Compute wavelengths corresponding to the inverse frequencies
         wavelen = 2 * torch.pi / theta
 
-        # Initialize adjusted inverse frequencies
-        adjusted_theta = theta.clone()
+        # Compute ratio across all elements
+        ratio = orig_context_len / wavelen
 
-        # Low Frequency Region: wavelen > low_freq_wavelen
-        mask_low_freq = wavelen > low_freq_wavelen
-        # avoid NotImplementedError: aten::nonzero: attempted to run this operator with Meta tensors
-        if device is not None:
-            adjusted_theta[mask_low_freq] = theta[mask_low_freq] / factor
-        else:
-            adjusted_theta = torch.where(
-                mask_low_freq,
-                theta / factor,
-                adjusted_theta
-            )
-        print(f"theta device: {theta.device}")
-        print(f"mask_low_freq device: {mask_low_freq.device}")
-
-        # Medium Frequency Region: high_freq_wavelen ≤ wavelen ≤ low_freq_wavelen
-        mask_medium_freq = (wavelen >= high_freq_wavelen) & (wavelen <= low_freq_wavelen)
-        # Compute smooth factor for medium frequencies
-        ratio = orig_context_len / wavelen[mask_medium_freq]
+        # Compute smooth_factor and clamp between 0 and 1
         smooth_factor = (ratio - low_freq_factor) / (high_freq_factor - low_freq_factor)
-        # Interpolate inverse frequencies
-        adjusted_theta[mask_medium_freq] = (
-            (1 - smooth_factor) * (theta[mask_medium_freq] / factor)
-            + smooth_factor * theta[mask_medium_freq]
-        )
+        smooth_factor = torch.clamp(smooth_factor, min=0.0, max=1.0)
+
+        # Compute adjusted_theta without masked indexing
+        adjusted_theta = (1 - smooth_factor) * (theta / factor) + smooth_factor * theta
+
         theta = adjusted_theta
 
-    # Create position indexes `[0, 1, ..., seq_len - 1]`
+    # Create position indices `[0, 1, ..., seq_len - 1]`
     seq_idx = torch.arange(seq_len, device=device) / condense_ratio
 
-    # Calculate the product of position index and $\theta_i$
+    # Calculate the product of position index and θ_i
     idx_theta = torch.outer(seq_idx, theta).repeat(1, 2)
 
     return torch.cos(idx_theta), torch.sin(idx_theta)
