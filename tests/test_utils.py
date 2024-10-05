@@ -1,48 +1,47 @@
 # Copyright Lightning AI. Licensed under the Apache License 2.0, see LICENSE file.
-from dataclasses import asdict
-
 import os
 from contextlib import redirect_stderr
+from dataclasses import asdict
 from io import StringIO
 from pathlib import Path
-from tempfile import TemporaryDirectory, NamedTemporaryFile
+from tempfile import NamedTemporaryFile
+from tempfile import TemporaryDirectory
 from unittest import mock
 
 import pytest
 import torch
 import torch.nn.functional as F
 import yaml
-from tests.conftest import RunIf
 from lightning import Fabric
-from lightning.fabric.loggers import CSVLogger, TensorBoardLogger
+from lightning.fabric.loggers import CSVLogger
+from lightning.fabric.loggers import TensorBoardLogger
 from lightning.fabric.plugins import BitsandbytesPrecision
 from lightning.pytorch.loggers import WandbLogger
 from lightning_utilities.core.imports import RequirementCache
 
 from litgpt import GPT
 from litgpt.args import TrainArgs
-from litgpt.utils import (
-    CLI,
-    CycleIterator,
-    capture_hparams,
-    check_file_size_on_cpu_and_warn,
-    check_nvlink_connectivity,
-    check_valid_checkpoint_dir,
-    choose_logger,
-    chunked_cross_entropy,
-    copy_config_files,
-    extend_checkpoint_dir,
-    find_multiple,
-    find_resume_path,
-    fix_and_load_json,
-    incremental_save,
-    init_out_dir,
-    instantiate_bnb_optimizer,
-    instantiate_torch_optimizer,
-    num_parameters,
-    parse_devices,
-    save_hyperparameters,
-)
+from litgpt.utils import capture_hparams
+from litgpt.utils import check_file_size_on_cpu_and_warn
+from litgpt.utils import check_nvlink_connectivity
+from litgpt.utils import check_valid_checkpoint_dir
+from litgpt.utils import choose_logger
+from litgpt.utils import chunked_cross_entropy
+from litgpt.utils import CLI
+from litgpt.utils import copy_config_files
+from litgpt.utils import CycleIterator
+from litgpt.utils import extend_checkpoint_dir
+from litgpt.utils import find_multiple
+from litgpt.utils import find_resume_path
+from litgpt.utils import fix_and_load_json
+from litgpt.utils import incremental_save
+from litgpt.utils import init_out_dir
+from litgpt.utils import instantiate_bnb_optimizer
+from litgpt.utils import instantiate_torch_optimizer
+from litgpt.utils import num_parameters
+from litgpt.utils import parse_devices
+from litgpt.utils import save_hyperparameters
+from tests.conftest import RunIf
 
 
 def test_find_multiple():
@@ -306,12 +305,15 @@ def test_choose_logger(tmp_path):
         choose_logger("foo", out_dir=tmp_path, name="foo")
 
 
-@pytest.mark.parametrize("path_type, input_path, expected", [
-    ("relative", "some/relative/path", "some/relative/path"),
-    ("absolute", "/usr/absolute/path", "/usr/absolute/path"),
-    ("env_relative", "some/relative/path", "prefix/some/relative/path"),
-    ("env_absolute", "/usr/absolute/path", "/usr/absolute/path")
-])
+@pytest.mark.parametrize(
+    "path_type, input_path, expected",
+    [
+        ("relative", "some/relative/path", "some/relative/path"),
+        ("absolute", "/usr/absolute/path", "/usr/absolute/path"),
+        ("env_relative", "some/relative/path", "prefix/some/relative/path"),
+        ("env_absolute", "/usr/absolute/path", "/usr/absolute/path"),
+    ],
+)
 def test_init_out_dir(path_type, input_path, expected):
     if path_type.startswith("env_"):
         with mock.patch.dict(os.environ, {"LIGHTNING_ARTIFACTS_DIR": "prefix"}):
@@ -322,13 +324,17 @@ def test_init_out_dir(path_type, input_path, expected):
         if "LIGHTNING_ARTIFACTS_DIR" not in os.environ:
             assert result == Path(expected), f"Failed for {path_type} with input {input_path} (result {result})"
         else:
-            assert result == Path(os.getenv("LIGHTNING_ARTIFACTS_DIR")) / expected, f"Failed for {path_type} with input {input_path} (result {result})"
+            assert (
+                result == Path(os.getenv("LIGHTNING_ARTIFACTS_DIR")) / expected
+            ), f"Failed for {path_type} with input {input_path} (result {result})"
 
 
 def test_find_resume_path(tmp_path):
     assert find_resume_path(resume=None, out_dir=Path("does/not/exist")) is None
     assert find_resume_path(resume=Path("does/not/exist"), out_dir=Path("does/not/matter")) == Path("does/not/exist")
-    assert find_resume_path(resume=(tmp_path / "checkpoint.pt"), out_dir=Path("does/not/matter")) == (tmp_path / "checkpoint.pt")
+    assert find_resume_path(resume=(tmp_path / "checkpoint.pt"), out_dir=Path("does/not/matter")) == (
+        tmp_path / "checkpoint.pt"
+    )
 
     # `resume='auto'` does not enforce the checkpoint to exist
     assert find_resume_path(resume="auto", out_dir=Path("does/not/exist")) is None
@@ -357,6 +363,7 @@ def model_parameters():
 
 def test_instantiate_bnb_optimizer_with_str(model_parameters):
     import bitsandbytes as bnb
+
     with mock.patch("litgpt.utils.get_argument_names", return_value={"lr", "eps", "weight_decay"}):
         optimizer = instantiate_bnb_optimizer("AdamW", model_parameters)
         assert isinstance(optimizer, bnb.optim.adamw.PagedAdamW)
@@ -364,6 +371,7 @@ def test_instantiate_bnb_optimizer_with_str(model_parameters):
 
 def test_instantiate_bnb_optimizer_with_dict(model_parameters):
     import bitsandbytes as bnb
+
     optimizer_dict = {"class_path": "AdamW", "init_args": {"lr": 0.01}}
     with mock.patch("litgpt.utils.get_argument_names", return_value={"lr", "eps", "weight_decay"}):
         optimizer = instantiate_bnb_optimizer(optimizer_dict, model_parameters)
@@ -383,16 +391,21 @@ def test_instantiate_torch_optimizer_with_str(model_parameters):
 
 
 def test_instantiate_torch_optimizer_with_class(model_parameters):
-    optimizer = instantiate_torch_optimizer({"class_path": "torch.optim.Adam", "init_args": {"lr": 123}}, model_parameters, lr=0.02)
+    optimizer = instantiate_torch_optimizer(
+        {"class_path": "torch.optim.Adam", "init_args": {"lr": 123}}, model_parameters, lr=0.02
+    )
     assert isinstance(optimizer, torch.optim.Adam)
     # init args gets overridden
     assert optimizer.param_groups[0]["lr"] == 0.02
 
 
-@pytest.mark.parametrize("input_path, expected", [
-    (Path("checkpoints/my_model"), Path("checkpoints/my_model")),
-    (Path("checkpoints/my_model"), Path("./checkpoints/my_model")),
-])
+@pytest.mark.parametrize(
+    "input_path, expected",
+    [
+        (Path("checkpoints/my_model"), Path("checkpoints/my_model")),
+        (Path("checkpoints/my_model"), Path("./checkpoints/my_model")),
+    ],
+)
 def test_extend_checkpoint_dir_is_prefixed(input_path, expected):
     original_dir = Path.cwd()  # Save the current directory
     with TemporaryDirectory() as tmp_dir:
@@ -410,10 +423,13 @@ def test_extend_checkpoint_dir_is_prefixed(input_path, expected):
             os.chdir(original_dir)  # Reset the current directory
 
 
-@pytest.mark.parametrize("input_path, expected", [
-    (Path("my_model"), Path("checkpoints/my_model")),
-    (Path("my_model"), Path("./checkpoints/my_model")),
-])
+@pytest.mark.parametrize(
+    "input_path, expected",
+    [
+        (Path("my_model"), Path("checkpoints/my_model")),
+        (Path("my_model"), Path("./checkpoints/my_model")),
+    ],
+)
 def test_extend_checkpoint_dir(input_path, expected):
     original_dir = Path.cwd()  # Save the current directory
     with TemporaryDirectory() as tmp_dir:
@@ -431,10 +447,13 @@ def test_extend_checkpoint_dir(input_path, expected):
             os.chdir(original_dir)  # Reset the current directory
 
 
-@pytest.mark.parametrize("input_path, expected", [
-    (Path("my_model"), Path("my_model")),
-    (Path("/my_model"), Path("/my_model")),
-])
+@pytest.mark.parametrize(
+    "input_path, expected",
+    [
+        (Path("my_model"), Path("my_model")),
+        (Path("/my_model"), Path("/my_model")),
+    ],
+)
 def test_extend_checkpoint_dir_dont_exist(input_path, expected):
     assert extend_checkpoint_dir(input_path) == expected
 
@@ -467,11 +486,14 @@ def test_file_size_above_limit_on_gpu():
 
 @pytest.fixture
 def all_nvlink_connected_output():
-    return mock.MagicMock(stdout="""        GPU0	GPU1	GPU2	GPU3
+    return mock.MagicMock(
+        stdout="""        GPU0	GPU1	GPU2	GPU3
 GPU0	X	NV12	NV12	NV12
 GPU1	NV12	X	NV12	NV12
 GPU2	NV12	NV12	X	NV12
-GPU3	NV12	NV12	NV12	X""", returncode=0)
+GPU3	NV12	NV12	NV12	X""",
+        returncode=0,
+    )
 
 
 @mock.patch("subprocess.run")
@@ -484,7 +506,8 @@ def test_all_nvlink_connected(mock_run, all_nvlink_connected_output):
 
 @pytest.fixture
 def nvlink_partially_connected_output():
-    return mock.MagicMock(stdout="""        GPU0    GPU1    GPU2    GPU3    CPU Affinity
+    return mock.MagicMock(
+        stdout="""        GPU0    GPU1    GPU2    GPU3    CPU Affinity
 GPU0     X      NV1     SYS     SYS     0-7
 GPU1    NV1      X      SYS     SYS     0-7
 GPU2    SYS     SYS      X      NV1     8-15
@@ -493,7 +516,9 @@ GPU3    SYS     SYS     NV1      X      8-15
 Legend:
   X   = Self
   NV1 = Connected via NVLink with 1 hop
-  SYS = Connected via the PCIe or CPU subsystem""", returncode=0)
+  SYS = Connected via the PCIe or CPU subsystem""",
+        returncode=0,
+    )
 
 
 @mock.patch("subprocess.run")
@@ -509,7 +534,8 @@ def test_nvlink_partially_connected_output(mock_run, nvlink_partially_connected_
 
 @pytest.fixture
 def nvlink_not_connected_output():
-    return mock.MagicMock(stdout="""        GPU0    GPU1    GPU2    GPU3    CPU Affinity    NUMA Affinity   GPU NUMA ID
+    return mock.MagicMock(
+        stdout="""        GPU0    GPU1    GPU2    GPU3    CPU Affinity    NUMA Affinity   GPU NUMA ID
 GPU0     X      PHB     PHB     PHB     0-47    0               N/A
 GPU1    PHB      X      PHB     PHB     0-47    0               N/A
 GPU2    PHB     PHB      X      PHB     0-47    0               N/A
@@ -523,7 +549,9 @@ Legend:
   PHB  = Connection traversing PCIe as well as a PCIe Host Bridge (typically the CPU)
   PXB  = Connection traversing multiple PCIe bridges (without traversing the PCIe Host Bridge)
   PIX  = Connection traversing at most a single PCIe bridge
-  NV#  = Connection traversing a bonded set of # NVLinks""", returncode=0)
+  NV#  = Connection traversing a bonded set of # NVLinks""",
+        returncode=0,
+    )
 
 
 @mock.patch("subprocess.run")
@@ -539,7 +567,8 @@ def test_nvlink_not_connected_output(mock_run, nvlink_not_connected_output):
 
 @pytest.fixture
 def nvlink_all_gpu_connected_but_other_connected_output():
-    return mock.MagicMock(stdout="""	GPU0	GPU1	GPU2	GPU3	GPU4	GPU5	GPU6	GPU7	NIC0	NIC1	NIC2	NIC3	NIC4	NIC5	NIC6	NIC7	NIC8	NIC9	CPU Affinity	NUMA Affinity	GPU NUMA ID
+    return mock.MagicMock(
+        stdout="""	GPU0	GPU1	GPU2	GPU3	GPU4	GPU5	GPU6	GPU7	NIC0	NIC1	NIC2	NIC3	NIC4	NIC5	NIC6	NIC7	NIC8	NIC9	CPU Affinity	NUMA Affinity	GPU NUMA ID
 GPU0	X 	NV12	NV12	NV12	NV12	NV12	NV12	NV12	SYS	SYS	PXB	PXB	SYS	SYS	SYS	SYS	SYS	SYS	0-63,128-191	0		N/A
 GPU1	NV12	X 	NV12	NV12	NV12	NV12	NV12	NV12	SYS	SYS	PXB	PXB	SYS	SYS	SYS	SYS	SYS	SYS	0-63,128-191	0		N/A
 GPU2	NV12	NV12	X 	NV12	NV12	NV12	NV12	NV12	PXB	PXB	SYS	SYS	SYS	SYS	SYS	SYS	SYS	SYS	0-63,128-191	0		N/A
@@ -548,16 +577,16 @@ GPU4	NV12	NV12	NV12	NV12	X 	NV12	NV12	NV12	SYS	SYS	SYS	SYS	SYS	SYS	SYS	SYS	PXB	P
 GPU5	NV12	NV12	NV12	NV12	NV12	X 	NV12	NV12	SYS	SYS	SYS	SYS	SYS	SYS	SYS	SYS	PXB	PXB	64-127,192-254	1		N/A
 GPU6	NV12	NV12	NV12	NV12	NV12	NV12	X 	NV12	SYS	SYS	SYS	SYS	PXB	PXB	SYS	SYS	SYS	SYS	64-127,192-254	1		N/A
 GPU7	NV12	NV12	NV12	NV12	NV12	NV12	NV12	X 	SYS	SYS	SYS	SYS	PXB	PXB	SYS	SYS	SYS	SYS	64-127,192-254	1		N/A
-NIC0	SYS	SYS	PXB	PXB	SYS	SYS	SYS	SYS	X 	PIX	SYS	SYS	SYS	SYS	SYS	SYS	SYS	SYS				
-NIC1	SYS	SYS	PXB	PXB	SYS	SYS	SYS	SYS	PIX	X 	SYS	SYS	SYS	SYS	SYS	SYS	SYS	SYS				
-NIC2	PXB	PXB	SYS	SYS	SYS	SYS	SYS	SYS	SYS	SYS	X 	PXB	SYS	SYS	SYS	SYS	SYS	SYS				
-NIC3	PXB	PXB	SYS	SYS	SYS	SYS	SYS	SYS	SYS	SYS	PXB	X 	SYS	SYS	SYS	SYS	SYS	SYS				
-NIC4	SYS	SYS	SYS	SYS	SYS	SYS	PXB	PXB	SYS	SYS	SYS	SYS	X 	PXB	SYS	SYS	SYS	SYS				
-NIC5	SYS	SYS	SYS	SYS	SYS	SYS	PXB	PXB	SYS	SYS	SYS	SYS	PXB	X 	SYS	SYS	SYS	SYS				
-NIC6	SYS	SYS	SYS	SYS	SYS	SYS	SYS	SYS	SYS	SYS	SYS	SYS	SYS	SYS	X 	PIX	SYS	SYS				
-NIC7	SYS	SYS	SYS	SYS	SYS	SYS	SYS	SYS	SYS	SYS	SYS	SYS	SYS	SYS	PIX	X 	SYS	SYS				
-NIC8	SYS	SYS	SYS	SYS	PXB	PXB	SYS	SYS	SYS	SYS	SYS	SYS	SYS	SYS	SYS	SYS	X 	PXB				
-NIC9	SYS	SYS	SYS	SYS	PXB	PXB	SYS	SYS	SYS	SYS	SYS	SYS	SYS	SYS	SYS	SYS	PXB	X 				
+NIC0	SYS	SYS	PXB	PXB	SYS	SYS	SYS	SYS	X 	PIX	SYS	SYS	SYS	SYS	SYS	SYS	SYS	SYS
+NIC1	SYS	SYS	PXB	PXB	SYS	SYS	SYS	SYS	PIX	X 	SYS	SYS	SYS	SYS	SYS	SYS	SYS	SYS
+NIC2	PXB	PXB	SYS	SYS	SYS	SYS	SYS	SYS	SYS	SYS	X 	PXB	SYS	SYS	SYS	SYS	SYS	SYS
+NIC3	PXB	PXB	SYS	SYS	SYS	SYS	SYS	SYS	SYS	SYS	PXB	X 	SYS	SYS	SYS	SYS	SYS	SYS
+NIC4	SYS	SYS	SYS	SYS	SYS	SYS	PXB	PXB	SYS	SYS	SYS	SYS	X 	PXB	SYS	SYS	SYS	SYS
+NIC5	SYS	SYS	SYS	SYS	SYS	SYS	PXB	PXB	SYS	SYS	SYS	SYS	PXB	X 	SYS	SYS	SYS	SYS
+NIC6	SYS	SYS	SYS	SYS	SYS	SYS	SYS	SYS	SYS	SYS	SYS	SYS	SYS	SYS	X 	PIX	SYS	SYS
+NIC7	SYS	SYS	SYS	SYS	SYS	SYS	SYS	SYS	SYS	SYS	SYS	SYS	SYS	SYS	PIX	X 	SYS	SYS
+NIC8	SYS	SYS	SYS	SYS	PXB	PXB	SYS	SYS	SYS	SYS	SYS	SYS	SYS	SYS	SYS	SYS	X 	PXB
+NIC9	SYS	SYS	SYS	SYS	PXB	PXB	SYS	SYS	SYS	SYS	SYS	SYS	SYS	SYS	SYS	SYS	PXB	X
 
 Legend:
 
@@ -582,11 +611,15 @@ NIC Legend:
   NIC8: mlx5_8
   NIC9: mlx5_9
 
-""", returncode=0)
+""",
+        returncode=0,
+    )
 
 
 @mock.patch("subprocess.run")
-def test_nvlink_all_gpu_connected_but_other_connected_output(mock_run, nvlink_all_gpu_connected_but_other_connected_output):
+def test_nvlink_all_gpu_connected_but_other_connected_output(
+    mock_run, nvlink_all_gpu_connected_but_other_connected_output
+):
     mock_run.return_value = nvlink_all_gpu_connected_but_other_connected_output
     with mock.patch("builtins.print") as mock_print:
         check_nvlink_connectivity()
@@ -595,7 +628,7 @@ def test_nvlink_all_gpu_connected_but_other_connected_output(mock_run, nvlink_al
 
 def test_fix_and_load_json():
     # Test 1: Invalid JSON string with a trailing comma
-    invalid_json_trailing_comma = '''
+    invalid_json_trailing_comma = """
     {
       "_from_model_config": true,
       "bos_token_id": 128000,
@@ -605,7 +638,7 @@ def test_fix_and_load_json():
       "temperature": 0.6,
       "top_p": 0.9,
     }
-    '''
+    """
 
     expected_output_trailing_comma = {
         "_from_model_config": True,
@@ -614,14 +647,14 @@ def test_fix_and_load_json():
         "transformers_version": "4.45.0.dev0",
         "do_sample": True,
         "temperature": 0.6,
-        "top_p": 0.9
+        "top_p": 0.9,
     }
 
     result_trailing_comma = fix_and_load_json(invalid_json_trailing_comma)
     assert result_trailing_comma == expected_output_trailing_comma
 
     # Test 2: Invalid JSON string with missing commas between properties
-    invalid_json_missing_commas = '''
+    invalid_json_missing_commas = """
     {
       "_from_model_config": true,
       "bos_token_id": 128000,
@@ -631,7 +664,7 @@ def test_fix_and_load_json():
       "temperature": 0.6,
       "top_p": 0.9,
     }
-    '''
+    """
 
     expected_output_missing_commas = {
         "_from_model_config": True,
@@ -640,8 +673,68 @@ def test_fix_and_load_json():
         "transformers_version": "4.45.0.dev0",
         "do_sample": True,
         "temperature": 0.6,
-        "top_p": 0.9
+        "top_p": 0.9,
     }
 
     result_missing_commas = fix_and_load_json(invalid_json_missing_commas)
     assert result_missing_commas == expected_output_missing_commas
+
+
+def test_check_nvlink_connectivity__returns_fully_connected_when_nvidia_all_nvlink(monkeypatch):
+    mock_device_properties = mock.MagicMock(name="GPU Device", spec=["name"])
+    mock_device_properties.name = "NVIDIA GeForce RTX 3090"
+    monkeypatch.setattr(torch.cuda, "get_device_properties", lambda idx: mock_device_properties)
+    monkeypatch.setattr(torch.cuda, "is_available", lambda: True)
+
+    nvidia_smi_output = """
+    GPU0    GPU1
+    GPU0    X      NV1
+    GPU1    NV1    X
+    """
+    mock_run = mock.MagicMock(return_value=mock.Mock(stdout=nvidia_smi_output, returncode=0))
+    with mock.patch("subprocess.run", mock_run):
+        with mock.patch("builtins.print") as mock_print:
+            check_nvlink_connectivity()
+            mock_print.assert_any_call("All GPUs are fully connected via NVLink.")
+
+
+def test_check_nvlink_connectivity_returns_fully_connected_when_amd_all_xgmi(monkeypatch):
+    # Mock the GPU device properties to simulate AMD GPUs
+    mock_device_properties = mock.MagicMock(name="GPU Device", spec=["name"])
+    mock_device_properties.name = "Advanced Micro Devices [AMD/ATI] MI250X"
+    monkeypatch.setattr(torch.cuda, "get_device_properties", lambda idx: mock_device_properties)
+    monkeypatch.setattr(torch.cuda, "is_available", lambda: True)
+
+    rocm_smi_output = """
+    =============================== Link Type between two GPUs ===============================
+        GPU0         GPU1
+    GPU0   0            XGMI
+    GPU1   XGMI         0
+    ==========================================================================================
+    """
+    mock_run = mock.MagicMock(return_value=mock.Mock(stdout=rocm_smi_output, returncode=0))
+    with mock.patch("subprocess.run", mock_run):
+        with mock.patch("builtins.print") as mock_print:
+            check_nvlink_connectivity()
+            mock_print.assert_any_call("All GPUs are fully connected via XGMI.")
+
+
+def test_check_nvlink_connectivity_returns_no_gpus_when_no_gpus(monkeypatch):
+    # Mock torch.cuda.is_available to return False
+    monkeypatch.setattr(torch.cuda, "is_available", lambda: False)
+
+    with mock.patch("builtins.print") as mock_print:
+        check_nvlink_connectivity()
+        mock_print.assert_any_call("No GPUs available")
+
+
+def test_check_nvlink_connectivity_returns_unrecognized_vendor_when_unrecognized_vendor(monkeypatch):
+    # Mock the GPU device properties to simulate an unrecognized GPU vendor
+    mock_device_properties = mock.MagicMock(name="GPU Device", spec=["name"])
+    mock_device_properties.name = "Unknown GPU Vendor"
+    monkeypatch.setattr(torch.cuda, "get_device_properties", lambda idx: mock_device_properties)
+    monkeypatch.setattr(torch.cuda, "is_available", lambda: True)
+
+    with mock.patch("builtins.print") as mock_print:
+        check_nvlink_connectivity()
+        mock_print.assert_any_call("Unrecognized GPU vendor: Unknown GPU Vendor")
