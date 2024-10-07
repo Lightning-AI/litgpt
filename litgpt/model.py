@@ -129,8 +129,9 @@ class GPT(nn.Module):
                 }
             else:
                 # Some but not all parameters are specified; raise an error
+                missing_params = [param for param, present in zip(adjusted_params_required, params_present) if not present]
                 raise ValueError(
-                    "The following adjusted RoPE parameters are missing in rope_adjustments."
+                    f"The following adjusted RoPE parameters are missing in rope_adjustments: {', '.join(missing_params)}. "
                     "All adjusted RoPE parameters must be specified together."
                 )
 
