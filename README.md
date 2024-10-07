@@ -3,7 +3,7 @@
 
 # ⚡ LitGPT
 
-**20+ high-performance LLMs with recipes to pretrain, finetune, and deploy at scale.**
+**20+ high-performance LLMs with recipes to pretrain, finetune, and deploy at scale. **
 
 <pre>
 ✅ From scratch implementations     ✅ No abstractions    ✅ Beginner friendly   
