@@ -939,7 +939,7 @@ llama_3 = [
     dict(
         name="Llama-3.1-405B{}",
         hf_config=dict(org="meta-llama", name="Meta-Llama-3.1-405B{}"),
-        block_size=131072,
+        block_size=8192,
         vocab_size=128000,
         padded_vocab_size=128256,
         n_layer=126,
