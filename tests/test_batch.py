@@ -102,7 +102,7 @@ def test_simple_batch():
     old_allow_tf32 = torch.backends.cuda.matmul.allow_tf32
     torch.backends.cuda.matmul.allow_tf32 = False
     config = litgpt.Config.from_name(
-        "Llama-3.1-8B", padded_vocab_size=10000, n_layer=2, n_head=8, n_embd=256
+        "Llama-3.2-1B", padded_vocab_size=10000, n_layer=2, n_head=8, n_embd=256
     )
     with torch.device("cuda"):
         m = litgpt.GPT(config).requires_grad_(False).eval()
