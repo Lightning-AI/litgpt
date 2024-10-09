@@ -492,7 +492,7 @@ def build_rope_cache(
     # Create position indices `[0, 1, ..., seq_len - 1]`
     seq_idx = torch.arange(seq_len, device=device) / condense_ratio
 
-    # Calculate the product of position index and θ_i
+    # Calculate the product of position index and $\theta_i$
     idx_theta = torch.outer(seq_idx, theta).repeat(1, 2)
 
     return torch.cos(idx_theta), torch.sin(idx_theta)
