@@ -753,7 +753,7 @@ def test_model_compile():
 @pytest.mark.parametrize(
     "max_seq_length", (25, pytest.param(23, marks=pytest.mark.xfail(raises=IndexError, strict=True)))
 )
-@pytest.mark.flaky(reruns=5)
+@pytest.mark.flaky(max_runs=5, min_passes=1)
 def test_kv_cache(max_seq_length):
     config = Config(block_size=25, padded_vocab_size=5, n_layer=2, n_head=2, n_embd=8)
     model = GPT(config)
