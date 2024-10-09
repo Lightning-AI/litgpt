@@ -28,6 +28,7 @@ litgpt = "litgpt.__main__:main"
 
 [project.optional-dependencies]
 test = [
+    "flaky>=3.8.1",
     "pytest>=8.1.1",
     "pytest-rerunfailures>=14.0",
     "pytest-timeout>=2.3.1",
