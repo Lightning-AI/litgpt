@@ -498,7 +498,7 @@ GPU3	NV12	NV12	NV12	X""", returncode=0)
 
 
 @mock.patch("subprocess.run")
-def test_all_nvlink_connected(mock_run, all_nvlink_connected_output):
+def test_all_nvlink_connected(mock_run, all_nvlink_connected_output, mock_cuda_is_available_true, mock_nvidia_device_properties):
     mock_run.return_value = all_nvlink_connected_output
     with mock.patch("builtins.print") as mock_print:
         check_nvlink_connectivity()
@@ -520,7 +520,7 @@ Legend:
 
 
 @mock.patch("subprocess.run")
-def test_nvlink_partially_connected_output(mock_run, nvlink_partially_connected_output):
+def test_nvlink_partially_connected_output(mock_run, nvlink_partially_connected_output, mock_cuda_is_available_true, mock_nvidia_device_properties):
     mock_run.return_value = nvlink_partially_connected_output
     with mock.patch("builtins.print") as mock_print:
         check_nvlink_connectivity()
@@ -550,7 +550,7 @@ Legend:
 
 
 @mock.patch("subprocess.run")
-def test_nvlink_not_connected_output(mock_run, nvlink_not_connected_output):
+def test_nvlink_not_connected_output(mock_run, nvlink_not_connected_output, mock_cuda_is_available_true, mock_nvidia_device_properties):
     mock_run.return_value = nvlink_not_connected_output
     with mock.patch("builtins.print") as mock_print:
         check_nvlink_connectivity()
