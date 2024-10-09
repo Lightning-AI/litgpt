@@ -645,9 +645,9 @@ Legend:
 
 @mock.patch("subprocess.run")
 def test_check_nvlink_connectivity__returns_fully_connected_when_nvidia_all_nvlink_two_gpus(
-    mock_run, all_nvlink_connected_output, mock_cuda_is_available_true, mock_nvidia_device_properties
+    mock_run, nvidia_smi_nvlink_output_dual_gpu_no_numa, mock_cuda_is_available_true, mock_nvidia_device_properties
 ):
-    mock_run.return_value = all_nvlink_connected_output
+    mock_run.return_value = nvidia_smi_nvlink_output_dual_gpu_no_numa
     with mock.patch("builtins.print") as mock_print:
         check_nvlink_connectivity()
         mock_print.assert_any_call("All GPUs are fully connected via NVLink.")
