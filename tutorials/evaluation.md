@@ -140,13 +140,13 @@ Next, it is recommended to format the dataset according to a prompt style. For e
 from litgpt.prompts import Alpaca
 
 prompt_style = Alpaca()
-prompt_style.apply(test_data[0])
+prompt_style.apply(prompt=test_data[0]["instruction"], **test_data[0])
 ```
 
 which returns
 
 ```
-'Below is an instruction that describes a task. Write a response that appropriately completes the request.\n\n### Instruction:\n{\'instruction\': "Name the author of \'Pride and Prejudice\'.", \'input\': \'\', \'output\': \'Jane Austen.\', \'response\': \' Jane Austen.\\n\'}\n\n### Response:\n'
+"Below is an instruction that describes a task. Write a response that appropriately completes the request.\n\n### Instruction:\nName the author of 'Pride and Prejudice'.\n\n### Response:\n
 ```
 
 Next, load the LLM you want to evaluate. For this example, we use `phi-2`:
@@ -165,7 +165,7 @@ from tqdm import trange
 
 
 for i in trange(len(test_data)):
-    response = llm.generate(prompt_style.apply(test_data[i]))
+    response = llm.generate(prompt_style.apply(prompt=test_data[i]["instruction"], **test_data[i]))
     test_data[i]["response"] = response
 ```
 
