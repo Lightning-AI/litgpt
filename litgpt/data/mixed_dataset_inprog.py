@@ -62,11 +62,6 @@ from torch.utils.data.dataloader import (
 )
 from typing_extensions import override, Self, TypedDict
 
-
-# hacky
-MAX_ITERS = None
-
-
 @dataclass
 class MixedDataset(DataModule):
     """
@@ -402,6 +397,7 @@ class CombinedLoaderWithSamplingRates(DataLoader):
             world_size = dist.get_world_size()
             for name, loader in self.loaders.items():
                 if not isinstance(loader, StreamingDataLoader):
+                    # note: we're keeping the same seed, but shouldn't be an issue since each rank has a subset
                     sharded_dataset = torch.utils.data.Subset(
                         loader.dataset, range(rank, len(loader.dataset), world_size)
                     )

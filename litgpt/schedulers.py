@@ -18,7 +18,7 @@ def get_lr(
 
 
 def adjust_decay_hyperparam(total_decay_steps: float, gradient_accumulation_iters: float, final_lr_ratio: float =  0.1):
-    return (total_decay_steps * math.log(0.5) / (math.log(final_lr_ratio) * gradient_accumulation_iters))
+    return ((total_decay_steps * math.log(0.5)) / (math.log(final_lr_ratio) * gradient_accumulation_iters))
 
 def get_lr_decay_stage(
     learning_rate: float,

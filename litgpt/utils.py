@@ -7,6 +7,7 @@ import os
 import pickle
 import shutil
 import sys
+import time
 from dataclasses import asdict, is_dataclass
 from io import BytesIO
 from pathlib import Path
@@ -376,6 +377,7 @@ def load_checkpoint(
     fabric: L.Fabric, model: nn.Module, checkpoint_path: Path, strict: bool = True
 ) -> None:
     if isinstance(fabric.strategy, FSDPStrategy):
+        # TODO: setting strict = False here means that training with > 1 device works but random weights are loaded
         fabric.load_raw(checkpoint_path, model, strict=strict)
     else:
         state_dict = lazy_load(checkpoint_path)
@@ -623,7 +625,6 @@ def extend_checkpoint_dir(checkpoint_dir: Path) -> Path:
     return new_checkpoint_dir if should_return_new_dir else checkpoint_dir
 
 
-
 def round_and_normalize(probs: torch.Tensor, decimals: int = 5) -> torch.Tensor:
     """
     Round the probabilities to a certain number of decimal places and normalize.
@@ -645,7 +646,9 @@ def sample_from_simplex(n_samples: int, n_dimensions: int) -> torch.Tensor:
 
     This is a uniform sample from the unit simplex in dim dimensions.
     """
-    samples = torch.distributions.Exponential(rate=torch.ones(n_dimensions)).sample((n_samples,))
-    
+    samples = torch.distributions.Exponential(rate=torch.ones(n_dimensions)).sample(
+        (n_samples,)
+    )
+
     # Normalize to make sure each sample sums to 1
     return samples / samples.sum(dim=1, keepdim=True)

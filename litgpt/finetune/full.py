@@ -2,6 +2,7 @@
 import dataclasses
 import math
 import os
+import random
 import time
 from pathlib import Path
 from pprint import pprint
@@ -51,7 +52,7 @@ def setup(
         lr_warmup_steps=100,
         epochs=5,
         max_seq_length=None,
-        max_lr=1e-4
+        max_lr=1e-4,
     ),
     eval: EvalArgs = EvalArgs(interval=600, max_new_tokens=100, max_iters=100),
     optimizer: Union[str, Dict] = "AdamW",
@@ -95,6 +96,7 @@ def setup(
     )
 
     if devices > 1:
+        # NOTE: this causes an error on TC, trying the version from pretrain?
         strategy = FSDPStrategy(
             auto_wrap_policy={Block},
             activation_checkpointing_policy={Block},
@@ -171,7 +173,9 @@ def main(
 
     if const_lr:
         optimizer.param_groups[0]["lr"] = train.max_lr
-        scheduler = torch.optim.lr_scheduler.ConstantLR(optimizer, factor=1, total_iters=lr_max_steps)
+        scheduler = torch.optim.lr_scheduler.ConstantLR(
+            optimizer, factor=1, total_iters=lr_max_steps
+        )
     else:
         scheduler = get_lr_scheduler(
             optimizer, warmup_steps=train.lr_warmup_steps, max_steps=lr_max_steps
@@ -306,11 +310,6 @@ def fit(
         iter_t0 = time.perf_counter()
         batch = next(train_iterator)
         input_ids, targets = batch["input_ids"], batch["labels"]
-        #print("Sample input_ids:", input_ids[0])
-        #print("Decoded input:", tokenizer.decode(input_ids[0]))
-        #print("Sample targets:", targets[0])
-        #valid_targets = targets[0][targets[0] != -100]
-        #print("Decoded targets:", tokenizer.decode(valid_targets))
 
         is_accumulating = (
             state["iter_num"] % train.gradient_accumulation_iters(devices) != 0
@@ -365,7 +364,7 @@ def fit(
         if not is_accumulating and state["step_count"] % eval.interval == 0:
             t0 = time.perf_counter()
             val_loss = validate(fabric, model, val_dataloader, eval)
-            generate_example(fabric, model, tokenizer, eval, data)
+            # generate_example(fabric, model, tokenizer, eval, data)
             t1 = time.perf_counter() - t0
             fabric.print(
                 f"iter {state['iter_num']}: val loss {val_loss.item():.4f}, val time: {t1 * 1000:.2f} ms"
@@ -444,6 +443,43 @@ def generate_example(
         model.train()
         output = tokenizer.decode(output)
         fabric.print("output: ", output)
+
+
+@torch.no_grad()
+# TODO: finish this later
+def _generate_example(
+    fabric: L.Fabric, model: GPT, tokenizer: Tokenizer, eval: EvalArgs, data: DataModule
+):
+    # NOTE: changed this from generating some hardcoded examples to generating some examples from the dataset
+    fabric.print("Generating responses from validation data...")
+    model.eval()
+    random_inds = random.sample(range(len(data.test_dataset)), k=3)
+
+    for idx in random_inds:
+        batch = data.test_dataset[idx]
+        input_ids, targets = fabric.to_device(batch["input_ids"]), fabric.to_device(
+            batch["labels"]
+        )
+
+        input_text = tokenizer.decode(input_ids)
+        fabric.print("input text: ", input_text)
+
+        with fabric.init_tensor():
+            # do not set `max_seq_length=max_returned_token` because memory is not a concern here
+            model.set_kv_cache(batch_size=1)
+        output = generate(
+            model,
+            input_ids,
+            max_returned_tokens=len(input_text) + eval.max_new_tokens,
+            temperature=1,
+            eos_id=tokenizer.eos_id,
+        )
+        model.clear_kv_cache()
+        model.train()
+        breakpoint()
+        new_output_only = tokenizer.decode(output[input_ids.shape[0] :])
+        output = tokenizer.decode(output)
+        fabric.print("Generated answer: ", new_output_only)
 
 
 def get_lr_scheduler(optimizer, warmup_steps: int, max_steps: int):
