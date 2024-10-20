@@ -2,7 +2,7 @@
 import math
 import warnings
 from dataclasses import dataclass
-from typing import Optional, Literal
+from typing import Literal, Optional
 
 
 @dataclass
@@ -53,7 +53,8 @@ class TrainArgs:
     data_scheduler: Optional[Literal["linear", "grad", "ts_gp"]] = None
 
     # use an exponential decay schedule
-    lr_scheduler: Literal["cosine", "decay", "constant"] = "cosine"
+    lr_scheduler: Literal["cosine", "decay", "constant", "wsd"] = "cosine"
+    stable_steps: Optional[int] = None
 
     def __post_init__(self) -> None:
         if self.lr_warmup_fraction and self.lr_warmup_steps:
@@ -68,6 +69,11 @@ class TrainArgs:
             )
         if self.lr_warmup_fraction and not (0 <= self.lr_warmup_fraction <= 1):
             raise ValueError("`--train.lr_warmup_fraction` must be between 0 and 1.")
+
+        if self.lr_scheduler == "wsd" and self.stable_steps is None:
+            raise ValueError(
+                "Must provide `--train.stable_steps` when using `--train.lr_scheduler=wsd`."
+            )
 
         if (
             self.lr_warmup_steps

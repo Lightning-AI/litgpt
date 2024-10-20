@@ -19,6 +19,12 @@ from litgpt.args import EvalArgs, TrainArgs
 from litgpt.config import name_to_config
 from litgpt.data import DataModule, MicroLlama, TinyLlama
 from litgpt.model import Block, CausalSelfAttention, Config, GPT, LLaMAMLP
+from litgpt.schedulers import (
+    get_lr,
+    get_lr_decay_stage,
+    get_lr_linear_decay,
+    get_wsd_lr,
+)
 from litgpt.utils import (
     capture_hparams,
     choose_logger,
@@ -35,7 +41,6 @@ from litgpt.utils import (
     save_config,
     save_hyperparameters,
 )
-from litgpt.schedulers import get_lr, get_lr_decay_stage, get_lr_linear_decay
 
 from torch.utils.data import DataLoader
 from torchmetrics.aggregation import RunningMean
@@ -62,7 +67,8 @@ def setup(
         lr_warmup_steps=2000,
         tie_embeddings=False,
         max_iters=100000,
-        max_additional_steps=None
+        max_additional_steps=None,
+        stable_steps=None,
     ),
     eval: EvalArgs = EvalArgs(interval=1000, max_iters=100),
     optimizer: Union[str, Dict] = "AdamW",
@@ -167,7 +173,7 @@ def setup(
         eval,
         optimizer,
         train.max_iters,
-        train.max_additional_steps
+        train.max_additional_steps,
     )
 
 
@@ -186,7 +192,7 @@ def main(
     eval: EvalArgs,
     optimizer: Union[str, Dict],
     max_iters: Optional[int],
-    max_additional_steps: Optional[int]
+    max_additional_steps: Optional[int],
 ) -> None:
     validate_args(train, eval, initial_checkpoint_dir, resume)
 
@@ -219,10 +225,20 @@ def main(
     # need max iters up here to evenly space
     if max_iters is None:
         if not max_additional_steps:
-            fabric.print("Max iters and max additional steps both not set, defaulting to iters for max tokens...")
+            fabric.print(
+                "Max iters and max additional steps both not set, defaulting to iters for max tokens..."
+            )
             max_tokens_per_device = train.max_tokens // fabric.world_size
             tokens_per_iter = train.micro_batch_size * model.max_seq_length
             max_iters = max_tokens_per_device // tokens_per_iter
+
+    if train.lr_scheduler == "wsd":
+        # convert steps to iters
+        stable_iters = (
+            train.stable_steps * train.gradient_accumulation_iters(devices)
+            if train.stable_steps
+            else max_iters * 0.95 * train.gradient_accumulation_iters(devices)
+        )
 
     optimizer = fabric.setup_optimizers(optimizer)
 
@@ -239,12 +255,11 @@ def main(
     state = {
         "model": model,
         "optimizer": optimizer,
-       # "train_dataloader": train_dataloader,
+        # "train_dataloader": train_dataloader,
         "iter_num": 0,
         "step_count": 0,
     }
 
-    #TODO: remove train_dataloader from state
     if resume is True:
         resume = max(
             out_dir.rglob("step-*/*.pth"),
@@ -268,7 +283,8 @@ def main(
         train,
         eval,
         max_iters,
-        max_additional_steps
+        max_additional_steps,
+        stable_iters,
     )
 
     # Save final checkpoint
@@ -290,7 +306,8 @@ def fit(
     train: TrainArgs,
     eval: EvalArgs,
     max_iters: int,
-    max_additional_steps: Optional[int]
+    max_additional_steps: Optional[int],
+    stable_iters: Optional[int] = None,
 ) -> None:
     model = state["model"]
     optimizer = state["optimizer"]
@@ -319,12 +336,16 @@ def fit(
         max_tokens_per_device = train.max_tokens // fabric.world_size
         tokens_per_iter = train.micro_batch_size * model.max_seq_length
         max_iters = max_tokens_per_device // tokens_per_iter
-    
+
     initial_iter = state["iter_num"]
 
     if max_iters and max_additional_steps:
-        fabric.print("Specified both max iters and max additional steps, overriding max_iters with max_additional_steps")
-        max_iters = initial_iter + (max_additional_steps * train.gradient_accumulation_iters(devices))
+        fabric.print(
+            "Specified both max iters and max additional steps, overriding max_iters with max_additional_steps"
+        )
+        max_iters = initial_iter + (
+            max_additional_steps * train.gradient_accumulation_iters(devices)
+        )
         fabric.print(f"Setting max_iters to {max_iters}")
 
     log_iter_interval = train.log_interval * train.gradient_accumulation_iters(devices)
@@ -345,7 +366,16 @@ def fit(
             break
 
         # determine and set the learning rate for this iteration
-        if train.lr_scheduler == "decay":
+        if train.lr_scheduler == "wsd":
+            lr = get_wsd_lr(
+                initial_lr,
+                state["iter_num"],
+                warmup_iters,
+                stable_iters,
+                train.min_lr,
+                train.gradient_accumulation_iters(devices),
+            )
+        elif train.lr_scheduler == "decay":
             # note: all param groups have the same lr
             lr = get_lr_decay_stage(
                 initial_lr,
@@ -356,7 +386,7 @@ def fit(
                 total_decay_steps=max_iters - initial_iter,
             )
             # note: the hyperparam may have to be scaled according to the gradient accumulation iters?
-            # it looks like we want the final LR to 
+            # it looks like we want the final LR to
         elif train.lr_scheduler == "cosine":
             lr = get_lr(
                 0.0004,  # the default lr is too high. using this one
@@ -527,7 +557,6 @@ def get_dataloaders(
     train_dataloader = data.train_dataloader()
     val_dataloader = data.val_dataloader()
     return train_dataloader, val_dataloader
-
 
 
 def initialize_weights(fabric: L.Fabric, model: GPT, n_layer: int, n_embd: int) -> None:

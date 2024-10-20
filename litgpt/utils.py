@@ -609,7 +609,22 @@ def instantiate_torch_optimizer(optimizer, model_parameters, **kwargs):
         optimizer = optimizer_cls(model_parameters, **kwargs)
     else:
         optimizer = dict(optimizer)  # copy
+        if not optimizer.get("init_args"):
+            optimizer["init_args"] = {}
+
         optimizer["init_args"].update(kwargs)
+        # NOTE: this seems to have been causing an issue where the lr is not passed
+        if isinstance(optimizer["lr"], str):
+            optimizer["lr"] = float(optimizer["lr"])
+        if optimizer["init_args"].get("lr") and isinstance(
+            optimizer["init_args"]["lr"], str
+        ):
+            optimizer["init_args"]["lr"] = float(optimizer["init_args"]["lr"])
+
+        if "lr" in optimizer and "lr" not in optimizer["init_args"]:
+            optimizer["init_args"]["lr"] = optimizer["lr"]
+            del optimizer["lr"]
+
         optimizer = instantiate_class(model_parameters, optimizer)
     return optimizer
 

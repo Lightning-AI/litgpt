@@ -1,5 +1,6 @@
 import math
 
+
 # learning rate decay scheduler (cosine with linear warmup)
 def get_lr(
     learning_rate: float, it: int, warmup_iters: int, max_iters: int, min_lr: float
@@ -17,8 +18,15 @@ def get_lr(
     return min_lr + coeff * (learning_rate - min_lr)
 
 
-def adjust_decay_hyperparam(total_decay_steps: float, gradient_accumulation_iters: float, final_lr_ratio: float =  0.1):
-    return ((total_decay_steps * math.log(0.5)) / (math.log(final_lr_ratio) * gradient_accumulation_iters))
+def adjust_decay_hyperparam(
+    total_decay_steps: float,
+    gradient_accumulation_iters: float,
+    final_lr_ratio: float = 0.1,
+):
+    return (total_decay_steps * math.log(0.5)) / (
+        math.log(final_lr_ratio) * gradient_accumulation_iters
+    )
+
 
 def get_lr_decay_stage(
     learning_rate: float,
@@ -36,8 +44,12 @@ def get_lr_decay_stage(
     if it < decay_start:
         return learning_rate
     # make sure the final denom is the same as in 200 steps ver
-    decay_hyperparam = adjust_decay_hyperparam(total_decay_steps, gradient_accumulation_iters, 0.1)  
-    decay_ratio = 0.5 ** ((it - decay_start) / (decay_hyperparam * gradient_accumulation_iters))
+    decay_hyperparam = adjust_decay_hyperparam(
+        total_decay_steps, gradient_accumulation_iters, 0.1
+    )
+    decay_ratio = 0.5 ** (
+        (it - decay_start) / (decay_hyperparam * gradient_accumulation_iters)
+    )
     decayed_lr = learning_rate * decay_ratio
     return decayed_lr
 
@@ -48,3 +60,25 @@ def get_lr_linear_decay(
     if it < warmup_iters:
         return learning_rate * it / warmup_iters
     return learning_rate * (1 - it / max_iters) + min_lr
+
+
+def get_wsd_lr(
+    learning_rate: float,
+    it: int,
+    warmup_iters: int,
+    stable_iters: int,
+    min_lr: float,
+    gradient_accumulation_iters: int,
+    decay_hyperparam: int = 50,
+) -> float:
+    if it < warmup_iters:
+        return learning_rate * it / warmup_iters
+    if it < stable_iters:
+        return learning_rate
+    else:
+        decay_hyperparam = adjust_decay_hyperparam(
+            total_decay_steps, gradient_accumulation_iters, 0.1
+        )
+        decay_ratio = 0.5 ** (
+            (it - decay_start) / (decay_hyperparam * gradient_accumulation_iters)
+        )
