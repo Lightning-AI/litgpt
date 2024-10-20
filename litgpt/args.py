@@ -41,6 +41,7 @@ class TrainArgs:
     max_norm: Optional[float] = None
     min_lr: float = 6e-5
     init_lr: float = 2e-5
+    max_lr: float = 2e-4
 
     # for adaptive sampling
     initial_sampling_rate: Optional[str] = "[0.8, 0.2]"

@@ -3,6 +3,7 @@
 import json
 import os
 import subprocess
+import sys
 from pathlib import Path
 from pprint import pprint
 from typing import Optional, Union
@@ -16,22 +17,33 @@ from litgpt.utils import copy_config_files, extend_checkpoint_dir
 def prepare_results(results, save_filepath, print_results=True):
     from lm_eval.utils import make_table
 
+    # dump samples to file
+    # if "samples" in results:
+    #     samples_filepath = save_filepath.parent / "samples.json"
+    #     with samples_filepath.open("w") as f:
+    #         for sample in results["samples"]:
+    #             f.write(json.dumps(sample, ensure_ascii=False) + "\n")
+    #     print(f"Samples written to {samples_filepath}")
+
     if print_results:
         print(make_table(results))
         if "groups" in results:
             print(make_table(results, "groups"))
     try:
-        json_result = json.dumps(results, indent=2, ensure_ascii=False)
+        json_result = json.dumps(results["results"], indent=2, ensure_ascii=False)
         save_filepath.open("w", encoding="utf-8").write(json_result)
+        print(f"Result saved at {save_filepath}")
     except:
         # TODO: troubleshoot this later
         print("Failed to save results, continuing...")
 
-def print_results_to_file(results_bytes, save_path):
-    with open(save_path, "wb") as f:
-        f.write(results_bytes)
-    
+
+def print_results_to_file(results_str, save_path):
+    with open(save_path, "w") as f:
+        f.write(results_str)
+
     print(f"Eval harness result written to {save_path}")
+
 
 def convert_and_evaluate(
     checkpoint_dir: Path,
@@ -47,6 +59,7 @@ def convert_and_evaluate(
     save_filepath: Optional[Path] = None,
     use_cli: bool = True,
     include_path: Optional[str] = None,
+    parallelize: bool = False,
 ) -> None:
     """Evaluate a model with the LM Evaluation Harness.
 
@@ -94,6 +107,11 @@ def convert_and_evaluate(
     if device is None:
         device = "cuda" if torch.cuda.is_available() else "cpu"
 
+    if parallelize and not use_cli:
+        print(
+            "Warning: parallelize is only supported with the lm_eval CLI. Ignoring parallelize."
+        )
+
     if out_dir is None:
         out_dir = checkpoint_dir / "evaluate"
     else:
@@ -127,23 +145,58 @@ def convert_and_evaluate(
 
     os.environ["TOKENIZERS_PARALLELISM"] = "false"
     if use_cli:
-        results = subprocess.run(
-            [
-                "with-proxy",
-                "lm_eval",
-                "--model",
-                "hf",
-                "--model_args",
-                f"pretrained={out_dir}",
-                "--include_path",
-                include_path,
-                "--tasks",
-                tasks,
-                "--trust_remote_code",
-            ],
-            stdout=subprocess.PIPE,
-            stderr=subprocess.STDOUT,
-        ).stdout
+        model_args = f"pretrained={out_dir}"
+        if parallelize:
+            print("Parallelizing")
+            model_args += ",parallelize=True"
+        if include_path:
+            results = subprocess.run(
+                [
+                    "with-proxy",
+                    "lm_eval",
+                    "--model",
+                    "hf",
+                    "--model_args",
+                    model_args,
+                    "--include_path",
+                    include_path,
+                    "--tasks",
+                    tasks,
+                    "--trust_remote_code",
+                ],
+                stdout=subprocess.PIPE,
+                stderr=subprocess.STDOUT,
+            ).stdout
+        else:
+            process = subprocess.Popen(
+                [
+                    "with-proxy",
+                    "lm_eval",
+                    "--model",
+                    "hf",
+                    "--model_args",
+                    model_args,
+                    "--tasks",
+                    tasks,
+                    "--trust_remote_code",
+                    "--output_path",
+                    save_filepath,
+                    "--log_samples",
+                ],
+                stdout=subprocess.PIPE,
+                stderr=subprocess.STDOUT,
+                universal_newlines=True,
+                bufsize=1,
+            )
+            results = []
+            for line in process.stdout:
+                sys.stdout.write(line)
+                sys.stdout.flush()
+                results.append(line)
+
+            process.wait()
+            results = "".join(results)
+
         txt_save_filepath = str(save_filepath).replace(".json", ".txt")
         print_results_to_file(results, txt_save_filepath)
     else:
