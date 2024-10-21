@@ -247,6 +247,7 @@ def fit(
     while state["step_count"] < max_steps:
         state["iter_num"] += 1
         iter_t0 = time.perf_counter()
+        batch = next(train_iterator)
         if train_iterator.epoch >= train.epochs:
             break
         input_ids, targets = batch["input_ids"], batch["labels"]
