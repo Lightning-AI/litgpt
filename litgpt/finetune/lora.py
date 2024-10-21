@@ -299,10 +299,12 @@ def fit(
     total_lengths = 0
     total_t0 = time.perf_counter()
 
-    while step_count < max_steps and train_iterator.epoch < train.epochs:
+    while step_count < max_steps:
         iter_num += 1
         iter_t0 = time.perf_counter()
         batch = next(train_iterator)
+        if train_iterator.epoch >= train.epochs:
+            break
         input_ids, targets = batch["input_ids"], batch["labels"]
 
         is_accumulating = iter_num % train.gradient_accumulation_iters(devices) != 0
