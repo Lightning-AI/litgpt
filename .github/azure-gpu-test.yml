@@ -44,8 +44,8 @@ jobs:
 
     - script: |
         pip install --upgrade pip
+        pip uninstall torch  # uninstall so that the latest supported torch version is installed from the .toml file in the next line
         pip install '.[all,test]'
-        pip install -U torch torchvision torchaudio
       displayName: 'Install dependencies'
 
     - bash: |
