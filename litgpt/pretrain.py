@@ -7,7 +7,6 @@ from datetime import timedelta
 from functools import partial
 from pathlib import Path
 from typing import Optional, Tuple, Union, Dict
-import warnings
 
 import lightning as L
 import torch

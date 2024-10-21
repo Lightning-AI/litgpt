@@ -130,7 +130,7 @@ def test_llm_load_hub_init(tmp_path):
 
     text_2 = llm.generate("text", max_new_tokens=10, top_k=1, stream=True)
     text_2 = "".join(list(text_2))
-    assert text_1 == text_2, (text1, text_2)
+    assert text_1 == text_2, (text_1, text_2)
 
 
 def test_model_not_initialized(tmp_path):
@@ -174,14 +174,14 @@ def test_more_than_1_device_for_sequential_gpu(tmp_path):
             model=model_name,
         )
 
-    with pytest.raises(NotImplementedError, match=f"Support for multiple devices is currently only implemented for generate_strategy='sequential'|'tensor_parallel'."):
+    with pytest.raises(NotImplementedError, match="Support for multiple devices is currently only implemented for generate_strategy='sequential'|'tensor_parallel'."):
         llm.distribute(devices=2)
 
     llm.distribute(devices=2, generate_strategy="sequential")
     assert isinstance(llm.generate("What do llamas eat?"), str)
     assert str(llm.model.transformer.h[0].mlp.fc.weight.device) == "cuda:0"
     last_layer_idx = len(llm.model.transformer.h) - 1
-    assert str(llm.model.transformer.h[last_layer_idx].mlp.fc.weight.device) == f"cuda:1"
+    assert str(llm.model.transformer.h[last_layer_idx].mlp.fc.weight.device) == "cuda:1"
 
     # Also check with default (devices="auto") setting
     llm.distribute(generate_strategy="sequential")
@@ -270,7 +270,7 @@ def test_fixed_kv_cache(tmp_path):
 
     # Request too many tokens
     with pytest.raises(NotImplementedError, match="max_seq_length 512 needs to be >= 9223372036854775809"):
-        output_text = llm.generate("hello world", max_new_tokens=2**63)
+        _ = llm.generate("hello world", max_new_tokens=2**63)
 
 
 def test_invalid_accelerator(tmp_path):

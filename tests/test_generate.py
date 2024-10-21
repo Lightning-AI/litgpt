@@ -6,7 +6,6 @@ import sys
 from contextlib import redirect_stderr, redirect_stdout
 from io import StringIO
 import os
-from pathlib import Path
 from unittest import mock
 from unittest.mock import ANY, Mock, call
 

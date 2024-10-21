@@ -6,14 +6,13 @@ from contextlib import redirect_stderr, redirect_stdout
 from io import StringIO
 from itertools import repeat
 from pathlib import Path
-from unittest.mock import ANY, MagicMock, Mock, call, patch
+from unittest.mock import MagicMock, Mock, patch
 import sys
-from typing import Iterable
+from typing import Iterable, Iterator
 
 import pytest
 import torch
 import yaml
-from lightning.fabric import Fabric
 
 import litgpt.chat.base as chat
 import litgpt.generate.base as generate
