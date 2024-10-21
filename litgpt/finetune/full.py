@@ -6,7 +6,6 @@ import time
 from pathlib import Path
 from pprint import pprint
 from typing import Dict, List, Literal, Optional, Tuple, Union
-import warnings
 
 import lightning as L
 import torch

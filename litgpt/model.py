@@ -541,11 +541,10 @@ def batched_index_copy_(t, dim, idx, val):
             return t.index_copy_(dim, idx, val)
 
         assert idx.dim() == 2, f"multiple batch dims not yet {idx.shape=}"
-        assert dim != 0, f"cannot index batch dim"
+        assert dim != 0, f"cannot index batch dim {dim=}"
         batch_size, idx_size = idx.shape
         assert batch_size == t.size(0)
         assert batch_size == val.size(0)
-        t_indexed_dim = t.size(dim)
 
         # if we can view the batch and indexed dimensions together, we could
         # do index trickery. This is, sadly, not the case for kvcache so we
