@@ -137,6 +137,7 @@ meta-llama/Meta-Llama-3.1-8B
 meta-llama/Meta-Llama-3.1-8B-Instruct
 microsoft/phi-1_5
 microsoft/phi-2
+microsoft/Phi-3-mini-128k-instruct
 microsoft/Phi-3-mini-4k-instruct
 microsoft/Phi-3.5-mini-instruct
 mistralai/mathstral-7B-v0.1
