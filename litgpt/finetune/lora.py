@@ -105,6 +105,7 @@ def setup(
     checkpoint_dir = auto_download_checkpoint(model_name=checkpoint_dir, access_token=access_token)
     pprint(locals())
     data = Alpaca() if data is None else data
+
     devices = parse_devices(devices)
     out_dir = init_out_dir(out_dir)
 
@@ -221,7 +222,7 @@ def main(
     load_checkpoint(fabric, model, checkpoint_path, strict=False)
 
     train_time = time.perf_counter()
-    fit(
+    token_counts = fit(
         fabric,
         model,
         optimizer,
@@ -235,9 +236,30 @@ def main(
         eval,
         data,
     )
-    fabric.print(f"Training time: {(time.perf_counter()-train_time):.2f}s")
+
+    training_time = time.perf_counter() - train_time
+    tok_sec = token_counts["raw_tokens_plus_prompt_template_and_padding"] / training_time
+    output = f"""
+| ------------------------------------------------------
+| Token Counts
+| - Input Tokens              :  {token_counts["raw_tokens"]:>5}
+| - Tokens w/ Prompt          :  {token_counts["raw_tokens_plus_prompt_template"]:>5}
+| - Total Tokens (w/ Padding) :  {token_counts["raw_tokens_plus_prompt_template_and_padding"]:>5}
+| -----------------------------------------------------
+| Performance
+| - Training Time             :  {training_time:.2f} s
+| - Tok/sec                   :  {tok_sec:.2f} tok/s
+| -----------------------------------------------------
+"""
+
     if fabric.device.type == "cuda":
-        fabric.print(f"Memory used: {torch.cuda.max_memory_allocated() / 1e9:.02f} GB")
+        memory_used = torch.cuda.max_memory_allocated() / 1e9
+        output += f"| Memory Usage                                                                 \n"
+        output += f"| - Memory Used               :  {memory_used:.02f} GB                                        \n"
+    output += "=======================================================\n"
+
+    # Finally print
+    fabric.print(output)
 
     # Final evaluation
     if eval.final_validation:
@@ -271,7 +293,7 @@ def fit(
     train: TrainArgs,
     eval: EvalArgs,
     data: DataModule,
-) -> None:
+) -> dict:
     tokenizer = Tokenizer(checkpoint_dir)
     longest_seq_length, longest_seq_ix = get_longest_seq_length(ConcatDataset([train_dataloader.dataset, val_dataloader.dataset]))
     model.max_seq_length = min(longest_seq_length, train.max_seq_length or float("inf"))
@@ -298,6 +320,12 @@ def fit(
     iter_num = 0
     total_lengths = 0
     total_t0 = time.perf_counter()
+
+    token_counts = {
+        "raw_tokens": torch.tensor(0, device=fabric.device, dtype=torch.long),
+        "raw_tokens_plus_prompt_template": torch.tensor(0, device=fabric.device, dtype=torch.long),
+        "raw_tokens_plus_prompt_template_and_padding": torch.tensor(0, device=fabric.device, dtype=torch.long),
+    }
 
     while step_count < max_steps:
         iter_num += 1
@@ -331,14 +359,19 @@ def fit(
                 time=t1 - total_t0, batches=iter_num, samples=iter_num * train.micro_batch_size, lengths=total_lengths
             )
             throughput.compute_and_log(step=iter_num)
+
+            token_counts["raw_tokens"] += batch["token_counts"]["raw"].sum().item()
+            token_counts["raw_tokens_plus_prompt_template"] += batch["token_counts"]["raw_plus_prompt_template"].sum().item()
+            token_counts["raw_tokens_plus_prompt_template_and_padding"] += input_ids.numel()
+
             metrics = {
                 "loss": loss,
                 "iter": iter_num,
                 "step": step_count,
                 "epoch": train_iterator.epoch,
                 "iter_time": t1 - iter_t0,
-                "tokens": iter_num * train.micro_batch_size * model.config.block_size,
-                "total_tokens": (iter_num * train.micro_batch_size * model.config.block_size * fabric.world_size),
+                "tokens": token_counts["raw_tokens_plus_prompt_template"],
+                "total_tokens": token_counts["raw_tokens_plus_prompt_template"] * fabric.world_size,
                 "learning_rate": scheduler.get_last_lr()[0],
             }
             if isinstance(val_loss, torch.Tensor):
@@ -370,6 +403,13 @@ def fit(
                 copy_config_files(checkpoint_dir, checkpoint_file.parent)
                 save_hyperparameters(setup, checkpoint_file.parent)
                 save_prompt_style(data.prompt_style, checkpoint_file.parent)
+
+    total_token_counts = {}
+    for key in token_counts:
+        total = fabric.all_reduce(token_counts[key], reduce_op="sum")
+        total_token_counts[key] = total.item()
+
+    return total_token_counts
 
 
 # FSDP has issues with `inference_mode`
