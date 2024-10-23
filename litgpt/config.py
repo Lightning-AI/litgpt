@@ -1660,6 +1660,24 @@ phi = [
         sliding_window_size=2048,
         sliding_window_layer_placing="all",
     ),
+    # https://huggingface.co/microsoft/Phi-3-mini-128k-instruct/blob/main/config.json
+    dict(
+        name="Phi-3-mini-128k-instruct",
+        hf_config=dict(org="microsoft", name="Phi-3-mini-128k-instruct"),
+        vocab_size=32000,
+        padded_vocab_size=32064,
+        block_size=131072,
+        n_embd=3072,
+        n_layer=32,
+        rotary_percentage=1.0,
+        bias=False,
+        norm_class_name="RMSNorm",
+        intermediate_size=8192,
+        mlp_class_name="LLaMAMLP",
+        parallel_residual=False,
+        sliding_window_size=262145,
+        sliding_window_layer_placing="all",
+    ),
     # https://huggingface.co/microsoft/Phi-3.5-mini-instruct/blob/main/config.json
     dict(
         name="Phi-3.5-mini-instruct",
