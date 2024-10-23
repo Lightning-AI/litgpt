@@ -155,6 +155,11 @@ def test_adapter_bitsandbytes(monkeypatch, tmp_path, fake_checkpoint_dir, alpaca
 
     monkeypatch.setattr(module, "load_checkpoint", Mock())
     train_mock = Mock()
+    train_mock.return_value = {
+        "raw_tokens": 1000,
+        "raw_tokens_plus_prompt_template": 1100,
+        "raw_tokens_plus_prompt_template_and_padding": 1200,
+    }
     monkeypatch.setattr(module, "fit", train_mock)
 
     stdout = StringIO()
