@@ -27,6 +27,7 @@ from litgpt.tokenizer import Tokenizer
 from litgpt.utils import (
     auto_download_checkpoint,
     check_nvlink_connectivity,
+    create_finetuning_performance_report,
     CycleIterator,
     check_valid_checkpoint_dir,
     choose_logger,
@@ -238,27 +239,7 @@ def main(
     )
 
     training_time = time.perf_counter() - train_time
-    tok_sec = token_counts["raw_tokens_plus_prompt_template_and_padding"] / training_time
-    output = f"""
-| ------------------------------------------------------
-| Token Counts
-| - Input Tokens              :  {token_counts["raw_tokens"]:>5}
-| - Tokens w/ Prompt          :  {token_counts["raw_tokens_plus_prompt_template"]:>5}
-| - Total Tokens (w/ Padding) :  {token_counts["raw_tokens_plus_prompt_template_and_padding"]:>5}
-| -----------------------------------------------------
-| Performance
-| - Training Time             :  {training_time:.2f} s
-| - Tok/sec                   :  {tok_sec:.2f} tok/s
-| -----------------------------------------------------
-"""
-
-    if fabric.device.type == "cuda":
-        memory_used = torch.cuda.max_memory_allocated() / 1e9
-        output += f"| Memory Usage                                                                 \n"
-        output += f"| - Memory Used               :  {memory_used:.02f} GB                                        \n"
-    output += "=======================================================\n"
-
-    # Finally print
+    output = create_finetuning_performance_report(training_time, token_counts, fabric.device.type)
     fabric.print(output)
 
     # Final evaluation
@@ -351,6 +332,10 @@ def fit(
             scheduler.step()
             step_count += 1
 
+        token_counts["raw_tokens"] += batch["token_counts"]["raw"].sum().item()
+        token_counts["raw_tokens_plus_prompt_template"] += batch["token_counts"]["raw_plus_prompt_template"].sum().item()
+        token_counts["raw_tokens_plus_prompt_template_and_padding"] += input_ids.numel()
+
         total_lengths += input_ids.numel()
         if iter_num % train.log_interval == 0:
             loss = running_loss.compute().item()  # expensive device-to-host synchronization
@@ -359,11 +344,6 @@ def fit(
                 time=t1 - total_t0, batches=iter_num, samples=iter_num * train.micro_batch_size, lengths=total_lengths
             )
             throughput.compute_and_log(step=iter_num)
-
-            token_counts["raw_tokens"] += batch["token_counts"]["raw"].sum().item()
-            token_counts["raw_tokens_plus_prompt_template"] += batch["token_counts"]["raw_plus_prompt_template"].sum().item()
-            token_counts["raw_tokens_plus_prompt_template_and_padding"] += input_ids.numel()
-
             metrics = {
                 "loss": loss,
                 "iter": iter_num,

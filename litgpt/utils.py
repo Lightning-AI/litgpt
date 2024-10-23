@@ -760,3 +760,27 @@ def fix_and_load_json(s):
         return json.loads(s)
     except json.JSONDecodeError as e:
         raise ValueError(f"Failed to parse JSON after fixing: {e}")
+
+
+def create_finetuning_performance_report(training_time, token_counts, device_type):
+    tok_sec = token_counts["raw_tokens_plus_prompt_template_and_padding"] / training_time
+    output = f"""
+| ------------------------------------------------------
+| Token Counts
+| - Input Tokens              :  {token_counts["raw_tokens"]:>5}
+| - Tokens w/ Prompt          :  {token_counts["raw_tokens_plus_prompt_template"]:>5}
+| - Total Tokens (w/ Padding) :  {token_counts["raw_tokens_plus_prompt_template_and_padding"]:>5}
+| -----------------------------------------------------
+| Performance
+| - Training Time             :  {training_time:.2f} s
+| - Tok/sec                   :  {tok_sec:.2f} tok/s
+| -----------------------------------------------------
+"""
+
+    if device_type == "cuda":
+        memory_used = torch.cuda.max_memory_allocated() / 1e9
+        output += f"| Memory Usage                                                                 \n"
+        output += f"| - Memory Used               :  {memory_used:.02f} GB                                        \n"
+    output += "=======================================================\n"
+
+    return output
