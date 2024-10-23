@@ -2,6 +2,7 @@
 
 """Utility functions for training and inference."""
 import inspect
+from argparse import Namespace
 import math
 import os
 import pickle
@@ -29,17 +30,63 @@ import torch
 import torch.nn as nn
 import torch.utils._device
 import yaml
-from lightning.fabric.loggers import CSVLogger, TensorBoardLogger
+from lightning.fabric.loggers.logger import rank_zero_experiment
+from lightning.fabric.utilities.rank_zero import rank_zero_only
+from lightning.fabric.loggers import CSVLogger, TensorBoardLogger, Logger
 from lightning.fabric.strategies import FSDPStrategy
 from lightning.fabric.utilities.load import _lazy_load as lazy_load
 from lightning.pytorch.cli import instantiate_class
 from lightning.pytorch.loggers import WandbLogger
 from torch.serialization import normalize_storage_type
 from typing_extensions import Self
+from lightning.fabric.utilities.logger import (
+    _add_prefix,
+    _convert_params, 
+    _flatten_dict,
+    _sanitize_params as _utils_sanitize_params
+)
+from pathlib import Path
 
 if TYPE_CHECKING:
     from litgpt import Config, GPT
 
+class RotatingTensorBoardLogger(TensorBoardLogger):
+    """A tensorboard logger that switches files every max_writes steps. Only really necessary on manifoldfs"""
+    def __init__(
+        self,
+        root_dir: str,
+        name: str = "lightning_logs",
+        max_writes: int = 3000,
+        **kwargs
+    ):
+        super().__init__(root_dir=root_dir, name=name, **kwargs)
+        self._max_writes = max_writes
+        self._write_count = 0
+        self._rotation_count = 0
+
+    @property
+    def log_dir(self) -> str:
+        base_dir = super().log_dir
+        base_dir = os.path.join(base_dir, f"rotation_{self._rotation_count}")
+        os.makedirs(base_dir, exist_ok=True)
+        return base_dir
+
+    def _should_rotate(self) -> bool:
+        return self._write_count >= self._max_writes
+
+    def _rotate_experiment(self) -> None:
+        if self._experiment is not None:
+            self.finalize("rotation")
+        self._rotation_count += 1
+        self._write_count = 0
+        self._experiment = None
+
+    @rank_zero_only
+    def log_metrics(self, metrics, step=None):
+        if self._should_rotate():
+            self._rotate_experiment()
+        super().log_metrics(metrics, step)
+        self._write_count += 1
 
 def init_out_dir(out_dir: Path) -> Path:
     if not out_dir.is_absolute() and "LIGHTNING_ARTIFACTS_DIR" in os.environ:
@@ -561,9 +608,10 @@ def choose_logger(
             **kwargs,
         )
     if logger_name == "tensorboard":
-        return TensorBoardLogger(
-            root_dir=(out_dir / "logs"), name="tensorboard", **kwargs
-        )
+        # return TensorBoardLogger(
+        #     root_dir=(out_dir / "logs"), name="tensorboard", **kwargs
+        # )
+        return RotatingTensorBoardLogger(root_dir=(out_dir / "logs"), name="tensorboard", **kwargs)
     if logger_name == "wandb":
         return WandbLogger(project=name, resume=resume, **kwargs)
     raise ValueError(
