@@ -106,7 +106,6 @@ def setup(
     checkpoint_dir = auto_download_checkpoint(model_name=checkpoint_dir, access_token=access_token)
     pprint(locals())
     data = Alpaca() if data is None else data
-
     devices = parse_devices(devices)
     out_dir = init_out_dir(out_dir)
 
