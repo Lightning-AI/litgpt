@@ -25,9 +25,10 @@ def test_dolly(mock_tokenizer, dolly_path):
     train_batch = next(iter(train_dataloader))
     val_batch = next(iter(val_dataloader))
 
-    assert train_batch.keys() == val_batch.keys() == {"input_ids", "labels"}
-    assert all(seq.shape == (2, 10) for seq in train_batch.values())
-    assert all(seq.shape == (2, 10) for seq in val_batch.values())
+    assert train_batch.keys() == val_batch.keys() == {"input_ids", "labels", "token_counts"}
+    for key in ["input_ids", "labels"]:
+        assert train_batch[key].shape == (2, 10), f"Unexpected shape for train_batch[{key}]"
+        assert val_batch[key].shape == (2, 10), f"Unexpected shape for val_batch[{key}]"
 
     assert isinstance(train_dataloader.dataset.prompt_style, AlpacaPromptStyle)
     assert isinstance(val_dataloader.dataset.prompt_style, AlpacaPromptStyle)
