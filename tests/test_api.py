@@ -402,11 +402,10 @@ def test_forward_method(tmp_path):
 
 
 def test_precision_selection(tmp_path):
-    with patch("torch.backends.mps.is_available", return_value=USE_MPS):
-        llm = LLM.load(
-            model="EleutherAI/pythia-14m",
-            init="pretrained"
-        )
+    llm = LLM.load(
+        model="EleutherAI/pythia-14m",
+        init="pretrained"
+    )
 
     llm.distribute(precision="16-true")
     assert llm.model._forward_module.lm_head.weight.dtype == torch.float16, \
