@@ -42,6 +42,7 @@ from litgpt.utils import (
     num_parameters,
     parse_devices,
     save_hyperparameters,
+    select_sft_generate_example,
 )
 
 
@@ -757,3 +758,60 @@ def test_fix_and_load_json():
 
     result_missing_commas = fix_and_load_json(invalid_json_missing_commas)
     assert result_missing_commas == expected_output_missing_commas
+
+
+def test_select_sft_generate_example():
+    eval_mock = mock.MagicMock()
+    data_mock = mock.MagicMock()
+
+    test_dataset = {"data": [{"instruction": "Test instruction 1"}, {"instruction": "Test instruction 2"}]}
+    train_dataset = {"data": [{"instruction": "Train instruction 1"}, {"instruction": "Train instruction 2"}]}
+
+    data_mock.test_dataset.data = test_dataset["data"]
+    data_mock.train_dataset.data = train_dataset["data"]
+
+    # Test "first" instruction from test dataset
+    eval_mock.evaluate_example = "first"
+    instruction = select_sft_generate_example(eval_mock, data_mock)
+    assert instruction == "Test instruction 1"
+
+    # Test "first" instruction from train dataset when test dataset is empty
+    data_mock.test_dataset.data = []
+    instruction = select_sft_generate_example(eval_mock, data_mock)
+    assert instruction == "Train instruction 1"
+
+    # Test random selection from test dataset
+    eval_mock.evaluate_example = "random"
+    data_mock.test_dataset.data = [{"instruction": "Test instruction 1"}, {"instruction": "Test instruction 2"}]
+    with mock.patch('random.randint', return_value=1):
+        instruction = select_sft_generate_example(eval_mock, data_mock)
+        assert instruction == "Test instruction 2"
+
+    # Test random selection from train dataset when test dataset is empty
+    data_mock.test_dataset.data = []
+    with mock.patch('random.randint', return_value=1):
+        instruction = select_sft_generate_example(eval_mock, data_mock)
+        assert instruction == "Train instruction 2"
+
+    # Test specific index from test dataset
+    eval_mock.evaluate_example = 1
+    data_mock.test_dataset.data = [{"instruction": "Test instruction 1"}, {"instruction": "Test instruction 2"}]
+    instruction = select_sft_generate_example(eval_mock, data_mock)
+    assert instruction == "Test instruction 2"
+
+    # Test specific index from train dataset when test dataset has fewer elements
+    data_mock.test_dataset.data = [{"instruction": "Test instruction 1"}]
+    instruction = select_sft_generate_example(eval_mock, data_mock)
+    assert instruction == "Train instruction 2"
+
+    # Test out-of-range index
+    eval_mock.evaluate_example = 2
+    data_mock.test_dataset.data = [{"instruction": "Test instruction 1"}]
+    data_mock.train_dataset.data = [{"instruction": "Train instruction 1"}]
+    with pytest.raises(IndexError):
+        select_sft_generate_example(eval_mock, data_mock)
+
+    # Test unknown evaluation type
+    eval_mock.evaluate_example = "unknown"
+    with pytest.raises(ValueError):
+        select_sft_generate_example(eval_mock, data_mock)

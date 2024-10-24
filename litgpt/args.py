@@ -1,7 +1,7 @@
 # Copyright Lightning AI. Licensed under the Apache License 2.0, see LICENSE file.
 import math
 from dataclasses import dataclass
-from typing import Optional
+from typing import Optional, Union
 import warnings
 
 
@@ -85,3 +85,8 @@ class EvalArgs:
     """Whether to evaluate on the validation set at the beginning of the training"""
     final_validation: bool = True
     """Whether to evaluate on the validation set at the end of the training"""
+    final_validation: bool = True
+    """Whether to evaluate on the validation set at the end of the training"""
+    evaluate_example: Union[str, int] = "first"
+    """How to pick an example instruction to evaluate periodically during training.
+       Can be "first", "random", or an integer index to pick a specific example."""

@@ -1010,7 +1010,7 @@ configs.append(
     dict(
         name="Llama-3.1-Nemotron-70B-Instruct-HF",
         hf_config=dict(org="nvidia", name="Llama-3.1-Nemotron-70B-Instruct-HF"),
-        block_size=131072,
+        block_size=400,
         vocab_size=128000,
         padded_vocab_size=128256,
         n_layer=80,
