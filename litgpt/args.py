@@ -85,8 +85,6 @@ class EvalArgs:
     """Whether to evaluate on the validation set at the beginning of the training"""
     final_validation: bool = True
     """Whether to evaluate on the validation set at the end of the training"""
-    final_validation: bool = True
-    """Whether to evaluate on the validation set at the end of the training"""
     evaluate_example: Union[str, int] = "first"
     """How to pick an example instruction to evaluate periodically during training.
        Can be "first", "random", or an integer index to pick a specific example."""
