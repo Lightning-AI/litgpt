@@ -782,7 +782,7 @@ def create_finetuning_performance_report(training_time, token_counts, device_typ
         memory_used = torch.cuda.max_memory_allocated() / 1e9
         output += f"| Memory Usage                                                                 \n"
         output += f"| - Memory Used               :  {memory_used:.02f} GB                                        \n"
-    output += "=======================================================\n"
+    output += "-------------------------------------------------------\n"
 
     return output
 
