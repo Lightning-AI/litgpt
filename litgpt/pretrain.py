@@ -237,9 +237,22 @@ def main(
     # Save final checkpoint
     save_checkpoint(fabric, state, tokenizer_dir, out_dir / "final" / "lit_model.pth")
 
-    fabric.print(f"Training time: {(time.perf_counter()-train_time):.2f}s")
+    total_tokens = state["iter_num"] * train.micro_batch_size * model.max_seq_length * fabric.world_size
+
+    # Print formatted output
+    separator = "-" * 40
+    fabric.print(separator)
+    fabric.print("| Performance")
+    fabric.print(f"| - Total tokens  : {total_tokens:,}")
+    fabric.print(f"| - Training Time : {(time.perf_counter()-train_time):.2f} s")
+    fabric.print(f"| - Tok/sec       : {total_tokens / train_time:.2f} tok/s")
+    fabric.print("| " + "-" * 40)
+
     if fabric.device.type == "cuda":
-        fabric.print(f"Memory used: {torch.cuda.max_memory_allocated() / 1e9:.02f} GB")
+        memory_used = torch.cuda.max_memory_allocated() / 1e9
+        fabric.print("| Memory Usage")
+        fabric.print(f"| - Memory Used   : {memory_used:.2f} GB")
+    fabric.print(separator)
 
 
 def fit(
