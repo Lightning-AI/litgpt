@@ -21,6 +21,12 @@ from litgpt.api import (
 from litgpt.scripts.download import download_from_hub
 
 
+skip_in_ci_on_macos = pytest.mark.skipif(
+    sys.platform == "darwin" and os.getenv("GITHUB_ACTIONS") == "true",
+    reason="Skipped on macOS in CI environment because CI machine does not have enough memory to run this test."
+)
+
+
 if sys.platform == "darwin" and os.getenv("GITHUB_ACTIONS") == "true":
     USE_MPS = False
 elif torch.backends.mps.is_available():
@@ -399,3 +405,15 @@ def test_forward_method(tmp_path):
     logits, loss = llm(inputs, target_ids=inputs)
     assert logits.shape == torch.Size([6, 128, 50304])
     assert isinstance(loss.item(), float)
+
+
+@skip_in_ci_on_macos  # The macOS CI machine segfaults here (it works fine locally though)
+def test_precision_selection(tmp_path):
+    llm = LLM.load(
+        model="EleutherAI/pythia-14m",
+        init="pretrained"
+    )
+
+    llm.distribute(precision="16-true")
+    assert llm.model._forward_module.lm_head.weight.dtype == torch.float16, \
+        f"Expected float16, but got {llm.model._forward_module.lm_head.weight.dtype}"
