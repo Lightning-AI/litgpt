@@ -399,3 +399,15 @@ def test_forward_method(tmp_path):
     logits, loss = llm(inputs, target_ids=inputs)
     assert logits.shape == torch.Size([6, 128, 50304])
     assert isinstance(loss.item(), float)
+
+
+def test_precision_selection(tmp_path):
+    with patch("torch.backends.mps.is_available", return_value=USE_MPS):
+        llm = LLM.load(
+            model="EleutherAI/pythia-14m",
+            init="pretrained"
+        )
+
+    llm.distribute(precision="16-true")
+    assert llm.model._forward_module.lm_head.weight.dtype == torch.float16, \
+        f"Expected float16, but got {llm.model._forward_module.lm_head.weight.dtype}"
