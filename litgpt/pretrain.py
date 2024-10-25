@@ -231,7 +231,8 @@ def main(
             max_tokens_per_device = train.max_tokens // fabric.world_size
             tokens_per_iter = train.micro_batch_size * model.max_seq_length
             max_iters = max_tokens_per_device // tokens_per_iter
-
+            
+    stable_iters = None
     if train.lr_scheduler == "wsd":
         # convert steps to iters
         stable_iters = (

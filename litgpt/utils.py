@@ -56,7 +56,7 @@ class RotatingTensorBoardLogger(TensorBoardLogger):
         self,
         root_dir: str,
         name: str = "lightning_logs",
-        max_writes: int = 3000,
+        max_writes: int = 500,
         **kwargs
     ):
         super().__init__(root_dir=root_dir, name=name, **kwargs)
@@ -84,9 +84,10 @@ class RotatingTensorBoardLogger(TensorBoardLogger):
     @rank_zero_only
     def log_metrics(self, metrics, step=None):
         if self._should_rotate():
+            print("Switching to a different log file")
             self._rotate_experiment()
         super().log_metrics(metrics, step)
-        self._write_count += 1
+        self._write_count += len(metrics)
 
 def init_out_dir(out_dir: Path) -> Path:
     if not out_dir.is_absolute() and "LIGHTNING_ARTIFACTS_DIR" in os.environ:
