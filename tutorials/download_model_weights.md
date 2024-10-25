@@ -321,7 +321,7 @@ litgpt download <repo_id> \
 and then calling the `convert_hf_checkpoint` command:
 
 ```bash
-litgpt convert to_litgpt <repo_id>
+litgpt convert_to_litgpt <repo_id>
 ```
 
 &nbsp;
