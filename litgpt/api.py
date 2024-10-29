@@ -329,7 +329,6 @@ class LLM(torch.nn.Module):
 
         if precision is None:
             precision = get_default_supported_precision(training=False)
-            precision = "32-true"
 
         plugins = None
         if quantize is not None and quantize.startswith("bnb."):
