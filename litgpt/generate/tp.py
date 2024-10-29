@@ -16,7 +16,6 @@ import torch._dynamo.config
 import torch._inductor.config
 from lightning.fabric.plugins import BitsandbytesPrecision
 from lightning.fabric.utilities import rank_zero_only
-from torch.distributed._functional_collectives import all_reduce
 
 import litgpt.generate.base as generate_base
 from litgpt.model import GPT
@@ -78,6 +77,8 @@ def tensor_parallel_attn(fabric: L.Fabric, attn: CausalSelfAttention) -> None:
 
 
 def all_reduce_output(world_size: int, module: torch.nn.Module, ins, outs) -> torch.Tensor:
+    from torch.distributed._functional_collectives import all_reduce
+
     return all_reduce(outs, "sum", list(range(world_size)))
 
 
