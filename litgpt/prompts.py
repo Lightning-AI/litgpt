@@ -98,39 +98,6 @@ class StableLMZephyr(PromptStyle):
         return f"<|user|>\n{prompt}<|endoftext|>\n<|assistant|>\n"
 
 
-class TogetherComputerChat(PromptStyle):
-    def apply(self, prompt: str, **kwargs: str) -> str:
-        return f"<human>: {prompt}\n<bot>:"
-
-    def stop_tokens(self, tokenizer: "Tokenizer") -> Tuple[List[int], ...]:
-        lt, gt = tokenizer.token_to_id("<"), tokenizer.token_to_id(">:")
-        return (
-            [tokenizer.eos_id],
-            # annoyingly, there's no single stop token for these
-            [lt, tokenizer.token_to_id("human"), gt],
-            [lt, tokenizer.token_to_id("bot"), gt],
-        )
-
-
-class TogetherComputerInstruct(PromptStyle):
-    def apply(self, prompt: str, **kwargs: str) -> str:
-        return f"Q: {prompt}\nA:"
-
-    def stop_tokens(self, tokenizer: "Tokenizer") -> Tuple[List[int], ...]:
-        colon = tokenizer.token_to_id(":")
-        return (
-            [tokenizer.eos_id],
-            # annoyingly, there's no single stop token for these
-            [tokenizer.token_to_id("Q"), colon],
-            [tokenizer.token_to_id("Question")],
-            [tokenizer.token_to_id("A"), colon],
-            [tokenizer.token_to_id("Label"), colon],
-            [187, 187],  # '\n', '\n'
-            [535],  # '\n\n'
-            [2756],  # '\n\n\n'
-        )
-
-
 class Falcon(PromptStyle):
     def apply(self, prompt: str, **kwargs: str) -> str:
         return f"{prompt}\nAnswer:"
@@ -142,15 +109,6 @@ class Falcon(PromptStyle):
             # to stop or else things like code generation wouldn't work
             [tokenizer.token_to_id("User"), tokenizer.token_to_id(":")],
             [193, tokenizer.token_to_id("User")],  # 193: '\n'
-        )
-
-
-class Vicuna(PromptStyle):
-    def apply(self, prompt: str, **kwargs: str) -> str:
-        # https://github.com/lm-sys/FastChat/blob/main/docs/vicuna_weights_version.md#prompt-template
-        return (
-            "A chat between a curious user and an artificial intelligence assistant. The assistant gives helpful, "
-            f"detailed, and polite answers to the user's questions. USER: {prompt} ASSISTANT:"
         )
 
 
@@ -261,12 +219,6 @@ class Platypus(PromptStyle):
     def apply(self, prompt: str, **kwargs: str) -> str:
         return f"### Instruction:\n\n{prompt}\n\n### Response:\n"
 
-
-class NousResearch(PromptStyle):
-    def apply(self, prompt: str, **kwargs: str) -> str:
-        return f"### Instruction:\n{prompt}\n\n### Response:\n"
-
-
 class StableCode(PromptStyle):
     def apply(self, prompt: str, **kwargs: str) -> str:
         return f"###Instruction\n{prompt}###Response\n"
@@ -322,9 +274,6 @@ class Gemma(PromptStyle):
         return f"<start_of_turn>user\n{prompt}<end_of_turn>\n<start_of_turn>model\n"
 
 
-class H2Oai(PromptStyle):
-    def apply(self, prompt: str, **kwargs: str) -> str:
-        return f"<|prompt|>{prompt}</s><|answer|>"
 
 
 # Maps prompt style names to PromptStyle classes
@@ -336,15 +285,11 @@ prompt_styles: Dict[str, Type[PromptStyle]] = {
     # Model-specific prompt styles
     "stablelm-alpha": StableLMAlpha,
     "stablelm-zephyr": StableLMZephyr,
-    "togethercomputer-chat": TogetherComputerChat,
-    "togethercomputer-instruct": TogetherComputerInstruct,
     "falcon": Falcon,
-    "vicuna": Vicuna,
     "llama2-function-calling": Llama2FunctionCalling,
     "llama2": Llama2,
     "freewilly2": FreeWilly2,
     "platypus": Platypus,
-    "nous-research": NousResearch,
     "stablecode": StableCode,
     "codellama": CodeLlama,
     "phi-1": Phi1,
@@ -352,7 +297,6 @@ prompt_styles: Dict[str, Type[PromptStyle]] = {
     "phi-3": Phi3,
     "tinyllama": TinyLlama,
     "gemma": Gemma,
-    "h2oai": H2Oai,
     "llama3": Llama3,
 }
 
@@ -364,14 +308,8 @@ def model_name_to_prompt_style(model_name: str) -> PromptStyle:
         return StableLMZephyr()
     if re.search("stablecode-instruct", model_name):
         return StableCode()
-    if re.search(r"RedPajama-INCITE.*-Chat", model_name):
-        return TogetherComputerChat()
-    if re.search(r"RedPajama-INCITE.*-Instruct", model_name):
-        return TogetherComputerInstruct()
     if re.search(r"falcon.*-instruct", model_name):
         return Falcon()
-    if re.search(r"vicuna|longchat", model_name):
-        return Vicuna()
     if re.search("Llama-2-7b-chat-hf-function-calling-v2", model_name):
         return Llama2FunctionCalling()
     if re.search("Llama-2.*-chat", model_name):
@@ -384,8 +322,6 @@ def model_name_to_prompt_style(model_name: str) -> PromptStyle:
         return FreeWilly2()
     if re.search("Platypus", model_name):
         return Platypus()
-    if re.search("Nous-Hermes", model_name):
-        return NousResearch()
     if re.search("CodeLlama|Mi[sx]tral.*Instruct", model_name):
         return CodeLlama()
     if re.search("phi-1", model_name):
@@ -398,8 +334,6 @@ def model_name_to_prompt_style(model_name: str) -> PromptStyle:
         return TinyLlama()
     if re.search(r"(Code)?Gemma.*-it", model_name):
         return Gemma()
-    if re.search("Danube2.*-chat", model_name):
-        return H2Oai()
     return Default()
 
 
