@@ -327,6 +327,11 @@ class H2Oai(PromptStyle):
         return f"<|prompt|>{prompt}</s><|answer|>"
 
 
+class OLMo(PromptStyle):
+    def apply(self, prompt: str, **kwargs: str) -> str:
+        return f"<|endoftext|><|user|>\n{prompt}\n<|assistant|>\n"
+
+
 # Maps prompt style names to PromptStyle classes
 prompt_styles: Dict[str, Type[PromptStyle]] = {
     # Dataset-specific prompt styles
@@ -354,6 +359,7 @@ prompt_styles: Dict[str, Type[PromptStyle]] = {
     "gemma": Gemma,
     "h2oai": H2Oai,
     "llama3": Llama3,
+    "olmo": OLMo,
 }
 
 
@@ -400,6 +406,8 @@ def model_name_to_prompt_style(model_name: str) -> PromptStyle:
         return Gemma()
     if re.search("Danube2.*-chat", model_name):
         return H2Oai()
+    if re.search(r"OLMo.*-hf", model_name):
+        return OLMo()
     return Default()
 
 
