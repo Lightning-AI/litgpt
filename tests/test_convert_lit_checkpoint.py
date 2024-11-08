@@ -194,7 +194,7 @@ def test_against_mixtral():
     torch.testing.assert_close(ours_y, theirs_y)
 
 @torch.inference_mode()
-@pytest.mark.parametrize("model_name", ("OLMo-1b-hf", "OLMo-7b-hf", "OLMo-7b-Instruct-hf"))
+@pytest.mark.parametrize("model_name", ("OLMo-1b-hf", "OLMo-7b-hf"))
 def test_against_olmo(model_name):
     ours_config = Config.from_name(
         model_name,

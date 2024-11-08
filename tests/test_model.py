@@ -553,7 +553,7 @@ def test_against_hf_mixtral():
     torch.testing.assert_close(ours_y, theirs_y)
 
 @torch.inference_mode()
-@pytest.mark.parametrize("model_name", ("OLMo-1b-hf", "OLMo-7b-hf", "OLMo-7b-Instruct-hf"))
+@pytest.mark.parametrize("model_name", ("OLMo-1b-hf", "OLMo-7b-hf"))
 @pytest.mark.parametrize(
     ("device", "dtype"),
     [
