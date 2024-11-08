@@ -618,7 +618,7 @@ def test_against_olmo(model_name, device, dtype):
     theirs_model = OlmoForCausalLM(theirs_config).to(device)
     theirs_state_dict = theirs_model.state_dict()
     state_dict = {}
-    copy_weights_olmo(ours_config, {}, state_dict, theirs_state_dict)
+    copy_weights_hf_llama(ours_config, {}, state_dict, theirs_state_dict)
     ours_model = GPT(ours_config).to(device)
     ours_model.load_state_dict(state_dict)
 
