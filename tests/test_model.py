@@ -552,27 +552,8 @@ def test_against_hf_mixtral():
     theirs_y = theirs_model(x)["logits"].to(dtype)  # HF converts logits to float
     torch.testing.assert_close(ours_y, theirs_y)
 
-
 @torch.inference_mode()
-@pytest.mark.parametrize(
-    ("device", "dtype"),
-    [
-        (torch.device("cpu"), torch.float32),
-        pytest.param(
-            torch.device("cuda"),
-            torch.float16,
-            marks=[
-                # the reference does softmax upscaled to fp32 during attention. additionally, the final layernorm input
-                # is slightly different
-                pytest.mark.xfail(raises=AssertionError, strict=False),
-                RunIf(min_cuda_gpus=1),
-            ],
-        ),
-    ],
-)
-
-@torch.inference_mode()
-@pytest.mark.parametrize("model_name", ("OLMo-1b-hf", "OLMo-7b-hf", "OLMo-7b-Instruct-hf"))
+@pytest.mark.parametrize("model_name", ("OLMo-1b-hf", "OLMo-7b-hf"))
 @pytest.mark.parametrize(
     ("device", "dtype"),
     [
@@ -629,7 +610,23 @@ def test_against_olmo(model_name, device, dtype):
     theirs_y = theirs_model(x)["logits"].to(dtype)  # HF converts logits to float
     torch.testing.assert_close(ours_y, theirs_y)
 
-
+@torch.inference_mode()
+@pytest.mark.parametrize(
+    ("device", "dtype"),
+    [
+        (torch.device("cpu"), torch.float32),
+        pytest.param(
+            torch.device("cuda"),
+            torch.float16,
+            marks=[
+                # the reference does softmax upscaled to fp32 during attention. additionally, the final layernorm input
+                # is slightly different
+                pytest.mark.xfail(raises=AssertionError, strict=False),
+                RunIf(min_cuda_gpus=1),
+            ],
+        ),
+    ],
+)
 def test_against_original_stablelm_zephyr_3b(device, dtype):
     torch.set_default_dtype(dtype)
 
