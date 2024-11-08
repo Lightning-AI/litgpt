@@ -14,6 +14,7 @@ from transformers.models.gemma2 import Gemma2Config, Gemma2ForCausalLM
 from transformers.models.gpt_neox import GPTNeoXConfig, GPTNeoXForCausalLM
 from transformers.models.llama import LlamaConfig, LlamaForCausalLM
 from transformers.models.mixtral import MixtralConfig, MixtralForCausalLM
+from transformers.models.olmo import OlmoConfig, OlmoForCausalLM
 
 from litgpt import GPT, Config
 from litgpt.scripts.convert_lit_checkpoint import (
@@ -192,6 +193,48 @@ def test_against_mixtral():
     theirs_y = theirs_model(x)["logits"]
     torch.testing.assert_close(ours_y, theirs_y)
 
+@torch.inference_mode()
+@pytest.mark.parametrize("model_name", ("OLMo-1b-hf", "OLMo-7b-hf"))
+def test_against_olmo(model_name):
+    ours_config = Config.from_name(
+        model_name,
+        padded_vocab_size=10000,
+        n_layer=2,
+        n_head=8,
+        n_embd=32,
+        intermediate_size=86,
+    )
+    T = 5
+    theirs_config = OlmoConfig(
+        vocab_size=ours_config.padded_vocab_size,
+        hidden_size=ours_config.n_embd,
+        intermediate_size=ours_config.intermediate_size,
+        num_hidden_layers=ours_config.n_layer,
+        num_attention_heads=ours_config.n_head,
+        num_key_value_heads=ours_config.n_query_groups,
+        max_positional_embeddings=T,
+        attention_bias=ours_config.bias,
+        rope_theta=ours_config.rope_base,
+        tie_word_embeddings=(model_name == "OLMo-1b-hf"),
+    )
+    assert ours_config.intermediate_size == theirs_config.intermediate_size
+
+    ours_model = GPT(ours_config)
+    # tie weights
+    ours_model.lm_head.weight = ours_model.transformer.wte.weight
+    ours_state_dict = ours_model.state_dict()
+    theirs_state_dict = {}
+    copy_weights_llama(ours_config, theirs_state_dict, ours_state_dict, untie_weights=(model_name == "OLMo-1b-hf"))
+    theirs_model = OlmoForCausalLM(theirs_config)
+    keys = theirs_model.load_state_dict(theirs_state_dict, strict=False)
+    assert not keys.unexpected_keys
+
+    # test end to end
+    x = torch.tensor([[9856, 23, 491, 1536, 304]], dtype=torch.int32)
+    assert x.size(1) == T
+    ours_y = ours_model(x)
+    theirs_y = theirs_model(x)["logits"]
+    torch.testing.assert_close(ours_y, theirs_y)
 
 @torch.inference_mode()
 def test_against_original_open_llama_3b():
