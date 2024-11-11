@@ -6,7 +6,6 @@ from litgpt.data.alpaca_2k import Alpaca2k
 from litgpt.data.alpaca_gpt4 import AlpacaGPT4
 from litgpt.data.json_data import JSON
 from litgpt.data.deita import Deita
-from litgpt.data.dolly import Dolly
 from litgpt.data.flan import FLAN
 from litgpt.data.lima import LIMA
 from litgpt.data.lit_data import LitData
@@ -23,7 +22,6 @@ __all__ = [
     "Alpaca2k",
     "AlpacaGPT4",
     "Deita",
-    "Dolly",
     "FLAN",
     "JSON",
     "LIMA",
