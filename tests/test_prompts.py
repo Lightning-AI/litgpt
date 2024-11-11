@@ -36,18 +36,6 @@ def test_prompt_style_from_config():
         "stablecode-instruct-alpha-3b",
         "falcon-7b-instruct",
         "falcon-40b-instruct",
-        "vicuna-7b-v1.3",
-        "vicuna-13b-v1.3",
-        "vicuna-33b-v1.3",
-        "vicuna-7b-v1.5",
-        "vicuna-7b-v1.5-16k",
-        "vicuna-13b-v1.5",
-        "vicuna-13b-v1.5-16k",
-        "longchat-7b-16k",
-        "longchat-13b-16k",
-        "Nous-Hermes-llama-2-7b",
-        "Nous-Hermes-13b",
-        "Nous-Hermes-Llama2-13b",
         "Llama-2-7b-chat-hf",
         "Llama-2-13b-chat-hf",
         "Llama-2-70b-chat-hf",
@@ -69,9 +57,7 @@ def test_prompt_style_from_config():
         "tiny-llama-1.1b-chat",
         "Llama-2-7b-chat-hf-function-calling-v2",
     ]
-    for template in ("RedPajama-INCITE-{}-3B-v1", "RedPajama-INCITE-7B-{}", "RedPajama-INCITE-{}-7B-v0.1"):
-        model_names.append(template.format("Chat"))
-        model_names.append(template.format("Instruct"))
+       
     for c in litgpt.config.platypus:
         model_names.append(c["name"])
 
