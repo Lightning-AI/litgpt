@@ -276,6 +276,11 @@ class Gemma(PromptStyle):
 
 
 
+class OLMo(PromptStyle):
+    def apply(self, prompt: str, **kwargs: str) -> str:
+        return f"<|endoftext|><|user|>\n{prompt}\n<|assistant|>\n"
+
+
 # Maps prompt style names to PromptStyle classes
 prompt_styles: Dict[str, Type[PromptStyle]] = {
     # Dataset-specific prompt styles
@@ -298,6 +303,7 @@ prompt_styles: Dict[str, Type[PromptStyle]] = {
     "tinyllama": TinyLlama,
     "gemma": Gemma,
     "llama3": Llama3,
+    "olmo": OLMo,
 }
 
 
@@ -334,6 +340,8 @@ def model_name_to_prompt_style(model_name: str) -> PromptStyle:
         return TinyLlama()
     if re.search(r"(Code)?Gemma.*-it", model_name):
         return Gemma()
+    if re.search(r"OLMo.*-hf", model_name):
+        return OLMo()
     return Default()
 
 
