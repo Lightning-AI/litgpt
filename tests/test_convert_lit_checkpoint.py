@@ -194,7 +194,7 @@ def test_against_mixtral():
     torch.testing.assert_close(ours_y, theirs_y)
 
 @torch.inference_mode()
-@pytest.mark.parametrize("model_name", ("OLMo-1b-hf", "OLMo-7b-hf"))
+@pytest.mark.parametrize("model_name", ("OLMo-1B-hf", "OLMo-7B-hf"))
 def test_against_olmo(model_name):
     ours_config = Config.from_name(
         model_name,
@@ -215,7 +215,7 @@ def test_against_olmo(model_name):
         max_positional_embeddings=T,
         attention_bias=ours_config.bias,
         rope_theta=ours_config.rope_base,
-        tie_word_embeddings=(model_name == "OLMo-1b-hf"),
+        tie_word_embeddings=(model_name == "OLMo-1B-hf"),
     )
     assert ours_config.intermediate_size == theirs_config.intermediate_size
 
@@ -224,7 +224,7 @@ def test_against_olmo(model_name):
     ours_model.lm_head.weight = ours_model.transformer.wte.weight
     ours_state_dict = ours_model.state_dict()
     theirs_state_dict = {}
-    copy_weights_llama(ours_config, theirs_state_dict, ours_state_dict, untie_weights=(model_name == "OLMo-1b-hf"))
+    copy_weights_llama(ours_config, theirs_state_dict, ours_state_dict, untie_weights=(model_name == "OLMo-1B-hf"))
     theirs_model = OlmoForCausalLM(theirs_config)
     keys = theirs_model.load_state_dict(theirs_state_dict, strict=False)
     assert not keys.unexpected_keys

@@ -55,9 +55,9 @@ litgpt download list
 The output is shown below:
 
 ```
-allenai/OLMo-1b-hf
-allenai/OLMo-7b-hf
-allenai/OLMo-7b-Instruct-hf
+allenai/OLMo-1B-hf
+allenai/OLMo-7B-hf
+allenai/OLMo-7B-Instruct-hf
 codellama/CodeLlama-13b-hf
 codellama/CodeLlama-13b-Instruct-hf
 codellama/CodeLlama-13b-Python-hf

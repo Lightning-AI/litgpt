@@ -553,7 +553,7 @@ def test_against_hf_mixtral():
     torch.testing.assert_close(ours_y, theirs_y)
 
 @torch.inference_mode()
-@pytest.mark.parametrize("model_name", ("OLMo-1b-hf", "OLMo-7b-hf"))
+@pytest.mark.parametrize("model_name", ("OLMo-1B-hf", "OLMo-7B-hf"))
 @pytest.mark.parametrize(
     ("device", "dtype"),
     [
@@ -592,7 +592,7 @@ def test_against_olmo(model_name, device, dtype):
         max_positional_embeddings=T,
         attention_bias=ours_config.bias,
         rope_theta=ours_config.rope_base,
-        tie_word_embeddings=(model_name == "OLMo-1b-hf"),
+        tie_word_embeddings=(model_name == "OLMo-1B-hf"),
     )
     assert ours_config.intermediate_size == theirs_config.intermediate_size
 

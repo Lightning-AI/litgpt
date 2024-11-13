@@ -738,8 +738,8 @@ configs.append(
 olmo = [
     # https://huggingface.co/allenai/OLMo-1B-hf/blob/main/config.json
     dict(
-        name="OLMo-1b-hf",
-        hf_config=dict(org="allenai", name="OLMo-1b-hf"),
+        name="OLMo-1B-hf",
+        hf_config=dict(org="allenai", name="OLMo-1B-hf"),
         vocab_size=50280,
         padded_vocab_size=50304,
         block_size=2048,
@@ -755,8 +755,8 @@ olmo = [
     ),
     # https://huggingface.co/allenai/OLMo-7B-hf/blob/main/config.json
     dict(
-        name="OLMo-7b-hf",
-        hf_config=dict(org="allenai", name="OLMo-7b-hf"),
+        name="OLMo-7B-hf",
+        hf_config=dict(org="allenai", name="OLMo-7B-hf"),
         vocab_size=50280,
         padded_vocab_size=50304,
         block_size=2048,
@@ -771,8 +771,8 @@ olmo = [
     ),
     # https://huggingface.co/allenai/OLMo-7B-Instruct-hf/blob/main/config.json
     dict(
-        name="OLMo-7b-Instruct-hf",
-        hf_config=dict(org="allenai", name="OLMo-7b-Instruct-hf"),
+        name="OLMo-7B-Instruct-hf",
+        hf_config=dict(org="allenai", name="OLMo-7B-Instruct-hf"),
         vocab_size=50280,
         padded_vocab_size=50304,
         block_size=2048,
