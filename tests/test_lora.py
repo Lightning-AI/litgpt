@@ -835,11 +835,12 @@ def test_lora_model_fsdp_init():
 
 
 def test_zero_pad_cpu_and_mocked_mps():
-    in_features = 128
-    out_features = 384
     head_size = 64
     n_head = 12
     n_query_groups = 3
+    in_features = 128
+    kv_embed_dim = in_features // (n_head // n_query_groups)
+    out_features = in_features + 2 * kv_embed_dim
     enable_lora = [True, False, True]
     r = 4
 
@@ -855,7 +856,7 @@ def test_zero_pad_cpu_and_mocked_mps():
 
     batch_size = 64
     seq_len = 64
-    embed_dim = 320
+    embed_dim = 160
     x = torch.randn(batch_size, seq_len, embed_dim)
 
     result_cpu = model.zero_pad(x)

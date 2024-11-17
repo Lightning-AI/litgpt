@@ -19,8 +19,6 @@ from transformers.models.phi.configuration_phi import PhiConfig
 from transformers.models.phi.modeling_phi import PhiForCausalLM
 from transformers.models.phi3.configuration_phi3 import Phi3Config
 from transformers.models.phi3.modeling_phi3 import Phi3ForCausalLM
-from litgpt import Config
-from litgpt.scripts.convert_lit_checkpoint import qkv_reassemble
 
 from litgpt import GPT, Config
 from litgpt.scripts.convert_lit_checkpoint import (
@@ -31,6 +29,7 @@ from litgpt.scripts.convert_lit_checkpoint import (
     copy_weights_gpt_neox,
     copy_weights_llama,
     copy_weights_phi,
+    qkv_reassemble,
 )
 from tests.conftest import RunIf
 
