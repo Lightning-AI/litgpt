@@ -1,3 +1,5 @@
+name: GPU tests
+
 trigger:
   branches:
     include:
@@ -9,15 +11,15 @@ pr:
     include:
       - "main"
       - "wip"
-      - "carmocca/*"
 
 jobs:
   - job: testing
-    timeoutInMinutes: "20"
+    timeoutInMinutes: "30"
     cancelTimeoutInMinutes: "2"
     pool: "lit-rtx-3090"
     variables:
       DEVICES: $( python -c 'print("$(Agent.Name)".split("_")[-1])' )
+      CI: "true"
     container:
       image: "pytorchlightning/pytorch_lightning:base-cuda-py3.10-torch2.2-cuda12.1.0"
       options: "--gpus=all --shm-size=8gb"
@@ -41,6 +43,8 @@ jobs:
       displayName: "Image info & NVIDIA"
 
     - script: |
+        pip install --upgrade pip
+        pip uninstall torch -y  # uninstall so that the latest supported torch version is installed from the .toml file in the next line
         pip install '.[all,test]'
       displayName: 'Install dependencies'
 
@@ -50,7 +54,7 @@ jobs:
         python -c "import torch ; mgpu = torch.cuda.device_count() ; assert mgpu == 2, f'GPU: {mgpu}'"
       displayName: "Env details"
 
-    - bash: pytest -v --disable-pytest-warnings --strict-markers --color=yes
+    - bash: pytest -v --disable-pytest-warnings --strict-markers --color=yes --ignore-glob="tests/test_thunder*" --ignore="tests/test_unsloth_executor.py"
       displayName: 'Ordinary tests'
       env:
         PL_RUN_CUDA_TESTS: "1"
@@ -61,4 +65,4 @@ jobs:
       env:
         PL_RUN_CUDA_TESTS: "1"
       displayName: "Standalone tests"
-      timeoutInMinutes: "5"
+      timeoutInMinutes: "10"

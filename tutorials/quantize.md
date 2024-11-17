@@ -12,7 +12,9 @@ This document provides different strategies for quantizing the various models av
 It's useful to start with a baseline to have a reference point for memory savings via the various quantization methods.
 
 ```bash
-litgpt generate base --checkpoint_dir checkpoints/tiiuae/falcon-7b --precision 32-true --max_new_tokens 256
+litgpt generate tiiuae/falcon-7b \
+  --precision 32-true \
+  --max_new_tokens 256
 ...
 Time for inference 1: 6.93 sec total, 36.96 tokens/sec.
 Memory used: 28.95 GB
@@ -24,7 +26,9 @@ In short, when `--precision bf16-true` or `--precision 16-true` is used, the mod
 However, this might not be enough for large models or when using GPUs with limited memory.
 
 ```bash
-litgpt generate base --checkpoint_dir checkpoints/tiiuae/falcon-7b --precision bf16-true --max_new_tokens 256
+litgpt generate tiiuae/falcon-7b \
+  --precision bf16-true \
+  --max_new_tokens 256
 ...
 Time for inference 1: 5.37 sec total, 47.66 tokens/sec.
 Memory used: 14.50 GB
@@ -46,9 +50,12 @@ Enabled with [bitsandbytes](https://github.com/TimDettmers/bitsandbytes). Check 
 Uses the normalized float 4 (nf4) data type. This is recommended over "fp4" based on the paper's experimental results and theoretical analysis.
 
 ```bash
-pip install scipy bitsandbytes  # scipy is required until https://github.com/TimDettmers/bitsandbytes/pull/525 is released
+pip install bitsandbytes
 
-litgpt generate base --quantize bnb.nf4 --checkpoint_dir checkpoints/tiiuae/falcon-7b --precision bf16-true --max_new_tokens 256
+litgpt generate tiiuae/falcon-7b \
+  --quantize bnb.nf4 \
+  --precision bf16-true \
+  --max_new_tokens 256
 ...
 Time for inference 1: 6.80 sec total, 37.62 tokens/sec
 Memory used: 5.72 GB
@@ -62,9 +69,13 @@ Enabled with [bitsandbytes](https://github.com/TimDettmers/bitsandbytes). Check 
 In average, this amounts to about 0.37 bits per parameter (approximately 3 GB for a 65B model).
 
 ```bash
-pip install scipy bitsandbytes  # scipy is required until https://github.com/TimDettmers/bitsandbytes/pull/525 is released
+pip install bitsandbytes
 
-litgpt generate base --quantize bnb.nf4-dq --checkpoint_dir checkpoints/tiiuae/falcon-7b --precision bf16-true --max_new_tokens 256
+litgpt generate tiiuae/falcon-7b \
+  --quantize bnb.nf4-dq \
+  --precision bf16-true \
+  --max_new_tokens 256
+
 ...
 Time for inference 1: 8.09 sec total, 30.87 tokens/sec
 Memory used: 5.38 GB
@@ -77,9 +88,12 @@ Enabled with [bitsandbytes](https://github.com/TimDettmers/bitsandbytes). Check 
 Uses pure FP4 quantization.
 
 ```bash
-pip install scipy bitsandbytes  # scipy is required until https://github.com/TimDettmers/bitsandbytes/pull/525 is released
+pip install bitsandbytes
 
-litgpt generate base --quantize bnb.fp4 --checkpoint_dir checkpoints/tiiuae/falcon-7b --precision bf16-true --max_new_tokens 256
+litgpt generate tiiuae/falcon-7b \
+  --quantize bnb.fp4 \
+  --precision bf16-true \
+  --max_new_tokens 256
 ...
 Time for inference 1: 6.92 sec total, 36.98 tokens/sec
 Memory used: 5.72 GB
@@ -93,9 +107,12 @@ Enabled with [bitsandbytes](https://github.com/TimDettmers/bitsandbytes). Check 
 In average, this amounts to about 0.37 bits per parameter (approximately 3 GB for a 65B model).
 
 ```bash
-pip install scipy bitsandbytes  # scipy is required until https://github.com/TimDettmers/bitsandbytes/pull/525 is released
+pip install bitsandbytes
 
-litgpt generate base --quantize bnb.fp4-dq --checkpoint_dir checkpoints/tiiuae/falcon-7b --precision bf16-true --max_new_tokens 256
+litgpt generate tiiuae/falcon-7b \
+  --quantize bnb.fp4-dq \
+  --precision bf16-true \
+  --max_new_tokens 256
 ...
 Time for inference 1: 10.02 sec total, 25.54 tokens/sec
 Memory used: 5.38 GB
@@ -106,9 +123,12 @@ Memory used: 5.38 GB
 Enabled with [bitsandbytes](https://github.com/TimDettmers/bitsandbytes). Check out the [paper](https://arxiv.org/abs/2110.02861) to learn more about how it works.
 
 ```bash
-pip install scipy bitsandbytes  # scipy is required until https://github.com/TimDettmers/bitsandbytes/pull/525 is released
+pip install bitsandbytes
 
-litgpt generate base --quantize bnb.int8 --checkpoint_dir checkpoints/tiiuae/falcon-7b --precision 16-true --max_new_tokens 256
+litgpt generate tiiuae/falcon-7b \
+  --quantize bnb.int8 \
+  --precision 16-true \
+  --max_new_tokens 256
 ...
 Time for inference 1: 20.22 sec total, 12.66 tokens/sec
 Memory used: 8.70 GB

@@ -22,7 +22,8 @@ For more information about dataset preparation, also see the [prepare_dataset.md
 ## Running the Finetuning
 
 ```bash
-litgpt finetune lora --data Alpaca
+litgpt finetune_lora stabilityai/stablelm-base-alpha-3b \
+  --data Alpaca
 ```
 
 The finetuning requires at least one GPU with ~24 GB memory (RTX 3090).
@@ -37,13 +38,15 @@ This script will save checkpoints periodically to the folder `out/`.
 Optionally, finetuning using 4-bit quantization (as in QLoRA) can be enabled via the `--quantize` flag, for example using the 4-bit NormalFloat data type:
 
 ```bash
-litgpt finetune lora --quantize "bnb.nf4"
+litgpt finetune_lora stabilityai/stablelm-base-alpha-3b \
+  --quantize "bnb.nf4"
 ```
 
 and optionally with double-quantization:
 
 ```bash
-litgpt finetune lora --quantize "bnb.nf4-dq"
+litgpt finetune_lora stabilityai/stablelm-base-alpha-3b \
+  --quantize "bnb.nf4-dq"
 ```
 
 The table below lists a comparison with different settings on a StableLM 3B model finetuned with LoRA on Alpaca for 1,000 iterations using a microbatch size of 1:
@@ -73,8 +76,7 @@ For additional benchmarks and resource requirements, please see the [Resource Ta
 You can test the finetuned model with your own instructions by running:
 
 ```bash
-litgpt generate base \
-  --checkpoint_dir "out/lora/final" \
+litgpt generate "out/lora/final" \
   --prompt "Recommend a movie to watch on the weekend."
 ```
 
@@ -107,15 +109,27 @@ You can easily train on your own instruction dataset saved in JSON format.
     ]
     ```
 
-2. Run `litgpt/finetune/lora.py` by passing in the location of your data (and optionally other parameters):
+2. Run `litgpt finetune_lora` by passing in the location of your data (and optionally other parameters):
 
     ```bash
-    litgpt finetune lora \
+    litgpt finetune_lora checkpoints/stabilityai/stablelm-base-alpha-3b \
         --data JSON \
         --data.json_path data/mydata.json \
-        --checkpoint_dir checkpoints/tiiuae/falcon-7b \
-        --out_dir data/mydata-finetuned
+        --out_dir out_dir/mydata-finetuned
     ```
+
+3. Test and use the finetuned model:
+
+    ```bash
+    litgpt chat out_dir/mydata-finetuned/final
+    ```
+
+or
+
+    ```bash
+    litgpt serve out_dir/mydata-finetuned/final
+    ```
+
 
 
 &nbsp;
@@ -135,6 +149,6 @@ The advantage of this merging process is to streamline inference operations, as 
 For example, after finetuning produced a checkpoint folder `out/lora/step-002000`, merge it as follows:
 
 ```bash
-litgpt merge_lora --checkpoint_dir "out/lora/step-002000"
+litgpt merge_lora "out/lora/step-002000"
 ```
 The command above creates a full `lit_model.pth` checkpoint file.

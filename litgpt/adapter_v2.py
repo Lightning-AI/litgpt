@@ -9,7 +9,7 @@ Port for LitGPT
 """
 
 from dataclasses import dataclass
-from typing import Any, Dict, Optional, Tuple, Type
+from typing import Any, Dict, List, Optional, Tuple, Type, Union
 
 import torch
 import torch.nn as nn
@@ -80,6 +80,38 @@ class GPT(BaseModel):
         self.max_seq_length = self.config.block_size
         self.mask_cache: Optional[torch.Tensor] = None
 
+    def forward(
+        self, idx: torch.Tensor, input_pos: Optional[torch.Tensor] = None, lm_head_chunk_size: int = 0
+    ) -> Union[torch.Tensor, List[torch.Tensor]]:
+        T = idx.size(1)
+        if self.max_seq_length < T:
+            raise ValueError(f"Cannot forward sequence of length {T}, max seq length is only {self.max_seq_length}.")
+
+        if input_pos is not None:  # use the kv cache
+            cos = self.cos.index_select(0, input_pos)
+            sin = self.sin.index_select(0, input_pos)
+            if self.mask_cache is None:
+                raise TypeError("You need to call `gpt.set_kv_cache()`")
+            mask = self.mask_cache.index_select(2, input_pos)
+        else:
+            cos = self.cos[:T]
+            sin = self.sin[:T]
+            mask = None
+
+        x = self.transformer.wte(idx)  # token embeddings of shape (b, t, n_embd)
+        if self.config.scale_embeddings:
+            x = x * (self.config.n_embd**0.5)
+        for block in self.transformer.h:
+            x = block(x, cos, sin, mask, input_pos)
+        x = self.transformer.ln_f(x)
+        if lm_head_chunk_size > 0:
+            # chunk the lm head logits to reduce the peak memory used by autograd
+            return [self.lm_head(x_i) for x_i in x.split(lm_head_chunk_size, dim=1)]
+        x = self.lm_head(x)  # (b, t, vocab_size)
+        if self.config.final_logit_softcapping is not None:
+            x = torch.tanh(x / self.config.final_logit_softcapping) * self.config.final_logit_softcapping
+        return x
+
     @classmethod
     def from_name(cls, name: str, **kwargs: Any) -> Self:
         return cls(Config.from_name(name, **kwargs))
@@ -104,11 +136,21 @@ class Block(BaseBlock):
     def __init__(self, config: Config, block_idx: int) -> None:
         # Skip the parent class __init__ altogether and replace it to avoid useless allocations
         nn.Module.__init__(self)
+        if not config.parallel_residual and config.shared_attention_norm:
+            raise NotImplementedError(
+                "No checkpoint amongst the ones we support uses this configuration:"
+                " non-parallel residual and shared attention norm."
+            )
         self.norm_1 = config.norm_class(config.n_embd, eps=config.norm_eps)
         self.attn = CausalSelfAttention(config, block_idx)
-        if not config.shared_attention_norm:
-            self.norm_2 = config.norm_class(config.n_embd, eps=config.norm_eps)
+        self.post_attention_norm = (
+            config.norm_class(config.n_embd, eps=config.norm_eps) if config.post_attention_norm else nn.Identity()
+        )
+        self.norm_2 = None if config.shared_attention_norm else config.norm_class(config.n_embd, eps=config.norm_eps)
         self.mlp = config.mlp_class(config)
+        self.post_mlp_norm = (
+            config.norm_class(config.n_embd, eps=config.norm_eps) if config.post_mlp_norm else nn.Identity()
+        )
 
         self.config = config
 
@@ -136,6 +178,10 @@ class CausalSelfAttention(BaseCausalSelfAttention):
             # kv cache for inference
             self.adapter_kv_cache: Optional[Tuple[torch.Tensor, torch.Tensor]] = None
         self.block_idx = block_idx
+        self.apply_sliding_window_attention = (
+            config.sliding_window_size is not None and
+            block_idx % config.sliding_window_layer_placing == 0
+        )
 
         self.config = config
 
@@ -181,6 +227,8 @@ class LLaMAMLP(litgpt.model.LLaMAMLP):
         self.fc_2 = AdapterV2Linear(config.n_embd, config.intermediate_size, bias=config.bias)
         self.proj = AdapterV2Linear(config.intermediate_size, config.n_embd, bias=config.bias)
 
+        self.config = config
+
     def _load_from_state_dict(self, state_dict: Dict, prefix: str, *args: Any, **kwargs: Any) -> None:
         """For compatibility with base checkpoints."""
         mapping = {
@@ -199,7 +247,7 @@ class GemmaMLP(LLaMAMLP):
     def forward(self, x: torch.Tensor) -> torch.Tensor:
         x_fc_1 = self.fc_1(x)
         x_fc_2 = self.fc_2(x)
-        x = torch.nn.functional.gelu(x_fc_1) * x_fc_2
+        x = torch.nn.functional.gelu(x_fc_1, approximate=self.config.gelu_approximate) * x_fc_2
         return self.proj(x)
 
 

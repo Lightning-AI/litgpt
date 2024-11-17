@@ -3,8 +3,8 @@
 
 from dataclasses import dataclass, field
 from pathlib import Path
-from litgpt.data.alpaca import Alpaca
 
+from litgpt.data.alpaca import Alpaca
 
 _URL = "https://raw.githubusercontent.com/Instruction-Tuning-with-GPT-4/GPT-4-LLM/main/data/alpaca_gpt4_data.json"
 

@@ -5,11 +5,11 @@ from unittest import mock
 import pytest
 import torch
 
+from litgpt import Config
+from litgpt.scripts.convert_hf_checkpoint import convert_hf_checkpoint, copy_weights_hf_llama, qkv_reassemble
+
 
 def test_llama2_70b_conversion():
-    from litgpt import Config
-    from litgpt.scripts.convert_hf_checkpoint import copy_weights_hf_llama
-
     shapes = {
         "model.embed_tokens.weight": (32000, 8192),
         "model.layers.0.input_layernorm.weight": (8192,),
@@ -103,10 +103,6 @@ def test_llama2_70b_conversion():
 
 @pytest.mark.parametrize("model_name", ("pythia-14m", "falcon-7b", "Llama-2-7b-hf", "phi-2"))
 def test_convert_hf_checkpoint(tmp_path, model_name):
-    import torch
-
-    from litgpt.scripts.convert_hf_checkpoint import convert_hf_checkpoint
-
     with pytest.raises(ValueError, match="to contain .bin"):
         convert_hf_checkpoint(checkpoint_dir=tmp_path, model_name=model_name)
 
@@ -122,16 +118,11 @@ def test_convert_hf_checkpoint(tmp_path, model_name):
     assert {p.name for p in tmp_path.glob("*")} == {"foo.bin", "model_config.yaml", "lit_model.pth"}
 
     # ensure that the config dict can be loaded
-    from litgpt import Config
-
     config = Config.from_file(tmp_path / "model_config.yaml")
     assert isinstance(config, Config)
 
 
 def test_qkv_reassemble():
-    from litgpt import Config
-    from litgpt.scripts.convert_hf_checkpoint import qkv_reassemble
-
     # MHA
     config = Config(n_embd=4, n_head=4)
     qkv_interleaved = torch.tensor(

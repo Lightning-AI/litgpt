@@ -11,16 +11,21 @@ model_config:
 # /teamspace/jobs/<job-name>/share. (type: <class 'Path'>, default: out/pretrain)
 out_dir: out/pretrain/debug
 
+# The precision to use for pretraining. Possible choices: "bf16-true", "bf16-mixed", "32-true". (type: Optional[str], default: null)
+precision: bf16-mixed
+
 # Optional path to a checkpoint directory to initialize the model from.
 # Useful for continued pretraining. Mutually exclusive with ``resume``. (type: Optional[Path], default: null)
 initial_checkpoint_dir:
 
 # Path to a checkpoint directory to resume from in case training was interrupted, or ``True`` to resume
-# from the latest checkpoint in ``out_dir``. (type: Union[bool, Path], default: False)
+# from the latest checkpoint in ``out_dir``. An error will be raised if no checkpoint is found. Passing
+# ``'auto'`` will resume from the latest checkpoint but not error if no checkpoint exists.
+# (type: Union[bool, Literal["auto"], Path], default: False)
 resume: false
 
 # Data-related arguments. If not provided, the default is ``litgpt.data.TinyLlama``.
-data: OpenWebText
+data: TinyStories
 
 # Training-related arguments. See ``litgpt.args.TrainArgs`` for details
 train:
@@ -55,18 +60,6 @@ train:
   # Whether to tie the embedding weights with the language modeling head weights. (type: Optional[bool], default: False)
   tie_embeddings:
 
-  #   (type: float, default: 0.0004)
-  learning_rate: 6e-4
-
-  #   (type: float, default: 0.1)
-  weight_decay: 0.1
-
-  #   (type: float, default: 0.9)
-  beta1: 0.9
-
-  #   (type: float, default: 0.95)
-  beta2: 0.95
-
   #   (type: Optional[float], default: 1.0)
   max_norm: 1.0
 
@@ -85,8 +78,35 @@ eval:
   # Number of iterations (type: int, default: 100)
   max_iters: 100
 
+  # Whether to evaluate on the validation set at the beginning of the training
+  initial_validation: false
+
+  # Whether to evaluate on the validation set at the end the training
+  final_validation: false
+
+# Optimizer-related arguments
+optimizer:
+
+  class_path: torch.optim.AdamW
+  
+  init_args:
+    
+    #   (type: float, default: 0.001)
+    lr: 6e-4
+    
+    #   (type: float, default: 0.01)
+    weight_decay: 0.1
+    
+    #   (type: tuple, default: (0.9,0.999))
+    betas:
+      - 0.9
+      - 0.95
+
 # How many devices/GPUs to use. Uses all GPUs by default. (type: Union[int, str], default: auto)
 devices: auto
+
+# How many nodes to use. (type: int, default: 1)
+num_nodes: 1
 
 # Optional path to the tokenizer dir that was used for preprocessing the dataset. Only some data
 # module require this. (type: Optional[Path], default: null)

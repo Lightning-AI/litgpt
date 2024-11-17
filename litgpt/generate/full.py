@@ -3,54 +3,88 @@
 import sys
 import time
 from pathlib import Path
+from pprint import pprint
 from typing import Literal, Optional
+import warnings
 
 import lightning as L
 import torch
 from lightning.fabric.plugins import BitsandbytesPrecision
+from lightning_utilities.core.imports import RequirementCache
 
 from litgpt import GPT, Config, PromptStyle, Tokenizer
 from litgpt.generate.base import generate
 from litgpt.prompts import has_prompt_style, load_prompt_style
-from litgpt.utils import CLI, check_valid_checkpoint_dir, get_default_supported_precision, load_checkpoint
+from litgpt.utils import (
+    check_file_size_on_cpu_and_warn,
+    check_valid_checkpoint_dir,
+    extend_checkpoint_dir,
+    get_default_supported_precision,
+    load_checkpoint
+)
 
 
 def main(
+    checkpoint_dir: Path,
     prompt: str = "What food do llamas eat?",
     input: str = "",
     finetuned_path: Path = Path("out/full/alpaca/lit_model_finetuned.pth"),
-    checkpoint_dir: Path = Path("checkpoints/stabilityai/stablelm-base-alpha-3b"),
     quantize: Optional[Literal["bnb.nf4", "bnb.nf4-dq", "bnb.fp4", "bnb.fp4-dq", "bnb.int8"]] = None,
     max_new_tokens: int = 100,
-    top_k: Optional[int] = 200,
+    top_k: Optional[int] = 50,
+    top_p: float = 1.0,
     temperature: float = 0.8,
     precision: Optional[str] = None,
 ) -> None:
-    """Generates a response based on a given instruction and an optional input. This script will only work with
-    checkpoints from the instruction-tuned GPT model. See ``litgpt.finetune.full``.
+    """For models finetuned with `litgpt finetune_full`.
+
+    Generates a response based on a given instruction and an optional input. This script will only work with
+    checkpoints from the instruction-tuned model. See ``litgpt.finetune.full``.
 
     Args:
+        checkpoint_dir: The path to the checkpoint folder with pretrained model weights.
         prompt: The prompt/instruction (Alpaca style).
         input: Optional input (Alpaca style).
         finetuned_path: Path to the checkpoint with trained weights, which are the output of
             ``litgpt.finetune.full``.
-        checkpoint_dir: The path to the checkpoint folder with pretrained GPT weights.
         quantize: Whether to quantize the model and using which method:
             - bnb.nf4, bnb.nf4-dq, bnb.fp4, bnb.fp4-dq: 4-bit quantization from bitsandbytes
             - bnb.int8: 8-bit quantization from bitsandbytes
             for more details, see https://github.com/Lightning-AI/litgpt/blob/main/tutorials/quantize.md
         max_new_tokens: The number of generation steps to take.
         top_k: The number of top most probable tokens to consider in the sampling process.
+        top_p: If specified, it represents the cumulative probability threshold to consider in the sampling process.
+            In top-p sampling, the next token is sampled from the highest probability tokens
+            whose cumulative probability exceeds the threshold `top_p`. When specified,
+            it must be `0 <= top_p <= 1`. Here, `top_p=0` is equivalent
+            to sampling the most probable token, while `top_p=1` samples from the whole distribution.
+            It can be used in conjunction with `top_k` and `temperature` with the following order
+            of application:
+
+            1. `top_k` sampling
+            2. `temperature` scaling
+            3. `top_p` sampling
+
+            For more details, see https://arxiv.org/abs/1904.09751
+            or https://huyenchip.com/2024/01/16/sampling.html#top_p
         temperature: A value controlling the randomness of the sampling process. Higher values result in more random
             samples.
         precision: Indicates the Fabric precision setting to use.
     """
+    checkpoint_dir = extend_checkpoint_dir(checkpoint_dir)
+    pprint(locals())
+
     precision = precision or get_default_supported_precision(training=False)
 
     plugins = None
     if quantize is not None and quantize.startswith("bnb."):
         if "mixed" in precision:
             raise ValueError("Quantization and mixed precision is not supported.")
+        if RequirementCache("bitsandbytes != 0.42.0"):
+            warnings.warn(
+                "LitGPT only supports bitsandbytes v0.42.0. "
+                "This may result in errors when using quantization."
+            )
         dtype = {"16-true": torch.float16, "bf16-true": torch.bfloat16, "32-true": torch.float32}[precision]
         plugins = BitsandbytesPrecision(quantize[4:], dtype)
         precision = None
@@ -59,11 +93,10 @@ def main(
     fabric.launch()
 
     check_valid_checkpoint_dir(checkpoint_dir)
-
     config = Config.from_file(checkpoint_dir / "model_config.yaml")
 
     checkpoint_path = finetuned_path
-
+    check_file_size_on_cpu_and_warn(checkpoint_path, fabric.device)
     tokenizer = Tokenizer(checkpoint_dir)
     prompt_style = (
         load_prompt_style(checkpoint_dir) if has_prompt_style(checkpoint_dir) else PromptStyle.from_config(config)
@@ -94,7 +127,7 @@ def main(
 
     L.seed_everything(1234)
     t0 = time.perf_counter()
-    y = generate(model, encoded, max_returned_tokens, temperature=temperature, top_k=top_k, eos_id=tokenizer.eos_id)
+    y = generate(model, encoded, max_returned_tokens, temperature=temperature, top_k=top_k, top_p=top_p, eos_id=tokenizer.eos_id)
     t = time.perf_counter() - t0
 
     output = tokenizer.decode(y)
@@ -105,9 +138,3 @@ def main(
     fabric.print(f"\n\nTime for inference: {t:.02f} sec total, {tokens_generated / t:.02f} tokens/sec", file=sys.stderr)
     if fabric.device.type == "cuda":
         fabric.print(f"Memory used: {torch.cuda.max_memory_allocated() / 1e9:.02f} GB", file=sys.stderr)
-
-
-if __name__ == "__main__":
-    torch.set_float32_matmul_precision("high")
-
-    CLI(main)

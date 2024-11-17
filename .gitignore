@@ -1,8 +1,10 @@
+.ipynb_checkpoints/
 __pycache__
 .idea
 .DS_Store
 *.egg-info
 build
+dist
 .venv
 .vscode
 
@@ -16,4 +18,7 @@ out
 wandb
 events.out.tfevents*
 
-tests/reference_models
+# test artifacts from tests/test_readme.py
+**/custom_finetuning_dataset.json
+client.py
+**/custom_texts/

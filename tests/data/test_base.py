@@ -1,17 +1,16 @@
 # Copyright Lightning AI. Licensed under the Apache License 2.0, see LICENSE file.
-from unittest.mock import Mock
 
 import pytest
 import torch
 
+from litgpt.data import SFTDataset, get_sft_collate_fn
+from litgpt.prompts import PromptStyle
+
 
 @pytest.mark.parametrize("mask_prompt", [True, False])
 @pytest.mark.parametrize("ignore_index", [-1, -100])
-@pytest.mark.parametrize("max_seq_length", [1000, 5])
+@pytest.mark.parametrize("max_seq_length", [1000, 5, -1])
 def test_sft_dataset(max_seq_length, ignore_index, mask_prompt, mock_tokenizer):
-    from litgpt.data import SFTDataset
-    from litgpt.prompts import PromptStyle
-
     class Style(PromptStyle):
         def apply(self, prompt, **kwargs):
             return f"In: {prompt} Out:"
@@ -35,36 +34,45 @@ def test_sft_dataset(max_seq_length, ignore_index, mask_prompt, mock_tokenizer):
         torch.tensor([i, i, i, i, i, i, i, i, i, i, i, i, 66, 97, 114, 1]) if mask_prompt else expected_input_ids
     )
 
-    assert torch.equal(dataset[0]["input_ids"], expected_input_ids[:max_seq_length])
-    assert torch.equal(dataset[0]["labels"], expected_labels[:max_seq_length])
+    if max_seq_length == -1:
+        assert torch.equal(dataset[0]["input_ids"], expected_input_ids)
+        assert torch.equal(dataset[0]["labels"], expected_labels)
+    else:
+        assert torch.equal(dataset[0]["input_ids"], expected_input_ids[:max_seq_length])
+        assert torch.equal(dataset[0]["labels"], expected_labels[:max_seq_length])
 
 
 @pytest.mark.parametrize("ignore_index", [-1, -100])
 @pytest.mark.parametrize("pad_id", [0, 100])
 def test_sft_collate_fn_padding(pad_id, ignore_index):
-    from litgpt.data import get_sft_collate_fn
-
     collate = get_sft_collate_fn(pad_id=pad_id, ignore_index=ignore_index)
     samples = [
-        {"input_ids": torch.tensor([1, 2, 3]), "labels": torch.tensor([10, 20, 30])},
-        {"input_ids": torch.tensor([4, 5, 6, 7, 8]), "labels": torch.tensor([40, 50, 60, 70, 80])},
+        {"input_ids": torch.tensor([1, 2, 3]), "labels": torch.tensor([10, 20, 30]), "token_counts": {"raw": 3, "raw_plus_prompt_template": 25}},
+        {"input_ids": torch.tensor([4, 5, 6, 7, 8]), "labels": torch.tensor([40, 50, 60, 70, 80]), "token_counts": {"raw": 5, "raw_plus_prompt_template": 27}},
     ]
     expected = {
         "input_ids": torch.tensor([[1, 2, 3, pad_id, pad_id], [4, 5, 6, 7, 8]]),
         "labels": torch.tensor([[10, 20, 30, ignore_index, ignore_index], [40, 50, 60, 70, 80]]),
+        "token_counts": {"raw": torch.tensor([[3], [5]]), "raw_plus_prompt_template": torch.tensor([[25], [27]])}
     }
     batch = collate(samples)
     assert all(torch.equal(batch[k], expected[k]) for k in ("input_ids", "labels"))
+    for key in ("raw", "raw_plus_prompt_template"):
+        assert torch.equal(batch["token_counts"][key], expected["token_counts"][key]), f"Token count mismatch for {key}"
 
 
 def test_sft_collate_fn_truncation():
-    from litgpt.data import get_sft_collate_fn
-
     collate = get_sft_collate_fn(max_seq_length=2)
     samples = [
-        {"input_ids": torch.tensor([1, 2, 3]), "labels": torch.tensor([10, 20, 30])},
-        {"input_ids": torch.tensor([4, 5, 6, 7, 8]), "labels": torch.tensor([40, 50, 60, 70, 80])},
+        {"input_ids": torch.tensor([1, 2, 3]), "labels": torch.tensor([10, 20, 30]), "token_counts": {"raw": 3, "raw_plus_prompt_template": 25}},
+        {"input_ids": torch.tensor([4, 5, 6, 7, 8]), "labels": torch.tensor([40, 50, 60, 70, 80]), "token_counts": {"raw": 5, "raw_plus_prompt_template": 27}},
     ]
-    expected = {"input_ids": torch.tensor([[1, 2], [4, 5]]), "labels": torch.tensor([[10, 20], [40, 50]])}
+    expected = {
+        "input_ids": torch.tensor([[1, 2], [4, 5]]),
+        "labels": torch.tensor([[10, 20], [40, 50]]),
+        "token_counts": {"raw": torch.tensor([[3], [5]]), "raw_plus_prompt_template": torch.tensor([[25], [27]])}
+    }
     batch = collate(samples)
     assert all(torch.equal(batch[k], expected[k]) for k in ("input_ids", "labels"))
+    for key in ("raw", "raw_plus_prompt_template"):
+        assert torch.equal(batch["token_counts"][key], expected["token_counts"][key]), f"Token count mismatch for {key}"

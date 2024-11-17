@@ -66,13 +66,18 @@ class GPT(BaseModel):
             mask = None
 
         x = self.transformer.wte(idx)  # token embeddings of shape (b, t, n_embd)
+        if self.config.scale_embeddings:
+            x = x * (self.config.n_embd**0.5)
         for block in self.transformer.h:
             x = block(x, cos, sin, mask, input_pos)
         x = self.transformer.ln_f(x)
         if lm_head_chunk_size > 0:
             # chunk the lm head logits to reduce the peak memory used by autograd
             return [self.lm_head(x_i) for x_i in x.split(lm_head_chunk_size, dim=1)]
-        return self.lm_head(x)  # (b, t, vocab_size)
+        x = self.lm_head(x)  # (b, t, vocab_size)
+        if self.config.final_logit_softcapping is not None:
+            x = torch.tanh(x / self.config.final_logit_softcapping) * self.config.final_logit_softcapping
+        return x
 
     @classmethod
     def from_name(cls, name: str, **kwargs: Any) -> Self:
@@ -92,11 +97,22 @@ class Block(BaseBlock):
     def __init__(self, config: Config, block_idx: int) -> None:
         # Skip the parent class __init__ altogether and replace it to avoid useless allocations
         nn.Module.__init__(self)
+        if not config.parallel_residual and config.shared_attention_norm:
+            raise NotImplementedError(
+                "No checkpoint amongst the ones we support uses this configuration:"
+
+                " non-parallel residual and shared attention norm."
+            )
         self.norm_1 = config.norm_class(config.n_embd, eps=config.norm_eps)
         self.attn = CausalSelfAttention(config, block_idx)
-        if not config.shared_attention_norm:
-            self.norm_2 = config.norm_class(config.n_embd, eps=config.norm_eps)
+        self.post_attention_norm = (
+            config.norm_class(config.n_embd, eps=config.norm_eps) if config.post_attention_norm else nn.Identity()
+        )
+        self.norm_2 = None if config.shared_attention_norm else config.norm_class(config.n_embd, eps=config.norm_eps)
         self.mlp = config.mlp_class(config)
+        self.post_mlp_norm = (
+            config.norm_class(config.n_embd, eps=config.norm_eps) if config.post_mlp_norm else nn.Identity()
+        )
 
         self.config = config
 
@@ -106,7 +122,7 @@ class CausalSelfAttention(BaseCausalSelfAttention):
     over the adaption prompt."""
 
     def __init__(self, config: Config, block_idx: int) -> None:
-        super().__init__(config)
+        super().__init__(config, block_idx)
         if block_idx >= config.adapter_start_layer:
             # adapter embedding layer
             self.adapter_wte = nn.Embedding(config.adapter_prompt_length, config.n_embd)
@@ -115,6 +131,11 @@ class CausalSelfAttention(BaseCausalSelfAttention):
             # kv cache for inference
             self.adapter_kv_cache: Optional[Tuple[torch.Tensor, torch.Tensor]] = None
         self.block_idx = block_idx
+        self.apply_sliding_window_attention = (
+            config.sliding_window_size is not None and
+            block_idx % config.sliding_window_layer_placing == 0
+        )
+        self.config = config
 
     def scaled_dot_product_attention(
         self, q: torch.Tensor, k: torch.Tensor, v: torch.Tensor, mask: Optional[torch.Tensor] = None
@@ -149,7 +170,8 @@ class CausalSelfAttention(BaseCausalSelfAttention):
         return y + self.gating_factor * ay
 
     def reset_parameters(self) -> None:
-        torch.nn.init.zeros_(self.gating_factor)
+        if hasattr(self, "gating_factor"):
+            torch.nn.init.zeros_(self.gating_factor)
 
     def _load_from_state_dict(self, state_dict: Dict, prefix: str, *args: Any, **kwargs: Any) -> None:
         """For compatibility with older checkpoints."""

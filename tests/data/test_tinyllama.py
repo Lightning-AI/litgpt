@@ -1,13 +1,15 @@
 # Copyright Lightning AI. Licensed under the Apache License 2.0, see LICENSE file.
+from unittest import mock
 
 import pytest
+from litdata.streaming import CombinedStreamingDataset, StreamingDataLoader, StreamingDataset
 from torch.utils.data import DataLoader
 
+from litgpt.data import TinyLlama
 
-def test_tinyllama(tmp_path, monkeypatch):
-    from litgpt.data import TinyLlama
-    from litdata.streaming import StreamingDataLoader, StreamingDataset, CombinedStreamingDataset
 
+@mock.patch("litdata.streaming.dataset.subsample_streaming_dataset", return_value=([], []))
+def test_tinyllama(_, tmp_path):
     data = TinyLlama(data_path=(tmp_path / "data"))
     assert data.seq_length == 2048
     assert data.batch_size == 1
@@ -33,3 +35,6 @@ def test_tinyllama(tmp_path, monkeypatch):
     val_dataloader = data.val_dataloader()
     assert isinstance(val_dataloader, DataLoader)
     assert isinstance(val_dataloader.dataset, StreamingDataset)
+
+    # has attributes from super class `LightningDataModule`
+    assert data.prepare_data_per_node

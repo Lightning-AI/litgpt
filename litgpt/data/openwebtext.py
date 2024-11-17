@@ -3,11 +3,11 @@ import os
 from dataclasses import dataclass, field
 from functools import partial
 from pathlib import Path
-from typing import Union, Optional
+from typing import Optional, Union
 
 from torch.utils.data import DataLoader
 
-from litgpt import Tokenizer
+from litgpt.tokenizer import Tokenizer
 from litgpt.data import DataModule
 
 
@@ -30,6 +30,7 @@ class OpenWebText(DataModule):
     seq_length: int = field(default=2048, repr=False, init=False)
 
     def __post_init__(self) -> None:
+        super().__init__()
         # Could be a remote path (s3://) or a local path
         self.data_path_train = str(self.data_path).rstrip("/") + "/train"
         self.data_path_val = str(self.data_path).rstrip("/") + "/val"
@@ -68,14 +69,14 @@ class OpenWebText(DataModule):
             fn=partial(tokenize, split_dataset["train"]),
             inputs=list(range(len(split_dataset["train"]))),
             output_dir=self.data_path_train,
-            num_workers=(os.cpu_count() - 1),
+            num_workers=min(64, os.cpu_count() - 1),
             chunk_bytes="200MB",
         )
         optimize(
             fn=partial(tokenize, split_dataset["val"]),
             inputs=list(range(len(split_dataset["val"]))),
             output_dir=self.data_path_val,
-            num_workers=(os.cpu_count() - 1),
+            num_workers=min(8, os.cpu_count() - 1),
             chunk_bytes="200MB",
         )
 
@@ -86,7 +87,6 @@ class OpenWebText(DataModule):
             input_dir=self.data_path_train,
             item_loader=TokensLoader(block_size=self.seq_length),
             shuffle=True,
-            drop_last=True,
         )
         train_dataloader = StreamingDataLoader(
             train_dataset, batch_size=self.batch_size, pin_memory=True, num_workers=self.num_workers, drop_last=True
@@ -94,16 +94,14 @@ class OpenWebText(DataModule):
         return train_dataloader
 
     def val_dataloader(self) -> DataLoader:
-        from litdata.streaming import StreamingDataset, TokensLoader
+        from litdata.streaming import StreamingDataLoader, StreamingDataset, TokensLoader
 
         val_dataset = StreamingDataset(
             input_dir=self.data_path_val,
             item_loader=TokensLoader(block_size=self.seq_length),
             shuffle=True,
-            # Consider setting to False, but we would lose some samples due to truncation when world size > 1
-            drop_last=True,
         )
-        val_dataloader = DataLoader(
+        val_dataloader = StreamingDataLoader(
             val_dataset, batch_size=self.batch_size, pin_memory=True, num_workers=self.num_workers, drop_last=True
         )
         return val_dataloader

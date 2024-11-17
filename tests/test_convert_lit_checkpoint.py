@@ -2,29 +2,47 @@
 
 import os
 from dataclasses import asdict
-from pathlib import Path
 from unittest.mock import ANY
-from urllib.request import urlretrieve
 
 import pytest
 import torch
 import yaml
-from conftest import RunIf
+from transformers import AutoConfig, AutoModelForCausalLM
+from transformers.models.falcon import FalconConfig, FalconForCausalLM
+from transformers.models.gemma import GemmaConfig, GemmaForCausalLM
+from transformers.models.gemma2 import Gemma2Config, Gemma2ForCausalLM
+from transformers.models.gpt_neox import GPTNeoXConfig, GPTNeoXForCausalLM
+from transformers.models.llama import LlamaConfig, LlamaForCausalLM
+from transformers.models.mixtral import MixtralConfig, MixtralForCausalLM
+from transformers.models.olmo import OlmoConfig, OlmoForCausalLM
+from transformers.models.phi.configuration_phi import PhiConfig
+from transformers.models.phi.modeling_phi import PhiForCausalLM
+from transformers.models.phi3.configuration_phi3 import Phi3Config
+from transformers.models.phi3.modeling_phi3 import Phi3ForCausalLM
+from litgpt import Config
+from litgpt.scripts.convert_lit_checkpoint import qkv_reassemble
 
-wd = Path(__file__).parent.parent.absolute()
+from litgpt import GPT, Config
+from litgpt.scripts.convert_lit_checkpoint import (
+    check_conversion_supported,
+    convert_lit_checkpoint,
+    copy_weights_falcon,
+    copy_weights_gemma_2,
+    copy_weights_gpt_neox,
+    copy_weights_llama,
+    copy_weights_phi,
+)
+from tests.conftest import RunIf
 
 
 @pytest.mark.parametrize("model_name", ("pythia-14m", "falcon-7b", "Llama-2-7b-hf", "phi-2"))
 def test_convert_lit_checkpoint(tmp_path, model_name):
-    from litgpt import GPT, Config
-    from litgpt.scripts.convert_lit_checkpoint import convert_lit_checkpoint
-
     ours_config = Config.from_name(model_name, block_size=8, n_layer=2, n_embd=32, n_head=2, padding_multiple=128)
     ours_model = GPT(ours_config)
     checkpoint_path = tmp_path / "lit_model.pth"
     config_path = tmp_path / "model_config.yaml"
     torch.save(ours_model.state_dict(), checkpoint_path)
-    with open(config_path, "w") as fp:
+    with open(config_path, "w", encoding="utf-8") as fp:
         yaml.dump(asdict(ours_config), fp)
     output_dir = tmp_path / "out_dir"
 
@@ -41,12 +59,6 @@ def test_convert_lit_checkpoint(tmp_path, model_name):
 
 @torch.inference_mode()
 def test_against_falcon_40b():
-    from transformers.models.falcon.configuration_falcon import FalconConfig
-    from transformers.models.falcon.modeling_falcon import FalconForCausalLM
-
-    from litgpt import GPT, Config
-    from litgpt.scripts.convert_lit_checkpoint import copy_weights_falcon as copy_to_theirs
-
     ours_config = Config.from_name("falcon-40b", n_layer=2, n_head=8, n_query_groups=4, n_embd=32)
     theirs_config = FalconConfig(
         vocab_size=ours_config.padded_vocab_size,
@@ -62,7 +74,7 @@ def test_against_falcon_40b():
     ours_model = GPT(ours_config)
     ours_state_dict = ours_model.state_dict()
     theirs_state_dict = {}
-    copy_to_theirs(ours_config, theirs_state_dict, ours_state_dict)
+    copy_weights_falcon(ours_config, theirs_state_dict, ours_state_dict)
 
     theirs_model = FalconForCausalLM(theirs_config)
     # assign must be set to True for torch.testing.assert_close to pass
@@ -77,11 +89,6 @@ def test_against_falcon_40b():
 
 @torch.inference_mode()
 def test_against_original_gpt_neox():
-    from transformers import GPTNeoXConfig, GPTNeoXForCausalLM
-
-    from litgpt import GPT, Config
-    from litgpt.scripts.convert_lit_checkpoint import copy_weights_gpt_neox as copy_to_theirs
-
     ours_config = Config(block_size=64, vocab_size=100, n_layer=4, n_head=8, n_embd=16)
     assert ours_config.padded_vocab_size == 512
     theirs_config = GPTNeoXConfig(
@@ -102,7 +109,7 @@ def test_against_original_gpt_neox():
     ours_model = GPT(ours_config)
     ours_state_dict = ours_model.state_dict()
     theirs_state_dict = {}
-    copy_to_theirs(ours_config, theirs_state_dict, ours_state_dict)
+    copy_weights_gpt_neox(ours_config, theirs_state_dict, ours_state_dict)
     theirs_model = GPTNeoXForCausalLM(theirs_config)
     # strict=False because we don't save the rotary embeddings inv frequency
     keys = theirs_model.load_state_dict(theirs_state_dict, strict=False)
@@ -121,12 +128,6 @@ def test_against_original_gpt_neox():
     "ours_kwargs", [{"name": "Llama-2-7b-hf"}, {"name": "CodeLlama-7b-hf"}, {"name": "Llama-2-70b-chat-hf"}]
 )
 def test_against_hf_llama2(ours_kwargs):
-    from transformers.models.llama.configuration_llama import LlamaConfig
-    from transformers.models.llama.modeling_llama import LlamaForCausalLM
-
-    from litgpt import GPT, Config
-    from litgpt.scripts.convert_lit_checkpoint import copy_weights_llama
-
     ours_config = Config.from_name(
         padded_vocab_size=10000, n_layer=2, n_head=8, n_embd=32, intermediate_size=86, **ours_kwargs
     )
@@ -160,11 +161,6 @@ def test_against_hf_llama2(ours_kwargs):
 
 @torch.inference_mode()
 def test_against_mixtral():
-    from transformers.models.mixtral import MixtralConfig, MixtralForCausalLM
-
-    from litgpt import GPT, Config
-    from litgpt.scripts.convert_lit_checkpoint import copy_weights_llama
-
     ours_config = Config.from_name(
         "Mixtral-8x7B-Instruct-v0.1",
         padded_vocab_size=10000,
@@ -205,13 +201,51 @@ def test_against_mixtral():
 
 
 @torch.inference_mode()
+@pytest.mark.parametrize("model_name", ("OLMo-1B-hf", "OLMo-7B-hf"))
+def test_against_olmo(model_name):
+    ours_config = Config.from_name(
+        model_name,
+        padded_vocab_size=10000,
+        n_layer=2,
+        n_head=8,
+        n_embd=32,
+        intermediate_size=86,
+    )
+    T = 5
+    theirs_config = OlmoConfig(
+        vocab_size=ours_config.padded_vocab_size,
+        hidden_size=ours_config.n_embd,
+        intermediate_size=ours_config.intermediate_size,
+        num_hidden_layers=ours_config.n_layer,
+        num_attention_heads=ours_config.n_head,
+        num_key_value_heads=ours_config.n_query_groups,
+        max_positional_embeddings=T,
+        attention_bias=ours_config.bias,
+        rope_theta=ours_config.rope_base,
+        tie_word_embeddings=(model_name == "OLMo-1B-hf"),
+    )
+    assert ours_config.intermediate_size == theirs_config.intermediate_size
+
+    ours_model = GPT(ours_config)
+    # tie weights
+    ours_model.lm_head.weight = ours_model.transformer.wte.weight
+    ours_state_dict = ours_model.state_dict()
+    theirs_state_dict = {}
+    copy_weights_llama(ours_config, theirs_state_dict, ours_state_dict, untie_weights=(model_name == "OLMo-1B-hf"))
+    theirs_model = OlmoForCausalLM(theirs_config)
+    keys = theirs_model.load_state_dict(theirs_state_dict, strict=False)
+    assert not keys.unexpected_keys
+
+    # test end to end
+    x = torch.tensor([[9856, 23, 491, 1536, 304]], dtype=torch.int32)
+    assert x.size(1) == T
+    ours_y = ours_model(x)
+    theirs_y = theirs_model(x)["logits"]
+    torch.testing.assert_close(ours_y, theirs_y)
+
+
+@torch.inference_mode()
 def test_against_original_open_llama_3b():
-    from transformers.models.llama.configuration_llama import LlamaConfig
-    from transformers.models.llama.modeling_llama import LlamaForCausalLM
-
-    from litgpt import GPT, Config
-    from litgpt.scripts.convert_lit_checkpoint import copy_weights_llama
-
     ours_config = Config.from_name("open_llama_3b", n_layer=2, n_head=8, n_embd=32, intermediate_size=86)
     T = 5
     theirs_config = LlamaConfig(
@@ -239,26 +273,10 @@ def test_against_original_open_llama_3b():
 
 
 @torch.inference_mode()
-def test_against_hf_phi_1_5():
-    workdir = wd / "tests" / "reference_models"
-    workdir.mkdir(parents=True, exist_ok=True)
-    file_paths = [workdir / "original_phi_1_5.py", workdir / "configuration_phi.py"]
-    urls = [
-        "https://huggingface.co/microsoft/phi-1_5/raw/main/modeling_phi.py",
-        "https://huggingface.co/microsoft/phi-1_5/raw/main/configuration_phi.py",
-    ]
-    for file_path, url in zip(file_paths, urls):
-        if not file_path.is_file():
-            urlretrieve(url=url, filename=file_path)
-
-    from reference_models.configuration_phi import PhiConfig
-    from reference_models.original_phi_1_5 import PhiForCausalLM
-
-    from litgpt import GPT, Config
-    from litgpt.scripts.convert_lit_checkpoint import copy_weights_phi
-
+@pytest.mark.parametrize("model_name", ("phi-1_5", "phi-2"))
+def test_against_hf_phi(model_name):
     ours_config = Config.from_name(
-        "phi-1_5", padded_vocab_size=10000, n_layer=2, n_head=4, n_embd=256, rotary_percentage=0.5
+        model_name, padded_vocab_size=10000, n_layer=2, n_head=4, n_embd=256, rotary_percentage=0.5
     )
     T = 5
     theirs_config = PhiConfig(
@@ -290,43 +308,31 @@ def test_against_hf_phi_1_5():
 
 
 @torch.inference_mode()
-def test_against_hf_phi_2():
-    workdir = wd / "tests" / "reference_models"
-    workdir.mkdir(parents=True, exist_ok=True)
-    file_paths = [workdir / "original_phi_2.py", workdir / "configuration_phi.py"]
-    urls = [
-        "https://huggingface.co/microsoft/phi-2/raw/main/modeling_phi.py",
-        "https://huggingface.co/microsoft/phi-2/raw/main/configuration_phi.py",
-    ]
-    for file_path, url in zip(file_paths, urls):
-        if not file_path.is_file():
-            urlretrieve(url=url, filename=file_path)
-
-    from reference_models.configuration_phi import PhiConfig
-    from reference_models.original_phi_2 import PhiForCausalLM
-
-    from litgpt import GPT, Config
-    from litgpt.scripts.convert_lit_checkpoint import copy_weights_phi
-
-    ours_config = Config.from_name(
-        "phi-2", padded_vocab_size=10000, n_layer=2, n_head=4, n_embd=256, rotary_percentage=0.5
-    )
+@pytest.mark.parametrize("model_name", ("Phi-3-mini-4k-instruct",))
+def test_against_hf_phi_3(model_name):
+    ours_config = Config.from_name(model_name, padded_vocab_size=10000, n_layer=2, n_head=4, n_embd=256)
     T = 5
-    theirs_config = PhiConfig(
-        vocab_size=ours_config.padded_vocab_size,
-        max_position_embeddings=ours_config.block_size,
+    theirs_config = Phi3Config(
+        attention_bias=ours_config.bias,
+        head_dim=ours_config.head_size,
         hidden_size=ours_config.n_embd,
         intermediate_size=ours_config.intermediate_size,
+        max_position_embeddings=T,
         num_attention_heads=ours_config.n_head,
         num_hidden_layers=ours_config.n_layer,
+        num_key_value_heads=ours_config.n_query_groups,
+        pad_token_id=ours_config.padded_vocab_size - 1,
         partial_rotary_factor=ours_config.rotary_percentage,
+        rms_norm_eps=ours_config.norm_eps,
+        rope_theta=ours_config.rope_base,
+        vocab_size=ours_config.padded_vocab_size,
     )
 
     ours_model = GPT(ours_config)
     ours_state_dict = ours_model.state_dict()
     theirs_state_dict = {}
     copy_weights_phi(ours_config, theirs_state_dict, ours_state_dict)
-    theirs_model = PhiForCausalLM(theirs_config)
+    theirs_model = Phi3ForCausalLM(theirs_config)
     # strict=False because we don't save the rotary embeddings inv frequency
     keys = theirs_model.load_state_dict(theirs_state_dict, strict=False)
     assert not keys.unexpected_keys
@@ -342,11 +348,6 @@ def test_against_hf_phi_2():
 
 @torch.inference_mode()
 def test_against_original_stablelm_zephyr_3b():
-    from transformers import AutoConfig, AutoModelForCausalLM
-
-    from litgpt import GPT, Config
-    from litgpt.scripts.convert_lit_checkpoint import copy_weights_llama
-
     T = 5
     ours_config = Config.from_name("stablelm-zephyr-3b", n_layer=2, n_head=16, n_embd=32, intermediate_size=86)
     theirs_config = AutoConfig.from_pretrained(
@@ -395,12 +396,6 @@ def test_against_original_stablelm_zephyr_3b():
     ],
 )
 def test_against_original_gemma(model_name, device, dtype):
-    from transformers.models.gemma.configuration_gemma import GemmaConfig
-    from transformers.models.gemma.modeling_gemma import GemmaForCausalLM
-
-    from litgpt import GPT, Config
-    from litgpt.scripts.convert_lit_checkpoint import copy_weights_llama
-
     torch.set_default_dtype(dtype)
 
     T = 5
@@ -429,7 +424,10 @@ def test_against_original_gemma(model_name, device, dtype):
     theirs_state_dict = {}
     copy_weights_llama(ours_config, theirs_state_dict, ours_state_dict, untie_weights=True)
     theirs_model = GemmaForCausalLM(theirs_config).to(device)
-    theirs_model.load_state_dict(theirs_state_dict, strict=False)
+    theirs_model.load_state_dict(
+        theirs_state_dict,
+        strict=False,
+    )
 
     # test end to end
     x = torch.tensor([[9856, 23, 491, 1536, 304]], dtype=torch.int32, device=device)
@@ -439,9 +437,80 @@ def test_against_original_gemma(model_name, device, dtype):
     torch.testing.assert_close(ours_y, theirs_y)
 
 
-def test_check_conversion_supported_adapter():
-    from litgpt.scripts.convert_lit_checkpoint import check_conversion_supported
+@torch.inference_mode()
+@pytest.mark.parametrize("model_name", ("gemma-2-2b", "gemma-2-9b", "gemma-2-27b"))
+@pytest.mark.parametrize(
+    ("device", "dtype"),
+    [
+        (torch.device("cpu"), torch.float32),
+        pytest.param(
+            torch.device("cuda"),
+            torch.float16,
+            marks=[
+                # the reference does softmax upscaled to fp32 during attention. additionally, the final layernorm input
+                # is slightly different
+                pytest.mark.xfail(raises=AssertionError, strict=False),
+                RunIf(min_cuda_gpus=1),
+            ],
+        ),
+    ],
+)
+def test_against_original_gemma_2(model_name, device, dtype):
+    torch.set_default_dtype(dtype)
 
+    T = 20
+    ours_config = Config.from_name(
+        model_name,
+        block_size=T,
+        sliding_window_size=T // 2,
+        n_layer=2,
+        n_head=16,
+        n_embd=32,
+        intermediate_size=86,
+    )
+    theirs_config = Gemma2Config(
+        vocab_size=ours_config.padded_vocab_size,
+        hidden_size=ours_config.n_embd,
+        head_dim=ours_config.head_size,
+        num_attention_heads=ours_config.n_head,
+        num_hidden_layers=ours_config.n_layer,
+        intermediate_size=ours_config.intermediate_size,
+        max_position_embeddings=ours_config.block_size,
+        sliding_window=ours_config.sliding_window_size,
+        rms_norm_eps=ours_config.norm_eps,
+        num_key_value_heads=ours_config.n_query_groups,
+        rope_theta=ours_config.rope_base,
+        attention_bias=ours_config.bias,
+        tie_word_embeddings=True,
+        hidden_act="gelu_pytorch_tanh",
+        attn_logit_softcapping=ours_config.attention_logit_softcapping,
+        final_logit_softcapping=ours_config.final_logit_softcapping,
+        initializer_range=1.0,  # to make the affect of attention_logit_softcapping more prominent
+        attn_implementation="eager",
+        query_pre_attn_scalar=ours_config.attention_scores_scalar,
+    )
+
+    assert ours_config.intermediate_size == theirs_config.intermediate_size
+
+    ours_model = GPT(ours_config).to(device)
+    # tie weights
+    ours_model.lm_head.weight = ours_model.transformer.wte.weight
+    ours_state_dict = ours_model.state_dict()
+    theirs_state_dict = {}
+    copy_weights_gemma_2(ours_config, theirs_state_dict, ours_state_dict, untie_weights=True)
+    theirs_model = Gemma2ForCausalLM(theirs_config).to(device)
+    keys = theirs_model.load_state_dict(theirs_state_dict, strict=False)
+    assert not keys.unexpected_keys
+
+    # test end to end
+    x = torch.randint(low=0, high=ours_config.padded_vocab_size, size=(T,), device=device).unsqueeze(0)
+    assert x.size(1) == T
+    ours_y = ours_model(x)
+    theirs_y = theirs_model(x)["logits"].to(dtype)  # HF converts logits to float
+    torch.testing.assert_close(ours_y, theirs_y, rtol=3e-5, atol=3e-5)
+
+
+def test_check_conversion_supported_adapter():
     lit_weights = {"some.key.name": ANY, "error.key.gating_factor": ANY}
     with pytest.raises(NotImplementedError, match="Converting adapter"):
         check_conversion_supported(lit_weights=lit_weights)
@@ -452,17 +521,12 @@ def test_check_conversion_supported_adapter():
 
 
 def test_check_conversion_supported_lora():
-    from litgpt.scripts.convert_lit_checkpoint import check_conversion_supported
-
     lit_weights = {"some.key.name": ANY, "error.key.lora": ANY}
     with pytest.raises(ValueError, match=r"LoRA.*cannot be converted"):
         check_conversion_supported(lit_weights=lit_weights)
 
 
 def test_qkv_reassemble():
-    from litgpt import Config
-    from litgpt.scripts.convert_lit_checkpoint import qkv_reassemble
-
     # MHA
     config = Config(n_embd=4, n_head=4)
     qkv = torch.tensor(

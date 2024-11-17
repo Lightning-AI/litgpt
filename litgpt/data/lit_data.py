@@ -2,11 +2,11 @@
 import os
 from dataclasses import dataclass, field
 from pathlib import Path
-from typing import Union, Optional, Tuple
+from typing import Optional, Tuple, Union
 
 from torch.utils.data import DataLoader
 
-from litgpt import Tokenizer
+from litgpt.tokenizer import Tokenizer
 from litgpt.data import DataModule
 
 
@@ -31,6 +31,7 @@ class LitData(DataModule):
     seq_length: int = field(init=False, repr=False, default=2048)
 
     def __post_init__(self) -> None:
+        super().__init__()
         if self.split_names is not None and len(self.split_names) != 2:
             raise ValueError("If provided `split_names` must be a tuple of two strings, for example: ('train', 'val').")
 
@@ -49,12 +50,15 @@ class LitData(DataModule):
         return self._dataloader(input_dir=input_dir, train=False)
 
     def _dataloader(self, input_dir: str, train: bool):
-        from litdata.streaming import StreamingDataset, TokensLoader
+        from litdata.streaming import StreamingDataset, StreamingDataLoader, TokensLoader
 
         dataset = StreamingDataset(
-            input_dir=input_dir, item_loader=TokensLoader(block_size=self.seq_length), shuffle=train, drop_last=True
+            input_dir=input_dir,
+            item_loader=TokensLoader(block_size=self.seq_length),
+            shuffle=train,
+            seed=self.seed,
         )
-        dataloader = DataLoader(
+        dataloader = StreamingDataLoader(
             dataset, batch_size=self.batch_size, pin_memory=True, num_workers=self.num_workers, drop_last=True
         )
         return dataloader

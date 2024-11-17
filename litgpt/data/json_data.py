@@ -3,13 +3,13 @@
 import json
 from dataclasses import dataclass, field
 from pathlib import Path
-from typing import Optional, Union, Tuple, Any
+from typing import Any, Optional, Tuple, Union
 
 import torch
-from torch.utils.data import random_split, DataLoader
+from torch.utils.data import DataLoader, random_split
 
-from litgpt import PromptStyle
-from litgpt.data import SFTDataset, get_sft_collate_fn, DataModule
+from litgpt.prompts import PromptStyle
+from litgpt.data import DataModule, SFTDataset, get_sft_collate_fn
 from litgpt.tokenizer import Tokenizer
 
 
@@ -18,8 +18,8 @@ class JSON(DataModule):
     """Loads JSON or JSONL data for supervised finetuning."""
 
     json_path: Path
-    """A path to a JSON file or a directory with `train.json` and `val.json` containing the data. 
-    The file(s) should contain a list of samples (dicts). Each dict must have the keys 'instruction' and 'output', 
+    """A path to a JSON file or a directory with `train.json` and `val.json` containing the data.
+    The file(s) should contain a list of samples (dicts). Each dict must have the keys 'instruction' and 'output',
     and can optionally have a key 'input' (see Alpaca)."""
     mask_prompt: bool = False
     """Whether to mask the prompt section from the label (with ``ignore_index``)."""
@@ -42,6 +42,12 @@ class JSON(DataModule):
     val_dataset: Optional[SFTDataset] = field(default=None, init=False, repr=False)
 
     def __post_init__(self):
+        super().__init__()
+        if self.json_path.is_file() and self.val_split_fraction is None:
+            raise ValueError(
+                "If `json_path` is a file, you must set `val_split_fraction` to a value between 0 and 1 to split the"
+                " data into train and validation sets."
+            )
         if self.json_path.is_dir() and self.val_split_fraction is not None:
             raise ValueError(
                 "If `json_path` is a directory, it must contain 'train.json' and 'val.json' files and"
