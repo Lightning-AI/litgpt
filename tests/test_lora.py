@@ -1,6 +1,7 @@
 # Copyright Lightning AI. Licensed under the Apache License 2.0, see LICENSE file.
 import os
 from contextlib import redirect_stdout
+from copy import deepcopy
 from io import StringIO
 from itertools import product
 from unittest import mock
@@ -23,10 +24,19 @@ import litgpt.finetune.lora as module
 from litgpt.args import EvalArgs, TrainArgs
 from litgpt.data import Alpaca
 from litgpt.lora import GPT as LoRAGPT
+from litgpt.lora import (
+    CausalSelfAttention,
+    Config,
+    LoRALinear,
+    LoRAQKVLinear,
+    lora_filter,
+    mark_only_lora_as_trainable,
+    merge_lora_weights,
+)
 from litgpt.lora import CausalSelfAttention as LoRACausalSelfAttention
-from litgpt.lora import Config, LoRALinear, LoRAQKVLinear, lora_filter, mark_only_lora_as_trainable, merge_lora_weights
 from litgpt.model import GPT as BaseGPT
 from litgpt.scripts.convert_hf_checkpoint import copy_weights_gemma_2, copy_weights_hf_llama
+from litgpt.scripts.convert_lit_checkpoint import qkv_reassemble as make_qkv_interleaved
 from tests.conftest import RunIf
 
 
@@ -869,3 +879,29 @@ def test_zero_pad_cpu_and_mocked_mps():
 
             assert result_cpu.shape == result_mps.shape, "Shape mismatch between CPU and MPS"
             assert torch.allclose(result_cpu, result_mps), "Tensor values mismatch between CPU and MPS"
+
+
+
+def test_load_legacy_state_dict():
+    """Check that a legacy state dict (with an interleaved placement in QKV matrix) can be loaded into a model with CausalSelfAttention layers."""
+    config = Config(
+        n_embd=32,
+        n_head=4,
+        head_size=8,
+        n_query_groups=4,
+        bias=True,
+        lora_r=8,
+        lora_alpha=16,
+        lora_dropout=0.1
+    )
+
+    attention_1 = CausalSelfAttention(config=config, block_idx=0)
+
+    # make weights to be as-like in a legacy checkpoint, with `attn.attn.weight` instead of `attn.qkv.weight`
+    # and make them interleaved
+    state_dict = deepcopy(attention_1.state_dict())
+    state_dict["attn.linear.weight"] = make_qkv_interleaved(state_dict.pop("qkv.linear.weight"), config)
+    state_dict["attn.linear.bias"] = make_qkv_interleaved(state_dict.pop("qkv.linear.bias"), config)
+
+    attention_2 = CausalSelfAttention(config=config, block_idx=0)
+    attention_2.load_state_dict(state_dict)

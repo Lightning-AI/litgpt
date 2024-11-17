@@ -21,6 +21,7 @@ from litgpt.adapter import Block as BaseBlock
 from litgpt.adapter import CausalSelfAttention as BaseCausalSelfAttention
 from litgpt.adapter import Config as BaseConfig
 from litgpt.model import KVCache
+from litgpt.scripts.convert_hf_checkpoint import qkv_reassemble
 from litgpt.utils import map_old_state_dict_weights
 
 
@@ -163,7 +164,7 @@ class CausalSelfAttention(BaseCausalSelfAttention):
         nn.Module.__init__(self)
         shape = (config.n_head + 2 * config.n_query_groups) * config.head_size
         # key, query, value projections for all heads, but in a batch
-        self.attn = AdapterV2Linear(in_features=config.n_embd, out_features=shape, bias=config.bias)
+        self.qkv = AdapterV2Linear(in_features=config.n_embd, out_features=shape, bias=config.bias)
         # output projection
         # if `head_size` is explicitly specified in the config, `n_emd` might not be equal to `head_size * n_head`
         self.proj = AdapterV2Linear(config.head_size * config.n_head, config.n_embd, bias=config.bias)
@@ -197,6 +198,12 @@ class CausalSelfAttention(BaseCausalSelfAttention):
         # For compatibility with older checkpoints
         if (key := prefix + "gating_factor") in state_dict and state_dict[key].size(1) == self.config.n_head:
             state_dict[key] = state_dict[key].permute(0, 2, 1, 3)
+
+        for attr in ("weight", "bias"):
+            key = f"{prefix}attn.linear.{attr}"
+            if key in state_dict:
+                state_dict[f"{prefix}qkv.linear.{attr}"] = qkv_reassemble(state_dict.pop(key), self.config)
+
         super()._load_from_state_dict(state_dict, prefix, *args, **kwargs)
 
 

@@ -1,6 +1,7 @@
 # Copyright Lightning AI. Licensed under the Apache License 2.0, see LICENSE file.
 import os
 from contextlib import redirect_stdout
+from copy import deepcopy
 from dataclasses import asdict
 from io import StringIO
 from unittest import mock
@@ -19,10 +20,11 @@ from transformers.models.gemma2 import Gemma2Config, Gemma2ForCausalLM
 import litgpt.adapter as gpt_adapter
 import litgpt.finetune.adapter as module
 import litgpt.model as gpt
-from litgpt.adapter import GPT, Config, adapter_filter
+from litgpt.adapter import GPT, CausalSelfAttention, Config, adapter_filter
 from litgpt.args import EvalArgs, TrainArgs
 from litgpt.data import Alpaca
 from litgpt.scripts.convert_hf_checkpoint import copy_weights_gemma_2, copy_weights_hf_llama
+from litgpt.scripts.convert_lit_checkpoint import qkv_reassemble as make_qkv_interleaved
 from tests.conftest import RunIf
 
 
@@ -355,3 +357,25 @@ def test_against_original_gemma_2(model_name, device, dtype):
     ours_y = ours_model(x)
     theirs_y = theirs_model(x)["logits"].to(dtype)  # HF converts logits to float
     torch.testing.assert_close(ours_y, theirs_y)
+
+
+def test_load_legacy_state_dict():
+    """Check that a legacy state dict (with an interleaved placement in QKV matrix) can be loaded into a model with CausalSelfAttention layers."""
+    config = Config(
+        n_embd=32,
+        n_head=4,
+        head_size=8,
+        n_query_groups=4,
+        bias=True,
+    )
+
+    attention_1 = CausalSelfAttention(config=config, block_idx=0)
+
+    # make weights to be as-like in a legacy checkpoint, with `attn.attn.weight` instead of `attn.qkv.weight`
+    # and make them interleaved
+    state_dict = deepcopy(attention_1.state_dict())
+    state_dict["attn.weight"] = make_qkv_interleaved(state_dict.pop("qkv.weight"), config)
+    state_dict["attn.bias"] = make_qkv_interleaved(state_dict.pop("qkv.bias"), config)
+
+    attention_2 = CausalSelfAttention(config=config, block_idx=0)
+    attention_2.load_state_dict(state_dict)

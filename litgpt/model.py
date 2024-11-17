@@ -7,13 +7,14 @@ https://github.com/EleutherAI/gpt-neox/tree/main/megatron/model.
 """
 
 import math
-from typing import Any, Optional, Tuple
+from typing import Any, Dict, Optional, Tuple
 
 import torch
 import torch.nn as nn
 from typing_extensions import Self
 
 from litgpt.config import Config
+from litgpt.scripts.convert_hf_checkpoint import qkv_reassemble
 
 
 class GPT(nn.Module):
@@ -251,7 +252,7 @@ class CausalSelfAttention(nn.Module):
     def __init__(self, config: Config, block_idx: int) -> None:
         super().__init__()
         # key, query and value projections for all heads, but in a batch
-        self.attn = nn.Linear(
+        self.qkv = nn.Linear(
             config.n_embd,
             (config.n_head + 2 * config.n_query_groups) * config.head_size,  # support for grouped/multi queries
             bias=config.bias,
@@ -402,6 +403,15 @@ class CausalSelfAttention(nn.Module):
                 rope_cache_length + self.config.head_size - self.config.rope_n_elem,
             )
         return KVCache(k_shape, v_shape, device=device, dtype=dtype)
+
+    def _load_from_state_dict(self, state_dict: Dict, prefix: str, *args: Any, **kwargs: Any) -> None:
+        """For compatibility with legacy checkpoints."""
+        for attr in ("weight", "bias"):
+            key = f"{prefix}attn.{attr}"
+            if key in state_dict:
+                state_dict[f"{prefix}qkv.{attr}"] = qkv_reassemble(state_dict.pop(key), self.config)
+
+        super()._load_from_state_dict(state_dict, prefix, *args, **kwargs)
 
 
 class GptNeoxMLP(nn.Module):

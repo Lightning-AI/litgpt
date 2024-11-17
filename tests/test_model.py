@@ -2,9 +2,9 @@
 
 from copy import deepcopy
 from functools import partial
+from unittest import mock
 
 import pytest
-from unittest import mock
 import torch
 from lightning import Fabric
 from lightning.fabric.utilities.imports import _IS_WINDOWS
@@ -30,8 +30,8 @@ from transformers.models.mixtral import MixtralConfig, MixtralForCausalLM
 from transformers.models.olmo import OlmoConfig, OlmoForCausalLM
 
 import litgpt.config as config_module
-from litgpt.model import batched_index_copy_
 from litgpt import GPT, Config
+from litgpt.model import CausalSelfAttention, batched_index_copy_
 from litgpt.scripts.convert_hf_checkpoint import (
     copy_weights_falcon,
     copy_weights_gemma_2,
@@ -39,6 +39,7 @@ from litgpt.scripts.convert_hf_checkpoint import (
     copy_weights_hf_llama,
     copy_weights_phi,
 )
+from litgpt.scripts.convert_lit_checkpoint import qkv_reassemble as make_qkv_interleaved
 from tests.conftest import RunIf
 
 
@@ -1055,3 +1056,24 @@ def test_batched_index_copy_modes():
             val_3_mps = val_3
             batched_index_copy_(t3_mps, dim_3, idx_3_mps, val_3_mps)
             assert torch.allclose(t3_cpu, t3_mps), "Mismatch with negative dimension on mocked MPS"
+
+def test_load_legacy_state_dict():
+    """Check that a legacy state dict (with an interleaved placement in QKV matrix) can be loaded into a model with CausalSelfAttention layers."""
+    config = Config(
+        n_embd=32,
+        n_head=4,
+        head_size=8,
+        n_query_groups=4,
+        bias=True,
+    )
+
+    attention_1 = CausalSelfAttention(config=config, block_idx=0)
+
+    # make weights to be as-like in a legacy checkpoint, with `attn.attn.weight` instead of `attn.qkv.weight`
+    # and make them interleaved
+    state_dict = deepcopy(attention_1.state_dict())
+    state_dict["attn.weight"] = make_qkv_interleaved(state_dict.pop("qkv.weight"), config)
+    state_dict["attn.bias"] = make_qkv_interleaved(state_dict.pop("qkv.bias"), config)
+
+    attention_2 = CausalSelfAttention(config=config, block_idx=0)
+    attention_2.load_state_dict(state_dict)

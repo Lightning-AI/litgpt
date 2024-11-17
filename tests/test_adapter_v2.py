@@ -1,6 +1,7 @@
 # Copyright Lightning AI. Licensed under the Apache License 2.0, see LICENSE file.
 import os
 from contextlib import redirect_stdout
+from copy import deepcopy
 from io import StringIO
 from unittest import mock
 from unittest.mock import Mock
@@ -19,11 +20,12 @@ from transformers.models.mixtral import MixtralConfig, MixtralForCausalLM
 import litgpt.config as config_module
 import litgpt.finetune.adapter_v2 as module
 from litgpt.adapter_v2 import GPT as AdapterV2GPT
-from litgpt.adapter_v2 import Config, adapter_filter
+from litgpt.adapter_v2 import CausalSelfAttention, Config, adapter_filter
 from litgpt.args import EvalArgs, TrainArgs
 from litgpt.data import Alpaca
 from litgpt.model import GPT as BaseGPT
 from litgpt.scripts.convert_hf_checkpoint import copy_weights_gemma_2, copy_weights_hf_llama
+from litgpt.scripts.convert_lit_checkpoint import qkv_reassemble as make_qkv_interleaved
 from tests.conftest import RunIf
 
 
@@ -465,3 +467,24 @@ def test_adapter_v2_bitsandbytes(monkeypatch, tmp_path, fake_checkpoint_dir, alp
     logs = stdout.getvalue()
     assert "of trainable parameters: 552" in logs
     assert "of non-trainable parameters: 1,808" in logs
+
+def test_load_legacy_state_dict():
+    """Check that a legacy state dict (with an interleaved placement in QKV matrix) can be loaded into a model with CausalSelfAttention layers."""
+    config = Config(
+        n_embd=32,
+        n_head=4,
+        head_size=8,
+        n_query_groups=4,
+        bias=True,
+    )
+
+    attention_1 = CausalSelfAttention(config=config, block_idx=0)
+
+    # make weights to be as-like in a legacy checkpoint, with `attn.attn.weight` instead of `attn.qkv.weight`
+    # and make them interleaved
+    state_dict = deepcopy(attention_1.state_dict())
+    state_dict["attn.linear.weight"] = make_qkv_interleaved(state_dict.pop("qkv.linear.weight"), config)
+    state_dict["attn.linear.bias"] = make_qkv_interleaved(state_dict.pop("qkv.linear.bias"), config)
+
+    attention_2 = CausalSelfAttention(config=config, block_idx=0)
+    attention_2.load_state_dict(state_dict)

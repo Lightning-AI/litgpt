@@ -58,6 +58,7 @@ from litgpt.model import GPT as BaseModel
 from litgpt.model import Block as BaseBlock
 from litgpt.model import CausalSelfAttention as BaseCausalSelfAttention
 from litgpt.model import KVCache
+from litgpt.scripts.convert_hf_checkpoint import qkv_reassemble
 from litgpt.utils import map_old_state_dict_weights
 
 
@@ -581,7 +582,7 @@ class CausalSelfAttention(BaseCausalSelfAttention):
         nn.Module.__init__(self)
         shape = (config.n_head + 2 * config.n_query_groups) * config.head_size
         # key, query, value projections for all heads, but in a batch
-        self.attn = LoRAQKVLinear(
+        self.qkv = LoRAQKVLinear(
             in_features=config.n_embd,
             out_features=shape,
             r=config.lora_r,
@@ -620,7 +621,14 @@ class CausalSelfAttention(BaseCausalSelfAttention):
             "proj.weight": "proj.linear.weight",
             "proj.bias": "proj.linear.bias",
         }
+
         state_dict = map_old_state_dict_weights(state_dict, mapping, prefix)
+
+        for attr in ("weight", "bias"):
+            key = f"{prefix}attn.linear.{attr}"
+            if key in state_dict:
+                state_dict[f"{prefix}qkv.linear.{attr}"] = qkv_reassemble(state_dict.pop(key), self.config)
+
         super()._load_from_state_dict(state_dict, prefix, *args, **kwargs)
 
 

@@ -2,17 +2,17 @@
 
 import gc
 import json
+import os
 import re
 from collections import defaultdict
 from functools import partial
-import os
 from pathlib import Path
 from pprint import pprint
 from typing import Dict, List, Optional, Tuple, Union
 
-from tqdm import tqdm
 import torch
 from lightning.fabric.utilities.load import _NotYetLoadedTensor as NotYetLoadedTensor
+from tqdm import tqdm
 
 from litgpt.config import Config
 from litgpt.utils import extend_checkpoint_dir, incremental_save, lazy_load, save_config
@@ -377,22 +377,43 @@ def copy_weights_phi(
                 pbar.update(progress_per_file)
 
 
-def qkv_reassemble(param: Union[torch.Tensor, NotYetLoadedTensor], config: Config) -> torch.Tensor:
+# def qkv_reassemble(param: Union[torch.Tensor, NotYetLoadedTensor], config: Config) -> torch.Tensor:
+#     """Reassemble from a normal to an interleaved placement in a QKV matrix.
+#     [Q, Q, ..., K, K, ..., V, V, ...] --> [Q, K, V, Q, K, V, ...]
+#     """
+#     q, k, v = param.split(
+#         (
+#             config.n_head * config.head_size,
+#             config.n_query_groups * config.head_size,
+#             config.n_query_groups * config.head_size,
+#         )
+#     )
+#     qs = q.split(config.n_head // config.n_query_groups * config.head_size)
+#     ks = k.split(config.head_size)
+#     vs = v.split(config.head_size)
+#     interleaved = [t for group in zip(qs, ks, vs) for t in group]
+#     return torch.cat(interleaved)
+
+def qkv_reassemble(
+    param: Union[torch.Tensor, NotYetLoadedTensor], config: Config
+) -> Tuple[torch.Tensor, torch.Tensor, torch.Tensor]:
     """Reassemble from a normal to an interleaved placement in a QKV matrix.
-    [Q, Q, ..., K, K, ..., V, V, ...] --> [Q, K, V, Q, K, V, ...]
+    [Q, K, V, Q, K, V, ...] --> [Q, Q, ..., K, K, ..., V, V, ...]
     """
-    q, k, v = param.split(
-        (
-            config.n_head * config.head_size,
-            config.n_query_groups * config.head_size,
-            config.n_query_groups * config.head_size,
-        )
-    )
-    qs = q.split(config.n_head // config.n_query_groups * config.head_size)
-    ks = k.split(config.head_size)
-    vs = v.split(config.head_size)
-    interleaved = [t for group in zip(qs, ks, vs) for t in group]
-    return torch.cat(interleaved)
+    q_per_kv = config.n_head // config.n_query_groups
+    qs = []
+    ks = []
+    vs = []
+    for chunk in torch.chunk(param, config.n_query_groups):
+        split = torch.split(chunk, [config.head_size * q_per_kv, config.head_size, config.head_size])
+        qs.append(split[0])
+        ks.append(split[1])
+        vs.append(split[2])
+    q = torch.cat(qs)
+    k = torch.cat(ks)
+    v = torch.cat(vs)
+    return torch.cat((q, k, v))
+
 
 
 def layer_template(layer_name: str, num_matches: int = 1) -> Tuple[str, int]:
@@ -417,23 +438,6 @@ def load_param(
         param = param.to(dtype)
     return param
 
-
-def qkv_reassemble(
-    param: Union[torch.Tensor, NotYetLoadedTensor], config: Config
-) -> Tuple[torch.Tensor, torch.Tensor, torch.Tensor]:
-    q_per_kv = config.n_head // config.n_query_groups
-    qs = []
-    ks = []
-    vs = []
-    for chunk in torch.chunk(param, config.n_query_groups):
-        split = torch.split(chunk, [config.head_size * q_per_kv, config.head_size, config.head_size])
-        qs.append(split[0])
-        ks.append(split[1])
-        vs.append(split[2])
-    q = torch.cat(qs)
-    k = torch.cat(ks)
-    v = torch.cat(vs)
-    return torch.cat((q, k, v))
 
 
 @torch.inference_mode()
