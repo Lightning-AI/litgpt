@@ -35,10 +35,10 @@ def test_config_identical():
         base_model = BaseGPT.from_name(name)
         adapter_model = AdapterV2GPT.from_name(name)
 
-    assert not hasattr(base_model.transformer.h[2].attn.attn, "adapter_bias")
-    assert not hasattr(base_model.transformer.h[2].attn.attn, "adapter_scale")
-    assert hasattr(adapter_model.transformer.h[2].attn.attn, "adapter_bias")
-    assert hasattr(adapter_model.transformer.h[2].attn.attn, "adapter_scale")
+    assert not hasattr(base_model.transformer.h[2].attn.qkv, "adapter_bias")
+    assert not hasattr(base_model.transformer.h[2].attn.qkv, "adapter_scale")
+    assert hasattr(adapter_model.transformer.h[2].attn.qkv, "adapter_bias")
+    assert hasattr(adapter_model.transformer.h[2].attn.qkv, "adapter_scale")
 
 
 def test_adapter_v2_filter(tmp_path):
@@ -58,8 +58,8 @@ def test_adapter_v2_filter(tmp_path):
     }
     for layer in range(3):
         for param in (
-            "attn.attn.adapter_bias",
-            "attn.attn.adapter_scale",
+            "attn.qkv.adapter_bias",
+            "attn.qkv.adapter_scale",
             "attn.proj.adapter_bias",
             "attn.proj.adapter_scale",
             "mlp.fc.adapter_bias",
@@ -366,27 +366,27 @@ def test_adapter_v2_bitsandbytes(monkeypatch, tmp_path, fake_checkpoint_dir, alp
         "torch.uint8": {
             "transformer.h.0.mlp.fc.linear.weight",
             "transformer.h.1.mlp.proj.linear.weight",
-            "transformer.h.1.attn.attn.linear.weight",
+            "transformer.h.1.attn.qkv.linear.weight",
             "transformer.h.0.attn.proj.linear.weight",
             "lm_head.linear.weight",
             "transformer.h.1.attn.proj.linear.weight",
             "transformer.h.0.mlp.proj.linear.weight",
-            "transformer.h.0.attn.attn.linear.weight",
+            "transformer.h.0.attn.qkv.linear.weight",
             "transformer.h.1.mlp.fc.linear.weight",
         },
         "torch.float16": {
-            "transformer.h.1.attn.attn.adapter_bias",
+            "transformer.h.1.attn.qkv.adapter_bias",
             "transformer.h.1.mlp.proj.adapter_bias",
-            "transformer.h.0.attn.attn.adapter_bias",
+            "transformer.h.0.attn.qkv.adapter_bias",
             "transformer.h.0.norm_1.bias",
-            "transformer.h.0.attn.attn.linear.bias",
+            "transformer.h.0.attn.qkv.linear.bias",
             "transformer.h.1.attn.adapter_wte.weight",
             "transformer.ln_f.weight",
             "transformer.h.0.mlp.fc.linear.bias",
             "transformer.h.0.mlp.proj.linear.bias",
             "transformer.h.1.mlp.fc.linear.bias",
             "transformer.h.0.attn.proj.adapter_scale",
-            "transformer.h.0.attn.attn.adapter_scale",
+            "transformer.h.0.attn.qkv.adapter_scale",
             "transformer.h.1.norm_2.bias",
             "transformer.h.1.attn.proj.adapter_scale",
             "transformer.h.0.norm_2.bias",
@@ -408,9 +408,9 @@ def test_adapter_v2_bitsandbytes(monkeypatch, tmp_path, fake_checkpoint_dir, alp
             "lm_head.adapter_bias",
             "transformer.h.1.norm_2.weight",
             "transformer.h.0.attn.adapter_wte.weight",
-            "transformer.h.1.attn.attn.adapter_scale",
+            "transformer.h.1.attn.qkv.adapter_scale",
             "transformer.h.1.mlp.fc.adapter_scale",
-            "transformer.h.1.attn.attn.linear.bias",
+            "transformer.h.1.attn.qkv.linear.bias",
             "transformer.wte.weight",
             "transformer.wte.norm.weight",
             "transformer.wte.norm.bias",
@@ -437,20 +437,20 @@ def test_adapter_v2_bitsandbytes(monkeypatch, tmp_path, fake_checkpoint_dir, alp
             "transformer.ln_f.bias",
             "lm_head.adapter_scale",
             "transformer.h.1.norm_2.weight",
-            "transformer.h.0.attn.attn.adapter_scale",
+            "transformer.h.0.attn.qkv.adapter_scale",
             "transformer.h.0.mlp.proj.adapter_bias",
             "transformer.h.0.attn.gating_factor",
             "transformer.h.1.norm_1.bias",
             "transformer.h.1.mlp.fc.adapter_bias",
             "transformer.h.1.mlp.proj.adapter_scale",
             "transformer.h.0.mlp.fc.adapter_scale",
-            "transformer.h.1.attn.attn.adapter_bias",
+            "transformer.h.1.attn.qkv.adapter_bias",
             "transformer.h.0.norm_2.weight",
             "transformer.h.1.norm_2.bias",
             "transformer.h.0.norm_1.weight",
             "transformer.h.0.attn.proj.adapter_scale",
             "transformer.h.1.mlp.proj.adapter_bias",
-            "transformer.h.0.attn.attn.adapter_bias",
+            "transformer.h.0.attn.qkv.adapter_bias",
             "transformer.h.0.attn.adapter_wte.weight",
             "transformer.ln_f.weight",
             "transformer.h.1.attn.gating_factor",
@@ -460,7 +460,7 @@ def test_adapter_v2_bitsandbytes(monkeypatch, tmp_path, fake_checkpoint_dir, alp
             "transformer.h.0.norm_1.bias",
             "transformer.h.0.norm_2.bias",
             "transformer.h.1.norm_1.weight",
-            "transformer.h.1.attn.attn.adapter_scale",
+            "transformer.h.1.attn.qkv.adapter_scale",
         }
     }
 

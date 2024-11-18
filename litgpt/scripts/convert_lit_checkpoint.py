@@ -23,7 +23,7 @@ def copy_weights_falcon(
 ) -> None:
     weight_map = {
         "transformer.wte.weight": "transformer.word_embeddings.weight",
-        "transformer.h.{}.attn.attn.weight": "transformer.h.{}.self_attention.query_key_value.weight",
+        "transformer.h.{}.attn.qkv.weight": "transformer.h.{}.self_attention.query_key_value.weight",
         "transformer.h.{}.attn.proj.weight": "transformer.h.{}.self_attention.dense.weight",
         "transformer.h.{}.mlp.fc.weight": "transformer.h.{}.mlp.dense_h_to_4h.weight",
         "transformer.h.{}.mlp.proj.weight": "transformer.h.{}.mlp.dense_4h_to_h.weight",
@@ -55,7 +55,7 @@ def copy_weights_falcon(
         name_template, layer_idx = layer_template(from_name)
         to_name = weight_map[name_template].format(layer_idx)
         param = load_param(param, from_name, None)
-        if from_name.endswith((".attn.attn.weight", ".attn.attn.bias")):
+        if from_name.endswith((".attn.qkv.weight", ".attn.qkv.bias")):
             # Reassemble [q, q, ..., k, k, ..., v, v, ...] --> [q, k, v, q, k, v, ...]
             param = qkv_reassemble(param, config)
         if saver is not None:
@@ -73,8 +73,8 @@ def copy_weights_gpt_neox(
         "transformer.wte.weight": "gpt_neox.embed_in.weight",
         "transformer.h.{}.norm_1.bias": "gpt_neox.layers.{}.input_layernorm.bias",
         "transformer.h.{}.norm_1.weight": "gpt_neox.layers.{}.input_layernorm.weight",
-        "transformer.h.{}.attn.attn.bias": "gpt_neox.layers.{}.attention.query_key_value.bias",
-        "transformer.h.{}.attn.attn.weight": "gpt_neox.layers.{}.attention.query_key_value.weight",
+        "transformer.h.{}.attn.qkv.bias": "gpt_neox.layers.{}.attention.query_key_value.bias",
+        "transformer.h.{}.attn.qkv.weight": "gpt_neox.layers.{}.attention.query_key_value.weight",
         "transformer.h.{}.attn.proj.bias": "gpt_neox.layers.{}.attention.dense.bias",
         "transformer.h.{}.attn.proj.weight": "gpt_neox.layers.{}.attention.dense.weight",
         "transformer.h.{}.norm_2.bias": "gpt_neox.layers.{}.post_attention_layernorm.bias",
@@ -92,7 +92,7 @@ def copy_weights_gpt_neox(
         name_template, layer_idx = layer_template(from_name)
         to_name = weight_map[name_template].format(layer_idx)
         param = load_param(param, from_name, None)
-        if from_name.endswith((".attn.attn.weight", ".attn.attn.bias")):
+        if from_name.endswith((".attn.qkv.weight", ".attn.qkv.bias")):
             # Reassemble [q, q, ..., k, k, ..., v, v, ...] --> [q, k, v, q, k, v, ...]
             param = qkv_reassemble(param, config)
         if saver is not None:
@@ -143,7 +143,7 @@ def copy_weights_llama(
             continue
         name_template, *ids = layer_template(from_name, num_matches=2)
         param = load_param(param, from_name, None)
-        if from_name.endswith(".attn.attn.weight"):
+        if from_name.endswith(".attn.qkv.weight"):
             to_names = (
                 "model.layers.{}.self_attn.q_proj.weight".format(*ids),
                 "model.layers.{}.self_attn.k_proj.weight".format(*ids),
@@ -192,7 +192,7 @@ def copy_weights_gemma_2(
             continue
         name_template, *ids = layer_template(from_name, num_matches=2)
         param = load_param(param, from_name, None)
-        if from_name.endswith(".attn.attn.weight"):
+        if from_name.endswith(".attn.qkv.weight"):
             to_names = (
                 "model.layers.{}.self_attn.q_proj.weight".format(*ids),
                 "model.layers.{}.self_attn.k_proj.weight".format(*ids),
@@ -239,7 +239,7 @@ def copy_weights_phi(
     if config.name.startswith("Phi-3"):
         weight_map.update(
             {
-                "transformer.h.{}.attn.attn.weight": "model.layers.{}.self_attn.qkv_proj.weight",
+                "transformer.h.{}.attn.qkv.weight": "model.layers.{}.self_attn.qkv_proj.weight",
                 "transformer.h.{}.attn.proj.weight": "model.layers.{}.self_attn.o_proj.weight",
                 "transformer.h.{}.norm_2.weight": "model.layers.{}.post_attention_layernorm.weight",
                 "transformer.h.{}.mlp.proj.weight": "model.layers.{}.mlp.down_proj.weight",
@@ -251,7 +251,7 @@ def copy_weights_phi(
     for from_name, param in lit_weights.items():
         name_template, layer_idx = layer_template(from_name)
         param = load_param(param, from_name, None)
-        if from_name.endswith((".attn.attn.weight", ".attn.attn.bias")):
+        if from_name.endswith((".attn.qkv.weight", ".attn.qkv.bias")):
             if config.name.startswith("Phi-3"):
                 to_names = (weight_map[name_template].format(layer_idx),)
                 params = (param,)

@@ -63,7 +63,7 @@ def test_llama2_70b_conversion():
     # the shapes are correct
     holder = {k: tuple(t.shape) for k, t in holder.items()}
     assert holder == {
-        "transformer.h.0.attn.attn.weight": (10240, 8192),
+        "transformer.h.0.attn.qkv.weight": (10240, 8192),
         "transformer.h.0.attn.proj.weight": (8192, 8192),
         "transformer.h.0.mlp.fc_1.weight": (28672, 8192),
         "transformer.h.0.mlp.fc_2.weight": (28672, 8192),

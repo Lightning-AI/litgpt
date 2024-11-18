@@ -189,8 +189,8 @@ class CausalSelfAttention(BaseCausalSelfAttention):
     def _load_from_state_dict(self, state_dict: Dict, prefix: str, *args: Any, **kwargs: Any) -> None:
         """For compatibility with base checkpoints."""
         mapping = {
-            "attn.weight": "attn.linear.weight",
-            "attn.bias": "attn.linear.bias",
+            "qkv.weight": "qkv.linear.weight",
+            "qkv.bias": "qkv.linear.bias",
             "proj.weight": "proj.linear.weight",
             "proj.bias": "proj.linear.bias",
         }

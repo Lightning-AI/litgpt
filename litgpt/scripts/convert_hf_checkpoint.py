@@ -32,8 +32,8 @@ def copy_weights_gpt_neox(
         "gpt_neox.embed_in.weight": "transformer.wte.weight",
         "gpt_neox.layers.{}.input_layernorm.bias": "transformer.h.{}.norm_1.bias",
         "gpt_neox.layers.{}.input_layernorm.weight": "transformer.h.{}.norm_1.weight",
-        "gpt_neox.layers.{}.attention.query_key_value.bias": "transformer.h.{}.attn.attn.bias",
-        "gpt_neox.layers.{}.attention.query_key_value.weight": "transformer.h.{}.attn.attn.weight",
+        "gpt_neox.layers.{}.attention.query_key_value.bias": "transformer.h.{}.attn.qkv.bias",
+        "gpt_neox.layers.{}.attention.query_key_value.weight": "transformer.h.{}.attn.qkv.weight",
         "gpt_neox.layers.{}.attention.dense.bias": "transformer.h.{}.attn.proj.bias",
         "gpt_neox.layers.{}.attention.dense.weight": "transformer.h.{}.attn.proj.weight",
         "gpt_neox.layers.{}.attention.rotary_emb.inv_freq": None,
@@ -83,7 +83,7 @@ def copy_weights_falcon(
 ) -> None:
     weight_map = {
         "transformer.word_embeddings.weight": "transformer.wte.weight",
-        "transformer.h.{}.self_attention.query_key_value.weight": "transformer.h.{}.attn.attn.weight",
+        "transformer.h.{}.self_attention.query_key_value.weight": "transformer.h.{}.attn.qkv.weight",
         "transformer.h.{}.self_attention.dense.weight": "transformer.h.{}.attn.proj.weight",
         "transformer.h.{}.mlp.dense_h_to_4h.weight": "transformer.h.{}.mlp.fc.weight",
         "transformer.h.{}.mlp.dense_4h_to_h.weight": "transformer.h.{}.mlp.proj.weight",
@@ -209,7 +209,7 @@ def copy_weights_hf_llama(
             k = load_param(qkv["k_proj"], f"layer {i} k {weight_type}", dtype, verbose=debug_mode)
             v = load_param(qkv["v_proj"], f"layer {i} v {weight_type}", dtype, verbose=debug_mode)
             qkv = torch.cat((q, k, v))
-            state_dict[f"transformer.h.{i}.attn.attn.{weight_type}"] = qkv
+            state_dict[f"transformer.h.{i}.attn.qkv.{weight_type}"] = qkv
             del qkv_weights[i][weight_type]
 
             if progress_per_file is not None:
@@ -277,7 +277,7 @@ def copy_weights_gemma_2(
             k = load_param(qkv["k_proj"], f"layer {i} k {weight_type}", dtype, verbose=debug_mode)
             v = load_param(qkv["v_proj"], f"layer {i} v {weight_type}", dtype, verbose=debug_mode)
             qkv = torch.cat((q, k, v))
-            state_dict[f"transformer.h.{i}.attn.attn.{weight_type}"] = qkv
+            state_dict[f"transformer.h.{i}.attn.qkv.{weight_type}"] = qkv
             del qkv_weights[i][weight_type]
 
             if progress_per_file is not None:
@@ -325,7 +325,7 @@ def copy_weights_phi(
     if config.name.startswith("Phi-3"):
         weight_map.update(
             {
-                "model.layers.{}.self_attn.qkv_proj.weight": "transformer.h.{}.attn.attn.weight",
+                "model.layers.{}.self_attn.qkv_proj.weight": "transformer.h.{}.attn.qkv.weight",
                 "model.layers.{}.self_attn.o_proj.weight": "transformer.h.{}.attn.proj.weight",
                 "model.layers.{}.post_attention_layernorm.weight": "transformer.h.{}.norm_2.weight",
                 "model.layers.{}.mlp.down_proj.weight": "transformer.h.{}.mlp.proj.weight",
@@ -370,29 +370,12 @@ def copy_weights_phi(
             k = load_param(qkv["k_proj"], f"layer {i} k {weight_type}", dtype, verbose=debug_mode)
             v = load_param(qkv["v_proj"], f"layer {i} v {weight_type}", dtype, verbose=debug_mode)
             qkv = torch.cat((q, k, v))
-            state_dict[f"transformer.h.{i}.attn.attn.{weight_type}"] = qkv
+            state_dict[f"transformer.h.{i}.attn.qkv.{weight_type}"] = qkv
             del qkv_weights[i][weight_type]
 
             if progress_per_file is not None:
                 pbar.update(progress_per_file)
 
-
-# def qkv_reassemble(param: Union[torch.Tensor, NotYetLoadedTensor], config: Config) -> torch.Tensor:
-#     """Reassemble from a normal to an interleaved placement in a QKV matrix.
-#     [Q, Q, ..., K, K, ..., V, V, ...] --> [Q, K, V, Q, K, V, ...]
-#     """
-#     q, k, v = param.split(
-#         (
-#             config.n_head * config.head_size,
-#             config.n_query_groups * config.head_size,
-#             config.n_query_groups * config.head_size,
-#         )
-#     )
-#     qs = q.split(config.n_head // config.n_query_groups * config.head_size)
-#     ks = k.split(config.head_size)
-#     vs = v.split(config.head_size)
-#     interleaved = [t for group in zip(qs, ks, vs) for t in group]
-#     return torch.cat(interleaved)
 
 def qkv_reassemble(
     param: Union[torch.Tensor, NotYetLoadedTensor], config: Config

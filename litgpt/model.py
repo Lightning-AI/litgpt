@@ -288,7 +288,7 @@ class CausalSelfAttention(nn.Module):
 
         # Perform a single multiplication operation using a combined QKV matrix to calculate `query`, `key`, and `value`
         # instead of individually multiplying the input `x` with the respective weight matrices.
-        qkv = self.attn(x)  # (B, T, 3xC*)
+        qkv = self.qkv(x)  # (B, T, 3xC*)
 
         # Define query, key and value sizes.
         # If grouped/multi query is enabled, these sizes are not equal (see the diagram in `lit_gpt/config.py::Config`).

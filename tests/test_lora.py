@@ -110,7 +110,7 @@ def test_lora_mqa_gqa():
     )
     assert config.n_query_groups == config.n_head
     model = LoRAGPT(config)
-    attn = model.transformer.h[0].attn.attn
+    attn = model.transformer.h[0].attn.qkv
     for p in attn.linear.parameters():
         torch.nn.init.zeros_(p)
     torch.nn.init.ones_(attn.lora_B)
@@ -131,7 +131,7 @@ def test_lora_mqa_gqa():
     # MQA
     config.n_query_groups = 1
     model = LoRAGPT(config)
-    attn = model.transformer.h[0].attn.attn
+    attn = model.transformer.h[0].attn.qkv
     for p in attn.linear.parameters():
         torch.nn.init.zeros_(p)
     torch.nn.init.ones_(attn.lora_B)
@@ -152,7 +152,7 @@ def test_lora_mqa_gqa():
     # GQA
     config.n_query_groups = 2
     model = LoRAGPT(config)
-    attn = model.transformer.h[0].attn.attn
+    attn = model.transformer.h[0].attn.qkv
     for p in attn.linear.parameters():
         torch.nn.init.zeros_(p)
     torch.nn.init.ones_(attn.lora_B)
@@ -179,12 +179,12 @@ def test_lora_filter(tmp_path):
     saved = torch.load(save_path)["model"]
 
     expected = {
-        "transformer.h.1.attn.attn.lora_B",
-        "transformer.h.2.attn.attn.lora_B",
-        "transformer.h.2.attn.attn.lora_A",
-        "transformer.h.1.attn.attn.lora_A",
-        "transformer.h.0.attn.attn.lora_A",
-        "transformer.h.0.attn.attn.lora_B",
+        "transformer.h.1.attn.qkv.lora_B",
+        "transformer.h.2.attn.qkv.lora_B",
+        "transformer.h.2.attn.qkv.lora_A",
+        "transformer.h.1.attn.qkv.lora_A",
+        "transformer.h.0.attn.qkv.lora_A",
+        "transformer.h.0.attn.qkv.lora_B",
     }
     assert set(saved) == expected
 
@@ -750,29 +750,29 @@ def test_lora_bitsandbytes(monkeypatch, tmp_path, fake_checkpoint_dir, alpaca_pa
         dtype_to_name[str(layer.dtype)].add(name)
     assert dtype_to_name == {
         "torch.uint8": {
-            "transformer.h.0.attn.attn.linear.weight",
+            "transformer.h.0.attn.qkv.linear.weight",
             "transformer.h.0.attn.proj.linear.weight",
             "transformer.h.0.mlp.fc.linear.weight",
             "transformer.h.1.mlp.proj.linear.weight",
             "transformer.h.0.mlp.proj.linear.weight",
-            "transformer.h.1.attn.attn.linear.weight",
+            "transformer.h.1.attn.qkv.linear.weight",
             "lm_head.linear.weight",
             "transformer.h.1.attn.proj.linear.weight",
             "transformer.h.1.mlp.fc.linear.weight",
         },
         "torch.float16": {
-            "transformer.h.0.attn.attn.lora_B",
+            "transformer.h.0.attn.qkv.lora_B",
             "transformer.h.0.norm_2.weight",
             "transformer.wte.weight",
             "transformer.wte.norm.weight",
             "transformer.wte.norm.bias",
             "transformer.h.1.mlp.fc.linear.bias",
             "transformer.ln_f.bias",
-            "transformer.h.1.attn.attn.lora_B",
+            "transformer.h.1.attn.qkv.lora_B",
             "transformer.h.1.attn.proj.linear.bias",
             "transformer.h.1.norm_1.weight",
-            "transformer.h.1.attn.attn.linear.bias",
-            "transformer.h.1.attn.attn.lora_A",
+            "transformer.h.1.attn.qkv.linear.bias",
+            "transformer.h.1.attn.qkv.lora_A",
             "transformer.h.1.norm_1.bias",
             "transformer.h.1.norm_2.bias",
             "transformer.h.0.attn.proj.linear.bias",
@@ -781,11 +781,11 @@ def test_lora_bitsandbytes(monkeypatch, tmp_path, fake_checkpoint_dir, alpaca_pa
             "transformer.h.0.mlp.fc.linear.bias",
             "transformer.h.0.norm_2.bias",
             "transformer.ln_f.weight",
-            "transformer.h.0.attn.attn.lora_A",
+            "transformer.h.0.attn.qkv.lora_A",
             "transformer.h.1.norm_2.weight",
             "transformer.h.1.mlp.proj.linear.bias",
             "transformer.h.0.norm_1.weight",
-            "transformer.h.0.attn.attn.linear.bias",
+            "transformer.h.0.attn.qkv.linear.bias",
         },
     }
 
@@ -797,10 +797,10 @@ def test_lora_bitsandbytes(monkeypatch, tmp_path, fake_checkpoint_dir, alpaca_pa
         dtype_to_name[str(layer.dtype)].add(name)
     assert dtype_to_name == {
         "torch.float16": {
-            "transformer.h.1.attn.attn.lora_A",
-            "transformer.h.0.attn.attn.lora_A",
-            "transformer.h.0.attn.attn.lora_B",
-            "transformer.h.1.attn.attn.lora_B",
+            "transformer.h.1.attn.qkv.lora_A",
+            "transformer.h.0.attn.qkv.lora_A",
+            "transformer.h.0.attn.qkv.lora_B",
+            "transformer.h.1.attn.qkv.lora_B",
         }
     }
 

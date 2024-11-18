@@ -151,7 +151,7 @@ class CausalSelfAttention(BaseCausalSelfAttention):
             ak, av = self.adapter_kv_cache
         else:
             prefix = self.adapter_wte.weight.reshape(1, aT, self.config.n_embd)
-            aqkv = self.attn(prefix)
+            aqkv = self.qkv(prefix)
             q_per_kv = self.config.n_head // self.config.n_query_groups
             aqkv = aqkv.view(1, aT, self.config.n_query_groups, q_per_kv + 2, self.config.head_size)
             aqkv = aqkv.permute(0, 2, 3, 1, 4)
