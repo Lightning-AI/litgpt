@@ -406,10 +406,12 @@ class CausalSelfAttention(nn.Module):
 
     def _load_from_state_dict(self, state_dict: Dict, prefix: str, *args: Any, **kwargs: Any) -> None:
         """For compatibility with legacy checkpoints."""
+
         for attr in ("weight", "bias"):
-            key = f"{prefix}attn.{attr}"
-            if key in state_dict:
-                state_dict[f"{prefix}qkv.{attr}"] = qkv_reassemble(state_dict.pop(key), self.config)
+            legacy_key = f"{prefix}attn.{attr}"
+            current_key = f"{prefix}qkv.{attr}"
+            if legacy_key in state_dict:
+                state_dict[current_key] = qkv_reassemble(state_dict.pop(legacy_key), self.config)
 
         super()._load_from_state_dict(state_dict, prefix, *args, **kwargs)
 

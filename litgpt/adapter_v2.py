@@ -187,7 +187,7 @@ class CausalSelfAttention(BaseCausalSelfAttention):
         self.config = config
 
     def _load_from_state_dict(self, state_dict: Dict, prefix: str, *args: Any, **kwargs: Any) -> None:
-        """For compatibility with base checkpoints."""
+        """For compatibility with base and/or legacy checkpoints."""
         mapping = {
             "qkv.weight": "qkv.linear.weight",
             "qkv.bias": "qkv.linear.bias",
@@ -200,9 +200,10 @@ class CausalSelfAttention(BaseCausalSelfAttention):
             state_dict[key] = state_dict[key].permute(0, 2, 1, 3)
 
         for attr in ("weight", "bias"):
-            key = f"{prefix}attn.linear.{attr}"
-            if key in state_dict:
-                state_dict[f"{prefix}qkv.linear.{attr}"] = qkv_reassemble(state_dict.pop(key), self.config)
+            legacy_key = f"{prefix}attn.linear.{attr}"
+            current_key = f"{prefix}qkv.linear.{attr}"
+            if legacy_key in state_dict:
+                state_dict[current_key] = qkv_reassemble(state_dict.pop(legacy_key), self.config)
 
         super()._load_from_state_dict(state_dict, prefix, *args, **kwargs)
 
