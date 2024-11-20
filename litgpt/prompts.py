@@ -279,6 +279,12 @@ class Gemma(PromptStyle):
 class OLMo(PromptStyle):
     def apply(self, prompt: str, **kwargs: str) -> str:
         return f"<|endoftext|><|user|>\n{prompt}\n<|assistant|>\n"
+    
+
+class Qwen2_5(PromptStyle):
+    def apply(self, prompt: str, **kwargs: str) -> str:
+        system_message = "You are Qwen, created by Alibaba Cloud. You are a helpful assistant."
+        return f"<|im_start|>system\n{system_message}<|im_end|>\n<|im_start|>user\n{prompt}<|im_end|>\n<|im_start|>assistant\n"
 
 
 # Maps prompt style names to PromptStyle classes
@@ -304,6 +310,7 @@ prompt_styles: Dict[str, Type[PromptStyle]] = {
     "gemma": Gemma,
     "llama3": Llama3,
     "olmo": OLMo,
+    "qwen2.5": Qwen2_5,
 }
 
 
@@ -342,6 +349,8 @@ def model_name_to_prompt_style(model_name: str) -> PromptStyle:
         return Gemma()
     if re.search(r"OLMo.*-hf", model_name):
         return OLMo()
+    if re.search(r"Qwen2\.5-(?!Coder)", model_name):
+        return Qwen2_5()
     return Default()
 
 
