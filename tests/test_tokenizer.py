@@ -56,7 +56,7 @@ def test_tokenizer_against_hf(config):
     else:
         assert ours.vocab_size == config.vocab_size
 
-    if config.name.startswith("falcon") or config.name.startswith("stablecode") or config.name.startswith("Qwen2.5"):
+    if config.name.startswith(("falcon", "stablecode", "Qwen2.5")):
         # even though their config defines it, it's set as None in HF
         assert isinstance(ours.bos_id, int)
         assert theirs.bos_token_id is None
