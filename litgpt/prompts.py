@@ -349,7 +349,7 @@ def model_name_to_prompt_style(model_name: str) -> PromptStyle:
         return Gemma()
     if re.search(r"OLMo.*-hf", model_name):
         return OLMo()
-    if re.search(r"Qwen2\.5-(?!Coder)", model_name):
+    if re.search(r"Qwen2\.5-.*", model_name):
         return Qwen2_5()
     return Default()
 
