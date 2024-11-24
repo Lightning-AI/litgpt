@@ -562,14 +562,14 @@ def convert_hf_checkpoint(
         # holder to reconstitute the split q, k, v
         qkv_weights = {}
         copy_fn = partial(copy_weights_phi, config, qkv_weights)
-    elif config.mlp_class_name in ("LLaMAMLP", "GemmaMLP", "LLaMAMoE"):
-        # holder to reconstitute the split q, k, v
-        qkv_weights = {}
-        copy_fn = partial(copy_weights_hf_llama, config, qkv_weights)
     elif model_name.lower().startswith("qwen2.5"):
         # holder to reconstitute the split q, k, v
         qkv_weights = {}
         copy_fn = partial(copy_weights_qwen_2_5, config, qkv_weights)
+    elif config.mlp_class_name in ("LLaMAMLP", "GemmaMLP", "LLaMAMoE"):
+        # holder to reconstitute the split q, k, v
+        qkv_weights = {}
+        copy_fn = partial(copy_weights_hf_llama, config, qkv_weights)
     else:
         copy_fn = copy_weights_gpt_neox
 
