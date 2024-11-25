@@ -318,6 +318,8 @@ def copy_weights_qwen_2_5(
     }
 
     for name, param in lit_weights.items():
+        if name == "lm_head.weight" and untie_weights:
+            continue
         if name.endswith((".attn.attn.weight", ".attn.attn.bias")):
             from_name, l_idx = layer_template(name, 2)
             qkv = load_param(param, name, None)
