@@ -302,6 +302,7 @@ def copy_weights_qwen_2_5(
     config: Config,
     state_dict: Dict[str, torch.Tensor],
     lit_weights: Dict[str, Union[torch.Tensor, NotYetLoadedTensor]],
+    untie_weights: bool = False,
     saver: Optional[incremental_save] = None,
 ) -> None:
     weight_map = {
