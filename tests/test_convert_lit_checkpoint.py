@@ -15,6 +15,7 @@ from transformers.models.gpt_neox import GPTNeoXConfig, GPTNeoXForCausalLM
 from transformers.models.llama import LlamaConfig, LlamaForCausalLM
 from transformers.models.mixtral import MixtralConfig, MixtralForCausalLM
 from transformers.models.olmo import OlmoConfig, OlmoForCausalLM
+from transformers.models.qwen2 import Qwen2Config, Qwen2ForCausalLM
 
 from litgpt import GPT, Config
 from litgpt.scripts.convert_lit_checkpoint import (
@@ -25,6 +26,7 @@ from litgpt.scripts.convert_lit_checkpoint import (
     copy_weights_gpt_neox,
     copy_weights_llama,
     copy_weights_phi,
+    copy_weights_qwen_2_5,
     qkv_split,
 )
 from tests.conftest import RunIf
@@ -520,6 +522,69 @@ def test_check_conversion_supported_lora():
     with pytest.raises(ValueError, match=r"LoRA.*cannot be converted"):
         check_conversion_supported(lit_weights=lit_weights)
 
+@torch.inference_mode()
+@pytest.mark.parametrize("model_name", ("Qwen2.5-1.5B", "Qwen2.5-Coder-1.5B"))
+@pytest.mark.parametrize(
+    ("device", "dtype"),
+    [
+        (torch.device("cpu"), torch.float32),
+        pytest.param(
+            torch.device("cuda"),
+            torch.float16,
+            marks=[
+                # the reference does softmax upscaled to fp32 during attention. additionally, the final layernorm input
+                # is slightly different
+                pytest.mark.xfail(raises=AssertionError, strict=False),
+                RunIf(min_cuda_gpus=1),
+            ],
+        ),
+    ],
+)
+def test_against_original_qwen_2_5(model_name, device, dtype):
+    torch.set_default_dtype(dtype)
+
+    T = 20
+    ours_config = Config.from_name(
+        model_name,
+        block_size=T,
+        n_layer=2,
+        n_head=16,
+        n_embd=32,
+        intermediate_size=86,
+    )
+    theirs_config = Qwen2Config(
+        vocab_size=ours_config.padded_vocab_size,
+        hidden_size=ours_config.n_embd,
+        head_dim=ours_config.head_size,
+        num_attention_heads=ours_config.n_head,
+        num_hidden_layers=ours_config.n_layer,
+        intermediate_size=ours_config.intermediate_size,
+        max_position_embeddings=ours_config.block_size,
+        rms_norm_eps=ours_config.norm_eps,
+        num_key_value_heads=ours_config.n_query_groups,
+        rope_theta=ours_config.rope_base,
+        attention_bias=ours_config.attn_bias,
+        tie_word_embeddings=True,
+    )
+
+    assert ours_config.intermediate_size == theirs_config.intermediate_size
+
+    ours_model = GPT(ours_config).to(device)
+    # tie weights
+    ours_model.lm_head.weight = ours_model.transformer.wte.weight
+    ours_state_dict = ours_model.state_dict()
+    theirs_state_dict = {}
+    copy_weights_qwen_2_5(ours_config, theirs_state_dict, ours_state_dict, untie_weights=True)
+    theirs_model = Qwen2ForCausalLM(theirs_config).to(device)
+    keys = theirs_model.load_state_dict(theirs_state_dict, strict=False)
+    assert not keys.unexpected_keys
+
+    # test end to end
+    x = torch.randint(low=0, high=ours_config.padded_vocab_size, size=(T,), device=device).unsqueeze(0)
+    assert x.size(1) == T
+    ours_y = ours_model(x)
+    theirs_y = theirs_model(x)["logits"].to(dtype)  # HF converts logits to float
+    torch.testing.assert_close(ours_y, theirs_y)
 
 def test_qkv_split():
     # MHA
