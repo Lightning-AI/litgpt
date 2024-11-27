@@ -609,7 +609,7 @@ class CausalSelfAttention(BaseCausalSelfAttention):
             lora_alpha=config.lora_alpha,
             lora_dropout=config.lora_dropout,
             enable_lora=(config.lora_query, config.lora_key, config.lora_value),
-            bias=config.bias,
+            bias=config.bias or config.attn_bias,
             # for MQA/GQA support
             head_size=config.head_size,
             n_head=config.n_head,
