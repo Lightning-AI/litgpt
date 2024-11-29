@@ -280,6 +280,7 @@ class OLMo(PromptStyle):
     def apply(self, prompt: str, **kwargs: str) -> str:
         return f"<|endoftext|><|user|>\n{prompt}\n<|assistant|>\n"
     
+    
 
 class Qwen2_5(PromptStyle):
     def apply(self, prompt: str, **kwargs: str) -> str:
