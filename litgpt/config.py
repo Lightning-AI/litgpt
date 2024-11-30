@@ -1520,6 +1520,26 @@ mistral = [
         n_expert=8,
         n_expert_per_token=2,
     ),
+    # https://huggingface.co/mistralai/Mixtral-8x22B-Instruct-v0.1/blob/main/config.json
+    dict(
+        name="Mixtral-8x22B-{}v0.1",
+        hf_config=dict(org="mistralai", name="Mixtral-8x22B-{}v0.1"),
+        padded_vocab_size=32000,
+        block_size=65536,
+        n_layer=56,
+        n_query_groups=8,
+        rotary_percentage=1.0,
+        parallel_residual=False,
+        bias=False,
+        norm_class_name="RMSNorm",
+        norm_eps=1e-05,
+        mlp_class_name="LLaMAMoE",
+        intermediate_size=16384,
+        n_head=48,
+        rope_base=1000000,
+        n_expert=8,
+        n_expert_per_token=2,
+    ),
 ]
 for c in mistral:
     for kind in ("", "Instruct-"):

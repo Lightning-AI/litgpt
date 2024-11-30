@@ -512,11 +512,12 @@ def test_against_mathstral_hf_models(device, dtype):
 
 
 @torch.inference_mode()
-def test_against_hf_mixtral():
+@pytest.mark.parametrize("model_name", ("Mixtral-8x7B-Instruct-v0.1", "Mixtral-8x22B-Instruct-v0.1"))
+def test_against_hf_mixtral(model_name):
     device = torch.device("cpu")
     dtype = torch.float32
     ours_config = Config.from_name(
-        "Mixtral-8x7B-Instruct-v0.1",
+        model_name,
         padded_vocab_size=10000,
         n_layer=2,
         n_embd=32,
