@@ -1536,6 +1536,7 @@ mistral = [
         mlp_class_name="LLaMAMoE",
         intermediate_size=16384,
         n_head=48,
+        n_embd=6144,
         rope_base=1000000,
         n_expert=8,
         n_expert_per_token=2,
