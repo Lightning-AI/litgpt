@@ -274,8 +274,6 @@ class Gemma(PromptStyle):
         return f"<start_of_turn>user\n{prompt}<end_of_turn>\n<start_of_turn>model\n"
 
 
-
-
 class OLMo(PromptStyle):
     def apply(self, prompt: str, **kwargs: str) -> str:
         return f"<|endoftext|><|user|>\n{prompt}\n<|assistant|>\n"
@@ -284,6 +282,12 @@ class OLMo(PromptStyle):
 class Qwen2_5(PromptStyle):
     def apply(self, prompt: str, **kwargs: str) -> str:
         system_message = "You are Qwen, created by Alibaba Cloud. You are a helpful assistant."
+        return f"<|im_start|>system\n{system_message}<|im_end|>\n<|im_start|>user\n{prompt}<|im_end|>\n<|im_start|>assistant\n"
+
+
+class QwQ(PromptStyle):
+    def apply(self, prompt: str, **kwargs: str) -> str:
+        system_message = "You are a helpful and harmless assistant. You are Qwen developed by Alibaba. You should think step-by-step."
         return f"<|im_start|>system\n{system_message}<|im_end|>\n<|im_start|>user\n{prompt}<|im_end|>\n<|im_start|>assistant\n"
 
 
@@ -311,6 +315,7 @@ prompt_styles: Dict[str, Type[PromptStyle]] = {
     "llama3": Llama3,
     "olmo": OLMo,
     "qwen2.5": Qwen2_5,
+    "qwq": QwQ,
 }
 
 
@@ -351,6 +356,8 @@ def model_name_to_prompt_style(model_name: str) -> PromptStyle:
         return OLMo()
     if re.search(r"Qwen2\.5-.*", model_name):
         return Qwen2_5()
+    if re.search(r"QwQ-.*", model_name):
+        return QwQ()
     return Default()
 
 

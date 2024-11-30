@@ -1996,4 +1996,30 @@ for c in qwen_2_5:
         copy["hf_config"]["name"] = c["hf_config"]["name"].format(kind)
         configs.append(copy)
 
+qwq = [
+    # https://huggingface.co/Qwen/QwQ-32B-Preview/blob/main/config.json
+    dict(
+        name="QwQ-32B-Preview",
+        hf_config=dict(org="Qwen", name="QwQ-32B-Preview"),
+        block_size=131072,
+        vocab_size=151643,
+        padded_vocab_size=152064,
+        n_layer=64,
+        n_head=40,
+        n_embd=5120,
+        n_query_groups=8,
+        rotary_percentage=1.0,
+        parallel_residual=False,
+        bias=False,
+        attn_bias=True,
+        norm_class_name="RMSNorm",
+        mlp_class_name="LLaMAMLP",
+        intermediate_size=27648,
+        norm_eps=1e-5,
+        rope_base=1000000
+    ),
+]
+
+configs.extend(qwq)
+
 name_to_config = {config["name"]: config for config in configs}
