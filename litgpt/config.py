@@ -1524,7 +1524,7 @@ mistral = [
     dict(
         name="Mixtral-8x22B-{}v0.1",
         hf_config=dict(org="mistralai", name="Mixtral-8x22B-{}v0.1"),
-        padded_vocab_size=32000,
+        padded_vocab_size=32768,
         block_size=65536,
         n_layer=56,
         n_query_groups=8,
