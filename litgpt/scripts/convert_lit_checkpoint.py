@@ -387,7 +387,7 @@ def convert_lit_checkpoint(checkpoint_dir: Path, output_dir: Path) -> None:
         copy_fn = partial(copy_weights_gemma_2, config)
     elif config.name.lower().startswith("phi"):
         copy_fn = partial(copy_weights_phi, config)
-    elif config.name.lower().startswith("qwen2.5"):
+    elif config.name.lower().startswith(("qwen2.5","qwq")):
         copy_fn = partial(copy_weights_qwen_2_5, config)
     elif config.mlp_class_name in ("LLaMAMLP", "GemmaMLP", "LLaMAMoE"):
         untie_weights = "Gemma" in config.name
