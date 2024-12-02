@@ -26,6 +26,7 @@ LitGPT supports a variety of LLM architectures with publicly available weights. 
 | MicroLlama | 300M | Ken Wang | [MicroLlama repo](https://github.com/keeeeenw/MicroLlama)
 | Mixtral MoE | 8x7B | Mistral AI | [Mistral AI 2023](https://mistral.ai/news/mixtral-of-experts/)                                                                     |
 | Mistral | 7B, 123B | Mistral AI | [Mistral AI 2023](https://mistral.ai/news/announcing-mistral-7b/)                                                                        |
+| Mixtral MoE | 8x22B | Mistral AI | [Mistral AI 2024](https://mistral.ai/news/mixtral-8x22b/)                                                                         |
 | Nous-Hermes | 7B, 13B, 70B | NousResearch | [Org page](https://huggingface.co/NousResearch)                                                                          |
 | OLMo | 1B, 7B | Allen Institute for AI (AI2) | [Groeneveld et al. 2024](https://aclanthology.org/2024.acl-long.841/)     |
 | OpenLLaMA | 3B, 7B, 13B | OpenLM Research | [Geng & Liu 2023](https://github.com/openlm-research/open_llama)                                                         |
@@ -157,6 +158,8 @@ mistralai/Mistral-7B-v0.3
 mistralai/Mistral-Large-Instruct-2407
 mistralai/Mixtral-8x7B-Instruct-v0.1
 mistralai/Mixtral-8x7B-v0.1
+mistralai/Mixtral-8x22B-Instruct-v0.1
+mistralai/Mixtral-8x22B-v0.1
 NousResearch/Nous-Hermes-13b
 NousResearch/Nous-Hermes-llama-2-7b
 NousResearch/Nous-Hermes-Llama2-13b
