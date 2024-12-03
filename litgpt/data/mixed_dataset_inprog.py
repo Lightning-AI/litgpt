@@ -39,7 +39,8 @@ from lightning.pytorch.utilities._pytree import (
 # from litgpt.data.text_files import optimize_data
 from litdata import optimize
 
-from litdata.streaming import StreamingDataLoader, StreamingDataset, TokensLoader
+from litdata.streaming import StreamingDataLoader, StreamingDataset, TokensLoader, CombinedStreamingDataset
+
 from litgpt import PromptStyle
 from litgpt.data import DataModule
 from litgpt.data.base import (
@@ -82,7 +83,7 @@ class MixedDataset(DataModule):
     mask_prompt: bool = False
     ignore_index: int = -100
     seed: int = 42
-    num_workers: int = 1
+    num_workers: int = 8
     cycle_mode: Literal[
         "max_size_cycle", "min_size_cycle", "max_size", "sequential", "max_size_spread"
     ] = "max_size_spread"
@@ -105,13 +106,45 @@ class MixedDataset(DataModule):
         if not self.lm_val_path:
             raise OSError("No path found for validation dir, either pass a pretraining_data_path with train/ and val/ subdirs, or a separate pretraining_val_path.")
         
-        # TODO: for now assume there's only one jsonl/json file in each sft dir. We should iterate over multiple though to make it easier to add datasets
         self.out_path_train_lm = self.lm_train_path
         self.out_path_val_lm = self.lm_val_path
 
         self.sft_datasets_and_sample_rates = self.initialize_sft()
         self.sft_train_datasets = {}
         self.sft_val_datasets = {}
+
+    def _has_sharded_structure(self, base_dir: Union[str, Path]) -> bool:
+        """Check if the directory has numbered subdirectories (0-7) with index.json files."""
+        for i in range(4):  # Check for shards 0-3
+            shard_dir = os.path.join(base_dir, str(i))
+            if os.path.isdir(shard_dir) and os.path.exists(os.path.join(shard_dir, "index.json")):
+                return True
+        return False
+
+    def _create_combined_dataset(self, base_dir: Union[str, Path]) -> CombinedStreamingDataset:
+        """Create a combined dataset from sharded directories."""
+        datasets = []
+
+        for i in range(4):  # Process shards 0-3
+            shard_dir = os.path.join(base_dir, str(i))
+            if os.path.isdir(shard_dir) and os.path.exists(os.path.join(shard_dir, "index.json")):
+                print(f"Loading shard {i} from {shard_dir}")
+                dataset = StreamingDataset(
+                    input_dir=shard_dir,
+                    item_loader=TokensLoader(block_size=self.max_seq_length_lm),
+                    shuffle=True,
+                    drop_last=True,
+                )
+                datasets.append(dataset)
+            else:
+                print(f"Warning: Shard {i} at {shard_dir} not found or missing index.json")
+
+        if not datasets:
+            raise ValueError(f"No valid shards found in {base_dir}")
+
+        print(f"Created combined dataset from {len(datasets)} shards")
+        return CombinedStreamingDataset(datasets=datasets, seed=self.seed, iterate_over_all=True)
+
 
 
     def initialize_sft(self) -> dict:
@@ -267,15 +300,25 @@ class MixedDataset(DataModule):
             )
 
     def train_dataloader(self) -> DataLoader:
-        from litgpt.data import DataModule, get_sft_collate_fn, SFTDataset
+        # fixes to prevent deadlocks when running distributed sampling
+        world_size = dist.get_world_size() if dist.is_initialized() else 1
+        total_datasets = len(self.sft_train_datasets) + 1
+        workers_per_dataset = max(1, self.num_workers // total_datasets)
+        print(f"Allocating {workers_per_dataset} workers per dataset")
+
 
         sampling_batch_size = self.batch_size if not self.use_adaptive_sampling else 1
-        self.lm_train_dataset = StreamingDataset(
-            input_dir=self.out_path_train_lm,
-            item_loader=TokensLoader(block_size=self.max_seq_length_lm),
-            shuffle=True,
-            drop_last=True,
-        )
+
+        # Handle sharded or non-sharded pretraining data
+        if self._has_sharded_structure(self.out_path_train_lm):
+            self.lm_train_dataset = self._create_combined_dataset(self.out_path_train_lm)
+        else:
+            self.lm_train_dataset = StreamingDataset(
+                input_dir=self.out_path_train_lm,
+                item_loader=TokensLoader(block_size=self.max_seq_length_lm),
+                shuffle=True,
+                drop_last=True,
+            )
 
         lm_train_dataloader = StreamingDataLoader(
             self.lm_train_dataset,
@@ -283,7 +326,6 @@ class MixedDataset(DataModule):
             pin_memory=True,
             drop_last=True,
         )
-        print("BATCH SIZE:", self.batch_size)
 
         sft_train_dataloaders = {}
         for sft_name in self.sft_train_datasets:
@@ -292,7 +334,7 @@ class MixedDataset(DataModule):
                 sft_train_dataset,
                 batch_size=1,
                 shuffle=True,
-                num_workers=self.num_workers,
+                num_workers=workers_per_dataset,
                 collate_fn=get_sft_collate_fn(
                     max_seq_length=self.max_seq_length_sft,
                     ignore_index=self.ignore_index,
@@ -314,18 +356,24 @@ class MixedDataset(DataModule):
                 {"lm": lm_train_dataloader, **sft_train_dataloaders},
                 self.cycle_mode,
                 max_iters=self.max_iters,
-                batch_size=self.batch_size,
             )
 
     def val_dataloader(self) -> DataLoader:
-        from litgpt.data import DataModule, get_sft_collate_fn, SFTDataset
+        # fixes to prevent deadlocks when running distributed sampling
+        world_size = dist.get_world_size() if dist.is_initialized() else 1
+        total_datasets = len(self.sft_train_datasets) + 1
+        workers_per_dataset = max(1, self.num_workers // total_datasets)
 
-        self.lm_test_dataset = StreamingDataset(
-            input_dir=self.out_path_val_lm,
-            item_loader=TokensLoader(block_size=self.max_seq_length_lm),
-            shuffle=True,
-            drop_last=True,
-        )
+        # Handle sharded or non-sharded validation data
+        if self._has_sharded_structure(self.out_path_val_lm):
+            self.lm_test_dataset = self._create_combined_dataset(self.out_path_val_lm)
+        else:
+            self.lm_test_dataset = StreamingDataset(
+                input_dir=self.out_path_val_lm,
+                item_loader=TokensLoader(block_size=self.max_seq_length_lm),
+                shuffle=True,
+                drop_last=True,
+            )
 
         lm_test_dataloader = StreamingDataLoader(
             self.lm_test_dataset,
@@ -337,12 +385,11 @@ class MixedDataset(DataModule):
         sft_val_dataloaders = {}
         for sft_name in self.sft_val_datasets:
             sft_val_dataset = self.sft_val_datasets[sft_name]
-
             sft_val_dataloader = DataLoader(
                 sft_val_dataset,
                 batch_size=self.batch_size,
                 shuffle=True,
-                num_workers=self.num_workers,
+                num_workers=workers_per_dataset,
                 collate_fn=get_sft_collate_fn(
                     max_seq_length=self.max_seq_length_sft,
                     ignore_index=self.ignore_index,
@@ -351,7 +398,8 @@ class MixedDataset(DataModule):
             sft_val_dataloaders[sft_name] = sft_val_dataloader
 
         return CombinedLoader(
-            {"lm": lm_test_dataloader, **sft_val_dataloaders}, "max_size"
+            {"lm": lm_test_dataloader, **sft_val_dataloaders}, 
+            "max_size"
         )
 
 
@@ -421,16 +469,27 @@ class CombinedLoaderWithSamplingRates(DataLoader):
         return self.max_iters
 
     def __iter__(self):
+        rank = dist.get_rank() if dist.is_initialized() else 0
+        print(f"[Rank {rank}] Starting iterator initialization")
+
         # initialize the iterators
         for name, loader in self.sharded_loaders.items():
+            print(f"[Rank {rank}] Initializing iterator for {name}")
             if isinstance(loader, DataLoader) or hasattr(loader, "__iter__"):
-                self.iterators[name] = iter(cycle(loader))
+                try:
+                    self.iterators[name] = iter(cycle(loader))
+                    print(f"[Rank {rank}] Successfully initialized iterator for {name}")
+                except Exception as e:
+                    print(f"[Rank {rank}] Failed to initialize iterator for {name}: {str(e)}")
+                    raise
             else:
+                print(f"[Rank {rank}] Failed to initialize iterator for {name}")
                 raise ValueError(
                     f"Expected a DataLoader or iterable, but got {type(loader)}"
                 )
         # fill the batch by random sampling from each dataset
         iterators = {name: iterable for name, iterable in self.iterators.items()}
+        print(f"[Rank {rank}] All iterators initialized")
 
         for _ in range(self.max_iters):
             batch = defaultdict(list)
@@ -461,7 +520,8 @@ class CombinedLoaderWithSamplingRates(DataLoader):
                     try:
                         item = next(iterators[dataset_name])
                     except:
-                        breakpoint()
+                        print(f"[Rank {rank}] Failed to reinitialize iterator: {str(e)}")
+                        raise
 
                 batch[dataset_name].append(item)
 
