@@ -2043,4 +2043,77 @@ qwq = [
 
 configs.extend(qwq)
 
+###############
+# SmolLM2
+###############
+smollm2 = [
+    # https://huggingface.co/HuggingFaceTB/SmolLM2-135M/blob/main/config.json
+    dict(
+        name="SmolLM2-135M{}",
+        hf_config=dict(org="HuggingFaceTB", name="SmolLM2-135M{}"),
+        block_size=8192,
+        vocab_size=49152,
+        padded_vocab_size=49152,
+        n_layer=30,
+        n_head=9,
+        n_embd=576,
+        n_query_groups=3,
+        rotary_percentage=1.0,
+        parallel_residual=False,
+        bias=False,
+        norm_class_name="RMSNorm",
+        mlp_class_name="LLaMAMLP",
+        intermediate_size=1536,
+        rope_base=100000,
+        norm_eps=1e-5,
+    ),
+    # https://huggingface.co/HuggingFaceTB/SmolLM2-360M/blob/main/config.json
+    dict(
+        name="SmolLM2-360M{}",
+        hf_config=dict(org="HuggingFaceTB", name="SmolLM2-360M{}"),
+        block_size=8192,
+        vocab_size=49152,
+        padded_vocab_size=49152,
+        n_layer=32,
+        n_head=15,
+        n_embd=960,
+        n_query_groups=5,
+        rotary_percentage=1.0,
+        parallel_residual=False,
+        bias=False,
+        norm_class_name="RMSNorm",
+        mlp_class_name="LLaMAMLP",
+        intermediate_size=2560,
+        rope_base=100000,
+        norm_eps=1e-5,
+    ),
+    # https://huggingface.co/HuggingFaceTB/SmolLM2-1.7B/blob/main/config.json
+    dict(
+        name="SmolLM2-1.7B{}",
+        hf_config=dict(org="HuggingFaceTB", name="SmolLM2-1.7B{}"),
+        block_size=8192,
+        vocab_size=49152,
+        padded_vocab_size=49152,
+        n_layer=24,
+        n_head=32,
+        n_embd=2048,
+        n_query_groups=32,
+        rotary_percentage=1.0,
+        parallel_residual=False,
+        bias=False,
+        norm_class_name="RMSNorm",
+        mlp_class_name="LLaMAMLP",
+        intermediate_size=8192,
+        rope_base=130000,
+        norm_eps=1e-5,
+    ),
+]
+
+for c in smollm2:
+    for kind in ("", "-Instruct"):
+        copy = deepcopy(c)
+        copy["name"] = c["name"].format(kind)
+        copy["hf_config"]["name"] = c["hf_config"]["name"].format(kind)
+        configs.append(copy)
+
 name_to_config = {config["name"]: config for config in configs}

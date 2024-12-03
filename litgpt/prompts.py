@@ -284,6 +284,11 @@ class Qwen2_5(PromptStyle):
         system_message = "You are Qwen, created by Alibaba Cloud. You are a helpful assistant."
         return f"<|im_start|>system\n{system_message}<|im_end|>\n<|im_start|>user\n{prompt}<|im_end|>\n<|im_start|>assistant\n"
 
+class SmolLM2(PromptStyle):
+    def apply(self, prompt: str, **kwargs: str) -> str:
+        system_message = "You are a helpful AI assistant named SmolLM, trained by Hugging Face"
+        return f"<|im_start|>system\n{system_message}<|im_end|>\n<|im_start|>user\n{prompt}<|im_end|>\n<|im_start|>assistant\n"
+
 
 class QwQ(PromptStyle):
     def apply(self, prompt: str, **kwargs: str) -> str:
@@ -316,6 +321,7 @@ prompt_styles: Dict[str, Type[PromptStyle]] = {
     "olmo": OLMo,
     "qwen2.5": Qwen2_5,
     "qwq": QwQ,
+    "smollm2": SmolLM2 # SmolLM uses a different template
 }
 
 
@@ -356,8 +362,13 @@ def model_name_to_prompt_style(model_name: str) -> PromptStyle:
         return OLMo()
     if re.search(r"Qwen2\.5-.*", model_name):
         return Qwen2_5()
+<<<<<<< HEAD
     if re.search(r"QwQ-.*", model_name):
         return QwQ()
+=======
+    if re.search(r"SmolLM2.*", model_name):
+        return SmolLM2()
+>>>>>>> 961a30a (added smollm2)
     return Default()
 
 
