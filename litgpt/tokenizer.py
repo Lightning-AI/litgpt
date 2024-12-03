@@ -94,7 +94,9 @@ class Tokenizer:
             config = json.load(fp)
         # for LlaMA-3 tokenizer there is no `add_bos_token` at all and `tokenizer_class` is only
         # `PreTrainedTokenizerFast`
-        if checkpoint_dir.stem.startswith(("Meta-Llama-3", "Llama-3", "SmolLM2")):
+        if checkpoint_dir.stem.startswith(("Meta-Llama-3", "Llama-3")):
+            return True
+        if checkpoint_dir.stem.startswith("SmolLM2") and checkpoint_dir.stem.endswith("-Instruct"):
             return True
         if "add_bos_token" in config:
             return config["add_bos_token"]
