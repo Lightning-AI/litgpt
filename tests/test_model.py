@@ -879,6 +879,7 @@ def test_against_original_smollm2(model_name, device, dtype):
         n_layer=2,
         n_head=8,
         n_embd=32,
+        n_query_groups=2,
         intermediate_size=86,
     )
     T = 5

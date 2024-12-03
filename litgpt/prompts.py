@@ -284,15 +284,16 @@ class Qwen2_5(PromptStyle):
         system_message = "You are Qwen, created by Alibaba Cloud. You are a helpful assistant."
         return f"<|im_start|>system\n{system_message}<|im_end|>\n<|im_start|>user\n{prompt}<|im_end|>\n<|im_start|>assistant\n"
 
-class SmolLM2(PromptStyle):
-    def apply(self, prompt: str, **kwargs: str) -> str:
-        system_message = "You are a helpful AI assistant named SmolLM, trained by Hugging Face"
-        return f"<|im_start|>system\n{system_message}<|im_end|>\n<|im_start|>user\n{prompt}<|im_end|>\n<|im_start|>assistant\n"
-
 
 class QwQ(PromptStyle):
     def apply(self, prompt: str, **kwargs: str) -> str:
         system_message = "You are a helpful and harmless assistant. You are Qwen developed by Alibaba. You should think step-by-step."
+        return f"<|im_start|>system\n{system_message}<|im_end|>\n<|im_start|>user\n{prompt}<|im_end|>\n<|im_start|>assistant\n"
+
+
+class SmolLM2(PromptStyle):
+    def apply(self, prompt: str, **kwargs: str) -> str:
+        system_message = "You are a helpful AI assistant named SmolLM, trained by Hugging Face"
         return f"<|im_start|>system\n{system_message}<|im_end|>\n<|im_start|>user\n{prompt}<|im_end|>\n<|im_start|>assistant\n"
 
 
