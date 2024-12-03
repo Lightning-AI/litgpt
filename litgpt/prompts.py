@@ -362,13 +362,10 @@ def model_name_to_prompt_style(model_name: str) -> PromptStyle:
         return OLMo()
     if re.search(r"Qwen2\.5-.*", model_name):
         return Qwen2_5()
-<<<<<<< HEAD
     if re.search(r"QwQ-.*", model_name):
         return QwQ()
-=======
     if re.search(r"SmolLM2.*", model_name):
         return SmolLM2()
->>>>>>> 961a30a (added smollm2)
     return Default()
 
 
