@@ -38,6 +38,7 @@ LitGPT supports a variety of LLM architectures with publicly available weights. 
 | Qwen2.5 Coder | 0.5B, 1.5B, 3B, 7B, 14B, 32B | Alibaba Group | [Hui, Binyuan et al. 2024](https://arxiv.org/abs/2409.12186)                                          |
 | QwQ | 32B | Alibaba Group | [Qwen Team 2024](https://qwenlm.github.io/blog/qwq-32b-preview/)                                                                         |
 | RedPajama-INCITE | 3B, 7B | Together | [Together 2023](https://together.ai/blog/redpajama-models-v1)                                                                 |
+| SmolLM2 | 135M, 360M, 1.7B | Hugging Face | [Hugging Face 2024](https://github.com/huggingface/smollm)                                                               |
 | StableCode | 3B | Stability AI | [Stability AI 2023](https://stability.ai/blog/stablecode-llm-generative-ai-coding)                                                  |
 | StableLM  | 3B, 7B | Stability AI | [Stability AI 2023](https://github.com/Stability-AI/StableLM)                                                                    |
 | StableLM Zephyr | 3B | Stability AI | [Stability AI 2023](https://stability.ai/blog/stablecode-llm-generative-ai-coding)                                             |
@@ -194,6 +195,12 @@ Qwen/Qwen2.5-Coder-14B-Instruct
 Qwen/Qwen2.5-Coder-32B
 Qwen/Qwen2.5-Coder-32B-Instruct
 Qwen/QwQ-32B-Preview
+HuggingFaceTB/SmolLM2-135M
+HuggingFaceTB/SmolLM2-135M-Instruct
+HuggingFaceTB/SmolLM2-360M
+HuggingFaceTB/SmolLM2-360M-Instruct
+HuggingFaceTB/SmolLM2-1.7B
+HuggingFaceTB/SmolLM2-1.7B-Instruct
 stabilityai/FreeWilly2
 stabilityai/stable-code-3b
 stabilityai/stablecode-completion-alpha-3b
