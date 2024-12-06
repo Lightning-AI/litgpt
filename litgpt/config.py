@@ -2043,4 +2043,59 @@ qwq = [
 
 configs.extend(qwq)
 
+#############    
+# Salamandra
+#############
+
+salamandra = [
+    # https://huggingface.co/BSC-LT/salamandra-2b-instruct/blob/main/config.json
+    dict(
+        name="salamandra-2b{}",
+        hf_config=dict(org="BSC-LT", name="salamandra-2b{}"),
+        block_size=8192,
+        vocab_size=256000,
+        padded_vocab_size=256000,
+        n_layer=24,
+        n_head=16,
+        n_embd=2048,
+        n_query_groups=16,
+        rotary_percentage=1.0,
+        parallel_residual=False,
+        bias=False,
+        norm_class_name="RMSNorm",
+        mlp_class_name="LLaMAMLP",
+        intermediate_size=5440,
+        norm_eps=1e-5,
+        rope_base=10000
+    ),
+    # https://huggingface.co/BSC-LT/salamandra-7b-instruct/blob/main/config.json
+    dict(
+        name="salamandra-7b{}",
+        hf_config=dict(org="BSC-LT", name="salamandra-7b{}"),
+        block_size=8192,
+        vocab_size=256000,
+        padded_vocab_size=256000,
+        n_layer=32,
+        n_head=32,
+        n_embd=4096,
+        n_query_groups=8,
+        rotary_percentage=1.0,
+        parallel_residual=False,
+        bias=False,
+        norm_class_name="RMSNorm",
+        mlp_class_name="LLaMAMLP",
+        intermediate_size=11008,
+        norm_eps=1e-6,
+        rope_base=10000
+    ),
+]
+
+for c in salamandra:
+    for kind in ("", "-instruct"):
+        copy = deepcopy(c)
+        copy["name"] = c["name"].format(kind)
+        copy["hf_config"]["name"] = c["hf_config"]["name"].format(kind)
+        configs.append(copy)
+
+
 name_to_config = {config["name"]: config for config in configs}
