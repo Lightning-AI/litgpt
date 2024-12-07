@@ -20,6 +20,7 @@ LitGPT supports a variety of LLM architectures with publicly available weights. 
 | Llama 3 | 8B, 70B | Meta AI | [Meta AI 2024](https://github.com/meta-llama/llama3)                                                                                   |
 | Llama 3.1 | 8B, 70B, 405B | Meta AI | [Meta AI 2024](https://github.com/meta-llama/llama3)                                                                           |
 | Llama 3.2 | 1B, 3B | Meta AI | [Meta AI 2024](https://github.com/meta-llama/llama-models/blob/main/models/llama3_2/MODEL_CARD.md)                                    |
+| Llama 3.3 | 70B | Meta AI | [Meta AI 2024](https://huggingface.co/meta-llama/Llama-3.3-70B-Instruct)                                                                                 |
 | Llama 3.1 Nemotron | 70B | NVIDIA | [NVIDIA AI 2024](https://build.nvidia.com/nvidia/llama-3_1-nemotron-70b-instruct/modelcard) |
 | LongChat | 7B, 13B | LMSYS | [LongChat Team 2023](https://lmsys.org/blog/2023-06-29-longchat/)                                                                       |
 | Mathstral | 7B | Mistral AI | [Mistral AI 2024](https://mistral.ai/news/mathstral/)                                                                        |
@@ -134,6 +135,7 @@ meta-llama/Llama-3.2-1B
 meta-llama/Llama-3.2-1B-Instruct
 meta-llama/Llama-3.2-3B
 meta-llama/Llama-3.2-3B-Instruct
+meta-llama/Llama-3.3-70B-Instruct
 meta-llama/Meta-Llama-3-70B
 meta-llama/Meta-Llama-3-70B-Instruct
 meta-llama/Meta-Llama-3-8B
