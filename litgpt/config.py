@@ -700,8 +700,31 @@ llama_3 = [
         rope_base=500000,
         rope_adjustments=dict(factor=32.0, low_freq_factor=1.0, high_freq_factor=4.0, original_max_seq_len=8192)
     ),
+    # https://huggingface.co/meta-llama/Llama-3.3-70B-Instruct/blob/main/config.json
+    dict(
+        name="Llama-3.3-70B-Instruct",
+        hf_config=dict(org="meta-llama", name="Llama-3.3-70B-Instruct"),
+        block_size=131072,
+        vocab_size=128000,
+        padded_vocab_size=128256,
+        n_layer=80,
+        n_head=64,
+        n_embd=8192,
+        n_query_groups=8,
+        rotary_percentage=1.0,
+        parallel_residual=False,
+        bias=False,
+        norm_class_name="RMSNorm",
+        mlp_class_name="LLaMAMLP",
+        intermediate_size=28672,
+        rope_base=500000,
+        rope_adjustments=dict(factor=8.0, low_freq_factor=1.0, high_freq_factor=4.0, original_max_seq_len=8192)
+    ),
 ]
 for c in llama_3:
+    if c["name"] == "Llama-3.3-70B-Instruct":
+        configs.append(c)
+        continue
     for kind in ("", "-Instruct"):
         copy = deepcopy(c)
         copy["name"] = c["name"].format(kind)
