@@ -40,6 +40,7 @@ LitGPT supports a variety of LLM architectures with publicly available weights. 
 | QwQ | 32B | Alibaba Group | [Qwen Team 2024](https://qwenlm.github.io/blog/qwq-32b-preview/)                                                                         |
 | RedPajama-INCITE | 3B, 7B | Together | [Together 2023](https://together.ai/blog/redpajama-models-v1)                                                                 |
 | StableCode | 3B | Stability AI | [Stability AI 2023](https://stability.ai/blog/stablecode-llm-generative-ai-coding)                                                  |
+| Salamandra | 2B, 7B | Barcelona Supercomputing Centre | [BSC-LTC 2024](https://github.com/BSC-LTC/salamandra)                                                                         |
 | StableLM  | 3B, 7B | Stability AI | [Stability AI 2023](https://github.com/Stability-AI/StableLM)                                                                    |
 | StableLM Zephyr | 3B | Stability AI | [Stability AI 2023](https://stability.ai/blog/stablecode-llm-generative-ai-coding)                                             |
 | TinyLlama | 1.1B | Zhang et al. | [Zhang et al. 2023](https://github.com/jzhang38/TinyLlama)                                                                         |
@@ -63,6 +64,10 @@ The output is shown below:
 allenai/OLMo-1B-hf
 allenai/OLMo-7B-hf
 allenai/OLMo-7B-Instruct-hf
+bsc-lt/salamandra-2b
+bsc-lt/salamandra-2b-instruct
+bsc-lt/salamandra-7b
+bsc-lt/salamandra-7b-instruct
 codellama/CodeLlama-13b-hf
 codellama/CodeLlama-13b-Instruct-hf
 codellama/CodeLlama-13b-Python-hf

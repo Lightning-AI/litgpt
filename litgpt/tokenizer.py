@@ -143,6 +143,9 @@ class Tokenizer:
         if len(tokens) == 1 and self.apply_decoding_fix:
             dummy_token_id = 33  # \x1e
             dummy_token = self.processor.decode([dummy_token_id])
+            if dummy_token != "\x1e":
+                dummy_token_id = 165 # \x1e is different in salamandra tokenizers
+                dummy_token = self.processor.decode([dummy_token_id])
             return self.processor.decode([dummy_token_id] + tokens)[len(dummy_token) :]
         return self.processor.decode(tokens)
 
