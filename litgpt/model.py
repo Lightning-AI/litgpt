@@ -72,6 +72,18 @@ class GPT(nn.Module):
             torch.nn.init.normal_(module.weight, mean=0.0, std=0.02)
 
     def forward(self, idx: torch.Tensor, input_pos: Optional[torch.Tensor] = None) -> torch.Tensor:
+        """
+        Args:
+            idx (torch.Tensor): Input token indices, shape `(B, T)`
+            input_pos (torch.Tensor, optional): If given, contains input
+                positions, either shape `(T,)` or `(B, T)`. This case is for
+                generative inference, and a KV cache needs to be used. The
+                default corresponds to `input_dim == arange(T)` and all inputs
+                up to T are given up front.
+
+        Returns:
+            torch.Tensor: Output, shape `(B, T, config.padded_vocab_size)`
+        """
         T = idx.size(1)
         if self.max_seq_length < T:
             raise ValueError(f"Cannot forward sequence of length {T}, max seq length is only {self.max_seq_length}.")
