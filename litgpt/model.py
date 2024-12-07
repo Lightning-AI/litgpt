@@ -80,6 +80,8 @@ class GPT(nn.Module):
             if input_pos.dim() > 2:
                 # otherwise, things go wrong in `apply_rope`
                 raise ValueError("input_pos must have 1 or 2 dimensions")
+            if input_pos.shape[-1] != T:
+                raise ValueError(f"input_pos.shape[-1] = {input_pos.shape[-1]} != {T} = idx.shape[1]")
             cos = batched_index_select(self.cos, 0, input_pos)
             sin = batched_index_select(self.sin, 0, input_pos)
             if self.mask_cache is None:
@@ -496,10 +498,11 @@ def batched_index_select(t, dim, idx):
     res = torch.index_select(t, dim, idx.reshape(-1))  # flat index
     # split out single batch idx
     res = res.view(*t.shape[:dim], -1, idx_size, *t.shape[dim + 1 :])
-    # move batch dim to front, this is np.rollaxis(res, dim, 0) for tensors
-    dims = [dim] + list(range(res.dim()))
-    del dims[dim + 1]
-    res = res.permute(dims)
+    if dim > 0:
+        # move batch dim to front, this is np.rollaxis(res, dim, 0) for tensors
+        dims = [dim] + list(range(res.dim()))
+        del dims[dim + 1]
+        res = res.permute(dims)
     # unflatten batch dims
     res = res.view(*batch_shape, *res.shape[1:])
     return res
