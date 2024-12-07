@@ -133,7 +133,7 @@ class CausalSelfAttention(BaseCausalSelfAttention):
         self.block_idx = block_idx
         self.apply_sliding_window_attention = (
             config.sliding_window_size is not None and
-            block_idx % config.sliding_window_layer_placing == 0
+            block_idx % config.sliding_window_layer_period == 0
         )
         self.config = config
 
