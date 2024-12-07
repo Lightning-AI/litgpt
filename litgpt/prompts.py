@@ -290,6 +290,11 @@ class QwQ(PromptStyle):
         system_message = "You are a helpful and harmless assistant. You are Qwen developed by Alibaba. You should think step-by-step."
         return f"<|im_start|>system\n{system_message}<|im_end|>\n<|im_start|>user\n{prompt}<|im_end|>\n<|im_start|>assistant\n"
 
+class Salamandra(PromptStyle):
+    def apply(self, prompt: str, **kwargs: str) -> str:
+        system_message = "I am Salamandra, an AI language model developed at the Barcelona Supercomputing Centre (BSC) by the Language Technologies Unit. My knowledge base was last updated on August 2023. Today Date: 2024-09-30\nSoy Salamandra, un modelo lingüístico de IA desarrollado en el Barcelona Supercomputing Centre (BSC) por la Language Technologies Unit. Mi base de conocimientos se actualizó por última vez en agosto de 2023.\nSoc Salamandra, un model de llenguatge d'IA desenvolupat al Barcelona Supercomputing Centre (BSC) per la Language Technologies Unit. La meva base de coneixement es va actualitzar per última vegada l'agost de 2023."
+        return f"<|im_start|>system\n{system_message}<|im_end|>\n<|im_start|>user\n{prompt}<|im_end|>\n<|im_start|>assistant\n"
+
 
 # Maps prompt style names to PromptStyle classes
 prompt_styles: Dict[str, Type[PromptStyle]] = {
@@ -316,6 +321,7 @@ prompt_styles: Dict[str, Type[PromptStyle]] = {
     "olmo": OLMo,
     "qwen2.5": Qwen2_5,
     "qwq": QwQ,
+    "salamandra": Salamandra,
 }
 
 
@@ -358,6 +364,8 @@ def model_name_to_prompt_style(model_name: str) -> PromptStyle:
         return Qwen2_5()
     if re.search(r"QwQ-.*", model_name):
         return QwQ()
+    if re.search(r"salamandra-.*-instruct", model_name):
+        return Salamandra()
     return Default()
 
 
