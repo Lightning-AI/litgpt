@@ -483,9 +483,6 @@ def build_rope_cache(
 
     # Calculate the product of position index and $\theta_i$
     idx_theta = torch.outer(seq_idx, theta).repeat(1, 2)
-    # Happens if `n_elem` is odd
-    if idx_theta.shape[1] > n_elem:
-        idx_theta = idx_theta[:, :n_elem]
 
     return torch.cos(idx_theta), torch.sin(idx_theta)
 
