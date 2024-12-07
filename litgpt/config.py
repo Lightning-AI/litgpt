@@ -1928,7 +1928,7 @@ qwen_2_5_coder = [
     dict(
         name="Qwen2.5-Coder-1.5B{}",
         hf_config=dict(org="Qwen", name="Qwen2.5-Coder-1.5B{}"),
-        block_size=131072,
+        block_size=32768,
         vocab_size=151643,
         padded_vocab_size=151936,
         n_layer=28,
@@ -1970,7 +1970,7 @@ qwen_2_5_coder = [
     dict(
         name="Qwen2.5-Coder-7B{}",
         hf_config=dict(org="Qwen", name="Qwen2.5-Coder-7B{}"),
-        block_size=131072,
+        block_size=32768,
         vocab_size=151643,
         padded_vocab_size=152064,
         n_layer=28,
@@ -1991,7 +1991,7 @@ qwen_2_5_coder = [
     dict(
         name="Qwen2.5-Coder-14B{}",
         hf_config=dict(org="Qwen", name="Qwen2.5-Coder-14B{}"),
-        block_size=131072,
+        block_size=32768,
         vocab_size=151643,
         padded_vocab_size=152064,
         n_layer=48,
@@ -2012,7 +2012,7 @@ qwen_2_5_coder = [
     dict(
         name="Qwen2.5-Coder-32B{}",
         hf_config=dict(org="Qwen", name="Qwen2.5-Coder-32B{}"),
-        block_size=131072,
+        block_size=32768,
         vocab_size=151643,
         padded_vocab_size=152064,
         n_layer=64,
