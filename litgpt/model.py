@@ -77,6 +77,9 @@ class GPT(nn.Module):
             raise ValueError(f"Cannot forward sequence of length {T}, max seq length is only {self.max_seq_length}.")
 
         if input_pos is not None:  # use the kv cache
+            if input_pos.dim() > 2:
+                # otherwise, things go wrong in `apply_rope`
+                raise ValueError("input_pos must have 1 or 2 dimensions")
             cos = batched_index_select(self.cos, 0, input_pos)
             sin = batched_index_select(self.sin, 0, input_pos)
             if self.mask_cache is None:
@@ -87,8 +90,9 @@ class GPT(nn.Module):
                 # we get if input_pos has a batch dimension
                 mask = mask.squeeze(1)
         else:
-            cos = self.cos[:T]
-            sin = self.sin[:T]
+            # unsqueeze to have a batch dimension
+            cos = self.cos[:T].unsqueeze(0)
+            sin = self.sin[:T].unsqueeze(0)
             mask = None
 
         x = self.transformer.wte(idx)  # token embeddings of shape (b, t, n_embd)
@@ -98,9 +102,9 @@ class GPT(nn.Module):
         for block in self.transformer.h:
             x = block(x, cos, sin, mask, input_pos)
         x = self.transformer.ln_f(x)
-        x = self.lm_head(x)  # (b, t, vocab_size)
+        x = self.lm_head(x)  # (B, T, padded_vocab_size)
         if self.config.final_logit_softcapping is not None:
-            x = torch.tanh(x / self.config.final_logit_softcapping) * self.config.final_logit_softcapping
+            x = do_softcapping(x, self.config.final_logit_softcapping)
         return x
 
     @classmethod
@@ -122,10 +126,8 @@ class GPT(nn.Module):
             elif num_params_present == 4:
                 # These parameters should always be used together so that we don't interfere with standard rope
                 extra_config = {
-                    "original_max_seq_len": self.config.rope_adjustments["original_max_seq_len"],
-                    "factor": self.config.rope_adjustments["factor"],
-                    "low_freq_factor": self.config.rope_adjustments["low_freq_factor"],
-                    "high_freq_factor": self.config.rope_adjustments["high_freq_factor"],
+                    name: self.config.rope_adjustments[name]
+                    for name in adjusted_params_required
                 }
             else:
                 # Some but not all parameters are specified; raise an error
@@ -231,12 +233,13 @@ class Block(nn.Module):
         attention_output = self.post_attention_norm(attention_output)
 
         if self.config.parallel_residual:
-            x_normed = x_normed if self.config.shared_attention_norm else self.norm_2(x)
-            x = self.mlp(x_normed) + attention_output + x
+            if not self.config.shared_attention_norm:
+                x_normed = self.norm_2(x)
+            x = attention_output + x
         else:
             x = attention_output + x
-            x = self.post_mlp_norm(self.mlp(self.norm_2(x))) + x
-        return x
+            x_normed = self.norm_2(x)
+        return self.post_mlp_norm(self.mlp(x_normed)) + x
 
 
 class CausalSelfAttention(nn.Module):
@@ -252,7 +255,7 @@ class CausalSelfAttention(nn.Module):
         self.kv_cache: Optional[KVCache] = None
         self.apply_sliding_window_attention = (
             config.sliding_window_size is not None and
-            block_idx % config.sliding_window_layer_placing == 0
+            block_idx % config.sliding_window_layer_period == 0
         )
 
         self.config = config
@@ -331,11 +334,8 @@ class CausalSelfAttention(nn.Module):
 
         # with softcapping we cannot use SDPA
         if self.config.attention_logit_softcapping is not None:
-            scale = 1.0 / math.sqrt(self.config.attention_scores_scalar or self.config.head_size)
             scores = q @ k.mT * scale
-            scores = (
-                torch.tanh(scores / self.config.attention_logit_softcapping) * self.config.attention_logit_softcapping
-            )
+            scores = do_softcapping(scores, self.config.attention_logit_softcapping)
             if mask is None:
                 mask = torch.ones(q.size(2), q.size(2), dtype=q.dtype, device=q.device).triu(diagonal=1)
                 mask.masked_fill_(mask.bool(), torch.finfo(q.dtype).min)
@@ -483,6 +483,9 @@ def build_rope_cache(
 
     # Calculate the product of position index and $\theta_i$
     idx_theta = torch.outer(seq_idx, theta).repeat(1, 2)
+    # Happens if `n_elem` is odd
+    if idx_theta.shape[1] > n_elem:
+        idx_theta = idx_theta[:, :n_elem]
 
     return torch.cos(idx_theta), torch.sin(idx_theta)
 
@@ -556,6 +559,8 @@ def batched_index_copy_(t, dim, idx, val):
 
 
 def apply_rope(x: torch.Tensor, cos: torch.Tensor, sin: torch.Tensor) -> torch.Tensor:
+    # x: (B, nh, T, hs)
+    # sin, cos: (B, T, hs) or (1, T, hs)
     head_size = x.size(-1)
     x1 = x[..., : head_size // 2]  # (B, nh, T, hs/2)
     x2 = x[..., head_size // 2 :]  # (B, nh, T, hs/2)
@@ -569,6 +574,10 @@ def apply_rope(x: torch.Tensor, cos: torch.Tensor, sin: torch.Tensor) -> torch.T
 
     roped = (x * cos) + (rotated * sin)
     return roped.to(dtype=x.dtype)
+
+
+def do_softcapping(x: torch.Tensor, thresh: float) -> torch.Tensor:
+    return torch.tanh(x / thresh) * thresh
 
 
 class KVCache(nn.Module):

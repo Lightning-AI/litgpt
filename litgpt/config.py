@@ -66,6 +66,9 @@ class Config:
     rope_adjustments: Optional[dict] = None
     n_expert: int = 0
     n_expert_per_token: int = 0
+    # if `attention_logit_softcapping` is used, cannot use optimized
+    # `torch.nn.functional.scaled_dot_product_attention` (which implements
+    # Flash attention), may result in higher memory and runtime footprint.
     attention_logit_softcapping: Optional[float] = None
     final_logit_softcapping: Optional[float] = None
 
@@ -99,7 +102,7 @@ class Config:
         self.rope_n_elem = int(self.rotary_percentage * self.head_size)
 
         if self.sliding_window_size is not None:
-            self.sliding_window_layer_placing = (
+            self.sliding_window_layer_period = (
                 1 if (self.sliding_window_layer_placing is None or self.sliding_window_layer_placing == "all") else 2
             )
 
