@@ -365,7 +365,7 @@ def model_name_to_prompt_style(model_name: str) -> PromptStyle:
         return Qwen2_5()
     if re.search(r"QwQ-.*", model_name):
         return QwQ()
-    if re.search(r"SmolLM2.*", model_name):
+    if re.search(r"SmolLM2.*-Instruct", model_name):
         return SmolLM2()
     return Default()
 

@@ -116,6 +116,12 @@ google/gemma-2b-it
 google/gemma-7b
 google/gemma-7b-it
 h2oai/h2o-danube2-1.8b-chat
+HuggingFaceTB/SmolLM2-135M
+HuggingFaceTB/SmolLM2-135M-Instruct
+HuggingFaceTB/SmolLM2-360M
+HuggingFaceTB/SmolLM2-360M-Instruct
+HuggingFaceTB/SmolLM2-1.7B
+HuggingFaceTB/SmolLM2-1.7B-Instruct
 lmsys/longchat-13b-16k
 lmsys/longchat-7b-16k
 lmsys/vicuna-13b-v1.3
@@ -195,12 +201,6 @@ Qwen/Qwen2.5-Coder-14B-Instruct
 Qwen/Qwen2.5-Coder-32B
 Qwen/Qwen2.5-Coder-32B-Instruct
 Qwen/QwQ-32B-Preview
-HuggingFaceTB/SmolLM2-135M
-HuggingFaceTB/SmolLM2-135M-Instruct
-HuggingFaceTB/SmolLM2-360M
-HuggingFaceTB/SmolLM2-360M-Instruct
-HuggingFaceTB/SmolLM2-1.7B
-HuggingFaceTB/SmolLM2-1.7B-Instruct
 stabilityai/FreeWilly2
 stabilityai/stable-code-3b
 stabilityai/stablecode-completion-alpha-3b
