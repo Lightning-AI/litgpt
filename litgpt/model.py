@@ -107,9 +107,9 @@ class GPT(nn.Module):
             # unsqueeze to have a batch dimension
             cos = self.cos[:T].unsqueeze(0)
             sin = self.sin[:T].unsqueeze(0)
-            mask = None
+            mask = None  # defaults to causal mask
 
-        x = self.transformer.wte(idx)  # token embeddings of shape (b, t, n_embd)
+        x = self.transformer.wte(idx)  # token embeddings of shape (B, T, n_embd)
         if self.config.scale_embeddings:
             x = x * torch.tensor(self.config.n_embd**0.5, dtype=x.dtype)
 
@@ -292,15 +292,17 @@ class CausalSelfAttention(nn.Module):
         qkv = qkv.view(B, T, self.config.n_query_groups, total_qkv, self.config.head_size)
         qkv = qkv.permute(0, 2, 3, 1, 4)  # (B, n_query_groups, total_qkv, T, hs)
 
-        # split batched computation into three
+        # split batched computation into three:
+        # q:    (B, n_query_groups, q_per_kv, T, hs)
+        # k, v: (B, n_query_groups, 1, T, hs)
         q, k, v = qkv.split((q_per_kv, 1, 1), dim=2)
 
         # maybe repeat k and v if for the non multi-head attention cases
         # training: flash attention requires it
         # inference: multi-query would require a full kv cache so avoid it to limit its memory usage
         if self.config.n_query_groups != self.config.n_head and (input_pos is None or self.config.n_query_groups != 1):
-            k = k.expand(B, self.config.n_query_groups, q_per_kv, T, self.config.head_size)
-            v = v.expand(B, self.config.n_query_groups, q_per_kv, T, self.config.head_size)
+            k = k.expand(*q.shape)
+            v = v.expand(*q.shape)
 
         q = q.reshape(B, -1, T, self.config.head_size)  # (B, nh_q, T, hs)
         k = k.reshape(B, -1, T, self.config.head_size)  # (B, nh_k, T, hs)
