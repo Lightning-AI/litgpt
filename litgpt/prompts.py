@@ -327,7 +327,7 @@ prompt_styles: Dict[str, Type[PromptStyle]] = {
     "olmo": OLMo,
     "qwen2.5": Qwen2_5,
     "qwq": QwQ,
-    "smollm2": SmolLM2 # SmolLM uses a different template
+    "smollm2": SmolLM2, # SmolLM uses a different template
     "salamandra": Salamandra,
 }
 
