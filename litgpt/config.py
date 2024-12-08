@@ -700,8 +700,31 @@ llama_3 = [
         rope_base=500000,
         rope_adjustments=dict(factor=32.0, low_freq_factor=1.0, high_freq_factor=4.0, original_max_seq_len=8192)
     ),
+    # https://huggingface.co/meta-llama/Llama-3.3-70B-Instruct/blob/main/config.json
+    dict(
+        name="Llama-3.3-70B-Instruct",
+        hf_config=dict(org="meta-llama", name="Llama-3.3-70B-Instruct"),
+        block_size=131072,
+        vocab_size=128000,
+        padded_vocab_size=128256,
+        n_layer=80,
+        n_head=64,
+        n_embd=8192,
+        n_query_groups=8,
+        rotary_percentage=1.0,
+        parallel_residual=False,
+        bias=False,
+        norm_class_name="RMSNorm",
+        mlp_class_name="LLaMAMLP",
+        intermediate_size=28672,
+        rope_base=500000,
+        rope_adjustments=dict(factor=8.0, low_freq_factor=1.0, high_freq_factor=4.0, original_max_seq_len=8192)
+    ),
 ]
 for c in llama_3:
+    if c["name"] == "Llama-3.3-70B-Instruct":
+        configs.append(c)
+        continue
     for kind in ("", "-Instruct"):
         copy = deepcopy(c)
         copy["name"] = c["name"].format(kind)
@@ -1905,7 +1928,7 @@ qwen_2_5_coder = [
     dict(
         name="Qwen2.5-Coder-1.5B{}",
         hf_config=dict(org="Qwen", name="Qwen2.5-Coder-1.5B{}"),
-        block_size=131072,
+        block_size=32768,
         vocab_size=151643,
         padded_vocab_size=151936,
         n_layer=28,
@@ -1947,7 +1970,7 @@ qwen_2_5_coder = [
     dict(
         name="Qwen2.5-Coder-7B{}",
         hf_config=dict(org="Qwen", name="Qwen2.5-Coder-7B{}"),
-        block_size=131072,
+        block_size=32768,
         vocab_size=151643,
         padded_vocab_size=152064,
         n_layer=28,
@@ -1968,7 +1991,7 @@ qwen_2_5_coder = [
     dict(
         name="Qwen2.5-Coder-14B{}",
         hf_config=dict(org="Qwen", name="Qwen2.5-Coder-14B{}"),
-        block_size=131072,
+        block_size=32768,
         vocab_size=151643,
         padded_vocab_size=152064,
         n_layer=48,
@@ -1989,7 +2012,7 @@ qwen_2_5_coder = [
     dict(
         name="Qwen2.5-Coder-32B{}",
         hf_config=dict(org="Qwen", name="Qwen2.5-Coder-32B{}"),
-        block_size=131072,
+        block_size=32768,
         vocab_size=151643,
         padded_vocab_size=152064,
         n_layer=64,
@@ -2042,6 +2065,61 @@ qwq = [
 ]
 
 configs.extend(qwq)
+
+
+#############    
+# Salamandra
+#############
+salamandra = [
+    # https://huggingface.co/BSC-LT/salamandra-2b-instruct/blob/main/config.json
+    dict(
+        name="salamandra-2b{}",
+        hf_config=dict(org="BSC-LT", name="salamandra-2b{}"),
+        block_size=8192,
+        vocab_size=256000,
+        padded_vocab_size=256000,
+        n_layer=24,
+        n_head=16,
+        n_embd=2048,
+        n_query_groups=16,
+        rotary_percentage=1.0,
+        parallel_residual=False,
+        bias=False,
+        norm_class_name="RMSNorm",
+        mlp_class_name="LLaMAMLP",
+        intermediate_size=5440,
+        norm_eps=1e-5,
+        rope_base=10000
+    ),
+    # https://huggingface.co/BSC-LT/salamandra-7b-instruct/blob/main/config.json
+    dict(
+        name="salamandra-7b{}",
+        hf_config=dict(org="BSC-LT", name="salamandra-7b{}"),
+        block_size=8192,
+        vocab_size=256000,
+        padded_vocab_size=256000,
+        n_layer=32,
+        n_head=32,
+        n_embd=4096,
+        n_query_groups=8,
+        rotary_percentage=1.0,
+        parallel_residual=False,
+        bias=False,
+        norm_class_name="RMSNorm",
+        mlp_class_name="LLaMAMLP",
+        intermediate_size=11008,
+        norm_eps=1e-6,
+        rope_base=10000
+    ),
+]
+
+for c in salamandra:
+    for kind in ("", "-instruct"):
+        copy = deepcopy(c)
+        copy["name"] = c["name"].format(kind)
+        copy["hf_config"]["name"] = c["hf_config"]["name"].format(kind)
+        configs.append(copy)
+
 
 ###############
 # SmolLM2
@@ -2115,5 +2193,6 @@ for c in smollm2:
         copy["name"] = c["name"].format(kind)
         copy["hf_config"]["name"] = c["hf_config"]["name"].format(kind)
         configs.append(copy)
+
 
 name_to_config = {config["name"]: config for config in configs}
