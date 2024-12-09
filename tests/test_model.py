@@ -1178,3 +1178,66 @@ def test_batched_index_copy_modes():
             val_3_mps = val_3
             batched_index_copy_(t3_mps, dim_3, idx_3_mps, val_3_mps)
             assert torch.allclose(t3_cpu, t3_mps), "Mismatch with negative dimension on mocked MPS"
+
+
+@pytest.mark.parametrize("n_query_groups", (1, 2, 4, 8))
+@torch.inference_mode()
+def test_kv_cache_buffer_shape(n_query_groups):
+    batch_size = 3
+    max_seq_length = 23
+    config = Config(
+        block_size=25,
+        padded_vocab_size=5,
+        n_layer=2,
+        n_head=8,
+        n_embd=16,
+        n_query_groups=n_query_groups,
+    )
+    model = GPT(config)
+    model.max_seq_length = max_seq_length
+    model.set_kv_cache(batch_size)
+    required_shape = (batch_size, n_query_groups, max_seq_length, config.head_size)
+    for block in model.transformer.h:
+        kv_cache = block.attn.kv_cache
+        assert kv_cache is not None
+        assert kv_cache.k.shape == required_shape
+        assert kv_cache.v.shape == required_shape
+
+
+@pytest.mark.parametrize(
+    ("rotary_percentage", "final_dim"),
+    ((0.75, 3), (0.25, 2))
+)
+@torch.inference_mode()
+def test_rope_cos_sin_shapes_if_rope_n_elem_is_odd(rotary_percentage, final_dim):
+    batch_size = 3
+    config = Config(
+        block_size=25,
+        padded_vocab_size=5,
+        n_layer=2,
+        n_head=4,
+        n_embd=16,
+        rotary_percentage=rotary_percentage,
+    )
+    model = GPT(config)
+    required_shape = (config.block_size, final_dim)
+    assert model.cos.shape == required_shape
+    assert model.sin.shape == required_shape
+
+def test_forward_with_without_input_pos_maxp1():
+    batch_size = 3
+    config = Config(
+        block_size=25,
+        padded_vocab_size=5,
+        n_layer=2,
+        n_head=8,
+        n_embd=16,
+    )
+    model = GPT(config)
+    model.set_kv_cache(batch_size)
+    idx = torch.randint(0, config.padded_vocab_size, (1, 10))
+    input_pos = torch.arange(1, 11)
+    input_pos_maxp1 = 11
+    logits_with_maxp1 = model(idx, input_pos, input_pos_maxp1=input_pos_maxp1)
+    logits_no_maxp1 = model(idx, input_pos)
+    torch.testing.assert_close(logits_with_maxp1, logits_no_maxp1)
