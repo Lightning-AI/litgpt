@@ -358,7 +358,6 @@ def get_default_supported_precision(training: bool) -> str:
 
     Args:
         training: If True, returns '-mixed' version of the precision; if False, returns '-true' version.
-        use_mps: Flag to determine if MPS should be used when available.
 
     Returns:
         The default precision that is suitable for the task and is supported by the hardware.
