@@ -143,7 +143,7 @@ class StreamLitAPI(BaseLitAPI):
         for out in output:
             yield {"output": out}
 
-class OpenAIAPI(StreamLitAPI):
+class OpenAIAPI(LitAPI):
     def __init__(
         self,
         checkpoint_dir: Path,
@@ -155,28 +155,56 @@ class OpenAIAPI(StreamLitAPI):
         max_new_tokens: int = 50,
         devices: int = 1
     ):
-        super().__init__(checkpoint_dir, quantize, precision, temperature, top_k, top_p, max_new_tokens, devices)
         print ("OpenAIAPI : init")  
+        if not _LITSERVE_AVAILABLE:
+            raise ImportError(str(_LITSERVE_AVAILABLE))
+
+        super().__init__()
+        self.checkpoint_dir = checkpoint_dir
+        self.quantize = quantize
+        self.precision = precision
+        self.temperature = temperature
+        self.top_k = top_k
+        self.max_new_tokens = max_new_tokens
+        self.top_p = top_p
+        self.devices = devices
 
     def setup(self, device: str):
-        super().setup(device)
         print ("OpenAIAPI : setup")
+        if ":" in device:
+            accelerator, device = device.split(":")
+            device = f"[{int(device)}]"
+        else:
+            accelerator = device
+            device = 1
 
+        print("OpenAIAPI : Initializing model...")
+        self.llm = LLM.load(
+            model=self.checkpoint_dir,
+            distribute=None
+        )
+
+        self.llm.distribute(
+            devices=self.devices,
+            accelerator=accelerator,
+            quantize=self.quantize,
+            precision=self.precision,
+            generate_strategy="sequential" if self.devices is not None and self.devices > 1 else None
+        )
+        print("OpenAIAPI : Model successfully initialized.")
+    
     def predict(self, inputs: torch.Tensor) -> Any:
         # Run the model on the input and return the output.
-        print ("OpenAIAPI : predict")
-        yield from self.llm.generate(
-            inputs,
+        
+        for chunk in inputs:
+            yield from self.llm.generate(
+            chunk["content"],
             temperature=self.temperature,
             top_k=self.top_k,
             top_p=self.top_p,
             max_new_tokens=self.max_new_tokens,
             stream=True
-        )
-
-    def encode_response(self, output):
-        print ("OpenAIAPI : encode_response")
-        yield ChatMessage(role="assistant", content=output)
+            )
 
 
 def run_server(
@@ -270,8 +298,7 @@ def run_server(
             devices=1,  # We need to use the devices inside the `SimpleLitAPI` class
             spec=spec_impl
             )
-        print (f"spec {type(spec_impl)}")
-
+        
     else:
 
         spec_impl = None
@@ -300,6 +327,4 @@ def run_server(
             spec=spec_impl
             )
 
-    print (f"server.lit_spec : {server.lit_spec}")
-    print (f"server._specs : {server._specs}")
     server.run(port=port, generate_client_file=False)
