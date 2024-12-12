@@ -507,7 +507,11 @@ class GPT(BaseModel):
     @staticmethod
     def create_lm_head(config: Config) -> nn.Module:
         return create_lora_linear(
-            config.n_embd, config.padded_vocab_size, bias=config.lm_head_bias
+            config,
+            config.n_embd,
+            config.padded_vocab_size,
+            bias=config.lm_head_bias,
+            use_r=config.lora_head,
         )
 
     @classmethod
@@ -556,7 +560,10 @@ class CausalSelfAttention(BaseCausalSelfAttention):
         # if `head_size` is explicitly specified in the config, `n_emd` might
         # not be equal to `head_size * n_head`
         return create_lora_linear(
-            config.head_size * config.n_head, config.n_embd,
+            config,
+            config.head_size * config.n_head,
+            config.n_embd,
+            use_r=config.lora_projection,
         )
 
     def _load_from_state_dict(self, state_dict: Dict, prefix: str, *args: Any, **kwargs: Any) -> None:
@@ -576,14 +583,17 @@ def create_lora_linear(
     in_size: int,
     out_size: int,
     bias: Optional[Union[float, bool]] = None,
+    use_r: Optional[bool] = None,
 ) -> LoRALinear:
     if bias is None:
         bias = config.bias
+    if use_r is None:
+        use_r = config.lora_mlp
     return LoRALinear(
         in_size,
         out_size,
         bias=bias,
-        r=(config.lora_r if config.lora_mlp else 0),
+        r=(config.lora_r if use_r else 0),
         lora_alpha=config.lora_alpha,
         lora_dropout=config.lora_dropout,
     )
