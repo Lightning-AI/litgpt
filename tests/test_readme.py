@@ -173,9 +173,9 @@ def test_continue_pretrain_model(tmp_path):
 
 @pytest.mark.dependency(depends=["test_download_model"])
 def test_serve():
-    CHECKPOINT_DIR = str("checkpoints" / REPO_ID)
+    CHECKPOINT_DIR = str("/Users/craig/code/litgpt/checkpoints" / REPO_ID)
     run_command = [
-        "litgpt", "serve", str(CHECKPOINT_DIR)
+        "litgpt", "serve", "--devices","0", str(CHECKPOINT_DIR)
     ]
 
     process = None
@@ -183,10 +183,17 @@ def test_serve():
     def run_server():
         nonlocal process
         try:
+            print (f"Running command {run_command}")
             process = subprocess.Popen(run_command, stdout=subprocess.PIPE, stderr=subprocess.PIPE, text=True)
             stdout, stderr = process.communicate(timeout=60)
-        except subprocess.TimeoutExpired:
+            print (f"stdout : {stdout}")
+            print(f"stderr : {stderr}")
+        except subprocess.TimeoutExpired as te:
             print('Server start-up timeout expired')
+            raise te
+        except Exception as e:
+            print (e)
+            raise e
 
     server_thread = threading.Thread(target=run_server)
     server_thread.start()
@@ -197,6 +204,7 @@ def test_serve():
     try:
         response = requests.get("http://127.0.0.1:8000")
         print(response.status_code)
+        print (response.text)
         assert response.status_code == 200, "Server did not respond as expected."
     finally:
         if process:
