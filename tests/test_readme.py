@@ -40,7 +40,7 @@ def test_download_model():
     s = Path("checkpoints") / repo_id
     assert f"Saving converted checkpoint to {str(s)}" in output
     assert ("checkpoints" / REPO_ID).exists()
-    assert ("checkpoints" / REPO_ID / "pytorch_model.bin").exists()
+    assert ("checkpoints" / REPO_ID / "pytorch_model.bin").exists(), f"{REPO_ID} not downloaded"
 
     # Also test valid but unsupported repo IDs
     command = ["litgpt", "download", "CohereForAI/aya-23-8B"]
@@ -176,7 +176,7 @@ def test_continue_pretrain_model(tmp_path):
 def test_serve():
     CHECKPOINT_DIR = str("checkpoints" / REPO_ID)
     run_command = [
-        "litgpt", "serve", "--devices 0", str(CHECKPOINT_DIR)
+        "litgpt", "serve", "--devices", "0", str(CHECKPOINT_DIR)
     ]
 
     process = None
@@ -200,13 +200,16 @@ def test_serve():
     server_thread.start()
 
     # Allow time to initialize and start serving
-    time.sleep(30)
+    time.sleep(60)
 
     try:
         response = requests.get("http://127.0.0.1:8000")
         print(response.status_code)
         print (response.text)
         assert response.status_code == 200, "Server did not respond as expected."
+    except Exception as e:
+            print (e)
+            raise e
     finally:
         if process:
             process.kill()
