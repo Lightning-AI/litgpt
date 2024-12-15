@@ -173,7 +173,7 @@ def test_continue_pretrain_model(tmp_path):
 
 @pytest.mark.dependency(depends=["test_download_model"])
 def test_serve():
-    CHECKPOINT_DIR = str("/Users/craig/code/litgpt/checkpoints" / REPO_ID)
+    CHECKPOINT_DIR = str("checkpoints" / REPO_ID)
     run_command = [
         "litgpt", "serve", "--devices","0", str(CHECKPOINT_DIR)
     ]
