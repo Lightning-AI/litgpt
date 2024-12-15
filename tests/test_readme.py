@@ -183,6 +183,8 @@ def test_serve():
 
     def run_server():
         nonlocal process
+
+        stdout, stderr = ""
         try:
             print (f"Running command {run_command}")
             process = subprocess.Popen(run_command, stdout=subprocess.PIPE, stderr=subprocess.PIPE, text=True)
@@ -195,6 +197,9 @@ def test_serve():
         except Exception as e:
             print (e)
             raise e
+        finally:
+            print (f"stdout : {stdout}")
+            print(f"stderr : {stderr}")
 
     server_thread = threading.Thread(target=run_server)
     server_thread.start()
