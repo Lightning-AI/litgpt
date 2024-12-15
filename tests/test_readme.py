@@ -175,7 +175,7 @@ def test_continue_pretrain_model(tmp_path):
 def test_serve():
     CHECKPOINT_DIR = str("checkpoints" / REPO_ID)
     run_command = [
-        "litgpt", "serve", "--devices","0", str(CHECKPOINT_DIR)
+        "litgpt", "serve", "--devices 0", str(CHECKPOINT_DIR)
     ]
 
     process = None
