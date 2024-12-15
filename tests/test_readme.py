@@ -186,7 +186,7 @@ def test_serve():
         try:
             print (f"Running command {run_command}")
             process = subprocess.Popen(run_command, stdout=subprocess.PIPE, stderr=subprocess.PIPE, text=True)
-            stdout, stderr = process.communicate(timeout=60)
+            stdout, stderr = process.communicate(timeout=90)
             print (f"stdout : {stdout}")
             print(f"stderr : {stderr}")
         except subprocess.TimeoutExpired as te:
@@ -200,7 +200,7 @@ def test_serve():
     server_thread.start()
 
     # Allow time to initialize and start serving
-    time.sleep(60)
+    time.sleep(30)
 
     try:
         response = requests.get("http://127.0.0.1:8000")
