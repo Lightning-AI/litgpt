@@ -40,6 +40,7 @@ def test_download_model():
     s = Path("checkpoints") / repo_id
     assert f"Saving converted checkpoint to {str(s)}" in output
     assert ("checkpoints" / REPO_ID).exists()
+    assert ("checkpoints" / REPO_ID / "pytorch_model.bin").exists()
 
     # Also test valid but unsupported repo IDs
     command = ["litgpt", "download", "CohereForAI/aya-23-8B"]
