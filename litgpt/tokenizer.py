@@ -87,7 +87,7 @@ class Tokenizer:
             raise ValueError(f"token {token!r} not found in the collection.")
         return id_
 
-    def check_if_bos_token_used(self, checkpoint_dir: Path) -> bool:
+    def check_if_bos_token_used(self, checkpoint_dir: Path) -> bool:     
         if not (tokenizer_config_path := checkpoint_dir / "tokenizer_config.json").is_file():
             return False
         with open(tokenizer_config_path, encoding="utf-8") as fp:
@@ -95,6 +95,8 @@ class Tokenizer:
         # for LlaMA-3 tokenizer there is no `add_bos_token` at all and `tokenizer_class` is only
         # `PreTrainedTokenizerFast`
         if checkpoint_dir.stem.startswith(("Meta-Llama-3", "Llama-3")):
+            return True
+        if checkpoint_dir.stem.startswith("SmolLM2") and checkpoint_dir.name.endswith("Instruct"):
             return True
         if "add_bos_token" in config:
             return config["add_bos_token"]

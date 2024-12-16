@@ -300,6 +300,12 @@ class Salamandra(PromptStyle):
         return f"<|im_start|>system\n{system_message}<|im_end|>\n<|im_start|>user\n{prompt}<|im_end|>\n<|im_start|>assistant\n"
 
 
+class SmolLM2(PromptStyle):
+    def apply(self, prompt: str, **kwargs: str) -> str:
+        system_message = "You are a helpful AI assistant named SmolLM, trained by Hugging Face"
+        return f"<|im_start|>system\n{system_message}<|im_end|>\n<|im_start|>user\n{prompt}<|im_end|>\n<|im_start|>assistant\n"
+
+
 # Maps prompt style names to PromptStyle classes
 prompt_styles: Dict[str, Type[PromptStyle]] = {
     # Dataset-specific prompt styles
@@ -326,6 +332,7 @@ prompt_styles: Dict[str, Type[PromptStyle]] = {
     "qwen2.5": Qwen2_5,
     "qwen2.5-math": Qwen2_5_Math,
     "qwq": QwQ,
+    "smollm2": SmolLM2,
     "salamandra": Salamandra,
 }
 
@@ -371,6 +378,8 @@ def model_name_to_prompt_style(model_name: str) -> PromptStyle:
         return Qwen2_5()
     if re.search(r"QwQ-.*", model_name):
         return QwQ()
+    if re.search(r"SmolLM2.*-Instruct", model_name):
+        return SmolLM2()
     if re.search(r"salamandra-.*-instruct", model_name):
         return Salamandra()
     return Default()
