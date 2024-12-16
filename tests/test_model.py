@@ -914,7 +914,7 @@ def test_against_original_salamandra(model_name, device, dtype):
     
 
 @torch.inference_mode()
-@pytest.mark.parametrize("model_name", ("SmolLM2-135M", "SmolLM2-1.7B"))
+@pytest.mark.parametrize("model_name", ("SmolLM2-135M", "SmolLM2-360M", "SmolLM2-1.7B"))
 @pytest.mark.parametrize(
     ("device", "dtype"),
     [
