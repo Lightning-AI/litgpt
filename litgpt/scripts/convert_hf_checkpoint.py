@@ -15,6 +15,7 @@ from lightning.fabric.utilities.load import _NotYetLoadedTensor as NotYetLoadedT
 
 from litgpt.config import Config
 from litgpt.utils import extend_checkpoint_dir, incremental_save, lazy_load, save_config
+from safetensors.torch import load_file as load_safetensors
 
 
 def copy_weights_gpt_neox(
@@ -586,13 +587,13 @@ def convert_hf_checkpoint(
     elif model_safetensor_map_json_path.is_file():
         with open(model_safetensor_map_json_path, encoding="utf-8") as json_map:
             bin_index = json.load(json_map)
-        bin_files = {checkpoint_dir / Path(bin).with_suffix(".bin") for bin in bin_index["weight_map"].values()}
+        bin_files = {checkpoint_dir / bin for bin in bin_index["weight_map"].values()}
     else:
-        bin_files = set(checkpoint_dir.glob("*.bin"))
+        bin_files = set(checkpoint_dir.glob("*.bin")) | set(checkpoint_dir.glob("*.safetensors"))
         # some checkpoints serialize the training arguments
         bin_files = {f for f in bin_files if f.name != "training_args.bin"}
     if not bin_files:
-        raise ValueError(f"Expected {str(checkpoint_dir)!r} to contain .bin files")
+        raise ValueError(f"Expected {str(checkpoint_dir)!r} to contain .bin or .safetensors files")
 
     with incremental_save(checkpoint_dir / "lit_model.pth") as saver:
         # for checkpoints that split the QKV across several files, we need to keep all the bin files
@@ -610,7 +611,7 @@ def convert_hf_checkpoint(
                     current_file_size = os.path.getsize(bin_file)
                     progress_per_file = (current_file_size / total_size) * total_progress
 
-                    hf_weights = lazy_load(bin_file)
+                    hf_weights = load_safetensors(bin_file) if bin_file.suffix == ".safetensors" else lazy_load(bin_file)
                     copy_fn(sd, hf_weights, saver=saver, dtype=dtype, pbar=pbar, progress_per_file=progress_per_file, debug_mode=debug_mode)
                 gc.collect()
 
@@ -620,7 +621,7 @@ def convert_hf_checkpoint(
         else:
             # Handling files without progress bar in debug mode
             for bin_file in sorted(bin_files):
-                hf_weights = lazy_load(bin_file)
+                hf_weights = load_safetensors(bin_file) if bin_file.suffix == ".safetensors" else lazy_load(bin_file)
                 copy_fn(sd, hf_weights, saver=saver, dtype=dtype, debug_mode=debug_mode)
 
         print(f"Saving converted checkpoint to {checkpoint_dir}")
