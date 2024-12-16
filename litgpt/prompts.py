@@ -284,6 +284,10 @@ class Qwen2_5(PromptStyle):
         system_message = "You are Qwen, created by Alibaba Cloud. You are a helpful assistant."
         return f"<|im_start|>system\n{system_message}<|im_end|>\n<|im_start|>user\n{prompt}<|im_end|>\n<|im_start|>assistant\n"
 
+class Qwen2_5_Math(PromptStyle):
+    def apply(self, prompt: str, **kwargs: str) -> str:
+        system_message = "Please reason step by step, and put your final answer within \\boxed{}."
+        return f"<|im_start|>system\n{system_message}<|im_end|>\n<|im_start|>user\n{prompt}<|im_end|>\n<|im_start|>assistant\n"
 
 class QwQ(PromptStyle):
     def apply(self, prompt: str, **kwargs: str) -> str:
@@ -326,6 +330,7 @@ prompt_styles: Dict[str, Type[PromptStyle]] = {
     "llama3": Llama3,
     "olmo": OLMo,
     "qwen2.5": Qwen2_5,
+    "qwen2.5-math": Qwen2_5_Math,
     "qwq": QwQ,
     "smollm2": SmolLM2, # SmolLM uses a different template
     "salamandra": Salamandra,
@@ -367,6 +372,8 @@ def model_name_to_prompt_style(model_name: str) -> PromptStyle:
         return Gemma()
     if re.search(r"OLMo.*-hf", model_name):
         return OLMo()
+    if re.search(r"Qwen2\.5-Math-.*", model_name):
+        return Qwen2_5_Math()
     if re.search(r"Qwen2\.5-.*", model_name):
         return Qwen2_5()
     if re.search(r"QwQ-.*", model_name):
