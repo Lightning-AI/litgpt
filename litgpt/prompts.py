@@ -344,6 +344,8 @@ def model_name_to_prompt_style(model_name: str) -> PromptStyle:
         return StableLMZephyr()
     if re.search("stablecode-instruct", model_name):
         return StableCode()
+    if re.search(r"Falcon3.*-Instruct", model_name):
+        pass
     if re.search(r"falcon.*-instruct", model_name):
         return Falcon()
     if re.search("Llama-2-7b-chat-hf-function-calling-v2", model_name):
