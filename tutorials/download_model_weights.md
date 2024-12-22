@@ -172,6 +172,7 @@ mistralai/Mistral-7B-Instruct-v0.3
 mistralai/Mistral-7B-v0.1
 mistralai/Mistral-7B-v0.3
 mistralai/Mistral-Large-Instruct-2407
+mistralai/Mistral-Large-Instruct-2411
 mistralai/Mixtral-8x7B-Instruct-v0.1
 mistralai/Mixtral-8x7B-v0.1
 mistralai/Mixtral-8x22B-Instruct-v0.1
