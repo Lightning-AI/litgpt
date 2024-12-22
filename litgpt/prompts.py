@@ -317,11 +317,11 @@ prompt_styles: Dict[str, Type[PromptStyle]] = {
     "gemma": Gemma,
     "llama3": Llama3,
     "olmo": OLMo,
-    "qwen2.5": ChatML("qwen2.5"),
-    "qwen2.5-math": ChatML("qwen2.5-math"),
-    "qwq": ChatML("qwq"),
-    "smollm2": ChatML("smollm2"),
-    "salamandra": ChatML("salamandra"),
+    "qwen2.5": lambda: ChatML("qwen2.5"),
+    "qwen2.5-math": lambda: ChatML("qwen2.5-math"),
+    "qwq": lambda: ChatML("qwq"),
+    "smollm2": lambda: ChatML("smollm2"),
+    "salamandra": lambda: ChatML("salamandra"),
 }
 
 
