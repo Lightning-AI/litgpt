@@ -86,7 +86,7 @@ def download_from_hub(
             token=access_token,
         )
 
-    os.environ["HF_HUB_ENABLE_HF_TRANSFER"] = previous
+    os.environ["HF_HUB_ENABLE_HF_TRANSFER"] = previous or "0"
 
     if from_safetensors:
         print("Converting .safetensor files to PyTorch binaries (.bin)")
