@@ -72,14 +72,10 @@ def download_from_hub(
         else:
             raise ValueError(f"Couldn't find weight files for {repo_id}")
 
-    import huggingface_hub._snapshot_download as download
-    import huggingface_hub.constants as constants
-
-    previous = constants.HF_HUB_ENABLE_HF_TRANSFER
+    previous = os.environ.get("HF_HUB_ENABLE_HF_TRANSFER")
     if _HF_TRANSFER_AVAILABLE and not previous:
         print("Setting HF_HUB_ENABLE_HF_TRANSFER=1")
-        constants.HF_HUB_ENABLE_HF_TRANSFER = True
-        download.HF_HUB_ENABLE_HF_TRANSFER = True
+        os.environ["HF_HUB_ENABLE_HF_TRANSFER"] = "1"
 
     directory = checkpoint_dir / repo_id
     with gated_repo_catcher(repo_id, access_token):
@@ -90,8 +86,7 @@ def download_from_hub(
             token=access_token,
         )
 
-    constants.HF_HUB_ENABLE_HF_TRANSFER = previous
-    download.HF_HUB_ENABLE_HF_TRANSFER = previous
+    os.environ["HF_HUB_ENABLE_HF_TRANSFER"] = previous
 
     if from_safetensors:
         print("Converting .safetensor files to PyTorch binaries (.bin)")
