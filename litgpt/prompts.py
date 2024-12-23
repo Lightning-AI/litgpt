@@ -112,6 +112,17 @@ class Falcon(PromptStyle):
         )
 
 
+class Falcon3(PromptStyle):
+    def apply(self, prompt: str, **kwargs: str) -> str:
+        return f"<|user|>\n{prompt}<|endoftext|>\n<|assistant|>\n"
+    
+    def stop_tokens(self, tokenizer: "Tokenizer") -> Tuple[List[int], ...]:
+        return (
+            [tokenizer.eos_id],
+            [tokenizer.token_to_id("<|endoftext|>")],
+        )
+
+
 class Llama2FunctionCalling(PromptStyle):
     def apply(self, prompt: str, **kwargs: str) -> str:
         # Has to be before the llama config
@@ -344,6 +355,8 @@ def model_name_to_prompt_style(model_name: str) -> PromptStyle:
         return StableLMZephyr()
     if re.search("stablecode-instruct", model_name):
         return StableCode()
+    if re.search(r"Falcon3.*-Instruct", model_name):
+        return Falcon3()
     if re.search(r"falcon.*-instruct", model_name):
         return Falcon()
     if re.search("Llama-2-7b-chat-hf-function-calling-v2", model_name):

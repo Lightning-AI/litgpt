@@ -12,6 +12,7 @@ LitGPT supports a variety of LLM architectures with publicly available weights. 
 | Danube2 | 1.8B | H2O.ai | [H2O.ai](https://h2o.ai/platform/danube-1-8b/)                                                                                             |
 | Dolly | 3B, 7B, 12B | Databricks | [Conover et al. 2023](https://www.databricks.com/blog/2023/04/12/dolly-first-open-commercially-viable-instruction-tuned-llm)      |
 | Falcon | 7B, 40B, 180B | TII UAE | [TII 2023](https://falconllm.tii.ae)                                                                                              |
+| Falcon 3 | 1B, 3B, 7B, 10B | TII UAE | [TII 2024](https://huggingface.co/blog/falcon3)                                                                                              |
 | FreeWilly2 (Stable Beluga 2) | 70B | Stability AI | [Stability AI 2023](https://stability.ai/blog/stable-beluga-large-instruction-fine-tuned-models)                 |
 | Function Calling Llama 2 | 7B | Trelis | [Trelis et al. 2023](https://huggingface.co/Trelis/Llama-2-7b-chat-hf-function-calling-v2)                                  |
 | Gemma | 2B, 7B | Google | [Google Team, Google Deepmind](https://storage.googleapis.com/deepmind-media/gemma/gemma-report.pdf)                                       |
@@ -233,6 +234,14 @@ tiiuae/falcon-40b
 tiiuae/falcon-40b-instruct
 tiiuae/falcon-7b
 tiiuae/falcon-7b-instruct
+tiiuae/Falcon3-1B-Base
+tiiuae/Falcon3-1B-Instruct
+tiiuae/Falcon3-3B-Base
+tiiuae/Falcon3-3B-Instruct
+tiiuae/Falcon3-7B-Base
+tiiuae/Falcon3-7B-Instruct
+tiiuae/Falcon3-10B-Base
+tiiuae/Falcon3-10B-Instruct
 TinyLlama/TinyLlama-1.1B-Chat-v1.0
 TinyLlama/TinyLlama-1.1B-intermediate-step-1431k-3T
 togethercomputer/LLaMA-2-7B-32K

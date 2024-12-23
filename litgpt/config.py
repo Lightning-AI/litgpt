@@ -441,6 +441,95 @@ for kind in ("", "-chat"):
     copy["hf_config"]["name"] = falcon180b["hf_config"]["name"].format(kind)
     configs.append(copy)
 
+falcon3 = [
+    # https://huggingface.co/tiiuae/Falcon3-1B-Base/blob/main/config.json
+    dict(
+        name="Falcon3-1B{}",
+        hf_config=dict(org="tiiuae", name="Falcon3-1B{}"),
+        block_size=4096,
+        vocab_size=131072,
+        padded_vocab_size=131072,
+        n_layer=18,
+        n_head=8,
+        n_query_groups=4,
+        n_embd=2048,
+        rotary_percentage=1.0,
+        parallel_residual=False,
+        rope_base=1000042,
+        norm_eps=1e-6,
+        bias=False,
+        norm_class_name="RMSNorm",
+        mlp_class_name="LLaMAMLP",
+        intermediate_size=8192,
+    ),
+    # https://huggingface.co/tiiuae/Falcon3-3B-Base/blob/main/config.json
+    dict(
+        name="Falcon3-3B{}",
+        hf_config=dict(org="tiiuae", name="Falcon3-3B{}"),
+        block_size=32768,
+        vocab_size=131072,
+        padded_vocab_size=131072,
+        n_layer=22,
+        n_head=12,
+        n_query_groups=4,
+        n_embd=3072,
+        rotary_percentage=1.0,
+        parallel_residual=False,
+        rope_base=1000042,
+        norm_eps=1e-6,
+        bias=False,
+        norm_class_name="RMSNorm",
+        mlp_class_name="LLaMAMLP",
+        intermediate_size=9216,
+    ),
+    # https://huggingface.co/tiiuae/Falcon3-7B-Base/blob/main/config.json
+    dict(
+        name="Falcon3-7B{}",
+        hf_config=dict(org="tiiuae", name="Falcon3-7B{}"),
+        block_size=32768,
+        vocab_size=131072,
+        padded_vocab_size=131072,
+        n_layer=28,
+        n_head=12,
+        n_query_groups=4,
+        n_embd=3072,
+        rotary_percentage=1.0,
+        parallel_residual=False,
+        rope_base=1000042,
+        norm_eps=1e-6,
+        bias=False,
+        norm_class_name="RMSNorm",
+        mlp_class_name="LLaMAMLP",
+        intermediate_size=23040,
+    ),
+    # https://huggingface.co/tiiuae/Falcon3-10B-Base/blob/main/config.json
+    dict(
+        name="Falcon3-10B{}",
+        hf_config=dict(org="tiiuae", name="Falcon3-10B{}"),
+        block_size=32768,
+        vocab_size=131072,
+        padded_vocab_size=131072,
+        n_layer=40,
+        n_head=12,
+        n_query_groups=4,
+        n_embd=3072,
+        rotary_percentage=1.0,
+        parallel_residual=False,
+        rope_base=1000042,
+        norm_eps=1e-6,
+        bias=False,
+        norm_class_name="RMSNorm",
+        mlp_class_name="LLaMAMLP",
+        intermediate_size=23040,
+    ),
+]
+for c in falcon3:
+    for kind in ("-Base", "-Instruct"):
+        copy = deepcopy(c)
+        copy["name"] = c["name"].format(kind)
+        copy["hf_config"]["name"] = c["hf_config"]["name"].format(kind)
+        configs.append(copy)
+
 
 #############################
 # OpenLM Research Open LLaMA
