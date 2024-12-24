@@ -132,8 +132,8 @@ class CausalSelfAttention(BaseCausalSelfAttention):
             self.adapter_kv_cache: Optional[Tuple[torch.Tensor, torch.Tensor]] = None
         self.block_idx = block_idx
         self.apply_sliding_window_attention = (
-            config.sliding_window_size is not None and
-            block_idx % config.sliding_window_layer_placing == 0
+                config.sliding_window_size is not None and
+                block_idx % config.sliding_window_layer_stride == 0
         )
         self.config = config
 

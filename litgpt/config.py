@@ -15,23 +15,23 @@ from litgpt.utils import find_multiple
 class Config:
     name: str = ""
     hf_config: dict = field(default_factory=dict)
-    scale_embeddings: bool = False
-    attention_scores_scalar: Optional[int] = None
+    # General size parameters
     block_size: int = 4096
-    sliding_window_size: Optional[int] = None
-    sliding_window_layer_placing: Optional[Literal["all", "interleaved"]] = None
+    n_layer: int = 16
+    n_embd: int = 4096
     vocab_size: int = 50254
     padding_multiple: int = 512
     padded_vocab_size: Optional[int] = None
-    n_layer: int = 16
+    # Transformer block (structure, normalizations)
+    norm_class_name: Literal["LayerNorm", "RMSNorm"] = "LayerNorm"
+    norm_eps: float = 1e-5
+    post_attention_norm: bool = False
+    post_mlp_norm: bool = False
+    parallel_residual: bool = True
+    shared_attention_norm: bool = False
+    # Transformer block (self-attention)
     n_head: int = 32
     head_size: Optional[int] = None
-    n_embd: int = 4096
-    rotary_percentage: float = 0.25
-    parallel_residual: bool = True
-    bias: bool = True
-    lm_head_bias: bool = False
-    attn_bias: bool = False
     # to use multi-head attention (MHA), set this to `n_head` (default)
     # to use multi-query attention (MQA), set this to 1
     # to use grouped-query attention (GQA), set this to a value in between
@@ -53,20 +53,29 @@ class Config:
     #
     # credit https://arxiv.org/pdf/2305.13245.pdf
     n_query_groups: Optional[int] = None
-    shared_attention_norm: bool = False
-    norm_class_name: Literal["LayerNorm", "RMSNorm"] = "LayerNorm"
-    post_attention_norm: bool = False
-    post_mlp_norm: bool = False
-    norm_eps: float = 1e-5
+    attn_bias: bool = False
+    attention_scores_scalar: Optional[int] = None
+    sliding_window_size: Optional[int] = None
+    sliding_window_layer_placing: Optional[Literal["all", "interleaved"]] = None
+    # if `attention_logit_softcapping` is used, cannot use optimized
+    # `torch.nn.functional.scaled_dot_product_attention` (which implements
+    # Flash attention), may result in higher memory and runtime footprint.
+    attention_logit_softcapping: Optional[float] = None
+    # Rotary position embedding (RoPE)
+    rope_base: int = 10000
+    rotary_percentage: float = 0.25
+    rope_condense_ratio: int = 1
+    rope_adjustments: Optional[dict] = None
+    # Transformer block (MLP)
+    intermediate_size: Optional[int] = None
+    bias: bool = True
     mlp_class_name: Literal["GptNeoxMLP", "LLaMAMLP", "GemmaMLP", "LLaMAMoE"] = "GptNeoxMLP"
     gelu_approximate: str = "none"
-    intermediate_size: Optional[int] = None
-    rope_condense_ratio: int = 1
-    rope_base: int = 10000
-    rope_adjustments: Optional[dict] = None
     n_expert: int = 0
     n_expert_per_token: int = 0
-    attention_logit_softcapping: Optional[float] = None
+    # GPT before/after blocks
+    scale_embeddings: bool = False
+    lm_head_bias: bool = False
     final_logit_softcapping: Optional[float] = None
 
     def __post_init__(self):
@@ -99,7 +108,7 @@ class Config:
         self.rope_n_elem = int(self.rotary_percentage * self.head_size)
 
         if self.sliding_window_size is not None:
-            self.sliding_window_layer_placing = (
+            self.sliding_window_layer_stride = (
                 1 if (self.sliding_window_layer_placing is None or self.sliding_window_layer_placing == "all") else 2
             )
 

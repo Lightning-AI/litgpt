@@ -55,7 +55,15 @@ def test_main(fake_checkpoint_dir, monkeypatch, version, tensor_like):
     pattern = rf".*^{re.escape(expected_output.strip())}$.*"
     assert re.match(pattern, out.getvalue().strip(), re.DOTALL | re.MULTILINE)
 
-    assert "'padded_vocab_size': 512, 'n_layer': 2, 'n_head': 4, 'head_size': 2, 'n_embd': 8" in err.getvalue()
+    err_value = err.getvalue()
+    expected_parts = [
+        "'padded_vocab_size': 512",
+        "'n_layer': 2",
+        "'n_head': 4",
+        "'head_size': 2",
+        "'n_embd': 8",
+    ]
+    assert all(part in err_value for part in expected_parts)
 
 
 @pytest.mark.parametrize("version", ("", "_v2"))
