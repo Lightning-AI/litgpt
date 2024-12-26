@@ -7,13 +7,14 @@ https://github.com/EleutherAI/gpt-neox/tree/main/megatron/model.
 """
 
 import math
-from typing import Any, Optional, Tuple
+from typing import Any, Dict, Optional, Tuple
 
 import torch
 import torch.nn as nn
 from typing_extensions import Self
 
 from litgpt.config import Config
+from litgpt.scripts.convert_hf_checkpoint import qkv_reassemble
 
 
 class GPT(nn.Module):
@@ -44,8 +45,10 @@ class GPT(nn.Module):
         This allows setting a smaller number to avoid allocating unused memory
         """
         if value > self.config.block_size:
-            raise ValueError(f"Cannot attend to {value}, block size is only {self.config.block_size}."
-                             " This is likely because the input text exceeds the supported context length of this model.")
+            raise ValueError(
+                f"Cannot attend to {value}, block size is only {self.config.block_size}."
+                " This is likely because the input text exceeds the supported context length of this model."
+            )
         self._max_seq_length = value
         if not hasattr(self, "cos"):
             # first call
@@ -148,7 +151,9 @@ class GPT(nn.Module):
                 }
             else:
                 # Some but not all parameters are specified; raise an error
-                missing_params = [param for param, present in zip(adjusted_params_required, params_present) if not present]
+                missing_params = [
+                    param for param, present in zip(adjusted_params_required, params_present) if not present
+                ]
                 raise ValueError(
                     f"The following adjusted RoPE parameters are missing in rope_adjustments: {', '.join(missing_params)}. "
                     "All adjusted RoPE parameters must be specified together."
@@ -180,7 +185,11 @@ class GPT(nn.Module):
         # initialize the kv cache for all blocks
         for block in self.transformer.h:
             block.attn.kv_cache = block.attn.build_kv_cache(
-                batch_size, max_seq_length, rope_cache_length, device, dtype,
+                batch_size,
+                max_seq_length,
+                rope_cache_length,
+                device,
+                dtype,
             )
 
         if self.mask_cache is None or self.mask_cache.size(3) != max_seq_length:
@@ -262,17 +271,20 @@ class Block(nn.Module):
 class CausalSelfAttention(nn.Module):
     def __init__(self, config: Config, block_idx: int) -> None:
         super().__init__()
-        shape = (config.n_head + 2 * config.n_query_groups) * config.head_size
-        # key, query, value projections for all heads, but in a batch
-        self.attn = nn.Linear(config.n_embd, shape, bias=config.bias or config.attn_bias)
+        # key, query and value projections for all heads, but in a batch
+        self.qkv = nn.Linear(
+            config.n_embd,
+            (config.n_head + 2 * config.n_query_groups) * config.head_size,  # support for grouped/multi queries
+            bias=config.bias or config.attn_bias,
+        )
         # output projection
         # if `head_size` is explicitly specified in the config, `n_emd` might not be equal to `head_size * n_head`
         self.proj = nn.Linear(config.head_size * config.n_head, config.n_embd, bias=config.bias)
         # disabled by default
         self.kv_cache: Optional[KVCache] = None
         self.apply_sliding_window_attention = (
-                config.sliding_window_size is not None and
-                block_idx % config.sliding_window_layer_stride == 0
+            config.sliding_window_size is not None and
+            block_idx % config.sliding_window_layer_stride == 0
         )
 
         self.config = config
@@ -285,41 +297,59 @@ class CausalSelfAttention(nn.Module):
         mask: Optional[torch.Tensor] = None,
         input_pos: Optional[torch.Tensor] = None,
     ) -> torch.Tensor:
-        B, T, C = x.size()  # batch size, sequence length, embedding dimensionality (n_embd)
+        # Notation:
+        # - B          | batch size
+        # - T          | time-step (sequence length)
+        # - C          | model's embeddings size (n_embd)
+        # - C*         | attentions's embeddings size
+        # - nh_(q,k,v) | number of heads for query, key and value
+        # - hs         | head size
 
-        qkv = self.attn(x)
+        B, T, C = x.size()
 
-        # assemble into a number of query groups to support MHA, MQA and GQA together (see `config.n_query_groups`)
-        q_per_kv = self.config.n_head // self.config.n_query_groups
-        total_qkv = q_per_kv + 2  # each group has 1+ queries, 1 key, and 1 value
-        qkv = qkv.view(B, T, self.config.n_query_groups, total_qkv, self.config.head_size)
-        qkv = qkv.permute(0, 2, 3, 1, 4)  # (B, n_query_groups, total_qkv, T, hs)
+        # Perform a single multiplication operation using a combined QKV matrix to calculate `query`, `key`, and `value`
+        # instead of individually multiplying the input `x` with the respective weight matrices.
+        qkv = self.qkv(x)  # (B, T, 3xC*)
 
-        # split batched computation into three:
-        # q:    (B, n_query_groups, q_per_kv, T, hs)
-        # k, v: (B, n_query_groups, 1, T, hs)
-        q, k, v = qkv.split((q_per_kv, 1, 1), dim=2)
+        # Define query, key and value sizes.
+        # If grouped/multi query is enabled, these sizes are not equal (see the diagram in `lit_gpt/config.py::Config`).
+        query_size = self.config.n_head * self.config.head_size
+        key_size = value_size = self.config.n_query_groups * self.config.head_size
+        # Split qkv into query, key and value matrices.
+        q, k, v = qkv.split((query_size, key_size, value_size), dim=-1)  # 3x(B, T, C*)
 
-        # maybe repeat k and v if for the non multi-head attention cases
-        # training: flash attention requires it
-        # inference: multi-query would require a full kv cache so avoid it to limit its memory usage
-        if self.config.n_query_groups != self.config.n_head and (input_pos is None or self.config.n_query_groups != 1):
-            k = k.expand(*q.shape)
-            v = v.expand(*q.shape)
+        # To place the num_heads (nh) dimension right after the batch (B) dimension, the first step is to decouple the
+        # embedding size (C) into num_heads (nh) and head_size (hs).
+        q = q.view(B, T, self.config.n_head, self.config.head_size)  # (B, T, nh_q, hs)
+        k = k.view(B, T, self.config.n_query_groups, self.config.head_size)  # (B, T, nh_k, hs)
+        v = v.view(B, T, self.config.n_query_groups, self.config.head_size)  # (B, T, nh_v, hs)
 
-        q = q.reshape(B, -1, T, self.config.head_size)  # (B, nh_q, T, hs)
-        k = k.reshape(B, -1, T, self.config.head_size)  # (B, nh_k, T, hs)
-        v = v.reshape(B, -1, T, self.config.head_size)  # (B, nh_v, T, hs)
+        # The tensors `query`, `key`, and `value` are now accurately structured: within each batch element (B), there are
+        # multiple heads (nh), and within each head, there is a sequence of elements (T), each represented by a vector
+        # of size `hs`.
+        q = q.transpose(1, 2)  # (B, nh_q, T, hs)
+        k = k.transpose(1, 2)  # (B, nh_k, T, hs)
+        v = v.transpose(1, 2)  # (B, nh_v, T, hs)
 
+        # Unlike standard positional embeddings rotary embeddings must be applied at every layer.
         q_roped = apply_rope(q[..., : self.config.rope_n_elem], cos, sin)
         k_roped = apply_rope(k[..., : self.config.rope_n_elem], cos, sin)
-        q = torch.cat((q_roped, q[..., self.config.rope_n_elem :]), dim=-1)
-        k = torch.cat((k_roped, k[..., self.config.rope_n_elem :]), dim=-1)
+        q = torch.cat((q_roped, q[..., self.config.rope_n_elem :]), dim=-1)  # (B, nh_q, T, hs)
+        k = torch.cat((k_roped, k[..., self.config.rope_n_elem :]), dim=-1)  # (B, nh_k, T, hs)
 
+        # Apply kv-cache during inference.
         if input_pos is not None:
             if not isinstance(self.kv_cache, KVCache):
                 raise TypeError("You need to call `gpt.set_kv_cache()`")
             k, v = self.kv_cache(input_pos, k, v)
+
+        # Grouped queries: balance the number of heads across all three matrices.
+        # NOTE: flash attention requires it in training mode.
+        # Multi-query: this step can be skipped since there is only 1 head, allowing us to use broadcasting.
+        if self.config.n_query_groups != self.config.n_head and (input_pos is None or self.config.n_query_groups != 1):
+            q_per_kv = self.config.n_head // self.config.n_query_groups
+            k = k.repeat_interleave(q_per_kv, dim=1)  # (B, nh_q, T, hs)
+            v = v.repeat_interleave(q_per_kv, dim=1)  # (B, nh_q, T, hs)
 
         if self.apply_sliding_window_attention:
             """
@@ -339,12 +369,16 @@ class CausalSelfAttention(nn.Module):
             sliding_window_bias.masked_fill_(sliding_window_bias.bool(), float("-inf"))
             mask += sliding_window_bias
 
+        # Efficient attention using Flash Attention CUDA kernels.
+        # NOTE: efficient implementation is disabled if `mask` is not None or softcapping is enabled.
+        # ↓ (B, nh, T, hs) @ (B, nh, T, hs).mT --> (B, nh, T, T) @ (B, nh, T, hs) --> (B, nh, T, hs)
         y = self.scaled_dot_product_attention(q, k, v, mask)
 
-        y = y.reshape(B, T, self.config.head_size * self.config.n_head)  # re-assemble all head outputs side by side
+        # Re-assemble all head outputs side by side.
+        y = y.reshape(B, T, self.config.head_size * self.config.n_head)
 
-        # output projection
-        return self.proj(y)
+        # Output projection.
+        return self.proj(y)  # (B, T, C)
 
     def scaled_dot_product_attention(
         self, q: torch.Tensor, k: torch.Tensor, v: torch.Tensor, mask: Optional[torch.Tensor] = None
@@ -375,8 +409,7 @@ class CausalSelfAttention(nn.Module):
         device: Optional[torch.device] = None,
         dtype: Optional[torch.dtype] = None,
     ) -> "KVCache":
-        heads = 1 if self.config.n_query_groups == 1 else self.config.n_head
-        v_shape = (batch_size, heads, max_seq_length, self.config.head_size)
+        v_shape = (batch_size, self.config.n_query_groups, max_seq_length, self.config.head_size)
         if rope_cache_length is None:
             if self.config.rotary_percentage != 1.0:
                 raise TypeError("Please pass the `rope_cache_length=gpt.cos.size(-1)` value")
@@ -384,11 +417,22 @@ class CausalSelfAttention(nn.Module):
         else:
             k_shape = (
                 batch_size,
-                heads,
+                self.config.n_query_groups,
                 max_seq_length,
                 rope_cache_length + self.config.head_size - self.config.rope_n_elem,
             )
         return KVCache(k_shape, v_shape, device=device, dtype=dtype)
+
+    def _load_from_state_dict(self, state_dict: Dict, prefix: str, *args: Any, **kwargs: Any) -> None:
+        """For compatibility with legacy checkpoints."""
+
+        for attr in ("weight", "bias"):
+            legacy_key = f"{prefix}attn.{attr}"
+            current_key = f"{prefix}qkv.{attr}"
+            if legacy_key in state_dict:
+                state_dict[current_key] = qkv_reassemble(state_dict.pop(legacy_key), self.config)
+
+        super()._load_from_state_dict(state_dict, prefix, *args, **kwargs)
 
 
 class GptNeoxMLP(nn.Module):
