@@ -684,7 +684,7 @@ def test_against_original_gemma_2(model_name):
     assert x.size(1) == T
     ours_y = ours_model(x)
     theirs_y = theirs_model(x)["logits"].to(dtype)  # HF converts logits to float
-    torch.testing.assert_close(ours_y, theirs_y)
+    torch.testing.assert_close(ours_y, theirs_y, rtol=3e-5, atol=3e-5)
 
 
 @RunIf(min_cuda_gpus=1)

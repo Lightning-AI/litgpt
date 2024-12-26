@@ -589,7 +589,7 @@ class CausalSelfAttention(BaseCausalSelfAttention):
             lora_alpha=config.lora_alpha,
             lora_dropout=config.lora_dropout,
             enable_lora=(config.lora_query, config.lora_key, config.lora_value),
-            bias=config.bias,
+            bias=config.bias or config.attn_bias,
             # for MQA/GQA support
             head_size=config.head_size,
             n_head=config.n_head,
@@ -608,7 +608,8 @@ class CausalSelfAttention(BaseCausalSelfAttention):
         # disabled by default
         self.kv_cache: Optional[KVCache] = None
         self.apply_sliding_window_attention = (
-            config.sliding_window_size is not None and block_idx % config.sliding_window_layer_placing == 0
+            config.sliding_window_size is not None and
+            block_idx % config.sliding_window_layer_stride == 0
         )
 
         self.config = config

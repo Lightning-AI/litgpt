@@ -75,11 +75,30 @@ class GPT(nn.Module):
             torch.nn.init.normal_(module.weight, mean=0.0, std=0.02)
 
     def forward(self, idx: torch.Tensor, input_pos: Optional[torch.Tensor] = None) -> torch.Tensor:
+        """
+        Args:
+            idx (torch.Tensor): Input token indices, shape `(B, T)`
+            input_pos (torch.Tensor, optional): Contains input positions,
+                either with shape `(T,)` or `(B, T)`, if provided. This is used
+                for generative inference, where a KV cache is required. By
+                default, this assumes `input_dim == arange(T)` with all inputs
+                up to `T` provided upfront.
+
+        Returns:
+            torch.Tensor: Output (logits), shape `(B, T, config.padded_vocab_size)`
+        """
+        if idx.dim() != 2:
+            raise ValueError(f"idx must have 2 dimensions, idx.shape = {idx.shape}")
         T = idx.size(1)
         if self.max_seq_length < T:
             raise ValueError(f"Cannot forward sequence of length {T}, max seq length is only {self.max_seq_length}.")
 
         if input_pos is not None:  # use the kv cache
+            if input_pos.dim() > 2:
+                # otherwise, things go wrong in `apply_rope`
+                raise ValueError(f"input_pos must have 1 or 2 dimensions, input_pos.shape = {input_pos.shape}")
+            if input_pos.shape[-1] != T:
+                raise ValueError(f"input_pos.shape[-1] = {input_pos.shape[-1]} != {T} = idx.shape[1], must be the same")
             cos = batched_index_select(self.cos, 0, input_pos)
             sin = batched_index_select(self.sin, 0, input_pos)
             if self.mask_cache is None:
@@ -90,20 +109,22 @@ class GPT(nn.Module):
                 # we get if input_pos has a batch dimension
                 mask = mask.squeeze(1)
         else:
-            cos = self.cos[:T]
-            sin = self.sin[:T]
-            mask = None
+            # unsqueeze to have a batch dimension
+            cos = self.cos[:T].unsqueeze(0)
+            sin = self.sin[:T].unsqueeze(0)
+            # `cos`, `sin` have shape (1, T, config.rope_n_elem)
+            mask = None  # defaults to causal mask
 
-        x = self.transformer.wte(idx)  # token embeddings of shape (b, t, n_embd)
+        x = self.transformer.wte(idx)  # token embeddings of shape (B, T, n_embd)
         if self.config.scale_embeddings:
             x = x * torch.tensor(self.config.n_embd**0.5, dtype=x.dtype)
 
         for block in self.transformer.h:
             x = block(x, cos, sin, mask, input_pos)
         x = self.transformer.ln_f(x)
-        x = self.lm_head(x)  # (b, t, vocab_size)
+        x = self.lm_head(x)  # (B, T, padded_vocab_size)
         if self.config.final_logit_softcapping is not None:
-            x = torch.tanh(x / self.config.final_logit_softcapping) * self.config.final_logit_softcapping
+            x = do_softcapping(x, self.config.final_logit_softcapping)
         return x
 
     @classmethod
@@ -125,10 +146,8 @@ class GPT(nn.Module):
             elif num_params_present == 4:
                 # These parameters should always be used together so that we don't interfere with standard rope
                 extra_config = {
-                    "original_max_seq_len": self.config.rope_adjustments["original_max_seq_len"],
-                    "factor": self.config.rope_adjustments["factor"],
-                    "low_freq_factor": self.config.rope_adjustments["low_freq_factor"],
-                    "high_freq_factor": self.config.rope_adjustments["high_freq_factor"],
+                    name: self.config.rope_adjustments[name]
+                    for name in adjusted_params_required
                 }
             else:
                 # Some but not all parameters are specified; raise an error
@@ -240,12 +259,13 @@ class Block(nn.Module):
         attention_output = self.post_attention_norm(attention_output)
 
         if self.config.parallel_residual:
-            x_normed = x_normed if self.config.shared_attention_norm else self.norm_2(x)
-            x = self.mlp(x_normed) + attention_output + x
+            if not self.config.shared_attention_norm:
+                x_normed = self.norm_2(x)
+            x = attention_output + x
         else:
             x = attention_output + x
-            x = self.post_mlp_norm(self.mlp(self.norm_2(x))) + x
-        return x
+            x_normed = self.norm_2(x)
+        return self.post_mlp_norm(self.mlp(x_normed)) + x
 
 
 class CausalSelfAttention(nn.Module):
@@ -255,7 +275,7 @@ class CausalSelfAttention(nn.Module):
         self.qkv = nn.Linear(
             config.n_embd,
             (config.n_head + 2 * config.n_query_groups) * config.head_size,  # support for grouped/multi queries
-            bias=config.bias,
+            bias=config.bias or config.attn_bias,
         )
         # output projection
         # if `head_size` is explicitly specified in the config, `n_emd` might not be equal to `head_size * n_head`
@@ -263,7 +283,8 @@ class CausalSelfAttention(nn.Module):
         # disabled by default
         self.kv_cache: Optional[KVCache] = None
         self.apply_sliding_window_attention = (
-            config.sliding_window_size is not None and block_idx % config.sliding_window_layer_placing == 0
+            config.sliding_window_size is not None and
+            block_idx % config.sliding_window_layer_stride == 0
         )
 
         self.config = config
@@ -326,9 +347,8 @@ class CausalSelfAttention(nn.Module):
         # NOTE: flash attention requires it in training mode.
         # Multi-query: this step can be skipped since there is only 1 head, allowing us to use broadcasting.
         if self.config.n_query_groups != self.config.n_head and (input_pos is None or self.config.n_query_groups != 1):
-            q_per_kv = self.config.n_head // self.config.n_query_groups
-            k = k.repeat_interleave(q_per_kv, dim=1)  # (B, nh_q, T, hs)
-            v = v.repeat_interleave(q_per_kv, dim=1)  # (B, nh_q, T, hs)
+            k = k.expand(*q.shape)  # (B, nh_q, T, hs)
+            v = v.expand(*q.shape)  # (B, nh_q, T, hs)
 
         if self.apply_sliding_window_attention:
             """
@@ -366,11 +386,8 @@ class CausalSelfAttention(nn.Module):
 
         # with softcapping we cannot use SDPA
         if self.config.attention_logit_softcapping is not None:
-            scale = 1.0 / math.sqrt(self.config.attention_scores_scalar or self.config.head_size)
             scores = q @ k.mT * scale
-            scores = (
-                torch.tanh(scores / self.config.attention_logit_softcapping) * self.config.attention_logit_softcapping
-            )
+            scores = do_softcapping(scores, self.config.attention_logit_softcapping)
             if mask is None:
                 mask = torch.ones(q.size(2), q.size(2), dtype=q.dtype, device=q.device).triu(diagonal=1)
                 mask.masked_fill_(mask.bool(), torch.finfo(q.dtype).min)
@@ -541,10 +558,11 @@ def batched_index_select(t, dim, idx):
     res = torch.index_select(t, dim, idx.reshape(-1))  # flat index
     # split out single batch idx
     res = res.view(*t.shape[:dim], -1, idx_size, *t.shape[dim + 1 :])
-    # move batch dim to front, this is np.rollaxis(res, dim, 0) for tensors
-    dims = [dim] + list(range(res.dim()))
-    del dims[dim + 1]
-    res = res.permute(dims)
+    if dim > 0:
+        # move batch dim to front, this is np.rollaxis(res, dim, 0) for tensors
+        dims = [dim] + list(range(res.dim()))
+        del dims[dim + 1]
+        res = res.permute(dims)
     # unflatten batch dims
     res = res.view(*batch_shape, *res.shape[1:])
     return res
@@ -601,6 +619,8 @@ def batched_index_copy_(t, dim, idx, val):
 
 
 def apply_rope(x: torch.Tensor, cos: torch.Tensor, sin: torch.Tensor) -> torch.Tensor:
+    # x: (B, nh, T, hs)
+    # sin, cos: (B, T, hs) or (1, T, hs)
     head_size = x.size(-1)
     x1 = x[..., : head_size // 2]  # (B, nh, T, hs/2)
     x2 = x[..., head_size // 2 :]  # (B, nh, T, hs/2)
@@ -614,6 +634,10 @@ def apply_rope(x: torch.Tensor, cos: torch.Tensor, sin: torch.Tensor) -> torch.T
 
     roped = (x * cos) + (rotated * sin)
     return roped.to(dtype=x.dtype)
+
+
+def do_softcapping(x: torch.Tensor, thresh: float) -> torch.Tensor:
+    return torch.tanh(x / thresh) * thresh
 
 
 class KVCache(nn.Module):

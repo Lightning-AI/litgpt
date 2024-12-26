@@ -240,7 +240,7 @@ def unsloth_apply_rope_meta(
     Q: TensorProxy, cos: TensorProxy, sin: TensorProxy
 ) -> Tuple[TensorProxy, TensorProxy, TensorProxy, int, int, int]:
     batch, n_heads, seq_len, head_dim = Q.shape
-    assert seq_len <= cos.shape[0]
+    assert seq_len <= cos.shape[-2]
     BLOCK_SIZE, num_warps = kernels.calculate_settings(head_dim // 2)
     div, mod = divmod(n_heads, kernels.rope_embedding.ROPE_GROUP_SIZE)
     n_groups = div + (mod != 0)
