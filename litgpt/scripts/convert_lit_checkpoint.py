@@ -310,33 +310,34 @@ def copy_weights_qwen_2_5(
         "lm_head.weight": "lm_head.weight",
     }
 
-    for name, param in lit_weights.items():
-        if name == "lm_head.weight" and untie_weights:
+    for from_name, param in lit_weights.items():
+        if from_name == "lm_head.weight" and untie_weights:
             continue
-        if name.endswith((".attn.attn.weight", ".attn.attn.bias")):
-            from_name, l_idx = layer_template(name, 2)
-            qkv = load_param(param, name, None)
-            qp, kp, vp = qkv_split(qkv, config)
-            
-            weight_type = name.split(".")[-1]  # weight or bias
-            q = f"model.layers.{l_idx}.self_attn.q_proj.{weight_type}"
-            k = f"model.layers.{l_idx}.self_attn.k_proj.{weight_type}"
-            v = f"model.layers.{l_idx}.self_attn.v_proj.{weight_type}"
-            for to_name, param in zip((q, k, v), (qp, kp, vp)):
-                if saver is not None:
-                    param = saver.store_early(param)
-                state_dict[to_name] = param
+        name_template, *ids = layer_template(from_name, num_matches=2)
+        param = load_param(param, from_name, None)
+        if from_name.endswith((".attn.qkv.weight", ".attn.qkv.bias")):
+            weight_type = from_name.split(".")[-1]  # weight or bias
+            to_names = (
+                "model.layers.{}.self_attn.q_proj.{}".format(*ids, weight_type),
+                "model.layers.{}.self_attn.k_proj.{}".format(*ids, weight_type),
+                "model.layers.{}.self_attn.v_proj.{}".format(*ids, weight_type),
+            )
+            params = param.split(
+                (
+                    config.n_head * config.head_size,
+                    config.n_query_groups * config.head_size,
+                    config.n_query_groups * config.head_size,
+                )
+            )
         else:
-            if "transformer.h" in name:
-                from_name, l_idx = layer_template(name, 2)
-                to_name = weight_map[from_name]
-                to_name = to_name.format(l_idx)
-            else:
-                to_name = weight_map[name]
-            param = load_param(param, name, None)
+            to_names = (weight_map[name_template].format(*ids),)
+            params = (param,)
+
+        for to_name, param in zip(to_names, params):
             if saver is not None:
                 param = saver.store_early(param)
             state_dict[to_name] = param
+
 
 def qkv_reassemble(param: Union[torch.Tensor, NotYetLoadedTensor], config: Config) -> torch.Tensor:
     """Reassemble from a normal to an interleaved placement in a QKV matrix.

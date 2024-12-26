@@ -408,20 +408,17 @@ def copy_weights_qwen_2_5(
     if progress_per_file is not None:
         progress_per_file = progress_per_file / max(1, len(hf_weights) + len(qkv_weights))
 
-    for name, param in hf_weights.items():
-        if "model.layers" in name:
-            from_name, l = layer_template(name, 2)
-            qkv = qkv_weights.setdefault(l, defaultdict(dict))
-            if any(w in from_name for w in ("q_proj", "k_proj", "v_proj")):
-                weight_name, weight_type = from_name.split(".")[-2:]
-                qkv[weight_type][weight_name] = param
-            to_name = weight_map[from_name]
-            if to_name is None:
-                continue
-            to_name = to_name.format(l)
-        else:
-            to_name = weight_map[name]
-        param = load_param(param, name, dtype, verbose=debug_mode)
+    for from_name, param in hf_weights.items():
+        name_template, *ids = layer_template(from_name, num_matches=2)
+        to_name = weight_map[name_template]
+        param = load_param(param, from_name, dtype, verbose=debug_mode)
+        if any(w in from_name for w in ("q_proj", "k_proj", "v_proj")):
+            qkv = qkv_weights.setdefault(ids[0], defaultdict(dict))
+            weight_name, weight_type = from_name.split(".")[-2:]
+            qkv[weight_type][weight_name] = param
+        if to_name is None:
+            continue
+        to_name = to_name.format(*ids)
         if saver is not None:
             param = saver.store_early(param)
         state_dict[to_name] = param
@@ -436,21 +433,18 @@ def copy_weights_qwen_2_5(
         for weight_type in list(qkv_weights[i]):
             qkv = qkv_weights[i][weight_type]
             if len(qkv) != 3:
-                # split across different .bin files
+                # qkv is splitted across different .bin files
                 continue
             q = load_param(qkv["q_proj"], f"layer {i} q {weight_type}", dtype, verbose=debug_mode)
             k = load_param(qkv["k_proj"], f"layer {i} k {weight_type}", dtype, verbose=debug_mode)
             v = load_param(qkv["v_proj"], f"layer {i} v {weight_type}", dtype, verbose=debug_mode)
-            q_per_kv = config.n_head // config.n_query_groups
-            qs = torch.split(q, config.head_size * q_per_kv)
-            ks = torch.split(k, config.head_size)
-            vs = torch.split(v, config.head_size)
-            cycled = [t for group in zip(qs, ks, vs) for t in group]
-            qkv = torch.cat(cycled)
-            state_dict[f"transformer.h.{i}.attn.attn.{weight_type}"] = qkv
+            qkv = torch.cat((q, k, v))
+            state_dict[f"transformer.h.{i}.attn.qkv.{weight_type}"] = qkv
             del qkv_weights[i][weight_type]
+
             if progress_per_file is not None:
                 pbar.update(progress_per_file)
+
 
 def qkv_reassemble(
     param: Union[torch.Tensor, NotYetLoadedTensor], config: Config
@@ -483,7 +477,7 @@ def layer_template(layer_name: str, num_matches: int = 1) -> Tuple[str, int]:
 
 
 def load_param(
-    param: Union[torch.Tensor, NotYetLoadedTensor], name: str, dtype: Optional[torch.dtype], verbose=False
+    param: Union[torch.Tensor, NotYetLoadedTensor], name: str, dtype: Optional[torch.dtype], verbose: bool =False
 ) -> torch.Tensor:
     if hasattr(param, "_load_tensor"):
         # support tensors loaded via `lazy_load()`
