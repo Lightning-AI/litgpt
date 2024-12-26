@@ -355,8 +355,8 @@ class CausalSelfAttention(nn.Module):
         # with softcapping we cannot use SDPA
         if self.config.attention_logit_softcapping is not None:
             if enable_gqa:
-                k = k.repeat_interleave(q.size(-3)//k.size(-3), -3)
-                v = v.repeat_interleave(q.size(-3)//v.size(-3), -3)
+                k = k.repeat_interleave(q.size(-3) // k.size(-3), -3)
+                v = v.repeat_interleave(q.size(-3) // v.size(-3), -3)
             scores = q @ k.mT * scale
             scores = do_softcapping(scores, self.config.attention_logit_softcapping)
             if mask is None:
