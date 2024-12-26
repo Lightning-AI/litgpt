@@ -15,6 +15,10 @@ from transformers.models.gpt_neox import GPTNeoXConfig, GPTNeoXForCausalLM
 from transformers.models.llama import LlamaConfig, LlamaForCausalLM
 from transformers.models.mixtral import MixtralConfig, MixtralForCausalLM
 from transformers.models.olmo import OlmoConfig, OlmoForCausalLM
+from transformers.models.phi.configuration_phi import PhiConfig
+from transformers.models.phi.modeling_phi import PhiForCausalLM
+from transformers.models.phi3.configuration_phi3 import Phi3Config
+from transformers.models.phi3.modeling_phi3 import Phi3ForCausalLM
 from transformers.models.qwen2 import Qwen2Config, Qwen2ForCausalLM
 
 from litgpt import GPT, Config
@@ -27,13 +31,14 @@ from litgpt.scripts.convert_lit_checkpoint import (
     copy_weights_llama,
     copy_weights_phi,
     copy_weights_qwen_2_5,
-    qkv_split,
+    qkv_reassemble,
 )
 from tests.conftest import RunIf
 
 
-def test_convert_lit_checkpoint(tmp_path):
-    ours_config = Config.from_name("Llama-2-7b-hf", block_size=8, n_layer=2, n_embd=32, n_head=2, padding_multiple=128)
+@pytest.mark.parametrize("model_name", ("pythia-14m", "falcon-7b", "Llama-2-7b-hf", "phi-2"))
+def test_convert_lit_checkpoint(tmp_path, model_name):
+    ours_config = Config.from_name(model_name, block_size=8, n_layer=2, n_embd=32, n_head=2, padding_multiple=128)
     ours_model = GPT(ours_config)
     checkpoint_path = tmp_path / "lit_model.pth"
     config_path = tmp_path / "model_config.yaml"
@@ -70,7 +75,7 @@ def test_against_falcon_40b():
     ours_model = GPT(ours_config)
     ours_state_dict = ours_model.state_dict()
     theirs_state_dict = {}
-    copy_weights_falcon("40b", theirs_state_dict, ours_state_dict)
+    copy_weights_falcon(ours_config, theirs_state_dict, ours_state_dict)
 
     theirs_model = FalconForCausalLM(theirs_config)
     # assign must be set to True for torch.testing.assert_close to pass
@@ -105,7 +110,7 @@ def test_against_original_gpt_neox():
     ours_model = GPT(ours_config)
     ours_state_dict = ours_model.state_dict()
     theirs_state_dict = {}
-    copy_weights_gpt_neox(theirs_state_dict, ours_state_dict)
+    copy_weights_gpt_neox(ours_config, theirs_state_dict, ours_state_dict)
     theirs_model = GPTNeoXForCausalLM(theirs_config)
     # strict=False because we don't save the rotary embeddings inv frequency
     keys = theirs_model.load_state_dict(theirs_state_dict, strict=False)
@@ -196,6 +201,7 @@ def test_against_mixtral(model_name):
     theirs_y = theirs_model(x)["logits"]
     torch.testing.assert_close(ours_y, theirs_y)
 
+
 @torch.inference_mode()
 @pytest.mark.parametrize("model_name", ("OLMo-1B-hf", "OLMo-7B-hf"))
 def test_against_olmo(model_name):
@@ -239,6 +245,7 @@ def test_against_olmo(model_name):
     theirs_y = theirs_model(x)["logits"]
     torch.testing.assert_close(ours_y, theirs_y)
 
+
 @torch.inference_mode()
 def test_against_original_open_llama_3b():
     ours_config = Config.from_name("open_llama_3b", n_layer=2, n_head=8, n_embd=32, intermediate_size=86)
@@ -270,9 +277,6 @@ def test_against_original_open_llama_3b():
 @torch.inference_mode()
 @pytest.mark.parametrize("model_name", ("phi-1_5", "phi-2"))
 def test_against_hf_phi(model_name):
-    from transformers.models.phi.configuration_phi import PhiConfig
-    from transformers.models.phi.modeling_phi import PhiForCausalLM
-
     ours_config = Config.from_name(
         model_name, padded_vocab_size=10000, n_layer=2, n_head=4, n_embd=256, rotary_percentage=0.5
     )
@@ -308,9 +312,6 @@ def test_against_hf_phi(model_name):
 @torch.inference_mode()
 @pytest.mark.parametrize("model_name", ("Phi-3-mini-4k-instruct",))
 def test_against_hf_phi_3(model_name):
-    from transformers.models.phi3.configuration_phi3 import Phi3Config
-    from transformers.models.phi3.modeling_phi3 import Phi3ForCausalLM
-
     ours_config = Config.from_name(model_name, padded_vocab_size=10000, n_layer=2, n_head=4, n_embd=256)
     T = 5
     theirs_config = Phi3Config(
@@ -425,7 +426,10 @@ def test_against_original_gemma(model_name, device, dtype):
     theirs_state_dict = {}
     copy_weights_llama(ours_config, theirs_state_dict, ours_state_dict, untie_weights=True)
     theirs_model = GemmaForCausalLM(theirs_config).to(device)
-    theirs_model.load_state_dict(theirs_state_dict, strict=False,)
+    theirs_model.load_state_dict(
+        theirs_state_dict,
+        strict=False,
+    )
 
     # test end to end
     x = torch.tensor([[9856, 23, 491, 1536, 304]], dtype=torch.int32, device=device)
@@ -587,41 +591,41 @@ def test_against_original_qwen_2_5(model_name, device, dtype):
     theirs_y = theirs_model(x)["logits"].to(dtype)  # HF converts logits to float
     torch.testing.assert_close(ours_y, theirs_y)
 
-def test_qkv_split():
+def test_qkv_reassemble():
     # MHA
     config = Config(n_embd=4, n_head=4)
-    qkv_interleaved = torch.tensor(
+    qkv = torch.tensor(
         [
             [0, 1, 2, 3],  # query
-            [16, 17, 18, 19],  # key
-            [32, 33, 34, 35],  # value
             [4, 5, 6, 7],  # query
-            [20, 21, 22, 23],  # key
-            [36, 37, 38, 39],  # value
             [8, 9, 10, 11],  # query
-            [24, 25, 26, 27],  # key
-            [40, 41, 42, 43],  # value
             [12, 13, 14, 15],  # query
+            [16, 17, 18, 19],  # key
+            [20, 21, 22, 23],  # key
+            [24, 25, 26, 27],  # key
             [28, 29, 30, 31],  # key
+            [32, 33, 34, 35],  # value
+            [36, 37, 38, 39],  # value
+            [40, 41, 42, 43],  # value
             [44, 45, 46, 47],  # value
         ]
     )
-    qkv = torch.cat(qkv_split(qkv_interleaved, config))
+    qkv_interleaved = qkv_reassemble(qkv, config)
     torch.testing.assert_close(
-        qkv,
+        qkv_interleaved,
         torch.tensor(
             [
                 [0, 1, 2, 3],  # query
-                [4, 5, 6, 7],  # query
-                [8, 9, 10, 11],  # query
-                [12, 13, 14, 15],  # query
                 [16, 17, 18, 19],  # key
-                [20, 21, 22, 23],  # key
-                [24, 25, 26, 27],  # key
-                [28, 29, 30, 31],  # key
                 [32, 33, 34, 35],  # value
+                [4, 5, 6, 7],  # query
+                [20, 21, 22, 23],  # key
                 [36, 37, 38, 39],  # value
+                [8, 9, 10, 11],  # query
+                [24, 25, 26, 27],  # key
                 [40, 41, 42, 43],  # value
+                [12, 13, 14, 15],  # query
+                [28, 29, 30, 31],  # key
                 [44, 45, 46, 47],  # value
             ]
         ),
@@ -629,30 +633,30 @@ def test_qkv_split():
 
     # GQA
     config = Config(n_embd=4, n_head=4, n_query_groups=2)
-    qkv_interleaved = torch.tensor(
+    qkv = torch.tensor(
         [
             [0, 1, 2, 3],  # query
             [4, 5, 6, 7],  # query
-            [16, 17, 18, 19],  # key
-            [24, 25, 26, 27],  # value
             [8, 9, 10, 11],  # query
             [12, 13, 14, 15],  # query
+            [16, 17, 18, 19],  # key
             [20, 21, 22, 23],  # key
+            [24, 25, 26, 27],  # value
             [28, 29, 30, 31],  # value
         ]
     )
-    qkv = torch.cat(qkv_split(qkv_interleaved, config))
+    qkv_interleaved = qkv_reassemble(qkv, config)
     torch.testing.assert_close(
-        qkv,
+        qkv_interleaved,
         torch.tensor(
             [
                 [0, 1, 2, 3],  # query
                 [4, 5, 6, 7],  # query
+                [16, 17, 18, 19],  # key
+                [24, 25, 26, 27],  # value
                 [8, 9, 10, 11],  # query
                 [12, 13, 14, 15],  # query
-                [16, 17, 18, 19],  # key
                 [20, 21, 22, 23],  # key
-                [24, 25, 26, 27],  # value
                 [28, 29, 30, 31],  # value
             ]
         ),
@@ -660,7 +664,7 @@ def test_qkv_split():
 
     # MQA
     config = Config(n_embd=4, n_head=4, n_query_groups=1)
-    qkv_interleaved = torch.tensor(
+    qkv = torch.tensor(
         [
             [0, 1, 2, 3],  # query
             [4, 5, 6, 7],  # query
@@ -670,9 +674,9 @@ def test_qkv_split():
             [20, 21, 22, 23],  # value
         ]
     )
-    qkv = torch.cat(qkv_split(qkv_interleaved, config))
+    qkv_interleaved = qkv_reassemble(qkv, config)
     torch.testing.assert_close(
-        qkv,
+        qkv_interleaved,
         torch.tensor(
             [
                 [0, 1, 2, 3],  # query
