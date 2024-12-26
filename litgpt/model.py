@@ -303,9 +303,10 @@ class CausalSelfAttention(nn.Module):
         # maybe repeat k and v if for the non multi-head attention cases
         # training: flash attention requires it
         # inference: multi-query would require a full kv cache so avoid it to limit its memory usage
-        enable_gqa = False
-        if self.config.n_query_groups != self.config.n_head and (input_pos is None or self.config.n_query_groups != 1):
-            enable_gqa = True
+        enable_gqa = (
+            self.config.n_query_groups != self.config.n_head and
+            (input_pos is None or self.config.n_query_groups != 1)
+        )
 
         q = q.reshape(B, -1, T, self.config.head_size)  # (B, nh_q, T, hs)
         k = k.reshape(B, -1, T, self.config.head_size)  # (B, nh_k, T, hs)
