@@ -303,9 +303,9 @@ class CausalSelfAttention(nn.Module):
         # maybe repeat k and v if for the non multi-head attention cases
         # training: flash attention requires it
         # inference: multi-query would require a full kv cache so avoid it to limit its memory usage
+        enable_gqa = False
         if self.config.n_query_groups != self.config.n_head and (input_pos is None or self.config.n_query_groups != 1):
-            k = k.expand(*q.shape)
-            v = v.expand(*q.shape)
+            enable_gqa = True
 
         q = q.reshape(B, -1, T, self.config.head_size)  # (B, nh_q, T, hs)
         k = k.reshape(B, -1, T, self.config.head_size)  # (B, nh_k, T, hs)
@@ -339,7 +339,7 @@ class CausalSelfAttention(nn.Module):
             sliding_window_bias.masked_fill_(sliding_window_bias.bool(), float("-inf"))
             mask += sliding_window_bias
 
-        y = self.scaled_dot_product_attention(q, k, v, mask)
+        y = self.scaled_dot_product_attention(q, k, v, mask, enable_gqa)
 
         y = y.reshape(B, T, self.config.head_size * self.config.n_head)  # re-assemble all head outputs side by side
 
@@ -347,12 +347,15 @@ class CausalSelfAttention(nn.Module):
         return self.proj(y)
 
     def scaled_dot_product_attention(
-        self, q: torch.Tensor, k: torch.Tensor, v: torch.Tensor, mask: Optional[torch.Tensor] = None
+        self, q: torch.Tensor, k: torch.Tensor, v: torch.Tensor, mask: Optional[torch.Tensor] = None, enable_gqa: bool = False,
     ) -> torch.Tensor:
         scale = 1.0 / math.sqrt(self.config.attention_scores_scalar or self.config.head_size)
 
         # with softcapping we cannot use SDPA
         if self.config.attention_logit_softcapping is not None:
+            if enable_gqa:
+                k = k.repeat_interleave(q.size(-3)//k.size(-3), -3)
+                v = v.repeat_interleave(q.size(-3)//v.size(-3), -3)
             scores = q @ k.mT * scale
             scores = do_softcapping(scores, self.config.attention_logit_softcapping)
             if mask is None:
@@ -363,7 +366,7 @@ class CausalSelfAttention(nn.Module):
             y = scores @ v
         else:
             y = torch.nn.functional.scaled_dot_product_attention(
-                q, k, v, attn_mask=mask, dropout_p=0.0, scale=scale, is_causal=mask is None
+                q, k, v, attn_mask=mask, dropout_p=0.0, scale=scale, is_causal=mask is None, enable_gqa=enable_gqa,
             )
         return y.transpose(1, 2)
 
