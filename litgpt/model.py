@@ -287,6 +287,12 @@ class CausalSelfAttention(nn.Module):
             block_idx % config.sliding_window_layer_stride == 0
         )
 
+        if config.norm_qk:
+            self.norm_q = config.norm_class(config.head_size * config.n_head, eps=config.norm_eps)
+            self.norm_k = config.norm_class(config.head_size * config.n_query_groups, eps=config.norm_eps)
+        else:
+            self.norm_q = self.norm_k = None
+
         self.config = config
 
     def forward(
@@ -323,6 +329,15 @@ class CausalSelfAttention(nn.Module):
         q = q.view(B, T, self.config.n_head, self.config.head_size)  # (B, T, nh_q, hs)
         k = k.view(B, T, self.config.n_query_groups, self.config.head_size)  # (B, T, nh_k, hs)
         v = v.view(B, T, self.config.n_query_groups, self.config.head_size)  # (B, T, nh_v, hs)
+
+        if self.config.norm_qk:
+            q = q.reshape(B, T, -1)  # (B, T, nh_q * hs)
+            q = self.norm_q(q)
+            q = q.view(B, T, self.config.n_head, self.config.head_size)
+
+            k = k.reshape(B, T, -1)  # (B, T, nh_k * hs)
+            k = self.norm_k(k)
+            k = k.view(B, T, self.config.n_query_groups, self.config.head_size)
 
         # The tensors `query`, `key`, and `value` are now accurately structured: within each batch element (B), there are
         # multiple heads (nh), and within each head, there is a sequence of elements (T), each represented by a vector

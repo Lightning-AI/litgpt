@@ -25,6 +25,7 @@ class Config:
     # Transformer block (structure, normalizations)
     norm_class_name: Literal["LayerNorm", "RMSNorm"] = "LayerNorm"
     norm_eps: float = 1e-5
+    norm_qk: bool = False
     post_attention_norm: bool = False
     post_mlp_norm: bool = False
     parallel_residual: bool = True
