@@ -58,6 +58,7 @@ from litgpt.model import GPT as BaseModel
 from litgpt.model import Block as BaseBlock
 from litgpt.model import CausalSelfAttention as BaseCausalSelfAttention
 from litgpt.model import KVCache
+from litgpt.scripts.convert_hf_checkpoint import qkv_reassemble
 from litgpt.utils import map_old_state_dict_weights
 
 
@@ -267,18 +268,14 @@ class LoRAQKVLinear(LoRALinear):
         # Indices are needed to properly pad weight updates with zeros.
         if not hasattr(self, "_lora_ind"):
             enable_q, enable_k, enable_v = self.enable_lora
-            qkv_group_size = self.n_head // self.n_query_groups + 2
-            candidate_indices = range(self.linear.out_features)
+            kv_embd_size = self.linear.in_features // (self.n_head // self.n_query_groups)
             lora_ind = []
             if enable_q:
-                q_ind = [x for x in candidate_indices if (x // self.head_size) % qkv_group_size < qkv_group_size - 2]
-                lora_ind.extend(q_ind)
+                lora_ind.extend(range(0, self.linear.in_features))
             if enable_k:
-                k_ind = [x for x in candidate_indices if (x // self.head_size) % qkv_group_size == qkv_group_size - 2]
-                lora_ind.extend(k_ind)
+                lora_ind.extend(range(self.linear.in_features, self.linear.in_features + kv_embd_size))
             if enable_v:
-                v_ind = [x for x in candidate_indices if (x // self.head_size) % qkv_group_size == qkv_group_size - 1]
-                lora_ind.extend(v_ind)
+                lora_ind.extend(range(self.linear.in_features + kv_embd_size, self.linear.out_features))
             self.register_buffer(
                 "_lora_ind", torch.tensor(lora_ind, device=self.linear.weight.device), persistent=False
             )
@@ -298,27 +295,6 @@ class LoRAQKVLinear(LoRALinear):
         ________________________________________
         | query         | key       | value    |
         ----------------------------------------
-        For Llama2's GQA support, Q, K, and V weights are interleaved, so that weights for grouped
-        queries are adjacent to their associated key and value weights.
-        For example, suppose we have n_head = 12 with 3 query groups.
-        Then along the embedding dimension the interleaved weights would look like
-
-        [Q, Q, Q, Q, K, V, Q, Q, Q, Q, K, V, Q, Q, Q, Q, K, V],
-
-        where each Q, K, and V has size head_size.
-
-        In this case, the previously-described weight update applies separately to each
-        individual block, so the update will take the form
-
-        [[ΔW,ΔW,ΔW, ..., 0,0,0, ..., ΔW,ΔW,ΔW, ΔW,ΔW,ΔW, ..., 0,0,0, ..., ΔW,ΔW,ΔW, ...],
-         [.............................................................................],
-         [ΔW,ΔW,ΔW, ..., 0,0,0, ..., ΔW,ΔW,ΔW, ΔW,ΔW,ΔW, ..., 0,0,0, ..., ΔW,ΔW,ΔW, ...]]
-             ↑              ↑            ↑        ↑             ↑            ↑
-        ________________________________________________________________________________
-        | q block 1 | k block 1  | v block 1 | q block 2 |  k block 2 |  v block 2 | ...
-        --------------------------------------------------------------------------------
-        Note that in the above diagram, the size of each q block will equal q_per_kv
-        times the size of each k and v block.
 
         Args:
             x: tensor with weights update that will be padded with zeros if necessary
@@ -391,7 +367,9 @@ class LoRAQKVLinear(LoRALinear):
         lora = self.conv1d(
             self.lora_A.data.unsqueeze(0),  # (4, 128) -> (1, 4, 128)
             self.lora_B.data.unsqueeze(-1),  # (256, 2) -> (256, 2, 1)
-        ).squeeze(0)  # (1, 4, 128) @ (256, 2, 1) -> (1, 256, 128) -> (256, 128)
+        ).squeeze(
+            0
+        )  # (1, 4, 128) @ (256, 2, 1) -> (1, 256, 128) -> (256, 128)
         return self.zero_pad(lora.T * self.scaling).T  # (256, 128) after zero_pad (384, 128)
 
     def merge(self) -> None:
@@ -430,7 +408,9 @@ class LoRAQKVLinear(LoRALinear):
         after_B = self.conv1d(
             after_A.transpose(-2, -1),  # (64, 64, 4) -> (64, 4, 64)
             self.lora_B.unsqueeze(-1),  # (256, 2) -> (256, 2, 1)
-        ).transpose(-2, -1)  # (64, 4, 64) @ (256, 2, 1) -> (64, 256, 64) -> (64, 64, 256)
+        ).transpose(
+            -2, -1
+        )  # (64, 4, 64) @ (256, 2, 1) -> (64, 256, 64) -> (64, 64, 256)
         lora = self.zero_pad(after_B) * self.scaling  # (64, 64, 256) after zero_pad (64, 64, 384)
         return pretrained + lora
 
@@ -602,7 +582,7 @@ class CausalSelfAttention(BaseCausalSelfAttention):
         nn.Module.__init__(self)
         shape = (config.n_head + 2 * config.n_query_groups) * config.head_size
         # key, query, value projections for all heads, but in a batch
-        self.attn = LoRAQKVLinear(
+        self.qkv = LoRAQKVLinear(
             in_features=config.n_embd,
             out_features=shape,
             r=config.lora_r,
@@ -629,20 +609,27 @@ class CausalSelfAttention(BaseCausalSelfAttention):
         self.kv_cache: Optional[KVCache] = None
         self.apply_sliding_window_attention = (
             config.sliding_window_size is not None and
-            block_idx % config.sliding_window_layer_placing == 0
+            block_idx % config.sliding_window_layer_stride == 0
         )
 
         self.config = config
 
     def _load_from_state_dict(self, state_dict: Dict, prefix: str, *args: Any, **kwargs: Any) -> None:
-        """For compatibility with base checkpoints."""
+        """For compatibility with base and/or legacy checkpoints."""
         mapping = {
-            "attn.weight": "attn.linear.weight",
-            "attn.bias": "attn.linear.bias",
+            "qkv.weight": "qkv.linear.weight",
+            "qkv.bias": "qkv.linear.bias",
             "proj.weight": "proj.linear.weight",
             "proj.bias": "proj.linear.bias",
         }
         state_dict = map_old_state_dict_weights(state_dict, mapping, prefix)
+
+        for attr in ("weight", "bias"):
+            legacy_key = f"{prefix}attn.linear.{attr}"
+            current_key = f"{prefix}qkv.linear.{attr}"
+            if legacy_key in state_dict:
+                state_dict[current_key] = qkv_reassemble(state_dict.pop(legacy_key), self.config)
+
         super()._load_from_state_dict(state_dict, prefix, *args, **kwargs)
 
 

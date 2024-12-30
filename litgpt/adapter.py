@@ -132,8 +132,8 @@ class CausalSelfAttention(BaseCausalSelfAttention):
             self.adapter_kv_cache: Optional[Tuple[torch.Tensor, torch.Tensor]] = None
         self.block_idx = block_idx
         self.apply_sliding_window_attention = (
-            config.sliding_window_size is not None and
-            block_idx % config.sliding_window_layer_placing == 0
+                config.sliding_window_size is not None and
+                block_idx % config.sliding_window_layer_stride == 0
         )
         self.config = config
 
@@ -151,7 +151,7 @@ class CausalSelfAttention(BaseCausalSelfAttention):
             ak, av = self.adapter_kv_cache
         else:
             prefix = self.adapter_wte.weight.reshape(1, aT, self.config.n_embd)
-            aqkv = self.attn(prefix)
+            aqkv = self.qkv(prefix)
             q_per_kv = self.config.n_head // self.config.n_query_groups
             aqkv = aqkv.view(1, aT, self.config.n_query_groups, q_per_kv + 2, self.config.head_size)
             aqkv = aqkv.permute(0, 2, 3, 1, 4)

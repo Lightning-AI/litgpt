@@ -103,7 +103,7 @@ def find_weight_files(repo_id: str, access_token: Optional[str]) -> Tuple[List[s
     with gated_repo_catcher(repo_id, access_token):
         info = repo_info(repo_id, token=access_token)
     filenames = [f.rfilename for f in info.siblings]
-    bins = list(filter_repo_objects(items=filenames, allow_patterns=["*.bin*"]))
+    bins = list(filter_repo_objects(items=filenames, allow_patterns=["*model*.bin*"]))
     safetensors = list(filter_repo_objects(items=filenames, allow_patterns=["*.safetensors*"]))
     return bins, safetensors
 

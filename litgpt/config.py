@@ -15,23 +15,23 @@ from litgpt.utils import find_multiple
 class Config:
     name: str = ""
     hf_config: dict = field(default_factory=dict)
-    scale_embeddings: bool = False
-    attention_scores_scalar: Optional[int] = None
+    # General size parameters
     block_size: int = 4096
-    sliding_window_size: Optional[int] = None
-    sliding_window_layer_placing: Optional[Literal["all", "interleaved"]] = None
+    n_layer: int = 16
+    n_embd: int = 4096
     vocab_size: int = 50254
     padding_multiple: int = 512
     padded_vocab_size: Optional[int] = None
-    n_layer: int = 16
+    # Transformer block (structure, normalizations)
+    norm_class_name: Literal["LayerNorm", "RMSNorm"] = "LayerNorm"
+    norm_eps: float = 1e-5
+    post_attention_norm: bool = False
+    post_mlp_norm: bool = False
+    parallel_residual: bool = True
+    shared_attention_norm: bool = False
+    # Transformer block (self-attention)
     n_head: int = 32
     head_size: Optional[int] = None
-    n_embd: int = 4096
-    rotary_percentage: float = 0.25
-    parallel_residual: bool = True
-    bias: bool = True
-    lm_head_bias: bool = False
-    attn_bias: bool = False
     # to use multi-head attention (MHA), set this to `n_head` (default)
     # to use multi-query attention (MQA), set this to 1
     # to use grouped-query attention (GQA), set this to a value in between
@@ -53,20 +53,29 @@ class Config:
     #
     # credit https://arxiv.org/pdf/2305.13245.pdf
     n_query_groups: Optional[int] = None
-    shared_attention_norm: bool = False
-    norm_class_name: Literal["LayerNorm", "RMSNorm"] = "LayerNorm"
-    post_attention_norm: bool = False
-    post_mlp_norm: bool = False
-    norm_eps: float = 1e-5
+    attn_bias: bool = False
+    attention_scores_scalar: Optional[int] = None
+    sliding_window_size: Optional[int] = None
+    sliding_window_layer_placing: Optional[Literal["all", "interleaved"]] = None
+    # if `attention_logit_softcapping` is used, cannot use optimized
+    # `torch.nn.functional.scaled_dot_product_attention` (which implements
+    # Flash attention), may result in higher memory and runtime footprint.
+    attention_logit_softcapping: Optional[float] = None
+    # Rotary position embedding (RoPE)
+    rope_base: int = 10000
+    rotary_percentage: float = 0.25
+    rope_condense_ratio: int = 1
+    rope_adjustments: Optional[dict] = None
+    # Transformer block (MLP)
+    intermediate_size: Optional[int] = None
+    bias: bool = True
     mlp_class_name: Literal["GptNeoxMLP", "LLaMAMLP", "GemmaMLP", "LLaMAMoE"] = "GptNeoxMLP"
     gelu_approximate: str = "none"
-    intermediate_size: Optional[int] = None
-    rope_condense_ratio: int = 1
-    rope_base: int = 10000
-    rope_adjustments: Optional[dict] = None
     n_expert: int = 0
     n_expert_per_token: int = 0
-    attention_logit_softcapping: Optional[float] = None
+    # GPT before/after blocks
+    scale_embeddings: bool = False
+    lm_head_bias: bool = False
     final_logit_softcapping: Optional[float] = None
 
     def __post_init__(self):
@@ -99,7 +108,7 @@ class Config:
         self.rope_n_elem = int(self.rotary_percentage * self.head_size)
 
         if self.sliding_window_size is not None:
-            self.sliding_window_layer_placing = (
+            self.sliding_window_layer_stride = (
                 1 if (self.sliding_window_layer_placing is None or self.sliding_window_layer_placing == "all") else 2
             )
 
@@ -441,6 +450,95 @@ for kind in ("", "-chat"):
     copy["hf_config"]["name"] = falcon180b["hf_config"]["name"].format(kind)
     configs.append(copy)
 
+falcon3 = [
+    # https://huggingface.co/tiiuae/Falcon3-1B-Base/blob/main/config.json
+    dict(
+        name="Falcon3-1B{}",
+        hf_config=dict(org="tiiuae", name="Falcon3-1B{}"),
+        block_size=4096,
+        vocab_size=131072,
+        padded_vocab_size=131072,
+        n_layer=18,
+        n_head=8,
+        n_query_groups=4,
+        n_embd=2048,
+        rotary_percentage=1.0,
+        parallel_residual=False,
+        rope_base=1000042,
+        norm_eps=1e-6,
+        bias=False,
+        norm_class_name="RMSNorm",
+        mlp_class_name="LLaMAMLP",
+        intermediate_size=8192,
+    ),
+    # https://huggingface.co/tiiuae/Falcon3-3B-Base/blob/main/config.json
+    dict(
+        name="Falcon3-3B{}",
+        hf_config=dict(org="tiiuae", name="Falcon3-3B{}"),
+        block_size=32768,
+        vocab_size=131072,
+        padded_vocab_size=131072,
+        n_layer=22,
+        n_head=12,
+        n_query_groups=4,
+        n_embd=3072,
+        rotary_percentage=1.0,
+        parallel_residual=False,
+        rope_base=1000042,
+        norm_eps=1e-6,
+        bias=False,
+        norm_class_name="RMSNorm",
+        mlp_class_name="LLaMAMLP",
+        intermediate_size=9216,
+    ),
+    # https://huggingface.co/tiiuae/Falcon3-7B-Base/blob/main/config.json
+    dict(
+        name="Falcon3-7B{}",
+        hf_config=dict(org="tiiuae", name="Falcon3-7B{}"),
+        block_size=32768,
+        vocab_size=131072,
+        padded_vocab_size=131072,
+        n_layer=28,
+        n_head=12,
+        n_query_groups=4,
+        n_embd=3072,
+        rotary_percentage=1.0,
+        parallel_residual=False,
+        rope_base=1000042,
+        norm_eps=1e-6,
+        bias=False,
+        norm_class_name="RMSNorm",
+        mlp_class_name="LLaMAMLP",
+        intermediate_size=23040,
+    ),
+    # https://huggingface.co/tiiuae/Falcon3-10B-Base/blob/main/config.json
+    dict(
+        name="Falcon3-10B{}",
+        hf_config=dict(org="tiiuae", name="Falcon3-10B{}"),
+        block_size=32768,
+        vocab_size=131072,
+        padded_vocab_size=131072,
+        n_layer=40,
+        n_head=12,
+        n_query_groups=4,
+        n_embd=3072,
+        rotary_percentage=1.0,
+        parallel_residual=False,
+        rope_base=1000042,
+        norm_eps=1e-6,
+        bias=False,
+        norm_class_name="RMSNorm",
+        mlp_class_name="LLaMAMLP",
+        intermediate_size=23040,
+    ),
+]
+for c in falcon3:
+    for kind in ("-Base", "-Instruct"):
+        copy = deepcopy(c)
+        copy["name"] = c["name"].format(kind)
+        copy["hf_config"]["name"] = c["hf_config"]["name"].format(kind)
+        configs.append(copy)
+
 
 #############################
 # OpenLM Research Open LLaMA
@@ -700,8 +798,31 @@ llama_3 = [
         rope_base=500000,
         rope_adjustments=dict(factor=32.0, low_freq_factor=1.0, high_freq_factor=4.0, original_max_seq_len=8192)
     ),
+    # https://huggingface.co/meta-llama/Llama-3.3-70B-Instruct/blob/main/config.json
+    dict(
+        name="Llama-3.3-70B-Instruct",
+        hf_config=dict(org="meta-llama", name="Llama-3.3-70B-Instruct"),
+        block_size=131072,
+        vocab_size=128000,
+        padded_vocab_size=128256,
+        n_layer=80,
+        n_head=64,
+        n_embd=8192,
+        n_query_groups=8,
+        rotary_percentage=1.0,
+        parallel_residual=False,
+        bias=False,
+        norm_class_name="RMSNorm",
+        mlp_class_name="LLaMAMLP",
+        intermediate_size=28672,
+        rope_base=500000,
+        rope_adjustments=dict(factor=8.0, low_freq_factor=1.0, high_freq_factor=4.0, original_max_seq_len=8192)
+    ),
 ]
 for c in llama_3:
+    if c["name"] == "Llama-3.3-70B-Instruct":
+        configs.append(c)
+        continue
     for kind in ("", "-Instruct"):
         copy = deepcopy(c)
         copy["name"] = c["name"].format(kind)
@@ -1640,6 +1761,26 @@ configs.append(
         intermediate_size=28672,
     )
 )
+configs.append(
+    # https://huggingface.co/mistralai/Mistral-Large-Instruct-2411/blob/main/config.json
+    dict(
+        name="Mistral-Large-Instruct-2411",
+        hf_config=dict(org="mistralai", name="Mistral-Large-Instruct-2411"),
+        padded_vocab_size=32768,
+        block_size=32768,
+        n_layer=88,
+        n_head=96,
+        n_embd=12288,
+        n_query_groups=8,
+        rotary_percentage=1.0,
+        parallel_residual=False,
+        bias=False,
+        norm_class_name="RMSNorm",
+        norm_eps=1e-05,
+        mlp_class_name="LLaMAMLP",
+        intermediate_size=28672,
+    )
+)
 
 
 ############
@@ -1905,7 +2046,7 @@ qwen_2_5_coder = [
     dict(
         name="Qwen2.5-Coder-1.5B{}",
         hf_config=dict(org="Qwen", name="Qwen2.5-Coder-1.5B{}"),
-        block_size=131072,
+        block_size=32768,
         vocab_size=151643,
         padded_vocab_size=151936,
         n_layer=28,
@@ -1947,7 +2088,7 @@ qwen_2_5_coder = [
     dict(
         name="Qwen2.5-Coder-7B{}",
         hf_config=dict(org="Qwen", name="Qwen2.5-Coder-7B{}"),
-        block_size=131072,
+        block_size=32768,
         vocab_size=151643,
         padded_vocab_size=152064,
         n_layer=28,
@@ -1968,7 +2109,7 @@ qwen_2_5_coder = [
     dict(
         name="Qwen2.5-Coder-14B{}",
         hf_config=dict(org="Qwen", name="Qwen2.5-Coder-14B{}"),
-        block_size=131072,
+        block_size=32768,
         vocab_size=151643,
         padded_vocab_size=152064,
         n_layer=48,
@@ -1989,7 +2130,7 @@ qwen_2_5_coder = [
     dict(
         name="Qwen2.5-Coder-32B{}",
         hf_config=dict(org="Qwen", name="Qwen2.5-Coder-32B{}"),
-        block_size=131072,
+        block_size=32768,
         vocab_size=151643,
         padded_vocab_size=152064,
         n_layer=64,
@@ -2009,6 +2150,74 @@ qwen_2_5_coder = [
 ]
 
 qwen_2_5.extend(qwen_2_5_coder)
+
+qwen_2_5_math = [
+    # https://huggingface.co/Qwen/Qwen2.5-Math-1.5B/blob/main/config.json
+    dict(
+        name="Qwen2.5-Math-1.5B{}",
+        hf_config=dict(org="Qwen", name="Qwen2.5-Math-1.5B{}"),
+        block_size=4096,
+        vocab_size=151643,
+        padded_vocab_size=151936,
+        n_layer=28,
+        n_head=12,
+        n_embd=1536,
+        n_query_groups=2,
+        rotary_percentage=1.0,
+        parallel_residual=False,
+        bias=False,
+        attn_bias=True,
+        norm_class_name="RMSNorm",
+        mlp_class_name="LLaMAMLP",
+        intermediate_size=8960,
+        norm_eps=1e-6,
+        rope_base=10000
+    ),
+    # https://huggingface.co/Qwen/Qwen2.5-Math-7B/blob/main/config.json
+    dict(
+        name="Qwen2.5-Math-7B{}",
+        hf_config=dict(org="Qwen", name="Qwen2.5-Math-7B{}"),
+        block_size=4096,
+        vocab_size=151643,
+        padded_vocab_size=152064,
+        n_layer=28,
+        n_head=28,
+        n_embd=3584,
+        n_query_groups=4,
+        rotary_percentage=1.0,
+        parallel_residual=False,
+        bias=False,
+        attn_bias=True,
+        norm_class_name="RMSNorm",
+        mlp_class_name="LLaMAMLP",
+        intermediate_size=18944,
+        norm_eps=1e-6,
+        rope_base=10000
+    ),
+    # https://huggingface.co/Qwen/Qwen2.5-Math-72B/blob/main/config.json
+    dict(
+        name="Qwen2.5-Math-72B{}",
+        hf_config=dict(org="Qwen", name="Qwen2.5-Math-72B{}"),
+        block_size=4096,
+        vocab_size=151643,
+        padded_vocab_size=152064,
+        n_layer=80,
+        n_head=64,
+        n_embd=8192,
+        n_query_groups=8,
+        rotary_percentage=1.0,
+        parallel_residual=False,
+        bias=False,
+        attn_bias=True,
+        norm_class_name="RMSNorm",
+        mlp_class_name="LLaMAMLP",
+        intermediate_size=29568,
+        norm_eps=1e-5,
+        rope_base=10000
+    ),
+]
+
+qwen_2_5.extend(qwen_2_5_math)
 
 for c in qwen_2_5:
     for kind in ("", "-Instruct"):
@@ -2042,5 +2251,134 @@ qwq = [
 ]
 
 configs.extend(qwq)
+
+
+#############    
+# Salamandra
+#############
+salamandra = [
+    # https://huggingface.co/BSC-LT/salamandra-2b-instruct/blob/main/config.json
+    dict(
+        name="salamandra-2b{}",
+        hf_config=dict(org="BSC-LT", name="salamandra-2b{}"),
+        block_size=8192,
+        vocab_size=256000,
+        padded_vocab_size=256000,
+        n_layer=24,
+        n_head=16,
+        n_embd=2048,
+        n_query_groups=16,
+        rotary_percentage=1.0,
+        parallel_residual=False,
+        bias=False,
+        norm_class_name="RMSNorm",
+        mlp_class_name="LLaMAMLP",
+        intermediate_size=5440,
+        norm_eps=1e-5,
+        rope_base=10000
+    ),
+    # https://huggingface.co/BSC-LT/salamandra-7b-instruct/blob/main/config.json
+    dict(
+        name="salamandra-7b{}",
+        hf_config=dict(org="BSC-LT", name="salamandra-7b{}"),
+        block_size=8192,
+        vocab_size=256000,
+        padded_vocab_size=256000,
+        n_layer=32,
+        n_head=32,
+        n_embd=4096,
+        n_query_groups=8,
+        rotary_percentage=1.0,
+        parallel_residual=False,
+        bias=False,
+        norm_class_name="RMSNorm",
+        mlp_class_name="LLaMAMLP",
+        intermediate_size=11008,
+        norm_eps=1e-6,
+        rope_base=10000
+    ),
+]
+
+for c in salamandra:
+    for kind in ("", "-instruct"):
+        copy = deepcopy(c)
+        copy["name"] = c["name"].format(kind)
+        copy["hf_config"]["name"] = c["hf_config"]["name"].format(kind)
+        configs.append(copy)
+
+
+###############
+# SmolLM2
+###############
+smollm2 = [
+    # https://huggingface.co/HuggingFaceTB/SmolLM2-135M/blob/main/config.json
+    dict(
+        name="SmolLM2-135M{}",
+        hf_config=dict(org="HuggingFaceTB", name="SmolLM2-135M{}"),
+        block_size=8192,
+        vocab_size=49152,
+        padded_vocab_size=49152,
+        n_layer=30,
+        n_head=9,
+        n_embd=576,
+        n_query_groups=3,
+        rotary_percentage=1.0,
+        parallel_residual=False,
+        bias=False,
+        norm_class_name="RMSNorm",
+        mlp_class_name="LLaMAMLP",
+        intermediate_size=1536,
+        rope_base=100000,
+        norm_eps=1e-5,
+    ),
+    # https://huggingface.co/HuggingFaceTB/SmolLM2-360M/blob/main/config.json
+    dict(
+        name="SmolLM2-360M{}",
+        hf_config=dict(org="HuggingFaceTB", name="SmolLM2-360M{}"),
+        block_size=8192,
+        vocab_size=49152,
+        padded_vocab_size=49152,
+        n_layer=32,
+        n_head=15,
+        n_embd=960,
+        n_query_groups=5,
+        rotary_percentage=1.0,
+        parallel_residual=False,
+        bias=False,
+        norm_class_name="RMSNorm",
+        mlp_class_name="LLaMAMLP",
+        intermediate_size=2560,
+        rope_base=100000,
+        norm_eps=1e-5,
+    ),
+    # https://huggingface.co/HuggingFaceTB/SmolLM2-1.7B/blob/main/config.json
+    dict(
+        name="SmolLM2-1.7B{}",
+        hf_config=dict(org="HuggingFaceTB", name="SmolLM2-1.7B{}"),
+        block_size=8192,
+        vocab_size=49152,
+        padded_vocab_size=49152,
+        n_layer=24,
+        n_head=32,
+        n_embd=2048,
+        n_query_groups=32,
+        rotary_percentage=1.0,
+        parallel_residual=False,
+        bias=False,
+        norm_class_name="RMSNorm",
+        mlp_class_name="LLaMAMLP",
+        intermediate_size=8192,
+        rope_base=130000,
+        norm_eps=1e-5,
+    ),
+]
+
+for c in smollm2:
+    for kind in ("", "-Instruct"):
+        copy = deepcopy(c)
+        copy["name"] = c["name"].format(kind)
+        copy["hf_config"]["name"] = c["hf_config"]["name"].format(kind)
+        configs.append(copy)
+
 
 name_to_config = {config["name"]: config for config in configs}

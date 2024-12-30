@@ -112,6 +112,17 @@ class Falcon(PromptStyle):
         )
 
 
+class Falcon3(PromptStyle):
+    def apply(self, prompt: str, **kwargs: str) -> str:
+        return f"<|user|>\n{prompt}<|endoftext|>\n<|assistant|>\n"
+    
+    def stop_tokens(self, tokenizer: "Tokenizer") -> Tuple[List[int], ...]:
+        return (
+            [tokenizer.eos_id],
+            [tokenizer.token_to_id("<|endoftext|>")],
+        )
+
+
 class Llama2FunctionCalling(PromptStyle):
     def apply(self, prompt: str, **kwargs: str) -> str:
         # Has to be before the llama config
@@ -279,16 +290,32 @@ class OLMo(PromptStyle):
         return f"<|endoftext|><|user|>\n{prompt}\n<|assistant|>\n"
     
 
-class Qwen2_5(PromptStyle):
-    def apply(self, prompt: str, **kwargs: str) -> str:
-        system_message = "You are Qwen, created by Alibaba Cloud. You are a helpful assistant."
-        return f"<|im_start|>system\n{system_message}<|im_end|>\n<|im_start|>user\n{prompt}<|im_end|>\n<|im_start|>assistant\n"
+class ChatML(PromptStyle):
+    def __init__(self, system_message: str):
+        self.system_message = system_message
 
-
-class QwQ(PromptStyle):
     def apply(self, prompt: str, **kwargs: str) -> str:
-        system_message = "You are a helpful and harmless assistant. You are Qwen developed by Alibaba. You should think step-by-step."
-        return f"<|im_start|>system\n{system_message}<|im_end|>\n<|im_start|>user\n{prompt}<|im_end|>\n<|im_start|>assistant\n"
+        return f"<|im_start|>system\n{self.system_message}<|im_end|>\n<|im_start|>user\n{prompt}<|im_end|>\n<|im_start|>assistant\n"
+
+class Qwen2_5(ChatML):
+    def __init__(self):
+        super().__init__("You are Qwen, created by Alibaba Cloud. You are a helpful assistant.")
+
+class Qwen2_5_Math(ChatML):
+    def __init__(self):
+        super().__init__("Please reason step by step, and put your final answer within \\boxed{}.")
+
+class QwQ(ChatML):
+    def __init__(self):
+        super().__init__("You are a helpful and harmless assistant. You are Qwen developed by Alibaba. You should think step-by-step.")
+
+class SmolLM2(ChatML):
+    def __init__(self):
+        super().__init__("You are a helpful AI assistant named SmolLM, trained by Hugging Face")
+
+class Salamandra(ChatML):
+    def __init__(self):
+        super().__init__("I am Salamandra, an AI language model developed at the Barcelona Supercomputing Centre (BSC) by the Language Technologies Unit. My knowledge base was last updated on August 2023. Today Date: 2024-09-30\nSoy Salamandra, un modelo lingüístico de IA desarrollado en el Barcelona Supercomputing Centre (BSC) por la Language Technologies Unit. Mi base de conocimientos se actualizó por última vez en agosto de 2023.\nSoc Salamandra, un model de llenguatge d'IA desenvolupat al Barcelona Supercomputing Centre (BSC) per la Language Technologies Unit.")
 
 
 # Maps prompt style names to PromptStyle classes
@@ -315,7 +342,10 @@ prompt_styles: Dict[str, Type[PromptStyle]] = {
     "llama3": Llama3,
     "olmo": OLMo,
     "qwen2.5": Qwen2_5,
+    "qwen2.5-math": Qwen2_5_Math,
     "qwq": QwQ,
+    "smollm2": SmolLM2,
+    "salamandra": Salamandra,
 }
 
 
@@ -326,6 +356,8 @@ def model_name_to_prompt_style(model_name: str) -> PromptStyle:
         return StableLMZephyr()
     if re.search("stablecode-instruct", model_name):
         return StableCode()
+    if re.search(r"Falcon3.*-Instruct", model_name):
+        return Falcon3()
     if re.search(r"falcon.*-instruct", model_name):
         return Falcon()
     if re.search("Llama-2-7b-chat-hf-function-calling-v2", model_name):
@@ -354,10 +386,16 @@ def model_name_to_prompt_style(model_name: str) -> PromptStyle:
         return Gemma()
     if re.search(r"OLMo.*-hf", model_name):
         return OLMo()
+    if re.search(r"Qwen2\.5-Math-.*", model_name):
+        return Qwen2_5_Math()
     if re.search(r"Qwen2\.5-.*", model_name):
         return Qwen2_5()
     if re.search(r"QwQ-.*", model_name):
         return QwQ()
+    if re.search(r"SmolLM2.*-Instruct", model_name):
+        return SmolLM2()
+    if re.search(r"salamandra-.*-instruct", model_name):
+        return Salamandra()
     return Default()
 
 

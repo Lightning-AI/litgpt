@@ -1,6 +1,7 @@
 # Copyright Lightning AI. Licensed under the Apache License 2.0, see LICENSE file.
 import os
 from contextlib import redirect_stdout
+from copy import deepcopy
 from io import StringIO
 from unittest import mock
 from unittest.mock import Mock
@@ -19,11 +20,12 @@ from transformers.models.mixtral import MixtralConfig, MixtralForCausalLM
 import litgpt.config as config_module
 import litgpt.finetune.adapter_v2 as module
 from litgpt.adapter_v2 import GPT as AdapterV2GPT
-from litgpt.adapter_v2 import Config, adapter_filter
+from litgpt.adapter_v2 import CausalSelfAttention, Config, adapter_filter
 from litgpt.args import EvalArgs, TrainArgs
 from litgpt.data import Alpaca
 from litgpt.model import GPT as BaseGPT
 from litgpt.scripts.convert_hf_checkpoint import copy_weights_gemma_2, copy_weights_hf_llama
+from litgpt.scripts.convert_lit_checkpoint import qkv_reassemble as make_qkv_interleaved
 from tests.conftest import RunIf
 
 
@@ -33,10 +35,10 @@ def test_config_identical():
         base_model = BaseGPT.from_name(name)
         adapter_model = AdapterV2GPT.from_name(name)
 
-    assert not hasattr(base_model.transformer.h[2].attn.attn, "adapter_bias")
-    assert not hasattr(base_model.transformer.h[2].attn.attn, "adapter_scale")
-    assert hasattr(adapter_model.transformer.h[2].attn.attn, "adapter_bias")
-    assert hasattr(adapter_model.transformer.h[2].attn.attn, "adapter_scale")
+    assert not hasattr(base_model.transformer.h[2].attn.qkv, "adapter_bias")
+    assert not hasattr(base_model.transformer.h[2].attn.qkv, "adapter_scale")
+    assert hasattr(adapter_model.transformer.h[2].attn.qkv, "adapter_bias")
+    assert hasattr(adapter_model.transformer.h[2].attn.qkv, "adapter_scale")
 
 
 def test_adapter_v2_filter(tmp_path):
@@ -56,8 +58,8 @@ def test_adapter_v2_filter(tmp_path):
     }
     for layer in range(3):
         for param in (
-            "attn.attn.adapter_bias",
-            "attn.attn.adapter_scale",
+            "attn.qkv.adapter_bias",
+            "attn.qkv.adapter_scale",
             "attn.proj.adapter_bias",
             "attn.proj.adapter_scale",
             "mlp.fc.adapter_bias",
@@ -297,7 +299,7 @@ def test_against_original_gemma_2(model_name):
     # Gemma weights are shipped without `lm_head.weight`
     theirs_state_dict.pop("lm_head.weight")
     state_dict = {}
-    copy_weights_gemma_2(ours_config, {}, state_dict, theirs_state_dict)
+    copy_weights_gemma_2({}, state_dict, theirs_state_dict)
     ours_model = AdapterV2GPT(ours_config).to(device)
     keys = ours_model.load_state_dict(state_dict, strict=False)
     assert not keys.unexpected_keys
@@ -364,27 +366,27 @@ def test_adapter_v2_bitsandbytes(monkeypatch, tmp_path, fake_checkpoint_dir, alp
         "torch.uint8": {
             "transformer.h.0.mlp.fc.linear.weight",
             "transformer.h.1.mlp.proj.linear.weight",
-            "transformer.h.1.attn.attn.linear.weight",
+            "transformer.h.1.attn.qkv.linear.weight",
             "transformer.h.0.attn.proj.linear.weight",
             "lm_head.linear.weight",
             "transformer.h.1.attn.proj.linear.weight",
             "transformer.h.0.mlp.proj.linear.weight",
-            "transformer.h.0.attn.attn.linear.weight",
+            "transformer.h.0.attn.qkv.linear.weight",
             "transformer.h.1.mlp.fc.linear.weight",
         },
         "torch.float16": {
-            "transformer.h.1.attn.attn.adapter_bias",
+            "transformer.h.1.attn.qkv.adapter_bias",
             "transformer.h.1.mlp.proj.adapter_bias",
-            "transformer.h.0.attn.attn.adapter_bias",
+            "transformer.h.0.attn.qkv.adapter_bias",
             "transformer.h.0.norm_1.bias",
-            "transformer.h.0.attn.attn.linear.bias",
+            "transformer.h.0.attn.qkv.linear.bias",
             "transformer.h.1.attn.adapter_wte.weight",
             "transformer.ln_f.weight",
             "transformer.h.0.mlp.fc.linear.bias",
             "transformer.h.0.mlp.proj.linear.bias",
             "transformer.h.1.mlp.fc.linear.bias",
             "transformer.h.0.attn.proj.adapter_scale",
-            "transformer.h.0.attn.attn.adapter_scale",
+            "transformer.h.0.attn.qkv.adapter_scale",
             "transformer.h.1.norm_2.bias",
             "transformer.h.1.attn.proj.adapter_scale",
             "transformer.h.0.norm_2.bias",
@@ -406,9 +408,9 @@ def test_adapter_v2_bitsandbytes(monkeypatch, tmp_path, fake_checkpoint_dir, alp
             "lm_head.adapter_bias",
             "transformer.h.1.norm_2.weight",
             "transformer.h.0.attn.adapter_wte.weight",
-            "transformer.h.1.attn.attn.adapter_scale",
+            "transformer.h.1.attn.qkv.adapter_scale",
             "transformer.h.1.mlp.fc.adapter_scale",
-            "transformer.h.1.attn.attn.linear.bias",
+            "transformer.h.1.attn.qkv.linear.bias",
             "transformer.wte.weight",
             "transformer.wte.norm.weight",
             "transformer.wte.norm.bias",
@@ -435,20 +437,20 @@ def test_adapter_v2_bitsandbytes(monkeypatch, tmp_path, fake_checkpoint_dir, alp
             "transformer.ln_f.bias",
             "lm_head.adapter_scale",
             "transformer.h.1.norm_2.weight",
-            "transformer.h.0.attn.attn.adapter_scale",
+            "transformer.h.0.attn.qkv.adapter_scale",
             "transformer.h.0.mlp.proj.adapter_bias",
             "transformer.h.0.attn.gating_factor",
             "transformer.h.1.norm_1.bias",
             "transformer.h.1.mlp.fc.adapter_bias",
             "transformer.h.1.mlp.proj.adapter_scale",
             "transformer.h.0.mlp.fc.adapter_scale",
-            "transformer.h.1.attn.attn.adapter_bias",
+            "transformer.h.1.attn.qkv.adapter_bias",
             "transformer.h.0.norm_2.weight",
             "transformer.h.1.norm_2.bias",
             "transformer.h.0.norm_1.weight",
             "transformer.h.0.attn.proj.adapter_scale",
             "transformer.h.1.mlp.proj.adapter_bias",
-            "transformer.h.0.attn.attn.adapter_bias",
+            "transformer.h.0.attn.qkv.adapter_bias",
             "transformer.h.0.attn.adapter_wte.weight",
             "transformer.ln_f.weight",
             "transformer.h.1.attn.gating_factor",
@@ -458,10 +460,31 @@ def test_adapter_v2_bitsandbytes(monkeypatch, tmp_path, fake_checkpoint_dir, alp
             "transformer.h.0.norm_1.bias",
             "transformer.h.0.norm_2.bias",
             "transformer.h.1.norm_1.weight",
-            "transformer.h.1.attn.attn.adapter_scale",
+            "transformer.h.1.attn.qkv.adapter_scale",
         }
     }
 
     logs = stdout.getvalue()
     assert "of trainable parameters: 552" in logs
     assert "of non-trainable parameters: 1,808" in logs
+
+def test_load_legacy_state_dict():
+    """Check that a legacy state dict (with an interleaved placement in QKV matrix) can be loaded into a model with CausalSelfAttention layers."""
+    config = Config(
+        n_embd=32,
+        n_head=4,
+        head_size=8,
+        n_query_groups=4,
+        bias=True,
+    )
+
+    attention_1 = CausalSelfAttention(config=config, block_idx=0)
+
+    # make weights to be as-like in a legacy checkpoint, with `attn.attn.weight` instead of `attn.qkv.weight`
+    # and make them interleaved
+    state_dict = deepcopy(attention_1.state_dict())
+    state_dict["attn.linear.weight"] = make_qkv_interleaved(state_dict.pop("qkv.linear.weight"), config)
+    state_dict["attn.linear.bias"] = make_qkv_interleaved(state_dict.pop("qkv.linear.bias"), config)
+
+    attention_2 = CausalSelfAttention(config=config, block_idx=0)
+    attention_2.load_state_dict(state_dict)

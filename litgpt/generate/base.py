@@ -230,7 +230,7 @@ def batched_generate_fn(
     Args:
         model: The model to use.
         prompts: A 2D tensor of shape [batch_size, prompt_length].
-        max_returned_tokens: The maximum number of new tokens to return. Does not include the prompt tokens.
+        max_returned_tokens: The maximum number of tokens to return, including the prompt tokens.
         sample_args: The dictionary of kwargs to pass to sample() for each each token for each index in the batch.
         stop_tokens: A tuple of stop sequences. If any of the sequences are generated, the generation stops early before max_returned_tokens.
         include_prompt: Whether to output the prompt tokens.
