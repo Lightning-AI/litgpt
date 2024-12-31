@@ -914,7 +914,7 @@ def test_against_original_salamandra(model_name, device, dtype):
     ours_y = ours_model(x)
     theirs_y = theirs_model(x)["logits"].to(dtype)  # HF converts logits to float
     torch.testing.assert_close(ours_y, theirs_y)
-    
+
 
 @torch.inference_mode()
 @pytest.mark.parametrize("model_name", ("SmolLM2-135M", "SmolLM2-360M", "SmolLM2-1.7B"))
@@ -1380,7 +1380,7 @@ def test_forward_with_without_input_pos_maxp1():
     model.set_kv_cache(batch_size)
     idx = torch.randint(0, config.padded_vocab_size, (1, 10))
     input_pos = torch.arange(1, 11)
-    input_pos_maxp1 = 11
+    input_pos_maxp1 = torch.tensor(11)
     logits_with_maxp1 = model(idx, input_pos, input_pos_maxp1=input_pos_maxp1)
     logits_no_maxp1 = model(idx, input_pos)
     torch.testing.assert_close(logits_with_maxp1, logits_no_maxp1)

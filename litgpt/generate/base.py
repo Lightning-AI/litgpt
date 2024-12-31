@@ -77,7 +77,7 @@ def next_token(
     model: GPT,
     input_pos: torch.Tensor,
     x: torch.Tensor,
-    input_pos_maxp1: Optional[int] = None,
+    input_pos_maxp1: Optional[torch.Tensor] = None,
     **sample_kwargs: Dict[str, Any],
 ) -> torch.Tensor:
     logits = model(x, input_pos, input_pos_maxp1=input_pos_maxp1)
@@ -174,7 +174,7 @@ def generate_fn(
     token = prompt
     prefill_token = True
     input_pos = torch.arange(0, prompt_size, device=device, dtype=torch.int64)
-    input_pos_maxp1 = prompt_size
+    input_pos_maxp1 = torch.tensor(prompt_size, device=device)
     for current_idx in range(max_returned_tokens - prompt_size):
 
         # Generate the token
@@ -222,7 +222,7 @@ def generate_fn(
             input_pos = torch.tensor([prompt_size], device=device, dtype=torch.int64)
         else:
             input_pos.add_(1)
-        input_pos_maxp1 += 1
+        input_pos_maxp1.add_(1)
 
     # Yield any remaining tokens
     if yielded_idx < len(tokens):
