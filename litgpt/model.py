@@ -324,20 +324,15 @@ class CausalSelfAttention(nn.Module):
         # Split qkv into query, key and value matrices.
         q, k, v = qkv.split((query_size, key_size, value_size), dim=-1)  # 3x(B, T, C*)
 
+        if self.config.norm_qk:
+            q = self.norm_q(q)
+            k = self.norm_k(k)
+
         # To place the num_heads (nh) dimension right after the batch (B) dimension, the first step is to decouple the
         # embedding size (C) into num_heads (nh) and head_size (hs).
         q = q.view(B, T, self.config.n_head, self.config.head_size)  # (B, T, nh_q, hs)
         k = k.view(B, T, self.config.n_query_groups, self.config.head_size)  # (B, T, nh_k, hs)
         v = v.view(B, T, self.config.n_query_groups, self.config.head_size)  # (B, T, nh_v, hs)
-
-        if self.config.norm_qk:
-            q = q.reshape(B, T, -1)  # (B, T, nh_q * hs)
-            q = self.norm_q(q)
-            q = q.view(B, T, self.config.n_head, self.config.head_size)
-
-            k = k.reshape(B, T, -1)  # (B, T, nh_k * hs)
-            k = self.norm_k(k)
-            k = k.view(B, T, self.config.n_query_groups, self.config.head_size)
 
         # The tensors `query`, `key`, and `value` are now accurately structured: within each batch element (B), there are
         # multiple heads (nh), and within each head, there is a sequence of elements (T), each represented by a vector
