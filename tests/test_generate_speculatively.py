@@ -30,10 +30,14 @@ def test_speculative_decoding_target_never_accepts_draft_tokens():
     target_model = TargetModel()
 
     token = torch.tensor([-1])
-    input_pos = torch.tensor([0])
     sample_kwargs = dict(top_k=None, top_p=0.0, temperature=0.0)  # to make sampling consistent
     output = generate.speculative_decoding(
-        draft_model, target_model, token, input_pos, input_pos, speculative_k=3, **sample_kwargs
+        draft_model=draft_model,
+        target_model=target_model,
+        token=token,
+        input_pos=0,
+        speculative_k=3,
+        **sample_kwargs,
     )
 
     # target model never accepts draft model's output, thus the output of the `speculative_decoding`
@@ -56,10 +60,14 @@ def test_speculative_decoding_target_always_accepts_draft_tokens():
     target_model = TargetModel()
 
     token = torch.tensor([-1])
-    input_pos = torch.tensor([0])
     sample_kwargs = dict(top_k=None, top_p=0.0, temperature=0.0)  # to make sampling consistent
     output = generate.speculative_decoding(
-        draft_model, target_model, token, input_pos, input_pos, speculative_k=3, **sample_kwargs
+        draft_model=draft_model,
+        target_model=target_model,
+        token=token,
+        input_pos=0,
+        speculative_k=3,
+        **sample_kwargs,
     )
 
     # target model always accepts draft model's output, thus the output of the `speculative_decoding`
@@ -89,10 +97,14 @@ def test_speculative_decoding_target_sometimes_accepts_draft_tokens():
     target_model = TargetModel()
 
     token = torch.tensor([-1])
-    input_pos = torch.tensor([0])
     sample_kwargs = dict(top_k=None, top_p=0.0, temperature=0.0)  # to make sampling consistent
     output = generate.speculative_decoding(
-        draft_model, target_model, token, input_pos, input_pos, speculative_k=3, **sample_kwargs
+        draft_model=draft_model,
+        target_model=target_model,
+        token=token,
+        input_pos=0,
+        speculative_k=3,
+        **sample_kwargs,
     )
 
     # target model accepts only 2 out of 3 draft model's output, thus the output of the `speculative_decoding`
@@ -118,7 +130,12 @@ def test_generate(max_seq_length, speculative_k):
 
     # generate tokens
     out, acceptance_rate = generate.generate(
-        draft_model, target_model, input_idx, T + max_new_tokens, top_k=1, speculative_k=speculative_k
+        draft_model=draft_model,
+        target_model=target_model,
+        prompt=input_idx,
+        max_returned_tokens=T + max_new_tokens,
+        top_k=1,
+        speculative_k=speculative_k,
     )
 
     # validate
