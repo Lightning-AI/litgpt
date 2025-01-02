@@ -32,6 +32,7 @@ def run_command(command):
 
 
 @pytest.mark.dependency()
+@pytest.mark.flaky(reruns=5, reruns_delay=2)
 def test_download_model():
     repo_id = str(REPO_ID).replace("\\", "/")  # fix for Windows CI
     command = ["litgpt", "download", str(repo_id)]
@@ -48,6 +49,7 @@ def test_download_model():
 
 
 @pytest.mark.dependency()
+@pytest.mark.flaky(reruns=5, reruns_delay=2)
 def test_download_books():
     CUSTOM_TEXTS_DIR.mkdir(parents=True, exist_ok=True)
 
