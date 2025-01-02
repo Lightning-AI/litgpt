@@ -150,6 +150,15 @@ class MultiHeadSelfAttention:
                     dim=1,
                     idx=token_positions,
                 )
+                # mask has shape (B, n_query_groups, T, kv_len), must have
+                # shape (B, n_head, T, kv_len)
+                nh_q = self.config.n_head
+                nh_k = self.config.n_query_groups
+                q_per_kv = nh_q // nh_k
+                if q_per_kv > 1:
+                    mask = mask.unsqueeze(2).expand(
+                        -1, -1, q_per_kv, -1, -1
+                    ).reshape(B, nh_q, T, -1)
 
         # Efficient attention using Flash Attention CUDA kernels.
         # NOTE: efficient implementation is disabled if `mask` is not None or softcapping is enabled.
