@@ -164,7 +164,7 @@ def main(
     for i in range(num_samples):
         with fabric.init_tensor():
             # enable the kv cache
-            model.set_kv_cache(batch_size=1)
+            model.set_kv_caches(batch_size=1)
 
         t0 = time.perf_counter()
         y = generate(model, encoded, max_returned_tokens, temperature=temperature, top_k=top_k)

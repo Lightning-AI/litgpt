@@ -2,7 +2,6 @@
 
 from copy import deepcopy
 from functools import partial
-from unittest import mock
 
 import pytest
 import torch
@@ -36,7 +35,8 @@ from transformers.models.qwen3_moe import Qwen3MoeConfig, Qwen3MoeForCausalLM
 
 import litgpt.config as config_module
 from litgpt import GPT, Config
-from litgpt.model import CausalSelfAttention, batched_index_copy_
+from litgpt.attention import DefaultKeysAndValues
+from litgpt.model import CausalSelfAttention
 from litgpt.scripts.convert_hf_checkpoint import (
     copy_weights_falcon,
     copy_weights_gemma_2,
@@ -769,7 +769,13 @@ def test_against_original_gemma(model_name, device, dtype):
     torch.set_default_dtype(dtype)
 
     T = 5
-    ours_config = Config.from_name(model_name, n_layer=2, n_head=16, n_embd=32, intermediate_size=86)
+    ours_config = Config.from_name(
+        model_name,
+        n_layer=2,
+        n_head=16,
+        n_embd=32,
+        intermediate_size=86,
+    )
     theirs_config = GemmaConfig(
         vocab_size=ours_config.padded_vocab_size,
         hidden_size=ours_config.n_embd,
@@ -834,6 +840,7 @@ def test_against_original_gemma_2(model_name, device, dtype):
         n_head=16,
         n_embd=32,
         intermediate_size=86,
+        rotary_percentage=1.0,  # Gemma2 does not have this
     )
     theirs_config = Gemma2Config(
         vocab_size=ours_config.padded_vocab_size,
@@ -868,7 +875,6 @@ def test_against_original_gemma_2(model_name, device, dtype):
 
     # test end to end
     x = torch.randint(low=0, high=ours_config.padded_vocab_size, size=(T,), device=device).unsqueeze(0)
-    assert x.size(1) == T
     ours_y = ours_model(x)
     theirs_y = theirs_model(x)["logits"].to(dtype)  # HF converts logits to float
     torch.testing.assert_close(ours_y, theirs_y, rtol=3e-5, atol=3e-5)
@@ -1400,57 +1406,21 @@ def test_model_compile():
     assert explanation.graph_break_count == 0
 
     model = GPT(model.config)
-    model.set_kv_cache(2)
-    input_pos = torch.arange(model.config.block_size)
-    explanation = torch._dynamo.explain(model)(x, input_pos)
+    model.set_kv_caches(2)
+    explanation = torch._dynamo.explain(model)(x)
     assert isinstance(explanation, debugging.ExplainOutput)
     assert explanation.graph_count == 1
     assert explanation.graph_break_count == 0
 
 
 @torch.inference_mode()
-@pytest.mark.parametrize(
-    "max_seq_length", (25, pytest.param(23, marks=pytest.mark.xfail(raises=IndexError, strict=True)))
-)
-@pytest.mark.flaky(reruns=5)
-def test_kv_cache(max_seq_length):
-    config = Config(block_size=25, padded_vocab_size=5, n_layer=2, n_head=2, n_embd=8)
-    model = GPT(config)
-    idx = torch.randint(0, model.config.padded_vocab_size, (1, 5))
-    max_new_tokens = 20
-    model.max_seq_length = max_seq_length
-    model.set_kv_cache(1)
-
-    def generate(logits):
-        logits = logits[:, -1:]
-        probs = torch.nn.functional.softmax(logits, dim=-1)
-        return torch.argmax(probs).unsqueeze(0).unsqueeze(0)
-
-    x_no_cache = idx
-    x_cache = idx
-    input_pos = torch.arange(0, 5)
-    for _ in range(max_new_tokens):
-        logits_no_cache = model(x_no_cache[:, -max_seq_length:])
-        out_no_cache = generate(logits_no_cache)
-
-        logits_cache = model(x_cache, input_pos)
-        out_cache = generate(logits_cache)
-
-        torch.testing.assert_close(out_no_cache, out_cache, rtol=0, atol=0)
-
-        x_no_cache = torch.cat((x_no_cache, out_no_cache), dim=1)
-        x_cache = out_cache
-        input_pos = input_pos[-1:] + 1
-
-
-@torch.inference_mode()
 def test_model_kv_cache_amp():
     config = Config.from_name("pythia-14m", n_layer=2)
     model = GPT(config)
-    encoded = torch.arange(45)
-    model.set_kv_cache(batch_size=1)
+    encoded = torch.arange(45).view(1, -1)
+    model.set_kv_caches(batch_size=1)
     with torch.autocast("cpu", torch.bfloat16):
-        output = model(encoded.unsqueeze(0), encoded)
+        output = model(encoded, input_pos=0)
     assert output.dtype is torch.bfloat16
 
 
@@ -1468,28 +1438,49 @@ def test_sdpa_choice(config):
         pytest.skip("Gemma 2 doesn't support SDPA")
 
     torch.set_default_dtype(torch.float16)
+    config["n_layer"] = 1
+    config = config_module.Config(**config)
+    enable_gqa = config.n_query_groups < config.n_head
 
-    def assert_sdpa_backend(original_fn, q, k, v, mask):
+    def assert_sdpa_backend(original_fn, query, k_and_v, mask, return_scores):
         # SDPAParams gained an additional argument in PyTorch 2.5
         args = []
+        assert k_and_v.both_in_parallel()
+        # This is also done in `MultiHeadSelfAttention.scaled_dot_product_attention`
+        if mask is None and enable_gqa:
+            # Some efficient kernels have not implemented
+            # `enabla_gqa=True`. It is better to extend keys, values in
+            # this case.
+            key = k_and_v.keys()
+            value = k_and_v.values()
+            q_per_kv = config.n_head // config.n_query_groups
+            key = key.repeat_interleave(q_per_kv, dim=1)
+            value = value.repeat_interleave(q_per_kv, dim=1)
+            assert query.shape[1] == key.shape[1]
+            _k_and_v = DefaultKeysAndValues(key, value)
+            _enable_gqa = False
+        else:
+            _enable_gqa = enable_gqa
+            _k_and_v = k_and_v
+
         if hasattr(SDPAParams, "enable_gqa"):
-            args.append(False)
-        params = SDPAParams(q, k, v, mask, 0.0, True, *args)
+            args.append(_enable_gqa)
+        params = SDPAParams(query, _k_and_v.keys(), _k_and_v.values(), mask, 0.0, True, *args)
         if expected is SDPBackend.FLASH_ATTENTION:
             assert flash_sdp_enabled(), "flash_sdp_enabled() is False"
             if config.sliding_window_size is None:
                 assert can_use_flash_attention(params, True), "can_use_flash_attention(params, True) is False"
         elif expected is SDPBackend.EFFICIENT_ATTENTION:
             assert mem_efficient_sdp_enabled(), "mem_efficient_sdp_enabled() is False"
-            assert can_use_efficient_attention(params, True), "can_use_efficient_attention(params, True) is False"
+            if (not enable_gqa) or mask is None:
+                # At present, `SDPBackend.EFFICIENT_ATTENTION` does not support
+                # `enabla_gqa=True` and a mask specified
+                assert can_use_efficient_attention(params, True), "can_use_efficient_attention(params, True) is False"
         elif expected is SDPBackend.MATH:
             assert math_sdp_enabled(), "math_sdp_enabled() is False"
         else:
             raise NotImplementedError
-        return original_fn(q, k, v, mask)
-
-    config["n_layer"] = 1
-    config = config_module.Config(**config)
+        return original_fn(query, k_and_v, mask, return_scores)
 
     try:
         with torch.device("cuda"):
@@ -1499,8 +1490,10 @@ def test_sdpa_choice(config):
         # best effort, if the GPU can load it
         pytest.xfail()
 
-    for h in model.transformer.h:
-        h.attn.scaled_dot_product_attention = partial(assert_sdpa_backend, h.attn.scaled_dot_product_attention)
+    model.mha.scaled_dot_product_attention = partial(
+        assert_sdpa_backend,
+        model.mha.scaled_dot_product_attention,
+    )
 
     if SUPPORTS_FLASH_ATTENTION:
         expected = SDPBackend.FLASH_ATTENTION
@@ -1517,53 +1510,77 @@ def test_sdpa_choice(config):
 @torch.inference_mode()
 def test_sdpa_choice_kv_cache(config):
     torch.set_default_dtype(torch.float16)
-
-    def assert_sdpa_backend(original_fn, q, k, v, mask):
-        # SDPAParams gained an additional argument in PyTorch 2.5
-        args = []
-        if hasattr(SDPAParams, "enable_gqa"):
-            args.append(False)
-        params = SDPAParams(q, k, v, mask, 0.0, True, *args)
-        if expected is SDPBackend.FLASH_ATTENTION:
-            assert flash_sdp_enabled()
-            assert can_use_flash_attention(params, True)
-        elif expected is SDPBackend.EFFICIENT_ATTENTION:
-            assert mem_efficient_sdp_enabled()
-            assert can_use_efficient_attention(params, True)
-        elif expected is SDPBackend.MATH:
-            assert math_sdp_enabled()
-        else:
-            raise NotImplementedError
-        return original_fn(q, k, v, mask)
-
     config["n_layer"] = 1
     config = config_module.Config(**config)
+    enable_gqa = config.n_query_groups < config.n_head
+
+    def assert_sdpa_backend(original_fn, query, k_and_v, mask, return_scores):
+        # SDPAParams gained an additional argument in PyTorch 2.5
+        args = []
+        assert k_and_v.both_in_parallel()
+        # This is also done in `MultiHeadSelfAttention.scaled_dot_product_attention`
+        if mask is None and enable_gqa:
+            # Some efficient kernels have not implemented
+            # `enabla_gqa=True`. It is better to extend keys, values in
+            # this case.
+            key = k_and_v.keys()
+            value = k_and_v.values()
+            q_per_kv = config.n_head // config.n_query_groups
+            key = key.repeat_interleave(q_per_kv, dim=1)
+            value = value.repeat_interleave(q_per_kv, dim=1)
+            assert query.shape[1] == key.shape[1]
+            _k_and_v = DefaultKeysAndValues(key, value)
+            _enable_gqa = False
+        else:
+            _enable_gqa = enable_gqa
+            _k_and_v = k_and_v
+
+        if hasattr(SDPAParams, "enable_gqa"):
+            args.append(_enable_gqa)
+        params = SDPAParams(query, _k_and_v.keys(), _k_and_v.values(), mask, 0.0, True, *args)
+        if expected is SDPBackend.FLASH_ATTENTION:
+            assert flash_sdp_enabled(), "flash_sdp_enabled() is False"
+            assert can_use_flash_attention(params, True), "can_use_flash_attention(params, True) is False"
+        elif expected is SDPBackend.EFFICIENT_ATTENTION:
+            assert mem_efficient_sdp_enabled(), "mem_efficient_sdp_enabled() is False"
+            if (not enable_gqa) or mask is None:
+                # At present, `SDPBackend.EFFICIENT_ATTENTION` does not support
+                # `enabla_gqa=True` and a mask specified
+                assert can_use_efficient_attention(params, True), "can_use_efficient_attention(params, True) is False"
+        elif expected is SDPBackend.MATH:
+            assert math_sdp_enabled(), "math_sdp_enabled() is False"
+        else:
+            raise NotImplementedError
+        return original_fn(query, k_and_v, mask, return_scores)
 
     try:
         with torch.device("cuda"):
             model = GPT(config)
-            model.max_seq_length = 1
-            model.set_kv_cache(2)
-            x = torch.randint(0, 10, (2, 1), dtype=torch.int32)
-            input_pos = torch.tensor([0], dtype=torch.long)
+            model.max_seq_length = 16
+            model.set_kv_caches(2)
+            x = torch.randint(0, 10, (2, 10), dtype=torch.int32)
     except torch.cuda.OutOfMemoryError:
         # best effort, if the GPU can load it
         pytest.xfail()
 
-    for h in model.transformer.h:
-        h.attn.scaled_dot_product_attention = partial(assert_sdpa_backend, h.attn.scaled_dot_product_attention)
+    for block in model.transformer.h:
+        kv_cache = block.attn.kv_cache
+        kv_cache.mha.scaled_dot_product_attention = partial(
+            assert_sdpa_backend,
+            kv_cache.mha.scaled_dot_product_attention,
+        )
 
     if SUPPORTS_FLASH_ATTENTION:
         # flash attention does not support an attention mask
         expected = SDPBackend.MATH
         with torch.backends.cuda.sdp_kernel(enable_mem_efficient=False):
-            model(x, input_pos)
+            model(x, input_pos=0)
 
     expected = (
         SDPBackend.EFFICIENT_ATTENTION if config.head_size % 8 == 0 and config.n_query_groups != 1 else SDPBackend.MATH
     )
     with torch.backends.cuda.sdp_kernel(enable_flash=False):
-        model(x, input_pos)
+        model(x, input_pos=0)
 
 
 @_RunIf(min_cuda_gpus=2, standalone=True)
@@ -1592,68 +1609,6 @@ def test_reset_parameters_device():
     _materialize_meta_tensors(model, torch.device("cuda"))
     model.reset_parameters()
     assert model.cos.device.type == "cuda"
-
-
-def test_batched_index_copy_modes():
-    # Mock the torch.backends.mps.is_available() function to simulate MPS availability
-    with mock.patch("torch.backends.mps.is_available", return_value=True):
-        # Mock the device type to simulate the "mps" device
-        with mock.patch("torch.Tensor.device", new_callable=mock.PropertyMock) as mock_device:
-            mock_device.return_value = torch.device("mps")
-
-            # Test case when idx.dim() == 1
-            t_original_1 = torch.randn(3, 5)
-            dim_1 = 0
-            idx_1 = torch.tensor([0, 2])
-            val_1 = torch.randn(2, 5)
-
-            t1_cpu = t_original_1.clone()
-            t1_mps = t_original_1.clone()
-
-            # Perform the index copy on CPU
-            batched_index_copy_(t1_cpu, dim_1, idx_1, val_1)
-
-            # Simulate the MPS index copy
-            idx_1_mps = idx_1
-            val_1_mps = val_1
-            batched_index_copy_(t1_mps, dim_1, idx_1_mps, val_1_mps)
-            assert torch.allclose(t1_cpu, t1_mps), "Mismatch with idx.dim() == 1 on mocked MPS"
-
-            # Test case when idx.dim() == 2
-            t_original_2 = torch.randn(2, 5, 4)
-            dim_2 = 1
-            idx_2 = torch.tensor([[0, 2], [1, 3]])
-            val_2 = torch.randn(2, 2, 4)
-
-            t2_cpu = t_original_2.clone()
-            t2_mps = t_original_2.clone()
-
-            # Perform the index copy on CPU
-            batched_index_copy_(t2_cpu, dim_2, idx_2, val_2)
-
-            # Simulate the MPS index copy
-            idx_2_mps = idx_2
-            val_2_mps = val_2
-            batched_index_copy_(t2_mps, dim_2, idx_2_mps, val_2_mps)
-            assert torch.allclose(t2_cpu, t2_mps), "Mismatch with idx.dim() == 2 on mocked MPS"
-
-            # Additional test with negative dimension
-            t_original_3 = torch.randn(2, 3, 4)
-            dim_3 = -2
-            idx_3 = torch.tensor([[0, 1], [1, 2]])
-            val_3 = torch.randn(2, 2, 4)
-
-            t3_cpu = t_original_3.clone()
-            t3_mps = t_original_3.clone()
-
-            # Perform the index copy on CPU
-            batched_index_copy_(t3_cpu, dim_3, idx_3, val_3)
-
-            # Simulate the MPS index copy
-            idx_3_mps = idx_3
-            val_3_mps = val_3
-            batched_index_copy_(t3_mps, dim_3, idx_3_mps, val_3_mps)
-            assert torch.allclose(t3_cpu, t3_mps), "Mismatch with negative dimension on mocked MPS"
 
 
 def test_load_legacy_state_dict():
@@ -1693,7 +1648,7 @@ def test_kv_cache_buffer_shape(n_query_groups):
     )
     model = GPT(config)
     model.max_seq_length = max_seq_length
-    model.set_kv_cache(batch_size)
+    model.set_kv_caches(batch_size)
     required_shape = (batch_size, n_query_groups, max_seq_length, config.head_size)
     for block in model.transformer.h:
         kv_cache = block.attn.kv_cache
@@ -1718,22 +1673,3 @@ def test_rope_cos_sin_shapes_if_rope_n_elem_is_odd(rotary_percentage, final_dim)
     required_shape = (config.block_size, final_dim)
     assert model.cos.shape == required_shape
     assert model.sin.shape == required_shape
-
-
-def test_forward_with_without_input_pos_maxp1():
-    batch_size = 3
-    config = Config(
-        block_size=25,
-        padded_vocab_size=5,
-        n_layer=2,
-        n_head=8,
-        n_embd=16,
-    )
-    model = GPT(config)
-    model.set_kv_cache(batch_size)
-    idx = torch.randint(0, config.padded_vocab_size, (1, 10))
-    input_pos = torch.arange(1, 11)
-    input_pos_maxp1 = 11
-    logits_with_maxp1 = model(idx, input_pos, input_pos_maxp1=input_pos_maxp1)
-    logits_no_maxp1 = model(idx, input_pos)
-    torch.testing.assert_close(logits_with_maxp1, logits_no_maxp1)

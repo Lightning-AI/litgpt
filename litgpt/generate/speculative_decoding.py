@@ -5,7 +5,7 @@ import time
 import warnings
 from pathlib import Path
 from pprint import pprint
-from typing import Any, Dict, Iterator, List, Literal, Optional, Tuple
+from typing import List, Literal, Optional, Tuple
 
 import lightning as L
 import torch
@@ -16,7 +16,11 @@ from lightning.fabric.plugins import BitsandbytesPrecision
 from lightning_utilities.core.imports import RequirementCache
 
 from litgpt.config import Config
-from litgpt.generate.base import multinomial_num_samples_1, next_token, sample_top_p
+from litgpt.generate.base import (
+    multinomial_num_samples_1,
+    sample_top_p,
+)
+from litgpt.kvcache import DenseKVCache
 from litgpt.model import GPT
 from litgpt.prompts import PromptStyle, has_prompt_style, load_prompt_style
 from litgpt.tokenizer import Tokenizer
@@ -35,7 +39,7 @@ def sample(
     top_k: Optional[int] = None,
     top_p: float = 1.0,
     apply_softmax: bool = True,
-) -> torch.Tensor:
+) -> Tuple[torch.Tensor, torch.Tensor]:
     if top_p < 0.0 or top_p > 1.0:
         raise ValueError(f"top_p must be in [0, 1], got {top_p}")
     logits = logits[0, -1]
@@ -57,14 +61,53 @@ def sample(
     return torch.argmax(logits, dim=-1, keepdim=True), F.softmax(logits, dim=-1)
 
 
+def support_speculative_decoding(model: GPT) -> bool:
+    """
+    Does this model support speculative decoding? This depends mostly on
+    the KV caches for this model.
+
+    Args:
+        model: GPT model
+
+    Returns:
+        Does model support speculative decoding?
+
+    """
+    # Hack to make unit tests in
+    # tests/test_generate_speculatively.py work, which use DraftModel inplace
+    # of GLM
+    if not isinstance(model, GPT):
+        return True
+    caches = [block.attn.kv_cache for block in model.transformer.h]
+    if any(c is None for c in caches):
+        raise ValueError("Some KV caches are not assigned. Use 'model.assign_kv_caches' or 'model.set_kv_caches'")
+    result = all(isinstance(c, DenseKVCache) for c in caches)
+    if not result:
+        print(
+            "Speculative decoding currently supported only for DenseKVCache "
+            "KV caches, which support removing most recently inserted "
+            "information by 'resize'."
+        )
+    return result
+
+
+def _resize_kv_caches(model: GPT, new_length: int):
+    # Hack to make unit tests in
+    # tests/test_generate_speculatively.py work, which use DraftModel inplace
+    # of GLM
+    if not isinstance(model, GPT):
+        return True
+    for block in model.transformer.h:
+        block.attn.kv_cache.resize(new_length)
+
+
 def speculative_decoding(
     draft_model: GPT,
     target_model: GPT,
     token: torch.Tensor,
-    input_pos: torch.Tensor,
-    input_pos_maxp1: int,
+    input_pos: int,
     speculative_k: int,
-    **sample_kwargs: Dict[str, Any],
+    **sample_kwargs,
 ) -> torch.Tensor:
     """Performs speculative decoding using a draft and a target model.
 
@@ -84,8 +127,8 @@ def speculative_decoding(
         draft_model: Smaller/faster model used for initial token predictions
         target_model: Larger/slower model used for verification
         token: Current input token tensor of shape [1]
-        input_pos: Position index of the token tensor for KV-cache
-        input_pos_maxp1: Maximum position + 1 for managing KV-cache buffer
+        input_pos: Position in sequence where to start generating tokens.
+            Required by KV cache
         speculative_k: Number of tokens to speculatively generate at once
         sample_kwargs: Additional sampling parameters (temperature, top_k, top_p)
 
@@ -96,20 +139,21 @@ def speculative_decoding(
 
     if speculative_k < 1:
         raise ValueError(f"speculative_k must be >= 1, got {speculative_k}")
+    if not (support_speculative_decoding(draft_model) and support_speculative_decoding(target_model)):
+        raise ValueError("Both draft_model and target_model must have DenseKVCache KV caches only")
 
     # Step 1: Generate candidate tokens using draft model
     # The draft model autoregressively generates k tokens, keeping track of probabilities
-    draft_input_pos = input_pos.clone()
-    draft_input_pos_maxp1 = input_pos_maxp1
+    draft_input_pos = input_pos
     draft_tokens, draft_probs = [], []
     draft_token = token
     for idx in range(speculative_k):
         logits = draft_model(
-            idx=draft_token.unsqueeze(0), input_pos=draft_input_pos, input_pos_maxp1=draft_input_pos_maxp1
+            idx=draft_token.unsqueeze(0),
+            input_pos=draft_input_pos,
         )
         draft_token, draft_prob = sample(logits, **sample_kwargs)
-        draft_input_pos.add_(1)
-        draft_input_pos_maxp1 += 1
+        draft_input_pos += 1
         draft_tokens.append(draft_token)
         draft_probs.append(draft_prob)
     draft_tokens = torch.cat(draft_tokens)
@@ -117,10 +161,9 @@ def speculative_decoding(
     # Step 2: Get target model predictions for comparison
     # Feed both original token and draft tokens to get target probabilities
     candidate_tokens = torch.cat((token, draft_tokens))
-    candidate_input_pos = input_pos + torch.arange(0, speculative_k + 1, device=input_pos.device)
-    candidate_input_pos_maxp1 = input_pos_maxp1 + speculative_k
     target_logits = target_model(
-        idx=candidate_tokens.unsqueeze(0), input_pos=candidate_input_pos, input_pos_maxp1=candidate_input_pos_maxp1
+        idx=candidate_tokens.unsqueeze(0),
+        input_pos=input_pos,
     )
 
     # Step 3: Convert target logits to probabilities using same sampling params
@@ -134,6 +177,7 @@ def speculative_decoding(
     # Otherwise reject with probability 1 - target_prob / draft_prob.
     # If rejected, sample from an adjusted distribution: norm(max(0, target_prob_distribution - draft_prob_distribution) instead.
     accepted_tokens = []
+    new_token = None
     for idx in range(len(draft_tokens)):
         draft_token = draft_tokens[idx].unsqueeze(0)
         draft_prob = draft_probs[idx][draft_token]
@@ -158,14 +202,49 @@ def speculative_decoding(
         adjusted_distribution = torch.clamp(adjusted_distribution, 0.0)
         adjusted_distribution = adjusted_distribution / adjusted_distribution.sum()
         new_token, _ = sample(adjusted_distribution[None, None, ...], apply_softmax=False, **sample_kwargs)
-        return torch.cat((*accepted_tokens, new_token))
+        break
 
-    # If all draft tokens were accepted:
-    # 1. Update draft model's key-value cache
-    # 2. Sample one more token from target model
-    draft_model(idx=draft_token.unsqueeze(0), input_pos=draft_input_pos, input_pos_maxp1=draft_input_pos_maxp1)
-    new_token, _ = sample(target_logits, **sample_kwargs)
+    # At this point, the draft model has advanced to `input_pos + speculative_k`,
+    # the target model to `input_pos + speculative_k + 1`. This needs to be
+    # corrected if not all speculative tokens are accepted.
+    if new_token is None:
+        # All speculative tokens have been accepted. The draft model has to
+        # extend one more, and another token has to be sampled
+        draft_model(idx=draft_token.unsqueeze(0), input_pos=draft_input_pos)
+        new_token, _ = sample(target_logits, **sample_kwargs)
+    else:
+        input_pos += len(accepted_tokens) + 1
+        _resize_kv_caches(draft_model, input_pos)
+        _resize_kv_caches(target_model, input_pos)
     return torch.cat((*accepted_tokens, new_token))
+
+
+def _process_prompt(
+    model: GPT,
+    prompt: torch.Tensor,
+    prompt_chunksize: int,
+    **sample_kwargs,
+) -> torch.Tensor:
+    prompt_size = prompt.size(0)
+    assert prompt_size > 0
+    max_prefill_length = model.kv_cache_max_prefill_length()
+    if max_prefill_length is None:
+        end = prompt_size
+    else:
+        end = min(prompt_size, max_prefill_length)
+    input_pos = 0
+    logits = None
+    while input_pos < prompt_size:
+        inputs = prompt[input_pos:end].view(1, -1)
+        logits = model(inputs, input_pos=input_pos)
+        input_pos = end
+        # Note that `max_tokens_forward` can change during the course of
+        # prompt processing:
+        chunksize = min((prompt_chunksize, model.kv_cache_max_tokens_forward(), prompt_size - input_pos))
+        end += chunksize
+    # Sample single token
+    token, _ = sample(logits, **sample_kwargs)
+    return token
 
 
 @torch.inference_mode()
@@ -174,6 +253,7 @@ def generate(
     target_model: GPT,
     prompt: torch.Tensor,
     max_returned_tokens: int,
+    prompt_chunksize: int = 16,
     *,
     temperature: float = 1.0,
     top_k: Optional[int] = None,
@@ -181,7 +261,7 @@ def generate(
     stop_tokens: Tuple[List[int], ...] = (),
     include_prompt: bool = True,
     speculative_k: int,
-) -> Iterator[torch.Tensor]:
+) -> Tuple[torch.Tensor, float]:
     """Generates tokens using speculative decoding with a draft and a target model.
 
     This function implements token generation using speculative decoding, where a faster draft model
@@ -192,6 +272,10 @@ def generate(
         target_model: Larger/more accurate model used to verify draft predictions
         prompt: Input tensor of token ids to generate from, shape [sequence_length]
         max_returned_tokens: Maximum total tokens (prompt + generated) to return
+        prompt_chunksize: If the prompt is longer than the KV cache length,
+            prompts are processed in chunks of this size in the prefill phase.
+            The larger, the faster the prompt is processed, but a large chunk
+            size may lead to suboptimal cache decisions.
         temperature: Sampling temperature (higher = more random, lower = more deterministic)
         top_k: If set, only sample from the top k most likely next tokens
         top_p: If <1.0, only sample from tokens whose cumulative probability exceeds top_p
@@ -211,8 +295,8 @@ def generate(
     5. Process repeats until max tokens or stop sequence reached
     """
 
+    prompt = prompt.flatten()
     prompt_size = prompt.size(0)
-    device = prompt.device
 
     assert max_returned_tokens > prompt_size, (
         f"Not enough space for {prompt_size} prompt tokens in a context length of {max_returned_tokens}."
@@ -227,39 +311,26 @@ def generate(
         )
 
     # Step 1: Prefill draft and target models with the prompt.
-    input_pos = torch.arange(0, prompt_size, device=device, dtype=torch.int64)
-    # We want to skip if ThunderModules are involved, either directly or wrapped in LightningModule etc.
-    input_pos_maxp1 = (
-        prompt_size if all(m.__class__.__name__ != "ThunderModule" for m in target_model.modules()) else None
-    )
-    next_token(
-        draft_model,
-        input_pos,
-        prompt.view(1, -1),
-        input_pos_maxp1=input_pos_maxp1,
+    sample_kwargs = dict(
         temperature=temperature,
         top_k=top_k,
         top_p=top_p,
     )
-    token = next_token(
+    _process_prompt(draft_model, prompt, prompt_chunksize, **sample_kwargs)
+    token = _process_prompt(
         target_model,
-        input_pos,
-        prompt.view(1, -1),
-        input_pos_maxp1=input_pos_maxp1,
-        temperature=temperature,
-        top_k=top_k,
-        top_p=top_p,
+        prompt,
+        prompt_chunksize,
+        **sample_kwargs,
     )
-    # Update position trackers after prompt
-    input_pos = torch.tensor([prompt_size], device=device, dtype=torch.int64)
-    input_pos_maxp1 += 1
+    input_pos = prompt_size
 
     # Step 2: Main generation loop.
     tokens = []
     total_generated, total_accepted = 0, 0  # Track acceptance statistics
     while input_pos < max_returned_tokens - 1:
         # Calculate speculative tokens to generate
-        _speculative_k = min(speculative_k, (max_returned_tokens - input_pos - 1).item())
+        _speculative_k = min(speculative_k, max_returned_tokens - input_pos - 1)
 
         # Get new tokens via speculative decoding
         new_tokens = speculative_decoding(
@@ -267,11 +338,8 @@ def generate(
             target_model=target_model,
             token=token,
             input_pos=input_pos,
-            input_pos_maxp1=input_pos_maxp1,
             speculative_k=_speculative_k,
-            temperature=temperature,
-            top_k=top_k,
-            top_p=top_p,
+            **sample_kwargs,
         )
 
         # Update statistics
@@ -291,8 +359,9 @@ def generate(
             break
 
         # Update positions for next iteration
-        input_pos.add_(accepted_tokens_len)
-        input_pos_maxp1 += accepted_tokens_len
+        # UUPS! input_pos must increase by _speculative_k, otherwise KV
+        # caches do not work!
+        input_pos += accepted_tokens_len
         token = new_tokens[-1].unsqueeze(0)
 
     # Finalize generated sequence
@@ -311,7 +380,7 @@ def setup_model(config: Config, max_returned_tokens: int, fabric: L.Fabric) -> G
         # set the max_seq_length to limit the memory usage to what we need
         model.max_seq_length = max_returned_tokens
         # enable the kv cache
-        model.set_kv_cache(batch_size=1)
+        model.set_kv_caches(batch_size=1)
     model.eval()
     return fabric.setup_module(model)
 
@@ -334,6 +403,7 @@ def main(
     sys_prompt: Optional[str] = None,
     num_samples: int = 1,
     max_new_tokens: int = 50,
+    prompt_chunksize: int = 16,
     speculative_k: int = 3,
     top_k: Optional[int] = 50,
     top_p: float = 1.0,
@@ -347,12 +417,16 @@ def main(
     Generates text samples based on pre-trained models and a tokenizer.
 
     Args:
-        draft_model: Smaller/faster model used for initial token predictions
-        target_model: Larger/more accurate model used to verify draft predictions
+        draft_model_checkpoint_dir: Smaller/faster model used for initial token predictions
+        target_model_checkpoint_dir: Larger/more accurate model used to verify draft predictions
         prompt: The prompt string to use for generating the samples.
         sys_prompt: The system prompt to use for generating the samples.
         num_samples: The number of text samples to generate.
         max_new_tokens: The number of generation steps to take.
+        prompt_chunksize: If the prompt is longer than the KV cache length,
+            prompts are processed in chunks of this size in the prefill phase.
+            The larger, the faster the prompt is processed, but a large chunk
+            size may lead to suboptimal cache decisions.
         speculative_k: Number of tokens to speculatively generate at each step
         top_k: The number of top most probable tokens to consider in the sampling process.
         top_p: If specified, it represents the cumulative probability threshold to consider in the sampling process.
@@ -428,14 +502,6 @@ def main(
     target_model = setup_model(target_config, max_returned_tokens, fabric)
     fabric.print(f"Time to instantiate models: {time.perf_counter() - t0:.02f} seconds.", file=sys.stderr)
 
-    # Setup compilation if needed
-    if compile:
-        torch._dynamo.config.automatic_dynamic_shapes = True
-        torch._inductor.config.triton.unique_kernel_names = True
-        torch._inductor.config.coordinate_descent_tuning = True
-        global next_token
-        next_token = torch.compile(next_token, mode="reduce-overhead")
-
     # Load model weights
     t0 = time.perf_counter()
     load_checkpoint(fabric, draft_model, draft_checkpoint_path)
@@ -451,10 +517,11 @@ def main(
             target_model,
             encoded,
             max_returned_tokens,
+            prompt_chunksize,
             temperature=temperature,
             top_k=top_k,
             top_p=top_p,
-            stop_tokens=([tokenizer.eos_id] if tokenizer.eos_id is not None else []),
+            stop_tokens=([tokenizer.eos_id] if tokenizer.eos_id is not None else [],),
             speculative_k=speculative_k,
         )
         t = time.perf_counter() - t0

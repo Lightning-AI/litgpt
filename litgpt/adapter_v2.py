@@ -19,6 +19,8 @@ import litgpt
 from litgpt.adapter import GPT as BaseModel
 from litgpt.adapter import CausalSelfAttention as BaseCausalSelfAttention
 from litgpt.adapter import Config as BaseConfig
+from litgpt.attention import MultiHeadSelfAttention
+from litgpt.kvcache.base import KVCache
 from litgpt.model import Block as BaseBlock
 from litgpt.scripts.convert_hf_checkpoint import qkv_reassemble
 from litgpt.utils import map_old_state_dict_weights
@@ -69,7 +71,11 @@ class GPT(BaseModel):
         assert config.padded_vocab_size is not None
         self.config = config
 
-        self.lm_head = AdapterV2Linear(config.n_embd, config.padded_vocab_size, bias=config.lm_head_bias)
+        self.lm_head = AdapterV2Linear(
+            config.n_embd,
+            config.padded_vocab_size,
+            bias=config.lm_head_bias,
+        )
         self.transformer = nn.ModuleDict(
             dict(
                 wte=nn.Embedding(config.padded_vocab_size, config.n_embd),
@@ -77,8 +83,11 @@ class GPT(BaseModel):
                 ln_f=config.norm_class(config.n_embd, eps=config.norm_eps),
             )
         )
-        self.mask_cache: Optional[torch.Tensor] = None
+        self.mha = MultiHeadSelfAttention(config)
         self.max_seq_length = self.config.block_size
+        self._start_of_layer_hook = config.start_of_layer_hook
+        # Have dense KV caches been created by `set_kv_cache`?
+        self._default_kv_cache = False
 
     @classmethod
     def from_name(cls, name: str, **kwargs: Any) -> Self:
@@ -98,9 +107,14 @@ class GPT(BaseModel):
 
 
 class Block(BaseBlock):
-    def __init__(self, config: Config, block_idx: int) -> None:
-        super().__init__(config, block_idx)
-        self.attn = CausalSelfAttention(config, block_idx)
+    def __init__(
+        self,
+        config: Config,
+        block_idx: int,
+        kv_cache: Optional[KVCache] = None,
+    ) -> None:
+        super().__init__(config, block_idx, kv_cache)
+        self.attn = CausalSelfAttention(config, block_idx, kv_cache=kv_cache)
         self.mlp = config.mlp_class(config)
 
 
@@ -108,13 +122,23 @@ class CausalSelfAttention(BaseCausalSelfAttention):
     """A modification of `litgpt.adapter.CausalSelfAttention` that uses the Adapter V2 Linear class"""
 
     # Copy&paste from :class:`model.CausalSelfAttention`
-    def __init__(self, config: Config, block_idx: int) -> None:
-        super().__init__(config, block_idx)
+    def __init__(
+        self,
+        config: Config,
+        block_idx: int,
+        kv_cache: Optional[KVCache] = None,
+    ) -> None:
+        super().__init__(config, block_idx, kv_cache)
         # key, query, value projections for all heads, but in a batch
         shape = (config.n_head + 2 * config.n_query_groups) * config.head_size
         self.qkv = AdapterV2Linear(in_features=config.n_embd, out_features=shape, bias=config.bias or config.attn_bias)
         # output projection
         self.proj = AdapterV2Linear(config.head_size * config.n_head, config.n_embd, bias=config.bias)
+
+    @property
+    def device(self) -> Optional[torch.device]:
+        w = self.qkv.linear.weight
+        return None if w is None else w.device
 
     def _load_from_state_dict(self, state_dict: Dict, prefix: str, *args: Any, **kwargs: Any) -> None:
         """For compatibility with base and/or legacy checkpoints."""

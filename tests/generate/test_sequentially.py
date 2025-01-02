@@ -1,7 +1,6 @@
 # Copyright Lightning AI. Licensed under the Apache License 2.0, see LICENSE file.
 
 import itertools
-import math
 import subprocess
 import sys
 from dataclasses import asdict
@@ -14,7 +13,12 @@ import yaml
 from lightning import Fabric
 
 from litgpt import Config
-from litgpt.generate.sequentially import layer_to_device, replace_device, sequential
+from litgpt.generate.sequentially import (
+    chunk_sizes,
+    layer_to_device,
+    replace_device,
+    sequential,
+)
 from litgpt.model import GPT, Block
 from litgpt.scripts.download import download_from_hub
 from litgpt.utils import _RunIf
@@ -28,8 +32,8 @@ from .utils import find_forward_hooks
         (6, 1, {0: 0, 1: 0, 2: 0, 3: 0, 4: 0, 5: 0}),
         (6, 2, {0: 0, 1: 0, 2: 0, 3: 1, 4: 1, 5: 1}),
         (6, 3, {0: 0, 1: 0, 2: 1, 3: 1, 4: 2, 5: 2}),
-        (6, 4, {0: 0, 1: 0, 2: 1, 3: 1, 4: 2, 5: 2}),
-        (6, 5, {0: 0, 1: 0, 2: 1, 3: 1, 4: 2, 5: 2}),
+        (6, 4, {0: 0, 1: 1, 2: 2, 3: 2, 4: 3, 5: 3}),
+        (6, 5, {0: 0, 1: 1, 2: 2, 3: 3, 4: 4, 5: 4}),
         (6, 6, {0: 0, 1: 1, 2: 2, 3: 3, 4: 4, 5: 5}),
     ],
 )
@@ -37,8 +41,11 @@ def test_layer_to_device(n_layer, devices, expected):
     with torch.device("meta"):
         model = GPT.from_name("pythia-14m", n_layer=n_layer)
 
-    max_layers_per_device = math.ceil(n_layer / devices)
-    actual = layer_to_device(model, Block, chunk_size=max_layers_per_device)
+    actual = layer_to_device(
+        model,
+        Block,
+        chunk_sizes=chunk_sizes(n_layer, devices),
+    )
     expected = {f"transformer.h.{i}": v for i, v in expected.items()}
     assert actual == expected
 
@@ -50,13 +57,6 @@ def test_sequential_layer_to_device_mapping_not_possible():
         model = GPT(config)
     with pytest.raises(ValueError, match="number of layers in the model must be larger than the number of devices"):
         sequential(model, root=torch.device("cpu"), max_seq_length=128, devices=2)
-
-    # Last device would get 0 layers
-    config = Config(n_layer=6)
-    with torch.device("meta"):
-        model = GPT(config)
-    with pytest.raises(RuntimeError, match="Not able to distribute the 6 layers across 4 devices"):
-        sequential(model, root=torch.device("cpu"), max_seq_length=128, devices=4)
 
 
 def path_to_device(model):
@@ -111,6 +111,7 @@ def _test_model_1device(accelerator):
     fabric = Fabric(accelerator=accelerator, devices=1)
     with torch.device("meta"):
         model = GPT.from_name("pythia-14m", n_layer=2)
+        model.set_kv_caches(1)
     model = sequential(model, fabric.device, 15, 1)
 
     device_str = str(fabric.device)
@@ -250,18 +251,6 @@ def test_model_forward_hooks():
         "transformer.ln_f.bias": "cuda:0",
         "cos": "cuda:0",
         "sin": "cuda:0",
-        "transformer.h.0.attn.kv_cache.k": "cuda:0",
-        "transformer.h.0.attn.kv_cache.v": "cuda:0",
-        "transformer.h.1.attn.kv_cache.k": "cuda:0",
-        "transformer.h.1.attn.kv_cache.v": "cuda:0",
-        "transformer.h.2.attn.kv_cache.k": "cuda:0",
-        "transformer.h.2.attn.kv_cache.v": "cuda:0",
-        "transformer.h.3.attn.kv_cache.k": "cuda:1",
-        "transformer.h.3.attn.kv_cache.v": "cuda:1",
-        "transformer.h.4.attn.kv_cache.k": "cuda:1",
-        "transformer.h.4.attn.kv_cache.v": "cuda:1",
-        "transformer.h.5.attn.kv_cache.k": "cuda:1",
-        "transformer.h.5.attn.kv_cache.v": "cuda:1",
     }
     assert hooks == {
         "transformer.h.3": [("forward_pre_hook", "move_block_input", (torch.device(type="cuda", index=1),), {})],

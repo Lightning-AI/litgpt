@@ -107,6 +107,7 @@ def main(
     sys_prompt: Optional[str] = None,
     num_samples: int = 1,
     max_new_tokens: int = 50,
+    prompt_chunksize: int = 16,
     top_k: Optional[int] = 50,
     top_p: float = 1.0,
     temperature: float = 0.8,
@@ -124,6 +125,11 @@ def main(
         sys_prompt: The system prompt to use for generating the samples.
         num_samples: The number of text samples to generate.
         max_new_tokens: The number of generation steps to take.
+        prompt_chunksize: If even the shortest prompt is longer than the KV
+            cache, prompts are processed in chunks of this size in the
+            prefill phase. Once the shortest has been processed to the
+            end, we proceed with chunk size 1.
+            Defaults to 1, but larger values are recommended for long prompts.
         top_k: The number of top most probable tokens to consider in the sampling process.
         top_p: If specified, it represents the cumulative probability threshold to consider in the sampling process.
             In top-p sampling, the next token is sampled from the highest probability tokens
@@ -197,6 +203,7 @@ def main(
     # still, use init_tensor for the precision
     with fabric.init_tensor(), torch.device("meta"):
         model = GPT(config)
+        model.set_kv_caches(batch_size=1)
     fabric.print(f"Time to instantiate model: {time.perf_counter() - t0:.02f} seconds.", file=sys.stderr)
 
     # sequentially do: load the checkpoint on CPU -> quantize -> apply tp -> move to device
@@ -224,7 +231,7 @@ def main(
                 # the rope cache which is on meta device
                 model.cos, model.sin = model.rope_cache()
                 # enable the kv cache
-                model.set_kv_cache(batch_size=1)
+                model.set_kv_caches(batch_size=1)
             model.eval()
 
             t0 = time.perf_counter()
@@ -236,21 +243,26 @@ def main(
         torch._dynamo.config.automatic_dynamic_shapes = True
         torch._inductor.config.triton.unique_kernel_names = True
         torch._inductor.config.coordinate_descent_tuning = True
-        generate_base.next_token = torch.compile(generate_base.next_token, mode="reduce-overhead")
 
     L.seed_everything(1234)
     for i in range(num_samples):
         t0 = time.perf_counter()
         y = generate_base.generate(
-            model, encoded, max_returned_tokens, temperature=temperature, top_k=top_k, eos_id=tokenizer.eos_id
+            model=model,
+            prompt=encoded,
+            max_returned_tokens=max_returned_tokens,
+            prompt_chunksize=prompt_chunksize,
+            temperature=temperature,
+            top_k=top_k,
+            top_p=top_p,
+            eos_id=tokenizer.eos_id,
         )
         t = time.perf_counter() - t0
-        for block in model.transformer.h:
-            block.attn.kv_cache.reset_parameters()
         fabric.print(tokenizer.decode(y))
         tokens_generated = y.size(0) - prompt_length
         fabric.print(
             f"Time for inference {i + 1}: {t:.02f} sec total, {tokens_generated / t:.02f} tokens/sec", file=sys.stderr
         )
+    model.clear_kv_caches()
     if fabric.device.type == "cuda":
         fabric.print(f"Memory used: {torch.cuda.max_memory_allocated() / 1e9:.02f} GB", file=sys.stderr)

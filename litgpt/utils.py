@@ -917,3 +917,22 @@ def kill_process_tree(pid: int):
         parent.kill()
     except psutil.NoSuchProcess:
         pass  # Process already exited
+
+
+def batched_index_select(t: torch.Tensor, dim: int, idx: torch.Tensor) -> torch.Tensor:
+    """index_select for batched index and unbatched t"""
+    if idx.ndim == 1:
+        return torch.index_select(t, dim, idx)
+
+    *batch_shape, idx_size = idx.shape
+    res = torch.index_select(t, dim, idx.reshape(-1))  # flat index
+    # split out single batch idx
+    res = res.view(*t.shape[:dim], -1, idx_size, *t.shape[dim + 1 :])
+    if dim > 0:
+        # move batch dim to front, this is np.rollaxis(res, dim, 0) for tensors
+        dims = [dim] + list(range(res.ndim))
+        del dims[dim + 1]
+        res = res.permute(dims)
+    # unflatten batch dims
+    res = res.view(*batch_shape, *res.shape[1:])
+    return res

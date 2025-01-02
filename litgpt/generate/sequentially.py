@@ -2,7 +2,6 @@
 
 import itertools
 import logging
-import math
 import re
 import sys
 import time
@@ -11,7 +10,7 @@ from collections import OrderedDict
 from functools import partial
 from pathlib import Path
 from pprint import pprint
-from typing import Literal, Optional, Type
+from typing import List, Literal, Optional, Type
 
 import lightning as L
 import torch
@@ -23,7 +22,7 @@ from tqdm import tqdm
 
 import litgpt.generate.base as generate_base
 from litgpt.config import Config
-from litgpt.model import GPT, Block, build_mask_cache
+from litgpt.model import GPT, Block
 from litgpt.prompts import PromptStyle, has_prompt_style, load_prompt_style
 from litgpt.tokenizer import Tokenizer
 from litgpt.utils import check_valid_checkpoint_dir, extend_checkpoint_dir, get_default_supported_precision
@@ -37,18 +36,12 @@ def sequential(model: GPT, root: torch.device, max_seq_length: int, devices: int
             f" n_layer={model.config.n_layer} and devices={devices}."
         )
 
-    # The last device might get fewer layers if number of layers not evenly divisible by device count
-    max_layers_per_device = math.ceil(model.config.n_layer / devices)
-    # dictates where each block should be instantiated
-    mapping = layer_to_device(model, chunk_on=Block, chunk_size=max_layers_per_device)
-
-    if set(mapping.values()) != set(range(devices)):
-        # TODO: support smarter partitioning schemes
-        raise RuntimeError(
-            f"Not able to distribute the {model.config.n_layer} layers across {devices} devices."
-            " Try running with a lower number of devices."
-        )
-
+    # Dictates where each block should be instantiated
+    mapping = layer_to_device(
+        model,
+        chunk_on=Block,
+        chunk_sizes=chunk_sizes(model.config.n_layer, devices),
+    )
     num_layers_per_device = {i: sum(1 for v in mapping.values() if v == i) for i in range(devices)}
 
     # materialize each block on the appropriate device
@@ -64,17 +57,12 @@ def sequential(model: GPT, root: torch.device, max_seq_length: int, devices: int
             replace_device(submodule, replace=torch.device("cpu"), by=target_device)
             # in case the checkpoint was partial, materialize leftover metas
             _materialize_meta_tensors(submodule, target_device)
-            # and build the kv cache
-            submodule.attn.kv_cache = submodule.attn.build_kv_cache(
-                1, max_seq_length, model.cos.size(-1), target_device
-            )
     # rebuild odd ends
     with root:
+        # Setting `max_seq_length` forces other members to be built
+        if model.max_seq_length >= max_seq_length:
+            model.reset_caches()
         model.max_seq_length = max_seq_length
-        # the rope cache which is on meta device
-        model.cos, model.sin = model.rope_cache()
-        # the mask cache which cannot be created with `set_kv_cache` because that will set it for all layers
-        model.mask_cache = build_mask_cache(max_seq_length)
     # and everything that is not a block in the root
     _materialize_meta_tensors(model, root)
     replace_device(model, replace=torch.device("cpu"), by=root)
@@ -96,13 +84,25 @@ def sequential(model: GPT, root: torch.device, max_seq_length: int, devices: int
     return model
 
 
+def chunk_sizes(num_units: int, devices: int) -> List[int]:
+    cs = num_units // devices
+    k = devices * (cs + 1) - num_units
+    return [cs] * k + [cs + 1] * (devices - k)
+
+
 def layer_to_device(
-    module: torch.nn.Module, chunk_on: Type[torch.nn.Module], chunk_size: int
+    module: torch.nn.Module,
+    chunk_on: Type[torch.nn.Module],
+    chunk_sizes: List[int],
 ) -> "OrderedDict[str, int]":
     """Create a mapping from layer (block) to device."""
     # this assumes that the definition order is the same as the execution order
     hits = [name for name, submodule in module.named_modules() if isinstance(submodule, chunk_on)]
-    return OrderedDict((name, i // chunk_size) for i, name in enumerate(hits))
+    if sum(chunk_sizes) != len(hits):
+        raise ValueError(f"Found {len(hits)} for chunk_on={chunk_on}, not covered by chunk_sizes={chunk_sizes}")
+    _devices = [[d] * cs for d, cs in enumerate(chunk_sizes)]
+    devices = [d for lst in _devices for d in lst]
+    return OrderedDict(zip(hits, devices))
 
 
 def move_block_input(device: torch.device, module: torch.nn.Module, ins):
@@ -141,6 +141,7 @@ def main(
     sys_prompt: Optional[str] = None,
     num_samples: int = 1,
     max_new_tokens: int = 50,
+    prompt_chunksize: int = 16,
     top_k: Optional[int] = 50,
     top_p: float = 1.0,
     temperature: float = 0.8,
@@ -158,6 +159,11 @@ def main(
         sys_prompt: The system prompt to use for generating the samples.
         num_samples: The number of text samples to generate.
         max_new_tokens: The number of generation steps to take.
+        prompt_chunksize: If even the shortest prompt is longer than the KV
+            cache, prompts are processed in chunks of this size in the
+            prefill phase. Once the shortest has been processed to the
+            end, we proceed with chunk size 1.
+            Defaults to 1, but larger values are recommended for long prompts.
         top_k: The number of top most probable tokens to consider in the sampling process.
         top_p: If specified, it represents the cumulative probability threshold to consider in the sampling process.
             In top-p sampling, the next token is sampled from the highest probability tokens
@@ -227,6 +233,7 @@ def main(
     # still, use init_tensor for the precision
     with fabric.init_tensor(), torch.device("meta"):
         model = GPT(config)
+        model.set_kv_caches(batch_size=1)
     print(f"Time to instantiate model: {time.perf_counter() - t0:.02f} seconds.", file=sys.stderr)
 
     t0 = time.perf_counter()
@@ -253,26 +260,25 @@ def main(
         torch._inductor.config.coordinate_descent_tuning = True
         # cannot use cudagraphs because it doesn't support multiple device indices
         # https://github.com/pytorch/pytorch/blob/v2.2.0-rc5/torch/_inductor/compile_fx.py#L371-L375
-        generate_base.next_token = torch.compile(generate_base.next_token)
 
     L.seed_everything(1234)
     for i in range(num_samples):
         t0 = time.perf_counter()
         y = generate_base.generate(
-            model,
-            encoded,
-            max_returned_tokens,
+            model=model,
+            prompt=encoded,
+            max_returned_tokens=max_returned_tokens,
+            prompt_chunksize=prompt_chunksize,
             temperature=temperature,
             top_k=top_k,
             top_p=top_p,
             eos_id=tokenizer.eos_id,
         )
         t = time.perf_counter() - t0
-        for block in model.transformer.h:
-            block.attn.kv_cache.reset_parameters()
         print(tokenizer.decode(y))
         tokens_generated = y.size(0) - prompt_length
         print(
             f"Time for inference {i + 1}: {t:.02f} sec total, {tokens_generated / t:.02f} tokens/sec", file=sys.stderr
         )
+    model.clear_kv_caches()
     print(f"Memory used: {torch.cuda.max_memory_allocated() / 1e9:.02f} GB", file=sys.stderr)
