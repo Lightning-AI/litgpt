@@ -45,7 +45,7 @@ two matrices of a lower rank.
 
 import math
 from dataclasses import dataclass
-from typing import Any, Dict, List, Optional, Tuple, Type, Union
+from typing import Any, Dict, Tuple, Type, Union, Optional
 
 import torch
 import torch.nn as nn
@@ -481,60 +481,31 @@ class Config(BaseConfig):
 
 
 class GPT(BaseModel):
+    # Copy & paste from :class:`model.GPT`. Note that :class:`Block` is new here.
     def __init__(self, config: Config) -> None:
         nn.Module.__init__(self)
         assert config.padded_vocab_size is not None
         self.config = config
 
-        self.lm_head = LoRALinear(
+        self.lm_head = create_lora_linear(
+            config,
             config.n_embd,
             config.padded_vocab_size,
             bias=config.lm_head_bias,
-            r=(config.lora_r if config.lora_head else 0),
-            lora_alpha=config.lora_alpha,
-            lora_dropout=config.lora_dropout,
+            use_r=config.lora_head,
         )
         self.transformer = nn.ModuleDict(
             dict(
                 wte=nn.Embedding(config.padded_vocab_size, config.n_embd),
-                h=nn.ModuleList(Block(config, block_idx) for block_idx in range(config.n_layer)),
+                h=nn.ModuleList(
+                    Block(config, block_idx)
+                    for block_idx in range(config.n_layer)
+                ),
                 ln_f=config.norm_class(config.n_embd, eps=config.norm_eps),
             )
         )
-        self.max_seq_length = self.config.block_size
         self.mask_cache: Optional[torch.Tensor] = None
-
-    def forward(
-        self, idx: torch.Tensor, input_pos: Optional[torch.Tensor] = None, lm_head_chunk_size: int = 0
-    ) -> Union[torch.Tensor, List[torch.Tensor]]:
-        T = idx.size(1)
-        if self.max_seq_length < T:
-            raise ValueError(f"Cannot forward sequence of length {T}, max seq length is only {self.max_seq_length}.")
-
-        if input_pos is not None:  # use the kv cache
-            cos = self.cos.index_select(0, input_pos)
-            sin = self.sin.index_select(0, input_pos)
-            if self.mask_cache is None:
-                raise TypeError("You need to call `gpt.set_kv_cache()`")
-            mask = self.mask_cache.index_select(2, input_pos)
-        else:
-            cos = self.cos[:T]
-            sin = self.sin[:T]
-            mask = None
-
-        x = self.transformer.wte(idx)  # token embeddings of shape (b, t, n_embd)
-        if self.config.scale_embeddings:
-            x = x * (self.config.n_embd**0.5)
-        for block in self.transformer.h:
-            x = block(x, cos, sin, mask, input_pos)
-        x = self.transformer.ln_f(x)
-        if lm_head_chunk_size > 0:
-            # chunk the lm head logits to reduce the peak memory used by autograd
-            return [self.lm_head(x_i) for x_i in x.split(lm_head_chunk_size, dim=1)]
-        x = self.lm_head(x)  # (b, t, vocab_size)
-        if self.config.final_logit_softcapping is not None:
-            x = torch.tanh(x / self.config.final_logit_softcapping) * self.config.final_logit_softcapping
-        return x
+        self.max_seq_length = self.config.block_size
 
     @classmethod
     def from_name(cls, name: str, **kwargs: Any) -> Self:
@@ -555,33 +526,16 @@ class GPT(BaseModel):
 
 class Block(BaseBlock):
     def __init__(self, config: Config, block_idx: int) -> None:
-        nn.Module.__init__(self)
-        if not config.parallel_residual and config.shared_attention_norm:
-            raise NotImplementedError(
-                "No checkpoint amongst the ones we support uses this configuration:"
-                " non-parallel residual and shared attention norm."
-            )
-        self.norm_1 = config.norm_class(config.n_embd, eps=config.norm_eps)
+        super().__init__(config, block_idx)
         self.attn = CausalSelfAttention(config, block_idx)
-        self.post_attention_norm = (
-            config.norm_class(config.n_embd, eps=config.norm_eps) if config.post_attention_norm else nn.Identity()
-        )
-        self.norm_2 = None if config.shared_attention_norm else config.norm_class(config.n_embd, eps=config.norm_eps)
         self.mlp = config.mlp_class(config)
-        self.post_mlp_norm = (
-            config.norm_class(config.n_embd, eps=config.norm_eps) if config.post_mlp_norm else nn.Identity()
-        )
-
-        self.config = config
 
 
 class CausalSelfAttention(BaseCausalSelfAttention):
     def __init__(self, config: Config, block_idx: int) -> None:
-        # Skip the parent class __init__ altogether and replace it to avoid
-        # useless allocations
-        nn.Module.__init__(self)
-        shape = (config.n_head + 2 * config.n_query_groups) * config.head_size
+        super().__init__(config, block_idx)
         # key, query, value projections for all heads, but in a batch
+        shape = (config.n_head + 2 * config.n_query_groups) * config.head_size
         self.qkv = LoRAQKVLinear(
             in_features=config.n_embd,
             out_features=shape,
@@ -596,23 +550,12 @@ class CausalSelfAttention(BaseCausalSelfAttention):
             n_query_groups=config.n_query_groups,
         )
         # output projection
-        # if `head_size` is explicitly specified in the config, `n_emd` might not be equal to `head_size * n_head`
-        self.proj = LoRALinear(
+        self.proj = create_lora_linear(
+            config,
             config.head_size * config.n_head,
             config.n_embd,
-            bias=config.bias,
-            r=(config.lora_r if config.lora_projection else 0),
-            lora_alpha=config.lora_alpha,
-            lora_dropout=config.lora_dropout,
+            use_r=config.lora_projection,
         )
-        # disabled by default
-        self.kv_cache: Optional[KVCache] = None
-        self.apply_sliding_window_attention = (
-            config.sliding_window_size is not None and
-            block_idx % config.sliding_window_layer_stride == 0
-        )
-
-        self.config = config
 
     def _load_from_state_dict(self, state_dict: Dict, prefix: str, *args: Any, **kwargs: Any) -> None:
         """For compatibility with base and/or legacy checkpoints."""
@@ -633,26 +576,36 @@ class CausalSelfAttention(BaseCausalSelfAttention):
         super()._load_from_state_dict(state_dict, prefix, *args, **kwargs)
 
 
+def create_lora_linear(
+    config: Config,
+    in_size: int,
+    out_size: int,
+    bias: Optional[Union[float, bool]] = None,
+    use_r: Optional[bool] = None,
+) -> LoRALinear:
+    if bias is None:
+        bias = config.bias
+    if use_r is None:
+        use_r = config.lora_mlp
+    return LoRALinear(
+        in_size,
+        out_size,
+        bias=bias,
+        r=(config.lora_r if use_r else 0),
+        lora_alpha=config.lora_alpha,
+        lora_dropout=config.lora_dropout,
+    )
+
+
 class GptNeoxMLP(litgpt.model.GptNeoxMLP):
     def __init__(self, config: Config) -> None:
         nn.Module.__init__(self)
-        self.fc = LoRALinear(
-            config.n_embd,
-            config.intermediate_size,
-            bias=config.bias,
-            r=(config.lora_r if config.lora_mlp else 0),
-            lora_alpha=config.lora_alpha,
-            lora_dropout=config.lora_dropout,
+        self.fc = create_lora_linear(
+            config, config.n_embd, config.intermediate_size
         )
-        self.proj = LoRALinear(
-            config.intermediate_size,
-            config.n_embd,
-            bias=config.bias,
-            r=(config.lora_r if config.lora_mlp else 0),
-            lora_alpha=config.lora_alpha,
-            lora_dropout=config.lora_dropout,
+        self.proj = create_lora_linear(
+            config, config.intermediate_size, config.n_embd
         )
-
         self.config = config
 
     def _load_from_state_dict(self, state_dict: Dict, prefix: str, *args: Any, **kwargs: Any) -> None:
@@ -670,31 +623,15 @@ class GptNeoxMLP(litgpt.model.GptNeoxMLP):
 class LLaMAMLP(litgpt.model.LLaMAMLP):
     def __init__(self, config: Config) -> None:
         nn.Module.__init__(self)
-        self.fc_1 = LoRALinear(
-            config.n_embd,
-            config.intermediate_size,
-            bias=config.bias,
-            r=(config.lora_r if config.lora_mlp else 0),
-            lora_alpha=config.lora_alpha,
-            lora_dropout=config.lora_dropout,
+        self.fc_1 = create_lora_linear(
+            config, config.n_embd, config.intermediate_size
         )
-        self.fc_2 = LoRALinear(
-            config.n_embd,
-            config.intermediate_size,
-            bias=config.bias,
-            r=(config.lora_r if config.lora_mlp else 0),
-            lora_alpha=config.lora_alpha,
-            lora_dropout=config.lora_dropout,
+        self.fc_2 = create_lora_linear(
+            config, config.n_embd, config.intermediate_size
         )
-        self.proj = LoRALinear(
-            config.intermediate_size,
-            config.n_embd,
-            bias=config.bias,
-            r=(config.lora_r if config.lora_mlp else 0),
-            lora_alpha=config.lora_alpha,
-            lora_dropout=config.lora_dropout,
+        self.proj = create_lora_linear(
+            config, config.intermediate_size, config.n_embd
         )
-
         self.config = config
 
     def _load_from_state_dict(self, state_dict: Dict, prefix: str, *args: Any, **kwargs: Any) -> None:
@@ -722,16 +659,10 @@ class GemmaMLP(LLaMAMLP):
 class LLaMAMoE(litgpt.model.LLaMAMoE):
     def __init__(self, config: Config) -> None:
         nn.Module.__init__(self)
-        self.gate = LoRALinear(
-            config.n_embd,
-            config.n_expert,
-            bias=False,
-            r=(config.lora_r if config.lora_mlp else 0),
-            lora_alpha=config.lora_alpha,
-            lora_dropout=config.lora_dropout,
+        self.gate = create_lora_linear(
+            config, config.n_embd, config.n_expert, bias=False
         )
         self.experts = nn.ModuleList(LLaMAMLP(config) for _ in range(config.n_expert))
-
         self.config = config
 
     def _load_from_state_dict(self, state_dict: Dict, prefix: str, *args: Any, **kwargs: Any) -> None:
