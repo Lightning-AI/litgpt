@@ -377,7 +377,9 @@ class LLM(torch.nn.Module):
                     kv_cache_size = model.max_seq_length
                 else:
                     kv_cache_size = fixed_kv_cache_size
-                model.set_kv_cache(batch_size=1, max_seq_length=kv_cache_size, device=fabric.device)
+                model.set_kv_cache(
+                    batch_size=1, max_seq_length=kv_cache_size, device=fabric.device,
+                )
                 self.kv_cache_initialized = True
                 self.fixed_kv_cache_size = fixed_kv_cache_size
 
@@ -504,15 +506,18 @@ class LLM(torch.nn.Module):
                 device = self.fabric.device
             else:
                 device = self.preprocessor.device
-            self.model.set_kv_cache(batch_size=1, max_seq_length=max_returned_tokens, device=device)
+            self.model.set_kv_cache(
+                batch_size=1, max_seq_length=max_returned_tokens, device=device,
+            )
             self.kv_cache_initialized = True
 
         # Dynamically grow the kv cache size if necessary
         if not self.fixed_kv_cache_size and self.prev_generated_seq_length < max_returned_tokens:
-            tmp_device = self.model.mask_cache.device
+            tmp_device = self.model.mha.mask_cache.device
             self.model.clear_kv_cache()
-            self.model.set_kv_cache(batch_size=1, max_seq_length=max_returned_tokens, device=tmp_device)
-
+            self.model.set_kv_cache(
+                batch_size=1, max_seq_length=max_returned_tokens, device=tmp_device,
+            )
         else:
             for block in self.model.transformer.h:
                 block.attn.kv_cache.reset_parameters()
