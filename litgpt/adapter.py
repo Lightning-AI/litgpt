@@ -19,6 +19,7 @@ from litgpt.config import Config as BaseConfig
 from litgpt.model import GPT as BaseModel
 from litgpt.model import Block as BaseBlock
 from litgpt.model import CausalSelfAttention as BaseCausalSelfAttention
+from litgpt.kvcache.base import KVCache, KeysAndValues, DefaultKeysAndValues
 
 
 @dataclass
@@ -49,6 +50,7 @@ class GPT(BaseModel):
         )
         self.mask_cache: Optional[torch.Tensor] = None
         self.max_seq_length = self.config.block_size
+        self._default_kv_cache = False
 
     @classmethod
     def from_name(cls, name: str, **kwargs: Any) -> Self:
@@ -62,17 +64,27 @@ class GPT(BaseModel):
 
 
 class Block(BaseBlock):
-    def __init__(self, config: Config, block_idx: int) -> None:
-        super().__init__(config, block_idx)
-        self.attn = CausalSelfAttention(config, block_idx)
+    def __init__(
+        self,
+        config: Config,
+        block_idx: int,
+        kv_cache: Optional[KVCache] = None,
+    ) -> None:
+        super().__init__(config, block_idx, kv_cache)
+        self.attn = CausalSelfAttention(config, block_idx, kv_cache=kv_cache)
 
 
 class CausalSelfAttention(BaseCausalSelfAttention):
     """A modification of `litgpt.model.CausalSelfAttention` that adds the attention
     over the adaption prompt."""
 
-    def __init__(self, config: Config, block_idx: int) -> None:
-        super().__init__(config, block_idx)
+    def __init__(
+        self,
+        config: Config,
+        block_idx: int,
+        kv_cache: Optional[KVCache] = None,
+    ) -> None:
+        super().__init__(config, block_idx, kv_cache)
         if block_idx >= config.adapter_start_layer:
             # adapter embedding layer
             self.adapter_wte = nn.Embedding(config.adapter_prompt_length, config.n_embd)
@@ -82,11 +94,16 @@ class CausalSelfAttention(BaseCausalSelfAttention):
             self.adapter_kv_cache: Optional[Tuple[torch.Tensor, torch.Tensor]] = None
 
     def scaled_dot_product_attention(
-        self, q: torch.Tensor, k: torch.Tensor, v: torch.Tensor, mask: Optional[torch.Tensor] = None
-    ) -> torch.Tensor:
-        y = super().scaled_dot_product_attention(q, k, v, mask)
+        self,
+        q: torch.Tensor,
+        k_and_v: KeysAndValues,
+        mask: Optional[torch.Tensor] = None,
+        is_causal: bool = True,
+        return_scores: bool = False,
+    ) -> Tuple[torch.Tensor, Optional[torch.Tensor]]:
+        y, scores = super().scaled_dot_product_attention(q, k_and_v, mask, is_causal, return_scores)
         if self.block_idx < self.config.adapter_start_layer:
-            return y
+            return y, scores
 
         aT = self.config.adapter_prompt_length
         if self.adapter_kv_cache is not None:
@@ -110,8 +127,14 @@ class CausalSelfAttention(BaseCausalSelfAttention):
 
         T = q.size(2)
         amask = torch.ones(T, aT, dtype=torch.bool, device=q.device)
-        ay = super().scaled_dot_product_attention(q, ak, av, amask)
-        return y + self.gating_factor * ay
+        a_k_and_v = DefaultKeysAndValues(keys=ak, values=av)
+        ay, _ = super().scaled_dot_product_attention(
+            q=q,
+            k_and_v=a_k_and_v,
+            mask=amask,
+            is_causal=False,
+        )
+        return y + self.gating_factor * ay, scores
 
     def reset_parameters(self) -> None:
         if hasattr(self, "gating_factor"):
