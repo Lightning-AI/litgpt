@@ -15,7 +15,9 @@ import torch
 import torch.nn as nn
 from typing_extensions import Self
 
+from litgpt.attention import DefaultKeysAndValues, MultiHeadSelfAttention
 from litgpt.config import Config as BaseConfig
+from litgpt.kvcache.base import KVCache
 from litgpt.model import GPT as BaseModel
 from litgpt.model import Block as BaseBlock
 from litgpt.model import CausalSelfAttention as BaseCausalSelfAttention
@@ -34,7 +36,11 @@ class GPT(BaseModel):
         assert config.padded_vocab_size is not None
         self.config = config
 
-        self.lm_head = nn.Linear(config.n_embd, config.padded_vocab_size, bias=config.lm_head_bias)
+        self.lm_head = nn.Linear(
+            config.n_embd,
+            config.padded_vocab_size,
+            bias=config.lm_head_bias,
+        )
         self.transformer = nn.ModuleDict(
             dict(
                 wte=nn.Embedding(config.padded_vocab_size, config.n_embd),
@@ -42,8 +48,11 @@ class GPT(BaseModel):
                 ln_f=config.norm_class(config.n_embd, eps=config.norm_eps),
             )
         )
-        self.mask_cache: Optional[torch.Tensor] = None
+        self.mha = MultiHeadSelfAttention(config)
         self.max_seq_length = self.config.block_size
+        self._start_of_layer_hook = config.start_of_layer_hook
+        # Have dense KV caches been created by `set_kv_cache`?
+        self._default_kv_cache = False
 
     @classmethod
     def from_name(cls, name: str, **kwargs: Any) -> Self:
@@ -57,18 +66,33 @@ class GPT(BaseModel):
 
 
 class Block(BaseBlock):
-    def __init__(self, config: Config, block_idx: int) -> None:
-        super().__init__(config, block_idx)
-        self.attn = CausalSelfAttention(config, block_idx)
+    def __init__(
+        self,
+        config: Config,
+        block_idx: int,
+        kv_cache: Optional[KVCache] = None,
+    ) -> None:
+        super().__init__(config, block_idx, kv_cache)
+        self.attn = CausalSelfAttention(config, block_idx, kv_cache=kv_cache)
 
 
 class CausalSelfAttention(BaseCausalSelfAttention):
     """A modification of `litgpt.model.CausalSelfAttention` that adds the attention
     over the adaption prompt."""
 
-    def __init__(self, config: Config, block_idx: int) -> None:
-        super().__init__(config, block_idx)
-        if block_idx >= config.adapter_start_layer:
+    def __init__(
+        self,
+        config: Config,
+        block_idx: int,
+        kv_cache: Optional[KVCache] = None,
+    ) -> None:
+        super().__init__(
+            config=config,
+            block_idx=block_idx,
+            kv_cache=kv_cache,
+        )
+        self._extend_forward = block_idx >= config.adapter_start_layer
+        if self._extend_forward:
             # adapter embedding layer
             self.adapter_wte = nn.Embedding(config.adapter_prompt_length, config.n_embd)
             # gate for adaption
@@ -76,37 +100,46 @@ class CausalSelfAttention(BaseCausalSelfAttention):
             # kv cache for inference
             self.adapter_kv_cache: Optional[Tuple[torch.Tensor, torch.Tensor]] = None
 
-    def scaled_dot_product_attention(
-        self, q: torch.Tensor, k: torch.Tensor, v: torch.Tensor, mask: Optional[torch.Tensor] = None
+    def _transform_output(
+        self,
+        y: torch.Tensor,
+        query: torch.Tensor,
+        mha: MultiHeadSelfAttention,
     ) -> torch.Tensor:
-        y = super().scaled_dot_product_attention(q, k, v, mask)
-        if self.block_idx < self.config.adapter_start_layer:
-            return y
+        if self._extend_forward:
+            B, T, _ = y.shape
+            y = y.view(B, T, self.config.n_head, self.config.head_size)
+            aT = self.config.adapter_prompt_length
+            if self.adapter_kv_cache is not None:
+                # since this uses the wte weights as the prefix and the kv cache is only used during inference, ak and av
+                # are the same every call
+                ak, av = self.adapter_kv_cache
+            else:
+                prefix = self.adapter_wte.weight.reshape(1, aT, self.config.n_embd)
+                aqkv = self.qkv(prefix)
+                q_per_kv = self.config.n_head // self.config.n_query_groups
+                aqkv = aqkv.view(1, aT, self.config.n_query_groups, q_per_kv + 2, self.config.head_size)
+                aqkv = aqkv.permute(0, 2, 3, 1, 4)
+                _, ak, av = aqkv.split((q_per_kv, 1, 1), dim=2)
+                if self.config.n_query_groups != 1:
+                    # for MHA this is a no-op
+                    ak = ak.repeat_interleave(q_per_kv, dim=2)
+                    av = av.repeat_interleave(q_per_kv, dim=2)
+                ak = ak.view(1, -1, aT, self.config.head_size)  # (1, nh_ak, aT, hs)
+                av = av.view(1, -1, aT, self.config.head_size)  # (1, nh_av, aT, hs)
+                self.adapter_kv_cache = (ak, av)
 
-        aT = self.config.adapter_prompt_length
-        if self.adapter_kv_cache is not None:
-            # since this uses the wte weights as the prefix and the kv cache is only used during inference, ak and av
-            # are the same every call
-            ak, av = self.adapter_kv_cache
-        else:
-            prefix = self.adapter_wte.weight.reshape(1, aT, self.config.n_embd)
-            aqkv = self.qkv(prefix)
-            q_per_kv = self.config.n_head // self.config.n_query_groups
-            aqkv = aqkv.view(1, aT, self.config.n_query_groups, q_per_kv + 2, self.config.head_size)
-            aqkv = aqkv.permute(0, 2, 3, 1, 4)
-            _, ak, av = aqkv.split((q_per_kv, 1, 1), dim=2)
-            if self.config.n_query_groups != 1:
-                # for MHA this is a no-op
-                ak = ak.repeat_interleave(q_per_kv, dim=2)
-                av = av.repeat_interleave(q_per_kv, dim=2)
-            ak = ak.view(1, -1, aT, self.config.head_size)  # (1, nh_ak, aT, hs)
-            av = av.view(1, -1, aT, self.config.head_size)  # (1, nh_av, aT, hs)
-            self.adapter_kv_cache = (ak, av)
+            amask = torch.ones(T, aT, dtype=torch.bool, device=query.device)
+            a_k_and_v = DefaultKeysAndValues(keys=ak, values=av)
+            ay, _ = mha.scaled_dot_product_attention(
+                query=query,
+                k_and_v=a_k_and_v,
+                mask=amask,
+                is_causal=False,
+            )
+            y = (y + self.gating_factor * ay).view(B, T, -1)
 
-        T = q.size(2)
-        amask = torch.ones(T, aT, dtype=torch.bool, device=q.device)
-        ay = super().scaled_dot_product_attention(q, ak, av, amask)
-        return y + self.gating_factor * ay
+        return y
 
     def reset_parameters(self) -> None:
         if hasattr(self, "gating_factor"):

@@ -75,34 +75,50 @@ def sample(
 
 def next_token(
     model: GPT,
-    input_pos: torch.Tensor,
     x: torch.Tensor,
-    input_pos_maxp1: Optional[int] = None,
+    input_pos: Optional[int],
     **sample_kwargs: Dict[str, Any],
 ) -> torch.Tensor:
-    logits = model(x, input_pos, input_pos_maxp1=input_pos_maxp1)
+    logits = model(x, input_pos=input_pos)
     _next = sample(logits, **sample_kwargs).to(dtype=torch.int64)
     return _next
 
 
-def batched_sample(logits: list[torch.Tensor], kwargs: list[dict]) -> torch.Tensor:
-    assert len(logits) == len(kwargs), "logits and kwargs must have the same length."
+def batched_sample(
+    logits_stack: torch.Tensor,
+    kwargs: Union[dict, list[dict]],
+) -> torch.Tensor:
+    # Unbind the logits stack into a list of logits.
+    logits = [logits_stack] if logits_stack.ndim == 1 else logits_stack.unbind(0)
+    logits = [l.unsqueeze(0) for l in logits]
+    _kwargs = kwargs if isinstance(kwargs, list) else [kwargs] * len(logits)
+    assert len(logits) == len(_kwargs), "logits and kwargs must have the same length."
     return torch.stack(
-        [sample(l, **sample_args).to(dtype=torch.int64) for sample_args, l in zip(kwargs, logits)], dim=0
+        [sample(l, **sample_args).to(dtype=torch.int64) for sample_args, l in zip(_kwargs, logits)], dim=0
     )
 
 
 def batched_next_token(
-    model: GPT, input_pos: torch.Tensor, x: torch.Tensor, kwargs: Union[dict, list[dict]]
+    model: GPT,
+    x: torch.Tensor,
+    input_pos: Optional[int],
+    kwargs: Union[dict, list[dict]],
 ) -> torch.Tensor:
-    # Where:
-    # input_pos is a 1d tensor of shape [seq_length...]
-    # x is context tokens to add to the kvcache.
-    # For prefill, x is a 2d tensor of shape [batch_size, prompt_length].
-    # For subsequent tokens, x is a 2d tensor of shape [batch_size, 1].
-    # kwargs is a list of dictionaries, each containing the keyword arguments for the sample function.
-    # If one dictionary is passed, it's repeated for each sample in the batch.
+    """
 
+    Args:
+        model: GPT model. If `input_pos` is not `None`, its KV caches must be
+            assigned
+        x: Context tokens to be used as input, shape `(batch_size, num)`. When
+            used to sample new tokens, we have `num == 1`.
+        input_pos: Position of `x` in the full sequence. See
+            :meth:`GPT.forward`
+        kwargs: Sampling parameters (can be different for each batch dimension)
+
+    Returns:
+        New samples corresponding to inputs `x`
+
+    """
     # In the future, we would like input_pos to be a 2d tensor of shape [batch_size, seq_length].
     # That way, we can support prompts of different sizes.
     # This means making the rope cache and kvcache forward() work with batches. Currently, they do not.
@@ -113,17 +129,11 @@ def batched_next_token(
     # After this problem is resolved, there will be another problem. That being, continuous batched prefill.
     # If you have any ideas on this, let me know. I don't think that padding input_pos is viable.
 
-    _kwargs = kwargs if isinstance(kwargs, list) else [kwargs] * x.size(0)
-
     # Run the model on the batch.
-    logits_stack = model(x, input_pos)
-
-    # Unbind the logits stack into a list of logits.
-    logits_list = [logits_stack] if logits_stack.ndim == 1 else logits_stack.unbind(0)
-    logits_list = [l.unsqueeze(0) for l in logits_list]
+    logits_stack = model(x, input_pos=input_pos)
 
     # Return the next token for each sample in the batch.
-    return batched_sample(logits_list, kwargs=_kwargs)
+    return batched_sample(logits_stack, kwargs=kwargs)
 
 
 @torch.inference_mode()
@@ -131,6 +141,7 @@ def generate_fn(
     model: GPT,
     prompt: torch.Tensor,
     max_returned_tokens: int,
+    prompt_chunksize: int = 16,
     *,
     temperature: float = 1.0,
     top_k: Optional[int] = None,
@@ -146,6 +157,10 @@ def generate_fn(
         model: The model to use.
         prompt: The tokenized prompt to generate from.
         max_returned_tokens: The maximum number of new tokens to return. Does not include the prompt tokens.
+        prompt_chunksize: If the prompt is longer than the KV cache length,
+            prompts are processed in chunks of this size in the prefill phase.
+            The larger, the faster the prompt is processed, but a large chunk
+            size may lead to suboptimal cache decisions.
         temperature: The temp to pass to sample().
         top_k: The top_k to pass to sample().
         top_p: The top_p to pass to sample().
@@ -155,7 +170,13 @@ def generate_fn(
     """
 
     prompt_size = prompt.size(0)
-    device = prompt.device
+    if prompt_size == 0:
+        raise ValueError("prompt must not be empty")
+    sample_kwargs = dict(
+        temperature=temperature,
+        top_k=top_k,
+        top_p=top_p,
+    )
 
     assert max_returned_tokens > prompt_size, (
         f"Not enough space for {prompt_size} prompt tokens in a context length of {max_returned_tokens}."
@@ -167,31 +188,44 @@ def generate_fn(
     if include_prompt:
         yield prompt
 
+    # Prompt processing. The first part of the prompt (possibly all of it)
+    # is processed with a prefill. If the prompt is larger than the KV
+    # cache length, we need to use sequential processing after that.
+    max_prefill_length = model.kv_cache_max_prefill_length()
+    if max_prefill_length is None:
+        end = prompt_size
+    else:
+        end = min(prompt_size, max_prefill_length)
+    input_pos = 0
+    while input_pos < prompt_size:
+        inputs = prompt[input_pos:end].view(1, -1)
+        # We may need the last time slice of `all_logits` below:
+        all_logits = model(inputs, input_pos=input_pos)
+        input_pos = end
+        # Note that `max_tokens_forward` can change during the course of
+        # prompt processing:
+        chunksize = min((prompt_chunksize, model.kv_cache_max_tokens_forward(), prompt_size - input_pos))
+        end += chunksize
+
+    # Generation loop: One token per iteration
+    tokens = []
     stop_progress = [0] * len(stop_tokens)
     yielded_idx = 0
-
-    # Generate output tokens.
-    # The first token generated is the prefill token.
-    # The input_pos for this token is the width of the entire prompt.
-    # For subsequent iterations, it's the index in the context for the token that we're generating.
-    tokens = []
-    token = prompt
-    prefill_token = True
-    input_pos = torch.arange(0, prompt_size, device=device, dtype=torch.int64)
-    # input_pos_maxp1 introduces data-dependent shapes and control flow.
-    # We want to skip if ThunderModules are involved, either directly or wrapped in LightningModule etc.
-    input_pos_maxp1 = prompt_size if all(m.__class__.__name__ != "ThunderModule" for m in model.modules()) else None
     for current_idx in range(max_returned_tokens - prompt_size):
         # Generate the token
-        token = next_token(
-            model,
-            input_pos,
-            token.view(1, -1),
-            input_pos_maxp1=input_pos_maxp1,
-            temperature=temperature,
-            top_k=top_k,
-            top_p=top_p,
-        )
+        if current_idx == 0:
+            # First token sampled from the final logits output for prompt
+            # processing
+            token = sample(all_logits, **sample_kwargs).to(dtype=torch.int64)
+            all_logits = None
+        else:
+            token = next_token(
+                model=model,
+                x=token.view(1, -1),
+                input_pos=input_pos,
+                **sample_kwargs,
+            )
+            input_pos += 1
         tokens.append(token)
         int_token = token.item()
 
@@ -221,15 +255,6 @@ def generate_fn(
             yield from y_tokens
             yielded_idx = safe_idx
 
-        # Update input_pos for the next iteration.
-        if prefill_token:
-            prefill_token = False
-            input_pos = torch.tensor([prompt_size], device=device, dtype=torch.int64)
-        else:
-            input_pos.add_(1)
-        if input_pos_maxp1 is not None:
-            input_pos_maxp1 += 1
-
     # Yield any remaining tokens
     if yielded_idx < len(tokens):
         yield from tokens[yielded_idx:]
@@ -242,6 +267,7 @@ def batched_generate_fn(
     model: GPT,
     prompts: torch.Tensor,
     max_returned_tokens: int,
+    prompt_chunksize: int = 16,
     *,
     sample_args: Union[list[dict], dict],
     stop_tokens: Tuple[List[int], ...] = (),
@@ -253,10 +279,18 @@ def batched_generate_fn(
 
     Args:
         model: The model to use.
-        prompts: A 2D tensor of shape [batch_size, prompt_length].
-        max_returned_tokens: The maximum number of tokens to return, including the prompt tokens.
-        sample_args: The dictionary of kwargs to pass to sample() for each each token for each index in the batch.
-        stop_tokens: A tuple of stop sequences. If any of the sequences are generated, the generation stops early before max_returned_tokens.
+        prompts: A 2D tensor of shape [batch_size, prompt_length]. Note that
+            all prompts need to have the same length (TODO: Relax this)
+        max_returned_tokens: The maximum number of tokens to return, including
+            the prompt tokens.
+        prompt_chunksize: If the prompt is longer than the KV cache length,
+            prompts are processed in chunks of this size in the prefill phase.
+            The larger, the faster the prompt is processed, but a large chunk
+            size may lead to suboptimal cache decisions.
+        sample_args: The dictionary of kwargs to pass to sample() for each
+            token for each index in the batch.
+        stop_tokens: A tuple of stop sequences. If any of the sequences are
+            generated, the generation stops early before max_returned_tokens.
         include_prompt: Whether to output the prompt tokens.
         include_eos: Whether to output the stop tokens if generation stops early.
 
@@ -268,12 +302,11 @@ def batched_generate_fn(
         prompts = prompts.unsqueeze(0)
     assert prompts.ndim == 2, "Prompts must be a 2D tensor."
 
-    batch_size = prompts.size(0)
-    max_prompt_size = prompts.size(1)
+    batch_size, max_prompt_size = prompts.shape
     device = prompts.device
 
     if isinstance(sample_args, dict):
-        sample_args = [sample_args] * len(prompts)
+        sample_args = [sample_args] * batch_size
     else:
         assert len(sample_args) == batch_size, "sample_args must have the length as the batch size."
 
@@ -290,22 +323,42 @@ def batched_generate_fn(
         for i in range(max_prompt_size):
             yield [prompt[i].view(-1) for prompt in prompts]
 
+    # Prompt processing. The first part of the prompt (possibly all of it)
+    # is processed with a prefill. If the prompt is larger than the KV
+    # cache length, we need to use sequential processing after that.
+    max_prefill_length = model.kv_cache_max_prefill_length()
+    if max_prefill_length is None:
+        end = max_prompt_size
+    else:
+        end = min(max_prompt_size, max_prefill_length)
+    input_pos = 0
+    while input_pos < max_prompt_size:
+        inputs = prompts[:, input_pos:end]
+        # We may need the last time slice of `all_logits` below:
+        all_logits = model(inputs, input_pos=input_pos)
+        input_pos = end
+        # Note that `max_tokens_forward` can change during the course of
+        # prompt processing:
+        chunksize = min((prompt_chunksize, model.kv_cache_max_tokens_forward(), max_prompt_size - input_pos))
+        end += chunksize
+
     stop_progresses = [[0] * len(stop_tokens) for _ in range(batch_size)]  # [batch_size, ~len(stop_tokens)]
     stop_idxes = [-1] * batch_size
     yielded_idx = 0
 
-    # Generate output tokens.
-    # The first token generated is the prefill token.
-    # The input_pos for this token is the width of the entire prompt.
-    # For subsequent iterations, it's the index in the context for the token that we're generating.
+    # Generation loop: One token per iteration
     token_lists = [[] for _ in range(batch_size)]
-    tokens: torch.Tensor = prompts
-    prefill_token = True
-    input_pos = torch.arange(0, max_prompt_size, device=device, dtype=torch.int64)
     for current_idx in range(max_returned_tokens - max_prompt_size):
-        # Generate the next token for each prompt in the batch.
-        # This is of shape [batch_size, 1].
-        tokens = batched_next_token(model, input_pos, tokens, sample_args)
+        if current_idx == 0:
+            tokens = batched_sample(all_logits[:, -1:], kwargs=sample_args)
+        else:
+            tokens = batched_next_token(
+                model=model,
+                x=tokens,
+                input_pos=input_pos,
+                kwargs=sample_args,
+            )
+        input_pos += 1
         for i in range(batch_size):
             token_lists[i].append(tokens[i])
         int_tokens = [token.item() for token in tokens]
@@ -347,16 +400,6 @@ def batched_generate_fn(
                 yield y_tokens
             yielded_idx = safe_idx
 
-        # Update input_pos for the next iteration.
-        if prefill_token:
-            prefill_token = False
-
-            # TODO: Make the model support a batched input_pos of shape [batch_size, 1].
-            # The kvcache has been fixed, but the rope cache is still broken.
-            input_pos = torch.tensor([max_prompt_size], device=device, dtype=torch.int64)
-        else:
-            input_pos.add_(1)
-
     # Yield any remaining tokens
     max_token_lists = max(len(l) for l in token_lists)
     if yielded_idx < max_token_lists:
@@ -375,6 +418,7 @@ def generate(
     model: GPT,
     prompt: torch.Tensor,
     max_returned_tokens: int,
+    prompt_chunksize: int = 16,
     *,
     temperature: float = 1.0,
     top_k: Optional[int] = None,
@@ -390,6 +434,10 @@ def generate(
         model: The model to use.
         prompt: Tensor of shape (T) with indices of the prompt sequence.
         max_returned_tokens: The maximum number of tokens to return (given plus generated).
+        prompt_chunksize: If the prompt is longer than the KV cache length,
+            prompts are processed in chunks of this size in the prefill phase.
+            The larger, the faster the prompt is processed, but a large chunk
+            size may lead to suboptimal cache decisions.
         temperature: Scales the predicted logits by 1 / temperature.
         top_k: If specified, only sample among the tokens with the k highest probabilities.
         top_p: If specified, it represents the cumulative probability threshold to consider in the sampling process.
@@ -417,6 +465,7 @@ def generate(
             model=model,
             prompt=prompt,
             max_returned_tokens=max_returned_tokens,
+            prompt_chunksize=prompt_chunksize,
             temperature=temperature,
             top_k=top_k,
             top_p=top_p,
@@ -435,6 +484,7 @@ def main(
     sys_prompt: Optional[str] = None,
     num_samples: int = 1,
     max_new_tokens: int = 50,
+    prompt_chunksize: int = 16,
     top_k: Optional[int] = 50,
     top_p: float = 1.0,
     temperature: float = 0.8,
@@ -452,6 +502,10 @@ def main(
         sys_prompt: The system prompt to use for generating the samples.
         num_samples: The number of text samples to generate.
         max_new_tokens: The number of generation steps to take.
+        prompt_chunksize: If the prompt is longer than the KV cache length,
+            prompts are processed in chunks of this size in the prefill phase.
+            The larger, the faster the prompt is processed, but a large chunk
+            size may lead to suboptimal cache decisions.
         top_k: The number of top most probable tokens to consider in the sampling process.
         top_p: If specified, it represents the cumulative probability threshold to consider in the sampling process.
             In top-p sampling, the next token is sampled from the highest probability tokens
@@ -540,9 +594,10 @@ def main(
     for i in range(num_samples):
         t0 = time.perf_counter()
         y = generate(
-            model,
-            encoded,
-            max_returned_tokens,
+            model=model,
+            prompt=encoded,
+            max_returned_tokens=max_returned_tokens,
+            prompt_chunksize=prompt_chunksize,
             temperature=temperature,
             top_k=top_k,
             top_p=top_p,

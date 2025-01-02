@@ -3,7 +3,7 @@
 from copy import deepcopy
 from dataclasses import dataclass, field
 from pathlib import Path
-from typing import Any, List, Literal, Optional, Type, Union
+from typing import Any, Callable, List, Literal, Optional, Type, Union
 
 import torch
 import yaml
@@ -21,6 +21,12 @@ def find_multiple(n: int, k: int) -> int:
     if n % k == 0:
         return n
     return n + k - (n % k)
+
+# See `Config.start_of_layer_hook`. A start of layer hook is called just before
+# a layer is computed. The call is `hook(x, block_idx, input_pos)`, where
+# `x` is the layer input, `block_idx` the number of the layer, and `input_pos`
+# the position in the sequence (see :meth:`GPT.forward`).
+StartOfLayerHook = Callable[[torch.Tensor, int, Optional[int]], None]
 
 
 @dataclass
@@ -68,8 +74,13 @@ class Config:
     n_query_groups: Optional[int] = None
     attn_bias: bool = False
     attention_scores_scalar: Optional[int] = None
+    # If `sliding_window_size` is given, sliding window attention with this
+    # size is used in layers where `sliding_window_indices` has a 1. The
+    # default is all 1, so that sliding window attention is used in all
+    # layers. If `len(sliding_window_indices) > n_layer`, we only use the
+    # initial part.
     sliding_window_size: Optional[int] = None
-    sliding_window_indices: Optional[List] = None
+    sliding_window_indices: Optional[List[int]] = None
     # if `attention_logit_softcapping` is used, cannot use optimized
     # `torch.nn.functional.scaled_dot_product_attention` (which implements
     # Flash attention), may result in higher memory and runtime footprint.
@@ -92,9 +103,17 @@ class Config:
     lm_head_bias: bool = False
     final_logit_softcapping: Optional[float] = None
     # The base period of the RoPE embeddings for local attention.
-    # If not provided, rope_theta will be used for both local and global attention.
+    # If not provided, `rope_base` will be used for both local and global attention.
     rope_local_base_freq: Optional[float] = None
-    rope_indices: Optional[List] = None
+    # If provided, must have `>= n_layer` entries, either 0 or 1. For 0,
+    # `rope_base` is used, for 1 `rope_local_base_freq` is used. If
+    # `len(rope_indices) > n_layer`, we only use the initial part.
+    rope_indices: Optional[List[int]] = None
+    # This hook is called in `GPT.forward` at the start of each layer,
+    # passing the (detached) layer input, the layer index, and `input_pos`.
+    # It is also called with the final layer output (which is the input
+    # into the head block), passing `n_layer` as second argument.
+    start_of_layer_hook: Optional[StartOfLayerHook] = None
 
     def __post_init__(self):
         if not self.name:
@@ -125,11 +144,19 @@ class Config:
 
         self.rope_n_elem = int(self.rotary_percentage * self.head_size)
 
-        if self.sliding_window_size is not None and self.sliding_window_indices is None:
-            self.sliding_window_indices = [1] * self.n_layer
+        if self.sliding_window_size is not None:
+            self.sliding_window_indices = check_indicator_and_length(
+                self.sliding_window_indices,
+                name="sliding_window_indices",
+                required_length=self.n_layer,
+            )
 
-        if self.rope_local_base_freq is not None and self.rope_indices is None:
-            self.rope_indices = [1] * self.n_layer
+        if self.rope_local_base_freq is not None:
+            self.rope_indices = check_indicator_and_length(
+                self.rope_indices,
+                name="rope_indices",
+                required_length=self.n_layer,
+            )
 
     @classmethod
     def from_name(cls, name: str, **kwargs: Any) -> Optional[Self]:
@@ -194,6 +221,25 @@ class Config:
             return partial(torch.nn.LayerNorm, elementwise_affine=False)
 
         return getattr(torch.nn, self.norm_class_name)
+
+
+def check_indicator_and_length(
+    params: Optional[List[int]],
+    name: str,
+    required_length: int,
+    use_initial_part: bool = True,
+    def_val: int = 1,
+) -> List[int]:
+    if params is None:
+        return [def_val] * required_length
+    if len(params) != required_length:
+        if use_initial_part and len(params) > required_length:
+            params = params[:required_length]
+        else:
+            raise ValueError(f"{name} = {params}, must have length {required_length}")
+    if not set(params).issubset({0, 1}):
+        raise ValueError(f"{name} = {params}, must only contain 0 and 1")
+    return params
 
 
 ########################

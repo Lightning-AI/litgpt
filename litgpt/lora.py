@@ -53,7 +53,9 @@ from torch.nn import functional as F
 from typing_extensions import Self
 
 import litgpt
+from litgpt.attention import MultiHeadSelfAttention
 from litgpt.config import Config as BaseConfig
+from litgpt.kvcache.base import KVCache
 from litgpt.model import GPT as BaseModel
 from litgpt.model import Block as BaseBlock
 from litgpt.model import CausalSelfAttention as BaseCausalSelfAttention
@@ -496,8 +498,11 @@ class GPT(BaseModel):
                 ln_f=config.norm_class(config.n_embd, eps=config.norm_eps),
             )
         )
-        self.mask_cache: Optional[torch.Tensor] = None
+        self.mha = MultiHeadSelfAttention(config)
         self.max_seq_length = self.config.block_size
+        self._start_of_layer_hook = config.start_of_layer_hook
+        # Have dense KV caches been created by `set_kv_cache`?
+        self._default_kv_cache = False
 
     @classmethod
     def from_name(cls, name: str, **kwargs: Any) -> Self:
@@ -517,15 +522,25 @@ class GPT(BaseModel):
 
 
 class Block(BaseBlock):
-    def __init__(self, config: Config, block_idx: int) -> None:
-        super().__init__(config, block_idx)
-        self.attn = CausalSelfAttention(config, block_idx)
+    def __init__(
+        self,
+        config: Config,
+        block_idx: int,
+        kv_cache: Optional[KVCache] = None,
+    ) -> None:
+        super().__init__(config, block_idx, kv_cache)
+        self.attn = CausalSelfAttention(config, block_idx, kv_cache=kv_cache)
         self.mlp = config.mlp_class(config)
 
 
 class CausalSelfAttention(BaseCausalSelfAttention):
-    def __init__(self, config: Config, block_idx: int) -> None:
-        super().__init__(config, block_idx)
+    def __init__(
+        self,
+        config: Config,
+        block_idx: int,
+        kv_cache: Optional[KVCache] = None,
+    ) -> None:
+        super().__init__(config, block_idx, kv_cache)
         # key, query, value projections for all heads, but in a batch
         shape = (config.n_head + 2 * config.n_query_groups) * config.head_size
         self.qkv = LoRAQKVLinear(

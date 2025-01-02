@@ -6,7 +6,7 @@ Based on the nanoGPT implementation: https://github.com/karpathy/nanoGPT and
 https://github.com/EleutherAI/gpt-neox/tree/main/megatron/model.
 """
 
-import math
+from dataclasses import replace
 from functools import partial
 from typing import Any, List, Optional, Tuple, Union
 
@@ -15,17 +15,37 @@ import torch.nn as nn
 import torch.nn.functional as F
 from typing_extensions import Self
 
-from litgpt.config import Config
+from litgpt.attention import (
+    DefaultKeysAndValues,
+    MultiHeadSelfAttention,
+    do_softcapping,
+)
+from litgpt.config import Config, StartOfLayerHook
+from litgpt.kvcache import (
+    DenseKVCache,
+    KVCache,
+    KVCacheParams,
+)
 from litgpt.scripts.convert_hf_checkpoint import qkv_reassemble
+from litgpt.utils import batched_index_select
 
 
 class GPT(nn.Module):
     def __init__(self, config: Config) -> None:
+        """
+        Args:
+            config: Configuration parameters
+
+        """
         super().__init__()
         assert config.padded_vocab_size is not None
         self.config = config
 
-        self.lm_head = nn.Linear(config.n_embd, config.padded_vocab_size, bias=config.lm_head_bias)
+        self.lm_head = nn.Linear(
+            config.n_embd,
+            config.padded_vocab_size,
+            bias=config.lm_head_bias,
+        )
         self.transformer = nn.ModuleDict(
             dict(
                 wte=nn.Embedding(config.padded_vocab_size, config.n_embd),
@@ -33,8 +53,11 @@ class GPT(nn.Module):
                 ln_f=config.norm_class(config.n_embd, eps=config.norm_eps),
             )
         )
-        self.mask_cache: Optional[torch.Tensor] = None
-        self.max_seq_length = self.config.block_size
+        self.mha = MultiHeadSelfAttention(config)
+        self.max_seq_length = config.block_size
+        self._start_of_layer_hook = config.start_of_layer_hook
+        # Have dense KV caches been created by `set_kv_cache`?
+        self._default_kv_cache = False
 
     @property
     def max_seq_length(self) -> int:
@@ -43,8 +66,13 @@ class GPT(nn.Module):
     @max_seq_length.setter
     def max_seq_length(self, value: int) -> None:
         """
-        When doing inference, the sequences used might be shorter than the model's context length.
-        This allows setting a smaller number to avoid allocating unused memory
+        When doing inference, the sequences used might be shorter than the
+        model's context length. This allows setting a smaller number to avoid
+        allocating unused memory.
+
+        If KV caches are of type `DenseKVCache`, and they are too small to hold
+        `value` entries, a warning message is printed.
+
         """
         if value > self.config.block_size:
             raise ValueError(
@@ -52,24 +80,159 @@ class GPT(nn.Module):
                 " This is likely because the input text exceeds the supported context length of this model."
             )
         self._max_seq_length = value
+        # RoPE cache:
+        # `cos`, `sin` of shape `(max_seq_length, config.rope_n_elem)`
+        # More precisely, the RoPE cache is recomputed only if
+        # `max_seq_length` increases.
+        # Note: The RoPE cache is independent of KV caches, since positional
+        # encoding is done (on query and key vectors) before the KV cache
+        # gets involved (and the KV cache stores encoded key tensors).
         if not hasattr(self, "cos"):
             # first call
             cos, sin = self.rope_cache()
             self.register_buffer("cos", cos, persistent=False)
             self.register_buffer("sin", sin, persistent=False)
-        # override
-        elif value != self.cos.size(0):
+        elif self.cos.size(0) < value:
             self.cos, self.sin = self.rope_cache(device=self.cos.device)
-        # the mask and kv cache size will get updated on `set_kv_cache`. we cannot update it here because we don't know
-        # if the kv cache is expected
-        if self.mask_cache is not None and self.mask_cache.shape[-1] < value:
-            print(
-                f"Warning: KV cache has length {self.mask_cache.shape[-1]} < {value} = max_seq_length. Call 'set_kv_cache' before doing any forwards!"
-            )
+        # KV caches
+        # We do not change them here, but output a warning if default caches are
+        # too small
+        for l_ix, block in enumerate(self.transformer.h):
+            attn = block.attn
+            kv_cache = attn.kv_cache
+            if kv_cache is not None and isinstance(kv_cache, DenseKVCache) and kv_cache.cache_length < value:
+                print(
+                    f"KV cache for layer {l_ix} too small: Call 'set_kv_cache(batch_size={kv_cache.batch_size}, max_seq_length={value}) before inference"
+                )
+                break
+        # Multi-head attention
+        self.mha.set_seq_length(value, device=self.cos.device)
+
+    def are_kv_caches_assigned(self) -> bool:
+        status = [block.attn.kv_cache is not None for block in self.transformer.h]
+        result = any(status)
+        if result and not all(status):
+            raise IndexError("Some layers have KV caches assigned, but not all")
+        return result
+
+    def assign_kv_caches(self, kv_caches: List[KVCache]):
+        """
+        Assigns specific KV caches to the multi-head attention blocks
+        of each layer. This can only be done if no caches have been
+        assigned or created (see :meth:`set_kv_cache`) before.
+
+        KV caches are required for inference (i.e., calling :meth:`forward` with
+        `input_pos` argument). If no KV caches are assigned, inference calls
+        fail.
+
+        Args:
+            kv_caches: KV caches, one for each layer of the model
+
+        """
+        if self.are_kv_caches_assigned():
+            raise ValueError("Model has KV caches assigned already")
+        if len(kv_caches) != self.config.n_layer:
+            raise ValueError(f"kv_caches must have one entry per layer, so {self.config.n_layer} entries ")
+        for cache, block in zip(kv_caches, self.transformer.h):
+            self._check_kv_cache(self.config, cache)
+            block.attn.kv_cache = cache
+
+    def set_kv_cache(
+        self,
+        batch_size: int,
+        device: Optional[torch.device] = None,
+        dtype: Optional[torch.dtype] = None,
+        max_seq_length: Optional[int] = None,
+    ):
+        """
+        This method can be called only if KV caches have not been assigned
+        with :meth:`assign_kv_caches`. It creates default (dense) KV caches
+        for every layer. These may require a lot of memory. If this is an
+        issue, consider :meth:`assign_kv_caches` with KV caches of restricted
+        size.
+
+        KV caches are required for inference (i.e., calling :meth:`forward` with
+        `input_pos` argument). If no KV caches are assigned, inference calls
+        fail.
+
+        Args:
+            batch_size: Inference batch size
+            device: Device for buffers
+            dtype: Data type for buffers
+            max_seq_length: Cache length. If not given, we use
+                `self.max_seq_length`
+
+        """
+        if self.are_kv_caches_assigned() and not self._default_kv_cache:
+            raise ValueError("Model has KV caches assigned already")
+        if max_seq_length is None:
+            max_seq_length = self.max_seq_length
+        for block in self.transformer.h:
+            attn = block.attn
+            kv_cache = attn.kv_cache
+            if (
+                kv_cache is None
+                or kv_cache.batch_size != batch_size
+                or kv_cache.cache_length != max_seq_length
+                or kv_cache.device != device
+                or kv_cache.dtype != dtype
+            ):
+                if kv_cache is not None:
+                    device = kv_cache.device if device is None else device
+                    dtype = kv_cache.dtype if dtype is None else dtype
+                attn.create_default_kv_cache(
+                    batch_size=batch_size,
+                    device=device,
+                    dtype=dtype,
+                    max_sequence_length=max_seq_length,
+                )
+        self._default_kv_cache = True
 
     def reset_parameters(self) -> None:
         # Trigger resetting the rope-cache
         self.cos, self.sin = self.rope_cache(device=self.cos.device)
+        self.mha.set_seq_length(self.max_seq_length, device=self.cos.device)
+
+    def set_start_of_layer_hook(
+        self,
+        hook: Optional[StartOfLayerHook],
+    ):
+        """
+        Sets a function `hook(x, block_idx, input_pos)`, which is called
+        in :meth:`forward` at the start of each layer. Here, `x` is the
+        layer input, `block_idx` the number of the layer, and `input_pos`
+        the position in the sequence. The hook is called with the output
+        of the final layer (input of head model), where
+        `block_idx=self.config.n_layer`.
+
+        The default start of layer hook is `self.config.start_of_layer_hook`.
+        This is overwritten here.
+
+        Args:
+            hook: Hook function to be set, or `None` to remove hook
+
+        """
+        self._start_of_layer_hook = hook
+
+    @staticmethod
+    def _check_kv_cache(
+        config: Config,
+        kv_cache: KVCache,
+    ):
+        params = kv_cache.get_params()
+        if config.n_query_groups != params.n_query_groups:
+            raise ValueError(
+                f"config and kv_cache not compatible: config.n_query_groups = {config.n_query_groups} != {params.n_query_groups} = kv_cache.n_query_groups"
+            )
+        if config.n_head != params.n_head:
+            raise ValueError(
+                f"config and kv_cache not compatible: config.n_head = {config.n_head} != {params.n_head} = kv_cache.n_head"
+            )
+        head_size = config.n_embd // config.n_head
+        if head_size != params.head_size:
+            raise ValueError(
+                f"config and kv_cache not compatible: config.head_size = {head_size} != {params.head_size} = kv_cache.head_size"
+            )
 
     def _init_weights(self, module: nn.Module) -> None:
         """Meant to be used with `gpt.apply(gpt._init_weights)`."""
@@ -83,95 +246,133 @@ class GPT(nn.Module):
     def forward(
         self,
         idx: torch.Tensor,
-        input_pos: Optional[torch.Tensor] = None,
-        input_pos_maxp1: Optional[int] = None,
+        input_pos: Optional[int] = None,
         lm_head_chunk_size: int = 0,
+        skip_lm_head: bool = False,
     ) -> Union[torch.Tensor, List[torch.Tensor]]:
         """
-        If `input_pos` is provided, the KV cache uses K and V vectors for
-        positions smaller than entries in `input_pos`. For efficiency, pass
-        `input_pos_maxp1` as `max(input_pos) + 1` if already available from
-        your forward algorithm. This slices the KV cache buffers and speeds
-        up multi-head attention.
+        There are two different contexts in which this method is called:
 
-        Without `input_pos_maxp1`, the computation uses the full KV cache
-        (`max_seq_length`) with masking applied. Note that inferring
-        `input_pos_maxp1` from `input_pos` causes graph breaks and prevents
-        compilation.
+        - Training: `input_pos` not given. KV cache is not needed.
+        - Inference, `input_pos` is given. There are two cases: `input_pos=0`
+          (prefill) and `input_pos > 0` (generation). For prefill, KV caches
+          must have been assigned (:meth:`assign_kv_caches` or
+          :meth:`set_kv_cache`). We must have
+          `T <= model.kv_cache_max_prefill_length()`.
+        - For generation, KV caches must have been assigned
+          (:meth:`assign_kv_caches` or :meth:`set_kv_cache`). We check that
+          `input_pos == kv_cache.next_token_pos`. Note that `T > 1` is
+          permitted here as well.
+
+        Note: If this method is called with `input_pos=0` (prefill) after
+        generation calls, a new inference sequence is started. The batch
+        size for the new sequence can be different.
+
+        Token generation (`input_pos > 0`) and `T > 1`:
+
+        This situation is non-standard, since `idx` needs to provide tokens at
+        positions `input_pos:(input_pos + T)`, whereas the logits are for
+        generating tokens at `(input_pos + 1):(input_pos + T + 1)`, so only the
+        last position is needed to generate a new token. Use cases:
+        - Updating KV caches sequentially if prompt size is larger than max
+          prefill length of cache
+        - Speculative decoding. Here, `idx` comes from the cheaper proposal
+          model, and the logits are needed for the accept/reject probabilities.
 
         Args:
             idx: Token indices of input sequences, shape `(B, T)`, where `B`
                 is batch size.
-            input_pos: Optional. Positions of input tokens. The default is
-                `arange(T)`. Can have shape `(T,)` or `(B, T)` (batched index).
-            input_pos_maxp1: Optional. See above.
+            input_pos: See above. Defaults to `None`
             lm_head_chunk_size: Optional. If `lm_head_chunk_size > 0`, the final
                 `lm_head` computation is done in chunks of this size.
+            skip_lm_head: If `True`, we do not apply the final LM head
+                `self.lm_head`.
 
         Returns:
             Logit outputs, shape `(B, T, config.padded_vocab_size)`. If
             `lm_head_chunk_size > 0`, this is a list of chunks of shape
             `(B, lm_head_chunk_size, config.padded_vocab_size)`, the final
             entry can be shorter.
+            If `skip_lm_head` is `True`, we return the final layer outputs,
+            shape `(B, T, config.n_embd)`.
 
         """
+        if idx.ndim == 1:
+            idx = idx.unsqueeze(0)
+        elif idx.ndim != 2:
+            raise ValueError(f"idx must be 1D or 2D tensor, but idx.shape = {idx.shape}")
         T = idx.size(1)
         if self.max_seq_length < T:
             raise ValueError(f"Cannot forward sequence of length {T}, max seq length is only {self.max_seq_length}.")
+        for_prefill = False
+        if input_pos is not None:
+            # Few tokens generation. This needs a KV cache. If none is assigned,
+            # the call fails
+            if not self.are_kv_caches_assigned():
+                raise ValueError(
+                    "KV caches are not assigned. Assign KV caches with 'assign_kv_caches' or create default caches with 'set_kv_cache'"
+                )
+            for_prefill = input_pos == 0
+            if not for_prefill:
+                for block_idx, block in enumerate(self.transformer.h):
+                    kv_cache = block.attn.kv_cache
+                    if kv_cache.next_token_pos is None:
+                        raise ValueError("Inference calls need to start with pre-fill, i.e. 'input_pos=0'")
+                    if kv_cache.next_token_pos != input_pos:
+                        raise ValueError(
+                            f"KV cache for layer {block_idx}: input_pos = {input_pos} != {kv_cache.next_token_pos} = kv_cache.next_token_pos"
+                        )
+                    if kv_cache.max_tokens_forward < T:
+                        raise ValueError(
+                            f"KV cache for layer {block_idx}: T = {T}, must be <= max_tokens_forward = {kv_cache.max_tokens_forward}"
+                        )
 
-        if input_pos is not None:  # use the kv cache
-            if input_pos.dim() > 2:
-                # otherwise, things go wrong in `apply_rope`
-                raise ValueError(f"input_pos must have 1 or 2 dimensions, input_pos.shape = {input_pos.shape}")
-            if input_pos.shape[-1] != T:
-                raise ValueError(f"input_pos.shape[-1] = {input_pos.shape[-1]} != {T} = idx.shape[1], must be the same")
-            cos = batched_index_select(self.cos, 0, input_pos)
-            sin = batched_index_select(self.sin, 0, input_pos)
-            if input_pos.dim() == 1:
-                cos = cos.unsqueeze(0)
-                sin = sin.unsqueeze(0)
-            if self.mask_cache is None:
-                raise TypeError("You need to call `gpt.set_kv_cache()`")
-            mask = batched_index_select(self.mask_cache, 2, input_pos)
-            if mask.dim() > 4:
-                # the mask cache has a batch dim of 1 in addition to the one
-                # we get if input_pos has a batch dimension
-                mask = mask.view(*(mask.shape[0:1] + mask.shape[2:]))
-            if input_pos_maxp1 is not None:
-                # Shorten final dimension so it just covers all `input_pos` entries
-                if input_pos_maxp1 > self.max_seq_length:
-                    raise ValueError(f"Positions in 'input_pos' must be in [0,{self.max_seq_length})")
-                mask = mask[..., :input_pos_maxp1]
+            if self.config.rope_n_elem > 0:
+                input_pos_array = torch.arange(input_pos, input_pos + T, device=self.cos.device, dtype=torch.int64)
+                cos = batched_index_select(self.cos, 0, input_pos_array).unsqueeze(0)
+                sin = batched_index_select(self.sin, 0, input_pos_array).unsqueeze(0)
+            else:
+                cos = sin = None
         else:
-            # unsqueeze to have a batch dimension
+            # Unsqueeze to have a batch dimension
             cos = self.cos[:T].unsqueeze(0)
             sin = self.sin[:T].unsqueeze(0)
-            # `cos`, `sin` have shape (1, T, config.rope_n_elem)
-            mask = None  # defaults to causal mask
-            input_pos_maxp1 = None
+        # `cos`, `sin` have shape `(1, T, config.rope_n_elem)`, or shape
+        # `(1, T, config.rope_n_elem, 2)`
 
         x = self.transformer.wte(idx)  # token embeddings of shape (B, T, n_embd)
         if self.config.scale_embeddings:
             x = x * torch.tensor(self.config.n_embd**0.5, dtype=x.dtype)
 
+        hook = self._start_of_layer_hook
         for block_idx, block in enumerate(self.transformer.h):
+            if for_prefill:
+                # Complain if batch size of cache is too small
+                eff_batch_size = x.shape[0]
+                attn = block.attn
+                if attn.kv_cache.batch_size < eff_batch_size:
+                    raise ValueError(
+                        f"Batch size {eff_batch_size} is too large for KV cache layer {block_idx} (batch size {attn.kv_cache.batch_size}). Use 'assign_kv_caches' or `set_kv_cache'"
+                    )
+            if hook is not None:
+                # Call start of layer hook, passing detached layer input
+                hook(x.detach(), block_idx, input_pos)
             if self.config.rope_indices is not None:
-                x = block(
-                    x,
-                    cos[..., self.config.rope_indices[block_idx]],
-                    sin[..., self.config.rope_indices[block_idx]],
-                    mask,
-                    input_pos,
-                    input_pos_maxp1,
-                )
+                # Select global (0) or local (1) variant
+                _cos = cos[..., self.config.rope_indices[block_idx]]
+                _sin = sin[..., self.config.rope_indices[block_idx]]
             else:
-                x = block(x, cos, sin, mask, input_pos, input_pos_maxp1)
+                _cos = cos
+                _sin = sin
+            x = block(x, _cos, _sin, idx, self.mha, input_pos)
+
+        if hook is not None:
+            # Hook is also called for the input to the head block
+            hook(x.detach(), self.config.n_layer, input_pos)
         x = self.transformer.ln_f(x)
-        clamp_head = (
-            partial(do_softcapping, thresh=self.config.final_logit_softcapping)
-            if self.config.final_logit_softcapping is not None
-            else nn.Identity()
-        )
+        if skip_lm_head:
+            return x
+        clamp_head = partial(do_softcapping, thresh=self.config.final_logit_softcapping)
         if lm_head_chunk_size > 0:
             # chunk the lm head logits to reduce the peak memory used by autograd
             return [clamp_head(self.lm_head(x_i)) for x_i in x.split(lm_head_chunk_size, dim=1)]
@@ -182,10 +383,23 @@ class GPT(nn.Module):
     def from_name(cls, name: str, **kwargs: Any) -> Self:
         return cls(Config.from_name(name, **kwargs))
 
-    def rope_cache(self, device: Optional[torch.device] = None) -> Tuple[torch.Tensor, torch.Tensor]:
+    def rope_cache(
+        self,
+        device: Optional[torch.device] = None,
+    ) -> Tuple[torch.Tensor, torch.Tensor]:
+        """
+        Recomputes the RoPE cache, consisting of tensors `cos`, `sin`.
+
+        Args:
+            device: Device for RoPE cache tensors
+
+        Returns:
+            `(cos, sin)`, each of shape `(max_seq_length, config.rope_n_elem)`
+            or of shape `(max_seq_length, config.rope_n_elem, 2)`.
+
+        """
         if self.config.rope_adjustments is None:
             extra_config = None
-
         else:
             adjusted_params_required = ["factor", "low_freq_factor", "high_freq_factor", "original_max_seq_len"]
             params_present = [param in self.config.rope_adjustments for param in adjusted_params_required]
@@ -220,42 +434,59 @@ class GPT(nn.Module):
             rope_local_base_freq=self.config.rope_local_base_freq,
         )
 
-    def set_kv_cache(
-        self,
-        batch_size: int,
-        max_seq_length: Optional[int] = None,
-        rope_cache_length: Optional[int] = None,
-        device: Optional[torch.device] = None,
-        dtype: Optional[torch.dtype] = None,
-    ) -> None:
-        if rope_cache_length is None:
-            if len(self.cos.shape) == 2:
-                rope_cache_length = self.cos.size(-1)
-            else:
-                rope_cache_length = self.cos[..., 0].size(-1)
-
-        if max_seq_length is None:
-            max_seq_length = self.max_seq_length
-
-        # initialize the kv cache for all blocks
-        for block in self.transformer.h:
-            block.attn.kv_cache = block.attn.build_kv_cache(
-                batch_size,
-                max_seq_length,
-                rope_cache_length,
-                device,
-                dtype,
-            )
-
-        if self.mask_cache is None or self.mask_cache.size(3) != max_seq_length:
-            # passing `attn_mask` to SDPA disables the flash implementation. since we only need the mask
-            # for the kv-cache support (only during inference), we only create it in that situation
-            self.mask_cache = build_mask_cache(max_seq_length, device)
-
     def clear_kv_cache(self) -> None:
-        self.mask_cache = None
-        for block in self.transformer.h:
-            block.attn.kv_cache = None
+        """
+        Note that KV cache objects are removed only if they have not been
+        assigned with :meth:`assign_kv_caches`.
+
+        """
+        if self._default_kv_cache:
+            for block in self.transformer.h:
+                block.attn.kv_cache = None
+            self._default_kv_cache = False
+
+    def get_kv_cache_params(self) -> Optional[KVCacheParams]:
+        """
+        Assigned KV caches need not have the same `batch_size` and
+        `cache_length` values. For these, the returned :class:`KVCacheParams`
+        object contains the minimum values over all caches.
+
+        Returns:
+            Parameters for KV caches (see above), or `None` if KV caches are
+            not assigned.
+
+        """
+        kv_cache = self.transformer.h[0].attn.kv_cache
+        if kv_cache is None:
+            return None
+        # Caches need not have the same cache_length, batch_size
+        caches = [block.attn.kv_cache for block in self.transformer.h]
+        batch_size = min(c.batch_size for c in caches)
+        cache_length = min(c.cache_length for c in caches)
+        params = replace(
+            kv_cache.get_params(),
+            batch_size=batch_size,
+            cache_length=cache_length,
+        )
+        return params
+
+    def kv_cache_max_tokens_forward(self) -> Optional[int]:
+        caches = [layer.attn.kv_cache for layer in self.transformer.h]
+        if any(cache is None for cache in caches):
+            return None
+        else:
+            return min(cache.max_tokens_forward for cache in caches)
+
+    def kv_cache_max_prefill_length(self) -> Optional[int]:
+        caches = [layer.attn.kv_cache for layer in self.transformer.h]
+        if any(cache is None for cache in caches):
+            return None
+        else:
+            mlps = [kvc.max_prefill_length for kvc in caches]
+            if all(mlp is None for mlp in mlps):
+                return None
+            else:
+                return min(mlp for mlp in mlps if mlp is not None)
 
 
 class Block(nn.Module):
@@ -263,6 +494,7 @@ class Block(nn.Module):
         self,
         config: Config,
         block_idx: int,
+        kv_cache: Optional[KVCache] = None,
     ) -> None:
         super().__init__()
         if not config.parallel_residual and config.shared_attention_norm:
@@ -272,7 +504,7 @@ class Block(nn.Module):
             )
 
         self.norm_1 = config.norm_class(config.n_embd, eps=config.norm_eps)
-        self.attn = CausalSelfAttention(config, block_idx)
+        self.attn = CausalSelfAttention(config, block_idx, kv_cache=kv_cache)
         self.post_attention_norm = (
             config.norm_class(config.n_embd, eps=config.norm_eps) if config.post_attention_norm else nn.Identity()
         )
@@ -281,7 +513,6 @@ class Block(nn.Module):
         self.post_mlp_norm = (
             config.norm_class(config.n_embd, eps=config.norm_eps) if config.post_mlp_norm else nn.Identity()
         )
-
         self.config = config
 
     def forward(
@@ -289,9 +520,9 @@ class Block(nn.Module):
         x: torch.Tensor,
         cos: torch.Tensor,
         sin: torch.Tensor,
-        mask: Optional[torch.Tensor] = None,
-        input_pos: Optional[torch.Tensor] = None,
-        input_pos_maxp1: Optional[int] = None,
+        token_idx: torch.Tensor,
+        mha: MultiHeadSelfAttention,
+        input_pos: Optional[int] = None,
     ) -> torch.Tensor:
         """
         Non-parallel residual       Parallel residual
@@ -315,7 +546,14 @@ class Block(nn.Module):
         """
 
         x_normed = self.norm_1(x)
-        attention_output = self.attn(x_normed, cos, sin, mask, input_pos, input_pos_maxp1)
+        attention_output = self.attn(
+            x_normed,
+            cos=cos,
+            sin=sin,
+            token_idx=token_idx,
+            mha=mha,
+            input_pos=input_pos,
+        )
         attention_output = self.post_attention_norm(attention_output)
 
         if self.config.parallel_residual:
@@ -329,7 +567,12 @@ class Block(nn.Module):
 
 
 class CausalSelfAttention(nn.Module):
-    def __init__(self, config: Config, block_idx: int) -> None:
+    def __init__(
+        self,
+        config: Config,
+        block_idx: int,
+        kv_cache: Optional[KVCache] = None,
+    ) -> None:
         super().__init__()
         # key, query and value projections for all heads, but in a batch
         self.qkv = nn.Linear(
@@ -339,11 +582,8 @@ class CausalSelfAttention(nn.Module):
         )
         # output projection
         self.proj = nn.Linear(config.head_size * config.n_head, config.n_embd, bias=config.bias)
-        # disabled by default
-        self.kv_cache: Optional[KVCache] = None
-        self.apply_sliding_window_attention = False
-        if config.sliding_window_size is not None and config.sliding_window_indices is not None:
-            self.apply_sliding_window_attention = config.sliding_window_indices[block_idx]
+        # KV cache (needed for inference)
+        self.kv_cache = kv_cache
 
         if config.norm_qk:
             self.norm_q = config.norm_class(config.head_size, eps=config.norm_eps)
@@ -359,10 +599,22 @@ class CausalSelfAttention(nn.Module):
         x: torch.Tensor,
         cos: torch.Tensor,
         sin: torch.Tensor,
-        mask: Optional[torch.Tensor] = None,
-        input_pos: Optional[torch.Tensor] = None,
-        input_pos_maxp1: Optional[int] = None,
+        token_idx: torch.Tensor,
+        mha: MultiHeadSelfAttention,
+        input_pos: Optional[int] = None,
     ) -> torch.Tensor:
+        """
+        Args:
+            x: Input tensor
+            cos: RoPE parameters
+            sin: RoPE parameters
+            token_idx: Token indexes corresponding to `x`
+            mha: Multi-head self-attention code
+            input_pos: See :meth:`GPT.forward`
+
+        Returns:
+            Output tensor
+        """
         # Notation:
         # - B          | batch size
         # - T          | time-step (sequence length)
@@ -375,6 +627,24 @@ class CausalSelfAttention(nn.Module):
         n_query_groups = self.config.n_query_groups
         rope_n_elem = self.config.rope_n_elem
         B, T, C = x.size()  # batch size, sequence length, embedding dimensionality (n_embd)
+        for_prefill = False
+        if input_pos is not None:
+            for_prefill = input_pos == 0
+            if self.kv_cache is None:
+                raise ValueError(
+                    "KV caches are not assigned. Assign KV caches with 'assign_kv_caches' or create default caches with 'set_kv_cache'"
+                )
+            if not for_prefill:
+                if self.kv_cache.next_token_pos is None:
+                    raise ValueError("Inference calls need to start with pre-fill, i.e. 'input_pos=0'")
+                if self.kv_cache.next_token_pos != input_pos:
+                    raise ValueError(
+                        f"KV cache: input_pos = {input_pos} != {self.kv_cache.next_token_pos} = kv_cache.next_token_pos"
+                    )
+                if self.kv_cache.max_tokens_forward < T:
+                    raise ValueError(
+                        f"KV cache: T = {T}, must be <= max_tokens_forward = {self.kv_cache.max_tokens_forward}"
+                    )
 
         # Perform a single multiplication operation using a combined QKV matrix to calculate `query`, `key`, and `value`
         # instead of individually multiplying the input `x` with the respective weight matrices.
@@ -391,117 +661,74 @@ class CausalSelfAttention(nn.Module):
         # embedding size (C) into num_heads (nh) and head_size (hs).
         q = q.view(B, T, n_head, head_size)  # (B, T, nh_q, hs)
         k = k.view(B, T, n_query_groups, head_size)  # (B, T, nh_k, hs)
-        v = v.view(B, T, n_query_groups, head_size)  # (B, T, nh_v, hs)
+        v = v.view(B, T, n_query_groups, head_size)  # (B, T, nh_k, hs)
 
         # The tensors `query`, `key`, and `value` are now accurately structured: within each batch element (B), there are
-        # multiple heads (nh), and within each head, there is a sequence of elements (T), each represented by a vector
+        # multiple heads (nh_q), and within each head, there is a sequence of elements (T), each represented by a vector
         # of size `hs`.
+        # Note that `nh_k` can be smaller than `nh_q` (but the latter must be a
+        # multiple of the former). This works with the
+        # `scaled_dot_product_attention` implementations below.
         q = q.transpose(1, 2)  # (B, nh_q, T, hs)
         k = k.transpose(1, 2)  # (B, nh_k, T, hs)
-        v = v.transpose(1, 2)  # (B, nh_v, T, hs)
+        v = v.transpose(1, 2)  # (B, nh_k, T, hs)
 
         if self.config.norm_qk:
             q = self.norm_q(q)
             k = self.norm_k(k)
 
         # Unlike standard positional embeddings rotary embeddings must be applied at every layer.
-        q_roped = apply_rope(q[..., :rope_n_elem], cos, sin)
-        k_roped = apply_rope(k[..., :rope_n_elem], cos, sin)
-        q = torch.cat((q_roped, q[..., rope_n_elem:]), dim=-1)  # (B, nh_q, T, hs)
-        k = torch.cat((k_roped, k[..., rope_n_elem:]), dim=-1)  # (B, nh_k, T, hs)
+        if rope_n_elem > 0:
+            q_roped = apply_rope(q[..., :rope_n_elem], cos, sin)
+            k_roped = apply_rope(k[..., :rope_n_elem], cos, sin)
+            q = torch.cat((q_roped, q[..., rope_n_elem:]), dim=-1)  # (B, nh_q, T, hs)
+            k = torch.cat((k_roped, k[..., rope_n_elem:]), dim=-1)  # (B, nh_k, T, hs)
 
-        # Apply kv-cache during inference.
-        if input_pos is not None:
-            if not isinstance(self.kv_cache, KVCache):
-                raise TypeError("You need to call `gpt.set_kv_cache()`")
-            k, v = self.kv_cache(input_pos, k, v)
-            if input_pos_maxp1 is not None:
-                # Subselect along sequence dimension
-                k = k[..., :input_pos_maxp1, :]
-                v = v[..., :input_pos_maxp1, :]
-            # k, v: (B, nh_k, input_pos_maxp1, hs)
-            # If input_pos_maxp1 is None -> max_seq_length
+        # Inner part of multi-head self-attention computation
+        if input_pos is None:
+            # Default causal self-attention
+            y, _ = mha(
+                query=q,
+                k_and_v=DefaultKeysAndValues(k, v),
+                block_idx=self.block_idx,
+            )
+        else:
+            # Defer this to KV cache
+            y = self.kv_cache(
+                query=q,
+                key=k,
+                value=v,
+                token_idx=token_idx,
+                input_pos=input_pos,
+            )
 
-        # Grouped queries: balance the number of heads across all three matrices.
-        # NOTE: flash attention requires it in training mode.
-        # Multi-query: this step can be skipped since there is only 1 head, allowing us to use broadcasting.
-        if n_query_groups != n_head and (input_pos is None or n_query_groups != 1):
-            q_per_kv = n_head // n_query_groups
-            k = k.repeat_interleave(q_per_kv, dim=1)  # (B, nh_q, T, hs)
-            v = v.repeat_interleave(q_per_kv, dim=1)  # (B, nh_q, T, hs)
-
-        if self.apply_sliding_window_attention:
-            """
-                  Global Window              Sliding window             Sliding window
-                  attention mask      +            bias          =      attention mask
-            ┌────────────────────────┐  ┌───────────────────────┐  ┌─────────────────────────┐
-            │ True False False False │  │ True  True  True True │  │ True  False False False │
-            │ True True  False False │  │ True  True  True True │  │ True  True  False False │
-            │ True True  True  False │  │ False True  True True │  │ False True  True  False │
-            │ True True  True  True  │  │ False False True True │  │ False False True  True  │
-            └────────────────────────┘  └───────────────────────┘  └─────────────────────────┘
-            """
-            if mask is None:
-                mask = torch.ones(T, T, dtype=q.dtype, device=q.device).triu(diagonal=1)
-                mask.masked_fill_(mask.bool(), float("-inf"))
-                mask = mask.view(1, 1, *mask.shape)
-            sliding_window_bias = torch.ones_like(mask).tril(diagonal=-self.config.sliding_window_size)
-            sliding_window_bias.masked_fill_(sliding_window_bias.bool(), float("-inf"))
-            mask += sliding_window_bias
-
-        # Efficient attention using Flash Attention CUDA kernels.
-        # NOTE: efficient implementation is disabled if `mask` is not None or softcapping is enabled.
-        # ↓ (B, nh, T, hs) @ (B, nh, T, hs).mT --> (B, nh, T, T) @ (B, nh, T, hs) --> (B, nh, T, hs)
-        y = self.scaled_dot_product_attention(q, k, v, mask)
-
-        # Re-assemble all head outputs side by side.
-        y = y.reshape(B, T, head_size * n_head)
-
-        # Output projection.
+        # Output projection
+        y = self._transform_output(y, query=q, mha=mha)
         return self.proj(y)  # (B, T, C)
 
-    def scaled_dot_product_attention(
-        self, q: torch.Tensor, k: torch.Tensor, v: torch.Tensor, mask: Optional[torch.Tensor] = None
+    def _transform_output(
+        self,
+        y: torch.Tensor,
+        query: torch.Tensor,
+        mha: MultiHeadSelfAttention,
     ) -> torch.Tensor:
-        scale = 1.0 / math.sqrt(self.config.attention_scores_scalar or self.config.head_size)
+        return y
 
-        # with softcapping we cannot use SDPA
-        if self.config.attention_logit_softcapping is not None:
-            scores = q @ k.mT * scale
-            scores = do_softcapping(scores, self.config.attention_logit_softcapping)
-            if mask is None:
-                mask = torch.ones(q.size(2), q.size(2), dtype=q.dtype, device=q.device).triu(diagonal=1)
-                mask.masked_fill_(mask.bool(), torch.finfo(q.dtype).min)
-            scores = scores + mask
-            scores = F.softmax(scores, dim=-1, dtype=torch.float).to(dtype=q.dtype)
-            y = scores @ v
-        else:
-            y = F.scaled_dot_product_attention(
-                q, k, v, attn_mask=mask, dropout_p=0.0, scale=scale, is_causal=mask is None
-            )
-        return y.transpose(1, 2)
-
-    def build_kv_cache(
+    def create_default_kv_cache(
         self,
         batch_size: int,
-        max_seq_length: int,
-        rope_cache_length: Optional[int] = None,
         device: Optional[torch.device] = None,
         dtype: Optional[torch.dtype] = None,
-    ) -> "KVCache":
-        v_shape = (batch_size, self.config.n_query_groups, max_seq_length, self.config.head_size)
-        if rope_cache_length is None:
-            if self.config.rotary_percentage != 1.0:
-                raise TypeError("Please pass the `rope_cache_length=gpt.cos.size(-1)` value")
-            k_shape = v_shape
-        else:
-            k_shape = (
-                batch_size,
-                self.config.n_query_groups,
-                max_seq_length,
-                rope_cache_length + self.config.head_size - self.config.rope_n_elem,
-            )
-        return KVCache(k_shape, v_shape, device=device, dtype=dtype)
+        max_sequence_length: Optional[int] = None,
+    ):
+        self.kv_cache = DenseKVCache(
+            config=self.config,
+            batch_size=batch_size,
+            block_idx=self.block_idx,
+            device=device,
+            dtype=dtype,
+            max_sequence_length=max_sequence_length,
+        )
 
     def _load_from_state_dict(self, state_dict: dict, prefix: str, *args: Any, **kwargs: Any) -> None:
         """For compatibility with legacy checkpoints."""
@@ -599,11 +826,17 @@ def build_rope_cache(
         device (torch.device, optional): Device for tensor allocations.
         base (int, optional): Base for computing inverse frequencies.
         condense_ratio (int, optional): Ratio to condense the position indices.
-        extra_config (dict, optional): Configuration parameters for frequency adjustments (used by Llama 3.1 and 3.2)
+        extra_config (dict, optional): Configuration parameters for
+            frequency adjustments (used by Llama 3.1 and 3.2)
+        rope_local_base_freq: If given, this is an alternative value for
+            `base`. In this case, the returned tensors have an extra dimension.
 
     Returns:
         Tuple[torch.Tensor, torch.Tensor]: Cosine and sine caches for RoPE.
-            Shapes are `(seq_len, n_elem)`.
+            Shapes are `(seq_len, n_elem)` if `rope_local_base_freq` is not
+            given, otherwise `(seq_len, n_elem, 2)`, so that `[..., 0]` is for
+            `base`, and `[..., 1]` for `rope_local_base_freq`.
+
     """
 
     # Compute the inverse frequencies theta
@@ -634,11 +867,13 @@ def build_rope_cache(
     idx_theta = torch.outer(seq_idx, theta).repeat(1, 2)
     # If `n_elem` is odd, the final dimension of `idx_theta` has size
     # `n_elem + 1`, so need to cut something off.
+
     # Due to a current bug in Hugging Face, in the case `n_elem == 1`, we leave
     # `idx_theta`, `cos`, `sin` as is. Things work out in `apply_rope` due to
     # broadcasting. If we shorten `idx_theta`, unit tests comparing to
     # Hugging Face fail.
     # https://github.com/huggingface/transformers/issues/35233
+    # TODO: Remove `> 1` once HF bug is fixed!
     if idx_theta.shape[-1] > n_elem > 1:
         idx_theta = idx_theta[..., :n_elem]
 
@@ -648,81 +883,13 @@ def build_rope_cache(
         local_theta = 1.0 / (rope_local_base_freq ** (torch.arange(0, n_elem, 2, device=device).float() / n_elem))
         local_idx_theta = torch.outer(seq_idx, local_theta)
         local_idx_theta = local_idx_theta.repeat(1, 2)
+        # TODO: Remove `> 1` once HF bug is fixed!
         if local_idx_theta.shape[-1] > n_elem > 1:
             local_idx_theta = local_idx_theta[..., :n_elem]
 
         idx_theta = torch.stack((idx_theta, local_idx_theta), dim=-1)
 
     return torch.cos(idx_theta), torch.sin(idx_theta)
-
-
-def batched_index_select(t, dim, idx):
-    """index_select for batched index and unbatched t"""
-    if idx.dim() == 1:
-        return torch.index_select(t, dim, idx)
-
-    *batch_shape, idx_size = idx.shape
-    res = torch.index_select(t, dim, idx.reshape(-1))  # flat index
-    # split out single batch idx
-    res = res.view(*t.shape[:dim], -1, idx_size, *t.shape[dim + 1 :])
-    if dim > 0:
-        # move batch dim to front, this is np.rollaxis(res, dim, 0) for tensors
-        dims = [dim] + list(range(res.dim()))
-        del dims[dim + 1]
-        res = res.permute(dims)
-    # unflatten batch dims
-    res = res.view(*batch_shape, *res.shape[1:])
-    return res
-
-
-def batched_index_copy_(t, dim, idx, val):
-    """Index copy for batched t, idx, val"""
-
-    if t.device.type == "mps":
-        # Normalize negative dimensions
-        if dim < 0:
-            dim = t.dim() + dim
-        if idx.dim() == 1:
-            idx_shape = [1] * val.dim()
-            idx_shape[dim] = -1
-            idx_expanded = idx.view(*idx_shape)
-            idx_expanded = idx_expanded.expand_as(val)
-            t.scatter_(dim, idx_expanded, val)
-            return t
-
-        elif idx.dim() == 2:
-            assert dim != 0, "Cannot index the batch dimension"
-            batch_size = idx.size(0)
-            idx_size = idx.size(1)
-            assert batch_size == t.size(0) == val.size(0)
-
-            idx_shape = [batch_size] + [1] * (val.dim() - 1)
-            idx_shape[dim] = idx_size
-            idx_expanded = idx.view(*idx_shape)
-            idx_expanded = idx_expanded.expand_as(val)
-
-            t.scatter_(dim, idx_expanded, val)
-            return t
-        else:
-            raise NotImplementedError(f"idx.dim() == {idx.dim()} not supported")
-
-    else:
-        if idx.dim() == 1:
-            return t.index_copy_(dim, idx, val)
-
-        assert idx.dim() == 2, f"multiple batch dims not yet {idx.shape=}"
-        assert dim != 0, f"cannot index batch dim {dim=}"
-        batch_size, idx_size = idx.shape
-        assert batch_size == t.size(0)
-        assert batch_size == val.size(0)
-
-        # if we can view the batch and indexed dimensions together, we could
-        # do index trickery. This is, sadly, not the case for kvcache so we
-        # fall back to for loop
-        for i in range(batch_size):
-            unbatched_dim = dim if dim < 0 else dim - 1
-            t[i].index_copy_(unbatched_dim, idx[i], val[i])
-        return t
 
 
 def apply_rope(x: torch.Tensor, cos: torch.Tensor, sin: torch.Tensor) -> torch.Tensor:
@@ -738,7 +905,7 @@ def apply_rope(x: torch.Tensor, cos: torch.Tensor, sin: torch.Tensor) -> torch.T
     Returns:
         Encoded tensor, `(B, ..., T, head_size)`
     """
-    if cos.dim() != 3:
+    if cos.ndim != 3:
         raise ValueError(f"cos must be three-dimensional, but shape is {cos.shape}")
     if cos.shape != sin.shape:
         raise ValueError(f"cos, sin must have same shape, but cos.shape={cos.shape}, sin.shape={sin.shape}")
@@ -746,7 +913,7 @@ def apply_rope(x: torch.Tensor, cos: torch.Tensor, sin: torch.Tensor) -> torch.T
     x1 = x[..., :head_size_half]  # (B, ..., T, head_size/2)
     x2 = x[..., head_size_half:]  # (B, ..., T, head_size/2)
     rotated = torch.cat((-x2, x1), dim=-1)  # (B, ..., T, head_size)
-    dims_diff = x.dim() - cos.dim()
+    dims_diff = x.ndim - cos.ndim
     if dims_diff > 0:
         # Ensure that shapes of `x`, `cos`, `sin` align
         new_shape = cos.shape[0:1] + (1,) * dims_diff + cos.shape[1:]
@@ -755,64 +922,6 @@ def apply_rope(x: torch.Tensor, cos: torch.Tensor, sin: torch.Tensor) -> torch.T
 
     roped = (x * cos) + (rotated * sin)
     return roped.to(dtype=x.dtype)
-
-
-def do_softcapping(x: torch.Tensor, thresh: float) -> torch.Tensor:
-    return torch.tanh(x / thresh) * thresh
-
-
-class KVCache(nn.Module):
-    """
-    Buffers `k`, `v` have shape
-    `(batch_size, n_query_groups, max_seq_length, head_size)`.
-    """
-
-    def __init__(
-        self,
-        k_shape: Tuple[int, int, int, int],
-        v_shape: Tuple[int, int, int, int],
-        device: Optional[torch.device] = None,
-        dtype: Optional[torch.dtype] = None,
-    ) -> None:
-        super().__init__()
-        self.register_buffer("k", torch.zeros(k_shape, device=device, dtype=dtype), persistent=False)
-        self.register_buffer("v", torch.zeros(v_shape, device=device, dtype=dtype), persistent=False)
-
-    def forward(self, input_pos: torch.Tensor, k: torch.Tensor, v: torch.Tensor) -> Tuple[torch.Tensor, torch.Tensor]:
-        """
-        Writes new values `k` and `v` into the cache at the positions specified
-        by `input_pos` along the sequence dimension (`max_seq_length`). The batch
-        size of `k` and `v` (`bs`) must be smaller or equal to `KVCache` batch
-        size. Returns the full buffers, adjusted to the batch size `bs`.
-
-        Args:
-            input_pos: Position index, `(bs, T)` or `(T,)`
-            k: New values, `(bs, n_query_groups, T, head_size)`
-            v: New values, `(bs, n_query_groups, T, head_size)`
-
-        Returns:
-            k_full, v_full, `(bs, n_query_groups, max_seq_length, head_size)`
-
-        """
-        # move the buffer to the activation dtype for when AMP is used
-        if self.k.dtype != k.dtype:
-            self.k = self.k.to(k.dtype)
-        if self.v.dtype != v.dtype:
-            self.v = self.v.to(v.dtype)
-        # update the cache
-        bs = k.size(0)
-        k = batched_index_copy_(self.k[:bs, ...], -2, input_pos, k)
-        v = batched_index_copy_(self.v[:bs, ...], -2, input_pos, v)
-        return k, v
-
-    def reset_parameters(self) -> None:
-        torch.nn.init.zeros_(self.k)
-        torch.nn.init.zeros_(self.v)
-
-
-def build_mask_cache(max_seq_length: int, device: Optional[torch.device] = None) -> torch.Tensor:
-    ones = torch.ones((max_seq_length, max_seq_length), device=device, dtype=torch.bool)
-    return torch.tril(ones).unsqueeze(0).unsqueeze(0)
 
 
 class RMSNorm(torch.nn.Module):
