@@ -912,6 +912,58 @@ olmo = [
 
 configs.extend(olmo)
 
+olmo2 = [
+    # https://huggingface.co/allenai/OLMo-2-1124-7B/blob/main/config.json
+    dict(
+        name="OLMo-2-1124-7B{}",
+        hf_config=dict(org="allenai", name="OLMo-2-1124-7B{}"),
+        vocab_size=100352,
+        padded_vocab_size=100352,
+        block_size=4096,
+        n_embd=4096,
+        n_layer=32,
+        n_head=32,
+        n_query_groups=32,
+        rotary_percentage=1.0,
+        parallel_residual=False,
+        bias=False,
+        norm_class_name="RMSNorm",
+        mlp_class_name="LLaMAMLP",
+        norm_eps=1e-06,
+        intermediate_size=11008,
+        rope_base=500000,
+        norm_qk=True,
+    ),
+    # https://huggingface.co/allenai/OLMo-2-1124-13B/blob/main/config.json
+    dict(
+        name="OLMo-2-1124-13B{}",
+        hf_config=dict(org="allenai", name="OLMo-2-1124-13B{}"),
+        vocab_size=100352,
+        padded_vocab_size=100352,
+        block_size=4096,
+        n_embd=5120,
+        n_layer=40,
+        n_head=40,
+        n_query_groups=40,
+        rotary_percentage=1.0,
+        parallel_residual=False,
+        bias=False,
+        norm_class_name="RMSNorm",
+        mlp_class_name="LLaMAMLP",
+        norm_eps=1e-06,
+        intermediate_size=13824,
+        rope_base=500000,
+        nork_qk=True,
+    ),
+]
+
+for c in olmo2:
+    for kind in ("", "-SFT", "-DPO", "-Instruct"):
+        copy = deepcopy(c)
+        copy["name"] = c["name"].format(kind)
+        copy["hf_config"]["name"] = c["hf_config"]["name"].format(kind)
+        configs.append(copy)
+
 ###############
 # Google Gemma
 ###############
