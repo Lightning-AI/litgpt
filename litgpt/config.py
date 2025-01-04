@@ -917,7 +917,7 @@ olmo2 = [
     dict(
         name="OLMo-2-1124-7B{}",
         hf_config=dict(org="allenai", name="OLMo-2-1124-7B{}"),
-        vocab_size=100352,
+        vocab_size=100278,
         padded_vocab_size=100352,
         block_size=4096,
         n_embd=4096,
@@ -938,7 +938,7 @@ olmo2 = [
     dict(
         name="OLMo-2-1124-13B{}",
         hf_config=dict(org="allenai", name="OLMo-2-1124-13B{}"),
-        vocab_size=100352,
+        vocab_size=100278,
         padded_vocab_size=100352,
         block_size=4096,
         n_embd=5120,
