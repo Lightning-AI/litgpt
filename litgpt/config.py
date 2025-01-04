@@ -953,7 +953,7 @@ olmo2 = [
         norm_eps=1e-06,
         intermediate_size=13824,
         rope_base=500000,
-        nork_qk=True,
+        norm_qk=True,
     ),
 ]
 
