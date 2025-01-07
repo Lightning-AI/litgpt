@@ -26,6 +26,9 @@ from litgpt.utils import (
     load_checkpoint,
 )
 
+# TODO (andrei aksionau): Remove this
+# flake8: noqa
+
 
 def multinomial_num_samples_1(probs: torch.Tensor) -> torch.Tensor:
     if torch._dynamo.is_compiling():
@@ -69,8 +72,8 @@ def sample(
         if top_p < 1.0:
             logits = sample_top_p(logits, top_p)
         probs = torch.nn.functional.softmax(logits, dim=-1)
-        return multinomial_num_samples_1(probs)
-    return torch.argmax(logits, dim=-1, keepdim=True)
+        return multinomial_num_samples_1(probs), probs
+    return torch.argmax(logits, dim=-1, keepdim=True), torch.nn.functional.softmax(logits, dim=-1)
 
 
 def next_token(
@@ -81,8 +84,98 @@ def next_token(
     **sample_kwargs: Dict[str, Any],
 ) -> torch.Tensor:
     logits = model(x, input_pos, input_pos_maxp1=input_pos_maxp1)
-    _next = sample(logits, **sample_kwargs).to(dtype=torch.int64)
-    return _next
+    _next, probs = sample(logits, **sample_kwargs)
+    _next = _next.to(dtype=torch.int64)
+    return _next, probs
+
+
+def speculative_decoding(
+    draft_model: GPT,
+    target_model: GPT,
+    token: torch.Tensor,
+    input_pos: torch.Tensor,
+    input_pos_maxp1: torch.Tensor,
+    speculative_k: int,
+    **sample_kwargs: Dict[str, Any],
+):
+
+    origin_input_pos = input_pos.clone()
+    origin_input_pos_maxp1 = input_pos_maxp1.clone()
+
+    # autoregressive generation of new tokens with the draft model
+    draft_tokens, draft_probs = [], []
+    draft_token = token
+    for idx in range(speculative_k):
+        draft_token = draft_token.unsqueeze(0)
+        # draft_token, draft_prob = next_token(model=draft_model, input_pos=input_pos, x=draft_token, input_pos_maxp1=input_pos_maxp1, **sample_kwargs)
+        logits = draft_model.forward(idx=draft_token, input_pos=input_pos, input_pos_maxp1=input_pos_maxp1)
+        draft_token, draft_prob = sample(logits, **sample_kwargs)
+        input_pos.add_(1)
+        input_pos_maxp1.add_(1)
+        draft_tokens.append(draft_token)
+        draft_probs.append(draft_prob)
+
+    draft_tokens = torch.cat(draft_tokens)
+
+    # process draft tokens with the target model
+    candidate_tokens = torch.cat((token, draft_tokens))[None, ...]
+    # candidate_input_pos = torch.arange(input_pos.item(), input_pos.item() + speculative_k + 1, device=token.device)
+    candidate_input_pos = origin_input_pos + torch.arange(0, speculative_k + 1, device=origin_input_pos.device) # an approach without calling input_pos.item()
+    candidate_input_pos_maxp1 = origin_input_pos_maxp1.add(speculative_k)
+    # candidate_input_pos = candidate_input_pos_maxp1 = None
+    target_logits = target_model.forward(idx=candidate_tokens, input_pos=candidate_input_pos, input_pos_maxp1=candidate_input_pos_maxp1)
+
+    # convert target logits to probabilities
+    # target_tokens, target_probs = sample(target_logits, **sample_kwargs)
+    target_tokens, target_probs = [], []
+    for target_logit in target_logits.split(1, dim=1):
+        target_token, target_prob = sample(target_logit, **sample_kwargs)
+        target_tokens.append(target_token)
+        target_probs.append(target_prob)
+
+
+    # decide what draft tokens to accept
+
+    # iterate over draft tokens and  probs
+    accepted_tokens = []
+    for draft_token, draft_prob, target_prob in zip(draft_tokens, draft_probs, target_probs[:-1]):
+
+        draft_token = draft_token.unsqueeze(0)
+
+        orig_draft_probs = draft_prob
+        orig_target_probs = target_prob
+
+        draft_prob = draft_prob[draft_token]
+        target_prob = target_prob[draft_token]
+
+        # if target prob for the draft token is equal or larger than draft prob - keep and continue
+        if target_prob >= draft_prob:
+            accepted_tokens.append(draft_token)
+            continue
+
+        # otherwise, discard with probability 1 - q/p
+        discard_prob = 1 - target_prob / draft_prob
+        should_discard_token = torch.rand(1, device=discard_prob.device) <= discard_prob
+
+        # if not discarded - keep token and continue
+        if not should_discard_token:
+            accepted_tokens.append(draft_token)
+            continue
+
+        # if discarded - updated the distribution, sample a new token and break the loop
+        # adjusted_distribution = target_probs - draft_probs
+        adjusted_distribution = orig_target_probs - orig_draft_probs
+        # adjusted_distribution = torch.where(adjusted_distribution > 0, adjusted_distribution, 0.0)
+        adjusted_distribution = torch.clamp(adjusted_distribution, 0.0)
+        adjusted_distribution = adjusted_distribution / adjusted_distribution.sum()
+        new_token, _ = sample(adjusted_distribution[None, None, ...], **sample_kwargs)
+        return torch.cat((*accepted_tokens, new_token))
+
+    # if all the candidate tokens were accepted
+    new_token, _ = sample(target_probs[-1][None, None, ...], **sample_kwargs)
+    # fill in draft model to populate kv cache
+    draft_model.forward(new_token.unsqueeze(0), (candidate_input_pos[-1] + 1).unsqueeze(0), candidate_input_pos_maxp1 + 1)
+    return torch.cat((*accepted_tokens, new_token))
 
 
 @torch.inference_mode()
@@ -98,6 +191,7 @@ def generate_fn(
     stop_tokens: Tuple[List[int], ...] = (),
     include_prompt: bool,
     include_eos: bool,
+    speculative_k: int,
 ) -> Iterator[torch.Tensor]:
     """
     Generates tokens for a single prompt.
@@ -121,9 +215,13 @@ def generate_fn(
         max_returned_tokens > prompt_size
     ), f"Not enough space for {prompt_size} prompt tokens in a context length of {max_returned_tokens}."
     if draft_model.max_seq_length < max_returned_tokens - 1:
-        raise NotImplementedError(f"max_seq_length {draft_model.max_seq_length} needs to be >= {max_returned_tokens - 1}")
+        raise NotImplementedError(
+            f"max_seq_length {draft_model.max_seq_length} needs to be >= {max_returned_tokens - 1}"
+        )
     if target_model.max_seq_length < max_returned_tokens - 1:
-        raise NotImplementedError(f"max_seq_length {target_model.max_seq_length} needs to be >= {max_returned_tokens - 1}")
+        raise NotImplementedError(
+            f"max_seq_length {target_model.max_seq_length} needs to be >= {max_returned_tokens - 1}"
+        )
 
     # Yield the prompt if include_prompt is True
     if include_prompt:
@@ -132,66 +230,113 @@ def generate_fn(
     stop_progress = [0] * len(stop_tokens)
     yielded_idx = 0
 
-    # Generate output tokens.
-    # The first token generated is the prefill token.
-    # The input_pos for this token is the width of the entire prompt.
-    # For subsequent iterations, it's the index in the context for the token that we're generating.
-    tokens = []
-    token = prompt
-    prefill_token = True
+    temperature = 0
+    top_p = 0
+    top_k = None
+
+    # Step 1: Prefill draft and target models with the prompt.
     input_pos = torch.arange(0, prompt_size, device=device, dtype=torch.int64)
     input_pos_maxp1 = torch.tensor(prompt_size, device=device)
-    for current_idx in range(max_returned_tokens - prompt_size):
-        # Generate the token
-        token = next_token(
-            draft_model,
-            input_pos,
-            token.view(1, -1),
+    # input_pos = None
+    # input_pos_maxp1 = None
+
+    _ = next_token( # 329
+        draft_model,
+        input_pos,
+        prompt.view(1, -1),
+        input_pos_maxp1=input_pos_maxp1,
+        temperature=temperature,
+        top_k=top_k,
+        top_p=top_p,
+    )
+
+    token, _ = next_token( # 380
+        target_model,
+        input_pos,
+        prompt.view(1, -1),
+        input_pos_maxp1=input_pos_maxp1,
+        temperature=temperature,
+        top_k=top_k,
+        top_p=top_p,
+    )
+    input_pos = torch.tensor([prompt_size], device=device, dtype=torch.int64)
+    input_pos_maxp1.add_(1)
+
+    # Step 2: Generate tokens in speculative manner.
+    tokens = []
+    while input_pos < (max_returned_tokens - prompt_size):
+        new_tokens = speculative_decoding(
+            draft_model=draft_model,
+            target_model=target_model,
+            token=token,
+            input_pos=input_pos,
             input_pos_maxp1=input_pos_maxp1,
+            speculative_k=speculative_k,
             temperature=temperature,
             top_k=top_k,
             top_p=top_p,
         )
-        tokens.append(token)
-        int_token = token.item()
 
-        # Check for stop sequences
-        # For each stop sequence, we keep a running total of how many are matched in stop_progress.
-        # If the current token matches the next token in the stop sequence, we increment the
-        # running total and hold off on yielding the token.
-        for i, seq in enumerate(stop_tokens):
-            if int_token == seq[stop_progress[i]]:
-                stop_progress[i] += 1
-                if stop_progress[i] == len(seq):
-                    if include_eos:
-                        yield from tokens[yielded_idx:]
-                    return
-            else:
-                stop_progress[i] = 0
+        # check how many tokens are generated
 
-        # Yield tokens that are not part of a stop sequence in progress.
-        # If there are no stop sequences, then that's all of them.
-        if stop_tokens:
-            safe_idx = len(tokens) - max(stop_progress)
-        else:
-            safe_idx = current_idx + 1  # include the token just generated
+        # update input_pos and input_pos_maxp1
 
-        if yielded_idx < safe_idx:
-            y_tokens = tokens[yielded_idx:safe_idx]
-            yield from y_tokens
-            yielded_idx = safe_idx
+    # tokens = []
+    # token = prompt
+    # prefill_token = True
+    # input_pos = torch.arange(0, prompt_size, device=device, dtype=torch.int64)
+    # input_pos_maxp1 = torch.tensor(prompt_size, device=device)
+    # for current_idx in range(max_returned_tokens - prompt_size):
+    #     # Generate the token
+    #     token = next_token(
+    #         draft_model,
+    #         input_pos,
+    #         token.view(1, -1),
+    #         input_pos_maxp1=input_pos_maxp1,
+    #         temperature=temperature,
+    #         top_k=top_k,
+    #         top_p=top_p,
+    #     )
+    #     tokens.append(token)
+    #     int_token = token.item()
 
-        # Update input_pos for the next iteration.
-        if prefill_token:
-            prefill_token = False
-            input_pos = torch.tensor([prompt_size], device=device, dtype=torch.int64)
-        else:
-            input_pos.add_(1)
-        input_pos_maxp1.add_(1)
+    #     # Check for stop sequences
+    #     # For each stop sequence, we keep a running total of how many are matched in stop_progress.
+    #     # If the current token matches the next token in the stop sequence, we increment the
+    #     # running total and hold off on yielding the token.
+    #     for i, seq in enumerate(stop_tokens):
+    #         if int_token == seq[stop_progress[i]]:
+    #             stop_progress[i] += 1
+    #             if stop_progress[i] == len(seq):
+    #                 if include_eos:
+    #                     yield from tokens[yielded_idx:]
+    #                 return
+    #         else:
+    #             stop_progress[i] = 0
 
-    # Yield any remaining tokens
-    if yielded_idx < len(tokens):
-        yield from tokens[yielded_idx:]
+    #     # Yield tokens that are not part of a stop sequence in progress.
+    #     # If there are no stop sequences, then that's all of them.
+    #     if stop_tokens:
+    #         safe_idx = len(tokens) - max(stop_progress)
+    #     else:
+    #         safe_idx = current_idx + 1  # include the token just generated
+
+    #     if yielded_idx < safe_idx:
+    #         y_tokens = tokens[yielded_idx:safe_idx]
+    #         yield from y_tokens
+    #         yielded_idx = safe_idx
+
+    #     # Update input_pos for the next iteration.
+    #     if prefill_token:
+    #         prefill_token = False
+    #         input_pos = torch.tensor([prompt_size], device=device, dtype=torch.int64)
+    #     else:
+    #         input_pos.add_(1)
+    #     input_pos_maxp1.add_(1)
+
+    # # Yield any remaining tokens
+    # if yielded_idx < len(tokens):
+    #     yield from tokens[yielded_idx:]
 
 
 @torch.inference_mode()
@@ -206,6 +351,7 @@ def generate(
     top_p: float = 1.0,
     eos_id: Optional[int] = None,
     include_prompt: bool = True,
+    speculative_k: int,
 ) -> torch.Tensor:
     """
     Takes a conditioning sequence (prompt) as input and continues to generate as many tokens as requested.
@@ -247,14 +393,13 @@ def generate(
             top_k=top_k,
             top_p=top_p,
             stop_tokens=(([eos_id],) if eos_id is not None else ()),
+            speculative_k=speculative_k,
         )
     )
 
     return torch.cat(token_list) if len(token_list) != 0 else torch.Tensor()
 
 
-# TODO (andrei aksionau): add draft and target models
-# TODO (andrei aksionau): add number of tokens to draft
 @torch.inference_mode()
 def main(
     draft_model_checkpoint_dir: Path,
@@ -263,6 +408,7 @@ def main(
     *,
     num_samples: int = 1,
     max_new_tokens: int = 50,
+    speculative_k: int = 3,
     top_k: Optional[int] = 50,
     top_p: float = 1.0,
     temperature: float = 0.8,
@@ -326,7 +472,7 @@ def main(
     check_valid_checkpoint_dir(draft_model_checkpoint_dir)
     check_valid_checkpoint_dir(target_model_checkpoint_dir)
     draft_model_config = Config.from_file(draft_model_checkpoint_dir / "model_config.yaml")
-    target_model_config= Config.from_file(target_model_checkpoint_dir / "model_config.yaml")
+    target_model_config = Config.from_file(target_model_checkpoint_dir / "model_config.yaml")
 
     draft_model_checkpoint_path = draft_model_checkpoint_dir / "lit_model.pth"
     target_model_checkpoint_path = target_model_checkpoint_dir / "lit_model.pth"
@@ -341,7 +487,9 @@ def main(
 
     tokenizer = Tokenizer(target_model_checkpoint_dir)
     prompt_style = (
-        load_prompt_style(target_model_checkpoint_dir) if has_prompt_style(target_model_checkpoint_dir) else PromptStyle.from_config(target_model_config)
+        load_prompt_style(target_model_checkpoint_dir)
+        if has_prompt_style(target_model_checkpoint_dir)
+        else PromptStyle.from_config(target_model_config)
     )
 
     prompt = prompt_style.apply(prompt)
@@ -349,8 +497,13 @@ def main(
     prompt_length = encoded.size(0)
     max_returned_tokens = prompt_length + max_new_tokens
 
-    fabric.print(f"Loading draft model {str(draft_model_checkpoint_path)!r} with {draft_model_config.__dict__}", file=sys.stderr)
-    fabric.print(f"Loading target model {str(target_model_checkpoint_path)!r} with {target_model_config.__dict__}", file=sys.stderr)
+    fabric.print(
+        f"Loading draft model {str(draft_model_checkpoint_path)!r} with {draft_model_config.__dict__}", file=sys.stderr
+    )
+    fabric.print(
+        f"Loading target model {str(target_model_checkpoint_path)!r} with {target_model_config.__dict__}",
+        file=sys.stderr,
+    )
     t0 = time.perf_counter()
     with fabric.init_module(empty_init=True):
         draft_model = GPT(draft_model_config)
@@ -393,6 +546,7 @@ def main(
             top_k=top_k,
             top_p=top_p,
             eos_id=tokenizer.eos_id,
+            speculative_k=speculative_k,
         )
         t = time.perf_counter() - t0
         for block in draft_model.transformer.h:
