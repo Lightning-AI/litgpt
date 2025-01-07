@@ -70,14 +70,17 @@ def download_from_hub(
         else:
             raise ValueError(f"Couldn't find weight files for {repo_id}")
 
+    # Get and set env variable to improve download speed
+    user_env_value = os.environ.get("HF_HUB_ENABLE_HF_TRANSFER")
+
+    if user_env_value is None:
+        os.environ["HF_HUB_ENABLE_HF_TRANSFER"] = "1"
+        print("Setting HF_HUB_ENABLE_HF_TRANSFER=1 by default")
+
     import huggingface_hub._snapshot_download as download
     import huggingface_hub.constants as constants
 
-    previous = constants.HF_HUB_ENABLE_HF_TRANSFER
-    if _HF_TRANSFER_AVAILABLE and not previous:
-        print("Setting HF_HUB_ENABLE_HF_TRANSFER=1")
-        constants.HF_HUB_ENABLE_HF_TRANSFER = True
-        download.HF_HUB_ENABLE_HF_TRANSFER = True
+    previous_flag = constants.HF_HUB_ENABLE_HF_TRANSFER # this may be redundant
 
     directory = checkpoint_dir / repo_id
     with gated_repo_catcher(repo_id, access_token):
@@ -88,8 +91,8 @@ def download_from_hub(
             token=access_token,
         )
 
-    constants.HF_HUB_ENABLE_HF_TRANSFER = previous
-    download.HF_HUB_ENABLE_HF_TRANSFER = previous
+    constants.HF_HUB_ENABLE_HF_TRANSFER = previous_flag
+    download.HF_HUB_ENABLE_HF_TRANSFER = previous_flag
 
     if convert_checkpoint and not tokenizer_only:
         print("Converting checkpoint files to LitGPT format.")
