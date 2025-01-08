@@ -12,13 +12,13 @@ from re import escape
 import pytest
 import torch
 import yaml
-from tests.conftest import RunIf
 from lightning import Fabric
 
 from litgpt import Config
 from litgpt.generate.sequentially import layer_to_device, replace_device, sequential
 from litgpt.model import GPT, Block
 from litgpt.scripts.download import download_from_hub
+from tests.conftest import RunIf
 
 
 @pytest.mark.parametrize(
@@ -117,8 +117,8 @@ def _test_model_1device(accelerator):
         "cos": device_str,
         "sin": device_str,
         "lm_head.weight": device_str,
-        "transformer.h.0.attn.attn.bias": device_str,
-        "transformer.h.0.attn.attn.weight": device_str,
+        "transformer.h.0.attn.qkv.bias": device_str,
+        "transformer.h.0.attn.qkv.weight": device_str,
         "transformer.h.0.attn.proj.bias": device_str,
         "transformer.h.0.attn.proj.weight": device_str,
         "transformer.h.0.mlp.fc.bias": device_str,
@@ -131,8 +131,8 @@ def _test_model_1device(accelerator):
         "transformer.h.0.norm_2.weight": device_str,
         "transformer.h.0.attn.kv_cache.k": device_str,
         "transformer.h.0.attn.kv_cache.v": device_str,
-        "transformer.h.1.attn.attn.bias": device_str,
-        "transformer.h.1.attn.attn.weight": device_str,
+        "transformer.h.1.attn.qkv.bias": device_str,
+        "transformer.h.1.attn.qkv.weight": device_str,
         "transformer.h.1.attn.proj.bias": device_str,
         "transformer.h.1.attn.proj.weight": device_str,
         "transformer.h.1.mlp.fc.bias": device_str,
@@ -187,8 +187,8 @@ def test_model_forward_hooks():
         "transformer.wte.weight": "cuda:0",
         "transformer.h.0.norm_1.weight": "cuda:0",
         "transformer.h.0.norm_1.bias": "cuda:0",
-        "transformer.h.0.attn.attn.weight": "cuda:0",
-        "transformer.h.0.attn.attn.bias": "cuda:0",
+        "transformer.h.0.attn.qkv.weight": "cuda:0",
+        "transformer.h.0.attn.qkv.bias": "cuda:0",
         "transformer.h.0.attn.proj.weight": "cuda:0",
         "transformer.h.0.attn.proj.bias": "cuda:0",
         "transformer.h.0.norm_2.weight": "cuda:0",
@@ -199,8 +199,8 @@ def test_model_forward_hooks():
         "transformer.h.0.mlp.proj.bias": "cuda:0",
         "transformer.h.1.norm_1.weight": "cuda:0",
         "transformer.h.1.norm_1.bias": "cuda:0",
-        "transformer.h.1.attn.attn.weight": "cuda:0",
-        "transformer.h.1.attn.attn.bias": "cuda:0",
+        "transformer.h.1.attn.qkv.weight": "cuda:0",
+        "transformer.h.1.attn.qkv.bias": "cuda:0",
         "transformer.h.1.attn.proj.weight": "cuda:0",
         "transformer.h.1.attn.proj.bias": "cuda:0",
         "transformer.h.1.norm_2.weight": "cuda:0",
@@ -211,8 +211,8 @@ def test_model_forward_hooks():
         "transformer.h.1.mlp.proj.bias": "cuda:0",
         "transformer.h.2.norm_1.weight": "cuda:0",
         "transformer.h.2.norm_1.bias": "cuda:0",
-        "transformer.h.2.attn.attn.weight": "cuda:0",
-        "transformer.h.2.attn.attn.bias": "cuda:0",
+        "transformer.h.2.attn.qkv.weight": "cuda:0",
+        "transformer.h.2.attn.qkv.bias": "cuda:0",
         "transformer.h.2.attn.proj.weight": "cuda:0",
         "transformer.h.2.attn.proj.bias": "cuda:0",
         "transformer.h.2.norm_2.weight": "cuda:0",
@@ -223,8 +223,8 @@ def test_model_forward_hooks():
         "transformer.h.2.mlp.proj.bias": "cuda:0",
         "transformer.h.3.norm_1.weight": "cuda:1",
         "transformer.h.3.norm_1.bias": "cuda:1",
-        "transformer.h.3.attn.attn.weight": "cuda:1",
-        "transformer.h.3.attn.attn.bias": "cuda:1",
+        "transformer.h.3.attn.qkv.weight": "cuda:1",
+        "transformer.h.3.attn.qkv.bias": "cuda:1",
         "transformer.h.3.attn.proj.weight": "cuda:1",
         "transformer.h.3.attn.proj.bias": "cuda:1",
         "transformer.h.3.norm_2.weight": "cuda:1",
@@ -235,8 +235,8 @@ def test_model_forward_hooks():
         "transformer.h.3.mlp.proj.bias": "cuda:1",
         "transformer.h.4.norm_1.weight": "cuda:1",
         "transformer.h.4.norm_1.bias": "cuda:1",
-        "transformer.h.4.attn.attn.weight": "cuda:1",
-        "transformer.h.4.attn.attn.bias": "cuda:1",
+        "transformer.h.4.attn.qkv.weight": "cuda:1",
+        "transformer.h.4.attn.qkv.bias": "cuda:1",
         "transformer.h.4.attn.proj.weight": "cuda:1",
         "transformer.h.4.attn.proj.bias": "cuda:1",
         "transformer.h.4.norm_2.weight": "cuda:1",
@@ -247,8 +247,8 @@ def test_model_forward_hooks():
         "transformer.h.4.mlp.proj.bias": "cuda:1",
         "transformer.h.5.norm_1.weight": "cuda:1",
         "transformer.h.5.norm_1.bias": "cuda:1",
-        "transformer.h.5.attn.attn.weight": "cuda:1",
-        "transformer.h.5.attn.attn.bias": "cuda:1",
+        "transformer.h.5.attn.qkv.weight": "cuda:1",
+        "transformer.h.5.attn.qkv.bias": "cuda:1",
         "transformer.h.5.attn.proj.weight": "cuda:1",
         "transformer.h.5.attn.proj.bias": "cuda:1",
         "transformer.h.5.norm_2.weight": "cuda:1",
