@@ -355,6 +355,7 @@ def copy_weights_olmo2(
         "transformer.h.{}.attn.k_norm.weight": "model.layers.{}.self_attn.k_norm.weight",
         "transformer.h.{}.norm_2.weight": "model.layers.{}.post_attention_layernorm.weight",
         "transformer.h.{}.norm_2.bias": "model.layers.{}.post_attention_layernorm.bias",
+        "transformer.h.{}.post_mlp_norm.weight": "model.layers.{}.post_feedforward_layernorm.weight",
         "transformer.ln_f.weight": "model.norm.weight",
         "transformer.ln_f.bias": "model.norm.bias",
         "lm_head.weight": "lm_head.weight",

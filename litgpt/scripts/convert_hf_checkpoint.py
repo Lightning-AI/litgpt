@@ -471,6 +471,7 @@ def copy_weights_olmo2(
         "model.layers.{}.self_attn.rotary_emb.inv_freq": None,
         "model.layers.{}.post_attention_layernorm.weight": "transformer.h.{}.norm_2.weight",
         "model.layers.{}.post_attention_layernorm.bias": "transformer.h.{}.norm_2.bias",
+        "model.layers.{}.post_feedforward_layernorm.weight": "transformer.h.{}.post_mlp_norm.weight",
         "model.norm.weight": "transformer.ln_f.weight",
         "model.norm.bias": "transformer.ln_f.bias",
         "lm_head.weight": "lm_head.weight",
