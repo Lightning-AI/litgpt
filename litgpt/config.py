@@ -78,6 +78,7 @@ class Config:
     scale_embeddings: bool = False
     lm_head_bias: bool = False
     final_logit_softcapping: Optional[float] = None
+    input_norm: bool = True
 
     def __post_init__(self):
         if not self.name:
@@ -934,6 +935,7 @@ olmo2 = [
         rope_base=500000,
         norm_qk=True,
         post_mlp_norm=True,
+        input_norm=False,
     ),
     # https://huggingface.co/allenai/OLMo-2-1124-13B/blob/main/config.json
     dict(
@@ -956,6 +958,7 @@ olmo2 = [
         rope_base=500000,
         norm_qk=True,
         post_mlp_norm=True,
+        input_norm=False,
     ),
 ]
 

@@ -263,7 +263,7 @@ class Block(nn.Module):
                 " (non-parallel residual and shared attention norm)."
             )
 
-        self.norm_1 = config.norm_class(config.n_embd, eps=config.norm_eps)
+        self.norm_1 = None if not config.input_norm else config.norm_class(config.n_embd, eps=config.norm_eps)
         self.attn = CausalSelfAttention(config, block_idx)
         self.post_attention_norm = (
             config.norm_class(config.n_embd, eps=config.norm_eps) if config.post_attention_norm else nn.Identity()
@@ -306,7 +306,11 @@ class Block(nn.Module):
         └───► +
         """
 
-        x_normed = self.norm_1(x)
+        if self.norm_1 is not None:
+            x_normed = self.norm_1(x)
+        else:
+            x_normed = x
+
         attention_output = self.attn(
             x_normed, cos, sin, mask, input_pos, input_pos_maxp1
         )
