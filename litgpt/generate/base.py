@@ -4,7 +4,7 @@ import sys
 import time
 from pathlib import Path
 from pprint import pprint
-from typing import Any, Literal, Optional, Tuple, List, Union, Iterator
+from typing import Any, Literal, Optional, Tuple, List, Union, Iterator, Dict
 import warnings
 
 import lightning as L
@@ -73,14 +73,22 @@ def sample(
     return torch.argmax(logits, dim=-1, keepdim=True)
 
 
-def next_token(model: GPT, input_pos: torch.Tensor, x: torch.Tensor, **kwargs: Any) -> torch.Tensor:
-    logits = model(x, input_pos)
-    _next = sample(logits, **kwargs).to(dtype=torch.int64)
+def next_token(
+    model: GPT,
+    input_pos: torch.Tensor,
+    x: torch.Tensor,
+    input_pos_maxp1: Optional[torch.Tensor] = None,
+    **sample_kwargs: Dict[str, Any],
+) -> torch.Tensor:
+    logits = model(x, input_pos, input_pos_maxp1=input_pos_maxp1)
+    _next = sample(logits, **sample_kwargs).to(dtype=torch.int64)
     return _next
+
 
 def batched_sample(logits: list[torch.Tensor], kwargs: list[dict]) -> torch.Tensor:
     assert len(logits) == len(kwargs), "logits and kwargs must have the same length."
     return torch.stack([sample(l, **sample_args).to(dtype=torch.int64) for sample_args, l in zip(kwargs, logits)], dim=0)
+
 
 def batched_next_token(model: GPT, input_pos: torch.Tensor, x: torch.Tensor, kwargs: Union[dict, list[dict]]) -> torch.Tensor:
     # Where:
@@ -166,10 +174,19 @@ def generate_fn(
     token = prompt
     prefill_token = True
     input_pos = torch.arange(0, prompt_size, device=device, dtype=torch.int64)
+    input_pos_maxp1 = torch.tensor(prompt_size, device=device)
     for current_idx in range(max_returned_tokens - prompt_size):
 
         # Generate the token
-        token = next_token(model, input_pos, token.view(1, -1), temperature=temperature, top_k=top_k, top_p=top_p)
+        token = next_token(
+            model,
+            input_pos,
+            token.view(1, -1),
+            input_pos_maxp1=input_pos_maxp1,
+            temperature=temperature,
+            top_k=top_k,
+            top_p=top_p,
+        )
         tokens.append(token)
         int_token = token.item()
 
@@ -205,6 +222,7 @@ def generate_fn(
             input_pos = torch.tensor([prompt_size], device=device, dtype=torch.int64)
         else:
             input_pos.add_(1)
+        input_pos_maxp1.add_(1)
 
     # Yield any remaining tokens
     if yielded_idx < len(tokens):
@@ -230,7 +248,7 @@ def batched_generate_fn(
     Args:
         model: The model to use.
         prompts: A 2D tensor of shape [batch_size, prompt_length].
-        max_returned_tokens: The maximum number of new tokens to return. Does not include the prompt tokens.
+        max_returned_tokens: The maximum number of tokens to return, including the prompt tokens.
         sample_args: The dictionary of kwargs to pass to sample() for each each token for each index in the batch.
         stop_tokens: A tuple of stop sequences. If any of the sequences are generated, the generation stops early before max_returned_tokens.
         include_prompt: Whether to output the prompt tokens.

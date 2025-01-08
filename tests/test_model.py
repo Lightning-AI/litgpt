@@ -2,9 +2,9 @@
 
 from copy import deepcopy
 from functools import partial
+from unittest import mock
 
 import pytest
-from unittest import mock
 import torch
 from lightning import Fabric
 from lightning.fabric.utilities.imports import _IS_WINDOWS
@@ -27,17 +27,21 @@ from transformers.models.gpt_neox import GPTNeoXConfig, GPTNeoXForCausalLM
 from transformers.models.llama import LlamaConfig, LlamaForCausalLM
 from transformers.models.mistral import MistralConfig, MistralForCausalLM
 from transformers.models.mixtral import MixtralConfig, MixtralForCausalLM
+from transformers.models.olmo import OlmoConfig, OlmoForCausalLM
+from transformers.models.qwen2 import Qwen2Config, Qwen2ForCausalLM
 
 import litgpt.config as config_module
-from litgpt.model import batched_index_copy_
 from litgpt import GPT, Config
+from litgpt.model import CausalSelfAttention, batched_index_copy_
 from litgpt.scripts.convert_hf_checkpoint import (
     copy_weights_falcon,
     copy_weights_gemma_2,
     copy_weights_gpt_neox,
     copy_weights_hf_llama,
     copy_weights_phi,
+    copy_weights_qwen_2_5,
 )
+from litgpt.scripts.convert_lit_checkpoint import qkv_reassemble as make_qkv_interleaved
 from tests.conftest import RunIf
 
 
@@ -94,7 +98,7 @@ def test_against_gpt_neox_model(rotary_pct, batch_size, n_embd, parallel_residua
     state_dict = {}
     theirs_model = GPTNeoXForCausalLM(theirs_config).to(device)
     # load the hf initialization into our model
-    copy_weights_gpt_neox(state_dict, theirs_model.state_dict())
+    copy_weights_gpt_neox(ours_config, state_dict, theirs_model.state_dict())
     ours_model = GPT(ours_config).to(device)
     ours_model.load_state_dict(state_dict)
 
@@ -149,7 +153,7 @@ def test_against_hf_falcon(kwargs, device, dtype):
     theirs_model = FalconForCausalLM(theirs_config).to(device)
     theirs_state_dict = theirs_model.state_dict()
     state_dict = {}
-    copy_weights_falcon(kwargs["name"], state_dict, theirs_state_dict)
+    copy_weights_falcon(ours_config, state_dict, theirs_state_dict)
     ours_model = GPT(ours_config).to(device)
     ours_model.load_state_dict(state_dict)
 
@@ -220,6 +224,7 @@ def test_against_original_open_llama_3b(device, dtype):
         {"name": "Llama-3.1-8B-Instruct"},
         {"name": "Llama-3.2-1B"},
         {"name": "Llama-3.2-3B"},
+        {"name": "Llama-3.3-70B-Instruct"},
     ],
 )
 @pytest.mark.parametrize(
@@ -509,11 +514,12 @@ def test_against_mathstral_hf_models(device, dtype):
 
 
 @torch.inference_mode()
-def test_against_hf_mixtral():
+@pytest.mark.parametrize("model_name", ("Mixtral-8x7B-Instruct-v0.1", "Mixtral-8x22B-Instruct-v0.1"))
+def test_against_hf_mixtral(model_name):
     device = torch.device("cpu")
     dtype = torch.float32
     ours_config = Config.from_name(
-        "Mixtral-8x7B-Instruct-v0.1",
+        model_name,
         padded_vocab_size=10000,
         n_layer=2,
         n_embd=32,
@@ -546,6 +552,65 @@ def test_against_hf_mixtral():
 
     # test end to end
     x = torch.tensor([[9856, 23, 491, 1536, 304], [23, 345, 65, 123, 321]], dtype=torch.int32, device=device)
+    assert x.size(1) == T
+    ours_y = ours_model(x)
+    theirs_y = theirs_model(x)["logits"].to(dtype)  # HF converts logits to float
+    torch.testing.assert_close(ours_y, theirs_y)
+
+
+@torch.inference_mode()
+@pytest.mark.parametrize("model_name", ("OLMo-1B-hf", "OLMo-7B-hf"))
+@pytest.mark.parametrize(
+    ("device", "dtype"),
+    [
+        (torch.device("cpu"), torch.float32),
+        pytest.param(
+            torch.device("cuda"),
+            torch.float16,
+            marks=[
+                # the reference does softmax upscaled to fp32 during attention. additionally, the final layernorm input
+                # is slightly different
+                pytest.mark.xfail(raises=AssertionError, strict=False),
+                RunIf(min_cuda_gpus=1),
+            ],
+        ),
+    ],
+)
+def test_against_olmo(model_name, device, dtype):
+    torch.set_default_dtype(dtype)
+
+    ours_config = Config.from_name(
+        model_name,
+        padded_vocab_size=10000,
+        n_layer=2,
+        n_head=8,
+        n_embd=32,
+        intermediate_size=86,
+    )
+    T = 5
+    theirs_config = OlmoConfig(
+        vocab_size=ours_config.padded_vocab_size,
+        hidden_size=ours_config.n_embd,
+        intermediate_size=ours_config.intermediate_size,
+        num_hidden_layers=ours_config.n_layer,
+        num_attention_heads=ours_config.n_head,
+        num_key_value_heads=ours_config.n_query_groups,
+        max_positional_embeddings=T,
+        attention_bias=ours_config.bias,
+        rope_theta=ours_config.rope_base,
+        tie_word_embeddings=(model_name == "OLMo-1B-hf"),
+    )
+    assert ours_config.intermediate_size == theirs_config.intermediate_size
+
+    theirs_model = OlmoForCausalLM(theirs_config).to(device)
+    theirs_state_dict = theirs_model.state_dict()
+    state_dict = {}
+    copy_weights_hf_llama(ours_config, {}, state_dict, theirs_state_dict)
+    ours_model = GPT(ours_config).to(device)
+    ours_model.load_state_dict(state_dict)
+
+    # test end to end
+    x = torch.tensor([[9856, 23, 491, 1536, 304]], dtype=torch.int32, device=device)
     assert x.size(1) == T
     ours_y = ours_model(x)
     theirs_y = theirs_model(x)["logits"].to(dtype)  # HF converts logits to float
@@ -717,7 +782,7 @@ def test_against_original_gemma_2(model_name, device, dtype):
     # Gemma weights are shipped without `lm_head.weight`
     theirs_state_dict.pop("lm_head.weight")
     state_dict = {}
-    copy_weights_gemma_2(ours_config, {}, state_dict, theirs_state_dict)
+    copy_weights_gemma_2({}, state_dict, theirs_state_dict)
     ours_model = GPT(ours_config).to(device)
     ours_model.load_state_dict(state_dict)
 
@@ -727,6 +792,247 @@ def test_against_original_gemma_2(model_name, device, dtype):
     ours_y = ours_model(x)
     theirs_y = theirs_model(x)["logits"].to(dtype)  # HF converts logits to float
     torch.testing.assert_close(ours_y, theirs_y, rtol=3e-5, atol=3e-5)
+
+
+@torch.inference_mode()
+@pytest.mark.parametrize("model_name", ("Qwen2.5-1.5B", "Qwen2.5-Coder-1.5B", "Qwen2.5-Math-1.5B", "QwQ-32B-Preview"))
+@pytest.mark.parametrize(
+    ("device", "dtype"),
+    [
+        (torch.device("cpu"), torch.float32),
+        pytest.param(
+            torch.device("cuda"),
+            torch.float16,
+            marks=[
+                # the reference does softmax upscaled to fp32 during attention. additionally, the final layernorm input
+                # is slightly different
+                pytest.mark.xfail(raises=AssertionError, strict=False),
+                RunIf(min_cuda_gpus=1),
+            ],
+        ),
+    ],
+)
+def test_against_original_qwen_2_5(model_name, device, dtype):
+    torch.set_default_dtype(dtype)
+
+    T = 20
+    ours_config = Config.from_name(
+        model_name,
+        block_size=T,
+        n_layer=2,
+        n_head=16,
+        n_embd=32,
+        intermediate_size=86,
+    )
+    theirs_config = Qwen2Config(
+        vocab_size=ours_config.padded_vocab_size,
+        hidden_size=ours_config.n_embd,
+        head_dim=ours_config.head_size,
+        num_attention_heads=ours_config.n_head,
+        num_hidden_layers=ours_config.n_layer,
+        intermediate_size=ours_config.intermediate_size,
+        max_position_embeddings=ours_config.block_size,
+        rms_norm_eps=ours_config.norm_eps,
+        num_key_value_heads=ours_config.n_query_groups,
+        rope_theta=ours_config.rope_base,
+        attention_bias=ours_config.attn_bias,
+        tie_word_embeddings=True,
+    )
+
+    theirs_model = Qwen2ForCausalLM(theirs_config).to(device)
+    theirs_state_dict = theirs_model.state_dict()
+    # Gemma weights are shipped without `lm_head.weight`
+    theirs_state_dict.pop("lm_head.weight")
+    state_dict = {}
+    copy_weights_qwen_2_5(ours_config, {}, state_dict, theirs_state_dict)
+    ours_model = GPT(ours_config).to(device)
+    ours_model.load_state_dict(state_dict)
+
+    # test end to end
+    x = torch.randint(low=0, high=ours_config.padded_vocab_size, size=(T,), device=device).unsqueeze(0)
+    assert x.size(1) == T
+    ours_y = ours_model(x)
+    theirs_y = theirs_model(x)["logits"].to(dtype)  # HF converts logits to float
+    torch.testing.assert_close(ours_y, theirs_y)
+
+
+@torch.inference_mode()
+@pytest.mark.parametrize("model_name", ("salamandra-2b", "salamandra-7b"))
+@pytest.mark.parametrize(
+    ("device", "dtype"),
+    [
+        (torch.device("cpu"), torch.float32),
+        pytest.param(
+            torch.device("cuda"),
+            torch.float16,
+            marks=[
+                # the reference does softmax upscaled to fp32 during attention. additionally, the final layernorm input
+                # is slightly different
+                pytest.mark.xfail(raises=AssertionError, strict=False),
+                RunIf(min_cuda_gpus=1),
+            ],
+        ),
+    ],
+)
+def test_against_original_salamandra(model_name, device, dtype):
+    torch.set_default_dtype(dtype)
+
+    ours_config = Config.from_name(
+        model_name,
+        padded_vocab_size=10000,
+        n_layer=2,
+        n_head=8,
+        n_embd=32,
+        n_query_groups=2,
+        intermediate_size=86,
+    )
+    T = 5
+    theirs_config = LlamaConfig(
+        vocab_size=ours_config.padded_vocab_size,
+        hidden_size=ours_config.n_embd,
+        num_attention_heads=ours_config.n_head,
+        num_hidden_layers=ours_config.n_layer,
+        intermediate_size=ours_config.intermediate_size,
+        max_position_embeddings=T,
+        rms_norm_eps=ours_config.norm_eps,
+        num_key_value_heads=ours_config.n_query_groups,
+        rope_theta=ours_config.rope_base,
+        attention_bias=ours_config.bias,
+    )
+    assert ours_config.intermediate_size == theirs_config.intermediate_size
+
+    theirs_model = LlamaForCausalLM(theirs_config).to(device)
+    theirs_state_dict = theirs_model.state_dict()
+    state_dict = {}
+    copy_weights_hf_llama(ours_config, {}, state_dict, theirs_state_dict)
+    ours_model = GPT(ours_config).to(device)
+    ours_model.load_state_dict(state_dict)
+
+    # test end to end
+    x = torch.tensor([[9856, 23, 491, 1536, 304]], dtype=torch.int32, device=device)
+    assert x.size(1) == T
+    ours_y = ours_model(x)
+    theirs_y = theirs_model(x)["logits"].to(dtype)  # HF converts logits to float
+    torch.testing.assert_close(ours_y, theirs_y)
+
+
+@torch.inference_mode()
+@pytest.mark.parametrize("model_name", ("SmolLM2-135M", "SmolLM2-360M", "SmolLM2-1.7B"))
+@pytest.mark.parametrize(
+    ("device", "dtype"),
+    [
+        (torch.device("cpu"), torch.float32),
+        pytest.param(
+            torch.device("cuda"),
+            torch.float16,
+            marks=[
+                # the reference does softmax upscaled to fp32 during attention. additionally, the final layernorm input
+                # is slightly different
+                pytest.mark.xfail(raises=AssertionError, strict=False),
+                RunIf(min_cuda_gpus=1),
+            ],
+        ),
+    ],
+)
+def test_against_original_smollm2(model_name, device, dtype):
+    torch.set_default_dtype(dtype)
+
+    ours_config = Config.from_name(
+        model_name,
+        padded_vocab_size=10000,
+        n_layer=2,
+        n_head=8,
+        n_embd=32,
+        n_query_groups=2,
+        intermediate_size=86,
+    )
+    T = 5
+    theirs_config = LlamaConfig(
+        vocab_size=ours_config.padded_vocab_size,
+        hidden_size=ours_config.n_embd,
+        num_attention_heads=ours_config.n_head,
+        num_hidden_layers=ours_config.n_layer,
+        intermediate_size=ours_config.intermediate_size,
+        max_position_embeddings=T,
+        rms_norm_eps=ours_config.norm_eps,
+        num_key_value_heads=ours_config.n_query_groups,
+        rope_theta=ours_config.rope_base,
+        attention_bias=ours_config.bias,
+    )
+    assert ours_config.intermediate_size == theirs_config.intermediate_size
+
+    theirs_model = LlamaForCausalLM(theirs_config).to(device)
+    theirs_state_dict = theirs_model.state_dict()
+    state_dict = {}
+    copy_weights_hf_llama(ours_config, {}, state_dict, theirs_state_dict)
+    ours_model = GPT(ours_config).to(device)
+    ours_model.load_state_dict(state_dict)
+
+    # test end to end
+    x = torch.tensor([[9856, 23, 491, 1536, 304]], dtype=torch.int32, device=device)
+    assert x.size(1) == T
+    ours_y = ours_model(x)
+    theirs_y = theirs_model(x)["logits"].to(dtype)  # HF converts logits to float
+    torch.testing.assert_close(ours_y, theirs_y)
+
+@torch.inference_mode()
+@pytest.mark.parametrize("model_name", ("Falcon3-1B-Base", "Falcon3-7B-Base"))
+@pytest.mark.parametrize(
+    ("device", "dtype"),
+    [
+        (torch.device("cpu"), torch.float32),
+        pytest.param(
+            torch.device("cuda"),
+            torch.float16,
+            marks=[
+                # the reference does softmax upscaled to fp32 during attention. additionally, the final layernorm input
+                # is slightly different
+                pytest.mark.xfail(raises=AssertionError, strict=False),
+                RunIf(min_cuda_gpus=1),
+            ],
+        ),
+    ],
+)
+def test_against_hf_falcon3(model_name, device, dtype):
+    torch.set_default_dtype(dtype)
+
+    ours_config = Config.from_name(
+        model_name,
+        padded_vocab_size=10000,
+        n_layer=2,
+        n_head=8,
+        n_embd=32,
+        n_query_groups=2,
+        intermediate_size=86,
+    )
+    T = 5
+    theirs_config = LlamaConfig(
+        vocab_size=ours_config.padded_vocab_size,
+        hidden_size=ours_config.n_embd,
+        num_attention_heads=ours_config.n_head,
+        num_hidden_layers=ours_config.n_layer,
+        intermediate_size=ours_config.intermediate_size,
+        max_position_embeddings=T,
+        rms_norm_eps=ours_config.norm_eps,
+        num_key_value_heads=ours_config.n_query_groups,
+        rope_theta=ours_config.rope_base,
+        attention_bias=ours_config.bias,
+    )
+    assert ours_config.intermediate_size == theirs_config.intermediate_size
+
+    theirs_model = LlamaForCausalLM(theirs_config).to(device)
+    theirs_state_dict = theirs_model.state_dict()
+    state_dict = {}
+    copy_weights_hf_llama(ours_config, {}, state_dict, theirs_state_dict)
+    ours_model = GPT(ours_config).to(device)
+    ours_model.load_state_dict(state_dict)
+
+    # test end to end
+    x = torch.tensor([[9856, 23, 491, 1536, 304]], dtype=torch.int32, device=device)
+    assert x.size(1) == T
+    ours_y = ours_model(x)
+    theirs_y = theirs_model(x)["logits"].to(dtype)  # HF converts logits to float
+    torch.testing.assert_close(ours_y, theirs_y)
 
 
 @RunIf(dynamo=True)
@@ -995,3 +1301,86 @@ def test_batched_index_copy_modes():
             val_3_mps = val_3
             batched_index_copy_(t3_mps, dim_3, idx_3_mps, val_3_mps)
             assert torch.allclose(t3_cpu, t3_mps), "Mismatch with negative dimension on mocked MPS"
+
+def test_load_legacy_state_dict():
+    """Check that a legacy state dict (with an interleaved placement in QKV matrix) can be loaded into a model with CausalSelfAttention layers."""
+    config = Config(
+        n_embd=32,
+        n_head=4,
+        head_size=8,
+        n_query_groups=4,
+        bias=True,
+    )
+
+    attention_1 = CausalSelfAttention(config=config, block_idx=0)
+
+    # make weights to be as-like in a legacy checkpoint, with `attn.attn.weight` instead of `attn.qkv.weight`
+    # and make them interleaved
+    state_dict = deepcopy(attention_1.state_dict())
+    state_dict["attn.weight"] = make_qkv_interleaved(state_dict.pop("qkv.weight"), config)
+    state_dict["attn.bias"] = make_qkv_interleaved(state_dict.pop("qkv.bias"), config)
+
+    attention_2 = CausalSelfAttention(config=config, block_idx=0)
+    attention_2.load_state_dict(state_dict)
+
+@pytest.mark.parametrize("n_query_groups", (1, 2, 4, 8))
+@torch.inference_mode()
+def test_kv_cache_buffer_shape(n_query_groups):
+    batch_size = 3
+    max_seq_length = 23
+    config = Config(
+        block_size=25,
+        padded_vocab_size=5,
+        n_layer=2,
+        n_head=8,
+        n_embd=16,
+        n_query_groups=n_query_groups,
+    )
+    model = GPT(config)
+    model.max_seq_length = max_seq_length
+    model.set_kv_cache(batch_size)
+    required_shape = (batch_size, n_query_groups, max_seq_length, config.head_size)
+    for block in model.transformer.h:
+        kv_cache = block.attn.kv_cache
+        assert kv_cache is not None
+        assert kv_cache.k.shape == required_shape
+        assert kv_cache.v.shape == required_shape
+
+
+@pytest.mark.parametrize(
+    ("rotary_percentage", "final_dim"),
+    ((0.75, 3), (0.25, 2))
+)
+@torch.inference_mode()
+def test_rope_cos_sin_shapes_if_rope_n_elem_is_odd(rotary_percentage, final_dim):
+    batch_size = 3
+    config = Config(
+        block_size=25,
+        padded_vocab_size=5,
+        n_layer=2,
+        n_head=4,
+        n_embd=16,
+        rotary_percentage=rotary_percentage,
+    )
+    model = GPT(config)
+    required_shape = (config.block_size, final_dim)
+    assert model.cos.shape == required_shape
+    assert model.sin.shape == required_shape
+
+def test_forward_with_without_input_pos_maxp1():
+    batch_size = 3
+    config = Config(
+        block_size=25,
+        padded_vocab_size=5,
+        n_layer=2,
+        n_head=8,
+        n_embd=16,
+    )
+    model = GPT(config)
+    model.set_kv_cache(batch_size)
+    idx = torch.randint(0, config.padded_vocab_size, (1, 10))
+    input_pos = torch.arange(1, 11)
+    input_pos_maxp1 = torch.tensor(11)
+    logits_with_maxp1 = model(idx, input_pos, input_pos_maxp1=input_pos_maxp1)
+    logits_no_maxp1 = model(idx, input_pos)
+    torch.testing.assert_close(logits_with_maxp1, logits_no_maxp1)

@@ -5,7 +5,7 @@ from collections import defaultdict
 from functools import partial
 from pathlib import Path
 from pprint import pprint
-from typing import Dict, Optional, Tuple, Union
+from typing import Dict, Optional, Union
 
 import torch
 from lightning.fabric.utilities.load import _NotYetLoadedTensor as NotYetLoadedTensor
@@ -16,14 +16,14 @@ from litgpt.utils import extend_checkpoint_dir, incremental_save, lazy_load
 
 
 def copy_weights_falcon(
-    model_name: str,
+    config: Config,
     state_dict: Dict[str, torch.Tensor],
     lit_weights: Dict[str, Union[torch.Tensor, NotYetLoadedTensor]],
     saver: Optional[incremental_save] = None,
 ) -> None:
     weight_map = {
         "transformer.wte.weight": "transformer.word_embeddings.weight",
-        "transformer.h.{}.attn.attn.weight": "transformer.h.{}.self_attention.query_key_value.weight",
+        "transformer.h.{}.attn.qkv.weight": "transformer.h.{}.self_attention.query_key_value.weight",
         "transformer.h.{}.attn.proj.weight": "transformer.h.{}.self_attention.dense.weight",
         "transformer.h.{}.mlp.fc.weight": "transformer.h.{}.mlp.dense_h_to_4h.weight",
         "transformer.h.{}.mlp.proj.weight": "transformer.h.{}.mlp.dense_4h_to_h.weight",
@@ -32,14 +32,14 @@ def copy_weights_falcon(
         "lm_head.weight": "lm_head.weight",
     }
     # the original model definition is different for each size
-    if "7b" in model_name:
+    if "7b" in config.name:
         weight_map.update(
             {
                 "transformer.h.{}.norm_1.bias": "transformer.h.{}.input_layernorm.bias",
                 "transformer.h.{}.norm_1.weight": "transformer.h.{}.input_layernorm.weight",
             }
         )
-    elif "40b" in model_name or "180B" in model_name:
+    elif "40b" in config.name or "180B" in config.name:
         weight_map.update(
             {
                 "transformer.h.{}.norm_1.bias": "transformer.h.{}.ln_attn.bias",
@@ -51,19 +51,20 @@ def copy_weights_falcon(
     else:
         raise NotImplementedError
 
-    for name, param in lit_weights.items():
-        if "transformer.h" in name:
-            from_name, number = layer_template(name, 2)
-            to_name = weight_map[from_name].format(number)
-        else:
-            to_name = weight_map[name]
-        param = load_param(param, name, None)
+    for from_name, param in lit_weights.items():
+        name_template, layer_idx = layer_template(from_name)
+        to_name = weight_map[name_template].format(layer_idx)
+        param = load_param(param, from_name, None)
+        if from_name.endswith((".attn.qkv.weight", ".attn.qkv.bias")):
+            # Reassemble [q, q, ..., k, k, ..., v, v, ...] --> [q, k, v, q, k, v, ...]
+            param = qkv_reassemble(param, config)
         if saver is not None:
             param = saver.store_early(param)
         state_dict[to_name] = param
 
 
 def copy_weights_gpt_neox(
+    config: Config,
     state_dict: Dict[str, torch.Tensor],
     lit_weights: Dict[str, Union[torch.Tensor, NotYetLoadedTensor]],
     saver: Optional[incremental_save] = None,
@@ -72,8 +73,8 @@ def copy_weights_gpt_neox(
         "transformer.wte.weight": "gpt_neox.embed_in.weight",
         "transformer.h.{}.norm_1.bias": "gpt_neox.layers.{}.input_layernorm.bias",
         "transformer.h.{}.norm_1.weight": "gpt_neox.layers.{}.input_layernorm.weight",
-        "transformer.h.{}.attn.attn.bias": "gpt_neox.layers.{}.attention.query_key_value.bias",
-        "transformer.h.{}.attn.attn.weight": "gpt_neox.layers.{}.attention.query_key_value.weight",
+        "transformer.h.{}.attn.qkv.bias": "gpt_neox.layers.{}.attention.query_key_value.bias",
+        "transformer.h.{}.attn.qkv.weight": "gpt_neox.layers.{}.attention.query_key_value.weight",
         "transformer.h.{}.attn.proj.bias": "gpt_neox.layers.{}.attention.dense.bias",
         "transformer.h.{}.attn.proj.weight": "gpt_neox.layers.{}.attention.dense.weight",
         "transformer.h.{}.norm_2.bias": "gpt_neox.layers.{}.post_attention_layernorm.bias",
@@ -87,13 +88,13 @@ def copy_weights_gpt_neox(
         "lm_head.weight": "embed_out.weight",
     }
 
-    for name, param in lit_weights.items():
-        if "transformer.h" in name:
-            from_name, number = layer_template(name, 2)
-            to_name = weight_map[from_name].format(number)
-        else:
-            to_name = weight_map[name]
-        param = load_param(param, name, None)
+    for from_name, param in lit_weights.items():
+        name_template, layer_idx = layer_template(from_name)
+        to_name = weight_map[name_template].format(layer_idx)
+        param = load_param(param, from_name, None)
+        if from_name.endswith((".attn.qkv.weight", ".attn.qkv.bias")):
+            # Reassemble [q, q, ..., k, k, ..., v, v, ...] --> [q, k, v, q, k, v, ...]
+            param = qkv_reassemble(param, config)
         if saver is not None:
             param = saver.store_early(param)
         state_dict[to_name] = param
@@ -108,11 +109,11 @@ def copy_weights_llama(
 ) -> None:
     weight_map = {
         "transformer.wte.weight": "model.embed_tokens.weight",
-        "transformer.h.{}.norm_1.weight": "model.layers.{l}.input_layernorm.weight",
-        "transformer.h.{}.norm_1.bias": "model.layers.{l}.input_layernorm.bias",
-        "transformer.h.{}.attn.proj.weight": "model.layers.{l}.self_attn.o_proj.weight",
-        "transformer.h.{}.norm_2.weight": "model.layers.{l}.post_attention_layernorm.weight",
-        "transformer.h.{}.norm_2.bias": "model.layers.{l}.post_attention_layernorm.bias",
+        "transformer.h.{}.norm_1.weight": "model.layers.{}.input_layernorm.weight",
+        "transformer.h.{}.norm_1.bias": "model.layers.{}.input_layernorm.bias",
+        "transformer.h.{}.attn.proj.weight": "model.layers.{}.self_attn.o_proj.weight",
+        "transformer.h.{}.norm_2.weight": "model.layers.{}.post_attention_layernorm.weight",
+        "transformer.h.{}.norm_2.bias": "model.layers.{}.post_attention_layernorm.bias",
         "transformer.ln_f.weight": "model.norm.weight",
         "transformer.ln_f.bias": "model.norm.bias",
         "lm_head.weight": "lm_head.weight",
@@ -120,48 +121,46 @@ def copy_weights_llama(
     if config.mlp_class_name == "LLaMAMoE":
         weight_map.update(
             {
-                "transformer.h.{}.mlp.gate.weight": "model.layers.{l}.block_sparse_moe.gate.weight",
-                "transformer.h.{}.mlp.experts.{}.fc_1.weight": "model.layers.{l}.block_sparse_moe.experts.{e}.w1.weight",
-                "transformer.h.{}.mlp.experts.{}.fc_2.weight": "model.layers.{l}.block_sparse_moe.experts.{e}.w3.weight",
-                "transformer.h.{}.mlp.experts.{}.proj.weight": "model.layers.{l}.block_sparse_moe.experts.{e}.w2.weight",
+                "transformer.h.{}.mlp.gate.weight": "model.layers.{}.block_sparse_moe.gate.weight",
+                "transformer.h.{}.mlp.experts.{}.fc_1.weight": "model.layers.{}.block_sparse_moe.experts.{}.w1.weight",
+                "transformer.h.{}.mlp.experts.{}.fc_2.weight": "model.layers.{}.block_sparse_moe.experts.{}.w3.weight",
+                "transformer.h.{}.mlp.experts.{}.proj.weight": "model.layers.{}.block_sparse_moe.experts.{}.w2.weight",
             }
         )
     elif config.mlp_class_name in ("LLaMAMLP", "GemmaMLP"):
         weight_map.update(
             {
-                "transformer.h.{}.mlp.fc_1.weight": "model.layers.{l}.mlp.gate_proj.weight",
-                "transformer.h.{}.mlp.fc_2.weight": "model.layers.{l}.mlp.up_proj.weight",
-                "transformer.h.{}.mlp.proj.weight": "model.layers.{l}.mlp.down_proj.weight",
+                "transformer.h.{}.mlp.fc_1.weight": "model.layers.{}.mlp.gate_proj.weight",
+                "transformer.h.{}.mlp.fc_2.weight": "model.layers.{}.mlp.up_proj.weight",
+                "transformer.h.{}.mlp.proj.weight": "model.layers.{}.mlp.down_proj.weight",
             }
         )
     else:
         raise NotImplementedError
 
-    for name, param in lit_weights.items():
-        if name == "lm_head.weight" and untie_weights:
+    for from_name, param in lit_weights.items():
+        if from_name == "lm_head.weight" and untie_weights:
             continue
-        if name.endswith(".attn.attn.weight"):
-            from_name, l = layer_template(name, 2)
-            q = "model.layers.{}.self_attn.q_proj.weight".format(l)
-            k = "model.layers.{}.self_attn.k_proj.weight".format(l)
-            v = "model.layers.{}.self_attn.v_proj.weight".format(l)
-            qkv = load_param(param, name, None)
-            qp, kp, vp = qkv_split(qkv, config)
-            for to_name, param in zip((q, k, v), (qp, kp, vp)):
-                if saver is not None:
-                    param = saver.store_early(param)
-                state_dict[to_name] = param
+        name_template, *ids = layer_template(from_name, num_matches=2)
+        param = load_param(param, from_name, None)
+        if from_name.endswith(".attn.qkv.weight"):
+            to_names = (
+                "model.layers.{}.self_attn.q_proj.weight".format(*ids),
+                "model.layers.{}.self_attn.k_proj.weight".format(*ids),
+                "model.layers.{}.self_attn.v_proj.weight".format(*ids),
+            )
+            params = param.split(
+                (
+                    config.n_head * config.head_size,
+                    config.n_query_groups * config.head_size,
+                    config.n_query_groups * config.head_size,
+                )
+            )
         else:
-            if "transformer.h" in name:
-                from_name, l = layer_template(name, 2)
-                e = None
-                if "mlp.experts" in name:
-                    from_name, e = layer_template(from_name, 5)
-                to_name = weight_map[from_name]
-                to_name = to_name.format(l=l, e=e)
-            else:
-                to_name = weight_map[name]
-            param = load_param(param, name, None)
+            to_names = (weight_map[name_template].format(*ids),)
+            params = (param,)
+
+        for to_name, param in zip(to_names, params):
             if saver is not None:
                 param = saver.store_early(param)
             state_dict[to_name] = param
@@ -188,31 +187,29 @@ def copy_weights_gemma_2(
         "lm_head.weight": "lm_head.weight",
     }
 
-    for name, param in lit_weights.items():
-        if name == "lm_head.weight" and untie_weights:
+    for from_name, param in lit_weights.items():
+        if from_name == "lm_head.weight" and untie_weights:
             continue
-        if name.endswith(".attn.attn.weight"):
-            from_name, layer_idx = layer_template(name, 2)
-            q = "model.layers.{}.self_attn.q_proj.weight".format(layer_idx)
-            k = "model.layers.{}.self_attn.k_proj.weight".format(layer_idx)
-            v = "model.layers.{}.self_attn.v_proj.weight".format(layer_idx)
-            qkv = load_param(param, name, None)
-            qp, kp, vp = qkv_split(qkv, config)
-            for to_name, param in zip((q, k, v), (qp, kp, vp)):
-                if saver is not None:
-                    param = saver.store_early(param)
-                state_dict[to_name] = param
+        name_template, *ids = layer_template(from_name, num_matches=2)
+        param = load_param(param, from_name, None)
+        if from_name.endswith(".attn.qkv.weight"):
+            to_names = (
+                "model.layers.{}.self_attn.q_proj.weight".format(*ids),
+                "model.layers.{}.self_attn.k_proj.weight".format(*ids),
+                "model.layers.{}.self_attn.v_proj.weight".format(*ids),
+            )
+            params = param.split(
+                (
+                    config.n_head * config.head_size,
+                    config.n_query_groups * config.head_size,
+                    config.n_query_groups * config.head_size,
+                )
+            )
         else:
-            if "transformer.h" in name:
-                from_name, layer_idx = layer_template(name, 2)
-                e = None
-                if "mlp.experts" in name:
-                    from_name, e = layer_template(from_name, 5)
-                to_name = weight_map[from_name]
-                to_name = to_name.format(layer_idx)
-            else:
-                to_name = weight_map[name]
-            param = load_param(param, name, None)
+            to_names = (weight_map[name_template].format(*ids),)
+            params = (param,)
+
+        for to_name, param in zip(to_names, params):
             if saver is not None:
                 param = saver.store_early(param)
             state_dict[to_name] = param
@@ -239,11 +236,10 @@ def copy_weights_phi(
         "lm_head.weight": "lm_head.weight",
         "lm_head.bias": "lm_head.bias",
     }
-
     if config.name.startswith("Phi-3"):
         weight_map.update(
             {
-                "transformer.h.{}.attn.attn.weight": "model.layers.{}.self_attn.qkv_proj.weight",
+                "transformer.h.{}.attn.qkv.weight": "model.layers.{}.self_attn.qkv_proj.weight",
                 "transformer.h.{}.attn.proj.weight": "model.layers.{}.self_attn.o_proj.weight",
                 "transformer.h.{}.norm_2.weight": "model.layers.{}.post_attention_layernorm.weight",
                 "transformer.h.{}.mlp.proj.weight": "model.layers.{}.mlp.down_proj.weight",
@@ -252,69 +248,113 @@ def copy_weights_phi(
         )
         gate_up_proj_weights = defaultdict(dict)
 
-    for name, param in lit_weights.items():
-        if name.endswith((".attn.attn.weight", ".attn.attn.bias")):
-            from_name, l_idx = layer_template(name, 2)
-            qkv = load_param(param, name, None)
-            qp, kp, vp = qkv_split(qkv, config)
+    for from_name, param in lit_weights.items():
+        name_template, layer_idx = layer_template(from_name)
+        param = load_param(param, from_name, None)
+        if from_name.endswith((".attn.qkv.weight", ".attn.qkv.bias")):
             if config.name.startswith("Phi-3"):
-                qkv_reassembled = torch.concat([qp, kp, vp], dim=0)
-                to_name = weight_map[from_name].format(l_idx)
-                if saver is not None:
-                    qkv_reassembled = saver.store_early(qkv_reassembled)
-                state_dict[to_name] = qkv_reassembled
+                to_names = (weight_map[name_template].format(layer_idx),)
+                params = (param,)
             else:
-                weight_type = name.split(".")[-1]  # weight or bias
-                q = f"model.layers.{l_idx}.self_attn.q_proj.{weight_type}"
-                k = f"model.layers.{l_idx}.self_attn.k_proj.{weight_type}"
-                v = f"model.layers.{l_idx}.self_attn.v_proj.{weight_type}"
-                for to_name, param in zip((q, k, v), (qp, kp, vp)):
-                    if saver is not None:
-                        param = saver.store_early(param)
-                    state_dict[to_name] = param
-        elif name.endswith((".fc_1.weight", ".fc_2.weight")):
-            from_name, l_idx = layer_template(name, 2)
-            weight = load_param(param, name, None)
-            weight_name = name.split(".")[-2]
-            gate_up_proj_weights[l_idx][weight_name] = weight
+                weight_type = from_name.split(".")[-1]  # weight or bias
+                to_names = (
+                    f"model.layers.{{}}.self_attn.q_proj.{weight_type}".format(layer_idx),
+                    f"model.layers.{{}}.self_attn.k_proj.{weight_type}".format(layer_idx),
+                    f"model.layers.{{}}.self_attn.v_proj.{weight_type}".format(layer_idx),
+                )
+                params = param.split(
+                    (
+                        config.n_head * config.head_size,
+                        config.n_query_groups * config.head_size,
+                        config.n_query_groups * config.head_size,
+                    )
+                )
+        elif from_name.endswith((".fc_1.weight", ".fc_2.weight")):
+            weight = load_param(param, from_name, None)
+            weight_name = from_name.split(".")[-2]
+            gate_up_proj_weights[layer_idx][weight_name] = weight
         else:
-            if "transformer.h" in name:
-                from_name, l_idx = layer_template(name, 2)
-                to_name = weight_map[from_name]
-                to_name = to_name.format(l_idx)
-            else:
-                to_name = weight_map[name]
-            param = load_param(param, name, None)
+            to_names = (weight_map[name_template].format(layer_idx),)
+            params = (param,)
+
+        for to_name, param in zip(to_names, params):
             if saver is not None:
                 param = saver.store_early(param)
             state_dict[to_name] = param
 
     if config.name.startswith("Phi-3"):
-        for i in list(gate_up_proj_weights):
-            fc_1_weight = gate_up_proj_weights[i]["fc_1"]
-            fc_2_weight = gate_up_proj_weights[i]["fc_2"]
+        for layer_idx in list(gate_up_proj_weights):
+            fc_1_weight = gate_up_proj_weights[layer_idx]["fc_1"]
+            fc_2_weight = gate_up_proj_weights[layer_idx]["fc_2"]
             weight = torch.concat([fc_1_weight, fc_2_weight], dim=0)
-            layer_name = f"model.layers.{i}.mlp.gate_up_proj.weight"
+            layer_name = f"model.layers.{layer_idx}.mlp.gate_up_proj.weight"
             state_dict[layer_name] = weight
-            del gate_up_proj_weights[i]
+            del gate_up_proj_weights[layer_idx]
+
+def copy_weights_qwen_2_5(
+    config: Config,
+    state_dict: Dict[str, torch.Tensor],
+    lit_weights: Dict[str, Union[torch.Tensor, NotYetLoadedTensor]],
+    untie_weights: bool = False,
+    saver: Optional[incremental_save] = None,
+) -> None:
+    weight_map = {
+        "transformer.wte.weight": "model.embed_tokens.weight",
+        "transformer.h.{}.norm_1.weight": "model.layers.{}.input_layernorm.weight",
+        "transformer.h.{}.norm_2.weight": "model.layers.{}.post_attention_layernorm.weight",
+        "transformer.h.{}.attn.proj.weight": "model.layers.{}.self_attn.o_proj.weight",
+        "transformer.h.{}.mlp.fc_1.weight": "model.layers.{}.mlp.gate_proj.weight",
+        "transformer.h.{}.mlp.fc_2.weight": "model.layers.{}.mlp.up_proj.weight",
+        "transformer.h.{}.mlp.proj.weight": "model.layers.{}.mlp.down_proj.weight",
+        "transformer.ln_f.weight": "model.norm.weight",
+        "lm_head.weight": "lm_head.weight",
+    }
+
+    for from_name, param in lit_weights.items():
+        if from_name == "lm_head.weight" and untie_weights:
+            continue
+        name_template, *ids = layer_template(from_name, num_matches=2)
+        param = load_param(param, from_name, None)
+        if from_name.endswith((".attn.qkv.weight", ".attn.qkv.bias")):
+            weight_type = from_name.split(".")[-1]  # weight or bias
+            to_names = (
+                "model.layers.{}.self_attn.q_proj.{}".format(*ids, weight_type),
+                "model.layers.{}.self_attn.k_proj.{}".format(*ids, weight_type),
+                "model.layers.{}.self_attn.v_proj.{}".format(*ids, weight_type),
+            )
+            params = param.split(
+                (
+                    config.n_head * config.head_size,
+                    config.n_query_groups * config.head_size,
+                    config.n_query_groups * config.head_size,
+                )
+            )
+        else:
+            to_names = (weight_map[name_template].format(*ids),)
+            params = (param,)
+
+        for to_name, param in zip(to_names, params):
+            if saver is not None:
+                param = saver.store_early(param)
+            state_dict[to_name] = param
 
 
-def qkv_split(
-    param: Union[torch.Tensor, NotYetLoadedTensor], config: Config
-) -> Tuple[torch.Tensor, torch.Tensor, torch.Tensor]:
-    q_per_kv = config.n_head // config.n_query_groups
-    qs = []
-    ks = []
-    vs = []
-    for chunk in torch.chunk(param, config.n_query_groups):
-        split = torch.split(chunk, [config.head_size * q_per_kv, config.head_size, config.head_size])
-        qs.append(split[0])
-        ks.append(split[1])
-        vs.append(split[2])
-    q = torch.cat(qs)
-    k = torch.cat(ks)
-    v = torch.cat(vs)
-    return q, k, v
+def qkv_reassemble(param: Union[torch.Tensor, NotYetLoadedTensor], config: Config) -> torch.Tensor:
+    """Reassemble from a normal to an interleaved placement in a QKV matrix.
+    [Q, Q, ..., K, K, ..., V, V, ...] --> [Q, K, V, Q, K, V, ...]
+    """
+    q, k, v = param.split(
+        (
+            config.n_head * config.head_size,
+            config.n_query_groups * config.head_size,
+            config.n_query_groups * config.head_size,
+        )
+    )
+    qs = q.split(config.n_head // config.n_query_groups * config.head_size)
+    ks = k.split(config.head_size)
+    vs = v.split(config.head_size)
+    interleaved = [t for group in zip(qs, ks, vs) for t in group]
+    return torch.cat(interleaved)
 
 
 def check_conversion_supported(lit_weights: Dict[str, torch.Tensor]) -> None:
@@ -336,16 +376,18 @@ def convert_lit_checkpoint(checkpoint_dir: Path, output_dir: Path) -> None:
     output_path = output_dir / "model.pth"
 
     if "falcon" in config.name:
-        copy_fn = partial(copy_weights_falcon, config.name)
+        copy_fn = partial(copy_weights_falcon, config)
     elif config.name.startswith("Gemma-2"):
         copy_fn = partial(copy_weights_gemma_2, config)
     elif config.name.lower().startswith("phi"):
         copy_fn = partial(copy_weights_phi, config)
+    elif config.name.lower().startswith(("qwen2.5","qwq")):
+        copy_fn = partial(copy_weights_qwen_2_5, config)
     elif config.mlp_class_name in ("LLaMAMLP", "GemmaMLP", "LLaMAMoE"):
         untie_weights = "Gemma" in config.name
         copy_fn = partial(copy_weights_llama, config, untie_weights=untie_weights)
     else:
-        copy_fn = copy_weights_gpt_neox
+        copy_fn = partial(copy_weights_gpt_neox, config)
 
     # initialize a new empty state dict to hold our new weights
     sd = {}

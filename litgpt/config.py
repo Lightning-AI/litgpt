@@ -15,22 +15,24 @@ from litgpt.utils import find_multiple
 class Config:
     name: str = ""
     hf_config: dict = field(default_factory=dict)
-    scale_embeddings: bool = False
-    attention_scores_scalar: Optional[int] = None
+    # General size parameters
     block_size: int = 4096
-    sliding_window_size: Optional[int] = None
-    sliding_window_layer_placing: Optional[Literal["all", "interleaved"]] = None
+    n_layer: int = 16
+    n_embd: int = 4096
     vocab_size: int = 50254
     padding_multiple: int = 512
     padded_vocab_size: Optional[int] = None
-    n_layer: int = 16
+    # Transformer block (structure, normalizations)
+    norm_class_name: Literal["LayerNorm", "RMSNorm"] = "LayerNorm"
+    norm_eps: float = 1e-5
+    norm_qk: bool = False
+    post_attention_norm: bool = False
+    post_mlp_norm: bool = False
+    parallel_residual: bool = True
+    shared_attention_norm: bool = False
+    # Transformer block (self-attention)
     n_head: int = 32
     head_size: Optional[int] = None
-    n_embd: int = 4096
-    rotary_percentage: float = 0.25
-    parallel_residual: bool = True
-    bias: bool = True
-    lm_head_bias: bool = False
     # to use multi-head attention (MHA), set this to `n_head` (default)
     # to use multi-query attention (MQA), set this to 1
     # to use grouped-query attention (GQA), set this to a value in between
@@ -52,20 +54,29 @@ class Config:
     #
     # credit https://arxiv.org/pdf/2305.13245.pdf
     n_query_groups: Optional[int] = None
-    shared_attention_norm: bool = False
-    norm_class_name: Literal["LayerNorm", "RMSNorm"] = "LayerNorm"
-    post_attention_norm: bool = False
-    post_mlp_norm: bool = False
-    norm_eps: float = 1e-5
+    attn_bias: bool = False
+    attention_scores_scalar: Optional[int] = None
+    sliding_window_size: Optional[int] = None
+    sliding_window_layer_placing: Optional[Literal["all", "interleaved"]] = None
+    # if `attention_logit_softcapping` is used, cannot use optimized
+    # `torch.nn.functional.scaled_dot_product_attention` (which implements
+    # Flash attention), may result in higher memory and runtime footprint.
+    attention_logit_softcapping: Optional[float] = None
+    # Rotary position embedding (RoPE)
+    rope_base: int = 10000
+    rotary_percentage: float = 0.25
+    rope_condense_ratio: int = 1
+    rope_adjustments: Optional[dict] = None
+    # Transformer block (MLP)
+    intermediate_size: Optional[int] = None
+    bias: bool = True
     mlp_class_name: Literal["GptNeoxMLP", "LLaMAMLP", "GemmaMLP", "LLaMAMoE"] = "GptNeoxMLP"
     gelu_approximate: str = "none"
-    intermediate_size: Optional[int] = None
-    rope_condense_ratio: int = 1
-    rope_base: int = 10000
-    rope_adjustments: Optional[dict] = None
     n_expert: int = 0
     n_expert_per_token: int = 0
-    attention_logit_softcapping: Optional[float] = None
+    # GPT before/after blocks
+    scale_embeddings: bool = False
+    lm_head_bias: bool = False
     final_logit_softcapping: Optional[float] = None
 
     def __post_init__(self):
@@ -98,7 +109,7 @@ class Config:
         self.rope_n_elem = int(self.rotary_percentage * self.head_size)
 
         if self.sliding_window_size is not None:
-            self.sliding_window_layer_placing = (
+            self.sliding_window_layer_stride = (
                 1 if (self.sliding_window_layer_placing is None or self.sliding_window_layer_placing == "all") else 2
             )
 
@@ -149,12 +160,21 @@ class Config:
     @property
     def norm_class(self) -> Type:
         # `self.norm_class_name` cannot be the type to keep the config serializable
-        if self.norm_class_name == "RMSNorm":
-            from functools import partial
 
+        from functools import partial
+
+        if self.norm_class_name == "RMSNorm":
+            
             from litgpt.model import RMSNorm
 
             return partial(RMSNorm, add_unit_offset="Gemma" in self.name)
+
+        if self.norm_class_name == "LayerNorm" and "OLMo" in self.name:
+            # this makes it equivalent to `torch.nn.functional.layer_norm`
+            # that is used by OLMo
+            # Table 5 caption in the OLMo paper shows this - https://aclanthology.org/2024.acl-long.841
+            return partial(torch.nn.LayerNorm, elementwise_affine=False)
+
         return getattr(torch.nn, self.norm_class_name)
 
 
@@ -368,85 +388,6 @@ for c in pythia:
     configs.append(copy)
 
 
-###################
-# databricks Dolly
-###################
-dolly = [
-    # https://huggingface.co/databricks/dolly-v2-3b/blob/main/config.json
-    dict(
-        name="dolly-v2-3b",
-        hf_config=dict(org="databricks", name="dolly-v2-3b"),
-        block_size=2048,
-        n_layer=32,
-        n_embd=2560,
-        padded_vocab_size=50280,
-    ),
-    # https://huggingface.co/databricks/dolly-v2-7b/blob/main/config.json
-    dict(
-        name="dolly-v2-7b",
-        hf_config=dict(org="databricks", name="dolly-v2-7b"),
-        block_size=2048,
-        n_layer=32,
-        padded_vocab_size=50280,
-    ),
-    # https://huggingface.co/databricks/dolly-v2-12b/blob/main/config.json
-    dict(
-        name="dolly-v2-12b",
-        hf_config=dict(org="databricks", name="dolly-v2-12b"),
-        block_size=2048,
-        n_layer=36,
-        n_embd=5120,
-        n_head=40,
-        padded_vocab_size=50280,
-    ),
-]
-configs.extend(dolly)
-
-
-####################################
-# togethercomputer RedPajama INCITE
-####################################
-redpajama_incite = [
-    # https://huggingface.co/togethercomputer/RedPajama-INCITE-Base-3B-v1/blob/main/config.json
-    dict(
-        name="RedPajama-INCITE-{}-3B-v1",
-        hf_config=dict(org="togethercomputer", name="RedPajama-INCITE-{}-3B-v1"),
-        block_size=2048,
-        n_layer=32,
-        n_embd=2560,
-        padding_multiple=256,
-        rotary_percentage=1.0,
-        parallel_residual=False,
-    ),
-    # https://huggingface.co/togethercomputer/RedPajama-INCITE-7B-Base/blob/main/config.json
-    dict(
-        name="RedPajama-INCITE-7B-{}",
-        hf_config=dict(org="togethercomputer", name="RedPajama-INCITE-7B-{}"),
-        block_size=2048,
-        n_layer=32,
-        padding_multiple=256,
-        rotary_percentage=1.0,
-        parallel_residual=False,
-    ),
-    # this redirects to the checkpoint above. kept for those who had the old weights already downloaded
-    dict(
-        name="RedPajama-INCITE-{}-7B-v0.1",
-        hf_config=dict(org="togethercomputer", name="RedPajama-INCITE-{}-7B-v0.1"),
-        block_size=2048,
-        n_layer=32,
-        padding_multiple=256,
-        rotary_percentage=1.0,
-        parallel_residual=False,
-    ),
-]
-for c in redpajama_incite:
-    for kind in ("Base", "Chat", "Instruct"):
-        copy = deepcopy(c)
-        copy["name"] = c["name"].format(kind)
-        copy["hf_config"]["name"] = c["hf_config"]["name"].format(kind)
-        configs.append(copy)
-
-
 #################
 # TII UAE Falcon
 #################
@@ -510,6 +451,95 @@ for kind in ("", "-chat"):
     copy["hf_config"]["name"] = falcon180b["hf_config"]["name"].format(kind)
     configs.append(copy)
 
+falcon3 = [
+    # https://huggingface.co/tiiuae/Falcon3-1B-Base/blob/main/config.json
+    dict(
+        name="Falcon3-1B{}",
+        hf_config=dict(org="tiiuae", name="Falcon3-1B{}"),
+        block_size=4096,
+        vocab_size=131072,
+        padded_vocab_size=131072,
+        n_layer=18,
+        n_head=8,
+        n_query_groups=4,
+        n_embd=2048,
+        rotary_percentage=1.0,
+        parallel_residual=False,
+        rope_base=1000042,
+        norm_eps=1e-6,
+        bias=False,
+        norm_class_name="RMSNorm",
+        mlp_class_name="LLaMAMLP",
+        intermediate_size=8192,
+    ),
+    # https://huggingface.co/tiiuae/Falcon3-3B-Base/blob/main/config.json
+    dict(
+        name="Falcon3-3B{}",
+        hf_config=dict(org="tiiuae", name="Falcon3-3B{}"),
+        block_size=32768,
+        vocab_size=131072,
+        padded_vocab_size=131072,
+        n_layer=22,
+        n_head=12,
+        n_query_groups=4,
+        n_embd=3072,
+        rotary_percentage=1.0,
+        parallel_residual=False,
+        rope_base=1000042,
+        norm_eps=1e-6,
+        bias=False,
+        norm_class_name="RMSNorm",
+        mlp_class_name="LLaMAMLP",
+        intermediate_size=9216,
+    ),
+    # https://huggingface.co/tiiuae/Falcon3-7B-Base/blob/main/config.json
+    dict(
+        name="Falcon3-7B{}",
+        hf_config=dict(org="tiiuae", name="Falcon3-7B{}"),
+        block_size=32768,
+        vocab_size=131072,
+        padded_vocab_size=131072,
+        n_layer=28,
+        n_head=12,
+        n_query_groups=4,
+        n_embd=3072,
+        rotary_percentage=1.0,
+        parallel_residual=False,
+        rope_base=1000042,
+        norm_eps=1e-6,
+        bias=False,
+        norm_class_name="RMSNorm",
+        mlp_class_name="LLaMAMLP",
+        intermediate_size=23040,
+    ),
+    # https://huggingface.co/tiiuae/Falcon3-10B-Base/blob/main/config.json
+    dict(
+        name="Falcon3-10B{}",
+        hf_config=dict(org="tiiuae", name="Falcon3-10B{}"),
+        block_size=32768,
+        vocab_size=131072,
+        padded_vocab_size=131072,
+        n_layer=40,
+        n_head=12,
+        n_query_groups=4,
+        n_embd=3072,
+        rotary_percentage=1.0,
+        parallel_residual=False,
+        rope_base=1000042,
+        norm_eps=1e-6,
+        bias=False,
+        norm_class_name="RMSNorm",
+        mlp_class_name="LLaMAMLP",
+        intermediate_size=23040,
+    ),
+]
+for c in falcon3:
+    for kind in ("-Base", "-Instruct"):
+        copy = deepcopy(c)
+        copy["name"] = c["name"].format(kind)
+        copy["hf_config"]["name"] = c["hf_config"]["name"].format(kind)
+        configs.append(copy)
+
 
 #############################
 # OpenLM Research Open LLaMA
@@ -568,232 +598,6 @@ open_LLaMA = [
     ),
 ]
 configs.extend(open_LLaMA)
-
-
-###############
-# LMSYS Vicuna
-###############
-vicuna = [
-    # https://huggingface.co/lmsys/vicuna-7b-v1.3/blob/main/config.json
-    dict(
-        name="vicuna-7b-v1.3",
-        hf_config=dict(org="lmsys", name="vicuna-7b-v1.3"),
-        block_size=2048,
-        vocab_size=32000,
-        padding_multiple=64,
-        n_layer=32,
-        rotary_percentage=1.0,
-        parallel_residual=False,
-        bias=False,
-        norm_class_name="RMSNorm",
-        norm_eps=1e-6,
-        mlp_class_name="LLaMAMLP",
-        intermediate_size=11008,
-    ),
-    # https://huggingface.co/lmsys/vicuna-13b-v1.3/blob/main/config.json
-    dict(
-        name="vicuna-13b-v1.3",
-        hf_config=dict(org="lmsys", name="vicuna-13b-v1.3"),
-        block_size=2048,
-        vocab_size=32000,
-        padding_multiple=64,
-        n_layer=40,
-        n_head=40,
-        n_embd=5120,
-        rotary_percentage=1.0,
-        parallel_residual=False,
-        bias=False,
-        norm_class_name="RMSNorm",
-        norm_eps=1e-6,
-        mlp_class_name="LLaMAMLP",
-        intermediate_size=13824,
-    ),
-    # https://huggingface.co/lmsys/vicuna-33b-v1.3/blob/main/config.json
-    dict(
-        name="vicuna-33b-v1.3",
-        hf_config=dict(org="lmsys", name="vicuna-33b-v1.3"),
-        block_size=2048,
-        vocab_size=32000,
-        padding_multiple=64,
-        n_layer=60,
-        n_head=52,
-        n_embd=6656,
-        rotary_percentage=1.0,
-        parallel_residual=False,
-        bias=False,
-        norm_class_name="RMSNorm",
-        norm_eps=1e-6,
-        mlp_class_name="LLaMAMLP",
-        intermediate_size=17920,
-    ),
-    # https://huggingface.co/lmsys/vicuna-7b-v1.5/blob/main/config.json
-    dict(
-        name="vicuna-7b-v1.5",
-        hf_config=dict(org="lmsys", name="vicuna-7b-v1.5"),
-        vocab_size=32000,
-        padding_multiple=64,
-        n_layer=32,
-        rotary_percentage=1.0,
-        parallel_residual=False,
-        bias=False,
-        norm_class_name="RMSNorm",
-        mlp_class_name="LLaMAMLP",
-        intermediate_size=11008,
-    ),
-    # https://huggingface.co/lmsys/vicuna-7b-v1.5-16k/blob/main/config.json
-    dict(
-        name="vicuna-7b-v1.5-16k",
-        hf_config=dict(org="lmsys", name="vicuna-7b-v1.5-16k"),
-        block_size=16384,
-        vocab_size=32000,
-        padding_multiple=64,
-        n_layer=32,
-        rotary_percentage=1.0,
-        parallel_residual=False,
-        bias=False,
-        norm_class_name="RMSNorm",
-        mlp_class_name="LLaMAMLP",
-        intermediate_size=11008,
-        rope_condense_ratio=4,
-    ),
-    # https://huggingface.co/lmsys/vicuna-13b-v1.5/blob/main/config.json
-    dict(
-        name="vicuna-13b-v1.5",
-        hf_config=dict(org="lmsys", name="vicuna-13b-v1.5"),
-        vocab_size=32000,
-        padding_multiple=64,
-        n_layer=40,
-        n_head=40,
-        n_embd=5120,
-        rotary_percentage=1.0,
-        parallel_residual=False,
-        bias=False,
-        norm_class_name="RMSNorm",
-        mlp_class_name="LLaMAMLP",
-        intermediate_size=13824,
-    ),
-    # https://huggingface.co/lmsys/vicuna-13b-v1.5-16k/blob/main/config.json
-    dict(
-        name="vicuna-13b-v1.5-16k",
-        hf_config=dict(org="lmsys", name="vicuna-13b-v1.5-16k"),
-        block_size=16384,
-        vocab_size=32000,
-        padding_multiple=64,
-        n_layer=40,
-        n_head=40,
-        n_embd=5120,
-        rotary_percentage=1.0,
-        parallel_residual=False,
-        bias=False,
-        norm_class_name="RMSNorm",
-        mlp_class_name="LLaMAMLP",
-        intermediate_size=13824,
-        rope_condense_ratio=4,
-    ),
-]
-configs.extend(vicuna)
-
-
-#################
-# LMSYS LongChat
-#################
-long_chat = [
-    # https://huggingface.co/lmsys/longchat-7b-16k/blob/main/config.json
-    dict(
-        name="longchat-7b-16k",
-        hf_config=dict(org="lmsys", name="longchat-7b-16k"),
-        block_size=16384,
-        vocab_size=32000,
-        padding_multiple=64,
-        n_layer=32,
-        rotary_percentage=1.0,
-        parallel_residual=False,
-        bias=False,
-        norm_class_name="RMSNorm",
-        norm_eps=1e-6,
-        mlp_class_name="LLaMAMLP",
-        intermediate_size=11008,
-        rope_condense_ratio=8,
-    ),
-    # https://huggingface.co/lmsys/longchat-13b-16k/blob/main/config.json
-    dict(
-        name="longchat-13b-16k",
-        hf_config=dict(org="lmsys", name="longchat-13b-16k"),
-        block_size=16384,
-        vocab_size=32000,
-        padding_multiple=64,
-        n_layer=40,
-        n_head=40,
-        n_embd=5120,
-        rotary_percentage=1.0,
-        parallel_residual=False,
-        bias=False,
-        norm_class_name="RMSNorm",
-        norm_eps=1e-6,
-        mlp_class_name="LLaMAMLP",
-        intermediate_size=13824,
-        rope_condense_ratio=8,
-    ),
-]
-configs.extend(long_chat)
-
-
-######################
-# NousResearch Hermes
-######################
-nous_research = [
-    # https://huggingface.co/NousResearch/Nous-Hermes-llama-2-7b/blob/main/config.json
-    dict(
-        name="Nous-Hermes-llama-2-7b",
-        hf_config=dict(org="NousResearch", name="Nous-Hermes-llama-2-7b"),
-        padded_vocab_size=32000,
-        n_layer=32,
-        rotary_percentage=1.0,
-        parallel_residual=False,
-        bias=False,
-        norm_class_name="RMSNorm",
-        norm_eps=1e-05,
-        mlp_class_name="LLaMAMLP",
-        intermediate_size=11008,
-    ),
-    # https://huggingface.co/NousResearch/Nous-Hermes-13B/blob/main/config.json
-    dict(
-        name="Nous-Hermes-13b",
-        hf_config=dict(org="NousResearch", name="Nous-Hermes-13b"),
-        block_size=2048,
-        vocab_size=32000,
-        padded_vocab_size=32001,
-        n_layer=40,
-        n_head=40,
-        n_embd=5120,
-        rotary_percentage=1.0,
-        parallel_residual=False,
-        bias=False,
-        norm_class_name="RMSNorm",
-        norm_eps=1e-6,
-        mlp_class_name="LLaMAMLP",
-        intermediate_size=13824,
-    ),
-    # https://huggingface.co/NousResearch/Nous-Hermes-Llama2-13b
-    dict(
-        name="Nous-Hermes-Llama2-13b",
-        hf_config=dict(org="NousResearch", name="Nous-Hermes-Llama2-13b"),
-        vocab_size=32000,
-        padded_vocab_size=32032,
-        n_layer=40,
-        n_head=40,
-        n_embd=5120,
-        rotary_percentage=1.0,
-        parallel_residual=False,
-        bias=False,
-        norm_class_name="RMSNorm",
-        norm_eps=1e-05,
-        mlp_class_name="LLaMAMLP",
-        intermediate_size=13824,
-    ),
-]
-configs.extend(nous_research)
-
 
 ###############
 # Meta LLaMA 2
@@ -995,8 +799,31 @@ llama_3 = [
         rope_base=500000,
         rope_adjustments=dict(factor=32.0, low_freq_factor=1.0, high_freq_factor=4.0, original_max_seq_len=8192)
     ),
+    # https://huggingface.co/meta-llama/Llama-3.3-70B-Instruct/blob/main/config.json
+    dict(
+        name="Llama-3.3-70B-Instruct",
+        hf_config=dict(org="meta-llama", name="Llama-3.3-70B-Instruct"),
+        block_size=131072,
+        vocab_size=128000,
+        padded_vocab_size=128256,
+        n_layer=80,
+        n_head=64,
+        n_embd=8192,
+        n_query_groups=8,
+        rotary_percentage=1.0,
+        parallel_residual=False,
+        bias=False,
+        norm_class_name="RMSNorm",
+        mlp_class_name="LLaMAMLP",
+        intermediate_size=28672,
+        rope_base=500000,
+        rope_adjustments=dict(factor=8.0, low_freq_factor=1.0, high_freq_factor=4.0, original_max_seq_len=8192)
+    ),
 ]
 for c in llama_3:
+    if c["name"] == "Llama-3.3-70B-Instruct":
+        configs.append(c)
+        continue
     for kind in ("", "-Instruct"):
         copy = deepcopy(c)
         copy["name"] = c["name"].format(kind)
@@ -1027,6 +854,64 @@ configs.append(
         rope_adjustments=dict(factor=8.0, low_freq_factor=1.0, high_freq_factor=4.0, original_max_seq_len=8192)
     ),
 )
+
+#################
+# Allen AI OLMo
+#################
+olmo = [
+    # https://huggingface.co/allenai/OLMo-1B-hf/blob/main/config.json
+    dict(
+        name="OLMo-1B-hf",
+        hf_config=dict(org="allenai", name="OLMo-1B-hf"),
+        vocab_size=50280,
+        padded_vocab_size=50304,
+        block_size=2048,
+        n_embd=2048,
+        n_layer=16,
+        n_head=16,
+        rotary_percentage=1.0,
+        parallel_residual=False,
+        bias=False,
+        norm_class_name="LayerNorm",
+        mlp_class_name="LLaMAMLP",
+        intermediate_size=8192,
+    ),
+    # https://huggingface.co/allenai/OLMo-7B-hf/blob/main/config.json
+    dict(
+        name="OLMo-7B-hf",
+        hf_config=dict(org="allenai", name="OLMo-7B-hf"),
+        vocab_size=50280,
+        padded_vocab_size=50304,
+        block_size=2048,
+        n_layer=32,
+        n_head=32,
+        rotary_percentage=1.0,
+        parallel_residual=False,
+        bias=False,
+        norm_class_name="LayerNorm",
+        mlp_class_name="LLaMAMLP",
+        intermediate_size=11008,
+    ),
+    # https://huggingface.co/allenai/OLMo-7B-Instruct-hf/blob/main/config.json
+    dict(
+        name="OLMo-7B-Instruct-hf",
+        hf_config=dict(org="allenai", name="OLMo-7B-Instruct-hf"),
+        vocab_size=50280,
+        padded_vocab_size=50304,
+        block_size=2048,
+        n_layer=32,
+        n_head=32,
+        rotary_percentage=1.0,
+        parallel_residual=False,
+        bias=False,
+        norm_class_name="LayerNorm",
+        mlp_class_name="LLaMAMLP",
+        intermediate_size=11008,
+    ),
+]
+
+configs.extend(olmo)
+
 ###############
 # Google Gemma
 ###############
@@ -1188,33 +1073,6 @@ codegemma = [
     ),
 ]
 configs.extend(codegemma)
-
-################
-# H2Oai Danube2
-################
-danube2 = [
-    # https://huggingface.co/h2oai/h2o-danube2-1.8b-chat/blob/main/config.json
-    dict(
-        name="Danube2-1.8b-chat",
-        hf_config=dict(org="h2oai", name="h2o-danube2-1.8b-chat"),
-        vocab_size=32000,
-        n_layer=24,
-        n_head=32,
-        n_embd=2560,
-        block_size=4096,  # should be 8192 but sliding_window mechanism is not implemented
-        intermediate_size=6912,
-        padding_multiple=64,
-        norm_eps=1e-05,
-        rope_base=10000,
-        n_query_groups=8,
-        rotary_percentage=1.0,
-        parallel_residual=False,
-        bias=False,
-        norm_class_name="RMSNorm",
-        mlp_class_name="LLaMAMLP",
-    )
-]
-configs.extend(danube2)
 
 
 ##########################
@@ -1784,6 +1642,27 @@ mistral = [
         n_expert=8,
         n_expert_per_token=2,
     ),
+    # https://huggingface.co/mistralai/Mixtral-8x22B-Instruct-v0.1/blob/main/config.json
+    dict(
+        name="Mixtral-8x22B-{}v0.1",
+        hf_config=dict(org="mistralai", name="Mixtral-8x22B-{}v0.1"),
+        padded_vocab_size=32768,
+        block_size=65536,
+        n_layer=56,
+        n_query_groups=8,
+        rotary_percentage=1.0,
+        parallel_residual=False,
+        bias=False,
+        norm_class_name="RMSNorm",
+        norm_eps=1e-05,
+        mlp_class_name="LLaMAMoE",
+        intermediate_size=16384,
+        n_head=48,
+        n_embd=6144,
+        rope_base=1000000,
+        n_expert=8,
+        n_expert_per_token=2,
+    ),
 ]
 for c in mistral:
     for kind in ("", "Instruct-"):
@@ -1868,6 +1747,26 @@ configs.append(
     dict(
         name="Mistral-Large-Instruct-2407",
         hf_config=dict(org="mistralai", name="Mistral-Large-Instruct-2407"),
+        padded_vocab_size=32768,
+        block_size=32768,
+        n_layer=88,
+        n_head=96,
+        n_embd=12288,
+        n_query_groups=8,
+        rotary_percentage=1.0,
+        parallel_residual=False,
+        bias=False,
+        norm_class_name="RMSNorm",
+        norm_eps=1e-05,
+        mlp_class_name="LLaMAMLP",
+        intermediate_size=28672,
+    )
+)
+configs.append(
+    # https://huggingface.co/mistralai/Mistral-Large-Instruct-2411/blob/main/config.json
+    dict(
+        name="Mistral-Large-Instruct-2411",
+        hf_config=dict(org="mistralai", name="Mistral-Large-Instruct-2411"),
         padded_vocab_size=32768,
         block_size=32768,
         n_layer=88,
@@ -1968,5 +1867,519 @@ llama_2_function_calling = [
 ]
 
 configs.extend(llama_2_function_calling)
+
+##########
+# Qwen2.5
+##########
+qwen_2_5 = [
+    # https://huggingface.co/Qwen/Qwen2.5-0.5B/blob/main/config.json
+    dict(
+        name="Qwen2.5-0.5B{}",
+        hf_config=dict(org="Qwen", name="Qwen2.5-0.5B{}"),
+        block_size=32768,
+        vocab_size=151643,
+        padded_vocab_size=151936,
+        n_layer=24,
+        n_head=14,
+        n_embd=896,
+        n_query_groups=2,
+        rotary_percentage=1.0,
+        parallel_residual=False,
+        bias=False,
+        attn_bias=True,
+        norm_class_name="RMSNorm",
+        mlp_class_name="LLaMAMLP",
+        intermediate_size=4864,
+        norm_eps=1e-6,
+        rope_base=1000000
+    ),
+    # https://huggingface.co/Qwen/Qwen2.5-1.5B/blob/main/config.json
+    dict(
+        name="Qwen2.5-1.5B{}",
+        hf_config=dict(org="Qwen", name="Qwen2.5-1.5B{}"),
+        block_size=131072,
+        vocab_size=151643,
+        padded_vocab_size=151936,
+        n_layer=28,
+        n_head=12,
+        n_embd=1536,
+        n_query_groups=2,
+        rotary_percentage=1.0,
+        parallel_residual=False,
+        bias=False,
+        attn_bias=True,
+        norm_class_name="RMSNorm",
+        mlp_class_name="LLaMAMLP",
+        intermediate_size=8960,
+        norm_eps=1e-6,
+        rope_base=1000000
+    ),
+    # https://huggingface.co/Qwen/Qwen2.5-3B/blob/main/config.json
+    dict(
+        name="Qwen2.5-3B{}",
+        hf_config=dict(org="Qwen", name="Qwen2.5-3B{}"),
+        block_size=32768,
+        vocab_size=151643,
+        padded_vocab_size=151936,
+        n_layer=36,
+        n_head=16,
+        n_embd=2048,
+        n_query_groups=2,
+        rotary_percentage=1.0,
+        parallel_residual=False,
+        bias=False,
+        attn_bias=True,
+        norm_class_name="RMSNorm",
+        mlp_class_name="LLaMAMLP",
+        intermediate_size=11008,
+        norm_eps=1e-6,
+        rope_base=1000000
+    ),
+    # https://huggingface.co/Qwen/Qwen2.5-7B/blob/main/config.json
+    dict(
+        name="Qwen2.5-7B{}",
+        hf_config=dict(org="Qwen", name="Qwen2.5-7B{}"),
+        block_size=131072,
+        vocab_size=151643,
+        padded_vocab_size=152064,
+        n_layer=28,
+        n_head=28,
+        n_embd=3584,
+        n_query_groups=4,
+        rotary_percentage=1.0,
+        parallel_residual=False,
+        bias=False,
+        attn_bias=True,
+        norm_class_name="RMSNorm",
+        mlp_class_name="LLaMAMLP",
+        intermediate_size=18944,
+        norm_eps=1e-6,
+        rope_base=1000000
+    ),
+    # https://huggingface.co/Qwen/Qwen2.5-14B/blob/main/config.json
+    dict(
+        name="Qwen2.5-14B{}",
+        hf_config=dict(org="Qwen", name="Qwen2.5-14B{}"),
+        block_size=131072,
+        vocab_size=151643,
+        padded_vocab_size=152064,
+        n_layer=48,
+        n_head=40,
+        n_embd=5120,
+        n_query_groups=8,
+        rotary_percentage=1.0,
+        parallel_residual=False,
+        bias=False,
+        attn_bias=True,
+        norm_class_name="RMSNorm",
+        mlp_class_name="LLaMAMLP",
+        intermediate_size=13824,
+        norm_eps=1e-5,
+        rope_base=1000000
+    ),
+    # https://huggingface.co/Qwen/Qwen2.5-32B/blob/main/config.json
+    dict(
+        name="Qwen2.5-32B{}",
+        hf_config=dict(org="Qwen", name="Qwen2.5-32B{}"),
+        block_size=131072,
+        vocab_size=151643,
+        padded_vocab_size=152064,
+        n_layer=64,
+        n_head=40,
+        n_embd=5120,
+        n_query_groups=8,
+        rotary_percentage=1.0,
+        parallel_residual=False,
+        bias=False,
+        attn_bias=True,
+        norm_class_name="RMSNorm",
+        mlp_class_name="LLaMAMLP",
+        intermediate_size=27648,
+        norm_eps=1e-5,
+        rope_base=1000000
+    ),
+    # https://huggingface.co/Qwen/Qwen2.5-72B/blob/main/config.json
+    dict(
+        name="Qwen2.5-72B{}",
+        hf_config=dict(org="Qwen", name="Qwen2.5-72B{}"),
+        block_size=131072,
+        vocab_size=151643,
+        padded_vocab_size=152064,
+        n_layer=80,
+        n_head=64,
+        n_embd=8192,
+        n_query_groups=8,
+        rotary_percentage=1.0,
+        parallel_residual=False,
+        bias=False,
+        attn_bias=True,
+        norm_class_name="RMSNorm",
+        mlp_class_name="LLaMAMLP",
+        intermediate_size=29568,
+        norm_eps=1e-5,
+        rope_base=1000000
+    ),
+]
+
+qwen_2_5_coder = [
+    # https://huggingface.co/Qwen/Qwen2.5-Coder-0.5B/blob/main/config.json
+    dict(
+        name="Qwen2.5-Coder-0.5B{}",
+        hf_config=dict(org="Qwen", name="Qwen2.5-Coder-0.5B{}"),
+        block_size=32768,
+        vocab_size=151643,
+        padded_vocab_size=151936,
+        n_layer=24,
+        n_head=14,
+        n_embd=896,
+        n_query_groups=2,
+        rotary_percentage=1.0,
+        parallel_residual=False,
+        bias=False,
+        attn_bias=True,
+        norm_class_name="RMSNorm",
+        mlp_class_name="LLaMAMLP",
+        intermediate_size=4864,
+        norm_eps=1e-6,
+        rope_base=1000000
+    ),
+    # https://huggingface.co/Qwen/Qwen2.5-Coder-1.5B/blob/main/config.json
+    dict(
+        name="Qwen2.5-Coder-1.5B{}",
+        hf_config=dict(org="Qwen", name="Qwen2.5-Coder-1.5B{}"),
+        block_size=32768,
+        vocab_size=151643,
+        padded_vocab_size=151936,
+        n_layer=28,
+        n_head=12,
+        n_embd=1536,
+        n_query_groups=2,
+        rotary_percentage=1.0,
+        parallel_residual=False,
+        bias=False,
+        attn_bias=True,
+        norm_class_name="RMSNorm",
+        mlp_class_name="LLaMAMLP",
+        intermediate_size=8960,
+        norm_eps=1e-6,
+        rope_base=1000000
+    ),
+    # https://huggingface.co/Qwen/Qwen2.5-Coder-3B/blob/main/config.json
+    dict(
+        name="Qwen2.5-Coder-3B{}",
+        hf_config=dict(org="Qwen", name="Qwen2.5-Coder-3B{}"),
+        block_size=32768,
+        vocab_size=151643,
+        padded_vocab_size=151936,
+        n_layer=36,
+        n_head=16,
+        n_embd=2048,
+        n_query_groups=2,
+        rotary_percentage=1.0,
+        parallel_residual=False,
+        bias=False,
+        attn_bias=True,
+        norm_class_name="RMSNorm",
+        mlp_class_name="LLaMAMLP",
+        intermediate_size=11008,
+        norm_eps=1e-6,
+        rope_base=1000000
+    ),
+    # https://huggingface.co/Qwen/Qwen2.5-Coder-7B/blob/main/config.json
+    dict(
+        name="Qwen2.5-Coder-7B{}",
+        hf_config=dict(org="Qwen", name="Qwen2.5-Coder-7B{}"),
+        block_size=32768,
+        vocab_size=151643,
+        padded_vocab_size=152064,
+        n_layer=28,
+        n_head=28,
+        n_embd=3584,
+        n_query_groups=4,
+        rotary_percentage=1.0,
+        parallel_residual=False,
+        bias=False,
+        attn_bias=True,
+        norm_class_name="RMSNorm",
+        mlp_class_name="LLaMAMLP",
+        intermediate_size=18944,
+        norm_eps=1e-6,
+        rope_base=1000000
+    ),
+    # https://huggingface.co/Qwen/Qwen2.5-Coder-14B/blob/main/config.json
+    dict(
+        name="Qwen2.5-Coder-14B{}",
+        hf_config=dict(org="Qwen", name="Qwen2.5-Coder-14B{}"),
+        block_size=32768,
+        vocab_size=151643,
+        padded_vocab_size=152064,
+        n_layer=48,
+        n_head=40,
+        n_embd=5120,
+        n_query_groups=8,
+        rotary_percentage=1.0,
+        parallel_residual=False,
+        bias=False,
+        attn_bias=True,
+        norm_class_name="RMSNorm",
+        mlp_class_name="LLaMAMLP",
+        intermediate_size=13824,
+        norm_eps=1e-5,
+        rope_base=1000000
+    ),
+    # https://huggingface.co/Qwen/Qwen2.5-Coder-32B/blob/main/config.json
+    dict(
+        name="Qwen2.5-Coder-32B{}",
+        hf_config=dict(org="Qwen", name="Qwen2.5-Coder-32B{}"),
+        block_size=32768,
+        vocab_size=151643,
+        padded_vocab_size=152064,
+        n_layer=64,
+        n_head=40,
+        n_embd=5120,
+        n_query_groups=8,
+        rotary_percentage=1.0,
+        parallel_residual=False,
+        bias=False,
+        attn_bias=True,
+        norm_class_name="RMSNorm",
+        mlp_class_name="LLaMAMLP",
+        intermediate_size=27648,
+        norm_eps=1e-5,
+        rope_base=1000000
+    ),
+]
+
+qwen_2_5.extend(qwen_2_5_coder)
+
+qwen_2_5_math = [
+    # https://huggingface.co/Qwen/Qwen2.5-Math-1.5B/blob/main/config.json
+    dict(
+        name="Qwen2.5-Math-1.5B{}",
+        hf_config=dict(org="Qwen", name="Qwen2.5-Math-1.5B{}"),
+        block_size=4096,
+        vocab_size=151643,
+        padded_vocab_size=151936,
+        n_layer=28,
+        n_head=12,
+        n_embd=1536,
+        n_query_groups=2,
+        rotary_percentage=1.0,
+        parallel_residual=False,
+        bias=False,
+        attn_bias=True,
+        norm_class_name="RMSNorm",
+        mlp_class_name="LLaMAMLP",
+        intermediate_size=8960,
+        norm_eps=1e-6,
+        rope_base=10000
+    ),
+    # https://huggingface.co/Qwen/Qwen2.5-Math-7B/blob/main/config.json
+    dict(
+        name="Qwen2.5-Math-7B{}",
+        hf_config=dict(org="Qwen", name="Qwen2.5-Math-7B{}"),
+        block_size=4096,
+        vocab_size=151643,
+        padded_vocab_size=152064,
+        n_layer=28,
+        n_head=28,
+        n_embd=3584,
+        n_query_groups=4,
+        rotary_percentage=1.0,
+        parallel_residual=False,
+        bias=False,
+        attn_bias=True,
+        norm_class_name="RMSNorm",
+        mlp_class_name="LLaMAMLP",
+        intermediate_size=18944,
+        norm_eps=1e-6,
+        rope_base=10000
+    ),
+    # https://huggingface.co/Qwen/Qwen2.5-Math-72B/blob/main/config.json
+    dict(
+        name="Qwen2.5-Math-72B{}",
+        hf_config=dict(org="Qwen", name="Qwen2.5-Math-72B{}"),
+        block_size=4096,
+        vocab_size=151643,
+        padded_vocab_size=152064,
+        n_layer=80,
+        n_head=64,
+        n_embd=8192,
+        n_query_groups=8,
+        rotary_percentage=1.0,
+        parallel_residual=False,
+        bias=False,
+        attn_bias=True,
+        norm_class_name="RMSNorm",
+        mlp_class_name="LLaMAMLP",
+        intermediate_size=29568,
+        norm_eps=1e-5,
+        rope_base=10000
+    ),
+]
+
+qwen_2_5.extend(qwen_2_5_math)
+
+for c in qwen_2_5:
+    for kind in ("", "-Instruct"):
+        copy = deepcopy(c)
+        copy["name"] = c["name"].format(kind)
+        copy["hf_config"]["name"] = c["hf_config"]["name"].format(kind)
+        configs.append(copy)
+
+qwq = [
+    # https://huggingface.co/Qwen/QwQ-32B-Preview/blob/main/config.json
+    dict(
+        name="QwQ-32B-Preview",
+        hf_config=dict(org="Qwen", name="QwQ-32B-Preview"),
+        block_size=131072,
+        vocab_size=151643,
+        padded_vocab_size=152064,
+        n_layer=64,
+        n_head=40,
+        n_embd=5120,
+        n_query_groups=8,
+        rotary_percentage=1.0,
+        parallel_residual=False,
+        bias=False,
+        attn_bias=True,
+        norm_class_name="RMSNorm",
+        mlp_class_name="LLaMAMLP",
+        intermediate_size=27648,
+        norm_eps=1e-5,
+        rope_base=1000000
+    ),
+]
+
+configs.extend(qwq)
+
+
+#############    
+# Salamandra
+#############
+salamandra = [
+    # https://huggingface.co/BSC-LT/salamandra-2b-instruct/blob/main/config.json
+    dict(
+        name="salamandra-2b{}",
+        hf_config=dict(org="BSC-LT", name="salamandra-2b{}"),
+        block_size=8192,
+        vocab_size=256000,
+        padded_vocab_size=256000,
+        n_layer=24,
+        n_head=16,
+        n_embd=2048,
+        n_query_groups=16,
+        rotary_percentage=1.0,
+        parallel_residual=False,
+        bias=False,
+        norm_class_name="RMSNorm",
+        mlp_class_name="LLaMAMLP",
+        intermediate_size=5440,
+        norm_eps=1e-5,
+        rope_base=10000
+    ),
+    # https://huggingface.co/BSC-LT/salamandra-7b-instruct/blob/main/config.json
+    dict(
+        name="salamandra-7b{}",
+        hf_config=dict(org="BSC-LT", name="salamandra-7b{}"),
+        block_size=8192,
+        vocab_size=256000,
+        padded_vocab_size=256000,
+        n_layer=32,
+        n_head=32,
+        n_embd=4096,
+        n_query_groups=8,
+        rotary_percentage=1.0,
+        parallel_residual=False,
+        bias=False,
+        norm_class_name="RMSNorm",
+        mlp_class_name="LLaMAMLP",
+        intermediate_size=11008,
+        norm_eps=1e-6,
+        rope_base=10000
+    ),
+]
+
+for c in salamandra:
+    for kind in ("", "-instruct"):
+        copy = deepcopy(c)
+        copy["name"] = c["name"].format(kind)
+        copy["hf_config"]["name"] = c["hf_config"]["name"].format(kind)
+        configs.append(copy)
+
+
+###############
+# SmolLM2
+###############
+smollm2 = [
+    # https://huggingface.co/HuggingFaceTB/SmolLM2-135M/blob/main/config.json
+    dict(
+        name="SmolLM2-135M{}",
+        hf_config=dict(org="HuggingFaceTB", name="SmolLM2-135M{}"),
+        block_size=8192,
+        vocab_size=49152,
+        padded_vocab_size=49152,
+        n_layer=30,
+        n_head=9,
+        n_embd=576,
+        n_query_groups=3,
+        rotary_percentage=1.0,
+        parallel_residual=False,
+        bias=False,
+        norm_class_name="RMSNorm",
+        mlp_class_name="LLaMAMLP",
+        intermediate_size=1536,
+        rope_base=100000,
+        norm_eps=1e-5,
+    ),
+    # https://huggingface.co/HuggingFaceTB/SmolLM2-360M/blob/main/config.json
+    dict(
+        name="SmolLM2-360M{}",
+        hf_config=dict(org="HuggingFaceTB", name="SmolLM2-360M{}"),
+        block_size=8192,
+        vocab_size=49152,
+        padded_vocab_size=49152,
+        n_layer=32,
+        n_head=15,
+        n_embd=960,
+        n_query_groups=5,
+        rotary_percentage=1.0,
+        parallel_residual=False,
+        bias=False,
+        norm_class_name="RMSNorm",
+        mlp_class_name="LLaMAMLP",
+        intermediate_size=2560,
+        rope_base=100000,
+        norm_eps=1e-5,
+    ),
+    # https://huggingface.co/HuggingFaceTB/SmolLM2-1.7B/blob/main/config.json
+    dict(
+        name="SmolLM2-1.7B{}",
+        hf_config=dict(org="HuggingFaceTB", name="SmolLM2-1.7B{}"),
+        block_size=8192,
+        vocab_size=49152,
+        padded_vocab_size=49152,
+        n_layer=24,
+        n_head=32,
+        n_embd=2048,
+        n_query_groups=32,
+        rotary_percentage=1.0,
+        parallel_residual=False,
+        bias=False,
+        norm_class_name="RMSNorm",
+        mlp_class_name="LLaMAMLP",
+        intermediate_size=8192,
+        rope_base=130000,
+        norm_eps=1e-5,
+    ),
+]
+
+for c in smollm2:
+    for kind in ("", "-Instruct"):
+        copy = deepcopy(c)
+        copy["name"] = c["name"].format(kind)
+        copy["hf_config"]["name"] = c["hf_config"]["name"].format(kind)
+        configs.append(copy)
+
 
 name_to_config = {config["name"]: config for config in configs}
