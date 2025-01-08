@@ -342,11 +342,12 @@ class CausalSelfAttention(nn.Module):
             block_idx % config.sliding_window_layer_stride == 0
         )
 
+
+        self.q_norm = None
+        self.k_norm = None
         if config.norm_qk:
-            self.norm_q = config.norm_class(config.head_size * config.n_head, eps=config.norm_eps)
-            self.norm_k = config.norm_class(config.head_size * config.n_query_groups, eps=config.norm_eps)
-        else:
-            self.norm_q = self.norm_k = None
+            self.q_norm = config.norm_class(config.head_size * config.n_head, eps=config.norm_eps)
+            self.k_norm = config.norm_class(config.head_size * config.n_query_groups, eps=config.norm_eps)
 
         self.config = config
         self.block_idx = block_idx
