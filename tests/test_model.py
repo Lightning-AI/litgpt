@@ -39,6 +39,7 @@ from litgpt.scripts.convert_hf_checkpoint import (
     copy_weights_gemma_2,
     copy_weights_gpt_neox,
     copy_weights_hf_llama,
+    copy_weights_olmo2,
     copy_weights_phi,
     copy_weights_qwen_2_5,
 )
@@ -665,7 +666,7 @@ def test_against_olmo2(model_name, device, dtype):
     theirs_model = Olmo2ForCausalLM(theirs_config).to(device)
     theirs_state_dict = theirs_model.state_dict()
     state_dict = {}
-    copy_weights_hf_llama(ours_config, {}, state_dict, theirs_state_dict)
+    copy_weights_olmo2(ours_config, {}, state_dict, theirs_state_dict)
     ours_model = GPT(ours_config).to(device)
     ours_model.load_state_dict(state_dict)
 
