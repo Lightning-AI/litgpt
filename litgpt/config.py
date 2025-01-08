@@ -933,6 +933,7 @@ olmo2 = [
         intermediate_size=11008,
         rope_base=500000,
         norm_qk=True,
+        post_mlp_norm=True,
     ),
     # https://huggingface.co/allenai/OLMo-2-1124-13B/blob/main/config.json
     dict(
@@ -954,6 +955,7 @@ olmo2 = [
         intermediate_size=13824,
         rope_base=500000,
         norm_qk=True,
+        post_mlp_norm=True,
     ),
 ]
 

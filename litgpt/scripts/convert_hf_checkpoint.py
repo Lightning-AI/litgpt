@@ -460,8 +460,6 @@ def copy_weights_olmo2(
 ) -> None:
     weight_map = {
         "model.embed_tokens.weight": "transformer.wte.weight",
-        "model.layers.{}.input_layernorm.weight": "transformer.h.{}.norm_1.weight",
-        "model.layers.{}.input_layernorm.bias": "transformer.h.{}.norm_1.bias",
         "model.layers.{}.self_attn.q_norm.weight": "transformer.h.{}.attn.q_norm.weight",
         "model.layers.{}.self_attn.q_proj.weight": None,
         "model.layers.{}.self_attn.k_norm.weight": "transformer.h.{}.attn.k_norm.weight",
