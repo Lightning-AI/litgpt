@@ -86,7 +86,7 @@ def download_from_hub(
         free_space_gb = free_space_bytes / (1024**3)
 
         if weight_size_gb > free_space_gb:
-            if os.getenv("LIGHTNING_CLUSTER_ID") is not None:
+            if os.getenv("LIGHTNING_CLOUD_SPACE_ID") is not None:
                 studio_text = " Please switch to a larger Studio with more disk space."
             else:
                 studio_text = ""
