@@ -268,6 +268,9 @@ class Phi3(PromptStyle):
     def apply(self, prompt: str, **kwargs: str) -> str:
         return f'<|system|>\nYou are a helpful assistant.<|end|>\n<|user|>\n{prompt}<|end|>\n<|assistant|>\n'
 
+class Phi4(PromptStyle):
+    def apply(self, prompt: str, **kwargs: str) -> str:
+        return f'<|im_start|>user<|im_sep|>{prompt}<|im_end|><|im_start|>assistant<|im_sep|>'
 
 class TinyLlama(PromptStyle):
     def apply(self, prompt: str, **kwargs: str) -> str:
@@ -337,6 +340,7 @@ prompt_styles: Dict[str, Type[PromptStyle]] = {
     "phi-1": Phi1,
     "phi-2": Phi2,
     "phi-3": Phi3,
+    "phi-4": Phi4,
     "tinyllama": TinyLlama,
     "gemma": Gemma,
     "llama3": Llama3,
@@ -380,6 +384,8 @@ def model_name_to_prompt_style(model_name: str) -> PromptStyle:
         return Phi2()
     if re.search("Phi-3", model_name):
         return Phi3()
+    if re.search("phi-4", model_name):
+        return Phi4()
     if re.search(r"tiny-llama.*chat", model_name):
         return TinyLlama()
     if re.search(r"(Code)?Gemma.*-it", model_name):
