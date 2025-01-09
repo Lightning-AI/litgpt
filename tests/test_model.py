@@ -352,6 +352,7 @@ def test_against_hf_phi_3(model_name, device, dtype):
         padded_vocab_size=10000,
         n_layer=2,
         n_head=4,
+        n_query_groups=4,
         n_embd=256,
     )
     T = 5
