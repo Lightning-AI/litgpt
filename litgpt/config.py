@@ -1579,7 +1579,7 @@ phi = [
     dict(
         name="phi-4",
         hf_config=dict(org="microsoft", name="phi-4"),
-        vocab_size=100257,
+        vocab_size=100352,
         padded_vocab_size=100352,
         block_size=16384,
         n_embd=5120,
