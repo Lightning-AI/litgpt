@@ -85,14 +85,16 @@ def download_from_hub(
         free_space_bytes = shutil.disk_usage(str(checkpoint_dir)).free
         free_space_gb = free_space_bytes / (1024**3)
 
-        if weight_size_gb > free_space_gb:
+        # 2x because we create lit_model.pth before deleting the downloaded weights,
+        # so we intermittenly have 2 sets of weights on disk
+        if weight_size_gb > 2*free_space_gb:
             if os.getenv("LIGHTNING_CLUSTER_ID") is not None:
                 studio_text = " Please switch to a larger Studio with more disk space."
             else:
                 studio_text = ""
             raise RuntimeError(
                 f"Not enough disk space to download {repo_id} weights. "
-                f"Needed: ~{weight_size_gb:.2f} GB, free: ~{free_space_gb:.2f} GB.{studio_text}"
+                f"Needed: ~{2*weight_size_gb:.2f} GB, free: ~{free_space_gb:.2f} GB.{studio_text}"
             )
 
         if bins:
