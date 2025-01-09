@@ -1575,6 +1575,25 @@ phi = [
         mlp_class_name="LLaMAMLP",
         parallel_residual=False,
     ),
+    # https://huggingface.co/microsoft/phi-4/blob/main/config.json
+    dict(
+        name="phi-4",
+        hf_config=dict(org="microsoft", name="phi-4"),
+        vocab_size=100352,
+        padded_vocab_size=100352,
+        block_size=16384,
+        n_embd=5120,
+        n_layer=40,
+        n_head=40,
+        n_query_groups=10,
+        rotary_percentage=1.0,
+        bias=False,
+        norm_class_name="RMSNorm",
+        intermediate_size=17920,
+        rope_base=250000,
+        mlp_class_name="LLaMAMLP",
+        parallel_residual=False,
+    ),
 ]
 configs.extend(phi)
 

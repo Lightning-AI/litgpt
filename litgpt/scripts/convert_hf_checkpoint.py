@@ -323,7 +323,7 @@ def copy_weights_phi(
         "lm_head.bias": "lm_head.bias",
     }
 
-    if config.name.startswith("Phi-3"):
+    if config.name.startswith(("Phi-3", "phi-4")):
         weight_map.update(
             {
                 "model.layers.{}.self_attn.qkv_proj.weight": "transformer.h.{}.attn.qkv.weight",

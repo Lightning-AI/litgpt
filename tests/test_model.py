@@ -329,7 +329,7 @@ def test_against_hf_phi(model_name, device, dtype):
 
 
 @torch.inference_mode()
-@pytest.mark.parametrize("model_name", ("Phi-3-mini-4k-instruct", "Phi-3-mini-128k-instruct", "Phi-3.5-mini-instruct"))
+@pytest.mark.parametrize("model_name", ("Phi-3-mini-4k-instruct", "Phi-3-mini-128k-instruct", "Phi-3.5-mini-instruct", "phi-4"))
 @pytest.mark.parametrize(
     ("device", "dtype"),
     [
@@ -352,6 +352,7 @@ def test_against_hf_phi_3(model_name, device, dtype):
         padded_vocab_size=10000,
         n_layer=2,
         n_head=4,
+        n_query_groups=4,
         n_embd=256,
     )
     T = 5
