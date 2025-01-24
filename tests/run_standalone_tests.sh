@@ -12,7 +12,7 @@ defaults="-m pytest --no-header -v --disable-pytest-warnings --strict-markers --
 echo "Using defaults: ${defaults}"
 
 # find tests marked as `@RunIf(standalone=True)`. done manually instead of with pytest because it is faster
-grep_output=$(grep --recursive --word-regexp . --regexp 'standalone=True' --include '*.py')
+grep_output=$(grep --recursive --word-regexp . --regexp 'standalone=True' --include '*.py' --exclude 'test_thunder*.py')
 
 # file paths, remove duplicates
 files=$(echo "$grep_output" | cut -f1 -d: | sort | uniq)

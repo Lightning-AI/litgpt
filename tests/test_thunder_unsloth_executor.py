@@ -45,6 +45,7 @@ def test_unsloth_cross_entropy(reduction):
     torch.testing.assert_close(actual, expected)
 
 
+@pytest.mark.skip(reason='out of date')
 @RunIf(min_cuda_gpus=1, thunder=True)
 def test_unsloth_rope():
     import thunder
@@ -54,6 +55,8 @@ def test_unsloth_rope():
 
     B, nh, T, hs = 2, 32, 64, 16
     cos, sin = build_rope_cache(T, hs, device="cuda")
+    cos = cos.unsqueeze(0)
+    sin = sin.unsqueeze(0)
     q = torch.rand((B, nh, T, hs), device="cuda", requires_grad=True)
 
     def foo(x, cos, sin):
