@@ -17,7 +17,7 @@ dependencies = [
     "safetensors>=0.4.3",               # download models
     "tokenizers>=0.15.2",               # tokenization in most models
     "tqdm>=4.66.0",                     # convert_hf_checkpoint
-    "lightning-thunder @ git+https://github.com/Lightning-AI/lightning-thunder/ ; python_version >= '3.10' and sys_platform == 'linux'",
+    "lightning-thunder>=0.2.0.dev20250119 ; python_version >= '3.10' and sys_platform == 'linux'",
 ]
 
 [project.urls]
