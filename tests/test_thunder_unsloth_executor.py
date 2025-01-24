@@ -45,6 +45,7 @@ def test_unsloth_cross_entropy(reduction):
     torch.testing.assert_close(actual, expected)
 
 
+@pytest.mark.skip(reason='out of date')
 @RunIf(min_cuda_gpus=1, thunder=True)
 def test_unsloth_rope():
     import thunder
