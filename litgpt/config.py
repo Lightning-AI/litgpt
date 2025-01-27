@@ -2400,5 +2400,52 @@ for c in smollm2:
         copy["hf_config"]["name"] = c["hf_config"]["name"].format(kind)
         configs.append(copy)
 
+###############
+# DeepSeek R1 Distill
+###############
+
+r1_distill_llama = [
+    # https://huggingface.co/deepseek-ai/DeepSeek-R1-Distill-Llama-8B/blob/main/config.json
+    dict(
+        name="R1-Distill-Llama-8B{}",
+        hf_config=dict(org="deepseek-ai", name="DeepSeek-R1-Distill-Llama-8B{}"),
+        block_size=131072,
+        vocab_size=128000,
+        padded_vocab_size=128256,
+        n_layer=32,
+        n_head=32,
+        n_query_groups=8,
+        rotary_percentage=1.0,
+        parallel_residual=False,
+        bias=False,
+        norm_class_name="RMSNorm",
+        mlp_class_name="LLaMAMLP",
+        intermediate_size=14336,
+        rope_base=500000,
+        rope_adjustments=dict(factor=8.0, low_freq_factor=1.0, high_freq_factor=4.0, original_max_seq_len=8192)
+    ),
+    # https://huggingface.co/deepseek-ai/DeepSeek-R1-Distill-Llama-70B/blob/main/config.json
+    dict(
+        name="R1-Distill-Llama-70B{}",
+        hf_config=dict(org="deepseek-ai", name="DeepSeek-R1-Distill-Llama-70B"),
+        block_size=131072,
+        vocab_size=128000,
+        padded_vocab_size=128256,
+        n_layer=80,
+        n_head=64,
+        n_embd=8192,
+        n_query_groups=8,
+        rotary_percentage=1.0,
+        parallel_residual=False,
+        bias=False,
+        norm_class_name="RMSNorm",
+        mlp_class_name="LLaMAMLP",
+        intermediate_size=28672,
+        rope_base=500000,
+        rope_adjustments=dict(factor=8.0, low_freq_factor=1.0, high_freq_factor=4.0, original_max_seq_len=8192)
+    ),
+]
+
+configs.extend(r1_distill_llama)
 
 name_to_config = {config["name"]: config for config in configs}
