@@ -1,6 +1,6 @@
 [project]
 name = "litgpt"
-version = "0.5.7.dev1"
+version = "0.5.7"
 description = "Hackable implementation of state-of-the-art open-source LLMs"
 authors = [
     { name = "Lightning AI", email = "contact@lightning.ai" },
