@@ -2407,8 +2407,8 @@ for c in smollm2:
 r1_distill_llama = [
     # https://huggingface.co/deepseek-ai/DeepSeek-R1-Distill-Llama-8B/blob/main/config.json
     dict(
-        name="R1-Distill-Llama-8B{}",
-        hf_config=dict(org="deepseek-ai", name="DeepSeek-R1-Distill-Llama-8B{}"),
+        name="R1-Distill-Llama-8B",
+        hf_config=dict(org="deepseek-ai", name="DeepSeek-R1-Distill-Llama-8B"),
         block_size=131072,
         vocab_size=128000,
         padded_vocab_size=128256,
@@ -2426,7 +2426,7 @@ r1_distill_llama = [
     ),
     # https://huggingface.co/deepseek-ai/DeepSeek-R1-Distill-Llama-70B/blob/main/config.json
     dict(
-        name="R1-Distill-Llama-70B{}",
+        name="R1-Distill-Llama-70B",
         hf_config=dict(org="deepseek-ai", name="DeepSeek-R1-Distill-Llama-70B"),
         block_size=131072,
         vocab_size=128000,
