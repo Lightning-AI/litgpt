@@ -372,6 +372,8 @@ def model_name_to_prompt_style(model_name: str) -> PromptStyle:
         return Llama3()
     if re.search("Llama-3.*-Instruct-*", model_name):
         return Llama3()
+    if re.search("R1-Distill-Llama-*B", model_name):
+        return Llama3()
     if re.search("FreeWilly2", model_name):
         return FreeWilly2()
     if re.search("Platypus", model_name):
