@@ -215,9 +215,6 @@ class Llama3(PromptStyle):
             [tokenizer.token_to_id("<|eot_id|>")],
         )
 
-from typing import Union, List, Dict, Tuple
-from litgpt.prompts import PromptStyle
-
 class R1Base(PromptStyle):
     def apply(self, prompt: Union[str, List[Dict[str, str]]], **kwargs: str) -> str:
         default_system_prompt = ""
