@@ -224,7 +224,7 @@ class R1Base(PromptStyle):
 
         if isinstance(prompt, str):
             return (
-                f"{bos_token}{default_system_prompt}"
+                f"{default_system_prompt}"
                 f"<｜User｜>{prompt}"
                 f"<｜Assistant｜>"  # Prepares for assistant response
             )
@@ -245,12 +245,12 @@ class R1Base(PromptStyle):
 
             # Extract system prompt (if any)
             system_prompt = ""
-            if prompt and prompt[0].get("role") == "system":
+            if prompt[0].get("role") == "system":
                 system_prompt = prompt[0]["content"]
                 prompt = prompt[1:]  # Remove system message from the list
 
             # Construct the formatted prompt
-            formatted_prompt = bos_token + system_prompt
+            formatted_prompt = system_prompt
             for message in prompt:
                 formatted_prompt += encode_message(message)
 
