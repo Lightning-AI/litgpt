@@ -337,6 +337,7 @@ def generate_fn(
 
     # Step 2: Generate tokens in speculative manner.
     tokens = []
+    total_generated, total_accepted = 0, 0
     while input_pos < (max_returned_tokens - prompt_size):
         _speculative_k = min(speculative_k, (max_returned_tokens - prompt_size - input_pos).item())
         new_tokens = speculative_decoding(
@@ -353,6 +354,9 @@ def generate_fn(
         # check how many tokens are generated
         accepted_tokens_len = len(new_tokens)
 
+        total_generated += _speculative_k
+        total_accepted += (accepted_tokens_len - 1) # returns always +1 to what was accepted
+
         # update input_pos and input_pos_maxp1
         input_pos.add_(accepted_tokens_len)
         input_pos_maxp1.add_(accepted_tokens_len)
@@ -360,10 +364,13 @@ def generate_fn(
         token = new_tokens[-1].unsqueeze(0)
         tokens.extend(new_tokens)
 
+    # print(f"Acceptance rate: {total_accepted / total_generated * 100:.2f}%")
+    acceptance_rate = total_accepted / total_generated
+
     tokens = [t.unsqueeze(0) for t in tokens]
     if include_prompt:
         tokens = [t.to(torch.int64) for t in prompt.split(1)] + tokens
-    return tokens
+    return tokens, acceptance_rate
 
 
 @torch.inference_mode()
@@ -424,7 +431,7 @@ def generate(
     #     )
     # )
 
-    token_list = generate_fn(
+    token_list, acceptance_rate = generate_fn(
         include_prompt=include_prompt,
         include_eos=True,
         draft_model=draft_model,
@@ -438,7 +445,7 @@ def generate(
         speculative_k=speculative_k,
     )
 
-    return torch.cat(token_list) if len(token_list) != 0 else torch.Tensor()
+    return (torch.cat(token_list), acceptance_rate) if len(token_list) != 0 else (torch.Tensor(), None)
 
 
 @torch.inference_mode()
@@ -578,7 +585,7 @@ def main(
     L.seed_everything(1234)
     for i in range(num_samples):
         t0 = time.perf_counter()
-        y = generate(
+        y, acceptance_rate = generate(
             draft_model,
             target_model,
             encoded,
@@ -596,6 +603,7 @@ def main(
             block.attn.kv_cache.reset_parameters()
         fabric.print(tokenizer.decode(y))
         tokens_generated = y.size(0) - prompt_length
+        print(f"Acceptance rate: {acceptance_rate * 100:.2f}%")
         fabric.print(
             f"Time for inference {i + 1}: {t:.02f} sec total, {tokens_generated / t:.02f} tokens/sec", file=sys.stderr
         )
