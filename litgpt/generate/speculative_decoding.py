@@ -191,12 +191,12 @@ def speculative_decoding(
         new_token, _ = sample(adjusted_distribution[None, None, ...], to_softmax=False, **sample_kwargs)
         return torch.cat((*accepted_tokens, new_token))
 
+    # if all the candidate tokens were accepted
     # calculate kv-cache for the last draft token
-    # # TODO (andrei aksionau): check that indices and the draft token are correct
     draft_model.forward(idx=draft_token.unsqueeze(0), input_pos=draft_input_pos, input_pos_maxp1=draft_input_pos_maxp1)
-    return torch.cat(accepted_tokens)
-
-
+    # sample the last token
+    new_token, _ = sample(target_logits, **sample_kwargs)
+    return torch.cat((*accepted_tokens, new_token))
 
     # accepted_tokens = []
     # for draft_token, draft_prob, target_token, target_prob in zip(draft_tokens, draft_probs, target_tokens[:-1], target_probs[:-1]):
