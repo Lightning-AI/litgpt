@@ -404,7 +404,8 @@ def generate(
     Takes a list of prompts as input (1D tensors, can be of different lengths)
     and generates tokens as specified.
 
-    Choice of `pro mpt_chunksize`:
+    Choice of `prompt_chunksize`:
+
     This parameter can speed up inference for long prompts. Let
     `M = min_prompt_size - max_prefill_length`, the minimum prompt length
     minus the max prefill length of the KV cache. If `M > 0`, the prompt

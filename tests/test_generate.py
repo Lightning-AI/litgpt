@@ -16,6 +16,8 @@ import yaml
 import litgpt.generate.base as generate
 from litgpt import GPT, Config
 from litgpt.generate.base import sample
+from litgpt.kvcache.base import KVCacheParams
+from litgpt.kvcache.test_utils import create_kv_cache
 
 
 skip_in_ci_on_macos = pytest.mark.skipif(
@@ -128,7 +130,73 @@ def test_generate_single_vs_batch(max_seq_length):
     for rb, rs, prompt in zip(res_batch, res_single, prompts):
         print(f"rs: {rs}\nrb: {rb}\npr: {prompt}")
         torch.testing.assert_close(rs, rb)
-        print("OK")
+
+
+def test_prompt_chunksize():
+    import lightning as L
+    L.seed_everything(1234)
+
+    batch_size = 3
+    vocab_size = 128
+    max_seq_length = 64
+    n_layer = 2
+    params = KVCacheParams(
+        batch_size=batch_size,
+        n_query_groups=4,
+        cache_length=16,
+        head_size=8,
+        n_head=4,
+        device=torch.device("cpu"),
+        dtype=torch.bfloat16,
+    )
+    kv_cache = create_kv_cache("mostrec-default", params)
+    config = Config(
+        block_size=max_seq_length,
+        vocab_size=vocab_size,
+        n_layer=n_layer,
+        n_head=params.n_head,
+        n_embd=params.n_head * params.head_size,
+        rotary_percentage=1,
+    )
+    model = GPT(
+        config,
+        kv_cache=[
+            create_kv_cache("mostrec-default", params)
+            for _ in range(n_layer)
+        ],
+    )
+
+    prompt_sizes = [32, 37, 42]
+    prompts = [
+        torch.randint(
+            low=0,
+            high=vocab_size,
+            size=(sz,)
+        )
+        for sz in prompt_sizes
+    ]
+
+    results = []
+    chunk_sizes = [1, 2, 4, 5, 16]
+    for prompt_chunksize in chunk_sizes:
+        results.append(
+            generate.generate(
+                model=model,
+                prompts=prompts,
+                prompt_chunksize=prompt_chunksize,
+                max_returned_tokens=max_seq_length,
+                top_k=1,
+            )
+        )
+
+    result_1 = results[0]
+    assert len(result_1) == batch_size
+    for prompt_chunksize, result in zip(chunk_sizes[1:], results[1:]):
+        print(f"prompt_chunksize: 1 versus {prompt_chunksize}")
+        assert len(result) == batch_size
+        for res1, resn in zip(result_1, result):
+            print(f"res1: {res1}\nres{prompt_chunksize}: {resn}")
+            torch.testing.assert_close(res1, resn)
 
 
 @skip_in_ci_on_macos
