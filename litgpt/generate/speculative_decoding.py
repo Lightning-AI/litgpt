@@ -18,6 +18,7 @@ from litgpt.config import Config
 from litgpt.model import GPT
 from litgpt.prompts import PromptStyle, has_prompt_style, load_prompt_style
 from litgpt.tokenizer import Tokenizer
+from litgpt.generate.base import multinomial_num_samples_1, sample_top_p, next_token
 from litgpt.utils import (
     check_file_size_on_cpu_and_warn,
     check_valid_checkpoint_dir,
@@ -30,36 +31,9 @@ from litgpt.utils import (
 # flake8: noqa
 
 
-def multinomial_num_samples_1(probs: torch.Tensor) -> torch.Tensor:
-    if torch._dynamo.is_compiling():
-        # Faster alternative to `torch.multinomial(probs, num_samples=1)` that is also CUDAGraph friendly
-        distribution = torch.empty_like(probs).exponential_(1)
-        return torch.argmax(probs / distribution, dim=-1, keepdim=True)
-    return torch.multinomial(probs, num_samples=1)
-
-
-def sample_top_p(logits: torch.Tensor, top_p: float) -> torch.Tensor:
-    sorted_logits, sorted_indices = torch.sort(logits, descending=False)
-    cumulative_probs = sorted_logits.softmax(dim=-1).cumsum(dim=-1)
-    # Example:
-    # sorted_probs=[0.1, 0.15, 0.2, 0.25, 0.3] -> sorted_cumprobs=[0.1, 0.25, 0.45, 0.7, 1.0]
-    # sorted_indices_to_remove = [1, 1, 0, 0, 0] if top_p=0.7
-    sorted_indices_to_remove = cumulative_probs <= (1 - top_p)
-    # Keep at least 1 token always to prevent the case where no token is selected
-    # In this case the most probable one is always kept
-    sorted_indices_to_remove[-1:] = 0
-    indices_to_remove = sorted_indices_to_remove.scatter(0, sorted_indices, sorted_indices_to_remove)
-    logits = logits.masked_fill(indices_to_remove, float("-inf"))
-    return logits
-
-
 def sample(
     logits: torch.Tensor, temperature: float = 1.0, top_k: Optional[int] = None, top_p: float = 1.0, to_softmax: bool = True,
 ) -> torch.Tensor:
-
-    # top_k = None
-    # top_p = 0.0
-    # temperature = 0.0
 
     if top_p < 0.0 or top_p > 1.0:
         raise ValueError(f"top_p must be in [0, 1], got {top_p}")
@@ -85,19 +59,6 @@ def sample(
     return torch.argmax(logits, dim=-1, keepdim=True), torch.nn.functional.softmax(logits, dim=-1)
 
 
-def next_token(
-    model: GPT,
-    input_pos: torch.Tensor,
-    x: torch.Tensor,
-    input_pos_maxp1: Optional[torch.Tensor] = None,
-    **sample_kwargs: Dict[str, Any],
-) -> torch.Tensor:
-    logits = model(x, input_pos, input_pos_maxp1=input_pos_maxp1)
-    _next, probs = sample(logits, **sample_kwargs)
-    _next = _next.to(dtype=torch.int64)
-    return _next, probs
-
-
 def speculative_decoding(
     draft_model: GPT,
     target_model: GPT,
@@ -107,21 +68,13 @@ def speculative_decoding(
     speculative_k: int,
     **sample_kwargs: Dict[str, Any],
 ):
-
-    origin_input_pos = input_pos.clone()
-    origin_input_pos_maxp1 = input_pos_maxp1.clone()
-
+    # Step 1: autoregressive generation of new tokens with the draft model
     draft_input_pos = input_pos.clone()
     draft_input_pos_maxp1 = input_pos_maxp1.clone()
-
-    # autoregressive generation of new tokens with the draft model
     draft_tokens, draft_probs = [], []
-    draft_logits = []
     draft_token = token
     for idx in range(speculative_k):
-        draft_token = draft_token.unsqueeze(0)
-        # draft_token, draft_prob = next_token(model=draft_model, input_pos=input_pos, x=draft_token, input_pos_maxp1=input_pos_maxp1, **sample_kwargs)
-        logits = draft_model.forward(idx=draft_token, input_pos=draft_input_pos, input_pos_maxp1=draft_input_pos_maxp1)
+        logits = draft_model(idx=draft_token.unsqueeze(0), input_pos=draft_input_pos, input_pos_maxp1=draft_input_pos_maxp1)
         draft_token, draft_prob = sample(logits, **sample_kwargs)
         draft_input_pos.add_(1)
         draft_input_pos_maxp1.add_(1)
@@ -130,33 +83,22 @@ def speculative_decoding(
 
     draft_tokens = torch.cat(draft_tokens)
 
-    # return draft_tokens
-
-    # process draft tokens with the target model
+    # Step 2: process draft tokens with the target model
     candidate_tokens = torch.cat((token, draft_tokens))[None, ...]
-    # candidate_input_pos = torch.arange(input_pos.item(), input_pos.item() + speculative_k + 1, device=token.device)
-    candidate_input_pos = origin_input_pos + torch.arange(0, speculative_k + 1, device=origin_input_pos.device)  # an approach without calling input_pos.item()
-    candidate_input_pos_maxp1 = origin_input_pos_maxp1.add(speculative_k)
-    # candidate_input_pos = candidate_input_pos_maxp1 = None
+    candidate_input_pos = input_pos + torch.arange(0, speculative_k + 1, device=input_pos.device)  # an approach without calling input_pos.item()
+    candidate_input_pos_maxp1 = input_pos_maxp1.add(speculative_k)
     target_logits = target_model.forward(idx=candidate_tokens, input_pos=candidate_input_pos, input_pos_maxp1=candidate_input_pos_maxp1)
 
-    # convert target logits to probabilities
-    # target_tokens, target_probs = sample(target_logits, **sample_kwargs)
+    # Step 3: convert target logits to probabilities
     target_tokens, target_probs = [], []
     for target_logit in target_logits.split(1, dim=1):
         target_token, target_prob = sample(target_logit, **sample_kwargs)
         target_tokens.append(target_token)
         target_probs.append(target_prob)
 
-    # return torch.cat(target_tokens[:1])
-    # return torch.cat(target_tokens[:-1])
 
-    # decide what draft tokens to accept
-
-    # iterate over draft tokens and  probs
-
+    # Step 4: Iterate over draft and target tokens, decide whether to accept a draft token or not
     accepted_tokens = []
-
     for idx in range(len(draft_tokens)):
 
         draft_token = draft_tokens[idx].unsqueeze(0)
@@ -168,14 +110,6 @@ def speculative_decoding(
             accepted_tokens.append(draft_token)
             continue
 
-        print("Not agree")
-        # new_token, _ = sample(target_logits[0, idx][None, None, ...], **sample_kwargs)
-        # # print(f"New token: {new_token}")
-        # return torch.cat((*accepted_tokens, new_token))
-        # accepted_tokens.append(new_token)
-        # accepted_tokens.append(target_tokens[idx])
-        # break
-
         discard_prob = 1 - target_prob / draft_prob
         should_discard_token = torch.rand(1, device=discard_prob.device) <= discard_prob
 
@@ -183,9 +117,8 @@ def speculative_decoding(
             accepted_tokens.append(draft_token)
             continue
 
-        # if discarded - updated the distribution, sample a new token and break the loop
+        # if discarded - update the distribution, sample a new token and break the loop
         adjusted_distribution = target_probs[idx] - draft_probs[idx]
-        # adjusted_distribution = torch.where(adjusted_distribution > 0, adjusted_distribution, 0.0)
         adjusted_distribution = torch.clamp(adjusted_distribution, 0.0)
         adjusted_distribution = adjusted_distribution / adjusted_distribution.sum()
         new_token, _ = sample(adjusted_distribution[None, None, ...], to_softmax=False, **sample_kwargs)
@@ -197,56 +130,6 @@ def speculative_decoding(
     # sample the last token
     new_token, _ = sample(target_logits, **sample_kwargs)
     return torch.cat((*accepted_tokens, new_token))
-
-    # accepted_tokens = []
-    # for draft_token, draft_prob, target_token, target_prob in zip(draft_tokens, draft_probs, target_tokens[:-1], target_probs[:-1]):
-
-    #     draft_token = draft_token.unsqueeze(0)
-
-    #     orig_draft_probs = draft_prob
-    #     orig_target_probs = target_prob
-
-    #     draft_prob = draft_prob[draft_token]
-    #     target_prob = target_prob[draft_token]
-
-    #     # if target prob for the draft token is equal or larger than draft prob - keep and continue
-    #     if target_prob >= draft_prob:
-    #         accepted_tokens.append(draft_token)
-    #         continue
-
-    #     # print("Not agree")
-    #     # accepted_tokens.append(target_token)
-    #     # break
-
-    #     # otherwise, discard with probability 1 - q/p
-    #     # new_token, _ = sample(orig_target_probs[None, None, ...], **sample_kwargs)
-    #     # print(f"New token: {new_token}")
-    #     # return torch.cat((*accepted_tokens, new_token))
-
-
-    #     discard_prob = 1 - target_prob / draft_prob
-    #     should_discard_token = torch.rand(1, device=discard_prob.device) <= discard_prob
-
-    #     # if not discarded - keep token and continue
-    #     if not should_discard_token:
-    #         accepted_tokens.append(draft_token)
-    #         continue
-
-    #     # if discarded - updated the distribution, sample a new token and break the loop
-    #     # adjusted_distribution = target_probs - draft_probs
-    #     adjusted_distribution = orig_target_probs - orig_draft_probs
-    #     # adjusted_distribution = torch.where(adjusted_distribution > 0, adjusted_distribution, 0.0)
-    #     adjusted_distribution = torch.clamp(adjusted_distribution, 0.0)
-    #     adjusted_distribution = adjusted_distribution / adjusted_distribution.sum()
-    #     new_token, _ = sample(adjusted_distribution[None, None, ...], **sample_kwargs)
-    #     return torch.cat((*accepted_tokens, new_token))
-
-    # if all the candidate tokens were accepted
-    # new_token, _ = sample(target_probs[-1][None, None, ...], **sample_kwargs)
-    # # fill in draft model to populate kv cache
-    # draft_model.forward(new_token.unsqueeze(0), (candidate_input_pos[-1] + 1).unsqueeze(0), candidate_input_pos_maxp1 + 1)
-    # return torch.cat((*accepted_tokens, new_token))
-    # return torch.cat(accepted_tokens)
 
 
 @torch.inference_mode()
@@ -294,24 +177,10 @@ def generate_fn(
             f"max_seq_length {target_model.max_seq_length} needs to be >= {max_returned_tokens - 1}"
         )
 
-    # Yield the prompt if include_prompt is True
-    # if include_prompt:
-    #     yield prompt
-
-    stop_progress = [0] * len(stop_tokens)
-    yielded_idx = 0
-
-    # temperature = 0
-    # top_p = 0
-    # top_k = None
 
     # Step 1: Prefill draft and target models with the prompt.
     input_pos = torch.arange(0, prompt_size, device=device, dtype=torch.int64)
     input_pos_maxp1 = torch.tensor(prompt_size, device=device)
-    # input_pos = None
-    # input_pos_maxp1 = None
-
-    torch.manual_seed(1234)
     _ = next_token(  # 329
         draft_model,
         input_pos,
@@ -321,9 +190,7 @@ def generate_fn(
         top_k=top_k,
         top_p=top_p,
     )
-
-    torch.manual_seed(1234)
-    token, _ = next_token(  # 380
+    token = next_token(  # 380
         target_model,
         input_pos,
         prompt.view(1, -1),
@@ -335,7 +202,7 @@ def generate_fn(
     input_pos = torch.tensor([prompt_size], device=device, dtype=torch.int64)
     input_pos_maxp1.add_(1)
 
-    # Step 2: Generate tokens in speculative manner.
+    # Step 2: Generate tokens in a speculative manner.
     tokens = []
     total_generated, total_accepted = 0, 0
     while input_pos < (max_returned_tokens - prompt_size):
@@ -364,12 +231,10 @@ def generate_fn(
         token = new_tokens[-1].unsqueeze(0)
         tokens.extend(new_tokens)
 
-    # print(f"Acceptance rate: {total_accepted / total_generated * 100:.2f}%")
-    acceptance_rate = total_accepted / total_generated
-
     tokens = [t.unsqueeze(0) for t in tokens]
     if include_prompt:
         tokens = [t.to(torch.int64) for t in prompt.split(1)] + tokens
+    acceptance_rate = total_accepted / total_generated
     return tokens, acceptance_rate
 
 
@@ -414,22 +279,6 @@ def generate(
         eos_id: If specified, stop generating any more token once the <eos> token is triggered.
         include_prompt: If true (default) prepends the prompt (after applying the prompt style) to the output.
     """
-
-    # token_list = list(
-    #     generate_fn(
-    #         include_prompt=include_prompt,
-    #         include_eos=True,
-    #         draft_model=draft_model,
-    #         target_model=target_model,
-    #         prompt=prompt,
-    #         max_returned_tokens=max_returned_tokens,
-    #         temperature=temperature,
-    #         top_k=top_k,
-    #         top_p=top_p,
-    #         stop_tokens=(([eos_id],) if eos_id is not None else ()),
-    #         speculative_k=speculative_k,
-    #     )
-    # )
 
     token_list, acceptance_rate = generate_fn(
         include_prompt=include_prompt,
@@ -613,10 +462,12 @@ def main(
 
 if __name__ == "__main__":
     draft_model_checkpoint_dir = Path("checkpoints/EleutherAI/pythia-14m")
-    # target_model_checkpoint_dir = Path("checkpoints/EleutherAI/pythia-14m")
+    target_model_checkpoint_dir = Path("checkpoints/EleutherAI/pythia-14m")
 
     # draft_model_checkpoint_dir = Path("checkpoints/EleutherAI/pythia-160m")
     # target_model_checkpoint_dir = Path("checkpoints/EleutherAI/pythia-160m")
-    target_model_checkpoint_dir = Path("checkpoints/EleutherAI/pythia-410m")
+
+    # draft_model_checkpoint_dir = Path("checkpoints/EleutherAI/pythia-410m")
+    # target_model_checkpoint_dir = Path("checkpoints/EleutherAI/pythia-410m")
 
     main(draft_model_checkpoint_dir, target_model_checkpoint_dir, max_new_tokens=50)
