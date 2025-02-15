@@ -11,6 +11,7 @@ import lightning as L
 import torch
 import torch._dynamo.config
 import torch._inductor.config
+import torch.nn.functional as F
 from lightning.fabric.plugins import BitsandbytesPrecision
 from lightning_utilities.core.imports import RequirementCache
 
@@ -32,9 +33,12 @@ from litgpt.utils import (
 
 
 def sample(
-    logits: torch.Tensor, temperature: float = 1.0, top_k: Optional[int] = None, top_p: float = 1.0, to_softmax: bool = True,
+    logits: torch.Tensor,
+    temperature: float = 1.0,
+    top_k: Optional[int] = None,
+    top_p: float = 1.0,
+    apply_softmax: bool = True,
 ) -> torch.Tensor:
-
     if top_p < 0.0 or top_p > 1.0:
         raise ValueError(f"top_p must be in [0, 1], got {top_p}")
     logits = logits[0, -1]
@@ -42,7 +46,8 @@ def sample(
     if top_k is not None:
         v, i = torch.topk(logits, min(top_k, logits.size(-1)))
         # do not use `torch.where` as in nanogpt because it will repeat top-k collisions
-        logits = torch.full_like(logits, float("-inf")).scatter_(-1, i, v)
+        fill_value = float("-inf") if apply_softmax else float(0)
+        logits = torch.full_like(logits, fill_value).scatter_(-1, i, v)
     # optionally scale the logits and sample from a probability distribution
     if temperature > 0.0 or top_p > 0.0:
         if temperature > 0.0:
@@ -50,13 +55,9 @@ def sample(
         # optionally crop the logits to smallest set of logits with a cumulative probability above top_p
         if top_p < 1.0:
             logits = sample_top_p(logits, top_p)
-        if to_softmax:
-            probs = torch.nn.functional.softmax(logits, dim=-1)
-        else:
-            logits = torch.clamp(logits, 0.0)
-            probs = logits
+        probs = F.softmax(logits, dim=-1) if apply_softmax else logits
         return multinomial_num_samples_1(probs), probs
-    return torch.argmax(logits, dim=-1, keepdim=True), torch.nn.functional.softmax(logits, dim=-1)
+    return torch.argmax(logits, dim=-1, keepdim=True), F.softmax(logits, dim=-1)
 
 
 def speculative_decoding(
@@ -84,23 +85,20 @@ def speculative_decoding(
     draft_tokens = torch.cat(draft_tokens)
 
     # Step 2: process draft tokens with the target model
-    candidate_tokens = torch.cat((token, draft_tokens))[None, ...]
-    candidate_input_pos = input_pos + torch.arange(0, speculative_k + 1, device=input_pos.device)  # an approach without calling input_pos.item()
+    candidate_tokens = torch.cat((token, draft_tokens))
+    candidate_input_pos = input_pos + torch.arange(0, speculative_k + 1, device=input_pos.device)
     candidate_input_pos_maxp1 = input_pos_maxp1.add(speculative_k)
-    target_logits = target_model.forward(idx=candidate_tokens, input_pos=candidate_input_pos, input_pos_maxp1=candidate_input_pos_maxp1)
+    target_logits = target_model(idx=candidate_tokens.unsqueeze(0), input_pos=candidate_input_pos, input_pos_maxp1=candidate_input_pos_maxp1)
 
     # Step 3: convert target logits to probabilities
-    target_tokens, target_probs = [], []
+    target_probs = []
     for target_logit in target_logits.split(1, dim=1):
-        target_token, target_prob = sample(target_logit, **sample_kwargs)
-        target_tokens.append(target_token)
+        _, target_prob = sample(target_logit, **sample_kwargs)
         target_probs.append(target_prob)
-
 
     # Step 4: Iterate over draft and target tokens, decide whether to accept a draft token or not
     accepted_tokens = []
     for idx in range(len(draft_tokens)):
-
         draft_token = draft_tokens[idx].unsqueeze(0)
         draft_prob = draft_probs[idx][draft_token]
         target_prob = target_probs[idx][draft_token]
@@ -110,6 +108,7 @@ def speculative_decoding(
             accepted_tokens.append(draft_token)
             continue
 
+        # discard the draft token only with a probability
         discard_prob = 1 - target_prob / draft_prob
         should_discard_token = torch.rand(1, device=discard_prob.device) <= discard_prob
 
@@ -121,12 +120,12 @@ def speculative_decoding(
         adjusted_distribution = target_probs[idx] - draft_probs[idx]
         adjusted_distribution = torch.clamp(adjusted_distribution, 0.0)
         adjusted_distribution = adjusted_distribution / adjusted_distribution.sum()
-        new_token, _ = sample(adjusted_distribution[None, None, ...], to_softmax=False, **sample_kwargs)
+        new_token, _ = sample(adjusted_distribution[None, None, ...], apply_softmax=False, **sample_kwargs)
         return torch.cat((*accepted_tokens, new_token))
 
     # if all the candidate tokens were accepted
     # calculate kv-cache for the last draft token
-    draft_model.forward(idx=draft_token.unsqueeze(0), input_pos=draft_input_pos, input_pos_maxp1=draft_input_pos_maxp1)
+    draft_model(idx=draft_token.unsqueeze(0), input_pos=draft_input_pos, input_pos_maxp1=draft_input_pos_maxp1)
     # sample the last token
     new_token, _ = sample(target_logits, **sample_kwargs)
     return torch.cat((*accepted_tokens, new_token))
@@ -165,23 +164,16 @@ def generate_fn(
     prompt_size = prompt.size(0)
     device = prompt.device
 
-    assert (
-        max_returned_tokens > prompt_size
-    ), f"Not enough space for {prompt_size} prompt tokens in a context length of {max_returned_tokens}."
+    assert max_returned_tokens > prompt_size, f"Not enough space for {prompt_size} prompt tokens in a context length of {max_returned_tokens}."
     if draft_model.max_seq_length < max_returned_tokens - 1:
-        raise NotImplementedError(
-            f"max_seq_length {draft_model.max_seq_length} needs to be >= {max_returned_tokens - 1}"
-        )
+        raise NotImplementedError(f"max_seq_length {draft_model.max_seq_length} needs to be >= {max_returned_tokens - 1}")
     if target_model.max_seq_length < max_returned_tokens - 1:
-        raise NotImplementedError(
-            f"max_seq_length {target_model.max_seq_length} needs to be >= {max_returned_tokens - 1}"
-        )
-
+        raise NotImplementedError(f"max_seq_length {target_model.max_seq_length} needs to be >= {max_returned_tokens - 1}")
 
     # Step 1: Prefill draft and target models with the prompt.
     input_pos = torch.arange(0, prompt_size, device=device, dtype=torch.int64)
     input_pos_maxp1 = torch.tensor(prompt_size, device=device)
-    _ = next_token(  # 329
+    next_token(
         draft_model,
         input_pos,
         prompt.view(1, -1),
@@ -190,7 +182,7 @@ def generate_fn(
         top_k=top_k,
         top_p=top_p,
     )
-    token = next_token(  # 380
+    token = next_token(
         target_model,
         input_pos,
         prompt.view(1, -1),
@@ -222,7 +214,7 @@ def generate_fn(
         accepted_tokens_len = len(new_tokens)
 
         total_generated += _speculative_k
-        total_accepted += (accepted_tokens_len - 1) # returns always +1 to what was accepted
+        total_accepted += accepted_tokens_len - 1  # returns always +1 to what was accepted
 
         # update input_pos and input_pos_maxp1
         input_pos.add_(accepted_tokens_len)
@@ -357,9 +349,7 @@ def main(
         if "mixed" in precision:
             raise ValueError("Quantization and mixed precision is not supported.")
         if RequirementCache("bitsandbytes != 0.42.0"):
-            warnings.warn(
-                "LitGPT only supports bitsandbytes v0.42.0. " "This may result in errors when using quantization."
-            )
+            warnings.warn("LitGPT only supports bitsandbytes v0.42.0. This may result in errors when using quantization.")
         dtype = {"16-true": torch.float16, "bf16-true": torch.bfloat16, "32-true": torch.float32}[precision]
         plugins = BitsandbytesPrecision(quantize[4:], dtype)
         precision = None
@@ -384,9 +374,7 @@ def main(
 
     tokenizer = Tokenizer(target_model_checkpoint_dir)
     prompt_style = (
-        load_prompt_style(target_model_checkpoint_dir)
-        if has_prompt_style(target_model_checkpoint_dir)
-        else PromptStyle.from_config(target_model_config)
+        load_prompt_style(target_model_checkpoint_dir) if has_prompt_style(target_model_checkpoint_dir) else PromptStyle.from_config(target_model_config)
     )
 
     prompt = prompt_style.apply(prompt)
@@ -394,9 +382,7 @@ def main(
     prompt_length = encoded.size(0)
     max_returned_tokens = prompt_length + max_new_tokens
 
-    fabric.print(
-        f"Loading draft model {str(draft_model_checkpoint_path)!r} with {draft_model_config.__dict__}", file=sys.stderr
-    )
+    fabric.print(f"Loading draft model {str(draft_model_checkpoint_path)!r} with {draft_model_config.__dict__}", file=sys.stderr)
     fabric.print(
         f"Loading target model {str(target_model_checkpoint_path)!r} with {target_model_config.__dict__}",
         file=sys.stderr,
@@ -453,9 +439,7 @@ def main(
         fabric.print(tokenizer.decode(y))
         tokens_generated = y.size(0) - prompt_length
         print(f"Acceptance rate: {acceptance_rate * 100:.2f}%")
-        fabric.print(
-            f"Time for inference {i + 1}: {t:.02f} sec total, {tokens_generated / t:.02f} tokens/sec", file=sys.stderr
-        )
+        fabric.print(f"Time for inference {i + 1}: {t:.02f} sec total, {tokens_generated / t:.02f} tokens/sec", file=sys.stderr)
     if fabric.device.type == "cuda":
         fabric.print(f"Memory used: {torch.cuda.max_memory_allocated() / 1e9:.02f} GB", file=sys.stderr)
 
