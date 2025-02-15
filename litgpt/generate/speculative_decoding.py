@@ -176,22 +176,35 @@ def generate_fn(
     top_p: float = 1.0,
     stop_tokens: Tuple[List[int], ...] = (),
     include_prompt: bool,
-    include_eos: bool,
     speculative_k: int,
 ) -> Iterator[torch.Tensor]:
-    """
-    Generates tokens for a single prompt.
+    """Generates tokens using speculative decoding with a draft and target model.
+
+    This function implements token generation using speculative decoding, where a faster draft model
+    makes initial token predictions that are verified by a slower but more accurate target model.
 
     Args:
-        model: The model to use.
-        prompt: The tokenized prompt to generate from.
-        max_returned_tokens: The maximum number of new tokens to return. Does not include the prompt tokens.
-        temperature: The temp to pass to sample().
-        top_k: The top_k to pass to sample().
-        top_p: The top_p to pass to sample().
-        stop_tokens: A tuple of stop sequences. If any of the sequences are generated, the generation stops early before max_returned_tokens.
-        include_prompt: Whether to output the prompt tokens.
-        include_eos: Whether to output the stop tokens if generation stops early.
+        draft_model: Smaller/faster model used for initial token predictions
+        target_model: Larger/more accurate model used to verify draft predictions
+        prompt: Input tensor of token ids to generate from, shape [sequence_length]
+        max_returned_tokens: Maximum total tokens (prompt + generated) to return
+        temperature: Sampling temperature (higher = more random, lower = more deterministic)
+        top_k: If set, only sample from the top k most likely next tokens
+        top_p: If <1.0, only sample from tokens whose cumulative probability exceeds top_p
+        stop_tokens: List of token sequences that will stop generation if produced
+        include_prompt: Whether to include prompt tokens in the returned sequence
+        speculative_k: Number of tokens to speculatively generate at each step
+
+    Returns:
+        - tokens: Tensor of generated token ids
+        - acceptance_rate: Ratio of accepted draft model predictions
+
+    This implements an optimized decoding process:
+    1. Both models process the initial prompt
+    2. Draft model speculatively generates k tokens ahead
+    3. Target model verifies the draft predictions
+    4. Accepted tokens are kept, rejected ones trigger resampling
+    5. Process repeats until max tokens or stop sequence reached
     """
 
     prompt_size = prompt.size(0)
@@ -224,14 +237,18 @@ def generate_fn(
         top_k=top_k,
         top_p=top_p,
     )
+    # Update position trackers after prompt
     input_pos = torch.tensor([prompt_size], device=device, dtype=torch.int64)
     input_pos_maxp1.add_(1)
 
-    # Step 2: Generate tokens in a speculative manner.
+    # Step 2: Main generation loop.
     tokens = []
-    total_generated, total_accepted = 0, 0
+    total_generated, total_accepted = 0, 0  # Track acceptance statistics
     while input_pos < (max_returned_tokens - prompt_size):
+        # Calculate speculative tokens to generate
         _speculative_k = min(speculative_k, (max_returned_tokens - prompt_size - input_pos).item())
+
+        # Get new tokens via speculative decoding
         new_tokens = speculative_decoding(
             draft_model=draft_model,
             target_model=target_model,
@@ -243,23 +260,33 @@ def generate_fn(
             top_k=top_k,
             top_p=top_p,
         )
-        # check how many tokens are generated
+
+        # Update statistics
         accepted_tokens_len = len(new_tokens)
-
         total_generated += _speculative_k
-        total_accepted += accepted_tokens_len - 1  # returns always +1 to what was accepted
+        total_accepted += accepted_tokens_len - 1  # accepted +1 sampled from a target model
 
-        # update input_pos and input_pos_maxp1
+        # Process tokens and check for stop condition
+        should_break = False
+        for new_token in new_tokens:
+            if new_token in stop_tokens:
+                should_break = True
+                break
+            tokens.append(new_token)
+
+        if should_break:
+            break
+
+        # Update positions for next iteration
         input_pos.add_(accepted_tokens_len)
         input_pos_maxp1.add_(accepted_tokens_len)
-
         token = new_tokens[-1].unsqueeze(0)
-        tokens.extend(new_tokens)
 
-    tokens = [t.unsqueeze(0) for t in tokens]
+    # Finalize generated sequence
+    tokens = torch.stack(tokens)
     if include_prompt:
-        tokens = [t.to(torch.int64) for t in prompt.split(1)] + tokens
-    acceptance_rate = total_accepted / total_generated
+        tokens = torch.cat([prompt, tokens])
+    acceptance_rate = total_accepted / total_generated if total_generated > 0 else 0.0
     return tokens, acceptance_rate
 
 
@@ -276,7 +303,7 @@ def generate(
     eos_id: Optional[int] = None,
     include_prompt: bool = True,
     speculative_k: int,
-) -> torch.Tensor:
+) -> tuple[torch.Tensor, float]:
     """
     Takes a conditioning sequence (prompt) as input and continues to generate as many tokens as requested.
     The implementation of this function is modified from A. Karpathy's nanoGPT.
@@ -307,7 +334,6 @@ def generate(
 
     token_list, acceptance_rate = generate_fn(
         include_prompt=include_prompt,
-        include_eos=True,
         draft_model=draft_model,
         target_model=target_model,
         prompt=prompt,
@@ -315,11 +341,11 @@ def generate(
         temperature=temperature,
         top_k=top_k,
         top_p=top_p,
-        stop_tokens=(([eos_id],) if eos_id is not None else ()),
+        stop_tokens=([eos_id] if eos_id is not None else []),
         speculative_k=speculative_k,
     )
 
-    return (torch.cat(token_list), acceptance_rate) if len(token_list) != 0 else (torch.Tensor(), None)
+    return token_list, acceptance_rate
 
 
 @torch.inference_mode()
