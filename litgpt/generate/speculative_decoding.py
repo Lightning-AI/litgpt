@@ -5,7 +5,7 @@ import time
 import warnings
 from pathlib import Path
 from pprint import pprint
-from typing import Any, Dict, Iterator, List, Literal, Optional, Tuple, Union
+from typing import Any, Dict, Iterator, List, Literal, Optional, Tuple
 
 import lightning as L
 import torch
@@ -16,10 +16,10 @@ from lightning.fabric.plugins import BitsandbytesPrecision
 from lightning_utilities.core.imports import RequirementCache
 
 from litgpt.config import Config
+from litgpt.generate.base import multinomial_num_samples_1, next_token, sample_top_p
 from litgpt.model import GPT
 from litgpt.prompts import PromptStyle, has_prompt_style, load_prompt_style
 from litgpt.tokenizer import Tokenizer
-from litgpt.generate.base import multinomial_num_samples_1, sample_top_p, next_token
 from litgpt.utils import (
     check_file_size_on_cpu_and_warn,
     check_valid_checkpoint_dir,
@@ -27,9 +27,6 @@ from litgpt.utils import (
     get_default_supported_precision,
     load_checkpoint,
 )
-
-# TODO (andrei aksionau): Remove this
-# flake8: noqa
 
 
 def sample(
@@ -68,8 +65,40 @@ def speculative_decoding(
     input_pos_maxp1: torch.Tensor,
     speculative_k: int,
     **sample_kwargs: Dict[str, Any],
-):
-    # Step 1: autoregressive generation of new tokens with the draft model
+) -> torch.Tensor:
+    """Performs speculative decoding using a draft and target model.
+
+    This implements the speculative decoding algorithm from "Fast Inference from Transformers via Speculative Decoding"
+    (https://arxiv.org/pdf/2211.17192).
+
+    The core idea is to:
+    1. Use a faster draft model to predict multiple tokens ahead
+    2. Verify those predictions with the slower but more accurate target model
+    3. Accept tokens where the target model agrees with high probability
+    4. Reject and resample tokens where there is disagreement
+
+    This allows leveraging a smaller/faster model to speed up generation while maintaining
+    the quality of the larger target model.
+
+    Args:
+        draft_model: Smaller/faster model used for initial token predictions
+        target_model: Larger/slower model used for verification
+        token: Current input token tensor of shape [1]
+        input_pos: Position index of the token tensor for KV-cache
+        input_pos_maxp1: Maximum position + 1 for managing KV-cache buffer
+        speculative_k: Number of tokens to speculatively generate at once
+        sample_kwargs: Additional sampling parameters (temperature, top_k, top_p)
+
+    Returns:
+        torch.Tensor: Generated tokens that were either accepted from draft model
+                      or resampled from target model
+    """
+
+    if speculative_k < 1:
+        raise ValueError(f"speculative_k must be >= 1, got {speculative_k}")
+
+    # Step 1: Generate candidate tokens using draft model
+    # The draft model autoregressively generates k tokens, keeping track of probabilities
     draft_input_pos = input_pos.clone()
     draft_input_pos_maxp1 = input_pos_maxp1.clone()
     draft_tokens, draft_probs = [], []
@@ -81,34 +110,37 @@ def speculative_decoding(
         draft_input_pos_maxp1.add_(1)
         draft_tokens.append(draft_token)
         draft_probs.append(draft_prob)
-
     draft_tokens = torch.cat(draft_tokens)
 
-    # Step 2: process draft tokens with the target model
+    # Step 2: Get target model predictions for comparison
+    # Feed both original token and draft tokens to get target probabilities
     candidate_tokens = torch.cat((token, draft_tokens))
     candidate_input_pos = input_pos + torch.arange(0, speculative_k + 1, device=input_pos.device)
     candidate_input_pos_maxp1 = input_pos_maxp1.add(speculative_k)
     target_logits = target_model(idx=candidate_tokens.unsqueeze(0), input_pos=candidate_input_pos, input_pos_maxp1=candidate_input_pos_maxp1)
 
-    # Step 3: convert target logits to probabilities
+    # Step 3: Convert target logits to probabilities using same sampling params
     target_probs = []
     for target_logit in target_logits.split(1, dim=1):
         _, target_prob = sample(target_logit, **sample_kwargs)
         target_probs.append(target_prob)
 
-    # Step 4: Iterate over draft and target tokens, decide whether to accept a draft token or not
+    # Step 4: Accept/reject draft tokens based on probability comparison
+    # Using rejection sampling: keep token if target_prob >= draft_prob.
+    # Otherwise reject with probability 1 - target_prob / draft_prob.
+    # If rejected, sample from an adjusted distribution: norm(max(0, target_prob_distribution - draft_prob_distribution) instead.
     accepted_tokens = []
     for idx in range(len(draft_tokens)):
         draft_token = draft_tokens[idx].unsqueeze(0)
         draft_prob = draft_probs[idx][draft_token]
         target_prob = target_probs[idx][draft_token]
 
-        # if target prob for the draft token is equal or larger than draft prob - keep and continue
+        # Accept the draft token if the target model is "confident" in it
         if target_prob >= draft_prob:
             accepted_tokens.append(draft_token)
             continue
 
-        # discard the draft token only with a probability
+        # If not accepted, probabilistically reject it
         discard_prob = 1 - target_prob / draft_prob
         should_discard_token = torch.rand(1, device=discard_prob.device) <= discard_prob
 
@@ -116,17 +148,18 @@ def speculative_decoding(
             accepted_tokens.append(draft_token)
             continue
 
-        # if discarded - update the distribution, sample a new token and break the loop
+        # On rejection: sample new token from adjusted distribution
+        # p'(x) = normalize(max(0, p_target(x) - p_draft(x)))
         adjusted_distribution = target_probs[idx] - draft_probs[idx]
         adjusted_distribution = torch.clamp(adjusted_distribution, 0.0)
         adjusted_distribution = adjusted_distribution / adjusted_distribution.sum()
         new_token, _ = sample(adjusted_distribution[None, None, ...], apply_softmax=False, **sample_kwargs)
         return torch.cat((*accepted_tokens, new_token))
 
-    # if all the candidate tokens were accepted
-    # calculate kv-cache for the last draft token
+    # If all draft tokens were accepted:
+    # 1. Update draft model's key-value cache
+    # 2. Sample one more token from target model
     draft_model(idx=draft_token.unsqueeze(0), input_pos=draft_input_pos, input_pos_maxp1=draft_input_pos_maxp1)
-    # sample the last token
     new_token, _ = sample(target_logits, **sample_kwargs)
     return torch.cat((*accepted_tokens, new_token))
 
