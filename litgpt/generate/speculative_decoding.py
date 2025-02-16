@@ -290,6 +290,28 @@ def generate(
     return tokens, acceptance_rate
 
 
+def setup_model(config: Config, max_returned_tokens: int, fabric: L.Fabric) -> GPT:
+    """Helper function to setup a model with common configuration."""
+    with fabric.init_module(empty_init=True):
+        model = GPT(config)
+    with fabric.init_tensor():
+        # set the max_seq_length to limit the memory usage to what we need
+        model.max_seq_length = max_returned_tokens
+        # enable the kv cache
+        model.set_kv_cache(batch_size=1)
+    model.eval()
+    return fabric.setup_module(model)
+
+
+def load_model(checkpoint_dir: Path, fabric: L.Fabric) -> Tuple[Config, Path]:
+    """Helper function to validate and load model configuration."""
+    check_valid_checkpoint_dir(checkpoint_dir)
+    config = Config.from_file(checkpoint_dir / "model_config.yaml")
+    checkpoint_path = checkpoint_dir / "lit_model.pth"
+    check_file_size_on_cpu_and_warn(checkpoint_path, fabric.device)
+    return config, checkpoint_path
+
+
 @torch.inference_mode()
 def main(
     draft_model_checkpoint_dir: Path,
@@ -343,8 +365,8 @@ def main(
     target_model_checkpoint_dir = extend_checkpoint_dir(target_model_checkpoint_dir)
     pprint(locals())
 
+    # Setup Fabric
     precision = precision or get_default_supported_precision(training=False)
-
     plugins = None
     if quantize is not None and quantize.startswith("bnb."):
         if "mixed" in precision:
@@ -357,52 +379,33 @@ def main(
 
     fabric = L.Fabric(devices=1, precision=precision, plugins=plugins)
 
-    check_valid_checkpoint_dir(draft_model_checkpoint_dir)
-    check_valid_checkpoint_dir(target_model_checkpoint_dir)
-    draft_model_config = Config.from_file(draft_model_checkpoint_dir / "model_config.yaml")
-    target_model_config = Config.from_file(target_model_checkpoint_dir / "model_config.yaml")
+    # Load model configs and checkpoints
+    draft_config, draft_checkpoint_path = load_model(draft_model_checkpoint_dir, fabric)
+    target_config, target_checkpoint_path = load_model(target_model_checkpoint_dir, fabric)
 
-    draft_model_checkpoint_path = draft_model_checkpoint_dir / "lit_model.pth"
-    target_model_checkpoint_path = target_model_checkpoint_dir / "lit_model.pth"
-    check_file_size_on_cpu_and_warn(draft_model_checkpoint_path, fabric.device)
-    check_file_size_on_cpu_and_warn(target_model_checkpoint_path, fabric.device)
-
+    # Setup tokenizer and validate
     draft_tokenizer = Tokenizer(draft_model_checkpoint_dir)
     target_tokenizer = Tokenizer(target_model_checkpoint_dir)
-    # TODO (andrei aksionau): add check that the tokenizer is the same, not just vocab size
     if draft_tokenizer.vocab_size != target_tokenizer.vocab_size:
         raise ValueError("Draft and target models have different vocab sizes.")
+    tokenizer = target_tokenizer
 
-    tokenizer = Tokenizer(target_model_checkpoint_dir)
-    prompt_style = (
-        load_prompt_style(target_model_checkpoint_dir) if has_prompt_style(target_model_checkpoint_dir) else PromptStyle.from_config(target_model_config)
-    )
-
+    # Setup prompt
+    prompt_style = load_prompt_style(target_model_checkpoint_dir) if has_prompt_style(target_model_checkpoint_dir) else PromptStyle.from_config(target_config)
     prompt = prompt_style.apply(prompt)
     encoded = tokenizer.encode(prompt, device=fabric.device)
     prompt_length = encoded.size(0)
     max_returned_tokens = prompt_length + max_new_tokens
 
-    fabric.print(f"Loading draft model {str(draft_model_checkpoint_path)!r} with {draft_model_config.__dict__}", file=sys.stderr)
-    fabric.print(
-        f"Loading target model {str(target_model_checkpoint_path)!r} with {target_model_config.__dict__}",
-        file=sys.stderr,
-    )
+    # Initialize models
+    fabric.print(f"Loading draft model {str(draft_checkpoint_path)!r} with {draft_config.__dict__}", file=sys.stderr)
+    fabric.print(f"Loading target model {str(target_checkpoint_path)!r} with {target_config.__dict__}", file=sys.stderr)
     t0 = time.perf_counter()
-    with fabric.init_module(empty_init=True):
-        draft_model = GPT(draft_model_config)
-        target_model = GPT(target_model_config)
+    draft_model = setup_model(draft_config, max_returned_tokens, fabric)
+    target_model = setup_model(target_config, max_returned_tokens, fabric)
     fabric.print(f"Time to instantiate models: {time.perf_counter() - t0:.02f} seconds.", file=sys.stderr)
-    with fabric.init_tensor():
-        # set the max_seq_length to limit the memory usage to what we need
-        draft_model.max_seq_length = max_returned_tokens
-        target_model.max_seq_length = max_returned_tokens
-        # enable the kv cache
-        draft_model.set_kv_cache(batch_size=1)
-        target_model.set_kv_cache(batch_size=1)
-    draft_model.eval()
-    target_model.eval()
 
+    # Setup compilation if needed
     if compile:
         torch._dynamo.config.automatic_dynamic_shapes = True
         torch._inductor.config.triton.unique_kernel_names = True
@@ -410,14 +413,13 @@ def main(
         global next_token
         next_token = torch.compile(next_token, mode="reduce-overhead")
 
-    draft_model = fabric.setup_module(draft_model)
-    target_model = fabric.setup_module(target_model)
-
+    # Load model weights
     t0 = time.perf_counter()
-    load_checkpoint(fabric, draft_model, draft_model_checkpoint_path)
-    load_checkpoint(fabric, target_model, target_model_checkpoint_path)
+    load_checkpoint(fabric, draft_model, draft_checkpoint_path)
+    load_checkpoint(fabric, target_model, target_checkpoint_path)
     fabric.print(f"Time to load the models weights: {time.perf_counter() - t0:.02f} seconds.", file=sys.stderr)
 
+    # Generate samples
     L.seed_everything(1234)
     for i in range(num_samples):
         t0 = time.perf_counter()
@@ -433,14 +435,18 @@ def main(
             speculative_k=speculative_k,
         )
         t = time.perf_counter() - t0
-        for block in draft_model.transformer.h:
-            block.attn.kv_cache.reset_parameters()
-        for block in target_model.transformer.h:
-            block.attn.kv_cache.reset_parameters()
+
+        # Reset KV cache
+        for model in (draft_model, target_model):
+            for block in model.transformer.h:
+                block.attn.kv_cache.reset_parameters()
+
+        # Print results
         fabric.print(tokenizer.decode(y))
         tokens_generated = y.size(0) - prompt_length
         print(f"Acceptance rate: {acceptance_rate * 100:.2f}%")
         fabric.print(f"Time for inference {i + 1}: {t:.02f} sec total, {tokens_generated / t:.02f} tokens/sec", file=sys.stderr)
+
     if fabric.device.type == "cuda":
         fabric.print(f"Memory used: {torch.cuda.max_memory_allocated() / 1e9:.02f} GB", file=sys.stderr)
 
@@ -453,6 +459,6 @@ if __name__ == "__main__":
     # target_model_checkpoint_dir = Path("checkpoints/EleutherAI/pythia-160m")
 
     # draft_model_checkpoint_dir = Path("checkpoints/EleutherAI/pythia-410m")
-    # target_model_checkpoint_dir = Path("checkpoints/EleutherAI/pythia-410m")
+    target_model_checkpoint_dir = Path("checkpoints/EleutherAI/pythia-410m")
 
     main(draft_model_checkpoint_dir, target_model_checkpoint_dir, max_new_tokens=50)
