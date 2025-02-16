@@ -165,7 +165,7 @@ def speculative_decoding(
 
 
 @torch.inference_mode()
-def generate_fn(
+def generate(
     draft_model: GPT,
     target_model: GPT,
     prompt: torch.Tensor,
@@ -175,7 +175,7 @@ def generate_fn(
     top_k: Optional[int] = None,
     top_p: float = 1.0,
     stop_tokens: Tuple[List[int], ...] = (),
-    include_prompt: bool,
+    include_prompt: bool = True,
     speculative_k: int,
 ) -> Iterator[torch.Tensor]:
     """Generates tokens using speculative decoding with a draft and target model.
@@ -288,64 +288,6 @@ def generate_fn(
         tokens = torch.cat([prompt, tokens])
     acceptance_rate = total_accepted / total_generated if total_generated > 0 else 0.0
     return tokens, acceptance_rate
-
-
-@torch.inference_mode()
-def generate(
-    draft_model: GPT,
-    target_model: GPT,
-    prompt: torch.Tensor,
-    max_returned_tokens: int,
-    *,
-    temperature: float = 1.0,
-    top_k: Optional[int] = None,
-    top_p: float = 1.0,
-    eos_id: Optional[int] = None,
-    include_prompt: bool = True,
-    speculative_k: int,
-) -> tuple[torch.Tensor, float]:
-    """
-    Takes a conditioning sequence (prompt) as input and continues to generate as many tokens as requested.
-    The implementation of this function is modified from A. Karpathy's nanoGPT.
-
-    Args:
-        model: The model to use.
-        prompt: Tensor of shape (T) with indices of the prompt sequence.
-        max_returned_tokens: The maximum number of tokens to return (given plus generated).
-        temperature: Scales the predicted logits by 1 / temperature.
-        top_k: If specified, only sample among the tokens with the k highest probabilities.
-        top_p: If specified, it represents the cumulative probability threshold to consider in the sampling process.
-            In top-p sampling, the next token is sampled from the highest probability tokens
-            whose cumulative probability exceeds the threshold `top_p`. When specified,
-            it must be `0 <= top_p <= 1`. Here, `top_p=0` is equivalent
-            to sampling the most probable token, while `top_p=1` samples from the whole distribution.
-            It can be used in conjunction with `top_k` and `temperature` with the following order
-            of application:
-
-            1. `top_k` sampling
-            2. `temperature` scaling
-            3. `top_p` sampling
-
-            For more details, see https://arxiv.org/abs/1904.09751
-            or https://huyenchip.com/2024/01/16/sampling.html#top_p
-        eos_id: If specified, stop generating any more token once the <eos> token is triggered.
-        include_prompt: If true (default) prepends the prompt (after applying the prompt style) to the output.
-    """
-
-    token_list, acceptance_rate = generate_fn(
-        include_prompt=include_prompt,
-        draft_model=draft_model,
-        target_model=target_model,
-        prompt=prompt,
-        max_returned_tokens=max_returned_tokens,
-        temperature=temperature,
-        top_k=top_k,
-        top_p=top_p,
-        stop_tokens=([eos_id] if eos_id is not None else []),
-        speculative_k=speculative_k,
-    )
-
-    return token_list, acceptance_rate
 
 
 @torch.inference_mode()
@@ -487,7 +429,7 @@ def main(
             temperature=temperature,
             top_k=top_k,
             top_p=top_p,
-            eos_id=tokenizer.eos_id,
+            stop_tokens=([tokenizer.eos_id] if tokenizer.eos_id is not None else []),
             speculative_k=speculative_k,
         )
         t = time.perf_counter() - t0
