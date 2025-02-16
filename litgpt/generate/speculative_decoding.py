@@ -66,7 +66,7 @@ def speculative_decoding(
     speculative_k: int,
     **sample_kwargs: Dict[str, Any],
 ) -> torch.Tensor:
-    """Performs speculative decoding using a draft and target model.
+    """Performs speculative decoding using a draft and a target model.
 
     This implements the speculative decoding algorithm from "Fast Inference from Transformers via Speculative Decoding"
     (https://arxiv.org/pdf/2211.17192).
@@ -75,7 +75,7 @@ def speculative_decoding(
     1. Use a faster draft model to predict multiple tokens ahead
     2. Verify those predictions with the slower but more accurate target model
     3. Accept tokens where the target model agrees with high probability
-    4. Reject and resample tokens where there is disagreement
+    4. Reject and resample tokens where there is a disagreement
 
     This allows leveraging a smaller/faster model to speed up generation while maintaining
     the quality of the larger target model.
@@ -178,7 +178,7 @@ def generate(
     include_prompt: bool = True,
     speculative_k: int,
 ) -> Iterator[torch.Tensor]:
-    """Generates tokens using speculative decoding with a draft and target model.
+    """Generates tokens using speculative decoding with a draft and a target model.
 
     This function implements token generation using speculative decoding, where a faster draft model
     makes initial token predictions that are verified by a slower but more accurate target model.
@@ -330,7 +330,7 @@ def main(
 ) -> None:
     """Default generation option.
 
-    Generates text samples based on a pre-trained model and tokenizer.
+    Generates text samples based on pre-trained models and a tokenizer.
 
     Args:
         draft_model: Smaller/faster model used for initial token predictions
