@@ -333,10 +333,12 @@ def main(
     Generates text samples based on a pre-trained model and tokenizer.
 
     Args:
-        checkpoint_dir: The checkpoint directory to load.
+        draft_model: Smaller/faster model used for initial token predictions
+        target_model: Larger/more accurate model used to verify draft predictions
         prompt: The prompt string to use for generating the samples.
         num_samples: The number of text samples to generate.
         max_new_tokens: The number of generation steps to take.
+        speculative_k: Number of tokens to speculatively generate at each step
         top_k: The number of top most probable tokens to consider in the sampling process.
         top_p: If specified, it represents the cumulative probability threshold to consider in the sampling process.
             In top-p sampling, the next token is sampled from the highest probability tokens
@@ -449,16 +451,3 @@ def main(
 
     if fabric.device.type == "cuda":
         fabric.print(f"Memory used: {torch.cuda.max_memory_allocated() / 1e9:.02f} GB", file=sys.stderr)
-
-
-if __name__ == "__main__":
-    draft_model_checkpoint_dir = Path("checkpoints/EleutherAI/pythia-14m")
-    target_model_checkpoint_dir = Path("checkpoints/EleutherAI/pythia-14m")
-
-    # draft_model_checkpoint_dir = Path("checkpoints/EleutherAI/pythia-160m")
-    # target_model_checkpoint_dir = Path("checkpoints/EleutherAI/pythia-160m")
-
-    # draft_model_checkpoint_dir = Path("checkpoints/EleutherAI/pythia-410m")
-    target_model_checkpoint_dir = Path("checkpoints/EleutherAI/pythia-410m")
-
-    main(draft_model_checkpoint_dir, target_model_checkpoint_dir, max_new_tokens=50)
