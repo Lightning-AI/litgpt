@@ -677,30 +677,16 @@ class CausalSelfAttention(nn.Module):
             # in this case.
             key = k_and_v.keys()
             value = k_and_v.values()
-            for retry in range(2):
-                try:
-                    y = F.scaled_dot_product_attention(
-                        query=q,
-                        key=key,
-                        value=value,
-                        attn_mask=mask,
-                        dropout_p=0.0,
-                        scale=scale,
-                        is_causal=is_causal,
-                    )
-                    break
-                except RuntimeError as ex:
-                    if retry == 1 or self.config.n_query_groups == self.config.n_head:
-                        raise ex  # Re-throw
-                    # https://pytorch.org/docs/stable/generated/torch.nn.functional.scaled_dot_product_attention.html#torch-nn-functional-scaled-dot-product-attention
-                    # `scaled_dot_product_attention` is supposed to support
-                    # `query.shape = (bs, nh_q, ...), key.shape = (bs, nh_k, ...)`
-                    # and `nh_k < nh_q` if `nh_q` is a multiple of `nh_k`. But
-                    # this seems not yet supported (in 2.5.1), so have to lift
-                    # K, V here. This is annoying, as it wastes memory.
-                    q_per_kv = self.config.n_head // self.config.n_query_groups
-                    key = key.repeat_interleave(q_per_kv, dim=1)
-                    value = value.repeat_interleave(q_per_kv, dim=1)
+            y = F.scaled_dot_product_attention(
+                query=q,
+                key=key,
+                value=value,
+                attn_mask=mask,
+                dropout_p=0.0,
+                scale=scale,
+                is_causal=is_causal,
+                enable_gqa=self.config.n_query_groups < self.config.n_head,
+            )
             scores = None
         return y.transpose(1, 2), scores
 
