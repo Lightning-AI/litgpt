@@ -244,9 +244,9 @@ def generate(
     # Step 2: Main generation loop.
     tokens = []
     total_generated, total_accepted = 0, 0  # Track acceptance statistics
-    while input_pos < (max_returned_tokens - prompt_size):
+    while input_pos < max_returned_tokens - 1:
         # Calculate speculative tokens to generate
-        _speculative_k = min(speculative_k, (max_returned_tokens - prompt_size - input_pos).item())
+        _speculative_k = min(speculative_k, (max_returned_tokens - input_pos - 1).item())
 
         # Get new tokens via speculative decoding
         new_tokens = speculative_decoding(
