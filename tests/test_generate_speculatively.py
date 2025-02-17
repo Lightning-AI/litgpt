@@ -1,22 +1,18 @@
 # Copyright Lightning AI. Licensed under the Apache License 2.0, see LICENSE file.
 
-import os
 import re
 import subprocess
-import sys
 from contextlib import redirect_stderr, redirect_stdout
 from io import StringIO
-from unittest import mock
 from unittest.mock import ANY, Mock, call
 
-import lightning as L
 import pytest
 import torch
 import yaml
 
 import litgpt.generate.speculative_decoding as generate
 from litgpt import GPT, Config
-from litgpt.generate.speculative_decoding import sample
+from tests.conftest import RunIf
 
 
 @pytest.mark.parametrize("max_seq_length", (10, 15, 20, 25))
@@ -40,3 +36,80 @@ def test_generate(max_seq_length, speculative_k):
     # validate
     assert out.size(0) == T + max_new_tokens - 1, (out.size(0), T + max_new_tokens - 1)
     assert 0.0 <= acceptance_rate <= 1.0
+
+
+@RunIf(min_cuda_gpus=1) # speculative decoding makes sense only on a GPU
+def test_main(fake_checkpoint_dir, monkeypatch, tensor_like):
+    # prepare configs for draft and target models
+    draft_model_dir = fake_checkpoint_dir / "draft_model"
+    draft_model_dir.mkdir()
+    target_model_dir = fake_checkpoint_dir / "target_model"
+    target_model_dir.mkdir()
+
+    draft_model_config = dict(vocab_size=16, block_size=64, n_layer=1, n_head=4, n_embd=8)
+    target_model_config = dict(vocab_size=16, block_size=128, n_layer=2, n_head=8, n_embd=16)
+
+    (draft_model_dir / "model_config.yaml").write_text(yaml.dump(draft_model_config))
+    (target_model_dir / "model_config.yaml").write_text(yaml.dump(target_model_config))
+
+    # create empty files required for validation
+    for model_dir in (draft_model_dir, target_model_dir):
+        (model_dir / "tokenizer.json").touch()
+        (model_dir / "tokenizer_config.json").touch()
+        (model_dir / "lit_model.pth").touch()
+
+    # moke functions
+    module_mock = Mock()
+    module_mock.config.block_size = 128
+    load_mock = Mock()
+    load_mock.return_value = load_mock
+    monkeypatch.setattr(generate, "load_checkpoint", load_mock)
+    tokenizer_mock = Mock()
+    tokenizer_mock.return_value.encode.return_value = torch.tensor([1, 2, 3])
+    tokenizer_mock.return_value.decode.return_value = "foo bar baz"
+    monkeypatch.setattr(generate, "Tokenizer", tokenizer_mock)
+    generate_mock = Mock()
+    generated_tokens = torch.tensor([3, 2, 1])
+    acceptance_rate = 0.0
+    generate_mock.return_value = (generated_tokens, acceptance_rate)
+    monkeypatch.setattr(generate, "generate", generate_mock)
+
+    # do the sampling
+    num_samples = 2
+    out, err = StringIO(), StringIO()
+    with redirect_stdout(out), redirect_stderr(err):
+        generate.main(
+            draft_model_checkpoint_dir=draft_model_dir,
+            target_model_checkpoint_dir=target_model_dir,
+            temperature=2.0,
+            top_k=2,
+            top_p=0.9,
+            num_samples=num_samples,
+        )
+
+    assert len(tokenizer_mock.return_value.decode.mock_calls) == num_samples
+    assert torch.allclose(tokenizer_mock.return_value.decode.call_args[0][0], generate_mock.return_value[0])
+    assert (
+        generate_mock.mock_calls
+        == [call(ANY, ANY, tensor_like, 53, temperature=2.0, top_k=2, top_p=0.9, stop_tokens=[tokenizer_mock.return_value.eos_id], speculative_k=3)]
+        * num_samples
+    )
+    expected_output = "foo bar baz\nAcceptance rate: 0.00%\n" * num_samples
+    # Allow for the config to be printed before the expected repeated strings.
+    pattern = rf".*^{re.escape(expected_output.strip())}$.*"
+    assert re.match(pattern, out.getvalue().strip(), re.DOTALL | re.MULTILINE)
+
+    err_value = err.getvalue()
+    expected_parts = [
+        "'padded_vocab_size': 512",
+        "'n_layer': 2",
+        "'n_head': 4",
+    ]
+    assert all(part in err_value for part in expected_parts)
+
+
+def test_cli():
+    args = ["litgpt", "generate_speculatively", "-h"]
+    output = subprocess.check_output(args)
+    output = str(output.decode())
+    assert "Default generation option" in output
