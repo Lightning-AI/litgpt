@@ -61,9 +61,6 @@ jobs:
         pip install '.[all,test]'
         pip list
 
-    - name: Clear Hugging Face Cache
-      run: rm -rf ~/.cache/huggingface
-
     - name: Run tests
       run: |
         pytest -v --disable-pytest-warnings --strict-markers --color=yes --timeout 120
