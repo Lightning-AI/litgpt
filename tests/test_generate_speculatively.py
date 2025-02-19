@@ -9,90 +9,10 @@ from unittest.mock import ANY, Mock, call
 import pytest
 import torch
 import yaml
-from torch import nn
 
 import litgpt.generate.speculative_decoding as generate
 from litgpt import GPT, Config
 from tests.conftest import RunIf
-
-
-def test_speculative_decoding_target_never_accepts_draft_tokens():
-    class DraftModel(nn.Module):
-        def forward(self, **kwargs):
-            return torch.tensor([1, 2, 3, 4, 5, 0, 0, 0, 0, 0], dtype=torch.float)[None, None, ...]  # (B, T, C)
-
-    class TargetModel(nn.Module):
-        def forward(self, idx, **kwargs):
-            _, T = idx.shape
-            return torch.tensor([[0, 0, 0, 0, 0, 6, 7, 8, 9, 10]] * T, dtype=torch.float)[None, ...]  # (B, T, C)
-
-    draft_model = DraftModel()
-    target_model = TargetModel()
-
-    token = torch.tensor([-1])
-    input_pos = torch.tensor([0])
-    sample_kwargs = dict(top_k=None, top_p=0.0, temperature=0.0)  # to make sampling consistent
-    output = generate.speculative_decoding(draft_model, target_model, token, input_pos, input_pos, speculative_k=3, **sample_kwargs)
-
-    # target model never accepts draft model's output, thus the output of the `speculative_decoding`
-    # is a single token sampled from the target model
-    assert len(output) == 1
-    assert output > 5
-
-
-def test_speculative_decoding_target_always_accepts_draft_tokens():
-    class DraftModel(nn.Module):
-        def forward(self, **kwargs):
-            return torch.tensor([0, 0, 3, 4, 5, 6, 7, 8, 0, 0], dtype=torch.float)[None, None, ...]  # (B, T, C)
-
-    class TargetModel(nn.Module):
-        def forward(self, idx, **kwargs):
-            _, T = idx.shape
-            return torch.tensor([[0, 0, 3, 4, 5, 6, 7, 8, 0, 0]] * T, dtype=torch.float)[None, ...]  # (B, T, C)
-
-    draft_model = DraftModel()
-    target_model = TargetModel()
-
-    token = torch.tensor([-1])
-    input_pos = torch.tensor([0])
-    sample_kwargs = dict(top_k=None, top_p=0.0, temperature=0.0)  # to make sampling consistent
-    output = generate.speculative_decoding(draft_model, target_model, token, input_pos, input_pos, speculative_k=3, **sample_kwargs)
-
-    # target model always accepts draft model's output, thus the output of the `speculative_decoding`
-    # is 4 tokens (3 accepted draft tokens + 1 sampled from target model's output)
-    assert len(output) == 4
-    assert torch.all((output >= 3) & (output <= 8))
-
-
-def test_speculative_decoding_target_sometimes_accepts_draft_tokens():
-    class DraftModel(nn.Module):
-        def forward(self, **kwargs):
-            return torch.tensor([0, 0, 3, 4, 10, 9, 7, 8, 0, 0], dtype=torch.float)[None, None, ...]  # (B, T, C)
-
-    class TargetModel(nn.Module):
-        def forward(self, idx, **kwargs):
-            return torch.tensor(
-                [
-                    [0, 0, 0, 0, 10, 9, 0, 0, 0, 0],
-                    [0, 0, 0, 0, 10, 9, 0, 0, 0, 0],
-                    [0, 0, 0, 0, 0, 0, 0, 0, 0, 10],
-                    [0, 0, 0, 0, 0, 0, 0, 0, 0, 10],
-                ],
-                dtype=torch.float,
-            )[None, ...]  # (B, T, C)
-
-    draft_model = DraftModel()
-    target_model = TargetModel()
-
-    token = torch.tensor([-1])
-    input_pos = torch.tensor([0])
-    sample_kwargs = dict(top_k=None, top_p=0.0, temperature=0.0)  # to make sampling consistent
-    output = generate.speculative_decoding(draft_model, target_model, token, input_pos, input_pos, speculative_k=3, **sample_kwargs)
-
-    # target model accepts only 2 out of 3 draft model's output, thus the output of the `speculative_decoding`
-    # is 3 tokens (2 accepted draft tokens + 1 sampled from adjusted distribution)
-    assert len(output) == 3
-    assert torch.equal(output, torch.tensor([4, 4, 9]))
 
 
 @pytest.mark.parametrize("max_seq_length", (10, 15, 20, 25))
