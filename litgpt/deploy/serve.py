@@ -170,7 +170,7 @@ class OpenAISpecLitAPI(BaseLitAPI):
             self.chat_template = chat_template
 
 
-    def decode_request(self, request: ChatCompletionRequest) -> Any:
+    def decode_request(self, request: 'ChatCompletionRequest') -> Any:
         prompt = self.apply_chat_template(request.messages)
         return prompt
 
@@ -185,7 +185,7 @@ class OpenAISpecLitAPI(BaseLitAPI):
             stream=True
         )
     
-    def apply_chat_template(self, messages:List[ChatMessage])-> str:
+    def apply_chat_template(self, messages:List['ChatMessage'])-> str:
         if not _JINJA2_AVAILABLE:
             raise ImportError(
                 "apply_chat_template requires jinja2 to be installed. Please install it using `pip install jinja2`."
