@@ -5,7 +5,6 @@ from pprint import pprint
 from typing import Dict, Any, Optional, Literal, List
 
 from lightning_utilities.core.imports import RequirementCache
-from litserve.specs.openai import ChatMessage
 import torch
 
 from litgpt.api import LLM
