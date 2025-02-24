@@ -17,10 +17,11 @@ from extensions.thunder.strategies.thunder_fsdp import ThunderFSDPStrategy
 
 
 @RunIf(thunder=True)
-def test_thunder_strategy_input_parsing():
+def test_thunder_fsdp_strategy_input_parsing():
+    strategy = ThunderFSDPStrategy(bucketing_strategy="BlOcK", executors=("python",), sharding_strategy="zero3")
+
     from thunder.distributed import FSDPBucketingStrategy, FSDPType
 
-    strategy = ThunderFSDPStrategy(bucketing_strategy="BlOcK", executors=("python",), sharding_strategy="zero3")
     assert strategy.bucketing_strategy is FSDPBucketingStrategy.BLOCK
     assert strategy.sharding_strategy is FSDPType.ZERO3
 

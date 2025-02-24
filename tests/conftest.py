@@ -8,7 +8,7 @@ from typing import List, Optional
 import pytest
 import torch
 from lightning.fabric.utilities.testing import _runif_reasons
-from lightning_utilities.core.imports import module_available
+from lightning_utilities.core.imports import package_available
 
 
 @pytest.fixture()
@@ -111,11 +111,9 @@ def longform_path(tmp_path):
 def RunIf(thunder: bool = False, **kwargs):
     reasons, marker_kwargs = _runif_reasons(**kwargs)
 
-    if thunder:
-        thunder_available = module_available("thunder")
-        if thunder and not thunder_available:
-            # if we require Thunder, but it's not available, we should skip
-            reasons.append("Thunder")
+    if thunder and not package_available("thunder"):
+        # if we require Thunder, but it's not available, we should skip
+        reasons.append("Thunder")
 
     return pytest.mark.skipif(condition=len(reasons) > 0, reason=f"Requires: [{' + '.join(reasons)}]", **marker_kwargs)
 
