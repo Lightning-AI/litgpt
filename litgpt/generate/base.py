@@ -420,10 +420,10 @@ def generate(
 @torch.inference_mode()
 def main(
     checkpoint_dir: Path,
-    prompt: str = "What food do llamas eat?",
+    prompt: str = "Once upon a time,",
     *,
-    num_samples: int = 1,
-    max_new_tokens: int = 50,
+    num_samples: int = 100,
+    max_new_tokens: int = 500,
     top_k: Optional[int] = 50,
     top_p: float = 1.0,
     temperature: float = 0.8,
@@ -526,16 +526,24 @@ def main(
     fabric.print(f"Time to load the model weights: {time.perf_counter() - t0:.02f} seconds.", file=sys.stderr)
 
     L.seed_everything(1234)
+    ts = []
+    ms = []
     for i in range(num_samples):
         t0 = time.perf_counter()
         y = generate(model, encoded, max_returned_tokens, temperature=temperature, top_k=top_k, top_p=top_p, eos_id=tokenizer.eos_id)
         t = time.perf_counter() - t0
         for block in model.transformer.h:
             block.attn.kv_cache.reset_parameters()
-        fabric.print(tokenizer.decode(y))
+        tokenizer.decode(y)
+        # fabric.print(tokenizer.decode(y))
         tokens_generated = y.size(0) - prompt_length
         fabric.print(
             f"Time for inference {i + 1}: {t:.02f} sec total, {tokens_generated / t:.02f} tokens/sec", file=sys.stderr
         )
+        ts.append(tokens_generated / t)
+        ms.append(torch.cuda.memory_allocated() / 1e9)
     if fabric.device.type == "cuda":
         fabric.print(f"Memory used: {torch.cuda.max_memory_allocated() / 1e9:.02f} GB", file=sys.stderr)
+        fabric.print(f"Average memory used: {sum(ms) / len(ms):.02f} GB", file=sys.stderr)
+        fabric.print(torch.cuda.memory_summary(), file=sys.stderr)
+    fabric.print(f"Average tokens/sec: {sum(ts) / len(ts):.02f}", file=sys.stderr)

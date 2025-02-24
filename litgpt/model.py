@@ -264,7 +264,7 @@ class Block(nn.Module):
             )
 
         self.norm_1 = config.norm_class(config.n_embd, eps=config.norm_eps)
-        self.attn = CausalSelfAttention(config, block_idx)
+        self.attn = CausalSelfAttention(config, block_idx) if not config.latent_attention else MLA(config, block_idx)
         self.post_attention_norm = (
             config.norm_class(config.n_embd, eps=config.norm_eps) if config.post_attention_norm else nn.Identity()
         )
@@ -499,6 +499,229 @@ class CausalSelfAttention(nn.Module):
                 rope_cache_length + self.config.head_size - self.config.rope_n_elem,
             )
         return KVCache(k_shape, v_shape, device=device, dtype=dtype)
+
+    def _load_from_state_dict(self, state_dict: dict, prefix: str, *args: Any, **kwargs: Any) -> None:
+        """For compatibility with legacy checkpoints."""
+
+        for attr in ("weight", "bias"):
+            legacy_key = f"{prefix}attn.{attr}"
+            current_key = f"{prefix}qkv.{attr}"
+            if legacy_key in state_dict:
+                state_dict[current_key] = qkv_reassemble(state_dict.pop(legacy_key), self.config)
+
+        super()._load_from_state_dict(state_dict, prefix, *args, **kwargs)
+
+
+class MLA(nn.Module):
+    """
+    Multi-Head Latent Attention (MLA) block from DeepSeekV2 https://arxiv.org/abs/2405.04434
+    """
+    def __init__(self, config: Config, block_idx: int) -> None:
+        super().__init__()
+        
+        # key-value (2/3) and query (1/2) projection dimensions
+        self.q_proj_dim = config.n_embd // 2
+        self.kv_proj_dim = 2 * config.n_embd // 3
+
+        # qk channel division for RoPE (50%-50%)
+        self.qk_nope_dim = config.head_size // 2
+        self.qk_rope_dim = config.head_size // 2
+
+        # q projections
+        self.dq = nn.Linear(config.n_embd, self.q_proj_dim, bias=False)
+        self.uq = nn.Linear(self.q_proj_dim, config.n_embd, bias=False)
+
+        # kv projections
+        self.dkv = nn.Linear(config.n_embd, self.kv_proj_dim + self.qk_rope_dim, bias=False)
+        self.ukv = nn.Linear(self.kv_proj_dim, config.n_embd + (config.n_head * self.qk_nope_dim), bias=False)
+
+        # output projection
+        self.proj = nn.Linear(config.n_embd, config.n_embd, bias=False)
+
+        # cache is disabled by default
+        self.kv_cache: Optional[KVCacheCompressed] = None
+
+        # layer norm for projections
+        if config.norm_qk:
+            self.norm_kv = config.norm_class(self.kv_proj_dim, eps=config.norm_eps)
+            self.norm_q = config.norm_class(self.q_proj_dim, eps=config.norm_eps)
+        else:
+            self.norm_q = self.norm_kv = None
+
+        # configuration
+        self.config = config
+
+    
+    def apply_rope_mla(self, x: torch.Tensor, cos: torch.Tensor, sin: torch.Tensor) -> torch.Tensor:
+        """
+        Applies RoPE transform to `x`. Note that `cos`, `sin` need to have a batch
+        dimension.
+
+        Args:
+            x: Input tensor, `(B, ..., T, head_size)`
+            cos: Cached cosines, `(B, T, head_size)` or `(1, T, head_size)`
+            sin: Cached sines, `(B, T, head_size)` or `(1, T, head_size)`
+
+        Returns:
+            Encoded tensor, `(B, ..., T, head_size)`
+        """
+        if cos.dim() != 3:
+            raise ValueError(f"cos must be three-dimensional, but shape is {cos.shape}")
+        if cos.shape != sin.shape:
+            raise ValueError(f"cos, sin must have same shape, but cos.shape={cos.shape}, sin.shape={sin.shape}")
+        head_size_half = x.size(-1) // 2
+        x1 = x[..., : head_size_half]  # (B, ..., T, head_size/2)
+        x2 = x[..., head_size_half :]  # (B, ..., T, head_size/2)
+        rotated = torch.cat((-x2, x1), dim=-1)  # (B, ..., T, head_size)
+        dims_diff = x.dim() - cos.dim()
+        if dims_diff > 0:
+            # Ensure that shapes of `x`, `cos`, `sin` align
+            new_shape = cos.shape[0:2] + (1,) * dims_diff + cos.shape[2:]
+            cos = cos.view(*new_shape)
+            sin = sin.view(*new_shape)
+
+        roped = (x * cos) + (rotated * sin)
+        return roped.to(dtype=x.dtype)
+
+
+    def forward(
+        self,
+        x: torch.Tensor,
+        cos: torch.Tensor,
+        sin: torch.Tensor,
+        mask: Optional[torch.Tensor] = None,
+        input_pos: Optional[torch.Tensor] = None,
+        input_pos_maxp1: Optional[torch.Tensor] = None,
+    ) -> torch.Tensor:
+        # notation:
+        # - B          | batch size
+        # - T          | time-step (sequence length)
+        # - C          | model's embeddings size (n_embd)
+        # - C*         | attentions's embeddings size
+        # - nh_(q,k,v) | number of heads for query, key and value
+        # - hs         | head size
+
+        B, T, _ = x.size()  # batch size, sequence length, (embedding dimensionality)
+
+        # q projections
+        latent_q = self.dq(x)
+        latent_q = self.norm_q(latent_q) if self.norm_q else latent_q
+        q = self.uq(latent_q)
+        q = q.view(B, T, self.config.n_head, self.config.head_size) # (B, T, nh_q, hs)
+        q, q_for_rope = torch.split(q, [self.qk_nope_dim, self.qk_rope_dim], dim=-1) # split for RoPE
+
+        # q decoupled for RoPE
+        q_for_rope = self.apply_rope_mla(q_for_rope[..., : self.config.rope_n_elem], cos, sin) 
+
+        # kv projections
+        if self.kv_cache: # cache
+            new_kv = self.dkv(x)
+            latent_kv = self.kv_cache(input_pos, new_kv)
+
+            old_kv = latent_kv[..., :input_pos[0], :]   
+            old_kv, old_k_for_rope = torch.split(
+                old_kv,
+                [self.kv_proj_dim, self.qk_rope_dim],
+                dim=-1
+                )
+
+            new_kv, new_k_for_rope = torch.split(
+                new_kv,
+                [self.kv_proj_dim, self.qk_rope_dim],
+                dim=-1
+                )
+
+            if self.norm_kv:
+                new_kv = self.norm_kv(new_kv)
+                old_kv = self.norm_kv(old_kv)
+
+            kv_for_lora = torch.cat([old_kv, new_kv], dim=1)
+            k_for_rope = torch.cat([old_k_for_rope, new_k_for_rope], dim=1)
+
+        else: # no cache
+            latent_kv = self.dkv(x)
+
+            kv_for_lora, k_for_rope = torch.split(
+                latent_kv,
+                [self.kv_proj_dim, self.qk_rope_dim],
+                dim=-1
+                )
+
+            kv_for_lora = self.norm_kv(kv_for_lora) if self.norm_kv else kv_for_lora
+        
+        # kv projection back
+        kv = self.ukv(kv_for_lora)
+
+        # Split qkv into query, key and value matrices.
+        # To place the num_heads (nh) dimension right after the batch (B) dimension, the first step is to decouple the
+        # embedding size (C) into num_heads (nh) and head_size (hs).
+        kv = kv.view(B, -1, self.config.n_head, self.config.head_size + self.qk_nope_dim).transpose(1,2)
+        k, v = torch.split(kv, [self.qk_nope_dim, self.config.head_size], dim=-1)
+
+        # k Rope
+        k_for_rope = k_for_rope.view(B, -1, 1, self.qk_rope_dim)
+        k_for_rope = self.apply_rope_mla(k_for_rope[..., : self.config.rope_n_elem], cos, sin).transpose(1, 2) 
+
+        # apply position encoding to each head
+        k_for_rope = k_for_rope.repeat(1, self.config.n_head, 1, 1)
+
+        # split into multiple heads
+        q = torch.cat([q, q_for_rope], dim=-1).transpose(1, 2)  # (B, nh_q, T, hs)
+        k = torch.cat([k, k_for_rope], dim=-1)
+        v = v # already reshaped before the split
+
+        # The tensors `query`, `key`, and `value` are now accurately structured: within each batch element (B), there are
+        # multiple heads (nh), and within each head, there is a sequence of elements (T), each represented by a vector
+        # of size `hs`.
+        
+        # Efficient attention using Flash Attention CUDA kernels.
+        # NOTE: efficient implementation is disabled if `mask` is not None or softcapping is enabled.
+        # ↓ (B, nh, T, hs) @ (B, nh, T, hs).mT --> (B, nh, T, T) @ (B, nh, T, hs) --> (B, nh, T, hs)
+        y = self.scaled_dot_product_attention(q, k, v, mask)
+
+        # Re-assemble all head outputs side by side.
+        y = y.reshape(B, T, self.config.head_size * self.config.n_head)
+
+        # Output projection
+        return self.proj(y)  # (B, T, C)
+
+
+    def scaled_dot_product_attention(
+        self, q: torch.Tensor, k: torch.Tensor, v: torch.Tensor, mask: Optional[torch.Tensor] = None
+    ) -> torch.Tensor:
+        scale = 1.0 / math.sqrt(self.config.attention_scores_scalar or self.config.head_size)
+
+        # with softcapping we cannot use SDPA
+        if self.config.attention_logit_softcapping is not None:
+            scores = q @ k.mT * scale
+            scores = do_softcapping(scores, self.config.attention_logit_softcapping)
+            if mask is None:
+                mask = torch.ones(q.size(2), q.size(2), dtype=q.dtype, device=q.device).triu(diagonal=1)
+                mask.masked_fill_(mask.bool(), torch.finfo(q.dtype).min)
+            scores = scores + mask
+            scores = F.softmax(scores, dim=-1, dtype=torch.float).to(dtype=q.dtype)
+            y = scores @ v
+        else:
+            y = F.scaled_dot_product_attention(
+                q, k, v, attn_mask=mask, dropout_p=0.0, scale=scale, is_causal=mask is None
+            )
+        return y.transpose(1, 2)
+
+    def build_kv_cache(
+        self,
+        batch_size: int,
+        max_seq_length: int,
+        rope_cache_length: Optional[int] = None,
+        device: Optional[torch.device] = None,
+        dtype: Optional[torch.dtype] = None,
+    ) -> "KVCacheCompressed":
+        
+        kv_shape = (
+                batch_size,
+                max_seq_length,
+                self.kv_proj_dim + self.qk_rope_dim
+            )
+        return KVCacheCompressed(kv_shape=kv_shape, device=device, dtype=dtype)
 
     def _load_from_state_dict(self, state_dict: dict, prefix: str, *args: Any, **kwargs: Any) -> None:
         """For compatibility with legacy checkpoints."""
@@ -793,6 +1016,49 @@ class KVCache(nn.Module):
     def reset_parameters(self) -> None:
         torch.nn.init.zeros_(self.k)
         torch.nn.init.zeros_(self.v)
+
+
+class KVCacheCompressed(nn.Module):
+    """
+    Buffers `kv` have shape
+    `(batch_size, max_seq_length, kv_proj_dim + qk_rope_dim)`. 
+    """
+    def __init__(
+        self,
+        kv_shape: Tuple[int, int, int, int],
+        device: Optional[torch.device] = None,
+        dtype: Optional[torch.dtype] = None,
+    ) -> None:
+        super().__init__()
+        self.register_buffer("kv", torch.zeros(kv_shape, device=device, dtype=dtype), persistent=False)
+
+    def forward(self, input_pos: torch.Tensor, kv: torch.Tensor) -> torch.Tensor:
+        """
+        Writes new values `kv` into the cache at the positions specified
+        by `input_pos` along the sequence dimension (`max_seq_length`). The batch
+        size of `kv` (`bs`) must be smaller or equal to `KVCacheCompressed` batch
+        size. Returns the full buffers, adjusted to the batch size `bs`.
+
+        Args:
+            input_pos: Position index, `(bs, T)` or `(T,)`
+            kv: New values, `(bs, T, kv_proj_dim + qk_rope_dim)`
+
+        Returns:
+            kv_full `(bs, max_seq_length, kv_proj_dim + qk_rope_dim)`
+
+        """
+        # move the buffer to the activation dtype for when AMP is used
+        self.kv = self.kv.to(kv.dtype)
+        # update the cache
+        bs = kv.size(0)
+        kv = batched_index_copy_(self.kv[:bs, ...], -2, input_pos, kv)
+        return kv
+
+    def reset_parameters(self) -> None:
+        torch.nn.init.zeros_(self.kv)
+
+    def get_cache(self) -> torch.Tensor:
+        return self.kv
 
 
 def build_mask_cache(max_seq_length: int, device: Optional[torch.device] = None) -> torch.Tensor:
