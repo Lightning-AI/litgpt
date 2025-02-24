@@ -108,17 +108,14 @@ def longform_path(tmp_path):
     return path
 
 
-def RunIf(thunder: Optional[bool] = None, **kwargs):
+def RunIf(thunder: bool = False, **kwargs):
     reasons, marker_kwargs = _runif_reasons(**kwargs)
 
-    if thunder is not None:
+    if thunder:
         thunder_available = module_available("thunder")
         if thunder and not thunder_available:
             # if we require Thunder, but it's not available, we should skip
             reasons.append("Thunder")
-        elif not thunder and thunder_available:
-            # if we don't require Thunder, but it's available, we should skip
-            reasons.append("not Thunder")
 
     return pytest.mark.skipif(condition=len(reasons) > 0, reason=f"Requires: [{' + '.join(reasons)}]", **marker_kwargs)
 
