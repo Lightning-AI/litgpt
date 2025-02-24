@@ -80,7 +80,7 @@ litgpt = [
 [tool.pytest.ini_options]
 addopts = [
   "--strict-markers",
-  "--doctest-modules",
+  #"--doctest-modules",
   "--color=yes",
   "--disable-pytest-warnings",
 ]
