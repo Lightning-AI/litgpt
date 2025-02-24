@@ -4,7 +4,6 @@ import itertools
 import math
 import subprocess
 import sys
-from collections import defaultdict
 from dataclasses import asdict
 from pathlib import Path
 from re import escape
@@ -19,6 +18,7 @@ from litgpt.generate.sequentially import layer_to_device, replace_device, sequen
 from litgpt.model import GPT, Block
 from litgpt.scripts.download import download_from_hub
 from tests.conftest import RunIf
+from tests.generate.utils import find_forward_hooks
 
 
 @pytest.mark.parametrize(
@@ -159,18 +159,6 @@ def test_model_1device_cuda():
 
 def test_model_1device_cpu():
     _test_model_1device("cpu")
-
-
-def find_forward_hooks(module):
-    mapping = defaultdict(list)
-    for name, submodule in module.named_modules():
-        for hook in submodule._forward_pre_hooks.values():
-            hook_data = ("forward_pre_hook", hook.func.__name__, hook.args, hook.keywords)
-            mapping[name].append(hook_data)
-        for hook in submodule._forward_hooks.values():
-            hook_data = ("forward_hook", hook.func.__name__, hook.args, hook.keywords)
-            mapping[name].append(hook_data)
-    return dict(mapping)
 
 
 @RunIf(min_cuda_gpus=2)
