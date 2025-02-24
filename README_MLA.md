@@ -24,6 +24,9 @@ Follow the updated installation instructions in the `README.md` file.
     litgpt generate out/pretrain/mla/final/
     ```
 
+## Results
+Results are available at [this link](https://docs.google.com/spreadsheets/d/1-VnTDoK5JuNPGMjory_z1hQkI7y-RgiTpTsUpa3bVEg/edit?usp=sharing).
+
 ## Notes
 - Pythia was used as model for the experiments because it comes with many versions at different scales.
 - `pythia-160m` (160M parameters) was the largest model that could be trained on a single GPU with 16GB memory. 
