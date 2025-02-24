@@ -78,7 +78,7 @@ jobs:
         pip list
 
     - name: Run tests
-      run: pytest -v --timeout 120
+      run: pytest -v litgpt/ tests/ --timeout 120
 
   testing-guardian:
     runs-on: ubuntu-latest
