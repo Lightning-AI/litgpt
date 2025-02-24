@@ -5,6 +5,8 @@ from typing import Optional, Tuple, Union
 
 import pytest
 import torch
+from lightning_utilities.core.imports import package_available
+
 from tests.conftest import RunIf
 from lightning.fabric import Fabric
 from lightning.fabric.utilities.imports import _TORCH_GREATER_EQUAL_2_3
@@ -16,8 +18,8 @@ sys.path.append(str(wd))
 from extensions.thunder.strategies.thunder_fsdp import ThunderFSDPStrategy
 
 
-@RunIf(thunder=True)
-def test_thunder_fsdp_strategy_input_parsing():
+@pytest.mark.skipif(not package_available("thunder"), reason="Requires Thunder")
+def test_thunder_strategy_input_parsing():
     strategy = ThunderFSDPStrategy(bucketing_strategy="BlOcK", executors=("python",), sharding_strategy="zero3")
 
     from thunder.distributed import FSDPBucketingStrategy, FSDPType
