@@ -76,3 +76,11 @@ litgpt = [
     "LICENSE",
     "README.md",
 ]
+
+[tool.pytest.ini_options]
+addopts = [
+  "--strict-markers",
+  "--doctest-modules",
+  "--color=yes",
+  "--disable-pytest-warnings",
+]
