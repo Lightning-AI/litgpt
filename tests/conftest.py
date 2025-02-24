@@ -8,7 +8,7 @@ from typing import List, Optional
 import pytest
 import torch
 from lightning.fabric.utilities.testing import _runif_reasons
-from lightning_utilities.core.imports import RequirementCache
+from lightning_utilities.core.imports import module_available
 
 
 @pytest.fixture()
@@ -112,10 +112,12 @@ def RunIf(thunder: Optional[bool] = None, **kwargs):
     reasons, marker_kwargs = _runif_reasons(**kwargs)
 
     if thunder is not None:
-        thunder_available = bool(RequirementCache("lightning-thunder", "thunder"))
+        thunder_available = module_available("thunder")
         if thunder and not thunder_available:
+            # if we require Thunder, but it's not available, we should skip
             reasons.append("Thunder")
         elif not thunder and thunder_available:
+            # if we don't require Thunder, but it's available, we should skip
             reasons.append("not Thunder")
 
     return pytest.mark.skipif(condition=len(reasons) > 0, reason=f"Requires: [{' + '.join(reasons)}]", **marker_kwargs)
