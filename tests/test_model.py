@@ -61,7 +61,7 @@ from litgpt.utils import _RunIf
                 # the reference does softmax upscaled to fp32 during attention. additionally, the final layernorm input
                 # is slightly different
                 pytest.mark.xfail(raises=AssertionError, strict=False),
-                RunIf(min_cuda_gpus=1),
+                _RunIf(min_cuda_gpus=1),
             ],
         ),
     ],
@@ -130,7 +130,7 @@ def test_against_gpt_neox_model(rotary_pct, batch_size, n_embd, parallel_residua
                 # the reference does softmax upscaled to fp32 during attention. additionally, the final layernorm input
                 # is slightly different
                 pytest.mark.xfail(raises=AssertionError, strict=False),
-                RunIf(min_cuda_gpus=1),
+                _RunIf(min_cuda_gpus=1),
             ],
         ),
     ],
@@ -176,7 +176,7 @@ def test_against_hf_falcon(kwargs, device, dtype):
                 # the reference does softmax upscaled to fp32 during attention. additionally, the final layernorm input
                 # is slightly different
                 pytest.mark.xfail(raises=AssertionError, strict=False),
-                RunIf(min_cuda_gpus=1),
+                _RunIf(min_cuda_gpus=1),
             ],
         ),
     ],
@@ -240,7 +240,7 @@ def test_against_original_open_llama_3b(device, dtype):
                 # the reference does softmax upscaled to fp32 during attention. additionally, the final layernorm input
                 # is slightly different
                 pytest.mark.xfail(raises=AssertionError, strict=False),
-                RunIf(min_cuda_gpus=1),
+                _RunIf(min_cuda_gpus=1),
             ],
         ),
     ],
@@ -290,7 +290,7 @@ def test_against_hf_llama_2_and_3(ours_kwargs, device, dtype):
         pytest.param(
             torch.device("cuda"),
             torch.float16,
-            marks=[pytest.mark.xfail(raises=AssertionError, strict=False), RunIf(min_cuda_gpus=1)],
+            marks=[pytest.mark.xfail(raises=AssertionError, strict=False), _RunIf(min_cuda_gpus=1)],
         ),
     ],
 )
@@ -339,7 +339,7 @@ def test_against_hf_phi(model_name, device, dtype):
         pytest.param(
             torch.device("cuda"),
             torch.float16,
-            marks=[pytest.mark.xfail(raises=AssertionError, strict=False), RunIf(min_cuda_gpus=1)],
+            marks=[pytest.mark.xfail(raises=AssertionError, strict=False), _RunIf(min_cuda_gpus=1)],
         ),
     ],
 )
@@ -402,7 +402,7 @@ def test_against_hf_phi_3(model_name, device, dtype):
                 # the reference does softmax upscaled to fp32 during attention. additionally, the final layernorm input
                 # is slightly different
                 pytest.mark.xfail(raises=AssertionError, strict=False),
-                RunIf(min_cuda_gpus=1),
+                _RunIf(min_cuda_gpus=1),
             ],
         ),
     ],
@@ -468,7 +468,7 @@ def test_against_mistral_hf_models(device, dtype, model_name):
                 # the reference does softmax upscaled to fp32 during attention. additionally, the final layernorm input
                 # is slightly different
                 pytest.mark.xfail(raises=AssertionError, strict=False),
-                RunIf(min_cuda_gpus=1),
+                _RunIf(min_cuda_gpus=1),
             ],
         ),
     ],
@@ -574,7 +574,7 @@ def test_against_hf_mixtral(model_name):
                 # the reference does softmax upscaled to fp32 during attention. additionally, the final layernorm input
                 # is slightly different
                 pytest.mark.xfail(raises=AssertionError, strict=False),
-                RunIf(min_cuda_gpus=1),
+                _RunIf(min_cuda_gpus=1),
             ],
         ),
     ],
@@ -632,7 +632,7 @@ def test_against_olmo(model_name, device, dtype):
                 # the reference does softmax upscaled to fp32 during attention. additionally, the final layernorm input
                 # is slightly different
                 pytest.mark.xfail(raises=AssertionError, strict=False),
-                RunIf(min_cuda_gpus=1),
+                _RunIf(min_cuda_gpus=1),
             ],
         ),
     ],
@@ -683,7 +683,7 @@ def test_against_original_stablelm_zephyr_3b(device, dtype):
                 # the reference does softmax upscaled to fp32 during attention. additionally, the final layernorm input
                 # is slightly different
                 pytest.mark.xfail(raises=AssertionError, strict=False),
-                RunIf(min_cuda_gpus=1),
+                _RunIf(min_cuda_gpus=1),
             ],
         ),
     ],
@@ -740,7 +740,7 @@ def test_against_original_gemma(model_name, device, dtype):
                 # the reference does softmax upscaled to fp32 during attention. additionally, the final layernorm input
                 # is slightly different
                 pytest.mark.xfail(raises=AssertionError, strict=False),
-                RunIf(min_cuda_gpus=1),
+                _RunIf(min_cuda_gpus=1),
             ],
         ),
     ],
@@ -810,7 +810,7 @@ def test_against_original_gemma_2(model_name, device, dtype):
                 # the reference does softmax upscaled to fp32 during attention. additionally, the final layernorm input
                 # is slightly different
                 pytest.mark.xfail(raises=AssertionError, strict=False),
-                RunIf(min_cuda_gpus=1),
+                _RunIf(min_cuda_gpus=1),
             ],
         ),
     ],
@@ -872,7 +872,7 @@ def test_against_original_qwen_2_5(model_name, device, dtype):
                 # the reference does softmax upscaled to fp32 during attention. additionally, the final layernorm input
                 # is slightly different
                 pytest.mark.xfail(raises=AssertionError, strict=False),
-                RunIf(min_cuda_gpus=1),
+                _RunIf(min_cuda_gpus=1),
             ],
         ),
     ],
@@ -932,7 +932,7 @@ def test_against_original_salamandra(model_name, device, dtype):
                 # the reference does softmax upscaled to fp32 during attention. additionally, the final layernorm input
                 # is slightly different
                 pytest.mark.xfail(raises=AssertionError, strict=False),
-                RunIf(min_cuda_gpus=1),
+                _RunIf(min_cuda_gpus=1),
             ],
         ),
     ],
@@ -991,7 +991,7 @@ def test_against_original_smollm2(model_name, device, dtype):
                 # the reference does softmax upscaled to fp32 during attention. additionally, the final layernorm input
                 # is slightly different
                 pytest.mark.xfail(raises=AssertionError, strict=False),
-                RunIf(min_cuda_gpus=1),
+                _RunIf(min_cuda_gpus=1),
             ],
         ),
     ],
