@@ -524,8 +524,8 @@ class MLA(nn.Module):
         self.kv_proj_dim = 2 * config.n_embd // 3
 
         # qk channel division for RoPE (50%-50%)
-        self.qk_nope_dim = config.head_size // 2
         self.qk_rope_dim = config.head_size // 2
+        self.qk_nope_dim = config.head_size // 2
 
         # q projections
         self.dq = nn.Linear(config.n_embd, self.q_proj_dim, bias=False)
@@ -550,7 +550,6 @@ class MLA(nn.Module):
 
         # configuration
         self.config = config
-
     
     def apply_rope_mla(self, x: torch.Tensor, cos: torch.Tensor, sin: torch.Tensor) -> torch.Tensor:
         """
@@ -583,7 +582,6 @@ class MLA(nn.Module):
         roped = (x * cos) + (rotated * sin)
         return roped.to(dtype=x.dtype)
 
-
     def forward(
         self,
         x: torch.Tensor,
@@ -605,7 +603,8 @@ class MLA(nn.Module):
 
         # q projections
         latent_q = self.dq(x)
-        latent_q = self.norm_q(latent_q) if self.norm_q else latent_q
+        if self.norm_q:
+            latent_q = self.norm_q(latent_q)
         q = self.uq(latent_q)
         q = q.view(B, T, self.config.n_head, self.config.head_size) # (B, T, nh_q, hs)
         q, q_for_rope = torch.split(q, [self.qk_nope_dim, self.qk_rope_dim], dim=-1) # split for RoPE
@@ -614,7 +613,7 @@ class MLA(nn.Module):
         q_for_rope = self.apply_rope_mla(q_for_rope[..., : self.config.rope_n_elem], cos, sin) 
 
         # kv projections
-        if self.kv_cache: # cache
+        if self.kv_cache: # kv cache
             new_kv = self.dkv(x)
             latent_kv = self.kv_cache(input_pos, new_kv)
 
@@ -647,7 +646,8 @@ class MLA(nn.Module):
                 dim=-1
                 )
 
-            kv_for_lora = self.norm_kv(kv_for_lora) if self.norm_kv else kv_for_lora
+            if self.norm_kv:
+                kv_for_lora = self.norm_kv(kv_for_lora)
         
         # kv projection back
         kv = self.ukv(kv_for_lora)
@@ -684,7 +684,6 @@ class MLA(nn.Module):
 
         # Output projection
         return self.proj(y)  # (B, T, C)
-
 
     def scaled_dot_product_attention(
         self, q: torch.Tensor, k: torch.Tensor, v: torch.Tensor, mask: Optional[torch.Tensor] = None
