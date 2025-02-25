@@ -1,5 +1,6 @@
 # Copyright Lightning AI. Licensed under the Apache License 2.0, see LICENSE file.
 import sys
+import torch
 from pathlib import Path
 from typing import Optional, Tuple
 from thunder.core.proxies import TensorProxy
@@ -14,7 +15,6 @@ from litgpt.utils import _THUNDER_AVAILABLE
 if _THUNDER_AVAILABLE:
     import thunder
     import thunder.torch as ltorch
-    import torch
 
 sys.path.append(str(Path(__file__).parent))
 
