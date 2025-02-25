@@ -26,6 +26,8 @@ from litgpt.eval.evaluate import convert_and_evaluate as evaluate_fn
 from litgpt.deploy.serve import run_server as serve_fn
 from jsonargparse import set_config_read_mode, set_docstring_parse_options, CLI
 
+import torch._dynamo # fallback to eager mode if torchscript fails
+torch._dynamo.config.suppress_errors = True
 
 def main() -> None:
     parser_data = {
