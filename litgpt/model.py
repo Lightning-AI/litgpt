@@ -599,7 +599,7 @@ class MLA(nn.Module):
         # - nh_(q,k,v) | number of heads for query, key and value
         # - hs         | head size
 
-        B, T, _ = x.size()  # batch size, sequence length, (embedding dimensionality)
+        B, T, _ = x.size()  # batch size, sequence length
 
         # q projections
         latent_q = self.dq(x)
