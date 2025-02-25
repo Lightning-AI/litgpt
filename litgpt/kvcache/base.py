@@ -151,6 +151,9 @@ class KVCache(torch.nn.Module):
     @property
     def max_tokens_forward(self) -> int:
         """
+        Note that this limit may change during the course of the generation
+        for certain caches.
+
         Returns:
             Maximum number of token positions which can be treated in
             :meth:`forward`. Depends on cache, but is `<= cache_length`

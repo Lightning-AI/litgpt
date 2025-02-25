@@ -275,16 +275,16 @@ def batched_generate_fn(
         )
         # We may need the last time slice of `all_logits` below:
         all_logits = model(inputs, input_pos=start)
-        if start == 0:
-            max_tokens_forward = model.kv_cache_max_tokens_forward()
-            if prompt_chunksize > max_tokens_forward:
-                print(
-                    f"prompt_chunksize = {prompt_chunksize} > {max_tokens_forward} = max_tokens_forward. Lowering it to the latter.")
-                prompt_chunksize = max_tokens_forward
-        start = token_pos
         if token_pos == min_prompt_size:
             break
-        chunksize = min(prompt_chunksize, min_prompt_size - token_pos)
+        start = token_pos
+        # Note that `max_tokens_forward` can change during the course of
+        # prompt processing:
+        chunksize = min((
+            prompt_chunksize,
+            model.kv_cache_max_tokens_forward(),
+            min_prompt_size - token_pos
+        ))
         token_pos += chunksize
 
     # Generation loop: One token per iteration
