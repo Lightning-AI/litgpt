@@ -6,12 +6,11 @@ import torch
 from tests.conftest import RunIf
 from lightning import Fabric
 
-# support running without installing as a package
-wd = Path(__file__).parent.parent.resolve()
-sys.path.append(str(wd))
+from litgpt.utils import _THUNDER_AVAILABLE
 
-from extensions.thunder.strategies.thunder_ddp import ThunderDDPStrategy
-from extensions.thunder.strategies.thunder_fsdp import ThunderFSDPStrategy
+if _THUNDER_AVAILABLE:
+    from thunder_gpt.strategies.thunder_ddp import ThunderDDPStrategy
+    from thunder_gpt.strategies.thunder_fsdp import ThunderFSDPStrategy
 
 
 @RunIf(thunder=True)
@@ -55,7 +54,7 @@ def test_no_backward_sync(choice):
             #  ^^^^^^^^^^^   ^^^^^^^^^^^  ^^^
             #  rank0         rank1        allreduce
             #
-            # thunder.distributed.ddp
+            # thunder_gpt.distributed.ddp
             # ((1*1+2*1) + (1*2+2*2)) / 2        + (3*1 + 3*2)  / 2        = 9
             #   ^^^^^^^     ^^^^^^^   ^^^           ^^^   ^^^   ^^^
             #   rank0       rank1     allreduce1    rank0 rank1 allreduce2

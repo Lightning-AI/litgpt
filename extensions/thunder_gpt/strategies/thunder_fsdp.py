@@ -25,13 +25,13 @@ from lightning.fabric.utilities.load import _METADATA_FILENAME, _move_state_into
 from lightning.fabric.utilities.rank_zero import rank_zero_only
 from lightning.fabric.utilities.seed import reset_seed
 from lightning.fabric.utilities.types import _PATH, _Stateful
-from lightning_utilities.core.imports import RequirementCache
 from lightning_utilities.core.rank_zero import rank_zero_only as utils_rank_zero_only
 from torch import Tensor
 from torch.nn import Module
 from torch.optim import Optimizer
 from typing_extensions import override
-from extensions.thunder.strategies.thunder_ddp import _ThunderDataParalellBackwardSyncControl
+from litgpt.utils import _THUNDER_AVAILABLE
+from extensions.thunder_gpt.strategies.thunder_ddp import _ThunderDataParalellBackwardSyncControl
 
 if TYPE_CHECKING:
     from thunder import Executor
@@ -40,9 +40,6 @@ if TYPE_CHECKING:
 
     _FSDP_TYPE = Union[FSDPType, Literal["ZERO2", "ZERO3"]]
     _BUCKETING_STRATEGY = Union[FSDPBucketingStrategy, Literal["NONE", "LAYER", "BLOCK"]]
-
-
-_THUNDER_AVAILABLE = RequirementCache("lightning-thunder", "thunder")
 
 
 class ThunderFSDPStrategy(ParallelStrategy, _Sharded):
@@ -69,7 +66,7 @@ class ThunderFSDPStrategy(ParallelStrategy, _Sharded):
         at parity with PyTorch DDP, whilst scaling our model sizes dramatically.
 
         Arguments:
-            jit: Whether to automatically call ``thunder.jit(model)`` if necessary. Disable this if you are manually
+            jit: Whether to automatically call ``thunder_gpt.jit(model)`` if necessary. Disable this if you are manually
                 jitting a function that includes the model.
 
             executors: The list of Thunder executors to enable. They can be either string aliases for the executors
@@ -81,7 +78,7 @@ class ThunderFSDPStrategy(ParallelStrategy, _Sharded):
                 - ``"ZERO3"``: Shards model parameters, gradients, and optimizer states (default).
                 - ``"ZERO2"``: Shards gradients and optimizer states only. Model parameters get replicated.
 
-                Also accepts a :class:`thunder.distributed.FSDPType` enum value.
+                Also accepts a :class:`thunder_gpt.distributed.FSDPType` enum value.
 
             bucketing_strategy: Enables combining the collective operations for sets of layers.
 
@@ -89,7 +86,7 @@ class ThunderFSDPStrategy(ParallelStrategy, _Sharded):
                 - ``"LAYER"``: Create buckets per layer class.
                 - ``"BLOCK"``: Create buckets per layer block.
 
-                Also accepts a :class:`thunder.distributed.FSDPBucketingStrategy` enum value.
+                Also accepts a :class:`thunder_gpt.distributed.FSDPBucketingStrategy` enum value.
 
             state_dict_type: The format in which the state of the model and optimizers gets saved into the checkpoint.
 
@@ -98,7 +95,7 @@ class ThunderFSDPStrategy(ParallelStrategy, _Sharded):
                 - ``"sharded"``: Each rank saves its shard of weights and optimizer states to a file. The checkpoint is
                   a folder with as many files as the world size.
 
-            \**kwargs: See available parameters in :func:`thunder.distributed.fsdp`.
+            \**kwargs: See available parameters in :func:`thunder_gpt.distributed.fsdp`.
 
         """
         if not _TORCH_GREATER_EQUAL_2_2:
@@ -164,7 +161,7 @@ class ThunderFSDPStrategy(ParallelStrategy, _Sharded):
             # the module was already jitted
             if thunder.compile_stats(module).last_traces is not None:
                 raise RuntimeError(
-                    "You already called `thunder.jit()` and generated an execution trace. It's too late to apply the"
+                    "You already called `thunder_gpt.jit()` and generated an execution trace. It's too late to apply the"
                     " FSDP transform. Remove the `forward` call before `fabric.setup()`"
                 )
             assert cd.is_module  # sanity check

@@ -22,17 +22,16 @@ from lightning.fabric.utilities.distributed import (
     _sync_ddp_if_available,
 )
 from lightning.fabric.utilities.rank_zero import rank_zero_only
-from lightning_utilities.core.imports import RequirementCache
 from lightning_utilities.core.rank_zero import rank_zero_only as utils_rank_zero_only
 from torch import Tensor
 from torch.nn import Module
 from typing_extensions import override
 
+from litgpt.utils import _THUNDER_AVAILABLE
+
 if TYPE_CHECKING:
     from thunder import Executor
 
-
-_THUNDER_AVAILABLE = RequirementCache("lightning-thunder", "thunder")
 
 
 class ThunderDDPStrategy(ParallelStrategy):
@@ -54,13 +53,13 @@ class ThunderDDPStrategy(ParallelStrategy):
         .. warning::  This is an :ref:`experimental <versioning:Experimental API>` feature.
 
         Arguments:
-            jit: Whether to automatically call ``thunder.jit(model)`` if necessary. Disable this if you are manually
+            jit: Whether to automatically call ``thunder_gpt.jit(model)`` if necessary. Disable this if you are manually
                 jitting a function that includes the model.
 
             executors: The list of Thunder executors to enable. They can be either string aliases for the executors
                 or the actual executor instances.
 
-            \**kwargs: See available parameters in :func:`thunder.distributed.ddp`.
+            \**kwargs: See available parameters in :func:`thunder_gpt.distributed.ddp`.
 
         """
         if not _THUNDER_AVAILABLE:
@@ -131,7 +130,7 @@ class ThunderDDPStrategy(ParallelStrategy):
             # the module was already jitted
             if thunder.compile_stats(module).last_traces is not None:
                 raise RuntimeError(
-                    "You already called `thunder.jit()` and generated an execution trace. It's too late to apply the"
+                    "You already called `thunder_gpt.jit()` and generated an execution trace. It's too late to apply the"
                     " DDP transform. Remove the `forward` call before `fabric.setup()`"
                 )
             assert cd.is_module  # sanity check

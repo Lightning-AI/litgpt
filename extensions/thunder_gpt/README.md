@@ -444,7 +444,7 @@ We provide ready-to-use Fabric strategies that integrate Thunder DDP|FSDP. Under
 ```python
 model = thunder.distributed.ddp(model)
 # or
-# model = thunder.distributed.fsdp(model)
+# model = thunder_gpt.distributed.fsdp(model)
 
 model = thunder.jit(model)
 ```
@@ -460,7 +460,7 @@ After applying the DDP transformation, the backward trace will include the expec
 With `L.Fabric`, this is how to use them:
 
 ```python
-from extensions.thunder.strategies import ThunderFSDPStrategy, ThunderDDPStrategy
+from extensions.thunder_gpt.strategies import ThunderFSDPStrategy, ThunderDDPStrategy
 
 # fully-sharded data parallel
 strategy = ThunderFSDPStrategy(
@@ -571,7 +571,7 @@ We provide a version of the main pre-training script [that integrates Thunder](p
 Config:
 
 ```yaml
-out_dir: out/pretrain-thunder
+out_dir: out/pretrain-thunder_gpt
 data: TinyStories
 tokenizer_dir: checkpoints/TinyLlama/TinyLlama-1.1B-Chat-v1.0
 logger_name: csv
@@ -582,19 +582,19 @@ Commands:
 ```bash
 litgpt download --repo_id TinyLlama/TinyLlama-1.1B-Chat-v1.0 --tokenizer_only true
 
-python extensions/thunder/pretrain.py --config config.yaml --compiler null --train.global_batch_size 32
-python extensions/thunder/pretrain.py --config config.yaml --executors '[sdpa, torchcompile]' --train.global_batch_size 32
-python extensions/thunder/pretrain.py --config config.yaml --executors '[sdpa, torchcompile_cat, nvfuser, torch]' --train.global_batch_size 32
+python extensions/thunder_gpt/pretrain.py --config config.yaml --compiler null --train.global_batch_size 32
+python extensions/thunder_gpt/pretrain.py --config config.yaml --executors '[sdpa, torchcompile]' --train.global_batch_size 32
+python extensions/thunder_gpt/pretrain.py --config config.yaml --executors '[sdpa, torchcompile_cat, nvfuser, torch]' --train.global_batch_size 32
 
-python extensions/thunder/pretrain.py --config config.yaml --compiler null --strategy ddp
-python extensions/thunder/pretrain.py --config config.yaml --executors '[sdpa, torchcompile]' --strategy ddp
-python extensions/thunder/pretrain.py --config config.yaml --executors '[sdpa, torchcompile_cat, nvfuser, torch]' --strategy ddp
+python extensions/thunder_gpt/pretrain.py --config config.yaml --compiler null --strategy ddp
+python extensions/thunder_gpt/pretrain.py --config config.yaml --executors '[sdpa, torchcompile]' --strategy ddp
+python extensions/thunder_gpt/pretrain.py --config config.yaml --executors '[sdpa, torchcompile_cat, nvfuser, torch]' --strategy ddp
 
-python extensions/thunder/pretrain.py --config config.yaml --compiler null --devices 1
-python extensions/thunder/pretrain.py --config config.yaml --executors '[sdpa, torchcompile]' --devices 1
-python extensions/thunder/pretrain.py --config config.yaml --executors '[sdpa, torchcompile_cat, nvfuser, torch]' --devices 1
+python extensions/thunder_gpt/pretrain.py --config config.yaml --compiler null --devices 1
+python extensions/thunder_gpt/pretrain.py --config config.yaml --executors '[sdpa, torchcompile]' --devices 1
+python extensions/thunder_gpt/pretrain.py --config config.yaml --executors '[sdpa, torchcompile_cat, nvfuser, torch]' --devices 1
 
-python extensions/thunder/pretrain.py --config config.yaml --executors '[sdpa, unsloth, torchcompile_cat, nvfuser, torch]' --devices 1
+python extensions/thunder_gpt/pretrain.py --config config.yaml --executors '[sdpa, unsloth, torchcompile_cat, nvfuser, torch]' --devices 1
 ```
 
 `--compiler torch` (`torch.compile` without `thunder`) is not include because it does not support compiling the `_FabricModule` due to this issue: https://github.com/pytorch/pytorch/issues/112787#issuecomment-1986827601

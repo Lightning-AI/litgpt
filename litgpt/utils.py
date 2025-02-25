@@ -37,7 +37,8 @@ from typing_extensions import Self
 if TYPE_CHECKING:
     from litgpt import GPT, Config
 
-_THUNDER_AVAILABLE = package_available("thunder")
+_THUNDER_AVAILABLE = package_available("thunder_gpt")
+_TRITON_AVAILABLE = package_available("triton")
 
 
 def init_out_dir(out_dir: Path) -> Path:
