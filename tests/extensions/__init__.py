@@ -2,7 +2,7 @@ import sys
 from pathlib import Path
 
 # support running without installing as a package, adding extensions to the Pyton path
-wd = Path(__file__).parent.parent.parent.resolve() / "extensions"
+wd = Path(__file__).parent.parent.parent.resolve()
 if wd.is_dir():
     sys.path.append(str(wd))
 else:
