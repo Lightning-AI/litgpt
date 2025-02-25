@@ -4,15 +4,14 @@ from io import StringIO
 from unittest.mock import Mock
 
 import torch
-from litgpt.utils import _RunIf
 from torch.utils.data import DataLoader
 
 from litgpt import Config
 from litgpt.args import EvalArgs, TrainArgs
-from litgpt.utils import _THUNDER_AVAILABLE
+from litgpt.utils import _THUNDER_AVAILABLE, _RunIf
 
 if _THUNDER_AVAILABLE:
-    import thunder_gpt.pretrain as pretrain
+    import thunder_gpt.pretrain as thunder_pretrain
 
 
 @_RunIf(min_cuda_gpus=1, thunder=True)
@@ -21,13 +20,13 @@ def test_pretrain(tmp_path, monkeypatch):
 
     dataset = torch.tensor([[0, 1, 2], [3, 4, 5], [0, 1, 2]])
     dataloader = DataLoader(dataset)
-    monkeypatch.setattr(pretrain, "get_dataloaders", Mock(return_value=(dataloader, dataloader)))
-    monkeypatch.setattr(pretrain, "save_hyperparameters", Mock())
+    monkeypatch.setattr(thunder_pretrain, "get_dataloaders", Mock(return_value=(dataloader, dataloader)))
+    monkeypatch.setattr(thunder_pretrain, "save_hyperparameters", Mock())
 
     out_dir = tmp_path / "out"
     stdout = StringIO()
     with redirect_stdout(stdout):
-        pretrain.setup(
+        thunder_pretrain.setup(
             devices=1,
             model_config=model_config,
             out_dir=out_dir,
