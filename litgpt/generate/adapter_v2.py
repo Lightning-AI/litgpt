@@ -146,7 +146,7 @@ def main(
         temperature=temperature,
         top_k=top_k,
         top_p=top_p,
-        eos_id=tokenizer.eos_id,
+        eos_id=int(tokenizer.eos_id),
     )[0]
     t = time.perf_counter() - t0
 

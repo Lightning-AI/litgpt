@@ -415,6 +415,14 @@ def generate(
     However, KV cache eviction is done in a more coarse-grained manner,
     which can lead to worse performance.
 
+    Key-value caching:
+
+    KV caches must have been assigned in `model`, in that
+    `model.are_kv_caches_assigned() == True`. This is done by either
+    assigning KV caches with `model.assign_kv_caches(...)`, or by creating
+    default (dense) KV caches with `model.set_kv_cache(...)`. The latter does
+    not allow to control memory being used.
+
     Args:
         model: The model to use.
         prompts: List of batch_size 1D tensors, each being a prompt sequence
@@ -570,6 +578,8 @@ def main(
     with fabric.init_tensor():
         # set the max_seq_length to limit the memory usage to what we need
         model.max_seq_length = max_returned_tokens
+        # enable the kv cache
+        model.set_kv_cache(batch_size=1)
     model.eval()
 
     if compile:
@@ -594,7 +604,7 @@ def main(
             temperature=temperature,
             top_k=top_k,
             top_p=top_p,
-            eos_id=tokenizer.eos_id,
+            eos_id=int(tokenizer.eos_id),
         )[0]
         t = time.perf_counter() - t0
         fabric.print(tokenizer.decode(y))

@@ -101,8 +101,12 @@ class GPT(nn.Module):
                 device=self.cos.device,
             )
 
-    def _are_kv_caches_assigned(self) -> bool:
-        return any(block.attn.kv_cache is not None for block in self.transformer.h)
+    def are_kv_caches_assigned(self) -> bool:
+        status = [block.attn.kv_cache is not None for block in self.transformer.h]
+        result = any(status)
+        if result and not all(status):
+            raise IndexError("Some layers have KV caches assigned, but not all")
+        return result
 
     def assign_kv_caches(
         self, kv_caches: List[KVCache]
@@ -120,7 +124,7 @@ class GPT(nn.Module):
             kv_caches: KV caches, one for each layer of the model
 
         """
-        if self._are_kv_caches_assigned():
+        if self.are_kv_caches_assigned():
             raise ValueError("Model has KV caches assigned already")
         if len(kv_caches) != self.config.n_layer:
             raise ValueError(f"kv_caches must have one entry per layer, so {self.config.n_layer} entries ")
@@ -154,7 +158,7 @@ class GPT(nn.Module):
                 `self.max_seq_length`
 
         """
-        if self._are_kv_caches_assigned() and not self._default_kv_cache:
+        if self.are_kv_caches_assigned() and not self._default_kv_cache:
             raise ValueError("Model has KV caches assigned already")
         if max_seq_length is None:
             max_seq_length = self.max_seq_length
@@ -269,15 +273,14 @@ class GPT(nn.Module):
             raise ValueError(f"Cannot forward sequence of length {T}, max seq length is only {self.max_seq_length}.")
         for_prefill = False
         if input_pos is not None:
-            for_prefill = (input_pos == 0)
             # Few tokens generation. This needs a KV cache. If none is assigned,
             # the call fails
-            msg_suffix = f"."
-            for l_ix, block in enumerate(self.transformer.h):
-                kv_cache = block.attn.kv_cache
-                if kv_cache is None:
-                    raise ValueError("KV caches are not assigned. Assign KV caches with 'assign_kv_caches' or create default caches with 'set_kv_cache'")
-                if not for_prefill:
+            if not self.are_kv_caches_assigned():
+                raise ValueError("KV caches are not assigned. Assign KV caches with 'assign_kv_caches' or create default caches with 'set_kv_cache'")
+            for_prefill = (input_pos == 0)
+            if not for_prefill:
+                for l_ix, block in enumerate(self.transformer.h):
+                    kv_cache = block.attn.kv_cache
                     if kv_cache.next_token_pos is None:
                         raise ValueError("Inference calls need to start with pre-fill, i.e. 'input_pos=0'")
                     if kv_cache.next_token_pos != input_pos:
@@ -373,6 +376,7 @@ class GPT(nn.Module):
         if self._default_kv_cache:
             for block in self.transformer.h:
                 block.attn.kv_cache = None
+            self._default_kv_cache = False
 
     def get_kv_cache_params(self) -> Optional[KVCacheParams]:
         kv_cache = self.transformer.h[0].attn.kv_cache
