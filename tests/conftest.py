@@ -1,6 +1,7 @@
 # Copyright Lightning AI. Licensed under the Apache License 2.0, see LICENSE file.
 
 import os
+import sys
 import shutil
 from pathlib import Path
 from typing import List, Optional
@@ -9,6 +10,10 @@ import pytest
 import torch
 from lightning.fabric.utilities.testing import _runif_reasons
 from lightning_utilities.core.imports import package_available
+
+# support running without installing as a package, adding extensions to the Pyton path
+wd = Path(__file__).parent.resolve() / "extensions"
+sys.path.append(str(wd))
 
 
 @pytest.fixture()
@@ -108,16 +113,6 @@ def longform_path(tmp_path):
     return path
 
 
-def RunIf(thunder: bool = False, **kwargs):
-    reasons, marker_kwargs = _runif_reasons(**kwargs)
-
-    if thunder and not package_available("thunder"):
-        # if we require Thunder, but it's not available, we should skip
-        reasons.append("Thunder")
-
-    return pytest.mark.skipif(condition=len(reasons) > 0, reason=f"Requires: [{' + '.join(reasons)}]", **marker_kwargs)
-
-
 # https://github.com/Lightning-AI/lightning/blob/6e517bd55b50166138ce6ab915abd4547702994b/tests/tests_fabric/conftest.py#L140
 def pytest_collection_modifyitems(items: List[pytest.Function], config: pytest.Config) -> None:
     initial_size = len(items)
@@ -145,7 +140,7 @@ def pytest_collection_modifyitems(items: List[pytest.Function], config: pytest.C
                     marker.name == "skipif" and marker.kwargs.get(kwarg) for marker in test.own_markers
                 )
                 if not has_runif_with_kwarg:
-                    # the test has `@RunIf(kwarg=True)`, filter it out
+                    # the test has `@_RunIf(kwarg=True)`, filter it out
                     items.pop(i)
                     filtered += 1
 

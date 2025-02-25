@@ -42,7 +42,7 @@ from litgpt.scripts.convert_hf_checkpoint import (
     copy_weights_qwen_2_5,
 )
 from litgpt.scripts.convert_lit_checkpoint import qkv_reassemble as make_qkv_interleaved
-from tests.conftest import RunIf
+from litgpt.utils import _RunIf
 
 
 @torch.inference_mode()
@@ -1038,7 +1038,7 @@ def test_against_hf_falcon3(model_name, device, dtype):
     torch.testing.assert_close(ours_y, theirs_y)
 
 
-@RunIf(dynamo=True)
+@_RunIf(dynamo=True)
 @torch.inference_mode()
 def test_model_compile():
     model = GPT.from_name("pythia-14m", n_layer=3)
@@ -1110,7 +1110,7 @@ SUPPORTS_FLASH_ATTENTION = (
 )
 
 
-@RunIf(min_cuda_gpus=1)
+@_RunIf(min_cuda_gpus=1)
 @pytest.mark.parametrize("config", deepcopy(config_module.configs), ids=[c["name"] for c in config_module.configs])
 @torch.inference_mode()
 def test_sdpa_choice(config):
@@ -1162,7 +1162,7 @@ def test_sdpa_choice(config):
         model(x)
 
 
-@RunIf(min_cuda_gpus=1)
+@_RunIf(min_cuda_gpus=1)
 @pytest.mark.parametrize("config", deepcopy(config_module.configs), ids=[c["name"] for c in config_module.configs])
 @torch.inference_mode()
 def test_sdpa_choice_kv_cache(config):
@@ -1216,7 +1216,7 @@ def test_sdpa_choice_kv_cache(config):
         model(x, input_pos)
 
 
-@RunIf(min_cuda_gpus=2, standalone=True)
+@_RunIf(min_cuda_gpus=2, standalone=True)
 def test_rope_init_under_fsdp():
     """Check that the rope cache is properly initialized"""
     fabric = Fabric(devices=2, strategy="fsdp", accelerator="cuda")
@@ -1235,7 +1235,7 @@ def test_rope_init_under_fsdp():
     torch.testing.assert_close(model.sin, sin)
 
 
-@RunIf(min_cuda_gpus=1)
+@_RunIf(min_cuda_gpus=1)
 def test_reset_parameters_device():
     with torch.device("meta"):
         model = GPT.from_name("pythia-14m", n_layer=1)

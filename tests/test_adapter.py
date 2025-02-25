@@ -25,7 +25,8 @@ from litgpt.args import EvalArgs, TrainArgs
 from litgpt.data import Alpaca
 from litgpt.scripts.convert_hf_checkpoint import copy_weights_gemma_2, copy_weights_hf_llama
 from litgpt.scripts.convert_lit_checkpoint import qkv_reassemble as make_qkv_interleaved
-from tests.conftest import RunIf
+from litgpt.utils import _RunIf
+from litgpt.utils import _RunIf
 
 
 def test_config_identical():
@@ -118,7 +119,7 @@ def test_adapter_gpt_init_weights():
     assert (param == 0).all()
 
 
-@RunIf(dynamo=True)
+@_RunIf(dynamo=True)
 @torch.inference_mode()
 def test_adapter_compile():
     model = GPT.from_name("pythia-14m", n_layer=3)
@@ -138,7 +139,7 @@ def test_adapter_compile():
     assert explanation.graph_break_count == 0
 
 
-@RunIf(min_cuda_gpus=1)
+@_RunIf(min_cuda_gpus=1)
 def test_adapter_bitsandbytes(monkeypatch, tmp_path, fake_checkpoint_dir, alpaca_path):
     if not _BITSANDBYTES_AVAILABLE:
         pytest.skip("BNB not available")

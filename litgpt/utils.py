@@ -820,3 +820,17 @@ def select_sft_generate_example(eval, data):
     else:
         raise ValueError(f"Unknown evaluation example type: {eval.evaluate_example}")
     return instruction
+
+
+
+def _RunIf(thunder: bool = False, **kwargs):
+    import pytest
+    from lightning.fabric.utilities.testing import _runif_reasons
+
+    reasons, marker_kwargs = _runif_reasons(**kwargs)
+
+    if thunder and not package_available("thunder"):
+        # if we require Thunder, but it's not available, we should skip
+        reasons.append("Thunder")
+
+    return pytest.mark.skipif(condition=len(reasons) > 0, reason=f"Requires: [{' + '.join(reasons)}]", **marker_kwargs)

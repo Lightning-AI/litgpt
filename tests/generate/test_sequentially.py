@@ -17,7 +17,7 @@ from litgpt import Config
 from litgpt.generate.sequentially import layer_to_device, replace_device, sequential
 from litgpt.model import GPT, Block
 from litgpt.scripts.download import download_from_hub
-from tests.conftest import RunIf
+from litgpt.utils import _RunIf
 from tests.generate.utils import find_forward_hooks
 
 
@@ -152,7 +152,7 @@ def _test_model_1device(accelerator):
     assert model.max_seq_length == 15
 
 
-@RunIf(min_cuda_gpus=1)
+@_RunIf(min_cuda_gpus=1)
 def test_model_1device_cuda():
     _test_model_1device("cuda")
 
@@ -161,7 +161,7 @@ def test_model_1device_cpu():
     _test_model_1device("cpu")
 
 
-@RunIf(min_cuda_gpus=2)
+@_RunIf(min_cuda_gpus=2)
 def test_model_forward_hooks():
     fabric = Fabric(accelerator="cuda", devices=1)
     with torch.device("meta"):
@@ -275,7 +275,7 @@ def test_model_forward_hooks():
 root = Path(__file__).parent.parent.resolve()
 
 
-@RunIf(min_cuda_gpus=2)
+@_RunIf(min_cuda_gpus=2)
 def test_base_with_sequentially(tmp_path):
     # download the tokenizer
     download_from_hub(repo_id="EleutherAI/pythia-14m", tokenizer_only=True, checkpoint_dir=tmp_path)

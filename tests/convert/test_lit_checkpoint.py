@@ -33,7 +33,7 @@ from litgpt.scripts.convert_lit_checkpoint import (
     copy_weights_qwen_2_5,
     qkv_reassemble,
 )
-from tests.conftest import RunIf
+from litgpt.utils import _RunIf
 
 
 @pytest.mark.parametrize("model_name", ("pythia-14m", "falcon-7b", "Llama-2-7b-hf", "phi-2"))

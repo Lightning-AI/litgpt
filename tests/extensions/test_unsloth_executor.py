@@ -4,10 +4,10 @@ import torch
 from litgpt import GPT, Config
 from litgpt.model import apply_rope, build_rope_cache
 from litgpt.utils import chunked_cross_entropy
-from tests.conftest import RunIf
+from litgpt.utils import _RunIf
 
 
-@RunIf(min_cuda_gpus=1, thunder=True)
+@_RunIf(min_cuda_gpus=1, thunder=True)
 @pytest.mark.parametrize("reduction", ["none", "mean"])
 def test_unsloth_cross_entropy(reduction):
     import thunder
@@ -46,7 +46,7 @@ def test_unsloth_cross_entropy(reduction):
 
 
 @pytest.mark.skip(reason='out of date')
-@RunIf(min_cuda_gpus=1, thunder=True)
+@_RunIf(min_cuda_gpus=1, thunder=True)
 def test_unsloth_rope():
     import thunder
     from thunder.core.transforms import grad
@@ -83,7 +83,7 @@ def test_unsloth_rope():
     torch.testing.assert_close(actual, expected)
 
 
-@RunIf(min_cuda_gpus=1, thunder=True)
+@_RunIf(min_cuda_gpus=1, thunder=True)
 def test_unsloth_swiglu():
     import thunder
     from thunder.core.transforms import grad
@@ -120,7 +120,7 @@ def test_unsloth_swiglu():
     torch.testing.assert_close(actual, expected)
 
 
-@RunIf(min_cuda_gpus=1, thunder=True)
+@_RunIf(min_cuda_gpus=1, thunder=True)
 def test_unsloth_gpt():
     import thunder
     from thunder.core.transforms import grad
