@@ -444,7 +444,7 @@ We provide ready-to-use Fabric strategies that integrate Thunder DDP|FSDP. Under
 ```python
 model = thunder.distributed.ddp(model)
 # or
-# model = thunder_gpt.distributed.fsdp(model)
+# model = thunder.distributed.fsdp(model)
 
 model = thunder.jit(model)
 ```
@@ -571,7 +571,7 @@ We provide a version of the main pre-training script [that integrates Thunder](p
 Config:
 
 ```yaml
-out_dir: out/pretrain-thunder_gpt
+out_dir: out/pretrain-thunder
 data: TinyStories
 tokenizer_dir: checkpoints/TinyLlama/TinyLlama-1.1B-Chat-v1.0
 logger_name: csv
