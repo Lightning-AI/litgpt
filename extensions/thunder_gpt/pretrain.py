@@ -120,13 +120,13 @@ def setup(
     if devices * num_nodes > 1:
         if compiler == "thunder_gpt":
             if strategy == "fsdp":
-                from extensions.thunder_gpt.strategies import ThunderFSDPStrategy
+                from thunder_gpt.strategies import ThunderFSDPStrategy
 
                 strategy = ThunderFSDPStrategy(
                     sharding_strategy="ZERO3", bucketing_strategy="BLOCK", state_dict_type="full", jit=False,
                 )
             elif strategy == "ddp":
-                from extensions.thunder_gpt.strategies import ThunderDDPStrategy
+                from thunder_gpt.strategies import ThunderDDPStrategy
 
                 strategy = ThunderDDPStrategy(jit=False)
         else:

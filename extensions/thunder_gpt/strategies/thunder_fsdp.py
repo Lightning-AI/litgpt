@@ -31,7 +31,7 @@ from torch.nn import Module
 from torch.optim import Optimizer
 from typing_extensions import override
 from litgpt.utils import _THUNDER_AVAILABLE
-from extensions.thunder_gpt.strategies.thunder_ddp import _ThunderDataParalellBackwardSyncControl
+from thunder_gpt.strategies.thunder_ddp import _ThunderDataParalellBackwardSyncControl
 
 if TYPE_CHECKING:
     from thunder import Executor
