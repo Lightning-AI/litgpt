@@ -26,7 +26,6 @@ from litgpt.data import Alpaca
 from litgpt.scripts.convert_hf_checkpoint import copy_weights_gemma_2, copy_weights_hf_llama
 from litgpt.scripts.convert_lit_checkpoint import qkv_reassemble as make_qkv_interleaved
 from litgpt.utils import _RunIf
-from litgpt.utils import _RunIf
 
 
 def test_config_identical():

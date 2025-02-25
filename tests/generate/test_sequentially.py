@@ -18,7 +18,7 @@ from litgpt.generate.sequentially import layer_to_device, replace_device, sequen
 from litgpt.model import GPT, Block
 from litgpt.scripts.download import download_from_hub
 from litgpt.utils import _RunIf
-from tests.generate.utils import find_forward_hooks
+from .utils import find_forward_hooks
 
 
 @pytest.mark.parametrize(
