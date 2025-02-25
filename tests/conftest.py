@@ -6,9 +6,6 @@ import shutil
 from pathlib import Path
 from typing import List, Optional
 
-import pytest
-import torch
-
 # support running without installing as a package, adding extensions to the Pyton path
 wd = Path(__file__).parent.resolve() / "extensions"
 if wd.is_dir():
@@ -16,6 +13,9 @@ if wd.is_dir():
 else:
     import warnings
     warnings.warn(f"Could not find extensions directory at {wd}")
+
+import pytest
+import torch
 
 
 @pytest.fixture()
