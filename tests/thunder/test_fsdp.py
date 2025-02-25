@@ -5,24 +5,25 @@ from typing import Optional, Tuple, Union
 
 import pytest
 import torch
-from lightning_utilities.core.imports import package_available
 
+from litgpt.utils import _THUNDER_AVAILABLE
 from tests.conftest import RunIf
 from lightning.fabric import Fabric
 from lightning.fabric.utilities.imports import _TORCH_GREATER_EQUAL_2_3
+
+if _THUNDER_AVAILABLE:
+    from extensions.thunder.strategies.thunder_fsdp import ThunderFSDPStrategy
 
 # support running without installing as a package
 wd = Path(__file__).parent.parent.resolve()
 sys.path.append(str(wd))
 
-from extensions.thunder.strategies.thunder_fsdp import ThunderFSDPStrategy
 
-
-@pytest.mark.skipif(not package_available("thunder"), reason="Requires Thunder")
+@RunIf(thunder=True)
 def test_thunder_strategy_input_parsing():
-    strategy = ThunderFSDPStrategy(bucketing_strategy="BlOcK", executors=("python",), sharding_strategy="zero3")
-
     from thunder.distributed import FSDPBucketingStrategy, FSDPType
+
+    strategy = ThunderFSDPStrategy(bucketing_strategy="BlOcK", executors=("python",), sharding_strategy="zero3")
 
     assert strategy.bucketing_strategy is FSDPBucketingStrategy.BLOCK
     assert strategy.sharding_strategy is FSDPType.ZERO3
