@@ -32,9 +32,6 @@ litgpt = "litgpt.__main__:main"
 
 [project.optional-dependencies]
 extra = [
-    # quantization:
-    "bitsandbytes >=0.44.0,<0.44.2; sys_platform == 'linux' or sys_platform == 'win32'",
-    "bitsandbytes >=0.42.0,<0.43.0 ; sys_platform == 'darwin'",
     # compilaton:
     "lightning-thunder >=0.2.0.dev20250119 ; python_version >= '3.10' and sys_platform == 'linux'"
 ]
@@ -48,6 +45,9 @@ test = [
     "protobuf >=4.23.4",
 ]
 all = [
+    # quantization:
+    "bitsandbytes >=0.44.0,<0.44.2; sys_platform == 'linux' or sys_platform == 'win32'",
+    "bitsandbytes >=0.42.0,<0.43.0 ; sys_platform == 'darwin'",
     # llama-based models:
     "sentencepiece >=0.2.0",
     # litgpt.data:
