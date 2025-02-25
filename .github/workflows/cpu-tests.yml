@@ -74,7 +74,7 @@ jobs:
 
     - name: Install dependencies
       run: |
-        pip install '.[all,test]'
+        pip install '.[extra,all,test]'
         pip list
 
     - name: Run tests
