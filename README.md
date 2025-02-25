@@ -422,7 +422,7 @@ litgpt chat out/custom-model/final
 
 # State-of-the-art features
 
-✅ &nbsp;State-of-the-art optimizations: Flash Attention v2, multi-GPU support via fully-sharded data parallelism, [optional CPU offloading](tutorials/oom.md#do-sharding-across-multiple-gpus), and [TPU and XLA support](extensions/xla).
+✅ &nbsp;State-of-the-art optimizations: Flash Attention v2, multi-GPU support via fully-sharded data parallelism, [optional CPU offloading](tutorials/oom.md#do-sharding-across-multiple-gpus), and [TPU and XLA support](extensions/xla_gpt).
 
 ✅ &nbsp;[Pretrain](tutorials/pretrain.md), [finetune](tutorials/finetune.md), and [deploy](tutorials/inference.md)
 
@@ -685,7 +685,7 @@ We welcome all individual contributors, regardless of their level of experience 
 📘 [Supported and custom datasets](tutorials/prepare_dataset.md)    
 🧹 [Quantization](tutorials/quantize.md)    
 🤯 [Tips for dealing with out-of-memory (OOM) errors](tutorials/oom.md)   
-🧑🏽‍💻 [Using cloud TPUs](extensions/xla)
+🧑🏽‍💻 [Using cloud TPUs](extensions/xla_gpt)
 
 &nbsp;
 

@@ -22,9 +22,9 @@ from litgpt.utils import check_valid_checkpoint_dir, chunked_cross_entropy, esti
 wd = Path(__file__).parents[3].resolve()
 sys.path.append(str(wd))
 
-from extensions.xla.generate.base import generate
-from extensions.xla.scripts.prepare_alpaca import generate_prompt
-from extensions.xla.utils import rank_print, sequential_load_and_fsdp_wrap
+from xla_gpt.generate.base import generate
+from xla_gpt.scripts.prepare_alpaca import generate_prompt
+from xla_gpt.utils import rank_print, sequential_load_and_fsdp_wrap
 
 eval_interval = 200
 save_interval = 200
@@ -216,7 +216,7 @@ def train(
             save_adapter_checkpoint(fabric, model, checkpoint_path)
 
 
-# xla does not support `inference_mode`: RuntimeError: Cannot set version_counter for inference tensor
+# xla_gpt does not support `inference_mode`: RuntimeError: Cannot set version_counter for inference tensor
 @torch.no_grad()
 def validate(
     fabric: L.Fabric, model: GPT, val_data: List[Dict], tokenizer: Tokenizer, longest_seq_length: int
