@@ -103,7 +103,7 @@ def longform_path(tmp_path):
     path = tmp_path / "longform"
     path.mkdir()
     for split in ("train", "val"):
-        file = Path(__file__).parent / "data" / ("_fixtures") / f"longform_{split}.json"
+        file = Path(__file__).parent / "data" / "_fixtures" / f"longform_{split}.json"
         shutil.copyfile(file, path / f"{split}.json")
     return path
 
