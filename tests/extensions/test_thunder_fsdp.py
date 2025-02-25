@@ -12,7 +12,7 @@ from lightning.fabric import Fabric
 from lightning.fabric.utilities.imports import _TORCH_GREATER_EQUAL_2_3
 
 if _THUNDER_AVAILABLE:
-    from extensions.thunder_gpt.strategies.thunder_fsdp import ThunderFSDPStrategy
+    from thunder_gpt.strategies.thunder_fsdp import ThunderFSDPStrategy
 
 # support running without installing as a package
 wd = Path(__file__).parent.parent.resolve()
