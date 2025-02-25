@@ -53,13 +53,13 @@ class ThunderDDPStrategy(ParallelStrategy):
         .. warning::  This is an :ref:`experimental <versioning:Experimental API>` feature.
 
         Arguments:
-            jit: Whether to automatically call ``thunder_gpt.jit(model)`` if necessary. Disable this if you are manually
+            jit: Whether to automatically call ``thunder.jit(model)`` if necessary. Disable this if you are manually
                 jitting a function that includes the model.
 
             executors: The list of Thunder executors to enable. They can be either string aliases for the executors
                 or the actual executor instances.
 
-            \**kwargs: See available parameters in :func:`thunder_gpt.distributed.ddp`.
+            \**kwargs: See available parameters in :func:`thunder.distributed.ddp`.
 
         """
         if not _THUNDER_AVAILABLE:
@@ -130,7 +130,7 @@ class ThunderDDPStrategy(ParallelStrategy):
             # the module was already jitted
             if thunder.compile_stats(module).last_traces is not None:
                 raise RuntimeError(
-                    "You already called `thunder_gpt.jit()` and generated an execution trace. It's too late to apply the"
+                    "You already called `thunder.jit()` and generated an execution trace. It's too late to apply the"
                     " DDP transform. Remove the `forward` call before `fabric.setup()`"
                 )
             assert cd.is_module  # sanity check

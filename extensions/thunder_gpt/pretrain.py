@@ -69,7 +69,7 @@ def setup(
     tokenizer_dir: Optional[Path] = None,
     logger_name: Literal["wandb", "tensorboard", "csv"] = "tensorboard",
     seed: int = 42,
-    compiler: Optional[Literal["thunder_gpt", "torch"]] = "thunder_gpt",
+    compiler: Optional[Literal["thunder", "torch"]] = "thunder",
     executors: Optional[List[str]] = ("sdpa", "torchcompile", "nvfuser", "torch"),
     strategy: Literal["auto", "ddp", "fsdp"] = "fsdp",
 ):
@@ -118,7 +118,7 @@ def setup(
     )
 
     if devices * num_nodes > 1:
-        if compiler == "thunder_gpt":
+        if compiler == "thunder":
             if strategy == "fsdp":
                 from thunder_gpt.strategies import ThunderFSDPStrategy
 
@@ -141,7 +141,7 @@ def setup(
 
     if compiler is not None:
         global forward_and_loss
-        forward_and_loss = jit(forward_and_loss, executors) if compiler == "thunder_gpt" else torch.compile(forward_and_loss)
+        forward_and_loss = jit(forward_and_loss, executors) if compiler == "thunder" else torch.compile(forward_and_loss)
 
     fabric.print(pprint.pformat(hparams))
     if logger_name in ("tensorboard", "wandb"):
@@ -179,7 +179,7 @@ def main(
     train: TrainArgs,
     eval: EvalArgs,
     optimizer: Union[str, Dict],
-    compiler: Optional[Literal["thunder_gpt", "torch"]],
+    compiler: Optional[Literal["thunder", "torch"]],
 ) -> None:
     validate_args(train, eval, initial_checkpoint_dir, resume)
 
@@ -203,7 +203,7 @@ def main(
     fabric.print(f"Total parameters: {num_parameters(model):,}")
 
     model = fabric.setup(model)
-    if compiler == "thunder_gpt":
+    if compiler == "thunder":
         # avoid `Tensor.register_hook` which is unsupported
         model._register_backward_hook = lambda *_: None
     optimizer = instantiate_torch_optimizer(optimizer, model.parameters())

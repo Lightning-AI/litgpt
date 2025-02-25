@@ -111,9 +111,7 @@ def longform_path(tmp_path):
 def RunIf(thunder: bool = False, **kwargs):
     reasons, marker_kwargs = _runif_reasons(**kwargs)
 
-    print(f"thunder_gpt: {thunder} is available: {package_available('thunder_gpt')}")
-
-    if thunder and not package_available("thunder_gpt"):
+    if thunder and not package_available("thunder"):
         # if we require Thunder, but it's not available, we should skip
         reasons.append("Thunder")
 

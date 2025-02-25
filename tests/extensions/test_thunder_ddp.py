@@ -54,7 +54,7 @@ def test_no_backward_sync(choice):
             #  ^^^^^^^^^^^   ^^^^^^^^^^^  ^^^
             #  rank0         rank1        allreduce
             #
-            # thunder_gpt.distributed.ddp
+            # thunder.distributed.ddp
             # ((1*1+2*1) + (1*2+2*2)) / 2        + (3*1 + 3*2)  / 2        = 9
             #   ^^^^^^^     ^^^^^^^   ^^^           ^^^   ^^^   ^^^
             #   rank0       rank1     allreduce1    rank0 rank1 allreduce2

@@ -37,7 +37,7 @@ from typing_extensions import Self
 if TYPE_CHECKING:
     from litgpt import GPT, Config
 
-_THUNDER_AVAILABLE = package_available("thunder_gpt")
+_THUNDER_AVAILABLE = package_available("thunder")
 _TRITON_AVAILABLE = package_available("triton")
 
 
