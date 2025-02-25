@@ -9,8 +9,8 @@ from lightning import Fabric
 from litgpt.utils import _THUNDER_AVAILABLE
 
 if _THUNDER_AVAILABLE:
-    from thunder_gpt.strategies.thunder_ddp import ThunderDDPStrategy
-    from thunder_gpt.strategies.thunder_fsdp import ThunderFSDPStrategy
+    from extensions.thunder_gpt.strategies.thunder_ddp import ThunderDDPStrategy
+    from extensions.thunder_gpt.strategies.thunder_fsdp import ThunderFSDPStrategy
 
 
 @_RunIf(thunder=True)

@@ -13,7 +13,7 @@ def test_unsloth_cross_entropy(reduction):
     import thunder
     from thunder.core.transforms import grad
 
-    from thunder_gpt.unsloth.executor import unsloth_ex
+    from extensions.thunder_gpt.unsloth.executor import unsloth_ex
 
     logits = torch.randn(64, 128, device="cuda", requires_grad=True)
     labels = torch.randint(128, (64,), device="cuda")
@@ -51,7 +51,7 @@ def test_unsloth_rope():
     import thunder
     from thunder.core.transforms import grad
 
-    from thunder_gpt.unsloth.executor import unsloth_ex
+    from extensions.thunder_gpt.unsloth.executor import unsloth_ex
 
     B, nh, T, hs = 2, 32, 64, 16
     cos, sin = build_rope_cache(T, hs, device="cuda")
@@ -88,7 +88,7 @@ def test_unsloth_swiglu():
     import thunder
     from thunder.core.transforms import grad
 
-    from thunder_gpt.unsloth.executor import ThunderLLaMAMLP, unsloth_ex
+    from extensions.thunder_gpt.unsloth.executor import ThunderLLaMAMLP, unsloth_ex
     from litgpt import Config
     from litgpt.model import LLaMAMLP
 
@@ -125,7 +125,7 @@ def test_unsloth_gpt():
     import thunder
     from thunder.core.transforms import grad
 
-    from thunder_gpt.unsloth.executor import unsloth_ex
+    from extensions.thunder_gpt.unsloth.executor import unsloth_ex
 
     def forward_and_loss(model, input_ids, targets):
         logits = model(input_ids)
