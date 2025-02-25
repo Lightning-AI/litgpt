@@ -3,4 +3,8 @@ from pathlib import Path
 
 # support running without installing as a package, adding extensions to the Pyton path
 wd = Path(__file__).parent.parent.resolve() / "extensions"
-sys.path.append(str(wd))
+if wd.is_dir():
+    sys.path.append(str(wd))
+else:
+    import warnings
+    warnings.warn(f"Could not find extensions directory at {wd}")

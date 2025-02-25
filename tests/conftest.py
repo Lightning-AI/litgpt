@@ -8,12 +8,14 @@ from typing import List, Optional
 
 import pytest
 import torch
-from lightning.fabric.utilities.testing import _runif_reasons
-from lightning_utilities.core.imports import package_available
 
 # support running without installing as a package, adding extensions to the Pyton path
 wd = Path(__file__).parent.resolve() / "extensions"
-sys.path.append(str(wd))
+if wd.is_dir():
+    sys.path.append(str(wd))
+else:
+    import warnings
+    warnings.warn(f"Could not find extensions directory at {wd}")
 
 
 @pytest.fixture()
